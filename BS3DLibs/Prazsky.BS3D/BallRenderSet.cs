@@ -186,7 +186,9 @@ namespace Prazsky.BS3D
         /// How much of its own colour a ball radiates. Kept well under 1: the ball should read as lit from
         /// within, not as a lamp — past about a third it stops looking like a glowing object and starts looking
         /// like an unlit one with the brightness turned up, because the shading that gives it its shape gets
-        /// drowned out.
+        /// drowned out. Since #303 the <b>resting</b> part of this follows the occlusion in the shader (see
+        /// <c>BallEmission</c> in InstancedModel.fx): added flat, it was a floor under the whole pile that no
+        /// amount of AO could take the cluster below, and the single biggest reason burial did not read.
         /// </summary>
         private const float EMISSION = 0.5f;
 
@@ -599,9 +601,25 @@ namespace Prazsky.BS3D
         public const int MAX_OCCLUDERS = 12;
 
         /// <summary>
-        /// How dark a fully surrounded ball gets: its lighting is scaled down by up to this fraction.
+        /// How dark a ball with a full first shell gets: its lighting is scaled down by up to this fraction.
+        /// The whole of the occlusion until #303 — and the whole of the owner's report there: the twelve
+        /// touching cells are all the count can see, so a ball one layer under the surface and one in the
+        /// dead centre of the cluster read identically, and nothing past the first shell ever got darker.
         /// </summary>
         private const float OCCLUSION_STRENGTH = 0.55f;
+
+        /// <summary>
+        /// How much further burial takes it (#303): the W channel drops another this-much between a ball
+        /// touching air and one <see cref="AirDepthField.MAX_DEPTH"/> shells in, so the factor bottoms out at
+        /// <c>1 − OCCLUSION_STRENGTH − OCCLUSION_DEPTH_STRENGTH</c> = 0.10 — dark enough that depth finally
+        /// reads, short enough of zero that a buried ball is still a ball rather than a hole.
+        /// <para>
+        /// <b>Mirrored in the shader</b> as <c>OcclusionFirstShellFloor</c>/<c>OcclusionDepthStrength</c>
+        /// (InstancedModel.fx), which read the burial back out of W to pull the key light down — the two
+        /// sides are one contract, and changing either alone reads wrong everywhere at once.
+        /// </para>
+        /// </summary>
+        private const float OCCLUSION_DEPTH_STRENGTH = 0.35f;
 
         /// <summary>
         /// What a ball with nothing packed around it carries — a shot in flight, a released ball on its way
@@ -623,8 +641,20 @@ namespace Prazsky.BS3D
         /// construction.</param>
         /// <param name="occluderDirectionSum">The sum of the unit vectors pointing at them, from the same call.
         /// Undivided — dividing it is this method's whole job.</param>
-        public static Vector4 OcclusionTarget(int occluders, Vector3 occluderDirectionSum) =>
-            new(occluderDirectionSum / MAX_OCCLUDERS, 1f - OCCLUSION_STRENGTH * occluders / MAX_OCCLUDERS);
+        /// <param name="airDepth">How many shells of balls stand between this cell and open air, from
+        /// <see cref="AirDepthField.DepthAt"/> — the burial the neighbour count saturates too early to see
+        /// (#303). Zero for every surface ball, so the first shell's own term is untouched by it.</param>
+        public static Vector4 OcclusionTarget(int occluders, Vector3 occluderDirectionSum, int airDepth) =>
+            new(occluderDirectionSum / MAX_OCCLUDERS,
+                1f - OCCLUSION_STRENGTH * occluders / MAX_OCCLUDERS
+                   - OCCLUSION_DEPTH_STRENGTH * Math.Min(airDepth, AirDepthField.MAX_DEPTH)
+                       / (float)AirDepthField.MAX_DEPTH);
+
+        //The burial field the static-map walk reads (#303), owned here so AddMap allocates nothing per call;
+        //the hanging cluster's twin lives on ClusterCollector, which owns the walk over the physics array.
+        private readonly AirDepthField _mapAirDepth = new();
+
+        internal AirDepthField MapAirDepth => _mapAirDepth;
 
         #endregion
 
@@ -1421,6 +1451,11 @@ namespace Prazsky.BS3D
             XZLevel size = map.GetStaticBallsArraySize();
             int added = 0;
 
+            //Burial first, in one pass over the grid, exactly as ClusterCollector does over the physics
+            //array (#303): the per-ball loop below then reads each cell's depth out of the finished field
+            AirDepthField airDepth = _set.MapAirDepth;
+            airDepth.Compute(balls, size);
+
             for (int level = 0; level < size.Level; level++)
                 for (int x = 0; x < size.X; x++)
                     for (int z = 0; z < size.Z; z++)
@@ -1433,7 +1468,8 @@ namespace Prazsky.BS3D
 
                         Vector3 position = ball.Position + worldOffset;
                         Add(ball.Type, position, Matrix.CreateTranslation(position),
-                            BallRenderSet.OcclusionTarget(occluders, occluderDirectionSum));
+                            BallRenderSet.OcclusionTarget(occluders, occluderDirectionSum,
+                                airDepth.DepthAt(x, z, level)));
 
                         added++;
                     }

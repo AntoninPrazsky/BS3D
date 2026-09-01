@@ -369,6 +369,20 @@ SurfaceSpecular DefaultSurfaceSpecular()
 //How strongly the directional part of the occlusion darkens the surface facing the occluders
 static const float DirectionalOcclusionStrength = 1.1;
 
+//The burial ramp (#303), mirrored from BallRenderSet's OCCLUSION_STRENGTH / OCCLUSION_DEPTH_STRENGTH:
+//the W channel bottomed at 1 - 0.55 = 0.45 while the twelve touching cells were all the grid knew, and
+//the air-distance term now takes it a further 0.35 down to 0.10 at three shells under. Anything below
+//the first-shell floor is therefore SAYING "shells of balls between this one and open air", and the
+//two figures here are how that is read back out. Statics rather than uniforms deliberately: they are
+//one contract with the C# constants, and a host that could set half of it could break it.
+static const float OcclusionFirstShellFloor = 0.45;
+static const float OcclusionDepthStrength = 0.35;
+
+//How much of the key light a fully buried ball keeps. The first-shell floor on the diffuse (the
+//lerp to 0.6 below) deliberately spared the key light - a crevice on the SURFACE still catches the
+//lamp - but burial is a different fact: a lamp has no line of sight three shells into a pile.
+static const float BurialKeyLight = 0.4;
+
 //Ground-contact occlusion: how strongly the downward-facing side of a ball darkens near the ground,
 //and over how many world units above the ground the effect fades out
 static const float GroundOcclusionStrength = 0.55;
@@ -426,7 +440,12 @@ float4 ShadePixel(float3 worldPosition, float3 rawWorldNormal, float4 occlusionD
     float3 hemisphere = SkyRadiance(worldNormal);
 
     float occlusion = SurfaceOcclusion(worldPosition, worldNormal, occlusionData) * cavity;
-    float diffuseOcclusion = lerp(0.6, 1.0, occlusion);
+
+    //Burial pulls the key light down where the first-shell floor deliberately did not (#303). Surface
+    //pixels - W at or above the first-shell floor, which is every scene object and every ball touching
+    //air - take exactly the multiplier they always took, by construction of the ramp.
+    float burial = saturate((OcclusionFirstShellFloor - occlusionData.w) / OcclusionDepthStrength);
+    float diffuseOcclusion = lerp(0.6, 1.0, occlusion) * lerp(1.0, BurialKeyLight, burial);
 
     //texColor arrives linear already: every sampling site linearizes at the tap, where the sRGB
     //encoding of the texture is still an established fact rather than an assumption
@@ -864,9 +883,13 @@ technique InstancedModelTextured
 //     magazine re-colouring a loaded ball; the sign says which direction. Screen space, and the cell
 //     is a whole DISPLAY pixel or more - an object-space cell is a lumpy 3D mottling and a one-target-
 //     pixel cell is averaged straight back into a smooth cross-fade by the supersample resolve.
-//  2. THE HEARTBEAT, as Heartbeat(PulseTime * PulseSpeed - dot(worldPosition, PulseDirection) /
-//     PulseWavelength). The position term is what makes it a wave THROUGH the cluster; without it the
-//     cluster strobes in lockstep, which is a lamp and not something breathing.
+//  2. THE HEARTBEAT, normally as the whole of BallEmission(primary, worldPosition, occlusion): the
+//     position term in the phase is what makes it a wave THROUGH the cluster (without it the cluster
+//     strobes in lockstep, a lamp rather than something breathing), and since #303 the RESTING emission
+//     inside it follows the occlusion squared while the beat's swing rides through - see the helper's
+//     own comment for why a flat resting glow was the thing keeping the pile unreadable. A style whose
+//     identity is its glow may occlude linearly instead (the plasma and the lava do, each saying why),
+//     but a style that skips the occlusion entirely re-breaks #303 on that style alone.
 //  3. THE RIPPLE, IN BOTH OF ITS MEANINGS. RippleStrength gates it, and the SIGN of input.Ripple
 //     chooses: positive is the landing wave (the ball's own colour carried RippleWhiten towards white),
 //     negative is the ALARM (RippleAlarmColor, a flat colour the ball has no say in, because every ball
@@ -973,6 +996,23 @@ float Heartbeat(float t)
     float dub = 0.55 * exp(-dubOffset * dubOffset);
 
     return saturate(lub + dub);
+}
+
+//What a ball technique adds as its own light (#303 - #40's second half finally landing). The RESTING
+//emission follows the occlusion, SQUARED - the bubble's measured correction (BubbleOcclusionPower)
+//arriving on the opaque styles: "a light buried in the pile is exactly the one that should still show"
+//was an argument about one ball seen alone, and a flat EmissiveStrength added to every ball of a pile
+//equally was a floor under the whole cluster that no amount of AO could take it below - the single
+//biggest reason burial did not read. What still punches through is the ANNOUNCEMENTS: the heartbeat's
+//swing rides unoccluded, so the wave the beat carries through the cluster stays legible in the pile's
+//interior, and the ripple and the ceiling's alarm are added after shading and are never dimmed at all.
+//(The identity is the old lerp(1 - PulseDepth, 1, beat) split into its resting and swinging halves, so
+//a surface ball at occlusion 1 emits exactly what it always did.)
+float3 BallEmission(float3 primary, float3 worldPosition, float occlusion)
+{
+    float beat = Heartbeat(PulseTime * PulseSpeed - dot(worldPosition, PulseDirection) / max(PulseWavelength, 1e-4));
+
+    return primary * EmissiveStrength * ((1 - PulseDepth) * occlusion * occlusion + PulseDepth * beat);
 }
 
 //Width of the ring outlining each disc, so the circle reads whichever gore it lands on
@@ -1133,20 +1173,19 @@ float4 PatternPS(PatternVertexShaderOutput input) : COLOR
     float3 towardsKey = normalize(KeyLightPosition - input.WorldPosition);
     float throughShell = pow(saturate(dot(-worldNormal, towardsKey)), 2);
 
-    shaded.rgb += throughShell * TranslucencyStrength * DirLight0DiffuseColor * color
-        * SurfaceOcclusion(input.WorldPosition, worldNormal, input.OcclusionData);
+    float occlusion = SurfaceOcclusion(input.WorldPosition, worldNormal, input.OcclusionData);
+
+    shaded.rgb += throughShell * TranslucencyStrength * DirLight0DiffuseColor * color * occlusion;
 
     //Emission: the ball radiates its own color rather than only reflecting what falls on it, and does it
-    //on a heartbeat. The phase runs with world position, so the beat travels through the cluster as a
-    //wave instead of every ball flashing in lockstep — a pile of them breathing together, not a strobe.
-    //Emission is not occluded: a light source buried in the pile is exactly the one that should still
-    //show, glowing out through its neighbors.
-    float beat = Heartbeat(PulseTime * PulseSpeed - dot(input.WorldPosition, PulseDirection) / max(PulseWavelength, 1e-4));
-
+    //on a heartbeat whose phase runs with world position - a wave through the cluster, not a strobe.
+    //The resting part follows the occlusion since #303 and the beat's swing does not: this line said
+    //"emission is not occluded" for a long time, on an argument BallEmission's own comment now answers.
+    //
     //The ball glows with its own color, not with the pattern's: the gores and the polar discs are white,
     //and emitting through them made half of every ball radiate white light, which is both the wrong color
     //and the reason they read as washed out. What is alive here is the ball, not its paint job.
-    shaded.rgb += primary * EmissiveStrength * lerp(1 - PulseDepth, 1, beat);
+    shaded.rgb += BallEmission(primary, input.WorldPosition, occlusion);
 
     //And on top of the resting breath, the ripple: the light that runs out through the cluster from
     //wherever a ball has just landed. WHEN this ball takes its turn was decided on the CPU by walking the
@@ -1695,16 +1734,15 @@ float4 MarblePS(PatternVertexShaderOutput input) : COLOR
     float3 towardsKey = normalize(KeyLightPosition - input.WorldPosition);
     float3 halfway = normalize(towardsKey + normalize(EyePosition - input.WorldPosition));
 
+    float occlusion = SurfaceOcclusion(input.WorldPosition, worldNormal, input.OcclusionData);
+
     shaded.rgb += DirLight0SpecularColor * MarbleGlossStrength
-        * pow(saturate(dot(worldNormal, halfway)), MarbleGloss)
-        * SurfaceOcclusion(input.WorldPosition, worldNormal, input.OcclusionData);
+        * pow(saturate(dot(worldNormal, halfway)), MarbleGloss) * occlusion;
 
-    //Contract point 2: the heartbeat, phased by world position so it is a wave through the cluster and
-    //not a strobe. In the ball's own colour and not the vein's, for the reason PatternPS gives about its
-    //gores - what is alive here is the ball, not its figure.
-    float beat = Heartbeat(PulseTime * PulseSpeed - dot(input.WorldPosition, PulseDirection) / max(PulseWavelength, 1e-4));
-
-    shaded.rgb += primary * EmissiveStrength * lerp(1 - PulseDepth, 1, beat);
+    //Contract point 2, through BallEmission (#303): the resting glow follows the occlusion, the beat's
+    //swing punches through. In the ball's own colour and not the vein's, for the reason PatternPS gives
+    //about its gores - what is alive here is the ball, not its figure.
+    shaded.rgb += BallEmission(primary, input.WorldPosition, occlusion);
 
     //Contract point 3, in BOTH of its meanings, and the arithmetic is PatternPS's deliberately: the wave
     //has to look the same whatever the cluster is cut from, or a level tells the player something
@@ -1913,10 +1951,9 @@ float4 WoolPS(PatternVertexShaderOutput input) : COLOR
 
     shaded.rgb += fuzz * WoolHalo * primary * occlusion;
 
-    //Contract point 2.
-    float beat = Heartbeat(PulseTime * PulseSpeed - dot(input.WorldPosition, PulseDirection) / max(PulseWavelength, 1e-4));
-
-    shaded.rgb += primary * EmissiveStrength * lerp(1 - PulseDepth, 1, beat);
+    //Contract point 2, through BallEmission (#303): the resting glow follows the occlusion, the beat's
+    //swing punches through.
+    shaded.rgb += BallEmission(primary, input.WorldPosition, occlusion);
 
     //Contract point 3, in BOTH meanings, and PatternPS's arithmetic deliberately: a landing has to look
     //the same whatever the cluster is made of.
@@ -2064,10 +2101,9 @@ float4 MetalPS(PatternVertexShaderOutput input) : COLOR
 
     float4 shaded = float4((reflection * MetalReflectance + specular * f0 * MetalHighlight) * occlusion, 1);
 
-    //Contract point 2.
-    float beat = Heartbeat(PulseTime * PulseSpeed - dot(input.WorldPosition, PulseDirection) / max(PulseWavelength, 1e-4));
-
-    shaded.rgb += primary * EmissiveStrength * lerp(1 - PulseDepth, 1, beat);
+    //Contract point 2, through BallEmission (#303): the resting glow follows the occlusion, the beat's
+    //swing punches through.
+    shaded.rgb += BallEmission(primary, input.WorldPosition, occlusion);
 
     //Contract point 3, both meanings, PatternPS's arithmetic.
     [branch]
@@ -2248,10 +2284,9 @@ float4 IcePS(PatternVertexShaderOutput input) : COLOR
 
     shaded.rgb += rim * IceRim * IceCold * lerp(primary, 1.0, 0.3) * occlusion;
 
-    //Contract point 2.
-    float beat = Heartbeat(PulseTime * PulseSpeed - dot(input.WorldPosition, PulseDirection) / max(PulseWavelength, 1e-4));
-
-    shaded.rgb += primary * EmissiveStrength * lerp(1 - PulseDepth, 1, beat);
+    //Contract point 2, through BallEmission (#303): the resting glow follows the occlusion, the beat's
+    //swing punches through.
+    shaded.rgb += BallEmission(primary, input.WorldPosition, occlusion);
 
     //Contract point 3, both meanings, PatternPS's arithmetic.
     [branch]
@@ -2511,10 +2546,9 @@ float4 GemPS(PatternVertexShaderOutput input) : COLOR
 
     shaded.rgb += girdle * GemGirdle * stone * occlusion;
 
-    //Contract point 2.
-    float beat = Heartbeat(PulseTime * PulseSpeed - dot(input.WorldPosition, PulseDirection) / max(PulseWavelength, 1e-4));
-
-    shaded.rgb += primary * EmissiveStrength * lerp(1 - PulseDepth, 1, beat);
+    //Contract point 2, through BallEmission (#303): the resting glow follows the occlusion, the beat's
+    //swing punches through.
+    shaded.rgb += BallEmission(primary, input.WorldPosition, occlusion);
 
     //Contract point 3, both meanings, PatternPS's arithmetic.
     [branch]
@@ -2673,7 +2707,9 @@ float4 PlasmaPS(PatternVertexShaderOutput input) : COLOR
 
     //Occluded, and for the reason #258 measured on the film: every ball in a pile of these reaches the
     //eye and a pixel shows the sum over four or five of them, which at full strength turns the middle of
-    //a cluster into a flat wash with no ball in it.
+    //a cluster into a flat wash with no ball in it. Since #303 the W channel also carries burial, so this
+    //same line makes a deep plasma dim progressively - linearly, this style's identity being its glow,
+    //where the opaque styles' resting emission goes with the square (see BallEmission).
     float3 glow = discharge * filament * PlasmaGlow * lerp(1, PlasmaCore, centre)
         * lerp(1 - PulseDepth, 1, beat) * occlusion;
 
@@ -2863,7 +2899,14 @@ float4 LavaPS(PatternVertexShaderOutput input) : COLOR
     float core = pow(seam, LavaCorePower) * emission;
     float3 molten = lerp(hue, LavaIncandescent, core);
 
-    shaded.rgb += molten * seam * LavaGlow * emission * lerp(1 - PulseDepth, 1, beat);
+    //Occluded LINEARLY, the plasma's own power and deliberately not BallEmission's square (#303): this
+    //style's identity IS its glow, so a buried ball dims with the pile - the flat-wash correction the
+    //plasma already carries - without its seams ever going out the way a resting vinyl breath now does.
+    //The beat dims inside the pile with the rest of the glow, which the plasma also already accepted:
+    //the seams ARE the breath here, and there is no resting half to split it from.
+    float occlusion = SurfaceOcclusion(input.WorldPosition, worldNormal, input.OcclusionData);
+
+    shaded.rgb += molten * seam * LavaGlow * emission * lerp(1 - PulseDepth, 1, beat) * occlusion;
 
     //Contract point 3, both meanings, PatternPS's arithmetic.
     [branch]
@@ -3033,10 +3076,9 @@ float4 PorcelainPS(PatternVertexShaderOutput input) : COLOR
     shaded.rgb += DirLight0SpecularColor * PorcelainGlossStrength
         * pow(saturate(dot(normalize(input.WorldNormal), halfway)), PorcelainGloss) * occlusion;
 
-    //Contract point 2.
-    float beat = Heartbeat(PulseTime * PulseSpeed - dot(input.WorldPosition, PulseDirection) / max(PulseWavelength, 1e-4));
-
-    shaded.rgb += primary * EmissiveStrength * lerp(1 - PulseDepth, 1, beat);
+    //Contract point 2, through BallEmission (#303): the resting glow follows the occlusion, the beat's
+    //swing punches through.
+    shaded.rgb += BallEmission(primary, input.WorldPosition, occlusion);
 
     //Contract point 3, both meanings, PatternPS's arithmetic.
     [branch]
