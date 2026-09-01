@@ -55,7 +55,31 @@ namespace Prazsky.BS3D.GameStructure
         /// only so that the field is not a special case for the serializer, and the colouring overwrites it.
         /// </para>
         /// </summary>
-        Transparent = 2
+        Transparent = 2,
+
+        /// <summary>
+        /// A bomb (#326). It detonates when a shot lands in a cell <b>beside</b> it and takes out every ball
+        /// within <c>BallsConstraintsBuilder.BLAST_RADIUS</c> of itself — every ball, of every colour and every
+        /// kind, itself included.
+        /// <para>
+        /// <b>It is the first kind that removes a ball the match rule never touched</b>, and that is what makes
+        /// it the foundation #327 (Zap) and #328 (Acid) are built on: everything the game had taken away until
+        /// now left through <c>ReleaseSameTypeCluster</c> — a group of one colour, plus whatever
+        /// <c>GetCellsDisconnectedFromCeiling</c> then reported. A blast's victims were never a group, so the
+        /// path is <b>choose a set of cells by geometry, remove them, and run the disconnection pass over what
+        /// is left</b>. They still <i>fall</i>, thrown outward: a ball that pops out of existence throws away
+        /// the best feedback this game has, and the falling-ball machinery, the drain, the sound and the drop
+        /// cinematic all already exist for it.
+        /// </para>
+        /// <para>
+        /// <b>It answers YES to <see cref="Removable"/> and NO to <see cref="Matchable"/></b>, which is the
+        /// transparent ball's pair of answers arriving for a different reason. The player always has a path to
+        /// removing a bomb — land beside it — so it does not hold the level open; but it is not a colour, so it
+        /// is out of the flood fill and out of the magazine census, and like the rock it carries a
+        /// <see cref="BallType"/> that <b>nothing may read</b>.
+        /// </para>
+        /// </summary>
+        Bomb = 3
     }
 
     /// <summary>
@@ -103,6 +127,19 @@ namespace Prazsky.BS3D.GameStructure
         /// A <see cref="BallKind.Rock"/> answers no: no shot the player can aim makes a rock removable, and it
         /// leaves only as collateral.
         /// </para>
+        /// <para>
+        /// A <see cref="BallKind.Bomb"/> answers <b>yes</b>, on the transparent ball's argument exactly (#326):
+        /// a shot landing beside it detonates it, and the blast destroys the bomb along with everything else in
+        /// its radius. It is one shot from being gone, so it is not a ball that ends the level — and the
+        /// alternative is the Rock's two opposite failures on a level that has one bomb left standing.
+        /// </para>
+        /// <para>
+        /// ⚠ <b>The predicate is written as "everything but the rock" and NOT as a list of the kinds that
+        /// qualify</b>, so that a special added without touching this file is removable by default. That is the
+        /// safe default of the two and it is deliberate: a kind wrongly counted removable makes a level that
+        /// cannot be finished only if nothing can reach it, which the generator's own gate refuses, whereas a
+        /// kind wrongly counted unremovable is a level that <i>silently never ends</i> and has no gate at all.
+        /// </para>
         /// </summary>
         public static bool Removable(BallKind kind) => kind != BallKind.Rock;
 
@@ -134,6 +171,11 @@ namespace Prazsky.BS3D.GameStructure
                 case "clear":
                 case "glass":
                     kind = BallKind.Transparent;
+                    return true;
+
+                case "bomb":
+                case "mine":
+                    kind = BallKind.Bomb;
                     return true;
 
                 default:

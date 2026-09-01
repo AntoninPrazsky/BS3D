@@ -33,6 +33,28 @@ namespace Prazsky.BS3D.Scoring
         public const int OrphanedBallPoints = 20;
 
         /// <summary>
+        /// What one ball a blast destroyed is worth (#326) — <b>the same as a matched one, and deliberately
+        /// not the orphan's double</b>.
+        /// <para>
+        /// The player aimed at these exactly as they aim at a group, so the matched rate is the honest one:
+        /// what a bomb pays is in the <i>count</i>, which is already several times a normal group, and paying
+        /// it at the orphan rate as well would pay the player twice for one shot. The orphan rate is not a
+        /// "big drop" rate — it exists to reward the one shot in this game that has to be read for rather than
+        /// aimed at, cutting a support, and a blast is the opposite of that: it is the shot that needs no
+        /// reading at all.
+        /// </para>
+        /// <para>
+        /// <b>⚠ This is the number to suspect first if a bomb level's star rating ever reads wrong</b>, and
+        /// #173 is why the warning is here rather than in a commit message: the star rating was once ordered
+        /// backwards against skill on every shipped level by a rate that read perfectly reasonably, and no
+        /// individual number looked wrong. <c>Tools/ScoreSim</c> is the instrument, and it can only answer
+        /// once a level with bombs in it actually ships — until then this rate is reasoned, not measured, and
+        /// the shipped set is unaffected because <see cref="Landed"/>'s third argument defaults to zero.
+        /// </para>
+        /// </summary>
+        public const int DestroyedBallPoints = 10;
+
+        /// <summary>
         /// Each ball still unfired when a level is cleared, when the level's own size is not known. Efficiency
         /// has to be worth something — see <see cref="UnusedShotValue"/> for what replaced this flat figure
         /// wherever the size <i>is</i> known, and why it had to.
@@ -140,6 +162,9 @@ namespace Prazsky.BS3D.Scoring
         /// <summary>Balls that fell because their support was cut, over the whole level.</summary>
         public int OrphanedBalls { get; private set; }
 
+        /// <summary>Balls a blast took out by geometry, over the whole level (#326).</summary>
+        public int DestroyedBalls { get; private set; }
+
         /// <summary>A ball has left the barrel. Counts against the budget and nothing else.</summary>
         public void Shot() => ShotsFired++;
 
@@ -161,15 +186,22 @@ namespace Prazsky.BS3D.Scoring
                 : null;
 
         /// <summary>
-        /// A shot has landed in the lattice. <paramref name="matched"/> is the group it completed and
-        /// <paramref name="orphaned"/> everything that fell with it; both zero means it stuck without
-        /// completing anything, which is a spent shot and breaks the streak exactly as a miss does.
+        /// A shot has landed in the lattice. <paramref name="matched"/> is the group it completed,
+        /// <paramref name="orphaned"/> everything that fell with it, and <paramref name="destroyed"/> what a
+        /// blast took out by geometry (#326); all three zero means it stuck without doing anything, which is a
+        /// spent shot and breaks the streak exactly as a miss does.
+        /// <para>
+        /// <b>⚠ The spent-shot door reads matched OR destroyed, and getting that wrong would have been silent.</b>
+        /// A shot that sets off a bomb and completes no group at all is a shot that did exactly what the player
+        /// aimed it at — the door read <c>matched &lt;= 0</c> alone until #326, which would have called every
+        /// such shot a miss, broken the streak on it and awarded nothing for a third of the cluster.
+        /// </para>
         /// </summary>
         /// <returns>What was awarded, and the multiplier it was awarded at — which is what a floating score
         /// popup needs, and is not the same as <see cref="Multiplier"/> once this returns.</returns>
-        public ScoreAward Landed(int matched, int orphaned)
+        public ScoreAward Landed(int matched, int orphaned, int destroyed = 0)
         {
-            if (matched <= 0)
+            if (matched <= 0 && destroyed <= 0)
             {
                 Missed();
                 return default;
@@ -177,9 +209,11 @@ namespace Prazsky.BS3D.Scoring
 
             MatchedBalls += matched;
             OrphanedBalls += orphaned;
+            DestroyedBalls += destroyed;
 
             int applied = Multiplier;
-            int basePoints = matched * MatchedBallPoints + orphaned * OrphanedBallPoints;
+            int basePoints = matched * MatchedBallPoints + orphaned * OrphanedBallPoints
+                             + destroyed * DestroyedBallPoints;
 
             BaseScore += basePoints;
             Score += basePoints * applied;

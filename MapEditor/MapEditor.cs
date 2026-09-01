@@ -290,7 +290,7 @@ namespace MapEditor
                 new(mgKeys.B, SwitchSkyDome, "Switch sky dome (backdrop)"),
                 new(mgKeys.V, SwitchScene, "Switch scene (city/sea/savanna/desert/mountain/meadow/neon)"),
                 new(mgKeys.L, SwitchBallStyle, "Switch ball look (beach vinyl / glass bubble)"),
-                new(mgKeys.K, CycleBallKind, "Switch ball kind (normal / rock / transparent)"),
+                new(mgKeys.K, CycleBallKind, "Cycle ball kind (the current one is named in the line below)"),
                 new(mgKeys.G, ToggleSceneConfigPanel, "Show/hide scene-config editor"),
 
                 new(mgKeys.F1, SaveJson, "Save map to file (JSON)"),
@@ -361,6 +361,8 @@ namespace MapEditor
                 BallKind.Rock => "Ball kind: rock (matches with nothing, no colour removes it)",
                 BallKind.Transparent => "Ball kind: transparent (colourless until a shot lands beside it, "
                     + "then that shot's colour)",
+                BallKind.Bomb => "Ball kind: bomb (a shot landing beside it destroys everything within two "
+                    + "units, itself included)",
                 _ => "Ball kind: normal",
             };
         }

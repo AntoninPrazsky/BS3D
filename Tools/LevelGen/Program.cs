@@ -11877,7 +11877,7 @@ namespace BS3D.Tools.LevelGen
         //in a cell BESIDE it (BallsMap.ColourTransparentNeighbours takes every transparent neighbour of the
         //landing cell), so a glass ball with no empty neighbour is a ball the player can never colour - and
         //glass counts against the level being cleared, so that is a level that cannot be finished while
-        //every other gate in this file passes it. FindStrandedGlass refuses it. And glass on the field's top
+        //every other gate in this file passes it. FindStrandedSpecials refuses it. And glass on the field's top
         //level is a CEILING ANCHOR THAT DISSOLVES: one shot beside it and the cluster's hanging width drops,
         //which is #301/#302's failure mode with the one ingredient those issues did not have, namely that
         //the ball gave no warning because it had no colour to warn with. Refused as well.
@@ -14860,7 +14860,7 @@ namespace BS3D.Tools.LevelGen
         /// The highest course carrying a glass arris. Below the merge on purpose: the two lower pyramids
         /// grow together from course six and the third reaches them from course five, and where two
         /// pyramids meet their facing corner columns land in the SAME cell with the third closing the gap
-        /// beside it — a glass ball with every neighbour occupied, which <see cref="FindStrandedGlass"/>
+        /// beside it — a glass ball with every neighbour occupied, which <see cref="FindStrandedSpecials"/>
         /// refuses and which is the only way this block could have produced one by geometry.
         /// </summary>
         private const int TREFOIL_ARRIS_TOP = 4;
@@ -15101,7 +15101,7 @@ namespace BS3D.Tools.LevelGen
         /// the courses whose lattice has a centre. Clearing the tip made every one of those glass, and the
         /// centre cell then had glass on all four sides, glass above and glass below: a transparent ball
         /// with no empty neighbour anywhere, which no shot can ever land beside and therefore no shot can
-        /// ever colour — <see cref="FindStrandedGlass"/>'s walled-in case, arriving from the one direction
+        /// ever colour — <see cref="FindStrandedSpecials"/>'s walled-in case, arriving from the one direction
         /// nobody looks, which is a hollow body that stops being hollow when it gets small enough. Held at
         /// one the tip is hollow like the rest of the stone and there is no cell to strand.
         /// </para>
@@ -15547,7 +15547,7 @@ namespace BS3D.Tools.LevelGen
             StaticBall[,,] array = map.GetStaticBallsArray();
             Dictionary<BallType, int> counts = new();
             Dictionary<BallType, int> largestGroup = new();
-            int rocks = 0, glass = 0;
+            int rocks = 0, glass = 0, bombs = 0;
 
             for (byte l = 0; l < map.Levels; l++)
                 for (byte x = 0; x < map.StageSizeX; x++)
@@ -15558,6 +15558,7 @@ namespace BS3D.Tools.LevelGen
 
                         if (ball.Kind == BallKind.Rock) rocks++;
                         if (ball.Kind == BallKind.Transparent) glass++;
+                        if (ball.Kind == BallKind.Bomb) bombs++;
 
                         //⚠ THE COLOUR CENSUS IS OVER THE MATCHABLE BALLS ONLY (#323/#325), and it is not
                         //merely tidier: a rock or a glass ball counted here would enter `counts` under the
@@ -15596,11 +15597,11 @@ namespace BS3D.Tools.LevelGen
             //On a level with no specials in it the two are equal and every figure reads exactly as it did.
             int total = map.GetBallsCount();
             int removable = map.GetRemovableBallsCount();
-            int matchable = total - rocks - glass;
+            int matchable = total - rocks - glass - bombs;
 
-            if (rocks > 0 || glass > 0)
+            if (rocks > 0 || glass > 0 || bombs > 0)
                 Console.WriteLine($"    specials: {rocks} rock(s) that never match and never fall to a shot,"
-                                  + $" {glass} glass ball(s) waiting for a colour"
+                                  + $" {glass} glass ball(s) waiting for a colour, {bombs} live bomb(s)"
                                   + $" — {matchable} of {total} balls are matchable as they hang");
 
             int margin = LateralMargin(map);
@@ -15625,13 +15626,14 @@ namespace BS3D.Tools.LevelGen
             foreach (string where in lonely.Examples) Console.WriteLine($"      {where}");
 
             //The glass's own reachability question, asked only of a level that has glass in it — see
-            //FindStrandedGlass for what it refuses and why nothing else here could have refused it.
-            StrandedReport stranded = glass == 0 ? new StrandedReport() : FindStrandedGlass(map);
+            //FindStrandedSpecials for what it refuses and why nothing else here could have refused it.
+            StrandedReport stranded = glass + bombs == 0 ? new StrandedReport() : FindStrandedSpecials(map);
 
-            if (glass > 0)
+            if (glass + bombs > 0)
             {
-                Console.WriteLine($"    glass a shot can reach: {(stranded.Walled == 0 ? "all" : $"NO - {stranded.Walled} WALLED IN")}"
-                                  + $" (against the ceiling {stranded.Anchoring}, deepest pocket {stranded.MostAtOnce} at one landing)");
+                Console.WriteLine($"    specials a shot can reach: {(stranded.Walled == 0 ? "all" : $"NO - {stranded.Walled} WALLED IN")}"
+                                  + $" (glass against the ceiling {stranded.Anchoring}, deepest glass pocket"
+                                  + $" {stranded.MostAtOnce} at one landing)");
                 foreach (string where in stranded.Examples) Console.WriteLine($"      {where}");
             }
 
@@ -15764,7 +15766,7 @@ namespace BS3D.Tools.LevelGen
 
                         //Only a ball the player can MATCH can stand alone in this sense. A rock is never
                         //matched at all and a glass ball has no colour to be lonely in until a shot gives it
-                        //one — see FindStrandedGlass for the question that IS worth asking about the glass,
+                        //one — see FindStrandedSpecials for the question that IS worth asking about the glass,
                         //which is a question about the empty cells around it and not about its colour.
                         if (!BallKinds.Matchable(array[x, z, l].Kind)) continue;
 
@@ -15788,16 +15790,21 @@ namespace BS3D.Tools.LevelGen
         }
 
         /// <summary>
-        /// The question <see cref="FindLonelyBalls"/> cannot ask about a <see cref="BallKind.Transparent"/>
-        /// ball, and the gate the eleventh block needed (#325). Glass has no colour, so it has no colour
-        /// group and nothing above can say anything about it; what it has instead is <b>an empty cell beside
-        /// it or nothing</b>, because the only thing that ever gives it a colour is a shot landing in one.
+        /// The question <see cref="FindLonelyBalls"/> cannot ask about a special that has no colour, and the
+        /// gate the eleventh block needed (#325, widened by #326). Glass and a bomb both have no colour group
+        /// and nothing above can say anything about either; what they have instead is <b>an empty cell beside
+        /// them or nothing</b>, because the only thing that removes either is a shot landing in one.
         /// <para>
-        /// <b>WALLED IN</b> — a glass ball with no empty neighbour at all. No shot can land beside it, so it
-        /// is never coloured; and glass is <see cref="BallKinds.Removable"/>, so it still counts against the
-        /// level being cleared. Every other gate here passes such a level: it does not float, it does not
-        /// stand alone (it has no group to stand alone in), the lateral margin is whatever the body's is, and
-        /// no colour one-shots it. It simply cannot be finished.
+        /// <b>WALLED IN</b> — such a ball with no empty neighbour at all. No shot can land beside it, so it is
+        /// never coloured and never detonated; and both kinds are <see cref="BallKinds.Removable"/>, so they
+        /// still count against the level being cleared. Every other gate here passes such a level: it does not
+        /// float, it does not stand alone (it has no group to stand alone in), the lateral margin is whatever
+        /// the body's is, and no colour one-shots it. It simply cannot be finished.
+        /// </para>
+        /// <para>
+        /// <b>The test is a PROPERTY and not a list of kinds</b> — removable but not matchable, which is
+        /// exactly "a ball a landing beside it has to reach". Transparent and Bomb answer it today; the next
+        /// special that does is gated the day it exists rather than the day somebody remembers this file.
         /// </para>
         /// <para>
         /// <b>⚠ This is a design law rather than a solvability proof, and the difference is worth stating.</b>
@@ -15817,6 +15824,16 @@ namespace BS3D.Tools.LevelGen
         /// glass is kept off the anchor course by refusal rather than by care. <b>The rock is the exact
         /// opposite and belongs up there</b>: a rock anchor is one no shot can ever take, so a rock in the
         /// top course only ever <i>improves</i> what <see cref="WorstAnchorLoad"/> measures.
+        /// <para>
+        /// <b>⚠ It stays GLASS-only, and a bomb on the anchor course is deliberately allowed</b> (#326). A
+        /// bomb up there costs the ceiling far more than a glass ball does — its own socket and every other
+        /// one within the blast — but the whole of what made the glass case a refusal was that it gave
+        /// <i>no warning</i>: a colourless ball says nothing about being load-bearing and nothing about being
+        /// about to leave. A bomb is the loudest ball in the game, breathing twice as deep and three times as
+        /// fast as the cluster it stands in, and it only ever goes off because the player aimed at it. That is
+        /// a trap the player can see and choose, which is a design, where the glass one is a design the player
+        /// cannot read.
+        /// </para>
         /// </para>
         /// <para>
         /// <b>The deepest pocket</b> is reported and gates nothing: the most glass balls standing round one
@@ -15826,7 +15843,7 @@ namespace BS3D.Tools.LevelGen
         /// a Mirage level feels flat.
         /// </para>
         /// </summary>
-        private static StrandedReport FindStrandedGlass(BallsMap map)
+        private static StrandedReport FindStrandedSpecials(BallsMap map)
         {
             StaticBall[,,] array = map.GetStaticBallsArray();
             XZLevel size = new(map.StageSizeX, map.StageSizeZ, map.Levels);
@@ -15865,9 +15882,13 @@ namespace BS3D.Tools.LevelGen
                             continue;
                         }
 
-                        if (ball.Kind != BallKind.Transparent) continue;
+                        //A ball a landing beside it has to reach, stated as the property rather than as a
+                        //list of kinds: removable, so it holds the level open, and not matchable, so no
+                        //colour can take it. Transparent and Bomb both answer it; the rock answers no to the
+                        //first half and an ordinary ball to the second.
+                        if (BallKinds.Matchable(ball.Kind) || !BallKinds.Removable(ball.Kind)) continue;
 
-                        if (l == top)
+                        if (l == top && ball.Kind == BallKind.Transparent)
                         {
                             report.Anchoring++;
 
@@ -15885,7 +15906,8 @@ namespace BS3D.Tools.LevelGen
                         report.Walled++;
 
                         if (report.Examples.Count < 3)
-                            report.Examples.Add($"glass walled in at cell ({x},{z}) on level {l}: no empty neighbour to shoot into");
+                            report.Examples.Add($"{BallKinds.ToName(ball.Kind)} walled in at cell ({x},{z})"
+                                                + $" on level {l}: no empty neighbour to shoot into");
                     }
 
             return report;

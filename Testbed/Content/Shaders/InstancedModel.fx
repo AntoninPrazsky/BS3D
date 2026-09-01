@@ -3555,6 +3555,189 @@ technique InstancedModelHollow
     }
 };
 
+//===================================================================================================
+//THE LIVE BOMB (#326) — the thirteenth ball technique, and the third of the three that belong to a KIND
+//rather than to a style. The stone draws the ball that can never be matched and the clear glass the ball
+//that has no colour yet; this draws the ball that is about to take a hole out of the cluster.
+//
+//IT HAS TO READ AS ARMED BEFORE IT IS HIT, at play distance, on all ten materials — a bomb the player
+//does not notice until it goes off is a bomb that feels like a bug. What carries that is NOT the figure
+//drawn on the casing, and the stone's own header is why: motion is the first thing the eye reads, and a
+//rock is named across a whole field by being the one ball that does not breathe. This is that argument
+//used the other way round. The bomb breathes HARDEST — the deepest, fastest heartbeat in the game, pushed
+//as renderer uniforms by BallRenderSet.DrawBombs — so the two kinds sit at the opposite ends of the one
+//channel that reads with no resolution at all. Everything below is what confirms it once the player is
+//close enough to aim.
+//
+//What makes it read as a bomb, in the order the eye picks it up:
+//  1. IT IS BANDED. The casing is cut into latitude segments by deep grooves, evenly spaced in ANGLE
+//     (through acos) rather than in height, or the bands would bunch at the poles and read as a wound
+//     ball rather than a cast shell. Nothing else in this file is banded that way: the vinyl's gores are
+//     meridians, the wool's bands lie at changing angles, and the marble's veins are not bands at all.
+//  2. THE GROOVES ARE LIT FROM INSIDE. The charge is in the seams, not on the surface — a dark shell with
+//     light coming out of its joins is the one figure that says "there is something in there", and it is
+//     also what lets the pulse be visible without the whole ball flashing, which at this depth and speed
+//     would strobe.
+//  3. THE CASING IS DARK AND SLIGHTLY WARM. Dark so the charge has something to be bright against, and
+//     warm so it is not the 8-ball — Type8 is the one colour a near-black ball can be confused with, and
+//     the rock's own header records the same trap from the grey end.
+//
+//⚠ THE CHARGE COLOUR IS A CONSTANT AND THE TINT IS IGNORED, which is the rule the stone states first and
+//the reason this is a kind rather than a style: a bomb wearing one of the thirteen is a lie the player
+//acts on — they would aim that colour at it and it would not match. It is a bomb on a bubble level and on
+//a lava level alike, because "that one is different" has to survive all ten materials or it is not a
+//signal.
+//
+//THE SIX-POINT CONTRACT, in the order the ball-technique header states it:
+//  1. The dissolve clip, both signs, first and branchless.
+//  2. The heartbeat through BallEmission — and here it is the WHOLE READ rather than a floor, carried by
+//     the charge colour scaled by the seam mask, so the light comes out of the grooves and not the shell.
+//  3. The ripple in both meanings. The landing wave is warm-white (the casing has no hue of its own worth
+//     carrying) and the alarm is the flat alarm colour every ball wears — a field of bombs staying calm
+//     while the glass comes down would be the one place the alarm could be missed.
+//  4. SurfaceOcclusion, including #303's burial depth.
+//  5. ApplySeaSubmerge then ApplyKillPlaneFade on the way out.
+//  6. A rotation cue in OBJECT space, and the bands are it: they turn with the ball, so a spinning bomb is
+//     visibly spinning. It is the one thing a smooth dark sphere cannot say for itself.
+//===================================================================================================
+
+//How many bands the casing is cut into from pole to pole. Six is a cast shell; many more and the grooves
+//close up into a thread, which reads as a screw rather than as a bomb.
+static const float BombBandCount = 6.0;
+
+//How much of a band's width the groove takes, and how sharply it cuts. Narrow: the charge has to read as
+//coming out of a JOIN, and a wide groove is a stripe painted on.
+static const float BombGrooveWidth = 0.22;
+static const float BombGrooveSharpness = 2.4;
+
+//Depth of the grooves in world units. The second largest ball figure in this file after the stone's
+//roughness, because a groove that only changes colour reads as paint and this one has to read as a gap
+//between two pieces of metal.
+static const float BombGrooveDepth = 0.030;
+
+//The casing, in sRGB like every other colour written here. Dark, and WARM on purpose: a neutral near-black
+//ball is Type8, which is the one colour this could be confused with, and the same trap the stone records
+//from the grey end. Not black either — a body at zero has nothing for the sky to sit on and the silhouette
+//disappears against a dark dome.
+static const float3 BombCasing = float3(0.115, 0.098, 0.092);
+
+//And the charge that burns in the seams. Well past white in the red channel so it survives the tonemap as
+//a HOT thing rather than as an orange one; the emission below multiplies it, so this is a direction more
+//than a colour.
+static const float3 BombCharge = float3(1.0, 0.46, 0.13);
+
+//A ring of studs round the casing's waist — rivets. Cheap (one more sine pair) and worth it: they are the
+//only part of the figure that survives when the ball is small enough that the bands blur together, and a
+//studded sphere is unmistakably a made object rather than a dark ball.
+static const float BombStudCount = 12.0;
+static const float BombStudSize = 0.16;
+static const float BombStudDepth = 0.016;
+
+//Machined metal: a tight highlight and a real mirror of the dome, which is what separates a casing from
+//the stone's matte aggregate at a glance. The environment term is what draws the sky along the silhouette
+//and is most of why a dark ball is visible at all.
+static const float BombHighlight = 0.55;
+static const float BombEnvironment = 0.70;
+static const float BombSmoothness = 0.62;
+
+//Where the seam mask is read from: the fraction of a band, folded so 0 is the middle of a groove.
+float BombSeams(float3 direction)
+{
+    //Even in ANGLE, not in height — the poles are where a height-banded sphere crowds its bands together.
+    float latitude = acos(clamp(direction.y, -1.0, 1.0)) / 3.14159265;
+
+    float band = frac(latitude * BombBandCount);
+    float toSeam = abs(band - 0.5) * 2.0;
+
+    return pow(saturate(1.0 - toSeam / max(BombGrooveWidth, 1e-4)), BombGrooveSharpness);
+}
+
+//The rivets, as a second mask on the same construction: a ring of them round the equator.
+float BombStuds(float3 direction)
+{
+    float azimuth = atan2(direction.z, direction.x) / 6.28318531;
+    float ring = 1.0 - saturate(abs(direction.y) / BombStudSize);
+    float around = 1.0 - saturate(abs(frac(azimuth * BombStudCount) - 0.5) * 2.0 / BombStudSize);
+
+    return saturate(ring * around);
+}
+
+float4 BombPS(PatternVertexShaderOutput input) : COLOR
+{
+    float radius = max(length(input.ObjectPosition), 1e-5);
+    float3 direction = input.ObjectPosition / radius;
+
+    //Contract point 1, first and branchless, for the reason PatternPS gives.
+    float dissolveNoise = DissolveNoise(floor(input.Position.xy / DissolvePixelSize));
+    clip(input.Dissolve >= 0 ? dissolveNoise - input.Dissolve : -input.Dissolve - dissolveNoise);
+
+    float footprint = (length(ddx(input.WorldPosition)) + length(ddy(input.WorldPosition))) / radius;
+
+    //Band-limited on the band count, the same argument ReliefOctave makes: past the point where one band
+    //is under a pixel the grooves are noise, and noise on a dark ball is what makes a cluster shimmer.
+    float bandLimit = saturate(1 - footprint * BombBandCount * 2.0);
+
+    float seam = BombSeams(direction) * bandLimit;
+    float stud = BombStuds(direction) * bandLimit;
+
+    //The casing, darkened in the grooves: a joint is in shadow before it is lit from inside, and skipping
+    //that made the seams read as painted-on stripes when the charge was at the bottom of its beat.
+    float3 color = SrgbToLinear(BombCasing) * (1 - 0.45 * seam) * (1 + 0.35 * stud);
+
+    //Contract point 6. Both figures cut into one height field, so a single perturbation covers them - the
+    //vinyl skin's construction. The studs stand PROUD and the grooves cut IN, which is the sign difference
+    //that makes them read as two different features rather than as one dented surface.
+    float height = (stud * BombStudDepth - seam * BombGrooveDepth);
+
+    float3 worldNormal = PerturbNormalFromHeight(normalize(input.WorldNormal), input.WorldPosition, height);
+
+    SurfaceSpecular surface;
+    surface.Highlight = BombHighlight;
+    surface.Environment = BombEnvironment;
+    surface.Smoothness = BombSmoothness;
+
+    float4 shaded = ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, float4(color, 1), 1, 1, surface);
+
+    //Contract point 4.
+    float occlusion = SurfaceOcclusion(input.WorldPosition, worldNormal, input.OcclusionData);
+
+    //Contract point 2, and on this technique it is the whole read rather than a floor. The charge is
+    //multiplied by the SEAM MASK, so what beats is the light coming out of the joins and not the shell -
+    //at the depth and speed DrawBombs pushes, a whole ball flashing this hard would strobe. The studs take
+    //a share of it too, at a fraction, so a bomb small enough that its bands have blurred out is still
+    //visibly alive.
+    shaded.rgb += BallEmission(SrgbToLinear(BombCharge) * (seam + 0.35 * stud), input.WorldPosition, occlusion);
+
+    //Contract point 3, in BOTH meanings, and PatternPS's arithmetic deliberately.
+    [branch]
+    if (RippleStrength > 0)
+    {
+        float amount = abs(input.Ripple);
+
+        //Warm-white rather than the casing's own hue: RippleWhiten exists to lift the channels a COLOURED
+        //ball is missing, and a near-black shell is missing all of them - carrying its hue into the flare
+        //would make the one ball in the wave that stays dark.
+        float3 lit = shaded.rgb + RippleStrength * amount;
+        float3 alarmed = lerp(shaded.rgb, RippleAlarmColor * RippleAlarmBrightness, amount * RippleAlarmCoverage);
+
+        shaded.rgb = input.Ripple < 0 ? alarmed : lit;
+    }
+
+    //Contract point 5.
+    shaded = ApplySeaSubmerge(shaded, input.WorldPosition);
+
+    return ApplyKillPlaneFade(shaded, input.WorldPosition);
+}
+
+technique InstancedModelBomb
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL PatternVS();
+        PixelShader = compile PS_SHADERMODEL BombPS();
+    }
+};
+
 //Detail texturing: a texture that only modulates the existing material colors
 //(DetailStrength 0 = untextured look), mapped either through the model's own UVs
 //(InstancedModelDetailUV — required for objects that move, or the texture would swim

@@ -138,6 +138,14 @@ namespace Prazsky.BS3D.Physics
         /// </summary>
         private readonly List<XZLevel> _colouredCells = new(12);
 
+        /// <summary>
+        /// The bombs standing beside the cell a shot just landed in (#326), collected <b>before</b> the group
+        /// release so a bomb that the release orphans is not still on the list when the blast runs. Reused per
+        /// shot for <see cref="_colouredCells"/>' reason, and the same size: a cell touches at most twelve
+        /// others.
+        /// </summary>
+        private readonly List<XZLevel> _armedBombs = new(12);
+
         private readonly ConcurrentQueue<QueuedContact> _queuedContacts = new();
 
         private readonly struct QueuedContact
@@ -415,9 +423,31 @@ namespace Prazsky.BS3D.Physics
                 glass.ColourFadeRemaining = ClusterCollector.COLOUR_FADE_SECONDS;
             }
 
+            //WHICH BOMBS THIS LANDING ARMED (#326), read here and set off further down. It is the transparent
+            //ball's rule with a different effect on the end of it: a landing is a PLACE, and what goes off is
+            //what stands next to that place - which is the only version of "when it is hit" the player can
+            //watch happen and aim at, since they aim at the gap beside a ball and never at a ball itself.
+            //EVERY bomb beside the cell goes, not a chosen one, for ColourTransparentNeighbours' own reason:
+            //choosing among several would be invisible dice, two identical-looking landings doing different
+            //things.
+            //
+            //⚠ Collected BEFORE the release below and detonated AFTER it, and both halves are deliberate. A
+            //bomb the release ORPHANS has already fallen and must not go off in mid-air, which is what reading
+            //the list afterwards buys - the detonation re-checks each cell and skips the ones that have left.
+            //And the shot's own match runs FIRST: a player who lands beside a bomb while completing a group
+            //has earned that group, and a blast that ate it before it was counted would read as the game
+            //refusing a good shot. So the two compose, in the order the player did them.
+            CollectArmedBombs(cell);
+
             //And the game rule: three or more of a colour touching each other let go, and so does anything
             //that was only held up by them
             BallsReleased released = BallsConstraintsBuilder.ReleaseSameTypeCluster(physicsBall, _physicsBalls, _map, _simulation, _fallingBalls);
+
+            //Then the blast, over whatever the match left standing - and its own disconnection pass runs
+            //inside it, so a hole opened under half the cluster brings that half down as well.
+            if (_armedBombs.Count > 0)
+                released = released.Plus(BallsConstraintsBuilder.DetonateBombs(
+                    _armedBombs, _physicsBalls, _map, _simulation, _fallingBalls));
 
             //Reported whether or not anything fell: a shot that stuck without completing a group is still a
             //resolved shot, and the streak rule has to hear about it. Taken before the release above could
@@ -431,9 +461,35 @@ namespace Prazsky.BS3D.Physics
             if (coloured > 0) Console.WriteLine($"[shot] coloured {coloured} transparent ball(s) {physicsBall.Type}"
                 + $"; released {released.Matched} matched, {released.Orphaned} orphaned");
 
+            //The blast's own line, on the same terms and for the same reason (#326): a level whose bombs are
+            //not going off says so here rather than being diagnosed from a screenshot, and printing the armed
+            //COUNT beside the destroyed one is what tells a chain apart from a single big radius.
+            if (released.Destroyed > 0) Console.WriteLine($"[shot] {_armedBombs.Count} bomb(s) armed at the landing"
+                + $"; destroyed {released.Destroyed}, orphaned {released.Orphaned}");
+
             BallLanded?.Invoke(new BallLanding(released, restPosition, physicsBall.Type, cell, coloured));
 
             return true;
+        }
+
+        /// <summary>
+        /// Fills <see cref="_armedBombs"/> with every <see cref="BallKind.Bomb"/> touching
+        /// <paramref name="cell"/> — the landing's own neighbours, by the map's neighbour rule and not by a
+        /// second copy of it, which is the same discipline
+        /// <see cref="BallsMap.ColourTransparentNeighbours"/> keeps for the glass.
+        /// </summary>
+        private void CollectArmedBombs(XZLevel cell)
+        {
+            _armedBombs.Clear();
+
+            StaticBall[,,] cells = _map.GetStaticBallsArray();
+            XZLevel size = new(_map.StageSizeX, _map.StageSizeZ, _map.Levels);
+
+            foreach (XZLevel neighbour in BallsMap.GetNeighboringCells(cell, size))
+            {
+                StaticBall ball = cells[neighbour.X, neighbour.Z, neighbour.Level];
+                if (ball != null && ball.Kind == BallKind.Bomb) _armedBombs.Add(neighbour);
+            }
         }
 
         /// <summary>

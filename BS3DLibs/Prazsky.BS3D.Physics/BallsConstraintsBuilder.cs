@@ -209,6 +209,200 @@ namespace Prazsky.BS3D.Physics
         }
 
         /// <summary>
+        /// How far a blast reaches, <b>in world units</b> (#326). Two, which is two rings of cells sideways and
+        /// — the lattice being 1/√2 apart vertically — nearly three levels up and down.
+        /// <para>
+        /// World units and not a cell count, deliberately, and it is the one number a level author reasons
+        /// about: the lattice is anisotropic, so "two cells" means two different distances depending on which
+        /// way you count, and a radius stated in the grid's own indices would be a different shape in the two
+        /// axes. Stated as a distance it is a <b>sphere</b>, which is what the player sees and what the rule
+        /// says. The arithmetic that turns it into candidate cells lives in <see cref="DetonateBombs"/> and
+        /// nowhere else.
+        /// </para>
+        /// </summary>
+        public const float BLAST_RADIUS = 2f;
+
+        /// <summary>
+        /// How hard a blast throws its victims, in units a second at the centre, tapering to
+        /// <see cref="BLAST_EDGE_SPEED_FRACTION"/> of it at the rim.
+        /// <para>
+        /// The throw is the whole reason the victims <i>fall</i> rather than vanish. A ball that pops out of
+        /// existence throws away the best feedback this game has — the fall, the drain, the sound, the drop
+        /// cinematic all already exist — and a ball that merely starts falling reads as a ball whose support
+        /// went, which is a different event and one the player already knows. It is set as a velocity rather
+        /// than applied as an impulse because the body is unconstrained and awake by the time this runs, and a
+        /// velocity is what the release path leaves it at anyway (zero).
+        /// </para>
+        /// </summary>
+        private const float BLAST_SPEED = 7f;
+
+        /// <inheritdoc cref="BLAST_SPEED"/>
+        private const float BLAST_EDGE_SPEED_FRACTION = 0.35f;
+
+        /// <summary>
+        /// Sets off every bomb in <paramref name="armed"/> and everything their blasts reach (#326) — <b>the
+        /// game's second removal path</b>, and the one #327 (Zap) and #328 (Acid) are built on.
+        /// <para>
+        /// Everything the game took away before this left through <see cref="ReleaseSameTypeCluster"/>: a group
+        /// of one colour, plus whatever the disconnection walk then reported. A blast's victims were never a
+        /// group, so the shape here is <b>choose a set of cells by geometry, remove them, and run the
+        /// disconnection pass over what is left</b>. That last step is not optional and is why this cannot be a
+        /// loop at the call site: a blast that opens a hole under half the cluster orphans it, and nothing else
+        /// would notice.
+        /// </para>
+        /// <para>
+        /// <b>The radius is a lattice walk, not an index range.</b> Odd levels are shifted half a cell in X and
+        /// Z and the levels sit 1/√2 apart, so "within two units of this ball" is not a box of indices. The
+        /// index range is used only to <i>bound</i> the walk — <see cref="BLAST_RADIUS"/> cells sideways and as
+        /// many levels as that distance can span — and every candidate is then measured with
+        /// <see cref="BallsMap.GetRealPosition"/>, which is the one copy of where a cell actually is.
+        /// </para>
+        /// <para>
+        /// <b>Blasts CHAIN, through a worklist rather than through recursion</b> — the issue's own warning, and
+        /// the worklist is also what makes termination obvious: a bomb reached by another blast is queued and
+        /// deliberately <i>not</i> destroyed as a victim, so that it still gets to go off; when it is popped it
+        /// destroys itself, being inside its own radius at distance zero. The map only ever shrinks and a cell
+        /// popped after it has already been destroyed is skipped, so the loop cannot revisit anything.
+        /// </para>
+        /// <para>
+        /// The victims of one detonation are <b>collected before any of them is released</b>, because
+        /// <see cref="ReleaseBall"/> empties the cell it takes and a walk that released as it went would stop
+        /// seeing its own neighbours. Each detonation then runs on the field the previous one left, which is
+        /// what makes a chain read as a sequence rather than as one simultaneous erasure.
+        /// </para>
+        /// </summary>
+        /// <param name="armed">The bombs to set off — the cells beside the landing, already filtered to the
+        /// ones still standing. Cells that no longer hold a bomb are skipped rather than refused.</param>
+        /// <param name="releasedInto">Every destroyed and orphaned ball is added here, exactly as a match's
+        /// releases are, so the caller keeps drawing them and its cleanup culls them when they settle.</param>
+        /// <returns>What the blast cost the field: no matches (a blast completes no group), the balls it
+        /// destroyed by geometry, and everything the disconnection pass then found hanging on nothing.</returns>
+        public static BallsReleased DetonateBombs(
+            IReadOnlyList<XZLevel> armed,
+            PhysicsBall[,,] physicsBalls,
+            BallsMap map,
+            Simulation simulation,
+            List<PhysicsBall> releasedInto)
+        {
+            if (armed == null || armed.Count == 0) return default;
+
+            XZLevel size = map.GetStaticBallsArraySize();
+            StaticBall[,,] cells = map.GetStaticBallsArray();
+            List<ConstraintHandle> handleBuffer = new();
+
+            //The worklist and the set that keeps a bomb from being queued twice — two bombs whose radii cover
+            //each other would otherwise put each other back on it for as long as the loop ran.
+            List<XZLevel> pending = new();
+            HashSet<int> queued = new();
+
+            int Key(XZLevel cell) => (cell.Level * size.X + cell.X) * size.Z + cell.Z;
+
+            bool IsBomb(XZLevel cell) =>
+                cells[cell.X, cell.Z, cell.Level] != null
+                && cells[cell.X, cell.Z, cell.Level].Kind == BallKind.Bomb;
+
+            foreach (XZLevel cell in armed)
+                if (IsBomb(cell) && queued.Add(Key(cell))) pending.Add(cell);
+
+            //How far to look, in indices. Sideways the cell pitch is one, so the radius IS the reach; upwards
+            //the levels sit 1/sqrt(2) apart, so the same distance spans sqrt(2) times as many of them.
+            int reach = (int)MathF.Ceiling(BLAST_RADIUS);
+            int reachLevels = (int)MathF.Ceiling(BLAST_RADIUS * Constants.SQRT_TWO);
+
+            List<XZLevel> victims = new();
+            int destroyed = 0;
+
+            for (int i = 0; i < pending.Count; i++)
+            {
+                XZLevel bomb = pending[i];
+
+                //Already gone: an earlier blast in this same chain reached it as a victim before it was
+                //popped. Not possible today, since a chained bomb is skipped as a victim - but the guard is
+                //what lets that rule change without this loop becoming a use-after-free.
+                if (!IsBomb(bomb)) continue;
+
+                Vector3 centre = BallsMap.GetRealPosition((byte)bomb.X, (byte)bomb.Z, (byte)bomb.Level).ToNumerics();
+
+                victims.Clear();
+
+                for (int level = bomb.Level - reachLevels; level <= bomb.Level + reachLevels; level++)
+                {
+                    if (level < 0 || level >= size.Level) continue;
+
+                    for (int x = bomb.X - reach; x <= bomb.X + reach; x++)
+                    {
+                        if (x < 0 || x >= size.X) continue;
+
+                        for (int z = bomb.Z - reach; z <= bomb.Z + reach; z++)
+                        {
+                            if (z < 0 || z >= size.Z) continue;
+                            if (cells[x, z, level] == null) continue;
+
+                            XZLevel cell = new(x, z, level);
+
+                            Vector3 at = BallsMap.GetRealPosition((byte)x, (byte)z, (byte)level).ToNumerics();
+                            if (Vector3.DistanceSquared(at, centre) > BLAST_RADIUS * BLAST_RADIUS) continue;
+
+                            //A bomb inside the blast is a CHAIN and not a victim: queued so it gets to go off
+                            //itself, and left standing until it does. It destroys itself when it is popped,
+                            //being at distance zero from its own centre.
+                            if (cells[x, z, level].Kind == BallKind.Bomb && Key(cell) != Key(bomb))
+                            {
+                                if (queued.Add(Key(cell))) pending.Add(cell);
+                                continue;
+                            }
+
+                            victims.Add(cell);
+                        }
+                    }
+                }
+
+                foreach (XZLevel cell in victims)
+                {
+                    PhysicsBall ball = physicsBalls[cell.X, cell.Z, cell.Level];
+
+                    ReleaseBall(cell, physicsBalls, map, simulation, size, handleBuffer, releasedInto);
+                    destroyed++;
+
+                    if (ball != null) Throw(ball, centre);
+                }
+            }
+
+            //And the half a blast shares with every other removal in this game: what was only held up by what
+            //just went takes the same path down.
+            List<XZLevel> disconnected = map.GetCellsDisconnectedFromCeiling();
+            foreach (XZLevel cell in disconnected)
+                ReleaseBall(cell, physicsBalls, map, simulation, size, handleBuffer, releasedInto);
+
+            return new BallsReleased(0, disconnected.Count, destroyed);
+        }
+
+        /// <summary>
+        /// Throws one freed ball away from <paramref name="centre"/> — see <see cref="BLAST_SPEED"/> for why a
+        /// blast's victims are thrown rather than merely dropped.
+        /// <para>
+        /// The bomb itself is at distance zero and has no outward direction to take, so it goes <b>down</b>:
+        /// the thing that exploded drops out of the hole it made, which is both the only defined answer and
+        /// the one that reads.
+        /// </para>
+        /// </summary>
+        private static void Throw(PhysicsBall ball, Vector3 centre)
+        {
+            Vector3 delta = ball.BallReference.Pose.Position - centre;
+            float distance = delta.Length();
+
+            float speed = BLAST_SPEED * (distance >= BLAST_RADIUS
+                ? BLAST_EDGE_SPEED_FRACTION
+                : 1f - (1f - BLAST_EDGE_SPEED_FRACTION) * (distance / BLAST_RADIUS));
+
+            //A hair off zero rather than exactly zero: the bomb's own body sits at the centre, and normalising
+            //a zero vector is a NaN velocity, which Bepu carries straight into the pose and never recovers from.
+            Vector3 direction = distance > 1e-4f ? delta / distance : new Vector3(0f, -1f, 0f);
+
+            ball.BallReference.Velocity.Linear += direction * speed;
+        }
+
+        /// <summary>
         /// Releases every ball of the structure at once (the End debug action): all constraints are removed
         /// and the balls move out of the map and <paramref name="physicsBalls"/> into <paramref name="releasedInto"/>,
         /// so the caller keeps drawing them and its fallen-ball cleanup can cull them once they come to rest.
