@@ -1,5 +1,3 @@
-![BS3D — Bubble Shooter 3D](/Images/bs3d_logo_8.png)
-
 # BS3D
 
 A 3D take on the Puzzle-Bobble/bubble-shooter formula: a cluster of coloured balls hangs above a stone
