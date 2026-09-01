@@ -3177,3 +3177,48 @@ Nesl `MENU_TEXT_DIM` od #199, které mu nastavilo **velikost** kvůli čitelnost
 **Co zůstává:** #296 je tím zodpovězené celé (ocenění, oběť, tier čísla z obou tříd strojů, #172 re-scope) — zavření na slovo majitele.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-01 — Claude Code (třetí zápis dne)
+
+**#256 rozpadnuto na jedenáct implementačních issue a první z nich je na mainu.** Majitel si vyžádal rozpad („jako jeden task by to bylo příliš práce"), pak výběr jednoho typu a jeho stavbu. Tvar rozpadu je doslova #272 → #304 → #305–#312 u stylů: **#323** nese datový model a kontrakt, **#324–#333** po jednom speciálu (Rock, Transparent, Bomb, Zap, Acid, Frozen, Wildcard, Infectious, Gravity, Heavy). Pořadí je doporučení s důvody, tvrdé závislosti jen #327/#328 → #326, #331 → #324, vše → #323. #256 zůstává trackovacím issue a nese komentář s celým rozpisem.
+
+**#323 a #324 shipnuty JEDNÍM commitem, ne dvěma** (`a645aaa`, merge `9f22696`) — a to je vědomá odchylka od toho, co #323 samo o sobě říká („implementuje žádný speciál"). Důvod: enum o jediném členu `Normal` a tři švy, na kterých nic nestojí, se nedají ověřit. #304 si to mohlo dovolit, protože oba jeho shadingy už existovaly.
+
+**Datový model: speciál je druhá osa, ne čtrnáctá barva.** `BallKind` vedle `BallType`, na `StaticBall`, zrcadlený na `PhysicsBall` (kvůli `ClusterCollector`, který vidí jen fyzikální pole), ve formátu jako **nepovinný klíč `"k"` psaný jen když není `Normal`** — precedent #258, takže žádný existující soubor se nepřepsal. `Type14 = Rock` by rozbil šest věcí a ani jednu hlasitě: `BallTypes.Count` dimenzuje buckety, každý člen dluží odstín, census by ho počítal, `RandomBallType` by ho **nabíjel**, `Transmute` by na něj přebarvoval, generátor počítá ve třinácti inkoustech.
+
+**Pravidlo shody čte druh na jednom místě** — `GetConnectedSameTypeCells` přeskočí kuličku, na kterou `BallKinds.Matchable` řekne ne, takže kámen zastaví flood fill přesně jako prázdná buňka. To je **celé** odstraňovací pravidlo Rocku; kámen odchází jen jako vedlejší škoda a `GetCellsDisconnectedFromCeiling` se nikdy neptal, jaký druh kulička je.
+
+**⚠ Obě koncové podmínky musely změnit počet, a selhávají OPAČNĚ.** `CheckLevelCleared` i out-of-shots prohra četly `GetBallsCount`. Level s jedním kamenem se pod ním **nikdy nevyčistí** (hráč dostřílí, koule tam pořád visí, level neskončí) a **vždycky prohraje** (týž počet, druhá podmínka). Obě teď volají `GetMatchableBallsCount` — jedna metoda, ne dva predikáty. Co zbyde stát, když spadne na nulu, se pustí (`ReleaseAllBalls`; konstrukcí nezbylo nic matchnutelného, takže „všechno" JSOU kameny) a neskóruje nic.
+
+**Vzhled: `BallShading.Stone`, jedenáctý člen a jediný úplně bez barvy typu.** Kreslený **vlastní oblastí bucketů** — technika, emise i hloubka tepu jsou per-renderer uniformy, takže „tahle koule je kámen a nedýchá" nemůže cestovat s instancí; je to týž argument, na kterém stojí still rovina z #252, podruhé. Oblast, ne rovina: kámen nemá barvu, takže `LodCount` bucketů místo `TYPE_COUNT × LodCount`, čtyři draw cally místo dvaapadesáti. Kreslí se **první**, protože neprůhledné jde před průhledné. Kámen se **vyváže ze stylu, který level jmenuje** — je to kámen na bublinovém i na lávovém levelu, jinak to není signál.
+
+**Čtyři figury změřené, ne odhadnuté, a všechny čtyři byly napoprvé špatně:**
+
+1. **Součin vln nejde pásmově omezovat po oktávách.** Fleck pole je `sin·sin·sin` (součet dělá rýhy, což je žilkování mramoru a přesně to, čím tohle být nesmí) a útlum na každém činiteli se **násobí**: pole, které mělo zeslábnout na 45 %, zesláblo na 9 % a zrno bylo na herní vzdálenosti pryč. Jeden činitel, měřený proti **součtu** tří frekvencí, protože tam leží nejjemnější obsah součinu. S tím dolů i počet, 30 → 14: zrno dost jemné na to, aby bylo fyzikálně správné, je zrno, které koule na herní vzdálenost neukáže.
+2. **Tři čisté vlny vynásobené jsou golfový míček** — pravidelná mřížka stejných důlků v řadách. Fázi rozhodí warp z pole hrbolů (mramorova konstrukce pro žilky: warpuj vstup, ne výstup), zadarmo, pole je stejně už v ruce.
+3. **⚠ Fyzikální poctivost byla špatně TŘIKRÁT po sobě.** Kámen nesvítí a nemá prosvit slupkou, tak dostal nulovou emisi — a četl jako osmička. Hráč se na cluster dívá **zdola**, z ostrova, tedy na jeho neosvětlenou stranu, a **každá** ostatní koule ji svítí dvěma cestami, které tenhle materiál nemá: vlastní emisí a `TranslucencyStrength`. Zvednutí těla nepomohlo, nejsilnější ambient v paletě taky ne (a ten byl potřeba tak jako tak — draw napoprvé posílal `null` efektové parametry a spadl na **modrý** `DefaultLighting`). Emise 0,45 zastupuje prosvit; `PulseDepth` zůstává nula. **Kámen je jediná koule ve hře, která nedýchá, a to je to, co ho pojmenuje přes celé pole** — pohyb je první, co oko čte, a jeho nepřítomnost je čitelná na každou vzdálenost a pod každým dómem.
+4. **Matný neznamená slepý vůči obloze.** `StoneEnvironment` 0,20 udělal z kamene jedinou kouli, která ignoruje dóm. Při téhle smoothness je odraz rozmazaný až na průměr oblohy, takže ten člen dodává **rozptýlené světlo z oblohy** — většinu toho, čím je skutečný kámen venku osvětlený. Na 0,55.
+
+**⚠ A pátý nález, který je RETRAKCÍ mého vlastního (commit `4e311aa`, merge `12296e0`).** K bodu 4 jsem zapsal do shaderu i do `docs/rendering.md` příčinu: „editorové ball renderery vezou mnohem silnější specular ambient než Testbedu, změřeno sedminásobkem modrého kanálu na žluté kouli". **Kód říká opak: `SpecularAmbientStrength` na kouli nenastavuje ani jeden ze tří programů, všechny sedí na výchozí 1.** A to „měření" bylo ze dvou snímků z **různých úhlů kamery ve dvou různě zarámovaných oknech**, což není měření ničeho. Lekce je stará a stála další kolo: **dva snímky z různých kamer nejsou A/B.**
+
+**Přeměřeno řízeně** (týž level soubor otevřený v obou programech, týž pohled `D1`, průměr přes 11×11 plošku):
+
+| koule | Testbed | editor |
+|---|---|---|
+| zelená (Type2) | 63 / 113 / 44 | 31 / 190 / 26 |
+| žlutá (Type7) | 199 / 169 / 66 | 224 / 204 / 70 |
+| kámen (neutrál) | 117 / 100 / 81 | 106 / 94 / 79 |
+
+**Kámen souhlasí** (do 10 %, uvnitř rozptylu mezi běhy) — `StoneEnvironment = 0,55` platí, špatné bylo jen jeho vysvětlení. Rozcházejí se **barvy**, Testbedovy jsou vybledlé a nadzvednuté, a to je **`SkyLightRig.StepOvercast`**: Testbed ho krokuje každý snímek podle mraků, **Game ho záměrně nekrokuje nikdy** (má to okomentované u vlastního rigu: zatažená paleta je psaná pro denní oblohu a soumračné město by *rozsvítila*) a editor nemá mraky. **Editor se tedy shoduje s Game a odchylka je Testbed** — obráceně, než jsem to napsal poprvé.
+
+**Založeno jako #334, a je to nález o nástroji, ne o kameni.** Testbed je program, ve kterém se v tomhle projektu rámuje **každé** barevné rozhodnutí (`campos`/`camtarget` jsou jeho), a jako jediný ze tří přidává zatažení — navíc proměnlivé běh od běhu s driftujícím mrakem. #246 (přerozestup modrých), #294 (olivová) i #315 (černá vs. hnědá) se měřily přes něj. Neplyne z toho, že jsou špatně; plyne, že žádné z nich nebylo čteno pod oblohou, se kterou se hra prodává. Návrh v issue: `noweather` po vzoru `nopost`, což je nejlevnější správná odpověď, a teprve pak přečíst ta tři rozhodnutí znovu. Neutrální povrch se skoro nehne (kámen do 10 %) — proto to nikdo nechytil dřív: kouše to na sytých barvách, tedy přesně na otázkách, kvůli kterým se ty snímky dělají.
+
+**Ověřeno:** LevelGen exit 0, ScoreSim exit 0, čtyři solutiony čisté, kampaň bajt za bajtem nedotčená, a **devět tvrzení o pravidlech proti reálné knihovně** (odhozený konzolový program ve scratchpadu, není v žádném solutionu): druhy z disku, skupina začatá na kameni je prázdná, **žádná skupina nikde neobsahuje kámen** (největší 72 = žlutá rovina minus blok, čili fill jde okolo, ne skrz), pole samých kamenů se počítá jako vyčištěné, round-trip oběma směry, jen kameny píšou `"k"`, a starý soubor (`Full.json`, 1000 koulí) nezapíše `"k"` vůbec.
+
+**Autorsky:** **K** cyklí druh v editoru (vlastní klávesa, ne další položky v barevném cyklu — jsou to ortogonální osy a mixující picker by tvrdil opak), `Testbed\Maps\Rocks.json` je testovací pole (196 koulí, 13 kamenů: blok uvnitř žluté roviny a čtyři rohy pod ní), zastagováno hned podle pravidla o netrackovaných datech.
+
+**Co zůstává:** #334 (rozhodnutí je majitelovo: má Testbed zatažení krokovat dál?). Devět zbylých speciálů — v doporučeném pořadí je další **#325 Transparent**, jediný šev 3 a bez nové odstraňovací cesty. A pro kohokoli, kdo na nich bude dělat: **#323 je předpoklad všech devíti a je splněný**, kontrakt i oba počty stojí na mainu.
+
+**Nic dalšího si neberu.**
