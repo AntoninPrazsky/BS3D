@@ -338,7 +338,12 @@ namespace BS3D.Tools.LevelGen
 
             while (outcome == null)
             {
-                if (map.GetBallsCount() == 0) { outcome = Outcome.Cleared; break; }
+                //⚠ REMOVABLE and not ALL, which is CheckLevelCleared's own test (#323). A rock is not a ball
+                //the level is waiting for: the game clears the moment nothing removable is left and cuts the
+                //stone loose afterwards, so a probe asking for an EMPTY field would play every rock level to
+                //the end of its budget and report OutOfShots on a level the player had finished. It did
+                //exactly that on the Mirage's Seam and Cairn before this line was written.
+                if (map.GetRemovableBallsCount() == 0) { outcome = Outcome.Cleared; break; }
                 if (shotsFired >= shots) { outcome = Outcome.OutOfShots; break; }
 
                 //⚠ WAKE THE CLUSTER FIRST, and this is the one divergence from the game that a probe HAS to
@@ -401,6 +406,8 @@ namespace BS3D.Tools.LevelGen
             float clearanceAtEnd = LowestBallY(balls) - ClusterHang.DEATH_Y;
 
             //A cleared field has no lowest ball, so its "clearance" would be a sentinel rather than a figure.
+            //Asked of ALL the balls here and not of the removable ones: this is a question about what is
+            //still hanging in the simulation, and stone left over a cleared field is hanging.
             if (map.GetBallsCount() == 0) clearanceAtEnd = float.NaN;
             if (worstClearance == float.MaxValue) worstClearance = float.NaN;
 
@@ -684,21 +691,75 @@ namespace BS3D.Tools.LevelGen
         /// <see cref="BallsMap.GetConnectedSameTypeCells"/>'s own neighbour walk, which is the rule this has
         /// to agree with exactly.
         /// </summary>
+        /// <remarks>
+        /// <b>The glass is coloured before the group is measured and put back afterwards (#325)</b>, because
+        /// that is what a landing does and therefore what a player is aiming at. Without it the probe cannot
+        /// see the shot the transparent ball exists to make worth taking — a shot that completes a group
+        /// THROUGH the glass — so on a Mirage glass level it would rank every such cell as "sticks but does
+        /// not match" and fire somewhere else. The undo puts the KIND back and does not bother with the
+        /// colour, which is exact rather than approximate: a transparent ball's stored type is read by
+        /// nothing at all — the flood fill skips it, the magazine census skips it, and the colouring
+        /// overwrites it — so the cell it comes back as is the cell it was in every respect anything asks
+        /// about. The scratch lists are static and reused for the reason the contact handler's is: this runs
+        /// a few hundred times per shot and a few million times per pack.
+        /// </remarks>
         private static bool WouldMatch(BallsMap map, XZLevel cell, BallType colour)
         {
             map.PutBallAt((byte)cell.X, (byte)cell.Z, (byte)cell.Level, colour);
+            map.ColourTransparentNeighbours(cell, colour, _wouldMatchColoured);
 
             int group = map.GetConnectedSameTypeCells(cell).Count;
+
+            foreach (XZLevel at in _wouldMatchColoured)
+                map.PutBallAt((byte)at.X, (byte)at.Z, (byte)at.Level, colour, BallKind.Transparent);
 
             map.RemoveBallAt((byte)cell.X, (byte)cell.Z, (byte)cell.Level);
 
             return group >= BallsConstraintsBuilder.MINIMUM_CLUSTER_SIZE;
         }
 
+        /// <inheritdoc cref="WouldMatch"/>
+        private static readonly List<XZLevel> _wouldMatchColoured = new();
+
+        /// <summary>
+        /// The landing's own colouring step, run over both sides at once — the map, which is the truth about
+        /// what a ball IS, and the physics array, which is its mirror (#323). Both have to move together or
+        /// the flood fill and the constraint walk disagree about the same cell for the rest of the level.
+        /// <para>
+        /// It is <see cref="BallContactEventHandler"/>'s loop with the two things the probe has no use for
+        /// left out: there is no renderer here, so nothing starts the colour fade, and there is no contact
+        /// stream, so nothing is unregistered.
+        /// </para>
+        /// </summary>
+        private static void ColourTransparentNeighbours(BallsMap map, PhysicsBall[,,] balls, XZLevel cell, BallType colour)
+        {
+            map.ColourTransparentNeighbours(cell, colour, _landingColoured);
+
+            foreach (XZLevel at in _landingColoured)
+            {
+                PhysicsBall glass = balls[at.X, at.Z, at.Level];
+                if (glass == null) continue;
+
+                glass.Type = colour;
+                glass.Kind = BallKind.Normal;
+            }
+        }
+
+        /// <inheritdoc cref="ColourTransparentNeighbours(BallsMap, PhysicsBall[,,], XZLevel, BallType)"/>
+        private static readonly List<XZLevel> _landingColoured = new();
+
         /// <summary>
         /// What the barrel is loaded with — <b>uniform over the colours still standing</b>, which is
         /// <c>GameplayScreen.RandomBallType</c>'s rule exactly, count-blind and all. The magazine's queue of
         /// five only delays that draw, so a probe that draws per shot loads the same distribution.
+        /// <para>
+        /// <b>Over the MATCHABLE balls only (#323/#325)</b>, which is <c>RecountBallTypes</c>'s own rule and
+        /// not a nicety. A rock carries a colour in the file that nothing reads — the granite shading
+        /// ignores it outright — so counting it would have loaded the barrel with slate on the Mirage's five
+        /// stone levels, a colour no matchable ball in any of them wears; roughly one shot in five would
+        /// have been unmatchable by construction and every one of them would have added a ball to the
+        /// underside. Glass is skipped for the plainer reason that it has no colour to contribute.
+        /// </para>
         /// </summary>
         private static BallType? LoadedColour(BallsMap map, Random random)
         {
@@ -708,8 +769,12 @@ namespace BS3D.Tools.LevelGen
             for (byte level = 0; level < map.Levels; level++)
                 for (byte x = 0; x < map.StageSizeX; x++)
                     for (byte z = 0; z < map.StageSizeZ; z++)
-                        if (array[x, z, level] != null && !live.Contains(array[x, z, level].Type))
-                            live.Add(array[x, z, level].Type);
+                    {
+                        StaticBall ball = array[x, z, level];
+
+                        if (ball != null && BallKinds.Matchable(ball.Kind) && !live.Contains(ball.Type))
+                            live.Add(ball.Type);
+                    }
 
             return live.Count == 0 ? null : live[random.Next(live.Count)];
         }
@@ -806,6 +871,17 @@ namespace BS3D.Tools.LevelGen
             balls[cell.X, cell.Z, cell.Level] = landed;
 
             BallsConstraintsBuilder.AttachBallToStructure(landed, balls, map, world.Simulation, ceiling);
+
+            //The glass takes the colour that just arrived (#325) - after the attach and BEFORE the group is
+            //counted, which is BallContactEventHandler's own order and the whole of where this may go. It is
+            //here because the probe does not run the contact handler: it lands a ball straight into the
+            //lattice, so every step of a landing that lives in the handler has to be repeated here or the
+            //probe plays a different game from the one it is measuring. It played exactly that different
+            //game once, and the record is worth keeping: the Mirage's five glass levels were probed with no
+            //colouring at all, so their transparent balls could only ever leave the cluster by being
+            //ORPHANED - which made two of the five look like layout faults and the opener look like a level
+            //that clears in ten shots.
+            ColourTransparentNeighbours(map, balls, cell, loaded.Value);
 
             //And the game rule: three or more of a colour touching each other let go, and so does anything
             //that was only held up by them. A shot that completes nothing simply stays, which is the whole
