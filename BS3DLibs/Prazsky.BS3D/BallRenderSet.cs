@@ -335,11 +335,14 @@ namespace Prazsky.BS3D
         private const float BUBBLE_FAR_WALL = -1f;
 
         /// <summary>
-        /// How many vein bands run over a marble ball before the turbulence bends them (#305). Five is close
-        /// to the beach ball's five gores on purpose: it is the spacing at which a figure on a sphere this
-        /// size reads as a figure and not as a stripe, and the vinyl's had already been settled at it.
+        /// How many vein bands run over a marble ball before the turbulence bends them (#305). Close to the
+        /// beach ball's five gores on purpose: it is the spacing at which a figure on a sphere this size reads
+        /// as a figure and not as a stripe, and the vinyl's had already been settled at it. Raised from 3.5 by
+        /// #335 — at that figure a ball showed two or three veins on the hemisphere facing the camera, which
+        /// is a stone with a couple of hairlines rather than a figured one. The shader lays a finer web across
+        /// these at 2.7× on its own axis; this stays the count of the <b>bold</b> seams.
         /// </summary>
-        private const float MARBLE_VEIN_FREQUENCY = 3.5f;
+        private const float MARBLE_VEIN_FREQUENCY = 4.2f;
 
         /// <summary>
         /// How far the turbulence bends those bands. Rather more than the frequency, deliberately — under
@@ -357,6 +360,15 @@ namespace Prazsky.BS3D
         /// 0.55 leaves a vein plainly lighter than its body at every tint while keeping the hue in it. Well
         /// over that the pale types run together; well under, the stone reads as unfigured and the style loses
         /// its rotation cue, which lives entirely in the veins.
+        /// </para>
+        /// <para>
+        /// <b>#335 left it exactly where it was, and that is the point of the fix.</b> The owner read these
+        /// balls as a flat tint, and the lever this constant offers is the one that cannot be pulled: carrying
+        /// a vein further towards the mineral <i>lightens the whole ball</i>, which is what runs the pale types
+        /// together. So the figure got louder somewhere else — more veins, at a second finer scale, and a
+        /// <b>darker stained margin beside each pale core</b>, which takes back the value the core adds. The
+        /// local step across a vein roughly doubled while the ball's mean barely moved: measured across the
+        /// thirteen, the tightest pair went 7.2 → 6.7 dE against the moulded vinyl's own 6.4.
         /// </para>
         /// </summary>
         private const float MARBLE_VEIN_CONTRAST = 0.6f;

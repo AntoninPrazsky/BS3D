@@ -3465,3 +3465,24 @@ Ověřeno: čtyři solutiony čisté, LevelGen exit 0, ScoreSim exit 0, kampaň 
 **Změřeno:** nejtěsnější pár kovu se **rozvolnil** z 15,6 na 12,6 dE (černá/stříbrná) — kov má i tak nejvolnější paletu ze všech stylů, protože tint *je* odrazivost. Cena **7,26/7,28 → 7,39/7,42 ms** při ssaa 4 na stejném pinu jako led, tedy asi +2 % (dva `pow` na slunce, `smoothstep` na horizont a dvě oktávy navíc).
 
 **Ověřeno:** čtyři solutiony čisté, LevelGen 0, ScoreSim 0, kampaň nedotčená. Nafoceno na dómu 1 i 13 — a **na tmavém dómu 13 je ten zisk největší**, protože tam se sytý eloxovaný odstín s ostrým horizontem a jasným slunečním pruhem konečně čte jako kov a ne jako pastelová koule. Poučení, které přežije tenhle styl: **„to je limit, ne bug" je závěr, který si zaslouží druhý pohled** — tenhle stál v dokumentaci sebejistě napsaný a byl to celou dobu bug.
+
+---
+
+## 2026-09-02 — Claude Code (sedmý zápis dne)
+
+**Mramor (#335) — a celý tvar té opravy je v tom, že konstanta, která tu figuru řídí, zůstala nedotčená.** Majitel četl ty koule jako plochou barvu. Jedna zvlněná sinusovka položí jednu čáru přes každý svůj průchod nulou, a při frekvenci 3,5 byly na přivrácené polokouli dvě tři — což je kámen s pár vlásečnicemi, ne žilkovaný mramor.
+
+**Nabízející se páka je ta špatná, a poznámka u `MARBLE_VEIN_CONTRAST` sama říká proč:** nad 0,6 se bledé typy slijí, protože dotáhnout žílu blíž k minerálu **zesvětluje celou kouli**, a čtyři ze třinácti jsou bledé už teď. Figura tedy musela zesílit, aniž by koule zesvětlela — a to jde dvěma způsoby, oba použité:
+
+1. **Víc žil.** Hlavní švy na 4,2 a přes ně **jemnější síť** na 2,7× po vlastní ose a s vlastním band limitem. To je, co skutečně žilkovaný kámen má: pár výrazných švů a mezi nimi pavučina, ne sada rovnoběžných pásů.
+2. **Tmavý lem vedle každého světlého jádra.** Skutečné žilkování není světlá čára na kameni — je to světlá čára s **tmavším lemem**, kde minerál kámen po stranách zabarvil, a právě ta dvojice je většina toho, proč je šev vidět přes celý pokoj. A je to zároveň to, co chrání paletu: **lem si vezme zpátky hodnotu, kterou jádro přidá**, takže lokální skok přes žílu se zhruba zdvojnásobil, zatímco průměr koule se skoro nehnul.
+
+**Změřeno:** nejtěsnější pár přes všech třináct **7,2 → 6,7 dE**, pořád nad vlastním nejhorším párem moulded vinylu (6,4), a `MARBLE_VEIN_CONTRAST` je pořád 0,6. Cena **7,42/7,49 → 7,50/7,54 ms** při ssaa 4 — jeden sinus a dva `pow` navíc, uvnitř rozptylu mezi běhy.
+
+**Ten pár se přestal plést, což bylo v obou issues explicitní požadavek.** Kov nese od #336 tvrdý horizont a šmouhu slunce, mramor větvenou síť žil pod bodovým leskem — nejsou to už dvě měkce nasvícené koule bez figury. Zajímavé je, že se to spravilo z obou stran naráz a ani jedna oprava nebyla o té druhé: kov potřeboval **co odrážet**, mramor **víc figury za stejný jas**.
+
+**Obecná věc, kterou si z těch dvou odnáším:** obě issue nabízely v textu „zjevnou\" páku (kontrast u mramoru, odrazivost u kovu) a **u obou byla ta páka ta špatná**. U mramoru proto, že tlačí na průměr místo na lokální skok; u kovu proto, že násobí prostředí, ve kterém není co zesílit. Když issue sama píše „pozor, tahle konstanta byla naladěna schválně", je to skoro spolehlivá známka, že řešení leží jinde než u ní.
+
+**Ověřeno:** čtyři solutiony čisté, LevelGen 0, ScoreSim 0, kampaň nedotčená. Nafoceno na dómu 1 i 13 přes všech třináct tintů a na herní odstup na clusteru.
+
+**Tím je vyřízeno pět ze šesti issues z majitelova playtestu vzhledu koulí** (#337, #338, #339, #336, #335). **Zbývá #340 kámen**, a ten nese navíc rozhodnutí, na které je potřeba se zeptat: majitel v něm píše, že kámen smí být viditelně méně kulatý, což je přímo proti dosud psanému pravidlu „silueta zůstává dokonalý kruh" (fx:3137-3142, a #271 to u gemu rozhodl opačně).

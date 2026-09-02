@@ -1671,10 +1671,45 @@ static const float3 MarbleVeinAxis = float3(0.42, 0.78, -0.46);
 //lines through broad fields of stone rather than as broad stripes with narrow gaps.
 static const float MarbleVeinSharpness = 2.0;
 
+//===================================================================================================
+//WHY THE VEINING WAS INVISIBLE, AND WHY THE ANSWER IS NOT MORE CONTRAST (#335). The owner read these
+//balls as a flat tint. One warped sine puts ONE line through each of its zero crossings, and at this
+//frequency a ball shows two or three of them on the hemisphere facing the camera - which is a stone
+//with a couple of hairlines on it, not a figured marble.
+//
+//The obvious lever is the wrong one, and MARBLE_VEIN_CONTRAST's own note says why: over 0.6 the pale
+//types run together, because carrying the vein further towards the mineral LIGHTENS THE WHOLE BALL and
+//four of the thirteen are already pale. So the figure has to get louder without the ball getting
+//lighter, and there are two ways to do that, both used here.
+//
+//MORE VEINS, at a second and finer scale on its own axis, which is what a real figured stone has: a few
+//bold seams with a finer web between them, not a set of parallel bands.
+//
+//AND A DARK MARGIN BESIDE EACH PALE CORE. Real veining is not a light line on stone - it is a light
+//line with a darker selvage where the mineral has stained the rock either side of it, and that pairing
+//is most of what makes a seam read from across a room. It is also exactly what protects the palette:
+//the margin takes back the value the core adds, so the ball's MEAN barely moves while the local step
+//across a vein roughly doubles. Contrast where the eye reads it, not in the average.
+//===================================================================================================
+
+//How much wider the stained margin is than the pale core (as a divisor on the sharpness, so 1 is no
+//margin at all), and how far it darkens the stone.
+static const float MarbleVeinMargin = 2.4;
+static const float MarbleVeinShade = 0.42;
+
+//The finer web: its axis, how much faster it runs than the main seams, how much more it is warped, how
+//much thinner its lines are, and how much of the figure it carries. Weaker than the main veins on
+//purpose - it is the web BETWEEN them and not a second set of seams competing with the first.
+static const float3 MarbleVeinAxisFine = float3(-0.58, 0.51, 0.63);
+static const float MarbleFineRatio = 2.7;
+static const float MarbleFineWarp = 1.6;
+static const float MarbleFineSharpness = 1.7;
+static const float MarbleFineWeight = 0.58;
+
 //How much the same turbulence darkens the body between the veins. Small on purpose - it is there so the
 //stone is not a flat wash of one colour, and anything more starts competing with the veins themselves.
 //Free: it reuses the turbulence the warp already evaluated.
-static const float MarbleMottle = 0.30;
+static const float MarbleMottle = 0.38;
 
 //What the broad direct highlight is cut to, and how much more of the sky the surface mirrors than a
 //renderer's own dial says. Both halves of "polished": the vinyl's wide soft sheen goes away, and what
@@ -1722,8 +1757,24 @@ float4 MarblePS(PatternVertexShaderOutput input) : COLOR
     //uses: once a pixel spans half a wavelength the veins cannot be resolved and are faded out rather
     //than left to crawl, which on a cluster of thousands of small balls is the difference between stone
     //and a boiling speckle.
-    float vein = pow(saturate(1 - abs(band)), MarbleVeinSharpness)
-        * saturate(1 - footprint * MarbleVeinFrequency / 3.14159265);
+    float bandLimit = saturate(1 - footprint * MarbleVeinFrequency / 3.14159265);
+    float core = pow(saturate(1 - abs(band)), MarbleVeinSharpness) * bandLimit;
+
+    //The stained margin either side of it: the same profile at a lower exponent - so a wider band - with
+    //the core taken back out, which leaves the selvage and nothing else. See the header above for why
+    //this and not more contrast.
+    float margin = saturate(pow(saturate(1 - abs(band)), MarbleVeinSharpness / MarbleVeinMargin) * bandLimit - core);
+
+    //And the finer web, on its own axis and more heavily warped, so it crosses the main seams instead of
+    //running with them. Its own frequency in its own band limit, which is the per-octave rule this file
+    //keeps everywhere: it drops out first and takes nothing else down with it.
+    float fineFrequency = MarbleVeinFrequency * MarbleFineRatio;
+    float fineBand = sin(dot(direction, MarbleVeinAxisFine) * fineFrequency + turbulence * MarbleVeinWarp * MarbleFineWarp);
+
+    float fine = pow(saturate(1 - abs(fineBand)), MarbleFineSharpness)
+        * saturate(1 - footprint * fineFrequency / 3.14159265);
+
+    float vein = saturate(core + fine * MarbleFineWeight);
 
     //Linearized before the blends, like the gores': these crossfades average light across a pixel.
     float3 primary = SrgbToLinear(PatternPrimaryColor);
@@ -1732,7 +1783,7 @@ float4 MarblePS(PatternVertexShaderOutput input) : COLOR
     //keep their figure. Rec. 709 luminance, the same weights the film's transmission is measured with.
     float mineral = max(dot(primary, float3(0.2126, 0.7152, 0.0722)) * MarbleVeinPale, MarbleVeinFloor);
 
-    float3 body = primary * (1 - MarbleMottle * turbulence);
+    float3 body = primary * (1 - MarbleMottle * turbulence) * (1 - MarbleVeinShade * margin);
     float3 color = lerp(body, lerp(primary, mineral, MarbleVeinContrast), vein);
 
     //Polished: the broad lobe cut back, the environment raised, and smoothness left at 1 so Fresnel still

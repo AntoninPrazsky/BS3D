@@ -37,6 +37,14 @@ namespace Prazsky.BS3D.GameStructure
         /// The heavy one. Where the vinyl is an air-filled skin and the bubble a film around nothing, this has
         /// mass — which is what it is for, and why it suits the blocks whose backdrops are stone.
         /// </para>
+        /// <para>
+        /// <b>The veining is a light core with a dark stained margin, and #335 is why.</b> It read as a flat
+        /// tint because a single warped band puts two or three hairlines on the visible face. What could not
+        /// be done was to carry the vein further towards the mineral — that lightens the whole ball and runs
+        /// the pale types together. So there is a finer web across the bold seams, and every pale core has a
+        /// darker selvage which takes back the value it adds: the step across a vein roughly doubled while the
+        /// ball's mean barely moved.
+        /// </para>
         /// </summary>
         Marble = 2,
 
