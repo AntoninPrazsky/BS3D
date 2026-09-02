@@ -404,18 +404,26 @@ namespace Prazsky.BS3D
         private const float WOOL_EMISSION = 0.24f;
 
         /// <summary>
-        /// Wave count of the brush grain over a metal ball (#306). Far finer than the wool's winding, because a
-        /// brushed finish is many lines and not a few: what has to survive at the stand-off a level is played
-        /// from is not an individual line — it is the <i>direction</i> the highlight streaks along, and that
-        /// reads even once the lines themselves are below a pixel and the band-limit has faded them.
+        /// Base wave count of the brush grain over a metal ball (#306) — the coarsest of the four octaves the
+        /// shader lays along one direction. Far finer than the wool's winding, because a brushed finish is many
+        /// lines and not a few: what has to survive at the stand-off a level is played from is not an
+        /// individual line — it is the <i>direction</i> the highlight streaks along, and that reads even once
+        /// the lines themselves are below a pixel and the per-octave band-limit has faded them.
+        /// <para>
+        /// Raised from 26 by #336, but the number was never the fault. It was <b>two waves along directions a
+        /// few degrees apart</b>: near-parallel waves of different frequency <i>beat</i>, and a beat is a row
+        /// of blobs — which is exactly the "small bumps" the owner reported. The octaves are collinear now, so
+        /// they sum into a one-dimensional profile, which is what a set of parallel grooves is.
+        /// </para>
         /// </summary>
-        private const float METAL_BRUSH_FREQUENCY = 26f;
+        private const float METAL_BRUSH_FREQUENCY = 34f;
 
         /// <summary>
-        /// Peak height of a brush ridge in world units — a third of the wool strand's, against a ball radius of
-        /// 0.5. A polish direction, not a corrugation.
+        /// Peak height of a brush ridge in world units — a fifth of the wool strand's, against a ball radius of
+        /// 0.5. A polish direction, not a corrugation. Cut with #336's frequency rise so the slope, which is
+        /// what the eye actually reads, stayed where it was.
         /// </summary>
-        private const float METAL_BRUSH_DEPTH = 0.010f;
+        private const float METAL_BRUSH_DEPTH = 0.007f;
 
         /// <summary>
         /// How much of the environment a metal ball mirrors. Over 1 deliberately, and it is the figure this

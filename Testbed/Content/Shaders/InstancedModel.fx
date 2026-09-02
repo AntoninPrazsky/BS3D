@@ -2045,10 +2045,72 @@ float MetalBrushDepth;
 //the ball if it is set too low.
 float MetalReflectance;
 
-//The brush direction, and the second octave riding along nearly the same one. Both are wave directions,
-//so the RIDGES run across them - fine parallel lines, which is what brushing leaves.
+//The brush direction. The wave runs along it, so the RIDGES run ACROSS it - fine parallel lines, which is
+//what brushing leaves - and every octave of the grain shares it (see MetalPS).
 static const float3 MetalBrushA = float3(0.31, 0.88, 0.36);
-static const float3 MetalBrushB = float3(0.27, 0.91, 0.31);
+
+//And a direction PERPENDICULAR to it, which is a correction and not a tuning (#336). This used to be
+//(0.27, 0.91, 0.31) - a few degrees off MetalBrushA - carrying a second octave at 1.73x the frequency.
+//TWO NEAR-PARALLEL WAVES OF DIFFERENT FREQUENCY BEAT, and a beat is a row of blobs: that is exactly the
+//"small bumps on the ball" the owner reported, and no change of frequency could have fixed it, because
+//the fault was the interference and not the scale. Perpendicular, this wave does the one job a second
+//direction is good for here - varying how deep the scratches bite ALONG their length.
+static const float3 MetalBrushB = float3(0.943, -0.332, 0.0);
+
+//How far the scratch depth swings along a scratch's length, and how quickly. Low frequency on purpose:
+//what this expresses is that a brush is not a comb - it bites hard in places and skips in others, so a
+//line fades in, runs and dies instead of circling the ball at one depth.
+static const float MetalScratchVariation = 0.55;
+static const float MetalScratchLengthFrequency = 5.0;
+
+//===================================================================================================
+//THE ENVIRONMENT A METAL NEEDS, AND WHY SkyRadiance IS NOT IT (#336). That function is a LINEAR RAMP
+//from the ground colour to the sky colour across the whole 180 degrees. That is exactly right for an
+//AMBIENT term - it is what a diffuse surface integrates - and it is the reason this style read as a
+//flat, softly lit sphere with no gloss in it: a smooth sphere reflecting a smooth gradient has nothing
+//anywhere on it that is sharp.
+//
+//A polished surface does not INTEGRATE its environment, it SHOWS it, and an outdoor scene has exactly
+//two hard things in it: the HORIZON, which is an edge and not a ramp, and the SUN, which is a small
+//object thousands of times brighter than the sky around it. Neither exists in a gradient, so no amount
+//of reflectance was ever going to make one appear - which is why "make it glossier" is answered here
+//rather than at MetalReflectance.
+//
+//It is local to this style DELIBERATELY. SkyRadiance is the ambient every other surface in the game
+//integrates, and sharpening it there would draw a horizon line across the ground, the island, the
+//cannon and all nine other ball styles.
+//===================================================================================================
+
+//How sharp the horizon is in the reflection, in the direction's own y. Not zero: a real horizon at this
+//distance is a couple of degrees of haze, and a step function on a curved mirror aliases - and dead
+//sharp it stops reading as a reflection and starts reading as a two-tone paint job.
+static const float MetalHorizonEdge = 0.075;
+
+//And how far the ground half is taken down. GroundColor is an AMBIENT BOUNCE colour - what the ground
+//sends back up into a diffuse integral - which is a good deal brighter than the ground's own face, so
+//used raw as a reflection it put the LOWER half of every ball brighter than the sky above it. That is
+//upside down: outdoors the sky is the light source and the ground is what it falls on, and a mirror ball
+//with a bright bottom and a dark top reads as anything but metal.
+static const float MetalGroundDarkening = 0.5;
+
+//The sun in the reflection: a tight core inside a broader lobe, which is what a reflected sun looks like
+//on a surface that is polished but not a mirror - and is where most of this style's gloss now comes from.
+//The gain is against the key light's own specular colour, so a dusk dome reflects a dusk sun.
+static const float MetalSunSharpness = 900.0;
+static const float MetalSunHaloSharpness = 45.0;
+static const float MetalSunHaloWeight = 0.12;
+static const float MetalSunGain = 9.0;
+
+float3 MetalSky(float3 direction)
+{
+    float3 sky = lerp(GroundColor * MetalGroundDarkening, SkyColor,
+        smoothstep(-MetalHorizonEdge, MetalHorizonEdge, direction.y));
+
+    float towards = saturate(dot(direction, SunDirection));
+    float disc = pow(towards, MetalSunSharpness) + MetalSunHaloWeight * pow(towards, MetalSunHaloSharpness);
+
+    return sky + DirLight0SpecularColor * disc * MetalSunGain;
+}
 
 //How bright the direct lights' highlight is on the metal, tinted by the alloy like everything else it
 //reflects. Under 1 because the environment is the main event here and a metal that answers the three-light
@@ -2076,10 +2138,24 @@ float4 MetalPS(PatternVertexShaderOutput input) : COLOR
 
     float footprint = (length(ddx(input.WorldPosition)) + length(ddy(input.WorldPosition))) / radius;
 
-    //Contract point 6: the brush, in object space, so it turns with the ball. Two waves along nearly the
-    //same direction leave fine parallel ridges running across it.
-    float grain = 0.65 * ReliefOctave(direction, MetalBrushA, MetalBrushFrequency, footprint)
-        + 0.35 * ReliefOctave(direction, MetalBrushB, MetalBrushFrequency * 1.73, footprint);
+    //Contract point 6: the brush, in object space, so it turns with the ball.
+    //
+    //FOUR OCTAVES ALONG ONE DIRECTION, which is what makes them LINES. Collinear sines sum into a
+    //one-dimensional profile, and a one-dimensional profile on a surface is a set of parallel grooves of
+    //unequal depth and spacing - a wire brush's own signature. Put the octaves on DIFFERENT directions,
+    //as this did, and they interfere into blobs instead (see MetalBrushB). The ratios are irrational-ish
+    //so the profile never repeats, and each octave band-limits itself, so the finest simply drop out as
+    //the ball recedes and the coarse streak direction is what survives - which was always the intent.
+    float f = MetalBrushFrequency;
+
+    float grain = 0.36 * ReliefOctave(direction, MetalBrushA, f, footprint)
+        + 0.28 * ReliefOctave(direction, MetalBrushA, f * 1.61, footprint)
+        + 0.21 * ReliefOctave(direction, MetalBrushA, f * 2.63, footprint)
+        + 0.15 * ReliefOctave(direction, MetalBrushA, f * 4.27, footprint);
+
+    //How hard the brush bit, varying ACROSS the scratches so it varies along their length.
+    grain *= lerp(1 - MetalScratchVariation, 1,
+        0.5 + 0.5 * ReliefOctave(direction, MetalBrushB, MetalScratchLengthFrequency, footprint));
 
     float3 worldNormal = PerturbNormalFromHeight(normalize(input.WorldNormal), input.WorldPosition, grain * MetalBrushDepth);
     float3 eyeVector = normalize(EyePosition - input.WorldPosition);
@@ -2111,7 +2187,7 @@ float4 MetalPS(PatternVertexShaderOutput input) : COLOR
     //The environment, along the mirror direction. Tinted by LUMINANCE at the body and left honest at the
     //rim, blended on Schlick's own curve - see the header for why that is not a compromise but the whole
     //design.
-    float3 environment = SkyRadiance(reflect(-eyeVector, worldNormal));
+    float3 environment = MetalSky(reflect(-eyeVector, worldNormal));
     float grazing = pow(1 - saturate(dot(worldNormal, eyeVector)), MetalGrazingPower);
 
     float3 reflection = lerp(f0 * dot(environment, float3(0.2126, 0.7152, 0.0722)), environment, grazing);
