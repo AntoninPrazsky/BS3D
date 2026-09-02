@@ -2962,7 +2962,39 @@ static const float LavaSeamWanderFrequency = 2.1;
 //How dark the crust is, and how much of the ball's own tint it keeps. Basalt is nearly black; the tint
 //that survives is what stops thirteen crusts being literally the same object.
 static const float LavaCrustDark = 0.16;
-static const float LavaCrustTint = 0.45;
+static const float LavaCrustTint = 0.62;
+
+//THE HEAT ROUND A SEAM, and #338's answer to "the black crust takes up too much of the ball". The
+//owner's complaint is about AREA - the type colour was confined to the seams, which are a fifteenth of
+//the surface, so twelve of every thirteen pixels on the ball were black whatever colour it was.
+//
+//The obvious fixes are both wrong, and stating why is most of this decision. LIGHTENING THE CRUST throws
+//away the argument the style is built on: an emissive seam is the one colour in this game that arrives
+//undiluted - not filtered by ambient, a backdrop, a reflection or a transmission - and a crust carrying
+//real tint is a diffuse surface again, which is thirteen dark grey balls under a dusk dome. Simply
+//WIDENING THE SEAM until it covers the ball turns a cracked shell into a coloured ball with black spots,
+//and the cracked shell is the read.
+//
+//So the colour comes from heat instead, which costs the style nothing it was built for: crust within a
+//plate-width of a crack is THIN AND HOT and glows dully, and that glow is emission like the seam's. It
+//grades out from the seam rather than flooding, so the plates stay plates and the ball gains a coloured
+//half without a single diffuse pixel changing hue. The halo is never carried towards LavaIncandescent -
+//only the seam's own core is white-hot, and cooler rock keeps its hue, which is also what stops the
+//halo from undoing #315's separation.
+//
+//The width is a MULTIPLE of the seam's, capped by what SeamLine can express: it tests |sin| against the
+//width, so a width at or over one never resolves to zero anywhere and the whole ball would glow. At the
+//shipped figures this lands at 0.68.
+//
+//THE FALLOFF IS THE PART THAT WAS NOT OPTIONAL, and the first pass proved it by leaving it out. Written
+//as (wide field MINUS seam) the halo is a PLATEAU - uniformly lit right out to its edge - and the ball
+//came back a fat-banded NEON CAGE with the plates reduced to black islands between the bars. That is the
+//PLASMA, which this style's own header says at length to keep it away from. A power over the wide field
+//makes it a gradient instead: bright against the gap, dark a plate-width away, which is what a
+//temperature falling off through rock looks like and what leaves the plates reading as plates.
+static const float LavaHeatWidth = 1.9;
+static const float LavaHeatGlow = 0.34;
+static const float LavaHeatFalloff = 2.6;
 
 //The crust's own roughness, on the same octave sum the vinyl skin uses for its moulding. This is one of
 //the few styles that WANTS that relief kept rather than removed: plates have to read as broken stone.
@@ -3012,6 +3044,20 @@ float4 LavaPS(PatternVertexShaderOutput input) : COLOR
         SeamLine(seamPosition, LavaSeamA, LavaSeamFrequency, LavaSeamWidth, footprint)
         + SeamLine(seamPosition, LavaSeamB, LavaSeamFrequency * LavaSeamRatio.x, LavaSeamWidth, footprint)
         + SeamLine(seamPosition, LavaSeamC, LavaSeamFrequency * LavaSeamRatio.y, LavaSeamWidth, footprint));
+
+    //The same three lines read again at a wider width: the hot crust either side of a gap (#338). Taken as
+    //a MAX and not a sum, which is the whole difference between a halo and a wash - three wide fields
+    //added together saturate over most of the ball and the plates stop being plates, where the nearest of
+    //them is a distance to the nearest crack, which is what heat actually follows. Shaped by a power into
+    //a gradient rather than a plateau (see LavaHeatFalloff) and cut off inside the seam, so the two never
+    //pay twice for the same pixel.
+    float heatWidth = LavaSeamWidth * LavaHeatWidth;
+
+    float hot = max(SeamLine(seamPosition, LavaSeamA, LavaSeamFrequency, heatWidth, footprint),
+        max(SeamLine(seamPosition, LavaSeamB, LavaSeamFrequency * LavaSeamRatio.x, heatWidth, footprint),
+            SeamLine(seamPosition, LavaSeamC, LavaSeamFrequency * LavaSeamRatio.y, heatWidth, footprint)));
+
+    float halo = pow(hot, LavaHeatFalloff) * (1 - seam);
 
     //The crust's own broken-stone grain, plus the seams cut into it. Kept rather than removed - see the
     //header; this is the one new style that wants the vinyl's moulding machinery.
@@ -3068,7 +3114,14 @@ float4 LavaPS(PatternVertexShaderOutput input) : COLOR
     //the seams ARE the breath here, and there is no resting half to split it from.
     float occlusion = SurfaceOcclusion(input.WorldPosition, worldNormal, input.OcclusionData);
 
-    shaded.rgb += molten * seam * LavaGlow * emission * lerp(1 - PulseDepth, 1, beat) * occlusion;
+    float breath = lerp(1 - PulseDepth, 1, beat);
+
+    shaded.rgb += molten * seam * LavaGlow * emission * breath * occlusion;
+
+    //And the hot crust round the gap (#338): the same glow at a fraction of the strength over several
+    //times the area, in the ball's own hue and never carried to white - see LavaHeatWidth's note. It
+    //breathes with the seam it belongs to, because it is the same heat seen through more rock.
+    shaded.rgb += hue * halo * LavaGlow * LavaHeatGlow * emission * breath * occlusion;
 
     //Contract point 3, both meanings, PatternPS's arithmetic.
     [branch]

@@ -550,16 +550,19 @@ namespace Prazsky.BS3D
         private const float PLASMA_EMISSION = 0f;
 
         /// <summary>
-        /// How many plate seams run over a lava ball (#310). Low, and lower than the ice's cracks: a cooling
-        /// crust breaks into a handful of big plates, and a dense net reads as gravel rather than a shell.
+        /// How many plate seams run over a lava ball (#310). Low: a cooling crust breaks into a handful of big
+        /// plates, and a dense net reads as gravel rather than a shell. Raised from 3.0 by #338 — more seams is
+        /// more glowing length, which is the cheapest of the three places that issue's missing colour came from.
         /// </summary>
-        private const float LAVA_SEAM_FREQUENCY = 3.0f;
+        private const float LAVA_SEAM_FREQUENCY = 3.3f;
 
         /// <summary>
-        /// How wide a seam is — twice the ice's crack and for a reason that is the whole difference between the
-        /// two: a crack is a plane seen edge-on, and this is a <b>gap</b> with molten rock at the bottom of it.
+        /// How wide a seam is — several times the ice's crack, and for a reason that is the whole difference
+        /// between the two: a crack is a plane seen edge-on, and this is a <b>gap</b> with molten rock at the
+        /// bottom of it. The seam is the hot core; the crust for about a plate-width either side of it glows
+        /// too (<c>LavaHeatWidth</c> in the shader), which is where most of #338's colour actually came from.
         /// </summary>
-        private const float LAVA_SEAM_WIDTH = 0.35f;
+        private const float LAVA_SEAM_WIDTH = 0.36f;
 
         /// <summary>
         /// How brightly the molten interior glows through. The whole of this style's colour: over a near-black
