@@ -12190,8 +12190,16 @@ namespace BS3D.Tools.LevelGen
         /// <para>
         /// <b>Three cells thick and not one</b>, which is the diagonal-plane rule in the region header
         /// above: a cross-level step changes <c>dx + dz</c> by −1, 0 or +1, so a diagonal wall one cell wide
-        /// is a wall with a door on every course. The seam reaches the anchor course, so both halves hang on
-        /// their own and neither depends on the other for the ceiling.
+        /// is a wall with a door on every course.
+        /// </para>
+        /// <para>
+        /// <b>⚠ The seam runs to one course short of the glass, not to the anchor course</b> (#343). It used
+        /// to reach the top, and the paragraph here used to argue for that: both halves then hung on their
+        /// own and neither depended on the other for the ceiling. The cost of it was 26 rocks the player
+        /// could never bring down. The wall's cells on the anchor course are still there — they carry their
+        /// side's colour now — so the top course is one span the colour crosses, exactly as
+        /// <see cref="Keystone"/>'s bays meet over its piers, and what the wall does to the flood fill on
+        /// every course below is unchanged.
         /// </para>
         /// </summary>
         private static Design Seam() => new()
@@ -12208,7 +12216,10 @@ namespace BS3D.Tools.LevelGen
             CeilingStep = 9,
             OccupiedBlock = (x, z, i, depth) => MirageRadius(x, z, i, SEAM_GRID) <= SeamRadius(i),
             BlockColour = SeamColour,
-            BlockKind = (x, z, i, depth) => SeamStone(x, z, i) ? BallKind.Rock : BallKind.Normal,
+            //One course short of the glass (#343), which is Keystone's rule arriving here — see ObsidianKind
+            //for the whole argument. The seam's cells on the anchor course are still there and still drawn;
+            //they simply carry their side's colour instead of granite.
+            BlockKind = (x, z, i, depth) => i < depth - 1 && SeamStone(x, z, i) ? BallKind.Rock : BallKind.Normal,
         };
 
         /// <summary>
@@ -12247,13 +12258,23 @@ namespace BS3D.Tools.LevelGen
         };
 
         /// <summary>
-        /// <b>Four chambers, and no way through.</b> A round body quartered top to bottom by two crossed
-        /// walls of stone, each quarter carrying the same four colours in a different order.
+        /// <b>Four chambers under one roof.</b> A round body quartered by two crossed walls of stone that
+        /// run from the bottom to one course short of the glass, each quarter carrying the same four colours
+        /// in a different order.
         /// <para>
         /// This is <see cref="Seam"/>'s lesson taken as far as it goes: one colour standing in all four
-        /// quarters is four separate groups, and the level is four small levels played inside one
-        /// silhouette. What it asks of the player is bookkeeping of a kind nothing before it has asked for —
-        /// which quarter still has red in it, and how much — rather than the reading of a single shape.
+        /// quarters is four separate groups on every course but the topmost, and the level is four small
+        /// levels played inside one silhouette. What it asks of the player is bookkeeping of a kind nothing
+        /// before it has asked for — which quarter still has red in it, and how much — rather than the
+        /// reading of a single shape.
+        /// </para>
+        /// <para>
+        /// <b>⚠ "Quartered top to bottom" is what this used to say, and #343 is why it no longer is.</b> The
+        /// walls reached the anchor course, which cost 44 rocks the player could never bring down — the most
+        /// of any level in the campaign. They stop one course short now, so the anchor course is a single
+        /// roof the four chambers meet under, which is <see cref="Keystone"/>'s span arriving in a design
+        /// that did not ask for it. It is a real change to the level and not only to its rocks: the roof is
+        /// the one place a colour can be worked across two quarters at once.
         /// </para>
         /// <para>
         /// <b>The walls are one cell thick and they still hold</b>, for <see cref="Keystone"/>'s reason:
@@ -12278,22 +12299,23 @@ namespace BS3D.Tools.LevelGen
             CeilingStep = 12,
             OccupiedBlock = (x, z, i, depth) => MirageRadius(x, z, i, CAIRN_GRID) <= CairnRadius(i),
             BlockColour = CairnColour,
-            BlockKind = (x, z, i, depth) => CairnWall(x, z, i) ? BallKind.Rock : BallKind.Normal,
+            //One course short of the glass (#343) — see Seam's own line and ObsidianKind for the argument.
+            BlockKind = (x, z, i, depth) => i < depth - 1 && CairnWall(x, z, i) ? BallKind.Rock : BallKind.Normal,
         };
 
         /// <summary>
         /// <b>The chapter's finale and the campaign's last level.</b> A solid stepped octahedron with a vein
         /// of stone winding up through it — one wedge of every course, turned a fraction of a turn a course,
-        /// so the vein spirals from the point to the glass — and the outermost ring of the anchor course
-        /// cast in stone as well.
+        /// so the vein spirals from the point to within one course of the glass.
         /// <para>
-        /// <b>The cluster hangs on rock no shot can take.</b> That is the finale's whole statement and it is
-        /// the exact inverse of the block's opening half: where <see cref="Solitaire"/> hangs a body whose
-        /// colour the player cannot see, this hangs one whose SUPPORT the player cannot touch. Every gate in
-        /// this file measures what a shot does to the ceiling (see <see cref="WorstAnchorLoad"/>, and
-        /// #301/#302 for the vase that descended through the death line with nothing orphaned); a stone rim
-        /// answers all of it by construction, which is what lets the campaign end on the densest solid in
-        /// the block rather than on a cautious one.
+        /// <b>⚠ It used to cast the anchor course's outer ring in stone as well, and that was the finale's
+        /// stated whole point — "the cluster hangs on rock no shot can take". #343 retracts it</b>, because a
+        /// support the player cannot touch is also 58 balls of the last level's 113 anchors that the player
+        /// can never clear. What the level keeps of that idea is the half that was always the player's
+        /// problem rather than the ceiling's: a spiral of stone they have to work around. What it gives up is
+        /// the guarantee that <see cref="WorstAnchorLoad"/> could not be made worse by anything they do — so
+        /// the finale is now held to that gate on measurement like every other level in the campaign, which
+        /// is the honest way to end on the densest solid in the block.
         /// </para>
         /// <para>
         /// The spiral is the other half. A wedge of stone at every course means the colour has to be worked
@@ -15299,8 +15321,8 @@ namespace BS3D.Tools.LevelGen
             return MirageBand(MirageSector(x, z, i, CAIRN_GRID, CAIRN_SECTORS) + i + quarter, CAIRN_PALETTE);
         }
 
-        //THE OBSIDIAN. A solid stepped octahedron with a vein of stone spiralling up it and a stone rim on
-        //the anchor course - the campaign's last level, hanging on rock nothing can shoot away.
+        //THE OBSIDIAN. A solid stepped octahedron with a vein of stone spiralling up it, stopping one course
+        //short of the glass (#343) - the campaign's last level.
         private const byte OBSIDIAN_GRID = 17;
         private const byte OBSIDIAN_DEPTH = 12;
         private const int OBSIDIAN_VEIN_SECTORS = 8;
@@ -15310,13 +15332,6 @@ namespace BS3D.Tools.LevelGen
         //stone is a screw rather than a stripe - and the number is deliberately NOT a neat fraction of a
         //sector, or the vein would step in place and read as a broken column.
         private const float OBSIDIAN_TWIST = 0.09f;
-
-        /// <summary>
-        /// How many taxicab units of the anchor course are stone, counted in from its rim. Two, so what the
-        /// cluster hangs on is a complete ring rather than a bare diagonal — a rim one unit wide would leave
-        /// alternating cells and the coloured cells between them would be the real anchors after all.
-        /// </summary>
-        private const float OBSIDIAN_STONE_RIM = 1f;
 
         private static int ObsidianRim(int i) => 1 + 2 * (i / 3);
 
@@ -15335,17 +15350,27 @@ namespace BS3D.Tools.LevelGen
                        + MirageSector(x, z, i, OBSIDIAN_GRID, OBSIDIAN_COLOUR_SECTORS) + i, OBSIDIAN_PALETTE);
 
         /// <summary>
-        /// The vein, plus the anchor course's outer rim. The second half is the finale's whole point: the
-        /// top level is the only one bonded to the ceiling plate, so a stone rim there is a set of anchors
-        /// no shot can ever take and <see cref="WorstAnchorLoad"/> cannot be made worse by anything the
-        /// player does.
+        /// The vein, and <b>nothing on the anchor course</b> (#343).
+        /// <para>
+        /// <b>⚠ This retracts the finale's original statement, and the retraction is the owner's.</b> It used
+        /// to cast the anchor course's outer rim in stone as well, and the argument for it was sound as far as
+        /// it went: the top level is the only one bonded to the ceiling plate, so a stone rim there is a set
+        /// of anchors no shot can ever take and <see cref="WorstAnchorLoad"/> cannot be made worse by
+        /// anything the player does. What it missed is who that is a good deal for. Fifty-eight of this
+        /// level's 113 anchors were rock, and the player finished the campaign looking at a ring of stone
+        /// they had no way to touch — see the ANCHORING paragraph of <see cref="FindStrandedSpecials"/>.
+        /// </para>
+        /// <para>
+        /// The vein stops one course short for the same reason and by the same rule as
+        /// <see cref="Seam"/> and <see cref="Cairn"/>, which is <see cref="Keystone"/>'s: <b>stone stops
+        /// short of the glass</b>. It costs the finale no cell and no silhouette — the rim's cells and the
+        /// vein's top wedge are still occupied and still drawn, they simply carry a colour now — and what
+        /// the level gives up is a guarantee about the ceiling that it buys back the ordinary way, by
+        /// measurement (the anchor load below).
+        /// </para>
         /// </summary>
         private static BallKind ObsidianKind(int x, int z, int i, int depth) =>
-            ObsidianVein(x, z, i)
-            || (i == depth - 1
-                && MirageTaxicab(x, z, i, OBSIDIAN_GRID) >= ObsidianRim(i) - OBSIDIAN_STONE_RIM)
-                ? BallKind.Rock
-                : BallKind.Normal;
+            i < depth - 1 && ObsidianVein(x, z, i) ? BallKind.Rock : BallKind.Normal;
 
         #endregion
 
@@ -15625,15 +15650,20 @@ namespace BS3D.Tools.LevelGen
                               + $", {repaired} recoloured by the repair pass");
             foreach (string where in lonely.Examples) Console.WriteLine($"      {where}");
 
-            //The glass's own reachability question, asked only of a level that has glass in it — see
+            //The specials' own reachability question, asked only of a level that has one in it — see
             //FindStrandedSpecials for what it refuses and why nothing else here could have refused it.
-            StrandedReport stranded = glass + bombs == 0 ? new StrandedReport() : FindStrandedSpecials(map);
+            //
+            //⚠ THE ROCKS COUNT TOWARDS ASKING IT (#343). While this read `glass + bombs`, a level built
+            //entirely of stone and colour skipped the walk altogether, so the one gate that would have
+            //caught a rock hanging off the ceiling was never run on the three levels that had one.
+            StrandedReport stranded = rocks + glass + bombs == 0 ? new StrandedReport() : FindStrandedSpecials(map);
 
-            if (glass + bombs > 0)
+            if (rocks + glass + bombs > 0)
             {
                 Console.WriteLine($"    specials a shot can reach: {(stranded.Walled == 0 ? "all" : $"NO - {stranded.Walled} WALLED IN")}"
                                   + $" (glass against the ceiling {stranded.Anchoring}, deepest glass pocket"
                                   + $" {stranded.MostAtOnce} at one landing)");
+                Console.WriteLine($"    rocks the player can bring down: {(stranded.CeilingRocks == 0 ? "all" : $"NO - {stranded.CeilingRocks} ON THE ANCHOR COURSE")}");
                 foreach (string where in stranded.Examples) Console.WriteLine($"      {where}");
             }
 
@@ -15653,7 +15683,7 @@ namespace BS3D.Tools.LevelGen
             }
 
             return disconnected == 0 && lonely.Alone == 0 && !oneShot && margin >= 1
-                   && stranded.Walled == 0 && stranded.Anchoring == 0;
+                   && stranded.Walled == 0 && stranded.Anchoring == 0 && stranded.CeilingRocks == 0;
         }
 
         /// <summary>
@@ -15821,11 +15851,9 @@ namespace BS3D.Tools.LevelGen
         /// <i>dissolves</i>: one shot beside it colours it, the colour takes it, and the cluster's hanging
         /// width drops with no warning to the player and no colour on the ball to have warned them. That is
         /// #301/#302's failure mode with the one ingredient those issues did not have — invisibility — so the
-        /// glass is kept off the anchor course by refusal rather than by care. <b>The rock is the exact
-        /// opposite and belongs up there</b>: a rock anchor is one no shot can ever take, so a rock in the
-        /// top course only ever <i>improves</i> what <see cref="WorstAnchorLoad"/> measures.
+        /// glass is kept off the anchor course by refusal rather than by care.
         /// <para>
-        /// <b>⚠ It stays GLASS-only, and a bomb on the anchor course is deliberately allowed</b> (#326). A
+        /// <b>⚠ ANCHORING stays GLASS-only, and a bomb on the anchor course is deliberately allowed</b> (#326). A
         /// bomb up there costs the ceiling far more than a glass ball does — its own socket and every other
         /// one within the blast — but the whole of what made the glass case a refusal was that it gave
         /// <i>no warning</i>: a colourless ball says nothing about being load-bearing and nothing about being
@@ -15834,6 +15862,39 @@ namespace BS3D.Tools.LevelGen
         /// design, where the glass one is a design the player cannot read. It reads at the stand-off a level
         /// is played from as well as close up — that took a round of widening the glowing bands and slowing
         /// their blink, and the measurements are on <c>BallRenderSet.BOMB_EMISSION</c>.
+        /// </para>
+        /// </para>
+        /// <para>
+        /// <b>A ROCK ON THE ANCHOR COURSE</b> (#343) — the same cell, the opposite kind, and the one case
+        /// here that is refused for the player's sake rather than the ceiling's. A rock matches with nothing
+        /// and no colour removes it; it leaves the cluster only when the last thing holding it up is cut. On
+        /// the topmost level the thing holding it up is <b>the ceiling plate itself</b>, and that socket is
+        /// never cut by anything the player can do — so a rock up there is a ball that stays on the field
+        /// for the whole level no matter how well it is played.
+        /// <para>
+        /// <b>⚠ This retracts a line of #324, and the retraction is the owner's.</b> #324 listed "a ceiling
+        /// anchor that cannot be cut" among the rock's legitimate uses, and this file argued the same thing
+        /// in this very paragraph: a stone anchor is one no shot can take, so it only ever <i>improves</i>
+        /// what <see cref="WorstAnchorLoad"/> measures. Both are true and both were answering the wrong
+        /// question. An anchor that cannot be cut is a good deal for the <i>cluster</i> and a bad one for the
+        /// <i>player</i>, who is left looking at a ball they can never do anything about — and three shipped
+        /// levels were built on it (<see cref="Seam"/> 26 anchors, <see cref="Cairn"/> 44,
+        /// <see cref="Obsidian"/> 58).
+        /// </para>
+        /// <para>
+        /// <b>The remedy the block already had is <see cref="Keystone"/>'s</b>: stone stops one course short
+        /// of the glass. It costs no cell and no silhouette — those cells stay occupied and simply carry a
+        /// colour instead of granite — so what changes is the flood fill at the top course and nothing about
+        /// the shape.
+        /// </para>
+        /// <para>
+        /// <b>⚠ A bomb within blast radius of such a rock WOULD take it down</b>
+        /// (<c>BallsConstraintsBuilder.DetonateBombs</c> makes a victim of any cell in reach whatever its
+        /// kind), so a rock beside a bomb on the anchor course is not literally permanent. It is refused
+        /// anyway, on this check's own standing rule: it reads the level <b>as it hangs</b>, and a removal
+        /// path that depends on the player choosing to detonate one particular bomb is not the guarantee
+        /// #343 asked for. A design that genuinely wants that pairing can widen this check; it should not
+        /// quietly pass it.
         /// </para>
         /// </para>
         /// <para>
@@ -15883,6 +15944,20 @@ namespace BS3D.Tools.LevelGen
                             continue;
                         }
 
+                        //THE ROCK'S CASE IS ASKED FIRST, because the guard below is what would swallow it
+                        //(#343): a rock is the one kind that answers NO to Removable, so every line after
+                        //that guard is unreachable for it. What is asked here is also the opposite question
+                        //from the rest of this walk — not "can a shot reach this ball" but "can the player
+                        //ever be rid of it" — and on the anchor course the answer is no by construction.
+                        if (l == top && ball.Kind == BallKind.Rock)
+                        {
+                            report.CeilingRocks++;
+
+                            if (report.Examples.Count < 3)
+                                report.Examples.Add($"rock on the anchor course at cell ({x},{z}) on level {l}"
+                                                    + ": nothing the player does can ever cut it down");
+                        }
+
                         //A ball a landing beside it has to reach, stated as the property rather than as a
                         //list of kinds: removable, so it holds the level open, and not matchable, so no
                         //colour can take it. Transparent and Bomb both answer it; the rock answers no to the
@@ -15918,6 +15993,10 @@ namespace BS3D.Tools.LevelGen
         {
             public int Walled;
             public int Anchoring;
+
+            /// <summary>Rocks on the field's topmost level — see the ANCHORING paragraph above (#343).</summary>
+            public int CeilingRocks;
+
             public int MostAtOnce;
             public readonly List<string> Examples = new();
         }
