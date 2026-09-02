@@ -289,7 +289,7 @@ namespace MapEditor
                 //Not S, W, A, D, Q or E: those move the camera (see CameraInputHelper)
                 new(mgKeys.B, SwitchSkyDome, "Switch sky dome (backdrop)"),
                 new(mgKeys.V, SwitchScene, "Switch scene (city/sea/savanna/desert/mountain/meadow/neon)"),
-                new(mgKeys.L, SwitchBallStyle, "Switch ball look (beach vinyl / glass bubble)"),
+                new(mgKeys.L, SwitchBallStyle, "Cycle ball material (the current one is named in the line below)"),
                 new(mgKeys.K, CycleBallKind, "Cycle ball kind (the current one is named in the line below)"),
                 new(mgKeys.G, ToggleSceneConfigPanel, "Show/hide scene-config editor"),
 
@@ -475,15 +475,22 @@ namespace MapEditor
         }
 
         /// <summary>
-        /// Cycles what the map's balls are made of (#258) — the vinyl beach ball, or the glass bubble — and
-        /// applies it to the render set at once, so the preview is the answer rather than a description of it.
-        /// It is a property of the map, so <c>F4</c> writes it into the level file beside the scene and the
-        /// dome, and loading one brings it back.
+        /// Cycles what the map's balls are made of (#258) and applies it to the render set at once, so the
+        /// preview is the answer rather than a description of it. It is a property of the map, so <c>F4</c>
+        /// writes it into the level file beside the scene and the dome, and loading one brings it back.
         /// <para>
         /// On <c>L</c> for "look", which is what was free: S, W, A, D, Q and E drive the camera, B is the sky
         /// dome, V the scene, G the tuning panel, N fills the map and M clears it. There is no count of styles
         /// here — the cycle is <see cref="BallStyles.Next"/>'s, off the enum itself, so a third material cannot
         /// be added and left unreachable in the one program that exists to choose between them.
+        /// </para>
+        /// <para>
+        /// <b>Neither does the on-screen hint name any (#320.)</b> It read "switch ball look (beach vinyl /
+        /// glass bubble)" — honest at #258, when those were the only two — and #272's eight more left the
+        /// editor's own help naming two materials out of ten and calling a cycle a toggle. It says what the key
+        /// <i>does</i> now and points at <see cref="Info"/>'s line for what the current one <i>is</i>, which is
+        /// the form <c>K</c> already uses for the ball kind and is the same argument as the enum-driven cycle
+        /// above: nothing here counts the materials, so an eleventh cannot make it wrong.
         /// </para>
         /// </summary>
         private void SwitchBallStyle()
