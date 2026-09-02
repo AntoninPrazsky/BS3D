@@ -3486,3 +3486,30 @@ Ověřeno: čtyři solutiony čisté, LevelGen exit 0, ScoreSim exit 0, kampaň 
 **Ověřeno:** čtyři solutiony čisté, LevelGen 0, ScoreSim 0, kampaň nedotčená. Nafoceno na dómu 1 i 13 přes všech třináct tintů a na herní odstup na clusteru.
 
 **Tím je vyřízeno pět ze šesti issues z majitelova playtestu vzhledu koulí** (#337, #338, #339, #336, #335). **Zbývá #340 kámen**, a ten nese navíc rozhodnutí, na které je potřeba se zeptat: majitel v něm píše, že kámen smí být viditelně méně kulatý, což je přímo proti dosud psanému pravidlu „silueta zůstává dokonalý kruh" (fx:3137-3142, a #271 to u gemu rozhodl opačně).
+
+---
+
+## 2026-09-02 — Claude Code (osmý zápis dne)
+
+**Kámen (#340) — a hlavní věc na tom je, že jsem si vyžádal rozhodnutí a dostal ho.** Issue psalo, že kámen smí být viditelně méně kulatý, což jde přímo proti pravidlu, které v hlavičce toho stylu stálo napsané („nothing here builds geometry", a celý read stál na stínování dokonalé koule) — a proti #271, které u gemu rozhodlo opačně. **Zeptal jsem se majitele a ten řekl siluetu porušit.** Obě rozhodnutí jsou přitom správná pro svůj styl: gem je **broušený**, takže hranatá silueta je vada výbrusu; kámen je **rozlomený**, a nekulatý obrys je to jediné, co se o něm dá říct — a jediné, co mu na dálku žádný band limit nevezme.
+
+**`InstancedModelStone` je teď jediná technika koulí s vlastním vertex shaderem.** Tři rozhodnutí v něm:
+
+1. **Řeže se jen dovnitř.** Mřížka balí koule přesně dva poloměry od sebe, takže koule, která by narostla, by vlezla do buňky souseda a cluster by srostl sám do sebe. Řezání je navíc to, co kámen dělá kamenem: kámen je to, co **zbylo**.
+2. **⚠ Normála je analytická, ne koulová.** Jakmile se poloměr mění po povrchu, směr přestane být normálou — a použít ho dál by nasvítilo vyřezanou kouli přesně jako kulatou, takže celá změna by byla silueta a nic víc. Pro radiální plochu `r(d)·d` je normála `d − ∇ₜr / r`, což je tady uzavřený tvar, protože pole je součet sinů: jeho gradient je týž součet s kosinem a vlnovým vektorem. **Proto je to pole napsané zvlášť a nepoužívá `StoneLumps`** — ten je rektifikovaný (`abs`), a `abs` v nule gradient nemá.
+3. **Je hrubší než všechno ostatní na kouli** (1,7–5,7 vln proti 3,5–49 u lumpů), takže se ty dvě vrstvy nepočítají dvakrát: tahle je **tvar**, to, co na ni pixel shader kreslí, je **povrch**.
+
+**První build byl hladká BRAMBORA** — zjevně nekulatá, ale kulatá po částech, a to nebylo, co bylo zadáno („ostřejší, jako opravdový kus kamene"). Součet sinů je jemné vlnění; mocnina nad podílem řezu nechá většinu povrchu blízko plného poloměru a zbytek zažene hluboko a úzko, čímž se z vlnění stanou **výmoly**. Kámen se neodlupuje v čeřinách.
+
+**⚠ Každý kámen nese TÉŽ vyřezání**, protože instance stream nemá volný kanál na per-ball seed (world matrix, okluze, dissolve a ripple ho zaplňují) a jediná dostupná per-instance hodnota — pozice koule — se hýbe, což by tvar rozvlnilo, jak kámen padá. Zachraňuje to, že pole je v **object space**: fyzika dá každému kameni vlastní orientaci, takže hromada ukazuje týž kámen ze sta úhlů, což je mimochodem přesně to, jak vypadá hromada rubaniny z jednoho lomu. Kdyby to někdy mělo být opravdu per-kámen, oprava je pátý instance element, ne změna tady.
+
+**Dvě věci z toho vyplynuly a obě jsou to, co issue žádalo dál:**
+
+- **Zrno zpátky ze 14 na 22.** Argument, který ho kdysi stlačil na 14, byl, že jemná figura se band-limituje do neviditelna na herní vzdálenost — a ten argument **už nemusí nést zrno**, protože ho nese silueta. To zrno osvobodí k tomu být jemné, aniž by dálce cokoliv dlužilo. Plus `StoneLumps` má šest oktáv místo čtyř (čtyři oktávu od sebe nepopisují povrch, interferují do pravidelného tkaní — trap, který si hlavička `SurfaceReliefWorld` zapsala a kvůli kterému používá sedm).
+- **Tělo z 0,63 na 0,54.** Prostě ztmavit to nešlo — poznámka u `StoneBody` vysvětluje, proč fyzikálně rozumných 0,42 četlo jako osmička. Ale **vyřezaná koule má skutečný tvar**: vlastní výmoly ji stínují, což je zdroj kontrastu, který hladká koule bez emise a bez zrcadla neměla odkud vzít, a hodnota, která dřív musela jít z albeda, jde teď z tvaru.
+
+**Změřeno** (louka, střední jas kotouče): dóm 1 — dva kameny **84 a 75** proti Type8 (černá) **42** a Type11 (stříbrná) **81**; dóm 13 — **66 a 67** proti **29** a **80**. Pořád vedle stříbrné a pořád na dvojnásobku osmičky na obou dómech, což je přesně to, co ta poznámka žádá. **Cena** 7,47/7,50 → 7,50/7,52 ms při ssaa 4 na `Rocks.json` (třináct kamenů ve 196 koulích) — uvnitř rozptylu mezi běhy.
+
+**Ověřeno:** čtyři solutiony čisté, LevelGen 0, ScoreSim 0, kampaň nedotčená (pět kamenných levelů Mirage se nezměnilo — je to čistě render). Fyzikální těleso zůstává koule a řez jde dovnitř, takže nakreslený kámen nikdy neopustí buňku, kterou mu simulace dala.
+
+**Tím je hotových všech šest issues z majitelova playtestu vzhledu koulí: #335, #336, #337, #338, #339, #340.**

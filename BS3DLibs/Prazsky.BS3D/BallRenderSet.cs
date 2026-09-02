@@ -647,8 +647,14 @@ namespace Prazsky.BS3D
         /// absence of gores, the absence of a heartbeat and the <i>lumps</i> — the grain is for the close
         /// range, where the drop cinematic, precise aim and the map editor look at one.
         /// </para>
+        /// <para>
+        /// 14 until #340, and it went back up because the argument above changed on one point: what identifies
+        /// a rock at play distance is now its <b>silhouette</b>, which no band limit can take away. That frees
+        /// the grain to be what the owner asked for — a finer surface — without owing anything to distance,
+        /// and 22 is as far as it goes before the fade starts eating it at the close range it exists for.
+        /// </para>
         /// </summary>
-        private const float STONE_GRAIN_FREQUENCY = 14f;
+        private const float STONE_GRAIN_FREQUENCY = 22f;
 
         /// <summary>
         /// How far a grain carries from the body grey. Strong — over half — because it is doing on its own the
@@ -662,7 +668,21 @@ namespace Prazsky.BS3D
         /// figure in the set. A rock is the only <i>unfinished</i> surface here; everything else was cast,
         /// blown, wound, ground or glazed, and reads as smooth on purpose.
         /// </summary>
-        private const float STONE_ROUGHNESS = 0.06f;
+        private const float STONE_ROUGHNESS = 0.075f;
+
+        /// <summary>
+        /// How far out of round a rock is carved (#340), as a fraction of its radius — the only ball figure in
+        /// the game that moves a <b>vertex</b>. Every other style shades a perfect sphere and this one no longer
+        /// does, on the owner's ruling: a rock is <i>broken</i>, and an outline that is not round is the single
+        /// clearest thing that can be said about one. (#271 decided the same question the other way for the
+        /// gem, and both are right: a gem is <i>cut</i>, so a polygonal outline on it is a defect in the cut.)
+        /// <para>
+        /// Bounded by the lattice rather than by taste: the carving is inward-only, so a rock's narrowest axis
+        /// is this much under its cell and its widest still exactly fills it. Much past 0.2 and the gaps left
+        /// between neighbours start reading as holes in the cluster.
+        /// </para>
+        /// </summary>
+        private const float STONE_SHAPE_DEPTH = 0.20f;
 
         /// <summary>
         /// What a rock radiates in its own grey. <b>It is drawn at <c>PulseDepth</c> zero, so this is a steady
@@ -1431,6 +1451,7 @@ namespace Prazsky.BS3D
                 renderer.StoneGrainFrequency = STONE_GRAIN_FREQUENCY;
                 renderer.StoneGrainContrast = STONE_GRAIN_CONTRAST;
                 renderer.StoneRoughness = STONE_ROUGHNESS;
+                renderer.StoneShapeDepth = STONE_SHAPE_DEPTH;
                 renderer.EmissiveStrength = STONE_EMISSION;
                 renderer.PulseDepth = 0f;
             }
