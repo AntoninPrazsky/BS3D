@@ -733,11 +733,17 @@ namespace BS3D.Screens
                 //frontier it is the sequence — the campaign opens one level at a time — and quoting a star
                 //price the player already holds would read as a bug rather than as a rule; short of the
                 //price it is the price, as it always was.
+                //A SKIPPED LEVEL SAYS SO (#347), and that is the only place in the game it can be found again.
+                //A skip leaves no stars and no score, so without this line it reads exactly like a level the
+                //player has simply not got to yet — on a page whose whole job is telling them where they
+                //stand, on the one level they still owe.
                 _tileStarsEarned[slot].Text = !unlocked
                     ? Game.IsLevelBeyondReach(level)
-                        ? $"Locked · #{Game.FirstUnclearedLevel + 1} first"
+                        ? $"Locked · #{Game.FirstUnfinishedLevel + 1} first"
                         : $"Locked · {Game.LevelMinStars(level)} {STAR_FILLED}"
-                    : rated ? StarsEarned(stars) : string.Empty;
+                    : rated ? StarsEarned(stars)
+                    : Game.LevelSkipped(level) ? "Skipped"
+                    : string.Empty;
                 _tileStarsEarned[slot].TextColor = rated ? BS3DGame.StarTierColor(stars) : BS3DGame.MENU_TEXT_DIM;
 
                 _tileStarsRest[slot].Text = rated ? StarsRemaining(stars) : string.Empty;
@@ -778,7 +784,7 @@ namespace BS3D.Screens
                 ? $"{Game.LevelDisplayName(level)} — {Game.LevelRulesText(level)}"
                 : Game.IsLevelBeyondReach(level)
                     ? $"{Game.LevelDisplayName(level)} — the campaign opens one level at a time;"
-                      + $" level {Game.FirstUnclearedLevel + 1} '{Game.LevelDisplayName(Game.FirstUnclearedLevel)}' is next"
+                      + $" level {Game.FirstUnfinishedLevel + 1} '{Game.LevelDisplayName(Game.FirstUnfinishedLevel)}' is next"
                     : $"{Game.LevelDisplayName(level)} — unlocks at {Game.LevelMinStars(level)} {STAR_FILLED}, you have {Game.TotalStars}";
         }
 

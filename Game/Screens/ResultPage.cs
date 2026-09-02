@@ -20,7 +20,7 @@ namespace BS3D.Screens
     /// </summary>
     internal sealed class ResultPage : MenuPage
     {
-        private Label _heading, _milestone, _levelLine, _newBest, _reason, _bareScore;
+        private Label _heading, _milestone, _levelLine, _newBest, _reason, _bareScore, _skipNote;
 
         //One widget per slot rather than one string of glyphs: a Label's glyphs cannot be scaled, coloured or
         //timed apart from each other, and the reveal needs all three per star (#139).
@@ -32,13 +32,13 @@ namespace BS3D.Screens
         private Label _unusedDetail, _unusedValue;
         private Label _totalValue, _unlockNote;
         private Widget _breakdown;
-        private Button _retryButton, _nextLevelButton;
+        private Button _retryButton, _nextLevelButton, _skipButton;
 
         //The Next button's own caption, so Refresh can put the level's name on it (#313). Held rather than
         //walked to off the Button, for the reason every other label on this page is held: the tree is built
         //once and written to many times, and a page that searched its own widgets for a label would be doing
         //that work on every ending.
-        private Label _nextLevelLabel;
+        private Label _nextLevelLabel, _skipLabel;
 
         //Frozen at the end of the level. Held rather than read from the session on every showing - see
         //LevelResult for why that arithmetic has to be a snapshot.
@@ -622,6 +622,26 @@ namespace BS3D.Screens
             };
             column.Widgets.Add(_bareScore);
 
+            //What a skip COSTS, on the page that offers one (#347). Its own label rather than a longer caption
+            //on the button, for two reasons: a button carries a destination and not a sentence, and a Myra
+            //button smaller than its label does not clip it — it lets it overflow, so the plate the player
+            //sees and the rectangle the mouse hits quietly stop being the same thing (#348's trap). Outside
+            //the breakdown grid, because the grid is a clear's and this line is a failure's.
+            //⚠ THE PALETTE'S ASIDE GREY IS NOT AVAILABLE HERE, and the page's own notes say why: small text
+            //over a lit, turning arena needs a backing of its own, which is what the breakdown has a plate
+            //for. This line has no plate — it belongs to the FAILURE page, which has no grid to sit in — so
+            //it is written in the body white instead. Photographed dim first over the tropical sky and it was
+            //not readable at all.
+            _skipNote = new Label
+            {
+                Text = string.Empty,
+                Font = FontSmall,
+                TextColor = BS3DGame.MENU_TEXT,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = ScaledThickness(0, 0, 0, 20),
+            };
+            column.Widgets.Add(_skipNote);
+
             //The breakdown: caption · detail · value, the same three-column shape the settings screen uses, so a
             //number lines up under the number above it and reads at a glance. A plate behind it, because small
             //text over a lit, turning arena needs a backing of its own — and since #178 there is no scrim under
@@ -651,6 +671,13 @@ namespace BS3D.Screens
             //to commit to starting one with no idea what it was called until it was already loading. The text
             //here is only what the button reads as before any result has been presented.
             column.Widgets.Add(_nextLevelButton = MenuButton("Next Level", Game.AdvanceLevel, out _nextLevelLabel));
+
+            //The campaign's relief valve, under Retry on a failure and absent everywhere else (#347). Under
+            //rather than over: retrying is what the player should try first, and a skip that sat above it
+            //would be offering to spend their chapter's only skip before they had lost twice. It names the
+            //level it leads to for #313's reason, and what it COSTS is said by the note above the buttons —
+            //a button cannot carry a sentence.
+            column.Widgets.Add(_skipButton = MenuButton("Skip Level", Game.SkipLevel, out _skipLabel));
 
             column.Widgets.Add(MenuButton("Main Menu", Game.EndSessionAndReturnToMainMenu));
 
@@ -799,6 +826,12 @@ namespace BS3D.Screens
                 : string.Empty;
             _bareScore.Visible = _result.ShowsBareScore;
 
+            //And what the button under the buttons would cost, said before it is pressed rather than
+            //discovered afterwards by its absence (#347). Shown on exactly the condition the button is, so the
+            //two can never disagree about whether a skip is on offer.
+            _skipNote.Text = _result.CanSkip ? "Skipping spends this chapter's one skip" : string.Empty;
+            _skipNote.Visible = _result.CanSkip;
+
             _breakdown.Visible = _result.ShowsBreakdown;
 
             if (_result.ShowsBreakdown)
@@ -817,6 +850,12 @@ namespace BS3D.Screens
 
                 //Only when the road ahead is actually shut — which is also when the Next Level button below
                 //is absent, so this line is the absence explained rather than a number always on display.
+                //
+                //⚠ IT IS A CLEAR'S NOTE AND ONLY A CLEAR'S, because it is a row of the breakdown grid and the
+                //grid is hidden on a failure. #347's sequence rule therefore cannot reach it: after a clear
+                //the frontier has already moved past this level, so the next entry is never shut by the
+                //sequence here — only ever by the price, which is what this says. The failure page's own
+                //version of this sentence is _skipNote, below and outside the grid.
                 bool nextLocked = _result.HasNextLevel && !_result.NextLevelUnlocked;
                 _unlockNote.Text = nextLocked
                     ? $"Next level unlocks at {_result.NextLevelMinStars} ★ — you have {_result.TotalStars}"
@@ -834,6 +873,13 @@ namespace BS3D.Screens
             //of the result and nothing else, so there is no state in which the button is shown carrying the
             //previous level's successor.
             _nextLevelLabel.Text = _result.NextLevelLabel;
+
+            //The skip, on the same terms: absent rather than disabled, since a greyed button over a frozen
+            //frame reads as a broken game (the note above says in words why it is not there). Its own
+            //condition is the whole of the rule — CanSkip is false on a clear, on a level already finished,
+            //on the last entry and on a chapter whose one skip is spent — so this line adds nothing to it.
+            _skipButton.Visible = _result.CanSkip;
+            _skipLabel.Text = _result.SkipLabel;
 
             //And PRIMARY on a clear (#263): the player's obvious next step after winning is the next level,
             //not replaying the one they just beat, so the most likely action belongs in the most prominent

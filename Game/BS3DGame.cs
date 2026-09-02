@@ -1482,6 +1482,11 @@ namespace BS3D
                     //widest the identity line and the Next button can actually get. Falls back off a set.
                     levelName: LevelCount > 12 ? LevelDisplayName(12) : "Trilithon", levelNumber: 13,
                     hasNextLevel: true, nextLevelUnlocked: true, nextLevelMinStars: 1, totalStars: testStars,
+
+                    //The skip is offered on the photographed FAILURE and nowhere else (#347), which is where it
+                    //is offered in play — so "result lost" is a shot of the page a stuck player sees, button
+                    //and cost line and all, and "result" alone is still the clear's own page.
+                    canSkip: _startupLost,
                     nextLevelName: LevelCount > 13 ? LevelDisplayName(13) : "Girandole",
                     campaignComplete: false,
                     //"blockdone" borrows a real chapter's own name and place, so the milestone is looked at with a

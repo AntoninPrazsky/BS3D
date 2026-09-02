@@ -75,6 +75,13 @@ namespace BS3D.Screens
         /// <summary>The next entry's gate, for the note under the total; 0 when there is no gate or no next level.</summary>
         public readonly int NextLevelMinStars;
 
+        /// <summary>
+        /// Whether this level may be skipped past — the campaign's relief valve (#347), one to a chapter. Only
+        /// ever true on a level the player has <i>not</i> finished, so it is offered where it is meant: on a
+        /// failure, beside Retry.
+        /// </summary>
+        public readonly bool CanSkip;
+
         /// <summary>The campaign's star total as of this result, this clear included.</summary>
         public readonly int TotalStars;
 
@@ -111,6 +118,7 @@ namespace BS3D.Screens
         public LevelResult(bool cleared, string failureText, int stars, bool newBest,
             string levelName, int levelNumber,
             bool hasNextLevel, bool nextLevelUnlocked, int nextLevelMinStars, int totalStars,
+            bool canSkip,
             string nextLevelName,
             bool campaignComplete,
             bool blockComplete, string blockName, int blockNumber, int blockCount,
@@ -127,6 +135,7 @@ namespace BS3D.Screens
             HasNextLevel = hasNextLevel;
             NextLevelUnlocked = nextLevelUnlocked;
             NextLevelMinStars = nextLevelMinStars;
+            CanSkip = canSkip;
             TotalStars = totalStars;
             CampaignComplete = campaignComplete;
 
@@ -181,5 +190,14 @@ namespace BS3D.Screens
         /// </summary>
         public string NextLevelLabel =>
             string.IsNullOrWhiteSpace(NextLevelName) ? "Next Level" : $"Next: {NextLevelName}";
+
+        /// <summary>
+        /// The skip button's caption. It names what the player is <b>going to</b> for the reason
+        /// <see cref="NextLevelLabel"/> does — a destination is a decision, a direction is not — and the word
+        /// "Skip" is kept in front of the name so it can never be mistaken for the Next Level button on the
+        /// screen where both wordings would otherwise read alike.
+        /// </summary>
+        public string SkipLabel =>
+            string.IsNullOrWhiteSpace(NextLevelName) ? "Skip Level" : $"Skip to: {NextLevelName}";
     }
 }

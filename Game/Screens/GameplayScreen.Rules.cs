@@ -651,6 +651,13 @@ namespace BS3D.Screens
                 nextLevelMinStars: lastEntry ? 0 : Game.LevelMinStars(_levelIndex + 1),
                 totalStars: Game.TotalStars,
 
+                //And whether there is a bounded way past this level at all (#347). Read AFTER the record above,
+                //like the unlock beside it, so it cannot describe a campaign one level out of date. A clear
+                //never offers it — the level is behind the player by then, which is what CanSkipLevel itself
+                //says; the `!cleared` here is the same fact stated where the page is built, so a reader of
+                //this call does not have to go and check.
+                canSkip: !cleared && Game.CanSkipLevel(_levelIndex),
+
                 //And which one is next, for the button that offers it. Filled whenever there IS a next entry,
                 //gate or no gate — see LevelResult: a locked next level still has a name worth wanting.
                 nextLevelName: lastEntry ? null : LevelName(_levelIndex + 1),

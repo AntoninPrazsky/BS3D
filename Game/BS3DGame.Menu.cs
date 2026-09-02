@@ -568,11 +568,22 @@ namespace BS3D
                 ? _levelSet.Levels[index].MinStars.GetValueOrDefault()
                 : 0;
 
+        /// <summary>Whether the player skipped past this entry rather than clearing it (#347).</summary>
+        internal bool LevelSkipped(int index) =>
+            _progress != null && _levelSet != null && index >= 0 && index < _levelSet.Count
+            && _progress.WasSkipped(_levelSet.Levels[index].File);
+
         /// <summary>
-        /// <b>The campaign's frontier: the first entry the player has not cleared</b>, and — by the sequence
-        /// rule in <see cref="IsLevelUnlocked"/> — the only uncleared level they may play. The set's
-        /// <c>Count</c> once every level is cleared, which is what makes that rule open the whole campaign to
-        /// a player who has finished it rather than closing it behind them.
+        /// Whether the player is <b>done with</b> this entry, one way or the other: cleared, or skipped past.
+        /// The frontier walks on this rather than on the clear alone, which is the whole of what a skip buys.
+        /// </summary>
+        internal bool LevelFinished(int index) => LevelStars(index) > 0 || LevelSkipped(index);
+
+        /// <summary>
+        /// <b>The campaign's frontier: the first entry the player has neither cleared nor skipped</b>, and —
+        /// by the sequence rule in <see cref="IsLevelUnlocked"/> — the only unfinished level they may play.
+        /// The set's <c>Count</c> once every level is behind them, which is what makes that rule open the
+        /// whole campaign to a player who has finished it rather than closing it behind them.
         /// <para>
         /// A level counts as cleared when it holds at least one star, which is <see cref="IsBlockComplete"/>'s
         /// test and the picker's tiles', and it is sound because <c>StarRating.Rate</c> has a floor of one:
@@ -588,14 +599,14 @@ namespace BS3D
         /// frontier is a campaign that will not open its next level.
         /// </para>
         /// </summary>
-        internal int FirstUnclearedLevel
+        internal int FirstUnfinishedLevel
         {
             get
             {
                 if (_levelSet == null) return int.MaxValue;
 
                 for (int i = 0; i < _levelSet.Count; i++)
-                    if (LevelStars(i) <= 0) return i;
+                    if (!LevelFinished(i)) return i;
 
                 return _levelSet.Count;
             }
@@ -608,7 +619,7 @@ namespace BS3D
         /// a bug rather than as a rule.
         /// </summary>
         internal bool IsLevelBeyondReach(int index) =>
-            !_unlockAll && index > FirstUnclearedLevel && LevelStars(index) <= 0;
+            !_unlockAll && index > FirstUnfinishedLevel && !LevelFinished(index);
 
         /// <summary>
         /// Whether the entry may be played yet: <b>enough stars, and no further than one level past what the
@@ -643,7 +654,7 @@ namespace BS3D
         internal bool IsLevelUnlocked(int index) =>
             _unlockAll
             || (TotalStars >= LevelMinStars(index)
-                && (index <= FirstUnclearedLevel || LevelStars(index) > 0));
+                && (index <= FirstUnfinishedLevel || LevelFinished(index)));
 
         /// <summary>Whether the debug unlock is on — the settings row's readout. See <see cref="_unlockAll"/>.</summary>
         internal bool IsUnlockAllEnabled => _unlockAll;
@@ -750,7 +761,7 @@ namespace BS3D
                 if (_levelSet == null || _progress == null || _levelSet.Count <= 1) return false;
 
                 for (int i = 0; i < _levelSet.Count; i++)
-                    if (_progress.StarsFor(_levelSet.Levels[i].File) <= 0) return false;
+                    if (!LevelFinished(i)) return false;
 
                 return true;
             }
@@ -772,19 +783,132 @@ namespace BS3D
         /// </para>
         /// <para>
         /// The "not already finished" half makes a <b>replay</b> of the finale an ordinary clear, exactly as
-        /// it does for a block: without it, every return visit to level 105 would rain confetti again.
+        /// it does for a block: without it, every return visit to level 105 would rain confetti again. It is
+        /// stated as <b>this level was not finished before this clear</b> rather than as "the campaign is not
+        /// complete", which is the same thing on a campaign with no skips in it and the right thing on one
+        /// with them — see below.
+        /// </para>
+        /// <para>
+        /// <b>⚠ A SKIP COUNTS AS FINISHED HERE, AND THE MOMENT STILL BELONGS TO A CLEAR.</b> #347's skip lets
+        /// the frontier past a level the player cannot beat, and the campaign is complete when every level is
+        /// cleared <i>or</i> skipped — the issue's own wording. But this predicate is only ever asked from
+        /// <c>CheckLevelCleared</c>, so the celebration always lands on a level the player actually finished,
+        /// never on the skip itself. That leaves one gap and it is deliberate: a player whose <i>last</i>
+        /// unfinished level is one they skip ends the campaign without the moment, and going back to clear
+        /// some earlier skipped level does not summon it afterwards (that level was already finished before
+        /// the clear). Ending a campaign by skipping its last wall is not the ending the confetti is for.
         /// </para>
         /// </summary>
         internal bool WouldCompleteCampaign(int index)
         {
             if (_levelSet == null || _progress == null || index < 0 || index >= _levelSet.Count) return false;
-            if (_levelSet.Count <= 1 || IsCampaignComplete) return false;
+            if (_levelSet.Count <= 1 || LevelFinished(index)) return false;
 
             for (int i = 0; i < _levelSet.Count; i++)
-                if (i != index && _progress.StarsFor(_levelSet.Levels[i].File) <= 0) return false;
+                if (i != index && !LevelFinished(i)) return false;
 
             return true;
         }
+
+        #region The bounded skip (#347)
+
+        /// <summary>
+        /// How many skips a chapter may hold — <b>one</b>, the owner's bound, and the reason the skip is a
+        /// relief valve rather than a road through the campaign. It is per <i>chapter</i> and not per
+        /// campaign because the sequence rule (<see cref="IsLevelUnlocked"/>) turned a level the player cannot
+        /// beat into a wall across the whole set: one skip in 105 levels leaves them permanently stuck on the
+        /// second such wall. Per chapter it is bounded in the way the issue asked for — a chapter is ten
+        /// levels, so a skip can never take the player past one.
+        /// </summary>
+        internal const int SKIPS_PER_BLOCK = 1;
+
+        /// <summary>
+        /// Whether the player may skip this level right now: it is not one they have already finished, there
+        /// is somewhere to skip <i>to</i>, and their chapter's budget is unspent.
+        /// <para>
+        /// <b>The budget is per chapter where the set has chapters and per campaign where it does not.</b> A
+        /// set with no blocks puts every entry in a run of one (see <see cref="IsBlockComplete"/>), so a
+        /// per-block budget there would be one skip per level, which is no budget at all.
+        /// </para>
+        /// <para>
+        /// It deliberately does <b>not</b> ask whether the player has failed the level, or how often. The
+        /// bound is the budget, not a toll: a player who knows a level is not for them should not have to lose
+        /// to it three times to be allowed to say so, and a counter of failures per level is state nobody
+        /// wants to persist.
+        /// </para>
+        /// </summary>
+        internal bool CanSkipLevel(int index)
+        {
+            if (_levelSet == null || _progress == null || index < 0 || index >= _levelSet.Count) return false;
+
+            //Nothing to relieve: the level is behind them, or it is the last one and a skip would lead nowhere.
+            if (LevelFinished(index) || index + 1 >= _levelSet.Count) return false;
+
+            //⚠ AND THE SKIP MAY NOT SMUGGLE THE PLAYER PAST THE STAR GATE. It moves the frontier, which is
+            //the sequence half of IsLevelUnlocked and nothing else; the price half still stands. Without this
+            //the button would drop the player into a level the picker calls locked — the two surfaces
+            //disagreeing about the same entry, which is the fault #349's one-place answer exists to prevent.
+            //A player who is both stuck and short of stars is being told something real by the absence: the
+            //way on is a better rating somewhere behind them, and the next level's own tile says the price.
+            if (TotalStars < LevelMinStars(index + 1)) return false;
+
+            int first = 0, last = _levelSet.Count - 1;
+
+            if (_levelSet.HasBlocks) _levelSet.BlockRange(index, out first, out last);
+
+            int spent = 0;
+
+            for (int i = first; i <= last; i++)
+                if (LevelSkipped(i)) spent++;
+
+            return spent < SKIPS_PER_BLOCK;
+        }
+
+        /// <summary>
+        /// How many skips are left in the chapter holding <paramref name="index"/> — what the button says out
+        /// loud, so the player is told what they are spending rather than finding out afterwards.
+        /// </summary>
+        internal int SkipsLeftIn(int index)
+        {
+            if (_levelSet == null || _progress == null || index < 0 || index >= _levelSet.Count) return 0;
+
+            int first = 0, last = _levelSet.Count - 1;
+
+            if (_levelSet.HasBlocks) _levelSet.BlockRange(index, out first, out last);
+
+            int spent = 0;
+
+            for (int i = first; i <= last; i++)
+                if (LevelSkipped(i)) spent++;
+
+            return Math.Max(0, SKIPS_PER_BLOCK - spent);
+        }
+
+        /// <summary>
+        /// Spends the chapter's skip on this level and writes it to the save, then drops into the next entry —
+        /// <see cref="AdvanceLevel"/>'s move, which is exactly what a skip is: the road forward without the
+        /// clear.
+        /// <para>
+        /// <b>Guarded by <see cref="CanSkipLevel"/> here as well as at the button that offers it.</b> The
+        /// button is the only caller today, and a rule about spending the player's progress is not one to
+        /// leave standing on a widget's visibility.
+        /// </para>
+        /// </summary>
+        internal void SkipLevel()
+        {
+            int index = _gameplayScreen.LevelIndex;
+
+            if (!CanSkipLevel(index)) return;
+
+            if (_progress.Skip(_levelSet.Levels[index].File)) SaveProgress();
+
+            Console.WriteLine($"[progress] Skipped level {index + 1} '{LevelDisplayName(index)}'"
+                              + $" — {SkipsLeftIn(index)} skip(s) left in this chapter");
+
+            AdvanceLevel();
+        }
+
+        #endregion
 
         #endregion
 
