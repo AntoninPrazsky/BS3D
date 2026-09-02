@@ -609,9 +609,16 @@ namespace BS3D.Screens
             //A chapter with nothing open in it says what opens it instead of reporting a progress nobody could
             //have made. The price is the CHEAPEST gate in the run — that is the one that lets the chapter be
             //entered at all, and the tiles inside still each carry their own.
+            //
+            //⚠ AND SINCE #347 THE PRICE IS NOT ALWAYS WHAT SHUTS IT. A chapter the player has not reached yet
+            //is shut by the sequence whatever their star total, so quoting a gate they can already afford
+            //would say the game was broken. Read off the chapter's FIRST level, which is the one that has to
+            //open before any of the others can.
             _chapterLine.Text = anyOpen
                 ? $"{position}  ·  {cleared} of {length} cleared  ·  {STAR_FILLED} {stars} of {length * StarRating.MAX}"
-                : $"{position}  ·  locked  ·  opens at {opensAt} {STAR_FILLED}";
+                : Game.IsLevelBeyondReach(first)
+                    ? $"{position}  ·  locked  ·  clear level {first} first"
+                    : $"{position}  ·  locked  ·  opens at {opensAt} {STAR_FILLED}";
 
             for (int c = 0; c < _pips.Count; c++)
             {
@@ -722,8 +729,14 @@ namespace BS3D.Screens
                 //struck those stars in — so a level the player took to gold still reads gold here.
                 bool rated = unlocked && stars > 0;
 
+                //A LOCK HAS TWO REASONS SINCE #347 and the tile has to name the right one. Beyond the
+                //frontier it is the sequence — the campaign opens one level at a time — and quoting a star
+                //price the player already holds would read as a bug rather than as a rule; short of the
+                //price it is the price, as it always was.
                 _tileStarsEarned[slot].Text = !unlocked
-                    ? $"Locked · {Game.LevelMinStars(level)} {STAR_FILLED}"
+                    ? Game.IsLevelBeyondReach(level)
+                        ? $"Locked · #{Game.FirstUnclearedLevel + 1} first"
+                        : $"Locked · {Game.LevelMinStars(level)} {STAR_FILLED}"
                     : rated ? StarsEarned(stars) : string.Empty;
                 _tileStarsEarned[slot].TextColor = rated ? BS3DGame.StarTierColor(stars) : BS3DGame.MENU_TEXT_DIM;
 
@@ -759,9 +772,14 @@ namespace BS3D.Screens
                 return;
             }
 
+            //The lock's full arithmetic, and since #347 that means the right arithmetic: the sequence names
+            //the level standing in the way, the star gate names the price against what the player holds.
             _detail.Text = Game.IsLevelUnlocked(level)
                 ? $"{Game.LevelDisplayName(level)} — {Game.LevelRulesText(level)}"
-                : $"{Game.LevelDisplayName(level)} — unlocks at {Game.LevelMinStars(level)} {STAR_FILLED}, you have {Game.TotalStars}";
+                : Game.IsLevelBeyondReach(level)
+                    ? $"{Game.LevelDisplayName(level)} — the campaign opens one level at a time;"
+                      + $" level {Game.FirstUnclearedLevel + 1} '{Game.LevelDisplayName(Game.FirstUnclearedLevel)}' is next"
+                    : $"{Game.LevelDisplayName(level)} — unlocks at {Game.LevelMinStars(level)} {STAR_FILLED}, you have {Game.TotalStars}";
         }
 
         /// <summary>The level a tile slot is showing, or -1 for no tile and for a slot this chapter leaves empty.</summary>

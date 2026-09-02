@@ -3584,3 +3584,23 @@ Cairn je jediná skutečná cena a je pochopitelná: čtyři komory se teď potk
 **Vedlejší nález v dokumentaci:** pás one-shotů Mirage tam stál jako „3–25 %" a **měřením vyšel 4–25 % i na nedotčeném HEADu** — byl zastaralý už před touhle změnou. Opraveno včetně toho, co posunulo #343 samo (jen Cairn).
 
 **Ověřeno:** LevelGen 0, ScoreSim 0, čtyři solutiony čisté, audit hlásí 0 kamenů na stropě přes všech 106 levelů. Nafoceno v běžící hře (`play level=…  shot=12`) — Obsidianův kotevní kurz nese barvu a žíla kamene zůstala pod ním, Cairnův kříž stojí a nad ním je barevná střecha. Tělo #324 na GitHubu opraveno v místě, jak issue žádalo: ta věta je teď přeškrtnutá a označená jako retraktovaná, ne smazaná.
+
+---
+
+## 2026-09-02 — Claude Code (dvanáctý zápis dne)
+
+**#347, půlka první: falešné CAMPAIGN COMPLETE. Majitelovo rozhodnutí bylo „vždycky se odemkne jenom jeden následující level", což je oprava u KOŘENE, ne u symptomu — a to je na tom to podstatné.**
+
+**Vada byla jeden výraz, ale její příčina byla ekonomika odemykání.** `_campaignCompleted` se ptalo `_levelIndex + 1 >= LevelSet.Count`, tedy „byl tenhle level poslední položka setu". Komentář nad tím tu zkratku dokonce obhajoval: *„cheap and knowable this early: unlike the block, which has to look at every level of a run"* — a **to byla ta vada napsaná jako úspora**. Blok se ptá draze a správně (`WouldCompleteBlock` prochází celý běh), kampaň se ptala lacině a špatně. Přidal jsem `WouldCompleteCampaign` přesně podle vzoru bloku včetně půlky „a ještě není hotová", která z **repríze** finále dělá obyčejný clear (bez ní by konfety padaly při každém návratu na 105).
+
+**Ale samotné přepsání toho výrazu by díru nezavřelo, jen ohlásilo správně.** Do 105 se dalo dojít s dírami za sebou, protože se odemykalo na **součet hvězd**: čtyři hvězdy za level znamenají, že hráč utíká před sebou samým — level 40 a 41 otevřené, 37 nikdy nehrané. Nové pravidlo je proto **součet hvězd A ZÁROVEŇ nejvýš jeden level za frontierem** (první nevyčištěný level). Hvězdný gate zůstává pod tím, ne místo toho: je to on, kdo pošle slabšího hráče vrátit se a zahrát level líp, a je to ekonomika, proti které jsou `minStars` v setu vůbec napsané.
+
+**⚠ A hlavní věc dne: první verze toho pravidla by majiteli zamkla 28 levelů, které má dohrané.** Napsal jsem `index <= FirstUnclearedLevel` a šel to změřit na skutečném save — **65 hotových levelů, frontier na 38, a 28 hotových levelů ZA ním** (41, 42, 48, 51–53, 61–68, 71, 76, 78–80, 84, 94, 96–98, 102–105). Zpřísnění pravidla, které zavře level, jehož jsi vítěz, se nečte jako pravidlo, ale jako **ztracený postup**. Klauzule „hotový level je vždy otevřený" tam proto je a je nosná, ne kosmetická. Obecně: **nové pravidlo o postupu se musí změřit na existujícím save, ne jen na čerstvém profilu** — čerstvý profil to nikdy neukáže, protože na něm žádná historie neexistuje.
+
+**Zámek má od teď dva důvody a všechny tři plochy musí jmenovat ten správný.** Dlaždice `Locked · #38 first` místo ceny ve hvězdách, detailní řádek „the campaign opens one level at a time; level 3 'Toadstool' is next", a hlavička kapitoly `locked · clear level 10 first` místo `opens at N ★`. Kdyby zůstala cena, dlaždice by hráči nabízela hvězdy, které **už má** — a to se nečte jako pravidlo, ale jako rozbitá hra. Je to táž lekce jako u #349: na „co je otevřené" se odpovídá na jednom místě, ale **„proč je to zavřené" musí umět odpovědět každá plocha zvlášť**.
+
+**⚠ Testováno na majitelově save podle procedury z devátého zápisu** — záloha na dvě místa, hash, umělý save (dva hotové levely, 8 hvězd), tři screenshoty, obnova, hash znovu (`f5c8c4ee…` před i po, a ještě jednou po běhu na skutečném save, protože hra na něj při pouhém prohlížení pickeru nesahá). Umělý save je zároveň důkaz té vady: s 8 hvězdami byly dřív otevřené levely 3, **4 i 5** (minStars 4, 6, 8) — tři otevřené dveře po dvou zahraných levelech.
+
+**Nezahrnuto a je to schválně: druhá půlka #347, „bounded skip".** Issue ho chce jako ventil pro level, který hráče zasekne. Po tomhle rozhodnutí je jeho tvar jasný (skip posune frontier o jedna), ale potřebuje rozšířit formát `PlayerProgress` o „přeskočeno", vlastní ovládací prvek a rozhodnutí, kde se nabízí a kolikrát. `WouldCompleteCampaign` je napsané tak, aby šlo rozšířit na „vyčištěno **nebo** přeskočeno" jedním testem. Issue proto **nechávám otevřené**.
+
+**Ověřeno:** čtyři solutiony čisté, LevelGen 0, ScoreSim 0, kampaň nedotčená (žádný soubor levelu se nezměnil — je to čistě pravidlo), tři screenshoty z běžící hry: frontier na čerstvém profilu, kapitola za frontierem, a kapitola 7 na skutečném save, kde levely 61–68 stojí otevřené se svými hvězdami a 69/70 hlásí `Locked · #38 first`.

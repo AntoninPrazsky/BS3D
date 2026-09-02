@@ -315,10 +315,13 @@ namespace BS3D.Screens
             //actually was a campaign — a set of more than one level cleared to its end — because a single-level
             //set is just a level cleared, and calling that the end of a campaign overstates it.
             //
-            //Cheap and knowable this early: unlike the block, which has to look at every level of a run, this
-            //is the last entry of the set, and this clear is the clear.
-            _campaignCompleted = Game.LevelSet != null && Game.LevelSet.Count > 1
-                                 && _levelIndex + 1 >= Game.LevelSet.Count;
+            //⚠ IT ASKS EVERY LEVEL, exactly as the block above does (#347). This line read "the level just
+            //cleared is the last entry of the set", which is cheap and knowable early and answers a different
+            //question: unlocks are gated on a star TOTAL, so a player could bank their way to entry 105 with
+            //earlier levels never played, clear it, and be told the campaign was complete. The reasoning that
+            //defended the shortcut — "unlike the block, which has to look at every level of a run, this is the
+            //last entry" — was the fault itself written down as an economy.
+            _campaignCompleted = Game.WouldCompleteCampaign(_levelIndex);
 
             //The party. Started here rather than when the result screen appears, so the first shells are
             //already climbing while the last of the cluster is still falling — the celebration overlaps the
