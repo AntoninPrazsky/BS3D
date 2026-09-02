@@ -569,16 +569,81 @@ namespace BS3D
                 : 0;
 
         /// <summary>
-        /// Whether the entry may be played yet. A missing set (the built-in level) and an unauthored gate are
-        /// both open, so the gate only ever bites where a set said it should.
+        /// <b>The campaign's frontier: the first entry the player has not cleared</b>, and — by the sequence
+        /// rule in <see cref="IsLevelUnlocked"/> — the only uncleared level they may play. The set's
+        /// <c>Count</c> once every level is cleared, which is what makes that rule open the whole campaign to
+        /// a player who has finished it rather than closing it behind them.
+        /// <para>
+        /// A level counts as cleared when it holds at least one star, which is <see cref="IsBlockComplete"/>'s
+        /// test and the picker's tiles', and it is sound because <c>StarRating.Rate</c> has a floor of one:
+        /// "the one star that cleared always is". A clear that rated zero would leave the player standing on a
+        /// level they had just finished.
+        /// </para>
+        /// <para>
+        /// Walked rather than cached, deliberately. It is a dictionary lookup per entry up to the frontier —
+        /// 105 at the very end of the campaign — off a page refresh and a level's end, never off a frame; the
+        /// costly caller is <c>LevelSelectPage.FrontierChapter</c>, which asks it once per level and so pays
+        /// about eleven thousand lookups when the picker opens. A cache would buy that back for three
+        /// invalidation points (the record, the reset, the load) that must never be missed, and a stale
+        /// frontier is a campaign that will not open its next level.
+        /// </para>
+        /// </summary>
+        internal int FirstUnclearedLevel
+        {
+            get
+            {
+                if (_levelSet == null) return int.MaxValue;
+
+                for (int i = 0; i < _levelSet.Count; i++)
+                    if (LevelStars(i) <= 0) return i;
+
+                return _levelSet.Count;
+            }
+        }
+
+        /// <summary>
+        /// Whether the entry is past the frontier — locked because the player has not got there yet, rather
+        /// than because they are short of stars. The two locks are different sentences on the picker's tiles
+        /// and in its detail line, and a tile that quoted a star price the player already holds would read as
+        /// a bug rather than as a rule.
+        /// </summary>
+        internal bool IsLevelBeyondReach(int index) =>
+            !_unlockAll && index > FirstUnclearedLevel && LevelStars(index) <= 0;
+
+        /// <summary>
+        /// Whether the entry may be played yet: <b>enough stars, and no further than one level past what the
+        /// player has cleared</b>. A missing set (the built-in level) and an unauthored gate are both open, so
+        /// the gate only ever bites where a set said it should.
         /// <para>
         /// <b>The one place the debug unlock is answered</b> (#349), which is why it is answered here and not
         /// at the six call sites: the level select's tiles and its chapter reach, the result page's "next
         /// level", and the front end's choice of backdrop level all go through this, so a short-circuit here
         /// cannot leave one of them disagreeing with the others about what is open.
         /// </para>
+        /// <para>
+        /// <b>⚠ The sequence half is #347's fix and it is a fix at the ROOT rather than at the symptom</b>
+        /// (the owner's ruling: only ever one level ahead opens). The star gate alone is a *total*, so a
+        /// player banking four stars a level ran ahead of themselves — levels 40 and 41 open while 37 was
+        /// never played — and the campaign could be finished with holes in it. That is what let
+        /// CAMPAIGN COMPLETE fire on a campaign that was not complete; every other cure for that fires the
+        /// banner correctly at the end of a run the player should never have been able to make. The star gate
+        /// is kept underneath rather than replaced: it is the thing that says a struggling player must go back
+        /// and rate a level better before the next one opens, and it is the economy the set's own
+        /// <c>MinStars</c> values are authored against.
+        /// </para>
+        /// <para>
+        /// <b>⚠ A LEVEL ALREADY CLEARED IS ALWAYS OPEN, whatever the sequence says, and that clause is not
+        /// theoretical.</b> The rule arrived on a campaign that had been played under the old one, and the
+        /// author's own save holds <b>65 cleared levels with its frontier at 38 — 28 of them sit past it</b>.
+        /// Without this clause the new rule would have shut twenty-eight levels the player had beaten,
+        /// which does not read as a rule tightening; it reads as lost progress. A save from the debug unlock
+        /// (#349) reaches the same state by the same road.
+        /// </para>
         /// </summary>
-        internal bool IsLevelUnlocked(int index) => _unlockAll || TotalStars >= LevelMinStars(index);
+        internal bool IsLevelUnlocked(int index) =>
+            _unlockAll
+            || (TotalStars >= LevelMinStars(index)
+                && (index <= FirstUnclearedLevel || LevelStars(index) > 0));
 
         /// <summary>Whether the debug unlock is on — the settings row's readout. See <see cref="_unlockAll"/>.</summary>
         internal bool IsUnlockAllEnabled => _unlockAll;
@@ -669,6 +734,57 @@ namespace BS3D
 
         /// <summary>Whether the set is chaptered at all; false leaves the game playing exactly as it did.</summary>
         internal bool CampaignHasBlocks => _levelSet?.HasBlocks ?? false;
+
+        /// <summary>
+        /// Whether every level of the campaign is cleared — <see cref="IsBlockComplete"/>'s question asked of
+        /// the whole set, and the honest form of what CAMPAIGN COMPLETE claims (#347).
+        /// <para>
+        /// "More than one level" because a single-entry set is a level cleared and calling that the end of a
+        /// campaign overstates it — the rule #215 wrote, kept here where the claim is now actually decided.
+        /// </para>
+        /// </summary>
+        internal bool IsCampaignComplete
+        {
+            get
+            {
+                if (_levelSet == null || _progress == null || _levelSet.Count <= 1) return false;
+
+                for (int i = 0; i < _levelSet.Count; i++)
+                    if (_progress.StarsFor(_levelSet.Levels[i].File) <= 0) return false;
+
+                return true;
+            }
+        }
+
+        /// <summary>
+        /// Whether clearing <paramref name="index"/> <b>right now</b> would finish the campaign — every other
+        /// level already cleared, and the campaign not already finished. <see cref="WouldCompleteBlock"/>'s
+        /// question one scale up, asked at the same moment and for the same reason: the field empties before
+        /// the clear is recorded, so <see cref="IsCampaignComplete"/> would answer it one level short.
+        /// <para>
+        /// <b>⚠ This replaces "the level just cleared was the last entry of the set" (#347).</b> That test was
+        /// cheap and knowable early, and it was answering a different question: with unlocks gated on a star
+        /// <i>total</i>, a player could reach entry 105 with earlier levels never played, and clearing it
+        /// announced a campaign complete that was full of holes. #347's other half closed the road in
+        /// (<see cref="IsLevelUnlocked"/>'s sequence rule), and this closes the claim — <b>both</b>, because
+        /// the road can still be opened by the debug unlock (#349) or by a save from an older build, and the
+        /// banner must be true whatever let the player stand there.
+        /// </para>
+        /// <para>
+        /// The "not already finished" half makes a <b>replay</b> of the finale an ordinary clear, exactly as
+        /// it does for a block: without it, every return visit to level 105 would rain confetti again.
+        /// </para>
+        /// </summary>
+        internal bool WouldCompleteCampaign(int index)
+        {
+            if (_levelSet == null || _progress == null || index < 0 || index >= _levelSet.Count) return false;
+            if (_levelSet.Count <= 1 || IsCampaignComplete) return false;
+
+            for (int i = 0; i < _levelSet.Count; i++)
+                if (i != index && _progress.StarsFor(_levelSet.Levels[i].File) <= 0) return false;
+
+            return true;
+        }
 
         #endregion
 
