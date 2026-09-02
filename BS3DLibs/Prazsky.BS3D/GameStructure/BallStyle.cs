@@ -60,6 +60,14 @@ namespace Prazsky.BS3D.GameStructure
         /// identical balls; a metal carries its hue in <i>what it does to the light it reflects</i>, which is
         /// where this style puts the tint.
         /// </para>
+        /// <para>
+        /// <b>What makes it read as polished is what it has to reflect, and #336 is why.</b> It used to mirror
+        /// the same smooth vertical gradient every diffuse surface integrates for its ambient, and a smooth
+        /// sphere reflecting a smooth gradient has nothing sharp anywhere on it. It now has a <b>horizon</b>
+        /// and a <b>sun</b> — the only two hard things in an outdoor scene — in an environment of its own, and
+        /// its brush is four collinear octaves rather than two waves a few degrees apart, which used to beat
+        /// into blobs and read as bumps.
+        /// </para>
         /// </summary>
         Metal = 4,
 
