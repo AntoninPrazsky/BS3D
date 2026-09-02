@@ -3554,3 +3554,33 @@ Ověřeno: čtyři solutiony čisté. #320 nafoceno v editoru, #349 a #348 v bě
 - **#341 je potvrzená jednořádkovka:** `BombCharge = float3(1.0, 0.46, 0.13)` (`InstancedModel.fx:4377`) je oranžová přesně tak, jak issue tvrdí — #326 se konstanty nedotklo, protože řešilo šířku pásů a rytmus blikání. Kdo na to sáhne, ať se podívá i na `BombFarGlow`: náboj konverguje k němu, takže „červená" se musí změnit na **dvou** místech, ne na jednom.
 
 Dál pokračuji na **#343** (kámen natrvalo na stropě) na majitelův pokyn.
+
+---
+
+## 2026-09-02 — Claude Code (jedenáctý zápis dne)
+
+**#343 — kámen nesmí viset na stropě. Vada nebyla v návrzích, ale v tom, že se na ně nikdo neptal: ta jediná brána, která to mohla chytit, se na kamenných levelech NESPOUŠTĚLA.**
+
+**Dvakrát propadlo síto, a obě propadnutí jsou poučná.** `FindStrandedSpecials` se volalo podmínkou `glass + bombs == 0 ? new StrandedReport() : …`, takže level složený jen z kamene a barvy tu chůzi přeskočil celou. A i kdyby se spustila, uvnitř stojí strážce `if (Matchable(kind) || !Removable(kind)) continue;` — a **kámen je jediný druh, který odpovídá NE na `Removable`**, takže každý řádek pod tím strážcem je pro kámen nedosažitelný. Test kamene proto musí stát **před** ním, a stojí. Obecně: strážce psaný jako „vlastnost místo výčtu druhů" je správný tvar, ale chrání jen otázku, pro kterou byl napsaný — tady „dosáhne na tu kouli výstřel?" — a otázka #343 je jiná, skoro opačná: „zbaví se hráč té koule vůbec někdy?".
+
+**Audit (jednorázový nástroj přes skutečný `Level`/`BallsMap`, ne parsování JSONu): tři levely z pěti kamenných.** `Seam` 26 kotev ze 112, `Cairn` 44 ze 112, `Obsidian` **58 ze 113**. `Anvil` a `Keystone` čisté — a je zajímavé proč: Anvilovo `i < ANVIL_STONE_COURSES` míří na **spodní** kurzy (`fieldLevel = i + offset`, takže `i = depth-1` je kotva), a Keystoneovy pilíře „stop short of the glass" už dávno. **Ten idiom byl v bloku celou dobu**, jen ho tři návrhy ze čtyř nepoužily.
+
+**Oprava je proto Keystoneovo pravidlo aplikované na sourozence: `i < depth - 1 && …`.** Nestojí to ani buňku ani siluetu — o obsazenosti rozhoduje `OccupiedBlock`, `BlockKind` rozhoduje jen druh — takže ty buňky dál visí a dál se kreslí, jen nesou barvu místo žuly. Počty koulí sedí na jednotku (601 / 673 / 606 před i po).
+
+**Změřený dopad, a je asymetrický:**
+
+| | one-shot | anchor load |
+|---|---|---|
+| Seam | 8 % → 8 % | 6,1 → 6,2 |
+| Obsidian | 18 % → 18 % | 5,6 → 6,2 |
+| **Cairn** | **4 % → 11 %** | **6,5 → 9,1** |
+
+Cairn je jediná skutečná cena a je pochopitelná: čtyři komory se teď potkávají pod **jednou barevnou střechou**, a ta střecha je jediné místo levelu, kde jde barva brát přes dvě čtvrtiny naráz. Zapsal jsem to do hlavičky návrhu i do `docs/formats-and-tools.md`, protože „quartered top to bottom" tam stálo jako fakt.
+
+**⚠ A hlavní nález dne, který stojí za zapamatování, protože vyvrací argument, na kterém ta vada stála.** Obsidianův kamenný lem byl obhájený takto: kotva, kterou nelze vzít, nemůže `WorstAnchorLoad` zhoršit — tedy pojistka proti propadnutí clusteru pod čáru (#301/#302). **Změřil jsem tu pojistku sondou, která na to jediná je, a nikdy neplatila:** `--sag=Obsidian` čte **3, 1, 2 z 5 s lemem** a **1, 2, 1 z 5 bez něj**. Stejné rozpětí, stejný nejhorší průhyb (≈ −1,0). Poučení: **„tohle brání horšímu případu" je tvrzení, ne argument, dokud ho někdo nezměří** — a tady se za nezměřenou pojistku platilo 58 koulemi, kterých se hráč na poslední úrovni kampaně nemohl nikdy zbavit.
+
+**⚠ Vypadlo z toho ale i něco, co #343 neřeší a co nikdo nenahlásil: Obsidian propadá pod čáru i teď, 1–2 z 5.** Je to táž třída jako #316/#317/#319 (levely nad prahem, které nikdo nehlásil, našla je sonda) a `Obsidian` mezi nimi jmenovaný není. Nezakládal jsem issue bez zeptání — patří to majiteli k rozhodnutí, protože 1–2 z 5 je podle hlavičky `RUNS_PER_LEVEL` čtení „na hraně", které se má opakovat, a já ho opakoval třikrát na obou verzích.
+
+**Vedlejší nález v dokumentaci:** pás one-shotů Mirage tam stál jako „3–25 %" a **měřením vyšel 4–25 % i na nedotčeném HEADu** — byl zastaralý už před touhle změnou. Opraveno včetně toho, co posunulo #343 samo (jen Cairn).
+
+**Ověřeno:** LevelGen 0, ScoreSim 0, čtyři solutiony čisté, audit hlásí 0 kamenů na stropě přes všech 106 levelů. Nafoceno v běžící hře (`play level=…  shot=12`) — Obsidianův kotevní kurz nese barvu a žíla kamene zůstala pod ním, Cairnův kříž stojí a nad ním je barevná střecha. Tělo #324 na GitHubu opraveno v místě, jak issue žádalo: ta věta je teď přeškrtnutá a označená jako retraktovaná, ne smazaná.
