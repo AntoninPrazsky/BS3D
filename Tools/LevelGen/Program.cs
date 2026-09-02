@@ -15829,10 +15829,13 @@ namespace BS3D.Tools.LevelGen
         /// bomb up there costs the ceiling far more than a glass ball does — its own socket and every other
         /// one within the blast — but the whole of what made the glass case a refusal was that it gave
         /// <i>no warning</i>: a colourless ball says nothing about being load-bearing and nothing about being
-        /// about to leave. A bomb is the loudest ball in the game, breathing twice as deep and three times as
-        /// fast as the cluster it stands in, and it only ever goes off because the player aimed at it. That is
-        /// a trap the player can see and choose, which is a design, where the glass one is a design the player
-        /// cannot read.
+        /// about to leave. A bomb is a dark ribbed casing with a charge burning in it and it only ever goes
+        /// off because the player aimed at it. That is a trap the player can see and choose, which is a
+        /// design, where the glass one is a design the player cannot read. ⚠ <b>How far away it can be seen
+        /// is a separate and still-open question</b> — it reads unmistakably close up and very nearly not at
+        /// all at the stand-off a level is played from (measured; see <c>BallRenderSet.BOMB_EMISSION</c>) — so
+        /// if that is not improved, a design putting a bomb on the anchor course should keep it where the gun
+        /// gets near it.
         /// </para>
         /// </para>
         /// <para>

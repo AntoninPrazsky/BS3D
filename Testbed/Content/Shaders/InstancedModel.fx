@@ -3561,13 +3561,26 @@ technique InstancedModelHollow
 //that has no colour yet; this draws the ball that is about to take a hole out of the cluster.
 //
 //IT HAS TO READ AS ARMED BEFORE IT IS HIT, at play distance, on all ten materials — a bomb the player
-//does not notice until it goes off is a bomb that feels like a bug. What carries that is NOT the figure
-//drawn on the casing, and the stone's own header is why: motion is the first thing the eye reads, and a
-//rock is named across a whole field by being the one ball that does not breathe. This is that argument
-//used the other way round. The bomb breathes HARDEST — the deepest, fastest heartbeat in the game, pushed
-//as renderer uniforms by BallRenderSet.DrawBombs — so the two kinds sit at the opposite ends of the one
-//channel that reads with no resolution at all. Everything below is what confirms it once the player is
-//close enough to aim.
+//does not notice until it goes off is a bomb that feels like a bug.
+//
+//⚠ THAT BAR IS MET CLOSE UP AND IS NOT MET AT PLAY DISTANCE, and this header said the opposite until it
+//was photographed. The argument written here was the stone's own finding turned round: motion is the first
+//thing the eye reads, a rock is named across a whole field by being the one ball that does NOT breathe, so
+//the bomb would be named by breathing hardest. The mechanism works and was measured working — on the
+//hanging bomb of Bombs.json through a fixed camera at 11 units, eight captures at eight phases swing the
+//casing 1.35x and read R-B 68..92, which is a live coal. Through the same fixed camera at the stand-off a
+//level is actually played from, the same eight captures swing it 1.08x on a casing sitting at R-B 8..9,
+//which is very nearly neutral: at that size the bands are under a pixel, the emission that rides on them
+//integrates away, and what is left is a dark sphere. Three passes moved it (the charge stopped being
+//band-limited, the floor stopped going through the occlusion, BombFarGlow went to 0.85) and an A/B of the
+//same crop before and after is still hard to tell apart.
+//
+//So: what this technique DOES do is make a bomb unmistakable once the player is close enough to aim, and
+//the ten-material sweep confirms it is the odd one out against every style including the lava's glowing
+//crust. What it does NOT yet do is announce itself across the arena. The lever is not the beat — it is the
+//amount of light: the charge would have to be several times this, or the figure several times coarser, and
+//that is a LOOK decision rather than an arithmetic one. Do not re-derive the motion argument from the
+//stone's header without reading this paragraph; it is the one that was already tried.
 //
 //What makes it read as a bomb, in the order the eye picks it up:
 //  1. IT IS BANDED. The casing is cut into latitude segments by deep grooves, evenly spaced in ANGLE
@@ -3633,6 +3646,18 @@ static const float BombStudCount = 12.0;
 static const float BombStudSize = 0.16;
 static const float BombStudDepth = 0.016;
 
+//What the charge falls back to once the bands are under a pixel — see the note in BombPS. Well under the
+//groove's own peak of 1, so a bomb at arm's length is still a dark casing with light in its joins rather
+//than a glowing marble, and well over the mask's honest mean of about 0.065, so a bomb across the arena is
+//a live thing rather than an 8-ball. Measured at the game camera's stand-off on Bombs.json.
+static const float BombFarGlow = 0.85;
+
+//How much of the charge burns whatever the beat is doing and whatever the ball is buried under - the floor
+//the heartbeat rides on. See the note at its use for why it cannot be BallEmission's own resting term.
+//Half, so a bomb at rest is unmistakably lit and a bomb on the beat is still visibly brighter: the swing
+//has to survive as well as the floor, or the odd one out stops being the one that moves.
+static const float BombRestingGlow = 0.5;
+
 //Machined metal: a tight highlight and a real mirror of the dome, which is what separates a casing from
 //the stone's matte aggregate at a glance. The environment term is what draws the sky along the silhouette
 //and is most of why a dark ball is visible at all.
@@ -3680,6 +3705,20 @@ float4 BombPS(PatternVertexShaderOutput input) : COLOR
     float seam = BombSeams(direction) * bandLimit;
     float stud = BombStuds(direction) * bandLimit;
 
+    //⚠ THE CHARGE IS NOT BAND-LIMITED WITH THEM, and the first build of this technique was: the emission
+    //below was multiplied by the band-limited `seam`, so as the bands went under a pixel the glow went with
+    //them and the beat — which is the WHOLE armed read — was limited out of existence at exactly the
+    //distance it exists to work at. Measured on Bombs.json through the game camera: warmth on the bomb's
+    //pixels fell from 168 to 65 codes of R-B against a close-up, and the ball read as a plain black sphere.
+    //
+    //So the charge converges to a FLOOR instead of to nothing: once the figure cannot be resolved the whole
+    //casing carries the glow. That is deliberately NOT energy-conserving — the grooves are about a
+    //fifteenth of the surface, so spreading their light honestly over the ball leaves it as dark as before —
+    //and it is the same call the stone's own header records making, in the other direction: a rock had to be
+    //given emission it does not physically have because it read as the 8-ball without it. What has to
+    //survive distance is the SIGNAL, and the signal is "this one is live".
+    float charge = lerp(BombFarGlow, seam, bandLimit);
+
     //The casing, darkened in the grooves: a joint is in shadow before it is lit from inside, and skipping
     //that made the seams read as painted-on stripes when the charge was at the bottom of its beat.
     float3 color = SrgbToLinear(BombCasing) * (1 - 0.45 * seam) * (1 + 0.35 * stud);
@@ -3706,7 +3745,18 @@ float4 BombPS(PatternVertexShaderOutput input) : COLOR
     //at the depth and speed DrawBombs pushes, a whole ball flashing this hard would strobe. The studs take
     //a share of it too, at a fraction, so a bomb small enough that its bands have blurred out is still
     //visibly alive.
-    shaded.rgb += BallEmission(SrgbToLinear(BombCharge) * (seam + 0.35 * stud), input.WorldPosition, occlusion);
+    //⚠ THE FLOOR IS ADDED HERE AND NOT THROUGH BallEmission, and that is the second measured fault of this
+    //technique. BallEmission's resting half is multiplied by OCCLUSION SQUARED - #303's burial rule, so that
+    //the cluster is not sitting on an emissive floor no ambient occlusion can take it below - and a bomb
+    //standing inside a pile is precisely the ball that most has to be seen. Six captures through the game
+    //camera at arbitrary phases read the bomb at R-B 1.9 (dead black) five times out of six, first at pulse
+    //depth 1.0 and then AGAIN at 0.6, which is what proved the depth was never the dial: the resting term was
+    //being occluded away whatever its size. So the charge gets a light the burial rule does not reach, and
+    //the heartbeat rides on top of it - the beat is unoccluded by BallEmission's own design, which is what
+    //keeps it legible in the cluster's interior.
+    shaded.rgb += SrgbToLinear(BombCharge) * charge * BombRestingGlow;
+
+    shaded.rgb += BallEmission(SrgbToLinear(BombCharge) * (charge + 0.35 * stud), input.WorldPosition, occlusion);
 
     //Contract point 3, in BOTH meanings, and PatternPS's arithmetic deliberately.
     [branch]
