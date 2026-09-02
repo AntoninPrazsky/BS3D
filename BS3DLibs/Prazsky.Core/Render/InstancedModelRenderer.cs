@@ -1355,6 +1355,7 @@ namespace Prazsky.Core.Render
                         _porcelainCrackFrequencyParam.SetValue(PorcelainCrackFrequency);
                         _porcelainCrackWidthParam.SetValue(PorcelainCrackWidth);
                         _porcelainGlazeParam.SetValue(PorcelainGlaze);
+                        _translucencyStrengthParam.SetValue(TranslucencyStrength);
                         break;
 
                     case BallShading.Stone:

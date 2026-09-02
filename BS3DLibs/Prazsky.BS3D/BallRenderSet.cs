@@ -607,6 +607,15 @@ namespace Prazsky.BS3D
         private const float PORCELAIN_EMISSION = 0.36f;
 
         /// <summary>
+        /// How much light a porcelain ball carries through itself from a source behind it (#339) — the tell
+        /// nobody mistakes, because a held-up teacup glows and no plastic does. About a third of
+        /// <see cref="ICE_TRANSLUCENCY"/>: this is a dense fired body, not a scattering solid, and it goes
+        /// through the <b>clay's</b> colour rather than the glaze's, because what the light crosses is the
+        /// white body — a red cup lit from behind glows warm white and not red.
+        /// </summary>
+        private const float PORCELAIN_TRANSLUCENCY = 0.38f;
+
+        /// <summary>
         /// Wave count of a rock's mineral grain (#324) — but the figure is a <b>fleck field</b>, a product of
         /// three waves at about this count, so what it draws is roughly three times as fine as the number
         /// suggests.
@@ -1064,6 +1073,7 @@ namespace Prazsky.BS3D
                         renderer.PorcelainCrackFrequency = PORCELAIN_CRACK_FREQUENCY;
                         renderer.PorcelainCrackWidth = PORCELAIN_CRACK_WIDTH;
                         renderer.PorcelainGlaze = PORCELAIN_GLAZE;
+                        renderer.TranslucencyStrength = PORCELAIN_TRANSLUCENCY;
                         break;
 
                     case BallStyle.Lava:

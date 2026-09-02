@@ -127,8 +127,19 @@ namespace Prazsky.BS3D.GameStructure
         Lava = 8,
 
         /// <summary>
-        /// Crackled porcelain (#312): a deep, wet-looking coloured glaze over a ceramic body, crazed all over
-        /// with the fine hairline network an old glaze develops. Hard, cool and expensive-looking.
+        /// Crackled porcelain (#312): a deep, wet-looking coloured glaze over a <b>white clay body</b>, crazed
+        /// all over with the fine hairline network an old glaze develops, and banded round its equator with a
+        /// meander in white enamel. Hard, cool and expensive-looking.
+        /// <para>
+        /// <b>The decoration is what names it, and #339 is why.</b> Until then the body was the tint itself —
+        /// a coloured sphere under a tight highlight, which is painted plastic, and the owner could not say
+        /// what the material was because the shader was not drawing one. China is known by its ornament, so it
+        /// has one: a <b>Hilbert curve</b>, which is the pattern of this kind that can be evaluated rather than
+        /// stored, and which tiles — the standard curve enters and leaves its square at the two corners of one
+        /// edge, so tiles round the equator weld into a single continuous border. Under it the clay shows
+        /// through where the glaze thins, a craze line is the glaze parted down to that clay and stained, and
+        /// the body passes light the way a held-up teacup does.
+        /// </para>
         /// <para>
         /// The pattern is the tell — a crackle net reads as ceramic and as nothing else. What makes it
         /// porcelain rather than a shiny ball is <b>glaze depth</b>: the colour sits slightly under the
