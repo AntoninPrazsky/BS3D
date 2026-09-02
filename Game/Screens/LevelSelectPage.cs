@@ -22,12 +22,19 @@ namespace BS3D.Screens
     /// of pips under the name give back: how far this chapter has got, and which of the others are finished.
     /// </para>
     /// <para>
-    /// <b>A pager, not a strip of tabs.</b> Nine clickable chapter headers is a row that stops being legible
-    /// the day a set has twenty chapters, and "switch left and right" is a pager's gesture; the pips are a
-    /// <i>readout</i> rather than nine more buttons, which is what keeps the pad's walk over this page down to
-    /// the ten tiles, the two arrows and Back. The arrows wrap, so the far end of the campaign is four presses
-    /// away rather than eight — which is also why the pips have to be there: with wrapping, "where am I" is a
-    /// question the arrows cannot answer.
+    /// <b>A pager, not a strip of tabs</b> — nine clickable chapter <i>headers</i> is a row that stops being
+    /// legible the day a set has twenty chapters, and "switch left and right" is a pager's gesture. The arrows
+    /// wrap, so the far end of the campaign is four presses away rather than eight, which is also why the pips
+    /// have to be there: with wrapping, "where am I" is a question the arrows cannot answer.
+    /// </para>
+    /// <para>
+    /// <b>But the pips are destinations as well as a readout since #348</b>, and that overturns half of the
+    /// paragraph above. They were labels, on the argument that keeping them out of the pad's walk kept this
+    /// page down to the ten tiles, the two arrows and Back. The owner's verdict is that seeing exactly which
+    /// pip you want and still having to page five times to reach it is the worse bargain — so each is built
+    /// over <c>MenuTile</c> like the arrows are, and the walk is that much longer. What the objection above
+    /// still gets right, and what this does not touch, is that they stay <i>pips</i>: a mark each, not a row
+    /// of chapter names, so the row is as legible at twenty chapters as at eleven.
     /// </para>
     /// <para>
     /// <b>An unchaptered set is still one grid</b> — the page it was before #273, four tiles to a row inside
@@ -74,6 +81,14 @@ namespace BS3D.Screens
         //at the same weight as the heading beside it. A visible affordance is the point — the page is
         //mouse-first for most players, and a left/right key nobody can see is not discoverable.
         private const int ARROW_SIZE = 160;
+
+        //A pip's clickable square (#348), and the floor on it is the GLYPH ITSELF. A box smaller than the label
+        //inside it does not clip that label — Myra lets it overflow — so the plate the player sees and the
+        //rectangle the mouse hits stop being the same thing, silently. At 74 they sat about half a pip apart
+        //and a click on the visible ring landed under the button, which reads exactly like a dead control.
+        //FontStars' ring plus MenuTile's own padding needs most of this, and the rest is target size: eleven of
+        //them at this width still sit well inside the panel the tile grid sets.
+        private const int PIP_SIZE = 150;
 
         //The name and its readout sit in a block of FIXED width, so the arrows stand in the same place on
         //every chapter. Without it "The Coil" and "The Spectrum" would shift them, and paging would read as
@@ -322,7 +337,24 @@ namespace BS3D.Screens
             return Game.MenuTile(caption, () => TurnChapter(direction), ARROW_SIZE, ARROW_SIZE);
         }
 
-        /// <summary>The row of chapter pips — the campaign at a glance, which is what paging otherwise costs.</summary>
+        /// <summary>
+        /// The row of chapter pips — the campaign at a glance, which is what paging otherwise costs, and since
+        /// #348 the way to <b>reach</b> a chapter rather than only to count them. They were plain labels: a
+        /// readout beside two arrows, so the far end of an eleven-chapter campaign was five presses away even
+        /// though the player could see exactly which pip they wanted.
+        /// <para>
+        /// Each is built over <c>MenuTile</c> the way <see cref="ChapterArrow"/> is, which is the whole of what
+        /// makes it a real menu entry — the same brushes, the same click sound and the same pad activation, none
+        /// of which a <c>Label</c> has. The label itself stays and stays in <c>_pips</c>: the writing pass fills
+        /// or hollows it and marks the current one, and that has nothing to do with being clickable.
+        /// </para>
+        /// <para>
+        /// A locked chapter is clickable like any other, deliberately — the arrows have always paged into one
+        /// and its header says "locked · opens at N ★" when it holds nothing open, which is a better answer
+        /// than a pip that refuses. What must not be reachable is a locked <i>level</i>, and that is the tiles'
+        /// own gate (see <see cref="WriteTiles"/>), untouched here.
+        /// </para>
+        /// </summary>
         private Widget BuildPips()
         {
             HorizontalStackPanel row = new()
@@ -333,13 +365,45 @@ namespace BS3D.Screens
 
             for (int c = 0; c < _chapterStart.Length; c++)
             {
-                Label pip = new() { Font = FontStars, TextColor = BS3DGame.MENU_TEXT_DIM };
+                Label pip = new()
+                {
+                    Font = FontStars,
+                    TextColor = BS3DGame.MENU_TEXT_DIM,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center,
+                };
 
                 _pips.Add(pip);
-                row.Widgets.Add(pip);
+
+                //The index is captured per iteration, which is what makes eleven pips eleven destinations
+                //rather than eleven closures over the loop variable's last value.
+                int chapter = c;
+
+                row.Widgets.Add(Game.MenuTile(pip, () => GoToChapter(chapter), PIP_SIZE, PIP_SIZE));
             }
 
             return row;
+        }
+
+        /// <summary>
+        /// Jumps straight to a chapter (#348). Everything after the assignment is <see cref="TurnChapter"/>'s
+        /// and has to be: a different chapter is a different set of playable tiles, so the entries the pad
+        /// walks are re-read, and the cursor is kept on what it stood on because the player has not gone
+        /// anywhere. The two differ only in how the destination is arrived at — one steps and wraps, this one
+        /// is told — so the guard against a single-chapter set is shared and the no-op case is caught here
+        /// rather than costing a rebuild.
+        /// </summary>
+        private void GoToChapter(int chapter)
+        {
+            if (!_chaptered || _chapterStart.Length <= 1) return;
+            if (chapter < 0 || chapter >= _chapterStart.Length || chapter == _chapter) return;
+
+            _chapter = chapter;
+
+            Button focused = _focused;
+
+            ShowChapter();
+            Game.RefreshNavEntries(focused);
         }
 
         /// <summary>

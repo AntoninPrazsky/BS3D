@@ -3513,3 +3513,21 @@ Ověřeno: čtyři solutiony čisté, LevelGen exit 0, ScoreSim exit 0, kampaň 
 **Ověřeno:** čtyři solutiony čisté, LevelGen 0, ScoreSim 0, kampaň nedotčená (pět kamenných levelů Mirage se nezměnilo — je to čistě render). Fyzikální těleso zůstává koule a řez jde dovnitř, takže nakreslený kámen nikdy neopustí buňku, kterou mu simulace dala.
 
 **Tím je hotových všech šest issues z majitelova playtestu vzhledu koulí: #335, #336, #337, #338, #339, #340.**
+
+---
+
+## 2026-09-02 — Claude Code (devátý zápis dne)
+
+**Tři malé issue z majitelova druhého playtestu: #320, #349, #348.** Každá vlastní větev, všechny na mainu.
+
+**#320 — hint u klávesy L v MapEditoru jmenoval dva materiály z deseti.** Napsaný v #258, kdy ty dva byly jediné; #272 přidalo osm dalších. Opravená verze **nejmenuje žádný**: říká, co klávesa dělá, a ukazuje na řádek `Info`, kde už aktuální materiál stojí — což je tvar, který `K` (druh koule) používá odjakživa, a stejný argument, na kterém stojí ten cyklus sám (`BallStyles.Next` bere pořadí z enumu, takže jedenáctý materiál nemůže zůstat nedosažitelný). Nic tam už nepočítá materiály, takže to nemůže zastarat znovu. **Sám jsem si to dnes zhoršil** — pět z těch deseti materiálů jsem předělal.
+
+**#349 — přepínač „Unlock all" v nastavení.** Odpovídá se na **jednom místě**, `IsLevelUnlocked`, kterým prochází všech šest volajících (dlaždice level selectu, dosah kapitol, „next level" na výsledkové stránce a volba backdrop levelu ve front endu) — zkrat jinde by nechal některé z nich nesouhlasit s ostatními. **Nezapisuje nic**: `PlayerProgress` je nedotčený, takže vypnutí vrátí skutečný stav přesně. A **nepersistuje se**: vývojářský přepínač, který přežije restart, jednou zůstane zapnutý, a to jediné, co nesmí, je udělat ze skutečného save něco, co vypadá dál, než je.
+
+**⚠ Ověřit to na tomhle stroji nešlo bez sáhnutí na majitelův save**, protože ten má 214 hvězd a všechno odemčené. `Progress.json` žije **jen** v `Game/bin/net10.0-windows/Levels/` a `bin/` je v `.gitignore`, takže **jiná kopie neexistuje**. Postup: zálohovat na dvě místa, ověřit hash, odsunout, testovat na čerstvém profilu, vrátit, znovu ověřit hash. Vyšlo: s vypnutým přepínačem je v kapitole 1 otevřený level 1 a 2–10 hlásí „Locked · N ★"; se zapnutým a **nula hvězdami** stránka otevře **kapitolu 11 z 11** s levely 96–105 volitelnými. Záznam vrácen bit po bitu (56 levelů). **Kdo bude testovat progress: ten soubor je jediná kopie, zálohovat před ním a hash po něm.**
+
+**#348 — kapitolové pipy jsou klikatelné.** Byly to `Label`y, tedy jen readout, a hlavička té třídy to argumentovala: držet je mimo procházení padem zkracuje seznam vstupů stránky. Majitelův verdikt je opačný a je to rozumné — vidět přesně ten pip, který chceš, a pak pětkrát listovat, je horší obchod. Každý je teď postavený přes `MenuTile` jako šipky, což je celé, co z něj dělá skutečný vstup (tytéž štětce, zvuk kliknutí, `Tag` pro pad). **Hlavičku třídy i `docs/game-shell.md` jsem přepsal, protože obojí od té chvíle tvrdilo opak toho, co kód dělá.**
+
+**⚠ A vypadl z toho obecný nález o Myře, který stojí za zapamatování: TLAČÍTKO MENŠÍ NEŽ LABEL UVNITŘ NĚJ TEN LABEL NEOŘÍZNE — nechá ho přetéct.** Plocha, kterou hráč vidí, a obdélník, který trefí myš, tím potichu přestanou být totéž. Při první velikosti (74) byly od sebe asi půl pipu a klik na viditelný kroužek dopadl **pod** tlačítko, což čte přesně jako mrtvý ovládací prvek — a přitom se nic nerozbilo, nic nezalogovalo a build byl čistý. Poznalo se to až tak, že jsem si na snímku zvětšil pruh pipů a viděl, že plotny sedí jinde než glyfy. Velikost pipu má proto podlahu v **glyfu**, ne ve vkusu.
+
+Ověřeno: čtyři solutiony čisté. #320 nafoceno v editoru, #349 a #348 v běžící hře (klik na pip skočil z kapitoly 11 na kapitolu 2 a hlavička, výpis, mřížka i pipy se přepsaly zároveň). **Dosah padem na pip jsem NEnafotil** — tři stisky Nahoru zůstaly v mřížce dlaždic a hledat cestu procházením by stálo další běhy; plyne to z `CollectNavEntries`, který sbírá **každé povolené `Button`** ve stromu, a pip jím teď je.
