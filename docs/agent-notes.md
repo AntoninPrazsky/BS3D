@@ -3350,3 +3350,28 @@ Rig: `Testbed.exe Testbed\Maps\Bombs.json`, `campos`/`camtarget` (pevná kamera 
 **Co PROŠLO:** sweep přes všech deset materiálů. Bomba je identická a je zjevně ta odlišná na každém z nich — včetně **lávy**, které jsem se bál nejvíc: lávová kůra svítí sítí prasklin, bomba rovnými šířkovými pásy, a spletou se nedají. Detail čte přesně jak byl navržený: tmavý žebrovaný plášť, žhavé drážky, nýty kolem pasu, nezaměnitelně vyrobený předmět a ne obarvená koule.
 
 **Stav #326: mechanika hotová a ověřená, vzhled hotový zblízka a nedodělaný zdaleka.** Nechávám to na majitelovo oko — je to volba o tom, jak křiklavá bomba má být, a v paměti mám jeho vlastní preferenci vážit tyhle věci směrem k dopaminu, ne k zdrženlivosti. Cena snímku pořád neměřená.
+
+---
+
+## 2026-09-02 — Claude Code (druhý zápis dne)
+
+**Majitel se na bombu podíval a pojmenoval vadu přesně: „ty červené linky jsou doopravdy moc úzké, takže bomba z dálky nevypadá jako bomba — není vidět to červené blikání."** Byly to tři vady naráz a všechny tři sedí ve stejné rovině — velikost svítící figury, ne množství světla, což je přesně ta páka, o které jsem v předchozím zápisu tvrdil, že je to množství světla. Tvrdil jsem to špatně.
+
+1. **Drážky byly moc úzké a moc ostré** (0,22 při sharpness 2,4). Komentář, který na nich stál, argumentoval pro úzké — „náboj musí číst jako světlo vycházející ze SPÁRY, a široká drážka je namalovaný pruh". To platí o bombě v ruce a neplatí o kouli dva tucty pixelů široké, která musí říct OZBROJENA dřív, než jde vůbec nějakou spáru rozlišit. **Obě půlky musely hnout, a ta druhá se snadno přehlédne**: šířka je dosah masky, sharpness je mocnina nad ní, takže vysoká sharpness stáhne svítící jádro zpátky, ať je dosah jakýkoli — 2,4 zahazovalo většinu toho, co šířka koupila. Teď 0,35 a 1,5, a pásů je pět místo šesti (šest tenkých je závit, a závit čte jako šroub, ne jako bomba).
+
+2. **⚠ Band limit zeslaboval vzor šestkrát dřív, než bylo potřeba.** Faktor 2,0 na počtu pásů posílal limit na nulu při footprintu 0,1, zatímco pás byl pořád několik pixelů široký a dokonale rozlišitelný — plášť se rozpustil v plochou záři přesně na vzdálenosti, kde měla figura pracovat. Pás zabírá asi π/BombBandCount povrchového parametru, tedy nějakých 0,63 radiánu při pěti pásech, takže aliasovat začne teprve u footprintu blízko toho. Faktor je 0,5, což je zhruba tam, kde Nyquist opravdu je.
+
+3. **⚠ Tep byl moc rychlý na to, aby ho šlo vidět, a to je kontraintuitivní.** `Heartbeat` má svítivé okno pevné jako ZLOMEK cyklu (asi třináctina), takže rychlejší tep nebliká víc — bliká **kratčeji**. Při 2,6 Hz trvá záblesk asi 30 ms, což je na hraně toho, co člověk vůbec zaregistruje; šest snímků v náhodných fázích ho chytilo jednou. `BOMB_PULSE_SPEED` je 0,5 — pomalý, nezaměnitelný tep, pořád nic jako rytmus clusteru. **Střída se tím nezměnila a statistika taky ne**; změnilo se jediné, na čem záleží, totiž jak dlouho jeden záblesk trvá pro oko. Na to v tom souboru není měření, je to úsudek.
+
+**Změřeno po opravě**, pevná kamera na herním odstupu, osm snímků přes jeden cyklus: plášť běží **106 až 151** kódů červené, výkyv **1,43×**, a chytilo ho několik z osmi — zatímco předtím totéž vzorkování chytilo záblesk jednou ze šesti. Čte to jako tmavý žebrovaný plášť, jehož pásy jdou z matně hnědé do jasně oranžové a zpátky. Sweep materiálů znovu prošel (bomba je ta odlišná i proti lávě, která svítí sítí prasklin, a proti plazmě, která svítí celá).
+
+**⚠⚠ A teď to nejdůležitější, co z toho celého plyne: TŘI KOLA „MĚŘENÍ" PŘED TÍMHLE BĚŽELA NA TESTBEDU, KTERÝ NEMĚL EDITOVANÝ SHADER.** Vyvodil jsem z nich, že bomba je „moc široká, oranžová koule", stáhl jsem šířku zpátky, a pak jsem z nich vyvodil retrakci, kterou jsem **zapsal do pěti souborů a commitnul** (`e71fdff`). Všechno to bylo neplatné. Dvě nezávislé příčiny:
+
+- **`-c Release` staví jinam.** Skill i jeho `-Exe` default míří na `bin\net10.0-windows` — to je **Debug**. `dotnet build -c Release` píše do `bin\Release\net10.0-windows`, takže každý „rebuild" projde, hlásí nula chyb, a spouštěná binárka je hodiny stará.
+- **MGCB přeskočí `.fx`, jehož `.xnb` je novější — a pak nezkopíruje nic.** Content task kopíruje jen to, co v tom běhu sám postavil. `dotnet build` vypíše `Skipping …\InstancedModel.fx` a ohlásí úspěch. Smazat `Testbed\bin` **nestačí**; teprve smazání `Testbed\Content\bin` (MGCB intermediate) vynutí překlad i kopii.
+
+**Chytil to až obarvený konstantní náboj na ZELENO** — koule zůstala oranžová, takže bylo jisté, že pixely na obrazovce nepocházejí ze souboru na disku. Do té doby jsem tři kola ladil podle měření, která „ukazovala" tři různé věci, a dvakrát jsem si na jejich základě opravil vlastní správný krok. **Zapsáno do `.claude/skills/screenshot/SKILL.md`** jako kontrola před každým snímkem shaderu (`.xnb` musí být novější než `.fx`) a jako zelený test, když je výsledek překvapivý. Komentáře v těch pěti souborech jsou přepsané na to, co doopravdy platí.
+
+**Poučení pro příště, obecnější než tenhle bug:** když měření třikrát po sobě řekne něco jiného a každé z nich vede k jinému ladění, není to hádanka o shaderu — je to signál, že měřicí řetěz nemá zavřenou smyčku. Ověřit, že běží to, co jsem napsal, mělo přijít jako první krok, ne jako pátý.
+
+Ověřeno: čtyři solutiony čisté, LevelGen exit 0, ScoreSim exit 0, kampaň nedotčená. Cena snímku pořád neměřená (zbytek #326).

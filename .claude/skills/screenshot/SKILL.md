@@ -17,6 +17,34 @@ dotnet build C:\GitHub\Testbed.sln   # or MapEditor.sln for the editor
 
 The exe is `Testbed\bin\net10.0-windows\Testbed.exe`.
 
+### ⚠ Prove the exe is running the change before you believe a single pixel
+
+**A shader edit can leave the Testbed running the PREVIOUS shader, silently, and the capture then looks like
+a finding.** It cost three rounds of tuning and a wrong conclusion written into five files (#326), and there
+are two independent causes:
+
+- **`-c Release` builds somewhere else.** The path above — and this script's `-Exe` default — is the
+  **Debug** output. `dotnet build ... -c Release` writes `bin\Release\net10.0-windows\`, so every "rebuild"
+  can succeed while the exe being launched is hours old. Build without `-c`, or point `-Exe` at the
+  configuration you actually built.
+- **MGCB skips an `.fx` whose `.xnb` is already newer — and then copies nothing.** The content task only
+  copies what it built in that invocation, so an intermediate that is up to date leaves the output directory
+  untouched. `dotnet build` prints `Skipping …\InstancedModel.fx` and reports success. Deleting
+  `Testbed\bin` alone does **not** fix it; deleting `Testbed\Content\bin` (MGCB's own intermediate) forces
+  the rebuild and the copy.
+
+**The check is one line, and it is worth running before every shader capture:**
+
+```powershell
+# the .xnb must be NEWER than the .fx
+Get-Item Testbed\Content\Shaders\InstancedModel.fx, Testbed\bin\net10.0-windows\Content\Shaders\InstancedModel.xnb |
+    Select-Object LastWriteTime, FullName
+```
+
+**And when a result is surprising, prove it with a colour.** Tint a constant in the technique to pure green,
+rebuild, capture: if the pixels are not green, the exe is not running your file. That is what finally caught
+this one, after the measurements had "shown" three different things.
+
 ## The camera is the key trick: `campos` / `camtarget`
 
 The free (fly) camera has no runtime "teleport", so to frame a reproducible shot the Testbed takes two
