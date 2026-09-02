@@ -3408,3 +3408,22 @@ Ověřeno: čtyři solutiony čisté, LevelGen exit 0, ScoreSim exit 0, kampaň 
 **Ověřeno:** čtyři solutiony čisté, LevelGen exit 0, ScoreSim „All levels rate the right way round", kampaň nedotčená (žádný soubor levelu se nezměnil). Snímky: detail na dómu 1 i 13 přes všech třináct tintů, herní odstup na `Full.json`, a **kontrolní sweep lávy, mramoru a vinylu** — sdílený include do `InstancedModel.fx` nikam jinam nesáhl. Vedle porcelánu (#339) se ty dva teď nedají splést: porcelán je tmavá lesklá glazura s bodovým odleskem a jemnou krakelurou, led bledá studená koule rozlámaná na desky.
 
 **Co z toho plyne pro sousední issues:** #339 (porcelán) tím **není vyřešené** — pořád nečte jako konkrétní materiál — ale přestal se plést s ledem, takže se dá řešit sám za sebe. A **láva (#338) má tutéž konstrukci, jakou tady padla**: její švy jsou pořád `SeamLine`, tedy pravidelné pásy; drží ji, že *svítí*, ne že by ta síť byla lomem. Jestli se #338 bude dělat, tenhle Voronoi je připravený.
+
+---
+
+## 2026-09-02 — Claude Code (čtvrtý zápis dne)
+
+**Láva (#338) — „černá kůra zabírá moc plochy, má být víc vidět barva typu".** Majitelova stížnost je o **ploše**: barva žila jenom ve švech, což je asi patnáctina povrchu, takže dvanáct pixelů ze třinácti bylo černých, ať měla koule jakoukoliv barvu.
+
+**Obě nasnadě ležící opravy jsou špatně a to je celé to rozhodnutí.** *Zesvětlit kůru* zahodí argument, kvůli kterému ten styl vznikl — emisivní šev je jediná barva v téhle hře, která dorazí neředěná, a kůra nesoucí skutečný tint je zase difuzní povrch, což je pod soumrakovým dómem třináct tmavě šedých koulí. *Rozšířit šev*, dokud nepokryje kouli, udělá z popraskané skořápky barevnou kouli s černými flíčky, a ta skořápka **je** ten read. Takže barva jde z **tepla**: kůra do vzdálenosti jedné šířky desky od spáry je tenká a horká a matně svítí — a to je pořád emise, ne difuze.
+
+**Dvě věci to rozhodly, a druhá z nich mě stála jedno kolo:**
+
+1. **Halo je MAX ze tří švových polí, ne jejich součet.** Tři široká pole sečtená saturují přes většinu koule a desky přestanou být deskami; nejbližší z nich je vzdálenost k nejbližší prasklině, což je přesně to, čím se teplo řídí.
+2. **⚠ Halo musí mít SPÁD, ne plato.** Napsal jsem ho poprvé jako `široké pole − šev`, což je uvnitř rovnoměrně nasvícený prstenec, a koule se vrátila jako **tlustě pruhovaná neonová klec** s deskami zredukovanými na černé ostrůvky mezi mřížemi. To je **plazma** — přesně ten styl, od kterého se hlavička lávy na půl obrazovky snaží držet dál. Mocnina nad širokým polem z toho udělá gradient: jasně u spáry, tmavě o desku dál. Teprve tohle je chladnoucí kámen.
+
+**Změřeno** (`-Whole` na `Thirteen_Colors`, stejný pevný rig jako u ledu): podíl plochy koule nesoucí skutečnou chromu **48,7 % → 57,8 %**, střední chroma **51,9 → 59,7**, **střední jas beze změny** (74,3 → 75,3) — takže víc barvy, ne víc světla. Nejtěsnější pár z #315, oranžová/hnědá: **8,0 dE před** proti **7,6 a 8,3 na dvou snímcích po** — dva snímky téhož buildu se liší o 0,7, takže to je uvnitř ±0,4 dE, které na jediný snímek dává emisivní tep, a **žádný jiný pár se nezúžil**. Cena: tři sinusy a `pow` navíc, **7,59/7,65 ms před proti 7,67/7,69 po** při ssaa 4 — uvnitř rozptylu mezi běhy.
+
+**⚠ OPRAVA MÉHO VLASTNÍHO ZÁPISU O PÁR HODIN VÝŠ.** V zápisu k #337 a v komentáři k issue jsem napsal, že „láva má tutéž konstrukci, jaká u ledu padla — její švy jsou pořád `SeamLine`, tedy pravidelné pásy". **První půlka je pravda, druhá ne.** Láva má `LavaSeamWander` (0,30) — doménový warp, který ty švy ohýbá, a její vlastní hlavička zaznamenává, že bez něj to *byla* drátěná klec a přesně tak to vypadalo. Napsal jsem to jen z názvu funkce, aniž jsem si přečetl volající kód, a vyznělo to, že je láva stejně pravidelná jako býval led. Není. Voronoi tu proto **nepotřebovala** a nedostala ji — ušetřených 27 hashů na pixel je vedlejší, hlavní je, že by opravovala vadu, kterou ten styl nemá.
+
+**Ověřeno:** čtyři solutiony čisté, LevelGen 0, ScoreSim 0, kampaň nedotčená. Nafoceno na dómu 1 i 13 přes všech třináct tintů a na herní odstup na clusteru — tam je to největší zisk, protože barvy koulí musí jít od sebe rozeznat, a to je hratelnost, ne vzhled.

@@ -116,6 +116,13 @@ namespace Prazsky.BS3D.GameStructure
         /// leans on the seams harder than any style but the plasma; since #315 how brightly a seam burns
         /// follows the type's own luminance, which is what keeps orange and brown two balls rather than one.
         /// </para>
+        /// <para>
+        /// Since #338 the crust for about a plate-width either side of a seam <b>glows too</b> — thin rock over
+        /// a hot gap — which is how the style answers "too much of the ball is black" without lightening the
+        /// crust: a halo is still emission, so the colour is still undiluted, and it grades out instead of
+        /// flooding, so the plates stay plates. Measured on a Thirteen_Colors capture, the share of a ball's disc
+        /// carrying real chroma went from 49 % to 58 %, at unchanged mean luminance.
+        /// </para>
         /// </summary>
         Lava = 8,
 
