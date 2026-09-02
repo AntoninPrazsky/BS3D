@@ -395,6 +395,13 @@ namespace BS3D
         //On by default, the aberration's sibling taste toggle
         private bool _grain = true;
 
+        //The debug unlock (#349): off at every launch and never written anywhere. It is deliberately NOT
+        //persisted — a development convenience that survived a restart would eventually be left on, and the
+        //one thing this must never do is make a player's own progress look further along than it is. It
+        //overrides the star gate and touches PlayerProgress not at all, so turning it back off restores the
+        //real state exactly.
+        private bool _unlockAll;
+
         //Far lower than the streak star's 0.9: the pyramid ACCUMULATES on the way up, so the head carries
         //its own halo plus every wider level's, and the same subjective glow needs a fraction of the gain.
         private static readonly float GLARE_INTENSITY = 0.5f;

@@ -157,5 +157,23 @@ namespace BS3D
             _pipeline.FilmGrain = _grain ? FILM_GRAIN : 0f;
             _settingsPage.Refresh();
         }
+
+        /// <summary>
+        /// Toggles the debug unlock (#349): every level selectable regardless of the star total, for reaching
+        /// one to test it without earning the stars first. It overrides <see cref="IsLevelUnlocked"/> and
+        /// writes nothing — <c>PlayerProgress</c> is untouched, so turning it off restores the real state
+        /// exactly, and it is off again at the next launch.
+        /// <para>
+        /// The level select is refreshed alongside the settings page. It would pick this up on its own when
+        /// next shown — <c>Refresh</c> rewrites every tile's locked state — but doing it here means the two
+        /// pages cannot be looked at in the same breath and disagree.
+        /// </para>
+        /// </summary>
+        internal void ToggleUnlockAll()
+        {
+            _unlockAll = !_unlockAll;
+            _settingsPage.Refresh();
+            _levelSelectPage?.Refresh();
+        }
     }
 }

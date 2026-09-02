@@ -571,8 +571,17 @@ namespace BS3D
         /// <summary>
         /// Whether the entry may be played yet. A missing set (the built-in level) and an unauthored gate are
         /// both open, so the gate only ever bites where a set said it should.
+        /// <para>
+        /// <b>The one place the debug unlock is answered</b> (#349), which is why it is answered here and not
+        /// at the six call sites: the level select's tiles and its chapter reach, the result page's "next
+        /// level", and the front end's choice of backdrop level all go through this, so a short-circuit here
+        /// cannot leave one of them disagreeing with the others about what is open.
+        /// </para>
         /// </summary>
-        internal bool IsLevelUnlocked(int index) => TotalStars >= LevelMinStars(index);
+        internal bool IsLevelUnlocked(int index) => _unlockAll || TotalStars >= LevelMinStars(index);
+
+        /// <summary>Whether the debug unlock is on — the settings row's readout. See <see cref="_unlockAll"/>.</summary>
+        internal bool IsUnlockAllEnabled => _unlockAll;
 
         #region The campaign's blocks (#184)
 

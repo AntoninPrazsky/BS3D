@@ -58,7 +58,7 @@ namespace BS3D.Screens
 
         private Label _fullscreenValue, _qualityValue, _exposureValue, _skyValue, _fpsValue, _fpsLimitValue;
         private Label _volumeValue, _effectsValue, _musicValue, _ambienceValue, _aberrationValue, _grainValue;
-        private Label _progressValue;
+        private Label _progressValue, _unlockAllValue;
 
         //The reset row asks twice. One click on a row that erases every star is an accident waiting beside
         //ten rows that are safe to click freely — so the first click only arms it and shows "Sure?", the
@@ -145,6 +145,12 @@ namespace BS3D.Screens
             //The campaign back to zero stars (#92) — for testing as much as for a fresh start. The resting
             //value shows the star total the click would erase; the click itself is two-step (see _resetArmed).
             AddRow(grid, 6, "Reset progress", OnResetProgress, out _progressValue);
+
+            //The debug unlock (#349). Under the campaign heading rather than among the looks because it is the
+            //same kind of thing the row above is - the player's record - and it is a DEVELOPMENT convenience:
+            //it is off at every launch and writes nothing, so it can never make a real save read further along
+            //than it is. Hiding it behind a build flag is a shipping concern and not one yet.
+            AddRow(grid, 7, "Unlock all", Game.ToggleUnlockAll, out _unlockAllValue);
 
             return grid;
         }
@@ -241,6 +247,7 @@ namespace BS3D.Screens
             _fpsLimitValue.Text = Game.IsFpsUncapped ? "Unlimited" : "Monitor";
             _aberrationValue.Text = Game.IsAberrationEnabled ? "On" : "Off";
             _grainValue.Text = Game.IsGrainEnabled ? "On" : "Off";
+            _unlockAllValue.Text = Game.IsUnlockAllEnabled ? "On" : "Off";
             _volumeValue.Text = FormatVolume(Game.MasterVolume);
             _effectsValue.Text = FormatVolume(Game.SfxVolume);
             _musicValue.Text = FormatVolume(Game.MusicVolume);
