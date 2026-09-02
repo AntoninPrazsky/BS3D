@@ -633,26 +633,56 @@ namespace Prazsky.BS3D
         private const float STONE_EMISSION = 0.45f;
 
         /// <summary>
-        /// <b>What a bomb is drawn with, and these three numbers ARE the "armed" read</b> (#326). The casing,
-        /// the grooves and the studs are what confirm a bomb once the player is close enough to aim; what
-        /// names one across a whole field is the beat, and the beat is these.
+        /// What a bomb is drawn with (#326): a fast, deep heartbeat against a cluster resting at
+        /// <see cref="PULSE_DEPTH_RESTING"/> and <see cref="PULSE_BEATS_PER_SECOND"/>, at an emission the
+        /// shader multiplies by the <i>seam mask</i> rather than by the whole ball — what beats is the light
+        /// coming out of the casing's joins, so most of the surface pays none of this and the ball throbs
+        /// instead of strobing.
         /// <para>
-        /// It is the stone's own finding used the other way round. A rock is legible at any distance and under
-        /// any dome because it is the one ball that does <b>not</b> breathe, motion being the first thing the
-        /// eye reads; so the bomb takes the other end of that same channel — the deepest and fastest heartbeat
-        /// in the game, against a cluster resting at <see cref="PULSE_DEPTH_RESTING"/>. Nothing about the
-        /// figure on the casing could have done that job, because at the stand-off a level is played from a
-        /// figure is a few pixels wide and a rhythm is not.
+        /// <b>⚠ These three numbers were written as "the armed read" and they are not it, which was found by
+        /// photographing them rather than by thinking about them.</b> The argument was the stone's own finding
+        /// turned round — a rock is named across a whole field by being the one ball that does not breathe, so
+        /// a bomb would be named by breathing hardest. It is true near and false far. Measured on
+        /// <c>Bombs.json</c> through a fixed camera, eight captures at eight phases: at 11 units the casing
+        /// swings <b>1.35×</b> and sits at R−B 68..92 — a live coal; at the stand-off a level is played from
+        /// it swings <b>1.08×</b> on a casing at R−B 8..9, which is very nearly neutral. At that size the
+        /// bands are under a pixel and the emission riding on them integrates away.
         /// </para>
         /// <para>
-        /// The emission is high because the shader multiplies it by the <i>seam mask</i> rather than by the
-        /// whole ball: what beats is the light coming out of the joins, so most of the surface is paying none
-        /// of this. A ball flashing this deep and this fast over its whole area would strobe.
+        /// So the beat is what makes a bomb unmistakable <i>once the player is close enough to aim</i>, and
+        /// the distant read is still an open question — see the technique's own header in
+        /// <c>InstancedModel.fx</c> for the three passes already spent on it and for why the remaining lever
+        /// is the amount of light rather than the rhythm.
         /// </para>
         /// </summary>
         private const float BOMB_EMISSION = 1.25f;
 
-        /// <inheritdoc cref="BOMB_EMISSION"/>
+        /// <summary>
+        /// How much of the <see cref="BallEmission"/> term swings with the beat. <b>All of it</b>, and the
+        /// resting light the bomb needs is <i>not</i> here — it is <c>BombRestingGlow</c> in the shader, added
+        /// beside this. Two measured findings put it there, and both were invisible to reasoning.
+        /// <para>
+        /// <b>1. At depth 1.0 there is no resting term at all.</b> The identity is
+        /// <c>(1 − depth)·occlusion² + depth·beat</c>, and <c>Heartbeat</c> is a lub-dub — two narrow
+        /// gaussians and then a long rest — so at <see cref="BOMB_PULSE_SPEED"/> the lit window is about 30 ms
+        /// of a 385 ms cycle. Measured on <c>Bombs.json</c> through the game camera, six captures at arbitrary
+        /// phases: <b>five read the bomb at R−B 1.9, dead black, and one at 10</b>. A ball that is a black
+        /// sphere five frames in six does not read as armed; it reads as an 8-ball that occasionally flickers.
+        /// </para>
+        /// <para>
+        /// <b>2. Turning the depth down to 0.6 did not fix it, and that is the finding worth keeping.</b> The
+        /// six captures came back <i>unchanged</i> — five at 1.9 again. The resting half of that identity is
+        /// multiplied by <b>occlusion squared</b>, which is #303's burial rule: a light buried in the pile is
+        /// deliberately dimmed, so the whole cluster is not sitting on an emissive floor no ambient occlusion
+        /// can take it below. That rule is right, and it is the exact opposite of what a bomb needs — a bomb
+        /// inside a pile is the one that most has to be seen. So no value of this constant could have worked,
+        /// and the floor had to be a term the occlusion does not reach.
+        /// </para>
+        /// <para>
+        /// It is left at 1.0 deliberately: the beat rides unoccluded, which is what makes it legible in the
+        /// cluster's interior, and it is now purely a beat on top of a floor that is always lit.
+        /// </para>
+        /// </summary>
         private const float BOMB_PULSE_DEPTH = 1f;
 
         /// <inheritdoc cref="BOMB_EMISSION"/>
@@ -1355,12 +1385,10 @@ namespace Prazsky.BS3D
         /// a charge burning in its seams — whatever the level's balls are made of, on the rock's argument
         /// exactly.
         /// <para>
-        /// <b>The three uniforms it pushes ARE the effect.</b> A bomb has to read as armed at play distance on
-        /// all ten materials, and what carries that is the beat rather than the figure: the deepest and fastest
-        /// heartbeat in the game against a cluster resting at <see cref="PULSE_DEPTH_RESTING"/> — the stone's
-        /// own finding (motion is the first thing the eye reads, and a rock is named across a field by having
-        /// none) used at the other end of the same channel. That is also why this cannot travel on an instance
-        /// and has to be a draw: emission, depth and speed are per-renderer.
+        /// <b>The three uniforms it pushes are why this cannot travel on an instance</b> — emission, depth and
+        /// speed are per-renderer, which is the still plane's argument (#252) for the third time. What they
+        /// buy is measured on <see cref="BOMB_EMISSION"/>: a bomb is unmistakable close up and its beat is
+        /// very nearly invisible at the stand-off a level is played from, which is the open half of #326.
         /// </para>
         /// <para>
         /// <b>⚠ It puts the pulse SPEED back by hand, and that is the one thing <see cref="ApplyStyle"/> cannot
