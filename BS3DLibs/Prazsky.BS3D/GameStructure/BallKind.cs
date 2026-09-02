@@ -39,6 +39,12 @@ namespace Prazsky.BS3D.GameStructure
         /// still carries a <see cref="BallType"/> because every cell does, and <b>nothing may read it</b> —
         /// see <see cref="Matchable"/>.
         /// </para>
+        /// <para>
+        /// It is also the one ball in the game that is <b>not a sphere on screen</b> (#340): its silhouette is
+        /// carved out of round in the shader, which is where "that one is different" is said at any distance.
+        /// The <i>physics</i> body stays a sphere — the lattice, the contacts and the drain all depend on that,
+        /// and the carving is inward-only so the drawn rock never leaves the cell the simulation gives it.
+        /// </para>
         /// </summary>
         Rock = 1,
 

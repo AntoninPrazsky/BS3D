@@ -138,6 +138,7 @@ namespace Prazsky.Core.Render
         private EffectParameter _stoneGrainFrequencyParam;
         private EffectParameter _stoneGrainContrastParam;
         private EffectParameter _stoneRoughnessParam;
+        private EffectParameter _stoneShapeDepthParam;
         private EffectTechnique _cityTechnique;
         private EffectParameter _cityWindowBrightnessParam;
 
@@ -645,6 +646,14 @@ namespace Prazsky.Core.Render
         public float StoneRoughness { get; set; } = 0.06f;
 
         /// <summary>
+        /// How deep a <see cref="BallShading.Stone"/> ball is carved <b>out of round</b>, as a fraction of its
+        /// radius (#340). The only ball figure in the set that moves a <i>vertex</i>: the rock's silhouette is
+        /// deliberately not a circle, where every other style's is. It carves inward only — the lattice packs
+        /// balls at exactly two radii apart, so one that grew would push into its neighbour's cell.
+        /// </summary>
+        public float StoneShapeDepth { get; set; } = 0.20f;
+
+        /// <summary>
         /// How much of its own color the surface radiates, independent of any light falling on it.
         /// Deliberately not occluded: a light source buried inside a pile is the one that should still
         /// show, glowing out past its neighbors.
@@ -975,6 +984,7 @@ namespace Prazsky.Core.Render
             _stoneGrainFrequencyParam = _effect.Parameters["StoneGrainFrequency"];
             _stoneGrainContrastParam = _effect.Parameters["StoneGrainContrast"];
             _stoneRoughnessParam = _effect.Parameters["StoneRoughness"];
+            _stoneShapeDepthParam = _effect.Parameters["StoneShapeDepth"];
             _cityTechnique = _effect.Techniques["InstancedCity"];
             _cityWindowBrightnessParam = _effect.Parameters["CityWindowBrightness"];
             _cityWindowTimeParam = _effect.Parameters["CityWindowTime"];
@@ -1362,6 +1372,7 @@ namespace Prazsky.Core.Render
                         _stoneGrainFrequencyParam.SetValue(StoneGrainFrequency);
                         _stoneGrainContrastParam.SetValue(StoneGrainContrast);
                         _stoneRoughnessParam.SetValue(StoneRoughness);
+                        _stoneShapeDepthParam.SetValue(StoneShapeDepth);
                         break;
 
                     case BallShading.Lava:

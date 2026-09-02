@@ -3710,11 +3710,13 @@ technique InstancedModelPorcelain
 //different" has to survive all ten materials or it is not a signal.
 //
 //What makes it read as stone, in the order the eye picks it up:
-//  1. It is ROUGH. Every other ball in this game was cast, blown, wound, ground or glazed, and all of
-//     them are smooth spheres with a figure drawn on them. This one carries the largest relief in the
-//     file, so its silhouette is still a perfect circle (nothing here builds geometry) but its shading
-//     is broken all over. That, not the colour, is what separates it from a grey marble at play
-//     distance.
+//  1. It is NOT ROUND. Every other ball in this game was cast, blown, wound, ground or glazed, and all
+//     of them are smooth spheres with a figure drawn on them; this one is CARVED OUT OF ROUND in its own
+//     vertex shader (#340 - see the block above StoneShape), and carries the largest relief in the file
+//     on top of that. The silhouette is the first thing the eye reads and the only thing that survives
+//     any distance, so it is where "that one is different" is now said. This paragraph used to end
+//     "nothing here builds geometry" and rested the whole read on shading a perfect sphere; the owner's
+//     playtest asked for the opposite in as many words, and confirmed it when asked.
 //  2. It is SPECKLED. Granite is an aggregate of grains large enough to see: pale quartz and feldspar,
 //     dark mica and hornblende. Three high-frequency waves MULTIPLIED give a field concentrated near
 //     zero with isolated peaks of both signs, which is a fleck field - a sum would give creases, which
@@ -3750,9 +3752,10 @@ float StoneRoughness;
 
 //The stone itself, in sRGB like every other colour written here.
 //
-//⚠ THE VALUE IS THE WHOLE READ AND IT HAS TO BE HIGH, and the first attempt at this style got it wrong by
-//being physically reasonable: a 0.42 grey is a fair granite albedo and it came out BLACK on screen, next to
-//the 8-ball rather than next to the silver. Two things take a rock down that no other ball here pays:
+//⚠ THE VALUE HAS TO BE HIGH FOR A REASON THAT STILL STANDS, and the first attempt at this style got it
+//wrong by being physically reasonable: a 0.42 grey is a fair granite albedo and it came out BLACK on
+//screen, next to the 8-ball rather than next to the silver. Two things take a rock down that no other
+//ball here pays:
 //it is the only ball in the game with NO EMISSION (every other one adds 0.3-0.5 of its own colour on top of
 //its shading, so the whole cluster around this one is lifted), and it is the only one that barely mirrors
 //the sky (see StoneEnvironment). A neutral surface next to thirteen lit ones reads far darker than its
@@ -3761,7 +3764,16 @@ float StoneRoughness;
 //
 //Warm, deliberately: Type11 (silver) is a COOL slate at (0.5, 0.53, 0.58) and is the one type a grey ball
 //can be confused with. Same value, opposite hue, and the two never meet.
-static const float3 StoneBody = float3(0.63, 0.595, 0.545);
+//
+//⚠ 0.63 UNTIL #340, and what bought the drop was the carving. The owner's second sentence was that the
+//ball is too light in value, and the argument above says why it could not simply be darkened - so it was
+//not darkened simply. A carved ball has real form: its own gouges shade it, which is a source of contrast
+//a smooth sphere with no emission and no mirror had nowhere to get, and value that used to have to come
+//out of the albedo now comes out of the shape. MEASURED against the pair this constant exists to sit
+//between, on the meadow at dome 1: rock 84 and 75 mean luminance on two rocks, Type8 (black) 42, Type11
+//(silver) 81. Under dome 13: rock 66 and 67, black 29, silver 80. Still beside the silver and still at
+//twice the 8-ball on both, which is the whole of what the paragraph above asks for.
+static const float3 StoneBody = float3(0.54, 0.51, 0.465);
 
 //What the grains are: the pale one is quartz catching the light, the dark one mica. Asymmetric on purpose -
 //a real granite's dark minerals sit further from the matrix than its light ones, and a symmetric pair reads
@@ -3813,14 +3825,142 @@ static const float StoneBroadHighlight = 0.22;
 static const float StoneEnvironment = 0.55;
 static const float StoneSmoothness = 0.25;
 
+//===================================================================================================
+//THE SILHOUETTE IS NOT A CIRCLE ANY MORE (#340), AND THAT IS A RULING RATHER THAN A TUNING. The header
+//above says "nothing here builds geometry" and point 1 rests the whole read on shading a perfect sphere;
+//that stood as a rule until the owner's playtest asked for the opposite in as many words - a rock may be
+//visibly less round than the other balls, sharper, more like an actual chunk of stone - and confirmed it
+//when asked. #271 decided the same question the other way for the GEM, and both rulings are right for
+//their own style: a gem is CUT, so a polygonal outline on it is a defect in the cut, while a rock is
+//BROKEN, and an outline that is not round is the single clearest thing that can be said about one.
+//
+//SO THE VERTEX IS MOVED, and this is the only ball technique in the file with a vertex shader of its own.
+//Three things follow from that and each is a decision:
+//
+//  - IT CARVES INWARD ONLY. The radius runs from (1 - depth) up to 1 and never past it, because the
+//    lattice packs these balls at exactly two radii apart: a rock that grew would push into the cell its
+//    neighbour occupies, and a cluster would knit into itself. Carving also happens to be what makes a
+//    rock: stone is what is LEFT after pieces came off.
+//  - THE NORMAL IS ANALYTIC, not the sphere's. Once a radius varies over the surface the direction is no
+//    longer the normal, and reusing it would light a carved ball exactly like a round one - the whole
+//    change would then be a silhouette and nothing else. For a radial surface r(d)*d the normal is
+//    d - (tangential gradient of r)/r, which is closed form here because the field is a sum of sines: its
+//    gradient is the same sum with cos and a factor of the wave vector. That is why this field is written
+//    out separately from StoneLumps rather than reusing it - StoneLumps is rectified (abs), and abs has
+//    no gradient at its own zeros.
+//  - IT IS COARSER THAN EVERYTHING ELSE ON THE BALL. Frequencies of 1.7 to 5.7 against the lumps' 3.5 to
+//    47, so the two tiers do not double-count: this one is the SHAPE and what the pixel shader perturbs
+//    on top of it is the SURFACE.
+//
+//⚠ Every rock carries the SAME carving, because the instance stream has no free channel for a per-ball
+//seed (world matrix, occlusion, dissolve and ripple fill it) and the only per-instance value available -
+//the ball's position - moves, which would make the shape swim as a rock fell. What saves it is that the
+//field is in OBJECT space: the physics gives every rock its own orientation, so a pile shows the same
+//stone from a hundred angles, which is what a pile of one quarry's rubble looks like anyway. If it ever
+//needs to be genuinely per-rock, the fix is a fifth instance element and not a change here.
+//===================================================================================================
+
+//How deep the carving cuts, as a fraction of the radius. The one figure of it the C# side states, because
+//it is the whole of how un-round a rock is and it is bounded by the lattice: at 0.2 a ball's narrowest
+//axis is four fifths of its cell, which is as far as it can go before the gaps between rocks start to
+//read as holes in the cluster.
+float StoneShapeDepth;
+
+//How sharply the carving bites. The field is a sum of sines, so raw it is a gentle undulation and the
+//first build of this came out a smooth POTATO - rounded, obviously not spherical, and not what was asked
+//for, which was sharper and more like an actual chunk. A power over the carve fraction leaves most of the
+//surface near full radius and drives the rest deep and narrow, which turns undulation into GOUGES: stone
+//is what is left after pieces came off, and pieces come off in bites rather than in ripples.
+static const float StoneShapePower = 1.8;
+
+//The four waves the carving is built from. Low frequencies, irrational-ish ratios, none near an axis of
+//the sphere - the same three rules every field in this file follows, for the same three reasons.
+static const float4 StoneShapeFrequency = float4(1.7, 2.6, 3.9, 5.7);
+static const float4 StoneShapeWeight = float4(0.40, 0.28, 0.19, 0.13);
+static const float3 StoneShapeAxisA = float3(0.68, 0.47, -0.56);
+static const float3 StoneShapeAxisB = float3(-0.39, 0.81, 0.44);
+static const float3 StoneShapeAxisC = float3(0.53, -0.35, 0.77);
+static const float3 StoneShapeAxisD = float3(-0.77, -0.33, 0.55);
+
+//The carving field and its gradient in one pass, because the vertex shader needs both and the sines are
+//the expensive half. Returns roughly -1..1; the gradient is with respect to the direction itself, so the
+//caller has to take its tangential part.
+float StoneShape(float3 direction, out float3 gradient)
+{
+    float4 phase = float4(dot(direction, StoneShapeAxisA), dot(direction, StoneShapeAxisB),
+        dot(direction, StoneShapeAxisC), dot(direction, StoneShapeAxisD)) * StoneShapeFrequency;
+
+    float4 wave = sin(phase);
+    float4 slope = cos(phase) * StoneShapeFrequency * StoneShapeWeight;
+
+    gradient = slope.x * StoneShapeAxisA + slope.y * StoneShapeAxisB
+        + slope.z * StoneShapeAxisC + slope.w * StoneShapeAxisD;
+
+    return dot(wave, StoneShapeWeight);
+}
+
+//The rock's own vertex shader: PatternVS with the carving in it. Everything else about the output is
+//PatternVS's, and deliberately so - the two must not drift apart, since every contract point the pixel
+//shader answers is read off these same fields.
+PatternVertexShaderOutput StoneVS(VertexShaderInput input, InstanceInput instance)
+{
+    PatternVertexShaderOutput output;
+
+    float4x4 world = float4x4(instance.WorldRow1, instance.WorldRow2, instance.WorldRow3, instance.WorldRow4);
+
+    float4 bonePosition = mul(input.Position, Bone);
+
+    float radius = max(length(bonePosition.xyz), 1e-5);
+    float3 direction = bonePosition.xyz / radius;
+
+    float3 gradient;
+    float shape = StoneShape(direction, gradient);
+
+    //Inward only: 1 at the shallowest, 1 - depth at the deepest. Through the power, so it gouges rather
+    //than undulates - see StoneShapePower.
+    float bite = saturate(0.5 + 0.5 * shape);
+    float bitten = pow(bite, StoneShapePower);
+    float carve = 1 - StoneShapeDepth * bitten;
+
+    //n proportional to d - (tangential gradient of r)/r, with r = radius * carve. The carve's own
+    //derivative supplies the minus sign, which is why this reads as a plus; the power supplies the chain
+    //rule factor beside it, and dropping THAT would light a gouged ball as though it were rippled.
+    float slope = StoneShapeDepth * 0.5 * StoneShapePower * pow(max(bite, 1e-4), StoneShapePower - 1);
+
+    float3 tangential = gradient - dot(gradient, direction) * direction;
+    float3 objectNormal = normalize(direction + (slope / carve) * tangential);
+
+    float3 carved = direction * (radius * carve);
+    float4 worldPosition = mul(float4(carved, 1), world);
+
+    output.ObjectPosition = carved;
+    output.WorldPosition = worldPosition.xyz;
+    output.Position = mul(mul(worldPosition, View), Projection);
+    output.WorldNormal = mul(mul(float4(objectNormal, 0), Bone), world).xyz;
+    output.OcclusionData = instance.Custom;
+    output.Dissolve = instance.Dissolve;
+    output.Ripple = instance.Ripple;
+
+    return output;
+}
+
 //The coarse shaping field: rectified octaves, the marble's construction at a quarter of its frequency.
 //Amplitudes sum to one so StoneRoughness stays the peak height in world units.
+//
+//SIX OCTAVES SINCE #340, WHERE THERE WERE FOUR, and the reason is the owner's "the surface's resolution
+//is too low". Four octaves an octave apart do not describe a surface - they interfere into a regular
+//weave, which is the trap the scene relief's own header records at length (see SurfaceReliefWorld, and
+//why that one uses seven). The two added are the FINEST, so they cost nothing at distance: each octave
+//band-limits against its own wavelength, so they are present exactly while a pixel can hold them and
+//gone silently when it cannot, and what carries a rock across the arena is still the coarse end.
 float StoneLumps(float3 direction, float footprint)
 {
-    return 0.44 * abs(ReliefOctave(direction, float3(0.71, 0.52, -0.47), 3.5, footprint))
-        + 0.28 * abs(ReliefOctave(direction, float3(-0.36, 0.83, 0.42), 6.0, footprint))
-        + 0.18 * abs(ReliefOctave(direction, float3(0.55, -0.44, 0.71), 11.0, footprint))
-        + 0.10 * abs(ReliefOctave(direction, float3(-0.82, -0.31, 0.48), 19.0, footprint));
+    return 0.36 * abs(ReliefOctave(direction, float3(0.71, 0.52, -0.47), 3.5, footprint))
+        + 0.24 * abs(ReliefOctave(direction, float3(-0.36, 0.83, 0.42), 6.0, footprint))
+        + 0.16 * abs(ReliefOctave(direction, float3(0.55, -0.44, 0.71), 11.0, footprint))
+        + 0.11 * abs(ReliefOctave(direction, float3(-0.82, -0.31, 0.48), 19.0, footprint))
+        + 0.08 * abs(ReliefOctave(direction, float3(0.29, -0.86, -0.42), 31.0, footprint))
+        + 0.05 * abs(ReliefOctave(direction, float3(-0.64, 0.31, -0.70), 49.0, footprint));
 }
 
 float4 StonePS(PatternVertexShaderOutput input) : COLOR
@@ -3938,7 +4078,7 @@ technique InstancedModelStone
 {
     pass P0
     {
-        VertexShader = compile VS_SHADERMODEL PatternVS();
+        VertexShader = compile VS_SHADERMODEL StoneVS();
         PixelShader = compile PS_SHADERMODEL StonePS();
     }
 };
