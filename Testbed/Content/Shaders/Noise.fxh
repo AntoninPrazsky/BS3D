@@ -10,8 +10,8 @@
 //so the hashes are free to be quality-first. Costs are stated per function because callers budget in noise
 //evaluations per pixel; everything here is branchless and derivative-safe (usable where ddx/ddy live).
 //
-//Included by scene shaders; .fxh edits trigger a rebuild of every .fx that includes them (the Clouds.fxh
-//precedent, verified there).
+//Included by the scene shaders and - since #337, for the ice ball's fracture - by InstancedModel.fx;
+//.fxh edits trigger a rebuild of every .fx that includes them (the Clouds.fxh precedent, verified there).
 
 //--- Hashes (Dave Hoskins' "hash without sine") ------------------------------------------------------
 //Sine-based hashes degrade as their argument grows and their period shows in large domains; these stay
@@ -298,4 +298,51 @@ float VoronoiEdge2(float2 p)
     }
 
     return sqrt(second) - sqrt(best);
+}
+
+//--- Cellular in three dimensions ------------------------------------------------------------------------
+//The same borders-between-cells field on a 3D lattice, and the reason it exists rather than a 2D lookup is
+//that a SPHERE has no seamless 2D parameterisation: an azimuth/elevation pair pinches at both poles and
+//tears along the atan2 branch cut, and on a ball those three defects sit exactly where the silhouette is.
+//Evaluated on an object-space direction this is continuous everywhere on the sphere with nothing to hide.
+//
+//Returns BOTH halves, because a caller that wants a fracture wants both and the second is nearly free:
+//  x = F2 - F1, zero exactly on a border, so 1 - smoothstep(0, w, x) is the web BETWEEN cells;
+//  y = the nearest site's own random value in 0..1, which NAMES the cell - what lets each plate of a
+//      fracture be shaded differently, a figure the size of a plate rather than of a hairline.
+//The jitter stays at 0.4 for the 2D field's reason: a site cannot then leave the 3x3x3 the loop reads.
+//Cost: 27 hashes, three times the 2D field's - which is what the third axis costs, and is why a caller
+//budgets this as its whole pattern rather than as one term of it.
+float2 VoronoiEdgeCell3(float3 p)
+{
+    float3 i = floor(p);
+    float3 f = frac(p);
+    float best = 8.0;
+    float second = 8.0;
+    float bestCell = 0.0;
+
+    [unroll]
+    for (int z = -1; z <= 1; z++)
+    {
+        [unroll]
+        for (int y = -1; y <= 1; y++)
+        {
+            [unroll]
+            for (int x = -1; x <= 1; x++)
+            {
+                float3 cell = float3(x, y, z);
+                float3 hash = NoiseHash33(i + cell);
+                float3 toSite = f - (cell + 0.5 + 0.4 * hash);
+                float d = dot(toSite, toSite);
+
+                //All three tests read the OLD best, so they are written before it is updated - the site's
+                //identity travels with the winning distance rather than being looked up again afterwards.
+                bestCell = d < best ? frac(hash.x * 7.13 + hash.y * 3.71 + hash.z * 11.9) : bestCell;
+                second = d < best ? best : min(second, d);
+                best = min(best, d);
+            }
+        }
+    }
+
+    return float2(sqrt(second) - sqrt(best), bestCell);
 }

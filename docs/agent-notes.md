@@ -3375,3 +3375,36 @@ Rig: `Testbed.exe Testbed\Maps\Bombs.json`, `campos`/`camtarget` (pevná kamera 
 **Poučení pro příště, obecnější než tenhle bug:** když měření třikrát po sobě řekne něco jiného a každé z nich vede k jinému ladění, není to hádanka o shaderu — je to signál, že měřicí řetěz nemá zavřenou smyčku. Ověřit, že běží to, co jsem napsal, mělo přijít jako první krok, ne jako pátý.
 
 Ověřeno: čtyři solutiony čisté, LevelGen exit 0, ScoreSim exit 0, kampaň nedotčená. Cena snímku pořád neměřená (zbytek #326).
+
+---
+
+## 2026-09-02 — Claude Code (třetí zápis dne)
+
+**Led (#337) — majitel řekl „vypadá to jako prošívaná kůže" a měl pravdu doslova: vada nebyla velikost figury, ale její PRAVIDELNOST.** Praskliny stavěly tři `SeamLine` pole — tři rodiny rovných, stejně rozestoupených pásů kolem hlavních kružnic. Tři pravidelné rodiny čar přes plochu je přesně konstrukce, na které se prošívá kůže. Žádná šířka ani frekvence to nespraví; jemnější prošití je pořád prošití. Led se láme na nepravidelné mnohoúhelníkové desky, které se stýkají po třech v bodě po hranách nestejné délky — což je Voronoi, tak je z toho Voronoi: `VoronoiEdgeCell3` nově v `Noise.fxh` (27 hashů, vrací i **id buňky**, aby se dala stínovat deska a nejen síť mezi nimi), čtený nad **object-space směrem**, protože koule nemá bezešvou 2D parametrizaci — azimut/elevace se štípne na pólech a trhne na řezu `atan2`, a to všechno leží přesně tam, kde je silueta.
+
+**Tři věci k tomu musely přijít, a každá z nich je vlastní nález:**
+
+1. **Šířka praskliny se vlní po její délce** (0,18× až 1,55× `ICE_CRACK_WIDTH`), takže jedna hrana jde od mezery k vlásečnici a skončí. Síť nakreslená jednou šířkou po celé kouli je *nakreslená síť*, a to je druhá polovina toho, proč staré praskliny četly jako steh.
+2. **Deska nese vlastní hodnotu, a to ze DVOU stran naráz.** Deska, která se jen zesvětluje, je neviditelná na bílé (rameno tonemapu ten rozdíl sní); deska, která se jen ztmavuje, je neviditelná na osmičce (tint 0,045 šedá, pod ní nic). Takže `IcePlateShade` bere hodnotu z těla a `ICE_PLATE_CONTRAST` přidává studené světlo zpátky. **Zkoušel jsem nejdřív per-deskový náklon normály a zahodil ho** — po částech konstantní pole nemá uvnitř desky gradient a na hranici má nekonečný, takže přes `PerturbNormalFromHeight`, který derivuje, dostane každá prasklina jednopixelový hrot. To je přesně ta tvrdá šachovnice, před kterou ten soubor o dvě stě řádků výš varuje.
+3. **Jinovatka byla JEDNA vlna po jedné ose, tedy pruhy, ne zrno.** Schovávala je hustá síť prasklin; jakmile byly desky velké a hladké, šrafování vylezlo — ve stejném snímku a ze stejného důvodu jako to prošití, na které bylo namalované. Teď čtyři vlny po smíšených směrech.
+
+**⚠ Dvě chyby, které jsem udělal a které stojí za zapsání, protože obě jsou o tom, čím se figura MĚŘÍ:**
+
+- **Počet buněk jde přes PLOCHU, ne přes obvod.** Spočítal jsem plátky jako `2·π·f` po hlavní kružnici a nasadil f = 3,2. Správně je `4·π·f²` přes celou kouli — první ladicí kolo mělo na kouli **padesát oblázků** a četlo to jako mozaiku. Shipuje f = 1,8, tedy nějakých 37 desek na kouli, tucet na přivrácené polokouli.
+- **Band limit na TENKOU ČÁRU musí začínat pozdě.** Napsal jsem ho jako rampu od nulového footprintu, což je tvar, který má v tom souboru každý jiný limit — jenže každý jiný jede přes celou VLNOVOU DÉLKU. Prasklina je čára široká `width/frequency`, takže rampa od nuly ji utlumila na **43 % na kouli široké devadesát devět pixelů**, kde byla čára pořád čtyři a půl pixelu silná a dokonale ostrá. Konstanta 1,5 v `IceCrackBandLimit` je právě tohle: drž plnou sílu, dokud čára není asi pixel, a teprve pak zhasínej. Deska se tlumí zvlášť, proti buňce — obě půlky figury jsou od sebe velikostně řádově, a #326 je lekce o tom, co se stane, když se tlumí obojí podle té jemnější.
+
+**Měření (6900 XT, 1600×900, tisíc koulí `Full.json` zmrazených na `campos=0,3,14`, mediány párovaných opakování):**
+
+| | ssaa 2 | ssaa 4 |
+|---|---|---|
+| led starý | 2,04 ms | 7,63 ms |
+| led nový | **2,44 ms** | **8,72 ms** |
+| vinyl (kontrola) | 2,05 ms | 7,60 ms |
+
+**Ta cena je reálná a je to 27 hashů na pixel.** Led byl proti vinylu *nepatrně levnější* (to je číslo, které do teď neslo `docs/rendering.md`) a je teď asi **o 19 % dražší**. Na tomhle stroji je to při 410 FPS na tom pinu jedno; **na APU to změřené není** a atribuce mezi těmi dvěma třídami necestuje (#102 vs #250). Nechávám to na majitelovo rozhodnutí — je to jediná konstanta v tom smyslu, že levnější varianta by znamenala pravidelnější buňky, a pravidelnost je přesně ta vada, kvůli které se to dělalo.
+
+**⚠ Rig, na kterém se to dá vůbec měřit, byl třetí pokus.** První dva byly nesmysl a oba by bývaly prošly, kdybych se nedíval: (a) `benchmark.ps1` si skládá jméno logu z argumentů, a s absolutní cestou k mapě a kamerou v `-Extra` to přeteklo MAX_PATH — skript hlásil „no output" a žádný log nevznikl; (b) běžící simulace 3000 koulí je CPU-bound a **A/B se v ní obrátilo mezi běhy** (ssaa 1: led 296 vs vinyl 260; ssaa 2: oba 289). Teprve `F5` na zmrazení clusteru + ssaa 4 dalo rozptyl pod 1 % a znaménko, které drží. Kdo bude měřit cenu koulí: **zmrazit simulaci, jinak se měří fyzika.**
+
+**Ověřeno:** čtyři solutiony čisté, LevelGen exit 0, ScoreSim „All levels rate the right way round", kampaň nedotčená (žádný soubor levelu se nezměnil). Snímky: detail na dómu 1 i 13 přes všech třináct tintů, herní odstup na `Full.json`, a **kontrolní sweep lávy, mramoru a vinylu** — sdílený include do `InstancedModel.fx` nikam jinam nesáhl. Vedle porcelánu (#339) se ty dva teď nedají splést: porcelán je tmavá lesklá glazura s bodovým odleskem a jemnou krakelurou, led bledá studená koule rozlámaná na desky.
+
+**Co z toho plyne pro sousední issues:** #339 (porcelán) tím **není vyřešené** — pořád nečte jako konkrétní materiál — ale přestal se plést s ledem, takže se dá řešit sám za sebe. A **láva (#338) má tutéž konstrukci, jakou tady padla**: její švy jsou pořád `SeamLine`, tedy pravidelné pásy; drží ji, že *svítí*, ne že by ta síť byla lomem. Jestli se #338 bude dělat, tenhle Voronoi je připravený.
