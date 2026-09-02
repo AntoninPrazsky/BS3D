@@ -434,17 +434,39 @@ namespace Prazsky.BS3D
         private const float METAL_EMISSION = 0.18f;
 
         /// <summary>
-        /// How many crack lines run through an ice ball (#307) — three fields at this frequency and its two
-        /// ratios, so a ball carries a handful of them crossing rather than a craze. Deliberately low: this is
-        /// a ball frozen through, not a dropped one, and a dense net reads as shattered.
+        /// How many fracture cells an ice ball is broken into (#307, rebuilt by #337) — the plate size. Cells
+        /// sit one unit apart in the fracture field's own space and the ball is a unit sphere scaled by this,
+        /// so the count goes as its <b>area</b>: about 4·π·f² over the whole ball, a dozen or so on the
+        /// hemisphere facing the camera. Reading that as a <i>great circle</i> (2·π·f) is what put fifty
+        /// pebbles on a ball in this change's first tuning pass — it is a count over a surface, not round a
+        /// waist. Deliberately low: this is a ball frozen through, not a dropped one, and a dense net reads as
+        /// shattered.
+        /// <para>
+        /// It used to be 10 and it used to mean a <i>wave count</i>, when the net was three straight sine
+        /// bands crossing. That construction is what the owner's playtest read as <b>quilted leather</b>, and
+        /// the fault was its regularity rather than its size — so the number moved because what it counts did.
+        /// </para>
         /// </summary>
-        private const float ICE_CRACK_FREQUENCY = 10f;
+        private const float ICE_CRACK_FREQUENCY = 1.8f;
 
         /// <summary>
-        /// How wide a crack is, as a fraction of its line field's amplitude. A crack is a plane inside the ice
-        /// seen edge-on; anything with an area is a facet, which is #308's style and not this one.
+        /// How wide a crack opens, as a fraction of a plate. The <b>mean</b> and not the width: each stretch of
+        /// crack multiplies it by its own wander (0.18× to 1.55× in the shader), so one edge runs from a gap to
+        /// a hairline and dies out along its length. A crack at one width all over a ball is a drawn net, which
+        /// is half of why the old one read as stitching.
         /// </summary>
         private const float ICE_CRACK_WIDTH = 0.09f;
+
+        /// <summary>
+        /// How strongly each of an ice ball's plates differs from its neighbours — the low-frequency half of
+        /// the figure, and the half that carries the style at play distance, where the hairline between two
+        /// plates has long gone sub-pixel (the lesson #326 paid for on the bomb, in the same shader).
+        /// <para>
+        /// Judged on a <b>cluster and on both a bright dome and a dark one</b>, like <see cref="ICE_RIM"/>: it
+        /// is cool light added to every plate at once, and a pile is a great many plates.
+        /// </para>
+        /// </summary>
+        private const float ICE_PLATE_CONTRAST = 0.22f;
 
         /// <summary>
         /// How brightly an ice ball's silhouette goes cool and pale. Judged on a <b>cluster</b> and never on
@@ -1068,6 +1090,7 @@ namespace Prazsky.BS3D
                         renderer.IceCrackFrequency = ICE_CRACK_FREQUENCY;
                         renderer.IceCrackWidth = ICE_CRACK_WIDTH;
                         renderer.IceRim = ICE_RIM;
+                        renderer.IcePlateContrast = ICE_PLATE_CONTRAST;
                         break;
 
                     case BallStyle.Metal:

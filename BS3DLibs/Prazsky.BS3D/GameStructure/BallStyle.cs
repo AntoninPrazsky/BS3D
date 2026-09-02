@@ -64,12 +64,22 @@ namespace Prazsky.BS3D.GameStructure
         Metal = 4,
 
         /// <summary>
-        /// Frosted ice (#307): a ball of cloudy frozen water dyed the type colour, cracked through with bright
-        /// internal threads, cool and pale along its silhouette, and lit from inside where the sun is behind it.
+        /// Frosted ice (#307): a ball of cloudy frozen water dyed the type colour, broken through into irregular
+        /// plates with bright threads along the fractures between them, cool and pale along its silhouette, and
+        /// lit from inside where the sun is behind it.
         /// <para>
         /// Solid, not hollow — frosted ice is not clear ice, and you cannot see a level through a frosted
         /// marble. That keeps it a different <i>material</i> from <see cref="Bubble"/> rather than a recolour of
         /// one, and costs it none of the film's transparency machinery.
+        /// </para>
+        /// <para>
+        /// <b>The fracture has to be irregular, and #337 is why.</b> The net was three straight, evenly spaced
+        /// line fields crossing, and that is the construction quilted leather is stitched on — which is what the
+        /// owner's playtest called it. It is a Voronoi cell net now, whose plates carry their own value: the
+        /// crack is what says ice up close, and the <i>plates</i> are what still say it at play distance, where
+        /// a hairline is long sub-pixel. It is also what keeps this style and <see cref="Porcelain"/> apart —
+        /// both used to be "a pale ball with a fine crack net", and a craquelure is regular where a fracture
+        /// is not.
         /// </para>
         /// </summary>
         Ice = 5,

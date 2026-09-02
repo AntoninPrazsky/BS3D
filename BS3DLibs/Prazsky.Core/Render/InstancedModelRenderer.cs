@@ -121,6 +121,7 @@ namespace Prazsky.Core.Render
         private EffectParameter _iceCrackFrequencyParam;
         private EffectParameter _iceCrackWidthParam;
         private EffectParameter _iceRimParam;
+        private EffectParameter _icePlateContrastParam;
         private EffectParameter _gemFacetCountParam;
         private EffectParameter _gemFacetDepthParam;
         private EffectParameter _gemAbsorptionParam;
@@ -505,17 +506,25 @@ namespace Prazsky.Core.Render
         public float MetalReflectance { get; set; } = 1.6f;
 
         /// <summary>
-        /// Wave count of <see cref="BallShading.Ice"/>'s crack network over the ball. Three line fields at this
-        /// frequency and its neighbours cross into a net; far under it a ball has two or three cracks and reads
-        /// as broken rather than frozen.
+        /// How many fracture cells a <see cref="BallShading.Ice"/> ball is broken into — the plate size. The
+        /// count goes as the ball's <b>area</b>, about 4·π·f² over the whole of it; far over this a ball reads
+        /// as shattered gravel, far under it as two or three continents.
         /// </summary>
-        public float IceCrackFrequency { get; set; } = 7f;
+        public float IceCrackFrequency { get; set; } = 1.8f;
 
         /// <summary>
-        /// How wide an ice crack is, as a fraction of its line field's amplitude. Narrow: a crack is a plane
-        /// inside the ice seen edge-on, and anything with an area is a facet rather than a crack.
+        /// How wide an ice crack opens, as a fraction of a plate. The <b>mean</b> and not the width: every
+        /// stretch of crack multiplies it by its own wander, because a net drawn at one width all over a ball
+        /// is a drawn net rather than a fracture.
         /// </summary>
-        public float IceCrackWidth { get; set; } = 0.10f;
+        public float IceCrackWidth { get; set; } = 0.09f;
+
+        /// <summary>
+        /// How strongly each of an ice ball's plates differs from its neighbours — the low-frequency half of
+        /// the figure, and the half that survives to play distance where the hairline between two plates does
+        /// not (#337).
+        /// </summary>
+        public float IcePlateContrast { get; set; } = 0.22f;
 
         /// <summary>
         /// How brightly an ice ball's silhouette goes cool and pale. At full strength it eats the tint on every
@@ -949,6 +958,7 @@ namespace Prazsky.Core.Render
             _iceCrackFrequencyParam = _effect.Parameters["IceCrackFrequency"];
             _iceCrackWidthParam = _effect.Parameters["IceCrackWidth"];
             _iceRimParam = _effect.Parameters["IceRim"];
+            _icePlateContrastParam = _effect.Parameters["IcePlateContrast"];
             _gemFacetCountParam = _effect.Parameters["GemFacetCount"];
             _gemFacetDepthParam = _effect.Parameters["GemFacetDepth"];
             _gemAbsorptionParam = _effect.Parameters["GemAbsorption"];
@@ -1375,6 +1385,7 @@ namespace Prazsky.Core.Render
                         _iceCrackFrequencyParam.SetValue(IceCrackFrequency);
                         _iceCrackWidthParam.SetValue(IceCrackWidth);
                         _iceRimParam.SetValue(IceRim);
+                        _icePlateContrastParam.SetValue(IcePlateContrast);
                         _translucencyStrengthParam.SetValue(TranslucencyStrength);
                         break;
 
