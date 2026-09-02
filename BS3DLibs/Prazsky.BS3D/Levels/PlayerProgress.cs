@@ -46,6 +46,29 @@ namespace Prazsky.BS3D.Levels
         [JsonPropertyName("levels")]
         public Dictionary<string, LevelBest> Levels { get; set; } = new();
 
+        /// <summary>
+        /// The levels the player has explicitly <b>skipped</b> past (#347), keyed like <see cref="Levels"/> by
+        /// the set entry's own file. A skip is the campaign's relief valve: since the campaign opens one level
+        /// at a time, a level the player cannot finish is a wall across the whole set rather than something
+        /// they can route around on stars, and this is the one bounded way past it.
+        /// <para>
+        /// <b>A skip is not a clear and is never counted as one.</b> It earns no score and no stars, so it adds
+        /// nothing to <see cref="TotalStars"/> or <see cref="TotalScore"/> and buys no unlock of its own; all it
+        /// does is let the frontier move on. A skipped level stays playable for ever, and clearing it later
+        /// records an ordinary best beside this — the two lists are deliberately separate rather than a flag on
+        /// <see cref="LevelBest"/>, which is a record of <i>bests</i> and has none to hold for a level nobody
+        /// finished.
+        /// </para>
+        /// <para>
+        /// <b>Null until the first skip</b>, so a save with none in it round-trips exactly as it did before this
+        /// existed — the same decision, for the same reason, as the map format's optional <c>"k"</c>. An older
+        /// build reading a save with skips ignores the key and simply finds those levels unfinished, which is
+        /// the safe direction: it under-reports progress rather than inventing it.
+        /// </para>
+        /// </summary>
+        [JsonPropertyName("skipped")]
+        public List<string> Skipped { get; set; }
+
         /// <summary>Where this progress was loaded from and where <see cref="Save"/> writes it back.</summary>
         [JsonIgnore]
         public string Path { get; private set; }
@@ -154,8 +177,37 @@ namespace Prazsky.BS3D.Levels
             return improved;
         }
 
-        /// <summary>Back to a fresh start: every best gone. The settings row that offers this saves after it.</summary>
-        public void Reset() => Levels.Clear();
+        /// <summary>Whether the player skipped past this level rather than clearing it (#347).</summary>
+        public bool WasSkipped(string levelFile) =>
+            levelFile != null && Skipped != null && Skipped.Contains(levelFile);
+
+        /// <summary>
+        /// Records a skip. Idempotent, and it deliberately does <b>not</b> refuse a level that is already
+        /// cleared: whether a skip is allowed at all is a campaign rule (the budget, and the level being one
+        /// the player is actually stuck on), and answering it twice in two places is how the two answers drift
+        /// apart. This file's job is to remember.
+        /// </summary>
+        /// <returns>Whether anything changed, so a caller knows whether it needs to save.</returns>
+        public bool Skip(string levelFile)
+        {
+            if (string.IsNullOrEmpty(levelFile) || WasSkipped(levelFile)) return false;
+
+            Skipped ??= new List<string>();
+            Skipped.Add(levelFile);
+
+            return true;
+        }
+
+        /// <summary>
+        /// Back to a fresh start: every best gone, <b>and every skip with them</b> — a skip is progress through
+        /// the campaign, so a reset that left them standing would hand the player a campaign whose walls were
+        /// already spent. The settings row that offers this saves after it.
+        /// </summary>
+        public void Reset()
+        {
+            Levels.Clear();
+            Skipped = null;
+        }
     }
 
     /// <summary>One level's bests: the highest score and the most stars any single clear of it earned.</summary>

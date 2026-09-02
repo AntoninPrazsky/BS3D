@@ -3604,3 +3604,26 @@ Cairn je jediná skutečná cena a je pochopitelná: čtyři komory se teď potk
 **Nezahrnuto a je to schválně: druhá půlka #347, „bounded skip".** Issue ho chce jako ventil pro level, který hráče zasekne. Po tomhle rozhodnutí je jeho tvar jasný (skip posune frontier o jedna), ale potřebuje rozšířit formát `PlayerProgress` o „přeskočeno", vlastní ovládací prvek a rozhodnutí, kde se nabízí a kolikrát. `WouldCompleteCampaign` je napsané tak, aby šlo rozšířit na „vyčištěno **nebo** přeskočeno" jedním testem. Issue proto **nechávám otevřené**.
 
 **Ověřeno:** čtyři solutiony čisté, LevelGen 0, ScoreSim 0, kampaň nedotčená (žádný soubor levelu se nezměnil — je to čistě pravidlo), tři screenshoty z běžící hry: frontier na čerstvém profilu, kapitola za frontierem, a kapitola 7 na skutečném save, kde levely 61–68 stojí otevřené se svými hvězdami a 69/70 hlásí `Locked · #38 first`.
+
+---
+
+## 2026-09-02 — Claude Code (třináctý zápis dne)
+
+**#347, druhá půlka: bounded skip. Rozpočet je jeden skip na KAPITOLU, ne na kampaň, a ten rozdíl je důsledek sekvenčního pravidla z předchozího zápisu.** Dokud se odemykalo na hvězdy, dal se zaseknutý level obejít; teď je to zeď přes celou kampaň, takže jeden skip na 105 levelů by hráče na druhé takové zdi zastavil natrvalo. Na kapitolu je to zároveň přesně to omezení, které issue chtělo („ne skip přes celou kapitolu") — deset levelů, jeden skip. Na setu bez kapitol padá zpátky na jeden na celou sadu, protože blok tam je jeden level a per-blok rozpočet by byl skip na každém.
+
+**Úložiště je zvlášť od `Levels`, ne příznak v `LevelBest`.** `LevelBest` je záznam **nejlepších výsledků** a přeskočený level žádný nemá; navíc `Levels.Count` se loguje jako „cleared level(s)" a příznak uvnitř by to číslo tiše rozbil. `Skipped` je `List<string>` **null až do prvního skipu**, takže save bez skipu se serializuje bit po bitu jako dřív — týž precedens a týž důvod jako volitelné `"k"` v mapě. Starší build klíč ignoruje a najde ty levely nedokončené, což je bezpečný směr: podhodnotí postup, nevymyslí ho.
+
+**Skip není clear a nikde se za něj nevydává.** Žádné skóre, žádné hvězdy, nic do gate. Posune jen frontier — a přeskočený level zůstává navždy hratelný, což je důležitější, než to vypadá: **v pickeru proto dlaždice říká `Skipped`**, protože to je jediné místo ve hře, kde ten level jde znovu najít. Bez toho slova vypadá úplně stejně jako level, ke kterému se hráč zatím nedostal — na stránce, jejíž celá práce je říct mu, kde stojí, a o jediném levelu, který dluží.
+
+**⚠ Dvě díry, které jsem našel až při čtení vlastního kódu, ne v zadání:**
+
+1. **Skip by hráče propašoval přes hvězdný gate.** `SkipLevel` volá `AdvanceLevel` přímo, takže by ho vysadil do levelu, který picker hlásí jako zamčený — dvě plochy nesouhlasící o téže položce, přesně to, čemu má bránit jednomístná odpověď z #349. `CanSkipLevel` proto nabídku odmítne, když další level nemá zaplacené `minStars`. Skip hýbe **sekvenční** půlkou pravidla, cenová stojí dál.
+2. **Konfety by se ztratily.** Kampaň je hotová, když je každý level vyčištěný **nebo přeskočený** (formulace z issue), ale `WouldCompleteCampaign` se ptá jen z `CheckLevelCleared`, takže moment vždycky patří skutečnému clearu. Napsal jsem to jako „tenhle level nebyl hotový **před** tímhle clearem" místo „kampaň ještě není hotová" — na kampani bez skipů je to totéž, na kampani se skipy je jen ta první verze správně (jinak by návrat k dodělání přeskočeného levelu konfety vyvolal podruhé). Zbývá jedna mezera a je schválně: kdo si **poslední** nedokončený level přeskočí, konec kampaně bez konfet dostane. Ukončit kampaň přeskočením její poslední zdi není konec, pro který ty konfety jsou.
+
+**⚠ A podruhé jsem spadl do téže pasti, kterou má `docs/game-shell.md` u téhle stránky zapsanou dvakrát:** `MENU_TEXT_DIM` je šedá pro **vedlejší text na tmavé plotně**, a výsledková stránka žádnou plotnu nemá. Řádek s cenou skipu napsaný v ní byl nad tropickou oblohou pod nasvíceným clusterem prostě neviditelný. Chytil jsem to na první fotce (#238 a #199 to chytily až po nasazení), ale poučení je, že to není rada — je to **pravidlo: na téhle stránce mimo plotnu žádná dim není**, a tak jsem to tam teď i napsal.
+
+**Proč cena stojí na vlastním řádku a ne v popisce tlačítka:** tlačítko nese cíl, ne větu — a Myra tlačítko menší než jeho label ten label **neořízne, nechá ho přetéct** (past z #348), takže delší popiska by potichu rozešla viditelnou plochu s obdélníkem, který trefí myš.
+
+**Vyhodil jsem taky vlastní mrtvý stav.** Přidal jsem do `LevelResult` `NextLevelBeyondReach`, abych opravil poznámku „Next level unlocks at N ★" na prohře — a pak zjistil, že ta poznámka je řádek **mřížky rozpisu skóre**, která je na prohře skrytá. Na cleared se frontier už posunul, takže ta vlastnost nemůže být nikdy true. Odstraněno i s parametrem; místo toho má prohra vlastní řádek.
+
+**Ověřeno:** čtyři solutiony čisté, LevelGen 0, ScoreSim 0. Nafoceno v běžící hře: stránka prohry s `Retry / Skip to: Elephant / Main Menu` a řádkem ceny (dvakrát — jednou nečitelně, pak opraveně, obojí nad tropickou oblohou), a picker na umělém save se skipem, kde level 2 hlásí `Skipped`, levely 1/3/4 mají hvězdy, 5 je frontier a 6–10 `Locked · #5 first`. **Majitelův save zálohovaný na dvě místa a hash ověřený před i po** (`f5c8c4ee…`) — testovalo se na umělém profilu.
