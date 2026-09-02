@@ -184,15 +184,15 @@ namespace Prazsky.Core.Render
         /// of the thirteen would be a lie they act on, which is the rule <see cref="Stone"/> states first.
         /// </para>
         /// <para>
-        /// <b>It has to read as ARMED before it is hit, on all ten materials</b>, and it does so close up: the
+        /// <b>It has to read as ARMED before it is hit, on all ten materials</b>, and it does — the
         /// ten-material sweep puts it clearly apart from every style, the lava's glowing crust included (that
-        /// one glows in a web of cracks, this in straight latitude bands). <b>⚠ At the stand-off a level is
-        /// actually played from it does not yet</b> — measured, and the numbers and the three passes already
-        /// spent on it are on <c>BallRenderSet.BOMB_EMISSION</c> and in the technique's own header. The
-        /// original argument here was the stone's finding turned round — a rock is named across a field by
-        /// being the one ball that does <b>not</b> breathe, so a bomb would be named by breathing hardest —
-        /// and it holds near and fails far, because at that size the casing's bands go under a pixel and the
-        /// light riding on them integrates away.
+        /// one glows in a web of cracks, this in straight latitude bands). It did <i>not</i> at play distance
+        /// until the owner looked at it and named why: the glowing lines were too narrow to see, so the ball
+        /// read as a black sphere and its blinking read as nothing at all. The original argument here — the
+        /// stone's finding turned round, a rock being named across a field by being the one ball that does
+        /// <b>not</b> breathe — was right about the channel and silent about the one thing that decides
+        /// whether the channel carries: how big the lit figure is. The fixes and their measurements are in
+        /// the technique's own header in <c>InstancedModel.fx</c>.
         /// </para>
         /// </summary>
         Bomb = 12

@@ -639,20 +639,19 @@ namespace Prazsky.BS3D
         /// coming out of the casing's joins, so most of the surface pays none of this and the ball throbs
         /// instead of strobing.
         /// <para>
-        /// <b>⚠ These three numbers were written as "the armed read" and they are not it, which was found by
-        /// photographing them rather than by thinking about them.</b> The argument was the stone's own finding
-        /// turned round — a rock is named across a whole field by being the one ball that does not breathe, so
-        /// a bomb would be named by breathing hardest. It is true near and false far. Measured on
-        /// <c>Bombs.json</c> through a fixed camera, eight captures at eight phases: at 11 units the casing
-        /// swings <b>1.35×</b> and sits at R−B 68..92 — a live coal; at the stand-off a level is played from
-        /// it swings <b>1.08×</b> on a casing at R−B 8..9, which is very nearly neutral. At that size the
-        /// bands are under a pixel and the emission riding on them integrates away.
+        /// <b>⚠ These three were written as "the armed read" and that was half wrong.</b> The argument was the
+        /// stone's own finding turned round — a rock is named across a whole field by being the one ball that
+        /// does not breathe, so a bomb would be named by breathing hardest — and what it missed is that the
+        /// beat has nothing to ride on unless the FIGURE it lights is big enough to see. The owner looked at
+        /// the shipped version and named it exactly: the red lines were too narrow, so the bomb did not read
+        /// as one from a distance and the blinking could not be seen at all. What fixed it was the groove
+        /// width, the band limit and the beat's <i>speed</i> — see the technique's header in
+        /// <c>InstancedModel.fx</c> — rather than any of these three.
         /// </para>
         /// <para>
-        /// So the beat is what makes a bomb unmistakable <i>once the player is close enough to aim</i>, and
-        /// the distant read is still an open question — see the technique's own header in
-        /// <c>InstancedModel.fx</c> for the three passes already spent on it and for why the remaining lever
-        /// is the amount of light rather than the rhythm.
+        /// Measured after, at the stand-off a level is played from, eight captures across one cycle: the
+        /// casing runs <b>106 to 151</b> codes of red, a 1.43× swing that several of the eight caught. Before,
+        /// the same sampling caught the flash once in six.
         /// </para>
         /// </summary>
         private const float BOMB_EMISSION = 1.25f;
@@ -685,8 +684,27 @@ namespace Prazsky.BS3D
         /// </summary>
         private const float BOMB_PULSE_DEPTH = 1f;
 
-        /// <inheritdoc cref="BOMB_EMISSION"/>
-        private const float BOMB_PULSE_SPEED = 2.6f;
+        /// <summary>
+        /// How fast the charge blinks. <b>SLOWER than the cluster's own <see cref="PULSE_BEATS_PER_SECOND"/>,
+        /// which is the opposite of what this started at</b> — it was 2.6, on the reasoning that a bomb should
+        /// be the fastest thing in the frame, and that made the blink harder to see rather than easier.
+        /// <para>
+        /// <c>Heartbeat</c> is a lub-dub whose lit window is fixed as a FRACTION of its cycle — about a
+        /// thirteenth — so speeding it up does not blink more, it blinks <i>shorter</i>. At 2.6 the flash was
+        /// some 30 ms, which is near the floor of what a player registers at all: measured on the widened
+        /// casing over six captures at six phases, one sample in six caught it, and the owner's own report was
+        /// that the red blinking could not be seen. At 0.5 the same fraction is about 150 ms — a slow,
+        /// unmistakable throb — and it is still nothing like the cluster's rhythm, which is what has to be
+        /// true for it to read as the odd one out.
+        /// </para>
+        /// <para>
+        /// ⚠ The duty cycle is unchanged by this and so the statistics are too: a random capture still catches
+        /// the flash about one time in twelve, and that is a fact about <c>Heartbeat</c>'s shape rather than
+        /// about this constant. What changed is the only thing that matters here, which is how long each blink
+        /// lasts for the eye watching it. There is no measurement in this file for that; it was judged.
+        /// </para>
+        /// </summary>
+        private const float BOMB_PULSE_SPEED = 0.5f;
 
         /// <summary>
         /// How much of the picture behind it a clear ball takes away face-on (#325), against the dyed film's

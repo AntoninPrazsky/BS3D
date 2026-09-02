@@ -15831,11 +15831,9 @@ namespace BS3D.Tools.LevelGen
         /// <i>no warning</i>: a colourless ball says nothing about being load-bearing and nothing about being
         /// about to leave. A bomb is a dark ribbed casing with a charge burning in it and it only ever goes
         /// off because the player aimed at it. That is a trap the player can see and choose, which is a
-        /// design, where the glass one is a design the player cannot read. ⚠ <b>How far away it can be seen
-        /// is a separate and still-open question</b> — it reads unmistakably close up and very nearly not at
-        /// all at the stand-off a level is played from (measured; see <c>BallRenderSet.BOMB_EMISSION</c>) — so
-        /// if that is not improved, a design putting a bomb on the anchor course should keep it where the gun
-        /// gets near it.
+        /// design, where the glass one is a design the player cannot read. It reads at the stand-off a level
+        /// is played from as well as close up — that took a round of widening the glowing bands and slowing
+        /// their blink, and the measurements are on <c>BallRenderSet.BOMB_EMISSION</c>.
         /// </para>
         /// </para>
         /// <para>

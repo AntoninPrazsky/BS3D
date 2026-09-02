@@ -3563,24 +3563,32 @@ technique InstancedModelHollow
 //IT HAS TO READ AS ARMED BEFORE IT IS HIT, at play distance, on all ten materials — a bomb the player
 //does not notice until it goes off is a bomb that feels like a bug.
 //
-//⚠ THAT BAR IS MET CLOSE UP AND IS NOT MET AT PLAY DISTANCE, and this header said the opposite until it
-//was photographed. The argument written here was the stone's own finding turned round: motion is the first
-//thing the eye reads, a rock is named across a whole field by being the one ball that does NOT breathe, so
-//the bomb would be named by breathing hardest. The mechanism works and was measured working — on the
-//hanging bomb of Bombs.json through a fixed camera at 11 units, eight captures at eight phases swing the
-//casing 1.35x and read R-B 68..92, which is a live coal. Through the same fixed camera at the stand-off a
-//level is actually played from, the same eight captures swing it 1.08x on a casing sitting at R-B 8..9,
-//which is very nearly neutral: at that size the bands are under a pixel, the emission that rides on them
-//integrates away, and what is left is a dark sphere. Three passes moved it (the charge stopped being
-//band-limited, the floor stopped going through the occlusion, BombFarGlow went to 0.85) and an A/B of the
-//same crop before and after is still hard to tell apart.
+//⚠ THAT BAR WAS MISSED AT PLAY DISTANCE UNTIL THE OWNER LOOKED AT IT, and what was wrong was the size of
+//the figure rather than anything about the light. Their words: "the red lines are really too narrow, so
+//from a distance the bomb does not look like a bomb - the red blinking is not visible". Three things were
+//wrong at once and all three are fixed below:
 //
-//So: what this technique DOES do is make a bomb unmistakable once the player is close enough to aim, and
-//the ten-material sweep confirms it is the odd one out against every style including the lava's glowing
-//crust. What it does NOT yet do is announce itself across the arena. The lever is not the beat — it is the
-//amount of light: the charge would have to be several times this, or the figure several times coarser, and
-//that is a LOOK decision rather than an arithmetic one. Do not re-derive the motion argument from the
-//stone's header without reading this paragraph; it is the one that was already tried.
+//  a. THE GROOVES WERE TOO NARROW AND TOO SHARP (0.22 at a sharpness of 2.4). The comment that stood on
+//     them argued for narrow, because the charge has to read as coming out of a JOIN - true of a bomb held
+//     at arm's length, and wrong about a ball two dozen pixels across that has to say ARMED before any
+//     join can be resolved at all.
+//  b. THE BAND LIMIT FADED THE PATTERN OUT SIX TIMES TOO EARLY (a factor of 2.0 on the band count), so the
+//     casing dissolved into a flat glow while its bands were still several pixels wide. See its own note.
+//  c. THE BEAT WAS TOO FAST TO BE SEEN. Heartbeat's lit window is a fixed FRACTION of its cycle, so a
+//     faster beat blinks SHORTER, not more: at 2.6 the flash was about 30 ms. See BOMB_PULSE_SPEED.
+//
+//Measured after, on the hanging bomb of Bombs.json through a fixed camera at the stand-off a level is
+//played from, eight captures across one cycle: the casing runs 106 to 151 codes of red - a 1.43x swing
+//that several of the eight caught, where before the same sampling caught the flash once in six. It reads
+//as a dark banded casing whose bands go from dim brown to bright orange and back.
+//
+//⚠ AND A PROCESS WARNING WORTH MORE THAN ANY OF THE ABOVE. Three rounds of "measurements" before this one
+//were taken against a Testbed that was NOT running the shader being edited: the captures come from
+//bin\net10.0-windows (the Debug output), the builds had been made with -c Release, and MGCB additionally
+//SKIPS an .fx whose .xnb is newer and then copies nothing. Every conclusion drawn from those rounds was
+//withdrawn - including one written into five files. Before believing any capture of a shader change, check
+//that bin\<tfm>\Content\Shaders\InstancedModel.xnb is NEWER than the .fx. A green-tinted constant is the
+//two-minute way to prove the pixels on screen came from the file on disk.
 //
 //What makes it read as a bomb, in the order the eye picks it up:
 //  1. IT IS BANDED. The casing is cut into latitude segments by deep grooves, evenly spaced in ANGLE
@@ -3614,14 +3622,28 @@ technique InstancedModelHollow
 //     visibly spinning. It is the one thing a smooth dark sphere cannot say for itself.
 //===================================================================================================
 
-//How many bands the casing is cut into from pole to pole. Six is a cast shell; many more and the grooves
-//close up into a thread, which reads as a screw rather than as a bomb.
-static const float BombBandCount = 6.0;
+//How many bands the casing is cut into from pole to pole. FIVE since the owner looked at it: six thin
+//bands is a thread, and a thread reads as a screw rather than as a bomb. Fewer bands is half of what makes
+//each glowing line bigger; the other half is the width below.
+static const float BombBandCount = 5.0;
 
-//How much of a band's width the groove takes, and how sharply it cuts. Narrow: the charge has to read as
-//coming out of a JOIN, and a wide groove is a stripe painted on.
-static const float BombGrooveWidth = 0.22;
-static const float BombGrooveSharpness = 2.4;
+//How much of a band's width the glowing groove takes, and how sharply it cuts.
+//
+//⚠ THESE TWO WERE 0.22 AND 2.4, AND THAT IS THE FAULT THE OWNER NAMED: "the red lines are really too
+//narrow, so from a distance the bomb does not look like a bomb - the red blinking is not visible". The
+//comment that stood here argued for narrow ("the charge has to read as coming out of a JOIN, and a wide
+//groove is a stripe painted on"), and that argument is right about a bomb held at arm's length and wrong
+//about the object this actually is: a ball a couple of dozen pixels across, which has to say ARMED before
+//the player can see any join at all. A join nobody can resolve is not a join, it is a missing signal.
+//
+//Both halves had to move, and the second is the one that is easy to miss. The WIDTH is how far the mask
+//reaches from a groove's centre; the SHARPNESS is a power on top of it, so a high one pinches the bright
+//core back down however wide the reach is - 2.4 was throwing away most of what the width bought. Widened
+//and softened together the glowing line is several times its old area, which is also the only thing that
+//helps once the bands start to blur: the mask's own mean is what survives the band limit, and that mean is
+//exactly what these two set.
+static const float BombGrooveWidth = 0.35;
+static const float BombGrooveSharpness = 1.5;
 
 //Depth of the grooves in world units. The second largest ball figure in this file after the stone's
 //roughness, because a groove that only changes colour reads as paint and this one has to read as a gap
@@ -3650,7 +3672,7 @@ static const float BombStudDepth = 0.016;
 //groove's own peak of 1, so a bomb at arm's length is still a dark casing with light in its joins rather
 //than a glowing marble, and well over the mask's honest mean of about 0.065, so a bomb across the arena is
 //a live thing rather than an 8-ball. Measured at the game camera's stand-off on Bombs.json.
-static const float BombFarGlow = 0.85;
+static const float BombFarGlow = 0.35;
 
 //How much of the charge burns whatever the beat is doing and whatever the ball is buried under - the floor
 //the heartbeat rides on. See the note at its use for why it cannot be BallEmission's own resting term.
@@ -3698,9 +3720,17 @@ float4 BombPS(PatternVertexShaderOutput input) : COLOR
 
     float footprint = (length(ddx(input.WorldPosition)) + length(ddy(input.WorldPosition))) / radius;
 
-    //Band-limited on the band count, the same argument ReliefOctave makes: past the point where one band
-    //is under a pixel the grooves are noise, and noise on a dark ball is what makes a cluster shimmer.
-    float bandLimit = saturate(1 - footprint * BombBandCount * 2.0);
+    //Band-limited on the band count, the same argument ReliefOctave makes: past the point where one band is
+    //under a pixel the grooves are noise, and noise on a dark ball is what makes a cluster shimmer.
+    //
+    //⚠ THE FACTOR WAS 2.0 AND IT FADED THE PATTERN OUT SIX TIMES TOO EARLY, which is most of what the owner
+    //was looking at when they said the bomb does not read as one from a distance. A band spans about
+    //pi / BombBandCount of the surface parameter - some 0.63 radians at five bands - so the grooves only
+    //start aliasing when the footprint approaches that. At 2.0 the limit reached zero at a footprint of 0.1,
+    //while a band was still several pixels wide and perfectly resolvable: the casing dissolved into a flat
+    //glow at exactly the range the figure was supposed to be doing its work. Half the band count puts the
+    //fade where Nyquist actually is, so the bands stay drawn as long as they can be seen.
+    float bandLimit = saturate(1 - footprint * BombBandCount * 0.5);
 
     float seam = BombSeams(direction) * bandLimit;
     float stud = BombStuds(direction) * bandLimit;
