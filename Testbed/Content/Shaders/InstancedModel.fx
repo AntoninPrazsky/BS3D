@@ -4294,8 +4294,20 @@ technique InstancedModelHollow
 //
 //Measured after, on the hanging bomb of Bombs.json through a fixed camera at the stand-off a level is
 //played from, eight captures across one cycle: the casing runs 106 to 151 codes of red - a 1.43x swing
-//that several of the eight caught, where before the same sampling caught the flash once in six. It reads
-//as a dark banded casing whose bands go from dim brown to bright orange and back.
+//that several of the eight caught, where before the same sampling caught the flash once in six.
+//
+//⚠ AND IT STILL READ AS THE WRONG COLOUR: "a dark banded casing whose bands go from dim brown to bright
+//ORANGE and back" is what that same session wrote down, and the owner's verdict on it was that a bomb
+//blinks red. That is #341 and it is a hue fault only - the size of the figure, the band limit and the beat
+//are all as this section leaves them, and the red channel measures identical before and after the fix. See
+//BombCharge, which is where the whole of it lives.
+//
+//⚠ AND ONE MEASURING NOTE THAT INVALIDATES PART OF THE SWEEP ABOVE: this beat CANNOT BE PHASE-SWEPT WITH
+//F5 HELD ON. Freezing the simulation is the standing trick for stopping the cluster swaying between
+//captures, and #326's rig used it - but it pins the pulse clock too, so a settle sweep then photographs one
+//phase over and over. Measured during #341: twenty captures across a cycle WITH F5 spanned 109 to 115
+//codes and read as a beat that had collapsed; twelve captures WITHOUT it, same build, same camera, spanned
+//96 to 142. The cluster hangs still enough by nine seconds that the sway costs nothing on a ball this size.
 //
 //⚠ AND A PROCESS WARNING WORTH MORE THAN ANY OF THE ABOVE. Three rounds of "measurements" before this one
 //were taken against a Testbed that was NOT running the shader being edited: the captures come from
@@ -4371,10 +4383,39 @@ static const float BombGrooveDepth = 0.030;
 //disappears against a dark dome.
 static const float3 BombCasing = float3(0.115, 0.098, 0.092);
 
-//And the charge that burns in the seams. Well past white in the red channel so it survives the tonemap as
-//a HOT thing rather than as an orange one; the emission below multiplies it, so this is a direction more
-//than a colour.
-static const float3 BombCharge = float3(1.0, 0.46, 0.13);
+//And the charge that burns in the seams.
+//
+//⚠ IT WAS (1.0, 0.46, 0.13) AND THE OWNER'S VERDICT ON IT WAS ONE WORD: it blinks ORANGE, and it should
+//blink RED. The comment that stood here defended that value with an argument rather than a measurement —
+//"well past white in the red channel so it survives the tonemap as a HOT thing rather than as an orange
+//one; the emission below multiplies it, so this is a direction more than a colour". The measurement that
+//refutes it was standing twenty lines up this same file the whole time: the casing runs 106 to 151 codes of
+//red and reads "from dim brown to bright orange and back". A casing that peaks at 151 never clips, so
+//nothing is ever pushed past white and the value written here IS the colour that reaches the player, at
+//full strength. An intent stated in a comment does not become true by being multiplied.
+//
+//⚠ AND WHAT MADE IT ORANGE WAS THE GREEN, NOT THE RED, which is why "push the red harder" could not have
+//fixed it: red was already pinned at 1.0 and had nowhere to go. Hue at this end of the wheel is
+//60 * (G-B) / (R-B), so with red pinned the only lever left is green, and 0.46 of it is nearly a fifth of
+//the red in linear light. Blue is not taken to zero along with it, on purpose: a channel pinned at zero
+//makes the deepest part of the charge a one-channel colour, which aliases hard along a groove's edge and
+//reads as a decal rather than as light.
+//
+//MEASURED BOTH WAYS IN ONE SESSION, twelve phases of one beat through the fixed camera below (meadow,
+//sky 1, nopost, nooverc, ssaa 2, campos=0,4,30 camtarget=0,5.5,0, the top-right bomb of Bombs.json, mean
+//over a disc of radius 8):
+//
+//                       casing floor        casing on the beat      hue
+//    orange (0.46 G)    96 / 39 / 17        142 / 60 / 19           17 to 20 degrees
+//    red    (0.15 G)    96 / 20 / 15        142 / 23 / 15           3.8 degrees, flat across the beat
+//
+//THE RED CHANNEL DOES NOT MOVE BY ONE CODE, at either end, and the beat's swing is 1.48x both times. Only
+//green does, which is the whole of the hue and — because green carries 0.7152 of a colour's luminance
+//against red's 0.2126 — also about a third of the charge's light. That loss is real and it is invisible
+//here: the bomb is read by its red against a near-black casing, so what was lost is the part that was
+//making it amber. See BombRestingGlow for the compensation that was tried on the strength of the luminance
+//figure alone, and measured to be unnecessary.
+static const float3 BombCharge = float3(1.0, 0.15, 0.05);
 
 //A ring of studs round the casing's waist — rivets. Cheap (one more sine pair) and worth it: they are the
 //only part of the figure that survives when the ball is small enough that the bands blur together, and a
@@ -4393,6 +4434,17 @@ static const float BombFarGlow = 0.35;
 //the heartbeat rides on. See the note at its use for why it cannot be BallEmission's own resting term.
 //Half, so a bomb at rest is unmistakably lit and a bomb on the beat is still visibly brighter: the swing
 //has to survive as well as the floor, or the odd one out stops being the one that moves.
+//
+//⚠ THIS WAS RAISED TO 0.65 DURING #341 AND PUT BACK, and the reason is worth more than the constant. The
+//red recolour above drops about a third of the charge's LUMINANCE (green carries 0.7152 of it against red's
+//0.2126), so it looked obvious that the casing needed the loss handed back. It did not: measured across
+//twelve phases before and after the recolour, on the same camera in the same session, the casing's floor is
+//96 codes of red BOTH TIMES. Luminance fell; the red channel the bomb is actually read by did not move,
+//because red was pinned at 1.0 before and after. The 10 % shortfall being compensated for was against the
+//figure 106 quoted in #326's own note — measured through a different rig, in a different session, and
+//therefore a citation rather than a measurement. Raising this term also costs the beat: it lifts the floor
+//and the flash by the same linear amount, so the swing falls (1.48x to 1.36x at 0.65), and the swing is
+//what #326 was protecting.
 static const float BombRestingGlow = 0.5;
 
 //Machined metal: a tight highlight and a real mirror of the dome, which is what separates a casing from
