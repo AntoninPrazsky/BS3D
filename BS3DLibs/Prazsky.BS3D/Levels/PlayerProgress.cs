@@ -11,8 +11,12 @@ namespace Prazsky.BS3D.Levels
     /// best score and best star rating, keyed by the entry's own <see cref="LevelSetEntry.File"/>. The sum of
     /// the best stars is <see cref="TotalStars"/>, which is the currency level unlocks are gated on (#111).
     /// <para>
-    /// It is a JSON file beside the level set — the repository's convention keeps level data next to the
-    /// executable's own <c>Levels</c> directory, and progress through a set belongs with the set it measures.
+    /// It is a JSON file, and <b>where</b> it goes is the caller's to say — <see cref="Load"/> and
+    /// <see cref="Save"/> only ever touch the path they were handed. That used to be the level set's own
+    /// directory, on the argument that "progress through a set belongs with the set it measures", and #353
+    /// overruled it: the set's directory is the build output, so a <c>dotnet clean</c>, a deleted <c>bin</c>
+    /// or a fresh clone took the save with it and there was no second copy of it anywhere. <b>A save must
+    /// outlive the build output</b>, so the game now hands this a path under the player's own profile.
     /// The bests are <b>best-per-level</b>, not a running sum of every play: replaying a level can only raise
     /// its entry, so the totals reward getting better rather than grinding the same level over.
     /// </para>
@@ -22,14 +26,37 @@ namespace Prazsky.BS3D.Levels
     /// piece of level data whose absence is the normal case (a first run), and a corrupt one must cost the
     /// player their stars, never the game.
     /// </para>
+    /// <para>
+    /// <b>That leniency is also what made the loss silent, so it is no longer silent</b> (#353): a wiped save
+    /// and a first run produce the identical empty object, and nothing in the game could tell them apart.
+    /// <see cref="Outcome"/> now says which of the two happened — and whether the file that answered was the
+    /// backup rather than the save — for the caller to log. The write is atomic besides
+    /// (<see cref="Save"/>), so the window where a lost machine can leave a half-written save is closed
+    /// rather than merely reported.
+    /// </para>
     /// </summary>
     public sealed class PlayerProgress
     {
         public const string FormatMarker = "bs3d-progress";
         public const int CurrentVersion = 1;
 
-        /// <summary>What sits beside a level set's own file — see <see cref="LevelSet.DefaultFileName"/>.</summary>
+        /// <summary>The save's own file name, wherever the caller decides to keep it.</summary>
         public const string DefaultFileName = "Progress.json";
+
+        /// <summary>
+        /// What the last good save is kept as while a new one is written (#353). <see cref="Save"/> hands it
+        /// to <see cref="File.Replace(string, string, string)"/>, which is what makes the swap atomic: the
+        /// old file becomes this one in the same operation that puts the new file in its place, so there is
+        /// no instant at which neither exists.
+        /// </summary>
+        public const string BackupSuffix = ".bak";
+
+        /// <summary>
+        /// Where a save is built before it replaces the real one. Same directory deliberately —
+        /// <see cref="File.Replace(string, string, string)"/> cannot cross a volume, and the temp directory
+        /// is on a different one often enough to matter.
+        /// </summary>
+        private const string TempSuffix = ".tmp";
 
         /// <summary>File-type marker; always <see cref="FormatMarker"/> in a valid progress file.</summary>
         [JsonPropertyName("format")]
@@ -73,6 +100,14 @@ namespace Prazsky.BS3D.Levels
         [JsonIgnore]
         public string Path { get; private set; }
 
+        /// <summary>
+        /// Which of the four things <see cref="Load"/> actually did (#353). The caller logs it: leniency means
+        /// three of these four return an object that looks exactly alike, and only this says whether the empty
+        /// one in hand is a first run or a campaign that was just thrown away.
+        /// </summary>
+        [JsonIgnore]
+        public ProgressLoad Outcome { get; private set; }
+
         private static readonly JsonSerializerOptions Options = new()
         {
             WriteIndented = true,
@@ -83,8 +118,70 @@ namespace Prazsky.BS3D.Levels
         /// Reads the progress at <paramref name="path"/>, or returns a fresh empty one bound to that path when
         /// there is nothing readable there — no file on a first run, a wrong marker, malformed JSON. Lenient
         /// where the set's loader throws, because an absent save is the normal case rather than an error.
+        /// <para>
+        /// <b>The backup is tried before it gives up</b> (#353). <see cref="Save"/> keeps the previous save as
+        /// <see cref="BackupSuffix"/>, so the one failure this is really guarding against — the machine lost
+        /// mid-write, which leaves a short but syntactically fine file — costs the player at most the single
+        /// clear that was being written. Whichever file answered, the object comes back bound to
+        /// <paramref name="path"/>: the next save must go back to the real one, not overwrite the backup.
+        /// </para>
         /// </summary>
         public static PlayerProgress Load(string path)
+        {
+            string backup = path + BackupSuffix;
+
+            //Asked BEFORE anything is read, because it is the whole difference between "a first run" and "the
+            //campaign is gone": once the reads have failed, an empty object is all that is left to look at
+            bool anythingWasThere = Exists(path) || Exists(backup);
+
+            PlayerProgress progress = TryRead(path);
+
+            if (progress != null)
+            {
+                progress.Outcome = ProgressLoad.Loaded;
+                return progress;
+            }
+
+            progress = TryRead(backup);
+
+            if (progress != null)
+            {
+                //Bound back to the real save: the backup is where the last good copy is kept, never where the
+                //next one is written
+                progress.Path = path;
+                progress.Outcome = ProgressLoad.RecoveredFromBackup;
+
+                return progress;
+            }
+
+            return new PlayerProgress
+            {
+                Path = path,
+                Outcome = anythingWasThere ? ProgressLoad.Discarded : ProgressLoad.Fresh,
+            };
+        }
+
+        /// <summary>Whether there is a file at <paramref name="path"/>, an unreadable one included.</summary>
+        private static bool Exists(string path)
+        {
+            try
+            {
+                return File.Exists(path);
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException or ArgumentException
+                or NotSupportedException)
+            {
+                //A path this cannot even be asked about is one nothing was loaded from either
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// One readable save from <paramref name="path"/>, or null for anything at all that is not one — no
+        /// file, a wrong marker, a version from a later build, malformed JSON, a directory in the way. Null
+        /// rather than an exception because both of <see cref="Load"/>'s attempts are allowed to fail.
+        /// </summary>
+        private static PlayerProgress TryRead(string path)
         {
             try
             {
@@ -104,18 +201,42 @@ namespace Prazsky.BS3D.Levels
             catch (Exception e) when (e is JsonException or IOException or UnauthorizedAccessException
                 or ArgumentException or NotSupportedException)
             {
-                //Fall through to the fresh instance below: whatever was there is not progress
+                //Whatever was there is not progress
             }
 
-            return new PlayerProgress { Path = path };
+            return null;
         }
 
         /// <summary>
         /// Writes the progress back where it was loaded from. Throws on an unwritable path, exactly as
         /// <see cref="LevelSet.Save"/> does — whether a failed save is worth more than a log line is the
         /// caller's call, not this file's.
+        /// <para>
+        /// <b>Never straight over the save</b> (#353). It used to be one <see cref="File.WriteAllText(string,
+        /// string)"/>, which opens, truncates and then writes: lose the machine in that window and what is on
+        /// disk is a short but syntactically fine file, <see cref="Load"/> takes it for a first run, and the
+        /// next clear writes that emptiness out for real. This desktop hard-resets under GPU load, so the
+        /// window was not hypothetical. The new file is built beside the old one and swapped in by
+        /// <see cref="File.Replace(string, string, string)"/>, which also demotes the old one to the backup —
+        /// one operation, and no instant at which the save is neither the old nor the new.
+        /// </para>
         /// </summary>
-        public void Save() => File.WriteAllText(Path, JsonSerializer.Serialize(this, Options));
+        public void Save()
+        {
+            //The directory can be absent on a first run now that the save no longer lives beside something the
+            //build already created for it
+            string directory = System.IO.Path.GetDirectoryName(Path);
+            if (!string.IsNullOrEmpty(directory)) System.IO.Directory.CreateDirectory(directory);
+
+            string temp = Path + TempSuffix;
+
+            File.WriteAllText(temp, JsonSerializer.Serialize(this, Options));
+
+            //File.Replace needs something to replace, so the very first save is a plain move — there is no
+            //previous copy to demote and nothing yet that a torn write could destroy
+            if (File.Exists(Path)) File.Replace(temp, Path, Path + BackupSuffix);
+            else File.Move(temp, Path);
+        }
 
         /// <summary>All the stars collected across the campaign — the currency unlocks are gated on.</summary>
         [JsonIgnore]
@@ -208,6 +329,35 @@ namespace Prazsky.BS3D.Levels
             Levels.Clear();
             Skipped = null;
         }
+    }
+
+    /// <summary>
+    /// What <see cref="PlayerProgress.Load"/> found (#353). The loader is lenient by design, so three of
+    /// these four hand back an object that is indistinguishable from the others — this is the only thing that
+    /// says which one it is, and the distinction that matters is <see cref="Fresh"/> against
+    /// <see cref="Discarded"/>: a player with no campaign yet, and a player whose campaign has just been
+    /// thrown away, otherwise look identical from inside the game.
+    /// </summary>
+    public enum ProgressLoad
+    {
+        /// <summary>Nothing was there at all — the normal first run.</summary>
+        Fresh,
+
+        /// <summary>The save read cleanly.</summary>
+        Loaded,
+
+        /// <summary>
+        /// The save did not read but its backup did, so what is in hand is the state before the last write.
+        /// The one clear that was being written when the machine was lost is the whole cost.
+        /// </summary>
+        RecoveredFromBackup,
+
+        /// <summary>
+        /// <b>A file was there and none of it could be used.</b> The player is being handed an empty campaign
+        /// they did not start, and the next clear will write it out for real — the one outcome worth saying
+        /// out loud.
+        /// </summary>
+        Discarded,
     }
 
     /// <summary>One level's bests: the highest score and the most stars any single clear of it earned.</summary>

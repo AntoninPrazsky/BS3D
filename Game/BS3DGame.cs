@@ -1084,13 +1084,21 @@ namespace BS3D
 
                 Console.WriteLine($"[levels] '{_levelSet.Name ?? LevelSet.DefaultFileName}': {_levelSet.Count} level(s)");
 
-                //The player's bests, from beside the set — which is also why it is in this try and not its
-                //own: with no set there is no campaign to have progressed through. Lenient where the set's
-                //loader throws (a first run has no save, and a corrupt one must cost stars, never the game).
-                _progress = PlayerProgress.Load(Path.Combine(_levelSet.Directory, PlayerProgress.DefaultFileName));
+                //The player's bests. Still in this try rather than one of its own — with no set there is no
+                //campaign to have progressed through — but no longer from beside the set: since #353 the save
+                //lives under the player's own profile, because the set's directory is the build output and a
+                //save must outlive it. Lenient (a first run has no save, and a corrupt one must cost stars,
+                //never the game), which is why the loader is then asked what it actually found.
+                string progressPath = UserData.PathTo(PlayerProgress.DefaultFileName);
+
+                AdoptProgressFromBuildOutput(progressPath);
+
+                _progress = PlayerProgress.Load(progressPath);
+
+                ReportProgressLoad(progressPath);
 
                 Console.WriteLine($"[progress] {_progress.TotalStars} star(s), best total {_progress.TotalScore}"
-                    + $" over {_progress.Levels.Count} cleared level(s)");
+                    + $" over {_progress.Levels.Count} cleared level(s) at '{progressPath}'");
 
                 //Every entry's rules, at load rather than as each level comes up: an inconsistently authored
                 //set is then obvious in one place before a single level is played.
@@ -1104,6 +1112,80 @@ namespace BS3D
                 //has a level of its own to fall back on, so this is a log line and not a crash.
                 Console.WriteLine($"[levels] No level set at '{path}' ({e.Message}); using the built-in level");
                 _levelSet = null;
+            }
+        }
+
+        /// <summary>
+        /// Adopts a save left behind by a build that kept it in the output directory, once (#353). It acts
+        /// only when the new home holds nothing at all and the old file reads as progress, so every launch
+        /// after the first finds a save where it belongs and does nothing.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// The old path is rebuilt from <see cref="AppContext.BaseDirectory"/> rather than taken from
+        /// <c>_levelSet.Directory</c>, which resolves to the same place: the set's own path is built from
+        /// those two constants a few lines above, and asking the set would make the migration depend on the
+        /// set having loaded — a broken set would then quietly strand the save it was written to rescue.
+        /// </para>
+        /// <para>
+        /// <b>A copy, and the old file is left standing.</b> It is five kilobytes, and until this change it
+        /// was the only copy of the campaign in existence; losing it to the migration written to protect it
+        /// would be a poor joke. It goes when the build output next goes, which is the very thing this is
+        /// about. It reads it first rather than copying blind, so a garbage file does not get carried into
+        /// the new home and reported there as a save that had to be thrown away.
+        /// </para>
+        /// </remarks>
+        private static void AdoptProgressFromBuildOutput(string progressPath)
+        {
+            try
+            {
+                //Both, because a save whose only surviving copy is its backup is still a save, and a migration
+                //over the top of one would be the loss this whole change exists to prevent
+                if (File.Exists(progressPath) || File.Exists(progressPath + PlayerProgress.BackupSuffix)) return;
+
+                string old = Path.Combine(AppContext.BaseDirectory, LEVELS_DIRECTORY, PlayerProgress.DefaultFileName);
+
+                if (!File.Exists(old) || PlayerProgress.Load(old).Outcome != ProgressLoad.Loaded) return;
+
+                Directory.CreateDirectory(UserData.Directory);
+
+                //Byte for byte rather than re-serialized: a key some later build added is not this build's to
+                //drop on the way past
+                File.Copy(old, progressPath);
+
+                Console.WriteLine($"[progress] Adopted the save from '{old}' — it now lives at '{progressPath}'"
+                    + " and no longer dies with the build output");
+            }
+            catch (Exception e)
+            {
+                //A migration that fails must cost the migration and nothing else: the game goes on to load
+                //whatever is at the new path, which on this branch is nothing, and the old file is untouched
+                Console.WriteLine($"[progress] Could not adopt the old save ({e.Message}); starting fresh here");
+            }
+        }
+
+        /// <summary>
+        /// Says what <see cref="PlayerProgress.Load"/> actually found (#353). The loader is lenient by design,
+        /// so a wiped campaign and a first run hand back the same empty object — before this, the game could
+        /// not tell the two apart and neither could the player.
+        /// </summary>
+        private void ReportProgressLoad(string progressPath)
+        {
+            switch (_progress.Outcome)
+            {
+                case ProgressLoad.Fresh:
+                    Console.WriteLine("[progress] No save here yet — a first run");
+                    break;
+
+                case ProgressLoad.RecoveredFromBackup:
+                    Console.WriteLine($"[progress] The save would not read; RECOVERED the backup"
+                        + $" '{progressPath + PlayerProgress.BackupSuffix}'. At most the last clear is lost");
+                    break;
+
+                case ProgressLoad.Discarded:
+                    Console.WriteLine($"[progress] A save was at '{progressPath}' and NOTHING in it could be"
+                        + " read, its backup included. Starting empty");
+                    break;
             }
         }
 
