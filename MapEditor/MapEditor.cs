@@ -363,6 +363,8 @@ namespace MapEditor
                     + "then that shot's colour)",
                 BallKind.Bomb => "Ball kind: bomb (a shot landing beside it destroys everything within two "
                     + "units, itself included)",
+                BallKind.Zap => "Ball kind: zap (a shot landing beside it takes every ordinary ball of THAT "
+                    + "SHOT's colour off the whole field)",
                 _ => "Ball kind: normal",
             };
         }

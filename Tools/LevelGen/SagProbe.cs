@@ -709,7 +709,15 @@ namespace BS3D.Tools.LevelGen
             //not a colour question at all, so it is answered before the lattice is touched. Without this the
             //probe would rank every bomb-adjacent gap as "sticks but does not match" and only ever land there
             //by fallback, which underrates the one shot a bomb level is played on.
-            if (ArmedBombs(map, cell, _candidateBombs).Count > 0) return true;
+            if (ArmedSpecials(map, cell, BallKind.Bomb, _candidateBombs).Count > 0) return true;
+
+            //A cell that fires a ZAP is worth taking too (#327), and its reason is NOT the bomb's: a blast is
+            //not a colour question at all, while a zap is nothing but one. It is answered the same way anyway,
+            //because whatever is loaded the zap takes that whole colour off the field plus itself — the worst
+            //case is a colour with little of it standing, which is a weak shot rather than a wasted one, and a
+            //probe that ranked these as "sticks but does not match" would land there only by fallback and so
+            //would never measure the one shot a zap level is played on.
+            if (ArmedSpecials(map, cell, BallKind.Zap, _candidateZaps).Count > 0) return true;
 
             map.PutBallAt((byte)cell.X, (byte)cell.Z, (byte)cell.Level, colour);
             map.ColourTransparentGroup(cell, colour, _wouldMatchColoured);
@@ -763,7 +771,7 @@ namespace BS3D.Tools.LevelGen
         /// because the two callers overlap: the aim search asks this of every candidate cell and the landing
         /// asks it of the one that was chosen, so a single buffer would have the search's last answer standing
         /// where the landing's belongs.</param>
-        private static List<XZLevel> ArmedBombs(BallsMap map, XZLevel cell, List<XZLevel> into)
+        private static List<XZLevel> ArmedSpecials(BallsMap map, XZLevel cell, BallKind kind, List<XZLevel> into)
         {
             into.Clear();
 
@@ -773,17 +781,23 @@ namespace BS3D.Tools.LevelGen
             foreach (XZLevel neighbour in BallsMap.GetNeighboringCells(cell, size))
             {
                 StaticBall ball = cells[neighbour.X, neighbour.Z, neighbour.Level];
-                if (ball != null && ball.Kind == BallKind.Bomb) into.Add(neighbour);
+                if (ball != null && ball.Kind == kind) into.Add(neighbour);
             }
 
             return into;
         }
 
-        /// <inheritdoc cref="ArmedBombs"/>
+        /// <inheritdoc cref="ArmedSpecials"/>
         private static readonly List<XZLevel> _landingBombs = new();
 
-        /// <inheritdoc cref="ArmedBombs"/>
+        /// <inheritdoc cref="ArmedSpecials"/>
         private static readonly List<XZLevel> _candidateBombs = new();
+
+        /// <inheritdoc cref="ArmedSpecials"/>
+        private static readonly List<XZLevel> _landingZaps = new();
+
+        /// <inheritdoc cref="ArmedSpecials"/>
+        private static readonly List<XZLevel> _candidateZaps = new();
 
         /// <summary>
         /// What the barrel is loaded with — <b>uniform over the colours still standing</b>, which is
@@ -924,7 +938,8 @@ namespace BS3D.Tools.LevelGen
             //bomb the release orphans has already fallen and must not go off in mid-air. Same shape as the
             //colouring above and the same lesson - a step of a landing that lives in the contact handler has
             //to be repeated here, or the probe measures a game the player is not playing.
-            List<XZLevel> armed = ArmedBombs(map, cell, _landingBombs);
+            List<XZLevel> armed = ArmedSpecials(map, cell, BallKind.Bomb, _landingBombs);
+            List<XZLevel> zaps = ArmedSpecials(map, cell, BallKind.Zap, _landingZaps);
 
             //And the game rule: three or more of a colour touching each other let go, and so does anything
             //that was only held up by them. A shot that completes nothing simply stays, which is the whole
@@ -934,6 +949,13 @@ namespace BS3D.Tools.LevelGen
             //Then the blast, over what the match left standing - and it runs its own disconnection pass, which
             //is the half of it a sag probe actually cares about: a hole opened under a third of the cluster is
             //the largest single thing that can happen to a level's remaining load path.
+            //The zap goes BEFORE the blast, which is the handler's own order and a ruling rather than a
+            //detail (#327) — see the comment at that call site. For a probe it is also the single largest
+            //mass change it can be asked to measure: a whole colour leaving at once.
+            if (zaps.Count > 0)
+                released = released.Plus(BallsConstraintsBuilder.ZapColour(
+                    zaps, loaded.Value, balls, map, world.Simulation, falling));
+
             if (armed.Count > 0)
                 released = released.Plus(BallsConstraintsBuilder.DetonateBombs(
                     armed, balls, map, world.Simulation, falling));

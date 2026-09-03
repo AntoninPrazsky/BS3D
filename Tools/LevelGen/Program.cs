@@ -15589,7 +15589,7 @@ namespace BS3D.Tools.LevelGen
             StaticBall[,,] array = map.GetStaticBallsArray();
             Dictionary<BallType, int> counts = new();
             Dictionary<BallType, int> largestGroup = new();
-            int rocks = 0, glass = 0, bombs = 0;
+            int rocks = 0, glass = 0, bombs = 0, zaps = 0;
 
             for (byte l = 0; l < map.Levels; l++)
                 for (byte x = 0; x < map.StageSizeX; x++)
@@ -15601,6 +15601,7 @@ namespace BS3D.Tools.LevelGen
                         if (ball.Kind == BallKind.Rock) rocks++;
                         if (ball.Kind == BallKind.Transparent) glass++;
                         if (ball.Kind == BallKind.Bomb) bombs++;
+                        if (ball.Kind == BallKind.Zap) zaps++;
 
                         //⚠ THE COLOUR CENSUS IS OVER THE MATCHABLE BALLS ONLY (#323/#325), and it is not
                         //merely tidier: a rock or a glass ball counted here would enter `counts` under the
@@ -15639,12 +15640,12 @@ namespace BS3D.Tools.LevelGen
             //On a level with no specials in it the two are equal and every figure reads exactly as it did.
             int total = map.GetBallsCount();
             int removable = map.GetRemovableBallsCount();
-            int matchable = total - rocks - glass - bombs;
+            int matchable = total - rocks - glass - bombs - zaps;
 
-            if (rocks > 0 || glass > 0 || bombs > 0)
+            if (rocks > 0 || glass > 0 || bombs > 0 || zaps > 0)
                 Console.WriteLine($"    specials: {rocks} rock(s) that never match and never fall to a shot,"
-                                  + $" {glass} glass ball(s) waiting for a colour, {bombs} live bomb(s)"
-                                  + $" — {matchable} of {total} balls are matchable as they hang");
+                                  + $" {glass} glass ball(s) waiting for a colour, {bombs} live bomb(s),"
+                                  + $" {zaps} zap(s) — {matchable} of {total} balls are matchable as they hang");
 
             int margin = LateralMargin(map);
             Console.WriteLine($"    lateral margin: {(margin >= 1 ? $"{margin} free cell(s) all round" : "NONE - the layout is ON the field wall")}");
@@ -15673,9 +15674,9 @@ namespace BS3D.Tools.LevelGen
             //⚠ THE ROCKS COUNT TOWARDS ASKING IT (#343). While this read `glass + bombs`, a level built
             //entirely of stone and colour skipped the walk altogether, so the one gate that would have
             //caught a rock hanging off the ceiling was never run on the three levels that had one.
-            StrandedReport stranded = rocks + glass + bombs == 0 ? new StrandedReport() : FindStrandedSpecials(map);
+            StrandedReport stranded = rocks + glass + bombs + zaps == 0 ? new StrandedReport() : FindStrandedSpecials(map);
 
-            if (rocks + glass + bombs > 0)
+            if (rocks + glass + bombs + zaps > 0)
             {
                 Console.WriteLine($"    specials a shot can reach: {(stranded.Walled == 0 ? "all" : $"NO - {stranded.Walled} WALLED IN")}"
                                   + $" (glass against the ceiling {stranded.Anchoring}, best glass landing pays"

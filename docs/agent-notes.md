@@ -3824,3 +3824,41 @@ Před opravou halo zvedalo červenou i 380 px nad koulí; po ní je tam obloha b
 **Ověřeno:** čtyři solutiony 0 chyb; vyfoceno před/po ze dvou vantage a **na ssaa 2 i ssaa 1** (nižší tier má větší footprint, takže se limity chovají jinak — čisté na obou). Kampaně ani generátoru se to netýká, žádný soubor levelu se nezměnil.
 
 **Dál pokračuji na #327** (Zap).
+
+---
+
+## 2026-09-03 — Claude Code (osmý zápis dne)
+
+*(Šestý a sedmý zápis dne jsou #321 a #345 a sedí na svých větvích; tenhle je z `327-zap-ball`. Všechny tři vyrostly z mainu nezávisle, takže se při mergi potkají na konci tohohle souboru — patří všechny.)*
+
+**#327 Zap: rána vedle něj sebere JEDNU BARVU z celého pole. Je to bombí destrukční cesta v největším měřítku, jaké hra má, a proto na ní bylo skoro všechno hotové — nové je jen to, čím se ta množina buněk vybírá.**
+
+**Rozhodnutí, které si issue nechalo na tomhle typu: KTEROU barvu. Je to barva STŘELY.** Jediná, kterou si hráč vybral. Nejčastější barva na poli je mocná a úplně mimo jeho ruce; barva napsaná na kouli z toho dělá hádanku, kterou hráč přečte místo aby ji rozhodl; barva souseda je stejně libovolná jako u průhledné koule (#325). Magazín ukazuje tři koule dopředu, takže „co tahle rána vezme" je otázka zodpověditelná **před výstřelem** — a v tom je celý rozdíl mezi speciálem a loterií.
+
+**⚠ Bere jen `Matchable` koule, a není to výjimka — je to pravidlo, které má tenhle repozitář napsané už dvakrát.** Kámen, sklo, bomba i jiný zap nesou `BallType`, který **nikdo nesmí číst**; je tam proto, že to pole má každá buňka, ne protože něco znamená. Zap čistící „bomby té barvy" by jednal na poli, které hráč nevidí. Vedlejší efekt je, že se dva speciály nemůžou sežrat.
+
+**Pořadí uvnitř dopadu je ruling, ne detail: ZAP JDE PŘED VÝBUCHEM.** Oba armuje týž dopad (jedna procházka sousedů, `CollectArmedSpecials`). Kdyby šla první bomba, sežrala by zap jako oběť a jeden ze dvou efektů, které si hráč jednou ranou koupil, by tiše zmizel. Zap bombu vzít nemůže (viz výše), takže „široký, pak lokální" je pořadí, ve kterém proběhnou vždycky oba.
+
+**Sonda to dostala celé** — pravidlo z #326: krok dopadu, který žije v handleru, se musí zopakovat, jinak sonda měří jinou hru. `ArmedBombs` se zobecnilo na `ArmedSpecials(kind)`, `WouldMatch` odpovídá true i na buňku, která spouští zap — a **z jiného důvodu než u bomby**, což jsem zapsal: výbuch není barevná otázka vůbec, zap je jen a pouze barevná otázka. Odpověď je stejná, protože i v nejhorším případě (barva, které na poli moc není) je to slabá rána, ne zahozená.
+
+**Vzhled: jediný skutečně těžký kus, a jeho problém není být vidět, ale být ODLIŠEN od dvou věcí, co už existují.** Obě kolize jsou **strukturální, ne tonální**, takže se ani jedna neřeší jasem:
+- **Plazma (#309)** je už teď herní „lezoucí filamenty" a na plazmovém levelu je taková **každá** koule. Rozdíl: plazma svítí celá, ve své vlastní typové barvě, měkké filamenty **driftují** rozsvíceným tělem a střed disku je jasnější. Zap je **tmavá** slupka v jedné pevné studené modrobílé a jeho figura je hrstka **tvrdých tenkých oblouků na pevných hlavních kružnicích**, které **cvakají**, ne bloudí.
+- **Bomba** je ta druhá tmavá koule a hráč musí poznat, vedle které přistává: bomba jsou **šířkové pásy** a tepe pomalu a hluboko, zap jsou **šikmé hlavní kružnice**, co se kříží, a bliká rychle a mělce. Protilehlé rohy týchž dvou dialů, plus teplá tma proti studené.
+- Vinylové gores jsou poledníky, takže figura od pólu k pólu byla vyřazená dřív, než se kreslila.
+
+**⚠ „Rychle" je tady správně a u bomby to bylo špatně** — vypadá to jako spor a není. `Heartbeat` má svítivé okno jako pevný **zlomek** cyklu, takže rychlejší tep bliká **kratčeji**; to bombu zabilo, protože jejím readem JE ten záblesk. Readem zapu je nakreslená figura, kterou drží rozsvícenou vlastní podlaha (mimo `BallEmission`, z měřeného důvodu #326 — klidový člen se násobí okluzí na druhou a speciál zahrabaný v hromadě je ten, který je nejvíc potřeba vidět). Tep jen přidává jitter na něco už viditelného, a jitter má být krátký.
+
+**⚠ Oblouky byly napoprvé moc tlusté, a oprava je bombí lekce čtená obráceně.** Při šířce 0,17 byl close-up správně a herní odstup byl **kravský vzor** — bílé skvrny na černé, protože takhle tlusté linky se při zmenšení slijí. Na 0,115 je zblízka klec tenkých jasných oblouků a z dálky to spadne na podlahu záře, což je přesně ta architektura, ke které nakonec došla i bomba: figura nese zblízka, barva a blikání nesou zdaleka. Oblouky se skládají přes `max`, ne součtem — součet by na křížení zdvojnásobil světlo a udělal z něj bouli, přitom to, co se tam má číst, je **tvar** dvou protínajících se čar.
+
+**Ověřeno — 29 tvrzení proti skutečné knihovně** (odhozený konzolový projekt ve scratchpadu, v žádném solutionu; mapová i **fyzikální** polovina, ta druhá ve skutečné `PhysicsWorld` s `BuildBallsStructure`, jak to dělalo #326): round-trip formátu s klíčem `"k":4`, obě pravopisné varianty, oba predikáty, **žádná skupina nikdy neobsahuje zap** a je přesně rovna obyčejným koulím té barvy, pole samých zapů se počítá jako vyčištěné, census barvu zapu nedrží naživu — a v simulaci: **zap sebere celou barvu (75 koulí) plus sebe**, ostatní zapy i **bomba s touž uloženou barvou zůstávají**, kotevní vrstva stojí, **mapa a fyzikální pole souhlasí v každé buňce**, sukně visící na sebrané vrstvě osiří (9), zap nedokončí žádnou skupinu, **dva zapy z jednoho dopadu jdou oba**, zap, který už odešel, nespustí nic, zap na nepřítomnou barvu **zničí aspoň sebe** (hráč tu ránu utratil, zap zbylý stát by četl jako odmítnutá rána), a **zapnutí poslední barvy pole vyčistí**.
+
+K tomu: čtyři solutiony 0 chyb, LevelGen exit 0, ScoreSim 0, **kampaň bajt za bajtem nedotčená** (žádný soubor levelu). `Testbed\Maps\Zaps.json` je testovací pole, zastagované hned podle pravidla o netrackovaných datech.
+
+**Co jsem NEUDĚLAL a je to schválně:**
+- **Žádný shipnutý level zap nemá**, na precedentu #326: tohle issue mělo postavit mechaniku, kapitola je práce na příště. Znamená to, že magazín ani skóre nejsou vyfocené **ve hře** — přečtené ano: `_magazineTransmute`/`_magazineFrom` jsou pole **per slot**, takže pět slotů přebarvujících se naráz je pět nezávislých časovačů (issue se ptalo správně, odpověď je „bezpečné konstrukcí"), a zapnutí poslední barvy padá na existující stráž `AnyBallTypeAlive`, tedy na cestu #176.
+- **Cena snímku neměřená** — táž díra, kterou má otevřenou #326.
+- **Skóre**: `ScoreSim` je zelený, ale žádný shipnutý level zap nemá, takže o hvězdných prazích neříká nic. Až vyjde zapový level, je to první věc k přeměření — přesně to, co #173 chytilo.
+
+**Dál nic si neberu**; #321, #345 a #327 čekají na majitelovo slovo.
+
+**Merge všech tří proběhl týž den na majitelovo slovo, `--no-ff`, v pořadí #321, #345, #327; větve pak smazané lokálně i na originu.** Deník kolidoval podruhé týmž způsobem a znovu se to vyřešilo ponecháním obou stran — s tím, že tentokrát se **dvakrát duplikoval i odstavec o tom prvním mergi**, protože ho měly obě strany. **Pro příště:** připsat vlastní zápis a nic jiného v tomhle souboru neupravovat; věta o mergi patří do zápisu té práce, ne na konec souboru, kde se s ní potká každá další větev.
