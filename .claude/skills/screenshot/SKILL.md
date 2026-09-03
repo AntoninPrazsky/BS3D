@@ -202,10 +202,26 @@ sends the keys **by scan code** (SDL reads the scan code, not the virtual key), 
 | `End` | Release the whole cluster | Clear the hanging balls out of the view, or watch them drain into the funnel / pit |
 | `F10` | Toggle game mode | The low third-person gameplay camera (overrides `campos`; the fit camera takes over) |
 | `F12` | Hide/show the text overlay | A clean shot with no HUD text over the left of the frame |
-| `F5`  | Stop/start the simulation | Freeze motion for a still |
+| `F5`  | Stop/start the simulation | Freeze motion for a still — **but see the warning below before using it to sample an animation** |
 | `L` | Cycle the ball material | Step through the ten `BallStyle`s in enum order without relaunching; `balls=` is the way to *start* on one |
 | `D1`..`D6` | View presets | Forward/Back/Left/Right/**Up (top-down)**/Down, aimed at the map centre (the cluster) |
 | `Space` | Shoot a ball | — |
+
+### ⚠ `F5` freezes the pulse clock too, so it destroys any sweep of an animation's phase
+
+The standing way to sample a ball's heartbeat — the bomb's charge, the cluster's own throb — is a series of
+runs at stepped `-Settle` values, each catching a different phase. **`F5` in that series makes every capture
+the same phase**, because it stops the clock the pulse runs on and not merely the bodies. It is not obvious
+from the pictures: the captures differ slightly (the beat freezes wherever the keypress landed, which varies
+with startup jitter), so the sweep looks like it worked and reports an animation that has collapsed.
+
+Measured on one build of the bomb during #341, same camera, same map: **twenty captures across a cycle with
+`F5` spanned 109 to 115 codes of red; twelve captures without it spanned 96 to 142.** The first set was read
+as a lost beat and nearly bought a wrong constant.
+
+So: `F5` for a still, never for a phase sweep. The reason it is reached for — the cluster swaying between
+captures — is not a real problem for a hanging map by the time `-Wait 9` has passed, and a disc sampled on
+one ball tolerates a pixel of sway anyway.
 
 `End` is the one the task cares about: the cluster falls, so it stops blocking the view, and you can watch
 the balls run down the drain (`Balls on scene:` in the overlay ticks down as the funnel culls them).

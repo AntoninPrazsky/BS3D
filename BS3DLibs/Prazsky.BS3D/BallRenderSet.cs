@@ -727,6 +727,13 @@ namespace Prazsky.BS3D
         /// casing runs <b>106 to 151</b> codes of red, a 1.43× swing that several of the eight caught. Before,
         /// the same sampling caught the flash once in six.
         /// </para>
+        /// <para>
+        /// <b>#341 recoloured the charge from orange to red and deliberately left this alone.</b> Dropping the
+        /// green costs about a third of the charge's <i>luminance</i>, so this constant is the obvious place to
+        /// hand it back — and measuring says there is nothing to hand back: the casing's red channel, which is
+        /// the one the bomb is read by, is identical before and after at both ends of the beat. See
+        /// <c>BombRestingGlow</c> in the shader for that measurement.
+        /// </para>
         /// </summary>
         private const float BOMB_EMISSION = 1.25f;
 
