@@ -200,6 +200,14 @@ float NightAmbient;         //what the unlit side keeps, so it stays a sphere an
 static const float CRATER_MIN_RADIUS = 0.12;
 static const float CRATER_MAX_RADIUS = 0.21;
 
+//What the regolith's interpolated grain octave is multiplied by so it keeps the amplitude the flat hash it
+//replaced had (#345). NoiseHash22 fills -1..1 uniformly; GradientNoise2 over the same hash is a
+//Perlin-style field whose values crowd towards zero and rarely reach half of that, so swapping one for the
+//other at the same coefficient would have quietly halved the mottling as well as smoothing it - two
+//changes where only one was asked for. Set so the surface keeps the tonal spread it had, which is what
+//makes the fix READ as "the squares are gone" rather than "the ground got flatter".
+static const float GRAIN_SMOOTH_GAIN = 2.0;
+
 float CraterLayer(float2 p, float seedOffset, float chance, out float ejecta)
 {
     float2 cellId = floor(p);
@@ -478,20 +486,43 @@ float4 MoonTerrainPS(MoonTerrainVertexOutput input) : COLOR
 
     //The grain - CASCADED, not one lattice, which is #208's finding: a single arm's-length grain faded out
     //before its cells reached pixel size (the desert's rule, kept per octave below) left everything past a
-    //few metres of the camera as one flat grey, craters and all, and the surface read as untextured. Three
-    //octaves of per-cell hash now, each at its own scale and each faded out before ITS cells reach pixel
-    //size: crystal-and-dust at 2 cm, coarse granular at ~1.3 m, and pebble patches at ~5.5 m that the last
-    //one could never bridge. The broad `broad` mottling above starts at tens of metres, so between them a
-    //resolvable octave exists at every footprint the plain is drawn at - grey on grey, but never one grey
-    //at any distance. All three scale with GrainStrength, so a config pinning it to zero still silences
-    //the lot.
+    //few metres of the camera as one flat grey, craters and all, and the surface read as untextured. Two
+    //octaves, each at its own scale and each faded out before ITS features reach pixel size: crystal-and-dust
+    //grit at 2 cm, and mottling at ~2.8 m that the first could never bridge. The broad `broad` mottling
+    //above starts at tens of metres and is smooth and unlimited, so between them a resolvable octave exists
+    //at every footprint the plain is drawn at - grey on grey, but never one grey at any distance. Both
+    //scale with GrainStrength, so a config pinning it to zero still silences the lot.
+    //
+    //⚠ THE LARGE OCTAVE IS INTERPOLATED AND THE SMALL ONE IS NOT, and that asymmetry is #345 - the
+    //checkerboard the owner reported on this surface. There were three octaves and all three were a flat
+    //per-cell hash, and A FLAT PER-CELL HASH IS A VISIBLE SQUARE whenever its cell covers more than a few
+    //pixels. The band limits beside them cannot help: they fade an octave out as its cells get SMALL, which
+    //is the aliasing end, and say nothing about the near end - where a 1.3 m cell is a hundred pixels
+    //across and a 5.5 m cell is most of the near ground. That is not grain, it is tiling.
+    //
+    //⚠ AND THE FIRST DIAGNOSIS WAS WRONG, which is why the method is worth stating: the 5.5 m octave looked
+    //like the obvious culprit, so it was silenced - and the checkerboard stayed. Silencing the WHOLE term
+    //cleared it, and silencing the 1.3 m one alone left the larger squares standing. BOTH large octaves were
+    //doing it. Each octave was killed in turn and photographed; nothing here was reasoned about.
+    //
+    //Smooth is not a compromise, it is what a metre-scale octave is FOR: mottled ground at that size has no
+    //hard edges in it. The 2 cm octave keeps its flat hash because at that size the cell is sub-pixel
+    //wherever it is drawn at all, so the hard edge never resolves - it is grit, and grit is what a hash is
+    //good at.
+    //
+    //⚠ THE TWO LARGE OCTAVES BECAME ONE, and that is a COST decision taken with numbers rather than a
+    //simplification. GradientNoise2 is four hashes against a flat hash's one, so smoothing both of them
+    //measured 49.9 -> 46.5/47.4 FPS on this desktop (pinned camera, ssaa 2, 1600x900, nocap, medians of
+    //31 readings): 1.1-1.5 ms, about 6 % of the frame. One octave at 2.8 m - between the two it replaces -
+    //measured 49.0, i.e. 0.37 ms, and the two crops are hard to tell apart. This shader's own header records
+    //a build that ran at 2 FPS on the reference APU for exactly this reason, so 6 % for a difference nobody
+    //can see was not a trade worth making. The fine octave's cascade partner is now this one plus `broad`
+    //above, which is smooth and unlimited and carries the far field on its own.
     float grainFine = saturate(1.0 - footprint * 96.0);
     float grainCoarse = saturate(1.0 - footprint * 1.5);
-    float grainPebbles = saturate(1.0 - footprint * 0.36);
     regolith *= 1.0 + GrainStrength * (
         NoiseHash22(floor(worldPosition.xz * 48.0)).x * grainFine
-        + NoiseHash22(floor(worldPosition.xz * 0.75) + 17.0).x * 0.7 * grainCoarse
-        + NoiseHash22(floor(worldPosition.xz * 0.18) + 41.0).x * 0.5 * grainPebbles);
+        + GradientNoise2(worldPosition.xz * 0.36 + 17.0) * GRAIN_SMOOTH_GAIN * 1.2 * grainCoarse);
 
     //--- Lighting -------------------------------------------------------------------------------------
     //A sun and almost nothing else, which is the whole look: no air means no sky fill and no aerial
