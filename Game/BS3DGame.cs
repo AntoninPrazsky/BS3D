@@ -314,6 +314,29 @@ namespace BS3D
         internal bool EdgeInputAllowed { get; private set; }
 
         /// <summary>
+        /// Whether losing the window's focus pauses a level in progress (#355). <b>True for a player</b>, whose
+        /// level otherwise goes on being played by nobody: the cluster settles and sways, the step the last
+        /// shot earned slides down, and the loss check counts its grace on the wall clock — so the level can be
+        /// lost to a window nobody is looking at. See the branch in <c>GameplayScreen.Update</c> for which of
+        /// those actually runs, which is not what the report assumed.
+        /// <para>
+        /// <b>False for a scripted run</b>, and there are two ways to say so. <c>nofocuspause</c> says it
+        /// outright, and <c>shot=</c> implies it: a capture schedule exists to photograph a particular frame at
+        /// a particular second, and a run that quietly put the pause page up would hand back a picture of the
+        /// pause page instead — silently, and looking exactly like a finding. That harness is also the one
+        /// documented to run on a <b>locked desktop</b> (#191), where what <c>IsActive</c> reports has never
+        /// been measured. Implying it there rather than measuring it is deliberate: it costs nothing, and it
+        /// makes the answer to that question irrelevant to the one thing it could break.
+        /// </para>
+        /// <para>
+        /// It does not reach the front end, which is a decision rather than an omission: the orbiting camera,
+        /// the music and the hanging preview cluster are the game <i>idling</i>, and there is nothing there to
+        /// lose. Only <c>GameplayScreen</c> reads this.
+        /// </para>
+        /// </summary>
+        internal bool PauseOnFocusLoss { get; }
+
+        /// <summary>
         /// Whether Myra may be fed mouse input this frame. Cleared whenever the top screen changes and set again
         /// once the left button is seen released, so a page cannot be clicked by a button that was already down
         /// when it arrived — the menu's counterpart to <see cref="EdgeInputAllowed"/>, and needed for the same
@@ -634,8 +657,13 @@ namespace BS3D
             QualityLevel? quality = null, bool celebrate = false, bool confetti = false, bool lasers = false,
             bool mute = false, bool play = false, bool result = false, bool blockDone = false, bool lost = false,
             int? resultStars = null, int? streak = null, float[] shotSeconds = null, string level = null,
-            string preview = null, BallStyle? ballStyle = null, string pick = null, int fpsCap = 0)
+            string preview = null, BallStyle? ballStyle = null, string pick = null, int fpsCap = 0,
+            bool noFocusPause = false)
         {
+            //See PauseOnFocusLoss: a capture schedule implies the opt-out, because a shot of the pause page is
+            //not the shot that was asked for.
+            PauseOnFocusLoss = !noFocusPause && shotSeconds == null;
+
             //No longer implies uncappedFps the way the Testbed's does: since #270 the game presents
             //immediately in EVERY mode, so there is no vsync wait left for a cap to have to escape.
             _fpsCap = Math.Max(fpsCap, 0);

@@ -3673,3 +3673,36 @@ Cairn je jediná skutečná cena a je pochopitelná: čtyři komory se teď potk
 **Poznámka o úklidu:** při focení jsem si vyprázdnil `Game\bin\net10.0-windows\Screenshots`, abych poznal, který PNG je nový. Je to výstup buildu a harnessu, ne ručně dělaná data — ale je to týž reflex, před kterým varuje pravidlo o `git clean`, a příště stačí filtrovat podle času.
 
 **Majitelův save:** hash `f5c8c4ee…` ověřený i po všech těchto bězích. Testovací `Settings.json` po měření smazán, takže majiteli naskočí čistý default.
+
+---
+
+## 2026-09-03 — Claude Code (pátý zápis dne)
+
+*(Třetí a čtvrtý zápis dne jsou #341 a #344 a sedí na svých větvích `341-bomb-red` a `344-transparent-group`; tenhle je z `355-focus-pause`. Všechny tři čekají na majitelovo slovo k mergi a jsou na sobě nezávislé.)*
+
+**#355: alt-tab nepauzoval level. Oprava je pět řádků; zajímavé je, že ODŮVODNĚNÍ v issue je věcně špatně, a opravit ho bylo nutné, protože ta věta by jinak zůstala stát v kódu i v docs jako fakt.**
+
+**Vada i tvar opravy sedí přesně tak, jak issue říká: je to #79 o vrstvu výš.** Větvení na `Game.IsActive` je celé o **kurzoru** (pustí pointer, zruší capture, zneplatní aim, odjistí trigger) a všechno pod ním běželo dál. Neaktivní větev teď pushne pauzu a **vrátí se** — ze stejného důvodu, proč se vrací Escape cesta: manager aplikuje push až příští snímek, takže bez toho by tenhle snímek ještě krokoval svět. **Zůstane zapauzované i po návratu**, což je správně (aim si stejně žádá klik na re-capture, #154). Přední scéna se nepauzuje.
+
+**⚠ Ale „strop klesá na hodinách reálného času" NENÍ pravda, a je to hlavní věta zprávy.** `UpdateCeilingDescent` jen **animuje** krok, který si vysloužila **rána** (`_ceilingStepsPending` / `ReleaseCeilingStep`), takže pole, na které nikdo nestřílí, žádné nové kroky nedostane. Chytil jsem to měřením, ne čtením: na levelu 1 jsem nechal běžet 25 vteřin mimo okno a **profil clusteru se v HUD nehnul ani o pixel** (vrchol na řádku 447 na obou snímcích). Kdybych ta čísla nesbíral, opsal bych tu větu do komentáře jako pravdu — málem jsem to udělal.
+
+**Co doopravdy běží, a dohromady to stačí:** `StepPhysics` (visící mřížka se pořád usazuje a houpe, a prohra se čte z **živých** pozic), **krok, který si vysloužila poslední rána** (dočká `CEILING_STEP_HOLD` a sjede, když se hráč nedívá), a **`ClusterLineWatch` počítá grace pod čárou v `elapsed`, tedy na hodinách** — takže cluster, který už je pod čárou, prohraje na čase samotném. Přepsáno do komentáře u větve, do docu `PauseOnFocusLoss` i do `docs/game-shell.md`.
+
+**Opt-out: `nofocuspause`, a `shot=` ho implikuje.** Issue si vyžádalo rozhodnout, jestli `IsActive` na zamčené ploše umí odlišit alt-tab — **a já ho neizměřil schválně**: zamknout majiteli plochu není měření, které si můžu vzít. Implikace ten dotaz **zneplatňuje**: capture schedule existuje proto, aby vyfotil konkrétní vteřinu, a běh, který si potichu vystrčí pauzu, vrátí fotku pauzy — tiše a vypadá to jako nález (past, před kterou skill sám varuje). Zapsáno i to, že to zůstává neizměřené.
+
+**Ověřeno v běžící hře, čtyři kategorické zkoušky** (kategorické schválně — `docs/game-shell.md` má zapsáno, že skriptovaný vstup není opakovatelné měření, takže „která stránka je navrchu" je to jediné, co z tohohle harnessu unese závěr):
+
+| zkouška | výsledek |
+|---|---|
+| fokus ukraden a vrácen uprostřed levelu | **PAUSED**, `30 balls left` — žádná rána neutracena |
+| totéž s `nofocuspause` | level běží dál bez pauzy (staré chování na témž buildu) |
+| `shot=20` s oknem 12 s bez fokusu | snímek je **živá hra**, ne pauza — opt-out drží |
+| **F11** uprostřed levelu | fullscreen 1920×1080, **žádná pauza** — přepnutí si aktivaci drží |
+
+Ta poslední byla skutečná otázka, ne formalita: kdyby si `SetGraphics` na chvíli vzalo aktivaci, pauzoval by se level při každém přepnutí na celou obrazovku. Zvažoval jsem preventivní grace okno — **neudělal jsem ho, protože měření říká, že není potřeba**, a spekulativní stav navíc je stav navíc.
+
+**Autorsky:** `F11` přibylo do key mapy `screenshot.ps1` (chybělo tam, přitom je to fullscreen ve všech třech programech), a testovací skript na krádež fokusu zůstal ve scratchpadu, ne v repu.
+
+**Ověřeno dál:** čtyři solutiony 0 chyb. LevelGen ani ScoreSim jsem nepouštěl — tahle větev nesahá na knihovny, generátor ani na jediný soubor levelu (`git status` to potvrzuje).
+
+**Pro majitele:** stálo by za to opravit i **tělo #355**, které tvrdí to o hodinách reálného času; nechávám to na něm, protože komentář do cizího issue při zavírání je jeho gesto.

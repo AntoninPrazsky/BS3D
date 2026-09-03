@@ -34,6 +34,7 @@ $KeyMap = @{
     'D4' = @(0x34,0x05,$false); 'D5' = @(0x35,0x06,$false); 'D6' = @(0x36,0x07,$false)  # D5 = up (top-down) view, D6 = down view
     'F5' = @(0x74,0x3F,$false)  # stop/start simulation
     'F10'= @(0x79,0x44,$false)  # switch game mode (low third-person camera)
+    'F11'= @(0x7A,0x57,$false)  # fullscreen, in all three executables
     'F12'= @(0x7B,0x58,$false)  # hide/show the text overlay
     'End'= @(0x23,0x4F,$true)   # release all balls (extended key)
     'L'  = @(0x4C,0x26,$false)  # cycle the ball material (#318); "balls=<name>" on the command line pins one
