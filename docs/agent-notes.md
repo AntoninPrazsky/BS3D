@@ -3673,3 +3673,36 @@ Cairn je jediná skutečná cena a je pochopitelná: čtyři komory se teď potk
 **Poznámka o úklidu:** při focení jsem si vyprázdnil `Game\bin\net10.0-windows\Screenshots`, abych poznal, který PNG je nový. Je to výstup buildu a harnessu, ne ručně dělaná data — ale je to týž reflex, před kterým varuje pravidlo o `git clean`, a příště stačí filtrovat podle času.
 
 **Majitelův save:** hash `f5c8c4ee…` ověřený i po všech těchto bězích. Testovací `Settings.json` po měření smazán, takže majiteli naskočí čistý default.
+
+---
+
+## 2026-09-03 — Claude Code (třetí zápis dne)
+
+**#341: bomba blikala oranžově místo červeně. Jednořádkovka, jak desátý zápis včera předpověděl — ale cesta k ní vyrobila dva nálezy o měření, a jeden z nich zneplatňuje kus rigu, kterým se #326 měřilo.**
+
+**Vada byla v ZELENÉ, ne v červené, a proto by „přidej červenou" nepomohlo.** `BombCharge` byla `(1.0, 0.46, 0.13)`; červená už seděla na 1,0 a neměla kam růst. Odstín je na tomhle konci kola `60 · (G−B) / (R−B)`, takže s připíchnutou červenou je jediná páka zelená — 0,46 je v lineárním světle skoro pětina červené. Teď `(1.0, 0.15, 0.05)`. Modrá schválně nejde na nulu: kanál na nule dělá z jádra náboje jednokanálovou barvu, která na hraně drážky tvrdě aliasuje a čte jako nálepka, ne jako světlo.
+
+**Komentář, který u té konstanty stál, byl argument vydávaný za měření — a měření, které ho vyvrací, stálo dvacet řádků nad ním.** Tvrdil, že emise hodnotu vynásobí „hluboko za bílou v červeném kanálu", takže je to „spíš směr než barva" a projde tonemapem jako *žhavá* věc, ne jako oranžová. Jenže vlastní zápis #326 o pár řádků výš měří plášť na 106 až 151 kódů červené a popisuje ho slovy „z matně hnědé do jasně oranžové a zpátky". **Plášť, který kulminuje na 151, neclipuje nikdy**, takže se nic za bílou neposílá a napsaná hodnota JE barva, co dojde k hráči, v plné síle. Úmysl napsaný do komentáře se nestane pravdou tím, že se vynásobí.
+
+**Změřeno oběma směry v jednom sezení**, dvanáct fází jednoho tepu, táž kamera (`Bombs.json`, louka, `sky=1`, `nopost nooverc ssaa=2`, `campos=0,4,30 camtarget=0,5.5,0`, pravá horní bomba, průměr přes kotouč r=8):
+
+| | podlaha | na tepu | švih | odstín |
+|---|---|---|---|---|
+| oranžová (G 0,46) | 96 / 39 / 17 | 142 / 60 / 19 | 1,48× | 17–20° |
+| červená (G 0,15) | 96 / 20 / 15 | 142 / 23 / 15 | 1,48× | **3,8°, plochý přes celý tep** |
+
+**Červený kanál se nehnul o jediný kód, na obou koncích.** Hýbe se jen zelená — tedy celý odstín a, protože zelená nese 0,7152 luminance proti 0,2126 červené, i asi třetina světla náboje. Ta ztráta je reálná a **není vidět**: bomba se čte červenou proti skoro černému plášti, takže co odešlo, byla přesně ta část, co dělala jantar.
+
+**⚠ A na tomhle jsem se spálil: kompenzaci té třetiny jsem postavil a musel vzít zpátky.** `BombRestingGlow` 0,5 → 0,65, s odůvodněním „podlaha spadla ze 106 na 96, a 106 je číslo, které #326 změřilo a schválně trefilo". **Jenže 106 bylo z cizího rigu, jiné scény a jiného sezení — citace, ne měření**, a moje vlastní čerstvé měření obou buildů říká 96 v obou. Kompenzoval jsem propad, který neexistuje. Navíc není zadarmo: ten člen zvedá podlahu i záblesk o **stejný lineární přírůstek**, takže kupuje jas za švih (1,48× → 1,36×), a švih je to, co #326 chránilo. Zapsáno u konstanty i s tím, proč to vypadalo správně. **Je to podruhé v tomhle deníku za tři dny, co číslo opsané z cizího zápisu prošlo jako naměřené** (poprvé „214 hvězd" v #353).
+
+**⚠⚠ A nález, který přežije tenhle issue: `F5` MRAZÍ I HODINY TEPU, takže s ním nejde vzorkovat fáze animace.** Zmrazit simulaci je zavedený trik, aby se cluster mezi snímky nehoupal, a **rig #326 ho používal**. Jenže série běhů se stupňovaným `-Settle` pak fotí pořád jednu fázi. Nepozná se to z obrázků: záblesk zamrzne tam, kam padl stisk, což se běh od běhu trochu liší, takže sweep vypadá, že funguje. Změřeno na jednom buildu: **dvacet snímků přes cyklus s `F5` pokrylo 109–115 kódů, dvanáct bez něj 96–142.** První sadu jsem přečetl jako zhroucený tep a málem si na ni koupil špatnou konstantu. Houpání, kvůli kterému se po `F5` sahá, je na visící mapě po `-Wait 9` neměřitelné. Zapsáno do `screenshot` skillu i do `docs/rendering.md` — **platí pro každou pulzující kouli, nejen pro bombu.**
+
+**Kontrola, kterou jsem po cestě zahodil, a to je taky nález:** podezříval jsem stín oblačné vrstvy (skill před ním sám varuje). Vyvráceno v týchž snímcích — tráva ve stejném rámu stojí na 1 % (151,4 → 149,9), zatímco bomba jede 37 %. Není to počasí, je to tep.
+
+**`BombFarGlow` sahat nebylo potřeba** — desátý zápis včera radil, že „červená se musí změnit na dvou místech". Je to `float`, ne barva: škáluje **množství** téhož `BombCharge`, takže barva má jediný zdroj. Vzdálený read jsem přesto vyfotil (60 jednotek, dvojnásobek herního odstupu) a je to sytý červený kotouč.
+
+**Ověřeno:** čtyři solutiony 0 chyb, LevelGen 0, ScoreSim 0 („All levels rate the right way round"), žádný soubor levelu se nezměnil. **Vyfoceno:** dvanáctifázový sweep obou buildů (viz tabulka), tmavý dóm 13 (podlaha 85, tep 135, `G−B` ≈ 1 — pod tmavou oblohou je to červená ještě čistší a švih 1,60×), a sweep proti **lávě**, které se #326 bálo nejvíc: láva svítí sítí prasklin, bomba rovnými šířkovými pásy, spletou se nedají ani tam, kde je lávová koule červená. Bomba se taky nepřekrývá s **červeným typem koule**, který v `Bombs.json` visí přímo nad ní: koule 181/61/45 (světlá, lesklá, bez pásů) proti bombě 134/23/15 (tmavá, pásovaná, tepe) — asi poloviční luminance.
+
+**Co zůstává:** #326 pořád nemá změřenou cenu snímku a **žádný shipnutý level bombu nemá**. Ani jednoho jsem se nedotkl.
+
+**Dál pokračuji na #344** (transparentní koule barví celou spojenou skupinu) a pak **#355** (alt-tab nepauzuje), na majitelův pokyn v tomhle pořadí.
