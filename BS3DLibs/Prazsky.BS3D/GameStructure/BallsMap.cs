@@ -481,21 +481,34 @@ namespace Prazsky.BS3D.GameStructure
         }
 
         /// <summary>
-        /// Colours every <see cref="BallKind.Transparent"/> ball touching <paramref name="cell"/> in
-        /// <paramref name="type"/>, turning each into an ordinary ball of that colour, and reports the cells it
-        /// changed (#325). Nothing else in the map moves.
+        /// Colours the whole connected body of <see cref="BallKind.Transparent"/> balls that touches
+        /// <paramref name="cell"/> in <paramref name="type"/>, turning each into an ordinary ball of that
+        /// colour, and reports the cells it changed (#325, #344). Nothing else in the map moves.
         /// <para>
-        /// <b>The rule is "the shot ball's colour, and only to a neighbour of the cell it landed in"</b>, and
-        /// both halves are the same requirement: the player has to be able to see it happening. The colour of
-        /// the group that was removed, or of the nearest coloured ball, or of whatever the contact was
-        /// technically made against are all rules that fire somewhere the player was not looking. A landing is
-        /// a place, and this is what stands next to that place.
+        /// <b>The landing still decides WHERE, and it is still the shot ball's colour</b> — the colour of the
+        /// group that was removed, or of the nearest coloured ball, or of whatever the contact was technically
+        /// made against are all rules that fire somewhere the player was not looking. A landing is a place, and
+        /// this starts from what stands next to that place.
         /// </para>
         /// <para>
-        /// <b>Every transparent neighbour takes it, not one of them.</b> Choosing among several would be
-        /// invisible dice — two identical-looking landings would do different things — and the generous
-        /// reading is also the one that makes the shot worth aiming: a shot into a pocket of glass is a shot
-        /// that pays several times.
+        /// <b>⚠ IT DOES NOT STOP THERE, and that RETRACTS this method's own first rule (#344).</b> #325 scoped
+        /// the colouring to the balls actually touching the landing cell, deliberately, to keep it unambiguous.
+        /// The owner's verdict overrides it: one ball recoloured among still-colourless neighbours is a ball
+        /// the player can do nothing with, and a mechanic nobody can use does not read as one. So the colour
+        /// runs through the glass — every transparent ball reachable from the landing through other transparent
+        /// balls takes it, in one landing, and what appears is a whole same-coloured group where a pane of
+        /// glass was. That is what makes the shot worth aiming: it does not pay a ball, it pays a group, and by
+        /// the usual match rule it very often pays what the group was holding up as well.
+        /// </para>
+        /// <para>
+        /// <b>Every transparent neighbour takes it, not one of them</b>, for the reason that outlived the
+        /// scope change: choosing among several would be invisible dice, two identical-looking landings doing
+        /// different things.
+        /// </para>
+        /// <para>
+        /// The walk needs no visited set and allocates nothing: colouring a cell <i>is</i> the mark, since the
+        /// ball that replaces it answers <see cref="BallKind.Normal"/> and can never be seeded again. So
+        /// <paramref name="coloured"/> serves as its own worklist, read forward while it is still growing.
         /// </para>
         /// <para>
         /// The ball is <b>replaced</b> rather than mutated, which is why this lives on the map: a
@@ -509,12 +522,28 @@ namespace Prazsky.BS3D.GameStructure
         /// <param name="coloured">Filled with the cells that changed — empty when no glass was touching, which
         /// is nearly every landing. Cleared first, so one list can serve every shot of a level.</param>
         /// <returns>How many balls were coloured.</returns>
-        public int ColourTransparentNeighbours(XZLevel cell, BallType type, List<XZLevel> coloured)
+        public int ColourTransparentGroup(XZLevel cell, BallType type, List<XZLevel> coloured)
         {
             coloured.Clear();
 
             XZLevel size = new(StageSizeX, StageSizeZ, Levels);
 
+            ColourTransparentNeighbours(cell, type, size, coloured);
+
+            //The list is the worklist. Count is re-read every pass on purpose: the loop is meant to see what
+            //the pass before it appended.
+            for (int i = 0; i < coloured.Count; i++)
+                ColourTransparentNeighbours(coloured[i], type, size, coloured);
+
+            return coloured.Count;
+        }
+
+        /// <summary>
+        /// One ring of <see cref="ColourTransparentGroup"/>'s walk: colours the transparent balls touching
+        /// <paramref name="cell"/> and appends them to <paramref name="coloured"/>, which it never clears.
+        /// </summary>
+        private void ColourTransparentNeighbours(XZLevel cell, BallType type, XZLevel size, List<XZLevel> coloured)
+        {
             foreach (XZLevel neighbor in GetNeighboringCells(cell, size))
             {
                 StaticBall ball = _balls[neighbor.X, neighbor.Z, neighbor.Level];
@@ -523,8 +552,6 @@ namespace Prazsky.BS3D.GameStructure
                 PutBallAt((byte)neighbor.X, (byte)neighbor.Z, (byte)neighbor.Level, type);
                 coloured.Add(neighbor);
             }
-
-            return coloured.Count;
         }
 
         public void SerializeAsJson(string fileName)

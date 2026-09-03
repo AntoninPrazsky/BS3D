@@ -406,7 +406,13 @@ namespace Prazsky.BS3D.Physics
             //kind exists to make worth aiming. So the colouring is a step of the landing rather than a
             //consequence of it, and the group check that follows sees a cluster the colouring has already
             //finished changing.
-            int coloured = _map.ColourTransparentNeighbours(cell, physicsBall.Type, _colouredCells);
+            //
+            //⚠ AND IT IS THE WHOLE CONNECTED BODY OF GLASS, not the panes touching the landing (#344). That
+            //makes this one step of the landing rather more than it was — a pane of a dozen can become a
+            //dozen-strong group of one colour here, which the release below then takes in full — but it does
+            //not move it: the colouring still finishes before anything is counted, so the census and the group
+            //check never see a half-coloured pane.
+            int coloured = _map.ColourTransparentGroup(cell, physicsBall.Type, _colouredCells);
 
             for (int i = 0; i < coloured; i++)
             {

@@ -12043,6 +12043,23 @@ namespace BS3D.Tools.LevelGen
         /// the first probe after it. The hole down the middle is still five cells across, so it is still a
         /// coronet; it is simply not a thin one. See "The sag gate" in <c>docs/formats-and-tools.md</c>.
         /// </para>
+        /// <para>
+        /// <b>⚠ AND IT NEEDED THE SAME LEVER A SECOND TIME, FOR A DIFFERENT CAUSE (#344).</b> When the
+        /// colouring stopped at the panes touching the landing, one shot into a collar was worth a handful;
+        /// once it runs through the connected glass, <b>one landing here colours 50</b> — half the level's
+        /// glass, because the four collars meet where the stones do. That is the swing above with a much
+        /// bigger weight on it, and measured in one session against the same build the day the rule changed:
+        /// <b>2 of 5 before, 5 of 5 after</b>. The inner radius went 2.6 to 2.0 (100 anchors to 112) and it
+        /// reads <b>3 of 5</b>, twice, which is where Harlequin and Solitaire sit and below the threshold.
+        /// </para>
+        /// <para>
+        /// <b>The anchors are the lever that WORKED and not the one that fits</b>, and that is worth saying
+        /// plainly: widening the band inward adds balls almost as fast as it adds sockets (732 to 792 here,
+        /// anchor load 8.0 to 7.7), so it buys much less than it did the first time. The lever that fits the
+        /// new cause is the payout — four collars that do not touch would cap one landing at about 25 — and
+        /// that is a change to what the coronet looks like, so it is the owner's and not this file's. If this
+        /// design is opened again, start there.
+        /// </para>
         /// </summary>
         private static Design Diadem() => new()
         {
@@ -15018,7 +15035,7 @@ namespace BS3D.Tools.LevelGen
         private const byte DIADEM_GRID = 16;
         private const byte DIADEM_DEPTH = 10;
         private const int DIADEM_BAND_FIRST = 5;
-        private const float DIADEM_BAND_INNER = 2.6f;
+        private const float DIADEM_BAND_INNER = 2.0f;
         private const float DIADEM_BAND_OUTER = 6.4f;
         private const int DIADEM_STONE_DEPTH = 5;
         private const int DIADEM_BAND_SECTORS = 8;
@@ -15661,8 +15678,9 @@ namespace BS3D.Tools.LevelGen
             if (rocks + glass + bombs > 0)
             {
                 Console.WriteLine($"    specials a shot can reach: {(stranded.Walled == 0 ? "all" : $"NO - {stranded.Walled} WALLED IN")}"
-                                  + $" (glass against the ceiling {stranded.Anchoring}, deepest glass pocket"
-                                  + $" {stranded.MostAtOnce} at one landing)");
+                                  + $" (glass against the ceiling {stranded.Anchoring}, best glass landing pays"
+                                  + $" {stranded.MostAtOnce})");
+                Console.WriteLine($"    glass in bodies of two or more: {(stranded.AloneGlass == 0 ? "all" : $"NO - {stranded.AloneGlass} ALONE")}");
                 Console.WriteLine($"    rocks the player can bring down: {(stranded.CeilingRocks == 0 ? "all" : $"NO - {stranded.CeilingRocks} ON THE ANCHOR COURSE")}");
                 foreach (string where in stranded.Examples) Console.WriteLine($"      {where}");
             }
@@ -15683,7 +15701,8 @@ namespace BS3D.Tools.LevelGen
             }
 
             return disconnected == 0 && lonely.Alone == 0 && !oneShot && margin >= 1
-                   && stranded.Walled == 0 && stranded.Anchoring == 0 && stranded.CeilingRocks == 0;
+                   && stranded.Walled == 0 && stranded.Anchoring == 0 && stranded.CeilingRocks == 0
+                   && stranded.AloneGlass == 0;
         }
 
         /// <summary>
@@ -15898,11 +15917,33 @@ namespace BS3D.Tools.LevelGen
         /// </para>
         /// </para>
         /// <para>
-        /// <b>The deepest pocket</b> is reported and gates nothing: the most glass balls standing round one
-        /// landing cell, which is exactly what one shot into it colours at once (<c>ColourTransparentNeighbours</c>
-        /// takes EVERY transparent neighbour of the cell the ball landed in). It is the design's payoff figure
-        /// — a pocket of one pays a shot plus a ball, a pocket of three pays four — and the number to read when
-        /// a Mirage level feels flat.
+        /// <b>The best glass landing</b> is reported and gates nothing: the most glass one shot can colour,
+        /// which since #344 is the size of the connected BODIES a landing reaches and no longer the count of
+        /// panes touching it (<c>BallsMap.ColourTransparentGroup</c> is seeded from every transparent
+        /// neighbour of the landing cell and then runs through the glass). Two bodies round one cell both go,
+        /// so they are summed; two panes of one body are one payment. It is the design's payoff figure — and
+        /// the number to read when a Mirage level feels flat — and it got much larger the day the rule changed,
+        /// which is the point of the rule.
+        /// </para>
+        /// <para>
+        /// <b>ALONE (#344), and it gates.</b> A landing that colours exactly ONE ball leaves that ball and the
+        /// shot as a pair — two of a colour where three is the minimum — so the player has to come back and
+        /// hit the same cell again before anything happens. That is <see cref="FindLonelyBalls"/>'s chore
+        /// arriving through a different door, and that check cannot see it: glass has no colour to be lonely
+        /// in until a shot gives it one.
+        /// </para>
+        /// <para>
+        /// <b>⚠ IT IS ASKED OF THE LANDING AND NOT OF THE PANE, and the difference is a shipped level.</b>
+        /// #344 states the rule as "transparent balls should only ever be generated in connected groups of two
+        /// or more, never alone", on the reasoning that a lone pane can never be part of a match on the shot
+        /// that colours it. <b>The Facet disproves that reasoning</b>: its clear rim is a one-cell taxicab ring,
+        /// so its panes touch nothing — every one of them is a body of one — and the design turns exactly that
+        /// into its teaching move, because a cell one step outside a diagonal ring touches the ring TWICE. Two
+        /// panes go at once, the shot makes three, and the group completes on the landing that made it. A
+        /// literal reading of the rule would have refused 36 of the Facet's 64 panes and destroyed a design
+        /// whose own header explains why it is built that way. So what is checked is the property the rule was
+        /// reaching for — <b>no pane may be coloured alone</b> — which refuses the truly isolated pane and
+        /// leaves the Facet standing.
         /// </para>
         /// </summary>
         private static StrandedReport FindStrandedSpecials(BallsMap map)
@@ -15912,6 +15953,18 @@ namespace BS3D.Tools.LevelGen
             byte top = (byte)(map.Levels - 1);
 
             StrandedReport report = new();
+
+            //THE GLASS BODIES, labelled before anything else is asked, because #344 turned both questions
+            //about the glass into questions about the BODY rather than about the ball. A landing colours
+            //everything connected to what it touches, so "how much does one shot pay" is the size of the
+            //bodies it reaches, and "is this pane any use" is whether its body is a single pane.
+            int[,,] body = LabelGlassBodies(array, size, out List<int> bodySize);
+
+            //Marked from the EMPTY side of the walk and counted after it, because the fault belongs to a body
+            //of glass but is only visible from the cells a shot can land in. Per BODY and not per pane,
+            //because a body is coloured all at once: every pane of it shares whatever its landings pay.
+            bool[] bodyHasLanding = new bool[bodySize.Count];
+            bool[] bodyPaysTwo = new bool[bodySize.Count];
 
             for (byte l = 0; l < map.Levels; l++)
                 for (byte x = 0; x < map.StageSizeX; x++)
@@ -15925,8 +15978,13 @@ namespace BS3D.Tools.LevelGen
                         //asked how much glass a shot into it would colour.
                         if (ball == null)
                         {
-                            int touching = 0;
+                            int pays = 0;
                             bool attaches = false;
+
+                            //A cell has at most twelve neighbours (four on its own level, up to four on each
+                            //of the two adjacent ones), so the seen-list is a handful of ints on the stack.
+                            Span<int> seen = stackalloc int[12];
+                            int seenCount = 0;
 
                             foreach (XZLevel neighbour in BallsMap.GetNeighboringCells(cell, size))
                             {
@@ -15934,12 +15992,41 @@ namespace BS3D.Tools.LevelGen
                                 if (other == null) continue;
 
                                 attaches = true;
-                                if (other.Kind == BallKind.Transparent) touching++;
+
+                                //Whole bodies, counted once each: two panes of the same body round one
+                                //landing are one payment, and two DIFFERENT bodies round it are two - the
+                                //colouring reaches both, because it is seeded from every transparent
+                                //neighbour of the cell before it starts walking.
+                                int id = body[neighbour.X, neighbour.Z, neighbour.Level];
+                                if (id == 0) continue;
+
+                                bool already = false;
+                                for (int s = 0; s < seenCount; s++)
+                                    if (seen[s] == id) { already = true; break; }
+
+                                if (already) continue;
+
+                                seen[seenCount++] = id;
+                                pays += bodySize[id - 1];
                             }
 
                             //A cell with nothing beside it is not a pocket, it is open air: a shot there
                             //would sail through and land somewhere else.
-                            if (attaches && touching > report.MostAtOnce) report.MostAtOnce = touching;
+                            if (!attaches) continue;
+
+                            if (pays > report.MostAtOnce) report.MostAtOnce = pays;
+
+                            //WHAT THIS LANDING PAYS, recorded against every body it reaches. Two is the
+                            //number that matters: colouring two balls makes three with the shot, all three
+                            //connected through the cell the shot is standing in, so the group completes on
+                            //the landing that made it. Colouring one leaves a pair and the player has to come
+                            //back — which is a worse shot, not a broken level, unless it is the ONLY shot
+                            //that body has.
+                            for (int s = 0; s < seenCount; s++)
+                            {
+                                bodyHasLanding[seen[s] - 1] = true;
+                                if (pays >= 2) bodyPaysTwo[seen[s] - 1] = true;
+                            }
 
                             continue;
                         }
@@ -15972,6 +16059,7 @@ namespace BS3D.Tools.LevelGen
                                 report.Examples.Add($"glass on the anchor course at cell ({x},{z}) on level {l}");
                         }
 
+
                         bool reachable = false;
 
                         foreach (XZLevel neighbour in BallsMap.GetNeighboringCells(cell, size))
@@ -15986,6 +16074,22 @@ namespace BS3D.Tools.LevelGen
                                                 + $" on level {l}: no empty neighbour to shoot into");
                     }
 
+            //A body every one of whose landings pays one is a body that can only ever be traded for a pair.
+            //Only a body of ONE can be in this state — anything larger pays its own size to any landing that
+            //touches it — so this is #344's "never alone" stated as what it is worth rather than as what it
+            //looks like. A body with no landing at all is the WALLED case above and is already counted there.
+            for (int b = 0; b < bodySize.Count; b++)
+            {
+                if (!bodyHasLanding[b] || bodyPaysTwo[b]) continue;
+
+                report.AloneGlass += bodySize[b];
+
+                if (report.Examples.Count < 3)
+                    report.Examples.Add($"{bodySize[b]} glass ball(s) whose every landing pays one:"
+                                        + " the shot and it are a pair, so nothing completes and the player"
+                                        + " has to come back to the same cell");
+            }
+
             return report;
         }
 
@@ -15997,8 +16101,65 @@ namespace BS3D.Tools.LevelGen
             /// <summary>Rocks on the field's topmost level — see the ANCHORING paragraph above (#343).</summary>
             public int CeilingRocks;
 
+            /// <summary>Panes some landing would colour by themselves — see the ALONE paragraph (#344).</summary>
+            public int AloneGlass;
+
             public int MostAtOnce;
             public readonly List<string> Examples = new();
+        }
+
+        /// <summary>
+        /// Numbers the connected bodies of <see cref="BallKind.Transparent"/> balls, one id per body starting
+        /// at 1, and reports each body's size. Cell 0 means "not glass", so the array's own default is the
+        /// answer for every other cell and nothing has to be pre-filled.
+        /// <para>
+        /// This is <c>BallsMap.ColourTransparentGroup</c>'s walk asked offline: the same neighbour relation
+        /// over the same kind, which is what makes a body here exactly the set one landing turns into one
+        /// colour. Written with an explicit stack rather than recursion because a body can be most of a level
+        /// — the Solitaire's whole surface is one — and because this runs once per level per pack.
+        /// </para>
+        /// </summary>
+        private static int[,,] LabelGlassBodies(StaticBall[,,] array, XZLevel size, out List<int> bodySize)
+        {
+            int[,,] body = new int[size.X, size.Z, size.Level];
+            bodySize = new List<int>();
+
+            Stack<XZLevel> toVisit = new();
+
+            for (byte l = 0; l < size.Level; l++)
+                for (byte x = 0; x < size.X; x++)
+                    for (byte z = 0; z < size.Z; z++)
+                    {
+                        if (body[x, z, l] != 0) continue;
+                        if (array[x, z, l] == null || array[x, z, l].Kind != BallKind.Transparent) continue;
+
+                        int id = bodySize.Count + 1;
+                        int count = 0;
+
+                        body[x, z, l] = id;
+                        toVisit.Push(new XZLevel(x, z, l));
+
+                        while (toVisit.Count > 0)
+                        {
+                            XZLevel at = toVisit.Pop();
+                            count++;
+
+                            foreach (XZLevel neighbour in BallsMap.GetNeighboringCells(at, size))
+                            {
+                                if (body[neighbour.X, neighbour.Z, neighbour.Level] != 0) continue;
+
+                                StaticBall other = array[neighbour.X, neighbour.Z, neighbour.Level];
+                                if (other == null || other.Kind != BallKind.Transparent) continue;
+
+                                body[neighbour.X, neighbour.Z, neighbour.Level] = id;
+                                toVisit.Push(neighbour);
+                            }
+                        }
+
+                        bodySize.Add(count);
+                    }
+
+            return body;
         }
 
         /// <summary>
