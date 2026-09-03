@@ -27,30 +27,46 @@ namespace BS3D
 
             _pipeline.Exposure = _exposure;
 
+            _settings.Exposure = _exposure;
+            SaveSettings();
+
             _settingsPage.Refresh();
         }
 
         internal void CycleSkyDome()
         {
             SetSkyDome((byte)(_skyDome == SKY_DOME_COUNT ? 1 : _skyDome + 1));
+
+            _settings.SkyDome = _skyDome;
+            SaveSettings();
+
             _settingsPage.Refresh();
         }
 
         //The four volume rows (#46). Each steps its own gain and takes effect where it is made — the music
         //keeps playing under the settings page, so what the row does is heard as it is clicked. They were
         //four copies of the same three lines until #71; the row is what differs, and a row is a field.
-        internal void CycleMasterVolume() => CycleVolume(ref _masterVolume);
+        //Each row names its own entry in the settings file, because the `ref` cannot say which row it is —
+        //and, more to the point, because `mute` puts the master at zero WITHOUT a click (#354). A stepper
+        //that wrote all four would carry a scripted run's silence into the player's file, which is exactly
+        //the leak the rule "an argument is applied but never written back" exists to stop. The closure is one
+        //allocation per click on a menu page, not a per-frame path.
+        internal void CycleMasterVolume() => CycleVolume(ref _masterVolume, v => _settings.MasterVolume = v);
 
-        internal void CycleSfxVolume() => CycleVolume(ref _sfxVolume);
+        internal void CycleSfxVolume() => CycleVolume(ref _sfxVolume, v => _settings.SfxVolume = v);
 
-        internal void CycleMusicVolume() => CycleVolume(ref _musicVolume);
+        internal void CycleMusicVolume() => CycleVolume(ref _musicVolume, v => _settings.MusicVolume = v);
 
-        internal void CycleAmbienceVolume() => CycleVolume(ref _ambienceVolume);
+        internal void CycleAmbienceVolume() => CycleVolume(ref _ambienceVolume, v => _settings.AmbienceVolume = v);
 
-        private void CycleVolume(ref float volume)
+        private void CycleVolume(ref float volume, Action<float> store)
         {
             volume = NextVolume(volume);
             ApplyVolumes();
+
+            store(volume);
+            SaveSettings();
+
             _settingsPage.Refresh();
         }
 
@@ -101,12 +117,19 @@ namespace BS3D
             //before the window counts them.
             ReopenQualityProbe();
 
+            _settings.Fullscreen = _fullscreen;
+            SaveSettings();
+
             _settingsPage.Refresh();
         }
 
         internal void ToggleFpsOverlay()
         {
             _info.Visible = !_info.Visible;
+
+            _settings.FpsOverlay = _info.Visible;
+            SaveSettings();
+
             _settingsPage.Refresh();
         }
 
@@ -131,6 +154,10 @@ namespace BS3D
         internal void ToggleFpsLimit()
         {
             _uncappedFps = !_uncappedFps;
+
+            _settings.UncappedFps = _uncappedFps;
+            SaveSettings();
+
             _settingsPage.Refresh();
         }
 
@@ -143,6 +170,10 @@ namespace BS3D
         {
             _aberration = !_aberration;
             _pipeline.ChromaticAberration = _aberration ? CHROMATIC_ABERRATION : 0f;
+
+            _settings.Aberration = _aberration;
+            SaveSettings();
+
             _settingsPage.Refresh();
         }
 
@@ -155,6 +186,10 @@ namespace BS3D
         {
             _grain = !_grain;
             _pipeline.FilmGrain = _grain ? FILM_GRAIN : 0f;
+
+            _settings.Grain = _grain;
+            SaveSettings();
+
             _settingsPage.Refresh();
         }
 

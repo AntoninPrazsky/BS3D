@@ -3647,3 +3647,29 @@ Cairn je jediná skutečná cena a je pochopitelná: čtyři komory se teď potk
 **Ověřeno:** čtyři solutiony 0 chyb, LevelGen 0, ScoreSim 0 („All levels rate the right way round"), žádný soubor levelu se nezměnil. Devět skupin kontrol proti skutečnému souborovému systému (jednorázový konzolový projekt mimo repo, ne v něm): první spuštění, první zápis včetně založení adresáře a úklidu `.tmp`, druhý zápis a že záloha je stav **před** ním, roztržený zápis se zdravou zálohou, oba soubory nečitelné → `Discarded` a ne `Fresh`, samotná záloha bez saveu, verze z pozdějšího buildu, round-trip skipů, a majitelův skutečný save z kopie. **V běžící hře**: migrace proběhla (hash nového souboru `f5c8c4ee…` = starý, starý netknutý včetně časového razítka), druhé spuštění už mlčí, a podstrčený useknutý save vypsal `A save was at '…' and NOTHING in it could be read`. **Majitelův save zálohovaný na dvě místa, hash ověřený před i po každém kroku** (`f5c8c4ee…`).
 
 **Nezahrnuto a je to schválně: #354** (nic z Nastavení nepřežije proces). Chce **týž adresář a touž migraci**, takže `Game/UserData.cs` je psaný pro obojí — ale je to vlastní změna a vlastní větev.
+
+---
+
+## 2026-09-03 — Claude Code (druhý zápis dne)
+
+**#354: nic z Nastavení nepřežilo proces. Zajímavá na tom není perzistence, ale to, jak se zabránilo úniku argumentů do hráčova souboru — a že se to nedá udělat po řádcích.**
+
+**Pravidlo z těla issue je správné a stojí za to ho mít napsané:** *hodnota, která přišla z `Program.cs`, se aplikuje, ale nikdy nezapisuje; hodnota, která přišla z kliknutí, se zapisuje.* Kdyby se vymáhalo řádek po řádku („u kvality si pamatuj, jestli byla pinnutá"), rozpadne se to na prvním novém řádku. **Vymáhá se proto strukturálně:** `_settings` **jsou hráčovy odpovědi**, pole hosta jsou **co dělá tenhle běh**, a zapisují se do `_settings` jenom settings verby. Benchmark s `quality=high` pak může kliknout na jakýkoli jiný řádek a jeho argument se do souboru nedostane, protože po té cestě nevede.
+
+**⚠ Tři místa, kde by to jinak potichu uniklo, a všechna tři jsem našel až při psaní, ne v zadání:**
+
+1. **`fullscreen` a `nocap` byly `bool`, ne `bool?`.** `bool` se implicitně konvertuje na `bool?`, takže to **přeložilo bez jediného varování** — a `false ?? _settings.Fullscreen` je `false`, čili uložený fullscreen by se ignoroval při každém startu. Tichá vada, kterou by chytil až hráč. Zvedl jsem nullable až do `Program.cs`; `false` neumí říct „hráč chce okno" odděleně od „nikdo nic neřekl".
+2. **Čtyři hlasitosti sdílejí jeden `CycleVolume(ref float)`, a `ref` neumí říct, který řádek to je.** Zapsat při kliknutí všechny čtyři by bylo nejjednodušší — a bylo by to špatně, protože **`mute` nastaví master na nulu BEZ kliknutí**. Kliknutí na Hudbu v tichém běhu by hráči do souboru zapsalo ticho benchmarku. Každý řádek si proto jmenuje svou položku sám.
+3. **`_info.Visible` bylo `true` z výchozí hodnoty `DrawableGameComponent`** — FPS overlay je zapnutý defaultně a nikdo ho nikdy nenastavoval. Default `false` v novém souboru by ho tiše vypnul všem, což není „pamatuj si, co si hráč vybral", ale změna chování schovaná v perzistenci. Default je proto `true`.
+
+**⚠ Kvalitu rozhodl majitel a rozhodl ji jinak, než navrhovalo tělo issue — a ten důvod je obecnější než tenhle řádek.** Issue chtělo ukládat i verdikt adaptivní sondy „jako nápovědu". Jenže **sonda umí tier jen snižovat** (`_qualitySettled` je jednosměrné, a je to tam napsané schválně). Zapamatovaný verdikt by proto byl **ráfna**: jedno nešťastné okno — build běžící na pozadí, teplotní výkyv — by hru zamklo na Low natrvalo a zvedl by to už jen řádek v Nastavení. Ukládá se tedy **jen tier, který hráč kliknul**, a ten se chová přesně jako `quality=`. Poučení: **než něco změřeného uložíš napříč sezeními, zeptej se, jestli se ta veličina umí hýbat oběma směry.**
+
+**Obloha se seedí PŘED `SetScene`, ne po něm — a je to opak toho, co dělá `sky=`.** Šest scén (moře, savana, tropy, sopka, Mars, bouře) si dosazuje vlastní kupoli; `sky=` je testovací override a jde po nich schválně, uložená volba hráče ne — jinak by savana každý start přišla o svůj zlatý horizont. Napsané před `SetScene` to znamená „to je tvoje kupole, pokud si scéna neřekne o svou", což je přesně tak trvanlivé, jak kupole kdy je.
+
+**Atomický zápis jsem vytáhl do `Prazsky.Core.Tools.AtomicFile`**, protože #354 by ho jinak od #353 opsalo den po jeho napsání. `PlayerProgress.Save()` je teď jeden řádek přes něj a harness z prvního zápisu proběhl po refaktoru celý znovu.
+
+**Ověřeno:** čtyři solutiony 0 chyb, LevelGen 0, ScoreSim 0, harness `PlayerProgress` ALL PASS i po přepnutí na `AtomicFile`. **V běžící hře, a je to celý řetěz:** podstrčený soubor se aplikoval (`[fps] … Meadow, dome 3, ssaa 1x, low, msaa 2x, detail reduced`); savana si přes uloženou kupoli 3 dosadila svou 14; `quality=high sky=11` obojí přebilo (`dome 11 … ssaa 2x, high, detail full`) **a soubor po tom běhu pořád hlásí `sky 3` / `quality Low`** — to je ten únik, který se testoval. Zápis přes skutečnou klávesu: F10 do běžícího okna (`keybd_event`, VK 0x79 / scan 0x44, extended) překlopil `"fpsOverlay": true` → `false` a vedle vznikl `.bak`. A dvě fotky z běžící hry přes `shot=`: se souborem `false` je roh prázdný, s `true` je tam `FPS: 78`.
+
+**Poznámka o úklidu:** při focení jsem si vyprázdnil `Game\bin\net10.0-windows\Screenshots`, abych poznal, který PNG je nový. Je to výstup buildu a harnessu, ne ručně dělaná data — ale je to týž reflex, před kterým varuje pravidlo o `git clean`, a příště stačí filtrovat podle času.
+
+**Majitelův save:** hash `f5c8c4ee…` ověřený i po všech těchto bězích. Testovací `Settings.json` po měření smazán, takže majiteli naskočí čistý default.

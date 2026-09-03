@@ -1,3 +1,4 @@
+using Prazsky.Core.Tools;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -44,19 +45,12 @@ namespace Prazsky.BS3D.Levels
         public const string DefaultFileName = "Progress.json";
 
         /// <summary>
-        /// What the last good save is kept as while a new one is written (#353). <see cref="Save"/> hands it
-        /// to <see cref="File.Replace(string, string, string)"/>, which is what makes the swap atomic: the
-        /// old file becomes this one in the same operation that puts the new file in its place, so there is
-        /// no instant at which neither exists.
+        /// What the last good save is kept as while a new one is written (#353) — see
+        /// <see cref="AtomicFile.WriteText"/>, which demotes the old file to this in the same operation that
+        /// puts the new one in its place. Public because <see cref="Load"/> reads it and the game names it in
+        /// the line it logs when a save had to be recovered.
         /// </summary>
         public const string BackupSuffix = ".bak";
-
-        /// <summary>
-        /// Where a save is built before it replaces the real one. Same directory deliberately —
-        /// <see cref="File.Replace(string, string, string)"/> cannot cross a volume, and the temp directory
-        /// is on a different one often enough to matter.
-        /// </summary>
-        private const string TempSuffix = ".tmp";
 
         /// <summary>File-type marker; always <see cref="FormatMarker"/> in a valid progress file.</summary>
         [JsonPropertyName("format")]
@@ -216,27 +210,12 @@ namespace Prazsky.BS3D.Levels
         /// string)"/>, which opens, truncates and then writes: lose the machine in that window and what is on
         /// disk is a short but syntactically fine file, <see cref="Load"/> takes it for a first run, and the
         /// next clear writes that emptiness out for real. This desktop hard-resets under GPU load, so the
-        /// window was not hypothetical. The new file is built beside the old one and swapped in by
-        /// <see cref="File.Replace(string, string, string)"/>, which also demotes the old one to the backup —
-        /// one operation, and no instant at which the save is neither the old nor the new.
+        /// window was not hypothetical. <see cref="AtomicFile.WriteText"/> carries the whole discipline and
+        /// the settings file shares it.
         /// </para>
         /// </summary>
-        public void Save()
-        {
-            //The directory can be absent on a first run now that the save no longer lives beside something the
-            //build already created for it
-            string directory = System.IO.Path.GetDirectoryName(Path);
-            if (!string.IsNullOrEmpty(directory)) System.IO.Directory.CreateDirectory(directory);
-
-            string temp = Path + TempSuffix;
-
-            File.WriteAllText(temp, JsonSerializer.Serialize(this, Options));
-
-            //File.Replace needs something to replace, so the very first save is a plain move — there is no
-            //previous copy to demote and nothing yet that a torn write could destroy
-            if (File.Exists(Path)) File.Replace(temp, Path, Path + BackupSuffix);
-            else File.Move(temp, Path);
-        }
+        public void Save() =>
+            AtomicFile.WriteText(Path, JsonSerializer.Serialize(this, Options), BackupSuffix);
 
         /// <summary>All the stars collected across the campaign — the currency unlocks are gated on.</summary>
         [JsonIgnore]
