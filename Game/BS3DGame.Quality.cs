@@ -307,6 +307,13 @@ namespace BS3D
             _qualityPinnedByPlayer = true;
             _qualitySettled = true;
 
+            //And it outlives the run (#354). This is the ONLY thing that writes a tier to the settings file:
+            //the probe's own verdict is deliberately never stored, because the probe can only step a tier
+            //DOWN, so a remembered verdict would be a ratchet that one unlucky measurement — a build running
+            //in the background, a thermal dip — closed for good.
+            _settings.Quality = _quality;
+            SaveSettings();
+
             _mainMenuPage.ClearQualityNotice();
         }
 

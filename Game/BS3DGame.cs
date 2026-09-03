@@ -457,6 +457,15 @@ namespace BS3D
         /// </summary>
         private PlayerProgress _progress;
 
+        /// <summary>
+        /// The player's own answers (#354), read in the constructor and written back by the settings verbs
+        /// alone. <b>It is not a mirror of the game's state and must not become one</b>: the fields below are
+        /// what this run is doing, which a command-line pin is free to change, and this is what the player
+        /// clicked — which is why a benchmark run's <c>quality=</c> cannot leak into the file by clicking some
+        /// other row. Never null; a missing or unreadable file is the defaults.
+        /// </summary>
+        private readonly GameSettings _settings;
+
         private const string LEVELS_DIRECTORY = "Levels";
 
         /// <summary>The set the session installs its levels from. Null when none could be read.</summary>
@@ -620,8 +629,8 @@ namespace BS3D
         /// the frame, or null for none. It is the trigger F12 cannot be — a locked desktop takes no keystrokes
         /// — and the one that makes a shot repeatable. See <c>BS3DGame.Screenshot.cs</c>.
         /// </param>
-        public BS3DGame(bool fullscreen = false, int? supersampleFactor = null, float exposure = DEFAULT_EXPOSURE,
-            bool uncappedFps = false, SceneKind? scene = null, byte? skyDome = null, bool logFrameRate = false,
+        public BS3DGame(bool? fullscreen = null, int? supersampleFactor = null, float exposure = DEFAULT_EXPOSURE,
+            bool? uncappedFps = null, SceneKind? scene = null, byte? skyDome = null, bool logFrameRate = false,
             QualityLevel? quality = null, bool celebrate = false, bool confetti = false, bool lasers = false,
             bool mute = false, bool play = false, bool result = false, bool blockDone = false, bool lost = false,
             int? resultStars = null, int? streak = null, float[] shotSeconds = null, string level = null,
@@ -631,9 +640,27 @@ namespace BS3D
             //immediately in EVERY mode, so there is no vsync wait left for a cap to have to escape.
             _fpsCap = Math.Max(fpsCap, 0);
 
+            //The player's own answers, read before anything the command line said (#354). An argument is a
+            //RUN's instruction and outranks the file at every row that has one; the file is what a row nobody
+            //pinned falls back to. GameSettings carries the rule that decides what is ever written back — and
+            //the reason this object is kept beside the fields rather than replacing them.
+            _settings = GameSettings.Load(UserData.PathTo(GameSettings.DefaultFileName));
+
+            _masterVolume = _settings.MasterVolume;
+            _sfxVolume = _settings.SfxVolume;
+            _musicVolume = _settings.MusicVolume;
+            _ambienceVolume = _settings.AmbienceVolume;
+            _aberration = _settings.Aberration;
+            _grain = _settings.Grain;
+
+            //Seeded BEFORE SetScene rather than applied after it, which is the opposite of what sky= does and
+            //deliberately so: the six scenes that state a dome of their own must still replace it, and every
+            //other scene keeps it. An out-of-range dome from a hand-edited file is simply not applied.
+            if (_settings.SkyDome >= 1 && _settings.SkyDome <= SKY_DOME_COUNT) _skyDome = _settings.SkyDome;
+
             BallStyleOverride = ballStyle;
 
-            _fullscreen = fullscreen;
+            _fullscreen = fullscreen ?? _settings.Fullscreen;
             _startupCelebrate = celebrate;
             _startupConfetti = confetti;
             _startupResultStars = resultStars;
@@ -654,10 +681,16 @@ namespace BS3D
             _shotSchedule = shotSeconds;
             if (mute) _masterVolume = 0f;
 
+            //A tier the player chose in Settings is honoured exactly as quality= is — it is the same kind of
+            //statement, made in a different place — and an argument outranks it, being this run's instruction.
+            //The probe's own verdict is NOT stored (see GameSettings.Quality): it can only step a tier down,
+            //so a remembered one would be a ratchet that a single unlucky measurement closed for good.
+            QualityLevel? chosenQuality = quality ?? _settings.Quality;
+
             //The tier owns supersampling, so the tier's factor is taken first and an explicit ssaa= then
             //overrides that one entry of it — the expert override the benchmark and the screenshot harness use.
             //The rest of the tier is applied in LoadContent, once the city it also sizes exists.
-            if (quality.HasValue) _quality = quality.Value;
+            if (chosenQuality.HasValue) _quality = chosenQuality.Value;
             _supersampleFactor = QualityPreset.Presets[(int)_quality].SupersampleFactor;
 
             //Kept as well as applied: the tier is applied again in LoadContent (and again on every adaptive
@@ -676,10 +709,15 @@ namespace BS3D
             //path is free to measure this machine and step the tier down. The distinction matters on a fullscreen
             //switch: a player-pinned tier stays put, a probe-reached one is only this machine's answer for this
             //back-buffer size and gets re-measured (see ToggleFullscreen).
-            _qualityPinnedByPlayer = supersampleFactor.HasValue || quality.HasValue;
+            _qualityPinnedByPlayer = supersampleFactor.HasValue || chosenQuality.HasValue;
             _qualitySettled = _qualityPinnedByPlayer;
-            _exposure = exposure > 0f ? exposure : DEFAULT_EXPOSURE;
-            _uncappedFps = uncappedFps;
+
+            //exposure= first, then what the player set, then the game's own default
+            _exposure = exposure > 0f ? exposure
+                : _settings.Exposure > 0f ? _settings.Exposure
+                : DEFAULT_EXPOSURE;
+
+            _uncappedFps = uncappedFps ?? _settings.UncappedFps;
 
             _graphics = new GraphicsDeviceManager(this);
             _graphics.PreparingDeviceSettings += Graphics_PreparingDeviceSettings;
@@ -824,8 +862,15 @@ namespace BS3D
             shake.MaxRecoilPitch *= CAMERA_SHAKE_SCALE;
             shake.MaxFovPunch *= CAMERA_SHAKE_SCALE;
 
-            //Added before base.Initialize, which is what initializes the component and loads its font
-            _info = new InfoRenderer(this, "Content/Fonts/segoeui") { DrawOrder = int.MaxValue };
+            //Added before base.Initialize, which is what initializes the component and loads its font. The
+            //overlay's own visibility is the player's (#354) and there is no argument for it, so unlike every
+            //other row this one is simply what the file says.
+            _info = new InfoRenderer(this, "Content/Fonts/segoeui")
+            {
+                DrawOrder = int.MaxValue,
+                Visible = _settings.FpsOverlay,
+            };
+
             Components.Add(_info);
 
             base.Initialize();
@@ -1235,6 +1280,23 @@ namespace BS3D
             catch (Exception e)
             {
                 Console.WriteLine($"[progress] Could not save '{_progress.Path}': {e.Message}");
+            }
+        }
+
+        /// <summary>
+        /// One writer for the settings file (#354), for the same reason the save has one: a settings file
+        /// that cannot be written costs the write and a log line, never the session — the player's click has
+        /// already taken effect, and the next click tries again.
+        /// </summary>
+        internal void SaveSettings()
+        {
+            try
+            {
+                _settings.Save();
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"[settings] Could not save '{_settings.Path}': {e.Message}");
             }
         }
 

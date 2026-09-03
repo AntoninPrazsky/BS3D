@@ -11,8 +11,11 @@ namespace BS3D
         [STAThread]
         private static void Main(string[] args)
         {
-            bool fullscreen = false;
-            bool uncappedFps = false;
+            //Null means "nobody said", which is what lets the settings file answer instead (#354). A plain
+            //false could not say the difference between "the player asked for a window" and "no argument was
+            //given", so a stored fullscreen would have been silently ignored on every launch.
+            bool? fullscreen = null;
+            bool? uncappedFps = null;
 
             //Testing only: "fpscap=N" is "nocap" with a ceiling — it presents immediately, so nothing
             //quantizes the reading, and idles out the rest of each frame's period, so a cheap frame does not
@@ -45,7 +48,8 @@ namespace BS3D
             bool lasers = false;
 
             //Testing only: start with the master volume at zero. A scripted screenshot or benchmark run has
-            //no business making noise, and nothing is persisted, so there is no settings file to pre-set.
+            //no business making noise. There IS a settings file since #354, and this deliberately does not
+            //touch it — mute is a run's instruction, so it silences this run and is never written back.
             bool mute = false;
 
             //Testing only: drop straight into the first level, skipping the title card and the menu. The
