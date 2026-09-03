@@ -712,7 +712,7 @@ namespace BS3D.Tools.LevelGen
             if (ArmedBombs(map, cell, _candidateBombs).Count > 0) return true;
 
             map.PutBallAt((byte)cell.X, (byte)cell.Z, (byte)cell.Level, colour);
-            map.ColourTransparentNeighbours(cell, colour, _wouldMatchColoured);
+            map.ColourTransparentGroup(cell, colour, _wouldMatchColoured);
 
             int group = map.GetConnectedSameTypeCells(cell).Count;
 
@@ -737,9 +737,9 @@ namespace BS3D.Tools.LevelGen
         /// stream, so nothing is unregistered.
         /// </para>
         /// </summary>
-        private static void ColourTransparentNeighbours(BallsMap map, PhysicsBall[,,] balls, XZLevel cell, BallType colour)
+        private static void ColourTransparentGroup(BallsMap map, PhysicsBall[,,] balls, XZLevel cell, BallType colour)
         {
-            map.ColourTransparentNeighbours(cell, colour, _landingColoured);
+            map.ColourTransparentGroup(cell, colour, _landingColoured);
 
             foreach (XZLevel at in _landingColoured)
             {
@@ -751,7 +751,7 @@ namespace BS3D.Tools.LevelGen
             }
         }
 
-        /// <inheritdoc cref="ColourTransparentNeighbours(BallsMap, PhysicsBall[,,], XZLevel, BallType)"/>
+        /// <inheritdoc cref="ColourTransparentGroup(BallsMap, PhysicsBall[,,], XZLevel, BallType)"/>
         private static readonly List<XZLevel> _landingColoured = new();
 
         /// <summary>
@@ -918,7 +918,7 @@ namespace BS3D.Tools.LevelGen
             //colouring at all, so their transparent balls could only ever leave the cluster by being
             //ORPHANED - which made two of the five look like layout faults and the opener look like a level
             //that clears in ten shots.
-            ColourTransparentNeighbours(map, balls, cell, loaded.Value);
+            ColourTransparentGroup(map, balls, cell, loaded.Value);
 
             //Which bombs this landing armed (#326), read BEFORE the release for the handler's own reason: a
             //bomb the release orphans has already fallen and must not go off in mid-air. Same shape as the

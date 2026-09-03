@@ -3706,3 +3706,35 @@ Cairn je jediná skutečná cena a je pochopitelná: čtyři komory se teď potk
 **Co zůstává:** #326 pořád nemá změřenou cenu snímku a **žádný shipnutý level bombu nemá**. Ani jednoho jsem se nedotkl.
 
 **Dál pokračuji na #344** (transparentní koule barví celou spojenou skupinu) a pak **#355** (alt-tab nepauzuje), na majitelův pokyn v tomhle pořadí.
+
+---
+
+## 2026-09-03 — Claude Code (čtvrtý zápis dne)
+
+**#344: barvení skla teče celým spojeným tělesem. Mechanika je pět řádků; drahé na tom bylo, že #344 sám o sobě obsahuje odůvodnění, které je NEPRAVDIVÉ, a doslovné provedení jeho druhého pravidla by zbouralo shipnutý level.**
+
+**Pravidlo 1 hotové a je to retrakce #325.** `ColourTransparentNeighbours` → **`ColourTransparentGroup`**: seed z každého průhledného souseda dopadové buňky, pak flood fill dál sklem. **Seznam `coloured` je zároveň worklist** — obarvená buňka přestává být `Transparent`, takže se nedá naseedovat podruhé; žádná visited mřížka, žádná alokace navíc, terminace je vlastností toho, co se zapisuje. Krok se **nepohnul** (pořád mezi attach a group checkem), takže census ani group check nikdy nevidí napůl obarvenou tabuli.
+
+**⚠ Pravidlo 2 („sklo se nikdy negeneruje samotné") jsem NEIMPLEMENTOVAL doslova, protože jeho odůvodnění je vyvrácené shipnutým levelem.** Issue argumentuje: *„osamocená tabule nemůže být součástí shody na ráně, která ji obarví"*. **Facet dokazuje opak** — jeho čirý lem je jednobuňkový taxicab prstenec, takže se žádné dvě tabule nedotýkají (64 tabulí = 64 těles po jedné) a **design z toho dělá svůj učicí tah**: buňka o krok vedle diagonálního prstence se ho dotýká DVAKRÁT, takže jedna rána obarví dvě a se střelou jsou tři. Stojí to černé na bílém v hlavičce `FacetKind` od #325. Doslovná brána by odmítla 36 ze 64 tabulí a zbourala design, jehož vlastní komentář vysvětluje, proč je postavený takhle.
+
+**Brána se proto ptá DOPADU, ne tabule: „žádná tabule nesmí jít obarvit sama."** Formálně: těleso, jehož **každý** dopad platí jedna, je těleso, které se dá vyměnit jen za dvojici — a to je přesně ta dřina, kterou `FindLonelyBalls` všude jinde odmítá, jen sem nedosáhne (sklo nemá barvu, ve které by bylo osamělé). Vyjádřeno per těleso, ne per tabule, protože těleso se barví najednou; a jen těleso o jedné může v tom stavu vůbec být. Facet prochází, izolovaná tabule ne. **Obecně: pravidlo z issue se implementuje jako vlastnost, o kterou mu jde, ne jako věta, kterou je napsané** — a ověří se to tak, že se pustí proti tomu, co už stojí.
+
+**`MostAtOnce` musel přestat počítat sousedy** a začít počítat velikost dosažených těles, jinak by validátor tiskl číslo, které po téhle změně není pravda. Dvě RŮZNÁ tělesa u jedné buňky se sčítají (colouring seedne obě), dvě tabule jednoho tělesa jsou jedna platba.
+
+**⚠⚠ A tady je cena, kterou musí vidět majitel: výplata jedné rány vyskočila o řád.** Mirage pětice **4, 4, 4, 3, 12 → 5, 34, 45, 50, 116**. Solitaire má celý povrch jako jedno těleso, takže jedna rána obarví 116 ze 444 koulí. Pět skleněných levelů bylo nakresleno, když sklo stálo za kapsu; teď stojí za tabuli. **`DropTest` to nevidí** (modeluje jen stojící barevné skupiny), takže brána `oneShot` je na tuhle cestu slepá — zapsáno do `docs/formats-and-tools.md` jako otevřená otázka rovnováhy, ne zahrané do autu.
+
+**⚠ Sag probe to chytil a chytil to správně: Diadem 2 z 5 → 5 z 5.** Změřeno **na tomtéž stroji v jednom sezení proti oběma buildům** (poučení z #341 o citaci proti měření): před — Facet 0, Trefoil 0, Harlequin 3, Diadem **2**, Solitaire 3; po — Facet 0, Trefoil 0, Harlequin 3, Diadem **5**, Solitaire 3. Harlequin i Solitaire se nehnuly; jediná změna je Diadem, a přesně z toho důvodu, který má jeho vlastní hlavička zapsaný od #325: **není to prověšení, je to rozhoupání**, a teď se houpe padesátikoulovou ranou místo hrstky. (Mimochodem: základní čísla téhle session jsou o 1 vyšší než finální pětice zapsaná u #325 — probe kolísá ±1 mezi sezeními, což je právě důvod, proč se „před" muselo přeměřit a ne opsat.)
+
+**Opraveno toutéž pákou co minule — a zapsal jsem, že ta páka NESEDÍ na příčinu.** `DIADEM_BAND_INNER` 2,6 → 2,0 (100 → 112 kotev), čte **3 z 5 dvakrát po sobě**, tedy tam, kde sedí Harlequin i Solitaire, a pod prahem. Ale rozšiřování pásu dovnitř **přidává koule skoro tak rychle jako kotvy** (732 → 792 koulí, zátěž kotvy 8,0 → 7,7), takže koupilo mnohem míň než poprvé. Páka, co sedí na novou příčinu, je **výplata** — čtyři nedotýkající se límce by ji zastropovaly na ~25 — a to je změna toho, jak čelenka VYPADÁ, takže je majitelova. Napsáno do designu jako „když se to bude otevírat, začni tady".
+
+**Ověřeno proti skutečné knihovně, čtrnáct tvrzení** (odhozený konzolový projekt ve scratchpadu, v žádném solutionu): řetěz čtyř se obarví celý ze kraje a vzdálená tabule (která NENÍ soused dopadu) vezme barvu střely i `Normal`; skupina se uzavře na téže ráně (5); dvojice je nejmenší platící těleso (3); **dvě tělesa po jedné u jednoho dopadu jdou obě** (Facetův tah); těleso, na které dopad nesáhne, zůstává sklem; tabule berou barvu STŘELY, ne svou uloženou; těleso **stoupá do vrstvy nad sebou** (4 tabule); obyčejný soused se nepřebarvuje; **kámen barvu nevede a zůstává kamenem**; uzavřený prstenec osmi se obarví celý a **terminuje**; scratch list se čistí per dopad. ALL PASS.
+
+K tomu: čtyři solutiony 0 chyb, LevelGen exit 0 (brána ALONE zelená přes všech 105), ScoreSim 0, a **z kampaně se změnil jediný soubor — `Diadem.json`**, tedy ten, který jsem záměrně opravil.
+
+**⚠ A past, do které jsem šlápl podruhé za den, tentokrát z vlastní paměti:** přejmenování v `SagProbe.cs` jsem pustil přes PowerShell `-replace | Set-Content` a **přidalo to do souboru BOM**. Mám to zapsané jako pravidlo („na trackovaný zdroj vždy Edit/Write, nikdy shell round-trip") a stejně jsem to udělal. Vráceno a přepsáno nástrojem.
+
+**Co jsem NEUDĚLAL a je to schválně:** není fotka z běžící hry, jak přejezd barvy běží přes celou tabuli. Fade se nastavuje v téže smyčce per obarvená koule, takže rozšíření seznamu ho rozšiřuje samo, a celou cestu handleru (včetně zrcadlení na fyzikální pole) projela sag probe pětadvacetkrát ve skutečné simulaci na pěti skutečných levelech. Vizuál je přesto neviděný.
+
+**Otevřená otázka na majitele:** má se Mirage pětice převážit na novou sílu skla (Solitaire 116 za ránu), nebo je ta podívaná žádoucí? To je designové rozhodnutí, ne mechanické, a nedělal jsem ho.
+
+**Dál pokračuji na #355** (alt-tab nepauzuje level).
