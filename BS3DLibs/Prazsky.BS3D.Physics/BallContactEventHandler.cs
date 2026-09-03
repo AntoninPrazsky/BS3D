@@ -146,6 +146,12 @@ namespace Prazsky.BS3D.Physics
         /// </summary>
         private readonly List<XZLevel> _armedBombs = new(12);
 
+        /// <summary>
+        /// The zaps standing beside that same cell (#327), on exactly <see cref="_armedBombs"/>' terms —
+        /// collected in the same walk, before the group release, and for the same reason.
+        /// </summary>
+        private readonly List<XZLevel> _triggeredZaps = new(12);
+
         private readonly ConcurrentQueue<QueuedContact> _queuedContacts = new();
 
         private readonly struct QueuedContact
@@ -443,11 +449,20 @@ namespace Prazsky.BS3D.Physics
             //And the shot's own match runs FIRST: a player who lands beside a bomb while completing a group
             //has earned that group, and a blast that ate it before it was counted would read as the game
             //refusing a good shot. So the two compose, in the order the player did them.
-            CollectArmedBombs(cell);
+            //The zaps beside it come off the same walk (#327): same trigger, same "collect before, fire after".
+            CollectArmedSpecials(cell);
 
             //And the game rule: three or more of a colour touching each other let go, and so does anything
             //that was only held up by them
             BallsReleased released = BallsConstraintsBuilder.ReleaseSameTypeCluster(physicsBall, _physicsBalls, _map, _simulation, _fallingBalls);
+
+            //Then the zap, over whatever the match left standing (#327). ⚠ BEFORE the blast, and the order is
+            //a ruling: a blast that ate the zap ball first would silently swallow one of the two effects the
+            //player armed with one landing, while a zap can never take a bomb (it only takes MATCHABLE balls,
+            //and a bomb's colour is one nothing may read). Wide first, then local, so both always happen.
+            if (_triggeredZaps.Count > 0)
+                released = released.Plus(BallsConstraintsBuilder.ZapColour(
+                    _triggeredZaps, physicsBall.Type, _physicsBalls, _map, _simulation, _fallingBalls));
 
             //Then the blast, over whatever the match left standing - and its own disconnection pass runs
             //inside it, so a hole opened under half the cluster brings that half down as well.
@@ -470,8 +485,9 @@ namespace Prazsky.BS3D.Physics
             //The blast's own line, on the same terms and for the same reason (#326): a level whose bombs are
             //not going off says so here rather than being diagnosed from a screenshot, and printing the armed
             //COUNT beside the destroyed one is what tells a chain apart from a single big radius.
-            if (released.Destroyed > 0) Console.WriteLine($"[shot] {_armedBombs.Count} bomb(s) armed at the landing"
-                + $"; destroyed {released.Destroyed}, orphaned {released.Orphaned}");
+            if (released.Destroyed > 0) Console.WriteLine($"[shot] {_armedBombs.Count} bomb(s) armed and"
+                + $" {_triggeredZaps.Count} zap(s) triggered at the landing; destroyed {released.Destroyed},"
+                + $" orphaned {released.Orphaned}");
 
             BallLanded?.Invoke(new BallLanding(released, restPosition, physicsBall.Type, cell, coloured));
 
@@ -479,14 +495,20 @@ namespace Prazsky.BS3D.Physics
         }
 
         /// <summary>
-        /// Fills <see cref="_armedBombs"/> with every <see cref="BallKind.Bomb"/> touching
-        /// <paramref name="cell"/> — the landing's own neighbours, by the map's neighbour rule and not by a
-        /// second copy of it, which is the same discipline
-        /// <see cref="BallsMap.ColourTransparentNeighbours"/> keeps for the glass.
+        /// Fills <see cref="_armedBombs"/> and <see cref="_triggeredZaps"/> with every
+        /// <see cref="BallKind.Bomb"/> and <see cref="BallKind.Zap"/> touching <paramref name="cell"/> — the
+        /// landing's own neighbours, by the map's neighbour rule and not by a second copy of it, which is the
+        /// same discipline <see cref="BallsMap.ColourTransparentGroup"/> keeps for the glass.
+        /// <para>
+        /// <b>One walk for both</b>, because they share a trigger exactly: what sets either off is a shot
+        /// landing in a cell beside it. Two walks would be two chances for the two kinds to drift apart about
+        /// what "beside" means, which is the whole reason neither of them counts neighbours itself.
+        /// </para>
         /// </summary>
-        private void CollectArmedBombs(XZLevel cell)
+        private void CollectArmedSpecials(XZLevel cell)
         {
             _armedBombs.Clear();
+            _triggeredZaps.Clear();
 
             StaticBall[,,] cells = _map.GetStaticBallsArray();
             XZLevel size = new(_map.StageSizeX, _map.StageSizeZ, _map.Levels);
@@ -494,7 +516,10 @@ namespace Prazsky.BS3D.Physics
             foreach (XZLevel neighbour in BallsMap.GetNeighboringCells(cell, size))
             {
                 StaticBall ball = cells[neighbour.X, neighbour.Z, neighbour.Level];
-                if (ball != null && ball.Kind == BallKind.Bomb) _armedBombs.Add(neighbour);
+                if (ball == null) continue;
+
+                if (ball.Kind == BallKind.Bomb) _armedBombs.Add(neighbour);
+                else if (ball.Kind == BallKind.Zap) _triggeredZaps.Add(neighbour);
             }
         }
 

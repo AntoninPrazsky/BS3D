@@ -85,6 +85,23 @@ namespace Prazsky.BS3D.GameStructure
         public static BasicEffectParams Bomb = new BasicEffectParams(new Vector3(0.085f, 0.072f, 0.066f), GLOSS_COLOR, GLOSS_POWER, Vector3.Zero);
 
         /// <summary>
+        /// The live zap's material (#327), read by <c>BallRenderSet.DrawZaps</c> alone and indexed by nothing
+        /// — a zap is a <see cref="BallKind"/> like the two above, not a colour.
+        /// <para>
+        /// The bomb's entry with the warmth taken out: low for the identical reason (everything this kind says
+        /// it says with the arcs crawling on it, and a lifted shell washes them out) and <b>cool</b> because
+        /// that is the whole of what separates the two dark specials at a glance. A bomb is a warm dark and a
+        /// zap is a cold one, before either of them lights up at all.
+        /// </para>
+        /// <para>
+        /// ⚠ Not neutral grey, which is where this started: a near-black neutral ball is Type8, the trap the
+        /// stone's entry above records from the grey end and the bomb's from the warm one. Pushed to blue far
+        /// enough to be a colour rather than an absence.
+        /// </para>
+        /// </summary>
+        public static BasicEffectParams Zap = new BasicEffectParams(new Vector3(0.058f, 0.070f, 0.098f), GLOSS_COLOR, GLOSS_POWER, Vector3.Zero);
+
+        /// <summary>
         /// Multiplier applied to the ball model's material diffuse colors to give the ball its type color.
         /// (Historically the type color came from a broad colored specular sheen; with a proper glossy
         /// highlight the type has to tint the diffuse patches instead.)

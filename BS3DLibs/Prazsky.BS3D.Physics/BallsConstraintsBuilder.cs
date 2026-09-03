@@ -378,6 +378,135 @@ namespace Prazsky.BS3D.Physics
         }
 
         /// <summary>
+        /// How hard a zap throws what it takes, in units a second (#327). Far gentler than
+        /// <see cref="BLAST_SPEED"/>, and the difference is the point: a blast is a <b>place</b> that shoves
+        /// everything away from it, while a zap is a rule that reaches the whole field at once and has no
+        /// centre to throw from. What its victims do is <b>let go</b> — a nudge sideways off the lattice so
+        /// they part before they fall, rather than a column dropping as one slab.
+        /// <para>
+        /// The direction is the ball's own offset from the field's vertical axis, so a wall of them opens
+        /// outwards; on the axis itself it is straight down, which is the same degenerate case the blast
+        /// answers the same way and for the same reason (normalising a zero vector is a NaN velocity Bepu
+        /// never recovers from).
+        /// </para>
+        /// </summary>
+        private const float ZAP_SPEED = 1.6f;
+
+        /// <summary>
+        /// Takes <b>every ordinary ball of one colour off the whole field</b> (#327) — the bomb's destruction
+        /// path at the largest scale the game has.
+        /// <para>
+        /// <b>What is chosen differs; what happens to it does not.</b> <see cref="DetonateBombs"/> picks its
+        /// victims by geometry and this picks them by colour, and after that the two are the same three steps:
+        /// remove the set, throw what was removed so it falls rather than vanishing, and run the disconnection
+        /// pass over what is left. That last step matters more here than anywhere else in the game — losing a
+        /// whole ink can orphan most of a cluster in one frame, which is precisely the mass change #301 and
+        /// #302 built the sag probe to measure.
+        /// </para>
+        /// <para>
+        /// <b>⚠ Only <see cref="BallKinds.Matchable"/> balls go.</b> A rock, a glass ball, a bomb and another
+        /// zap all carry a <see cref="BallType"/> that <b>nothing may read</b> — it is stored because every
+        /// cell has the field, not because it means anything — so taking them "because they are that colour"
+        /// would be acting on a field the player cannot see. It also keeps the two specials from eating each
+        /// other: a zap can never remove a bomb, whatever colours they happen to hold.
+        /// </para>
+        /// <para>
+        /// The cells are collected in one pass <b>before</b> any of them is released, for
+        /// <see cref="DetonateBombs"/>' own reason: <see cref="ReleaseBall"/> empties the cell it takes, and a
+        /// walk that released as it went would be reading a map it is changing.
+        /// </para>
+        /// </summary>
+        /// <param name="zaps">The zap balls to fire — the cells beside the landing, already filtered to the
+        /// ones still standing. A cell that no longer holds a zap is skipped rather than refused, and every
+        /// zap fired is destroyed with the colour it takes.</param>
+        /// <param name="colour">The shot's own colour, which is the whole of what a zap decides. See
+        /// <see cref="BallKind.Zap"/> for why it is the shot's and not the field's.</param>
+        /// <param name="releasedInto">Every destroyed and orphaned ball is added here, exactly as a match's
+        /// releases are, so the caller keeps drawing them and its cleanup culls them when they settle.</param>
+        /// <returns>What the zap cost the field: no matches (a zap completes no group), the balls it destroyed
+        /// by colour — the zap balls themselves included — and everything the disconnection pass then found
+        /// hanging on nothing.</returns>
+        public static BallsReleased ZapColour(
+            IReadOnlyList<XZLevel> zaps,
+            BallType colour,
+            PhysicsBall[,,] physicsBalls,
+            BallsMap map,
+            Simulation simulation,
+            List<PhysicsBall> releasedInto)
+        {
+            if (zaps == null || zaps.Count == 0) return default;
+
+            XZLevel size = map.GetStaticBallsArraySize();
+            StaticBall[,,] cells = map.GetStaticBallsArray();
+            List<ConstraintHandle> handleBuffer = new();
+
+            List<XZLevel> victims = new();
+
+            //The zaps themselves first, so a zap that has already left (orphaned by the match this landing
+            //completed) takes nothing with it, and one that is still standing is destroyed by its own firing.
+            bool fired = false;
+
+            foreach (XZLevel at in zaps)
+            {
+                if (cells[at.X, at.Z, at.Level] == null || cells[at.X, at.Z, at.Level].Kind != BallKind.Zap) continue;
+
+                victims.Add(at);
+                fired = true;
+            }
+
+            if (!fired) return default;
+
+            //And then the colour, over the whole field. One walk, no early exit: the point of this kind is
+            //that distance does not enter into it.
+            for (int level = 0; level < size.Level; level++)
+                for (int x = 0; x < size.X; x++)
+                    for (int z = 0; z < size.Z; z++)
+                    {
+                        StaticBall ball = cells[x, z, level];
+
+                        if (ball == null || ball.Type != colour || !BallKinds.Matchable(ball.Kind)) continue;
+
+                        victims.Add(new XZLevel(x, z, level));
+                    }
+
+            int destroyed = 0;
+
+            foreach (XZLevel at in victims)
+            {
+                PhysicsBall ball = physicsBalls[at.X, at.Z, at.Level];
+
+                ReleaseBall(at, physicsBalls, map, simulation, size, handleBuffer, releasedInto);
+                destroyed++;
+
+                if (ball != null) Loosen(ball);
+            }
+
+            List<XZLevel> disconnected = map.GetCellsDisconnectedFromCeiling();
+            foreach (XZLevel at in disconnected)
+                ReleaseBall(at, physicsBalls, map, simulation, size, handleBuffer, releasedInto);
+
+            return new BallsReleased(0, disconnected.Count, destroyed);
+        }
+
+        /// <summary>
+        /// Nudges one zapped ball off the lattice — see <see cref="ZAP_SPEED"/> for why this is a nudge and
+        /// the blast's <see cref="Throw"/> is a shove.
+        /// </summary>
+        private static void Loosen(PhysicsBall ball)
+        {
+            Vector3 position = ball.BallReference.Pose.Position;
+            Vector2 outward = new(position.X, position.Z);
+
+            float distance = outward.Length();
+
+            Vector3 direction = distance > 1e-4f
+                ? new Vector3(outward.X / distance, -0.35f, outward.Y / distance)
+                : new Vector3(0f, -1f, 0f);
+
+            ball.BallReference.Velocity.Linear = Vector3.Normalize(direction) * ZAP_SPEED;
+        }
+
+        /// <summary>
         /// Throws one freed ball away from <paramref name="centre"/> — see <see cref="BLAST_SPEED"/> for why a
         /// blast's victims are thrown rather than merely dropped.
         /// <para>

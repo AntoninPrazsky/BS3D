@@ -1054,6 +1054,7 @@ namespace Prazsky.Core.Render
             "InstancedModelStone",    //BallShading.Stone
             "InstancedModelHollow",   //BallShading.Hollow
             "InstancedModelBomb",     //BallShading.Bomb
+            "InstancedModelZap",      //BallShading.Zap
         };
 
         /// <summary>

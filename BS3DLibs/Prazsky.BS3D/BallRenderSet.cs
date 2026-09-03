@@ -788,6 +788,32 @@ namespace Prazsky.BS3D
         private const float BOMB_PULSE_SPEED = 0.5f;
 
         /// <summary>
+        /// What a zap is drawn with (#327), and the three figures are chosen <b>against the bomb's</b> rather
+        /// than from scratch: the two dark specials have to be told apart at a glance, or a player cannot know
+        /// what landing beside one will do.
+        /// <para>
+        /// The bomb throbs — slow, deep and even, a thing charging. A zap <b>flickers</b>: fast and shallow,
+        /// which is what an arc does and what the eye reads as electrical rather than as alive. That is the
+        /// opposite corner of the same two dials, so the pair is legible without either of them being loud.
+        /// </para>
+        /// <para>
+        /// ⚠ <b>Fast is right here and was wrong for the bomb</b>, and the difference is worth stating because
+        /// <see cref="BOMB_PULSE_SPEED"/>'s own note argues the other way. <c>Heartbeat</c>'s lit window is a
+        /// fixed fraction of its cycle, so speeding it up shortens each flash — which ruined the bomb, whose
+        /// read IS the flash. A zap's read is the arc figure drawn on the shell, which the shader keeps lit on
+        /// a floor of its own; what the beat adds here is jitter on top of something already visible, and
+        /// jitter is supposed to be brief.
+        /// </para>
+        /// </summary>
+        private const float ZAP_EMISSION = 1.1f;
+
+        /// <inheritdoc cref="ZAP_EMISSION"/>
+        private const float ZAP_PULSE_DEPTH = 0.55f;
+
+        /// <inheritdoc cref="ZAP_EMISSION"/>
+        private const float ZAP_PULSE_SPEED = 3.1f;
+
+        /// <summary>
         /// How much of the picture behind it a clear ball takes away face-on (#325), against the dyed film's
         /// <see cref="BUBBLE_BODY_OPACITY"/>. <b>Lower, and that is the whole read of this kind</b>: a bubble is
         /// a coloured thing you can see through and this is a thing that is not there — what names it is the
@@ -947,6 +973,14 @@ namespace Prazsky.BS3D
         //needs no still twin either.
         private static readonly int BOMB_REGION_START = HOLLOW_REGION_START + LodCount;
 
+        //And a SIXTH, for the zaps of #327, on the bomb's argument in full: colourless, opaque, never loaded
+        //in the cannon, and read by a motion that is a set of per-renderer uniforms rather than anything an
+        //instance could carry. It is its own region rather than a second use of the bomb's because the two
+        //are different techniques with different figures - a zap is not a bomb that arcs, it is a dark shell
+        //with a cage of arcs on it, and the two have to be told apart at a glance or the player cannot know
+        //what a landing beside one will do.
+        private static readonly int ZAP_REGION_START = BOMB_REGION_START + LodCount;
+
         private readonly ModelInstance[][] _buckets;
         private readonly int[] _counts;
         private readonly int[] _lodTotals;
@@ -1026,11 +1060,11 @@ namespace Prazsky.BS3D
             _pulseDepth = ripples ? PULSE_DEPTH_RIPPLING : PULSE_DEPTH_RESTING;
 
             //Two planes: the breathing balls, then the still ones (see STILL_PLANE_STRIDE), then a region
-            //each for the three kinds that opt out of the level's style — the rocks (ROCK_REGION_START), the
-            //clear glass and the bombs, in that order. Sized off the LAST of them so a region added without
-            //moving this line would index past the end on its first instance rather than draw wrong.
-            _buckets = new ModelInstance[BOMB_REGION_START + LodCount][];
-            _counts = new int[BOMB_REGION_START + LodCount];
+            //each for the four kinds that opt out of the level's style — the rocks (ROCK_REGION_START), the
+            //clear glass, the bombs and the zaps, in that order. Sized off the LAST of them so a region added
+            //without moving this line would index past the end on its first instance rather than draw wrong.
+            _buckets = new ModelInstance[ZAP_REGION_START + LodCount][];
+            _counts = new int[ZAP_REGION_START + LodCount];
             _lodTotals = new int[LodCount];
             _lodDistanceSquared = new float[LOD_MIN_PIXEL_RADIUS.Length];
         }
@@ -1411,6 +1445,9 @@ namespace Prazsky.BS3D
             //other's uniforms, both state their own.
             DrawBombs(camera);
 
+            //And the zaps beside them (#327), same side of the frame and same argument: opaque.
+            DrawZaps(camera);
+
             //Asked as the question it IS — does light get through this material — and not as "is this the
             //bubble" (#304). The two were the same answer only while the bubble was the one transparent style.
             if (BallStyles.IsTransparent(_style)) DrawShell(camera);
@@ -1533,6 +1570,49 @@ namespace Prazsky.BS3D
                 //on. Its own material all the same — passing null for both is what left the first rock lit by
                 //DefaultLighting's dim blue. See BasicEffectParamsProvider.Bomb.
                 _renderers[lod].Draw(camera, _buckets[bucketIndex], count, BasicEffectParamsProvider.Bomb, null);
+            }
+
+            for (int lod = 0; lod < LodCount; lod++) _renderers[lod].PulseSpeed = PULSE_BEATS_PER_SECOND;
+
+            ApplyStyle();
+        }
+
+        /// <summary>
+        /// The live zaps (#327): <see cref="DrawBombs"/> with its own technique and its own three figures.
+        /// Everything structural about it is that method's — the region, the per-LOD calls, the tintless
+        /// material, and above all putting the pulse SPEED back by hand afterwards, which is the one thing
+        /// <see cref="ApplyStyle"/> cannot do and which a zap needs even more than a bomb does: at
+        /// <see cref="ZAP_PULSE_SPEED"/> a cluster left on it would flicker like a bad fluorescent tube.
+        /// </summary>
+        private void DrawZaps(ICamera camera)
+        {
+            bool any = false;
+            for (int lod = 0; lod < LodCount && !any; lod++) any = _counts[ZAP_REGION_START + lod] > 0;
+
+            if (!any) return;
+
+            for (int lod = 0; lod < LodCount; lod++)
+            {
+                InstancedModelRenderer renderer = _renderers[lod];
+
+                renderer.Shading = BallShading.Zap;
+                renderer.EmissiveStrength = ZAP_EMISSION;
+                renderer.PulseDepth = ZAP_PULSE_DEPTH;
+                renderer.PulseSpeed = ZAP_PULSE_SPEED;
+            }
+
+            for (int lod = 0; lod < LodCount; lod++)
+            {
+                int bucketIndex = ZAP_REGION_START + lod;
+                int count = _counts[bucketIndex];
+                if (count == 0) continue;
+
+                DrawnCount += count;
+                _lodTotals[lod] += count;
+
+                //No TINT, for the stone's and the bomb's reason: a zap wearing one of the thirteen is a lie
+                //the player acts on. Its own material all the same — see BasicEffectParamsProvider.Zap.
+                _renderers[lod].Draw(camera, _buckets[bucketIndex], count, BasicEffectParamsProvider.Zap, null);
             }
 
             for (int lod = 0; lod < LodCount; lod++) _renderers[lod].PulseSpeed = PULSE_BEATS_PER_SECOND;
@@ -1810,6 +1890,9 @@ namespace Prazsky.BS3D
         /// <summary>A live bomb (#326) — colourless like the two above, and for the same reason.</summary>
         internal void StoreBomb(int lod, in ModelInstance instance) => StoreAt(BOMB_REGION_START + lod, instance);
 
+        /// <summary>A live zap (#327) — colourless like the three above, and for the same reason.</summary>
+        internal void StoreZap(int lod, in ModelInstance instance) => StoreAt(ZAP_REGION_START + lod, instance);
+
         private void StoreAt(int bucketIndex, in ModelInstance instance)
         {
             ModelInstance[] bucket = _buckets[bucketIndex];
@@ -1917,6 +2000,13 @@ namespace Prazsky.BS3D
                     //Colourless a third time (#326), and never loaded in the cannon: what a bomb says it says
                     //with its own beat, which is a set of renderer uniforms. See BallRenderSet.DrawBombs.
                     _set.StoreBomb(lod, instance);
+                    break;
+
+                case BallKind.Zap:
+                    //Colourless a fourth time (#327), never loaded in the cannon, and read by a motion that is
+                    //a set of renderer uniforms — the bomb's case in every respect but the technique. See
+                    //BallRenderSet.DrawZaps.
+                    _set.StoreZap(lod, instance);
                     break;
 
                 default:

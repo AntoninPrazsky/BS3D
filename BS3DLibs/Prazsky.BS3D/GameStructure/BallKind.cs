@@ -85,7 +85,36 @@ namespace Prazsky.BS3D.GameStructure
         /// <see cref="BallType"/> that <b>nothing may read</b>.
         /// </para>
         /// </summary>
-        Bomb = 3
+        Bomb = 3,
+
+        /// <summary>
+        /// A zap (#327). It fires when a shot lands in a cell <b>beside</b> it — the bomb's trigger exactly —
+        /// and takes <b>every ordinary ball of one colour off the whole field</b>, wherever it is.
+        /// <para>
+        /// <b>The colour is the SHOT's.</b> That is this kind's one real decision, and the reason is that it is
+        /// the only colour the player chose: a zap that took the commonest colour, or a colour written on the
+        /// ball, or a neighbour's, would be a ball the player gambles with or reads an answer off rather than
+        /// one they aim. The magazine already shows what is loaded three balls ahead, so "which colour will
+        /// this take" is a question the player can answer before firing and plan around — which is the whole
+        /// difference between a special and a lottery.
+        /// </para>
+        /// <para>
+        /// <b>⚠ It takes only <see cref="Matchable"/> balls</b>, so rocks, glass, bombs and other zaps are
+        /// untouched whatever <see cref="BallType"/> they carry. That is not a special case; it is the same
+        /// rule this file states twice already — a kind that is not matchable carries a colour <i>nothing may
+        /// read</i>. A zap that cleared bombs "of the same colour" would be acting on a field the player cannot
+        /// see, since none of those balls shows the colour it stores.
+        /// </para>
+        /// <para>
+        /// It is <see cref="BallKind.Bomb"/>'s destruction path used at a different scale: choose a set of
+        /// cells, remove them, run the disconnection pass over what is left. What it adds is that the set is
+        /// chosen by <b>colour</b> rather than by geometry, and that makes it the largest single removal the
+        /// game has — a level drawn in three inks can lose one of them in a frame, and most of the picture
+        /// with it. Same answers as the bomb for the two seams: <b>yes</b> to <see cref="Removable"/> (a
+        /// landing beside it always takes it), <b>no</b> to <see cref="Matchable"/>.
+        /// </para>
+        /// </summary>
+        Zap = 4
     }
 
     /// <summary>
@@ -140,6 +169,12 @@ namespace Prazsky.BS3D.GameStructure
         /// alternative is the Rock's two opposite failures on a level that has one bomb left standing.
         /// </para>
         /// <para>
+        /// A <see cref="BallKind.Zap"/> answers <b>yes</b> for the identical reason (#327): its trigger is the
+        /// bomb's — a shot landing beside it — and firing destroys it along with the colour it takes. It is
+        /// one shot from being gone, and it reached this answer without this file being edited, which is the
+        /// "everything but the rock" default below doing exactly the job it was written for.
+        /// </para>
+        /// <para>
         /// ⚠ <b>The predicate is written as "everything but the rock" and NOT as a list of the kinds that
         /// qualify</b>, so that a special added without touching this file is removable by default. That is the
         /// safe default of the two and it is deliberate: a kind wrongly counted removable makes a level that
@@ -182,6 +217,11 @@ namespace Prazsky.BS3D.GameStructure
                 case "bomb":
                 case "mine":
                     kind = BallKind.Bomb;
+                    return true;
+
+                case "zap":
+                case "spark":
+                    kind = BallKind.Zap;
                     return true;
 
                 default:

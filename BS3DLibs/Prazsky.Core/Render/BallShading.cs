@@ -195,6 +195,26 @@ namespace Prazsky.Core.Render
         /// the technique's own header in <c>InstancedModel.fx</c>.
         /// </para>
         /// </summary>
-        Bomb = 12
+        Bomb = 12,
+
+        /// <summary>
+        /// A live zap (#327): a dark shell with a cage of electric arcs crawling over it and jumping between
+        /// its poles. Drawn by <c>InstancedModelZap</c>.
+        /// <para>
+        /// The fourth shading that belongs to a <c>BallKind</c> rather than to a <c>BallStyle</c>, and the
+        /// fourth with <b>no type colour</b>, on <see cref="Bomb"/>'s argument exactly.
+        /// </para>
+        /// <para>
+        /// <b>⚠ Its collision to solve is <see cref="Plasma"/>, not the lava</b>, and it is a sharper one than
+        /// the bomb had: that style is already the game's crawling-filament look, so "glowing squiggles" was
+        /// taken before this kind existed. What separates them is stated in the technique's header and is
+        /// structural rather than tonal — the plasma ball glows <i>all over</i>, in its own type colour, with
+        /// filaments drifting through a lit body; a zap is a <b>dark</b> shell in one fixed cold-white blue,
+        /// and what moves on it is a small number of hard, thin arcs that snap between fixed poles rather
+        /// than a field that drifts. The bomb's own lesson applies on top: what a special is read by at play
+        /// distance is the SIZE of the lit figure, not the amount of light in it.
+        /// </para>
+        /// </summary>
+        Zap = 13
     }
 }
