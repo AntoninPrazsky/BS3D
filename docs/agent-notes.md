@@ -3802,3 +3802,25 @@ Před opravou halo zvedalo červenou i 380 px nad koulí; po ní je tam obloha b
 **Ověřeno:** čtyři solutiony 0 chyb. LevelGen ani ScoreSim nepouštěno — změna se nedotýká generátoru ani jediného souboru levelu.
 
 **Dál pokračuji na #345** (šachovnice na Měsíci) a pak **#327** (Zap).
+
+---
+
+## 2026-09-03 — Claude Code (sedmý zápis dne)
+
+*(Šestý zápis dne je #321 a sedí na větvi `321-muzzle-halo-ads`; tenhle je z `345-moon-checkerboard`. Obě větve jsou z mainu nezávisle, takže se při mergi potkají na konci tohohle souboru — patří oba.)*
+
+**#345: šachovnice na měsíčním povrchu. Nález je obecnější než scéna a stojí za zapamatování: PLOCHÝ HASH NA BUŇKU JE VIDITELNÝ ČTVEREC, kdykoli je ta buňka na obrazovce větší než pár pixelů — a band limit proti tomu nechrání.**
+
+**Zrno regolitu bylo od #208 kaskáda tří oktáv plochého per-cell hashe: ~2 cm, ~1,3 m a ~5,5 m.** Každá má vedle sebe limit, jenže ten oktávu tlumí, když její buňky **zmenší** — to je aliasingový konec. O blízkém konci neříká nic, a tam je buňka 1,3 m široká **sto pixelů** a buňka 5,5 m většina blízké země. To není zrno, to je dlažba. S #240 (mřížka kráterů) to nemá nic společného, ta drží.
+
+**⚠ První diagnóza byla ŠPATNĚ a metoda je na tom to podstatné.** Napsal jsem si, že to bude valounová oktáva 5,5 m — vypadala jako zjevný viník — umlčel ji a **šachovnice zůstala**. Teprve umlčení celého členu rám vyčistilo, a umlčení prostřední oktávy samotné nechalo stát ty větší čtverce: **dělaly to obě velké oktávy.** Každá zabita zvlášť a vyfocena; nedalo se to vyvodit ze čtení kódu, a kdybych se po prvním pokusu spolehl na úsudek, opravil bych půlku vady a odešel.
+
+**Oprava: jedna INTERPOLOVANÁ oktáva na ~2,8 m místo obou plochých.** Hladké tady není kompromis, je to to, k čemu metrová oktáva je — mramorovaná zem v téhle velikosti nemá ostré hrany. Dvoucentimetrová si plochý hash nechává: v té velikosti je buňka podpixelová všude, kde se vůbec kreslí, takže se ta hrana nikdy nerozliší — je to drť a na drť je hash dobrý.
+
+**`GRAIN_SMOOTH_GAIN` je tam proto, aby to byla JEDNA změna a ne dvě.** `NoiseHash22` plní −1..1 rovnoměrně, `GradientNoise2` nad týmž hashem je perlinovské pole, jehož hodnoty se tlačí k nule a k jedničce skoro nesahají; prostá záměna při témž koeficientu by mramorování potichu **taky o polovinu ztlumila**, a výsledek by nečetl jako „čtverce jsou pryč", ale jako „země zplihla".
+
+**⚠ Že jsou z toho DVĚ oktávy a ne tři vyhlazené, rozhodla čísla, ne vkus.** `GradientNoise2` jsou čtyři hashe proti jednomu, takže vyhladit obě velké stálo **49,9 → 46,5/47,4 FPS** (pevná kamera, ssaa 2, 1600×900, `nocap`, mediány z 31 čtení) — **1,1–1,5 ms, asi 6 % snímku**. Jedna sloučená oktáva měří **49,0**, tedy **0,37 ms**, a výřezy se od sebe skoro nedají rozeznat. Na shaderu, jehož vlastní hlavička nese build běžící na 2 FPS, není 6 % za rozdíl, který nikdo nevidí, dobrý obchod. (Měřicí skriptík nad `logfps` je ve scratchpadu, ne v repu.)
+
+**Ověřeno:** čtyři solutiony 0 chyb; vyfoceno před/po ze dvou vantage a **na ssaa 2 i ssaa 1** (nižší tier má větší footprint, takže se limity chovají jinak — čisté na obou). Kampaně ani generátoru se to netýká, žádný soubor levelu se nezměnil.
+
+**Dál pokračuji na #327** (Zap).
