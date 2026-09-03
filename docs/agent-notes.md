@@ -3770,4 +3770,35 @@ Ta poslední byla skutečná otázka, ne formalita: kdyby si `SetGraphics` na ch
 
 **Pro majitele:** stálo by za to opravit i **tělo #355**, které tvrdí to o hodinách reálného času; nechávám to na něm, protože komentář do cizího issue při zavírání je jeho gesto.
 
-**Všechny tři dnešní větve (#341, #344, #355) jsou na majitelovo slovo smergované do `main` napřímo přes `--no-ff`, v tomhle pořadí.** Jediné, co při tom kolidovalo, byl tenhle deník — tři zápisy připsané na týž konec souboru ze tří větví ze společného `main`. Pro dalšího, kdo bude mít víc větví naráz: **je to konflikt na jistotu a řeší se ponecháním obou stran**, ne výběrem jedné.
+**Všechny tři dnešní větve (#341, #344, #355) jsou na majitelovo slovo smergované do `main` napřímo přes `--no-ff`, v tomhle pořadí.** Jediné, co při tom kolidovalo, byl tenhle deník — tři zápisy připsané na týž konec souboru ze tří větví ze společného `main`. Pro dalšího, kdo bude mít víc větví naráz: **je to konflikt na jistotu a řeší se ponecháním obou stran**, ne výběrem jedné. Větve po mergi smazané lokálně i na originu.
+
+---
+
+## 2026-09-03 — Claude Code (šestý zápis dne)
+
+**#321: halo nabité koule v precise aim zakrývalo pole, na které se míří. Tady nebyl sporný fix, ale RIG — a stálo to víc než sama změna.**
+
+**Změna je malá a má dvě osy, protože zpráva má dvě půlky.** „Moc velké" a „moc hlasité" nejsou totéž a strength sama by první nevyřešila: **tlumenější disk téže velikosti sedí pořád přes tytéž buňky**. Takže se s `_preciseAim.Blend` stahuje **dosah** (`BallGlow.Draw` ho bere per call, 4 → 2 poloměry koule) i **síla** (na 30 %, podlaha, nikdy nula — #236 nechalo halo jediným 3D vyjádřením příští barvy), a **dech se netlumí úměrně, ale úplně**: co nad čteným polem řve, je POHYB, takže nakloněná čočka dostane klidný prstenec. Že to jde stáhnout tak hluboko, umožňuje HUD proužek magazínu, který tutéž barvu drží ve 2D celou dobu.
+
+**Přehledová kamera je nedotčená KONSTRUKČNĚ, ne podle snímku** — a to je lepší tvrzení než fotka: `PreciseAim.Step` srovná `Blend` na **přesnou nulu**, jakmile se tlačítko pustí, takže oba lerpy jsou tam identity a `(1-Blend)` je 1. Nemusel jsem to fotit a nefotil jsem to.
+
+**⚠ Rig na precise aim je ale problém sám o sobě a nedotáhl jsem ho.** Ten režim je HOLD na pravém tlačítku a odpovídá teprve po zachycení kurzoru, takže skript musí kliknout dovnitř okna a pak držet pravé. To funguje — jenže **aim si pak jde, kam chce**: hra kurzor každý snímek vrací do středu, relativní `mouse_event` se s tím pere, a `NudgeX=200` mi scénu naklonil ve svislici, což nedává smysl a nerozřešil jsem proč. Dvě různá volání skončila se dvěma různými mířeními.
+
+**Zachránilo to pozorování, ne boj s rigem: v precise aim sedí kulička u ústí prakticky na PEVNÉM MÍSTĚ OBRAZOVKY**, protože čočka je v pevném offsetu za ústím. Kam míří hlaveň, je tedy pro měření halo jedno. Odtud A/B: týž skript, týž level, `before` z `main`, `after` z větve, a měří se červený přebytek (R−G) po svislici nad koulí — obloha ani mrak červenou nemají, takže R−G izoluje halo.
+
+| nad ústím | před | po |
+|---|---|---|
+| těsně nad koulí | 42,8 | 12,5 |
+| +160 px | 23,8 | 7,6 |
+| +300 px | 26,3 | 2,6 |
+| +380 px | 22,5 | **−49,9** (čistá obloha) |
+
+Před opravou halo zvedalo červenou i 380 px nad koulí; po ní je tam obloha beze stopy. Vizuálně je to ještě jasnější než ta čísla: **na starém snímku je celý střed rámu růžově vymytý včetně čelistí hlavně, na novém mají čelisti vlastní šedomodrou a halo je těsný lem kolem koule.**
+
+**⚠ Dvě poctivé výhrady k tomu měření:** pozadí obou snímků není bit za bit totéž (mrak se mezi běhy pohnul), takže absolutní hodnoty nejsou srovnatelné — R−G ano, a proto je použité. A **v „before" snímku je v pravém dolním rohu notifikace Teams**; je daleko od měřených bodů, ale je to přesně ta kontaminace, před kterou skill varuje, a nechávám to zapsané místo abych ji zamlčel.
+
+**Nesahal jsem na základní figury pro přehled** (`MUZZLE_GLOW_BASE`, `BallGlow.RADIUS_IN_BALL_RADII`, `BRIGHTNESS`). Issue je nabízí jako třetí variantu a samo říká, že je to majitelova volba; nahlášená vada je, že se režim neptal vůbec, a ta je opravená.
+
+**Ověřeno:** čtyři solutiony 0 chyb. LevelGen ani ScoreSim nepouštěno — změna se nedotýká generátoru ani jediného souboru levelu.
+
+**Dál pokračuji na #345** (šachovnice na Měsíci) a pak **#327** (Zap).
