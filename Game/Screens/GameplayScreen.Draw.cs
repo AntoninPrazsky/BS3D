@@ -286,6 +286,29 @@ namespace BS3D.Screens
         private const float MUZZLE_MARK_HZ = 1.6f;
 
         /// <summary>
+        /// What is left of <see cref="MUZZLE_GLOW_BASE"/> once precise aim is fully leaned in (#321) — the
+        /// floor, never zero. The halo is the one place the <i>next colour</i> is stated in 3D, since #236's
+        /// ruling is that a loaded round does not pulse on its own shading, so switching it off would take a
+        /// signal away rather than move it. What lets it come down this far instead is that the HUD's magazine
+        /// strip states the same colour in 2D and is on screen throughout: in this mode the halo may be a mark
+        /// rather than an announcement.
+        /// </summary>
+        private const float MUZZLE_GLOW_ADS_STRENGTH = 0.3f;
+
+        /// <summary>
+        /// The halo's reach at full lean, in ball radii, against <see cref="BallGlow.RADIUS_IN_BALL_RADII"/>'s
+        /// 4 (#321). Halved rather than taken to nothing: the ring has to keep an annulus outside the round's
+        /// own silhouette or there is nothing to see, and that class's own note puts the floor for that at 1.
+        /// <para>
+        /// <b>The size is the half of this the report named first</b> — "a blooming, breathing ring four ball
+        /// radii across covers the cells the player is leaning in to read". Strength alone would not have
+        /// answered it: a dimmer disc of the same size still sits over the same cells, and this mode exists to
+        /// look <i>along</i> the bore at exactly those.
+        /// </para>
+        /// </summary>
+        private const float MUZZLE_GLOW_ADS_RADII = 2f;
+
+        /// <summary>
         /// The halo the muzzle round carries this frame, or zero when no shot would leave the barrel at all —
         /// which <see cref="BallGlow.Draw"/> reads as "draw nothing", so the gate lives in one place.
         /// <para>
@@ -300,19 +323,37 @@ namespace BS3D.Screens
         /// <i>is</i>, not something the session is doing, so it keeps breathing while a pause holds the frame.
         /// </para>
         /// </summary>
-        private float MuzzleGlowStrength() =>
-            _previewBeamVisible
-                ? MUZZLE_GLOW_BASE + MUZZLE_GLOW_SWING * MathF.Sin(MathHelper.TwoPi * MUZZLE_MARK_HZ * WallClock)
-                : 0f;
+        private float MuzzleGlowStrength()
+        {
+            if (!_previewBeamVisible) return 0f;
+
+            //⚠ THE BREATH IS DAMPED OUT BY THE LEAN, NOT SCALED WITH THE REST OF IT (#321), and the two halves
+            //of the report are two different faults. "Too big" is answered by the radius below; "too loud" is
+            //answered here, and what makes it loud is the MOVEMENT — a disc that pulses at 1.6 Hz over the
+            //cells being read is the one thing in that frame the eye cannot put down, which is precisely why
+            //the breath earns its place in the overview. Leaned in, the halo becomes a steady ring: still
+            //there, still the round's colour, and no longer asking to be looked at.
+            float lean = _preciseAim.Blend;
+
+            float breath = MUZZLE_GLOW_SWING * (1f - lean) * MathF.Sin(MathHelper.TwoPi * MUZZLE_MARK_HZ * WallClock);
+
+            return MUZZLE_GLOW_BASE * MathHelper.Lerp(1f, MUZZLE_GLOW_ADS_STRENGTH, lean) + breath;
+        }
 
         /// <summary>
         /// Draws the muzzle round's halo. Called from the frame's additive slot — after the balls, so the depth
         /// buffer already holds the round and the barrel and can carve the ring out of this by itself, and
         /// before the smears, so a shot's own flare sits over it rather than under.
+        /// <para>
+        /// The reach comes down with the lean (#321) — the third member of the group that consults the mode,
+        /// after the aim beam's opacity and the crosshair's, and the last one that did not. All three are one
+        /// signal handed between two lenses rather than three things competing for the middle of the frame.
+        /// </para>
         /// </summary>
         private void DrawMuzzleGlow() =>
             _ballGlow.Draw(Camera, _muzzleBallPosition, Constants.HALF,
-                BasicEffectParamsProvider.GetDiffuseTintByType(_magazine.Peek(0)), MuzzleGlowStrength());
+                BasicEffectParamsProvider.GetDiffuseTintByType(_magazine.Peek(0)), MuzzleGlowStrength(),
+                MathHelper.Lerp(BallGlow.RADIUS_IN_BALL_RADII, MUZZLE_GLOW_ADS_RADII, _preciseAim.Blend));
 
         #endregion
 

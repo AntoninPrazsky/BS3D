@@ -36,10 +36,18 @@ namespace Prazsky.Core.Render
         #region The figures
 
         /// <summary>
-        /// The halo's world half-size, as a multiple of a ball's own radius. It has to clear the silhouette by
-        /// enough that the annulus the depth test leaves can be seen at all — at 1.0 there would be nothing
-        /// outside the ball to draw — while staying inside the loading window, because a halo wider than the
-        /// notch is one the barrel simply eats.
+        /// The halo's world half-size, as a multiple of a ball's own radius — the <b>default</b>, and what
+        /// every figure here was judged against. It has to clear the silhouette by enough that the annulus the
+        /// depth test leaves can be seen at all — at 1.0 there would be nothing outside the ball to draw —
+        /// while staying inside the loading window, because a halo wider than the notch is one the barrel
+        /// simply eats.
+        /// <para>
+        /// ⚠ <b>That last clause is a defence the OVERVIEW has and a leaned-in lens does not</b> (#321), which
+        /// is why <see cref="Draw"/> takes this per call rather than reading the constant. From behind and
+        /// above the muzzle the barrel no longer eats anything, so the same figure is not a ring peeking out
+        /// of a notch but a screen-space disc over the cells being read. A caller that moves its camera owes
+        /// this number an answer; one that does not can leave it alone.
+        /// </para>
         /// </summary>
         public const float RADIUS_IN_BALL_RADII = 4.0f;
 
@@ -102,7 +110,11 @@ namespace Prazsky.Core.Render
         /// ball's colour looks like as light.</param>
         /// <param name="strength">The breath, 0…1. Zero draws nothing, so a caller with no round loaded does
         /// not have to know that.</param>
-        public void Draw(ICamera camera, Vector3 center, float ballRadius, Vector3 srgbTint, float strength)
+        /// <param name="radiusInBallRadii">How far the halo reaches, in ball radii. Defaults to
+        /// <see cref="RADIUS_IN_BALL_RADII"/>, which is the figure this class is tuned at; a caller whose lens
+        /// takes away the barrel's own occlusion of it should pass less (#321).</param>
+        public void Draw(ICamera camera, Vector3 center, float ballRadius, Vector3 srgbTint, float strength,
+            float radiusInBallRadii = RADIUS_IN_BALL_RADII)
         {
             if (strength <= 0f) return;
 
@@ -124,7 +136,7 @@ namespace Prazsky.Core.Render
             _cameraRightParam.SetValue(right);
             _cameraUpParam.SetValue(up);
             _centerParam.SetValue(center);
-            _radiusParam.SetValue(ballRadius * RADIUS_IN_BALL_RADII);
+            _radiusParam.SetValue(ballRadius * radiusInBallRadii);
             _colorParam.SetValue(linear * BRIGHTNESS);
             _strengthParam.SetValue(strength);
 
