@@ -1118,9 +1118,43 @@ namespace BS3D.Screens
                 _padTriggerReleased = false;
 
                 //And a held precise-aim button must not keep an alt-tabbed window leaned in — the gamepad's
-                //triggers report through XInput whether the window has focus or not. The blend below still
-                //runs, so losing focus eases the lean out rather than dropping it.
+                //triggers report through XInput whether the window has focus or not.
                 _adsHeld = false;
+
+                //AND THE LEVEL STOPS (#355). Everything above this branch is about the CURSOR, which is what
+                //losing focus was written as; it is a problem of TIME. Below this branch the world goes on
+                //being played by nobody, and a player who alt-tabs to answer a message can come back to a
+                //level they lost with no shot fired.
+                //
+                //⚠ WHAT ACTUALLY RUNS IS NOT WHAT #355 SAYS RUNS, and the difference is worth having written
+                //down. Its report reads "the ceiling keeps sliding down, on wall clock" — it does not.
+                //UpdateCeilingDescent only ANIMATES a step that a shot has already earned
+                //(_ceilingStepsPending, ReleaseCeilingStep), so a field nobody is shooting at gets no new
+                //steps. Three things do run, and together they are enough:
+                //
+                //  - StepPhysics. The cluster is a hanging lattice that never stops settling and swaying, and
+                //    what the loss is read off is the LIVE lowest pose.
+                //  - The last shot's OWED step. It waits CEILING_STEP_HOLD and then slides, so the descent the
+                //    player fired for arrives while they are away and lands on nobody watching.
+                //  - ClusterLineWatch's below-line grace, which counts in `elapsed` — wall clock. A cluster
+                //    already under the line therefore loses on time alone.
+                //
+                //⚠ IT RETURNS, and that is the same requirement #79 met one layer in: the manager applies a
+                //push at the top of the NEXT frame, so pausing without stopping here would let this frame run
+                //the descent, the step and the loss check against a session that is already over. Once the
+                //page is up this screen is covered and Update is not reached again, so nothing stacks a second
+                //one.
+                //
+                //The pause page rather than a second frozen state, because it is honestly where the player is
+                //and it reuses the whole existing stop rather than inventing a state to reason about; coming
+                //back therefore takes a deliberate keypress, which is right, since the aim demands a click to
+                //re-capture (#154) either way. The lean-out blend below does not run, so the frozen frame keeps
+                //whatever lean it had — the ease-out happens on the way back instead, _adsHeld being false.
+                if (Game.PauseOnFocusLoss)
+                {
+                    Game.PauseGame();
+                    return;
+                }
             }
 
             _cannon.Update(gameTime);

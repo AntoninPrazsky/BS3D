@@ -52,6 +52,11 @@ namespace BS3D
             //touch it — mute is a run's instruction, so it silences this run and is never written back.
             bool mute = false;
 
+            //Testing only: keep a level running when the window loses focus (#355). Same population as "mute"
+            //— a run nobody is sitting at — and for the mirror-image reason: a level that pauses itself while
+            //unattended stops producing the frames the run was started to collect.
+            bool noFocusPause = false;
+
             //Testing only: drop straight into the first level, skipping the title card and the menu. The
             //session's placement and physics write their figures to stdout only once a level is built, and
             //building one honestly takes a mouse on a Myra button — which a scripted run does not have.
@@ -186,12 +191,17 @@ namespace BS3D
                 //ones a level file takes; an unknown one leaves the levels' own answers standing.
                 else if (arg.StartsWith("balls=", StringComparison.OrdinalIgnoreCase)
                     && BallStyles.TryParse(arg.Substring("balls=".Length), out BallStyle parsedStyle)) ballStyle = parsedStyle;
+                //"nofocuspause" stops a level pausing itself when the window loses focus (#355). For any run
+                //nobody is sitting at: a benchmark measuring 70 seconds of frames, a capture rig on a locked
+                //desktop. "shot=" implies it on its own — see BS3DGame.PauseOnFocusLoss.
+                else if (string.Equals(arg, "nofocuspause", StringComparison.OrdinalIgnoreCase)) noFocusPause = true;
             }
 
             using var game = new BS3DGame(fullscreen: fullscreen, supersampleFactor: supersampleFactor, exposure: exposure,
                 uncappedFps: uncappedFps, scene: scene, skyDome: skyDome, logFrameRate: logFrameRate, quality: quality,
                 celebrate: celebrate, confetti: confetti, lasers: lasers, mute: mute, play: play, result: result, blockDone: blockDone, lost: lost, resultStars: resultStars, streak: streak,
-                shotSeconds: shotSeconds, level: level, preview: preview, ballStyle: ballStyle, pick: pick, fpsCap: fpsCap);
+                shotSeconds: shotSeconds, level: level, preview: preview, ballStyle: ballStyle, pick: pick, fpsCap: fpsCap,
+                noFocusPause: noFocusPause);
             game.Run();
         }
 
