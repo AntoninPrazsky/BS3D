@@ -91,6 +91,7 @@ namespace Prazsky.BS3D.GameObjects
         //simply does not walk — there is no meaningful default: the range is solved per level off the field's
         //footprint (GameCameraFit), which this type never learns.
         private float _advanceMin, _advanceMax;
+        private float _restRadius;
         private float _advanceDelta = 0f;
         private float _advanceDeltaLastSet = 0f;
         private float _advanceAcceleration = 0f;
@@ -116,6 +117,7 @@ namespace Prazsky.BS3D.GameObjects
             //Degenerate until SetAdvanceRange: a gun nobody gave room to walk in stays where it is put
             _advanceMin = orbitRadius;
             _advanceMax = orbitRadius;
+            _restRadius = orbitRadius;
 
             Initialize();
         }
@@ -223,10 +225,12 @@ namespace Prazsky.BS3D.GameObjects
         /// not along a traversed barrel: traverse turns the aim, never the ground the carriage covers.
         /// Standing closer steepens the resting aim (the whole point: the underside cells want a shot from
         /// below — and the dish steepens it a second way, carrying the trunnions downhill as the gun walks
-        /// in); the camera does not follow, not even in height (<c>GameCameraFit</c> floors its lens at the
-        /// arris-stance height), so the gun visibly advances on the cluster in frame and sinks down the dish
-        /// within a steady frame. Same per-held-frame ±1 protocol as <see cref="Orbit"/>, same ramp, glide
-        /// and reversal brake — and the ends are rubber, not stops: see <see cref="ADVANCE_EASE_ZONE"/>.
+        /// in); the camera <b>gives way to the walk that backs off and never to the one that closes in</b>
+        /// (<c>GameCameraFit.CameraPosition</c>, #322), and in height it does not follow at all, its lens
+        /// being floored at the arris-stance height. So the gun still visibly advances on the cluster and
+        /// sinks down the dish, and a retreat now moves the frame with it. Same per-held-frame ±1 protocol as
+        /// <see cref="Orbit"/>, same ramp, glide and reversal brake — and the ends are rubber, not stops: see
+        /// <see cref="ADVANCE_EASE_ZONE"/>.
         /// </summary>
         public void Advance(float delta)
         {
@@ -243,9 +247,10 @@ namespace Prazsky.BS3D.GameObjects
         /// <summary>
         /// The radii the advance stroke may walk between, solved per level (see
         /// <c>GameCameraFit.Solve</c> — the near end keeps the gun clear of the field's footprint, and the
-        /// stroke is capped so the magazine keeps a readable size against a lens that does not follow).
+        /// stroke is capped so the magazine keeps a readable size).
         /// Clamps the gun into the range immediately, so a range handed over after
-        /// <see cref="OrbitRadius"/> cannot leave it standing outside its own walk.
+        /// <see cref="OrbitRadius"/> cannot leave it standing outside its own walk — and takes wherever that
+        /// leaves it as the new <see cref="RestRadius"/>.
         /// </summary>
         public void SetAdvanceRange(float min, float max)
         {
@@ -264,7 +269,21 @@ namespace Prazsky.BS3D.GameObjects
                 _orbitRadius = clamped;
                 MoveToOrbitAngle();
             }
+
+            _restRadius = _orbitRadius;
         }
+
+        /// <summary>
+        /// The radius the level opened on — where the fit parked the gun, which the walk is measured from.
+        /// <para>
+        /// It is the <b>stance</b> and not the position: the two ways the gun can be <i>placed</i> rather
+        /// than walked (the <see cref="OrbitRadius"/> setter and <see cref="SetAdvanceRange"/>'s clamp) each
+        /// redefine it, exactly as <see cref="RollTravel"/> is left alone by both — a gun that is placed
+        /// stands at rest, and a gun that walks stands off it. <c>GameCameraFit.CameraPosition</c> reads it
+        /// to decide how much of a retreat the lens goes along with.
+        /// </para>
+        /// </summary>
+        public float RestRadius => _restRadius;
 
         public void Aim(Vector2 rotation, GameTime gameTime)
         {
@@ -320,6 +339,10 @@ namespace Prazsky.BS3D.GameObjects
             {
                 _orbitRadius = value;
                 MoveToOrbitAngle();
+
+                //A gun that is PLACED is placed at rest: the walk below is measured off this, so a stance
+                //assigned by the fit must move the mark with it or the next frame reads as a walk nobody took
+                _restRadius = value;
             }
         }
 

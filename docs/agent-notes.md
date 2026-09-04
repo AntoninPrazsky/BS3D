@@ -3862,3 +3862,29 @@ K tomu: čtyři solutiony 0 chyb, LevelGen exit 0, ScoreSim 0, **kampaň bajt za
 **Dál nic si neberu**; #321, #345 a #327 čekají na majitelovo slovo.
 
 **Merge všech tří proběhl týž den na majitelovo slovo, `--no-ff`, v pořadí #321, #345, #327; větve pak smazané lokálně i na originu.** Deník kolidoval podruhé týmž způsobem a znovu se to vyřešilo ponecháním obou stran — s tím, že tentokrát se **dvakrát duplikoval i odstavec o tom prvním mergi**, protože ho měly obě strany. **Pro příště:** připsat vlastní zápis a nic jiného v tomhle souboru neupravovat; věta o mergi patří do zápisu té práce, ne na konec souboru, kde se s ní potká každá další větev.
+
+---
+
+## 2026-09-04 — Claude Code
+
+**#322: kamera nesledovala chůzi děla (W/S). Nejzajímavější na tom není ten follow — je to číslo, které vypadlo hned z prvního měření: chůze v nasazené kampani nemá dopřednou půlku.**
+
+**Klidový poloměr je na všech měřených levelech 15,5, a to je přesně `FUNNEL_TOP_RADIUS + CANNON_DRAIN_CLEARANCE`.** Rozsah chůze je pak 15,5..19,5 — tedy klid **leží na blízkém konci**, `W` z klidové pozice nedělá vůbec nic a `S` je couvání, které se pak dá vrátit. Není to náhoda návrhu levelů, je to aritmetika: standoffová mez by dělo postavila na `distance − 15`, a nejširší pole sady (17×17×18, `Donut`/`Elephant`/`Trophy`) se rámuje na 30,5, takže ta mez nikdy nepřeleze 15,5. Měřeno na `One`, `Colossus`, `Cube`, `Onion`, `Ten`, `Column`, `Donut`, `Elephant`, `Trophy` — všude stejný rozsah.
+
+**A couvání jde K OBJEKTIVU, ne od něj.** Kamera stojí za dělem na téže úsečce (28,8 proti 15,5), takže větší poloměr = blíž k čočce: `S` dělo **zvětšuje**. Znaménko jsem měl v půlce návrhu obráceně a přišel na to až na číslech ze hry, ne z kódu.
+
+**Follow je proto jednostranný a ta asymetrie je geometrie, ne vkus.** Vyřešený standoff je *nejmenší* vzdálenost, na které se pole, sklo i dělo vejdou do frusta — objektiv, který by šel s dělem dovnitř, by nejdřív snědl `FIT_MARGIN` a pak pole ořízl. Ven se nemůže oříznout nic, všechno se jen zmenší.
+
+**Podlaha, která na tom byla nejcennější, stála v kódu celou dobu napsaná a nikdy se nevymáhala.** `CANNON_ADVANCE_STROKE` má ve své vlastní dokumentaci větu, že dělo smí přijít na `CANNON_CAMERA_STANDOFF − stroke` = 11 jednotek od čočky a ne blíž — s dovětkem „když ho postavila standoffová mez". Jenže ta ho na téhle sadě nestaví nikde, takže skutečnost byla **8,3 až 9,3**. Follow je tedy `max(0,5 · couvnutí, couvnutí − rezerva k jedenáctce)`: zlomek je pocit (chůzi se nechává půlka její vlastní zpětné vazby), podlaha je odvozená a na těsných levelech přebírá.
+
+**Změřeno v běžící hře dočasnou sondou** (`[walkprobe]`, odstraněna před commitem), na plném couvnutí: `Ten` objektiv 27,84 → **30,50** (dělo 12,34 → **11,00** před čočkou, předtím 8,34), `Colossus` 28,82 → **30,82** (13,32 → **11,32**, předtím 9,32). Na `Ten` bere podlaha 2,66 ze 4, na širokých levelech bere zlomek 2,0.
+
+**⚠ Tabulka změřených fitů v `docs/game-session.md` byla zastaralá a je to poučné čím.** Stálo v ní `Colossus` 12×12×18 → 35,5 out / orbit 20,5 / walk 16,5..24,5; totéž pole dnes měří **28,8 / 15,5 / 15,5..19,5**. Skoro sedm jednotek odstupu. Příčina má jméno: **#135** (`5e427ba`) přestal rezervovat rám na celý barel *pod* čepy a utratil ho za pole, takže objektiv směl blíž — a tabulku po něm nikdo nepřeměřil. Přepsána dnešní změřenou sadou; historické sady (pre-dome, pre-dish) zůstávají, ty jsou záznamem toho, co tehdy měřily.
+
+**Výška se nesleduje dál** a teď je napsané proč: lens je podlážený na `LENS_FLOOR_Y` (stance na arris), dělo je na míse vždycky pod ní, takže follow ve výšce by byl buď nula, nebo přesně ta změřená vada, kvůli které podlaha vznikla (kamení sežere spodní polovinu rámu).
+
+**Ověřeno:** čtyři solutiony 0 chyb, ScoreSim „All levels rate the right way round". Fotky z běžící hry (`play level=… shot=`, `S` držené přes `keybd_event` 8 s, okno ověřeně zaostřené): `Ten` a `Colossus` v trojici klid / couvnuto **před** / couvnuto **po**, plus jedna s **drženým RMB** na couvnutí. Před změnou dělo na plném couvnutí ořezávalo spodní hranu rámu, po ní se do něj vejde i s koly. `LevelGen` jsem **nepouštěl** schválně: přepisuje soubory levelů a tahle změna se levelů ani mířidel nedotýká (klidový poloměr, rozsah chůze ani `aimcheck` se nehnuly — hnul se jen objektiv).
+
+**⚠ Provozní poznámka, ať to nikdo nemusí luštit z historie:** dělal jsem ve **vlastním worktree** `C:\Users\panrd\source\repos\BS3D-322`. V majitelově stromě leží rozdělané **#360** (`Game/Levels/*`, `Tools/LevelGen/Program.cs`, `docs/formats-and-tools.md`) **bez jediného commitu** a dva z těch souborů se mezitím změnily i na mainu — přepnutí větve by je git odmítl přepsat a stashovat cizí nedodělek nepřipadá v úvahu. Na žádný z nich jsem nesáhl.
+
+**Co zůstává otevřené a je to vlastní issue, ne tahle větev:** ta **jednostranná chůze**. `W` je z klidu mrtvá klávesa na každém nasazeném levelu a náprava je buď posunout klidový poloměr ven (mění pocit i mířidla všech levelů naráz), nebo pustit kola nad sklo odvodu (to `CANNON_DRAIN_CLEARANCE` zakazuje z měřených důvodů). To je rozhodnutí majitele, ne vedlejší efekt opravy kamery.

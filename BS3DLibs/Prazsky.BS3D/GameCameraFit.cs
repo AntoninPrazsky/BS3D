@@ -118,12 +118,41 @@ namespace Prazsky.BS3D
         /// the range: walking in past <see cref="CANNON_MAX_REST_ELEVATION"/> steepens the resting aim and
         /// pulls the highest near cells out of the clamp's reach, and that trade is the player's to make and
         /// walk back out of — the rest pose the level opens on is still placed by the full four-bound solve.
-        /// At the far end the stroke also keeps the magazine readable: the camera does not follow the walk —
-        /// not even in height, see <see cref="LENS_FLOOR_Y"/> — so the gun may close to
-        /// <see cref="CANNON_CAMERA_STANDOFF"/> − stroke = 11 units of the lens and no
-        /// nearer (when the stand-off bound was the one that placed it).
+        /// At the far end the stroke also keeps the magazine readable — the gun backs off <b>towards</b> the
+        /// lens, so a retreat is what makes it loom — and it may close to
+        /// <see cref="CANNON_CAMERA_STANDOFF"/> − stroke = 11 units of it and no nearer. That bound used to
+        /// hold only where the stand-off bound had placed the gun, which on the shipped set is nowhere:
+        /// <see cref="CANNON_DRAIN_CLEARANCE"/> parks every level's gun at 15.5 and its rest gap measures
+        /// 12.3 to 15.0, so a full retreat brought it to 8.3. <see cref="CANNON_ADVANCE_FOLLOW"/> is what
+        /// restores it, by moving the lens rather than by shortening this.
         /// </summary>
         public const float CANNON_ADVANCE_STROKE = 4f;
+
+        /// <summary>
+        /// How much of a <b>retreat</b> the overview lens goes along with (#322): half of it, the walk keeping
+        /// the other half as its own on-screen answer. Only the retreat — walking in leaves the lens where the
+        /// solve put it, and the asymmetry is the geometry rather than a taste: the solved stand-off is the
+        /// <i>smallest</i> distance at which the field, its glass and the gun all fit, so a lens that followed
+        /// the gun in would eat <see cref="FIT_MARGIN"/> and then crop the field — while a lens that follows it
+        /// out only ever makes everything smaller and can crop nothing.
+        /// <para>
+        /// <b>Why the frame has to move at all.</b> Precise aim anchors the lens to the muzzle, so while RMB is
+        /// held the walk moves the world perfectly and the frame snapped back to a dead stand-off the moment it
+        /// was released — the walk stopped reading as motion, which is what #322 reported. A fraction rather
+        /// than a full follow because the gun's own change of size is the walk's only other feedback, and a
+        /// lens that held the gun exactly still would take it away (the queue in the bore is effectively a HUD
+        /// element at a fixed distance from the lens, and that is <see cref="CANNON_CAMERA_STANDOFF"/>'s job).
+        /// </para>
+        /// <para>
+        /// <b>It is a floor as well as a fraction</b>, and the floor is what binds on a tight level: the lens
+        /// takes at least as much of the retreat as it must to keep the gun
+        /// <see cref="CANNON_CAMERA_STANDOFF"/> − <see cref="CANNON_ADVANCE_STROKE"/> = 11 units away, the
+        /// figure the stroke was capped for. Measured on the shipped set, this half-follow moves the lens 2.0
+        /// of the 4-unit retreat on a wide level (rest gap 15.0) and 2.7 on the tightest (12.3, where the floor
+        /// takes over), and the gun ends the walk 11.0 to 13.0 units out instead of 8.3 to 11.0.
+        /// </para>
+        /// </summary>
+        public const float CANNON_ADVANCE_FOLLOW = 0.5f;
 
         /// <summary>
         /// Clearance the gun's stand keeps outside the drain's mouth (<c>ArenaIsland.FUNNEL_TOP_RADIUS</c>),
@@ -169,8 +198,9 @@ namespace Prazsky.BS3D
         //deliberately does NOT ride with it: CAMERA_HEIGHT puts it 1.5 below the trunnions, which against a
         //sunken gun is below the arris itself — from out past the island's edge the lens then looks AT the
         //coping instead of over it, and the stone swallowed the bottom half of the frame (measured; it reads
-        //as lying on the ground). Floored here, the overview holds the height it always had, the walk does
-        //not bob the camera, and the gun visibly sinks and climbs the dish within a steady frame.
+        //as lying on the ground). Floored here, the overview holds the height it always had and the gun
+        //visibly sinks and climbs the dish under a lens that stays level. The walk's follow (#322) is
+        //horizontal for exactly this reason: it slides the lens along the stand bearing and never bobs it.
         private static readonly float LENS_FLOOR_Y =
             CannonRig.TrunnionHeightAt(ArenaIsland.FLOOR_RADIUS) + CAMERA_HEIGHT;
 
@@ -190,9 +220,40 @@ namespace Prazsky.BS3D
         /// batch exists to remove. <b>Both are invariant under the solve:</b> sliding the gun along its orbit
         /// changes the radius and never the angle, so each is read once and reused for every candidate.
         /// </para>
+        /// <para>
+        /// <b>The stand-off it is given is the level's, and what it stands at is that plus the share of a
+        /// retreat the lens takes</b> (<see cref="WalkedDistance"/>) — which is why the walk moves the frame
+        /// while the fit stays something solved once. The solve itself goes to <see cref="LensPositionAt"/>
+        /// and never through here, so it keeps searching over the rest pose and cannot chase its own gun.
+        /// </para>
         /// </summary>
         public static Vector3 CameraPosition(Cannon cannon, float distance) =>
-            LensPositionAt(cannon.OrbitCenterGround, cannon.StandBearing, cannon.Position.Y, distance);
+            LensPositionAt(cannon.OrbitCenterGround, cannon.StandBearing, cannon.Position.Y,
+                WalkedDistance(cannon, distance));
+
+        /// <summary>
+        /// The stand-off the lens actually holds while the gun is off its rest radius: the level's own, plus
+        /// <see cref="CANNON_ADVANCE_FOLLOW"/> of however far the gun has backed away — never less than what
+        /// keeps it <see cref="CANNON_CAMERA_STANDOFF"/> − <see cref="CANNON_ADVANCE_STROKE"/> units ahead of
+        /// the lens, and never more than the gun itself moved, so the lens cannot overtake what it follows.
+        /// <para>
+        /// A walk <i>towards</i> the field returns the level's stand-off untouched: see
+        /// <see cref="CANNON_ADVANCE_FOLLOW"/> for why that half is not symmetrical. Four float operations on
+        /// a per-frame path, and it reads the gun's own <see cref="Cannon.RestRadius"/> rather than taking a
+        /// second copy of it from the caller — a mid-level re-solve moves that mark with the gun.
+        /// </para>
+        /// </summary>
+        private static float WalkedDistance(Cannon cannon, float distance)
+        {
+            float backedOff = cannon.OrbitRadius - cannon.RestRadius;
+
+            if (backedOff <= 0f) return distance;
+
+            //How much of the retreat the gun may spend looming before the lens has to give way at all
+            float slack = MathF.Max(0f, distance - cannon.RestRadius - (CANNON_CAMERA_STANDOFF - CANNON_ADVANCE_STROKE));
+
+            return distance + MathF.Max(CANNON_ADVANCE_FOLLOW * backedOff, backedOff - slack);
+        }
 
         /// <summary>
         /// Solves the gun's orbit radius and the camera's stand-off and aim height together. Run on every map
