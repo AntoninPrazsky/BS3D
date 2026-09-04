@@ -109,15 +109,33 @@ namespace Prazsky.BS3D
         //0.50 x 0.62), so the pane turned markedly bluer and barely darker - measured on a glazed ball, the
         //blue channel moved by four levels out of 173. Every channel has to come down, the blue included; the
         //saturation is in the RATIO the channels keep, not in leaving one of them high.
-        private static readonly Vector3 GLASS_COLOR = new(0.10f, 0.19f, 0.34f);
+        //
+        //#365 raised the alpha from 0.62 to 0.92, and this moved with it precisely SO THAT its product would
+        //not: 0.067 x 0.92 is 0.10 x 0.62 to three places, so the pane's own body is exactly the veil it has
+        //always been and the extra darkening is the transmittance's alone. The hue ratio is untouched.
+        //
+        //And the veil turns out to be worth almost nothing at the vantage the game plays from, which is worth
+        //knowing before anyone spends effort here: drawn with this colour AND the sky reflection at zero, the
+        //covered queue measured 100.1 against 100.6 with both present - half a level out of 255. Whatever the
+        //pane costs the queue, it is not this.
+        private static readonly Vector3 GLASS_COLOR = new(0.067f, 0.128f, 0.229f);
 
-        //How much of the frame behind the pane it keeps out: well over the plate's 0.4, so a covered round
-        //loses about a third of the light it kept before and the round in the notch stands clear of the four
-        //behind it. This is the figure that actually does the job, and it is also the one that costs - it is
+        //How much of the frame behind the pane it keeps out: well over the plate's 0.4, and since #365 well
+        //over its own old 0.62 - a covered round keeps 0.08 of the light it would have in open air where it
+        //kept 0.38. This is the figure that actually does the job, and it is also the one that costs - it is
         //bounded above by the queue staying legible, not by looks, and the balls dimmest to begin with (the
-        //dark types) are what bound it: a black round is identified by its white gores alone, and a pane
-        //dark enough to swallow those turns its slot from "a black round" into "an empty slot". Retune it
-        //against a full magazine and not an empty bore.
+        //dark types) were thought to bound it: a black round is identified by its white gores alone, and a
+        //pane dark enough to swallow those turns its slot from "a black round" into "an empty slot". Retune
+        //it against a full magazine and not an empty bore.
+        //
+        //#365 MEASURED that bound rather than reasoning about it, with a fixed queue standing in for the
+        //random one (a temporary override, so the same five rounds could be photographed under both panes),
+        //and the bound is not where the paragraph above puts it. At 6x zoom on a COVERED BLACK round the two
+        //panes are barely distinguishable: black is already at the bottom of the range, so a smaller multiple
+        //of near-nothing is still near-nothing, and its pale top sheen survives both. What the darkening
+        //actually spends is the BRIGHT rounds' headroom, which is what there was to spend. Over the same
+        //fixed queue the covered band fell 51.5 -> 30.4 (0.41 -> 0.24 of the open notch's luminance) with the
+        //dark types loaded, and 135.3 -> ~80 with the bright ones.
         //
         //And retune it knowing WHAT IS ACTUALLY BEHIND IT from the game camera, which is not what the notch
         //suggests. Drawn opaque for a moment as a test, the pane fills the whole slot from that vantage: the
@@ -126,7 +144,15 @@ namespace Prazsky.BS3D
         //dims the entire queue to buy contrast on one ellipse. That is the trade, and it is why the answer is
         //a pane that is dark and CLEAR rather than one that is merely thick - see GLASS_COLOR above and
         //GLASS_SKY_REFLECTION below, both of which buy the same contrast without spending legibility.
-        private const float GLASS_ALPHA = 0.62f;
+        //
+        //Transmittance and screen brightness are NOT the same claim here, and the gap is the tonemap rather
+        //than anything about the pane. Halving the transmittance (0.38 -> 0.19) moved the covered band by
+        //only a quarter, because the ACES curve compresses what it is handed: on this window the displayed
+        //level goes roughly as the transmittance to the power 0.44. Getting the owner's "about half as
+        //visible" ON SCREEN is what took 0.62 all the way to 0.92, and it lands at 0.41 of the covered
+        //band's old brightness with the dark types loaded. So do not read this figure as "how much light
+        //gets through" and expect the frame to follow.
+        private const float GLASS_ALPHA = 0.92f;
 
         //Radial thickness of the pane. Seated on the bore, so its outer face stands at BORE_RADIUS + this,
         //which has to stay under the slimmest steel the window crosses (the chase dip, outer - 0.075, i.e.
@@ -195,6 +221,13 @@ namespace Prazsky.BS3D
         //the sky it is achromatic and pale. That is what a pane made of it looks like: not glass but HAZE,
         //balls that read slightly out of focus rather than balls read through something. The tint can only
         //show once the pale wash over it is down, so the darkening and this cut are one change and not two.
+        //
+        //#365 left it exactly where it stands, having first measured what it is worth on the covered queue
+        //and found: nothing to speak of. Zeroed together with GLASS_COLOR the covered band moved by half a
+        //level out of 255, which is inside the capture noise. That does NOT retire the paragraph above - it
+        //was measured against a pane at 0.22, and the ratio form has held its product constant through two
+        //alpha changes since, so what is being measured now is a wash that was already cut to size. It does
+        //mean the next person to darken this window should reach for the alpha and leave this alone.
         private const float GLASS_SKY_REFLECTION = 0.13f;
 
         private const float GLASS_SPECULAR_AMBIENT = GLASS_SKY_REFLECTION / GLASS_ALPHA;
