@@ -23,13 +23,17 @@
 #     (#246). Everything here is CIEDE2000.
 #   - THE BALLS PULSE. They are emissive on a heartbeat and the phase differs between runs, which is about
 #     +-0.4 dE of noise on any single capture. Shoot twice before believing a small delta.
-#   - PASS "nooverc" OR YOU ARE MEASURING WEATHER (#334). The Testbed is the only executable that steps the
-#     overcast lerp - the Game never does and the editor cannot - so without the flag this script reads the
-#     palette under an ambient the game does not ship, by an amount that drifts with the cloud deck. Measured
-#     at "weather=overcast": red/orange 13.9 stepped against 17.6 pinned, black/silver 22.8 against 29.1,
-#     and the TIGHTEST PAIR changes identity (red/orange stepped, white/yellow pinned). Under a scattered
-#     sky the same pair of runs came back inside 1/255, which is why it went unnoticed: the term is
-#     sometimes worth nothing and sometimes worth six dE, and never under the measurer's control.
+#   - PASS "nooverc" so the reading is the game's light and is reproducible (#334). The Testbed is the only
+#     executable that steps the overcast lerp - the Game never does and the editor cannot - so without the
+#     flag this script reads the palette under an ambient the game does not ship. RE-MEASURED 2026-09-04 and
+#     the term is SMALL here, which the first note overstated: at "weather=overcast" (cover 1.000, the lerp
+#     settled at 0.982, ambient carried from 0.093/0.315/0.638 to 0.609/0.633/0.679) every ball moves 1-2
+#     codes, NO pair moves more than 1.4 dE and the tightest pair keeps its identity; under a scene's own
+#     weather it is under 0.5 dE, inside the pulse noise above. Pass it anyway - it costs nothing and it is
+#     the difference between a figure that is the game's and one that is this program's - but do not expect
+#     it to explain a large delta. Ranked over the same pair of captures the ARENA'S STONE moves most
+#     (9.7/6.2/1.5 codes), the balls next (6.3/5.2/3.9), the grass least: a neutral surface takes ambient
+#     more readily than a ball, whose key light and emission carry most of its read.
 #
 # The balls are beach-ball patterned: coloured gores alternating with white ones, plus a specular highlight.
 # Sampling the whole disc would measure the pattern rather than the colour, so each ball is reduced to the
