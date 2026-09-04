@@ -645,13 +645,34 @@ static const float SlabJointBevel = 0.03;
 //still darkens that pixel, in proportion to how much of it the joint covers. Fading it to nothing —
 //which is what measuring it against its own bevel did — deletes the only structure the floor has at a
 //scale the eye can see. It only leaves once the pixel can no longer resolve the slab grid itself.
+//
+//THE BEVEL IS WIDENED HARDER THAN THE WIDTH, AND THAT IS THE FIX FOR #351: two and a half pixels of
+//run-out against the width's half. It is the shoulder, not the floor, that has to survive being sampled -
+//and what it has to survive is the NORMAL being a per-quad quantity. PerturbNormalFromHeight builds its
+//normal out of ddx/ddy, and a screen derivative is one value per 2x2 quad, so a shoulder that climbs
+//inside one or two pixels tilts whole quads at a time. Strung along a joint running away from the eye that
+//is a row of 2x2 bright blobs - the beading #126 chased into the chromatic aberration, fixed the fringing
+//half of, and closed noting a residual. This is the residual. Stretched over ~5 pixels the same climb is
+//spread across several quads and reads as a line again.
+//
+//Four things were measured on the way and none of them is worth rediscovering:
+//  - it IS the direct highlight: forcing SurfaceSpecular.Highlight to 0 on this surface makes the beads
+//    vanish outright, so nothing about the groove's darkening is at fault;
+//  - Toksvig - the textbook answer, damping the highlight by the screen-space variance of the normal - is
+//    useless here, because that variance is identically zero for exactly the reason above. Drawn out as a
+//    colour the whole cap came back black, and the damping did nothing at 1.4 or at 50;
+//  - the beads are NOT on the pixels the groove's coverage marks: damping the covered pixels to zero left
+//    every one of them standing, and at the brightest beads the coverage-based gate measured 0.00;
+//  - and they are not a sub-pixel problem either. At the brightest beads the pixel measured SMALLER than
+//    the joint - the joint was fully resolved and beading anyway, which is what finally pointed at the
+//    quad rather than at the footprint.
 float SlabGrooveAxis(float coordinate, float footprint)
 {
     float cell = frac(coordinate / SlabSize);
     float distance = min(cell, 1 - cell) * SlabSize;
 
     float width = max(SlabJointWidth, footprint * 0.5);
-    float bevel = max(SlabJointBevel, footprint * 0.5);
+    float bevel = max(SlabJointBevel, footprint * 2.5);
 
     return (1 - smoothstep(width, width + bevel, distance)) * saturate(1 - footprint / (SlabSize * 0.5));
 }
