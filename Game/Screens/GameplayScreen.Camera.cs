@@ -109,10 +109,13 @@ namespace BS3D.Screens
         #region Fitting the camera and the gun to the level
 
         /// <summary>
-        /// Where the lens sits for a given stand-off — the overview pose, and the very pose
-        /// <see cref="GameCameraFit.Solve"/> searches over, so the one expression has one home. The bearing it
-        /// stands back along is flattened to the horizontal; the reason is on
-        /// <see cref="Cannon.StandBearing"/>, along with the camera's drop below the trunnions.
+        /// Where the lens sits for a given stand-off — the overview pose, built from the same expression
+        /// <see cref="GameCameraFit.Solve"/> searches over, so the one pose has one home. The stand-off handed
+        /// in is the level's; what comes back also carries the share of a <b>retreat</b> the lens goes along
+        /// with (<see cref="GameCameraFit.CANNON_ADVANCE_FOLLOW"/>, #322), which is why the W/S walk moves the
+        /// frame without the fit being re-solved. The bearing it stands back along is flattened to the
+        /// horizontal; the reason is on <see cref="Cannon.StandBearing"/>, along with the camera's drop below
+        /// the trunnions.
         /// </summary>
         private Vector3 GameCameraPositionAt(float distance) => GameCameraFit.CameraPosition(_cannon, distance);
 
