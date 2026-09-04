@@ -93,12 +93,15 @@ command line, not by pressing NumPad1/2:
   which is the same idea one layer further in. The Testbed is the only one of the three executables that
   steps `SkyLightRig.StepOvercast`: the Game deliberately never does (that palette would *lighten* a dusk
   city as the weather thickened) and the map editor has no deck to step it with — so the program every
-  colour judgement in this project is framed in was the only one applying the term, by an amount that drifts
-  with the cloud from one run to the next. Measured at its maximum (`weather=overcast`) it moves CIEDE2000
-  pairs by **+2 to +6 dE** against the light the game ships, and **changes which pair is the palette's
-  tightest** (stepped: red/orange 13.9; pinned: white/yellow 15.9). Under a scattered sky it can be worth
-  nothing at all — which is the problem, not the reassurance. It takes away that term and nothing else: the
-  deck still drifts and still occludes the sun per pixel, because the Game has both. #334.
+  colour judgement in this project is framed in is the only one applying the term. **Re-measured 2026-09-04,
+  it is worth less than the first note claimed**, and the corrected figure is the useful one: at its maximum
+  (`weather=overcast`, cover 1.000, the lerp settled at 0.982, hemisphere ambient carried from
+  `0.093/0.315/0.638` to `0.609/0.633/0.679`) every ball moves **1–2 codes**, **no CIEDE2000 pair moves more
+  than 1.4 dE**, and the tightest pair keeps its identity; under a scene's own weather it is under 0.5 dE,
+  inside the pulse noise. Pass it regardless — it is the difference between a figure that is the *game's* and
+  one that is this program's, and paired captures under it agree within ±0.3 dE — but **do not reach for it
+  to explain a large delta**: at two codes on a ball it cannot be one. It takes away that term and nothing
+  else: the deck still drifts and still occludes the sun per pixel, because the Game has both. #334.
 - **Every run prints one `[overcast]` line** saying which regime it was in, in Release as well as Debug.
   Grep it out of a capture's log before believing a colour delta.
 
@@ -302,10 +305,15 @@ named in `-Focus` — every pair that colour is in:
 .\palette.ps1 -Png palette.png -Focus @('orange','yellow','brown')
 ```
 
-**`nooverc` is not optional in that line** (#334). Without it the palette is measured through an ambient the
-game never draws, by an amount that depends on what cloud happened to be over the arena — worth up to 6 dE
-on a pair, and enough to change which pair reads as the tightest. The figures in #246, #294 and #315 were
-all taken before the flag existed.
+**`nooverc` belongs in that line** (#334): without it the palette is read under an ambient the game never
+draws. The figures in #246, #294 and #315 were all taken before the flag existed — and **re-read under it,
+2026-09-04, none of those three decisions moves**: black/navy 10.2 dE at its tightest over six styles and two
+domes, olive's nearest neighbour 10.1, black/brown 6.1–10.2. The term is worth ≤1.4 dE here (see the `nooverc`
+bullet above), so it was never what those decisions turned on.
+
+**What the same sweep did turn up is a pair nobody has filed: red/orange, 4.0 dE on the gem under dome 13**
+(5.3 marble/dome 13, 6.3 gem/dome 1, 7.2 vinyl/dome 1 — all `-Whole`), tighter than black/brown anywhere.
+Whether it reads as confusable in play is a question for the eye, not for this script.
 
 `F5` stops the simulation so the row hangs still, and the bottom row of that map is the enum's own order,
 which is what the script's `-Xs` sample points index — move the camera and you must move `-Xs`/`-RowY` with
