@@ -228,7 +228,23 @@ namespace Prazsky.BS3D
         /// </para>
         /// </summary>
         public static Vector3 CameraPosition(Cannon cannon, float distance) =>
-            LensPositionAt(cannon.OrbitCenterGround, cannon.StandBearing, cannon.Position.Y,
+            CameraPosition(cannon, distance, cannon.StandBearing);
+
+        /// <summary>
+        /// The same pose about a bearing the caller supplies, for a lens that does not stand exactly behind
+        /// the gun: the Game trails the gun's A/D turn and eases back in (#366), and hands the trailed
+        /// direction here rather than keeping a second copy of the lens expression. Everything else — the
+        /// stand-off, the walk's follow, the height floor — is the bearing-less overload's, so the two cannot
+        /// drift apart.
+        /// <para>
+        /// The bearing is expected horizontal and unit, as <see cref="Cannon.StandBearing"/> is. While it
+        /// differs from the gun's own, the lens is no longer on the gun's ray, so the gun sits off-centre and
+        /// its distance from the lens is a chord rather than the stand-off — which is the effect being asked
+        /// for, and is why the trail belongs to the executable that wants it rather than to the solve.
+        /// </para>
+        /// </summary>
+        public static Vector3 CameraPosition(Cannon cannon, float distance, Vector3 bearing) =>
+            LensPositionAt(cannon.OrbitCenterGround, bearing, cannon.Position.Y,
                 WalkedDistance(cannon, distance));
 
         /// <summary>

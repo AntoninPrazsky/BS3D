@@ -45,7 +45,7 @@ namespace BS3D.Screens
             //letting go re-asserts today's framing exactly and an interrupted hold never snaps.
             _preciseAim.Step(_adsHeld, elapsed);
 
-            Vector3 overviewPosition = GameCameraPositionAt(_gameCameraDistance);
+            Vector3 overviewPosition = GameCameraPositionAt(_gameCameraDistance, TrailedBearing(elapsed));
             Vector3 overviewTarget = new(_cannon.OrbitCenter.X, _gameCameraTargetY, _cannon.OrbitCenter.Z);
 
             //Taken as a VALUE, not written into the camera: the cinematic below goes on lerping over it, and
@@ -104,6 +104,63 @@ namespace BS3D.Screens
             Camera.Update(elapsed);
         }
 
+        /// <summary>
+        /// How long the lens takes to give up most of its lag behind the gun's A/D turn: the time constant of
+        /// a first-order chase, so it settles asymptotically and <b>never overshoots</b> — a sight that wobbled
+        /// back would read as loose machinery rather than as weight (#366).
+        /// <para>
+        /// It buys a trail of <c>turn rate × this</c> while a key is held: at the gun's full orbit speed
+        /// (<see cref="Cannon.RotationSpeed"/>, 1 rad/s) that is about 12°, and the lens is back behind the gun
+        /// within ~0.7 s of letting go. Read as a trail rather than as a delay: the frame keeps moving the
+        /// whole time, it simply arrives after the gun does.
+        /// </para>
+        /// </summary>
+        private const float BEARING_TRAIL_SECONDS = 0.22f;
+
+        //The lens's own orbit angle, chasing the gun's. Seeded on the first frame it is asked for after a
+        //fit rather than in a constructor: FitCannonAndGameCameraToLevel can put the gun somewhere new
+        //between levels, and a trail that eased in from the previous level's bearing would swing the whole
+        //frame around the arena on the first frame of the next one.
+        private float _lensBearingAngle;
+        private bool _lensBearingSeeded;
+
+        /// <summary>
+        /// The direction the overview lens stands back along: the gun's own, trailed. It lags a turn by
+        /// <see cref="BEARING_TRAIL_SECONDS"/> and eases in when the gun stops, which is what makes an A/D turn
+        /// read as the gun pulling away from the camera rather than as the world spinning about a fixed gun.
+        /// <para>
+        /// <b>Precise aim gets none of it</b>, and not by a switch: the lag is interpolated out by
+        /// <see cref="PreciseAim.Blend"/> itself, so the pose ADS blends <i>from</i> is already the true
+        /// bearing by the time the blend has any weight, and there is no frame on which pressing RMB moves the
+        /// overview end of that Lerp. A snap-when-held would have done it at the cost of the very jump #322
+        /// closed for the walk.
+        /// </para>
+        /// </summary>
+        private Vector3 TrailedBearing(float elapsed)
+        {
+            Vector3 standing = _cannon.StandBearing;
+            float trueAngle = MathF.Atan2(standing.Z, standing.X);
+
+            if (!_lensBearingSeeded)
+            {
+                _lensBearingAngle = trueAngle;
+                _lensBearingSeeded = true;
+            }
+
+            //Chased as an ANGLE and through WrapAngle, not as a lerp of the two direction vectors: a vector
+            //lerp cuts the chord, so it shortens as it goes and would drift the lens off its stand-off, and it
+            //takes the long way round whenever the two bearings straddle ±π.
+            float behind = MathHelper.WrapAngle(trueAngle - _lensBearingAngle);
+
+            _lensBearingAngle = MathHelper.WrapAngle(
+                _lensBearingAngle + behind * (1f - MathF.Exp(-elapsed / BEARING_TRAIL_SECONDS)));
+
+            float aimed = MathHelper.WrapAngle(
+                _lensBearingAngle + MathHelper.WrapAngle(trueAngle - _lensBearingAngle) * _preciseAim.Blend);
+
+            return new Vector3(MathF.Cos(aimed), 0f, MathF.Sin(aimed));
+        }
+
         #endregion
 
         #region Fitting the camera and the gun to the level
@@ -116,8 +173,17 @@ namespace BS3D.Screens
         /// frame without the fit being re-solved. The bearing it stands back along is flattened to the
         /// horizontal; the reason is on <see cref="Cannon.StandBearing"/>, along with the camera's drop below
         /// the trunnions.
+        /// <para>
+        /// The bearing-less overload stands the lens on the gun's own ray, which is what the level's opening
+        /// pose and the chapter intro's home pose want. The per-frame gameplay lens takes the other one and
+        /// hands it a <see cref="TrailedBearing"/> instead (#366).
+        /// </para>
         /// </summary>
         private Vector3 GameCameraPositionAt(float distance) => GameCameraFit.CameraPosition(_cannon, distance);
+
+        /// <summary>As above, about a bearing the caller has trailed behind the gun's own.</summary>
+        private Vector3 GameCameraPositionAt(float distance, Vector3 bearing) =>
+            GameCameraFit.CameraPosition(_cannon, distance, bearing);
 
         /// <summary>
         /// The viewport has changed size or shape under the session: the aim's mouse baseline is stale (the
@@ -172,6 +238,10 @@ namespace BS3D.Screens
             _cannon.OrbitRadius = fit.CannonOrbitRadius;
             _cannon.SetAdvanceRange(fit.CannonMinRadius, fit.CannonMaxRadius);
             _cannon.ElevationLimit = SolveElevationLimit();
+
+            //The lens's trail starts behind the gun rather than easing in from where the last level left it
+            //(#366) — a placed gun is a placed camera, the same rule Cannon.RestRadius follows for the walk
+            _lensBearingSeeded = false;
 
             Console.WriteLine($"[camera] Field {_map.StageSizeX}x{_map.StageSizeZ}x{_map.Levels}"
                 + (FieldIsTallerThanFrame ? $" (framing its lowest {FRAMED_LEVELS} to y {FramedTopY():F1})" : string.Empty)
