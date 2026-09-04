@@ -938,6 +938,11 @@ namespace BS3D
             //never refits the session's: a kept session continues drawing the one its level fitted.
             _menuCeilingPlate = new CeilingPlate(GraphicsDevice, _instancingEffect);
 
+            //The game's own pointer, wherever the pointer is visible at all (#350). Published once, here:
+            //the cursor Windows holds needs no re-setting per frame, and setting it per frame is a known way
+            //to crash MonoGame. Which SCREENS show it is IsMouseVisible's business, untouched by this.
+            Platform.StylizedPointer.Publish(GraphicsDevice);
+
             //The overlay's own batch, shared by the HUD and the crosshair the session draws into it
             _spriteBatch = new SpriteBatch(GraphicsDevice);
 
