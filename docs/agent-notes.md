@@ -3888,3 +3888,19 @@ K tomu: čtyři solutiony 0 chyb, LevelGen exit 0, ScoreSim 0, **kampaň bajt za
 **⚠ Provozní poznámka, ať to nikdo nemusí luštit z historie:** dělal jsem ve **vlastním worktree** `C:\Users\panrd\source\repos\BS3D-322`. V majitelově stromě leží rozdělané **#360** (`Game/Levels/*`, `Tools/LevelGen/Program.cs`, `docs/formats-and-tools.md`) **bez jediného commitu** a dva z těch souborů se mezitím změnily i na mainu — přepnutí větve by je git odmítl přepsat a stashovat cizí nedodělek nepřipadá v úvahu. Na žádný z nich jsem nesáhl.
 
 **Co zůstává otevřené a je to vlastní issue, ne tahle větev:** ta **jednostranná chůze**. `W` je z klidu mrtvá klávesa na každém nasazeném levelu a náprava je buď posunout klidový poloměr ven (mění pocit i mířidla všech levelů naráz), nebo pustit kola nad sklo odvodu (to `CANNON_DRAIN_CLEARANCE` zakazuje z měřených důvodů). To je rozhodnutí majitele, ne vedlejší efekt opravy kamery.
+
+---
+
+## 2026-09-04 — Claude Code (druhý zápis dne)
+
+**Majitel zadal „pracuj dál sám, dokud ti nedojde limit", a je jediný agent na repu, takže tenhle zápis je jen rozcestník — argumenty jsou v komentářích u kódu a v `docs/`, kam patří.**
+
+Zavřeno a na mainu: **#334** (přeměření palety pod světlem, se kterým se hra prodává), **#366** (objektiv vleče otočku děla a doklouže zpátky), **#365** (tmavší sklo okénka), **#363** (oprava těla #355), **#351** (spáry desek přestaly korálkovat). Založeno: **#364** (chůze děla nemá dopřednou půlku) a **#367** (Testbed vs. editor se rozcházely v barvě kuliček víc, než #334 dokáže vysvětlit). Zavřeno bez práce na majitelovo rozhodnutí: **#357** (barvoslepost — „nikdo barvoslepý hru hrát nebude").
+
+**Tři věci, které stojí za přečtení i mimo své issue, protože každá zabila jinak rozumnou opravu:**
+
+1. **#351: normála je konstantní přes 2×2 kvádr.** `PerturbNormalFromHeight` ji staví z `ddx`/`ddy`, a screen derivace je jedna hodnota na kvádr — takže náběh zkosení, který stoupne uvnitř jednoho pixelu, naklopí **celé kvádry naráz**. Odtud korálky. Toksvig (učebnicová oprava) je tady k ničemu, protože ta odchylka je **přesně nula** — vykreslená barvou byla celá deska černá. Oprava je jedno číslo: náběh se roztahuje 2,5× footprintu tam, kde se šířka roztahuje 0,5×.
+2. **#334: člen zatažení je na kuličkách malý.** Řízeně měřeno uvnitř jednoho programu při `cover 1.000` (lerp na 0,982, ambient z 0,093/0,315/0,638 na 0,609/0,633/0,679): kulička se hne o **1–2 úrovně**, žádný pár CIEDE2000 o víc než 1,4 dE. Dvouprogramová čísla v tělu #334 tedy nejsou tímhle členem a jsou teď #367.
+3. **#365: propustnost není jas na obrazovce.** Půlka propustnosti hnula zakrytou frontou o čtvrtinu — ACES to stlačí, na tomhle okně jde jas zhruba jako `propustnost^0,44`. „O polovinu tmavší" proto stálo alfu 0,62 → 0,92, ne 0,81.
+
+**Provozně:** pracuju ve vlastním worktree `BS3D-322` (majitelův strom drží nedokončené #360 bez commitu a nesahám na něj). Ověřování všude stejné: čtyři solutiony, ScoreSim tam, kde se dotýká skóre, a fotky z běžící hry nebo Testbedu s pevnou kamerou.
