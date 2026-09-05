@@ -1,3 +1,4 @@
+using BS3D.Audio;
 using Prazsky.Core.Render;
 using Prazsky.Core.Tools;
 using System;
@@ -58,6 +59,64 @@ namespace BS3D
         internal void CycleMusicVolume() => CycleVolume(ref _musicVolume, v => _settings.MusicVolume = v);
 
         internal void CycleAmbienceVolume() => CycleVolume(ref _ambienceVolume, v => _settings.AmbienceVolume = v);
+
+        /// <summary>
+        /// Which composition plays, cycled so it can be listened to (#279). It is a <b>preview</b> and not a
+        /// setting: nothing on this path reaches <c>_settings</c>, so it cannot outlive the run, and nothing
+        /// on it reaches a level's own <c>music</c> field either — what it changes is the next two minutes.
+        /// <para>
+        /// The values are the game's own compositions, named by <c>MusicTheme</c> itself, plus <b>Auto</b> to
+        /// wrap back to: the piece the moment would play unasked, which is the front end's loop in the menus
+        /// and the level's own theme in a level. Auto is offered <b>only on the front end</b>, because that
+        /// is the only place a pick silences something the game would otherwise be playing — inside a level
+        /// the theme comes back on its own at the next level, so the wrap there simply goes round again.
+        /// </para>
+        /// <para>
+        /// It keeps no state of its own. The row reads <see cref="MusicTrack"/> off the music, so a level
+        /// installing its theme over a preview — or a return to the menus taking the loop back — moves the
+        /// row with it, instead of leaving a name standing over a piece that stopped minutes ago.
+        /// </para>
+        /// </summary>
+        internal void CycleMusicTrack()
+        {
+            if (_music == null) return;
+
+            MusicTheme? next = NextMusicTrack(_music.SoundingTheme);
+
+            if (next == null)
+            {
+                //Exactly the handover the front end's own edge takes (see the music block in Update): the
+                //theme leaves under the loop's held pads rather than being cut.
+                _music.FadeOut();
+                _music.PlayMenu();
+            }
+            else
+            {
+                _music.StopMenu();
+                _music.SetTheme(next.Value);
+
+                //Needed even when SetTheme found the piece already selected: on the front end the theme's
+                //chain was retired when the menus took over, so nothing is sounding for it to keep.
+                _music.Play();
+            }
+
+            _settingsPage.Refresh();
+        }
+
+        /// <summary>
+        /// Steps the picker: Auto leads to the first composition, and the last leads back to Auto so a stray
+        /// click in the menus is one wrap from the loop it interrupted. In a level, where Auto has no loop to
+        /// mean, the wrap goes straight round to the first piece again.
+        /// </summary>
+        private MusicTheme? NextMusicTrack(MusicTheme? current)
+        {
+            if (current == null) return (MusicTheme)0;
+
+            int next = (int)current.Value + 1;
+            if (next < ProceduralMusic.ThemeCount) return (MusicTheme)next;
+
+            return _menuMusicOn ? null : (MusicTheme)0;
+        }
 
         private void CycleVolume(ref float volume, Action<float> store)
         {

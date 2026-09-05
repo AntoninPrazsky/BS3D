@@ -1,4 +1,5 @@
-﻿using BS3D.Screens;
+﻿using BS3D.Audio;
+using BS3D.Screens;
 using FontStashSharp;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
@@ -537,6 +538,12 @@ namespace BS3D
         internal float SfxVolume => _sfxVolume;
         internal float MusicVolume => _musicVolume;
         internal float AmbienceVolume => _ambienceVolume;
+
+        //Which composition is sounding, or null for Auto — the piece the moment plays by itself, which is the
+        //front end's loop in the menus and the level's own theme in a level. Read straight off the music and
+        //never off a remembered pick, so the track row cannot outlive what it names (#279).
+        internal MusicTheme? MusicTrack => _music?.SoundingTheme;
+
         internal bool IsAberrationEnabled => _aberration;
         internal bool IsGrainEnabled => _grain;
         internal bool IsDropCinematicEnabled => _dropCinematic;
