@@ -404,6 +404,11 @@ namespace Testbed
         //its ceiling with it - and for the length of barrel that hangs below the frame's centre.
         private static readonly float GAME_FOV = (float)Math.PI / 4.2f;
         private static readonly float FREE_FOV = (float)Math.PI / 2.5f;
+
+        //What the free camera is actually using: FREE_FOV unless "fov=" named another (#367). An instance
+        //field and not a second constant, because the game-mode animation lerps BACK to it and would
+        //otherwise return a run to a field of view it never had.
+        private float _freeFov = FREE_FOV;
         private static readonly Vector3 DEFAULT_CAMERA_POS = new (0f, -3f, 30f);
 
         #endregion Graphics
@@ -544,7 +549,9 @@ namespace Testbed
         {
             IsMouseVisible = true;
 
-            _camera = new BasicCamera3D(DEFAULT_CAMERA_POS, GraphicsDevice.Viewport.AspectRatio, FREE_FOV);
+            if (_options.FreeFovDegrees is float freeFovDegrees) _freeFov = MathHelper.ToRadians(freeFovDegrees);
+
+            _camera = new BasicCamera3D(DEFAULT_CAMERA_POS, GraphicsDevice.Viewport.AspectRatio, _freeFov);
 
             //Testing camera pose from the command line: position, then aim (the Target setter rebuilds the view
             //and the look angles, so mouse-look carries on from there). Target defaults to the arena at the origin.

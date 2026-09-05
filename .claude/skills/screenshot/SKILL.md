@@ -52,6 +52,12 @@ startup args (parsed in `Program.cs`, applied in `Initialize`):
 
 - `campos=x,y,z` — place the free camera here.
 - `camtarget=x,y,z` — aim it at this world point (defaults to the arena at the origin `0,0,0`).
+- `fov=<degrees>` — the free camera's **vertical field of view**, default 72 (#367). A pose is only half of a
+  framing: the same `campos`/`camtarget` at a different FOV puts a ball at a different on-screen size, and a
+  ball's own shader band-limits its pattern by screen footprint, so its sampled colour follows that size.
+  This exists because the map editor's camera is **45°** and matching it was otherwise impossible — see
+  "Comparing the Testbed against the map editor" below. Free camera only; game mode has its own FOV and a run
+  that presses F10 comes back to this one.
 
 **⚠ Do not aim straight up or straight down.** A target directly above or below the position is parallel to the
 up vector, `Matrix.CreateLookAt` degenerates, and the frame comes back as **one flat colour with nothing drawn
@@ -291,6 +297,45 @@ $g.DrawImage($crop, 0,0,1520,680); $big.Save('shot_crop.png')
 Note the HUD text and the crosshair draw **after** the tonemap resolve (display space), so they stay sharp and are
 never affected by scene-space effects like the underwater blur — don't judge a blur by the overlay.
 
+## Comparing the Testbed against the map editor (#367)
+
+The editor is the only cross-check the Testbed has, so "do the two agree about a ball's colour" is worth being
+able to ask — and #334 asked it by pressing **D1 in both**, which reads as a 77-code gap in the green channel
+and is an artefact of the framing. **The two `D1` presets have nothing in common but their name**, and there
+are four differences, every one of which moves a sampled colour:
+
+| | Testbed `D1` | map editor `D1` |
+|---|---|---|
+| distance | a flat **15** units (`CameraInputHelper.CameraOffset`'s default, which the Testbed never sets) | **fitted to the map's AABB** with a 1.1 margin — 11.95 on `Thirteen_Colors` |
+| aim point | the world **origin** | the **map's own AABB centre** |
+| field of view | **72°** (`FREE_FOV`) | **45°** |
+| the map's place in the world | **centred** (`BallsMap.Center`) | the **grid frame**, so the same map hangs at a different X/Z |
+| window | 1600×900 | 1280×800 — and the aspect feeds the editor's own fit |
+
+Together those put the balls at roughly a **third** the on-screen size in the Testbed, through a different
+depth of the meadow's haze. So the repro is to pin *both* cameras, not to press a key in both:
+
+```powershell
+# the editor's D1 for this map, printed by a temporary probe in CenterViewOn:
+#   pos (6.25, 2.475, -11.703)  target (6.25, 2.475, 0.25)  fov 0.7854  aspect 1.6
+# the same pose in the Testbed, whose copy of the map is CENTRED, so X/Z come back to zero:
+Testbed.exe parity.json fov=45 width=1280 height=800 `
+    campos=0,2.4748728,-11.9535 camtarget=0,2.4748728,0 nopost nooverc weather=clear
+MapEditor.exe parity.json     # then D1, F12 (text), G (the config panel)
+```
+
+Hand **one level file** to both rather than a map plus flags: a level carries the scene, the dome and the ball
+style, so neither program is left on its own defaults (the editor's are City and dome 1, and it has no
+command line at all beyond the file path).
+
+**Measured that way, 2026-09-05, the two programs agree.** Four captures each at stepped settles, means
+compared: **green 2.46 dE, red 1.57, yellow 2.27, magenta 2.02** — every one of them *three to five times
+smaller* than the gap each program shows against **itself** between two moments (5.8–11.1 dE, the heartbeat;
+see the palette section below). Phase for phase they agree to 1–2 codes: the green ball reads
+164.4 / 186.2 / 195.9 / 164.5 in the editor and 203.7 / 184.9 / 193.4 / 164.0 in the Testbed over the four,
+the same oscillation with one phase landing differently. So **CLAUDE.md's claim that the editor draws the
+balls the way the game does is safe**, and #334's 77-code gap was never a renderer difference.
+
 ## Answering "this ball colour is too close to that one": `palette.ps1`
 
 Recurring issue type here (#152, #246, #294; #285 and #286 are open as this is written), and it has a
@@ -327,8 +372,16 @@ rather than ending it**. Three traps, each already paid for and repeated in the 
   confusion (#294).
 - **ΔE76 is the wrong instrument**: it scores a pure lightness gap like a hue gap, and once ranked
   black/navy *ninth* while three pairs nobody has ever complained about measured tighter (#246).
-- **The balls pulse** (emissive heartbeat, phase differs per run): about ±0.4 dE of noise on a single
-  capture, so shoot twice before believing a small delta.
+- **⚠ The balls pulse, and a single capture is worth far more noise than this section said until #367.** The
+  figure here was "about ±0.4 dE … so shoot twice"; **measured 2026-09-05 it is up to 11 dE**. Same level,
+  same camera, same dome, `nopost nooverc weather=clear`, four captures of one green ball at four moments:
+  the widest CIEDE2000 gap between two of them was **8.97 dE in the map editor and 11.08 dE in the Testbed**,
+  and the raw green channel walked 164 → 186 → 196 → 164. Red, yellow and magenta span 5.8–10.4 dE the same
+  way. The editor runs no simulation and draws no clouds, so in *that* program the heartbeat is the only
+  thing that can be moving, which is what identifies it.
+  **So a single capture cannot settle a delta under about 10 dE.** Shoot a series at stepped `-Settle`
+  values and compare the *means*, or compare two programs at a matched phase — where they agree to 1–2
+  codes. Every palette figure taken from one capture carries this, tightest-pair rankings included.
 
 And the finding that outlives any one issue: **moving one colour alone relocates the confusion rather than
 ending it** — check the whole pair list after a change, not just the pair that was complained about.
