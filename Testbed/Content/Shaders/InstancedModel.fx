@@ -613,23 +613,6 @@ float SurfaceReliefWorld(float3 worldPosition, float frequency, float3 dpdx, flo
         + 0.07 * ReliefOctaveDirectional(worldPosition, float3(0.18, -0.91, 0.37), frequency * 9.87, dpdx, dpdy);
 }
 
-//Tilts a normal by a height field using only screen-space derivatives, for the same reason
-//CotangentFrame exists: the instance streams carry no tangents, and the object-to-world rotation
-//never reaches the pixel shader. Christian Schueler, "Bump Mapping Unparametrized Surfaces on the GPU".
-float3 PerturbNormalFromHeight(float3 normal, float3 worldPosition, float height)
-{
-    float3 dpdx = ddx(worldPosition);
-    float3 dpdy = ddy(worldPosition);
-
-    float3 r1 = cross(dpdy, normal);
-    float3 r2 = cross(normal, dpdx);
-
-    float determinant = dot(dpdx, r1);
-    float3 surfaceGradient = sign(determinant) * (ddx(height) * r1 + ddy(height) * r2);
-
-    return normalize(abs(determinant) * normal - surfaceGradient);
-}
-
 //The world-space relief of a scene object, ready to hand to PerturbNormalFromHeight.
 //Takes the world-space screen derivatives rather than a scalar footprint so every octave can be
 //band-limited along its own direction (see ReliefOctaveDirectional).

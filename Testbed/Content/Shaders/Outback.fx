@@ -341,22 +341,6 @@ OutbackVertexOutput OutbackVS(OutbackVertexInput input)
 
 //--- The surface ---------------------------------------------------------------------------------------
 
-//Tangent-free normal tilt from a height field (Christian Schueler), the same one the balls, the ground relief
-//and every terrain scene here use - the grid carries no tangents and the fine relief never reaches it anyway.
-float3 PerturbNormalFromHeight(float3 normal, float3 worldPosition, float height)
-{
-    float3 dpdx = ddx(worldPosition);
-    float3 dpdy = ddy(worldPosition);
-
-    float3 r1 = cross(dpdy, normal);
-    float3 r2 = cross(normal, dpdx);
-
-    float determinant = dot(dpdx, r1);
-    float3 surfaceGradient = sign(determinant) * (ddx(height) * r1 + ddy(height) * r2);
-
-    return normalize(abs(determinant) * normal - surfaceGradient);
-}
-
 float4 OutbackPS(OutbackVertexOutput input) : COLOR
 {
     float3 worldPosition = input.WorldPosition;

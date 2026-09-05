@@ -164,21 +164,6 @@ ForestVertexOutput ForestVS(ForestVertexInput input)
     return output;
 }
 
-//Tangent-free normal tilt from a height field, as everywhere else in this project
-float3 PerturbNormalFromHeight(float3 normal, float3 worldPosition, float height)
-{
-    float3 dpdx = ddx(worldPosition);
-    float3 dpdy = ddy(worldPosition);
-
-    float3 r1 = cross(dpdy, normal);
-    float3 r2 = cross(normal, dpdx);
-
-    float determinant = dot(dpdx, r1);
-    float3 surfaceGradient = sign(determinant) * (ddx(height) * r1 + ddy(height) * r2);
-
-    return normalize(abs(determinant) * normal - surfaceGradient);
-}
-
 //A fine needle/moss texture that drifts on the wind, band-limited PER OCTAVE against the footprint (the
 //ball relief's rule: one global fade has to be tuned for the finest wave and flattens the lot at arm's
 //length, while per-octave fades let each drop out exactly where the pixels stop resolving it). Four

@@ -269,22 +269,6 @@ float ChopHeight(float2 xz, float footprint)
     return h * ChopAmplitude;
 }
 
-//Tangent-free normal tilt from a height field (Christian Schueler), the same one the balls and the ground
-//relief use - the grid carries no tangents and the chop never reaches the vertices anyway.
-float3 PerturbNormalFromHeight(float3 normal, float3 worldPosition, float height)
-{
-    float3 dpdx = ddx(worldPosition);
-    float3 dpdy = ddy(worldPosition);
-
-    float3 r1 = cross(dpdy, normal);
-    float3 r2 = cross(normal, dpdx);
-
-    float determinant = dot(dpdx, r1);
-    float3 surfaceGradient = sign(determinant) * (ddx(height) * r1 + ddy(height) * r2);
-
-    return normalize(abs(determinant) * normal - surfaceGradient);
-}
-
 float4 SeaPS(SeaVertexOutput input) : COLOR
 {
     float3 worldPosition = input.WorldPosition;

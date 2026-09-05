@@ -143,23 +143,6 @@ MountainVertexOutput MountainVS(MountainVertexInput input)
     return output;
 }
 
-//Tangent-free normal tilt from a height field (Christian Schueler), as everywhere else in this project
-float3 PerturbNormalFromHeight(float3 normal, float3 worldPosition, float height)
-{
-    float3 dpdx = ddx(worldPosition);
-    float3 dpdy = ddy(worldPosition);
-
-    float3 r1 = cross(dpdy, normal);
-    float3 r2 = cross(normal, dpdx);
-
-    float determinant = dot(dpdx, r1);
-    float3 surfaceGradient = sign(determinant) * (ddx(height) * r1 + ddy(height) * r2);
-
-    //Guard the determinant off zero: at the far peaks' grazing angles ddx/ddy of the world position go
-    //near-degenerate, and abs(determinant) hitting 0 makes normalize(0) return NaN. The floor keeps it alive.
-    return normalize(max(abs(determinant), 1e-4) * normal - surfaceGradient);
-}
-
 //Rough rock texture, and it is FRACTAL NOISE and not crossed sines - which it was until #170, the third and
 //last instance of that defect this project has found. #86 took MountainField's own massing off the same
 //construction and #117 did the same for the savanna's GrassRelief; this was the one left, and #140 even added

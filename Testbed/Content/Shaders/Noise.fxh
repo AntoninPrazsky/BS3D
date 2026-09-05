@@ -346,3 +346,37 @@ float2 VoronoiEdgeCell3(float3 p)
 
     return float2(sqrt(second) - sqrt(best), bestCell);
 }
+
+//===================================================================================================
+//THE HEIGHT FIELD'S NORMAL, IN ONE COPY (#297)
+//
+//Tilts a normal by a height field using only screen-space derivatives, for the same reason
+//InstancedModel.fx CotangentFrame exists: the instance streams carry no tangents and the object-to-world
+//rotation never reaches a pixel shader, so the frame is rebuilt from the screen-space derivatives of the
+//position and of the height. Christian Schueler, "Bump Mapping Unparametrized Surfaces on the GPU".
+//
+//IT LIVES HERE BECAUSE IT WAS COPIED TWELVE TIMES. The audit #297 asked for found this function
+//character-for-character in eleven scene shaders and in InstancedModel.fx - and, more to the point, found
+//that the eleven were NOT all the same function: the mountains and the volcano carried a guard the other
+//nine and the instanced shader did not, added where somebody noticed the fault and nowhere else. That is
+//the exact shape #297 exists to attack, so the guarded version is now the only version. Every file that
+//had a copy already includes this header, so nothing gained an include line for it.
+//
+//THE GUARD is the determinant floor. At a grazing angle ddx/ddy of the world position go near-degenerate,
+//the determinant collapses to zero, and normalize(0) is NaN - which reaches the frame as a black or
+//white speck on a far surface. It was found on the mountains' far peaks and it was never theirs alone:
+//the dunes, the sea, the moon's regolith and the island's own stone are all height fields seen at
+//grazing angles.
+float3 PerturbNormalFromHeight(float3 normal, float3 worldPosition, float height)
+{
+    float3 dpdx = ddx(worldPosition);
+    float3 dpdy = ddy(worldPosition);
+
+    float3 r1 = cross(dpdy, normal);
+    float3 r2 = cross(normal, dpdx);
+
+    float determinant = dot(dpdx, r1);
+    float3 surfaceGradient = sign(determinant) * (ddx(height) * r1 + ddy(height) * r2);
+
+    return normalize(max(abs(determinant), 1e-4) * normal - surfaceGradient);
+}
