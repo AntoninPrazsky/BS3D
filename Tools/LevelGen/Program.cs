@@ -1,6 +1,7 @@
 ﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.GameStructure.DataBags;
 using Prazsky.BS3D.Levels;
+using Prazsky.BS3D.Physics;
 using Prazsky.Core.Render;
 using Prazsky.Core.Tools;
 using System;
@@ -12080,14 +12081,15 @@ namespace BS3D.Tools.LevelGen
 
         /// <summary>
         /// <b>The glass half's finale, and the level that inverts the whole idea.</b> A hollow stepped
-        /// octahedron — a solitaire, cut in three-course steps — whose entire outer surface is clear and
-        /// whose colour lives one ring in, so what hangs over the island is a colourless stone with its fire
-        /// somewhere inside it.
+        /// octahedron — a solitaire, cut in three-course steps — whose four facets are clear and whose
+        /// colour lives one ring in and along its four edges, so what hangs over the island is a colourless
+        /// stone with its fire somewhere inside it and its cut drawn on the outside.
         /// <para>
         /// Every level before this used the glass as a mark ON a coloured body; this one makes the body
-        /// glass and the colour the mark. It plays as a different game for it: a shot cannot reach a colour
-        /// at all until it has made one, so the first act of every exchange is turning a patch of the
-        /// surface into something, and the drop that follows takes the coloured ring behind it as well.
+        /// glass and the colour the mark — the edges being the only mark the surface carries. It plays as a
+        /// different game for it: a shot has almost no colour to reach until it has made one, so the first
+        /// act of most exchanges is turning a patch of a facet into something, and the drop that follows
+        /// takes the coloured ring behind it as well.
         /// </para>
         /// <para>
         /// <b>The anchor course is solid colour</b>, which is the block's law and also the reason this shape
@@ -15170,12 +15172,43 @@ namespace BS3D.Tools.LevelGen
         /// <see cref="FindLonelyBalls"/> refuses. Clearing the whole tip is the honest answer: a body one
         /// unit across has no room for a coloured core and should not pretend to.
         /// </para>
+        /// <para>
+        /// <b>⚠ THE FOUR EDGES OF THE STONE STAY COLOURED, and that is what keeps one landing from taking a
+        /// quarter of the level (#362).</b> A taxicab ring is <i>not</i> connected within its own course —
+        /// a same-level step changes the taxicab distance by exactly one, so no two cells of a ring touch —
+        /// which means a glass body here is a ring <b>stacked</b> through the three courses of a step. With
+        /// the rings whole, the four steps were four bodies of 12, 36, 60 and 56, and a landing in the riser
+        /// between two steps reaches <b>both</b>: measured, the best landing on this level coloured
+        /// <b>116 of its 444 balls</b> and took 186 of them down, where the rest of the block pays 5 to 50.
+        /// Cutting the ring at the stone's edges — the cells within one unit of either axis, which are the
+        /// diamond's four points — turns each step's ring into four stacked <i>facets</i>, so a riser landing
+        /// takes two facets of one quadrant instead of two whole steps: <b>21 coloured and 86 down</b>, which
+        /// is where Harlequin and Diadem sit. It reads as a step-cut stone rather than as a repair, the
+        /// coloured edges being what a cut stone shows anyway.
+        /// </para>
+        /// <para>
+        /// <b>The rule is min(|dx|, |dz|) &lt; 1 and the threshold is exact rather than tuned</b>: an odd
+        /// course's cells sit on integers and an even course's on half-integers, so the only values that
+        /// exist below 1 are 0 and 0.5 — the edge is one cell wide on an odd course and two on an even one,
+        /// and nothing between 0.5 and 1 changes anything. At 1 <i>inclusive</i> the cut takes a cell too
+        /// many and leaves single panes standing alone, which <see cref="FindStrandedSpecials"/> refuses.
+        /// The tip is spared for its own reason above: a body one unit across has no facets to cut.
+        /// </para>
         /// </summary>
-        private static BallKind SolitaireKind(int x, int z, int i, int depth) =>
-            i < depth - 1
-            && (SolitaireRim(i) <= 1 || MirageTaxicab(x, z, i, SOLITAIRE_GRID) == SolitaireRim(i))
-                ? BallKind.Transparent
-                : BallKind.Normal;
+        private static BallKind SolitaireKind(int x, int z, int i, int depth)
+        {
+            if (i >= depth - 1) return BallKind.Normal;
+
+            float rim = SolitaireRim(i);
+            if (rim <= 1f) return BallKind.Transparent;
+
+            if (MirageTaxicab(x, z, i, SOLITAIRE_GRID) != rim) return BallKind.Normal;
+
+            float dx = MathF.Abs(MirageDx(x, i, SOLITAIRE_GRID));
+            float dz = MathF.Abs(MirageDz(z, i, SOLITAIRE_GRID));
+
+            return MathF.Min(dx, dz) < 1f ? BallKind.Normal : BallKind.Transparent;
+        }
 
         //THE ANVIL. A bell of colour on a stone point: the bottom three courses, which are the lowest and
         //nearest thing in the level and therefore the first thing anybody shoots at.
@@ -16165,10 +16198,11 @@ namespace BS3D.Tools.LevelGen
 
         /// <summary>
         /// How many balls the best single shot of one colour would bring down: the standing group of that
-        /// colour whose removal brings the most with it, plus everything that group was the last anchor for.
-        /// This is the number that decides whether a design is a level or a firework — a colour that drops
-        /// the whole cluster means the anchor layer is one colour, and the level is over on the first lucky
-        /// ball.
+        /// colour whose removal brings the most with it, plus everything that group was the last anchor for —
+        /// <b>and, since #362, the best landing into the glass as well</b>, which on a level with a large
+        /// clear body is a different and much larger number. This is the figure that decides whether a design
+        /// is a level or a firework — a colour that drops the whole cluster means the anchor layer is one
+        /// colour, and the level is over on the first lucky ball.
         /// </summary>
         /// <remarks>
         /// <b>EVERY group of the colour is tried, not merely the largest one (#98).</b> What is wanted here is
@@ -16183,6 +16217,15 @@ namespace BS3D.Tools.LevelGen
         /// no clone. Its constructor builds its own array out of the data rather than aliasing it, so the
         /// caller's <paramref name="data"/> survives all of them. This is an offline tool and the cost is a
         /// rebuild per standing group, which is nothing against being told a level is safe when it is not.
+        /// </para>
+        /// <para>
+        /// <b>⚠ THE STANDING-GROUP HALF ALONE WAS BLIND ON EVERY GLASS LEVEL, and #362 is where that was
+        /// measured rather than reasoned about.</b> #344 made a landing colour the whole connected body of
+        /// glass, so on <c>Solitaire</c> one shot turns 116 of 444 balls into one colour and takes them —
+        /// while this test, modelling groups that are standing in the layout as authored, reported <i>"best
+        /// single shot drops 22 (4 %)"</i>. A gate whose percentage is out by that factor is worse than no
+        /// gate, because it is quoted. So <see cref="GlassLandingDrop"/> plays the landing instead of reading
+        /// it, and the answer here is the larger of the two paths.
         /// </para>
         /// </remarks>
         private static int DropTest(BallPositionTypes data, BallType type)
@@ -16222,6 +16265,78 @@ namespace BS3D.Tools.LevelGen
                 int dropped = group.Count + map.GetCellsDisconnectedFromCeiling().Count;
                 if (dropped > worst) worst = dropped;
             }
+
+            return Math.Max(worst, GlassLandingDrop(data, type));
+        }
+
+        /// <summary>
+        /// How many balls the best landing <b>into the glass</b> would bring down for one colour: the shot
+        /// colours whole connected bodies of <see cref="BallKind.Transparent"/> (#344), and whatever that
+        /// makes of the colour then leaves by the ordinary match rule, along with everything it was holding
+        /// up. Zero on a level with no glass in it, which is all but five of the set.
+        /// </summary>
+        /// <remarks>
+        /// <b>It plays the landing rather than reading the layout, and it plays it in the handler's order</b>,
+        /// which is the only way the two can agree: the ball is <i>put</i> in the cell, then
+        /// <see cref="BallsMap.ColourTransparentGroup"/> runs, and only then is the group counted — exactly
+        /// <c>BallContactEventHandler</c>'s sequence, and for its stated reason (colour before the count, or a
+        /// shot that completes a group <i>through</i> the glass is not credited with it).
+        /// <para>
+        /// <b>What is counted is what leaves the CLUSTER</b>, so the shot's own ball is subtracted: it was
+        /// never hanging there, and the percentage this feeds is priced against
+        /// <c>GetRemovableBallsCount</c>. A landing whose group falls short of
+        /// <c>BallsConstraintsBuilder.MINIMUM_CLUSTER_SIZE</c> takes nothing at all — the glass is coloured
+        /// and stays hanging, which is a worse shot rather than a payout.
+        /// </para>
+        /// <para>
+        /// <b>Only pockets that touch glass are tried</b>, and only pockets that touch <i>something</i> —
+        /// a cell with nothing beside it is open air a shot would sail through, the same rule
+        /// <see cref="FindStrandedSpecials"/> applies to its own walk. Every remaining empty cell is tried for
+        /// every colour the level uses, which is a few thousand map rebuilds on the largest glass level and
+        /// costs about a second: this is an offline gate, and #362 is what a cheaper one missed.
+        /// </para>
+        /// </remarks>
+        private static int GlassLandingDrop(BallPositionTypes data, BallType type)
+        {
+            BallsMap census = new(data);
+            StaticBall[,,] array = census.GetStaticBallsArray();
+            XZLevel size = new(census.StageSizeX, census.StageSizeZ, census.Levels);
+
+            int worst = 0;
+            List<XZLevel> coloured = new();
+
+            for (byte l = 0; l < census.Levels; l++)
+                for (byte x = 0; x < census.StageSizeX; x++)
+                    for (byte z = 0; z < census.StageSizeZ; z++)
+                    {
+                        if (array[x, z, l] != null) continue;
+
+                        XZLevel cell = new(x, z, l);
+                        bool touchesGlass = false;
+
+                        foreach (XZLevel neighbour in BallsMap.GetNeighboringCells(cell, size))
+                        {
+                            StaticBall other = array[neighbour.X, neighbour.Z, neighbour.Level];
+                            if (other != null && other.Kind == BallKind.Transparent) { touchesGlass = true; break; }
+                        }
+
+                        if (!touchesGlass) continue;
+
+                        BallsMap map = new(data);
+                        map.PutBallAt(x, z, l, type);
+                        map.ColourTransparentGroup(cell, type, coloured);
+
+                        List<XZLevel> group = map.GetConnectedSameTypeCells(cell);
+                        if (group.Count < BallsConstraintsBuilder.MINIMUM_CLUSTER_SIZE) continue;
+
+                        foreach (XZLevel member in group)
+                            map.RemoveBallAt((byte)member.X, (byte)member.Z, (byte)member.Level);
+
+                        //Less the shot's own ball: the group includes the cell the shot is standing in, and
+                        //that one never hung from the ceiling to begin with.
+                        int dropped = group.Count - 1 + map.GetCellsDisconnectedFromCeiling().Count;
+                        if (dropped > worst) worst = dropped;
+                    }
 
             return worst;
         }
