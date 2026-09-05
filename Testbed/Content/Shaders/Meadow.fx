@@ -116,21 +116,6 @@ MeadowVertexOutput MeadowVS(MeadowVertexInput input)
     return output;
 }
 
-//Tangent-free normal tilt from a height field, as everywhere else in this project
-float3 PerturbNormalFromHeight(float3 normal, float3 worldPosition, float height)
-{
-    float3 dpdx = ddx(worldPosition);
-    float3 dpdy = ddy(worldPosition);
-
-    float3 r1 = cross(dpdy, normal);
-    float3 r2 = cross(normal, dpdx);
-
-    float determinant = dot(dpdx, r1);
-    float3 surfaceGradient = sign(determinant) * (ddx(height) * r1 + ddy(height) * r2);
-
-    return normalize(abs(determinant) * normal - surfaceGradient);
-}
-
 //How far the grass is stretched ALONG the wind, and the gain that carries fBm to the amplitude the two
 //crossed sines here used to have. Its own values rather than the savanna's, though both start at the same
 //figures: this is a lush lawn where that is dry veld, and the two scenes are meant to differ. See the

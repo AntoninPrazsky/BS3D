@@ -286,26 +286,6 @@ float SandPattern(float2 p, float footprint)
     return lerp(0.5, pattern, resolvable);
 }
 
-//Tangent-free normal tilt from a height field (Christian Schueler), the same one the balls and the ground
-//relief use - the grid carries no tangents and the ripples never reach it anyway.
-//
-//It is what lets the ripple field be evaluated ONCE per pixel: the gradient comes out of ddx/ddy of the
-//height the quad already computed, where a finite-difference bump would want three or four more evaluations
-//of a pattern that is the most expensive thing in this shader.
-float3 PerturbNormalFromHeight(float3 normal, float3 worldPosition, float height)
-{
-    float3 dpdx = ddx(worldPosition);
-    float3 dpdy = ddy(worldPosition);
-
-    float3 r1 = cross(dpdy, normal);
-    float3 r2 = cross(normal, dpdx);
-
-    float determinant = dot(dpdx, r1);
-    float3 surfaceGradient = sign(determinant) * (ddx(height) * r1 + ddy(height) * r2);
-
-    return normalize(abs(determinant) * normal - surfaceGradient);
-}
-
 float4 DesertPS(DesertVertexOutput input) : COLOR
 {
     float3 worldPosition = input.WorldPosition;
