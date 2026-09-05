@@ -792,3 +792,33 @@ Zavřeno a na mainu: **#334** (přeměření palety pod světlem, se kterým se 
 **⚠ A je v tom past, která stojí za přečtení, protože kvůli ní jsem dvakrát hlásil „ověřeno" o něčem, co jsem neviděl:** `CopyFromScreen` **nikdy neobsahuje kurzor** — systém ho skládá až nad plochu obrazovky. Můj rig si ho proto dokresloval sám (`GetCursorInfo` + `DrawIconEx`), jenže to kreslí **ten handle, který je zrovna aktuální, ve vlastním procesu**: dokazuje to, že handle existuje a je nastavený, a neříká to **nic** o tom, co maluje kompozitor. Změřené a platné zůstává: šipka se rastruje správně, MonoGame z ní staví korektní kurzor (1bpp maska + 32bpp barevná bitmapa) a `GetCursorInfo` ho hlásí jako zobrazený. Neplatí nic o obrazovce. Kdo to bude zkoušet znovu: **nejdřív si vyžádej fotku obrazovky** a teprve pak vybírej mechanismus. Všechno ostatní je v issue.
 
 **Hotové dnes a na mainu:** #342 (odpojené kuličky v klidu blednou do popela — sedmý region kbelíků, přechod přes ditherový rozpad, kvalifikace se měří rychlostí i výškou), #290 (řádek *Drop camera* v Nastavení, čtený jen tam, kde se převzetí kamery rozhoduje). Včera #322, #334, #366, #365, #363, #351; založené #364 a #367.
+
+---
+
+## 2026-09-05 — Claude Code (druhý zápis dne)
+
+**#364: chůze děla neměla dopřednou půlku. Rozhodnutí bylo majitelovo (2 dopředu, 4 zpět), zajímavé je, KDE se ta dvojka přičítá — a co ukázalo měření o ceně, kterou jsem předem odhadl špatně.**
+
+**Oprava je podlaha na klidový poloměr, ne změna chůze**, a to je celé jádro. Klidový poloměr je největší ze čtyř mezí, blízký konec chůze největší ze tří — a dvě z nich jsou tytéž dva výrazy. Na celé sadě vyhrává obě `CANNON_DRAIN_CLEARANCE`, takže klid i blízký konec seděly na témž čísle (15,5) a `MoveRadial` četl `room = 0`. Nová `CANNON_ADVANCE_FORWARD = 2` se proto přičítá **k těm dvěma clearance**, a ne k vyřešenému poloměru: kola smějí pořád na 15,5 a hráč na tu mez teď **dojde chůzí**, místo aby na ní level začínal. Kde dělo staví mez, která chůzi neomezuje (standoff, elevace), se nepřičítá nic — tam je dopředná vůle už z definice.
+
+**⚠ Cenu jsem majiteli odhadl řádově špatně a měření to opravilo, ne úsudek.** Do rozhodovací otázky jsem napsal „kampaň se rámuje o ~2 jednotky dál". Skutečnost, párovaně na témže okně a témž stroji (9 polí, `[camera]`): **objektiv se hnul o 0,1 až 0,4**. Fit rámuje POLE, a dvě jednotky děla nezmění, co je potřeba na udržení rohů. Pole je na obrazovce prakticky beze změny — co se změnilo, je **dělo**: klidová mezera 12,3–15,0 → **10,7–13,1**, tedy asi o 15 % větší hlaveň. Kdybych to nezměřil, stálo by v dokumentaci číslo, které jsem si vymyslel od stolu.
+
+| pole | objektiv před → po | orbit | chůze | nejstrmější buňka |
+|---|---|---|---|---|
+| 12×12×16 `One` | 30,3 → 30,5 | 15,5 → 17,5 | 15,5..21,5 | 59,4 → 52,3° |
+| 12×12×18 `Colossus`, `Cube` | 28,8 → 29,1 | | | 59,4 → 52,3° |
+| 15×15×27 `Onion` | 29,1 → 29,3 | | | 54,5 → 48,1° |
+| 11×11×34 `Ten`, `Column` | 27,8 → 28,2 | | | 40,5 → 35,7° |
+| 17×17×18 `Donut`, `Elephant`, `Trophy` | 30,5 → 30,6 | | | 73,7 → 64,8° |
+
+**Vada i oprava jsou změřené kategoricky, ne vyfocené — a to je tady lepší důkaz.** Dočasná sonda na orbit radius per snímek (`[walkprobe]`, před commitem smazaná), klávesa držená přes `keybd_event` po kliknutí na titulek: **před opravou 213 snímků drženého W a poloměr nezůstal na 15,500 „skoro", ale přesně** — ani tisícina; držené S ho poslalo 15,500 → 19,500. **Po opravě W jede 17,500 → 15,500** a 95 % té dvojky ujede za ~1,4 s držení, takže `ADVANCE_EASE_ZONE` (1,5) příjezd tlumí, ale stroke nesežere — což byla reálná obava, protože 1,5 ze 2 leží v gumě. `Donut` chodí stejně. **`[aimcheck]` prochází na všech devíti** a nejstrmější buňka žádá o 4,8–8,9° MÍŇ než dřív: dělo stojící dál střílí plošeji.
+
+**⚠ Jedna mez se tím přesáhla a nechávám to napsané místo zaokrouhlené.** `CANNON_ADVANCE_STROKE` má v dokumentaci, že dělo smí přijít na `STANDOFF − stroke` = 11 jednotek k čočce a ne blíž. Klidová mezera je teď na dvou nejtěsnějších polích **10,7** — 0,3 uvnitř. Couvání to nezhorší (follow tam bere celé 4 místo poloviny, takže mezera přes celou chůzi je ta klidová), ale **cena je, že na těch levelech couvání nemění velikost děla vůbec** a zbývá mu jen ujíždějící svět — jediný kousek zpětné vazby #322, kterým se dopředná chůze zaplatila. Kdyby to majiteli četlo špatně, je to jedna konstanta: **1,5 místo 2** drží všech devět polí nad jedenáctkou (na `Ten` 11,08), za cenu tří čtvrtin dopředné chůze.
+
+**Fotky:** klidová dvojice před/po na `Ten` (nejtěsnější) a `Donut` (nejširší) — pole rámované stejně, dělo o kus větší, nikde nic neořezané. **Držené W jsem NEVYFOTIL a je to poznámka pro příště:** rig, který drží klávesu, musí nejdřív kliknout do okna, a hra si pak bere kurzor — na snímku bylo dělo natočené o půl traverzy a v letu rána. Táž past, kterou má zapsanou #321 u precise aim. Čísla ze sondy jsou tu stejně silnější důkaz než fotka posunu o 2 jednotky.
+
+**Nedotčeno a ověřeno, že nedotčeno:** `SagProbe` staví dělo z týchž dvou clearance napřímo (ne z fitu), takže **žádná sag figura se nehnula**; `LevelGen` exit 0 a **ani jeden soubor levelu se nezměnil**, `ScoreSim` „All levels rate the right way round", čtyři solutiony 0 chyb. Dokumentace přepsaná v `docs/game-session.md` (změřená tabulka fitů + co ta dvojka stála) a v `docs/testbed.md` („Cannon controls"). `AboutPage` říká „W/S adjusts depth", což je nově pravda beze změny.
+
+**⚠ Provozní chyba, ať ji nezopakuje nikdo další:** opravoval jsem sondu přes `sed -i` na trackovaném `.cs` a ono to celému souboru přepsalo CRLF na LF — obsah nula změn, diff celý soubor. Vráceno přes `git checkout --`. Na trackované zdrojáky patří editor, ne shell.
+
+**Dál beru #362** (sklo v Mirage) a pak **#360** (tvary čtyř levelů Coilu). Založil jsem dnes taky **#368** (bomba a zap nejsou v žádném shipnutém levelu) a **#369** (Eruption má 5 levelů proti deseti všude jinde).

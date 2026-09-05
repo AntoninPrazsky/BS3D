@@ -86,9 +86,12 @@ namespace Prazsky.BS3D
         /// the same size on screen whatever map is loaded, which a fixed distance from the lens gives and a
         /// fixed distance from the field does not (the camera itself moves per map).
         /// <para>
-        /// Two lower bounds override it — <see cref="CANNON_FIELD_CLEARANCE"/> and
-        /// <see cref="CANNON_MAX_REST_ELEVATION"/> — and which one binds changes with the map, so the orbit
-        /// radius can never be a single number.
+        /// Three lower bounds override it — <see cref="CANNON_FIELD_CLEARANCE"/>,
+        /// <see cref="CANNON_DRAIN_CLEARANCE"/> and <see cref="CANNON_MAX_REST_ELEVATION"/>, the first two of
+        /// them raised by <see cref="CANNON_ADVANCE_FORWARD"/> — and which one binds changes with the map, so
+        /// the orbit radius can never be a single number. On the shipped set it is the drain that wins on
+        /// every level, which is worth knowing before reading a figure off this constant: the queue's distance
+        /// from the lens is what this <i>asks</i> for and not what any level gets.
         /// </para>
         /// </summary>
         public const float CANNON_CAMERA_STANDOFF = 15f;
@@ -122,11 +125,52 @@ namespace Prazsky.BS3D
         /// lens, so a retreat is what makes it loom — and it may close to
         /// <see cref="CANNON_CAMERA_STANDOFF"/> − stroke = 11 units of it and no nearer. That bound used to
         /// hold only where the stand-off bound had placed the gun, which on the shipped set is nowhere:
-        /// <see cref="CANNON_DRAIN_CLEARANCE"/> parks every level's gun at 15.5 and its rest gap measures
-        /// 12.3 to 15.0, so a full retreat brought it to 8.3. <see cref="CANNON_ADVANCE_FOLLOW"/> is what
-        /// restores it, by moving the lens rather than by shortening this.
+        /// <see cref="CANNON_DRAIN_CLEARANCE"/> parks every level's gun on that clearance, and a full retreat
+        /// took it to 8.3. <see cref="CANNON_ADVANCE_FOLLOW"/> is what restores it, by moving the lens rather
+        /// than by shortening this.
+        /// <para>
+        /// <b>Since #364 the rest itself grazes that figure on the tightest levels and the record says so
+        /// rather than rounding it away.</b> <see cref="CANNON_ADVANCE_FORWARD"/> stands the gun 2 further out
+        /// while the lens, framing the field rather than the gun, follows only 0.1 to 0.4 of it — so the rest
+        /// gap measured 10.7 to 13.1 across the set where it used to measure 12.3 to 15.0. The gun therefore
+        /// rests 0.3 inside the 11 on the two tightest fields, and the retreat cannot make that worse: the
+        /// follow's floor takes the whole 4 units there rather than half, so the gap over the entire walk is
+        /// the rest gap. Its cost is that the retreat on those levels no longer changes the gun's size at all,
+        /// leaving the sliding world as its only answer — the one piece of #322's feedback this trade spends.
+        /// </para>
         /// </summary>
         public const float CANNON_ADVANCE_STROKE = 4f;
+
+        /// <summary>
+        /// How much room the rest radius is solved with <b>above</b> the two clearances that also bound the
+        /// walk's near end, so that walking in is a move the player can actually make (#364).
+        /// <para>
+        /// <b>Without it the forward half of the walk does not exist on any shipped level, and that is
+        /// arithmetic rather than an accident of level design.</b> The rest radius is the largest of four
+        /// bounds and the near end of the walk is the largest of three, and two of them are the same two
+        /// expressions; on the whole set <see cref="CANNON_DRAIN_CLEARANCE"/> wins both, so rest and near end
+        /// were the same number (15.5), <see cref="Cannon.MoveRadial"/> read no room at all and <c>W</c> was a
+        /// dead key from the pose every level opens in. The measurement is in #364: nine fields from the
+        /// smallest to the widest the set has, all of them 15.5 with a walk of 15.5..19.5.
+        /// </para>
+        /// <para>
+        /// <b>It is added to those two clearances rather than to the solved radius</b>, which is what keeps the
+        /// walk's near end where the geometry actually puts it: the wheels may still roll to
+        /// <see cref="CANNON_DRAIN_CLEARANCE"/> and no further, and the player walks the gun onto that limit
+        /// instead of resting on it. Where a bound that is <i>not</i> a walk bound places the gun — the
+        /// stand-off, or <see cref="CANNON_MAX_REST_ELEVATION"/> — no allowance is needed, because the rest
+        /// radius is already clear of the near end by however much that bound exceeds the clearances.
+        /// </para>
+        /// <para>
+        /// <b>2 and not <see cref="CANNON_ADVANCE_STROKE"/>, so the walk is asymmetric</b>, and the asymmetry
+        /// is the price rather than the design: every unit of forward room stands the whole campaign a unit
+        /// further out (the lens is solved off the gun) and flattens the resting shot, and the owner's ruling
+        /// on #364 was that two units of real forward walk are worth that and four are not. So <c>W</c> gives
+        /// 2 and <c>S</c> gives 4 wherever a clearance places the gun, and up to 4 either way where the
+        /// stand-off does.
+        /// </para>
+        /// </summary>
+        public const float CANNON_ADVANCE_FORWARD = 2f;
 
         /// <summary>
         /// How much of a <b>retreat</b> the overview lens goes along with (#322): half of it, the walk keeping
@@ -147,17 +191,22 @@ namespace Prazsky.BS3D
         /// <b>It is a floor as well as a fraction</b>, and the floor is what binds on a tight level: the lens
         /// takes at least as much of the retreat as it must to keep the gun
         /// <see cref="CANNON_CAMERA_STANDOFF"/> − <see cref="CANNON_ADVANCE_STROKE"/> = 11 units away, the
-        /// figure the stroke was capped for. Measured on the shipped set, this half-follow moves the lens 2.0
-        /// of the 4-unit retreat on a wide level (rest gap 15.0) and 2.7 on the tightest (12.3, where the floor
-        /// takes over), and the gun ends the walk 11.0 to 13.0 units out instead of 8.3 to 11.0.
+        /// figure the stroke was capped for. Re-measured on the shipped set after #364 stood the gun out by
+        /// <see cref="CANNON_ADVANCE_FORWARD"/>: the fraction moves the lens 2.0 of the 4-unit retreat on a
+        /// wide level (rest gap 13.1) and the floor takes the <b>whole</b> 4 on the tightest (10.7, already
+        /// inside the 11), so the gun ends the walk 10.7 to 11.1 units out instead of 6.7 to 9.1. Where the
+        /// floor takes all of it the gun keeps its size through the retreat — see
+        /// <see cref="CANNON_ADVANCE_STROKE"/> for what that costs and why it is accepted.
         /// </para>
         /// </summary>
         public const float CANNON_ADVANCE_FOLLOW = 0.5f;
 
         /// <summary>
         /// Clearance the gun's stand keeps outside the drain's mouth (<c>ArenaIsland.FUNNEL_TOP_RADIUS</c>),
-        /// bounding the rest radius and the walk's near end both: the wheels must stay on stone, never roll
-        /// out over the glass funnel the released balls fall through. It is 1.5 and not a hair because of two
+        /// bounding the walk's near end directly and the rest radius with
+        /// <see cref="CANNON_ADVANCE_FORWARD"/> to spare (#364): the wheels must stay on stone, never roll
+        /// out over the glass funnel the released balls fall through — and the walk is what brings them to
+        /// that limit, rather than the level opening on it. It is 1.5 and not a hair because of two
         /// measured figures, both about the gold bead that rings the mouth (tube 0.5 about the rim circle, so
         /// it bulges ~0.45 proud of the dish out to radius ~14.45): a wheel of <c>CannonRig</c>'s radius
         /// resting nearer than ~1.1 outside the mouth leans its leading face into that bulge, and at full
@@ -349,8 +398,10 @@ namespace Prazsky.BS3D
             }
 
             //The walk the player gets around that rest: a fixed stroke either way, its near end held off the
-            //field's footprint and the drain's mouth by the same clearances the rest radius itself respects —
-            //see CANNON_ADVANCE_STROKE for what deliberately does and does not bound it.
+            //field's footprint and the drain's mouth by the two clearances the rest radius is solved to clear
+            //by CANNON_ADVANCE_FORWARD — which is exactly what the forward half of the walk is made of, and
+            //why these two expressions are written once above and used twice here. See CANNON_ADVANCE_STROKE
+            //for what deliberately does and does not bound it.
             return new CameraFit(distance, targetY, orbitRadius,
                 MathF.Max(MathF.Max(clearFootprint, clearDrain), orbitRadius - CANNON_ADVANCE_STROKE),
                 orbitRadius + CANNON_ADVANCE_STROKE);
@@ -365,8 +416,12 @@ namespace Prazsky.BS3D
         {
             float clearElevation = aimRise / MathF.Tan(CANNON_MAX_REST_ELEVATION);
 
+            //The two clearances that ALSO bound the walk's near end are met with CANNON_ADVANCE_FORWARD to
+            //spare - see that constant for why resting exactly on them left W with nothing to do. The other
+            //two bounds are the gun's alone, so they need no allowance: whatever they add over the clearances
+            //is forward room already.
             return MathF.Max(cameraDistance - CANNON_CAMERA_STANDOFF,
-                MathF.Max(clearDrain, MathF.Max(clearFootprint, clearElevation)));
+                MathF.Max(MathF.Max(clearDrain, clearFootprint) + CANNON_ADVANCE_FORWARD, clearElevation));
         }
 
         /// <summary>

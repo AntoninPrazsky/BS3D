@@ -284,6 +284,9 @@ namespace BS3D.Tools.LevelGen
             //outside the drain's mouth. That is the CLOSEST stance the solve can ever return, i.e. the
             //steepest, and it is stated rather than guessed: a gun standing further out only shoots flatter,
             //and which ball a shot meets first is ShotPlacement's answer against the live cluster either way.
+            //Since #364 it is the near end of the WALK rather than where a level opens - the rest radius is
+            //solved CANNON_ADVANCE_FORWARD outside these two - so the probe still plays the steepest stance
+            //the player can take, and these two expressions are why its figures did not move with that change.
             float footprint = MathF.Max(CeilingPlate.FootprintFor(map.StageSizeX),
                 CeilingPlate.FootprintFor(map.StageSizeZ)) * Constants.HALF;
             float orbitRadius = MathF.Max(
