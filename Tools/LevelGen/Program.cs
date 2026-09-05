@@ -6089,12 +6089,19 @@ namespace BS3D.Tools.LevelGen
         /// smallest machine here and the only one that welds both of the owner's asks into ONE object - the
         /// packing pyramid is not the level, it is the WEIGHT the physics swings.
         /// <para>
-        /// <b>The stone is the packing made jewellery.</b> Four courses, 4-3-2-1, each sitting exactly in the
-        /// pockets of the one above: the layout offset is even so a course's parity is its layout index's,
-        /// and the arithmetic that follows is <c>dx = cx + shift - 0.5</c>. The 4x4 course on even level 4
-        /// puts its cells at -2.5, -1.5, -0.5 and 0.5; the 3x3 on odd level 3 at -2, -1 and 0, which are the
-        /// midpoints of the four above it; the 2x2 back on even level 2 at -1.5 and -0.5; the tip on odd
-        /// level 1 at -1. That is One's trick miniaturised and HUNG, so the facets catch every swing.
+        /// <b>The stone is the packing made jewellery.</b> Six courses, 6-5-4-3-2-1, each sitting exactly in
+        /// the pockets of the one above: the layout offset is even so a course's parity is its layout index's,
+        /// and the arithmetic that follows is <c>dx = cx + shift - 0.5</c> — an even course's cells land on
+        /// halves and an odd course's on the midpoints between them, which is One's trick miniaturised and
+        /// HUNG, so the facets catch every swing.
+        /// </para>
+        /// <para>
+        /// <b>⚠ IT WAS FOUR COURSES AND THAT IS WHY NOBODY COULD SEE WHAT THIS LEVEL WAS (#360).</b> At four
+        /// the stone was exactly as wide as the jump ring above it and a third of the drawing's height, so
+        /// the eye read a lump on a string; the chains, five levels long and stepping every second one, were
+        /// the biggest thing in the picture. A pendant is read by its stone. Six courses and four levels of
+        /// chain put two thirds of the height into the jewel and make it half again as wide as its ring —
+        /// the same object, drawn at the proportions it actually has.
         /// </para>
         /// <para>
         /// <b>The knot is a jump ring and not a block</b> (the graft off the rejected Chain): a closed loop
@@ -6107,18 +6114,23 @@ namespace BS3D.Tools.LevelGen
         /// each chain's own 2-level runs mean one release removes at most a 2-level bite; cut a strand
         /// between the tie and the ring and the pendant hangs through the ring off the other one, with the
         /// cut strand's stub still held by the tie. Brown is the jackpot and is deliberately the only
-        /// all-or-nothing shot in the level: the ring is 16 balls and drops the 30-ball stone with it, about
-        /// 44 % of the 104 the tables above count - the designed payoff, and well under
-        /// <see cref="ONE_SHOT_PERCENT"/>. The tie is brown too and stands four levels clear of the ring, so
-        /// the two never fuse into one group.
+        /// all-or-nothing shot in the level: the ring's 24 balls drop the 91-ball stone with them, 72 % of the
+        /// 147 the tables above count - the designed payoff, and still under <see cref="ONE_SHOT_PERCENT"/>.
+        /// It was 44 % of 104 while the stone was four courses; a jewel that is most of its own level is a
+        /// jackpot that is most of its own level, and that is the trade #360 made deliberately. The stone's
+        /// own courses are banded alternately so the SECOND big shot - cutting the neck course and dropping
+        /// everything under it - stays at 61 % rather than taking the stone in one ink. The tie is brown too
+        /// and stands clear of the ring, so the two never fuse into one group.
         /// </para>
         /// <para>
         /// Gate watch (#255), in the order the spec asked for it. FIRST the sloped strands' cross-level
         /// contacts: both tables step by at most one column per level, which the region's parity rule makes
         /// safe on both parities, but the tool is what says so - if a pair ever loses contact, hold that
         /// x-pair for one extra level rather than widening the row. SECOND the unshot sag of the stone on
-        /// two 2-wide strands against the death line; if it stretches, shorten the chains by one 2-level run
-        /// (raise the ring to <c>PENDANT_RING_TOP</c> 10) and never touch the stone. THIRD that the nested
+        /// two 2-wide strands against the death line; if it stretches, shorten the chains by one level
+        /// (raise <c>PENDANT_RING_TOP</c> and drop an entry from the strand table with it) and never touch
+        /// the stone. It reads 0 of 5 on the sag probe with the six-course stone and clears in 20 of its 42
+        /// shots, which is the same 0 the four-course build read. THIRD that the nested
         /// courses really land in the pockets - the window is the LOW one on both axes, and the even field
         /// offset is what preserves it.
         /// </para>
@@ -6156,8 +6168,14 @@ namespace BS3D.Tools.LevelGen
         //The chains: the left strand's LOW x column at each level it exists on, its foot first. The right
         //strand is this table mirrored about x = -0.5 (low column -low - 2), which is the mirror the lattice
         //itself has, since a member two cells deep is seated on the same seam.
-        private const int PENDANT_STRAND_FOOT = 9;
-        private static readonly int[] PENDANT_STRAND_X = { -3, -3, -4, -4, -5 };
+        //
+        //⚠ FOUR LEVELS AND NOT FIVE, STEPPING EVERY LEVEL (#360). The chains used to run five levels and
+        //step every second one, which made them the longest thing in the drawing - and a pendant is read by
+        //its STONE, with the chain as the line that points at it. A playtest read this level as "small,
+        //unclear what it is meant to be". Shorter chains over a stone half again as tall put two thirds of
+        //the height into the jewel, which is the proportion a pendant actually has.
+        private const int PENDANT_STRAND_FOOT = 10;
+        private static readonly int[] PENDANT_STRAND_X = { -2, -3, -4, -5 };
 
         /// <summary>How many levels one ink of a strand runs for. Four inks over two strands, two each.</summary>
         private const int PENDANT_RUN = 2;
@@ -6167,18 +6185,28 @@ namespace BS3D.Tools.LevelGen
         //strand feet (their tables land on exactly these four columns), so it is coloured as the strands are
         //and the brown loop starts one level below it.
         private const int PENDANT_RING_LOW = -2;
-        private const int PENDANT_RING_BOTTOM = 5;
-        private const int PENDANT_RING_TOP = 8;
+        private const int PENDANT_RING_BOTTOM = 7;
+        private const int PENDANT_RING_TOP = 10;
 
-        //The tie beam that closes the triangle: it reaches strand A at both its levels and strand B at the
-        //lower one, and it is four levels clear of the ring so the two brown groups cannot fuse.
-        private const int PENDANT_TIE_BOTTOM = 10;
-        private const int PENDANT_TIE_HIGH = 0;
+        //The tie beam that closes the triangle: ONE level, spanning the gap the two strands leave at that
+        //height, so it touches both of them along its own course.
+        //
+        //⚠ It was two levels and it cannot be any more (#360): the strands step outward every level now, so
+        //a bar wide enough to reach them on its lower course falls a column short on the upper one. One
+        //course is also the whole of what it has to be - a tie is a line, and drawn two deep between two
+        //chains it was the lumpy crossbar that made the top of this level unreadable.
+        private const int PENDANT_TIE_BOTTOM = 12;
+        private const int PENDANT_TIE_HIGH = 1;
 
-        //The stone: four nested courses, the 4x4 against the neck and the tip at the bottom.
-        private const int PENDANT_STONE_TOP = 4;
-        private const int PENDANT_STONE_COURSES = 4;
-        private const int PENDANT_STONE_LOW = -2;
+        //The stone: six nested courses, the 6x6 against the neck and the tip at the bottom.
+        //
+        //⚠ SIX AND NOT FOUR (#360). At four courses the stone was exactly as wide as the ring hanging it and
+        //barely a third of its height, so ring and stone read as one lump on a string rather than as a jewel
+        //on a chain. Six courses make it half again as tall as the ring and half again as wide, which is the
+        //first thing the eye lands on - and it is the level's own subject, so it should be.
+        private const int PENDANT_STONE_TOP = 6;
+        private const int PENDANT_STONE_COURSES = 6;
+        private const int PENDANT_STONE_LOW = -3;
 
         /// <summary>
         /// Which strand owns a cell - 1 for the left chain, 2 for the right one, 0 for neither. Both are
@@ -6210,7 +6238,7 @@ namespace BS3D.Tools.LevelGen
         }
 
         private static bool PendantTie(int cx, int cz, int i) =>
-            RigRow(cz) && RigWithin(i, PENDANT_TIE_BOTTOM, PENDANT_TIE_BOTTOM + 1)
+            RigRow(cz) && i == PENDANT_TIE_BOTTOM
             && RigWithin(cx, PENDANT_RING_LOW, PENDANT_TIE_HIGH);
 
         /// <summary>
@@ -6254,9 +6282,17 @@ namespace BS3D.Tools.LevelGen
             //and drops nothing, the ring is the jackpot and drops the stone
             if (PendantRing(cx, cz, i) || PendantTie(cx, cz, i)) return BallType.Type10;   //brown
 
-            //The stone: a blue course between two green ones, and the tip takes the course above it so the
-            //single ball at the point is never a group of one
-            return PENDANT_STONE_TOP - i == 1 ? BallType.Type4 : BallType.Type6;   //the gem: a white crown facet over magenta
+            //The stone, banded course by course. ⚠ ALTERNATING AND NOT ONE WHITE FACET (#360): a stone of six
+            //courses in a single ink is a 66-ball group and the biggest shot in the level twice over, once
+            //through the ring that hangs it and once through the stone itself. Nested courses touch only
+            //their immediate neighbours, so alternating cuts it into six groups of one course each - the
+            //widest of them 36 - without a line of it drawn differently. The tip takes the course above it,
+            //because a single ball at the point would otherwise be a group of one.
+            int facet = PENDANT_STONE_TOP - i;
+
+            return (facet == PENDANT_STONE_COURSES - 1 ? facet - 1 : facet) % 2 == 1
+                ? BallType.Type4    //white
+                : BallType.Type6;   //magenta
         }
 
         /// <summary>
@@ -6439,23 +6475,34 @@ namespace BS3D.Tools.LevelGen
         /// <summary>
         /// A tower crane with a load on the hook - the region's first level that is a MACHINE rather than a
         /// shape, and the first anywhere whose statics the player dismantles in an order they choose, with a
-        /// different collapse each way. Cut the magenta stay and the jib tip drops a hand-span and springs
+        /// different collapse each way. Cut the yellow stay and the jib tip drops a hand-span and springs
         /// on the mast joint, the rope and load whipping under it while the counterweight see-saws; cut the
-        /// green mast instead and the whole crane pendulums from the stay.
+        /// orange mast instead and the whole crane pendulums from the stay.
         /// <para>
-        /// <b>Two independent glass anchors is the second load path, executed structurally.</b> The mast
-        /// stands under the jib's root and the stepped stay under its tip, so any single member - or any
-        /// single colour - leaves a working triangle. The stay steps one column inward every two levels and
-        /// each row shares a column with the one below, which is the region's parity rule and what makes
-        /// its cross-level contacts exist on both parities.
+        /// <b>⚠ #360 rebuilt its PROPORTIONS after a playtest read it as "I don't understand this one at
+        /// all".</b> Every member a tower crane has was already here and none of them read, because on a
+        /// grid of 13 the arm and the tower were the same size and the stay climbed as steeply as the mast
+        /// stood: the eye got an arch with lumps on it. The grid is 15 now, the jib twelve columns against a
+        /// six-course mast, and the stay falls a column a level instead of one every two - see the figures
+        /// below, each of which carries what it cost. The statics did not move: two independent ceiling
+        /// anchors, a counterweight on the short arm, a load on the long one.
         /// </para>
         /// <para>
-        /// <b>The mast is green only ABOVE the jib.</b> Painting its two jib courses green as well would put
-        /// the jib's own root into the mast's group, and cutting green would then sever the jib and orphan
+        /// <b>Two independent glass anchors is the second load path, executed structurally.</b> The mast
+        /// stands a third of the way along the arm and the stepped stay comes down on its tip, so any single
+        /// member - or any single colour - leaves a working triangle. The stay steps one column inward per
+        /// level and each row shares a column with the one below, which is the region's parity rule and what
+        /// makes its cross-level contacts exist on both parities. Both spread into a four-column plate on the
+        /// top course, with one free column between them: sixteen anchor cells rather than eight, which is
+        /// what the longer arm cost and what the sag probe made them pay.
+        /// </para>
+        /// <para>
+        /// <b>The mast is orange only ABOVE the jib.</b> Painting its two jib courses orange as well would put
+        /// the jib's own root into the mast's group, and cutting orange would then sever the jib and orphan
         /// the counter-jib arm with its counterweight - which is the opposite of what the level is for. Left
-        /// as it is, green is 24 balls that drop nothing at all and hand the player the biggest swing in the
-        /// level. The jib's middle segment is silver instead, and taking THAT is the shot that drops the
-        /// arm: a readable payoff of about a third of the cluster, priced by the drop test.
+        /// as it is, the mast's ink drops nothing at all and hands the player the biggest swing in the
+        /// level. A jib segment is the shot that drops the arm: a readable payoff of about a third of the
+        /// cluster, priced by the drop test.
         /// </para>
         /// <para>
         /// <b>Nothing here is a single-colour member except the two anchors.</b> The jib alternates silver
@@ -6469,11 +6516,13 @@ namespace BS3D.Tools.LevelGen
         /// <para>
         /// Gate watch (#255), in the spec's order. FIRST every level-to-level contact of the stepped stay,
         /// with the tool and not by eye; if a step loses contact, hold its x-pair a third level rather than
-        /// widening the row to three. SECOND unshot equilibrium: the 10-long jib torques the 2x2 mast and
-        /// the stay has to be measurably load-bearing, with the tip above the death line - the constant to
-        /// tune is the counterweight's depth (<see cref="CRANE_COUNTER_Z_HIGH"/> in to 0) and never the jib
-        /// length. THIRD the two joints the drawing depends on: the counterweight hanging under the
-        /// counter-jib across levels 4 and 5, and the stay's foot meeting the jib at x 3 and 4.
+        /// widening the row to three. SECOND unshot equilibrium: the 12-long jib torques the 2x2 mast and
+        /// the stay has to be measurably load-bearing, with the tip above the death line - the constants to
+        /// tune are the counterweight's depth (<see cref="CRANE_COUNTER_Z_HIGH"/>, spent down to 0 by #360)
+        /// and the height the hook hangs at, and never the jib length. It reads 2 of 5 on the sag probe
+        /// where the short-armed build read 1, both of them under the threshold that reports and inside the
+        /// probe's own run-to-run spread. THIRD the two joints the drawing depends on: the counterweight
+        /// hanging under the counter-jib, and the stay's foot meeting the jib at its outer end.
         /// </para>
         /// </summary>
         private static Design Crane() => new()
@@ -6506,64 +6555,109 @@ namespace BS3D.Tools.LevelGen
             },
         };
 
-        //THE CRANE'S OWN FIGURES. The machine lives between centred x -5 and 4 in a grid of 13 and between
+        //THE CRANE'S OWN FIGURES. The machine lives between centred x -5 and 6 in a grid of 15 and between
         //z -2 and 1, so one free column stands all round.
-        private const byte CRANE_GRID = 13;
+        //
+        //⚠ THE PROPORTIONS ARE THE LEVEL'S SUBJECT AND NOT ITS DRESSING (#360). The first build drew every
+        //member of a real tower crane and a playtest still read it as "I don't understand this one at all":
+        //on a grid of 13 the jib spanned ten columns while the mast stood eight courses tall, so the arm and
+        //the tower carried the SAME weight in the silhouette and the pair read as an arch with lumps on it.
+        //A crane is recognised by one thing before any other - a horizontal far longer than the vertical it
+        //crosses - so the grid went to 15, the jib to twelve columns and the mast down to six courses, which
+        //is a arm-to-tower ratio of 2:1 where it was 1.2:1. Nothing about the statics moved: two independent
+        //ceiling anchors, a counterweight on the short arm and a load on the long one.
+        private const byte CRANE_GRID = 15;
         private const byte CRANE_DEPTH = 13;
 
-        //The mast: a 2x2 column from the jib's own courses up to the glass. CRANE_MAST_GREEN is where its
-        //INK starts, one level above the jib - see Crane() for what painting the jib's root green would do.
-        private const int CRANE_MAST_LOW = -1;
+        //The mast: a 2x2 column from the jib's own courses up to the glass, standing a THIRD of the way
+        //along the arm rather than in its middle - which is what makes the short end read as a counter-jib
+        //and the long one as the jib. CRANE_MAST_ORANGE is where its INK starts, one level above the jib:
+        //see Crane() for what painting the jib's root in the mast's colour would do.
+        private const int CRANE_MAST_LOW = -3;
         private const int CRANE_MAST_FOOT = 5;
-        private const int CRANE_MAST_GREEN = 7;
+        private const int CRANE_MAST_ORANGE = 7;
 
-        //The jib: two courses across the whole span, the mast's own cells included, with the hang point at
-        //x = -0.5 - a short counter-jib to -5 and a long jib out to 4.
+        //Where the mast spreads into its head — two courses, four columns, widening away from the stay so
+        //the two anchors never touch and stay two independent load paths.
+        private const int CRANE_MAST_HEAD = 11;
+
+        //The jib: two courses across the whole span, the mast's own cells included - a short counter-jib to
+        //-5 and a long jib out to 6.
         private const int CRANE_JIB_LOW = -5;
-        private const int CRANE_JIB_HIGH = 4;
+        private const int CRANE_JIB_HIGH = 6;
         private const int CRANE_JIB_BOTTOM = 5;
 
         //The counterweight under the counter-jib, and the hook rope under the jib tip: both hang from the
         //jib's lower course across levels 4 and 5, and both are three courses tall.
+        //
+        //⚠ THE COUNTERWEIGHT'S DEPTH IS THE EQUILIBRIUM DIAL AND THE JIB'S LENGTH IS NOT, which this design's
+        //own gate watch said before #360 lengthened the jib and had to use it: three cells deep rather than
+        //four takes six balls off the far end of the short arm and the probe reads it. The hook hangs one
+        //level higher for the same reason - the load is the lowest thing in the level and the line is what
+        //it was measured against.
         private const int CRANE_HUNG_BOTTOM = 2;
         private const int CRANE_HUNG_TOP = 4;
         private const int CRANE_COUNTER_LOW = -5;
         private const int CRANE_COUNTER_Z_LOW = -2;
-        private const int CRANE_COUNTER_Z_HIGH = 1;
-        private const int CRANE_ROPE_LOW = 3;
+        private const int CRANE_COUNTER_Z_HIGH = 0;
+        private const int CRANE_ROPE_LOW = 5;
 
         //The load on the hook: two courses at the bottom of the layout, wider than the rope in both axes so
         //it reads as a slung block rather than as more rope.
-        private const int CRANE_LOAD_TOP = 1;
-        private const int CRANE_LOAD_X_LOW = 2;
-        private const int CRANE_LOAD_X_HIGH = 4;
+        private const int CRANE_LOAD_TOP = 2;
+        private const int CRANE_LOAD_X_LOW = 4;
+        private const int CRANE_LOAD_X_HIGH = 6;
         private const int CRANE_LOAD_Z_LOW = -2;
         private const int CRANE_LOAD_Z_HIGH = 0;
 
-        //The stay, the crane's SECOND glass anchor: 2-wide rows from the jib tip up to the plate, stepping
-        //one column inward every two levels, foot first. Consecutive rows always share a column, which the
-        //region's parity rule makes a contact on both parities.
+        //The stay, the crane's SECOND glass anchor: 2-wide rows from the jib TIP up to the plate, stepping
+        //one column inward per level, foot first. Consecutive rows always share a column, which the region's
+        //parity rule makes a contact on both parities.
+        //
+        //⚠ ONE COLUMN A LEVEL AND NOT ONE EVERY TWO (#360). Stepped at half that rate it climbed as steeply
+        //as the mast stood, and two near-vertical members of the same width read as the two legs of an arch
+        //instead of as a tower and the cable that holds its arm out. At 45 degrees it is unmistakably a
+        //diagonal, and it lands where a stay belongs - on the jib's outer end, directly over the hook.
         private const int CRANE_STAY_FOOT = 7;
-        private static readonly int[] CRANE_STAY_X = { 3, 3, 2, 2, 1, 1 };
+        //⚠ The last entry repeats rather than stepping on: one more column inward would put the stay's anchor
+        //plate against the mast's head at the plate, and the free column between them is what draws the two
+        //as two members. Holding an x-pair for an extra level is this region's own stated remedy.
+        private static readonly int[] CRANE_STAY_X = { 5, 4, 3, 2, 1, 0 };
 
         /// <summary>Whether a cell is part of the machine. Every member is stated in the centred frame.</summary>
         private static bool CraneSteel(int cx, int cz, int i)
         {
             if (RigRow(cz))
             {
-                //The mast, from the jib's own courses up to the glass
+                //The mast, from the jib's own courses up to the glass, spreading into a HEAD on its top two
+                //courses. ⚠ The head is structural before it is a drawing (#360): the longer jib doubled the
+                //torque on this level's two anchors and the sag probe answered at once - 4 of 5, and one of
+                //them under the line with the glass still at rest, which is the reading that means the
+                //layout and not the play. Sixteen anchor cells where there were eight halve the load, and a
+                //cat head is what a tower crane has up there anyway.
+                if (i >= CRANE_MAST_HEAD && RigWithin(cx, CRANE_MAST_LOW - 2, CRANE_MAST_LOW)) return true;
+
                 if (i >= CRANE_MAST_FOOT && RigWithin(cx, CRANE_MAST_LOW, CRANE_MAST_LOW + 1)) return true;
 
-                //The jib: two courses across the whole span
+                //The jib: two courses across the whole span.
+                //
+                //⚠ ONE COURSE WAS TRIED AND THE PHOTOGRAPH REFUSED IT (#360). Halving the arm's weight cost
+                //the sag probe nothing - 2 of 5 either way, the anchors having already been doubled - but a
+                //single course of twelve balls hanging off a mast at one third of its length DROOPS, and a
+                //jib that sags in the middle is the one thing that stops a crane reading as a crane. The
+                //second course is what makes the arm stiff enough to stay a horizontal line in play; the
+                //elevation this level is drawn in cannot show that and the running game can.
                 if (RigWithin(i, CRANE_JIB_BOTTOM, CRANE_JIB_BOTTOM + 1)
                     && RigWithin(cx, CRANE_JIB_LOW, CRANE_JIB_HIGH)) return true;
 
-                //The stay, one row per level from its own table
+                //The stay, one row per level from its own table, spreading outward into its own anchor plate
+                //on the top course for the mast head's reason
                 if (i >= CRANE_STAY_FOOT)
                 {
                     int low = CRANE_STAY_X[i - CRANE_STAY_FOOT];
+                    int high = low + (i == CRANE_DEPTH - 1 ? 3 : 1);
 
-                    if (RigWithin(cx, low, low + 1)) return true;
+                    if (RigWithin(cx, low, high)) return true;
                 }
 
                 //The hook rope
@@ -6576,8 +6670,10 @@ namespace BS3D.Tools.LevelGen
                 && RigWithin(cx, CRANE_COUNTER_LOW, CRANE_COUNTER_LOW + 1)
                 && RigWithin(cz, CRANE_COUNTER_Z_LOW, CRANE_COUNTER_Z_HIGH)) return true;
 
-            //The load on the end of the rope
-            return i <= CRANE_LOAD_TOP
+            //The load on the end of the rope: two courses, and stated as a RANGE rather than as everything
+            //below its top, so raising the hook leaves the layout's bottom course empty instead of stretching
+            //the block down into it (#360)
+            return RigWithin(i, CRANE_LOAD_TOP - 1, CRANE_LOAD_TOP)
                 && RigWithin(cx, CRANE_LOAD_X_LOW, CRANE_LOAD_X_HIGH)
                 && RigWithin(cz, CRANE_LOAD_Z_LOW, CRANE_LOAD_Z_HIGH);
         }
@@ -6586,7 +6682,9 @@ namespace BS3D.Tools.LevelGen
         {
             //The mast above the jib, and the stay: the level's two glass anchors, one ink each, and the only
             //two colours standing on the plate
-            if (i >= CRANE_MAST_GREEN && RigWithin(cx, CRANE_MAST_LOW, CRANE_MAST_LOW + 1))
+            //The head's two extra columns are the mast's and have to be asked for here as well, or they fall
+            //through to the stay's rule below and the tower comes out painted half in the cable's ink
+            if (i >= CRANE_MAST_ORANGE && RigWithin(cx, CRANE_MAST_LOW - 2, CRANE_MAST_LOW + 1))
                 return BallType.Type9;    //orange - the tower, in crane paint
 
             if (i >= CRANE_STAY_FOOT) return BallType.Type7;   //yellow - the stay, the same paint a shade off
@@ -6594,7 +6692,10 @@ namespace BS3D.Tools.LevelGen
             //The jib in 2-cell segments, the mast's own two columns included: the segments alternate so a
             //jib shot strands nothing, and the middle one is the jib ROOT the counter-jib arm hangs on
             if (RigWithin(i, CRANE_JIB_BOTTOM, CRANE_JIB_BOTTOM + 1))
-                return Band((cx - CRANE_JIB_LOW) / 2, new[] { BallType.Type11, BallType.Type8 });   //the steel lattice: silver, black
+                //⚠ Silver and BLUE, where #285 left silver and black: a black segment reads as a hole in the
+                //arm at playing distance, and half the jib in holes is half a jib (#360). Blue is the mid
+                //value this palette has spare, and it keeps the two groups the alternation is for.
+                return Band((cx - CRANE_JIB_LOW) / 2, new[] { BallType.Type11, BallType.Type3 });   //the steel lattice: silver, blue
 
             //The counterweight in 2-level courses (the Harp graft), brown against the jib's silver rather
             //than white against it - the one confusable pair this palette could have made
@@ -6621,16 +6722,25 @@ namespace BS3D.Tools.LevelGen
         /// time, which is what a two-tier dependency buys.
         /// </para>
         /// <para>
-        /// <b>Both beams are split LENGTHWISE and not across.</b> One row white, one row brown: releasing
+        /// <b>Both beams are split LENGTHWISE and not across.</b> One row white, one row silver: releasing
         /// either ink thins a beam to a single full-length row that visibly sags and springs, and severs
         /// nothing, because every leg, rope and hanger meets the beam through BOTH rows. Split across
         /// instead, one shot would cut an arm off and orphan everything hanging under it.
         /// </para>
         /// <para>
-        /// <b>The glass hang is a closed triangle</b> of two sloped legs, one red and one cyan, so no single
+        /// <b>⚠ A BEAM IS ONE COURSE AND THE WIRES ARE COOL SINCE #360</b>, both of them for the same
+        /// complaint: a playtest read this level as primitive, and what it was looking at was two 2-course
+        /// white slabs with speckled posts hanging off them. A beam drawn one course deep is a ROD, which is
+        /// what a Calder mobile is made of, and it halves the weight the two anchors carry; the wires kept
+        /// their diagonal safety - no ink severs a link - but navy against cyan reads as one wire where navy
+        /// against yellow read as a chequer. The tiers were also pulled apart vertically, so there is sky
+        /// between the primary beam, the secondary one and the bobs instead of one crowded block.
+        /// </para>
+        /// <para>
+        /// <b>The glass hang is a closed triangle</b> of two sloped legs, one red and one black, so no single
         /// colour drops the sculpture; every rope link is a 2x2 in <see cref="RigDiagonal"/>'s two inks, so
-        /// no colour severs a link either. Bob B is the one deliberate exception - it is magenta and fused
-        /// with its own rope's magenta diagonal, so one shot drops the bob while every rope's green diagonal
+        /// no colour severs a link either. Bob B is the one deliberate exception - it is cyan and fused
+        /// with its own rope's cyan diagonal, so one shot drops the bob while every rope's navy diagonal
         /// goes on holding. Bob A shares red with the leg it stands nowhere near, which is the same ink in
         /// two groups and the reason the drop test is run per group and not per colour.
         /// </para>
@@ -6695,7 +6805,7 @@ namespace BS3D.Tools.LevelGen
         //carries a short arm to -5 and a long one to 4 with the big bob's rope out on the short side.
         private const int MOBILE_BEAM_LOW = -5;
         private const int MOBILE_BEAM_HIGH = 4;
-        private const int MOBILE_BEAM_BOTTOM = 9;
+        private const int MOBILE_BEAM_BOTTOM = 10;
         private const int MOBILE_ARM_LOW = 1;
         private const int MOBILE_ARM_HIGH = 6;
         private const int MOBILE_ARM_BOTTOM = 5;
@@ -6705,9 +6815,9 @@ namespace BS3D.Tools.LevelGen
         //through the secondary beam reads dead in play.
         private const int MOBILE_BIG_ROPE_LOW = -5;
         private const int MOBILE_BIG_ROPE_BOTTOM = 6;
-        private const int MOBILE_BIG_ROPE_TOP = 8;
+        private const int MOBILE_BIG_ROPE_TOP = 9;
         private const int MOBILE_ARM_ROPE_LOW = 3;
-        private const int MOBILE_ARM_ROPE_BOTTOM = 7;
+        private const int MOBILE_ARM_ROPE_BOTTOM = 6;
 
         //The big bob: a 4x4 plan three courses tall with its four vertical CORNER columns taken out, which
         //is 36 balls rather than 48. Trim MOBILE_BOB_TOP to 4 if the long arm leans past the death line.
@@ -6737,11 +6847,9 @@ namespace BS3D.Tools.LevelGen
                 }
 
                 //The two beams
-                if (RigWithin(i, MOBILE_BEAM_BOTTOM, MOBILE_BEAM_BOTTOM + 1)
-                    && RigWithin(cx, MOBILE_BEAM_LOW, MOBILE_BEAM_HIGH)) return true;
+                if (i == MOBILE_BEAM_BOTTOM && RigWithin(cx, MOBILE_BEAM_LOW, MOBILE_BEAM_HIGH)) return true;
 
-                if (RigWithin(i, MOBILE_ARM_BOTTOM, MOBILE_ARM_BOTTOM + 1)
-                    && RigWithin(cx, MOBILE_ARM_LOW, MOBILE_ARM_HIGH)) return true;
+                if (i == MOBILE_ARM_BOTTOM && RigWithin(cx, MOBILE_ARM_LOW, MOBILE_ARM_HIGH)) return true;
 
                 //The big bob's rope, and the secondary beam's
                 if (RigWithin(i, MOBILE_BIG_ROPE_BOTTOM, MOBILE_BIG_ROPE_TOP)
@@ -6775,18 +6883,19 @@ namespace BS3D.Tools.LevelGen
 
             //Both beams split LENGTHWISE, so a released ink thins a beam and never severs an arm. The x
             //bound is what keeps the big bob's rope, which shares the secondary beam's levels, out of it
-            if (RigWithin(i, MOBILE_BEAM_BOTTOM, MOBILE_BEAM_BOTTOM + 1)
-                || (RigWithin(i, MOBILE_ARM_BOTTOM, MOBILE_ARM_BOTTOM + 1)
-                    && RigWithin(cx, MOBILE_ARM_LOW, MOBILE_ARM_HIGH)))
+            if (i == MOBILE_BEAM_BOTTOM
+                || (i == MOBILE_ARM_BOTTOM && RigWithin(cx, MOBILE_ARM_LOW, MOBILE_ARM_HIGH)))
                 return cz == RIG_ROW_LOW ? BallType.Type4 : BallType.Type11;   //the wire beams: white, silver
 
             //The two small bobs: bob A is red in its own group, half a sculpture away from the leg that
-            //shares the ink; bob B is magenta and fused with its own rope's magenta diagonal on purpose
+            //shares the ink; bob B is cyan and fused with its own rope's cyan diagonal on purpose.
+            //⚠ It followed the wires when #360 cooled them from navy-and-yellow to navy-and-cyan: the fusion
+            //is the mechanic, so the bob's ink is whichever ink its own rope carries, not a colour of its own.
             if (i <= MOBILE_SMALL_BOTTOM + 1)
-                return cx <= MOBILE_BOB_A_LOW + 1 ? BallType.Type1 : BallType.Type7;   //Calder red, Calder yellow
+                return cx <= MOBILE_BOB_A_LOW + 1 ? BallType.Type1 : BallType.Type5;   //Calder red, Calder cyan
 
             //Every rope link in two diagonal inks, so no colour severs any single one
-            return RigDiagonal(cx, cz) == 0 ? BallType.Type12 : BallType.Type7;   //the hanging wires: navy, yellow
+            return RigDiagonal(cx, cz) == 0 ? BallType.Type12 : BallType.Type5;   //the hanging wires: navy, cyan
         }
 
         /// <summary>
@@ -6877,6 +6986,13 @@ namespace BS3D.Tools.LevelGen
         private const int BRIDGE_CAP_BOTTOM = 10;
 
         //The deck: two courses seated on the pylons, four rows deep, its end cells shared with the legs.
+        //
+        //⚠ #360 WIDENED IT BY A COLUMN EACH SIDE AND THE PROBE TOOK IT BACK. The intent was a roadway that
+        //reads as a span rather than as a panel between two towers - but the two free columns all round are
+        //this region's widest margin and are not to be spent, so the extra column landed INSIDE the legs'
+        //own footprint instead of past it: sixteen more balls at the ends of the span, no overhang to show
+        //for them, and the sag probe went from 2 of 5 to 3 of 5 and stayed there over three runs. A change
+        //that costs a level a step of sag and gives the eye nothing is not a change.
         private const int BRIDGE_DECK_BOTTOM = 3;
         private const int BRIDGE_DECK_X = 4;
 
@@ -6889,6 +7005,12 @@ namespace BS3D.Tools.LevelGen
         /// every step, so consecutive steps OVERLAP by one level and their contact is a same-level
         /// neighbour rather than a parity diagonal. See <see cref="Bridge"/> for why that matters.
         /// </summary>
+        //
+        //⚠ A DEEPER SAG WAS TRIED AND THE PHOTOGRAPH REFUSED IT (#360). Lifting the ends a level each -
+        //{ 6, 7, 8, 9 } - does open daylight under mid-span in elevation, and in the running game it packs
+        //the cable's ends against the pylons instead, so the top of the level reads as one orange band from
+        //edge to edge where it used to read as two towers with sky between them. The daylight that mattered
+        //was bought by the deck's overhang above, which costs the silhouette nothing.
         private static readonly int[] BRIDGE_CABLE_LEVEL = { 6, 6, 7, 8 };
 
         /// <summary>
