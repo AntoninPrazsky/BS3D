@@ -553,6 +553,18 @@ namespace BS3D
         //SceneRenderer reference — meaningless off the sea, where nothing asks for it.
         internal float SeaLevelY => _sceneRenderer.SeaLevelY;
 
+        /// <summary>
+        /// Where the live scene would have a camera look to show itself off, and null when it has no such
+        /// point or there is no renderer yet (#289). Forwarded one answer at a time the way
+        /// <see cref="SeaLevelY"/> is, rather than handing the renderer out: what the chapter intro wants is
+        /// a viewpoint, not a scene renderer, and the scene it wants it for is this game's own.
+        /// </summary>
+        /// <param name="bearing">The caller's rolled bearing — half the scenes build their point out of it.</param>
+        internal SceneViewpoint? SceneViewpointAt(float bearing) =>
+            _sceneRenderer != null && _sceneRenderer.TryGetViewpoint(_scene, bearing, out SceneViewpoint viewpoint)
+                ? viewpoint
+                : null;
+
         internal int LevelCount => _levelSet?.Count ?? 0;
         internal string LevelDisplayName(int index) => _levelSet.DisplayName(index);
         internal string LevelRulesText(int index) => _levelSet.DescribeRules(index);
