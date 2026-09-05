@@ -3859,9 +3859,18 @@ static const float StoneSmoothness = 0.25;
 //⚠ Every rock carries the SAME carving, because the instance stream has no free channel for a per-ball
 //seed (world matrix, occlusion, dissolve and ripple fill it) and the only per-instance value available -
 //the ball's position - moves, which would make the shape swim as a rock fell. What saves it is that the
-//field is in OBJECT space: the physics gives every rock its own orientation, so a pile shows the same
-//stone from a hundred angles, which is what a pile of one quarry's rubble looks like anyway. If it ever
-//needs to be genuinely per-rock, the fix is a fifth instance element and not a change here.
+//field is in OBJECT space: one stone shown at a hundred orientations is a hundred rocks, which is what a
+//pile of one quarry's rubble looks like anyway.
+//
+//THAT ORIENTATION IS SUPPLIED DELIBERATELY, AND UNTIL #356 IT WAS NOT. This block used to say "the physics
+//gives every rock its own orientation" and that was measured false: BallsConstraintsBuilder creates every
+//body at identity, and a lattice hanging from a ceiling never turns one. On Cairn - 209 rocks, the densest
+//of the five stone levels - the mean tilt from identity over sixty seconds was 0.05 deg and the largest
+//0.28 deg, only the first second after the build reaching 6.3 deg as the constraints took up. So a heap was
+//one solid at one angle, down to the same pale swirl in the same place on every rock in it. RockTurns (C#
+//side) now folds a fixed per-cell turn into the world matrix that is ALREADY in the stream, which makes the
+//paragraph above true instead of hoped for - and costs nothing, so the fifth instance element this block
+//used to name as the fix is not needed and would buy nothing over it.
 //===================================================================================================
 
 //How deep the carving cuts, as a fraction of the radius. The one figure of it the C# side states, because

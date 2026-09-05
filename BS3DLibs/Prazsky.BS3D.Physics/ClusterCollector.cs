@@ -238,7 +238,18 @@ namespace Prazsky.BS3D.Physics
 
             //Both crossings out of Bepu's vector types are the shared named ones (Prazsky.Core.Tools), which
             //this walk used to write out component by component
-            frame.AddOriented(ball.Type, drawnAt.ToXna(), orientation.ToXna(),
+            Quaternion turned = orientation.ToXna();
+
+            //A rock is drawn turned by a fixed face of its own (#356), applied INSIDE the body's pose so the
+            //ball still turns normally on top of it. The cell comes off the BALL here and not off the walk's
+            //loop indices — the opposite of the occlusion above, for the opposite reason: that one asks where
+            //the ball IS, this one asks which ball it IS, and it has to give one answer for a rock hanging in
+            //the lattice, for that same rock in the frame it is released, and for it again halfway down
+            //the drain.
+            if (ball.Kind == BallKind.Rock)
+                turned = Quaternion.Concatenate(RockTurns.For(ball.ArrayPosition), turned);
+
+            frame.AddOriented(ball.Type, drawnAt.ToXna(), turned,
                 EaseOcclusion(ball, occlusionTarget, ease),
                 _advanceRipple == null ? 0f : _advanceRipple(ball, elapsedSeconds),
                 ball.Kind, AdvanceColourFade(ball, elapsedSeconds), deadWeight);
