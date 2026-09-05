@@ -598,6 +598,23 @@ namespace BS3D.Audio
         /// </summary>
         public bool IsFanfarePlaying => _fanfare != null && _fanfare.State == SoundState.Playing;
 
+        /// <summary>
+        /// Which composition the moment is sounding, and <b>null while it is not one of them</b>: the front
+        /// end's own loop is playing (<see cref="PlayMenu"/>), or the music has failed and nothing is. It
+        /// reads what is WANTED rather than an instance's state, so a switch caught mid-fade already names
+        /// the piece arriving instead of the one walking out.
+        /// <para>
+        /// It is here for the track picker in Settings (#279), which shows this instead of remembering what
+        /// it last asked for. A level installing its own theme and the front end taking its loop back are
+        /// both the game overruling that pick, and neither can leave the row stale if the row was never told
+        /// anything to begin with.
+        /// </para>
+        /// </summary>
+        public MusicTheme? SoundingTheme => _failed || _menuWanted ? null : _theme;
+
+        /// <summary>How many compositions there are, so a caller can step through them (#279).</summary>
+        public static int ThemeCount => THEME_COUNT;
+
         private float _gain = 1f;
 
         /// <summary>

@@ -34,7 +34,9 @@ namespace BS3D.Screens
     /// <b>The rows keep their old order, read down one column and then the other</b> — which is also the order
     /// the nav walk collects them in, since <c>CollectNavEntries</c> follows the order widgets were added
     /// rather than where they landed. So the split changed where a row sits and not the sequence a pad steps
-    /// through: the eight display rows, the four audio rows, the campaign row, Back.
+    /// through: the display rows, then the audio rows, the campaign rows, Back. The counts that used to
+    /// stand here are left out on purpose — all three groups have grown since (#290, #349, #279), and the
+    /// ORDER is the part of this that carries anything.
     /// </para>
     /// </summary>
     internal sealed class SettingsPage : MenuPage
@@ -57,7 +59,8 @@ namespace BS3D.Screens
         private const int GROUP_HEADING_GAP = 40;
 
         private Label _fullscreenValue, _qualityValue, _exposureValue, _skyValue, _fpsValue, _fpsLimitValue;
-        private Label _volumeValue, _effectsValue, _musicValue, _ambienceValue, _aberrationValue, _grainValue, _dropCinematicValue;
+        private Label _volumeValue, _effectsValue, _musicValue, _ambienceValue, _trackValue;
+        private Label _aberrationValue, _grainValue, _dropCinematicValue;
         private Label _progressValue, _unlockAllValue;
 
         //The reset row asks twice. One click on a row that erases every star is an accident waiting beside
@@ -145,17 +148,23 @@ namespace BS3D.Screens
             AddRow(grid, 3, "Music", Game.CycleMusicVolume, out _musicValue);
             AddRow(grid, 4, "Ambience", Game.CycleAmbienceVolume, out _ambienceValue);
 
-            AddGroupHeading(grid, 5, "CAMPAIGN", first: false);
+            //Which piece plays, so a composition can be heard in the game against the real mix rather
+            //than only in a .wav or by finding a level of the right chapter (#279). Under the volume rows
+            //because it is the same kind of thing the player hears them through — and a listening tool
+            //and not a setting: it writes nothing, and the game takes the choice back at the next level.
+            AddRow(grid, 5, "Track", Game.CycleMusicTrack, out _trackValue);
+
+            AddGroupHeading(grid, 6, "CAMPAIGN", first: false);
 
             //The campaign back to zero stars (#92) — for testing as much as for a fresh start. The resting
             //value shows the star total the click would erase; the click itself is two-step (see _resetArmed).
-            AddRow(grid, 6, "Reset progress", OnResetProgress, out _progressValue);
+            AddRow(grid, 7, "Reset progress", OnResetProgress, out _progressValue);
 
             //The debug unlock (#349). Under the campaign heading rather than among the looks because it is the
             //same kind of thing the row above is - the player's record - and it is a DEVELOPMENT convenience:
             //it is off at every launch and writes nothing, so it can never make a real save read further along
             //than it is. Hiding it behind a build flag is a shipping concern and not one yet.
-            AddRow(grid, 7, "Unlock all", Game.ToggleUnlockAll, out _unlockAllValue);
+            AddRow(grid, 8, "Unlock all", Game.ToggleUnlockAll, out _unlockAllValue);
 
             return grid;
         }
@@ -258,6 +267,10 @@ namespace BS3D.Screens
             _effectsValue.Text = FormatVolume(Game.SfxVolume);
             _musicValue.Text = FormatVolume(Game.MusicVolume);
             _ambienceValue.Text = FormatVolume(Game.AmbienceVolume);
+            //"Auto" is not one of the pieces: it is whatever the moment plays unasked — the front end's
+            //loop in the menus, the level's own theme in a level. The rest name themselves off MusicTheme,
+            //so a sixth composition appears in this row with no wiring here at all.
+            _trackValue.Text = Game.MusicTrack?.ToString() ?? "Auto";
             //In words, not the ★ glyph the picker uses: the value column is set in the display face like
             //every row here, and Anton simply has no star glyph — FontStashSharp would drop it and leave a
             //bare number (which is exactly how this line first rendered).
