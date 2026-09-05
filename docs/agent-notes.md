@@ -913,3 +913,31 @@ Bridge byl zároveň nejmírnější stížnost („simple", ne „primitive"), 
 **Všechny tři dnešní větve (#364, #362, #360) jsou na majitelovo slovo smergované do `main` napřímo přes `--no-ff`, v tomhle pořadí; issues zavřené, větve smazané lokálně i na originu.** Po mergi jsem generátor **spustil znovu na smergovaném kódu** a `git status` je čistý — #362 (Solitaire) a #360 (Coil) se v `Program.cs` potkaly bez konfliktu a reprodukují commitnuté levely bajt za bajtem; ScoreSim a čtyři solutiony po mergi znovu zelené.
 
 **⚠ Deník kolidoval u všech tří mergů a poprvé ne sám se sebou:** druhý stroj mezitím na main přidal vlastní „druhý zápis dne" (#279, #356, #289), takže konflikt byl o **totéž číslo zápisu**, ne o konec souboru. Řeší se **ponecháním obou stran a přečíslováním** — moje tři zápisy jsou proto třetí, čtvrtý a pátý. Pro dalšího: když si dva stroje v jednom dni připisují, číslo zápisu je to, co koliduje, a je to konflikt na jistotu.
+
+---
+
+## 2026-09-05 — Claude Code (sedmý zápis dne)
+
+**#361: Diabolo a Shuttle jsou nejhezčí levely, které hráč zatím viděl, a nepřiměřeně lehké. Změřeno to jde říct přesně — a u Diabola to nebyl dojem, ale aritmetika.**
+
+**Rampa se na pozici 5 OBRACELA.** „Balls a shot at par" (= koulí na skupinu) a rozpočet (= ran na skupinu) přes prvních sedm levelů:
+
+| # | level | skupin | koulí na skupinu | rozpočet |
+|---|---|---|---|---|
+| 3 | Toadstool | 9 | 43,2 | 4,89 |
+| 4 | Pinwheel | 8 | 51,6 | 5,50 |
+| **5** | **Diabolo** | **5** | **91,0** | **6,80** |
+| 6 | Shuttle | 7 | 61,4 | 5,43 |
+| 7 | Amphora | 14 | 35,9 | 2,43 |
+
+**Diabolo mělo PĚT stojících skupin na 455 koulí** — nejvolnější rozpočet ze všech sedmi, a hned za ním Amphora s 2,43. To je přesně ta „překvapivě nízká obtížnost", jen v číslech.
+
+**Příčina u Diabola je `Band` přes tři inkousty na šesti sektorech:** sektor k a k+3 dostaly týž ink, takže každá barva byla **dvě protilehlé desky od skla ke špičce**, a navíc se obě půlky sektoru **slévaly skrz plný krk**. Oprava má dvě části a obě jsou barvy, ne tvar: **čtyři inkousty** (čtyřka nedělí šestku, takže protilehlé sektory už nesdílejí barvu) a **spodní kužel má paletu pootočenou o sektor**, takže se horní a dolní půlka sektoru přes krk nesejdou. Výsledek: **5 → 7 skupin, 91,0 → 65,0 koulí na skupinu, rozpočet 6,80 → 4,86, největší jedna rána 33 % → 25 %.** Silueta se nehnula ani o buňku — a to je právě to, co se na tom levelu majiteli líbilo; pootočení je vidět jako **zkrut přes pas** a je to podle mě lepší kresba než původní zrcadlo.
+
+**⚠ U Shuttlu tatáž úvaha NEPLATILA a málem jsem to zapsal jako opravu, která nic neopravila.** Šest per taky sedělo na třech incích, jenže **protilehlá pera se nedotýkají**, takže to bylo šest samostatných skupin už předtím: čtvrtý ink počet skupin **nezměnil vůbec** (7 → 7). Co mění, je **magazín** — level teď losuje z pěti barev místo ze čtyř, což je skutečné ztížení, ale jiné, než jsem čekal. Zbytek stížnosti byla vůle v rozpočtu: **38 ran → 34**, tedy 5,43 → **4,86**, což je Diabolovo číslo.
+
+**Rampa po zásahu:** 4,89 → 5,50 → **4,86** → **4,86** → 2,43. Inverze na pátém místě je pryč a oba levely teď sedí na úrovni Toadstoolu a stupňují se dolů k Amphoře.
+
+**⚠ Poctivě k tomu, co se NEZMĚNILO: sag proba pořád oba levely „dohraje" v šesti ranách** (Diabolo 5 → 6, Shuttle 7 → 6 z 34). To je ta samá věc z jiné strany: když je level postavený z několika velkých desek, pár dobře mířených ran ho sundá kaskádou bez ohledu na rozpočet. **Jestli je má majitel chtít opravdu těžké, je to přestavba skupinové struktury** (Amphora má 14 skupin po 36 koulích) a to už je zásah do tvaru levelů, které si pochválil — tuhle hranici jsem záměrně nepřekročil a hlásím ji místo abych předstíral, že rozpočet vyřešil všechno.
+
+**Ověřeno:** `LevelGen` exit 0 (mění se `Diabolo.json`, `Shuttle.json` a sada kvůli počtu ran), `ScoreSim` „All levels rate the right way round" — hvězdy obou beze změny (4/4/4/3, 2), jen skóre kompetentní hry kleslo (7,13 → 7,04 a 7,17 → 6,75), což je přesně to zamýšlené utažení; **sag 0 z 5 u obou** (beze změny), čtyři solutiony 0 chyb, fotky z běžící hry — Diabolo drží přesýpací siluetu a Shuttle pořád čte jako badmintonový míček s červeným korkem.
