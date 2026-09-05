@@ -981,6 +981,28 @@ namespace Prazsky.BS3D
         //what a landing beside one will do.
         private static readonly int ZAP_REGION_START = BOMB_REGION_START + LodCount;
 
+        //And a SEVENTH, for DEAD WEIGHT (#342): a released ball that has come to rest against its neighbours
+        //instead of falling, so nothing a shot can do reaches it any more. It is a region for the argument the
+        //five above share and for one of its own.
+        //
+        //The shared one: what says a ball is spent is its colour going out of it and its heartbeat stopping,
+        //and both are per-RENDERER — a tint per draw, a PulseDepth per renderer — so it cannot travel on an
+        //instance.
+        //
+        //Its own: it keeps the level's STYLE. A rock, a bomb and a zap each opt out of what the map is made of
+        //and are drawn as their own material; a dead ball is the same vinyl, glass or marble it always was,
+        //with the life taken out of it. So this draw does not touch Shading at all — only the tint and the
+        //pulse — and one glance still tells a spent ball from a rock. Colourless, so LodCount buckets rather
+        //than TYPE_COUNT × LodCount, and never loaded in the cannon, so no still twin.
+        private static readonly int DEAD_REGION_START = ZAP_REGION_START + LodCount;
+
+        //What a dead ball is tinted: a cold, dark ash, well under every one of the thirteen in value. Black's
+        //own tint is 0.045, far under this — but a tint is not a brightness: black is LIT like every other
+        //ball and reads as a dark colour, where this is drawn with the pulse off and reads as a ball nothing
+        //is lighting from within. That is the difference #342 asks for, and the reason this is not a
+        //fourteenth colour.
+        private static readonly Vector3 DEAD_TINT = new(0.62f, 0.64f, 0.68f);
+
         private readonly ModelInstance[][] _buckets;
         private readonly int[] _counts;
         private readonly int[] _lodTotals;
@@ -1061,10 +1083,11 @@ namespace Prazsky.BS3D
 
             //Two planes: the breathing balls, then the still ones (see STILL_PLANE_STRIDE), then a region
             //each for the four kinds that opt out of the level's style — the rocks (ROCK_REGION_START), the
-            //clear glass, the bombs and the zaps, in that order. Sized off the LAST of them so a region added
-            //without moving this line would index past the end on its first instance rather than draw wrong.
-            _buckets = new ModelInstance[ZAP_REGION_START + LodCount][];
-            _counts = new int[ZAP_REGION_START + LodCount];
+            //clear glass, the bombs and the zaps — and last the dead weight, which keeps the style and opts
+            //out of the colour instead. Sized off the LAST of them so a region added without moving this line
+            //would index past the end on its first instance rather than draw wrong.
+            _buckets = new ModelInstance[DEAD_REGION_START + LodCount][];
+            _counts = new int[DEAD_REGION_START + LodCount];
             _lodTotals = new int[LodCount];
             _lodDistanceSquared = new float[LOD_MIN_PIXEL_RADIUS.Length];
         }
@@ -1448,6 +1471,10 @@ namespace Prazsky.BS3D
             //And the zaps beside them (#327), same side of the frame and same argument: opaque.
             DrawZaps(camera);
 
+            //And the dead weight with them (#342), which is the same argument once more — see DrawDead for
+            //what it does and does not state, and for why it is drawn here even on a transparent style.
+            DrawDead(camera);
+
             //Asked as the question it IS — does light get through this material — and not as "is this the
             //bubble" (#304). The two were the same answer only while the bubble was the one transparent style.
             if (BallStyles.IsTransparent(_style)) DrawShell(camera);
@@ -1616,6 +1643,55 @@ namespace Prazsky.BS3D
             }
 
             for (int lod = 0; lod < LodCount; lod++) _renderers[lod].PulseSpeed = PULSE_BEATS_PER_SECOND;
+
+            ApplyStyle();
+        }
+
+        /// <summary>
+        /// The dead weight (#342): released balls that came to rest instead of falling, drawn in the level's
+        /// own material with the colour taken out of them and the heartbeat stopped.
+        /// <para>
+        /// <b>It states two uniforms and deliberately not a third.</b> The tint is
+        /// <see cref="DEAD_TINT"/> — one draw's worth of ash, which is what makes this a region rather than
+        /// thirteen — and the pulse depth is zero, so the ball stops breathing with the cluster it is no
+        /// longer part of. What it does <i>not</i> state is <c>Shading</c>: a dead ball is the same vinyl,
+        /// glass or marble the level is made of, and that is what tells it apart from a rock at a glance.
+        /// </para>
+        /// <para>
+        /// Drawn with the opaque kinds and before the films, on <see cref="DrawRocks"/>'s argument: on a
+        /// transparent style this is the wrong side of the blend for a ball that should show what is behind
+        /// it, and it is the right side for every other style. A dead ball on a bubble level is rare enough,
+        /// and visible enough either way, that the fixed order is worth more than the correct blend.
+        /// </para>
+        /// </summary>
+        private void DrawDead(ICamera camera)
+        {
+            bool any = false;
+            for (int lod = 0; lod < LodCount && !any; lod++) any = _counts[DEAD_REGION_START + lod] > 0;
+
+            //A level with nothing stuck in it — which is most levels, most of the time — never touches a
+            //renderer for this, so the style stays pushed exactly as it was
+            if (!any) return;
+
+            for (int lod = 0; lod < LodCount; lod++) _renderers[lod].PulseDepth = 0f;
+
+            for (int lod = 0; lod < LodCount; lod++)
+            {
+                int bucketIndex = DEAD_REGION_START + lod;
+                int count = _counts[bucketIndex];
+                if (count == 0) continue;
+
+                //Deliberately NOT counted into DrawnCount: this is the second half of a ball already counted
+                //in its colour's bucket, exactly as the glass half of a crossing is (see DrawHollow)
+                _lodTotals[lod] += count;
+
+                //The ash is a TINT and the effect params are the stone's: what those carry is the AMBIENT,
+                //which is the whole of a ball's unlit side, and handing null takes DefaultLighting's dim blue
+                //(the rock's own first-build bug). Neutral params under a neutral tint is the same material
+                //argument the rock makes, one step less carved.
+                _renderers[lod].Draw(camera, _buckets[bucketIndex], count, BasicEffectParamsProvider.Dead,
+                    DEAD_TINT);
+            }
 
             ApplyStyle();
         }
@@ -1893,6 +1969,9 @@ namespace Prazsky.BS3D
         /// <summary>A live zap (#327) — colourless like the three above, and for the same reason.</summary>
         internal void StoreZap(int lod, in ModelInstance instance) => StoreAt(ZAP_REGION_START + lod, instance);
 
+        /// <summary>Dead weight (#342): the ash half of a released ball's crossing, in the level's own style.</summary>
+        internal void StoreDead(int lod, in ModelInstance instance) => StoreAt(DEAD_REGION_START + lod, instance);
+
         private void StoreAt(int bucketIndex, in ModelInstance instance)
         {
             ModelInstance[] bucket = _buckets[bucketIndex];
@@ -1981,7 +2060,7 @@ namespace Prazsky.BS3D
         /// </para>
         /// </summary>
         private void Route(BallKind kind, int typeIndex, int lod, in ModelInstance instance, bool still,
-            float colourFade)
+            float colourFade, float deadWeight = 0f)
         {
             switch (kind)
             {
@@ -2028,6 +2107,19 @@ namespace Prazsky.BS3D
                         break;
                     }
 
+                    //And DEAD WEIGHT is the same crossing pointed at a different second bucket (#342): the
+                    //ball's own colour going out at +d while the ash comes in at -d, so a released ball that
+                    //has stopped fades to spent over half a second instead of switching between two frames.
+                    //It cannot collide with the crossing above — that one lasts a third of a second and runs
+                    //while the ball is still lattice, this one only ever runs on a ball already released —
+                    //and the order here says which wins if a future rule ever puts them on the same frame.
+                    if (deadWeight > 0f)
+                    {
+                        _set.Store(typeIndex, lod, instance.WithDissolve(deadWeight), still);
+                        _set.StoreDead(lod, instance.WithDissolve(-deadWeight));
+                        break;
+                    }
+
                     _set.Store(typeIndex, lod, instance, still);
                     break;
             }
@@ -2050,7 +2142,7 @@ namespace Prazsky.BS3D
         /// every other ball there has ever been (#325) — see <see cref="Route"/> for what the two ends of it
         /// are drawn as.</param>
         public void AddOriented(BallType type, Vector3 position, in Quaternion orientation, Vector4 occlusion,
-            float ripple = 0f, BallKind kind = BallKind.Normal, float colourFade = 0f)
+            float ripple = 0f, BallKind kind = BallKind.Normal, float colourFade = 0f, float deadWeight = 0f)
         {
             int typeIndex = (int)type - 1;
             if (typeIndex < 0 || typeIndex >= BallRenderSet.TYPE_COUNT) return;
@@ -2062,7 +2154,7 @@ namespace Prazsky.BS3D
             world.M43 = position.Z;
 
             Route(kind, typeIndex, _set.LodFor(Vector3.DistanceSquared(position, _eye)),
-                new ModelInstance(world, occlusion, 0f, ripple), still: false, colourFade);
+                new ModelInstance(world, occlusion, 0f, ripple), still: false, colourFade, deadWeight);
         }
 
         /// <summary>

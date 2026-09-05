@@ -71,6 +71,18 @@ namespace Prazsky.BS3D.GameStructure
         public static BasicEffectParams Stone = new BasicEffectParams(new Vector3(0.26f, 0.245f, 0.215f), GLOSS_COLOR, GLOSS_POWER, Vector3.Zero);
 
         /// <summary>
+        /// Dead weight's material (#342): a released ball that came to rest instead of falling, drawn in the
+        /// level's own style with the colour drained out of it. Read by <c>BallRenderSet.DrawDead</c> alone.
+        /// <para>
+        /// The ambient is <b>cool and light</b>, and both halves are the point. Light, because the mark has to
+        /// read as a ball the light has gone out <i>of</i> and not as a dark one — dark is what
+        /// <see cref="Stone"/> already means, and a spent ball must not be taken for a rock, which is a live
+        /// obstacle. Cool, for the reason the stone's is warm: the two must not converge.
+        /// </para>
+        /// </summary>
+        public static BasicEffectParams Dead = new BasicEffectParams(new Vector3(0.20f, 0.215f, 0.245f), GLOSS_COLOR, GLOSS_POWER, Vector3.Zero);
+
+        /// <summary>
         /// The live bomb's material (#326), read by <c>BallRenderSet.DrawBombs</c> alone and indexed by
         /// nothing — a bomb is a <see cref="BallKind"/> like the rock above, not a colour.
         /// <para>

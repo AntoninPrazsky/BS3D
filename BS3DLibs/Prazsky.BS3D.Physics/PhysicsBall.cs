@@ -156,6 +156,25 @@ namespace Prazsky.BS3D.Physics
         /// </summary>
         public float ColourFadeRemaining;
 
+        /// <summary>
+        /// How long this released ball has been standing still, in seconds — the measure of whether it is on
+        /// its way to the drain or has simply stopped where it was (#342). Reset the moment it moves again: a
+        /// group nudged loose by a later landing is falling once more and is no longer dead weight.
+        /// </summary>
+        public float StillSeconds;
+
+        /// <summary>
+        /// How far this ball has crossed to its <b>dead weight</b> look, 0 alive and 1 fully marked (#342) —
+        /// a released ball that has come to rest against its neighbours, so nothing a shot can do reaches it.
+        /// Eased rather than switched, so nothing pops.
+        /// <para>
+        /// Kept on the ball for the reason <see cref="RippleTime"/> and <see cref="ColourFadeRemaining"/> are,
+        /// and advanced by the same once-per-frame walk. It is <b>cosmetic</b>: what a ball is worth to the
+        /// rules was settled when it was released, and this only says so on screen.
+        /// </para>
+        /// </summary>
+        public float DeadWeight;
+
         public void SetEmptyConstraints()
         {
             HandlesTop.Handle1.Value = -1;
