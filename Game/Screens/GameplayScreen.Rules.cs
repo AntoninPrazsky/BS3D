@@ -144,6 +144,12 @@ namespace BS3D.Screens
             //screen is about to cover this one, and a camera move under it is a move nobody sees.
             if (CameraTakeoverEngaged || LevelDecided) return;
 
+            //And never if the player has turned it off (#290). Read HERE, where the takeover is decided, and
+            //nowhere else: one already running is left to finish rather than cut off mid-swing. Everything
+            //above it still runs — _biggestDrop moves with the release either way, so a player who switches
+            //the row back on mid-level is not handed a flourish for a collapse they have already beaten.
+            if (!Game.IsDropCinematicEnabled) return;
+
             int first = _fallingBalls.Count - total;
             if (first < 0) return;
 

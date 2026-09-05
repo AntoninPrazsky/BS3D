@@ -101,6 +101,15 @@ namespace BS3D
         public bool Grain { get; set; } = true;
 
         /// <summary>
+        /// Whether a big collapse still takes the camera (#290). On by default and turned off by the player,
+        /// which is the shape the request asked for: the flourish is part of the game and every player who has
+        /// not opened this page has seen it — this is an opt-<i>out</i> for the ones who would rather keep
+        /// shooting. Nothing else about a drop changes when it is off; only the camera stays where it was.
+        /// </summary>
+        [JsonPropertyName("dropCinematic")]
+        public bool DropCinematic { get; set; } = true;
+
+        /// <summary>
         /// The tier the <b>player chose</b>, and null until they have chosen one — which is the whole of the
         /// owner's ruling on this row. The adaptive probe's verdict is deliberately <b>not</b> stored: it is
         /// measured rather than chosen, and the probe can only ever step a tier <i>down</i>, so a verdict that

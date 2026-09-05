@@ -194,6 +194,26 @@ namespace BS3D
         }
 
         /// <summary>
+        /// Toggles whether a big collapse takes the camera (#290): the flourish stays the game's default and
+        /// this is the opt-out for a player who would rather keep shooting.
+        /// <para>
+        /// It is read where the takeover is <b>decided</b> (<c>GameplayScreen.TryBeginDropCinematic</c>) and
+        /// nowhere else, so a cinematic already running is left to finish rather than cut off mid-swing — and
+        /// nothing about the drop itself changes either way: the same balls come off the cluster, fall the
+        /// same way, and are scored the same. Only the lens stays where it was.
+        /// </para>
+        /// </summary>
+        internal void ToggleDropCinematic()
+        {
+            _dropCinematic = !_dropCinematic;
+
+            _settings.DropCinematic = _dropCinematic;
+            SaveSettings();
+
+            _settingsPage.Refresh();
+        }
+
+        /// <summary>
         /// Toggles the debug unlock (#349): every level selectable regardless of the star total, for reaching
         /// one to test it without earning the stars first. It overrides <see cref="IsLevelUnlocked"/> and
         /// writes nothing — <c>PlayerProgress</c> is untouched, so turning it off restores the real state

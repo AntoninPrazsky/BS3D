@@ -57,7 +57,7 @@ namespace BS3D.Screens
         private const int GROUP_HEADING_GAP = 40;
 
         private Label _fullscreenValue, _qualityValue, _exposureValue, _skyValue, _fpsValue, _fpsLimitValue;
-        private Label _volumeValue, _effectsValue, _musicValue, _ambienceValue, _aberrationValue, _grainValue;
+        private Label _volumeValue, _effectsValue, _musicValue, _ambienceValue, _aberrationValue, _grainValue, _dropCinematicValue;
         private Label _progressValue, _unlockAllValue;
 
         //The reset row asks twice. One click on a row that erases every star is an accident waiting beside
@@ -117,6 +117,11 @@ namespace BS3D.Screens
             //like every row here: the scene behind the panel is the preview.
             AddRow(grid, 7, "Aberration", Game.ToggleAberration, out _aberrationValue);
             AddRow(grid, 8, "Film grain", Game.ToggleGrain, out _grainValue);
+
+            //Whether a big collapse takes the camera (#290). It sits with the looks rather than under a
+            //heading of its own because that is what it IS to the player - a flourish they can turn off - and
+            //a "GAMEPLAY" heading over a single row would promise a group that does not exist.
+            AddRow(grid, 9, "Drop camera", Game.ToggleDropCinematic, out _dropCinematicValue);
 
             return grid;
         }
@@ -247,6 +252,7 @@ namespace BS3D.Screens
             _fpsLimitValue.Text = Game.IsFpsUncapped ? "Unlimited" : "Monitor";
             _aberrationValue.Text = Game.IsAberrationEnabled ? "On" : "Off";
             _grainValue.Text = Game.IsGrainEnabled ? "On" : "Off";
+            _dropCinematicValue.Text = Game.IsDropCinematicEnabled ? "On" : "Off";
             _unlockAllValue.Text = Game.IsUnlockAllEnabled ? "On" : "Off";
             _volumeValue.Text = FormatVolume(Game.MasterVolume);
             _effectsValue.Text = FormatVolume(Game.SfxVolume);

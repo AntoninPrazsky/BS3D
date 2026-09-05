@@ -539,6 +539,7 @@ namespace BS3D
         internal float AmbienceVolume => _ambienceVolume;
         internal bool IsAberrationEnabled => _aberration;
         internal bool IsGrainEnabled => _grain;
+        internal bool IsDropCinematicEnabled => _dropCinematic;
         internal SceneKind Scene => _scene;
 
         //DropCinematic's own submerge pull (#193) reads this once at Begin rather than holding a

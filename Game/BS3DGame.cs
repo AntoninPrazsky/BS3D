@@ -418,6 +418,11 @@ namespace BS3D
         //On by default, the aberration's sibling taste toggle
         private bool _grain = true;
 
+        //On by default, and the one row among the looks that is about PLAY rather than about the picture
+        //(#290): whether a big collapse still takes the camera. Off changes nothing about the drop itself —
+        //the same balls come off the cluster and fall the same way — it only leaves the lens where it was.
+        private bool _dropCinematic = true;
+
         //The debug unlock (#349): off at every launch and never written anywhere. It is deliberately NOT
         //persisted — a development convenience that survived a restart would eventually be left on, and the
         //one thing this must never do is make a player's own progress look further along than it is. It
@@ -680,6 +685,7 @@ namespace BS3D
             _ambienceVolume = _settings.AmbienceVolume;
             _aberration = _settings.Aberration;
             _grain = _settings.Grain;
+            _dropCinematic = _settings.DropCinematic;
 
             //Seeded BEFORE SetScene rather than applied after it, which is the opposite of what sky= does and
             //deliberately so: the six scenes that state a dome of their own must still replace it, and every
