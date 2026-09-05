@@ -252,17 +252,48 @@ namespace Prazsky.Core.Render
         /// <summary>Peak linear radiance of the middle layer's brightest star.</summary>
         public float MediumPeak { get; set; } = 0.30f;
 
-        /// <summary>Cells per chart unit of the faint layer. Rounded to a whole number on set, for the same
-        /// no-straddle reason as <see cref="BrightCellScale"/> (#149).</summary>
-        private float _faintCellScale = 110f;
+        /// <summary>
+        /// Cells per chart unit of the faint layer. Rounded to a whole number on set, for the same
+        /// no-straddle reason as <see cref="BrightCellScale"/> (#149).
+        /// <para>
+        /// <b>110 until #370, where it was measured as the thing making the sky read as graph paper.</b> The
+        /// margin that holds a star clear of its cell wall is charged in CELL units while the star is sized
+        /// in PIXELS, so the jitter box closes as the cells get smaller on screen — and at 110 this layer's
+        /// cells are only about 6 px across at 1600×900/72°, which left every star of it pinned near its own
+        /// cell centre. Measured on the row profile of a face-centre capture, the autocorrelation rang at
+        /// <b>lag 5–6 (r = 0.24), 11–12 (0.12) and 17–18 (0.09)</b> — a lattice at the cell's own pitch,
+        /// with harmonics. At 70 the cells are ~10 px, the margin is a small fraction of one, and that
+        /// fundamental is <b>gone</b> (−0.26 where it was +0.24). It also takes the layer from ~29 000 stars
+        /// to ~11 800, which the same report asked for in as many words: the sky read as cluttered rather
+        /// than as a deep, spacious astrophoto.
+        /// </para>
+        /// <para>
+        /// ⚠ <b>The cure is resolution-dependent, because the disease is.</b> Re-measured at 1366×768/72°,
+        /// where the same cells are ~8.7 px, the ring is halved rather than removed (0.12 against the
+        /// original 0.24). Coarsening further would close it and would thin the sky further with it; the
+        /// resolution-independent fix is the neighbour-cell lookup <c>docs/scenes.md</c> has always named,
+        /// and that is still the next step if a small screen ever reports this again.
+        /// </para>
+        /// </summary>
+        private float _faintCellScale = 70f;
         public float FaintCellScale
         {
             get => _faintCellScale;
             set => _faintCellScale = MathF.Round(value);
         }
 
-        /// <summary>Fraction of the faint layer's cells carrying a star, as a density on the sky. Clamped
-        /// to <see cref="MaxChance"/> on set, for the same reason as <see cref="BrightChance"/>.</summary>
+        /// <summary>
+        /// Fraction of the faint layer's cells carrying a star, as a density on the sky. Clamped
+        /// to <see cref="MaxChance"/> on set, for the same reason as <see cref="BrightChance"/>.
+        /// <para>
+        /// <b>Deliberately NOT touched by #370</b>, which thinned this layer through
+        /// <see cref="FaintCellScale"/> alone. Raising it back to hold the old star count would put the
+        /// face-centre fill at 0.50 × 1.91 ≈ 0.96 — every cell carrying a star exactly where the lattice
+        /// is most legible, which is both the corner-knot artifact <see cref="MaxChance"/> exists to
+        /// prevent and the surest way to make a grid readable. One dial moved, and this one's meaning
+        /// unchanged.
+        /// </para>
+        /// </summary>
         private float _faintChance = 0.40f;
         public float FaintChance
         {
