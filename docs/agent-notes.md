@@ -909,3 +909,7 @@ Bridge byl zároveň nejmírnější stížnost („simple", ne „primitive"), 
 **Ověřeno:** `LevelGen` exit 0 (všechny brány, mění se **tři** soubory levelů), `ScoreSim` „All levels rate the right way round" (Pendant 147/42, Crane 152/46, Mobile 148/46 — hvězdy sedí), sag proba na všech třech (0 / 2 / 1 z 5, práh hlášení je 4), čtyři solutiony 0 chyb. Fotky před/po ze hry na všech čtyřech (`level=<name> quality=high shot=9`).
 
 **Co jsem NEUDĚLAL:** nesahal jsem na `Web` a `Pagoda`/`Cabinet` (v #360 nejsou) a nepřegeneroval jsem barvy podle #285 — topologie i inkousty jsou tam, kde je #285 nechalo, kromě dvou míst, kde barva byla ta vada: černý segment jibu a horké závěsy Mobilu.
+
+**Všechny tři dnešní větve (#364, #362, #360) jsou na majitelovo slovo smergované do `main` napřímo přes `--no-ff`, v tomhle pořadí; issues zavřené, větve smazané lokálně i na originu.** Po mergi jsem generátor **spustil znovu na smergovaném kódu** a `git status` je čistý — #362 (Solitaire) a #360 (Coil) se v `Program.cs` potkaly bez konfliktu a reprodukují commitnuté levely bajt za bajtem; ScoreSim a čtyři solutiony po mergi znovu zelené.
+
+**⚠ Deník kolidoval u všech tří mergů a poprvé ne sám se sebou:** druhý stroj mezitím na main přidal vlastní „druhý zápis dne" (#279, #356, #289), takže konflikt byl o **totéž číslo zápisu**, ne o konec souboru. Řeší se **ponecháním obou stran a přečíslováním** — moje tři zápisy jsou proto třetí, čtvrtý a pátý. Pro dalšího: když si dva stroje v jednom dni připisují, číslo zápisu je to, co koliduje, a je to konflikt na jistotu.
