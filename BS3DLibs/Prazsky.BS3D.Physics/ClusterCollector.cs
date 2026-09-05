@@ -87,6 +87,27 @@ namespace Prazsky.BS3D.Physics
         /// </summary>
         public const float COLOUR_FADE_SECONDS = 0.35f;
 
+        /// <summary>
+        /// How slowly a released ball has to be moving to count as standing still, in world units a second
+        /// (#342). Well under the speed a ball rolling down the island's dish keeps, and well over the jitter
+        /// a solver leaves in a body that is resting on its neighbours.
+        /// </summary>
+        public const float DEAD_WEIGHT_SPEED = 0.35f;
+
+        /// <summary>
+        /// How long it has to hold that still before the mark begins. It is the difference between a group
+        /// that has <b>stopped</b> and one that is merely slow at the top of its fall, and it is deliberately
+        /// long enough that a released group on its way to the drain never flashes it.
+        /// </summary>
+        public const float DEAD_WEIGHT_HOLD_SECONDS = 0.6f;
+
+        /// <summary>
+        /// How long the crossing to the dead look takes once it has started, and how long the way back takes
+        /// if the ball moves again. Eased for the reason the magazine's transmute is: a ball switching between
+        /// two looks on one frame reads as a glitch rather than as a state (#342 asks for exactly this).
+        /// </summary>
+        public const float DEAD_WEIGHT_FADE_SECONDS = 0.55f;
+
         private readonly Func<PhysicsBall, float, float> _advanceRipple;
 
         /// <param name="advanceRipple">Advances one ball's flare by the frame's elapsed seconds and answers how
@@ -126,7 +147,8 @@ namespace Prazsky.BS3D.Physics
         /// <returns>How many bodies were visited — the count the Testbed reports against the number of instances
         /// drawn, the two differing by the magazine preview and not by any cull.</returns>
         public int Collect(in BallDrawFrame frame, float elapsedSeconds, PhysicsBall[,,] cluster,
-            List<PhysicsBall> shot, List<PhysicsBall> falling, float interpolationAlpha = 1f)
+            List<PhysicsBall> shot, List<PhysicsBall> falling, float interpolationAlpha = 1f,
+            float deadWeightAboveY = float.MaxValue)
         {
             //How far towards its target each ball's occlusion moves this frame, and how much of a ball's arrival
             //offset SURVIVES it. Both exponential and framed in seconds, so neither changes with the frame rate
@@ -190,11 +212,13 @@ namespace Prazsky.BS3D.Physics
                     visited++;
                 }
 
+            //The released balls, and the only population that can be DEAD WEIGHT (#342): a ball still in the
+            //lattice is by definition connected, and one in flight is a shot. Both of those pass 0 below.
             if (falling != null)
                 for (int i = 0; i < falling.Count; i++)
                 {
                     Collect(frame, falling[i], BallRenderSet.UNOCCLUDED, ease, glideRetained, elapsedSeconds,
-                        interpolationAlpha);
+                        interpolationAlpha, AdvanceDeadWeight(falling[i], elapsedSeconds, deadWeightAboveY));
                     visited++;
                 }
 
@@ -205,7 +229,7 @@ namespace Prazsky.BS3D.Physics
         //by the caller's accumulator fraction (#293) — plus whatever is left of its arrival glide, turned the
         //way the pose turns it, shaded by the eased occlusion and lit by however far its flare has got.
         private void Collect(in BallDrawFrame frame, PhysicsBall ball, Vector4 occlusionTarget, float ease,
-            float glideRetained, float elapsedSeconds, float interpolationAlpha)
+            float glideRetained, float elapsedSeconds, float interpolationAlpha, float deadWeight = 0f)
         {
             ball.InterpolatedPose(interpolationAlpha, out System.Numerics.Vector3 position,
                 out System.Numerics.Quaternion orientation);
@@ -217,7 +241,48 @@ namespace Prazsky.BS3D.Physics
             frame.AddOriented(ball.Type, drawnAt.ToXna(), orientation.ToXna(),
                 EaseOcclusion(ball, occlusionTarget, ease),
                 _advanceRipple == null ? 0f : _advanceRipple(ball, elapsedSeconds),
-                ball.Kind, AdvanceColourFade(ball, elapsedSeconds));
+                ball.Kind, AdvanceColourFade(ball, elapsedSeconds), deadWeight);
+        }
+
+        /// <summary>
+        /// Advances a released ball's crossing to the <b>dead weight</b> look and answers how far through it
+        /// is, 0 for every ball that is still falling (#342).
+        /// <para>
+        /// The rule is two measurements and not one: the ball has to be standing still
+        /// (<see cref="DEAD_WEIGHT_SPEED"/>) for long enough that it is clearly not merely slow
+        /// (<see cref="DEAD_WEIGHT_HOLD_SECONDS"/>), <b>and</b> it has to be resting above
+        /// <paramref name="aboveY"/> — up in the field where the player is shooting, rather than lying on the
+        /// island's stone on its way into the drain. The second half is what keeps a normal release from
+        /// flashing the mark at the bottom of its fall, and it is the caller's figure because only the caller
+        /// knows where its field's floor is. A caller that passes nothing marks nothing.
+        /// </para>
+        /// <para>
+        /// It reads the body's <b>velocity</b> rather than comparing poses between frames: the pose is already
+        /// being read here for the draw, but a resting body that the solver still jitters by a hair would come
+        /// out moving, while the velocity it reports for that is exactly the small number this threshold is
+        /// set against.
+        /// </para>
+        /// </summary>
+        private static float AdvanceDeadWeight(PhysicsBall ball, float elapsedSeconds, float aboveY)
+        {
+            //The disabled case - the Testbed, the editor, anything with no field floor to speak of - is one
+            //compare, and it also decays a mark left over from a caller that changed its mind
+            bool eligible = aboveY != float.MaxValue
+                && ball.BallReference.Exists
+                && ball.BallReference.Pose.Position.Y > aboveY
+                && ball.BallReference.Velocity.Linear.LengthSquared() < DEAD_WEIGHT_SPEED * DEAD_WEIGHT_SPEED;
+
+            if (eligible) ball.StillSeconds += elapsedSeconds;
+            else ball.StillSeconds = 0f;
+
+            //Towards 1 while it holds still, back towards 0 the moment it moves again - one ramp read in both
+            //directions, so a group knocked loose mid-fade does not have a second timer to disagree with
+            float step = elapsedSeconds / DEAD_WEIGHT_FADE_SECONDS;
+
+            ball.DeadWeight = MathF.Max(0f, MathF.Min(1f,
+                ball.DeadWeight + (ball.StillSeconds >= DEAD_WEIGHT_HOLD_SECONDS ? step : -step)));
+
+            return ball.DeadWeight;
         }
 
         /// <summary>

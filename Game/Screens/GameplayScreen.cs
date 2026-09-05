@@ -1325,8 +1325,12 @@ namespace BS3D.Screens
             //The cluster, the shots in flight and the released balls falling, each off its own body's pose — so
             //what the player is looking at IS the simulation. On the DRAW clock, since the ease, the glide and
             //the ripple are all purely about what is on screen.
+            //
+            //The last argument is the height above which a released ball that has STOPPED counts as dead
+            //weight (#342): the field's own floor, so a group stuck up among the balls is marked and one
+            //lying on the island's stone on its way into the drain is not.
             _clusterCollector.Collect(ballFrame, (float)gameTime.ElapsedGameTime.TotalSeconds,
-                _physicsBalls, _shotBalls, _fallingBalls, _renderAlpha);
+                _physicsBalls, _shotBalls, _fallingBalls, _renderAlpha, _clusterWorldOffset.Y);
 
             //And the loaded queue into the very same frame — this screen's own loop, because the barrel's bore
             //and the transmute cross-fade are its own business
