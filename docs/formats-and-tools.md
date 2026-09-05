@@ -208,6 +208,25 @@ The model loads a colour the way `RandomBallType` does (uniform over the colours
 
 **#302 then gave the four Spectrum spirals their banded tiers** — Pinecone, Pleat, Bolt and Totem had read 5 of 5 apiece (Bolt losing on its first shot with the glass at rest), and read **0, 0, 1 and 0** fixed, Bolt's one a hairline −1.00 exactly at the allowance, surviving orders clearing the levels outright. A tier is never a floor of one colour — the resolution against the block's own no-floors premise, and the rule every tier obeys, is written in the Spectrum block's header in `LevelGen`.
 
+**#359 re-measured the four early levels a playtest complained about, and they are not one phenomenon.** The owner's words were about luck — *"depends a lot on the random ball draw"* — and the probe says which luck, per level (`--sag`, 2026-09-05):
+
+| level | sag | ceiling anchors → after one shot | anchor load | biggest standing group |
+|---|---|---|---|---|
+| Amphora | **3 of 5** | 20 → 14 | 33.8 | 64 of 502 (13 %) |
+| Saturn | **2 of 5** | 9 → 4 | **64.5** | 128 of 377 (34 %) |
+| Meerkat | **2 of 5** → **1 of 5** after the fix below | 26 → 22 | 16.2 | **86 of 364 (24 %)** → 54 (14 %) |
+| Giraffe | **1 of 5** | 30 → 26 | 15.8 | 30 of 420 (7 %) |
+
+The three figures already quoted in the source (Amphora 3, Saturn 2, Giraffe 1) came back **unchanged**, so they postdate the probe's correctness fixes and can be trusted; **Meerkat had never been run and reads 2**, which is Saturn's figure and matches the report exactly.
+
+**The sag does not track the anchor load and it does not track the group size either — each of these levels loses its own way**, which is why "the game is luck" is the wrong single diagnosis:
+
+- **Amphora and Saturn are anchor-starved.** Saturn hangs 377 balls on **nine** ceiling cells and one shot leaves four of them; Amphora is the level `WorstAnchorLoad` was written about. Their remedy is anchors or width, and it changes the shape of a vase and a planet, so it is the owner's call and is **not** taken here.
+- **Meerkat was a single group.** The trace names it outright: **every losing run lost on the shot that matched its 86-ball brown group**, and the runs where the same group went later survived with eight units of clearance. That is not the physics being unpredictable, it is one shot taking a quarter of the cluster.
+- **Giraffe is the floor.** 1 of 5 with no group over 7 % and a healthy anchor load is what the source already calls "the estimator's floor for a 14-course curtain".
+
+**Meerkat's group was cut with the Gallery's own free dial — the number of inks the symbol is drawn in.** Its head is sand where the whole figure used to be brown, so the coat is 54 balls and the head 32 instead of one group of 86: best single shot **28 % → 14 %**, sag **2 of 5 → 1**. The drawing did not move a cell, and a pale face over a darker coat is what a meerkat has.
+
 **The pack-wide sweep after both rounds of fixes** (solo, nothing else on the machine): **57 of 90 never sag, 11 lose one order, 14 two, 3 three, 5 four and none five** — the first sweep on which nothing reads 5 of 5. Above the report threshold stand five names: **Giraffe (4 of 5, glass at rest — a layout reading)** and **Cube and Donut (4 of 5, mostly with the glass stepped, which smells of the ceiling sum rather than the lattice)** — three levels nobody has reported — plus **Amphora and Cabinet at 4**, both threshold-edge wobblers whose counts flip between 3 and 4 run to run (Amphora is the calibration's known false positive; Cabinet read 3, 3, 4 across its post-fix sweeps), which is the ±1 caveat above doing exactly what it says. The poorer player's six extra names (Belfry, Organ, Vortex, Sail, Garland, Trellis) all fell to 2 or under once the probe could shoot — the slender-member note those designs carry stands, but the competent player is not troubled by them. ⚠ The probe still **refuses nothing** — it prints a ranking, and the levels it names are where to look first.
 
 ### The anchor load: what the glass actually carries (#301, #302)

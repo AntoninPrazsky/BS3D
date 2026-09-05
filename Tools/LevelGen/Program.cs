@@ -1544,13 +1544,24 @@ namespace BS3D.Tools.LevelGen
         /// <summary>
         /// A meerkat standing sentry, propped on its own tail - the savanna's actual lookout in the pose
         /// every player recognises, and the first picture drawn the way the 71 % squash WANTS: tall and
-        /// thin, the format's best case. Two inks make it the block's mid-ramp step - brown for the figure,
-        /// black for the iconic eye-mask (two 1x2 patches of 4 balls) and the belly stripe (8 balls).
+        /// thin, the format's best case. Three inks make it the block's mid-ramp step - brown for the coat,
+        /// sand for the head, black for the iconic eye-mask (two 1x2 patches of 4 balls) and the belly
+        /// stripe (8 balls).
         /// <para>
-        /// The belly stripe splits the body's brown into two 1-wide side columns down rows 6-9 - each 8
-        /// balls, both rejoining the full-width brown at rows 5 and 10, so the figure stays one group of
-        /// about 98 balls (27 %) whose release orphans the three enclosed black patches (+16, about 31 %
-        /// worst case - inside the band). The tail is a single column at bitmap column 11, rows 9-13: 5
+        /// The belly stripe splits the coat's brown into two 1-wide side columns down rows 6-9 - each 8
+        /// balls, rejoining the full-width brown at row 10 below them, so the coat is one group of 54 balls
+        /// (14 %).
+        /// </para>
+        /// <para>
+        /// <b>⚠ THE HEAD IS SAND BECAUSE THE FIGURE WAS ONE GROUP OF 86 (#359).</b> Drawn entirely in brown
+        /// it was a quarter of the cluster leaving on one shot, and the sag probe's trace named it without
+        /// ambiguity: <b>every losing run lost on the shot that matched that group</b>, while the runs where
+        /// the same group went later survived with eight units of clearance. That is what the owner's
+        /// playtest was calling luck - not the physics, one shot. The remedy is this block's own free dial,
+        /// the number of inks a symbol is drawn in (see the region's remarks and Elephant against Star), and
+        /// it costs the drawing nothing: <b>a meerkat has a pale face over a darker coat</b>. Coat 86 → 54
+        /// balls, best single shot 28 % → 14 %, sag <b>2 of 5 → 1 of 5</b>, which is Giraffe's figure and
+        /// the estimator's floor for this format. The bitmap did not move a cell - rows 2-5 changed ink. The tail is a single column at bitmap column 11, rows 9-13: 5
         /// cells = a solid 2-thick slab of 10 balls, the <see cref="Zebra"/>-leg precedent, standing three
         /// columns clear of the legs (Dx = 3, no contact) with bottom-row contact allowed Heart-style. It
         /// is the level's grace note: the body's release leaves the free-standing 10-ball tail waving alone
@@ -1563,7 +1574,7 @@ namespace BS3D.Tools.LevelGen
         /// black confuses with nothing.
         /// </para>
         /// <para>
-        /// Gate watch (#255): the drop test on brown must agree with the 31 % worst case, and the two
+        /// Gate watch (#255): the drop test on brown must agree with the 14 % figure, and the two
         /// 1-wide side columns at rows 6-9 - the Zebra near-miss shape, saved by the 2-thick wall - must
         /// come through with nothing recoloured; if one is recoloured or merged, widen the body to columns
         /// 4-7 with a 2-wide belly stripe at columns 5-6. The 4-ball eye patches are the smallest groups in
@@ -1573,25 +1584,26 @@ namespace BS3D.Tools.LevelGen
         /// </summary>
         private static Design Meerkat() => Picture("Meerkat.json", "Meerkat", SceneKind.Savanna, sky: 14,
             MUSIC_GALLERY, shots: 50, ceilingStep: 9, MEERKAT, grid: 15,
-            //'#' brown, 'o' black; ground cyan + white - a pale morning sky
-            symbol: new[] { BallType.Type10, BallType.Type8 },
+            //'#' brown, 'o' black, '+' sand; ground cyan + white - a pale morning sky
+            symbol: new[] { BallType.Type10, BallType.Type8, BallType.Type7 },
             background: new[] { BallType.Type5, BallType.Type4 });
 
         /// <summary>
         /// A meerkat, 13 by 14: a 5-wide head (rows 2-5), a slim 3-wide body (rows 6-10), two 2x2 legs
         /// (rows 11-12) and the species' tripod tail as a single column at column 11, rows 9-13. Second
         /// ink <c>o</c>: the eye-mask at columns 5 and 7, rows 3-4, and the belly stripe down column 6,
-        /// rows 6-9. The stripe deliberately splits the body <c>#</c> into two 1-column sides that rejoin
-        /// above and below - the figure is one group and the mask patches are enclosed by it.
+        /// rows 6-9. Third ink <c>+</c>: the head, rows 2-5, which is where #359 cut the figure in two -
+        /// see <see cref="Meerkat"/>. The stripe splits the coat <c>#</c> into two 1-column sides that
+        /// rejoin below it, and the mask patches are enclosed by the head.
         /// </summary>
         private static readonly string[] MEERKAT =
         {
             ".............",
             ".............",
-            "....#####....",
-            "....#o#o#....",
-            "....#o#o#....",
-            "....#####....",
+            "....+++++....",
+            "....+o+o+....",
+            "....+o+o+....",
+            "....+++++....",
             ".....#o#.....",
             ".....#o#.....",
             ".....#o#.....",

@@ -913,3 +913,30 @@ Bridge byl zároveň nejmírnější stížnost („simple", ne „primitive"), 
 **Všechny tři dnešní větve (#364, #362, #360) jsou na majitelovo slovo smergované do `main` napřímo přes `--no-ff`, v tomhle pořadí; issues zavřené, větve smazané lokálně i na originu.** Po mergi jsem generátor **spustil znovu na smergovaném kódu** a `git status` je čistý — #362 (Solitaire) a #360 (Coil) se v `Program.cs` potkaly bez konfliktu a reprodukují commitnuté levely bajt za bajtem; ScoreSim a čtyři solutiony po mergi znovu zelené.
 
 **⚠ Deník kolidoval u všech tří mergů a poprvé ne sám se sebou:** druhý stroj mezitím na main přidal vlastní „druhý zápis dne" (#279, #356, #289), takže konflikt byl o **totéž číslo zápisu**, ne o konec souboru. Řeší se **ponecháním obou stran a přečíslováním** — moje tři zápisy jsou proto třetí, čtvrtý a pátý. Pro dalšího: když si dva stroje v jednom dni připisují, číslo zápisu je to, co koliduje, a je to konflikt na jistotu.
+
+---
+
+## 2026-09-05 — Claude Code (šestý zápis dne)
+
+**#359: rozptyl „cluster pod čarou" na čtyřech raných levelech. Změřeno všechno, co issue chtělo — a hlavní nález je, že ty čtyři levely NEJSOU jeden jev. „Hra je o štěstí" je špatná jednotná diagnóza.**
+
+**Čísla, o která issue žádala** (`--sag`, jeden běh na level): **Amphora 3 z 5, Saturn 2, Meerkat 2, Giraffe 1.** Tři z nich už v kódu stály a **vrátily se nezměněné**, takže jsou z opravené proby a dá se jim věřit; **Meerkat, který nikdy neběžel, čte 2** — Saturnovo číslo, a přesně sedí na majitelův popis („stalo se mi to několikrát, ale na jiných pokusech ne").
+
+**⚠ Sag nekopíruje ani zátěž kotev, ani velikost skupiny — každý z těch levelů prohrává po svém:**
+
+| level | sag | kotvy → po jedné ráně | zátěž kotvy | největší stojící skupina |
+|---|---|---|---|---|
+| Amphora | 3 z 5 | 20 → 14 | 33,8 | 64 z 502 (13 %) |
+| Saturn | 2 z 5 | **9 → 4** | **64,5** | 128 z 377 (34 %) |
+| Meerkat | 2 z 5 | 26 → 22 | 16,2 | **86 z 364 (24 %)** |
+| Giraffe | 1 z 5 | 30 → 26 | 15,8 | 30 z 420 (7 %) |
+
+- **Amphora a Saturn jsou o kotvách.** Saturn drží 377 koulí na **devíti** stropních buňkách a jedna rána mu nechá čtyři; Amphora je level, kvůli kterému `WorstAnchorLoad` vůbec vznikl. Lék je šířka/kotvy a **mění tvar vázy a planety** — to je majitelovo rozhodnutí a **nesáhl jsem na ně**.
+- **Meerkat byla JEDNA SKUPINA a trace to řekl bez debat.** Ve všech prohraných bězích padl level **na ráně, která sebrala jeho 86kuličkovou hnědou skupinu** (run 2 a 4: shot 4, `87 matched`, čára −1,07 a −1,03); v bězích, kde tatáž skupina odešla později (shot 3 nebo 9), level **dohrál s osmi jednotkami rezervy**. To není nepředvídatelná fyzika, to je jedna rána, která bere čtvrtinu clusteru.
+- **Giraffe je podlaha nástroje.** 1 z 5 bez skupiny nad 7 % a se zdravou zátěží kotev je přesně to, čemu jeho vlastní komentář říká „estimator's floor for a 14-course curtain".
+
+**Opraven jenom Meerkat, a to blokovým dialem, který má `docs/formats-and-tools.md` popsaný jako ZADARMO: kolika inkousty je symbol nakreslený.** Hlava je nově **pískově žlutá** tam, kde byla celá figura hnědá — takže kožich je 54 koulí a hlava 32 místo jedné skupiny 86: nejlepší jedna rána **28 % → 14 %**, sag **2 z 5 → 1 z 5** (Giraffovo číslo). **Bitmapa se nehnula ani o buňku** — změnil se ink řádků 2–5. A je to i lepší obrázek: surikata **má** světlejší obličej nad tmavším kožichem, a černá maska, která podle vlastního komentáře „nese ten druh", sedí na světlé hlavě líp než na hnědé.
+
+**Ověřeno:** `LevelGen` exit 0 (mění se jediný soubor levelu, `Meerkat.json`, 364 koulí beze změny), `ScoreSim` „All levels rate the right way round" a Meerkat drží 4/4/4/3, sag po změně 1 z 5, čtyři solutiony 0 chyb, fotka z běžící hry + elevace (hlava `y` s maskou `K`, kožich `n`, pruh na břiše `K`, ocas a nohy `n`).
+
+**Co zůstává na majitelovi** (a je to celý zbytek #359): jestli Amphoře a Saturnu stojí za to sáhnout na kotvy. Obě čísla jsou pod prahem hlášení (4 z 5) a `docs/game-session.md` má zapsáno, že nenulový sag sám o sobě není vada — ale u těchhle dvou je to **struktura**, ne náhoda, a je to jediné, co po tomhle zápisu z issue zbývá.
