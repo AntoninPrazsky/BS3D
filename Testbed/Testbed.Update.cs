@@ -137,7 +137,7 @@ namespace Testbed
             {
                 _camera.Position = Vector3.SmoothStep(_beforeAnimationPosition, GetCanonOffsettedPos(), _gameModeAnimStep);
                 _camera.Target = Vector3.SmoothStep(_beforeAnimationTarget, GetCannonOffsettedTarget(), _gameModeAnimStep * 2f);
-                _camera.FieldOfView = Microsoft.Xna.Framework.MathHelper.SmoothStep(FREE_FOV, GAME_FOV, _gameModeAnimStep);
+                _camera.FieldOfView = Microsoft.Xna.Framework.MathHelper.SmoothStep(_freeFov, GAME_FOV, _gameModeAnimStep);
 
                 _gameModeAnimStep += ANIMATION_SPEED * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
@@ -154,14 +154,14 @@ namespace Testbed
                 {
                     //Leaving straight from precise aim: ease the whole leaned pose out to the overview pose over the
                     //same animation that widens the FOV, so the camera does not teleport the ~30 units between them.
-                    _camera.FieldOfView = Microsoft.Xna.Framework.MathHelper.SmoothStep(_beforeAnimationFov, FREE_FOV, _gameModeAnimStep);
+                    _camera.FieldOfView = Microsoft.Xna.Framework.MathHelper.SmoothStep(_beforeAnimationFov, _freeFov, _gameModeAnimStep);
                     _camera.Position = Vector3.SmoothStep(_beforeAnimationPosition, GetCanonOffsettedPos(), _gameModeAnimStep);
                     _camera.Target = Vector3.SmoothStep(_beforeAnimationTarget, GetCannonOffsettedTarget(), _gameModeAnimStep);
                 }
                 else
                 {
                     //Plain overview -> free exit: the camera is already at the overview pose, so only the FOV widens.
-                    _camera.FieldOfView = Microsoft.Xna.Framework.MathHelper.SmoothStep(GAME_FOV, FREE_FOV, _gameModeAnimStep);
+                    _camera.FieldOfView = Microsoft.Xna.Framework.MathHelper.SmoothStep(GAME_FOV, _freeFov, _gameModeAnimStep);
                 }
 
                 _gameModeAnimStep += ANIMATION_SPEED * (float)gameTime.ElapsedGameTime.TotalMilliseconds;

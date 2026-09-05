@@ -235,6 +235,23 @@ namespace Testbed.Diagnostics
         public Vector3? CamTarget { get; private set; }
 
         /// <summary>
+        /// <c>fov=&lt;degrees&gt;</c>: the free camera's vertical field of view, so a shot can be framed to match
+        /// another program's camera rather than only another vantage (#367). Null leaves the Testbed's own 72°.
+        /// <para>
+        /// It exists because <c>campos</c>/<c>camtarget</c> alone <b>cannot</b> match the map editor: the
+        /// editor's camera is 45° and the Testbed's free camera 72°, so the same pose puts a ball at a very
+        /// different on-screen size in the two — and a ball's own shader band-limits its pattern by screen
+        /// footprint, so its sampled colour follows that size. Matching the pose without matching this
+        /// compares two different framings and calls the difference a renderer difference.
+        /// </para>
+        /// <para>
+        /// Free camera only. Game mode has its own <c>GAME_FOV</c>, which is a decision about how a level is
+        /// played and not a framing lever; a run that presses F10 leaves this behind and returns to it.
+        /// </para>
+        /// </summary>
+        public float? FreeFovDegrees { get; private set; }
+
+        /// <summary>
         /// <c>width=</c>/<c>height=</c>: the windowed back buffer, so a screenshot can be captured at play
         /// resolution from any machine (#141). The 16:9 default is the narrowest aspect the game targets, so
         /// what is framed in a window is the tightest case and a wider display only adds width.
@@ -298,6 +315,13 @@ namespace Testbed.Diagnostics
                 //can be taken from any vantage (e.g. under the sea, or close in on the drain).
                 else if (arg.StartsWith("campos=", StringComparison.OrdinalIgnoreCase) && TryParseVec3(arg.Substring("campos=".Length), out Vector3 parsedPos)) options.CamPos = parsedPos;
                 else if (arg.StartsWith("camtarget=", StringComparison.OrdinalIgnoreCase) && TryParseVec3(arg.Substring("camtarget=".Length), out Vector3 parsedTarget)) options.CamTarget = parsedTarget;
+                //Bounded on both sides: a zero or a negative degenerates the projection matrix, and past about
+                //170 the frame is a fisheye with the near plane through the lens. Out of range is IGNORED
+                //rather than clamped, the way an unknown scene name is - this is a diagnostic and must never be
+                //the reason a scripted run fails to start.
+                else if (arg.StartsWith("fov=", StringComparison.OrdinalIgnoreCase)
+                    && float.TryParse(arg.Substring("fov=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedFov)
+                    && parsedFov >= 1f && parsedFov <= 170f) options.FreeFovDegrees = parsedFov;
                 else options.StartupMapPath = arg;
             }
 
