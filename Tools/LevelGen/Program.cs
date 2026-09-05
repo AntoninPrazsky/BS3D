@@ -167,9 +167,10 @@ namespace BS3D.Tools.LevelGen
         /// <summary>
         /// The campaign's blocks, in order: what each is <b>called</b> — written onto every entry of it as
         /// <c>LevelSetEntry.Block</c> so the game can celebrate finishing one by name (#184) — and how many
-        /// levels it holds. The sizes were all <c>BLOCK_SIZE</c> (10) until #295 put the five-level Eruption
+        /// levels it holds. The sizes were all <c>BLOCK_SIZE</c> (10) until #295 put a five-level Eruption
         /// between two ten-level chapters, so equality stopped being a construction guarantee and became this
-        /// table; <b>contiguity still is one</b> — names and gates fall out of the entry's position, so a
+        /// table — and #369 then filled that block to ten, so every entry is 10 again while the table stays,
+        /// because a size that is a table is a size that can differ and a size that is a constant cannot; <b>contiguity still is one</b> — names and gates fall out of the entry's position, so a
         /// block cannot reopen later in the set, which is the one thing <c>LevelSet.Load</c> refuses a file
         /// for. Set from the entry's <b>position</b> where <see cref="Design.Music"/> is set on each design,
         /// and the asymmetry is not an oversight: a theme is written into the level <i>file</i>, so it has to
@@ -179,7 +180,7 @@ namespace BS3D.Tools.LevelGen
         private static readonly (string Name, int Size)[] BLOCKS =
         {
             ("The Meadow", 10), ("The Gallery", 10), ("The Coil", 10), ("The Tower", 10), ("The Reveal", 10),
-            ("The Quarry", 10), ("The Nebula", 10), ("The Eruption", 5), ("The Spectrum", 10), ("The Arcade", 10),
+            ("The Quarry", 10), ("The Nebula", 10), ("The Eruption", 10), ("The Spectrum", 10), ("The Arcade", 10),
             ("The Mirage", 10),
         };
 
@@ -438,7 +439,8 @@ namespace BS3D.Tools.LevelGen
             //IN PLAY ORDER, AND IN BLOCKS (#194). A block is one scene, one dome, one music theme and one
             //statable style, and it is contiguous — a chunk of the BLOCKS table by position IS a block, which
             //is what #184's block-completion celebration needs and what a flat list could not give it. The
-            //chunks were all ten levels until #295's five-level Eruption; the table carries each block's size.
+            //chunks were all ten levels, then #295's Eruption shipped five and #369 filled it back to ten;
+            //the table carries each block's size either way.
             //
             //The campaign's light drains out of it as it goes: green noon, gold afternoon, the desert's cool
             //late light, violet dusk, underground dark, airless black — and since #182, past the black, deep
@@ -535,11 +537,12 @@ namespace BS3D.Tools.LevelGen
             //run, the downwind rake, the leaning column). The arc job is the light returning after the void,
             //GEOLOGICALLY - the earth glowing by itself - one step before the dawn hands the light back
             //received (and two before the finale's neon, since #300 put the cities in day order). Five
-            //levels, not ten: the block ships at the size every block first shipped at, and the
-            //BLOCKS table carries the size. See the block's own region for the statement in full and for the
-            //engineering law every design here obeys (a designed breakaway is always the lowest thing on its
-            //own load path).
-            Design[] volcano = { Breach(), Causeway(), Meander(), Volley(), Plume() };
+            //levels until #369, which filled the block to ten with the five that bring the BOMB and the ZAP
+            //into the campaign (#368) - the volcano being the one place a bomb does not have to explain
+            //itself. See the block's own region for the statement in full and for the engineering law every
+            //design here obeys (a designed breakaway is always the lowest thing on its own load path).
+            Design[] volcano =
+                { Breach(), Causeway(), Meander(), Volley(), Plume(), Vent(), Sill(), Fume(), Caldera(), Paroxysm() };
 
             //9. THE CITY AT DAWN - "The Spectrum" (#253). One HUE FAMILY a level, swept through the whole
             //body as a gradient: white to cyan to blue to navy and back, a heat ramp, a green one, a twilight
@@ -874,7 +877,8 @@ namespace BS3D.Tools.LevelGen
         /// <summary>
         /// The block the entry at <paramref name="index"/> belongs to — its name, its first entry's index and
         /// its size. A walk over <see cref="BLOCKS"/>' cumulative sizes rather than a division, since #295's
-        /// five-level Eruption ended the era of equal blocks; contiguity is still by construction. It throws
+        /// five-level Eruption ended the era of equal blocks (and #369 restored it without restoring the
+        /// assumption); contiguity is still by construction. It throws
         /// rather than wrapping if the catalogue outgrows the table: a set whose last block silently reopened
         /// the first one is a file <c>LevelSet.Load</c> refuses, and finding that out here is cheaper.
         /// </summary>
@@ -9162,6 +9166,613 @@ namespace BS3D.Tools.LevelGen
 
         #endregion
 
+        #region The eruption's second five: the specials arrive (#368, #369)
+
+        //THE ERUPTION'S SECOND FIVE. Two issues meet here and the meeting is the design: #369 asked why this
+        //block ships five levels where every other chapter ships ten, and #368 asked where the Bomb (#326)
+        //and the Zap (#327) enter a campaign that contains neither — both mechanics built, argued and
+        //verified, and reachable only in the Testbed's own test fields. The volcano is where a bomb does not
+        //have to explain itself: this block already has a level called Volley about the ballistic kind, its
+        //palette already means "this is what the mountain runs on", and its own law — A DESIGNED BREAKAWAY IS
+        //ALWAYS THE LOWEST THING ON ITS OWN LOAD PATH — is the sentence a blast has to obey anyway.
+        //
+        //THE TEACHING ORDER IS THE POINT, and it is the Anvil's precedent (#324's stone): a rule the player
+        //discovers by wasting a ball on it is a rule taught the worst way. So each mechanic gets one level
+        //where it is UNMISSABLE AND CHEAP before it gets one where it is the tool:
+        //
+        //  6. Vent      - the bomb, taught. Eight of them ring the cone's mouth on the lowest course (four
+        //                 bearings, a pair of cells apiece), where the gun looks first and nothing is in the way.
+        //  7. Sill      - the bomb, used. A cold plate too dithered to clear by colour at speed, opened
+        //                 through four slots cut up into it, a charge wedged in the head of each - five balls,
+        //                 because a slot's head is one cell on one parity and two on the next.
+        //  8. Fume      - the zap, taught. Five pipes hang from a cap, each ending in exactly one zap, each
+        //                 pipe a different pair of hot inks - so what a zap takes is written on the pipe it
+        //                 hangs on.
+        //  9. Caldera   - the zap, used. A ring wall on a bench, six zaps set in the bench under the wall's
+        //                 breach, over hot inks dithered so that one of them is scattered where no group
+        //                 forms: the colour a zap is for.
+        // 10. Paroxysm  - both, and the order between them. Six bombs down one flank, eight zaps down the
+        //                 other, and a seam at the foot where one landing arms one of each - measured against
+        //                 the lattice rather than asserted: FIVE empty cells there touch a bomb AND a zap.
+        //                 That is where #327's ruling (the zap goes first, then the blast) is a thing the
+        //                 player can watch happen.
+        //
+        //EVERY SPECIAL HERE HANGS WITH AN EMPTY NEIGHBOUR BY CONSTRUCTION - on a lowest course, at the head of
+        //a notch or at the foot of a pipe - which is what FindStrandedSpecials refuses a level for, and the
+        //reason each of them is placed at a mouth rather than inside a mass. None is on the anchor course:
+        //the glass keeps the cold plate it always did.
+        //
+        //THE BLOCK'S OWN LAWS ARE NOT RELAXED FOR THEM. The cold masses dither on three inks and the hot
+        //members band on two; every level happened in a direction (the cone tears one way, the notches march
+        //downwind, the pipes hang in a fan, the caldera's rim is breached on one bearing, the column leans);
+        //and every designed drop is the lowest thing on its own path, which a blast satisfies trivially -
+        //it takes a sphere out of the bottom of something and what is left hangs higher than it did.
+
+        //THE VENT'S OWN FIGURES. A hollow spatter cone, shell two cells thick, widening from a 2.4 mouth at
+        //the bottom to 5.4 at the glass - the mouth is where the bombs sit, and the taper is what puts them
+        //where the gun looks first.
+        private const byte VENT_GRID = 15;
+        //⚠ Eight and not ten. At ten the cone hung a narrow mouth a long way under its anchor and the probe
+        //read 3 of 5; stubbier, with the same mouth and the same rim at the glass, it reads 1.
+        private const byte VENT_DEPTH = 8;
+        private const byte VENT_FIELD_LEVELS = 18;
+        private const float VENT_MOUTH = 2.4f;
+        private const float VENT_FLARE = 0.43f;
+        private const float VENT_WALL = 1.0f;
+
+        //Four bombs on the lowest course, on the quarter bearings so none is behind another from any orbit
+        //angle, and a whole sector's width apart - two cells clear of the next at the mouth's radius, which
+        //is BLAST_RADIUS itself, so a blast reaches its neighbour's cell without reaching the neighbour.
+        private const int VENT_BOMBS = 4;
+        private const float VENT_BOMB_HALF_WIDTH = 0.55f;
+
+        private static readonly BallType[] VENT_CRUST = { BallType.Type8, BallType.Type10, BallType.Type13 };  //black, brown, olive
+        private static readonly BallType[] VENT_GLOW = { BallType.Type1, BallType.Type9 };                     //red, orange
+
+        private static float VentRadius(int i) => VENT_MOUTH + i * VENT_FLARE;
+
+        /// <summary>How far a bearing is from the nearest bomb's, in sectors of the mouth (0 at a bomb).</summary>
+        private static float VentBombOffset(float ang)
+        {
+            float turns = (ang / MathF.Tau + 0.5f) * VENT_BOMBS;
+            return MathF.Abs(turns - MathF.Round(turns));
+        }
+
+        /// <summary>
+        /// <b>The bomb, taught.</b> A hollow spatter cone hanging mouth-down, and four bombs set in the mouth
+        /// itself - the lowest course, the first thing the gun sees and the last thing anything else is in
+        /// front of. It is the Anvil's lesson (#324) borrowed for a louder kind: the first blast a player ever
+        /// sets off should cost one ball, be impossible to miss and happen where they were already aiming.
+        /// <para>
+        /// <b>What the level teaches, in the order it teaches it.</b> A bomb is not shot AT - it is armed by a
+        /// landing BESIDE it (#326), which is the one sentence about it a player has to learn, and the mouth
+        /// is where that sentence is cheapest to try: every cell round a bomb here is open air. The blast then
+        /// takes a sphere of <c>BallsConstraintsBuilder.BLAST_RADIUS</c> out of the cone's lip, which is
+        /// twenty-odd balls of cold crust and the glow behind them - a payoff the player watches rather than
+        /// counts.
+        /// </para>
+        /// <para>
+        /// <b>They stand on four bearings a quarter-turn apart - eight balls, a bearing catching one cell on
+        /// an unshifted course and two on a shifted one - and that spacing is measured, not a symmetry.</b> At the
+        /// mouth's radius of <see cref="VENT_MOUTH"/> a quarter turn is about 3.8 cells, so a blast reaches
+        /// the cells between two bombs and stops short of the next bomb: they do not chain, and a player who
+        /// arms one does not get the other three for free. (They chain readily from the second course up,
+        /// where the cone is narrower in bomb terms - that is a later level's subject, not this one's.)
+        /// </para>
+        /// <para>
+        /// <b>The glow is at the mouth here, which inverts the block's usual reading and is the direction this
+        /// level happened in.</b> A spatter cone is fed from below: its two lowest courses are hot (red and
+        /// orange, banded by bearing so no course is one ink), the rest is cold crust dithered on three, and
+        /// the cone hangs from a complete cold annulus at the glass. So the load is at the TOP and the light
+        /// is at the BOTTOM - the one level in the block where cutting the glow costs nothing structural, and
+        /// the reason a player can spend the mouth learning what a bomb does.
+        /// </para>
+        /// </summary>
+        private static Design Vent() => new()
+        {
+            File = "Vent.json",
+            Name = "Vent",
+            Grid = VENT_GRID,
+            Depth = VENT_DEPTH,
+            FieldLevels = VENT_FIELD_LEVELS,
+            Scene = SceneKind.Volcano,
+            Sky = 9,
+            Music = MUSIC_VOLCANO,
+            Balls = BALLS_VOLCANO,
+            Shots = 46,
+            CeilingStep = 9,
+            Occupied = (r, ang, i, depth) => MathF.Abs(r - VentRadius(i)) <= VENT_WALL,
+            //Two hot courses at the mouth banded by bearing, cold crust above dithered on three inks by a
+            //bearing-and-course index - the block's palette law, and the dither is what keeps the crust's
+            //groups small enough that the bombs are the fast way through rather than a flourish.
+            Colour = (r, ang, i, depth) => i < 2
+                ? Band(SectorIndex(ang, 0f, 2 * VENT_BOMBS), VENT_GLOW)
+                : Band(SectorIndex(ang, 0f, 3 * VENT_BOMBS) + i, VENT_CRUST),
+            Kind = (r, ang, i, depth) => i == 0 && VentBombOffset(ang) * VENT_BOMBS < VENT_BOMB_HALF_WIDTH
+                ? BallKind.Bomb
+                : BallKind.Normal,
+        };
+
+        //THE SILL'S OWN FIGURES. A cold plate at the glass, four courses thick, with four notches cut up into
+        //it from below and a bomb at the head of each - the plate is the wall and the notches are the way in.
+        private const byte SILL_GRID = 15;
+        private const byte SILL_DEPTH = 6;
+        private const byte SILL_FIELD_LEVELS = 18;
+        private const float SILL_HALF = 5.4f;
+        private const int SILL_NOTCH_DEPTH = 3;
+        //⚠ A slot is ONE CELL WIDE and not two. At 1.1 the four slots and the plate's own width left strips
+        //of a third of a cell between them — so the plate below the cut was slivers, and twenty-two balls
+        //floated free where a strip had no column at all. Narrow slots leave strips two and three cells wide,
+        //which hang, and a one-cell slot is still a gap the eye reads through.
+        private const float SILL_NOTCH_HALF = 0.6f;
+
+        //How near the shaft's own axis a cell has to be to BE the charge rather than merely to stand in the
+        //notch - see the kind rule for what asking the looser question cost.
+        private const float SILL_CHARGE = 0.55f;
+
+        //The notches march downwind - the level's direction - so their spacing is a run in x and their
+        //depth grows with it: the plate is opened shallowest upwind and deepest downwind.
+        //⚠ EVERY STRIP BETWEEN TWO SLOTS IS AT LEAST A CELL WIDE, and that is what the "11 balls float free"
+        //reading was about rather than the slots themselves. A strip narrower than one cell holds a column on
+        //one parity and none on the next, so the cells under the cut have no neighbour above them on the
+        //course that would carry them — they hang from nothing and the validator refuses the level. Spaced at
+        //2.3 with slots 1.2 wide, the narrowest strip here is 1.1 and the rim strips are wider still.
+        private static readonly float[] SILL_NOTCH_X = { -3.5f, -1.2f, 1.1f, 3.4f };
+
+        private static readonly BallType[] SILL_PLATE = { BallType.Type11, BallType.Type8, BallType.Type10 };  //silver, black, brown
+        private static readonly BallType[] SILL_MELT = { BallType.Type9, BallType.Type7 };                     //orange, yellow
+
+        /// <summary>
+        /// Which notch a cell is in the mouth of, or -1.
+        /// <para>
+        /// <b>⚠ A notch runs right through the plate in z, and that is a legibility fix rather than a
+        /// geometric preference (#368).</b> Cut as a square shaft it was invisible from where the game is
+        /// played: the gun looks up at the plate almost edge-on, so a hole in the underside two cells across
+        /// is behind the plate's own face and the level read as a plain slab with no way in. A slot across
+        /// the whole depth is a gap the player can see daylight through from any orbit angle, with the bomb
+        /// glowing at the head of it — which is the level's whole instruction, given without a word.
+        /// </para>
+        /// </summary>
+        private static int SillNotch(float dx, float dz)
+        {
+            for (int n = 0; n < SILL_NOTCH_X.Length; n++)
+                if (MathF.Abs(dx - SILL_NOTCH_X[n]) <= SILL_NOTCH_HALF) return n;
+
+            return -1;
+        }
+
+        private static bool SillOccupied(int x, int z, int i, int depth)
+        {
+            Centred(x, z, i, SILL_GRID, out float dx, out float dz);
+
+            if (MathF.Abs(dx) > SILL_HALF || MathF.Abs(dz) > SILL_HALF) return false;
+
+            //The slot: cut UP into the plate from its underside, so the charge at its head has open air under
+            //it and the player has a pocket to land in beside it.
+            //
+            //⚠ AT THE SLOT'S HEAD THE ONLY CELL IS THE CHARGE ITSELF, and that is the difference between a
+            //bomb the player can see and one they have to be told about. Left as a full course, the charge
+            //sat in the middle of the plate's depth with plate in front of it: invisible from the low angle
+            //this game is played at, and the level read as a slab with nothing to aim at. One ball wedged in
+            //the open slot is lit by its own charge and is the level's whole instruction.
+            int notch = SillNotch(dx, dz);
+
+            if (notch < 0) return true;
+
+            return i > SILL_NOTCH_DEPTH || (i == SILL_NOTCH_DEPTH && MathF.Abs(dz) <= SILL_CHARGE);
+        }
+
+        /// <summary>
+        /// <b>The bomb, used.</b> A sill - the flat sheet of rock a volcano intrudes between two beds - hanging
+        /// as a cold plate four courses thick, with four slots cut up into its underside and a charge wedged
+        /// in the head of each - five balls over the four slots, a head being one cell on one parity and two
+        /// on the next. It is the level where the mechanic stops being a spectacle and becomes a tool.
+        /// <para>
+        /// <b>The plate is deliberately slow to clear by colour.</b> It is three cold inks on a dither, so its
+        /// groups are small and scattered and no shot into the face of it takes much - the honest way through
+        /// is a long one. The bombs are the short way: each sits inside the plate's own thickness at the head
+        /// of its notch, so a landing in the notch takes a sphere out of the plate's middle and the courses
+        /// above it come down as one piece.
+        /// </para>
+        /// <para>
+        /// <b>The notch is what makes the bomb legal and is not a decoration.</b> A bomb with no empty
+        /// neighbour is a level that cannot be finished while every other gate passes it, which is exactly
+        /// what <c>FindStrandedSpecials</c> refuses (#325's walk, widened by #326) - so a bomb buried in a
+        /// plate has to be given a mouth, and a notch cut up from the underside is the cheapest mouth that
+        /// still reads as part of the rock.
+        /// </para>
+        /// <para>
+        /// <b>The four notches march downwind</b>, which is this level's direction: they are spaced across the
+        /// plate in x on one bearing, so the plate opens along a line rather than at random. The plate's
+        /// underside course is hot (orange and yellow, banded) - the melt the sill was injected as - so the
+        /// level still reads as the block's: the glow is the underside, the load is the cold plate at the glass.
+        /// </para>
+        /// </summary>
+        private static Design Sill() => new()
+        {
+            File = "Sill.json",
+            Name = "Sill",
+            Grid = SILL_GRID,
+            Depth = SILL_DEPTH,
+            FieldLevels = SILL_FIELD_LEVELS,
+            Scene = SceneKind.Volcano,
+            Sky = 9,
+            Music = MUSIC_VOLCANO,
+            Balls = BALLS_VOLCANO,
+            Shots = 50,
+            CeilingStep = 9,
+            OccupiedBlock = SillOccupied,
+            BlockColour = (x, z, i) =>
+            {
+                Centred(x, z, i, SILL_GRID, out float dx, out float dz);
+
+                //The melt on the underside, banded across the plate so no course of it is one ink. Indexed
+                //off the RAW cell and not off the centred offset: Band takes a bare modulo, and a centred
+                //coordinate goes negative on half the plate.
+                if (i < 1) return Band(x / 2 + z / 2, SILL_MELT);
+
+                //And the plate itself, dithered on three: the diagonal fuse the block measured three times
+                return Band(x + z + i, SILL_PLATE);
+            },
+            BlockKind = (x, z, i, depth) =>
+            {
+                Centred(x, z, i, SILL_GRID, out float dx, out float dz);
+
+                //⚠ The bomb is the notch's HEAD CELL and not its whole cross-section. Asking only whether a
+                //cell is in the notch put one in every cell of it - thirty on the level where the design says
+                //four - so the charge is held to the middle of the shaft in both axes, which is one cell on an
+                //unshifted course and the two straddling the axis on a shifted one.
+                return SillNotch(dx, dz) >= 0 && i == SILL_NOTCH_DEPTH
+                       && MathF.Abs(dz) <= SILL_CHARGE && MathF.Abs(dx - SILL_NOTCH_X[SillNotch(dx, dz)]) <= SILL_CHARGE
+                    ? BallKind.Bomb
+                    : BallKind.Normal;
+            },
+        };
+
+        //THE FUME'S OWN FIGURES. A cold cap at the glass with five pipes hanging from it in a fan, each pipe
+        //2x2 in plan, each a different length, each ending in one zap.
+        private const byte FUME_GRID = 15;
+        private const byte FUME_DEPTH = 12;
+        private const byte FUME_FIELD_LEVELS = 18;
+        private const float FUME_CAP_HALF = 4.6f;
+        private const int FUME_CAP_COURSES = 3;
+        private const float FUME_PIPE_HALF = 1.1f;
+
+        //How near a pipe's axis the zap at its foot sits - the Sill's SILL_CHARGE, for the same reason.
+        private const float FUME_CHARGE = 0.55f;
+
+        //The fan: each pipe's centre and how far below the cap it reaches. They lengthen downwind, which is
+        //this level's direction, and no two ends are on the same course - so a zap is always at a mouth of
+        //its own and the five reads as a rank rather than as a comb.
+        //
+        //⚠ EACH CENTRE MATCHES THE PARITY OF ITS OWN BOTTOM COURSE, and that is what makes the zap at the
+        //foot ONE ball. Odd courses put cells on integers and even ones on halves, so a centre of the wrong
+        //parity has no cell on it and four within half a cell of it - which is how the first build came out
+        //with fourteen zaps where the design says five. Centres are also kept 2.2 apart in x or z (two pipe
+        //half-widths), so no two pipes share a cell, and inside the cap's own half-width, so every pipe hangs
+        //from something.
+        private static readonly (float X, float Z, int Bottom)[] FUME_PIPES =
+        {
+            (-3f, -2f, 7), (-3f, 2f, 5), (0f, -2f, 3), (3f, 2f, 1), (2.5f, -2.5f, 6),
+        };
+
+        private static readonly BallType[] FUME_CAP = { BallType.Type8, BallType.Type11, BallType.Type13 };  //black, silver, olive
+
+        //One pair of hot inks per pipe, banded by course - so a pipe is two groups of its own and the five
+        //pipes between them put every hot ink in the block's register on the level.
+        private static readonly BallType[][] FUME_PIPE_INKS =
+        {
+            new[] { BallType.Type1, BallType.Type9 },   //red, orange
+            new[] { BallType.Type9, BallType.Type7 },   //orange, yellow
+            new[] { BallType.Type7, BallType.Type4 },   //yellow, white-hot
+            new[] { BallType.Type4, BallType.Type1 },   //white-hot, red
+            new[] { BallType.Type1, BallType.Type7 },   //red, yellow
+        };
+
+        /// <summary>Which pipe a cell is in, or -1. A pipe runs from under the cap down to its own bottom.</summary>
+        private static int FumePipe(float dx, float dz, int i)
+        {
+            for (int p = 0; p < FUME_PIPES.Length; p++)
+            {
+                var pipe = FUME_PIPES[p];
+
+                if (i >= pipe.Bottom && i < FUME_DEPTH - FUME_CAP_COURSES
+                    && MathF.Abs(dx - pipe.X) <= FUME_PIPE_HALF && MathF.Abs(dz - pipe.Z) <= FUME_PIPE_HALF)
+                    return p;
+            }
+
+            return -1;
+        }
+
+        private static bool FumeOccupied(int x, int z, int i, int depth)
+        {
+            Centred(x, z, i, FUME_GRID, out float dx, out float dz);
+
+            if (i >= depth - FUME_CAP_COURSES)
+                return MathF.Abs(dx) <= FUME_CAP_HALF && MathF.Abs(dz) <= FUME_CAP_HALF;
+
+            return FumePipe(dx, dz, i) >= 0;
+        }
+
+        /// <summary>
+        /// <b>The zap, taught.</b> Five fumarole pipes hanging from a cold cap, each ending in one zap - and
+        /// each pipe drawn in its own pair of hot inks, which is the whole lesson. A zap takes one COLOUR off
+        /// the entire field (#327), and the colour it takes is the colour of the ball that lands beside it, so
+        /// the question a player has to learn to ask is <i>what am I about to shoot</i> - which the magazine
+        /// answers three balls ahead.
+        /// <para>
+        /// <b>The pipes are what make that visible.</b> Each is two inks and no two pipes share a pair, so the
+        /// field's hot colours are laid out in named places rather than mixed through a mass: a player who
+        /// zaps red can see, before the shot, that red is two pipes and part of a third. The cap is cold and
+        /// dithered on three, and holds every pipe - so a zap never threatens the hang, which is what lets
+        /// this level be the one where the mechanic is tried rather than survived.
+        /// </para>
+        /// <para>
+        /// <b>Every zap is at the foot of its own pipe</b>, with open air under it and no pipe ending on the
+        /// same course as another - the fan lengthens downwind, this level's direction. That is the
+        /// walled-in refusal answered by construction, and it also means the five are armed one at a time:
+        /// a landing at one foot is nowhere near another.
+        /// </para>
+        /// <para>
+        /// <b>⚠ A zap on a field of five colours is a big shot and that is the point of teaching it here.</b>
+        /// Taking a whole ink off this level removes a pipe and a half; the cap is untouched, being cold, so
+        /// the level shortens rather than collapses. The measured figure is in the validator's output rather
+        /// than in this comment, because it is the drop test that prices it and the drop test learned to see
+        /// a glass landing in #362 - a zap's payout it still reads through the ordinary group path, since a
+        /// zapped colour leaves as its own groups.
+        /// </para>
+        /// </summary>
+        private static Design Fume() => new()
+        {
+            File = "Fume.json",
+            Name = "Fume",
+            Grid = FUME_GRID,
+            Depth = FUME_DEPTH,
+            FieldLevels = FUME_FIELD_LEVELS,
+            Scene = SceneKind.Volcano,
+            Sky = 9,
+            Music = MUSIC_VOLCANO,
+            Balls = BALLS_VOLCANO,
+            Shots = 48,
+            CeilingStep = 9,
+            OccupiedBlock = FumeOccupied,
+            BlockColour = (x, z, i) =>
+            {
+                Centred(x, z, i, FUME_GRID, out float dx, out float dz);
+
+                int pipe = FumePipe(dx, dz, i);
+
+                return pipe < 0
+                    ? Band(x + z + i, FUME_CAP)
+                    : Band(i, FUME_PIPE_INKS[pipe]);
+            },
+            BlockKind = (x, z, i, depth) =>
+            {
+                Centred(x, z, i, FUME_GRID, out float dx, out float dz);
+
+                int pipe = FumePipe(dx, dz, i);
+
+                //One zap at the foot of each pipe, on the pipe's own axis - the Sill's lesson: asking only
+                //whether the cell is in the pipe puts a zap in every cell of its foot.
+                return pipe >= 0 && i == FUME_PIPES[pipe].Bottom
+                       && MathF.Abs(dx - FUME_PIPES[pipe].X) <= FUME_CHARGE
+                       && MathF.Abs(dz - FUME_PIPES[pipe].Z) <= FUME_CHARGE
+                    ? BallKind.Zap
+                    : BallKind.Normal;
+            },
+        };
+
+        //THE CALDERA'S OWN FIGURES. A ring wall on a floor: an annulus two cells thick standing from the
+        //floor up to the glass, breached on one bearing, with the floor a disc under it and the zaps set in
+        //the floor's rim where the wall's foot meets it.
+        private const byte CALDERA_GRID = 17;
+        private const byte CALDERA_DEPTH = 10;
+        private const byte CALDERA_FIELD_LEVELS = 18;
+        private const float CALDERA_RIM = 5.2f;
+        private const float CALDERA_WALL = 1.0f;
+        private const int CALDERA_FLOOR_COURSES = 2;
+        private const float CALDERA_BREACH = 0.11f;   //a fraction of a turn, one bearing of wall missing
+
+        private const int CALDERA_ZAPS = 3;
+
+        //THE RESURGENT DOME, and it is structure before it is geology. Without it the floor is a wide disc
+        //hanging from its own rim - a trampoline - and the sag probe answered 5 of 5 with one loss while the
+        //glass was still at rest, which is the reading that means the LAYOUT and not the play. A column up
+        //the middle from the floor to the glass gives the floor a second load path at its centre, which is
+        //what a caldera does anyway once the chamber refills: the floor lifts on a dome.
+        private const float CALDERA_DOME = 1.9f;
+
+        //And the floor is a TERRACE and not a disc, which is the second half of the same finding: a full disc
+        //is a hundred balls of unsupported middle hanging off a breached ring, and the dome alone only took
+        //the probe from 5 of 5 to 4. Cut back to a ring between the dome and the wall, the level reads 1.
+        //It is also what a caldera looks like from underneath - a bench round a dome, with the chamber's
+        //roof gone from the middle.
+        private const float CALDERA_BENCH = 3.0f;
+
+        private static readonly BallType[] CALDERA_WALL_INKS = { BallType.Type8, BallType.Type10, BallType.Type13 };  //black, brown, olive
+        private static readonly BallType[] CALDERA_FLOOR_INKS = { BallType.Type1, BallType.Type9, BallType.Type7 };   //red, orange, yellow
+
+        /// <summary>How far a bearing is from the breach's, in turns (0 at the breach's middle).</summary>
+        private static float CalderaBreachOffset(float ang)
+        {
+            float turns = ang / MathF.Tau + 0.5f;
+            turns -= MathF.Floor(turns);
+
+            return MathF.Min(turns, 1f - turns);
+        }
+
+        /// <summary>
+        /// <b>The zap, used.</b> A caldera - the ring left when a mountain's roof falls into the chamber it
+        /// emptied - as a two-cell wall standing on a molten bench, breached on one bearing, with six zaps
+        /// set in the bench under the wall's foot, and a resurgent dome up the middle carrying it.
+        /// <para>
+        /// <b>The bench is the level and the wall is the clock.</b> It is hot, three inks, and it is
+        /// dithered rather than banded, which puts one of those inks - whichever the player is unlucky with -
+        /// in scattered cells that form no group worth shooting. That is the colour a zap is FOR: the
+        /// mechanic's whole use is taking a colour that has stopped being worth a shot, and a level that
+        /// wants it has to contain one. The wall above is cold, dithered on three, and hangs from the glass;
+        /// it is what the player is fighting the clock against while they decide.
+        /// </para>
+        /// <para>
+        /// <b>The breach is the direction this level happened in</b>, and it is also what makes the zaps
+        /// reachable: the wall is missing over one bearing, so the floor's rim under it is open to the gun
+        /// from that side and the three zaps sit in the arc the breach exposes. A zap under a standing wall
+        /// would be a special the shot cannot reach, which the gate refuses and which would be an unfinishable
+        /// level with every other check green.
+        /// </para>
+        /// <para>
+        /// <b>Under the block's law the floor is the lowest thing on its own load path</b>, so every colour
+        /// the player takes out of it - by matching or by zapping - raises the cluster's lowest point. That
+        /// is what makes a level whose subject is removing a whole colour at once measurably safe to hang.
+        /// </para>
+        /// </summary>
+        private static Design Caldera() => new()
+        {
+            File = "Caldera.json",
+            Name = "Caldera",
+            Grid = CALDERA_GRID,
+            Depth = CALDERA_DEPTH,
+            FieldLevels = CALDERA_FIELD_LEVELS,
+            Scene = SceneKind.Volcano,
+            Sky = 9,
+            Music = MUSIC_VOLCANO,
+            Balls = BALLS_VOLCANO,
+            Shots = 52,
+            CeilingStep = 10,
+            Occupied = (r, ang, i, depth) =>
+                i < CALDERA_FLOOR_COURSES
+                    ? r <= CALDERA_RIM && (r >= CALDERA_BENCH || r <= CALDERA_DOME)
+                    : r <= CALDERA_DOME
+                      || (MathF.Abs(r - CALDERA_RIM) <= CALDERA_WALL && CalderaBreachOffset(ang) > CALDERA_BREACH),
+            //The dome takes the wall's cold register and the floor the hot one, so the level still reads as
+            //the block's: the glow is the floor, the load is the ring and the dome that hold it
+            Colour = (r, ang, i, depth) => i < CALDERA_FLOOR_COURSES
+                ? Band(SectorIndex(ang, 0f, 7) + (int)MathF.Floor(r) + i, CALDERA_FLOOR_INKS)
+                : Band(SectorIndex(ang, 0f, 11) + i + (int)MathF.Floor(r), CALDERA_WALL_INKS),
+            Kind = (r, ang, i, depth) =>
+                i == CALDERA_FLOOR_COURSES - 1 && r > CALDERA_RIM - 2f
+                && CalderaBreachOffset(ang) * CALDERA_ZAPS % 1f < 0.06f
+                    ? BallKind.Zap
+                    : BallKind.Normal,
+        };
+
+        //THE PAROXYSM'S OWN FIGURES. The block's finale and the campaign's first level to carry both new
+        //kinds: a leaning column, bombs down the flank it leans away from and zaps down the flank it leans
+        //over, meeting at a seam at the foot.
+        private const byte PAROXYSM_GRID = 15;
+        //⚠ Twelve and not thirteen: the emitter refuses an odd offset (field less layout), because the
+        //loader would extend the field a level and move the drawing off where it was put.
+        private const byte PAROXYSM_DEPTH = 12;
+        private const byte PAROXYSM_FIELD_LEVELS = 18;
+        private const float PAROXYSM_RADIUS = 3.1f;
+        private const float PAROXYSM_LEAN = 0.26f;    //cells of offset a course, the column's own bearing
+
+        private static readonly BallType[] PAROXYSM_COLUMN = { BallType.Type8, BallType.Type10, BallType.Type11 };  //black, brown, silver
+        private static readonly BallType[] PAROXYSM_CORE = { BallType.Type1, BallType.Type9, BallType.Type7, BallType.Type4 };
+
+        //Every third course carries a special, alternating flanks, from the foot up to where the column meets
+        //the glass - and the two lowest are a bomb and a zap on the SAME course, which is the level's subject.
+        private const int PAROXYSM_STEP = 3;
+
+        private static bool ParoxysmOccupied(int x, int z, int i, int depth)
+        {
+            Centred(x, z, i, PAROXYSM_GRID, out float dx, out float dz);
+
+            dx -= (depth - 1 - i) * PAROXYSM_LEAN;
+
+            return MathF.Sqrt(dx * dx + dz * dz) <= PAROXYSM_RADIUS;
+        }
+
+        /// <summary>Which flank a cell is on, and how far it is from the column's own axis.</summary>
+        private static float ParoxysmFlank(int x, int z, int i, out float dz)
+        {
+            Centred(x, z, i, PAROXYSM_GRID, out float dx, out float dzLocal);
+
+            dz = dzLocal;
+
+            return dx - (PAROXYSM_DEPTH - 1 - i) * PAROXYSM_LEAN;
+        }
+
+        /// <summary>
+        /// <b>Both, and the order between them.</b> The block's finale and the first level in the campaign to
+        /// carry two kinds at once: a leaning column of cold crust round a molten core, bombs set down the
+        /// flank it leans away from, zaps down the flank it leans over, and one course at the foot where a
+        /// single landing can arm one of each.
+        /// <para>
+        /// <b>That course is the level's subject, and what it shows is a RULING rather than an effect</b>
+        /// (#327): a landing collects every special beside it, and then the zap goes first and the blast
+        /// second. The order is not a detail - a blast that ran first would eat the zap as a victim and one
+        /// of the two effects the player armed with one ball would vanish without a trace, while a zap can
+        /// never take a bomb, because it only ever takes MATCHABLE balls and a bomb's colour is one nothing
+        /// may read. So the two compose, always, in that order: wide first, then local. Here the player can
+        /// watch it - the field loses a colour, and then the foot of the column blows out.
+        /// </para>
+        /// <para>
+        /// <b>The lean is the direction, and it is what separates the two kinds.</b> The column offsets
+        /// <see cref="PAROXYSM_LEAN"/> of a cell a course, so its flanks are not two sides of a cylinder but
+        /// an overhanging one and a receding one: the bombs are on the receding flank where the gun sees them
+        /// against the sky, the zaps on the overhanging one where the column itself is the backdrop. Every
+        /// special sits at a course where the flank it is on is the column's lowest cell in that bearing, so
+        /// each has open air beside it and the gate's walled-in refusal is answered by the geometry.
+        /// </para>
+        /// <para>
+        /// <b>The core is the block's glow and carries the load</b> - four hot inks up the column's axis,
+        /// banded so no course is one colour - and the crust round it is cold on three. A blast at the foot
+        /// takes crust and core together, which is the block's law again: the column's lowest thing goes, and
+        /// what is left hangs higher.
+        /// </para>
+        /// </summary>
+        private static Design Paroxysm() => new()
+        {
+            File = "Paroxysm.json",
+            Name = "Paroxysm",
+            Grid = PAROXYSM_GRID,
+            Depth = PAROXYSM_DEPTH,
+            FieldLevels = PAROXYSM_FIELD_LEVELS,
+            Scene = SceneKind.Volcano,
+            Sky = 9,
+            Music = MUSIC_VOLCANO,
+            Balls = BALLS_VOLCANO,
+            Shots = 54,
+            CeilingStep = 10,
+            OccupiedBlock = ParoxysmOccupied,
+            BlockColour = (x, z, i) =>
+            {
+                float flank = ParoxysmFlank(x, z, i, out float dz);
+
+                return MathF.Sqrt(flank * flank + dz * dz) <= 1.4f
+                    ? Band(i, PAROXYSM_CORE)
+                    : Band(x + z + i, PAROXYSM_COLUMN);
+            },
+            BlockKind = (x, z, i, depth) =>
+            {
+                float flank = ParoxysmFlank(x, z, i, out float dz);
+
+                //THE SEAM AT THE FOOT, and it is the level's subject rather than a flourish: on the lowest
+                //course the two kinds sit SIDE BY SIDE across the column's own depth, so one landing under
+                //them is beside both and arms one of each. Without it the two flanks are four and a half
+                //cells apart and no single ball can ever reach a bomb and a zap at once - which would have
+                //left this design's whole claim untrue of its own geometry.
+                if (i == 0 && MathF.Abs(flank) <= 1.4f && MathF.Abs(dz) <= 1.1f)
+                    return dz >= 0f ? BallKind.Bomb : BallKind.Zap;
+
+                if (MathF.Abs(dz) > 0.9f || i % PAROXYSM_STEP != 0 || i > depth - 4) return BallKind.Normal;
+
+                //Bombs on the receding flank, zaps on the overhanging one - and at the foot both, which is
+                //the one course where a single landing can arm one of each.
+                //
+                //⚠ THE RIM BAND IS 0.8 AND NOT 1.2, and that is the gate talking. At 1.2 a special could sit
+                //one cell in from the flank, and the lean then covered it from the course above: two of them
+                //came out WALLED IN, which FindStrandedSpecials refuses outright and rightly - a special with
+                //no empty neighbour is a level that cannot be finished with every other check green. Held to
+                //the outermost cell, the lean of 0.26 a course cannot reach across the gap it leaves.
+                if (flank > PAROXYSM_RADIUS - 0.8f) return BallKind.Bomb;
+
+                return flank < -(PAROXYSM_RADIUS - 0.8f) ? BallKind.Zap : BallKind.Normal;
+            },
+        };
+
+        #endregion
         #endregion
 
 
