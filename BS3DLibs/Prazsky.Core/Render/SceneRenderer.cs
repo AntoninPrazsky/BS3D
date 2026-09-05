@@ -96,6 +96,59 @@ namespace Prazsky.Core.Render
         }
     }
 
+
+    /// <summary>
+    /// Somewhere in a scene worth looking AT, and how a camera should stand to frame it (#289) — what a shot
+    /// is handed when it is asked to show off the <b>place</b> rather than the arena.
+    /// <para>
+    /// <b>It states the subject in world space and the stand as a recipe, and the split is deliberate.</b>
+    /// Where the interesting thing is, is the scene's own business and nothing else can know it — the
+    /// volcano's crater moves with its cone config, the savanna's fire with its own, and the map editor's
+    /// live panel moves both while somebody watches. How far out and how high a camera should be to frame
+    /// anything is the CAMERA's business, and it is the half that has to scale with the LEVEL: a tall cluster
+    /// is played from further back and its establishing shot has to stand back with it. So a scene hands over
+    /// one point and three numbers, and the caller multiplies them into its own solved stand-off.
+    /// </para>
+    /// <para>
+    /// The arena stands at the world origin — the terrain hole, the island and the drain are all cut around
+    /// it — which is what lets a scene state <see cref="LookAt"/> without being told where anything is.
+    /// </para>
+    /// </summary>
+    public readonly struct SceneViewpoint
+    {
+        /// <summary>What the shot frames, in world space.</summary>
+        public readonly Vector3 LookAt;
+
+        /// <summary>How far out the camera should stand from the arena, as a multiple of the level's own
+        /// solved stand-off — not of the distance to <see cref="LookAt"/>, which is often hundreds of units
+        /// away and in three scenes is in the sky.</summary>
+        public readonly float DistanceScale;
+
+        /// <summary>How high it should ride, in degrees above the arena's horizontal.</summary>
+        public readonly float ElevationDegrees;
+
+        /// <summary>
+        /// Where it should stand, in degrees around the arena from <see cref="LookAt"/>'s own bearing. Zero
+        /// puts the camera between the arena and the subject looking outward — pure scenery, the island out
+        /// of frame; 180 puts the subject beyond the arena, so the island and its hanging cluster stand in
+        /// front of it. Everything between is the oblique three-quarter view that has both.
+        /// </summary>
+        public readonly float BearingOffsetDegrees;
+
+        /// <summary>What it is, for the one log line an intro writes. ASCII and short, for the reason every
+        /// other console line in this project is.</summary>
+        public readonly string Name;
+
+        public SceneViewpoint(Vector3 lookAt, float distanceScale, float elevationDegrees,
+            float bearingOffsetDegrees, string name)
+        {
+            LookAt = lookAt;
+            DistanceScale = distanceScale;
+            ElevationDegrees = elevationDegrees;
+            BearingOffsetDegrees = bearingOffsetDegrees;
+            Name = name;
+        }
+    }
     /// <summary>
     /// The switchable outdoor backdrops shared by the game and the map editor, so a scene looks the same in
     /// both: the sea, the savanna (with its acacias and circling birds), the desert (Sahara dunes, with the
@@ -1415,6 +1468,184 @@ namespace Prazsky.Core.Render
                     return false;
             }
         }
+
+        /// <summary>
+        /// Somewhere in this scene worth looking at, and how to stand to see it (#289) — the answer to "show
+        /// the player the PLACE", which <c>ChapterIntro</c> asks once at the top of every new chapter.
+        /// <para>
+        /// <b>Every scene answers, and that is the point of the table rather than an accident of it.</b> The
+        /// establishing shot it feeds used to look across the island's far rim on a rolled bearing whatever
+        /// the backdrop was, which is a fair shot of a sea and a poor one of a volcano — the cone was as
+        /// likely to be behind the camera as in front of it. Half of these scenes have a real landmark and
+        /// name it (the crater, the campfire, Phobos, the planet); the other half are the same in every
+        /// direction, and for those the honest answer is not "no viewpoint" but "any bearing, at THIS
+        /// distance and THIS height" — a meadow wants a low, close look at the flowers and the mountains a
+        /// far, raised one at the peaks, and getting that wrong is most of what made the old shot generic.
+        /// </para>
+        /// <para>
+        /// <paramref name="bearing"/> is the caller's own roll, used by the scenes with nothing fixed to
+        /// point at and ignored by the ones that have. Figures come off each scene's live config wherever the
+        /// scene has one, so the map editor's panel and a level's own config move the viewpoint with the
+        /// feature instead of leaving it pointing where the feature used to be.
+        /// </para>
+        /// </summary>
+        /// <returns>Always true today. It is a Try so that a scene added without a viewpoint is a shot that
+        /// falls back to the old generic sweep rather than one that throws or frames the void — the same
+        /// safe-default reasoning <c>BallKinds.Removable</c> states for its own "everything but" default.</returns>
+        public bool TryGetViewpoint(SceneKind kind, float bearing, out SceneViewpoint viewpoint)
+        {
+            switch (kind)
+            {
+                //THE TWO CITIES LOOK DOWN, and they are the only ones here that do. Everything else in this
+                //table is on or above the horizon; the city's own subject is the one thing under it — the
+                //arena hangs over a canyon whose towers rise out of a shaft hundreds of units deep, which is
+                //the single fact about this backdrop a player standing on the island cannot see. Stated in
+                //figures rather than read off a config because the city is the CALLER's: this class draws
+                //none of it and holds no CitySceneConfig (see ApplyConfig's own case for it).
+                case SceneKind.City:
+                    viewpoint = new SceneViewpoint(AtBearing(bearing, 55f, -150f), 2.0f, 34f, 135f, "the canyon");
+                    return true;
+
+                //The neon city is that same canyon after dark, and what is worth the look is the LIT
+                //roofline at the top of the shaft rather than the drop down it — a dark shaft photographs as
+                //nothing at night, and the windows are the whole of what this variant is.
+                case SceneKind.NeonCity:
+                    viewpoint = new SceneViewpoint(AtBearing(bearing, 100f, 24f), 2.0f, 10f, 160f, "the neon roofline");
+                    return true;
+
+                //Low and level, out to the water: what a sea IS from a few metres up is the glint and the
+                //horizon, and any height at all trades that for a plan view of chop.
+                case SceneKind.Sea:
+                    viewpoint = new SceneViewpoint(AtBearing(bearing, 520f, _seaConfig.LevelY), 2.1f, 6f, 0f, "the open water");
+                    return true;
+
+                //A real landmark, and the only one in this table that is also a LIGHT: the fire is what the
+                //savanna's night rig is built around, so a shot that has it has the scene's whole character
+                //in frame. Slot 0 of however many the config asks for.
+                case SceneKind.Savanna:
+                    viewpoint = new SceneViewpoint(SavannaCampfirePosition(0), 1.7f, 11f, 35f, "the campfire");
+                    return true;
+
+                //The dune skyline, from low down: dunes read as dunes on the horizon, where one crest stands
+                //against the next. From above they are a texture.
+                case SceneKind.Desert:
+                    viewpoint = new SceneViewpoint(AtBearing(bearing, 360f, _desertConfig.LevelY + 10f), 2.2f, 8f, 0f, "the dunes");
+                    return true;
+
+                //Up at the range, from the furthest stand in the table: the peaks are the only subject here
+                //that is genuinely tall, and the one shot that is wrong for them is a close one.
+                case SceneKind.Mountain:
+                    viewpoint = new SceneViewpoint(
+                        AtBearing(bearing, 430f, _mountainConfig.LevelY + _mountainConfig.Height * 0.75f),
+                        2.4f, 15f, 0f, "the peaks");
+                    return true;
+
+                //And the closest and lowest, for the opposite reason: a meadow's subject is the flowers, and
+                //they are a few units across. Anything the other scenes' distances would show of this one is
+                //green.
+                case SceneKind.Meadow:
+                    viewpoint = new SceneViewpoint(AtBearing(bearing, 70f, _meadowConfig.LevelY + 1f), 1.5f, 6f, 0f, "the flowers");
+                    return true;
+
+                //The tree line at crown height, near enough that a trunk is a trunk. The forest's scatter
+                //starts just outside the clearing, so this is where the trees actually are.
+                case SceneKind.Forest:
+                    viewpoint = new SceneViewpoint(
+                        AtBearing(bearing, _forestConfig.ClearingRadius + 45f, _forestConfig.LevelY + 14f),
+                        1.7f, 10f, 0f, "the tree line");
+                    return true;
+
+                //The planet, which is the one thing in the space scene with a POSITION — the stars, the
+                //nebulae and the Milky Way are a sky and are in frame from anywhere. Behind the arena, so the
+                //island hangs against it: a planet with nothing in front of it has no scale.
+                case SceneKind.Space:
+                    viewpoint = new SceneViewpoint(
+                        SafeNormal(_spaceConfig.Planet.Direction.ToVector3(), -Vector3.UnitZ) * 620f,
+                        2.0f, 12f, 180f, "the planet");
+                    return true;
+
+                //The marbled sky, at the radius the solids roam at and only a little above the island — this
+                //scene has no ground and no horizon, so every direction is sky and the only thing a shot can
+                //get WRONG is framing nothing else. Behind the arena and low, so the island and its cluster
+                //are silhouetted against it: photographed at 26 up the lens tilted off them entirely and the
+                //frame was marbling and two orbs, which is a wallpaper rather than a place.
+                case SceneKind.Dream:
+                    viewpoint = new SceneViewpoint(AtBearing(bearing, _dreamConfig.Shapes.OrbitRadius, 6f),
+                        1.9f, 10f, 168f, "the marbled sky");
+                    return true;
+
+                //Down at the water, not up at the roof — and the first draft did aim at the roof, on the
+                //argument that a cavern's defining feature is overhead and the gameplay camera never looks
+                //up. Photographed, that shot is very nearly BLACK: the ceiling is unlit rock a hundred units
+                //off, and everything this scene has to show glows from BELOW. The river is the light source,
+                //so the island stands between the lens and it and reads as a silhouette over the glow.
+                case SceneKind.Cavern:
+                    viewpoint = new SceneViewpoint(AtBearing(bearing, 130f, _cavernConfig.Water.LevelY + 2f),
+                        1.8f, 16f, 168f, "the river");
+                    return true;
+
+                //The highland belt, at the crest radius its own config states — the Moon's skyline is a
+                //stated distance rather than a haze, so this is one of the few points in the table that can
+                //be exactly right.
+                case SceneKind.Moon:
+                    viewpoint = new SceneViewpoint(
+                        AtBearing(bearing, _moonConfig.Terrain.HighlandCrestRadius,
+                            _moonConfig.Terrain.LevelY + _moonConfig.Terrain.HighlandHeight * 0.6f),
+                        2.3f, 11f, 0f, "the highlands");
+                    return true;
+
+                //The monoliths. They stand alone on a flat plain with nothing between them, which is exactly
+                //the arrangement a low three-quarter look reads and an overhead one destroys.
+                case SceneKind.Outback:
+                    viewpoint = new SceneViewpoint(AtBearing(bearing, 330f, _outbackConfig.Terrain.LevelY + 30f),
+                        2.3f, 12f, 20f, "the monoliths");
+                    return true;
+
+                //Out over the lagoon to the far shore's ring, just above the water: the tropical scene is
+                //three bands — sand, turquoise water, green shore — and only a low look has all three.
+                case SceneKind.Tropical:
+                    viewpoint = new SceneViewpoint(
+                        AtBearing(bearing, _tropicalConfig.Terrain.RingRadius, _tropicalConfig.Water.LevelY + 6f),
+                        2.1f, 8f, 0f, "the lagoon");
+                    return true;
+
+                //The crater, read off the scene's own solved vent rather than off the cone's centre: slot 0
+                //is the crater, it does not move, and it is where the fountain and the plume come from. This
+                //is the case the whole table exists for — the old rolled bearing put the cone behind the
+                //camera about as often as in front of it.
+                case SceneKind.Volcano:
+                    viewpoint = new SceneViewpoint(VolcanoLightPosition(0, 0f), 2.4f, 14f, 160f, "the crater");
+                    return true;
+
+                //Phobos, placed the same designer-facing way the shader places it. The bigger of the two
+                //moons and the higher-contrast one: Deimos is under half its angular size.
+                case SceneKind.Mars:
+                    viewpoint = new SceneViewpoint(
+                        DirectionFromElevationAzimuth(_marsConfig.Moons.PhobosElevation, _marsConfig.Moons.PhobosAzimuth) * 700f,
+                        1.9f, 16f, 180f, "Phobos");
+                    return true;
+
+                //The deck, which in this scene is BELOW: the arena floats over the cloud tops and the
+                //flashes go off inside cells down there. Part-way out through the field's own inner and
+                //outer radii, at the middle of the range its cells' bases are rolled from.
+                case SceneKind.Storm:
+                    StormCloudsConfig clouds = _stormConfig.Clouds;
+                    viewpoint = new SceneViewpoint(
+                        AtBearing(bearing, (clouds.InnerRadius + clouds.OuterRadius) * 0.35f,
+                            (clouds.BaseYMin + clouds.BaseYMax) * 0.5f),
+                        2.2f, 24f, 145f, "the cloud deck");
+                    return true;
+
+                default:
+                    viewpoint = default;
+                    return false;
+            }
+        }
+
+        //A point out from the arena on a bearing, at a height. The arena is at the world origin, so this is
+        //the whole of the conversion — see SceneViewpoint's own remarks.
+        private static Vector3 AtBearing(float bearing, float radius, float y) =>
+            new(MathF.Cos(bearing) * radius, y, MathF.Sin(bearing) * radius);
 
         /// <summary>
         /// The space scene's planetshine, as a scene point light the caller can drop into a slot: the light the

@@ -210,9 +210,9 @@ namespace BS3D.Screens
             //The ordinary gameplay pose, verbatim: the tour's last key is it, so the flight lands where the
             //player is handed the camera and the blend-out is a nudge between identical poses.
             _chapterIntro.Begin(centre, _gameCameraDistance, GAME_FOV,
-                GameCameraPositionAt(_gameCameraDistance), centre, RANDOM);
+                GameCameraPositionAt(_gameCameraDistance), centre, Game.SceneViewpointAt, RANDOM);
 
-            //One line per intro, in the manner of [cinematic]: a rare event — nine times over the whole
+            //One line per intro, in the manner of [cinematic]: a rare event — eleven times over the whole
             //campaign — and the shot is rolled, so this is the only record of what it actually chose.
             Console.WriteLine($"[intro] block '{set.BlockName(_levelIndex)}' ({set.BlockNumber(_levelIndex)}/{set.BlockCount}), "
                 + _chapterIntro.Describe());

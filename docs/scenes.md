@@ -142,6 +142,38 @@ The settings are **shared between the game and the map editor** so a map looks i
 
 So a change to any scene reaches both executables at once, exactly as the shared shaders do. The per-scene sections below describe what each one is doing; the tuning dials named in them now live on `SceneRenderer` (or `City`) rather than at the top of `Testbed.cs`.
 
+### The scenes' observation points (#289)
+
+Each `SceneKind` names **somewhere in itself worth looking at, and how a camera should stand to frame it** — `SceneRenderer.TryGetViewpoint`, which joins `ReplacesSky` / `IsSolidTerrainScene` / `OpenBelow` as the per-scene questions answered in one place rather than in each caller. The one asker today is the Game's chapter intro (`docs/game-feedback.md`, "The chapter intro"), whose opening legs used to look across the island's far rim on a rolled bearing whatever the backdrop was: a fair shot of a sea, and a poor one of a volcano, whose cone was as likely to be behind the camera as in front of it.
+
+**A `SceneViewpoint` is a point plus a recipe, and the split is the whole design.** *Where* the interesting thing is, is the scene's own business and nothing else can know it — the volcano's crater moves with its cone config, the savanna's fire with its own, and the map editor's live panel moves both while somebody watches, so every figure below is read off the scene's **live config** rather than written down twice. *How far out and how high* a camera should stand is the camera's business and is the half that has to scale with the **level**: a tall cluster is played from further back and its establishing shot has to stand back with it, so the distance is a multiple of `GameCameraFit.Solve`'s own stand-off and never a world distance. The bearing offset is measured from the subject's own bearing: **0** puts the camera between the arena and the subject looking outward (pure scenery, the island out of frame), **180** puts the subject beyond the arena so the island and its cluster stand in front of it.
+
+**Half the scenes have a landmark and half do not, and "no landmark" is not "no viewpoint".** A meadow is the same in every direction, but it still wants a *low, close* look at the flowers where the mountains want a *far, raised* one at the peaks — and getting that wrong is most of what made the old shot generic. Those scenes build their point out of the caller's own rolled bearing, so a meadow still comes in from anywhere while a savanna names its fire.
+
+| Scene | Points at | Out | Up | Offset |
+|---|---|---|---|---|
+| City | the canyon: down the shaft the towers rise out of, the one thing about this backdrop a player on the island cannot see | 2.0× | 34° | 135° |
+| Neon city | the lit roofline at the top of that same shaft — a dark shaft photographs as nothing at night | 2.0× | 10° | 160° |
+| Sea | the open water at the horizon, at `SeaSceneConfig.LevelY`: from a few metres up a sea *is* the glint and the horizon | 2.1× | 6° | 0° |
+| Savanna | the campfire, `SavannaCampfirePosition(0)` — the only subject here that is also a **light** | 1.7× | 11° | 35° |
+| Desert | the dune skyline, where one crest stands against the next; from above dunes are a texture | 2.2× | 8° | 0° |
+| Mountains | the peaks, at `LevelY + Height × 0.75` and from the furthest stand in the table | 2.4× | 15° | 0° |
+| Meadow | the flowers, at the closest and lowest stand in the table — this subject is a few units across | 1.5× | 6° | 0° |
+| Forest | the tree line just outside the clearing, at crown height | 1.7× | 10° | 0° |
+| Space | the planet, `SpacePlanetConfig.Direction` — the only thing in space with a *position*; behind the arena, because a planet with nothing in front of it has no scale | 2.0× | 12° | 180° |
+| Dream | the marbled sky at the solids' own orbit radius, low and behind the arena so the island is silhouetted against it | 1.9× | 10° | 168° |
+| Cavern | the river, at `Water.LevelY` — the light in this scene is all *below* | 1.8× | 16° | 168° |
+| Moon | the highland belt, at `HighlandCrestRadius`: the Moon's skyline is a stated distance rather than a haze | 2.3× | 11° | 0° |
+| Outback | the monoliths, which stand alone with plain between them | 2.3× | 12° | 20° |
+| Tropical | the lagoon out to the far shore's ring, just above the water — sand, turquoise, green shore, and only a low look has all three | 2.1× | 8° | 0° |
+| Volcano | the crater, read off `VolcanoLightPosition(0, …)`, which is the scene's own solved vent and not the cone's centre | 2.4× | 14° | 160° |
+| Mars | Phobos, placed through `DirectionFromElevationAzimuth` exactly as the shader places it | 1.9× | 16° | 180° |
+| Storm | the cloud deck, which in this scene is **below**: the arena floats over the cloud tops and the flashes go off inside cells down there | 2.2× | 24° | 145° |
+
+**Two of them were changed by the photograph rather than by the argument that chose them.** The cavern's first draft looked *up* at the roof, on the reasoning that a cavern's defining feature is overhead and the gameplay camera never looks there — and it came out very nearly black, because the ceiling is unlit rock a hundred units off and everything this scene has to show glows from below. The dream's first draft sat at 26 up and tilted the lens off the island entirely, so the frame was marbling and two orbs: a wallpaper rather than a place.
+
+**Eleven of the seventeen are photographed; six are not, and cannot be yet.** The shipped level set names only eleven scenes (`grep '"scene"' Game/Levels/*.json`: space, savanna, neon, mountain, moon, meadow, dream, desert, city and cavern ten times each, volcano five), and a chapter intro only ever opens on a block's first level — so sea, forest, outback, tropical, Mars and storm have viewpoints stated from their own configs that no run of the game can currently show. Photograph them the moment a level names one.
+
 ## The sea (Testbed)
 
 The second setting, reached with NumPad2 the way NumPad1 cycles the sky domes (or `scene=sea` on the command line, since a synthetic NumPad press never reaches the SDL window). Only the environment swaps: the round stone island stays as it is, now floating a little above open water instead of standing among city towers. It is `Testbed/Content/Shaders/Sea.fx` with its switch and draw plumbing in `Testbed.cs` (`SceneKind`, `SwitchScene`, `DrawSea`), and it borrows the scene's whole toolkit rather than inventing its own.

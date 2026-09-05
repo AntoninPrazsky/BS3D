@@ -30,6 +30,15 @@ namespace BS3D.Effects
     /// between two identical poses and never a visible glide across the arena.
     /// </para>
     /// <para>
+    /// <b>And since #289 the scene says WHAT the first two keys are of.</b> The ruling above was answered by
+    /// pointing the opening legs across the island's far rim on a rolled bearing — which is a fair shot of a
+    /// sea and a poor one of a volcano, because it framed whatever happened to be over there rather than
+    /// whatever the scene is FOR. Each backdrop now names a subject and how far out and how high to stand
+    /// for it (<see cref="SceneRenderer.TryGetViewpoint"/>), and the tour opens on that and sweeps round it.
+    /// The roll did not go away — the scenes that are the same in every direction build their point out of
+    /// it, so a savanna still names its campfire while a meadow still comes in from anywhere.
+    /// </para>
+    /// <para>
     /// <b>What is deliberately not here, unlike the drop cinematic.</b> There is no subject to follow — the
     /// cluster is hanging, not falling — so there is no time scale: the world runs at its ordinary speed
     /// throughout, because nothing about a fresh level's rest pose needs slowing down to be read. And the
@@ -53,7 +62,12 @@ namespace BS3D.Effects
         //of environment, one of the map, one of arrival — long enough to read as a flight over a new scene,
         //short enough that a player eager to play is not held from a new chapter's very first shot for much
         //longer than the drop cinematic ever holds them from the next. Skippable regardless.
-        private const float DURATION_SECONDS = 7f;
+        //
+        //It was 7 s until #289, and the owner's word for what they wanted instead was "slower". The first
+        //two legs now frame something the SCENE itself named rather than a rolled bearing, and a subject
+        //worth pointing at is worth staying on. The whole shot is still a fraction of the time the level it
+        //opens takes to play, and it plays eleven times in a campaign.
+        private const float DURATION_SECONDS = 9.5f;
 
         //The grab is gentle, unlike the drop cinematic's — nothing here is racing a falling body, so there is
         //no reason for the take to be abrupt. The release is NOT gentler than the drop cinematic's own,
@@ -92,13 +106,23 @@ namespace BS3D.Effects
         /// <paramref name="gameTarget"/> are that ordinary pose verbatim, because the tour's LAST key is it:
         /// the flight ends where the gameplay camera stands, so the blend-out that hands control back is a
         /// nudge between two identical poses and never a visible glide.
+        /// <para>
+        /// <paramref name="sceneViewpoint"/> is asked, with the bearing this shot rolled, what the live scene
+        /// would have a camera look at (#289) — a function rather than a value because the roll happens in
+        /// here and half the scenes answer out of it. Null, or a null answer, falls back to the pre-#289
+        /// sweep across the island's rim.
+        /// </para>
         /// </summary>
         public void Begin(Vector3 centre, float gameDistance, float gameFov,
-            Vector3 gamePosition, Vector3 gameTarget, Random random)
+            Vector3 gamePosition, Vector3 gameTarget, Func<float, SceneViewpoint?> sceneViewpoint, Random random)
         {
             _running = true;
             _elapsed = 0f;
             _centre = centre;
+
+            //How near the arena the flight is ever allowed to pass — see the clamp in Frame. Just inside the
+            //gameplay stand-off, because the LAST key is the gameplay pose and must not be pushed anywhere.
+            _minRadius = gameDistance * 0.92f;
 
             //The island's own figures, for the environment legs: the rim the opening look crosses, and the
             //top the arena's bowl sits under. Constants of the setting, not of the level.
@@ -111,27 +135,65 @@ namespace BS3D.Effects
             //opening twice in two runs of the program is still two different flights.
             float sweep = MathHelper.ToRadians(Lerp(random, 105f, 155f)) * (random.Next(2) == 0 ? 1f : -1f);
 
+            //Asked AFTER the roll and given it, because half the scenes build their viewpoint out of it —
+            //see SceneRenderer.TryGetViewpoint. Null when nothing was handed in (a caller with no scene
+            //renderer at all) or when the scene has no viewpoint of its own.
+            SceneViewpoint? viewpoint = sceneViewpoint?.Invoke(bearing);
+
             Vector3 At(float azimuth, float elevation, float radius) => centre + new Vector3(
                 MathF.Cos(azimuth) * MathF.Cos(elevation) * radius,
                 MathF.Sin(elevation) * radius,
                 MathF.Sin(azimuth) * MathF.Cos(elevation) * radius);
 
-            //KEY 0, THE ENVIRONMENT: wide and LOW — near the height the scene itself reads at, horizon in
-            //frame — and looking across the island's far rim into the land behind it, so the island and the
-            //cluster enter the frame from the near side rather than filling it. This is the leg the owner's
-            //ruling is about: the first thing a new chapter shows is the place.
-            float elev0 = _elev0 = MathHelper.ToRadians(Lerp(random, 8f, 16f));
-            _positions[0] = At(bearing, elev0, gameDistance * Lerp(random, 1.9f, 2.4f));
-            _targets[0] = centre + new Vector3(
-                -MathF.Cos(bearing) * islandRadius * Lerp(random, 0.8f, 1.0f),
-                islandTopY + 2f - centre.Y,
-                -MathF.Sin(bearing) * islandRadius * Lerp(random, 0.8f, 1.0f));
+            //THE FIRST TWO KEYS ARE THE SCENE'S OWN SINCE #289, when it has a viewpoint to give. They were a
+            //rolled bearing and a look across the island's far rim whatever the backdrop was — a fair shot
+            //of a sea and a poor one of a volcano, whose cone was as likely to be behind the camera as in
+            //front of it. SceneRenderer.TryGetViewpoint names the subject and says how far out
+            //and how high to stand for it. The roll is still here and still does the work: the scenes that
+            //are the same in every direction build their viewpoint FROM the bearing handed in.
+            if (viewpoint is SceneViewpoint view)
+            {
+                _subject = view.Name;
 
-            //KEY 1, THE ARENA: a good sweep round, nearer and higher — the bowl, the drain and the island's
-            //coping in one frame, the hanging field above them.
-            float elev1 = MathHelper.ToRadians(Lerp(random, 22f, 32f));
-            _positions[1] = At(bearing + sweep, elev1, gameDistance * Lerp(random, 1.5f, 1.8f));
-            _targets[1] = new Vector3(centre.X, islandTopY + 3f, centre.Z);
+                //The subject's own bearing from the arena, which is what the offset is measured against — a
+                //landmark scene ignores the roll outright, so where to stand has to be found from where the
+                //landmark IS rather than from where the roll happened to point.
+                Vector3 toSubject = view.LookAt - centre;
+                float subjectBearing = MathF.Atan2(toSubject.Z, toSubject.X);
+
+                float stand = subjectBearing + MathHelper.ToRadians(view.BearingOffsetDegrees);
+                float elevScene = _elev0 = MathHelper.ToRadians(view.ElevationDegrees);
+
+                _positions[0] = At(stand, elevScene, gameDistance * view.DistanceScale);
+                _targets[0] = view.LookAt;
+
+                //KEY 1 IS THE SAME SUBJECT FROM FURTHER ROUND, and a move rather than a second still: a bit
+                //over a third of the leg's sweep, nearer and a little higher, with the look-at eased a third
+                //of the way back towards the arena. So the island and its cluster enter the frame from the
+                //side while the scene is still the subject, instead of the shot cutting away to them.
+                _positions[1] = At(stand + sweep * 0.38f, elevScene + MathHelper.ToRadians(9f),
+                    gameDistance * view.DistanceScale * 0.86f);
+                _targets[1] = Vector3.Lerp(view.LookAt, centre, 0.34f);
+            }
+            else
+            {
+                //THE PRE-#289 SHOT, kept for a scene added without a viewpoint: wide and LOW, looking across
+                //the island's far rim into whatever is behind it, then a sweep round onto the arena. It
+                //frames the place in the only way that needs nothing said about the place — which is exactly
+                //why it was worth replacing, and exactly why it is a safe thing to fall back to.
+                _subject = "the rim";
+
+                float elev0 = _elev0 = MathHelper.ToRadians(Lerp(random, 8f, 16f));
+                _positions[0] = At(bearing, elev0, gameDistance * Lerp(random, 1.9f, 2.4f));
+                _targets[0] = centre + new Vector3(
+                    -MathF.Cos(bearing) * islandRadius * Lerp(random, 0.8f, 1.0f),
+                    islandTopY + 2f - centre.Y,
+                    -MathF.Sin(bearing) * islandRadius * Lerp(random, 0.8f, 1.0f));
+
+                float elev1 = MathHelper.ToRadians(Lerp(random, 22f, 32f));
+                _positions[1] = At(bearing + sweep, elev1, gameDistance * Lerp(random, 1.5f, 1.8f));
+                _targets[1] = new Vector3(centre.X, islandTopY + 3f, centre.Z);
+            }
 
             //KEY 2, THE MAP: on round again and up — the one proper look at the cluster, from high enough to
             //show the glass it hangs from.
@@ -199,13 +261,17 @@ namespace BS3D.Effects
         //ASCII only and invariant, for the same reason DropCinematic.Describe is: a console whose code page
         //mangles a degree sign, and a figure two machines might compare.
         public string Describe() => string.Format(CultureInfo.InvariantCulture,
-            "env {0:F0} out at {1:F0}deg -> arena -> map {2:F0} out at {3:F0}deg -> game pose, {4:F1}s",
-            (_positions[0] - _centre).Length(), MathHelper.ToDegrees(_elev0),
+            "'{0}' {1:F0} out at {2:F0}deg -> in -> map {3:F0} out at {4:F0}deg -> game pose, {5:F1}s",
+            _subject, (_positions[0] - _centre).Length(), MathHelper.ToDegrees(_elev0),
             (_positions[2] - _centre).Length(), MathHelper.ToDegrees(_elev2),
             DURATION_SECONDS);
 
         private Vector3 _centre;
-        private float _elev0, _elev2;
+        private float _elev0, _elev2, _minRadius;
+
+        //What the first two legs are of, for the one log line. Named rather than derived, so a shot that
+        //fell back to the pre-#289 sweep says so in the record instead of reading as a scene's own choice.
+        private string _subject = "the rim";
 
         private void End() => _running = false;
 
@@ -222,6 +288,20 @@ namespace BS3D.Effects
             Position = Spline(_positions, t);
             Target = Spline(_targets, t);
             FieldOfView = MathHelper.Lerp(_fovWide, _fovGame, t);
+
+            //⚠ NEVER THROUGH THE CLUSTER, and this is a floor rather than a taste. Every key stands well
+            //outside the hanging field, but a Catmull-Rom's tangent at a key is the chord between its
+            //neighbours, so a leg running from a far key to a near one bows INWARD between the two. #289's
+            //opening legs stand as far out as the SCENE asks rather than at a fixed multiple of the level's
+            //own stand-off, which made that bow deep enough to fly the lens through the balls — photographed
+            //on the volcano's opening as a frame of nothing but ball at arm's length. Floored here rather
+            //than by pulling the keys in, because where to stand is the part a scene is allowed to choose;
+            //and it cannot disturb the arrival, since key 3 is the gameplay pose and stands at exactly the
+            //stand-off this is a fraction of.
+            Vector3 away = Position - _centre;
+            float radius = away.Length();
+
+            if (radius > 1e-4f && radius < _minRadius) Position = _centre + away * (_minRadius / radius);
         }
 
         /// <summary>
