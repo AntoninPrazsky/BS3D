@@ -815,6 +815,11 @@ namespace BS3D
             //pipeline (the old in-class EnsureSceneTarget guarded on GraphicsDevice == null the same way)
             _pipeline?.EnsureTarget();
 
+            //And the pointer is stated again, because a mode switch is one of the events that can put the
+            //window's own cursor back under the game (#350). It re-states the cursor that already exists —
+            //nothing is rasterised here, and this is not a per-frame path.
+            Platform.StylizedPointer.Reassert(Window.Handle);
+
             //A fullscreen switch resizes the back buffer without necessarily going through the window's own
             //resize event, and both the overlay's scale and the camera's framing are derived from the viewport
             _info?.RecomputeScale();
@@ -938,10 +943,11 @@ namespace BS3D
             //never refits the session's: a kept session continues drawing the one its level fitted.
             _menuCeilingPlate = new CeilingPlate(GraphicsDevice, _instancingEffect);
 
-            //The game's own pointer, wherever the pointer is visible at all (#350). Published once, here:
-            //the cursor Windows holds needs no re-setting per frame, and setting it per frame is a known way
-            //to crash MonoGame. Which SCREENS show it is IsMouseVisible's business, untouched by this.
-            Platform.StylizedPointer.Publish(GraphicsDevice);
+            //The game's own pointer, wherever the pointer is visible at all (#350). Put on the WINDOW rather
+            //than through Mouse.SetCursor, which the form asserts away on the next WM_SETCURSOR — see
+            //StylizedPointer's own remarks, where that is measured. Which SCREENS show it is
+            //IsMouseVisible's business, untouched by this.
+            Platform.StylizedPointer.Publish(Window.Handle);
 
             //The overlay's own batch, shared by the HUD and the crosshair the session draws into it
             _spriteBatch = new SpriteBatch(GraphicsDevice);
