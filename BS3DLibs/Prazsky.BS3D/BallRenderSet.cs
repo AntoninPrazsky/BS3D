@@ -2170,6 +2170,9 @@ namespace Prazsky.BS3D
         /// <para>
         /// The balls are drawn unturned, because a map's balls have no orientation to draw: a translation
         /// <i>is</i> the whole transformation, and <c>Identity × T</c> is just <c>T</c> (BestPractices.md §6).
+        /// <b>The rock is the exception</b>, and has been since #356: it carries a fixed turn of its own so
+        /// that a heap is not one stone stamped over and over, and it carries the same one here as it does in
+        /// a played session — see <see cref="GameStructure.RockTurns"/>.
         /// </para>
         /// </summary>
         /// <param name="map">The map, or null before one is loaded — in which case nothing is added.</param>
@@ -2211,9 +2214,19 @@ namespace Prazsky.BS3D
                             out Vector3 occluderDirectionSum);
 
                         Vector3 position = ball.Position + worldOffset;
-                        Add(ball.Type, position, Matrix.CreateTranslation(position),
-                            BallRenderSet.OcclusionTarget(occluders, occluderDirectionSum,
-                                airDepth.DepthAt(x, z, level)), kind: ball.Kind);
+                        Vector4 occlusion = BallRenderSet.OcclusionTarget(occluders, occluderDirectionSum,
+                            airDepth.DepthAt(x, z, level));
+
+                        //A rock takes the same fixed face on a bench as it does in a session (#356), so the
+                        //editor's heap and the menu's backdrop are the heap the level will be played with.
+                        //It is the only ball here with a turn to draw at all, which is what leaves the
+                        //translation-only path below standing for the other three thousand.
+                        if (ball.Kind == BallKind.Rock)
+                            AddOriented(ball.Type, position, RockTurns.For(new XZLevel(x, z, level)),
+                                occlusion, kind: ball.Kind);
+                        else
+                            Add(ball.Type, position, Matrix.CreateTranslation(position), occlusion,
+                                kind: ball.Kind);
 
                         added++;
                     }
