@@ -2253,11 +2253,21 @@ namespace BS3D.Tools.LevelGen
         /// 1..11 of the 13-wide field: the one-column margin, at both parities.
         /// </para>
         /// <para>
-        /// Six 60-degree sectors folded onto three colours - <see cref="Band"/> over a three-entry palette
-        /// puts sector k and k + 3 on the same entry - so opposite sectors match and each colour is two
-        /// full-height plates from the glass to the tip, about a third of the cluster each, and releasing
-        /// one orphans nothing because the other two pairs also run glass to tip. Boundaries sit at 30
-        /// degrees plus multiples of 60 (<see cref="DIABOLO_TWIST"/>), off the lattice's own axes.
+        /// Six 60-degree sectors over a FOUR-entry palette, with the lower cone's palette turned one sector
+        /// at the waist. Boundaries sit at 30 degrees plus multiples of 60 (<see cref="DIABOLO_TWIST"/>), off
+        /// the lattice's own axes.
+        /// </para>
+        /// <para>
+        /// <b>⚠ IT WAS THREE COLOURS AND THAT MADE IT THE EASIEST LEVEL OF THE OPENING SEVEN (#361).</b> With
+        /// three, <see cref="Band"/> put sector k and k + 3 on the same entry, so each colour was two
+        /// full-height plates running glass to tip and fusing through the solid plug: <b>five standing groups
+        /// for 455 balls</b> — 91 balls a shot at par and a budget of 6.8 shots per group, against 4.9 and 5.5
+        /// for the two gentler levels before it and 2.4 for the one after. A playtest called it "surprisingly
+        /// easy" and it was, arithmetically. Four inks stop opposite sectors sharing, and the turn at the
+        /// waist stops a sector's two halves fusing through the plug: <b>7 groups, 65 balls at par, budget
+        /// 4.86, and the biggest single shot 33 % → 25 %</b>. The silhouette did not move a cell, which is
+        /// what the same playtest liked about it — the turn is visible as a twist across the waist and is
+        /// arguably the better drawing.
         /// </para>
         /// <para>
         /// The judged spec's checks, in its order: unshot death-line sag of the cantilevered bottom cup
@@ -2286,10 +2296,13 @@ namespace BS3D.Tools.LevelGen
             //Hollow cups at the wide ends, a solid plug where the profile pinches under DIABOLO_SOLID: the
             //second condition is what turns the middle six courses into a neck instead of a hollow tube.
             Occupied = (r, ang, i, depth) => DiaboloOccupied(r, i),
-            //Six sectors onto three colours: Band folds sector k and k + 3 onto one entry, so opposite
-            //sectors share a colour and each colour is two glass-to-tip plates.
-            Colour = (r, ang, i, depth) => Band(SectorIndex(ang, DIABOLO_TWIST, DIABOLO_SECTORS),
-                new[] { BallType.Type1, BallType.Type7, BallType.Type3 }), //red, yellow, blue
+            //Six sectors onto three colours, and THE LOWER CONE'S PALETTE IS TURNED ONE SECTOR (#361).
+            //Band folds sector k and k + 3 onto one entry, so opposite sectors share a colour; the turn at
+            //the waist means a sector's upper plate and its lower one are different colours, which is what
+            //stops each colour being one glass-to-tip plate through the solid neck.
+            Colour = (r, ang, i, depth) => Band(
+                SectorIndex(ang, DIABOLO_TWIST, DIABOLO_SECTORS) + (i < DIABOLO_MIDDLE ? 1 : 0),
+                new[] { BallType.Type1, BallType.Type7, BallType.Type3, BallType.Type6 }), //red, yellow, blue, magenta
         };
 
         //THE DIABOLO'S OWN FIGURES (#255). The profile is a V in the course index: WAIST at the fold, SLOPE
@@ -2363,9 +2376,12 @@ namespace BS3D.Tools.LevelGen
             Depth = 12,
             Scene = SceneKind.Meadow,
             Sky = 1,
-            Music = MUSIC_RINGS,
-            Balls = BALLS_MEADOW,
-            Shots = 38,
+            //⚠ 34 AND NOT 38 (#361). The feathers were always six separate groups - opposite ones share an
+            //ink but never touch - so the fourth ink changes what the magazine draws and not what the level
+            //is made of, and the slack was the rest of the complaint: 38 shots over 7 groups is 5.4 a group
+            //where the two gentler levels before this one get 4.9 and 5.5 and the level after it gets 2.4.
+            //At 34 it is Diabolo's 4.9, which is the ramp this level sits in the middle of.
+            Shots = 34,
             CeilingStep = 7,
             Occupied = (r, ang, i, depth) => ShuttleOccupied(r, i),
             Colour = ShuttleColour,
@@ -2386,8 +2402,11 @@ namespace BS3D.Tools.LevelGen
         private const float SHUTTLE_FLARE = 0.52f;
         private const float SHUTTLE_WALL = 1.0f;
 
-        //Six feathers, boundaries on the axes (0, 60 .. 300 degrees), folded onto three colours by Band so
-        //opposite feathers match - six big plates, each glass-to-collar, each ~12 % of the cluster.
+        //Six feathers, boundaries on the axes (0, 60 .. 300 degrees), over FOUR colours since #361 - six big
+        //plates, each glass-to-collar, each ~13 % of the cluster. Opposite feathers used to share an ink; they
+        //never touch either way, so the group COUNT was the same at three - what the fourth ink changes is
+        //the magazine, which now draws from five colours instead of four. The rest of that issue's tightening
+        //here is the shot budget: see Shuttle's own Shots.
         private const int SHUTTLE_FEATHERS = 6;
 
         /// <summary>
@@ -2412,8 +2431,12 @@ namespace BS3D.Tools.LevelGen
             if (i < SHUTTLE_COLLAR || (i == SHUTTLE_COLLAR && r <= SHUTTLE_CORE))
                 return BallType.Type1; //red - the cork, the one low-only colour, maximally exposed
 
+            //⚠ FOUR INKS OVER SIX FEATHERS AND NOT THREE (#361). Folded onto three, sector k and k + 3 shared
+            //an ink, so every colour was two whole opposite feathers glass-to-collar and the level's budget
+            //came out looser than the two gentler levels before it. Four does not divide six, so no two
+            //feathers of a colour are opposite and the wrap puts a fourth ink where the sixth feather closes.
             return Band(SectorIndex(ang, 0f, SHUTTLE_FEATHERS),
-                new[] { BallType.Type4, BallType.Type2, BallType.Type3 }); //white, green, blue
+                new[] { BallType.Type4, BallType.Type2, BallType.Type3, BallType.Type7 }); //white, green, blue, yellow
         }
 
         /// <summary>Whether a cell is inside the cork - a true sphere, the vertical in level units scaled

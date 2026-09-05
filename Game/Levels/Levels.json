@@ -46,7 +46,7 @@
       "file": "Shuttle.json",
       "name": "Shuttle",
       "block": "The Meadow",
-      "shots": 38,
+      "shots": 34,
       "minStars": 8,
       "ceilingStep": 7
     },
