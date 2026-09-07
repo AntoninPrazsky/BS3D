@@ -1,4 +1,5 @@
 ﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Input;
 using Prazsky.BS3D.GameStructure;
 using Prazsky.Core.Render;
 using System;
@@ -265,6 +266,24 @@ namespace Testbed.Diagnostics
         public bool Windowed { get; private set; } = true;
 
         /// <summary>
+        /// <c>at=&lt;t&gt;:&lt;key&gt;</c>: press that key's action at that wall-clock second, from inside the
+        /// process (#373). Repeatable, and a comma-separated list in one argument is the same thing:
+        /// <c>at=2:F10,2.5:F12 at=8:Escape</c>. See <see cref="InputScript"/> for what the external route
+        /// costs and why this is not a convenience.
+        /// </summary>
+        public List<InputScript.Tap> ScriptTaps { get; } = new();
+
+        /// <summary>
+        /// <c>hold=&lt;key&gt;:&lt;from&gt;:&lt;to&gt;</c>: hold one of <see cref="InputScript.HoldableKeys"/>
+        /// down across that interval of the same clock — the gun's orbit (A/D) and its advance walk (W/S),
+        /// the only input this program reads as held. Two entries over one interval are exactly simultaneous.
+        /// </summary>
+        public List<InputScript.Hold> ScriptHolds { get; } = new();
+
+        /// <summary>Whether this run is driven by anything but a person: a script, or a shot schedule.</summary>
+        public bool Unattended => ScriptTaps.Count > 0 || ScriptHolds.Count > 0 || ShotSeconds != null || ShotFrames != null;
+
+        /// <summary>
         /// <c>shot=&lt;t1,t2,…&gt;</c>: wall-clock seconds after start, one PNG each, written by the program
         /// itself out of its own back buffer (#371). The Game's spelling and the Game's parse
         /// (<see cref="ScreenshotWriter.ParseSeconds"/>), so one script drives either executable and the two
@@ -355,6 +374,11 @@ namespace Testbed.Diagnostics
                 //reason balls= goes through BallStyles.TryParse: the Game takes shot= too, and one script has
                 //to be able to hand the same list to either executable. A list nothing in it parses comes back
                 //null, which is the same as not asking - a mistyped diagnostic must never stop a run starting.
+                //Both accumulate rather than replace, so "at=" and "hold=" can be written once per entry or
+                //once per list - a timeline is read and edited a line at a time, and an argument that
+                //silently replaced the previous one would drop half a script without a word.
+                else if (arg.StartsWith("at=", StringComparison.OrdinalIgnoreCase)) ParseTaps(arg.Substring("at=".Length), options.ScriptTaps);
+                else if (arg.StartsWith("hold=", StringComparison.OrdinalIgnoreCase)) ParseHolds(arg.Substring("hold=".Length), options.ScriptHolds);
                 else if (arg.StartsWith("shot=", StringComparison.OrdinalIgnoreCase)) options.ShotSeconds = ScreenshotWriter.ParseSeconds(arg.Substring("shot=".Length));
                 else if (arg.StartsWith("shotframe=", StringComparison.OrdinalIgnoreCase)) options.ShotFrames = ScreenshotWriter.ParseFrames(arg.Substring("shotframe=".Length));
                 else options.StartupMapPath = arg;
@@ -418,6 +442,49 @@ namespace Testbed.Diagnostics
         }
 
         //Parses "x,y,z" (invariant, so a decimal point) into a Vector3
+        /// <summary>
+        /// <c>at=</c>: <c>&lt;seconds&gt;:&lt;key&gt;</c> pairs, comma-separated. The key is a
+        /// <see cref="Keys"/> name (<c>F10</c>, <c>End</c>, <c>Space</c>, <c>D1</c>, <c>NumPad2</c>) parsed
+        /// case-insensitively, which is the spelling the overlay's help and <c>screenshot.ps1</c>'s
+        /// <c>-Keys</c> both already use. Whether such an action exists is <see cref="InputScript"/>'s
+        /// question, not this one's — it holds the table.
+        /// </summary>
+        private static void ParseTaps(string list, List<InputScript.Tap> taps)
+        {
+            foreach (string entry in list.Split(','))
+            {
+                string[] parts = entry.Split(':');
+
+                if (parts.Length == 2
+                    && float.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out float time)
+                    && time >= 0f
+                    && Enum.TryParse(parts[1], ignoreCase: true, out Keys key))
+                    taps.Add(new InputScript.Tap(time, key));
+            }
+        }
+
+        /// <summary>
+        /// <c>hold=</c>: <c>&lt;key&gt;:&lt;from&gt;:&lt;to&gt;</c> triples, comma-separated. Only the four
+        /// keys anything reads as held are accepted (<see cref="InputScript.HoldableKeys"/>) and an interval
+        /// that ends before it starts is dropped — both would otherwise be a hold that does nothing, which is
+        /// the one failure this facility exists to stop producing.
+        /// </summary>
+        private static void ParseHolds(string list, List<InputScript.Hold> holds)
+        {
+            foreach (string entry in list.Split(','))
+            {
+                string[] parts = entry.Split(':');
+
+                if (parts.Length == 3
+                    && Enum.TryParse(parts[0], ignoreCase: true, out Keys key)
+                    && Array.IndexOf(InputScript.HoldableKeys, key) >= 0
+                    && float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out float from)
+                    && float.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out float to)
+                    && from >= 0f && to > from)
+                    holds.Add(new InputScript.Hold(key, from, to));
+            }
+        }
+
         private static bool TryParseVec3(string s, out Vector3 result)
         {
             result = Vector3.Zero;

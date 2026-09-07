@@ -210,8 +210,35 @@ C:\GitHub\Testbed\bin\net10.0-windows\Testbed.exe scene=meadow sky=13 nopost `
   so it never lands inside a benchmark window.
 
 **So prefer `shot=`/`shotframe=` to `screenshot.ps1`'s `CopyFromScreen` for anything a conclusion will be
-drawn from.** The script below is still the way to drive the Testbed's *keys* (and the only way to photograph
-a held key), and its capture is still needed with `-Keys`/`-Hold`, because the keys need focus anyway.
+drawn from.**
+
+## The keys come from the command line too: `at=` / `hold=` (#373)
+
+**The Testbed presses its own keys now, so a whole run — keys, holds, captures and the exit — can be written
+as arguments and needs no focus at all:**
+
+```powershell
+# Game mode, overlay off, orbit for four seconds, photograph twice mid-orbit, then quit:
+Testbed.exe Maps\Full.json scene=meadow at=8:F10 at=9:F12 hold=A:10:14 shot=11,13 at=16:Escape
+```
+
+- **`at=<t>:<key>`** — press that key's action at a wall-clock second. The key names are the Testbed's own
+  (the same ones `-Keys` uses below), looked up in its control table, so a new key is scriptable the day it
+  exists. Repeatable, and a comma-separated list is the same thing: `at=2:F10,2.5:F12`.
+- **`hold=<key>:<from>:<to>`** — hold `W`/`A`/`S`/`D` across an interval. **Two holds over one interval are
+  exactly simultaneous** (one clock, read per frame), which `-Hold` could only approximate. Holds are ORed
+  with the real keyboard, so a hand at the machine still works.
+- **`at=<t>:Escape` ends the run**, which is the difference between a capture batch that manages processes and
+  one that just launches them.
+- The run prints its plan on a `[script]` line first, then every tap and hold edge — so a name that matched
+  no action reads as `dropped, no such action`, not as a press missing from a picture.
+- **Verified with the window minimized**: the taps, the four-second hold and both `shot=` captures all landed,
+  and the camera had visibly orbited between the two frames. Nothing in that run touched the desktop.
+- ⚠ `at=…:F2` opens the modal load dialog and the run stops there; nothing in the timeline can dismiss it.
+  The mouse is not scriptable either — aiming and precise aim (RMB) still need the external route.
+
+**Reach for `screenshot.ps1` below only for what these cannot do**: the map editor, the mouse, or a capture of
+a program that has no writer of its own.
 
 ## `screenshot.ps1`
 
@@ -267,7 +294,12 @@ one ball tolerates a pixel of sway anyway.
 the balls run down the drain (`Balls on scene:` in the overlay ticks down as the funnel culls them).
 
 
-## Holding a key (`-Hold`): the only way to photograph the gun moving
+## Holding a key (`-Hold`): the external way to photograph the gun moving
+
+> **Prefer `hold=<key>:<from>:<to>` with `shot=` (above) — it needs no focus, cannot leave a key down on the
+> desktop, and two holds over one interval are exactly simultaneous rather than nearly.** Everything below
+> still applies to the *ramp* (the walk accelerates, so a short hold measures the ramp and not the walk) and
+> to the map editor, which has no timeline of its own.
 
 `-Keys` **taps**: down, 80 ms, up. That is right for every switch in the table above, and useless for
 anything the game drives off *held* input — the advance walk (W/S) and the orbit (A/D) move the carriage only
