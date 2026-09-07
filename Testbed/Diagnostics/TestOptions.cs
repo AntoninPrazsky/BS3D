@@ -111,45 +111,68 @@ namespace Testbed.Diagnostics
         public ArenaMembers Arena { get; private set; } = ArenaMembers.All;
 
         /// <summary>
-        /// <c>capprobe=&lt;1..6&gt;</c>: #151 PROBE - TEMPORARY. Draws the stone cap through one of the
+        /// <c>capprobe=&lt;1..6&gt;</c>: draws the stone cap through one of the
         /// cut-down copies of its pixel shader instead of the shipped one, so the cap's own per-pixel cost
         /// can be split up (the members sweep can only turn the whole cap off). 0 = the shipped shader.
         /// See the probe's header in <c>InstancedModel.fx</c> for what each number leaves out.
+        /// <para>
+        /// It carried "#151 PROBE - TEMPORARY" from the day it was written until #374 answered the question
+        /// that had been open since #151 closed: it <b>graduates</b>, as one dial of <see cref="Alternation"/>,
+        /// together with <see cref="Arena"/>. Isolating one pass inside a single process is not scaffolding
+        /// for one issue — it is what made that issue answerable on a machine whose runs cannot be compared.
+        /// </para>
         /// </summary>
         public int CapProbe { get; private set; }
 
         /// <summary>
-        /// <c>alt=&lt;members&gt;[/&lt;probe&gt;];&lt;members&gt;[/&lt;probe&gt;];…</c>: #151 PROBE - TEMPORARY.
-        /// Redraws the arena a different way on each <c>[fps]</c> window, cycling the listed variants, so a
-        /// sweep's variants are measured <b>inside one process under one clock</b> rather than as separate
-        /// runs. Each variant is an <c>arena=</c> member list, optionally <c>/N</c> for
-        /// <see cref="CapProbe"/>: <c>alt=all;none</c>, <c>alt=all/0;all/6</c>, <c>alt=all;all,-cap;none</c>.
+        /// <c>alt=&lt;pins&gt;;&lt;pins&gt;;…</c>: cycles the listed variants, one per <c>[fps]</c> window, so a
+        /// sweep's variants are measured <b>inside one process under one clock</b> rather than as separate runs.
+        /// <b>Each variant is a little command line</b> — a comma-separated list of the same
+        /// <c>&lt;dial&gt;=&lt;value&gt;</c> pins this parser already takes, so there is no second vocabulary to
+        /// learn or to keep in step (#374):
+        /// <code>
+        /// alt=scene=meadow;scene=savanna;scene=forest
+        /// alt=ssaa=1;ssaa=2;ssaa=4
+        /// alt=arena=all,capprobe=0;arena=all,capprobe=6
+        /// alt=all;all,-cap;none                            (the old arena-only spelling, still read)
+        /// </code>
         /// <para>
         /// <b>It exists because the weak machine cannot be measured any other way.</b> The reference desktop
         /// can compare two runs — #151's own cap sweep did, and its paired figures agreed to 0.03 ms. This
         /// project's integrated-Radeon laptop cannot: it shares one 15 W package budget between the CPU and
         /// the iGPU, so its sustained clock moves with whatever else the machine is doing, and two runs of the
-        /// <i>same</i> variant came 33.6 and 25.7 ms apart — a spread larger than the arena itself. Alternating
-        /// inside one process is the same step <see cref="CapProbe"/> took for the same reason (one build drawn
-        /// several ways, rather than several builds measured against each other), carried one further to one
-        /// <i>run</i> drawn several ways. Both members and probe are live properties on
-        /// <see cref="ArenaIsland"/>, so a switch costs two assignments and nothing carries over between them.
+        /// <i>same</i> variant came 33.6 and 25.7 ms apart — a spread larger than the thing being measured. And
+        /// it is not a scale factor: under contention the variants compress towards each other, so a sweep read
+        /// that way says "nothing costs anything", which is a false negative rather than a noisy reading.
+        /// </para>
+        /// <para>
+        /// <b>Which dials may be alternated is a decision about hysteresis, not about plumbing</b> — the
+        /// switch has to leave nothing behind, or the window after it is measuring the transition. The Testbed
+        /// keeps that list (see its <c>ApplyVariant</c>) and prints what it refused; the spelling of a value is
+        /// this file's, since every dial here is one this parser already reads.
         /// </para>
         /// </summary>
-        public IReadOnlyList<ArenaVariant> Alternation { get; private set; } = Array.Empty<ArenaVariant>();
+        public IReadOnlyList<Variant> Alternation { get; private set; } = Array.Empty<Variant>();
 
-        /// <summary>One entry of <see cref="Alternation"/>: what the arena is drawn as for one window.</summary>
-        public readonly struct ArenaVariant
+        /// <summary>
+        /// One entry of <see cref="Alternation"/>: the pins that make up one window's variant, and the text
+        /// they were written as — which is what the <c>[fps]</c> line names the reading with, so a log says
+        /// which variant a number belongs to in the caller's own words.
+        /// </summary>
+        public readonly struct Variant
         {
-            public readonly ArenaMembers Members;
-            public readonly int CapProbe;
+            public readonly string Spec;
+            public readonly IReadOnlyList<Pin> Pins;
 
-            public ArenaVariant(ArenaMembers members, int capProbe)
+            public Variant(string spec, IReadOnlyList<Pin> pins)
             {
-                Members = members;
-                CapProbe = capProbe;
+                Spec = spec;
+                Pins = pins;
             }
         }
+
+        /// <summary>One <c>&lt;dial&gt;=&lt;value&gt;</c> of a variant, unparsed: the Testbed applies it.</summary>
+        public readonly record struct Pin(string Dial, string Value);
 
         /// <summary><c>sky=&lt;n&gt;</c>: the starting dome, pinned over a startup level's own. 0 = unset.</summary>
         public byte SkyNumber { get; private set; }
@@ -392,7 +415,7 @@ namespace Testbed.Diagnostics
         //"arena=cap" only the stone top. Subtraction is the form the isolation actually wants (take ONE member
         //out of an otherwise complete frame and measure again), which is why "all" is a name rather than the
         //implied starting point. Lenient like the rest of the parse: an unreadable name is skipped.
-        private static ArenaMembers ParseArenaMembers(string list)
+        public static ArenaMembers ParseArenaMembers(string list)
         {
             ArenaMembers members = ArenaMembers.None;
 
@@ -418,24 +441,62 @@ namespace Testbed.Diagnostics
         //member list. A variant whose member list is unreadable still contributes ArenaMembers.None, which is
         //a legitimate variant (the arena out of the frame) - so unlike the rest of this parse, an empty result
         //is what says the argument said nothing, and the caller leaves the single-variant path alone.
-        private static IReadOnlyList<ArenaVariant> ParseAlternation(string spec)
+        /// <summary>
+        /// Splits <c>alt=</c> into variants on <c>;</c> and each variant into pins on <c>,</c>. A pin is
+        /// <c>&lt;dial&gt;=&lt;value&gt;</c>.
+        /// <para>
+        /// <b>A token with no <c>=</c> is read as the old arena-only spelling</b> (<c>alt=all;none</c>,
+        /// <c>alt=all/6;all/0</c>) and becomes <c>arena=</c> plus, past a <c>/</c>, <c>capprobe=</c>. That is
+        /// not politeness towards old scripts: those two spellings are what `.claude/skills/benchmark` and
+        /// every #151 sweep in `docs/agent-notes.md` are written in, and a reader reproducing a recorded
+        /// measurement must not have to translate it first. There is no ambiguity to trade for it — a general
+        /// pin always carries an <c>=</c> and an arena member list never can.
+        /// </para>
+        /// </summary>
+        private static IReadOnlyList<Variant> ParseAlternation(string spec)
         {
-            List<ArenaVariant> variants = new();
+            List<Variant> variants = new();
 
             foreach (string token in spec.Split(';'))
             {
                 string one = token.Trim();
                 if (one.Length == 0) continue;
 
-                int probe = 0;
-                int slash = one.LastIndexOf('/');
-                if (slash >= 0)
+                List<Pin> pins = new();
+
+                foreach (string part in one.Split(','))
                 {
-                    if (int.TryParse(one.Substring(slash + 1), out int parsed) && parsed >= 0 && parsed <= 6) probe = parsed;
-                    one = one.Substring(0, slash);
+                    string pin = part.Trim();
+                    if (pin.Length == 0) continue;
+
+                    int equals = pin.IndexOf('=');
+
+                    if (equals > 0)
+                    {
+                        pins.Add(new Pin(pin.Substring(0, equals).Trim().ToLowerInvariant(), pin.Substring(equals + 1).Trim()));
+                        continue;
+                    }
+
+                    //The legacy arena spelling. The member list is comma-separated too, so it arrives here one
+                    //member at a time and each becomes its own arena= pin - which is exactly right, because
+                    //ArenaMembers pins accumulate through the same "-" removal grammar either way.
+                    int slash = pin.LastIndexOf('/');
+
+                    if (slash >= 0)
+                    {
+                        string probe = pin.Substring(slash + 1);
+                        pin = pin.Substring(0, slash);
+
+                        if (pin.Length > 0) pins.Add(new Pin("arena", pin));
+
+                        pins.Add(new Pin("capprobe", probe));
+                        continue;
+                    }
+
+                    pins.Add(new Pin("arena", pin));
                 }
 
-                variants.Add(new ArenaVariant(ParseArenaMembers(one), probe));
+                if (pins.Count > 0) variants.Add(new Variant(one, pins));
             }
 
             return variants;

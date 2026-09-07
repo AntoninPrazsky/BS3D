@@ -86,10 +86,22 @@ function Measure-Run([string]$scene, [int]$ssaa, [string[]]$extra) {
     if ($kept.Count -eq 0) { return $null }
 
     $mean = [math]::Round(($kept | Measure-Object -Average).Average, 1)
+
+    # Since #374 both executables put the frame time on the line themselves, so take it from there rather than
+    # converting the mean rate: 1000 / mean(rate) is not mean(ms), and the ms figure is the one that gets
+    # quoted. Median, not mean, for the reason trap 12 gives. Older logs have no ms, so the conversion stays
+    # as the fallback.
+    $msAll = ([regex]'\[fps\] [\d.,]+ \(([\d.,]+) ms\)').Matches($text) | ForEach-Object {
+        [double]($_.Groups[1].Value -replace ',', '.')
+    }
+    $msKept = @($msAll | Select-Object -Skip $WarmupLines) | Sort-Object
+    if ($msKept.Count -gt 0) { $ms = [math]::Round($msKept[[int]($msKept.Count / 2)], 2) }
+    else { $ms = [math]::Round(1000.0 / $mean, 2) }
+
     [pscustomobject]@{
         Scene = $scene; Ssaa = $ssaa; Extra = ($extra -join ' ')
         FPS = $mean
-        MsPerFrame = [math]::Round(1000.0 / $mean, 1)
+        MsPerFrame = $ms
         Samples = $kept.Count
         Min = [math]::Round(($kept | Measure-Object -Minimum).Minimum, 1)
         Max = [math]::Round(($kept | Measure-Object -Maximum).Maximum, 1)

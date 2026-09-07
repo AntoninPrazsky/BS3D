@@ -208,11 +208,26 @@ can submit and nothing about the frame.
   stops the field at the first comma silently matches nothing on every multi-member run, and reports it as "no
   output" rather than as a parse failure. That cost a whole sweep here before the logs were re-read — and
   re-reading them was enough, because the readings were in them all along.
-- `alt=<members>[/<probe>];<members>[/<probe>];…` — draw the arena a **different way on every `[fps]` window**,
-  cycling the listed variants: `alt=all;none`, `alt=all/0;all/6`, `alt=all;all,-cap;none;all/3`. Each variant is
-  an `arena=` list with an optional `/N` cap probe after it; the line already prints the members and the probe,
-  so every reading labels its own variant, and the switch happens after the line is written so no window is a
-  mixture of two. **This is the only way the APU can be measured** (trap 14): the variants share one process,
+- `alt=<pins>;<pins>;…` — draw the scene a **different way on every `[fps]` window**, cycling the listed
+  variants. **A variant is a little command line** (#374): a comma-separated list of the same `<dial>=<value>`
+  pins the arguments themselves use, so there is no second vocabulary —
+
+  ```powershell
+  alt=scene=meadow;scene=savanna;scene=forest      # a backdrop sweep in ONE process
+  alt=ssaa=1;ssaa=2;ssaa=4                          # the pixel-count discriminator below, in one process
+  alt=arena=all,capprobe=0;arena=all,capprobe=6     # #151's own sweep, in the general spelling
+  alt=all;all,-cap;none                             # the old arena-only spelling, still read
+  ```
+
+  The dials are `arena`, `capprobe`, `scene`, `sky`, `balls`, `ssaa`, `msaa`, `rscale`, `detail`, `exposure`
+  and `nopost`, and **the list is short for one reason: a switch must leave nothing behind**, or the window
+  after it measures the transition. `nooverc` is refused for exactly that (the overcast lerp carries across),
+  and a scene switch snaps its weather instead of fading it. The run prints its plan on an `[alt]` line and
+  names anything it refused, so a mistyped pin cannot quietly turn a sweep into one build measured twice —
+  which would read as "the change costs nothing".
+
+  Every `[fps]` line ends with `variant <spec>` in your own words, and the switch happens after the line is
+  written so no window is a mixture of two. **This is the only way the APU can be measured** (trap 14): the variants share one process,
   one clock and the same neighbours, so what is left between two readings a second apart is what the two
   variants cost. Analyse it **paired**: group the readings into whole cycles, take each variant's difference
   from the baseline *within its own cycle*, then median those differences — and report **how often the sign
@@ -221,7 +236,16 @@ can submit and nothing about the frame.
 
 The measurement is wall-clock and cannot split CPU from GPU (MonoGame exposes no GPU timer queries). The cheap
 discriminator is to run the same pin at two `ssaa` values: if the frame time does not scale with the pixel
-count, the candidate is CPU- or draw-call-bound and turning pixel work off will not help it.
+count, the candidate is CPU- or draw-call-bound and turning pixel work off will not help it. **That
+discriminator is now one run**: `alt=ssaa=1;ssaa=2;ssaa=4` puts all three under one clock.
+
+**Both `[fps]` lines carry the frame time beside the rate since #374** (`[fps] 148.9 (6.72 ms) — …`). Quote the
+millisecond figure, not the rate: every number in `docs/` and the journal is in milliseconds, and converting by
+hand is an arithmetic step between the instrument and the record. Measured that way on the reference desktop
+(6900 XT, meadow, dome 13, `nopost`, fixed camera, 1600×900, `fpscap=400`, nine cycles, medians): **ssaa 4 =
+6.69 ms, while ssaa 1 and ssaa 2 both sit on the 2.5 ms cap** — i.e. cheaper than the cap, which is what a
+capped reading means and not a cost. Under `fpscap=150` all three read the cap and the sweep says nothing:
+**set the cap under the frame rate you are trying to measure, or the instrument measures itself.**
 
 
 ## `fpscap=N`: measuring without leaving the card flat out

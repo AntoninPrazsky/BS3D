@@ -41,6 +41,25 @@ Three defects the split fixed, each of them latent rather than visible:
 
 **Two placements are load-bearing.** The service call is the **last** statement of `Draw` — after `base.Draw`, after the `[fps]` line and after `CapFrameRate` — because the readback stalls the pipeline and `SaveAsPng` encodes on this thread (~0.1 s at 1600×900), and a frame carrying that must never be the frame a benchmark counts. And it runs off `_pulseSeconds`, the wall clock the clouds and the ball pulse use, not the simulation's step, so a scheduled shot lands at the same moment whether the simulation is running, slowed or frozen.
 
+## Sweeping variants inside one process: `alt=` (#151, generalized in #374)
+
+**`alt=<pins>;<pins>;…` draws the run a different way on every `[fps]` window**, and a variant is a little command line — a comma-separated list of the same `<dial>=<value>` pins the arguments themselves use, so there is no second vocabulary to keep in step:
+
+```powershell
+Testbed.exe scene=meadow logfps fpscap=400 alt=ssaa=1;ssaa=2;ssaa=4
+Testbed.exe logfps alt=scene=meadow;scene=savanna;scene=forest
+Testbed.exe logfps alt=all;all,-cap;none            # the old arena-only spelling, still read
+```
+
+It exists because **two runs of this project cannot be compared on either of its machines**: on the reference APU two 125-second runs of one *unchanged* variant came back 33.6 and 25.7 ms, and under contention the variants compress towards each other, so a sweep read across runs says "nothing costs anything" — a false negative rather than a noisy reading. Inside one process the variants share one clock, one driver state and the same neighbours. The `[fps]` line ends with `variant <spec>` in the caller's own words, and the switch happens **after** the line is written, so no window is ever a mixture of two.
+
+**What may be alternated is decided by hysteresis and nothing else.** A switch has to leave nothing behind, or the window after it measures the transition instead of the variant. The dials are `arena`, `capprobe`, `scene`, `sky`, `balls`, `ssaa`, `msaa`, `rscale`, `detail`, `exposure` and `nopost`; `nooverc` is **refused**, because the overcast lerp carries its position across a switch and a variant that turned it off would still be sliding through the window that followed. A scene switch therefore snaps its weather rather than fading it (`SetScene(…, immediately: true)`), which is the one thing separating `alt=scene=…` from pressing NumPad2.
+
+- **The run announces its plan on an `[alt]` line and names anything it refused.** A pin dropped in silence would make a sweep two readings of the same build, which reads as "the change is free" — the exact false negative the mechanism exists to prevent.
+- **`ssaa` reaches four places** (the pipeline's target, the tonemap's filter width, the space scene's star sizing, the balls' dither cell), so it goes through one `SetSupersampleFactor`; setting two of the four measures a mixture.
+- ⚠ **The first variant is seeded at the END of `LoadContent`, not in `BuildCity`.** #151 could seed it there while a variant was two assignments on the island; a general pin reaches the pipeline, the scene renderer and the ball set, and `BuildCity` runs before two of those exist — seeding it there threw a `NullReferenceException` the first time a run said `alt=ssaa=1;ssaa=2`.
+- Measured through it (6900 XT, meadow, dome 13, `nopost`, fixed camera, 1600×900, `fpscap=400`, nine cycles, medians): **ssaa 4 = 6.69 ms, ssaa 1 and ssaa 2 both on the 2.5 ms cap.** Under `fpscap=150` all three read the cap — a capped reading is "cheaper than this", never a cost.
+
 ## Driving a run without a keyboard (#373)
 
 **`at=<t>:<key>` presses one of the control table's actions at a wall-clock second, and `hold=<key>:<from>:<to>` holds one of the four movement keys down across an interval** — both inside the process (`Diagnostics/InputScript.cs`). Both arguments accumulate and both take comma-separated lists, so a timeline can be written a line at a time:
