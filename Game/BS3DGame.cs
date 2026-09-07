@@ -177,6 +177,10 @@ namespace BS3D
         //host with the rest of the audio — the scene is the host's, and its sound runs pause included.
         private ProceduralAmbience _ambience;
 
+        //The scene's own one-shots — the storm's thunder and the volcano's boom (#219, #223). Beside the bed
+        //and NOT inside it: a bed is a sealed loop and an event baked into one is a metronome.
+        private SceneEventSounds _sceneEvents;
+
         //Testing only: the "celebrate" argument. Consumed on the first Update, AFTER any startup level — see
         //StartStartupCelebrations, which is the one place either of these is read.
         private bool _startupCelebrate;
@@ -1088,6 +1092,7 @@ namespace BS3D
             //LoadContent, and its _ambience hook is null-conditional for exactly that), so the pick is
             //handed over here; every later change reaches it through SetScene like everything else scenic.
             _ambience = new ProceduralAmbience();
+            _sceneEvents = new SceneEventSounds(_audio);
             _ambience.SetScene(_scene);
 
             //A muted start (the mute argument) has to reach the freshly made subsystems; every later change
@@ -1546,6 +1551,12 @@ namespace BS3D
             //The scene's bed and its crossfade, on the wall clock's frame like the clouds: the scene is on
             //screen whether or not a session stands, so its sound is too, pause included.
             _ambience?.Update(elapsed);
+
+            //Right after the bed, on the same wall clock, and for the same reason it is: the scene stages its
+            //events whether or not a session stands, so a strike seen from the pause menu is heard from it.
+            //The clock handed over is the one the SCENE draws from (BuildSceneFrame), which is what lets the
+            //flash and its thunder be one event rather than two schedules that drift.
+            _sceneEvents?.Update(_scene, _sceneRenderer, _wallClock, elapsed);
 
             //Which music the moment wants is the stack question (#46): the front end's loop plays exactly
             //while no session screen is on it. The theme's own lifecycle stays the session's — BuildLevel
