@@ -1030,7 +1030,9 @@ Bridge byl zároveň nejmírnější stížnost („simple", ne „primitive"), 
 
 ## 2026-09-07 — Claude Code (druhý zápis dne)
 
-**#346: „mural" přepsaný — ale VERDIKT MÁ MAJITEL, větev `346-mural-recompose` čeká nemergnutá.** Issue říká výslovně, že se to musí potvrdit uchem; slyšet neumím, takže jsem oba .wav (starý i nový) poslal majiteli a na main to nejde, dokud neřekne. Kód i doky jsou hotové, čtyři solutiony čisté, `MusicBake` změřený.
+**#346: „mural" přepsaný, a verdikt je majitelův — schváleno a na mainu.** Issue říká výslovně, že se to musí potvrdit uchem; slyšet neumím, takže jsem oba .wav (starý i nový) poslal majiteli a větev `346-mural-recompose` nechal ležet, dokud neřekne. Řekl „mergni to" a šla nahoru. Kód i doky hotové, čtyři solutiony čisté, `MusicBake` změřený.
+
+**⚠ A tohle je postup, který se tu vyplatil dvakrát za den:** u věci, kterou neumím posoudit (zvuk, hudba), nechat hotovou práci na pushnuté větvi, poslat majiteli rendery a k tomu měřením podložený rozbor toho, CO jsem změnil a proč — ne prosbu o názor naprázdno. Verdikt pak přišel na jednu zprávu. U #219 to bylo totéž s .wav hromu a erupce.
 
 **Pět vad, každá měla vlastní příčinu, a všechny sedí na majitelových slovech („primitivní až jako vtip, smutné, občas vyloženě falešné, pomalé, špatný rytmus"):**
 
@@ -1048,4 +1050,4 @@ Bridge byl zároveň nejmírnější stížnost („simple", ne „primitive"), 
 
 **⚠ Poučení, které si zaslouží přežít issue:** starý zápis v `docs/game-feedback.md` končil větou *„Not claimed: the tune — … the piece was arranged against the numbers rather than at a monitor."* Ta věta byla poctivá a byla to zároveň varování, které se vyplnilo: **každé číslo v tom zápisu bylo správně a skladba byla pořád pětkrát vedle**, a ucho to chytlo na jedno přehrání. Nechal jsem tu doložku stát i pro přepis.
 
-**Nic dalšího si neberu** — čekám na verdikt k #346.
+**Nic dalšího si neberu.**
