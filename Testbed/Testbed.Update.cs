@@ -61,7 +61,7 @@ namespace Testbed
                 #region Fallen balls cleanup
 
                 int removedBalls = RemoveFallenBalls(_shotBalls) + RemoveFallenBalls(_fallingBalls);
-                if (removedBalls > 0) InvalidateBallCounts();
+                if (removedBalls > 0) InvalidateOverlay();
 
                 #endregion
 
@@ -105,7 +105,7 @@ namespace Testbed
 
             //Once a frame, after everything that can have moved the population and before the frame is drawn.
             //Costs nothing on the frames it is not dirty, and nothing at all while the overlay is hidden.
-            RefreshBallCounts();
+            RefreshOverlayText();
 
             //Before CameraMovement below, which is what reads it: assigned after, the fly camera turned with
             //the PREVIOUS frame's denominator — one frame stale after every frame-time change, and one whole

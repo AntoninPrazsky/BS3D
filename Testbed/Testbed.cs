@@ -521,7 +521,7 @@ namespace Testbed
 
             //One delegate for the whole run (see the field): it is what PhysicsWorld.Step runs after it has
             //flushed the step's contacts, and an attach changes the body and constraint counts the overlay shows.
-            _processContacts = () => { if (_eventHandler.ProcessQueuedContacts() > 0) InvalidateBallCounts(); };
+            _processContacts = () => { if (_eventHandler.ProcessQueuedContacts() > 0) InvalidateOverlay(); };
 
             //Testing: "scene=<name>" picks the starting environment, through the one parser every executable
             //now shares (#75 — this was an if/else chain here and a switch in the game, kept in step by hand,
@@ -605,8 +605,14 @@ namespace Testbed
                 new(mgKeys.F11, () => SetGraphics(_graphics.IsFullScreen), "Fullscreen/windowed"),
                 new(mgKeys.F12, () => _info.Visible = !_info.Visible, "Hide/show text overlay"),
                 new(mgKeys.End, Buttons.Start, ReleaseAllBalls, "Release all balls"),
-                new(mgKeys.NumPad1, SwitchSkyDome, "Switch sky dome"),
-                new(mgKeys.NumPad2, SwitchScene, "Switch scene (city/sea/savanna/desert/mountain/meadow/neon)"),
+                //⚠ These two descriptions are BUILT, not written (#376). The scene hint used to enumerate its
+                //members — "Switch scene (city/sea/savanna/desert/mountain/meadow/neon)" — and had named seven
+                //of them since the day the eighth was added, silently, because nothing fails when a string
+                //ages. It is #320's defect in the other executable, and its ruling applies here: name the
+                //AXIS and count it off the enum, and print the live value under the list (see
+                //RefreshOverlayText). A hint that enumerates is a hint that will be wrong.
+                new(mgKeys.NumPad1, SwitchSkyDome, $"Cycle sky dome (1-{SKY_DOME_COUNT})"),
+                new(mgKeys.NumPad2, SwitchScene, $"Cycle scene ({SceneRenderer.CycleLength} of {Enum.GetValues<SceneKind>().Length}; scene= reaches the rest)"),
                 new(mgKeys.D1, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Forward, true), "Forward view"),
                 new(mgKeys.D2, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Backward, true), "Backward view"),
                 new(mgKeys.D3, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Left, true), "Left view"),
@@ -1038,6 +1044,9 @@ namespace Testbed
             _skyModelNumber = number;
             _sky.DomeNumber = number;
 
+            //The overlay states the live dome (#376), so it has to be told when it moves
+            InvalidateOverlay();
+
             ApplySkyLighting();
         }
 
@@ -1056,6 +1065,8 @@ namespace Testbed
         private void SwitchBallStyle()
         {
             _balls.Style = BallStyles.Next(_balls.Style);
+
+            InvalidateOverlay();
 
             Console.WriteLine($"[balls] {BallStyles.ToName(_balls.Style)}");
         }
@@ -1121,6 +1132,8 @@ namespace Testbed
         private void SetScene(SceneKind scene, bool immediately = false)
         {
             _scene = scene;
+
+            InvalidateOverlay();
 
             Console.WriteLine($"[scene] {_scene}");
 
@@ -1502,7 +1515,7 @@ namespace Testbed
             _eventHandler = new BallContactEventHandler(_world.Simulation, _world.Events, _ceiling, _map,
                 _physicsBalls, _shotBalls, _fallingBalls, Vector3.Zero);
 
-            InvalidateBallCounts();
+            InvalidateOverlay();
 
             ApplySkyLighting(); //FitCeilingToMap recreated the ceiling renderer, which starts without the sky palette
 
@@ -1565,7 +1578,7 @@ namespace Testbed
 
         //Whether the overlay's body/constraint line is out of date. Starts true so the first visible frame states
         //the counts rather than an empty line.
-        private bool _ballCountsDirty = true;
+        private bool _overlayDirty = true;
 
         /// <summary>
         /// Notes that the simulation's population has changed. <b>Deferred rather than counted on the spot
@@ -1575,23 +1588,32 @@ namespace Testbed
         /// result. A cascade that releases a cluster does all five in one frame. Now the frame that draws pays
         /// once, and only if the overlay is up.
         /// </summary>
-        private void InvalidateBallCounts() => _ballCountsDirty = true;
+        private void InvalidateOverlay() => _overlayDirty = true;
 
         /// <summary>
-        /// Rebuilds the overlay's count line if it is stale, called once per frame from <see cref="Update"/>.
+        /// Rebuilds the overlay's own lines if they are stale, called once per frame from <see cref="Update"/>.
         /// <para>
         /// The <see cref="InfoRenderer.Visible"/> test comes <b>before</b> the flag is cleared on purpose: with
         /// the overlay hidden (F12) the counts are simply not computed, and the dirt is left standing so the
         /// first frame after F12 brings it back states the truth instead of whatever the line last said.
         /// </para>
+        /// <para>
+        /// <b>The scene, the dome and the material are here rather than in the key hints above</b> (#376). A
+        /// hint that lists its members ages the day the enum grows and nothing fails when it does — so the
+        /// hints name the axis and count it off the enum, and the <i>live</i> value is stated once, here,
+        /// where it cannot be a second copy of anything. Reaching this needs the dirty flag set wherever one
+        /// of the three changes, which is why the flag stopped being about ball counts alone.
+        /// </para>
         /// </summary>
-        private void RefreshBallCounts()
+        private void RefreshOverlayText()
         {
-            if (!_ballCountsDirty || !_info.Visible) return;
+            if (!_overlayDirty || !_info.Visible) return;
 
-            _ballCountsDirty = false;
+            _overlayDirty = false;
 
-            _info.CustomText = "Balls on scene: " + (_world.Simulation.Bodies.ActiveSet.Count) + "\nConstraints count: " + _world.Simulation.Solver.CountConstraints();
+            _info.CustomText = $"Scene: {_scene}   Dome: {_skyModelNumber}   Balls: {BallStyles.ToName(_balls.Style)}"
+                + "\nBalls on scene: " + (_world.Simulation.Bodies.ActiveSet.Count)
+                + "\nConstraints count: " + _world.Simulation.Solver.CountConstraints();
         }
 
         protected override void UnloadContent()

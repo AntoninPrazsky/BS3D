@@ -79,7 +79,7 @@ namespace Testbed
             if (_gameMode) _cannon.KickRecoil();
 
             _shotBalls.Add(ball);
-            InvalidateBallCounts();
+            InvalidateOverlay();
 
             //Give the shot its launch smear: a colour streak at the muzzle, along the shot, fading over its own
             //short life (aged in Update, drawn in Draw). Only the ball's authored tint is handed over - decoding
@@ -141,7 +141,7 @@ namespace Testbed
             if (_physicsBalls == null || _map == null) return;
 
             if (BallsConstraintsBuilder.ReleaseAllBalls(_physicsBalls, _map, _world.Simulation, _fallingBalls) > 0)
-                InvalidateBallCounts();
+                InvalidateOverlay();
         }
 
         private void RemoveAllConstraints()
