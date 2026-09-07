@@ -265,6 +265,35 @@ namespace Testbed.Diagnostics
         public bool Windowed { get; private set; } = true;
 
         /// <summary>
+        /// <c>shot=&lt;t1,t2,…&gt;</c>: wall-clock seconds after start, one PNG each, written by the program
+        /// itself out of its own back buffer (#371). The Game's spelling and the Game's parse
+        /// (<see cref="ScreenshotWriter.ParseSeconds"/>), so one script drives either executable and the two
+        /// cannot drift apart on what a schedule is.
+        /// <para>
+        /// <b>This is the only capture of this program that cannot silently be something else.</b> Every
+        /// external route copies a rectangle of the SCREEN, so it returns the lock screen on a locked desktop
+        /// and whatever window is in front on an unlocked one — see <see cref="ScreenshotWriter"/> for the
+        /// three measurements. Prefer it to <c>screenshot.ps1</c>'s <c>CopyFromScreen</c> for anything that
+        /// will be reasoned from.
+        /// </para>
+        /// </summary>
+        public float[] ShotSeconds { get; private set; }
+
+        /// <summary>
+        /// <c>shotframe=&lt;n1,n2,…&gt;</c>: the same, triggered on frame indices counted from 1 rather than on
+        /// the clock — the Testbed's own addition to the facility (#371), because it is the executable that can
+        /// hold everything else still.
+        /// <para>
+        /// It exists because a schedule in seconds measures the SAMPLER whenever the thing being photographed
+        /// moves: eight times asked against a 1.6 Hz pulse at ~21 FPS produced three frames, and two attempts
+        /// half a period apart moved 4 % and then 2 %, in opposite directions. With <c>F5</c>'s frozen
+        /// simulation and a fixed <c>campos</c>/<c>camtarget</c>, frame <i>n</i> of two runs is the same frame,
+        /// which is what an A/B needs and what wall-clock cannot promise.
+        /// </para>
+        /// </summary>
+        public int[] ShotFrames { get; private set; }
+
+        /// <summary>
         /// Reads the switches out of <c>argv</c>. Order does not matter and an unreadable value is ignored;
         /// anything that matches no prefix is taken as the startup map path, so the last bare argument wins.
         /// </summary>
@@ -322,6 +351,12 @@ namespace Testbed.Diagnostics
                 else if (arg.StartsWith("fov=", StringComparison.OrdinalIgnoreCase)
                     && float.TryParse(arg.Substring("fov=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedFov)
                     && parsedFov >= 1f && parsedFov <= 170f) options.FreeFovDegrees = parsedFov;
+                //Both schedules go through ScreenshotWriter's own parse rather than a copy of it here, for the
+                //reason balls= goes through BallStyles.TryParse: the Game takes shot= too, and one script has
+                //to be able to hand the same list to either executable. A list nothing in it parses comes back
+                //null, which is the same as not asking - a mistyped diagnostic must never stop a run starting.
+                else if (arg.StartsWith("shot=", StringComparison.OrdinalIgnoreCase)) options.ShotSeconds = ScreenshotWriter.ParseSeconds(arg.Substring("shot=".Length));
+                else if (arg.StartsWith("shotframe=", StringComparison.OrdinalIgnoreCase)) options.ShotFrames = ScreenshotWriter.ParseFrames(arg.Substring("shotframe=".Length));
                 else options.StartupMapPath = arg;
             }
 

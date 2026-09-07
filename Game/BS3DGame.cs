@@ -920,6 +920,10 @@ namespace BS3D
 
         protected override void LoadContent()
         {
+            //The first moment there is a device to read a back buffer out of, which is all the writer needs
+            //from this class; the schedule it runs was parsed by the command line (see BS3DGame.Screenshot.cs)
+            CreateScreenshotWriter();
+
             _instancingEffect = Content.Load<Effect>("Shaders/InstancedModel");
 
             //The pipeline caches its parameters and sets each look value exactly once through the required

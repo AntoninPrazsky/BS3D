@@ -161,26 +161,39 @@ The one route that has never lied: **have the app save its own frame** — the s
 no screen is involved and it is immune to the lock screen, to focus, to occlusion and to a window wider than
 the panel.
 
-**In the Game this is built in since #191** and is the way to photograph `BS3D.exe`:
+**Both executables have it** — the Game since #191, the Testbed since #371, through one shared
+`Prazsky.Core.Render.ScreenshotWriter`, so the spellings and the output are identical:
 
 ```powershell
 # Two shots of the result screen as its defocus ramps, no keys, no focus, works locked:
 C:\GitHub\Game\bin\net10.0-windows\BS3D.exe result celebrate mute scene=meadow quality=medium shot=3.5,8
+
+# The Testbed's fixed camera, photographed by the Testbed itself:
+C:\GitHub\Testbed\bin\net10.0-windows\Testbed.exe scene=meadow sky=13 nopost `
+    campos=0,-4,30 camtarget=0,-8,0 width=1280 height=720 shot=5
 ```
 
 - **`shot=<t1,t2,…>`** — wall-clock seconds after start, one PNG each. This is the trigger that survives a
-  locked desktop and the one that makes a shot repeatable.
-- **`F12`** does the same by hand (`F10` is the FPS overlay now, `F11` still fullscreen). It cannot be scripted
-  while the desktop is locked, which is the whole reason `shot=` exists.
-- They land in `Screenshots\` beside the exe as `bs3d-<yyyyMMdd-HHmmss>-<scene>.png`, and each prints one
-  `[shot] <path>` line to stdout — grep that rather than guessing the name.
-- The shot is the frame **as presented**: FPS line, HUD, whatever menu page is up. `F10` first for a clean
-  plate. The frame that takes a shot is long (~0.1 s at 1600×900), so never put this on a per-frame path.
+  locked desktop and the one that makes a shot repeatable. **Both exes.**
+- **`shotframe=<n1,n2,…>`** — the same on frame indices counted from 1. **Testbed only**, deliberately: it is
+  the executable that can hold everything else still (`F5` freezes the simulation, `campos`/`camtarget` pin
+  the camera), and frame *n* of two such runs is the same frame. Reach for it whenever what is being
+  photographed **moves** — a schedule in seconds against a moving thing measures the sampler, not the effect
+  (eight times asked against a 1.6 Hz pulse produced three frames, and two attempts half a period apart moved
+  4 % then 2 %, in opposite directions; see `docs/game-feedback.md` on #175).
+- **The key** does the same by hand: **`F12` in the Game** (`F10` is its FPS overlay, `F11` fullscreen) and
+  **`F8` in the Testbed** (whose `F12` is its own text overlay and stays that). It cannot be scripted while
+  the desktop is locked, which is the whole reason the schedules exist.
+- They land in `Screenshots\` beside each exe as `<bs3d|testbed>-<yyyyMMdd-HHmmss>-<scene>.png`, and each
+  prints one `[shot] <path>` line to stdout — grep that rather than guessing the name.
+- The shot is the frame **as presented**: FPS line, HUD, key help, whatever menu page is up. `F10` (Game) /
+  `F12` (Testbed) first for a clean plate. The frame that takes a shot is long (~0.1 s at 1600×900), so never
+  put this on a per-frame path — and in the Testbed it is taken *after* the `[fps]` reading and the frame cap,
+  so it never lands inside a benchmark window.
 
-**The Testbed has no such writer** — it has the camera arguments instead (`campos`/`camtarget`), which is why
-it stays the framing rig and why an external capture is still the only way to see it. If a Testbed run has to
-be seen through a locked desktop, `GetBackBufferData` + `SaveAsPng` as a temporary patch at the end of its
-`Draw` is the same ten lines; keep it out of the commit.
+**So prefer `shot=`/`shotframe=` to `screenshot.ps1`'s `CopyFromScreen` for anything a conclusion will be
+drawn from.** The script below is still the way to drive the Testbed's *keys* (and the only way to photograph
+a held key), and its capture is still needed with `-Keys`/`-Hold`, because the keys need focus anyway.
 
 ## `screenshot.ps1`
 
