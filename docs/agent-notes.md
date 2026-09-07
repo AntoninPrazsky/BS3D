@@ -1102,3 +1102,34 @@ Bridge byl zároveň nejmírnější stížnost („simple", ne „primitive"), 
 **Zrušilo to kus rituálu ve dvou skillech**, a to je vlastní přínos vedle kódu: `screenshot` měl celou sekci *„Prove the exe is running the change before you believe a single pixel"* s ručním `Get-Item` porovnáním časů, `verify` neměl nic a `benchmark` dostal past č. 15 (měřit build, který nemáš — s pokynem citovat `set` vedle zapsaného čísla). Popis v plném znění je v `docs/formats-and-tools.md`.
 
 **Ověřeno:** čtyři solutiony 0 chyb, LevelGen 0, ScoreSim 0, všechny tři exáče ty řádky opravdu tisknou (spuštěné a odečtené, ne odvozené z kódu). Levely nedotčené.
+
+---
+
+## 2026-09-07 — Claude Code (třetí zápis dne)
+
+**#373: Testbed si mačká klávesy sám. `at=<t>:<klávesa>` stiskne akci z vlastní tabulky ovládání ve vteřině nástěnných hodin, `hold=<klávesa>:<od>:<do>` drží W/A/S/D přes interval, obojí uvnitř procesu.**
+
+```
+Testbed.exe Maps\Full.json scene=meadow at=8:F10 at=9:F12 hold=A:10:14 shot=11,13 at=16:Escape
+```
+
+Ten běh vejde do hracího režimu, schová overlay, čtyři vteřiny orbituje dělem, dvakrát se přitom vyfotí — a **sám se ukončí**. `Escape` je v tabulce jako každá jiná klávesa, takže skriptovaný běh se už nemusí zabíjet zvenčí.
+
+**⚠ Ověřeno se ZMINIMALIZOVANÝM oknem (`IsIconic` true), a to je celý ten důkaz:** všechny čtyři položky padly ve svých časech, oba `shot=` snímky přišly se světem uvnitř (ne černé, ne lock screen) a **kamera se mezi nimi viditelně otočila** — na prvním je slunce a jiný výsek louky, na druhém ne. Na zminimalizované okno nedojde žádná syntetická klávesa a externí capture by z něj nedostal nic.
+
+**Jména se tu nevymýšlejí.** Tap se hledá v Testbedím `ButtonAction[]`, takže `at=2:F10` dělá přesně to, co stisk F10, klávesa přidaná do tabulky je skriptovatelná v den, kdy vznikne, a pravopisy jsou tytéž, co má nápověda v overlayi a `-Keys` v `screenshot.ps1`. Co nepojmenuje žádnou akci, se **zahodí a vypíše** (`dropped, no such action`); celý plán se navíc tiskne na jeden `[script]` řádek dřív, než běh cokoli udělá. Překlep je tak vidět, místo aby chyběl stisk, který nikdo nepostrádá.
+
+**Čtyři rozhodnutí, která stojí za zápis:**
+
+1. **Držení je ORované se skutečnou klávesnicí, ne náhradou za ni** — ruka u stroje a skript mohou řídit tentýž běh.
+2. **Držet jdou jen W/A/S/D**, protože nic jiného tenhle program jako držené nečte (orbit a chůze, jen v hracím režimu). Cokoli jiného parser odmítne, aby z toho nebyl tichý no-op — což je přesně ta třída selhání, kvůli které issue vzniklo.
+3. **Tik je mimo obě brány** — mimo simulační (skript smí stisknout F5 a běžet dál proti zamrzlému světu) a mimo `IsActive` (běh, u kterého nikdo nesedí, je celý ten případ). Jede na `_pulseSeconds`, tedy na téže hodině jako `shot=`, takže se `at=` a `shot=` dají psát proti sobě.
+4. **Neobsluhovaný běh** (`at=`, `hold=`, `shot=`, `shotframe=`) si nastaví `InactiveSleepTime` na nulu. Bez toho by ztráta fokusu srazila běh na ~50 FPS, na kterých MonoGame drží okno na pozadí — a z frame rate vychází jak indexy pro `shotframe=`, tak náběh, který `hold=` měří.
+
+**Dvě držení přes týž interval jsou přesně současná** (jedny hodiny, čtené po snímcích), zatímco externí cesta uměla jen poslat oba downy před sleepem a doufat. Pro diagonální chůzi, na které se pozná rozklad pohybu všesměrového kola, to je rozdíl mezi měřením a přibližně.
+
+**⚠ Co timeline neumí a je to napsané i ve skillu:** `at=…:F2` otevře modální dialog a běh tam stojí (Win32 okno, ne herní stav), a **myš skriptovatelná není** — míření a přesná mušta (RMB) pořád potřebují externí cestu.
+
+**Drobnost, kterou jsem si sám způsobil a stála jeden běh:** logoval jsem časy v kultuře stroje, takže z toho lezlo `[script] 3,00 tap F10` — číslo, které zkopírované zpátky do `at=` neparsuje. Řádky jsou teď invariantní, stejně jako parser.
+
+**Ověřeno:** čtyři solutiony 0 chyb, LevelGen 0, ScoreSim 0. Dokumentace v témž commitu: `docs/testbed.md` (nová sekce), CLAUDE.md (řádek tabulky), `verify` a `screenshot` skilly — v `screenshot` je `-Hold` sekce nově uvozená tím, že `hold=` je lepší cesta, a zůstává tam, co pořád platí (náběh chůze, editor, myš).
