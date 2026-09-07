@@ -1025,3 +1025,27 @@ Bridge byl zároveň nejmírnější stížnost („simple", ne „primitive"), 
 **⚠ Provozní nález, který nikdo nezapsal: hra nemá argument na okno.** `Program.cs` zná jen `fullscreen` (nastavuje na true) — opak neexistuje, takže když je v `Settings.json` uloženo `true`, není jak z příkazové řádky spustit hru v okně. Kvůli tomu jsem musel majitelův `%LOCALAPPDATA%\BS3D\Settings.json` zazálohovat, přepnout a vrátit byte za bytem (ověřeno SHA-256). Na stroji, který se pod zátěží tvrdě restartuje a kde majitel proto říká „radši nespouštěj fullscreen", je to skutečná díra v harnessu — `windowed` nebo `fullscreen=0` je pár řádků. **Issue jsem nezakládal**, je to na majiteli.
 
 **Beru si #346** (přepsat skladbu „mural"). Nic dalšího.
+
+---
+
+## 2026-09-07 — Claude Code (druhý zápis dne)
+
+**#346: „mural" přepsaný — ale VERDIKT MÁ MAJITEL, větev `346-mural-recompose` čeká nemergnutá.** Issue říká výslovně, že se to musí potvrdit uchem; slyšet neumím, takže jsem oba .wav (starý i nový) poslal majiteli a na main to nejde, dokud neřekne. Kód i doky jsou hotové, čtyři solutiony čisté, `MusicBake` změřený.
+
+**Pět vad, každá měla vlastní příčinu, a všechny sedí na majitelových slovech („primitivní až jako vtip, smutné, občas vyloženě falešné, pomalé, špatný rytmus"):**
+
+1. **PRIMITIVNÍ = melodie se skládala jen z tónů akordu.** Riff má tři výšky (`MURAL_RIFF_INTERVAL` = základ–kvinta–oktáva) a *všechny* ostatní linky se vypisovaly ze čtyř tónů právě znějícího akordu, takže v celé skladbě nikdy nezazněl tón, který už pod ním nezněl — žádný průchodný, žádná zádrž, žádný citlivý tón. Horší je, že se každá melodická buňka **přehláskovala na každý nový akord**, takže se jeden tvar opakoval čtyřikrát za kolo ve čtyřech vypsáních. To není melodie, to je cvičení. Nově melodie indexují **stupnici** (`MURAL_SCALE`, G dur přes dvě oktávy od G4) v absolutní výšce a harmonie se hýbe pod nimi. Přízvučné tóny jsou pořád tóny akordu; mezi nimi jsou průchodné.
+2. **SMUTNÉ = jeden akord na jednom místě.** Progrese byla I–vi–IV–V a moll seděla ve **druhém** taktu, takže každé kolo šlo do mollu jako první tah. Nově I–IV–vi–V: stejné čtyři akordy, stín přijde ve třetím taktu jako průchodná barva, ne jako odpověď na toniku.
+3. **⚠ FALEŠNÉ = obyčejná chyba, jeden řádek.** Závěrečný push klouzal z `target - 2`, pevného celého tónu, ať v tónině leželo cokoli. Proti G dur to znamená B klouzající do C — a hlavně **F klouzající do G pod D akordem, jehož pad drží F#**. Sekunda proti harmonii, dvakrát na čtyři takty, celou skladbu. `MURAL_APPROACH` teď dává diatonický stupeň pod každý základní tón (u dvou ze šesti půltón, u zbytku celý tón), takže z toho je H→C a F#→G. **Obě laděné tomové nápřahy byly mimo tóninu taky** (pevný žebřík od 96 Hz, čtvrtá příčka ~138 Hz = cis) — teď se hrají na tónický kvintakord. Tom je bicí, ale je to bicí s výškou, a laděný úder pod laděným subem s ním tluče.
+4. **⚠ ŠPATNÝ RYTMUS = kopák si odporoval s vlastní mřížkou skladby, v každém taktu.** Mřížka je tresillo 3+3+2 (0-3-6, 8-11-14) a kopák hrál 0 a **10**. Desítka v té mřížce vůbec není — je to „a" třetí doby z rovné osminové popové figury a padá přesně do jediné mezery, kterou basa mezi 8 a 11 nechává. Takhle zní „špatný rytmus", i když je každý part sám o sobě správně. Nově **0, 6, 11**, tři vlastní buňky basy, a pořád nikdy všechny čtyři doby.
+5. **A pod tím vším nebyla melodie slyšet.** Měřeno proti ostatním pěti kusům měl mural v setu **nejméně melodické energie** — 7,1 % v pásmu 500 Hz–2 kHz a 0,5 % nad 2 kHz proti Emberovým 16,5/0,7 — protože pad i stab hrály akord na `arp - 12` (98–330 Hz) a naskládaly harmonii na basu. Teď hrají na `arp` (196–659), což uvolní 98–196 Hz basě samotné.
+
+**Tempo 120 místo 108.** Cítěná doba je tady půltaktová houpačka, takže 108 se houpalo na 54 — pod klidovým tepem.
+
+**Změřeno po (`MusicBake`):** 162,2 → **146,0 s**, RMS −15,2 dBFS (ostatní −14,9 až −15,1, takže na přechodu není schod), peak −1,0 bez klipu, balance 0,0, mono 0,0. Pásma **52,7 / 25,6 / 8,9 / 11,8 / 0,9 / 0,2 %** — melodické pásmo ze 7,1 na **11,8 %**, obě basová pásma prakticky beze změny (53,6/25,9 → 52,7/25,6). To je celý záměr ve dvou číslech: podlaha se nehnula, melodie vyrostla o dvě třetiny. Dva rendery = jedna SHA1, takže „authored" pořád platí. Ostatní kusy bit za bitem stejné.
+
+**Co přežilo, protože nic z toho vadné nebylo:** tresillo, log drum a jeho **bezterciový** riff (dva basové tóny v tercii pod 100 Hz jsou bahno — táž fyzika drží Emberovy power chordy bez tercie), marimba odpovídající v buňkách, které riff nechává prázdné, break, chant a G dur s čistými kvintakordy plus jedna nóna v padu. **Basa je pořád podlaha a pořád podpis skladby — jen po ní už nikdo nechce, aby byla písnička.**
+
+**⚠ Poučení, které si zaslouží přežít issue:** starý zápis v `docs/game-feedback.md` končil větou *„Not claimed: the tune — … the piece was arranged against the numbers rather than at a monitor."* Ta věta byla poctivá a byla to zároveň varování, které se vyplnilo: **každé číslo v tom zápisu bylo správně a skladba byla pořád pětkrát vedle**, a ucho to chytlo na jedno přehrání. Nechal jsem tu doložku stát i pro přepis.
+
+**Nic dalšího si neberu** — čekám na verdikt k #346.

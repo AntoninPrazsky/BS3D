@@ -43,11 +43,13 @@ namespace BS3D.Audio
         Nocturne,
 
         /// <summary>
-        /// The fourth (#264, replacing #164's brass band): a bass-led groove — the tune lives in a melodic
-        /// sub (<b>the log drum</b>) on the set's only syncopated grid, the 3+3+2 tresillo, with a marimba
-        /// answering from above. Nine sections, 2:42, G major at 108. Where the others differ in mode,
-        /// harmony, time or gain, this one differs in <b>where the weight falls and which register carries
-        /// the tune</b>: the kick never marks all four beats, and the hook is played by the bass.
+        /// The fourth (#264, replacing #164's brass band; recomposed in #346): a bass-led groove with a
+        /// tune over it — a melodic sub (<b>the log drum</b>) for a floor, on the set's only syncopated grid,
+        /// the 3+3+2 tresillo, with the marimba and the keys carrying the tune above it. Nine sections,
+        /// 2:26, G major at 120. Where the others differ in mode, harmony, time or gain, this one differs in
+        /// <b>where the weight falls</b>: the kick never marks all four beats. It shipped differing in which
+        /// register carried the tune as well — the bass sang it — and #346 is the owner hearing that and
+        /// rejecting it; see <see cref="BakeMural"/> for the five separate faults and what each one cost.
         /// </summary>
         Mural,
 
@@ -2041,25 +2043,56 @@ namespace BS3D.Audio
 
         #endregion
 
-        #region Mural — the fourth theme (#264)
+        #region Mural — the fourth theme (#264, recomposed in #346)
 
-        //A BASS-LED GROOVE, and its axis is neither mode nor harmony: it is WHERE THE WEIGHT FALLS and WHICH
-        //REGISTER CARRIES THE TUNE. The other four keep the bass as accompaniment under a treble tune and put
-        //their low end squarely on the beat — Pulse and Bohemia four-on-the-floor, Nocturne's walk, Ember's
-        //backbeat. Here the kick never marks all four beats: the grid is the 3+3+2 TRESILLO (hits on 0-3-6
-        //and 8-11-14 — the victory fanfare already calls those eight counts the most danceable there are, and
-        //this piece builds its floor on that sentence), and THE HOOK IS THE BASS LINE: a melodic, pitched sub
-        //— the "log drum" the bass-first pop of the 2020s is built on — plays the tune at 41–98 Hz and
-        //everything above it answers. It replaced the Moravian brass band of #164, whose complaint was
-        //measured before it was filed: 34 % of its energy below 200 Hz against the set's 57–72.
+        //A BASS-LED GROOVE WITH A TUNE OVER IT, and the second half of that sentence is what #346 is. The
+        //piece shipped on the thesis that the tune could BE the bass — a melodic sub at 41–98 Hz with
+        //everything above it answering — and the owner's verdict on hearing it was "primitive to the point of
+        //reading as a joke, sad, sometimes outright off-key, slow, and with poor rhythm". The numbers agreed
+        //before the rework began, and each word had its own cause:
         //
-        //G MAJOR, plain triads. The set had no plain-major pop piece (Nocturne's C major reads as jazz
-        //because its chords are sevenths), and the savanna daylight this piece plays under wants sunny and
-        //open. The colour lives in the groove, not in extensions — the polka recorded that lesson about
-        //itself, and it survives the piece. The one exception is the held pad, which voices a NINTH over the
-        //chord: held colour only, never the bass and never a melody index.
+        //  PRIMITIVE. The hook had THREE PITCHES. MURAL_RIFF_INTERVAL is root-fifth-octave, and every other
+        //  line in the piece was spelled out of the current chord's own four notes, so nothing anywhere ever
+        //  played a note that was not already sounding underneath it — no passing tone, no suspension, no
+        //  leading tone. Worse, each melodic cell was RE-VOICED onto every new chord, so one shape was
+        //  restated four times a round in four spellings: an exercise, not a tune. Melodies index a SCALE now
+        //  (MURAL_SCALE) at absolute pitch and the harmony moves underneath them, which is what a song does.
+        //
+        //  SAD, and it was one chord in one place. The progression was I–vi–IV–V with the vi in BAR TWO, so
+        //  every round went to the minor as its first move and stayed coloured by it. It is I–IV–vi–V now:
+        //  the same four chords, the shade arriving in bar three as a passing colour rather than as the
+        //  answer to the tonic.
+        //
+        //  OFF-KEY, and this one was a plain bug rather than a taste. The bar's closing push glided in from
+        //  `target - 2`, a fixed whole tone, whatever the key held there: against a G-major round that is B♭
+        //  sliding into C, and **F natural sliding into G under a D chord whose pad is holding F♯** — a
+        //  semitone clash with the harmony, twice every four bars, for the whole piece. The approach is
+        //  diatonic now (MURAL_APPROACH), so those two become B→C and F♯→G: the leading tone the gesture
+        //  always meant. The two pitched tom pickups were off the key as well (a fixed 96 Hz ladder walking
+        //  through ~138 Hz, which is a C♯) and are struck on the tonic triad instead.
+        //
+        //  SLOW and POOR RHYTHM go together, and the rhythm half was the kick. The grid is the 3+3+2 tresillo
+        //  (0-3-6, 8-11-14) and the kick played 0 and 10 — 10 is not a cell of that grid at all, it is the
+        //  "and of three" out of a straight-eighth pop feel, landing in the one gap the bass leaves between 8
+        //  and 11. So the piece's floor argued with its own hook in every bar of it. The kick states the grid
+        //  now (0, 6, 11 — three of the bass's own cells, and still never four on the floor), and the tempo is
+        //  120 rather than 108, which puts the felt half-bar sway at 60 instead of 54.
+        //
+        //  AND THE TUNE WAS INAUDIBLE UNDER ALL OF IT. Measured against the other five pieces, Mural had the
+        //  least melodic energy in the set — 7.1 % between 500 Hz and 2 kHz and 0.5 % above 2 kHz, against
+        //  Ember's 16.5/0.7 and the menu loop's 11.8/1.3 — because the pad and the stab voiced their chords
+        //  at `arp - 12` (98–330 Hz), stacking the harmony on top of the bass and leaving a marimba to carry
+        //  a tune through the pile. The chords sit at `arp` now, which clears 98–196 Hz for the bass alone
+        //  and leaves the sung octave to the tune.
+        //
+        //WHAT SURVIVES, because none of it was what was wrong: the 3+3+2 grid, the LogDrum and its thirdless
+        //root-fifth-octave riff (two bass notes a third apart under 100 Hz are mud — Ember's power chords
+        //keep the same physics), the marimba answering in the cells the riff leaves empty, the break where
+        //the bass sings and then stands alone, the chant, and G major with plain triads plus the pad's one
+        //ninth. The bass is still the floor and still the piece's signature; it is no longer asked to be the
+        //song.
 
-        //The riff's own register: fundamentals 41–98 Hz across the transpose roll, the window SubBass proved.
+        //The riff's own register: fundamentals 41–98 Hz across the chord pool, the window SubBass proved.
         private static readonly int[] MURAL_ROOT = { 31, 36, 38, 40, 33, 35 };   //G1 C2 D2 E2 A1 B1
 
         private static readonly int[][] MURAL_ARP =
@@ -2072,18 +2105,40 @@ namespace BS3D.Audio
             new[] { 59, 62, 66, 71 }    //5 Bm: B3 D4 F#4 B4
         };
 
-        //The ninth of each chord, for the pad alone; -1 where it is not diatonic (Bm's would be C#), and the
-        //pad simply plays that chord plain — which is what keeps the five progressions interchangeable.
+        //THE SCALE THE TUNE IS WRITTEN IN, and adding it is the whole of the "primitive" fix. G major over
+        //two octaves from G4 — the sung register, the octave a listener hums back. Melodies index THIS rather
+        //than the chord's own four notes, so a line may pass through a note the chord underneath it does not
+        //hold, which is the difference between a melody and an arpeggio. The chords still decide where a
+        //phrase LANDS: every accented note of every cell below is a tone of the chord it falls on, and the
+        //notes between them are the passing ones that were unreachable before.
+        //
+        //  index   0   1   2   3   4   5   6   7   8   9  10  11
+        //  note   G4  A4  B4  C5  D5  E5  F#5 G5  A5  B5  C6  D6
+        private static readonly int[] MURAL_SCALE = { 67, 69, 71, 72, 74, 76, 78, 79, 81, 83, 84, 86 };
+
+        //The ninth of each chord, for the pad alone; -1 where it is not diatonic (Bm's would be C♯), and the
+        //pad simply plays that chord plain — which is what keeps the progressions interchangeable.
         private static readonly int[] MURAL_NINTH = { 69, 74, 76, 78, 71, -1 };
 
-        //Every one opens on G, so the riff and the melodies fit all five without knowing which was chosen,
-        //and four of the five end on D, the dominant, resolving onto the G at the top of the round — a
-        //four-bar loop that cadences rather than restarts (Bohemia's lesson). The third ends plagally on C,
-        //kept for variety: the one round that leans home instead of walking there.
+        //THE DIATONIC STEP BELOW EACH ROOT, and it exists because a fixed `target - 2` was a wrong note. The
+        //push glides into the next bar's root from the note under it IN THE KEY, which is a semitone for two
+        //of the six roots and a whole tone for the rest: F♯→G and B→C are leading tones where B♭→C and F→G
+        //are not in G major at all — and an F natural against the F♯ a D chord's pad is holding is a
+        //semitone clash rather than a portamento. One entry per MURAL_ROOT index, and the gesture keeps its
+        //slide on the four roots a whole tone still serves.
+        //                                               G1   C2   D2   E2   A1   B1
+        private static readonly int[] MURAL_APPROACH = { 30,  35,  36,  38,  31,  33 };   //F#1 B1 C2 D2 G1 A1
+
+        //Every one opens on G, so the riff and the melodies fit all of them without knowing which was chosen,
+        //and each ends on D, the dominant, resolving onto the G at the top of the round — a four-bar loop
+        //that cadences rather than restarts (Bohemia's lesson).
         private static readonly int[][] MURAL_PROGRESSIONS =
         {
+            //THE PIECE'S OWN (#346): I–IV–vi–V. The shade is a passing colour in bar three rather than the
+            //answer to the tonic in bar two, which is where "sad in a way that isn't intended" came from.
+            new[] { 0, 1, 3, 2 },   //G C  Em D
             new[] { 0, 5, 1, 2 },   //G Bm C  D — the iii, the one bittersweet bar in the pool
-            new[] { 0, 3, 1, 2 },   //G Em C  D — the doo-wop turn, the sunniest of the five
+            new[] { 0, 3, 1, 2 },   //G Em C  D — the doo-wop turn; what the piece played until #346
             new[] { 0, 2, 3, 1 },   //G D  Em C — the axis progression, modern pop's own; the plagal round
             new[] { 0, 4, 1, 2 },   //G Am C  D
             new[] { 0, 1, 0, 2 }    //G C  G  D — the plainest, gallery-simple
@@ -2095,14 +2150,13 @@ namespace BS3D.Audio
         //Ember's power chords thirdless.
         private static readonly int[] MURAL_RIFF_INTERVAL = { 0, 7, 12 };
 
-        /// <summary>Which line, if any, a Mural section carries above the riff.</summary>
+        /// <summary>Which line, if any, a Mural section carries over the riff.</summary>
         private enum MuralPart { None, Verse, Hook, Sentence }
 
-        //THE RIFF, the piece's hook: the double tresillo, with Tone indexing MURAL_RIFF_INTERVAL rather than
-        //a chord arp. The verse states it grounded; the chorus leaps to the octave, which is the lift — the
-        //same contrast every verse/chorus pair in this file is written on, played by the bass because here
-        //the bass is the singer. The bar's CLOSING gesture (step 14) is not in these arrays — see
-        //MURAL_TAIL_DOWN and the push in the bake.
+        //THE RIFF, the piece's floor: the double tresillo, with Tone indexing MURAL_RIFF_INTERVAL rather than
+        //a chord arp. The verse states it grounded; the chorus leaps to the octave, which is the lift. The
+        //bar's CLOSING gesture (step 14) is not in these arrays — see MURAL_TAIL_DOWN and the push in the
+        //bake.
         private static readonly Note[] MURAL_RIFF_VERSE =
         {
             new(0, 0, 0, 3), new(3, 0, 0, 3), new(6, 1, 0, 2), new(8, 0, 0, 2), new(11, 1, 0, 3)
@@ -2118,54 +2172,77 @@ namespace BS3D.Audio
         //and two by sliding there.
         private static readonly Note[] MURAL_TAIL_DOWN = { new(14, 1, 0, 2) };
 
-        //THE VERSE, answered from above: a marimba speaking in the cells the riff leaves empty. The bass owns
-        //0-3-6 / 8-11-14; the answer lives between them, so tune and groove interlock rather than compete —
-        //the oom-pah's division of labour, kept from the piece this replaced because it was the one thing
-        //about it that worked. One CALL cell and one ANSWER cell, a bar each, the answer landing on the root;
-        //the call states first.
-        private static readonly Note[] MURAL_CALL =
+        //THE VERSE TUNE, four bars of it, and it is no longer one call cell restated on whatever chord came
+        //next. It lives in the cells the riff leaves empty — the bass owns 0-3-6 / 8-11-14, so this speaks at
+        //2, 5, 7, 10 and 13 and the two interlock instead of competing, which is the oom-pah's division of
+        //labour and the one thing about the piece this replaced that worked. The shape is a question and an
+        //answer over two bars, said twice: bars 1 and 3 climb, bars 2 and 4 walk back down, and bar 4 lands
+        //on the fifth of the D that turns the round over. Odd bars sit left and even bars right, so the two
+        //halves genuinely answer each other across the field.
+        //
+        //Every note is checked against the chord it falls on (G / C / Em / D) — accents are chord tones, the
+        //rest are the passing ones the chord-arp spelling could never reach — and against the PAD's own
+        //voicing, so nothing here sits a semitone off a held note.
+        private static readonly Note[][] MURAL_VERSE =
         {
-            new(2, 2, 0, 1), new(5, 3, 0, 1), new(7, 2, 0, 2), new(13, 1, 0, 2)
+            //bar 1 over G — G, B, D climbing, B to sit on
+            new[] { new Note(2, 0, 0, 2), new Note(5, 2, 0, 2), new Note(7, 4, 0, 3), new Note(13, 2, 0, 2) },
+            //bar 2 over C — the ninth stepping down through the root to the fifth: D, C, A, G
+            new[] { new Note(2, 4, 0, 2), new Note(5, 3, 0, 2), new Note(10, 1, 0, 3), new Note(13, 0, 0, 3) },
+            //bar 3 over Em — B, G, and the climb goes a step further than bar 1's did, resting on the seventh
+            new[] { new Note(2, 2, 0, 2), new Note(5, 0, 0, 2), new Note(7, 5, 0, 3), new Note(13, 4, 0, 2) },
+            //bar 4 over D — the same descent as bar 2, a step higher: D, C, B, home on D's own fifth
+            new[] { new Note(2, 4, 0, 2), new Note(5, 3, 0, 2), new Note(10, 2, 0, 3), new Note(13, 1, 0, 4) }
         };
 
-        private static readonly Note[] MURAL_ANSWER =
-        {
-            new(2, 3, 0, 1), new(5, 2, 0, 1), new(10, 1, 0, 2), new(13, 0, 0, 3)
-        };
-
-        //THE HOOK, the chorus tune: the riff's contour restated up top, on long notes at the tresillo's own
-        //starts, carried by the Keys with the marimba doubling an octave above — two genuinely different
-        //timbres in octaves read as a big chorus where a unison doubling reads as a louder verse. The peak is
-        //held back for the fourth bar, the file's own chorus rule.
+        //THE HOOK, the chorus tune: long notes on the tresillo's own starts, carried by the Keys with the
+        //marimba doubling an octave above — two genuinely different timbres in octaves read as a big chorus
+        //where a unison doubling reads as a louder verse. Four bars with a contour rather than four spellings
+        //of one cell: bars 1 and 2 rise to the piece's top note, bar 3 falls away from it, bar 4 turns around
+        //the dominant's fifth and hands the round back to the tonic. The peak is held for bar TWO — a bar
+        //earlier than this file's usual — because here the fall through bars 3 and 4 is the phrase.
         private static readonly Note[][] MURAL_HOOK =
         {
-            new[] { new Note(0, 2, 0, 5), new Note(6, 3, 0, 4), new Note(11, 2, 0, 4) },
-            new[] { new Note(0, 3, 0, 5), new Note(6, 2, 0, 4), new Note(11, 1, 0, 4) },
-            new[] { new Note(0, 2, 0, 5), new Note(6, 3, 0, 4), new Note(11, 3, 0, 4) },
-            new[] { new Note(0, 3, 12, 8), new Note(11, 2, 0, 4) }
+            //bar 1 over G — B, D, E over the top, settling on the fifth
+            new[] { new Note(0, 2, 0, 3), new Note(3, 4, 0, 3), new Note(6, 5, 0, 2), new Note(8, 4, 0, 7) },
+            //bar 2 over C — C, E, and G5, the highest note in the piece, settling on the third
+            new[] { new Note(0, 3, 0, 3), new Note(3, 5, 0, 3), new Note(6, 7, 0, 2), new Note(8, 5, 0, 7) },
+            //bar 3 over Em — the fall: B, G, A passing, B
+            new[] { new Note(0, 2, 0, 3), new Note(3, 0, 0, 3), new Note(6, 1, 0, 2), new Note(8, 2, 0, 7) },
+            //bar 4 over D — a turn around the fifth through the dominant's own seventh: A, C, B, A
+            new[] { new Note(0, 1, 0, 3), new Note(3, 3, 0, 3), new Note(6, 2, 0, 2), new Note(8, 1, 0, 8) }
         };
 
         //THE SENTENCE, for the prelude and the outro: state, the same cell a step higher, an answer that
         //falls, a held note to rest on — the four-bar shape Bohemia proved and Pulse's breeze borrowed,
-        //because it is what stops a quiet section reading as a hole. On the marimba, in the chord's own
-        //register, over the flat floor.
+        //because it is what stops a quiet section reading as a hole. On the marimba, centred, over the flat
+        //floor. It is the hook's own contour at half the notes, so the prelude states the piece's tune before
+        //the piece ever plays it.
         private static readonly Note[][] MURAL_SENTENCE =
         {
-            new[] { new Note(0, 0, 0, 5), new Note(6, 1, 0, 2), new Note(8, 2, 0, 8) },
-            new[] { new Note(0, 1, 0, 5), new Note(6, 2, 0, 2), new Note(8, 3, 0, 8) },
-            new[] { new Note(0, 3, 0, 4), new Note(4, 2, 0, 4), new Note(8, 1, 0, 6) },
-            new[] { new Note(0, 0, 12, 12) }
+            new[] { new Note(0, 2, 0, 6), new Note(6, 4, 0, 8) },
+            new[] { new Note(0, 3, 0, 6), new Note(6, 5, 0, 8) },
+            new[] { new Note(0, 2, 0, 4), new Note(4, 1, 0, 4), new Note(8, 0, 0, 8) },
+            new[] { new Note(0, 1, 0, 14) }
         };
 
-        //THE CHANT, the final chorus's own event: the marimba abandons its answer role and chants the riff's
-        //tresillo on chord tones — melody become rhythm, the modern drop-hook, and a third carrier of the
-        //groove on the speakers that lose the sub entirely. It replaces the octave doubling there, never the
-        //Keys tune.
+        //THE CHANT, the final chorus's own event: the marimba abandons its doubling role and chants the
+        //riff's own tresillo — melody become rhythm, the modern drop-hook, and a third carrier of the groove
+        //on the speakers that lose the sub entirely. It indexes the CHORD's arp rather than the scale,
+        //deliberately: a rhythm part wants notes that are already sounding, and a passing tone struck six
+        //times a bar is a wrong note six times a bar.
         private static readonly Note[] MURAL_CHANT =
         {
             new(0, 0, 12, 2), new(3, 1, 12, 2), new(6, 2, 12, 2),
             new(8, 3, 12, 2), new(11, 2, 12, 2), new(14, 1, 12, 2)
         };
+
+        //THE TOM PICKUPS' PITCHES: the tonic triad, G2 B2 D3 G3. Both pickups walked up a fixed ladder of
+        //hertz until #346 — 96 Hz plus a fixed step — and the break's fourth rung landed on about 138, which
+        //is a C♯ and belongs to no key this piece visits. A tom is a drum and reads as one, but it is a drum
+        //with a pitch, and a pitched hit under a tuned sub beats against it. The section pickup takes two of
+        //these (the root and the fifth), the break's all four.
+        private static readonly int[] MURAL_PICKUP = { 43, 47, 50, 55 };
 
         private readonly struct MuralSection
         {
@@ -2183,9 +2260,9 @@ namespace BS3D.Audio
             }
         }
 
-        //Nine sections, 2:42, and the arc is the idiom's own: the bass introduces itself before any
-        //tune does, and the piece's one rare event is the bass left ALONE — where Pulse's shock borrows a
-        //chord from outside, Mural's is its own most characteristic voice with everything else stripped away.
+        //Nine sections, 2:26, and the arc is the idiom's own: the bass introduces itself before any tune
+        //does, and the piece's one rare event is the bass left ALONE — where Pulse's shock borrows a chord
+        //from outside, Mural's is its own most characteristic voice with everything else stripped away.
         //
         //                                kick   snap  shakr  16th   riff  chor.  floor  pad   stab  part                chant  level
         private static readonly MuralSection[] MURAL_ARRANGEMENT =
@@ -2193,27 +2270,28 @@ namespace BS3D.Audio
             //0 PRELUDE. Pad and the flat floor under the marimba's sentence, no kit and no riff — the piece
             //opens on its warmth, and the groove arriving next is an event because nothing walked in with it.
             new(false, false, false, false, false, false, true,  true,  false, MuralPart.Sentence, false, 0.42f),
-            //1 GROOVE-IN. The riff enters with the kit and NO tune: the bass line is the hook, so the player
-            //meets it as the piece's lead character before the marimba ever speaks. The kick holds out of the
-            //first half, so its landing is the section's own arrival.
+            //1 GROOVE-IN. The riff enters with the kit and NO tune: the floor is the piece's own signature,
+            //so the player meets it before the tune speaks over it. The kick holds out of the first half, so
+            //its landing is the section's own arrival.
             new(true,  true,  true,  false, true,  false, false, false, false, MuralPart.None,     false, 0.85f),
-            //2 VERSE. The marimba answers the riff from the cells the riff leaves empty.
+            //2 VERSE. The marimba's tune in the cells the riff leaves empty.
             new(true,  true,  true,  false, true,  false, false, false, false, MuralPart.Verse,    false, 0.90f),
             //3 CHORUS. The hook on the Keys with the marimba an octave over it, the riff leaping to octaves,
             //the shaker doubling to sixteenths, the pad's ninth underneath: the lift is what plays, not a dial.
             new(true,  true,  true,  true,  true,  true,  false, true,  true,  MuralPart.Hook,     false, 1.00f),
-            //4 VERSE, denser by its ornaments (rim knocks, embellished answers) rather than by parts.
+            //4 VERSE, denser by its ornaments (rim knocks, the extra chord tone) rather than by parts.
             new(true,  true,  true,  false, true,  false, false, false, false, MuralPart.Verse,    false, 0.90f),
             //5 CHORUS.
             new(true,  true,  true,  true,  true,  true,  false, true,  true,  MuralPart.Hook,     false, 1.00f),
             //6 THE BREAK — the identity moment. The kit thins to a heartbeat and the bass takes the HOOK
-            //itself, an octave over its riff (98–196 Hz, so the thesis survives a phone speaker); the last
-            //two bars strip even that cover away and the log drum states the hook naked, a tom pickup handing
-            //the piece to the final chorus. Emptier, not quieter — and what remains IS the bass, so the low
-            //band holds where a conventional breakdown collapses (#186's lesson, inverted).
+            //itself, two octaves under the Keys' own register (110–196 Hz, so the thesis survives a phone
+            //speaker); the last two bars strip even that cover away and the log drum states the hook naked, a
+            //tom pickup on the tonic triad handing the piece to the final chorus. Emptier, not quieter — and
+            //what remains IS the bass, so the low band holds where a conventional breakdown collapses
+            //(#186's lesson, inverted).
             new(true,  true,  true,  false, false, false, false, false, false, MuralPart.None,     false, 0.85f),
             //7 FINAL CHORUS. Everything, plus the piece's second event: the marimba stops doubling the tune
-            //and CHANTS the riff's own tresillo over it — melody become rhythm for the biggest eight bars.
+            //and CHANTS the riff's own tresillo under it — melody become rhythm for the biggest eight bars.
             new(true,  true,  true,  true,  true,  true,  false, true,  true,  MuralPart.Hook,     true,  1.00f),
             //8 OUTRO. The kit is gone, the sentence comes back over the flat floor, and the fade across the
             //whole section lands the join to the next pass in silence like the other four.
@@ -2240,37 +2318,40 @@ namespace BS3D.Audio
         //as hard-panned points.
         private const float PAN_CHANT = 0.5f;
 
-        //Where the verse's call and answer cells sit: either side, answering each other across the field —
-        //two genuinely different phrases on two seats, the polka's own counter-line lesson (two answering
-        //parts belong on two sides). Only in the verses, where the groove always runs underneath; the
-        //sentence, which CAN be nearly alone, stays in the middle.
+        //Where the verse's two halves sit: odd bars one side, even bars the other, answering each other
+        //across the field — two genuinely different phrases on two seats, the polka's own counter-line lesson
+        //(two answering parts belong on two sides). Only in the verses, where the groove always runs
+        //underneath; the sentence, which CAN be nearly alone, stays in the middle.
         private const float PAN_MARIMBA_CALL = -0.30f;
         private const float PAN_MARIMBA_ANSWER = 0.30f;
 
         /// <summary>
-        /// Mural's authored score (#229). 108 is the middle of the 104–112 band it used to roll inside, and
-        /// that band is the set's one true tempo gap — Nocturne tops out at 104 and Bohemia starts at 112. It
-        /// is narrow because the groove blurs above it and sags below it; the felt pulse is the half-bar sway
-        /// at 54, the heartbeat register, while the shaker keeps the sixteenths danceable.
+        /// Mural's authored score (#229, recomposed #346). <b>120</b>, up from the 108 the piece shipped at:
+        /// the owner's report called it slow, and the felt pulse here is the half-bar sway rather than the
+        /// sixteenths, so 108 was swaying at 54 — under a resting heart rate. 120 puts it at 60 and still
+        /// leaves Pulse (128) the fastest thing in the set.
         /// <para>
-        /// G major, its own key: the transpose pool reached down to E1 at 41 Hz, still inside the window
-        /// <see cref="SubBass"/> proved audible, but the riff's registers were written here. The progression
-        /// is the doo-wop turn, the sunniest of the five and the one the savanna daylight this piece plays
-        /// under asks for; it ends on the dominant, so the four-bar round cadences home rather than restarts.
+        /// G major, its own key, on <b>I–IV–vi–V</b> (<c>MURAL_PROGRESSIONS[0]</c>). The piece played the
+        /// doo-wop turn I–vi–IV–V until #346 and the minor sat in bar two, which is where a report of "sad in
+        /// a way that isn't intended" comes from: the vi answering the tonic colours the whole round, where
+        /// the vi arriving third is a passing shade between the subdominant and the cadence. Same four
+        /// chords, and it still ends on the dominant so the four-bar round cadences home rather than
+        /// restarting.
         /// </para>
         /// <para>
-        /// A level comes in on section 2, the first verse — the marimba answering the riff over the whole
-        /// kit. This is the piece #201 was filed against: its prelude is pad and a marimba sentence with no
-        /// riff and no kit under it, and its groove-in carries no tune, so the piece did not speak for 36 s
-        /// of a level. Nothing about it is cut; a level simply opens where the piece is playing.
+        /// A level comes in on section 2, the first verse — the marimba's tune over the whole kit. This is
+        /// the piece #201 was filed against: its prelude is pad and a marimba sentence with no riff and no
+        /// kit under it, and its groove-in carries no tune, so the piece did not speak for 36 s of a level.
+        /// Nothing about it is cut; a level simply opens where the piece is playing.
         /// </para>
         /// </summary>
-        private static readonly Score MURAL_SCORE = new(108f, 0, MURAL_PROGRESSIONS[1], entrySection: 2);
+        private static readonly Score MURAL_SCORE = new(120f, 0, MURAL_PROGRESSIONS[0], entrySection: 2);
 
         /// <summary>
-        /// Mural (#264): a bass-led groove — the tune lives in the bass. Nine sections, ~2:40 long, in
-        /// G major on a 3+3+2 tresillo grid. It adds two voices, the <see cref="LogDrum"/> it is written for
-        /// and the <see cref="Marimba"/> that answers it, and retired the polka's clarinet with the polka.
+        /// Mural (#264, recomposed in #346): a bass-led groove with a tune over it. Nine sections, ~2:26, in
+        /// G major on a 3+3+2 tresillo grid at 120. It adds two voices, the <see cref="LogDrum"/> the floor
+        /// is written for and the <see cref="Marimba"/> that carries the verse, and retired the polka's
+        /// clarinet with the polka.
         /// </summary>
         private static float[] BakeMural()
         {
@@ -2320,23 +2401,24 @@ namespace BS3D.Audio
                 bool naked = breakSection && barInSection >= 6;
 
                 //THE BREAK'S BASS -------------------------------------------------------------------------
-                //The bass takes the hook itself, an octave over its riff: the melody tables one octave down
-                //put every note between the chord's root + 12 and + 24 — 98–330 Hz in the piece's own key,
-                //which is where a phone speaker genuinely hears it. The
-                //hook's own octave shift is deliberately dropped down here: the peak bar's +12 would push a
-                //bass voice to ~660 Hz, a mid part rather than a bass singing. In the naked bars it is the
-                //only thing sounding; a tom pickup at the very end hands the piece to the final chorus.
+                //The bass takes the hook itself, two octaves under the register the Keys sing it in: the
+                //scale runs G4–G5 there, so this is G2–G3, 110–196 Hz, which is where a phone speaker
+                //genuinely hears a bass sing. In the naked bars it is the only thing sounding; a tom pickup
+                //on the tonic triad at the very end hands the piece to the final chorus.
                 if (breakSection)
                 {
                     foreach (Note note in MURAL_HOOK[phrase])
                         if (note.Step == inBar)
-                            LogDrum(mix, at, arp[note.Tone] + transpose - 12,
+                            LogDrum(mix, at, MURAL_SCALE[note.Tone] + transpose - 24,
                                 secondsPerStep * (note.Length + 0.3f), 0.5f * level);
 
                     if (naked)
                     {
+                        //G2 B2 D3 G3 — the tonic triad rather than the fixed 96 Hz ladder this walked up
+                        //until #346, whose fourth step landed on ~138 Hz, a C♯ that is in no key this piece
+                        //visits (#346's off-key half, in the drums).
                         if (barInSection == 7 && inBar >= 12)
-                            Tom(mix, at, 96f + (inBar - 12) * 14f, 0.8f * level);
+                            Tom(mix, at, Frequency(MURAL_PICKUP[inBar - 12] + transpose), 0.8f * level);
 
                         //Everything below is the silence the naked bars are made of.
                         continue;
@@ -2344,12 +2426,15 @@ namespace BS3D.Audio
                 }
 
                 //DRUMS ------------------------------------------------------------------------------------
-                //The kick on the bar and on the AND of beat three — never all four beats: the tresillo is the
-                //grid, and a floor under it would put the piece back on the dance floor it exists to leave.
+                //THE KICK STATES THE GRID, and until #346 it did not: it played the bar and step 10, which is
+                //the "and of beat three" out of a straight-eighth pop feel and the one cell the tresillo
+                //leaves empty between 8 and 11 — so the floor argued with the hook in every bar. It plays 0,
+                //6 and 11 now, three of the bass's own cells, and still never marks all four beats: a floor
+                //under this would put the piece back on the dance floor it exists to leave.
                 if (section.Kick && !grooveQuiet)
                 {
                     if (breakSection) { if (inBar == 0) Kick(mix, at, 0.85f * level); }
-                    else if (inBar == 0 || inBar == 10) Kick(mix, at, 0.9f * level);
+                    else if (inBar == 0 || inBar == 6 || inBar == 11) Kick(mix, at, 0.9f * level);
                 }
 
                 if (section.Snap && (inBar == 4 || inBar == 12)) Clap(mix, at, 0.8f * level);
@@ -2388,14 +2473,15 @@ namespace BS3D.Audio
                 //The rim knock: a high tight tom on the seventh step, on the second and fourth bar of each
                 //round — the hand-drum detail that stops eight sparse bars reading as sequenced, and a
                 //two-bar figure rather than the per-bar roll it was until #229. Seated by Tom's own pitch
-                //rule.
+                //rule, and high enough to read as a knock rather than as a pitch.
                 if (section.Riff && inBar == 7 && phrase % 2 == 1)
                     Tom(mix, at, 420f, 0.22f * level);
 
                 //A two-hit rising tom pickup out of every full section: the handoff, ascending because the
-                //groove leans forward.
+                //groove leans forward, and struck on the tonic's own root and fifth (#346 — it walked up a
+                //fixed 96 Hz ladder that belonged to no key).
                 if (section.Kick && !grooveQuiet && !breakSection && lastBar && inBar >= 14)
-                    Tom(mix, at, 96f + (inBar - 14) * 26f, 0.6f * level);
+                    Tom(mix, at, Frequency(MURAL_PICKUP[(inBar - 14) * 2] + transpose), 0.6f * level);
 
                 //THE RIFF ---------------------------------------------------------------------------------
                 if (section.Riff)
@@ -2405,22 +2491,23 @@ namespace BS3D.Audio
                     foreach (Note note in riff)
                         if (note.Step == inBar)
                             LogDrum(mix, at, root + MURAL_RIFF_INTERVAL[note.Tone] + transpose,
-                                secondsPerStep * (note.Length + 0.3f), 0.46f * level);
+                                secondsPerStep * (note.Length + 0.3f), 0.42f * level);
 
                     //The closing gesture. Twice a round it is the PUSH: the next bar's root an eighth early
-                    //(step 14 of 16), SLIDING into the downbeat from a whole tone below — the walking bass's
-                    //approach note reborn as a portamento, and the one unmistakably modern gesture the voice
-                    //allows itself; kept small and off the downbeat, or the slide becomes the cartoon a log
-                    //drum must never be. The other two bars close on the authored tail instead, so the round
-                    //alternates a step home with a slide home. It was a roll per bar until #229, at a density
-                    //rolled per pass on top of that: the same two gestures, in an order nothing could learn.
+                    //(step 14 of 16), SLIDING into the downbeat from the note below it IN THE KEY — the
+                    //walking bass's approach note reborn as a portamento, and the one unmistakably modern
+                    //gesture the voice allows itself; kept small and off the downbeat, or the slide becomes
+                    //the cartoon a log drum must never be. It slid from a fixed whole tone until #346, which
+                    //against this round meant an F natural sliding into G underneath a pad holding F♯ — see
+                    //MURAL_APPROACH. The other two bars close on the authored tail instead, so the round
+                    //alternates a step home with a slide home.
                     if (inBar == 14)
                     {
                         if (phrase % 2 == 1)
                         {
-                            int target = MURAL_ROOT[nextChord] + transpose;
-                            LogDrum(mix, at, target, secondsPerStep * 2.3f, 0.42f * level,
-                                glideFrom: target - 2);
+                            LogDrum(mix, at, MURAL_ROOT[nextChord] + transpose,
+                                secondsPerStep * 2.3f, 0.38f * level,
+                                glideFrom: MURAL_APPROACH[nextChord] + transpose);
                         }
                         else
                         {
@@ -2430,7 +2517,7 @@ namespace BS3D.Audio
                             //job.
                             foreach (Note note in MURAL_TAIL_DOWN)
                                 LogDrum(mix, at, root + MURAL_RIFF_INTERVAL[note.Tone] + transpose,
-                                    secondsPerStep * (note.Length + 0.3f), 0.40f * level);
+                                    secondsPerStep * (note.Length + 0.3f), 0.36f * level);
                         }
                     }
                 }
@@ -2445,25 +2532,29 @@ namespace BS3D.Audio
                         duck: 0f, beatSeconds: 0f);
 
                 //THE PAD ----------------------------------------------------------------------------------
-                //An octave under the melody tables, with the NINTH voiced in where it is diatonic — the one
-                //piece of modern-pop sugar this piece allows itself, and only here: held colour, never the
-                //bass and never a melody index.
+                //IN THE CHORD'S OWN REGISTER, and moving it there is half of #346's audibility fix. It voiced
+                //`arp - 12` (98–330 Hz) until then, which stacked the harmony on the bass, filled the octave
+                //the log drum lives in and left the tune to fight through the pile — measured, the piece had
+                //the least melodic energy in the set. At `arp` it sits 196–659 Hz, under the tune rather than
+                //over the bass, with the NINTH voiced in where it is diatonic: the one piece of modern-pop
+                //sugar this piece allows itself, held colour only, never the bass and never a melody index.
                 if (section.Pad && inBar == 0)
                 {
                     for (int voice = 0; voice < arp.Length; voice++)
-                        Pad(mix, at, arp[voice] - 12 + transpose, secondsPerStep * 15.5f, 0.08f * level,
+                        Pad(mix, at, arp[voice] + transpose, secondsPerStep * 15.5f, 0.08f * level,
                             pan: ChordPan(voice, arp.Length, PAN_PAD_SPREAD));
 
                     if (MURAL_NINTH[chord] >= 0)
-                        Pad(mix, at, MURAL_NINTH[chord] - 12 + transpose, secondsPerStep * 15.5f, 0.05f * level);
+                        Pad(mix, at, MURAL_NINTH[chord] + transpose, secondsPerStep * 15.5f, 0.05f * level);
                 }
 
                 //THE STAB ---------------------------------------------------------------------------------
-                //A short keys chord with the kick's off-beat push: the chorus's comp, on the one step nothing
-                //else owns (the riff holds 8 and 11, the backbeat 12 — 10 is the kick's own push).
+                //A short keys chord on the kick's own push: the chorus's comp, in the pad's register and for
+                //the pad's reason. It sits on step 10 — the one cell nothing else owns, and the cell the kick
+                //vacated in #346 (the riff holds 8 and 11, the backbeat 12).
                 if (section.Stab && inBar == 10)
                     for (int voice = 0; voice < arp.Length; voice++)
-                        Keys(mix, at, arp[voice] - 12 + transpose, secondsPerStep * 2.5f, 0.09f * level,
+                        Keys(mix, at, arp[voice] + transpose, secondsPerStep * 2.5f, 0.09f * level,
                             pan: ChordPan(voice, arp.Length, PAN_PAD_SPREAD));
 
                 //THE CHANT --------------------------------------------------------------------------------
@@ -2483,6 +2574,9 @@ namespace BS3D.Audio
                     }
 
                 //THE TUNE ---------------------------------------------------------------------------------
+                //Everything from here indexes MURAL_SCALE at absolute pitch: the tune keeps its own contour
+                //while the chords move under it, which is the whole of #346's "primitive" fix. Only the chant
+                //above and the riff below stay chord-spelled, and each says why.
                 if (section.Part == MuralPart.None) continue;
 
                 if (section.Part == MuralPart.Sentence)
@@ -2491,34 +2585,33 @@ namespace BS3D.Audio
                     //play alone belongs in the middle.
                     foreach (Note note in MURAL_SENTENCE[phrase])
                         if (note.Step == inBar)
-                            Marimba(mix, at, arp[note.Tone] + note.Octave + transpose,
-                                secondsPerStep * (note.Length + 0.5f), 0.30f * level, pan: PAN_CENTRE);
+                            Marimba(mix, at, MURAL_SCALE[note.Tone] + note.Octave + transpose,
+                                secondsPerStep * (note.Length + 0.5f), 0.32f * level, pan: PAN_CENTRE);
 
                     continue;
                 }
 
                 if (section.Part == MuralPart.Verse)
                 {
-                    //Call and answer, a bar each, in the cells the riff leaves empty, ANSWERING ACROSS THE
-                    //FIELD — the call from one side, the answer from the other. The call states first, as a
-                    //call does (it was the likelier half of a coin the pass tossed, until #229 authored it);
-                    //the answer lands on the root, so every second bar comes home.
+                    //Four written bars, ANSWERING ACROSS THE FIELD — the odd bars from one side, the even
+                    //ones from the other. Until #346 this was a single call cell and a single answer cell
+                    //re-spelled on whatever chord the bar happened to carry, which is what made the verse
+                    //sound like an exercise; the two seats are the part of it that was right.
                     bool callBar = bar % 2 == 0;
-                    Note[] cell = callBar ? MURAL_CALL : MURAL_ANSWER;
                     float seat = callBar ? PAN_MARIMBA_CALL : PAN_MARIMBA_ANSWER;
 
-                    foreach (Note note in cell)
+                    foreach (Note note in MURAL_VERSE[phrase])
                         if (note.Step == inBar)
-                            Marimba(mix, at, arp[note.Tone] + note.Octave + transpose,
-                                secondsPerStep * (note.Length + 0.5f), 0.30f * level, pan: seat);
+                            Marimba(mix, at, MURAL_SCALE[note.Tone] + note.Octave + transpose,
+                                secondsPerStep * (note.Length + 0.5f), 0.34f * level, pan: seat);
 
-                    //One extra chord tone in a cell the written bar leaves empty — on the grid, drawn from
-                    //the chord, so it can only ever sound like part of the tune. It takes the bar's own seat.
-                    //On the second and fourth bar of the round, where the answer cell is: the answering half
-                    //of the phrase is the one that may say a little more, and the call stays as written. It
-                    //was a roll on every bar (#229), which put it in the calls as often as in the answers.
+                    //One extra note in a cell the written bar leaves empty, on the second and fourth bar of
+                    //the round: the answering half of the phrase is the one that may say a little more, and
+                    //the call stays as written. It was a roll on every bar (#229), which put it in the calls
+                    //as often as in the answers. The chord's own third, so it can only sound like part of the
+                    //tune whichever bar it lands in.
                     if (inBar == 9 && phrase % 2 == 1)
-                        Marimba(mix, at, arp[2] + transpose, secondsPerStep * 1.5f, 0.22f * level,
+                        Marimba(mix, at, arp[1] + 12 + transpose, secondsPerStep * 1.5f, 0.22f * level,
                             pan: seat);
 
                     continue;
@@ -2526,18 +2619,18 @@ namespace BS3D.Audio
 
                 //The hook: the Keys carry it dead centre — it is the tune of the piece's biggest sections,
                 //and the rule this file learned twice is that whatever carries a piece belongs in the middle.
-                //The marimba doubles an octave up, except where the chant already owns that register.
+                //The marimba doubles an octave up, except where the chant already owns the marimba.
                 foreach (Note note in MURAL_HOOK[phrase])
                 {
                     if (note.Step != inBar) continue;
 
-                    int pitch = arp[note.Tone] + note.Octave + transpose;
+                    int pitch = MURAL_SCALE[note.Tone] + note.Octave + transpose;
 
-                    Keys(mix, at, pitch, secondsPerStep * (note.Length + 1.2f), 0.30f * level,
+                    Keys(mix, at, pitch, secondsPerStep * (note.Length + 1.2f), 0.34f * level,
                         pan: PAN_CENTRE);
 
                     if (!section.Chant)
-                        Marimba(mix, at, pitch + 12, secondsPerStep * (note.Length + 0.5f), 0.17f * level,
+                        Marimba(mix, at, pitch + 12, secondsPerStep * (note.Length + 0.5f), 0.20f * level,
                             pan: PAN_CENTRE);
                 }
             }
