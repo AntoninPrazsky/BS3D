@@ -19,6 +19,24 @@ The exe is `Testbed\bin\net10.0-windows\Testbed.exe`.
 
 ### ⚠ Prove the exe is running the change before you believe a single pixel
 
+**All three executables now say what they are, in two `[build]` lines on stdout at startup (#372).** Read them
+before believing a capture; they are the cheapest half of this whole section:
+
+```
+[build] Testbed.dll 2026-09-07 21:37:16 50145c15
+[build] shaders 28 set 54512ed6, newest Glare 2026-09-07 21:38:53, oldest Sky 2026-09-02 16:17:17
+```
+
+- The first line is the **managed assembly** (not the apphost `.exe` — the code is in the `.dll`), its write
+  time and a hash of it. A rebuild you just ran must show a time seconds old.
+- `set` is a hash over **every** compiled shader beside the exe, name and bytes. **It is the authority on
+  content and the timestamps are not**: measured on this feature, editing one constant in `Glare.fx` moved it
+  `54512ed6` → `8b72d45a`, and reverting the constant brought `54512ed6` back even though the `.xnb` had a new
+  write time from the rebuild. So two runs with the same `set` are running the same shaders, whatever the
+  clock says.
+- `newest` names the shader most recently compiled. After a shader rebuild that landed, it is **the file you
+  edited**, seconds ago. If it names something else, MGCB skipped yours — which is the trap below.
+
 **A shader edit can leave the Testbed running the PREVIOUS shader, silently, and the capture then looks like
 a finding.** It cost three rounds of tuning and a wrong conclusion written into five files (#326), and there
 are two independent causes:

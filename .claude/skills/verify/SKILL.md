@@ -11,7 +11,15 @@ description: How to build, launch and observe the BS3D Testbed game to verify ch
 dotnet build C:\Projects\Testbed.sln          # builds libs + Testbed + compiles MonoGame content (.mgcb)
 ```
 
-The exe is `Testbed\bin\net10.0-windows\Testbed.exe`. CLI arguments (any order):
+The exe is `Testbed\bin\net10.0-windows\Testbed.exe`.
+
+**Every run opens with two `[build]` lines saying what it is (#372)** — the managed assembly's write time and
+hash, then `shaders <n> set <hash>, newest <name> <time>, oldest <name> <time>`. Check them before believing
+any capture or measurement: `set` is a hash over every compiled shader's name and bytes (the authority on
+content), and after a shader rebuild that landed, `newest` is the file you just edited. See "Prove the exe is
+running the change" in `.claude/skills/screenshot` for the trap they exist to catch.
+
+CLI arguments (any order):
 
 - a path to a map JSON — loaded right at startup
 - `autoshoot` — shoots a random ball every second and logs one line per second to stdout:

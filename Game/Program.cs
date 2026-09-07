@@ -1,5 +1,6 @@
 ﻿using Prazsky.BS3D.GameStructure;
 using Prazsky.Core.Render;
+using Prazsky.Core.Tools;
 using System;
 using System.Globalization;
 
@@ -10,6 +11,11 @@ namespace BS3D
         [STAThread]
         private static void Main(string[] args)
         {
+            //Two lines saying what this run IS, before anything else it prints (#372) — the exe's own write
+            //time and hash, and the compiled shaders beside it, so a shot or an [fps] reading filed with the
+            //log carries its own proof of which shader produced it.
+            BuildStamp.Report();
+
             //Null means "nobody said", which is what lets the settings file answer instead (#354). A plain
             //false could not say the difference between "the player asked for a window" and "no argument was
             //given", so a stored fullscreen would have been silently ignored on every launch.

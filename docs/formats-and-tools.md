@@ -314,6 +314,24 @@ Two integration points matter. First, **input arbitration**: the editor's own ke
 
 `Rgb`/`Vec2`/`Vec3` are **reference types** specifically for this editor: Myra's `PropertyGrid` edits a nested *value* type's sub-properties on a boxed copy it never writes back, so as structs a colour's channels could not be tuned live; as classes the grid holds the same instance the config exposes, so an R/G/B change reaches the config `SceneRenderer` reads. The channels are individual float fields rather than a 0–255 colour picker because the values are linear radiance and may exceed 1 (a proper HDR colour-swatch widget would need a custom Myra editor — Myra 1.6.3 exposes no public per-type editor hook).
 
+## What a run says it is: the `[build]` lines (#372)
+
+All three executables open with two lines on stdout, from `Prazsky.Core.Tools.BuildStamp`, before anything else they print:
+
+```
+[build] Testbed.dll 2026-09-07 21:37:16 50145c15
+[build] shaders 28 set 54512ed6, newest Glare 2026-09-07 21:38:53, oldest Sky 2026-09-02 16:17:17
+```
+
+**They exist because a run could not be asked the question every capture and every measurement rests on: *which shader are you running?*** Three consecutive rounds of measurement once ran on a Testbed that did not have the edited shader in it and produced a conclusion, a change made to satisfy it, and then a retraction written into five files and committed (`e71fdff`). One of the two causes is permanent: **MGCB skips an `.fx` whose `.xnb` is newer and then copies nothing** — the content task copies only what it built in that invocation, `dotnet build` prints `Skipping …\InstancedModel.fx` and reports success, and deleting `bin` is not enough (only `Content\bin`, MGCB's own intermediate, forces the rebuild and the copy). The other is an exe built into a configuration nobody launches, which the first line answers.
+
+- **The first line is the managed assembly, not the apphost `.exe`** — the code is in the `.dll`, so its write time is what says whether a C# change reached what is running. Its hash is of that file. Neither is the PE header's timestamp, which deterministic builds (the SDK default) fill with a content hash rather than a date.
+- **`set` is one SHA-256 over every `.xnb` beside the exe — each file's name as well as its bytes**, ordinal-sorted so it does not depend on locale. It is **the authority on content, and the timestamps are not**: verified by editing one constant in `Glare.fx` (`54512ed6` → `8b72d45a`) and reverting it (`54512ed6` again, from a freshly written `.xnb` with a new timestamp). Two runs with the same `set` are running the same shaders.
+- **`newest` is the shader most recently compiled**, which after a shader rebuild that landed is the file you just edited. When it names something else, MGCB skipped yours.
+- **It reports and never judges.** A shader older than the exe is entirely normal — an `.xnb` changes only when its source does — so there is no verdict here that could be wrong; the lines carry evidence into the same log as the capture, and the reading is the reader's. Every failure inside it is swallowed: a run must never fail to start because a diagnostic could not read a directory.
+
+The counts differ by executable and that is the content projects talking, not a fault: the Game builds 32, the Testbed 28 and the MapEditor 26 (which has no `Sky.fx` entry at all — see "The map editor's render pipeline").
+
 ## The application icon (Game)
 
 The icon the shell draws on `BS3D.exe` and the window publishes at runtime. The artwork is `Images/Icons/ico6.svg`, exported to the `ico6-<N>.png` ladder, and `Images/Icons/Build-Icon.ps1` assembles that ladder into `Game/Icon.ico` — run it with no arguments after the artwork changes. `<ApplicationIcon>Icon.ico</ApplicationIcon>` was already in all three `.csproj`, and MSBuild embeds **every** frame (verified: `RT_ICON images=14` in both the apphost `.exe` and the managed `.dll`, each frame pixel-exact against its source PNG through `PrivateExtractIconsW`), so nothing in the projects needed changing — only the file, which until then held a **single 256×256 image** that Windows downscaled for every size it drew.
