@@ -219,6 +219,12 @@ namespace Testbed
         //here is the Testbed's own look figures, passed in once at load.
         private PostProcessPipeline _pipeline;
 
+        //The program's own capture (#371), in one copy with the Game's since the mechanism is
+        //Prazsky.Core.Render.ScreenshotWriter's. F8 asks for one; "shot="/"shotframe=" schedule them, and a
+        //scheduled shot is the only picture of this window that a locked or crowded desktop cannot replace
+        //with a different one - what it saves is the back buffer, never a rectangle of the screen.
+        private ScreenshotWriter _shots;
+
         #region Clouds
 
         /// <summary>
@@ -581,6 +587,10 @@ namespace Testbed
                 new(mgKeys.F2, Buttons.DPadLeft, LoadBallsMap, "Load map"),
                 new(mgKeys.F5, Buttons.B, () => _simulate = !_simulate, "Stop/start simulation"),
                 new(mgKeys.F6, Buttons.X, () => _draw = !_draw, "Hide/show 3D rendering"),
+                //F8 rather than the Game's F12, which is this program's text overlay and has been since long
+                //before the Game had a shot key at all (#191 moved the Game's overlay to F10 to free F12; the
+                //Testbed keeps its own). F7 is left alone as the next free key up.
+                new(mgKeys.F8, () => _shots?.Request(), "Save a screenshot"),
                 new(mgKeys.F9, () => _slowSimulation = !_slowSimulation, "Switch simulation speed"),
                 new(mgKeys.F10, () => SwitchGameMode(!_gameMode), "Switch game mode"),
                 new(mgKeys.F11, () => SetGraphics(_graphics.IsFullScreen), "Fullscreen/windowed"),
@@ -621,6 +631,11 @@ namespace Testbed
 
         protected override void LoadContent()
         {
+            //The first moment there is a device to read a back buffer out of. "testbed" leads the file name so
+            //a shot of this program is still recognisable after it has been copied next to one of the Game's
+            //(#371) — the two write into two directories, each beside its own exe, but a shot travels.
+            _shots = new ScreenshotWriter(GraphicsDevice, "testbed", _options.ShotSeconds, _options.ShotFrames);
+
             _instancingEffect = Content.Load<Effect>("Shaders/InstancedModel");
 
             //The meshes, the renderers, the look and the buckets in one construction. No ripple here — that wave

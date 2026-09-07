@@ -35,6 +35,9 @@ The exe is `Testbed\bin\net10.0-windows\Testbed.exe`. CLI arguments (any order):
   map), `bubble`, `marble`, `wool`, `metal`, `ice`, `gem`, `plasma`, `lava`, `porcelain` (#318). It outranks a
   loaded level's own material; without it, a level comes up in whatever it names. `L` cycles at runtime and
   logs `[balls] <name>`, and unlike the numpad keys it is an ordinary key, so a synthetic press does reach it.
+- `shot=<t1,t2,…>` / `shotframe=<n1,n2,…>` — the Testbed saves its own frame at those wall-clock seconds, or
+  at those frame indices (#371). See "Screenshot of the game window" below; prefer these to any capture that
+  goes through the screen.
 - `switchmap=<path>` — loads a second map on top of the running one after 10 s (logs `[switchmap] Loading …`);
   exercises the map re-loading path used by F2 and drag-and-drop. Note `Dense20x10x15.json` is completely
   full — nothing can attach to it, so to verify attachment after a switch, switch **to** a map with free cells
@@ -68,7 +71,19 @@ FPS is vsync-capped at 60 (`PresentInterval.One`); baseline non-instanced render
 
 ## Screenshot of the game window
 
-The game has no screenshot hotkey; capture the window from PowerShell with
-`user32.dll GetWindowRect` + `System.Drawing.Graphics.CopyFromScreen` on the process's
-`MainWindowHandle` (call `SetForegroundWindow` first; keep spaces around `-` in `$r.Right - $r.Left`
-or PS 5.1 misparses). The FPS counter and ball/constraint counts render in the top-left overlay.
+**The Testbed saves its own frames since #371 — use that, not the screen.** `shot=<t1,t2,…>` writes a PNG at
+those wall-clock seconds, `shotframe=<n1,n2,…>` at those frame indices (counted from 1, for anything that
+moves), `F8` by hand. They land in `Screenshots\` beside the exe as `testbed-<yyyyMMdd-HHmmss>-<scene>.png`
+and each prints `[shot] <path>` — grep that rather than guessing the name. The mechanism is
+`Prazsky.Core.Render.ScreenshotWriter`, shared with the Game's `shot=`/`F12` (#191).
+
+It reads the back buffer, so it is immune to everything the external route is not: a **locked** desktop, a
+window covering the game, a lost focus click, a window wider than the panel. The old route —
+`user32.dll GetWindowRect` + `System.Drawing.Graphics.CopyFromScreen` on the process's `MainWindowHandle`
+(`SetForegroundWindow` first; keep spaces around `-` in `$r.Right - $r.Left` or PS 5.1 misparses) — copies a
+rectangle of the **screen** and can hand back a sharp picture of the wrong thing; `.claude/skills/screenshot`
+records all three ways it does that. It is still what `screenshot.ps1` uses, because a key-driven or held-key
+shot needs focus anyway.
+
+The FPS counter, the ball/constraint counts and the key help render in the top-left overlay; `F12` hides it
+for a clean plate.

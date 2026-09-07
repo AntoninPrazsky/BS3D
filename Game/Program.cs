@@ -1,7 +1,6 @@
 ﻿using Prazsky.BS3D.GameStructure;
 using Prazsky.Core.Render;
 using System;
-using System.Collections.Generic;
 using System.Globalization;
 
 namespace BS3D
@@ -174,8 +173,11 @@ namespace BS3D
                 //purpose — a malformed entry is dropped and the rest stand, the way an unknown scene name
                 //falls back rather than throwing: this is a diagnostic, and it must never be the reason a
                 //scripted run fails to start.
+                //The parse is ScreenshotWriter's since #371, for the reason scene= is SceneRenderer's: the
+                //Testbed takes shot= too now, and a list one executable reads and the other does not would be
+                //exactly the drift one shared parse cannot have.
                 else if (arg.StartsWith("shot=", StringComparison.OrdinalIgnoreCase))
-                    shotSeconds = ParseSeconds(arg.Substring("shot=".Length));
+                    shotSeconds = ScreenshotWriter.ParseSeconds(arg.Substring("shot=".Length));
                 //"pick" puts the LEVEL PICKER up at boot, and "pick=<n>" puts it up on that chapter (#273). The
                 //page itself is two keypresses away for anyone sitting at the machine and unreachable on a
                 //locked desktop, which takes no keystrokes — and since #273 it is a pager, so its other eight
@@ -203,25 +205,6 @@ namespace BS3D
                 shotSeconds: shotSeconds, level: level, preview: preview, ballStyle: ballStyle, pick: pick, fpsCap: fpsCap,
                 noFocusPause: noFocusPause);
             game.Run();
-        }
-
-        /// <summary>
-        /// The <c>shot=</c> list: comma-separated seconds, invariant culture like every other numeric argument
-        /// here. Kept in ASKED order rather than sorted — a caller who writes them out of order is telling the
-        /// run something, and the schedule is walked forward — but an entry that will not parse is dropped
-        /// rather than throwing, and an empty result comes back as null so the game sees "no schedule" instead
-        /// of an empty one to test every frame.
-        /// </summary>
-        private static float[] ParseSeconds(string list)
-        {
-            string[] parts = list.Split(',');
-            var seconds = new List<float>(parts.Length);
-
-            foreach (string part in parts)
-                if (float.TryParse(part, NumberStyles.Float, CultureInfo.InvariantCulture, out float value) && value >= 0f)
-                    seconds.Add(value);
-
-            return seconds.Count > 0 ? seconds.ToArray() : null;
         }
 
         //The spellings scene= takes are SceneRenderer.TryParseScene's since #75 — the Testbed grew an if/else

@@ -199,6 +199,14 @@ namespace Testbed
             //After the log line, so the idle is never counted as part of the frame it follows: what the cap
             //spends is real time between presents, and the reading has already been taken by here.
             CapFrameRate();
+
+            //And the capture last of all, for the same reason the cap is after the reading: the readback stalls
+            //the pipeline and encodes a PNG on this thread, about a tenth of a second, and a frame carrying
+            //that must not be the frame a benchmark counts. What it writes is everything above - the resolve,
+            //the crosshair and the text overlay - i.e. the frame as presented (#371). The clock is the wall
+            //clock the clouds and the pulse run on, so a scheduled shot lands at the same moment whether the
+            //simulation is running, slowed or frozen.
+            _shots?.Service(_pulseSeconds, _scene.ToString());
         }
 
         //The Game's counter restated rather than shared, because there is nothing to share it through: both are
