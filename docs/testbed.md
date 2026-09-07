@@ -41,6 +41,19 @@ Three defects the split fixed, each of them latent rather than visible:
 
 **Two placements are load-bearing.** The service call is the **last** statement of `Draw` — after `base.Draw`, after the `[fps]` line and after `CapFrameRate` — because the readback stalls the pipeline and `SaveAsPng` encodes on this thread (~0.1 s at 1600×900), and a frame carrying that must never be the frame a benchmark counts. And it runs off `_pulseSeconds`, the wall clock the clouds and the ball pulse use, not the simulation's step, so a scheduled shot lands at the same moment whether the simulation is running, slowed or frozen.
 
+## Reading the camera back: `C` (#375)
+
+`campos=`/`camtarget=` go **in**; until #375 nothing came out, on the one instrument whose whole value is a repeatable framing. `C` prints the live camera in the spelling the command line takes it — and `at=<t>:C` does it from a script, so no key needs pressing:
+
+```
+[campin] campos=0.00,-4.00,30.00 camtarget=0.00,-8.00,0.00 fov=72
+```
+
+**It reads the live camera, so it also answers in game mode** — the pose `GameCameraFit` computes from the map, which is the stand-off any judgement about play distance wants and which no argument can produce. Verified both ways round: a free-mode pin echoes back exactly what was passed in, `F10` then prints `campos=0.00,-7.40,36.20 camtarget=0.00,1.65,0.00` (the same stand-off the `[camera]` line reports as "36.2 out, aim Y 1.6"), and launching with those numbers prints them back unchanged. `[camera]` gives the fit's own figures; this gives the thing you can paste.
+
+- **Invariant and comma-separated exactly as `TryParseVec3` reads it**, because the line is a paste and not a transcription — a decimal comma from this machine's own culture would not parse at all.
+- **`fov=` is on the line only in free mode**, the only mode that argument reaches: game mode has its own `GAME_FOV`, and printing it would offer a pin that does not hold.
+
 ## Sweeping variants inside one process: `alt=` (#151, generalized in #374)
 
 **`alt=<pins>;<pins>;…` draws the run a different way on every `[fps]` window**, and a variant is a little command line — a comma-separated list of the same `<dial>=<value>` pins the arguments themselves use, so there is no second vocabulary to keep in step:

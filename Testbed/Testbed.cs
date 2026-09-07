@@ -613,6 +613,7 @@ namespace Testbed
                 new(mgKeys.D4, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Right, true), "Right view"),
                 new(mgKeys.D5, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Up, true), "Up view"),
                 new(mgKeys.D6, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Down, true), "Down view"),
+                new(mgKeys.C, LogCameraPin, "Print the camera as campos=/camtarget="),
                 new(mgKeys.L, SwitchBallStyle, "Cycle ball material"),
                 new(mgKeys.R, () => { _cih.RestartCamera(); _cannon.Restart(); }, "Restart camera"),
                 new(mgKeys.Space, () => ShootBall(), "Shoot ball")
@@ -1057,6 +1058,40 @@ namespace Testbed
             _balls.Style = BallStyles.Next(_balls.Style);
 
             Console.WriteLine($"[balls] {BallStyles.ToName(_balls.Style)}");
+        }
+
+        /// <summary>
+        /// Prints where the camera is, in the spelling the command line takes it (#375) — <c>C</c>, or
+        /// <c>at=&lt;t&gt;:C</c> from a script:
+        /// <code>[campin] campos=0.00,-4.00,30.00 camtarget=0.00,-8.00,0.00 fov=72</code>
+        /// <b>The pose went in and never came out</b>, on the one instrument whose entire value is a
+        /// repeatable framing. This project's own rule — written after a conclusion about ball shading had to
+        /// be retracted out of a shader comment and out of <c>docs/rendering.md</c> — is that <i>two shots
+        /// from different cameras are not an A/B</i>; and yet a pose flown by hand was unrecoverable the
+        /// moment the process exited, so the pins in the skills and the journal were hand-tuned by relaunching.
+        /// <para>
+        /// <b>It reads the live camera, so it works in game mode too</b>, which is the pose no argument can
+        /// produce: <c>GameCameraFit</c> computes it from the map, and that is the stand-off a judgement about
+        /// play distance wants. <c>[camera]</c> prints the fit's own figures (stand-off, aim height, orbit
+        /// radius); this prints the thing you can paste back.
+        /// </para>
+        /// <para>
+        /// <c>fov=</c> is on the line only in free mode, because that is the only mode the argument reaches:
+        /// game mode has its own <c>GAME_FOV</c>, which is a decision about how a level is played rather than
+        /// a framing lever, and printing it would offer a pin that does not hold.
+        /// </para>
+        /// </summary>
+        private void LogCameraPin()
+        {
+            //Invariant and comma-separated exactly as TryParseVec3 reads it back, so the line is a paste and
+            //not a transcription: a decimal comma from this machine's own culture would not parse at all.
+            string pin = $"campos={Vec(_camera.Position)} camtarget={Vec(_camera.Target)}";
+
+            Console.WriteLine(_gameMode
+                ? $"[campin] {pin}"
+                : $"[campin] {pin} fov={MathHelper.ToDegrees(_freeFov).ToString("0.#", CultureInfo.InvariantCulture)}");
+
+            static string Vec(Vector3 v) => string.Create(CultureInfo.InvariantCulture, $"{v.X:0.00},{v.Y:0.00},{v.Z:0.00}");
         }
 
         private void SwitchScene()
