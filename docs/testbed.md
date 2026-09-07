@@ -1,6 +1,8 @@
 ﻿# The Testbed
 
-Where every system was built and is still tuned: the shot, the gun, and the two cameras that aim it.
+**The project's development instrument**, and deliberately kept as one (#100): the rig every colour, cost and shading judgement here is framed through, and where the shot, the gun and the two cameras that aim it were built and are still tuned.
+
+**It is not a second game and must never become one** — no menu, no HUD, no level flow; every step towards the game takes away the thing it is used for. What it has instead is everything a program needs to be measured and photographed without a person at the keyboard: a camera that holds still and reads back (`campos`/`camtarget`/`fov`, `C`), a pass that can be isolated (`arena=`, `capprobe=`), variants swept inside one process (`alt=`), a timeline that drives its own keys (`at=`, `hold=`), its own frame writer (`shot=`, `shotframe=`) and two `[build]` lines saying which build produced any of it. The Game cannot hold still — its camera orbits and a level overrides the scene it was launched with — and the MapEditor has no simulation, gun or shot at all.
 
 Part of the BS3D documentation. CLAUDE.md holds the project overview, the build commands, the ball grid and the repo-wide conventions, and says which of these documents covers what.
 
