@@ -65,6 +65,17 @@ this one, after the measurements had "shown" three different things.
 
 ## The camera is the key trick: `campos` / `camtarget`
 
+**And it reads back since #375: `C` prints the live camera as arguments** (`at=<t>:C` from a script), so a
+framing found by flying — or the game camera's own pose after `F10`, which no argument can produce — can be
+pinned for the next run instead of being lost with the process:
+
+```
+[campin] campos=0.00,-7.40,36.20 camtarget=0.00,1.65,0.00 fov=72
+```
+
+Paste it straight back; the numbers are invariant and comma-separated exactly as the arguments are parsed.
+`fov=` appears only in free mode, the only mode that argument reaches.
+
 The free (fly) camera has no runtime "teleport", so to frame a reproducible shot the Testbed takes two
 startup args (parsed in `Program.cs`, applied in `Initialize`):
 
@@ -271,6 +282,8 @@ sends the keys **by scan code** (SDL reads the scan code, not the virtual key), 
 | `F12` | Hide/show the text overlay | A clean shot with no HUD text over the left of the frame |
 | `F5`  | Stop/start the simulation | Freeze motion for a still — **but see the warning below before using it to sample an animation** |
 | `L` | Cycle the ball material | Step through the ten `BallStyle`s in enum order without relaunching; `balls=` is the way to *start* on one |
+| `C` | Print the camera as `campos=`/`camtarget=` | Pin a framing you flew to, or the game camera's own pose after `F10` (#375) |
+| `F8` | Save a screenshot | The Testbed's own writer (#371) — no screen, no focus |
 | `D1`..`D6` | View presets | Forward/Back/Left/Right/**Up (top-down)**/Down, aimed at the map centre (the cluster) |
 | `Space` | Shoot a ball | — |
 
