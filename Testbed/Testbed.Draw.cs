@@ -218,38 +218,37 @@ namespace Testbed
         private float _fpsWindow;
         private int _fpsFrames;
 
-        //Which entry of TestOptions.Alternation the arena is currently drawn as. Entry 0 is applied at build
-        //time beside "arena=" and "capprobe=", so the first window is already a named variant rather than
-        //whatever the single-variant path left standing.
-        private int _arenaVariant;
+        //Which entry of TestOptions.Alternation the run is currently drawn as. Entry 0 is applied at build
+        //time beside the plain arguments, so the first window is already a named variant rather than whatever
+        //the single-variant path left standing.
+        private int _variant;
 
         /// <summary>
-        /// Draws the arena as the next variant of <see cref="TestOptions.Alternation"/>, or leaves it alone
-        /// when nothing asked for a cycle. Called once per <c>[fps]</c> window and never on a per-frame path.
+        /// Switches to the next variant of <see cref="TestOptions.Alternation"/>, or leaves the run alone when
+        /// nothing asked for a cycle. Called once per <c>[fps]</c> window and never on a per-frame path.
         /// <para>
-        /// #151 PROBE - TEMPORARY, and the reason it is here rather than in a script: on the integrated-Radeon
-        /// laptop the CPU and the iGPU share one package power budget, so the sustained clock drifts between
-        /// runs far enough to swallow the thing being measured — two runs of one unchanged variant came 33.6
-        /// and 25.7 ms apart. Alternating inside a single process puts every variant under the same clock, the
+        /// The reason it is here rather than in a script: on the integrated-Radeon laptop the CPU and the iGPU
+        /// share one package power budget, so the sustained clock drifts between runs far enough to swallow
+        /// the thing being measured — two runs of one unchanged variant came 33.6 and 25.7 ms apart, and under
+        /// contention the variants compress towards each other, so a sweep read across runs says "nothing
+        /// costs anything". Alternating inside a single process puts every variant under the same clock, the
         /// same driver state and the same neighbours, so what is left between two readings a second apart is
-        /// what the two variants actually cost. Both properties are plain assignments and no state carries
-        /// over, which is what makes a per-window switch honest rather than a source of hysteresis.
+        /// what the two variants actually cost.
+        /// </para>
+        /// <para>
+        /// #151 built this for the arena's members and its cap probe; #374 made the variant a list of the
+        /// command line's own pins, so a scene, a dome, a ball material, <c>ssaa</c>, <c>msaa</c>,
+        /// <c>rscale</c>, <c>detail</c>, <c>exposure</c> and <c>nopost</c> can be swept the same way — and
+        /// retired the "TEMPORARY" the first two carried, since a general mechanism is not a probe. What may
+        /// be alternated is decided by hysteresis and nothing else: see <c>ApplyVariant</c>.
         /// </para>
         /// </summary>
-        private void AdvanceArenaVariant()
+        private void AdvanceVariant()
         {
             if (_options.Alternation.Count == 0) return;
 
-            _arenaVariant = (_arenaVariant + 1) % _options.Alternation.Count;
-            ApplyArenaVariant(_arenaVariant);
-        }
-
-        /// <summary>Draws the arena as one named entry of <see cref="TestOptions.Alternation"/>.</summary>
-        private void ApplyArenaVariant(int index)
-        {
-            TestOptions.ArenaVariant variant = _options.Alternation[index];
-            _island.Members = variant.Members;
-            _island.CapTriplanarProbe = variant.CapProbe;
+            _variant = (_variant + 1) % _options.Alternation.Count;
+            ApplyVariant(_options.Alternation[_variant]);
         }
 
         /// <summary>
@@ -275,18 +274,28 @@ namespace Testbed
             bool alternating = _options.Alternation.Count > 0;
             int capProbe = _island.CapTriplanarProbe;
 
+            //The frame time beside the rate (#374): every measurement written into docs/ or the journal is a
+            //millisecond figure, and until this was on the line each one was a hand conversion of the rate -
+            //an arithmetic step between the instrument and the record, done once per quoted number.
+            float milliseconds = _fpsWindow / _fpsFrames * 1000f;
+
             //The sample count is on the line for the same reason ssaa is: an A/B that varies it can only be
             //believed if the run says which half it was, and MSAA is invisible in a still (#298).
-            Console.WriteLine($"[fps] {_fpsFrames / _fpsWindow:F1} — {_scene}, dome {_skyModelNumber}, ssaa {_supersampleFactor}x"
+            Console.WriteLine($"[fps] {_fpsFrames / _fpsWindow:F1} ({milliseconds:F2} ms) — {_scene}, dome {_skyModelNumber}, ssaa {_supersampleFactor}x"
                 + $", msaa {_pipeline.SceneTarget?.MultiSampleCount ?? 0}x (asked {(_supersampleFactor > 1 ? 0 : _pipeline.MsaaSamples)})"
                 + $", target {_pipeline.SceneTarget?.Width ?? 0}x{_pipeline.SceneTarget?.Height ?? 0} (rscale {_pipeline.RenderScale:0.##})"
                 + $", detail {(_sceneRenderer.SceneDetail > 0.5f ? "full" : "reduced")}"
                 + $", {GraphicsDevice.PresentationParameters.BackBufferWidth}x{GraphicsDevice.PresentationParameters.BackBufferHeight}"
-                + $", vsync {(_options.UncappedFps ? "off" : "on")}{(_options.FpsCap > 0 ? $" (cap {_options.FpsCap})" : "")}, arena {_island.Members}{(alternating || capProbe > 0 ? $", capprobe {capProbe}" : "")}, balls {_collectedBalls}");
+                + $", vsync {(_options.UncappedFps ? "off" : "on")}{(_options.FpsCap > 0 ? $" (cap {_options.FpsCap})" : "")}, arena {_island.Members}{(alternating || capProbe > 0 ? $", capprobe {capProbe}" : "")}, balls {_collectedBalls}"
+                //The variant's own text last, in the caller's words rather than restated from the live
+                //settings: a sweep is read by grouping the lines that carry the same name, and a dial the
+                //rest of this line does not print (a ball material, an exposure) would otherwise leave two
+                //variants looking identical in the log they are compared in.
+                + (alternating ? $", variant {_options.Alternation[_variant].Spec}" : string.Empty));
 
             //Switch AFTER the line is written, so a window is never a mixture of two variants: this reading
             //belonged wholly to the variant just named, and the next one belongs wholly to the next
-            AdvanceArenaVariant();
+            AdvanceVariant();
 
             _fpsWindow = 0f;
             _fpsFrames = 0;

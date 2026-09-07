@@ -1133,3 +1133,30 @@ Ten běh vejde do hracího režimu, schová overlay, čtyři vteřiny orbituje d
 **Drobnost, kterou jsem si sám způsobil a stála jeden běh:** logoval jsem časy v kultuře stroje, takže z toho lezlo `[script] 3,00 tap F10` — číslo, které zkopírované zpátky do `at=` neparsuje. Řádky jsou teď invariantní, stejně jako parser.
 
 **Ověřeno:** čtyři solutiony 0 chyb, LevelGen 0, ScoreSim 0. Dokumentace v témž commitu: `docs/testbed.md` (nová sekce), CLAUDE.md (řádek tabulky), `verify` a `screenshot` skilly — v `screenshot` je `-Hold` sekce nově uvozená tím, že `hold=` je lepší cesta, a zůstává tam, co pořád platí (náběh chůze, editor, myš).
+
+---
+
+## 2026-09-07 — Claude Code (čtvrtý zápis dne)
+
+**#374: `alt=` už neumí jen arénu. Varianta je teď malá příkazová řádka — čárkou oddělený seznam týchž `<páka>=<hodnota>` pinů, co berou samotné argumenty, takže žádný druhý slovník neexistuje.**
+
+```
+alt=scene=meadow;scene=savanna;scene=forest
+alt=ssaa=1;ssaa=2;ssaa=4
+alt=arena=all,capprobe=0;arena=all,capprobe=6
+alt=all;all,-cap;none            (stará aréní podoba, čte se dál)
+```
+
+Starou podobu jsem nechal číst schválně: v ní jsou zapsané **všechny sweepy #151 v tomhle journalu i v `benchmark` skillu**, a kdo reprodukuje zaznamenané měření, nemá si ho překládat. Dvojznačnost to nestojí nic — obecný pin vždy nese `=`, seznam členů arény ho nést nemůže.
+
+**Co se smí střídat, rozhoduje hysterezie a nic jiného.** Přepnutí nesmí nic nechat za sebou, jinak okno po něm měří přechod, ne variantu. Berou: `arena`, `capprobe`, `scene`, `sky`, `balls`, `ssaa`, `msaa`, `rscale`, `detail`, `exposure`, `nopost`. **`nooverc` je odmítnutý** — overcast lerp si nese svou polohu přes přepnutí, takže varianta, která ho vypne, by se celým dalším oknem teprve sunula. Scéna proto při střídání **snapuje počasí** místo fadování (`SetScene(…, immediately: true)`); to je jediný rozdíl proti stisku NumPad2. Běh vypíše plán na `[alt]` řádek a **pojmenuje, co odmítl** — pin zahozený mlčky by ze sweepu udělal dvě čtení téhož buildu, což se čte jako „ta změna nic nestojí".
+
+**`capprobe=` a `arena=` ztratily „#151 PROBE - TEMPORARY", které nesly od svého vzniku: graduovaly** jako dvě páky obecného mechanismu. Izolovat průchod uvnitř jednoho procesu není lešení k jednomu issue — je to to, čím se #151 vůbec dalo odpovědět na stroji, jehož běhy se nedají srovnávat.
+
+**Milisekundy jsou na `[fps]` řádku obou exáčů** (`[fps] 148,9 (6,72 ms) — …`) a `benchmark.ps1` je bere odtamtud místo přepočtu průměrné frekvence: `1000/průměr(fps)` **není** průměr(ms), a do docs se cituje ms.
+
+**⚠ Naměřeno a je v tom lekce o přístroji, ne o kódu** (referenční desktop 6900 XT, louka, dóm 13, `nopost`, pevná kamera, 1600×900, devět cyklů, mediány): pod `fpscap=400` čte `alt=ssaa=1;ssaa=2;ssaa=4` **ssaa 4 = 6,69 ms, zatímco ssaa 1 i ssaa 2 sedí na stropě 2,52 ms**. Pod `fpscap=150` čtou **všechny tři strop** a sweep neřekne nic. Strop se tedy musí dát **pod** frekvenci, kterou měříš, jinak přístroj měří sám sebe — a capnuté čtení je „levnější než tohle", nikdy cena.
+
+**⚠ Jednu vadu našel až běh, ne překlad:** první varianta se seedovala uvnitř `BuildCity`, kde ji #151 mít mohlo (byly to dvě přiřazení na ostrově). Obecný pin ale sahá na pipeline, scene renderer i ball set a `BuildCity` běží dřív, než dva z těch tří existují — první `alt=ssaa=1;ssaa=2` proto spadl `NullReferenceException` z `LoadContent`. Seeduje se teď **na konci `LoadContent`**, nad hotovým startovním stavem. To je i sémanticky správně: varianta se aplikuje přes to, co ostatní argumenty postavily.
+
+**Ověřeno:** čtyři solutiony 0 chyb, LevelGen 0, ScoreSim 0; aréní podoba střídá `arena All`/`None` jako dřív; běh s `nooverc=1,bogus=3` vypsal obě odmítnutí; `benchmark.ps1` nový řádek parsuje (dojel a vypsal `MsPerFrame 6,67`). Sweepy jsem držel pod `fpscap` a v okně — majitel dal dnes svolení riskovat zátěž, ale desktop se pod ní historicky tvrdě resetuje (#250).

@@ -1835,7 +1835,12 @@ namespace BS3D
 
             int limit = FrameLimitHz;
 
-            Console.WriteLine($"[fps] {_fpsFrames / _fpsWindow:F1} — {_scene}, dome {_skyDome}, ssaa {_supersampleFactor}x"
+            //The frame time beside the rate (#374), and on this line as well as the Testbed's because the two
+            //are deliberately the same shape: every figure this project writes down is in milliseconds, and a
+            //hand conversion of the rate is an arithmetic step between the instrument and the record.
+            float milliseconds = _fpsWindow / _fpsFrames * 1000f;
+
+            Console.WriteLine($"[fps] {_fpsFrames / _fpsWindow:F1} ({milliseconds:F2} ms) — {_scene}, dome {_skyDome}, ssaa {_supersampleFactor}x"
                 //The tier itself, and the two of its entries that are invisible in a still: the samples the
                 //scene target actually carries (#298 — the count the target was BUILT with, not the one asked
                 //for, a driver being free to clamp it), and whether the scene extras are the authored ones.

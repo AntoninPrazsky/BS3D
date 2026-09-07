@@ -16,7 +16,9 @@ using Prazsky.Core.Render;
 using Prazsky.Core.Tools;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Windows.Forms;
 using Testbed.Diagnostics;
@@ -212,7 +214,7 @@ namespace Testbed
         /// octaves — which band-limit themselves against the pixel footprint — alive and sharp instead
         /// of quietly fading out. 1 disables it and hands the antialiasing back to MSAA.
         /// </summary>
-        private readonly int _supersampleFactor;
+        private int _supersampleFactor;
 
         //The HDR scene target, the bloom pyramid, the tonemap resolve and every cached parameter — one
         //shared copy for all three executables (Prazsky.Core.Render.PostProcessPipeline, #74). What stays
@@ -814,6 +816,22 @@ namespace Testbed
 
             ApplySkyLighting();
 
+            //"alt=" cycles its variants on every [fps] window, so a sweep's variants share one process and one
+            //clock (#151, generalized to any pin in #374). Seeded here rather than waiting for the first
+            //switch, or the opening window would be measured as whatever the plain arguments left standing and
+            //would then be labelled as the variant that follows it.
+            //
+            //⚠ And here rather than in BuildCity, where #151 could put it while a variant was only two
+            //assignments on the island: a general pin reaches the pipeline, the scene renderer and the ball
+            //set, and BuildCity runs before two of the three exist. Seeding it there threw a
+            //NullReferenceException out of LoadContent the first time a run said "alt=ssaa=1;ssaa=2" — the
+            //variant has to be applied over the FINISHED startup state, which is what this line is.
+            if (_options.Alternation.Count > 0)
+            {
+                AnnounceVariants();
+                ApplyVariant(_options.Alternation[0]);
+            }
+
             //Testing: the aim-and-shoot scan needs to be in game mode (a shot then leaves the cannon along its aim
             //rather than the free camera). Kick off the entry animation now; the sweep waits for it in Update.
             if (_aimShootDriver != null) SwitchGameMode(true);
@@ -1050,7 +1068,24 @@ namespace Testbed
             //and the four cycle entries before it were unreachable without pressing it four more times. Anything
             //off the end restarts the cycle at the city instead.
             int next = (int)_scene + 1;
-            _scene = (SceneKind)(next < SceneRenderer.CycleLength ? next : 0);
+
+            SetScene((SceneKind)(next < SceneRenderer.CycleLength ? next : 0));
+        }
+
+        /// <summary>
+        /// Stands the Testbed in a named scene at runtime — what <see cref="SwitchScene"/> does once it has
+        /// worked out which scene is next, split out in #374 so <c>alt=scene=…</c> reaches the same three
+        /// steps rather than a second copy of them. Everything below the assignment is why a scene change is
+        /// not just a field: the rig has to be re-derived and the sky it stands under applied.
+        /// </summary>
+        /// <param name="immediately">
+        /// Snap the weather instead of fading it. A person cycling with NumPad2 wants one sky closing over
+        /// into the next; an alternating measurement must not, because a fade is state carried across the
+        /// switch and the window after it would be measuring the transition rather than the scene.
+        /// </param>
+        private void SetScene(SceneKind scene, bool immediately = false)
+        {
+            _scene = scene;
 
             Console.WriteLine($"[scene] {_scene}");
 
@@ -1068,7 +1103,7 @@ namespace Testbed
             //And the sky that scene stands under (#221), which is the scene config's own — the same answer
             //the game reads, from the same place, so a scene's weather cannot be one thing here and another
             //there. SetWeather fades, so cycling with NumPad2 leaves one sky closing over into the next.
-            ApplySceneWeather();
+            ApplySceneWeather(immediately: immediately);
             //The tropical beach and the volcano sit past the cycle's end (CycleLength 7) and are never
             //reached by this switch — their default domes are applied at startup only, where the scene= arm
             //above finds them.
@@ -1122,15 +1157,135 @@ namespace Testbed
             //member taken out of the frame in turn, and there was no way to do that from outside the class
             _island.Members = _options.Arena;
 
-            //#151 PROBE - TEMPORARY: which of the cut-down copies of the cap's pixel shader is drawn, 0
-            //being the shipped one. The members sweep can only take the whole cap out; this splits it up.
+            //Which of the cut-down copies of the cap's pixel shader is drawn, 0 being the shipped one. The
+            //members sweep can only take the whole cap out; this splits it up. Marked "#151 PROBE -
+            //TEMPORARY" until #374, which asked the question that had been open since #151 closed: it
+            //GRADUATES, as one dial of the general alternation, because a mechanism that can isolate a pass
+            //inside one process is not scaffolding for one issue - it is the thing that made #151 answerable.
             _island.CapTriplanarProbe = _options.CapProbe;
 
-            //#151 PROBE - TEMPORARY: "alt=" cycles the two above on every [fps] window, so a sweep's variants
-            //share one process and one clock. Seed the first entry here rather than waiting for the first
-            //switch, or the opening window would be measured as whatever "arena="/"capprobe=" left standing
-            //and would then be labelled as the variant that follows it.
-            if (_options.Alternation.Count > 0) ApplyArenaVariant(0);
+        }
+
+        /// <summary>
+        /// The dials <see cref="ApplyVariant"/> can switch between two <c>[fps]</c> windows, and the reason
+        /// the list is short: <b>a variant switch must leave nothing behind</b>, or the window after it
+        /// measures the transition rather than the variant. Every one of these is either a plain assignment
+        /// or a setter whose whole effect lands in the same frame.
+        /// </summary>
+        private static readonly string[] ALTERNATION_DIALS =
+            { "arena", "capprobe", "scene", "sky", "balls", "ssaa", "msaa", "rscale", "detail", "exposure", "nopost" };
+
+        /// <summary>
+        /// Prints the sweep's plan before the first window, and names anything it will not switch. A pin that
+        /// was silently dropped would be a sweep whose two halves are the same build measured twice — which
+        /// reads as "the change costs nothing", the exact false negative this mechanism exists to prevent.
+        /// </summary>
+        private void AnnounceVariants()
+        {
+            Console.WriteLine($"[alt] {_options.Alternation.Count} variants, one per [fps] window: "
+                + string.Join(" | ", _options.Alternation.Select(variant => variant.Spec)));
+
+            foreach (string dial in _options.Alternation
+                .SelectMany(variant => variant.Pins)
+                .Select(pin => pin.Dial)
+                .Where(dial => Array.IndexOf(ALTERNATION_DIALS, dial) < 0)
+                .Distinct())
+            {
+                //Named rather than refused wholesale, and "nooverc" is named with its reason because it is the
+                //one a reader will reach for and it is refused on principle rather than for want of plumbing:
+                //the overcast lerp carries its position across the switch, so a variant that turned it off
+                //would still be sliding towards the dome's own ambient through the window that followed.
+                Console.WriteLine(dial == "nooverc"
+                    ? "[alt] ignored 'nooverc': the overcast lerp carries across a switch, so it cannot be alternated honestly - pin it for the whole run instead"
+                    : $"[alt] ignored '{dial}': not one of {string.Join(", ", ALTERNATION_DIALS)}");
+            }
+        }
+
+        /// <summary>
+        /// Applies one variant's pins. The value spellings are the command line's own
+        /// (<see cref="SceneRenderer.TryParseScene"/>, <see cref="BallStyles.TryParse"/>,
+        /// <see cref="TestOptions.ParseArenaMembers"/>), because a variant IS a little command line and a
+        /// second vocabulary would be a second thing to keep in step.
+        /// <para>
+        /// <b>The arena's members are collected and parsed once</b>, not applied pin by pin: the member
+        /// grammar accumulates within one string (<c>all,-cap</c> is "everything except the cap") and starts
+        /// from nothing each time it is parsed, so applying two of them in turn would leave the second one's
+        /// list alone rather than the intersection anybody would read there.
+        /// </para>
+        /// </summary>
+        private void ApplyVariant(TestOptions.Variant variant)
+        {
+            string arena = null;
+
+            foreach (TestOptions.Pin pin in variant.Pins)
+            {
+                switch (pin.Dial)
+                {
+                    case "arena":
+                        arena = arena == null ? pin.Value : $"{arena},{pin.Value}";
+                        break;
+
+                    case "capprobe":
+                        if (int.TryParse(pin.Value, out int probe) && probe >= 0 && probe <= 6) _island.CapTriplanarProbe = probe;
+                        break;
+
+                    case "scene":
+                        if (SceneRenderer.TryParseScene(pin.Value, out SceneKind scene)) SetScene(scene, immediately: true);
+                        break;
+
+                    case "sky":
+                        if (byte.TryParse(pin.Value, out byte dome)) SetSkyDome(dome);
+                        break;
+
+                    case "balls":
+                        if (BallStyles.TryParse(pin.Value, out BallStyle style)) _balls.Style = style;
+                        break;
+
+                    case "ssaa":
+                        if (int.TryParse(pin.Value, out int factor)) SetSupersampleFactor(factor);
+                        break;
+
+                    case "msaa":
+                        if (int.TryParse(pin.Value, out int samples) && samples >= 0 && samples <= 8) _pipeline.MsaaSamples = samples;
+                        break;
+
+                    case "rscale":
+                        if (float.TryParse(pin.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out float scale)) _pipeline.RenderScale = scale;
+                        break;
+
+                    case "detail":
+                        if (float.TryParse(pin.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out float detail)) _sceneRenderer.SceneDetail = detail;
+                        break;
+
+                    case "exposure":
+                        if (float.TryParse(pin.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out float exposure)) _pipeline.Exposure = exposure;
+                        break;
+
+                    //On/off like the switch it mirrors: "nopost=1" is the argument, "nopost=0" the authored look
+                    case "nopost":
+                        bool off = pin.Value is "1" or "true" or "on";
+                        _pipeline.ChromaticAberration = off ? 0f : CHROMATIC_ABERRATION;
+                        _pipeline.FilmGrain = off ? 0f : FILM_GRAIN;
+                        break;
+                }
+            }
+
+            if (arena != null) _island.Members = TestOptions.ParseArenaMembers(arena);
+        }
+
+        /// <summary>
+        /// The one place the supersample factor changes, the Game's <c>SetSupersampleFactor</c> restated: the
+        /// scene target's size is derived from it, the tonemap has to be told how many samples its box filter
+        /// is averaging, the space scene sizes its stars in output pixels, and the balls' dissolve dither is
+        /// authored in display pixels. Set two of the four and the run is measuring a mixture.
+        /// </summary>
+        private void SetSupersampleFactor(int factor)
+        {
+            _supersampleFactor = Math.Clamp(factor, 1, 4);
+
+            _pipeline.SupersampleFactor = _supersampleFactor;
+            _sceneRenderer.SupersampleFactor = _supersampleFactor;
+            _balls.SupersampleFactor = _supersampleFactor;
         }
 
         private void BuildCeiling()
