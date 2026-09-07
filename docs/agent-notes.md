@@ -1051,3 +1051,27 @@ Bridge byl zároveň nejmírnější stížnost („simple", ne „primitive"), 
 **⚠ Poučení, které si zaslouží přežít issue:** starý zápis v `docs/game-feedback.md` končil větou *„Not claimed: the tune — … the piece was arranged against the numbers rather than at a monitor."* Ta věta byla poctivá a byla to zároveň varování, které se vyplnilo: **každé číslo v tom zápisu bylo správně a skladba byla pořád pětkrát vedle**, a ucho to chytlo na jedno přehrání. Nechal jsem tu doložku stát i pro přepis.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-07 — Claude Code
+
+**Majitel rozhodl, že se Testbed rušit nebude, a vyzval mě, ať si ho přizpůsobím jako vývojový přístroj. Z toho je odpověď na #100, šest nových issues (#371–#376) a první z nich hotové.**
+
+**Verdikt k #100 je zapsaný přímo v issue** (komentář, issue jsem nezavíral): Testbed zůstává, ale zužuje se mu role — je to **přístroj, ne druhá hra**, a nikdy nemá dostat menu, HUD ani levelový tok. Argument, který to rozhodl, není sentiment, ale to, co ty dva kandidáti na jeho nahrazení neumějí: **Game neumí stát** (front end se točí, level si přepisuje scénu, žádná libovolná póza nad libovolnou mapou — `campos`/`camtarget` jsou Testbedu a přes ně se tady rámuje každé barevné i výkonnostní rozhodnutí) a **MapEditor neumí hrát** (žádná simulace, dělo, výstřel ani kontaktní cesta). Zbývá jedna věta v CLAUDE.md — *„where every system was built and is still tuned"* mluví o minulosti; až ji někdo přepíše na to, čím Testbed je dnes, může se #100 zavřít.
+
+**⚠ Před založením issues jsem prošel journal i zavřená issues a jedno z mého seznamu vypadlo: #334 (overcast) je vyřešené a zavřené**, `nooverc` existuje, magnituda byla přeměřena (uvnitř jednoho programu ≤1,4 dE, ne původně tvrzených +2 až +6) a navazující #367 taky. Kdo bude sahat na barvy přes Testbed, ať čte #334 a #367, ne můj původní návrh.
+
+**Zbylých pět, v pořadí, v jakém bych je bral:** #372 (žádný běh neřekne, jaký je to build — MGCB přeskočí `.fx`, jehož `.xnb` je novější, a *nezkopíruje nic*; stálo to tři kola měření a retrakci commitnutou do pěti souborů), #373 (vstup jde do Testbedu jen zvenčí procesu — na zamčené ploše se ztracená klávesa čte jako nález), #374 (`alt=` umí jen arénu, každé jiné A/B je pořád dva procesy a dva běhy jedné nezměněné varianty daly 33,6 a 25,7 ms), #375 (kamera jde zadat, ne přečíst), #376 (nápověda NumPad2 jmenuje sedm scén ze sedmnácti — táž hniloba jako #320).
+
+### #371: Testbed fotí sám sebe
+
+**Mechanismus je vytažený do `Prazsky.Core.Render.ScreenshotWriter`**, takže je v jedné kopii pro Game i Testbed a `Game/Program.cs` parsuje `shot=` přes tutéž metodu — pravopis, řádek `[shot]` ani jméno souboru se nemají jak rozejít. Game se chová beze změny (ověřeno: pořád píše `bs3d-<stamp>-<scene>.png`), Testbed dostal `shot=` v témž pravopisu, vlastní `shotframe=` a klávesu **F8** (F12 je tady textový overlay a zůstává jím).
+
+**Proč `shotframe=` a proč ho Game schválně nemá:** plán v sekundách měří **sampler**, ne efekt, jakmile se fotografovaná věc hýbe — u #175 dalo osm požadovaných časů tři snímky a dva pokusy s rozestupem půl periody se pohnuly o 4 % a pak o 2 %, **opačným směrem**. Index snímku je přesný jen tam, kde se běh dá zopakovat, a to je právě Testbed: `F5` zmrazí simulaci, `campos`/`camtarget` drží kameru. Game nemá ani jedno a index snímku by tam sliboval opakovatelnost, kterou nedokáže dodržet.
+
+**Dvě umístění jsou nosná a jsou okomentovaná v kódu:** servis je **poslední** příkaz `Draw` — až za `base.Draw`, za řádkem `[fps]` a za `CapFrameRate` —, protože readback stáhne pipeline a `SaveAsPng` kóduje na tomhle vlákně (~0,1 s na 1600×900) a snímek s tímhle nákladem nesmí být ten, který počítá benchmark; a běží na `_pulseSeconds`, tedy na téže nástěnné hodině jako mraky a tep koulí, takže plánovaný snímek padne ve stejný okamžik, ať simulace běží, jede zpomaleně, nebo stojí.
+
+**Ověřeno za běhu, všechny tři spouště:** jeden běh (1280×720, louka, dóm 13, `nopost`, pevná kamera) dal snímek z `shotframe=60` i z `shot=5`; **F8** přes zaostřené okno dal třetí; a Game s `shot=12` píše dál svoje. Čtyři solutiony 0 chyb, LevelGen 0, ScoreSim 0, `Game/Levels` beze změny. Dokumentace srovnaná v témž commitu: `docs/testbed.md` (nová sekce), `docs/game-session.md`, `CLAUDE.md`, a hlavně **oba skilly** — `screenshot` tvrdil *„The Testbed has no such writer"* a radil přilepit `GetBackBufferData` do `Draw` a **necommitnout to**, což byla ta věta, kvůli které se ta záplata psala a zahazovala opakovaně; `verify` popisoval `CopyFromScreen` jako jedinou cestu.
+
+**⚠ Drobná past ze skriptování (stála jeden běh):** `Add-Type -MemberDefinition … -PassThru` vrací **pole** typů, když deklarace obsahuje i `struct` — `$u::GetWindowRect(…)` pak padá na *„[System.Object[]] does not contain a method"*. Vyfiltrovat `Where-Object { $_.Name -eq 'U' }`.
