@@ -41,6 +41,14 @@ Three defects the split fixed, each of them latent rather than visible:
 
 **Two placements are load-bearing.** The service call is the **last** statement of `Draw` — after `base.Draw`, after the `[fps]` line and after `CapFrameRate` — because the readback stalls the pipeline and `SaveAsPng` encodes on this thread (~0.1 s at 1600×900), and a frame carrying that must never be the frame a benchmark counts. And it runs off `_pulseSeconds`, the wall clock the clouds and the ball pulse use, not the simulation's step, so a scheduled shot lands at the same moment whether the simulation is running, slowed or frozen.
 
+## The overlay's key help, which cannot age (#376)
+
+The hint beside `NumPad2` read `Switch scene (city/sea/savanna/desert/mountain/meadow/neon)` and had named **seven scenes out of seventeen** since the day the eighth was added — silently, because nothing fails when a string ages, and the next scene is added by someone working on scenes who has no reason to look at a control table in the Testbed. It is #320's defect in the other executable and its ruling applies here:
+
+- **The hints name the axis and count it off the enum**: `Cycle sky dome (1-20)` and `Cycle scene (7 of 17; scene= reaches the rest)` are built from `SKY_DOME_COUNT` and `Enum.GetValues<SceneKind>().Length`, so a new scene or dome moves them without anybody remembering to.
+- **The live value is stated once, in the overlay's own lines** — `Scene: Space   Dome: 1   Balls: beach` above the ball counts — where it is read off the running state and cannot be a second copy of anything. That is the half a count alone cannot give: the hint says what the key does, the line says where you are.
+- Reaching that needed the overlay's dirty flag to stop being about ball counts alone (`InvalidateOverlay`), since a scene, a dome and a material change it now too.
+
 ## Reading the camera back: `C` (#375)
 
 `campos=`/`camtarget=` go **in**; until #375 nothing came out, on the one instrument whose whole value is a repeatable framing. `C` prints the live camera in the spelling the command line takes it — and `at=<t>:C` does it from a script, so no key needs pressing:
