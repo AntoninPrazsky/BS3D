@@ -153,6 +153,11 @@ namespace BS3D
             //The beds have a row of their own: how much atmosphere sits under the music is a taste, and
             //chaining it to the effects would turn the shot down with it.
             _ambience.Gain = _masterVolume * _ambienceVolume;
+
+            //The weather's one-shots ride the bed's row rather than the effects one (#219): thunder answers
+            //nothing the player did, so a player who turned the atmosphere down has already said what they
+            //think of it. See ProceduralAudio.WeatherGain.
+            _audio.WeatherGain = _masterVolume * _ambienceVolume;
         }
 
         internal void ToggleFullscreen()

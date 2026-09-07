@@ -968,3 +968,27 @@ Bridge byl zároveň nejmírnější stížnost („simple", ne „primitive"), 
 **⚠ Poctivě k tomu, co se NEZMĚNILO: sag proba pořád oba levely „dohraje" v šesti ranách** (Diabolo 5 → 6, Shuttle 7 → 6 z 34). To je ta samá věc z jiné strany: když je level postavený z několika velkých desek, pár dobře mířených ran ho sundá kaskádou bez ohledu na rozpočet. **Jestli je má majitel chtít opravdu těžké, je to přestavba skupinové struktury** (Amphora má 14 skupin po 36 koulích) a to už je zásah do tvaru levelů, které si pochválil — tuhle hranici jsem záměrně nepřekročil a hlásím ji místo abych předstíral, že rozpočet vyřešil všechno.
 
 **Ověřeno:** `LevelGen` exit 0 (mění se `Diabolo.json`, `Shuttle.json` a sada kvůli počtu ran), `ScoreSim` „All levels rate the right way round" — hvězdy obou beze změny (4/4/4/3, 2), jen skóre kompetentní hry kleslo (7,13 → 7,04 a 7,17 → 6,75), což je přesně to zamýšlené utažení; **sag 0 z 5 u obou** (beze změny), čtyři solutiony 0 chyb, fotky z běžící hry — Diabolo drží přesýpací siluetu a Shuttle pořád čte jako badmintonový míček s červeným korkem.
+
+---
+
+## 2026-09-07 — Claude Code
+
+**#219 + #223: hrom a rachot erupce postavené, jedním mechanismem — dluh dvou issues splacený naráz.** Větev `219-thunder`, worktree `BS3D-322`. #223 svůj zvuk odložilo s výslovnou podmínkou, že přijde spolu s hromem a bude sdílet jeden mechanismus; tohle je to přistání. Dva bakey v `ProceduralAudio` (`BakeThunder`, `BakeEruption`) vedle výstřelu ohňostroje a nová `Game/Audio/SceneEventSounds.cs`, tikaná z `BS3DGame.Update` hned za ambientem.
+
+**Nosná úvaha, a je to celý rozdíl mezi „funguje" a „zní to rozbitě": zvuk jede po ROZVRHU světla, nikdy po jeho jasu.** Obálky obou úkazů uvnitř jedné události **schválně blikají** (blesk má zpětné výboje), takže hranový detektor na jasu by jeden úder slyšel jako čtyři. Rozvrhy se proto vytáhly do `StormStrikeSchedule` / `VolcanoBurstSchedule` — jedna funkce na jev, ze které čte i shader i zvuk, takže spolu nemůžou driftovat — a `SceneRenderer.TryGetSceneEvent` podává **index události a vteřinu, kdy její světlo začalo**. Index je i ochrana proti dvojímu spuštění přes víc snímků.
+
+**Zpoždění je skutečné, ne autorské.** Svět je metrický z konstrukce (koule 1 jednotka, ostrov 26 v poloměru), takže je to `vzdálenost / 343` a nic se neladí rukou. Měřeno v běžící hře: bouře 45 s na front endu — **7 úderů, vzdálenosti 155–418 jednotek, zpoždění 0,45–1,22 s**, každý naplánován jednou a vysloven jednou; sopka 70 s — **4 výbuchy**, kráter na 266 jednotkách, tedy plochých **0,78 s**, velikosti 0,85–0,96.
+
+**Hrom NEUMÍSTĚNÝ, rachot UMÍSTĚNÝ**, a obojí je geometrie té scény: úder jde uvnitř buňky decku, který arénu obklopuje a podtéká, a než se zvuk po tom decku rozleze, žádný směr v něm nezbyl; kráter naopak *někde* je a říct kde je půlka toho, k čemu rachot slouží.
+
+**Hlasitost visí na řádku Ambience, ne Efekty** (`ProceduralAudio.WeatherGain`, píše ji tentýž `ApplyVolumes`): kdo si stáhl atmosféru, už řekl, co si o počasí myslí, a věšet hrom na efekty by ho stahovalo spolu s dělem. Autorsky **tiše** a hnaně, ne peak-normalizovaně: hrom 4,60 s / RMS **0,132**, erupce 5,00 s / RMS **0,144** — proti 0,30 výstřelu ohňostroje, protože tyhle hrají **pod** ambientním lůžkem.
+
+**⚠ Do lůžka se to zamíchat NESMÍ, a to je celý důvod, proč vznikla vlastní třída** místo pár řádků v `ProceduralAmbience`: lůžka jsou zapečetěné 16sekundové smyčky, takže událost zapečená do lůžka se opakuje v pevném intervalu — metronom, přesně to selhání, kvůli kterému je rozvrh hashovaný.
+
+**Sondy pryč:** bakey se dumpovaly do .wav a změřily (délka, peak, RMS, obálka po půlvteřinách), pak se sonda odstranila — postup výstřelu ohňostroje. Majiteli jsem oba .wav poslal, protože **ucho je jeho**; doladění `targetRms` je na jeho slovo a je to jednořádková změna na obou místech.
+
+**Ověřeno:** všechny čtyři solutions build 0 chyb / 0 upozornění; `docs/scenes.md` (bouře i sopka — obě místa nesla „zvuk není postavený" jako stav) a `docs/game-feedback.md` (sekce zvuku) přepsané v témž commitu.
+
+**⚠ Provozní nález, který nikdo nezapsal: hra nemá argument na okno.** `Program.cs` zná jen `fullscreen` (nastavuje na true) — opak neexistuje, takže když je v `Settings.json` uloženo `true`, není jak z příkazové řádky spustit hru v okně. Kvůli tomu jsem musel majitelův `%LOCALAPPDATA%\BS3D\Settings.json` zazálohovat, přepnout a vrátit byte za bytem (ověřeno SHA-256). Na stroji, který se pod zátěží tvrdě restartuje a kde majitel proto říká „radši nespouštěj fullscreen", je to skutečná díra v harnessu — `windowed` nebo `fullscreen=0` je pár řádků. **Issue jsem nezakládal**, je to na majiteli.
+
+**Beru si #346** (přepsat skladbu „mural"). Nic dalšího.

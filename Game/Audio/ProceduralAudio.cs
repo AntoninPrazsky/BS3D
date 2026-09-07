@@ -84,6 +84,20 @@ namespace BS3D.Audio
         private float Level => BASE_VOLUME * Gain;
 
         /// <summary>
+        /// What the <b>weather's</b> one-shots multiply by instead of <see cref="Level"/> — the thunder and
+        /// the eruption's boom (#219, #223). The host sets it to master × the <b>ambience</b> row.
+        /// <para>
+        /// <b>They are atmosphere, not feedback, and the row is the whole difference.</b> Every other sound in
+        /// this file answers something the player did — a shot, a landing, a release, a menu press — and rides
+        /// the effects row with it. Thunder answers nothing: it is the scene making a noise at itself, on a
+        /// clock the player cannot touch, exactly like the bed under it. A player who turns the atmosphere
+        /// down has said something about weather, and chaining these to the effects row would leave the sky
+        /// rumbling over a silenced gun.
+        /// </para>
+        /// </summary>
+        public float WeatherGain { get; set; } = 1f;
+
+        /// <summary>
         /// How much of their normal level the fireworks play at, 1 for full. Ducked while a fanfare is
         /// sounding, because the two arrive at the same moment and the reports are broadband and loud enough
         /// to bury a tune underneath them — a bang is an event and the fanfare is the point, so the bang gives
@@ -123,6 +137,11 @@ namespace BS3D.Audio
         private readonly SoundEffect _partyPopper;
         private readonly SoundEffect _uiClick;
         private readonly SoundEffect _starEarned;
+
+        //The weather's own two one-shots (#219, #223). They are not feedback — nothing the player did causes
+        //either — so they are billed to the ambience row and not to the effects one; see WeatherGain.
+        private readonly SoundEffect _thunder;
+        private readonly SoundEffect _eruption;
         private readonly Random _random = new();
 
         //The voices the five positional sounds are spoken through — one ring per buffer, every instance built
@@ -132,6 +151,10 @@ namespace BS3D.Audio
         private readonly VoiceRing _releaseRing;
         private readonly VoiceRing _launchRing;
         private readonly VoiceRing _burstRing;
+
+        //The eruption is PLACED (the crater is somewhere), so it needs a ring. The thunder is not — the deck
+        //is the whole sky in that scene — so it plays straight off its buffer, like the party popper.
+        private readonly VoiceRing _eruptionRing;
 
         //The ears and the mouth: one of each for the whole process, mutated in place and never re-newed. There
         //is exactly one camera in the game, so there is exactly one listener.
@@ -178,6 +201,10 @@ namespace BS3D.Audio
         //A longer burst bake or a shorter shell life eats into real sound, silently.
         private const int BURST_VOICES = 32;   //Fireworks.MAX_SHELLS
 
+        //A boom is 5.0 s and the volcano stages one burst per period (19 s by default), so two would do. Three
+        //is the margin for a config tuned faster in the editor's live panel, which is a thing that happens.
+        private const int ERUPTION_VOICES = 3;
+
         #endregion
 
         public ProceduralAudio()
@@ -214,6 +241,8 @@ namespace BS3D.Audio
             _partyPopper = BakePartyPopper();
             _uiClick = BakeUiClick();
             _starEarned = BakeStarEarned();
+            _thunder = BakeThunder();
+            _eruption = BakeEruption();
 
             //The voices, all of them, here — an XAudio2 source voice apiece and a few ms of load. The popper
             //and the UI need none: they never reach an emitter.
@@ -221,6 +250,7 @@ namespace BS3D.Audio
             _releaseRing = new VoiceRing(_release, RELEASE_VOICES);
             _launchRing = new VoiceRing(_fireworkLaunch, LAUNCH_VOICES);
             _burstRing = new VoiceRing(_fireworkBurst, BURST_VOICES);
+            _eruptionRing = new VoiceRing(_eruption, ERUPTION_VOICES);
         }
 
         /// <summary>
@@ -375,6 +405,55 @@ namespace BS3D.Audio
         public void PlayPartyPopper()
         {
             _partyPopper.Play(0.9f * Level * NON_SPATIAL_TRIM, NextPitch(0.08f), 0f);
+        }
+
+        /// <summary>
+        /// A strike's thunder, <paramref name="distance"/> world units away and <paramref name="size"/> (0…1)
+        /// as big as the flash that threw it (#219). Called by <c>SceneEventSounds</c> once the sound has had
+        /// time to travel; the delay is the caller's, because the delay is the whole of what says "far".
+        /// <para>
+        /// <b>Unplaced, and that is the scene's own geometry rather than a shortcut.</b> A strike goes off
+        /// inside a cloud cell somewhere out in a deck that surrounds and underlies the arena, and by the time
+        /// its sound has spread over that deck and back off it there is no direction left in it — which is
+        /// what real thunder is, and why one is felt rather than pointed at. Placing it would give the sky a
+        /// left and a right that swing as the player turns.
+        /// </para>
+        /// <para>
+        /// Distance is spent on the LEVEL and the PITCH rather than on a delay here: a far strike is quieter
+        /// and duller, because the air takes the top off it long before it takes the body. The near end is
+        /// still not a crack — <c>StormFlashCenter</c> holds every strike out past the clearing on purpose —
+        /// so one roll covers the whole range.
+        /// </para>
+        /// </summary>
+        public void PlayThunder(float distance, float size)
+        {
+            float near = MathHelper.Clamp(1f - distance / 700f, 0f, 1f);
+
+            float volume = (0.32f + 0.42f * size) * (0.45f + 0.55f * near);
+
+            _thunder.Play(MathHelper.Clamp(volume * WeatherGain * NON_SPATIAL_TRIM, 0f, 1f),
+                MathHelper.Clamp(-0.34f + 0.42f * near + NextPitch(0.06f), -1f, 1f), 0f);
+        }
+
+        /// <summary>
+        /// The volcano's boom, from the crater it came out of and <paramref name="size"/> (0…1) as hard as the
+        /// burst that threw it (#223, deferred there so it would land with #219's thunder and share this one
+        /// mechanism). Called once the sound has crossed the flank; the delay is the caller's.
+        /// <para>
+        /// <b>Placed, where the thunder is not</b>, and for the mirror-image reason: an eruption has a
+        /// <i>somewhere</i>. The cone stands off in one direction and stays there, so a boom that comes from
+        /// it tells the player where to look — which is most of what a scene event is for.
+        /// </para>
+        /// </summary>
+        public void PlayEruption(Vector3 world, float size)
+        {
+            //The firework burst's near-flat law, for its reason: the crater IS far away — a couple of hundred
+            //units, by the cone's own config — so a landing's falloff would make every burst a whisper.
+            float distance = DistanceTo(world);
+            float volume = (0.34f + 0.42f * size) * (0.55f + 0.45f * MathHelper.Clamp(1f - distance / 600f, 0f, 1f));
+
+            Speak(_eruptionRing, world, SKY_WIDEN, MathHelper.Clamp(volume * WeatherGain, 0f, 1f),
+                MathHelper.Clamp(NextPitch(0.07f) - size * 0.24f, -1f, 1f));
         }
 
         /// <summary>
@@ -1263,6 +1342,159 @@ namespace BS3D.Audio
             return ToSoundEffect(signal);
         }
 
+
+        /// <summary>
+        /// A roll of thunder: the storm's own voice (#219), and the first sound in this file that answers
+        /// nothing the player did.
+        /// <list type="bullet">
+        /// <item><b>No crack.</b> Every strike in this scene goes off past the clearing
+        /// (<c>SceneRenderer.StormFlashCenter</c> holds them out there on purpose, so a bolt is weather in the
+        /// distance and not a discharge in the play field), and a hundred-odd units of air has already taken
+        /// the leading edge off before it arrives. A crack here would put the strike in the arena.</item>
+        /// <item><b>The roll is the point, and a roll is a GATE.</b> Thunder is not a rumble of even loudness
+        /// — it surges, because the sound of a channel kilometres long arrives from its near end first and
+        /// from its far end last, off a landscape in between. A slow, coarse, irregular gate over a mid band
+        /// is what makes it surge; without it this is a hiss with a bass note under it, which is wind.</item>
+        /// <item><b>The body is felt rather than heard</b>, so a sub sweeps under the first second and outlasts
+        /// the attack — the same two-oscillator split the firework's report uses and for the same reason.</item>
+        /// </list>
+        /// A long wet reverb and a deep rolling echo over the lot: this is the widest open space in the game.
+        /// Authored QUIET (<see cref="Loudness"/> to 0.16 RMS against the firework's 0.30) — it plays under a
+        /// bed on the ambience row, and weather that competes with the gun is weather turned up too far.
+        /// </summary>
+        private SoundEffect BakeThunder()
+        {
+            const float duration = 4.6f;
+            int samples = (int)(SAMPLE_RATE * duration);
+            float[] signal = new float[samples];
+
+            //The pressure: noise with everything over ~130 Hz taken off it, swelling rather than banging. A
+            //quarter of a second of attack is what separates a distant strike from a near one - the ear reads
+            //the SHAPE of the leading edge as distance long before it reads the level.
+            float[] body = LowPassArray(MakeNoiseArray(samples, seed: 7717), 130f);
+
+            for (int i = 0; i < samples; i++)
+            {
+                float t = (float)i / SAMPLE_RATE;
+                float attack = MathF.Min(1f, t / 0.26f);
+
+                signal[i] += body[i] * 1.10f * attack * MathF.Exp(-t * 0.85f);
+            }
+
+            //The sub, sweeping down as it goes: the channel cooling and the column closing behind it. Under
+            //the attack and outlasting it, which is what makes the strike felt in the chest and not only heard.
+            float phase = 0f;
+
+            for (int i = 0; i < samples; i++)
+            {
+                float t = (float)i / SAMPLE_RATE;
+                float freq = 46f * MathF.Pow(26f / 46f, MathF.Min(t / 1.4f, 1f));
+
+                phase += 2f * MathF.PI * freq / SAMPLE_RATE;
+
+                signal[i] += MathF.Sin(phase) * 0.55f * MathF.Min(1f, t / 0.18f) * MathF.Exp(-t * 0.72f);
+            }
+
+            //THE ROLL. A mid band gated by a slow, coarse, irregular hold - each step a fifth of a second, so
+            //the surges are countable the way a real roll's are. The floor is well above zero: thunder does
+            //not stop between surges, it only sinks, and a gate that closes turns one roll into several
+            //strikes (the ceiling alarm's own lesson, from the other end).
+            float[] roll = BandPass(MakeNoiseArray(samples, seed: 3391), 120f, 900f);
+            const int holdSamples = 8800;   //~200 ms per gate step
+            float gate = 0.5f;
+
+            for (int i = 0; i < samples; i++)
+            {
+                if (i % holdSamples == 0) gate = 0.32f + 0.68f * Noise(i / holdSamples, 6420);
+
+                float t = (float)i / SAMPLE_RATE;
+
+                signal[i] += roll[i] * 0.62f * gate * MathF.Min(1f, t / 0.32f) * MathF.Exp(-t * 0.58f);
+            }
+
+            //Twelve taps and a long first delay: the report coming back off a whole landscape rather than off
+            //a wall. This is most of what makes it a roll rather than a burst - the firework's own nine taps
+            //at 23 ms fuse into the bang, and these deliberately do not fuse at all.
+            RollingEcho(signal, taps: 12, firstDelaySeconds: 0.085f, spread: 1.29f, feedback: 0.82f, mix: 0.55f);
+
+            ApplyReverb(signal, roomScale: 1.0f, wet: 0.58f, decay: 0.88f);
+
+            //Quiet, and driven rather than peak-normalised for the firework's reason: normalising a roll to
+            //its loudest surge leaves the rest of it inaudible under a bed.
+            Loudness(signal, targetRms: 0.16f, ceiling: 0.90f);
+            return ToSoundEffect(signal);
+        }
+
+        /// <summary>
+        /// The volcano going off: a deep roar out of the crater (#223, deferred at the time on the explicit
+        /// promise that it would land with #219's thunder and share one mechanism — this is that landing).
+        /// <para>
+        /// <b>It is a roar and not a bang</b>, and that is the whole difference from the firework's report.
+        /// A shell's report is over in a moment and its energy is in the attack; an eruption is a column of
+        /// gas leaving a hole in the ground for seconds on end, so the attack is slow, the body is long, and
+        /// what carries it is a sustained low band rather than a crack. The same three ingredients as the
+        /// thunder — pressure, sub, gated band — driven the other way round.
+        /// </para>
+        /// </summary>
+        private SoundEffect BakeEruption()
+        {
+            const float duration = 5.0f;
+            int samples = (int)(SAMPLE_RATE * duration);
+            float[] signal = new float[samples];
+
+            //The ground shock: lower than the thunder's and slower to leave. A volcano is heard through the
+            //rock as much as through the air.
+            float phase = 0f, subPhase = 0f;
+
+            for (int i = 0; i < samples; i++)
+            {
+                float t = (float)i / SAMPLE_RATE;
+                float freq = 38f * MathF.Pow(22f / 38f, MathF.Min(t / 2.0f, 1f));
+
+                phase += 2f * MathF.PI * freq / SAMPLE_RATE;
+                subPhase += 2f * MathF.PI * (freq * 0.5f) / SAMPLE_RATE;
+
+                float attack = MathF.Min(1f, t / 0.30f);
+
+                signal[i] += MathF.Sin(phase) * 0.70f * attack * MathF.Exp(-t * 0.62f);
+                signal[i] += MathF.Sin(subPhase) * 0.60f * attack * MathF.Exp(-t * 0.48f);
+            }
+
+            //The throat: a broad low band, gated slowly so the column surges rather than pours evenly. Half
+            //the thunder's gate rate, because a vent's surges are longer than a channel's.
+            float[] throat = BandPass(MakeNoiseArray(samples, seed: 5507), 60f, 620f);
+            const int holdSamples = 13200;   //~300 ms per gate step
+            float gate = 0.6f;
+
+            for (int i = 0; i < samples; i++)
+            {
+                if (i % holdSamples == 0) gate = 0.45f + 0.55f * Noise(i / holdSamples, 1177);
+
+                float t = (float)i / SAMPLE_RATE;
+
+                signal[i] += throat[i] * 0.75f * gate * MathF.Min(1f, t / 0.40f) * MathF.Exp(-t * 0.50f);
+            }
+
+            //The spatter: the fountain's own hiss, high and thin over the roar and decaying slowest of
+            //everything here, because the last thing an eruption does is rain.
+            float[] spatter = BandPass(MakeNoiseArray(samples, seed: 8123), 1500f, 5200f);
+
+            for (int i = 0; i < samples; i++)
+            {
+                float t = (float)i / SAMPLE_RATE;
+
+                signal[i] += spatter[i] * 0.16f * MathF.Min(1f, t / 0.55f) * MathF.Exp(-t * 0.44f);
+            }
+
+            //Off the flank: fewer taps than the thunder and a shorter first delay, because the cone is one
+            //big surface at a stated distance rather than a whole horizon.
+            RollingEcho(signal, taps: 8, firstDelaySeconds: 0.062f, spread: 1.33f, feedback: 0.74f, mix: 0.44f);
+
+            ApplyReverb(signal, roomScale: 1.0f, wet: 0.48f, decay: 0.80f);
+
+            Loudness(signal, targetRms: 0.17f, ceiling: 0.92f);
+            return ToSoundEffect(signal);
+        }
         /// <summary>
         /// The party popper that opens the celebration: a dry paper crack and the rustle of confetti after it.
         /// Deliberately close and dry where the shells are big and wet — it is the one sound in the celebration
@@ -1570,6 +1802,7 @@ namespace BS3D.Audio
             _releaseRing?.Dispose();
             _launchRing?.Dispose();
             _burstRing?.Dispose();
+            _eruptionRing?.Dispose();
 
             _shoot?.Dispose();
             if (_landed != null)
@@ -1581,6 +1814,8 @@ namespace BS3D.Audio
             _partyPopper?.Dispose();
             _uiClick?.Dispose();
             _starEarned?.Dispose();
+            _thunder?.Dispose();
+            _eruption?.Dispose();
         }
     }
 }

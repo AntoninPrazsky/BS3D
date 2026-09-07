@@ -149,6 +149,36 @@ namespace Prazsky.Core.Render
             Name = name;
         }
     }
+
+    /// <summary>
+    /// An event a scene stages on its own clock — a lightning strike, an eruption — as the <b>sound</b>
+    /// needs it (#219, #223). See <see cref="SceneRenderer.TryGetSceneEvent"/>, which is where it comes from
+    /// and where the reasoning is.
+    /// </summary>
+    public readonly struct SceneEvent
+    {
+        /// <summary>Which event it is: the period's own index. Two calls that answer the same index are
+        /// looking at one event, however far apart in the event they are.</summary>
+        public readonly int Index;
+
+        /// <summary>The wall-clock second at which the event's <b>light</b> began.</summary>
+        public readonly float OnsetTime;
+
+        /// <summary>Where it happened, world space.</summary>
+        public readonly Vector3 At;
+
+        /// <summary>How big it is, 0–1 — the very figure the light rides, so a loud one is a bright one.</summary>
+        public readonly float Size;
+
+        public SceneEvent(int index, float onsetTime, Vector3 at, float size)
+        {
+            Index = index;
+            OnsetTime = onsetTime;
+            At = at;
+            Size = size;
+        }
+    }
+
     /// <summary>
     /// The switchable outdoor backdrops shared by the game and the map editor, so a scene looks the same in
     /// both: the sea, the savanna (with its acacias and circling birds), the desert (Sahara dunes, with the
@@ -2261,12 +2291,8 @@ namespace Prazsky.Core.Render
         {
             StormFlashConfig flash = _stormConfig.Flash;
 
-            float period = MathF.Max(flash.Period, 0.5f);
+            float period = StormStrikeSchedule(time, out float index, out float start, out float length, out float size);
             float u = time / period;
-            float index = MathF.Floor(u);
-
-            float start = 0.08f + 0.62f * Hash01(index);
-            float length = Math.Clamp(MathF.Max(flash.Length, 0.05f) / period, 0.01f, 0.7f);
 
             float p = (u - index - start) / length;
             if (p <= 0f || p >= 1f) return 0f;
@@ -2282,7 +2308,25 @@ namespace Prazsky.Core.Render
                 envelope *= 0.55f + 0.45f * MathF.Abs(MathF.Cos(p * MathHelper.Pi * flicker));
 
             //Not every strike is the same size: a scene whose every event is identical stops having events.
-            return envelope * (0.5f + 0.5f * Hash01(index + 313f));
+            return envelope * size;
+        }
+
+        //The strike's SCHEDULE, in one place: which period it is, where in that period the light starts, how
+        //long it lasts and how big it is. StormFlash draws its envelope from this and TryGetSceneEvent hands
+        //the same four figures to the sound, so the flash and the thunder cannot disagree about which strike
+        //went off or when it started. Returns the period, which both callers need as well.
+        private float StormStrikeSchedule(float time, out float index, out float start, out float length, out float size)
+        {
+            StormFlashConfig flash = _stormConfig.Flash;
+
+            float period = MathF.Max(flash.Period, 0.5f);
+
+            index = MathF.Floor(time / period);
+            start = 0.08f + 0.62f * Hash01(index);
+            length = Math.Clamp(MathF.Max(flash.Length, 0.05f) / period, 0.01f, 0.7f);
+            size = 0.5f + 0.5f * Hash01(index + 313f);
+
+            return period;
         }
 
         /// <summary>
@@ -3234,14 +3278,8 @@ namespace Prazsky.Core.Render
         /// </summary>
         public float VolcanoEruption(float time)
         {
-            EruptionConfig eruption = _volcanoConfig.Eruption;
-
-            float period = MathF.Max(eruption.Period, 1f);
+            float period = VolcanoBurstSchedule(time, out float index, out float start, out float length, out float size);
             float u = time / period;
-            float index = MathF.Floor(u);
-
-            float start = 0.10f + 0.55f * Hash01(index);
-            float length = Math.Clamp(eruption.Length / period, 0.02f, 0.85f);
 
             float p = (u - index - start) / length;
             if (p <= 0f || p >= 1f) return 0f;
@@ -3249,7 +3287,78 @@ namespace Prazsky.Core.Render
             float envelope = p < 0.14f ? p / 0.14f : MathF.Pow(1f - (p - 0.14f) / 0.86f, 1.7f);
 
             //Not every burst is the same size: a scene whose every event is identical stops being an event.
-            return envelope * (0.55f + 0.45f * Hash01(index + 101f));
+            return envelope * size;
+        }
+
+        //The burst's SCHEDULE, in one place, for StormStrikeSchedule's reason exactly: the light and the boom
+        //have to be one event, and they are only one event while one function decides when it starts.
+        private float VolcanoBurstSchedule(float time, out float index, out float start, out float length, out float size)
+        {
+            EruptionConfig eruption = _volcanoConfig.Eruption;
+
+            float period = MathF.Max(eruption.Period, 1f);
+
+            index = MathF.Floor(time / period);
+            start = 0.10f + 0.55f * Hash01(index);
+            length = Math.Clamp(eruption.Length / period, 0.02f, 0.85f);
+            size = 0.55f + 0.45f * Hash01(index + 101f);
+
+            return period;
+        }
+
+        /// <summary>
+        /// The event this scene has staged on its own clock at <paramref name="time"/>, described as the
+        /// <b>sound</b> needs it rather than as the light does (#219's thunder, #223's eruption boom): which
+        /// event it is, when its LIGHT began, where it happened and how big it is. False for the fifteen
+        /// scenes that stage nothing.
+        /// <para>
+        /// <b>The caller tells one event from the next by <see cref="SceneEvent.Index"/> and never by
+        /// watching the envelope.</b> Both envelopes flicker within a single event on purpose — the strike
+        /// has return strokes and the eruption has its own shape — so an edge detector on the brightness
+        /// would fire several times for one strike and hear thunder as a stutter.
+        /// </para>
+        /// <para>
+        /// It reports the <b>onset of the light</b> and not of the sound, because the delay between the two
+        /// is what says how far away the event is, and that is the caller's arithmetic: distance over the
+        /// speed of sound. Both figures come out of the same schedule the light rides
+        /// (<c>StormStrikeSchedule</c>, <c>VolcanoBurstSchedule</c>), so a flash and its thunder cannot name
+        /// two different strikes.
+        /// </para>
+        /// </summary>
+        public bool TryGetSceneEvent(SceneKind kind, float time, out SceneEvent staged)
+        {
+            switch (kind)
+            {
+                case SceneKind.Storm:
+                {
+                    float period = StormStrikeSchedule(time, out float index, out float start, out float _, out float size);
+                    Vector2 at = StormFlashCenter(time);
+
+                    //Mid-deck: the cells' bases are rolled between these two, and a strike goes off inside a
+                    //cell. It is the DISTANCE this is wanted for, so the middle of the range is honest and
+                    //the exact height of one cell is not.
+                    StormCloudsConfig clouds = _stormConfig.Clouds;
+                    float deckY = (clouds.BaseYMin + clouds.BaseYMax) * 0.5f;
+
+                    staged = new SceneEvent((int)index, (index + start) * period, new Vector3(at.X, deckY, at.Y), size);
+                    return true;
+                }
+
+                case SceneKind.Volcano:
+                {
+                    float period = VolcanoBurstSchedule(time, out float index, out float start, out float _, out float size);
+
+                    //Slot 0 is the crater and does not move, so the time is not read for it - see
+                    //VolcanoLightPosition. The boom comes from the crater and not from the flows: a river
+                    //front is silent, and the plume is what is heard.
+                    staged = new SceneEvent((int)index, (index + start) * period, VolcanoLightPosition(0, time), size);
+                    return true;
+                }
+
+                default:
+                    staged = default;
+                    return false;
+            }
         }
 
         //A deterministic hash of a small integer, for the eruption schedule. A sine hash is fine here where it
