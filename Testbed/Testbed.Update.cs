@@ -96,6 +96,13 @@ namespace Testbed
                 #endregion
             }
 
+            //The command line's timeline (#373), OUTSIDE both gates on purpose: outside the simulation gate,
+            //so a script still runs against a paused world (F5 is one of the things it can press), and
+            //outside the IsActive gate below, because a run nobody is sitting at is the whole case it exists
+            //for. Off _pulseSeconds, the same wall clock the shot schedules use, so "at=" and "shot=" can be
+            //written against each other.
+            _script?.Update(_pulseSeconds);
+
             //Once a frame, after everything that can have moved the population and before the frame is drawn.
             //Costs nothing on the frames it is not dirty, and nothing at all while the overlay is hidden.
             RefreshBallCounts();

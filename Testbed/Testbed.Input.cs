@@ -88,11 +88,16 @@ namespace Testbed
             //exists. Walking closes on the cluster (a steeper shot up into its underside) or backs off for a
             //flatter one; the ends of the walk are rubber (Cannon.ADVANCE_EASE_ZONE), not stops. Neither
             //movement touches the aim: the mouse owns it (below) and holds it wherever the player leaves it.
-            if (keyboard.IsKeyDown(mgKeys.A)) _cannon.Orbit(1f);
-            if (keyboard.IsKeyDown(mgKeys.D)) _cannon.Orbit(-1f);
+            //ORed with the command line's timeline rather than replaced by it (#373): a script and a hand at
+            //the keyboard can drive the gun in the same run, and neither disables the other. The script's own
+            //state was set this frame in Update, before this call.
+            bool Held(mgKeys key) => keyboard.IsKeyDown(key) || (_script != null && _script.IsHeld(key));
 
-            if (keyboard.IsKeyDown(mgKeys.W)) _cannon.Advance(1f);
-            if (keyboard.IsKeyDown(mgKeys.S)) _cannon.Advance(-1f);
+            if (Held(mgKeys.A)) _cannon.Orbit(1f);
+            if (Held(mgKeys.D)) _cannon.Orbit(-1f);
+
+            if (Held(mgKeys.W)) _cannon.Advance(1f);
+            if (Held(mgKeys.S)) _cannon.Advance(-1f);
 
             _cannon.Update(gameTime);
 

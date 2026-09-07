@@ -41,6 +41,28 @@ Three defects the split fixed, each of them latent rather than visible:
 
 **Two placements are load-bearing.** The service call is the **last** statement of `Draw` — after `base.Draw`, after the `[fps]` line and after `CapFrameRate` — because the readback stalls the pipeline and `SaveAsPng` encodes on this thread (~0.1 s at 1600×900), and a frame carrying that must never be the frame a benchmark counts. And it runs off `_pulseSeconds`, the wall clock the clouds and the ball pulse use, not the simulation's step, so a scheduled shot lands at the same moment whether the simulation is running, slowed or frozen.
 
+## Driving a run without a keyboard (#373)
+
+**`at=<t>:<key>` presses one of the control table's actions at a wall-clock second, and `hold=<key>:<from>:<to>` holds one of the four movement keys down across an interval** — both inside the process (`Diagnostics/InputScript.cs`). Both arguments accumulate and both take comma-separated lists, so a timeline can be written a line at a time:
+
+```powershell
+Testbed.exe Maps\Full.json scene=meadow at=8:F10 at=9:F12 hold=A:10:14 shot=11,13 at=16:Escape
+```
+
+That run enters game mode, hides the overlay, orbits the gun for four seconds, photographs itself twice while it orbits, and **ends itself** — `Escape` is in the table like every other key, so a scripted run no longer has to be killed from outside.
+
+**The names are not invented here.** A tap is looked up in the Testbed's own `ButtonAction[]`, so `at=2:F10` runs exactly what pressing F10 runs, a key added to that table is scriptable the day it exists, and the spellings are the ones the overlay's help and `screenshot.ps1`'s `-Keys` already used. Anything that names no action is dropped **and printed**: the script announces its whole plan on one `[script]` line before the run does anything, then logs every tap and every hold edge, so a typo is visible instead of being a missing press nobody can see.
+
+**Why it is not a convenience.** Everything beyond the command line used to be pressed in from outside, and that path fails as a *finding* rather than as a failure: keys must go by scan code (SDL reads the scan code, so a wrong one silently presses a different key), a background `SetForegroundWindow` often fails so the script has to click the title bar, the numpad keys never arrive at all (they need NumLock), a key can be left physically down for the whole desktop if the script throws between the down and the up, and on a locked desktop nothing arrives whatever — so a held-key capture photographs a gun that simply did not move. Verified end to end here: the run above was driven **with its window minimized**, and both shots came back with the world in them and the camera visibly orbited between them.
+
+- **Two holds over one interval are exactly simultaneous** — `hold=W:2:4 hold=A:2:4` is read per frame off one clock, where the external route could only send both downs before a sleep and hope. That matters for the diagonal walk, which is what makes an omnidirectional wheel decompose its motion into roll and slide.
+- **Holds are ORed with the real keyboard**, not substituted for it, so a hand at the machine and a script can drive the same run.
+- **Only `W`/`A`/`S`/`D` can be held**, because they are the only input this program reads as held (the orbit and the advance walk, game mode only). A hold of anything else is refused at the parse rather than becoming a silent no-op.
+- **The tick is outside both gates** — outside the simulation gate, so a script still runs against a world paused by its own `F5`; and outside `IsActive`, because a run nobody is sitting at is the whole case. It runs off `_pulseSeconds`, the wall clock the shot schedules use, so `at=` and `shot=` are written against each other.
+- **An unattended run (`at=`, `hold=`, `shot=`, `shotframe=`) sets `InactiveSleepTime` to zero**, so losing focus does not drop it to the ~50 FPS MonoGame idles a background window at — the frame indices `shotframe=` fires on and the ramp a `hold=` is measuring both come out of the frame rate.
+- **A tap goes straight to the table's delegate**, not through a synthetic key: the edge path deliberately skips a frame after focus returns, and a script must not be subject to a rule that exists for a human's mouse click.
+- ⚠ **`at=<t>:F2` opens the modal load dialog and the run stops there.** F3 in the map editor and F2 here are Win32 dialogs, not game state; nothing in the timeline can dismiss one.
+
 ## The gun's hardware, in one copy
 
 The Testbed built the gun and the Game rebuilt it, and #76 ended that the way #75 ended two copies of the setting (see "The setting, in one copy" in `docs/scenes.md`). Five pieces stood in both executables with every dial value-identical — the camera fit for about 120 lines of it line for line — and are one copy each in `Prazsky.BS3D` now, so everything the rest of this document says about the barrel, the magazine, the game camera and precise aim is also what the Game does, and the differences are named here rather than left to be discovered:

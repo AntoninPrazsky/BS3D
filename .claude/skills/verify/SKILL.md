@@ -57,8 +57,23 @@ Launch headless-ish (it still opens a window, 1280x800) with stdout captured:
 Start-Process Testbed\bin\net10.0-windows\Testbed.exe -ArgumentList '"<map.json>"','autoshoot' -RedirectStandardOutput out.log -PassThru
 ```
 
-Don't try SendKeys into the SDL window — it's unreliable. Drive tests via CLI args instead.
-When a real keypress is unavoidable, `user32.dll keybd_event` (virtual key + scan code + extended flag)
+**Drive the keys from the command line, not from the desktop (#373).** `at=<t>:<key>` presses one of the
+Testbed's own actions at a wall-clock second and `hold=<key>:<from>:<to>` holds `W`/`A`/`S`/`D` down across an
+interval; both accumulate, both take comma-separated lists, and the key names are the ones in the overlay's
+help. `at=<t>:Escape` ends the run, so a scripted run need not be killed from outside:
+
+```powershell
+Testbed.exe Maps\Full.json scene=meadow at=8:F10 at=9:F12 hold=A:10:14 shot=11,13 at=16:Escape
+```
+
+The script announces its plan on a `[script]` line and logs every tap and hold edge, so a typo shows up as
+"dropped, no such action" instead of a press nobody can see missing. **Verified with the window minimized** —
+no focus, no scan codes, no unlocked desktop. Only `W`/`A`/`S`/`D` can be held (they are the only held input
+this program reads, and game mode only), and `at=…:F2` opens the modal load dialog, which nothing in the
+timeline can dismiss.
+
+Don't try SendKeys into the SDL window — it's unreliable. For anything the timeline cannot reach (the mouse,
+mostly), `user32.dll keybd_event` (virtual key + scan code + extended flag)
 after `SetForegroundWindow` does reach the SDL window — e.g. End = `keybd_event(0x23, 0x4F, 1, 0)` then flags `3` for key-up.
 `SetForegroundWindow` alone often silently fails when called from a background process, and both games skip
 their whole `Update` while `!IsActive`, so the keys are dropped without a trace. Click the title bar first —

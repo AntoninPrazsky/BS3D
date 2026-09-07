@@ -225,6 +225,13 @@ namespace Testbed
         //with a different one - what it saves is the back buffer, never a rectangle of the screen.
         private ScreenshotWriter _shots;
 
+        //The command line's own timeline (#373), null unless "at=" or "hold=" was given. It presses the
+        //control table's actions from inside the process, which is the half of an unattended run that
+        //"shot=" could not cover: a key sent from outside needs focus, an unlocked desktop and the right
+        //scan code, and when it does not arrive the capture looks like a broken feature rather than a
+        //failed run.
+        private InputScript _script;
+
         #region Clouds
 
         /// <summary>
@@ -608,6 +615,16 @@ namespace Testbed
                 new(mgKeys.R, () => { _cih.RestartCamera(); _cannon.Restart(); }, "Restart camera"),
                 new(mgKeys.Space, () => ShootBall(), "Shoot ball")
             };
+
+            //The timeline, over the table just built (#373): a tap names a key in it, so a key added above is
+            //scriptable the day it exists and the two lists cannot drift. Null unless the command line asked.
+            _script = InputScript.Build(_options.ScriptTaps, _options.ScriptHolds, _actions);
+
+            //A run driven by a script or a shot schedule has nobody at the keyboard, so it must not be slowed
+            //to the ~50 FPS an unfocused MonoGame window idles at: the frame indices "shotframe=" fires on and
+            //the walk a "hold=" is measuring both come out of the frame rate. The window keeps its own pace
+            //for a person; only an unattended run opts out.
+            if (_options.Unattended) InactiveSleepTime = TimeSpan.Zero;
 
             string format = "{0,-9} {1}\n";
 
