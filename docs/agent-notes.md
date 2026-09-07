@@ -968,3 +968,36 @@ Bridge byl zároveň nejmírnější stížnost („simple", ne „primitive"), 
 **⚠ Poctivě k tomu, co se NEZMĚNILO: sag proba pořád oba levely „dohraje" v šesti ranách** (Diabolo 5 → 6, Shuttle 7 → 6 z 34). To je ta samá věc z jiné strany: když je level postavený z několika velkých desek, pár dobře mířených ran ho sundá kaskádou bez ohledu na rozpočet. **Jestli je má majitel chtít opravdu těžké, je to přestavba skupinové struktury** (Amphora má 14 skupin po 36 koulích) a to už je zásah do tvaru levelů, které si pochválil — tuhle hranici jsem záměrně nepřekročil a hlásím ji místo abych předstíral, že rozpočet vyřešil všechno.
 
 **Ověřeno:** `LevelGen` exit 0 (mění se `Diabolo.json`, `Shuttle.json` a sada kvůli počtu ran), `ScoreSim` „All levels rate the right way round" — hvězdy obou beze změny (4/4/4/3, 2), jen skóre kompetentní hry kleslo (7,13 → 7,04 a 7,17 → 6,75), což je přesně to zamýšlené utažení; **sag 0 z 5 u obou** (beze změny), čtyři solutiony 0 chyb, fotky z běžící hry — Diabolo drží přesýpací siluetu a Shuttle pořád čte jako badmintonový míček s červeným korkem.
+
+---
+
+## 2026-09-05 — Claude Code (osmý zápis dne)
+
+**#368 + #369 jsou jedna práce a je to ta, na kterou obě issue samy ukazují: PĚT NOVÝCH LEVELŮ SOPKY, které přivádějí bombu a zap do kampaně.** Eruption měl pět levelů proti deseti všude jinde (#369) a bomba se zapem byly postavené, odargumentované a **v žádném shipnutém levelu** (#368). Volcano je jediné místo, kde bomba nemusí nic vysvětlovat — blok už má level jménem Volley o balistických bombách. Kampaň má **110 levelů v jedenácti blocích po deseti**.
+
+**Pořadí učení je celý návrh a je to Anvilův precedent (#324):** každá mechanika dostane nejdřív level, kde je **nepřehlédnutelná a laciná**, teprve pak level, kde je nástroj.
+
+| # | level | co dělá | speciály | sag |
+|---|---|---|---|---|
+| 6 | **Vent** | bomba, učená — kužel s ústím dolů, nálože v ústí, kam se dívá dělo první | 8 bomb | 1 z 5 |
+| 7 | **Sill** | bomba, použitá — studená deska, kterou nejde rychle vybarvit, otevřená čtyřmi štěrbinami | 5 bomb | 0 z 5 |
+| 8 | **Fume** | zap, učený — pět trubic, každá jiná dvojice horkých inkoustů, každá končí jedním zapem | 5 zapů | 0 z 5 |
+| 9 | **Caldera** | zap, použitý — prstenec na lavici, barvy dithered tak, že jedna nikde netvoří skupinu | 6 zapů | 2 z 5 |
+| 10 | **Paroxysm** | obojí a POŘADÍ mezi nimi | 6 bomb + 8 zapů | 0 z 5 |
+
+**⚠ Finále tvrdilo o vlastní geometrii něco, co nebyla pravda, a chytila to sonda, ne úvaha.** Doc říkal „šev u paty, kde jedna rána nabije jednu od každého" — jenže boky sloupce jsou od sebe **4,6 buňky**, takže žádný dopad nemohl být u obou. Přidal jsem skutečný šev (na nejnižším kurzu leží bomba a zap **vedle sebe napříč hloubkou**) a **zeptal se mřížky**: odhozená sonda hledá prázdné buňky sousedící s bombou I zapem — **Paroxysm jich má pět**, ostatní čtyři levely nula (jak mají). Tvrzení je teď změřené, ne napsané.
+
+**⚠ Tři věci vrátily brány nebo fotka a každá zabila jinak rozumný návrh:**
+1. **Caldera 5 z 5 „SAGGED WITH THE GLASS AT REST" = vada layoutu.** Podlaha byla plný disk visící za vlastní okraj — trampolína. Rezurgentní dóm uprostřed (což skutečná kaldera má) ji dostal na 4; **teprve zúžení podlahy na lavici mezi dómem a stěnou na 2**. Sto koulí nepodepřeného středu byl ten problém.
+2. **Sill byl neviditelný.** Nálož v šachtě uvnitř desky sedí uprostřed hloubky a hra se hraje z podhledu, takže před ní byla deska: level četl jako holý blok bez cesty dovnitř. Štěrbina teď **prochází deskou skrz** a v její hlavě stojí **jen ta nálož** — jedna koule ve světle vlastního náboje. Fotka to potvrzuje: čtyři štěrbiny, v každé rudě pruhovaná nálož.
+3. **Štěrbiny nesmí nechat proužek užší než buňka.** Při rozteči 2,5 a šířce 2,2 zbyly mezi nimi třetiny buňky → **22 koulí viselo ve vzduchu** (proužek má sloupec na jedné paritě a na druhé žádný, takže spodek nemá nad sebou co ho unese). Rozteč 2,3, štěrbina 1,2, nejužší proužek 1,1.
+
+**⚠ A dvakrát jsem umístil speciál do CELÉHO průřezu místo do jedné buňky:** Sill vyšel na 30 bomb a Fume na 26 zapů, protože predikát se ptal „je buňka v šachtě", ne „je to hlava šachty". U Fume to navíc vyžadovalo **srovnat paritu**: střed trubice musí být na půlce na sudém kurzu a na celé na lichém, jinak na něm neleží žádná buňka a čtyři jsou od něj půl buňky daleko.
+
+**První věc po vygenerování byla ScoreSim, protože přesně o to #368 žádalo** (lekce #173: hvězdy byly na všech levelech pozpátku a žádné jednotlivé číslo to neukázalo). **„All levels rate the right way round"** a všech pět nových sedí na 4/4/4/3 a 2 hvězdách jako zbytek balíku. Je fér říct, co to NEDOKAZUJE: cesta destrukce se do skóre promítá přes obyčejné uvolnění skupiny, takže ScoreSim ji vidí, ale žádný z těch pěti levelů nepotřebuje bombu k dohrání — kdyby někdy měl, je to první číslo k přeměření.
+
+**Blokové zákony jsem nerozvolnil:** studená hmota dithered na třech incích, horký člen banded na dvou, každý level se stal v nějakém směru (kužel se trhá jedním, štěrbiny pochodují po větru, trubice visí ve vějíři, kaldera je proražená na jedné azimutu, sloup se naklání) a každý speciál má prázdného souseda **konstrukcí** — na nejnižším kurzu, v hlavě štěrbiny nebo na patě trubice. Žádný není na kotevním kurzu.
+
+**Ověřeno:** `LevelGen` exit 0 (všechny brány včetně `FindStrandedSpecials` — a ta odmítla první verzi Paroxysmu se dvěma zazděnými speciály, což je přesně to, k čemu je), `ScoreSim` zelený, sag proba na všech pěti (1/0/0/2/0, práh hlášení je 4), čtyři solutiony 0 chyb, fotky všech pěti z běžící hry. **Pět nových souborů levelů jsem zastagoval hned, jak vznikly** — pravidlo tohohle repa o netrackovaných datech.
+
+**Co zůstává otevřené:** #256 pořád čeká na zbylých šest speciálů (Acid, Frozen, Wildcard, Infectious, Gravity, Heavy) a tenhle blok ukazuje, kam by šly — ale to je práce na příště, ne přílepek k téhle.
