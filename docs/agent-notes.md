@@ -1160,3 +1160,31 @@ Starou podobu jsem nechal číst schválně: v ní jsou zapsané **všechny swee
 **⚠ Jednu vadu našel až běh, ne překlad:** první varianta se seedovala uvnitř `BuildCity`, kde ji #151 mít mohlo (byly to dvě přiřazení na ostrově). Obecný pin ale sahá na pipeline, scene renderer i ball set a `BuildCity` běží dřív, než dva z těch tří existují — první `alt=ssaa=1;ssaa=2` proto spadl `NullReferenceException` z `LoadContent`. Seeduje se teď **na konci `LoadContent`**, nad hotovým startovním stavem. To je i sémanticky správně: varianta se aplikuje přes to, co ostatní argumenty postavily.
 
 **Ověřeno:** čtyři solutiony 0 chyb, LevelGen 0, ScoreSim 0; aréní podoba střídá `arena All`/`None` jako dřív; běh s `nooverc=1,bogus=3` vypsal obě odmítnutí; `benchmark.ps1` nový řádek parsuje (dojel a vypsal `MsPerFrame 6,67`). Sweepy jsem držel pod `fpscap` a v okně — majitel dal dnes svolení riskovat zátěž, ale desktop se pod ní historicky tvrdě resetuje (#250).
+
+---
+
+## 2026-09-07 — Claude Code (pátý zápis dne)
+
+**#375 a #376, obojí drobné, obojí na vlastní větvi. Tím je série #371–#376 celá zavřená a Testbed je hotový přístroj: běh bez člověka u klávesnice, který sám řekne, jaký je to build, sám se odřídí, sám se vyfotí, sám změří varianty a sám skončí.**
+
+### #375 — kamera se dá přečíst, ne jen zadat
+
+**`C`** (nebo `at=<t>:C` ze skriptu, což je hned první užitečné použití timeline z #373) vypíše živou kameru v pravopisu, který bere příkazová řádka:
+
+```
+[campin] campos=0.00,-4.00,30.00 camtarget=0.00,-8.00,0.00 fov=72
+```
+
+**Nejcennější je, že čte ŽIVOU kameru, takže odpoví i v hracím režimu** — tedy pózu, kterou žádný argument neumí vyrobit, protože ji `GameCameraFit` počítá z mapy. `[camera]` tiskne figury toho fitu (odstup, výška záměru, orbit); tohle tiskne to, co jde vložit zpátky. **Ověřeno oběma směry:** ve free módu vypíše přesně to, co se předalo; po `F10` vypsalo `campos=0.00,-7.40,36.20 camtarget=0.00,1.65,0.00`, což sedí na `[camera] … camera 36,2 out, aim Y 1,6`; a běh spuštěný s těmi čísly je vypsal beze změny.
+
+`fov=` je na řádku jen ve free módu — jen tam ten argument dosáhne. Hrací režim má vlastní `GAME_FOV` a tisknout ho by nabízelo pin, který nedrží.
+
+### #376 — nápověda kláves, která nemůže zestárnout
+
+Hint u NumPad2 zněl `Switch scene (city/sea/savanna/desert/mountain/meadow/neon)` a **jmenoval sedm scén ze sedmnácti** ode dne, kdy přibyla osmá. Je to #320 v druhém exáči a platí jeho pravidlo: **jmenovat osu, ne členy**. Hinty se teď staví (`Cycle sky dome (1-20)`, `Cycle scene (7 of 17; scene= reaches the rest)`) z `SKY_DOME_COUNT` a `Enum.GetValues<SceneKind>().Length`, takže se hýbou samy.
+
+**Druhá půlka pravidla je živá hodnota** — overlay má nově řádek `Scene: Space   Dome: 1   Balls: beach` nad počty koulí, čtený z běžícího stavu, takže není druhou kopií ničeho. Kvůli tomu musel dirty flag overlaye přestat být jen o koulích: `_ballCountsDirty`/`InvalidateBallCounts`/`RefreshBallCounts` → `_overlayDirty`/`InvalidateOverlay`/`RefreshOverlayText`, a značí ho i změna scény, dómu a materiálu.
+
+**⚠ Drobnost při ověřování, která se čte jako nález a není jím:** první snímek overlaye jsem vzal nad neonovým městem a řádek `L Cycle ball material` na něm **nemá vidět klávesu** — písmeno zaniklo v jasné fasádě za ním. Přefotil jsem to nad vesmírem (tmavé pozadí) a je tam. Overlay se prostě nedá číst nad každou scénou; kdo fotí nápovědu, ať volí tmavou.
+
+**Ověřeno:** čtyři solutiony 0 chyb, ScoreSim 0, obojí nafoceno vlastním writerem Testbedu přes `shot=` a odřízeno `at=…:Escape` — tedy celý řetěz #371–#375 použitý na ověření #376.
