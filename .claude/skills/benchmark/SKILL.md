@@ -112,6 +112,15 @@ Each of these has actually happened; the first two are the expensive ones.
    And on a laptop, **look at what else is running before believing anything** — a stray `find` had been
    pinning a core for three and a half hours here, and killing it moved a fixed pin from 26.7 to 24.5 ms.
 
+15. **Measuring a build that is not the one you changed.** A shader edit can fail to reach the output
+   directory in silence (MGCB skips an `.fx` whose `.xnb` is newer and then copies nothing), and a C# change
+   can land in a configuration nobody launches — so a sweep "measures" the previous build and the numbers look
+   perfectly ordinary. Since #372 every run opens with two `[build]` lines: the managed assembly's write time
+   and hash, then `shaders <n> set <hash>, newest <name> <time>`. **Capture them with every series and quote
+   the `set` hash beside a figure that will be written down** — two halves of an A/B with the same `set` were
+   running the same shaders, whatever their timestamps say, and after a shader rebuild that landed, `newest`
+   is the file you edited.
+
 Also: keep both halves of an A/B in the **same build configuration**, and remember that lifting the cap is
 what makes the number a frame cost rather than the display's refresh. The script always passes `nocap`;
 **prefer `fpscap=N` on the desktop**, which does the same job for a measurement without leaving the card flat
