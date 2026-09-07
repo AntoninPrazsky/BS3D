@@ -1075,3 +1075,30 @@ Bridge byl zároveň nejmírnější stížnost („simple", ne „primitive"), 
 **Ověřeno za běhu, všechny tři spouště:** jeden běh (1280×720, louka, dóm 13, `nopost`, pevná kamera) dal snímek z `shotframe=60` i z `shot=5`; **F8** přes zaostřené okno dal třetí; a Game s `shot=12` píše dál svoje. Čtyři solutiony 0 chyb, LevelGen 0, ScoreSim 0, `Game/Levels` beze změny. Dokumentace srovnaná v témž commitu: `docs/testbed.md` (nová sekce), `docs/game-session.md`, `CLAUDE.md`, a hlavně **oba skilly** — `screenshot` tvrdil *„The Testbed has no such writer"* a radil přilepit `GetBackBufferData` do `Draw` a **necommitnout to**, což byla ta věta, kvůli které se ta záplata psala a zahazovala opakovaně; `verify` popisoval `CopyFromScreen` jako jedinou cestu.
 
 **⚠ Drobná past ze skriptování (stála jeden běh):** `Add-Type -MemberDefinition … -PassThru` vrací **pole** typů, když deklarace obsahuje i `struct` — `$u::GetWindowRect(…)` pak padá na *„[System.Object[]] does not contain a method"*. Vyfiltrovat `Where-Object { $_.Name -eq 'U' }`.
+
+---
+
+## 2026-09-07 — Claude Code (druhý zápis dne)
+
+**#372: každý běh teď na začátku řekne, jaký je to build — dva řádky `[build]` z `Prazsky.Core.Tools.BuildStamp`, ve všech třech exáčích včetně editoru.**
+
+```
+[build] Testbed.dll 2026-09-07 21:37:16 50145c15
+[build] shaders 28 set 54512ed6, newest Glare 2026-09-07 21:38:53, oldest Sky 2026-09-02 16:17:17
+```
+
+**Proč to vzniklo, je v repu draze zaplacené:** tři kola „měření" běžela na Testbedu **bez editovaného shaderu** a vyrobila závěr, změnu podle něj a retrakci zapsanou do pěti souborů a commitnutou (`e71fdff`). Jedna z těch dvou příčin je trvalá — **MGCB přeskočí `.fx`, jehož `.xnb` je novější, a pak nezkopíruje nic**, přičemž `dotnet build` vypíše `Skipping …` a hlásí úspěch; smazat `bin` nestačí, teprve `Content\bin` vynutí překlad i kopii.
+
+**Co je na tom nejdůležitější a co jsem měřil, ne odhadl: `set` je autorita na obsah, časy nejsou.** Změnil jsem jednu konstantu v `Glare.fx`, přestavěl a hash se hnul **54512ed6 → 8b72d45a** (`newest Glare`, pár vteřin staré); vrátil jsem konstantu, přestavěl a **vrátil se 54512ed6** — z čerstvě zapsaného `.xnb` s novým časem. Takže dva běhy se stejným `set` jedou na stejných shaderech, ať hodiny říkají cokoli. To je přesně to čtení, kvůli kterému má smysl hash psát vedle každého čísla, které se zapisuje do `docs/`.
+
+**Tři věci, které jsem u toho zvolil vědomě:**
+
+1. **První řádek jmenuje `.dll`, ne `.exe`.** `.exe` je apphost, kód je v managed assembly vedle něj — a otázka zní „dorazila moje C# změna do toho, co běží". Není to ani timestamp z PE hlavičky: deterministické buildy (default SDK) tam mají hash, ne datum.
+2. **Nic to nesoudí.** Shader starší než exe je úplně normální (`.xnb` se mění jen když se změní zdroj), takže tu není žádný verdikt, který by mohl být špatně — řádky vezou důkaz do téhož logu jako snímek a čtení nechávají na čtenáři. Všechny výjimky uvnitř se polykají: běh nesmí spadnout kvůli diagnostice.
+3. **Jeden hash přes celou sadu, ne 28 řádků s hashi.** Otázka bývá o jednom souboru a ten pojmenuje `newest`; 28 řádků v každém logu je šum.
+
+**Počty se mezi exáči liší a je to obsahovými projekty, ne vadou:** Game 32 shaderů, Testbed 28, MapEditor 26 (ten nemá `Sky.fx` vůbec, viz CLAUDE.md).
+
+**Zrušilo to kus rituálu ve dvou skillech**, a to je vlastní přínos vedle kódu: `screenshot` měl celou sekci *„Prove the exe is running the change before you believe a single pixel"* s ručním `Get-Item` porovnáním časů, `verify` neměl nic a `benchmark` dostal past č. 15 (měřit build, který nemáš — s pokynem citovat `set` vedle zapsaného čísla). Popis v plném znění je v `docs/formats-and-tools.md`.
+
+**Ověřeno:** čtyři solutiony 0 chyb, LevelGen 0, ScoreSim 0, všechny tři exáče ty řádky opravdu tisknou (spuštěné a odečtené, ne odvozené z kódu). Levely nedotčené.
