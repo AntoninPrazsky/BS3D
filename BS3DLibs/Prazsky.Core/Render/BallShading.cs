@@ -215,6 +215,26 @@ namespace Prazsky.Core.Render
         /// distance is the SIZE of the lit figure, not the amount of light in it.
         /// </para>
         /// </summary>
-        Zap = 13
+        Zap = 13,
+
+        /// <summary>
+        /// A live acid (#328): a dark, wet green shell with liquid running <b>down</b> it into a pool at its
+        /// underside. Drawn by <c>InstancedModelAcid</c>.
+        /// <para>
+        /// The fifth shading that belongs to a <c>BallKind</c> rather than to a <c>BallStyle</c>, and the fifth
+        /// with <b>no type colour</b>, on <see cref="Bomb"/>'s argument exactly. Its separation from the other
+        /// two dark specials is a hue before it is anything else: the bomb is a warm dark, the zap a cold one,
+        /// this an acrid green one, before any of them lights up at all.
+        /// </para>
+        /// <para>
+        /// <b>⚠ It is the first ball figure in this game drawn in WORLD space rather than object space</b>, and
+        /// that is what the kind needs rather than a preference: an acid is the only special with an <i>axis</i>
+        /// — it eats downward — so the look has to say "downward" before the ball is fired at, and a figure that
+        /// turned with the body would say nothing at all. On a sphere the world normal is the outward radial
+        /// direction, so the technique reads gravity off it directly and the drips hang the right way whatever
+        /// the body is doing, in the lattice and again on its way down the drain.
+        /// </para>
+        /// </summary>
+        Acid = 14
     }
 }

@@ -515,6 +515,83 @@ namespace Prazsky.BS3D.Physics
         /// the one that reads.
         /// </para>
         /// </summary>
+        /// <summary>
+        /// How hard an acid's shaft drops what it eats, in units a second (#328) — a push straight <b>down</b>
+        /// rather than away from a centre, which is the whole difference between this and a blast. A shaft's
+        /// contents are not thrown apart; they fall out of the hole, and the column reads as a column doing it.
+        /// Gentle, on <see cref="ZAP_SPEED"/>'s reasoning: what the balls mostly do is let go.
+        /// </summary>
+        private const float ACID_SPEED = 1.4f;
+
+        /// <summary>
+        /// Eats <b>downward</b> from every acid the landing triggered (#328), drilling a shaft through the
+        /// cluster until it reaches a gap — the bomb's destruction path with its victims chosen by a walk down
+        /// the packing instead of by a radius.
+        /// <para>
+        /// <b>Which cells the shaft takes is <see cref="BallsMap.CollectAcidShaft"/>'s</b> and deliberately not
+        /// this file's: what is underneath a cell is a question about the lattice, and it is asked of the map
+        /// beside its other walks over the grid — the same split the glass keeps, where
+        /// <see cref="BallsMap.ColourTransparentGroup"/> chooses and the landing applies. It also means the rule
+        /// can be exercised without a simulation, which is what its own remarks carry the measurements from.
+        /// What is left here is the half this file owns and the bomb already proved: remove them, drop them,
+        /// run the disconnection pass over what is left.
+        /// </para>
+        /// <para>
+        /// <b>An acid inside another acid's shaft is destroyed rather than chained</b>, which is the one place
+        /// this deviates from <see cref="DetonateBombs"/>, and it costs nothing: a chained bomb matters because
+        /// its blast reaches cells the first one did not, while a second acid standing in the shaft has the
+        /// <i>same</i> column beneath it and would stop at the same gap. Chaining would only re-centre the hole
+        /// half a cell mid-drill, moving a shaft the player watched start.
+        /// </para>
+        /// </summary>
+        /// <param name="triggered">Cells the landing armed, collected before the release ran — re-checked here,
+        /// because one the release orphaned has already fallen and must not eat anything on its way down.</param>
+        /// <returns>No matches (a shaft completes no group), the balls it destroyed — the acids themselves
+        /// included — and everything the disconnection pass then found hanging on nothing, which on a hanging
+        /// picture is usually the larger half.</returns>
+        public static BallsReleased DissolveAcids(
+            IReadOnlyList<XZLevel> triggered,
+            PhysicsBall[,,] physicsBalls,
+            BallsMap map,
+            Simulation simulation,
+            List<PhysicsBall> releasedInto)
+        {
+            if (triggered == null || triggered.Count == 0) return default;
+
+            XZLevel size = map.GetStaticBallsArraySize();
+            StaticBall[,,] cells = map.GetStaticBallsArray();
+            List<ConstraintHandle> handleBuffer = new();
+            List<XZLevel> shaft = new();
+
+            int destroyed = 0;
+
+            foreach (XZLevel acid in triggered)
+            {
+                if (cells[acid.X, acid.Z, acid.Level] == null
+                    || cells[acid.X, acid.Z, acid.Level].Kind != BallKind.Acid) continue;
+
+                map.CollectAcidShaft(acid, shaft);
+
+                foreach (XZLevel cell in shaft)
+                {
+                    PhysicsBall ball = physicsBalls[cell.X, cell.Z, cell.Level];
+
+                    ReleaseBall(cell, physicsBalls, map, simulation, size, handleBuffer, releasedInto);
+                    destroyed++;
+
+                    if (ball != null) ball.BallReference.Velocity.Linear += new Vector3(0f, -ACID_SPEED, 0f);
+                }
+            }
+
+            //And the half every removal in this game shares: what was only held up by what just went takes the
+            //same path down. On a shaft this is usually the larger number of the two.
+            List<XZLevel> disconnected = map.GetCellsDisconnectedFromCeiling();
+            foreach (XZLevel cell in disconnected)
+                ReleaseBall(cell, physicsBalls, map, simulation, size, handleBuffer, releasedInto);
+
+            return new BallsReleased(0, disconnected.Count, destroyed);
+        }
+
         private static void Throw(PhysicsBall ball, Vector3 centre)
         {
             Vector3 delta = ball.BallReference.Pose.Position - centre;

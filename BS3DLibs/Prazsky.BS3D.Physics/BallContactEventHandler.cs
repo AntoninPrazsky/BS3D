@@ -152,6 +152,10 @@ namespace Prazsky.BS3D.Physics
         /// </summary>
         private readonly List<XZLevel> _triggeredZaps = new(12);
 
+        //And the acids (#328), off the same walk and on the same trigger. A cell touches at most twelve, so a
+        //landing can arm no more than that many of anything.
+        private readonly List<XZLevel> _triggeredAcids = new(12);
+
         private readonly ConcurrentQueue<QueuedContact> _queuedContacts = new();
 
         private readonly struct QueuedContact
@@ -488,6 +492,17 @@ namespace Prazsky.BS3D.Physics
                 released = released.Plus(BallsConstraintsBuilder.ZapColour(
                     _triggeredZaps, physicsBall.Type, _physicsBalls, _map, _simulation, _fallingBalls));
 
+            //Then the acid (#328), still ahead of the blast and on the zap's argument exactly: a blast that ate
+            //the acid ball first would silently swallow one of the effects the player armed with one landing,
+            //and a blast reaches two cells in every direction while a shaft only ever meets a bomb standing
+            //DIRECTLY beneath its acid — so this order swallows less, by a wide margin, than the other one.
+            //⚠ What it costs is stated rather than hidden: an armed bomb caught in a shaft is dissolved instead
+            //of going off. DetonateBombs re-checks each of its cells and skips the ones that have left, so that
+            //is safe rather than merely survivable, and it is the acid's own flavour — it eats what is under it.
+            if (_triggeredAcids.Count > 0)
+                released = released.Plus(BallsConstraintsBuilder.DissolveAcids(
+                    _triggeredAcids, _physicsBalls, _map, _simulation, _fallingBalls));
+
             //Then the blast, over whatever the match left standing - and its own disconnection pass runs
             //inside it, so a hole opened under half the cluster brings that half down as well.
             if (_armedBombs.Count > 0)
@@ -509,9 +524,9 @@ namespace Prazsky.BS3D.Physics
             //The blast's own line, on the same terms and for the same reason (#326): a level whose bombs are
             //not going off says so here rather than being diagnosed from a screenshot, and printing the armed
             //COUNT beside the destroyed one is what tells a chain apart from a single big radius.
-            if (released.Destroyed > 0) Console.WriteLine($"[shot] {_armedBombs.Count} bomb(s) armed and"
-                + $" {_triggeredZaps.Count} zap(s) triggered at the landing; destroyed {released.Destroyed},"
-                + $" orphaned {released.Orphaned}");
+            if (released.Destroyed > 0) Console.WriteLine($"[shot] {_armedBombs.Count} bomb(s) armed,"
+                + $" {_triggeredZaps.Count} zap(s) and {_triggeredAcids.Count} acid(s) triggered at the landing;"
+                + $" destroyed {released.Destroyed}, orphaned {released.Orphaned}");
 
             BallLanded?.Invoke(new BallLanding(released, restPosition, physicsBall.Type, cell, coloured));
 
@@ -533,6 +548,7 @@ namespace Prazsky.BS3D.Physics
         {
             _armedBombs.Clear();
             _triggeredZaps.Clear();
+            _triggeredAcids.Clear();
 
             StaticBall[,,] cells = _map.GetStaticBallsArray();
             XZLevel size = new(_map.StageSizeX, _map.StageSizeZ, _map.Levels);
@@ -544,6 +560,7 @@ namespace Prazsky.BS3D.Physics
 
                 if (ball.Kind == BallKind.Bomb) _armedBombs.Add(neighbour);
                 else if (ball.Kind == BallKind.Zap) _triggeredZaps.Add(neighbour);
+                else if (ball.Kind == BallKind.Acid) _triggeredAcids.Add(neighbour);
             }
         }
 

@@ -512,6 +512,123 @@ namespace Prazsky.BS3D.GameStructure
         }
 
         /// <summary>
+        /// How far off an acid's own vertical axis a shaft cell may sit, in world units (#328). Just over the
+        /// <b>0.707</b> that every cell on the level below a ball sits at in this packing, so the shaft may take
+        /// the half-cell step the lattice forces on it and nothing wider.
+        /// <para>
+        /// <b>It is what makes "vertical" structural rather than hopeful.</b> Without it a level whose on-axis
+        /// cell is missing would let the walk take a neighbour a whole cell away, and from there another, and
+        /// the hole would wander off across the cluster — the leaning shaft that would be blamed on the physics.
+        /// With it, a missing cell is simply the end of the shaft, which is also the stop rule the player reads
+        /// off the cluster before firing.
+        /// </para>
+        /// </summary>
+        public const float ACID_SHAFT_DRIFT = 0.75f;
+
+        /// <summary>
+        /// The cells a <see cref="BallKind.Acid"/> at <paramref name="acid"/> eats (#328): itself, then one cell
+        /// per level straight down until the shaft reaches a gap. Returns how many were written into
+        /// <paramref name="shaft"/>, which is cleared first — one is the acid alone, which is what an acid with
+        /// nothing beneath it costs.
+        /// <para>
+        /// <b>⚠ THE SHAFT IS WALKED CELL BY CELL AND NOT CAST AS A VERTICAL CYLINDER, and the geometry that
+        /// decides it was measured rather than assumed.</b> #328 recommended casting the vertical line from the
+        /// acid's world position and taking every cell within half a ball of it. In this packing that does not
+        /// work: odd levels are shifted by +0.5 in X and Z, so <b>all four</b> cells on the level below a ball
+        /// sit at a horizontal distance of <b>0.707</b> from its axis — the same figure for either parity —
+        /// while the cell two levels down sits at <b>0.000</b>. A vertical line through a ball's centre passes
+        /// <i>between</i> the four balls under it. A cylinder of half a ball's radius therefore takes every
+        /// SECOND level and leaves a dotted hole with balls hanging inside it; one wide enough to catch 0.707
+        /// takes all four at once and is a fat tube, which is the bomb's shape and not this one's.
+        /// </para>
+        /// <para>
+        /// <b>⚠ And #328's other warning — that walking <c>level--</c> at a fixed <c>(x, z)</c> "drills a
+        /// diagonal shaft leaning off in one direction", named there as the single most likely way to get this
+        /// wrong — is itself wrong, measured over thirteen levels.</b> The parity shift <i>alternates</i>, so a
+        /// fixed index column sits at 0.707, 0.000, 0.707, 0.000 … off the axis: it wobbles half a cell and the
+        /// deviation is <b>bounded</b>, where a lean would grow without limit. This walk reduces to exactly that
+        /// column in a dense cluster; what it adds is its behaviour at holes, which is where the hazard really is.
+        /// </para>
+        /// <para>
+        /// Each step takes the occupied cell below whose horizontal distance to <b>the acid's own axis</b> is
+        /// smallest — the acid's, not the previous cell's, which is what makes the walk self-correcting: from an
+        /// on-axis cell every candidate is 0.707 away and one is picked, and from that cell the candidate back
+        /// <i>on</i> the axis is 0.000 away and always wins. Ties (the on-axis step, where all four are equal) go
+        /// to the order <see cref="GetNeighboringCells"/> yields, so two identical clusters always break the same
+        /// way. <see cref="ACID_SHAFT_DRIFT"/> is what stops a hole turning the walk into that leaning shaft.
+        /// </para>
+        /// <para>
+        /// <b>The stop rule is the first gap</b>, and it is a design decision rather than an implementation
+        /// detail: depth becomes a property of the level's own construction, so an author can build a shallow
+        /// shaft and a deep one and the player can read which is which off the cluster before firing. An acid
+        /// that fell through gaps would be a zap with a different shape and no counterplay — and on a tall level,
+        /// where the field is deliberately larger than the layout, it would reach the floor nearly every time.
+        /// </para>
+        /// <para>
+        /// <b>What "a gap" means falls out of the packing rather than being chosen, and the two steps differ</b>
+        /// (both measured): stepping <i>down from an even level</i> there is exactly one cell inside the bound —
+        /// the one on the axis, at 0.000, its three siblings being a whole cell away — so a hole there ends the
+        /// shaft even when the column continues below it. Stepping <i>down from an odd level</i> all four
+        /// candidates sit at 0.707, so a single missing ball is <b>jogged around</b> half a cell and the shaft
+        /// carries on, still inside the bound. That is the honest reading of a hole in this packing: a drill
+        /// stops at a floor, not at one absent ball beside its edge.
+        /// </para>
+        /// <para>
+        /// It asks nothing of the physics, which is why it lives here beside the other walks over the grid and
+        /// not with the removal that consumes it: what is under a cell is a question about the lattice.
+        /// </para>
+        /// </summary>
+        public int CollectAcidShaft(XZLevel acid, List<XZLevel> shaft)
+        {
+            shaft.Clear();
+
+            StaticBall start = _balls[acid.X, acid.Z, acid.Level];
+            if (start == null || start.Kind != BallKind.Acid) return 0;
+
+            XZLevel size = new(StageSizeX, StageSizeZ, Levels);
+            Vector3 top = GetRealPosition((byte)acid.X, (byte)acid.Z, (byte)acid.Level);
+
+            shaft.Add(acid);
+
+            XZLevel current = acid;
+
+            while (true)
+            {
+                XZLevel next = default;
+                float nearest = float.MaxValue;
+                bool found = false;
+
+                foreach (XZLevel candidate in GetNeighboringCells(current, size))
+                {
+                    if (candidate.Level != current.Level - 1) continue;
+                    if (_balls[candidate.X, candidate.Z, candidate.Level] == null) continue;
+
+                    Vector3 at = GetRealPosition((byte)candidate.X, (byte)candidate.Z, (byte)candidate.Level);
+
+                    //Horizontal only: every candidate is one level down, so the drop is the same for all of them
+                    //and including it would add the same constant to every distance
+                    float dx = at.X - top.X;
+                    float dz = at.Z - top.Z;
+                    float distance = dx * dx + dz * dz;
+
+                    if (distance > ACID_SHAFT_DRIFT * ACID_SHAFT_DRIFT) continue;
+                    if (distance >= nearest) continue;
+
+                    nearest = distance;
+                    next = candidate;
+                    found = true;
+                }
+
+                if (!found) break;      //the first gap, which is where a shaft ends
+
+                shaft.Add(next);
+                current = next;
+            }
+
+            return shaft.Count;
+        }
+
+        /// <summary>
         /// Returns cells of balls that are no longer connected to the ceiling: walks the touching-neighbor graph
         /// (see <see cref="GetNeighboringCells"/>) from all balls on the top level (those hang from the ceiling)
         /// and collects every ball the walk did not reach.
