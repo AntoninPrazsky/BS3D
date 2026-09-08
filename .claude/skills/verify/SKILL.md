@@ -69,11 +69,25 @@ Testbed.exe Maps\Full.json scene=meadow at=8:F10 at=9:F12 hold=A:10:14 shot=11,1
 The script announces its plan on a `[script]` line and logs every tap and hold edge, so a typo shows up as
 "dropped, no such action" instead of a press nobody can see missing. **Verified with the window minimized** —
 no focus, no scan codes, no unlocked desktop. Only `W`/`A`/`S`/`D` can be held (they are the only held input
-this program reads, and game mode only), and `at=…:F2` opens the modal load dialog, which nothing in the
-timeline can dismiss.
+this program reads, and game mode only), and `at=…:F2` is refused and named, because its modal load dialog is
+a Win32 window nothing in the timeline could dismiss.
 
-Don't try SendKeys into the SDL window — it's unreliable. For anything the timeline cannot reach (the mouse,
-mostly), `user32.dll keybd_event` (virtual key + scan code + extended flag)
+**The mouse is on the timeline too (#379).** `aim=<t>:<elevation>:<traverse>` puts the barrel at a stated pose
+in degrees (elevation above horizontal, traverse off the heading to the field's centre) and
+`rmb=<from>:<to>` holds **precise aim** across an interval — the mode this repo's own rule says aim-adjacent
+visuals must be verified in, with the button actually held. `C` prints the live aim back in the same spelling
+(`[aimpin] … -> aim=<t>:30.0:20.0`), so a framing found by hand can be pinned for the next run. Both work on a
+minimised window; both need game mode (`at=<t>:F10`), and a lean asked for outside it says so.
+
+```powershell
+Testbed.exe Maps\Full.json scene=meadow at=2:F10 at=2.5:F12 aim=6:30:20 rmb=8:14 shot=7,10,16 at=18:Escape
+```
+
+⚠ **The Game has no timeline** — `play`, `level=`, `result`, `shot=` and nothing else — so verifying an
+aim-adjacent visual *there* with RMB held still needs the external route below.
+
+Don't try SendKeys into the SDL window — it's unreliable. For that external route,
+`user32.dll keybd_event` (virtual key + scan code + extended flag)
 after `SetForegroundWindow` does reach the SDL window — e.g. End = `keybd_event(0x23, 0x4F, 1, 0)` then flags `3` for key-up.
 `SetForegroundWindow` alone often silently fails when called from a background process, and both games skip
 their whole `Update` while `!IsActive`, so the keys are dropped without a trace. Click the title bar first —

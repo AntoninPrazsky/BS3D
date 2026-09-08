@@ -234,6 +234,11 @@ namespace Testbed
         //failed run.
         private InputScript _script;
 
+        //Whether the "you asked for precise aim in free mode" line has already been said for the lean currently
+        //being asked for (#379). Cleared the moment game mode is entered, so a run that leans, leaves and leans
+        //again is told each time rather than once a process.
+        private bool _adsOutsideGameModeReported;
+
         #region Clouds
 
         /// <summary>
@@ -627,7 +632,24 @@ namespace Testbed
 
             //The timeline, over the table just built (#373): a tap names a key in it, so a key added above is
             //scriptable the day it exists and the two lists cannot drift. Null unless the command line asked.
-            _script = InputScript.Build(_options.ScriptTaps, _options.ScriptHolds, _actions);
+            _script = InputScript.Build(_options.ScriptTaps, _options.ScriptHolds, _options.ScriptAims,
+                _options.ScriptAdsHolds, _actions,
+                //The one place degrees become radians (#379). The command line, the plan line, the log and the
+                //C read-back all speak degrees, which is what every angle this program prints is already in;
+                //the gun speaks radians and is not going to learn a second unit for a diagnostic.
+                (elevation, traverse) =>
+                {
+                    if (_cannon.AimTo(MathHelper.ToRadians(elevation), MathHelper.ToRadians(traverse))) return;
+
+                    //Named rather than silently applied: a pose cut short by the gun's own clamps is a pin that
+                    //will not reproduce the framing it was copied from, and finding that out from a photograph
+                    //is exactly the round trip this argument exists to remove
+                    float clampedElevation = MathHelper.ToDegrees(_cannon.Elevation);
+                    float clampedTraverse = MathHelper.ToDegrees(_cannon.Traverse);
+
+                    Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
+                        $"[script] aim clamped to {clampedElevation:0.0}/{clampedTraverse:0.0} deg"));
+                });
 
             //A run driven by a script or a shot schedule has nobody at the keyboard, so it must not be slowed
             //to the ~50 FPS an unfocused MonoGame window idles at: the frame indices "shotframe=" fires on and
@@ -1101,6 +1123,20 @@ namespace Testbed
             Console.WriteLine(_gameMode
                 ? $"[campin] {pin}"
                 : $"[campin] {pin} fov={MathHelper.ToDegrees(_freeFov).ToString("0.#", CultureInfo.InvariantCulture)}");
+
+            //And where the GUN points, on its own line and only in game mode (#379) — the mode that aims. It is
+            //the same argument as the camera's above, one object further in: a framing is the lens AND the
+            //barrel, and until aim= existed the barrel half of a good pose could not be written down at all.
+            //The line carries the spelling with the time left as <t>, because unlike campos= the pin is an
+            //event rather than a state and only the reader knows when they want it.
+            if (_gameMode)
+            {
+                float elevation = MathHelper.ToDegrees(_cannon.Elevation);
+                float traverse = MathHelper.ToDegrees(_cannon.Traverse);
+
+                Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
+                    $"[aimpin] elevation {elevation:0.0} deg, traverse {traverse:0.0} deg  ->  aim=<t>:{elevation:0.0}:{traverse:0.0}"));
+            }
 
             static string Vec(Vector3 v) => string.Create(CultureInfo.InvariantCulture, $"{v.X:0.00},{v.Y:0.00},{v.Z:0.00}");
         }

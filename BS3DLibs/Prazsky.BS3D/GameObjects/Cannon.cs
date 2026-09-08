@@ -656,6 +656,48 @@ namespace Prazsky.BS3D.GameObjects
             return reachable;
         }
 
+        /// <summary>
+        /// The barrel's elevation above horizontal, in radians — the angle the clamps are stated in
+        /// (<see cref="MinElevation"/>, <see cref="ElevationLimit"/>) and the one
+        /// <see cref="CanAimAt"/> computes a required value of, so it is the pose read back rather than a
+        /// second way of describing it.
+        /// </summary>
+        public float Elevation => _rotationToOrbitCenter.X + _rotationAim.X;
+
+        /// <summary>
+        /// How far the aim is swung off the resting heading — the direction to <see cref="OrbitCenter"/> — in
+        /// radians, within ±<see cref="MaxTraverse"/>. Zero is the barrel pointing at the field's centre from
+        /// wherever the carriage currently stands, which is why it is the useful zero: it means the same thing
+        /// after the gun has orbited or walked, where a world bearing would not.
+        /// </summary>
+        public float Traverse => _rotationAim.Y;
+
+        /// <summary>
+        /// Puts the aim at a stated pose — <see cref="Elevation"/> and <see cref="Traverse"/>, both in radians
+        /// — and returns whether it fitted inside the clamps rather than being cut short by them.
+        /// <para>
+        /// It is <see cref="AimAt"/>'s tail without its world-space head: that one solves the two angles from a
+        /// point in the world, this one is handed them. What it exists for is the pose that <b>cannot be
+        /// derived</b> from anything the world holds — a framing somebody liked, read back off
+        /// <see cref="Elevation"/>/<see cref="Traverse"/> and pinned for a second run (the Testbed's
+        /// <c>aim=</c>, #379). The mouse path stays <see cref="Aim"/>'s: this sets, it does not integrate.
+        /// </para>
+        /// </summary>
+        public bool AimTo(float elevation, float traverse)
+        {
+            bool withinLimits = elevation >= MinElevation && elevation <= ElevationLimit
+                && traverse >= -MaxTraverse && traverse <= MaxTraverse;
+
+            _resettingAim = false;      //a stated pose interrupts an eased return, exactly as taking the aim by hand does
+            _rotationAim = new Vector2(elevation - _rotationToOrbitCenter.X, traverse);
+
+            EnsureAimInBounds();
+            RecalculateRotation();
+            RecalculateWorldMatrix();
+
+            return withinLimits;
+        }
+
         private void EnsureOrbitAngleInBounds()
         {
             while (_orbitAngle > MathHelper.TwoPi) _orbitAngle -= MathHelper.TwoPi;

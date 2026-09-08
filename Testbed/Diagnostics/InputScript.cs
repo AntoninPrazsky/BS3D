@@ -49,28 +49,59 @@ namespace Testbed.Diagnostics
         public readonly record struct Hold(Keys Key, float From, float To);
 
         /// <summary>
+        /// One <c>aim=</c> entry (#379): put the barrel at this pose at this wall-clock second, both angles in
+        /// <b>degrees</b> — the units every angle this program prints is already in.
+        /// </summary>
+        public readonly record struct AimSet(float Time, float Elevation, float Traverse);
+
+        /// <summary>One <c>rmb=</c> entry (#379): precise aim counts as held across this interval.</summary>
+        public readonly record struct AdsHold(float From, float To);
+
+        /// <summary>
         /// The only keys anything reads as HELD: the cannon's orbit (A/D) and its advance walk (W/S), polled
         /// every game-mode frame in <c>Testbed.Input.cs</c>. A hold of anything else would be a silent no-op,
         /// so it is refused at the parse and named in the log instead.
         /// </summary>
         public static readonly Keys[] HoldableKeys = { Keys.W, Keys.A, Keys.S, Keys.D };
 
+        /// <summary>
+        /// Keys whose action opens something <b>modal</b>, which a script may not tap: the run would stand in a
+        /// Win32 dialog no game state can dismiss, and standing still is the one failure mode this whole
+        /// facility exists to remove — a scripted run that stops silently is worse than one that never started.
+        /// Refused at the parse and named in the plan, exactly as an unholdable key is.
+        /// <para>
+        /// Today that is F2 alone (the map loader's file dialog). It is a list here rather than a flag on
+        /// <c>ButtonAction</c> for the reason <see cref="HoldableKeys"/> is: what the timeline can drive is a
+        /// property of the timeline, and the shared control table is not the Testbed's to grow a field for.
+        /// </para>
+        /// </summary>
+        public static readonly Keys[] ModalKeys = { Keys.F2 };
+
         private readonly Tap[] _taps;
         private readonly Hold[] _holds;
+        private readonly AimSet[] _aims;
+        private readonly AdsHold[] _adsHolds;
         private readonly Dictionary<Keys, Action> _actions;
+        private readonly Action<float, float> _aimTo;
 
         //How far down the tap list the run has got, and which holds are currently down - kept only so the
         //log can carry an edge rather than a line per frame.
         private int _nextTap;
+        private int _nextAim;
         private readonly bool[] _holdDown;
+        private bool _adsDown;
 
         private float _wallClock;
 
-        private InputScript(Tap[] taps, Hold[] holds, Dictionary<Keys, Action> actions)
+        private InputScript(Tap[] taps, Hold[] holds, AimSet[] aims, AdsHold[] adsHolds,
+            Dictionary<Keys, Action> actions, Action<float, float> aimTo)
         {
             _taps = taps;
             _holds = holds;
+            _aims = aims;
+            _adsHolds = adsHolds;
             _actions = actions;
+            _aimTo = aimTo;
             _holdDown = new bool[holds.Length];
         }
 
@@ -84,19 +115,34 @@ namespace Testbed.Diagnostics
         /// The Testbed's own control table. A tap names a key in it; anything else is dropped and named in
         /// the plan, because a table entry is the only definition of what a key does.
         /// </param>
-        public static InputScript Build(IReadOnlyList<Tap> taps, IReadOnlyList<Hold> holds, ButtonAction[] actions)
+        /// <param name="aims">Parsed <c>aim=</c> entries (#379), angles in degrees.</param>
+        /// <param name="adsHolds">Parsed <c>rmb=</c> intervals (#379).</param>
+        /// <param name="aimTo">
+        /// How to put the barrel at a stated pose, in <b>degrees</b> — the gun is the caller's, so the script
+        /// is handed one delegate rather than learning what a cannon is, exactly as the taps are handed the
+        /// control table's methods.
+        /// </param>
+        public static InputScript Build(IReadOnlyList<Tap> taps, IReadOnlyList<Hold> holds,
+            IReadOnlyList<AimSet> aims, IReadOnlyList<AdsHold> adsHolds, ButtonAction[] actions,
+            Action<float, float> aimTo)
         {
-            if ((taps == null || taps.Count == 0) && (holds == null || holds.Count == 0)) return null;
+            if ((taps == null || taps.Count == 0) && (holds == null || holds.Count == 0)
+                && (aims == null || aims.Count == 0) && (adsHolds == null || adsHolds.Count == 0)) return null;
 
             Dictionary<Keys, Action> methods = new();
             foreach (ButtonAction action in actions) methods[action.Key] = action.Method;
 
             List<Tap> kept = new();
             List<Keys> unknown = new();
+            List<Keys> modal = new();
 
             foreach (Tap tap in taps ?? Array.Empty<Tap>())
             {
-                if (methods.ContainsKey(tap.Key)) kept.Add(tap);
+                //A modal key is refused BEFORE the table is consulted, so the reason printed is the useful one:
+                //F2 is a perfectly good action and naming it "no such action" would send a reader looking for a
+                //typo that is not there
+                if (Array.IndexOf(ModalKeys, tap.Key) >= 0) modal.Add(tap.Key);
+                else if (methods.ContainsKey(tap.Key)) kept.Add(tap);
                 else unknown.Add(tap.Key);
             }
 
@@ -108,9 +154,17 @@ namespace Testbed.Diagnostics
             Hold[] held = new Hold[holds?.Count ?? 0];
             for (int i = 0; i < held.Length; i++) held[i] = holds[i];
 
-            InputScript script = new(kept.ToArray(), held, methods);
+            //Sorted for the same reason the taps are: the list is walked forward, so an unordered schedule
+            //would fire everything after the first late entry at once
+            List<AimSet> poses = new(aims ?? Array.Empty<AimSet>());
+            poses.Sort((left, right) => left.Time.CompareTo(right.Time));
 
-            script.Announce(unknown);
+            AdsHold[] leans = new AdsHold[adsHolds?.Count ?? 0];
+            for (int i = 0; i < leans.Length; i++) leans[i] = adsHolds[i];
+
+            InputScript script = new(kept.ToArray(), held, poses.ToArray(), leans, methods, aimTo);
+
+            script.Announce(unknown, modal);
 
             return script;
         }
@@ -120,7 +174,7 @@ namespace Testbed.Diagnostics
         /// another. This is what makes a typo visible: an entry that named nothing is not silently missing
         /// from a capture, it is named here.
         /// </summary>
-        private void Announce(List<Keys> unknown)
+        private void Announce(List<Keys> unknown, List<Keys> modal)
         {
             StringBuilder plan = new();
 
@@ -136,10 +190,28 @@ namespace Testbed.Diagnostics
                 plan.Append(CultureInfo.InvariantCulture, $"hold {hold.Key} {hold.From:0.00}-{hold.To:0.00}");
             }
 
-            Console.WriteLine($"[script] {_taps.Length + _holds.Length} entries: {plan}");
+            foreach (AimSet aim in _aims)
+            {
+                if (plan.Length > 0) plan.Append(", ");
+                plan.Append(CultureInfo.InvariantCulture,
+                    $"aim {aim.Elevation:0.0}/{aim.Traverse:0.0} deg at {aim.Time:0.00}");
+            }
+
+            foreach (AdsHold lean in _adsHolds)
+            {
+                if (plan.Length > 0) plan.Append(", ");
+                plan.Append(CultureInfo.InvariantCulture, $"precise aim {lean.From:0.00}-{lean.To:0.00}");
+            }
+
+            Console.WriteLine($"[script] {_taps.Length + _holds.Length + _aims.Length + _adsHolds.Length}"
+                + $" entries: {plan}");
 
             if (unknown.Count > 0)
                 Console.WriteLine($"[script] dropped, no such action: {string.Join(", ", unknown)}");
+
+            if (modal.Count > 0)
+                Console.WriteLine($"[script] dropped, opens a modal dialog a script cannot dismiss: "
+                    + $"{string.Join(", ", modal)}");
         }
 
         /// <summary>
@@ -169,6 +241,19 @@ namespace Testbed.Diagnostics
                 _actions[tap.Key]();
             }
 
+            //The aim is SET, not integrated, so it is a schedule like the taps rather than an interval like the
+            //holds — and it is applied here, before UpdateCannon reads the pose this frame, so the barrel the
+            //camera is framed against is the one that was asked for and not last frame's.
+            while (_nextAim < _aims.Length && wallClock >= _aims[_nextAim].Time)
+            {
+                AimSet aim = _aims[_nextAim++];
+
+                Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
+                    $"[script] {Seconds(wallClock)} aim {aim.Elevation:0.0}/{aim.Traverse:0.0} deg"));
+
+                _aimTo?.Invoke(aim.Elevation, aim.Traverse);
+            }
+
             for (int i = 0; i < _holds.Length; i++)
             {
                 bool down = IsHeld(_holds[i].Key);
@@ -178,6 +263,15 @@ namespace Testbed.Diagnostics
                 _holdDown[i] = down;
 
                 Console.WriteLine($"[script] {Seconds(wallClock)} {(down ? "down" : "up")} {_holds[i].Key}");
+            }
+
+            bool leaning = IsPreciseAimHeld();
+
+            if (leaning != _adsDown)
+            {
+                _adsDown = leaning;
+
+                Console.WriteLine($"[script] {Seconds(wallClock)} {(leaning ? "down" : "up")} precise aim");
             }
         }
 
@@ -197,6 +291,26 @@ namespace Testbed.Diagnostics
         {
             foreach (Hold hold in _holds)
                 if (hold.Key == key && _wallClock >= hold.From && _wallClock < hold.To) return true;
+
+            return false;
+        }
+
+        /// <summary>
+        /// Whether the script is leaning the lens in at the moment of the last <see cref="Update"/> — the right
+        /// mouse button, as far as everything downstream is concerned (#379).
+        /// <para>
+        /// <b>⚠ The caller ORs this OUTSIDE its <c>IsActive</c> gate, and that is the whole of why a scripted
+        /// lean works on a minimised window.</b> The gate belongs on the real devices and is not decoration:
+        /// XInput reports a held trigger to an unfocused window, so an alt-tabbed run must not stay leaned in.
+        /// A script is not a stray device — it is the run driving itself, the same argument that puts the tick
+        /// outside both gates — so it has to pass beside that test rather than through it. ORing it inside
+        /// would compile, read correctly and produce exactly nothing on the unattended run this exists for.
+        /// </para>
+        /// </summary>
+        public bool IsPreciseAimHeld()
+        {
+            foreach (AdsHold lean in _adsHolds)
+                if (_wallClock >= lean.From && _wallClock < lean.To) return true;
 
             return false;
         }

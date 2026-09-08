@@ -303,8 +303,29 @@ namespace Testbed.Diagnostics
         /// </summary>
         public List<InputScript.Hold> ScriptHolds { get; } = new();
 
+        /// <summary>
+        /// <c>aim=&lt;t&gt;:&lt;elevation&gt;:&lt;traverse&gt;</c>: put the barrel at that pose, in
+        /// <b>degrees</b>, at that wall-clock second (#379). Elevation is above horizontal; traverse is off the
+        /// heading to the field's centre, so zero means "pointing at the cluster" wherever the carriage stands.
+        /// <para>
+        /// It <b>sets</b> the pose rather than synthesising a mouse movement, and that is what makes it
+        /// repeatable: the aim is a rate integrated from deltas against a re-centred cursor, so a delta-based
+        /// pin would be as unrepeatable as the external rig it replaces. It is <c>campos=</c>'s counterpart for
+        /// the gun, and <c>C</c> prints the live pose back in this spelling.
+        /// </para>
+        /// </summary>
+        public List<InputScript.AimSet> ScriptAims { get; } = new();
+
+        /// <summary>
+        /// <c>rmb=&lt;from&gt;:&lt;to&gt;</c>: hold precise aim across that interval of the same clock (#379) —
+        /// the lens leaning in over the barrel, which is the one thing the repo's own rule says to verify with
+        /// the button actually held and which no unattended run could drive until this existed.
+        /// </summary>
+        public List<InputScript.AdsHold> ScriptAdsHolds { get; } = new();
+
         /// <summary>Whether this run is driven by anything but a person: a script, or a shot schedule.</summary>
-        public bool Unattended => ScriptTaps.Count > 0 || ScriptHolds.Count > 0 || ShotSeconds != null || ShotFrames != null;
+        public bool Unattended => ScriptTaps.Count > 0 || ScriptHolds.Count > 0 || ScriptAims.Count > 0
+            || ScriptAdsHolds.Count > 0 || ShotSeconds != null || ShotFrames != null;
 
         /// <summary>
         /// <c>shot=&lt;t1,t2,…&gt;</c>: wall-clock seconds after start, one PNG each, written by the program
@@ -402,6 +423,8 @@ namespace Testbed.Diagnostics
                 //silently replaced the previous one would drop half a script without a word.
                 else if (arg.StartsWith("at=", StringComparison.OrdinalIgnoreCase)) ParseTaps(arg.Substring("at=".Length), options.ScriptTaps);
                 else if (arg.StartsWith("hold=", StringComparison.OrdinalIgnoreCase)) ParseHolds(arg.Substring("hold=".Length), options.ScriptHolds);
+                else if (arg.StartsWith("aim=", StringComparison.OrdinalIgnoreCase)) ParseAims(arg.Substring("aim=".Length), options.ScriptAims);
+                else if (arg.StartsWith("rmb=", StringComparison.OrdinalIgnoreCase)) ParseAdsHolds(arg.Substring("rmb=".Length), options.ScriptAdsHolds);
                 else if (arg.StartsWith("shot=", StringComparison.OrdinalIgnoreCase)) options.ShotSeconds = ScreenshotWriter.ParseSeconds(arg.Substring("shot=".Length));
                 else if (arg.StartsWith("shotframe=", StringComparison.OrdinalIgnoreCase)) options.ShotFrames = ScreenshotWriter.ParseFrames(arg.Substring("shotframe=".Length));
                 else options.StartupMapPath = arg;
@@ -543,6 +566,51 @@ namespace Testbed.Diagnostics
                     && float.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out float to)
                     && from >= 0f && to > from)
                     holds.Add(new InputScript.Hold(key, from, to));
+            }
+        }
+
+        /// <summary>
+        /// <c>aim=</c>: <c>&lt;t&gt;:&lt;elevation&gt;:&lt;traverse&gt;</c> triples, comma-separated (#379).
+        /// Colon-separated inside an entry like <c>hold=</c>'s, so the comma goes on meaning "next entry"
+        /// throughout the timeline rather than meaning one thing in <c>at=</c> and another here.
+        /// <para>
+        /// The angles are <b>not</b> range-checked here: the clamps are the gun's own
+        /// (<c>Cannon.MinElevation</c>/<c>ElevationLimit</c>/<c>MaxTraverse</c>), they depend on the level the
+        /// run loaded, and <c>Cannon.AimTo</c> both applies and reports them. Refusing a pose here would be a
+        /// second opinion about the gun's reach held by the thing that parses strings.
+        /// </para>
+        /// </summary>
+        private static void ParseAims(string list, List<InputScript.AimSet> aims)
+        {
+            foreach (string entry in list.Split(','))
+            {
+                string[] parts = entry.Split(':');
+
+                if (parts.Length == 3
+                    && float.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out float time)
+                    && time >= 0f
+                    && float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out float elevation)
+                    && float.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out float traverse))
+                    aims.Add(new InputScript.AimSet(time, elevation, traverse));
+            }
+        }
+
+        /// <summary>
+        /// <c>rmb=</c>: <c>&lt;from&gt;:&lt;to&gt;</c> pairs, comma-separated (#379). An interval that ends
+        /// before it starts is dropped, on <see cref="ParseHolds"/>'s reasoning exactly — it would be a lean
+        /// that never happens, which is the silent no-op this facility exists to stop producing.
+        /// </summary>
+        private static void ParseAdsHolds(string list, List<InputScript.AdsHold> holds)
+        {
+            foreach (string entry in list.Split(','))
+            {
+                string[] parts = entry.Split(':');
+
+                if (parts.Length == 2
+                    && float.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out float from)
+                    && float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out float to)
+                    && from >= 0f && to > from)
+                    holds.Add(new InputScript.AdsHold(from, to));
             }
         }
 
