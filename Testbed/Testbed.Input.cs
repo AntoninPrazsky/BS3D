@@ -1,3 +1,4 @@
+using System;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 using Prazsky.BS3D;
@@ -70,9 +71,22 @@ namespace Testbed
             //spends most of its life — was paying both for nothing (#80).
             if (!_gameMode)
             {
+                //A scripted lean while the program is in free mode would be the silent no-op the whole timeline
+                //exists to stop producing (#379): precise aim is a game-mode pose, so nothing here would show
+                //it and a capture would come back looking like a broken feature rather than a missing F10.
+                //Said once per interval — the flag clears below — and not per frame.
+                if (!_adsOutsideGameModeReported && _script != null && _script.IsPreciseAimHeld())
+                {
+                    _adsOutsideGameModeReported = true;
+
+                    Console.WriteLine("[script] precise aim asked for outside game mode; it needs F10 (at=<t>:F10)");
+                }
+
                 _cannon.Update(gameTime);
                 return;
             }
+
+            _adsOutsideGameModeReported = false;
 
             //One snapshot of each input device for the whole game-mode frame: every extra GetState call
             //re-queries the OS (a real XInput poll for the pad), and two reads in one frame can even
@@ -120,7 +134,15 @@ namespace Testbed
                 //makes losing focus a fade rather than a drop. Every gate on the held flag is this file's - IsActive
                 //(the gamepad trigger reads globally through XInput, and an alt-tabbed window must not stay leaned
                 //in), the free-mode exit animation, and a loaded field.
-                bool adsHeld = IsActive && !_freeModeAnimStarted && _map != null && PreciseAim.ButtonHeld(mouse, pad);
+                //⚠ The script's lean is ORed OUTSIDE the IsActive term, not inside it (#379), and the two gates
+                //are not the same rule wearing different clothes. IsActive is there for the DEVICES: XInput
+                //reports a held trigger to an unfocused window, so an alt-tabbed run must not stay leaned in.
+                //A script is not a stray device — it is the run driving itself, which is the argument that
+                //already puts the timeline's tick outside both gates — and an unattended run is the whole case
+                //it exists for, so it passes beside that test. Written inside it this would compile, read
+                //perfectly and produce nothing at all on a minimised window.
+                bool adsHeld = !_freeModeAnimStarted && _map != null
+                    && ((IsActive && PreciseAim.ButtonHeld(mouse, pad)) || _script != null && _script.IsPreciseAimHeld());
                 _preciseAim.Step(adsHeld, (float)gameTime.ElapsedGameTime.TotalSeconds);
 
                 //The muzzle is read after _cannon.Update above, for the same reason the camera pose is (#29). The

@@ -2,7 +2,7 @@
 
 **The project's development instrument**, and deliberately kept as one (#100): the rig every colour, cost and shading judgement here is framed through, and where the shot, the gun and the two cameras that aim it were built and are still tuned.
 
-**It is not a second game and must never become one** — no menu, no HUD, no level flow; every step towards the game takes away the thing it is used for. What it has instead is everything a program needs to be measured and photographed without a person at the keyboard: a camera that holds still and reads back (`campos`/`camtarget`/`fov`, `C`), a pass that can be isolated (`arena=`, `capprobe=`), variants swept inside one process (`alt=`), a timeline that drives its own keys (`at=`, `hold=`), its own frame writer (`shot=`, `shotframe=`) and two `[build]` lines saying which build produced any of it. The Game cannot hold still — its camera orbits and a level overrides the scene it was launched with — and the MapEditor has no simulation, gun or shot at all.
+**It is not a second game and must never become one** — no menu, no HUD, no level flow; every step towards the game takes away the thing it is used for. What it has instead is everything a program needs to be measured and photographed without a person at the keyboard: a camera that holds still and reads back (`campos`/`camtarget`/`fov`, `C`), a pass that can be isolated (`arena=`, `capprobe=`), variants swept inside one process (`alt=`), a timeline that drives its own keys, aim and lean (`at=`, `hold=`, `aim=`, `rmb=`), its own frame writer (`shot=`, `shotframe=`) and two `[build]` lines saying which build produced any of it. The Game cannot hold still — its camera orbits and a level overrides the scene it was launched with — and the MapEditor has no simulation, gun or shot at all.
 
 Part of the BS3D documentation. CLAUDE.md holds the project overview, the build commands, the ball grid and the repo-wide conventions, and says which of these documents covers what.
 
@@ -103,7 +103,34 @@ That run enters game mode, hides the overlay, orbits the gun for four seconds, p
 - **The tick is outside both gates** — outside the simulation gate, so a script still runs against a world paused by its own `F5`; and outside `IsActive`, because a run nobody is sitting at is the whole case. It runs off `_pulseSeconds`, the wall clock the shot schedules use, so `at=` and `shot=` are written against each other.
 - **An unattended run (`at=`, `hold=`, `shot=`, `shotframe=`) sets `InactiveSleepTime` to zero**, so losing focus does not drop it to the ~50 FPS MonoGame idles a background window at — the frame indices `shotframe=` fires on and the ramp a `hold=` is measuring both come out of the frame rate.
 - **A tap goes straight to the table's delegate**, not through a synthetic key: the edge path deliberately skips a frame after focus returns, and a script must not be subject to a rule that exists for a human's mouse click.
-- ⚠ **`at=<t>:F2` opens the modal load dialog and the run stops there.** F3 in the map editor and F2 here are Win32 dialogs, not game state; nothing in the timeline can dismiss one.
+- **`at=<t>:F2` is refused and named** (#379): its action opens the modal load dialog, which is a Win32 window and not game state, so nothing in the timeline could dismiss it and the run would simply stand there. A scripted run that stops silently is the failure this whole facility exists to remove, so the key is dropped at the parse with its own reason — `dropped, opens a modal dialog a script cannot dismiss: F2` — rather than being reported as an unknown action, which would send a reader hunting a typo that is not there. `InputScript.ModalKeys` is the list; F3 in the map editor is the same kind of window.
+
+## The mouse: a stated aim and a held lean (#379)
+
+The keyboard half above shipped in #373 and left **the mouse as the one surface no unattended run could drive** — which is the half that matters most, because it covers the two things the gun is judged on: where it points, and what the lens does when the player leans in. Worse, the repo's own rule is that aim-adjacent visuals are verified with the button *actually held*, and the external rig had already produced a wrong "verified" twice (#321's trap, and the advance walk's own note: the rig has to click into the window to give it focus, the game then takes the cursor, and the frame that comes back is of a different pose than the one asked for).
+
+```powershell
+Testbed.exe Maps\Full.json scene=meadow at=2:F10 at=2.5:F12 aim=6:30:20 at=6.5:C rmb=8:14 shot=7,10,16 at=18:Escape
+```
+
+**`aim=<t>:<elevation>:<traverse>` puts the barrel at a stated pose**, both angles in degrees — elevation above horizontal, traverse off the heading to the field's centre, so zero traverse means "pointing at the cluster" wherever the carriage stands. It **sets** the pose (`Cannon.AimTo`) rather than synthesising a mouse movement, and that is the whole reason it is repeatable: the aim is a rate integrated from deltas measured against a re-centred cursor, so a delta-based pin would be exactly as unrepeatable as the rig it replaces. It is `campos=`'s counterpart for the gun.
+
+**`rmb=<from>:<to>` holds precise aim across an interval**, feeding the same `PreciseAim.ButtonHeld` decision the mouse and the pad feed rather than becoming a third way of asking.
+
+**And `C` reads the aim back**, in game mode, on its own line beside the camera's (#375's other half):
+
+```
+[aimpin] elevation 30.0 deg, traverse 20.0 deg  ->  aim=<t>:30.0:20.0
+```
+
+The time is left as `<t>` because unlike `campos=` this pin is an *event* rather than a state, and only the reader knows when they want it.
+
+- ⚠ **The scripted lean is ORed OUTSIDE the `IsActive` gate, and that is the whole reason it works on a minimised window.** The gate is not decoration and was not removed: XInput reports a held trigger to an unfocused window, so an alt-tabbed run must not stay leaned in — the gate belongs on the *devices*. A script is not a stray device; it is the run driving itself, which is the same argument that already puts the tick outside both gates. Written inside the gate this would compile, read perfectly and produce nothing at all on exactly the run it exists for.
+- **A lean asked for outside game mode is named, not swallowed** — precise aim is a game-mode pose, so a `rmb=` without an `at=<t>:F10` before it would photograph a run that looks like a broken feature rather than a missing keypress. The line says which key is missing.
+- **Angles are degrees everywhere the reader touches** — the argument, the plan line, the log and the read-back — and become radians at exactly one place, the delegate handed to `InputScript`. The gun is not going to learn a second unit for a diagnostic.
+- **The clamps stay the gun's** (`Cannon.MinElevation`/`ElevationLimit`/`MaxTraverse`) and are **reported**, not silently applied: `aim=9:95:70` prints `aim clamped to 80.2/45.0 deg`, because a pose cut short is a pin that will not reproduce the framing it was copied from, and finding that out from a photograph is the round trip all of this exists to remove.
+- **Verified with the window minimised** (`IsIconic` true), which no synthetic cursor and no external capture can reach: `C` printed back exactly the pose `aim=` had asked for; three frames taken before, inside and after an `rmb=` interval show the overview, then the leaned lens with its crosshair and the muzzle round drawn large, then the overview again with the aim still where it was put.
+- ⚠ **What it still does not do:** there is no scripted *firing* by mouse (Space is in the table, so `at=<t>:Space` covers it), and the Game has no timeline at all — it takes `play`, `level=`, `result` and `shot=` and nothing else, deliberately (#373's reasoning about repeatability). Verifying an aim-adjacent visual **in the Game** with the button held is therefore still an external-rig job, and that half of the issue was left to the owner rather than decided here.
 
 ## The gun's hardware, in one copy
 

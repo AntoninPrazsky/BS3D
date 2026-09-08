@@ -245,11 +245,26 @@ Testbed.exe Maps\Full.json scene=meadow at=8:F10 at=9:F12 hold=A:10:14 shot=11,1
   no action reads as `dropped, no such action`, not as a press missing from a picture.
 - **Verified with the window minimized**: the taps, the four-second hold and both `shot=` captures all landed,
   and the camera had visibly orbited between the two frames. Nothing in that run touched the desktop.
-- ⚠ `at=…:F2` opens the modal load dialog and the run stops there; nothing in the timeline can dismiss it.
-  The mouse is not scriptable either — aiming and precise aim (RMB) still need the external route.
+- **`aim=<t>:<elevation>:<traverse>`** — put the barrel at a stated pose in **degrees** (#379): elevation above
+  horizontal, traverse off the heading to the field's centre, so `aim=6:30:20` is 30° up and 20° right of the
+  cluster. It **sets** the pose rather than faking a mouse movement, which is what makes it repeatable — the aim
+  is integrated from deltas against a re-centred cursor, so nothing delta-based can be pinned. Game mode only
+  (`at=<t>:F10` first). Angles past the gun's clamps are applied as far as they go and the run says so:
+  `aim clamped to 80.2/45.0 deg`.
+- **`rmb=<from>:<to>`** — hold **precise aim** across an interval (#379), which is the mode the repo's own rule
+  says to verify aim-adjacent visuals in. ORed with the real mouse, and it works on a **minimised** window
+  because it is ORed outside the `IsActive` gate — the gate is for the devices, not for the run driving itself.
+- **`C` prints the aim back** in game mode, beside the camera line:
+  `[aimpin] elevation 30.0 deg, traverse 20.0 deg  ->  aim=<t>:30.0:20.0`. Fly the framing by hand, press `C`
+  (or `at=<t>:C`), paste both halves — the lens and the barrel — into the next run.
+- ⚠ `at=…:F2` is **refused and named** (`dropped, opens a modal dialog a script cannot dismiss`): its action
+  opens the modal load dialog, which nothing in the timeline could dismiss, so the run would stand there.
+- ⚠ A `rmb=` without an `at=<t>:F10` before it says so on a line of its own rather than photographing a run that
+  looks like a broken lean.
 
-**Reach for `screenshot.ps1` below only for what these cannot do**: the map editor, the mouse, or a capture of
-a program that has no writer of its own.
+**Reach for `screenshot.ps1` below only for what these cannot do**: the map editor, a capture of a program that
+has no writer of its own, or the **Game** — which has no timeline at all (`play`, `level=`, `result`, `shot=`
+and nothing else), so an aim-adjacent check *in the Game* with the button held is still an external-rig job.
 
 ## `screenshot.ps1`
 
