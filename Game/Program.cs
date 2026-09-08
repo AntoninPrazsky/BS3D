@@ -109,6 +109,7 @@ namespace BS3D
             //Testing only: what the HUD's multiplier readout shows (#180). The capped state takes five
             //consecutive scoring shots to reach honestly, so it is otherwise unphotographable.
             int? streak = null;
+            int wildcardEvery = 0;
 
             //Testing only: wall-clock seconds at which the game saves a PNG of its own frame. Null means the
             //argument was absent, which is every run but a scripted one. F12 does the same thing by hand — but
@@ -153,6 +154,10 @@ namespace BS3D
                 //"streak=<n>" pins what the HUD's multiplier shows (#180) — the display only, never the
                 //scoring, so the lever cannot alter the thing it is there to look at.
                 else if (arg.StartsWith("streak=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("streak=".Length), out int parsedStreak)) streak = parsedStreak;
+                //"wildcard=<n>" makes every Nth loaded ball a wildcard (#330) on whatever level is played. It
+                //DOES change play, unlike the levers above it — it has to, because no shipped level hands one
+                //out and a wildcard cannot be authored into a map: it is the gun's ball, not the cluster's.
+                else if (arg.StartsWith("wildcard=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("wildcard=".Length), out int parsedWildcard)) wildcardEvery = parsedWildcard;
                 //"lasers" pins the floor alarm's laser net on while a level is played, for the same reason.
                 else if (string.Equals(arg, "lasers", StringComparison.OrdinalIgnoreCase)) lasers = true;
                 //"mute" starts silent, for the harnesses; the settings rows can still raise it.
@@ -207,7 +212,7 @@ namespace BS3D
 
             using var game = new BS3DGame(fullscreen: fullscreen, supersampleFactor: supersampleFactor, exposure: exposure,
                 uncappedFps: uncappedFps, scene: scene, skyDome: skyDome, logFrameRate: logFrameRate, quality: quality,
-                celebrate: celebrate, confetti: confetti, lasers: lasers, mute: mute, play: play, result: result, blockDone: blockDone, lost: lost, resultStars: resultStars, streak: streak,
+                celebrate: celebrate, confetti: confetti, lasers: lasers, mute: mute, play: play, result: result, blockDone: blockDone, lost: lost, resultStars: resultStars, streak: streak, wildcardEvery: wildcardEvery,
                 shotSeconds: shotSeconds, level: level, preview: preview, ballStyle: ballStyle, pick: pick, fpsCap: fpsCap,
                 noFocusPause: noFocusPause);
             game.Run();

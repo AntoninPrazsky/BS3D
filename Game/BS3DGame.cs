@@ -195,6 +195,10 @@ namespace BS3D
         //Testing only: the "streak=" argument, which pins what the HUD's multiplier readout shows (#180).
         private readonly int? _startupStreak;
 
+        //Testing only: the "wildcard=" argument (#330), which makes every Nth loaded ball a wildcard on every
+        //level, since no shipped level asks for one. Zero leaves each level entry's own rule standing.
+        private readonly int _startupWildcardEvery;
+
         //Testing only: the "lasers" argument, read by the session's warning check every frame.
         private readonly bool _startupLasers;
 
@@ -308,6 +312,19 @@ namespace BS3D
         /// never the scoring, so the lever cannot alter the thing it is there to look at.
         /// </summary>
         internal int? ForcedStreak => _startupStreak;
+
+        /// <summary>
+        /// Testing only (the <c>wildcard=</c> argument, #330): one in how many loaded balls is a wildcard,
+        /// overriding every level entry's own <c>wildcardEvery</c>; 0 leaves each level's rule alone.
+        /// <para>
+        /// It exists because the kind is <b>built and no shipped level hands one out</b> — the state #368 found
+        /// the bomb and the zap in — so without a lever there is nothing to look at, and unlike those two a
+        /// wildcard cannot be authored into a map to be looked at either: it is a ball the gun loads, and this
+        /// is the only door to the gun's queue. Unlike <c>streak=</c> this one <i>does</i> change play, which is
+        /// the point: it is how the rule is exercised at all.
+        /// </para>
+        /// </summary>
+        internal int ForcedWildcardEvery => _startupWildcardEvery;
 
         /// <summary>
         /// Whether edge-driven input (presses, clicks) may act this frame. False for one frame after focus
@@ -665,7 +682,7 @@ namespace BS3D
             bool? uncappedFps = null, SceneKind? scene = null, byte? skyDome = null, bool logFrameRate = false,
             QualityLevel? quality = null, bool celebrate = false, bool confetti = false, bool lasers = false,
             bool mute = false, bool play = false, bool result = false, bool blockDone = false, bool lost = false,
-            int? resultStars = null, int? streak = null, float[] shotSeconds = null, string level = null,
+            int? resultStars = null, int? streak = null, int wildcardEvery = 0, float[] shotSeconds = null, string level = null,
             string preview = null, BallStyle? ballStyle = null, string pick = null, int fpsCap = 0,
             bool noFocusPause = false)
         {
@@ -703,6 +720,7 @@ namespace BS3D
             _startupConfetti = confetti;
             _startupResultStars = resultStars;
             _startupStreak = streak;
+            _startupWildcardEvery = wildcardEvery;
             _startupLasers = lasers;
             _startupLevel = level;
             _startupPreview = preview;

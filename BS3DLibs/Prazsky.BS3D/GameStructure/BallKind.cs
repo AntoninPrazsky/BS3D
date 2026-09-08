@@ -114,7 +114,33 @@ namespace Prazsky.BS3D.GameStructure
         /// landing beside it always takes it), <b>no</b> to <see cref="Matchable"/>.
         /// </para>
         /// </summary>
-        Zap = 4
+        Zap = 4,
+
+        /// <summary>
+        /// A wildcard (#330) — <b>the only kind the player SHOOTS rather than one a level places</b>, and that
+        /// single fact is most of its design. It never appears in a map layout, so it touches the format and the
+        /// flood fill barely at all, and instead touches the magazine, the muzzle and the HUD, which none of the
+        /// other nine go near.
+        /// <para>
+        /// It <b>cycles through the colours</b> while it waits in the magazine, in the bore and in flight
+        /// (<see cref="WildcardCycle"/> — one clock read by every surface that draws one, so the loaded queue,
+        /// the muzzle glow, the aim ghost and the ball in the air cannot show different colours at the same
+        /// instant). When it lands it <b>collapses to one colour and stops being a wildcard</b>: the colour
+        /// completing the largest group it arrived beside (<c>BallsMap.TryChooseWildcardColour</c>), or — beside
+        /// nothing matchable — the colour it was showing at that moment, which is the one the player could see.
+        /// </para>
+        /// <para>
+        /// <b>⚠ No ball in the lattice is ever a wildcard, and that is an invariant rather than a convention.</b>
+        /// It is held at the one door balls enter the map through (<c>BallsMap.PutBallAt</c> clamps it) and at
+        /// the one place an authoring tool cycles kinds (<see cref="BallKinds.InCluster"/>, which
+        /// <see cref="BallKinds.Next"/> skips by). The reason is the loss condition: a wildcard hanging in a
+        /// cluster answers <b>no</b> to <see cref="Matchable"/>, and nothing else could remove it either — no
+        /// landing beside it triggers anything, the way one does for a bomb — so a level holding one would
+        /// never be cleared and never be lost, which is the silent failure <see cref="Removable"/>'s own
+        /// remarks are written against.
+        /// </para>
+        /// </summary>
+        Wildcard = 5
     }
 
     /// <summary>
@@ -185,6 +211,21 @@ namespace Prazsky.BS3D.GameStructure
         public static bool Removable(BallKind kind) => kind != BallKind.Rock;
 
         /// <summary>
+        /// Whether a ball of this kind may hang in the lattice at all (#330). Every kind but the wildcard can:
+        /// they are placed by a level and they are what the cluster is made of.
+        /// <para>
+        /// <b>The wildcard is the first kind that exists only on the gun's side of the game</b> — it is loaded,
+        /// shown, fired and then collapses into an ordinary ball when it lands, so a cell holding one is a state
+        /// nothing in this game means to produce. This is where that is enforced rather than assumed: the map's
+        /// one placement door (<c>BallsMap.PutBallAt</c>) clamps a kind this refuses down to
+        /// <see cref="BallKind.Normal"/>, and <see cref="Next"/> steps over it so no authoring tool can paint
+        /// one. See <see cref="BallKind.Wildcard"/> for why a hanging wildcard would be a level that neither
+        /// clears nor loses.
+        /// </para>
+        /// </summary>
+        public static bool InCluster(BallKind kind) => kind != BallKind.Wildcard;
+
+        /// <summary>
         /// The spellings a kind answers to on a command line or in a hand-edited file. Lenient in the same way
         /// and for the same reason <see cref="BallStyles.TryParse"/> and <c>SceneRenderer.TryParseScene</c>
         /// are: an unknown spelling comes back false and the caller keeps its default.
@@ -224,6 +265,12 @@ namespace Prazsky.BS3D.GameStructure
                     kind = BallKind.Zap;
                     return true;
 
+                case "wildcard":
+                case "joker":
+                case "rainbow":
+                    kind = BallKind.Wildcard;
+                    return true;
+
                 default:
                     return false;
             }
@@ -235,12 +282,25 @@ namespace Prazsky.BS3D.GameStructure
         /// </summary>
         public static string ToName(BallKind kind) => kind.ToString().ToLowerInvariant();
 
-        /// <summary>The next kind in the enum, wrapping — what a cycling key in an authoring tool wants.</summary>
+        /// <summary>
+        /// The next kind in the enum, wrapping — what a cycling key in an authoring tool wants. Kinds that
+        /// cannot hang in a cluster are stepped over (<see cref="InCluster"/>), so the cycle only ever offers a
+        /// kind a level can actually be built out of.
+        /// </summary>
         public static BallKind Next(BallKind kind)
         {
             BallKind[] all = Enum.GetValues<BallKind>();
+            int index = Array.IndexOf(all, kind);
 
-            return all[(Array.IndexOf(all, kind) + 1) % all.Length];
+            //At most one step per member, so a hypothetical enum of nothing but uncyclable kinds ends where it
+            //started instead of spinning
+            for (int step = 1; step <= all.Length; step++)
+            {
+                BallKind candidate = all[(index + step) % all.Length];
+                if (InCluster(candidate)) return candidate;
+            }
+
+            return kind;
         }
     }
 }

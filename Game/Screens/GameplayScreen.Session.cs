@@ -282,6 +282,11 @@ namespace BS3D.Screens
 
             RecountBallTypes();
 
+            //How often this level hands out a wildcard, and the count it is measured against — both BEFORE the
+            //refill below, which deals a full queue through the loaded hook and so is already asking (#330).
+            _wildcardEvery = LevelWildcardEvery(index);
+            _ballsDealt = 0;
+
             //A whole fresh queue for the new level: its colours belong to a level, and the level the standing
             //queue was drawn from is gone. Refill deals every slot through the loaded hook, which is what
             //clears any half-finished dissolve the last session left in one.
