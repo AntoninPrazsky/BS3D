@@ -338,6 +338,30 @@ namespace Prazsky.BS3D.Physics
                 return false;
             }
 
+            //A WILDCARD STOPS BEING ONE HERE (#330), and this is the only place it can: everything below reads
+            //the shot ball's Type — the cell it is written into, the colour the glass takes, the colour a zap
+            //fires on, the group that is counted, the tint the award flies in — so the collapse has to be
+            //finished before the first of them. It is #323's seams 1 and 3 in one step, which is what a
+            //wildcard is.
+            //
+            //Beside nothing matchable it keeps the colour it already had, and that is not a fallback so much as
+            //the honest answer: the ball's Type IS what the cycle was showing (GameplayScreen keeps it there
+            //every frame it is in the air), so a wildcard that completes nothing lands as the colour the player
+            //was looking at when it arrived.
+            if (physicsBall.Kind == BallKind.Wildcard)
+            {
+                bool joined = _map.TryChooseWildcardColour(cell, out BallType wildcardColour, out int wildcardGroup);
+                if (joined) physicsBall.Type = wildcardColour;
+
+                physicsBall.Kind = BallKind.Normal;
+
+                //A rare-event line in the manner of the two below it: a handful a level at most, and it is what
+                //says whether the wildcards a level hands out are landing on anything worth completing
+                Console.WriteLine(joined
+                    ? $"[shot] wildcard landed as {physicsBall.Type}, group of {wildcardGroup}"
+                    : $"[shot] wildcard landed beside nothing matchable, kept {physicsBall.Type}");
+            }
+
             //Only now is anything written. The cell came back valid, so this cannot land out of bounds or on a
             //live ball — which used to be possible: the old ceiling path filled its out-cell in from the rounded
             //contact BEFORE testing bounds and occupancy, so a refused placement handed back a plausible-looking

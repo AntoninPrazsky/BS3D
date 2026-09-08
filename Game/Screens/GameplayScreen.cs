@@ -753,6 +753,39 @@ namespace BS3D.Screens
         private readonly float[] _magazineTransmute = new float[Magazine.SIZE];
 
         /// <summary>
+        /// Which loaded slots hold a <see cref="BallKind.Wildcard"/> (#330) — the queue's second axis, kept
+        /// here and not in <see cref="Magazine"/> for the reason the two arrays above are: the magazine owns
+        /// the queue and its shift, while <i>what</i> gets loaded and how often is a rule about this level.
+        /// It rides forward through the very same hooks, so a wildcard cannot come adrift from the ball it is.
+        /// </summary>
+        private readonly BallKind[] _magazineKind = new BallKind[Magazine.SIZE];
+
+        /// <summary>
+        /// One in how many loaded balls is a wildcard, or 0 for a level that hands out none — which is every
+        /// shipped level today, exactly as no shipped level carried a bomb or a zap the day those were built
+        /// (#368 is the issue that put them in the campaign, and this one deliberately leaves that decision
+        /// alone). Set from the level entry's <c>wildcardEvery</c>, or from the Game's <c>wildcard=</c> testing
+        /// argument.
+        /// <para>
+        /// <b>Counted, not diced.</b> The queue shows three balls ahead precisely so the player can plan, and a
+        /// wildcard that arrives at a rate they can count is a tool; one that arrives at random is a lottery —
+        /// the same argument the zap's colour was decided on (#327).
+        /// </para>
+        /// </summary>
+        private int _wildcardEvery;
+
+        //How many balls this level has dealt, which is what the cadence above counts. Not the shot count: the
+        //queue is dealt SIZE-deep before the first shot, so counting shots would put the first wildcard a whole
+        //magazine later than the rule says.
+        private int _ballsDealt;
+
+        /// <summary>
+        /// What every wildcard on screen is showing this instant (#330). One per session and not one per ball —
+        /// see <see cref="WildcardCycle"/> for why that is the whole point of it.
+        /// </summary>
+        private readonly WildcardCycle _wildcard = new();
+
+        /// <summary>
         /// How long a loaded ball takes to change colour. Slow enough to be unmistakably seen — the whole
         /// point is that the player watches the game help them, and a snap would read as a bug — and short
         /// enough not to hold up a queue the player is aiming with.
@@ -976,6 +1009,11 @@ namespace BS3D.Screens
                 {
                     _magazineFrom[destination] = _magazineFrom[source];
                     _magazineTransmute[destination] = _magazineTransmute[source];
+
+                    //The kind rides the same shift (#330), or a wildcard would stay in the slot it was dealt
+                    //into and the ball that fires would be a different one from the ball the player watched
+                    //cycling towards the muzzle
+                    _magazineKind[destination] = _magazineKind[source];
                 },
                 (slot, type) =>
                 {
@@ -984,6 +1022,10 @@ namespace BS3D.Screens
                     //dissolves: Magazine.Refill fires it for every slot.
                     _magazineTransmute[slot] = 0f;
                     _magazineFrom[slot] = type;
+
+                    //And what this one IS, which is this screen's rule and not the magazine's — the deal is the
+                    //one moment it is decided, and the count behind it is the level's (#330)
+                    _magazineKind[slot] = NextLoadedKind();
                 });
 
             //The work each physics step carries inside it, wired once here for the reason the field states
@@ -1169,6 +1211,10 @@ namespace BS3D.Screens
                 if (_magazineTransmute[i] > 0f)
                     _magazineTransmute[i] = MathF.Max(0f, _magazineTransmute[i] - elapsed / TRANSMUTE_SECONDS);
 
+            //And every wildcard on screen turns over together (#330), on the same wall clock and for the same
+            //reason as the two above: a wildcard cycling in the bore is the gun saying what is loaded.
+            StepWildcards(elapsed);
+
             //The gun slides home — the tube in its cradle and the carriage under it, both off the one stroke
             //the shared Cannon owns since #115. Wall clock, like the magazine's glide above and for the same
             //reason: the recoil is the gun answering the shot, not the simulation.
@@ -1281,6 +1327,8 @@ namespace BS3D.Screens
                 if (_magazineTransmute[i] > 0f)
                     _magazineTransmute[i] = MathF.Max(0f, _magazineTransmute[i] - elapsed / TRANSMUTE_SECONDS);
 
+            StepWildcards(elapsed);
+
             //Unscaled, unlike the frame above: a drop cinematic is the only thing that scales the step, and
             //neither ending is declared while one is engaged — the countdown freezes for it and the loss waits
             //on mayLose — so the scale is back at 1 before this page can exist.
@@ -1319,6 +1367,12 @@ namespace BS3D.Screens
             //Stated, not inherited: the set is shared with the front end's preview, which hangs whatever map it
             //rolled in whatever that map is made of (#258).
             Game.Balls.Style = _ballStyle;
+
+            //And what a wildcard is crossing between this frame, stated on the same terms and for the same
+            //reason (#330): the set is the whole program's, the crossing belongs to this session, and every
+            //wildcard the frame draws — in the bore, at the muzzle, in the air — reads it from here, so no two
+            //of them can show different colours at one instant.
+            Game.Balls.SetWildcardCrossing(_wildcard.From, _wildcard.To, _wildcard.Progress);
 
             BallDrawFrame ballFrame = Game.Balls.BeginFrame(Camera);
 
@@ -1418,7 +1472,11 @@ namespace BS3D.Screens
             {
                 PlayHud.ClusterProfile profile = BuildClusterProfile(out int ballCount);
 
-                for (int i = 0; i < _magazineQueue.Length; i++) _magazineQueue[i] = _magazine.Peek(i);
+                //Through LoadedColour, so a wildcard's disc cycles with the ball it stands for (#330). The strip
+                //is the only place the queue can be read while the eye is on the cluster, so it is exactly where
+                //the two must not disagree — a disc showing the dealt colour under a wildcard would be a wrong
+                //answer in the one readout built to be trusted at a glance (#236).
+                for (int i = 0; i < _magazineQueue.Length; i++) _magazineQueue[i] = LoadedColour(i);
 
                 _hud.Draw(_score, Camera, in profile,
                     new ReadOnlySpan<PlayHud.BallMarker>(_profileBalls, 0, ballCount),

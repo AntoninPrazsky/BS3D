@@ -721,6 +721,34 @@ namespace BS3D.Screens
             Game.LevelSet != null && index >= 0 && index < Game.LevelSet.Count ? Game.LevelSet.Levels[index].CeilingStep : null;
 
         /// <summary>
+        /// One in how many loaded balls this level makes a wildcard (#330), or 0 for a level that hands out
+        /// none — which an absent <c>wildcardEvery</c> rule, an index outside the set and a missing set all
+        /// mean, the third rule read on this pattern. The Game's <c>wildcard=</c> testing argument overrides it
+        /// on every level, which is what makes the kind reachable at all while no shipped level asks for one.
+        /// </summary>
+        private int LevelWildcardEvery(int index)
+        {
+            if (Game.ForcedWildcardEvery > 0) return Game.ForcedWildcardEvery;
+
+            return Game.LevelSet != null && index >= 0 && index < Game.LevelSet.Count
+                ? Game.LevelSet.Levels[index].WildcardEvery ?? 0
+                : 0;
+        }
+
+        /// <summary>
+        /// What kind the next ball dealt into the magazine is (#330): a wildcard every
+        /// <see cref="_wildcardEvery"/>-th ball, an ordinary one otherwise. Counting the balls <b>dealt</b>
+        /// rather than the shots fired is what makes the very first queue carry one — the level deals a full
+        /// magazine before a shot is fired, and the player should be able to see the rule from the first frame.
+        /// </summary>
+        private BallKind NextLoadedKind()
+        {
+            _ballsDealt++;
+
+            return _wildcardEvery > 0 && _ballsDealt % _wildcardEvery == 0 ? BallKind.Wildcard : BallKind.Normal;
+        }
+
+        /// <summary>
         /// Recounts how many balls of each colour are still hanging. The magazine may only load a colour whose
         /// count is above zero: a ball of a colour that exists nowhere in the cluster can never match anything,
         /// so it can only be parked somewhere — which grows the very cluster the player is shrinking, wastes a
@@ -762,7 +790,49 @@ namespace BS3D.Screens
                         int index = (int)ball.Type - 1;
                         if (index >= 0 && index < _ballsOfType.Length) _ballsOfType[index]++;
                     }
+
+            //A wildcard cycles among exactly the colours that are still hanging (#330), and it is fed from here
+            //so that it cannot go stale: this is the one method that knows what is left. It matters beyond the
+            //look, because a wildcard landing beside nothing matchable KEEPS the colour it is showing — a cycle
+            //still offering a colour the cluster no longer has would park an unmatchable ball on the field,
+            //which is the very cost Transmute exists to prevent.
+            Span<BallType> live = stackalloc BallType[_ballsOfType.Length];
+            int liveCount = 0;
+
+            for (int i = 0; i < _ballsOfType.Length; i++)
+                if (_ballsOfType[i] > 0) live[liveCount++] = (BallType)(i + 1);
+
+            _wildcard.SetColours(live[..liveCount]);
         }
+
+        /// <summary>
+        /// Turns every wildcard on screen over together (#330): one clock stepped, and the balls in the air
+        /// given the colour it now shows.
+        /// <para>
+        /// <b>A wildcard in flight carries its shown colour in its own <see cref="BallType"/></b>, rather than
+        /// the landing asking the cycle what was showing at that instant. Two reasons, and the second is the
+        /// one that matters: the ball is drawn from that field like every other ball in the simulation, so the
+        /// two cannot disagree; and the contact handler runs inside the physics step, where "what is the cycle
+        /// showing right now" is a question about a clock the step does not own. The ball arrives already
+        /// carrying the answer.
+        /// </para>
+        /// </summary>
+        private void StepWildcards(float elapsedSeconds)
+        {
+            _wildcard.Step(elapsedSeconds);
+
+            for (int i = 0; i < _shotBalls.Count; i++)
+                if (_shotBalls[i].Kind == BallKind.Wildcard) _shotBalls[i].Type = _wildcard.Showing;
+        }
+
+        /// <summary>
+        /// What colour one loaded slot reads as: the queue's own, or — for a wildcard — whatever the cycle is
+        /// showing this instant (#330). Every tint taken off the magazine goes through here (the muzzle halo,
+        /// the aim beam, the landing ghost), which is what stops the four of them disagreeing about the round
+        /// that is about to fire — #175's failure, with the colours moving.
+        /// </summary>
+        private BallType LoadedColour(int slot) =>
+            _magazineKind[slot] == BallKind.Wildcard ? _wildcard.Showing : _magazine.Peek(slot);
 
         /// <summary>
         /// Re-colours every loaded ball whose colour has just been eliminated from the cluster, and starts the

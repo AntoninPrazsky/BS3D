@@ -171,7 +171,7 @@ namespace BS3D.Screens
             //type tints are already in that form — they are what LaunchSmears is handed for the same reason.
             Vector3 tint = _previewReachesCluster && !_previewHasCell
                 ? PREVIEW_REFUSED.ToVector3()
-                : BasicEffectParamsProvider.GetDiffuseTintByType(_magazine.Peek(0));
+                : BasicEffectParamsProvider.GetDiffuseTintByType(LoadedColour(0));
 
             //Faded out as precise aim leans in, which is the inverse of the crosshair's own opacity: the two are
             //one signal handed between the modes rather than two competing for the same pixels. Measured need
@@ -218,7 +218,13 @@ namespace BS3D.Screens
             float dissolve = PREVIEW_DISSOLVE
                 + PREVIEW_BLINK_DEPTH * MathF.Sin(MathHelper.TwoPi * PREVIEW_BLINK_HZ * WallClock);
 
-            frame.Add(_magazine.Peek(0), position, Matrix.CreateTranslation(position),
+            //⚠ A wildcard's ghost is drawn as an ORDINARY ball in the colour the cycle is showing (#330), and
+            //deliberately not handed over as its kind: the crossing writes the very dissolve channel this blink
+            //is using, so routing it would overwrite the swing above and leave a solid ghost promising a cell
+            //3 of 10 shots actually reach. The colour is still the right one, which is what the ghost is read
+            //for — "does it stick NEXT TO TWO MORE OF ITS OWN" — and it comes through LoadedColour like every
+            //other tint, so it agrees with the muzzle and the strip.
+            frame.Add(LoadedColour(0), position, Matrix.CreateTranslation(position),
                 BallRenderSet.UNOCCLUDED, dissolve);
         }
 
@@ -352,7 +358,7 @@ namespace BS3D.Screens
         /// </summary>
         private void DrawMuzzleGlow() =>
             _ballGlow.Draw(Camera, _muzzleBallPosition, Constants.HALF,
-                BasicEffectParamsProvider.GetDiffuseTintByType(_magazine.Peek(0)), MuzzleGlowStrength(),
+                BasicEffectParamsProvider.GetDiffuseTintByType(LoadedColour(0)), MuzzleGlowStrength(),
                 MathHelper.Lerp(BallGlow.RADIUS_IN_BALL_RADII, MUZZLE_GLOW_ADS_RADII, _preciseAim.Blend));
 
         #endregion
@@ -435,7 +441,18 @@ namespace BS3D.Screens
                 //shot in flight does — off the one constant, rather than four literals written out here
                 //Both halves of a transmute take the mark, or the muzzle round would flicker between marked and
                 //plain across the dither's two complementary cuts while it re-coloured itself
-                if (remaining > 0f)
+                //A WILDCARD IS NEITHER OF THOSE CASES (#330): it is a crossing that never ends, and its two
+                //colours are the game's rather than this slot's — so it is handed over as a kind and the render
+                //set draws it, which is what keeps one description of a wildcard for the queue, the ball in
+                //flight and the ghost alike. Checked first because a wildcard is never transmuted: the
+                //transmute re-colours a slot whose colour has died, and a wildcard has no colour of its own to
+                //lose.
+                if (_magazineKind[i] == BallKind.Wildcard)
+                {
+                    frame.Add(LoadedColour(i), position, world, BallRenderSet.UNOCCLUDED, 0f, mark, still,
+                        BallKind.Wildcard);
+                }
+                else if (remaining > 0f)
                 {
                     float progress = 1f - remaining;
 

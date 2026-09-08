@@ -1188,3 +1188,45 @@ Hint u NumPad2 zněl `Switch scene (city/sea/savanna/desert/mountain/meadow/neon
 **⚠ Drobnost při ověřování, která se čte jako nález a není jím:** první snímek overlaye jsem vzal nad neonovým městem a řádek `L Cycle ball material` na něm **nemá vidět klávesu** — písmeno zaniklo v jasné fasádě za ním. Přefotil jsem to nad vesmírem (tmavé pozadí) a je tam. Overlay se prostě nedá číst nad každou scénou; kdo fotí nápovědu, ať volí tmavou.
 
 **Ověřeno:** čtyři solutiony 0 chyb, ScoreSim 0, obojí nafoceno vlastním writerem Testbedu přes `shot=` a odřízeno `at=…:Escape` — tedy celý řetěz #371–#375 použitý na ověření #376.
+
+---
+
+## 2026-09-08 — Claude Code
+
+**#330 hotové a na mainu. Wildcard je jediný druh koule, který hráč STŘÍLÍ — a to je celý jeho návrh: nesahá na formát mapy ani na flood fill, sahá na magazín, ústí a HUD. Nová `BallKind.Wildcard`, `WildcardCycle`, `BallsMap.TryChooseWildcardColour`, klíč `wildcardEvery` v setu a testovací argument `wildcard=<n>`.** Větev `330-wildcard`, merge `--no-ff`.
+
+**Nejdůležitější rozhodnutí, které z kódu není vidět: `Magazine` jsem NECHAL BEZ ZMĚNY.** Druh slotu drží Game (`_magazineKind`) a veze se přes tytéž dva háky, které už vozí transmute (`slotCarried`/`slotLoaded`). Sedí to na to, co má `Magazine` napsané v hlavičce — fronta a její posun jsou její, *co* se nabíjí je pravidlo o levelu — a znamená to, že Testbed o wildcardu neví vůbec (#100: přístroj, ne druhá hra). Kadence se proto rozhoduje v okamžiku rozdání, ne při výstřelu, a počítají se **rozdané koule, ne výstřely**: level rozdá plný magazín dřív, než padne první rána, takže při počítání ran by první wildcard přišel o celý zásobník později, než pravidlo slibuje.
+
+**Cyklus je HRY, ne koule, a to je půlka issue.** Wildcard je vidět na pěti místech naráz (fronta v hlavni, rána v ústí, její halo, duch dopadu, koule v letu). Per-ball fáze by je nechala cyklovat rozházeně, což je #175 (dva testeři přečetli barvu ze špatné koule) s barvami v pohybu. Jeden `WildcardCycle` na session, jedna metoda pro všechny tinty (`LoadedColour`) a přechod nastavený na render setu jednou za snímek vedle stylu koulí.
+
+### ⚠ Tři pasti, každá stála jeden běh
+
+1. **Vzorkování si změřilo samo sebe.** První důkaz cyklování jsem bral ze snímků po `shot=6,9,12` a všechny tři vyšly **bajt v bajt stejně** — vypadalo to jako mrtvý cyklus. Jenže `CROSSING_SECONDS` je 0,5 s a tři sekundy jsou přesně šest přechodů: perioda a rozestup snímků se potkaly. Je to táž třída chyby, kterou má #371 zapsanou u `shotframe=` („plán v sekundách měří sampler"), jen z druhé strany — tady stál svět a hýbalo se to, co jsem fotil. **Kdo fotí cyklující věc, ať volí rozestup, který NENÍ násobkem periody**: `shot=6,6.2,6.4` ukázalo červená → zelená → modrá, a hlavně ukázalo, že se hýbe **jen slot 2** (třetí rozdaná koule při `wildcard=3`) a čtyři ostatní stojí. To je ten důkaz, ne ta pěkná fotka.
+
+2. **Intro kamera sežrala celý běh a neřekla ani slovo.** Rig, který po 9 s pošle Space, střílí do `[intro] … 9.5s` — a `Shoot` se během převzetí kamery odmítá, takže v logu **nebyl jediný `[shot]` řádek** a vypadalo to na vadu v dopadu. Čekat 13 s. Pro příště obecně: než se u Game prohlásí „nic nepřistálo", přečti si `[intro]` řádek toho běhu.
+
+3. **Sousedů je dvanáct, ne osm.** Kandidátní pole jsem nadimenzoval podle „čtyři na úrovni a čtyři na sousední" a to je špatně o celou jednu úroveň (4 + 4 nahoře + 4 dole). Chytl to až vlastní průchod diffem, ne kompilátor a ne hra — devět různých barev kolem jedné buňky je vzácné, ale `Span` by na tom dopadu spadl. Číslo je teď pojmenované (`MAX_TOUCHING_CELLS`) s poznámkou, že se hádá špatně, a **je změřené**: sonda staví buňku s dvanácti různobarevnými sousedy a projde.
+
+**Ještě jedna past, kterou jsem nezaplatil, protože ji chytla úvaha u kódu, a proto je zapsaná i tam:** duch dopadu se NESMÍ posílat jako kind. Přechod zapisuje `Dissolve`, a duch si ten kanál už bere na vlastní blikání (`PREVIEW_BLINK_DEPTH`) — routovaný duch by byl plný a nehybný, tedy slib na buňku, kterou trefí 3 z 10 ran.
+
+### Jak jsem ověřoval, když se hra nedá skriptovat
+
+Pravidlo dopadu bez skriptovatelné myši (#379, dnes založeno) nemá jak nastavit remízu na objednávku. Rozdělil jsem to:
+
+- **Co jde vystřelit, je vystřelené**, zvenčí posílanou mezerou do zaostřeného okna, a čte se to **z logu, ne z fotky**: `[shot] wildcard landed as Type2, group of 29`, `group of 2` (zůstala viset, pod `MINIMUM_CLUSTER_SIZE`) a `beside nothing matchable, kept Type1`. Všechny tři větve pravidla viděné za běhu. Při `wildcard=1` (celý magazín wildcardy) padl level One čtyřmi ranami (90+120+90+16 z 385) a nic po cestě nepředpokládalo pevnou barvu — proběhl i drop cinematic a transmute.
+- **Co vystřelit nejde, prošlo jednorázovou sondou** proti knihovně ve scratchpadu (repo nemá testovací projekty): největší skupina, remíza → nejvíc dotyků, dokonalá remíza → nižší `BallType`, nezávislost na pořadí, kámen a bomba nejsou kandidáti, prázdné okolí, `PutBallAt` zamkne wildcard, `Next()` ho přeskočí, dvanáct sousedů. Osm kontrol, všechny PASS. Sonda je **zahozená**, v repu není — je to táž věc, co udělalo #356 se sondou v `ClusterCollector`.
+- **Shoda ústí, fronty a HUDu se ověřovala v HŘE s doopravdy drženým RMB**, jak káže pravidlo. Při celém magazínu wildcardů je všech pět disků v každém snímku **bajt v bajt stejných** (103/140/207, pak 207/45/45, pak 54/207/54) a mění se společně: jedny hodiny přečtené pětkrát, ne pět hodin, které se náhodou shodly.
+
+### Co zůstává na majiteli
+
+**Žádný shipnutý level wildcard nerozdává**, schválně a na precedentu #326/#327 — mechanika je postavená, kapitola, která ji používá, je vlastní práce (#368 je, jak to vypadalo u bomby a zapu). Proto ten `wildcard=<n>`: mapou se to obejít nedá, je to koule děla. **A z toho plyne poctivá mez ověření:** `ScoreSim` hraje shipnuté levely, žádný z nich `wildcardEvery` nenese, takže jeho verdikt platí beze změny — ale konfigurace S wildcardy tím ohodnocená není a být nemůže, dokud si o ni nějaký level neřekne. Skórování jsem záměrně nechal na pokoji: dokončená skupina přijde do `Released.Matched` a boduje jako každá jiná, žádný člen navíc.
+
+**Dnes jsem taky založil tři issues** (majitel si vybral „založ chybějící a pak vezmi 330"): **#377** (gamepadem se dělo neotočí ani nerozejde — `Orbit`/`Advance` visí jen na klávesnici, levá páčka je v hraní volná), **#378** (rumble na dvou tělových motorkách; #188 už doměřilo, že fungují a trigger parametry se tiše zahazují) a **#379** (timeline Testbedu nedosáhne na myš — míření a držené RMB jsou jediná osa, kterou neobsluhovaný běh neumí, a externí cesta už dvakrát vyrobila falešné „ověřeno").
+
+**⚠ Drobnost do hlavičky tohohle souboru, kterou NEOPRAVUJI, protože pravidlo zní neupravovat tu nic než vlastní zápis:** stojí v ní *„squash-merge s `(#NNN)` v subjektu"*, zatímco `CLAUDE.md` od 2026-08-12 výslovně říká `git merge --no-ff` a že tak vypadá každý merge v logu. Řídil jsem se CLAUDE.md. Je to na majitele, jestli tu větu srovnat.
+
+**Ověřeno:** čtyři solutiony 0 chyb / 0 upozornění, ScoreSim 0, LevelGen 0, `Game/Levels` beze změny (nový klíč nepřepsal ani jeden shipnutý soubor, což je celý smysl toho, že je volitelný).
+
+**⚠ Čtvrtá past, chycená až vlastním průchodem diffem po commitu, a je to past na celý repo:** `BallsMap.cs` je v repu uložený s **CRLF**, zatímco okolní soubory mají LF a repo nemá `.gitattributes`; `core.autocrlf` je na tomhle stroji `true`. Můj zásah ten soubor převedl na LF a commit tím **přepsal celých 1633 řádků místo mých 153** — v `git diff` v pracovním stromě to vidět NENÍ (ten normalizuje za běhu a hlásil poslušně 145), objeví se to teprve při porovnání dvou stromů: `git diff --stat <předchozí main> HEAD`. Merge jsem proto odtočil (`update-ref` + `git restore`, nikoli `reset --hard`, který je tu zakázaný), soubor vrátil na CRLF a zapsal ho přes `git -c core.autocrlf=false add`, protože jinak ho `add` znormalizuje zpátky na LF. Diff je teď 153 řádků, 0 smazaných.
+
+Dvě věci k tomu, obě na majitele: **(1)** ten soubor je v repu jediný svého druhu z těch, co jsem kontroloval — anomálie, ne konvence; **(2)** repo nemá `.gitattributes`, takže tohle čeká na každého, kdo ten soubor upraví nástrojem píšícím LF. Jeden řádek `* text=auto` by to zavřel, ale je to rozhodnutí na celý repo a jedním commitem by přeuložil kdeco, takže jsem na to nesáhl. **Pro příště, a je to levné:** po commitu, který sahá na starý soubor, se vyplatí `git diff --stat` proti předchozímu mainu — ne jen ten, co ukazuje pracovní strom.

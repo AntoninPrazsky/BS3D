@@ -1337,6 +1337,35 @@ namespace Prazsky.BS3D
         /// this is also the camera <see cref="Draw"/> puts the buckets out with — it is remembered rather than
         /// asked for twice, so the mesh a ball was bucketed for and the view it is drawn under cannot
         /// disagree.</param>
+        //What a wildcard is crossing between, this frame (#330). Bucket indices rather than BallTypes, since
+        //that is what every store below speaks, and zeroes are a valid pair - an unset set draws a wildcard as
+        //a plain ball of the first colour rather than as nothing at all.
+        private int _wildcardFrom;
+        private int _wildcardTo;
+        private float _wildcardProgress;
+
+        /// <summary>
+        /// Tells the set what a <see cref="BallKind.Wildcard"/> is showing this frame — call it once before
+        /// <see cref="BeginFrame"/>, off the game's single <see cref="WildcardCycle"/>.
+        /// <para>
+        /// It is a per-<i>frame</i> value and not a per-instance one deliberately, and that is the same call the
+        /// emissive heartbeat made (#252): a property shared by every wildcard in the frame is what makes them
+        /// unable to disagree. A caller that never sets it — the Testbed, which has no wildcards — draws one as
+        /// an ordinary ball instead of as nothing.
+        /// </para>
+        /// </summary>
+        public void SetWildcardCrossing(BallType from, BallType to, float progress)
+        {
+            int fromIndex = (int)from - 1;
+            int toIndex = (int)to - 1;
+
+            //An out-of-range colour is dropped in silence everywhere else in this file; here it would index a
+            //bucket, so it is clamped to a real one instead
+            _wildcardFrom = fromIndex >= 0 && fromIndex < TYPE_COUNT ? fromIndex : 0;
+            _wildcardTo = toIndex >= 0 && toIndex < TYPE_COUNT ? toIndex : 0;
+            _wildcardProgress = MathHelper.Clamp(progress, 0f, 1f);
+        }
+
         public BallDrawFrame BeginFrame(ICamera camera)
         {
             if (_frameCamera != null) throw new InvalidOperationException(
@@ -1972,6 +2001,24 @@ namespace Prazsky.BS3D
         /// <summary>Dead weight (#342): the ash half of a released ball's crossing, in the level's own style.</summary>
         internal void StoreDead(int lod, in ModelInstance instance) => StoreAt(DEAD_REGION_START + lod, instance);
 
+        /// <summary>
+        /// A wildcard, mid-crossing between two colours (#330) — the whole of how one is drawn, in one place, so
+        /// the queue in the bore, the round at the muzzle, the aim ghost and the ball in flight cannot each
+        /// grow their own version of it.
+        /// <para>
+        /// It is the transmute's cross-fade with no end: the colour it is going to at <c>-d</c> and the one it
+        /// is leaving at <c>+d</c>, which partitions the sphere's pixels between the two draws exactly (see
+        /// <see cref="BallDrawFrame.Route"/> for the sign contract). The crossing is <b>the game's, not the
+        /// ball's</b> — it comes from <see cref="SetWildcardCrossing"/> once a frame — so every wildcard on
+        /// screen shows the same colour at the same instant.
+        /// </para>
+        /// </summary>
+        internal void StoreWildcardCrossing(int lod, in ModelInstance instance, bool still)
+        {
+            Store(_wildcardTo, lod, instance.WithDissolve(-_wildcardProgress), still);
+            Store(_wildcardFrom, lod, instance.WithDissolve(_wildcardProgress), still);
+        }
+
         private void StoreAt(int bucketIndex, in ModelInstance instance)
         {
             ModelInstance[] bucket = _buckets[bucketIndex];
@@ -2086,6 +2133,16 @@ namespace Prazsky.BS3D
                     //a set of renderer uniforms — the bomb's case in every respect but the technique. See
                     //BallRenderSet.DrawZaps.
                     _set.StoreZap(lod, instance);
+                    break;
+
+                case BallKind.Wildcard:
+                    //The first kind that is the OPPOSITE of the four above (#330): it is nothing BUT colour —
+                    //two of them at once — and it is the only kind that is ever loaded in the cannon. So it
+                    //takes neither a region of its own nor this ball's typeIndex, which for a wildcard says
+                    //only which colour it happens to be showing; the crossing is the game's, set once a frame.
+                    //`still` rides along because a wildcard IS most often a loaded round, and both halves of a
+                    //crossing must take it or the muzzle ball would breathe in one colour and not the other.
+                    _set.StoreWildcardCrossing(lod, instance, still);
                     break;
 
                 default:

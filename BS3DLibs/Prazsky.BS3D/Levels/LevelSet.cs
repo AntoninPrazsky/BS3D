@@ -101,6 +101,13 @@ namespace Prazsky.BS3D.Levels
                         throw new InvalidDataException(
                             $"'{path}': level {i + 1} ('{entry.File}') steps the ceiling every {entry.CeilingStep} shots; omit \"ceilingStep\" to hold it still");
 
+                    //Same rule as the three above (#330): a cadence of zero or less is not a way to say "no
+                    //wildcards" — one is a division the game would have to guard and the other is meaningless.
+                    //A cadence of 1 is legal and means every ball, which is a real thing to want to look at.
+                    if (entry.WildcardEvery is <= 0)
+                        throw new InvalidDataException(
+                            $"'{path}': level {i + 1} ('{entry.File}') loads a wildcard every {entry.WildcardEvery} balls; omit \"wildcardEvery\" for none");
+
                     //A block is a STRETCH of the campaign, so the same name may not open a second run later on:
                     //that is either a typo or a milestone that fires twice, and both are better refused at the
                     //file than explained in play. Checked against the entry two back and beyond rather than by
@@ -344,5 +351,29 @@ namespace Prazsky.BS3D.Levels
         /// </summary>
         [JsonPropertyName("ceilingStep")]
         public int? CeilingStep { get; set; }
+
+        /// <summary>
+        /// One in how many balls loaded into the magazine is a <c>BallKind.Wildcard</c> (#330).
+        /// <b>Null — which every shipped entry is — means the level hands out none.</b>
+        /// <para>
+        /// It sits here rather than in the level file because it is a <b>difficulty</b> rule and not a property
+        /// of the picture: a wildcard is a free match, so how often one arrives is most of how hard the level
+        /// is, which is exactly what <see cref="Shots"/> and <see cref="CeilingStep"/> are and why they live
+        /// here too. The same map can then be an easy level and a hard one.
+        /// </para>
+        /// <para>
+        /// The cadence is counted, not diced, and it counts balls <i>dealt</i> — so a level with <c>4</c> here
+        /// starts with a wildcard already in the visible queue, which is the point: the player is meant to see
+        /// the rule rather than be surprised by it.
+        /// </para>
+        /// <para>
+        /// It carries no format bump, on the ball style's argument (#258): an older build ignores an unknown
+        /// property and plays the level with an ordinary magazine. Unlike a ball style that is a degraded
+        /// <i>look</i>, that is a degraded <i>difficulty</i> — the level is harder, not broken — and the
+        /// campaign ships none, so no shipped file changes meaning on an older build.
+        /// </para>
+        /// </summary>
+        [JsonPropertyName("wildcardEvery")]
+        public int? WildcardEvery { get; set; }
     }
 }

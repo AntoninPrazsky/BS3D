@@ -75,6 +75,15 @@ namespace Prazsky.BS3D.GameStructure
             Vector3 realPosition = GetRealPosition(stageX, stageZ, level);
             if (Centered) realPosition = ComputeCentered(realPosition);
 
+            //A kind that cannot hang in a cluster becomes an ordinary ball here (#330), and this is the one
+            //place it can be caught: every ball the map ever holds is placed through this method — the loader,
+            //the editor and the landing alike. Today that is the wildcard, which collapses to a colour as it
+            //lands and so should never arrive still wearing its kind; a hand-written "k": 5 in a file is the
+            //case this actually stops, and it stops it silently rather than refusing the file, because the
+            //result is a playable level either way. See BallKinds.InCluster for what a hanging wildcard would do
+            //to the two end-of-level conditions.
+            if (!BallKinds.InCluster(kind)) kind = BallKind.Normal;
+
             var ball = new StaticBall(realPosition, type, kind);
             _balls[stageX, stageZ, level] = ball;
 
@@ -356,6 +365,150 @@ namespace Prazsky.BS3D.GameStructure
             }
 
             return cluster;
+        }
+
+        /// <summary>
+        /// How many cells can touch one cell: four on its own level, four on the level above and four below
+        /// (<see cref="GetNeighboringCells"/>, and <see cref="CountOccupiedNeighbors"/> states the same figure).
+        /// Named because the obvious guess is eight, and a span sized by that guess would throw on the landing
+        /// the day a cell touched nine different colours.
+        /// </summary>
+        private const int MAX_TOUCHING_CELLS = 12;
+
+        /// <summary>
+        /// What colour a <see cref="BallKind.Wildcard"/> landing in <paramref name="cell"/> should become
+        /// (#330): the one that completes the <b>largest</b> group, counting the wildcard itself. False when the
+        /// cell touches nothing matchable, and then the caller keeps the colour the ball was showing — see
+        /// <see cref="BallKind.Wildcard"/> for why that fallback is the honest one.
+        /// <para>
+        /// Asked <b>before</b> the ball is written into the map, which is why this cannot simply be
+        /// <see cref="GetConnectedSameTypeCells"/> on the landing cell: the cell is still empty, so each
+        /// candidate colour is walked as if the wildcard were already there and already that colour. That
+        /// ordering is deliberate — everything downstream of the landing (the glass colouring, the zap's colour,
+        /// the group release, the score, the tint the award flies in) reads the shot ball's
+        /// <see cref="BallType"/>, so the collapse has to be finished before any of it runs.
+        /// </para>
+        /// <para>
+        /// <b>Largest group, and the tie-breaks are stated rather than left to whatever the walk happens to
+        /// meet first.</b> Equal groups go to the colour the landing actually touches most balls of, and a still
+        /// perfect tie to the lower <see cref="BallType"/> — arbitrary, but fixed, so two identical-looking
+        /// landings can never do different things. The largest-group rule itself is what a player expects a
+        /// wildcard to do; anything else reads as the game refusing a good shot.
+        /// </para>
+        /// <para>
+        /// Costs one walk per distinct touching colour — at most eight, and in practice one or two — on a
+        /// landing that happens a handful of times in a level. The stamp buffer and the queue are allocated once
+        /// here and reused across those walks rather than per candidate.
+        /// </para>
+        /// </summary>
+        /// <param name="group">How big the group it chose would be, the wildcard included — 3 or more is a
+        /// match. Zero when there was nothing to choose between. It exists for the handler's landing line: a
+        /// level whose wildcards keep landing on groups of two says so in the log instead of being diagnosed
+        /// from a screenshot, which is the same job <c>BallLanding.Coloured</c> does for the glass.</param>
+        public bool TryChooseWildcardColour(XZLevel cell, out BallType type, out int group)
+        {
+            type = default;
+            group = 0;
+
+            XZLevel size = new(StageSizeX, StageSizeZ, Levels);
+
+            //At most one candidate colour per touching cell - see MAX_TOUCHING_CELLS for why that is not eight
+            Span<BallType> candidates = stackalloc BallType[MAX_TOUCHING_CELLS];
+            Span<int> touching = stackalloc int[MAX_TOUCHING_CELLS];
+            int candidateCount = 0;
+
+            foreach (XZLevel neighbour in GetNeighboringCells(cell, size))
+            {
+                StaticBall ball = _balls[neighbour.X, neighbour.Z, neighbour.Level];
+                if (ball == null || !BallKinds.Matchable(ball.Kind)) continue;
+
+                int existing = -1;
+                for (int i = 0; i < candidateCount; i++) if (candidates[i] == ball.Type) { existing = i; break; }
+
+                if (existing >= 0) touching[existing]++;
+                else
+                {
+                    candidates[candidateCount] = ball.Type;
+                    touching[candidateCount] = 1;
+                    candidateCount++;
+                }
+            }
+
+            if (candidateCount == 0) return false;
+
+            var stamp = new byte[StageSizeX, StageSizeZ, Levels];
+            var toVisit = new Queue<XZLevel>();
+
+            int bestGroup = -1;
+            int bestTouching = -1;
+
+            for (int i = 0; i < candidateCount; i++)
+            {
+                //The stamp value identifies the walk, so one buffer serves every candidate: a cell visited by
+                //an earlier colour's walk carries that colour's mark and is not mistaken for visited by this one
+                int candidateGroup = CountGroupIfPlaced(cell, candidates[i], size, stamp, (byte)(i + 1), toVisit);
+
+                if (candidateGroup < bestGroup) continue;
+                if (candidateGroup == bestGroup)
+                {
+                    if (touching[i] < bestTouching) continue;
+                    if (touching[i] == bestTouching && candidates[i] >= type) continue;
+                }
+
+                bestGroup = candidateGroup;
+                bestTouching = touching[i];
+                type = candidates[i];
+            }
+
+            group = bestGroup;
+
+            return true;
+        }
+
+        /// <summary>
+        /// How many balls would be in the connected same-colour group if a ball of <paramref name="type"/> were
+        /// placed in the (empty) cell <paramref name="start"/>, itself included. The walk is
+        /// <see cref="GetConnectedSameTypeCells"/>' exactly — same neighbour rule, same
+        /// <see cref="BallKinds.Matchable"/> gate — differing only in that the start cell is hypothetical, so it
+        /// is counted and its neighbours seeded without being read out of the map.
+        /// </summary>
+        private int CountGroupIfPlaced(XZLevel start, BallType type, XZLevel size, byte[,,] stamp, byte mark,
+            Queue<XZLevel> toVisit)
+        {
+            toVisit.Clear();
+
+            stamp[start.X, start.Z, start.Level] = mark;
+            int count = 1;                                  //the placed ball itself
+
+            foreach (XZLevel neighbour in GetNeighboringCells(start, size))
+            {
+                if (stamp[neighbour.X, neighbour.Z, neighbour.Level] == mark) continue;
+
+                StaticBall ball = _balls[neighbour.X, neighbour.Z, neighbour.Level];
+                if (ball == null || ball.Type != type || !BallKinds.Matchable(ball.Kind)) continue;
+
+                stamp[neighbour.X, neighbour.Z, neighbour.Level] = mark;
+                toVisit.Enqueue(neighbour);
+            }
+
+            while (toVisit.Count > 0)
+            {
+                XZLevel cell = toVisit.Dequeue();
+                count++;
+
+                foreach (XZLevel neighbour in GetNeighboringCells(cell, size))
+                {
+                    if (stamp[neighbour.X, neighbour.Z, neighbour.Level] == mark) continue;
+
+                    StaticBall ball = _balls[neighbour.X, neighbour.Z, neighbour.Level];
+                    if (ball == null || ball.Type != type || !BallKinds.Matchable(ball.Kind)) continue;
+
+                    stamp[neighbour.X, neighbour.Z, neighbour.Level] = mark;
+                    toVisit.Enqueue(neighbour);
+                }
+            }
+
+            return count;
         }
 
         /// <summary>

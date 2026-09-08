@@ -249,7 +249,12 @@ namespace BS3D.Screens
             //the barrel has moved. The stroke below is drawing only — see CannonRecoilBack.
             Vector3 direction = _cannon.AimDirection;
             Vector3 muzzle = _cannon.MuzzlePosition(Game.CannonRig.PivotToFrontBall);
-            BallType type = _magazine.Peek();
+            //A wildcard fires as the colour it is SHOWING (#330), not as the one dealt into the slot underneath
+            //it: that one is never seen and never used, and the ball has to leave the barrel wearing what the
+            //player was looking at — the smear below is drawn from it, and so is the ball itself all the way to
+            //the landing, where a wildcard that completes nothing keeps exactly this colour.
+            BallKind kind = _magazineKind[0];
+            BallType type = LoadedColour(0);
 
             PhysicsBall ball = new()
             {
@@ -259,7 +264,8 @@ namespace BS3D.Screens
                 //makes "every listener is a shot still in the air" true (see AnyShotUndecided).
                 BallReference = _world.AddShotBall(muzzle.ToNumerics(), direction.ToNumerics() * SHOOT_SPEED,
                     _eventHandler),
-                Type = type //the colour the player saw loaded at the muzzle, so aiming for it means something
+                Type = type, //the colour the player saw loaded at the muzzle, so aiming for it means something
+                Kind = kind  //and what it is, which for everything but a wildcard is Normal (#330)
             };
 
             _shotBalls.Add(ball);
