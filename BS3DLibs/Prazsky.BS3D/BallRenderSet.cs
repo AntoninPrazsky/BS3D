@@ -814,6 +814,26 @@ namespace Prazsky.BS3D
         private const float ZAP_PULSE_SPEED = 3.1f;
 
         /// <summary>
+        /// What an acid's liquid is lit by (#328), and the three figures are chosen the other way round from
+        /// the zap's on purpose: an acid is <b>slow</b>. Its own crawl already moves inside the technique, so
+        /// what the heartbeat adds here is a swell rather than a flicker — a shallow depth on a beat well under
+        /// the cluster's, which is what reads as something oozing rather than something charged.
+        /// <para>
+        /// The emission itself sits between the bomb's and the zap's: the lit figure is large (runs plus a pool
+        /// covering most of the underside), and the bomb's own lesson is that what a special is read by at play
+        /// distance is the SIZE of the lit figure rather than the amount of light in it — so a large figure
+        /// needs less.
+        /// </para>
+        /// </summary>
+        private const float ACID_EMISSION = 0.85f;
+
+        /// <inheritdoc cref="ACID_EMISSION"/>
+        private const float ACID_PULSE_DEPTH = 0.35f;
+
+        /// <inheritdoc cref="ACID_EMISSION"/>
+        private const float ACID_PULSE_SPEED = 0.8f;
+
+        /// <summary>
         /// How much of the picture behind it a clear ball takes away face-on (#325), against the dyed film's
         /// <see cref="BUBBLE_BODY_OPACITY"/>. <b>Lower, and that is the whole read of this kind</b>: a bubble is
         /// a coloured thing you can see through and this is a thing that is not there — what names it is the
@@ -994,7 +1014,14 @@ namespace Prazsky.BS3D
         //with the life taken out of it. So this draw does not touch Shading at all — only the tint and the
         //pulse — and one glance still tells a spent ball from a rock. Colourless, so LodCount buckets rather
         //than TYPE_COUNT × LodCount, and never loaded in the cannon, so no still twin.
-        private static readonly int DEAD_REGION_START = ZAP_REGION_START + LodCount;
+        //And an EIGHTH, for the acids of #328, on the bomb's and the zap's argument in full: colourless,
+        //opaque, never loaded in the cannon, and read by a figure that is a technique plus a set of
+        //per-renderer uniforms. Its own region rather than a second use of either, because the three dark
+        //specials have to be told apart at a glance — a landing beside one of them does three different
+        //things, and a player who cannot name which is looking at a lottery.
+        private static readonly int ACID_REGION_START = ZAP_REGION_START + LodCount;
+
+        private static readonly int DEAD_REGION_START = ACID_REGION_START + LodCount;
 
         //What a dead ball is tinted: a cold, dark ash, well under every one of the thirteen in value. Black's
         //own tint is 0.045, far under this — but a tint is not a brightness: black is LIT like every other
@@ -1500,6 +1527,8 @@ namespace Prazsky.BS3D
             //And the zaps beside them (#327), same side of the frame and same argument: opaque.
             DrawZaps(camera);
 
+            DrawAcids(camera);
+
             //And the dead weight with them (#342), which is the same argument once more — see DrawDead for
             //what it does and does not state, and for why it is drawn here even on a transparent style.
             DrawDead(camera);
@@ -1669,6 +1698,49 @@ namespace Prazsky.BS3D
                 //No TINT, for the stone's and the bomb's reason: a zap wearing one of the thirteen is a lie
                 //the player acts on. Its own material all the same — see BasicEffectParamsProvider.Zap.
                 _renderers[lod].Draw(camera, _buckets[bucketIndex], count, BasicEffectParamsProvider.Zap, null);
+            }
+
+            for (int lod = 0; lod < LodCount; lod++) _renderers[lod].PulseSpeed = PULSE_BEATS_PER_SECOND;
+
+            ApplyStyle();
+        }
+
+        /// <summary>
+        /// The live acids (#328): <see cref="DrawZaps"/> in every structural respect — the region, the per-LOD
+        /// calls, the tintless material of its own, and putting the pulse speed back by hand afterwards, which
+        /// <see cref="ApplyStyle"/> cannot do. What differs is only the three figures and the technique, and
+        /// they are chosen to make this one read as <b>slow</b> beside the zap's flicker.
+        /// </summary>
+        private void DrawAcids(ICamera camera)
+        {
+            bool any = false;
+            for (int lod = 0; lod < LodCount && !any; lod++) any = _counts[ACID_REGION_START + lod] > 0;
+
+            if (!any) return;
+
+            for (int lod = 0; lod < LodCount; lod++)
+            {
+                InstancedModelRenderer renderer = _renderers[lod];
+
+                renderer.Shading = BallShading.Acid;
+                renderer.EmissiveStrength = ACID_EMISSION;
+                renderer.PulseDepth = ACID_PULSE_DEPTH;
+                renderer.PulseSpeed = ACID_PULSE_SPEED;
+            }
+
+            for (int lod = 0; lod < LodCount; lod++)
+            {
+                int bucketIndex = ACID_REGION_START + lod;
+                int count = _counts[bucketIndex];
+                if (count == 0) continue;
+
+                DrawnCount += count;
+                _lodTotals[lod] += count;
+
+                //No TINT, for the stone's, the bomb's and the zap's reason: a special wearing one of the
+                //thirteen is a lie the player acts on. Its own material all the same — see
+                //BasicEffectParamsProvider.Acid.
+                _renderers[lod].Draw(camera, _buckets[bucketIndex], count, BasicEffectParamsProvider.Acid, null);
             }
 
             for (int lod = 0; lod < LodCount; lod++) _renderers[lod].PulseSpeed = PULSE_BEATS_PER_SECOND;
@@ -1998,6 +2070,9 @@ namespace Prazsky.BS3D
         /// <summary>A live zap (#327) — colourless like the three above, and for the same reason.</summary>
         internal void StoreZap(int lod, in ModelInstance instance) => StoreAt(ZAP_REGION_START + lod, instance);
 
+        /// <summary>A live acid (#328) — colourless like the three above, and for the same reason.</summary>
+        internal void StoreAcid(int lod, in ModelInstance instance) => StoreAt(ACID_REGION_START + lod, instance);
+
         /// <summary>Dead weight (#342): the ash half of a released ball's crossing, in the level's own style.</summary>
         internal void StoreDead(int lod, in ModelInstance instance) => StoreAt(DEAD_REGION_START + lod, instance);
 
@@ -2133,6 +2208,13 @@ namespace Prazsky.BS3D
                     //a set of renderer uniforms — the bomb's case in every respect but the technique. See
                     //BallRenderSet.DrawZaps.
                     _set.StoreZap(lod, instance);
+                    break;
+
+                case BallKind.Acid:
+                    //Colourless a fifth time (#328), never loaded in the cannon, and read by a figure that is a
+                    //technique plus renderer uniforms — the bomb's and the zap's case in every respect but what
+                    //the figure says. See BallRenderSet.DrawAcids.
+                    _set.StoreAcid(lod, instance);
                     break;
 
                 case BallKind.Wildcard:

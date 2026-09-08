@@ -114,6 +114,23 @@ namespace Prazsky.BS3D.GameStructure
         public static BasicEffectParams Zap = new BasicEffectParams(new Vector3(0.058f, 0.070f, 0.098f), GLOSS_COLOR, GLOSS_POWER, Vector3.Zero);
 
         /// <summary>
+        /// The live acid's material (#328), read by <c>BallRenderSet.DrawAcids</c> alone and indexed by nothing
+        /// — an acid is a <see cref="BallKind"/> like the three above, not a colour.
+        /// <para>
+        /// The bomb's and the zap's entry a third time, in the third direction: dark for the same reason (what
+        /// this kind says it says with the liquid running on it, and a lifted shell washes that out) and
+        /// <b>green</b> because hue is the whole of what separates the three dark specials before either of
+        /// them lights up — a warm dark, a cold dark and an acrid one.
+        /// </para>
+        /// <para>
+        /// ⚠ Kept dark enough not to be read as the leafy Type2, which is a lit green ball rather than a dark
+        /// shell with green light crawling on it — the trap the stone's entry records from the grey end, the
+        /// bomb's from the warm one and the zap's from the blue.
+        /// </para>
+        /// </summary>
+        public static BasicEffectParams Acid = new BasicEffectParams(new Vector3(0.062f, 0.088f, 0.048f), GLOSS_COLOR, GLOSS_POWER, Vector3.Zero);
+
+        /// <summary>
         /// Multiplier applied to the ball model's material diffuse colors to give the ball its type color.
         /// (Historically the type color came from a broad colored specular sheen; with a proper glossy
         /// highlight the type has to tint the diffuse patches instead.)

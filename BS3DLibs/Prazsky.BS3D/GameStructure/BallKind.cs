@@ -140,7 +140,34 @@ namespace Prazsky.BS3D.GameStructure
         /// remarks are written against.
         /// </para>
         /// </summary>
-        Wildcard = 5
+        Wildcard = 5,
+
+        /// <summary>
+        /// Acid (#328). It fires on the bomb's trigger exactly — a shot landing in a cell <b>beside</b> it —
+        /// and eats <b>downward</b>, drilling a shaft through the cluster beneath itself until it reaches a
+        /// gap. Itself included, as the bomb takes itself.
+        /// <para>
+        /// <b>It is the only special that attacks the cluster by COLUMN</b>, where the bomb attacks a
+        /// neighbourhood and the zap a colour. What it is worth is rarely the shaft itself: a hole through a
+        /// hanging picture cuts the anchors of everything under it, and the disconnection pass that follows
+        /// does more damage than the acid did — which is also how the game already pays its best shots, an
+        /// orphan being worth double a matched ball.
+        /// </para>
+        /// <para>
+        /// <b>⚠ "Downward" in this lattice is not a column</b>, and the shaft is therefore walked cell by cell
+        /// rather than cast as a vertical cylinder — <c>BallsConstraintsBuilder.DissolveAcids</c> carries the
+        /// measurement that decides it. Odd levels are shifted by +0.5 in X and Z, so a vertical line through a
+        /// ball's centre passes <i>between</i> the four balls on the level below rather than through any of
+        /// them.
+        /// </para>
+        /// <para>
+        /// Same two seam answers as the bomb and the zap: <b>not matchable</b> (it is not a colour, so it is
+        /// out of the flood fill and out of the magazine census, and the <see cref="BallType"/> it carries is
+        /// one nothing may read) and <b>removable</b> (a landing beside it always takes it), so an acid left
+        /// standing never holds a level open.
+        /// </para>
+        /// </summary>
+        Acid = 6
     }
 
     /// <summary>
@@ -269,6 +296,11 @@ namespace Prazsky.BS3D.GameStructure
                 case "joker":
                 case "rainbow":
                     kind = BallKind.Wildcard;
+                    return true;
+
+                case "acid":
+                case "corrosive":
+                    kind = BallKind.Acid;
                     return true;
 
                 default:

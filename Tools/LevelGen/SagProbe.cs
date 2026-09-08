@@ -800,6 +800,9 @@ namespace BS3D.Tools.LevelGen
         private static readonly List<XZLevel> _landingZaps = new();
 
         /// <inheritdoc cref="ArmedSpecials"/>
+        private static readonly List<XZLevel> _landingAcids = new();
+
+        /// <inheritdoc cref="ArmedSpecials"/>
         private static readonly List<XZLevel> _candidateZaps = new();
 
         /// <summary>
@@ -943,6 +946,7 @@ namespace BS3D.Tools.LevelGen
             //to be repeated here, or the probe measures a game the player is not playing.
             List<XZLevel> armed = ArmedSpecials(map, cell, BallKind.Bomb, _landingBombs);
             List<XZLevel> zaps = ArmedSpecials(map, cell, BallKind.Zap, _landingZaps);
+            List<XZLevel> acids = ArmedSpecials(map, cell, BallKind.Acid, _landingAcids);
 
             //And the game rule: three or more of a colour touching each other let go, and so does anything
             //that was only held up by them. A shot that completes nothing simply stays, which is the whole
@@ -958,6 +962,15 @@ namespace BS3D.Tools.LevelGen
             if (zaps.Count > 0)
                 released = released.Plus(BallsConstraintsBuilder.ZapColour(
                     zaps, loaded.Value, balls, map, world.Simulation, falling));
+
+            //And the acid between them (#328), which is where the handler puts it and for the handler's own
+            //reason: a blast that ate the acid ball first would swallow one of the two effects one landing
+            //armed. For a probe the shaft is the most interesting mass change of the three — it takes a
+            //COLUMN out, so what it removes is rarely the damage: the disconnection pass that follows brings
+            //down whatever that column was holding, which is exactly the load path this probe exists to watch.
+            if (acids.Count > 0)
+                released = released.Plus(BallsConstraintsBuilder.DissolveAcids(
+                    acids, balls, map, world.Simulation, falling));
 
             if (armed.Count > 0)
                 released = released.Plus(BallsConstraintsBuilder.DetonateBombs(
