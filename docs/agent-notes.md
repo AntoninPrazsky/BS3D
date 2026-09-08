@@ -1279,3 +1279,39 @@ Všechno na **zminimalizovaném okně** (`IsIconic` true) — tam nedojde žádn
 **Co zůstává a je to majitelovo rozhodnutí, ne opomenutí:** **Game timeline nemá** — bere `play`, `level=`, `result`, `shot=` a nic víc, schválně (argument #373 o opakovatelnosti). Pravidlo „vizuály kolem míření se ověřují ve hře s drženým RMB" tedy pořád nemá přístroj a externí cesta u něj zůstává. Issue to říká a nechal jsem to na majiteli, protože Testbed umí zastavit kameru a Game ne.
 
 **⚠ Mimochodem, cizí nález při plném rebuildu:** `Tools/LevelGen/Program.cs:16788` hlásí **CA2014 — `stackalloc` uvnitř smyčky** (`Span<int> seen = stackalloc int[12]`, z #368). Je to varování, ne chyba, a není moje; ale `stackalloc` ve smyčce je přesně ta věc, která se projeví až na velkém vstupu. Nesahal jsem na to, patří to k LevelGenu.
+
+---
+
+## 2026-09-08 — Claude Code (třetí zápis dne)
+
+**#328 (kyselina) hotové a na mainu. Pátý druh koule: spustí se ranou vedle sebe jako bomba a zap, a žere DOLŮ — vyvrtá šachtu shlukem, dokud nenarazí na mezeru.** Větev `328-acid`, merge `--no-ff`. Nová `BallKind.Acid`, `BallsMap.CollectAcidShaft`, `BallsConstraintsBuilder.DissolveAcids`, technika `InstancedModelAcid`, osmý region kbelíků, `Testbed\Maps\Acid.json` — a `SagProbe`, který se to musel naučit taky.
+
+### ⚠ Dva geometrické nálezy, oba změřené, a oba jdou PROTI zadání
+
+Issue má celou sekci o tom, že „dolů" v týhle mřížce není sloupec, a nabízí dvě cesty. **Obojí je vedle:**
+
+1. **Varování issue je špatně.** Tvrdí, že procházka `level--` při pevném `(x,z)` „vrtá diagonální šachtu nakloněnou jedním směrem", a označuje to za nejpravděpodobnější způsob, jak tohle udělat blbě. Jenže **posun parity se STŘÍDÁ**: pevný indexový sloupec sedí 0,707, 0,000, 0,707, 0,000 … od osy. Houpe se o půl buňky a odchylka je **omezená** — změřeno přes třicet úrovní, nejhorší 0,707 —, kdežto naklonění by rostlo bez omezení.
+2. **Doporučení issue je naopak opravdu špatně.** „Vrhni svislou přímku a vezmi každou buňku do půl koule od ní" v tomhle balení nefunguje: **všechny čtyři** buňky o úroveň níž sedí 0,707 od osy a buňka o dvě úrovně níž 0,000 — svislá přímka středem koule prochází **mezi** čtyřmi koulemi pod ní. Válec o poloměru půl koule tedy bere každou DRUHOU úroveň a nechá tečkovanou díru s koulemi visícími uvnitř; válec dost široký na 0,707 bere všechny čtyři naráz, což je tvar bomby.
+
+Šachta se proto **prochází po buňkách**: každý krok bere obsazenou buňku níž, nejbližší **ose té kyseliny** (ne předchozí buňky — to je, co dělá procházku samoopravnou), s mezí `ACID_SHAFT_DRIFT` 0,75, která brání tomu, aby díra v shluku z procházky udělala tu nakloněnou šachtu.
+
+**Pravidlo zastavení pak vypadne z geometrie, místo aby se volilo:** dolů ze SUDÉ úrovně existuje uvnitř meze jediná buňka (ta na ose), takže díra tam šachtu ukončí i když sloupec pod ní pokračuje; dolů z LICHÉ jsou všechny čtyři na 0,707, takže jedna chybějící koule se obejde o půl buňky a šachta jede dál. To je poctivé čtení díry v tomhle balení: vrták se zastaví o podlahu, ne o jednu chybějící kouli vedle svého okraje.
+
+### Vzhled: první figura koule v týhle hře kreslená ve WORLD space
+
+Kyselina je jediný speciál s **osou**, takže vzhled musí říct „dolů" dřív, než se na ni vystřelí — a figura, která by se otáčela s tělem, neříká nic. Na kouli je world normála zároveň radiála, takže `AcidPS` čte `-n.y` a stružky visí správně, ať těleso leží jakkoli. Devět pruhů s per-pruhovou délkou stéká do kaluže na spodku; kaluž se **neband-limituje** (to je ta část, co zbyde na hráčskou vzdálenost — koule se svítícím spodkem, což je pořád ten směrový signál). Reliéf je **kladný**, kde má zap záporný: kapka leží NA skořápce, oblouk je světlo vyříznuté DO ní.
+
+### Ověření, a je v něm jedna poctivá mezera
+
+- **Procházka šachty: 11 kontrol jednorázovou sondou** (plný sloupec, nic pod tím, díra na osové i čtyřcestné úrovni, odmítnutí sousedního sloupce o celou buňku, žere kámen/bombu/sklo, 30 úrovní hluboko). Sonda nepotřebuje fyziku — proto ta procházka sedí na `BallsMap` a ne u odebírání.
+- **Odebrání a pád: 9 kontrol ve SKUTEČNÉ Bepu simulaci** (headless, `PhysicsWorld` + `BuildBallsStructure`): kyselina nad pětikoulovým sloupcem s příčkou u paty **zničila 6 a osiřely 3**, mapa i fyzikální pole se vyprázdnily současně, deska nad tím zůstala netknutá (sloupec, ne okolí) a simulace po tom odkrokovala 60 snímků bez pádu.
+- **Vzhled nafocen** vlastním writerem Testbedu na vesmíru s `nopost`, vedle obyčejné zelené koule — jsou nezaměnitelné.
+- **⚠ Co se mi NEPODAŘILO: nastražit v Testbedu ránu, která dopadne vedle kyseliny.** Přes tři přestavby testovací mapy a asi čtyřicet mířených ran. Důvod je poučný a je zapsaný i v `docs/game-session.md`: **kyselina potřebuje koule POD sebou a volnou buňku VEDLE sebe** — kyselina uvnitř plného bloku je kyselina, ke které se rána nikdy nedostane. Mapa je proto blok se **schodem** a kyseliny stojí v jeho stupnici. Spouštěcí cesta samotná je dvouřádkový přídavek do procházky, kterou bomba a zap už používají (`CollectArmedSpecials`, jeden walk pro všechny tři) — ověřeno čtením a tím, že řetězec za ní je proměřený výše, ne výstřelem. Kdo na to sáhne dál, ať začne odtud.
+
+**⚠ A jedna past, která mě stála hodinu a týká se každého, kdo pouští Testbed z `bin`:** `Testbed.exe Maps\Full.json` **NENAČTE nic** — v output složce žádné `Maps\` není (csproj je nekopíruje) a program tiše spustí vestavěnou mapu. Pozná se to jedině podle `[camera] Field …`, které pak hlásí rozměr vestavěné mapy. CLAUDE.md má v příkladu absolutní cestu právě proto; **oba skilly (`verify`, `screenshot`) mají ale relativní** a jsou tím zavádějící. Nesahal jsem na ně v téhle větvi, ale stojí za jeden `sed`.
+
+**Užitečná odbočka:** `aimcheck` je jediný nástroj, který řekne skutečné číslo — čepy děla jsou na **Y = −6,3**, ne u nuly, takže elevace počítaná „od země" je o dvacet stupňů vedle. Kdo bude mířit `aim=` na konkrétní buňku, ať si nejdřív pustí `aimcheck` a odečte z něj rozsah.
+
+**`SagProbe` se to musel naučit v téže změně** a je to jeho vlastní zapsané pravidlo: přistává koule rovnou do mřížky, takže každý krok dopadu, který žije v handleru, se tam musí zopakovat, jinak měří jinou hru. Šachta je navíc ta hmotová změna, kterou nejvíc chce vidět — bere nosný sloupec uprostřed levelu.
+
+**Ověřeno:** čtyři solutiony 0 chyb, LevelGen 0, ScoreSim 0, `Game/Levels` beze změny (žádný shipnutý level kyselinu nenese, precedent #326/#327).
