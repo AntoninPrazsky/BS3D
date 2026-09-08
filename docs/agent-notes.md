@@ -1230,3 +1230,52 @@ Pravidlo dopadu bez skriptovatelné myši (#379, dnes založeno) nemá jak nasta
 **⚠ Čtvrtá past, chycená až vlastním průchodem diffem po commitu, a je to past na celý repo:** `BallsMap.cs` je v repu uložený s **CRLF**, zatímco okolní soubory mají LF a repo nemá `.gitattributes`; `core.autocrlf` je na tomhle stroji `true`. Můj zásah ten soubor převedl na LF a commit tím **přepsal celých 1633 řádků místo mých 153** — v `git diff` v pracovním stromě to vidět NENÍ (ten normalizuje za běhu a hlásil poslušně 145), objeví se to teprve při porovnání dvou stromů: `git diff --stat <předchozí main> HEAD`. Merge jsem proto odtočil (`update-ref` + `git restore`, nikoli `reset --hard`, který je tu zakázaný), soubor vrátil na CRLF a zapsal ho přes `git -c core.autocrlf=false add`, protože jinak ho `add` znormalizuje zpátky na LF. Diff je teď 153 řádků, 0 smazaných.
 
 Dvě věci k tomu, obě na majitele: **(1)** ten soubor je v repu jediný svého druhu z těch, co jsem kontroloval — anomálie, ne konvence; **(2)** repo nemá `.gitattributes`, takže tohle čeká na každého, kdo ten soubor upraví nástrojem píšícím LF. Jeden řádek `* text=auto` by to zavřel, ale je to rozhodnutí na celý repo a jedním commitem by přeuložil kdeco, takže jsem na to nesáhl. **Pro příště, a je to levné:** po commitu, který sahá na starý soubor, se vyplatí `git diff --stat` proti předchozímu mainu — ne jen ten, co ukazuje pracovní strom.
+
+---
+
+## 2026-09-08 — Claude Code (druhý zápis dne)
+
+**#379 hotové a na mainu: timeline Testbedu dosáhla na myš. `aim=<t>:<elevace>:<traverz>` postaví hlaveň do zadané polohy, `rmb=<od>:<do>` drží přesnou mušku, `C` obojí přečte zpátky (`[aimpin]`), `at=…:F2` je odmítnuté a pojmenované.** Větev `379-timeline-mouse`, merge `--no-ff`. Tím je uzavřená poslední vstupní plocha, kterou neobsluhovaný běh neuměl — a je to zrovna ta, na které se soudí dělo.
+
+**Vzniklo to z včerejší práce, ne z plánu:** u #330 jsem musel do hry střílet externím rigem (SendKeys do zaostřeného okna) a **mířit nešlo vůbec**. Přesně ta cesta, o které má repo dvakrát zapsané, že vyrobila falešné „ověřeno" (#321 a nevyfocené držené W: rig musí kliknout do okna, hra si vezme kurzor, a vrátí se snímek jiné pózy, než se žádala).
+
+### ⚠ Jediný skutečný nález, a je to past, která by prošla review i kompilátorem
+
+`adsHeld` se v `Testbed.Input.cs` počítá s bránou `IsActive`. Kdybych skriptovaný náklon **ORoval dovnitř** té podmínky:
+
+```csharp
+bool adsHeld = IsActive && ... && (PreciseAim.ButtonHeld(mouse, pad) || _script.IsPreciseAimHeld());
+```
+
+…zkompiluje se to, přečte se to naprosto přirozeně a **na zminimalizovaném okně to nedělá nic** — tedy na tom jediném běhu, kvůli kterému celá věc existuje. Brána `IsActive` je tam pro **zařízení**: XInput hlásí držený trigger i nezaostřenému oknu, takže alt-tabnutý běh nesmí zůstat nakloněný. Skript ale není zatoulané zařízení, je to běh řídící sám sebe — týž argument, kterým #373 dalo tik mimo obě brány. Musí jít **vedle** toho testu:
+
+```csharp
+bool adsHeld = !_freeModeAnimStarted && _map != null
+    && ((IsActive && PreciseAim.ButtonHeld(mouse, pad)) || _script != null && _script.IsPreciseAimHeld());
+```
+
+Je to okomentované na místě i v `docs/testbed.md`, protože příští člověk, který bude tu podmínku „uklízet", ji zjednoduší zpátky.
+
+### Rozhodnutí, která stojí za zápis
+
+1. **`aim=` NASTAVUJE pózu, nesyntetizuje pohyb myši.** Míření je rychlost integrovaná z delt proti překreslenému kurzoru, takže cokoli deltového by bylo stejně neopakovatelné jako rig, který to nahrazuje. Nový `Cannon.AimTo` je ocas existujícího `AimAt` bez jeho world-space hlavy.
+2. **Úhly jsou stupně všude, kde na ně sahá člověk** (argument, plán, log, odečet) a na radiány se převádějí na jednom místě — v delegátu předaném do `InputScript`. Dělo se kvůli diagnostice druhou jednotku učit nebude.
+3. **Traverz je nula tam, kde hlaveň míří na střed pole**, ne na světovou osu. Znamená to totéž po orbitu i po chůzi, kde by světový azimut neznamenal nic.
+4. **Klamp se hlásí, nemlčí.** `aim=9:95:70` vypíše `aim clamped to 80.2/45.0 deg` (což jsou `MaxElevation` a `MaxTraverse`), protože oříznutá póza je pin, který nereprodukuje framing, ze kterého se opsal — a zjistit to z fotky je přesně ten okruh, kvůli kterému tohle vzniklo.
+5. **Náklon vyžádaný mimo herní režim se pojmenuje.** `rmb=` bez `at=<t>:F10` by byl tichý no-op a snímek by vypadal jako rozbitá funkce místo chybějícího stisku.
+6. **F2 se odmítá dřív, než se sáhne do tabulky ovládání**, aby zněl užitečný důvod: „otevírá modální dialog", ne „taková akce není". F2 je platná akce; problém je, že ji skript neumí zavřít.
+
+### Ověřeno
+
+Všechno na **zminimalizovaném okně** (`IsIconic` true) — tam nedojde žádná syntetická klávesa ani externí capture:
+
+- `aim=6:30:20` a hned `at=6.5:C` vrátilo `[aimpin] elevation 30.0 deg, traverse 20.0 deg -> aim=<t>:30.0:20.0`, tedy **přesný round-trip**.
+- Tři snímky vlastním writerem kolem `rmb=8:14`: v 7 s přehled, v 10 s **nakloněná čočka s křížem a velkou ránou v ústí**, v 16 s zase přehled s mířením tam, kde bylo postavené.
+- `at=5:F2` → `dropped, opens a modal dialog a script cannot dismiss: F2`; `rmb=3:5` před F10 → řádek o chybějícím herním režimu; `aim=9:95:70` → klamp na 80.2/45.0.
+- Čtyři solutiony 0 chyb, ScoreSim 0, LevelGen 0.
+
+**Dvě drobnosti, obě moje a obě levné:** `Console.WriteLine(CultureInfo.InvariantCulture, $"…")` **takové přetížení nemá** (repo používá `string.Create(CultureInfo.InvariantCulture, …)`, jak to dělá `Vec` v `LogCameraPin`) — tři chyby na jeden zásah; a `Testbed.Input.cs` neměl `using System;`, takže první běh s varováním o herním režimu jel na starém binárce a ten řádek v logu chyběl. Obojí chytil build, ne fotka.
+
+**Co zůstává a je to majitelovo rozhodnutí, ne opomenutí:** **Game timeline nemá** — bere `play`, `level=`, `result`, `shot=` a nic víc, schválně (argument #373 o opakovatelnosti). Pravidlo „vizuály kolem míření se ověřují ve hře s drženým RMB" tedy pořád nemá přístroj a externí cesta u něj zůstává. Issue to říká a nechal jsem to na majiteli, protože Testbed umí zastavit kameru a Game ne.
+
+**⚠ Mimochodem, cizí nález při plném rebuildu:** `Tools/LevelGen/Program.cs:16788` hlásí **CA2014 — `stackalloc` uvnitř smyčky** (`Span<int> seen = stackalloc int[12]`, z #368). Je to varování, ne chyba, a není moje; ale `stackalloc` ve smyčce je přesně ta věc, která se projeví až na velkém vstupu. Nesahal jsem na to, patří to k LevelGenu.
