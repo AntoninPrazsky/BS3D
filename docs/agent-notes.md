@@ -1315,3 +1315,58 @@ Kyselina je jediný speciál s **osou**, takže vzhled musí říct „dolů" d�
 **`SagProbe` se to musel naučit v téže změně** a je to jeho vlastní zapsané pravidlo: přistává koule rovnou do mřížky, takže každý krok dopadu, který žije v handleru, se tam musí zopakovat, jinak měří jinou hru. Šachta je navíc ta hmotová změna, kterou nejvíc chce vidět — bere nosný sloupec uprostřed levelu.
 
 **Ověřeno:** čtyři solutiony 0 chyb, LevelGen 0, ScoreSim 0, `Game/Levels` beze změny (žádný shipnutý level kyselinu nenese, precedent #326/#327).
+
+---
+
+## 2026-09-09 — Claude Code
+
+**#329 (zmrzlá koule) hotové a na mainu. Šestý druh: barevná koule v kostce ledu, roztaje vyčištěním skupiny VEDLE ní.** Větev `329-frozen`, merge `--no-ff`. Nová `BallKind.Frozen`, `BallsMap.ThawFrozenBesideGroup`, technika `InstancedModelFrozen` s vlastním vertex shaderem, devátý region kbelíků (a první, který je celá **barevná rovina**), `PlayIceBreak`, brána v LevelGenu a `Testbed\Maps\Frozen.json`.
+
+### Rozhodnutí, které stojí za zápis nad rámec issue: pravidlo NEPATŘÍ do volajícího
+
+Všech pět speciálů přede mnou sbírá a odpaluje **volající** — handler nasbírá bomby, zapy a kyseliny kolem `ReleaseSameTypeCluster`. Cena toho tvaru je v tomhle souboru zapsaná několikrát: `SagProbe` se musel naučit sklo, pak bomby, pak zapy, pak kyseliny, jedno po druhém, a Mirage se pět skleněných levelů změřilo špatně, protože to první ještě neuměl.
+
+Spouštěč ledu je ale **odchod skupiny**, ne dopad. A skupina odchází v celé hře na **jednom** místě. Tak jsem pravidlo napsal tam — a Testbed, Game i sonda tají, aniž by do nich přibyl jediný řádek. Zapsal jsem to i do `docs/formats-and-tools.md` jako tvar, po kterém má sáhnout každý další druh, kterému to spouštěč dovolí.
+
+### Vzhled: kostka řezaná ve VERTEX shaderu, ne druhá mesh
+
+Issue doporučuje „geometrický overlay" — druhou mesh kolem koule — a jmenuje kolizi s `BallStyle.Ice` (zmrzlá koule vs. celoledová koule) jako důvod, proč to nesmí být jen stínování. **Ta kolize je skutečná a řeším ji tvarem; druhá mesh k tomu ale není potřeba.** Kámen (#340) už dokazuje, že se v tomhle projektu dá vyřezat nekulová silueta ve vertex shaderu z téže koule. Superelipsoid `(|x|^p+|y|^p+|z|^p)^(-1/p)`, znormovaný svou hodnotou v **rohu**, dá zaoblenou kostku, jejíž rohy leží na kouli a všechno ostatní uvnitř — dovnitř, takže kreslený blok nikdy neopustí buňku. Mřížka má mezi sousedy přesně 1,0 ve všech směrech, takže rohy na kouli o r=0,5 je dotyk a ne průnik.
+
+**Normála vyjde přesně** a je to hezčí než u kamene: v `n = d − tangenciála(∇r)/r` se pro tohle `r` oba členy vyruší (`∇r/r = −g/S`, `g = |d|^(p−1)sign(d)`, `g·d = S`), takže normála **je** `g`. Žádný řetízkový faktor, žádná pojistka u pólů, a stěny vyjdou rovné místo mírně vypouklých.
+
+Vyfoceno: třináct barev v ledu vedle třinácti obyčejných koulí (světlý dóm) — každá barva čitelná —, a hlavně **řada zmrzlých kostek pod řadou koulí ve stylu `Ice`**: nespletitelné na první pohled a na jakoukoli vzdálenost. To je ta kontrola, kterou musel druh projít dřív než cokoli jiného.
+
+### ⚠ Past, kterou skrývá slovo „frekvence", a stála mě dvě kola
+
+První verze jinovatky měla `FrozenFrostFrequency` 26 a amplitudu 0,010 a vyfotila se jako **pravidelný diagonální manšestr** na každém bloku. Nejdřív jsem to přičetl „pírku" (jedna sinusová vlna = pruhy, ta past je v repu zapsaná) — opravil jsem pírko na tři oktávy a **nezměnilo se skoro nic**. Teprve aritmetika řekla proč: `ReliefOctave` se počítá na **jednotkovém směru**, takže 26 je 26 radiánů přes celou kouli, tedy **čtyři cykly**, a čtyři cykly při desetině poloměru reliéfu jsou hřebeny, ne zrno. Styl `Ice` jede 30–72 na čtvrtinové amplitudě a vypadá jako jinovatka právě proto. Kalibrováno podle něj: 41 s poměry 1,0/1,43/0,71/1,87 při 0,0028, čtyři vlny místo tří.
+
+**Poučení pro příště: u figury na kouli je „frekvence" v radiánech přes celý směr, ne na jednotku světa. Vydělte 2π, než uvěříte, že je něco jemné.**
+
+### ⚠ Testbed neuměl ránu, dokud jsem nepřestal mířit dělem
+
+Kyselina (#328) si zapsala, že se jí nepodařilo v Testbedu nastražit ránu vedle speciálu. Narazil jsem na totéž a **je to jinde, než to vypadá**: šedesát ran přes `at=:F10` + `aim=` + `Space` nevypsalo ani jedno `bounced`, tedy vůbec nedopadly. Ve **free módu** ale `ShootBall` střílí z kamery na `camtarget`, což se zamíří přesně:
+
+```
+Testbed.exe <mapa> campos=0,1.5,7 camtarget=0,6.5,0 at=4:Space at=5:Space …
+```
+
+a hned první běh vypsal `[shot] thawed 9 frozen ball(s) beside a group of 43`. Vyfoceno před a po: dvě kostky uprostřed clusteru jsou na druhém snímku oranžové koule. **Kdo bude potřebovat v Testbedu doopravdy trefit shluk, ať nestřílí dělem** — herní mód se dá zamířit jen úhly a shluk visí vysoko a malý.
+
+Proč `aim=`ované rány míjejí, jsem **nedovyšetřil** a nepatří to k #329; je to otázka na geometrii herního módu, ne na led.
+
+### Ověření
+
+- **44 tvrzení proti skutečné knihovně** (odhozený konzolový projekt ve scratchpadu, v žádném solutionu): mapová strana (vlastní barva, jeden prstenec hluboko, blok u tří buněk téže skupiny taje jednou, flood fill se o led zastaví a po roztátí projde, kámen/sklo/bomba/zap/kyselina vedle skupiny netknuté, `GetRemovableBallsCount`, wildcard vedle samého ledu nenajde nic), fyzikální strana ve **skutečné** `PhysicsWorld` (mapa i pole souhlasí v každé buňce, blok o dvě buňky dál zůstává, přechod nastartovaný jen na roztátých, **sirotci ledem netají**), a **cesta handleru**: skutečná rána, skutečný kontakt Bepu, `BallContactEventHandler` doresolvoval dopad, `BallLanding.Thawed` sedí a další dopad nehlásí starý počet.
+- **⚠ Past v té sondě, která by prošla i zkušenému:** `PhysicsWorld.Step(dt, perStepWork)` volá `perStepWork` **po** flushi kontaktů, a `perStepWork` **je** `handler.ProcessQueuedContacts`. Sonda krokující s prázdným delegátem simuluje celou hru s vypnutou cestou dopadu a rány tiše prolétnou clusterem. Stálo mě to kolo a vypadalo to úplně stejně jako mlčení Testbedu výše.
+- Čtyři solutiony 0 chyb, LevelGen 0, ScoreSim 0, `Game/Levels` beze změny (žádný shipnutý level led nenese, precedent #326/#327/#328).
+
+### Co jsem přibral a je to oprava cizí mezery, ne rozšíření
+
+1. **Editor neuměl pojmenovat kyselinu.** #328 přidalo druh a ne hint; `switch` v `MapEditor.CycleBallKind` na to má vlastní komentář, který přesně tuhle hnilobu předvídá. Přidal jsem řádek kyseliny i ledu.
+2. **LevelGen kyselinu vůbec nepočítal do rozhodnutí, jestli se má sonda `FindStrandedSpecials` spustit.** Seznam byl `rocks + glass + bombs + zaps`, takže level z kyseliny a barev **přeskočil celou bránu** — to je doslova bug #343, který dorazil o druh později. Doplněno o kyselinu i led.
+
+### Co zůstává a je to poctivá mezera
+
+**Zvuk rozbití ledu jsem NESLYŠEL.** `PlayIceBreak` je navržený aritmetikou proti spektru `PlayRelease` (praskla kolem 5 kHz, střepy 3,4–8,6 kHz, protože release sedí 140 Hz–2,8 kHz a oddělit se mají **rejstříkem**, ne hlasitostí) a ověřený jen tím, že bake proběhne a hra nastartuje. Slyšet ho nejde: žádný shipnutý level led nenese a Testbed zvuk nemá — chce to nakreslit level v editoru (`K` na druh) a uložit do `Game/Levels`. Je to zapsané i v `docs/game-feedback.md`, protože je to přesně ta část hry, kterou nelze soudit ze snímku.
+
+**Nic dalšího si neberu.**

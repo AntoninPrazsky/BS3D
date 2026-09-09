@@ -1056,6 +1056,7 @@ namespace Prazsky.Core.Render
             "InstancedModelBomb",     //BallShading.Bomb
             "InstancedModelZap",      //BallShading.Zap
             "InstancedModelAcid",     //BallShading.Acid
+            "InstancedModelFrozen",   //BallShading.Frozen
         };
 
         /// <summary>

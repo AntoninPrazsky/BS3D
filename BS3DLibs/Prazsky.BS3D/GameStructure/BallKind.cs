@@ -167,7 +167,48 @@ namespace Prazsky.BS3D.GameStructure
         /// standing never holds a level open.
         /// </para>
         /// </summary>
-        Acid = 6
+        Acid = 6,
+
+        /// <summary>
+        /// Frozen (#329): an ordinary coloured ball inside a block of ice. While the ice holds it matches with
+        /// nothing and no shot removes it; it thaws the moment the player <b>clears a group next to it</b>, and
+        /// from that instant it is an ordinary ball of the colour it was wearing all along.
+        /// <para>
+        /// <b>It is the first kind whose state changes over the course of a level rather than at the moment of
+        /// one shot</b>, and that single fact is what separates it from the five above. A rock, a bomb, a zap
+        /// and an acid are decided once — what a landing beside them does, they do. Glass changes too, but on
+        /// the landing that changes it, inside one call. This one is a <b>timing constraint</b>: it says "not
+        /// yet", and what lifts it is a shot the player has not fired yet, somewhere else.
+        /// </para>
+        /// <para>
+        /// <b>The trigger is the GROUP, not the landing</b>, and that is the ruling #329 asks for. Clearing a
+        /// big group beside a frozen ball breaks its ice exactly as a small one does, but a big group touches
+        /// more ice — so reading the cluster is what pays, which is this game's own currency. And it is the
+        /// <i>matched</i> group alone: a region that falls because it lost its support passes plenty of ice on
+        /// the way down and breaks none of it, so a thaw is always something the player did on purpose rather
+        /// than something the physics did afterwards. Both halves live in
+        /// <c>BallsConstraintsBuilder.ReleaseSameTypeCluster</c>, which is the one place in this game where a
+        /// group is released.
+        /// </para>
+        /// <para>
+        /// <b>Seam answers: NO to <see cref="Matchable"/> and YES to <see cref="Removable"/></b> — the
+        /// transparent ball's pair for the transparent ball's reason (#325), arriving through a longer door.
+        /// It is out of the flood fill and out of the magazine census while the ice holds, and in both the
+        /// instant it thaws, which needs no code of its own because the thaw replaces it with an ordinary ball
+        /// before either is next asked. It is <i>not</i> a rock: the player has a path to it, so counting it
+        /// permanently unremovable would end a level while it still hangs.
+        /// </para>
+        /// <para>
+        /// <b>⚠ Its colour is one the player MAY read</b>, and it is the first special of which that is true.
+        /// A rock, a bomb, a zap and an acid each carry a <see cref="BallType"/> that nothing may read; this
+        /// one wears its colour visibly through the ice, because the whole of what it says is "this red one
+        /// will be available later". That is why it is the first kind drawn out of a <b>per-colour</b> bucket
+        /// region rather than a colourless one — see <c>BallRenderSet</c> — and why it is drawn as a rounded
+        /// CUBE: on a level whose <see cref="BallStyle"/> is already <c>Ice</c>, the flat faces are the only
+        /// thing separating a frozen ball from an ordinary one, and a shading cue could not do it.
+        /// </para>
+        /// </summary>
+        Frozen = 7
     }
 
     /// <summary>
@@ -196,6 +237,17 @@ namespace Prazsky.BS3D.GameStructure
         /// most certainly does not hold the level open for ever. Merging them again would make a level with one
         /// transparent ball in it permanently unfinished — the Rock's own bug, arriving through the opposite
         /// door.
+        /// </para>
+        /// <para>
+        /// A <see cref="BallKind.Frozen"/> ball is out of both halves while its ice holds and in both the
+        /// instant it thaws (#329), and like the glass it needs no code here — the thaw <i>replaces</i> it with
+        /// an ordinary ball, so this predicate is never asked about a thawed one. <b>Both directions of that
+        /// matter and they fail in opposite ways.</b> Counted on the way in, the magazine goes on loading a
+        /// colour only ice is wearing and the player spends shots on nothing — the exact waste
+        /// <c>Transmute</c> exists to prevent. Missed on the way out, the last group of a colour becomes
+        /// unmatchable because the census says that colour is gone, and the queue has already been re-coloured
+        /// away from it. What holds both is <i>when</i> the thaw runs: inside the release, so the Game's
+        /// recount after the landing sees a cluster the thaw has already finished changing.
         /// </para>
         /// </summary>
         public static bool Matchable(BallKind kind) => kind == BallKind.Normal;
@@ -226,6 +278,18 @@ namespace Prazsky.BS3D.GameStructure
         /// bomb's — a shot landing beside it — and firing destroys it along with the colour it takes. It is
         /// one shot from being gone, and it reached this answer without this file being edited, which is the
         /// "everything but the rock" default below doing exactly the job it was written for.
+        /// </para>
+        /// <para>
+        /// A <see cref="BallKind.Frozen"/> ball answers <b>yes</b> (#329), and it is the first kind for which
+        /// that answer is about a <i>later</i> shot rather than the next one. Its ice breaks when a group is
+        /// cleared beside it, so the path exists but it may be several shots long and it runs through cells
+        /// this predicate cannot see. Answering no would be the Rock's two opposite failures on every level
+        /// with ice in it — never cleared, always lost — and the honest reading is that a ball the player can
+        /// get at is not a ball that ends the level, however many shots it takes. <b>What that ruling hands to
+        /// the level generator is real, and is handled there rather than here</b>: this predicate cannot tell a
+        /// frozen ball with a matchable neighbour from one walled into ice, and only the second is a level that
+        /// never ends. See <c>Tools/LevelGen</c>'s stranded-specials walk, which asks the frozen ball a
+        /// question of its own for exactly that reason.
         /// </para>
         /// <para>
         /// ⚠ <b>The predicate is written as "everything but the rock" and NOT as a list of the kinds that
@@ -301,6 +365,16 @@ namespace Prazsky.BS3D.GameStructure
                 case "acid":
                 case "corrosive":
                     kind = BallKind.Acid;
+                    return true;
+
+                //"ice" is taken here and NOT by BallStyles.TryParse's frosted ball, which spells itself the
+                //same way: the two parsers never read the same text, one taking a level's material and this
+                //one a cell's kind. It is listed because a hand-edited map that says "ice" means this, and a
+                //spelling refused in silence is a cell that quietly stays ordinary.
+                case "frozen":
+                case "ice":
+                case "iced":
+                    kind = BallKind.Frozen;
                     return true;
 
                 default:

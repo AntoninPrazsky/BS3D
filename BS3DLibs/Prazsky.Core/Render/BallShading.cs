@@ -235,6 +235,32 @@ namespace Prazsky.Core.Render
         /// the body is doing, in the lattice and again on its way down the drain.
         /// </para>
         /// </summary>
-        Acid = 14
+        Acid = 14,
+
+        /// <summary>
+        /// A frozen ball (#329): a coloured ball sealed in a block of ice — a <b>rounded cube</b> of pale,
+        /// frosted ice with the ball's own colour glowing dimly from inside it. Drawn by
+        /// <c>InstancedModelFrozen</c>.
+        /// <para>
+        /// The sixth shading that belongs to a <c>BallKind</c> rather than to a <c>BallStyle</c>, and the
+        /// <b>first of them that takes the type colour</b> — the exact opposite of <see cref="Bomb"/>'s rule
+        /// and for a reason that is the same argument read the other way. A bomb wearing one of the thirteen
+        /// would be a lie the player acts on, because a bomb's colour means nothing; a frozen ball's colour is
+        /// the whole of what it says. It is a ball that will be <i>that</i> colour once the ice breaks, and a
+        /// player who cannot see which colour cannot plan around it, which is all this kind is for.
+        /// </para>
+        /// <para>
+        /// <b>⚠ Its collision to solve is <see cref="Ice"/>, and it is the worst collision on this list</b>: on
+        /// an <c>Ice</c>-style level every ordinary ball is already a frosted ball with its colour inside it,
+        /// so no amount of frost, crazing or cold rim could separate the two. What separates them is
+        /// <b>SHAPE</b> — this is the only ball in the game with flat faces — and the shape is cut in the
+        /// vertex shader out of the same sphere the rest of the lattice uses, inward-only, exactly as
+        /// <see cref="Stone"/>'s carving is (#340). So the physics body stays a sphere, the drawn cube never
+        /// leaves the cell the simulation gives it, and no second mesh, draw order or transparency sort is
+        /// involved. A cube turning is also the strongest rolling cue in this file, which answers the ball
+        /// contract's sixth point outright.
+        /// </para>
+        /// </summary>
+        Frozen = 15
     }
 }

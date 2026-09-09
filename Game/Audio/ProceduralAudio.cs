@@ -132,6 +132,9 @@ namespace BS3D.Audio
         //not the whole 10 x 13 cross product built at startup, and why it is not built at play time either.
         private readonly SoundEffect[][] _landed;
         private readonly SoundEffect _release;
+
+        /// <summary>Ice breaking (#329) — the one sound a <c>BallKind</c> has of its own.</summary>
+        private readonly SoundEffect _iceBreak;
         private readonly SoundEffect _fireworkLaunch;
         private readonly SoundEffect _fireworkBurst;
         private readonly SoundEffect _partyPopper;
@@ -149,6 +152,9 @@ namespace BS3D.Audio
         private readonly VoiceRing _shootRing;
         private readonly VoiceRing[][] _landedRings;
         private readonly VoiceRing _releaseRing;
+
+        /// <inheritdoc cref="_iceBreak"/>
+        private readonly VoiceRing _iceBreakRing;
         private readonly VoiceRing _launchRing;
         private readonly VoiceRing _burstRing;
 
@@ -187,6 +193,11 @@ namespace BS3D.Audio
 
         //A release is 0.6 s and only one group can come loose per landing.
         private const int RELEASE_VOICES = 3;
+
+        //Ice breaks at most once per landing too (#329) — every block a group thaws is spoken as ONE break,
+        //because it IS one event: the group leaving. Two, not three, because unlike a release it cannot
+        //overlap itself: a second landing cannot resolve while the first is still in flight.
+        private const int ICE_BREAK_VOICES = 2;
 
         //The whistle is 0.55 s, and it is the OPENING BARRAGE that sizes this rather than the steady state: at
         //the start of a display every shell slot is free, so shells go up at INTERVAL_OPENING (~14 a second)
@@ -236,6 +247,7 @@ namespace BS3D.Audio
             PrepareLanded(BallStyle.Beach);
 
             _release = BakeRelease();
+            _iceBreak = BakeIceBreak();
             _fireworkLaunch = BakeFireworkLaunch();
             _fireworkBurst = BakeFireworkBurst();
             _partyPopper = BakePartyPopper();
@@ -248,6 +260,7 @@ namespace BS3D.Audio
             //and the UI need none: they never reach an emitter.
             _shootRing = new VoiceRing(_shoot, SHOOT_VOICES);
             _releaseRing = new VoiceRing(_release, RELEASE_VOICES);
+            _iceBreakRing = new VoiceRing(_iceBreak, ICE_BREAK_VOICES);
             _launchRing = new VoiceRing(_fireworkLaunch, LAUNCH_VOICES);
             _burstRing = new VoiceRing(_fireworkBurst, BURST_VOICES);
             _eruptionRing = new VoiceRing(_eruption, ERUPTION_VOICES);
@@ -365,6 +378,39 @@ namespace BS3D.Audio
 
             Speak(_releaseRing, world, NEAR_WIDEN, MathHelper.Clamp(volume * Level, 0f, 1f),
                 MathHelper.Clamp(NextPitch(0.06f) - size * 0.12f, -1f, 1f));
+        }
+
+        /// <summary>
+        /// Ice breaking (#329). <paramref name="count"/> is how many blocks this landing thawed and it scales
+        /// the sound the way the release's does: more ice is louder and a shade deeper. Silent at zero, which
+        /// is nearly every landing.
+        /// <para>
+        /// <b>One voice for the whole break, however many blocks it was</b>, and that is a ruling rather than
+        /// a shortcut. What the player did is clear a group; the ice that opened is one consequence of it, and
+        /// nine separate cracks a few milliseconds apart is a noise burst rather than nine events — the ear
+        /// cannot count them and would only hear the thing get louder, which is exactly what the count term
+        /// does honestly.
+        /// </para>
+        /// </summary>
+        /// <remarks>
+        /// Spoken from the landing cell rather than from the ice, on <see cref="PlayRelease"/>'s reason: the
+        /// blocks a group thaws are its own neighbours and so within a ball or two of it, which is well inside
+        /// what a horizontal stereo image can separate at the stand-off a level is played from.
+        /// </remarks>
+        public void PlayIceBreak(Vector3 world, int count)
+        {
+            //What counts as a FULL break. Far lower than the release's fifteen because ice comes in ones and
+            //twos: a group rarely touches more than four blocks, and past that the sound has nothing more to
+            //say by getting louder still.
+            const float FULL_COUNT = 4f;
+            float size = MathHelper.Clamp(count / FULL_COUNT, 0f, 1f);
+
+            //Under the release it arrives with, deliberately: see BakeIceBreak on why this is separated by
+            //register and not by level.
+            float volume = (0.30f + 0.30f * size) * VolumeForDistance(DistanceTo(world));
+
+            Speak(_iceBreakRing, world, NEAR_WIDEN, MathHelper.Clamp(volume * Level, 0f, 1f),
+                MathHelper.Clamp(NextPitch(0.08f) - size * 0.10f, -1f, 1f));
         }
 
         /// <summary>
@@ -1169,6 +1215,75 @@ namespace BS3D.Audio
         }
 
         /// <summary>
+        /// Ice breaking (#329): the crack of a block letting go, then the shards falling away — a short,
+        /// bright scatter of tinkles well above everything else this game says.
+        /// <para>
+        /// <b>It is pitched HIGH on purpose and that is the whole design of it.</b> It lands in the same
+        /// instant as <see cref="PlayRelease"/>'s snap and run of pops, which are the sound this one has to be
+        /// heard through, and those live at 140 Hz to 2.8 kHz. So this sits above them — the crack around
+        /// 5 kHz and the shards from 3 to 9 — where nothing else in the mix is, and the ear separates them by
+        /// register rather than by level. Making it louder instead would have buried the release it arrives
+        /// with, which is the more important of the two: what the player did is the group, and the ice is what
+        /// that opened.
+        /// </para>
+        /// <para>
+        /// <b>Tinkles rather than a crash</b>, and no low end at all. A block of ice this size is a few grams;
+        /// a bass thump under it would read as masonry. What says "ice" is the short, glassy, slightly
+        /// detuned pitches falling away — near-tones, unlike the release's pops, which are band-passed noise
+        /// for a reason that does not apply here: a shard rings.
+        /// </para>
+        /// </summary>
+        private SoundEffect BakeIceBreak()
+        {
+            const float duration = 0.5f;
+            int samples = (int)(SAMPLE_RATE * duration);
+            float[] signal = new float[samples];
+
+            //The crack: one very short, very bright transient. It is the block letting go, and it has to be
+            //ahead of everything else or the shards read as the cause rather than the consequence.
+            AddNoiseBurst(signal, window: 0.006f, decay: 300f, gain: 0.85f, cutoff: 11000f);
+
+            //The shards. Eight of them, each a short ringing tone with a breath of noise on its attack, thrown
+            //across the first third of the sound and thinning as they go. The pitches are deliberately NOT a
+            //chord and not a scale: real ice is a handful of arbitrary sizes, and anything harmonic would read
+            //as a bell. They are spread over an octave and a half so no two beat against each other.
+            float[] noise = MakeNoiseArray(samples, seed: 7);
+            float[] shard = BandPass(noise, 3000f, 9000f);
+            float[] pitches = { 6200f, 4300f, 7900f, 5100f, 3400f, 6800f, 4700f, 8600f };
+            float at = 0.004f;
+
+            for (int i = 0; i < pitches.Length; i++)
+            {
+                int start = (int)(at * SAMPLE_RATE);
+                float gain = 0.9f - 0.08f * i;
+
+                for (int s = start; s < samples; s++)
+                {
+                    float t = (float)(s - start) / SAMPLE_RATE;
+                    if (t > 0.10f) break;
+
+                    //A 1 ms attack and a fast decay: glass, not a chime. The noise rides only the attack,
+                    //which is what makes each one a shard breaking off rather than a synthesiser note.
+                    float env = MathF.Exp(-t * 42f) * MathF.Min(1f, t / 0.001f);
+
+                    signal[s] += MathF.Sin(2f * MathF.PI * pitches[i] * t) * 0.22f * gain * env;
+                    signal[s] += shard[s] * 0.30f * gain * env * MathF.Exp(-t * 260f);
+                }
+
+                //Accelerating, which reads as falling away; the gaps are short because the whole thing is over
+                //in a third of a second and eight events have to fit inside it.
+                at += 0.026f - 0.002f * i;
+            }
+
+            //Drier than the release: a handful of small hard pieces in the open air, not a mass of them
+            //coming off a wall.
+            ApplyReverb(signal, roomScale: 0.35f, wet: 0.16f, decay: 0.2f);
+
+            Normalize(signal, 0.85f);
+            return ToSoundEffect(signal);
+        }
+
+        /// <summary>
         /// The shell going up: the rising whistle every firework opens with. It is the one sound here that is
         /// almost a pure TONE — a whistling shell is a resonant cavity, not an explosion — and that is what
         /// makes it read against a scene full of broadband noise.
@@ -1800,6 +1915,7 @@ namespace BS3D.Audio
                 foreach (VoiceRing[] row in _landedRings)
                     if (row != null) foreach (VoiceRing ring in row) ring?.Dispose();
             _releaseRing?.Dispose();
+            _iceBreakRing?.Dispose();
             _launchRing?.Dispose();
             _burstRing?.Dispose();
             _eruptionRing?.Dispose();
@@ -1809,6 +1925,7 @@ namespace BS3D.Audio
                 foreach (SoundEffect[] row in _landed)
                     if (row != null) foreach (SoundEffect effect in row) effect?.Dispose();
             _release?.Dispose();
+            _iceBreak?.Dispose();
             _fireworkLaunch?.Dispose();
             _fireworkBurst?.Dispose();
             _partyPopper?.Dispose();

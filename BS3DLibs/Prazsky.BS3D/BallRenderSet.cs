@@ -834,6 +834,24 @@ namespace Prazsky.BS3D
         private const float ACID_PULSE_SPEED = 0.8f;
 
         /// <summary>
+        /// What the colour trapped inside a block of ice radiates (#329), and the three figures are the
+        /// <b>quietest</b> set on this list on purpose. A frozen ball is the one special that is not doing
+        /// anything: a bomb, a zap and an acid each say "a landing beside me sets this off", so their figures
+        /// are lit and moving, while this one says "not yet" and has to say it without competing with them for
+        /// the eye. What names it at any distance is its SHAPE — the only ball in the game with flat faces —
+        /// and the light is there only to carry the colour out through the frost.
+        /// <para>
+        /// The beat is the <b>cluster's own</b> speed and a shallow depth: a frozen ball breathes with the
+        /// lattice it is standing in rather than against it, which is the visible half of the ruling that it is
+        /// an ordinary ball waiting behind glass rather than a device.
+        /// </para>
+        /// </summary>
+        private const float FROZEN_EMISSION = 0.42f;
+
+        /// <inheritdoc cref="FROZEN_EMISSION"/>
+        private const float FROZEN_PULSE_DEPTH = 0.22f;
+
+        /// <summary>
         /// How much of the picture behind it a clear ball takes away face-on (#325), against the dyed film's
         /// <see cref="BUBBLE_BODY_OPACITY"/>. <b>Lower, and that is the whole read of this kind</b>: a bubble is
         /// a coloured thing you can see through and this is a thing that is not there — what names it is the
@@ -1023,6 +1041,19 @@ namespace Prazsky.BS3D
 
         private static readonly int DEAD_REGION_START = ACID_REGION_START + LodCount;
 
+        //And a NINTH, for the frozen balls of #329 — and it is the first special region that is a PLANE, with
+        //TYPE_COUNT × LodCount buckets like the two at the front, because a frozen ball has a COLOUR and the
+        //five specials before it deliberately have none. That is the whole of the difference and it is the
+        //kind's whole point: a rock, a bomb, a zap and an acid each carry a type nothing may read, so one
+        //tintless draw serves the lot; a frozen ball is a ball that will be red when the ice breaks, and a
+        //player who cannot see which colour cannot plan around it. So the tint has to be a per-draw uniform
+        //again, which is a bucket per colour, exactly as for the ordinary balls.
+        //
+        //It costs thirteen more null references and, in a frame, one draw call per colour actually frozen —
+        //which on a level with ice in it is one or two. The buckets are lazy like every other, so a level with
+        //no ice pays nothing at all.
+        private static readonly int FROZEN_REGION_START = DEAD_REGION_START + LodCount;
+
         //What a dead ball is tinted: a cold, dark ash, well under every one of the thirteen in value. Black's
         //own tint is 0.045, far under this — but a tint is not a brightness: black is LIT like every other
         //ball and reads as a dark colour, where this is drawn with the pulse off and reads as a ball nothing
@@ -1109,12 +1140,14 @@ namespace Prazsky.BS3D
             _pulseDepth = ripples ? PULSE_DEPTH_RIPPLING : PULSE_DEPTH_RESTING;
 
             //Two planes: the breathing balls, then the still ones (see STILL_PLANE_STRIDE), then a region
-            //each for the four kinds that opt out of the level's style — the rocks (ROCK_REGION_START), the
-            //clear glass, the bombs and the zaps — and last the dead weight, which keeps the style and opts
-            //out of the colour instead. Sized off the LAST of them so a region added without moving this line
-            //would index past the end on its first instance rather than draw wrong.
-            _buckets = new ModelInstance[DEAD_REGION_START + LodCount][];
-            _counts = new int[DEAD_REGION_START + LodCount];
+            //each for the five kinds that opt out of the level's style — the rocks (ROCK_REGION_START), the
+            //clear glass, the bombs, the zaps and the acids — then the dead weight, which keeps the style and
+            //opts out of the colour instead, and last the frozen PLANE, which opts out of the style and keeps
+            //the colour (#329) and so is sized like the two at the front rather than like the regions between.
+            //Sized off the LAST of them so a region added without moving this line would index past the end on
+            //its first instance rather than draw wrong.
+            _buckets = new ModelInstance[FROZEN_REGION_START + STILL_PLANE_STRIDE][];
+            _counts = new int[FROZEN_REGION_START + STILL_PLANE_STRIDE];
             _lodTotals = new int[LodCount];
             _lodDistanceSquared = new float[LOD_MIN_PIXEL_RADIUS.Length];
         }
@@ -1529,6 +1562,15 @@ namespace Prazsky.BS3D
 
             DrawAcids(camera);
 
+            //And the frozen balls beside them (#329), same side of the frame and same argument: a block of ice
+            //is drawn OPAQUE here, which is a deliberate approximation and the reason this kind needed no
+            //transparency work at all. What makes ice read as ice is its refraction, its rim and the colour
+            //glowing out of the middle of it, and all three are things a surface can do; what a transparent
+            //draw would add is seeing the cluster THROUGH the cube, which is worth less than it costs — see
+            //DrawShell on why nothing in here is sorted, and what that would have meant for a kind whose
+            //silhouette is a cube.
+            DrawFrozen(camera);
+
             //And the dead weight with them (#342), which is the same argument once more — see DrawDead for
             //what it does and does not state, and for why it is drawn here even on a transparent style.
             DrawDead(camera);
@@ -1744,6 +1786,67 @@ namespace Prazsky.BS3D
             }
 
             for (int lod = 0; lod < LodCount; lod++) _renderers[lod].PulseSpeed = PULSE_BEATS_PER_SECOND;
+
+            ApplyStyle();
+        }
+
+        /// <summary>
+        /// The frozen balls (#329): one instanced call per <b>colour</b> and LOD that has any, drawn as a
+        /// rounded block of ice with that colour sealed inside it, whatever the level's balls are made of.
+        /// <para>
+        /// <b>It is <see cref="DrawRocks"/> with the tint put back</b>, and that one line is the whole
+        /// difference between this and the five special draws above it. They pass <c>null</c> for the tint
+        /// because a special wearing one of the thirteen is a lie the player acts on; this one passes the
+        /// colour, because the colour is what it is saying. That is why it walks a plane of buckets rather than
+        /// a region of four — see <see cref="FROZEN_REGION_START"/> — and it is otherwise
+        /// <see cref="DrawPlane"/>'s loop with a technique of its own around it.
+        /// </para>
+        /// <para>
+        /// <b>The material is the COLOUR's</b> (<c>GetEffectByType</c>), not a frozen material of its own, and
+        /// that is the same decision once more: the effect params carry the ambient, which is the whole of a
+        /// ball's unlit side, and a frozen red ball's unlit side should be a dark red rather than a neutral
+        /// grey. The ice is what the technique does with it.
+        /// </para>
+        /// <para>
+        /// The pulse SPEED is left alone here where the bomb, the zap and the acid all have to put it back:
+        /// this kind breathes at the cluster's own rate on purpose (see <see cref="FROZEN_EMISSION"/>), so
+        /// there is nothing for <see cref="ApplyStyle"/> not to restore.
+        /// </para>
+        /// </summary>
+        private void DrawFrozen(ICamera camera)
+        {
+            bool any = false;
+            for (int i = FROZEN_REGION_START; i < FROZEN_REGION_START + STILL_PLANE_STRIDE && !any; i++)
+                any = _counts[i] > 0;
+
+            //A field with no ice in it — every level shipped today — never touches a renderer for this at all.
+            if (!any) return;
+
+            for (int lod = 0; lod < LodCount; lod++)
+            {
+                InstancedModelRenderer renderer = _renderers[lod];
+
+                renderer.Shading = BallShading.Frozen;
+                renderer.EmissiveStrength = FROZEN_EMISSION;
+                renderer.PulseDepth = FROZEN_PULSE_DEPTH;
+            }
+
+            for (int typeIndex = 0; typeIndex < TYPE_COUNT; typeIndex++)
+                for (int lod = 0; lod < LodCount; lod++)
+                {
+                    int bucketIndex = FROZEN_REGION_START + typeIndex * LodCount + lod;
+                    int count = _counts[bucketIndex];
+                    if (count == 0) continue;
+
+                    DrawnCount += count;
+                    _lodTotals[lod] += count;
+
+                    BallType type = (BallType)(typeIndex + 1);
+
+                    _renderers[lod].Draw(camera, _buckets[bucketIndex], count,
+                        BasicEffectParamsProvider.GetEffectByType(type),
+                        BasicEffectParamsProvider.GetDiffuseTintByType(type));
+                }
 
             ApplyStyle();
         }
@@ -2077,6 +2180,13 @@ namespace Prazsky.BS3D
         internal void StoreDead(int lod, in ModelInstance instance) => StoreAt(DEAD_REGION_START + lod, instance);
 
         /// <summary>
+        /// The frozen plane (#329) — the one special store that takes a <c>typeIndex</c>, because a block of
+        /// ice is drawn in the colour it has sealed inside it. See <see cref="FROZEN_REGION_START"/>.
+        /// </summary>
+        internal void StoreFrozen(int typeIndex, int lod, in ModelInstance instance) =>
+            StoreAt(FROZEN_REGION_START + typeIndex * LodCount + lod, instance);
+
+        /// <summary>
         /// A wildcard, mid-crossing between two colours (#330) — the whole of how one is drawn, in one place, so
         /// the queue in the bore, the round at the muzzle, the aim ghost and the ball in flight cannot each
         /// grow their own version of it.
@@ -2182,7 +2292,7 @@ namespace Prazsky.BS3D
         /// </para>
         /// </summary>
         private void Route(BallKind kind, int typeIndex, int lod, in ModelInstance instance, bool still,
-            float colourFade, float deadWeight = 0f)
+            float colourFade, float deadWeight = 0f, float thawFade = 0f)
         {
             switch (kind)
             {
@@ -2217,6 +2327,14 @@ namespace Prazsky.BS3D
                     _set.StoreAcid(lod, instance);
                     break;
 
+                case BallKind.Frozen:
+                    //And the first special that is NOT colourless (#329): the colour is what a block of ice is
+                    //saying, so this one case takes the ball's typeIndex where the five above throw it away.
+                    //Never loaded in the cannon — a level places ice, the gun never fires it — so no still
+                    //twin, which is why the plane is addressed without the `still` flag.
+                    _set.StoreFrozen(typeIndex, lod, instance);
+                    break;
+
                 case BallKind.Wildcard:
                     //The first kind that is the OPPOSITE of the four above (#330): it is nothing BUT colour —
                     //two of them at once — and it is the only kind that is ever loaded in the cannon. So it
@@ -2243,6 +2361,19 @@ namespace Prazsky.BS3D
                     {
                         _set.Store(typeIndex, lod, instance.WithDissolve(-colourFade), still);
                         _set.StoreHollow(lod, instance.WithDissolve(colourFade));
+                        break;
+                    }
+
+                    //And a THAW is the same crossing pointed at a third second bucket (#329): the ball's own
+                    //colour coming in at -d while the block of ice it was sealed in goes out at +d, so ice
+                    //breaks over a third of a second instead of between two frames. It is why the thaw needed
+                    //a timer of its own rather than a second use of the glass's — the sign arithmetic is
+                    //identical, but WHICH bucket the crossing draws out of is not something a number of
+                    //seconds can carry. The two cannot collide: a ball is one kind or the other, never both.
+                    if (thawFade > 0f)
+                    {
+                        _set.Store(typeIndex, lod, instance.WithDissolve(-thawFade), still);
+                        _set.StoreFrozen(typeIndex, lod, instance.WithDissolve(thawFade));
                         break;
                     }
 
@@ -2281,7 +2412,8 @@ namespace Prazsky.BS3D
         /// every other ball there has ever been (#325) — see <see cref="Route"/> for what the two ends of it
         /// are drawn as.</param>
         public void AddOriented(BallType type, Vector3 position, in Quaternion orientation, Vector4 occlusion,
-            float ripple = 0f, BallKind kind = BallKind.Normal, float colourFade = 0f, float deadWeight = 0f)
+            float ripple = 0f, BallKind kind = BallKind.Normal, float colourFade = 0f, float deadWeight = 0f,
+            float thawFade = 0f)
         {
             int typeIndex = (int)type - 1;
             if (typeIndex < 0 || typeIndex >= BallRenderSet.TYPE_COUNT) return;
@@ -2293,7 +2425,7 @@ namespace Prazsky.BS3D
             world.M43 = position.Z;
 
             Route(kind, typeIndex, _set.LodFor(Vector3.DistanceSquared(position, _eye)),
-                new ModelInstance(world, occlusion, 0f, ripple), still: false, colourFade, deadWeight);
+                new ModelInstance(world, occlusion, 0f, ripple), still: false, colourFade, deadWeight, thawFade);
         }
 
         /// <summary>

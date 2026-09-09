@@ -157,6 +157,25 @@ namespace Prazsky.BS3D.Physics
         public float ColourFadeRemaining;
 
         /// <summary>
+        /// Seconds left of this ball's ice-to-colour crossing (#329), counting down to zero — nonzero only on a
+        /// ball whose <see cref="BallKind.Frozen"/> ice a released group has just broken, and only for
+        /// <c>BallsConstraintsBuilder.THAW_FADE_SECONDS</c>.
+        /// <para>
+        /// A second field rather than a second use of <see cref="ColourFadeRemaining"/>, and that is forced
+        /// rather than chosen: both are cross-fades out of one look and into the ball's own colour, but they
+        /// cross out of <b>different</b> ones — the glass fades from the hollow region and this one from the
+        /// frozen region, and which second bucket a crossing draws into cannot be inferred from a number of
+        /// seconds. Sharing the field would have drawn every thawing ball as a ghost of clear glass.
+        /// </para>
+        /// <para>
+        /// Cosmetic, on <see cref="ColourFadeRemaining"/>'s own terms: the ball is logically an ordinary ball
+        /// of its colour from the instant the ice broke, and a shot fired at a half-thawed one matches the
+        /// colour it already is.
+        /// </para>
+        /// </summary>
+        public float ThawFadeRemaining;
+
+        /// <summary>
         /// How long this released ball has been standing still, in seconds — the measure of whether it is on
         /// its way to the drain or has simply stopped where it was (#342). Reset the moment it moves again: a
         /// group nudged loose by a later landing is falling once more and is no longer dead weight.

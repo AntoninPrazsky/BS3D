@@ -252,7 +252,8 @@ namespace Prazsky.BS3D.Physics
             frame.AddOriented(ball.Type, drawnAt.ToXna(), turned,
                 EaseOcclusion(ball, occlusionTarget, ease),
                 _advanceRipple == null ? 0f : _advanceRipple(ball, elapsedSeconds),
-                ball.Kind, AdvanceColourFade(ball, elapsedSeconds), deadWeight);
+                ball.Kind, AdvanceColourFade(ball, elapsedSeconds), deadWeight,
+                AdvanceThawFade(ball, elapsedSeconds));
         }
 
         /// <summary>
@@ -320,6 +321,34 @@ namespace Prazsky.BS3D.Physics
             }
 
             return 1f - ball.ColourFadeRemaining / COLOUR_FADE_SECONDS;
+        }
+
+        /// <summary>
+        /// Advances a freshly thawed ball's crossing out of its ice and answers how far through it is (#329) —
+        /// <see cref="AdvanceColourFade"/> in every respect, down to counting down in seconds and reporting a
+        /// fraction up, and it is the <b>fourth</b> piece of per-ball state this walk owns for the reason the
+        /// other three are here: visited once per frame, exactly.
+        /// <para>
+        /// The duration is <c>BallsConstraintsBuilder.THAW_FADE_SECONDS</c> and not this file's
+        /// <see cref="COLOUR_FADE_SECONDS"/>, even though the two are the same number: the timer is started
+        /// where the ice breaks, and a fade read against a duration other than the one it was started with
+        /// would run past 1 or stop short. They are equal deliberately and each says why.
+        /// </para>
+        /// </summary>
+        private static float AdvanceThawFade(PhysicsBall ball, float elapsedSeconds)
+        {
+            //The resting case, which is every ball of every level that has no ice in it: one compare.
+            if (ball.ThawFadeRemaining <= 0f) return 0f;
+
+            ball.ThawFadeRemaining -= elapsedSeconds;
+
+            if (ball.ThawFadeRemaining <= 0f)
+            {
+                ball.ThawFadeRemaining = 0f;
+                return 0f;
+            }
+
+            return 1f - ball.ThawFadeRemaining / BallsConstraintsBuilder.THAW_FADE_SECONDS;
         }
 
         /// <summary>

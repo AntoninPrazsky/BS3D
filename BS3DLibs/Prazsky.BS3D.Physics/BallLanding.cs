@@ -62,13 +62,35 @@ namespace Prazsky.BS3D.Physics
         /// </summary>
         public readonly int Coloured;
 
-        public BallLanding(BallsReleased released, Vector3 world, BallType type, XZLevel cell, int coloured = 0)
+        /// <summary>
+        /// How many <see cref="BallKind.Frozen"/> balls this landing thawed (#329) — the ice its released
+        /// group broke, and zero on every landing that completed no group or stood next to none, which is
+        /// nearly all of them.
+        /// <para>
+        /// It rides beside <see cref="Coloured"/> because it is the same sort of fact — part of what the shot
+        /// <b>did</b>, needed by everything downstream that answers for a shot — but the two are not
+        /// interchangeable and a caller must not read one for the other: a colouring happens on the landing and
+        /// <i>before</i> the group is counted, a thaw happens on the release and after it. That is why one can
+        /// grow the group the shot completes and the other never can.
+        /// </para>
+        /// <para>
+        /// <b>The score does not read it</b>, on <see cref="Coloured"/>'s ruling exactly and by the same
+        /// arithmetic: the balls this thawed are not in <see cref="Released"/>, so the shot is paid for the
+        /// group it actually completed and the ice it opened pays on the shot that takes it. Paying for a thaw
+        /// here would pay the player twice for the same wall.
+        /// </para>
+        /// </summary>
+        public readonly int Thawed;
+
+        public BallLanding(BallsReleased released, Vector3 world, BallType type, XZLevel cell, int coloured = 0,
+            int thawed = 0)
         {
             Released = released;
             World = world;
             Type = type;
             Cell = cell;
             Coloured = coloured;
+            Thawed = thawed;
         }
     }
 }
