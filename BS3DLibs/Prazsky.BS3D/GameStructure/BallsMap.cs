@@ -164,17 +164,38 @@ namespace Prazsky.BS3D.GameStructure
         //ever, untracked and unreleasable. TryFind* answer with a bool, so that cannot be got wrong.
 
         /// <summary>
-        /// Enumerates all in-bounds cells that geometrically touch the given cell: four on the same level and up to four
-        /// on each adjacent level. Odd levels are shifted by +0.5 in X and Z, so their neighbors on adjacent levels sit
-        /// towards +X/+Z indices, while even levels neighbor towards -X/-Z.
+        /// The most cells that can touch one cell: four on its own level and up to four on each adjacent level.
+        /// The length every buffer handed to <see cref="FillNeighboringCells"/> must have, and the figure
+        /// <see cref="CountOccupiedNeighbors"/> states as "up to 12".
         /// </summary>
-        public static IEnumerable<XZLevel> GetNeighboringCells(XZLevel cell, XZLevel size)
+        public const int MAX_NEIGHBORS = 12;
+
+        /// <summary>
+        /// Writes all in-bounds cells that geometrically touch the given cell into <paramref name="into"/> and
+        /// returns how many there were: four on the same level and up to four on each adjacent level. Odd levels
+        /// are shifted by +0.5 in X and Z, so their neighbors on adjacent levels sit towards +X/+Z indices, while
+        /// even levels neighbor towards -X/-Z.
+        /// <para>
+        /// <b>The order is load-bearing, and it is the order this has always produced</b>: the four on the cell's
+        /// own level (-X, +X, -Z, +Z), then the four below, then the four above. <see cref="CollectAcidShaft"/>
+        /// breaks its ties on it — on an on-axis step all four candidates are equidistant and the first one wins —
+        /// so two identical clusters break the same way, and the shipped campaign was generated and gated against
+        /// exactly this sequence. A change to it is a change to the levels on disk.
+        /// </para>
+        /// </summary>
+        /// <param name="into">
+        /// At least <see cref="MAX_NEIGHBORS"/> long. A shorter buffer is an index-out-of-range on the write that
+        /// overruns it rather than a truncated answer, which is the loud failure this would want anyway.
+        /// </param>
+        public static int FillNeighboringCells(XZLevel cell, XZLevel size, Span<XZLevel> into)
         {
+            int count = 0;
+
             //Same level
-            if (cell.X - 1 >= 0) yield return new XZLevel(cell.X - 1, cell.Z, cell.Level);
-            if (cell.X + 1 < size.X) yield return new XZLevel(cell.X + 1, cell.Z, cell.Level);
-            if (cell.Z - 1 >= 0) yield return new XZLevel(cell.X, cell.Z - 1, cell.Level);
-            if (cell.Z + 1 < size.Z) yield return new XZLevel(cell.X, cell.Z + 1, cell.Level);
+            if (cell.X - 1 >= 0) into[count++] = new XZLevel(cell.X - 1, cell.Z, cell.Level);
+            if (cell.X + 1 < size.X) into[count++] = new XZLevel(cell.X + 1, cell.Z, cell.Level);
+            if (cell.Z - 1 >= 0) into[count++] = new XZLevel(cell.X, cell.Z - 1, cell.Level);
+            if (cell.Z + 1 < size.Z) into[count++] = new XZLevel(cell.X, cell.Z + 1, cell.Level);
 
             //Levels above and below
             int diagonalShift = (cell.Level % 2) > 0 ? 0 : -1;
@@ -190,15 +211,31 @@ namespace Prazsky.BS3D.GameStructure
                         int x = cell.X + dX + diagonalShift;
                         int z = cell.Z + dZ + diagonalShift;
 
-                        if (x >= 0 && z >= 0 && x < size.X && z < size.Z) yield return new XZLevel(x, z, level);
+                        if (x >= 0 && z >= 0 && x < size.X && z < size.Z) into[count++] = new XZLevel(x, z, level);
                     }
             }
+
+            return count;
         }
 
         /// <summary>
-        /// Counts occupied cells among the up-to-12 cells touching the given one (the same parity rules as
-        /// <see cref="GetNeighboringCells"/>, but without allocating an enumerator, since this runs for every
-        /// ball every frame). Used for ambient occlusion, over either the logical or the physics ball array.
+        /// The same cells in the same order, for a <c>foreach</c> — and, unlike the <c>yield return</c> method
+        /// this replaced, without allocating an enumerator to do it (#381). See <see cref="NeighboringCells"/>
+        /// for why that mattered: this walk is on the frame path, not only the shot path.
+        /// </summary>
+        public static NeighboringCells GetNeighboringCells(XZLevel cell, XZLevel size) => new(cell, size);
+
+        /// <summary>
+        /// Counts occupied cells among the up-to-12 cells touching the given one — the same parity rules as
+        /// <see cref="GetNeighboringCells"/>. Used for ambient occlusion, over either the logical or the physics
+        /// ball array.
+        /// <para>
+        /// <b>Why it walks the neighborhood itself</b> rather than over <see cref="GetNeighboringCells"/>: it
+        /// never wants the cells. It tests the array and accumulates a direction in the same pass, and the
+        /// direction needs the <c>dX</c>/<c>dZ</c> of the step it is taking, which a produced cell has already
+        /// thrown away. Until #381 the reason on this comment was the allocation — that one is gone, the walk is
+        /// free to enumerate now, and this still does not want to.
+        /// </para>
         /// </summary>
         /// <param name="occlusionDirection">Sum of the unit vectors pointing at the occupied neighbors
         /// (touching neighbors are always exactly one ball diameter away, so every contribution has length 1).
