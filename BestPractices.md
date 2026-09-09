@@ -45,6 +45,17 @@ kind that accumulates unnoticed:
   fine when it ran on dome switches; the overcast lerp made it per-frame and the allocation went with it.
   The fix that survives renderer recreation: fill and return one reused `List<>` field, keeping the method
   the single source of truth (no rebuild bookkeeping to forget).
+- **It happened a second time, in the same shape, and this rule was already written down (#381).**
+  `BallsMap.GetNeighboringCells` was a `yield return` walked once per landing until #70 let the aim preview
+  ask the identical question — from then on it ran once a frame from `TryFindEmptyCellNextTo` and, whenever
+  the first ring was full, from `TryFindEmptyCellInSecondRing`, whose walk is **nested**. Measured on a
+  13×13×34 field: **104 B per walk, 1 456 B (14 enumerators) per frame** in the both-rings-full case, and
+  nothing in the frame said so. **What to take from having it twice:** the danger is never the iterator, it
+  is a *caller* moving to the frame path — so when a per-event method starts being asked every frame, that
+  is the moment to look at what it allocates, and the review is of the new call site, not of the old method.
+  The fix was a `Span`-filling method with a small struct enumerable over it (`NeighboringCells`), which
+  suits a fixed, tiny, reentrant answer better than a reused `List<>` field would: the second-ring walk is
+  nested inside the first, and one shared buffer would have been clobbered by its own inner loop.
 - **String building belongs behind the change, not the frame.** The FPS overlay built `"FPS: " + n` every
   frame for a value that changes once a second.
 - Watch also: LINQ in Update/Draw, closures capturing locals, `params` arrays, boxing structs through
