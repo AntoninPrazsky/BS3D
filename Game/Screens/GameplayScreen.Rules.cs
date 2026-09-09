@@ -62,6 +62,14 @@ namespace BS3D.Screens
             int released = landing.Released.Total;
             if (released > 0) Game.Audio.PlayRelease(landing.World, released);
 
+            //And the ice this landing broke (#329), over the release it always arrives with — the thaw only
+            //ever happens because a group left, so these two sound together by construction and never alone.
+            //It is the one BallKind with a sound of its own, and the reason is that it is the one whose
+            //effect the player cannot see happen: a bomb throws its victims across the arena, a zap empties a
+            //colour off the field, an acid drills a visible shaft — a thaw changes what one ball IS, three
+            //cells away from where the eye was. See BakeIceBreak for how it is heard through the release.
+            if (landing.Thawed > 0) Game.Audio.PlayIceBreak(landing.World, landing.Thawed);
+
             ScoreAward award = _score.Landed(landing.Released.Matched, landing.Released.Orphaned,
                 landing.Released.Destroyed);
 

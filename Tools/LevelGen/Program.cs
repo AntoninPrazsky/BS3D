@@ -16390,7 +16390,11 @@ namespace BS3D.Tools.LevelGen
             StaticBall[,,] array = map.GetStaticBallsArray();
             Dictionary<BallType, int> counts = new();
             Dictionary<BallType, int> largestGroup = new();
-            int rocks = 0, glass = 0, bombs = 0, zaps = 0;
+            //⚠ ACIDS AND FROZEN BALLS COUNT TOWARDS ASKING THE WALK BELOW, and the acid's line is a fix
+            //rather than an addition (#329): #328 added the kind without adding it here, so a level built of
+            //acid and colour alone would have skipped the stranded-specials walk entirely — which is #343's
+            //own bug, arriving through the next kind. Anything not matchable belongs in this list.
+            int rocks = 0, glass = 0, bombs = 0, zaps = 0, acids = 0, frozen = 0;
 
             for (byte l = 0; l < map.Levels; l++)
                 for (byte x = 0; x < map.StageSizeX; x++)
@@ -16403,6 +16407,8 @@ namespace BS3D.Tools.LevelGen
                         if (ball.Kind == BallKind.Transparent) glass++;
                         if (ball.Kind == BallKind.Bomb) bombs++;
                         if (ball.Kind == BallKind.Zap) zaps++;
+                        if (ball.Kind == BallKind.Acid) acids++;
+                        if (ball.Kind == BallKind.Frozen) frozen++;
 
                         //⚠ THE COLOUR CENSUS IS OVER THE MATCHABLE BALLS ONLY (#323/#325), and it is not
                         //merely tidier: a rock or a glass ball counted here would enter `counts` under the
@@ -16475,15 +16481,18 @@ namespace BS3D.Tools.LevelGen
             //⚠ THE ROCKS COUNT TOWARDS ASKING IT (#343). While this read `glass + bombs`, a level built
             //entirely of stone and colour skipped the walk altogether, so the one gate that would have
             //caught a rock hanging off the ceiling was never run on the three levels that had one.
-            StrandedReport stranded = rocks + glass + bombs + zaps == 0 ? new StrandedReport() : FindStrandedSpecials(map);
+            int specials = rocks + glass + bombs + zaps + acids + frozen;
 
-            if (rocks + glass + bombs + zaps > 0)
+            StrandedReport stranded = specials == 0 ? new StrandedReport() : FindStrandedSpecials(map);
+
+            if (specials > 0)
             {
                 Console.WriteLine($"    specials a shot can reach: {(stranded.Walled == 0 ? "all" : $"NO - {stranded.Walled} WALLED IN")}"
                                   + $" (glass against the ceiling {stranded.Anchoring}, best glass landing pays"
                                   + $" {stranded.MostAtOnce})");
                 Console.WriteLine($"    glass in bodies of two or more: {(stranded.AloneGlass == 0 ? "all" : $"NO - {stranded.AloneGlass} ALONE")}");
                 Console.WriteLine($"    rocks the player can bring down: {(stranded.CeilingRocks == 0 ? "all" : $"NO - {stranded.CeilingRocks} ON THE ANCHOR COURSE")}");
+                Console.WriteLine($"    ice a group can ever reach: {(stranded.SealedIce == 0 ? "all" : $"NO - {stranded.SealedIce} SEALED IN")}");
                 foreach (string where in stranded.Examples) Console.WriteLine($"      {where}");
             }
 
@@ -16504,7 +16513,7 @@ namespace BS3D.Tools.LevelGen
 
             return disconnected == 0 && lonely.Alone == 0 && !oneShot && margin >= 1
                    && stranded.Walled == 0 && stranded.Anchoring == 0 && stranded.CeilingRocks == 0
-                   && stranded.AloneGlass == 0;
+                   && stranded.AloneGlass == 0 && stranded.SealedIce == 0;
         }
 
         /// <summary>
@@ -16853,6 +16862,49 @@ namespace BS3D.Tools.LevelGen
                         //first half and an ordinary ball to the second.
                         if (BallKinds.Matchable(ball.Kind) || !BallKinds.Removable(ball.Kind)) continue;
 
+                        //⚠ THE FROZEN BALL IS ASKED A DIFFERENT QUESTION AND THEN LEAVES THIS WALK (#329),
+                        //because the question below is the wrong one for it and would have passed it in
+                        //silence. Everything else here is opened by a shot LANDING beside it, so "is there an
+                        //empty neighbour to shoot into" is the whole test. Ice is opened by a GROUP being
+                        //cleared beside it — an empty cell next to a frozen ball buys nothing at all if
+                        //nothing next to it can ever be matched.
+                        //
+                        //So what is asked is whether it has a matchable neighbour. Glass counts as one: a
+                        //landing colours it and from that instant it is an ordinary ball that can complete a
+                        //group. This is deliberately the CERTAIN half of the question — a frozen ball with no
+                        //matchable neighbour can never thaw, on any level, in any order of play, and that is
+                        //a level that never ends. Whether a reachable group actually gets completed in the
+                        //shots the player has is the DYNAMIC half, and it is not guessed at here: SagProbe
+                        //plays the level for real and thaws through the same ReleaseSameTypeCluster the game
+                        //does, so a level whose ice only opens late is measured rather than estimated.
+                        if (ball.Kind == BallKind.Frozen)
+                        {
+                            bool thawable = false;
+
+                            foreach (XZLevel neighbour in BallsMap.GetNeighboringCells(cell, size))
+                            {
+                                StaticBall beside = array[neighbour.X, neighbour.Z, neighbour.Level];
+
+                                if (beside == null) continue;
+                                if (BallKinds.Matchable(beside.Kind) || beside.Kind == BallKind.Transparent)
+                                {
+                                    thawable = true;
+                                    break;
+                                }
+                            }
+
+                            if (thawable) continue;
+
+                            report.SealedIce++;
+
+                            if (report.Examples.Count < 3)
+                                report.Examples.Add($"frozen ball sealed in at cell ({x},{z}) on level {l}:"
+                                                    + " no matchable neighbour, so no group can ever be"
+                                                    + " cleared beside it and the ice never breaks");
+
+                            continue;
+                        }
+
                         if (l == top && ball.Kind == BallKind.Transparent)
                         {
                             report.Anchoring++;
@@ -16905,6 +16957,13 @@ namespace BS3D.Tools.LevelGen
 
             /// <summary>Panes some landing would colour by themselves — see the ALONE paragraph (#344).</summary>
             public int AloneGlass;
+
+            /// <summary>
+            /// Frozen balls with no matchable neighbour (#329): ice no group can ever be cleared beside, so it
+            /// never thaws and the level never ends. See the frozen branch in <see cref="FindStrandedSpecials"/>
+            /// for why it is a question of its own rather than the walled-in one.
+            /// </summary>
+            public int SealedIce;
 
             public int MostAtOnce;
             public readonly List<string> Examples = new();

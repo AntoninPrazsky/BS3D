@@ -365,6 +365,12 @@ namespace MapEditor
                     + "units, itself included)",
                 BallKind.Zap => "Ball kind: zap (a shot landing beside it takes every ordinary ball of THAT "
                     + "SHOT's colour off the whole field)",
+                //The acid's line was missing until #329 — #328 added the kind and not the hint, which is the
+                //very drift this switch's own comment above was written against. One line per kind, still.
+                BallKind.Acid => "Ball kind: acid (a shot landing beside it eats DOWNWARD, drilling a shaft "
+                    + "through the cluster beneath it until it reaches a gap)",
+                BallKind.Frozen => "Ball kind: frozen (an ordinary ball of this colour sealed in ice: nothing "
+                    + "matches it until the player clears a group NEXT TO it)",
                 _ => "Ball kind: normal",
             };
         }

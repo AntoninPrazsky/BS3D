@@ -824,6 +824,67 @@ namespace Prazsky.BS3D.GameStructure
             }
         }
 
+        /// <summary>
+        /// Breaks the ice on every <see cref="BallKind.Frozen"/> ball standing next to a group that has just
+        /// been cleared, turning each into an ordinary ball of <b>its own</b> colour, and reports the cells it
+        /// changed (#329). Nothing else in the map moves.
+        /// <para>
+        /// <b>The group, not the landing</b>, and that is #329's ruling: a big group breaks more ice than a
+        /// small one, so reading the cluster is what pays — which is the currency this game already deals in,
+        /// an orphan being worth double a matched ball. The cells handed in are the group's, so they are
+        /// <i>already empty</i> by the time this runs; only their neighbour indices are wanted, and
+        /// <see cref="GetNeighboringCells"/> is index arithmetic that neither knows nor cares whether the cell
+        /// it starts from still holds a ball.
+        /// </para>
+        /// <para>
+        /// <b>Its OWN colour, where the glass takes the shot's</b> (#325's <see cref="ColourTransparentGroup"/>
+        /// is otherwise this method's twin down to the walk). A frozen ball has been wearing a colour the
+        /// player could see through the ice all along, and the whole of what it says is "this red one will be
+        /// available later" — handing it the shot's colour instead would make the level's plan a lie told to
+        /// the player two shots before it is found out.
+        /// </para>
+        /// <para>
+        /// <b>It does not spread.</b> The glass runs a flood fill through the connected body of glass; ice
+        /// breaks one ball deep, exactly the ring the group touched. A frozen ball behind another frozen ball
+        /// takes the shot after, which is what makes a wall of ice a sequence of moves rather than one.
+        /// </para>
+        /// <para>
+        /// No visited set and nothing allocated: thawing a cell <i>is</i> the mark, since the ball that
+        /// replaces it answers <see cref="BallKind.Normal"/> and can never be seen again by this walk. So a
+        /// frozen ball touching two cells of the same group thaws once, which is what the <see cref="StaticBall"/>
+        /// replacement buys for free.
+        /// </para>
+        /// <para>
+        /// The ball is <b>replaced</b> rather than mutated, for <see cref="ColourTransparentGroup"/>'s reason: a
+        /// <see cref="StaticBall"/>'s colour and kind are read-only by construction. The caller mirrors the
+        /// change onto the physics side, which this library cannot see.
+        /// </para>
+        /// </summary>
+        /// <param name="group">The cells the released group occupied. Read, never written.</param>
+        /// <param name="thawed">Filled with the cells that changed — empty on nearly every release, which is
+        /// every level with no ice in it. Cleared first, so one list can serve every shot of a level.</param>
+        /// <returns>How many balls thawed.</returns>
+        public int ThawFrozenBesideGroup(List<XZLevel> group, List<XZLevel> thawed)
+        {
+            thawed.Clear();
+
+            if (group == null || group.Count == 0) return 0;
+
+            XZLevel size = new(StageSizeX, StageSizeZ, Levels);
+
+            for (int i = 0; i < group.Count; i++)
+                foreach (XZLevel neighbour in GetNeighboringCells(group[i], size))
+                {
+                    StaticBall ball = _balls[neighbour.X, neighbour.Z, neighbour.Level];
+                    if (ball == null || ball.Kind != BallKind.Frozen) continue;
+
+                    PutBallAt((byte)neighbour.X, (byte)neighbour.Z, (byte)neighbour.Level, ball.Type);
+                    thawed.Add(neighbour);
+                }
+
+            return thawed.Count;
+        }
+
         public void SerializeAsJson(string fileName)
         {
             var ballPositionTypes = BuildBallPositionTypes();

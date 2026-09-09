@@ -156,6 +156,16 @@ namespace Prazsky.BS3D.Physics
         //landing can arm no more than that many of anything.
         private readonly List<XZLevel> _triggeredAcids = new(12);
 
+        /// <summary>
+        /// Scratch for the ice this landing's group broke (#329), reused by every shot of the level the way
+        /// <see cref="_colouredCells"/> is. It is <b>filled by the release</b> rather than collected here,
+        /// which is the whole difference between this kind and the three above it: a thaw is keyed to the
+        /// group leaving, not to the landing, so the rule lives in
+        /// <c>BallsConstraintsBuilder.ReleaseSameTypeCluster</c> and this list is only how the count gets back
+        /// out to the log and to <see cref="BallLanding"/>.
+        /// </summary>
+        private readonly List<XZLevel> _thawedCells = new(12);
+
         private readonly ConcurrentQueue<QueuedContact> _queuedContacts = new();
 
         private readonly struct QueuedContact
@@ -482,7 +492,13 @@ namespace Prazsky.BS3D.Physics
 
             //And the game rule: three or more of a colour touching each other let go, and so does anything
             //that was only held up by them
-            BallsReleased released = BallsConstraintsBuilder.ReleaseSameTypeCluster(physicsBall, _physicsBalls, _map, _simulation, _fallingBalls);
+            //THE ICE BREAKS INSIDE THIS CALL (#329), not around it like the three destroyers below. A frozen
+            //ball's trigger is the GROUP leaving rather than the landing, and this is the only place in the
+            //game where a group leaves — so the rule sits there and this list is only how the count gets back
+            //out. Nothing else on this path had to be added, and nothing in the Testbed or the sag probe did
+            //either, which is the whole argument for putting it there; see that method's remarks.
+            BallsReleased released = BallsConstraintsBuilder.ReleaseSameTypeCluster(physicsBall, _physicsBalls,
+                _map, _simulation, _fallingBalls, _thawedCells);
 
             //Then the zap, over whatever the match left standing (#327). ⚠ BEFORE the blast, and the order is
             //a ruling: a blast that ate the zap ball first would silently swallow one of the two effects the
@@ -528,7 +544,15 @@ namespace Prazsky.BS3D.Physics
                 + $" {_triggeredZaps.Count} zap(s) and {_triggeredAcids.Count} acid(s) triggered at the landing;"
                 + $" destroyed {released.Destroyed}, orphaned {released.Orphaned}");
 
-            BallLanded?.Invoke(new BallLanding(released, restPosition, physicsBall.Type, cell, coloured));
+            //And the ice's own line, on the glass's terms and for its reason (#329): a level whose frozen balls
+            //are never thawing says so here rather than being diagnosed from screenshots, and printing the
+            //MATCHED count beside it is what tells "the group was too far from the ice" apart from "no group
+            //completed at all" — the two ways a level of ice fails to open, which look identical on screen.
+            if (_thawedCells.Count > 0) Console.WriteLine($"[shot] thawed {_thawedCells.Count} frozen ball(s)"
+                + $" beside a group of {released.Matched}");
+
+            BallLanded?.Invoke(new BallLanding(released, restPosition, physicsBall.Type, cell, coloured,
+                _thawedCells.Count));
 
             return true;
         }

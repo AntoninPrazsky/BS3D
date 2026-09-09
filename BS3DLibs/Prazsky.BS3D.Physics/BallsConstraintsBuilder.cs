@@ -183,13 +183,47 @@ namespace Prazsky.BS3D.Physics
         /// falls, falls as individual unconstrained balls.
         /// </summary>
         /// <param name="releasedInto">Released balls are added here so the caller can keep drawing (and later dispose of) them.</param>
+        /// <param name="thawedInto">Filled with the cells whose ice this release broke (#329), cleared first;
+        /// left alone entirely when null, which is every caller that does not care. See the remarks on why the
+        /// thaw is <b>in here</b> rather than repeated by each caller the way the glass and the bombs are.</param>
         /// <returns>
         /// The two kinds of released ball, kept apart rather than summed (see <see cref="BallsReleased"/>): a
         /// scorer has to be able to tell the group the player aimed at from everything that fell because they
         /// cut its support. Zero of both when the cluster is below the minimum size.
         /// </returns>
-        public static BallsReleased ReleaseSameTypeCluster(PhysicsBall attachedBall, PhysicsBall[,,] physicsBalls, BallsMap map, Simulation simulation, List<PhysicsBall> releasedInto)
+        /// <remarks>
+        /// <b>THE THAW OF #329 LIVES HERE, and that is the one design decision in this method worth arguing.</b>
+        /// A frozen ball's ice breaks when the player clears a group beside it — and this is the only place in
+        /// the whole game where a group is cleared, so it is the only place the rule can be stated once. Every
+        /// earlier special was collected and fired by the <i>caller</i> (the contact handler collects the armed
+        /// bombs, the zaps and the acids and sets them off around this call), and the cost of that shape is on
+        /// the record: <c>Tools/LevelGen/SagProbe</c> had to learn the glass colouring, then the bombs, then
+        /// the zaps, then the acids, one by one, and the Mirage's five glass levels were measured wrong for a
+        /// release because it had not yet learned the first of them. A rule keyed to <i>the release itself</i>
+        /// has no such seam: the probe, the Testbed and the Game all thaw by calling this, and none of them had
+        /// a line added.
+        /// <para>
+        /// It runs <b>before</b> the disconnection pass, and the order does not change any count — a kind never
+        /// affects what hangs from what, so the walk below sees the same field either way. It is stated in this
+        /// order because it is the honest one: the ice broke because of the match, and what falls afterwards
+        /// falls because of the match too. A frozen ball that thaws and is then orphaned by the same release is
+        /// reported in both, which is exactly what happened to it.
+        /// </para>
+        /// <para>
+        /// <b>Only the matched group thaws — never the orphans</b> (#329's second ruling). A region that falls
+        /// because it lost its support passes plenty of ice on the way down; if that broke ice, a thaw would be
+        /// something the physics did rather than something the player aimed at, and the whole point of this
+        /// kind is that it is a plan.
+        /// </para>
+        /// </remarks>
+        public static BallsReleased ReleaseSameTypeCluster(PhysicsBall attachedBall, PhysicsBall[,,] physicsBalls,
+            BallsMap map, Simulation simulation, List<PhysicsBall> releasedInto, List<XZLevel> thawedInto = null)
         {
+            //Emptied HERE and not inside the thaw, because the early return below is the common case and a
+            //caller reading a stale list would report the ice the shot BEFORE this one broke. It is the same
+            //trap the armed-bomb lists avoid by clearing at the top of their own collect.
+            thawedInto?.Clear();
+
             List<XZLevel> cluster = map.GetConnectedSameTypeCells(attachedBall.ArrayPosition);
             if (cluster.Count < MINIMUM_CLUSTER_SIZE) return default;
 
@@ -199,6 +233,8 @@ namespace Prazsky.BS3D.Physics
             foreach (XZLevel cell in cluster)
                 ReleaseBall(cell, physicsBalls, map, simulation, size, handleBuffer, releasedInto);
 
+            ThawFrozen(cluster, physicsBalls, map, thawedInto);
+
             //Balls no longer connected to the ceiling would fall as chains still constrained to each other;
             //releasing them explicitly cuts those constraints so they fall as individual balls.
             List<XZLevel> disconnected = map.GetCellsDisconnectedFromCeiling();
@@ -206,6 +242,50 @@ namespace Prazsky.BS3D.Physics
                 ReleaseBall(cell, physicsBalls, map, simulation, size, handleBuffer, releasedInto);
 
             return new BallsReleased(cluster.Count, disconnected.Count);
+        }
+
+        /// <summary>
+        /// How long a thawing ball takes to cross from ice to its own colour, in seconds (#329). The glass
+        /// colouring's <c>ClusterCollector.COLOUR_FADE_SECONDS</c> exactly, and deliberately so: they are the
+        /// same event seen twice — a ball stopping being one kind and becoming an ordinary one — and two
+        /// different durations for that would read as two different mechanics.
+        /// </summary>
+        public const float THAW_FADE_SECONDS = 0.35f;
+
+        /// <summary>
+        /// <see cref="ReleaseSameTypeCluster"/>'s thaw, split out so the rule reads as one thing: the map
+        /// decides <b>which</b> cells (<see cref="BallsMap.ThawFrozenBesideGroup"/>, one ring around the group),
+        /// and this mirrors each of them onto the physics side and starts its crossing.
+        /// <para>
+        /// <b>The map and the physics array have to move together</b> — that is #323's own rule and it is not a
+        /// nicety here: the flood fill reads the map and the draw reads the physics ball, so a cell thawed in
+        /// one and not the other is a ball that matches but is still drawn in ice, for the rest of the level.
+        /// </para>
+        /// <para>
+        /// The scratch list is static and reused, so a release with no ice near it allocates nothing after the
+        /// first one. That is safe for the reason the rest of this class is single-threaded: a landing is
+        /// resolved inside one simulation step, and there is exactly one of those at a time.
+        /// </para>
+        /// </summary>
+        private static readonly List<XZLevel> _thawScratch = new(12);
+
+        /// <inheritdoc cref="_thawScratch"/>
+        private static void ThawFrozen(List<XZLevel> cluster, PhysicsBall[,,] physicsBalls, BallsMap map,
+            List<XZLevel> thawedInto)
+        {
+            List<XZLevel> thawed = thawedInto ?? _thawScratch;
+
+            if (map.ThawFrozenBesideGroup(cluster, thawed) == 0) return;
+
+            for (int i = 0; i < thawed.Count; i++)
+            {
+                XZLevel at = thawed[i];
+                PhysicsBall ball = physicsBalls[at.X, at.Z, at.Level];
+                if (ball == null) continue;
+
+                ball.Kind = BallKind.Normal;
+                ball.ThawFadeRemaining = THAW_FADE_SECONDS;
+            }
         }
 
         /// <summary>
