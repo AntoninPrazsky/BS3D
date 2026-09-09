@@ -1370,3 +1370,52 @@ Proč `aim=`ované rány míjejí, jsem **nedovyšetřil** a nepatří to k #329
 **Zvuk rozbití ledu jsem NESLYŠEL.** `PlayIceBreak` je navržený aritmetikou proti spektru `PlayRelease` (praskla kolem 5 kHz, střepy 3,4–8,6 kHz, protože release sedí 140 Hz–2,8 kHz a oddělit se mají **rejstříkem**, ne hlasitostí) a ověřený jen tím, že bake proběhne a hra nastartuje. Slyšet ho nejde: žádný shipnutý level led nenese a Testbed zvuk nemá — chce to nakreslit level v editoru (`K` na druh) a uložit do `Game/Levels`. Je to zapsané i v `docs/game-feedback.md`, protože je to přesně ta část hry, kterou nelze soudit ze snímku.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-09 — Claude Code (druhý zápis dne)
+
+**#331 (infekční koule) hotové a na mainu. Sedmý druh, poslední z „match" skupiny — a první pravidlo v téhle hře, které TIKÁ.** Větev `331-infectious`, merge `--no-ff`. `BallKind.Infectious`, `BallsMap.SpreadInfection`, `BallsConstraintsBuilder.SpreadInfection`, technika `InstancedModelInfectious`, desátý region kbelíků (druhá barevná rovina), tik v herní sekvenci i v Testbedu, brána v LevelGenu, `Testbed\Maps\Infection.json`.
+
+### Návrh: issue nechává pět rozhodnutí na stavitelovi, tady jsou i s důvody
+
+1. **Nemocná koule JE matchovatelná** — první druh vedle `Normal`, který na `Matchable` odpoví ano. Issue to říká za mě: infekce, kterou nejde vystřílet, není mechanika ale časovač. Bez tohohle nemá hráč protihru.
+2. **Šíří se, ale zároveň sama tuhne v kámen.** Populace tím může jen stagnovat nebo klesat — a klesá, když ohnisko nemá koho nakazit. To je „stopping rule zabudovaná, ne doladěná později", kterou issue chce, a **nepotřebuje čítač na kouli, tedy ani nový klíč ve formátu**. Roste kámen za ní: přesně jedna trvale ztracená koule na jedno ohnisko na jednu ránu odkladu.
+3. **Bere jen OBYČEJNOU kouli.** Kámen, sklo, bomba, zap, kyselina, led ani jiná nemocná ne — a není to sedm výjimek, je to jedno pravidlo (infekce bere zdravou kouli, a všechno ostatní zdravá koule není). **Led je úkryt**, dokud si ho hráč sám nerozbije.
+4. **Šplhá.** Bere zdravého souseda nejblíž stropu, s totálním tie-breakem. Náhoda by byly neviditelné kostky; takhle hráč vidí, kam to jde a kolik má času.
+5. **Zpevnění na kámen zůstává, druhá prohrávací podmínka ne.** Issue nabízí tři cesty; beru „kámen ano" a pole samého kamene je podle **už shipnutého pravidla #324 VYČIŠTĚNÉ** — spadne za nula bodů. Cena za ignorování je nesená **skóre a hvězdami**, což je lepší nosič než druhé dveře na konci levelu.
+
+### ⚠ Pozice tiku, a proč je to ta těžká část
+
+Po uvolnění skupiny, před census. **Po uvolnění**, protože skupina, kterou hráč právě dokončil, je jeho — tik, který by jí napřed zkamenil kouli, mu tiše sebere ránu, kterou si zasloužil. **Před censusem**, protože z něj čte všechno v témž snímku: jaké barvy se smí nabíjet, jestli je level vyčištěný, jestli je prohraný. Po censusu jsou všechny tři **o ránu pozadu** a ta chyba je nepravidelná a svede se na fyziku.
+
+**Dokázáno, ne předpokládáno** (issue si to vysloveně žádá): na poli, jehož jediná koule jedné barvy je ta nemocná, čte barva **před** tikem jako živá a **po** tiku jako mrtvá — koule ztvrdla v kámen, jehož barvu nikdo nesmí číst.
+
+**Mine tiká taky.** Dva argumenty a shodují se: strop klesá podle `ShotsFired % ceilingStep`, tedy podle **vystřelených** ran, takže per-ran tlak v téhle hře mine vždycky počítal; a kdyby bylo mine zadarmo, zaseknutý hráč může čekat donekonečna. **⚠ Co schválně NEDĚLÁM: tikat při VÝSTŘELU**, což je místo, kde počítá strop. Rána letí desetinu sekundy — tik u ústí by mohl zkamenit kouli, na kterou hráč míří, v letu, takže rána, ke které se upsal, je po upsání špatně. Tik je na **doresolvování** rány. Při té příležitosti jsem obě cesty mine (dopad na kámen a propad pod kill plane) svedl do `OnShotSpent`, aby pravidlo přidané k jedné nechybělo u druhé.
+
+### ⚠ Past, kterou otevřelo právě to „matchovatelný", a je to #325 z opačné strany
+
+`RepairLonelyBalls` v LevelGenu má guard `if (!Matchable(kind)) continue;` — dnes tím vypadnou všechny speciály. Jakmile je infekce matchovatelná, **projde**, a oprava přebarvuje přes `PutBallAt`, jehož `kind` **defaultuje na Normal**. Každá oprava by nemocnou kouli tiše **vyléčila**, a soubor levelu by se zapsal z výsledku. To je doslova ta ztráta dat, kterou má #325 zapsanou, jen dorazila druhými dveřmi. Kind se teď protahuje i zkušebními přebarveními, jinak by se skupina nemocné koule měřila na poli, které oprava už změnila.
+
+### ⚠ Tři figury vzhledu byly špatně a každá stála kind jeho protihru
+
+Fotil jsem to přes všech třináct barev, dvakrát znovu:
+
+1. **Práh pokrytí nastavený, jako by měl obor střed v půlce.** Je to součet **usměrněných** sinů s amplitudami do jedničky a střední hodnota `|sin|` je `2/π = 0,64` — práh 0,42 tedy leží **pod** průměrem a propustí čtyři pětiny povrchu. **Cokoli, co řeže usměrněné pole, se poměřuje proti 0,64, ne proti 0,5.**
+2. **Hrana skvrny byla tak měkká, že film rozmazala přes celou kouli.** Při `InfectEdge` 0,12 pokryl pás smoothstepu většinu rozptylu pole, takže film byl **částečně přítomný skoro všude** — nádech a ztmavení místo skvrn.
+3. **Tep dosazoval barvu slizu MÍSTO barvy koule, ne k ní.** Každá obyčejná koule tady září **vlastní** barvou a ta zář je velká část toho, jak se třináct barev pozná; předáním slizové barvy jsem ji vzal a všech třináct se vyfotilo jako **tmavě zelené koule se žlutými puchýři** — červená jako hnědá, navy i stříbrná jako tmavě zelená. Teď je to `lerp(primary, slime, film)`. **Tohle je ta, co si zaslouží přežít issue**: vypadá jako detail a je to celá věta „obyčejná koule, která je nemocná" buď pravdivá, nebo jen tvrzená.
+
+### Ověření
+
+- **44 tvrzení proti skutečné knihovně** (odhozený projekt ve scratchpadu): švy (a že se **nepohnulo** sedm ostatních druhů), mapová strana (šplhá, bere jen zdravou, imunity, vyhoří, koule nakažená týmž tikem uvnitř něj dál nešíří, dvě ohniska si nevezmou téhož souseda dvakrát, **determinismus dvou průchodů**), fyzikální strana ve skutečné `PhysicsWorld` (mapa i pole souhlasí, oba přechody nastartované), **celý průběh levelu** a **důkaz pořadí**.
+- **Změřená bilance, kterou jinak nemám kde vzít:** jedno ohnisko na stovce koulí, hráč nedělá nic → **94 tiků, 94 koulí v kameni, pak se to samo zastavilo** a nechalo 6, na které si nedosáhlo. Infekce tedy **vyhoří o vlastní stopu** a pole se nutně nezmění celé v kámen.
+- **Tik v běžícím Testbedu**: `[infection] 2 hardened to stone` třikrát, se stopou kamene na fotce.
+- Čtyři solutiony 0 chyb, LevelGen 0, ScoreSim 0, `Game/Levels` beze změny.
+
+### Co zůstává a je to poctivá mezera
+
+- **Nevyfotil jsem samotné šíření**, jen jeho stopu. Infekce šplhá nahoru do shluku a mizí za předními koulemi; z venku to zvenčí nejde zarámovat. Kdo na to sáhne, ať postaví mapu s ohniskem na **kraji** slabu.
+- **Nemocná koule nemá vlastní zvuk.** Rozbití ledu (#329) ho dostalo, protože jeho účinek není vidět; tady je vidět — puchýře a kámen. Kdyby se ukázalo, že tik uniká pozornosti, patří sem krátké mokré prasknutí, ne další záře.
+- **`RockTurns` se na čerstvě ztvrdlou kouli aplikuje okamžitě**, takže při zpevnění koule skokem změní natočení. Nezkoumal jsem, jestli to je na obrazovce vidět — obě poloviny přechodu ho dostávají, takže se nerozjedou, ale ten skok tam je.
+
+**Nic dalšího si neberu.**
