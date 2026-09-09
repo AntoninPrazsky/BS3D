@@ -1418,4 +1418,48 @@ Fotil jsem to přes všech třináct barev, dvakrát znovu:
 - **Nemocná koule nemá vlastní zvuk.** Rozbití ledu (#329) ho dostalo, protože jeho účinek není vidět; tady je vidět — puchýře a kámen. Kdyby se ukázalo, že tik uniká pozornosti, patří sem krátké mokré prasknutí, ne další záře.
 - **`RockTurns` se na čerstvě ztvrdlou kouli aplikuje okamžitě**, takže při zpevnění koule skokem změní natočení. Nezkoumal jsem, jestli to je na obrazovce vidět — obě poloviny přechodu ho dostávají, takže se nerozjedou, ale ten skok tam je.
 
+---
+
+## 2026-09-09 — Claude Code (třetí zápis dne)
+
+**Nejdřív k tomu, odkud tahle práce je: majitel mě pustil na průzkum repa a chtěl issues. Založil jsem osm (#380–#387) a pak dostal pokyn vzít #381 a opravit ho.** Zbylých sedm nechávám ležet a nic si z nich neberu; kdo je bude číst, ať ví, že vznikly čtením kódu proti trackeru (otevřené i zavřené issues), ne z běhu hry. **⚠ A jedno z nich mělo v těle špatné číslo — viz níže.**
+
+**#381 hotové na větvi `381-neighbour-cells-without-enumerator`: `BallsMap.GetNeighboringCells` přestal alokovat.** `FillNeighboringCells` píše buňky do `Span` volajícího, `GetNeighboringCells` vrací `NeighboringCells` (obyčejný struct, který si buňky najde v konstruktoru a pak jen jede indexem). **Ani jedno z dvaceti volání v repu jsem nemusel sáhnout** — `foreach` se váže vzorem, ne rozhraním.
+
+### Proč to nikdo nechytil dřív, a co si z toho vzít
+
+Iterátor byl v pořádku, dokud se na sousedy ptal **dopad**. #70 nechalo náhled míření položit **tutéž otázku**, a od té chvíle tentýž `yield return` běžel **jednou za snímek** z `TryFindEmptyCellNextTo` a — když je první prstenec plný — z `TryFindEmptyCellInSecondRing`, **jehož průchod je vnořený**. To je doslova incident, který má `BestPractices.md` §3 zapsaný (`SkyLitRenderers`, per-frame až kvůli overcast lerpu), podruhé a **s už napsaným pravidlem**.
+
+**Poučení, které jsem tam dopsal: nebezpečný není iterátor, ale volající, který se přestěhuje na snímek.** Revidovat se má nové volání, ne stará metoda — u staré metody není co vidět.
+
+### ⚠ Pořadí je nosné a je to celé riziko téhle změny
+
+`CollectAcidShaft` (#328) na pořadí **láme shody** — na kroku v ose jsou všechny čtyři kandidáti stejně daleko a vyhrává první. Kampaň na disku je proti tomuhle pořadí vygenerovaná. Proto je nová `FillNeighboringCells` **doslovný přepis** starého těla (`yield return X` → `into[count++] = X`, řízení netknuté) a proto je to teď **napsané na metodě**, ne ponechané k objevení.
+
+### Změřeno (odhozená sonda ve scratchpadu, v žádném solutionu)
+
+- **Pořadí a obsah: 8 211 buněk přes osm polí** — obě parity, každá stěna, každý roh, degenerované 2×2×2 i 13×13×34 — nová `foreach` forma i nová `Fill` forma proti **verbatim přepsanému starému iterátoru**, buňka po buňce, **0 neshod**.
+- **Alokace: 104 B na jeden průchod → 0 B.**
+- **Cesta snímku, oba prstence plné: 1 456 B na snímek → 0 B.**
+
+**⚠ A tady je ta oprava vlastního issue: napsal jsem do #381 „až deset enumerátorů na snímek". Skutečné maximum je ČTRNÁCT** — jeden první prstenec, jeden vnější druhý a jeden vnitřní na každého z až dvanácti obsazených sousedů. Odhadl jsem osm vnitřních místo dvanácti. Chyba je směrem k podcenění; do issue jsem to dopsal komentářem, ať tam nezůstane stát nižší číslo.
+
+### Co ještě jsem sáhl a proč to není rozšíření
+
+`CountOccupiedNeighbors` si nechal vlastní průchod, ale **jeho komentář tvrdil jako důvod tu alokaci** — a ta je pryč. Přepsáno na skutečný důvod: nechce buňky, chce `dX`/`dZ` kroku, který už hotová buňka zahodila. To je pravidlo o nosných komentářích, ne kosmetika: nechat tam stát starý důvod znamená, že příští čtenář ten průchod zruší jako zbytečný.
+
+### Ověření
+
+- Čtyři solutiony 0 chyb.
+- **LevelGen exit 0 a `Game/Levels` po plném přegenerování BAJT ZA BAJTEM stejné.** To je ten nejsilnější důkaz, jaký na pořadí existuje: přegenerování projede kyselinovou chůzi, sag sondu na skutečném Bepu, `FindStrandedSpecials` i opravný průchod, a 110 levelů vyšlo identických.
+- ScoreSim „All levels rate the right way round".
+- **Živě v Testbedu**: `aimshoot` na `Full.json` odpovídá `[shot] bounced: no free cell in either ring` — to jsou **oba prstence prochozené za běhu**, tedy přesně ten nejhorší případ, co jsem měřil; na `Eight_Colors.json` **kaskáda 22 spadlých koulí**, tedy dopad + shoda + uvolnění + průchod odpojených.
+- Hra: `BS3D.exe level=Ten shot=6,9` — level Ten vyfocený, běží. **Majitelův `Progress.json` netknutý** (mtime 26. 8., hash `9a66b7e9…`).
+
+### Co zůstává
+
+- **Merge na slovo majitele.**
+- Nevyzkoušel jsem `aim=`ovanou ránu do shluku — recept z #329 (`campos`/`camtarget` + `Space`) mi na `Frozen.json` čtyřikrát minul a všechny čtyři koule spadly. **Nešel jsem to vyšetřovat**: je to táž otevřená otázka, kterou si #329 zapsalo jako nedovyšetřenou, a k #381 nepatří. Pozitivní cestu dopadu mám z `Eight_Colors.json` jinou cestou.
+- **Nic dalšího si neberu.**
+
 **Nic dalšího si neberu.**
