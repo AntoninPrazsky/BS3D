@@ -150,9 +150,9 @@ namespace MapEditor
         //component's; the draw's place in the frame and the scene gate on it are this file's.
         //
         //Built unconditionally, whether or not a forest level is ever loaded — fifteen meshes and twenty-five
-        //instance buffers, the same deal the Game already takes. The forest is reachable here ONLY by loading a
-        //level whose scene is forest: V stops at SceneRenderer.CycleLength, exactly as it does for space, the
-        //dream and the cavern.
+        //instance buffers, the same deal the Game already takes. That is a better deal than it was: since #380
+        //V reaches the forest, so a build nobody could arrive at without opening a forest level is now one press
+        //away like any other scene.
         private ForestScatterRenderer _forestScatter;
 
         //A level dropped or opened is parsed off the render thread (like a map file), but its scene/sky/city
@@ -288,7 +288,9 @@ namespace MapEditor
                 new(mgKeys.R, () => _cih.RestartCamera(), "Restart camera"),
                 //Not S, W, A, D, Q or E: those move the camera (see CameraInputHelper)
                 new(mgKeys.B, SwitchSkyDome, "Switch sky dome (backdrop)"),
-                new(mgKeys.V, SwitchScene, "Switch scene (city/sea/savanna/desert/mountain/meadow/neon)"),
+                //Names the axis, not the members (#320's rule, and #376's — this string named seven scenes of
+                //seventeen right up until #380, one line above two hints that had already been fixed to it)
+                new(mgKeys.V, SwitchScene, "Cycle scene (the current one is named in the line below)"),
                 new(mgKeys.L, SwitchBallStyle, "Cycle ball material (the current one is named in the line below)"),
                 new(mgKeys.K, CycleBallKind, "Cycle ball kind (the current one is named in the line below)"),
                 new(mgKeys.G, ToggleSceneConfigPanel, "Show/hide scene-config editor"),
@@ -457,28 +459,40 @@ namespace MapEditor
         }
 
         /// <summary>
-        /// Cycles the environment backdrop the map is previewed against (the game's NumPad2), so a map can be
-        /// checked against every scene it might play in.
+        /// Cycles the environment backdrop the map is previewed against (the Testbed's NumPad2), so a map can be
+        /// checked against every scene it might play in — every one of them since #380, which is what the
+        /// sentence above had been claiming for ten scenes it could not reach.
         /// </summary>
         private void SwitchScene()
         {
-            //The cycle is deliberately only SceneRenderer.CycleLength long — the seven scenes a map is authored
-            //against — but it has to be enterable from OUTSIDE it, and (index + 1) % 7 was not: a level whose
-            //config names the forest, space, the dream, the cavern, the Moon or the outback puts _scene past the
-            //cycle's end, and the modulo then landed wherever the arithmetic fell rather than at a boundary. From
-            //a forest level (index 7) the first V came out at the SEA, three scenes deep, so the four entries
-            //before it could not be reached without four more presses — in the one program whose whole job is
-            //previewing a map against every backdrop it might play in. Anything off the end restarts the cycle at
-            //the city now. The same one-liner in the Testbed was fixed with #73; this is its other copy.
-            int next = (int)_scene + 1;
-            _scene = (SceneKind)(next < SceneRenderer.CycleLength ? next : 0);
+            //Every scene, off the enum itself (#380). It walked a seven-long prefix until then — "the scenes a
+            //map is authored against" — which was true when it was written and had stopped being true without
+            //anyone deciding it: fifty of the campaign's hundred and ten levels are authored in space, the
+            //dream, the cavern, the Moon and the volcano, all of them past that prefix. The cost was not only
+            //that ten backdrops could not be previewed. Loading such a level put _scene past the cycle's end,
+            //and the first V then restarted at the city with NO WAY BACK to the level's own scene except
+            //reloading the file — in the one program whose whole job is previewing a map against every backdrop
+            //it might play in. (#73 fixed the arithmetic of that restart, in both this copy and the Testbed's;
+            //what it could not fix was the prefix itself.)
+            //
+            //Nothing here counts the scenes, which is the point and is the rule L already follows for materials:
+            //an eighteenth kind is reachable the moment it is declared. There is no backwards key — B cycles
+            //twenty sky domes on one key already, so a seventeen-long wrap is this program's own idiom rather
+            //than a new burden, and a modifier would want a keyboard state CameraInputHelper does not hand out.
+            _scene = SceneRenderer.NextScene(_scene);
 
             Info.CustomText = $"Scene: {SceneRenderer.SceneName(_scene)}";
 
             //Re-derive the rig: a scene may state its own lighting instead of the dome's, and V is a scene
-            //change like any other. It was missing here — latent rather than visible, since the cycle stays
-            //inside the seven scenes that all take the dome's, but it became a real bug the moment the cycle
-            //widened or one of those seven stated a rig, and neither is a change anyone would think to check.
+            //change like any other. It was missing here until the call was added against the day the cycle
+            //widened — and #380 is that day, so what was latent is now load-bearing: the cycle reaches scenes
+            //that state their own rig, and without this they would be lit by the dome's.
+            //
+            //What this deliberately does NOT do is adopt the scene's default sky dome the way the Testbed's
+            //switch and the game's SetScene both do. The dome is DATA here: F4 writes _skyDomeNumber into the
+            //level file, and in play the level's own sky is applied after the scene's default and wins
+            //(GameplayScreen.Session's SetSkyDome call). Setting it on a scene cycle would overwrite the
+            //author's choice for a preview, which is a lie in the one direction that also destroys their work.
             ApplySkyLighting();
 
             RebindSceneConfigGrid();

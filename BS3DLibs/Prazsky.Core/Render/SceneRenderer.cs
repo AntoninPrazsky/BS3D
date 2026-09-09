@@ -26,18 +26,20 @@ namespace Prazsky.Core.Render
     /// once — real cratered ground under a replaced, atmosphere-free sky (see <see cref="SceneRenderer.ReplacesSky"/>).
     /// </para>
     /// <para>
-    /// <b>Which of them an executable can reach is not the same question as which it can draw</b> — all three
-    /// draw all of them. The Testbed's NumPad2 and the map editor's V both cycle <c>% 7</c>, i.e. over the seven
-    /// scenes a map is authored against; the scenes past the end of that cycle — the forest, space, the dream,
-    /// the cavern, the Moon, the outback, the tropical beach, the volcano and Mars — are reached in the
-    /// Testbed with <c>scene=</c>, in the game from its scene menu (or its random launch pick), and in the
-    /// editor only by loading a level whose config names one of them.
+    /// <b>Every executable can reach every one of them, and that was not always true (#380).</b> The Testbed's
+    /// NumPad2 and the map editor's V both walked a seven-long prefix — "the scenes a map is authored against" —
+    /// and the other ten were reachable in the Testbed only with <c>scene=</c> and in the editor only by loading
+    /// a level that named one. The premise died as the campaign was built: fifty of its hundred and ten levels
+    /// are authored in space, the dream, the cavern, the Moon and the volcano, every one of them past that
+    /// prefix, so the editor could not return such a level to its own backdrop without reloading the file. Both
+    /// keys now walk the whole enum through <see cref="SceneRenderer.NextScene"/>, off the enum itself, so an
+    /// eighteenth kind cannot be added and left unreachable.
     /// </para>
     /// <para>
     /// <b>New kinds are appended, never inserted.</b> Nothing persists the enum numerically — a level stores
     /// its backdrop as a <see cref="SceneConfig"/> under a string discriminator — but the declared order is
-    /// what the scene picker, <see cref="SceneRenderer.SceneName"/> and the ambience bed all index by, and
-    /// <see cref="SceneRenderer.CycleLength"/> is a prefix of it.
+    /// what the scene picker, <see cref="SceneRenderer.SceneName"/>, the ambience bed and both cycling keys
+    /// all index by.
     /// </para>
     /// </summary>
     public enum SceneKind { City, Sea, Savanna, Desert, Mountain, Meadow, NeonCity, Forest, Space, Dream, Cavern, Moon, Outback, Tropical, Volcano, Mars, Storm }
@@ -1292,12 +1294,24 @@ namespace Prazsky.Core.Render
         public static int SceneCount => SCENE_NAMES.Length;
 
         /// <summary>
-        /// How many scenes the Testbed's NumPad2 and the map editor's V walk, which is deliberately <b>not</b>
-        /// <see cref="SceneCount"/>: the cycle stays on the seven scenes a map is authored against, and the
-        /// forest, space, the dream and the cavern sit past its end — reached with <c>scene=</c> on any command
-        /// line, or from the game's own scene menu. Both executables wrote the 7 as a bare literal until #75.
+        /// The next scene in the enum, wrapping — what a cycling key in an authoring tool wants. It replaced a
+        /// <c>CycleLength</c> constant of 7 that both cycling keys took their modulus from (#380): a prefix is
+        /// a count, and a count written next to an enum is a thing that ages every time the enum grows. Nothing
+        /// here counts the scenes, so an eighteenth kind is reachable in both programs the moment it is
+        /// declared — the same argument <c>BallStyles.Next</c> already makes for the ball materials, in the
+        /// program that exists to choose between them.
+        /// <para>
+        /// Off <see cref="Enum.GetValues{TEnum}"/> rather than <see cref="SceneCount"/>, because the question is
+        /// "what members does this enum have" and not "how long is the name table". They agree today by
+        /// construction, and a disagreement is a bug in the table rather than a licence to skip a scene.
+        /// </para>
         /// </summary>
-        public const int CycleLength = 7;
+        public static SceneKind NextScene(SceneKind kind)
+        {
+            SceneKind[] all = Enum.GetValues<SceneKind>();
+
+            return all[(Array.IndexOf(all, kind) + 1) % all.Length];
+        }
 
         //In the declared order of SceneKind, so a picker can index it by the enum's own value. "Mountains"
         //reads better than the singular enum member and is deliberately not "corrected" to match it; the
