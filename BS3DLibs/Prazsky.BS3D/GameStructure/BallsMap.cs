@@ -885,6 +885,117 @@ namespace Prazsky.BS3D.GameStructure
             return thawed.Count;
         }
 
+        /// <summary>
+        /// One tick of the infection (#331): every <see cref="BallKind.Infectious"/> ball on the field infects
+        /// one healthy neighbour and <b>hardens into a <see cref="BallKind.Rock"/></b>. Reports both sets of
+        /// cells. Nothing else in the map moves.
+        /// <para>
+        /// <b>⚠ WHEN this is called is the whole design of the kind and it is NOT this method's business.</b>
+        /// It is the only rule in the game that fires on something other than a landing, and #331 is emphatic
+        /// about where it goes: <b>after the release, before the census</b>. Put it after the census and every
+        /// derived thing — the magazine's live colours, the clear test, the loss test — is one shot stale, and
+        /// the bug that produces is intermittent and gets blamed on the physics. The Game states that order in
+        /// <c>GameplayScreen.Rules</c>; this method only says what a tick <i>is</i>.
+        /// </para>
+        /// <para>
+        /// <b>It moves rather than multiplies.</b> The spreader hardens in the same tick it infects, so the
+        /// number of sick balls can only stay level or fall — it falls when one has no healthy neighbour left
+        /// and hardens with nothing to pass on, which is how an infection in a pocket burns itself out. That is
+        /// the stopping rule #331 asks to be <i>built in rather than tuned later</i>, and it needs no per-ball
+        /// counter and therefore no new key in the map format. What grows is the stone behind it: exactly one
+        /// permanent ball per sick ball per shot of delay.
+        /// </para>
+        /// <para>
+        /// <b>The population is read BEFORE any of it acts</b>, which is the one thing in here that would be
+        /// wrong if it were written the obvious way. Walking the array and spreading as it goes would let a
+        /// ball infected by this same tick infect again inside it — a chain across the field in one shot, at a
+        /// speed nothing else in the game moves at, and dependent on the array's scan order rather than on the
+        /// rule. So the sick cells are collected first and then acted on.
+        /// </para>
+        /// <para>
+        /// <b>It takes a healthy ball and nothing else</b> — <see cref="BallKind.Normal"/> only. Every other
+        /// kind is already not an ordinary ball, so none of them is a special case here: stone, glass, bombs,
+        /// zaps, acids, ice and other sick balls are all passed over. A <see cref="BallKind.Frozen"/> ball is
+        /// worth knowing about, because the interaction reads as itself: ice is shelter, until the player
+        /// breaks it.
+        /// </para>
+        /// <para>
+        /// <b>It CLIMBS, and the tie-break is total.</b> Of the healthy neighbours it takes the one nearest the
+        /// ceiling (highest <c>Level</c>), then — among equals, which the packing makes common, since all four
+        /// cells on an adjacent level sit the same distance from a ball's axis — the lowest <c>X</c> and then
+        /// the lowest <c>Z</c>. Climbing is what makes the threat legible: a player can see where it is going
+        /// and how many shots they have. A random neighbour would be invisible dice, and two identical-looking
+        /// fields would do different things.
+        /// </para>
+        /// </summary>
+        /// <param name="infected">Filled with the cells that just became sick. Cleared first.</param>
+        /// <param name="hardened">Filled with the cells that just became stone. Cleared first. Never shorter
+        /// than <paramref name="infected"/>: every spreader hardens, whether or not it found anyone.</param>
+        /// <returns>How many balls hardened, which is what one tick costs the player.</returns>
+        public int SpreadInfection(List<XZLevel> infected, List<XZLevel> hardened)
+        {
+            infected.Clear();
+            hardened.Clear();
+
+            XZLevel size = new(StageSizeX, StageSizeZ, Levels);
+
+            //The population, read before any of it acts — see the remarks. `hardened` is the list because every
+            //one of these is going to be stone by the end of the tick, so it needs no second buffer.
+            for (byte level = 0; level < Levels; level++)
+                for (byte x = 0; x < StageSizeX; x++)
+                    for (byte z = 0; z < StageSizeZ; z++)
+                        if (_balls[x, z, level] != null && _balls[x, z, level].Kind == BallKind.Infectious)
+                            hardened.Add(new XZLevel(x, z, level));
+
+            for (int i = 0; i < hardened.Count; i++)
+            {
+                XZLevel sick = hardened[i];
+
+                if (TryFindInfectionTarget(sick, size, out XZLevel target))
+                {
+                    StaticBall victim = _balls[target.X, target.Z, target.Level];
+                    PutBallAt((byte)target.X, (byte)target.Z, (byte)target.Level, victim.Type, BallKind.Infectious);
+                    infected.Add(target);
+                }
+
+                //Hardened whether or not it found anyone, which is the burn-out: an infection walled in by
+                //stone, glass and its own trail turns to stone itself and the level is rid of it.
+                StaticBall ball = _balls[sick.X, sick.Z, sick.Level];
+                PutBallAt((byte)sick.X, (byte)sick.Z, (byte)sick.Level, ball.Type, BallKind.Rock);
+            }
+
+            return hardened.Count;
+        }
+
+        /// <summary>
+        /// <see cref="SpreadInfection"/>'s choice of victim: the healthy neighbour nearest the ceiling, with a
+        /// total tie-break so the rule is a rule rather than a scan order. See that method for why it climbs.
+        /// </summary>
+        private bool TryFindInfectionTarget(XZLevel from, XZLevel size, out XZLevel target)
+        {
+            target = default;
+            bool found = false;
+
+            foreach (XZLevel neighbour in GetNeighboringCells(from, size))
+            {
+                StaticBall ball = _balls[neighbour.X, neighbour.Z, neighbour.Level];
+
+                //Healthy means ORDINARY. A ball already sick is not a victim, and every other kind is already
+                //not an ordinary ball — see SpreadInfection's remarks on why that is one rule and not seven.
+                if (ball == null || ball.Kind != BallKind.Normal) continue;
+
+                if (!found || Prefers(neighbour, target)) { target = neighbour; found = true; }
+            }
+
+            return found;
+        }
+
+        /// <summary>Higher first, then lowest X, then lowest Z — <see cref="SpreadInfection"/>'s total order.</summary>
+        private static bool Prefers(XZLevel candidate, XZLevel best) =>
+            candidate.Level != best.Level ? candidate.Level > best.Level
+            : candidate.X != best.X ? candidate.X < best.X
+            : candidate.Z < best.Z;
+
         public void SerializeAsJson(string fileName)
         {
             var ballPositionTypes = BuildBallPositionTypes();

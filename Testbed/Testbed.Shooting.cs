@@ -42,6 +42,28 @@ namespace Testbed
             _magazine = new Magazine(RandomBallType);
         }
 
+        /// <summary>
+        /// One tick of the infection (#331), on every shot that resolves — a landing or a miss, which is the
+        /// Game's own pair of moments (<c>GameplayScreen.TickInfection</c>).
+        /// <para>
+        /// What this executable does <b>not</b> have is the ordering problem that makes the rule hard in the
+        /// Game: there is no colour census here, no magazine to re-colour, no clear test and no loss test, so
+        /// nothing can be left a shot stale by it. What it has is the reason to tick at all — this is the
+        /// program every look in this project is judged in, and an infection that never spread would be a
+        /// still picture of a mechanic whose whole point is that it moves.
+        /// </para>
+        /// </summary>
+        private void TickInfection()
+        {
+            if (_map == null || _physicsBalls == null) return;
+
+            int hardened = BallsConstraintsBuilder.SpreadInfection(_physicsBalls, _map);
+            if (hardened == 0) return;
+
+            Console.WriteLine($"[infection] {hardened} hardened to stone");
+            InvalidateOverlay();
+        }
+
         private static BallType RandomBallType() =>
             (BallType)RANDOM.Next((int)BallType.Type1, (int)BallType.Type13 + 1);
 

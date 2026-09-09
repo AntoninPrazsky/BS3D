@@ -10,6 +10,7 @@ using Prazsky.BS3D;
 using Prazsky.Core.Render;
 using Prazsky.Core.Tools;
 using System;
+using System.Collections.Generic;
 
 
 namespace BS3D.Screens
@@ -83,6 +84,11 @@ namespace BS3D.Screens
             //a matched group has just left, which is most of what makes it read as travelling through the
             //balls rather than as a sphere expanding through space.
             StartRipple(landing.Cell);
+
+            //AND THE INFECTION TICKS HERE (#331) — after the release above and before the census below, which
+            //is the one position in this sequence that is right and the whole reason the kind is hard. See
+            //TickInfection.
+            TickInfection();
 
             //The cluster just changed — a ball joined it, and a group may have left. Recount before anything
             //asks what may be loaded, and re-colour whatever is already in the barrel and has just gone dead.
@@ -269,7 +275,78 @@ namespace BS3D.Screens
             if (LevelOver) return;
 
             _score.Missed();
+
+            //A MISS TICKS THE INFECTION TOO (#331), and the issue asks for that ruling to be stated rather
+            //than fallen into. Two arguments and they agree. The first is the game's own precedent: the
+            //ceiling descends on `ShotsFired % ceilingStep`, i.e. on shots FIRED, so the level's other
+            //per-shot pressure has always counted misses and a player has never been able to buy a free turn
+            //by missing. The second is #331's own: if a miss were free, a player who is stuck can stall for
+            //ever, and an infection that can be waited out is not a threat.
+            //
+            //⚠ What is deliberately NOT done is ticking it when the shot is FIRED, which is where the ceiling
+            //counts and which would be the tidier-looking place. A shot is in the air for about a tenth of a
+            //second; a tick at the muzzle could turn the ball the player was aiming at into stone while their
+            //shot was crossing the arena, so the shot they committed to becomes the wrong shot after they
+            //committed. That is exactly the kind of intermittent unfairness that gets blamed on the physics.
+            //So the tick is on the shot RESOLVING, and a miss resolves here.
+            TickInfection();
         }
+
+        /// <summary>
+        /// One tick of the infection (#331): every sick ball infects a healthy neighbour and hardens into a
+        /// rock. Called from exactly two places, which between them are every way a shot can resolve — a
+        /// landing (<see cref="OnBallLanded"/>) and a miss (<see cref="OnShotSpent"/>).
+        /// <para>
+        /// <b>⚠ ITS POSITION IN THE LANDING'S SEQUENCE IS LOAD-BEARING AND IS THE HARD PART OF THIS KIND.</b>
+        /// It runs <b>after the release and before the census</b>. After the release, because the group the
+        /// player just completed is theirs — a tick that hardened one of its balls first would take a shot the
+        /// player had already earned, and it would do so invisibly. Before the census, because everything
+        /// derived from the census reads it in the same frame: which colours may be loaded, whether the level
+        /// is cleared, whether it is lost. Tick after the census and all three are <i>one shot stale</i> — a
+        /// colour goes on being loaded after the last ball of it turned to stone, and the clear test misses
+        /// the frame the field actually emptied. That bug is intermittent, it looks like a physics glitch, and
+        /// #331 names it in advance.
+        /// </para>
+        /// <para>
+        /// <b>Not once the level is decided</b>, on <c>RecountBallTypes</c>'s own gate and for its reason: a
+        /// shot fired before the field emptied can still resolve after it (#177/#241), and a field that has
+        /// already been won or lost must not go on rotting behind the result page.
+        /// </para>
+        /// <para>
+        /// A tick that hardens the last removable ball <b>clears the level</b>, and that is #324's already
+        /// shipped rule rather than a new one: a field of nothing but stone is a field with nothing left a shot
+        /// can reach, so <see cref="CheckLevelCleared"/> cuts it loose and drops it for no score. #331 offers a
+        /// second loss cause as an alternative and it is refused deliberately — the cost of ignoring an
+        /// infection is already carried, and carried better, by the <i>score</i>: every ball turned to stone is
+        /// a ball that pays nothing, so a player who lets it run finishes with a clear and one star. A second
+        /// loss condition would say the same thing louder and would put a second door on the end of a level,
+        /// which is the one place in this game where two doors have already cost the most (see
+        /// <see cref="CheckLevelCleared"/> on the count both end tests read).
+        /// </para>
+        /// </summary>
+        private void TickInfection()
+        {
+            if (LevelDecided) return;
+
+            int hardened = BallsConstraintsBuilder.SpreadInfection(_physicsBalls, _map, _infectedCells, _hardenedCells);
+            if (hardened == 0) return;
+
+            //A rare-event line: a level with an infection in it says what it cost per shot, which is the one
+            //number the balance of this kind lives or dies on and the one a screenshot cannot show.
+            Console.WriteLine($"[infection] {_infectedCells.Count} spread, {hardened} hardened to stone");
+
+            //The infection is the only thing in this game that can make the field WORSE while the player is
+            //doing everything right, so it says so with the cluster's own voice rather than silently. The
+            //ripple already means "something is travelling through the balls" and it is started from the cell
+            //that changed — see StartRipple.
+            if (_infectedCells.Count > 0) StartRipple(_infectedCells[0]);
+        }
+
+        /// <inheritdoc cref="TickInfection"/>
+        private readonly List<XZLevel> _infectedCells = new(16);
+
+        /// <inheritdoc cref="TickInfection"/>
+        private readonly List<XZLevel> _hardenedCells = new(16);
 
         /// <summary>
         /// Has the field just been emptied of everything a shot can reach? That is the goal of a level.

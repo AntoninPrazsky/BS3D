@@ -289,6 +289,75 @@ namespace Prazsky.BS3D.Physics
         }
 
         /// <summary>
+        /// How long a ball takes to cross into the kind an infection tick just made it, in seconds (#331) —
+        /// <see cref="THAW_FADE_SECONDS"/>'s figure for its reason: a ball stopping being one kind and becoming
+        /// another is one event however it happens, and several durations for it would read as several
+        /// mechanics.
+        /// </summary>
+        public const float INFECTION_FADE_SECONDS = 0.35f;
+
+        /// <summary>
+        /// One tick of the infection (#331), mirrored onto both sides: the map decides <b>who</b>
+        /// (<see cref="BallsMap.SpreadInfection"/> — one healthy neighbour each, and every spreader hardens),
+        /// and this carries each change onto the physics ball and starts its crossing.
+        /// <para>
+        /// <b>The map and the physics array have to move together</b>, #323's own rule and not a nicety: the
+        /// flood fill reads the map and the draw reads the physics ball, so a cell sick in one and healthy in
+        /// the other is a ball that matches but is drawn well for the rest of the level — or, worse for the
+        /// hardening half, one the player can still match while the map says it is stone.
+        /// </para>
+        /// <para>
+        /// <b>It is NOT called from here.</b> Every other special in this class fires off a landing and is
+        /// called by the handler resolving one; a tick is not a landing, and where it sits in the shot
+        /// sequence is the Game's statement to make (<c>GameplayScreen.Rules</c>) rather than a consequence of
+        /// which method happened to notice. This is the rule; the caller owns the clock.
+        /// </para>
+        /// </summary>
+        /// <param name="infected">Cells that just became sick; cleared first. May be null.</param>
+        /// <param name="hardened">Cells that just became stone; cleared first. May be null.</param>
+        /// <returns>How many balls hardened — what this tick cost the player, and zero on every field with no
+        /// infection in it, which is all of them today.</returns>
+        public static int SpreadInfection(PhysicsBall[,,] physicsBalls, BallsMap map,
+            List<XZLevel> infected = null, List<XZLevel> hardened = null)
+        {
+            List<XZLevel> newlySick = infected ?? _infectedScratch;
+            List<XZLevel> newlyStone = hardened ?? _hardenedScratch;
+
+            if (map.SpreadInfection(newlySick, newlyStone) == 0) return 0;
+
+            //The order is the map's own and it matters here too: a cell can appear in both lists only if one
+            //tick both infected it and hardened it, which SpreadInfection makes impossible by reading the
+            //population before acting. Mirroring the sick first and the stone second would still be right if
+            //it ever did, since that is the order the map applied them in.
+            for (int i = 0; i < newlySick.Count; i++) MirrorKind(physicsBalls, map, newlySick[i]);
+            for (int i = 0; i < newlyStone.Count; i++) MirrorKind(physicsBalls, map, newlyStone[i]);
+
+            return newlyStone.Count;
+        }
+
+        /// <inheritdoc cref="SpreadInfection"/>
+        private static readonly List<XZLevel> _infectedScratch = new(16);
+
+        /// <inheritdoc cref="SpreadInfection"/>
+        private static readonly List<XZLevel> _hardenedScratch = new(16);
+
+        /// <summary>
+        /// Copies one cell's kind from the map onto its physics ball and starts the crossing. The map is the
+        /// truth about what a ball IS (#323) and this is the one direction that copy ever runs.
+        /// </summary>
+        private static void MirrorKind(PhysicsBall[,,] physicsBalls, BallsMap map, XZLevel cell)
+        {
+            PhysicsBall ball = physicsBalls[cell.X, cell.Z, cell.Level];
+            if (ball == null) return;
+
+            StaticBall authored = map.GetStaticBallsArray()[cell.X, cell.Z, cell.Level];
+            if (authored == null) return;
+
+            ball.Kind = authored.Kind;
+            ball.InfectFadeRemaining = INFECTION_FADE_SECONDS;
+        }
+
+        /// <summary>
         /// How far a blast reaches, <b>in world units</b> (#326). Two, which is two rings of cells sideways and
         /// — the lattice being 1/√2 apart vertically — nearly three levels up and down.
         /// <para>

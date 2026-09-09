@@ -852,6 +852,26 @@ namespace Prazsky.BS3D
         private const float FROZEN_PULSE_DEPTH = 0.22f;
 
         /// <summary>
+        /// What the slime on a sick ball is lit by (#331), and the three figures are the frozen ball's read the
+        /// other way round on purpose. Ice says <i>not yet</i> and must not compete for the eye; slime says
+        /// <b>hurry</b>, and it is the one thing on the field with a deadline attached — every shot the player
+        /// spends elsewhere costs a ball permanently. So it is the brightest and the fastest of the six.
+        /// <para>
+        /// The beat is faster than the cluster's and shallow enough not to strobe: what it has to read as is a
+        /// pulse in something living, which is the bomb's charge tuned for a body rather than for a seam. It is
+        /// well under the zap's 3.1, which is a bad fluorescent tube by design and would say "electrical"
+        /// rather than "alive".
+        /// </para>
+        /// </summary>
+        private const float INFECTIOUS_EMISSION = 0.95f;
+
+        /// <inheritdoc cref="INFECTIOUS_EMISSION"/>
+        private const float INFECTIOUS_PULSE_DEPTH = 0.45f;
+
+        /// <inheritdoc cref="INFECTIOUS_EMISSION"/>
+        private const float INFECTIOUS_PULSE_SPEED = 1.9f;
+
+        /// <summary>
         /// How much of the picture behind it a clear ball takes away face-on (#325), against the dyed film's
         /// <see cref="BUBBLE_BODY_OPACITY"/>. <b>Lower, and that is the whole read of this kind</b>: a bubble is
         /// a coloured thing you can see through and this is a thing that is not there — what names it is the
@@ -1054,6 +1074,17 @@ namespace Prazsky.BS3D
         //no ice pays nothing at all.
         private static readonly int FROZEN_REGION_START = DEAD_REGION_START + LodCount;
 
+        //And a TENTH, for the sick balls of #331 — a colour PLANE like the frozen one and for its reason: an
+        //infectious ball is an ordinary ball of its colour that happens to be sick, it can be matched and shot
+        //out like any other, so the player has to be able to read WHICH colour it is in order to plan the shot
+        //that kills it. That is the difference between this kind and the four colourless ones, and it is the
+        //same difference the frozen plane records.
+        //
+        //It is a region of its own rather than a second use of the frozen plane because the two are different
+        //techniques saying opposite things — ice says "not yet", slime says "hurry" — and the whole value of a
+        //special is that one glance names it.
+        private static readonly int INFECTIOUS_REGION_START = FROZEN_REGION_START + STILL_PLANE_STRIDE;
+
         //What a dead ball is tinted: a cold, dark ash, well under every one of the thirteen in value. Black's
         //own tint is 0.045, far under this — but a tint is not a brightness: black is LIT like every other
         //ball and reads as a dark colour, where this is drawn with the pulse off and reads as a ball nothing
@@ -1146,8 +1177,8 @@ namespace Prazsky.BS3D
             //the colour (#329) and so is sized like the two at the front rather than like the regions between.
             //Sized off the LAST of them so a region added without moving this line would index past the end on
             //its first instance rather than draw wrong.
-            _buckets = new ModelInstance[FROZEN_REGION_START + STILL_PLANE_STRIDE][];
-            _counts = new int[FROZEN_REGION_START + STILL_PLANE_STRIDE];
+            _buckets = new ModelInstance[INFECTIOUS_REGION_START + STILL_PLANE_STRIDE][];
+            _counts = new int[INFECTIOUS_REGION_START + STILL_PLANE_STRIDE];
             _lodTotals = new int[LodCount];
             _lodDistanceSquared = new float[LOD_MIN_PIXEL_RADIUS.Length];
         }
@@ -1571,6 +1602,9 @@ namespace Prazsky.BS3D
             //silhouette is a cube.
             DrawFrozen(camera);
 
+            //And the sick balls beside them (#331), same side of the frame and same argument: opaque.
+            DrawInfectious(camera);
+
             //And the dead weight with them (#342), which is the same argument once more — see DrawDead for
             //what it does and does not state, and for why it is drawn here even on a transparent style.
             DrawDead(camera);
@@ -1847,6 +1881,57 @@ namespace Prazsky.BS3D
                         BasicEffectParamsProvider.GetEffectByType(type),
                         BasicEffectParamsProvider.GetDiffuseTintByType(type));
                 }
+
+            ApplyStyle();
+        }
+
+        /// <summary>
+        /// The sick balls (#331): <see cref="DrawFrozen"/> in every structural respect — a colour plane, the
+        /// per-type tint, the type's own material — with its own technique and its own three figures, and one
+        /// thing neither of them shares. It puts the pulse <b>speed</b> back by hand afterwards, which is the
+        /// one thing <see cref="ApplyStyle"/> cannot do: a cluster left running at
+        /// <see cref="INFECTIOUS_PULSE_SPEED"/> would breathe on the infection's clock, and the bomb's and the
+        /// zap's draws record what that looks like.
+        /// </summary>
+        private void DrawInfectious(ICamera camera)
+        {
+            bool any = false;
+            for (int i = INFECTIOUS_REGION_START; i < INFECTIOUS_REGION_START + STILL_PLANE_STRIDE && !any; i++)
+                any = _counts[i] > 0;
+
+            //A field with no infection in it — every level shipped today — never touches a renderer for this.
+            if (!any) return;
+
+            for (int lod = 0; lod < LodCount; lod++)
+            {
+                InstancedModelRenderer renderer = _renderers[lod];
+
+                renderer.Shading = BallShading.Infectious;
+                renderer.EmissiveStrength = INFECTIOUS_EMISSION;
+                renderer.PulseDepth = INFECTIOUS_PULSE_DEPTH;
+                renderer.PulseSpeed = INFECTIOUS_PULSE_SPEED;
+            }
+
+            for (int typeIndex = 0; typeIndex < TYPE_COUNT; typeIndex++)
+                for (int lod = 0; lod < LodCount; lod++)
+                {
+                    int bucketIndex = INFECTIOUS_REGION_START + typeIndex * LodCount + lod;
+                    int count = _counts[bucketIndex];
+                    if (count == 0) continue;
+
+                    DrawnCount += count;
+                    _lodTotals[lod] += count;
+
+                    BallType type = (BallType)(typeIndex + 1);
+
+                    //The tint IS the point here, as it is for the ice: a sick ball can be matched and shot out,
+                    //so which colour it is, is the shot that kills it.
+                    _renderers[lod].Draw(camera, _buckets[bucketIndex], count,
+                        BasicEffectParamsProvider.GetEffectByType(type),
+                        BasicEffectParamsProvider.GetDiffuseTintByType(type));
+                }
+
+            for (int lod = 0; lod < LodCount; lod++) _renderers[lod].PulseSpeed = PULSE_BEATS_PER_SECOND;
 
             ApplyStyle();
         }
@@ -2187,6 +2272,14 @@ namespace Prazsky.BS3D
             StoreAt(FROZEN_REGION_START + typeIndex * LodCount + lod, instance);
 
         /// <summary>
+        /// The infectious plane (#331) — the second store that takes a <c>typeIndex</c>, because a sick ball is
+        /// an ordinary ball of its colour and the player has to be able to aim at that colour. See
+        /// <see cref="INFECTIOUS_REGION_START"/>.
+        /// </summary>
+        internal void StoreInfectious(int typeIndex, int lod, in ModelInstance instance) =>
+            StoreAt(INFECTIOUS_REGION_START + typeIndex * LodCount + lod, instance);
+
+        /// <summary>
         /// A wildcard, mid-crossing between two colours (#330) — the whole of how one is drawn, in one place, so
         /// the queue in the bore, the round at the muzzle, the aim ghost and the ball in flight cannot each
         /// grow their own version of it.
@@ -2292,14 +2385,41 @@ namespace Prazsky.BS3D
         /// </para>
         /// </summary>
         private void Route(BallKind kind, int typeIndex, int lod, in ModelInstance instance, bool still,
-            float colourFade, float deadWeight = 0f, float thawFade = 0f)
+            float colourFade, float deadWeight = 0f, float thawFade = 0f, float infectFade = 0f)
         {
             switch (kind)
             {
                 case BallKind.Rock:
                     //Colourless and never loaded in the cannon, so neither the type nor the still plane
                     //reaches it. See BallRenderSet.DrawRocks.
+                    //
+                    //Unless an infection tick has just made it one (#331), in which case it is mid-crossing and
+                    //is BOTH: the stone coming in at -d while the sick ball it was goes out at +d. This is the
+                    //ONE case in this switch where a kind is drawn out of two regions, and it is the hardening
+                    //half of the infection — the half the player pays for, so it is the half that must be seen
+                    //to happen rather than appearing between two frames.
+                    if (infectFade > 0f)
+                    {
+                        _set.StoreRock(lod, instance.WithDissolve(-infectFade));
+                        _set.StoreInfectious(typeIndex, lod, instance.WithDissolve(infectFade));
+                        break;
+                    }
+
                     _set.StoreRock(lod, instance);
+                    break;
+
+                case BallKind.Infectious:
+                    //The second kind that keeps its colour (#331), and the second colour PLANE with it: a sick
+                    //ball can be matched and shot out, so which colour it is, is the shot that kills it.
+                    //Mid-crossing it is the ordinary ball it was going out at +d under the slime coming in.
+                    if (infectFade > 0f)
+                    {
+                        _set.StoreInfectious(typeIndex, lod, instance.WithDissolve(-infectFade));
+                        _set.Store(typeIndex, lod, instance.WithDissolve(infectFade), still);
+                        break;
+                    }
+
+                    _set.StoreInfectious(typeIndex, lod, instance);
                     break;
 
                 case BallKind.Transparent:
@@ -2413,7 +2533,7 @@ namespace Prazsky.BS3D
         /// are drawn as.</param>
         public void AddOriented(BallType type, Vector3 position, in Quaternion orientation, Vector4 occlusion,
             float ripple = 0f, BallKind kind = BallKind.Normal, float colourFade = 0f, float deadWeight = 0f,
-            float thawFade = 0f)
+            float thawFade = 0f, float infectFade = 0f)
         {
             int typeIndex = (int)type - 1;
             if (typeIndex < 0 || typeIndex >= BallRenderSet.TYPE_COUNT) return;
@@ -2425,7 +2545,7 @@ namespace Prazsky.BS3D
             world.M43 = position.Z;
 
             Route(kind, typeIndex, _set.LodFor(Vector3.DistanceSquared(position, _eye)),
-                new ModelInstance(world, occlusion, 0f, ripple), still: false, colourFade, deadWeight, thawFade);
+                new ModelInstance(world, occlusion, 0f, ripple), still: false, colourFade, deadWeight, thawFade, infectFade);
         }
 
         /// <summary>

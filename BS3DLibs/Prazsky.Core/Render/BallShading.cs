@@ -261,6 +261,34 @@ namespace Prazsky.Core.Render
         /// contract's sixth point outright.
         /// </para>
         /// </summary>
-        Frozen = 15
+        Frozen = 15,
+
+        /// <summary>
+        /// A sick ball (#331): the ball's own colour under a film of luminous slime — blotches with wet rims
+        /// that creep over the shell, and a bead hanging off its underside. Drawn by
+        /// <c>InstancedModelInfectious</c>.
+        /// <para>
+        /// The seventh shading belonging to a <c>BallKind</c> and the <b>second that takes the type colour</b>,
+        /// on <see cref="Frozen"/>'s argument exactly: a sick ball can be matched and shot out like any other,
+        /// so which colour it is <i>is</i> the shot that kills it, and a player who cannot see that has no
+        /// counterplay at all.
+        /// </para>
+        /// <para>
+        /// <b>⚠ Its collision to solve is <see cref="Acid"/>, and the two are one step apart in hue.</b> Both
+        /// are green and wet. What separates them is structural rather than tonal and it has to stay that way:
+        /// an acid is a <b>dark</b> shell whose figure runs strictly <i>downward</i> into a pool, because an
+        /// acid is a statement about gravity; this one is the ball's own colour showing through a film whose
+        /// blotches sit wherever they sit and creep in <b>object</b> space, because an infection is a statement
+        /// about the surface it is on. So an acid is a dark ball with a lit underside and this is a coloured
+        /// ball with a lit rash, and at play distance the difference is that one has an axis and the other has
+        /// none.
+        /// </para>
+        /// <para>
+        /// It is the brightest and the fastest-beating of the seven, deliberately: it is the only ball on the
+        /// field with a <i>deadline</i>, and the one figure the player must not overlook while there is still
+        /// time to do something about it.
+        /// </para>
+        /// </summary>
+        Infectious = 16
     }
 }

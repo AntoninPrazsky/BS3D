@@ -253,7 +253,7 @@ namespace Prazsky.BS3D.Physics
                 EaseOcclusion(ball, occlusionTarget, ease),
                 _advanceRipple == null ? 0f : _advanceRipple(ball, elapsedSeconds),
                 ball.Kind, AdvanceColourFade(ball, elapsedSeconds), deadWeight,
-                AdvanceThawFade(ball, elapsedSeconds));
+                AdvanceThawFade(ball, elapsedSeconds), AdvanceInfectFade(ball, elapsedSeconds));
         }
 
         /// <summary>
@@ -349,6 +349,32 @@ namespace Prazsky.BS3D.Physics
             }
 
             return 1f - ball.ThawFadeRemaining / BallsConstraintsBuilder.THAW_FADE_SECONDS;
+        }
+
+        /// <summary>
+        /// Advances a ball's crossing into whatever kind the infection just made it (#331) — sick, or stone —
+        /// and answers how far through it is. <see cref="AdvanceThawFade"/> in every respect, and the fifth
+        /// piece of per-ball state this walk owns for the reason the other four are here: visited once per
+        /// frame, exactly.
+        /// <para>
+        /// One advance for both directions, because the ball's own <see cref="PhysicsBall.Kind"/> already says
+        /// which one it is in — see that field's remarks for why the thaw could not do the same.
+        /// </para>
+        /// </summary>
+        private static float AdvanceInfectFade(PhysicsBall ball, float elapsedSeconds)
+        {
+            //The resting case, which is every ball of every level with no infection in it: one compare.
+            if (ball.InfectFadeRemaining <= 0f) return 0f;
+
+            ball.InfectFadeRemaining -= elapsedSeconds;
+
+            if (ball.InfectFadeRemaining <= 0f)
+            {
+                ball.InfectFadeRemaining = 0f;
+                return 0f;
+            }
+
+            return 1f - ball.InfectFadeRemaining / BallsConstraintsBuilder.INFECTION_FADE_SECONDS;
         }
 
         /// <summary>
