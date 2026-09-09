@@ -53,7 +53,30 @@ namespace Prazsky.BS3D.Physics
         /// straight on. It reads as being yanked, which is what a gravity well should look like at this speed.
         /// </para>
         /// </summary>
-        public const float STRENGTH = 900f;
+        /// <remarks>
+        /// <b>MEASURED, not chosen.</b> The first value here was 900, from the arithmetic above, and it bends a
+        /// shot by <b>a third of a cell</b> — which is a well the player never has to aim around, and no amount
+        /// of look makes that a mechanic. The estimate was right about the order and wrong about what matters:
+        /// what the player sees is not the deflection at the well but the deflection <i>where the shot lands</i>,
+        /// and after passing a well hung under a cluster there are only four or five levels of flight left for
+        /// the sideways velocity to turn into sideways distance.
+        /// <para>
+        /// Deflection is linear in this number, so it was solved rather than swept, and then re-measured at
+        /// the value chosen. In free flight, read <b>eight world units past the well</b> — about what a shot
+        /// has left after passing one hung under the cluster it is aimed at — a shot passing 1.5 / 2.0 / 2.5 /
+        /// 3.0 / 3.5 units out is thrown <b>1.62 / 1.33 / 0.86 / 0.38 / 0.08</b> cells sideways. That is a
+        /// gradient the player can read and aim along rather than a wall: threading close costs a cell and a
+        /// half, and the rim of the field is barely a nudge.
+        /// </para>
+        /// <para>
+        /// ⚠ <b>How much of that reaches the LANDING is the level's business, not this constant's.</b> The
+        /// sideways velocity is gained crossing the field and then turns into distance over whatever flight is
+        /// left, so a well hung directly under the slab it guards bends a shot by a fraction of what the same
+        /// well bends when it hangs clear of one. That is why the generator refuses a <i>buried</i> well and
+        /// why the test map hangs its two on stalks.
+        /// </para>
+        /// </remarks>
+        public const float STRENGTH = 3600f;
 
         /// <summary>
         /// How far a well reaches, in world units — four, which is four cells sideways and about five and a

@@ -1419,3 +1419,62 @@ Fotil jsem to přes všech třináct barev, dvakrát znovu:
 - **`RockTurns` se na čerstvě ztvrdlou kouli aplikuje okamžitě**, takže při zpevnění koule skokem změní natočení. Nezkoumal jsem, jestli to je na obrazovce vidět — obě poloviny přechodu ho dostávají, takže se nerozjedou, ale ten skok tam je.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-09 — Claude Code (třetí zápis dne)
+
+**#332 (gravitační studna) — na větvi `332-gravity`, NEmergnuto: čeká na majitelovo ruční ověření, které je jediná část, kterou neumím udělat sám.** Osmý druh: obyčejná koule své barvy, která **ohýbá rány letící kolem ní**. Nová `GravityWells`, hák `PhysicsWorld.PerStepForces`, `ShotPlacement.TryFindFirstHitCurved`, technika `InstancedModelGravity`, jedenáctý region kbelíků, brána v LevelGenu, `SagProbe` s křivkou, argument hry `levelfile=` a dvě mapy.
+
+### Jádro: jeden snímek studní čte simulace i náhled
+
+`ShotPlacement` existuje proto, aby se duch a dopad nemohly rozejít. Křivka tu jedinou odpověď rozbíjí, a issue nabízí tři východiska — integrovat křivku v náhledu, náhled u studny schovat, nebo kreslit rovnou čáru a lhát. Vzal jsem první. Náhled integruje **týž výpočet, týmž krokem, z téhož snímku** jako simulace (`v += a·dt`, pak `p += v·dt`), a pole má **hranu** (nulová hodnota i sklon na `RANGE`), takže dráha je mimo studny přesně rovná a náhled rovné úseky přeskočí jedním segmentem místo šedesáti krátkých.
+
+**Beam sleduje let**, ne rovnou čáru k dopadu — rovná čára ke konci křivky říká pravdu o konci a lže o celém průběhu, což je horší než obojí. Kreslí se jako řetěz segmentů s fází nesoucí už nakreslenou vzdálenost, aby čárkování v kloubech nezačínalo znovu.
+
+### ⚠ Konstanta síly byla čtyřikrát vedle a spočítat ji nestačilo
+
+Aritmetika dala 900 u/s². Změřeno: **ohne ránu o třetinu buňky** — studna, kterou hráč nikdy nemusí obcházet. Odhad měl správný řád a špatnou otázku: hráč nevidí deflexi u studny, ale deflexi **tam, kde rána dopadne**, a po minutí studny visící pod clusterem zbývá pár jednotek letu. Deflexe je v té konstantě lineární, takže se dala vyřešit místo prohledat: při **3600**, změřeno ve volném letu osm jednotek za studnou, **1,62 / 1,33 / 0,86 / 0,38 / 0,08 buňky** pro průlet 1,5 / 2,0 / 2,5 / 3,0 / 3,5 jednotky od ní. To je gradient, podél kterého se dá mířit.
+
+**Kolik z toho dorazí až k dopadu, je věc levelu, ne konstanty** — proto testovací mapa věší studny na stopky šest vrstev pod slabem a proto generátor odmítá **zazděnou** studnu (bez volného prostoru ve vlastním dosahu neohne nic).
+
+### ⚠ Skutečná chyba, kterou odhalilo zaseknutí a ne selhání
+
+Když hranice pole ležela blíž než jeden integrační krok, řešitel posunul hodiny letu o nulu a **zacyklil se**. Sonda visela místo aby spadla. Hranice bližší než jeden krok se teď počítá jako „uvnitř pole", což je i fyzikálně poctivé čtení.
+
+### ⚠ A past, do které jsem spadl DVAKRÁT za hodinu
+
+`_world.PerStepForces = …` jsem napsal do konstruktoru vedle `_processContacts` — nejdřív v Testbedu, pak v Game. **Ani jeden z těch dvou programů nestaví `PhysicsWorld` v konstruktoru** (Testbed v `Initialize`, Game v `SetUpPhysics`), takže to bylo pokaždé `NullReferenceException` při startu. **Cokoli visí na `_world`, patří vedle `_world`.**
+
+### ⚠ Čtyři chyby v měřicím rigu, každá vypadala jako vada gravitace
+
+Tohle je hlavní poučení dne a stálo mě většinu jednoho sezení:
+
+1. **Střílel jsem do té gravitační koule.** Odstup 1,0 při součtu poloměrů 1,0 je zásah, ne průlet — tělo letělo na 43 % rychlosti a vypadalo to jako rozbitý silový model.
+2. **Pověsil jsem shluk 27 jednotek pod strop.** Kotevní sokety cluster vytáhnou nahoru, mřížka se roztáhne a všechny rány se odrážejí.
+3. **Měřil jsem let skrz stropní desku**, kterou model nezná — 18 jednotek rozdílu, a znovu to vypadalo jako vadný model.
+4. **Terč měl jedinou barvu**, takže první rána shodila celý slab a všechny další letěly do prázdna („náhled nic nenašel").
+
+Po opravě model sedí s letem na **0,0375 jednotky za 10 kroků**.
+
+### ⚠ A tvrzení, které jsem musel opravit, ne kód
+
+Akceptační test „duch se shodne s dopadem" jsem psal jako 6/6. **Rovný, nezměněný náhled se v tom rigu shodne 3 ze 6** — je to vlastní zapsaná tolerance `ShotPlacement` („duch, ne slib"), ne regrese. Správné tvrzení je **„křivka nestojí přesnost"**, měřené proti vlastnímu baseline: rovný 3/6, zakřivený **4/6**.
+
+### Ověřeno
+
+- **26 tvrzení proti skutečné knihovně**: pole (hrana, hladkost, konečnost ve středu, `DistanceToField`), let proti modelu, deflexní křivka, shoda ducha a dopadu proti baseline, švy, formát (`"k":9`), a že bez studní je zakřivený řešitel byte za byte ten rovný.
+- Čtyři solutiony 0 chyb, LevelGen 0, ScoreSim 0, `Game/Levels` beze změny.
+- Vyfoceno v Testbedu i ve **hře** (`levelfile=`).
+
+### Co jsem přidal, protože to chybělo všem šesti druhům přede mnou
+
+**`levelfile=<cesta>`** ve hře: přehraje level mimo set a připne na něj celý běh. Set **je** kampaň, takže level postavený na vyzkoušení mechaniky do něj nepatří — a dosud byl jediný způsob, jak vzít speciál do ruky, upravit kampaň, kterou LevelGen při příštím běhu přepíše. Je to týž tvar, jaký má `preview=` pro front end.
+
+### Co zbývá a proč to nemergnuju
+
+**Nemám jak sám ověřit to, na čem issue trvá:** že s drženým RMB duch sedí tam, kam rána doopravdy dopadne. Repo má vlastní pravidlo, že se vizuály kolem míření ověřují **ve hře**, a Game nemá timeline. Majitel nabídl, že to vezme myší — čeká to na něj, i s napsaným scénářem.
+
+**Nezměřil jsem cenu snímku** integrace náhledu (issue ji chce s pevnou kamerou a párovými opakováními). Mám v paměti majitelovo „desktop se pod zátěží tvrdě resetuje, ptej se před delší GPU seancí", takže se ptám než to spustím.
+
+**Nic dalšího si neberu.**

@@ -193,6 +193,24 @@ namespace BS3D.Screens
         private readonly Action _processContacts;
 
         /// <summary>
+        /// This frame's gravity wells (#332) — refreshed once in <c>StepPhysics</c>, read by the steps that
+        /// follow it and by the aim preview drawn after them. One snapshot for both, which is the whole
+        /// contract; see <see cref="GravityWells"/>.
+        /// </summary>
+        private readonly GravityWells _gravityWells = new();
+
+        /// <summary>
+        /// The knots of this frame's previewed flight (#332) — the muzzle, the segments the solver walked, and
+        /// the touch. One or two entries on every level without wells, which is the beam it always drew;
+        /// several when a well bends the shot, and then the beam is drawn as a chain along them.
+        /// <para>
+        /// Held as a field and refilled rather than allocated per frame: this is the aim path, which runs every
+        /// frame the gun is pointed, and <c>BestPractices.md</c> §3 is about exactly that.
+        /// </para>
+        /// </summary>
+        private readonly List<Vector3> _previewPath = new(16);
+
+        /// <summary>
         /// The physics step, held <b>fixed</b> — and this is the one place the game deliberately does not do
         /// what the Testbed does. The Testbed takes one step of <c>min(frameTime, 1/60)</c> per rendered frame,
         /// which means the simulation runs in slow motion below 60 FPS (at 30 FPS everything moves at half

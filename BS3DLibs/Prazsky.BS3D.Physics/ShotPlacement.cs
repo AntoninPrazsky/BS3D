@@ -3,6 +3,7 @@ using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.GameStructure.DataBags;
 using Prazsky.Core.Tools;
 using System;
+using System.Collections.Generic;
 
 namespace Prazsky.BS3D.Physics
 {
@@ -331,17 +332,30 @@ namespace Prazsky.BS3D.Physics
         /// <param name="velocity">The shot's launch velocity — direction times the caller's speed, which is the
         /// thing that decides how far a well can bend it.</param>
         /// <param name="wells">This frame's snapshot. Null or empty takes the straight path.</param>
+        /// <param name="path">Filled with the flight's knots — the muzzle first, then the end of every segment
+        /// walked, and last the touch. Cleared first; left alone entirely when null, which is every caller that
+        /// only wants the answer. <b>It is what lets the aim BEAM follow the curve</b>: a straight line drawn
+        /// from the muzzle to a contact the ball reaches by curving is a guide that lies about the middle of
+        /// the flight while telling the truth about its end, which is worse than either.</param>
         public static bool TryFindFirstHitCurved(PhysicsBall[,,] balls, Vector3 origin, Vector3 velocity,
-            float radiusSum, GravityWells wells, out PhysicsBall hit, out Vector3 worldContact)
+            float radiusSum, GravityWells wells, out PhysicsBall hit, out Vector3 worldContact,
+            List<Vector3> path = null)
         {
             hit = null;
             worldContact = Vector3.Zero;
+
+            path?.Clear();
+            path?.Add(origin);
 
             if (balls == null) return false;
 
             //Every level shipped today, and most shots on a level that has wells: no field, no curve.
             if (wells == null || wells.Count == 0)
-                return TryFindFirstHit(balls, origin, velocity, radiusSum, out hit, out worldContact);
+            {
+                bool straightHit = TryFindFirstHit(balls, origin, velocity, radiusSum, out hit, out worldContact);
+                if (path != null && straightHit) path.Add(worldContact);
+                return straightHit;
+            }
 
             float speedSquared = velocity.LengthSquared();
             if (speedSquared < Constants.THOUSANDTH) return false;
@@ -379,13 +393,22 @@ namespace Prazsky.BS3D.Physics
 
                     if (TryFindFirstHitOnSegment(balls, position.ToXna(), heading.ToXna(), segment, radiusSum,
                             out hit, out worldContact, out _))
+                    {
+                        path?.Add(worldContact);
                         return true;
+                    }
 
-                    //No well ahead and no ball on the line: the shot is gone.
-                    if (toField >= float.MaxValue) return false;
+                    //No well ahead and no ball on the line: the shot is gone. The path still gets its far end,
+                    //so an open-ended beam has something to fade along.
+                    if (toField >= float.MaxValue)
+                    {
+                        path?.Add((position + heading * segment).ToXna());
+                        return false;
+                    }
 
                     position += heading * segment;
                     flown += segment / speed;
+                    path?.Add(position.ToXna());
                     continue;
                 }
 
@@ -404,10 +427,14 @@ namespace Prazsky.BS3D.Physics
 
                 if (TryFindFirstHitOnSegment(balls, position.ToXna(), heading.ToXna(), speed * INTEGRATION_STEP,
                         radiusSum, out hit, out worldContact, out _))
+                {
+                    path?.Add(worldContact);
                     return true;
+                }
 
                 position += shotVelocity * INTEGRATION_STEP;
                 flown += INTEGRATION_STEP;
+                path?.Add(position.ToXna());
             }
 
             return false;

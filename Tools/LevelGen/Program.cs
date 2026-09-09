@@ -16405,7 +16405,7 @@ namespace BS3D.Tools.LevelGen
             //rather than an addition (#329): #328 added the kind without adding it here, so a level built of
             //acid and colour alone would have skipped the stranded-specials walk entirely — which is #343's
             //own bug, arriving through the next kind. Anything not matchable belongs in this list.
-            int rocks = 0, glass = 0, bombs = 0, zaps = 0, acids = 0, frozen = 0, infectious = 0;
+            int rocks = 0, glass = 0, bombs = 0, zaps = 0, acids = 0, frozen = 0, infectious = 0, wells = 0;
 
             for (byte l = 0; l < map.Levels; l++)
                 for (byte x = 0; x < map.StageSizeX; x++)
@@ -16428,6 +16428,10 @@ namespace BS3D.Tools.LevelGen
                         //the anchor-course one inside that walk, and its real gate is the sag probe, which
                         //plays the level and watches it rot.
                         if (ball.Kind == BallKind.Infectious) infectious++;
+                        //A gravity well is matchable too (#332), so it is here for the same reason and with
+                        //the same exception: it needs nothing the stranded walk asks, but the walk holds its
+                        //own refusal for it.
+                        if (ball.Kind == BallKind.Gravity) wells++;
 
                         //⚠ THE COLOUR CENSUS IS OVER THE MATCHABLE BALLS ONLY (#323/#325), and it is not
                         //merely tidier: a rock or a glass ball counted here would enter `counts` under the
@@ -16500,7 +16504,7 @@ namespace BS3D.Tools.LevelGen
             //⚠ THE ROCKS COUNT TOWARDS ASKING IT (#343). While this read `glass + bombs`, a level built
             //entirely of stone and colour skipped the walk altogether, so the one gate that would have
             //caught a rock hanging off the ceiling was never run on the three levels that had one.
-            int specials = rocks + glass + bombs + zaps + acids + frozen + infectious;
+            int specials = rocks + glass + bombs + zaps + acids + frozen + infectious + wells;
 
             StrandedReport stranded = specials == 0 ? new StrandedReport() : FindStrandedSpecials(map);
 
@@ -16513,6 +16517,7 @@ namespace BS3D.Tools.LevelGen
                 Console.WriteLine($"    rocks the player can bring down: {(stranded.CeilingRocks == 0 ? "all" : $"NO - {stranded.CeilingRocks} ON THE ANCHOR COURSE")}");
                 Console.WriteLine($"    ice a group can ever reach: {(stranded.SealedIce == 0 ? "all" : $"NO - {stranded.SealedIce} SEALED IN")}");
                 Console.WriteLine($"    infection off the anchor course: {(stranded.CeilingInfection == 0 ? "all" : $"NO - {stranded.CeilingInfection} ON THE ANCHOR COURSE")}");
+                Console.WriteLine($"    wells a shot can fly near: {(stranded.BuriedWells == 0 ? "all" : $"NO - {stranded.BuriedWells} BURIED")}");
                 foreach (string where in stranded.Examples) Console.WriteLine($"      {where}");
             }
 
@@ -16533,7 +16538,7 @@ namespace BS3D.Tools.LevelGen
 
             return disconnected == 0 && lonely.Alone == 0 && !oneShot && margin >= 1
                    && stranded.Walled == 0 && stranded.Anchoring == 0 && stranded.CeilingRocks == 0
-                   && stranded.AloneGlass == 0 && stranded.SealedIce == 0 && stranded.CeilingInfection == 0;
+                   && stranded.AloneGlass == 0 && stranded.SealedIce == 0 && stranded.CeilingInfection == 0 && stranded.BuriedWells == 0;
         }
 
         /// <summary>
@@ -16899,6 +16904,26 @@ namespace BS3D.Tools.LevelGen
                                                     + " first tick, and nothing the player does cuts it down");
                         }
 
+                        //⚠ AND THE WELL'S OWN REFUSAL (#332), asked here for the frozen ball's and the sick
+                        //ball's reason: a gravity well IS matchable, so the guard below is where it would be
+                        //lost. A well BURIED IN THE BODY is a well no shot ever passes near — its field
+                        //reaches GravityWells.RANGE, and inside a solid cluster there is no line through that
+                        //sphere for a shot to fly along. It bends nothing, so it is a special that does
+                        //nothing, and a mechanic nobody can meet does not read as one (#344's own verdict
+                        //about a glass ball alone among its neighbours, arriving for the other kind of
+                        //special). What is asked is whether the well has a free cell within its own reach —
+                        //not merely beside it, because a shot needs a corridor and not a doorstep.
+                        if (ball.Kind == BallKind.Gravity && !HasOpenSpaceWithin(array, size, cell,
+                                Prazsky.BS3D.Physics.GravityWells.RANGE))
+                        {
+                            report.BuriedWells++;
+
+                            if (report.Examples.Count < 3)
+                                report.Examples.Add($"gravity well buried at cell ({x},{z}) on level {l}:"
+                                                    + " no open space inside its own reach, so no shot ever"
+                                                    + " passes near enough to be bent by it");
+                        }
+
                         //A ball a landing beside it has to reach, stated as the property rather than as a
                         //list of kinds: removable, so it holds the level open, and not matchable, so no
                         //colour can take it. Transparent and Bomb both answer it; the rock answers no to the
@@ -16990,6 +17015,41 @@ namespace BS3D.Tools.LevelGen
             return report;
         }
 
+        /// <summary>
+        /// Whether any cell within <paramref name="reach"/> world units of <paramref name="from"/> is empty —
+        /// the question a gravity well is refused on (#332).
+        /// <para>
+        /// <b>Space inside its reach, not a free neighbour.</b> Every other special here is opened by a shot
+        /// landing beside it, so a doorstep is enough; a well is met by a shot flying THROUGH its field, which
+        /// needs a corridor. Measured in world units against <c>GravityWells.RANGE</c> rather than in cells,
+        /// for the reason <c>BLAST_RADIUS</c> states: the lattice is anisotropic, so a cell count is a
+        /// different distance in each axis and the field is a sphere.
+        /// </para>
+        /// </summary>
+        private static bool HasOpenSpaceWithin(StaticBall[,,] array, XZLevel size, XZLevel from, float reach)
+        {
+            Vector3 centre = BallsMap.GetRealPosition((byte)from.X, (byte)from.Z, (byte)from.Level);
+            float reachSquared = reach * reach;
+
+            //A cell is 1.0 across at its widest here, so the index box that can hold the sphere is the reach
+            //rounded up in each axis — generous in the vertical, where levels are 1/sqrt(2) apart, and the
+            //distance test below does the real work.
+            int span = (int)MathF.Ceiling(reach) + 1;
+
+            for (int l = Math.Max(0, from.Level - span); l < Math.Min(size.Level, from.Level + span + 1); l++)
+                for (int x = Math.Max(0, from.X - span); x < Math.Min(size.X, from.X + span + 1); x++)
+                    for (int z = Math.Max(0, from.Z - span); z < Math.Min(size.Z, from.Z + span + 1); z++)
+                    {
+                        if (array[x, z, l] != null) continue;
+
+                        if (Vector3.DistanceSquared(centre,
+                                BallsMap.GetRealPosition((byte)x, (byte)z, (byte)l)) <= reachSquared)
+                            return true;
+                    }
+
+            return false;
+        }
+
         private sealed class StrandedReport
         {
             public int Walled;
@@ -17000,6 +17060,13 @@ namespace BS3D.Tools.LevelGen
 
             /// <summary>Panes some landing would colour by themselves — see the ALONE paragraph (#344).</summary>
             public int AloneGlass;
+
+            /// <summary>
+            /// <summary>
+            /// Gravity wells with no open space inside their own reach (#332): a well no shot can fly near is
+            /// a special that bends nothing. See the well's branch in <see cref="FindStrandedSpecials"/>.
+            /// </summary>
+            public int BuriedWells;
 
             /// <summary>
             /// Infectious balls on the field's topmost level (#331): stone on the anchor course from the first

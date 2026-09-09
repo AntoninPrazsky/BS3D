@@ -131,9 +131,16 @@ namespace BS3D.Screens
             _previewMuzzle = muzzle;
             _previewBeamVisible = true;
 
-            //Both radii, because the shot has one: the grown sphere is what the moving ball's surface sweeps
-            if (!ShotPlacement.TryFindFirstHit(_physicsBalls, muzzle, aim,
-                    2f * BallsConstraintsBuilder.BALL_RADIUS, out PhysicsBall hit, out Vector3 contact))
+            //Both radii, because the shot has one: the grown sphere is what the moving ball's surface sweeps.
+            //
+            //CURVED SINCE #332, and it is the same call on a level with no wells in it — the solver takes the
+            //straight path on an empty snapshot and returns byte for byte what it always did. What it needs
+            //that the straight one did not is the shot's VELOCITY rather than its direction: how far a well
+            //bends a shot depends entirely on how long the shot spends in the field, so the speed is part of
+            //the question. It is the same SHOOT_SPEED the gun fires at, from the one constant.
+            if (!ShotPlacement.TryFindFirstHitCurved(_physicsBalls, muzzle, aim * SHOOT_SPEED,
+                    2f * BallsConstraintsBuilder.BALL_RADIUS, _gravityWells, out PhysicsBall hit,
+                    out Vector3 contact, _previewPath))
             {
                 //Nothing out there. The beam still goes up, because in the overview it is the ONLY thing saying
                 //where the gun points — but open-ended, so it thins away instead of ending at a phantom.
@@ -177,8 +184,37 @@ namespace BS3D.Screens
             //one signal handed between the modes rather than two competing for the same pixels. Measured need
             //rather than taste — foreshortened along the bore the dashes pile up over the exact cell they point
             //at, and in that mode the crosshair on a lens aimed down the shot ray already IS the trajectory.
+            float opacity = 1f - _preciseAim.Blend;
+
+            //THE BEAM FOLLOWS THE FLIGHT (#332), which on a level with no wells is one segment and exactly what
+            //it always was. A shot bent by a well reaches a contact the straight line between muzzle and contact
+            //does NOT pass through, so a single straight beam would be telling the truth about where the shot
+            //ends and lying about the whole middle of it — which is worse than either, and is the shape of
+            //#70's own complaint.
+            //
+            //The dash phase carries the distance already drawn, so the crawl runs continuously along the chain
+            //instead of restarting at every knot: AimBeam places its dashes from `phase * CRAWL` measured along
+            //the segment, so adding the run so far in the same units is what makes the joins invisible.
+            if (_previewPath.Count >= 2)
+            {
+                float travelled = 0f;
+
+                for (int i = 0; i + 1 < _previewPath.Count; i++)
+                {
+                    bool last = i + 2 == _previewPath.Count;
+
+                    _aimBeam.Draw(Camera, _previewPath[i], _previewPath[i + 1], tint,
+                        WallClock + travelled / AimBeam.CRAWL,
+                        openEnded: last && !_previewReachesCluster, opacity: opacity);
+
+                    travelled += Vector3.Distance(_previewPath[i], _previewPath[i + 1]);
+                }
+
+                return;
+            }
+
             _aimBeam.Draw(Camera, _previewMuzzle, _previewBeamEnd, tint, WallClock,
-                openEnded: !_previewReachesCluster, opacity: 1f - _preciseAim.Blend);
+                openEnded: !_previewReachesCluster, opacity: opacity);
         }
 
         /// <summary>

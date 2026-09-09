@@ -289,6 +289,30 @@ namespace Prazsky.Core.Render
         /// time to do something about it.
         /// </para>
         /// </summary>
-        Infectious = 16
+        Infectious = 16,
+
+        /// <summary>
+        /// A gravity well (#332): the ball's own colour behind a lensed shell, with rings of light falling
+        /// <b>inward</b> across it. Drawn by <c>InstancedModelGravity</c>.
+        /// <para>
+        /// The eighth shading belonging to a <c>BallKind</c> and the third that takes the type colour, on
+        /// <see cref="Frozen"/>'s and <see cref="Infectious"/>'s argument: a well can be matched and shot out,
+        /// so which colour it is, is the shot that removes it.
+        /// </para>
+        /// <para>
+        /// <b>⚠ THE FIGURE HAS TO SAY "THIS IS WHY YOUR SHOT WENT THERE", and that is the whole of #332's own
+        /// warning: a curve the player cannot see coming is a bug with a physics explanation.</b> So the
+        /// figure is <i>inward motion</i> — rings contracting towards the centre at a steady rate, which is
+        /// the one gesture that reads as a pull rather than as a glow. It is deliberately the opposite of the
+        /// bomb's outward beat and of the acid's downward drip: those two say "this will happen", this one
+        /// says "this is happening now, to anything that comes near".
+        /// </para>
+        /// <para>
+        /// <b>Its collision to solve is <see cref="Plasma"/> and <see cref="Gem"/></b>, which are the other
+        /// two styles that bend what is behind them. Plasma drifts and glows all over; a gem is faceted and
+        /// still. This is smooth, dark-rimmed and moving in ONE direction, which is what neither of them does.
+        /// </para>
+        /// </summary>
+        Gravity = 17
     }
 }

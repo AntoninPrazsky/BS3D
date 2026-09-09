@@ -34,6 +34,19 @@ namespace BS3D.Screens
             //what gives a ball leaving at SHOOT_SPEED continuous collision detection.
             _world = new PhysicsWorld();
 
+            //And the FORCES each step applies before it integrates (#332) — the gravity wells pulling on the
+            //shots in flight. Built once and not written at the call site for the reason PhysicsWorld's own
+            //Step doc gives about its work delegate: a lambda expression allocates a fresh delegate every time
+            //it is evaluated, and this is evaluated several times a frame. It costs nothing on a level with no
+            //wells, since GravityWells.ApplyTo returns on an empty snapshot.
+            //
+            //⚠ HERE and not in the screen's constructor beside _processContacts, which is where it was first
+            //put and where `_world` is still null — the world is built in this method. It took the whole
+            //program down on the first launch, and it had already done exactly that in the Testbed an hour
+            //earlier: the two executables build their worlds at different moments and neither builds it in a
+            //constructor. Anything hung on `_world` belongs next to `_world`.
+            _world.PerStepForces = dt => _gravityWells.ApplyTo(_shotBalls, dt);
+
             BuildCeilingBody();
 
             //The island's whole floor, and it is the drain's own surface: the sloped cone plus the dished
@@ -59,6 +72,14 @@ namespace BS3D.Screens
         /// </summary>
         private void StepPhysics(float elapsed)
         {
+            //THE WELLS ARE READ ONCE A FRAME AND HERE, WHICH IS BEFORE BOTH THINGS THAT USE THEM (#332): the
+            //steps below apply the field to the shots in flight, and this frame's aim preview integrates the
+            //same snapshot. Refreshing per STEP would be twice the work for an answer that cannot have moved
+            //by more than the cluster's sway inside one frame; refreshing in two places would let the ghost
+            //and the attach read the wells at different instants, which is the one thing ShotPlacement is
+            //written to prevent. See GravityWells.
+            _gravityWells.Refresh(_physicsBalls);
+
             _physicsAccumulator += elapsed;
 
             int steps = 0;

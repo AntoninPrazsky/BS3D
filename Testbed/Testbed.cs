@@ -498,6 +498,9 @@ namespace Testbed
         //field initialiser not being allowed to reference another instance member (CS0236).
         private readonly Action _processContacts;
 
+        /// <summary>This frame's gravity wells (#332). Refreshed in the update, applied inside the step.</summary>
+        private readonly GravityWells _gravityWells = new();
+
         #endregion
 
         /// <summary>
@@ -592,6 +595,13 @@ namespace Testbed
             //gravity and the solver description tuned together with the contact material and the BallSocket
             //spring: every one of them is PhysicsWorld's. Built here and kept for the whole run.
             _world = new PhysicsWorld();
+
+            //And the forces each step applies before it integrates (#332), on the Game's own wiring: built
+            //once rather than written at the call site, since a lambda expression allocates every time it is
+            //evaluated and this is evaluated several times a frame. ⚠ HERE and not in the constructor beside
+            //_processContacts, which is where it was first put and where `_world` is still null — the Testbed
+            //builds its world in Initialize, and the null reference took the whole program down on startup.
+            _world.PerStepForces = dt => _gravityWells.ApplyTo(_shotBalls, dt);
 
             #region Controls
 

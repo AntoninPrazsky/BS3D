@@ -216,6 +216,24 @@ namespace BS3D
         //at random. Null means the roll, which is what a player always gets. It is the same reasoning as
         //scene= and sky=: the menu's camera is now framed for the map hanging under it (#254), so two shots of
         //the front end are only comparable if they are shots of the same map.
+        /// <summary>
+        /// Testing only: a level file to play <b>instead of the set's</b> (#332), pinned for the whole run.
+        /// Null on every ordinary launch.
+        /// <para>
+        /// It exists because the set <i>is</i> the campaign, and a level built to try a mechanic out is not
+        /// part of it. Every special ball kind of #256 built so far ships in no level at all — deliberately,
+        /// each one on the last one's precedent — so the only way to hold one in the hands was to author a
+        /// level and then edit the campaign around it, which <c>LevelGen</c> overwrites on its next run. This
+        /// is the door that was missing, and it is the same shape <c>preview=</c> takes for the front end.
+        /// </para>
+        /// <para>
+        /// Public where <see cref="_startupLevel"/> is private, because the session reads it per level rather
+        /// than once at startup: it replaces the path for <b>every</b> entry, so a run cannot wander off the
+        /// file it was pinned to by finishing one.
+        /// </para>
+        /// </summary>
+        public string StartupLevelFile { get; }
+
         private readonly string _startupPreview;
 
         //Testing only: the "result" argument, consumed on the first Update for the "play" reason above — the
@@ -682,7 +700,7 @@ namespace BS3D
             bool? uncappedFps = null, SceneKind? scene = null, byte? skyDome = null, bool logFrameRate = false,
             QualityLevel? quality = null, bool celebrate = false, bool confetti = false, bool lasers = false,
             bool mute = false, bool play = false, bool result = false, bool blockDone = false, bool lost = false,
-            int? resultStars = null, int? streak = null, int wildcardEvery = 0, float[] shotSeconds = null, string level = null,
+            int? resultStars = null, int? streak = null, int wildcardEvery = 0, float[] shotSeconds = null, string level = null, string levelFile = null,
             string preview = null, BallStyle? ballStyle = null, string pick = null, int fpsCap = 0,
             bool noFocusPause = false)
         {
@@ -723,10 +741,11 @@ namespace BS3D
             _startupWildcardEvery = wildcardEvery;
             _startupLasers = lasers;
             _startupLevel = level;
+            StartupLevelFile = string.IsNullOrWhiteSpace(levelFile) ? null : levelFile;
             _startupPreview = preview;
 
             //Naming a level means playing it, so "level=" implies "play" rather than needing it alongside
-            _startupPlay = play || level != null;
+            _startupPlay = play || level != null || StartupLevelFile != null;
             //Asking for a FAILED result page means asking for the result page, so "lost" implies "result" rather
             //than needing it alongside — the same rule "level=" implies "play" by. Written here and not left to
             //the caller because the first thing `lost` did on its own was put the main menu up and say nothing.

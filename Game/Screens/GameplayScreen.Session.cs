@@ -217,7 +217,10 @@ namespace BS3D.Screens
 
             if (levelSet != null && index >= 0 && index < levelSet.Count)
             {
-                string path = levelSet.ResolvePath(index);
+                //The set's own file, unless this run was pinned to one outside it (#332) — see
+                //BS3DGame.StartupLevelFile for why that door exists at all. It replaces the path for every
+                //entry, so the run stays on the file it was given however the session moves through the set.
+                string path = Game.StartupLevelFile ?? levelSet.ResolvePath(index);
 
                 try
                 {

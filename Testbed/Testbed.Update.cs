@@ -56,6 +56,12 @@ namespace Testbed
                 //Timestep, then flush, then the contact work — which is mandatory and per step, not per frame: a
                 //handler may only record what the worker threads saw, the flush is what applies those per-worker
                 //adds, and a contact queued during a step describes a world the next step has already left behind.
+                //This frame's gravity wells (#332), read once and before the step that applies them — the Game
+                //states the same order for the same reason (GravityWells' own contract). The Testbed draws no
+                //landing ghost, so here the snapshot has only one reader; it is refreshed in the same place
+                //all the same, because a second reader is exactly what an aim preview would be.
+                _gravityWells.Refresh(_physicsBalls);
+
                 _world.Step(_slowSimulation ? timeStep * Constants.HUNDREDTH : timeStep, _processContacts);
 
                 #region Fallen balls cleanup
