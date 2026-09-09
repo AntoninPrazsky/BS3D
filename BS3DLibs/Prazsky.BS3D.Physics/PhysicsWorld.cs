@@ -266,8 +266,36 @@ namespace Prazsky.BS3D.Physics
         /// field on each call also survives the handler being replaced per map or per level, which both
         /// callers do.
         /// </param>
+        /// <summary>
+        /// Forces this world applies to bodies <b>immediately before each step integrates them</b>, given the
+        /// step's own length (#332). Null on a world that has none, which is every world until a level places
+        /// a gravity ball.
+        /// <para>
+        /// <b>It is a property on this class and not a call the caller makes, because WHERE in a step a force
+        /// is applied is exactly the thing this class owns.</b> The stepping policy is each executable's — see
+        /// <see cref="Step"/> — but the order inside one step is not, and a velocity change applied after
+        /// <c>Timestep</c> is a change the step it belongs to never integrated: it would arrive one step late,
+        /// every step, which reads as a weaker field rather than as a bug. Applied here, once, before the
+        /// integrator, it is plain semi-implicit Euler and the aim preview can reproduce it exactly.
+        /// </para>
+        /// <para>
+        /// It is also the hook #95 asks for rather than a private path for one ball kind: wind and per-scene
+        /// gravity are the same shape with a different field, and what they would need to inherit is this
+        /// position in the order.
+        /// </para>
+        /// <para>
+        /// Held in a field and invoked, so it obeys <see cref="Step"/>'s own rule about the work delegate:
+        /// build it once rather than writing a lambda at the call site, which allocates on every evaluation
+        /// and this is evaluated several times a frame.
+        /// </para>
+        /// </summary>
+        public Action<float> PerStepForces { get; set; }
+
         public void Step(float dt, Action perStepWork)
         {
+            //Before the integrator, and that is the whole of what this property is for — see PerStepForces.
+            PerStepForces?.Invoke(dt);
+
             Simulation.Timestep(dt, _threadDispatcher);
 
             Events.Flush();

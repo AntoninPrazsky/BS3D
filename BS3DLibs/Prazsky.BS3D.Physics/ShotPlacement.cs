@@ -207,8 +207,34 @@ namespace Prazsky.BS3D.Physics
             if (lengthSquared < Constants.THOUSANDTH) return false;
 
             Vector3 aim = direction / MathF.Sqrt(lengthSquared);
+
+            return TryFindFirstHitOnSegment(balls, origin, aim, float.MaxValue, radiusSum,
+                out hit, out worldContact, out _);
+        }
+
+        /// <summary>
+        /// <see cref="TryFindFirstHit"/> over a <b>bounded</b> run of the line — the same closed-form swept
+        /// test, stopped at <paramref name="maxDistance"/> and reporting how far along the touch happened.
+        /// <para>
+        /// Split out by #332 so the straight solver and the curved one are the same arithmetic rather than two
+        /// implementations of it. A curved flight is a polyline, and each of its segments is exactly this
+        /// question; if the two ever drifted apart, the ghost and the attach would disagree on the very levels
+        /// the curve exists for — which is the one thing this whole class is written to prevent.
+        /// </para>
+        /// </summary>
+        /// <param name="aim">Unit.</param>
+        /// <param name="maxDistance">How far along the ray still counts as this segment. <see cref="float.MaxValue"/>
+        /// for the unbounded line.</param>
+        /// <param name="distance">How far along <paramref name="aim"/> the surfaces first met.</param>
+        private static bool TryFindFirstHitOnSegment(PhysicsBall[,,] balls, Vector3 origin, Vector3 aim,
+            float maxDistance, float radiusSum, out PhysicsBall hit, out Vector3 worldContact, out float distance)
+        {
+            hit = null;
+            worldContact = Vector3.Zero;
+            distance = 0f;
+
             float grownSquared = radiusSum * radiusSum;
-            float nearest = float.MaxValue;
+            float nearest = maxDistance;
             Vector3 nearestCentre = Vector3.Zero;
 
             int sizeX = balls.GetLength(0), sizeZ = balls.GetLength(1), sizeLevel = balls.GetLength(2);
@@ -244,17 +270,147 @@ namespace Prazsky.BS3D.Physics
 
             if (hit == null) return false;
 
+            distance = nearest;
+
             //The contact is on the line between the two centres, a structure ball's radius in from its centre --
             //which is where the narrow phase would put it, and what the cell search measures against.
             Vector3 shotCentre = origin + aim * nearest;
             Vector3 toShot = shotCentre - nearestCentre;
-            float distance = toShot.Length();
+            float distanceToCentre = toShot.Length();
 
-            worldContact = distance < Constants.THOUSANDTH
+            worldContact = distanceToCentre < Constants.THOUSANDTH
                 ? nearestCentre
-                : nearestCentre + toShot * (BallsConstraintsBuilder.BALL_RADIUS / distance);
+                : nearestCentre + toShot * (BallsConstraintsBuilder.BALL_RADIUS / distanceToCentre);
 
             return true;
+        }
+
+        /// <summary>
+        /// How long a flight the curved solver will follow before giving up, in seconds. A shot crosses the
+        /// arena in about an eighth of a second, so half a second is four times the longest real flight and is
+        /// there to bound the loop rather than to be reached.
+        /// </summary>
+        private const float MAX_FLIGHT_SECONDS = 0.5f;
+
+        /// <summary>
+        /// The step the curved solver integrates at, in seconds — <b>the simulation's own</b>
+        /// (<c>1 / 120</c>), because the two have to agree and not merely be close.
+        /// </summary>
+        private const float INTEGRATION_STEP = 1f / 120f;
+
+        /// <summary>
+        /// <see cref="TryFindFirstHit"/> with the gravity wells of #332 bending the flight: the first structure
+        /// ball a shot leaving <paramref name="origin"/> at <paramref name="velocity"/> would touch, following
+        /// the curve rather than a line.
+        /// </summary>
+        /// <remarks>
+        /// <b>⚠ IT IS THE SIMULATION'S OWN ARITHMETIC AND THAT IS A REQUIREMENT, NOT A RESEMBLANCE.</b> The step
+        /// applies the field's acceleration to a shot's velocity immediately before Bepu integrates the pose
+        /// (<see cref="PhysicsWorld.PerStepForces"/>), which is semi-implicit Euler: <c>v += a(p)·dt</c> then
+        /// <c>p += v·dt</c>. This loop is those two lines, at the same <see cref="INTEGRATION_STEP"/>, off the
+        /// same <see cref="GravityWells"/> snapshot. Anything else — a nicer integrator, a coarser step, a
+        /// second copy of the constants — and the ghost drifts from the attach, which is the exact
+        /// disagreement this whole class exists to prevent, arriving with a curve on it.
+        /// <para>
+        /// <b>It stays cheap by not integrating where there is nothing to integrate.</b> The kernel reaches
+        /// zero at <c>GravityWells.RANGE</c>, so outside every well the flight is exactly straight and is
+        /// jumped in ONE segment (<see cref="GravityWells.DistanceToField"/> says how far that runs). Only
+        /// inside the field does it step small. A shot passing one well costs a couple of long segments and
+        /// about five short ones, against sixty short ones for a naive fixed-step integration — which is the
+        /// difference between an aim path that can afford this every frame and one that cannot. With no wells
+        /// standing it is <see cref="TryFindFirstHit"/> and one branch, which is what every level shipped today
+        /// pays.
+        /// </para>
+        /// <para>
+        /// What it does <b>not</b> model is world gravity, and that is deliberate rather than an omission: at
+        /// 200 u/s the shot falls four thousandths of a cell over its whole flight, which is why the
+        /// straight-line preview was honest for six issues before this one. Adding it would change no answer
+        /// and would put a second constant in two places.
+        /// </para>
+        /// </remarks>
+        /// <param name="velocity">The shot's launch velocity — direction times the caller's speed, which is the
+        /// thing that decides how far a well can bend it.</param>
+        /// <param name="wells">This frame's snapshot. Null or empty takes the straight path.</param>
+        public static bool TryFindFirstHitCurved(PhysicsBall[,,] balls, Vector3 origin, Vector3 velocity,
+            float radiusSum, GravityWells wells, out PhysicsBall hit, out Vector3 worldContact)
+        {
+            hit = null;
+            worldContact = Vector3.Zero;
+
+            if (balls == null) return false;
+
+            //Every level shipped today, and most shots on a level that has wells: no field, no curve.
+            if (wells == null || wells.Count == 0)
+                return TryFindFirstHit(balls, origin, velocity, radiusSum, out hit, out worldContact);
+
+            float speedSquared = velocity.LengthSquared();
+            if (speedSquared < Constants.THOUSANDTH) return false;
+
+            System.Numerics.Vector3 position = origin.ToNumerics();
+            System.Numerics.Vector3 shotVelocity = velocity.ToNumerics();
+            float flown = 0f;
+
+            while (flown < MAX_FLIGHT_SECONDS)
+            {
+                float speed = shotVelocity.Length();
+                if (speed < Constants.THOUSANDTH) return false;
+
+                System.Numerics.Vector3 heading = shotVelocity / speed;
+
+                //How far the straight run ahead lasts. Zero means we are inside the field already.
+                //
+                //⚠ AND A BOUNDARY NEARER THAN ONE STEP COUNTS AS BEING INSIDE, which is a termination
+                //requirement before it is an approximation. Jumping "to the boundary" advances the flight
+                //clock by `segment / speed`, so a boundary a hair ahead advances it by a hair — and the next
+                //pass finds the boundary a hair ahead again. The loop then runs for ever with `flown` never
+                //reaching its bound, which is exactly what it did: the harness hung rather than failing.
+                //Taking the step instead is also the physically honest reading, since a step of that length
+                //crosses the boundary anyway.
+                float toField = wells.DistanceToField(position, heading);
+                float stepReach = speed * INTEGRATION_STEP;
+
+                if (toField > stepReach)
+                {
+                    //Outside every well the acceleration is exactly zero, so this whole run is one straight
+                    //segment and jumping it loses nothing. Bounded by the flight budget so a shot aimed into
+                    //empty sky terminates on the same rule everything else here does.
+                    float remaining = speed * (MAX_FLIGHT_SECONDS - flown);
+                    float segment = MathF.Min(toField, remaining);
+
+                    if (TryFindFirstHitOnSegment(balls, position.ToXna(), heading.ToXna(), segment, radiusSum,
+                            out hit, out worldContact, out _))
+                        return true;
+
+                    //No well ahead and no ball on the line: the shot is gone.
+                    if (toField >= float.MaxValue) return false;
+
+                    position += heading * segment;
+                    flown += segment / speed;
+                    continue;
+                }
+
+                //⚠ INSIDE THE FIELD, AND THE ORDER OF THESE THREE LINES IS THE WHOLE AGREEMENT WITH THE
+                //SIMULATION. PerStepForces applies the acceleration BEFORE Bepu integrates the pose, so the
+                //pose moves at the velocity the force has already changed — semi-implicit Euler. Testing the
+                //segment against the velocity as it was BEFORE the force would be a different integrator by
+                //one force application per step, and the ghost would sit a little short of the attach on
+                //every curved shot: the disagreement is small, systematic, and exactly the kind #70 records.
+                shotVelocity += wells.Acceleration(position) * INTEGRATION_STEP;
+
+                speed = shotVelocity.Length();
+                if (speed < Constants.THOUSANDTH) return false;
+
+                heading = shotVelocity / speed;
+
+                if (TryFindFirstHitOnSegment(balls, position.ToXna(), heading.ToXna(), speed * INTEGRATION_STEP,
+                        radiusSum, out hit, out worldContact, out _))
+                    return true;
+
+                position += shotVelocity * INTEGRATION_STEP;
+                flown += INTEGRATION_STEP;
+            }
+
+            return false;
         }
     }
 }
