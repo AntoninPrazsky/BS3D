@@ -168,7 +168,13 @@ namespace BS3D.Screens
                 //condition below: && would short-circuit the retire away for a falling ball.
                 bool wasUndecided = _world.RetireBall(body);
 
-                if (wasUndecided && scoreMisses) _score.Missed();
+                //Through OnShotSpent rather than straight to the keeper since #331: a miss is a shot
+                //RESOLVING, and more than the score now hangs off that moment — the infection ticks on it.
+                //Two kinds of miss reached the keeper by two different roads (this one, a ball that fell past
+                //everything; the handler's, a ball that struck the stone), and a rule added to one of them
+                //silently would not fire for the other. `scoreMisses` is `!LevelOver`, which is OnShotSpent's
+                //own first line, so this is the same behaviour through one door.
+                if (wasUndecided && scoreMisses) OnShotSpent();
 
                 balls.RemoveAt(i);
             }

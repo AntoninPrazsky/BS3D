@@ -208,7 +208,52 @@ namespace Prazsky.BS3D.GameStructure
         /// thing separating a frozen ball from an ordinary one, and a shading cue could not do it.
         /// </para>
         /// </summary>
-        Frozen = 7
+        Frozen = 7,
+
+        /// <summary>
+        /// Infectious (#331): an ordinary ball of its colour that is <b>sick</b>. It matches, it is counted and
+        /// a shot removes it exactly like any other ball — and every time a shot <b>resolves</b>, it infects one
+        /// healthy neighbour and <b>hardens into a <see cref="Rock"/></b>.
+        /// <para>
+        /// <b>It is the only kind in this game with a TICK</b>, and that is the whole design of it. Every other
+        /// special resolves inside one landing — a bomb goes off, a zap fires, ice breaks, glass takes a colour
+        /// — so the game could always answer "what did that shot do" without asking what the field does on its
+        /// own. This one is the field doing something on its own, once per shot, for as long as it is left
+        /// alive, and its position in the shot sequence is therefore load-bearing (see
+        /// <c>BallsMap.SpreadInfection</c>).
+        /// </para>
+        /// <para>
+        /// <b>⚠ IT IS THE FIRST KIND BESIDE <see cref="Normal"/> THAT ANSWERS YES TO <see cref="Matchable"/>,
+        /// and that is the ruling this kind stands or falls on.</b> #331 states the alternative plainly: an
+        /// infection with no counterplay is not a mechanic but a timer, and a timer that only ends the level is
+        /// not worth building. So the sick ball keeps its colour, joins the group a shot completes, and can be
+        /// shot out at any point in its life — the player races it rather than watching it.
+        /// </para>
+        /// <para>
+        /// <b>It moves rather than multiplies, and that is what bounds it without a counter.</b> One spread per
+        /// resolved shot and the spreader hardens immediately, so the number of sick balls on a field can only
+        /// stay the same or fall — it falls when a sick ball has no healthy neighbour left and hardens with
+        /// nothing to pass to. What grows is the <i>stone behind it</i>: exactly one permanent ball per
+        /// infection per shot of delay, which is the price of ignoring it and is a straight line the player can
+        /// feel. The dose is therefore the number of sick balls a level places, which is how everything else in
+        /// this game is authored.
+        /// </para>
+        /// <para>
+        /// <b>What it takes: an ordinary ball, nothing else.</b> Rocks, glass, bombs, zaps, acids, ice and other
+        /// sick balls are all immune, and none of them is a special case — the rule is simply that an infection
+        /// takes a healthy ball, and every other kind is already not one. Ice earns a mention because the
+        /// interaction reads: a <see cref="Frozen"/> ball is sealed and the infection passes it by, so ice is
+        /// shelter until the player breaks it themselves.
+        /// </para>
+        /// <para>
+        /// <b>It climbs.</b> Of the healthy neighbours it prefers the one nearest the ceiling, which makes the
+        /// threat legible — a player can see where it is going and how long they have — where a random pick
+        /// would be invisible dice, the objection this project raises against every rule that could have been
+        /// one. See <c>BallsMap.SpreadInfection</c> for the tie-break that keeps two identical-looking fields
+        /// doing identical things.
+        /// </para>
+        /// </summary>
+        Infectious = 8
     }
 
     /// <summary>
@@ -249,8 +294,21 @@ namespace Prazsky.BS3D.GameStructure
         /// away from it. What holds both is <i>when</i> the thaw runs: inside the release, so the Game's
         /// recount after the landing sees a cluster the thaw has already finished changing.
         /// </para>
+        /// <para>
+        /// <b>⚠ <see cref="BallKind.Infectious"/> IS THE FIRST KIND BESIDE <see cref="BallKind.Normal"/> THAT
+        /// ANSWERS YES, and it is a ruling rather than a convenience</b> (#331). A sick ball keeps its colour,
+        /// joins the group a shot completes and is counted alive in the census, because an infection the player
+        /// cannot shoot out is a timer rather than a mechanic — the issue's own words, and the reason this kind
+        /// was built last of the match group. What follows from it is worth reading before touching anything
+        /// that asks this question: a zap of that colour now cures an outbreak; a wildcard may collapse onto it;
+        /// the generator's colour census, its group counts and its lonely-ball repair all take sick balls into
+        /// account. <b>The repair is the one that had to be TOLD</b> — it recolours through <c>PutBallAt</c>,
+        /// whose <c>kind</c> defaults to <see cref="BallKind.Normal"/>, so the first matchable special would
+        /// have been silently cured on the way through it. That is #325's recorded data loss arriving through
+        /// the opposite door, and it is a door only this answer opens.
+        /// </para>
         /// </summary>
-        public static bool Matchable(BallKind kind) => kind == BallKind.Normal;
+        public static bool Matchable(BallKind kind) => kind == BallKind.Normal || kind == BallKind.Infectious;
 
         /// <summary>
         /// Whether a shot can still do something about this ball — <b>the question the end of a level is
@@ -375,6 +433,12 @@ namespace Prazsky.BS3D.GameStructure
                 case "ice":
                 case "iced":
                     kind = BallKind.Frozen;
+                    return true;
+
+                case "infectious":
+                case "infected":
+                case "slime":
+                    kind = BallKind.Infectious;
                     return true;
 
                 default:

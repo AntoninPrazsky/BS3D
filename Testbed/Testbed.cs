@@ -1551,6 +1551,15 @@ namespace Testbed
             _eventHandler = new BallContactEventHandler(_world.Simulation, _world.Events, _ceiling, _map,
                 _physicsBalls, _shotBalls, _fallingBalls, Vector3.Zero);
 
+            //THE INFECTION TICKS HERE TOO (#331), on the Game's two resolution points exactly — a landing and
+            //a miss — and the class doc above ("the Testbed subscribes to neither") is what this retracts. It
+            //is the one rule in the game that fires on something other than a landing, so an instrument that
+            //did not tick would draw a field that never rots and would be showing a different game, which is
+            //the trap the sag probe has paid for four times. Subscribed HERE rather than once at startup
+            //because this executable swaps maps inside a live session and builds a new handler per map.
+            _eventHandler.BallLanded += _ => TickInfection();
+            _eventHandler.ShotSpent += TickInfection;
+
             InvalidateOverlay();
 
             ApplySkyLighting(); //FitCeilingToMap recreated the ceiling renderer, which starts without the sky palette

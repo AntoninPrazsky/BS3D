@@ -376,6 +376,18 @@ namespace BS3D.Tools.LevelGen
 
                 shotsFired++;
 
+                //THE INFECTION TICKS ON EVERY RESOLVED SHOT (#331), bounce included, which is the Game's own
+                //ruling stated where this file has to state it: a bounce is a miss, and a miss ticks it. This
+                //is the standing rule of this probe once more — a step of a shot's resolution that lives in
+                //the Game has to be repeated here or the probe measures a game nobody is playing — and it is
+                //the first such step that is not a step of a LANDING, which is why it sits in the loop rather
+                //than inside FireOneShot.
+                //
+                //It is the largest thing this probe can be asked to watch after a zap: a sick ball hardens
+                //into stone, so the cluster keeps its mass and loses the ability to shed it, and a level that
+                //rots faster than it can be cleared shows up here as OutOfShots rather than as a layout fault.
+                BallsConstraintsBuilder.SpreadInfection(balls, map);
+
                 if (shot == Shot.Bounced)
                 {
                     //The world still runs: the cluster is swinging from the last landing and the glass may be

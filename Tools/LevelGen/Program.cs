@@ -16339,6 +16339,17 @@ namespace BS3D.Tools.LevelGen
                             BallType best = array[x, z, l].Type;
                             int bestGroup = 0;
 
+                            //⚠ THE KIND HAS TO BE CARRIED THROUGH EVERY PutBallAt BELOW (#331), and this is
+                            //exactly #325's recorded data loss arriving through the opposite door. That one
+                            //was "a special is not matchable, so the repair must skip it"; this is "a special
+                            //IS matchable" — an infectious ball is an ordinary ball of its colour that is
+                            //sick, so it passes the guard above and belongs in the repair — and PutBallAt's
+                            //`kind` parameter defaults to Normal, so every recolour here would silently CURE
+                            //it, with the level file written from the result. The trial recolours below do it
+                            //too: the ball must still be sick while the group is measured, or a sick ball's
+                            //group is measured on a field the repair has already changed.
+                            BallKind kind = array[x, z, l].Kind;
+
                             //Every colour standing next to it is a candidate; the one that leaves it in the
                             //biggest group wins. Measured by actually recolouring and asking, because the
                             //answer depends on what those neighbours are themselves connected to.
@@ -16347,13 +16358,13 @@ namespace BS3D.Tools.LevelGen
                                 StaticBall other = array[neighbour.X, neighbour.Z, neighbour.Level];
                                 if (other == null || !BallKinds.Matchable(other.Kind) || other.Type == best) continue;
 
-                                map.PutBallAt(x, z, l, other.Type);
+                                map.PutBallAt(x, z, l, other.Type, kind);
                                 int group = map.GetConnectedSameTypeCells(cell).Count;
 
                                 if (group > bestGroup) { bestGroup = group; best = other.Type; }
                             }
 
-                            map.PutBallAt(x, z, l, best);
+                            map.PutBallAt(x, z, l, best, kind);
                             if (bestGroup > 0) { changed++; repaired++; }
                         }
 
@@ -16394,7 +16405,7 @@ namespace BS3D.Tools.LevelGen
             //rather than an addition (#329): #328 added the kind without adding it here, so a level built of
             //acid and colour alone would have skipped the stranded-specials walk entirely — which is #343's
             //own bug, arriving through the next kind. Anything not matchable belongs in this list.
-            int rocks = 0, glass = 0, bombs = 0, zaps = 0, acids = 0, frozen = 0;
+            int rocks = 0, glass = 0, bombs = 0, zaps = 0, acids = 0, frozen = 0, infectious = 0;
 
             for (byte l = 0; l < map.Levels; l++)
                 for (byte x = 0; x < map.StageSizeX; x++)
@@ -16409,6 +16420,14 @@ namespace BS3D.Tools.LevelGen
                         if (ball.Kind == BallKind.Zap) zaps++;
                         if (ball.Kind == BallKind.Acid) acids++;
                         if (ball.Kind == BallKind.Frozen) frozen++;
+                        //⚠ BallKind.Infectious is deliberately NOT in this list (#331), and it is the one
+                        //exception to the rule the line above states ("anything not matchable belongs here").
+                        //It is the first special that IS matchable: a sick ball is an ordinary ball of its
+                        //colour that can be shot out like any other, so it needs none of what the stranded
+                        //walk asks — no empty cell to land beside, no landing to reach it. Its own gate is
+                        //the anchor-course one inside that walk, and its real gate is the sag probe, which
+                        //plays the level and watches it rot.
+                        if (ball.Kind == BallKind.Infectious) infectious++;
 
                         //⚠ THE COLOUR CENSUS IS OVER THE MATCHABLE BALLS ONLY (#323/#325), and it is not
                         //merely tidier: a rock or a glass ball counted here would enter `counts` under the
@@ -16481,7 +16500,7 @@ namespace BS3D.Tools.LevelGen
             //⚠ THE ROCKS COUNT TOWARDS ASKING IT (#343). While this read `glass + bombs`, a level built
             //entirely of stone and colour skipped the walk altogether, so the one gate that would have
             //caught a rock hanging off the ceiling was never run on the three levels that had one.
-            int specials = rocks + glass + bombs + zaps + acids + frozen;
+            int specials = rocks + glass + bombs + zaps + acids + frozen + infectious;
 
             StrandedReport stranded = specials == 0 ? new StrandedReport() : FindStrandedSpecials(map);
 
@@ -16493,6 +16512,7 @@ namespace BS3D.Tools.LevelGen
                 Console.WriteLine($"    glass in bodies of two or more: {(stranded.AloneGlass == 0 ? "all" : $"NO - {stranded.AloneGlass} ALONE")}");
                 Console.WriteLine($"    rocks the player can bring down: {(stranded.CeilingRocks == 0 ? "all" : $"NO - {stranded.CeilingRocks} ON THE ANCHOR COURSE")}");
                 Console.WriteLine($"    ice a group can ever reach: {(stranded.SealedIce == 0 ? "all" : $"NO - {stranded.SealedIce} SEALED IN")}");
+                Console.WriteLine($"    infection off the anchor course: {(stranded.CeilingInfection == 0 ? "all" : $"NO - {stranded.CeilingInfection} ON THE ANCHOR COURSE")}");
                 foreach (string where in stranded.Examples) Console.WriteLine($"      {where}");
             }
 
@@ -16513,7 +16533,7 @@ namespace BS3D.Tools.LevelGen
 
             return disconnected == 0 && lonely.Alone == 0 && !oneShot && margin >= 1
                    && stranded.Walled == 0 && stranded.Anchoring == 0 && stranded.CeilingRocks == 0
-                   && stranded.AloneGlass == 0 && stranded.SealedIce == 0;
+                   && stranded.AloneGlass == 0 && stranded.SealedIce == 0 && stranded.CeilingInfection == 0;
         }
 
         /// <summary>
@@ -16856,6 +16876,29 @@ namespace BS3D.Tools.LevelGen
                                                     + ": nothing the player does can ever cut it down");
                         }
 
+                        //⚠ THE INFECTION'S OWN REFUSAL, AND IT IS ASKED BEFORE THE MATCHABLE GUARD BELOW
+                        //(#331) — for the reason the rock's is asked before the removable one, and it is the
+                        //same shape of gap: a sick ball IS matchable, so every line after that guard is
+                        //unreachable for it.
+                        //
+                        //A sick ball on the anchor course hardens into stone THERE on the very first tick,
+                        //and #343 already settled what a rock on that course is: a ball hanging off a socket
+                        //nothing the player can do will ever cut, i.e. one that is on the field for the whole
+                        //level whatever they play. The difference from an authored rock is that this one
+                        //arrives with no player agency at all — it is a fait accompli handed over by the
+                        //author, on shot one. Lower down the field it is fair: the infection climbs, so it
+                        //reaches the anchor course eventually, and how many shots the player has before it
+                        //does is exactly the game being played.
+                        if (l == top && ball.Kind == BallKind.Infectious)
+                        {
+                            report.CeilingInfection++;
+
+                            if (report.Examples.Count < 3)
+                                report.Examples.Add($"infectious ball on the anchor course at cell ({x},{z})"
+                                                    + $" on level {l}: it hardens into stone up there on the"
+                                                    + " first tick, and nothing the player does cuts it down");
+                        }
+
                         //A ball a landing beside it has to reach, stated as the property rather than as a
                         //list of kinds: removable, so it holds the level open, and not matchable, so no
                         //colour can take it. Transparent and Bomb both answer it; the rock answers no to the
@@ -16957,6 +17000,13 @@ namespace BS3D.Tools.LevelGen
 
             /// <summary>Panes some landing would colour by themselves — see the ALONE paragraph (#344).</summary>
             public int AloneGlass;
+
+            /// <summary>
+            /// Infectious balls on the field's topmost level (#331): stone on the anchor course from the first
+            /// tick, which is #343's refusal arriving with no player agency at all. Asked ahead of the
+            /// matchable guard in <see cref="FindStrandedSpecials"/>, since a sick ball is matchable.
+            /// </summary>
+            public int CeilingInfection;
 
             /// <summary>
             /// Frozen balls with no matchable neighbour (#329): ice no group can ever be cleared beside, so it

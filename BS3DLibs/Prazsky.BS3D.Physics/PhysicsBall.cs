@@ -176,6 +176,31 @@ namespace Prazsky.BS3D.Physics
         public float ThawFadeRemaining;
 
         /// <summary>
+        /// Seconds left of this ball's crossing into the kind the infection just made it (#331), counting down
+        /// to zero — set on a ball that has just become <see cref="BallKind.Infectious"/> <b>or</b> just
+        /// hardened into a <see cref="BallKind.Rock"/>, for
+        /// <c>BallsConstraintsBuilder.INFECTION_FADE_SECONDS</c>.
+        /// <para>
+        /// <b>One field for both directions</b>, where the thaw needed one of its own, and the difference is
+        /// worth stating because it is the rule for the next kind that wants a crossing: what a crossing has to
+        /// know is which bucket it is coming OUT of, and here the ball's new <see cref="Kind"/> already says —
+        /// sick means it was ordinary, stone means it was sick. A thawed ball ends up <see cref="BallKind.Normal"/>,
+        /// which says nothing about where it came from, so that one had to carry the answer in a second timer.
+        /// </para>
+        /// <para>
+        /// The two can never collide: a ball hardened by a tick was sick before that tick, so it cannot also be
+        /// one the same tick infected — <c>BallsMap.SpreadInfection</c> reads the whole population before any
+        /// of it acts, exactly so.
+        /// </para>
+        /// <para>
+        /// Cosmetic, on <see cref="ColourFadeRemaining"/>'s terms: the ball is logically sick, or logically
+        /// stone, from the instant the tick ran, and a shot fired at a half-crossed one is answered by what it
+        /// already is.
+        /// </para>
+        /// </summary>
+        public float InfectFadeRemaining;
+
+        /// <summary>
         /// How long this released ball has been standing still, in seconds — the measure of whether it is on
         /// its way to the drain or has simply stopped where it was (#342). Reset the moment it moves again: a
         /// group nudged loose by a later landing is falling once more and is no longer dead weight.

@@ -371,6 +371,8 @@ namespace MapEditor
                     + "through the cluster beneath it until it reaches a gap)",
                 BallKind.Frozen => "Ball kind: frozen (an ordinary ball of this colour sealed in ice: nothing "
                     + "matches it until the player clears a group NEXT TO it)",
+                BallKind.Infectious => "Ball kind: infectious (an ordinary ball of this colour that is SICK: "
+                    + "after every shot it infects a healthy neighbour and hardens into a rock)",
                 _ => "Ball kind: normal",
             };
         }
