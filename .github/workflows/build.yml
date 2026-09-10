@@ -1,0 +1,55 @@
+name: Build
+
+# Every push, feature branch or main alike (#387) — this repo has no pull requests, so a direct push IS
+# how a merge into main lands, and "on push" already covers both cases the issue asks for in one trigger.
+on: [push]
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      # Each executable carries its own manifest, and the content build shells out to `dotnet mgcb` with the
+      # manifest search walking up from the *project* directory — so this has to run once per executable,
+      # not once at the repo root (CLAUDE.md's own build section explains why).
+      - name: Restore content tools (Testbed)
+        run: dotnet tool restore
+        working-directory: Testbed
+
+      - name: Restore content tools (MapEditor)
+        run: dotnet tool restore
+        working-directory: MapEditor
+
+      - name: Restore content tools (Game)
+        run: dotnet tool restore
+        working-directory: Game
+
+      - name: Build BS3DLibs.sln
+        run: dotnet build BS3DLibs.sln
+
+      - name: Build Testbed.sln
+        run: dotnet build Testbed.sln
+
+      - name: Build MapEditor.sln
+        run: dotnet build MapEditor.sln
+
+      - name: Build Game.sln
+        run: dotnet build Game.sln
+
+      # The generator is deterministic, so regenerating and demanding a clean tree proves the levels shipped
+      # on disk are the ones the generator in the tree actually makes — a design can otherwise be edited and
+      # the regeneration forgotten, and nothing today notices. Reads and rewrites the working tree; never
+      # committed, never pushed.
+      - name: Regenerate levels and check they match what is committed
+        run: |
+          dotnet run --project Tools/LevelGen/LevelGen.csproj
+          git diff --exit-code Game/Levels
+
+      - name: Run ScoreSim
+        run: dotnet run --project Tools/ScoreSim/ScoreSim.csproj
