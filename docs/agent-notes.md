@@ -1418,6 +1418,8 @@ Fotil jsem to přes všech třináct barev, dvakrát znovu:
 - **Nemocná koule nemá vlastní zvuk.** Rozbití ledu (#329) ho dostalo, protože jeho účinek není vidět; tady je vidět — puchýře a kámen. Kdyby se ukázalo, že tik uniká pozornosti, patří sem krátké mokré prasknutí, ne další záře.
 - **`RockTurns` se na čerstvě ztvrdlou kouli aplikuje okamžitě**, takže při zpevnění koule skokem změní natočení. Nezkoumal jsem, jestli to je na obrazovce vidět — obě poloviny přechodu ho dostávají, takže se nerozjedou, ale ten skok tam je.
 
+**Nic dalšího si neberu.**
+
 ---
 
 ## 2026-09-09 — Claude Code (třetí zápis dne)
@@ -1466,7 +1468,44 @@ Iterátor byl v pořádku, dokud se na sousedy ptal **dopad**. #70 nechalo náhl
 
 ---
 
-## 2026-09-09 — Claude Code (třetí zápis dne)
+## 2026-09-09 — Claude Code (čtvrtý zápis dne)
+
+**#380 hotové na větvi `380-editor-all-scenes`: scénový cyklus jde přes všechny scény, v obou programech, které ho mají.** `SceneRenderer.NextScene` chodí po enumu, `CycleLength` je zrušený (jiného volajícího neměl).
+
+### Co bylo doopravdy špatně, a je to jiná věta než „deset scén nešlo zobrazit"
+
+Prefix sedmi scén měl důvod — „scény, proti kterým se kreslí mapa" — a ten důvod **umřel při stavbě kampaně, aniž to kdokoli rozhodl: padesát ze sto deseti shipnutých levelů je autorováno ve space, dreamu, cavernu, na Měsíci a v sopce**, všechny za prefixem. Horší než nedostupné pozadí je ale tohle: **po načtení takového levelu leží index za koncem cyklu, takže první V restartuje na City a k vlastní scéně levelu se nedá vrátit jinak než znovunačtením souboru** — v programu, jehož jediná práce je ukázat mapu proti pozadí, ve kterém pojede. #73 kdysi opravilo *aritmetiku* toho restartu; prefix samotný opravit nemohlo.
+
+### ⚠ Rozšíření cyklu odhalilo tabulku, která byla správně jen proto, že byl cyklus krátký
+
+`Testbed.SetScene` dosazoval vlastní kupoli **moři a savaně** a víc nejmenoval, zatímco parse `scene=` při startu jmenoval **všech šest** scén, které kupoli mají. Kdo by dojel cyklem na tropy, sopku, Mars nebo bouři, dostal by je pod tím, co zrovna viselo. Obě ramena se teď ptají jedné `Testbed.DefaultSkyDome`. **Hra drží třetí kopii téže šestiřádkové tabulky se stejnými šesti čísly** (`BS3DGame.SetScene`) — dnes souhlasí a nic je k tomu nenutí; sloučit všechny tři je práce na vlastní větev, ne přílepek k cyklu.
+
+### ⚠ Editor kupoli scény ZÁMĚRNĚ nedosazuje, na rozdíl od Testbedu i hry
+
+Zjišťoval jsem to, protože první instinkt byl opačný: náhled má vypadat jako hra, tak ať V dosadí kupoli scény. **Je to past.** V editoru je kupole **data** — F4 ji píše do levelu — a ve hře se sky levelu aplikuje **až po** scénině výchozí (`GameplayScreen.Session`) a **vyhrává**. Dosadit ji při cyklu by tedy kvůli náhledu přepsalo autorovu volbu, tedy zničilo jeho práci. Napsáno na místo, ať to příště nikdo „neopraví".
+
+### Rozhodnutí, která issue nechalo na stavitelovi
+
+1. **Testbed jsem rozšířil taky**, ne jen editor. Nechat jeden na sedmi znamená nechat žít konstantu, jejíž doc tvrdí mrtvou premisu — a Testbed je nástroj, kterým se scény soudí; srovnat sopku s Marsem nešlo klávesou, jen restartem procesu.
+2. **Zpětná klávesa NE.** `B` cyklí dvacet kupolí na jedné klávese, takže sedmnáctka je idiom tohohle programu, ne nová zátěž; a modifikátor by chtěl stav klávesnice, který `CameraInputHelper` nevydává (a druhý `GetState()` zakazuje BestPractices §5). Kdyby to v praxi vadilo, je to samostatná drobnost.
+3. **Hint Testbedu ztratil počet.** #376 ho stavělo z enumu, aby nemohl zestárnout; klávesa, která dosáhne na všechny členy, nemá na co ukazovat. **Nepotřebovat počet je lepší než mít nestárnoucí.**
+
+### Ověření
+
+- **Testbed vlastní časovou osou** (`scene=city` + 18× `at=N:NumPad2`): sedmnáct scén v deklarovaném pořadí a přetečení `Storm → City → Sea`. K tomu `[sky] Dome` 13 / 14 / 1 / 9 / 19 / 20 na moři, savaně, tropech, sopce, Marsu a bouři — **prostřední čtyři jsou přesně ty, které staré rameno nikdy nastavit nemohlo** — a každá ostatní scéna si nechá zděděnou kupoli.
+- **Editor dvakrát vyfocen z volcano levelu** (`Caldera.json`, harness ve scratchpadu: fokus klikem na titulek, scan-code klávesy, `CopyFromScreen` — editor nemá ani časovou osu, ani klávesu na snímek): **jedno V jde na Mars**, ne na City, a **sedmnáct se vrátí na Volcano**, s panelem scény přebindovaným v každém kroku.
+- Čtyři solutiony 0 chyb, LevelGen 0 s `Game/Levels` beze změny, ScoreSim zelený.
+- Dokumentace přepsaná v témže commitu: `CLAUDE.md`, `docs/scenes.md` (osm míst — včetně „Fifteen `SceneKind`s exist", což byla vlastní hniloba: je jich sedmnáct), `docs/testbed.md` a `docs/formats-and-tools.md`. Historické záznamy #73 a #376 jsem nechal stát a dopsal k nim, že cyklus, který popisují, už neexistuje.
+
+### Co zůstává
+
+- **Merge na slovo majitele.**
+- `screenshot.ps1` ve skillu nemá v `KeyMap` ani `V`, ani `NumPad2` — proto ten vlastní harness. Dva řádky by to spravily, ale je to cizí soubor a jiná práce.
+- **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-09 — Claude Code (pátý zápis dne)
 
 **#332 (gravitační studna) — na větvi `332-gravity`, NEmergnuto: čeká na majitelovo ruční ověření, které je jediná část, kterou neumím udělat sám.** Osmý druh: obyčejná koule své barvy, která **ohýbá rány letící kolem ní**. Nová `GravityWells`, hák `PhysicsWorld.PerStepForces`, `ShotPlacement.TryFindFirstHitCurved`, technika `InstancedModelGravity`, jedenáctý region kbelíků, brána v LevelGenu, `SagProbe` s křivkou, argument hry `levelfile=` a dvě mapy.
 
@@ -1522,3 +1561,19 @@ Akceptační test „duch se shodne s dopadem" jsem psal jako 6/6. **Rovný, nez
 **Nezměřil jsem cenu snímku** integrace náhledu (issue ji chce s pevnou kamerou a párovými opakováními). Mám v paměti majitelovo „desktop se pod zátěží tvrdě resetuje, ptej se před delší GPU seancí", takže se ptám než to spustím.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-10 — Claude Code
+
+**Obě větve, které čekaly na slovo, jsou na `main`:** `332-gravity` a `380-editor-all-scenes`, obojí `--no-ff`, na majitelův pokyn. Zápisy výše zůstávají stát tak, jak byly psané — včetně vět „NEmergnuto" a „Merge na slovo majitele", které tímhle přestaly platit.
+
+**⚠ Seam, který ten merge otevřel, a proč byl skutečný:** `332-gravity` odbočilo **před** #381, takže se v něm potkal starý `GetNeighboringCells` (iterátor) s novým (struct), a `380-editor-all-scenes` sahalo do týchž tří souborů kolem scén. Textově prošlo obojí, konflikt byl jen v tomhle žurnálu (obě větve psaly na jeho konec). Ověřeno **čtyřmi solutiony bez chyby**, **LevelGenem s exit 0 a `Game/Levels` beze změny** — což je na pořadí sousedů ten nejsilnější důkaz, co existuje, protože přegenerování projede kyselinovou chůzi, sag sondu se zakřiveným řešitelem i `FindStrandedSpecials` — a ScoreSim „All levels rate the right way round".
+
+**Pořadí zápisů z 9. 9. jsem srovnal podle času commitu, ne podle pořadí merge:** #380 (18:23) je čtvrtý, #332 (20:58) pátý. Obě větve si samy říkaly „třetí"/„čtvrtý", protože o sobě navzájem nevěděly; přečíslovaný je jen nadpis #332.
+
+### Co po nich zůstává otevřené a nikdo si to nebere
+
+- **#332 nemá to ruční ověření, na kterém samo trvá:** že s **drženým RMB** duch sedí tam, kam rána doopravdy dopadne. Merge tuhle otázku nezodpověděl, jen ji přestal blokovat. Scénář je napsaný v zápisu výše (`levelfile=` na `Testbed\Maps\GravityLevel.json`).
+- **Cena snímku zakřiveného náhledu není změřená** (pevná kamera, párová opakování).
+- **`CA2014` v `Tools/LevelGen/Program.cs`** (`stackalloc` v trojité smyčce) **není z merge** — stojí to na `main` i před ním, jen se posunulo číslo řádku. Nechávám stát; patří to k #386, ne sem.

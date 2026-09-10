@@ -534,8 +534,8 @@ namespace Testbed
             //Testing: "scene=<name>" picks the starting environment, through the one parser every executable
             //now shares (#75 — this was an if/else chain here and a switch in the game, kept in step by hand,
             //which is exactly what a script driving both cannot afford). An unrecognised name leaves the
-            //default city standing. The six scenes past the end of the NumPad2 cycle — which still walks only
-            //SceneRenderer.CycleLength, the seven a map is authored against — are reachable only this way here.
+            //default city standing. It is no longer the only way to reach ten of the seventeen: since #380
+            //NumPad2 walks the whole enum, so this pins where a run STARTS rather than what it can see.
             if (SceneRenderer.TryParseScene(options.Scene, out SceneKind startupScene)) _scene = startupScene;
             _exposure = options.Exposure > 0f ? options.Exposure : DEFAULT_EXPOSURE;
             _supersampleFactor = Math.Clamp(options.SupersampleFactor, 1, 4); //"ssaa=<n>" trades sharpness against fill rate
@@ -543,12 +543,15 @@ namespace Testbed
             _ballStyleFromCommandLine = options.Balls;  //Testing: "balls=<name>" pins the ball material (#318)
             _skyFromCommandLine = options.SkyNumber >= 1 && options.SkyNumber <= SKY_DOME_COUNT;
             if (_skyFromCommandLine) _skyModelNumber = options.SkyNumber; //Testing: "sky=<n>" on the command line picks the starting sky dome
-            else if (_scene == SceneKind.Sea) _skyModelNumber = SEA_DEFAULT_SKY_DOME; //The sea scene defaults to a darker dome (unless sky= overrode it above)
-            else if (_scene == SceneKind.Savanna) _skyModelNumber = SAVANNA_DEFAULT_SKY_DOME; //The savanna defaults to a warm golden dome
-            else if (_scene == SceneKind.Tropical) _skyModelNumber = TROPICAL_DEFAULT_SKY_DOME; //The beach defaults to the brightest blue
-            else if (_scene == SceneKind.Volcano) _skyModelNumber = VOLCANO_DEFAULT_SKY_DOME;   //The volcano defaults to the darkest dome
-            else if (_scene == SceneKind.Mars) _skyModelNumber = MARS_DEFAULT_SKY_DOME;         //Mars defaults to its own dome
-            else if (_scene == SceneKind.Storm) _skyModelNumber = STORM_DEFAULT_SKY_DOME;       //The storm defaults to the brightest daylight
+            else
+            {
+                //The dome this scene states, if it states one — six of the seventeen do, and DefaultSkyDome
+                //carries which and why. It is the same call SetScene makes, which is the whole point of it
+                //being a call: this arm and that one were two hand-kept tables until #380.
+                byte startupDome = DefaultSkyDome(_scene);
+
+                if (startupDome != 0) _skyModelNumber = startupDome;
+            }
 
             _graphics = new GraphicsDeviceManager(this);
             _graphics.PreparingDeviceSettings += Graphics_PreparingDeviceSettings;
@@ -627,7 +630,9 @@ namespace Testbed
                 //AXIS and count it off the enum, and print the live value under the list (see
                 //RefreshOverlayText). A hint that enumerates is a hint that will be wrong.
                 new(mgKeys.NumPad1, SwitchSkyDome, $"Cycle sky dome (1-{SKY_DOME_COUNT})"),
-                new(mgKeys.NumPad2, SwitchScene, $"Cycle scene ({SceneRenderer.CycleLength} of {Enum.GetValues<SceneKind>().Length}; scene= reaches the rest)"),
+                //#376 built this string from the enum so it could not age; #380 took the count out of it
+                //entirely, because the key now reaches every member and there is no remainder to point at
+                new(mgKeys.NumPad2, SwitchScene, "Cycle scene (the current one is printed as [scene])"),
                 new(mgKeys.D1, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Forward, true), "Forward view"),
                 new(mgKeys.D2, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Backward, true), "Backward view"),
                 new(mgKeys.D3, () => _cih.CenterCameraToMapCenter(Vector3.Zero, Vector3.Left, true), "Left view"),
@@ -1153,15 +1158,12 @@ namespace Testbed
 
         private void SwitchScene()
         {
-            //The cycle is deliberately only SceneRenderer.CycleLength long — the seven scenes a map is authored
-            //against — but it has to be entered from OUTSIDE it too, and (index + 1) % 7 could not do that (#73):
-            //started from a scene reached with scene=, the modulo landed wherever the arithmetic fell rather than
-            //at a cycle boundary, so NumPad2 from the forest (index 7) came out at the SEA, three scenes deep,
-            //and the four cycle entries before it were unreachable without pressing it four more times. Anything
-            //off the end restarts the cycle at the city instead.
-            int next = (int)_scene + 1;
-
-            SetScene((SceneKind)(next < SceneRenderer.CycleLength ? next : 0));
+            //Every scene, off the enum itself (#380). It walked a seven-long prefix until then and the other ten
+            //were reachable only with scene=, which is a restart of the process — so a comparison between, say,
+            //the volcano and Mars could not be made by pressing a key. #73's fix (a scene reached with scene=
+            //put _scene past the prefix, and the modulus then landed wherever the arithmetic fell rather than at
+            //a boundary) is not needed by a cycle that has no prefix to fall off.
+            SetScene(SceneRenderer.NextScene(_scene));
         }
 
         /// <summary>
@@ -1190,18 +1192,49 @@ namespace Testbed
             //still re-derive: a scene may state its own lighting instead of the dome's, and the rig has to be
             //told which scene it is standing in. Latent rather than visible while the cycle stays inside the
             //seven that all take the dome's — which is exactly why it would have gone unnoticed.
-            if (_scene == SceneKind.Sea) SetSkyDome(SEA_DEFAULT_SKY_DOME);
-            else if (_scene == SceneKind.Savanna) SetSkyDome(SAVANNA_DEFAULT_SKY_DOME);
+            //⚠ This arm named TWO of the six scenes that state a dome until #380, and was correct only because
+            //the cycle could not reach the other four. Widening the cycle is what made it wrong, so both arms
+            //now ask DefaultSkyDome — the startup one below the scene= parse, and this one.
+            byte sceneDome = DefaultSkyDome(_scene);
+
+            if (sceneDome != 0) SetSkyDome(sceneDome);
             else ApplySkyLighting();
 
             //And the sky that scene stands under (#221), which is the scene config's own — the same answer
             //the game reads, from the same place, so a scene's weather cannot be one thing here and another
             //there. SetWeather fades, so cycling with NumPad2 leaves one sky closing over into the next.
             ApplySceneWeather(immediately: immediately);
-            //The tropical beach and the volcano sit past the cycle's end (CycleLength 7) and are never
-            //reached by this switch — their default domes are applied at startup only, where the scene= arm
-            //above finds them.
         }
+
+        /// <summary>
+        /// The dome a scene stands under when nothing else says otherwise, or <c>0</c> for the eleven that state
+        /// none and keep whatever is up. One answer for the two places that need it — the <c>scene=</c> parse at
+        /// startup and <see cref="SetScene"/> — which until #380 were a six-row table and a two-row subset of it,
+        /// the subset being right only for as long as NumPad2 could not reach the other four.
+        /// <para>
+        /// The sea mirrors the sky, so a bright dome would give it a breezy mood rather than the moody one it is
+        /// built for; the savanna wants the warmest gold horizon of the set; the tropical beach wants the
+        /// brightest blue, because sand and turquoise water only read as a postcard under a sunny sky; the
+        /// volcano wants the darkest, because its ground is what lights it; Mars and the storm want their own.
+        /// </para>
+        /// <para>
+        /// <b>The game holds a third copy of this table</b> (<c>BS3DGame.SetScene</c>), with the same six scenes
+        /// and the same six numbers, so a scene looks the same in both. They agree today; nothing makes them.
+        /// Folding all three into one shared answer is worth doing and is not this change — it would move six
+        /// constants and the prose that explains them across a library boundary, which is a different job from
+        /// widening a cycle.
+        /// </para>
+        /// </summary>
+        private static byte DefaultSkyDome(SceneKind scene) => scene switch
+        {
+            SceneKind.Sea => SEA_DEFAULT_SKY_DOME,
+            SceneKind.Savanna => SAVANNA_DEFAULT_SKY_DOME,
+            SceneKind.Tropical => TROPICAL_DEFAULT_SKY_DOME,
+            SceneKind.Volcano => VOLCANO_DEFAULT_SKY_DOME,
+            SceneKind.Mars => MARS_DEFAULT_SKY_DOME,
+            SceneKind.Storm => STORM_DEFAULT_SKY_DOME,
+            _ => 0
+        };
 
         /// <summary>
         /// The per-frame inputs the shared <see cref="SceneRenderer"/> needs. The rig holds five of the six and
