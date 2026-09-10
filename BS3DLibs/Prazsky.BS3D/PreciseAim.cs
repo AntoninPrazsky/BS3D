@@ -41,6 +41,16 @@ namespace Prazsky.BS3D
         /// <summary>Ease time constant in seconds (~90 % in ~0.18 s) — the magazine slide's own idiom.</summary>
         public const float BLEND_TAU = 0.08f;
 
+        /// <summary>
+        /// The convergence depth's own ease, and <b>deliberately not <see cref="BLEND_TAU"/></b> (#382): it is a
+        /// different quantity answering a different event. The lean is a button the player pressed and wants to
+        /// see happen; the depth follows a first-hit distance that <i>jumps</i> whenever the crosshair crosses a
+        /// silhouette, with nobody having asked for anything. At the lean's 0.08 s such a jump reads as a flick,
+        /// so this is slower — ~90 % in ~0.7 s, slow enough that crossing an edge is a drift the eye does not
+        /// catch and still far faster than a player can re-aim across a field.
+        /// </summary>
+        public const float CONVERGE_TAU = 0.3f;
+
         /// <summary>Gamepad left-trigger pull that counts as held.</summary>
         public const float TRIGGER_THRESHOLD = 0.5f;
 
@@ -87,7 +97,9 @@ namespace Prazsky.BS3D
         /// wants on it (focus, a running cinematic, a loaded field, a mode animation).</param>
         /// <param name="elapsedSeconds">The frame's own elapsed time. Framed in seconds, so the ease does not
         /// change with the frame rate.</param>
-        public void Step(bool held, float elapsedSeconds)
+        /// <param name="targetDepth">How far along the aim the lens should converge <i>this</i> frame, before
+        /// easing and before clamping — see <see cref="ConvergeDepth"/> for what it is and why it is eased.</param>
+        public void Step(bool held, float elapsedSeconds, float targetDepth)
         {
             float target = held ? 1f : 0f;
 
@@ -95,10 +107,60 @@ namespace Prazsky.BS3D
 
             if (target == 0f && Blend < 0.002f) Blend = 0f;
             if (target == 1f && Blend > 0.998f) Blend = 1f;
+
+            //Followed exactly while the lens is out, eased only while it is in. Both halves are load-bearing.
+            //Out, the depth changes nothing that is drawn (the pose is Lerp(overview, leaned, 0)), so easing
+            //there would only mean ARRIVING wrong: a hold begun after the aim had swept elsewhere would open
+            //converged on where the player used to be pointing and slide, which is the one place the lean is
+            //supposed to be exact. In, easing is the whole point — see ConvergeDepth.
+            ConvergeDepth = Blend <= 0f
+                ? targetDepth
+                : targetDepth + (ConvergeDepth - targetDepth) * MathF.Exp(-elapsedSeconds / CONVERGE_TAU);
         }
 
+        /// <summary>
+        /// How far along the aim the lens converges, eased by <see cref="CONVERGE_TAU"/> and clamped where it is
+        /// used. <b>The caller says what it should be; this only smooths it.</b>
+        /// <para>
+        /// It exists because the over-the-barrel lens sits back and above the bore, so the screen-centre
+        /// crosshair is pixel-exact at exactly one depth and reads slightly off either side of it — and until
+        /// #382 that depth was the whole level's <i>average</i>: the cluster centre projected onto the aim. Worst
+        /// ~1.6° on the biggest map, and consistently slightly <b>low</b>, balls attaching at the near face. The
+        /// Game now hands it the distance to what the shot preview actually found, which is a number it already
+        /// computes in the same frame five lines earlier, so the error goes to zero <i>at the thing being aimed
+        /// at</i> — the only place it was ever visible.
+        /// </para>
+        /// <para>
+        /// <b>The ease is not polish, it is the whole risk of feeding it a real one.</b> A projected centre is
+        /// smooth by construction: it slides continuously as the aim sweeps. A first-hit distance does not — cross
+        /// a silhouette edge and it jumps from a near face to the far side of the field, or to nothing at all.
+        /// Converging on a jumping depth swings the look-at, which is a camera flick on every edge the crosshair
+        /// crosses, and that is worse than the 1.6° it fixes. Hence its own <see cref="CONVERGE_TAU"/>, and hence
+        /// the caller's duty to hand back today's projection — never the clamp's ceiling — when the sweep finds
+        /// nothing at all: an aim pointed at open sky has no impact to converge on.
+        /// </para>
+        /// </summary>
+        public float ConvergeDepth { get; private set; } = CONVERGE_MAX;
+
+        /// <summary>
+        /// The depth a caller with only a cluster centre has: that centre projected onto the aim. It is what
+        /// this component converged on for every frame before #382, and it stays the honest answer for two
+        /// cases — the Testbed, which has no shot preview at all and derives the centre from the loaded map,
+        /// and either caller on a frame whose sweep found nothing.
+        /// </summary>
+        public static float DepthToClusterCentre(Vector3 muzzle, Vector3 aim, Vector3 clusterCentre)
+            => Vector3.Dot(clusterCentre - muzzle, aim);
+
         /// <summary>Back to the overview with no ease — for a torn-down session or a camera-mode exit.</summary>
-        public void Reset() => Blend = 0f;
+        public void Reset()
+        {
+            Blend = 0f;
+
+            //Back to the far end rather than to whatever the torn-down session was looking at: the next Step
+            //while the lens is out will overwrite it with that caller's own target anyway, so this only has to
+            //be a value no arithmetic can trip over.
+            ConvergeDepth = CONVERGE_MAX;
+        }
 
         /// <summary>
         /// Whether precise aim is being held: the right mouse button, or the gamepad's left trigger past
@@ -181,15 +243,11 @@ namespace Prazsky.BS3D
         /// clamped, which centres the small over-the-barrel parallax over the region the impact face sweeps
         /// during a game.
         /// </summary>
-        /// <param name="clusterCentre">Where the hanging cluster's middle is. The caller's to supply and the
-        /// two do it differently — the Testbed derives it from the loaded map, the Game reads a figure it
-        /// solved once for the level — so this deliberately does not learn what a map is.</param>
-        public static Vector3 LensTarget(Vector3 muzzle, Vector3 aim, Vector3 clusterCentre)
-        {
-            float depth = MathHelper.Clamp(Vector3.Dot(clusterCentre - muzzle, aim), CONVERGE_MIN, CONVERGE_MAX);
-
-            return muzzle + aim * depth;
-        }
+        /// <param name="depth">How far along the aim to converge — <see cref="ConvergeDepth"/>, already eased.
+        /// Clamped here rather than by the caller, so that every route in gets the same floor and ceiling: the
+        /// floor keeps the look-at off the barrel itself, and a depth is a number any caller can get wrong.</param>
+        public static Vector3 LensTarget(Vector3 muzzle, Vector3 aim, float depth)
+            => muzzle + aim * MathHelper.Clamp(depth, CONVERGE_MIN, CONVERGE_MAX);
 
         /// <summary>
         /// This frame's pose: the overview and the leaned pose interpolated by <see cref="Blend"/>, position,
@@ -200,13 +258,13 @@ namespace Prazsky.BS3D
         /// <param name="muzzle">The muzzle this frame, taken <b>after</b> the gun has been updated — reading the
         /// pose before the gun moves makes the camera lag a frame, which reads as jitter.</param>
         public AimPose BlendedPose(Vector3 overviewPosition, Vector3 overviewTarget, float overviewFov,
-            Vector3 muzzle, Vector3 aim, Vector3 clusterCentre)
+            Vector3 muzzle, Vector3 aim)
         {
             //At a blend of exactly zero these are Lerp(a, b, 0) == a, bit for bit, so the overview pose comes
             //back untouched rather than approximately — which is what lets an interrupted hold not snap
             return new AimPose(
                 Vector3.Lerp(overviewPosition, LensPosition(muzzle, aim), Blend),
-                Vector3.Lerp(overviewTarget, LensTarget(muzzle, aim, clusterCentre), Blend),
+                Vector3.Lerp(overviewTarget, LensTarget(muzzle, aim, ConvergeDepth), Blend),
                 MathHelper.Lerp(overviewFov, FOV, Blend));
         }
     }

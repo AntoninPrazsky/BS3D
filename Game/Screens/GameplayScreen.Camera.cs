@@ -43,7 +43,26 @@ namespace BS3D.Screens
             //held or not: an unheld frame is how the lean eases back out, which is what makes losing focus a
             //fade rather than a drop. At a blend of 0 the pose below is the overview pose bit for bit, so
             //letting go re-asserts today's framing exactly and an interrupted hold never snaps.
-            _preciseAim.Step(_adsHeld, elapsed);
+            Vector3 lensMuzzle = _cannon.MuzzlePosition(Game.CannonRig.PivotToFrontBall);
+            Vector3 lensAim = _cannon.AimDirection;
+
+            //Where the lens converges (#382). UpdateShotPreview runs five lines before this in the frame and
+            //has ALREADY swept the flight against the balls, so _previewBeamEnd is this frame's true first
+            //contact — the number the convergence wanted all along, and it used to be thrown away while this
+            //converged on the whole level's average instead. Projected onto the aim rather than taken as a
+            //point, because LensTarget's contract is a point ON the shot ray: what parallax is about is DEPTH,
+            //and the projection is exactly the depth of the impact along the line of sight. That also keeps
+            //the curved flights of #332 honest — an arc's contact lies off the aim, and its depth does not.
+            //
+            //And when the sweep found nothing, today's projection is the fallback and NOT the clamp's ceiling:
+            //an aim swung out over open sky has no impact to converge on, and snapping the look-at to 90 units
+            //out there is precisely the flick the ease exists to prevent.
+            float convergeTarget = _previewReachesCluster
+                ? Vector3.Dot(_previewBeamEnd - lensMuzzle, lensAim)
+                : PreciseAim.DepthToClusterCentre(lensMuzzle, lensAim,
+                    new Vector3(_cannon.OrbitCenter.X, _clusterCentreY, _cannon.OrbitCenter.Z));
+
+            _preciseAim.Step(_adsHeld, elapsed, convergeTarget);
 
             Vector3 overviewPosition = GameCameraPositionAt(_gameCameraDistance, TrailedBearing(elapsed));
             Vector3 overviewTarget = new(_cannon.OrbitCenter.X, _gameCameraTargetY, _cannon.OrbitCenter.Z);
@@ -51,11 +70,9 @@ namespace BS3D.Screens
             //Taken as a VALUE, not written into the camera: the cinematic below goes on lerping over it, and
             //the base pose the shake composes onto is whatever comes out of both. The muzzle and the aim are
             //read after _cannon.Update this frame, or the lens lags the barrel and reads as jitter — and
-            //without the recoil, which is the barrel's drawing offset and not where it is pointed. The cluster
-            //centre is the whole field's middle, solved once per level: the impact face sweeps that range.
-            AimPose aim = _preciseAim.BlendedPose(overviewPosition, overviewTarget, GAME_FOV,
-                _cannon.MuzzlePosition(Game.CannonRig.PivotToFrontBall), _cannon.AimDirection,
-                new Vector3(_cannon.OrbitCenter.X, _clusterCentreY, _cannon.OrbitCenter.Z));
+            //without the recoil, which is the barrel's drawing offset and not where it is pointed. The depth
+            //it converges at is the eased one Step took above.
+            AimPose aim = _preciseAim.BlendedPose(overviewPosition, overviewTarget, GAME_FOV, lensMuzzle, lensAim);
 
             Vector3 position = aim.Position;
             Vector3 target = aim.Target;

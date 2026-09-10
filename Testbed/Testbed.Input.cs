@@ -143,13 +143,21 @@ namespace Testbed
                 //perfectly and produce nothing at all on a minimised window.
                 bool adsHeld = !_freeModeAnimStarted && _map != null
                     && ((IsActive && PreciseAim.ButtonHeld(mouse, pad)) || _script != null && _script.IsPreciseAimHeld());
-                _preciseAim.Step(adsHeld, (float)gameTime.ElapsedGameTime.TotalSeconds);
-
                 //The muzzle is read after _cannon.Update above, for the same reason the camera pose is (#29). The
                 //cluster centre is this file's own derivation off the loaded map - PreciseAim deliberately does not
                 //learn what a map is.
+                Vector3 lensMuzzle = _cannon.MuzzlePosition(_cannonRig.PivotToFrontBall);
+                Vector3 lensAim = _cannon.AimDirection;
+
+                //The Testbed KEEPS the projected centre where the Game now converges on its shot preview (#382),
+                //and it is not an omission: this program has no shot preview to read a first-hit distance from -
+                //the sweep it would need runs in the Game's UpdateShotPreview, which has no counterpart here.
+                //A rig that guessed one would be measuring its own guess.
+                _preciseAim.Step(adsHeld, (float)gameTime.ElapsedGameTime.TotalSeconds,
+                    PreciseAim.DepthToClusterCentre(lensMuzzle, lensAim, ClusterCentre()));
+
                 AimPose aim = _preciseAim.BlendedPose(GetCanonOffsettedPos(), GetCannonOffsettedTarget(), GAME_FOV,
-                    _cannon.MuzzlePosition(_cannonRig.PivotToFrontBall), _cannon.AimDirection, ClusterCentre());
+                    lensMuzzle, lensAim);
 
                 //The order FOV -> Position -> Target is required: the Target setter rebuilds the view last, with
                 //world up (which is also where the ADS lens's view up comes from for free).
