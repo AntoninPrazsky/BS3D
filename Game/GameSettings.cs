@@ -69,6 +69,15 @@ namespace BS3D
         public float Exposure { get; set; }
 
         /// <summary>
+        /// The player's multiplier over <c>MouseAim.SENSITIVITY</c>, off the sensitivity ladder (#384). 1 is the
+        /// shipped feel, which is why it is the default rather than 0: unlike the exposure row above, there is
+        /// no sentinel here, because there is no command-line argument that could want to mean "whatever the
+        /// game thinks". Clamped on the way in by the game, so a hand-edited file cannot pin the aim at zero.
+        /// </summary>
+        [JsonPropertyName("sensitivity")]
+        public float Sensitivity { get; set; } = 1f;
+
+        /// <summary>
         /// The sky the front end comes up under, or 0 for "whatever the scene wants". It is seeded
         /// <b>before</b> <c>SetScene</c> runs rather than after, which is what keeps it from overriding the
         /// six scenes that state a dome of their own (the sea, the savanna, the tropics, the volcano, Mars

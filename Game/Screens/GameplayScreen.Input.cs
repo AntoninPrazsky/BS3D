@@ -181,7 +181,15 @@ namespace BS3D.Screens
                 return;
             }
 
-            if (_cursorCaptured) _mouseAim.ApplyCursor(_cannon, mouse, centreX, centreY, gameTime);
+            //The player's dial times the lens's lean (#384). The lean's own term is LAST FRAME'S — _adsHeld is
+            //set below and _preciseAim.Step runs later still, in UpdateCamera — and that is deliberate rather
+            //than overlooked: stepping the blend up here to make it this frame's would move where the camera
+            //reads the lean, which is an order this file and PreciseAim both state reasons for. A frame of lag
+            //on a factor whose own ease is BLEND_TAU (0.08 s, ~90 % in 0.18 s) is far below what a hand can
+            //feel; a camera reading a lean the gun has not been posed for is not.
+            if (_cursorCaptured)
+                _mouseAim.ApplyCursor(_cannon, mouse, centreX, centreY, gameTime,
+                    Game.MouseSensitivity * _preciseAim.CursorRateScale(GAME_FOV));
 
             //The shot edge is gated on the same "a captured frame has been seen" flag the aim is: on the frame
             //the baseline is dropped there is no aim to fire along yet, so no phantom shot goes off either

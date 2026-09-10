@@ -36,14 +36,26 @@ namespace Prazsky.BS3D
     public sealed class MouseAim
     {
         /// <summary>
-        /// Aim per pixel, after the frame-time cancellation: 0.001 × this, in radians. A pixel of cursor travel
-        /// is therefore worth the same angle whatever the frame rate.
+        /// Aim per pixel, after the frame-time cancellation: 0.001 × this, in radians — so 0.115° of aim per
+        /// pixel of cursor travel, at any frame rate.
+        /// <para>
+        /// <b>This is the shipped feel and not the whole answer</b> (#384): it is an angle per <i>pixel</i>, so
+        /// on its own it hands a 4K player half the sweep per hand movement that it hands a 1600×900 one, and a
+        /// high-DPI mouse a different one again. What the player's own dial and the lens's lean both do is
+        /// multiply it — see <c>rateScale</c> on <see cref="ApplyCursor"/>.
+        /// </para>
         /// </summary>
         public const float SENSITIVITY = 2.0f;
 
         /// <summary>
         /// Right-stick aim rate. No <c>1/dt</c> here, unlike the cursor: a stick deflection is already a rate,
         /// so the frame time <see cref="Cannon.Aim"/> applies is exactly what it wants.
+        /// <para>
+        /// <b>Deliberately left a constant by #384, which put the cursor's on a settings row.</b> It is not the
+        /// same quantity wearing a different name — a rate has no pixels in it, so none of the argument for the
+        /// dial (a screen's resolution, a mouse's DPI) reaches this at all, and one row driving both would let a
+        /// player fixing their mouse break their pad. If it ever earns a dial, it earns its own.
+        /// </para>
         /// </summary>
         public const float PAD_RATE = 1.0f;
 
@@ -67,7 +79,16 @@ namespace Prazsky.BS3D
         /// </summary>
         /// <param name="mouse">This frame's snapshot — taken once by the caller, never polled here.</param>
         /// <param name="centreX">Live viewport centre, per the class remarks. Do not cache it.</param>
-        public void ApplyCursor(Cannon cannon, in MouseState mouse, int centreX, int centreY, GameTime gameTime)
+        /// <param name="rateScale">Everything the caller wants multiplied into <see cref="SENSITIVITY"/> this
+        /// frame, as one number (#384). Two things ride it and they have deliberately different lifetimes: the
+        /// player's own dial off the settings page, which is a <i>setting</i>, and
+        /// <see cref="PreciseAim.CursorRateScale"/>, which is a <i>frame</i>. They are multiplied by the caller
+        /// rather than stored here because this class cannot own either — the dial belongs to a settings file
+        /// the Testbed does not have, and a copy held here would be one more thing to keep in step with a page
+        /// the player can open in the middle of a level. <b>1 is the shipped feel</b>, and is what a caller with
+        /// neither passes.</param>
+        public void ApplyCursor(Cannon cannon, in MouseState mouse, int centreX, int centreY, GameTime gameTime,
+            float rateScale)
         {
             if (!Initialized) return;
 
@@ -75,9 +96,9 @@ namespace Prazsky.BS3D
 
             if (dtMillis <= 0f) return;
 
-            float invDt = 1f / dtMillis;
-            float pitch = -(mouse.Y - centreY) * SENSITIVITY * invDt;   //mouse up -> aim up
-            float yaw = -(mouse.X - centreX) * SENSITIVITY * invDt;     //mouse left -> yaw left
+            float rate = SENSITIVITY * rateScale * (1f / dtMillis);
+            float pitch = -(mouse.Y - centreY) * rate;   //mouse up -> aim up
+            float yaw = -(mouse.X - centreX) * rate;     //mouse left -> yaw left
 
             if (pitch != 0f || yaw != 0f) cannon.Aim(new Vector2(pitch, yaw), gameTime);
         }
