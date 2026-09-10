@@ -1622,3 +1622,19 @@ Chtěl jsem to dokázat **kolečkem**: sweep tam s drženým RMB, stejný sweep 
 - **Nájezd čte blend z MINULÉHO snímku** v obou programech (`_adsHeld` se nastavuje ve vstupu a `PreciseAim.Step` běží až v kameře). Nechal jsem to a napsal proč: snímek zpoždění na členu, jehož vlastní náběh je `BLEND_TAU` 0,08 s, je pod tím, co ruka pozná — kamera čtoucí nájezd, na který dělo ještě není napózované, není.
 - **Neměřil jsem cenu snímku** a není co: dvě tangenty za snímek na cestě, která už dělá `Normalize` a `Lerp`.
 - **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-10 — Claude Code (třetí zápis dne)
+
+**Na majitelovo slovo: každá mergnutá větev je smazaná, a je z toho pravidlo v `CLAUDE.md`.** Větev `delete-merged-branches-rule`.
+
+**⚠ Pro druhý stroj, ať to nevypadá jako nehoda:** z GitHubu zmizelo **osmnáct** větví a lokálně tady **stodvacet pět**. Všechny byly mergnuté — ověřeno dvakrát a dvěma způsoby (`git branch -r --merged` a pak `git merge-base --is-ancestor` větev po větvi, se zapsanými SHA), otevřené PR nula, nemergnutého nezůstalo nic. **Neztratilo se nic a nejde o nic přijít**: každý commit je dosažitelný z `main` a **název každé větve stojí v jejím merge commitu**, takže zpětně se kterákoli dohledá přes `git log --oneline --merges | grep <název>` a obnoví z toho SHA.
+
+**Proč to pravidlo vzniklo, a je to argument o čitelnosti, ne o pořádku:** merge commit už název větve i její jednořádkové shrnutí nese, takže po přistání **ref na větvi nedrží nic, co historie nemá** — pořád ale něco *říká*, a říká „tohle se právě dělá". Na repu, jehož celý smysl je, že si `main` dělí několik strojů, je seznam větví způsob, jak se jeden stroj ptá, co má druhý rozdělané; seznam hotové práce se čte jako seznam nehotové. Odpověď na „co se teď dělá?" se musela **počítat, ne číst**.
+
+**Dvě výjimky, obě dočasné a ne povolené:** větev vyzvednutá ve worktree se smazat nedá, dokud se ten worktree nepřesune jinam (`git worktree list` řekne které — tady zůstaly `234-first-level-pyramid` a `384-mouse-sensitivity`), a větev, kterou si druhý stroj po mergi nestáhl, tam prostě přijde o upstream, což je neškodné.
+
+**Mazat vždy `git branch -d`, nikdy `-D`.** To malé `-d` odmítne cokoli, co doopravdy mergnuté není — a to je ta kontrola, ne formalita.
+
+**Nic dalšího si neberu.**
