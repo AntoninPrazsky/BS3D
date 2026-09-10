@@ -1638,3 +1638,44 @@ Chtěl jsem to dokázat **kolečkem**: sweep tam s drženým RMB, stejný sweep 
 **Mazat vždy `git branch -d`, nikdy `-D`.** To malé `-d` odmítne cokoli, co doopravdy mergnuté není — a to je ta kontrola, ne formalita.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-10 — Claude Code (čtvrtý zápis dne)
+
+**#382 hotové na větvi `382-ads-converge-on-impact`: přesné míření konverguje na skutečnou vzdálenost dopadu.** `PreciseAim.ConvergeDepth` + `CONVERGE_TAU`, `Step` bere cílovou hloubku, `LensTarget` bere hloubku místo středu clusteru, `DepthToClusterCentre` jako pojmenovaný zbytek staré aritmetiky.
+
+### ⚠ Issue navrhovalo instalatérství, které merge #332 mezitím udělal zbytečným
+
+#382 chce protáhnout `nearest` ven z `TryFindFirstHit` jako `out float distance`. **Nebylo potřeba sáhnout na jedinou signaturu v `ShotPlacement`:** #332 už `TryFindFirstHitOnSegment` `out float distance` dalo, a hlavně — hra si **kontaktní bod každý snímek drží** v `_previewBeamEnd`. Hloubka je `Dot(_previewBeamEnd − muzzle, aim)` a je zadarmo.
+
+**Promítnuto na aim, ne vzato jako bod**, a to je rozhodnutí, ne detail: `LensTarget` má ve smlouvě, že vrací bod **na** dráze střely, a parallax je o **hloubce**. Drží to zároveň zakřivené lety #332 poctivé — kontakt oblouku leží mimo aim, jeho hloubka ne.
+
+### ⚠ Co jsem musel ověřit, protože na tom celá změna stojí
+
+Že `UpdateShotPreview` **vždy** běží před `UpdateCamera`. Mezi nimi není žádná větev — a co je silnější, `UpdateShotPreview` si shazuje `_previewReachesCluster = false` **na svém začátku, před každým early returnem**. Zastaralý `_previewBeamEnd` tedy branou projít nemůže, ať se náhled ukončí kudy chce.
+
+### ⚠ Dvě pravidla kolem easingu, bez kterých by to bylo horší než původní stav
+
+1. **Hloubka se sleduje PŘESNĚ, dokud je čočka venku, a easuje se jen když je vevnitř.** Venku hloubka nekreslí nic (pose je `Lerp(overview, leaned, 0)`), takže easing by tam znamenal jen **špatný příjezd**: stisk po přejetí míření jinam by se otevřel zakonvergovaný na to, kam hráč mířil dřív, a teprve dojížděl.
+2. **Když sonda nic nenajde, fallback je dnešní projekce a NE strop clampu.** Míření vyvezené nad prázdné nebe nemá na co konvergovat, a skok look-atu na 90 jednotek je přesně to cuknutí, kvůli kterému ten easing existuje.
+
+`CONVERGE_TAU` je 0,3 s a **schválně to není `BLEND_TAU`** (0,08 s): náklon je tlačítko, které hráč zmáčkl a chce ho vidět, kdežto hloubka následuje událost, o kterou nikdo nežádal — přejetí siluety.
+
+### Ověření
+
+- **43 tvrzení proti skutečné knihovně** (rozšířená sonda z #384, jejích 27 tvrzení tam zůstalo jako regresní pojistka a prošla): clamp na obou koncích, `DepthToClusterCentre` bit za bitem stará projekce, nová cesta `LensTarget` dopadá tam co stará, obě pravidla easingu výše, **~90 % skoku za 0,7 s (změřeno 90,3 %)**, `Reset`, a hlavně **že při blend 0 se přehledová pose vrací BIT ZA BITEM** — vlastnost, na které stojí „přerušené držení nikdy neškubne".
+- **Změřený přínos: chyba kříže vůči dopadu 1,438° → 0,00000°.**
+- Čtyři solutiony 0 chyb.
+
+### ⚠ Co se mi ověřit NEPODAŘILO, a proč to říkám takhle natvrdo
+
+**Chtěl jsem A/B ve hře — starý a nový build, týž záběr, oční kontrola proti známé signatuře („duch sedící kousek nad křížem"), jak si to issue výslovně žádá. Nedotáhl jsem to na srovnatelné snímky.** Postavil jsem `main` ve worktree `BS3D-322` a fotil obě binárky týmž harnessem; oba běhy se korektně zaklonily a duch se v novém buildu kříže **dotýká**, kdežto ve starém sedí zhruba o průměr koule níž, což ta signatura je. **Jenže srovnatelné to není**: `GameplayScreen` má neosetý `private static readonly Random RANDOM = new()`, takže fronta má v každém běhu jiné barvy — úvodní klik, kterým se bere kurzor, jednou minul a podruhé sebral tři koule, a shluk se tím rozešel. Kdo na to sáhne, ať **nejdřív vyřeší determinismus** (osít `RANDOM`, nebo najít cestu, jak vzít kurzor bez výstřelu); bez toho je oční A/B v téhle hře anekdota.
+
+**Kvantitativní důkaz je proto sonda, ne snímek.** Uvádím to takhle, protože repo má pravidlo, že uvedené číslo je změřené — a 1,438° → 0° je měřené proti skutečné komponentě, ne odečtené z obrázku.
+
+### ⚠ Provozní: stroj se mi pod tím restartoval, a byla to moje chyba
+
+Devět spuštění hry po sobě bez zeptání, přesně proti tomu, co má majitel zapsané. **Nic se neztratilo** — `Settings.json`, jeho `.bak` i `Progress.json` po restartu hashují bajt za bajtem stejně (atomický zápis #353) a rozpracované úpravy přežily v pracovním stromu. **Majitelova rada, která z toho vzešla a patří do každého dalšího běhu: `fpscap=75`** (jeho monitor je 3840×1600 @ 75 Hz) — *„potom to tak nepadá"*. Oba běhy A/B pak jely s ním a proběhly. Explicitní argument je lepší než řádek „FPS limit: Monitor", protože ten závisí na souboru nastavení, který harness mohl přepsat.
+
+**Nic dalšího si neberu.**
