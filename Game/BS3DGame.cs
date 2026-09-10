@@ -1154,7 +1154,11 @@ namespace BS3D
         /// <summary>
         /// Replays the current entry by tearing the session down and building the same level again, so the
         /// score, the multiplier, the budget and the cluster all start over. <see cref="GameplayScreen.BuildLevel"/>
-        /// is the real reload the result screen offers as Retry.
+        /// is the real reload — the result screen's Retry and the pause's Restart (#383) both call this and
+        /// nothing else, so a mid-run restart and a post-result retry mean exactly the same thing. Neither ever
+        /// touches the player's recorded progress: <see cref="RecordLevelResult"/> only runs from inside
+        /// <c>GameplayScreen.ShowResultScreen</c>, which a torn-down attempt by construction never reaches —
+        /// an abandoned run simply vanishes, not scored as anything.
         /// </summary>
         internal void RetryLevel()
         {
