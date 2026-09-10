@@ -173,7 +173,13 @@ namespace Testbed
 
             IsMouseVisible = false;
 
-            _mouseAim.ApplyCursor(_cannon, mouse, cx, cy, gameTime);
+            //The lens's lean scales the cursor rate here exactly as it does in the game (#384), so what the
+            //instrument is used to judge aiming by is the game's own feel. The player's dial does NOT reach
+            //here and must not: the Testbed has no settings file, and a rig whose sensitivity could drift is
+            //one that cannot be compared against itself between two runs. It is therefore always the shipped
+            //100 %. The lean's term is last frame's — _preciseAim.Step runs below, for the reason the game's
+            //own call site states at length.
+            _mouseAim.ApplyCursor(_cannon, mouse, cx, cy, gameTime, _preciseAim.CursorRateScale(GAME_FOV));
             _mouseAim.Recentre(cx, cy);
 
             MouseAim.ApplyPad(_cannon, pad, gameTime);

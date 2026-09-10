@@ -792,6 +792,12 @@ namespace BS3D
                 : _settings.Exposure > 0f ? _settings.Exposure
                 : DEFAULT_EXPOSURE;
 
+            //No argument competes for this one, so it is only the file — but it is snapped ONTO the ladder
+            //rather than taken as read (#384). A file is a text file: a hand-edited 0 would leave the mouse
+            //unable to aim at all with nothing on screen to say why, and the settings row could not walk back
+            //to a rung from a value that is not on one.
+            _mouseSensitivity = NearestSensitivityRung(_settings.Sensitivity);
+
             _uncappedFps = uncappedFps ?? _settings.UncappedFps;
 
             _graphics = new GraphicsDeviceManager(this);

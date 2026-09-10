@@ -59,7 +59,7 @@ namespace BS3D.Screens
         private const int GROUP_HEADING_GAP = 40;
 
         private Label _fullscreenValue, _qualityValue, _exposureValue, _skyValue, _fpsValue, _fpsLimitValue;
-        private Label _volumeValue, _effectsValue, _musicValue, _ambienceValue, _trackValue;
+        private Label _volumeValue, _effectsValue, _musicValue, _ambienceValue, _trackValue, _sensitivityValue;
         private Label _aberrationValue, _grainValue, _dropCinematicValue;
         private Label _progressValue, _unlockAllValue;
 
@@ -154,17 +154,30 @@ namespace BS3D.Screens
             //and not a setting: it writes nothing, and the game takes the choice back at the next level.
             AddRow(grid, 5, "Track", Game.CycleMusicTrack, out _trackValue);
 
-            AddGroupHeading(grid, 6, "CAMPAIGN", first: false);
+            //The aim dial (#384). It gets a heading of its own where the drop camera deliberately did not,
+            //and the difference is not how many rows each has: that one IS a look to the player, so it belongs
+            //with the looks, while this is neither a look nor a sound and would be a lie under either heading.
+            //A CONTROLS group is also one that genuinely exists rather than one promised by a lone row - the
+            //pad's rate is a separate quantity that may earn its own row (see MouseAim.PAD_RATE), and this is
+            //where it would go.
+            AddGroupHeading(grid, 6, "CONTROLS", first: false);
+
+            //Above CAMPAIGN rather than below it, because the campaign rows are the destructive pair and the
+            //page keeps them last - a row a player is meant to click freely does not belong under the one
+            //that erases every star.
+            AddRow(grid, 7, "Sensitivity", Game.CycleSensitivity, out _sensitivityValue);
+
+            AddGroupHeading(grid, 8, "CAMPAIGN", first: false);
 
             //The campaign back to zero stars (#92) — for testing as much as for a fresh start. The resting
             //value shows the star total the click would erase; the click itself is two-step (see _resetArmed).
-            AddRow(grid, 7, "Reset progress", OnResetProgress, out _progressValue);
+            AddRow(grid, 9, "Reset progress", OnResetProgress, out _progressValue);
 
             //The debug unlock (#349). Under the campaign heading rather than among the looks because it is the
             //same kind of thing the row above is - the player's record - and it is a DEVELOPMENT convenience:
             //it is off at every launch and writes nothing, so it can never make a real save read further along
             //than it is. Hiding it behind a build flag is a shipping concern and not one yet.
-            AddRow(grid, 8, "Unlock all", Game.ToggleUnlockAll, out _unlockAllValue);
+            AddRow(grid, 10, "Unlock all", Game.ToggleUnlockAll, out _unlockAllValue);
 
             return grid;
         }
@@ -271,6 +284,10 @@ namespace BS3D.Screens
             //loop in the menus, the level's own theme in a level. The rest name themselves off MusicTheme,
             //so a sixth composition appears in this row with no wiring here at all.
             _trackValue.Text = Game.MusicTrack?.ToString() ?? "Auto";
+            //As a percentage of the shipped feel, the volume rows' own idiom, and exact at every rung — the
+            //ladder is written so that it is (0.75 is "75 %", where a multiplier would have to print "0.8×"
+            //and lie, or "0.75×" and read as arithmetic).
+            _sensitivityValue.Text = FormatSensitivity(Game.MouseSensitivity);
             //In words, not the ★ glyph the picker uses: the value column is set in the display face like
             //every row here, and Anton simply has no star glyph — FontStashSharp would drop it and leave a
             //bare number (which is exactly how this line first rendered).
@@ -298,5 +315,13 @@ namespace BS3D.Screens
         /// <summary>"Off" at zero rather than "0 %": silence is a state, not a quantity.</summary>
         private static string FormatVolume(float gain)
             => gain <= 0f ? "Off" : ((int)MathF.Round(gain * 100f)).ToString(CultureInfo.InvariantCulture) + " %";
+
+        /// <summary>
+        /// The aim dial as a percentage of the shipped feel (#384). No "Off" case, unlike the volume above:
+        /// there is no rung at zero and there must not be one — a mouse that cannot turn the gun is a game that
+        /// looks broken, and the row that did it is the one row the player then cannot find.
+        /// </summary>
+        private static string FormatSensitivity(float scale)
+            => ((int)MathF.Round(scale * 100f)).ToString(CultureInfo.InvariantCulture) + " %";
     }
 }

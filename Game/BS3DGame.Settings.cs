@@ -34,6 +34,57 @@ namespace BS3D
             _settingsPage.Refresh();
         }
 
+        /// <summary>
+        /// Steps the aim dial up a rung and wraps at the top (#384) — upwards like the exposure and unlike the
+        /// volumes, because a sensitivity has no direction a player is more likely to want: the volume rows go
+        /// down since the reason to click one is almost always "quieter", and there is no such lean here.
+        /// <para>
+        /// Nothing is applied to anything: the aim path reads <see cref="MouseSensitivity"/> per frame (see its
+        /// own remarks), so this row takes effect on the very next frame — including in a level standing
+        /// paused behind this page.
+        /// </para>
+        /// </summary>
+        internal void CycleSensitivity()
+        {
+            int rung = Array.IndexOf(SENSITIVITY_LADDER, _mouseSensitivity);
+
+            //-1 cannot happen while the constructor snaps the file's value onto the ladder, and +1 on it is
+            //still the first rung — so an unfindable value walks to the bottom rather than throwing
+            _mouseSensitivity = SENSITIVITY_LADDER[(rung + 1) % SENSITIVITY_LADDER.Length];
+
+            _settings.Sensitivity = _mouseSensitivity;
+            SaveSettings();
+
+            _settingsPage.Refresh();
+        }
+
+        /// <summary>
+        /// The rung nearest <paramref name="stored"/> <b>by ratio</b>, which is the only comparison that means
+        /// anything on a ladder whose steps are ratios. The general form rather than an example, because the
+        /// two rules differ everywhere and always the same way: <b>by difference the boundary between two rungs
+        /// is their arithmetic mean, by ratio it is their geometric mean, and the geometric mean is never the
+        /// larger</b> — so a difference rule drags every in-between value down a rung. Between 2 and 3 those
+        /// boundaries are 2.5 and 2.449; a stored 2.47 is 1.235× the one rung and 0.823× the other, so 3 is the
+        /// nearer feel and only the ratio rule says so. Anything unusable (zero, negative, NaN out of a
+        /// corrupted file) comes back as the shipped 1.
+        /// </summary>
+        private static float NearestSensitivityRung(float stored)
+        {
+            if (!(stored > 0f)) return 1f;   //written against NaN, which fails every ordinary comparison
+
+            float best = 1f;
+            float bestDistance = float.MaxValue;
+
+            foreach (float rung in SENSITIVITY_LADDER)
+            {
+                float distance = MathF.Abs(MathF.Log(stored / rung));
+
+                if (distance < bestDistance) { bestDistance = distance; best = rung; }
+            }
+
+            return best;
+        }
+
         internal void CycleSkyDome()
         {
             SetSkyDome((byte)(_skyDome == SKY_DOME_COUNT ? 1 : _skyDome + 1));

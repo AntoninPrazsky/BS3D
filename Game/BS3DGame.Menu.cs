@@ -381,6 +381,25 @@ namespace BS3D
         //what a setting means.
         private const float VOLUME_STEP = 0.25f;
 
+        //The ladder the sensitivity row walks (#384), as multipliers over MouseAim.SENSITIVITY. Written out
+        //rather than stepped like the exposure, because what a sensitivity needs is a RATIO between rungs and
+        //not a difference: 25 percentage points is a third of the way up from 75 % and an eighth of the way up
+        //from 200 %, so an even ladder is fine at one end and useless at the other. These are near-geometric
+        //(about √2 apart) and rounded to numbers a player can hold in their head.
+        //
+        //The span is the point and it is not decoration: the constant is an angle per PIXEL, so the two ends
+        //are what lets one machine's feel be carried to another - 0.057°/px at the bottom to 0.34°/px at the
+        //top, a sixfold range, against a 2.4× spread in width between a 1600×900 laptop and a 4K desktop and
+        //whatever the mouse's own DPI adds on top of it.
+        //
+        //1 is on the ladder ON PURPOSE and is the default: the shipped feel has to be reachable, and it has to
+        //be what a player who never opens this row keeps.
+        private static readonly float[] SENSITIVITY_LADDER = [0.5f, 0.75f, 1f, 1.5f, 2f, 3f];
+
+        //The player's rung, as the multiplier itself rather than an index - it is what the aim path wants every
+        //frame, and an index would have to be resolved there instead.
+        private float _mouseSensitivity = 1f;
+
         //1 is the authored mix; the "mute" argument starts the master at 0 (see the constructor).
         private float _masterVolume = 1f;
         private float _sfxVolume = 1f;
@@ -538,6 +557,15 @@ namespace BS3D
         internal float SfxVolume => _sfxVolume;
         internal float MusicVolume => _musicVolume;
         internal float AmbienceVolume => _ambienceVolume;
+
+        /// <summary>
+        /// The player's aim dial (#384), read by <c>GameplayScreen</c> straight into
+        /// <c>MouseAim.ApplyCursor</c>'s rate scale. <b>Read where it is used and never pushed</b>, which is
+        /// <see cref="IsDropCinematicEnabled"/>'s pattern and matters more here: this page can be opened from
+        /// the pause, so the row can move under a level that is already running and a copy handed to the
+        /// session at its start would be the stale one.
+        /// </summary>
+        internal float MouseSensitivity => _mouseSensitivity;
 
         //Which composition is sounding, or null for Auto — the piece the moment plays by itself, which is the
         //front end's loop in the menus and the level's own theme in a level. Read straight off the music and

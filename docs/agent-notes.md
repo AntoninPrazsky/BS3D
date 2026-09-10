@@ -1577,3 +1577,48 @@ Akceptační test „duch se shodne s dopadem" jsem psal jako 6/6. **Rovný, nez
 - **#332 nemá to ruční ověření, na kterém samo trvá:** že s **drženým RMB** duch sedí tam, kam rána doopravdy dopadne. Merge tuhle otázku nezodpověděl, jen ji přestal blokovat. Scénář je napsaný v zápisu výše (`levelfile=` na `Testbed\Maps\GravityLevel.json`).
 - **Cena snímku zakřiveného náhledu není změřená** (pevná kamera, párová opakování).
 - **`CA2014` v `Tools/LevelGen/Program.cs`** (`stackalloc` v trojité smyčce) **není z merge** — stojí to na `main` i před ním, jen se posunulo číslo řádku. Nechávám stát; patří to k #386, ne sem.
+
+---
+
+## 2026-09-10 — Claude Code (druhý zápis dne)
+
+**#384 hotové na větvi `384-mouse-sensitivity`: citlivost myši je řádek v Nastavení, a nájezd v ADS konečně škáluje rychlost kurzoru.** `GameSettings.Sensitivity`, `SENSITIVITY_LADDER`, `BS3DGame.CycleSensitivity`/`NearestSensitivityRung`, záhlaví `CONTROLS` na stránce, `PreciseAim.CursorRateScale` a `rateScale` parametr na `MouseAim.ApplyCursor`.
+
+### Tvar, který jsem zvolil, a proč zrovna ten
+
+`ApplyCursor` bere **jeden** parametr `rateScale` a volající si do něj násobí své vlastní členy. Zvažoval jsem property `Sensitivity` na `MouseAim` vedle per-snímkového parametru pro nájezd — **zahodil jsem to kvůli synchronizaci**: `_mouseAim` patří `GameplayScreen`, ale stránku Nastavení lze otevřít **z pauzy**, takže se řádek může pohnout pod běžícím levelem a kopie předaná session při startu by byla ta zastaralá. Čte se to tedy per snímek z `BS3DGame.MouseSensitivity` — což je **vzor `IsDropCinematicEnabled` (#290)**, jen tady na něm záleží víc.
+
+**Dial hráče se do Testbedu nedostane a nesmí.** Testbed nemá soubor nastavení a je to měřicí přístroj: rig, jehož citlivost může driftovat, nejde porovnat sám se sebou mezi dvěma běhy. Nájezd v ADS ale škáluje **v obou** — jinak by se přístroj a hra rozešly přesně v tom, kvůli čemu se přístroj používá.
+
+### ⚠ Poměr je z tangent poloúhlů, ne z FOV — a je to čtená vs. neuvažovaná fyzika
+
+Na obrazovku úhel mapuje **projekce**, takže co drží stejnou dráhu kurzoru po obraze, je `tan(FOV/2)/tan(GAME_FOV/2)` = **0,828**. Prostý poměr FOV by řekl 0,840, což je **1,5 % vedle**. Malé — a taky zadarmo správně, a tangentový tvar zůstane správný, i kdyby se některé z těch dvou FOV přeladilo.
+
+**Změřený zbytek, protože ten tvar jeden má:** měřítko násobí **úhel**, kdežto na obrazovku dopadá jeho tangenta, takže rovnost je přesná jen v limitě. Proti skutečnému dělu, jako podíl poloviny obrazu, který ruka přejede: **0,004 % vedle při 10 px, 0,15 % při 60px korekci — proti 20,8 %, které tam stály předtím a stály tam v každé vzdálenosti.** Zavřít i těch 0,15 % by znamenalo přemapovat *polohu* kurzoru místo škálování rychlosti, za cenu vlastnosti, která tohle dělá bezpečným: být v klidu **přesně 1**, tedy přesně dnešní míření.
+
+### ⚠ Dvě věci, které jsem měl v prvním kole špatně
+
+1. **Aritmetika ve vlastním komentáři.** Napsal jsem k `NearestSensitivityRung`, že „1,2 by podle rozdílu spadlo na 1,5 (0,3) místo na 1,0 (0,2)". **0,2 < 0,3, takže rozdílové pravidlo vybere 1,0 taky** — ten příklad nic neukazoval. Sonda to shodila hned. Skutečné tvrzení je obecné a silnější: **rozdílové pravidlo má hranici v aritmetickém průměru, poměrové v geometrickém, a geometrický nikdy není větší — takže rozdíl táhne každou mezihodnotu o příčku DOLŮ.** Ověřeno na 3000 hodnotách: rozdílové pravidlo ani jednou nevybere vyšší příčku než poměrové. Doložený příklad je 2,47 (hranice 2,5 a 2,449).
+2. **Sonda měřila NaN.** `Cannon(Vector3.Zero)` je degenerovaný — `OrbitCenter` slouží zároveň jako vektor míření, takže `AimTarget == Position` a `Normalize(0)` je NaN. Není to vada `Cannon`, je to past pro toho, kdo si ho postaví v konzoli.
+
+### ⚠ A past v běhovém ověření, která by prošla i zkušenému
+
+Chtěl jsem to dokázat **kolečkem**: sweep tam s drženým RMB, stejný sweep zpátky bez něj — bez škálování se musí dělo vrátit přesně domů. **Napoprvé jsem vzal 800 px, což je 92° traverzu, a to naráží do dorazu**: cesta tam se ořízla, cesta zpět jela plných 92°, a kontrolní běh **bez ADS se nevrátil domů**. Vypadalo to jako vada škálování a byl to doraz. Při 240 px (27,5°) sedí obojí.
+
+**Druhá past ve stejném harnessu: `shot=` počítá HERNÍ čas, ne čas skriptu** — mezi startem procesu a prvním snímkem je ~5 s načítání. První snímek, který měl být „před jakýmkoli pohybem", byl ve skutečnosti až za sweepem, takže baseline byl pohnutý.
+
+### Ověření
+
+- **27 tvrzení proti skutečné knihovně** (odhozený projekt ve scratchpadu, v žádném solutionu): `CursorRateScale` (blend 0 je **bitově přesná 1**, blend 1 je tangentový poměr, monotonie přes celý blend, půlka je půlka, `overviewFov == FOV` je 1 i při plném držení), `ApplyCursor` (rateScale 1 je shipnutý pocit `0,001 × SENSITIVITY × px`, půl je půl, trojnásobek je trojnásobek, nula nepohne, a **nezávislost na snímkové frekvenci při 30/120/240 fps zůstala**), a **skutečná privátní `NearestSensitivityRung` v postavené `BS3D.exe` reflexí** — ne replika: 2,47 → 3, 0,62 → 0,75, 0 / záporná / NaN → 1, absurdních 5000 → 3, každá příčka sama sebou.
+- **Ve hře, s doopravdy drženým pravým tlačítkem** (majitelovo pravidlo, že se míření ověřuje ve hře a ne v Testbedu): kontrolní kolečko 240 px tam a zpět bez ADS **vrátilo dělo přesně doprostřed**, totéž kolečko s drženým RMB na cestě tam skončilo **viditelně natočené doleva** — cesta tam byla za držení levnější, přesně jak má být. Kontrola zároveň dokazuje, že harness neztrácí události.
+- **Stránka Nastavení vyfocená**: `CONTROLS / Sensitivity 100 %`, dvě kliknutí → 150 % → **200 %**, na disku `"sensitivity": 2`, a po restartu procesu se čte zpátky 200 %.
+- **⚠ Past #138 (řádky utekly pod obraz i s tlačítkem Back) jsem musel vyloučit, protože pravý sloupec vyrostl z devíti řádků na jedenáct** — je to ten jediný skutečný risk téhle změny. Vyfoceno: Back stojí, celá stránka se vejde.
+- Čtyři solutiony 0 chyb, LevelGen exit 0 s `Game/Levels` beze změny, ScoreSim „All levels rate the right way round".
+- **Majitelův `Settings.json` jsem na dobu měření přepsal** (potřeboval jsem okno místo fullscreenu — hra pořád nemá argument `windowed`, viz starší zápisy) **a vrátil bajt za bajtem**: `30eefb41…`, `.bak` `4a7debca…`, `Progress.json` `f5c8c4ee…` — všechny tři hashe sedí s těmi, které jsem si vzal předem.
+
+### Co zůstává a je to poctivá mezera
+
+- **Padu jsem se nedotkl, schválně.** `PAD_RATE` zůstává konstanta a issue to tak chce: výchylka páčky je rychlost a nejsou v ní pixely, takže se jí žádný z argumentů pro dial (rozlišení, DPI myši) netýká. Napsal jsem to na `PAD_RATE` samotné, ať to příští čtenář nesloučí do jednoho řádku.
+- **Nájezd čte blend z MINULÉHO snímku** v obou programech (`_adsHeld` se nastavuje ve vstupu a `PreciseAim.Step` běží až v kameře). Nechal jsem to a napsal proč: snímek zpoždění na členu, jehož vlastní náběh je `BLEND_TAU` 0,08 s, je pod tím, co ruka pozná — kamera čtoucí nájezd, na který dělo ještě není napózované, není.
+- **Neměřil jsem cenu snímku** a není co: dvě tangenty za snímek na cestě, která už dělá `Normalize` a `Lerp`.
+- **Nic dalšího si neberu.**
