@@ -1,3 +1,4 @@
+using Prazsky.BS3D.Scoring;
 using System;
 
 namespace BS3D.Screens
@@ -63,6 +64,13 @@ namespace BS3D.Screens
         /// <summary>Whether this clear raised the level's recorded best — its score, its stars, or both.</summary>
         public readonly bool NewBest;
 
+        /// <summary>
+        /// How many balls the level started with (#385) — what <see cref="StarRating.Rate"/> sized this clear's
+        /// floor against, and what <see cref="NextStarScore"/> needs to project the next one. Unread on a
+        /// failed level, which earns no rating to sit above.
+        /// </summary>
+        public readonly int LevelBalls;
+
         /// <summary>There is another entry in the set to go to.</summary>
         public readonly bool HasNextLevel;
 
@@ -115,7 +123,7 @@ namespace BS3D.Screens
         /// <summary>What was <b>awarded</b>, not what recomputing it now would give — see the type's summary.</summary>
         public readonly int UnusedShotsAwarded, CompletionBonusAwarded;
 
-        public LevelResult(bool cleared, string failureText, int stars, bool newBest,
+        public LevelResult(bool cleared, string failureText, int stars, bool newBest, int levelBalls,
             string levelName, int levelNumber,
             bool hasNextLevel, bool nextLevelUnlocked, int nextLevelMinStars, int totalStars,
             bool canSkip,
@@ -132,6 +140,7 @@ namespace BS3D.Screens
             NextLevelName = nextLevelName ?? string.Empty;
             Stars = stars;
             NewBest = newBest;
+            LevelBalls = levelBalls;
             HasNextLevel = hasNextLevel;
             NextLevelUnlocked = nextLevelUnlocked;
             NextLevelMinStars = nextLevelMinStars;
@@ -178,6 +187,36 @@ namespace BS3D.Screens
             string.IsNullOrWhiteSpace(LevelName) ? string.Empty
             : LevelNumber > 0 ? $"Level {LevelNumber} · {LevelName}"
             : LevelName;
+
+        /// <summary>
+        /// The score the <b>next</b> star needs (#385), or -1 when there is nothing above the top to project
+        /// towards — a four-star clear, or a level with no floor to measure at all
+        /// (<see cref="StarRating.Rate"/>'s own <c>levelBalls &lt;= 0</c> case). <see cref="StarRating.Rate"/>'s
+        /// arithmetic run in reverse, off the one threshold this clear's own <see cref="Stars"/> sits just
+        /// under — so the projection can only ever agree with the rating that produced it.
+        /// </summary>
+        public int NextStarScore
+        {
+            get
+            {
+                if (LevelBalls <= 0) return -1;
+
+                float nextMultiple = Stars switch
+                {
+                    1 => StarRating.TWO_STAR_FLOOR_MULTIPLE,
+                    2 => StarRating.THREE_STAR_FLOOR_MULTIPLE,
+                    3 => StarRating.FOUR_STAR_FLOOR_MULTIPLE,
+                    _ => -1f,
+                };
+
+                return nextMultiple < 0
+                    ? -1
+                    : (int)MathF.Ceiling(ScoreKeeper.MatchedBallPoints * LevelBalls * nextMultiple);
+            }
+        }
+
+        /// <summary>How many more points <see cref="NextStarScore"/> needs, or -1 alongside it when there is none.</summary>
+        public int NextStarGap => NextStarScore < 0 ? -1 : NextStarScore - Score;
 
         /// <summary>
         /// What the button offering the next level says (#313). It named no level at all — the player committed
