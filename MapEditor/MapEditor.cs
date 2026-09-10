@@ -373,6 +373,8 @@ namespace MapEditor
                     + "matches it until the player clears a group NEXT TO it)",
                 BallKind.Infectious => "Ball kind: infectious (an ordinary ball of this colour that is SICK: "
                     + "after every shot it infects a healthy neighbour and hardens into a rock)",
+                BallKind.Gravity => "Ball kind: gravity (an ordinary ball of this colour that PULLS on shots "
+                    + "passing near it, bending their flight; needs open space around it to bend anything)",
                 _ => "Ball kind: normal",
             };
         }

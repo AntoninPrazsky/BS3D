@@ -70,6 +70,8 @@ namespace BS3D
             //Testing only: which level "play" should open, as a 1-based place in the set or as a name. Null
             //means the argument was absent, and then "play" opens the first level as it always has.
             string level = null;
+            //Testing only: a level file outside the set (#332). See the argument's own comment below.
+            string levelFile = null;
 
             //Testing only: which level the FRONT END should hang over the island instead of rolling one at
             //random (#254). Null means the argument was absent, and then the backdrop rolls as a player's does.
@@ -169,6 +171,13 @@ namespace BS3D
                 //is, so a frame with a real cluster in it could not be measured at all: #167 asked for a level
                 //"near the shipped set's 959-ball end" and there was no way to ask for one.
                 else if (arg.StartsWith("level=", StringComparison.OrdinalIgnoreCase)) level = arg.Substring("level=".Length);
+                //"levelfile=<path>" plays a level file that is NOT IN THE SET, which is the one thing "level="
+                //cannot do (#332). The set is what the campaign is, and a level built to try a mechanic out is
+                //not part of it — the six special ball kinds built so far all ship in no level at all, so the
+                //only way to hold one in the hands was to author a level and edit the campaign around it.
+                //It pins the whole run to that file, which is what a testing argument should do and is the
+                //same shape "preview=" takes for the front end. Implies "play" for "level="'s own reason.
+                else if (arg.StartsWith("levelfile=", StringComparison.OrdinalIgnoreCase)) levelFile = arg.Substring("levelfile=".Length);
                 //"result" puts a cleared level's result screen up; with "celebrate" that is the whole
                 //end-of-level moment, fireworks and all, over an arena that goes out of focus behind it.
                 else if (string.Equals(arg, "result", StringComparison.OrdinalIgnoreCase)) result = true;
@@ -213,7 +222,7 @@ namespace BS3D
             using var game = new BS3DGame(fullscreen: fullscreen, supersampleFactor: supersampleFactor, exposure: exposure,
                 uncappedFps: uncappedFps, scene: scene, skyDome: skyDome, logFrameRate: logFrameRate, quality: quality,
                 celebrate: celebrate, confetti: confetti, lasers: lasers, mute: mute, play: play, result: result, blockDone: blockDone, lost: lost, resultStars: resultStars, streak: streak, wildcardEvery: wildcardEvery,
-                shotSeconds: shotSeconds, level: level, preview: preview, ballStyle: ballStyle, pick: pick, fpsCap: fpsCap,
+                shotSeconds: shotSeconds, level: level, levelFile: levelFile, preview: preview, ballStyle: ballStyle, pick: pick, fpsCap: fpsCap,
                 noFocusPause: noFocusPause);
             game.Run();
         }

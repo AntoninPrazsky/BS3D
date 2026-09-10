@@ -253,7 +253,44 @@ namespace Prazsky.BS3D.GameStructure
         /// doing identical things.
         /// </para>
         /// </summary>
-        Infectious = 8
+        Infectious = 8,
+
+        /// <summary>
+        /// A gravity well (#332): an ordinary ball of its colour that <b>pulls on shots passing near it</b>,
+        /// bending their flight. It matches, it is counted and a shot removes it like any other.
+        /// <para>
+        /// <b>It is the first kind that changes what a SHOT is rather than what a BALL is</b>, and that is the
+        /// whole of why it sits after the match group. Everything before it is answered by asking a cell a
+        /// question; this one is answered by integrating a trajectory, and it is the reason #256 wanted the
+        /// game in three dimensions at all — with a well on the field, aiming stops being a straight line and
+        /// becomes a reading of the space.
+        /// </para>
+        /// <para>
+        /// <b>⚠ THE HARD PART IS NOT THE PHYSICS, IT IS THE PREVIEW.</b> <c>ShotPlacement</c> exists so the aim
+        /// ghost and the attach cannot disagree — one answer to "where does this shot land", asked by the
+        /// contact handler when a ball touches and by the preview every frame. A curve breaks the straight-line
+        /// half of that, and there are only three honest ways out: integrate the curve in the preview, show no
+        /// preview near a well, or show a straight line and let it lie. The second silently removes the aid on
+        /// exactly the levels where aiming is hardest and the third is a guide that lies, so the preview
+        /// integrates — off the same snapshot of wells and the same arithmetic the simulation uses, or the
+        /// disagreement the class was written to prevent is back with a curve on it. See
+        /// <c>GravityWells</c> and <c>ShotPlacement.TryFindFirstHitCurved</c>.
+        /// </para>
+        /// <para>
+        /// <b>It is MATCHABLE</b>, the second kind after <see cref="Infectious"/> to answer yes, and for a
+        /// reason of its own rather than by imitation. A well that no colour removes would be a second
+        /// <see cref="Rock"/> — nothing triggers it the way a landing triggers a bomb, so nothing could ever
+        /// take it — and <see cref="Removable"/>'s own remarks are written against exactly that: the rock is
+        /// deliberately the ONE kind the player can never be rid of. A well the player can shoot out is a
+        /// space they can choose to navigate or to clear, which is a decision; furniture is not.
+        /// </para>
+        /// <para>
+        /// <b>It pulls on balls IN FLIGHT and on nothing else</b> — not on the falling debris and not on the
+        /// cluster it is embedded in. A well that visibly bent the lattice around itself is a different and
+        /// much larger feature and it belongs to the mass ball (#333), not here.
+        /// </para>
+        /// </summary>
+        Gravity = 9
     }
 
     /// <summary>
@@ -308,7 +345,8 @@ namespace Prazsky.BS3D.GameStructure
         /// the opposite door, and it is a door only this answer opens.
         /// </para>
         /// </summary>
-        public static bool Matchable(BallKind kind) => kind == BallKind.Normal || kind == BallKind.Infectious;
+        public static bool Matchable(BallKind kind) =>
+            kind == BallKind.Normal || kind == BallKind.Infectious || kind == BallKind.Gravity;
 
         /// <summary>
         /// Whether a shot can still do something about this ball — <b>the question the end of a level is
@@ -439,6 +477,12 @@ namespace Prazsky.BS3D.GameStructure
                 case "infected":
                 case "slime":
                     kind = BallKind.Infectious;
+                    return true;
+
+                case "gravity":
+                case "well":
+                case "magnet":
+                    kind = BallKind.Gravity;
                     return true;
 
                 default:

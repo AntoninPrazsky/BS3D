@@ -71,8 +71,18 @@ namespace Prazsky.Core.Render
         /// <summary>Lowest peak channel, so the near-black ball still gives a visible grey line.</summary>
         private const float COLOR_FLOOR = 0.2f;
 
-        /// <summary>World units a second the dash pattern crawls towards the far end. Slow: a hint of travel, not a barber's pole.</summary>
-        private const float CRAWL = 1.6f;
+        /// <summary>
+        /// World units a second the dash pattern crawls towards the far end. Slow: a hint of travel, not a
+        /// barber's pole.
+        /// <para>
+        /// Public since #332, and for one caller with one use: a beam drawn as a CHAIN of segments — which is
+        /// what a shot bent by a gravity well needs — has to hand each segment a phase carrying the distance
+        /// already drawn, or the dashes restart at every knot and the joins become the most visible thing on
+        /// the line. The phase is a seconds clock and the pattern is laid out from <c>phase * CRAWL</c>, so
+        /// <c>distance / CRAWL</c> is the offset in the units the caller has. Nothing else may read it.
+        /// </para>
+        /// </summary>
+        public const float CRAWL = 1.6f;
 
         /// <summary>
         /// A dash shorter than this fraction of a full one is skipped. The pattern is clipped at both ends of

@@ -802,6 +802,23 @@ namespace BS3D.Tools.LevelGen
             return into;
         }
 
+        /// <summary>
+        /// The gravity wells this shot is aimed through (#332), refreshed once per shot in
+        /// <see cref="FireOneShot"/>. Static and reused for the reason every other scratch here is.
+        /// </summary>
+        private static readonly GravityWells _wells = new();
+
+        /// <summary>
+        /// What a shot leaves the barrel at, in world units a second — the Game's own <c>SHOOT_SPEED</c>.
+        /// <para>
+        /// It did not exist here before #332 and it exists now for one reason: the straight sweep never needed
+        /// a speed, and a curved one is nothing without it. Stated as a constant beside the radius sum rather
+        /// than read from the Game, which this tool does not reference — and if the two ever part, the probe
+        /// aims a shot the player cannot fire.
+        /// </para>
+        /// </summary>
+        private const float SHOT_SPEED = 200f;
+
         /// <inheritdoc cref="ArmedSpecials"/>
         private static readonly List<XZLevel> _landingBombs = new();
 
@@ -867,6 +884,10 @@ namespace BS3D.Tools.LevelGen
         {
             released = default;
 
+            //One snapshot per shot, before the aim sweeps below read it — GravityWells' own contract, kept
+            //here because this is the probe's equivalent of a frame.
+            _wells.Refresh(balls);
+
             BallType? loaded = LoadedColour(map, random);
             if (loaded == null) return Shot.Nothing;
 
@@ -898,7 +919,15 @@ namespace BS3D.Tools.LevelGen
                 cannon.OrbitToFace(target);
                 cannon.AimAt(target);
 
-                if (!ShotPlacement.TryFindFirstHit(balls, cannon.Position, cannon.AimDirection, SHOT_RADIUS_SUM,
+                //⚠ THE CURVED SOLVER SINCE #332, and it is this file's standing rule once more: a step of a
+                //shot's resolution that lives in the Game has to be repeated here, or the probe measures a
+                //game nobody is playing. A gravity well bends the flight, so a probe sweeping a straight line
+                //on a field with wells would land its shots somewhere the player's would not — and it would
+                //do so silently, reporting a layout fault that is really its own aim. It takes the shot's
+                //VELOCITY rather than its direction, because how far a well bends a shot depends on how long
+                //the shot spends in the field.
+                if (!ShotPlacement.TryFindFirstHitCurved(balls, cannon.Position,
+                        cannon.AimDirection * SHOT_SPEED, SHOT_RADIUS_SUM, _wells,
                         out PhysicsBall hit, out Vector3 contact)) continue;
 
                 if (!ShotPlacement.TrySolveAgainstBall(map, hit, contact, worldOffset, out XZLevel solved,

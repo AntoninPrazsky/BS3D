@@ -24,6 +24,23 @@ namespace Prazsky.BS3D
     /// Testbed's <c>[aimcheck]</c> lines are a documented CLI surface that a verification script reads, so those
     /// exact strings belong in the Testbed, formatted from the facts below.
     /// </para>
+    /// <para>
+    /// <b>⚠ IT DOES NOT KNOW ABOUT GRAVITY WELLS, AND THAT IS THE RULING RATHER THAN AN OVERSIGHT (#332).</b>
+    /// What this asks is whether the <b>gun can be laid on a cell at all</b> — a question about the barrel's
+    /// clamps and the orbit's geometry, and a curve changes neither: a well bends where a shot <i>ends up</i>,
+    /// not what the barrel can be pointed at. So every answer here stays true. What changes is what the answer
+    /// is worth: on a field with wells it becomes <b>necessary but no longer sufficient</b>, because a cell the
+    /// gun can face may be one every straight line into it gets pulled off, and a cell it cannot face may be
+    /// reachable on a curve. Teaching this function about curvature would mean integrating a trajectory per
+    /// cell per orbit angle, for an answer that is still only about one straight aim out of a continuum.
+    /// </para>
+    /// <para>
+    /// <b>What says a level with wells is finishable is <c>Tools/LevelGen</c>'s sag probe</b>, which fires real
+    /// shots and — since #332 — sweeps them with <c>ShotPlacement.TryFindFirstHitCurved</c> off the level's own
+    /// wells, so it plays the game the player plays. The static half of the gate is the generator's refusal of
+    /// a <i>buried</i> well: one with no open space inside its own reach bends nothing, which is a special that
+    /// does nothing.
+    /// </para>
     /// </summary>
     public static class AimReachability
     {
