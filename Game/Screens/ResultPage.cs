@@ -30,7 +30,7 @@ namespace BS3D.Screens
         private Label _orphanedDetail, _orphanedValue;
         private Label _streakValue;
         private Label _unusedDetail, _unusedValue;
-        private Label _totalValue, _unlockNote;
+        private Label _totalValue, _nextStarNote, _unlockNote;
         private Widget _breakdown;
         private Button _retryButton, _nextLevelButton, _skipButton;
 
@@ -720,9 +720,27 @@ namespace BS3D.Screens
             Grid.SetRow(_totalValue, 4);
             grid.Widgets.Add(_totalValue);
 
-            //The one gate left, as an aside under the total: the NEXT level's star requirement, shown only
-            //when the total falls short of it — which is also exactly when the Next Level button is absent,
-            //so the note is what explains the absence. Spanning the grid, because it is a sentence about the
+            //What the NEXT star of THIS level would cost (#385), an aside directly under the total — this
+            //clear's own rating first, the campaign's gate (below) second. Absent rather than zero at four
+            //stars: there is nothing above the top to project towards, and a row reading "+0" would look like
+            //an error rather than a ceiling.
+            grid.RowsProportions.Add(new Proportion(ProportionType.Auto));
+            _nextStarNote = new Label
+            {
+                Text = string.Empty,
+                Font = FontSmall,
+                TextColor = BS3DGame.MENU_TEXT_DIM,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            Grid.SetColumn(_nextStarNote, 0);
+            Grid.SetColumnSpan(_nextStarNote, 3);
+            Grid.SetRow(_nextStarNote, 5);
+            grid.Widgets.Add(_nextStarNote);
+
+            //The one gate left, as an aside under that: the NEXT level's star requirement, shown only when
+            //the total falls short of it — which is also exactly when the Next Level button is absent, so
+            //the note is what explains the absence. Spanning the grid, because it is a sentence about the
             //campaign rather than another line of the sum.
             grid.RowsProportions.Add(new Proportion(ProportionType.Auto));
             _unlockNote = new Label
@@ -735,7 +753,7 @@ namespace BS3D.Screens
             };
             Grid.SetColumn(_unlockNote, 0);
             Grid.SetColumnSpan(_unlockNote, 3);
-            Grid.SetRow(_unlockNote, 5);
+            Grid.SetRow(_unlockNote, 6);
             grid.Widgets.Add(_unlockNote);
 
             return grid;
@@ -847,6 +865,14 @@ namespace BS3D.Screens
                     : "—";
                 _unusedValue.Text = ScoreText.Of(_result.CompletionBonusAwarded);
                 _totalValue.Text = ScoreText.Of(_result.Score);
+
+                //Only below four stars — NextStarScore's own -1 says there is nothing left to project towards,
+                //the same sentinel LevelResult itself uses, so this can never show a note the total contradicts.
+                bool hasNextStar = _result.NextStarScore >= 0;
+                _nextStarNote.Text = hasNextStar
+                    ? $"Next star at {ScoreText.Of(_result.NextStarScore)} (+{ScoreText.Of(_result.NextStarGap)})"
+                    : string.Empty;
+                _nextStarNote.Visible = hasNextStar;
 
                 //Only when the road ahead is actually shut — which is also when the Next Level button below
                 //is absent, so this line is the absence explained rather than a number always on display.

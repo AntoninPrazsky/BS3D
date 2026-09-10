@@ -730,6 +730,10 @@ namespace BS3D.Screens
                 stars: stars,
                 newBest: newBest,
 
+                //What StarRating.Rate just sized the floor against, carried along so the result screen can
+                //project the NEXT one the same way (#385) rather than re-deriving it from a copy of the rule.
+                levelBalls: _initialBallCount,
+
                 //Which level this was (#313). LevelName is the same helper the [level] line below prints
                 //through, so the screen and the log cannot disagree; the number is the entry's own 1-based
                 //place, which is what the picker's tiles and the window title both show. Zero off a set,

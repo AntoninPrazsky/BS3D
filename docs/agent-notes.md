@@ -1702,3 +1702,30 @@ Chtěl jsem vyfotit pauzu v běžící hře — tenhle stroj je ale ten s neopra
 - Žádný jiný soubor v repu položky pauzy nepočítá ani neindexuje pevně — jediné další zmínky byly `docs/game-shell.md`'s výčet, teď opravený.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-10 — Claude Code (šestý zápis dne)
+
+**#385 hotové na větvi `385-next-star-cost`: výsledková obrazovka teď řekne, co stojí další hvězda.** `LevelResult.LevelBalls` (nové pole, plněné z `_initialBallCount` přesně tam, kde se dnes bere rating) plus dvě odvozené vlastnosti, `NextStarScore`/`NextStarGap` — `StarRating.Rate`ova aritmetika puštěná pozpátku, -1 jako sentinel na čtyřech hvězdách i na poli bez podlahy (`levelBalls <= 0`, stejná výjimka, jakou má `StarRating.Rate` sama). Nový řádek v `ResultPage`'s breakdown gridu, mezi součtem a poznámkou o zámku dalšího levelu: „Next star at 7 200 (+2 380)", jen pod čtyři hvězdy a jen na CLEARED.
+
+### Dvě otevřené otázky z issue, rozhodnuté
+
+1. **Cíl i rozdíl, ne jedno nebo druhé** — přesně podle mock-upu v issue: na řádku je místo na obojí a hráč se podle každého z nich rozhoduje jinak (jeden říká „zkusit to znovu", druhý „jak moc").
+2. **Picker číslo nedostal.** Issue to nechávalo otevřené („may or may not be wanted") — jeho vlastní ask byl výsledková obrazovka, picker je jiná stránka s jinou informační hustotou a čtvrtá zamčená hvězda s číslem pod ní je svébytné UI rozhodnutí, ne přirozený vedlejší produkt týhle změny. Nechávám to jako budoucí a samostatné.
+
+### ⚠ Čísla v mock-upu issue nejsou v notaci, kterou hra používá
+
+Issue píše „28,900" — čárkou. Hra od #284 skupinuje MEZEROU (`ScoreText.cs`: „12 340", ne „12,340") schválně, kvůli konzistenci napříč HUD, popupem a breakdownem. Nová poznámka jde přes `ScoreText.Of` jako všechno ostatní na stránce, takže reálně čte „Next star at 7 200 (+2 380)". Mock byl próza ilustrující tvar věty, ne specifikace formátu — stálo za to si to ověřit v `ScoreText.cs`, než bych ho okopíroval doslova.
+
+### Ověření
+
+- **41 733 kontrol proti skutečné `StarRating`/`ScoreKeeper` knihovně** (sonda ve scratchpadu, žádný solution, `ProjectReference` na skutečný `Prazsky.BS3D.csproj`): swept grid přes 9 velikostí pole × všechna hvězdná pásma × skóre 0–8× podlahy, plus 20 000 náhodných případů (levelBalls 1–999, skóre 0–9× podlahy) — na obojím dvě neměnná tvrzení, `Rate(next) == stars+1` a `Rate(next-1) == stars`, tedy že `NextStarScore` je PŘESNĚ ten práh a ne jen nějaké číslo nad ním. Nula chyb na 41 733 kontrolách. Degenerovaný 0-koulový a záporný `levelBalls` case zvlášť. Test-cesty vlastní čísla (120 koulí, skóre 4820) taky prošla a vyšla `stars=3` — shoduje se s výchozím `testStars=3`, takže se ta věta na focení opravdu ukáže, a ne mlčky schová.
+- Game.sln: 0 chyb. LevelGen exit 0, `Game/Levels` beze změny. ScoreSim: „All levels rate the right way round."
+- `docs/game-shell.md`'s odstavec o stránky headlinu (byl by jinak zastaralý) aktualizovaný.
+
+### ⚠ Co jsem NEověřil naživo, ze stejného důvodu jako u #383
+
+Živé foto výsledkové stránky jsem nedělal — tenhle stroj je pořád ten s neopraveným hard-resetem pod zátěží. Přidaný řádek je ale jen další `Auto` řádek gridu ve stylu, který `_unlockNote` (o řádek níž) už dokazuje funguje — stejný font, stejná barva, stejné rozpětí přes grid — takže riziko je nižší než dodání šestého tlačítka na pauzu. Stojí za oční kontrolu při příštím hraní, hlavně na levelu blízko hranice hvězdy.
+
+**Nic dalšího si neberu.**

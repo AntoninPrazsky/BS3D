@@ -1716,6 +1716,12 @@ namespace BS3D
                     failureText: lost ? "The cluster reached the line." : null,
                     stars: lost ? 0 : testStars, newBest: !lost,
 
+                    //96 matched + 24 orphaned below (#385): what a real clear's own field would have started
+                    //with, since emptying it is what matched and orphaned them in the first place. Chosen for
+                    //that agreement rather than picked separately, so the new "Next star" note projects off
+                    //the same clear the rest of the page is already photographed showing.
+                    levelBalls: 96 + 24,
+
                     //Real entries rather than placeholders (#313), for the reason the failure text above is the
                     //real one: this page exists to be PHOTOGRAPHED, and a stand-in of a different length is a
                     //different layout. Two of the longest names in the shipped set, so what is looked at is the
