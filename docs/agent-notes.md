@@ -1729,3 +1729,31 @@ Issue píše „28,900" — čárkou. Hra od #284 skupinuje MEZEROU (`ScoreText.
 Živé foto výsledkové stránky jsem nedělal — tenhle stroj je pořád ten s neopraveným hard-resetem pod zátěží. Přidaný řádek je ale jen další `Auto` řádek gridu ve stylu, který `_unlockNote` (o řádek níž) už dokazuje funguje — stejný font, stejná barva, stejné rozpětí přes grid — takže riziko je nižší než dodání šestého tlačítka na pauzu. Stojí za oční kontrolu při příštím hraní, hlavně na levelu blízko hranice hvězdy.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-10 — Claude Code (sedmý zápis dne)
+
+**#387 hotové na větvi `387-ci-build-check`: `main` má konečně CI, co se ozve, když nejde postavit.** `.github/workflows/build.yml`, jeden job na `windows-latest`, na každý push (repo nemá PR, takže push JE to, jak merge do `main` vzniká — jeden trigger pokrývá obojí, co issue chtělo zvlášť). Tři `dotnet tool restore` (Testbed/MapEditor/Game, každý svůj manifest), čtyři `dotnet build` (přesně ty čtyři solutiony, co CLAUDE.md jmenuje), LevelGen + `git diff --exit-code Game/Levels`, ScoreSim.
+
+### ⚠ Issue psalo `Game/Levels.json` jako by to byl sourozenec `Game/Levels/` — není
+
+`LevelSet.DefaultFileName` je `"Levels.json"` a bydlí **uvnitř** `Game/Levels/` (`BS3DGame.cs:1214`, `Path.Combine(..., LEVELS_DIRECTORY, LevelSet.DefaultFileName)`), ne vedle něj na úrovni `Game/`. Jeden `git diff --exit-code Game/Levels` pokrývá obojí — všech 111 levelů i pořadí — takže issue's dvě cesty byly ve skutečnosti jedna. Ověřeno v repu (`ls Game/Levels/Levels.json`), ne převzato z popisu.
+
+### To, co issue samo nabízelo jako únik, se nakonec nepoužilo
+
+„Pokud bude content-pipeline build na runneru pomalý nebo nemotorný, postav jen `BS3DLibs.sln` plus nástroje" — nebylo potřeba. Celý čtyřsolutionový build včetně MGCB (MonoGame content pipeline, tři okenní executably) proběhl na `windows-latest` **čistě, 4m13s** — grafický adaptér není pro kompilaci shaderů potřeba (FXC běží softwarově). Plný rozsah, jak issue primárně chtělo.
+
+### ⚠ Node.js 20 deprecation z prvního běhu
+
+`actions/checkout@v4` a `actions/setup-dotnet@v4` byly nucené běžet na Node 24, i když cílí Node 20 — neškodné teď, ale zbytečné dědictví hned od prvního commitu. Povýšeno na `@v7`/`@v6` (aktuální major tagy, ověřeno přes `gh api .../releases/latest`), druhý běh bez anotace.
+
+### Ověření — a tohle byl ten důležitý kus
+
+Dva zelené běhy na GitHubu samy o sobě nedokazují, že kontrola něco chytá — zelená, co nikdy nemůže zčervenat, není kontrola. Na zahazovací větvi (`throwaway-ci-negative-test`, založené na `387-ci-build-check`, smazané po testu na obou koncích) jsem ručně přepsal `Cairn.json`'s `"sky": 10` na `3` — hodnotu, kterou LevelGen sám tiskne za běhu (`block 11/11 'The Mirage' Dream, sky 10`), takže jde jistě o generovaný, ne ručně psaný kus. Push, reálný běh, a **spadl přesně na kroku "Regenerate levels and check they match what is committed"** — ne dřív na buildu, ne později na ScoreSimu (`gh run view … --json jobs -q '…conclusion=="failure").name'` řekl který). To je ten jediný skutečně nový kus logiky v celém workflow; zbytek (build padá na chybu, `git diff --exit-code` padá na rozdílu) je chování, na které se dá spolehnout, aniž by to tenhle projekt musel dokazovat znovu.
+
+### Co jsem NEudělal
+
+Žádné required-checks pravidlo ani branch protection — issue to výslovně nechce („nic tu nemá stavět bránu před majitelovy vlastní merge"). Žádné cachování NuGetu — nebylo žádané a čtyři minuty jsou levné.
+
+**Nic dalšího si neberu.**
