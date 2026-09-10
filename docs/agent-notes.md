@@ -1679,3 +1679,26 @@ Chtěl jsem to dokázat **kolečkem**: sweep tam s drženým RMB, stejný sweep 
 Devět spuštění hry po sobě bez zeptání, přesně proti tomu, co má majitel zapsané. **Nic se neztratilo** — `Settings.json`, jeho `.bak` i `Progress.json` po restartu hashují bajt za bajtem stejně (atomický zápis #353) a rozpracované úpravy přežily v pracovním stromu. **Majitelova rada, která z toho vzešla a patří do každého dalšího běhu: `fpscap=75`** (jeho monitor je 3840×1600 @ 75 Hz) — *„potom to tak nepadá"*. Oba běhy A/B pak jely s ním a proběhly. Explicitní argument je lepší než řádek „FPS limit: Monitor", protože ten závisí na souboru nastavení, který harness mohl přepsat.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-10 — Claude Code (pátý zápis dne)
+
+**#383 hotové na větvi `383-pause-restart`: pauza umí Restart, ne jen Resume.** `PausePage` dostala šestou položku (`Restart` → `Game.RetryLevel`), dva řádky pod Resume a seskupenou s Main Menu/Quit; `docs/game-shell.md`'s výčet položek pauzy (byl zastaralý) opravený.
+
+### Tři rozhodnutí, která issue nechávalo otevřená, a proč takhle
+
+1. **Odstup místo potvrzovacího dialogu.** V repu není nikde žádná Dialog/Popup infrastruktura a Main Menu i Quit — obojí drastičtější než Restart — dnes potvrzení taky nemají. Stavět jednorázovou dialogovou mašinerii pro jediné tlačítko by bylo přesně to, co CLAUDE.md zakazuje. Restart sedí dva řádky pod Resume (tím, co se mačká bez čtení) a vedle Main Menu/Quit, se kterými sdílí sémantiku „konec rozehraného pokusu".
+2. **Žádná klávesa.** WASD patří gameplay obrazovce, Retry na výsledkové stránce je taky jen myš/pad, a žádná položka pauzy dosud klávesu neměla. Napsáno jako komentář na místě, ne jen rozhodnuto mlčky.
+3. **Skóre: řečeno jednou, ne na obou místech zvlášť.** Restart z pauzy a Retry z výsledkové obrazovky volají doslova tutéž `RetryLevel()` — takže sémantika stojí na jejím doc-komentáři, ne na dvou kopiích, které by se časem mohly rozejít. `RecordLevelResult` běží výhradně z `ShowResultScreen`, kam zahozený pokus po definici nikdy nedojde — takže se restart, ať spuštěný odkudkoli, nezapočítává jako nic.
+
+### ⚠ Co jsem NEověřil naživo, a proč
+
+Chtěl jsem vyfotit pauzu v běžící hře — tenhle stroj je ale ten s neopraveným hard-resetem pod zátěží (viz starší zápisy), takže jsem se zeptal, než bych pustil GPU. Místo focení jsem spočítal řádkový rozpočet ze `MENU_DESIGN_HEIGHT` (2160), `MENU_FONT_BODY` (80) a `MENU_COLUMN_SPACING` (26): nadpis + šest tlačítek vychází kolem **1170 z 2160** jednotek — bezpečná rezerva, a hlavně jiná liga než #138, což byla stránka Nastavení s třinácti řádky, ne tahle. Majitel diff prošel a řekl mergnout na tomhle základě — živé foto tedy chybí a je to poctivá mezera, ne skrytá.
+
+### Ověření
+
+- Game.sln: 0 chyb.
+- Žádný jiný soubor v repu položky pauzy nepočítá ani neindexuje pevně — jediné další zmínky byly `docs/game-shell.md`'s výčet, teď opravený.
+
+**Nic dalšího si neberu.**
