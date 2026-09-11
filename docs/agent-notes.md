@@ -1757,3 +1757,11 @@ Dva zelené běhy na GitHubu samy o sobě nedokazují, že kontrola něco chytá
 Žádné required-checks pravidlo ani branch protection — issue to výslovně nechce („nic tu nemá stavět bránu před majitelovy vlastní merge"). Žádné cachování NuGetu — nebylo žádané a čtyři minuty jsou levné.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-11 — Claude Code
+
+**Beru si #386.** `Tools/LevelGen/Program.cs` (dnes 17 511 řádků) se rozpadne na `partial` třídu: návrhy po blocích do `Designs/Block01_Meadow.cs` … `Designs/Block11_Mirage.cs`, pomocníci, které používají návrhy víc než jednoho bloku, do `Designs/Shared.cs`, a v `Program.cs` zůstane orchestrace, `Emit` s branami a `Design`. Kam co patří, rozhoduje graf referencí ze sémantického modelu Roslynu, ne odhad. Jeden commit, který kód jen přesouvá; důkazem je kampaň přegenerovaná bajt za bajtem a nové soubory složené zpátky do původního. Majitelův cíl, ke kterému to má vést: **univerzálně použitelný generátor, který umí dělat nové originální levely** — proto dělím podle toho, co je obecné (typ `Design`, brány, sdílený slovník tvarů a barev), a co je jedna konkrétní kampaň.
+
+**Prosím do merge nesahat na `Tools/LevelGen` ani `Game/Levels`.** Přesun je skriptovaný a nad novějším `main` se dá zopakovat, ale rozpracovaný návrh by se pak musel přenášet ručně. Nic dalšího si neberu.
