@@ -1765,3 +1765,45 @@ Dva zelené běhy na GitHubu samy o sobě nedokazují, že kontrola něco chytá
 **Beru si #386.** `Tools/LevelGen/Program.cs` (dnes 17 511 řádků) se rozpadne na `partial` třídu: návrhy po blocích do `Designs/Block01_Meadow.cs` … `Designs/Block11_Mirage.cs`, pomocníci, které používají návrhy víc než jednoho bloku, do `Designs/Shared.cs`, a v `Program.cs` zůstane orchestrace, `Emit` s branami a `Design`. Kam co patří, rozhoduje graf referencí ze sémantického modelu Roslynu, ne odhad. Jeden commit, který kód jen přesouvá; důkazem je kampaň přegenerovaná bajt za bajtem a nové soubory složené zpátky do původního. Majitelův cíl, ke kterému to má vést: **univerzálně použitelný generátor, který umí dělat nové originální levely** — proto dělím podle toho, co je obecné (typ `Design`, brány, sdílený slovník tvarů a barev), a co je jedna konkrétní kampaň.
 
 **Prosím do merge nesahat na `Tools/LevelGen` ani `Game/Levels`.** Přesun je skriptovaný a nad novějším `main` se dá zopakovat, ale rozpracovaný návrh by se pak musel přenášet ručně. Nic dalšího si neberu.
+
+---
+
+## 2026-09-11 — Claude Code (druhý zápis dne)
+
+**#386 hotové a na `main` (`185cb0a`): `Tools/LevelGen/Program.cs` je `partial` třída rozdělená po blocích.** `Program.cs` je generátor sám — `Main`, tabulky bloků, set a jeho odemykací rampa, `Emit` se všemi branami a typ `Design` — a má místo 17 511 řádků 2 294. Návrhy každého bloku s pomocníky, které používá jen ten blok, jsou v `Tools/LevelGen/Designs/Block01_Meadow.cs` … `Block11_Mirage.cs`, pomocníci, které používají návrhy víc než jednoho bloku, ve `Designs/Shared.cs`. Dva commity schválně: `c8fb89e` kód **jen přesouvá** (dá se revidovat výstupem), `167906a` opravuje, co tím přestalo platit, a dopisuje rozvržení do `docs/formats-and-tools.md`. **Zámek z prvního zápisu dne tímhle padá** — na `Tools/LevelGen` a `Game/Levels` se zase dá sahat.
+
+### Kam co patří, rozhodl graf, ne jména
+
+Odhozený nástroj v Roslynu (scratchpad, žádný solution) spočítal ze sémantického modelu pro každého z 1 539 členů třídy, návrhy kterých bloků ho tranzitivně používají: jeden blok → soubor toho bloku, víc bloků → `Shared.cs`. Regiony se stěhovaly celé, kde se jejich členové shodli; vnější `#region The designs` po vyprázdnění zmizel a to jsou jediné tři zahozené řádky. **Graf opravil i samotné issue:** to tipovalo jako sdílený `Picture` — ten je jen Galerie; sdílený je `PixelAt`, který čtou i Arcade a Reveal. Sdílených je 14, mezi nimi `ONE_WALLS`, které si Mirage (Trefoil, Diadem) bere od One celé. Tři konstanty Quarry (`HOPPER_*`) ležely v regionu geometrie Reveal a šly domů. Bloková tabulka (`BLOCKS`, `MUSIC_*`, `BALLS_*`) zůstala pohromadě v `Program.cs`, přestože každá konstanta patří jednomu bloku — je to tabulka, jejíž komentáře argumentují celou sadou najednou (reprízy, jeden materiál na kapitolu).
+
+### ⚠ Past `partial` třídy: pořadí statické inicializace mezi soubory je nespecifikované
+
+Kdyby inicializátor v jednom souboru četl `static readonly` pole z jiného, může dostat `null` a nic to neohlásí. Změřeno před splitem: 166 statických polí má inicializátor, jen **čtyři** čtou jiné pole (`BOLT_TIER_ODD`/`_EVEN` → `VOLT`, `PLEAT_TIER_SHIFT` → `AURORA`, `CUBE_GLYPHS` → pět `CUBE_*`) a každé čte pole deklarované dřív ve stejném bloku — skončily ve stejném souboru ve stejném pořadí. **Pravidlo je teď v hlavičce `Program.cs` i v dokumentaci**, protože nové návrhy přidávají `static readonly` tabulky pořád a `CUBE_GLYPHS` ukazuje, že i tabulka z tabulek je normální.
+
+### ⚠ `git blame` se o přesun zarazí, pokud se mu neřekne jinak
+
+Výchozí Myers diff na souborech téhle velikosti přesun nenajde: `git blame -C -C` nechá na split commitu **1 550 z 1 553** řádků Eruption (a `-C -C -C` taky). S `--diff-algorithm=histogram` nebo `--minimal` (nebo jednou nastaveným `diff.algorithm=histogram`) tam zůstane **12** — přesně nová hlavička a patička souboru. Kdo bude hledat historii návrhu sahající před 11. 9., potřebuje tohle.
+
+### Ověření
+
+- **Nezávislý ověřovač**, který neví nic o tom, jak se dělilo, puštěný i proti stagnutým blobům: `Program.cs` = původní řádky 1–968 a 16194–17511 bajt po bajtu plus `partial`; těla nových souborů = původní řádky 969–16193, řádek po řádku a v rámci souboru v původním pořadí, bez přesně těch tří deklarovaných. Povrch třídy stejný (1 540 členů, signatury i hodnoty konstant). Splitter dvakrát po sobě zapsal bajtově totéž.
+- **LevelGen: celý stdout (2 040 řádků) a všech 111 zapsaných souborů bajtově shodné s během před splitem**, po obou commitech; `Game/Levels` beze změny. ScoreSim „All levels rate the right way round". `Game.sln` 0 chyb, varování stejná (CA2014 se jen posunulo, dnes `Program.cs:1605`). **CI na větvi zelené** (běh 34649374507: čtyři solutiony, přegenerování + `git diff --exit-code`, ScoreSim) a merge je strom bit za bitem ten, na kterém prošlo.
+- Každý nový soubor má jen `using`y, které potřebuje (CS8019 z kompilátoru). `Program.cs` o jeden přišel (`Prazsky.Core.Tools`) až v druhém commitu.
+
+### Co jsem po přesunu opravil, protože to přestalo platit
+
+Čtyři komentáře říkaly „this file" a myslely celý generátor; jeden z nich (Mirage: „every other gate in this file passes it") byl po přesunu **nepravdivý**, brány zůstaly v `Program.cs`. Dva ve `Shared.cs` říkaly „this block" o pomocnících, které dnes sdílí čtyři bloky. Hlavička `Program.cs` přestala tvrdit, že nástroj píše „pattern levels (Three to Seven)". Hledal jsem to heuristikou (poziční slovo + jméno člena, který teď bydlí v jiném souboru): 375 kandidátů, 78 po zúžení, šest skutečných.
+
+### ⚠ Provozní chyba, kterou jsem udělal a nic nestála
+
+**`git merge -F -` nečte zprávu ze stdinu** (na rozdíl od `git commit -F -`) — spadne na „could not read file '-'" a merge se neprovede. Můj řetězec pokračoval přes `;`, takže **smazal vzdálenou větev dřív, než byla mergnutá**. Nic se neztratilo: `git branch -d` správně odmítl smazat lokální větev, protože mergnutá nebyla, a merge jsem zopakoval se zprávou ze souboru a se `set -e`. Pro příště: zprávu merge commitu dávat přes `-F <soubor>` nebo `-m`, a řetězec, který končí mazáním větve, psát tak, aby se na první chybě zastavil.
+
+### Co zůstává
+
+- **Majitelův cíl, ke kterému tohle směřuje: univerzálně použitelný generátor, který umí dělat nové originální levely.** Rozdělení to umožňuje, samo nic nevymýšlí. Navrhl jsem majiteli další krok: režim, který skládá nové `Design`y ze sdíleného slovníku (tvary, barvení, druhy koulí) a nechá existující brány, sag sondu a ScoreSim rozhodnout, které kandidáty jsou levely — do scratch adresáře ke screenshotům, nikdy rovnou do `Game/Levels`.
+- `CA2014` (`stackalloc` ve smyčce) nechávám stát — přesun kód neměnil a oprava patří jinam.
+- `#region Colour helpers` ve `Shared.cs` drží i geometrii (`Centred`, `Untwist`, `WrapAngle`…); nesedělo to už v původním souboru, přesun jen zachoval název.
+- `Program.cs` začíná čtyřiceti BOMy za sebou (objevily se v jednom commitu po `85b40fb`, 19. 8.); kompilátoru to nevadí a nesahal jsem na to.
+- `SceneRenderer.cs` (5 500 řádků) issue výslovně nechává na potom.
+
+**Nic dalšího si neberu.**
