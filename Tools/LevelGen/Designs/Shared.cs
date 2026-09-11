@@ -53,6 +53,7 @@ namespace BS3D.Tools.LevelGen
             int index = (int)MathF.Floor(turns * sectors);
             return ((index % sectors) + sectors) % sectors;      //MathF.Floor of a negative turns
         }
+
         private const float INV_SQRT_TWO = 0.70710678f;
 
         //A level index's vertical world offset from the layout's own centre, in the same units r is
@@ -107,8 +108,8 @@ namespace BS3D.Tools.LevelGen
 
         /// <summary>
         /// An angle folded back into −π…π, so a difference between two of them is the <b>short</b> way round.
-        /// Every shape in this block is a window on an angle that turns with the level, and without this the
-        /// window silently stops working the first time the turn passes π.
+        /// A shape that turns with the level is a window on an angle, and without this the window silently
+        /// stops working the first time the turn passes π.
         /// </summary>
         private static float WrapAngle(float angle)
         {
@@ -123,13 +124,14 @@ namespace BS3D.Tools.LevelGen
         /// <summary>
         /// Squared lateral distance between a cell at polar (<paramref name="r"/>, <paramref name="ang"/>)
         /// and a point at polar (<paramref name="orbit"/>, <paramref name="centre"/>) — the law of cosines,
-        /// shared by every design in this block that hangs a body on an orbiting path.
+        /// shared by every design that hangs a body on an orbiting path.
         /// </summary>
         private static float LateralDistanceSquared(float r, float ang, float orbit, float centre) =>
             r * r + orbit * orbit - 2f * r * orbit * MathF.Cos(ang - centre);
 
         /// <summary>How many lattice levels below the glass plate this layout level sits - the sweep's own axis.</summary>
         private static int LevelsBelowGlass(int i, int depth) => depth - 1 - i;
+
         #endregion
     }
 }

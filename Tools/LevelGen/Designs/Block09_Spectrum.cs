@@ -1492,7 +1492,7 @@ namespace BS3D.Tools.LevelGen
         private static readonly BallType[] MOSS = { BallType.Type4, BallType.Type2, BallType.Type13, BallType.Type8 };
         private static readonly BallType[] TWILIGHT = { BallType.Type4, BallType.Type6, BallType.Type12, BallType.Type8 };
 
-        //The wheel, in hue order rather than in enum order, which is the one place in this file where the
+        //The wheel, in hue order rather than in enum order, which is the one place in the generator where the
         //ORDER of a palette is the design. Seven of the thirteen: the six that sit on the wheel at even
         //spacings plus orange between red and yellow, so no two neighbours here are further apart than the
         //#152 rival pairs already are.

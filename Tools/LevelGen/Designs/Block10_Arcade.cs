@@ -1816,7 +1816,7 @@ namespace BS3D.Tools.LevelGen
 
         /// <summary>
         /// A seven, six sectors by ten levels — the reel's own symbol, drawn top-first like every bitmap in
-        /// this file. Two cells thick everywhere for the lonely-ball rule, and it never reaches a panel's
+        /// the generator. Two cells thick everywhere for the lonely-ball rule, and it never reaches a panel's
         /// edge, so the four symbols round the drum stay four groups.
         /// </summary>
         private static readonly string[] REEL_SEVEN =

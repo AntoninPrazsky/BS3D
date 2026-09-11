@@ -3,7 +3,6 @@ using Prazsky.BS3D.GameStructure.DataBags;
 using Prazsky.BS3D.Levels;
 using Prazsky.BS3D.Physics;
 using Prazsky.Core.Render;
-using Prazsky.Core.Tools;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -13,9 +12,9 @@ using Microsoft.Xna.Framework;
 namespace BS3D.Tools.LevelGen
 {
     /// <summary>
-    /// Writes the game's pattern levels (Three to Seven) and the set that orders them, and <b>validates
-    /// every one through the game's own loader</b> before it is written anywhere the game will see it.
-    /// A design is one <see cref="Design"/>: a silhouette, a colouring, a scene and a set of rules.
+    /// Writes every level of the campaign but the hand-drawn Colossus, and the set that orders them, and
+    /// <b>validates every one through the game's own loader</b> before it is written anywhere the game will see
+    /// it. A design is one <see cref="Design"/>: a silhouette, a colouring, a scene and a set of rules.
     /// <para>
     /// It exists because these levels are generated, and a generated level that is only checked by
     /// playing it is checked by nobody. The three properties it enforces are all invisible in a
@@ -30,6 +29,15 @@ namespace BS3D.Tools.LevelGen
     /// and it hangs the level in the real simulation instead of reading it; <see cref="WorstAnchorLoad"/>
     /// is the cheap figure that came out of building it. Read <see cref="RunSagGate"/> for why the first is
     /// opt-in and <c>docs/formats-and-tools.md</c> for what it is not yet entitled to decide.
+    /// </para>
+    /// <para>
+    /// <b>The class is split by block (#386).</b> This file is the generator itself: <see cref="Main"/>, the
+    /// block tables, the set and its unlock ramp, <see cref="Emit"/> with every gate, and <see cref="Design"/>.
+    /// Each block's designs, with every helper only that block's designs use, are in
+    /// <c>Designs/BlockNN_Name.cs</c>, and a helper the designs of more than one block use is in
+    /// <c>Designs/Shared.cs</c> — so a new design goes into its block's file, and a new block is a new file
+    /// there and a row in the tables here. <b>A static field's initialiser must not read a static field declared
+    /// in another of these files</b>: the order in which a partial class's parts are initialised is unspecified.
     /// </para>
     /// <para>
     /// <c>dotnet run --project Tools\LevelGen\LevelGen.csproj [output directory] [--sag[=Name,Name]]</c>.

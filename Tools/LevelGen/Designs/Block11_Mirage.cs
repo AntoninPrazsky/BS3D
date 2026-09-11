@@ -22,7 +22,7 @@ namespace BS3D.Tools.LevelGen
         //in a cell BESIDE it (BallsMap.ColourTransparentNeighbours takes every transparent neighbour of the
         //landing cell), so a glass ball with no empty neighbour is a ball the player can never colour - and
         //glass counts against the level being cleared, so that is a level that cannot be finished while
-        //every other gate in this file passes it. FindStrandedSpecials refuses it. And glass on the field's top
+        //every other gate in the generator passes it. FindStrandedSpecials refuses it. And glass on the field's top
         //level is a CEILING ANCHOR THAT DISSOLVES: one shot beside it and the cluster's hanging width drops,
         //which is #301/#302's failure mode with the one ingredient those issues did not have, namely that
         //the ball gave no warning because it had no colour to warn with. Refused as well.
@@ -568,7 +568,7 @@ namespace BS3D.Tools.LevelGen
         /// <summary>
         /// <see cref="Band"/> for an index that can go negative — which the argyle's <c>floor(u / tile)</c>
         /// does the moment <c>u</c> is left of the axis, and <c>Band</c>'s bare <c>%</c> would have indexed
-        /// the palette at a negative subscript. Everything else in this file builds its band out of radii,
+        /// the palette at a negative subscript. Everything else in the generator builds its band out of radii,
         /// shells and sector indices, all of them non-negative by construction, which is why the plain form
         /// has served until now.
         /// </summary>
