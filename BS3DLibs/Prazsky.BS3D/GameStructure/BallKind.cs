@@ -290,7 +290,50 @@ namespace Prazsky.BS3D.GameStructure
         /// much larger feature and it belongs to the mass ball (#333), not here.
         /// </para>
         /// </summary>
-        Gravity = 9
+        Gravity = 9,
+
+        /// <summary>
+        /// A heavy ball (#333): an ordinary ball of its colour with <b>many times a normal ball's mass</b>, so
+        /// the lattice under it hangs visibly lower. It matches, it is counted and a shot removes it like any
+        /// other — the mass is the whole of what it is.
+        /// <para>
+        /// <b>It is the last of #256's ten and the only one that can destabilise the simulation every other
+        /// level depends on</b>, which is why it was left until last. A <c>BallSocket</c> between two bodies of
+        /// very different mass is the classic case that jitters: the solver's convergence depends on the mass
+        /// ratio, and this game's whole look is a cluster that hangs and jiggles believably. So the ratio is
+        /// <b>measured</b> rather than chosen for drama — see
+        /// <c>BallsConstraintsBuilder.HEAVY_MASS_RATIO</c>, which carries the sweep that found the cliff.
+        /// </para>
+        /// <para>
+        /// <b>The physics gives its feedback for free, and that is the point of the kind.</b> A branch hanging
+        /// lower is the mechanic explaining itself — no effect, no sound and no HUD line does any of that work.
+        /// It also makes the branch a branch closer to the death line, which is what turns mass into a puzzle:
+        /// weight is a thing to plan around rather than a thing to look at.
+        /// </para>
+        /// <para>
+        /// <b>It is MATCHABLE</b>, and on <see cref="Gravity"/>'s argument rather than by imitation: a heavy
+        /// ball no colour could remove would be a second <see cref="Rock"/> — furniture the player is stuck
+        /// with — and nothing else triggers it, since no landing beside it does anything. A weight the player
+        /// can choose to shoot out or to build around is a decision; furniture is not.
+        /// </para>
+        /// <para>
+        /// <b>⚠ It is a deliberate sag on a project whose own gate reports levels that sag</b>, and that is
+        /// settled where it has to be settled — in the probe rather than in the threshold. The death line is
+        /// the game's rule and does not move for an authored sag: a branch that hangs under it has lost the
+        /// level whatever the author meant by it. What <c>Tools/LevelGen</c>'s sag probe learned instead is
+        /// <i>attribution</i> — it hangs a heavy level twice, once as it ships and once with the mass
+        /// neutralised, so a sag that is the mechanic can be told from a sag that is the layout. See
+        /// <c>SagProbe.HeavyBaseline</c>.
+        /// </para>
+        /// <para>
+        /// <b>Tearing is deliberately NOT here</b> (#256 offered mass as sag <i>or</i> as a branch that tears
+        /// off under load). Bepu does not break constraints on its own, so tearing means reading accumulated
+        /// impulses per step and cutting above a threshold — and it is a threshold on top of this, not a
+        /// separate mechanism: what tears is what has already sagged too far. Sag also makes the mass visible
+        /// continuously, where a tear is one event the player may not have aimed for.
+        /// </para>
+        /// </summary>
+        Heavy = 10
     }
 
     /// <summary>
@@ -346,7 +389,8 @@ namespace Prazsky.BS3D.GameStructure
         /// </para>
         /// </summary>
         public static bool Matchable(BallKind kind) =>
-            kind == BallKind.Normal || kind == BallKind.Infectious || kind == BallKind.Gravity;
+            kind == BallKind.Normal || kind == BallKind.Infectious || kind == BallKind.Gravity
+            || kind == BallKind.Heavy;
 
         /// <summary>
         /// Whether a shot can still do something about this ball — <b>the question the end of a level is
@@ -483,6 +527,12 @@ namespace Prazsky.BS3D.GameStructure
                 case "well":
                 case "magnet":
                     kind = BallKind.Gravity;
+                    return true;
+
+                case "heavy":
+                case "lead":
+                case "weight":
+                    kind = BallKind.Heavy;
                     return true;
 
                 default:

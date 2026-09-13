@@ -250,7 +250,13 @@ namespace BS3D.Tools.LevelGen
         /// form of the answer an author can act on, and it is what separates a body that hinges from a
         /// remnant that was going to swing whatever the design did.
         /// </param>
-        internal static Run[] Play(string path, int shots, int ceilingStep, bool trace = false)
+        /// <param name="neutraliseHeavy">
+        /// Hang the level with every <see cref="BallKind.Heavy"/> ball weighing what an ordinary one does
+        /// (#333) — <b>the same level with the mechanic switched off</b>, and the whole of this probe's answer
+        /// to a kind whose sag is deliberate. See <see cref="HeavyBaseline"/>.
+        /// </param>
+        internal static Run[] Play(string path, int shots, int ceilingStep, bool trace = false,
+            bool neutraliseHeavy = false)
         {
             Run[] runs = new Run[RUNS_PER_LEVEL];
 
@@ -261,17 +267,78 @@ namespace BS3D.Tools.LevelGen
                 //level with a losing order in it.
                 if (trace) Console.WriteLine($"      --- run {run + 1} ---");
 
-                runs[run] = PlayOnce(path, shots, ceilingStep, new Random(run + 1), trace);
+                runs[run] = PlayOnce(path, shots, ceilingStep, new Random(run + 1), trace, neutraliseHeavy);
             }
 
             return runs;
         }
 
-        private static Run PlayOnce(string path, int shots, int ceilingStep, Random random, bool trace)
+        /// <summary>
+        /// How many <see cref="BallKind.Heavy"/> balls the level at <paramref name="path"/> hangs — what
+        /// decides whether the baseline pass below is worth its minutes.
+        /// </summary>
+        internal static int CountHeavy(string path)
+        {
+            BallsMap map = new(Level.Load(path).Map);
+            StaticBall[,,] balls = map.GetStaticBallsArray();
+            int heavy = 0;
+
+            foreach (StaticBall ball in balls)
+                if (ball != null && ball.Kind == BallKind.Heavy) heavy++;
+
+            return heavy;
+        }
+
+        /// <summary>
+        /// <b>The heavy ball's whole answer to this file</b> (#333), and it is an answer about <i>attribution</i>
+        /// rather than about tolerance.
+        /// <para>
+        /// A <see cref="BallKind.Heavy"/> ball is a sag the author asked for, and this probe reports sag — so
+        /// #333 asked which of the two had to move. <b>Neither does.</b> The death line is the game's rule and
+        /// it does not know what an author meant: a branch hanging under it has lost the level whether the
+        /// weight on it was designed or was an accident, so a threshold that forgave an authored sag would be
+        /// forgiving a level that genuinely cannot be played. And the reading this file prints is
+        /// <i>how many orders lose</i>, which is exactly as true of a heavy level as of any other.
+        /// </para>
+        /// <para>
+        /// What was actually missing is the ability to tell the two apart when a heavy level DOES come back
+        /// named, and that is what this is: the same level hung a second time with every heavy ball weighing
+        /// what an ordinary one weighs. Then the two readings say it outright — <b>if the baseline sags too,
+        /// the layout is the fault and the mass is a passenger; if only the loaded pass sags, the mass is the
+        /// fault and the design has hung too much off it.</b> An author can act on either sentence and could
+        /// act on neither before.
+        /// </para>
+        /// <para>
+        /// ⚠ It is deliberately <b>not</b> a level-file field, which was #333's other suggestion (an expected
+        /// sag authored beside the level). A figure written down by hand is a figure that goes stale the first
+        /// time a design moves, and this game has that failure recorded twice over in
+        /// <c>docs/formats-and-tools.md</c>; a second run of the same simulation cannot.
+        /// </para>
+        /// </summary>
+        internal static Run[] HeavyBaseline(string path, int shots, int ceilingStep) =>
+            Play(path, shots, ceilingStep, trace: false, neutraliseHeavy: true);
+
+        private static Run PlayOnce(string path, int shots, int ceilingStep, Random random, bool trace,
+            bool neutraliseHeavy = false)
         {
             Level level = Level.Load(path);
             BallsMap map = new(level.Map);
             map.Center();
+
+            //#333's baseline pass: the mass is the whole of what the kind does, so a heavy ball rewritten to
+            //Normal IS the same level with the mechanic switched off. Rewritten through PutBallAt, the map's
+            //one placement door, rather than by reaching into the array — it recomputes the position from the
+            //cell, which is the position the ball already had.
+            if (neutraliseHeavy)
+            {
+                StaticBall[,,] authored = map.GetStaticBallsArray();
+
+                for (byte x = 0; x < map.StageSizeX; x++)
+                    for (byte z = 0; z < map.StageSizeZ; z++)
+                        for (byte l = 0; l < map.Levels; l++)
+                            if (authored[x, z, l] != null && authored[x, z, l].Kind == BallKind.Heavy)
+                                map.PutBallAt(x, z, l, authored[x, z, l].Type);
+            }
 
             Vector3 worldOffsetXna = ClusterHang.FitWorldOffset(map, out float fieldTopY);
             System.Numerics.Vector3 worldOffset = worldOffsetXna.ToNumerics();
