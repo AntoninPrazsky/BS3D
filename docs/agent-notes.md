@@ -1889,9 +1889,31 @@ Issue se ptá, co dělat s bránou, která hlásí průvěs, když je průvěs z
 - **Cena snímku: žádný per-step průchod nepřibyl**, takže není co měřit; issue ji chce pro případ, že by trhání přidalo procházení impulsů, a to se nestaví.
 - Vyfoceno v Testbedu: všech třináct odstínů (scratch mapa) a A/B mapa `Testbed\Maps\Heavy.json` — čtyři stejné prameny, dva se závažím.
 
+### Doměřeno s grafikou (na majitelův dotaz, tentýž den)
+
+**Testbed je na tohle nástroj právě proto, že krokuje jinak než hra: jeden krok za snímek o délce snímku.** `fpscap=` je tedy **číselník dt** — u hry by akumulátor držel 1/120 bez ohledu na cap. Táž A/B mapa, kamera pod clusterem (prameny stojí proti čisté obloze, takže se dno dá segmentovat jedním kanálem: obloha má B ≥ 219, zelená koule 64, odlitek 32), **bez střelby**, sedm snímků přes ustálené okno, měřítko **38 px na jednotku**:
+
+| režim | medián snímku | průměrný pokles | v jednotkách |
+|---|---|---|---|
+| `fpscap=120` | 9,3 ms (herní krok je 8,3) | 11,1 px | **0,331** |
+| `fpscap=20` | 50,0 ms (šestinásobek) | 15,0 px | **0,387** |
+| kontrolní mapa | — | −1,4 a +0,3 px | **−0,038 / +0,008** |
+
+Bezgrafický rig říká **0,372**. Takže **průvěs na obrazovce je ten, co změřil rig, a při šestinásobném kroku neuteče**; kontrolní mapa (tytéž čtyři prameny bez závaží) drží obě pásma v rovině na čtyři setiny jednotky, což je šum přístroje.
+
+**Stabilita, tentokrát dívánm:** šest ran během 42 s při `fpscap=20` — cluster celý, žádný třes, nic neuletělo. A ve **hře** (`BS3D.exe levelfile=`) při **2–15 FPS** na `quality=high`, tedy s akumulátorem trvale na stropu `PHYSICS_MAX_STEPS_PER_FRAME` a světem běžícím ve zpomaleném čase, level hraje a odlitky visí normálně až do konce běhu. Pomalý snímek stojí hru **čas, ne stabilitu**.
+
+### ⚠ Jeden snímek tohle změřit neumí a první grafický průchod na to doplatil
+
+Cluster se houpe: přes sedm snímků jednoho režimu šel pokles **−2 až 24 px** kolem průměru 11 px, takže jediný snímek přečte cokoli od nuly po dvojnásobek. Je to varování z palety v `.claude/skills/screenshot` — „jeden snímek neurovná rozdíl pod ~10 dE" — jen v geometrii místo barvy. **A druhá chyba téhož průchodu:** střílel jsem před focením, takže každý pozdější snímek držel koule, které tam přistřelily rány. To je jiný cluster, ne jiná fáze houpání; průvěs je vlastnost **nerozhoupaného** zavěšení.
+
+### ⚠ A první verze segmentace četla jako kouli celou oblohu
+
+Porovnával jsem každý pixel s oblohou **daleko vlevo** ve stejném řádku. Kopule je ale gradient i **napříč** snímkem, takže reference 600 px stranou je sama o sobě větší než práh a všech 31 snímků vyšlo „dno v posledním řádku". Vzorkování ukázalo, že modrý kanál odděluje oblohu od koulí sedmdesáti kódy — reference není potřeba vůbec.
+
 ### Co zbývá a proč to nemergnuju
 
-- **Nemám jak sám ověřit to, na čem issue trvá:** sledovat stabilitu **na obrazovce při nativní i vysoké obnovovací frekvenci, celý level a ne pár vteřin, s clusterem rozhoupaným střelbou.** Změřil jsem to bez grafiky (usínání, stretch, dt sweep) a je to silnější důkaz o řešiči, ale není to totéž co dívat se. Scénář: `BS3D.exe levelfile=C:\GitHub\Testbed\Maps\HeavyLevel.json`, nebo Testbed s `Maps\Heavy.json`.
+- **Vkus majitele na vzhled odlitku** a případně vlastní pohled na to, jak se to hraje. Měření výše zodpovědělo, co issue chtělo číselně; „jak to vypadá v ruce" je věc, kterou za majitele neudělám.
 - **Vzhled je věc vkusu majitele.** Odlitek se dnes čte jako tmavá hutná koule své barvy se švem; pokud má být kovovější, je to jedna konstanta (`HeavyEnvironment`), ne přestavba.
 - **Trhání se nestaví** (záměrně, viz claim výše). Až bude, je to práh nad tímhle.
 
