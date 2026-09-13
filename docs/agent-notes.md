@@ -1847,3 +1847,52 @@ Zastaralá věta se neopravuje přepsáním na opak. První dvě byly prostě ne
 **Rozsah:** staví se **průvěs**, ne trhání. Issue to samo doporučuje a důvod je, že trhání je práh nad průvěsem, ne druhý mechanismus.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-13 — Claude Code (třetí zápis dne)
+
+**#333 (těžká koule) je na větvi `333-heavy` (`b48236a`), NEmergnuto: čeká na majitelovo oko.** Desátý a poslední speciál z #256. `BallKind.Heavy = 10`, `HEAVY_MASS_RATIO = 12`, dvanáctý region kbelíků a technika `InstancedModelHeavy`, brána v LevelGenu, atribuce v sag sondě, `--sagfile=` a dvě testovací mapy.
+
+### Jádro: je to hmota, ne pravidlo
+
+Druh se dotkne **jediného řádku hry** — `BodyInertia`, kterou tělesu dá `BuildBallsStructure`. Kontaktní handler, match rule, uvolňovací cesta ani skórování o něm nevědí. Proto jako jediný z deseti nepotřeboval **nic** zopakovat v `SagProbe` (#329 stálo nula řádků, tohle nemá ani ten krok), a proto zpětná vazba nic nestojí: větev pod ním visí níž a to je celé vysvětlení mechaniky.
+
+### ×12 je změřeno a útes je STRETCH, ne průvěs
+
+Odhozený rig ve scratchpadu (`MassRig`, bez grafiky) věší dvě fixtury v téže Bepu simulaci: holý pramen (7×7 deska, osm koulí pod ní, těžká na špičce — nejvíc zátěže, co jeden řetěz soketů kdy nese) a skutečný level s nejnižší koulí těžkou. Rozhodující číslo není deflexe, ale **nejdelší vzdálenost dvou spoutaných sousedů**: skutečný cluster samých obyčejných koulí má **1,044**, pramen dává 1,027 při ×12, 1,031 při ×20, pak 1,057 (×25), 1,083 (×35), 1,154 (×60) a **1,402 při ×100 — viditelně roztržená mřížka**. Hustý level usne při každém poměru do ×100 a **přestane usínat při ×200**. ×12 je tedy faktor dva pod deformací a řád pod rozpadem; koupí **0,46 jednotky** průvěsu na prameni a **0,372** na dodávané testovací mapě. Táž ×12 uvnitř hustého clusteru pohne koulí o 0,02 a je neviditelná — to je druh, který se chová správně, a důvod, proč se hlubší průvěs dělá **zavěšením většího břemene, ne zvýšením konstanty**.
+
+### ⚠ První verze rigu měřila fázi, ne polohu
+
+Nic tu netlumí (integrátor přičítá gravitaci a nic víc), takže zavěšená mřížka kmitá, dokud ji nezhasne měkkost řešiče a Bepu neuspí. Snímek v pevné 4. sekundě proto čte **fázi**: první tabulka ukázala průvěsy, které s rostoucí hmotou zase **stoupaly**. Oprava: běžet, dokud cluster neusne (to *je* otázka stability), a když neusne, průměrovat výkyv místo vzorku.
+
+### ⚠ Dvě chyby ve vzhledu, obě odhalila až fotka
+
+1. **Samotné ztmavení nestačí.** Odstín přežije beze změny, takže těžká žlutá se vyfotila jako **čokoládově hnědá koule** — obyčejný Type10 se zhasnutými světly. Odsycení je osa, po které se „kov" pozná; mramor to má v hlavičce napsané už dávno a já to objevoval znovu.
+2. **`SurfaceSpecular.Highlight`/`.Environment` jsou NÁSOBKY toho, co dostane každá jiná koule** (1 = beze změny). Napsal jsem 0,86 a 0,80, tedy si vyžádal **míň světla než obyčejná koule**, a vyfotilo se to jako matný plast. Leštěný odlitek zvedá oblohu: 1,30 a 1,25.
+3. **Zrno odlitku jsem vyhodil.** Tři síly, a ani na jedné nebylo na herní vzdálenost vidět; při nejsilnější se z jedné koule opodál četlo jako **fasety**, ne jako písek. Figura, která se projeví jen jako artefakt, je horší než žádná a platí se za ni na každém pixelu. Nahradil jsem ji **dělicím švem formy** (`SeamLine`, jeden prstenec, vystouplý) — tvrdá čára přežije i šířku jednoho pixelu a pak se sama vytratí.
+
+### ⚠ Past, kterou mám v paměti a stejně jsem do ní spadl
+
+Tři konstanty v `.fx` jsem změnil přes `python … io.open(encoding='utf-8-sig')` a **přidal tím souboru BOM** (diff skočil na „152 insertions, 1 deletion"). Opraveno binárně, `git diff` je zase čistý přírůstek. Na sledované zdrojáky patří Edit/Write, ne shell.
+
+### Sag sonda: atribuce, ne tolerance
+
+Issue se ptá, co dělat s bránou, která hlásí průvěs, když je průvěs záměrný. **Ani práh, ani čára smrti se nehnou** — větev pod čarou level prohrála bez ohledu na to, co autor zamýšlel. Přidal jsem druhé pověšení s **neutralizovanou hmotou** (`SagProbe.HeavyBaseline`; hmota je celý druh, takže přepsání `Heavy`→`Normal` *je* tentýž level s vypnutou mechanikou) a brána tiskne obě čtení i rozdíl: sedá-li i baseline, vinen je **layout**; sedá-li jen zatížený běh, návrh **pověsil na těžkou kouli moc**. Číslo psané rukou vedle levelu (druhá nabídka issue) jsem odmítl — zastará při první změně návrhu, druhý běh téže simulace ne.
+
+**Vyzkoušeno na skutečném levelu**, protože ručně stavěné prameny se vyčistí dřív, než se stihne projevit hang: Pylon se čtyřmi nejnižšími koulemi těžkými čte `sagged 1 of 5, closest −1,00` proti baseline `2 of 5, −1,04` → hmota stojí **−0,04** clearance, což je uvnitř vlastního šumu sondy, takže verdikt je „layout". Na to byl potřeba `--sagfile=<cesta>`, který věší **soubory** mimo kampaň (set *je* kampaň; do té doby se level na zkoušku mechaniky nedal sondě předhodit jinak než úpravou kampaně, kterou příští běh přepíše).
+
+### Ověřeno
+
+- Čtyři solutiony 0 chyb; **LevelGen exit 0 a `Game/Levels` beze změny**; ScoreSim „All levels rate the right way round".
+- Poměr přeměřen při **dt 1/240, 1/120 a 1/60 s**: do ×30 se shoduje na ~0,01 jednotky. Hra stejně krokuje pevných 1/120 z akumulátoru, takže obnovovací frekvence na řešič nedosáhne — sweep je rezerva, ne mechanismus.
+- **Cena snímku: žádný per-step průchod nepřibyl**, takže není co měřit; issue ji chce pro případ, že by trhání přidalo procházení impulsů, a to se nestaví.
+- Vyfoceno v Testbedu: všech třináct odstínů (scratch mapa) a A/B mapa `Testbed\Maps\Heavy.json` — čtyři stejné prameny, dva se závažím.
+
+### Co zbývá a proč to nemergnuju
+
+- **Nemám jak sám ověřit to, na čem issue trvá:** sledovat stabilitu **na obrazovce při nativní i vysoké obnovovací frekvenci, celý level a ne pár vteřin, s clusterem rozhoupaným střelbou.** Změřil jsem to bez grafiky (usínání, stretch, dt sweep) a je to silnější důkaz o řešiči, ale není to totéž co dívat se. Scénář: `BS3D.exe levelfile=C:\GitHub\Testbed\Maps\HeavyLevel.json`, nebo Testbed s `Maps\Heavy.json`.
+- **Vzhled je věc vkusu majitele.** Odlitek se dnes čte jako tmavá hutná koule své barvy se švem; pokud má být kovovější, je to jedna konstanta (`HeavyEnvironment`), ne přestavba.
+- **Trhání se nestaví** (záměrně, viz claim výše). Až bude, je to práh nad tímhle.
+
+**Nic dalšího si neberu.**
