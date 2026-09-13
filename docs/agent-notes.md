@@ -1807,3 +1807,27 @@ Výchozí Myers diff na souborech téhle velikosti přesun nenajde: `git blame -
 - `SceneRenderer.cs` (5 500 řádků) issue výslovně nechává na potom.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-13 — Claude Code
+
+**Tři věty v dokumentaci, které kampaň mezitím přerostla** (větev `docs-bombs-in-shipped-set`, bez issue). Majitel se ptal, jestli existuje mapa s bombou; při hledání vyšlo najevo, že dokumentace pořád tvrdí opak.
+
+- `docs/formats-and-tools.md`, parita sag sondy u #326, končila *„Nothing in the shipped set has bombs in it… the parity is in place for the day one ships."* Ten den byl **7. 9.** (#368/#369) — tedy šest dní po napsání té věty. Kampaň veze **Vent (8 bomb), Sill (5) a Paroxysm (6 + 8 zapů)**, takže sag odpovědi, proti kterým se ty tři levely ladily, pocházejí ze sondy, která odpaluje. Parita už není pojistka do budoucna, ale nosný prvek.
+- Tamtéž, kaveát formátu u klíče `"k"`, tvrdil, že soubory kampaně žádné druhy nenesou. **Nese je patnáct ze sto deseti** — rock (Anvil, Cairn, Keystone, Obsidian, Seam), sklo (Diadem, Facet, Harlequin, Solitaire, Trefoil), bomba (Vent, Sill, Paroxysm), zap (Fume, Caldera, Paroxysm). Sečteno z `Game/Levels`, ne odhadnuto.
+- `docs/game-session.md` u sazby za zničenou kouli říkal, že `ScoreSim` odpoví, *až* nějaký level s bombami vyjde. Vyšel — **a sazba je pořád neměřená z jiného důvodu**: ScoreSim pokládá každý zásah jako `keeper.Landed(balls, 0)` (`Tools/ScoreSim/Program.cs:166` a `:198`), takže `destroyed` zůstává na defaultní nule a model ty tři levely hraje, jako by v nich bomby nebyly. Změřit to znamená naučit ten model výbuch, ne čekat na level.
+
+### ⚠ Past, kterou tohle ilustruje
+
+Zastaralá věta se neopravuje přepsáním na opak. První dvě byly prostě nepravdivé, ale třetí měla **správný závěr ze špatného důvodu** — kdybych ji jen otočil („už změřeno"), zapsal bych do dokumentace nepravdu, kterou nic v repozitáři nevyvrací. Než jsem ji přepsal, ověřil jsem, co ScoreSim dnes opravdu volá.
+
+### Ověření
+
+- ScoreSim puštěn dnes: *„All levels rate the right way round."* Vent/Sill/Paroxysm jsou v běhu vidět, takže verdikt platí i s nimi — jen o samotné sazbě za blast nevypovídá nic.
+- Datum #369 (`f1115d9`, 7. 9.) i datum té věty (`459cc15`, 1. 9.) jsou z gitu, ne z paměti; první formulace tvrdila „eleven days" a byla škrtnuta před commitem.
+- Žádný kód se neměnil, takže nic se nestavělo.
+
+### Co zůstává
+
+- **`ScoreKeeper.DestroyedBallPoints` je pořád neměřená sazba.** Buď se ScoreSim naučí `destroyed` (nejspíš v jednom z těch průchodů jako podíl zásahů, protože přesně na tohle je ten nástroj), nebo se to přizná jako trvalá mezera. Majiteli to nenavrhuji jako hotové — je to issue, které nikdo nezaložil.
