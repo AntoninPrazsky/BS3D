@@ -1831,3 +1831,19 @@ Zastaralá věta se neopravuje přepsáním na opak. První dvě byly prostě ne
 ### Co zůstává
 
 - **`ScoreKeeper.DestroyedBallPoints` je pořád neměřená sazba.** Buď se ScoreSim naučí `destroyed` (nejspíš v jednom z těch průchodů jako podíl zásahů, protože přesně na tohle je ten nástroj), nebo se to přizná jako trvalá mezera. Majiteli to nenavrhuji jako hotové — je to issue, které nikdo nezaložil.
+
+---
+
+## 2026-09-13 — Claude Code (druhý zápis dne)
+
+**Beru si #333 (Heavy).** Desátý a poslední speciál z #256 — ostatních devět je na `main`u, takže tímhle se to trackovací issue zavírá. Větev `333-heavy`.
+
+**Pořadí prací mi diktuje samo issue a nemíním ho obracet:** nejdřív se rozhodne, co s **sag sondou**, teprve potom se staví hmota. Těžká koule je *záměrný* průvěs na projektu, jehož vlastní brána levely s průvěsem zahazuje; kdybych stavěl hmotu první, první level s mechanikou spadne na vlastní bráně a pokušení bude povolit práh všem. Ten práh se povolovat nebude — sonda se naučí druh, nebo se level měří proti vlastnímu baseline.
+
+**Z čeho čerpám:** #332 (gravitační studna) je nejbližší předloha — taky sahá do kroku simulace — a jeho zápis výš nese čtyři pasti měřicího rigu, které platí i tady. `BALL_MASS` je dnes jedna hodnota pro celý cluster (`BallsConstraintsBuilder.cs:100`, jedna `BodyInertia` pro všechna tělesa), takže per-ball setrvačnost je první skutečná změna.
+
+**Jak chci ověřovat stabilitu, a proč ne okem:** poměr hmot má někde na škále útes a issue chce, aby se **našel**, ne odhadl. Sag sonda věší cluster v reálné Bepu simulaci **bez grafiky**, takže poměr i krok integrace se dají projet po mřížce v konzoli a odečíst čísla — to je silnější důkaz než dívání se na obrazovku a nepotřebuje to dlouhou GPU seanci (majitelovo „desktop se pod zátěží tvrdě resetuje" platí). Na obrazovku se půjde až s vybraným poměrem.
+
+**Rozsah:** staví se **průvěs**, ne trhání. Issue to samo doporučuje a důvod je, že trhání je práh nad průvěsem, ne druhý mechanismus.
+
+**Nic dalšího si neberu.**
