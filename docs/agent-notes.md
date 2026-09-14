@@ -2157,3 +2157,15 @@ První výbuch (26 i 117 koulí) spustí drop cinematic, který během zlomku se
 - Cinematic: rychlé stoupání nad cluster u výbuchu uvnitř clusteru a objektiv v kole děla — kandidáti na issue, nezakládal jsem.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-14 — Claude Code (třináctý zápis dne)
+
+**Beru si #390 (přepínač adaptivní kvality v Nastavení).** Větev `390-adaptive-quality-toggle`, **v samostatném worktree `BS3D-390`**: hlavní checkout drží #389 (`389-bomb-detonation`), na které souběžně píše jiná seance, takže na něj nesahám a nepřepínám mu větev.
+
+Sahám na `Game/GameSettings.cs`, `Game/BS3DGame.Quality.cs`, `Game/Screens/SettingsPage.cs`, `docs/game-shell.md` a na **jeden blok** `Game/BS3DGame.cs` (pin sondy při startu — nejbližší hunk #389 je o 26 řádků výš, merge se nepotká).
+
+⚠ **Ověření dočasně podmění `%LOCALAPPDATA%\BS3D\Settings.json`**: zálohované, po testu vrácené bajt za bajtem a zkontrolované otiskem. Kdo by v tu chvíli pouštěl hru, dostane testovací nastavení. Majitel schválil čtyři krátké běhy v okně s `fpscap=40`.
+
+**Nic dalšího si neberu.**
