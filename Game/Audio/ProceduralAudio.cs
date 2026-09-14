@@ -1344,34 +1344,30 @@ namespace BS3D.Audio
         private SoundEffect BakeBlast() => ToSoundEffect(RenderBlast());
 
         /// <summary>
-        /// A bomb going off in the arena (#389): a big, warm <b>boom</b> with a spray of shrapnel whizzing away off
-        /// the top of it — the deepest thing a level does, pleasant, and still the one sound that stands out.
+        /// A bomb going off in the arena (#389): a big, warm <b>boom</b> and nothing but bass — the deepest and the
+        /// loudest thing a level does.
         /// <para>
-        /// <b>⚠ Three bakes were rejected in the game on the way here, and the owner's verdicts are the design.</b>
+        /// <b>⚠ Four bakes were rejected in the game on the way here, and the owner's verdicts are the design.</b>
         /// The first was measured as a deep bang and heard as "a mouse dropping a crystal cup": 89.8 % of its energy
         /// under 60 Hz, where a speaker plays next to nothing, and glassy clicks with 2.4–5.2 kHz tones for what was
         /// left. The second fixed those measurements with a noise roar, rubble and a <c>tanh</c> drive and was
         /// "horribly digital, and not booming" — and the ruling came with it: <i>pleasantness and bass, not physical
-        /// credibility</i>. The third was a warm boom and nothing else, undriven and low-passed at 2.8 kHz, and was
-        /// "more pleasant, but not distinct enough — keep some of the short squealing sounds of shrapnel tearing; a
-        /// balanced combination". So it is built in two halves:
+        /// credibility</i>. The third was a warm boom alone, low-passed at 2.8 kHz and peak-normalised, and was "more
+        /// pleasant, but not distinct enough". The fourth put nine shrapnel whizzes back over that boom at a measured
+        /// balance, and was refused outright: <i>"take the squealing away completely and leave only maximum
+        /// bass"</i>. So:
         /// </para>
         /// <list type="bullet">
-        /// <item><b>The low half is the third bake's</b>: an undriven sine boom 130 → 44 Hz with a soft octave, a
-        /// rumble through three cascaded low-passes at 200 Hz (18 dB an octave, so no hiss), and a thump cascaded
-        /// under 800 Hz — plus a <b>whump</b>, noise cascaded under 650 Hz that swells and is gone in half a second,
-        /// the part of a blast's body a speaker with no low end still plays. It has its own warm room, low-passed
-        /// twice at 2.8 kHz, which is what takes the metallic ring off an undamped comb reverb.</item>
-        /// <item><b>The high half is new, and kept out of that room</b>: a soft crack — noise band-passed by cascaded
-        /// poles to 0.9–4 kHz, a 1 ms ramp, gone in 40 ms — and <b>nine shrapnel whizzes</b>, short tones gliding
-        /// down from 2.6–4.2 kHz to about 60 % of that, each with a slight wobble and torn open by a breath of
-        /// band-passed noise, thrown over the first half second and thinning. Gliding <i>down</i> is what makes them
-        /// fragments flying off rather than the first bake's glass ringing where it fell. They get a small, drier
-        /// room and only an 8 kHz low-pass; the warm half's 2.8 kHz one is exactly what made the third bake quiet up
-        /// top, and running them through it would have taken them straight back out.</item>
-        /// <item><b>Mixed at a fixed balance, then compressed rather than driven</b> (<see cref="Compress"/>): a
-        /// compressor rides the gain slowly, so the whole is louder and the halves sit together, while a
-        /// <c>tanh</c> bends the wave itself, and the wave being bent is what "digital" was.</item>
+        /// <item><b>The boom</b>: an undriven sine dropping 130 → 44 Hz with a soft octave over it. <b>The rumble</b>:
+        /// noise through three cascaded low-passes at 200 Hz, 18 dB an octave, so no hiss survives. <b>The
+        /// whump</b>: the same under 650 Hz and gone in half a second — the part of the body a speaker with no low
+        /// end still plays. <b>The thump</b>: a burst cascaded under 800 Hz, an impact rather than a crack.</item>
+        /// <item><b>No top at all</b>: a short fused echo and a modest reverb, then the whole signal low-passed twice
+        /// at 1.4 kHz.</item>
+        /// <item><b>As loud as it will go without bending the wave</b>: compressed (<see cref="Compress"/>, a slow
+        /// look-ahead gain) and peak-limited (<see cref="Limit"/>), never driven. The third bake's lack of presence
+        /// was partly the price of plain peak normalisation — its crest factor was 5.29, this one's is 3.37 — and a
+        /// <c>tanh</c> is what "digital" was.</item>
         /// </list>
         /// <para>
         /// <b>Rendered apart from the buffer it is wrapped in</b>, so its numbers can be read without an audio
@@ -1386,7 +1382,7 @@ namespace BS3D.Audio
             const float fadeSeconds = 0.6f;
             int samples = (int)(SAMPLE_RATE * duration);
 
-            //THE LOW HALF.
+            //The boom, the rumble, the whump and the thump: bass, and nothing over it (see the summary).
             float[] low = new float[samples];
 
             //THE BOOM: a sine dropping into the low end and ringing there, with a soft octave over it.
@@ -1435,100 +1431,19 @@ namespace BS3D.Audio
                 low[i] += thump[i] * 5f * MathF.Min(1f, t / 0.002f) * MathF.Exp(-t * 38f);
             }
 
-            //Its warm room: six taps from 25 ms that fuse into the boom (their copies darker each time), a modest
-            //reverb, and the edge taken off the lot.
+            //The room: six taps from 25 ms that fuse into the boom (their copies darker each time) and a modest reverb
+            //— then everything over the low end taken off, twice. What leaves is bass, and nothing a speaker can
+            //squeal with: the shrapnel that stood over it in the fourth bake was refused outright.
             RollingEcho(low, taps: 6, firstDelaySeconds: 0.025f, spread: 1.4f, feedback: 0.7f, mix: 0.3f);
             ApplyReverb(low, roomScale: 0.85f, wet: 0.2f, decay: 0.5f);
-            low = LowPassArray(LowPassArray(low, 2800f), 2800f);
+            float[] signal = LowPassArray(LowPassArray(low, 1400f), 1400f);
 
-            //THE HIGH HALF.
-            float[] high = new float[samples];
-
-            //THE CRACK: noise band-passed by cascaded poles to 0.9–4 kHz, a 1 ms ramp, gone in 40 ms. Cascaded for
-            //the rumble's reason: a single pole's band leaks the hash noise's whole top, and that is the hiss.
-            float[] crackTop = LowPassArray(LowPassArray(MakeNoiseArray(samples, seed: 5821), 4000f), 4000f);
-            float[] crackBottom = LowPassArray(LowPassArray(crackTop, 900f), 900f);
-            int crackSamples = (int)(SAMPLE_RATE * 0.04f);
-
-            for (int i = 0; i < crackSamples; i++)
-            {
-                float t = (float)i / SAMPLE_RATE;
-                high[i] += (crackTop[i] - crackBottom[i]) * 1.4f * MathF.Min(1f, t / 0.001f) * MathF.Exp(-t * 90f);
-            }
-
-            //THE SHRAPNEL. Front-loaded and pushed off its curve by the noise function, so the spray thins as it
-            //goes and no two whizzes sit on a grid; every figure of a whizz is its own, so none is the same twice.
-            //The tear's noise band-passed by cascaded poles, the crack's way: BandPass is one pole each side, which
-            //leaves the hash noise spiky and its top in — heard as hiss, and measured as peaks no compressor sees.
-            float[] tearTop = LowPassArray(LowPassArray(MakeNoiseArray(samples, seed: 4127), 5000f), 5000f);
-            float[] tearBottom = LowPassArray(LowPassArray(tearTop, 1500f), 1500f);
-            float[] tear = new float[samples];
-            for (int i = 0; i < samples; i++) tear[i] = tearTop[i] - tearBottom[i];
-            const int SHARDS = 9;
-
-            for (int k = 0; k < SHARDS; k++)
-            {
-                float u = (k + 0.5f) / SHARDS;
-
-                float at = 0.015f + 0.42f * MathF.Pow(u, 1.6f) + 0.02f * Noise(k, 191);
-                float length = 0.07f + 0.09f * (0.5f + 0.5f * Noise(k, 192));
-                float from = 2600f + 1600f * (0.5f + 0.5f * Noise(k, 193));
-                float to = from * (0.55f + 0.1f * (0.5f + 0.5f * Noise(k, 194)));
-                float gain = (1f - 0.55f * u) * (0.65f + 0.35f * (0.5f + 0.5f * Noise(k, 195)));
-                float wobbleRate = 45f + 25f * (0.5f + 0.5f * Noise(k, 196));
-
-                int start = (int)(MathF.Max(0f, at) * SAMPLE_RATE);
-                int count = (int)(length * SAMPLE_RATE);
-                float shardPhase = 0f;
-
-                for (int j = 0; j < count && start + j < samples; j++)
-                {
-                    float t = (float)j / SAMPLE_RATE;
-                    float v = t / length;
-
-                    //Gliding DOWN, exponentially, with a slight wobble: a spinning fragment leaving.
-                    float freq = from * MathF.Pow(to / from, v) * (1f + 0.015f * MathF.Sin(2f * MathF.PI * wobbleRate * t));
-                    shardPhase += 2f * MathF.PI * freq / SAMPLE_RATE;
-
-                    //In over 3 ms and out along a squared tail, so it is a "zzing" and not a blip with corners.
-                    float envelope = MathF.Min(1f, t / 0.003f) * (1f - v) * (1f - v);
-
-                    high[start + j] += MathF.Sin(shardPhase) * 0.22f * gain * envelope;
-
-                    //The tear: a breath of band-passed noise on the front of it only.
-                    high[start + j] += tear[start + j] * 0.9f * gain * envelope * MathF.Exp(-t * 60f);
-                }
-            }
-
-            //A small, drier room of their own, and only the very top taken off.
-            ApplyReverb(high, roomScale: 0.45f, wet: 0.16f, decay: 0.3f);
-            high = LowPassArray(LowPassArray(high, 8000f), 8000f);
-
-            //THE BALANCE: the high half set to a stated fraction of the low half's RMS over the first half second,
-            //which is where both of them happen, so the ratio is a figure rather than whatever the layers' gains
-            //added up to. ⚠ NOT by peak: the first try normalised each half to a peak, the high half's peak is the
-            //crack's first few samples, and the whizzes came out at 0.4 % of the energy — there, and inaudible.
-            int window = (int)(SAMPLE_RATE * 0.5f);
-            double lowPower = 0.0, highPower = 0.0;
-
-            for (int i = 0; i < window; i++)
-            {
-                lowPower += low[i] * (double)low[i];
-                highPower += high[i] * (double)high[i];
-            }
-
-            float balance = highPower > 1e-12 ? 0.4f * (float)Math.Sqrt(lowPower / highPower) : 0f;
-
-            float[] signal = new float[samples];
-            for (int i = 0; i < samples; i++) signal[i] = low[i] + high[i] * balance;
-
-            //To a peak of one first, so the compressor's threshold is a level rather than an accident of the gains;
-            //then compressed rather than driven (see Compress, and there for the lookahead); then to the final peak.
+            //As loud as it will go without bending the wave. To a peak of one first, so the compressor's threshold
+            //is a level rather than an accident of the gains; compressed rather than driven (see Compress, and there
+            //for the lookahead); the peaks its average cannot see limited away before the final peak is taken, or
+            //they would set it (see Limit); and to the final peak.
             Normalize(signal, 1f);
             Compress(signal, threshold: 0.3f, ratio: 3f, attackSeconds: 0.01f, releaseSeconds: 0.25f, lookaheadSeconds: 0.01f);
-
-            //And the spikes the compressor's average cannot see, limited away before the final peak is taken — or
-            //they set that peak, and everything else is divided down by them. See Limit.
             Normalize(signal, 1f);
             Limit(signal, ceiling: 0.45f, lookaheadSeconds: 0.005f, releaseSeconds: 0.08f);
             Normalize(signal, 0.95f);
