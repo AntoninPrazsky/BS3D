@@ -2011,6 +2011,22 @@ Pět návrhů do LevelGenu a místo v pořadí kapitol (scéna není kapitola �
 
 ---
 
+## 2026-09-14 — Claude Code (sedmý zápis dne)
+
+**#205 hotovo a na `main`u (`54e253f`), po rebase na `222-polar-scene`.** Osmnáctou scénu vzal Polar dřív — merge je proto **devatenáctá**, ne osmnáctá, jak zápis níž ("pátý zápis dne") čekal. Přečíslování šlo přesně tak, jak jsem si tam napsal: `git rebase origin/main`, osm konfliktů v `SceneRenderer.cs` (enum, `SCENE_NAMES`, `IsSolidTerrainScene`, `TryParseScene`, `TryGetViewpoint`, `GetSceneConfig`, `DrawEnvironment` switch — `ReplacesSky` a `TryGetLightRig` bez konfliktu, protože Polar do nich vůbec nesahá, není `ReplacesSky`), plus `SceneConfig.cs`, `CLAUDE.md` a `docs/scenes.md` (tři konflikty — hlavička, viewpoint tabulka, a spojení obou nových sekcí na konci souboru). Dvě věci git sám tiše smíchal špatně a stálo by to za přehlédnutí: obě větve nezávisle přepsaly „sedmnáct"→„osmnáct" na týchž řádcích (`CLAUDE.md`, `docs/scenes.md`, `docs/testbed.md`, `docs/formats-and-tools.md`), takže se to smergovalo BEZ KONFLIKTU na „osmnáct" — algebraicky náhodou správně, ale ve skutečnosti zastarale, protože pravý součet je devatenáct. Dohledáno greppem na „eighteen" po dokončeném rebase, ne důvěrou v čistý merge.
+
+**Jedna nesrovnalost v Polarově vlastní próze našla se cestou a opravena tady, ne tam:** věta tvrdila „jedenáct z osmnácti fotografováno; sedm ne" a pak vyjmenovala jen šest jmen (chybělo samo „polar" v seznamu nevyfocených — logicky muselo být mezi nimi, žádný level ho nejmenuje). Opraveno na jedenáct z devatenácti, osm nevyfoceno, s polárním ledem i aurorou v seznamu. A Polarova vlastní sekce měla dopřednou poznámku "polární noc s aurorou, kterou vlastní #205" — hádali, čím #205 bude, než to existovalo, a uhodli špatně (čekali ledovou variantu, ne les). Opraveno na jednu větu, co říká, co #205 doopravdy je, a proč se to neshoduje.
+
+**Co scéna je:** noční les pod silnou, zřetelně pulzující barevnou polární září, hvězdy skrz ni vidět. Zemní podrost je `Forest.fx`ova redukovaná podlaha (bez triplanar/stromových stínů) portovaná verbatim, druhá nezávislá výsadba `ForestScatterRenderer`. Obloha je Měsícův sky-quad vzor verbatim, `Stars.fxh` potřetí, stuhy polární záře (`Fbm2Combed`, roztažené podél stuhy) přičtené — ne composeitované — nad hvězdy.
+
+**Dvě věci, co ukázal až skutečný capture a žádné čtení shaderu by je nenašlo:** první pulz (0,35 rad/s, cyklus 18 s) vyfocený s pětisekundovou mezerou vyšel k nerozeznání — fáze se posunula, ale ne dost na to, aby to oko chytlo. Zrychleno na 0,9 (cyklus 7 s), stejná mezera je teď jednoznačná. A zem nejdřív četla jako osvětlená sluncem, ne nocí — `AuroraGlowColor` nesla oblohovu vlastní `Intensity` napřímo, jenže ten člen integruje přes celou polokouli místo tenkého pruhu. Sraženo na 0,22×; stromy samy se pohnuly málo, protože berou svit ze statického rigu (`AuroraLightingConfig`), ne odsud — zapsáno jako nedotažené dál, ne jako vyřešené.
+
+**Ověřeno:** Testbed/MapEditor/Game všechny stavějí čistě (i po rebase), LevelGen a ScoreSim exit 0 (i po rebase), MapEditor a Game oba naběhnou bez pádu (kouřový test, konstruktor s novou `_auroraScatter` větví). Jedno hrubé srovnání výkonu v Testbedu (ne párová alternace, řečeno tak i v docs): aurora 761–765 FPS proti denímu lesu 365–366 FPS na týž stroji a kameru — levnější, ne dražší, což sedí s redukovanou dlaždicí. Scéna není v žádném shipped levelu a záměrně — issue jmenuje scénu, ne kapitolu, stejně jako si to Polar rozhodl pro sebe nezávisle.
+
+**Nic dalšího si neberu.**
+
+---
+
 ## 2026-09-14 — Claude Code (šestý zápis dne)
 
 **#222 přepracováno na majitelovo zamítnutí** (`23564a6`, pořád na větvi `222-polar-scene`, nemergnuto). Obě výtky byly přesné: *„ty křivé sloupy vzadu ani není zřejmé, co to je — vypadá to spíš jako grafický glitch"* a *„nikde nevidím ten popraskaný led, co prosvítá světle modře"*.
