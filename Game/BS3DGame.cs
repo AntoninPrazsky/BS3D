@@ -780,11 +780,13 @@ namespace BS3D
             _startupSkyDome = skyDome;
             _logFrameRate = logFrameRate;
 
-            //Either one is the player's decision and settles the question for good; with neither, the adaptive
-            //path is free to measure this machine and step the tier down. The distinction matters on a fullscreen
-            //switch: a player-pinned tier stays put, a probe-reached one is only this machine's answer for this
-            //back-buffer size and gets re-measured (see ToggleFullscreen).
-            _qualityPinnedByPlayer = supersampleFactor.HasValue || chosenQuality.HasValue;
+            //Any of these is the player's decision and settles the question for good: a named tier, a named
+            //factor, or Auto quality turned off in Settings (#390) — which has to win even when no tier was ever
+            //chosen, and then plays High. With none of them the adaptive path is free to measure this machine and
+            //step the tier down. The distinction matters on a fullscreen switch: a player-pinned tier stays put, a
+            //probe-reached one is only this machine's answer for this back-buffer size and gets re-measured (see
+            //ToggleFullscreen).
+            _qualityPinnedByPlayer = supersampleFactor.HasValue || chosenQuality.HasValue || !_settings.AdaptiveQuality;
             _qualitySettled = _qualityPinnedByPlayer;
 
             //exposure= first, then what the player set, then the game's own default
