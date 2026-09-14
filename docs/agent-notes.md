@@ -2011,6 +2011,16 @@ Pět návrhů do LevelGenu a místo v pořadí kapitol (scéna není kapitola �
 
 ---
 
+## 2026-09-14 — Claude Code (devátý zápis dne)
+
+**#205: zmenšená listnatá koruna z minulého zápisu byly houbičky (`fec97bc`).** Majitel po dalším screenshotu: *„Na scéně jsou taky nějaké stromečky, co vypadají jako malé houbičky s hnědou nohou a zeleným kloboukem."* Přesně to to bylo — kmen nechaný na denní výšce, koruna zmenšená na kouli 0,55/0,9, a kulatá koruna na tyčce je hříbek, ať je jakkoli malá. Řešení není další zmenšování (čtení se tím nemění, jen se stěhuje mezi „malý strom" a „hříbek"), ale druh z výsadby úplně vynechat — `ConiferFraction` 0,94 → 1. `ForestScatterRenderer` nemá bezlistou mesh variantu, takže poctivá odpověď na „opadané listnáče" je žádné listnáče, ne přiblížení, co samo vypadá jako jiná věc.
+
+**Ověřeno:** tři exe stavějí, nový capture ze země ukazuje čistý smrkový les bez cizích siluet. LevelGen/ScoreSim znovu nespouštěny — izolovaná změna jednoho stromového configu, žádný sdílený kód dotčený.
+
+**Nic dalšího si neberu.**
+
+---
+
 ## 2026-09-14 — Claude Code (osmý zápis dne)
 
 **#205 přeladěno na majitelovu zpětnou vazbu (`6de9ec7`), hned po prvním capture.** Vlastními slovy: *„Aurora vypadá dobře, les moc ne. Měly by v něm být hlavně jehličnany, mělo by jich tam být víc a les by měl být celkově mnohem tmavší, možná v něm i trochu sněží — je zima. Listnaté stromy jsou opadané."*
