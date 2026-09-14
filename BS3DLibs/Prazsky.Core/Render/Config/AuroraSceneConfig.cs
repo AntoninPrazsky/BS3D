@@ -141,9 +141,12 @@ namespace Prazsky.Core.Render
         public float CurtainScale { get; set; } = 2.6f;
 
         /// <summary>
-        /// How hard the curtain lines are domain-warped before they are drawn — 0 is a flat glow with no
-        /// structure, past about 1.5 they read as ribbons. The same dial <c>Dream.fx</c>'s <c>SwirlWarp</c>
-        /// is, on a different palette and a different mood.
+        /// How much the noise domain is compressed vertically before the curtains are drawn from it — low
+        /// (floored at 0.15) reads as a flat mottle with little vertical structure, past about 1.5 the folds
+        /// stretch into long streaks reading as ribbons. Fed as a division of the sample direction's own Y
+        /// component (see <c>Aurora.fx</c>'s own header for why it is 3D noise on the direction and not 2D
+        /// noise on an angle), so it is a genuine domain stretch now rather than the post-noise contrast
+        /// multiplier an earlier build of this dial actually was.
         /// </summary>
         public float CurtainWarp { get; set; } = 1.7f;
 

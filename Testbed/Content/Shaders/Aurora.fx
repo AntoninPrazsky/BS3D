@@ -276,12 +276,24 @@ float AuroraPulseSpeed;
 float AuroraPulseDepth;
 
 //The aurora ribbons: a band across the upper sky (elevation measured from the horizon, so BandHeight reads
-//the way its own doc states it — "how much of the upper sky"), folded into curtains by Fbm2Combed stretched
-//ALONG the curtain — that helper's own reason to exist, so the field reads as long thin streaks rather than
-//blobs — sharpened with a power curve so the folds read as ribbons rather than a wash, coloured low-to-high
-//by elevation WITHIN the band, and pulsing on two summed clocks so the breathing is a breath and not a
+//the way its own doc states it — "how much of the upper sky"), folded into curtains by 3D noise on the
+//view DIRECTION itself, stretched vertically so the field reads as long thin streaks rather than blobs —
+//sharpened with a power curve so the folds read as ribbons rather than a wash, coloured low-to-high by
+//elevation WITHIN the band, and pulsing on two summed clocks so the breathing is a breath and not a
 //metronome (the issue's own "strong, clearly pulsing"). Additive: the caller adds this to the starfield
 //rather than compositing over it, so the stars always show through at least a little.
+//
+//⚠ It was Fbm2Combed on an unwrapped AZIMUTH (atan2(dir.x, dir.z)) once, and that is the wrong shape of
+//coordinate for anything drawn on a sphere the camera orbits: atan2 has exactly one line where it jumps
+//from +pi to -pi, and feeding that jump straight into a noise function's input makes the noise jump too —
+//not a moving seam the camera carries with it, but one fixed in the WORLD, at dir.x = 0, dir.z < 0, that
+//the camera swept past and photographed (reported after #205 first shipped: "a distinct vertical seam,
+//the same kind of problem other scenes solved" — the star lattice's own cube chart is exactly that kind of
+//fix, seamless by construction rather than patched after the fact). The angle itself is never computed
+//now: DRIFT rotates the sample DIRECTION about the vertical axis instead of adding to an azimuth value (a
+//rotated vector has nothing to wrap), and the STREAKS are 3D noise on that rotated direction with its own
+//vertical axis compressed by CurtainWarp — Fbm2Combed's stretch-along-an-axis idea, carried into 3D so
+//there is no 2D chart anywhere underneath it to seam on.
 float3 Aurora(float3 dir, float time)
 {
     float elevation = saturate(dir.y);
@@ -293,9 +305,19 @@ float3 Aurora(float3 dir, float time)
     [branch]
     if (band <= 0.001) return 0.0;
 
-    float azimuth = atan2(dir.x, dir.z) * AuroraCurtainScale + time * AuroraDriftSpeed;
-    float streaks = Fbm2Combed(float2(azimuth, elevation * 2.2), float2(0.0, 1.0), 4.0, 4, 0.0);
-    float curtain = pow(saturate(streaks * AuroraCurtainWarp * 0.5 + 0.55), 2.4);
+    float sinDrift, cosDrift;
+    sincos(time * AuroraDriftSpeed, sinDrift, cosDrift);
+    float3 rotated = float3(
+        dir.x * cosDrift - dir.z * sinDrift,
+        dir.y,
+        dir.x * sinDrift + dir.z * cosDrift);
+
+    //CurtainWarp compresses the vertical axis of the noise domain, so a fold changes little as elevation
+    //rises and reads as a long streak rather than a blob — high warp, long ribbons; low warp (floored well
+    //short of zero, or the division blows up), closer to a flat mottle.
+    float3 comb = float3(rotated.x, rotated.y / max(AuroraCurtainWarp, 0.15), rotated.z) * AuroraCurtainScale;
+    float streaks = Fbm3(comb, 4);
+    float curtain = pow(saturate(streaks * 0.6 + 0.55), 2.4);
 
     //Two clocks summed rather than one, so the envelope never repeats on a plain, watchable period — the
     //slower is 31/100 of the primary rather than a round fraction, for the same reason.
