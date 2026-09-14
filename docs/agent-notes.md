@@ -1971,3 +1971,11 @@ Pět **po sobě jdoucích snímků** (`shotframe=`) na 40, 60 a 80 jednotkách: 
 **Na co si dát pozor** (issue to pojmenovává a scenes.md to potvrzuje): ⚠ nesmí to číst jako „hory, akorát placaté" — hory jsou kotlina s reliéfem a sněžením, tohle je rovina a materiál; a ⚠ **past ACES kontrastu** u bílé plochy — celobílé pole se slije do jednoho tónu, pokud barva stínu a průsvit nenesou skutečné oddělení.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-14 — Claude Code (čtvrtý zápis dne)
+
+**#256 a #333 zavřené na GitHubu — kód byl hotový, chybělo jen zavření.** Majitel požádal o kontrolu #256. #323–332 byly CLOSED, ale #333 (těžká koule) běžela dál jako OPEN, přestože je od `83e7b5b` na `main`u — přesně ten stav, který zápis výš ("druhý zápis dne") nechal na majiteli: "zavření obou issue jsem nechal na majiteli." Žádný kód se neměnil, jen ověření (`BallKind.cs` nese všech deset druhů s plnou dokumentací, deset merge commitů #324–333 je v historii `main`u) a dvě `gh issue close` s komentářem, co bylo změřeno a ověřeno.
+
+**Nic dalšího si neberu.**
