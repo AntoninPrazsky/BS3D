@@ -1,6 +1,8 @@
 using Microsoft.Xna.Framework;
 using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.GameStructure.DataBags;
+using System;
+using System.Collections.Generic;
 
 namespace Prazsky.BS3D.Physics
 {
@@ -82,8 +84,26 @@ namespace Prazsky.BS3D.Physics
         /// </summary>
         public readonly int Thawed;
 
+        /// <summary>
+        /// Every bomb this landing set off (#389), in the order the chain reached them — empty on every landing
+        /// that armed none, which is nearly all of them. Never null.
+        /// <para>
+        /// It is here because <see cref="World"/> cannot answer a blast: that is the cell the shot stuck to, which
+        /// stands <i>beside</i> a bomb and never on one, and a chain goes off up to several radii away from it.
+        /// </para>
+        /// <para>
+        /// <b>⚠ It is the handler's own list, and it is valid for the duration of the <c>BallLanded</c> call and
+        /// not a frame longer</b>: the next landing clears and refills it. Everything that answers a blast reads it
+        /// inside that call, and anything that has to outlast it — a chain staggered over a few hundred
+        /// milliseconds — copies what it needs. Handed out rather than copied here because a landing is the one
+        /// moment in the game that must not stall, and a fresh array per shot would be an allocation on it for a
+        /// list that is empty almost every time.
+        /// </para>
+        /// </summary>
+        public readonly IReadOnlyList<Detonation> Detonations;
+
         public BallLanding(BallsReleased released, Vector3 world, BallType type, XZLevel cell, int coloured = 0,
-            int thawed = 0)
+            int thawed = 0, IReadOnlyList<Detonation> detonations = null)
         {
             Released = released;
             World = world;
@@ -91,6 +111,7 @@ namespace Prazsky.BS3D.Physics
             Cell = cell;
             Coloured = coloured;
             Thawed = thawed;
+            Detonations = detonations ?? Array.Empty<Detonation>();
         }
     }
 }

@@ -435,15 +435,41 @@ namespace Prazsky.BS3D.Physics
         /// The throw is the whole reason the victims <i>fall</i> rather than vanish. A ball that pops out of
         /// existence throws away the best feedback this game has — the fall, the drain, the sound, the drop
         /// cinematic all already exist — and a ball that merely starts falling reads as a ball whose support
-        /// went, which is a different event and one the player already knows. It is set as a velocity rather
+        /// went, which is a different event and one the player already knows. It is added as a velocity rather
         /// than applied as an impulse because the body is unconstrained and awake by the time this runs, and a
         /// velocity is what the release path leaves it at anyway (zero).
+        /// </para>
+        /// <para>
+        /// <b>⚠ Thrown from where the bomb's BODY is, in world space — and until #389 it was thrown from its grid
+        /// cell.</b> <see cref="BallsMap.GetRealPosition"/> answers in the raw lattice frame, before
+        /// <see cref="BallsMap.Center"/> and before the offset <see cref="BuildBallsStructure"/> places the bodies
+        /// by, and on the shipped bomb levels those two frames stand (−7.5, −5.4, −7.5) apart: twelve units,
+        /// against a radius of two. So every victim measured as past the rim and took the rim's speed, and every
+        /// one of them took it in very nearly the same direction — measured on all nineteen bombs of Vent, Sill
+        /// and Paroxysm, 2.46 u/s for every victim, a direction coherence of 0.99–1.00 and a mean outward cosine
+        /// near zero. The blast was a slab of balls drifting towards one corner of the arena, which is what was
+        /// reported as "it just falls". The <b>radius</b> is still measured in the grid frame, where both of its
+        /// ends are: which cells a blast takes is a rule about the lattice and must not move with the swing.
         /// </para>
         /// </summary>
         private const float BLAST_SPEED = 7f;
 
         /// <inheritdoc cref="BLAST_SPEED"/>
         private const float BLAST_EDGE_SPEED_FRACTION = 0.35f;
+
+        /// <summary>
+        /// The slowest a blast throws the balls it <b>orphans</b>, in units a second (#389).
+        /// <para>
+        /// What the disconnection pass finds after a detonation used to start from rest, and a blast that orphaned
+        /// much read as two events: a ring of balls thrown out and, around it, an ordinary collapse. So an orphan
+        /// is thrown too, away from the <b>nearest</b> detonation of the chain, on the victims' own taper carried
+        /// on past the rim — the rim's speed scaled down by how much further out the ball stands — and this is
+        /// where that taper stops falling, so that a far orphan still parts from its neighbours on the way down
+        /// instead of dropping as a slab. It cannot throw an orphan harder than the rim throws a victim: an orphan
+        /// is outside every radius of the chain by definition, or the blast would have taken it.
+        /// </para>
+        /// </summary>
+        private const float BLAST_ORPHAN_MIN_SPEED = 0.8f;
 
         /// <summary>
         /// Sets off every bomb in <paramref name="armed"/> and everything their blasts reach (#326) — <b>the
@@ -481,6 +507,9 @@ namespace Prazsky.BS3D.Physics
         /// ones still standing. Cells that no longer hold a bomb are skipped rather than refused.</param>
         /// <param name="releasedInto">Every destroyed and orphaned ball is added here, exactly as a match's
         /// releases are, so the caller keeps drawing them and its cleanup culls them when they settle.</param>
+        /// <param name="detonationsInto">Where each bomb went off, in the order the chain reached them (#389) —
+        /// what a flash, a report and a jolt answer a blast with. Cleared first. May be null: the sag probe
+        /// passes nothing, having nothing to draw.</param>
         /// <returns>What the blast cost the field: no matches (a blast completes no group), the balls it
         /// destroyed by geometry, and everything the disconnection pass then found hanging on nothing.</returns>
         public static BallsReleased DetonateBombs(
@@ -488,8 +517,11 @@ namespace Prazsky.BS3D.Physics
             PhysicsBall[,,] physicsBalls,
             BallsMap map,
             Simulation simulation,
-            List<PhysicsBall> releasedInto)
+            List<PhysicsBall> releasedInto,
+            List<Detonation> detonationsInto = null)
         {
+            detonationsInto?.Clear();
+
             if (armed == null || armed.Count == 0) return default;
 
             XZLevel size = map.GetStaticBallsArraySize();
@@ -497,9 +529,15 @@ namespace Prazsky.BS3D.Physics
             List<ConstraintHandle> handleBuffer = new();
 
             //The worklist and the set that keeps a bomb from being queued twice — two bombs whose radii cover
-            //each other would otherwise put each other back on it for as long as the loop ran.
+            //each other would otherwise put each other back on it for as long as the loop ran. Beside the
+            //worklist, how many blasts it took to reach each entry (Detonation.Link).
             List<XZLevel> pending = new();
+            List<int> links = new();
             HashSet<int> queued = new();
+
+            //Every point that went off, in world space: what the orphans are thrown away from once the chain has
+            //run out (BLAST_ORPHAN_MIN_SPEED).
+            List<Vector3> blasts = new();
 
             int Key(XZLevel cell) => (cell.Level * size.X + cell.X) * size.Z + cell.Z;
 
@@ -508,7 +546,12 @@ namespace Prazsky.BS3D.Physics
                 && cells[cell.X, cell.Z, cell.Level].Kind == BallKind.Bomb;
 
             foreach (XZLevel cell in armed)
-                if (IsBomb(cell) && queued.Add(Key(cell))) pending.Add(cell);
+            {
+                if (!IsBomb(cell) || !queued.Add(Key(cell))) continue;
+
+                pending.Add(cell);
+                links.Add(0);
+            }
 
             //How far to look, in indices. Sideways the cell pitch is one, so the radius IS the reach; upwards
             //the levels sit 1/sqrt(2) apart, so the same distance spans sqrt(2) times as many of them.
@@ -527,7 +570,18 @@ namespace Prazsky.BS3D.Physics
                 //what lets that rule change without this loop becoming a use-after-free.
                 if (!IsBomb(bomb)) continue;
 
+                //TWO CENTRES, ONE PER FRAME, and #389 was the two being mixed. The radius is a rule about the
+                //lattice, so it is measured between grid positions and cannot move with the cluster's swing; the
+                //throw is a velocity handed to bodies, so it is measured from the bomb's own body. See BLAST_SPEED.
                 Vector3 centre = BallsMap.GetRealPosition((byte)bomb.X, (byte)bomb.Z, (byte)bomb.Level).ToNumerics();
+
+                //The map and the physics array move together (#323), so a bomb still standing in the map has a
+                //body. Skipped rather than thrown from a guess if that ever stops being true: a blast centred on
+                //the wrong frame is precisely the fault this line exists to end.
+                PhysicsBall bombBall = physicsBalls[bomb.X, bomb.Z, bomb.Level];
+                if (bombBall == null) continue;
+
+                Vector3 blast = bombBall.BallReference.Pose.Position;
 
                 victims.Clear();
 
@@ -554,7 +608,12 @@ namespace Prazsky.BS3D.Physics
                             //being at distance zero from its own centre.
                             if (cells[x, z, level].Kind == BallKind.Bomb && Key(cell) != Key(bomb))
                             {
-                                if (queued.Add(Key(cell))) pending.Add(cell);
+                                if (queued.Add(Key(cell)))
+                                {
+                                    pending.Add(cell);
+                                    links.Add(links[i] + 1);
+                                }
+
                                 continue;
                             }
 
@@ -570,15 +629,24 @@ namespace Prazsky.BS3D.Physics
                     ReleaseBall(cell, physicsBalls, map, simulation, size, handleBuffer, releasedInto);
                     destroyed++;
 
-                    if (ball != null) Throw(ball, centre);
+                    if (ball != null) Throw(ball, blast);
                 }
+
+                blasts.Add(blast);
+                detonationsInto?.Add(new Detonation(blast.ToXna(), links[i], victims.Count));
             }
 
             //And the half a blast shares with every other removal in this game: what was only held up by what
-            //just went takes the same path down.
+            //just went takes the same path down — thrown on its way, since #389, rather than dropped.
             List<XZLevel> disconnected = map.GetCellsDisconnectedFromCeiling();
             foreach (XZLevel cell in disconnected)
+            {
+                PhysicsBall ball = physicsBalls[cell.X, cell.Z, cell.Level];
+
                 ReleaseBall(cell, physicsBalls, map, simulation, size, handleBuffer, releasedInto);
+
+                if (ball != null && blasts.Count > 0) ThrowOrphan(ball, blasts);
+            }
 
             return new BallsReleased(0, disconnected.Count, destroyed);
         }
@@ -713,15 +781,6 @@ namespace Prazsky.BS3D.Physics
         }
 
         /// <summary>
-        /// Throws one freed ball away from <paramref name="centre"/> — see <see cref="BLAST_SPEED"/> for why a
-        /// blast's victims are thrown rather than merely dropped.
-        /// <para>
-        /// The bomb itself is at distance zero and has no outward direction to take, so it goes <b>down</b>:
-        /// the thing that exploded drops out of the hole it made, which is both the only defined answer and
-        /// the one that reads.
-        /// </para>
-        /// </summary>
-        /// <summary>
         /// How hard an acid's shaft drops what it eats, in units a second (#328) — a push straight <b>down</b>
         /// rather than away from a centre, which is the whole difference between this and a blast. A shaft's
         /// contents are not thrown apart; they fall out of the hole, and the column reads as a column doing it.
@@ -798,6 +857,16 @@ namespace Prazsky.BS3D.Physics
             return new BallsReleased(0, disconnected.Count, destroyed);
         }
 
+        /// <summary>
+        /// Throws one freed ball away from <paramref name="centre"/> — the bomb's <b>body</b>, in world space. See
+        /// <see cref="BLAST_SPEED"/> for why a blast's victims are thrown rather than merely dropped, and for what
+        /// a centre in any other frame did.
+        /// <para>
+        /// The bomb itself is at distance zero and has no outward direction to take, so it goes <b>down</b>:
+        /// the thing that exploded drops out of the hole it made, which is both the only defined answer and
+        /// the one that reads.
+        /// </para>
+        /// </summary>
         private static void Throw(PhysicsBall ball, Vector3 centre)
         {
             Vector3 delta = ball.BallReference.Pose.Position - centre;
@@ -810,6 +879,43 @@ namespace Prazsky.BS3D.Physics
             //A hair off zero rather than exactly zero: the bomb's own body sits at the centre, and normalising
             //a zero vector is a NaN velocity, which Bepu carries straight into the pose and never recovers from.
             Vector3 direction = distance > 1e-4f ? delta / distance : new Vector3(0f, -1f, 0f);
+
+            ball.BallReference.Velocity.Linear += direction * speed;
+        }
+
+        /// <summary>
+        /// Throws one ball a blast <b>orphaned</b> away from the nearest of <paramref name="blasts"/> — see
+        /// <see cref="BLAST_ORPHAN_MIN_SPEED"/> for why it is thrown at all.
+        /// <para>
+        /// The nearest detonation and not the chain's centroid: a chain can run several radii across a cluster,
+        /// and a ball hanging off its far end was cut loose by the bomb beside it, not by an average of five.
+        /// </para>
+        /// </summary>
+        private static void ThrowOrphan(PhysicsBall ball, List<Vector3> blasts)
+        {
+            Vector3 position = ball.BallReference.Pose.Position;
+
+            Vector3 nearest = blasts[0];
+            float nearestSquared = Vector3.DistanceSquared(position, nearest);
+
+            for (int i = 1; i < blasts.Count; i++)
+            {
+                float squared = Vector3.DistanceSquared(position, blasts[i]);
+                if (squared >= nearestSquared) continue;
+
+                nearestSquared = squared;
+                nearest = blasts[i];
+            }
+
+            float distance = MathF.Sqrt(nearestSquared);
+
+            //The rim's own speed, falling off as one over the distance beyond it — so an orphan standing just
+            //outside the radius leaves at the speed the outermost victim did, and the two read as one shove.
+            float rim = BLAST_SPEED * BLAST_EDGE_SPEED_FRACTION;
+            float speed = MathF.Max(BLAST_ORPHAN_MIN_SPEED, rim * BLAST_RADIUS / MathF.Max(distance, BLAST_RADIUS));
+
+            //Throw's guard, kept for Throw's reason, although an orphan can never stand on a centre.
+            Vector3 direction = distance > 1e-4f ? (position - nearest) / distance : new Vector3(0f, -1f, 0f);
 
             ball.BallReference.Velocity.Linear += direction * speed;
         }
