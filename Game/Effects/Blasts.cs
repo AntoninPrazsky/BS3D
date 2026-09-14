@@ -89,6 +89,7 @@ namespace BS3D.Effects
             public Vector3 Position;
             public float Age;            //negative while its link waits its turn, 0 at the moment it goes off
             public float Size;           //0..1
+            public int Link;             //how far down its chain, 0 for a bomb the landing set off itself
             public bool Active;
             public bool Reported;        //has its report been played and its jolt handed out
         }
@@ -151,6 +152,7 @@ namespace BS3D.Effects
                 {
                     Position = detonation.World,
                     Age = -detonation.Link * CHAIN_STAGGER_SECONDS,
+                    Link = detonation.Link,
                     Size = MathHelper.Lerp(MIN_SIZE, 1f,
                         MathHelper.Clamp(detonation.Destroyed / FULL_SIZE_DESTROYED, 0f, 1f)),
                     Active = true,
@@ -202,7 +204,7 @@ namespace BS3D.Effects
                 {
                     _blasts[i].Reported = true;
 
-                    audio?.PlayBlast(_blasts[i].Position, _blasts[i].Size);
+                    audio?.PlayBlast(_blasts[i].Position, _blasts[i].Size, _blasts[i].Link);
                     jolt += _blasts[i].Size;
                 }
 

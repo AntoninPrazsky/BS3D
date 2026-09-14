@@ -437,19 +437,38 @@ namespace BS3D.Audio
         /// chain IS several events: each bomb goes off where it stands, and hearing them go is what says a chain.
         /// </para>
         /// <para>
-        /// It takes over from the release for the balls a blast took (see <c>GameplayScreen.OnBallLanded</c>), and
-        /// it is kept apart from a release arriving in the same instant — one landing that completes a group and
-        /// sets a bomb off — by <b>register</b> rather than by level, <see cref="BakeIceBreak"/>'s own design: its
-        /// weight sits under 150 Hz and its debris above the release's run of pops.
+        /// It takes over from the release for the balls a blast took (see <c>GameplayScreen.OnBallLanded</c>). A
+        /// landing that completes a group <i>and</i> sets a bomb off still plays both, and the blast is meant to
+        /// bury the release there rather than sit politely beside it: the first bake kept the two apart by
+        /// register — its debris above the release's pops, as the ice does — and what that bought was a bomb heard
+        /// as a glass breaking. See <see cref="RenderBlast"/>.
+        /// </para>
+        /// <para>
+        /// <b>Near-flat with distance, and at full level.</b> It first took a landing's falloff and a size term
+        /// starting at 0.72, which put a bomb at the cluster's stand-off at about 60 % — under the gun's own shot,
+        /// which plays flat at full level. The loudest event of a level cannot be quieter than the most frequent
+        /// one. The distance term is the firework's kind now, which only separates near from far.
         /// </para>
         /// </summary>
-        public void PlayBlast(Vector3 world, float size)
+        /// <param name="link">How far down its chain this blast is (<c>Detonation.Link</c>); every link past the
+        /// first plays at <see cref="BLAST_CHAIN_LEVEL"/>.</param>
+        public void PlayBlast(Vector3 world, float size, int link)
         {
-            float volume = (0.72f + 0.28f * size) * VolumeForDistance(DistanceTo(world));
+            float distance = DistanceTo(world);
+            float volume = (0.88f + 0.12f * size) * (0.85f + 0.15f * MathHelper.Clamp(1f - distance / 120f, 0f, 1f));
+
+            if (link > 0) volume *= BLAST_CHAIN_LEVEL;
 
             Speak(_blastRing, world, NEAR_WIDEN, MathHelper.Clamp(volume * Level, 0f, 1f),
-                MathHelper.Clamp(NextPitch(0.05f) - size * 0.16f, -1f, 1f));
+                MathHelper.Clamp(NextPitch(0.05f) - size * 0.12f, -1f, 1f));
         }
+
+        /// <summary>
+        /// What a chain's later links play at, as a fraction of the first (#389). Five full-level reports inside a
+        /// third of a second sum past full scale in the mix and clip, and what a chain has to say is "again, and
+        /// again" rather than the same peak five times over.
+        /// </summary>
+        private const float BLAST_CHAIN_LEVEL = 0.72f;
 
         /// <summary>
         /// A shell leaving the ground: the rising whistle, spoken from the point it was fired from. Pitched a little
@@ -1325,21 +1344,36 @@ namespace BS3D.Audio
         private SoundEffect BakeBlast() => ToSoundEffect(RenderBlast());
 
         /// <summary>
-        /// A bomb going off in the arena (#389): a close, heavy bang with debris in it. The firework's report is its
-        /// nearest relative, and the differences are the design:
+        /// A bomb going off in the arena (#389): the loudest, heaviest thing a level can do, and it has to sound
+        /// like it on the speakers a game is actually played on.
+        /// <para>
+        /// <b>⚠ The first bake was measured as a deep bang and heard as "a mouse dropping a crystal cup"</b> (the
+        /// owner, in the game). Both were true, and the gap between them is the lesson. 97.8 % of its energy was
+        /// under 150 Hz — which read as weight — but <b>89.8 % was under 60 Hz</b>: a thump ending at 31 Hz with a
+        /// sub an octave under it, at 15.5, where a speaker or a pair of headphones plays next to nothing. The band a
+        /// speaker does play (60 Hz–8 kHz) held under a tenth of the energy, at −24 dBFS, and of that only 6 % was
+        /// the 250 Hz–2 kHz band where an explosion's <i>roar</i> lives — because it had no roar: its pressure layer
+        /// was cut at 240 Hz. What was left audible was a short knock and sixteen debris clicks with 2.4–5.2 kHz
+        /// tones in them, which is a glass breaking, not a bomb. An energy split over the whole spectrum cannot
+        /// tell a bang from a tick; the speaker-audible band on its own can.
+        /// </para>
         /// <list type="bullet">
-        /// <item><b>Close, not far.</b> A shell bursts a hundred units up over a landscape; a bomb goes off a few
-        /// dozen units from the lens, inside the cluster the player is looking at. So the sound is shorter (1.8 s
-        /// against 2.6), its roll is five fused taps off a stone bowl rather than nine off a city, and its room is
-        /// drier.</item>
-        /// <item><b>A thump, not a boom.</b> The same kind of pitch drop — 96 to 31 Hz in 80 ms, a sub an octave
-        /// under it — decaying about half again as fast: something going off nearby is a shove and then quiet, not
-        /// a rumble rolling away over hills.</item>
-        /// <item><b>Debris, which no other sound in this file has.</b> Sixteen short knocks — balls thrown into
-        /// balls — scattered over the first 0.8 s and thinning, band-passed to 2–6.5 kHz with a hint of pitch in
-        /// each. High on purpose: a landing that completes a group and sets a bomb off arrives with the release's
-        /// run of pops, which live between 800 Hz and 2.8 kHz, and <see cref="BakeIceBreak"/> already established
-        /// that register, not level, is what lets two sounds in one instant both be heard.</item>
+        /// <item><b>The punch</b> drops 170 → 48 Hz and stops there, with its second and third harmonics on it: 96
+        /// and 144 Hz are what a small speaker reproduces of a 48 Hz body, and nothing under that is written at
+        /// all.</item>
+        /// <item><b>The roar, which the first bake did not have</b>: low-passed noise for the body of the blast and
+        /// a 350 Hz–2.4 kHz rush over it, decaying in about a second and a half. It is most of what separates an
+        /// explosion from a drum hit, and it is the band the ear is most sensitive to below the presence
+        /// region.</item>
+        /// <item><b>The crack</b>, fuller and less bright than the first bake's: a 50 ms burst low-passed at
+        /// 6 kHz, still on the very first sample (a ramp turns a bang into a whoomph).</item>
+        /// <item><b>The roll</b>: the arena answering — low noise under a coarse, quick gate, so the tail surges
+        /// rather than hissing (the thunder's device, several times faster).</item>
+        /// <item><b>Rubble, not glass</b>: twelve short knocks band-passed to 180 Hz–1.6 kHz with no tone in
+        /// them.</item>
+        /// <item><b>Driven</b> into a <c>tanh</c> before the room, so the layers crush into one dense blast and
+        /// the saturation's own harmonics carry the low end further up the spectrum — then a bigger room than the
+        /// first bake's, and driven again to a louder RMS than the firework's report.</item>
         /// </list>
         /// <para>
         /// <b>Rendered apart from the buffer it is wrapped in</b>, so its numbers can be read without an audio
@@ -1348,77 +1382,110 @@ namespace BS3D.Audio
         /// </summary>
         private static float[] RenderBlast()
         {
-            const float duration = 1.8f;
+            //Three seconds, of which the last half is a fade: the roll and the room are still 23 dB under the peak
+            //at 2.4 s, which is where this first ended — so it did not decay, it was cut off, and a cut-off tail
+            //is a click at the end of every bomb.
+            const float duration = 3.0f;
+            const float fadeSeconds = 0.5f;
             int samples = (int)(SAMPLE_RATE * duration);
             float[] signal = new float[samples];
 
-            //THE THUMP: a fast pitch drop and a sub an octave under it, both leaving quickly.
-            const float dropTime = 0.08f;
-            const float startHz = 96f, endHz = 31f;
-            float phase = 0f, subPhase = 0f;
+            //THE PUNCH: a pitch drop that ends where a speaker still plays, with the harmonics a small one needs.
+            const float dropTime = 0.11f;
+            const float startHz = 170f, endHz = 48f;
+            float phase = 0f;
 
             for (int i = 0; i < samples; i++)
             {
                 float t = (float)i / SAMPLE_RATE;
 
                 float freq = t < dropTime ? startHz * MathF.Pow(endHz / startHz, t / dropTime) : endHz;
-
                 phase += 2f * MathF.PI * freq / SAMPLE_RATE;
-                subPhase += 2f * MathF.PI * (freq * 0.5f) / SAMPLE_RATE;
 
-                signal[i] += MathF.Sin(phase) * 0.9f * MathF.Exp(-t * 4.2f);
-                signal[i] += MathF.Sin(subPhase) * 0.8f * MathF.Exp(-t * 3.0f);
+                float tone = MathF.Sin(phase) + 0.45f * MathF.Sin(2f * phase) + 0.18f * MathF.Sin(3f * phase);
+                signal[i] += tone * MathF.Exp(-t * 3.2f);
             }
 
-            //THE PRESSURE: noise low-passed hard, so it is air being moved rather than hiss — most of what makes a
-            //bang an explosion rather than a drum.
-            float[] pressure = LowPassArray(MakeNoiseArray(samples, seed: 6151), 240f);
+            //THE ROAR. Two independently seeded layers (see MakeNoiseArray on why they must be): the low body of
+            //the blast, which lingers, and the rush over it, which is gone sooner. The gains are large because a
+            //one-pole low-pass takes most of white noise's level away — at 420 Hz its RMS is about a tenth.
+            float[] roarLow = LowPassArray(MakeNoiseArray(samples, seed: 6151), 420f);
+            float[] roarMid = BandPass(MakeNoiseArray(samples, seed: 3313), 350f, 2400f);
 
             for (int i = 0; i < samples; i++)
             {
                 float t = (float)i / SAMPLE_RATE;
-                signal[i] += pressure[i] * 1.1f * MathF.Exp(-t * 4.8f);
+                float attack = MathF.Min(1f, t / 0.004f);
+
+                signal[i] += roarLow[i] * 6.0f * attack * (0.75f * MathF.Exp(-t * 3.0f) + 0.25f * MathF.Exp(-t * 0.9f));
+                signal[i] += roarMid[i] * 2.2f * attack * MathF.Exp(-t * 5.5f);
             }
 
-            //THE CRACK: on the first sample and with no attack ramp at all — any ramp turns a bang into a whoomph.
-            AddNoiseBurst(signal, window: 0.025f, decay: 120f, gain: 1.6f, cutoff: 10000f);
+            //THE CRACK: fuller and a shade darker than a snap, and on the first sample.
+            AddNoiseBurst(signal, window: 0.05f, decay: 55f, gain: 2.2f, cutoff: 6000f);
 
-            //THE DEBRIS. Front-loaded — most of it is thrown at once and it thins as it goes, which reads as a spray
-            //and not as a metronome — and pushed off that curve by the noise function, so no two knocks sit on a
-            //grid. Seeded apart from every noise layer above.
-            float[] grit = BandPass(MakeNoiseArray(samples, seed: 2749), 2000f, 6500f);
-            const int KNOCKS = 16;
+            //THE ROLL: low noise under a coarse gate held ~75 ms at a time, so the tail surges as the arena throws
+            //the blast back. The floor stays well above zero — a roll sinks between surges, it does not stop.
+            float[] roll = LowPassArray(MakeNoiseArray(samples, seed: 9241), 180f);
+            const int holdSamples = 3300;
+            float gate = 0.7f;
+
+            for (int i = 0; i < samples; i++)
+            {
+                if (i % holdSamples == 0) gate = 0.55f + 0.45f * (0.5f + 0.5f * Noise(i / holdSamples, 4411));
+
+                float t = (float)i / SAMPLE_RATE;
+                signal[i] += roll[i] * 7.0f * gate * MathF.Min(1f, t / 0.12f) * MathF.Exp(-t * 1.4f);
+            }
+
+            //THE RUBBLE. Front-loaded and pushed off its curve by the noise function so no two knocks sit on a
+            //grid, as the first bake's debris was — but band-passed low and with no tone in it, which is the whole
+            //difference between masonry coming down and a glass breaking.
+            float[] rubble = BandPass(MakeNoiseArray(samples, seed: 2749), 180f, 1600f);
+            const int KNOCKS = 12;
 
             for (int k = 0; k < KNOCKS; k++)
             {
                 float u = (k + 0.5f) / KNOCKS;
 
-                float at = 0.035f + 0.78f * MathF.Pow(u, 1.7f) + 0.018f * Noise(k, 91);
-                float pitch = 2400f + 2800f * (0.5f + 0.5f * Noise(k, 92));
-                float gain = (1f - 0.75f * u) * (0.7f + 0.3f * Noise(k, 93));
+                float at = 0.10f + 0.9f * MathF.Pow(u, 1.5f) + 0.03f * Noise(k, 91);
+                float gain = (1f - 0.6f * u) * (0.6f + 0.4f * (0.5f + 0.5f * Noise(k, 93)));
 
                 int start = (int)(MathF.Max(0f, at) * SAMPLE_RATE);
 
                 for (int i = start; i < samples; i++)
                 {
                     float t = (float)(i - start) / SAMPLE_RATE;
-                    if (t > 0.06f) break;
+                    if (t > 0.07f) break;
 
-                    //A 1.5 ms attack and a fast decay: a knock, not a tick and not a ring.
-                    float env = MathF.Exp(-t * 110f) * MathF.Min(1f, t / 0.0015f);
-
-                    signal[i] += grit[i] * 0.42f * gain * env;
-                    signal[i] += MathF.Sin(2f * MathF.PI * pitch * t) * 0.16f * gain * env;
+                    float env = MathF.Exp(-t * 55f) * MathF.Min(1f, t / 0.003f);
+                    signal[i] += rubble[i] * 1.6f * gain * env;
                 }
             }
 
-            //THE ARENA: five taps from 17 ms that fuse into the bang (see RollingEcho on the 40 ms the ear resolves
-            //a repeat at), and a mid-sized room — the island is a stone bowl, not a landscape.
-            RollingEcho(signal, taps: 5, firstDelaySeconds: 0.017f, spread: 1.41f, feedback: 0.72f, mix: 0.32f);
-            ApplyReverb(signal, roomScale: 0.75f, wet: 0.28f, decay: 0.45f);
+            //THE DRIVE: crushed into one blast before the room, so the room reverberates a blast and not five
+            //layers, and the saturation's harmonics carry the body up to where a speaker plays it.
+            for (int i = 0; i < samples; i++) signal[i] = MathF.Tanh(signal[i] * 1.6f);
 
-            //Driven rather than peak-normalised, for the report's reason: normalised to its crack, a bang is a click.
-            Loudness(signal, targetRms: 0.26f, ceiling: 0.99f);
+            //THE ARENA: seven taps from 21 ms that fuse into the bang (see RollingEcho on the 40 ms the ear resolves
+            //a repeat at), and a larger, wetter room than the first bake's — a bomb fills the bowl.
+            RollingEcho(signal, taps: 7, firstDelaySeconds: 0.021f, spread: 1.38f, feedback: 0.76f, mix: 0.36f);
+            ApplyReverb(signal, roomScale: 0.9f, wet: 0.34f, decay: 0.6f);
+
+            //Driven rather than peak-normalised, for the report's reason, and to a louder RMS than the report's
+            //0.30: a firework is far away, and this is the loudest thing that happens in a level.
+            Loudness(signal, targetRms: 0.34f, ceiling: 0.99f);
+
+            //And down to silence over the last half second, smoothstepped so that neither end of the fade is a
+            //corner. After the drive, not before it: Loudness would otherwise lift the faded tail straight back up.
+            int fadeStart = samples - (int)(SAMPLE_RATE * fadeSeconds);
+
+            for (int i = fadeStart; i < samples; i++)
+            {
+                float u = (float)(i - fadeStart) / (samples - fadeStart);
+                signal[i] *= 1f - u * u * (3f - 2f * u);
+            }
+
             return signal;
         }
 
