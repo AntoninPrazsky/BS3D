@@ -74,8 +74,12 @@ namespace Prazsky.Core.Render
         /// <summary>How wide the pressure ridge belt is.</summary>
         public float RidgeWidth { get; set; } = 70f;
 
-        /// <summary>How high the pressure ridge stands above the plain.</summary>
-        public float RidgeHeight { get; set; } = 26f;
+        /// <summary>
+        /// How high the pressure front stands above the plain. ⚠ <b>Low against its own width on purpose</b>:
+        /// a plate taller than it is broad is a column, and a row of columns is what made the first front
+        /// unreadable. The belt is <see cref="RidgeWidth"/> deep, so this is well under a tenth of it.
+        /// </summary>
+        public float RidgeHeight { get; set; } = 11f;
 
         /// <summary>
         /// Which way the front lies from the arena, in degrees, and how much of the horizon it covers.
@@ -98,10 +102,59 @@ namespace Prazsky.Core.Render
         /// the desert's own rule. The depth the eye reads is carried by the transmission instead — a crevasse
         /// is a slot that glows cyan and darkens with its own depth, which is what one looks like from above.
         /// </summary>
-        public float CrevasseDepth { get; set; } = 6f;
+        public float CrevasseDepth { get; set; } = 8f;
 
         /// <summary>How close together the crevasses run, in slots per world unit.</summary>
-        public float CrevasseFrequency { get; set; } = 0.035f;
+        public float CrevasseFrequency { get; set; } = 0.075f;
+
+        /// <summary>
+        /// How narrowly each crevasse is cut — higher is a thinner slot. ⚠ Crevasses are on the <b>plain</b>
+        /// now and not only at the pressure front, which is the correction the owner's report forced: gated
+        /// on the front's strain they existed only hundreds of units out, where no camera ever goes, so the
+        /// cracked ice this scene is <i>for</i> was nowhere to be seen. They open in fields, and the clearing
+        /// the island stands on is kept whole.
+        /// </summary>
+        public float CrevasseSharpness { get; set; } = 8f;
+
+        /// <summary>
+        /// How far the inside of a slot goes down against its own lip (1 is no darkening at all).
+        /// <para>
+        /// ⚠ <b>Without it a crevasse reads as a welt rather than a crack.</b> With the transmission alone the
+        /// slot came out <i>brighter</i> than the snow around it, and a bright band on a white plain is a
+        /// ridge standing proud of it — the same inversion the dead ball's tint and the rock's relief both had
+        /// to be argued out of. The light down there is genuinely dim: what reaches the eye crossed metres of
+        /// ice, and what makes it beautiful is that the little which arrives is pure colour.
+        /// </para>
+        /// </summary>
+        public float CrevasseDarkening { get; set; } = 0.22f;
+
+        /// <summary>
+        /// Where the bare glacier starts showing through, as the threshold on the field that decides it — so a
+        /// <b>lower</b> number scours more of the sheet bare.
+        /// <para>
+        /// ⚠ <b>This is the scene's cyan, and the first build had nowhere to put it.</b> Transmission needs
+        /// thick ice in the line of sight, which on a flat plain means neither a crevasse wall nor a steep
+        /// flank — so the signature colour lived only inside the distant front. A blue-ice area is the real
+        /// polar answer rather than an invention: whole regions of a sheet are swept bare by the wind, they
+        /// are glass-hard, and they are the blue in every polar photograph that has blue in it.
+        /// </para>
+        /// </summary>
+        public float BlueIceThreshold { get; set; } = 0.12f;
+
+        /// <summary>
+        /// How big one plate of the pressure front is across, and how far it leans.
+        /// <para>
+        /// ⚠ <b>Quantised in world space and tilted, which is the second try at this front.</b> Cut in polar
+        /// coordinates the cells were wedges that grew with distance, so their hashed heights met along radial
+        /// seams and the belt read as a picket fence of crooked needles — the owner's word was "a graphical
+        /// glitch", which is the right word for a silhouette nobody can name. Real pressure ice is plates:
+        /// wider than they are tall, shoved up and leaning, chaotic at the top and continuous along the front.
+        /// </para>
+        /// </summary>
+        public float SlabSize { get; set; } = 17f;
+
+        /// <inheritdoc cref="SlabSize"/>
+        public float SlabTilt { get; set; } = 0.55f;
 
         /// <summary>
         /// Snow reflectance (linear). <b>Not white</b>, and that is the scene's central trap answered: snow

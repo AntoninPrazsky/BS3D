@@ -1906,6 +1906,11 @@ namespace Prazsky.Core.Render
             _polarEffect.Parameters["RidgeSpan"].SetValue(MathHelper.ToRadians(_polarConfig.RidgeSpanDegrees));
             _polarEffect.Parameters["CrevasseDepth"].SetValue(_polarConfig.CrevasseDepth);
             _polarEffect.Parameters["CrevasseFrequency"].SetValue(_polarConfig.CrevasseFrequency);
+            _polarEffect.Parameters["CrevasseSharpness"].SetValue(_polarConfig.CrevasseSharpness);
+            _polarEffect.Parameters["CrevasseDarkening"].SetValue(_polarConfig.CrevasseDarkening);
+            _polarEffect.Parameters["BlueIceThreshold"].SetValue(_polarConfig.BlueIceThreshold);
+            _polarEffect.Parameters["SlabSize"].SetValue(_polarConfig.SlabSize);
+            _polarEffect.Parameters["SlabTilt"].SetValue(_polarConfig.SlabTilt);
             _polarEffect.Parameters["SnowColor"].SetValue(_polarConfig.SnowColor.ToVector3());
             _polarEffect.Parameters["IceColor"].SetValue(_polarConfig.IceColor.ToVector3());
             _polarEffect.Parameters["AmbientStrength"].SetValue(_polarConfig.AmbientStrength);

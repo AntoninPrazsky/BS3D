@@ -96,9 +96,21 @@ float RidgeHeight;
 float RidgeBearing;
 float RidgeSpan;
 
-//The crevasses: how deep the geometry dips (shallow - see the header), and how far apart they run
+//The crevasses: how deep the geometry dips (shallow - see the header), how far apart they run, and how
+//narrow each slot is cut
 float CrevasseDepth;
 float CrevasseFrequency;
+float CrevasseSharpness;
+
+//How far down the inside of a slot goes against its own lip - see the darkening in PolarPS
+float CrevasseDarkening;
+
+//Where the blue ice starts: the field's own threshold, so a lower number bares more of the sheet
+float BlueIceThreshold;
+
+//The pressure front's plates: how big one is across, and how far it leans
+float SlabSize;
+float SlabTilt;
 
 //Wall clock (seconds) and the wind, a unit direction in the XZ plane
 float PolarTime;
@@ -177,29 +189,39 @@ float PressureRidge(float2 p)
     float band = abs(dist - (RidgeRadius + wander)) / max(RidgeWidth, 1e-3);
     float crest = saturate(1.0 - band);
 
-    //⚠ BLOCKS, NOT A CREST, and this is the difference between ice and water. Smoothed with a noise field the
-    //belt photographed as a line of BREAKING WAVES - a rounded swell with a bright face - which is exactly
-    //what a smooth ridge under a cyan material reads as, and the one thing this scene cannot afford, since a
-    //frozen sea is the next scene over in the eye's filing system. Pressure ice is RUBBLE: slabs shoved up on
-    //end, each standing at its own height with a flat top and a broken edge.
+    //⚠ SLABS, AND THE SECOND TRY AT THEM. Smoothed with a noise field the belt photographed as a line of
+    //BREAKING WAVES - what any smooth ridge under a cyan material reads as, and the one thing this scene
+    //cannot afford with a frozen sea sitting next to it in the eye's filing system. Quantised in POLAR
+    //coordinates it photographed as something worse: the cells are wedges that grow with distance, so their
+    //hashed heights met along radial seams and the front read as a picket fence of crooked needles. The
+    //owner's word for it was "a graphical glitch", and that is the right word for a silhouette nobody can
+    //name.
     //
-    //So the belt is quantised into blocks along its own length and across its width, each raised by its own
-    //hash. A block is a few grid cells across on purpose (see POLAR_GRID_N): quantising finer than the mesh
-    //can hold is the crevasse's mistake from the other end - the blocks would fall between vertices and be
-    //shaded onto a silhouette that is not there.
-    float2 block = floor(float2(bearing * 26.0, (dist - RidgeRadius) / 22.0));
-    float2 hash = NoiseHash22(block);
+    //Real pressure ice is a rubble belt of PLATES: wider than they are tall, shoved up and tilted, chaotic
+    //at the top and continuous along the front. So the lattice is in WORLD space (square cells, one size
+    //everywhere), each cell is a tilted plane rather than a flat-topped block, and the whole belt is far
+    //lower against its own width than it was - which is what stops a slab from reading as a column.
+    float2 cell = p / SlabSize;
+    float2 id = floor(cell);
+    float2 within = frac(cell) - 0.5;
 
-    //Each slab keeps its own height and its own footing, so the top edge is a broken line rather than a curve
-    float height = 0.45 + 1.05 * hash.x;
-    float lift = saturate(crest * (1.25 + 0.5 * hash.y));
+    float3 hash = float3(NoiseHash22(id), NoiseHash22(id + 37.0).x);
 
-    //A hard top with a soft foot: the slab's face is what carries the scene's colour, and a face needs an edge
-    return saturate(lift * lift * (3.0 - 2.0 * lift)) * height * sector;
+    //The plate's own height, and its TILT: a plane through the cell rather than a flat top, so every slab
+    //leans its own way and the belt's skyline is a run of edges instead of a row of posts.
+    float plate = 0.35 + 0.65 * hash.x;
+    float tilt = dot(within, (hash.yz - 0.5) * 2.0) * SlabTilt;
+
+    return saturate(crest * crest * (3.0 - 2.0 * crest)) * saturate(plate + tilt) * sector;
 }
 
-//The crevasse field: long parallel slots, opened where the sheet is stretched - here, running ACROSS the
-//pressure ridge, which is where a real sheet tears. Returns 0..1, 1 in the middle of a slot.
+//The crevasse field: long slots torn through the sheet, in patches. Returns 0..1, 1 in the middle of a slot.
+//
+//⚠ THEY ARE ON THE PLAIN, NOT ONLY AT THE FRONT, and that is the correction that matters most in this file.
+//They were gated on the pressure ridge's own strain - which is true of a real sheet and was useless here,
+//because the front stands hundreds of units out and the player never gets near it: the owner's report was
+//that the cracked ice glowing blue is nowhere to be seen, and it was nowhere the camera ever looks. The
+//scene's whole subject is what ICE does with light, so the ice has to be cracked where the level is played.
 //
 //⚠ It is deliberately WIDE and shallow in the geometry: see the header for why a narrow slot cannot be held
 //by this grid. The depth the eye reads comes from the transmission in PolarPS, not from the displacement.
@@ -212,14 +234,42 @@ float CrevasseField(float2 p, float ridge)
 {
     float2 w = WindSpace(p);
 
-    //Along the wind, so they cross the sastrugi rather than lying in them
-    float lines = sin(w.x * CrevasseFrequency + GradientNoise2(p * 0.012) * 2.5);
+    //Along the wind, so they cross the sastrugi rather than lying in them, and WANDERING: a crack in a sheet
+    //is not a ruled line, and a set of them that were would read as a printed pattern.
+    float lines = sin(w.x * CrevasseFrequency + GradientNoise2(p * 0.010) * 3.4);
 
-    float slot = saturate(1.0 - abs(lines) * 6.0);
+    float slot = saturate(1.0 - abs(lines) * CrevasseSharpness);
 
-    //Only where the sheet is under strain: on and just outside the pressure front. The flats stay flat -
-    //an icesheet does not crack where nothing is pulling it.
-    return slot * saturate(ridge * 1.6 + 0.25);
+    //WHERE the sheet is torn, and it is in fields rather than everywhere: a broad noise mask opens crevasse
+    //fields over parts of the plain and leaves the rest whole, so crossing the ice is crossing from sound
+    //sheet to broken and back. The front's own strain adds to it, since that is where a real sheet tears
+    //hardest - but it is no longer the only thing that opens one.
+    float field = smoothstep(0.05, 0.55, GradientNoise2(p * 0.005 + 19.0) + 0.34);
+
+    //⚠ The clearing is kept whole. The island stands on this ice and a crevasse running under the arena
+    //would be a hole the player cannot fall into - the one thing on this plain that has to read as solid.
+    float clear = smoothstep(ClearingRadius * 0.8, ClearingRadius * 1.5, length(p));
+
+    return slot * saturate(field + ridge * 1.2) * clear;
+}
+
+//BLUE ICE: the patches where the wind has scoured the snow off and the glacier underneath is bare.
+//
+//⚠ This is the other half of the same report, and the more important half. The scene's signature is cyan
+//ice, and on a flat white plain there was nowhere for it to happen: the transmission needs THICK ice in the
+//line of sight, which on the first build meant a crevasse wall or a steep flank - and a plain has neither.
+//So the cyan lived only inside the pressure front, hundreds of units from the camera. A blue-ice area is the
+//real thing this scene was missing rather than an invention: whole regions of a sheet are swept bare, they
+//are glass-hard, and they are the blue in every polar photograph that has blue in it.
+//
+//The edge between snow and bare ice is a RIM and not a gradient, which is what the narrow smoothstep is for.
+float BlueIce(float2 p)
+{
+    float field = GradientNoise2(p * 0.0042 + 53.0) + GradientNoise2(p * 0.0115 + 7.0) * 0.42;
+
+    //0.05 of the field and not the 0.20 it was: on a field this low in frequency 0.20 is tens of world units,
+    //and the patch photographed with a soft blue glow round it rather than an edge.
+    return smoothstep(BlueIceThreshold, BlueIceThreshold + 0.05, field);
 }
 
 //The full ice height at a world point. Tapped both to displace the vertex and, thrice, for the per-pixel
@@ -313,7 +363,13 @@ float4 PolarPS(PolarVertexOutput input) : COLOR
     float2 slope = float2(hx - h, hz - h) / e;
     float3 baseNormal = normalize(float3(-slope.x, 1.0, -slope.y));
 
-    float sastrugi = Sastrugi(worldPosition.xz, footprint);
+    //The sastrugi, flattened out wherever the wind has scoured the snow away: a blue-ice area is polished,
+    //and leaving the drift relief on it would be carving snow shapes into bare glacier.
+    //Sampled ONCE for the pixel and read twice below. It was two calls until the frame cost was measured -
+    //the same shape of waste as the ridge the crevasses used to re-sample (see CrevasseField).
+    float blueIce = BlueIce(worldPosition.xz);
+
+    float sastrugi = lerp(Sastrugi(worldPosition.xz, footprint), 0.5, blueIce);
     float3 normal = PerturbNormalFromHeight(baseNormal, worldPosition, sastrugi * DriftAmplitude);
 
     float3 towardsEye = normalize(CameraPosition - worldPosition);
@@ -325,7 +381,7 @@ float4 PolarPS(PolarVertexOutput input) : COLOR
     float steepness = saturate((1.0 - baseNormal.y) * 4.0);
     float crevasse = CrevasseField(worldPosition.xz, PressureRidge(worldPosition.xz));
 
-    float iceness = saturate(steepness * 0.7 + crevasse * 1.2);
+    float iceness = saturate(steepness * 0.7 + crevasse * 1.2 + blueIce);
 
     //--- The light ------------------------------------------------------------------------------------
     float sunlight = CloudSunlight(worldPosition, SunDirection);
@@ -360,15 +416,44 @@ float4 PolarPS(PolarVertexOutput input) : COLOR
     //The sun's contribution is the BACK-scatter lobe: light entering the far side and leaving towards the
     //eye, which peaks when the eye looks along the sun's own direction through the ice. It is the balls'
     //TranslucencyStrength and the sea's subsurface term arriving on a surface that is made of the stuff.
-    float thickness = saturate(crevasse * 1.4 + steepness * 0.35);
+    //⚠ THE GLOW IS ON THE WALLS AND NOT IN THE THROAT, which is the difference between a crack and a ditch.
+    //Driven by the slot's own profile the brightest point was its CENTRE, so the crevasse photographed as a
+    //shallow trough with a pale floor - a ramp cut in the ice, or a frozen river. It is the wrong way round
+    //physically as well: the throat is where the light had furthest to come and least of it arrives, and the
+    //walls are where a thin edge of ice is lit through from the side. So the term peaks at mid-slope and
+    //falls to nothing at both the lip and the bottom.
+    float wall = saturate(crevasse * (1.0 - crevasse) * 4.0);
+
+    //How much ice the light had to cross. The walls of a slot are the brightest path there is, a scoured
+    //blue-ice area is the next (the light goes down into the sheet and scatters back up out of it), and a
+    //steep flank is the least. Without the blue-ice term a flat plain has no thickness anywhere, which is
+    //exactly why the first build had no cyan in it outside the distant front.
+    float thickness = saturate(wall * 1.3 + blueIce * 0.85 + steepness * 0.35);
     float backScatter = pow(saturate(dot(towardsEye, -SunDirection)), 3.0);
 
     float3 inside = IceColor * (skyAmbient * 0.55 + SunColor * (0.35 + backScatter) * sunlight);
     float3 transmission = inside * thickness * TransmissionStrength;
 
+    //⚠ On a crevasse WALL the reflection is held back, or the wall comes out white. A steep face seen from
+    //the plain is at a grazing angle, where Schlick hands almost everything to the sky - which is right for
+    //the open glaze and wrong for this: the near wall of a slot photographed as a pale band with no colour in
+    //it, because the one surface that should show the ice's inside was busy mirroring the horizon. A wall is
+    //rough, fractured ice rather than a polished sheet, so its mirror is weak and its light is the light
+    //that came through it.
+    fresnel *= 1.0 - wall * 0.7;
+
     float3 ice = lerp(snow * 0.55 + transmission, skyReflection, fresnel);
 
     float3 color = lerp(snow, ice, iceness);
+
+    //⚠ AND THE SLOT HAS TO BE DEEPER THAN ITS LIP, or it is not a slot. With the transmission alone a
+    //crevasse came out BRIGHTER than the snow around it, and a bright band on a white plain reads as a welt
+    //standing proud of it rather than a crack cut into it - the same inversion the dead-ball tint and the
+    //rock's relief both had to be argued out of. The light in a crevasse is genuinely dim: what reaches the
+    //eye crossed metres of ice, and what makes it beautiful is that the little which arrives is pure colour.
+    //So the whole slot is darkened towards the ice's own hue and the transmission is what lifts it back -
+    //deep blue in the middle, snow at the lip, and the glow strongest where the walls are thinnest.
+    color *= lerp(1.0, CrevasseDarkening, crevasse);
 
     //--- What sits on top of both ----------------------------------------------------------------------
     //The glare off a scoured flank: a TIGHT lobe, unlike the desert's broad sheen, because this surface is
