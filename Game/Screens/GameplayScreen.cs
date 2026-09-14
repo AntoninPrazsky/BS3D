@@ -607,6 +607,19 @@ namespace BS3D.Screens
 
         private readonly LaserGrid _laserGrid;
 
+        /// <summary>
+        /// Every bomb going off (#389) — its flash, its report and the light it throws. Session content like the
+        /// net above, but stepped on the world's clock rather than stamped on the wall's: see <see cref="Blasts"/>.
+        /// </summary>
+        private readonly Blasts _blasts;
+
+        /// <summary>
+        /// How hard a full-size blast heaves the camera, as a <c>CameraShake.Rumble</c> strength. Under 1 so that a
+        /// chain still reads as bigger than one bomb before the rumble saturates — each link adds its own as it
+        /// goes off.
+        /// </summary>
+        private const float BLAST_RUMBLE = 0.55f;
+
         #endregion
 
         #region Levels
@@ -1070,6 +1083,11 @@ namespace BS3D.Screens
             //It is handed the ceiling flash's own red — the two are one warning at two heights, and passing
             //the constant is what keeps them from drifting apart.
             _laserGrid = new LaserGrid(GraphicsDevice, Game.Content.Load<Effect>("Shaders/LaserGrid"), CEILING_FLASH_COLOR);
+
+            //And the blasts (#389), loaded the same way. NOT handed the host's audio, unlike Fireworks: this
+            //screen is built before the host has synthesized its sounds (BS3DGame.LoadContent), so the audio is
+            //passed to each Update instead of being captured here as a null.
+            _blasts = new Blasts(GraphicsDevice, Game.Content.Load<Effect>("Shaders/Blast"));
         }
 
         //A level is played with nothing above this screen. A pause is pushed OVER it and freezes it with its
@@ -1260,7 +1278,17 @@ namespace BS3D.Screens
             //fed to the accumulator is scaled, so a slowed world is exactly as stable as a full-speed one. The
             //ceiling's descent above is deliberately NOT scaled — it is a rule of the level playing out, not
             //part of the spectacle, and it is not moving while the gun is locked anyway.
+            //Testing only (detonate=, #389): a bomb set off on the wall clock's schedule. Before the step, so its
+            //debris moves on this frame the way a real landing's does.
+            if (Game.TryTakeForcedDetonation()) DetonateForTesting();
+
             StepPhysics(elapsed * _cinematic.TimeScale);
+
+            //The blasts a landing inside that step set off (#389), on the step's own scaled time: the debris they
+            //threw is moving at that speed, and a flash running at full speed over a slow-motion collapse is over
+            //before its fragments have left the hole. The rumble goes to the camera as each blast goes off.
+            float blastJolt = _blasts.Update(elapsed * _cinematic.TimeScale, Game.Audio);
+            if (blastJolt > 0f) Camera.Shake.Rumble(BLAST_RUMBLE * blastJolt);
 
             //And the frame this level actually costs, judged where it is paid. The probe used to run under the
             //front end alone, so the tier was settled against a scene with no cluster in it and kept for one
@@ -1351,6 +1379,11 @@ namespace BS3D.Screens
             //neither ending is declared while one is engaged — the countdown freezes for it and the loss waits
             //on mayLose — so the scale is back at 1 before this page can exist.
             StepPhysics(elapsed);
+
+            //And a blast still going off when the page arrived (#389) carries on with the world it belongs to —
+            //a flash frozen half-bright behind the numbers is this very issue, one effect further out. Its jolt is
+            //dropped: the page is easing the lens out onto the front end's orbit, and the camera is not ours.
+            _blasts.Update(elapsed, Game.Audio);
         }
 
         /// <summary>
@@ -1412,6 +1445,11 @@ namespace BS3D.Screens
             //own frame, so it is bucketed and LOD-picked with the rest rather than drawn by itself
             CollectShotPreview(ballFrame);
 
+            //A blast's light on everything the shared instanced effect draws — the balls, the island, the gun —
+            //stated for this frame only and before the scene lights are applied, which BeginSceneDraw does (#389).
+            if (_blasts.TryGetLight(out Vector3 flashAt, out Vector3 flashColor, out float flashRange))
+                Game.SetSceneFlash(flashAt, flashColor, flashRange);
+
             SceneFrame sceneFrame = Game.BeginSceneDraw();
 
             //The barrel, drawn with its recoil stroke: the pose is Cannon's and the hardware CannonRig's, so
@@ -1446,6 +1484,11 @@ namespace BS3D.Screens
             //occlude it and it blooms through the glare with them. After the smears rather than before for one
             //reason: a shot's flare should sit over the guide that aimed it, not under it.
             DrawShotPreviewBeam();
+
+            //The blasts (#389), in the same slot and the same states: additive and depth-read, so what stands
+            //nearer the lens than a blast hides it, and before the drain's glass so the funnel composites over a
+            //blast seen down its throat exactly as it does over a smear.
+            _blasts.Draw(Camera);
 
             Game.DrawSettingGlass();
 

@@ -133,8 +133,11 @@ namespace BS3D.Audio
         private readonly SoundEffect[][] _landed;
         private readonly SoundEffect _release;
 
-        /// <summary>Ice breaking (#329) — the one sound a <c>BallKind</c> has of its own.</summary>
+        /// <summary>Ice breaking (#329) — the first sound a <c>BallKind</c> had of its own.</summary>
         private readonly SoundEffect _iceBreak;
+
+        /// <summary>A bomb going off (#389) — until then it sounded exactly like a big release.</summary>
+        private readonly SoundEffect _blast;
         private readonly SoundEffect _fireworkLaunch;
         private readonly SoundEffect _fireworkBurst;
         private readonly SoundEffect _partyPopper;
@@ -155,6 +158,9 @@ namespace BS3D.Audio
 
         /// <inheritdoc cref="_iceBreak"/>
         private readonly VoiceRing _iceBreakRing;
+
+        /// <inheritdoc cref="_blast"/>
+        private readonly VoiceRing _blastRing;
         private readonly VoiceRing _launchRing;
         private readonly VoiceRing _burstRing;
 
@@ -198,6 +204,12 @@ namespace BS3D.Audio
         //because it IS one event: the group leaving. Two, not three, because unlike a release it cannot
         //overlap itself: a second landing cannot resolve while the first is still in flight.
         private const int ICE_BREAK_VOICES = 2;
+
+        //A blast's report is 1.8 s, and a chain sets one off per link a CHAIN_STAGGER apart (Blasts) — so one
+        //landing wants as many voices at once as its chain is long. Five is the longest chain one landing sets
+        //off in the campaign (Sill, Paroxysm); eight is that with room, and it is the effect's own slot count, so
+        //every blast that can be drawn at once can also be heard at once.
+        private const int BLAST_VOICES = 8;   //Blasts.MAX_BLASTS
 
         //The whistle is 0.55 s, and it is the OPENING BARRAGE that sizes this rather than the steady state: at
         //the start of a display every shell slot is free, so shells go up at INTERVAL_OPENING (~14 a second)
@@ -248,6 +260,7 @@ namespace BS3D.Audio
 
             _release = BakeRelease();
             _iceBreak = BakeIceBreak();
+            _blast = BakeBlast();
             _fireworkLaunch = BakeFireworkLaunch();
             _fireworkBurst = BakeFireworkBurst();
             _partyPopper = BakePartyPopper();
@@ -261,6 +274,7 @@ namespace BS3D.Audio
             _shootRing = new VoiceRing(_shoot, SHOOT_VOICES);
             _releaseRing = new VoiceRing(_release, RELEASE_VOICES);
             _iceBreakRing = new VoiceRing(_iceBreak, ICE_BREAK_VOICES);
+            _blastRing = new VoiceRing(_blast, BLAST_VOICES);
             _launchRing = new VoiceRing(_fireworkLaunch, LAUNCH_VOICES);
             _burstRing = new VoiceRing(_fireworkBurst, BURST_VOICES);
             _eruptionRing = new VoiceRing(_eruption, ERUPTION_VOICES);
@@ -411,6 +425,30 @@ namespace BS3D.Audio
 
             Speak(_iceBreakRing, world, NEAR_WIDEN, MathHelper.Clamp(volume * Level, 0f, 1f),
                 MathHelper.Clamp(NextPitch(0.08f) - size * 0.10f, -1f, 1f));
+        }
+
+        /// <summary>
+        /// A bomb going off (#389), spoken from where its body was. <paramref name="size"/> (0…1) is how much the
+        /// blast took, and it scales the report the way the release's count does: bigger is louder and a shade
+        /// deeper.
+        /// <para>
+        /// <b>One report per blast, and a chain is a run of them</b>, staggered link by link by the caller
+        /// (<c>Blasts</c>) — the opposite ruling to the ice, whose blocks are one event and are spoken as one. A
+        /// chain IS several events: each bomb goes off where it stands, and hearing them go is what says a chain.
+        /// </para>
+        /// <para>
+        /// It takes over from the release for the balls a blast took (see <c>GameplayScreen.OnBallLanded</c>), and
+        /// it is kept apart from a release arriving in the same instant — one landing that completes a group and
+        /// sets a bomb off — by <b>register</b> rather than by level, <see cref="BakeIceBreak"/>'s own design: its
+        /// weight sits under 150 Hz and its debris above the release's run of pops.
+        /// </para>
+        /// </summary>
+        public void PlayBlast(Vector3 world, float size)
+        {
+            float volume = (0.72f + 0.28f * size) * VolumeForDistance(DistanceTo(world));
+
+            Speak(_blastRing, world, NEAR_WIDEN, MathHelper.Clamp(volume * Level, 0f, 1f),
+                MathHelper.Clamp(NextPitch(0.05f) - size * 0.16f, -1f, 1f));
         }
 
         /// <summary>
@@ -1283,6 +1321,107 @@ namespace BS3D.Audio
             return ToSoundEffect(signal);
         }
 
+        /// <summary>A bomb going off (#389), wrapped for playback. The arithmetic is <see cref="RenderBlast"/>.</summary>
+        private SoundEffect BakeBlast() => ToSoundEffect(RenderBlast());
+
+        /// <summary>
+        /// A bomb going off in the arena (#389): a close, heavy bang with debris in it. The firework's report is its
+        /// nearest relative, and the differences are the design:
+        /// <list type="bullet">
+        /// <item><b>Close, not far.</b> A shell bursts a hundred units up over a landscape; a bomb goes off a few
+        /// dozen units from the lens, inside the cluster the player is looking at. So the sound is shorter (1.8 s
+        /// against 2.6), its roll is five fused taps off a stone bowl rather than nine off a city, and its room is
+        /// drier.</item>
+        /// <item><b>A thump, not a boom.</b> The same kind of pitch drop — 96 to 31 Hz in 80 ms, a sub an octave
+        /// under it — decaying about half again as fast: something going off nearby is a shove and then quiet, not
+        /// a rumble rolling away over hills.</item>
+        /// <item><b>Debris, which no other sound in this file has.</b> Sixteen short knocks — balls thrown into
+        /// balls — scattered over the first 0.8 s and thinning, band-passed to 2–6.5 kHz with a hint of pitch in
+        /// each. High on purpose: a landing that completes a group and sets a bomb off arrives with the release's
+        /// run of pops, which live between 800 Hz and 2.8 kHz, and <see cref="BakeIceBreak"/> already established
+        /// that register, not level, is what lets two sounds in one instant both be heard.</item>
+        /// </list>
+        /// <para>
+        /// <b>Rendered apart from the buffer it is wrapped in</b>, so its numbers can be read without an audio
+        /// device — the seam <c>Tools/MusicBake</c> uses on the music, from the other side of this folder.
+        /// </para>
+        /// </summary>
+        private static float[] RenderBlast()
+        {
+            const float duration = 1.8f;
+            int samples = (int)(SAMPLE_RATE * duration);
+            float[] signal = new float[samples];
+
+            //THE THUMP: a fast pitch drop and a sub an octave under it, both leaving quickly.
+            const float dropTime = 0.08f;
+            const float startHz = 96f, endHz = 31f;
+            float phase = 0f, subPhase = 0f;
+
+            for (int i = 0; i < samples; i++)
+            {
+                float t = (float)i / SAMPLE_RATE;
+
+                float freq = t < dropTime ? startHz * MathF.Pow(endHz / startHz, t / dropTime) : endHz;
+
+                phase += 2f * MathF.PI * freq / SAMPLE_RATE;
+                subPhase += 2f * MathF.PI * (freq * 0.5f) / SAMPLE_RATE;
+
+                signal[i] += MathF.Sin(phase) * 0.9f * MathF.Exp(-t * 4.2f);
+                signal[i] += MathF.Sin(subPhase) * 0.8f * MathF.Exp(-t * 3.0f);
+            }
+
+            //THE PRESSURE: noise low-passed hard, so it is air being moved rather than hiss — most of what makes a
+            //bang an explosion rather than a drum.
+            float[] pressure = LowPassArray(MakeNoiseArray(samples, seed: 6151), 240f);
+
+            for (int i = 0; i < samples; i++)
+            {
+                float t = (float)i / SAMPLE_RATE;
+                signal[i] += pressure[i] * 1.1f * MathF.Exp(-t * 4.8f);
+            }
+
+            //THE CRACK: on the first sample and with no attack ramp at all — any ramp turns a bang into a whoomph.
+            AddNoiseBurst(signal, window: 0.025f, decay: 120f, gain: 1.6f, cutoff: 10000f);
+
+            //THE DEBRIS. Front-loaded — most of it is thrown at once and it thins as it goes, which reads as a spray
+            //and not as a metronome — and pushed off that curve by the noise function, so no two knocks sit on a
+            //grid. Seeded apart from every noise layer above.
+            float[] grit = BandPass(MakeNoiseArray(samples, seed: 2749), 2000f, 6500f);
+            const int KNOCKS = 16;
+
+            for (int k = 0; k < KNOCKS; k++)
+            {
+                float u = (k + 0.5f) / KNOCKS;
+
+                float at = 0.035f + 0.78f * MathF.Pow(u, 1.7f) + 0.018f * Noise(k, 91);
+                float pitch = 2400f + 2800f * (0.5f + 0.5f * Noise(k, 92));
+                float gain = (1f - 0.75f * u) * (0.7f + 0.3f * Noise(k, 93));
+
+                int start = (int)(MathF.Max(0f, at) * SAMPLE_RATE);
+
+                for (int i = start; i < samples; i++)
+                {
+                    float t = (float)(i - start) / SAMPLE_RATE;
+                    if (t > 0.06f) break;
+
+                    //A 1.5 ms attack and a fast decay: a knock, not a tick and not a ring.
+                    float env = MathF.Exp(-t * 110f) * MathF.Min(1f, t / 0.0015f);
+
+                    signal[i] += grit[i] * 0.42f * gain * env;
+                    signal[i] += MathF.Sin(2f * MathF.PI * pitch * t) * 0.16f * gain * env;
+                }
+            }
+
+            //THE ARENA: five taps from 17 ms that fuse into the bang (see RollingEcho on the 40 ms the ear resolves
+            //a repeat at), and a mid-sized room — the island is a stone bowl, not a landscape.
+            RollingEcho(signal, taps: 5, firstDelaySeconds: 0.017f, spread: 1.41f, feedback: 0.72f, mix: 0.32f);
+            ApplyReverb(signal, roomScale: 0.75f, wet: 0.28f, decay: 0.45f);
+
+            //Driven rather than peak-normalised, for the report's reason: normalised to its crack, a bang is a click.
+            Loudness(signal, targetRms: 0.26f, ceiling: 0.99f);
+            return signal;
+        }
+
         /// <summary>
         /// The shell going up: the rising whistle every firework opens with. It is the one sound here that is
         /// almost a pure TONE — a whistling shell is a resonant cavity, not an explosion — and that is what
@@ -1916,6 +2055,7 @@ namespace BS3D.Audio
                     if (row != null) foreach (VoiceRing ring in row) ring?.Dispose();
             _releaseRing?.Dispose();
             _iceBreakRing?.Dispose();
+            _blastRing?.Dispose();
             _launchRing?.Dispose();
             _burstRing?.Dispose();
             _eruptionRing?.Dispose();
@@ -1926,6 +2066,7 @@ namespace BS3D.Audio
                     if (row != null) foreach (SoundEffect effect in row) effect?.Dispose();
             _release?.Dispose();
             _iceBreak?.Dispose();
+            _blast?.Dispose();
             _fireworkLaunch?.Dispose();
             _fireworkBurst?.Dispose();
             _partyPopper?.Dispose();

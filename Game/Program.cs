@@ -118,6 +118,10 @@ namespace BS3D
             //only this trigger survives a LOCKED desktop, which takes no keystrokes at all (#191).
             float[] shotSeconds = null;
 
+            //Testing only: wall-clock seconds at which the level sets off one of its bombs (#389). A blast takes a
+            //shot landed beside a bomb, which a script cannot aim.
+            float[] detonateSeconds = null;
+
             foreach (string arg in args)
             {
                 if (string.Equals(arg, "fullscreen", StringComparison.OrdinalIgnoreCase)) fullscreen = true;
@@ -198,6 +202,12 @@ namespace BS3D
                 //exactly the drift one shared parse cannot have.
                 else if (arg.StartsWith("shot=", StringComparison.OrdinalIgnoreCase))
                     shotSeconds = ScreenshotWriter.ParseSeconds(arg.Substring("shot=".Length));
+                //"detonate=<t1,t2,…>" sets off one of the level's bombs at those wall-clock seconds (#389), on the
+                //clock "shot=" counts so the two can be written against each other. A blast needs a shot landed
+                //beside a bomb, which no script can aim, and the effect it answers with is the Game's alone. It
+                //DOES change play, like "wildcard=": the bomb really goes. Parsed by the same lenient list.
+                else if (arg.StartsWith("detonate=", StringComparison.OrdinalIgnoreCase))
+                    detonateSeconds = ScreenshotWriter.ParseSeconds(arg.Substring("detonate=".Length));
                 //"pick" puts the LEVEL PICKER up at boot, and "pick=<n>" puts it up on that chapter (#273). The
                 //page itself is two keypresses away for anyone sitting at the machine and unreachable on a
                 //locked desktop, which takes no keystrokes — and since #273 it is a pager, so its other eight
@@ -223,7 +233,7 @@ namespace BS3D
                 uncappedFps: uncappedFps, scene: scene, skyDome: skyDome, logFrameRate: logFrameRate, quality: quality,
                 celebrate: celebrate, confetti: confetti, lasers: lasers, mute: mute, play: play, result: result, blockDone: blockDone, lost: lost, resultStars: resultStars, streak: streak, wildcardEvery: wildcardEvery,
                 shotSeconds: shotSeconds, level: level, levelFile: levelFile, preview: preview, ballStyle: ballStyle, pick: pick, fpsCap: fpsCap,
-                noFocusPause: noFocusPause);
+                noFocusPause: noFocusPause, detonateSeconds: detonateSeconds);
             game.Run();
         }
 

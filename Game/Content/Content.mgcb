@@ -72,6 +72,12 @@
 /processorParam:DebugMode=Auto
 /build:../../Testbed/Content/Shaders/LaserGrid.fx;Shaders/LaserGrid.fx
 
+#begin ../../Testbed/Content/Shaders/Blast.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:../../Testbed/Content/Shaders/Blast.fx;Shaders/Blast.fx
+
 #begin ../../Testbed/Content/Shaders/Sky.fx
 /importer:EffectImporter
 /processor:EffectProcessor
