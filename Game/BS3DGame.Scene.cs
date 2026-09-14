@@ -55,6 +55,15 @@ namespace BS3D
         //altitude looks like and is what keeps white cloud reading as white cloud. The Testbed's figure.
         private const byte STORM_SKY_DOME = 20;
 
+        //And the polar icesheet (#222): dome 13, a teal-grey horizon into indigo with its sun at 13 degrees.
+        //Chosen off a photographed sweep rather than by taste, because this scene's content IS the material
+        //and the light is what a material shows: at 55 degrees (dome 11) a flat field's ndotl is nearly
+        //constant and the sastrugi only read through their own trough shading; at 42 (dome 17) the ice reads
+        //white on white, the cyan never firing because transmission needs the sun BEHIND the ice; at 4 with a
+        //cream horizon (dome 16) the sheet takes the warm light and reads golden-brown, which is a real look
+        //and not this one. The Testbed's figure and its comment carries the same four pictures.
+        private const byte POLAR_SKY_DOME = 13;
+
         //Space deliberately forces NO dome, unlike those two. Its dome is neither drawn (Space.fx covers the
         //whole frame) nor read (SpaceLightingConfig states the light rig instead, for the reasons set out
         //there) — so it is completely inert in that scene, and changing the player's dome behind their back to
@@ -410,6 +419,10 @@ namespace BS3D
             else if (scene == SceneKind.Volcano) _skyDome = VOLCANO_SKY_DOME;
             else if (scene == SceneKind.Mars) _skyDome = MARS_SKY_DOME;
             else if (scene == SceneKind.Storm) _skyDome = STORM_SKY_DOME;
+            //And the icesheet (#222) wants a LOW sun and a COLD horizon: its whole content is a material, so
+            //the light on it moves the scene further than the dome moves any other backdrop here. Measured on
+            //a four-dome sweep — see POLAR_SKY_DOME, where the four pictures are written down.
+            else if (scene == SceneKind.Polar) _skyDome = POLAR_SKY_DOME;
 
             //And the sky the scene stands under (#221). It is the scene's own default here; a level says
             //what it is like TODAY and overrides this a moment later, in BuildLevel, which is the same

@@ -381,6 +381,22 @@ namespace BS3D.Audio
                     AddBand(mix, seed + 1, 0f, 60f, 0.55f, t => Swell(t, 1, 0.55f, 1.3f), WIDTH_NEAR);
                     return Seal(mix, loopSamples, tailSamples, targetRms: 0.10f);
 
+                case SceneKind.Polar:
+                    //The icesheet (#222): a long, flat wind with nothing in its way and the hiss of drifting
+                    //snow on top of it. ⚠ Written to sit BESIDE the mountain's without being it, since those
+                    //two are the scenes this one has to be told apart from: the mountain is a basin of GUSTS
+                    //(its swell is squared, so the wind arrives in waves off the peaks), and a sheet has no
+                    //peaks and no shelter, so this one barely breathes at all — a very slow swell over a wide
+                    //band, which is what an unbroken fetch sounds like. The hiss above it is spindrift, and
+                    //it moves on its own slower clock so the two never pulse together; a bed whose layers
+                    //share a period reads as one sound being turned up and down.
+                    //
+                    //Quieter than the mountain's 0.14 as well. There is nothing out here to make noise except
+                    //the air, and the loudest polar bed in this set would say "storm" rather than "cold".
+                    AddBand(mix, seed, 120f, 1400f, 1.0f, t => Swell(t, 1, 0.30f, 0f), WIDTH_AROUND);
+                    AddBand(mix, seed + 1, 3000f, 7000f, 0.20f, t => Swell(t, 2, 0.35f, 1.9f), WIDTH_AROUND);
+                    return Seal(mix, loopSamples, tailSamples, targetRms: 0.11f);
+
                 default:
                     //A NEW SCENE LANDS HERE, AND IT IS MEANT TO BE OBVIOUS. This arm was the cavern's until
                     //#125 gave the Moon its own, and it was the Moon's until #112 gave the outback one — each

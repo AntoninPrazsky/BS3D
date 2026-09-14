@@ -18,7 +18,9 @@ namespace Prazsky.Core.Render
     /// drifting ash — the first scene whose <b>ground is the light</b>. Mars swaps it for rust-red cratered
     /// ground under a dusty, horizon-bright sky of its own — the Moon's crater field ported and retextured,
     /// but kept an ordinary atmospheric backdrop rather than a second sky-replacing scene, because the real
-    /// Mars (unlike the Moon) keeps a thin atmosphere.
+    /// Mars (unlike the Moon) keeps a thin atmosphere. <see cref="Polar"/> swaps it for an icesheet (#222):
+    /// a flat white expanse carved into sastrugi, a crevassed pressure ridge at distance, and a material that
+    /// is white where it reflects the sky and cyan where the light goes through it.
     /// <para>
     /// <see cref="Space"/> is the one that is not like the others: it replaces the <b>sky</b> rather than the
     /// ground, so the island floats in deep space and there is no terrain, no horizon and no weather at all.
@@ -42,7 +44,7 @@ namespace Prazsky.Core.Render
     /// all index by.
     /// </para>
     /// </summary>
-    public enum SceneKind { City, Sea, Savanna, Desert, Mountain, Meadow, NeonCity, Forest, Space, Dream, Cavern, Moon, Outback, Tropical, Volcano, Mars, Storm }
+    public enum SceneKind { City, Sea, Savanna, Desert, Mountain, Meadow, NeonCity, Forest, Space, Dream, Cavern, Moon, Outback, Tropical, Volcano, Mars, Storm, Polar }
 
     /// <summary>
     /// The per-frame inputs a scene needs that are not its own static tuning: the camera, the sun direction,
@@ -392,6 +394,29 @@ namespace Prazsky.Core.Render
         private VolcanoSceneConfig _volcanoConfig = new();
         private MarsSceneConfig _marsConfig = new();
         private StormSceneConfig _stormConfig = new();
+        private PolarSceneConfig _polarConfig = new();
+
+        #region Polar
+
+        private readonly Effect _polarEffect;
+        private readonly VertexBuffer _polarVertexBuffer;
+        private readonly IndexBuffer _polarIndexBuffer;
+        private readonly int _polarIndexCount;
+
+        //The icesheet is real geometry, on the desert's terms: a camera-centred grid of this many vertices per
+        //side over this world extent, displaced in the shader and snapped to a cell so it does not swim.
+        //
+        //Finer than the desert's and over a wider extent, and both halves are this scene rather than taste. A
+        //sastrugi ridge is metres across where a dune is tens, so the cell has to be small enough to hold one;
+        //and the subject is a flat expanse, which means the horizon is further away here than in any other
+        //ground scene and the grid has to reach it or the haze has to start early enough to hide the edge.
+        private const int POLAR_GRID_N = 420;
+        private const float POLAR_EXTENT = 1200f;
+
+        //Look/tuning parameters (the sastrugi, the pressure ridge, the crevasses, the two colours, the
+        //sparkle and the transmission) live in PolarSceneConfig; SceneRenderer reads them from _polarConfig.
+
+        #endregion
 
         #region Sea
 
@@ -1002,6 +1027,14 @@ namespace Prazsky.Core.Render
 
             ApplyDesertParameters();
 
+            //--- Polar (#222): the desert's machinery again, with the wind's other work on it — sastrugi and a
+            //crevassed pressure belt instead of dunes, and a material that is white in reflection and cyan in
+            //transmission, which is the scene rather than the terrain
+            _polarEffect = content.Load<Effect>("Shaders/Polar");
+            CreateGridMesh(POLAR_GRID_N, POLAR_EXTENT, out _polarVertexBuffer, out _polarIndexBuffer, out _polarIndexCount);
+
+            ApplyPolarParameters();
+
             //--- Outback (#112): the desert's machinery with rock on it — the same flat lattice, displaced into
             //a near-flat spinifex plain with red monoliths standing on a jittered single-cell lattice
             _outbackEffect = content.Load<Effect>("Shaders/Outback");
@@ -1273,7 +1306,7 @@ namespace Prazsky.Core.Render
         public static bool IsSolidTerrainScene(SceneKind kind) =>
             kind is SceneKind.Mountain or SceneKind.Meadow or SceneKind.Savanna or SceneKind.Desert
                 or SceneKind.Forest or SceneKind.Moon or SceneKind.Outback or SceneKind.Tropical
-                or SceneKind.Volcano or SceneKind.Mars;
+                or SceneKind.Volcano or SceneKind.Mars or SceneKind.Polar;
 
         /// <summary>
         /// Whether there is a vantage <b>under</b> the island from which the balls pouring out of the drain can
@@ -1317,7 +1350,7 @@ namespace Prazsky.Core.Render
         //reads better than the singular enum member and is deliberately not "corrected" to match it; the
         //parse keys below are the singular ones, because those are what a command line already takes.
         private static readonly string[] SCENE_NAMES =
-            { "City", "Sea", "Savanna", "Desert", "Mountains", "Meadow", "Neon City", "Forest", "Space", "Dream", "Cavern", "Moon", "Outback", "Tropical", "Volcano", "Mars", "Storm" };
+            { "City", "Sea", "Savanna", "Desert", "Mountains", "Meadow", "Neon City", "Forest", "Space", "Dream", "Cavern", "Moon", "Outback", "Tropical", "Volcano", "Mars", "Storm", "Polar" };
 
         /// <summary>
         /// The scene's name for a menu or a log line. Display text, not a parse key — see
@@ -1352,6 +1385,10 @@ namespace Prazsky.Core.Render
                 case "volcano": kind = SceneKind.Volcano; return true;
                 case "mars": kind = SceneKind.Mars; return true;
                 case "storm": kind = SceneKind.Storm; return true;
+                //"ice" as well as "polar": the scene is named for where it is and remembered for what it is
+                //made of, and a spelling refused in silence is a run that quietly plays in the city.
+                case "polar":
+                case "ice": kind = SceneKind.Polar; return true;
                 default: kind = default; return false;
             }
         }
@@ -1402,6 +1439,10 @@ namespace Prazsky.Core.Render
                 case StormSceneConfig storm:
                     _stormConfig = storm;
                     ApplyStormParameters();
+                    break;
+                case PolarSceneConfig polar:
+                    _polarConfig = polar;
+                    ApplyPolarParameters();
                     break;
                 case SavannaSceneConfig savanna:
                     _savannaConfig = savanna;
@@ -1680,6 +1721,16 @@ namespace Prazsky.Core.Render
                         2.2f, 24f, 145f, "the cloud deck");
                     return true;
 
+                //The pressure ridge, from low down and a long way out. On a flat white plain the ridge is the
+                //only thing with a silhouette, and the only thing a camera can read distance against - the
+                //desert's dune-skyline argument on a scene that has even less to look at. Low, because from
+                //above an icesheet is a sheet of paper.
+                case SceneKind.Polar:
+                    viewpoint = new SceneViewpoint(
+                        AtBearing(bearing, _polarConfig.RidgeRadius, _polarConfig.LevelY + _polarConfig.RidgeHeight * 0.6f),
+                        2.3f, 7f, 0f, "the pressure ridge");
+                    return true;
+
                 default:
                     viewpoint = default;
                     return false;
@@ -1789,6 +1840,7 @@ namespace Prazsky.Core.Render
             SceneKind.Volcano => _volcanoConfig,
             SceneKind.Mars => _marsConfig,
             SceneKind.Storm => _stormConfig,
+            SceneKind.Polar => _polarConfig,
             _ => null,
         };
 
@@ -1836,6 +1888,32 @@ namespace Prazsky.Core.Render
             _desertEffect.Parameters["AmbientStrength"].SetValue(_desertConfig.AmbientStrength);
             _desertEffect.Parameters["WindDirection"].SetValue(_desertConfig.Wind.ToVector2());
             _desertEffect.Parameters["HorizonHazeDistance"].SetValue(_desertConfig.HorizonHazeDistance);
+        }
+
+        private void ApplyPolarParameters()
+        {
+            _polarEffect.Parameters["PolarLevelY"].SetValue(_polarConfig.LevelY);
+            _polarEffect.Parameters["DriftAmplitude"].SetValue(_polarConfig.DriftAmplitude);
+            _polarEffect.Parameters["DriftFrequency"].SetValue(_polarConfig.DriftFrequency);
+            _polarEffect.Parameters["DriftStretch"].SetValue(_polarConfig.DriftStretch);
+            _polarEffect.Parameters["SwellAmplitude"].SetValue(_polarConfig.SwellAmplitude);
+            _polarEffect.Parameters["ClearingRadius"].SetValue(_polarConfig.ClearingRadius);
+            _polarEffect.Parameters["ClearingTransition"].SetValue(_polarConfig.ClearingTransition);
+            _polarEffect.Parameters["RidgeRadius"].SetValue(_polarConfig.RidgeRadius);
+            _polarEffect.Parameters["RidgeWidth"].SetValue(_polarConfig.RidgeWidth);
+            _polarEffect.Parameters["RidgeHeight"].SetValue(_polarConfig.RidgeHeight);
+            _polarEffect.Parameters["RidgeBearing"].SetValue(MathHelper.ToRadians(_polarConfig.RidgeBearingDegrees));
+            _polarEffect.Parameters["RidgeSpan"].SetValue(MathHelper.ToRadians(_polarConfig.RidgeSpanDegrees));
+            _polarEffect.Parameters["CrevasseDepth"].SetValue(_polarConfig.CrevasseDepth);
+            _polarEffect.Parameters["CrevasseFrequency"].SetValue(_polarConfig.CrevasseFrequency);
+            _polarEffect.Parameters["SnowColor"].SetValue(_polarConfig.SnowColor.ToVector3());
+            _polarEffect.Parameters["IceColor"].SetValue(_polarConfig.IceColor.ToVector3());
+            _polarEffect.Parameters["AmbientStrength"].SetValue(_polarConfig.AmbientStrength);
+            _polarEffect.Parameters["SheenStrength"].SetValue(_polarConfig.SheenStrength);
+            _polarEffect.Parameters["SparkleStrength"].SetValue(_polarConfig.SparkleStrength);
+            _polarEffect.Parameters["TransmissionStrength"].SetValue(_polarConfig.TransmissionStrength);
+            _polarEffect.Parameters["WindDirection"].SetValue(_polarConfig.Wind.ToVector2());
+            _polarEffect.Parameters["HorizonHazeDistance"].SetValue(_polarConfig.HorizonHazeDistance);
         }
 
         private void ApplyOutbackParameters()
@@ -4107,6 +4185,9 @@ namespace Prazsky.Core.Render
                 case SceneKind.Storm:
                     DrawStorm(frame);
                     break;
+                case SceneKind.Polar:
+                    DrawPolar(frame);
+                    break;
             }
         }
 
@@ -4220,6 +4301,43 @@ namespace Prazsky.Core.Render
         /// and blown dust crawling on the wind, shadowed by the shared cloud field. The desert has no point
         /// lights, so unlike the savanna it sets none.
         /// </summary>
+        /// <summary>
+        /// Draws the polar icesheet (#222): the same grid the desert uses, pinned to the camera and snapped to
+        /// a cell, displaced into sastrugi with a crevassed pressure belt beyond them, shaded per-pixel by the
+        /// current dome and shadowed by the shared cloud field. Like the desert it has no point lights of its
+        /// own — the picture is all sun, sky and what the ice does with both — so it sets none.
+        /// </summary>
+        private void DrawPolar(in SceneFrame frame)
+        {
+            float cell = POLAR_EXTENT / (POLAR_GRID_N - 1);
+            float originX = MathF.Round(frame.Camera.Position.X / cell) * cell;
+            float originZ = MathF.Round(frame.Camera.Position.Z / cell) * cell;
+
+            _polarEffect.Parameters["OriginXZ"].SetValue(new Vector2(originX, originZ));
+            _polarEffect.Parameters["IslandHoleRadius"].SetValue(TerrainHoleRadius);
+            _polarEffect.Parameters["View"].SetValue(frame.Camera.View);
+            _polarEffect.Parameters["Projection"].SetValue(frame.Camera.Projection);
+            _polarEffect.Parameters["CameraPosition"].SetValue(frame.Camera.Position);
+            _polarEffect.Parameters["SunDirection"].SetValue(frame.SunDirection);
+            _polarEffect.Parameters["ZenithColor"].SetValue(frame.ZenithLinear);
+            _polarEffect.Parameters["HorizonColor"].SetValue(frame.HorizonLinear);
+            _polarEffect.Parameters["PolarTime"].SetValue(frame.Time);
+            _polarEffect.Parameters["SunColor"].SetValue(frame.SunColor);
+
+            frame.ApplyClouds?.Invoke(_polarEffect);
+
+            _graphicsDevice.BlendState = BlendState.Opaque;
+            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
+
+            _graphicsDevice.SetVertexBuffer(_polarVertexBuffer);
+            _graphicsDevice.Indices = _polarIndexBuffer;
+            _polarEffect.CurrentTechnique.Passes[0].Apply();
+            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _polarIndexCount / 3);
+
+            _graphicsDevice.BlendState = BlendState.AlphaBlend;
+            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+        }
+
         private void DrawDesert(in SceneFrame frame)
         {
             float cell = DESERT_EXTENT / (DESERT_GRID_N - 1);
