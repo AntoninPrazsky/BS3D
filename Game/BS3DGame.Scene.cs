@@ -172,6 +172,10 @@ namespace BS3D
         //it, and the sky-lit enrolment below.
         private ForestScatterRenderer _forestScatter;
 
+        //A second, independent planting of the same shared wood for the aurora scene (#205) - its own
+        //config (AuroraSceneConfig.Terrain), its own meshes and tints. See AuroraSceneConfig's class doc.
+        private ForestScatterRenderer _auroraScatter;
+
         //The scene's own point lights (the neon city's ring of magenta and cyan around the island, the
         //savanna's campfire, space's planetshine) pushed onto the shared instanced effect each frame, so the
         //balls, the island, the gun and the city all take them on top of the sun and the dome. The slots, the
@@ -270,6 +274,10 @@ namespace BS3D
             _forestScatter = new ForestScatterRenderer(GraphicsDevice, _instancingEffect,
                 (ForestSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Forest), SCENE_AMBIENT_INTENSITY);
 
+            //The aurora's own wood, a second planting from its own config - see AuroraSceneConfig's class doc.
+            _auroraScatter = new ForestScatterRenderer(GraphicsDevice, _instancingEffect,
+                ((AuroraSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Aurora)).Terrain, SCENE_AMBIENT_INTENSITY);
+
             //Note the glass the cluster hangs from is NOT built here: its footprint is the loaded level's
             //field, so RebuildCeilingRenderer fits it (and refits it on every level) — which is why the
             //glass push tolerates a null renderer and ApplySkyLighting runs again after a load.
@@ -332,6 +340,10 @@ namespace BS3D
             //startup SetScene, which is what first calls ApplySkyLighting.
             foreach (InstancedModelRenderer renderer in _forestScatter.Renderers) yield return renderer;
 
+            //The aurora's own wood, present only in that scene but always built - same reasoning, same
+            //unconditional dereference, the same construction-order guarantee.
+            foreach (InstancedModelRenderer renderer in _auroraScatter.Renderers) yield return renderer;
+
             //The 3D title over the front end (#248), letters and keylines both. It takes the dome's light like
             //everything else in the frame ON PURPOSE — argued on TitleWordmark.Renderers, a wordmark stands
             //over all fifteen backdrops under all eighteen domes and has to come out right at both ends of
@@ -375,6 +387,10 @@ namespace BS3D
             //And the wood's own pigments, which the rig above cannot reach — see ForestScatterRenderer.
             //ShiftTowardsSky (#108). Guarded inside on the tint, so it is free every frame but a dome switch.
             _forestScatter?.ApplySkyTint(_rig.KeyTint);
+
+            //The aurora's own wood is tinted per frame instead (below, alongside the scene lights), not
+            //here: its hue keeps drifting for as long as the scene is up, where this method only runs on
+            //a dome/scene switch or a level's ceiling refit.
 
             //The clouds' own colours follow the dome as well, and the lit side is handed the very radiance the
             //rig gives the scene — one sun, one number (see SkyLightRig.SunRadianceTinted). Since #220 the
@@ -687,6 +703,16 @@ namespace BS3D
             //gate stays here because the component draws the wood whenever it is called — where it sits in the
             //frame and whether this frame wants it at all are this file's business, not its.
             if (_scene == SceneKind.Forest) _forestScatter.Draw(_camera);
+
+            if (_scene == SceneKind.Aurora)
+            {
+                //Re-tinted here rather than in ApplySkyLighting (see there): the aurora's hue keeps
+                //drifting for as long as the scene is up, and ApplySkyTint's own value guard is what
+                //keeps this cheap once it settles. The clock is the same wall clock the scene lights and
+                //the city windows already use above, so nothing here can drift out of step with the sky.
+                _auroraScatter.ApplySkyTint(_sceneRenderer.AuroraGlowColor(_wallClock));
+                _auroraScatter.Draw(_camera);
+            }
 
             //The round island, opaque: its stone cap and concrete drum. Then the dark well behind the glass
             //drain, which is drawn in the solid-terrain scenes only — it fills the hole those shaders cut in

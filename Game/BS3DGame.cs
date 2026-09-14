@@ -1946,6 +1946,7 @@ namespace BS3D
 
             //Every mesh, renderer and procedural texture of the forest scatter, likewise in one call
             _forestScatter?.Dispose();
+            _auroraScatter?.Dispose();
             _ceilingPlate?.Dispose();
 
             //The nine self-lit backdrops own their own meshes, particle buffers and effects

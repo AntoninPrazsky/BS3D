@@ -262,6 +262,21 @@ namespace BS3D.Audio
                         WIDTH_AROUND);
                     return Seal(mix, loopSamples, tailSamples, targetRms: 0.12f);
 
+                case SceneKind.Aurora:
+                    //The same wood as the daytime forest, gone still: night air moves less than day air, and
+                    //there is no one here for it to rustle past loudly — the same two bands, quieter, a
+                    //slower swell exponent so calm reads as genuinely calm, and a longer cycle so the canopy
+                    //does not breathe on the daytime scene's own rhythm. Under it, the sky's own presence: a
+                    //very faint, very slow high shimmer on its own unhurried cycle, unrelated to the wind's —
+                    //not meant to read as a literal recording of the aurora (nobody has one), more a
+                    //suggestion that what is overhead is not silent the way a plain night sky would be.
+                    AddBand(mix, seed, 80f, 320f, 0.5f, t => Swell(t, 2, 0.4f, 0f), WIDTH_AIR);
+                    AddBand(mix, seed + 1, 700f, 3200f, 0.55f,
+                        t => (0.3f + 0.7f * MathF.Pow(Swell(t, 2, 0f, 0f), 2f)) * (0.85f + 0.15f * Cycle(t, 140, 0f)),
+                        WIDTH_AROUND);
+                    AddBand(mix, seed + 2, 5500f, 9500f, 0.10f, t => Swell(t, 1, 0.55f, 0.6f), WIDTH_AIR);
+                    return Seal(mix, loopSamples, tailSamples, targetRms: 0.075f);
+
                 case SceneKind.Space:
                     //The void, one very deep and very slow breath per loop, mixed near-subliminal — the
                     //scene's whole point is silence with weight. It stays nearly a POINT, and that is the
