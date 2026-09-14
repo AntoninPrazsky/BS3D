@@ -2099,3 +2099,20 @@ Proti poušti, párové běhy: **polar 32,56 / 32,70 ms, desert 27,98 / 28,36** 
 **Návrh (než začnu psát kód):** druhá scéna v obou rodinách zároveň (po Měsíci, #125) — `SceneRenderer.IsSolidTerrainScene` (sdílený lesní podrost + `ForestScatterRenderer`, ale **druhá, nezávislá výsadba** přes stejný, už obecný `SceneRenderer.ForestTerrainHeight(x,z,config)`) i `ReplacesSky` (žádná dome, vlastní celoobrazovkový sky pass, `Stars.fxh` sdílené s Měsícem/Space, nad hvězdami aditivní stuhy polární záře — aditivně přesně proto, aby hvězdy nikdy nebyly plně zakryté, bleskova stuha bouřky má stejné zdůvodnění). Výškové pole podrostu portované verbatim z `Forest.fx` (jako Mars portoval krátery Měsíce), ale bez těžkého detailu druhého průchodu (FBM mottle/triplanar/stíny stromů) — v noci se neuplatní a scéna má vlastní důvod nechat ho lehčí, ne kopírovat cizí rozpočet. Pulz žije v shaderu oblohy a v `ForestScatterRenderer.ApplySkyTint` přes prahovaně přepočítávaný barevný posun v čase; `TryGetLightRig` zůstává **statický** autorovaný rig (žádná nová `SceneLights` větev) — obojí zdůvodním v `docs/scenes.md`, až bude co psát, ne jenom tvrdit.
 
 **Běží subagent, co má vyjmenovat každé místo v repu, co přepíná/vyjmenovává `SceneKind`/`SceneConfig`** (přesně ten druh chyby, co si tenhle žurnál sám pamatuje — les chyběl ve dvou nezávislých `IsSolidTerrainScene` seznamech, `% 7` cyklus se našel dvakrát). Čekám na výsledek, pak jdu psát.
+
+---
+
+## 2026-09-14 — Claude Code (jedenáctý zápis dne)
+
+**Beru si #389 (bomba nemá vlastní výbuch a většina toho, co shodí, jen spadne).** Větev `389-bomb-detonation`.
+
+Dvě části, přesně jak je issue dělí:
+
+1. **Vyhodit i sirotky výbuchu.** `BallsConstraintsBuilder.DetonateBombs` dnes hází jen oběti v poloměru; to, co pak najde disconnection pass, padá s nulovou rychlostí a čte to jako obyčejný kolaps. Dostane vlastní, jemnější postrčení od nejbližšího středu výbuchu. Je to knihovna, takže to dostane Testbed i hra naráz, a `SagProbe` volá tutéž metodu — paritu tedy nemusím psát, ale **změřím**, že se výstup LevelGenu nehne (vyhozené koule můžou narazit do toho, co visí dál).
+2. **Okamžik detonace.** `BallLanding` dnes neumí říct, *kde* co bouchlo (`Destroyed` sdílí bomba se zapem a kyselinou), takže nejdřív to, pak ve hře: otřes kamery (rachot bez směrového zpětného rázu děla), vlastní zvuk (oddělený od release registrem; bake vysypaný do WAV a změřený, protože zvuk se ze screenshotu soudit nedá) a záblesk v místě výbuchu.
+
+⚠ **Vizuální část chce GPU seanci na desktopu → zeptám se majitele předem.** Fyziku a zvuk dělám nejdřív, bez grafiky.
+
+**Prosím do merge nesahat na** `BallsConstraintsBuilder.cs`, `BallContactEventHandler.cs`, `BallLanding.cs`, `GameplayScreen.Rules.cs` a `ProceduralAudio.cs`.
+
+**Nic dalšího si neberu.**
