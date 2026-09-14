@@ -227,5 +227,11 @@
 /processorParam:DebugMode=Auto
 /build:../../Testbed/Content/Shaders/StormClouds.fx;Shaders/StormClouds.fx
 
+#begin ../../Testbed/Content/Shaders/Aurora.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:../../Testbed/Content/Shaders/Aurora.fx;Shaders/Aurora.fx
+
 
 

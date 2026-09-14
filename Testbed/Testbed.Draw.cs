@@ -94,6 +94,14 @@ namespace Testbed
                 //The clock is the balls' own, so the campfire's light and its flame billboard cannot drift.
                 _sceneLights.Apply(_scene, _sceneRenderer, _cityConfig.NeonLook, _pulseSeconds);
 
+                //The aurora's own wood re-tints every frame rather than only on a dome/scene switch
+                //(SkyLightRig.KeyTint's usual cadence): its hue keeps drifting while the scene is up, and
+                //ApplySkyTint's own value guard is what keeps this cheap the moment it stops changing.
+                //Gated on the scene, unlike the forest's unconditional call, because this one would
+                //otherwise recompute a moving colour every frame of every OTHER scene for nothing.
+                if (_scene == SceneKind.Aurora)
+                    _auroraScatter?.ApplySkyTint(_sceneRenderer.AuroraGlowColor(_pulseSeconds));
+
                 if (_scene == SceneKind.City || _scene == SceneKind.NeonCity)
                 {
                     bool neon = _scene == SceneKind.NeonCity;
@@ -115,6 +123,7 @@ namespace Testbed
                 //frame's point lights, already on the shared effect; the component touches none of it, so the
                 //island's slices below are unaffected.
                 if (_scene == SceneKind.Forest) _forestScatter?.Draw(_camera);
+                if (_scene == SceneKind.Aurora) _auroraScatter?.Draw(_camera);
 
                 //The round island, opaque: its stone cap and concrete drum. Then the dark pit shaft behind the
                 //drain, which is drawn in the solid-terrain scenes only and brings its own culling with it.

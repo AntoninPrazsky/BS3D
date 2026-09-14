@@ -289,6 +289,11 @@ namespace Testbed
         //file's, as the island's slices are.
         private ForestScatterRenderer _forestScatter;
 
+        //A second, independent planting of the same shared wood for the aurora scene (#205) - its own
+        //config (AuroraSceneConfig.Terrain), its own meshes and tints, so an edit to one forest never moves
+        //the other's trees. See AuroraSceneConfig's class doc.
+        private ForestScatterRenderer _auroraScatter;
+
         //Which environment the arena stands in. City is the default; Sea, Savanna, Desert, Mountain, Meadow and
         //NeonCity swap the city (and only the city) for open water, a savanna, a Sahara of dunes, a snowy range,
         //a flowering meadow, or the same city lit up in neon — the round island stays in all seven.
@@ -845,6 +850,10 @@ namespace Testbed
             _forestScatter = new ForestScatterRenderer(GraphicsDevice, _instancingEffect,
                 (ForestSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Forest), SCENE_AMBIENT_INTENSITY);
 
+            //The aurora's own wood, a second planting from its own config - see AuroraSceneConfig's class doc.
+            _auroraScatter = new ForestScatterRenderer(GraphicsDevice, _instancingEffect,
+                ((AuroraSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Aurora)).Terrain, SCENE_AMBIENT_INTENSITY);
+
             //No trunnion height goes in: the gun stands on the island's dished stone, so its height is the
             //carriage's own figure of its radius (CannonRig.TrunnionHeightAt) and the pose re-seats it on
             //every move — walking in carries the wheels down the dish, walking out back up
@@ -978,6 +987,8 @@ namespace Testbed
             //a foreach over an interface-typed collection would box an enumerator per call.
             if (_forestScatter != null)
                 foreach (InstancedModelRenderer renderer in _forestScatter.Renderers) _skyLitRenderers.Add(renderer);
+            if (_auroraScatter != null)
+                foreach (InstancedModelRenderer renderer in _auroraScatter.Renderers) _skyLitRenderers.Add(renderer);
 
             return _skyLitRenderers;
         }
@@ -1736,6 +1747,7 @@ namespace Testbed
             //Every mesh, renderer and procedural texture of the forest scatter, in one call. It owns its own
             //stone texture here (none was handed in), so nothing outside it is waiting on this.
             _forestScatter?.Dispose();
+            _auroraScatter?.Dispose();
             _ceilingPlate?.Dispose();
             _sceneRenderer?.Dispose();
             _pipeline?.Dispose();

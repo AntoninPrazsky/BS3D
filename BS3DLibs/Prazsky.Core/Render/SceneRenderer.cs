@@ -44,7 +44,7 @@ namespace Prazsky.Core.Render
     /// all index by.
     /// </para>
     /// </summary>
-    public enum SceneKind { City, Sea, Savanna, Desert, Mountain, Meadow, NeonCity, Forest, Space, Dream, Cavern, Moon, Outback, Tropical, Volcano, Mars, Storm, Polar }
+    public enum SceneKind { City, Sea, Savanna, Desert, Mountain, Meadow, NeonCity, Forest, Space, Dream, Cavern, Moon, Outback, Tropical, Volcano, Mars, Storm, Polar, Aurora }
 
     /// <summary>
     /// The per-frame inputs a scene needs that are not its own static tuning: the camera, the sun direction,
@@ -417,6 +417,8 @@ namespace Prazsky.Core.Render
         //sparkle and the transmission) live in PolarSceneConfig; SceneRenderer reads them from _polarConfig.
 
         #endregion
+
+        private AuroraSceneConfig _auroraConfig = new();
 
         #region Sea
 
@@ -1005,6 +1007,35 @@ namespace Prazsky.Core.Render
 
         #endregion
 
+        #region Aurora
+
+        //The eighteenth scene (#205), and the second in both families at once — see IsSolidTerrainScene's
+        //and ReplacesSky's own docs. A forest clearing grid like Forest.fx's under a sky-replacing pass on
+        //space's shared quad, two techniques in one effect, the Moon's own shape (DrawAurora runs the
+        //terrain first, depth-writing, then the sky quad depth-READ against it — the Moon's measured order,
+        //see DrawMoon's doc; the opposite interleave was an 8x blow-up there and is not being re-measured
+        //here to find out whether it still is).
+        private readonly Effect _auroraEffect;
+        private readonly VertexBuffer _auroraVertexBuffer;
+        private readonly IndexBuffer _auroraIndexBuffer;
+        private readonly int _auroraIndexCount;
+
+        private readonly EffectTechnique _auroraSkyTechnique, _auroraTerrainTechnique;
+
+        //Per-frame parameters, resolved once (BestPractices §1). SunColor/ZenithColor/HorizonColor are
+        //per-frame here (unlike Forest.fx's dome-fed copies) because they carry the aurora's own pulsing
+        //glow, not a fixed config value — see AuroraGlowColor. CameraPosition is the one uniform both
+        //techniques read (the terrain's haze term and the sky quad's ray reconstruction alike), so it is
+        //cached once and pushed once.
+        private readonly EffectParameter _auroraOriginXZ, _auroraHoleRadius, _auroraView, _auroraProjection,
+            _auroraCameraPosition, _auroraInverseViewProjection, _auroraTerrainTime, _auroraSkyTime,
+            _auroraSunColor, _auroraZenithColor, _auroraHorizonColor, _auroraSupersample;
+
+        private const int AURORA_GRID_N = 220;
+        private const float AURORA_EXTENT = 1200f;
+
+        #endregion
+
         /// <param name="content">
         /// A content manager whose root holds the scene shaders under <c>Shaders/</c> (both executables build
         /// <c>Sea.fx</c>, <c>Savanna.fx</c>, <c>Birds.fx</c>, <c>Mountain.fx</c>, <c>Snow.fx</c>, <c>Spray.fx</c>, <c>Meadow.fx</c>
@@ -1256,41 +1287,68 @@ namespace Prazsky.Core.Render
             _moonHoleRadius = _moonEffect.Parameters["IslandHoleRadius"];
 
             ApplyMoonParameters();
+
+            //--- Aurora (#205): the eighteenth scene, the second in both families at once — a forest
+            //clearing grid like Forest.fx's under a sky-replacing star-and-ribbon pass on space's quad, two
+            //techniques in one effect, exactly the Moon's own shape (see the region doc above it).
+            _auroraEffect = content.Load<Effect>("Shaders/Aurora");
+            CreateGridMesh(AURORA_GRID_N, AURORA_EXTENT, out _auroraVertexBuffer, out _auroraIndexBuffer, out _auroraIndexCount);
+
+            _auroraTerrainTechnique = _auroraEffect.Techniques["AuroraTerrain"];
+            _auroraSkyTechnique = _auroraEffect.Techniques["AuroraSky"];
+
+            _auroraOriginXZ = _auroraEffect.Parameters["OriginXZ"];
+            _auroraHoleRadius = _auroraEffect.Parameters["IslandHoleRadius"];
+            _auroraView = _auroraEffect.Parameters["View"];
+            _auroraProjection = _auroraEffect.Parameters["Projection"];
+            _auroraCameraPosition = _auroraEffect.Parameters["CameraPosition"];
+            _auroraInverseViewProjection = _auroraEffect.Parameters["InverseViewProjection"];
+            _auroraTerrainTime = _auroraEffect.Parameters["AuroraTerrainTime"];
+            _auroraSkyTime = _auroraEffect.Parameters["AuroraSkyTime"];
+            _auroraSunColor = _auroraEffect.Parameters["SunColor"];
+            _auroraZenithColor = _auroraEffect.Parameters["ZenithColor"];
+            _auroraHorizonColor = _auroraEffect.Parameters["HorizonColor"];
+            _auroraSupersample = _auroraEffect.Parameters["SupersampleFactor"];
+
+            ApplyAuroraParameters();
         }
 
         /// <summary>
-        /// True for the scenes that replace the SKY rather than the ground — space, the dream, the cavern
-        /// and the Moon. The caller draws no dome and no cloud deck in these, suppresses the cloud shadow on
-        /// the instanced effect, clears to black (the pass covers every pixel; black is what would show if it
-        /// ever did not), and takes the scene's own light rig through <see cref="TryGetLightRig"/>.
+        /// True for the scenes that replace the SKY rather than the ground — space, the dream, the cavern,
+        /// the Moon and the aurora. The caller draws no dome and no cloud deck in these, suppresses the cloud
+        /// shadow on the instanced effect, clears to black (the pass covers every pixel; black is what would
+        /// show if it ever did not), and takes the scene's own light rig through <see cref="TryGetLightRig"/>.
         /// <para>
-        /// <b>The Moon (#125) is deliberately in this set AND in <see cref="IsSolidTerrainScene"/>, the first
-        /// scene in both.</b> The two families were exact complements of what they draw — a dome over ground,
-        /// or a backdrop with no ground — until the Moon wanted real cratered ground under a black, starlit,
-        /// domeless sky. Every question this flag answers (dome, clouds, clear colour, light rig) the Moon
-        /// answers the sky-replacing way, and every question <see cref="IsSolidTerrainScene"/> answers (the
-        /// terrain hole, the pit shaft, <see cref="OpenBelow"/>) it answers the terrain way; no caller asks
-        /// either flag anything the other one owns, which is what makes holding both memberships sound.
+        /// <b>The Moon (#125) was the first scene in this set AND in <see cref="IsSolidTerrainScene"/>; the
+        /// aurora (#205) is the second.</b> The two families were exact complements of what they draw — a
+        /// dome over ground, or a backdrop with no ground — until the Moon wanted real cratered ground under
+        /// a black, starlit, domeless sky. Every question this flag answers (dome, clouds, clear colour,
+        /// light rig) each of them answers the sky-replacing way, and every question
+        /// <see cref="IsSolidTerrainScene"/> answers (the terrain hole, the pit shaft,
+        /// <see cref="OpenBelow"/>) each answers the terrain way; no caller asks either flag anything the
+        /// other one owns, which is what makes holding both memberships sound — twice over now.
         /// </para>
         /// </summary>
         public static bool ReplacesSky(SceneKind kind) =>
-            kind is SceneKind.Space or SceneKind.Dream or SceneKind.Cavern or SceneKind.Moon;
+            kind is SceneKind.Space or SceneKind.Dream or SceneKind.Cavern or SceneKind.Moon or SceneKind.Aurora;
 
         /// <summary>
         /// True for the solid-ground backdrops — mountains, meadow, savanna, desert, forest, outback, the
-        /// tropical beach, the volcano and Mars — whose terrain is a flat clearing at the island's foot with the island's footprint
-        /// cut out of it (<see cref="TerrainHoleRadius"/>), and which therefore need the dark pit shaft drawn
-        /// behind the drain's glass: a hole alone lets the ~55 %-opaque glass show what is behind it straight
-        /// through and the drain reads as a glass ring lying on the ground. The sea fills the drain with
-        /// water, the two cities have their own canyon falling away below the island, and space, the dream
-        /// and the cavern have nothing down there to hide a ball against — none of them needs it.
+        /// tropical beach, the volcano, Mars, the Moon and the aurora — whose terrain is a flat clearing at
+        /// the island's foot with the island's footprint cut out of it (<see cref="TerrainHoleRadius"/>), and
+        /// which therefore need the dark pit shaft drawn behind the drain's glass: a hole alone lets the
+        /// ~55 %-opaque glass show what is behind it straight through and the drain reads as a glass ring
+        /// lying on the ground. The sea fills the drain with water, the two cities have their own canyon
+        /// falling away below the island, and space, the dream and the cavern have nothing down there to hide
+        /// a ball against — none of them needs it.
         /// <para>
-        /// The Moon is here <b>and</b> in <see cref="ReplacesSky"/> — the first scene in both families (the
-        /// note there says why that is sound). It needs the shaft for the terrain reason with the sky-replacing
-        /// twist: without it the drain's glass would show the <i>starfield</i> through a hole in the ground,
-        /// which reads as a glass ring over the night sky. The tropical beach is the first scene with water
-        /// <i>and</i> this membership — its water starts past the beach, well outside the hole, so under the
-        /// island there is sand and the shaft answers for it exactly as it does for the meadow.
+        /// The Moon and the aurora are here <b>and</b> in <see cref="ReplacesSky"/> — the first two scenes in
+        /// both families (the note there says why that is sound). Each needs the shaft for the terrain reason
+        /// with the sky-replacing twist: without it the drain's glass would show the <i>starfield</i> through
+        /// a hole in the ground, which reads as a glass ring over the night sky. The tropical beach is the
+        /// first scene with water <i>and</i> this membership — its water starts past the beach, well outside
+        /// the hole, so under the island there is sand and the shaft answers for it exactly as it does for
+        /// the meadow.
         /// </para>
         /// <para>
         /// It existed as a private copy in the Testbed and the Game until #75, and the forest was once missing
@@ -1306,7 +1364,7 @@ namespace Prazsky.Core.Render
         public static bool IsSolidTerrainScene(SceneKind kind) =>
             kind is SceneKind.Mountain or SceneKind.Meadow or SceneKind.Savanna or SceneKind.Desert
                 or SceneKind.Forest or SceneKind.Moon or SceneKind.Outback or SceneKind.Tropical
-                or SceneKind.Volcano or SceneKind.Mars or SceneKind.Polar;
+                or SceneKind.Volcano or SceneKind.Mars or SceneKind.Polar or SceneKind.Aurora;
 
         /// <summary>
         /// Whether there is a vantage <b>under</b> the island from which the balls pouring out of the drain can
@@ -1330,7 +1388,7 @@ namespace Prazsky.Core.Render
         /// The next scene in the enum, wrapping — what a cycling key in an authoring tool wants. It replaced a
         /// <c>CycleLength</c> constant of 7 that both cycling keys took their modulus from (#380): a prefix is
         /// a count, and a count written next to an enum is a thing that ages every time the enum grows. Nothing
-        /// here counts the scenes, so an eighteenth kind is reachable in both programs the moment it is
+        /// here counts the scenes, so a nineteenth kind is reachable in both programs the moment it is
         /// declared — the same argument <c>BallStyles.Next</c> already makes for the ball materials, in the
         /// program that exists to choose between them.
         /// <para>
@@ -1350,7 +1408,7 @@ namespace Prazsky.Core.Render
         //reads better than the singular enum member and is deliberately not "corrected" to match it; the
         //parse keys below are the singular ones, because those are what a command line already takes.
         private static readonly string[] SCENE_NAMES =
-            { "City", "Sea", "Savanna", "Desert", "Mountains", "Meadow", "Neon City", "Forest", "Space", "Dream", "Cavern", "Moon", "Outback", "Tropical", "Volcano", "Mars", "Storm", "Polar" };
+            { "City", "Sea", "Savanna", "Desert", "Mountains", "Meadow", "Neon City", "Forest", "Space", "Dream", "Cavern", "Moon", "Outback", "Tropical", "Volcano", "Mars", "Storm", "Polar", "Aurora" };
 
         /// <summary>
         /// The scene's name for a menu or a log line. Display text, not a parse key — see
@@ -1389,6 +1447,7 @@ namespace Prazsky.Core.Render
                 //made of, and a spelling refused in silence is a run that quietly plays in the city.
                 case "polar":
                 case "ice": kind = SceneKind.Polar; return true;
+                case "aurora": kind = SceneKind.Aurora; return true;
                 default: kind = default; return false;
             }
         }
@@ -1482,6 +1541,10 @@ namespace Prazsky.Core.Render
                     _moonConfig = moon;
                     ApplyMoonParameters();
                     break;
+                case AuroraSceneConfig aurora:
+                    _auroraConfig = aurora;
+                    ApplyAuroraParameters();
+                    break;
                 case CitySceneConfig:
                     break;
             }
@@ -1546,6 +1609,18 @@ namespace Prazsky.Core.Render
                         moon.GroundAmbient.ToVector3(),
                         moon.KeyTint.ToVector3(),
                         moon.BackTint.ToVector3());
+                    return true;
+
+                //The aurora's is static and deliberately restrained — see AuroraLightingConfig's class doc
+                //for why the balls, the island and the gun do not visibly pulse the way the sky and the
+                //ground do: that would read as a fault rather than as weather.
+                case SceneKind.Aurora:
+                    AuroraLightingConfig auroraLighting = _auroraConfig.Lighting;
+                    rig = new SceneLightRig(
+                        auroraLighting.SkyAmbient.ToVector3(),
+                        auroraLighting.GroundAmbient.ToVector3(),
+                        auroraLighting.KeyTint.ToVector3(),
+                        auroraLighting.BackTint.ToVector3());
                     return true;
 
                 default:
@@ -1731,6 +1806,17 @@ namespace Prazsky.Core.Render
                         2.3f, 7f, 0f, "the pressure ridge");
                     return true;
 
+                //The aurora, high overhead rather than off at any one bearing — a modest horizontal reach
+                //with a tall height stands the point up in the sky itself, so a low camera stand (Up 10°,
+                //Forest's own figure — the ground here is the same shape) tilts the shot upward towards it
+                //naturally rather than needing a steep Up of its own. Unphotographed: no shipped level
+                //names this scene yet (see docs/scenes.md's own count of how many still are not).
+                case SceneKind.Aurora:
+                    viewpoint = new SceneViewpoint(
+                        AtBearing(bearing, _auroraConfig.Terrain.ClearingRadius + 60f, 260f),
+                        1.9f, 10f, 0f, "the aurora");
+                    return true;
+
                 default:
                     viewpoint = default;
                     return false;
@@ -1841,6 +1927,7 @@ namespace Prazsky.Core.Render
             SceneKind.Mars => _marsConfig,
             SceneKind.Storm => _stormConfig,
             SceneKind.Polar => _polarConfig,
+            SceneKind.Aurora => _auroraConfig,
             _ => null,
         };
 
@@ -3965,6 +4052,65 @@ namespace Prazsky.Core.Render
             _moonEffect.Parameters["StarSpikeLength"].SetValue(stars.SpikeLength);
         }
 
+        /// <summary>
+        /// Pushes everything about the aurora scene that is fixed for as long as the config is — the ground
+        /// shape (Forest.fx's own clearing-and-hills uniforms, off <c>_auroraConfig.Terrain</c>), the ribbon
+        /// look and the star lattice. Not pushed here: <c>SunColor</c>/<c>ZenithColor</c>/<c>HorizonColor</c>
+        /// and both time uniforms, which carry the aurora's own pulse and so go out every frame in
+        /// <see cref="DrawAurora"/> instead — the same split <see cref="ApplyMoonParameters"/> makes between
+        /// its fixed terrain figures and the per-frame camera/time ones.
+        /// </summary>
+        private void ApplyAuroraParameters()
+        {
+            _auroraEffect.Parameters["VoidColor"].SetValue(_auroraConfig.VoidColor.ToVector3());
+
+            ForestSceneConfig terrain = _auroraConfig.Terrain;
+            _auroraEffect.Parameters["ForestLevelY"].SetValue(terrain.LevelY);
+            _auroraEffect.Parameters["HillHeight"].SetValue(terrain.HillHeight);
+            _auroraEffect.Parameters["ClearingRadius"].SetValue(terrain.ClearingRadius);
+            _auroraEffect.Parameters["ClearingTransition"].SetValue(terrain.ClearingTransition);
+            _auroraEffect.Parameters["ClearingRelief"].SetValue(terrain.ClearingRelief);
+            _auroraEffect.Parameters["FloorLumpStrength"].SetValue(terrain.FloorLumpStrength);
+            _auroraEffect.Parameters["FloorLumpFrequency"].SetValue(terrain.FloorLumpFrequency);
+            _auroraEffect.Parameters["ForestColor"].SetValue(terrain.ForestColor.ToVector3());
+            _auroraEffect.Parameters["ForestColorDark"].SetValue(terrain.ForestColorDark.ToVector3());
+            _auroraEffect.Parameters["TreelineColor"].SetValue(terrain.TreelineColor.ToVector3());
+            _auroraEffect.Parameters["TreelineStrength"].SetValue(terrain.TreelineStrength);
+            _auroraEffect.Parameters["AmbientStrength"].SetValue(terrain.AmbientStrength);
+            _auroraEffect.Parameters["HorizonHazeDistance"].SetValue(terrain.HorizonHazeDistance);
+            _auroraEffect.Parameters["WindDirection"].SetValue(terrain.Wind.ToVector2());
+            _auroraEffect.Parameters["WindRippleSpeed"].SetValue(terrain.WindRippleSpeed);
+            _auroraEffect.Parameters["WindRippleFrequency"].SetValue(terrain.WindRippleFrequency);
+            _auroraEffect.Parameters["WindRippleStrength"].SetValue(terrain.WindRippleStrength);
+            _auroraEffect.Parameters["NeedleReliefStrength"].SetValue(terrain.NeedleReliefStrength);
+            _auroraEffect.Parameters["NeedleReliefFrequency"].SetValue(terrain.NeedleReliefFrequency);
+
+            //Fixed straight up: the aurora is overhead rather than off at a dome's sun angle, and nothing
+            //here ever moves it — DrawAurora pushes the pulsing colour itself every frame instead.
+            _auroraEffect.Parameters["SunDirection"].SetValue(Vector3.Up);
+
+            AuroraSkyConfig aurora = _auroraConfig.Aurora;
+            _auroraEffect.Parameters["AuroraColorLow"].SetValue(aurora.ColorLow.ToVector3());
+            _auroraEffect.Parameters["AuroraColorHigh"].SetValue(aurora.ColorHigh.ToVector3());
+            _auroraEffect.Parameters["AuroraIntensity"].SetValue(aurora.Intensity);
+            _auroraEffect.Parameters["AuroraBandHeight"].SetValue(aurora.BandHeight);
+            _auroraEffect.Parameters["AuroraBandSoftness"].SetValue(aurora.BandSoftness);
+            _auroraEffect.Parameters["AuroraCurtainScale"].SetValue(aurora.CurtainScale);
+            _auroraEffect.Parameters["AuroraCurtainWarp"].SetValue(aurora.CurtainWarp);
+            _auroraEffect.Parameters["AuroraDriftSpeed"].SetValue(aurora.DriftSpeed);
+            _auroraEffect.Parameters["AuroraPulseSpeed"].SetValue(aurora.PulseSpeed);
+            _auroraEffect.Parameters["AuroraPulseDepth"].SetValue(aurora.PulseDepth);
+
+            SpaceStarsConfig stars = _auroraConfig.Stars;
+            _auroraEffect.Parameters["StarCellScale"].SetValue(new[] { stars.BrightCellScale, stars.MediumCellScale, stars.FaintCellScale });
+            _auroraEffect.Parameters["StarChance"].SetValue(new[] { stars.BrightChance, stars.MediumChance, stars.FaintChance });
+            _auroraEffect.Parameters["StarPeak"].SetValue(new[] { stars.BrightPeak, stars.MediumPeak, stars.FaintPeak });
+            _auroraEffect.Parameters["StarSpread"].SetValue(stars.Spread);
+            _auroraEffect.Parameters["StarFalloff"].SetValue(stars.Falloff);
+            _auroraEffect.Parameters["StarSpikeThreshold"].SetValue(stars.SpikeThreshold);
+            _auroraEffect.Parameters["StarSpikeLength"].SetValue(stars.SpikeLength);
+        }
+
         private void ApplyDreamParameters()
         {
             DreamSceneConfig dream = _dreamConfig;
@@ -4192,6 +4338,9 @@ namespace Prazsky.Core.Render
                     break;
                 case SceneKind.Polar:
                     DrawPolar(frame);
+                    break;
+                case SceneKind.Aurora:
+                    DrawAurora(frame);
                     break;
             }
         }
@@ -5694,6 +5843,90 @@ namespace Prazsky.Core.Render
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
         }
 
+        /// <summary>
+        /// The aurora's current dominant colour and brightness (linear radiance), on the same slow hue-drift
+        /// clock <c>Aurora.fx</c>'s own sky pass runs (<see cref="AuroraSkyConfig.DriftHueSpeed"/>) but
+        /// without that shader's curtain noise or its faster brightness pulse
+        /// (<see cref="AuroraSkyConfig.PulseSpeed"/>) — a flat approximation good enough for an ambient wash,
+        /// not a re-derivation of what the sky pass draws pixel for pixel. Two callers share it:
+        /// <see cref="DrawAurora"/> (the ground's own hemisphere ambient) and, separately, a per-frame call
+        /// each host adds beside its scene lights, feeding it to the scene's own
+        /// <c>ForestScatterRenderer</c> planting. <b>Deliberately not routed through the daytime forest's own
+        /// tint call</b> (<c>ApplySkyLighting</c>/<c>SkyLightRig.KeyTint</c>): that call only runs on a
+        /// dome/scene switch or a config edit, which is right for a dome that does not move between switches
+        /// but would freeze this scene's hue at whatever it happened to be the moment the scene was entered.
+        /// <para>
+        /// Only the slow drift crosses to C#. The fast pulse and the curtain noise stay in the shader because
+        /// they exist to give the SKY per-pixel structure a player watches move; carried onto a flat ground
+        /// wash they would read as the whole clearing strobing, which is not what a real aurora's glow does
+        /// to the land under it — the light on the ground breathes far less than the curtains themselves do.
+        /// </para>
+        /// </summary>
+        public Vector3 AuroraGlowColor(float wallClock)
+        {
+            AuroraSkyConfig aurora = _auroraConfig.Aurora;
+            float drift = 0.5f + 0.5f * MathF.Sin(wallClock * aurora.DriftHueSpeed);
+
+            //Half the sky's own peak, not all of it (#205's first capture read as daylit rather than night
+            //with the sky's own Intensity carried straight across): the sky pass draws thin bright ribbons
+            //against a black void, but this feeds the GROUND's hemisphere term over its own full dome, which
+            //integrates far more of it. 0.22 is the figure a real capture settled on — a forest that reads
+            //by its own aurora-lit colour rather than one that looks sunlit at midnight.
+            return Vector3.Lerp(aurora.ColorLow.ToVector3(), aurora.ColorHigh.ToVector3(), drift) * aurora.Intensity * 0.22f;
+        }
+
+        /// <summary>
+        /// Draws the aurora scene: the forested ground first (depth-writing, opaque — Forest.fx's reduced
+        /// floor, lit by <see cref="AuroraGlowColor"/> rather than a dome), then the sky quad depth-READ
+        /// against it on the shared space quad — the Moon's measured order (see <see cref="DrawMoon"/>'s doc).
+        /// </summary>
+        private void DrawAurora(in SceneFrame frame)
+        {
+            float cell = AURORA_EXTENT / (AURORA_GRID_N - 1);
+            float originX = MathF.Round(frame.Camera.Position.X / cell) * cell;
+            float originZ = MathF.Round(frame.Camera.Position.Z / cell) * cell;
+
+            Vector3 glow = AuroraGlowColor(frame.Time);
+
+            _auroraOriginXZ.SetValue(new Vector2(originX, originZ));
+            _auroraHoleRadius.SetValue(TerrainHoleRadius);
+            _auroraView.SetValue(frame.Camera.View);
+            _auroraProjection.SetValue(frame.Camera.Projection);
+            _auroraCameraPosition.SetValue(frame.Camera.Position);
+            _auroraTerrainTime.SetValue(frame.Time);
+            _auroraSunColor.SetValue(glow);
+            _auroraZenithColor.SetValue(glow);
+            _auroraHorizonColor.SetValue(_auroraConfig.Lighting.GroundAmbient.ToVector3());
+
+            _graphicsDevice.BlendState = BlendState.Opaque;
+            _graphicsDevice.DepthStencilState = DepthStencilState.Default;
+            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
+
+            _graphicsDevice.SetVertexBuffer(_auroraVertexBuffer);
+            _graphicsDevice.Indices = _auroraIndexBuffer;
+            _auroraEffect.CurrentTechnique = _auroraTerrainTechnique;
+            _auroraEffect.CurrentTechnique.Passes[0].Apply();
+            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _auroraIndexCount / 3);
+
+            //Then the sky, depth-READ at the far plane: every pixel the terrain already owns is rejected
+            //before the star-and-ribbon shader runs.
+            _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
+
+            _auroraInverseViewProjection.SetValue(Matrix.Invert(frame.Camera.View * frame.Camera.Projection));
+            _auroraSupersample.SetValue((float)SupersampleFactor);
+            _auroraSkyTime.SetValue(frame.Time);
+
+            _graphicsDevice.SetVertexBuffer(_spaceQuad);
+            _auroraEffect.CurrentTechnique = _auroraSkyTechnique;
+            _auroraEffect.CurrentTechnique.Passes[0].Apply();
+            _graphicsDevice.DrawPrimitives(PrimitiveType.TriangleStrip, 0, 2);
+
+            _graphicsDevice.DepthStencilState = DepthStencilState.Default;
+
+            _graphicsDevice.BlendState = BlendState.AlphaBlend;
+            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+        }
+
         public void Dispose()
         {
             _spaceQuad?.Dispose();
@@ -5735,6 +5968,8 @@ namespace Prazsky.Core.Render
             _forestIndexBuffer?.Dispose();
             _moonVertexBuffer?.Dispose();
             _moonIndexBuffer?.Dispose();
+            _auroraVertexBuffer?.Dispose();
+            _auroraIndexBuffer?.Dispose();
             _marsVertexBuffer?.Dispose();
             _marsIndexBuffer?.Dispose();
             _stormCloudVertexBuffer?.Dispose();

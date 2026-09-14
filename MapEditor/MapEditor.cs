@@ -155,6 +155,10 @@ namespace MapEditor
         //away like any other scene.
         private ForestScatterRenderer _forestScatter;
 
+        //A second, independent planting of the same shared wood for the aurora scene (#205) - its own
+        //config (AuroraSceneConfig.Terrain), its own meshes and tints. See AuroraSceneConfig's class doc.
+        private ForestScatterRenderer _auroraScatter;
+
         //A level dropped or opened is parsed off the render thread (like a map file), but its scene/sky/city
         //application touches GPU resources (Content.Load, buffer rebuilds, a new City), so the parsed level is
         //stashed here and applied on the main thread in Update. See ApplyPendingLevel.
@@ -451,6 +455,10 @@ namespace MapEditor
             _forestScatter = new ForestScatterRenderer(GraphicsDevice, _instancingEffect,
                 (ForestSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Forest), SCENE_AMBIENT_INTENSITY);
 
+            //The aurora's own wood, a second planting from its own config - see AuroraSceneConfig's class doc.
+            _auroraScatter = new ForestScatterRenderer(GraphicsDevice, _instancingEffect,
+                ((AuroraSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Aurora)).Terrain, SCENE_AMBIENT_INTENSITY);
+
             ApplySkyLighting();
 
             _pipeline.EnsureTarget();
@@ -613,6 +621,15 @@ namespace MapEditor
                         _forestScatter.Replant(forest);
                         ApplySkyLighting();
                     }
+
+                    //The aurora's own wood, replanted from its OWN nested Terrain group rather than the
+                    //config edited directly - the PropertyGrid binds AuroraSceneConfig as a whole, and
+                    //Replant wants only the ForestSceneConfig-shaped Terrain inside it.
+                    if (sceneConfig is AuroraSceneConfig aurora)
+                    {
+                        _auroraScatter.Replant(aurora.Terrain);
+                        ApplySkyLighting();
+                    }
                     break;
             }
         }
@@ -670,11 +687,16 @@ namespace MapEditor
             //light rig of whatever dome was up when it was made. The array the component hands back, walked
             //directly, for the reason BallRenderSet.Renderers gives above.
             foreach (InstancedModelRenderer renderer in _forestScatter.Renderers) _rig.ApplyTo(renderer);
+            foreach (InstancedModelRenderer renderer in _auroraScatter.Renderers) _rig.ApplyTo(renderer);
 
             //And the wood's own pigments, which the rig above cannot reach — see ForestScatterRenderer.
             //ShiftTowardsSky (#108). This is the executable the symptom is quickest to see in: B cycles the
             //domes over a parked forest.
             _forestScatter.ApplySkyTint(_rig.KeyTint);
+
+            //The aurora's own wood is tinted per frame instead (DrawScene), not here: its hue keeps
+            //drifting while the scene is up, where this method only runs on a dome/scene switch or a
+            //config edit. A snapshot taken here would freeze the moment the scene was entered.
         }
 
         private void CenterViewOn(Vector3 lookDirection)
@@ -1027,6 +1049,15 @@ namespace MapEditor
             //depth test and write and counter-clockwise culling into the supersampled HDR target. The component
             //touches none of it, so the balls drawn after this are unaffected.
             if (_scene == SceneKind.Forest) _forestScatter?.Draw(Camera3D);
+
+            if (_scene == SceneKind.Aurora)
+            {
+                //Re-tinted here rather than in ApplySkyLighting (see there): the aurora's hue keeps
+                //drifting for as long as the scene is up, not only on a switch. ApplySkyTint's own value
+                //guard is what keeps this cheap once it settles.
+                _auroraScatter?.ApplySkyTint(_sceneRenderer.AuroraGlowColor(_sceneSeconds));
+                _auroraScatter?.Draw(Camera3D);
+            }
         }
 
         /// <summary>
@@ -1110,6 +1141,7 @@ namespace MapEditor
             //Every mesh, renderer and procedural texture of the forest scatter, in one call — its stone texture
             //included, the editor having handed it none of its own
             _forestScatter?.Dispose();
+            _auroraScatter?.Dispose();
             //The dome's two buffers and its owned BasicEffect (the editor's only dome draw path)
             _sky?.Dispose();
             _unitBox?.Dispose();

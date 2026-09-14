@@ -2033,3 +2033,15 @@ Pět návrhů do LevelGenu a místo v pořadí kapitol (scéna není kapitola �
 Proti poušti, párové běhy: **polar 32,56 / 32,70 ms, desert 27,98 / 28,36** → asi **+16 %** (bylo +7,9 %) za ~6 šumových vyhodnocení na pixel navíc. Jedno `BlueIce` místo dvou pohnulo mediánem o 0,14 ms, tj. v šumu — zapsáno jako úklid, ne jako úspora. Další páka, kdyby bylo potřeba: maska trhlin má tak nízkou frekvenci, že tři tapy na normálu mohou sdílet jeden vzorek.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-14 — Claude Code (pátý zápis dne)
+
+**Beru si #205 (polární záře nad nočním lesem).** Issue: noční obloha nad zalesněnou krajinou se silnou, zřetelně pulzující barevnou polární září, hvězdy částečně vidět skrz/vedle ní. Větev `205-aurora-scene`.
+
+**⚠ Kolize se zápisem výš ("třetí zápis dne", #222): obě issues si říkají o osmnáctou scénu současně, na dvou různých větvích ze stejného `main`u.** `222-polar-scene` je na originu, nemergnutá — nesahám na ni, jen ji tu zmiňuju, aby si toho všiml, kdo mergne druhý. Až budu mergovat, natáhnu `origin/main` znovu; pokud #222 dorazí první, moje scéna vyjde devatenáctá, ne osmnáctá, a přečíslování prózy (`docs/scenes.md`, `CLAUDE.md` „sedmnáct" → „devatenáct" atd.) je pak na mém merge kroku, ne na #222.
+
+**Návrh (než začnu psát kód):** druhá scéna v obou rodinách zároveň (po Měsíci, #125) — `SceneRenderer.IsSolidTerrainScene` (sdílený lesní podrost + `ForestScatterRenderer`, ale **druhá, nezávislá výsadba** přes stejný, už obecný `SceneRenderer.ForestTerrainHeight(x,z,config)`) i `ReplacesSky` (žádná dome, vlastní celoobrazovkový sky pass, `Stars.fxh` sdílené s Měsícem/Space, nad hvězdami aditivní stuhy polární záře — aditivně přesně proto, aby hvězdy nikdy nebyly plně zakryté, bleskova stuha bouřky má stejné zdůvodnění). Výškové pole podrostu portované verbatim z `Forest.fx` (jako Mars portoval krátery Měsíce), ale bez těžkého detailu druhého průchodu (FBM mottle/triplanar/stíny stromů) — v noci se neuplatní a scéna má vlastní důvod nechat ho lehčí, ne kopírovat cizí rozpočet. Pulz žije v shaderu oblohy a v `ForestScatterRenderer.ApplySkyTint` přes prahovaně přepočítávaný barevný posun v čase; `TryGetLightRig` zůstává **statický** autorovaný rig (žádná nová `SceneLights` větev) — obojí zdůvodním v `docs/scenes.md`, až bude co psát, ne jenom tvrdit.
+
+**Běží subagent, co má vyjmenovat každé místo v repu, co přepíná/vyjmenovává `SceneKind`/`SceneConfig`** (přesně ten druh chyby, co si tenhle žurnál sám pamatuje — les chyběl ve dvou nezávislých `IsSolidTerrainScene` seznamech, `% 7` cyklus se našel dvakrát). Čekám na výsledek, pak jdu psát.
