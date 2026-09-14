@@ -9,8 +9,10 @@ using System.Collections.Generic;
 namespace BS3D.Effects
 {
     /// <summary>
-    /// A bomb going off (#389): the flash, the shock ring and the sparks at the place each blast actually
+    /// A bomb going off (#389): the flash, the fireball and the sparks at the place each blast actually
     /// happened, the report spoken from there, and the light it throws on the cluster, the island and the gun.
+    /// (There was a shock ring too, and the first capture in the running game threw it out — a clean hoop with an
+    /// exact circular edge reads as a halo drawn over the cluster, not as anything exploding; see Blast.fx.)
     /// Until #389 a detonation had none of it — the only tells were the bomb's own pulsing shell before it went
     /// and its victims' trajectories after, and the victims were not even thrown the right way.
     /// <para>
@@ -38,9 +40,10 @@ namespace BS3D.Effects
         /// <summary>Concurrent blasts. Must match <c>MAX_BLASTS</c> in Blast.fx.</summary>
         public const int MAX_BLASTS = 8;
 
-        //Sparks per blast. The buffer is MAX_BLASTS * (this + 2) quads — the flash and the shock ride beside them
-        //— which at 72 is 592 quads and 2 368 vertices, far inside the 16-bit index limit Fireworks is held to.
-        private const int SPARKS_PER_BLAST = 72;
+        //Sparks per blast. The buffer is MAX_BLASTS * (this + 2) quads — the flash and the fireball ride beside
+        //them — which at 96 is 784 quads and 3 136 vertices, far inside the 16-bit index limit Fireworks is held
+        //to. It was 72, and the first capture read the spray as a few white glints.
+        private const int SPARKS_PER_BLAST = 96;
         private const int QUADS_PER_BLAST = SPARKS_PER_BLAST + 2;
 
         /// <summary>
@@ -70,9 +73,12 @@ namespace BS3D.Effects
         //is at full strength. Linear radiance, far over 1 on purpose — a point light's term is attenuated by the
         //square of the distance through its range and by N·L, and at 1 per channel a ball two units away took a
         //faint warm tint rather than being lit up.
-        private const float LIGHT_SECONDS = 0.38f;
+        //
+        //It started at (5, 2.2, 0.7) for 0.38 s and the first capture could barely find it on the cluster: the
+        //balls round a blast took a faint warm cast and nothing read as having been LIT.
+        private const float LIGHT_SECONDS = 0.45f;
         private const float LIGHT_RANGE = 10f;
-        private static readonly Vector3 LIGHT_COLOR = new(5.0f, 2.2f, 0.7f);
+        private static readonly Vector3 LIGHT_COLOR = new(8.5f, 3.6f, 1.0f);
 
         //The most the summed light of a chain may reach, as a multiple of LIGHT_COLOR. Five links going off in a
         //third of a second overlap, and uncapped their sum floods the whole cluster white.

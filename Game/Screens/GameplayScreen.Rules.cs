@@ -74,10 +74,11 @@ namespace BS3D.Screens
 
             //And the ice this landing broke (#329), over the release it always arrives with — the thaw only
             //ever happens because a group left, so these two sound together by construction and never alone.
-            //It is the one BallKind with a sound of its own, and the reason is that it is the one whose
-            //effect the player cannot see happen: a bomb throws its victims across the arena, a zap empties a
-            //colour off the field, an acid drills a visible shaft — a thaw changes what one ball IS, three
-            //cells away from where the eye was. See BakeIceBreak for how it is heard through the release.
+            //It was the first BallKind with a sound of its own, and the reason is that it is the one whose
+            //effect the player cannot see happen: a zap empties a colour off the field and an acid drills a
+            //visible shaft — a thaw changes what one ball IS, three cells away from where the eye was. See
+            //BakeIceBreak for how it is heard through the release. (The bomb has one too since #389, for the
+            //opposite reason: its effect is the loudest thing a level can do, and it sounded like a release.)
             if (landing.Thawed > 0) Game.Audio.PlayIceBreak(landing.World, landing.Thawed);
 
             ScoreAward award = _score.Landed(landing.Released.Matched, landing.Released.Orphaned,

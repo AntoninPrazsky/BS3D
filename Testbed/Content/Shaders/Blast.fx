@@ -1,12 +1,18 @@
-//A bomb going off (#389): the flash, the shock and the sparks of every blast a landing sets off, in ONE static
+//A bomb going off (#389): the flash, the fireball and the sparks of every blast a landing sets off, in ONE static
 //vertex buffer and ONE draw call - Fireworks.fx's idiom at the scale of the arena rather than the sky. Every quad
 //of every blast is animated in the vertex shader off two small per-blast uniforms, so nothing is rebuilt or
 //re-uploaded per frame however long a chain is.
 //
 //Three parts to a blast, told apart by the part index each vertex carries:
-//  0  the FLASH  - one billboard at the centre, a white-hot core swelling and gone in a quarter of a second
-//  1  the SHOCK  - one billboard drawn as a thin ring, racing out past the blast's own radius
-//  2  the SPARKS - streaks thrown out of the centre and stalled by drag; Fireworks' streak, smaller and faster
+//  0  the FLASH    - one billboard at the centre, a white-hot core that swells and is gone in a sixth of a second
+//  1  the FIREBALL - one billboard whose outline and body are torn by noise, burning from white through orange to
+//                    a dull red and breaking up into rags as it cools
+//  2  the SPARKS   - streaks thrown out of the centre and stalled by drag; Fireworks' streak, smaller and faster
+//
+//⚠ There was a fourth part and the first capture threw it out: a SHOCK RING, a thin annulus racing out past the
+//blast radius. In the running game it read as a halo drawn over the cluster - a clean cream-white hoop with an
+//exact circular edge, and on a chain two of them, like an icon. Nothing about an explosion is a perfect circle,
+//and the one thing that says "fire" is an outline that is not one; so that quad became the fireball.
 //
 //Drawn additively, depth-read but writing no depth, in linear radiance driven well OVER the glare threshold: the
 //flash is meant to bloom, and a blast that does not bloom is an orange blob. SM 5.0.
@@ -32,9 +38,9 @@ float4 BlastCentre[MAX_BLASTS];
 float4 BlastShape[MAX_BLASTS];
 
 //The three lifetimes. The C# side frees a slot at Blasts.LIFE_SECONDS, which has to cover the longest-lived
-//spark below (SPARK_SECONDS times the top of its jitter) or a spark would be cut off mid-fade.
-static const float FLASH_SECONDS = 0.24;
-static const float SHOCK_SECONDS = 0.34;
+//part below (a spark at the top of its jitter, SPARK_SECONDS * 1.45) or it would be cut off mid-fade.
+static const float FLASH_SECONDS = 0.16;
+static const float FIRE_SECONDS = 0.5;
 static const float SPARK_SECONDS = 0.6;
 
 //Drag on a spark, per second, and gravity. The drag is far harder than a firework's: a firework's stars are
@@ -43,6 +49,10 @@ static const float SPARK_SECONDS = 0.6;
 static const float SPARK_DRAG = 4.6;
 static const float GRAVITY = 9.81;
 
+//How fast the fireball's hot gas climbs, world units a second. A little: enough that the rags drift up off the
+//hole as they cool rather than hanging where they burnt.
+static const float FIRE_RISE = 1.4;
+
 //The palette, from white heat through fire to embers. Hues normalised to a peak of 1 and driven by the radiance
 //constants below, for the reason the ripple and the fireworks whiten: a saturated orange at these levels only
 //clips its red channel and reads as a flat coloured disc.
@@ -50,19 +60,14 @@ static const float3 HOT = float3(1.0, 0.93, 0.80);
 static const float3 FIRE = float3(1.0, 0.42, 0.10);
 static const float3 EMBER = float3(0.9, 0.16, 0.04);
 
-static const float FLASH_RADIANCE = 9.0;
-static const float SHOCK_RADIANCE = 3.2;
+static const float FLASH_RADIANCE = 12.0;
+static const float FIRE_RADIANCE = 4.5;
 static const float SPARK_RADIANCE = 5.0;
 
 //World half-size of a spark at full brightness, and world units of streak per world unit per second of screen
 //speed - Fireworks' SparkSize and SparkStretch, at the arena's scale.
-static const float SPARK_SIZE = 0.07;
+static const float SPARK_SIZE = 0.08;
 static const float SPARK_STRETCH = 0.035;
-
-//Where the shock's band sits across its quad, and how wide it is: the quad is sized so the band's middle is at
-//the shock radius.
-static const float SHOCK_BAND = 0.8;
-static const float SHOCK_WIDTH = 0.075;
 
 struct BlastVertexInput
 {
@@ -78,7 +83,8 @@ struct BlastVertexOutput
 {
     float4 Position : SV_POSITION;
     float3 Corner : TEXCOORD0;   //xy -1..1 across the billboard, z the part - constant across a quad
-    float3 Tint : TEXCOORD1;     //linear radiance at this part's brightness
+    float3 Tint : TEXCOORD1;     //linear radiance at this part's brightness (the flash and the sparks)
+    float2 Fire : TEXCOORD2;     //the fireball's own: x how far it has cooled 0..1, y a per-blast seed
 };
 
 //A degenerate quad behind the far plane: discarded before rasterization, so a dead slot or a spent part costs the
@@ -89,6 +95,7 @@ BlastVertexOutput Collapsed()
     output.Position = float4(0.0, 0.0, 2.0, 1.0);
     output.Corner = float3(0.0, 0.0, 0.0);
     output.Tint = float3(0.0, 0.0, 0.0);
+    output.Fire = float2(0.0, 0.0);
     return output;
 }
 
@@ -113,7 +120,8 @@ BlastVertexOutput BlastVS(BlastVertexInput input)
     float halfAlong;
     float halfAcross;
     float3 position;
-    float3 radiance;
+    float3 radiance = float3(0.0, 0.0, 0.0);
+    float2 fire = float2(0.0, blast * 7.31);
 
     if (part == 0)
     {
@@ -122,8 +130,8 @@ BlastVertexOutput BlastVS(BlastVertexInput input)
         float fade = 1.0 - age / FLASH_SECONDS;
         fade = fade * fade * fade;
 
-        //Swells fast and stops: most of its size is there in the first few frames, which is what a flash is.
-        float radius = scale * lerp(0.8, 2.6, 1.0 - exp(-age * 16.0));
+        //Swells almost at once and stops: most of its size is there on the first frame, which is what a flash is.
+        float radius = scale * lerp(1.0, 3.0, 1.0 - exp(-age * 25.0));
 
         //PULLED TOWARDS THE LENS by its own radius. The flash stands in the hole the blast has just opened, and a
         //billboard left at the centre is cut by the balls round the rim of that hole along hard, flat lines -
@@ -137,22 +145,19 @@ BlastVertexOutput BlastVS(BlastVertexInput input)
     }
     else if (part == 1)
     {
-        if (age > SHOCK_SECONDS) return Collapsed();
+        if (age > FIRE_SECONDS) return Collapsed();
 
-        float fade = 1.0 - age / SHOCK_SECONDS;
-        fade *= fade;
+        //Billows out fast and then hangs, climbing a little as it burns out.
+        float radius = scale * lerp(0.7, 2.4, 1.0 - exp(-age * 7.0));
 
-        //Out to about two and a half blast radii and slowing: the shock has to be seen to leave the region the
-        //blast took, or it reads as the flash's own edge.
-        float radius = scale * lerp(0.9, 5.2, 1.0 - exp(-age * 8.5));
+        //Pulled forward by half its radius, not all of it: the fireball is a body in the hole, and a little of it
+        //going behind the rim is what sits it IN the cluster rather than on the glass of the lens.
+        position = centre.xyz + normalize(CameraPosition - centre.xyz) * (radius * 0.5);
+        position.y += FIRE_RISE * age;
 
-        //Pulled forward for the flash's reason, but never by more than the blast radius: pulled by its full
-        //radius a wide ring would stand in front of the gun.
-        position = centre.xyz + normalize(CameraPosition - centre.xyz) * min(radius, 2.0);
-
-        radiance = lerp(FIRE, HOT, fade * 0.6) * (SHOCK_RADIANCE * fade);
-        halfAlong = radius / SHOCK_BAND;
-        halfAcross = halfAlong;
+        fire.x = age / FIRE_SECONDS;
+        halfAlong = radius;
+        halfAcross = radius;
     }
     else
     {
@@ -163,7 +168,7 @@ BlastVertexOutput BlastVS(BlastVertexInput input)
 
         //Exponential drag in closed form, so a spark's path and its VELOCITY - which the streak needs - are a pure
         //function of its age, which is what lets the buffer be static.
-        float speed = scale * (5.5 + 10.5 * input.Spark.w);
+        float speed = scale * (7.0 + 13.0 * input.Spark.w);
         float decay = exp(-SPARK_DRAG * age);
 
         position = centre.xyz + input.Spark.xyz * (speed * (1.0 - decay) / SPARK_DRAG);
@@ -172,10 +177,10 @@ BlastVertexOutput BlastVS(BlastVertexInput input)
         float3 velocity = input.Spark.xyz * (speed * decay);
         velocity.y -= GRAVITY * age;
 
-        //White at the flash, through fire, to a dull ember as it dies; per-spark heat so the spray is not one
-        //colour changing in unison.
+        //Through fire to a dull ember as it dies, and only the hottest few are white: the first capture had most
+        //of them white, and a spray of white streaks reads as glitter rather than as something burning.
         float fade = (1.0 - u) * (1.0 - u);
-        float heat = saturate(fade * (1.2 + 0.4 * input.Random.z) - 0.2);
+        float heat = saturate(fade * (0.9 + 0.5 * input.Random.z) - 0.35);
 
         radiance = lerp(EMBER, lerp(FIRE, HOT, heat), saturate(fade * 1.5)) * (SPARK_RADIANCE * fade);
 
@@ -201,39 +206,82 @@ BlastVertexOutput BlastVS(BlastVertexInput input)
     output.Position = mul(mul(float4(position, 1.0), View), Projection);
     output.Corner = float3(corner, part);
     output.Tint = radiance;
+    output.Fire = fire;
 
     return output;
+}
+
+//Cheap value noise for the fireball's outline and body. No gradient ops anywhere in it, so it is safe inside the
+//branch below; the quad is a few dozen pixels across at play distance, so its cost is a rounding error.
+float Hash(float2 p)
+{
+    p = frac(p * float2(123.34, 456.21));
+    p += dot(p, p + 45.32);
+    return frac(p.x * p.y);
+}
+
+float ValueNoise(float2 p)
+{
+    float2 cell = floor(p);
+    float2 f = frac(p);
+    f = f * f * (3.0 - 2.0 * f);
+
+    float a = Hash(cell);
+    float b = Hash(cell + float2(1.0, 0.0));
+    float c = Hash(cell + float2(0.0, 1.0));
+    float d = Hash(cell + float2(1.0, 1.0));
+
+    return lerp(lerp(a, b, f.x), lerp(c, d, f.x), f.y);
 }
 
 float4 BlastPS(BlastVertexOutput input) : COLOR
 {
     float2 corner = input.Corner.xy;
     float r2 = dot(corner, corner);
-    float falloff;
 
     if (input.Corner.z < 0.5)
     {
         //THE FLASH: a gaussian, so it is a hot core inside a wide glow rather than a disc with an edge, and cut
         //to nothing at the quad's rim so no square is ever seen.
-        falloff = exp(-r2 * 4.0) * saturate(1.0 - r2);
-    }
-    else if (input.Corner.z < 1.5)
-    {
-        //THE SHOCK: a soft band at SHOCK_BAND of the quad.
-        float band = (sqrt(r2) - SHOCK_BAND) / SHOCK_WIDTH;
-        falloff = exp(-band * band);
-    }
-    else
-    {
-        //A SPARK: Fireworks' profile - a small hot core in a wide halo, stretched into a streak by the quad, and
-        //brightest at its leading end so it reads as a comet and not as a stick.
-        falloff = saturate(1.0 - r2);
-        falloff *= falloff;
-        falloff *= 0.45 + 0.55 * saturate(corner.x * 0.5 + 0.5);
+        float falloff = exp(-r2 * 4.0) * saturate(1.0 - r2);
+        return float4(input.Tint * falloff, falloff);
     }
 
-    //No clip: additive blending makes a dark pixel free, so every part fades to nothing smoothly.
-    return float4(input.Tint * falloff, falloff);
+    if (input.Corner.z < 1.5)
+    {
+        //THE FIREBALL. Three octaves of noise, the middle one churning with the cooling, decide both how far out
+        //the body reaches at each angle - so the outline is torn rather than round - and where it has burnt
+        //through: as it cools the threshold climbs, the thin parts go first and what is left is rags.
+        float cool = input.Fire.x;
+        float seed = input.Fire.y;
+
+        float billow = 0.55 * ValueNoise(corner * 2.6 + seed)
+                     + 0.30 * ValueNoise(corner * 5.5 - seed * 1.7 + cool * 2.5)
+                     + 0.15 * ValueNoise(corner * 11.0 + seed * 3.1);
+
+        float r = sqrt(r2);
+        float body = saturate(1.0 - r / (0.45 + 0.55 * billow));
+
+        float intact = saturate((billow - cool * 0.75) * 4.0);
+        float falloff = pow(body, 0.7) * intact;
+
+        //Hot in the thick of it and at the start; the edges and the end are fire and then embers.
+        float heat = (1.0 - cool) * (0.55 + 0.45 * body);
+        float3 colour = lerp(EMBER, lerp(FIRE, HOT, saturate(heat * 1.6 - 0.7)), saturate(heat * 2.2));
+
+        float strength = FIRE_RADIANCE * pow(1.0 - cool, 1.5);
+
+        return float4(colour * (strength * falloff), falloff);
+    }
+
+    //A SPARK: Fireworks' profile - a small hot core in a wide halo, stretched into a streak by the quad, and
+    //brightest at its leading end so it reads as a comet and not as a stick.
+    float spark = saturate(1.0 - r2);
+    spark *= spark;
+    spark *= 0.45 + 0.55 * saturate(corner.x * 0.5 + 0.5);
+
+    //No clip anywhere: additive blending makes a dark pixel free, so every part fades to nothing smoothly.
+    return float4(input.Tint * spark, spark);
 }
 
 technique Blast
