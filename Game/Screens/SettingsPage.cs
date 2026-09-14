@@ -17,8 +17,9 @@ namespace BS3D.Screens
     /// <b>every</b> resolution and aspect alike — this was never a small-window bug, and the rows that ran off
     /// the bottom took the Back button with them. Splitting the rows across two columns roughly halves the
     /// stack's height and is what puts Back back on the screen; it costs width, which the height-derived scale
-    /// leaves in hand: the plate comes out about 1930 design units across (measured — 805 px at a 1600×900
-    /// client), so the page needs a viewport only wider than about 0.9:1, which every display is.
+    /// leaves in hand: the plate comes out about 1960 design units across (measured — 817 px at a 1600×900
+    /// client, re-measured with the Auto quality row in, #390), so the page needs a viewport only wider than
+    /// about 0.9:1, which every display is.
     /// </para>
     /// <para>
     /// <b>The other candidate was a scroller</b> (<see cref="MenuPage.MenuScroll"/>, which the level picker
@@ -58,7 +59,7 @@ namespace BS3D.Screens
         //above it rather than reading as one more of them.
         private const int GROUP_HEADING_GAP = 40;
 
-        private Label _fullscreenValue, _qualityValue, _exposureValue, _skyValue, _fpsValue, _fpsLimitValue;
+        private Label _fullscreenValue, _qualityValue, _adaptiveQualityValue, _exposureValue, _skyValue, _fpsValue, _fpsLimitValue;
         private Label _volumeValue, _effectsValue, _musicValue, _ambienceValue, _trackValue, _sensitivityValue;
         private Label _aberrationValue, _grainValue, _dropCinematicValue;
         private Label _progressValue, _unlockAllValue;
@@ -109,22 +110,26 @@ namespace BS3D.Screens
             //performance setting — it is tied to a look decision — and it was the only thing here that reached
             //the rest of the frame at all; the tier reaches the city's per-pixel work and its skyline too.
             AddRow(grid, 2, "Quality", Game.CycleQuality, out _qualityValue);
-            AddRow(grid, 3, "Exposure", Game.CycleExposure, out _exposureValue);
-            AddRow(grid, 4, "Sky", Game.CycleSkyDome, out _skyValue);
-            AddRow(grid, 5, "FPS counter", Game.ToggleFpsOverlay, out _fpsValue);
+            //Whether the game may lower that tier by itself (#390). Directly under it, because it is the other
+            //half of the same answer — and because picking a tier above turns it off, which the player should
+            //see happen rather than have to know.
+            AddRow(grid, 3, "Auto quality", Game.ToggleAdaptiveQuality, out _adaptiveQualityValue);
+            AddRow(grid, 4, "Exposure", Game.CycleExposure, out _exposureValue);
+            AddRow(grid, 5, "Sky", Game.CycleSkyDome, out _skyValue);
+            AddRow(grid, 6, "FPS counter", Game.ToggleFpsOverlay, out _fpsValue);
             //The presentation cap (#124): synced to the monitor's refresh (frames nobody can see cost only
             //heat) or unlimited — the "nocap" launch argument's toggle, in the menu so a benchmarking session
             //is not the only way to lift it.
-            AddRow(grid, 6, "FPS limit", Game.ToggleFpsLimit, out _fpsLimitValue);
+            AddRow(grid, 7, "FPS limit", Game.ToggleFpsLimit, out _fpsLimitValue);
             //The lens's colour fringing at the frame edges — a taste toggle, and instant where it is made,
             //like every row here: the scene behind the panel is the preview.
-            AddRow(grid, 7, "Aberration", Game.ToggleAberration, out _aberrationValue);
-            AddRow(grid, 8, "Film grain", Game.ToggleGrain, out _grainValue);
+            AddRow(grid, 8, "Aberration", Game.ToggleAberration, out _aberrationValue);
+            AddRow(grid, 9, "Film grain", Game.ToggleGrain, out _grainValue);
 
             //Whether a big collapse takes the camera (#290). It sits with the looks rather than under a
             //heading of its own because that is what it IS to the player - a flourish they can turn off - and
             //a "GAMEPLAY" heading over a single row would promise a group that does not exist.
-            AddRow(grid, 9, "Drop camera", Game.ToggleDropCinematic, out _dropCinematicValue);
+            AddRow(grid, 10, "Drop camera", Game.ToggleDropCinematic, out _dropCinematicValue);
 
             return grid;
         }
@@ -266,6 +271,7 @@ namespace BS3D.Screens
 
             _fullscreenValue.Text = Game.IsFullscreen ? "On" : "Off";
             _qualityValue.Text = Game.Quality.ToString();
+            _adaptiveQualityValue.Text = Game.IsAdaptiveQualityEnabled ? "On" : "Off";
             _exposureValue.Text = Game.Exposure.ToString("0.0", CultureInfo.InvariantCulture);
             _skyValue.Text = Game.SkyDomeNumber.ToString(CultureInfo.InvariantCulture);
             _fpsValue.Text = Game.IsFpsOverlayVisible ? "On" : "Off";
