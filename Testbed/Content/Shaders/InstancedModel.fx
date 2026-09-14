@@ -5474,10 +5474,19 @@ technique InstancedModelInfectious
 static const float GravityRimDarkening = 0.62;
 static const float GravityRimPower = 2.2;
 
-//The rings: how many are visible at once across the ball, and how tight each one is. Few and broad, so
+//The rings: how many are visible at once across the DISC, and how tight each one is. Few and broad, so
 //they read as a pulse travelling rather than as stripes -- a set of hard rings is a target, not a field.
-static const float GravityRingCount = 3.0;
-static const float GravityRingWidth = 0.30;
+//
+//⚠ THREE AT 0.30 WAS THE FIRST SET AND THE OWNER'S REPORT KILLED IT: "the blue bands are too narrow --
+//from any distance they are almost invisible". Two things were wrong and the count was the smaller one.
+//The parameter (see `across` in GravityPS) crowded every ring into the rim, so at three they landed at
+//55 %, 87 % and 99 % of the drawn radius and the outer two were thinner than the inner one; photographed
+//at 14, 26 and 40 units, what survived past about 20 was a single thin crescent on the limb and by 40
+//the ball was flat violet. Spaced across the disc instead, TWO rings at 0.42 fill it -- measured on the
+//well's own pixels, the figure's luminance contrast goes 19.8 -> 23.3 at 26 units and 18.9 -> 20.5 at 40,
+//and what the eye gets back is a target contracting inward rather than a lit edge.
+static const float GravityRingCount = 2.0;
+static const float GravityRingWidth = 0.42;
 
 //How fast they fall inward, in rings per second. NEGATIVE is the whole point of this technique: the
 //pattern moves towards the centre. Slow enough to read as a pull and not as a strobe.
@@ -5490,8 +5499,9 @@ static const float3 GravityRingColor = float3(0.72, 0.60, 1.0);
 
 //How much light the rings carry, and the floor the figure converges to once they are under a pixel.
 //BombFarGlow's argument once more: a distant well has to still be nameable, and what survives is a ball
-//with a dark rim and a violet cast.
-static const float GravityRingGain = 0.85;
+//with a dark rim and a violet cast. The gain went 0.85 -> 1.0 with the re-spacing above, which is the
+//smallest half of that change and is here so the widened band does not read softer than the thin one did.
+static const float GravityRingGain = 1.0;
 static const float GravityFarGlow = 0.28;
 
 //Where the rings stop being worth drawing, measured against a RING's own width -- the ice crack's rule,
@@ -5533,12 +5543,25 @@ float4 GravityPS(PatternVertexShaderOutput input) : COLOR
     float facing = saturate(dot(normal, eyeVector));
     float around = 1.0 - facing;
 
+    //⚠ THE RINGS ARE SPACED IN THE DISC'S OWN RADIUS AND NOT IN `around`, AND THAT IS A FIX RATHER THAN A
+    //PREFERENCE. `around` is 1 - cos(theta) and a sphere's screen radius is sin(theta), so rings evenly
+    //spaced in it are NOT evenly spaced on screen: at three rings they land at 55 %, 87 % and 99 % of the
+    //drawn radius, i.e. two of the three inside the outer eighth of the ball, each of them thinner than
+    //the last. The owner's report was that the bands are too narrow to see from a distance, and that
+    //crowding is the whole of why. `across` is sin(theta) straight out of the same dot product, so a ring
+    //is a band of the DISC and the count means what it says.
+    float across = sqrt(saturate(1.0 - facing * facing));
+
     //One ring's width in that parameter is 1/GravityRingCount, so the limit is measured against that.
+    //⚠ Measured after the re-spacing, on five CONSECUTIVE frames at 40, 60 and 80 units: the figure fades
+    //out on this limit without crawling first. The well's frame-to-frame change is about twice an ordinary
+    //ball's in the same frames (mean 12-16 codes against 7-9), which is the rings MOVING and not speckle -
+    //blown up eight times, a distant well is a smooth ball with no figure left on it at all.
     float limit = saturate(GravityBandLimit - footprint * GravityRingCount);
 
     //INWARD: the phase SUBTRACTS time, so a ring's position decreases and the pattern travels towards
     //the centre. Reversing this one sign is the difference between a well and a beacon.
-    float phase = around * GravityRingCount - PulseTime * GravityRingSpeed;
+    float phase = across * GravityRingCount - PulseTime * GravityRingSpeed;
     float ring = pow(saturate(1.0 - abs(frac(phase) - 0.5) / max(GravityRingWidth, 1e-4)), 2.0);
 
     //Converging to a floor rather than to nothing, so a distant well is still a well.
