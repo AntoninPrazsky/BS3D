@@ -2011,6 +2011,18 @@ Pět návrhů do LevelGenu a místo v pořadí kapitol (scéna není kapitola �
 
 ---
 
+## 2026-09-14 — Claude Code (desátý zápis dne)
+
+**#205: svislý šev v auroře při otáčení kamery — potřetí stejná chyba (`6f3954a`).** Majitel: *„Vidím výrazný svislý lem na auroře. Podobný problém se řešil i u jiných scén. Ach ty švy 2D plochy."* Měl naprostou pravdu a dokonce trefil, kde to hledat — `docs/scenes.md` už jednou popisuje přesně tuhle třídu chyby u pouštních trhlin Marsu: *„co rib count vzatý z `atan2` bearing neumí … chyba, se kterou se jednou dodala žíly jeskyně."* `atan2(dir.x, dir.z)` skáče o 2π na jedné pevné čáře ve SVĚTĚ (ne s kamerou) a šev do noise funkce vjel s ním — stál na místě a kamera ho přejela.
+
+**Oprava: úhel se nepočítá vůbec.** `AuroraDriftSpeed` teď točí SMĚREM kolem svislé osy místo přičítání k azimutu (otočený vektor nemá kde přeskočit), stuhy jsou `Fbm3` na tom otočeném směru se svislou osou stlačenou `AuroraCurtainWarp` (Fbm2Combed's protažení, ve 3D). 3D noise na směru nemá pod sebou žádnou 2D mapu, na které by mohl mít šev.
+
+**Ověřeno přímo v problémovém směru** (kamera mířící přesně na −Z, přesně tam, kde `atan2` skáče) a z druhého, kolmého úhlu — čisté oboje. Tři exe stavějí. Cena přeměřená: 710–728 FPS proti dřívějším 758–762 — reálný, ne dramatický pokles (3D noise stojí víc na oktávu než 2D), zapsáno jako změřené, ne odhadnuté.
+
+**Nic dalšího si neberu.**
+
+---
+
 ## 2026-09-14 — Claude Code (devátý zápis dne)
 
 **#205: zmenšená listnatá koruna z minulého zápisu byly houbičky (`fec97bc`).** Majitel po dalším screenshotu: *„Na scéně jsou taky nějaké stromečky, co vypadají jako malé houbičky s hnědou nohou a zeleným kloboukem."* Přesně to to bylo — kmen nechaný na denní výšce, koruna zmenšená na kouli 0,55/0,9, a kulatá koruna na tyčce je hříbek, ať je jakkoli malá. Řešení není další zmenšování (čtení se tím nemění, jen se stěhuje mezi „malý strom" a „hříbek"), ale druh z výsadby úplně vynechat — `ConiferFraction` 0,94 → 1. `ForestScatterRenderer` nemá bezlistou mesh variantu, takže poctivá odpověď na „opadané listnáče" je žádné listnáče, ne přiblížení, co samo vypadá jako jiná věc.
