@@ -1957,3 +1957,17 @@ Pět **po sobě jdoucích snímků** (`shotframe=`) na 40, 60 a 80 jednotkách: 
 **Šev mezi nimi byl skutečný a je ověřený:** obě sahaly do `InstancedModel.fx` (#333 přidává techniku na konec, studna mění konstanty a tělo `GravityPS`) a obě psaly na konec tohohle žurnálu — textově kolidoval jen žurnál, vyřešeno zachováním obou zápisů v pořadí podle data. Po mergi: **čtyři solutiony 0 chyb**, **LevelGen exit 0 a `Game/Levels` beze změny**, ScoreSim „All levels rate the right way round", a v shaderu stojí obě změny vedle sebe (`InstancedModelHeavy` i `float across = sqrt(...)`).
 
 **#333 tím zavírá #256** — deset speciálů z rozpadu je hotových. Zavření obou issue jsem nechal na majiteli.
+
+---
+
+## 2026-09-14 — Claude Code (třetí zápis dne)
+
+**Beru si #222 (polární led).** Osmnáctá scéna: plochý ledovcový příkrov — závěje a sastrugi, ledovcová čela s trhlinami a nad tím **nízké slunce**. Větev `222-polar-scene`.
+
+**Co scéna je a co není:** issue samo píše „led, rozloha a nízké slunce jsou ta scéna". Beru tedy **scénu**, ne kapitolu — žádných pět návrhů do LevelGenu, žádné zařazení do kampaně a žádné zvukové pozadí; to je práce, která patří k bloku, ne k backdropu (scén je dnes sedmnáct a kampaň jmenuje jedenáct, takže scéna bez bloku je normální stav).
+
+**Z čeho čerpám:** pouštní scéna je pojmenovaný vzor pro pevný terén (mřížka `CreateGridMesh` posunutá ve vertex shaderu, **normála po pixelech z gradientu výškového pole** — to je ta lekce o Machových pruzích, kvůli které se poušť mohla vrátit), moře umí Fresnelův odraz oblohy v uzavřeném tvaru a podpovrchový rozptyl, koule nesou `TranslucencyStrength`. Materiál ledu je právě tohle složené dohromady: **bílá v odrazu, azurová v průsvitu**.
+
+**Na co si dát pozor** (issue to pojmenovává a scenes.md to potvrzuje): ⚠ nesmí to číst jako „hory, akorát placaté" — hory jsou kotlina s reliéfem a sněžením, tohle je rovina a materiál; a ⚠ **past ACES kontrastu** u bílé plochy — celobílé pole se slije do jednoho tónu, pokud barva stínu a průsvit nenesou skutečné oddělení.
+
+**Nic dalšího si neberu.**
