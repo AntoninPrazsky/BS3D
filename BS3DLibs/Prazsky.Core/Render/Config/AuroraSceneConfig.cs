@@ -50,16 +50,14 @@ namespace Prazsky.Core.Render
             ForestColor = new(0.026f, 0.042f, 0.034f),
             ForestColorDark = new(0.008f, 0.018f, 0.014f),
             TreelineColor = new(0.005f, 0.011f, 0.009f),
-            Trees = new()
-            {
-                Count = 380,
-                ConiferFraction = 0.94f,
-
-                //The broadleaf crown, shrunk from the daytime forest's full leafy dome (radius 3.1, height
-                //5.6) to a bare-branch stub — see the class doc above.
-                CrownRadius = 0.55f,
-                CrownHeight = 0.9f,
-            },
+            //⚠ Pure conifer, not "mostly" (ConiferFraction 1, not 0.94). The first attempt at a bare winter
+            //broadleaf kept the daytime trunk height and shrunk only CrownRadius/CrownHeight — reported back
+            //as "little mushrooms with a brown leg and a green cap", and once said it cannot be unseen: a
+            //round leaf-lobe crown does not stop reading as a round leaf-lobe crown by getting smaller, it
+            //just becomes a small one on a stick. There is no bare-branch mesh this scene can reach for
+            //(ForestScatterRenderer has none), so rather than hunt for a proportion that still reads as
+            //foliage from some angle, the species is left out of this planting entirely.
+            Trees = new() { Count = 380, ConiferFraction = 1.0f },
         };
 
         /// <summary>
