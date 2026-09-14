@@ -2116,3 +2116,44 @@ Dvě části, přesně jak je issue dělí:
 **Prosím do merge nesahat na** `BallsConstraintsBuilder.cs`, `BallContactEventHandler.cs`, `BallLanding.cs`, `GameplayScreen.Rules.cs` a `ProceduralAudio.cs`.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-14 — Claude Code (dvanáctý zápis dne)
+
+**#389 je na větvi `389-bomb-detonation` (`53117b8`, `47f3a92`, `307de65`), NEmergnuto: čeká na majitelovo oko a ucho**, protože vzhled a zvuk výbuchu se schvalují pohledem a poslechem (precedens #222 a #333).
+
+### ⚠ Skutečná příčina hlášení nebyla ta, kterou tipovalo issue
+
+Issue píše, že „it just falls" dělají hlavně sirotci výbuchu, kteří padají s nulovou rychlostí. **Změřeno: z nedotčeného clusteru bomba ve Ventu, Sillu i Paroxysmu osiří 0–1 kouli.** Viníkem byly oběti samy. `Throw` bral střed výbuchu z `BallsMap.GetRealPosition`, tedy ze surového rámce mřížky, jenže tělesa leží centrovaná (`Center()`) a posunutá o `worldOffset` — na všech třech levelech o (−7,5; −5,4; −7,5), dvanáct jednotek proti poloměru dva. Každá oběť tak „ležela za okrajem", dostala okrajových 2,46 j/s a všechny jedním směrem: **koherence směru 0,99–1,00, průměrný kosinus ven ~0** — deska koulí driftující do rohu arény. Po opravě (odhoz od polohy **těla** bomby, poloměr dál v rámci mřížky) 3,40–3,75 j/s, kosinus ven +0,68 až +1,00, koherence 0,18–0,47 (zbytek je geometrie: bomba na spodku má oběti hlavně nad sebou), nic na kamenu ostrova, zbylý cluster se neotřese víc. Změřeno odhozeným rigem ve scratchpadu (reálná Bepu simulace bez grafiky, každá z 19 bomb zvlášť). Sirotci dostali odhoz taky (okrajová rychlost × poloměr/vzdálenost, podlaha `BLAST_ORPHAN_MIN_SPEED` 0,8 j/s) — ale je to druhá, menší půlka. **LevelGen řádek po řádku stejný**; dva výchozí běhy předem potvrdily, že je deterministický, takže nula rozdílů něco znamená.
+
+### Okamžik detonace
+
+`Detonation` (světová poloha těla, článek řetězu, kolik vzala) na `BallLanding.Detonations` — dřív nešlo říct, *kde* co bouchlo, `Destroyed` sdílí bomba se zapem a kyselinou a `World` je buňka rány, ne bomby. Nad tím: `Blasts` + `Blast.fx` (záblesk, ohnivá koule, 96 jisker, jeden draw call, idiom ohňostroje), `SceneLights.SetFlash` (jedno světlo na jeden snímek do volného slotu, lampu scény nikdy nevyhodí), `PlayBlast` s `RenderBlast` (měřitelné bez audio zařízení, šev `MusicBake`), `CameraShake.Rumble` (třetí kanál, 9 Hz, ~0,6 s, bez zpětného rázu). Řetěz se hraje po článcích o 70 ms; efekt běží na **simulačních** hodinách, takže se zpomalí s drop cinematicem. Testovací páka `detonate=<t>` na hodinách `shot=`.
+
+### ⚠ Past, kterou ukázal až první snímek ve hře
+
+**Rázový prstenec (tenké mezikruží) četl jako halo nakreslené přes cluster** — dokonalý kruh, na řetězu dva jako ikona. Nic na výbuchu není kruh; quad se stal ohnivou koulí roztrhanou šumem. Týž snímek našel záblesk moc malý a jiskry bílé (třpytky, ne oheň) a světlo (5; 2,2; 0,7) na koulích skoro k nenalezení. Druhé kolo opravilo všechno tři.
+
+### ⚠ Dvě provozní pasti
+
+1. **`GameplayScreen` se staví dřív než `ProceduralAudio`** (`BS3DGame.LoadContent`, ř. 1117 proti 1121). Audio předané do konstruktoru efektu by bylo navždy `null` a výbuch tiše němý. Předává se do každého `Update`.
+2. **PowerShell 5.1: here-string s dvojitými uvozovkami do `git commit -m` rozseká zprávu na pathspecy** — commit se neprovede („pathspec … did not match") a řetěz pokračuje dál. Zprávu dávat přes `git commit -F <soubor>`.
+
+### Herní kamera proti cinematicu
+
+První výbuch (26 i 117 koulí) spustí drop cinematic, který během zlomku sekundy vystoupá nad cluster. **Pohled herní kamery jsem proto fotil na druhé detonaci**, která rekord 1,25× nepřekoná. Bomby uvnitř clusteru (Sill je má ve sloupcích) jsou z výšky cinematicu schované za koulemi a čte jen světlo mezerami. Na jednom snímku ke konci cinematicu byl **objektiv uvnitř kola děla** — cizí vada, nesahal jsem na ni.
+
+### Ověřeno
+
+- Game, Testbed, MapEditor i BS3DLibs 0 chyb; LevelGen exit 0 a výstup beze změny; ScoreSim „All levels rate the right way round"; `Game/Levels` beze změny.
+- 5 GPU běhů (majitel povolil 6), okno 1600×900, `fpscap=75`, `quality=high`, `mute`, `[build]` řádek zkontrolován při každém (poučení z #326). Vent, Sill, a na Ventu i `balls=lava` a `balls=plasma` — záblesk vede snímek i na svítících materiálech.
+- Zvuk: RMS 0,202, crest 4,81, 97,8 % energie pod 150 Hz (report ohňostroje 94 %), první 10ms okno na 75 % maxima, −40 dB za 1,19 s.
+
+### Co zůstává
+
+- **Zvuk ve hře nikdo neslyšel** (všechny běhy `mute`), WAV poslán majiteli. Dunění kamery ze snímku posoudit nejde.
+- **Merge až na majitelovo slovo.**
+- Cinematic: rychlé stoupání nad cluster u výbuchu uvnitř clusteru a objektiv v kole děla — kandidáti na issue, nezakládal jsem.
+
+**Nic dalšího si neberu.**
