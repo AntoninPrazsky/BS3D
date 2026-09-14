@@ -2208,3 +2208,38 @@ Běhy proto podměňovaly skutečný `%LOCALAPPDATA%\BS3D\Settings.json`. Oba so
 **Mimochodem:** `docs/formats-and-tools.md` odkazuje na „The settings page" v `docs/game-shell.md`, jenže taková sekce tam není (nastavení je bullet v „The front end"). Nechal jsem to být.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-14 — Claude Code (patnáctý zápis dne)
+
+**#389: majitel si výbuch pustil ve hře. Vzhled prošel, zvuk ne. Pětkrát jsem ho předělal a teď je na větvi `389-bomb-detonation` jen s basy (`955d2e4`).** Pořád NEmergnuto, čeká se na majitelovo ucho. Založil jsem **#394** (barvy levelu 80). Majitel si ho vyžádal.
+
+### Zvuk bomby: pět verzí a verdikt ke každé
+
+1. **„Myška upustila křišťálový hrníček."** 97,8 % energie pod 150 Hz jsem mylně četl jako hloubku. Jenže **89,8 % leželo pod 60 Hz** (31 Hz a sub na 15,5 Hz), kde repro nehraje nic. Slyšitelné pásmo mělo −24 dBFS a v něm cvakání úlomků s tóny 2,4–5,2 kHz. **Poučení: rozdělení energie přes celé spektrum ránu od cvaknutí neodliší. Slyšitelné pásmo 60 Hz–8 kHz se musí měřit zvlášť** (harness to od teď dělá).
+2. **„Hrozně digitální a málo dunivé."** Hukot ze šumu, sutina, tanh drive a gate po 75 ms zvedly slyšitelné pásmo o 10,6 dB. Každá z těch vrstev je ale učebnicový zdroj „digitálna". K tomu verdikt: **jde o příjemnost a basy, ne o fyzikální věrohodnost** (uloženo do paměti).
+3. **Jen teplá rána** (sinus bez driveru, kaskádové low-passy, strop 2,8 kHz): „příjemnější, ale málo výrazný, vrať krátké pištivé střepiny".
+4. **Rána + devět klesajících svistů střepin** vyvážených RMS: **„Ne. Pištění úplně pryč, jen maximální basy."** Pozdější verdikt platí.
+5. **Teď:** rána, dunění, „whump" pod 650 Hz a úder, vše pod 1,4 kHz, komprese + look-ahead limiter a žádný drive. **RMS 0,282, crest 3,37**, tedy nejhlasitější a nejhutnější z pěti; 84,7 % pod 60 Hz, nad 2 kHz nic.
+
+### ⚠ Dvě pasti míchání, obě změřené dřív, než šly ven
+
+- Vyvážení dvou polovin **podle špičky** nechalo svisty na 0,4 % energie, protože špičku horní poloviny dělalo prvních pár vzorků praskotu.
+- **Kompresor sleduje průměrnou úroveň**, takže šumové špičky jím proletěly a určily finální normalizaci: crest 9,47, na papíře hlasitější mix, v uchu tišší zvuk. Proto vznikly `Compress` (look-ahead) a `Limit` (look-ahead peak limiter) v `ProceduralAudio`.
+
+### #394: barvy levelu 80 (Paroxysm)
+
+Majitel: barvy jsou si moc podobné, v dělu mají jiný odstín a nevíš, co střílíš. Zjištěno ze souboru a generátoru, vše je v issue:
+
+- láva pod dómem 9 a sedm inkoustů (krusta černá/hnědá/stříbrná, jádro červená/oranžová/žlutá/bílá), takže obě známé těsné dvojice (#315) jsou v jednom levelu;
+- **#315 lávu měřilo pod scénou The Reveal, ne pod sopkou**, kde se teď hraje (a sopka tlačí na koule vlastní rudá světla);
+- blokový zákon Eruption je „horké členy na dvou inkoustech", jádro Paroxysmu jich má čtyři;
+- za sklem v dělu je podle měření #365 hnědá tmavší než černá;
+- **čtyři barvy jádra jsou na startu úplně zazděné (z 65 koulí jádra není odkrytá ani jedna)**, a zásobník je přesto nabízí. Majitel se na to ptal jako první („nabízí se mi červená, není to kvůli bombě?"). Bomby to nejsou, `BallKinds.Matchable` je ze sčítání vylučuje. Jestli nabízet jen odkryté barvy, je rozhodnutí o obtížnosti a nechávám ho majiteli.
+
+### ⚠ Oprava k čtrnáctému zápisu: Vent v `Progress.json` nejspíš nejsou moje testy
+
+Zápis výš připisuje `"Vent.json": { "score": 28180, "stars": 4 }` testům #389. **Mých pět GPU běhů (20:02–20:05) v logu nemá jediný řádek `[level]`**, žádný level tedy nedohrál a nezobrazil výsledek. Soubor se změnil ve **20:20:02**, patnáct minut po posledním z nich a poté, co jsem majiteli poradil, jak si výbuch zkusit (`level=Sill detonate=10`). Nejspíš to je majitelovo vlastní hraní. Nic jsem nevracel.
+
+**Nic dalšího si neberu.**
