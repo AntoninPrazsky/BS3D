@@ -891,6 +891,32 @@ namespace Prazsky.BS3D
         private const float GRAVITY_PULSE_SPEED = 0.7f;
 
         /// <summary>
+        /// What a heavy ball does with the two animation channels (#333), and it is the <b>one kind here that
+        /// asks for less of both</b> rather than more.
+        /// <para>
+        /// Its technique emits nothing of its own — see <see cref="BallShading.Heavy"/> — so what these three
+        /// figures control is only the cluster's heartbeat riding a crushed dark body. The emission is the
+        /// lowest on this list because a casting is not lit from within, and half of even that is spent so the
+        /// ball still breathes with its neighbours instead of standing outside them the way a rock does.
+        /// </para>
+        /// <para>
+        /// <b>The speed is the reading, and it is the rock's own argument used from the other end</b>: motion
+        /// is the first thing the eye picks up, the rock is legible by being the one ball that does not breathe
+        /// at all, and this one is legible by breathing <i>slower and deeper</i> than the cluster it hangs in —
+        /// half the pack's rate, which is a thing straining under its own weight rather than a thing at rest.
+        /// The depth is what keeps that visible at half the rate: a slow shallow beat is not a beat, it is a
+        /// ball that looks unlit.
+        /// </para>
+        /// </summary>
+        private const float HEAVY_EMISSION = 0.35f;
+
+        /// <inheritdoc cref="HEAVY_EMISSION"/>
+        private const float HEAVY_PULSE_DEPTH = 0.42f;
+
+        /// <inheritdoc cref="HEAVY_EMISSION"/>
+        private const float HEAVY_PULSE_SPEED = PULSE_BEATS_PER_SECOND * Constants.HALF;
+
+        /// <summary>
         /// How much of the picture behind it a clear ball takes away face-on (#325), against the dyed film's
         /// <see cref="BUBBLE_BODY_OPACITY"/>. <b>Lower, and that is the whole read of this kind</b>: a bubble is
         /// a coloured thing you can see through and this is a thing that is not there — what names it is the
@@ -1111,6 +1137,12 @@ namespace Prazsky.BS3D
         //and a kind whose colour nothing may read needs one draw.
         private static readonly int GRAVITY_REGION_START = INFECTIOUS_REGION_START + STILL_PLANE_STRIDE;
 
+        //And a TWELFTH, for the heavy balls of #333 — the fourth colour PLANE, and the line #323 drew still
+        //decides it: a heavy ball is matchable, so shooting it out is the counterplay to its weight and the
+        //player has to be able to read which colour does that. It is the last region this file needs for
+        //#256's ten kinds.
+        private static readonly int HEAVY_REGION_START = GRAVITY_REGION_START + STILL_PLANE_STRIDE;
+
         //What a dead ball is tinted: a cold, dark ash, well under every one of the thirteen in value. Black's
         //own tint is 0.045, far under this — but a tint is not a brightness: black is LIT like every other
         //ball and reads as a dark colour, where this is drawn with the pulse off and reads as a ball nothing
@@ -1203,8 +1235,8 @@ namespace Prazsky.BS3D
             //the colour (#329) and so is sized like the two at the front rather than like the regions between.
             //Sized off the LAST of them so a region added without moving this line would index past the end on
             //its first instance rather than draw wrong.
-            _buckets = new ModelInstance[GRAVITY_REGION_START + STILL_PLANE_STRIDE][];
-            _counts = new int[GRAVITY_REGION_START + STILL_PLANE_STRIDE];
+            _buckets = new ModelInstance[HEAVY_REGION_START + STILL_PLANE_STRIDE][];
+            _counts = new int[HEAVY_REGION_START + STILL_PLANE_STRIDE];
             _lodTotals = new int[LodCount];
             _lodDistanceSquared = new float[LOD_MIN_PIXEL_RADIUS.Length];
         }
@@ -1636,6 +1668,10 @@ namespace Prazsky.BS3D
             //stay here, out of the transparency order DrawShell has to keep.
             DrawGravity(camera);
 
+            //And the heavy balls (#333), which are opaque without needing an argument at all: a casting is the
+            //one special in this list that light does not get into.
+            DrawHeavy(camera);
+
             //And the dead weight with them (#342), which is the same argument once more — see DrawDead for
             //what it does and does not state, and for why it is drawn here even on a transparent style.
             DrawDead(camera);
@@ -2015,6 +2051,53 @@ namespace Prazsky.BS3D
         }
 
         /// <summary>
+        /// The heavy balls (#333): <see cref="DrawGravity"/> in every structural respect — a colour plane, the
+        /// per-type tint, the type's own material, the pulse speed put back by hand — with its own technique
+        /// and its own pair of animation figures. What differs is what those figures say, and here they say it
+        /// by asking for <i>less</i>: see <see cref="HEAVY_EMISSION"/>.
+        /// </summary>
+        private void DrawHeavy(ICamera camera)
+        {
+            bool any = false;
+            for (int i = HEAVY_REGION_START; i < HEAVY_REGION_START + STILL_PLANE_STRIDE && !any; i++)
+                any = _counts[i] > 0;
+
+            //A field with no heavy balls in it — every level shipped today — never touches a renderer for this.
+            if (!any) return;
+
+            for (int lod = 0; lod < LodCount; lod++)
+            {
+                InstancedModelRenderer renderer = _renderers[lod];
+
+                renderer.Shading = BallShading.Heavy;
+                renderer.EmissiveStrength = HEAVY_EMISSION;
+                renderer.PulseDepth = HEAVY_PULSE_DEPTH;
+                renderer.PulseSpeed = HEAVY_PULSE_SPEED;
+            }
+
+            for (int typeIndex = 0; typeIndex < TYPE_COUNT; typeIndex++)
+                for (int lod = 0; lod < LodCount; lod++)
+                {
+                    int bucketIndex = HEAVY_REGION_START + typeIndex * LodCount + lod;
+                    int count = _counts[bucketIndex];
+                    if (count == 0) continue;
+
+                    DrawnCount += count;
+                    _lodTotals[lod] += count;
+
+                    BallType type = (BallType)(typeIndex + 1);
+
+                    _renderers[lod].Draw(camera, _buckets[bucketIndex], count,
+                        BasicEffectParamsProvider.GetEffectByType(type),
+                        BasicEffectParamsProvider.GetDiffuseTintByType(type));
+                }
+
+            for (int lod = 0; lod < LodCount; lod++) _renderers[lod].PulseSpeed = PULSE_BEATS_PER_SECOND;
+
+            ApplyStyle();
+        }
+
+        /// <summary>
         /// The dead weight (#342): released balls that came to rest instead of falling, drawn in the level's
         /// own material with the colour taken out of them and the heartbeat stopped.
         /// <para>
@@ -2362,6 +2445,11 @@ namespace Prazsky.BS3D
         internal void StoreGravity(int typeIndex, int lod, in ModelInstance instance) =>
             StoreAt(GRAVITY_REGION_START + typeIndex * LodCount + lod, instance);
 
+        /// <summary>The heavy plane (#333) — the fourth store that takes a <c>typeIndex</c>, and for the same
+        /// reason the other three do. See <see cref="HEAVY_REGION_START"/>.</summary>
+        internal void StoreHeavy(int typeIndex, int lod, in ModelInstance instance) =>
+            StoreAt(HEAVY_REGION_START + typeIndex * LodCount + lod, instance);
+
         /// <summary>
         /// A wildcard, mid-crossing between two colours (#330) — the whole of how one is drawn, in one place, so
         /// the queue in the bore, the round at the muzzle, the aim ghost and the ball in flight cannot each
@@ -2511,6 +2599,14 @@ namespace Prazsky.BS3D
                     //no crossing of its own — nothing turns a ball into a well or a well into anything else;
                     //it is placed by a level and it leaves by being matched, like an ordinary ball.
                     _set.StoreGravity(typeIndex, lod, instance);
+                    break;
+
+                case BallKind.Heavy:
+                    //The fourth kind that keeps its colour (#333), and the fourth colour plane with it, on the
+                    //well's argument exactly: a heavy ball is matchable, so shooting it out is the counterplay
+                    //to its weight and the colour is how the player takes it. It has no crossing of its own
+                    //either — a level places it, and the only thing that happens to it is being matched.
+                    _set.StoreHeavy(typeIndex, lod, instance);
                     break;
 
                 case BallKind.Transparent:

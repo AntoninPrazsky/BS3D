@@ -1059,6 +1059,7 @@ namespace Prazsky.Core.Render
             "InstancedModelFrozen",   //BallShading.Frozen
             "InstancedModelInfectious", //BallShading.Infectious
             "InstancedModelGravity",  //BallShading.Gravity
+            "InstancedModelHeavy",    //BallShading.Heavy
         };
 
         /// <summary>

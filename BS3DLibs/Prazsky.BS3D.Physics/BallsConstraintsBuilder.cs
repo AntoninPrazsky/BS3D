@@ -16,6 +16,53 @@ namespace Prazsky.BS3D.Physics
         public static readonly float BALL_MASS = Constants.ONE;
 
         /// <summary>
+        /// What a <see cref="BallKind.Heavy"/> ball weighs, as a multiple of <see cref="BALL_MASS"/> (#333) —
+        /// <b>the one dial of that kind, and it was measured rather than picked</b>.
+        /// <para>
+        /// A <c>BallSocket</c> between two bodies of very different mass is the classic case that jitters or
+        /// explodes, and this lattice was tuned against a uniform mass, so the figure that matters is not "how
+        /// dramatic" but "how far from the cliff". The sweep that found it hung two fixtures headlessly in this
+        /// very simulation — a bare strand (a 7×7 slab with an eight-deep column under it, the heavy ball at
+        /// its tip: the most load a single socket chain ever carries) and a shipped level with its lowest ball
+        /// made heavy — and ran each until the cluster slept or 20 s had passed. Two readings say where the
+        /// cliff is, and neither is the sag:
+        /// </para>
+        /// <para>
+        /// <b>Stretch</b> — the longest distance between two constrained neighbours, nominally 1 ball diameter.
+        /// A real cluster's own figure is <b>1.044</b> (Kiln hanging untouched, every ball at
+        /// <see cref="BALL_MASS"/>), so that is the envelope the mass has to stay inside. The strand reads
+        /// 1.021 at ×6, <b>1.027 at ×12</b>, 1.031 at ×20, then 1.057 at ×25, 1.069 at ×30, 1.083 at ×35,
+        /// 1.154 at ×60 and <b>1.402 at ×100 — a lattice visibly torn open</b>.
+        /// </para>
+        /// <para>
+        /// <b>Whether the cluster can still come to rest.</b> A dense level sleeps at every ratio up to ×100
+        /// (Kiln: 8.8 s untouched, 11.1 s at ×12, 13.0 s at ×100) and <b>stops sleeping at ×200</b>, where the
+        /// strand's peak speed also leaves the rails entirely (40 u/s against ~2.7 at every ratio below ×35).
+        /// </para>
+        /// <para>
+        /// <b>×12 is therefore a factor of two below where the lattice starts to deform</b> and an order of
+        /// magnitude below where it breaks. What it buys is legible: the strand's tip hangs <b>0.46 units</b>
+        /// lower than the same strand of ordinary balls (0.786 → 0.322), which is two-thirds of a lattice
+        /// level — a branch that visibly droops, from a ball whose neighbours are not being pulled apart.
+        /// </para>
+        /// <para>
+        /// <b>⚠ If a design wants a deeper droop, it hangs more off the ball rather than raising this.</b> The
+        /// sag is a property of the load, not of the mass alone: the same ×12 inside a dense cluster (Kiln's
+        /// lowest cell, braced on every side) moves it 0.02 units and is invisible, which is the mechanic
+        /// behaving correctly rather than a shortfall. Raising the ratio is the one change here that trades
+        /// the cluster's own physical honesty for drama.
+        /// </para>
+        /// <para>
+        /// ⚠ <b>The figure is dt-insensitive across the band</b>, which is the second thing #333 asked for: the
+        /// same sweep at 1/240, 1/120 and 1/60 s agrees to about 0.01 units at every ratio up to ×30 (×12 reads
+        /// 0.324 / 0.322 / 0.313). The game steps a fixed <c>GameplayScreen.PHYSICS_TIMESTEP</c> of 1/120 s out
+        /// of an accumulator whatever the display does, so a refresh rate cannot reach this at all — the sweep
+        /// is the margin, not the mechanism.
+        /// </para>
+        /// </summary>
+        public const float HEAVY_MASS_RATIO = 12f;
+
+        /// <summary>
         /// How far apart two collidables may still be and have a contact generated between them, so the
         /// solver can start resisting before they actually touch rather than after they overlap.
         /// <para>
@@ -97,7 +144,11 @@ namespace Prazsky.BS3D.Physics
 
             #region Create physical representation for each ball (without connecting them)
 
-            BodyInertia bodyInertia = new Sphere(BALL_RADIUS).ComputeInertia(BALL_MASS);
+            //Two inertias and not one per ball: the shape is the same sphere either way, only the mass differs
+            //(#333), and ComputeInertia is arithmetic nobody needs to repeat some nine hundred times.
+            Sphere ballShape = new(BALL_RADIUS);
+            BodyInertia bodyInertia = ballShape.ComputeInertia(BALL_MASS);
+            BodyInertia heavyInertia = ballShape.ComputeInertia(BALL_MASS * HEAVY_MASS_RATIO);
 
             CollidableDescription collidableDescription = new(GetSphereShapeIndex(simulation), SPECULATIVE_MARGIN);
             BodyActivityDescription bodyActivityDescription = new(SLEEP_THRESHOLD);
@@ -110,9 +161,15 @@ namespace Prazsky.BS3D.Physics
                     {
                         if (staticBalls[x, z, level] != null) //Is there even a ball here?
                         {
+                            //⚠ THE ONE PLACE A HEAVY BALL IS HEAVY (#333). The kind travels on the StaticBall
+                            //and nothing else in the simulation reads it: the mass IS the mechanic, so it is
+                            //applied where a body is made and never asked about again. The shot's own body is
+                            //built in PhysicsWorld against BALL_MASS and stays there — a heavy ball is placed
+                            //by a level and is never loaded into the gun (specials never are), so there is no
+                            //second door for this to be missed at.
                             BodyDescription bodyDescription = BodyDescription.CreateDynamic(
                                 staticBalls[x, z, level].GetPosition() + worldOffset,
-                                bodyInertia,
+                                staticBalls[x, z, level].Kind == BallKind.Heavy ? heavyInertia : bodyInertia,
                                 collidableDescription,
                                 bodyActivityDescription);
 

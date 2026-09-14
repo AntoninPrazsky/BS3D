@@ -377,6 +377,8 @@ namespace MapEditor
                     + "after every shot it infects a healthy neighbour and hardens into a rock)",
                 BallKind.Gravity => "Ball kind: gravity (an ordinary ball of this colour that PULLS on shots "
                     + "passing near it, bending their flight; needs open space around it to bend anything)",
+                BallKind.Heavy => "Ball kind: heavy (an ordinary ball of this colour with twelve times the "
+                    + "mass: what hangs UNDER it hangs visibly lower, so it needs a branch to weigh down)",
                 _ => "Ball kind: normal",
             };
         }

@@ -432,6 +432,18 @@ namespace BS3D.Tools.LevelGen
                 .SelectMany(a => a["--sag=".Length..].Split(',', StringSplitOptions.RemoveEmptyEntries))
                 .ToArray();
 
+            //⚠ A LEVEL FILE THE SET HAS NEVER HEARD OF (#333), and it generates nothing at all: it hangs the
+            //files named and exits. The set is the campaign, so a level built to try a mechanic out is not in
+            //it — and until this existed the only way to put such a level in front of the probe was to edit
+            //the campaign, which the next run of this tool overwrites. Same shape as the Game's `levelfile=`,
+            //and for the same reason.
+            string[] sagFiles = args
+                .Where(a => a.StartsWith("--sagfile=", StringComparison.Ordinal))
+                .SelectMany(a => a["--sagfile=".Length..].Split(',', StringSplitOptions.RemoveEmptyEntries))
+                .ToArray();
+
+            if (sagFiles.Length > 0) return RunSagFiles(sagFiles) ? 0 : 1;
+
             try
             {
                 _outDir = dirArg ?? FindLevelsDirectory();
@@ -684,6 +696,55 @@ namespace BS3D.Tools.LevelGen
         /// call site moving — and it is written out rather than made void so that nobody has to guess whether
         /// a silent exit code meant the levels passed.
         /// </returns>
+        /// <summary>
+        /// Hangs level FILES rather than set entries (#333) — a level that is not in the campaign yet, which
+        /// is what a level built to try a mechanic on always is.
+        /// <para>
+        /// <b>Its two figures are stated rather than read</b>, since a file outside the set carries neither:
+        /// no budget (the run ends when nothing removable is left standing) and a glass that holds still. That
+        /// is the gentler of the two pressures on purpose — what such a level is being asked is whether its
+        /// own shape hangs, and a ceiling step would mix the other pressure into the answer. #288's own
+        /// distinction, kept on the side of the question being asked.
+        /// </para>
+        /// </summary>
+        private static bool RunSagFiles(string[] paths)
+        {
+            Console.WriteLine("=== sag probe: the named level FILES, no budget and the glass at rest ===");
+
+            bool ok = true;
+
+            foreach (string path in paths)
+            {
+                if (!File.Exists(path))
+                {
+                    Console.WriteLine($"  {Path.GetFileName(path),-16} MISSING - not on disk");
+                    ok = false;
+                    continue;
+                }
+
+                SagProbe.Run[] runs = SagProbe.Play(path, int.MaxValue, 0, trace: paths.Length == 1);
+                SagProbe.Run worst = SagProbe.Worst(runs);
+                int sags = runs.Count(r => r.Outcome == SagProbe.Outcome.Sagged);
+
+                Console.WriteLine($"  {Path.GetFileName(path),-16} sagged {sags} of {runs.Length}; worst: "
+                    + $"{worst.Outcome,-11} after {worst.Shots,3} shot(s)"
+                    + $", closest the line came {worst.WorstClearance,6:F2}");
+
+                int heavy = SagProbe.CountHeavy(path);
+                if (heavy == 0) continue;
+
+                SagProbe.Run[] plain = SagProbe.HeavyBaseline(path, int.MaxValue, 0);
+                SagProbe.Run plainWorst = SagProbe.Worst(plain);
+                int plainSags = plain.Count(r => r.Outcome == SagProbe.Outcome.Sagged);
+
+                Console.WriteLine($"      {heavy} heavy ball(s); the same level at ordinary mass sagged "
+                    + $"{plainSags} of {plain.Length}, closest {plainWorst.WorstClearance,6:F2}"
+                    + $" - the mass is worth {plainWorst.WorstClearance - worst.WorstClearance,5:F2} of clearance");
+            }
+
+            return ok;
+        }
+
         private static bool RunSagGate(LevelSet set, string[] only)
         {
             Console.WriteLine();
@@ -742,6 +803,27 @@ namespace BS3D.Tools.LevelGen
                         ? worst.CeilingHadMoved
                             ? "  <-- SAGGED (the glass had stepped)"
                             : "  <-- SAGGED WITH THE GLASS AT REST - a layout fault"
+                        : string.Empty));
+
+                //A HEAVY LEVEL IS HUNG TWICE (#333), and the second pass is the only way to read the first:
+                //the mass is a sag the author asked for, so what this gate has to separate is a sag that is
+                //the MECHANIC from a sag that is the LAYOUT with a heavy ball standing in it. Neither the
+                //threshold nor the death line moves for an authored sag - see SagProbe.HeavyBaseline for why
+                //that would forgive a level that cannot be played.
+                int heavy = SagProbe.CountHeavy(path);
+                if (heavy == 0) continue;
+
+                SagProbe.Run[] plain = SagProbe.HeavyBaseline(path, shots, ceilingStep);
+                SagProbe.Run plainWorst = SagProbe.Worst(plain);
+                int plainSags = plain.Count(r => r.Outcome == SagProbe.Outcome.Sagged);
+
+                Console.WriteLine($"      {heavy} heavy ball(s); the same level at ordinary mass sagged "
+                    + $"{plainSags} of {plain.Length}, closest {plainWorst.WorstClearance,6:F2}"
+                    + $" - the mass is worth {plainWorst.WorstClearance - worst.WorstClearance,5:F2} of clearance"
+                    + (sagged
+                        ? plainSags >= SagProbe.SAG_RUNS_TO_REPORT
+                            ? "  <-- THE LAYOUT, not the mass: it sags at ordinary mass too"
+                            : "  <-- THE MASS: this level hangs too much off its heavy ball(s)"
                         : string.Empty));
             }
 
@@ -1188,7 +1270,8 @@ namespace BS3D.Tools.LevelGen
             //rather than an addition (#329): #328 added the kind without adding it here, so a level built of
             //acid and colour alone would have skipped the stranded-specials walk entirely — which is #343's
             //own bug, arriving through the next kind. Anything not matchable belongs in this list.
-            int rocks = 0, glass = 0, bombs = 0, zaps = 0, acids = 0, frozen = 0, infectious = 0, wells = 0;
+            int rocks = 0, glass = 0, bombs = 0, zaps = 0, acids = 0, frozen = 0, infectious = 0, wells = 0,
+                heavies = 0;
 
             for (byte l = 0; l < map.Levels; l++)
                 for (byte x = 0; x < map.StageSizeX; x++)
@@ -1215,6 +1298,10 @@ namespace BS3D.Tools.LevelGen
                         //the same exception: it needs nothing the stranded walk asks, but the walk holds its
                         //own refusal for it.
                         if (ball.Kind == BallKind.Gravity) wells++;
+                        //A heavy ball is matchable as well (#333), so it is here on the well's terms exactly:
+                        //it needs nothing the stranded walk asks of a colourless special, and the walk holds a
+                        //refusal of its own for it — a mass with nothing under it.
+                        if (ball.Kind == BallKind.Heavy) heavies++;
 
                         //⚠ THE COLOUR CENSUS IS OVER THE MATCHABLE BALLS ONLY (#323/#325), and it is not
                         //merely tidier: a rock or a glass ball counted here would enter `counts` under the
@@ -1287,7 +1374,7 @@ namespace BS3D.Tools.LevelGen
             //⚠ THE ROCKS COUNT TOWARDS ASKING IT (#343). While this read `glass + bombs`, a level built
             //entirely of stone and colour skipped the walk altogether, so the one gate that would have
             //caught a rock hanging off the ceiling was never run on the three levels that had one.
-            int specials = rocks + glass + bombs + zaps + acids + frozen + infectious + wells;
+            int specials = rocks + glass + bombs + zaps + acids + frozen + infectious + wells + heavies;
 
             StrandedReport stranded = specials == 0 ? new StrandedReport() : FindStrandedSpecials(map);
 
@@ -1301,6 +1388,7 @@ namespace BS3D.Tools.LevelGen
                 Console.WriteLine($"    ice a group can ever reach: {(stranded.SealedIce == 0 ? "all" : $"NO - {stranded.SealedIce} SEALED IN")}");
                 Console.WriteLine($"    infection off the anchor course: {(stranded.CeilingInfection == 0 ? "all" : $"NO - {stranded.CeilingInfection} ON THE ANCHOR COURSE")}");
                 Console.WriteLine($"    wells a shot can fly near: {(stranded.BuriedWells == 0 ? "all" : $"NO - {stranded.BuriedWells} BURIED")}");
+                Console.WriteLine($"    heavy balls with a load: {(stranded.InertHeavy == 0 ? "all" : $"NO - {stranded.InertHeavy} CARRY NOTHING")}");
                 foreach (string where in stranded.Examples) Console.WriteLine($"      {where}");
             }
 
@@ -1321,7 +1409,8 @@ namespace BS3D.Tools.LevelGen
 
             return disconnected == 0 && lonely.Alone == 0 && !oneShot && margin >= 1
                    && stranded.Walled == 0 && stranded.Anchoring == 0 && stranded.CeilingRocks == 0
-                   && stranded.AloneGlass == 0 && stranded.SealedIce == 0 && stranded.CeilingInfection == 0 && stranded.BuriedWells == 0;
+                   && stranded.AloneGlass == 0 && stranded.SealedIce == 0 && stranded.CeilingInfection == 0
+                   && stranded.BuriedWells == 0 && stranded.InertHeavy == 0;
         }
 
         /// <summary>
@@ -1707,6 +1796,31 @@ namespace BS3D.Tools.LevelGen
                                                     + " passes near enough to be bent by it");
                         }
 
+                        //⚠ AND THE HEAVY BALL'S OWN REFUSAL (#333), asked here for the third time running and
+                        //for the same reason: a heavy ball IS matchable, so the guard below is where it would
+                        //be lost. It is the WELL'S refusal turned upside down. A well needs open space around
+                        //it or no shot ever flies near enough to be bent; a heavy ball needs BALLS UNDER IT or
+                        //there is nothing for its mass to pull on. What the kind does is make what hangs off
+                        //it hang lower — that is the whole mechanic, and the physics is the only thing that
+                        //ever says so — and a heavy ball with an empty lattice beneath it says it to nothing.
+                        //It is then an ordinary ball that costs the solver a mass ratio, which is a mechanic
+                        //nobody can meet (#344's verdict once more, arriving through the tenth kind).
+                        //
+                        //The test is one course down and not the whole load path below it, deliberately: a
+                        //single ball hanging off a heavy one already droops visibly (the figures are on
+                        //BallsConstraintsBuilder.HEAVY_MASS_RATIO), so anything stricter would be this gate
+                        //deciding how much droop is enough — which is a design question and belongs to the
+                        //sag probe, where it is measured rather than asserted.
+                        if (ball.Kind == BallKind.Heavy && l > 0 && !HasBallBelow(array, size, cell))
+                        {
+                            report.InertHeavy++;
+
+                            if (report.Examples.Count < 3)
+                                report.Examples.Add($"heavy ball carrying nothing at cell ({x},{z}) on level"
+                                                    + $" {l}: the lattice under it is empty, so its mass has"
+                                                    + " nothing to pull down and the kind is invisible");
+                        }
+
                         //A ball a landing beside it has to reach, stated as the property rather than as a
                         //list of kinds: removable, so it holds the level open, and not matchable, so no
                         //colour can take it. Transparent and Bomb both answer it; the rock answers no to the
@@ -1833,6 +1947,26 @@ namespace BS3D.Tools.LevelGen
             return false;
         }
 
+        /// <summary>
+        /// Whether the cell has a ball on the course <b>below</b> it, i.e. whether anything hangs off it at all
+        /// (#333). The heavy ball's own question, and the cheapest honest form of it: level is the vertical
+        /// axis and the cluster hangs from the top, so one course down is where a mass's load goes.
+        /// <para>
+        /// It asks the neighbour walk rather than the cell straight underneath, because the lattice is packed
+        /// hexagonally — odd levels are shifted by half a cell in X and Z, so <c>[x, z, l - 1]</c> is not
+        /// reliably a neighbour at all and which diagonal offsets are depends on the level's parity.
+        /// <c>BallsMap.GetNeighboringCells</c> is the one place that knows it.
+        /// </para>
+        /// </summary>
+        private static bool HasBallBelow(StaticBall[,,] array, XZLevel size, XZLevel from)
+        {
+            foreach (XZLevel neighbour in BallsMap.GetNeighboringCells(from, size))
+                if (neighbour.Level < from.Level && array[neighbour.X, neighbour.Z, neighbour.Level] != null)
+                    return true;
+
+            return false;
+        }
+
         private sealed class StrandedReport
         {
             public int Walled;
@@ -1850,6 +1984,13 @@ namespace BS3D.Tools.LevelGen
             /// a special that bends nothing. See the well's branch in <see cref="FindStrandedSpecials"/>.
             /// </summary>
             public int BuriedWells;
+
+            /// <summary>
+            /// Heavy balls with an empty lattice under them (#333): a mass with nothing to pull down is a
+            /// mechanic that never shows. The well's refusal turned upside down — see the heavy branch in
+            /// <see cref="FindStrandedSpecials"/>.
+            /// </summary>
+            public int InertHeavy;
 
             /// <summary>
             /// Infectious balls on the field's topmost level (#331): stone on the anchor course from the first

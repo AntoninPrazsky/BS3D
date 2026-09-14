@@ -313,6 +313,32 @@ namespace Prazsky.Core.Render
         /// still. This is smooth, dark-rimmed and moving in ONE direction, which is what neither of them does.
         /// </para>
         /// </summary>
-        Gravity = 17
+        Gravity = 17,
+
+        /// <summary>
+        /// Cast iron (#333): the type colour crushed into a dense dark casting, carried part of the way to a
+        /// cold iron grey, under a metal's tight highlight and raised sky reflection, with a sand-cast grain
+        /// pitted into it. Drawn by <c>InstancedModelHeavy</c>.
+        /// <para>
+        /// <b>⚠ What it must NOT try to draw is the mass itself.</b> A heavy ball's weight is said by the
+        /// branch under it hanging lower — the simulation gives that for free, and it is the reason the kind
+        /// is a mass rather than an effect. This technique answers the narrower half the physics cannot:
+        /// <i>which</i> ball is the heavy one, on a still frame, before anything has moved.
+        /// </para>
+        /// <para>
+        /// <b>Its figure modulates the polish and not the colour</b>, and that is the marble's measured lesson
+        /// applied rather than found again: on a body this dark, a figure that changes the colour by less than
+        /// the light does across the same ball is invisible. Pits scatter, so a pitted lane is duller than the
+        /// skin around it — a difference no tint and no light can swallow.
+        /// </para>
+        /// <para>
+        /// <b>Its collision to solve is <see cref="Metal"/> and the black ball</b>, and it is separated from
+        /// both deliberately: anodised metal has no diffuse term at all and mirrors the dome in the type's own
+        /// colour, where this keeps a body colour and merely crushes it; and <c>BallType.Type8</c> is a colour,
+        /// lit like every other ball, where this is a material. It is also the one special that emits nothing
+        /// whatsoever — a bomb burns, a well pulls, this just sits there.
+        /// </para>
+        /// </summary>
+        Heavy = 18
     }
 }
