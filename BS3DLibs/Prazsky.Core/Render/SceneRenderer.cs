@@ -880,14 +880,23 @@ namespace Prazsky.Core.Render
 
         #endregion
 
-        #region Snow (mountain scene only)
+        #region Snow (shared by the mountain and the aurora)
 
         private readonly Effect _snowEffect;
         private VertexBuffer _snowVertexBuffer;
         private IndexBuffer _snowIndexBuffer;
 
-        //Snowfall parameters (flake count/size/shape/colour/opacity, box, fall speed, wind, sway) now live in
-        //MountainSceneConfig.Snow (SnowConfig); SceneRenderer reads them from _mountainConfig.Snow.
+        //The buffer's own true size — BuildSnowBuffers is still sized off the mountain's own FlakeCount
+        //(the mountain being where the dial lives and gets tuned), but DrawSnow now takes a SnowConfig
+        //argument so a second scene can ask for its own look without a second buffer or a second effect
+        //(#205 — the aurora's gentle snow). A caller's own FlakeCount is clamped to this, never exceeded,
+        //since drawing past the buffer's own capacity would read off the end of it.
+        private int _snowFlakeCapacity;
+
+        //Snowfall parameters (flake count/size/shape/colour/opacity, box, fall speed, wind, sway) live in
+        //each caller's own SnowConfig (MountainSceneConfig.Snow, AuroraSceneConfig.Snow) and are pushed by
+        //DrawSnow itself every frame it draws, not once at config-apply time — the shared effect's uniform
+        //slots have to reflect whichever scene is ACTUALLY being drawn, not whichever config last applied.
 
         #endregion
 
@@ -1202,9 +1211,10 @@ namespace Prazsky.Core.Render
             ApplyMountainParameters();
 
             //--- Snow: a static flake buffer, one quad per flake at a fixed point in the unit cube, animated
-            //entirely in the shader (so it is only rebuilt when a mountain config is applied, never per frame).
+            //entirely in the shader (so it is only rebuilt when a mountain config is applied, never per
+            //frame) — shared by the mountain and the aurora since #205; see DrawSnow's own doc for why its
+            //look uniforms are pushed there, per frame, rather than here.
             _snowEffect = content.Load<Effect>("Shaders/Snow");
-            ApplySnowParameters();
             BuildSnowBuffers();
 
             //--- Spray: a static billboard buffer for the sea's blown spray and spindrift, animated entirely
@@ -1514,7 +1524,6 @@ namespace Prazsky.Core.Render
                 case MountainSceneConfig mountain:
                     _mountainConfig = mountain;
                     ApplyMountainParameters();
-                    ApplySnowParameters();
                     BuildSnowBuffers();
                     break;
                 case MeadowSceneConfig meadow:
@@ -3722,21 +3731,6 @@ namespace Prazsky.Core.Render
             _mountainEffect.Parameters["HorizonHazeDistance"].SetValue(_mountainConfig.HorizonHazeDistance);
         }
 
-        private void ApplySnowParameters()
-        {
-            _snowEffect.Parameters["SnowBoxSize"].SetValue(_mountainConfig.Snow.BoxSize.ToVector3());
-            _snowEffect.Parameters["SnowFallSpeed"].SetValue(_mountainConfig.Snow.FallSpeed);
-            _snowEffect.Parameters["SnowWind"].SetValue(_mountainConfig.Snow.Wind.ToVector2());
-            _snowEffect.Parameters["SnowSway"].SetValue(_mountainConfig.Snow.Sway);
-            _snowEffect.Parameters["FlakeSize"].SetValue(_mountainConfig.Snow.FlakeSize);
-            _snowEffect.Parameters["SnowSpin"].SetValue(_mountainConfig.Snow.Spin);
-            _snowEffect.Parameters["SnowLobing"].SetValue(_mountainConfig.Snow.Lobing);
-            _snowEffect.Parameters["SnowNearFade"].SetValue(_mountainConfig.Snow.NearFade);
-            _snowEffect.Parameters["SnowTwinkle"].SetValue(_mountainConfig.Snow.Twinkle);
-            _snowEffect.Parameters["SnowColor"].SetValue(_mountainConfig.Snow.FlakeColor.ToVector3());
-            _snowEffect.Parameters["SnowOpacity"].SetValue(_mountainConfig.Snow.Opacity);
-        }
-
         /// <summary>(Re)builds the snowfall's flake buffer at the config's flake count. Deterministic seed.</summary>
         private void BuildSnowBuffers()
         {
@@ -3768,6 +3762,8 @@ namespace Prazsky.Core.Render
             }
             _snowIndexBuffer = new IndexBuffer(_graphicsDevice, IndexElementSize.SixteenBits, snowIndices.Length, BufferUsage.WriteOnly);
             _snowIndexBuffer.SetData(snowIndices);
+
+            _snowFlakeCapacity = _mountainConfig.Snow.FlakeCount;
         }
 
         private void ApplySprayParameters()
@@ -4358,7 +4354,8 @@ namespace Prazsky.Core.Render
         /// </summary>
         public void DrawOverlays(SceneKind scene, in SceneFrame frame)
         {
-            if (scene == SceneKind.Mountain) DrawSnow(frame);
+            if (scene == SceneKind.Mountain) DrawSnow(frame, _mountainConfig.Snow);
+            else if (scene == SceneKind.Aurora) DrawSnow(frame, _auroraConfig.Snow);
             else if (scene == SceneKind.Sea) DrawSpray(frame);
             else if (scene == SceneKind.Savanna) DrawFlame(frame);
             else if (scene == SceneKind.Volcano) DrawAsh(frame);
@@ -5489,9 +5486,17 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// Draws the falling snow: the static flake buffer animated in the shader, in a box that follows the
         /// camera. Alpha-blended and depth-read (so the terrain and the cluster occlude the flakes behind
-        /// them) but writing no depth. Mountain scene only.
+        /// them) but writing no depth.
+        /// <para>
+        /// Shared by the mountain and the aurora (#205), each with its own <see cref="SnowConfig"/> — the
+        /// buffer is one for both (built at the mountain's own <see cref="SnowConfig.FlakeCount"/>, since
+        /// that is where the dial has always lived), so <paramref name="config"/>'s own count is clamped to
+        /// <see cref="_snowFlakeCapacity"/> rather than trusted outright. The look uniforms are pushed here,
+        /// every call, rather than once when a config applies: the shared effect's slots have to hold
+        /// whichever scene is actually being drawn, and only the caller passing its own config in knows that.
+        /// </para>
         /// </summary>
-        private void DrawSnow(in SceneFrame frame)
+        private void DrawSnow(in SceneFrame frame, SnowConfig config)
         {
             Matrix inverseView = Matrix.Invert(frame.Camera.View);
 
@@ -5502,6 +5507,18 @@ namespace Prazsky.Core.Render
             _snowEffect.Parameters["CameraUp"].SetValue(inverseView.Up);
             _snowEffect.Parameters["SnowTime"].SetValue(frame.Time);
 
+            _snowEffect.Parameters["SnowBoxSize"].SetValue(config.BoxSize.ToVector3());
+            _snowEffect.Parameters["SnowFallSpeed"].SetValue(config.FallSpeed);
+            _snowEffect.Parameters["SnowWind"].SetValue(config.Wind.ToVector2());
+            _snowEffect.Parameters["SnowSway"].SetValue(config.Sway);
+            _snowEffect.Parameters["FlakeSize"].SetValue(config.FlakeSize);
+            _snowEffect.Parameters["SnowSpin"].SetValue(config.Spin);
+            _snowEffect.Parameters["SnowLobing"].SetValue(config.Lobing);
+            _snowEffect.Parameters["SnowNearFade"].SetValue(config.NearFade);
+            _snowEffect.Parameters["SnowTwinkle"].SetValue(config.Twinkle);
+            _snowEffect.Parameters["SnowColor"].SetValue(config.FlakeColor.ToVector3());
+            _snowEffect.Parameters["SnowOpacity"].SetValue(config.Opacity);
+
             _graphicsDevice.BlendState = BlendState.AlphaBlend;
             _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
             _graphicsDevice.RasterizerState = RasterizerState.CullNone;
@@ -5509,7 +5526,8 @@ namespace Prazsky.Core.Render
             _graphicsDevice.SetVertexBuffer(_snowVertexBuffer);
             _graphicsDevice.Indices = _snowIndexBuffer;
             _snowEffect.CurrentTechnique.Passes[0].Apply();
-            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _mountainConfig.Snow.FlakeCount * 2);
+            int flakes = Math.Min(config.FlakeCount, _snowFlakeCapacity);
+            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, flakes * 2);
 
             _graphicsDevice.DepthStencilState = DepthStencilState.Default;
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
@@ -5867,12 +5885,14 @@ namespace Prazsky.Core.Render
             AuroraSkyConfig aurora = _auroraConfig.Aurora;
             float drift = 0.5f + 0.5f * MathF.Sin(wallClock * aurora.DriftHueSpeed);
 
-            //Half the sky's own peak, not all of it (#205's first capture read as daylit rather than night
-            //with the sky's own Intensity carried straight across): the sky pass draws thin bright ribbons
-            //against a black void, but this feeds the GROUND's hemisphere term over its own full dome, which
-            //integrates far more of it. 0.22 is the figure a real capture settled on — a forest that reads
-            //by its own aurora-lit colour rather than one that looks sunlit at midnight.
-            return Vector3.Lerp(aurora.ColorLow.ToVector3(), aurora.ColorHigh.ToVector3(), drift) * aurora.Intensity * 0.22f;
+            //A small fraction of the sky's own peak, not all of it (#205's first capture read as daylit
+            //rather than night with the sky's own Intensity carried straight across): the sky pass draws
+            //thin bright ribbons against a black void, but this feeds the GROUND's hemisphere term over its
+            //own full dome, which integrates far more of it. Cut again after the owner's second look ("the
+            //forest not so much") — 0.22 was still too bright once the rig itself was also dimmed
+            //(AuroraLightingConfig's own class doc carries that half of the correction) — to a figure that
+            //reads as a dark wood lit by its own aurora rather than one that looks sunlit at midnight.
+            return Vector3.Lerp(aurora.ColorLow.ToVector3(), aurora.ColorHigh.ToVector3(), drift) * aurora.Intensity * 0.09f;
         }
 
         /// <summary>

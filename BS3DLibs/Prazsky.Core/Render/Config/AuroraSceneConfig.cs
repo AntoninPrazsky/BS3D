@@ -30,8 +30,56 @@ namespace Prazsky.Core.Render
         /// this scene's own night lighting rather than shared with the daytime forest's planting — a config
         /// edit to one does not move the other's trees, and the two woods can drift apart in density without
         /// either caller's own lookup changing.
+        /// <para>
+        /// <b>Retuned after the first capture (owner's own words): "the aurora looks good, the forest not so
+        /// much."</b> Three changes, all in <see cref="ForestTreeConfig"/> and all independent of the daytime
+        /// forest's own defaults. It is winter, so the wood is mostly conifer — needles keep their colour
+        /// year-round where a broadleaf does not — and there are more trees than the daytime clearing plants,
+        /// a denser stand reading as a real winter wood rather than a scattered few. The broadleaf minority
+        /// that remains is shrunk to a near-bare stub of a crown rather than a full leafy dome: this scene has
+        /// no bare-branch mesh to reach for, so a small enough crown is the honest approximation available —
+        /// a broadleaf that has dropped its leaves for the winter, standing thin beside the spruces.
+        /// </para>
         /// </summary>
-        public ForestSceneConfig Terrain { get; set; } = new();
+        public ForestSceneConfig Terrain { get; set; } = new()
+        {
+            //Darker and cooler than the daytime forest's own mossy green — a winter floor under starlight
+            //and the aurora's own glow, not a summer clearing under a dome. The lighting rig is the bigger
+            //lever (AuroraLightingConfig), but a pigment this saturated stayed bright even under a dim
+            //light, so the base colour comes down too.
+            ForestColor = new(0.026f, 0.042f, 0.034f),
+            ForestColorDark = new(0.008f, 0.018f, 0.014f),
+            TreelineColor = new(0.005f, 0.011f, 0.009f),
+            Trees = new()
+            {
+                Count = 380,
+                ConiferFraction = 0.94f,
+
+                //The broadleaf crown, shrunk from the daytime forest's full leafy dome (radius 3.1, height
+                //5.6) to a bare-branch stub — see the class doc above.
+                CrownRadius = 0.55f,
+                CrownHeight = 0.9f,
+            },
+        };
+
+        /// <summary>
+        /// A little falling snow — it is winter, and the owner asked for it after the first capture. Shares
+        /// <c>Snow.fx</c> and its flake buffer with the mountain scene (<see cref="SceneRenderer.DrawSnow"/>
+        /// now takes the config as an argument instead of reading the mountain's own, precisely so a second
+        /// scene could ask for snow of its own look without a second buffer or a second effect); the flake
+        /// count is still the buffer's own capacity, sized by <see cref="MountainSceneConfig"/>'s copy.
+        /// Slower and thinner than the mountain's own snow — a gentle winter hush over the wood, not a storm.
+        /// </summary>
+        public SnowConfig Snow { get; set; } = new()
+        {
+            BoxSize = new(70f, 55f, 70f),
+            FallSpeed = 4.5f,
+            Wind = new(1.2f, 0.4f),
+            Sway = 1.4f,
+            FlakeSize = 0.08f,
+            Opacity = 0.45f,
+            FlakeColor = new(0.7f, 0.75f, 0.82f),
+        };
 
         /// <summary>The aurora itself.</summary>
         public AuroraSkyConfig Aurora { get; set; } = new();
@@ -131,19 +179,30 @@ namespace Prazsky.Core.Render
     /// restrained — unlike the ground shader and the sky itself, the balls, the island and the gun do not
     /// visibly pulse with the aurora; the light show is the sky's job, and a gun strobing in time with it
     /// would read as a fault rather than as weather.
+    /// <para>
+    /// <b>⚠ The first authored figures kept every other sky-replacing scene's "~1 per channel" KeyTint/
+    /// BackTint convention (the Moon, the dream, the cavern all do), and it was wrong here.</b> Those three
+    /// keep a bright key on purpose — the Moon's is a raking sun, the dream and the cavern each state a
+    /// coloured but undimmed one — and none of them lights a populated `ForestScatterRenderer`. Fed the same
+    /// near-1 tint, this scene's wood read as vividly, almost daytime lit, which is what the owner's first
+    /// capture caught ("the forest not so much"). Cut by roughly half again here, on top of the ground's own
+    /// separate cut in <see cref="SceneRenderer.AuroraGlowColor"/> — the two are different lights (this rig
+    /// lights the balls, the island and the gun; that method lights the ground mesh and, through
+    /// <c>ApplySkyTint</c>, the trees) and both needed the same correction independently.
+    /// </para>
     /// </summary>
     public sealed class AuroraLightingConfig
     {
         /// <summary>The hemisphere ambient from above (linear): starlight and the aurora's own glow, cool and faint, biased green the way the sky itself is.</summary>
-        public Rgb SkyAmbient { get; set; } = new(0.030f, 0.050f, 0.048f);
+        public Rgb SkyAmbient { get; set; } = new(0.016f, 0.028f, 0.026f);
 
         /// <summary>The bounce from below (linear): the forest floor under a night sky — darker than the sky above it and a shade greener than a neutral night, the aurora's own cast reflected up.</summary>
-        public Rgb GroundAmbient { get; set; } = new(0.020f, 0.032f, 0.030f);
+        public Rgb GroundAmbient { get; set; } = new(0.010f, 0.017f, 0.016f);
 
-        /// <summary>The key light's tint (linear, ~1 per channel) — a cool green-cyan cast standing in for a sun this scene does not have.</summary>
-        public Rgb KeyTint { get; set; } = new(0.85f, 1.05f, 0.98f);
+        /// <summary>The key light's tint (linear) — a cool green-cyan cast standing in for a sun this scene does not have, well under the ~1-per-channel every other sky-replacing rig uses (see the class doc's warning).</summary>
+        public Rgb KeyTint { get; set; } = new(0.40f, 0.52f, 0.48f);
 
-        /// <summary>The back/fill light's tint (linear, ~1 per channel) — cooler and bluer still, plain starlight rather than aurora.</summary>
-        public Rgb BackTint { get; set; } = new(0.55f, 0.75f, 1.00f);
+        /// <summary>The back/fill light's tint (linear) — cooler and bluer still, plain starlight rather than aurora, cut with the key.</summary>
+        public Rgb BackTint { get; set; } = new(0.26f, 0.36f, 0.50f);
     }
 }
