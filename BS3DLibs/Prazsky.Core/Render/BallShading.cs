@@ -308,6 +308,14 @@ namespace Prazsky.Core.Render
         /// says "this is happening now, to anything that comes near".
         /// </para>
         /// <para>
+        /// <b>⚠ And a figure that says it only from close up says nothing.</b> The rings were first spaced in
+        /// the grazing term (<c>1 − dot(normal, eye)</c>), which is not the drawn radius: on a sphere that
+        /// crowds them into the limb — three rings landed at 55 %, 87 % and 99 % of the radius — so from any
+        /// playing distance the well was a violet ball with one thin bright crescent, which is what the owner
+        /// reported. They are spaced across the <i>disc</i> now, and there are two of them instead of three.
+        /// See <c>GravityPS</c> for the arithmetic and the figures.
+        /// </para>
+        /// <para>
         /// <b>Its collision to solve is <see cref="Plasma"/> and <see cref="Gem"/></b>, which are the other
         /// two styles that bend what is behind them. Plasma drifts and glows all over; a gem is faceted and
         /// still. This is smooth, dark-rimmed and moving in ONE direction, which is what neither of them does.

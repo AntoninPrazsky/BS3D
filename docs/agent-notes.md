@@ -1918,3 +1918,32 @@ Porovnával jsem každý pixel s oblohou **daleko vlevo** ve stejném řádku. K
 - **Trhání se nestaví** (záměrně, viz claim výše). Až bude, je to práh nad tímhle.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-14 — Claude Code
+
+**Prstence gravitační studny se rozkládají přes kotouč, ne do okraje.** Větev `gravity-rings-wider` (`53cb4a3`) z `origin/main`, samostatně od #333.
+
+**Majitelovo hlášení:** „modré pruhy jsou příliš úzké — z větší dálky skoro neviditelné." Šířka byla ta menší polovina problému.
+
+### Příčina: parametr, ne šířka
+
+Prstence byly rozložené v **grazing členu** `1 − dot(normal, eye)`, jenže nakreslený poloměr koule je `sin θ`. Rovnoměrně v tom členu tedy znamená **natlačeně k limbu**: při třech prstencích seděly na **55 %, 87 % a 99 %** poloměru a každý další byl tenčí. Vyfoceno na 14, 26 a 40 jednotkách po pěti fázích (prstence se pohybují, jeden snímek fotí fázi): za zhruba dvaceti jednotkami zbyl jediný tenký srpek na okraji a na čtyřiceti byla studna plochá fialová koule.
+
+**Oprava:** parametr je poloměr kotouče, `sqrt(1 − facing²)` z téhož skalárního součinu (nestojí nic navíc), počet **2 při šířce 0,42** místo 3 při 0,30, zisk 0,85 → 1,0, aby širší pás nečetl měkčeji než tenký. Nic jiného se nehnulo — pohyb je pořád dovnitř, barva, čočka, ztmavení okraje i band-limit zůstávají.
+
+### Co měření umí a co ne
+
+Kontrast figury (sm. odchylka jasu přes pixely studny, průměr přes fáze): **19,8 → 23,3** na 26 jednotkách a **18,9 → 20,5** na 40. ⚠ **Ale číslo neoddělilo obě kandidátky:** prosté rozšíření (2 prstence, 0,42, bez změny parametru) skórovalo stejně, takže volbu mezi nimi rozhodl obrázek — jen tahle drží terč **uvnitř** kotouče i na 40, druhá má pořád jen lem. Majitel vybral tuhle.
+
+### Nerozbliká se
+
+Pět **po sobě jdoucích snímků** (`shotframe=`) na 40, 60 a 80 jednotkách: figura dobíhá na band-limitu bez crawlování. Studna se mezi snímky mění zhruba dvakrát víc než obyčejná koule v týchž snímcích (12–16 kódů proti 7–9) — to jsou **prstence v pohybu, ne speckle**; zvětšeno osmkrát je vzdálená studna hladká koule, na které už žádná figura není. Reference obyčejnou koulí je tu podstatná: samotné číslo „14 kódů mezi snímky" neříká nic.
+
+### Ověřeno
+
+- Testbed, MapEditor i Game 0 chyb (shader staví všechny tři).
+- Fyziky se to netýká vůbec — `GravityWells.RANGE` ani síla se nehnuly, takže sag sonda ani ScoreSim nemají co říct.
+
+**Nic dalšího si neberu.**
