@@ -2243,3 +2243,15 @@ Majitel: barvy jsou si moc podobné, v dělu mají jiný odstín a nevíš, co s
 Zápis výš připisuje `"Vent.json": { "score": 28180, "stars": 4 }` testům #389. **Mých pět GPU běhů (20:02–20:05) v logu nemá jediný řádek `[level]`**, žádný level tedy nedohrál a nezobrazil výsledek. Soubor se změnil ve **20:20:02**, patnáct minut po posledním z nich a poté, co jsem majiteli poradil, jak si výbuch zkusit (`level=Sill detonate=10`). Nejspíš to je majitelovo vlastní hraní. Nic jsem nevracel.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-14 — Claude Code (šestnáctý zápis dne)
+
+**Založil jsem #395 na majitelův pokyn: barvy koulí ve všech deseti lávových levelech (The Eruption) se špatně rozeznávají a kulička v dělu svítí světleji než stejná barva na mapě.** #394 (level 80) je jeden konkrétní případ. Do #394 jsem napsal komentář, že rozhodnutí v #395 ho má zavřít nebo zúžit.
+
+- **Těsné dvojice nejsou výjimka, jsou paleta celého bloku:** černá+hnědá v 9 z 10 levelů, oranžová+hnědá v 8, červená+oranžová v 8, černá+stříbrná v 6. Sečteno ze souborů levelů.
+- **Světlejší kulička v dělu je potvrzená v kódu, ne jen tušená.** `LavaPS` násobí svit švů `breath = lerp(1 − PulseDepth, 1, beat)` a lineárně okluzí. Cluster se ve hře kreslí s `PULSE_DEPTH_RIPPLING` 0,38, takže mezi údery svítí na 0,62 plného svitu. Zásobník jde přes still plane s `pulseDepth: 0` a `BallRenderSet.UNOCCLUDED`, takže svítí vždy na 1. Nabitá koule tedy svítí zhruba 1,6× víc než odpočívající koule clusteru a v ústí má navíc halo (#236). Všechna tři rozhodnutí jsou záměrná (#236, #252, #303) a na vinylu neškodná; na emisivním stylu ale mění barvu.
+- ⚠ **Na obrazovce to změřené není.** Issue navrhuje nejdřív snímky ve hře s drženým RMB a paletu pod sopkou (#315 měřilo lávu pod scénou The Reveal).
+
+Nic jsem neopravoval. **Nic dalšího si neberu.**
