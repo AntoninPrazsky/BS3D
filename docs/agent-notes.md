@@ -2169,3 +2169,42 @@ Sahám na `Game/GameSettings.cs`, `Game/BS3DGame.Quality.cs`, `Game/Screens/Sett
 ⚠ **Ověření dočasně podmění `%LOCALAPPDATA%\BS3D\Settings.json`**: zálohované, po testu vrácené bajt za bajtem a zkontrolované otiskem. Kdo by v tu chvíli pouštěl hru, dostane testovací nastavení. Majitel schválil čtyři krátké běhy v okně s `fpscap=40`.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-14 — Claude Code (čtrnáctý zápis dne)
+
+**#390 je na `main`u (`1b1f6a7`, merge `0ebe472`): v Nastavení je řádek Auto quality, hned pod Quality.** Větev je smazaná lokálně i na originu. Pracoval jsem ve worktree `BS3D-390`, hlavní checkout s #389 zůstal nedotčený. Issue je zatím otevřené, zavření nechávám na majiteli.
+
+### Co to je a proč právě takhle
+
+Ruční výběr kvality vypínal sondu navždy už dřív (pin v `CycleQuality`, uložený tier pinuje při každém startu), jen to nikde nebylo vidět. Řádek proto **nemá vlastní příznak**: čte `!_qualityPinnedByPlayer`, takže nemůže tvrdit nic, co sonda nedělá. Klik na Quality ho viditelně přepne na Off a běh s `quality=`/`ssaa=` ukazuje Off.
+
+- **Off** zapíše `"adaptiveQuality": false` a k tomu tier, který řádek Quality právě ukazuje, i když ho dosáhla sonda. Není to ratchet z #354: hráč sondu vypnul s tím tierem před očima a řádek, kterým ho zvedne, má hned nad přepínačem.
+- **On** uložený tier smaže (další start = High a měření jako po čisté instalaci) a hned otevře jedno okno sondy od tieru, který platí.
+- **Start:** klíč `false` pinuje stejně jako uložený tier, i když žádný uložený není, a pak hraje High. Starý soubor s tierem a bez klíče pinuje dál a řádek ukáže Off, takže se nikomu chování nezměnilo.
+
+### ⚠ Chyba, kterou nová cesta zpřístupnila na jedno kliknutí
+
+Re-open se neptá, na jakém tieru sonda stojí, takže okno pod floorem na **Low** „snížilo Low na Low": řádek `[quality]` a oznámení v menu pro změnu, která se nestala. Narazit na to šlo i dřív (level postavený na Low na stroji pod floorem), teď by stačilo zapnout Auto quality nad pinnutým Low. Krok na Low teď jen zavře latch.
+
+### Jak ověřit sondu na rychlém desktopu
+
+Desktop pod floor (68 při 75 Hz) nikdy nespadne, takže test „vypnuto" by sám nic nedokazoval. **`fpscap=40` sondu spustí pokaždé**, a to s menší zátěží než cap na refresh. Čtyři krátké běhy v okně (majitel schválil čtyři), `mute`, `logfps`, `[build]` z worktree zkontrolovaný:
+
+1. Level 1 s nastavením beze změny: High → Medium → Low, první krok u patnáctého sekundového odečtu. Stejně jako main.
+2. Totéž s `"adaptiveQuality": false`: **31 odečtů pod floorem, z toho 8 ve fullscreenu 3840×1600 mezi dvěma F11, a ani jeden řádek `[quality]`.**
+3. Front-end, klávesami do Nastavení: zapnutí pod otevřenou stránkou dalo High → Medium → Low do deseti vteřin. Klik na Quality pak řádek přepnul na Off a zapsal Medium + `false`.
+4. Z uloženého Medium: hraje od prvního odečtu bez sondy. On dal jeden řádek Medium → Low. Off zapsal `"quality": "Low"` (vidět v `.bak`). On zapsal `true` bez tieru a deset vteřin pod floorem na Low nedalo řádek ani oznámení.
+
+Snímky stránky potvrzují každý stav. Nový řádek srovnal výšku obou sloupců, Back zůstává na obrazovce a panel měří 817 px při 1600×900 (komentář ve `SettingsPage` říkal 805, přepsáno změřeným). `Game.sln` 0 chyb a 0 upozornění. Změna je jen v projektu Game, který žádný jiný solution nestaví.
+
+### ⚠ Hra nemá argument na jiný soubor s nastavením
+
+Běhy proto podměňovaly skutečný `%LOCALAPPDATA%\BS3D\Settings.json`. Oba soubory (i `.bak`) jsou vrácené bajt za bajtem i s časy zápisu a otisky jsou ověřené.
+
+**Nález, který není můj:** `Progress.json` se změnil ve **20:20:02**, čtyři minuty před mým prvním během. Přibyl `"Vent.json": { "score": 28180, "stars": 4 }`. Nejspíš jsou to testy #389 na Volcano levelech (snímky v hlavním checkoutu 20:02–20:05; `detonate=` bombu opravdu odpálí). Nevracel jsem to, `Progress.json.bak` drží stav z 2. 9. Jestli ten záznam v kampani chce, rozhodne majitel.
+
+**Mimochodem:** `docs/formats-and-tools.md` odkazuje na „The settings page" v `docs/game-shell.md`, jenže taková sekce tam není (nastavení je bullet v „The front end"). Nechal jsem to být.
+
+**Nic dalšího si neberu.**
