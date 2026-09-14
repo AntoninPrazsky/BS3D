@@ -1977,5 +1977,59 @@ Pět **po sobě jdoucích snímků** (`shotframe=`) na 40, 60 a 80 jednotkách: 
 ## 2026-09-14 — Claude Code (čtvrtý zápis dne)
 
 **#256 a #333 zavřené na GitHubu — kód byl hotový, chybělo jen zavření.** Majitel požádal o kontrolu #256. #323–332 byly CLOSED, ale #333 (těžká koule) běžela dál jako OPEN, přestože je od `83e7b5b` na `main`u — přesně ten stav, který zápis výš ("druhý zápis dne") nechal na majiteli: "zavření obou issue jsem nechal na majiteli." Žádný kód se neměnil, jen ověření (`BallKind.cs` nese všech deset druhů s plnou dokumentací, deset merge commitů #324–333 je v historii `main`u) a dvě `gh issue close` s komentářem, co bylo změřeno a ověřeno.
+---
+
+## 2026-09-14 — Claude Code (pátý zápis dne)
+
+**#222 (polární led) je na větvi `222-polar-scene` (`10b442b`), NEmergnuto: čeká na majitelovo oko, protože je to scéna a ta se schvaluje pohledem.** Osmnáctý `SceneKind`, `Polar.fx` + `PolarSceneConfig` na strojovně pouště, vlastní kopule, ambience, viewpoint, JSON diskriminátor, tři content projekty.
+
+### Tři opravy, které si vynutila fotka
+
+Každá je zapsaná tam, kde vznikla — tohle je jen jejich seznam:
+
+1. **Sastrugi jsou POVRCH, ne terén.** Postavené jako výtlak v měřítku, které sastrugi mají (jednotky metrů), padly na zhruba jednu buňku mřížky, takže je síť neudržela a pole se vyfotilo jako hrubé duny s fasetami. Ledovcový příkrov **je** placatý; co oko čte, je textura. Geometrie nese jen dlouhé vlny a čelo, sastrugi jsou perturbace normály — přesně dělba, kterou má poušť mezi dunami a vlnkami.
+2. **Čelo jsou KRY, ne hřeben.** Vyhlazené se vyfotilo jako **řada lámajících se vln** — což je to, co jakýkoli hladký hřbet pod azurovým materiálem čte, a jediná věc, kterou si tahle scéna nemůže dovolit (zamrzlé moře je v oku hned vedle). Tlakový led je rubanina: pás je kvantovaný na desky, každá zvednutá vlastním hashem.
+3. **A je to FRONTA, ne prstenec.** Zavřený dokola četl jako zeď arény a scéna přestala být rozlohou, což je přesně to, co issue chce nade vše. Teď kryje výseč a zbytek kruhu je otevřený led k obzoru.
+
+### ⚠ Past bílé plochy (ACES) se neřeší jedním číslem
+
+Celobílé pole se slije do jednoho tónu. Drží ho tři věci **dohromady**: albedo sněhu není 1, barva stínu je barva **oblohy** (a tedy modrá), a sastrugi mají vlastní stínování prohlubní nezávislé na slunci. To třetí je nosné, ne dekorace: při **vysokém** slunci má plochá pláň skoro konstantní `ndotl`, takže reliéfní člen neříká nic — při ±0,12 se pole vyfotilo jako list bílého papíru. Je ±0,42.
+
+### Kopuli vybrala fotka, ne vkus
+
+Obsah scény je materiál a materiál ukazuje to, co na něj svítí — takže kopule s touhle scénou hýbe víc než s kteroukoli jinou. Vyfoceny čtyři: **11** (slunce 55°) polární poledne, ale sastrugi drží jen stínováním prohlubní; **13** (13°, tyrkysový obzor do indiga) **ta pravá** — nízké slunce hrabe sastrugi do reliéfu, čelo svítí azurově, trhliny čtou jako štěrbiny světla; **16** (4°, krémový obzor nad skoro černým zenitem) led vezme teplé světlo a čte **zlatohnědě**, což skutečný příkrov při západu dělá, ale tahle scéna to není; **17** (42°) bílá na bílé, azurová nevystřelí vůbec, protože průsvit potřebuje slunce **za** ledem. Scéna si tedy říká o 13 v Testbedu i ve hře. Obecné pravidlo: **nízké slunce a studený obzor**.
+
+### Cena a jedna hloupost v ní
+
+Proti poušti (táž kamera, ssaa 2, 1600×900, `fpscap=400`, mediány z 24 oken): **polar 30,49 ms proti desert 28,26**, tedy **+7,9 %**. Bylo to 31,70, dokud `CrevasseField` vzorkovalo tlakový hřbet samo: trhliny potřebují vědět, kde je pláň napjatá, takže jedno vyhodnocení výšky stálo dva hřbety, tři tapy na normálu šest a pixel shader další dva. Předání hodnoty dolů srazilo pixel z dvanácti hřbetů na čtyři a ušetřilo 1,2 ms.
+
+### Co jsem si nevzal a je to napsané i v docs
+
+Pět návrhů do LevelGenu a místo v pořadí kapitol (scéna není kapitola — jedenáct z osmnácti scén jmenuje nějaký level, backdrop bez bloku je normální stav), létající diamantový prach (na zemi jiskření je) a polární noc s polární září, kterou vlastní #205.
+
+**Nic dalšího si neberu.**
+
+---
+
+## 2026-09-14 — Claude Code (šestý zápis dne)
+
+**#222 přepracováno na majitelovo zamítnutí** (`23564a6`, pořád na větvi `222-polar-scene`, nemergnuto). Obě výtky byly přesné: *„ty křivé sloupy vzadu ani není zřejmé, co to je — vypadá to spíš jako grafický glitch"* a *„nikde nevidím ten popraskaný led, co prosvítá světle modře"*.
+
+### ⚠ Obě vady byly konstrukční, ne ladicí
+
+- **Sloupy:** kry kvantované v **polárních** souřadnicích = klíny rostoucí se vzdáleností, jejichž výšky se potkávaly na radiálních švech; při výšce 26 nad kry 10–20 širokými byla deska sloup. Teď mřížka ve **světových** souřadnicích, každá buňka **nakloněná rovina**, fronta vysoká 11. Širší než vyšší = kry.
+- **Chybějící prosvítající led:** trhliny byly vázané na napětí fronty 300 jednotek daleko, kam žádná kamera nechodí, a plochá pláň průsvitu nedala žádný silný led. Teď pole trhlin přes celou pláň (mýtina pod ostrovem zůstává celá) a **modrý led** — holý ledovec, odkud vítr odvál sníh.
+
+### ⚠ Puklina prošla třemi špatnými čteními, než četla jako puklina
+
+**Val** (světlejší než sníh kolem), pak **rampa** (mělké koryto se světlým dnem, protože záře vrcholila v hrdle), pak teprve puklina: úzká (~3 jednotky), hluboká 8 (aby měla stěny, které slunce zastíní), ztmavené hrdlo, průsvit **na stěnách** a na nich utlumený Fresnel — strmá stěna viděná z pláně je pod klouzavým úhlem a zrcadlila obzor místo aby ukázala led.
+
+### ⚠ Past při posuzování téhle scény
+
+**Testbedova F10 kamera stojí tak nízko za dělem, že pláň schová ostrov** — z ní trhliny nejsou vidět vůbec, i když ve hře jsou. Ověřeno v `BS3D.exe levelfile=` z herní kamery. Kdo tuhle scénu bude soudit v Testbedu, ať použije volnou kameru výš.
+
+### Cena
+
+Proti poušti, párové běhy: **polar 32,56 / 32,70 ms, desert 27,98 / 28,36** → asi **+16 %** (bylo +7,9 %) za ~6 šumových vyhodnocení na pixel navíc. Jedno `BlueIce` místo dvou pohnulo mediánem o 0,14 ms, tj. v šumu — zapsáno jako úklid, ne jako úspora. Další páka, kdyby bylo potřeba: maska trhlin má tak nízkou frekvenci, že tři tapy na normálu mohou sdílet jeden vzorek.
 
 **Nic dalšího si neberu.**

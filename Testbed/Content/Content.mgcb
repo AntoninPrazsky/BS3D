@@ -50,6 +50,12 @@
 /processorParam:DebugMode=Auto
 /build:Shaders/Desert.fx
 
+#begin Shaders/Polar.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/Polar.fx
+
 #begin Shaders/Outback.fx
 /importer:EffectImporter
 /processor:EffectProcessor

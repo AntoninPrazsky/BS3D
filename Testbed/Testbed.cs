@@ -343,6 +343,24 @@ namespace Testbed
         //altitude looks like and is what keeps white cloud reading as white cloud.
         private const byte STORM_DEFAULT_SKY_DOME = 20;
 
+        //The polar icesheet (#222) states one for a reason the dome sweep measured rather than argued: this
+        //scene's whole content is a MATERIAL, and what a material does is decided by the light on it, so the
+        //dome moves it further than it moves any other backdrop here. Photographed under four:
+        //
+        //  11 (sun 55 deg, cyan over a sandy horizon) - a credible polar noon, but a high sun on a flat field
+        //     leaves ndotl nearly constant, so the sastrugi only read through their own trough shading
+        //  13 (sun 13 deg, teal horizon into indigo)  - THE ONE. A low sun rakes the sastrugi into relief,
+        //     the front glows cyan against it and the crevasses read as slots of light
+        //  16 (sun 4 deg, cream over near-black)      - the ice takes the warm light and reads GOLDEN-BROWN,
+        //     which a real sheet does at sunset and is a look, but is not what this scene is for
+        //  17 (sun 42 deg, cream horizon, pale teal)  - white on white: the cyan never fires, because the
+        //     transmission needs the sun BEHIND the ice and a high sun is never behind anything
+        //
+        //So 13, and the general rule it stands on: this scene wants a LOW sun and a COLD horizon. #222 says
+        //as much ("the low sun is half the picture") and #220 is what made it stateable at all - a dome
+        //carries its own sun direction now, so choosing the dome chooses the rake.
+        private const byte POLAR_DEFAULT_SKY_DOME = 13;
+
         //Space deliberately forces NO dome, unlike those two. Its dome is neither drawn (Space.fx covers the
         //whole frame) nor read (SpaceLightingConfig states the light rig instead, for the reasons set out
         //there) - so it is completely inert in that scene, and NumPad1 cycling domes in it changes nothing.
@@ -534,7 +552,7 @@ namespace Testbed
             //Testing: "scene=<name>" picks the starting environment, through the one parser every executable
             //now shares (#75 — this was an if/else chain here and a switch in the game, kept in step by hand,
             //which is exactly what a script driving both cannot afford). An unrecognised name leaves the
-            //default city standing. It is no longer the only way to reach ten of the seventeen: since #380
+            //default city standing. It is no longer the only way to reach eleven of the eighteen: since #380
             //NumPad2 walks the whole enum, so this pins where a run STARTS rather than what it can see.
             if (SceneRenderer.TryParseScene(options.Scene, out SceneKind startupScene)) _scene = startupScene;
             _exposure = options.Exposure > 0f ? options.Exposure : DEFAULT_EXPOSURE;
@@ -545,7 +563,7 @@ namespace Testbed
             if (_skyFromCommandLine) _skyModelNumber = options.SkyNumber; //Testing: "sky=<n>" on the command line picks the starting sky dome
             else
             {
-                //The dome this scene states, if it states one — six of the seventeen do, and DefaultSkyDome
+                //The dome this scene states, if it states one — seven of the eighteen do, and DefaultSkyDome
                 //carries which and why. It is the same call SetScene makes, which is the whole point of it
                 //being a call: this arm and that one were two hand-kept tables until #380.
                 byte startupDome = DefaultSkyDome(_scene);
@@ -1233,6 +1251,7 @@ namespace Testbed
             SceneKind.Volcano => VOLCANO_DEFAULT_SKY_DOME,
             SceneKind.Mars => MARS_DEFAULT_SKY_DOME,
             SceneKind.Storm => STORM_DEFAULT_SKY_DOME,
+            SceneKind.Polar => POLAR_DEFAULT_SKY_DOME,
             _ => 0
         };
 
