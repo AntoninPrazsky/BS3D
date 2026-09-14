@@ -2011,6 +2011,22 @@ Pět návrhů do LevelGenu a místo v pořadí kapitol (scéna není kapitola �
 
 ---
 
+## 2026-09-14 — Claude Code (osmý zápis dne)
+
+**#205 přeladěno na majitelovu zpětnou vazbu (`6de9ec7`), hned po prvním capture.** Vlastními slovy: *„Aurora vypadá dobře, les moc ne. Měly by v něm být hlavně jehličnany, mělo by jich tam být víc a les by měl být celkově mnohem tmavší, možná v něm i trochu sněží — je zima. Listnaté stromy jsou opadané."*
+
+**Tma měla dvě různé příčiny a první capture opravil jen jednu.** `AuroraGlowColor` (zem + přes `ApplySkyTint` stromy) byl už jednou sražen na 0,22×, ale koule/ostrov/děl/stromová základní barva berou svit z `AuroraLightingConfig`u — a ten pořád nesl konvenci „~1 na kanál" pro `KeyTint`/`BackTint`, co mají Měsíc/dream/cavern, a žádná z těch tří scén nesvítí na osazený `ForestScatterRenderer`. Obě světla srazena zároveň (rig o dalšího zhruba půl, `AuroraGlowColor` z 0,22× na 0,09×) — schválně spolu, protože jedna stížnost na jednu fotku neumí rozlišit, které z nich to bylo.
+
+**Zbytek byl v `AuroraSceneConfig.Terrain` a nikde jinde** — `ConiferFraction` 0,94, `Count` 380, listnatá koruna zmenšená z 3,1/5,6 na 0,55/0,9 (pahýl bez listí — poctivý limit editace configu, žádná zimní/bezlistá mesh varianta v `ForestScatterRenderer` neexistuje, a při 94 % jehličnanů je to skoro jedno). Ani strom se nehnul v denním lese — nezávislá výsadba (#205's own design decision) se právě teď vyplatila.
+
+**Sníh sdílený s horskou scénou, ne druhá kopie.** `DrawSnow` bral `_mountainConfig.Snow` napřímo; teď bere `SnowConfig` jako argument a vzhledové uniformy tlačí každý snímek místo jednou při apply configu — sdílený efekt/buffer žádá "co se má KRESLIT teď", ne "co se naposledy aplikovalo". `ApplySnowParameters` tím zcela zbytná, smazána. Buffer zůstává horský (`BuildSnowBuffers` pořád podle `_mountainConfig.Snow.FlakeCount`), aurořin vlastní `FlakeCount` je useknutý na kapacitu bufferu.
+
+**Ověřeno:** tři exe stavějí, LevelGen/ScoreSim exit 0, MapEditor kouřový test čistý. Cena přeměřená, ne předpokládaná stejná: 758–762 FPS proti 761–765 před přeladěním — v šumu, i s 58 % víc stromy a sněhem navíc. Nový capture (herní kamera i ze země) poslán majiteli přes `SendUserFile`.
+
+**Nic dalšího si neberu.**
+
+---
+
 ## 2026-09-14 — Claude Code (sedmý zápis dne)
 
 **#205 hotovo a na `main`u (`54e253f`), po rebase na `222-polar-scene`.** Osmnáctou scénu vzal Polar dřív — merge je proto **devatenáctá**, ne osmnáctá, jak zápis níž ("pátý zápis dne") čekal. Přečíslování šlo přesně tak, jak jsem si tam napsal: `git rebase origin/main`, osm konfliktů v `SceneRenderer.cs` (enum, `SCENE_NAMES`, `IsSolidTerrainScene`, `TryParseScene`, `TryGetViewpoint`, `GetSceneConfig`, `DrawEnvironment` switch — `ReplacesSky` a `TryGetLightRig` bez konfliktu, protože Polar do nich vůbec nesahá, není `ReplacesSky`), plus `SceneConfig.cs`, `CLAUDE.md` a `docs/scenes.md` (tři konflikty — hlavička, viewpoint tabulka, a spojení obou nových sekcí na konci souboru). Dvě věci git sám tiše smíchal špatně a stálo by to za přehlédnutí: obě větve nezávisle přepsaly „sedmnáct"→„osmnáct" na týchž řádcích (`CLAUDE.md`, `docs/scenes.md`, `docs/testbed.md`, `docs/formats-and-tools.md`), takže se to smergovalo BEZ KONFLIKTU na „osmnáct" — algebraicky náhodou správně, ale ve skutečnosti zastarale, protože pravý součet je devatenáct. Dohledáno greppem na „eighteen" po dokončeném rebase, ne důvěrou v čistý merge.
