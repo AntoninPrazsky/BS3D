@@ -1947,3 +1947,13 @@ Pět **po sobě jdoucích snímků** (`shotframe=`) na 40, 60 a 80 jednotkách: 
 - Fyziky se to netýká vůbec — `GravityWells.RANGE` ani síla se nehnuly, takže sag sonda ani ScoreSim nemají co říct.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-14 — Claude Code (druhý zápis dne)
+
+**Obě větve, které čekaly na slovo, jsou na `main`u:** `333-heavy` (`83e7b5b`) a `gravity-rings-wider` (`8ccf014`), obojí `--no-ff`, na majitelův pokyn. Zápisy výše zůstávají stát tak, jak byly psané — včetně vět „NEmergnuto" a „čeká na majitelovo oko", které tímhle přestaly platit. Obě větve smazané lokálně i na originu; při té příležitosti šly pryč i dvě staré lokální (`380-editor-all-scenes`, `381-neighbour-cells-without-enumerator`), dávno mergnuté, jejichž vzdálené protějšky už neexistovaly. Repozitář má teď na originu jedinou větev, `main`.
+
+**Šev mezi nimi byl skutečný a je ověřený:** obě sahaly do `InstancedModel.fx` (#333 přidává techniku na konec, studna mění konstanty a tělo `GravityPS`) a obě psaly na konec tohohle žurnálu — textově kolidoval jen žurnál, vyřešeno zachováním obou zápisů v pořadí podle data. Po mergi: **čtyři solutiony 0 chyb**, **LevelGen exit 0 a `Game/Levels` beze změny**, ScoreSim „All levels rate the right way round", a v shaderu stojí obě změny vedle sebe (`InstancedModelHeavy` i `float across = sqrt(...)`).
+
+**#333 tím zavírá #256** — deset speciálů z rozpadu je hotových. Zavření obou issue jsem nechal na majiteli.
