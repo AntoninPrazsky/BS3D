@@ -2003,3 +2003,28 @@ Proti poušti (táž kamera, ssaa 2, 1600×900, `fpscap=400`, mediány z 24 oken
 Pět návrhů do LevelGenu a místo v pořadí kapitol (scéna není kapitola — jedenáct z osmnácti scén jmenuje nějaký level, backdrop bez bloku je normální stav), létající diamantový prach (na zemi jiskření je) a polární noc s polární září, kterou vlastní #205.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-14 — Claude Code (pátý zápis dne)
+
+**#222 přepracováno na majitelovo zamítnutí** (`23564a6`, pořád na větvi `222-polar-scene`, nemergnuto). Obě výtky byly přesné: *„ty křivé sloupy vzadu ani není zřejmé, co to je — vypadá to spíš jako grafický glitch"* a *„nikde nevidím ten popraskaný led, co prosvítá světle modře"*.
+
+### ⚠ Obě vady byly konstrukční, ne ladicí
+
+- **Sloupy:** kry kvantované v **polárních** souřadnicích = klíny rostoucí se vzdáleností, jejichž výšky se potkávaly na radiálních švech; při výšce 26 nad kry 10–20 širokými byla deska sloup. Teď mřížka ve **světových** souřadnicích, každá buňka **nakloněná rovina**, fronta vysoká 11. Širší než vyšší = kry.
+- **Chybějící prosvítající led:** trhliny byly vázané na napětí fronty 300 jednotek daleko, kam žádná kamera nechodí, a plochá pláň průsvitu nedala žádný silný led. Teď pole trhlin přes celou pláň (mýtina pod ostrovem zůstává celá) a **modrý led** — holý ledovec, odkud vítr odvál sníh.
+
+### ⚠ Puklina prošla třemi špatnými čteními, než četla jako puklina
+
+**Val** (světlejší než sníh kolem), pak **rampa** (mělké koryto se světlým dnem, protože záře vrcholila v hrdle), pak teprve puklina: úzká (~3 jednotky), hluboká 8 (aby měla stěny, které slunce zastíní), ztmavené hrdlo, průsvit **na stěnách** a na nich utlumený Fresnel — strmá stěna viděná z pláně je pod klouzavým úhlem a zrcadlila obzor místo aby ukázala led.
+
+### ⚠ Past při posuzování téhle scény
+
+**Testbedova F10 kamera stojí tak nízko za dělem, že pláň schová ostrov** — z ní trhliny nejsou vidět vůbec, i když ve hře jsou. Ověřeno v `BS3D.exe levelfile=` z herní kamery. Kdo tuhle scénu bude soudit v Testbedu, ať použije volnou kameru výš.
+
+### Cena
+
+Proti poušti, párové běhy: **polar 32,56 / 32,70 ms, desert 27,98 / 28,36** → asi **+16 %** (bylo +7,9 %) za ~6 šumových vyhodnocení na pixel navíc. Jedno `BlueIce` místo dvou pohnulo mediánem o 0,14 ms, tj. v šumu — zapsáno jako úklid, ne jako úspora. Další páka, kdyby bylo potřeba: maska trhlin má tak nízkou frekvenci, že tři tapy na normálu mohou sdílet jeden vzorek.
+
+**Nic dalšího si neberu.**
