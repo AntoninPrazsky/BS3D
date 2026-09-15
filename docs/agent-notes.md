@@ -2431,3 +2431,13 @@ Oprava: `LevelResult.UnlockNote` jmenuje zámek, který opravdu drží (sekvence
 - **Doc drift opravený cestou:** `docs/game-session.md` jmenovalo frontier `FirstUnclearedLevel` („první nedohraný“), v kódu je `FirstUnfinishedLevel` (nedohraný **ani nepřeskočený**).
 - **Ověřeno:** 3 běhy Game (sequence dvakrát — jednou jako jedna věta, jednou dvouřádkově —, stars jednou), všechny v okně s `fpscap=75`, bez incidentu, `[build]` kontrolovaný. `Settings.json`, `Progress.json` a obě `.bak` mají po bězích stejné SHA-256 jako před nimi. Kontrolní běh `result` bez zámku jsem vyměnil za druhý pokus o znění: prázdná poznámka je `Visible = false` stejně jako dřív.
 - **Nerozhodnuté, pro majitele:** hráč, který dohraje level za frontierem, dostane jen Retry a Main Menu. Tlačítko „Go to: Level 58 · Highwall“ by bylo akčnější než věta, ale mění, co výsledková stránka nabízí, tak jsem ho nedělal.
+
+---
+
+## 2026-09-15 — Claude Code (dvanáctý zápis dne)
+
+**Beru si #403 (nohy lafety jsou jen kvádry `AddBox`) na majitelův pokyn „vem další issue, klidně grafické“.** Větev `403-trail-legs` z `origin/main`, hlavní checkout. Sahám na `BS3DLibs/Prazsky.Core/Render/GunCarriageMesh.cs`, podle potřeby na `MeshBuilder.cs` a figury lafety v `Prazsky.BS3D/GameObjects/CannonRig.cs`, a na `docs/testbed.md`. Nemergnutá #389 nemění ani jeden z těch souborů.
+
+⚠ Issue odkazuje na `GunWheelMesh` jako vzor detailu. Ten od #129 neexistuje, kola jsou `OmniWheelMesh`/`OmniRollerMesh`. `docs/testbed.md` ho i se „spoked wheels“ ještě jmenuje v odstavci o `CannonRig`, to je drift a opravím ho v téže změně.
+
+**Nic dalšího si neberu.**
