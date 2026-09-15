@@ -2342,3 +2342,19 @@ Rozhodnutí z issue, než padne kód — cituju je tu, aby je nikdo nemusel dohl
 **#393 je na `main`u** (merge `ed08046`, `--no-ff` přes `git -C BS3D-322`, tři commity `393-tron-grid-scene` dovnitř beze změny). Majitel po třetím kole řekl "Mergni to". Větev smazaná lokálně i na originu, hlavní checkout přešel na `origin/main` (main sám drží worktree `BS3D-322` — checkout proto detached, ne branch, aby šla stará větev smazat). `BS3DLibs.sln` po mergi staví čistě na `BS3D-322`. Issue nechávám otevřené, zavření na slovo majitele.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-15 — Claude Code (šestý zápis dne)
+
+**Beru si revizi #393 (Grid) na majitelův pokyn: "zkontroluj, navrhni, co by šlo vylepšit, a vylepši to".** Větev `393-grid-review` z `origin/main`, hlavní checkout. Nálezy ověřené offline sondou (C# ve scratchpadu, jen CPU), které jdou do kódu:
+
+1. **Hilbertova "stopa" není křivka.** Shader rozsvěcí hranu mezi dvěma po sobě jdoucími *buňkami* — to je hrana, kterou křivka *překračuje*, kolmá na její směr — takže na podlaze vzniká bludiště nesouvislých příček: na 301×301 vrcholech 5 390 izolovaných, 18 027 slepých konců, 28 549 T-křižovatek. Oprava za stejnou cenu (tři `xy2d`): uzly křivky jsou *vrcholy* mřížky a svítí úsečka mezi dvěma po sobě jdoucími vrcholy. Hilbertova křivka začíná v (0,0) a končí v (N−1,0), takže se dlaždice v ose x řetězí (N²−1 → 0) — sonda: **každý vrchol má stupeň přesně 2**, jedna souvislá křivka a žádný šev.
+2. **Antialiasing čar** bere izotropní `length(fwidth(xz))` pro obě osy a maska neztrácí energii, když stopa pixelu přeroste šířku čáry → v klouzavém pohledu čáry v dálce tloustnou a zjasňují. Oprava: derivace po osách + zachování pokrytí.
+3. **Objekty nemají svítící hrany** — tělo je skoro barva voidu, siluety se ztrácejí; přitom "světlo jen ze švů" je hlavní pravidlo issue.
+4. **Life je náhodná 28% polévka + 3 náhodné buňky za generaci**, majitel chtěl "hezké varianty". Oprava: pojmenované vzory s ověřenou periodou (glider, LWSS/MWSS/HWSS, pulsar P3, pentadekatlon P15, Kokova galaxie P8, osmička P8, tumbler P14, octagon 2 P5; metuzalémy R-pentomino a diehard), nový vzor při stagnaci (perioda ≤ 2 nebo vymření — 28% polévka stagnuje v mediánu po 365 generacích), řádky jako `uint` s bitovou sčítačkou (bit-exact proti naivním pravidlům na 500 deskách × 200 generacích; 18 desek 0,0019 ms místo 0,18 ms), rozfázované hodiny desek a dosvit fosforu.
+5. **Zastaralé komentáře a doc** po třetím kole ("one shared Game of Life", "flips three cells" — ve skutečnosti přiřazuje náhodnou hodnotu, atd.).
+
+Ambience beze změny (majitel: nechat). GPU session povolená s `fpscap=75`, zhruba 10–12 krátkých spuštění.
+
+**Nic jiného si neberu.**
