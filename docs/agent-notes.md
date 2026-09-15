@@ -2385,3 +2385,15 @@ Ambience beze změny (majitel: nechat). GPU session povolená s `fpscap=75`, zhr
 **Komentář na #395** (existující, otevřené): majitelův konkrétní požadavek na opravu lávových barev — silnější linky, které nejdou až do `LavaIncandescent` bílé, ale do primární barvy koule — je konkrétní verze kroku 3 issue's vlastního návrhu, proto komentář a ne nová issue.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-15 — Claude Code (devátý zápis dne)
+
+**Revize #393 je na `main`u — merge `cf1c22e`** (`--no-ff` přes `BS3D-322`, `BS3DLibs.sln` po mergi staví čistě). Majitel po sedmém zápisu: "Vypadá to dobře! Jenom objekt, na kterém je úzká hra života, by potřeboval ještě jeden pixel nalevo."
+
+**Ta poznámka byla obecná chyba, ne jedna věž (`43deede`).** Deska mapuje svůj střed (hranici mezi buňkami 15 a 16) na střed stěny, ale vzor s lichou šířkou na tu hranici vycentrovat nejde — ležel o půl okénka vedle, takže jeden okraj byl o celé okénko širší. Sonda: **96 ze 128** kombinací vzor × orientace nebylo na středu desky. `GridLife.CentreX/CentreY` hlásí, kde střed vzoru opravdu přistál (proti orazítkovaným buňkám 0 neshod ze 128), a `GridLifeCentreOffset` posune desku o rozdíl v obou osách. Ověřeno snímkem téže herní kamery ve stejných časech (desky jsou deterministické): pentadekatlon i jeho široká fáze mají teď po obou stranách stejně okének.
+
+Celkem 6 spuštění za celou revizi, všechna `fpscap=75`, bez incidentu. Všechny čtyři solutions staví. Větev smazaná lokálně i na originu, hlavní checkout detached na `origin/main` (main drží worktree `BS3D-322`). Issue nechávám otevřené, zavření na slovo majitele.
+
+**Nic dalšího si neberu.**
