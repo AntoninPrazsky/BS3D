@@ -2317,3 +2317,20 @@ Rozhodnutí z issue, než padne kód — cituju je tu, aby je nikdo nemusel dohl
 **Pořád na majitelovo oko** — obě kola teď na téže větvi, žádný merge.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-15 — Claude Code (čtvrtý zápis dne)
+
+**#393, třetí kolo, dva požadavky z téhož druhého review.** Pořád `393-tron-grid-scene`, commit `6761335`.
+
+1. **"Těch budov je tam málo a některé by měly mít krychlový tvar, aby to nevypadalo jako budovy, ale jako abstraktní objekty z digitálního světa."** `Count` 9→18, `CubeFraction` 0,4 — čtyřicet procent je teď velká, skoro-krychlová (`CubeSizeMin/Max` 45–75, tak aby jedna stěna ukázala skoro celou 32×32 Life desku najednou, ne jen výřez), zbytek zůstávají věže (`TowerHeightMin/Max`, `TowerFootprintMin/Max`, beze změny). Krychle navíc dostává i horní stěnu (věž ne — hráčská kamera z nízka strop věže nikdy neuvidí). Retry přes kružnice odstupu (`placed` list, 20 pokusů), aby se hustší pole nepřekrývalo.
+2. **"Stav Conwayovy hry by se měl lišit i mezi jednotlivými věžemi/objekty — jiný seed, různé hezké varianty."** Každý objekt teď nese **vlastní nezávislou** `GridLifeBoard` (vlastní current/next mřížka, vlastní textura, vlastní hodiny kroku) místo čtení jednoho sdíleného pole na offset. Jeden sdílený `Random` stream pořád seeduje všechny desky, ale každá spotřebuje jinou část streamu — Life je dost chaotický na to, aby dva nesouvisející starty do pár generací úplně rozešly. **⚠ Důsledek: sdílený vertex/index buffer zůstává jeden, ale kreslení teď stojí jeden draw call na objekt místo jednoho na všechny** — draw call drží jen jednu texturu najednou a každý objekt má teď svou. `BuildGridTowers` si navíc pamatuje (startIndex, počet trojúhelníků) na objekt.
+
+**Ověřeno:** všechny 4 solutions staví čistě, Hra i editor naběhnou bez pádu, `fpscap=75` screenshot z dálky ukazuje věže i krychle vedle sebe s viditelně ODLIŠNÝM stavem Life (ne výřezy ze stejného obrázku), LevelGen a ScoreSim exit 0 beze změny.
+
+**Výkon pořád nepřeměřeno** (stejný důvod jako minule — `fpscap=75` je plošina na tomhle rozsahu FPS), `docs/scenes.md`'s poznámka platí dál a teď se vztahuje i na víc geometrie a víc draw callů — pořád odhad, ne číslo.
+
+**Pořád na majitelovo oko, všechna tři kola na jedné větvi.**
+
+**Nic dalšího si neberu.**
