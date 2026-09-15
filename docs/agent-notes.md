@@ -2423,3 +2423,11 @@ Issue navrhuje styl "tvar levelu je pojmenovaná matematická konstrukce", tedy 
 Oprava: `LevelResult.UnlockNote` jmenuje zámek, který opravdu drží (sekvence napřed, slovy výběru levelů), poznámka se zalamuje do šířky plátu (v play přetékala z pravého okraje), nový testovací argument `nextlocked=<stars|sequence>` na stránce `result`. Majitel povolil 3 krátké běhy Game (`fpscap=75`, okno, `mute`).
 
 **Nic dalšího si neberu.**
+
+**Dodatek: #397 je na `main`u — merge `6f4fe09`** (commit `df5dfb4`, `--no-ff` přes `BS3D-322`, `Game` po mergi staví s 0 chybami). Větev smazaná lokálně i na originu, hlavní checkout detached na `origin/main`. Issue nechávám otevřené, zavření na slovo majitele.
+
+- **Poznámka je teď dvouřádková, pravidlo nad čísly:** `Next level unlocks at 216 ★` / `You have 214`, nebo `Levels open one at a time` / `Level 3 · Toadstool is next`. První řez byla jedna věta a zalomení ji rozlomilo uprostřed jména („Level 3 ·“ / „Toadstool is next“). Explicitní `\n` Myra (FontStashSharp) v zalamovaném labelu respektuje, ověřeno snímkem.
+- **Proč přetékala:** mechanismus jsem neověřoval, viděl jsem jen výsledek (text začíná u levého okraje popisků a pokračuje ven z plátu). Komentář u `MinWidth` tvrdil, že poznámka „smí být delší než sloupec, místo aby se ořízla“, a v praxi to znamenalo text ven z plátu. Teď má `Wrap` a `Width = BS3DGame.MenuColumnPlateContentWidth` (sloupec minus odsazení plátu; odsazení je nově pojmenovaná konstanta místo literálu 106/67).
+- **Doc drift opravený cestou:** `docs/game-session.md` jmenovalo frontier `FirstUnclearedLevel` („první nedohraný“), v kódu je `FirstUnfinishedLevel` (nedohraný **ani nepřeskočený**).
+- **Ověřeno:** 3 běhy Game (sequence dvakrát — jednou jako jedna věta, jednou dvouřádkově —, stars jednou), všechny v okně s `fpscap=75`, bez incidentu, `[build]` kontrolovaný. `Settings.json`, `Progress.json` a obě `.bak` mají po bězích stejné SHA-256 jako před nimi. Kontrolní běh `result` bez zámku jsem vyměnil za druhý pokus o znění: prázdná poznámka je `Visible = false` stejně jako dřív.
+- **Nerozhodnuté, pro majitele:** hráč, který dohraje level za frontierem, dostane jen Retry a Main Menu. Tlačítko „Go to: Level 58 · Highwall“ by bylo akčnější než věta, ale mění, co výsledková stránka nabízí, tak jsem ho nedělal.
