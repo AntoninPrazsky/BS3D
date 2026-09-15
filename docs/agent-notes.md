@@ -2396,4 +2396,6 @@ Ambience beze změny (majitel: nechat). GPU session povolená s `fpscap=75`, zhr
 
 Celkem 6 spuštění za celou revizi, všechna `fpscap=75`, bez incidentu. Všechny čtyři solutions staví. Větev smazaná lokálně i na originu, hlavní checkout detached na `origin/main` (main drží worktree `BS3D-322`). Issue nechávám otevřené, zavření na slovo majitele.
 
+**Dodatek:** majitel řekl "393 zavři, je to hotové" — **#393 zavřeno** s komentářem (co je na `main`u a co zůstává mimo rozsah podle issue samotné: kampaň, spirála/Mandelbrot, black-body mód pro koule a dělo).
+
 **Nic dalšího si neberu.**
