@@ -2673,3 +2673,5 @@ Nový uniform **`StillEmission`** (default 1, no-op). Still plane ho dostává `
 - #438 — pauza rozostří 3D scénu (`FrameBlur` → `PostProcessPipeline.Resolve`), ale HUD (`PlayHud`, kreslený zvlášť přes `OverlayBatch` PO resolve) zůstává ostrý včetně létajícího čísla skóre — majitel si všiml právě u něj, ale je to obecná mezera.
 
 **Nic dalšího si neberu.**
+
+**Dodatek: #403 je na `main`u — merge `471ac69`** (`--no-ff` přes `BS3D-322`). Majitel: „věřím ti, že vypadají dobře, tak to mergni“. `BS3DLibs.sln`, `Testbed.sln` i `Game.sln` po mergi staví s 0 chybami. Větev je smazaná lokálně i na originu, hlavní checkout stojí detached na `origin/main`. Issue nechávám otevřené, zavření je na slovu majitele.
