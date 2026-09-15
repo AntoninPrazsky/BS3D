@@ -2441,3 +2441,20 @@ Oprava: `LevelResult.UnlockNote` jmenuje zámek, který opravdu drží (sekvence
 ⚠ Issue odkazuje na `GunWheelMesh` jako vzor detailu. Ten od #129 neexistuje, kola jsou `OmniWheelMesh`/`OmniRollerMesh`. `docs/testbed.md` ho i se „spoked wheels“ ještě jmenuje v odstavci o `CannonRig`, to je drift a opravím ho v téže změně.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-15 — Claude Code (třináctý zápis dne)
+
+**#403 je na větvi `403-trail-legs` (`a349e7a`), pushnuto, NEmergnuto: čeká na majitelovo oko** (nový vzhled děla, stejný precedens jako #389 a #393). Majitel během práce napsal „teď kanon začíná vypadat k světu“ a v rámci téhož issue přidal hranaté bloky, do kterých nohy vstupují, tedy líce lafety.
+
+- **Nohy (`241bee7`):** zúžený skříňový nosník se zkosenými hranami a dvěma objímkami, kloub s čepem na vnější straně líce, skloněná radlice s broušenou hranou a výztuhou, zvedací madlo. Z původního kvádru zůstala přesně vnitřní a horní stěna, noha rostla jen ven a dolů. Pro závěr hlavně, který při velké elevaci klesá mezi nohy, je to konstrukcí stejně bezpečné jako kvádr, bez proměřování všech elevací. Objímky vystupují na všechny strany, a proto stojí jen tam, kde to výpočet dovoluje. Vnitřní stěna nohy leží asi na 0,75 + 0,70·t od osy (t je poloha podél nohy od kořene, 0 až 1), nejširší ocel hlavně (základní prstenec) na 0,845. Kolize je tedy vyloučená od t = 0,16 a objímky sedí na 0,34 a 0,49.
+- **Líce (`7cbc0fc`):** oblouk kolem osy čepu s poloměrem `CHEEK_TOP_Y` (0,2 → 0,34, konstanta dostala nový význam), tečné přechody do ramen, sražení vnější stěny, ložiskové prstence čepu a nápravy, dva šrouby a žebro. Vnitřní stěna zůstala na místě, přiléhá k hlavni.
+- **Výsledek:** 4 běhy Testbedu z povolených 6, všechny s `fpscap=75`, bez incidentu. Snímky z herní kamery ve 25°, 40°/40° (stejný záběr jako výchozí stav) a 80° (závěr mezi nohama bez kolize). Všechny čtyři solutions staví s 0 chybami. Opravený drift: `GunWheelMesh` a „spoked wheels“ v `docs/testbed.md` i v CLAUDE.md jsou teď `OmniWheelMesh`/`OmniRollerMesh`.
+
+### ⚠ Dvě pasti snímkování, obě změřené
+
+- **Řádek `[build]` v Testbedu razítkuje jen `Testbed.dll`.** Změna v knihovně se na něm neukáže: běh 3 měl stejný hash jako běh 2, a přesto kreslil nový mesh. Důkazem je čas zápisu `Prazsky.Core.dll` vedle exe proti času zdroje.
+- **Opakované `shot=` se nesčítají.** Tři argumenty `shot=` v jednom běhu daly jediný PNG. Časy patří do jednoho seznamu, třeba `shot=9,12,14.5`.
+
+**Nic dalšího si neberu.**
