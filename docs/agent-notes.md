@@ -2615,3 +2615,17 @@ Nový uniform **`StillEmission`** (default 1, no-op). Still plane ho dostává `
 `StillEmission` je default 1 a dechájící plane ho dostává 1, takže **mimo still plane je to identita**. Ale je to čtyři místa v shaderu (`BallEmission`, bubble, plasma, lava) — kdo bude sáhat na emisi, ať to čte.
 
 **Nic dalšího si neberu — dochází mi limit. Kdo vezme pokračování, začíná u „CO TO NEOPRAVILO“ výše.**
+
+---
+
+## 2026-09-15 — Claude Code (zápis k #403, tunelování hlavně)
+
+**#403, další kolo: majitel viděl, že hlaveň při zvedání prochází boky lafety.** Pořád na větvi `403-trail-legs` (tip `6966491`, kód `1fcc954`), pořád NEmergnuto, čeká na majitelovo oko.
+
+- **Změřeno na CPU, ne odhadnuto.** Výpočet ve scratchpadu projde každou elevaci od −6° do 87° (vůči lafetě; na misce se lafeta naklání až o ~6,4°, takže relativně až ~86,6°) a zdvih zpětného rázu 0–1,15. Proti tomu testuje každou část lafety. **Základní prstenec závěru (r 0,845, nejširší ocel děla) procházel vnitřní stranou plechů (0,78) od ~36° až nahoru, až 0,065 hluboko. Stejně tak kořeny nohou a od 52° i celou tyč nápravy (0,84 hluboko).** **Původní kvádry dělaly totéž**, takže vada je starší než brackety z #403.
+- **Oprava je pravidlo, ne kontrola póz.** Lafeta se otáčí s míříkem, hlaveň se tedy jen zvedá kolem osy čepů a klouže podél své osy. Plechy proto obepínají hlaveň (`CHEEK_INNER_X`) jen v **nábě**, tedy do vzdálenosti, na kterou se širší ocel nikdy nepřiblíží, zpětný ráz započítaný (`CannonMesh.NearestSteelWiderThan` − `CHEEK_HUB_CLEARANCE`, na shipnutých figurách 1,25). Jinde stojí na nejširší oceli + `CHEEK_RELIEF_CLEARANCE` (0,865). Obojí se čte z postavené hlavně. Nohy jsou usazené za touto rovinou. **Náprava jsou dva čepy končící v plechu**, protože závěr při velké elevaci zabírá celý prostor mezi plechy a žádná příčka tam stát nemůže.
+- **⚠ Úzké hrdlo jsou kola, ne hlaveň.** Mezi odsazenou rovinou a vnitřním plechem kola zbývá tam, kde noha vychází z patky, jen ~0,245. Výpočet kontroluje i kola: noha s poloviční šířkou 0,09 zajela do plechu kola o 0,011, při 0,075 má vůli 0,021. **Průřezy nohou jsou proto svislé**, ne kolmé na nohu, protože kolmý průřez nohy, která se rozbíhá i klesá, naklání vnitřní stěnu dole o 0,03 dovnitř. Kloub se přestěhoval na horní hranu patky, protože na vnější stěně patky pro něj u kola není místo.
+- **Kola jsem schválně NEposunul.** Rozchod 1,5 vstupuje do `GameCameraFit.CANNON_DRAIN_CLEARANCE` (vnitřní kolo při plném traverzu stojí na hraně zlatého lemu), takže posun ven by změnil parkování děla na všech levelech.
+- **Ověřeno:** 1 běh ze 2 povolených (`fpscap=75`, bez incidentu). Herní kamera ve 25°, 40°, 60°, 80° a v 60° s traverzem 35°: závěr klesá mezi plechy bez průniku, pod ním už není žádná tyč. Testbed, Game i MapEditor staví s 0 chybami, `docs/testbed.md` je aktualizovaný.
+
+**Nic dalšího si neberu.**
