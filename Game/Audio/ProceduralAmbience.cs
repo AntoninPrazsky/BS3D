@@ -277,6 +277,18 @@ namespace BS3D.Audio
                     AddBand(mix, seed + 2, 5500f, 9500f, 0.10f, t => Swell(t, 1, 0.55f, 0.6f), WIDTH_AIR);
                     return Seal(mix, loopSamples, tailSamples, targetRms: 0.075f);
 
+                case SceneKind.Grid:
+                    //An electrical hum standing in for "the power is on" rather than any weather this void
+                    //has none of — narrow and nearly steady rather than swelling, because a hum's whole
+                    //character is that it does NOT breathe (Swell's own depth is barely open, just enough
+                    //to keep the loop from being bit-identical with itself). A very faint high whine rides
+                    //over it on its own slow, unrelated cycle — an old CRT's own line frequency, present
+                    //rather than pushed forward, since the point of this scene's quiet is that there is
+                    //nothing else in it.
+                    AddBand(mix, seed, 50f, 130f, 0.9f, t => Swell(t, 1, 0.06f, 0f), WIDTH_CLOSE);
+                    AddBand(mix, seed + 1, 8000f, 14000f, 0.06f, t => Swell(t, 1, 0.2f, 1.1f), WIDTH_AIR);
+                    return Seal(mix, loopSamples, tailSamples, targetRms: 0.045f);
+
                 case SceneKind.Space:
                     //The void, one very deep and very slow breath per loop, mixed near-subliminal — the
                     //scene's whole point is silence with weight. It stays nearly a POINT, and that is the

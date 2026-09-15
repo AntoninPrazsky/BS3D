@@ -44,7 +44,7 @@ namespace Prazsky.Core.Render
     /// all index by.
     /// </para>
     /// </summary>
-    public enum SceneKind { City, Sea, Savanna, Desert, Mountain, Meadow, NeonCity, Forest, Space, Dream, Cavern, Moon, Outback, Tropical, Volcano, Mars, Storm, Polar, Aurora }
+    public enum SceneKind { City, Sea, Savanna, Desert, Mountain, Meadow, NeonCity, Forest, Space, Dream, Cavern, Moon, Outback, Tropical, Volcano, Mars, Storm, Polar, Aurora, Grid }
 
     /// <summary>
     /// The per-frame inputs a scene needs that are not its own static tuning: the camera, the sun direction,
@@ -419,6 +419,7 @@ namespace Prazsky.Core.Render
         #endregion
 
         private AuroraSceneConfig _auroraConfig = new();
+        private GridSceneConfig _gridConfig = new();
 
         #region Sea
 
@@ -1045,6 +1046,34 @@ namespace Prazsky.Core.Render
 
         #endregion
 
+        #region Grid
+
+        //The twentieth scene (#393), and the third in both families at once — see IsSolidTerrainScene's and
+        //ReplacesSky's own docs. A flat, glowing circuit-board floor under a starless sky-replacing void, two
+        //techniques in one effect, the Moon's own shape (DrawGrid runs the terrain first, depth-writing, then
+        //the sky quad depth-READ against it — the Moon's measured order; the opposite interleave was an 8x
+        //blow-up there and is not being re-measured here to find out whether it still is).
+        private readonly Effect _gridEffect;
+        private readonly VertexBuffer _gridVertexBuffer;
+        private readonly IndexBuffer _gridIndexBuffer;
+        private readonly int _gridIndexCount;
+
+        private readonly EffectTechnique _gridSkyTechnique, _gridTerrainTechnique;
+
+        //Per-frame parameters, resolved once (BestPractices §1).
+        private readonly EffectParameter _gridOriginXZ, _gridHoleRadius, _gridView, _gridProjection,
+            _gridCameraPosition, _gridInverseViewProjection;
+
+        //The mesh is deliberately coarse — GridTerrainVS never displaces a vertex (the floor is a constant
+        //Y), so nothing is lost by skipping the few-hundred-vertex density every OTHER terrain scene needs
+        //to hold its own displacement. The extent still matches the Moon's and the aurora's (corners ~848
+        //out, inside the Game camera's 500-unit far plane's own diagonal reach) so GridHorizonHazeDistance
+        //has the same room to work in theirs does.
+        private const int GRID_MESH_N = 8;
+        private const float GRID_EXTENT = 1200f;
+
+        #endregion
+
         /// <param name="content">
         /// A content manager whose root holds the scene shaders under <c>Shaders/</c> (both executables build
         /// <c>Sea.fx</c>, <c>Savanna.fx</c>, <c>Birds.fx</c>, <c>Mountain.fx</c>, <c>Snow.fx</c>, <c>Spray.fx</c>, <c>Meadow.fx</c>
@@ -1321,44 +1350,66 @@ namespace Prazsky.Core.Render
             _auroraSupersample = _auroraEffect.Parameters["SupersampleFactor"];
 
             ApplyAuroraParameters();
+
+            //--- Grid (#393): the twentieth scene, the third in both families at once — a flat, glowing
+            //circuit-board floor under a starless sky-replacing void, two techniques in one effect, exactly
+            //the Moon's and the aurora's own shape (see the region doc above it). GRID_MESH_N is deliberately
+            //coarse — see that constant's own doc for why a scene with no displacement can afford it.
+            _gridEffect = content.Load<Effect>("Shaders/Grid");
+            CreateGridMesh(GRID_MESH_N, GRID_EXTENT, out _gridVertexBuffer, out _gridIndexBuffer, out _gridIndexCount);
+
+            _gridTerrainTechnique = _gridEffect.Techniques["GridTerrain"];
+            _gridSkyTechnique = _gridEffect.Techniques["GridSky"];
+
+            _gridOriginXZ = _gridEffect.Parameters["OriginXZ"];
+            _gridHoleRadius = _gridEffect.Parameters["IslandHoleRadius"];
+            _gridView = _gridEffect.Parameters["View"];
+            _gridProjection = _gridEffect.Parameters["Projection"];
+            _gridCameraPosition = _gridEffect.Parameters["CameraPosition"];
+            _gridInverseViewProjection = _gridEffect.Parameters["InverseViewProjection"];
+
+            ApplyGridParameters();
         }
 
         /// <summary>
         /// True for the scenes that replace the SKY rather than the ground — space, the dream, the cavern,
-        /// the Moon and the aurora. The caller draws no dome and no cloud deck in these, suppresses the cloud
-        /// shadow on the instanced effect, clears to black (the pass covers every pixel; black is what would
-        /// show if it ever did not), and takes the scene's own light rig through <see cref="TryGetLightRig"/>.
+        /// the Moon, the aurora and the Grid. The caller draws no dome and no cloud deck in these, suppresses
+        /// the cloud shadow on the instanced effect, clears to black (the pass covers every pixel; black is
+        /// what would show if it ever did not), and takes the scene's own light rig through
+        /// <see cref="TryGetLightRig"/>.
         /// <para>
         /// <b>The Moon (#125) was the first scene in this set AND in <see cref="IsSolidTerrainScene"/>; the
-        /// aurora (#205) is the second.</b> The two families were exact complements of what they draw — a
-        /// dome over ground, or a backdrop with no ground — until the Moon wanted real cratered ground under
-        /// a black, starlit, domeless sky. Every question this flag answers (dome, clouds, clear colour,
-        /// light rig) each of them answers the sky-replacing way, and every question
-        /// <see cref="IsSolidTerrainScene"/> answers (the terrain hole, the pit shaft,
+        /// aurora (#205) was the second, the Grid (#393) is the third.</b> The two families were exact
+        /// complements of what they draw — a dome over ground, or a backdrop with no ground — until the Moon
+        /// wanted real cratered ground under a black, starlit, domeless sky. Every question this flag answers
+        /// (dome, clouds, clear colour, light rig) each of them answers the sky-replacing way, and every
+        /// question <see cref="IsSolidTerrainScene"/> answers (the terrain hole, the pit shaft,
         /// <see cref="OpenBelow"/>) each answers the terrain way; no caller asks either flag anything the
-        /// other one owns, which is what makes holding both memberships sound — twice over now.
+        /// other one owns, which is what makes holding both memberships sound — three times over now.
         /// </para>
         /// </summary>
         public static bool ReplacesSky(SceneKind kind) =>
-            kind is SceneKind.Space or SceneKind.Dream or SceneKind.Cavern or SceneKind.Moon or SceneKind.Aurora;
+            kind is SceneKind.Space or SceneKind.Dream or SceneKind.Cavern or SceneKind.Moon or SceneKind.Aurora
+                or SceneKind.Grid;
 
         /// <summary>
         /// True for the solid-ground backdrops — mountains, meadow, savanna, desert, forest, outback, the
-        /// tropical beach, the volcano, Mars, the Moon and the aurora — whose terrain is a flat clearing at
-        /// the island's foot with the island's footprint cut out of it (<see cref="TerrainHoleRadius"/>), and
-        /// which therefore need the dark pit shaft drawn behind the drain's glass: a hole alone lets the
-        /// ~55 %-opaque glass show what is behind it straight through and the drain reads as a glass ring
-        /// lying on the ground. The sea fills the drain with water, the two cities have their own canyon
-        /// falling away below the island, and space, the dream and the cavern have nothing down there to hide
-        /// a ball against — none of them needs it.
+        /// tropical beach, the volcano, Mars, the Moon, the aurora and the Grid — whose terrain is a flat
+        /// clearing at the island's foot with the island's footprint cut out of it
+        /// (<see cref="TerrainHoleRadius"/>), and which therefore need the dark pit shaft drawn behind the
+        /// drain's glass: a hole alone lets the ~55 %-opaque glass show what is behind it straight through
+        /// and the drain reads as a glass ring lying on the ground. The sea fills the drain with water, the
+        /// two cities have their own canyon falling away below the island, and space, the dream and the
+        /// cavern have nothing down there to hide a ball against — none of them needs it.
         /// <para>
-        /// The Moon and the aurora are here <b>and</b> in <see cref="ReplacesSky"/> — the first two scenes in
-        /// both families (the note there says why that is sound). Each needs the shaft for the terrain reason
-        /// with the sky-replacing twist: without it the drain's glass would show the <i>starfield</i> through
-        /// a hole in the ground, which reads as a glass ring over the night sky. The tropical beach is the
-        /// first scene with water <i>and</i> this membership — its water starts past the beach, well outside
-        /// the hole, so under the island there is sand and the shaft answers for it exactly as it does for
-        /// the meadow.
+        /// The Moon, the aurora and the Grid are here <b>and</b> in <see cref="ReplacesSky"/> — the first
+        /// three scenes in both families (the note there says why that is sound). Each needs the shaft for
+        /// the terrain reason with the sky-replacing twist: without it the drain's glass would show the
+        /// <i>void</i> through a hole in the ground, which reads as a glass ring over open sky (a starfield
+        /// for the Moon and the aurora, the Grid's own near-black nothing for the Grid). The tropical beach is
+        /// the first scene with water <i>and</i> this membership — its water starts past the beach, well
+        /// outside the hole, so under the island there is sand and the shaft answers for it exactly as it does
+        /// for the meadow.
         /// </para>
         /// <para>
         /// It existed as a private copy in the Testbed and the Game until #75, and the forest was once missing
@@ -1374,7 +1425,8 @@ namespace Prazsky.Core.Render
         public static bool IsSolidTerrainScene(SceneKind kind) =>
             kind is SceneKind.Mountain or SceneKind.Meadow or SceneKind.Savanna or SceneKind.Desert
                 or SceneKind.Forest or SceneKind.Moon or SceneKind.Outback or SceneKind.Tropical
-                or SceneKind.Volcano or SceneKind.Mars or SceneKind.Polar or SceneKind.Aurora;
+                or SceneKind.Volcano or SceneKind.Mars or SceneKind.Polar or SceneKind.Aurora
+                or SceneKind.Grid;
 
         /// <summary>
         /// Whether there is a vantage <b>under</b> the island from which the balls pouring out of the drain can
@@ -1398,7 +1450,7 @@ namespace Prazsky.Core.Render
         /// The next scene in the enum, wrapping — what a cycling key in an authoring tool wants. It replaced a
         /// <c>CycleLength</c> constant of 7 that both cycling keys took their modulus from (#380): a prefix is
         /// a count, and a count written next to an enum is a thing that ages every time the enum grows. Nothing
-        /// here counts the scenes, so a nineteenth kind is reachable in both programs the moment it is
+        /// here counts the scenes, so a twenty-first kind is reachable in both programs the moment it is
         /// declared — the same argument <c>BallStyles.Next</c> already makes for the ball materials, in the
         /// program that exists to choose between them.
         /// <para>
@@ -1418,7 +1470,7 @@ namespace Prazsky.Core.Render
         //reads better than the singular enum member and is deliberately not "corrected" to match it; the
         //parse keys below are the singular ones, because those are what a command line already takes.
         private static readonly string[] SCENE_NAMES =
-            { "City", "Sea", "Savanna", "Desert", "Mountains", "Meadow", "Neon City", "Forest", "Space", "Dream", "Cavern", "Moon", "Outback", "Tropical", "Volcano", "Mars", "Storm", "Polar", "Aurora" };
+            { "City", "Sea", "Savanna", "Desert", "Mountains", "Meadow", "Neon City", "Forest", "Space", "Dream", "Cavern", "Moon", "Outback", "Tropical", "Volcano", "Mars", "Storm", "Polar", "Aurora", "Grid" };
 
         /// <summary>
         /// The scene's name for a menu or a log line. Display text, not a parse key — see
@@ -1458,6 +1510,8 @@ namespace Prazsky.Core.Render
                 case "polar":
                 case "ice": kind = SceneKind.Polar; return true;
                 case "aurora": kind = SceneKind.Aurora; return true;
+                case "grid":
+                case "tron": kind = SceneKind.Grid; return true;
                 default: kind = default; return false;
             }
         }
@@ -1554,6 +1608,10 @@ namespace Prazsky.Core.Render
                     _auroraConfig = aurora;
                     ApplyAuroraParameters();
                     break;
+                case GridSceneConfig grid:
+                    _gridConfig = grid;
+                    ApplyGridParameters();
+                    break;
                 case CitySceneConfig:
                     break;
             }
@@ -1630,6 +1688,17 @@ namespace Prazsky.Core.Render
                         auroraLighting.GroundAmbient.ToVector3(),
                         auroraLighting.KeyTint.ToVector3(),
                         auroraLighting.BackTint.ToVector3());
+                    return true;
+
+                //The Grid's rig is what the whole scene's light on the balls, the island and the gun comes
+                //down to — see GridSceneConfig's own class doc on why nothing here goes further than a tint.
+                case SceneKind.Grid:
+                    GridLightingConfig gridLighting = _gridConfig.Lighting;
+                    rig = new SceneLightRig(
+                        gridLighting.SkyAmbient.ToVector3(),
+                        gridLighting.GroundAmbient.ToVector3(),
+                        gridLighting.KeyTint.ToVector3(),
+                        gridLighting.BackTint.ToVector3());
                     return true;
 
                 default:
@@ -1826,6 +1895,16 @@ namespace Prazsky.Core.Render
                         1.9f, 10f, 0f, "the aurora");
                     return true;
 
+                //No landmark — the subject is the floor itself, so this reads the sea's own argument onto a
+                //grid: low and close is what shows the lines raking off towards a vanishing point, where an
+                //overhead look would flatten the whole pattern into a texture. Unphotographed: no shipped
+                //level names this scene yet.
+                case SceneKind.Grid:
+                    viewpoint = new SceneViewpoint(
+                        AtBearing(bearing, _gridConfig.Terrain.HorizonHazeDistance * 0.7f, _gridConfig.Terrain.LevelY),
+                        2.1f, 6f, 0f, "the grid");
+                    return true;
+
                 default:
                     viewpoint = default;
                     return false;
@@ -1937,6 +2016,7 @@ namespace Prazsky.Core.Render
             SceneKind.Storm => _stormConfig,
             SceneKind.Polar => _polarConfig,
             SceneKind.Aurora => _auroraConfig,
+            SceneKind.Grid => _gridConfig,
             _ => null,
         };
 
@@ -4107,6 +4187,27 @@ namespace Prazsky.Core.Render
             _auroraEffect.Parameters["StarSpikeLength"].SetValue(stars.SpikeLength);
         }
 
+        /// <summary>
+        /// Pushes everything about the Grid scene — it is all fixed for as long as the config is: unlike the
+        /// aurora's pulsing glow, nothing here is a function of the wall clock, so there is no per-frame
+        /// counterpart to this the way <see cref="DrawAurora"/> pushes <c>SunColor</c> — see <c>Grid.fx</c>'s
+        /// own header on why a static look is the more period-honest choice as well as the cheaper one.
+        /// </summary>
+        private void ApplyGridParameters()
+        {
+            _gridEffect.Parameters["VoidColor"].SetValue(_gridConfig.VoidColor.ToVector3());
+
+            GridTerrainConfig terrain = _gridConfig.Terrain;
+            _gridEffect.Parameters["GridLevelY"].SetValue(terrain.LevelY);
+            _gridEffect.Parameters["GridCellSize"].SetValue(terrain.CellSize);
+            _gridEffect.Parameters["GridLineWidth"].SetValue(terrain.LineWidth);
+            _gridEffect.Parameters["GridAccentWidthScale"].SetValue(terrain.AccentWidthScale);
+            _gridEffect.Parameters["GridHorizonHazeDistance"].SetValue(terrain.HorizonHazeDistance);
+            _gridEffect.Parameters["GridBodyColor"].SetValue(terrain.BodyColor.ToVector3());
+            _gridEffect.Parameters["GridLineColor"].SetValue(terrain.LineColor.ToVector3());
+            _gridEffect.Parameters["GridAccentColor"].SetValue(terrain.AccentColor.ToVector3());
+        }
+
         private void ApplyDreamParameters()
         {
             DreamSceneConfig dream = _dreamConfig;
@@ -4337,6 +4438,9 @@ namespace Prazsky.Core.Render
                     break;
                 case SceneKind.Aurora:
                     DrawAurora(frame);
+                    break;
+                case SceneKind.Grid:
+                    DrawGrid(frame);
                     break;
             }
         }
@@ -5947,6 +6051,52 @@ namespace Prazsky.Core.Render
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
         }
 
+        /// <summary>
+        /// Draws the Grid scene: the flat, glowing floor first (depth-writing, opaque), then the sky quad
+        /// depth-READ against it on the shared space quad — the Moon's and the aurora's own measured order
+        /// (see <see cref="DrawMoon"/>'s doc). Nothing here is a function of the wall clock — see
+        /// <see cref="ApplyGridParameters"/>'s own doc — so unlike <see cref="DrawAurora"/> this pushes no
+        /// per-frame colour, only the camera and the origin snap every terrain draw already needs.
+        /// </summary>
+        private void DrawGrid(in SceneFrame frame)
+        {
+            float cell = GRID_EXTENT / (GRID_MESH_N - 1);
+            float originX = MathF.Round(frame.Camera.Position.X / cell) * cell;
+            float originZ = MathF.Round(frame.Camera.Position.Z / cell) * cell;
+
+            _gridOriginXZ.SetValue(new Vector2(originX, originZ));
+            _gridHoleRadius.SetValue(TerrainHoleRadius);
+            _gridView.SetValue(frame.Camera.View);
+            _gridProjection.SetValue(frame.Camera.Projection);
+            _gridCameraPosition.SetValue(frame.Camera.Position);
+
+            _graphicsDevice.BlendState = BlendState.Opaque;
+            _graphicsDevice.DepthStencilState = DepthStencilState.Default;
+            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
+
+            _graphicsDevice.SetVertexBuffer(_gridVertexBuffer);
+            _graphicsDevice.Indices = _gridIndexBuffer;
+            _gridEffect.CurrentTechnique = _gridTerrainTechnique;
+            _gridEffect.CurrentTechnique.Passes[0].Apply();
+            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _gridIndexCount / 3);
+
+            //Then the sky, depth-READ at the far plane: every pixel the floor already owns is rejected
+            //before the void shader runs.
+            _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
+
+            _gridInverseViewProjection.SetValue(Matrix.Invert(frame.Camera.View * frame.Camera.Projection));
+
+            _graphicsDevice.SetVertexBuffer(_spaceQuad);
+            _gridEffect.CurrentTechnique = _gridSkyTechnique;
+            _gridEffect.CurrentTechnique.Passes[0].Apply();
+            _graphicsDevice.DrawPrimitives(PrimitiveType.TriangleStrip, 0, 2);
+
+            _graphicsDevice.DepthStencilState = DepthStencilState.Default;
+
+            _graphicsDevice.BlendState = BlendState.AlphaBlend;
+            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+        }
+
         public void Dispose()
         {
             _spaceQuad?.Dispose();
@@ -5990,6 +6140,8 @@ namespace Prazsky.Core.Render
             _moonIndexBuffer?.Dispose();
             _auroraVertexBuffer?.Dispose();
             _auroraIndexBuffer?.Dispose();
+            _gridVertexBuffer?.Dispose();
+            _gridIndexBuffer?.Dispose();
             _marsVertexBuffer?.Dispose();
             _marsIndexBuffer?.Dispose();
             _stormCloudVertexBuffer?.Dispose();
