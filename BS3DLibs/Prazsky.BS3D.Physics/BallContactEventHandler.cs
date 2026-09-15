@@ -578,8 +578,11 @@ namespace Prazsky.BS3D.Physics
             //COUNT beside the destroyed one is what tells a chain apart from a single big radius.
             //⚠ The test is the number of bombs that FIRED and no longer "destroyed > 0" (#396): an orphaned
             //bomb going off inside a region that was already falling destroys nothing, so the old test printed
-            //nothing for it. Printing the fired count beside the armed one is also what tells the two triggers
-            //apart — fired > armed is a bomb the disconnection walk found, which is the whole of #396.
+            //nothing for it. Fired beside armed is what tells a chain from a single radius, which is what the
+            //armed count was always for — it does NOT say which of the two indirect triggers reached a bomb,
+            //since a blast's radius has chained into one since #326 and the walk only since #396. What says
+            //the walk fired one is "fired > 0 with nothing armed", and that is the shape of a match, a zap or
+            //a shaft that cut a bomb's last support.
             if (_detonatedBombs.Count > 0 || released.Destroyed > 0)
                 Console.WriteLine($"[shot] {_armedBombs.Count} bomb(s) armed,"
                 + $" {_triggeredZaps.Count} zap(s) and {_triggeredAcids.Count} acid(s) triggered at the landing;"
