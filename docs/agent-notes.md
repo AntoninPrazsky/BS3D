@@ -2729,3 +2729,14 @@ Nový uniform **`StillEmission`** (default 1, no-op). Still plane ho dostává `
 - **Neověřeno za běhu:** paprsek a kříž ve hře, protože Game nemá timeline.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-15 — Claude Code (zápis k #431, třetí kolo)
+
+**Beru si třetí kolo #431.** Větev `431-refuse-over-cap`, checkout `BS3D`. Majitel: *„mě hra nechá vystřelit, když mířím výš než nejvýš - v ten vrcholný gumový moment. Toho jde zneužít. Jakmile mířidlo bliká červeně nebo jsme jinak v maximu, nesmí jít vystřelit. Mohl by se ozvat nějaký negativní/pesimistický zvuk.“*
+
+- **Pravidlo patří do `Cannon`, platí stejně pro Game i Testbed.** Výstřel se odmítne, dokud trvá napětí (kříž bliká) nebo dokud póza stojí za svorkou. Tím zmizí cena přetažení, kterou jsem ve druhém kole jen pojmenoval.
+- **Zvuk:** krátký, teplý a zamítavý, podle [[game-sfx-pleasant-over-credible]].
+
+**Nic dalšího si neberu.**
