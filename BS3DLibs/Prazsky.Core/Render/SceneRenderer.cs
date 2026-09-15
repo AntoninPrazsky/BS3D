@@ -1049,10 +1049,11 @@ namespace Prazsky.Core.Render
         #region Grid
 
         //The twentieth scene (#393), and the third in both families at once — see IsSolidTerrainScene's and
-        //ReplacesSky's own docs. A flat, glowing circuit-board floor under a starless sky-replacing void, two
-        //techniques in one effect, the Moon's own shape (DrawGrid runs the terrain first, depth-writing, then
-        //the sky quad depth-READ against it — the Moon's measured order; the opposite interleave was an 8x
-        //blow-up there and is not being re-measured here to find out whether it still is).
+        //ReplacesSky's own docs. A flat, glowing circuit-board floor and distant solids under a starless
+        //sky-replacing void, three techniques in one effect, the Moon's own shape (DrawGrid draws the terrain
+        //and the solids first, depth-writing, then the sky quad depth-READ against them — the Moon's measured
+        //order; the opposite interleave was an 8x blow-up there and is not being re-measured here to find out
+        //whether it still is).
         private readonly Effect _gridEffect;
         private readonly VertexBuffer _gridVertexBuffer;
         private readonly IndexBuffer _gridIndexBuffer;
@@ -1060,71 +1061,73 @@ namespace Prazsky.Core.Render
 
         private readonly EffectTechnique _gridSkyTechnique, _gridTerrainTechnique, _gridTowerTechnique;
 
-        //Per-frame parameters, resolved once (BestPractices §1).
+        //Per-frame and per-draw parameters, resolved once (BestPractices §1).
         private readonly EffectParameter _gridOriginXZ, _gridHoleRadius, _gridView, _gridProjection,
-            _gridCameraPosition, _gridInverseViewProjection, _gridLifeTextureParam;
+            _gridCameraPosition, _gridInverseViewProjection, _gridLifeTextureParam, _gridLifeAgeParam, _gridLifeCentreParam;
 
         //The mesh is deliberately coarse — GridTerrainVS never displaces a vertex (the floor is a constant
         //Y), so nothing is lost by skipping the few-hundred-vertex density every OTHER terrain scene needs
-        //to hold its own displacement. The extent still matches the Moon's and the aurora's (corners ~848
-        //out, inside the Game camera's 500-unit far plane's own diagonal reach) so GridHorizonHazeDistance
-        //has the same room to work in theirs does.
+        //to hold its own displacement. The extent matches the Moon's and the aurora's: re-centred on the camera
+        //every frame, its half-width (600) is already past the Game camera's 500-unit far plane, so the floor
+        //never ends inside the frustum and GridHorizonHazeDistance has the same room to work in that theirs does.
         private const int GRID_MESH_N = 8;
         private const float GRID_EXTENT = 1200f;
 
-        //The distant monoliths (#393): built once (BuildGridTowers) as world-space geometry with no world
-        //matrix and no instancing — see Grid.fx's own GridTowers header for why a handful of quads a draw
-        //is cheap enough not to bother with either.
+        //The shortest step interval a board is stepped at, whatever the config says — a guard for a map editor
+        //slider dragged to zero, not a tuning value.
+        private const float MIN_GRID_LIFE_STEP_INTERVAL = 0.05f;
+
+        //The distant solids (#393): built once (BuildGridTowers) as world-space geometry with no world
+        //matrix and no instancing — see Grid.fx's own GridTowers header for why.
         private VertexBuffer _gridTowerVertexBuffer;
         private IndexBuffer _gridTowerIndexBuffer;
-        private int _gridTowerIndexCount;
 
-        //One INDEPENDENT Game of Life per solid (#393 — the owner's own second follow-up: "the state should
-        //differ per object, with a different seed, showing different nice variants", not every face a crop
-        //of one shared board). Two grids rather than one plus a scratch allocated per step: StepGridLife
-        //swaps the references instead of copying, so a generation costs no per-frame/per-step managed
-        //allocation. GRID_LIFE_SIZE must stay a power of two — GridMod's bitmask fold assumes it, in the
-        //shader and here alike.
-        private const int GRID_LIFE_SIZE = 32;
-
+        //One independent Game of Life per solid — the owner's review asked for "different nice variants" per
+        //object — with the texture it is uploaded to and the clock it steps on. GridLife owns the rules, the named
+        //patterns and when a board moves on to its next one.
         private sealed class GridLifeBoard
         {
-            //Not readonly: StepGridLife swaps these two references rather than copying between them.
-            public bool[,] Current = new bool[GRID_LIFE_SIZE, GRID_LIFE_SIZE];
-            public bool[,] Next = new bool[GRID_LIFE_SIZE, GRID_LIFE_SIZE];
-            public readonly Color[] UploadBuffer = new Color[GRID_LIFE_SIZE * GRID_LIFE_SIZE];
+            public GridLife Life;
             public Texture2D Texture;
+            public readonly Color[] UploadBuffer = new Color[GridLife.SIZE * GridLife.SIZE];
+
+            //Where in the step interval this board ticks, 0-1, spread evenly over the solids: eighteen machines
+            //each keeping its own time rather than one clock, and never every board's step and upload in one frame.
+            public float Phase;
             public float NextStepTime;
+
+            //When the current generation appeared, for the phosphor's decay — far in the past until the first
+            //step, so nothing starts out glowing.
+            public float LastStepTime = -1e6f;
         }
 
         //One board per solid, and — matched to it 1:1 by index — the (start index, primitive count) each
-        //board's own quads occupy in the ONE shared vertex/index buffer below, so drawing a solid with its
-        //own board still costs one combined buffer and one draw call per solid rather than a buffer each.
+        //solid's own quads occupy in the ONE shared vertex/index buffer, so drawing a solid with its own board
+        //still costs one combined buffer and one draw call per solid rather than a buffer each.
         private readonly List<GridLifeBoard> _gridLifeBoards = new();
         private readonly List<(int StartIndex, int PrimitiveCount)> _gridTowerRanges = new();
 
-        //One shared source of randomness for every board's initial seed and its ongoing "stir" (see
-        //StepGridLife) — not something that needs its own stream per board, since what makes two boards
-        //look different is the SLICE of the stream each one's seed consumes, not the stream's identity.
-        private readonly Random _gridLifeRandom = new();
-
-        //A per-pixel struct rather than the shared InstancedModel vertex formats: the towers draw through
-        //their own unlit, black-body GridTowers technique (see Grid.fx), which wants only a baked
-        //world-space position and a face-local window coordinate, not a normal or a model UV.
+        //A per-pixel struct rather than the shared InstancedModel vertex formats: the solids draw through their
+        //own unlit, black-body GridTowers technique (see Grid.fx), which wants a baked world-space position, the
+        //solid's own board coordinate and the face-local coordinate its seams are measured from — not a normal
+        //or a model UV.
         private struct GridTowerVertex : IVertexType
         {
             public Vector3 Position;
             public Vector2 WindowUV;
+            public Vector4 FaceLocal;
 
-            public GridTowerVertex(Vector3 position, Vector2 windowUV)
+            public GridTowerVertex(Vector3 position, Vector2 windowUV, Vector4 faceLocal)
             {
                 Position = position;
                 WindowUV = windowUV;
+                FaceLocal = faceLocal;
             }
 
             public static readonly VertexDeclaration Declaration = new(
                 new VertexElement(0, VertexElementFormat.Vector3, VertexElementUsage.Position, 0),
-                new VertexElement(12, VertexElementFormat.Vector2, VertexElementUsage.TextureCoordinate, 0));
+                new VertexElement(12, VertexElementFormat.Vector2, VertexElementUsage.TextureCoordinate, 0),
+                new VertexElement(20, VertexElementFormat.Vector4, VertexElementUsage.TextureCoordinate, 1));
 
             readonly VertexDeclaration IVertexType.VertexDeclaration => Declaration;
         }
@@ -1409,9 +1412,9 @@ namespace Prazsky.Core.Render
             ApplyAuroraParameters();
 
             //--- Grid (#393): the twentieth scene, the third in both families at once — a flat, glowing
-            //circuit-board floor under a starless sky-replacing void, two techniques in one effect, exactly
-            //the Moon's and the aurora's own shape (see the region doc above it). GRID_MESH_N is deliberately
-            //coarse — see that constant's own doc for why a scene with no displacement can afford it.
+            //circuit-board floor and distant solids under a starless sky-replacing void, three techniques in one
+            //effect, the Moon's and the aurora's own shape (see the region doc above it). GRID_MESH_N is
+            //deliberately coarse — see that constant's own doc for why a scene with no displacement can afford it.
             _gridEffect = content.Load<Effect>("Shaders/Grid");
             CreateGridMesh(GRID_MESH_N, GRID_EXTENT, out _gridVertexBuffer, out _gridIndexBuffer, out _gridIndexCount);
 
@@ -1426,8 +1429,10 @@ namespace Prazsky.Core.Render
             _gridCameraPosition = _gridEffect.Parameters["CameraPosition"];
             _gridInverseViewProjection = _gridEffect.Parameters["InverseViewProjection"];
             _gridLifeTextureParam = _gridEffect.Parameters["GridLifeTexture"];
+            _gridLifeAgeParam = _gridEffect.Parameters["GridLifeAge"];
+            _gridLifeCentreParam = _gridEffect.Parameters["GridLifeCentreOffset"];
 
-            //Pushes the terrain and tower uniforms and builds the tower geometry, one independent Life
+            //Pushes the terrain and tower uniforms and builds the solids' geometry, one independent Life
             //board per solid included (BuildGridTowers) - one call for both, since a later config edit
             //needs to redo exactly the same pair.
             ApplyGridParameters();
@@ -4250,10 +4255,9 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// Pushes everything about the Grid scene — it is all fixed for as long as the config is: unlike the
-        /// aurora's pulsing glow, nothing here is a function of the wall clock, so there is no per-frame
-        /// counterpart to this the way <see cref="DrawAurora"/> pushes <c>SunColor</c> — see <c>Grid.fx</c>'s
-        /// own header on why a static look is the more period-honest choice as well as the cheaper one.
+        /// Pushes everything about the Grid scene that is fixed for as long as the config is, and rebuilds the
+        /// solids and their boards. What does vary — the camera, and each solid's board stepping on its own clock
+        /// — is set per frame and per draw in <see cref="DrawGrid"/>.
         /// </summary>
         private void ApplyGridParameters()
         {
@@ -4262,6 +4266,7 @@ namespace Prazsky.Core.Render
             GridTerrainConfig terrain = _gridConfig.Terrain;
             _gridEffect.Parameters["GridLevelY"].SetValue(terrain.LevelY);
             _gridEffect.Parameters["GridCellSize"].SetValue(terrain.CellSize);
+            _gridEffect.Parameters["GridTraceStride"].SetValue((float)Math.Max(terrain.TraceStride, 1));
             _gridEffect.Parameters["GridLineWidth"].SetValue(terrain.LineWidth);
             _gridEffect.Parameters["GridAccentWidthScale"].SetValue(terrain.AccentWidthScale);
             _gridEffect.Parameters["GridHorizonHazeDistance"].SetValue(terrain.HorizonHazeDistance);
@@ -4274,9 +4279,12 @@ namespace Prazsky.Core.Render
             _gridEffect.Parameters["GridTowerWindowMargin"].SetValue(towers.WindowMargin);
             _gridEffect.Parameters["GridTowerBodyColor"].SetValue(towers.BodyColor.ToVector3());
             _gridEffect.Parameters["GridTowerWindowColor"].SetValue(towers.WindowColor.ToVector3());
+            _gridEffect.Parameters["GridTowerEdgeWidth"].SetValue(towers.EdgeWidth);
+            _gridEffect.Parameters["GridTowerEdgeColor"].SetValue(towers.EdgeColor.ToVector3());
+            _gridEffect.Parameters["GridPhosphorDecay"].SetValue(towers.PhosphorDecay);
 
-            //Placement (count/radius/height/footprint/seed) only takes effect through a rebuild — a live
-            //edit in the map editor's panel is exactly the case BuildGridTowers exists to answer, the same
+            //Placement (count/radius/height/footprint/seed) and the boards only take effect through a rebuild —
+            //a live edit in the map editor's panel is exactly the case BuildGridTowers exists to answer, the same
             //reason a forest config edit calls Replant rather than waiting for the next scene switch.
             BuildGridTowers();
         }
@@ -6126,13 +6134,12 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Draws the Grid scene: the flat, glowing floor first (depth-writing, opaque), then the distant
-        /// monoliths (also opaque, also depth-writing — they stand ON the floor and must occlude both it
+        /// solids (also opaque, also depth-writing — they stand ON the floor and must occlude both it
         /// and the sky behind them), then the sky quad depth-READ against both — the Moon's and the
         /// aurora's own measured order (see <see cref="DrawMoon"/>'s doc). The floor's own uniforms are
-        /// still a one-time push (<see cref="ApplyGridParameters"/>) — what varies here is the camera, the
-        /// origin snap every terrain draw already needs, and the shared Life grid's own clock
-        /// (<see cref="StepGridLife"/>), ticked at most once a frame and only while this scene is the one
-        /// actually being drawn.
+        /// a one-time push (<see cref="ApplyGridParameters"/>) — what varies here is the camera, the
+        /// origin snap every terrain draw already needs, and each solid's Life board, stepped on its own
+        /// clock only while this scene is the one actually being drawn.
         /// </summary>
         private void DrawGrid(in SceneFrame frame)
         {
@@ -6166,26 +6173,43 @@ namespace Prazsky.Core.Render
                 _graphicsDevice.Indices = _gridTowerIndexBuffer;
                 _gridEffect.CurrentTechnique = _gridTowerTechnique;
 
+                //Every solid is a closed prism wound clockwise seen from outside (BoxMesh's convention), so its far
+                //faces are culled rather than shaded and then hidden.
+                _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+
+                float interval = MathF.Max(_gridConfig.Towers.LifeStepInterval, MIN_GRID_LIFE_STEP_INTERVAL);
+
                 for (int i = 0; i < _gridTowerRanges.Count; i++)
                 {
                     GridLifeBoard board = _gridLifeBoards[i];
 
-                    //Timer-gated, not per-frame: a generation every LifeStepInterval seconds of WALL time
-                    //(the same clock every other scene's per-frame animation reads), so leaving and
-                    //returning to this scene fires at most one catch-up step per board, never a burst.
+                    //Timer-gated, not per-frame: a generation every LifeStepInterval seconds of the wall clock
+                    //every other scene's animation reads, on the tick of this board's own phase. Leaving the scene
+                    //and coming back fires at most one catch-up step per board, never a burst, and the next tick is
+                    //found from the phase rather than from "now", so the boards stay spread across the interval.
                     if (frame.Time >= board.NextStepTime)
                     {
-                        StepGridLife(board);
+                        board.Life.Step();
                         UploadGridLifeTexture(board);
-                        board.NextStepTime = frame.Time + _gridConfig.Towers.LifeStepInterval;
+                        board.LastStepTime = frame.Time;
+
+                        board.NextStepTime = (MathF.Floor(frame.Time / interval - board.Phase) + 1f + board.Phase) * interval;
+                        if (board.NextStepTime <= frame.Time) board.NextStepTime += interval;
                     }
 
                     _gridLifeTextureParam.SetValue(board.Texture);
+                    _gridLifeAgeParam.SetValue(frame.Time - board.LastStepTime);
+
+                    //The pattern's centre rather than the board's on the middle of the face (see GridLife.CentreX).
+                    _gridLifeCentreParam.SetValue(new Vector2(board.Life.CentreX, board.Life.CentreY) - new Vector2(GridLife.SIZE * 0.5f));
                     _gridEffect.CurrentTechnique.Passes[0].Apply();
 
                     (int startIndex, int primitiveCount) = _gridTowerRanges[i];
                     _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, startIndex, primitiveCount);
                 }
+
+                //The sky quad below goes on drawing under the floor's own state, as the Moon's does.
+                _graphicsDevice.RasterizerState = RasterizerState.CullNone;
             }
 
             //Then the sky, depth-READ at the far plane: every pixel the floor or a monolith already owns is
@@ -6206,19 +6230,18 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// Builds the distant solids (#393): <see cref="GridTowerConfig.Count"/> plain rectangular prisms,
+        /// Builds the distant solids (#393): <see cref="GridTowerConfig.Count"/> plain closed rectangular prisms,
         /// placed on a ring around the arena with a deterministic seed (<see cref="GridTowerConfig.Seed"/>)
         /// so the Game, the Testbed and the map editor all stand them in the same places — the map itself
         /// is shared between the three for the same reason. A <see cref="GridTowerConfig.CubeFraction"/> of
-        /// them are large, close-to-equilateral cubes (four sides and a top) rather than tall towers (four
-        /// sides only — see <c>Grid.fx</c>'s own <c>GridTowers</c> header for why no tower gets a roof); a
-        /// simple footprint-circle retry keeps the two shapes from overlapping without a spatial structure,
-        /// since this runs once at load/config-apply time on at most a few dozen solids. Also (re)builds one
-        /// independent <see cref="GridLifeBoard"/> per solid, each seeded from its own slice of
-        /// <see cref="_gridLifeRandom"/>'s stream, so two solids never merely look like different crops of
-        /// the same simulation. Idempotent and safe to call again from <see cref="ApplyGridParameters"/>:
-        /// disposes whatever it last built before building the new placement, the same shape
-        /// <c>ForestScatterRenderer.Replant</c> takes for a live config edit.
+        /// them are large, close-to-equilateral cubes rather than tall towers; a simple footprint-circle retry
+        /// keeps them from overlapping without a spatial structure, since this runs once at load/config-apply
+        /// time on at most a few dozen solids. Every solid has a roof: the Testbed's free camera and the map
+        /// editor's can look down on any of them, and an open top would show the void through it once the far
+        /// faces are culled. Also (re)builds one <see cref="GridLifeBoard"/> per solid, seeded from the same
+        /// placement stream, so every host shows the same patterns on the same solids. Idempotent and safe to
+        /// call again from <see cref="ApplyGridParameters"/>: disposes whatever it last built before building the
+        /// new placement, the same shape <c>ForestScatterRenderer.Replant</c> takes for a live config edit.
         /// </summary>
         private void BuildGridTowers()
         {
@@ -6226,7 +6249,6 @@ namespace Prazsky.Core.Render
             _gridTowerIndexBuffer?.Dispose();
             _gridTowerVertexBuffer = null;
             _gridTowerIndexBuffer = null;
-            _gridTowerIndexCount = 0;
 
             foreach (GridLifeBoard board in _gridLifeBoards) board.Texture?.Dispose();
             _gridLifeBoards.Clear();
@@ -6243,8 +6265,8 @@ namespace Prazsky.Core.Render
             //a few dozen solids, not per frame.
             List<(Vector2 Center, float Radius)> placed = new();
 
-            //Fixed seed (placement is data every host must agree on), independent of _gridLifeRandom (the
-            //Life grid's own randomness, which nothing requires to agree between hosts or between runs).
+            //Fixed seed: placement is data every host must agree on, and so, since the boards are seeded from the
+            //same stream, is what each solid shows.
             Random placement = new(towers.Seed);
 
             //The first CubeFraction of Count are cubes, the rest towers - which member of the count gets
@@ -6306,49 +6328,59 @@ namespace Prazsky.Core.Render
 
                 placed.Add((xz, footprintRadius));
 
-                //This solid's own board: a fresh seed drawn from the shared stream (see the class doc for
-                //why one shared stream, sliced differently per board, is enough to make every board look
-                //independent), stepped for the first time the moment DrawGrid asks for it (NextStepTime 0).
+                //Eight draws per tower and ten per cube, exactly as many as the reviewed layout spent after each
+                //solid, so every later solid still stands where the owner saw it; the first now seeds this
+                //solid's board.
+                int lifeSeed = (int)(placement.NextDouble() * int.MaxValue);
+                for (int draw = 1; draw < (isCube ? 10 : 8); draw++) placement.NextDouble();
+
+                //Stepped for the first time the moment DrawGrid asks for it (NextStepTime 0), then on its phase.
                 GridLifeBoard board = new()
                 {
-                    Texture = new Texture2D(_graphicsDevice, GRID_LIFE_SIZE, GRID_LIFE_SIZE, false, SurfaceFormat.Color),
+                    Life = new GridLife(lifeSeed, tall: !isCube, towers.LifePatternGenerations),
+                    Texture = new Texture2D(_graphicsDevice, GridLife.SIZE, GridLife.SIZE, false, SurfaceFormat.Color),
+                    Phase = (float)i / towers.Count,
                 };
-                SeedGridLife(board);
                 UploadGridLifeTexture(board);
                 _gridLifeBoards.Add(board);
 
                 int rangeStartIndex = indices.Count;
 
-                Vector3 center = baseCenter + Vector3.Up * (sizeY * 0.5f);
+                float halfX = sizeX * 0.5f, halfY = sizeY * 0.5f, halfZ = sizeZ * 0.5f;
+                Vector3 center = baseCenter + Vector3.Up * halfY;
 
-                //A random offset per face into THIS solid's own board, in WINDOW CELLS, baked straight into
-                //the face-local UV below — so the pixel shader's cell math never needs to know which face
-                //it is on, only where it sits, and no two faces of the same solid show an identical crop.
-                float cellSize = towers.WindowCellSize;
-                Vector2 OffsetFor(int face) => new(
-                    (float)(placement.NextDouble() * GRID_LIFE_SIZE) * cellSize,
-                    (float)(placement.NextDouble() * GRID_LIFE_SIZE) * cellSize);
+                //The four sides share one board coordinate running round the perimeter (see Grid.fx's GridTowers
+                //header), taken in the order they meet corner to corner — +X, -Z, -X, +Z, each side's right edge
+                //the next one's left — so the board wraps round the solid like a label. Where each side starts
+                //along it:
+                float startNegZ = sizeZ, startNegX = sizeZ + sizeX, startPosZ = 2f * sizeZ + sizeX;
 
-                //The same four side-face calls BoxMesh.AddFace makes for +X/-X/+Z/-Z, right x up = the
-                //outward normal, so the winding below (mirrored from BoxMesh.AddFace) reads clockwise from
-                //outside — see the repo convention in CLAUDE.md.
+                //The side facing the arena is the one whose outward normal points most nearly back at the origin,
+                //and the board's centre goes on its middle, half-way up: a pattern is stamped centred on its
+                //board, so the face the play camera actually sees shows it whole.
+                float facingMiddle = MathF.Abs(baseCenter.X) >= MathF.Abs(baseCenter.Z)
+                    ? (baseCenter.X > 0f ? startNegX : 0f) + halfZ
+                    : (baseCenter.Z > 0f ? startNegZ : startPosZ) + halfX;
+
+                float boardCentre = 0.5f * GridLife.SIZE * towers.WindowCellSize;
+                Vector2 boardOrigin = new(boardCentre - facingMiddle, boardCentre - halfY);
+
+                //BoxMesh.AddFace's own side-face parameters, right x up = the outward normal, so the winding
+                //(mirrored from BoxMesh.AddFace) reads clockwise from outside — see the repo convention in
+                //CLAUDE.md.
                 AddTowerFace(vertices, indices, Vector3.Forward, Vector3.Up, sizeZ, sizeY,
-                    center + sizeX * 0.5f * Vector3.Right, OffsetFor(0));
-                AddTowerFace(vertices, indices, Vector3.Backward, Vector3.Up, sizeZ, sizeY,
-                    center + sizeX * 0.5f * Vector3.Left, OffsetFor(1));
-                AddTowerFace(vertices, indices, Vector3.Right, Vector3.Up, sizeX, sizeY,
-                    center + sizeZ * 0.5f * Vector3.Backward, OffsetFor(2));
+                    center + halfX * Vector3.Right, boardOrigin);
                 AddTowerFace(vertices, indices, Vector3.Left, Vector3.Up, sizeX, sizeY,
-                    center + sizeZ * 0.5f * Vector3.Forward, OffsetFor(3));
+                    center + halfZ * Vector3.Forward, boardOrigin + new Vector2(startNegZ, 0f));
+                AddTowerFace(vertices, indices, Vector3.Backward, Vector3.Up, sizeZ, sizeY,
+                    center + halfX * Vector3.Left, boardOrigin + new Vector2(startNegX, 0f));
+                AddTowerFace(vertices, indices, Vector3.Right, Vector3.Up, sizeX, sizeY,
+                    center + halfZ * Vector3.Backward, boardOrigin + new Vector2(startPosZ, 0f));
 
-                //A cube's top - BoxMesh.AddFace's own top-face parameters (right = Right, up = Forward) -
-                //but never a tower's: a slender tower's cap is not something the play camera's own low
-                //stand-off ever sees, where a block this size plausibly reads from above as well.
-                if (isCube)
-                {
-                    AddTowerFace(vertices, indices, Vector3.Right, Vector3.Forward, sizeX, sizeZ,
-                        center + sizeY * 0.5f * Vector3.Up, OffsetFor(4));
-                }
+                //The roof - BoxMesh.AddFace's own top-face parameters (right = Right, up = Forward) - with the
+                //board's centre on its own.
+                AddTowerFace(vertices, indices, Vector3.Right, Vector3.Forward, sizeX, sizeZ,
+                    center + halfY * Vector3.Up, new Vector2(boardCentre - halfX, boardCentre - halfZ));
 
                 _gridTowerRanges.Add((rangeStartIndex, (indices.Count - rangeStartIndex) / 3));
             }
@@ -6358,26 +6390,25 @@ namespace Prazsky.Core.Render
 
             _gridTowerIndexBuffer = new IndexBuffer(_graphicsDevice, IndexElementSize.SixteenBits, indices.Count, BufferUsage.WriteOnly);
             _gridTowerIndexBuffer.SetData(indices.ToArray());
-
-            _gridTowerIndexCount = indices.Count;
         }
 
-        //One quad face — BoxMesh.AddFace's own vertex order and winding (see its class doc), carrying a
-        //face-local WORLD-UNIT window coordinate (offset by windowOffset, below) instead of a normal and a
-        //[0,1] texture UV. Works for a side face (up = Vector3.Up) or a cube's top (up = Vector3.Forward)
-        //alike, since right x up = the outward normal either way (BoxMesh's own invariant).
+        //One quad face — BoxMesh.AddFace's own vertex order and winding (see its class doc). Instead of a normal
+        //and a [0,1] texture UV it carries the face's place on its solid's board (boardOrigin at the face's
+        //bottom-left corner, in world units) and its own local position and size, which the seams are measured
+        //from. Works for a side face (up = Vector3.Up) or a roof (up = Vector3.Forward) alike, since
+        //right x up = the outward normal either way (BoxMesh's own invariant).
         private static void AddTowerFace(List<GridTowerVertex> vertices, List<short> indices,
-            Vector3 right, Vector3 up, float width, float height, Vector3 faceCenter, Vector2 windowOffset)
+            Vector3 right, Vector3 up, float width, float height, Vector3 faceCenter, Vector2 boardOrigin)
         {
             Vector3 r = right * (width * 0.5f);
             Vector3 u = up * (height * 0.5f);
 
             int baseIndex = vertices.Count;
 
-            vertices.Add(new GridTowerVertex(faceCenter - r - u, windowOffset + new Vector2(-width * 0.5f, -height * 0.5f)));
-            vertices.Add(new GridTowerVertex(faceCenter + r - u, windowOffset + new Vector2(width * 0.5f, -height * 0.5f)));
-            vertices.Add(new GridTowerVertex(faceCenter + r + u, windowOffset + new Vector2(width * 0.5f, height * 0.5f)));
-            vertices.Add(new GridTowerVertex(faceCenter - r + u, windowOffset + new Vector2(-width * 0.5f, height * 0.5f)));
+            vertices.Add(new GridTowerVertex(faceCenter - r - u, boardOrigin, new Vector4(0f, 0f, width, height)));
+            vertices.Add(new GridTowerVertex(faceCenter + r - u, boardOrigin + new Vector2(width, 0f), new Vector4(width, 0f, width, height)));
+            vertices.Add(new GridTowerVertex(faceCenter + r + u, boardOrigin + new Vector2(width, height), new Vector4(width, height, width, height)));
+            vertices.Add(new GridTowerVertex(faceCenter - r + u, boardOrigin + new Vector2(0f, height), new Vector4(0f, height, width, height)));
 
             indices.Add((short)baseIndex);
             indices.Add((short)(baseIndex + 2));
@@ -6388,68 +6419,21 @@ namespace Prazsky.Core.Render
             indices.Add((short)(baseIndex + 2));
         }
 
-        /// <summary>Fills one board with a fresh random state (~28% alive — dense enough that the next few generations read as something rather than as scattered noise dying out immediately). Each call draws its own slice of the shared <see cref="_gridLifeRandom"/> stream, which is what makes two boards look independent without needing a separate <see cref="Random"/> instance each.</summary>
-        private void SeedGridLife(GridLifeBoard board)
-        {
-            for (int y = 0; y < GRID_LIFE_SIZE; y++)
-                for (int x = 0; x < GRID_LIFE_SIZE; x++)
-                    board.Current[x, y] = _gridLifeRandom.NextDouble() < 0.28;
-        }
-
         /// <summary>
-        /// Steps one solid's own Game of Life one generation — the ordinary rules, toroidal (each edge
-        /// wraps into the opposite one, so there is no special-cased border), ticked only from
-        /// <see cref="DrawGrid"/> and only while the Grid scene is actually the one being drawn, never on a
-        /// fixed per-frame cadence. <c>board.Next</c> is written and then swapped into <c>board.Current</c>
-        /// rather than copied back, so a generation costs no allocation.
-        /// <para>
-        /// A handful of cells are flipped at random every generation regardless of the rules' own verdict —
-        /// deliberately, not a bug: an unperturbed board on a small toroidal grid settles into a static mix
-        /// of still lifes and oscillators within a few hundred generations (a few minutes at
-        /// <see cref="GridTowerConfig.LifeStepInterval"/>'s default), which would read as the windows
-        /// having simply stopped, and a board that goes fully extinct is worse still. A little noise every
-        /// step is cheaper than detecting either case and answers both at once.
-        /// </para>
+        /// Uploads one board to its texture — red the current generation, green the one before it, which
+        /// <c>Grid.fx</c> fades as the phosphor's afterglow — through the board's own reused buffer, so a step
+        /// allocates nothing (BestPractices §3, applied at this method's own, slower cadence).
         /// </summary>
-        private void StepGridLife(GridLifeBoard board)
-        {
-            for (int y = 0; y < GRID_LIFE_SIZE; y++)
-            {
-                for (int x = 0; x < GRID_LIFE_SIZE; x++)
-                {
-                    int neighbours = 0;
-
-                    for (int dy = -1; dy <= 1; dy++)
-                    {
-                        for (int dx = -1; dx <= 1; dx++)
-                        {
-                            if (dx == 0 && dy == 0) continue;
-                            if (board.Current[GridMod(x + dx), GridMod(y + dy)]) neighbours++;
-                        }
-                    }
-
-                    bool alive = board.Current[x, y];
-                    board.Next[x, y] = alive ? neighbours is 2 or 3 : neighbours == 3;
-                }
-            }
-
-            (board.Current, board.Next) = (board.Next, board.Current);
-
-            const int STIR_CELLS = 3;
-            for (int i = 0; i < STIR_CELLS; i++)
-                board.Current[_gridLifeRandom.Next(GRID_LIFE_SIZE), _gridLifeRandom.Next(GRID_LIFE_SIZE)] = _gridLifeRandom.NextDouble() < 0.5;
-        }
-
-        //The C#-side mirror of Grid.fx's own GridMod: GRID_LIFE_SIZE is a power of two, so a bitmask fold
-        //stands in for a true modulus here too, and the sign-correctness argument is identical.
-        private static int GridMod(int x) => x & (GRID_LIFE_SIZE - 1);
-
-        /// <summary>Uploads one board's current generation to its own texture — reuses <see cref="GridLifeBoard.UploadBuffer"/> rather than allocating a fresh array every generation (BestPractices §1's per-frame rule, applied at this method's own, slower cadence).</summary>
         private static void UploadGridLifeTexture(GridLifeBoard board)
         {
-            for (int y = 0; y < GRID_LIFE_SIZE; y++)
-                for (int x = 0; x < GRID_LIFE_SIZE; x++)
-                    board.UploadBuffer[y * GRID_LIFE_SIZE + x] = board.Current[x, y] ? Color.White : Color.Black;
+            for (int y = 0; y < GridLife.SIZE; y++)
+            {
+                uint row = board.Life.Row(y);
+                uint previous = board.Life.PreviousRow(y);
+
+                for (int x = 0; x < GridLife.SIZE; x++)
+                    board.UploadBuffer[y * GridLife.SIZE + x] = new Color((int)((row >> x) & 1u) * 255, (int)((previous >> x) & 1u) * 255, 0, 255);
+            }
 
             board.Texture.SetData(board.UploadBuffer);
         }
