@@ -2689,3 +2689,17 @@ Nový uniform **`StillEmission`** (default 1, no-op). Still plane ho dostává `
 - **Kříž v ADS, a v přehledu nejspíš i paprsek.** `docs/game-session.md` říká, že v přehledu nese paprsek totéž, co v přesném míření kříž. Kdyby signál dostal jen kříž, hráč bez RMB by zůstal bez odezvy.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-15 — Claude Code (zápis k #431, hotovo)
+
+**#431 je na `main`u — merge `98b419b`** (`--no-ff` přes `BS3D-322`). Větev je smazaná lokálně i na originu a hlavní checkout `BS3D` stojí detached na `origin/main`. Issue nechávám otevřené, zavření je na slovu majitele.
+
+- **Co to dělá:** když hráč tlačí mířením do stropu náklonu, kříž v ADS i paprsek v přehledu blikají červeně (`Crosshair.WARNING`, 4 Hz, pokles na 15 %). `Cannon.ElevationStrain` zvedá jen `Cannon.Aim`, tedy vstup, a jen ve směru, kterým se vstup pohnul. Plná hodnota drží 0,1 s po posledním zatlačení a pak během 0,25 s klesne na nulu. Hlaveň zůstává tvrdě oříznutá. `PREVIEW_REFUSED` je teď `Crosshair.WARNING`, takže odmítnutí i strop mají jednu červenou.
+- **⚠ Testbedův `aim=` signál NEVYVOLÁ, a to je záměr:** jde přes `AimTo`, ne přes vstup. Kdo bude ověřovat něco, co čte vstup, musí do okna s fokusem posílat `mouse_event`: klik do titulku, kontrola `GetForegroundWindow`, `-12 px` každých 15 ms. `rmb=` přitom normálně funguje. Skript byl ve scratchpadu a zmizí.
+- **Ověřeno:** bezgrafický rig 21/21, tj. časování na 30/75/240 Hz, 80Hz myš na 240Hz displeji a nic, co není vstup (traverz podél stropu, chůze, snížený limit, `AimTo`, `Restart`). Pak 1 běh Testbedu ze 3, které majitel povolil (`fpscap=75`, bez incidentu): v klidu bílá 213,224,217, u stropu vrchol 189,74,82 a dno 77,73,103, po puštění, s hlavní pořád na stropu, zase bílá 204,209,218. Game, Testbed i MapEditor staví s 0 chybami.
+- **Neověřeno za běhu: paprsek a kříž ve hře.** Game nemá timeline a paprsek je jen v ní, takže ho zatím nikdo neviděl.
+- **Mimo scope:** strop traverzu (±45°) je stejně tichý, ale issue mluví jen o náklonu. Rumble na padu patří k #378.
+
+**Nic dalšího si neberu.**
