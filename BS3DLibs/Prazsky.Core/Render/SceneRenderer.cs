@@ -44,7 +44,7 @@ namespace Prazsky.Core.Render
     /// all index by.
     /// </para>
     /// </summary>
-    public enum SceneKind { City, Sea, Savanna, Desert, Mountain, Meadow, NeonCity, Forest, Space, Dream, Cavern, Moon, Outback, Tropical, Volcano, Mars, Storm, Polar, Aurora }
+    public enum SceneKind { City, Sea, Savanna, Desert, Mountain, Meadow, NeonCity, Forest, Space, Dream, Cavern, Moon, Outback, Tropical, Volcano, Mars, Storm, Polar, Aurora, Grid }
 
     /// <summary>
     /// The per-frame inputs a scene needs that are not its own static tuning: the camera, the sun direction,
@@ -419,6 +419,7 @@ namespace Prazsky.Core.Render
         #endregion
 
         private AuroraSceneConfig _auroraConfig = new();
+        private GridSceneConfig _gridConfig = new();
 
         #region Sea
 
@@ -1045,6 +1046,91 @@ namespace Prazsky.Core.Render
 
         #endregion
 
+        #region Grid
+
+        //The twentieth scene (#393), and the third in both families at once — see IsSolidTerrainScene's and
+        //ReplacesSky's own docs. A flat, glowing circuit-board floor under a starless sky-replacing void, two
+        //techniques in one effect, the Moon's own shape (DrawGrid runs the terrain first, depth-writing, then
+        //the sky quad depth-READ against it — the Moon's measured order; the opposite interleave was an 8x
+        //blow-up there and is not being re-measured here to find out whether it still is).
+        private readonly Effect _gridEffect;
+        private readonly VertexBuffer _gridVertexBuffer;
+        private readonly IndexBuffer _gridIndexBuffer;
+        private readonly int _gridIndexCount;
+
+        private readonly EffectTechnique _gridSkyTechnique, _gridTerrainTechnique, _gridTowerTechnique;
+
+        //Per-frame parameters, resolved once (BestPractices §1).
+        private readonly EffectParameter _gridOriginXZ, _gridHoleRadius, _gridView, _gridProjection,
+            _gridCameraPosition, _gridInverseViewProjection, _gridLifeTextureParam;
+
+        //The mesh is deliberately coarse — GridTerrainVS never displaces a vertex (the floor is a constant
+        //Y), so nothing is lost by skipping the few-hundred-vertex density every OTHER terrain scene needs
+        //to hold its own displacement. The extent still matches the Moon's and the aurora's (corners ~848
+        //out, inside the Game camera's 500-unit far plane's own diagonal reach) so GridHorizonHazeDistance
+        //has the same room to work in theirs does.
+        private const int GRID_MESH_N = 8;
+        private const float GRID_EXTENT = 1200f;
+
+        //The distant monoliths (#393): built once (BuildGridTowers) as world-space geometry with no world
+        //matrix and no instancing — see Grid.fx's own GridTowers header for why a handful of quads a draw
+        //is cheap enough not to bother with either.
+        private VertexBuffer _gridTowerVertexBuffer;
+        private IndexBuffer _gridTowerIndexBuffer;
+        private int _gridTowerIndexCount;
+
+        //One INDEPENDENT Game of Life per solid (#393 — the owner's own second follow-up: "the state should
+        //differ per object, with a different seed, showing different nice variants", not every face a crop
+        //of one shared board). Two grids rather than one plus a scratch allocated per step: StepGridLife
+        //swaps the references instead of copying, so a generation costs no per-frame/per-step managed
+        //allocation. GRID_LIFE_SIZE must stay a power of two — GridMod's bitmask fold assumes it, in the
+        //shader and here alike.
+        private const int GRID_LIFE_SIZE = 32;
+
+        private sealed class GridLifeBoard
+        {
+            //Not readonly: StepGridLife swaps these two references rather than copying between them.
+            public bool[,] Current = new bool[GRID_LIFE_SIZE, GRID_LIFE_SIZE];
+            public bool[,] Next = new bool[GRID_LIFE_SIZE, GRID_LIFE_SIZE];
+            public readonly Color[] UploadBuffer = new Color[GRID_LIFE_SIZE * GRID_LIFE_SIZE];
+            public Texture2D Texture;
+            public float NextStepTime;
+        }
+
+        //One board per solid, and — matched to it 1:1 by index — the (start index, primitive count) each
+        //board's own quads occupy in the ONE shared vertex/index buffer below, so drawing a solid with its
+        //own board still costs one combined buffer and one draw call per solid rather than a buffer each.
+        private readonly List<GridLifeBoard> _gridLifeBoards = new();
+        private readonly List<(int StartIndex, int PrimitiveCount)> _gridTowerRanges = new();
+
+        //One shared source of randomness for every board's initial seed and its ongoing "stir" (see
+        //StepGridLife) — not something that needs its own stream per board, since what makes two boards
+        //look different is the SLICE of the stream each one's seed consumes, not the stream's identity.
+        private readonly Random _gridLifeRandom = new();
+
+        //A per-pixel struct rather than the shared InstancedModel vertex formats: the towers draw through
+        //their own unlit, black-body GridTowers technique (see Grid.fx), which wants only a baked
+        //world-space position and a face-local window coordinate, not a normal or a model UV.
+        private struct GridTowerVertex : IVertexType
+        {
+            public Vector3 Position;
+            public Vector2 WindowUV;
+
+            public GridTowerVertex(Vector3 position, Vector2 windowUV)
+            {
+                Position = position;
+                WindowUV = windowUV;
+            }
+
+            public static readonly VertexDeclaration Declaration = new(
+                new VertexElement(0, VertexElementFormat.Vector3, VertexElementUsage.Position, 0),
+                new VertexElement(12, VertexElementFormat.Vector2, VertexElementUsage.TextureCoordinate, 0));
+
+            readonly VertexDeclaration IVertexType.VertexDeclaration => Declaration;
+        }
+
+        #endregion
+
         /// <param name="content">
         /// A content manager whose root holds the scene shaders under <c>Shaders/</c> (both executables build
         /// <c>Sea.fx</c>, <c>Savanna.fx</c>, <c>Birds.fx</c>, <c>Mountain.fx</c>, <c>Snow.fx</c>, <c>Spray.fx</c>, <c>Meadow.fx</c>
@@ -1321,44 +1407,71 @@ namespace Prazsky.Core.Render
             _auroraSupersample = _auroraEffect.Parameters["SupersampleFactor"];
 
             ApplyAuroraParameters();
+
+            //--- Grid (#393): the twentieth scene, the third in both families at once — a flat, glowing
+            //circuit-board floor under a starless sky-replacing void, two techniques in one effect, exactly
+            //the Moon's and the aurora's own shape (see the region doc above it). GRID_MESH_N is deliberately
+            //coarse — see that constant's own doc for why a scene with no displacement can afford it.
+            _gridEffect = content.Load<Effect>("Shaders/Grid");
+            CreateGridMesh(GRID_MESH_N, GRID_EXTENT, out _gridVertexBuffer, out _gridIndexBuffer, out _gridIndexCount);
+
+            _gridTerrainTechnique = _gridEffect.Techniques["GridTerrain"];
+            _gridSkyTechnique = _gridEffect.Techniques["GridSky"];
+            _gridTowerTechnique = _gridEffect.Techniques["GridTowers"];
+
+            _gridOriginXZ = _gridEffect.Parameters["OriginXZ"];
+            _gridHoleRadius = _gridEffect.Parameters["IslandHoleRadius"];
+            _gridView = _gridEffect.Parameters["View"];
+            _gridProjection = _gridEffect.Parameters["Projection"];
+            _gridCameraPosition = _gridEffect.Parameters["CameraPosition"];
+            _gridInverseViewProjection = _gridEffect.Parameters["InverseViewProjection"];
+            _gridLifeTextureParam = _gridEffect.Parameters["GridLifeTexture"];
+
+            //Pushes the terrain and tower uniforms and builds the tower geometry, one independent Life
+            //board per solid included (BuildGridTowers) - one call for both, since a later config edit
+            //needs to redo exactly the same pair.
+            ApplyGridParameters();
         }
 
         /// <summary>
         /// True for the scenes that replace the SKY rather than the ground — space, the dream, the cavern,
-        /// the Moon and the aurora. The caller draws no dome and no cloud deck in these, suppresses the cloud
-        /// shadow on the instanced effect, clears to black (the pass covers every pixel; black is what would
-        /// show if it ever did not), and takes the scene's own light rig through <see cref="TryGetLightRig"/>.
+        /// the Moon, the aurora and the Grid. The caller draws no dome and no cloud deck in these, suppresses
+        /// the cloud shadow on the instanced effect, clears to black (the pass covers every pixel; black is
+        /// what would show if it ever did not), and takes the scene's own light rig through
+        /// <see cref="TryGetLightRig"/>.
         /// <para>
         /// <b>The Moon (#125) was the first scene in this set AND in <see cref="IsSolidTerrainScene"/>; the
-        /// aurora (#205) is the second.</b> The two families were exact complements of what they draw — a
-        /// dome over ground, or a backdrop with no ground — until the Moon wanted real cratered ground under
-        /// a black, starlit, domeless sky. Every question this flag answers (dome, clouds, clear colour,
-        /// light rig) each of them answers the sky-replacing way, and every question
-        /// <see cref="IsSolidTerrainScene"/> answers (the terrain hole, the pit shaft,
+        /// aurora (#205) was the second, the Grid (#393) is the third.</b> The two families were exact
+        /// complements of what they draw — a dome over ground, or a backdrop with no ground — until the Moon
+        /// wanted real cratered ground under a black, starlit, domeless sky. Every question this flag answers
+        /// (dome, clouds, clear colour, light rig) each of them answers the sky-replacing way, and every
+        /// question <see cref="IsSolidTerrainScene"/> answers (the terrain hole, the pit shaft,
         /// <see cref="OpenBelow"/>) each answers the terrain way; no caller asks either flag anything the
-        /// other one owns, which is what makes holding both memberships sound — twice over now.
+        /// other one owns, which is what makes holding both memberships sound — three times over now.
         /// </para>
         /// </summary>
         public static bool ReplacesSky(SceneKind kind) =>
-            kind is SceneKind.Space or SceneKind.Dream or SceneKind.Cavern or SceneKind.Moon or SceneKind.Aurora;
+            kind is SceneKind.Space or SceneKind.Dream or SceneKind.Cavern or SceneKind.Moon or SceneKind.Aurora
+                or SceneKind.Grid;
 
         /// <summary>
         /// True for the solid-ground backdrops — mountains, meadow, savanna, desert, forest, outback, the
-        /// tropical beach, the volcano, Mars, the Moon and the aurora — whose terrain is a flat clearing at
-        /// the island's foot with the island's footprint cut out of it (<see cref="TerrainHoleRadius"/>), and
-        /// which therefore need the dark pit shaft drawn behind the drain's glass: a hole alone lets the
-        /// ~55 %-opaque glass show what is behind it straight through and the drain reads as a glass ring
-        /// lying on the ground. The sea fills the drain with water, the two cities have their own canyon
-        /// falling away below the island, and space, the dream and the cavern have nothing down there to hide
-        /// a ball against — none of them needs it.
+        /// tropical beach, the volcano, Mars, the Moon, the aurora and the Grid — whose terrain is a flat
+        /// clearing at the island's foot with the island's footprint cut out of it
+        /// (<see cref="TerrainHoleRadius"/>), and which therefore need the dark pit shaft drawn behind the
+        /// drain's glass: a hole alone lets the ~55 %-opaque glass show what is behind it straight through
+        /// and the drain reads as a glass ring lying on the ground. The sea fills the drain with water, the
+        /// two cities have their own canyon falling away below the island, and space, the dream and the
+        /// cavern have nothing down there to hide a ball against — none of them needs it.
         /// <para>
-        /// The Moon and the aurora are here <b>and</b> in <see cref="ReplacesSky"/> — the first two scenes in
-        /// both families (the note there says why that is sound). Each needs the shaft for the terrain reason
-        /// with the sky-replacing twist: without it the drain's glass would show the <i>starfield</i> through
-        /// a hole in the ground, which reads as a glass ring over the night sky. The tropical beach is the
-        /// first scene with water <i>and</i> this membership — its water starts past the beach, well outside
-        /// the hole, so under the island there is sand and the shaft answers for it exactly as it does for
-        /// the meadow.
+        /// The Moon, the aurora and the Grid are here <b>and</b> in <see cref="ReplacesSky"/> — the first
+        /// three scenes in both families (the note there says why that is sound). Each needs the shaft for
+        /// the terrain reason with the sky-replacing twist: without it the drain's glass would show the
+        /// <i>void</i> through a hole in the ground, which reads as a glass ring over open sky (a starfield
+        /// for the Moon and the aurora, the Grid's own near-black nothing for the Grid). The tropical beach is
+        /// the first scene with water <i>and</i> this membership — its water starts past the beach, well
+        /// outside the hole, so under the island there is sand and the shaft answers for it exactly as it does
+        /// for the meadow.
         /// </para>
         /// <para>
         /// It existed as a private copy in the Testbed and the Game until #75, and the forest was once missing
@@ -1374,7 +1487,8 @@ namespace Prazsky.Core.Render
         public static bool IsSolidTerrainScene(SceneKind kind) =>
             kind is SceneKind.Mountain or SceneKind.Meadow or SceneKind.Savanna or SceneKind.Desert
                 or SceneKind.Forest or SceneKind.Moon or SceneKind.Outback or SceneKind.Tropical
-                or SceneKind.Volcano or SceneKind.Mars or SceneKind.Polar or SceneKind.Aurora;
+                or SceneKind.Volcano or SceneKind.Mars or SceneKind.Polar or SceneKind.Aurora
+                or SceneKind.Grid;
 
         /// <summary>
         /// Whether there is a vantage <b>under</b> the island from which the balls pouring out of the drain can
@@ -1398,7 +1512,7 @@ namespace Prazsky.Core.Render
         /// The next scene in the enum, wrapping — what a cycling key in an authoring tool wants. It replaced a
         /// <c>CycleLength</c> constant of 7 that both cycling keys took their modulus from (#380): a prefix is
         /// a count, and a count written next to an enum is a thing that ages every time the enum grows. Nothing
-        /// here counts the scenes, so a nineteenth kind is reachable in both programs the moment it is
+        /// here counts the scenes, so a twenty-first kind is reachable in both programs the moment it is
         /// declared — the same argument <c>BallStyles.Next</c> already makes for the ball materials, in the
         /// program that exists to choose between them.
         /// <para>
@@ -1418,7 +1532,7 @@ namespace Prazsky.Core.Render
         //reads better than the singular enum member and is deliberately not "corrected" to match it; the
         //parse keys below are the singular ones, because those are what a command line already takes.
         private static readonly string[] SCENE_NAMES =
-            { "City", "Sea", "Savanna", "Desert", "Mountains", "Meadow", "Neon City", "Forest", "Space", "Dream", "Cavern", "Moon", "Outback", "Tropical", "Volcano", "Mars", "Storm", "Polar", "Aurora" };
+            { "City", "Sea", "Savanna", "Desert", "Mountains", "Meadow", "Neon City", "Forest", "Space", "Dream", "Cavern", "Moon", "Outback", "Tropical", "Volcano", "Mars", "Storm", "Polar", "Aurora", "Grid" };
 
         /// <summary>
         /// The scene's name for a menu or a log line. Display text, not a parse key — see
@@ -1458,6 +1572,8 @@ namespace Prazsky.Core.Render
                 case "polar":
                 case "ice": kind = SceneKind.Polar; return true;
                 case "aurora": kind = SceneKind.Aurora; return true;
+                case "grid":
+                case "tron": kind = SceneKind.Grid; return true;
                 default: kind = default; return false;
             }
         }
@@ -1554,6 +1670,10 @@ namespace Prazsky.Core.Render
                     _auroraConfig = aurora;
                     ApplyAuroraParameters();
                     break;
+                case GridSceneConfig grid:
+                    _gridConfig = grid;
+                    ApplyGridParameters();
+                    break;
                 case CitySceneConfig:
                     break;
             }
@@ -1630,6 +1750,17 @@ namespace Prazsky.Core.Render
                         auroraLighting.GroundAmbient.ToVector3(),
                         auroraLighting.KeyTint.ToVector3(),
                         auroraLighting.BackTint.ToVector3());
+                    return true;
+
+                //The Grid's rig is what the whole scene's light on the balls, the island and the gun comes
+                //down to — see GridSceneConfig's own class doc on why nothing here goes further than a tint.
+                case SceneKind.Grid:
+                    GridLightingConfig gridLighting = _gridConfig.Lighting;
+                    rig = new SceneLightRig(
+                        gridLighting.SkyAmbient.ToVector3(),
+                        gridLighting.GroundAmbient.ToVector3(),
+                        gridLighting.KeyTint.ToVector3(),
+                        gridLighting.BackTint.ToVector3());
                     return true;
 
                 default:
@@ -1826,6 +1957,16 @@ namespace Prazsky.Core.Render
                         1.9f, 10f, 0f, "the aurora");
                     return true;
 
+                //No landmark — the subject is the floor itself, so this reads the sea's own argument onto a
+                //grid: low and close is what shows the lines raking off towards a vanishing point, where an
+                //overhead look would flatten the whole pattern into a texture. Unphotographed: no shipped
+                //level names this scene yet.
+                case SceneKind.Grid:
+                    viewpoint = new SceneViewpoint(
+                        AtBearing(bearing, _gridConfig.Terrain.HorizonHazeDistance * 0.7f, _gridConfig.Terrain.LevelY),
+                        2.1f, 6f, 0f, "the grid");
+                    return true;
+
                 default:
                     viewpoint = default;
                     return false;
@@ -1937,6 +2078,7 @@ namespace Prazsky.Core.Render
             SceneKind.Storm => _stormConfig,
             SceneKind.Polar => _polarConfig,
             SceneKind.Aurora => _auroraConfig,
+            SceneKind.Grid => _gridConfig,
             _ => null,
         };
 
@@ -4107,6 +4249,38 @@ namespace Prazsky.Core.Render
             _auroraEffect.Parameters["StarSpikeLength"].SetValue(stars.SpikeLength);
         }
 
+        /// <summary>
+        /// Pushes everything about the Grid scene — it is all fixed for as long as the config is: unlike the
+        /// aurora's pulsing glow, nothing here is a function of the wall clock, so there is no per-frame
+        /// counterpart to this the way <see cref="DrawAurora"/> pushes <c>SunColor</c> — see <c>Grid.fx</c>'s
+        /// own header on why a static look is the more period-honest choice as well as the cheaper one.
+        /// </summary>
+        private void ApplyGridParameters()
+        {
+            _gridEffect.Parameters["VoidColor"].SetValue(_gridConfig.VoidColor.ToVector3());
+
+            GridTerrainConfig terrain = _gridConfig.Terrain;
+            _gridEffect.Parameters["GridLevelY"].SetValue(terrain.LevelY);
+            _gridEffect.Parameters["GridCellSize"].SetValue(terrain.CellSize);
+            _gridEffect.Parameters["GridLineWidth"].SetValue(terrain.LineWidth);
+            _gridEffect.Parameters["GridAccentWidthScale"].SetValue(terrain.AccentWidthScale);
+            _gridEffect.Parameters["GridHorizonHazeDistance"].SetValue(terrain.HorizonHazeDistance);
+            _gridEffect.Parameters["GridBodyColor"].SetValue(terrain.BodyColor.ToVector3());
+            _gridEffect.Parameters["GridLineColor"].SetValue(terrain.LineColor.ToVector3());
+            _gridEffect.Parameters["GridAccentColor"].SetValue(terrain.AccentColor.ToVector3());
+
+            GridTowerConfig towers = _gridConfig.Towers;
+            _gridEffect.Parameters["GridTowerWindowCellSize"].SetValue(towers.WindowCellSize);
+            _gridEffect.Parameters["GridTowerWindowMargin"].SetValue(towers.WindowMargin);
+            _gridEffect.Parameters["GridTowerBodyColor"].SetValue(towers.BodyColor.ToVector3());
+            _gridEffect.Parameters["GridTowerWindowColor"].SetValue(towers.WindowColor.ToVector3());
+
+            //Placement (count/radius/height/footprint/seed) only takes effect through a rebuild — a live
+            //edit in the map editor's panel is exactly the case BuildGridTowers exists to answer, the same
+            //reason a forest config edit calls Replant rather than waiting for the next scene switch.
+            BuildGridTowers();
+        }
+
         private void ApplyDreamParameters()
         {
             DreamSceneConfig dream = _dreamConfig;
@@ -4337,6 +4511,9 @@ namespace Prazsky.Core.Render
                     break;
                 case SceneKind.Aurora:
                     DrawAurora(frame);
+                    break;
+                case SceneKind.Grid:
+                    DrawGrid(frame);
                     break;
             }
         }
@@ -5947,6 +6124,336 @@ namespace Prazsky.Core.Render
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
         }
 
+        /// <summary>
+        /// Draws the Grid scene: the flat, glowing floor first (depth-writing, opaque), then the distant
+        /// monoliths (also opaque, also depth-writing — they stand ON the floor and must occlude both it
+        /// and the sky behind them), then the sky quad depth-READ against both — the Moon's and the
+        /// aurora's own measured order (see <see cref="DrawMoon"/>'s doc). The floor's own uniforms are
+        /// still a one-time push (<see cref="ApplyGridParameters"/>) — what varies here is the camera, the
+        /// origin snap every terrain draw already needs, and the shared Life grid's own clock
+        /// (<see cref="StepGridLife"/>), ticked at most once a frame and only while this scene is the one
+        /// actually being drawn.
+        /// </summary>
+        private void DrawGrid(in SceneFrame frame)
+        {
+            float cell = GRID_EXTENT / (GRID_MESH_N - 1);
+            float originX = MathF.Round(frame.Camera.Position.X / cell) * cell;
+            float originZ = MathF.Round(frame.Camera.Position.Z / cell) * cell;
+
+            _gridOriginXZ.SetValue(new Vector2(originX, originZ));
+            _gridHoleRadius.SetValue(TerrainHoleRadius);
+            _gridView.SetValue(frame.Camera.View);
+            _gridProjection.SetValue(frame.Camera.Projection);
+            _gridCameraPosition.SetValue(frame.Camera.Position);
+
+            _graphicsDevice.BlendState = BlendState.Opaque;
+            _graphicsDevice.DepthStencilState = DepthStencilState.Default;
+            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
+
+            _graphicsDevice.SetVertexBuffer(_gridVertexBuffer);
+            _graphicsDevice.Indices = _gridIndexBuffer;
+            _gridEffect.CurrentTechnique = _gridTerrainTechnique;
+            _gridEffect.CurrentTechnique.Passes[0].Apply();
+            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _gridIndexCount / 3);
+
+            if (_gridTowerRanges.Count > 0)
+            {
+                //One combined buffer, but one draw call PER SOLID (its own index range, below) rather than
+                //one draw for all of them — each solid reads its own independent Life texture, and a draw
+                //call can bind only one texture at a time. A few dozen extra draw calls is nothing next to
+                //the city's own thousands-of-buildings frame, so this is not a cost worth avoiding.
+                _graphicsDevice.SetVertexBuffer(_gridTowerVertexBuffer);
+                _graphicsDevice.Indices = _gridTowerIndexBuffer;
+                _gridEffect.CurrentTechnique = _gridTowerTechnique;
+
+                for (int i = 0; i < _gridTowerRanges.Count; i++)
+                {
+                    GridLifeBoard board = _gridLifeBoards[i];
+
+                    //Timer-gated, not per-frame: a generation every LifeStepInterval seconds of WALL time
+                    //(the same clock every other scene's per-frame animation reads), so leaving and
+                    //returning to this scene fires at most one catch-up step per board, never a burst.
+                    if (frame.Time >= board.NextStepTime)
+                    {
+                        StepGridLife(board);
+                        UploadGridLifeTexture(board);
+                        board.NextStepTime = frame.Time + _gridConfig.Towers.LifeStepInterval;
+                    }
+
+                    _gridLifeTextureParam.SetValue(board.Texture);
+                    _gridEffect.CurrentTechnique.Passes[0].Apply();
+
+                    (int startIndex, int primitiveCount) = _gridTowerRanges[i];
+                    _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, startIndex, primitiveCount);
+                }
+            }
+
+            //Then the sky, depth-READ at the far plane: every pixel the floor or a monolith already owns is
+            //rejected before the void shader runs.
+            _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
+
+            _gridInverseViewProjection.SetValue(Matrix.Invert(frame.Camera.View * frame.Camera.Projection));
+
+            _graphicsDevice.SetVertexBuffer(_spaceQuad);
+            _gridEffect.CurrentTechnique = _gridSkyTechnique;
+            _gridEffect.CurrentTechnique.Passes[0].Apply();
+            _graphicsDevice.DrawPrimitives(PrimitiveType.TriangleStrip, 0, 2);
+
+            _graphicsDevice.DepthStencilState = DepthStencilState.Default;
+
+            _graphicsDevice.BlendState = BlendState.AlphaBlend;
+            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+        }
+
+        /// <summary>
+        /// Builds the distant solids (#393): <see cref="GridTowerConfig.Count"/> plain rectangular prisms,
+        /// placed on a ring around the arena with a deterministic seed (<see cref="GridTowerConfig.Seed"/>)
+        /// so the Game, the Testbed and the map editor all stand them in the same places — the map itself
+        /// is shared between the three for the same reason. A <see cref="GridTowerConfig.CubeFraction"/> of
+        /// them are large, close-to-equilateral cubes (four sides and a top) rather than tall towers (four
+        /// sides only — see <c>Grid.fx</c>'s own <c>GridTowers</c> header for why no tower gets a roof); a
+        /// simple footprint-circle retry keeps the two shapes from overlapping without a spatial structure,
+        /// since this runs once at load/config-apply time on at most a few dozen solids. Also (re)builds one
+        /// independent <see cref="GridLifeBoard"/> per solid, each seeded from its own slice of
+        /// <see cref="_gridLifeRandom"/>'s stream, so two solids never merely look like different crops of
+        /// the same simulation. Idempotent and safe to call again from <see cref="ApplyGridParameters"/>:
+        /// disposes whatever it last built before building the new placement, the same shape
+        /// <c>ForestScatterRenderer.Replant</c> takes for a live config edit.
+        /// </summary>
+        private void BuildGridTowers()
+        {
+            _gridTowerVertexBuffer?.Dispose();
+            _gridTowerIndexBuffer?.Dispose();
+            _gridTowerVertexBuffer = null;
+            _gridTowerIndexBuffer = null;
+            _gridTowerIndexCount = 0;
+
+            foreach (GridLifeBoard board in _gridLifeBoards) board.Texture?.Dispose();
+            _gridLifeBoards.Clear();
+            _gridTowerRanges.Clear();
+
+            GridTowerConfig towers = _gridConfig.Towers;
+            if (towers.Count <= 0) return;
+
+            List<GridTowerVertex> vertices = new();
+            List<short> indices = new();
+
+            //Footprint circles of everything placed so far, for the overlap retry below - a plain list
+            //rather than a spatial structure, because this runs once at load/config-apply time on at most
+            //a few dozen solids, not per frame.
+            List<(Vector2 Center, float Radius)> placed = new();
+
+            //Fixed seed (placement is data every host must agree on), independent of _gridLifeRandom (the
+            //Life grid's own randomness, which nothing requires to agree between hosts or between runs).
+            Random placement = new(towers.Seed);
+
+            //The first CubeFraction of Count are cubes, the rest towers - which member of the count gets
+            //which shape carries no meaning (angle and radius are drawn independently either way), so there
+            //is nothing to gain from shuffling the assignment.
+            int cubeCount = (int)MathF.Round(towers.Count * MathHelper.Clamp(towers.CubeFraction, 0f, 1f));
+
+            for (int i = 0; i < towers.Count; i++)
+            {
+                bool isCube = i < cubeCount;
+
+                //Redrawn every attempt of the retry below, so the final, accepted draw is whichever attempt
+                //broke out of (or exhausted) the loop.
+                Vector3 baseCenter = default;
+                float sizeX = 0f, sizeY = 0f, sizeZ = 0f;
+                Vector2 xz = default;
+                float footprintRadius = 0f;
+
+                const int MAX_PLACEMENT_ATTEMPTS = 20;
+                for (int attempt = 0; attempt < MAX_PLACEMENT_ATTEMPTS; attempt++)
+                {
+                    float angle = (float)(placement.NextDouble() * MathHelper.TwoPi);
+                    float radius = MathHelper.Lerp(towers.RadiusMin, towers.RadiusMax, (float)placement.NextDouble());
+
+                    if (isCube)
+                    {
+                        //A big, close-to-equilateral block rather than a random footprint range: the point
+                        //(the owner's own follow-up request) is a face large enough to show the shared Life
+                        //grid whole, which is what reads as an abstract digital object rather than a
+                        //building with windows on it. A little per-axis jitter keeps every cube from being
+                        //a literally identical solid without ever approaching a tower's proportions.
+                        float side = MathHelper.Lerp(towers.CubeSizeMin, towers.CubeSizeMax, (float)placement.NextDouble());
+                        sizeX = side * (0.94f + 0.12f * (float)placement.NextDouble());
+                        sizeY = side * (0.94f + 0.12f * (float)placement.NextDouble());
+                        sizeZ = side * (0.94f + 0.12f * (float)placement.NextDouble());
+                    }
+                    else
+                    {
+                        sizeY = MathHelper.Lerp(towers.TowerHeightMin, towers.TowerHeightMax, (float)placement.NextDouble());
+                        sizeX = MathHelper.Lerp(towers.TowerFootprintMin, towers.TowerFootprintMax, (float)placement.NextDouble());
+                        sizeZ = MathHelper.Lerp(towers.TowerFootprintMin, towers.TowerFootprintMax, (float)placement.NextDouble());
+                    }
+
+                    baseCenter = new Vector3(MathF.Cos(angle) * radius, _gridConfig.Terrain.LevelY, MathF.Sin(angle) * radius);
+                    xz = new Vector2(baseCenter.X, baseCenter.Z);
+                    footprintRadius = 0.5f * MathF.Sqrt(sizeX * sizeX + sizeZ * sizeZ);
+
+                    bool overlaps = false;
+                    foreach ((Vector2 otherXz, float otherRadius) in placed)
+                    {
+                        if (Vector2.Distance(xz, otherXz) < footprintRadius + otherRadius + 15f) { overlaps = true; break; }
+                    }
+
+                    if (!overlaps) break;
+                    //Exhausting every attempt falls through with the LAST draw rather than dropping the
+                    //solid silently - a rare, barely-touching pair reads better than a scene that asked for
+                    //eighteen and quietly drew fewer.
+                }
+
+                placed.Add((xz, footprintRadius));
+
+                //This solid's own board: a fresh seed drawn from the shared stream (see the class doc for
+                //why one shared stream, sliced differently per board, is enough to make every board look
+                //independent), stepped for the first time the moment DrawGrid asks for it (NextStepTime 0).
+                GridLifeBoard board = new()
+                {
+                    Texture = new Texture2D(_graphicsDevice, GRID_LIFE_SIZE, GRID_LIFE_SIZE, false, SurfaceFormat.Color),
+                };
+                SeedGridLife(board);
+                UploadGridLifeTexture(board);
+                _gridLifeBoards.Add(board);
+
+                int rangeStartIndex = indices.Count;
+
+                Vector3 center = baseCenter + Vector3.Up * (sizeY * 0.5f);
+
+                //A random offset per face into THIS solid's own board, in WINDOW CELLS, baked straight into
+                //the face-local UV below — so the pixel shader's cell math never needs to know which face
+                //it is on, only where it sits, and no two faces of the same solid show an identical crop.
+                float cellSize = towers.WindowCellSize;
+                Vector2 OffsetFor(int face) => new(
+                    (float)(placement.NextDouble() * GRID_LIFE_SIZE) * cellSize,
+                    (float)(placement.NextDouble() * GRID_LIFE_SIZE) * cellSize);
+
+                //The same four side-face calls BoxMesh.AddFace makes for +X/-X/+Z/-Z, right x up = the
+                //outward normal, so the winding below (mirrored from BoxMesh.AddFace) reads clockwise from
+                //outside — see the repo convention in CLAUDE.md.
+                AddTowerFace(vertices, indices, Vector3.Forward, Vector3.Up, sizeZ, sizeY,
+                    center + sizeX * 0.5f * Vector3.Right, OffsetFor(0));
+                AddTowerFace(vertices, indices, Vector3.Backward, Vector3.Up, sizeZ, sizeY,
+                    center + sizeX * 0.5f * Vector3.Left, OffsetFor(1));
+                AddTowerFace(vertices, indices, Vector3.Right, Vector3.Up, sizeX, sizeY,
+                    center + sizeZ * 0.5f * Vector3.Backward, OffsetFor(2));
+                AddTowerFace(vertices, indices, Vector3.Left, Vector3.Up, sizeX, sizeY,
+                    center + sizeZ * 0.5f * Vector3.Forward, OffsetFor(3));
+
+                //A cube's top - BoxMesh.AddFace's own top-face parameters (right = Right, up = Forward) -
+                //but never a tower's: a slender tower's cap is not something the play camera's own low
+                //stand-off ever sees, where a block this size plausibly reads from above as well.
+                if (isCube)
+                {
+                    AddTowerFace(vertices, indices, Vector3.Right, Vector3.Forward, sizeX, sizeZ,
+                        center + sizeY * 0.5f * Vector3.Up, OffsetFor(4));
+                }
+
+                _gridTowerRanges.Add((rangeStartIndex, (indices.Count - rangeStartIndex) / 3));
+            }
+
+            _gridTowerVertexBuffer = new VertexBuffer(_graphicsDevice, GridTowerVertex.Declaration, vertices.Count, BufferUsage.WriteOnly);
+            _gridTowerVertexBuffer.SetData(vertices.ToArray());
+
+            _gridTowerIndexBuffer = new IndexBuffer(_graphicsDevice, IndexElementSize.SixteenBits, indices.Count, BufferUsage.WriteOnly);
+            _gridTowerIndexBuffer.SetData(indices.ToArray());
+
+            _gridTowerIndexCount = indices.Count;
+        }
+
+        //One quad face — BoxMesh.AddFace's own vertex order and winding (see its class doc), carrying a
+        //face-local WORLD-UNIT window coordinate (offset by windowOffset, below) instead of a normal and a
+        //[0,1] texture UV. Works for a side face (up = Vector3.Up) or a cube's top (up = Vector3.Forward)
+        //alike, since right x up = the outward normal either way (BoxMesh's own invariant).
+        private static void AddTowerFace(List<GridTowerVertex> vertices, List<short> indices,
+            Vector3 right, Vector3 up, float width, float height, Vector3 faceCenter, Vector2 windowOffset)
+        {
+            Vector3 r = right * (width * 0.5f);
+            Vector3 u = up * (height * 0.5f);
+
+            int baseIndex = vertices.Count;
+
+            vertices.Add(new GridTowerVertex(faceCenter - r - u, windowOffset + new Vector2(-width * 0.5f, -height * 0.5f)));
+            vertices.Add(new GridTowerVertex(faceCenter + r - u, windowOffset + new Vector2(width * 0.5f, -height * 0.5f)));
+            vertices.Add(new GridTowerVertex(faceCenter + r + u, windowOffset + new Vector2(width * 0.5f, height * 0.5f)));
+            vertices.Add(new GridTowerVertex(faceCenter - r + u, windowOffset + new Vector2(-width * 0.5f, height * 0.5f)));
+
+            indices.Add((short)baseIndex);
+            indices.Add((short)(baseIndex + 2));
+            indices.Add((short)(baseIndex + 1));
+
+            indices.Add((short)baseIndex);
+            indices.Add((short)(baseIndex + 3));
+            indices.Add((short)(baseIndex + 2));
+        }
+
+        /// <summary>Fills one board with a fresh random state (~28% alive — dense enough that the next few generations read as something rather than as scattered noise dying out immediately). Each call draws its own slice of the shared <see cref="_gridLifeRandom"/> stream, which is what makes two boards look independent without needing a separate <see cref="Random"/> instance each.</summary>
+        private void SeedGridLife(GridLifeBoard board)
+        {
+            for (int y = 0; y < GRID_LIFE_SIZE; y++)
+                for (int x = 0; x < GRID_LIFE_SIZE; x++)
+                    board.Current[x, y] = _gridLifeRandom.NextDouble() < 0.28;
+        }
+
+        /// <summary>
+        /// Steps one solid's own Game of Life one generation — the ordinary rules, toroidal (each edge
+        /// wraps into the opposite one, so there is no special-cased border), ticked only from
+        /// <see cref="DrawGrid"/> and only while the Grid scene is actually the one being drawn, never on a
+        /// fixed per-frame cadence. <c>board.Next</c> is written and then swapped into <c>board.Current</c>
+        /// rather than copied back, so a generation costs no allocation.
+        /// <para>
+        /// A handful of cells are flipped at random every generation regardless of the rules' own verdict —
+        /// deliberately, not a bug: an unperturbed board on a small toroidal grid settles into a static mix
+        /// of still lifes and oscillators within a few hundred generations (a few minutes at
+        /// <see cref="GridTowerConfig.LifeStepInterval"/>'s default), which would read as the windows
+        /// having simply stopped, and a board that goes fully extinct is worse still. A little noise every
+        /// step is cheaper than detecting either case and answers both at once.
+        /// </para>
+        /// </summary>
+        private void StepGridLife(GridLifeBoard board)
+        {
+            for (int y = 0; y < GRID_LIFE_SIZE; y++)
+            {
+                for (int x = 0; x < GRID_LIFE_SIZE; x++)
+                {
+                    int neighbours = 0;
+
+                    for (int dy = -1; dy <= 1; dy++)
+                    {
+                        for (int dx = -1; dx <= 1; dx++)
+                        {
+                            if (dx == 0 && dy == 0) continue;
+                            if (board.Current[GridMod(x + dx), GridMod(y + dy)]) neighbours++;
+                        }
+                    }
+
+                    bool alive = board.Current[x, y];
+                    board.Next[x, y] = alive ? neighbours is 2 or 3 : neighbours == 3;
+                }
+            }
+
+            (board.Current, board.Next) = (board.Next, board.Current);
+
+            const int STIR_CELLS = 3;
+            for (int i = 0; i < STIR_CELLS; i++)
+                board.Current[_gridLifeRandom.Next(GRID_LIFE_SIZE), _gridLifeRandom.Next(GRID_LIFE_SIZE)] = _gridLifeRandom.NextDouble() < 0.5;
+        }
+
+        //The C#-side mirror of Grid.fx's own GridMod: GRID_LIFE_SIZE is a power of two, so a bitmask fold
+        //stands in for a true modulus here too, and the sign-correctness argument is identical.
+        private static int GridMod(int x) => x & (GRID_LIFE_SIZE - 1);
+
+        /// <summary>Uploads one board's current generation to its own texture — reuses <see cref="GridLifeBoard.UploadBuffer"/> rather than allocating a fresh array every generation (BestPractices §1's per-frame rule, applied at this method's own, slower cadence).</summary>
+        private static void UploadGridLifeTexture(GridLifeBoard board)
+        {
+            for (int y = 0; y < GRID_LIFE_SIZE; y++)
+                for (int x = 0; x < GRID_LIFE_SIZE; x++)
+                    board.UploadBuffer[y * GRID_LIFE_SIZE + x] = board.Current[x, y] ? Color.White : Color.Black;
+
+            board.Texture.SetData(board.UploadBuffer);
+        }
+
         public void Dispose()
         {
             _spaceQuad?.Dispose();
@@ -5990,6 +6497,11 @@ namespace Prazsky.Core.Render
             _moonIndexBuffer?.Dispose();
             _auroraVertexBuffer?.Dispose();
             _auroraIndexBuffer?.Dispose();
+            _gridVertexBuffer?.Dispose();
+            _gridIndexBuffer?.Dispose();
+            _gridTowerVertexBuffer?.Dispose();
+            _gridTowerIndexBuffer?.Dispose();
+            foreach (GridLifeBoard board in _gridLifeBoards) board.Texture?.Dispose();
             _marsVertexBuffer?.Dispose();
             _marsIndexBuffer?.Dispose();
             _stormCloudVertexBuffer?.Dispose();
