@@ -40,6 +40,52 @@ namespace Prazsky.Core.Render
         /// camera fit's box around the gun has to hold (<c>CannonRig.BarrelReach</c> reads it).</summary>
         public float PoleZ { get; }
 
+        /// <summary>The outer profile's widest radius — the base ring, on the shipped figures. The carriage's cheeks
+        /// stand clear of it wherever that steel can reach (#403).</summary>
+        public float WidestRadius { get; }
+
+        //The outer profile's stations, kept for NearestSteelWiderThan: a query the carriage asks once at load
+        private readonly (float Z, float R)[] _outerStations;
+
+        /// <summary>
+        /// How near the trunnions — this mesh's Z origin — any of the tube's steel wider than
+        /// <paramref name="radius"/> ever comes, with the tube free to slide up to <paramref name="recoilBack"/>
+        /// back along its own axis (+Z). What the carriage's cheeks may hug the tube within (#403): inside this
+        /// distance of the trunnion axis nothing of the tube stands further off its axis than
+        /// <paramref name="radius"/>, at any elevation, because the tube only elevates about that axis and slides
+        /// along its own. A straight run that crosses <paramref name="radius"/> counts from the crossing, not
+        /// from its wider end.
+        /// </summary>
+        public float NearestSteelWiderThan(float radius, float recoilBack)
+        {
+            float nearest = float.MaxValue;
+
+            for (int i = 0; i + 1 < _outerStations.Length; i++)
+            {
+                (float z0, float r0) = _outerStations[i];
+                (float z1, float r1) = _outerStations[i + 1];
+
+                if (r0 <= radius && r1 <= radius) continue;
+
+                //The part of this run wider than the radius — the whole run, or cut where it crosses
+                float from = z0, to = z1;
+
+                if (z1 != z0)
+                {
+                    float crossing = z0 + (radius - r0) * (z1 - z0) / (r1 - r0);
+                    if (r0 <= radius) from = crossing;
+                    else if (r1 <= radius) to = crossing;
+                }
+
+                //Anywhere from there to recoilBack further back
+                float low = MathF.Min(from, to), high = MathF.Max(from, to) + recoilBack;
+                float closest = low <= 0f && high >= 0f ? 0f : MathF.Min(MathF.Abs(low), MathF.Abs(high));
+                nearest = MathF.Min(nearest, closest);
+            }
+
+            return nearest;
+        }
+
         #region The barrel's own styling
 
         //The silhouette's figures: radii as offsets from the base outer radius (bore + wall), so a retuned
@@ -251,6 +297,10 @@ namespace Prazsky.Core.Render
 
             float widest = 0f;
             foreach (Station station in outerProfile) widest = MathF.Max(widest, station.R);
+            WidestRadius = widest;
+
+            _outerStations = new (float, float)[outerProfile.Count];
+            for (int i = 0; i < outerProfile.Count; i++) _outerStations[i] = (outerProfile[i].Z, outerProfile[i].R);
 
             float poleZ = outerProfile[^1].Z;
             PoleZ = poleZ;

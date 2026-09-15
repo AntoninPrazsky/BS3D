@@ -330,8 +330,19 @@ namespace Prazsky.BS3D
         /// </summary>
         private const float TRUNNION_SETBACK = 0.90f;
 
-        private const float CHEEK_INNER_X = BORE_RADIUS + WALL_THICKNESS + 0.04f; //hugging the tube, never clipping it
+        //Where the cheeks hug the tube: round the trunnions only, since #403 — see GunCarriageMesh's class note.
+        private const float CHEEK_INNER_X = BORE_RADIUS + WALL_THICKNESS + 0.04f;
         private const float CHEEK_THICKNESS = 0.14f;
+
+        //⚠ THE CHEEKS USED TO HUG THE TUBE ALL THE WAY DOWN, and the breech's base ring — the widest steel on the
+        //gun — ran through their lower back quarter from about 36° of elevation to the top, through the trail
+        //legs' roots, and through the axle bar outright from 52° (#403, measured by sweeping every elevation and
+        //recoil against the carriage's parts on the CPU; the plain boxes before them did the same). So the hug is
+        //kept only inside the distance of the trunnions that wide steel never comes nearer than, recoil included
+        //(the hub), and everywhere else the plates stand clear of the widest steel. Both are read off the mesh
+        //actually built, in the constructor, less these two margins.
+        private const float CHEEK_RELIEF_CLEARANCE = 0.02f;  //the relieved plane past the widest steel
+        private const float CHEEK_HUB_CLEARANCE = 0.03f;     //the hub's radius short of the nearest wide steel
 
         //The trunnion pins the cheeks visibly hold the tube by: buried into the barrel's wall (never its bore)
         //and proud of the plates' outer faces by a boss. They are the CARRIAGE's, not the tube's, and that is
@@ -340,7 +351,7 @@ namespace Prazsky.BS3D
         //plates that hold them.
         private const float TRUNNION_RADIUS = 0.17f;
         private const float TRUNNION_INNER_X = BORE_RADIUS + 0.02f;                     //inside the wall at every aim
-        private const float TRUNNION_OUTER_X = CHEEK_INNER_X + CHEEK_THICKNESS + 0.06f; //the boss past the plate
+        private const float TRUNNION_BOSS = 0.06f;                                      //the pin's boss past the plate
         //The plates' top above the trunnion axis, which since #403 is the radius of the arch they are rounded to
         //about that axis: twice the pin's radius, so the bearing ring round the pin has plate round it in turn.
         //Under half the tube's outer radius, so a plate never rises into view of the loading window on top.
@@ -503,12 +514,18 @@ namespace Prazsky.BS3D
 
             //The carriage under the tube: the frame the trunnions ride in and the pair of wheels the advance
             //walk (W/S) rolls. Sized off the barrel's own figures, so a retuned bore moves the cheeks with it.
-            _carriageMesh = new GunCarriageMesh(graphicsDevice, CHEEK_INNER_X, CHEEK_THICKNESS, CHEEK_TOP_Y,
+            //The plates stand clear of the tube's widest steel except round the trunnions, within the distance no
+            //such steel comes nearer, recoil included (see CHEEK_RELIEF_CLEARANCE) — both read off the tube built.
+            float cheekReliefX = _mesh.WidestRadius + CHEEK_RELIEF_CLEARANCE;
+            float cheekHubRadius = _mesh.NearestSteelWiderThan(CHEEK_INNER_X, GameObjects.Cannon.RECOIL_BACK) - CHEEK_HUB_CLEARANCE;
+
+            _carriageMesh = new GunCarriageMesh(graphicsDevice, CHEEK_INNER_X, cheekReliefX, cheekHubRadius,
+                CHEEK_THICKNESS, CHEEK_TOP_Y,
                 //The axle reaches a plate's thickness past each wheel's centre, so its end is swallowed by the
                 //hub and the joint never shows a crack. It was the spoked wheel's half-hub-width; the omni
                 //wheel's hub is far wider (it spans both plates), so this is buried with room to spare.
                 AXLE_DROP, CHEEK_HALF_LENGTH, AXLE_RADIUS, WHEEL_TRACK + PLATE_THICKNESS, TRAIL_END,
-                TRUNNION_RADIUS, TRUNNION_INNER_X, TRUNNION_OUTER_X);
+                TRUNNION_RADIUS, TRUNNION_INNER_X, cheekReliefX + CHEEK_THICKNESS + TRUNNION_BOSS);
 
             _carriageRenderer = new InstancedModelRenderer(graphicsDevice, _carriageMesh, FRAME_COLOR, instancingEffect)
             {
