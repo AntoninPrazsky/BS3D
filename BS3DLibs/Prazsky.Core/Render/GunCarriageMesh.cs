@@ -33,14 +33,15 @@ namespace Prazsky.Core.Render
     /// <b>The legs were two plain oriented boxes until #403</b>, with a small square plate for a foot — reported
     /// from play as far cruder than the wheels and the turned barrel, and they are the nearest thing to the
     /// play camera, which stands behind the gun with the trail running at the lens. Each is now a tapered,
-    /// chamfered box girder with two bands clamped round it, hinged into a knuckle on the cheek, ending in a
-    /// raked spade with a ground edge and a gusset, with a lifting handle over its foot. <b>Two faces of the old
-    /// box are kept exactly</b>: its inner face and its top face (<see cref="LEG_INNER_FACE"/>,
-    /// <see cref="LEG_TOP_FACE"/>). The breech dips between the legs, so nothing the leg gained may stand
-    /// inboard of the one or above the other — the girder grew outward and downward only, which makes it no
-    /// worse a neighbour for the breech than the box was, by construction rather than by a sweep of every
-    /// elevation. The bands are the one exception, and they sit only where arithmetic says the tube cannot
-    /// reach (see <see cref="BAND_STATIONS"/>).
+    /// chamfered box girder with two bands clamped round it, seated in a socket on the cheek's outer face and
+    /// leaving it through a collar, ending in a raked spade with a ground edge and a gusset, with a lifting
+    /// handle over its foot. <b>The breech dips between the legs, so a leg may not stand further inboard or
+    /// higher than the plain box did</b>: its top face is the box's exactly (<see cref="LEG_TOP_FACE"/>), and
+    /// its inner face is the box's (<see cref="LEG_INNER_FACE"/>) carried <i>outboard</i> with the root, which
+    /// sits on the cheek's inner plane (see <see cref="LEG_ROOT_SPARE"/>). The girder grew outward and
+    /// downward only, which makes it no worse a neighbour for the breech than the box was, by construction
+    /// rather than by a sweep of every elevation; the bands and the collar are the exceptions, and each sits
+    /// only where arithmetic says the tube cannot reach.
     /// </para>
     /// </summary>
     public class GunCarriageMesh : IProceduralMesh, IDisposable
@@ -62,15 +63,15 @@ namespace Prazsky.Core.Render
         //
         //⚠ THE INNER FACE STAYS EXACTLY WHERE THE BOX'S WAS — it hugs the tube (cheekInnerX) — and nothing is
         //added inboard of it. The tube elevates and recoils only in the carriage's own YZ plane, so the cheek's
-        //side silhouette is free, and everything proud of the outer face stays well inside the wheel's inner
-        //plate (1.11 off the axis on the shipped figures, against about 0.96 here).
+        //side silhouette is free, and everything proud of the outer face stays inside the wheel's inner plate
+        //(1.11 off the axis on the shipped figures).
 
         //(The arch's radius about the trunnion axis is the caller's cheekTopY — the plates' top — for the reason
         //the axle drop is: the frame is sized in CannonRig, around the tube and the wheels it has to fit.)
 
         //Where the plate's front and back edges stop being vertical and lean in towards the arch, as a share of
         //the axle drop below the trunnions. It has to stay above the legs' roots (at 0.75 of the drop), or the
-        //leaning edge would cut the corner the leg runs into.
+        //leaning edge would cut the corner the leg runs into — and it is the trail socket's top as well.
         private const float CHEEK_SHOULDER = 0.62f;
         private const float CHEEK_CHAMFER = 0.03f;       //round the outer face, of the plate's thickness
         private const float CHEEK_FOOT_CUT = 0.08f;      //the two bottom corners
@@ -98,18 +99,59 @@ namespace Prazsky.Core.Render
 
         #endregion
 
+        #region Where a leg meets its cheek (#403)
+
+        //⚠ A LEG IS WIDER THAN THE PLATE IT RUNS INTO, and the first cut of the new legs showed it: a girder
+        //0.22 across entering a plate 0.14 thick came out through BOTH faces — a sliver inboard, between the
+        //cheeks where the play camera looks, and a skewed octagon of intersection lines outboard and at the back
+        //edge. Reported from play as the leg visibly tunnelling through the block. No width of leg fits a plate
+        //that thin, so the plate is thickened where the leg goes in instead, and the leg's exit is sleeved.
+        //
+        //The root is seated first: the most inboard corner of its section — the inner face less the lean of the
+        //leg's upright, which is not vertical on a leg that both diverges and falls, and on the shipped figures
+        //reaches 0.03 further in than the face itself — lands this far outboard of the cheek's inner plane. So
+        //nothing of the leg shows between the cheeks, and every part of it moved AWAY from the tube.
+        private const float LEG_ROOT_SPARE = 0.005f;
+
+        //The socket: the cheek's lower back quarter thickened outboard, from the shoulder down to the foot, its
+        //front edge leaning back, chamfered like the plate, so the root is inside solid iron and the leg leaves
+        //through a flat back wall that continues the cheek's own. Its thickness is what the root's outer face
+        //needs at that wall; its front edge is well clear of the axle's bearing.
+        private const float SOCKET_PROUD = 0.14f;          //beyond the cheek's outer face
+        private const float SOCKET_FRONT_TOP = 0.62f;      //the front edge at the shoulder, as a share of the half-length
+        private const float SOCKET_FRONT_BOTTOM = 0.36f;   //and at the foot
+
+        //The hinge the leg swings from, a boss on the socket's outer face over the root with a pin through it: a
+        //split trail's legs close together to travel. It is the part nearest the wheel's inner plate, which the
+        //pin clears by 0.02 on the shipped figures.
+        private const float HINGE_BOSS_RADIUS = 0.08f;
+        private const float HINGE_BOSS_PROUD = 0.02f;
+        private const float HINGE_PIN_RADIUS = 0.035f;
+        private const float HINGE_PIN_PROUD = 0.03f;
+        private const int HINGE_SEGMENTS = 16;
+
+        //The collar the leg leaves the socket through, sleeving the line where an oblique girder crosses a flat
+        //wall: it starts inside the wall and runs a little way out along the leg. Proud outward, up and down, and
+        //only a hair inboard — enough to cover the leg's own inner face without the two fighting over the depth
+        //buffer, and never further in than the plain box stood.
+        private const float COLLAR_PROUD = 0.015f;
+        private const float COLLAR_INNER_PROUD = 0.003f;
+        private const float COLLAR_BEFORE = 0.02f;         //along the leg, inside the wall
+        private const float COLLAR_AFTER = 0.05f;          //and out of it
+
+        #endregion
+
         #region The trail legs (#403)
 
-        //The two faces of the first cut's box the leg keeps, off its centre line (see the class note): inboard
-        //of the one and above the other is where the breech goes.
+        //The two faces of the first cut's box the leg keeps, off its centre line (see the class note)
         private const float LEG_INNER_FACE = 0.10f;
         private const float LEG_TOP_FACE = 0.08f;
 
-        //A box girder tapering to its foot, the shape a real split trail's legs have: deep and broad where the
-        //load comes into the cheek, slim where the spade takes it into the ground. The root's depth is bounded
-        //by the wheel — a leg leaves the cheek inside the wheel's inner plate, and deeper than this its belly
-        //would pass through the rollers' circle as it runs back past them.
-        private const float LEG_HALF_WIDTH_ROOT = 0.11f;
+        //A box girder tapering to its foot, the shape a real split trail's legs have: deep where the load comes
+        //into the cheek, slim where the spade takes it into the ground. The root's width is bounded by the wheel
+        //— a leg leaves its socket inside the wheel's inner plate, and the collar round it has to clear that
+        //plate too — and its depth by the rollers' circle it passes on its way back.
+        private const float LEG_HALF_WIDTH_ROOT = 0.09f;
         private const float LEG_HALF_WIDTH_FOOT = 0.085f;
         private const float LEG_DEPTH_ROOT = 0.34f;
         private const float LEG_DEPTH_FOOT = 0.15f;
@@ -129,21 +171,12 @@ namespace Prazsky.Core.Render
         //where the breech cannot reach, and that is arithmetic rather than a look. The carriage yaws with the
         //aim and the tube only elevates and recoils in the carriage's own YZ plane, so nothing of the tube is
         //ever further off its axis than its widest steel — the base ring, 0.845 (CannonRig's bore and wall plus
-        //CannonMesh.BASE_RING). A leg's inner face stands at about 0.75 + 0.70·station off that axis on the
-        //shipped figures, so a band proud by BAND_PROUD clears the base ring from station 0.16 on. The first is
-        //at twice that.
+        //CannonMesh.BASE_RING). A leg's most inboard edge stands at about 0.785 + 0.64·station off that axis on
+        //the shipped figures, so a band proud by BAND_PROUD clears the base ring from station 0.12 on. The first
+        //is at well over twice that.
         private static readonly float[] BAND_STATIONS = { 0.34f, 0.49f };
         private const float BAND_PROUD = 0.018f;
         private const float BAND_HALF_LENGTH = 0.045f;
-
-        //The hinge knuckle the leg swings from, standing on the cheek's outer face with a pin head on top — a
-        //split trail's legs close together to travel, and the knuckle is what says so. Its radius is bounded by
-        //the wheel's inner plate, which it clears by 0.04.
-        private const float KNUCKLE_RADIUS = 0.075f;
-        private const float KNUCKLE_HALF_LENGTH = 0.2f;
-        private const float PIN_HEAD_RADIUS = 0.045f;
-        private const float PIN_HEAD_HALF_LENGTH = 0.02f;
-        private const int KNUCKLE_SEGMENTS = 12;
 
         //The spade: a pointed blade across the foot, raked so the point sweeps back away from the gun, which is
         //the way a spade has to lean to bite as the recoil shoves the carriage back onto it. The point reaches a
@@ -203,11 +236,11 @@ namespace Prazsky.Core.Render
             float cheekBottomY = -axleDrop - axleRadius * 1.6f;
             float cheekCentreX = cheekInnerX + cheekThickness * 0.5f;
             float cheekOuterX = cheekInnerX + cheekThickness;
+            float shoulderY = -axleDrop * CHEEK_SHOULDER;
 
             for (int side = -1; side <= 1; side += 2)
             {
-                AddCheek(builder, side, cheekInnerX, cheekOuterX, cheekBottomY, cheekHalfLength,
-                    -axleDrop * CHEEK_SHOULDER, cheekTopY);
+                AddCheek(builder, side, cheekInnerX, cheekOuterX, cheekBottomY, cheekHalfLength, shoulderY, cheekTopY);
 
                 //The trunnion's bearing ring, proud of the plate but never of the pin through it
                 float bearingProud = MathF.Min(TRUNNION_BEARING_PROUD, (trunnionOuterX - cheekOuterX) * 0.6f);
@@ -238,11 +271,14 @@ namespace Prazsky.Core.Render
                     new Vector3(side * RIB_PROUD, 0f, 0f),
                     RIB_CHAMFER);
 
+                //The socket the leg is seated in (see "Where a leg meets its cheek")
+                AddSocket(builder, side, cheekOuterX, cheekBottomY, cheekHalfLength, shoulderY);
+
                 //A trail leg, from the cheek's lower rear corner, diverging outward as it falls back to the foot
                 AddTrailLeg(builder,
                     new Vector3(side * cheekCentreX, -axleDrop * 0.75f, cheekHalfLength * 0.8f),
                     new Vector3(side * trailEnd.X, trailEnd.Y, trailEnd.Z),
-                    side, cheekOuterX);
+                    side, cheekInnerX, cheekOuterX + SOCKET_PROUD, cheekHalfLength);
 
                 //The trunnion pin through this cheek: from inside the barrel's wall out to a boss proud of
                 //the plate, on the elevation axis itself — which is why it can sit still while the tube turns
@@ -272,6 +308,39 @@ namespace Prazsky.Core.Render
             Vector2[] face = CheekOutline(halfLength - CHEEK_CHAMFER, bottomY + CHEEK_CHAMFER, shoulderY,
                 archRadius - CHEEK_CHAMFER);
 
+            AddSlab(builder, side, rim, face, innerX, outerX);
+        }
+
+        /// <summary>
+        /// The trail socket on a cheek's outer face (see "Where a leg meets its cheek"): the plate's lower back
+        /// quarter, thickened. Its inner face starts where the cheek's chamfer does, so the two back walls meet
+        /// edge to edge in one flat wall and the cheek's own chamfer there is swallowed rather than notched.
+        /// </summary>
+        private static void AddSocket(MeshBuilder builder, float side, float cheekOuterX, float bottomY,
+            float halfLength, float shoulderY)
+        {
+            Vector2[] rim =
+            {
+                new(halfLength, shoulderY),
+                new(halfLength, bottomY + CHEEK_FOOT_CUT),
+                new(halfLength - CHEEK_FOOT_CUT, bottomY),
+                new(halfLength * SOCKET_FRONT_BOTTOM, bottomY),
+                new(halfLength * SOCKET_FRONT_TOP, shoulderY),
+            };
+
+            AddSlab(builder, side, rim, Inset(rim, CHEEK_CHAMFER), cheekOuterX - CHEEK_CHAMFER,
+                cheekOuterX + SOCKET_PROUD);
+        }
+
+        /// <summary>
+        /// A convex outline in (z, y) extruded across a slab from <paramref name="innerX"/> to
+        /// <paramref name="outerX"/> off the barrel's axis: the inner face, the edge walls up to where the chamfer
+        /// starts, the chamfer, and the outer face <paramref name="face"/> — the rim grown in, with the same
+        /// corners in the same order. Every face flat, with its own normal.
+        /// </summary>
+        private static void AddSlab(MeshBuilder builder, float side, Vector2[] rim, Vector2[] face, float innerX,
+            float outerX)
+        {
             float chamferX = outerX - CHEEK_CHAMFER;
             Vector3 middle = At(Centroid(rim), (innerX + outerX) * 0.5f, side);
             Vector3 inward = new(-side, 0f, 0f);
@@ -286,7 +355,7 @@ namespace Prazsky.Core.Render
                 builder.AddTriangle(At(Centroid(face), outerX, side), At(face[i], outerX, side), At(face[j], outerX, side),
                     -inward, -inward, -inward, -inward);
 
-                //The edge wall, across the plate up to where the chamfer starts
+                //The edge wall, across the slab up to where the chamfer starts
                 AddFlatQuad(builder, At(rim[i], innerX, side), At(rim[j], innerX, side),
                     At(rim[j], chamferX, side), At(rim[i], chamferX, side), middle);
 
@@ -329,6 +398,39 @@ namespace Prazsky.Core.Render
 
             return points;
         }
+
+        /// <summary>
+        /// A convex polygon grown in by <paramref name="distance"/> on every edge: each corner moves along its
+        /// bisector until both of its edges are that far in. Either winding.
+        /// </summary>
+        private static Vector2[] Inset(Vector2[] polygon, float distance)
+        {
+            int count = polygon.Length;
+            float area = 0f;
+
+            for (int i = 0; i < count; i++)
+            {
+                Vector2 a = polygon[i], b = polygon[(i + 1) % count];
+                area += a.X * b.Y - b.X * a.Y;
+            }
+
+            //Counter-clockwise puts the inside to the left of every edge, clockwise to the right
+            float turn = area > 0f ? 1f : -1f;
+            Vector2[] inset = new Vector2[count];
+
+            for (int i = 0; i < count; i++)
+            {
+                Vector2 here = polygon[i];
+                Vector2 inPrevious = LeftNormal(here - polygon[(i + count - 1) % count]) * turn;
+                Vector2 inNext = LeftNormal(polygon[(i + 1) % count] - here) * turn;
+
+                inset[i] = here + (inPrevious + inNext) * (distance / (1f + Vector2.Dot(inPrevious, inNext)));
+            }
+
+            return inset;
+        }
+
+        private static Vector2 LeftNormal(Vector2 edge) => Vector2.Normalize(new Vector2(-edge.Y, edge.X));
 
         //A point of a cheek's (z, y) outline at a distance off the barrel's axis, on the given side
         private static Vector3 At(Vector2 zy, float x, float side) => new(side * x, zy.Y, zy.X);
@@ -378,30 +480,32 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// One leg of the split trail, from <paramref name="start"/> (buried in the cheek) to
-        /// <paramref name="end"/> (its foot) — see the class note for what it is made of and the two faces it
-        /// may not cross.
+        /// One leg of the split trail, from <paramref name="start"/> (inside its socket) to <paramref name="end"/>
+        /// (its foot) — see the class note for what it is made of and the faces it may not cross.
         /// </summary>
         /// <param name="side">−1 or +1: which side of the barrel's axis the leg stands, and so which way is outward.</param>
-        /// <param name="cheekOuterX">The cheek's outer face off the axis, where the knuckle stands.</param>
-        private static void AddTrailLeg(MeshBuilder builder, Vector3 start, Vector3 end, float side, float cheekOuterX)
+        /// <param name="cheekInnerX">The cheek's inner plane off the axis, which the root is seated against.</param>
+        /// <param name="socketOuterX">The socket's outer face off the axis, where the hinge stands.</param>
+        /// <param name="socketBackZ">The socket's back wall, which the leg leaves through its collar.</param>
+        private static void AddTrailLeg(MeshBuilder builder, Vector3 start, Vector3 end, float side, float cheekInnerX,
+            float socketOuterX, float socketBackZ)
         {
-            Vector3 along = end - start;
-            float length = along.Length();
-            Vector3 direction = along / length;
+            //Seat the root (see LEG_ROOT_SPARE): find the section's most inboard corner from where the caller put
+            //it, move the whole root outboard by the difference, and take the frame again from there — the move
+            //turns the leg a hair, far too little for a second pass to find anything
+            LegFrame(start, end, side, out float length, out Vector3 direction, out Vector3 outward, out Vector3 upright);
 
-            //The leg's own frame. Upright is world up with the leg's fall taken out, so it points up for either
-            //leg; outward is square to both — which makes it horizontal — and turned away from the barrel's axis.
-            Vector3 upright = Vector3.Normalize(Vector3.Up - direction * Vector3.Dot(direction, Vector3.Up));
-            Vector3 outward = Vector3.Cross(upright, direction);
-            if (outward.X * side < 0f) outward = -outward;
+            float mostInboard = float.MaxValue;
+            foreach (Vector3 corner in LegSection(start, end, 0f, outward, upright, 0f, 0f, out _))
+                mostInboard = MathF.Min(mostInboard, corner.X * side);
+
+            start.X += side * (cheekInnerX + LEG_ROOT_SPARE - mostInboard);
+            LegFrame(start, end, side, out length, out direction, out outward, out upright);
 
             //The girder: two chamfered sections, root and foot, and the eight long faces between them. Flat
             //faces, each with its own normal: this is machined iron, and the edges are the point.
-            Vector3 rootCentre = SectionCentre(start, outward, upright, LEG_HALF_WIDTH_ROOT, LEG_DEPTH_ROOT * 0.5f);
-            Vector3 footCentre = SectionCentre(end, outward, upright, LEG_HALF_WIDTH_FOOT, LEG_DEPTH_FOOT * 0.5f);
-            Vector3[] root = Section(rootCentre, outward, upright, LEG_HALF_WIDTH_ROOT, LEG_DEPTH_ROOT * 0.5f);
-            Vector3[] foot = Section(footCentre, outward, upright, LEG_HALF_WIDTH_FOOT, LEG_DEPTH_FOOT * 0.5f);
+            Vector3[] root = LegSection(start, end, 0f, outward, upright, 0f, 0f, out Vector3 rootCentre);
+            Vector3[] foot = LegSection(start, end, 1f, outward, upright, 0f, 0f, out Vector3 footCentre);
 
             for (int i = 0; i < SECTION_CORNERS; i++)
             {
@@ -413,22 +517,29 @@ namespace Prazsky.Core.Render
 
                 builder.AddQuad(root[i], root[j], foot[j], foot[i], normal, normal, normal, normal, normal);
 
-                //The two ends: the root's is inside the cheek and the foot's inside the spade, but a cap costs
+                //The two ends: the root's is inside the socket and the foot's inside the spade, but a cap costs
                 //two triangles and an open end would show the moment either figure is retuned
                 builder.AddTriangle(rootCentre, root[i], root[j], -direction, -direction, -direction, -direction);
                 builder.AddTriangle(footCentre, foot[i], foot[j], direction, direction, direction, direction);
             }
 
             foreach (float station in BAND_STATIONS)
-                AddBand(builder, Vector3.Lerp(start, end, station), station, direction, outward, upright);
+            {
+                AddCollar(builder, start, end, station - BAND_HALF_LENGTH / length, station + BAND_HALF_LENGTH / length,
+                    direction, outward, upright, BAND_PROUD, BAND_PROUD);
+            }
 
-            //The hinge knuckle on the cheek's outer face, centred on the root section's depth, and its pin head
-            Vector3 knuckle = new(side * (cheekOuterX + KNUCKLE_RADIUS),
-                start.Y + LEG_TOP_FACE - LEG_DEPTH_ROOT * 0.5f, start.Z);
+            //The collar at the socket's back wall: where the centre line crosses the wall, measured along the leg
+            float exit = (socketBackZ - start.Z) / direction.Z;
+            AddCollar(builder, start, end, (exit - COLLAR_BEFORE) / length, (exit + COLLAR_AFTER) / length,
+                direction, outward, upright, COLLAR_PROUD, COLLAR_INNER_PROUD);
 
-            builder.AddTube(knuckle, Vector3.Up, Vector3.UnitZ, KNUCKLE_HALF_LENGTH, KNUCKLE_RADIUS, KNUCKLE_SEGMENTS);
-            builder.AddTube(knuckle + Vector3.Up * (KNUCKLE_HALF_LENGTH + PIN_HEAD_HALF_LENGTH), Vector3.Up,
-                Vector3.UnitZ, PIN_HEAD_HALF_LENGTH, PIN_HEAD_RADIUS, KNUCKLE_SEGMENTS);
+            //The hinge on the socket's outer face, over the root section's middle
+            Vector3 hinge = new(side * socketOuterX, start.Y + LEG_TOP_FACE - LEG_DEPTH_ROOT * 0.5f, start.Z);
+            builder.AddTubeX(hinge + new Vector3(side * HINGE_BOSS_PROUD * 0.5f, 0f, 0f), HINGE_BOSS_PROUD * 0.5f,
+                HINGE_BOSS_RADIUS, HINGE_SEGMENTS);
+            builder.AddTubeX(hinge + new Vector3(side * HINGE_PIN_PROUD * 0.5f, 0f, 0f), HINGE_PIN_PROUD * 0.5f,
+                HINGE_PIN_RADIUS, HINGE_SEGMENTS);
 
             //The spade, centred on the foot so the foot's end is swallowed by the blade. Its plane holds the
             //outward axis and a down axis raked back along the leg's heading.
@@ -487,35 +598,61 @@ namespace Prazsky.Core.Render
             builder.AddSweptTube(path, outward, HANDLE_BAR_RADIUS, HANDLE_SEGMENTS);
         }
 
-        //One band round the leg (see BAND_STATIONS): a short collar whose section is the leg's own there grown by
-        //BAND_PROUD on every side, closed down onto the leg by a ring at either end
-        private static void AddBand(MeshBuilder builder, Vector3 onLine, float station, Vector3 direction,
-            Vector3 outward, Vector3 upright)
+        //A leg's own frame. Upright is world up with the leg's fall taken out, so it points up for either leg;
+        //outward is square to both — which makes it horizontal — and turned away from the barrel's axis.
+        private static void LegFrame(Vector3 start, Vector3 end, float side, out float length, out Vector3 direction,
+            out Vector3 outward, out Vector3 upright)
         {
-            float halfWidth = MathHelper.Lerp(LEG_HALF_WIDTH_ROOT, LEG_HALF_WIDTH_FOOT, station);
-            float halfDepth = MathHelper.Lerp(LEG_DEPTH_ROOT, LEG_DEPTH_FOOT, station) * 0.5f;
-            Vector3 centre = SectionCentre(onLine, outward, upright, halfWidth, halfDepth);
+            Vector3 along = end - start;
+            length = along.Length();
+            direction = along / length;
 
-            Vector3[] leg = Section(centre, outward, upright, halfWidth, halfDepth);
-            Vector3[] band = Section(centre, outward, upright, halfWidth + BAND_PROUD, halfDepth + BAND_PROUD);
-            Vector3 half = direction * BAND_HALF_LENGTH;
+            upright = Vector3.Normalize(Vector3.Up - direction * Vector3.Dot(direction, Vector3.Up));
+            outward = Vector3.Cross(upright, direction);
+            if (outward.X * side < 0f) outward = -outward;
+        }
+
+        /// <summary>
+        /// A collar round the leg between two stations (0 at the root, 1 at the foot) — the bands and the socket's
+        /// exit sleeve alike: the leg's own section grown by <paramref name="proud"/> outward, up and down and by
+        /// <paramref name="innerProud"/> inboard, with a ring at either end closing it down onto the leg.
+        /// </summary>
+        private static void AddCollar(MeshBuilder builder, Vector3 start, Vector3 end, float from, float to,
+            Vector3 direction, Vector3 outward, Vector3 upright, float proud, float innerProud)
+        {
+            Vector3[] legFrom = LegSection(start, end, from, outward, upright, 0f, 0f, out Vector3 centreFrom);
+            Vector3[] legTo = LegSection(start, end, to, outward, upright, 0f, 0f, out Vector3 centreTo);
+            Vector3[] rimFrom = LegSection(start, end, from, outward, upright, proud, innerProud, out _);
+            Vector3[] rimTo = LegSection(start, end, to, outward, upright, proud, innerProud, out _);
+            Vector3 inside = (centreFrom + centreTo) * 0.5f;
 
             for (int i = 0; i < SECTION_CORNERS; i++)
             {
                 int j = (i + 1) % SECTION_CORNERS;
 
-                Vector3 normal = Vector3.Cross(band[j] - band[i], direction);
-                if (Vector3.Dot(normal, (band[i] + band[j]) * 0.5f - centre) < 0f) normal = -normal;
-                normal = Vector3.Normalize(normal);
+                AddFlatQuad(builder, rimFrom[i], rimFrom[j], rimTo[j], rimTo[i], inside);
 
-                builder.AddQuad(band[i] - half, band[j] - half, band[j] + half, band[i] + half,
-                    normal, normal, normal, normal, normal);
-
-                builder.AddQuad(band[i] - half, band[j] - half, leg[j] - half, leg[i] - half,
+                builder.AddQuad(rimFrom[i], rimFrom[j], legFrom[j], legFrom[i],
                     -direction, -direction, -direction, -direction, -direction);
-                builder.AddQuad(band[i] + half, band[j] + half, leg[j] + half, leg[i] + half,
+                builder.AddQuad(rimTo[i], rimTo[j], legTo[j], legTo[i],
                     direction, direction, direction, direction, direction);
             }
+        }
+
+        /// <summary>
+        /// The leg's chamfered section at a station, optionally grown for a collar: outward, up and down by
+        /// <paramref name="proud"/> and inboard by <paramref name="innerProud"/>. Its centre — ungrown — comes back
+        /// as <paramref name="centre"/>.
+        /// </summary>
+        private static Vector3[] LegSection(Vector3 start, Vector3 end, float station, Vector3 outward, Vector3 upright,
+            float proud, float innerProud, out Vector3 centre)
+        {
+            float halfWidth = MathHelper.Lerp(LEG_HALF_WIDTH_ROOT, LEG_HALF_WIDTH_FOOT, station);
+            float halfDepth = MathHelper.Lerp(LEG_DEPTH_ROOT, LEG_DEPTH_FOOT, station) * 0.5f;
+            centre = SectionCentre(Vector3.Lerp(start, end, station), outward, upright, halfWidth, halfDepth);
+
+            return Section(centre + outward * ((proud - innerProud) * 0.5f), outward, upright,
+                halfWidth + (proud + innerProud) * 0.5f, halfDepth + proud);
         }
 
         //A section's centre: offset from the leg's centre line so its inner face and its top face land on the
