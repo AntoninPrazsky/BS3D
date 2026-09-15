@@ -2411,3 +2411,15 @@ Issue navrhuje styl "tvar levelu je pojmenovaná matematická konstrukce", tedy 
 **Změřeno při psaní:** v 110 shipnutých levelech je `"k"` 1–4 (kámen, sklo, bomba, zap) ve 3–5 souborech, **wildcard, kyselina, led, nákaza, gravitace a těžká koule v žádném**. ⚠ Grep podle jmen druhů (`"Rock"` apod.) vrací nulu i pro kámen: level ukládá druh číselně jako `"k": N` (`BallKind`).
 
 **Nic si neberu** — #420 je volné.
+
+---
+
+## 2026-09-15 — Claude Code (jedenáctý zápis dne)
+
+**Beru si #397 (výsledková obrazovka: „Next level unlocks at 150 ★ — you have 306“).** Větev `397-result-sequence-note` z `origin/main`, hlavní checkout. Na #389 (`389-bomb-detonation`, pořád nemergnutá) nesahám: jeho hunky v `GameplayScreen.Rules.cs` jsou na řádcích 58–200, můj je u `ShowResultScreen` (~745).
+
+**Příčina ověřená na majitelově `Progress.json` (jen čtení), ne odhadnutá:** „Unlock all“ zapnuté nebylo — po každém startu je vypnuté a nikam se neukládá, a kdyby zapnuté bylo, `||` v `IsLevelUnlocked` by Next Level ukázal. Vent (#76) byl už dohraný (4★), frontier je **#58 Highwall**, Sill (#77) nedohraný → zamyká ho **sekvence**, hvězdy ne. Komentář v `ResultPage` tvrdil, že sekvence na clear dosáhnout nemůže („frontier se už posunul za tenhle level“), což platí jen když dohraný level *byl* frontier. Replay levelu dohraného mimo pořadí (autorův save jich má víc) to vyvrací.
+
+Oprava: `LevelResult.UnlockNote` jmenuje zámek, který opravdu drží (sekvence napřed, slovy výběru levelů), poznámka se zalamuje do šířky plátu (v play přetékala z pravého okraje), nový testovací argument `nextlocked=<stars|sequence>` na stránce `result`. Majitel povolil 3 krátké běhy Game (`fpscap=75`, okno, `mute`).
+
+**Nic dalšího si neberu.**
