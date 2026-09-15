@@ -90,54 +90,70 @@ namespace Prazsky.Core.Render
     }
 
     /// <summary>
-    /// The distant monoliths (issue #393's own "any new hard geometry follows MAGI's combinatorial-solid
+    /// The distant solids (issue #393's own "any new hard geometry follows MAGI's combinatorial-solid
     /// discipline" — plain rectangular prisms, the project's own <c>BoxMesh</c> vocabulary, nothing sculpted).
     /// Placed once, deterministically (<see cref="Seed"/>), scattered on a ring around the arena far enough
-    /// out that they read as background silhouettes rather than as play-field obstacles. Each carries its
-    /// four vertical side faces as a bank of windows (no roof or floor face — a distant tower's cap is not
-    /// something the play camera's own low stand-off ever sees, so it is geometry this pass does not pay
-    /// for) whose lit/dark pattern is <b>one shared Game of Life</b> running behind the whole scene
+    /// out that they read as background silhouettes rather than as play-field obstacles. Two shapes, on
+    /// purpose rather than one random footprint range: a <b>tower</b> (tall and narrow, <see cref="TowerHeightMin"/>–<see cref="TowerFootprintMax"/>)
+    /// reads as architecture, which is the one thing the owner's own review said this pass should not look
+    /// like — so a <see cref="CubeFraction"/> of the count are instead <b>cubes</b>, sized
+    /// (<see cref="CubeSizeMin"/>/<see cref="CubeSizeMax"/>) so a face at the shipped
+    /// <see cref="WindowCellSize"/> shows most or all of the 32×32 Life grid at once rather than a thin
+    /// crop of it: a big, roughly equilateral block reading its own generation whole is what makes it an
+    /// abstract digital object rather than a building with lit windows. Each solid's own faces are a bank
+    /// of windows (a tower's four sides; a cube's four sides plus its top, since a block this size is
+    /// plausibly seen from above as well as from the side, where a slender tower's cap never is) whose
+    /// lit/dark pattern is <b>one shared Game of Life</b> running behind the whole scene
     /// (<see cref="SceneRenderer"/>'s own Life grid), each face sampling a different, fixed offset into it
-    /// for variety rather than every tower showing the identical pattern. The issue names this motif as
+    /// for variety rather than every solid showing the identical pattern. The issue names this motif as
     /// "probably the cheapest, most legible starting point" among its four named-mathematics candidates; it
     /// is the second one this pass ships, after the floor's own Hilbert trace.
     /// </summary>
     public sealed class GridTowerConfig
     {
-        /// <summary>How many monoliths stand on the floor.</summary>
-        public int Count { get; set; } = 9;
+        /// <summary>How many solids stand on the floor.</summary>
+        public int Count { get; set; } = 18;
 
-        /// <summary>Nearest a monolith is placed to the arena, in world units — far enough out that none of them is ever mistaken for part of the play field.</summary>
-        public float RadiusMin { get; set; } = 160f;
+        /// <summary>What fraction of <see cref="Count"/> are cubes rather than towers, 0–1.</summary>
+        public float CubeFraction { get; set; } = 0.4f;
 
-        /// <summary>Farthest a monolith is placed, in world units.</summary>
+        /// <summary>Nearest a solid is placed to the arena, in world units — far enough out that none of them is ever mistaken for part of the play field.</summary>
+        public float RadiusMin { get; set; } = 140f;
+
+        /// <summary>Farthest a solid is placed, in world units.</summary>
         public float RadiusMax { get; set; } = 380f;
 
-        /// <summary>Shortest a monolith stands, in world units.</summary>
-        public float HeightMin { get; set; } = 40f;
+        /// <summary>Shortest a tower stands, in world units.</summary>
+        public float TowerHeightMin { get; set; } = 40f;
 
-        /// <summary>Tallest a monolith stands, in world units.</summary>
-        public float HeightMax { get; set; } = 85f;
+        /// <summary>Tallest a tower stands, in world units.</summary>
+        public float TowerHeightMax { get; set; } = 85f;
 
-        /// <summary>Narrowest a monolith's footprint is, per side, in world units.</summary>
-        public float FootprintMin { get; set; } = 12f;
+        /// <summary>Narrowest a tower's footprint is, per side, in world units.</summary>
+        public float TowerFootprintMin { get; set; } = 12f;
 
-        /// <summary>Widest a monolith's footprint is, per side, in world units.</summary>
-        public float FootprintMax { get; set; } = 22f;
+        /// <summary>Widest a tower's footprint is, per side, in world units.</summary>
+        public float TowerFootprintMax { get; set; } = 22f;
 
-        /// <summary>The seed placement is drawn from — fixed rather than time-based, so the Game, the Testbed and the map editor all stand the same monoliths in the same places, the same reason the map itself is shared between them.</summary>
+        /// <summary>Smallest a cube's side is, in world units — see the class doc for why this runs far larger than a tower's footprint: the point is a face big enough to show the Life grid whole.</summary>
+        public float CubeSizeMin { get; set; } = 45f;
+
+        /// <summary>Largest a cube's side is, in world units.</summary>
+        public float CubeSizeMax { get; set; } = 75f;
+
+        /// <summary>The seed placement is drawn from — fixed rather than time-based, so the Game, the Testbed and the map editor all stand the same solids in the same places, the same reason the map itself is shared between them.</summary>
         public int Seed { get; set; } = 393;
 
-        /// <summary>The size of one window pane, in world units, on a monolith's face — independent of the floor's own <see cref="GridTerrainConfig.CellSize"/>, since a building's windows and a circuit board's cells answer different questions.</summary>
+        /// <summary>The size of one window pane, in world units, on a solid's face — independent of the floor's own <see cref="GridTerrainConfig.CellSize"/>, since a facade's windows and a circuit board's cells answer different questions.</summary>
         public float WindowCellSize { get; set; } = 2.4f;
 
         /// <summary>How much of each window cell is the dark mullion between panes, 0–0.5 of the cell. Not zero — a window with no border reads as a single unbroken glowing wall rather than as a bank of separate panes.</summary>
         public float WindowMargin { get; set; } = 0.16f;
 
-        /// <summary>The monolith's own dark body (linear) — not exactly <see cref="GridTerrainConfig.BodyColor"/>: a vertical face and a horizontal floor read the void's own ambient differently, the same reason the light rig's own sky and ground ambients differ.</summary>
+        /// <summary>The solid's own dark body (linear) — not exactly <see cref="GridTerrainConfig.BodyColor"/>: a vertical face and a horizontal floor read the void's own ambient differently, the same reason the light rig's own sky and ground ambients differ.</summary>
         public Rgb BodyColor { get; set; } = new(0.0025f, 0.0075f, 0.0110f);
 
-        /// <summary>A lit window (linear) — past the glare threshold like the floor's own Hilbert trace, so a lit face reads as a skyline of small bright panes rather than a grey chequerboard.</summary>
+        /// <summary>A lit window (linear) — past the glare threshold like the floor's own Hilbert trace, so a lit face reads as a field of small bright panes rather than a grey chequerboard.</summary>
         public Rgb WindowColor { get; set; } = new(0.60f, 1.85f, 2.05f);
 
         /// <summary>How often the shared Game of Life advances a generation, in seconds. The issue's own "a few generations a second, not per-frame — needs to read as a deliberate clock, not a flicker".</summary>

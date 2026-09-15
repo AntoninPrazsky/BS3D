@@ -22,9 +22,9 @@
 //nothing else - no stars (Stars.fxh is deliberately not included). A starfield is space's, the Moon's and
 //the aurora's look; this scene's void is meant to read as "nothing drawn" rather than as another night sky.
 //
-//A third technique, GridTowers, draws the distant monoliths standing on the floor - MAGI-style plain
-//rectangular prisms whose four side faces are a bank of windows lit by one shared Game of Life running
-//behind the whole scene. Drawn between the terrain and the sky (depth-writing, opaque, so the sky's
+//A third technique, GridTowers, draws the distant solids standing on the floor - MAGI-style plain
+//rectangular prisms, towers and cubes alike, whose faces are a bank of windows lit by one shared Game of
+//Life running behind the whole scene. Drawn between the terrain and the sky (depth-writing, opaque, so the sky's
 //depth-read pass rejects what they occlude correctly). See that technique's own header below.
 //
 //Deliberately backdrop-only (see GridSceneConfig's own class doc and "The Grid" in docs/scenes.md): the
@@ -256,18 +256,21 @@ float4 GridSkyPS(GridSkyVertexOutput input) : COLOR
     return float4(sky, 1.0);
 }
 
-//--- Towers: distant monoliths, a bank of windows lit by a shared Game of Life ----------------------------
+//--- Towers: distant solids, a bank of windows lit by a shared Game of Life --------------------------------
 //
 //MAGI/SynthaVision's combinatorial-solid discipline (see the header): plain rectangular prisms, built once
 //on the CPU (SceneRenderer.BuildGridTowers) with their final WORLD-SPACE positions baked directly into the
-//vertex buffer - no per-draw world matrix, no instancing, because there are only ever a handful of these
-//and a draw per handful of quads is the flame's own precedent for "cheap enough not to bother". Only the
-//four vertical side faces are built; a distant tower's roof is never seen from the play camera's own low
-//stand-off, so it is geometry this pass does not pay for.
+//vertex buffer - no per-draw world matrix, no instancing, because there are only ever a few dozen of these
+//and a draw per few dozen quads is the flame's own precedent for "cheap enough not to bother". Two shapes:
+//a tall, narrow TOWER (four vertical side faces only - a slender tower's roof is never seen from the play
+//camera's own low stand-off, so it is geometry this pass does not pay for) and a large, close-to-equilateral
+//CUBE (the same four sides plus a top - sized so one face shows the shared Life grid whole, which is what
+//reads as an abstract digital object rather than a building; see GridTowerConfig's own class doc for why
+//the owner's own follow-up review asked for this second shape specifically).
 //
 //Each vertex's WindowUV is the face-local position in WORLD UNITS (not [0,1] texture coordinates), with a
-//per-tower-per-face random offset already baked in - so the pixel shader's window math never needs to know
-//which face or which tower a pixel belongs to, only where it sits along that face's own two axes. The same
+//per-solid-per-face random offset already baked in - so the pixel shader's window math never needs to know
+//which face or which solid a pixel belongs to, only where it sits along that face's own two axes. The same
 //frac()-based cell test the floor's grid lines use, run here as filled panes instead of thin lines: one
 //shared Texture2D (GridLifeTexture, GRID_LIFE_SIZE square, point-sampled) is the whole scene's one Game of
 //Life, stepped a few generations a second on the CPU (SceneRenderer.StepGridLife) and read here as which
