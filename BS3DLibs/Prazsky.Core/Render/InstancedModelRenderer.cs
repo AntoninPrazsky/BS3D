@@ -78,6 +78,7 @@ namespace Prazsky.Core.Render
         private EffectParameter _dissolvePixelSizeParam;
         private EffectParameter _pulseSpeedParam;
         private EffectParameter _pulseDepthParam;
+        private EffectParameter _stillEmissionParam;
         private EffectParameter _pulseDirectionParam;
         private EffectParameter _pulseWavelengthParam;
         private EffectParameter _rippleStrengthParam;
@@ -699,6 +700,25 @@ namespace Prazsky.Core.Render
         public float PulseDepth { get; set; } = 0.6f;
 
         /// <summary>
+        /// What a ball drawn with <see cref="PulseDepth"/> at zero glows at, as a fraction of what a
+        /// breathing one does <b>at rest</b> (#395). One — the no-op — everywhere except the still plane the
+        /// loaded rounds are drawn on.
+        /// <para>
+        /// <b>It exists because "does not breathe" and "glows at the resting level" are not the same
+        /// thing</b>, and #252 implemented the first meaning to get the second. Every emissive expression in
+        /// the shader reduces to <c>lerp(1 - PulseDepth, 1, beat)</c>, so a depth of zero pins a ball at the
+        /// <i>top</i> of the swing while the cluster it is meant to match sits at <c>1 - PulseDepth</c> for
+        /// most of a heartbeat that is two short pulses and a long rest.
+        /// </para>
+        /// <para>
+        /// <b>⚠ Not a smaller <see cref="PulseDepth"/>, which is the obvious alternative and is wrong:</b>
+        /// that would make the loaded round breathe faintly, which is exactly what #252 took away on the
+        /// owner's own ruling. This leaves it perfectly steady and only moves where it is steady.
+        /// </para>
+        /// </summary>
+        public float StillEmission { get; set; } = 1f;
+
+        /// <summary>
         /// Direction the beat travels through the scene, and how many world units one beat spans.
         /// The phase is offset by position along this direction, so a cluster reads as a wave passing
         /// through it rather than every instance flashing at once.
@@ -928,6 +948,7 @@ namespace Prazsky.Core.Render
             _dissolvePixelSizeParam = _effect.Parameters["DissolvePixelSize"];
             _pulseSpeedParam = _effect.Parameters["PulseSpeed"];
             _pulseDepthParam = _effect.Parameters["PulseDepth"];
+            _stillEmissionParam = _effect.Parameters["StillEmission"];
             _pulseDirectionParam = _effect.Parameters["PulseDirection"];
             _pulseWavelengthParam = _effect.Parameters["PulseWavelength"];
             _rippleStrengthParam = _effect.Parameters["RippleStrength"];
@@ -1444,6 +1465,7 @@ namespace Prazsky.Core.Render
                 _dissolvePixelSizeParam.SetValue(DissolvePixelSize);
                 _pulseSpeedParam.SetValue(PulseSpeed);
                 _pulseDepthParam.SetValue(PulseDepth);
+                _stillEmissionParam.SetValue(StillEmission);
                 _pulseDirectionParam.SetValue(PulseDirection);
                 _pulseWavelengthParam.SetValue(PulseWavelength);
 
