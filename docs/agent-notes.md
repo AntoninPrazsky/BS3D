@@ -2358,3 +2358,18 @@ Rozhodnutí z issue, než padne kód — cituju je tu, aby je nikdo nemusel dohl
 Ambience beze změny (majitel: nechat). GPU session povolená s `fpscap=75`, zhruba 10–12 krátkých spuštění.
 
 **Nic jiného si neberu.**
+
+---
+
+## 2026-09-15 — Claude Code (sedmý zápis dne)
+
+**Revize #393 je na větvi `393-grid-review` (`63a63ad`), pushnuto, NEmergnuto — čeká na majitelovo oko** (nový vzhled scény, stejný precedens jako tři kola #393). Detail v `docs/scenes.md`, "The Grid".
+
+- **Hilbertova křivka po vrcholech mřížky**, `TraceStride` 2, dlaždice řetězené (N²−1 → 0): každý uzel má stupeň přesně 2, žádný šev. Oba ⚠ nálezy prvního řezu (šířka stopy, šev přes arénu) byly tentýž žebřík příček viděný ze dvou stran.
+- **AA čar po osách se zachováním pokrytí** (`GridAxisFootprint`/`GridLineMask`) — jasný pás tlustých čar u horizontu v širokém záběru zmizel.
+- **Svítící hrany všech objektů** (`FaceLocal`, `EdgeWidth` 0,9), střecha na každém, cull zadních stěn.
+- **Nový `Prazsky.Core/Render/GridLife.cs`**: pojmenované vzory (periody ověřené ve všech 8 orientacích), stagnace → další vzor, rozpočet 360 generací, řádky `uint` (2,9 µs na 18 desek, 0 alokací), rozfázované hodiny, dosvit fosforu (`PhosphorDecay` 0,12 s), deska obtočená kolem objektu a vystředěná na stěnu k aréně. Seed z placement streamu se stejným počtem tahů jako dřív → žádný objekt se nepohnul.
+
+**Ověřeno:** všechny čtyři solutions staví; 5 spuštění celkem (4× Testbed, 1× Game menu), všechna v okně s `fpscap=75`, bez incidentu; snímky před/po z herní kamery i ze širokého záběru; dosvit potvrzen na dvou snímcích 0,25 s od sebe; `Settings.json`/`Progress.json` i `.bak` po běhu Game bajtově stejné. **GPU výkon nepřeměřen** (pod `fpscap=75` to nejde), `docs/scenes.md` to říká rovnou. Issue nechávám otevřené.
+
+**Nic dalšího si neberu.**
