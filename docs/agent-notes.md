@@ -2255,3 +2255,24 @@ Zápis výš připisuje `"Vent.json": { "score": 28180, "stars": 4 }` testům #3
 - ⚠ **Na obrazovce to změřené není.** Issue navrhuje nejdřív snímky ve hře s drženým RMB a paletu pod sopkou (#315 měřilo lávu pod scénou The Reveal).
 
 Nic jsem neopravoval. **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-15 — Claude Code
+
+**Beru si #393 (dvacátá scéna: časná 80. léta výpočetní grafiky, mřížka z pojmenované matematiky — Tron), na majitelův výslovný pokyn.** Větev `393-tron-grid-scene`, založená z aktuálního `origin/main` (tenhle zápis jde přímo na `main` z worktree `BS3D-322`, hlavní checkout stojí na `389-bomb-detonation` a nesahám na něj).
+
+Rozhodnutí z issue, než padne kód — cituju je tu, aby je nikdo nemusel dohledávat, kdyby se do toho měl zapojit ještě někdo jiný:
+
+- **`SceneKind.Grid`** (issue navrhuje přímo tenhle název), tvar Měsíce/Aurory — `ReplacesSky` **i** `IsSolidTerrainScene` zároveň (třetí scéna v obou rodinách po #125 a #205), žádná dome, vlastní světelný rig.
+- **Jen pozadí.** Koule, dělo i ostrov zůstávají na běžné osvětlené cestě `InstancedModel.fx`, jen podbarvené studeným cyan rigem téhle scény — to je issue's vlastní doporučená výchozí volba ("the smaller, cheaper, more consistent change"), ne můj zkrat.
+- **Podlaha je doopravdy plochá** (konstantní výška, žádné pole a žádný součet oktáv, žádný gradientní normál — normála je vždy nahoru), takže mříž samotná stojí skoro zadarmo. Nad ní **Hilbertova křivka** jako obvodová kresba: bitová rekurze `xy2d` na souřadnicích buňky (dlaždice 64×64, modulo tak aby se opakovala přes celou plochu), hrana mřížky svítí jasněji tam, kde odděluje dvě po sobě jdoucí buňky křivky. Žádná derivace uvnitř té rekurze, takže je bezpečná vedle `fwidth` na antialiasing čáry.
+- **Vědomě ne azimutální motiv (atan2/spirála/úhel).** Deník nese tři nezávislá nahlášení téhož švu (Mars, kaverna, a potřetí aurora #205 — `atan2` nakrmený rovnou do šumu). Hilbertova křivka a mříž samy o sobě žádný úhel nepočítají, takže tomuhle švu nemůžou podlehnout — první řez jde jen na tenhle motiv.
+- **Obloha je prázdná černá s ditherem proti bankování, bez hvězd.** Hvězdná mřížka je pohled vesmíru/Měsíce/Aurory; tahle scéna má číst jako "nic nevysíláno", ne jako další noční obloha, a je to i nejlevnější varianta z pěti scén nahrazujících oblohu.
+- Credit čtyřem CG studiím Tronu (1982) a hlavně procesu podsvícené optické kompozice (odkud je "černé tělo, svítí jen švy") půjde do `docs/scenes.md`, jak issue výslovně žádá — do shaderového komentáře taky, ať přežije i bez dokumentu.
+
+**Cíl je změřit, ne odhadnout**: issue klade laťku "nejlevnější scéna ve hře" (pod kavernou, 5,96 ms) a tvrdí, že plochá podlaha + mříž na to má nárok algoritmicky, ne škrtem v kvalitním tieru. Změřím na konci stejným postupem jako Aurora (Testbed, `nopost nocap logfps`, jedna kontrolní scéna vedle).
+
+**Kampaň, druhé motivy (Life na oknech, spirála, Mandelbrot) a černé tělo sahající na kouli/dělo jsou mimo rozsah** — issue to sama odděluje jako následné kroky.
+
+**Nic jiného si neberu.**
