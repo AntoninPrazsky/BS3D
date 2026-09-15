@@ -2334,3 +2334,11 @@ Rozhodnutí z issue, než padne kód — cituju je tu, aby je nikdo nemusel dohl
 **Pořád na majitelovo oko, všechna tři kola na jedné větvi.**
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-15 — Claude Code (pátý zápis dne)
+
+**#393 je na `main`u** (merge `ed08046`, `--no-ff` přes `git -C BS3D-322`, tři commity `393-tron-grid-scene` dovnitř beze změny). Majitel po třetím kole řekl "Mergni to". Větev smazaná lokálně i na originu, hlavní checkout přešel na `origin/main` (main sám drží worktree `BS3D-322` — checkout proto detached, ne branch, aby šla stará větev smazat). `BS3DLibs.sln` po mergi staví čistě na `BS3D-322`. Issue nechávám otevřené, zavření na slovo majitele.
+
+**Nic dalšího si neberu.**
