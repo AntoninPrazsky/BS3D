@@ -2370,3 +2370,72 @@ Ambience beze změny (majitel: nechat). GPU session povolená s `fpscap=75`, zhr
 **Beru trigger, ne efekt ani model:** flash/ohnivá koule a zvuk jsou #389, aktivační/nábojový model je #392.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-15 — Claude Code (osmý zápis dne)
+
+**#396 hotové na větvi `396-orphan-bomb` (`abc15fa`, `f86369b`), NEmergnuto.** Osiřelá bomba vybuchne. Větev přerebasovaná na aktuální `origin/main` (byla odbočená uprostřed #393), čtyři solutions 0 chyb.
+
+### Pravidlo je napsané jednou, a to je na tom to podstatné
+
+Čtyři odstraňovací cesty (match, zap, acid, blast) končily **doslovnou kopií** téhož `foreach (cell in GetCellsDisconnectedFromCeiling()) ReleaseBall(cell)`. Kdyby pravidlo „co dělá odpojená buňka" šlo do nich, psalo by se čtyřikrát — a popáté v `SagProbe`, který si celé přistání opakuje. Místo toho je jeden sdílený `ResolveDisconnected`, do kterého ty čtyři ústí. **Sonda nedostala ani řádek**, přesně jak to v #329 udělal thaw; co se v ní měnit muselo, byl komentář.
+
+**Chůze běží ve smyčce, ne jednou na konci**, protože výbuch osiřelé bomby může podetnout další podporu. Končí na `queued` množině: nejvýš jedno kolo na bombu v poli.
+
+### ⚠ Obrátil jsem pravidlo, které stálo napsané pětkrát
+
+„Bomba, kterou release osiří, už spadla a nesmí vybuchnout ve vzduchu" stálo v `BallContactEventHandler`, v `SagProbe`, v `BallKind.Bomb`, v `docs/game-session.md` a v `docs/formats-and-tools.md`. Všech pět přepsáno v témž commitu — nejen kód. Argument proti nim: **chůze je flood fill nad mapou, ne fyzikální událost**, najde bombu v okamžiku, kdy jí podporu podetnou, a koule se ještě ani nehnula. Žádný „vzduch" tam není.
+
+### Skóre: rozhodnuto per oběť, a je to invariant, ne odhad
+
+Oběť výbuchu, kterou chůze **už předtím** našla jako visící na ničem, zůstává `Orphaned` (dvojnásobná sazba) — odešla proto, že jí někdo podetnul podporu, výbuch jenom vybral, kterým směrem letí. `Destroyed` je jen to, co výbuch vezme z **pořád stojícího** clusteru. Alternativa (celý rádius jako Destroyed) byla spočítaná a zamítnutá: koule, které už vydělávaly dvojnásobek, by spadly na sazbu matche, takže **efektnější výsledek by platil míň**. Tak vznikl invariant, který je teď napsaný v `BallsReleased`: *výbuch osiřelé bomby může k hodnotě výstřelu jen přidat.*
+
+Na první kolo `DetonateBombs` je množina „už padajících" prázdná, takže **odjištěná bomba se počítá přesně jako před #396** — žádná existující cesta se nehnula.
+
+### ⚠ `Destroyed > 0` přestalo být testem „vybuchla bomba"
+
+Výbuch uvnitř už padající oblasti nezničí nic — a přesně na tenhle test visela `[shot]` řádka. Teď počítá bomby, které **vystřelily** (`detonatedInto`, vzorem `thawedInto`). ⚠ **Ta řádka se nečistí v žádné ze čtyř metod, ale jednou za přistání v handleru** — detonace patří přistání, ne jednomu jeho kroku.
+
+### ⚠ Seam s #389 je skutečný a **změřený**, ne odhadnutý
+
+`origin/389-bomb-detonation` (hotová, čeká na majitele) přepisuje **tutéž smyčku** a přidává `Detonation` záznam s pozicí těla, hloubkou řetězu a počtem. Zkušební merge: **10 konfliktních hunků / ~199 řádků ve dvou souborech** (`BallsConstraintsBuilder.cs`, `BallContactEventHandler.cs`), všechno ostatní se slučuje samo.
+
+- **Kvůli tomu jsem `BallLanding.Detonated` zase zahodil**, i když jsem ho už měl napsaný: #389 dává na totéž místo bohatší `Detonations`, takže můj holý počet by byl druhá, horší odpověď na stejnou otázku — a hlavně by přidal konflikt do souboru, který sahá do Hry. Po zahození se `BallLanding.cs` sloučí bez konfliktu.
+- **Instrukce pro toho, kdo bude mergovat:** vzít smyčku z #396 (`ResolveDisconnected`) a dovnitř ní vložit z #389 `links`, `blasts`, `Throw` z těla místo z buňky a `ThrowOrphan`; `detonationsInto?.Add(...)` patří přesně tam, kde teď stojí `detonatedInto?.Add(bomb)`. **Bez toho posledního kroku osiřelá bomba po mergi #389 vybuchne beze záblesku a beze zvuku.**
+
+### Ověřeno
+
+- **Čtyři solutions 0 chyb; LevelGen exit 0 a `Game/Levels` beze změny; ScoreSim „All levels rate the right way round".** LevelGenovy statické brány bombu vůbec nemodelují (`Program.cs:1618-1624` to říká samo), takže se výstup změnit ani nemohl.
+- **Bezgrafický rig** (scratchpad, referencuje tři knihovny, sonda `SagProbe`ova tvaru bez kroku simulace), pět scénářů, čísla před/po:
+
+| scénář | před | po |
+|---|---|---|
+| A: bomba pod řezem | 3 m, 5 o, **0 vystřelilo** | 3 m, 5 o, **1 vystřelila** |
+| B: stojící cluster v dosahu | 3 m, 5 o | 3 m, **6 o, 3 zničené** |
+| C: dvě bomby týmž řezem | 3 m, 8 o, 0 vystřelilo | 3 m, 8 o, **2 vystřelily** |
+| D: druhá bomba osiřelá **výbuchem první** | 3 m, 1 o, **bomba zůstala stát** | 3 m, **3 o, 3 zničené**, obě vystřelily |
+| E: `Testbed\Maps\OrphanBomb.json` | — | 18 m, 63 o, bomba v (2,4,7) |
+
+D je ten, který odděluje jednokolovou odpověď od smyčkové: druhá bomba není v rádiusu první a osiří až tím, co první výbuch sebral. A na A i C je vidět, proč byl potřeba počet vystřelených — čísla se **nezměnila vůbec**, a přitom bomba vybuchla.
+
+- **Sonda na třech ostrých levelech s bombami** (`--sag=Vent,Sill,Paroxysm`, před i po): všechny tři pořád **sagged 0 of 5, worst: Cleared**. Verdikt se nehnul. Jednotlivá čísla ano (Vent 23 ran místo 26 a 2,68 od čáry místo 0,90; Sill 41/33 a −0,43/−0,12; Paroxysm 10/10 a −0,97/−0,75) — ⚠ **to není A/B, jsou to jiné průchody**: první osiřelá bomba změní pole a každý další výstřel model vybírá proti levelu, který druhý běh nikdy neviděl.
+- **Za běhu v Testbedu** (`Maps\Bombs.json`, `at=`/`aim=`/`Space`): `[shot] 1 bomb(s) armed, ... 2 bomb(s) fired, destroyed 44, orphaned 0` — handlerová cesta, čištění seznamu i nová řádka ověřené v reálné smyčce. (Dvě vystřelené z jedné odjištěné je řetěz rádiusem, který je tu od #326.)
+
+### Co NENÍ ověřené a nebudu to předstírat
+
+**Osiřelou detonaci se mi nepodařilo vyvolat skriptovaným výstřelem.** `aim=` mířím naslepo bez pohledu na obrazovku a z ~30 pokusů na nové mapě nepřistála ani jedna rána (`bounced` nebo nic). To je omezení, které `docs/testbed.md` samo přiznává („no scripted firing by mouse"), ne vlastnost změny — mapa visí správně, ověřeno snímkem, a rigem se řeže přesně tak, jak má. **Mapa je pro majitelovu ruku a myš, ne pro skript.**
+
+### `Testbed\Maps\OrphanBomb.json` — proč je postavená takhle
+
+235 koulí, **jediná matchovatelná barva v celé mapě** (zbytek obarven greedy tak, že se žádné dvě sousedící neshodují — generátor si to sám dokazuje flood fillem), a **bomba zahrabaná**: každá buňka, která se jí dotýká, je obsazená, takže ji výstřel **nemůže** odjistit tak, jak se bomba odjišťuje od #326. Co v ní vybuchne, může být jen nový trigger.
+
+### Co si neberu
+
+Efekt (#389), aktivační model (#392) a **naučit `ScoreSim` výbuch**. To poslední je pojmenované i v docs: #396 tu díru **rozšířilo, ne prohloubilo** — přibyla přistání, která jsou zčásti orphan a zčásti destroyed, a ten model je neumí vyrobit ani v principu. Sazba je pořád *zdůvodněná, ne změřená*, stejně jako před #396.
+
+**Bezgrafický rig zůstal ve scratchpadu** (tj. zmizí). Jestli ho má být čtvrtý nástroj vedle LevelGenu, ScoreSimu a MusicBaku, je to rozhodnutí majitele — nabízím, nedělám.
+
+**Merge na slovo majitele; zavření issue taky.**
+
+**Nic dalšího si neberu.**
