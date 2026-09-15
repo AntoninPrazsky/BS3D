@@ -2297,3 +2297,23 @@ Rozhodnutí z issue, než padne kód — cituju je tu, aby je nikdo nemusel dohl
 **Mimo rozsah, schválně (issue to sama odděluje jako následné kroky):** kampaňové zařazení, druhé motivy (spirála, Conway's Life na oknech, Mandelbrot), černé tělo sahající na kouli/dělo.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-15 — Claude Code (třetí zápis dne)
+
+**#393, druhé kolo: majitel se podíval a řekl "chybějí tam další objekty, co na scéně mít má být".** Zeptal jsem se na konkrétní volbu (AskUserQuestion) — vybral obojí z issue's vlastního seznamu: **vzdálené monolity** a **okna s Conway's Game of Life**. Pořád na `393-tron-grid-scene`, pořád nemergnuto, commit `0d1c6c4`.
+
+**Devět jednoduchých hranolů na kruhu kolem arény** (`GridTowerConfig`: `Count`=9, poloměr 160–380 — daleko od hratelné plochy), deterministicky ze `Seed`=393, aby Hra/Testbed/editor stavěly stejné věže na stejná místa (stejný důvod, proč je mapa sdílená mezi třemi). `BuildGridTowers` staví jen čtyři svislé boční stěny (zrcadlí `BoxMesh.AddFace`'s vlastní čtyři parametry i vinutí) — žádná střecha/podlaha, protože ji hráčská kamera z nízkého postoje nikdy neuvidí. Geometrie je zapečená rovnou ve world-space do vlastního vertex bufferu, žádná world matice, žádné instancování — pár quadů na draw je přesně to, co si plamen ohně (flame billboard) už dovolil.
+
+**Okna čtou jeden sdílený Game of Life 32×32, ne simulaci na věž.** `StepGridLife` (obyčejná toroidální pravidla) kroká na CPU, `LifeStepInterval`=0,5 s — issue's vlastní "pár generací za sekundu, ne za snímek, má to číst jako hodiny, ne blikání" — a jen dokud je Grid opravdu kreslená scéna. Upload na texturu jen když se generace opravdu změnila (`UploadGridLifeTexture`, jeden opakovaně použitý buffer, žádná alokace za krok). Každá stěna čte stejnou desku na vlastním pevném náhodném offsetu, takže žádné dvě stěny v celé scéně neukazují identický výřez.
+
+**⚠ Neporušená deska zvadne, a oprava je levnější než detekce.** Náhodný Life na malé toroidální desce se během pár set generací (pár minut při defaultním intervalu) usadí do statické směsi still lifes a oscilátorů — což by četlo jako "okna se prostě zastavila" — a vymření je ještě horší. `StepGridLife` proto **každou generaci** převrátí tři náhodné buňky bez ohledu na verdikt pravidel — levnější než detekovat stagnaci nebo vymření, a odpověď na obojí najednou.
+
+**⚠ Uprostřed session spadl desktop (Kernel-Power).** Přesně vzorec z paměti "desktop-hard-resets-under-load" — spustil jsem víc běhů Testbedu po sobě, poslední s `nocap`. Working tree přežil beze ztráty (jen needitované soubory na disku, nic v paměti procesu). Zeptal jsem se majitele, jestli pokračovat — řekl ano, ale jen s `fpscap=75`. **Výkon proto NEPŘEMĚŘENO** po přidání věží — `fpscap=75` na scéně běžící v tisících FPS je plošina, ne číslo. `docs/scenes.md` to říká rovnou, ne že by starý údaj (0,45 ms) nesl dál jako by pořád platil.
+
+**Ověřeno:** všechny čtyři solutions staví čistě, Hra i editor naběhnou bez pádu na nové konstrukční cestě (kouřové testy, `fpscap=60`/výchozí, killnuté hned po startu), dva capture osm sekund od sebe potvrzují, že se deska Life opravdu hýbe, LevelGen a ScoreSim exit 0 beze změny výstupu. Vizuálně z hráčské kamery (`campos=0,-4,30 camtarget=0,-8,0`, `fpscap=75`) jsou dvě věže vidět za dělem a čtou se dobře i v běžném herním záběru, ne jen z širokého ustavujícího záběru.
+
+**Pořád na majitelovo oko** — obě kola teď na téže větvi, žádný merge.
+
+**Nic dalšího si neberu.**
