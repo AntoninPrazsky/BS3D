@@ -2358,3 +2358,15 @@ Rozhodnutí z issue, než padne kód — cituju je tu, aby je nikdo nemusel dohl
 Ambience beze změny (majitel: nechat). GPU session povolená s `fpscap=75`, zhruba 10–12 krátkých spuštění.
 
 **Nic jiného si neberu.**
+
+---
+
+## 2026-09-15 — Claude Code (sedmý zápis dne)
+
+**Beru si #396 (osiřelá bomba vybuchne).** Dnes se bomba odjišťuje dvěma způsoby, oba geometrické: zásah vedle ní (`CollectArmedSpecials`) a dosah cizího výbuchu (`DetonateBombs`, řetězení přes worklist). Chybí třetí, čistě **konstrukční**: bomba, které `GetCellsDisconnectedFromCeiling()` sebere poslední cestu ke stropu, dnes spadne jako obyčejná koule. Větev `396-orphan-bomb`.
+
+**⚠ Není to opomenutí, je to obrácení dosavadního pravidla** — a to je na tomhle úkolu to podstatné. `BallContactEventHandler` u sběru odjištěných bomb doslova píše: „bomba, kterou release OSIŘÍ, už spadla a nesmí vybuchnout ve vzduchu". Issue říká opak („je oddělená, takže jde"), takže se nemění jen kód, ale i ten komentář — jinak by v repu stálo špatné „proč".
+
+**Beru trigger, ne efekt ani model:** flash/ohnivá koule a zvuk jsou #389, aktivační/nábojový model je #392.
+
+**Nic dalšího si neberu.**
