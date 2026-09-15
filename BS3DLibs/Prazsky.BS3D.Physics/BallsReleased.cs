@@ -13,10 +13,32 @@ namespace Prazsky.BS3D.Physics
     /// </item>
     /// </list>
     /// <para>
+    /// <b>⚠ The line between the last two is drawn by what a ball was ALREADY DOING when the blast reached it</b>
+    /// (#396), and it has to be, now that a bomb can be set off by losing its last path to the glass rather
+    /// than by being aimed at. A ball the disconnection walk had already found hanging on nothing left because
+    /// its support was cut — the blast only chose which way it flew — so it stays <see cref="Orphaned"/>, at
+    /// the double rate, even though a blast is what physically took it. Only what a blast takes from cluster
+    /// that was still STANDING is <see cref="Destroyed"/>.
+    /// </para>
+    /// <para>
+    /// The alternative was tried on paper and refused: counting the whole radius as destroyed makes an
+    /// orphan-triggered blast pay the player <i>less</i> than the same shot with no bomb in it, because the
+    /// balls it scatters were already earning the orphan's double. A rule under which the better-looking
+    /// outcome is worth less is not a scoring rule. So the invariant is stated rather than left to emerge:
+    /// <b>an orphan-triggered blast can only ever ADD to what a shot is worth.</b>
+    /// </para>
+    /// <para>
     /// <b>Orphans cannot happen without a match OR a blast.</b> The disconnected walk only runs once something
     /// has actually been taken out, so <see cref="Orphaned"/> is zero whenever both of the others are — and it
     /// is the one field of the three that two different causes contribute to, which is exactly why it is kept
-    /// separate from both.
+    /// separate from both. Since #396 it is three causes: a blast that reaches balls the walk had already
+    /// found also lands here, by the rule above.
+    /// </para>
+    /// <para>
+    /// <b>⚠ <c>Destroyed &gt; 0</c> is NOT a test for "a bomb went off" any more</b> (#396), and it was one for
+    /// long enough to be worth saying. An orphan-triggered blast inside a region that was already falling
+    /// destroys nothing at all, so a bomb can explode with all three of these numbers unchanged from what a
+    /// plain match would have given. What answers that question is <c>BallLanding.Detonated</c>.
     /// </para>
     /// <para>
     /// <b>Why the blast is a third category and not folded into one of the two</b> (#326's own instruction to
