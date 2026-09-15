@@ -2276,3 +2276,24 @@ Rozhodnutí z issue, než padne kód — cituju je tu, aby je nikdo nemusel dohl
 **Kampaň, druhé motivy (Life na oknech, spirála, Mandelbrot) a černé tělo sahající na kouli/dělo jsou mimo rozsah** — issue to sama odděluje jako následné kroky.
 
 **Nic jiného si neberu.**
+
+---
+
+## 2026-09-15 — Claude Code (druhý zápis dne)
+
+**#393 je na větvi `393-tron-grid-scene` (`57b2eca`), NEmergnuto: čeká na majitelovo oko** — nová scéna, nová estetika, stejný precedens jako bomba (#389) a polar (#222). `SceneKind.Grid`, `Grid.fx` + `GridSceneConfig`, `scene=grid`/`scene=tron` v Testbedu.
+
+**Tvar podle issue vlastních doporučených výchozích voleb**: `ReplacesSky` **i** `IsSolidTerrainScene` (třetí scéna v obou rodinách po Měsíci a auroře), podlaha jen pozadí (koule/dělo/ostrov zůstávají na běžné osvětlené cestě, jen podbarvené studeným cyan rigem — issue's vlastní "smaller, cheaper, more consistent change"), žádná mřížka výšek (podlaha je doopravdy plochá — konstantní `TerrainHeight`, žádný součet oktáv, žádný gradientní normál), obloha prázdná černá s ditherem a bez hvězd.
+
+**Motiv: Hilbertova křivka jako obvodová kresba, vědomě ne úhlová (spirála/soustředné kruhy).** Deník nese tři nezávislá nahlášení téhož švu (Mars, kaverna, aurora — `atan2` nakrmený rovnou do šumu); buňková mřížka a test "jsou si sousedé po sobě jdoucí na křivce" nepočítají žádný úhel, takže tomuhle švu nemůžou podlehnout vůbec.
+
+**⚠ Dva nálezy, které ukázal až skutečný capture, oba zapsané do `docs/scenes.md`:**
+
+1. **Dlaždice křivky se nesbaluje, a naivní sbalení dalo šev přesně křížem přes arénu.** Hilbertova křivka nemá index 0 a index N²−1 sousední, takže sbalení do `[0, N)` je skutečná nespojitost na každé hranici dlaždice — a hranice padaly na world `x, z = 0`, tedy přesně tam, kde stojí ostrov. Oprava: posun o půl dlaždice před sbalením, takže na počátku světa je **střed** dlaždice, ne její šev. Chyceno okem na debug průchodu (barvení podle "je nejbližší hrana na křivce"), který ukázal vzor zrcadlený přesně podle `x=0` a `z=0`.
+2. **Stejně široká, jen jasnější čára se z hráčské vzdálenosti změřila jako žádná čára.** Debug izolace potvrdila, že porovnání souvislosti funguje (zapíná se na skoro polovině hran, přesně jak křivka navštěvující každou buňku dvakrát predikuje) — ale v běžné hře byla stopa vizuálně příliš tenká na to, aby se v hustém poli čar odlišila. Širší záběr ji ukázal jasně. Oprava: `GridAccentWidthScale` (2,4) — stopa je teď širší, ne jen jasnější, vybráno PŘED anti-aliasing maskou, ne po ní.
+
+**Ověřeno:** všechny tři executables staví čistě (`dotnet build` na všech čtyřech .sln), Game a MapEditor naběhnou bez pádu na nové konstrukční cestě (kouřový test, oba killnuté hned po startu, žádný zásah do majitelova `Progress.json`), LevelGen a ScoreSim exit 0 beze změny výstupu. **Výkon: jednorázová kontrola na referenčním desktopu (6900 XT)**, Testbed, pevná kamera, `nopost nocap logfps`, 1600×900 ssaa 2: Grid **0,45–0,46 ms** proti kaverně (dosud nejlevnější změřená scéna) **1,08–1,09 ms** za stejných podmínek — issue's vlastní laťka splněná bez jediné redukované techniky, protože plochá podlaha nemá co redukovat. Není to párový `alt=` sweep a není to #209's vlastní 5,96 ms z reálného levelu — psáno v `docs/scenes.md` jako jednorázová kontrola, ne měření.
+
+**Mimo rozsah, schválně (issue to sama odděluje jako následné kroky):** kampaňové zařazení, druhé motivy (spirála, Conway's Life na oknech, Mandelbrot), černé tělo sahající na kouli/dělo.
+
+**Nic dalšího si neberu.**
