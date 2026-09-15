@@ -108,6 +108,10 @@ namespace BS3D
             //presents (#183). Null leaves the authored three — the only one a test could otherwise reach.
             int? resultStars = null;
 
+            //Testing only: shut the "result" page's next level, by "stars" or by "sequence" (#397). Null leaves
+            //it open, which is what the page has always been photographed as.
+            string nextLocked = null;
+
             //Testing only: what the HUD's multiplier readout shows (#180). The capped state takes five
             //consecutive scoring shots to reach honestly, so it is otherwise unphotographable.
             int? streak = null;
@@ -153,6 +157,12 @@ namespace BS3D
                 //"stars=<0..4>" rates that result page, which is the only way to see the other three trophy
                 //cups (#183): reaching a four-star clear honestly means being good at the game, not scripting it.
                 else if (arg.StartsWith("stars=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("stars=".Length), out int parsedStars)) resultStars = parsedStars;
+                //"nextlocked=<stars|sequence>" shuts that page's next level by one lock or the other (#397), so the
+                //note explaining the missing Next Level can be looked at. Neither was reachable from a test: the
+                //page hardcoded the next level open, and the one time the note was seen it was stating a reason
+                //its own numbers refuted, and running off the edge of its plate. An unknown lock is ignored.
+                else if (arg.StartsWith("nextlocked=", StringComparison.OrdinalIgnoreCase)
+                    && BS3DGame.IsStartupNextLock(arg.Substring("nextlocked=".Length))) nextLocked = arg.Substring("nextlocked=".Length);
                 //"streak=<n>" pins what the HUD's multiplier shows (#180) — the display only, never the
                 //scoring, so the lever cannot alter the thing it is there to look at.
                 else if (arg.StartsWith("streak=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("streak=".Length), out int parsedStreak)) streak = parsedStreak;
@@ -221,7 +231,7 @@ namespace BS3D
 
             using var game = new BS3DGame(fullscreen: fullscreen, supersampleFactor: supersampleFactor, exposure: exposure,
                 uncappedFps: uncappedFps, scene: scene, skyDome: skyDome, logFrameRate: logFrameRate, quality: quality,
-                celebrate: celebrate, confetti: confetti, lasers: lasers, mute: mute, play: play, result: result, blockDone: blockDone, lost: lost, resultStars: resultStars, streak: streak, wildcardEvery: wildcardEvery,
+                celebrate: celebrate, confetti: confetti, lasers: lasers, mute: mute, play: play, result: result, blockDone: blockDone, lost: lost, resultStars: resultStars, nextLocked: nextLocked, streak: streak, wildcardEvery: wildcardEvery,
                 shotSeconds: shotSeconds, level: level, levelFile: levelFile, preview: preview, ballStyle: ballStyle, pick: pick, fpsCap: fpsCap,
                 noFocusPause: noFocusPause);
             game.Run();
