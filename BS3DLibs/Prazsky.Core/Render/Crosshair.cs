@@ -25,9 +25,10 @@ namespace Prazsky.Core.Render
     /// <see cref="MIN_OPACITY"/>, so neither caller needs a visibility test of its own.
     /// </para>
     /// <para>
-    /// <b>It blinks red while the gun is pressed against its elevation clamp</b> (#431). The strain is handed in,
-    /// because this component knows nothing of a gun; <see cref="StrainBrightness"/> is public so that the Game's
-    /// aim beam, which carries the crosshair's signals in the overview, blinks on the same wave.
+    /// <b>It throbs red while the gun is pressed against its elevation clamp</b> (#431): turns
+    /// <see cref="WARNING"/>, swells and blinks, bigger at every bright peak. The strain is handed in, because this
+    /// component knows nothing of a gun; <see cref="StrainBrightness"/> is public so that the Game's aim beam,
+    /// which carries the crosshair's signals in the overview, blinks on the same wave.
     /// </para>
     /// </summary>
     public sealed class Crosshair : IDisposable
@@ -46,14 +47,14 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// The mark's red for "no", in display space and fully opaque. The Game's tint over a shot that cannot
-        /// stick is this colour, and so is the blink at the elevation clamp, so the two refusals are one colour.
+        /// stick is this colour, and so is the throb at the elevation clamp, so the two refusals are one colour.
         /// </summary>
         public static readonly Color WARNING = new(236, 74, 74);
 
         /// <summary>
-        /// How fast the mark blinks under strain. A <b>blink</b> and not a breath: the HUD's own rule is that a
-        /// slow swell reads as urgency and a hard flash as a fault, and a stop the hand is pushing into is the
-        /// second. Off the cluster's 1.1 Hz heartbeat, the muzzle halo's 1.6 and the ghost's 2.2, all of which
+        /// How fast the mark blinks and throbs under strain. A <b>blink</b> and not a breath: the HUD's own rule is
+        /// that a slow swell reads as urgency and a hard flash as a fault, and a stop the hand is pushing into is
+        /// the second. Off the cluster's 1.1 Hz heartbeat, the muzzle halo's 1.6 and the ghost's 2.2, all of which
         /// share the frame with it. On the caller's wall clock, so the phase a push starts on is arbitrary — at
         /// this rate the first bright frame is never more than an eighth of a second away.
         /// </summary>
@@ -64,6 +65,15 @@ namespace Prazsky.Core.Render
         /// all of it, so the mark is never briefly missing.
         /// </summary>
         public const float STRAIN_BLINK_DEPTH = 0.85f;
+
+        /// <summary>How much bigger the whole mark stands at full strain before the throb — half as big again.</summary>
+        public const float STRAIN_GROWTH = 0.5f;
+
+        /// <summary>
+        /// How much more it swells at each bright peak on top of <see cref="STRAIN_GROWTH"/>, so a full push throbs
+        /// the mark between 1.5 and 2 times its size, bars thickening with it, in step with the blink.
+        /// </summary>
+        public const float STRAIN_THROB = 0.5f;
 
         //Authored for a 2160p viewport and scaled down with it, exactly as InfoRenderer's text is, so the
         //crosshair keeps its size on the screen rather than in pixels
@@ -104,7 +114,7 @@ namespace Prazsky.Core.Render
         /// premultiplied, so an alpha below 255 here would draw full colour and only partly cover what is behind it.
         /// </param>
         /// <param name="strain">How hard the aim is pressed against a limit it cannot pass, 0…1 — the gun's
-        /// <c>Cannon.ElevationStrain</c>. Turns the bars towards <see cref="WARNING"/> and blinks them in
+        /// <c>Cannon.ElevationStrain</c>. Turns the bars towards <see cref="WARNING"/>, swells and blinks them in
         /// proportion; 0 leaves the mark exactly as <paramref name="tint"/> says.</param>
         /// <param name="clock">Seconds on the caller's wall clock, which the blink runs on. Unread without strain.</param>
         public void Draw(SpriteBatch batch, float opacity = 1f, Color? tint = null, float strain = 0f, float clock = 0f)
@@ -113,7 +123,11 @@ namespace Prazsky.Core.Render
 
             Viewport viewport = _device.Viewport;
 
-            float scale = viewport.Height / SCALE_DIVISOR;
+            strain = MathHelper.Clamp(strain, 0f, 1f);
+
+            //The swell rides the same wave as the blink, so the mark is at its biggest exactly when it is brightest
+            float swell = strain > 0f ? 1f + strain * (STRAIN_GROWTH + STRAIN_THROB * StrainWave(clock)) : 1f;
+            float scale = viewport.Height / SCALE_DIVISOR * swell;
 
             //A bar authored five units thick is under a pixel on a small window, where rounding down would
             //leave nothing to draw at all
@@ -131,7 +145,7 @@ namespace Prazsky.Core.Render
 
             //Both colours carry the same alpha, so the lerp stays premultiplied; and because the strain eases out,
             //letting go fades the mark back to what it was saying rather than snapping
-            if (strain > 0f) color = Color.Lerp(color, WARNING * 0.75f, MathF.Min(strain, 1f));
+            if (strain > 0f) color = Color.Lerp(color, WARNING * 0.75f, strain);
 
             color *= opacity * StrainBrightness(strain, clock);
 
@@ -151,10 +165,11 @@ namespace Prazsky.Core.Render
         {
             if (strain <= 0f) return 1f;
 
-            float trough = 0.5f - 0.5f * MathF.Cos(MathHelper.TwoPi * STRAIN_BLINK_HZ * clock);
-
-            return 1f - MathF.Min(strain, 1f) * STRAIN_BLINK_DEPTH * trough;
+            return 1f - MathF.Min(strain, 1f) * STRAIN_BLINK_DEPTH * (1f - StrainWave(clock));
         }
+
+        //The blink's wave, 1 at the bright peak and 0 in the trough
+        private static float StrainWave(float clock) => 0.5f + 0.5f * MathF.Cos(MathHelper.TwoPi * STRAIN_BLINK_HZ * clock);
 
         /// <summary>The one texel. The batch is the caller's and is left alone.</summary>
         public void Dispose()
