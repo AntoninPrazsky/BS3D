@@ -2399,3 +2399,15 @@ Celkem 6 spuštění za celou revizi, všechna `fpscap=75`, bez incidentu. Všec
 **Dodatek:** majitel řekl "393 zavři, je to hotové" — **#393 zavřeno** s komentářem (co je na `main`u a co zůstává mimo rozsah podle issue samotné: kampaň, spirála/Mandelbrot, black-body mód pro koule a dělo).
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-15 — Claude Code (desátý zápis dne)
+
+**Založeno #420: nová kapitola (dvanáctý blok, deset levelů) ve scéně Grid**, na majitelův pokyn. Duplicitu jsem hledal na GitHubu (kapitola, grid, tron, aurora, polar) i v deníku: kapitolu nemá Grid, aurora (#205) ani polar (#222) a issue na ni neexistovalo.
+
+Issue navrhuje styl "tvar levelu je pojmenovaná matematická konstrukce", tedy tezi samotné scény. Kandidáti: generace Life naskládané jako patra (čas jako výška), 3D Hilbertova křivka, Mengerova houba a Sierpińského pyramida, drátěná tělesa. Vyjmenovává existující mantinely: 13 barev, pravidla bran, 35 s visení v Game pro tenké tvary (Trellis, Bolt), `palette.ps1` pod cyan rigem Gridu, `[aimcheck]` v Game, ScoreSim. Majiteli nechává rozhodnutí: pořadí (append nebo vložení; odhad rampy při 120 položkách 236 proti 476 hvězdám, v issue označený jako přepočítat), materiál (reprise), hudbu, jméno bloku a to, jestli blok přinese do kampaně některou z hotových, ale nikde nepoužitých koulí.
+
+**Změřeno při psaní:** v 110 shipnutých levelech je `"k"` 1–4 (kámen, sklo, bomba, zap) ve 3–5 souborech, **wildcard, kyselina, led, nákaza, gravitace a těžká koule v žádném**. ⚠ Grep podle jmen druhů (`"Rock"` apod.) vrací nulu i pro kámen: level ukládá druh číselně jako `"k": N` (`BallKind`).
+
+**Nic si neberu** — #420 je volné.
