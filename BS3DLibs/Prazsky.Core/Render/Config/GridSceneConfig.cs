@@ -4,10 +4,10 @@ namespace Prazsky.Core.Render
 {
     /// <summary>
     /// Configuration of the Grid backdrop (#393): an early-1980s computer-graphics vocabulary worn as a
-    /// style rather than as a limitation — a flat, glowing circuit-board floor traced by a Hilbert curve
-    /// under a near-black, starless void. Named mathematics rather than noise: nothing here is a summed
-    /// sine field, because the whole point is a look a computer had <b>before</b> it could afford to fake
-    /// one.
+    /// style rather than as a limitation — a flat, glowing circuit-board floor with a Hilbert curve traced along
+    /// its lines, and distant solids with glowing seams whose windows run Conway's Game of Life, under a
+    /// near-black, starless void. Named mathematics rather than noise: nothing here is a summed sine field,
+    /// because the whole point is a look a computer had <b>before</b> it could afford to fake one.
     /// <para>
     /// The twentieth scene, and the third that belongs to <b>both</b> scene families at once, after the
     /// Moon (#125) and the aurora (#205): solid terrain (<see cref="SceneRenderer.IsSolidTerrainScene"/> —
@@ -43,7 +43,7 @@ namespace Prazsky.Core.Render
         /// <summary>The glowing floor.</summary>
         public GridTerrainConfig Terrain { get; set; } = new();
 
-        /// <summary>The distant monoliths standing on the floor, their faces a bank of windows lit by a Game of Life running behind the whole scene.</summary>
+        /// <summary>The distant solids standing on the floor: glowing seams, and windows each running a Game of Life of their own.</summary>
         public GridTowerConfig Towers { get; set; } = new();
 
         /// <summary>What lights the island, the gun and the balls here, since there is no dome to derive it from.</summary>
@@ -52,19 +52,27 @@ namespace Prazsky.Core.Render
 
     /// <summary>
     /// The floor: genuinely flat (a constant world Y, not a height field), lit only by its own two kinds of
-    /// glowing line — an ordinary grid, and a Hilbert-curve trace threading through it that reads as a
-    /// circuit-board pattern rather than a random subset of the grid. Being flat is the honest source of
-    /// most of this scene's cheapness: no octave sum, no per-pixel gradient normal (the normal is always
-    /// straight up), and the camera-centred mesh itself can be coarse, because nothing is displaced at
-    /// vertex resolution — see <c>Grid.fx</c>'s own header.
+    /// glowing line — an ordinary grid, and a Hilbert curve traced along it, wider and brighter, that reads as a
+    /// circuit rather than as a random subset of the grid. Being flat is the honest source of most of this
+    /// scene's cheapness: no octave sum, no per-pixel gradient normal (the normal is always straight up), and
+    /// the camera-centred mesh itself can be coarse, because nothing is displaced at vertex resolution — see
+    /// <c>Grid.fx</c>'s own header.
     /// </summary>
     public sealed class GridTerrainConfig
     {
         /// <summary>The floor's world Y — the same plane every other terrain scene's clearing sits at.</summary>
         public float LevelY { get; set; } = -13.5f;
 
-        /// <summary>The size of one grid cell, in world units — the one "zoom" dial on the Hilbert tile as well as the plain grid (see <c>Grid.fx</c>'s own header for why the tile order itself is a shader constant rather than a second tunable dial).</summary>
+        /// <summary>The size of one grid cell, in world units — with <see cref="TraceStride"/>, the scale of the Hilbert curve as well as of the plain grid (see <c>Grid.fx</c>'s own header for why the curve's tile order is a shader constant rather than a tunable dial).</summary>
         public float CellSize { get; set; } = 8f;
+
+        /// <summary>
+        /// How many grid lines apart the Hilbert curve's lattice is: 1 traces it along every line, 2 along every
+        /// other line with a plain one between. A curve through every node lights half of all the lattice's
+        /// segments, which from a grazing camera is most of the floor; at 2 the dim lines between keep the curve
+        /// reading as a trace laid over a board.
+        /// </summary>
+        public int TraceStride { get; set; } = 2;
 
         /// <summary>How thick an ordinary glowing grid line is, in world units.</summary>
         public float LineWidth { get; set; } = 0.12f;
@@ -91,23 +99,25 @@ namespace Prazsky.Core.Render
 
     /// <summary>
     /// The distant solids (issue #393's own "any new hard geometry follows MAGI's combinatorial-solid
-    /// discipline" — plain rectangular prisms, the project's own <c>BoxMesh</c> vocabulary, nothing sculpted).
-    /// Placed once, deterministically (<see cref="Seed"/>), scattered on a ring around the arena far enough
-    /// out that they read as background silhouettes rather than as play-field obstacles. Two shapes, on
-    /// purpose rather than one random footprint range: a <b>tower</b> (tall and narrow, <see cref="TowerHeightMin"/>–<see cref="TowerFootprintMax"/>)
-    /// reads as architecture, which is the one thing the owner's own review said this pass should not look
-    /// like — so a <see cref="CubeFraction"/> of the count are instead <b>cubes</b>, sized
-    /// (<see cref="CubeSizeMin"/>/<see cref="CubeSizeMax"/>) so a face at the shipped
-    /// <see cref="WindowCellSize"/> shows most or all of the 32×32 Life grid at once rather than a thin
-    /// crop of it: a big, roughly equilateral block reading its own generation whole is what makes it an
-    /// abstract digital object rather than a building with lit windows. Each solid's own faces are a bank
-    /// of windows (a tower's four sides; a cube's four sides plus its top, since a block this size is
-    /// plausibly seen from above as well as from the side, where a slender tower's cap never is) whose
-    /// lit/dark pattern is <b>one shared Game of Life</b> running behind the whole scene
-    /// (<see cref="SceneRenderer"/>'s own Life grid), each face sampling a different, fixed offset into it
-    /// for variety rather than every solid showing the identical pattern. The issue names this motif as
-    /// "probably the cheapest, most legible starting point" among its four named-mathematics candidates; it
-    /// is the second one this pass ships, after the floor's own Hilbert trace.
+    /// discipline" — plain closed rectangular prisms, the project's own <c>BoxMesh</c> vocabulary, nothing
+    /// sculpted). Placed once, deterministically (<see cref="Seed"/>), scattered on a ring around the arena far
+    /// enough out that they read as background silhouettes rather than as play-field obstacles.
+    /// <para>
+    /// Two shapes, on purpose rather than one random footprint range. A <b>tower</b> (tall and narrow —
+    /// <see cref="TowerHeightMin"/>/<see cref="TowerHeightMax"/> high, <see cref="TowerFootprintMin"/>/<see cref="TowerFootprintMax"/>
+    /// across) reads as architecture, which is the one thing the owner's review said these should not look like
+    /// — so a <see cref="CubeFraction"/> of the count are instead <b>cubes</b>, sized
+    /// (<see cref="CubeSizeMin"/>/<see cref="CubeSizeMax"/>) so a face at the shipped <see cref="WindowCellSize"/>
+    /// shows most or all of a 32×32 Life board at once: a big, roughly equilateral block showing its own
+    /// generation whole is what makes it an abstract digital object rather than a building with lit windows.
+    /// </para>
+    /// <para>
+    /// Every edge of every solid glows (<see cref="EdgeWidth"/>, <see cref="EdgeColor"/>) — the backlit-costume
+    /// rule the floor's lines follow — and its faces are a bank of windows lit by <b>its own</b> Game of Life
+    /// (<see cref="GridLife"/>): a board stamped with one of a deck of named patterns, wrapped round the solid's
+    /// sides like a label and centred on the side facing the arena, stepped every <see cref="LifeStepInterval"/>
+    /// and moved on to its next pattern when it goes stale or has run <see cref="LifePatternGenerations"/>.
+    /// </para>
     /// </summary>
     public sealed class GridTowerConfig
     {
@@ -135,13 +145,13 @@ namespace Prazsky.Core.Render
         /// <summary>Widest a tower's footprint is, per side, in world units.</summary>
         public float TowerFootprintMax { get; set; } = 22f;
 
-        /// <summary>Smallest a cube's side is, in world units — see the class doc for why this runs far larger than a tower's footprint: the point is a face big enough to show the Life grid whole.</summary>
+        /// <summary>Smallest a cube's side is, in world units — see the class doc for why this runs far larger than a tower's footprint: the point is a face big enough to show a Life board whole.</summary>
         public float CubeSizeMin { get; set; } = 45f;
 
         /// <summary>Largest a cube's side is, in world units.</summary>
         public float CubeSizeMax { get; set; } = 75f;
 
-        /// <summary>The seed placement is drawn from — fixed rather than time-based, so the Game, the Testbed and the map editor all stand the same solids in the same places, the same reason the map itself is shared between them.</summary>
+        /// <summary>The seed placement and every solid's Life board are drawn from — fixed rather than time-based, so the Game, the Testbed and the map editor all stand the same solids in the same places showing the same patterns, and two Testbed captures of this scene stay comparable.</summary>
         public int Seed { get; set; } = 393;
 
         /// <summary>The size of one window pane, in world units, on a solid's face — independent of the floor's own <see cref="GridTerrainConfig.CellSize"/>, since a facade's windows and a circuit board's cells answer different questions.</summary>
@@ -156,8 +166,20 @@ namespace Prazsky.Core.Render
         /// <summary>A lit window (linear) — past the glare threshold like the floor's own Hilbert trace, so a lit face reads as a field of small bright panes rather than a grey chequerboard.</summary>
         public Rgb WindowColor { get; set; } = new(0.60f, 1.85f, 2.05f);
 
-        /// <summary>How often the shared Game of Life advances a generation, in seconds. The issue's own "a few generations a second, not per-frame — needs to read as a deliberate clock, not a flicker".</summary>
+        /// <summary>How wide a solid's glowing seam is, in world units — the full width of the line at a corner, where two faces each draw half of it.</summary>
+        public float EdgeWidth { get; set; } = 0.9f;
+
+        /// <summary>A solid's glowing seams (linear) — past the glare threshold, so the silhouette blooms against the void the way the floor's trace does; without them the body is within a few codes of the void and only the lit windows show.</summary>
+        public Rgb EdgeColor { get; set; } = new(0.70f, 2.20f, 2.60f);
+
+        /// <summary>How often each board advances a generation, in seconds. The issue's own "a few generations a second, not per-frame — needs to read as a deliberate clock, not a flicker".</summary>
         public float LifeStepInterval { get; set; } = 0.5f;
+
+        /// <summary>How long a cell that has just died keeps glowing, in seconds — the time constant of a phosphor's decay, so a glider leaves a short trail and a pattern being replaced goes out rather than off. Well under <see cref="LifeStepInterval"/>, so the trail is one generation long.</summary>
+        public float PhosphorDecay { get; set; } = 0.12f;
+
+        /// <summary>How many generations one pattern runs before its board moves on to the next, even if it has not gone stale — at the shipped <see cref="LifeStepInterval"/> three minutes, so a long level shows more than one.</summary>
+        public int LifePatternGenerations { get; set; } = 360;
     }
 
     /// <summary>
