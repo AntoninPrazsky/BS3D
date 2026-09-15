@@ -2458,3 +2458,16 @@ Oprava: `LevelResult.UnlockNote` jmenuje zámek, který opravdu drží (sekvence
 - **Opakované `shot=` se nesčítají.** Tři argumenty `shot=` v jednom běhu daly jediný PNG. Časy patří do jednoho seznamu, třeba `shot=9,12,14.5`.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-15 — Claude Code (čtrnáctý zápis dne)
+
+**#403, další kolo: majitel viděl, že noha „viditelně tuneluje“ plech lafety.** Pořád na větvi `403-trail-legs` (tip `ef22675`), pořád NEmergnuto, čeká na majitelovo oko.
+
+- **Příčina je geometrická a v kódu už byla: noha je širší než plech, do kterého vchází** (0,18–0,22 proti 0,14), takže jím prošla oběma stranami. Dovnitř mezi plechy vyčuhoval proužek, a to je místo, kam se herní kamera dívá. Zvenku a na zadní hraně vznikal zkosený osmiúhelník průsečnic. Žádná šířka nohy se do tak tenkého plechu nevejde.
+- **Oprava (`7ae767a`):** kořen nohy je usazený tak, že jeho nejvnitřnější roh leží 0,005 za vnitřní rovinou plechu. Poloha je dopočítaná v kódu, protože u nohy, která se rozbíhá a zároveň klesá, je horní osa (upright) nakloněná o 0,13 v x a spodní vnitřní roh tak sahá o 0,03 dál dovnitř než samotná stěna. Dolní zadní čtvrtina plechu je navenek zesílená do patky (socket) se sraženými hranami, ložiskem kloubu a čepem. Místo nohy na výstupu z rovné zadní stěny zakrývá objímka. Starý kloub na plechu je pryč. Každá část nohy se tím posunula dál od hlavně, takže vůči závěru je to jen lepší.
+- **Kola:** nejblíž vnitřnímu plechu kola je čep kloubu, s rezervou 0,02 (1,09 proti 1,11). Objímka má nejvýš 1,066. Poloviční šířka kořene nohy klesla z 0,11 na 0,09.
+- **Ověřeno:** běh 5 z povolených 6 (`fpscap=75`, bez incidentu). Detail zezadu mezi nohama, herní kamera rovně a s traverzem ±40° ukazují, že noha nikde neprochází a vychází z patky přes objímku. Testbed i Game staví s 0 chybami, `docs/testbed.md` je aktualizovaný.
+
+**Nic dalšího si neberu.**
