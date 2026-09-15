@@ -22,6 +22,11 @@
 //nothing else - no stars (Stars.fxh is deliberately not included). A starfield is space's, the Moon's and
 //the aurora's look; this scene's void is meant to read as "nothing drawn" rather than as another night sky.
 //
+//A third technique, GridTowers, draws the distant monoliths standing on the floor - MAGI-style plain
+//rectangular prisms whose four side faces are a bank of windows lit by one shared Game of Life running
+//behind the whole scene. Drawn between the terrain and the sky (depth-writing, opaque, so the sky's
+//depth-read pass rejects what they occlude correctly). See that technique's own header below.
+//
 //Deliberately backdrop-only (see GridSceneConfig's own class doc and "The Grid" in docs/scenes.md): the
 //balls, the island and the gun stay on the ordinary lit InstancedModel.fx path, tinted only by this scene's
 //own light rig - the issue's own recommended default, and the smaller, cheaper, more consistent change.
@@ -250,6 +255,93 @@ float4 GridSkyPS(GridSkyVertexOutput input) : COLOR
 
     return float4(sky, 1.0);
 }
+
+//--- Towers: distant monoliths, a bank of windows lit by a shared Game of Life ----------------------------
+//
+//MAGI/SynthaVision's combinatorial-solid discipline (see the header): plain rectangular prisms, built once
+//on the CPU (SceneRenderer.BuildGridTowers) with their final WORLD-SPACE positions baked directly into the
+//vertex buffer - no per-draw world matrix, no instancing, because there are only ever a handful of these
+//and a draw per handful of quads is the flame's own precedent for "cheap enough not to bother". Only the
+//four vertical side faces are built; a distant tower's roof is never seen from the play camera's own low
+//stand-off, so it is geometry this pass does not pay for.
+//
+//Each vertex's WindowUV is the face-local position in WORLD UNITS (not [0,1] texture coordinates), with a
+//per-tower-per-face random offset already baked in - so the pixel shader's window math never needs to know
+//which face or which tower a pixel belongs to, only where it sits along that face's own two axes. The same
+//frac()-based cell test the floor's grid lines use, run here as filled panes instead of thin lines: one
+//shared Texture2D (GridLifeTexture, GRID_LIFE_SIZE square, point-sampled) is the whole scene's one Game of
+//Life, stepped a few generations a second on the CPU (SceneRenderer.StepGridLife) and read here as which
+//panes are lit - the issue's own second named motif, chosen as "probably the cheapest, most legible".
+
+Texture2D GridLifeTexture;
+sampler GridLifeSampler = sampler_state
+{
+    Texture = <GridLifeTexture>;
+    MinFilter = POINT;
+    MagFilter = POINT;
+    MipFilter = NONE;
+    AddressU = CLAMP;
+    AddressV = CLAMP;
+};
+
+//The shared Life grid's own side length - a power of two so GridMod's bitmask fold applies here too.
+#define GRID_LIFE_SIZE 32
+
+float GridTowerWindowCellSize;
+float GridTowerWindowMargin;
+float3 GridTowerBodyColor;
+float3 GridTowerWindowColor;
+
+struct GridTowerVertexInput
+{
+    float3 Position : POSITION0;
+    float2 WindowUV : TEXCOORD0;
+};
+
+struct GridTowerVertexOutput
+{
+    float4 Position : SV_POSITION;
+    float2 WindowUV : TEXCOORD0;
+};
+
+GridTowerVertexOutput GridTowerVS(GridTowerVertexInput input)
+{
+    GridTowerVertexOutput output;
+
+    //Already in world space (baked at mesh-build time), so only the view/projection step is left.
+    output.Position = mul(mul(float4(input.Position, 1.0), View), Projection);
+    output.WindowUV = input.WindowUV;
+
+    return output;
+}
+
+float4 GridTowerPS(GridTowerVertexOutput input) : COLOR
+{
+    float2 cell = input.WindowUV / GridTowerWindowCellSize;
+    float2 cellFrac = frac(cell);
+    int cellX = GridMod((int) floor(cell.x), GRID_LIFE_SIZE);
+    int cellY = GridMod((int) floor(cell.y), GRID_LIFE_SIZE);
+
+    //Sampled at the texel CENTRE (+0.5), not its corner - point filtering on an edge-aligned UV is one
+    //rounding error away from reading the wrong neighbouring texel.
+    float2 lifeUV = (float2(cellX, cellY) + 0.5) / (float) GRID_LIFE_SIZE;
+    float alive = tex2Dlod(GridLifeSampler, float4(lifeUV, 0.0, 0.0)).r;
+
+    //The margin is the dark mullion between panes - a window with none reads as one unbroken glowing wall.
+    float2 insideMargin = step(GridTowerWindowMargin, cellFrac) * step(cellFrac, 1.0 - GridTowerWindowMargin);
+    float lit = insideMargin.x * insideMargin.y * alive;
+
+    return float4(lerp(GridTowerBodyColor, GridTowerWindowColor, lit), 1.0);
+}
+
+technique GridTowers
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL GridTowerVS();
+        PixelShader = compile PS_SHADERMODEL GridTowerPS();
+    }
+};
 
 technique GridTerrain
 {

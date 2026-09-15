@@ -43,6 +43,9 @@ namespace Prazsky.Core.Render
         /// <summary>The glowing floor.</summary>
         public GridTerrainConfig Terrain { get; set; } = new();
 
+        /// <summary>The distant monoliths standing on the floor, their faces a bank of windows lit by a Game of Life running behind the whole scene.</summary>
+        public GridTowerConfig Towers { get; set; } = new();
+
         /// <summary>What lights the island, the gun and the balls here, since there is no dome to derive it from.</summary>
         public GridLightingConfig Lighting { get; set; } = new();
     }
@@ -84,6 +87,61 @@ namespace Prazsky.Core.Render
 
         /// <summary>How far out the floor fades to the void colour. A flat floor with a hard edge at the far plane reads as a wall, not a vanishing point; this is what lets the grid recede into the sky instead.</summary>
         public float HorizonHazeDistance { get; set; } = 420f;
+    }
+
+    /// <summary>
+    /// The distant monoliths (issue #393's own "any new hard geometry follows MAGI's combinatorial-solid
+    /// discipline" — plain rectangular prisms, the project's own <c>BoxMesh</c> vocabulary, nothing sculpted).
+    /// Placed once, deterministically (<see cref="Seed"/>), scattered on a ring around the arena far enough
+    /// out that they read as background silhouettes rather than as play-field obstacles. Each carries its
+    /// four vertical side faces as a bank of windows (no roof or floor face — a distant tower's cap is not
+    /// something the play camera's own low stand-off ever sees, so it is geometry this pass does not pay
+    /// for) whose lit/dark pattern is <b>one shared Game of Life</b> running behind the whole scene
+    /// (<see cref="SceneRenderer"/>'s own Life grid), each face sampling a different, fixed offset into it
+    /// for variety rather than every tower showing the identical pattern. The issue names this motif as
+    /// "probably the cheapest, most legible starting point" among its four named-mathematics candidates; it
+    /// is the second one this pass ships, after the floor's own Hilbert trace.
+    /// </summary>
+    public sealed class GridTowerConfig
+    {
+        /// <summary>How many monoliths stand on the floor.</summary>
+        public int Count { get; set; } = 9;
+
+        /// <summary>Nearest a monolith is placed to the arena, in world units — far enough out that none of them is ever mistaken for part of the play field.</summary>
+        public float RadiusMin { get; set; } = 160f;
+
+        /// <summary>Farthest a monolith is placed, in world units.</summary>
+        public float RadiusMax { get; set; } = 380f;
+
+        /// <summary>Shortest a monolith stands, in world units.</summary>
+        public float HeightMin { get; set; } = 40f;
+
+        /// <summary>Tallest a monolith stands, in world units.</summary>
+        public float HeightMax { get; set; } = 85f;
+
+        /// <summary>Narrowest a monolith's footprint is, per side, in world units.</summary>
+        public float FootprintMin { get; set; } = 12f;
+
+        /// <summary>Widest a monolith's footprint is, per side, in world units.</summary>
+        public float FootprintMax { get; set; } = 22f;
+
+        /// <summary>The seed placement is drawn from — fixed rather than time-based, so the Game, the Testbed and the map editor all stand the same monoliths in the same places, the same reason the map itself is shared between them.</summary>
+        public int Seed { get; set; } = 393;
+
+        /// <summary>The size of one window pane, in world units, on a monolith's face — independent of the floor's own <see cref="GridTerrainConfig.CellSize"/>, since a building's windows and a circuit board's cells answer different questions.</summary>
+        public float WindowCellSize { get; set; } = 2.4f;
+
+        /// <summary>How much of each window cell is the dark mullion between panes, 0–0.5 of the cell. Not zero — a window with no border reads as a single unbroken glowing wall rather than as a bank of separate panes.</summary>
+        public float WindowMargin { get; set; } = 0.16f;
+
+        /// <summary>The monolith's own dark body (linear) — not exactly <see cref="GridTerrainConfig.BodyColor"/>: a vertical face and a horizontal floor read the void's own ambient differently, the same reason the light rig's own sky and ground ambients differ.</summary>
+        public Rgb BodyColor { get; set; } = new(0.0025f, 0.0075f, 0.0110f);
+
+        /// <summary>A lit window (linear) — past the glare threshold like the floor's own Hilbert trace, so a lit face reads as a skyline of small bright panes rather than a grey chequerboard.</summary>
+        public Rgb WindowColor { get; set; } = new(0.60f, 1.85f, 2.05f);
+
+        /// <summary>How often the shared Game of Life advances a generation, in seconds. The issue's own "a few generations a second, not per-frame — needs to read as a deliberate clock, not a flicker".</summary>
+        public float LifeStepInterval { get; set; } = 0.5f;
     }
 
     /// <summary>
