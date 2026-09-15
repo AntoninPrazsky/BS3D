@@ -966,6 +966,24 @@ float PulseTime;
 float PulseSpeed;
 float PulseDepth;
 
+//WHAT AN UNBREATHING BALL GLOWS AT, as a fraction of what a breathing one does at rest (#395). One for
+//the cluster's own plane, where it is the no-op; the STILL plane sets it to the cluster's own resting
+//level.
+//
+//It exists because #252's "loaded rounds do not breathe" was implemented as PulseDepth zero, and
+//PulseDepth zero does not mean "resting" - it means "always at the TOP of the swing". Every emissive
+//expression here reduces to lerp(1 - PulseDepth, 1, beat), so a depth of zero pins the ball at 1 while
+//the cluster it is meant to match sits at 1 - PulseDepth (0.62 in the Game) for most of the heartbeat,
+//which is two short pulses and a long rest. The loaded round was therefore about 1.6x a resting cluster
+//ball of its own colour before this, and on the emissive styles the emission IS the colour - the owner
+//reported it as the round in the cannon being a lighter shade than the one he was shooting at.
+//
+//⚠ It is a SEPARATE uniform and not a smaller PulseDepth, and the difference is the whole point: a
+//smaller depth would make the round breathe faintly, which is exactly what #252 removed on the owner's
+//own ruling ("it is enough that the cannon's tip glows"). This leaves it perfectly steady and only moves
+//WHERE it is steady.
+float StillEmission = 1;
+
 //Direction the beat travels through the cluster, and how many world units one beat spans. Offsetting
 //the phase by position is what turns a cluster of balls flashing in lockstep into a wave passing
 //through them - the difference between a strobe and something breathing.
@@ -1035,7 +1053,8 @@ float3 BallEmission(float3 primary, float3 worldPosition, float occlusion)
 {
     float beat = Heartbeat(PulseTime * PulseSpeed - dot(worldPosition, PulseDirection) / max(PulseWavelength, 1e-4));
 
-    return primary * EmissiveStrength * ((1 - PulseDepth) * occlusion * occlusion + PulseDepth * beat);
+    return primary * EmissiveStrength * StillEmission
+        * ((1 - PulseDepth) * occlusion * occlusion + PulseDepth * beat);
 }
 
 //Width of the ring outlining each disc, so the circle reads whichever gore it lands on
@@ -1554,7 +1573,7 @@ float4 BubblePS(PatternVertexShaderOutput input) : COLOR
     //it is exactly false of a pile of films. Times the wall weight, so the two shells together radiate one
     //ball's worth.
     float beat = Heartbeat(PulseTime * PulseSpeed - dot(input.WorldPosition, PulseDirection) / max(PulseWavelength, 1e-4));
-    float3 emitted = tint * EmissiveStrength * lerp(1 - PulseDepth, 1, beat) * wall * occlusion;
+    float3 emitted = tint * EmissiveStrength * StillEmission * lerp(1 - PulseDepth, 1, beat) * wall * occlusion;
 
     float4 shaded = float4(reflected + hotspot + through + emitted + rimGlow, alpha);
 
@@ -3004,7 +3023,7 @@ float4 PlasmaPS(PatternVertexShaderOutput input) : COLOR
     //same line makes a deep plasma dim progressively - linearly, this style's identity being its glow,
     //where the opaque styles' resting emission goes with the square (see BallEmission).
     float3 glow = discharge * filament * PlasmaGlow * lerp(1, PlasmaCore, centre)
-        * lerp(1 - PulseDepth, 1, beat) * occlusion;
+        * lerp(1 - PulseDepth, 1, beat) * StillEmission * occlusion;
 
     //The globe: nearly empty between the arcs, with a faint edge so it has a surface at all.
     float edge = pow(1 - saturate(dot(worldNormal, eyeVector)), PlasmaEdgePower);
@@ -3123,7 +3142,13 @@ static const float LavaCrustTint = 0.62;
 //PLASMA, which this style's own header says at length to keep it away from. A power over the wide field
 //makes it a gradient instead: bright against the gap, dark a plate-width away, which is what a
 //temperature falling off through rock looks like and what leaves the plates reading as plates.
-static const float LavaHeatWidth = 1.9;
+//⚠ #395 WIDENED THE SEAM AND LOWERED THIS IN THE SAME BREATH, and the pair is the point. The owner asked
+//for thicker lines; the halo's width is a MULTIPLE of the seam's, so widening the seam alone would have
+//carried the halo from 0.68 to 0.87 of SeamLine's ceiling and flooded the plates - the "coloured ball
+//with black spots" this comment already warns about, arriving through the back door. Lowering the
+//multiple from 1.9 holds the halo's absolute width where it was measured (0.36 x 1.9 = 0.684 before,
+//0.46 x 1.55 = 0.713 now) while the bright line inside it gets a quarter wider.
+static const float LavaHeatWidth = 1.55;
 static const float LavaHeatGlow = 0.34;
 static const float LavaHeatFalloff = 2.6;
 
@@ -3139,6 +3164,77 @@ static const float LavaSeamDepth = 0.03;
 //than as a coloured line painted in a groove.
 static const float3 LavaIncandescent = float3(1.0, 0.86, 0.62);
 static const float LavaCorePower = 6.5;
+
+//HOW FAR THE CORE IS ALLOWED TO GO, and #395's whole substance. The carry above was UNCAPPED: at the
+//middle of a seam on a bright tint it reached LavaIncandescent outright, so the brightest pixels on the
+//ball - the ones the eye locks onto across a cluster - were the same near-white on every colour that
+//could get there. The disc average never showed it, and that is why it stood for three issues: measured
+//-Whole under the volcano the palette looks ordinary (tightest pair orange/brown 7.4 dE, against the
+//vinyl's own 6-7), because the average is dominated by a crust that is the same darkness on all thirteen
+//and reports a colour the eye never isolates. MEASURED OVER THE BRIGHTEST TENTH OF EACH DISC - which is
+//what a glance actually reads on this style - the cores came back at a mean saturation of 0.28 across
+//the Eruption's eight inks, with silver at 0.00, black 0.06, blue 0.07 and white 0.11: eight of thirteen
+//balls wearing a neutral net. The owner reported it from play as colours that "look almost the same",
+//and on Volley as a suspected BUG IN THE MATCH RULE - a cluster that would not release, when what had
+//actually happened was a shot at a colour that only looked similar.
+//
+//So the core keeps the ball's hue and gets its heat from BRIGHTNESS instead. The two figures are a pair
+//and have to be read together: the carry says how much hue the core may lose, the lift restores the cue
+//that loss was carrying. Without the lift a capped carry is simply a duller ball - the hottest point
+//stops being hot as well as stopping being white, which is the opposite of the ask.
+//
+//⚠ THE CARRY IS NOT ZERO, and that is deliberate rather than timid. A seam whose core is exactly its own
+//hue reads as a coloured line painted in a groove, which is the failure the comment above this one names
+//and the reason the carry exists at all. A third of the way there keeps the "metal at temperature" read
+//- the core is perceptibly warmer and less saturated than the seam's edge - while leaving the hue in
+//charge of which ball it is.
+static const float LavaCoreCarry = 0.30;
+
+//What the hottest core burns at, as a multiple of the seam's own glow (#395) - the cue that replaces the
+//desaturation. Heat now reads as INTENSITY rather than as loss of colour, which is the direction the
+//owner's own words point: "the hottest point still reads as the ball's colour, just brighter".
+static const float LavaCoreLift = 1.4;
+
+//HOW DEEP THE SEAM'S OWN HUE IS CUT (#395). The molten colour is the tint normalised to its peak channel,
+//which sets the brightest channel to 1 and leaves the other two at whatever ratio the tint had - and those
+//ratios are what thirteen inks chosen for a DIFFUSE ball happen to carry, not what a glowing line needs.
+//Raising the normalised hue to a power above one holds the peak channel exactly where it is and pulls the
+//other two down, so a warm ink gets warmer and a cool one cooler.
+//
+//⚠ It is deliberately NOT SaturateTint, which is the obvious call and does nothing here: that function's
+//first step is primary/peak, which is precisely what this style already had - it rescales chroma rather
+//than deepening it, and on a hue already normalised it is the identity. Worth knowing before reaching for
+//it again.
+//
+//A neutral tint is (1,1,1) once normalised, and any power of one is one - so silver, white and black do
+//not move, which is the same property that made SaturateTint right for the gem. They cannot be separated
+//by hue in any case; what separates them is TintEmission's luminance term.
+static const float LavaHuePower = 1.7;
+
+//HOW HARD THE TINT'S OWN LUMINANCE IS SPENT ON SEPARATING THE WARM INKS (#395), and the third of the three
+//levers. #315 already made the glow ride the tint's luminance, which is what value separation this style
+//has - the crust is the same darkness on all thirteen by design, so the glow is the only place value can
+//live. But it rides it through TintEmission's sqrt, which COMPRESSES: over the Eruption's warm three the
+//shared curve puts orange at 0.80, red 0.68 and brown 0.61, a spread of 1.3x across inks whose diffuse
+//luminances differ by 2.1x.
+//
+//This is that curve with the compression opened up, and 1 is no compression at all. The measurement that
+//asked for it: once the white carry was capped, the tightest pair on the block stopped being yellow/white
+//and became brown/orange/red - the warm family, which cannot be separated by hue because they ARE one hue
+//family. Nothing but value was left to spend.
+//
+//⚠ It is LAVA'S OWN and deliberately not a change to TintEmission, which the PLASMA also calls. That style
+//has its own palette, measured under its own scenes, and #395 did not measure it - a shared curve moved
+//here would retune a style nobody looked at.
+static const float LavaValuePower = 1.0;
+
+//<summary>TintEmission with LavaValuePower's compression in place of the shared sqrt - see there.</summary>
+float LavaTintEmission(float3 primary)
+{
+    float luminance = saturate(dot(primary, float3(0.2126, 0.7152, 0.0722)));
+
+    return lerp(TintEmissionFloor, 1.0, pow(luminance, LavaValuePower));
+}
 
 //The crust's specular: weak and broad. Basalt is matte, and a shine on it turns the whole thing into
 //painted plastic faster than any other error here.
@@ -3217,10 +3313,10 @@ float4 LavaPS(PatternVertexShaderOutput input) : COLOR
     float beat = Heartbeat(PulseTime * PulseSpeed - dot(input.WorldPosition, PulseDirection) / max(PulseWavelength, 1e-4));
 
     //The molten interior. Normalised to the tint's peak so the 8-ball glows white-hot rather than not at
-    //all (the plasma's answer, and for lava it is not even a departure), and carried towards incandescent
-    //white at the hottest core of each seam so the middle loses its hue while the edges keep it.
+    //all (the plasma's answer, and for lava it is not even a departure), then cut deeper by
+    //LavaHuePower (#395) - see there for why the off-peak channels, and not SaturateTint, are the lever.
     float peak = max(primary.r, max(primary.g, primary.b));
-    float3 hue = primary / max(peak, 1e-3);
+    float3 hue = pow(saturate(primary / max(peak, 1e-3)), LavaHuePower);
 
     //BOTH THE BRIGHTNESS AND THE INCANDESCENT CARRY ARE SCALED BY THE TINT'S OWN LUMINANCE (#315), and
     //the header's "what it gives up knowingly is value separation" gave up more than it meant to. With
@@ -3233,10 +3329,13 @@ float4 LavaPS(PatternVertexShaderOutput input) : COLOR
     //wherever the seam is hottest - the brightest and so most heavily weighted part of the disc. A cooler
     //flow glows less brightly AND does not run to white at its core; that is all this is, and it costs
     //the style nothing it was built for.
-    float emission = TintEmission(primary);
+    float emission = LavaTintEmission(primary);
 
+    //#395: the carry is CAPPED and the heat it used to say is said by brightness instead - see
+    //LavaCoreCarry for the measurement that forced it. The lift multiplies the hue the carry left in
+    //place, so a hotter core is a brighter one OF THE BALL'S OWN COLOUR rather than a whiter one.
     float core = pow(seam, LavaCorePower) * emission;
-    float3 molten = lerp(hue, LavaIncandescent, core);
+    float3 molten = lerp(hue, LavaIncandescent, core * LavaCoreCarry) * (1 + core * LavaCoreLift);
 
     //Occluded LINEARLY, the plasma's own power and deliberately not BallEmission's square (#303): this
     //style's identity IS its glow, so a buried ball dims with the pile - the flat-wash correction the
@@ -3245,7 +3344,7 @@ float4 LavaPS(PatternVertexShaderOutput input) : COLOR
     //the seams ARE the breath here, and there is no resting half to split it from.
     float occlusion = SurfaceOcclusion(input.WorldPosition, worldNormal, input.OcclusionData);
 
-    float breath = lerp(1 - PulseDepth, 1, beat);
+    float breath = lerp(1 - PulseDepth, 1, beat) * StillEmission;
 
     shaded.rgb += molten * seam * LavaGlow * emission * breath * occlusion;
 

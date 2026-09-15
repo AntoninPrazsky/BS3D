@@ -2552,3 +2552,66 @@ Efekt (#389), aktivační model (#392) a **naučit `ScoreSim` výbuch**. To posl
 **Bezgrafický rig zůstal ve scratchpadu** (tj. zmizí). Jestli ho má být čtvrtý nástroj vedle LevelGenu, ScoreSimu a MusicBaku, je to rozhodnutí majitele — nabízím, nedělám.
 
 **Merge na slovo majitele; zavření issue taky.**
+
+---
+
+## 2026-09-15 — Claude Code (sedmnáctý zápis dne)
+
+**#396 je na `main`u** (merge `ea43ea4`, `--no-ff`) **a zavřené** — majitel řekl "Mergni, uzavři". Větev smazána lokálně i na originu. Zápisy výše zůstávají stát tak, jak byly psané — včetně "NEmergnuto" a "merge na slovo majitele", což tímhle přestalo platit. Šev s #389 je pořád otevřený a změřený (10 hunků / ~199 řádků), instrukce pro merge je v zápisu výše.
+
+**Beru si #395 (lávové barvy).** Majitel: *"Tam je to vážně problémové a potřebujeme dramatické vylepšení."* Větev `395-lava-colours`. Issue má dvě půlky a **tři majitelovy komentáře**, které směr určují přesněji než tělo issue:
+
+1. **Barvy se na Eruption bloku slévají.** Deset levelů, osm inkoustů; černá+hnědá v devíti z deseti, oranž+hnědá v osmi, červená+oranž v osmi. ⚠ **#315 měřilo Lavu pod JINOU scénou a jinou kopulí** — pod sopkou a jejími červeno-oranžovými světly, kde se těch deset levelů skutečně hraje, paletě nikdo nikdy nezměřil.
+2. **Konkrétní zadání na opravu palety (komentář 12:41):** linky mají být **tlustší** a **nemají jít až do bílé** — nejteplejší bod má pořád číst jako vlastní barva koule, jen jasnější. Dnes `LavaCorePower` nese jádro do `LavaIncandescent` (1.0, 0.86, 0.62), jedné sdílené skoro-bílé, ať je koule jakkoli barevná — což je přesně důvod, proč červená, oranžová a žlutá konvergují.
+3. **Kulka v děle svítí světleji než táž barva na clusteru** — tři mechanismy, každý s vlastním důvodem (#252 zásobník nedýchá, #303 cluster je zastíněný, #236 halo v notchi). ⚠ Majitelův komentář (07:42) říká, že to **není problém jen Lávy/Plasmy** — též tři mechanismy platí pro všechny styly a jen *emisní* příspěvek byl odůvodněn jako malý; obyčejný difuzní rozdíl změřený nebyl. Měřím tedy i na vinylu.
+4. **A má to herní následek, ne jen estetický** (komentář 12:43, Volley): majitel měl za to, že se stejnobarevný cluster nerozpojuje — tedy že je to bug v pravidle — když ve skutečnosti střílel do barvy, která jen vypadala podobně.
+
+**Nic dalšího si neberu.**
+
+---
+
+## 2026-09-15 — Claude Code (osmnáctý zápis dne)
+
+**#395 (lávové barvy), první polovina hotová a na `main`u. ⚠ ISSUE NEZAVÍRÁM — druhá polovina zůstává a je pojmenovaná níž pro toho, kdo přijde po mně.** Dochází mi týdenní limit, majitel řekl „dostaně co máš na main a napiš komentáře pro ostatní agenty“ — takže tohle je předavka, ne hotová věc.
+
+### ⚠ Nejdůležitější věc z celého úkolu: **paleta se změřila dobře a to byla past**
+
+`palette.ps1 -Whole` pod sopkou a kopulí 9 — pod scénou, kde se těch deset levelů **opravdu hraje** a kterou #315 nikdy neměřilo (měřilo Lavu pod Reveal) — dává nejtěsnější pár **orange/brown 7,4 dE** proti vinylové kontrole 7,9. Tedy: nic. A přitom si majitel stěžuje právem.
+
+**Průměr přes disk je pro tenhle styl špatný přístroj.** Michá svítící síť s kůrů, která je na všech třinácti stejně černá, a hlásí barvu, kterou oko nikdy neizoluje. Co oko na lávě čte, je **síť**. Změřeno přes **nejjasnější desetinu disku**, čtyři snímky na build: původní styl měl střední sytost jader **0,283** přes osm inkoustů bloku — silver **0,00**, black 0,06, blue 0,07, white 0,11 — tedy osm ze třinácti koulí nosilo **neutrální** síť, a nejtěsnější pár byl **yellow/white 7,6 dE** na všech čtyřech snímcích. To je `LavaIncandescent`: přenos do skoro-bílé byl **nezastropovaný**.
+
+**Skript na to je ve scratchpadu a zmizí** (`cores.py`). Jestli se v tomhle bude pokračovat, patří to jako třetí režim do `palette.ps1` vedle výchozího a `-Whole`; nabízím, nedělám — skill je majitelův nástroj.
+
+### Co je opraveno (tři páky, všechny v `InstancedModel.fx` + jedna konstanta v `BallRenderSet`)
+
+- **`LavaCoreCarry` 0,30** — zastropuje, jak daleko jde jádro do bílé. **`LavaCoreLift` 1,4** vrací jako **jas** to, co dosud říkala ztráta barvy. Majitelova věta doslova: *nejteplejší bod má pořád číst jako barva koule, jen jasnější.* ⚠ Carry **není nula** záměrně — jádro přesně vlastní barvy čte jako čára namalovaná v drážce, což je právě to, kvůli čemu carry vzniklo.
+- **`LavaHuePower` 1,7** — řeže normalizovaný odstín hlouběji. ⚠ **Ne `SaturateTint`**, což je ta zřejmá volba a **nedělá nic**: její první krok je `primary/peak`, což styl už měl. Stálo mě to jeden pokus, ať to nestojí dalšího.
+- **`LavaValuePower` 1,0** — rozevírá odmocninu v `TintEmission`, která stlačovala jedinou osu, co na teplé inkousty zbývá. ⚠ Je to **lávina vlastní kopie** křivky, ne zásah do sdílené — tu volá i **plasma**, kterou jsem neměřil.
+- **Šířka švů 0,36 → 0,46 a `LavaHeatWidth` 1,9 → 1,55 v jednom kroku.** ⚠ **Nelze zvednout jedno bez druhého**: šířka halo je **násobek** švu a `SeamLine` porovnává |sin| proti šířce, takže součin blízko 1 rozsvítí celou kouli. Halo drží 0,684 → 0,713.
+
+**Změřeno** (čtyři snímky na build, týž pin): střední sytost jader **0,283 → 0,510, +80 %**, každý inkoust nahoru (brown 0,58→0,76, red 0,40→0,58, orange 0,36→0,52, yellow 0,24→0,36).
+
+### ⚠ CO TO NEOPRAVILO — a tady je čára pro dalšího agenta
+
+Nejtěsnější pár se pohnul jen **7,6 → 8,0 dE**. Ale **změnil identitu**: z yellow/white (neutrální splynutí, co dělal bílý carry — to je pryč) na **brown/orange/red**. Ty tři jsou **jedna barevná rodina** a odstínem se rozdělit nedají; jediná osa je hodnota, `LavaValuePower` ji už utratil, a co zbývá, jsou **inkousty bloku** — tedy krok 3 samotného issue, v `LevelGen`, kde zákon Eruption zní tři studené a dva teplé a **Meander, Plume a Paroxysm nesou víc**. To je podle mě příští krok a je to změna, která přegeneruje level soubory (pozor: brány LevelGenu, ScoreSim, sonda).
+
+### Druhá půlka issue: kulka v děle — **dýchání opraveno, zastínění NE**
+
+Nový uniform **`StillEmission`** (default 1, no-op). Still plane ho dostává `1 - PulseDepth`. Důvod: **#252 „nabítá koule nedýchají“ bylo uděláno jako `PulseDepth = 0`, jenže to neznamená „klid“, ale „trvale na VRCHOLU kývu“** — všechny emisní výrazy jsou `lerp(1 - PulseDepth, 1, beat)`. Kulka tedy svítila ~1,6× proti klidové kouli v clusteru. ⚠ **Záměrně samostatný uniform a ne menší `PulseDepth`** — ten by kulku rozdýchal, což #252 na majitelův pokyn právě odstranilo.
+
+**Still plane používají JEN čtyři řádky** v `Game/Screens/GameplayScreen.Draw.cs` (488, 495, 496, 498) — Testbedův zásobník ani aim ghost na něm nejsou (obojí `still: false`). Blast radius je tedy úzký; ověřeno čtením, ne odhadem.
+
+**⚠ Co zůstává z téhle půlky:**
+1. **Zastínění.** Kulka dostává `UNOCCLUDED`, koule v clusteru ne. Po mé opravě je poměr cca 2,5× → **~1,35×**, zbytek je právě tohle. Issue navrhuje dát nabítým koulím „typické povrchové zastínění“ — **to je ale rozhodnutí vkusu, ne aritmetiky**: kulka v hlavni kolem sebe opravdu nic nemá a `UNOCCLUDED` to říká pravdivě. Nechávám majiteli.
+2. **Majitelův komentář ze 7:42 žádá změřit i NEemisivní styl** (vinyl na obyčejné scéně), protože těch tři mechanismů platí pro všechny styly. **Neuděláno.** Aritmetika ovšem říká, že to není jen Láva: v `BallEmission` je to `(1-PulseDepth)*occ² + PulseDepth*beat`, takže still plane s occ=1 dostával 1,0 proti klidové kouli 0,62·occ² — při occ 0,8 je to **2,5× i na vinylu**. `StillEmission` to sráží všem stylům najednou.
+3. **Vizuálně NEOVĚŘENO před/po pro kulku.** Udělal jsem jen kouřový test (`BS3D.exe play level=Vent shot=9` — hra běží, cluster čte dobře), ne párové snímky notche proti kouli též barvy, které issue žádá s drženým RMB.
+
+### Ověřeno
+
+Čtyři solutions 0 chyb; LevelGen exit 0 a `Game/Levels` beze změny; ScoreSim „All levels rate the right way round“; hra na Ventu naběhne a hraje. **Neměřený výkon** — přibyl jeden `pow` a jeden násobek na pixel v `LavaPS`, což je řádově to, co #338 změřilo jako šum, ale **změřeno to není a nemám to vydávat za změřené**.
+
+### Ostatní styly
+
+`StillEmission` je default 1 a dechájící plane ho dostává 1, takže **mimo still plane je to identita**. Ale je to čtyři místa v shaderu (`BallEmission`, bubble, plasma, lava) — kdo bude sáhat na emisi, ať to čte.
+
+**Nic dalšího si neberu — dochází mi limit. Kdo vezme pokračování, začíná u „CO TO NEOPRAVILO“ výše.**
