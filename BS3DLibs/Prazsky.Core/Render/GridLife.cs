@@ -169,6 +169,18 @@ namespace Prazsky.Core.Render
         /// <summary>The pattern currently running, for a log line or a probe.</summary>
         public string PatternName => _pattern?.Name;
 
+        /// <summary>
+        /// Where the current pattern was centred, in cells along the board's x (the board's own centre is
+        /// <see cref="SIZE"/> / 2). Exactly that centre for an even width; half a cell to one side for an odd one,
+        /// whose centre cannot fall on the board's centre line between two cells — which side depends on the
+        /// orientation. A face that maps the board's centre to its own middle shows such a pattern with one
+        /// side's margin a whole pane wider than the other's, so the renderer shifts each board by the difference.
+        /// </summary>
+        public float CentreX { get; private set; }
+
+        /// <summary>The same as <see cref="CentreX"/>, along the board's y.</summary>
+        public float CentreY { get; private set; }
+
         /// <summary>Row <paramref name="y"/> of the current generation, bit x being cell x.</summary>
         public uint Row(int y) => _current[y];
 
@@ -279,6 +291,18 @@ namespace Prazsky.Core.Render
                     column++;
                 }
             }
+
+            //Where that centre really landed, through the same orientation Set applies to every cell (a flip maps
+            //a cell's span [a, a + 1) to [SIZE - a - 1, SIZE - a), so a centre m to SIZE - m).
+            float centreX = originX + 0.5f * width;
+            float centreY = originY + 0.5f * height;
+
+            if ((orientation & 4) != 0) (centreX, centreY) = (centreY, centreX);
+            if ((orientation & 1) != 0) centreX = SIZE - centreX;
+            if ((orientation & 2) != 0) centreY = SIZE - centreY;
+
+            CentreX = centreX;
+            CentreY = centreY;
 
             _pattern = pattern;
             _staleGenerations = 0;

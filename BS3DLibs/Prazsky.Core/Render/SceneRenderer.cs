@@ -1063,7 +1063,7 @@ namespace Prazsky.Core.Render
 
         //Per-frame and per-draw parameters, resolved once (BestPractices §1).
         private readonly EffectParameter _gridOriginXZ, _gridHoleRadius, _gridView, _gridProjection,
-            _gridCameraPosition, _gridInverseViewProjection, _gridLifeTextureParam, _gridLifeAgeParam;
+            _gridCameraPosition, _gridInverseViewProjection, _gridLifeTextureParam, _gridLifeAgeParam, _gridLifeCentreParam;
 
         //The mesh is deliberately coarse — GridTerrainVS never displaces a vertex (the floor is a constant
         //Y), so nothing is lost by skipping the few-hundred-vertex density every OTHER terrain scene needs
@@ -1430,6 +1430,7 @@ namespace Prazsky.Core.Render
             _gridInverseViewProjection = _gridEffect.Parameters["InverseViewProjection"];
             _gridLifeTextureParam = _gridEffect.Parameters["GridLifeTexture"];
             _gridLifeAgeParam = _gridEffect.Parameters["GridLifeAge"];
+            _gridLifeCentreParam = _gridEffect.Parameters["GridLifeCentreOffset"];
 
             //Pushes the terrain and tower uniforms and builds the solids' geometry, one independent Life
             //board per solid included (BuildGridTowers) - one call for both, since a later config edit
@@ -6198,6 +6199,9 @@ namespace Prazsky.Core.Render
 
                     _gridLifeTextureParam.SetValue(board.Texture);
                     _gridLifeAgeParam.SetValue(frame.Time - board.LastStepTime);
+
+                    //The pattern's centre rather than the board's on the middle of the face (see GridLife.CentreX).
+                    _gridLifeCentreParam.SetValue(new Vector2(board.Life.CentreX, board.Life.CentreY) - new Vector2(GridLife.SIZE * 0.5f));
                     _gridEffect.CurrentTechnique.Passes[0].Apply();
 
                     (int startIndex, int primitiveCount) = _gridTowerRanges[i];

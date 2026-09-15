@@ -319,6 +319,13 @@ float GridTowerWindowMargin;
 float GridTowerEdgeWidth;
 float GridPhosphorDecay;
 float GridLifeAge;
+
+//How far the bound board's pattern is centred from the board's own centre, in cells (GridLife.CentreX/CentreY
+//less GRID_LIFE_SIZE / 2): zero for an even-sized pattern, half a cell for an odd one, whose centre cannot fall on
+//the board's centre line between two cells. Added to the board coordinate, it puts the pattern's centre - not the
+//board's - on the middle of the face, so a narrow tower's three-wide pentadecathlon has as many panes either side.
+float2 GridLifeCentreOffset;
+
 float3 GridTowerBodyColor;
 float3 GridTowerWindowColor;
 float3 GridTowerEdgeColor;
@@ -351,8 +358,9 @@ GridTowerVertexOutput GridTowerVS(GridTowerVertexInput input)
 
 float4 GridTowerPS(GridTowerVertexOutput input) : COLOR
 {
-    //Every derivative first, off continuous coordinates, before anything data-dependent.
-    float2 cell = input.WindowUV / GridTowerWindowCellSize;
+    //Every derivative first, off continuous coordinates, before anything data-dependent. The centre offset is a
+    //per-draw constant, so it moves the panes without touching their footprint.
+    float2 cell = input.WindowUV / GridTowerWindowCellSize + GridLifeCentreOffset;
     float2 cellFootprint = max(fwidth(cell), 1e-5);
     float2 local = input.FaceLocal.xy;
     float2 size = input.FaceLocal.zw;
