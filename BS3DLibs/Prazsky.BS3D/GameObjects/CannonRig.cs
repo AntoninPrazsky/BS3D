@@ -341,7 +341,10 @@ namespace Prazsky.BS3D
         private const float TRUNNION_RADIUS = 0.17f;
         private const float TRUNNION_INNER_X = BORE_RADIUS + 0.02f;                     //inside the wall at every aim
         private const float TRUNNION_OUTER_X = CHEEK_INNER_X + CHEEK_THICKNESS + 0.06f; //the boss past the plate
-        private const float CHEEK_TOP_Y = 0.2f;     //a little above the trunnion axis the plates hold
+        //The plates' top above the trunnion axis, which since #403 is the radius of the arch they are rounded to
+        //about that axis: twice the pin's radius, so the bearing ring round the pin has plate round it in turn.
+        //Under half the tube's outer radius, so a plate never rises into view of the loading window on top.
+        private const float CHEEK_TOP_Y = 0.34f;
         private const float CHEEK_HALF_LENGTH = 0.85f;
 
         //Where the split trail's +X leg ends (mirrored for the other): outward past the wheel, down to just

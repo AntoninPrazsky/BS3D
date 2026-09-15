@@ -6,7 +6,8 @@ namespace Prazsky.Core.Render
 {
     /// <summary>
     /// The gun carriage's frame, one mesh: two cheek plates with the trunnion pins they visibly hold the
-    /// barrel by, the axle the wheels turn on, and a <b>split trail</b> — two legs diverging down and back.
+    /// barrel by (shaped brackets with bearings since #403 — see "The cheeks"), the axle the wheels turn on,
+    /// and a <b>split trail</b> — two legs diverging down and back.
     /// The split is not a look:
     /// the barrel is modelled about its trunnions with half its length behind them, so at high elevation the
     /// breech sweeps down and back exactly where a single central trail would stand, and the recoil stroke
@@ -50,6 +51,52 @@ namespace Prazsky.Core.Render
         public BoundingSphere BoundingSphere { get; }
 
         private const int AXLE_SEGMENTS = 12;
+
+        #region The cheeks (#403)
+
+        //A cheek was a plain box — reported right after the legs as the other crude block of the frame, the one
+        //the legs run into. It is a bracket now, in the legs' own language: an arched top round the trunnion,
+        //falling in tangent lines to the shoulders and on down to a chamfered foot, its outer face chamfered all
+        //round, carrying a raised bearing for the trunnion (held by a cap-square's two bolts) and another for
+        //the axle, with a rib between the two.
+        //
+        //⚠ THE INNER FACE STAYS EXACTLY WHERE THE BOX'S WAS — it hugs the tube (cheekInnerX) — and nothing is
+        //added inboard of it. The tube elevates and recoils only in the carriage's own YZ plane, so the cheek's
+        //side silhouette is free, and everything proud of the outer face stays well inside the wheel's inner
+        //plate (1.11 off the axis on the shipped figures, against about 0.96 here).
+
+        //(The arch's radius about the trunnion axis is the caller's cheekTopY — the plates' top — for the reason
+        //the axle drop is: the frame is sized in CannonRig, around the tube and the wheels it has to fit.)
+
+        //Where the plate's front and back edges stop being vertical and lean in towards the arch, as a share of
+        //the axle drop below the trunnions. It has to stay above the legs' roots (at 0.75 of the drop), or the
+        //leaning edge would cut the corner the leg runs into.
+        private const float CHEEK_SHOULDER = 0.62f;
+        private const float CHEEK_CHAMFER = 0.03f;       //round the outer face, of the plate's thickness
+        private const float CHEEK_FOOT_CUT = 0.08f;      //the two bottom corners
+        private const int CHEEK_ARCH_STEPS = 12;
+
+        //The two bearings, as multiples of what they carry. The trunnion's ring stands proud by at most this, and
+        //never so far that the pin stops being proud of it — the pin is what visibly holds the tube.
+        private const float TRUNNION_BEARING_SCALE = 1.55f;
+        private const float TRUNNION_BEARING_PROUD = 0.035f;
+        private const float AXLE_BEARING_SCALE = 1.45f;
+        private const float AXLE_BEARING_PROUD = 0.04f;
+        private const int BEARING_SEGMENTS = 20;
+
+        //The cap-square's bolts: hexagonal heads below the trunnion's ring, either side of the rib
+        private const float BOLT_RADIUS = 0.04f;
+        private const float BOLT_PROUD = 0.03f;
+        private const float BOLT_ORBIT = 0.36f;          //off the trunnion axis
+        private const float BOLT_ANGLE = 0.70f;          //radians either side of straight down
+        private const int BOLT_SEGMENTS = 6;
+
+        //The rib from one bearing to the other, a chamfered pad on the outer face
+        private const float RIB_HALF_WIDTH = 0.05f;
+        private const float RIB_PROUD = 0.025f;
+        private const float RIB_CHAMFER = 0.015f;
+
+        #endregion
 
         #region The trail legs (#403)
 
@@ -132,7 +179,8 @@ namespace Prazsky.Core.Render
         /// <param name="cheekInnerX">Inner face of each cheek plate off the barrel's axis — a hair over the
         /// tube's outer radius, so the plates hug the barrel without clipping it.</param>
         /// <param name="cheekThickness">Each plate's thickness along the axle.</param>
-        /// <param name="cheekTopY">Top edge of the plates, a little above the trunnion axis they hold.</param>
+        /// <param name="cheekTopY">Top of the plates above the trunnion axis they hold — the radius of the arch
+        /// the plates are rounded to about that axis (#403), so it has to clear the trunnion's bearing ring.</param>
         /// <param name="axleDrop">How far below the trunnions the axle runs — the wheels' centre height.</param>
         /// <param name="cheekHalfLength">Half the plates' run along the barrel.</param>
         /// <param name="axleRadius">The axle bar's radius.</param>
@@ -150,25 +198,51 @@ namespace Prazsky.Core.Render
         {
             MeshBuilder builder = new();
 
-            //The cheeks: plain plates from just above the trunnion line down past the axle, so the axle reads
-            //as carried by them rather than floating alongside
+            //The cheeks: plates reaching down past the axle, so the axle reads as carried by them rather than
+            //floating alongside — shaped brackets since #403 (see "The cheeks")
             float cheekBottomY = -axleDrop - axleRadius * 1.6f;
-            float cheekCentreY = (cheekTopY + cheekBottomY) * 0.5f;
-            float cheekHalfHeight = (cheekTopY - cheekBottomY) * 0.5f;
             float cheekCentreX = cheekInnerX + cheekThickness * 0.5f;
+            float cheekOuterX = cheekInnerX + cheekThickness;
 
             for (int side = -1; side <= 1; side += 2)
             {
-                builder.AddBox(new Vector3(side * cheekCentreX, cheekCentreY, 0f),
-                    new Vector3(cheekThickness * 0.5f, 0f, 0f),
-                    new Vector3(0f, cheekHalfHeight, 0f),
-                    new Vector3(0f, 0f, cheekHalfLength));
+                AddCheek(builder, side, cheekInnerX, cheekOuterX, cheekBottomY, cheekHalfLength,
+                    -axleDrop * CHEEK_SHOULDER, cheekTopY);
+
+                //The trunnion's bearing ring, proud of the plate but never of the pin through it
+                float bearingProud = MathF.Min(TRUNNION_BEARING_PROUD, (trunnionOuterX - cheekOuterX) * 0.6f);
+                float bearingRadius = trunnionRadius * TRUNNION_BEARING_SCALE;
+                builder.AddTubeX(new Vector3(side * (cheekOuterX + bearingProud * 0.5f), 0f, 0f),
+                    bearingProud * 0.5f, bearingRadius, BEARING_SEGMENTS);
+
+                //Its cap-square's two bolts, below it either side of the rib
+                for (int bolt = -1; bolt <= 1; bolt += 2)
+                {
+                    builder.AddTubeX(new Vector3(side * (cheekOuterX + BOLT_PROUD * 0.5f),
+                            -BOLT_ORBIT * MathF.Cos(BOLT_ANGLE), bolt * BOLT_ORBIT * MathF.Sin(BOLT_ANGLE)),
+                        BOLT_PROUD * 0.5f, BOLT_RADIUS, BOLT_SEGMENTS);
+                }
+
+                //The axle's bearing ring
+                float axleBearingRadius = axleRadius * AXLE_BEARING_SCALE;
+                builder.AddTubeX(new Vector3(side * (cheekOuterX + AXLE_BEARING_PROUD * 0.5f), -axleDrop, 0f),
+                    AXLE_BEARING_PROUD * 0.5f, axleBearingRadius, BEARING_SEGMENTS);
+
+                //And the rib between the two rings, its ends just under each
+                float ribTop = -bearingRadius * 0.9f;
+                float ribBottom = -axleDrop + axleBearingRadius * 0.9f;
+                AddPad(builder,
+                    new Vector3(side * cheekOuterX, (ribTop + ribBottom) * 0.5f, 0f),
+                    new Vector3(0f, (ribTop - ribBottom) * 0.5f, 0f),
+                    new Vector3(0f, 0f, RIB_HALF_WIDTH),
+                    new Vector3(side * RIB_PROUD, 0f, 0f),
+                    RIB_CHAMFER);
 
                 //A trail leg, from the cheek's lower rear corner, diverging outward as it falls back to the foot
                 AddTrailLeg(builder,
                     new Vector3(side * cheekCentreX, -axleDrop * 0.75f, cheekHalfLength * 0.8f),
                     new Vector3(side * trailEnd.X, trailEnd.Y, trailEnd.Z),
-                    side, cheekCentreX + cheekThickness * 0.5f);
+                    side, cheekOuterX);
 
                 //The trunnion pin through this cheek: from inside the barrel's wall out to a boss proud of
                 //the plate, on the elevation axis itself — which is why it can sit still while the tube turns
@@ -183,6 +257,124 @@ namespace Prazsky.Core.Render
 
             float reach = MathF.Max(axleHalfLength, MathF.Max(trailEnd.Z, axleDrop - trailEnd.Y));
             BoundingSphere = new BoundingSphere(new Vector3(0f, -axleDrop * 0.5f, trailEnd.Z * 0.35f), reach);
+        }
+
+        /// <summary>
+        /// One cheek (see "The cheeks"): its side silhouette extruded across the plate, from the inner face — flat,
+        /// where the box's was — out to a chamfer that steps in to the outer face.
+        /// </summary>
+        private static void AddCheek(MeshBuilder builder, float side, float innerX, float outerX, float bottomY,
+            float halfLength, float shoulderY, float archRadius)
+        {
+            //Both outlines in the plate's own (z, y), the second the first grown in by the chamfer, and built by
+            //the same construction so they have the same corners in the same order
+            Vector2[] rim = CheekOutline(halfLength, bottomY, shoulderY, archRadius);
+            Vector2[] face = CheekOutline(halfLength - CHEEK_CHAMFER, bottomY + CHEEK_CHAMFER, shoulderY,
+                archRadius - CHEEK_CHAMFER);
+
+            float chamferX = outerX - CHEEK_CHAMFER;
+            Vector3 middle = At(Centroid(rim), (innerX + outerX) * 0.5f, side);
+            Vector3 inward = new(-side, 0f, 0f);
+
+            for (int i = 0; i < rim.Length; i++)
+            {
+                int j = (i + 1) % rim.Length;
+
+                //The inner face and the outer face, as fans from their own centres
+                builder.AddTriangle(At(Centroid(rim), innerX, side), At(rim[i], innerX, side), At(rim[j], innerX, side),
+                    inward, inward, inward, inward);
+                builder.AddTriangle(At(Centroid(face), outerX, side), At(face[i], outerX, side), At(face[j], outerX, side),
+                    -inward, -inward, -inward, -inward);
+
+                //The edge wall, across the plate up to where the chamfer starts
+                AddFlatQuad(builder, At(rim[i], innerX, side), At(rim[j], innerX, side),
+                    At(rim[j], chamferX, side), At(rim[i], chamferX, side), middle);
+
+                //And the chamfer, stepping in to the outer face
+                AddFlatQuad(builder, At(rim[i], chamferX, side), At(rim[j], chamferX, side),
+                    At(face[j], outerX, side), At(face[i], outerX, side), middle);
+            }
+        }
+
+        /// <summary>
+        /// A cheek's side silhouette in (z, y), in order round it: the two cut foot corners, straight up the front
+        /// to the shoulder, a tangent line to the arch, over the arch about the trunnion axis, and the mirror image
+        /// down the back. Tangent, so the arch and the leaning edges meet without a crease — and convex, which the
+        /// fans that close its faces rely on.
+        /// </summary>
+        private static Vector2[] CheekOutline(float halfLength, float bottomY, float shoulderY, float archRadius)
+        {
+            Vector2[] points = new Vector2[CHEEK_ARCH_STEPS + 7];
+            int n = 0;
+
+            points[n++] = new Vector2(-halfLength + CHEEK_FOOT_CUT, bottomY);
+            points[n++] = new Vector2(-halfLength, bottomY + CHEEK_FOOT_CUT);
+            points[n++] = new Vector2(-halfLength, shoulderY);
+
+            //Where a line from each shoulder touches the arch on its upper side: the shoulder's own angle about
+            //the axis, turned towards the top by the tangent's half-angle acos(r / d)
+            Vector2 front = new(-halfLength, shoulderY), back = new(halfLength, shoulderY);
+            float frontAngle = MathF.Atan2(front.Y, front.X) - MathF.Acos(archRadius / front.Length()) + MathHelper.TwoPi;
+            float backAngle = MathF.Atan2(back.Y, back.X) + MathF.Acos(archRadius / back.Length());
+
+            for (int k = 0; k <= CHEEK_ARCH_STEPS; k++)
+            {
+                float angle = MathHelper.Lerp(frontAngle, backAngle, k / (float)CHEEK_ARCH_STEPS);
+                points[n++] = new Vector2(archRadius * MathF.Cos(angle), archRadius * MathF.Sin(angle));
+            }
+
+            points[n++] = new Vector2(halfLength, shoulderY);
+            points[n++] = new Vector2(halfLength, bottomY + CHEEK_FOOT_CUT);
+            points[n] = new Vector2(halfLength - CHEEK_FOOT_CUT, bottomY);
+
+            return points;
+        }
+
+        //A point of a cheek's (z, y) outline at a distance off the barrel's axis, on the given side
+        private static Vector3 At(Vector2 zy, float x, float side) => new(side * x, zy.Y, zy.X);
+
+        private static Vector2 Centroid(Vector2[] points)
+        {
+            Vector2 sum = Vector2.Zero;
+            foreach (Vector2 point in points) sum += point;
+
+            return sum / points.Length;
+        }
+
+        //A flat quad shaded by its own geometric normal, turned away from `inside`
+        private static void AddFlatQuad(MeshBuilder builder, Vector3 a, Vector3 b, Vector3 c, Vector3 d, Vector3 inside)
+        {
+            Vector3 normal = Vector3.Cross(b - a, d - a);
+            if (Vector3.Dot(normal, (a + b + c + d) * 0.25f - inside) < 0f) normal = -normal;
+            normal = Vector3.Normalize(normal);
+
+            builder.AddQuad(a, b, c, d, normal, normal, normal, normal, normal);
+        }
+
+        /// <summary>
+        /// A chamfered pad standing on a face — the cheek's rib: a rectangle <paramref name="halfU"/> by
+        /// <paramref name="halfV"/> about <paramref name="baseCentre"/> on the face, rising by
+        /// <paramref name="rise"/> to a top grown in by <paramref name="chamfer"/> all round. Its base is buried in
+        /// the face it stands on, so it has none.
+        /// </summary>
+        private static void AddPad(MeshBuilder builder, Vector3 baseCentre, Vector3 halfU, Vector3 halfV, Vector3 rise,
+            float chamfer)
+        {
+            Vector3 topU = halfU - Vector3.Normalize(halfU) * chamfer;
+            Vector3 topV = halfV - Vector3.Normalize(halfV) * chamfer;
+            Vector3 topCentre = baseCentre + rise;
+            Vector3 inside = baseCentre + rise * 0.5f;
+
+            Vector3[] bottom = { baseCentre - halfU - halfV, baseCentre + halfU - halfV, baseCentre + halfU + halfV, baseCentre - halfU + halfV };
+            Vector3[] top = { topCentre - topU - topV, topCentre + topU - topV, topCentre + topU + topV, topCentre - topU + topV };
+
+            for (int i = 0; i < 4; i++)
+            {
+                int j = (i + 1) % 4;
+                AddFlatQuad(builder, bottom[i], bottom[j], top[j], top[i], inside);
+            }
+
+            AddFlatQuad(builder, top[0], top[1], top[2], top[3], baseCentre);
         }
 
         /// <summary>
