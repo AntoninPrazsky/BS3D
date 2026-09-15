@@ -2629,3 +2629,31 @@ Nový uniform **`StillEmission`** (default 1, no-op). Still plane ho dostává `
 - **Ověřeno:** 1 běh ze 2 povolených (`fpscap=75`, bez incidentu). Herní kamera ve 25°, 40°, 60°, 80° a v 60° s traverzem 35°: závěr klesá mezi plechy bez průniku, pod ním už není žádná tyč. Testbed, Game i MapEditor staví s 0 chybami, `docs/testbed.md` je aktualizovaný.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-15 — Claude Code (čtvrtá dávka poznámek z playtestu, #423-438)
+
+**Majitel poslal další volný seznam postřehů z hraní (~18 položek — vizuál, chování kamery, pár bugů), s výslovnou instrukcí založit issue na základě těchto poznámek.** Stejný tvar úkolu jako dávka zdokumentovaná v [[playtest-log-triage]] (#401-#412) — tedy žádné filtrování na „jen to, co je skutečně problém": jedna položka na issue, i když se překrývá s něčím starším. Před založením zkontrolován `gh issue list` (běžel až po #422, oba nové) a tento deník.
+
+**Jedna položka se do issue nedostala:** tráva v lese (nečte se jako tráva, navíc není tak zelená jako skutečné lesní dno) přesně sedí na už otevřené #281 (design brainstorm o trávě louky/savany/lesa) — přidán komentář místo duplicity, s tím jedním detailem (barva), co #281 samo nejmenuje.
+
+**Založeno šestnáct issues, #423-438:**
+- #423 — drenážní trychtýř: skleněný kužel čte jako fasetovaný, ne hladký. **Ověřeno vizuálně, ne jen čtením kódu** — `403-trail-legs` (hlavní větev) aktuálně nejde přeložit (`TRUNNION_OUTER_X` neexistuje, rozepsaná práce na #403), takže jsem postavil Testbed ve WORKTREE `BS3D-322` (ten, co nese tenhle deník) po `git pull --ff-only`, a odtud vyfotil trychtýř shora i od boku (`scene=meadow`/`scene=savanna`, `nopost nooverc`). Vidět čistý vějíř ~64 střídavě světlých/tmavých klínů, stejný pod oběma scénami i úhly — geometricky obě `FunnelMesh` konstruktory i `FunnelRimsMesh` už mají per-vertex hladké normály (jako opravený `TrophyMesh`), takže to není chybějící vyhlazení sítě, spíš specular/Fresnel na 64 segmentech u odrazivého materiálu (stejná třída problému, jakou `TrophyMesh`ův komentář pojmenovává pro „mirror-finish" povrch).
+- #424 — kamera na padající kuličky (`DropCinematic`) by měla vždycky naskočit na výstřel, co dokončí level, i pod `MIN_BALLS=12`.
+- #425 — barevný záblesk na ústí hlavně (`BallGlow`) je billboard čelem ke kameře, occlusion hlavní se mění s každou rotací — proto to „tuneluje" nekonzistentně; návrh je skutečný prstenec/límec jako geometrie.
+- #426 — diamantový pohár: křišťál nemá lom světla, jen alpha-blend pozadí — nečte se jako sklo.
+- #427 — nová obrazovka Help (pravidla, speciální koule, budoucí power-upy, slovník skóre s příkladem výpočtu, ovládání) — výslovně odlišná od #189 (tutoriál).
+- #428 — 2D náhled mapy: kuličky pod červenou čarou mizí skoro okamžitě (`PROFILE_SINK_FADE = 2` proti ~36 jednotkám skutečného pádu do `KILL_PLANE_Y`).
+- #429 — tvar poháru přes všechny tiery je plochý/primitivní, chce výšku a zdobení (kameny), ne jen hladkost (#271 řeší jen fasety).
+- #430 — ohňostroj po výhře: kamera na výsledkové stránce se na explozi skoro nedívá, a výška výbuchu je vyladěná proti herní kameře, ne proti orbitu na result page.
+- #431 — žádná zpětná vazba na stropu náklonu hlavně — mířící kříž by měl červeně blikat na `ElevationLimit`.
+- #432 — kuličky pořád přichytávají na samý okraj stropu; majitel navrhuje zakázat vystřeleným kuličkám přímé přichycení ke stropu úplně (jen k jiným kuličkám).
+- #433 — neonové město: úvodní průlet kamerou mezi mrakodrapy zblízka (styl Spider-Mana), ne vzdálený záběr.
+- #434 — „cluster reached the line" má být dramatická: kamera na místo dopadu, čára zesvítí, zvuk/VFX — majitel to sám označil jako velký úkol.
+- #435 — okenní rámy na budovách čtou jako tenké/nevýrazné, přestože shader (`WindowFrameProfile` v `InstancedModel.fx`) má hotovou geometrii i stínování — vypadá to na ladění `CitySceneConfig` (`WindowFrameWidth/Height` jsou dnes malé proti rozteči).
+- #436 — střechy City/Neon City chtějí satelity/antény/5G vysílače.
+- #437 — Wildcard kulička nemá žádný vizuální signál v okamžiku, kdy se na dopadu ustálí na konkrétní barvě.
+- #438 — pauza rozostří 3D scénu (`FrameBlur` → `PostProcessPipeline.Resolve`), ale HUD (`PlayHud`, kreslený zvlášť přes `OverlayBatch` PO resolve) zůstává ostrý včetně létajícího čísla skóre — majitel si všiml právě u něj, ale je to obecná mezera.
+
+**Nic dalšího si neberu.**
