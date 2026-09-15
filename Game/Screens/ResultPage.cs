@@ -6,6 +6,7 @@ using Prazsky.BS3D.Scoring;
 using System;
 using HorizontalAlignment = Myra.Graphics2D.UI.HorizontalAlignment;
 using Label = Myra.Graphics2D.UI.Label;
+using TextHorizontalAlignment = FontStashSharp.RichText.TextHorizontalAlignment;
 
 namespace BS3D.Screens
 {
@@ -651,10 +652,11 @@ namespace BS3D.Screens
             //Cut to the same width as the entries below it (#179). It is the one plate in the game that stands
             //BESIDE buttons rather than under them (see BS3DGame.Plate), and left to size itself it wrapped a
             //few short numbers — a panel visibly narrower than every control under it, in the same centred
-            //stack, which read as a fourth button that could not be pressed. MinWidth rather than Width, so the
-            //unlock note underneath the total is free to be longer than the column rather than being clipped
-            //to it: Myra applies both to the measured size with the padding already in, so at the minimum the
-            //plate's edges land exactly on the buttons'.
+            //stack, which read as a fourth button that could not be pressed. Myra applies MinWidth to the
+            //measured size with the padding already in, so at the minimum the plate's edges land exactly on the
+            //buttons'. It was chosen over Width so the unlock note could run longer than the column — and what
+            //that bought in play was a sentence running out past the plate's right edge (#397). The note wraps
+            //inside the plate now; see BuildBreakdown.
             _breakdown.MinWidth = ColumnWidth;
 
             column.Widgets.Add(_breakdown);
@@ -738,16 +740,24 @@ namespace BS3D.Screens
             Grid.SetRow(_nextStarNote, 5);
             grid.Widgets.Add(_nextStarNote);
 
-            //The one gate left, as an aside under that: the NEXT level's star requirement, shown only when
-            //the total falls short of it — which is also exactly when the Next Level button is absent, so
-            //the note is what explains the absence. Spanning the grid, because it is a sentence about the
-            //campaign rather than another line of the sum.
+            //The campaign's gate, as an aside under that: why the NEXT level is shut, shown only when it is —
+            //which is also exactly when the Next Level button is absent, so the note is what explains the
+            //absence. Spanning the grid, because it is a sentence about the campaign rather than another line
+            //of the sum.
+            //
+            //⚠ WRAPPED, AGAINST THE PLATE'S CONTENT WIDTH (#397). Unwrapped, the price sentence ran out past the
+            //plate's right edge in play ("…you have 306" cut off), and the sequence lock's sentence names a
+            //level, so it is longer still. A Myra label wraps only against a width it is given, and the plate
+            //this sits in is the one cut to the menu column, whose content width is therefore known.
             grid.RowsProportions.Add(new Proportion(ProportionType.Auto));
             _unlockNote = new Label
             {
                 Text = string.Empty,
                 Font = FontSmall,
                 TextColor = BS3DGame.MENU_TEXT_DIM,
+                Wrap = true,
+                Width = Game.MenuColumnPlateContentWidth,
+                TextAlign = TextHorizontalAlignment.Center,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
             };
@@ -876,23 +886,23 @@ namespace BS3D.Screens
 
                 //Only when the road ahead is actually shut — which is also when the Next Level button below
                 //is absent, so this line is the absence explained rather than a number always on display.
+                //It is a clear's note and only a clear's, because it is a row of the breakdown grid and the
+                //grid is hidden on a failure; the failure page's own version is _skipNote, outside the grid.
                 //
-                //⚠ IT IS A CLEAR'S NOTE AND ONLY A CLEAR'S, because it is a row of the breakdown grid and the
-                //grid is hidden on a failure. #347's sequence rule therefore cannot reach it: after a clear
-                //the frontier has already moved past this level, so the next entry is never shut by the
-                //sequence here — only ever by the price, which is what this says. The failure page's own
-                //version of this sentence is _skipNote, below and outside the grid.
-                bool nextLocked = _result.HasNextLevel && !_result.NextLevelUnlocked;
-                _unlockNote.Text = nextLocked
-                    ? $"Next level unlocks at {_result.NextLevelMinStars} ★ — you have {_result.TotalStars}"
-                    : string.Empty;
-                _unlockNote.Visible = nextLocked;
+                //⚠ AND #347's SEQUENCE RULE DOES REACH IT (#397). This said the opposite — "after a clear the
+                //frontier has already moved past this level" — which holds only when the level cleared WAS the
+                //frontier. A replay of a level cleared out of order leaves the frontier far behind, and the note
+                //quoted the star gate anyway: "unlocks at 150 ★ — you have 306". LevelResult.UnlockNote names
+                //whichever lock actually holds.
+                string unlockNote = _result.UnlockNote;
+                _unlockNote.Text = unlockNote;
+                _unlockNote.Visible = unlockNote.Length > 0;
             }
 
             //Next Level is shown only when the level was cleared, there is another entry to go to AND the
-            //star total opens it. Absent, not disabled, when any of that fails — a greyed-out button over a
+            //campaign opens it. Absent, not disabled, when any of that fails — a greyed-out button over a
             //frozen frame is a thing the player cannot do, which reads as the game being broken rather than
-            //as the campaign asking for more stars (the note above says that in words).
+            //as the campaign asking for something (the note above says what, in words).
             _nextLevelButton.Visible = _result.Cleared && _result.HasNextLevel && _result.NextLevelUnlocked;
 
             //Named, not merely offered (#313). Written whether or not it is visible: the caption is a function
