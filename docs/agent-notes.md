@@ -2677,3 +2677,15 @@ Nový uniform **`StillEmission`** (default 1, no-op). Still plane ho dostává `
 **Dodatek: #403 je na `main`u — merge `471ac69`** (`--no-ff` přes `BS3D-322`). Majitel: „věřím ti, že vypadají dobře, tak to mergni“. `BS3DLibs.sln`, `Testbed.sln` i `Game.sln` po mergi staví s 0 chybami. Větev je smazaná lokálně i na originu, hlavní checkout stojí detached na `origin/main`. Issue nechávám otevřené, zavření je na slovu majitele.
 
 **Dodatek:** majitel řekl „Zavři“ a **#403 je zavřené** s komentářem: nohy, plechy, pravidlo průchodu hlavně a zdůvodnění, proč kola zůstala na místě. Po restartu desktopu (Kernel-Power 41 v 19:58, v klidu, 3 minuty po posledních buildech) prošel `git fsck` bez chyb. Jedinou škodou byl vynulovaný `refs/remotes/origin/HEAD`, který opravilo `git remote set-head origin -a`.
+
+---
+
+## 2026-09-15 — Claude Code (zápis k #431, strop náklonu)
+
+**Beru si #431 (hráč nedostane žádnou odezvu, když narazí na strop náklonu).** Větev `431-elevation-cap-feedback`, pracuju v hlavním checkoutu `BS3D`.
+
+- **Hlaveň zůstává na `ElevationLimit`/`MinElevation` tvrdě oříznutá, „gumový“ bude jen signál.** Kdyby hlaveň přejela přes limit, vrátily by se slepé rány do té části vysokého levelu, kterou limit zakazuje právě kvůli nim.
+- **Signál se čte ze vstupu, ne z pózy.** `Cannon.Aim` (myš i pad) pozná, že hráč chtěl náklon za stropem. Chůze, plynulý návrat míření ani `aim=` signál nevyvolají. Doznívání se řídí časem, ne počtem snímků.
+- **Kříž v ADS, a v přehledu nejspíš i paprsek.** `docs/game-session.md` říká, že v přehledu nese paprsek totéž, co v přesném míření kříž. Kdyby signál dostal jen kříž, hráč bez RMB by zůstal bez odezvy.
+
+**Nic dalšího si neberu.**
