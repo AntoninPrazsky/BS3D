@@ -2552,3 +2552,18 @@ Efekt (#389), aktivační model (#392) a **naučit `ScoreSim` výbuch**. To posl
 **Bezgrafický rig zůstal ve scratchpadu** (tj. zmizí). Jestli ho má být čtvrtý nástroj vedle LevelGenu, ScoreSimu a MusicBaku, je to rozhodnutí majitele — nabízím, nedělám.
 
 **Merge na slovo majitele; zavření issue taky.**
+
+---
+
+## 2026-09-15 — Claude Code (sedmnáctý zápis dne)
+
+**#396 je na `main`u** (merge `ea43ea4`, `--no-ff`) **a zavřené** — majitel řekl "Mergni, uzavři". Větev smazána lokálně i na originu. Zápisy výše zůstávají stát tak, jak byly psané — včetně "NEmergnuto" a "merge na slovo majitele", což tímhle přestalo platit. Šev s #389 je pořád otevřený a změřený (10 hunků / ~199 řádků), instrukce pro merge je v zápisu výše.
+
+**Beru si #395 (lávové barvy).** Majitel: *"Tam je to vážně problémové a potřebujeme dramatické vylepšení."* Větev `395-lava-colours`. Issue má dvě půlky a **tři majitelovy komentáře**, které směr určují přesněji než tělo issue:
+
+1. **Barvy se na Eruption bloku slévají.** Deset levelů, osm inkoustů; černá+hnědá v devíti z deseti, oranž+hnědá v osmi, červená+oranž v osmi. ⚠ **#315 měřilo Lavu pod JINOU scénou a jinou kopulí** — pod sopkou a jejími červeno-oranžovými světly, kde se těch deset levelů skutečně hraje, paletě nikdo nikdy nezměřil.
+2. **Konkrétní zadání na opravu palety (komentář 12:41):** linky mají být **tlustší** a **nemají jít až do bílé** — nejteplejší bod má pořád číst jako vlastní barva koule, jen jasnější. Dnes `LavaCorePower` nese jádro do `LavaIncandescent` (1.0, 0.86, 0.62), jedné sdílené skoro-bílé, ať je koule jakkoli barevná — což je přesně důvod, proč červená, oranžová a žlutá konvergují.
+3. **Kulka v děle svítí světleji než táž barva na clusteru** — tři mechanismy, každý s vlastním důvodem (#252 zásobník nedýchá, #303 cluster je zastíněný, #236 halo v notchi). ⚠ Majitelův komentář (07:42) říká, že to **není problém jen Lávy/Plasmy** — též tři mechanismy platí pro všechny styly a jen *emisní* příspěvek byl odůvodněn jako malý; obyčejný difuzní rozdíl změřený nebyl. Měřím tedy i na vinylu.
+4. **A má to herní následek, ne jen estetický** (komentář 12:43, Volley): majitel měl za to, že se stejnobarevný cluster nerozpojuje — tedy že je to bug v pravidle — když ve skutečnosti střílel do barvy, která jen vypadala podobně.
+
+**Nic dalšího si neberu.**
