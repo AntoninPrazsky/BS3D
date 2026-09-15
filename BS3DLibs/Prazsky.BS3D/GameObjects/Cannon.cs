@@ -53,6 +53,37 @@ namespace Prazsky.BS3D.GameObjects
 
         private float _elevationLimit = MaxElevation;
 
+        /// <summary>
+        /// How hard the player is leaning on the elevation clamp, 0…1: full while their own aim input keeps asking
+        /// past <see cref="ElevationLimit"/> (or under <see cref="MinElevation"/>), held for
+        /// <see cref="ELEVATION_STRAIN_HOLD"/> after the last such frame and then released over
+        /// <see cref="ELEVATION_STRAIN_RELEASE"/> (#431). What a crosshair or a beam reads to say "the gun will not
+        /// go higher" — without it the barrel simply stops and the input goes nowhere, which is not a signal.
+        /// <para>
+        /// <b>The barrel stays hard-clamped; only the signal is rubber.</b> Letting the tube itself run past the
+        /// limit would give back the blind shots into a tall level's unframed top that the limit exists to take
+        /// away. And it is raised by <see cref="Aim"/> alone — the input — never by a walk steepening the rest, an
+        /// eased reset or a stated pose, none of which is the player pushing.
+        /// </para>
+        /// <para>
+        /// <b>A flag with a timed tail, not a magnitude.</b> What an <see cref="Aim"/> call overshoots by is that
+        /// frame's cursor travel, which shrinks as the frame rate rises, so a strain scaled by it would be weaker
+        /// on a faster machine. The hold also bridges the frames a mouse polling slower than the display reports no
+        /// movement on, which would otherwise flicker the mark while the hand is still pushing.
+        /// </para>
+        /// </summary>
+        public float ElevationStrain
+            => Math.Clamp(1f - (_sinceElevationPush - ELEVATION_STRAIN_HOLD) / ELEVATION_STRAIN_RELEASE, 0f, 1f);
+
+        /// <summary>How long <see cref="ElevationStrain"/> stays full after the last push, in seconds.</summary>
+        public const float ELEVATION_STRAIN_HOLD = 0.1f;
+
+        /// <summary>How long <see cref="ElevationStrain"/> then takes to fall to nothing, in seconds.</summary>
+        public const float ELEVATION_STRAIN_RELEASE = 0.25f;
+
+        //Seconds since the input last pushed past the clamp; infinite for a gun nobody has pushed
+        private float _sinceElevationPush = float.PositiveInfinity;
+
         //Traverse (yaw) the aim may swing either side of the resting heading, in radians (±45°).
         public const float MaxTraverse = Constants.QUARTER_PI;
 
@@ -189,6 +220,9 @@ namespace Prazsky.BS3D.GameObjects
                 if (_resetAimStep >= 1f) _resettingAim = false;
                 else _resetAimStep += DEFAULT_ROTATION_SPEED * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
             }
+
+            //The push ElevationStrain is read off ages here and nowhere else; an infinite one stays infinite
+            _sinceElevationPush += (float)gameTime.ElapsedGameTime.TotalSeconds;
         }
 
         /// <summary>
@@ -290,6 +324,13 @@ namespace Prazsky.BS3D.GameObjects
             _resettingAim = false; //taking the aim by hand interrupts any eased return in progress
             _rotationAim += RotationSpeed * rotation * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
+            //Read before EnsureAimInBounds swallows it, and only in the direction this input moved: a pure traverse
+            //along the cap leaves the stored elevation on the limit to within rounding, and that is not a push
+            float requested = _rotationToOrbitCenter.X + _rotationAim.X;
+
+            if ((rotation.X > 0f && requested > _elevationLimit) || (rotation.X < 0f && requested < MinElevation))
+                _sinceElevationPush = 0f;
+
             EnsureAimInBounds();
             RecalculateRotation();
             RecalculateWorldMatrix();
@@ -319,8 +360,9 @@ namespace Prazsky.BS3D.GameObjects
             _advanceAcceleration = 0f;
 
             //A restarted gun stands at rest: a stroke caught mid-flight by a teardown must not carry into
-            //the next session's first frame
+            //the next session's first frame, and nor may a push against the clamp
             _recoilPhase = 0f;
+            _sinceElevationPush = float.PositiveInfinity;
 
             Initialize();
         }

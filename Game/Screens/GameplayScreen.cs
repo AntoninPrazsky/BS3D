@@ -1515,9 +1515,13 @@ namespace BS3D.Screens
             //the reticle parked at full opacity over the numbers for as long as the page stood (#259). A cut
             //rather than a fade, like the aim blur's at the same moment — the page owns the frame from there on,
             //and a lens nobody is aiming is not a thing to keep.
+            //
+            //And it blinks red while the player pushes the aim into the elevation clamp (#431), which the beam
+            //says in the overview the same way — see AimStrain.
             if (!LevelOver)
                 _crosshair.Draw(Game.OverlayBatch, _preciseAim.Blend,
-                    _previewReachesCluster && !_previewHasCell ? PREVIEW_REFUSED : null);
+                    _previewReachesCluster && !_previewHasCell ? PREVIEW_REFUSED : null,
+                    AimStrain, WallClock);
         }
 
     }
