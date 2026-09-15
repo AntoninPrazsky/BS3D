@@ -60,10 +60,9 @@ namespace Prazsky.BS3D.GameObjects
         /// <see cref="ELEVATION_STRAIN_RELEASE"/> (#431). What a crosshair or a beam reads to say "the gun will not
         /// go higher" — without it the barrel simply stops and the input goes nowhere, which is not a signal.
         /// <para>
-        /// <b>The barrel stays hard-clamped; only the signal is rubber.</b> Letting the tube itself run past the
-        /// limit would give back the blind shots into a tall level's unframed top that the limit exists to take
-        /// away. And it is raised by <see cref="Aim"/> alone — the input — never by a walk steepening the rest, an
-        /// eased reset or a stated pose, none of which is the player pushing.
+        /// <b>It is raised by <see cref="Aim"/> alone</b> — the input — never by a walk steepening the rest, an eased
+        /// reset or a stated pose, none of which is the player pushing. The same push stretches the barrel's own
+        /// rubber (<see cref="ELEVATION_OVERSHOOT"/>), and the rubber lets go when this strain's hold runs out.
         /// </para>
         /// <para>
         /// <b>A flag with a timed tail, not a magnitude.</b> What an <see cref="Aim"/> call overshoots by is that
@@ -83,6 +82,57 @@ namespace Prazsky.BS3D.GameObjects
 
         //Seconds since the input last pushed past the clamp; infinite for a gun nobody has pushed
         private float _sinceElevationPush = float.PositiveInfinity;
+
+        /// <summary>
+        /// How far past the clamp the player's push can drag the barrel, in radians (~5.7°) — the <b>rubber</b>
+        /// (#431). The clamp stays exactly where it is for every pose that is stated, solved or walked; only
+        /// <see cref="Aim"/>'s own push stretches past it, with diminishing return, and once the push stops (after
+        /// <see cref="ELEVATION_STRAIN_HOLD"/>) a spring pulls the barrel back — a little past the clamp, then onto
+        /// it — so the refusal is felt through the aim and, in precise aim, through the lens that rides it.
+        /// <para>
+        /// <b>The cost, the owner's call:</b> this is one pose, so a shot fired mid-stretch leaves along the
+        /// stretched barrel, up to this far past the limit and the spring's first swing a little further. On a tall
+        /// level that reopens, for as long as the hand pushes and the barrel comes back, part of the unframed band
+        /// its limit is there to close. At the hardware's own <see cref="MaxElevation"/> the stretch is stopped short
+        /// of vertical by <see cref="POSE_ELEVATION_CEILING"/>; nothing of the gun collides on the way, because the
+        /// cascabel clears the stone by 0.29 at 80.2° and falls less than 0.05 further before vertical, and the
+        /// carriage's clearances are a rule that holds at every elevation (see <c>CannonRig</c>).
+        /// </para>
+        /// </summary>
+        public const float ELEVATION_OVERSHOOT = 0.10f;
+
+        /// <summary>
+        /// The rubber's softness: the push past the clamp, in radians of aim input, that drags the barrel ~63 % of
+        /// <see cref="ELEVATION_OVERSHOOT"/>. The push banked is capped at three of these, so a long shove saturates
+        /// instead of storing stretch the spring would have to work off before anything visibly moved.
+        /// </summary>
+        public const float ELEVATION_STRETCH_SOFTNESS = 0.15f;
+
+        //The spring that pulls the barrel back: ~3 Hz, damped so a release lands ~25 % of its swing past the clamp
+        //and settles in about half a second — a tug, not an ease. Integrated in steps of at most OVERSHOOT_SPRING_STEP
+        //so a slow machine and a fast one draw the same swing.
+        private const float OVERSHOOT_SPRING_OMEGA = MathHelper.TwoPi * 3f;
+        private const float OVERSHOOT_SPRING_DAMPING = 0.4f;
+        private const float OVERSHOOT_SPRING_STEP = 1f / 240f;
+
+        /// <summary>
+        /// The steepest the drawn and fired pose may stand whatever the spring does, in radians (~87°): ~3° off
+        /// vertical, where <see cref="BarrelOrientation"/>'s world up and <c>PreciseAim.LensUp</c> are still well
+        /// conditioned (the latter's fallback trips within ~0.6° of vertical).
+        /// </summary>
+        public const float POSE_ELEVATION_CEILING = 1.52f;
+
+        //The hand's push past the clamp in input radians, and what the barrel shows of it on the spring; all signed,
+        //positive above ElevationLimit and negative under MinElevation
+        private float _elevationStretch;
+        private float _elevationOvershoot;
+        private float _elevationOvershootVelocity;
+
+        /// <summary>
+        /// How far the drawn and fired pose stands past the clamped aim this instant, in radians, signed — the
+        /// rubber's stretch as the spring carries it. Zero at rest, exactly.
+        /// </summary>
+        public float ElevationOvershoot => _elevationOvershoot;
 
         //Traverse (yaw) the aim may swing either side of the resting heading, in radians (±45°).
         public const float MaxTraverse = Constants.QUARTER_PI;
@@ -223,6 +273,57 @@ namespace Prazsky.BS3D.GameObjects
 
             //The push ElevationStrain is read off ages here and nowhere else; an infinite one stays infinite
             _sinceElevationPush += (float)gameTime.ElapsedGameTime.TotalSeconds;
+
+            StepElevationRubber((float)gameTime.ElapsedGameTime.TotalSeconds);
+        }
+
+        /// <summary>
+        /// Lets go of the stretch once the push is over, and carries the barrel's overshoot after what is left of it
+        /// on the spring (see <see cref="ELEVATION_OVERSHOOT"/>). Rebuilds the pose only while something is moving,
+        /// and puts all of it exactly back to zero once the swing has died, so a gun at rest is posed bit for bit as
+        /// if it had never been pushed.
+        /// </summary>
+        private void StepElevationRubber(float dt)
+        {
+            if (_sinceElevationPush >= ELEVATION_STRAIN_HOLD) _elevationStretch = 0f;
+
+            if (_elevationStretch == 0f && _elevationOvershoot == 0f && _elevationOvershootVelocity == 0f) return;
+
+            float target = MathF.Sign(_elevationStretch) * ELEVATION_OVERSHOOT
+                * (1f - MathF.Exp(-MathF.Abs(_elevationStretch) / ELEVATION_STRETCH_SOFTNESS));
+
+            //Capped, so a stalled frame cannot run a thousand steps; a quarter of a second is most of the swing
+            float left = MathF.Min(dt, 0.25f);
+            int steps = Math.Max(1, (int)MathF.Ceiling(left / OVERSHOOT_SPRING_STEP));
+            float h = left / steps;
+
+            for (int i = 0; i < steps; i++)
+            {
+                float acceleration = OVERSHOOT_SPRING_OMEGA * OVERSHOOT_SPRING_OMEGA * (target - _elevationOvershoot)
+                    - 2f * OVERSHOOT_SPRING_DAMPING * OVERSHOOT_SPRING_OMEGA * _elevationOvershootVelocity;
+
+                _elevationOvershootVelocity += acceleration * h;
+                _elevationOvershoot += _elevationOvershootVelocity * h;
+            }
+
+            //A ten-thousandth of a radian is about a third of a pixel through precise aim's lens even at 2160p:
+            //nothing to see snap
+            if (_elevationStretch == 0f && MathF.Abs(_elevationOvershoot) < 1e-4f && MathF.Abs(_elevationOvershootVelocity) < 2e-3f)
+            {
+                _elevationOvershoot = 0f;
+                _elevationOvershootVelocity = 0f;
+            }
+
+            RecalculateRotation();
+            RecalculateWorldMatrix();
+        }
+
+        /// <summary>Drops the rubber outright, for a pose that is stated or restarted and must land exactly where it is put.</summary>
+        private void DropElevationRubber()
+        {
+            _elevationStretch = 0f;
+            _elevationOvershoot = 0f;
+            _elevationOvershootVelocity = 0f;
         }
 
         /// <summary>
@@ -322,14 +423,35 @@ namespace Prazsky.BS3D.GameObjects
         public void Aim(Vector2 rotation, GameTime gameTime)
         {
             _resettingAim = false; //taking the aim by hand interrupts any eased return in progress
-            _rotationAim += RotationSpeed * rotation * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+
+            Vector2 delta = RotationSpeed * rotation * (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+
+            //A hand coming back off a stretched rubber unwinds the stretch before it moves the aim; otherwise the aim
+            //would slide under the clamp while the barrel still hung out past it on the stretch
+            if (_elevationStretch * delta.X < 0f)
+            {
+                float unwound = MathF.Abs(delta.X) < MathF.Abs(_elevationStretch) ? delta.X : -_elevationStretch;
+                _elevationStretch += unwound;
+                delta.X -= unwound;
+            }
+
+            _rotationAim += delta;
 
             //Read before EnsureAimInBounds swallows it, and only in the direction this input moved: a pure traverse
-            //along the cap leaves the stored elevation on the limit to within rounding, and that is not a push
+            //along the cap leaves the stored elevation on the limit to within rounding, and that is not a push. What
+            //the clamp is about to eat is what the rubber banks.
             float requested = _rotationToOrbitCenter.X + _rotationAim.X;
+            float pushed = delta.X > 0f ? MathF.Max(0f, requested - _elevationLimit)
+                : delta.X < 0f ? MathF.Min(0f, requested - MinElevation)
+                : 0f;
 
-            if ((rotation.X > 0f && requested > _elevationLimit) || (rotation.X < 0f && requested < MinElevation))
+            if (pushed != 0f)
+            {
                 _sinceElevationPush = 0f;
+
+                float banked = 3f * ELEVATION_STRETCH_SOFTNESS;
+                _elevationStretch = Math.Clamp(_elevationStretch + pushed, -banked, banked);
+            }
 
             EnsureAimInBounds();
             RecalculateRotation();
@@ -343,6 +465,9 @@ namespace Prazsky.BS3D.GameObjects
         /// </summary>
         public void ResetAim()
         {
+            //Not a push: the stretch goes, and whatever overshoot is still swinging settles on its spring
+            _elevationStretch = 0f;
+
             if (_rotationAim == Vector2.Zero) { _resettingAim = false; return; }
 
             _resettingAim = true;
@@ -360,9 +485,10 @@ namespace Prazsky.BS3D.GameObjects
             _advanceAcceleration = 0f;
 
             //A restarted gun stands at rest: a stroke caught mid-flight by a teardown must not carry into
-            //the next session's first frame, and nor may a push against the clamp
+            //the next session's first frame, and nor may a push against the clamp or its rubber
             _recoilPhase = 0f;
             _sinceElevationPush = float.PositiveInfinity;
+            DropElevationRubber();
 
             Initialize();
         }
@@ -637,7 +763,7 @@ namespace Prazsky.BS3D.GameObjects
         {
             UpdateRestRotation();
 
-            var finalRotationX = _rotationToOrbitCenter.X + _rotationAim.X - Constants.HALF_PI;
+            var finalRotationX = PoseElevation - Constants.HALF_PI;
             var finalRotationY = _rotationToOrbitCenter.Y + _rotationAim.Y;
 
             Matrix rotationMatrix = Matrix.CreateRotationX(finalRotationX) * Matrix.CreateRotationY(finalRotationY);
@@ -689,6 +815,7 @@ namespace Prazsky.BS3D.GameObjects
             bool reachable = CanAimAt(worldTarget, out float requiredElevation, out float requiredTraverse);
 
             _resettingAim = false;
+            DropElevationRubber();
             _rotationAim = new Vector2(requiredElevation - _rotationToOrbitCenter.X, requiredTraverse);
 
             EnsureAimInBounds();
@@ -702,9 +829,14 @@ namespace Prazsky.BS3D.GameObjects
         /// The barrel's elevation above horizontal, in radians — the angle the clamps are stated in
         /// (<see cref="MinElevation"/>, <see cref="ElevationLimit"/>) and the one
         /// <see cref="CanAimAt"/> computes a required value of, so it is the pose read back rather than a
-        /// second way of describing it.
+        /// second way of describing it. It is the pose <b>as drawn and fired</b>: while the rubber is stretched it
+        /// stands <see cref="ElevationOvershoot"/> past the clamp.
         /// </summary>
-        public float Elevation => _rotationToOrbitCenter.X + _rotationAim.X;
+        public float Elevation => PoseElevation;
+
+        //The one place the rubber enters the pose; everything built off the pose reads it through here
+        private float PoseElevation
+            => MathF.Min(_rotationToOrbitCenter.X + _rotationAim.X + _elevationOvershoot, POSE_ELEVATION_CEILING);
 
         /// <summary>
         /// How far the aim is swung off the resting heading — the direction to <see cref="OrbitCenter"/> — in
@@ -731,6 +863,7 @@ namespace Prazsky.BS3D.GameObjects
                 && traverse >= -MaxTraverse && traverse <= MaxTraverse;
 
             _resettingAim = false;      //a stated pose interrupts an eased return, exactly as taking the aim by hand does
+            DropElevationRubber();      //and lands exactly where it is put, which a pin is for
             _rotationAim = new Vector2(elevation - _rotationToOrbitCenter.X, traverse);
 
             EnsureAimInBounds();
@@ -764,7 +897,7 @@ namespace Prazsky.BS3D.GameObjects
         private void RecalculateWorldMatrix()
         {
             World
-                = Matrix.CreateRotationX(_rotationToOrbitCenter.X + _rotationAim.X)
+                = Matrix.CreateRotationX(PoseElevation)
                 * Matrix.CreateRotationY(_rotationToOrbitCenter.Y + _rotationAim.Y)
                 * Matrix.CreateTranslation(Position);
         }
