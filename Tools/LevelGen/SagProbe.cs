@@ -1048,10 +1048,18 @@ namespace BS3D.Tools.LevelGen
             //that clears in ten shots.
             ColourTransparentGroup(map, balls, cell, loaded.Value);
 
-            //Which bombs this landing armed (#326), read BEFORE the release for the handler's own reason: a
-            //bomb the release orphans has already fallen and must not go off in mid-air. Same shape as the
-            //colouring above and the same lesson - a step of a landing that lives in the contact handler has
-            //to be repeated here, or the probe measures a game the player is not playing.
+            //Which bombs this landing armed (#326), read BEFORE the release for the handler's own reason: the
+            //shot's own match is counted first, so a blast cannot eat a group the player had earned. Same shape
+            //as the colouring above and the same lesson - a step of a landing that lives in the contact handler
+            //has to be repeated here, or the probe measures a game the player is not playing.
+            //
+            //⚠ THIS USED TO SAY "a bomb the release orphans has already fallen and must not go off in mid-air",
+            //and #396 reversed that rule: a bomb that loses its last path to the glass now detonates where it
+            //hangs. The probe needed NO line for it - the rule lives inside the release
+            //(BallsConstraintsBuilder.ResolveDisconnected), which is the one pass all four removals below end
+            //in, so it arrived here the way the ice did in #329 and not the way the glass, the bombs, the zaps
+            //and the acids each did, one painful line at a time. What DID have to change is this comment: the
+            //sentence above was the fifth copy of a "why" that is no longer true.
             List<XZLevel> armed = ArmedSpecials(map, cell, BallKind.Bomb, _landingBombs);
             List<XZLevel> zaps = ArmedSpecials(map, cell, BallKind.Zap, _landingZaps);
             List<XZLevel> acids = ArmedSpecials(map, cell, BallKind.Acid, _landingAcids);

@@ -64,9 +64,24 @@ namespace Prazsky.BS3D.GameStructure
         Transparent = 2,
 
         /// <summary>
-        /// A bomb (#326). It detonates when a shot lands in a cell <b>beside</b> it and takes out every ball
-        /// within <c>BallsConstraintsBuilder.BLAST_RADIUS</c> of itself — every ball, of every colour and every
-        /// kind, itself included.
+        /// A bomb (#326). It takes out every ball within <c>BallsConstraintsBuilder.BLAST_RADIUS</c> of itself
+        /// — every ball, of every colour and every kind, itself included.
+        /// <para>
+        /// <b>THE RULE IS "IT IS SEPARATED OR IT IS REACHED, SO IT GOES OFF", and there are three ways</b>
+        /// (#396 added the third): a shot lands in a cell <b>beside</b> it; another bomb's blast reaches it;
+        /// or it loses its <b>last path to the ceiling</b> — a match, a zap, an acid shaft or another blast
+        /// cut the support it was hanging from, and the disconnection walk finds it among the newly orphaned
+        /// cells. The first two are geometric and the third is structural, which is what makes it worth
+        /// learning: cut the right member and a bomb the player never aimed at still goes off.
+        /// </para>
+        /// <para>
+        /// <b>⚠ The third one was deliberately the other way round until #396</b>, on the reading that "a bomb
+        /// the release orphans has already fallen and must not go off in mid-air". It reads as sound and it is
+        /// not: the walk is a flood fill over the map, not a physical event — it finds a bomb the instant its
+        /// support is cut, before the ball has moved at all — so there is no mid-air to speak of, and a bomb
+        /// with nothing holding it up reads as primed rather than as inert cargo. The reversal is
+        /// <c>BallsConstraintsBuilder.ResolveDisconnected</c>'s and lives there in one copy.
+        /// </para>
         /// <para>
         /// <b>It is the first kind that removes a ball the match rule never touched</b>, and that is what makes
         /// it the foundation #327 (Zap) and #328 (Acid) are built on: everything the game had taken away until
