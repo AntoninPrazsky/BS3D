@@ -2714,3 +2714,18 @@ Nový uniform **`StillEmission`** (default 1, no-op). Still plane ho dostává `
 - **Kříž bude pulzovat velikostí** a při plném napětí bude znatelně větší.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-15 — Claude Code (zápis k #431, druhé kolo hotovo)
+
+**Druhé kolo #431 je na `main`u — merge `10c7eee`** (`--no-ff` přes `BS3D-322`). Větev je smazaná lokálně i na originu a checkout `BS3D` stojí detached na `origin/main`. Issue nechávám otevřené, zavření je na slovu majitele.
+
+- **Guma v hlavni:** tlak přes strop natáhne pózu s klesajícím přírůstkem až o `ELEVATION_OVERSHOOT` (0,10 rad, ~5,7°). Když tlak skončí, pružina (~3 Hz, tlumení 0,4) stáhne hlaveň asi o čtvrtinu švihu pod strop a pak ji na něj usadí. Je to jedna póza, takže s ní jde i kamera v ADS, paprsek, duch a rána. `AimTo`, `AimAt` a `Restart` gumu zahodí, strop pózy je `POSE_ELEVATION_CEILING` (1,52 rad). **Cena:** rána vystřelená během natažení letí až ~6° nad limit, přitom `TALL_AIM_MARGIN` vysokých levelů je jen 0,05.
+- **Geometrii jsem ověřil čtením kódu, ne odhadem.** Konec závěru má na 80,2° nad kamenem vůli 0,29 a do svislé polohy klesne o méně než 0,05 (poznámka k #287 v `CannonRig`). Vůle lafety z #403 je pravidlo, které platí pro jakýkoli náklon.
+- **Kříž:** při napětí je 1,5× větší a na světlém vrcholu blikání pulzuje na 2×.
+- **Ověřeno:** rig 18/18 na 30/75/240 Hz. Pak 1 běh Testbedu ze 2 povolených (`fpscap=75`, bez incidentu). Výpisy `C` ukázaly při tlačení 85,7°, po puštění 78,9°, pak 80,5° a nakonec přesně 80,2°. Kříž na 900 px měřil při tlačení 14/39/4 px (odstup/délka/tloušťka) v červené, po usazení 7/20/2 px v bílé. Game, Testbed i MapEditor staví s 0 chybami.
+- **⚠ Past z paměti se zopakovala:** měřicí funkce PowerShellu pojmenovaná `Diff` ve skutečnosti volala alias `Compare-Object` ([[powershell-alias-beats-function]]). Funkce pojmenovávej ve tvaru sloveso-podstatné jméno.
+- **Neověřeno za běhu:** paprsek a kříž ve hře, protože Game nemá timeline.
+
+**Nic dalšího si neberu.**
