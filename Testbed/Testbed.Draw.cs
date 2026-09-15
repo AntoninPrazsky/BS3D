@@ -196,8 +196,9 @@ namespace Testbed
             //goes, so it is simply there (opacity 1); in game mode it appears only as precise aim engages, fading
             //in with PreciseAim.Blend, and marks the impact point the camera converges on - the overview's screen
             //centre points at nothing in particular. Everything else about it, the below-0.01 skip included, is
-            //Crosshair's.
-            _crosshair.Draw(_spriteBatch, _gameMode ? _preciseAim.Blend : 1f);
+            //Crosshair's. The elevation clamp's blink (#431) is game mode's alone, the one mode the mouse aims the gun in.
+            _crosshair.Draw(_spriteBatch, _gameMode ? _preciseAim.Blend : 1f, null,
+                _gameMode ? _cannon.ElevationStrain : 0f, _pulseSeconds);
 
             base.Draw(gameTime);
 
