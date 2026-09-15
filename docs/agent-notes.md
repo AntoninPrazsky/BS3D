@@ -2373,3 +2373,15 @@ Ambience beze změny (majitel: nechat). GPU session povolená s `fpscap=75`, zhr
 **Ověřeno:** všechny čtyři solutions staví; 5 spuštění celkem (4× Testbed, 1× Game menu), všechna v okně s `fpscap=75`, bez incidentu; snímky před/po z herní kamery i ze širokého záběru; dosvit potvrzen na dvou snímcích 0,25 s od sebe; `Settings.json`/`Progress.json` i `.bak` po běhu Game bajtově stejné. **GPU výkon nepřeměřen** (pod `fpscap=75` to nejde), `docs/scenes.md` to říká rovnou. Issue nechávám otevřené.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-15 — Claude Code (osmý zápis dne)
+
+**Nová dávka playtest poznámek (obecné postřehy ze hraní, ne tabulka Zábavnost/Obtížnost jako v [[playtest-log-triage]]) protříděna do třinácti položek → jedenáct nových issues + komentář.** Postup jako u první dávky: `gh issue list`/`search` a čtení deníku napřed, ať se nic nezaloží zdvojeně. Majitel řekl výslovně "založ issues na základě těchto poznámek" — takže na rozdíl od první dávky, kde se netriviální podíl řádků nezakládal (byly to jen pozitivní/neutrální postřehy), tady byla založena issue na každou jednotlivou položku, včetně jedné, co je jen návrhem alternativy k už jednou schválenému a zavřenému řešení (#412) — o tom, co založit a co ne, rozhoduje majitelovo slovo, ne moje čtení "už to bylo jednou odsouhlaseno".
+
+**Nové:** #401 (Space hvězdný třpyt jak diskotékový stroboskop), #402 (chybí motion blur na rychlém pohybu děla/koule), #403 (nohy lafety jsou jen kvádry `AddBox`, chtějí detail jako kola), #404 (brainstorm: vlastní vzhled ostrova pro každou scénu — dnes jeden sdílený `ArenaIsland`), #405 (výběr levelu v menu nerespektuje scénu/styl kuliček — `LevelSelectPage` se vůbec nedotýká `BackdropScreen`u), #406 (chybí možnost přehrát si `ChapterIntro` tour scény ze `ScenePage`), #407 (drop cinematic se u scén s otevřeným trychtýřem (`OpenBelow`) nejdřív moc přiblíží k trychtýři a pak odskočí), #408 (menu kamera občas prolétá skrz mapu při orbitu — `BackdropScreen`/`FrameOrbitFor` zřejmě nemá klíčování na shluk jako drop cinematic na ostrov), #409 (Space's `ChapterIntro` končí nepříjemným pohledem shora dolů do ostrova), #410 (koule občas odskočí bez přichycení i když náhled slibuje zásah — nová instance třídy bugu #70/#265, ne reopen), #412 (popelavá značka odpojených koulí z #342 nečte se dobře, majitel navrhuje stabilní průhlednost s plynulým fade-inem místo desaturace — nová issue, ne reopen #342, protože mechanismus #342 funguje jak byl navržen, jde o iteraci na vzhledu).
+
+**Komentář na #395** (existující, otevřené): majitelův konkrétní požadavek na opravu lávových barev — silnější linky, které nejdou až do `LavaIncandescent` bílé, ale do primární barvy koule — je konkrétní verze kroku 3 issue's vlastního návrhu, proto komentář a ne nová issue.
+
+**Nic dalšího si neberu.**
