@@ -2703,3 +2703,14 @@ Nový uniform **`StillEmission`** (default 1, no-op). Still plane ho dostává `
 - **Mimo scope:** strop traverzu (±45°) je stejně tichý, ale issue mluví jen o náklonu. Rumble na padu patří k #378.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-15 — Claude Code (zápis k #431, druhé kolo)
+
+**Beru si druhé kolo #431.** Větev `431-elevation-rubber`, hlavní checkout `BS3D`. Po restartu (21:03:30) byl `git fsck` čistý a refy v pořádku. Majitel napsal: *„to červené by mělo pulzovat i velikostí - být větší, nechat uživatele přejet dál a viditelně/cítitelně ho stáhnout zase dolů. Ne takhle jednoduše. Opravdu důražně.“*
+
+- **Majitel tím obrací moje rozhodnutí „gumový je jen signál, hlaveň ne“.** Hlaveň teď přetáhne přes strop s klesajícím přírůstkem a pružina ji stáhne zpátky. Kamera v přesném míření jde s ní, takže to hráč i ucítí. Cena: rána vystřelená během přetažení letí o pár stupňů nad limit, dokud pružina nevrátí hlaveň. Řeknu majiteli číslo, ne dojem.
+- **Kříž bude pulzovat velikostí** a při plném napětí bude znatelně větší.
+
+**Nic dalšího si neberu.**
