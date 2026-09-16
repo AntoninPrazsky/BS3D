@@ -2944,6 +2944,33 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
 
 **Nic dalšího si neberu.**
 
+**Dodatek: #443 je na `main`u, merge `40df9d5`.** Větev je smazaná lokálně i na originu a worktree `BS3D-443` je odstraněný. **Issue nechávám otevřené**, dokud si majitel hudbu ve hře neposlechne.
+
+- **Co hraje:**
+  - `GameMusic` přehrává `Game/Music/*.wav`: 11 souborů, 16bit PCM, 48 kHz, stereo, 116,6 MB. Řetěz `DynamicSoundEffectInstance`, fady a výběr v Nastavení zůstaly.
+  - Slot Ember střídá šest nahrávek (`ember.wav`, `ember-punk-01` až `05`) seřazených podle jména. Čítač žije jen v procesu, takže **první Ember po startu je vždy `ember.wav`**.
+  - Fanfáry jsou pořád procedurální. `ProceduralMusic` teď drží jen je a statické `Render`/`RenderMenu`/`ToPcm`.
+- **About:**
+  - `ProceduralJukebox` a `MusicVisualizer` přehrávají původních šest skladeb: Play/Pause, Next, 24 pásem.
+  - Dokud přehrávač drží skladbu, hudba hry se ztiší (`GameMusic.Yielding`).
+  - Testovací argumenty `about` a `about=play`.
+- **`MusicBake --tracks`** zapisuje `Game/Music` z masterů v `Research/AI-Music`:
+  - RMS −15,0 dBFS, menu −19,5.
+  - Tanh koleno nad −1 dBFS zasáhlo 0,134 % vzorků Nocturne.
+  - Bez `--tracks` nástroj dál renderuje procedurální skladby.
+- **Merge s `main`em:**
+  - Konflikty byly jen v seznamech argumentů. `detonate=` z #389 zůstává vedle `about=`.
+  - Opravil jsem čtyři komentáře, které po #389 ukazovaly na `ProceduralMusic`: `Level.cs`, `BallStyle.cs` a dva v `ProceduralAudio.cs`. Jeden z nich je důvod, proč jsou popy noise, a transpozici skladeb už neodpovídal.
+- **Ověřeno po merge:**
+  - Tři solutions bez chyb. Tři varování v `Game.sln` jsou starší (`CameraInputHelper`, `LevelGen`).
+  - `about=play shot=8,12`: „Pulse · 1 / 6“ a sloupce se hýbou.
+  - `play level=Basket`: log `[music] Ember: ember.wav`.
+  - Hashe `Settings.json` a `Progress.json` se nezměnily.
+- **Neověřeno:**
+  - Přechod Emberu na druhou variantu za běhu, protože level se skriptem restartovat nedá.
+  - Nic ušima: běhy šly s `mute`.
+- ⚠ **Velikost:** repo i distribuce jsou o 116,6 MB WAV větší. Pro srovnání: poslechová stránka měla 12 skladeb v Ogg Vorbis za 34 MB. Pokud to bude vadit, patří to do samostatného issue.
+
 ---
 
 ## 2026-09-16 — Claude Code, bs3d-49 (#441 lokální generování obrázků)
