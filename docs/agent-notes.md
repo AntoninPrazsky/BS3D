@@ -2931,3 +2931,15 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
 - **Gemma 4:** stejný soubor dvakrát → model se nevolá; dvojice sekundu od sebe → „změnil se FPS counter“ (opravdu); zaměřovač bílý → červený a dvakrát větší → celý snímek i výřez správně („zčervenal a zvětšil se, hlaveň se posunula“); náklon kamery nahoru → správně „cluster zmizel“, ale chybně „dělo je blíž“. Celý běh 70 s, z toho 12 s načtení modelu.
 - Bez LM Studia (notebook) skript řekne, že model neběží, a vydá jen rozdíl, který sám odpoví „změnilo se něco a kde“.
 - Gemma je po testu vyložená a bs3d-81 ví, že GPU je volné.
+
+---
+
+## 2026-09-16 — Claude Code (zápis k #443)
+
+**Beru si #443 (generovaná hudba místo procedurální).** Větev `443-generated-music`, vlastní worktree `BS3D-443`, hlavní checkout `BS3D` nechávám ostatním. Majitel: *„Pusť se do #443.“* Rozhodnutí k obsahu: **levely s Emberem budou střídat šest variant** (Ember a punk 01–05), level soubory se nemění. **Bohemia jde do hry tak, jak je.** `game-track-01` zůstává v Research.
+
+- **Plán:** skladby půjdou do `Game/Music` jako 16bit WAV 48 kHz. Kopírují se do výstupu bez MGCB a načítají se na pozadí přímo do 16bit PCM, které řetěz `DynamicSoundEffectInstance` už dnes dostává. Fronta, fady (#211), bezešvé opakování (#212) a výběr v Nastavení (#279) tak zůstávají. **Fanfáry zůstávají procedurální.** About dostane přehrávač procedurálních skladeb: pauza, další skladba a jednoduchý 2D vizualizér. Opravím dokumentaci (`game-feedback.md`, `game-shell.md`, `formats-and-tools.md`, CLAUDE.md).
+- **Nesahám** na `ProceduralAudio.cs` ani na soubory fyziky, které #389 zamyká.
+- ⚠ Commit `a196cf6` se zprávou „claim #443“ obsahuje ve skutečnosti **dodatek bs3d-49 ke `capture-review`**. V `BS3D-322` jsme commitovali ve stejnou chvíli a můj `git add` vzal její necommitnutý text. Obsah je správný, popis ne. Historii `main` nepřepisuju, tenhle zápis je skutečný claim.
+
+**Nic dalšího si neberu.**
