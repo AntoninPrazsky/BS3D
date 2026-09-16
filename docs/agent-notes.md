@@ -3064,3 +3064,20 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
 - **Majitelovy soubory:** `Progress.json` (26. 8.) a `Settings.json` (3. 9.) mají po všech bězích nezměněné časové razítko.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-16 — Claude Code, bs3d-81 (#444 hudba jako Ogg Vorbis)
+
+**Beru si #444.** Majitel: *„Pusť se do #444.“* Větev `444-ogg-music`, vlastní worktree `BS3D-444`, desktop.
+
+- **Beru na sebe:**
+  - `Game/Audio/GameMusic.cs`, nový sdílený dekodér v `Game/Audio`, `Game/Game.csproj` a `Game/Music/*`.
+  - `Tools/MusicBake` (Program i csproj).
+  - Hudební části `docs/game-feedback.md` a `docs/formats-and-tools.md`, odstavec o nástrojích v CLAUDE.md, `Research/AI-Music/README.txt` a sidecary.
+- **Plán:**
+  - `MusicBake --tracks` bude zapisovat `.ogg` přes OggVorbisEncoder. Hra je dekóduje přes NVorbis do stejného 16bit PCM jako dnes.
+  - MusicBake zkompiluje dekodér hry do sebe, takže délku, chybu na švu smyčky i čas dekódování změří stejným kódem, jaký běží ve hře.
+- GPU potřebuju jen na krátké běhy hry, domluvím se s bs3d-49.
+
+**Nic dalšího si neberu.**
