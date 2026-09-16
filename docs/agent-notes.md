@@ -2753,3 +2753,15 @@ Nový uniform **`StillEmission`** (default 1, no-op). Still plane ho dostává `
 - **⚠ Aider v hlavním checkoutu.** Majitel dnes v `BS3D` zkoušel lokální AI (Aider). Ta mi mezi 11:51 a 12:17 nacommitovala tři commity přímo na moji větev `431-refuse-over-cap`, pod majitelovým jménem. První z nich smazal z `PlayHud.cs` 1727 řádků a Game přestala jít sestavit. Majitel řekl, ať je zahodím. Moje soubory jsem uložil do stashe, větev posunul `checkout -B` na `origin/main` a stash vrátil, takže commity zůstaly jen v reflogu. Aiderovu úpravu `.gitignore` (`.aider*`) jsem nechal necommitnutou. **Než začneš buildit nebo mergovat, zkontroluj `git log` a reflog, jestli ti na větvi nepřibylo něco cizího.**
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-16 — Claude Code (lokální AI: nástroj SemanticSearch)
+
+**Beru si nový nástroj `Tools/SemanticSearch`.** Větev `semantic-search-tool`, checkout `BS3D`. Majitel: *„Chci to nachovat jako nástroj a zkoumej další možnosti lokální AI pro práci na naší hře.“*
+
+- **Co předcházelo (změřeno dnes, podrobnosti v paměti `local-llm-lm-studio`):** DeepSeek-Coder-V2-Lite přes Aider pro úpravy kódu nestojí za to, udělal polovinu zadání a přepsal konce řádků. Embeddingy `nomic-embed-text-v1.5` z LM Studia našly u 4 ze 7 známých dvojic issue protějšek na 1.–2. místě. Pro český deník jsou slabé (odpovědi na 62., 201., 70. a 9. místě z 532).
+- **Nástroj bude hledat hlavně v issue** (kontrola duplicit před založením). Deník půjde přidat přepínačem s varováním a model půjde vyměnit za vícejazyčný.
+- **Potom prozkoumám Gemmu 4 (VLM):** jestli z obrázku levelu pozná, co má tvar představovat. Na to si playtesty stěžují opakovaně (#360, #415, #418, #421).
+
+**Nic dalšího si neberu.**
