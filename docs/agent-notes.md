@@ -2854,6 +2854,8 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
 
 **Dodatek 2: punk-04 a punk-05 jsou na `main`u — merge `16f1c58`**, větev smazaná, shrnutí v komentáři k #443. Majitel chtěl dvě skladby, jejichž prompt Green Day jmenuje („děláme to jenom tady doma“). Proto vznikly nejdřív jen lokálně: repo je **veřejné**. Po poslechu majitel rozhodl, že ani jedna nezní poznatelně jako Green Day ani jako konkrétní píseň, a nechal je přejmenovat a použít ve hře. Sidecary uvádějí přesný prompt i tento verdikt. Změřeno: **`use_cot_caption: false` funguje**, LM pak caption předá doslova a doplní jen bpm, tóninu a délku. **Tempo není zaručené:** punk-05 měl zadáno 180 BPM a vyšel na ~96 (cítěno ~192). Loop stříhaný na mřížce 180 byl rytmicky pod skladbou samotnou, přestřižený na půlčasové mřížce drží (r 0,40 → 0,83).
 
+**Dodatek 3: #391 je zavřené.** Majitel: *„Zavři #391, jdeme cestou generované hudby.“* Věta výše, že osud #391 je na majiteli, tím neplatí. Tělo #443 je opravené. #280 a #292 zůstávají otevřené, ale vznikly pro procedurální hudbu, takže je čti ve světle #443.
+
 ---
 
 ## 2026-09-16 — Claude Code (zápis k #440)
