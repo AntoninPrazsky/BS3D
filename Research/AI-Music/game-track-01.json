@@ -1,0 +1,20 @@
+{
+  "file": "game-track-01.wav",
+  "created": "2026-09-16",
+  "purpose": "Reference/exploration only -- BS3D's real music is procedural (Game/Audio/ProceduralMusic.cs), not asset-based. Not wired into any content pipeline; a first exploration of an energetic in-level track distinct from the existing five MusicTheme pieces (Pulse/Bohemia/Nocturne/Mural/Ember).",
+  "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- C:\\Users\\panrd\\AI\\generate-music.ps1",
+  "request": {
+    "caption": "Energetic, colorful arcade puzzle video game soundtrack, bright synth leads, punchy round bass, upbeat four-on-the-floor groove, playful marimba and bell accents, confident rising energy, satisfying and triumphant, no vocals",
+    "instrumental": true,
+    "duration": 90,
+    "bpm": 124,
+    "keyscale": "C major",
+    "inference_steps": 8,
+    "output_format": "wav32"
+  },
+  "lm_enriched_caption": "An energetic and upbeat chiptune track driven by a punchy, synthesized drum machine and a bouncy, arpeggiated synth bassline. The soundscape is built from layers of classic 8-bit and 16-bit style synthesizers, including square and pulse wave leads that carry the main melodies. The arrangement follows a classic video game music structure, with distinct sections that introduce new melodic motifs and harmonic progressions, creating a feeling of progression and adventure. The track builds in complexity, adding new layers and shifting through different thematic ideas before a brief breakdown and a final energetic push to an abrupt end.",
+  "post_process": "none -- not loop-crossfaded",
+  "format": "48000 Hz, 32-bit float PCM, stereo -- 48kHz is the model's fixed native rate, not adjustable",
+  "license": "ACE-Step 1.5 weights: Apache 2.0 (commercial use OK)",
+  "known_caveats": "At 90s the VAE decode needed 3 tiles and hit the same Vulkan pinned-memory fallback as the 64s menu loop -- ~41s of the ~57s synth step. C major / 124 BPM chosen deliberately distinct from all five existing MusicTheme entries."
+}

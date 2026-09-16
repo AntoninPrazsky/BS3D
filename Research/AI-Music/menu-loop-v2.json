@@ -1,0 +1,21 @@
+{
+  "file": "bs3d-menu-loop-v2.wav",
+  "created": "2026-09-16",
+  "purpose": "Reference/exploration only -- BS3D's real music is procedural (Game/Audio/ProceduralMusic.cs), not asset-based. This is a candidate/reference clip, not wired into any content pipeline.",
+  "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- C:\\Users\\panrd\\AI\\generate-music.ps1",
+  "brief_source": "Game/Audio/ProceduralMusic.cs :: BakeMenu (A minor, 100 BPM, 'a lobby, not a dancefloor')",
+  "request": {
+    "caption": "Calm, unhurried lounge-electronic lobby loop, warm analog pads, mellow electric piano (Rhodes-style) with a sparkling high overtone, light and airy, treble-forward, thin understated low end, restrained four-on-the-floor kick with off-beat hi-hats, no prominent bassline, no heavy sub-bass, no claps, no big buildup, confident and inviting mid-tempo groove, not a dancefloor track",
+    "lm_negative_prompt": "heavy bass, booming sub-bass, prominent bassline, thumping low end, loud bass",
+    "instrumental": true,
+    "duration": 64,
+    "bpm": 100,
+    "keyscale": "A minor",
+    "inference_steps": 8,
+    "output_format": "wav32"
+  },
+  "post_process": "loop_crossfade.py, 4s equal-power crossfade, tail folded into head -> 59.2s final loop, no audible seam",
+  "format": "48000 Hz, 32-bit float PCM, stereo -- 48kHz is the model's fixed native rate, not adjustable",
+  "license": "ACE-Step 1.5 weights: Apache 2.0 (commercial use OK)",
+  "known_caveats": "At 64s the VAE decode hit a Vulkan pinned-memory limit and fell back to tiled decode (2 tiles, ~49s of the ~60s synth step) -- worth checking again if this exact pipeline is revisited, in case a newer acestep.cpp build changes that behavior."
+}
