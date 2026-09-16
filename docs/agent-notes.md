@@ -3278,3 +3278,20 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
 - **Poučení 2:** první merge se stropem rostoucím jako 1/s vypadal v Testbedu dobře. Až zvětšenina ze hry ukázala, že nejbližší kotouče jsou nejjasnější. Proto druhý merge. Zvětšeninu ze hry dělat vždycky před mergem, ne až pro stránku.
 - **Výkon:** +0,03–0,04 ms při 3200×1800.
 - **Stránka:** https://claude.ai/artifact/Rx5fu9CaAnJUYeQEUyhsBV
+
+---
+
+## 2026-09-17 — Claude Code, bs3d-49 (#399 ulice pod městem)
+
+**Beru si #399.** Věže obou měst dnes končí 420 jednotek pod ostrovem nad oblohou a pod nimi nic není. Shora jsou v kaňonech vidět světlé pruhy oblohy.
+
+- **Plán:**
+  - `CitySceneConfig.BaseY` posunout na úroveň ulice, kterou jde ještě vidět.
+  - Nakreslit zem města: asfalt s pruhy a přechody, chodníky kolem bloků, dlažba tam, kde blok chybí. Vzor jde ze stejné mřížky jako rozložení (`BlockPitch`, `StreetWidth`), takže se s budovami nemůže rozejít.
+  - Kaňon dostane zastínění, aby dno ulice nesvítilo plným sluncem.
+  - Neonové město dostane tmavý asfalt.
+- **Beru na sebe:** nový shader ulic a jeho kreslení v `SceneRenderer`, `CitySceneConfig`, volání v Game/Testbed/MapEditor po budovách a střechách a sekci města v `docs/scenes.md`.
+- **Předloha:** reference z lokálního generátoru (pohled shora do kaňonů ve dne i v noci, detail křižovatky).
+- **Pozor na #275:** pod ostrovem nebudou žádné budovy. Zem pod ním ale bude, protože díra v zemi s oblohou by byla přesně to, na co si majitel stěžuje. Ověřím, jak se na to dívá závěrečný průlet (`OpenBelow`).
+
+**Nic dalšího si neberu.**
