@@ -2,9 +2,12 @@ Locally generated music (ACE-Step 1.5 through acestep.cpp, on the desktop's AMD
 RX 6900 XT via Vulkan). Each .wav has a .json sidecar with the exact prompt, what
 the model's LM rewrote it into, the loop cut and what was measured.
 
-Reference renders for the proposal to replace the procedural music (see the
-GitHub issue that links here). BS3D's shipped music is still entirely procedural
-(Game/Audio/ProceduralMusic.cs) and nothing here is wired into a content pipeline.
+The MASTERS of the game's music since #443. Tools/MusicBake --tracks writes
+Game/Music/*.wav from every file below except game-track-01 (still a reference),
+brought to the loudness of the procedural piece in its slot, peaks held under
+full scale, as the 16-bit PCM the game plays. Edit a master here and rerun the
+tool; never edit Game/Music by hand. The procedural score these replaced is on
+the game's About page.
 
 All loops, 48 kHz, 32-bit float, stereo.
 

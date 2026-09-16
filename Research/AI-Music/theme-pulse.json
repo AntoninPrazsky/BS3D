@@ -2,7 +2,7 @@
   "file": "theme-pulse.wav",
   "created": "2026-09-16",
   "counterpart_of": "MusicTheme.Pulse -- Game/Audio/ProceduralMusic.cs (eurodance, A minor at 128, ten sections, 2:30)",
-  "purpose": "Reference render for the proposal to replace the procedural music with generated audio. Not wired into any content pipeline.",
+  "purpose": "Master of Game/Music/pulse.wav, which the game plays since #443: written from this file by Tools/MusicBake --tracks (brought to the loudness of the procedural piece in its slot, peaks held under full scale, 16-bit PCM).",
   "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- generate-music.ps1 + loop_crossfade.py",
   "request": {
     "caption": "High-energy eurodance instrumental, driving four-on-the-floor kick, strong sub-bass, pulsing sixteenth-note arpeggios, bright trance-style synth stabs, euphoric rising energy building to a big harmonic drop, dancefloor track, no vocals",

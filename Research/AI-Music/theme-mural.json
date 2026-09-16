@@ -2,7 +2,7 @@
   "file": "theme-mural.wav",
   "created": "2026-09-16",
   "counterpart_of": "MusicTheme.Mural -- Game/Audio/ProceduralMusic.cs (bass-led groove, melodic log-drum sub, 3+3+2 tresillo, marimba and keys carrying the tune, the kick never marks all four beats; nine sections, 2:26, G major at 120)",
-  "purpose": "Reference render for the proposal to replace the procedural music with generated audio. Not wired into any content pipeline.",
+  "purpose": "Master of Game/Music/mural.wav, which the game plays since #443: written from this file by Tools/MusicBake --tracks (brought to the loudness of the procedural piece in its slot, peaks held under full scale, 16-bit PCM).",
   "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- generate-music.ps1 + loop_crossfade.py",
   "request": {
     "caption": "Bass-led syncopated groove instrumental on a tresillo 3+3+2 rhythm, a deep melodic log-drum sub-bass for a floor, bright marimba and keys carrying a catchy tune above it, the kick never lands on all four beats, warm buoyant afro-house flavored feel, no vocals",

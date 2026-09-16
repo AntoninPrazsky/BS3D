@@ -82,6 +82,10 @@ namespace BS3D
             //why this is a string and not an int? — the two are different requests.
             string pick = null;
 
+            //Testing only: open the About page at boot, and with "about=play" start its player (#443). Null means
+            //the argument was absent; empty means the page alone.
+            string about = null;
+
             //Testing only: draw every ball in one style whatever the level files say (#258). Null means the
             //argument was absent, and then each map is drawn in what it is authored in, as a player sees it.
             //It exists because the two styles can otherwise only be compared across two DIFFERENT levels —
@@ -214,6 +218,10 @@ namespace BS3D
                 //chapters are several presses in and "a shot of the picker" means nothing without saying which.
                 else if (string.Equals(arg, "pick", StringComparison.OrdinalIgnoreCase)) pick = string.Empty;
                 else if (arg.StartsWith("pick=", StringComparison.OrdinalIgnoreCase)) pick = arg.Substring("pick=".Length);
+                //"about" puts the About page up at boot and "about=play" starts its player of the original score
+                //(#443) — pick's reasoning, plus the press a visualizer needs before there is anything to see.
+                else if (string.Equals(arg, "about", StringComparison.OrdinalIgnoreCase)) about = string.Empty;
+                else if (arg.StartsWith("about=", StringComparison.OrdinalIgnoreCase)) about = arg.Substring("about=".Length);
                 //"preview=<n|name>" pins which map the FRONT END hangs, the way "level=" pins which one is
                 //played. The menu's camera is framed for that map since #254, so without this two shots of
                 //the front end are two shots of different maps at different stand-offs.
@@ -233,7 +241,7 @@ namespace BS3D
                 uncappedFps: uncappedFps, scene: scene, skyDome: skyDome, logFrameRate: logFrameRate, quality: quality,
                 celebrate: celebrate, confetti: confetti, lasers: lasers, mute: mute, play: play, result: result, blockDone: blockDone, lost: lost, resultStars: resultStars, nextLocked: nextLocked, streak: streak, wildcardEvery: wildcardEvery,
                 shotSeconds: shotSeconds, level: level, levelFile: levelFile, preview: preview, ballStyle: ballStyle, pick: pick, fpsCap: fpsCap,
-                noFocusPause: noFocusPause);
+                noFocusPause: noFocusPause, about: about);
             game.Run();
         }
 

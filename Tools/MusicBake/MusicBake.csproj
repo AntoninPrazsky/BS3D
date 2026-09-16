@@ -7,13 +7,17 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!--The one source file the game's music lives in, compiled INTO this tool rather than referenced through
-        the Game project. The bakes are pure arithmetic over float arrays - they touch no graphics device, no
-        audio device and no content - so pulling them in as source keeps this a plain net10.0 console app that
-        builds in a second and renders the same samples the game plays, from the same lines. A ProjectReference
-        to Game.csproj would drag WinForms, the MGCB content build and a Windows target framework behind a tool
-        that writes .wav files.-->
+    <!--The one source file the procedural compositions live in, compiled INTO this tool rather than referenced
+        through the Game project. The bakes are pure arithmetic over float arrays - they touch no graphics device,
+        no audio device and no content - so pulling them in as source keeps this a plain net10.0 console app that
+        builds in a second and renders the same samples the About page plays, from the same lines. A
+        ProjectReference to Game.csproj would drag WinForms, the MGCB content build and a Windows target framework
+        behind a tool that writes .wav files.-->
     <Compile Include="..\..\Game\Audio\ProceduralMusic.cs" />
+    <!--The fade the fanfare in that file walks, and the FFT this tool's band table shares with the About page's
+        visualizer: plain arithmetic too, each in a file of its own only because the game shares it.-->
+    <Compile Include="..\..\Game\Audio\MusicFade.cs" />
+    <Compile Include="..\..\Game\Audio\Spectrum.cs" />
   </ItemGroup>
 
   <ItemGroup>

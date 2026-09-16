@@ -66,6 +66,12 @@
   <ItemGroup>
     <Content Include="Levels\**\*.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+  <!--The music (#443), for the same reason: 16-bit PCM .wav files GameMusic reads straight into the buffers it
+  submits, so there is nothing for the pipeline to compile. Written by Tools/MusicBake's tracks mode from the masters
+  in Research/AI-Music; a track or an Ember variant can be replaced by dropping a file here.-->
+  <ItemGroup>
+    <Content Include="Music\*.wav" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\BS3DLibs\Prazsky.BS3D.Physics\Prazsky.BS3D.Physics.csproj" />
     <ProjectReference Include="..\BS3DLibs\Prazsky.BS3D\Prazsky.BS3D.csproj" />

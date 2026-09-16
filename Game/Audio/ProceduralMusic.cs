@@ -6,15 +6,16 @@ using System.Threading.Tasks;
 namespace BS3D.Audio
 {
     /// <summary>
-    /// Which composition a level plays (#120). Not a style setting and not a mood: each is a separate piece of
-    /// music with its own mode, its own tunes and its own form, sharing only this file's instruments and its
-    /// one rule — <b>every piece is fully authored</b> (#229): one tempo, one key, one progression, one
-    /// placement for every ornament in it, so a piece sounds the way it sounds and always the same way.
+    /// Which piece of music a level plays (#120) — a <b>slot</b>, named by the level file (#194). Since #443 what
+    /// a slot plays is a generated recording, <c>Music/&lt;name&gt;.wav</c> and its variants (see
+    /// <see cref="GameMusic"/>); the member docs below describe the procedural composition of the same name,
+    /// which the slot was written for and which the About page still plays.
     /// <para>
-    /// A small curated pool rather than anything generative, deliberately. Every piece is hand-arranged by ear
-    /// against measurements, and that craft is exactly what composing from scratch at runtime would lose. It
-    /// is also where the variety comes from: another piece in the same style, not another rendering of one —
-    /// a level file names its theme (#194), so a chapter can be given a piece of its own.
+    /// Each composition was a separate piece of music with its own mode, its own tunes and its own form, sharing
+    /// only this file's instruments and its one rule — <b>every piece is fully authored</b> (#229): one tempo,
+    /// one key, one progression, one placement for every ornament in it, so a piece sounds the way it sounds and
+    /// always the same way. The recordings were each prompted from the description of the composition in their
+    /// slot, so a chapter kept the character it was given.
     /// </para>
     /// </summary>
     public enum MusicTheme
@@ -64,11 +65,16 @@ namespace BS3D.Audio
     }
 
     /// <summary>
-    /// The level themes: five pieces of music synthesized from raw PCM, each rendered once at the splash and
-    /// played over for as long as a level lasts. No tracker file, no asset, no pipeline step — the scores are
-    /// a handful of arrays and the instruments are oscillators, the same line the sound effects, the meshes
-    /// and the surface textures all take. The same instruments also play the result fanfares and the front
-    /// end's looped piece (see <see cref="BakeMenu"/>).
+    /// The game's procedural music: five compositions and the front end's loop synthesized from raw PCM, and the
+    /// result fanfares. No tracker file, no asset, no pipeline step — the scores are a handful of arrays and the
+    /// instruments are oscillators, the same line the sound effects, the meshes and the surface textures take.
+    /// <para>
+    /// <b>Since #443 the compositions are no longer what a level plays.</b> The owner replaced them with
+    /// generated recordings (<see cref="GameMusic"/>) and kept them as the About page's easter egg, where
+    /// <see cref="ProceduralJukebox"/> renders one on demand through <see cref="Render"/>; <c>Tools/MusicBake</c>
+    /// still renders and measures them through the same door. The fanfares stayed procedural: this class's
+    /// instance bakes and plays them, owned by <see cref="GameMusic"/>, which forwards to it.
+    /// </para>
     /// <para>
     /// Each is <b>arranged</b> rather than looped: eight-bar sections, each one adding or taking away parts —
     /// a prelude with no drums in it at all, an intro that builds, verses, a chorus that is unmistakably the
@@ -87,10 +93,8 @@ namespace BS3D.Audio
     /// </summary>
     public sealed class ProceduralMusic : IDisposable
     {
-        private const int SAMPLE_RATE = 44100;
-
-        /// <summary>How many compositions there are, read off the enum so adding one needs nothing here.</summary>
-        private static readonly int THEME_COUNT = Enum.GetValues(typeof(MusicTheme)).Length;
+        /// <summary>The rate every piece here is synthesized at — the About page's player plays them at it.</summary>
+        internal const int SAMPLE_RATE = 44100;
 
         //Around 128 rather than the 146 this started at, and 128 exactly since #229 (see PULSE_SCORE). 146
         //was fast enough to read as frantic; a slower tempo leaves room for the extra percussion and for the
@@ -104,18 +108,6 @@ namespace BS3D.Audio
         //second one to the first one's length.
         private const int BARS_PER_SECTION = 8;
         private const int STEPS_PER_SECTION = BARS_PER_SECTION * STEPS_PER_BAR;
-
-        /// <summary>
-        /// The authored level of the music, well under the effects — a soundtrack is not an event. A constant
-        /// so the balance keeps its tuning; the player's settings rows scale it through <see cref="Gain"/>.
-        /// </summary>
-        public const float MUSIC_VOLUME = 0.34f;
-
-        /// <summary>
-        /// The front end's piece, under even the theme: a lobby, not a dancefloor. Scaled by <see cref="Gain"/>
-        /// like everything else here.
-        /// </summary>
-        public const float MENU_VOLUME = 0.2f;
 
         //The chords available to a progression, all diatonic to A minor so any ordering of them is in key.
         //Each carries its bass root and the four notes the arpeggio and the melody are built from.
@@ -295,10 +287,11 @@ namespace BS3D.Audio
         };
 
         /// <summary>
-        /// Where a LEVEL comes in on a piece, as a byte offset into its PCM (#201) — the piece's own
-        /// <see cref="Score.EntrySection"/> in samples, on the downbeat because a section boundary is a whole
-        /// number of steps and a step is a whole number of samples. Only the chain's head starts here; every
-        /// repeat after it is the whole piece from the top, so nothing is cut out of the composition.
+        /// Where a level came in on a piece while the pieces were the level themes (#201), as a byte offset into
+        /// its PCM — the piece's own <see cref="Score.EntrySection"/> in samples, on the downbeat because a section
+        /// boundary is a whole number of steps and a step is a whole number of samples. Since #443 nothing in the
+        /// game enters a piece part-way (the About page plays each from its top); <c>Tools/MusicBake</c> still
+        /// prints it, because it is where each piece's first full-band section begins.
         /// </summary>
         internal static int EntryOffset(MusicTheme theme)
         {
@@ -397,134 +390,17 @@ namespace BS3D.Audio
         //the fireworks' reports to be heard alongside.
         private const float FANFARE_VOLUME = 0.55f;
 
-        //How long a piece the player is walking away from takes to leave (#211). Switching used to cut dead,
-        //which is right where the silence itself is the message — a level's endings, see Stop — and wrong
-        //everywhere one piece merely REPLACES another. Three windows rather than one because the three exits
-        //differ: the theme is a whole limited dance mix and can be left mid-chorus, the widest thing here to
-        //put down gently; leaving the lobby loop should feel prompt, it is a level starting; and a fanfare
-        //fading under a level already being built is furniture being cleared, not a piece ending. The
-        //INCOMING side never needs a ramp — every arrival is authored soft (the theme's prelude, the loop's
-        //held pads, and a fanfare is an announcement and correct arriving hard) — so fading the outgoing
-        //piece alone already is the crossfade the switch wants.
-        private const float THEME_FADE_SECONDS = 0.9f;
-        private const float MENU_FADE_SECONDS = 0.5f;
+        //How long a fanfare takes to be cleared away when a level is built under it (#211): a player clicking
+        //straight through the result screen used to have a still-ringing fanfare taken off mid-chord. The arrival
+        //never ramps — an announcement is correct arriving hard.
         private const float FANFARE_FADE_SECONDS = 0.4f;
 
-        /// <summary>
-        /// One instance's departure (#211): a level walking towards a target at a stated full-scale time,
-        /// applied to the voice <b>squared</b> — the arrangements' own outro curve, whose tail reads smoother
-        /// than a straight line. It is a multiplier over the authored volume and the player's
-        /// <see cref="Gain"/>, so the fade and the settings cannot fight over one <c>Volume</c> property.
-        /// </summary>
-        private sealed class Fade
-        {
-            private float _seconds = 1f;
-
-            public float Level { get; private set; } = 1f;
-            public float Target { get; private set; } = 1f;
-
-            /// <summary>What the instance's authored volume is multiplied by.</summary>
-            public float Applied => Level * Level;
-
-            /// <summary>True once a fade-out has arrived — the frame to actually stop the instance on.</summary>
-            public bool Silent => Target == 0f && Level == 0f;
-
-            public void To(float target, float seconds)
-            {
-                Target = target;
-                _seconds = seconds;
-            }
-
-            /// <summary>Rest at full, instantly — what putting a fresh pass on does.</summary>
-            public void Reset()
-            {
-                Level = 1f;
-                Target = 1f;
-            }
-
-            /// <summary>Walks the level one frame towards the target. True when it moved.</summary>
-            public bool Advance(float elapsed)
-            {
-                if (Level == Target) return false;
-
-                float step = elapsed / _seconds;
-
-                Level = Level > Target
-                    ? MathF.Max(Target, Level - step)
-                    : MathF.Min(Target, Level + step);
-
-                return true;
-            }
-        }
-
-        private MusicTheme _theme;        //which composition is playing; see SetTheme
-
-        /// <summary>
-        /// Every composition, rendered once and kept as the 16-bit PCM the voice is fed — one entry a piece,
-        /// filled at construction and never replaced (#229). A completed task <i>is</i> the piece; the task is
-        /// what it arrives in, since the five of them are rendered on background threads at the splash.
-        /// <para>
-        /// This used to be one pass in hand per composition, with the next rendered while the current one
-        /// played: the pieces were rolled per pass, so a pass was consumed by being heard and the next level
-        /// needed a fresh one. A Bohemia piece costs <b>4.7 s</b> to render on the development desktop against
-        /// Pulse's 1.0 s (its string section is seven detuned oscillators with their own vibrato per note,
-        /// where Pulse's heaviest voice is two), which is why they were kept a piece ahead. With the scores
-        /// authored there is nothing to keep ahead OF: the same buffer plays every time, so the machinery is
-        /// gone and the whole session's synthesis is the five renders this array holds.
-        /// </para>
-        /// </summary>
-        private readonly Task<byte[]>[] _pieces = new Task<byte[]>[THEME_COUNT];
-
-        /// <summary>
-        /// The chain the pieces play through since #212: one <see cref="DynamicSoundEffectInstance"/> whose
-        /// queue is fed the next buffer while the current one is still sounding, so XAudio2 starts buffer N+1
-        /// the sample buffer N ends — the handover the per-frame <c>State</c> poll could never give (a frame
-        /// or two of dead air between passes was #212's whole complaint, and no polling loop can be tighter
-        /// than its own frame). The queue holds at most one buffer ahead of the sounding one
-        /// (<see cref="DynamicSoundEffectInstance.PendingBufferCount"/> stays under 2 — it counts the
-        /// sounding buffer too, so its two are one playing and one waiting), which is all the feed ever needs
-        /// for a buffer that lasts minutes.
-        /// <para>
-        /// It stays a fed chain now that a repeat is literally the same buffer (#229), rather than becoming
-        /// an <c>IsLooped</c> <see cref="SoundEffectInstance"/>: the seam is already sample-exact, and the
-        /// retire-and-fade path every switch between pieces runs through (see <see cref="_retiring"/>) is
-        /// written for this type. Trading it for a looped instance would rewrite that path for no audible
-        /// difference.
-        /// </para>
-        /// </summary>
-        private DynamicSoundEffectInstance _voice;
-        private bool _wanted;             //the game wants music; the chain may be mid-piece
         private bool _failed;
 
-        private readonly Fade _menuFade = new();
-        private readonly Fade _fanfareFade = new();
+        private readonly MusicFade _fanfareFade = new();
 
-        /// <summary>
-        /// A chain on its way out (#211). <see cref="SetTheme"/> and <see cref="FadeOut"/> used to dispose the
-        /// sounding voice on the spot, which is the hard cut a switch used to be; it moves here instead and
-        /// keeps playing while it fades, disposed only once it has arrived at silence. <see cref="_voice"/> is
-        /// nulled with the handover, so <see cref="Advance"/> builds the new piece's chain underneath it and
-        /// the two sound together for the fade's width — which is the crossfade.
-        /// <para>
-        /// One slot is enough: reaching a switch twice inside one fade is not a flow the menus have, and a
-        /// still-fading previous occupant is let go where it stands rather than queued behind. It also carries
-        /// no feed — <see cref="Update"/> submits buffers to <see cref="_voice"/> alone, so a retiring chain
-        /// plays out what it already holds and no further.
-        /// </para>
-        /// <para>
-        /// <b>This is the only theme fade there is, and that is what the chain bought.</b> The design this was
-        /// ported from faded the sounding instance in place and needed a second fade for it, plus a special
-        /// case so a <see cref="Play"/> arriving mid-fade did not resurrect the piece being left. Retiring the
-        /// chain into a slot instead makes the sounding voice's volume a constant — a piece plays at full or
-        /// it is not the piece any more — so neither is needed.
-        /// </para>
-        /// </summary>
-        private DynamicSoundEffectInstance _retiring;
-
-        private readonly Fade _retiringFade = new();
-
-        //The fanfare is its own instance so it is independent of the loop: Stop() silences the level's theme
-        //without cutting off the piece that is announcing the result.
+        //The fanfare is its own instance so it is independent of the theme: GameMusic.Stop() silences the level's
+        //theme without cutting off the piece that is announcing the result.
         /// <summary>
         /// What a fanfare is built from, so something else can play <b>in tune with it</b> (#158). The result
         /// screen's star chime needs this and nothing else does: it sounds while the fanfare is still going,
@@ -583,47 +459,18 @@ namespace BS3D.Audio
         private SoundEffect _fanfareTrack;
         private SoundEffectInstance _fanfare;
 
-        //The front end's piece (#46). Unlike the themes it is LOOPED by the framework rather than fed through
-        //a chain: the menu is visited for moments rather than minutes, and its seam is made inaudible at bake
-        //time instead (see BakeMenu). Rendered once, like every other piece here.
-        private Task<float[]> _menuBake;
-        private SoundEffect _menuTrack;
-        private SoundEffectInstance _menu;
-        private bool _menuWanted;
-
-        /// <summary>True while a piece is actually sounding.</summary>
-        public bool IsPlaying => _voice != null && _voice.State == SoundState.Playing;
-
         /// <summary>
         /// True while a fanfare is sounding. The caller ducks the fireworks under it — see
         /// <c>ProceduralAudio.FireworkDuck</c>.
         /// </summary>
         public bool IsFanfarePlaying => _fanfare != null && _fanfare.State == SoundState.Playing;
 
-        /// <summary>
-        /// Which composition the moment is sounding, and <b>null while it is not one of them</b>: the front
-        /// end's own loop is playing (<see cref="PlayMenu"/>), or the music has failed and nothing is. It
-        /// reads what is WANTED rather than an instance's state, so a switch caught mid-fade already names
-        /// the piece arriving instead of the one walking out.
-        /// <para>
-        /// It is here for the track picker in Settings (#279), which shows this instead of remembering what
-        /// it last asked for. A level installing its own theme and the front end taking its loop back are
-        /// both the game overruling that pick, and neither can leave the row stale if the row was never told
-        /// anything to begin with.
-        /// </para>
-        /// </summary>
-        public MusicTheme? SoundingTheme => _failed || _menuWanted ? null : _theme;
-
-        /// <summary>How many compositions there are, so a caller can step through them (#279).</summary>
-        public static int ThemeCount => THEME_COUNT;
-
         private float _gain = 1f;
 
         /// <summary>
-        /// The player's volume settings (master × music), 1 for the authored level. Written by the host when a
-        /// settings row changes, and pushed onto whatever is already sounding — unlike an effect, a two-minute
-        /// pass and a nine-second fanfare are long enough that "on the next play" would mean minutes late. The
-        /// fields never point at a disposed instance (see <see cref="Advance"/>), so the writes are safe.
+        /// The player's volume settings (master × music), 1 for the authored level — pushed onto a fanfare already
+        /// sounding, since nine seconds is long enough that "on the next play" would be late. Set by
+        /// <see cref="GameMusic"/>, which forwards the host's one gain to everything it plays.
         /// </summary>
         public float Gain
         {
@@ -631,51 +478,15 @@ namespace BS3D.Audio
             set
             {
                 _gain = value;
-                if (_voice != null) _voice.Volume = MUSIC_VOLUME * _gain;
                 if (_fanfare != null) _fanfare.Volume = FANFARE_VOLUME * _gain * _fanfareFade.Applied;
-                if (_menu != null) _menu.Volume = MENU_VOLUME * _gain * _menuFade.Applied;
-                if (_retiring != null) _retiring.Volume = MUSIC_VOLUME * _gain * _retiringFade.Applied;
             }
         }
 
         /// <summary>
-        /// Renders <b>every</b> composition at once, on background threads, and keeps each one. Minutes of PCM
-        /// is seconds of arithmetic, and doing it on the loading thread would be seconds of a black window;
-        /// nothing asks for a piece until a level is built, which is several menus later, so all five are
-        /// ready long before the first of them is wanted.
-        /// <para>
-        /// Since #229 this is the <b>only</b> synthesis a session does. Each piece is one authored rendering
-        /// that is then played over and over, so a level boundary costs nothing at all where it used to start
-        /// a fresh two-minute bake — and the five buffers held here are the whole of the music's memory, half
-        /// what the same five cost as floats.
-        /// </para>
-        /// </summary>
-        public ProceduralMusic()
-        {
-            for (int theme = 0; theme < THEME_COUNT; theme++) _pieces[theme] = StartRender((MusicTheme)theme);
-
-            //The menu piece renders alongside them — it is the one wanted first, at the splash, and it is a
-            //fraction of a theme's arithmetic, so it is ready well inside the menu's first seconds.
-            _menuBake = Task.Run(BakeMenu);
-        }
-
-        /// <summary>
-        /// Renders one named composition on a background thread, as the 16-bit PCM the voice is fed. The
-        /// theme is a parameter rather than read off <see cref="_theme"/> inside the task, so a render cannot
-        /// be retargeted by a change of theme that happens while it runs.
-        /// <para>
-        /// The float-to-PCM conversion goes in here with it deliberately: the game submits this buffer once
-        /// every couple of minutes for the rest of the session, and converting thirteen million samples on
-        /// the frame that submits them was a hitch paid for again and again for a result that never changed.
-        /// </para>
-        /// </summary>
-        private static Task<byte[]> StartRender(MusicTheme theme) => Task.Run(() => ToPcm(Render(theme)));
-
-        /// <summary>
-        /// Renders one composition to raw interleaved float PCM. The one door into the scores: the game asks
-        /// through <see cref="StartRender"/> and <c>Tools/MusicBake</c> asks straight, so what the tool
-        /// measures and writes to a .wav is the same arithmetic the game plays, not a second copy of this
-        /// switch.
+        /// Renders one composition to raw interleaved float PCM. The one door into the scores: the About page's
+        /// player asks through <see cref="ProceduralJukebox"/> and <c>Tools/MusicBake</c> asks straight, so what
+        /// the tool measures and writes to a .wav is the same arithmetic the player plays, not a second copy of
+        /// this switch.
         /// </summary>
         internal static float[] Render(MusicTheme theme) => theme switch
         {
@@ -688,184 +499,6 @@ namespace BS3D.Audio
 
         /// <summary>The front end's piece, through the same door.</summary>
         internal static float[] RenderMenu() => BakeMenu();
-
-        /// <summary>
-        /// Which composition plays (#120). Called from the level's own install, so a level set alternates
-        /// pieces rather than replaying one for an evening.
-        /// <para>
-        /// The <b>sounding</b> chain is dropped: what is queued on it belongs to the piece that was playing,
-        /// and letting it run on would play the previous level's piece for minutes. Dropped by a <b>fade</b>
-        /// since #211 rather than on the spot — a change of piece is a replacement, so the old one leaves
-        /// under the new one's opening instead of being cut mid-chorus (see <see cref="_retiring"/>). The
-        /// arriving piece is simply in hand: every one of them was rendered at construction and none is ever
-        /// rendered again (#229), so <see cref="Update"/> builds the new chain the same frame. It can only be
-        /// silent here inside the first seconds of a session, before the renders have landed.
-        /// </para>
-        /// </summary>
-        public void SetTheme(MusicTheme theme)
-        {
-            if (_failed || theme == _theme) return;
-
-            _theme = theme;
-
-            //The chain is retired rather than re-aimed: what is queued on it is the piece it was built for,
-            //and the next Update builds a fresh one from this theme's. Retired and not disposed while it is
-            //actually sounding (#211), so the piece being left walks out under the arriving one; it keeps
-            //whatever fade a teardown had already put on it (Match), which is what stops a switch arriving
-            //mid-fade from jumping the old piece back up to full to fade it again.
-            RetireVoice(THEME_FADE_SECONDS);
-        }
-
-        /// <summary>
-        /// Hands the sounding chain to <see cref="_retiring"/> to fade out over <paramref name="seconds"/> and
-        /// leaves <see cref="_voice"/> null, so the next <see cref="Advance"/> builds a fresh chain under it
-        /// (#211). A chain that is not actually sounding is disposed outright — there is nothing to fade, and
-        /// a silent instance left in the slot would only delay the next switch's real one.
-        /// </summary>
-        private void RetireVoice(float seconds)
-        {
-            if (_voice != null && _voice.State == SoundState.Playing)
-            {
-                //A previous occupant still on its way out is let go where it stands. One slot is enough for
-                //the flows the menus actually have, and queueing them would be pieces stacking up.
-                _retiring?.Dispose();
-
-                _retiring = _voice;
-
-                //From full, always: a sounding pass is never part-faded (see _retiring), so there is no
-                //partial level to pick up — the only fade a theme has is this one.
-                _retiringFade.Reset();
-                _retiringFade.To(0f, seconds);
-            }
-            else
-            {
-                _voice?.Dispose();
-            }
-
-            _voice = null;
-        }
-
-        /// <summary>The composition a level asks for by name, falling back to the pool's own rotation.</summary>
-        /// <param name="named">
-        /// The level file's <c>music</c> field, or null when it names none. Parsed rather than cast, for the
-        /// reason the scene names are: it is a hand-editable file, and an unknown spelling has to mean "the
-        /// default" rather than an exception.
-        /// </param>
-        /// <param name="index">
-        /// The level's place in the set, which is what picks when nothing is named. Cycling by position is why
-        /// no level file has to say anything at all to get variety — and why level one still opens on
-        /// <see cref="MusicTheme.Pulse"/>, the piece it was written for.
-        /// </param>
-        public static MusicTheme ThemeFor(string named, int index)
-        {
-            if (!string.IsNullOrWhiteSpace(named))
-                switch (named.Trim().ToLowerInvariant())
-                {
-                    case "pulse": return MusicTheme.Pulse;
-                    case "bohemia": return MusicTheme.Bohemia;
-                    case "nocturne": return MusicTheme.Nocturne;
-                    case "mural": return MusicTheme.Mural;
-                    case "ember": return MusicTheme.Ember;
-
-                    //The slot's old name — #264 replaced the piece, not the slot: a hand-edited file still
-                    //naming the polka gets the replacement rather than silently falling to whatever its
-                    //position happens to rotate to.
-                    case "dechovka": return MusicTheme.Mural;
-                }
-
-            return (MusicTheme)(((index % THEME_COUNT) + THEME_COUNT) % THEME_COUNT);
-        }
-
-        /// <summary>Starts the music, or does nothing if it is already sounding.</summary>
-        public void Play()
-        {
-            if (_failed) return;
-
-            _wanted = true;
-            if (_voice == null) Advance();
-        }
-
-        /// <summary>
-        /// Stops the music <b>dead</b> — the level endings' stop, where the sudden silence is itself the
-        /// message: the fireworks' reports land in it, and a dance track carrying on over a loss is the wrong
-        /// feeling entirely. Anywhere one piece is merely being REPLACED by another, <see cref="FadeOut"/> is
-        /// the stop to call (#211). The chain is torn down with it, for the same reason <see cref="SetTheme"/>
-        /// tears its own down: a stopped chain's queue belongs to a moment that has passed, and
-        /// <see cref="Play"/> starts a fresh one from the piece, which is always in hand. Anything still
-        /// walking out of an earlier switch goes with it, or "dead" would be a half-truth on the one call
-        /// whose whole point is the silence.
-        /// </summary>
-        public void Stop()
-        {
-            _wanted = false;
-
-            _voice?.Dispose();
-            _voice = null;
-
-            _retiring?.Dispose();
-            _retiring = null;
-        }
-
-        /// <summary>
-        /// Stops the music by fading it out (#211) — the stop every SWITCH takes: leaving to the main menu,
-        /// and a teardown with the theme still sounding (a retry from the pause menu). The chain keeps playing
-        /// while it fades, in <see cref="_retiring"/>, and is disposed the frame it arrives at silence.
-        /// <para>
-        /// A <see cref="Play"/> before then simply opens a fresh chain under the fading one, which is what
-        /// makes this need no state of its own: the retirement has already nulled <see cref="_voice"/>, so
-        /// there is nothing left for a resumed <see cref="Play"/> to resurrect mid-chorus.
-        /// </para>
-        /// </summary>
-        public void FadeOut()
-        {
-            _wanted = false;
-            RetireVoice(THEME_FADE_SECONDS);
-        }
-
-        /// <summary>
-        /// Starts the front end's loop, or marks it wanted if its bake has not landed yet — <see cref="Update"/>
-        /// realizes it the frame it is ready. The host drives this from the one question that decides it:
-        /// whether a session screen is on the stack.
-        /// </summary>
-        public void PlayMenu()
-        {
-            if (_failed) return;
-
-            _menuWanted = true;
-
-            if (_menu != null && _menu.State == SoundState.Playing)
-            {
-                //A stop caught mid-fade: the same loop is still sounding, so it ramps back up from wherever
-                //the fade stands rather than snapping, over the same window a leaving takes (#211).
-                _menuFade.To(1f, MENU_FADE_SECONDS);
-            }
-            else
-            {
-                //An ARRIVAL: a fully-faded stop rewound the loop, so this restarts it at its head — a piece
-                //with a beginning, which opens at full like every other beginning here. Without the reset it
-                //would open at the fade's leftover zero and ramp in on every return to the menu after the
-                //first.
-                _menuFade.Reset();
-
-                if (_menu != null)
-                {
-                    _menu.Volume = MENU_VOLUME * _gain;
-                    _menu.Play();
-                }
-            }
-        }
-
-        /// <summary>
-        /// Stops the front end's loop — by fading (#211), because it is only ever stopped for a level starting
-        /// over it, which is a replacement and not a message. Being a loop, stopping and starting again costs
-        /// nothing: a stop that fully faded restarts at the loop's head, whose held pads are the soft arrival
-        /// every piece here authors anyway.
-        /// </summary>
-        public void StopMenu()
-        {
-            _menuWanted = false;
-            _menuFade.To(0f, MENU_FADE_SECONDS);
-        }
 
         /// <summary>
         /// The victory fanfare: bright, major, rising, and scaled by how well the player did — a bigger score
@@ -954,25 +587,22 @@ namespace BS3D.Audio
         }
 
         /// <summary>
-        /// Called once a frame. Its whole job is the feed: the sounding piece is put on the voice's queue
-        /// again while it is still playing, so the repeat is seamless — XAudio2 starts the queued buffer the
-        /// sample the sounding one ends, where the old per-frame <c>State</c> poll could only notice a
-        /// finished playing on the frame after it and leave a frame or two of dead air in the gap (#212's
-        /// whole complaint). It also realizes the front end's loop and the fanfares the frame their synthesis
-        /// lands, and walks the switches' fades.
+        /// Called once a frame, through <see cref="GameMusic.Update"/>: it realizes a fanfare the frame its
+        /// synthesis lands and walks the fanfare's fade (#211).
         /// </summary>
-        /// <param name="elapsed">
-        /// The frame's wall-clock seconds, for the switches' fades (#211) — the host calls this above the
-        /// stack, so a fade keeps moving whatever screen is up, pause included.
-        /// </param>
+        /// <param name="elapsed">The frame's wall-clock seconds, so a fade keeps moving whatever screen is up.</param>
         public void Update(float elapsed)
         {
             if (_failed) return;
 
-            AdvanceFades(elapsed);
+            if (_fanfareFade.Advance(elapsed) && _fanfare != null)
+            {
+                _fanfare.Volume = FANFARE_VOLUME * _gain * _fanfareFade.Applied;
+                if (_fanfareFade.Silent) _fanfare.Stop();
+            }
 
-            //The fanfare first: it is realized the frame its synthesis finishes, so the piece announcing the
-            //result lands as close to the result as the machine allows.
+            //Realized the frame its synthesis finishes, so the piece announcing the result lands as close to the
+            //result as the machine allows.
             if (_fanfareBake != null && _fanfareBake.IsCompleted)
             {
                 Task<(float[] Pcm, FanfareShape Shape)> ready = _fanfareBake;
@@ -1004,149 +634,6 @@ namespace BS3D.Audio
                 {
                     Console.WriteLine($"[music] the fanfare could not be realized: {exception.Message}");
                 }
-            }
-
-            //The menu loop is realized once, the frame its synthesis finishes; being looped, it never needs
-            //another. Guarded like the fanfare, and for the same reason: a lobby that cannot play must not
-            //take the game down with it.
-            if (_menuBake != null && _menuBake.IsCompleted)
-            {
-                Task<float[]> ready = _menuBake;
-                _menuBake = null;
-
-                try
-                {
-                    _menuTrack = ToSoundEffect(ready.Result);
-                    _menu = _menuTrack.CreateInstance();
-                    _menu.IsLooped = true;
-
-                    //The fade is real here: a splash clicked through fast enough can have PlayMenu's ramp or
-                    //StopMenu's fall already in flight before the bake has even landed (#211).
-                    _menu.Volume = MENU_VOLUME * _gain * _menuFade.Applied;
-
-                    if (_menuWanted) _menu.Play();
-                }
-                catch (Exception exception)
-                {
-                    Console.WriteLine($"[music] the menu piece could not be realized: {exception.Message}");
-                }
-            }
-
-            if (!_wanted) return;
-            if (_voice == null)
-            {
-                Advance();
-                return;
-            }
-
-            //The feed: put the piece on the voice's queue again, and only while fewer than two buffers sit on
-            //it — <see cref="DynamicSoundEffectInstance.PendingBufferCount"/> counts the sounding buffer too
-            //(buffers leave the queue when they FINISH, not when they start), so the gate's two are one
-            //playing and one held ahead of it. That is all the chain ever needs, and one ahead is what makes
-            //the repeat seamless: XAudio2 starts the queued buffer the sample the sounding one ends.
-            //
-            //It is the SAME buffer every time since #229 — the piece is one authored rendering, so a repeat
-            //is a repeat. The submit costs a copy of the PCM into the driver's own stream and nothing else;
-            //what used to be here as well was a fresh two-minute bake started per pass and a float-to-PCM
-            //conversion of it on this thread, both of which are gone.
-            Task<byte[]> piece = _pieces[(int)_theme];
-            if (piece != null && piece.IsCompleted && _voice.PendingBufferCount < 2)
-            {
-                try
-                {
-                    _voice.SubmitBuffer(piece.Result);
-                }
-                catch (Exception exception)
-                {
-                    Console.WriteLine($"[music] the piece could not be queued again, playing on without it: {exception.Message}");
-                    _failed = true;
-                }
-            }
-        }
-
-        /// <summary>
-        /// The switches' fades (#211), walked once a frame. Volumes are written only on the frames a fade
-        /// actually moved them (the ambience's discipline — most frames touch nothing), and an instance that
-        /// has arrived at silence is stopped, or for a retired chain disposed, right here. That is what lets a
-        /// fading stop need no state beyond the fade itself.
-        /// </summary>
-        private void AdvanceFades(float elapsed)
-        {
-            if (_menuFade.Advance(elapsed) && _menu != null)
-            {
-                _menu.Volume = MENU_VOLUME * _gain * _menuFade.Applied;
-                if (_menuFade.Silent) _menu.Stop();
-            }
-
-            if (_fanfareFade.Advance(elapsed) && _fanfare != null)
-            {
-                _fanfare.Volume = FANFARE_VOLUME * _gain * _fanfareFade.Applied;
-                if (_fanfareFade.Silent) _fanfare.Stop();
-            }
-
-            if (_retiringFade.Advance(elapsed) && _retiring != null)
-            {
-                _retiring.Volume = MUSIC_VOLUME * _gain * _retiringFade.Applied;
-
-                //Disposed rather than stopped: a retired chain has no way back — the feed only ever submits
-                //to _voice — so holding it would be holding a buffer nothing can play again.
-                if (_retiringFade.Silent)
-                {
-                    _retiring.Dispose();
-                    _retiring = null;
-                }
-            }
-        }
-
-        /// <summary>
-        /// Builds the chain's head: a fresh voice with this theme's piece submitted onto it, and playback
-        /// begun. Called from <see cref="Play"/> and from <see cref="Update"/> while the chain's head does not
-        /// exist yet; every repeat after the first arrives through <see cref="Update"/>'s feed, never here.
-        /// <para>
-        /// This is also the one place a level's <b>entry</b> into a piece lives (#201): the head starts at
-        /// <see cref="EntryOffset"/> rather than at the piece's first sample, so a level opens on the track
-        /// and not on its prelude. It belongs here and nowhere else because everything that reaches this
-        /// method is a level opening — a build, a retry, a switch of piece, a Continue out of the menu — and
-        /// everything that does not goes through the feed, which submits the piece whole.
-        /// </para>
-        /// </summary>
-        private void Advance()
-        {
-            //A level that starts without music is a disappointment; a level that will not start because the
-            //synthesis threw is a bug the player cannot get past. Guarded for that reason, and the same one
-            //LoadLevelSet's is.
-            try
-            {
-                Task<byte[]> piece = _pieces[(int)_theme];
-
-                //Not rendered yet, which is only ever the first seconds of a session — every piece is put in
-                //hand at construction and none is ever rendered again. Nothing to build from: Update retries
-                //every frame and builds the chain the moment it lands.
-                if (piece == null || !piece.IsCompleted) return;
-
-                byte[] pcm = piece.Result;
-
-                //Clamped rather than trusted: an entry section past the end of its own arrangement would
-                //otherwise be an exception on the frame a level starts, which is the worst place in the
-                //program to learn that a constant was edited wrongly.
-                int entry = Math.Clamp(EntryOffset(_theme), 0, pcm.Length - BYTES_PER_FRAME);
-
-                DynamicSoundEffectInstance old = _voice;
-
-                _voice = new DynamicSoundEffectInstance(SAMPLE_RATE, AudioChannels.Stereo);
-                _voice.Volume = MUSIC_VOLUME * _gain;
-                _voice.SubmitBuffer(pcm, entry, pcm.Length - entry);
-
-                //Disposed only once the replacement exists, so a failure part-way through leaves the
-                //previous chain intact and playable rather than leaving the game silent.
-                old?.Dispose();
-
-                _voice.Play();
-            }
-            catch (Exception exception)
-            {
-                Console.WriteLine($"[music] the theme could not be realized, playing on without it: {exception.Message}");
-                _failed = true;
             }
         }
 
@@ -4799,11 +4286,10 @@ namespace BS3D.Audio
 
         /// <summary>
         /// The 16-bit stereo PCM the XAudio2 side of every bake plays: the interleaved float mix clamped and
-        /// scaled to shorts. One conversion for both of its callers — the one-shot <see cref="SoundEffect"/>
-        /// buffers and the chain's <see cref="DynamicSoundEffectInstance"/> submissions — so the two can not
-        /// drift in format.
+        /// scaled to shorts. One conversion for both of its callers — the fanfares' one-shot
+        /// <see cref="SoundEffect"/> buffers and the About page's player — so the two can not drift in format.
         /// </summary>
-        private static byte[] ToPcm(float[] signal)
+        internal static byte[] ToPcm(float[] signal)
         {
             byte[] pcm = new byte[signal.Length * 2];
 
@@ -4829,15 +4315,9 @@ namespace BS3D.Audio
         public void Dispose()
         {
             _failed = true;   //so a late Update cannot resurrect it
-            _wanted = false;
-            _menuWanted = false;
 
-            _voice?.Dispose();
-            _retiring?.Dispose();
             _fanfare?.Dispose();
             _fanfareTrack?.Dispose();
-            _menu?.Dispose();
-            _menuTrack?.Dispose();
         }
     }
 }

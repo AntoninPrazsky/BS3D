@@ -2,7 +2,7 @@
   "file": "theme-bohemia.wav",
   "created": "2026-09-16",
   "counterpart_of": "MusicTheme.Bohemia -- Game/Audio/ProceduralMusic.cs (D Dorian at 116, strings, brass pillars, tuned drum; statement, second subject, coda; twelve sections, 3:19)",
-  "purpose": "Reference render for the proposal to replace the procedural music with generated audio. Not wired into any content pipeline.",
+  "purpose": "Master of Game/Music/bohemia.wav, which the game plays since #443: written from this file by Tools/MusicBake --tracks (brought to the loudness of the procedural piece in its slot, peaks held under full scale, 16-bit PCM).",
   "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- generate-music.ps1 + loop_crossfade.py",
   "request": {
     "caption": "Epic orchestral dance-hybrid instrumental in D Dorian mode, driving dance-floor beat under a lush string section and bold brass pillars, a tuned melodic drum accent, a clear main theme, a contrasting second theme, and a coda that returns to the main theme, cinematic and grand, no vocals",

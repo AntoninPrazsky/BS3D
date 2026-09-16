@@ -166,9 +166,14 @@ namespace BS3D
         //backdrop screen owns only the decision to draw it, which is what keeps it to the main menu.
         private TitleWordmark _titleWordmark;
 
-        //The level theme. On the host with the rest of the audio, because it outlives any one session and a
-        //track that restarted from the top on every retry would be exhausting.
-        private ProceduralMusic _music;
+        //The music — the level themes, the menu loop and the fanfares. On the host with the rest of the audio,
+        //because it outlives any one session and a track that restarted from the top on every retry would be
+        //exhausting.
+        private GameMusic _music;
+
+        //The About page's player of the original procedural score (#443). On the host rather than the page, like
+        //the music: it has to be walked every frame and let go of cleanly when the game closes.
+        private ProceduralJukebox _jukebox;
 
         //Whether the front end's music is on — the edge detector for the stack question in Update (#46).
         private bool _menuMusicOn;
@@ -287,6 +292,14 @@ namespace BS3D
         /// </summary>
         private string _startupPick;
 
+        /// <summary>
+        /// <c>about</c> / <c>about=play</c>: put the About page up at boot, and with <c>play</c> start its player
+        /// on the first piece (#443). Null for neither. The page is two presses away for someone at the machine
+        /// and none on a locked desktop — <c>pick</c>'s wall — and its visualizer is only worth a shot while a
+        /// piece is actually sounding, which takes a third press nobody is there to make.
+        /// </summary>
+        private string _startupAbout;
+
         //Wall clock. Everything alive in the scene runs off it — the balls' heartbeat, the city's windows —
         //so none of it is tied to a simulation that may later be paused.
         private float _wallClock;
@@ -326,8 +339,11 @@ namespace BS3D
         /// </summary>
         internal TitleWordmark TitleWordmark => _titleWordmark;
 
-        /// <summary>The level theme, synthesized at load and looped while a level is being played.</summary>
-        internal ProceduralMusic Music => _music;
+        /// <summary>The music: generated loops for the levels and the menu (#443), and the procedural fanfares.</summary>
+        internal GameMusic Music => _music;
+
+        /// <summary>The About page's player of the original procedural score (#443).</summary>
+        internal ProceduralJukebox Jukebox => _jukebox;
 
         /// <summary>The wall clock everything alive runs off, paused or not.</summary>
         internal float WallClock => _wallClock;
@@ -707,6 +723,10 @@ namespace BS3D
         /// on that chapter or on the one the page itself chooses. See <see cref="_startupPick"/> for why a page
         /// two keypresses away needs an argument at all, and why the chapter is the half that matters.
         /// </param>
+        /// <param name="about">
+        /// Testing only (the <c>about</c> / <c>about=play</c> argument): open the About page at boot, and with
+        /// <c>play</c> start its player — see <see cref="_startupAbout"/>.
+        /// </param>
         /// <param name="shotSeconds">
         /// Testing only (the <c>shot=</c> argument): wall-clock seconds after start at which to save a PNG of
         /// the frame, or null for none. It is the trigger F12 cannot be — a locked desktop takes no keystrokes
@@ -718,7 +738,7 @@ namespace BS3D
             bool mute = false, bool play = false, bool result = false, bool blockDone = false, bool lost = false,
             int? resultStars = null, string nextLocked = null, int? streak = null, int wildcardEvery = 0, float[] shotSeconds = null, string level = null, string levelFile = null,
             string preview = null, BallStyle? ballStyle = null, string pick = null, int fpsCap = 0,
-            bool noFocusPause = false)
+            bool noFocusPause = false, string about = null)
         {
             //See PauseOnFocusLoss: a capture schedule implies the opt-out, because a shot of the pause page is
             //not the shot that was asked for.
@@ -771,6 +791,7 @@ namespace BS3D
             _startupLost = lost;
             _startupNextLocked = nextLocked;
             _startupPick = pick;
+            _startupAbout = about;
             _shotSchedule = shotSeconds;
             if (mute) _masterVolume = 0f;
 
@@ -1150,10 +1171,11 @@ namespace BS3D
             //Both display levers ("celebrate" and "confetti") are FIRED FROM Update, not from here — see
             //StartStartupCelebrations, which also says why. The two displays are only built here.
 
-            //The level theme. The constructor only starts the synthesis — two minutes of PCM is a couple of
-            //seconds of arithmetic, and it runs on a background thread while the player is still looking at
-            //the splash and the menu (see ProceduralMusic).
-            _music = new ProceduralMusic();
+            //The music. The constructor only starts reading the tracks off disk, on background threads, while
+            //the player is still looking at the splash (see GameMusic). The About page's player renders nothing
+            //until it is asked to.
+            _music = new GameMusic();
+            _jukebox = new ProceduralJukebox();
 
             //The scene beds. The scene was picked before the audio existed (SetScene runs early in
             //LoadContent, and its _ambience hook is null-conditional for exactly that), so the pick is
@@ -1613,11 +1635,16 @@ namespace BS3D
             _confetti?.Update(elapsed);
             _trophy?.Update(elapsed);
 
-            //The music's handover: a pass is played once rather than looped, and this is what puts the next
-            //freshly synthesized variation on when the current one ends (see ProceduralMusic.Update). Up here
-            //with the fireworks and for the same reason — it has to keep running whatever is on the stack.
-            //It takes the frame's own time since #211: the switches' fades move on it.
+            //The music's feed: the sounding loop is queued again before the current pass ends, so the repeat is
+            //seamless (see GameMusic.Update). Up here with the fireworks and for the same reason — it has to keep
+            //running whatever is on the stack. It takes the frame's own time since #211: the fades move on it.
             _music?.Update(elapsed);
+
+            //And the About page's player, whose held piece is what the game's own music steps aside for — asked
+            //every frame rather than told on a click, so a render landing, a pause or the page closing all reach
+            //the music without anyone having to remember to say so (#443).
+            _jukebox?.Update(elapsed);
+            if (_music != null && _jukebox != null) _music.Yielding = _jukebox.HoldsPiece;
 
             //The scene's bed and its crossfade, on the wall clock's frame like the clouds: the scene is on
             //screen whether or not a session stands, so its sound is too, pause included.
@@ -1705,6 +1732,16 @@ namespace BS3D
                 _startupPick = null;
 
                 OpenLevelSelect();
+            }
+
+            //The About page and its player (#443), held back past the title card for the same reason.
+            if (_startupAbout != null && !_screens.Contains<SplashPage>())
+            {
+                if (string.Equals(_startupAbout, "play", StringComparison.OrdinalIgnoreCase)) _jukebox?.PlayPause();
+
+                _startupAbout = null;
+
+                OpenAbout();
             }
 
             //And the same for the result screen, over whatever is on the stack — the front end, unless "play"
@@ -2008,6 +2045,7 @@ namespace BS3D
             _confetti?.Dispose();
             _trophy?.Dispose();
             _titleWordmark?.Dispose();
+            _jukebox?.Dispose();
             _music?.Dispose();
 
             base.UnloadContent();
