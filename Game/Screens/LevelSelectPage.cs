@@ -778,6 +778,12 @@ namespace BS3D.Screens
                 return;
             }
 
+            //And the backdrop turns to the level being looked at (#405): its map in its own scene, sky, weather
+            //and material, once the focus rests. An unlocked one only — the menu must not show the shape of a
+            //level still ahead of the player (#266). Leaving a tile asks nothing, so the last level looked at
+            //stays hanging rather than the arena flicking back to whatever was up before.
+            if (Game.IsLevelUnlocked(level)) Game.Backdrop?.RequestPreview(level);
+
             //The lock's full arithmetic, and since #347 that means the right arithmetic: the sequence names
             //the level standing in the way, the star gate names the price against what the player holds.
             _detail.Text = Game.IsLevelUnlocked(level)

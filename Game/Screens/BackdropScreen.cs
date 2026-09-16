@@ -488,6 +488,10 @@ namespace BS3D.Screens
         {
             float elapsed = (float)gameTime.ElapsedGameTime.TotalSeconds;
 
+            //The level picker's request, once its focus has rested (#405) — before the flight, so a map hung this
+            //frame is the one the framing starts drifting towards on the same frame.
+            StepPreviewRequest(elapsed);
+
             AdvanceOrbit(elapsed, out Vector3 position, out Vector3 target, out float fieldOfView);
 
             RecoilCamera camera = Game.Camera;
@@ -594,7 +598,9 @@ namespace BS3D.Screens
         /// answered whatever its unlock state — the same distinction <see cref="LevelSelectPage"/> draws
         /// between what a player may open and what a test may ask to look at. The scene and its dome are not
         /// the map's: the backdrop keeps whatever sky it stands under, the note the feature answers being
-        /// explicit that they do not matter (#249).
+        /// explicit that they do not matter (#249). ⚠ That holds for this random roll only — a tile the level
+        /// picker's focus rests on is hung in its own scene, sky, weather and material (#405, see
+        /// <see cref="RequestPreview"/>).
         /// <para>
         /// The map is data and nothing more — no physics is built for it, no cannon stands under it. It
         /// hangs by the very offset a session derives for the same map
@@ -606,6 +612,8 @@ namespace BS3D.Screens
         internal void RollPreviewMap()
         {
             _previewMap = null;
+            _previewIndex = -1;
+            _requestedPreview = -1;
             _previewStyle = BallStyle.Beach;
             _previewOffset = Vector3.Zero;
             _menuCeilingWorld = Matrix.Identity;
@@ -643,73 +651,179 @@ namespace BS3D.Screens
                 //about what "unlocked" means.
                 if (!pinned && !Game.IsLevelUnlocked(index)) continue;
 
-                string path = set.ResolvePath(index);
-                BallsMap map = null;
-                string name = null;
-                BallStyle style = BallStyle.Beach;
-                try
-                {
-                    //The same tolerance InstallLevel reads a level with: a level file carries its map
-                    //inside, anything else is tried as a plain map outright.
-                    if (Level.IsLevelFile(path))
-                    {
-                        Level level = Level.Load(path);
+                //Unreadable or unparseable — the next entry is the whole recovery.
+                if (!TryLoadPreview(set, index, out BallsMap map, out string name, out BallStyle style, out _))
+                    continue;
 
-                        map = new BallsMap(level.Map);
-                        name = set.DisplayName(index);
-
-                        //Hung in whatever the level is authored in, so the front end promises the material as
-                        //well as the shape (#258). A plain map file carries no look at all and stays vinyl.
-                        style = level.Balls ?? BallStyle.Beach;
-                    }
-                    else
-                    {
-                        map = new BallsMap(path);
-                        name = Path.GetFileNameWithoutExtension(path);
-                    }
-                }
-                catch (Exception)
-                {
-                    //Unreadable or unparseable — the next entry is the whole recovery.
-                }
-
-                if (map == null) continue;
-
-                map.Center();
-                _previewMap = map;
-                _previewStyle = Game.BallStyleOverride ?? style;
-                _previewOffset = GameplayScreen.FitClusterWorldOffset(map, out float fieldTopY);
-
-                float ceilingCentreY = CeilingPlate.CentreYAbove(fieldTopY);
-
-                //AND THEN RAISED TO WHERE THE PHYSICS WOULD HAVE PUT IT, which is the other half of #254 and
-                //the half that is not about the camera at all. A played cluster does not rest on its lattice:
-                //the ceiling BallSocket ties a top ball's crown to a point one radius under the plate's CENTRE,
-                //so the top level settles a whole diameter under it and its surface meets the plate's underside
-                //exactly (BallsConstraintsBuilder.CeilingRestY, and CeilingPlate.CLEARANCE says the same thing
-                //from the other end — "half the clearance this constant looks like it buys is spent that way").
-                //A preview has no bodies and no solver, so it hung at the lattice height instead, one whole unit
-                //of daylight short of the glass — a gap no level ever shows in play, on the one screen whose
-                //job is to promise what play looks like.
-                float topLevelY = BallsConstraintsBuilder.CeilingRestY(ceilingCentreY);
-                _previewOffset.Y += topLevelY - fieldTopY;
-
-                //The menu's glass over what was just hung, and the sky palette the fresh renderer starts
-                //without — the same re-run the session makes after its own refit.
-                Game.RebuildMenuCeilingRenderer(map.StageSizeX, map.StageSizeZ);
-                Game.ApplySkyLighting();
-                _menuCeilingWorld = Matrix.CreateTranslation(0f, ceilingCentreY, 0f);
-
-                //And the camera framed for it, off where the balls have just been hung rather than off the
-                //lattice they would have hung on.
-                FrameOrbitFor(map, topLevelY);
-
-                Console.WriteLine($"[menu] preview map {name} — {map.GetBallsCount()} balls, {BallStyles.ToName(_previewStyle)}");
+                HangPreview(map, name, style, index);
                 return;
             }
 
             SetFraming(OrbitFraming.Bare);
             Console.WriteLine("[menu] preview map: no readable level in the set");
+        }
+
+        /// <summary>
+        /// How long the level picker's focus has to rest on a tile before the backdrop turns to that level
+        /// (#405). A player sweeping the pointer across a row passes over four tiles in a fraction of a second,
+        /// and each one would otherwise be a scene change, a new sky and a new cluster — a strobe of the whole
+        /// campaign behind the page. Short enough that a tile the player stops on answers at once.
+        /// </summary>
+        private const float PREVIEW_SETTLE_SECONDS = 0.35f;
+
+        //The entry hanging now, -1 for none or for one this screen rolled before #405 kept count; and the one
+        //the level picker last asked for, with how long its focus still has to rest before it is hung.
+        private int _previewIndex = -1;
+        private int _requestedPreview = -1;
+        private float _requestSettle;
+
+        /// <summary>
+        /// Asks the backdrop to hang entry <paramref name="index"/> of the set <b>in its own scene, sky, weather
+        /// and material</b> — what the level picker does with the tile its pointer or cursor stands on (#405).
+        /// <para>
+        /// <b>This is the one place the front end's scene follows a map</b>, and it reverses #249's rule for this
+        /// page and this page only. #249 kept the scene the player's while the menu rolled a map at random,
+        /// because a random map is decoration and the scene page is the player's own choice. A tile the player
+        /// is looking at is neither: it is a question about that level, and the owner's report was that the
+        /// answer came back in the wrong place and the wrong material. The random roll on a return to the front
+        /// end still leaves the scene alone.
+        /// </para>
+        /// <para>
+        /// A locked entry is not previewed — the picker only asks for unlocked ones, on #266's ruling that the
+        /// menu must not show the shape of a level still ahead of the player. The request is <b>settled</b>
+        /// (<see cref="PREVIEW_SETTLE_SECONDS"/>) and the flight is <b>not</b> restarted: the camera carries on
+        /// round the island and drifts onto the new map's framing, so looking along a row reads as the arena
+        /// changing under a camera that is still, not as a cut per tile.
+        /// </para>
+        /// </summary>
+        internal void RequestPreview(int index)
+        {
+            if (index == _previewIndex)
+            {
+                _requestedPreview = -1;
+                return;
+            }
+
+            if (index == _requestedPreview) return;
+
+            _requestedPreview = index;
+            _requestSettle = PREVIEW_SETTLE_SECONDS;
+        }
+
+        /// <summary>The settled half of <see cref="RequestPreview"/>, stepped from <see cref="Update"/>.</summary>
+        private void StepPreviewRequest(float elapsed)
+        {
+            if (_requestedPreview < 0) return;
+
+            _requestSettle -= elapsed;
+            if (_requestSettle > 0f) return;
+
+            int index = _requestedPreview;
+            _requestedPreview = -1;
+
+            LevelSet set = Game.LevelSet;
+            if (set == null || index < 0 || index >= set.Count) return;
+
+            //A file that will not read leaves whatever is hanging: the tile still describes and still starts the
+            //level, and a preview is not worth an error the player has to see.
+            if (!TryLoadPreview(set, index, out BallsMap map, out string name, out BallStyle style, out Level level))
+                return;
+
+            //The place before the map, in the order a session builds a level (GameplayScreen.BuildLevel): the
+            //scene states its own dome and weather, the level then says which dome and what it is like today, and
+            //the map is hung last so the menu's glass takes the light rig those just derived.
+            if (level != null)
+            {
+                if (level.Scene is SceneKind scene) Game.SetScene(scene);
+                Game.SetSkyDome(Math.Clamp(level.SkyDome, (byte)1, BS3DGame.SKY_DOME_COUNT));
+                Game.ApplySceneWeather(level.Weather);
+            }
+
+            HangPreview(map, name, style, index);
+        }
+
+        /// <summary>
+        /// Reads entry <paramref name="index"/> of the set with the tolerance a session reads a level with: a
+        /// level file carries its map and its look inside, anything else is tried as a plain map outright and
+        /// stays vinyl. False on a file that will not read.
+        /// </summary>
+        private static bool TryLoadPreview(LevelSet set, int index, out BallsMap map, out string name,
+            out BallStyle style, out Level level)
+        {
+            map = null;
+            name = null;
+            style = BallStyle.Beach;
+            level = null;
+
+            string path = set.ResolvePath(index);
+
+            try
+            {
+                if (Level.IsLevelFile(path))
+                {
+                    level = Level.Load(path);
+
+                    map = new BallsMap(level.Map);
+                    name = set.DisplayName(index);
+
+                    //Hung in whatever the level is authored in, so the front end promises the material as
+                    //well as the shape (#258). A plain map file carries no look at all and stays vinyl.
+                    style = level.Balls ?? BallStyle.Beach;
+                }
+                else
+                {
+                    map = new BallsMap(path);
+                    name = Path.GetFileNameWithoutExtension(path);
+                }
+            }
+            catch (Exception)
+            {
+                map = null;
+                level = null;
+            }
+
+            return map != null;
+        }
+
+        /// <summary>
+        /// Hangs a read map over the island as the front end's preview: centred, at the offset a session would
+        /// hang it at, raised to where the ceiling socket settles it, under the menu's own glass, with the
+        /// camera's framing aimed at it. Shared by the random roll and the level picker's request (#405).
+        /// </summary>
+        private void HangPreview(BallsMap map, string name, BallStyle style, int index)
+        {
+            map.Center();
+            _previewMap = map;
+            _previewIndex = index;
+            _previewStyle = Game.BallStyleOverride ?? style;
+            _previewOffset = GameplayScreen.FitClusterWorldOffset(map, out float fieldTopY);
+
+            float ceilingCentreY = CeilingPlate.CentreYAbove(fieldTopY);
+
+            //AND THEN RAISED TO WHERE THE PHYSICS WOULD HAVE PUT IT, which is the other half of #254 and
+            //the half that is not about the camera at all. A played cluster does not rest on its lattice:
+            //the ceiling BallSocket ties a top ball's crown to a point one radius under the plate's CENTRE,
+            //so the top level settles a whole diameter under it and its surface meets the plate's underside
+            //exactly (BallsConstraintsBuilder.CeilingRestY, and CeilingPlate.CLEARANCE says the same thing
+            //from the other end — "half the clearance this constant looks like it buys is spent that way").
+            //A preview has no bodies and no solver, so it hung at the lattice height instead, one whole unit
+            //of daylight short of the glass — a gap no level ever shows in play, on the one screen whose
+            //job is to promise what play looks like.
+            float topLevelY = BallsConstraintsBuilder.CeilingRestY(ceilingCentreY);
+            _previewOffset.Y += topLevelY - fieldTopY;
+
+            //The menu's glass over what was just hung, and the sky palette the fresh renderer starts
+            //without — the same re-run the session makes after its own refit.
+            Game.RebuildMenuCeilingRenderer(map.StageSizeX, map.StageSizeZ);
+            Game.ApplySkyLighting();
+            _menuCeilingWorld = Matrix.CreateTranslation(0f, ceilingCentreY, 0f);
+
+            //And the camera framed for it, off where the balls have just been hung rather than off the
+            //lattice they would have hung on.
+            FrameOrbitFor(map, topLevelY);
+
+            Console.WriteLine($"[menu] preview map {name} — {map.GetBallsCount()} balls, {BallStyles.ToName(_previewStyle)}"
+                + $", {Game.Scene}");
         }
 
         /// <summary>

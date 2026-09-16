@@ -403,7 +403,8 @@ namespace BS3D
         /// <summary>
         /// Puts the scene into the frame: the backdrop's own lighting defaults, the dome that suits it and
         /// the city's day-or-neon switch. The one place a scene change happens, shared by the random pick at
-        /// startup, the scene menu and a loaded level that carries a scene of its own.
+        /// startup, the scene menu, a loaded level that carries a scene of its own, and since #405 the level
+        /// picker's preview of the level its focus rests on (<c>BackdropScreen.RequestPreview</c>).
         /// </summary>
         internal void SetScene(SceneKind scene)
         {
