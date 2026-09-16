@@ -366,6 +366,9 @@ namespace Prazsky.BS3D.Physics
 
             if (wasListening) Events.Unregister(ball.CollidableReference);
 
+            //And its loose mark (#410), before the handle goes back to Bepu to be handed to the next ball
+            Events.ClearLoose(ball.Handle);
+
             Simulation.Bodies.Remove(ball.Handle);
 
             return wasListening;

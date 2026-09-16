@@ -50,6 +50,11 @@ namespace Prazsky.BS3D.Physics
         IndexSet bodyListenerFlags;
         int listenerCount;
 
+        //Bodies that have come off the structure and are on their way to the drain (#410): a shot in flight passes
+        //through them rather than bouncing off (see NarrowPhaseCallbacks.AllowContactGeneration). Written on the main
+        //thread between steps and only read during one, like the listener flags beside it.
+        IndexSet looseBodyFlags;
+
         //For the purpose of this demo, we'll use some regular ol' interfaces rather than using the struct-implementing-interface for specialization.
         //This array will be GC tracked as a result, but that should be mostly fine. If you've got hundreds of thousands of event handlers, you may want to consider alternatives.
         struct Listener
@@ -197,6 +202,26 @@ namespace Prazsky.BS3D.Physics
         /// </summary>
         /// <param name="collidable">Collidable to check.</param>
         /// <returns>True if the collidable has been registered as a listener, false otherwise.</returns>
+        /// <summary>
+        /// Marks a body as <b>loose</b> — released from the structure and falling, or come to rest somewhere as dead
+        /// weight — so a shot still in flight passes through it (#410). Main thread, between steps. The mark has to
+        /// be cleared when the body goes (<see cref="ClearLoose"/>, which <c>PhysicsWorld.RetireBall</c> does),
+        /// because Bepu recycles a body handle and a new ball must not inherit it.
+        /// </summary>
+        public void MarkLoose(BodyHandle body) => looseBodyFlags.Add(body.Value, pool);
+
+        /// <summary>Clears <see cref="MarkLoose"/>'s mark, if the body carries one. Main thread, between steps.</summary>
+        public void ClearLoose(BodyHandle body)
+        {
+            if (looseBodyFlags.Flags.Allocated && looseBodyFlags.Contains(body.Value)) looseBodyFlags.Remove(body.Value);
+        }
+
+        /// <summary>Whether a collidable is a body marked loose. Safe to read during a step.</summary>
+        public bool IsLoose(CollidableReference collidable) =>
+            collidable.Mobility != CollidableMobility.Static
+            && looseBodyFlags.Flags.Allocated
+            && looseBodyFlags.Contains(collidable.RawHandleValue);
+
         public bool IsListener(CollidableReference collidable)
         {
             if (collidable.Mobility == CollidableMobility.Static)
@@ -453,6 +478,8 @@ namespace Prazsky.BS3D.Physics
         {
             if (bodyListenerFlags.Flags.Allocated)
                 bodyListenerFlags.Dispose(pool);
+            if (looseBodyFlags.Flags.Allocated)
+                looseBodyFlags.Dispose(pool);
             if (staticListenerFlags.Flags.Allocated)
                 staticListenerFlags.Dispose(pool);
             listenerIndices.Dispose();

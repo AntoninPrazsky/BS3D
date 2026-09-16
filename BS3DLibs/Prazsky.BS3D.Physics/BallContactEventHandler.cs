@@ -32,8 +32,10 @@ namespace Prazsky.BS3D.Physics
     /// Testbed's contact path changed rather than moved. The three differences, each of which the Game had right:
     /// </para>
     /// <list type="bullet">
-    /// <item><b>It listens on <see cref="OnTouching"/>, not <c>OnContactAdded</c></b>, so it never attaches off a
-    /// speculative contact — see that method, which carries the measurement.</item>
+    /// <item><b>It listens on <see cref="OnTouching"/>, not on every <c>OnContactAdded</c></b>, so it never attaches
+    /// off a contact a whole step early — see that method, which carries the measurement. (Since #410 it does take a
+    /// ball contact that stops within the speculative margin, which the swept shot bounds to a tenth of a unit — see
+    /// <see cref="OnContactAdded"/>.)</item>
     /// <item><b><see cref="ShotPlacement"/> decides the cell and this places it</b>, in two steps, where the
     /// Testbed asked <c>BallsMap</c> to decide and write at once. Deciding without writing is what lets the aim
     /// preview ask the identical question every frame (#70), and it is why the two <c>BallsMap</c> methods that
@@ -226,7 +228,9 @@ namespace Prazsky.BS3D.Physics
         /// feature id appearing and is raised for <i>speculative</i> contacts too, whose <c>depth</c> is simply
         /// negative — so attaching from there put the ball in a cell chosen around a contact that had not
         /// happened, against whichever ball the narrow phase paired first rather than the one the shot would
-        /// have reached.
+        /// have reached. (What that measured was an <i>unbounded</i> margin. <see cref="OnContactAdded"/> now takes
+        /// the near-touches the swept shot's bounded margin produces against a ball, which is a different and much
+        /// smaller thing — see there, #410.)
         /// </para>
         /// <para>
         /// Measured before this changed, in a played level at <c>SHOOT_SPEED</c> 200 with a 1/120 s step
@@ -251,6 +255,45 @@ namespace Prazsky.BS3D.Physics
         /// next step as the ball slides, instead of being the ball's one and only chance.
         /// </para>
         /// </summary>
+        /// <summary>
+        /// Runs on a Bepu worker thread, inside the timestep, for every contact a listening shot gains — and records
+        /// the ones <see cref="OnTouching"/> will never see: a shot meeting a <b>ball</b> within the speculative
+        /// margin without reaching <c>depth &gt;= 0</c> (#410). Records and returns, like its sibling.
+        /// <para>
+        /// <b>Why a near-touch counts.</b> The landing preview decides a shot hits a ball when the two surfaces
+        /// meet (<see cref="ShotPlacement.TryFindFirstHitCurved"/> sweeps the sum of the radii), while
+        /// <c>OnTouching</c> is only raised once the solver lets the pair actually overlap. A grazing shot sits
+        /// exactly between the two: the speculative contact turns it away a fraction of a unit short of the
+        /// surface, so the preview drew a ghost and the shot flew on — past the ball to the glass, out through the
+        /// bottom, or wedged at rest in a pocket with nothing ever touching. Measured with the real handler and
+        /// simulation on twelve shipped levels (a scratchpad rig: the preview's own two calls, then a real shot, a
+        /// pause of 2.5 s between shots): <b>about 3 % of the shots the preview promised a cell were refused</b>
+        /// (43 of 1441 over three runs), fifteen of seventeen in one run with the preview's hit in the outer fifth
+        /// of the radius sum. Counting a contact down to the margin, with loose balls no longer in the way (see
+        /// <c>NarrowPhaseCallbacks</c>), took that to 0.8 % (8 of 987, two runs), and the share of shots landing in
+        /// the very cell the ghost showed did not get worse (43 % pooled before, 48 % after, inside what single runs
+        /// scatter by).
+        /// </para>
+        /// <para>
+        /// <b>It is not #70's early attach coming back</b>, and the difference is the bound. That attach fired on
+        /// contacts generated up to a whole step of travel early by an unbounded margin (worst placement 3.79
+        /// units); the shot's collidable is swept now and its margin is the structure's own
+        /// <see cref="BallsConstraintsBuilder.SPECULATIVE_MARGIN"/>, so a contact that reaches here is at most that
+        /// far from the surface. Balls only: a near-touch of the stone or the drain is not a touch of anything a
+        /// shot can land on, and the glass decides nothing (#432).
+        /// </para>
+        /// </summary>
+        public void OnContactAdded<TManifold>(CollidableReference eventSource, CollidablePair pair, ref TManifold contactManifold,
+            Vector3 contactOffset, Vector3 contactNormal, float depth, int featureId, int contactIndex, int workerIndex)
+            where TManifold : unmanaged, IContactManifold<TManifold>
+        {
+            //A real touch is OnTouching's, which also retries it every step the pair stays in contact
+            if (depth >= 0f || depth < -BallsConstraintsBuilder.SPECULATIVE_MARGIN) return;
+            if (pair.A.Mobility != CollidableMobility.Dynamic || pair.B.Mobility != CollidableMobility.Dynamic) return;
+
+            _queuedContacts.Enqueue(new QueuedContact(eventSource, pair, contactOffset));
+        }
+
         public void OnTouching<TManifold>(CollidableReference eventSource, CollidablePair pair, ref TManifold contactManifold,
             int workerIndex)
             where TManifold : unmanaged, IContactManifold<TManifold>
@@ -559,6 +602,9 @@ namespace Prazsky.BS3D.Physics
             //game where a group leaves — so the rule sits there and this list is only how the count gets back
             //out. Nothing else on this path had to be added, and nothing in the Testbed or the sag probe did
             //either, which is the whole argument for putting it there; see that method's remarks.
+            //Where the list of loose balls stood before this landing, so what it releases can be marked below (#410)
+            int fallingBefore = _fallingBalls.Count;
+
             BallsReleased released = BallsConstraintsBuilder.ReleaseSameTypeCluster(physicsBall, _physicsBalls,
                 _map, _simulation, _fallingBalls, _thawedCells, _detonations);
 
@@ -591,6 +637,12 @@ namespace Prazsky.BS3D.Physics
             if (_armedBombs.Count > 0)
                 released = released.Plus(BallsConstraintsBuilder.DetonateBombs(
                     _armedBombs, _physicsBalls, _map, _simulation, _fallingBalls, _detonations));
+
+            //Everything the four removals just let go of is LOOSE from here on, and a shot still in the air passes
+            //through it (#410; the filter is NarrowPhaseCallbacks'). Marked here because this is the one place a
+            //player's shot releases anything; PhysicsWorld.RetireBall clears the mark when the ball is culled.
+            for (int i = fallingBefore; i < _fallingBalls.Count; i++)
+                _contactEvents.MarkLoose(_fallingBalls[i].BallReference.Handle);
 
             //Reported whether or not anything fell: a shot that stuck without completing a group is still a
             //resolved shot, and the streak rule has to hear about it. Taken before the release above could
