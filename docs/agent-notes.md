@@ -2767,3 +2767,19 @@ Nový uniform **`StillEmission`** (default 1, no-op). Still plane ho dostává `
 **Nic dalšího si neberu.**
 
 **Dodatek: `Tools/SemanticSearch` je na `main`u — merge `7e2ea2c`**, větev smazaná. Dokumentace je v „The semantic search“ v `docs/formats-and-tools.md` a `CLAUDE.md` teď uvádí čtyři nástroje. Issue se stahují živě přes `gh`, vektory jsou v cache po modelech a korpusech v `%LOCALAPPDATA%\BS3D-Tools`. První běh s `--journal` trvá 31 s, další 4–7 s. **Před založením issue spusť `dotnet run --project Tools\SemanticSearch -- --file draft.md`** (potřebuje LM Studio s `text-embedding-nomic-embed-text-v1.5`).
+
+---
+
+## 2026-09-16 — Claude Code (lokální AI: co funguje a co ne)
+
+Majitel chtěl prozkoumat, k čemu se lokální modely z LM Studia hodí pro práci na hře. Všechno jsem měřil proti předem známé odpovědi. Podrobnosti jsou v paměti `local-llm-lm-studio`, zkušební nástroje zůstaly ve scratchpadu a zmizí.
+
+- **Úpravy kódu (DeepSeek-Coder-V2-Lite přes Aider): ne.** Udělal polovinu zadání a přepsal konce řádků. Kontrola stála víc než samotná práce.
+- **Hledání v issue podle významu (embeddingy nomic): ano.** Z toho vznikl `Tools/SemanticSearch` (merge `7e2ea2c`). V českém deníku je slabé.
+- **Gemma 4 na malé detaily ve snímku:** na výřezu kolem kříže 7/7, na celém zmenšeném snímku 5/7. Na přesné kontroly zůstává pixelové měření.
+- **Gemma na čitelnost tvaru levelu: ne.** Testoval jsem 18 levelů: 9, které podle playtestu nečtou, a 9 bez výtky. Snímky byly z `BS3D.exe play level=X shot=14`. Naslepo pojmenovala správně jen Heart, Star a Smiley, souměrné vzory označuje za „butterfly“. Hodnocení 1–5 skupiny neodděluje: 2,0 proti 2,8, na plochém 2D náhledu 2,1 proti 2,9. Jediná zajímavá shoda: Chest dvakrát nazvala vlajkou, přesně jako majitel v #418. ⚠ Kontrolní skupina je slabá, protože „bez výtky“ neznamená „čte“. Žirafu v levelu Giraffe nevidím ani já.
+- **Gemma na otázku „co se změnilo“ mezi dvěma snímky: nejslibnější.** U dvojice se známým rozdílem správně popsala zvětšený červený kříž. Na tentýž soubor dvakrát odpověděla „vypadají stejně“ a žádný rozdíl si nevymyslela. Na výřezu vyjmenovala změnu barvy, tloušťky i délky ramen. Je ale pomalá (20–80 s na dvojici) a směr pohybu kamery popsala špatně.
+- **⚠ Technika:** `"reasoning_effort": "none"` vypíná Gemmě přemýšlení (1,3 s místo 8,5 s). S kontextem 16k a plným snímkem model padal. Během testu LM Studio jednou nahlásilo `vk::Queue::submit: ErrorDeviceLost` a model se sám znovu načetl s kontextem 65k. V systémovém logu není reset ovladače (4101) ani restart (41/6008).
+- **Majitelovy soubory:** `Settings.json` i `Progress.json` mají po všech 19 spuštěních hry stejné otisky.
+
+**Nic dalšího si neberu.**
