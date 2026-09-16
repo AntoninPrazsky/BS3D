@@ -364,19 +364,26 @@ static const float VOLUME_HAZE = 0.22;
 //more sensitive to its input than a near-singular iterate and the drift alone carries it off the march step it
 //was sampled on. At 8 the cap sits just above that 99.9th percentile, so the web is left as it was tuned and
 //only the singular tail is clipped: from the pinned Testbed camera, sky pixels changing by more than 40 codes
-//between frames 0.3 s apart fell from ~4 600-5 300 to ~130-660, and none of the sky reaches code 220 any more.
+//between frames 0.3 s apart fell from ~4 600-5 300 to ~50-680, and none of the sky reaches code 220 any more.
 //
 //Per ITERATION rather than on the step's sum, because a cap on the sum was tried first and did nothing useful:
 //it flattened the disc's core and left the same disc popping in and out, the sum being large only inside it.
 //
-//And it rises as 1/s toward the eye (VOLUME_JUMP_CAP_NEAR). The same singular neighbourhood subtends an angle
-//inversely proportional to its distance, so a near step magnifies its clipped disc - and the first step, whose
-//samples for the whole frame lie within 0.05 of the eye, has large jumps that are the soft glow the camera
-//stands in rather than any glint. A flat cap of 12 dimmed exactly that glow (the sky's mean fell by a tenth);
-//holding cap * s at 3 or more keeps a near step's clipped disc no wider on screen than a far one's and the
-//glow where it was (the mean within 2 %, the difference being the glints' own light).
+//What no cap removes is the DISC itself, and it is worth knowing why before trying. A throw leaves the next
+//iterate at about -FORMULA on every axis, whatever pixel it came from, so every pixel inside the disc then runs
+//the same orbit - and that orbit's own moves are 4.7, 4.2 and later a second throw of 17 and 16. The disc is a
+//flat patch of one shared sum, the fractal's structure rather than a sampling fault, and a cap only sets how
+//bright it is: clipped at 8 it is a faint knot in the web rather than a flash.
+//
+//The FIRST step is held to VOLUME_JUMP_CAP_EYE instead. Its samples for the whole frame lie within 0.05 of the
+//eye, so its jumps are not glints but one frame-wide gradient - the soft glow the camera stands in, whose jumps
+//ran to 27 at the tuned camera - and a flat cap of 12 across every step dimmed exactly that (the sky's mean fell
+//by a tenth). With the first step exempt the mean stays within 2 %, the difference being the glints' own light.
+//A 1/s rise toward the eye was tried in its place and rejected in the Game: it lifted the second step's cap to
+//13, and the second step is the one that magnifies a disc most after the first, so the nearest discs came out
+//the brightest - a flat red disc as wide as the flash had been.
 static const float VOLUME_JUMP_CAP = 8.0;
-static const float VOLUME_JUMP_CAP_NEAR = 3.0;
+static const float VOLUME_JUMP_CAP_EYE = 30.0;
 
 //A fixed basis, orthonormal to about three decimals, that shares no axis with the world's. Baked as a
 //constant because it never changes and the compiler folds it into the multiplies.
@@ -420,8 +427,8 @@ float3 StarNestVolume(float3 dir, float3 eye, out float transmittance)
         float previousLength = 0.0;
         float activity = 0.0;
 
-        //See VOLUME_JUMP_CAP: the far steps' ceiling, raised as 1/s for the near ones
-        float jumpCap = max(VOLUME_JUMP_CAP, VOLUME_JUMP_CAP_NEAR / s);
+        //See VOLUME_JUMP_CAP: every step clips a singular throw, the first (the glow around the eye) far higher
+        float jumpCap = r == 0 ? VOLUME_JUMP_CAP_EYE : VOLUME_JUMP_CAP;
 
         [unroll]
         for (int i = 0; i < VOLUME_ITERATIONS; i++)
