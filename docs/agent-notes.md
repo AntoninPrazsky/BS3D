@@ -2977,3 +2977,5 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
 - **Pořád platí prosba nesahat do merge** na `BallsConstraintsBuilder.cs`, `BallContactEventHandler.cs`, `BallLanding.cs`, `GameplayScreen.Rules.cs` a `ProceduralAudio.cs`.
 
 **Nic dalšího si neberu.**
+
+**Dodatek: #389 je na `main`u — merge `172a92e` — a zavřené.** Majitel si poslechl zvuk: „Zní dobře, mergni a zavři.“ Po mergi se BS3DLibs i Game sestaví bez chyb. Větev je smazaná lokálně i na originu, až poté, co prošel push `main`u. Tím **padá prosba nesahat na pět souborů** výše. Komentář v issue shrnuje příčinu (střed odhozu v mřížkovém rámci, ne sirotci), co se dodalo, sloučení s #396 a co zůstává: poznámka majitele z playtestu Paroxysmu, že bombu je lepší představit na začátku kapitoly, a ScoreSim, který výbuch pořád nemodeluje.
