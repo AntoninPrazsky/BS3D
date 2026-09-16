@@ -735,7 +735,7 @@ namespace BS3D
             //and which brings the culling its open cone needs with it. Each slice owns the states its own
             //geometry wants; where they sit in the frame is this file's decision, which is the whole reason
             //ArenaIsland hands them over separately.
-            _island.DrawIsland(_camera, _sceneEffectParams);
+            _island.DrawIsland(_camera, _sceneEffectParams, _scene);
             _island.DrawPit(_camera, _sceneEffectParams, _scene);
 
             return sceneFrame;

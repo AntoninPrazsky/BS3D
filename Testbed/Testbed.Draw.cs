@@ -132,7 +132,7 @@ namespace Testbed
                 //drain, which is drawn in the solid-terrain scenes only and brings its own culling with it.
                 //Each slice owns the states its own geometry needs; where they sit in the frame is this file's
                 //decision, which is the whole reason the component hands them over separately.
-                _island.DrawIsland(_camera, _sceneEffectParams);
+                _island.DrawIsland(_camera, _sceneEffectParams, _scene);
                 _island.DrawPit(_camera, _sceneEffectParams, _scene);
 
                 //Into a local because the glazing further down is drawn with the very same pose — it is set into

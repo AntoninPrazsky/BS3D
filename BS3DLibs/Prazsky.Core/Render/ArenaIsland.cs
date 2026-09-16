@@ -323,6 +323,72 @@ namespace Prazsky.Core.Render
         private readonly InstancedModelRenderer[] _skyLit;
 
         /// <summary>
+        /// What the island is made of in one scene (#404): the cap's and the drum's albedo (sRGB, the same space
+        /// as <see cref="STONE_COLOR"/>), how polished each is (their <c>SpecularAmbientStrength</c>) and how big
+        /// the cap's laid slabs are.
+        /// </summary>
+        private readonly record struct IslandLook(Vector3 Cap, Vector3 Drum, float CapPolish, float DrumPolish, float Slab);
+
+        //THE ISLAND PER SCENE (#404). One island design stood in all twenty scenes - the dressed grey stone and
+        //concrete that came out of the Testbed - so a desert, a volcano, a polar ice sheet and deep space all
+        //stood their cannon on the identical slab. This is the issue's first concrete pass, MATERIAL ONLY: the
+        //geometry, the joints, the relief and the detail textures stay, and what changes is the colour, the
+        //polish and the slab size, read off the references #441 rendered for the islands and off each scene's
+        //own ground. The authored stone stays where it already belonged (the meadow's and the sea's pale
+        //limestone), and those scenes draw exactly as before - no tint at all.
+        private static readonly IslandLook DEFAULT_LOOK = new(STONE_COLOR, CONCRETE_COLOR, 0.14f, 0.08f, 2f);
+
+        private static IslandLook LookFor(SceneKind scene) => scene switch
+        {
+            //Polished pale concrete and brushed steel, laid in bigger plates: a plaza on a rooftop
+            SceneKind.City => new(new Vector3(0.53f, 0.54f, 0.56f), new Vector3(0.36f, 0.38f, 0.41f), 0.20f, 0.18f, 3f),
+            //Dark polished granite, so the neon has something to lie in
+            SceneKind.NeonCity => new(new Vector3(0.17f, 0.17f, 0.20f), new Vector3(0.14f, 0.14f, 0.17f), 0.42f, 0.28f, 2.5f),
+            //Ochre sandstone, and the desert's paler, sun-bleached one
+            SceneKind.Savanna => new(new Vector3(0.62f, 0.54f, 0.42f), new Vector3(0.52f, 0.44f, 0.34f), 0.12f, 0.07f, 2f),
+            SceneKind.Desert => new(new Vector3(0.74f, 0.62f, 0.46f), new Vector3(0.64f, 0.52f, 0.38f), 0.12f, 0.07f, 2.2f),
+            //Blue-grey granite
+            SceneKind.Mountain => new(new Vector3(0.50f, 0.52f, 0.55f), new Vector3(0.40f, 0.42f, 0.45f), 0.16f, 0.09f, 2f),
+            //Stone gone green with moss
+            SceneKind.Forest => new(new Vector3(0.45f, 0.49f, 0.40f), new Vector3(0.37f, 0.40f, 0.33f), 0.10f, 0.06f, 2f),
+            //Machined plates of pale metal on a dark hull
+            SceneKind.Space => new(new Vector3(0.44f, 0.46f, 0.50f), new Vector3(0.26f, 0.28f, 0.32f), 0.22f, 0.20f, 4f),
+            //Pastel marble, polished
+            SceneKind.Dream => new(new Vector3(0.78f, 0.67f, 0.78f), new Vector3(0.66f, 0.59f, 0.74f), 0.32f, 0.20f, 2.5f),
+            //Wet dark rock
+            SceneKind.Cavern => new(new Vector3(0.31f, 0.32f, 0.34f), new Vector3(0.25f, 0.26f, 0.28f), 0.30f, 0.20f, 2f),
+            //Grey regolith concrete
+            SceneKind.Moon => new(new Vector3(0.50f, 0.49f, 0.48f), new Vector3(0.42f, 0.42f, 0.42f), 0.08f, 0.05f, 2.5f),
+            //Red sandstone
+            SceneKind.Outback => new(new Vector3(0.66f, 0.41f, 0.27f), new Vector3(0.54f, 0.33f, 0.22f), 0.10f, 0.06f, 2f),
+            //Pale coral limestone
+            SceneKind.Tropical => new(new Vector3(0.80f, 0.78f, 0.72f), new Vector3(0.68f, 0.64f, 0.56f), 0.14f, 0.08f, 2f),
+            //Black basalt
+            SceneKind.Volcano => new(new Vector3(0.18f, 0.17f, 0.17f), new Vector3(0.14f, 0.13f, 0.13f), 0.14f, 0.08f, 2f),
+            //Rust-red rock, the plain's own
+            SceneKind.Mars => new(new Vector3(0.56f, 0.41f, 0.31f), new Vector3(0.46f, 0.34f, 0.26f), 0.08f, 0.05f, 2f),
+            //Rain-dark slate
+            SceneKind.Storm => new(new Vector3(0.37f, 0.39f, 0.42f), new Vector3(0.30f, 0.32f, 0.35f), 0.18f, 0.12f, 2f),
+            //Glacier ice: pale, blue in its depth, polished
+            SceneKind.Polar => new(new Vector3(0.80f, 0.87f, 0.93f), new Vector3(0.62f, 0.74f, 0.84f), 0.42f, 0.30f, 3f),
+            //Frosted stone under the aurora
+            SceneKind.Aurora => new(new Vector3(0.62f, 0.66f, 0.70f), new Vector3(0.48f, 0.52f, 0.58f), 0.20f, 0.12f, 2f),
+            //Glossy black, for the grid's light to run in
+            SceneKind.Grid => new(new Vector3(0.14f, 0.15f, 0.19f), new Vector3(0.12f, 0.13f, 0.16f), 0.45f, 0.30f, 3f),
+            _ => DEFAULT_LOOK
+        };
+
+        //The tint that turns a material authored at STONE_COLOR (or CONCRETE_COLOR) into another albedo:
+        //InstancedModelRenderer reduces the material to its luminance and multiplies by 1.25 before applying a
+        //tint, so the tint that lands a colour exactly is that colour over the product.
+        private static Vector3 TintFor(Vector3 wanted, Vector3 authored) =>
+            wanted / ((authored.X * 0.299f + authored.Y * 0.587f + authored.Z * 0.114f) * 1.25f);
+
+        //The one-instance arrays the tinted draws go through (the single-world overload takes no tint)
+        private readonly ModelInstance[] _capInstance = new ModelInstance[1];
+        private readonly ModelInstance[] _drumInstance = new ModelInstance[1];
+
+        /// <summary>
         /// Builds the whole assembly here and now — the three meshes, the two procedural textures, the five
         /// renderers with every relief, slab, detail and specular figure, the gold beads' effect-params
         /// override and the one world matrix. There is nothing runtime about any of it (contrast
@@ -591,10 +657,30 @@ namespace Prazsky.Core.Render
         /// <i>show</i> a winding mistake rather than hide one. Leaves the rasterizer exactly as it found it.
         /// </para>
         /// </summary>
-        public void DrawIsland(ICamera camera, BasicEffectParams sceneParams)
+        public void DrawIsland(ICamera camera, BasicEffectParams sceneParams, SceneKind scene)
         {
-            if ((Members & ArenaMembers.Cap) != 0) _capRenderer.Draw(camera, _world, sceneParams);
-            if ((Members & ArenaMembers.Drum) != 0) _bodyRenderer.Draw(camera, _world, sceneParams);
+            //The scene's own material (#404). Read per draw rather than pushed on a scene switch, because the
+            //callers set their scene in several places (a startup argument, a level load, the scene page) and a
+            //look that one of them forgot to push would stand in the wrong scene; resolving it here costs a
+            //switch and four field writes. A scene with the authored look draws exactly as before, untinted.
+            IslandLook look = LookFor(scene);
+            bool authored = look.Equals(DEFAULT_LOOK);
+
+            _capRenderer.SpecularAmbientStrength = look.CapPolish;
+            _capRenderer.SlabSize = look.Slab;
+            _bodyRenderer.SpecularAmbientStrength = look.DrumPolish;
+
+            if ((Members & ArenaMembers.Cap) != 0)
+            {
+                _capInstance[0] = new ModelInstance(_world, new Vector4(0f, 0f, 0f, 1f));
+                _capRenderer.Draw(camera, _capInstance, 1, sceneParams, authored ? null : TintFor(look.Cap, STONE_COLOR));
+            }
+
+            if ((Members & ArenaMembers.Drum) != 0)
+            {
+                _drumInstance[0] = new ModelInstance(_world, new Vector4(0f, 0f, 0f, 1f));
+                _bodyRenderer.Draw(camera, _drumInstance, 1, sceneParams, authored ? null : TintFor(look.Drum, CONCRETE_COLOR));
+            }
         }
 
         /// <summary>
