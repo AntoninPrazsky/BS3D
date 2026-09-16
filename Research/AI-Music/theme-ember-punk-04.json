@@ -1,0 +1,25 @@
+{
+  "file": "theme-ember-punk-04.wav",
+  "created": "2026-09-16",
+  "variation_of": "theme-ember.wav (MusicTheme.Ember counterpart)",
+  "purpose": "Reference render for #443. Not wired into any content pipeline.",
+  "provenance": "Generated first for home listening under the name ember-green-day-0N: at the owner's request this prompt NAMES a real band and a real song/album as the style reference (the punk-01..03 prompts only described the style). The owner listened and judged, 2026-09-16: neither recording is recognisable as Green Day or as a specific song; cleared to rename and use in the game.",
+  "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- generate-music.ps1 -NoCotCaption -Loop",
+  "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+  "license": "ACE-Step 1.5: MIT (code and weights)",
+  "lm_enriched_caption": "none -- use_cot_caption was false, so the LM passed the caption through verbatim and only filled bpm, key and duration",
+  "request": {
+    "caption": "Green Day style punk rock instrumental, like Green Day's Boulevard of Broken Dreams: brooding mid-tempo, tremolo-picked distorted guitar melody, palm-muted power chords in the verses opening into big anthemic choruses, steady marching snare, melancholic and defiant, no vocals",
+    "lm_negative_prompt": "vocals, singing, audience applause, crowd noise, live recording",
+    "use_cot_caption": false,
+    "instrumental": true,
+    "duration": 120,
+    "bpm": 84,
+    "keyscale": "E minor",
+    "inference_steps": 8,
+    "output_format": "wav32"
+  },
+  "post_process": "loop_crossfade.py: a 16-bar loop cut out of the render's body -- source 37.22s..82.40s, tempo measured 84.8 bpm, 1.41s equal-power crossfade -> 45.2s seamless loop",
+  "loop_check": "crossfade rhythm r=0.86 against the track's own passages a bar apart r=0.50; spectrum cos=0.79; context match 0.608 (best 0.657). Verdict: in time",
+  "measured": "ace-lm 14.6s, ace-synth 44.7s; VAE decode 4 tiles in 33.4s"
+}
