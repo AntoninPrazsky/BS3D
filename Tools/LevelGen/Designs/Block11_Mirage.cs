@@ -19,21 +19,28 @@ namespace BS3D.Tools.LevelGen
         //  ⚠ GLASS GOES ON THE SKIN. Never buried, never on the anchor course.
         //
         //Both halves are load-bearing and neither is taste. A transparent ball is coloured by a shot landing
-        //in a cell BESIDE it (BallsMap.ColourTransparentNeighbours takes every transparent neighbour of the
-        //landing cell), so a glass ball with no empty neighbour is a ball the player can never colour - and
+        //in a cell BESIDE it or beside glass joined to it (BallsMap.ColourTransparentGroup), so a glass body
+        //with no empty neighbour anywhere is glass the player can never colour - and
         //glass counts against the level being cleared, so that is a level that cannot be finished while
         //every other gate in the generator passes it. FindStrandedSpecials refuses it. And glass on the field's top
         //level is a CEILING ANCHOR THAT DISSOLVES: one shot beside it and the cluster's hanging width drops,
         //which is #301/#302's failure mode with the one ingredient those issues did not have, namely that
         //the ball gave no warning because it had no colour to warn with. Refused as well.
         //
-        //WHAT MAKES A GLASS BALL WORTH PLACING is the arithmetic of one landing. A shot into an empty cell
-        //colours EVERY transparent neighbour of that cell at once and only then counts the group, so a
-        //pocket with one glass ball in it pays the shot plus that ball - two, which is under the three a
-        //match needs and drops nothing by itself - and a pocket with two pays three and clears on the spot.
-        //Every design below is drawn so that its glass stands in twos along a surface a shot can reach: the
-        //validator prints the deepest pocket it can find, and that number is the design's payoff rather
-        //than a diagnostic.
+        //WHAT MAKES A GLASS BALL WORTH PLACING is the arithmetic of one landing. Since #344 a shot into an
+        //empty cell colours the WHOLE connected body of glass it touches - every transparent neighbour, then
+        //theirs, as far as the glass runs - and a cell touching several separate bodies colours every one of
+        //them, all before the group is counted. (This header said "every transparent neighbour of the landing
+        //cell" until #422: that was #325's first rule, retracted in #344, and the arithmetic below is the
+        //current one.) So a landing colours every body it touches, and two coloured is the number that matters:
+        //with the shot that is three, joined through the cell it stands in, and the group completes on the
+        //spot. A landing that colours one pane leaves a pair and drops nothing - and a body whose EVERY
+        //landing is like that is the one state the validator refuses ("glass in bodies of two or more"). A lone
+        //pane passes it whenever some landing touches it and a second body at once: Facet's rim, below, is 64
+        //separate panes built on exactly that. The validator prints the most glass one landing colours ("best
+        //glass landing pays"), and the drop test prices what such a landing brings down (#362: Solitaire's
+        //surface was one body, and one landing coloured 116 of its balls before it was cut into facets); both
+        //numbers are the design's payoff rather than a diagnostic.
         //
         //AND THE ONE THING GLASS MAY DO THAT COLOUR MAY NOT: stand one cell thick on a diagonal. Cells on
         //one level touch only their four ORTHOGONAL neighbours, so a colour band one cell wide running
