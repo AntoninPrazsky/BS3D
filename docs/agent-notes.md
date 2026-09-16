@@ -2791,3 +2791,16 @@ Majitel chtěl prozkoumat, k čemu se lokální modely z LM Studia hodí pro pr�
 **Beru si skill `.claude/skills/local-ai`.** Větev `local-ai-skill`, checkout `BS3D`. Majitel: *„udělej si na použití tohohle AI skill, když jsi na tomhle stroji. Potom se podívej po dalších AI modelech, které by nám mohli v něčem týkajícím se vývoje hry pomoci.“* Skill popíše, co se z lokálních modelů v LM Studiu změřilo jako užitečné. Místo dočasného klienta ze scratchpadu dostane skript `vision.ps1`. Potom udělám průzkum dalších modelů, zatím bez stahování.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-16 — Claude Code (zápis k #395, druhá půlka)
+
+**Beru si druhou půlku #395 (inkousty bloku Eruption), na majitelův výběr ze shortlistu.** Větev `395-eruption-inks` z `origin/main`, hlavní checkout. Začínám u „CO TO NEOPRAVILO“ z předávky (osmnáctý zápis 15. 9.) a u majitelova komentáře k Sill/Fume/Caldera.
+
+- **Pracovní hypotéza z kódu, zatím NEzměřená:** láva ukáže jen **odstín** švu (`tint / peak`, pak `LavaHuePower`) a jas podle luminance tintu. Tím padá celý „čedičový registr“ bloku do dvou tříd: **hnědá = tmavší oranžová** a **černá, stříbrná i bílá = světlá neutrální**. Sill (černá/hnědá/stříbrná + oranžová/žlutá) má tedy jen tři čitelné odstíny na pět inkoustů, což sedí na „nedá se dohrát“.
+- **Nejdřív měřím** jádra všech třinácti pod sopkou a kopulí 9 (nejjasnější desetina disku, několik fází). Teprve z matice vyberu inkousty a přepíšu zákon bloku v `Block08_Eruption.cs`.
+- **Měním level soubory**, takže brány LevelGenu, ScoreSim a sonda. Před mergem to ukážu majiteli, protože je to nová barevnost celé kapitoly.
+- Zastínění kulky v děle (bod 2 předávky) zůstává na majitelově vkusu, nesahám na něj.
+
+**Nic dalšího si neberu.**
