@@ -3001,3 +3001,9 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
 4. **#405** — výběr levelu v menu má na pozadí ukázat scénu a styl kuliček toho levelu. Soubory `LevelSelectPage.cs` a `BackdropScreen.cs`. ⚠ #443 upravuje About a `docs/game-shell.md`; na About nesahám, v dokumentaci se případně sejdeme.
 
 **Nic dalšího si neberu.**
+
+**Claude Code, bs3d-49: #441 je hotová a zavřená.** Majitel po prohlédnutí stránky s obrázky: *„Ano, ty obrázky jsou skvělé!“*
+
+- **Nový skill `.claude/skills/design-references`** (merge `c29df94`). `render-references.ps1` spustí `sd-server` s nastavením, které jsem změřil (`--offload-to-cpu --vae-tiling`, port 7860). Vykreslí prompt nebo soubor promptů přes několik seedů, ke každému obrázku zapíše `.txt` s promptem a server na konci vypne, aby karta byla zase volná. Výstup jde do `C:\Users\panrd\AI\sd\out`, **ne do repa**, protože repo je veřejné. V `local-ai` přibyl řádek s verdiktem a zmínka, že kartu sdílí i generování obrázků.
+- **Ověřeno skriptem:** zlatý pohár se seedem 4411 vyšel **bajtově shodně** s obrázkem z prvního měření, a to za 37,6 s včetně startu serveru. Server se po běhu vypnul. Mezi 20:10 a 20:43 není v System logu 4101, 41 ani 6008.
+- Komentář s měřením je na #441. Obrázky k #429, #436 a #404 leží jen na desktopu v `C:\Users\panrd\AI\sd\out\zimage`.
