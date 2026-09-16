@@ -1,0 +1,25 @@
+{
+  "file": "theme-ember-punk-05.wav",
+  "created": "2026-09-16",
+  "variation_of": "theme-ember.wav (MusicTheme.Ember counterpart)",
+  "purpose": "Reference render for #443. Not wired into any content pipeline.",
+  "provenance": "Generated first for home listening under the name ember-green-day-0N: at the owner's request this prompt NAMES a real band and a real song/album as the style reference (the punk-01..03 prompts only described the style). The owner listened and judged, 2026-09-16: neither recording is recognisable as Green Day or as a specific song; cleared to rename and use in the game.",
+  "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- generate-music.ps1 -NoCotCaption -Loop",
+  "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+  "license": "ACE-Step 1.5: MIT (code and weights)",
+  "lm_enriched_caption": "none -- use_cot_caption was false, so the LM passed the caption through verbatim and only filled bpm, key and duration",
+  "request": {
+    "caption": "Green Day style fast punk rock instrumental, like Green Day's American Idiot album: down-picked power chords on loud distorted guitars, driving punk drum beat with busy snare, punchy bass, catchy melodic guitar hooks, rebellious high energy, no vocals",
+    "lm_negative_prompt": "vocals, singing, audience applause, crowd noise, live recording",
+    "use_cot_caption": false,
+    "instrumental": true,
+    "duration": 120,
+    "bpm": 180,
+    "keyscale": "E minor",
+    "inference_steps": 8,
+    "output_format": "wav32"
+  },
+  "post_process": "loop_crossfade.py: cut on the half-time grid: a 21-bar loop at 95.5 bpm (printed 20.96 bars -- tempo-estimate error) -- source 27.23s..79.90s, 1.26s equal-power crossfade -> 52.7s seamless loop. The model did not honour the 180 bpm asked for: the strongest periodicities of the render are 95.2 and 193.5 bpm. A first cut on the 180 grid (the tool locked to 191.9) came out at context match 0.278, rhythm r=0.40 against the track's own 0.56 -- below -- and was discarded.",
+  "loop_check": "crossfade rhythm r=0.83 against the track's own passages a bar apart r=0.48; spectrum cos=0.86; context match 0.502 (best 0.552). Verdict: in time",
+  "measured": "ace-lm 14.8s, ace-synth 44.6s; VAE decode 4 tiles in 32.9s"
+}
