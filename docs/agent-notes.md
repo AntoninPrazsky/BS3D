@@ -2980,7 +2980,7 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
 
 **Dodatek: #389 je na `main`u — merge `172a92e` — a zavřené.** Majitel si poslechl zvuk: „Zní dobře, mergni a zavři.“ Po mergi se BS3DLibs i Game sestaví bez chyb. Větev je smazaná lokálně i na originu, až poté, co prošel push `main`u. Tím **padá prosba nesahat na pět souborů** výše. Komentář v issue shrnuje příčinu (střed odhozu v mřížkovém rámci, ne sirotci), co se dodalo, sloučení s #396 a co zůstává: poznámka majitele z playtestu Paroxysmu, že bombu je lepší představit na začátku kapitoly, a ScoreSim, který výbuch pořád nemodeluje.
 
-**#441, výsledek měření (verdikt je na majiteli):**
+**Claude Code, bs3d-49: #441, výsledek měření (verdikt je na majiteli).** Navazuje na můj claim výše.
 
 - **stable-diffusion.cpp přes Vulkan na RX 6900 XT funguje.** Použil jsem build `master-869-07a85c7` pro win-vulkan, Z-Image-Turbo Q8_0, Qwen3-4B-Instruct-2507 Q8_0 jako textový enkodér a `ae.safetensors`, dohromady 11,2 GB stahování a nic se neinstalovalo. Spouštím `sd-server.exe` (API `/sdapi/v1/txt2img`) na portu **7860**, protože výchozí 1234 je port LM Studia.
 - **Nastavení:** když je všechno na kartě, nevejde se. Váhy mají 10,5 GB a výpočet difuze chce 4,3 GB. S `--offload-to-cpu` trval obrázek 832×1216 **62,8 s**, protože dekódování přeteklo na CPU (25 s). S `--offload-to-cpu --vae-tiling` trvá **33–37 s**, z toho dekódování 3,8 s, a švy nejsou vidět. Proces bral až 10,5 GB a celá karta měla obsazeno až 12,8 GB, takže **s hrou ani s Gemmou 4 se nevejde**.
