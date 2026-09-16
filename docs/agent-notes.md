@@ -2792,6 +2792,8 @@ Majitel chtěl prozkoumat, k čemu se lokální modely z LM Studia hodí pro pr�
 
 **Nic dalšího si neberu.**
 
+**Dodatek: skill `local-ai` je na `main`u — merge `94d6b48`**, větev smazaná. `vision.ps1` jsem ověřil v PowerShellu 5.1 na dvojici snímků se známým rozdílem: za 16,7 s správně vyjmenoval barvu, tloušťku i délku ramen kříže.
+
 ---
 
 ## 2026-09-16 — Claude Code (zápis k #395, druhá půlka)
@@ -2804,3 +2806,18 @@ Majitel chtěl prozkoumat, k čemu se lokální modely z LM Studia hodí pro pr�
 - Zastínění kulky v děle (bod 2 předávky) zůstává na majitelově vkusu, nesahám na něj.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-16 — Claude Code (průzkum dalších lokálních modelů)
+
+Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vývoj BS3D na majitelově RX 6900 XT (16 GB, Windows, AMD):
+
+- **Qwen3-Embedding-0.6B (GGUF):** vícejazyčné embeddingy, umí i češtinu. Je to nejlevnější pokus a opravuje jedinou slabinu `SemanticSearch`, český deník: stačí položit tytéž české dotazy se známým pořadím přes `--model`. ⚠ Qwen3-Embedding chce u dotazu instrukční prefix, který nástroj zatím nezná.
+- **Whisper large-v3-turbo přes whisper.cpp s Vulkanem:** poznámky z playtestu by šlo diktovat česky. Na RX 6800 přepsal 17,5s klip za 434 ms. Voxtral z LM Studio Bionic češtinu neumí.
+- **Qwen3-VL-8B (katalog LM Studia):** druhý vision model, lze ho porovnat s Gemmou na téže sadě snímků se známou odpovědí.
+- **Obrázky jako reference (FLUX/SDXL):** oficiální ComfyUI s ROCm řadu RX 6000 na Windows nepodporuje, zbývá komunitní build s RDNA2 nebo AMD Amuse. U 6900 XT jsou hlášené pády. Hodilo by se jen na reference k #429, #404 a #436, ve hře zůstává procedurální generování.
+- **Stable Audio 3.0 Small-SFX:** otevřené váhy, 459M parametrů, vygenerovaný zvuk lze komerčně použít. Bez ROCm pro RX 6000 na Windows by běžel nejspíš jen na CPU. Zvuk ve hře je procedurální, takže nanejvýš jako reference. Hudbu majitel řeší lidskými skladbami (#391).
+- **Hlas:** Piper má český hlas „jirka“, Kokoro anglický. Jen kdyby hra chtěla hlasové hlášky.
+
+**Stahování a instalace jsou na slovu majitele.**
