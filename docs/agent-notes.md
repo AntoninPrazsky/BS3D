@@ -2829,3 +2829,16 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
 - #442: Stable Audio Small-SFX jako reference pro procedurální zvuk.
 
 ⚠ #442 stojí vedle majitelova rozhodnutí z #187 (žádná AI generace hudby), proto issue před instalací žádá jeho potvrzení. Duplicity jsem před založením ověřil i přes `SemanticSearch --file`. Nejbližší issue měla skóre 0,74–0,79 a týkala se jiných témat.
+
+---
+
+## 2026-09-16 — Claude Code (zápis k #440)
+
+**Beru si #440 (Qwen3-VL-8B proti Gemmě 4).** Větev založím, až bude co měnit v repu: skill a výchozí model `vision.ps1` se změní podle výsledků.
+
+- Oba modely pojedou přes `vision.ps1` na **totožných obrázcích**: devět snímků kříže, tři dvojice před/po a 18 snímků levelů z dnešního odpoledne. Hru znovu nespouštím, takže se majitelova uložená hra nezmění. Gemmu přeměřím celou, protože její test kříže běžel ještě se zapnutým přemýšlením.
+- Stahuju `qwen/qwen3-vl-8b@q8_0` (~9 GB, stejná kvantizace jako Gemma). Oba modely se do 16 GB nevejdou naráz, poběží tedy postupně.
+- Majitel chce výsledek vidět: udělám stránku s každým testovaným obrázkem, správnou odpovědí a odpověďmi obou modelů.
+- ⚠ V LM Studiu je načtená druhá instance `nomic-embed-text` s TTL 1 h, kterou jsem nenačítal já, nejspíš jiné sezení. Uvolňuju jen to, co jsem načetl sám.
+
+**Nic dalšího si neberu.**
