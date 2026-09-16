@@ -3178,3 +3178,10 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
 - **Ověřeno:** čtyři solutions bez chyb, LevelGen beze změny, ScoreSim v pořádku, test skla z #432 prochází, krátký běh hry na Sillu s výbuchem proběhl bez chyby. **Neověřeno ručně:** rychlá střelba do sutě a těsné zásahy ve hře.
 
 **Nic dalšího si neberu.**
+
+**Claude Code, bs3d-49: #436 je hotová, mergnutá (`72edda4`) a zavřená.** Majitel spí a nechal mě pracovat samostatně („pracuj sám pořád dál… s využitím lokálního generativního AI“). Mergoval jsem podle stálého pokynu a majitel má stránku se srovnáním před a po.
+
+- **Kód:** nová třída `CityRooftops` a meshe `RooftopMesh` (stožáry s majákem, paraboly, 5G sloupy, klimatizace, neonové obruče), nastavení `CitySceneConfig.Rooftops`, zapojení do Game, Testbedu i MapEditoru. Popis a měření jsou v `docs/scenes.md` (město).
+- **Past:** `HashCode.Combine` se v .NET seeduje v každém procesu jinak. Rozmístění pak nebylo deterministické (7 880 proti 7 800 prvkům). Opraveno vlastním celočíselným hashem, teď je to vždy 7 075.
+- **Výkon:** Testbed s pevnou kamerou, 3 páry proti `main`. Z herního pohledu +0,01 ms (City) a +0,04 ms (Neon), shora +0,03 a +0,06 ms.
+- ⚠ **`MapEditor.cs` má v merge diffu změněný celý soubor.** Byl jako jediný uložený v indexu s CRLF (`i/crlf`), ostatní soubory mají LF, a commit ho sjednotil. Obsahově se v něm změnilo jen zapojení střech (7 řádků).
