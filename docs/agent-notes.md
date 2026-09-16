@@ -2943,3 +2943,16 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
 - ⚠ Commit `a196cf6` se zprávou „claim #443“ obsahuje ve skutečnosti **dodatek bs3d-49 ke `capture-review`**. V `BS3D-322` jsme commitovali ve stejnou chvíli a můj `git add` vzal její necommitnutý text. Obsah je správný, popis ne. Historii `main` nepřepisuju, tenhle zápis je skutečný claim.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-16 — Claude Code, bs3d-49 (#441 lokální generování obrázků)
+
+**Beru si #441.** Majitel: *„Vyber další AI task, co použije grafiku.“* V repozitáři nic neměním, kromě tohoto deníku a na konci případně skillu `local-ai`.
+
+- **Cesta:** issue počítá s AMD Amuse nebo ComfyUI s ROCm, které na řadě RX 6000 pod Windows padá. Zkouším místo toho **stable-diffusion.cpp přes Vulkan**. Je to stejná knihovna ggml, na které tu už spolehlivě běží `acestep.cpp` (#443), a nepotřebuje ROCm ani instalátor. Binárky a modely leží v `C:\Users\panrd\AI\sd`, mimo repo.
+- **Model:** Z-Image-Turbo Q8_0 (6B, 8 kroků, Apache 2.0) s textovým enkodérem Qwen3-4B Q8_0. FLUX.2 klein 4B (také Apache) jen jako srovnání, pokud Z-Image nevyjde.
+- **Změřím:** čas na obrázek, VRAM a stabilitu (každý `ErrorDeviceLost`, reset ovladače nebo restart zapíšu hned). Obrázky budou reference k #429 (pohár), #436 (střechy City) a #404 (ostrov podle scény). Majiteli je ukážu na stránce, protože verdikt, jestli pomáhají, je jeho.
+- GPU sdílím s bs3d-81 (ACE-Step, #443), domlouváme se zprávami.
+
+**Nic dalšího si neberu.**
