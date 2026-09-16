@@ -15,6 +15,11 @@ All loops, 48 kHz, 32-bit float, stereo.
   theme-nocturne.wav  80.0s  --       96   MusicTheme.Nocturne
   theme-mural.wav     88.0s  G major  120  MusicTheme.Mural
   theme-ember.wav     57.4s  E minor  134  MusicTheme.Ember
+  theme-ember-punk-01.wav  56.8s  E minor   84  Ember as brooding alt/punk rock
+  theme-ember-punk-02.wav  45.4s  E minor  168  Ember as fast pop-punk (came back
+                                                as metal -- see its sidecar)
+  theme-ember-punk-03.wav  46.6s  E minor  134  Ember as a punk ballad (came back
+                                                as blues-rock solos)
   game-track-01.wav   61.4s  C major  124  a new piece, not a counterpart
 
   * D Dorian was asked for in the caption; the key field has no modes.

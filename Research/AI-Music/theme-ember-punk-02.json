@@ -1,0 +1,25 @@
+{
+  "file": "theme-ember-punk-02.wav",
+  "created": "2026-09-16",
+  "variation_of": "theme-ember.wav (MusicTheme.Ember counterpart)",
+  "style_target": "the owner's reference: punk rock in the vein of Green Day's 'Boulevard of Broken Dreams'. Deliberately NOT named in the prompt -- the style is described (tempo, guitars, drums, mood) so the model is not steered towards reproducing a specific recording.",
+  "purpose": "Reference render for #443. Not wired into any content pipeline.",
+  "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-ember-punk.ps1 -> generate-music.ps1 -Loop",
+  "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+  "license": "ACE-Step 1.5: MIT (code and weights)",
+  "request": {
+    "caption": "Fast energetic pop-punk instrumental, down-picked eighth-note power chords on distorted guitars, punchy bass following the root notes, fast driving snare-heavy punk drum beat, catchy melodic lead guitar hooks, rebellious youthful energy, raw and loud, no vocals",
+    "lm_negative_prompt": "vocals, singing, audience applause, crowd noise, live recording",
+    "instrumental": true,
+    "duration": 120,
+    "bpm": 168,
+    "keyscale": "E minor",
+    "inference_steps": 8,
+    "output_format": "wav32"
+  },
+  "lm_enriched_caption": "An explosive instrumental metal track driven by high-gain, heavily distorted dual guitars playing tight, harmonized riffs with aggressive palm-muting. The song kicks off at full intensity with powerful double-kick drumming and crashing cymbals establishing an energetic groove. A melodic lead guitar emerges to play soaring lines over the chugging rhythm section before transitioning into technical arpeggios during brief transitional passages. The arrangement is dynamic yet relentless, characteristic of modern Japanese rock or video game boss music, culminating in an abrupt stop that leaves a trail of ringing feedback.",
+  "brief_drift": "Largest drift: fast pop-punk came back as metal -- double-kick drums, harmonized high-gain riffs, 'video game boss music'. If it is to be punk, the next try is use_cot_caption false (the DiT gets the caption as written) and 'metal, double-kick drums' in the negative prompt.",
+  "post_process": "loop_crossfade.py: a 32-bar loop cut out of the render's body -- source 32.41s..77.85s, tempo measured 169.0 bpm, 0.71s equal-power crossfade -> 45.4s seamless loop",
+  "loop_check": "crossfade rhythm r=0.78 against the track's own passages a bar apart r=0.45; spectrum cos=0.89; context match 0.804 (best 0.852). Verdict: in time",
+  "measured": "ace-lm 16.8s, ace-synth 47.0s; DiT 7.7s; VAE decode 4 tiles in 35.1s"
+}
