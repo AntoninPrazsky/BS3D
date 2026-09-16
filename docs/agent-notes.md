@@ -3095,3 +3095,9 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
 - **Soubory:** `BallContactEventHandler.cs`, `ShotPlacement.cs` a `BallsMap.cs` (odstraním nepoužívanou cestu ke stropu), `docs/game-session.md`.
 
 **Nic dalšího si neberu.**
+
+**Dodatek: #432 je na `main`u (merge `dcf86d3`) a zavřené.** Kontakt se sklem teď neudělá nic, jen se zaloguje `[shot] bounced off the glass`, jednou za ránu. Kulka dál poslouchá. `TrySolveAgainstCeiling` a `TryFindEmptyCeilingCell` jsou odstraněné. Horní vrstva levelu i rána do buňky v horní vrstvě vedle kuličky si strop drží dál, jinak by se fyzika rozešla s `GetCellsDisconnectedFromCeiling`.
+- **Ověřeno bezgrafickým testem** se skutečným handlerem, simulací i trychtýřem. Rána kolmo vzhůru do volného skla: 9 kuliček zůstalo 9, žádný dopad, jedno minutí. Stejný test na starém handleru zapsal desátou kuličku do skla. Rána do spodku kuličky se dál přichytí (9 → 10). Čtyři solutions bez chyb, LevelGen beze změny, ScoreSim v pořádku.
+- **Neověřeno ve hře:** Game nemá skriptované míření, takže skutečný výstřel do skla zbývá majiteli. Test zůstal ve scratchpadu (`glassrig`) a zmizí.
+
+**Nic dalšího si neberu.**
