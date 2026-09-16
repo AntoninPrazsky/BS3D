@@ -1,7 +1,7 @@
 {
   "file": "menu-loop-v2.wav",
   "created": "2026-09-16",
-  "purpose": "Master of Game/Music/menu.wav, which the game plays since #443: written from this file by Tools/MusicBake --tracks (brought to the loudness of the procedural piece in its slot, peaks held under full scale, 16-bit PCM).",
+  "purpose": "Master of Game/Music/menu.ogg, which the game plays since #443: written from this file by Tools/MusicBake --tracks (brought to the loudness of the procedural piece in its slot, peaks held under full scale, encoded as Ogg Vorbis since #444).",
   "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- C:\\Users\\panrd\\AI\\generate-music.ps1",
   "brief_source": "Game/Audio/ProceduralMusic.cs :: BakeMenu (A minor, 100 BPM, 'a lobby, not a dancefloor')",
   "request": {

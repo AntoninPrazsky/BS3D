@@ -3,7 +3,7 @@
   "created": "2026-09-16",
   "variation_of": "theme-ember.wav (MusicTheme.Ember counterpart)",
   "style_target": "the owner's reference: punk rock in the vein of Green Day's 'Boulevard of Broken Dreams'. Deliberately NOT named in the prompt -- the style is described (tempo, guitars, drums, mood) so the model is not steered towards reproducing a specific recording.",
-  "purpose": "Master of Game/Music/ember-punk-01.wav, which the game plays since #443: written from this file by Tools/MusicBake --tracks (brought to the loudness of the procedural piece in its slot, peaks held under full scale, 16-bit PCM).",
+  "purpose": "Master of Game/Music/ember-punk-01.ogg, which the game plays since #443: written from this file by Tools/MusicBake --tracks (brought to the loudness of the procedural piece in its slot, peaks held under full scale, encoded as Ogg Vorbis since #444).",
   "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-ember-punk.ps1 -> generate-music.ps1 -Loop",
   "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
   "license": "ACE-Step 1.5: MIT (code and weights)",

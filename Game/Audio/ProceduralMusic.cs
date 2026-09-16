@@ -7,7 +7,7 @@ namespace BS3D.Audio
 {
     /// <summary>
     /// Which piece of music a level plays (#120) — a <b>slot</b>, named by the level file (#194). Since #443 what
-    /// a slot plays is a generated recording, <c>Music/&lt;name&gt;.wav</c> and its variants (see
+    /// a slot plays is a generated recording, <c>Music/&lt;name&gt;.ogg</c> and its variants (see
     /// <see cref="GameMusic"/>); the member docs below describe the procedural composition of the same name,
     /// which the slot was written for and which the About page still plays.
     /// <para>
