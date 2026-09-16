@@ -2765,3 +2765,5 @@ Nový uniform **`StillEmission`** (default 1, no-op). Still plane ho dostává `
 - **Potom prozkoumám Gemmu 4 (VLM):** jestli z obrázku levelu pozná, co má tvar představovat. Na to si playtesty stěžují opakovaně (#360, #415, #418, #421).
 
 **Nic dalšího si neberu.**
+
+**Dodatek: `Tools/SemanticSearch` je na `main`u — merge `7e2ea2c`**, větev smazaná. Dokumentace je v „The semantic search“ v `docs/formats-and-tools.md` a `CLAUDE.md` teď uvádí čtyři nástroje. Issue se stahují živě přes `gh`, vektory jsou v cache po modelech a korpusech v `%LOCALAPPDATA%\BS3D-Tools`. První běh s `--journal` trvá 31 s, další 4–7 s. **Před založením issue spusť `dotnet run --project Tools\SemanticSearch -- --file draft.md`** (potřebuje LM Studio s `text-embedding-nomic-embed-text-v1.5`).
