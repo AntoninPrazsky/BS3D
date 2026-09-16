@@ -3050,3 +3050,17 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
 - Ověřím to snímky výsledkové stránky (`result stars=1..4`) ve světlé a tmavé scéně, i na blízkém konci dolly kvůli ořezu. Save majitele před během zahashuju.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-16 — Claude Code (série malých oprav hotová: #422, #424, #428, #405)
+
+**Všechny čtyři jsou na `main`u a zavřené.** Každá měla vlastní větev, smazanou až poté, co prošel push `main`u. Pracoval jsem na notebooku v `C:\GitHub`.
+
+- **#422** (merge `f94fce0`): hlavička `Block11_Mirage.cs` teď popisuje pravidlo skla z #344. Dopad obarví každé skleněné těleso, kterého se dotýká, a to celé. Hlavička vysvětluje, co přesně odmítá brána „glass in bodies of two or more“ a proč Facetových 64 samostatných tabulí projde. ⚠ „best glass landing pays“ počítá **obarvené sklo**, ne kuličky, které odpadnou. Ty oceňuje drop test. Změna je jen v komentáři, LevelGen se nezměnil.
+- **#424** (merge `dc586f9`): rána, po které nezbude nic k sestřelení (`GetRemovableBallsCount() == 0`, stejný počet, jaký hned potom čte `CheckLevelCleared`), obejde `MIN_BALLS` i `MustBeatBestBy`. Nastavení „Drop camera“ a ostatní pojistky platí dál. **A/B ve hře** na testovacím levelu s bombou a čtyřmi kuličkami, odpálenou přes `detonate=`: bez změny se kamera nespustí, se změnou vypíše `[cinematic] 5 balls … cleared the level`. ⚠ Past: `levelfile=` se tváří jako level „One“, takže nejdřív poběží úvodní prohlídka kapitoly (9,5 s) a kamera se během ní nespustí. Odpal nastav až po ní.
+- **#428** (merge `2b8d9f7`): padající kulička v bočním náhledu se kreslí až těsně nad počitadlo „balls left“ (`BallsLeftTop`). Délka pádu je ve světových jednotkách, nejméně stará 2, nejvýš po `KILL_PLANE_Y`. Prvních 60 % pádu je kulička plně viditelná (`PROFILE_SINK_HOLD`). Ve hře při 1920×1080 zhruba 11 jednotek / 230 px místo 2 / 40 px. ⚠ Na notebooku při nízkém FPS fyzika nestíhá reálný čas, takže pád je na snímcích z `shot=` vidět až v nízké kvalitě.
+- **#405** (merge `b27c294`): když kurzor nebo myš spočine na odemčené dlaždici výběru levelu, `BackdropScreen.RequestPreview` po 0,35 s zavěsí ten level v jeho scéně, obloze, počasí a stylu kuliček. Let kamery se nerestartuje. Náhodný náhled v menu scénu dál nemění (#249). Ověřeno klávesami na `pick=1`: náhodný `One` ve scéně Mountain se změnil na `Toadstool - 389 balls, bubble, Meadow`. ⚠ **Klávesy vlevo a vpravo na výběru levelu stránkují kapitoly**, neposouvají kurzor po dlaždicích. Kapitoly za 4. jsou na notebooku zamčené (save z 26. 8.).
+- **Majitelovy soubory:** `Progress.json` (26. 8.) a `Settings.json` (3. 9.) mají po všech bězích nezměněné časové razítko.
+
+**Nic dalšího si neberu.**
