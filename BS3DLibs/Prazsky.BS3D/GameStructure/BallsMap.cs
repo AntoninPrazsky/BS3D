@@ -118,41 +118,11 @@ namespace Prazsky.BS3D.GameStructure
             return ComputeCentered(realPos);
         }
 
-        /// <summary>
-        /// Which top-level cell a ball that reached the ceiling belongs in — the cell <paramref name="position"/>
-        /// rounds to, when that cell is inside the field and free. Reads nothing but occupancy and writes nothing,
-        /// so the same question can be asked before a shot is fired as after it lands (#70).
-        /// </summary>
-        /// <param name="position">Centred (lattice-frame) position, typically the contact point.</param>
-        /// <param name="cell">The cell, <b>only meaningful when this returns <c>true</c></b>.</param>
-        public bool TryFindEmptyCeilingCell(Vector3 position, out XZLevel cell)
-        {
-            byte level = (byte)(Levels - 1); //Balls hitting the ceiling always land on the top level
-            bool isShifted = (level % 2) > 0;
-
-            cell = new XZLevel(-1, -1, -1);
-
-            Vector3 uncentered = ComputeUncentered(position);
-
-            if (isShifted) uncentered = new Vector3(uncentered.X - Constants.HALF, uncentered.Y, uncentered.Z - Constants.HALF);
-
-            //Convert.ToByte rounds to nearest, so [-0.5, byte.MaxValue + 0.5) is exactly the range that
-            //maps to a valid byte without overflowing
-            if (uncentered.X < -0.5f || uncentered.X >= 255.5f || uncentered.Z < -0.5f || uncentered.Z >= 255.5f) return false;
-
-            byte x = Convert.ToByte(uncentered.X);
-            byte z = Convert.ToByte(uncentered.Z);
-
-            if (x >= StageSizeX || z >= StageSizeZ //Outside of map
-                || _balls[x, z, level] != null) //There is already a ball there
-                return false;
-
-            cell = new XZLevel(x, z, level);
-            return true;
-        }
-
+        //(TryFindEmptyCeilingCell stood here too — which top-level cell a shot that struck the glass belongs in —
+        //and went with #432: a shot never attaches to the glass any more, so nothing asks.)
+        //
         //The "decide and write in one call" pair that used to sit here — PutBallAtClosestEmptyCeilingPosition and
-        //PutBallAtClosestEmptyPositionNextTo, one over TryFindEmptyCeilingCell above and one over
+        //PutBallAtClosestEmptyPositionNextTo, one over TryFindEmptyCeilingCell and one over
         //TryFindEmptyCellNextTo below — is gone with #68. Their last caller was the Testbed's own contact
         //handler, and that is the copy #68 merged away; the shared handler asks ShotPlacement to decide and then
         //places the answer itself, in two steps. That separation is #70's whole point, so having the combined

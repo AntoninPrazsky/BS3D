@@ -18,6 +18,13 @@ namespace Prazsky.BS3D.Physics
     /// outcome and make the frustration <i>worse</i> than showing nothing. A preview that is a second
     /// implementation of the rule is a preview that lies, eventually.
     /// </para>
+    /// <para>
+    /// <b>There is no answer for the glass, and since #432 that is the rule rather than a gap.</b> A shot that struck
+    /// the ceiling used to land on the field's top level (<c>TrySolveAgainstCeiling</c>), which the preview never
+    /// asked — it only ever solves against a ball — so a ball could attach where no ghost had been shown, alone,
+    /// hanging off the glass by nothing but its ceiling socket at the edge of the plate. A shot now only ever lands
+    /// against a ball, which is the one question this type answers.
+    /// </para>
     /// </summary>
     public static class ShotPlacement
     {
@@ -81,50 +88,11 @@ namespace Prazsky.BS3D.Physics
                 return false;
 
             //Published only once there is a cell for it to place, so the two out parameters carry the same
-            //contract as each other and as TrySolveAgainstCeiling's: on a refusal neither means anything. The
+            //contract as each other: on a refusal neither means anything. The
             //drift itself is a property of the ball that was hit and would be perfectly well defined here, which
             //is exactly why it is withheld - a caller reading it past a false return would be placing a ghost at
             //a cell of (-1, -1, -1).
             clusterDrift = drift;
-            return true;
-        }
-
-        /// <summary>
-        /// Which cell a shot that reached the glass lands in — straight up past the whole cluster, so the field's
-        /// top level. False when the cell it rounds to is outside the field or already taken.
-        /// </summary>
-        /// <remarks>
-        /// The <i>choice</i> reads only X and Z (<see cref="BallsMap.TryFindEmptyCeilingCell"/> pins the level to
-        /// the field's top and throws the contact's Y away), and the plate only ever moves in Y — so nothing about
-        /// where a ball attaching to the glass lands depends on how far the ceiling has come down. The drift below
-        /// does, and it is the whole reason this takes the plate's live height.
-        /// </remarks>
-        /// <param name="ceilingCentreY">
-        /// Centre Y of the glass plate <b>as it stands now</b>, not where the level hung it — the body's own pose.
-        /// A level walks the plate down and the cluster with it, so this is what keeps the drift honest as the
-        /// descent accumulates.
-        /// </param>
-        /// <param name="clusterDrift">
-        /// How far the top level hangs off its lattice, from the plate's own height rather than from a ball —
-        /// there is no hit ball on this path, and a ball attaching to the glass is going to end up exactly where
-        /// the ceiling anchor puts it (<see cref="BallsConstraintsBuilder.CeilingRestY"/>). Zero when this
-        /// returns <c>false</c>. See <see cref="CellWorldPosition"/> for what it is for.
-        /// </param>
-        public static bool TrySolveAgainstCeiling(BallsMap map, Vector3 worldContact, Vector3 worldOffset,
-            float ceilingCentreY, out XZLevel cell, out Vector3 clusterDrift)
-        {
-            cell = new XZLevel(-1, -1, -1);
-            clusterDrift = Vector3.Zero;
-
-            if (map == null) return false;
-            if (!map.TryFindEmptyCeilingCell(worldContact - worldOffset, out cell)) return false;
-
-            //Vertical only: the plate never moves in X or Z, so the cell's own lattice X/Z are already right.
-            clusterDrift = new Vector3(0f,
-                BallsConstraintsBuilder.CeilingRestY(ceilingCentreY)
-                    - (map.GetRealCenteredPosition(cell).Y + worldOffset.Y),
-                0f);
-
             return true;
         }
 

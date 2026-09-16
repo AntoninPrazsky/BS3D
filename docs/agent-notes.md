@@ -3081,3 +3081,47 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
 - GPU potřebuju jen na krátké běhy hry, domluvím se s bs3d-49.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-16 — Claude Code (zápis k #432, rány se nechytají stropu)
+
+**Beru si #432 na majitelův výběr ze shortlistu.** Větev `432-no-ceiling-attach`, notebook v `C:\GitHub`.
+
+- **Zjištěno z kódu:** náhled dopadu (`TryFindFirstHitCurved` a `TrySolveAgainstBall`) ani sonda prověšení se sklem nepočítají. Přichycení na strop existuje jen v handleru (`TrySolveAgainstCeiling`). Zamítnutí tedy srovná hru s tím, co ukazuje náhled a co sonda měřila, a sondu přeměřovat nebude potřeba.
+- **Plán:** náraz do skla nic nerozhodne. Kulka se odrazí, poslouchá dál, a pokud pak narazí do kuličky, přichytí se k ní. Nic dalšího nerozhodne pořadí kontaktů ve stejném kroku.
+- **⚠ Po cestě nalezená chyba:** rána odražená od skla se dnes nikdy nezapočítá jako minutí. Posluchač se odregistruje už při kontaktu se sklem, takže pozdější dopad na kámen ani propad pod kill plane nic nenahlásí. Tímhle řešením se to spraví: posluchač zůstane a ránu vyřeší kámen nebo kill plane.
+- **Ověření:** bezgrafický test s handlerem nad skutečnou simulací.
+- **Soubory:** `BallContactEventHandler.cs`, `ShotPlacement.cs` a `BallsMap.cs` (odstraním nepoužívanou cestu ke stropu), `docs/game-session.md`.
+
+**Nic dalšího si neberu.**
+
+**Dodatek: #432 je na `main`u (merge `dcf86d3`) a zavřené.** Kontakt se sklem teď neudělá nic, jen se zaloguje `[shot] bounced off the glass`, jednou za ránu. Kulka dál poslouchá. `TrySolveAgainstCeiling` a `TryFindEmptyCeilingCell` jsou odstraněné. Horní vrstva levelu i rána do buňky v horní vrstvě vedle kuličky si strop drží dál, jinak by se fyzika rozešla s `GetCellsDisconnectedFromCeiling`.
+- **Ověřeno bezgrafickým testem** se skutečným handlerem, simulací i trychtýřem. Rána kolmo vzhůru do volného skla: 9 kuliček zůstalo 9, žádný dopad, jedno minutí. Stejný test na starém handleru zapsal desátou kuličku do skla. Rána do spodku kuličky se dál přichytí (9 → 10). Čtyři solutions bez chyb, LevelGen beze změny, ScoreSim v pořádku.
+- **Neověřeno ve hře:** Game nemá skriptované míření, takže skutečný výstřel do skla zbývá majiteli. Test zůstal ve scratchpadu (`glassrig`) a zmizí.
+
+**Nic dalšího si neberu.**
+
+---
+
+## 2026-09-16 — Claude Code (zápis k #410, náhled slíbí přichycení, rána se odrazí)
+
+**Beru si #410 na majitelův výběr ze shortlistu.** Notebook v `C:\GitHub`. Větev založím, až bude co měnit.
+
+- **Nejdřív měřím.** Bezgrafický test se skutečným handlerem a simulací na skutečných levelech. Dělo míří jako v sondě (`OrbitToFace`, `AimAt`), náhled se spočítá stejnými voláními jako ve hře (`TryFindFirstHitCurved`, `TrySolveAgainstBall`) a pak se vystřelí skutečná rána.
+- **Každou ránu, kde náhled slíbil buňku, zařadím podle výsledku:** přichycená (stejná nebo jiná buňka), nebo odražená s důvodem z handleru (volná kulička v cestě, plné oba prstence, sklo, odražení bez dotykové události). Porovnám rychlou kadenci (střelba do padajících uvolněných kuliček) s klidnou.
+- Soubory fyziky (`BallContactEventHandler`, `ShotPlacement`) prosím zatím nechte být.
+
+**Nic dalšího si neberu.**
+
+**Claude Code, bs3d-49: #429 je hotová, mergnutá (`4ccba08`) a zavřená.** Majitel po stránce se srovnáním před a po: *„Vypadá to úplně perfektně! Vidím, že s použitím lokálního AI ti jde grafická práce mnohem lépe!“*
+
+- **Tvar podle referencí z #441:**
+  - Kalich je široký 0,64 místo 0,88 při stejné výšce.
+  - Podstavec je stupňovitý s bubnem na kameny.
+  - Dřík má 12 kanelur mezi dvěma prstenci, nodus 16 žeber. Obojí jsou hladké vlny a kolem osy je 96 segmentů.
+  - Kalich má pod okrajem vystouplý pás.
+  - Ucha jsou kubická Bézierova křivka. Změřené zapuštění kořenů je 0,0174 a 0,0134, od dutiny 0,0135.
+- **Výzdoba** jsou instancované meshe (`TrophyOrnaments`) a přibývá se stupněm: bronz má jantary, stříbro safíry a perlovec, zlato a křišťál navíc rubíny, smaragdy a pás pod okrajem. `MeshBuilder` teď bere 32bitové indexy. Dělo, lafeta a kola vypadají v obou verzích stejně (ověřeno snímkem a blokovým rozdílem ze skillu `capture-review`).
+- **Výkon:** párová měření proti `main` (meadow, high, 1600×900 ssaa 2, nocap) leží v šumu 0,3 ms, který mají i dva běhy stejné verze bez poháru.
+- **Velikost a umístění** zůstaly. Majitel je spokojený s tím, jak to je.

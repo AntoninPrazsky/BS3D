@@ -195,6 +195,13 @@ namespace Prazsky.BS3D.Physics
         /// </summary>
         private readonly List<Detonation> _detonations = new(8);
 
+        /// <summary>
+        /// The body handle of the last shot that was logged bouncing off the glass (#432), so the line prints once
+        /// per shot and not once per step the ball stays in touch. -1 for none. A handle Bepu later recycles for
+        /// another shot only costs that shot its log line, which is all this is for.
+        /// </summary>
+        private int _lastGlassBounce = -1;
+
         private readonly ConcurrentQueue<QueuedContact> _queuedContacts = new();
 
         private readonly struct QueuedContact
@@ -292,9 +299,39 @@ namespace Prazsky.BS3D.Physics
             //guard for free, with no per-ball state to keep anywhere.
             bool wasListening = _contactEvents.IsListener(contact.EventSource);
 
-            //A ball that has touched anything static or kinematic has had its shot: it hit the island, the
-            //drain or the glass, and it is no longer a candidate for attaching. Stop listening to it — the
-            //same timestep can queue several contacts for one ball, so the listener may already be gone.
+            CollidableReference other = pair.A.Packed == contact.EventSource.Packed ? pair.B : pair.A;
+
+            //THE GLASS DECIDES NOTHING (#432). A shot that strikes the ceiling used to be attached to it, on the
+            //field's top level under the point it hit — and where that was open glass it hung there ALONE, off
+            //nothing but its ceiling socket, often right at the plate's edge: a ball that dangles and jiggles, can
+            //only be cleared by building a group around it, and was never shown by the landing preview, which
+            //has only ever solved against a ball. The owner's ruling is that a player's shot attaches to balls
+            //and to nothing else; the level's own top course stays hung from the glass exactly as it was built.
+            //
+            //So the contact is simply not an event: the ball bounces off the plate as the solver already makes it,
+            //and it goes on LISTENING — deliberately, and for two reasons. A shot that grazes the glass and meets a
+            //ball on the way down has touched a ball, which is what a shot is allowed to stick to; and ending the
+            //shot here would make a glass contact and a ball contact queued in the same step race each other, the
+            //outcome depending on which the worker threads enqueued first. And the miss is then resolved where
+            //every other miss is — on the island's stone below, or at the kill plane — which this path never did:
+            //it unregistered the ball on touching the glass, so a shot that bounced off a taken ceiling cell was
+            //never reported spent at all.
+            if (other.Mobility == CollidableMobility.Kinematic && other.BodyHandle == _ceiling.BodyHandle)
+            {
+                //Once per shot rather than once per step it stays in touch, in the manner of the rare-event lines
+                //below: the only record, when a player reports a shot that "should have stuck", that it met glass.
+                if (wasListening && _lastGlassBounce != contact.EventSource.BodyHandle.Value)
+                {
+                    _lastGlassBounce = contact.EventSource.BodyHandle.Value;
+                    Console.WriteLine("[shot] bounced off the glass");
+                }
+
+                return false;
+            }
+
+            //A ball that has touched anything else static or kinematic has had its shot: it hit the island or
+            //the drain, and it is no longer a candidate for attaching. Stop listening to it — the same timestep
+            //can queue several contacts for one ball, so the listener may already be gone.
             if (pair.A.Mobility != CollidableMobility.Dynamic || pair.B.Mobility != CollidableMobility.Dynamic)
             {
                 if (pair.A.Mobility == CollidableMobility.Dynamic && _contactEvents.IsListener(pair.A)) _contactEvents.Unregister(pair.A);
@@ -307,8 +344,6 @@ namespace Prazsky.BS3D.Physics
 
             //Already attached by an earlier contact of the same step, or already culled
             if (physicsBall == null) return false;
-
-            CollidableReference other = pair.A.Packed == contact.EventSource.Packed ? pair.B : pair.A;
 
             //The island's stone and the drain cone are statics, and there is no cell to put a ball into on
             //either — so this is where a shot that missed the cluster ends. It also has to come before the
@@ -340,18 +375,11 @@ namespace Prazsky.BS3D.Physics
 
             //And WHERE that cell is, which the cell itself does not say: the lattice is where the level hung the
             //field, while the structure hangs stretched under the glass and is dragged further down with every
-            //descent. Both branches answer it, each from what it has — the hit ball's own pose, or the plate's.
+            //descent. The solve answers it from the hit ball's own pose. (There was a second branch here that
+            //answered it from the plate's, for a shot attaching to the glass itself — gone with #432, above.)
             Vector3 clusterDrift;
 
-            if (other.Mobility == CollidableMobility.Kinematic && other.BodyHandle == _ceiling.BodyHandle)
-            {
-                //Straight into the glass, past the whole cluster: it lands on the field's top level. The plate's
-                //live centre, not the height the level hung it at — a ball attaching after six descents comes to
-                //rest six descents lower, and that is the only thing the descent changes here.
-                solved = ShotPlacement.TrySolveAgainstCeiling(_map, worldContact, _worldOffset,
-                    _ceiling.BodyReference.Pose.Position.Y, out cell, out clusterDrift);
-            }
-            else if (other.Mobility == CollidableMobility.Dynamic && TryFindStructureBall(other.BodyHandle, out PhysicsBall hitBall))
+            if (other.Mobility == CollidableMobility.Dynamic && TryFindStructureBall(other.BodyHandle, out PhysicsBall hitBall))
             {
                 solved = ShotPlacement.TrySolveAgainstBall(_map, hitBall, worldContact, _worldOffset, out cell,
                     out clusterDrift);
@@ -366,8 +394,7 @@ namespace Prazsky.BS3D.Physics
                 return false;
             }
 
-            //Nothing free in either ring around what it hit, or a ceiling cell outside the field or taken. The
-            //shot does not stick, and that is an answer rather than a fault — see TryFindEmptyCellInSecondRing
+            //Nothing free in either ring around what it hit. The shot does not stick, and that is an answer rather than a fault — see TryFindEmptyCellInSecondRing
             //on why the search is not simply widened until it succeeds.
             if (!solved)
             {
