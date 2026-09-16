@@ -168,7 +168,7 @@ namespace Prazsky.BS3D.GameStructure
 
     /// <summary>
     /// Reading a <see cref="BallStyle"/> off a level file or a command line. Lenient in the same way and for the
-    /// same reason <c>SceneRenderer.TryParseScene</c> and <c>ProceduralMusic.ThemeFor</c> are: a look is not
+    /// same reason <c>SceneRenderer.TryParseScene</c> and <c>GameMusic.ThemeFor</c> are: a look is not
     /// worth throwing over, so an unknown spelling comes back false and the caller keeps its default rather
     /// than a level failing to open because somebody typed "bubbles".
     /// </summary>

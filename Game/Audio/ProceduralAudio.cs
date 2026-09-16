@@ -101,7 +101,7 @@ namespace BS3D.Audio
         /// How much of their normal level the fireworks play at, 1 for full. Ducked while a fanfare is
         /// sounding, because the two arrive at the same moment and the reports are broadband and loud enough
         /// to bury a tune underneath them — a bang is an event and the fanfare is the point, so the bang gives
-        /// way. Set per frame by the host from <c>ProceduralMusic.IsFanfarePlaying</c>.
+        /// way. Set per frame by the host from <c>GameMusic.IsFanfarePlaying</c>.
         /// <para>
         /// A gain on the <b>next</b> play rather than on the ones already sounding: a burst is short enough that
         /// ducking only what has yet to start is indistinguishable from ducking everything, and the alternative
@@ -1287,8 +1287,9 @@ namespace BS3D.Audio
         /// <summary>
         /// A group coming loose: the snap of the lattice letting go, then the freed balls popping away one
         /// after another — a quick rising run of six pops. The pops are <b>band-passed noise, not tones</b>,
-        /// and that is deliberate: the level theme transposes itself per pass (see <c>ProceduralMusic</c>), so
-        /// a melodic run in any fixed key would land wrong against half of them, where a noise pop's "pitch"
+        /// and that is deliberate: the level music changes key from piece to piece (the five recordings of #443
+        /// sit in four keys, and the procedural pieces before them transposed per pass), so a
+        /// melodic run in any fixed key would land wrong against most of them, where a noise pop's "pitch"
         /// is a gesture the ear reads against nothing. The run rises (release reads as reward, even though the
         /// balls fall), accelerates slightly, and trails off — the group receding as it goes.
         /// </summary>

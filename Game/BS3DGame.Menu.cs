@@ -387,7 +387,7 @@ namespace BS3D
         private const float EXPOSURE_STEP = 0.2f;
 
         //The ladder the three volume rows walk: quarters from the authored mix down to silence, then back to
-        //full. 100 % is the mix as tuned (the BASE/MUSIC/FANFARE constants in ProceduralAudio and
+        //full. 100 % is the mix as tuned (the BASE/MUSIC/FANFARE constants in ProceduralAudio, GameMusic and
         //ProceduralMusic), and the player's gains only ever scale it — so retuning the mix never invalidates
         //what a setting means.
         private const float VOLUME_STEP = 0.25f;

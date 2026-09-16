@@ -260,7 +260,7 @@ namespace BS3D.Screens
                 }
             }
 
-            Game.Music?.SetTheme(ProceduralMusic.ThemeFor(namedTheme, index));
+            Game.Music?.SetTheme(GameMusic.ThemeFor(namedTheme, index));
 
             //The render set is the whole program's, and the front end hangs its own preview through it — so
             //this is stated on the way in rather than assumed, and stated again every frame this screen draws

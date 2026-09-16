@@ -2349,7 +2349,7 @@ namespace BS3D.Tools.LevelGen
             /// the music changes when the chapter does and not when the level does (#194).
             /// <para>
             /// Left null a level hands the choice to the set's own positional rotation
-            /// (<c>ProceduralMusic.ThemeFor</c>'s <c>index % THEME_COUNT</c>), which is what every level did
+            /// (<c>GameMusic.ThemeFor</c>'s <c>index % ThemeCount</c>), which is what every level did
             /// before this — and which is exactly why the order could not be rearranged without silently
             /// rescoring the campaign. Naming it pins it. An unknown spelling falls back to that same
             /// rotation rather than throwing, so a typo here is a level that quietly plays the wrong piece:
