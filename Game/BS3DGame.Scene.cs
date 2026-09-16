@@ -147,6 +147,10 @@ namespace BS3D
         private BoxMesh _unitBox;
         private InstancedModelRenderer _cityRenderer;
 
+        //The masts, dishes, 5G poles and air conditioning on the city's roofs (#436), dressed on _city's own
+        //buildings and redressed whenever that city is rebuilt (ApplyQuality)
+        private CityRooftops _rooftops;
+
         //The whole arena the gun stands on: the round island's stone cap and concrete drum, the glass drain
         //bored through its middle, the two gold beads that ring the drain's circles, and the dark pit shaft
         //that backs the glass in the solid-terrain scenes. Every mesh, procedural texture, renderer, world
@@ -250,6 +254,9 @@ namespace BS3D
                 SpecularAmbientStrength = 0.07f
             };
 
+            //The equipment on the roofs (#436), placed on the buildings the city above just made
+            _rooftops = new CityRooftops(GraphicsDevice, _instancingEffect, _city, _cityConfig, SCENE_AMBIENT_INTENSITY);
+
             //The arena the gun stands on, all of it: the island's stone cap and concrete drum, the glass drain
             //bored through the middle, its two gold beads and the dark pit shaft that backs the glass where the
             //terrain has the island's footprint cut out of it. Meshes, procedural textures, renderers and the
@@ -324,6 +331,9 @@ namespace BS3D
             yield return _cannonRig.WheelRenderer;
             yield return _cannonRig.RollerRenderer;
             yield return _cityRenderer;
+
+            //Every kind of rooftop equipment, or a dish would stand flat white against a skyline lit by the dome
+            foreach (InstancedModelRenderer renderer in _rooftops.Renderers) yield return renderer;
 
             //The island's stone cap and concrete drum, the drain's glass and its two gold beads — but
             //deliberately not its pit shaft, which is a hole in the ground no dome may bleach. Dereferenced
@@ -693,6 +703,10 @@ namespace BS3D
                 //shades is a facade another tower is standing in front of. See City.PrepareVisible.
                 _cityVisible = _city.PrepareVisible(_camera);
                 _cityRenderer.Draw(_camera, _city.Visible, _cityVisible, _sceneEffectParams);
+
+                //The roofs' equipment after the towers it stands on, in the same opaque state; the neon city
+                //adds its extra pieces and the dishes' neon rings, and the beacons flash on the wall clock
+                _rooftops.Draw(_camera, _scene == SceneKind.NeonCity, _wallClock);
             }
             //The target goes in so the cavern and the dream can be shaded at the back buffer's size and scaled
             //up (#155). Passed rather than remembered, so it cannot be the one the pipeline held before a

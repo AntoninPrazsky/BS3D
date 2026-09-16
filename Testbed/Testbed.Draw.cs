@@ -110,6 +110,9 @@ namespace Testbed
                     //Frustum-culled and ordered near to far, as the game draws it — see City.PrepareVisible
                     int visibleBuildings = _city.PrepareVisible(_camera);
                     _cityRenderer.Draw(_camera, _city.Visible, visibleBuildings, _sceneEffectParams);
+
+                    //The roofs' equipment after the towers it stands on (#436), as the Game draws it
+                    _rooftops?.Draw(_camera, neon, _pulseSeconds);
                 }
                 else
                     //The target goes in so the cavern and the dream can be shaded at the back buffer's size and

@@ -190,6 +190,56 @@ namespace Prazsky.Core.Render
 
         /// <summary>The neon-night look, used when <see cref="Neon"/> is true.</summary>
         public NeonConfig NeonLook { get; set; } = new();
+
+        /// <summary>The equipment on the roofs — masts, dishes, 5G poles, air conditioning (#436).</summary>
+        public RooftopConfig Rooftops { get; set; } = new();
+    }
+
+    /// <summary>
+    /// How the roofs are dressed (#436). The chances are per building and read when the layout is built, so an
+    /// edit here re-dresses the city (<see cref="CityRooftops.Rebuild"/>); the distances and the beacon are read
+    /// every frame.
+    /// </summary>
+    public sealed class RooftopConfig
+    {
+        /// <summary>
+        /// Chance that a tower standing above the roofline around it carries a lattice mast. The tall towers are
+        /// the skyline, and a mast on a low roof in a canyon is a mast nobody sees.
+        /// </summary>
+        public float TallMastChance { get; set; } = 0.17f;
+
+        /// <summary>The same for a tower below the roofline around it.</summary>
+        public float MastChance { get; set; } = 0.025f;
+
+        /// <summary>Chance of one satellite dish on a roof; a second one follows at half this.</summary>
+        public float DishChance { get; set; } = 0.5f;
+
+        /// <summary>Chance of a 5G pole on a roof corner; a second one follows at half this.</summary>
+        public float SectorPoleChance { get; set; } = 0.38f;
+
+        /// <summary>Chance of air-conditioning units on a roof (one to three of them).</summary>
+        public float HvacChance { get; set; } = 0.62f;
+
+        /// <summary>
+        /// How much more equipment the neon city carries, as a multiplier on every chance above: the extra
+        /// pieces are built with the layout and drawn only in that scene.
+        /// </summary>
+        public float NeonExtra { get; set; } = 1.45f;
+
+        /// <summary>Beyond this distance the air-conditioning units are not drawn — under a pixel or two from there.</summary>
+        public float ClutterDistance { get; set; } = 170f;
+
+        /// <summary>Beyond this distance the dishes and the 5G poles are not drawn. Masts and their beacons always are.</summary>
+        public float EquipmentDistance { get; set; } = 320f;
+
+        /// <summary>Seconds between two flashes of the masts' aircraft-warning beacons.</summary>
+        public float BeaconPeriod { get; set; } = 1.6f;
+
+        /// <summary>Peak radiance of a beacon's flash, linear; over the glare threshold, so each one blooms.</summary>
+        public float BeaconBrightness { get; set; } = 3.2f;
+
+        /// <summary>How brightly a dish's neon ring burns in the neon city, as a multiple of the neon lights' colours.</summary>
+        public float NeonRingBrightness { get; set; } = 0.55f;
     }
 
     /// <summary>The neon night relight of the city: bloom-bright windows plus a ring of magenta/cyan point lights.</summary>
