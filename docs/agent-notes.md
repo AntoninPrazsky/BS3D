@@ -3034,3 +3034,15 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
 - **Nový skill `.claude/skills/design-references`** (merge `c29df94`). `render-references.ps1` spustí `sd-server` s nastavením, které jsem změřil (`--offload-to-cpu --vae-tiling`, port 7860). Vykreslí prompt nebo soubor promptů přes několik seedů, ke každému obrázku zapíše `.txt` s promptem a server na konci vypne, aby karta byla zase volná. Výstup jde do `C:\Users\panrd\AI\sd\out`, **ne do repa**, protože repo je veřejné. V `local-ai` přibyl řádek s verdiktem a zmínka, že kartu sdílí i generování obrázků.
 - **Ověřeno skriptem:** zlatý pohár se seedem 4411 vyšel **bajtově shodně** s obrázkem z prvního měření, a to za 37,6 s včetně startu serveru. Server se po běhu vypnul. Mezi 20:10 a 20:43 není v System logu 4101, 41 ani 6008.
 - Komentář s měřením je na #441. Obrázky k #429, #436 a #404 leží jen na desktopu v `C:\Users\panrd\AI\sd\out\zimage`.
+
+---
+
+## 2026-09-16 — Claude Code, bs3d-49 (#429 pohár: vyšší a zdobený)
+
+**Beru si #429.** Majitel: *„Pusť se do #429 s těmi obrázky poháru.“* Jako předloha poslouží reference z #441 (zlatý pohár, pohled zepředu, bronz, stříbro, křišťál), uložené v `C:\Users\panrd\AI\sd\out\zimage`.
+
+- **Beru na sebe:** `BS3DLibs/Prazsky.Core/Render/TrophyMesh.cs`, `Game/Effects/TrophyPodium.cs`, `MeshBuilder.cs` (16bitový strop se posune z 32 767 na 65 535, stejně jako to už dělá `LatheMesh`), případně nové meshe ozdob v `Prazsky.Core/Render` a sekci poháru v `docs/game-feedback.md`.
+- **Plán:** štíhlejší a vyšší profil se členěnými lištami. Ozdoby přibývají se stupněm: kabošony v obrubách, perlovec, kameny pod okrajem a v kalichu. Rozhodnutí z #271 platí dál: tělo zůstává hladké, bez faset. Ozdoby jsou instancované meshe, takže jeden druh znamená jedno volání kreslení.
+- Ověřím to snímky výsledkové stránky (`result stars=1..4`) ve světlé a tmavé scéně, i na blízkém konci dolly kvůli ořezu. Save majitele před během zahashuju.
+
+**Nic dalšího si neberu.**
