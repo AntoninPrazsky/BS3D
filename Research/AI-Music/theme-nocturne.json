@@ -1,0 +1,22 @@
+{
+  "file": "theme-nocturne.wav",
+  "created": "2026-09-16",
+  "counterpart_of": "MusicTheme.Nocturne -- Game/Audio/ProceduralMusic.cs (smooth jazz, sevenths and ninths on a swung grid, walking bass, piano carrying the tune, nine sections, 3:02 at 96)",
+  "purpose": "Reference render for the proposal to replace the procedural music with generated audio. Not wired into any content pipeline.",
+  "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- generate-music.ps1 + loop_crossfade.py",
+  "request": {
+    "caption": "Smooth jazz instrumental, swung rhythm, walking double bass, mellow electric piano (Rhodes) carrying the melody with jazzy seventh and ninth chords, soft brushed drums, relaxed sophisticated late-night lounge mood, no vocals",
+    "instrumental": true,
+    "duration": 120,
+    "bpm": 96,
+    "inference_steps": 8,
+    "output_format": "wav32"
+  },
+  "lm_enriched_caption": "A sophisticated and relaxed instrumental jazz trio performance. A warm acoustic piano leads with flowing melodies and rich chord voicings, supported by a smooth, walking upright bass line and the subtle, swinging rhythm of a brushed drum kit. The atmosphere is mellow and intimate, reminiscent of a classic lounge or late-night jazz club, with a clean production that highlights the interplay between the instruments.",
+  "lm_chose": "keyscale D minor (none was requested -- ProceduralMusic.cs's doc comment names no key for Nocturne)",
+  "post_process": "loop_crossfade.py: a 32-bar loop cut out of the render's body -- source 14.50s..94.50s of the render with its first and last 5s dropped, tempo measured 95.9 bpm, 1.25s equal-power crossfade of the audio past the end into the start -> 80.0s seamless loop",
+  "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+  "license": "ACE-Step 1.5: MIT (code and weights)",
+  "measured": "ace-lm 40.1s, ace-synth 92.6s; VAE decode 4 tiles in 79.9s.",
+  "loop_check": "rhythm of the two streams under the crossfade r=0.94 against the track's own passages a bar apart r=0.52; spectrum cos=0.73. Verdict: in time"
+}

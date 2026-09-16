@@ -13,8 +13,9 @@
     "output_format": "wav32"
   },
   "lm_enriched_caption": "An energetic and upbeat chiptune track driven by a punchy, synthesized drum machine and a bouncy, arpeggiated synth bassline. The soundscape is built from layers of classic 8-bit and 16-bit style synthesizers, including square and pulse wave leads that carry the main melodies. The arrangement follows a classic video game music structure, with distinct sections that introduce new melodic motifs and harmonic progressions, creating a feeling of progression and adventure. The track builds in complexity, adding new layers and shifting through different thematic ideas before a brief breakdown and a final energetic push to an abrupt end.",
-  "post_process": "none -- not loop-crossfaded",
-  "format": "48000 Hz, 32-bit float PCM, stereo -- 48kHz is the model's fixed native rate, not adjustable",
-  "license": "ACE-Step 1.5 weights: Apache 2.0 (commercial use OK)",
-  "known_caveats": "At 90s the VAE decode needed 3 tiles and hit the same Vulkan pinned-memory fallback as the 64s menu loop -- ~41s of the ~57s synth step. C major / 124 BPM chosen deliberately distinct from all five existing MusicTheme entries."
+  "post_process": "loop_crossfade.py: a 32-bar loop cut out of the render body -- source 14.96s..76.40s, tempo measured 125.0 bpm, 0.96s equal-power crossfade of the audio past the end into the start -> 61.4s seamless loop. Replaces the first-pass 84.4s loop, which folded the render's last 5s into its first 5s: the render ends abruptly about 5s before the file does, so the level fell from ~1.0 to 0.04 of the median across that wrap.",
+  "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+  "license": "ACE-Step 1.5: MIT (code and weights)",
+  "known_caveats": "At 90s the VAE decode needed 3 tiles and hit the same Vulkan pinned-memory fallback as the 64s menu loop -- ~41s of the ~57s synth step. C major / 124 BPM chosen deliberately distinct from all five existing MusicTheme entries.",
+  "loop_check": "rhythm of the two streams under the crossfade r=0.98 against the track's own passages a bar apart r=0.86; spectrum cos=0.96. Verdict: in time"
 }

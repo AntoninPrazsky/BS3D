@@ -1,0 +1,23 @@
+{
+  "file": "theme-mural.wav",
+  "created": "2026-09-16",
+  "counterpart_of": "MusicTheme.Mural -- Game/Audio/ProceduralMusic.cs (bass-led groove, melodic log-drum sub, 3+3+2 tresillo, marimba and keys carrying the tune, the kick never marks all four beats; nine sections, 2:26, G major at 120)",
+  "purpose": "Reference render for the proposal to replace the procedural music with generated audio. Not wired into any content pipeline.",
+  "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- generate-music.ps1 + loop_crossfade.py",
+  "request": {
+    "caption": "Bass-led syncopated groove instrumental on a tresillo 3+3+2 rhythm, a deep melodic log-drum sub-bass for a floor, bright marimba and keys carrying a catchy tune above it, the kick never lands on all four beats, warm buoyant afro-house flavored feel, no vocals",
+    "instrumental": true,
+    "duration": 120,
+    "bpm": 120,
+    "keyscale": "G major",
+    "inference_steps": 8,
+    "output_format": "wav32"
+  },
+  "lm_enriched_caption": "An upbeat, instrumental afro-house track driven by a bright, syncopated marimba-like synth melody and a steady four-on-the-floor drum machine beat. A deep, rounded synth bass provides a groovy foundation, while layers of percussion, including shakers and congas, add rhythmic complexity. The arrangement builds progressively, introducing new synth layers and subtle melodic variations to maintain a hypnotic and danceable energy throughout. The track features a brief breakdown where the main beat drops out, highlighting the core melodic and percussive elements before rebuilding to a full, layered conclusion.",
+  "brief_drift": "The LM's enrichment asks for 'a steady four-on-the-floor drum machine beat' -- the exact thing Mural is defined by NOT having. Listen for it before treating this as Mural's counterpart.",
+  "post_process": "loop_crossfade.py: a 44-bar loop cut out of the render's body -- source 14.90s..102.90s of the render with its first and last 5s dropped, tempo measured 120.0 bpm, 1.0s equal-power crossfade of the audio past the end into the start -> 88.0s seamless loop",
+  "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+  "license": "ACE-Step 1.5: MIT (code and weights)",
+  "measured": "ace-lm 66.1s, ace-synth 108.8s; VAE decode 4 tiles in 87.0s.",
+  "loop_check": "rhythm of the two streams under the crossfade r=0.92 against the track's own passages a bar apart r=0.94; spectrum cos=0.81. Verdict: in time"
+}
