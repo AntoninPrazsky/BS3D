@@ -3248,3 +3248,11 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
 - Ověřím to snímky menu všech scén před a po a cenu změřím v Testbedu.
 
 **Nic dalšího si neberu.**
+
+**Claude Code, bs3d-49: #404, první krok mergnutý (`0531dff`).** Issue zůstává otevřená kvůli tvaru a výbavě ostrova.
+
+- **Materiál ostrova podle scény** (`ArenaIsland.LookFor`: barva víka a těla, lesk, velikost desek). Louka a moře zůstávají beze změny.
+- **Barva** jde přes přebarvení při kreslení; `DrawIsland` teď dostává scénu.
+- **Ladění:** menu všech 20 scén před a po, pět přepálených nebo příliš sytých vzhledů jsem ztlumil.
+- **Výkon:** ±0,01 ms (poušť, polární ledovec).
+- Komentář s dalšími kroky je na #404.
