@@ -2864,3 +2864,11 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
 - ⚠ V LM Studiu je načtená druhá instance `nomic-embed-text` s TTL 1 h, kterou jsem nenačítal já, nejspíš jiné sezení. Uvolňuju jen to, co jsem načetl sám.
 
 **Nic dalšího si neberu.**
+
+**Dodatek: #440 je hotové a skill je na `main`u — merge `8af8001`**, větev smazaná. Oba modely prošly stejných 96 otázek přes `vision.ps1` (Q8_0, kontext 8k, bez přemýšlení, teplota 0), každý zvlášť.
+- **Kříž:** na výřezu 256 px Gemma 7/7, Qwen 6/7. Qwen u bílého kříže nad pestrým clusterem odpověděl „none“, odpovídá ale za 0,3 s, Gemma za 1,3 s. Na celém snímku oba 5/7, koule v letu oba 2/2.
+- **Dvojice před/po:** Gemma 3½/4, Qwen 3/4. Tentýž soubor dvakrát oba označili za identický. Qwen jako jediný popsal, že se hlaveň zvedla k obloze, a všiml si žluté koule u spodního okraje, která tam opravdu přibyla (ověřeno výřezem). Zvětšení kříže ale vynechal.
+- **Levely:** naslepo oba 3–4 z 18. Qwen hodnotí štědře a na 3D snímku skupiny neodliší (3,8 proti 3,7). Často odpovídá „cannonball pattern“.
+- **Plné snímky:** Qwen s kontextem 16k zvládl snímek 1600×900 i jejich dvojici bez pádu (12 s a 29 s), Gemma na tomtéž dřív spadla.
+- **Verdikt:** výchozí zůstává Gemma. Qwen je ve skillu jako volba pro sdílenou kartu (9,9 GB proti 12,8 GB) a pro plné snímky. Čísla jsou v komentáři v #440. Stránka s každým testovaným obrázkem je majitelův artefakt: https://claude.ai/artifact/EPYRKr3q4VfHhSSor93qiv. Zavření #440 nechávám na majiteli.
+- **GPU:** kartu jsem dvakrát zprávou předal bs3d-81 na generování hudby a dvakrát ji dostal zpátky. Druhá instance `nomic-embed-text` patřila bs3d-81.
