@@ -2874,3 +2874,26 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
 - **Plné snímky:** Qwen s kontextem 16k zvládl snímek 1600×900 i jejich dvojici bez pádu (12 s a 29 s), Gemma na tomtéž dřív spadla.
 - **Verdikt:** výchozí zůstává Gemma. Qwen je ve skillu jako volba pro sdílenou kartu (9,9 GB proti 12,8 GB) a pro plné snímky. Čísla jsou v komentáři v #440. Stránka s každým testovaným obrázkem je majitelův artefakt: https://claude.ai/artifact/EPYRKr3q4VfHhSSor93qiv. Zavření #440 nechávám na majiteli.
 - **GPU:** kartu jsem dvakrát zprávou předal bs3d-81 na generování hudby a dvakrát ji dostal zpátky. Druhá instance `nomic-embed-text` patřila bs3d-81.
+
+---
+
+## 2026-09-16 — Claude Code (zápis k #395, druhá půlka hotová)
+
+**Inkousty bloku Eruption jsou na `main`u — merge `8f1528b`**, větev smazaná lokálně i na originu. Pracoval jsem na notebooku (ThinkPad, `C:\GitHub`), ne v desktopovém `BS3D`. **#394 je zavřené, #395 nechávám na majitelův pokyn otevřené** kvůli zbytku s dělem. Oba komentáře v issues nesou čísla.
+
+- **Příčina:** lávový styl ukáže barvu jen jako **odstín** švu. Hnědá je tmavší oranžová a černá, stříbrná i bílá jsou stejná světlá neutrální síť. Osm inkoustů bloku tak dávalo pět barev.
+- **Měření:** snímky `Thirteen_Colors` pod sopkou a kopulí 9, sedm fází srdečního tepu, nejjasnější čtvrtina a polovina disku, světlost s poloviční vahou. Pět nejtěsnějších dvojic celé palety leželo uvnitř bloku: oranžová/hnědá 6,1, červená/oranžová 6,8, červená/hnědá 7,7, černá/stříbrná 8,4, bílá/žlutá 12,0. Sill měl na pět inkoustů tři barvy.
+- **Nová paleta**, konstanty `ERUPTION_*` v `Block08_Eruption.cs`:
+  - horké: červená a žlutá,
+  - studené: černá, azurová a tmavě modrá,
+  - šestá: fialová, jen kde je nutná.
+  - Level má nejvýš 6 barev. Nejtěsnější dvojice je 25,2, se šestou 21,4.
+  - Majitel vybral tuto variantu ze srovnání Sillu ve hře, proti variantě se zelenou (20,6). Čistě teplá paleta udělat nejde: na lávě jsou jen tři teplé nebo neutrální rodiny.
+- **Skupiny:** devět levelů má stejné skupiny, zatížení kotev i dosažitelnost. **Meander:** jezy mají celé šestou barvu, 36 → 33 skupin. **Fume:** pořadí barev v trubkách jsem vybral výpočtem nad skutečnými kontakty kuliček, protože dvě první pořadí slepila trubky (35kuličková skupina).
+- **⚠ Past:** „trubky se nedotýkají“ platí jen pro některé páry. Trubky 0/2 a 2/4 se dotýkají, 2/4 i napříč patry. U každého přebarvení s méně barvami porovnej počty skupin v reportu LevelGenu před a po.
+- **Ověřeno:** LevelGen exit 0, změnilo se jen 10 souborů levelů a v nich jen hodnoty `"t"`. ScoreSim hodnotí ve správném pořadí. Čtyři solutions bez chyb. Sonda dala na všech deseti stejné verdikty: Breach a Causeway na setinu stejně, Caldera stejná hra rána po ráně. Běhy hry: Testbed 1×, Game 14× (prototypy a porovnání před a po), všechny s `fpscap=75`.
+- **⚠ Nalezeno mimo zadání:** Caldera má na `main`u **2 z 5 už před změnou**, jedno prověšení u 4. rány při stojícím skle. Dokumentace uvádí 1 z 5. Zapsáno u `CALDERA_BENCH`, neopraveno. Může to vysvětlovat hodnocení „Nulová/Frustrující“.
+- **Nástroj:** `palette.ps1` má nové volby `-Cores` a `-LightnessWeight`. Na stejném snímku dávají stejná čísla jako skript ve scratchpadu. Souřadnice řady pod sopkou jsou v hlavičce skriptu.
+- **Zbývá na #395:** zastínění kulky v děle (rozhodnutí podle majitelova oka), měření vinylu před a po, snímky s drženým pravým tlačítkem a výkon `LavaPS`. U #394 zůstává otevřená otázka zasypaného jádra: zásobník nabízí barvy, které na začátku nejsou vidět. Je to rozhodnutí o obtížnosti, případně na samostatné issue.
+
+**Nic dalšího si neberu.**
