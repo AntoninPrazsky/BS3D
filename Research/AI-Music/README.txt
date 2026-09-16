@@ -20,9 +20,14 @@ All loops, 48 kHz, 32-bit float, stereo.
                                                 as metal -- see its sidecar)
   theme-ember-punk-03.wav  46.6s  E minor  134  Ember as a punk ballad (came back
                                                 as blues-rock solos)
+  theme-ember-punk-04.wav  45.2s  E minor   84  Ember as a brooding punk anthem **
+  theme-ember-punk-05.wav  52.7s  E minor  ~96  Ember as fast punk, felt at ~192 **
   game-track-01.wav   61.4s  C major  124  a new piece, not a counterpart
 
   * D Dorian was asked for in the caption; the key field has no modes.
+ ** Their prompts name a real band and song as the style reference, and the LM
+    was bypassed (use_cot_caption false). The owner listened and judged neither
+    recognisable as that band or song, and cleared them for the game.
 
 The theme loops and game-track-01 are whole-bar loops cut out of the body of a
 longer render, aligned to the millisecond and crossfaded for about two beats.
