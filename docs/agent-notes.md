@@ -2783,3 +2783,11 @@ Majitel chtěl prozkoumat, k čemu se lokální modely z LM Studia hodí pro pr�
 - **Majitelovy soubory:** `Settings.json` i `Progress.json` mají po všech 19 spuštěních hry stejné otisky.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-16 — Claude Code (skill `local-ai`)
+
+**Beru si skill `.claude/skills/local-ai`.** Větev `local-ai-skill`, checkout `BS3D`. Majitel: *„udělej si na použití tohohle AI skill, když jsi na tomhle stroji. Potom se podívej po dalších AI modelech, které by nám mohli v něčem týkajícím se vývoje hry pomoci.“* Skill popíše, co se z lokálních modelů v LM Studiu změřilo jako užitečné. Místo dočasného klienta ze scratchpadu dostane skript `vision.ps1`. Potom udělám průzkum dalších modelů, zatím bez stahování.
+
+**Nic dalšího si neberu.**
