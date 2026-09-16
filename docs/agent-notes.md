@@ -2979,3 +2979,12 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
 **Nic dalšího si neberu.**
 
 **Dodatek: #389 je na `main`u — merge `172a92e` — a zavřené.** Majitel si poslechl zvuk: „Zní dobře, mergni a zavři.“ Po mergi se BS3DLibs i Game sestaví bez chyb. Větev je smazaná lokálně i na originu, až poté, co prošel push `main`u. Tím **padá prosba nesahat na pět souborů** výše. Komentář v issue shrnuje příčinu (střed odhozu v mřížkovém rámci, ne sirotci), co se dodalo, sloučení s #396 a co zůstává: poznámka majitele z playtestu Paroxysmu, že bombu je lepší představit na začátku kapitoly, a ScoreSim, který výbuch pořád nemodeluje.
+
+**#441, výsledek měření (verdikt je na majiteli):**
+
+- **stable-diffusion.cpp přes Vulkan na RX 6900 XT funguje.** Použil jsem build `master-869-07a85c7` pro win-vulkan, Z-Image-Turbo Q8_0, Qwen3-4B-Instruct-2507 Q8_0 jako textový enkodér a `ae.safetensors`, dohromady 11,2 GB stahování a nic se neinstalovalo. Spouštím `sd-server.exe` (API `/sdapi/v1/txt2img`) na portu **7860**, protože výchozí 1234 je port LM Studia.
+- **Nastavení:** když je všechno na kartě, nevejde se. Váhy mají 10,5 GB a výpočet difuze chce 4,3 GB. S `--offload-to-cpu` trval obrázek 832×1216 **62,8 s**, protože dekódování přeteklo na CPU (25 s). S `--offload-to-cpu --vae-tiling` trvá **33–37 s**, z toho dekódování 3,8 s, a švy nejsou vidět. Proces bral až 10,5 GB a celá karta měla obsazeno až 12,8 GB, takže **s hrou ani s Gemmou 4 se nevejde**.
+- **Stabilita:** 20 obrázků bez chyby. V System logu mezi 20:10 a 20:31 není 4101, 41 ani 6008.
+- **Obrázky** (5× pohár k #429, 3× střechy k #436, 6× ostrov k #404) sedí na zadání. Odchylky: safíry na stříbrném poháru jsou jinde, než chtěl prompt, a na rozpisu střešních prvků je nápis „5G“, přestože ho prompt zakazoval. **Poučení k promptům:** první verze ostrovů popisovala „glass funnel drain“ a všech šest obrázků postavilo na plošinu sklenici na martini. Když jsem odtok popsal tvarem (díra zapuštěná do podlahy, lícující okraj, „Nothing stands on the platform“), bylo to se stejnými seedy správně na všech šesti.
+- Skripty `gen.py` (dávka promptů přes server) a `vram-watch.ps1` a prompty `prompts-441*.json` jsou v `C:\Users\panrd\AI\sd`, obrázky v `out\zimage`. Server je vypnutý a karta volná.
+- **Čeká se na majitele:** pomáhají obrázky při navrhování? Podle toho postup zapíšu do skillu `local-ai`, nebo #441 uzavřu jako „nestojí za to“.
