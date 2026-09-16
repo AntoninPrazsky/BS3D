@@ -106,6 +106,18 @@ namespace Prazsky.Core.Render
         public float PebbleChance { get; set; } = 0.5f;
 
         public float PebbleHeight { get; set; } = 0.5f;
+
+        /// <summary>
+        /// How tall the layered mesas on the skyline stand (world units). The plain used to run flat to the haze,
+        /// and a horizon with nothing on it read as bland against every rover photograph.
+        /// </summary>
+        public float MesaHeight { get; set; } = 60f;
+
+        /// <summary>Where the ring of mesas begins, from the arena (world units); they rise over the next 140.</summary>
+        public float MesaInnerRadius { get; set; } = 300f;
+
+        /// <summary>How much of the ring is mesa rather than plain — a threshold on their shaping noise, higher is fewer.</summary>
+        public float MesaThreshold { get; set; } = 0.16f;
     }
 
     /// <summary>
@@ -150,6 +162,27 @@ namespace Prazsky.Core.Render
         /// smooth bump reads as a mound of the dust it stands in; this is what says "rock" up close.
         /// </summary>
         public float RockRelief { get; set; } = 0.35f;
+
+        /// <summary>The pale layers of sediment in a mesa's cliffs.</summary>
+        public Rgb StrataColorPale { get; set; } = new(0.500f, 0.360f, 0.235f);
+
+        /// <summary>The dark layers between them.</summary>
+        public Rgb StrataColorDark { get; set; } = new(0.215f, 0.125f, 0.075f);
+
+        /// <summary>Layers per world unit of height, times 2π — about one pale band every seven units at 0.9.</summary>
+        public float StrataFrequency { get; set; } = 0.9f;
+
+        /// <summary>Dark basaltic sand lying in drifts on the flats — the grey streaks every rover panorama shows.</summary>
+        public Rgb SandColor { get; set; } = new(0.062f, 0.050f, 0.045f);
+
+        /// <summary>How much of the level plain the sand drifts cover, roughly 0..0.3.</summary>
+        public float SandCoverage { get; set; } = 0.30f;
+
+        /// <summary>Flat pale bedrock showing through thin dust, cracked into plates.</summary>
+        public Rgb SlabColor { get; set; } = new(0.380f, 0.255f, 0.165f);
+
+        /// <summary>How much of the level plain the bedrock slabs cover, roughly 0..0.3.</summary>
+        public float SlabCoverage { get; set; } = 0.08f;
     }
 
     /// <summary>The air: thin, but not nothing — the rust dust that tints Mars's own aerial perspective and
