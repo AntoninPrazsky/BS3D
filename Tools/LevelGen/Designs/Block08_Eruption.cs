@@ -34,17 +34,43 @@ namespace BS3D.Tools.LevelGen
         //cut; these five are shaped so the remainder cannot, which is what makes a block full of designed
         //drops measurably safe — every design's doc carries its own #288 sum and its measured probe reading.
         //
-        //THE HOT INKS are the ember register (red 1, orange 9, yellow 7, and white 4 for the white-hot);
-        //THE COLD ONES the basalt register (black 8, brown 10, olive 13, silver 11 for ash). A cold mass
-        //dithers on at least THREE inks (the diagonal fuse, measured three times in #301) and a hot member
-        //bands on at least TWO (no course of one colour — the anchor rule); where hot meets its own hue in a
-        //sweep, the contact is designed away, never left to luck (#302's guard-course lesson).
+        //THE HOT INKS are EMBER and SULPHUR (red and yellow); THE COLD ONES are BASALT, BLUE FIRE and COBALT
+        //(black, cyan and navy) — the lava, the sulphur it leaves, and the blue flame sulphur burns with,
+        //over rock. A cold mass dithers on at least THREE inks (the diagonal fuse, measured three times in
+        //#301) and a hot member bands on at least TWO (no course of one colour — the anchor rule); where hot
+        //meets its own hue in a sweep, the contact is designed away, never left to luck (#302's guard-course
+        //lesson). LIGHTNING (magenta, the violet discharge in an ash column) is the sixth ink and the last:
+        //a design takes it only where a member needs a colour none of its neighbours carries, and NO LEVEL
+        //HERE HOLDS MORE THAN SIX.
+        //
+        //⚠ THE PALETTE IS THE STYLE'S, NOT THE THEME'S, and the block shipped with the theme's (#395). It was
+        //red, orange, yellow and white hot over black, brown, olive and silver cold — a volcano's colours,
+        //and on the molten crust eight inks that read as FIVE. That style draws a ball's colour only as the
+        //hue of its seams (the crust is the same black on all thirteen), and a seam's hue is the tint over
+        //its own peak channel: brown is a darker orange, and black, silver and white are all a pale neutral
+        //net. Measured over the brightest quarter and half of each disc under the volcano and dome 9, with
+        //lightness weighted half (the cluster's shading takes lightness away in play; hue survives it), the
+        //palette's five tightest pairs were ALL inside this block's eight inks — orange/brown 6.1, red/orange
+        //6.8, red/brown 7.7, black/silver 8.4, white/yellow 12.0 — and Sill, the level the playtest called
+        //unfinishable, showed three colours for its five. The six above take one ink from each family the
+        //style can actually tell apart: their tightest pair is 21.4 (cobalt/lightning) and without the sixth
+        //25.2 (basalt/cobalt). So NEVER orange, brown, white, silver or olive here — each is within 15 of
+        //one of the six — and green and blue buy nothing either: 20.6 from sulphur and 16.1 from cobalt, no
+        //better than the sixth ink already is, and the cap of six leaves them no room.
         //
         //The arc job (#194): after the Nebula's void, this is the light coming back GEOLOGICALLY — the earth
         //glowing by itself — one step before the dawn hands back the light received, and two before the
         //Arcade's neon closes the campaign after dark (#300 put the two cities in day order). Ten blocks,
         //and this one ships at five levels, the size every block first shipped at (the BLOCKS table carries
         //the size; a #255-style second hang can double it later).
+
+        //The block's six inks, named once — every design below reads its registers out of these (#395).
+        private const BallType ERUPTION_EMBER = BallType.Type1;        //red
+        private const BallType ERUPTION_SULPHUR = BallType.Type7;      //yellow
+        private const BallType ERUPTION_BASALT = BallType.Type8;       //black
+        private const BallType ERUPTION_BLUE_FIRE = BallType.Type5;    //cyan
+        private const BallType ERUPTION_COBALT = BallType.Type12;      //navy
+        private const BallType ERUPTION_LIGHTNING = BallType.Type6;    //magenta, the sixth
 
         #region Eruption level 1: Breach
 
@@ -84,7 +110,7 @@ namespace BS3D.Tools.LevelGen
         /// Measured: 564 balls in 41 standing groups (1.71 shots a group, the block's gentlest — and gentler
         /// in play, both seams cascading), margin 1, nothing alone, 2 in pairs, 2 recoloured; anchors 68
         /// (8.3 each), anchor load 9.7 — the best-anchored hang in the block; best single shots 2–10 % (the
-        /// 10 is one brown network where the dither's rare corner fuses two plates — measured, gate-clear,
+        /// 10 is one navy network where the dither's rare corner fuses two plates — measured, gate-clear,
         /// left). Sag probe: <b>1 of 5 losing orders, twice independently</b> (−1.07/−1.05, the same order's
         /// shot 15, a hairline past the allowance after three mid-band cuts with the glass at rest), the
         /// other four surviving the full 70 — the Pylon/Ghost shipped band, under the Saturn control's 2.
@@ -171,8 +197,8 @@ namespace BS3D.Tools.LevelGen
         //torn shell 5.4 units in one shot, three orders of five. Eight sectors by two courses is the plate
         //a shot is worth spending on that the ring can also afford to lose.
         private const int BREACH_SECTORS = 8;
-        private static readonly BallType[] BREACH_COLD = { BallType.Type8, BallType.Type10, BallType.Type13 };   //black, brown, olive
-        private static readonly BallType[] BREACH_HOT = { BallType.Type1, BallType.Type9 };                      //red, orange
+        private static readonly BallType[] BREACH_COLD = { ERUPTION_BASALT, ERUPTION_COBALT, ERUPTION_BLUE_FIRE };
+        private static readonly BallType[] BREACH_HOT = { ERUPTION_EMBER, ERUPTION_SULPHUR };
 
         /// <summary>The tear's half-angle at a course: zero through the rim, then widening as it descends.</summary>
         private static float BreachTearHalf(int d) =>
@@ -226,7 +252,7 @@ namespace BS3D.Tools.LevelGen
         /// <b>Every bundle is its own load path and its own designed drop, which is the block's law verbatim.</b>
         /// Bundles never touch (axes 3.0 apart against a reach of <see cref="CAUSEWAY_R"/>), each bonds to
         /// the glass through its own top course, and each wears the block's colour law literally: a two-level
-        /// glowing collar at the glass (the melt it hangs from — red and orange, alternating per course and
+        /// glowing collar at the glass (the melt it hangs from — red and yellow, alternating per course and
         /// swapping order per bundle) over a shaft of cold basalt banded two levels at a stroke. Cut a collar
         /// course and that bundle drops whole; cut a shaft band and the bundle below it goes — either way the
         /// release is the lowest thing on its own path, so the cluster's lowest point only ever moves up.
@@ -297,19 +323,19 @@ namespace BS3D.Tools.LevelGen
         //The collar (two courses of melt at the glass) and the shaft bands (two courses of basalt a stroke).
         //Two levels a band because one course of the packing is 4 or 5 balls and a band has to survive
         //MIN_GROUP whatever the parity deals it; the collar's two courses take the two hot inks one each,
-        //swapping order per bundle so the anchor level reads red-orange-red across the field.
+        //swapping order per bundle so the anchor level reads red-yellow-red across the field.
         private const int CAUSEWAY_COLLAR = 2;
         private const int CAUSEWAY_BAND = 2;
 
-        private static readonly BallType[] CAUSEWAY_HOT = { BallType.Type1, BallType.Type9 };   //red, orange
+        private static readonly BallType[] CAUSEWAY_HOT = { ERUPTION_EMBER, ERUPTION_SULPHUR };
 
         //Shaft pairs rotate per bundle through three cold inks, so neighbouring ranks read as different
         //stone and the level carries the block's three-ink rule even though no fuse is possible here
         private static readonly BallType[][] CAUSEWAY_SHAFT_PAIRS =
         {
-            new[] { BallType.Type8, BallType.Type10 },    //black / brown
-            new[] { BallType.Type10, BallType.Type13 },   //brown / olive
-            new[] { BallType.Type13, BallType.Type8 },    //olive / black
+            new[] { ERUPTION_BASALT, ERUPTION_COBALT },
+            new[] { ERUPTION_COBALT, ERUPTION_BLUE_FIRE },
+            new[] { ERUPTION_BLUE_FIRE, ERUPTION_BASALT },
         };
 
         /// <summary>Which bundle a cell belongs to, 1-based, or 0 for air. Bundles are disjoint by the
@@ -362,20 +388,22 @@ namespace BS3D.Tools.LevelGen
         /// the neighbouring segments keep their own anchors and nothing left behind hangs lower.
         /// </para>
         /// <para>
-        /// <b>The weirs are #302's banded tier arriving as diegetic architecture</b>: silver/white bars a
-        /// single column thick, spanning the channel and both banks at every depth the river reaches there,
+        /// <b>The weirs are #302's banded tier arriving as diegetic architecture</b>: bars in the block's
+        /// sixth ink a single column thick, spanning the channel and both banks at every depth the river reaches there,
         /// plus the one place the banks touch the glass directly. They sever every hot ink by construction
         /// (no channel colour crosses a weir), quarter the levees' spans, and read as the dams a lava river
         /// would actually crust over.
         /// </para>
         /// <para>
-        /// Measured: 356 balls in 36 standing groups (1.44 shots a group at the budget of 52), 59 ceiling
-        /// anchors (6.0 each, anchor load 7.0 — the river's whole top course is glass-bonded, so this is
+        /// Measured: 356 balls in 33 standing groups (1.58 shots a group at the budget of 52), 59 ceiling
+        /// anchors (6.0 each, anchor load 6.8 — the river's whole top course is glass-bonded, so this is
         /// one of the best-anchored levels in the pack), margin 1, nothing alone, 4 in pairs, 7 recoloured
-        /// (bank-block corners at the bends; Donut ships with 9); best single shots 2–6 %. Sag probe:
-        /// <b>0 of 5 losing orders — every order CLEARS the level</b> in 18–26 shots of the 52, the line
-        /// never crossed (closest +3.12), the guillotine cascades visible in the trace (one segment cut
-        /// orphaned 113 balls of bank, exactly the designed bite).
+        /// (bank-block corners at the bends; Donut ships with 9); best single shots 2–11 %, the 11 a weir
+        /// bar whole. Sag probe: <b>0 of 5 losing orders — every order CLEARS the level</b>, the worst in
+        /// 23 shots of the 52, the line never crossed (closest +6.95), the guillotine cascades visible in the
+        /// trace (one segment cut of 17 orphaned 72 balls of bank, exactly the designed bite). Until #395 the
+        /// weirs were two inks and the level read 36 groups, 2–6 %, a closest approach of +3.12 and a
+        /// largest cascade of 113.
         /// </para>
         /// </summary>
         private static Design Meander() => new()
@@ -436,19 +464,20 @@ namespace BS3D.Tools.LevelGen
 
         //Each segment's two hot inks, indexed by how many weirs the run has passed. Adjacent segments never
         //matter for grouping — a weir stands between them, so a shared ink is two groups by construction —
-        //but the pairs still rotate so the river visibly changes register as it descends.
+        //but the order swaps at every weir so the river visibly changes register as it descends. (It rotated
+        //through three hot inks until #395; the block has two.)
         private static readonly BallType[][] MEANDER_SEGMENT_PAIRS =
         {
-            new[] { BallType.Type1, BallType.Type9 },   //red, orange - the head
-            new[] { BallType.Type7, BallType.Type1 },   //yellow, red
-            new[] { BallType.Type9, BallType.Type7 },   //orange, yellow
-            new[] { BallType.Type1, BallType.Type9 },   //red, orange - the mouth
+            new[] { ERUPTION_EMBER, ERUPTION_SULPHUR },   //the head
+            new[] { ERUPTION_SULPHUR, ERUPTION_EMBER },
+            new[] { ERUPTION_EMBER, ERUPTION_SULPHUR },
+            new[] { ERUPTION_SULPHUR, ERUPTION_EMBER },   //the mouth
         };
 
         //The banks' basalt, three inks against the diagonal fuse (#301, measured three times).
         private static readonly BallType[] MEANDER_LEVEE_INKS =
         {
-            BallType.Type8, BallType.Type10, BallType.Type13,   //black, brown, olive
+            ERUPTION_BASALT, ERUPTION_COBALT, ERUPTION_BLUE_FIRE,
         };
 
         /// <summary>
@@ -504,10 +533,13 @@ namespace BS3D.Tools.LevelGen
         {
             MeanderCell(x, z, i, out bool weir, out bool channel, out int seg, out int runCell, out int d);
 
-            //Pale cooled stone in two vertical halves - silver above the waterline, white below it - so a
-            //weir is two connected slabs rather than a stack of one-course groups: banded by course it
-            //measured a dozen five-ball groups across the three bars, a third of the budget spent on dams
-            if (weir) return d < 2 ? BallType.Type11 : BallType.Type4;
+            //The weir in the block's sixth ink, whole. A bar touches the channel (both hot inks) and the
+            //banks (all three cold), so no other ink can stand in it without welding it to one of them. It
+            //was two pale inks until #395 - silver above the waterline, white below - and those two are
+            //the palette's neutral family twice over on this style (black/silver 8.4, white/yellow 12.0).
+            //One ink makes each bar one slab instead of two, and it still is not a stack of one-course
+            //groups: banded by course it measured a dozen five-ball groups, a third of the budget on dams.
+            if (weir) return ERUPTION_LIGHTNING;
 
             //The river: the segment's pair in ribbons two courses deep - the upper ribbon carries the
             //anchor and the guillotine (cut it and the segment goes with its banks, the designed two-shot
@@ -559,9 +591,8 @@ namespace BS3D.Tools.LevelGen
         /// level-independent, so a block is one vertical piece): three against the diagonal fuse (#301,
         /// measured three times), and column-blocks rather than per-level blocks deliberately — a fused
         /// ash ribbon reaching across the underside would carry several necks at once, where a column-block
-        /// carries at most one. Silver, black and brown: ash grey, scorch and burnt earth, the register the
-        /// molten-crust balls read the seams against. The bomb bodies take one cold ink per wind column
-        /// (black, brown, olive upwind to downwind) — a body is ONE deliberate group, the Orrery-pin
+        /// carries at most one. The bomb bodies take one cold ink per wind column
+        /// (black, navy, cyan upwind to downwind) — a body is ONE deliberate group, the Orrery-pin
         /// precedent, not a dither, so the fuse rule does not apply to it and the body shot is a priced
         /// ~25-ball drop.
         /// </para>
@@ -578,9 +609,11 @@ namespace BS3D.Tools.LevelGen
         /// load 4.8 — the smallest in the game but the flat teaching levels, which is the cloud doing its
         /// job. Best single shots: the necks' halves 1 % each, a bomb body 3–4 %, and the designed
         /// spectacle — an ash block with a neck rooted in it, the bomb following — 11–15 %. Sag probe:
-        /// <b>0 of 5 losing orders, every order clearing the level</b> (worst at shot 22 of 52), and the
-        /// closest the line was ever approached is 7.57 — the block's law doing exactly what it claims,
-        /// since a level whose every release is its own lowest mass has nothing left to stretch.
+        /// <b>0 of 5 losing orders, every order clearing the level</b> (worst at shot 26 of 52), and the
+        /// closest the line was ever approached is 7.35 — the block's law doing exactly what it claims,
+        /// since a level whose every release is its own lowest mass has nothing left to stretch. (22 and
+        /// 7.57 before #395 folded six inks into five: the groups are the same, but the probe loads rounds
+        /// by colour, so it plays a different game on them.)
         /// </para>
         /// </summary>
         private static Design Volley() => new()
@@ -635,14 +668,15 @@ namespace BS3D.Tools.LevelGen
         //How coarse the ash dithers, in cells of x and z (level-independent — a block is a vertical piece).
         private const int VOLLEY_ASH_BLOCK = 5;
 
-        private static readonly BallType[] VOLLEY_ASH = { BallType.Type11, BallType.Type8, BallType.Type10 };   //silver, black, brown
+        //The ash and the bodies take the same three cold inks and never touch (a neck stands between every
+        //body and the cloud), so the level is five inks with the groups six would give it (#395).
+        private static readonly BallType[] VOLLEY_ASH = { ERUPTION_BLUE_FIRE, ERUPTION_BASALT, ERUPTION_COBALT };
 
-        //The bodies' one cold ink per wind column, upwind to downwind — the crust darkening as it cools in
-        //flight reads the bearing a third time.
-        private static readonly BallType[] VOLLEY_BODY = { BallType.Type8, BallType.Type10, BallType.Type13 };  //black, brown, olive
+        //The bodies' one cold ink per wind column, upwind to downwind — the bearing read a third time.
+        private static readonly BallType[] VOLLEY_BODY = { ERUPTION_BASALT, ERUPTION_COBALT, ERUPTION_BLUE_FIRE };
 
-        private const BallType VOLLEY_NECK_HOT = BallType.Type1;     //red, the upwind half of every neck
-        private const BallType VOLLEY_NECK_COOL = BallType.Type7;    //yellow, the downwind half
+        private const BallType VOLLEY_NECK_HOT = ERUPTION_EMBER;       //the upwind half of every neck
+        private const BallType VOLLEY_NECK_COOL = ERUPTION_SULPHUR;    //the downwind half
 
         /// <summary>How many courses of cloud hang over the wind position <paramref name="dx"/>.</summary>
         private static int VolleySheetDepth(float dx) =>
@@ -737,7 +771,7 @@ namespace BS3D.Tools.LevelGen
         /// <para>
         /// <b>The glow is the load, told three ways.</b> Each arc hangs from a small hot <b>socket patch</b>
         /// in the umbrella's underside (the one red group whose clearing orphans that arc and its bomb whole
-        /// — the level's designed shot, ~25 balls); the trunk's two <b>hoops</b> are orange/white quadrant
+        /// — the level's designed shot, ~25 balls); the trunk's two <b>hoops</b> are red/yellow quadrant
         /// discs wider than the trunk they interrupt, so severing one (both inks, never one ball) guillotines
         /// everything below it; and the bombs are cooled black — dead weight at the bottom of its own path,
         /// which is the block's engineering law verbatim: every designed drop here is the lowest thing on
@@ -836,14 +870,17 @@ namespace BS3D.Tools.LevelGen
         //unleaned bearing — hot, so the roof's downwind rim reads as five glowing mounts in the ash.
         private const float PLUME_PATCH_R = 1.05f;
 
-        //The registers, per the block header: ash for the umbrella, basalt for the trunk (olive in place of
-        //silver so the hoops' white never meets silver — a listed confusable pair — anywhere), the fallout
-        //pair for arcs and sockets, orange/white quadrants for both hoops.
-        private static readonly BallType[] PLUME_ASH = { BallType.Type8, BallType.Type10, BallType.Type11 };
-        private static readonly BallType[] PLUME_BASALT = { BallType.Type8, BallType.Type10, BallType.Type13 };
-        private static readonly BallType[] PLUME_FALLOUT = { BallType.Type1, BallType.Type7 };   //red, yellow
-        private static readonly BallType[] PLUME_HOOP_INKS = { BallType.Type9, BallType.Type4 }; //orange, white
-        private const BallType PLUME_BOMB_INK = BallType.Type8;                                  //cooled black
+        //The registers, per the block header: ash for the umbrella, basalt for the trunk, the fallout pair
+        //for arcs and sockets and the same two hot inks in quadrants for both hoops. The umbrella and the
+        //trunk share two inks and differ in the third — lightning in the ash column, blue fire in the rock —
+        //so where the trunk meets the umbrella they weld exactly as they always did. The hoops never touch
+        //an arc or a socket, so taking the fallout's pair costs no group (they were orange and white until
+        //#395, which kept the level at eight inks for nothing).
+        private static readonly BallType[] PLUME_ASH = { ERUPTION_BASALT, ERUPTION_COBALT, ERUPTION_LIGHTNING };
+        private static readonly BallType[] PLUME_BASALT = { ERUPTION_BASALT, ERUPTION_COBALT, ERUPTION_BLUE_FIRE };
+        private static readonly BallType[] PLUME_FALLOUT = { ERUPTION_EMBER, ERUPTION_SULPHUR };
+        private static readonly BallType[] PLUME_HOOP_INKS = { ERUPTION_EMBER, ERUPTION_SULPHUR };
+        private const BallType PLUME_BOMB_INK = ERUPTION_BASALT;                                  //cooled black
 
         /// <summary>Which fallout arc's column the cell is in at this depth, 0..4, or -1 for none. The arc's
         /// centre carries the downwind shear; the section radius widens to the bomb's on the last two
@@ -1001,8 +1038,8 @@ namespace BS3D.Tools.LevelGen
         private const int VENT_BOMBS = 4;
         private const float VENT_BOMB_HALF_WIDTH = 0.55f;
 
-        private static readonly BallType[] VENT_CRUST = { BallType.Type8, BallType.Type10, BallType.Type13 };  //black, brown, olive
-        private static readonly BallType[] VENT_GLOW = { BallType.Type1, BallType.Type9 };                     //red, orange
+        private static readonly BallType[] VENT_CRUST = { ERUPTION_BASALT, ERUPTION_COBALT, ERUPTION_BLUE_FIRE };
+        private static readonly BallType[] VENT_GLOW = { ERUPTION_EMBER, ERUPTION_SULPHUR };
 
         private static float VentRadius(int i) => VENT_MOUTH + i * VENT_FLARE;
 
@@ -1037,7 +1074,7 @@ namespace BS3D.Tools.LevelGen
         /// <para>
         /// <b>The glow is at the mouth here, which inverts the block's usual reading and is the direction this
         /// level happened in.</b> A spatter cone is fed from below: its two lowest courses are hot (red and
-        /// orange, banded by bearing so no course is one ink), the rest is cold crust dithered on three, and
+        /// yellow, banded by bearing so no course is one ink), the rest is cold crust dithered on three, and
         /// the cone hangs from a complete cold annulus at the glass. So the load is at the TOP and the light
         /// is at the BOTTOM - the one level in the block where cutting the glow costs nothing structural, and
         /// the reason a player can spend the mouth learning what a bomb does.
@@ -1094,8 +1131,12 @@ namespace BS3D.Tools.LevelGen
         //2.3 with slots 1.2 wide, the narrowest strip here is 1.1 and the rim strips are wider still.
         private static readonly float[] SILL_NOTCH_X = { -3.5f, -1.2f, 1.1f, 3.4f };
 
-        private static readonly BallType[] SILL_PLATE = { BallType.Type11, BallType.Type8, BallType.Type10 };  //silver, black, brown
-        private static readonly BallType[] SILL_MELT = { BallType.Type9, BallType.Type7 };                     //orange, yellow
+        //⚠ The plate was silver, black and brown and the melt orange and yellow until #395, which on this
+        //style is two colours for the plate's three, one of them the melt's own orange again: five inks,
+        //three colours. The level the playtest called unfinishable ("the player can only shoot at random")
+        //was exactly that.
+        private static readonly BallType[] SILL_PLATE = { ERUPTION_BLUE_FIRE, ERUPTION_BASALT, ERUPTION_COBALT };
+        private static readonly BallType[] SILL_MELT = { ERUPTION_EMBER, ERUPTION_SULPHUR };
 
         /// <summary>
         /// Which notch a cell is in the mouth of, or -1.
@@ -1159,7 +1200,7 @@ namespace BS3D.Tools.LevelGen
         /// <para>
         /// <b>The four notches march downwind</b>, which is this level's direction: they are spaced across the
         /// plate in x on one bearing, so the plate opens along a line rather than at random. The plate's
-        /// underside course is hot (orange and yellow, banded) - the melt the sill was injected as - so the
+        /// underside course is hot (red and yellow, banded) - the melt the sill was injected as - so the
         /// level still reads as the block's: the glow is the underside, the load is the cold plate at the glass.
         /// </para>
         /// </summary>
@@ -1231,17 +1272,25 @@ namespace BS3D.Tools.LevelGen
             (-3f, -2f, 7), (-3f, 2f, 5), (0f, -2f, 3), (3f, 2f, 1), (2.5f, -2.5f, 6),
         };
 
-        private static readonly BallType[] FUME_CAP = { BallType.Type8, BallType.Type11, BallType.Type13 };  //black, silver, olive
+        private static readonly BallType[] FUME_CAP = { ERUPTION_BASALT, ERUPTION_COBALT, ERUPTION_BLUE_FIRE };
 
-        //One pair of hot inks per pipe, banded by course - so a pipe is two groups of its own and the five
-        //pipes between them put every hot ink in the block's register on the level.
+        //One pair of hot inks per pipe, banded by course - so each course of a pipe is its own group, and the
+        //five pipes between them lay the hot inks out in named places. Three inks and not four since #395
+        //(red, orange, yellow and white read as two colours on this style), which is why the pairs
+        //are ORDERED: three inks make only three unordered pairs, so a pipe is told from its twin by which
+        //ink it starts on. ⚠ THE ORDER IS NOT FREE: pipe 2 touches pipe 4 on both parities and across them,
+        //and pipe 0 on its odd courses, so a careless order welds pipes together — the first two cuts of this
+        //table did, three groups lost and a 35-ball lightning group through two pipes. The order below was
+        //chosen by counting groups over the level's real ball contacts for every ordering of the three inks:
+        //it keeps all 23 pipe courses apart, and of the orders that do it gives the sixth ink the smallest
+        //share (red 55, yellow 50, lightning 42 balls), since a zap on the level takes one of them whole.
         private static readonly BallType[][] FUME_PIPE_INKS =
         {
-            new[] { BallType.Type1, BallType.Type9 },   //red, orange
-            new[] { BallType.Type9, BallType.Type7 },   //orange, yellow
-            new[] { BallType.Type7, BallType.Type4 },   //yellow, white-hot
-            new[] { BallType.Type4, BallType.Type1 },   //white-hot, red
-            new[] { BallType.Type1, BallType.Type7 },   //red, yellow
+            new[] { ERUPTION_EMBER, ERUPTION_LIGHTNING },
+            new[] { ERUPTION_SULPHUR, ERUPTION_LIGHTNING },
+            new[] { ERUPTION_EMBER, ERUPTION_SULPHUR },
+            new[] { ERUPTION_SULPHUR, ERUPTION_EMBER },
+            new[] { ERUPTION_LIGHTNING, ERUPTION_EMBER },
         };
 
         /// <summary>Which pipe a cell is in, or -1. A pipe runs from under the cap down to its own bottom.</summary>
@@ -1276,9 +1325,9 @@ namespace BS3D.Tools.LevelGen
         /// the question a player has to learn to ask is <i>what am I about to shoot</i> - which the magazine
         /// answers three balls ahead.
         /// <para>
-        /// <b>The pipes are what make that visible.</b> Each is two inks and no two pipes share a pair, so the
-        /// field's hot colours are laid out in named places rather than mixed through a mass: a player who
-        /// zaps red can see, before the shot, that red is two pipes and part of a third. The cap is cold and
+        /// <b>The pipes are what make that visible.</b> Each is two inks and no two pipes share an ordered pair,
+        /// so the field's hot colours are laid out in named places rather than mixed through a mass: a player
+        /// who zaps red can see, before the shot, that red is four of the five pipes and none of the cap. The cap is cold and
         /// dithered on three, and holds every pipe - so a zap never threatens the hang, which is what lets
         /// this level be the one where the mechanic is tried rather than survived.
         /// </para>
@@ -1360,12 +1409,17 @@ namespace BS3D.Tools.LevelGen
         //And the floor is a TERRACE and not a disc, which is the second half of the same finding: a full disc
         //is a hundred balls of unsupported middle hanging off a breached ring, and the dome alone only took
         //the probe from 5 of 5 to 4. Cut back to a ring between the dome and the wall, the level reads 1.
+        //⚠ Read again for #395 on the notebook, solo, before and after its inks changed: 2 of 5 both times and
+        //shot for shot the same game, one of the two at shot 4 with the glass still at rest (a 53-ball
+        //match). The inks did not do it, and whether it is the probe's ±1 or the level is left to be decided.
         //It is also what a caldera looks like from underneath - a bench round a dome, with the chamber's
         //roof gone from the middle.
         private const float CALDERA_BENCH = 3.0f;
 
-        private static readonly BallType[] CALDERA_WALL_INKS = { BallType.Type8, BallType.Type10, BallType.Type13 };  //black, brown, olive
-        private static readonly BallType[] CALDERA_FLOOR_INKS = { BallType.Type1, BallType.Type9, BallType.Type7 };   //red, orange, yellow
+        //The bench's third hot ink is the block's sixth (#395): it was orange, between the red and the yellow,
+        //and on this style orange is the red again.
+        private static readonly BallType[] CALDERA_WALL_INKS = { ERUPTION_BASALT, ERUPTION_COBALT, ERUPTION_BLUE_FIRE };
+        private static readonly BallType[] CALDERA_FLOOR_INKS = { ERUPTION_EMBER, ERUPTION_LIGHTNING, ERUPTION_SULPHUR };
 
         /// <summary>How far a bearing is from the breach's, in turns (0 at the breach's middle).</summary>
         private static float CalderaBreachOffset(float ang)
@@ -1442,8 +1496,12 @@ namespace BS3D.Tools.LevelGen
         private const float PAROXYSM_RADIUS = 3.1f;
         private const float PAROXYSM_LEAN = 0.26f;    //cells of offset a course, the column's own bearing
 
-        private static readonly BallType[] PAROXYSM_COLUMN = { BallType.Type8, BallType.Type10, BallType.Type11 };  //black, brown, silver
-        private static readonly BallType[] PAROXYSM_CORE = { BallType.Type1, BallType.Type9, BallType.Type7, BallType.Type4 };
+        //The core is three hot inks and not four since #395 (#394 was this level: red, orange, yellow and white
+        //over black, brown and silver, seven inks that read as three). The core bands one ink a course, so any
+        //cycle of two or more keeps every course its own group - three changes which colour a course is, not
+        //what a shot into it takes.
+        private static readonly BallType[] PAROXYSM_COLUMN = { ERUPTION_BASALT, ERUPTION_COBALT, ERUPTION_BLUE_FIRE };
+        private static readonly BallType[] PAROXYSM_CORE = { ERUPTION_EMBER, ERUPTION_LIGHTNING, ERUPTION_SULPHUR };
 
         //Every third course carries a special, alternating flanks, from the foot up to where the column meets
         //the glass - and the two lowest are a bomb and a zap on the SAME course, which is the level's subject.
@@ -1491,7 +1549,7 @@ namespace BS3D.Tools.LevelGen
         /// each has open air beside it and the gate's walled-in refusal is answered by the geometry.
         /// </para>
         /// <para>
-        /// <b>The core is the block's glow and carries the load</b> - four hot inks up the column's axis,
+        /// <b>The core is the block's glow and carries the load</b> - three hot inks up the column's axis,
         /// banded so no course is one colour - and the crust round it is cold on three. A blast at the foot
         /// takes crust and core together, which is the block's law again: the column's lowest thing goes, and
         /// what is left hangs higher.

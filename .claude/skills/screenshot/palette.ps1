@@ -55,13 +55,30 @@
 # emissive styles is the entire measurement. The default (gore median) stays the default: it is the right
 # instrument for the vinyl, which is what the thirteen tints were tuned against and what everything
 # unauthored still draws.
+#
+#   -Cores <f>   average only the brightest fraction f of each disc (0.25 and 0.5 are the useful pair), in
+#                linear light. #395 found -Whole the wrong question for LAVA: it averages the glowing net with
+#                a crust that is the same black on all thirteen, and read the Eruption's palette as fine
+#                (tightest 7.4) while the owner could not tell its colours apart. What the eye reads on that
+#                style is the net, and over the net the same capture ranked orange/brown, red/orange,
+#                red/brown and black/silver as the four tightest pairs in the game.
+#   -LightnessWeight <k>   CIEDE2000's kL. 2 halves what a pure lightness gap counts for, and #395 used it
+#                because in PLAY a cluster's occlusion and distance compress lightness while hue survives:
+#                black and silver differ by a lightness step on a lit row and by nothing in a shaded pile.
+#
+# The capture #395 read: Thirteen_Colors, balls=lava scene=volcano sky=9 nopost nooverc ssaa=2 fpscap=75, the
+# camera line above, several shot= times in one run (the heartbeat moves one capture). Under the volcano the
+# row hangs higher than under the meadow: -RowY 416 -Xs 439,494,550,606,661,716,772,828,883,938,994,1050,1105
+# -Radius 19. Look at a capture with the circles drawn on before trusting any sample points.
 param(
     [Parameter(Mandatory=$true)][string]$Png,
     [int]$RowY = 450,
     [int]$Radius = 20,
     [int[]]$Xs = @(443,500,558,615,672,728,785,840,895,950,1005,1057,1110),
     [string[]]$Focus = @(),
-    [switch]$Whole
+    [switch]$Whole,
+    [double]$Cores = 0,
+    [double]$LightnessWeight = 1.0
 )
 
 Add-Type -AssemblyName System.Drawing
@@ -79,7 +96,7 @@ function ToSrgb([double]$v) {
     return [Math]::Max(0.0, [Math]::Min(255.0, $e * 255.0))
 }
 
-function Get-BallColor([System.Drawing.Bitmap]$b, [int]$cx, [int]$cy, [int]$r, [bool]$whole) {
+function Get-BallColor([System.Drawing.Bitmap]$b, [int]$cx, [int]$cy, [int]$r, [bool]$whole, [double]$cores) {
     $pix = New-Object System.Collections.ArrayList
     $sumR = 0.0; $sumG = 0.0; $sumB = 0.0; $n = 0
     for ($dy = -$r; $dy -le $r; $dy++) {
@@ -99,6 +116,14 @@ function Get-BallColor([System.Drawing.Bitmap]$b, [int]$cx, [int]$cy, [int]$r, [
     if ($whole) {
         if ($n -eq 0) { $out = @(0.0,0.0,0.0); return ,$out }
         $out = @((ToSrgb ($sumR/$n)), (ToSrgb ($sumG/$n)), (ToSrgb ($sumB/$n))); return ,$out
+    }
+    if ($cores -gt 0) {
+        $bright = @($pix | Sort-Object { $_[0] } -Descending)
+        $keep = [Math]::Max(1, [int]($bright.Count * $cores))
+        for ($k = 0; $k -lt $keep; $k++) {
+            $sumR += ToLinear $bright[$k][1]; $sumG += ToLinear $bright[$k][2]; $sumB += ToLinear $bright[$k][3]
+        }
+        $out = @((ToSrgb ($sumR/$keep)), (ToSrgb ($sumG/$keep)), (ToSrgb ($sumB/$keep))); return ,$out
     }
     $sorted = $pix | Sort-Object { $_[0] }
     $keep = [int]($sorted.Count * 2 / 3)          # drop the brightest third: white gores + highlight
@@ -129,7 +154,7 @@ function To-Lab([double[]]$rgb) {
 }
 
 function DE2000([double[]]$lab1, [double[]]$lab2) {
-    $kL = 1.0; $kC = 1.0; $kH = 1.0
+    $kL = $LightnessWeight; $kC = 1.0; $kH = 1.0
     $L1 = $lab1[0]; $a1 = $lab1[1]; $b1 = $lab1[2]; $L2 = $lab2[0]; $a2 = $lab2[1]; $b2 = $lab2[2]
     $C1 = [Math]::Sqrt($a1*$a1 + $b1*$b1); $C2 = [Math]::Sqrt($a2*$a2 + $b2*$b2)
     $Cb = ($C1 + $C2) / 2.0
@@ -169,7 +194,7 @@ function DE2000([double[]]$lab1, [double[]]$lab2) {
 
 $rgbs = @(); $labs = @()
 for ($i = 0; $i -lt 13; $i++) {
-    $rgb = Get-BallColor $bmp $Xs[$i] $RowY $Radius ([bool]$Whole)
+    $rgb = Get-BallColor $bmp $Xs[$i] $RowY $Radius ([bool]$Whole) $Cores
     $rgbs += ,$rgb
     $labs += ,(To-Lab $rgb)
     $lum = 0.2126*$rgb[0] + 0.7152*$rgb[1] + 0.0722*$rgb[2]
