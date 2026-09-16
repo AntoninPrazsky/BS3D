@@ -102,6 +102,26 @@ float GrainStrength;
 //How much of the sky's hemisphere light fills the plain.
 float AmbientStrength;
 
+//THE SKYLINE: a ring of layered mesas and buttes out in the dust (see MesaField). How tall they stand, the radius
+//the ring begins at, and how much of the ring is mesa rather than plain (a threshold on the noise that shapes
+//them - higher is fewer, smaller mesas).
+float MesaHeight;
+float MesaInnerRadius;
+float MesaThreshold;
+
+//The sediment a mesa's cliffs are cut through: pale and dark layers, and how many a world unit of height holds.
+float3 StrataColorPale;
+float3 StrataColorDark;
+float StrataFrequency;
+
+//Dark basaltic sand lying in drifts on the flats, and how much of the plain it covers.
+float3 SandColor;
+float SandCoverage;
+
+//Flat pale slabs of bedrock showing through the dust, cracked, and how much of the near plain they cover.
+float3 SlabColor;
+float SlabCoverage;
+
 //Airborne rust dust: how far the haze is carried from the dome's own horizon colour towards HazeTint - the
 //outback's own two-stage fade (see MarsTerrainPS), so Mars's distance stays rust-coloured under any dome
 //rather than borrowing whatever hue that dome happens to be.
@@ -278,11 +298,37 @@ float RockLayer(float2 p, float cellSize, float seed, float chance, float height
     return (body * 0.9 + apron * 0.1) * height * lerp(0.62, 1.0, rollB.y) * ramp;
 }
 
+//THE SKYLINE: layered mesas and buttes on a ring out in the dust. The plain used to run flat to a haze line,
+//and a horizon with nothing standing on it is most of what read as bland - every rover photograph and every
+//reference rendered for this has a crater wall or a range of flat-topped, sediment-banded hills across the
+//distance. The shape is a low-frequency noise THRESHOLDED: a steep smoothstep turns its high ground into flat
+//tops with cliffs around them, which is what a mesa is, and pulling a third of the profile towards quarter steps
+//gives the flanks the ledges of eroding layers. The ring's own ramp feeds the threshold, so the mesas rise out of
+//the plain as it recedes instead of starting at a circle. `mesa` comes back 0..1 - how far up the landform a
+//point is - for the strata colouring.
+float MesaField(float2 p, out float mesa)
+{
+    mesa = 0.0;
+
+    float ring = smoothstep(MesaInnerRadius, MesaInnerRadius + 140.0, length(p));
+
+    float shapeNoise = GradientNoise2(p * 0.0042) * 0.7 + GradientNoise2(p * 0.0115 + 3.7) * 0.3;
+    float rise = shapeNoise + (ring - 1.0) * 0.5;
+
+    float profile = smoothstep(MesaThreshold - 0.10, MesaThreshold + 0.03, rise);
+    float ledges = floor(profile * 4.0 + 0.5) / 4.0;
+    mesa = lerp(profile, ledges, 0.3);
+
+    return MesaHeight * mesa;
+}
+
 //The full displaced height at a world point: flat at MarsLevelY inside the clearing around the island,
 //rising into cratered ground with distance, with boulders and pebbles standing on it. UNLIKE THE MOON
 //there is no highland belt and no planetary curvature - Mars keeps its air, so MarsTerrainPS's haze fade
 //closes the horizon the ordinary way, not geometry. Tapped to displace the vertex (VS) and, thrice, for
-//the per-pixel normal (PS).
+//the per-pixel normal (PS). The mesas are NOT in it: the vertex adds them itself, and the pixel adds them only
+//past the ring's inner radius (MarsTerrain), which is the whole saving of keeping them apart - measured, a mesa
+//field summed in here and early-outing inside its own function cost the near plain as much as the far one.
 float MarsHeight(float2 p, out float ejecta, out float rockShape)
 {
     float dist = length(p);
@@ -322,8 +368,9 @@ MarsTerrainVertexOutput MarsTerrainVS(MarsTerrainVertexInput input)
 
     float2 worldXZ = input.Position.xz + OriginXZ;
 
-    float ejectaUnused, rockShapeUnused;
-    float3 worldPosition = float3(worldXZ.x, MarsHeight(worldXZ, ejectaUnused, rockShapeUnused), worldXZ.y);
+    float ejectaUnused, rockShapeUnused, mesaUnused;
+    float height = MarsHeight(worldXZ, ejectaUnused, rockShapeUnused) + MesaField(worldXZ, mesaUnused);
+    float3 worldPosition = float3(worldXZ.x, height, worldXZ.y);
 
     output.WorldPosition = worldPosition;
     output.Position = mul(mul(float4(worldPosition, 1.0), View), Projection);
@@ -331,7 +378,7 @@ MarsTerrainVertexOutput MarsTerrainVS(MarsTerrainVertexInput input)
     return output;
 }
 
-float4 MarsTerrainPS(MarsTerrainVertexOutput input) : COLOR
+float4 MarsTerrain(MarsTerrainVertexOutput input, bool detail)
 {
     float3 worldPosition = input.WorldPosition;
 
@@ -347,6 +394,17 @@ float4 MarsTerrainPS(MarsTerrainVertexOutput input) : COLOR
     float h = MarsHeight(worldPosition.xz, ejecta, rockShape);
     float hx = MarsHeight(worldPosition.xz + float2(e, 0.0), ejectaX, rockShapeX);
     float hz = MarsHeight(worldPosition.xz + float2(0.0, e), ejectaZ, rockShapeZ);
+
+    //The mesas' share of the three taps, only where the ring can have any (see MarsHeight)
+    float mesa = 0.0;
+    [branch]
+    if (length(worldPosition.xz) > MesaInnerRadius - 2.0 * e)
+    {
+        float mesaX, mesaZ;
+        h += MesaField(worldPosition.xz, mesa);
+        hx += MesaField(worldPosition.xz + float2(e, 0.0), mesaX);
+        hz += MesaField(worldPosition.xz + float2(0.0, e), mesaZ);
+    }
 
     float2 slope = float2(hx - h, hz - h) / e;
     float3 baseNormal = normalize(float3(-slope.x, 1.0, -slope.y));
@@ -380,13 +438,67 @@ float4 MarsTerrainPS(MarsTerrainVertexOutput input) : COLOR
 
     rust = lerp(rust, RustColorPale * 1.18, saturate(ejecta * EjectaBrightness));
 
+    //The coarse grain is SMOOTH NOISE, not a hash per cell, since the skyline pass: it was two hashes held
+    //constant over a 1.3- and a 5.5-unit square, stepping at their edges, and they drew a visible checkerboard
+    //of tiles across the near plain - the "blocky ground" the flat Mars read as close up. The 5.5-unit term is
+    //gone outright rather than smoothed, the sand drifts and the slabs now carrying variation at that scale.
+    //The fine grain stays a hash, being sub-pixel by the time its cells could show.
     float grainFine = saturate(1.0 - footprint * 96.0);
     float grainCoarse = saturate(1.0 - footprint * 1.5);
-    float grainPebbles = saturate(1.0 - footprint * 0.36);
-    rust *= 1.0 + GrainStrength * (
-        NoiseHash22(floor(worldPosition.xz * 48.0)).x * grainFine
-        + NoiseHash22(floor(worldPosition.xz * 0.75) + 17.0).x * 0.7 * grainCoarse
-        + NoiseHash22(floor(worldPosition.xz * 0.18) + 41.0).x * 0.5 * grainPebbles);
+    float coarse = detail ? GradientNoise2(worldPosition.xz * 0.75 + 17.0) * 1.2 * grainCoarse : 0.0;
+    rust *= 1.0 + GrainStrength * (NoiseHash22(floor(worldPosition.xz * 48.0)).x * grainFine + coarse);
+
+    //--- The ground's own materials ------------------------------------------------------------------
+    //Three things a rover photograph shows on a plain besides rust and stones, each read off the references
+    //rendered for this pass.
+    //
+    // * Dark basaltic sand lying in DRIFTS on the flats - long streaks along the prevailing wind, not blobs -
+    //   and only where the ground is level: sand does not hold on a crater wall or a boulder.
+    float level = smoothstep(0.90, 0.985, baseNormal.y);
+    [branch]
+    if (detail)
+    {
+    float2 drift = float2(dot(worldPosition.xz, float2(0.81, 0.59)) * 0.35, dot(worldPosition.xz, float2(-0.59, 0.81)));
+    float sandField = GradientNoise2(drift * 0.060);
+    float sand = smoothstep(0.36 - SandCoverage, 0.56 - SandCoverage, sandField) * level;
+
+    // * Pale bedrock SLABS where the dust is thin: flat plates the colour of dry clay, broken by dark cracks.
+    //   The cracks are a noise's zero-crossings - a connected web of thin lines - faded out before they could
+    //   shimmer.
+    float slabField = GradientNoise2(worldPosition.xz * 0.055 + 23.0);
+    float slab = smoothstep(0.52 - SlabCoverage, 0.60 - SlabCoverage, slabField) * level * (1.0 - sand);
+    float crack = 0.0;
+    [branch]
+    if (slab > 0.001)
+        crack = (1.0 - smoothstep(0.0, 0.07, abs(GradientNoise2(worldPosition.xz * 0.85 + 5.0))))
+            * saturate(1.0 - footprint * 3.0);
+
+    //Wind ripples across the drift - fine crests square to the wind, which is what tells sand from a shadow
+    //lying on the plain. Wobbled by a slower sine across them so they are not ruled lines (a noise did it first,
+    //for a cost the eye could not tell apart), band-limited so they are gone long before a crest could shrink
+    //to a pixel.
+    float rippleFade = saturate(1.0 - footprint * 2.2);
+    float ripple = sin(dot(worldPosition.xz, float2(0.81, 0.59)) * 3.1
+        + sin(dot(worldPosition.xz, float2(-0.59, 0.81)) * 0.45) * 1.8 + broad * 6.0);
+    rust = lerp(rust, SandColor * (1.0 + 0.25 * broad) * (1.0 + 0.22 * ripple * rippleFade), sand);
+    rust = lerp(rust, SlabColor * (1.0 - 0.55 * crack), slab);
+    }
+
+    // * The MESAS' strata: layers of pale and dark sediment banded by height, the band wobbling a little so it
+    //   does not read as ruled lines, blended in with how far up the landform a point stands - the plain at
+    //   their feet stays rust, their dusty tops lighten.
+    //`mesa` came out of the height field's own centre tap, so the landform is not evaluated a fourth time here.
+    [branch]
+    if (mesa > 0.001)
+    {
+        //The wobble's noise is the reduced program's third cut: without it the bands are ruled lines, which at
+        //the mesas' distance and haze Low's player will not tell apart.
+        float wobble = detail ? GradientNoise2(worldPosition.xz * 0.02) * 2.5 : 0.0;
+        float band = sin(worldPosition.y * StrataFrequency + wobble) * 0.5 + 0.5;
+        float3 strata = lerp(StrataColorDark, StrataColorPale, band * band);
+        float cliff = 1.0 - smoothstep(0.55, 0.95, baseNormal.y);
+        rust = lerp(rust, lerp(RustColorPale, strata, cliff), saturate(mesa * 1.6));
+    }
 
     //--- The stones ----------------------------------------------------------------------------------
     //Dark volcanic basalt, not more of the ground's own rust - the one thing on the plain that is not
@@ -505,12 +617,28 @@ float4 MarsMoonsPS(MarsMoonsVertexOutput input) : COLOR
     return float4(color, coverage);
 }
 
+//Two programs from one body, the forest's and the meadow's pattern. "MarsTerrain" is the authored ground;
+//"MarsTerrainReduced" drops the sand drifts with their ripples, the bedrock slabs with their cracks and the
+//strata's wobble - the ground's added noise - and keeps the mesas, which are geometry and must be lit the same
+//on every tier. SceneRenderer.SceneDetail picks; the Game's Low tier takes the reduced one.
+float4 MarsTerrainPS(MarsTerrainVertexOutput input) : COLOR { return MarsTerrain(input, true); }
+float4 MarsTerrainReducedPS(MarsTerrainVertexOutput input) : COLOR { return MarsTerrain(input, false); }
+
 technique MarsTerrain
 {
     pass P0
     {
         VertexShader = compile VS_SHADERMODEL MarsTerrainVS();
         PixelShader = compile PS_SHADERMODEL MarsTerrainPS();
+    }
+};
+
+technique MarsTerrainReduced
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL MarsTerrainVS();
+        PixelShader = compile PS_SHADERMODEL MarsTerrainReducedPS();
     }
 };
 

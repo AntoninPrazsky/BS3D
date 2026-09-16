@@ -612,7 +612,7 @@ namespace Prazsky.Core.Render
         //its two per-frame ray-reconstruction parameters are cached (BestPractices §1) — the terrain pass
         //follows the outback's and the volcano's own practice of setting the rest by name each draw.
         private EffectParameter _marsMoonsInverseViewProjection, _marsMoonsCameraPosition;
-        private EffectTechnique _marsTerrainTechnique, _marsMoonsTechnique;
+        private EffectTechnique _marsTerrainTechnique, _marsTerrainFull, _marsTerrainReduced, _marsMoonsTechnique;
 
         //Look/tuning parameters (clearing, craters, rust surface, dust haze, the two moons) live in
         //MarsSceneConfig; SceneRenderer reads them from _marsConfig.
@@ -1220,7 +1220,10 @@ namespace Prazsky.Core.Render
             _marsEffect = content.Load<Effect>("Shaders/Mars");
             CreateGridMesh(MARS_GRID_N, MARS_EXTENT, out _marsVertexBuffer, out _marsIndexBuffer, out _marsIndexCount);
 
-            _marsTerrainTechnique = _marsEffect.Techniques["MarsTerrain"];
+            //The authored ground and its reduced program; SceneDetail picks between them (SelectMarsTechnique)
+            _marsTerrainFull = _marsEffect.Techniques["MarsTerrain"];
+            _marsTerrainReduced = _marsEffect.Techniques["MarsTerrainReduced"];
+            SelectMarsTechnique();
             _marsMoonsTechnique = _marsEffect.Techniques["MarsMoons"];
 
             _marsMoonsInverseViewProjection = _marsEffect.Parameters["InverseViewProjection"];
@@ -2377,6 +2380,17 @@ namespace Prazsky.Core.Render
             _marsEffect.Parameters["BoulderColorDeep"].SetValue(surface.BoulderColorDeep.ToVector3());
             _marsEffect.Parameters["BoulderColorBright"].SetValue(surface.BoulderColorBright.ToVector3());
             _marsEffect.Parameters["RockRelief"].SetValue(surface.RockRelief);
+
+            _marsEffect.Parameters["MesaHeight"].SetValue(terrain.MesaHeight);
+            _marsEffect.Parameters["MesaInnerRadius"].SetValue(terrain.MesaInnerRadius);
+            _marsEffect.Parameters["MesaThreshold"].SetValue(terrain.MesaThreshold);
+            _marsEffect.Parameters["StrataColorPale"].SetValue(surface.StrataColorPale.ToVector3());
+            _marsEffect.Parameters["StrataColorDark"].SetValue(surface.StrataColorDark.ToVector3());
+            _marsEffect.Parameters["StrataFrequency"].SetValue(surface.StrataFrequency);
+            _marsEffect.Parameters["SandColor"].SetValue(surface.SandColor.ToVector3());
+            _marsEffect.Parameters["SandCoverage"].SetValue(surface.SandCoverage);
+            _marsEffect.Parameters["SlabColor"].SetValue(surface.SlabColor.ToVector3());
+            _marsEffect.Parameters["SlabCoverage"].SetValue(surface.SlabCoverage);
 
             _marsEffect.Parameters["HazeTint"].SetValue(air.HazeTint.ToVector3());
             _marsEffect.Parameters["DustStrength"].SetValue(air.DustStrength);
@@ -3963,6 +3977,14 @@ namespace Prazsky.Core.Render
         /// strokes are the two near-field terms that cost, and the reduced program drops both. By technique for
         /// <see cref="SelectForestTechnique"/>'s reason.
         /// </summary>
+        /// <summary>
+        /// Mars's full ground or its reduced one: the sand drifts, the bedrock slabs and the strata's wobble are the
+        /// added noise the reduced program drops, the mesas staying on every tier. Held as a cached technique rather
+        /// than looked up, since <c>DrawMars</c> assigns it every frame.
+        /// </summary>
+        private void SelectMarsTechnique() =>
+            _marsTerrainTechnique = _sceneDetail > 0.5f ? _marsTerrainFull : _marsTerrainReduced;
+
         private void SelectMeadowTechnique() =>
             _meadowEffect.CurrentTechnique = _meadowEffect.Techniques[_sceneDetail > 0.5f ? "Meadow" : "MeadowReduced"];
 
@@ -4007,6 +4029,7 @@ namespace Prazsky.Core.Render
         {
             SelectForestTechnique();
             SelectMeadowTechnique();
+            SelectMarsTechnique();
 
             //The cavern is BACK (#298), and it left and returned for different reasons — see Cavern.fx's own
             //note at the techniques. It went in #250, when the pair it used to drop was cut from the authored
