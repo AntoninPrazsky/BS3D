@@ -134,6 +134,35 @@ namespace Prazsky.BS3D.GameObjects
         /// </summary>
         public float ElevationOvershoot => _elevationOvershoot;
 
+        /// <summary>
+        /// Whether the gun must refuse to fire this instant because the aim is pressed against, or stretched past,
+        /// the elevation clamp (#431). The rubber was an exploit: a shot fired from the top of the stretch left up to
+        /// ~6° past a tall level's limit, straight into the unframed band the limit exists to close. So a shot is
+        /// refused for as long as <see cref="ElevationStrain"/> lasts — exactly while the crosshair and the beam
+        /// blink red, so the refusal is never unannounced — and, as a net under that, while the pose stands past the
+        /// clamp by more than <see cref="ELEVATION_FIRE_TOLERANCE"/>. At rest on the clamp the gun fires: the limit is
+        /// what the level allows, and nothing is pushing.
+        /// </summary>
+        public bool ElevationRefusesShot
+        {
+            get
+            {
+                if (ElevationStrain > 0f) return true;
+
+                float pose = PoseElevation;
+                return pose > _elevationLimit + ELEVATION_FIRE_TOLERANCE || pose < MinElevation - ELEVATION_FIRE_TOLERANCE;
+            }
+        }
+
+        /// <summary>
+        /// How far past the clamp the pose may stand and still fire once the strain is over, in radians (~0.57°).
+        /// Not zero, because the spring's second swing back over the clamp comes after the blink has stopped — 0.33°
+        /// from a full stretch, measured at 30, 75 and 240 Hz — and a shot refused under a white crosshair would be a
+        /// refusal nobody was told about. Half a degree is nothing a player can exploit against a tall level's 3°
+        /// margin.
+        /// </summary>
+        public const float ELEVATION_FIRE_TOLERANCE = 0.01f;
+
         //Traverse (yaw) the aim may swing either side of the resting heading, in radians (±45°).
         public const float MaxTraverse = Constants.QUARTER_PI;
 

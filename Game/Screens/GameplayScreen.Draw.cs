@@ -167,6 +167,11 @@ namespace BS3D.Screens
             //_previewDrift, and ShotPlacement.CellWorldPosition for the two things that separate the two.
             _previewHasCell = ShotPlacement.TrySolveAgainstBall(_map, hit, contact, _clusterWorldOffset,
                 out _previewCell, out _previewDrift);
+
+            //No ghost for a shot the gun will refuse (#431): a cell shown while the aim is pressed past the elevation
+            //clamp is a landing promised for a shot that cannot leave, which is #70's broken promise. The beam stays
+            //up and reads refused, because in the overview it is what carries the blink.
+            if (_cannon.ElevationRefusesShot) _previewHasCell = false;
         }
 
         /// <summary>
