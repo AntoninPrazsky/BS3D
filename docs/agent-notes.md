@@ -2969,7 +2969,11 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
 - **Neověřeno:**
   - Přechod Emberu na druhou variantu za běhu, protože level se skriptem restartovat nedá.
   - Nic ušima: běhy šly s `mute`.
-- ⚠ **Velikost:** repo i distribuce jsou o 116,6 MB WAV větší. Pro srovnání: poslechová stránka měla 12 skladeb v Ogg Vorbis za 34 MB. Pokud to bude vadit, patří to do samostatného issue.
+- ⚠ **Velikost:** repo i distribuce jsou o 116,6 MB WAV větší. Pro srovnání: poslechová stránka měla 12 skladeb v Ogg Vorbis za 34 MB.
+  - **Majitel chtěl issue, založeno jako #444:** Ogg Vorbis v `Game/Music`, při načtení dekódovaný do stejného PCM, hudba mimo MGCB.
+  - Změřeno přes libsndfile na všech 11 skladbách: kvalita 0,4 / 0,6 / 0,8 vychází na 10,2 / 14,9 / 19,9 MB. Délka po dekódování sedí na vzorek.
+  - Kandidáti jsou NVorbis 0.10.5 a OggVorbisEncoder 1.2.2, oba pod MIT.
+  - Neověřeno: délka po dekódování přes NVorbis, čas dekódování a jestli je šev smyčky slyšet.
 
 ---
 
