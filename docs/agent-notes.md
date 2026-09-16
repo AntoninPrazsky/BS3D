@@ -2850,6 +2850,8 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
 
 **Nic dalšího si neberu.** Implementace #443 čeká na slovo majitele.
 
+**Dodatek: tři punkové variace Emberu jsou na `main`u — merge `2466a75`**, větev smazaná. Majitel chtěl Ember „ve stylu punk rocku, jako Green Day – Boulevard of Broken Dreams“. Prompt styl popisuje, ale kapelu ani píseň nejmenuje, aby model nekopíroval konkrétní nahrávku. LM ani jednu variantu nenechal jako punk: vyšel alt rock/grunge, metal s double-kickem a blues-rock se sóly (podrobnosti v sidecarech). Všechny tři loopy drží rytmus. Pro věrnější styl zbývá nevyzkoušená páka `use_cot_caption: false`, kdy DiT dostane caption tak, jak je napsaný. GPU jsem si předem vyžádal od bs3d-49 (uvolnila Gemmu) a po dokončení jí ho zprávou vrátil. Nechat ACE-Step (~6 GB) a načtenou Gemmu 4 (12,8 GB) běžet na 16GB kartě naráz nejde. S volnou GPU trvalo dekódování VAE (4 dlaždice) 35–36 s, u odpoledních témat 68–137 s, jenže tehdy jsem nekontroloval, co v paměti karty drželo LM Studio.
+
 ---
 
 ## 2026-09-16 — Claude Code (zápis k #440)
