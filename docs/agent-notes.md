@@ -2832,6 +2832,26 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
 
 ---
 
+## 2026-09-16 — Claude Code (lokální AI: generovaná hudba, #443)
+
+**Majitel změnil rozhodnutí o hudbě.** Po poslechu lokálně vygenerovaných skladeb chce procedurální hudbu nahradit generovaným audiem a procedurální kusy nechat jako easter egg na About (přehrávač: pauza, další skladba, jednoduchý 2D vizualizér). Založeno jako **#443**. Tím se pro **hudbu** obrací #187 („žádná AI generace“) ze 14. 9.; osud #391 (lidské skladby z OpenGameArt) je na majiteli. Věta „Hudbu majitel řeší lidskými skladbami (#391)“ z předchozího zápisu už pro hudbu neplatí; k efektům (#442) #443 nic nového neříká.
+
+- **Engine:** ACE-Step 1.5 přes `acestep.cpp` v0.0.5 (hotové Windows binárky s Vulkanem) na RX 6900 XT, bez ROCm. Modely Q8_0 GGUF (~7,7 GB). Skripty jsou mimo repo v `C:\Users\panrd\AI` (`generate-music.ps1`, `loop_crossfade.py`). **Licence MIT** (kód i váhy, ověřeno přes GitHub API a Hugging Face). Můj první commit uváděl Apache 2.0, opraveno v `5b098a7`.
+- **Reference na `main`u:** `Research/AI-Music/` — protějšky všech pěti `MusicTheme` a menu plus jedna nová skladba, každá se sidecarem `.json` (prompt, co z něj LM udělal, střih loopu, měření). Merge `9029e8c` a `5b098a7`, ~166 MB WAV (32-bit float).
+- **⚠ Pasti, změřené:**
+  - VAE dekóduje napevno na **48 kHz**; `wav32` je přesnost vzorku, ne vzorkovací frekvence.
+  - Délka renderu: 150 s = 5 dlaždic VAE (163 s dekódování, prošlo), **199 s = 6 dlaždic a `ace-synth` spadl** (0xC0000409). Bohemia je proto renderovaná jen na 120 s.
+  - **ComfyUI node `acestep-cpp-comfyui` s binárkami v0.0.5 nefunguje** (volá novější CLI), binárky se volají přímo.
+  - **Request JSON nesmí mít BOM:** `Set-Content -Encoding utf8` v PS 5.1 ho přidá a parser spadne.
+  - `wav32` je IEEE float (format tag 3) a stdlib `wave` ho nepřečte.
+  - **LM přepisuje zadání:** Mural, definovaný tím, že kick NEhraje na všechny čtyři doby, dostal „steady four-on-the-floor“; z Emberu (power ballada) udělal virtuózní kytarové sólo s potleskem. Krátký prompt na efekt („UI chime“) skončil jako sólové piano.
+  - **Loop přehnutím konce do začátku nefunguje:** vygenerovaná skladba *končí*, na švu game-track-01 spadla úroveň z 1,0 na 0,04 mediánu. Loopy se proto stříhají z těla renderu na celé takty (tempo sedí na ±1 % zadání), zarovnané na milisekundu, s kontrolou rytmu pod crossfadem proti tomu, jak skladba navazuje sama na sebe o takt dál. Pod ní zůstává jen Bohemia (r 0,43 proti 0,53): render kolem 76 s mění rytmus.
+- **Koordinace:** hlavní checkout `BS3D` jsem nechal session s #395, commity šly přes dočasný worktree a `BS3D-322`. Session bs3d-49 dostala o změně rozhodnutí zprávu.
+
+**Nic dalšího si neberu.** Implementace #443 čeká na slovo majitele.
+
+---
+
 ## 2026-09-16 — Claude Code (zápis k #440)
 
 **Beru si #440 (Qwen3-VL-8B proti Gemmě 4).** Větev založím, až bude co měnit v repu: skill a výchozí model `vision.ps1` se změní podle výsledků.
