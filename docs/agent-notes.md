@@ -2923,3 +2923,11 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
 - GPU koordinuju zprávou s bs3d-81.
 
 **Nic dalšího si neberu.**
+
+**Hotovo, mergnuto do main (2cc711b).** `.claude/skills/capture-review/review-captures.ps1` a `SKILL.md`, v `local-ai/SKILL.md` na něj odkaz.
+
+- **Rozdíl po blocích 16×16** (průměr bloku, ne pixel): zrnění má nulový průměr a v bloku se vyruší. Změněné bloky se spojí do oblastí a řadí se podle **nejostřejšího** bloku, ne podle součtu, jinak by široce posunuté mraky přebily tenký zaměřovač. Na čtyřech dvojicích z #431 (1600×900, City) trval rozdíl 0,6 s.
+- **Práh 12 z 255** je změřený: mraky mezi dvěma snímky vzdálenými sekundu se hýbou o 4–10 v průměru bloku (8/12/16/24 → 133/71/27/5 bloků), hlaveň měla špičku 159. **Tenká značka HUD je u prahu:** oblast samotného zaměřovače měla špičku jen 16 a byla čtvrtá; popsal ho jen proto, že výřez kolem hlavně byl dost široký. Na jemné značky `-BlockThreshold 8` a víc `-Regions`.
+- **Gemma 4:** stejný soubor dvakrát → model se nevolá; dvojice sekundu od sebe → „změnil se FPS counter“ (opravdu); zaměřovač bílý → červený a dvakrát větší → celý snímek i výřez správně („zčervenal a zvětšil se, hlaveň se posunula“); náklon kamery nahoru → správně „cluster zmizel“, ale chybně „dělo je blíž“. Celý běh 70 s, z toho 12 s načtení modelu.
+- Bez LM Studia (notebook) skript řekne, že model neběží, a vydá jen rozdíl, který sám odpoví „změnilo se něco a kde“.
+- Gemma je po testu vyložená a bs3d-81 ví, že GPU je volné.
