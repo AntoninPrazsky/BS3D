@@ -1,0 +1,25 @@
+{
+  "file": "theme-ember-punk-03.wav",
+  "created": "2026-09-16",
+  "variation_of": "theme-ember.wav (MusicTheme.Ember counterpart)",
+  "style_target": "the owner's reference: punk rock in the vein of Green Day's 'Boulevard of Broken Dreams'. Deliberately NOT named in the prompt -- the style is described (tempo, guitars, drums, mood) so the model is not steered towards reproducing a specific recording.",
+  "purpose": "Reference render for #443. Not wired into any content pipeline.",
+  "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-ember-punk.ps1 -> generate-music.ps1 -Loop",
+  "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+  "license": "ACE-Step 1.5: MIT (code and weights)",
+  "request": {
+    "caption": "Punk rock ballad instrumental, half-time verses with palm-muted distorted power chords and a lonely melodic lead guitar line, exploding into full-time punk choruses with crashing cymbals and open power chords, emotional and gritty amplifier-driven sound, no vocals",
+    "lm_negative_prompt": "vocals, singing, audience applause, crowd noise, live recording",
+    "instrumental": true,
+    "duration": 120,
+    "bpm": 134,
+    "keyscale": "E minor",
+    "inference_steps": 8,
+    "output_format": "wav32"
+  },
+  "lm_enriched_caption": "An instrumental rock track that opens with clean, arpeggiated electric guitars creating an atmospheric soundscape over a steady drum beat and bassline. The arrangement quickly builds into powerful sections driven by heavily distorted rhythm guitar power chords. The song features multiple expressive lead guitar solos characterized by melodic phrasing, sustained notes, and classic blues-rock techniques like string bends and vibrato. A dynamic bridge section showcases intricate dual-guitar interplay before launching into a high-energy solo filled with rapid-fire licks and soaring melodies. The piece concludes by returning to its core motifs, eventually fading out on layered guitar textures.",
+  "brief_drift": "Drifted the way the original Ember did: a blues-rock lead-guitar showcase with several solos rather than a punk ballad.",
+  "post_process": "loop_crossfade.py: a 26-bar loop cut out of the render's body -- source 43.58s..90.15s, tempo measured 133.7 bpm (the tool printed 25.93 bars: a 0.27% tempo-estimate error over 26 bars), 0.90s equal-power crossfade -> 46.6s seamless loop",
+  "loop_check": "crossfade rhythm r=0.65 against the track's own passages a bar apart r=0.38; spectrum cos=0.73; context match 0.688 (best 0.738). Verdict: in time",
+  "measured": "ace-lm 18.1s, ace-synth 48.6s; DiT 7.7s; VAE decode 4 tiles in 36.5s"
+}

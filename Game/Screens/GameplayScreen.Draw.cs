@@ -80,8 +80,17 @@ namespace BS3D.Screens
         /// <inheritdoc cref="PREVIEW_BLINK_DEPTH"/>
         private const float PREVIEW_BLINK_HZ = 2.2f;
 
-        /// <summary>Red, for a crosshair over a shot that will not stick. Display space — the overlay is after the resolve.</summary>
-        private static readonly Color PREVIEW_REFUSED = new(236, 74, 74);
+        /// <summary>Red, for a crosshair over a shot that will not stick. Display space — the overlay is after the resolve.
+        /// It is the crosshair's own <see cref="Crosshair.WARNING"/>, which the elevation clamp's blink uses too (#431).</summary>
+        private static readonly Color PREVIEW_REFUSED = Crosshair.WARNING;
+
+        /// <summary>
+        /// The gun's <see cref="Cannon.ElevationStrain"/> as the crosshair and the beam show it: nothing while this
+        /// screen is covered. A pause stops <see cref="Cannon.Update"/>, which freezes the strain wherever the push
+        /// left it, while both marks go on being drawn under the page on the wall clock — a player who paused
+        /// mid-push would be blinked at for as long as the page stood.
+        /// </summary>
+        private float AimStrain => IsActive ? _cannon.ElevationStrain : 0f;
 
         /// <summary>
         /// How far the beam is drawn when the aim reaches nothing at all. Only roughly meaningful: the dashes are
@@ -158,6 +167,11 @@ namespace BS3D.Screens
             //_previewDrift, and ShotPlacement.CellWorldPosition for the two things that separate the two.
             _previewHasCell = ShotPlacement.TrySolveAgainstBall(_map, hit, contact, _clusterWorldOffset,
                 out _previewCell, out _previewDrift);
+
+            //No ghost for a shot the gun will refuse (#431): a cell shown while the aim is pressed past the elevation
+            //clamp is a landing promised for a shot that cannot leave, which is #70's broken promise. The beam stays
+            //up and reads refused, because in the overview it is what carries the blink.
+            if (_cannon.ElevationRefusesShot) _previewHasCell = false;
         }
 
         /// <summary>
@@ -185,6 +199,13 @@ namespace BS3D.Screens
             //rather than taste — foreshortened along the bore the dashes pile up over the exact cell they point
             //at, and in that mode the crosshair on a lens aimed down the shot ray already IS the trajectory.
             float opacity = 1f - _preciseAim.Blend;
+
+            //The elevation clamp's blink (#431), on the crosshair's own colour and wave: this is where the overview
+            //hears what the crosshair says leaned in, and a player who never holds the lean would otherwise push
+            //into the cap and be told nothing
+            float strain = AimStrain;
+            tint = Vector3.Lerp(tint, Crosshair.WARNING.ToVector3(), strain);
+            opacity *= Crosshair.StrainBrightness(strain, WallClock);
 
             //THE BEAM FOLLOWS THE FLIGHT (#332), which on a level with no wells is one segment and exactly what
             //it always was. A shot bent by a well reaches a contact the straight line between muzzle and contact

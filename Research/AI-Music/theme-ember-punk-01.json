@@ -1,0 +1,25 @@
+{
+  "file": "theme-ember-punk-01.wav",
+  "created": "2026-09-16",
+  "variation_of": "theme-ember.wav (MusicTheme.Ember counterpart)",
+  "style_target": "the owner's reference: punk rock in the vein of Green Day's 'Boulevard of Broken Dreams'. Deliberately NOT named in the prompt -- the style is described (tempo, guitars, drums, mood) so the model is not steered towards reproducing a specific recording.",
+  "purpose": "Reference render for #443. Not wired into any content pipeline.",
+  "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-ember-punk.ps1 -> generate-music.ps1 -Loop",
+  "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+  "license": "ACE-Step 1.5: MIT (code and weights)",
+  "request": {
+    "caption": "Brooding mid-tempo alternative punk rock anthem, instrumental. Distorted electric guitars playing driving power chords, a clean tremolo-picked guitar melody over the quiet verses, palm-muted eighth notes building into loud anthemic choruses, steady straight 4/4 rock drums with a marching snare, melancholic and defiant, raw garage production, no vocals",
+    "lm_negative_prompt": "vocals, singing, audience applause, crowd noise, live recording",
+    "instrumental": true,
+    "duration": 120,
+    "bpm": 84,
+    "keyscale": "E minor",
+    "inference_steps": 8,
+    "output_format": "wav32"
+  },
+  "lm_enriched_caption": "An instrumental alternative rock track that builds from an atmospheric intro into aggressive, high-energy sections. It opens with clean, arpeggiated electric guitars creating a spacious yet melancholic mood over a steady drum beat. The arrangement explodes into heavily distorted power-chord riffs characteristic of grunge or nu-metal before transitioning back to melodic guitar leads layered over driving rhythms. A brief breakdown reintroduces the initial clean guitar motif for dynamic contrast, leading into another powerful section punctuated by abrupt stops and start-time fills. The song concludes after reprising its main riff, ending on a final sustained chord followed by silence.",
+  "brief_drift": "Closest of the three to the brief: alternative rock with clean arpeggios and power-chord riffs, though the LM reached for 'grunge or nu-metal' rather than punk.",
+  "post_process": "loop_crossfade.py: a 20-bar loop cut out of the render's body -- source 38.15s..94.95s, tempo measured 84.5 bpm, 1.42s equal-power crossfade -> 56.8s seamless loop",
+  "loop_check": "crossfade rhythm r=0.54 against the track's own passages a bar apart r=0.60; spectrum cos=0.88; context match 0.832 (best 0.881). Verdict: in time",
+  "measured": "ace-lm 16.6s, ace-synth 47.4s; DiT 7.7s; VAE decode 4 tiles in 35.5s (LM Studio held no large model at the time)"
+}

@@ -581,8 +581,15 @@ namespace Prazsky.BS3D
         /// between the two: a crack is a plane seen edge-on, and this is a <b>gap</b> with molten rock at the
         /// bottom of it. The seam is the hot core; the crust for about a plate-width either side of it glows
         /// too (<c>LavaHeatWidth</c> in the shader), which is where most of #338's colour actually came from.
+        /// <para>
+        /// Raised from 0.36 by #395, on the owner's own words — the bright lines were too thin to carry the
+        /// ball's colour across a cluster. ⚠ <b>It cannot be raised alone</b>: the shader's <c>LavaHeatWidth</c>
+        /// is a multiple of this, and <c>SeamLine</c> tests |sin| against the width, so their product
+        /// approaching 1 makes the whole ball glow. That multiple came down from 1.9 to 1.55 in the same
+        /// change to hold the halo where it was measured; read the two together or the plates flood.
+        /// </para>
         /// </summary>
-        private const float LAVA_SEAM_WIDTH = 0.36f;
+        private const float LAVA_SEAM_WIDTH = 0.46f;
 
         /// <summary>
         /// How brightly the molten interior glows through. The whole of this style's colour: over a near-black
@@ -2246,8 +2253,13 @@ namespace Prazsky.BS3D
         /// </summary>
         private void DrawBoth(ICamera camera)
         {
-            DrawPlane(camera, still: false, pulseDepth: _pulseDepth);
-            DrawPlane(camera, still: true, pulseDepth: 0f);
+            DrawPlane(camera, still: false, pulseDepth: _pulseDepth, stillEmission: 1f);
+
+            //#395: the still plane glows at the level the breathing one RESTS at, not at the top of its
+            //swing. PulseDepth zero was doing both jobs and only the first was ever meant — see
+            //InstancedModelRenderer.StillEmission for the arithmetic, and for why this is a second uniform
+            //rather than a smaller depth.
+            DrawPlane(camera, still: true, pulseDepth: 0f, stillEmission: 1f - _pulseDepth);
         }
 
         /// <summary>
@@ -2343,7 +2355,7 @@ namespace Prazsky.BS3D
         /// anything in it. Both of <see cref="Draw"/>'s passes are this, which is what keeps them from drifting:
         /// there is one loop over the buckets and one place that knows how a ball is shaded (#76).
         /// </summary>
-        private void DrawPlane(ICamera camera, bool still, float pulseDepth)
+        private void DrawPlane(ICamera camera, bool still, float pulseDepth, float stillEmission)
         {
             int plane = still ? STILL_PLANE_STRIDE : 0;
 
@@ -2353,7 +2365,11 @@ namespace Prazsky.BS3D
             for (int i = plane; i < plane + STILL_PLANE_STRIDE && !any; i++) any = _counts[i] > 0;
             if (!any) return;
 
-            for (int lod = 0; lod < LodCount; lod++) _renderers[lod].PulseDepth = pulseDepth;
+            for (int lod = 0; lod < LodCount; lod++)
+            {
+                _renderers[lod].PulseDepth = pulseDepth;
+                _renderers[lod].StillEmission = stillEmission;
+            }
 
             for (int typeIndex = 0; typeIndex < TYPE_COUNT; typeIndex++)
                 for (int lod = 0; lod < LodCount; lod++)

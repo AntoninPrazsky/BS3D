@@ -1,0 +1,22 @@
+{
+  "file": "theme-pulse.wav",
+  "created": "2026-09-16",
+  "counterpart_of": "MusicTheme.Pulse -- Game/Audio/ProceduralMusic.cs (eurodance, A minor at 128, ten sections, 2:30)",
+  "purpose": "Reference render for the proposal to replace the procedural music with generated audio. Not wired into any content pipeline.",
+  "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- generate-music.ps1 + loop_crossfade.py",
+  "request": {
+    "caption": "High-energy eurodance instrumental, driving four-on-the-floor kick, strong sub-bass, pulsing sixteenth-note arpeggios, bright trance-style synth stabs, euphoric rising energy building to a big harmonic drop, dancefloor track, no vocals",
+    "instrumental": true,
+    "duration": 150,
+    "bpm": 128,
+    "keyscale": "A minor",
+    "inference_steps": 8,
+    "output_format": "wav32"
+  },
+  "lm_enriched_caption": "An energetic progressive trance track driven by layers of evolving synth arpeggios that build from an atmospheric intro into a powerful main section. A punchy four-on-the-floor kick drum establishes a driving rhythm, complemented by crisp hi-hats and snare hits soaked in reverb. The core of the song is a soaring supersaw lead synth melody playing over lush chord pads and a propulsive bassline. The structure features classic EDM dynamics with intense builds using filter sweeps and risers leading to euphoric drops where all melodic elements converge for maximum impact before fading out on ambient textures.",
+  "post_process": "loop_crossfade.py: a 34-bar loop cut out of the render's body -- source 30.40s..94.20s of the render with its first and last 5s dropped, tempo measured 127.8 bpm, 0.94s equal-power crossfade of the audio past the end into the start -> 63.8s seamless loop",
+  "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+  "license": "ACE-Step 1.5: MIT (code and weights)",
+  "measured": "ace-lm 159.4s, ace-synth 190.6s; VAE decode tiled in 5 tiles, 162.8s, with recovered Vulkan pinned-memory allocation failures. The longest render that succeeded on this card.",
+  "loop_check": "rhythm of the two streams under the crossfade r=0.84 against the track's own passages a bar apart r=0.68; spectrum cos=0.68. Verdict: in time"
+}

@@ -477,6 +477,13 @@ rather than ending it**. Three traps, each already paid for and repeated in the 
 And the finding that outlives any one issue: **moving one colour alone relocates the confusion rather than
 ending it** — check the whole pair list after a change, not just the pair that was complained about.
 
+**On the emissive-seam styles read the net, not the disc: `-Cores 0.25` (and `0.5`) with `-LightnessWeight 2`
+(#395).** `-Whole` read the Eruption's lava palette as fine (tightest 7.4) while the owner could not tell its
+colours apart; over the brightest quarter of each disc the same capture ranked orange/brown, red/orange,
+red/brown and black/silver the four tightest pairs in the game. The lightness weight is there because a hanging
+cluster's occlusion takes lightness away in play and leaves hue. Under the volcano the row hangs higher than under
+the meadow, so the sample points move — the script's header carries the ones that capture used.
+
 ## Judging lighting / a dome-dependent change
 
 Launch once per dome (`sky=<n>`) rather than cycling in-window; each dome logs its zenith/horizon on load.

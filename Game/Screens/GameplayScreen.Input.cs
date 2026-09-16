@@ -253,6 +253,16 @@ namespace BS3D.Screens
             //in CheckLevelLost, against the state of the field then.
             if (_score.OutOfShots) return;
 
+            //Refused while the aim is pressed into, or stretched past, the elevation clamp (#431). The rubber lets
+            //the barrel run up to ~6° past a tall level's limit, and a shot fired from the top of that stretch went
+            //straight into the band the limit closes. Said out loud rather than silently eaten: the marks are already
+            //blinking red, and a click that does nothing and says nothing reads as a dropped input.
+            if (_cannon.ElevationRefusesShot)
+            {
+                Game.Audio.PlayShotRefused();
+                return;
+            }
+
             //No recoil in either of these: the shot leaves along the TRUE aim on the frame it is fired, before
             //the barrel has moved. The stroke below is drawing only — see CannonRecoilBack.
             Vector3 direction = _cannon.AimDirection;

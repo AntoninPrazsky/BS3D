@@ -206,5 +206,11 @@
 /processorParam:DebugMode=Auto
 /build:../../Testbed/Content/Shaders/Aurora.fx;Shaders/Aurora.fx
 
+#begin ../../Testbed/Content/Shaders/Grid.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:../../Testbed/Content/Shaders/Grid.fx;Shaders/Grid.fx
+
 
 

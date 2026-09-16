@@ -29,19 +29,27 @@ namespace BS3D
         internal QualityLevel Quality => _quality;
 
         /// <summary>
+        /// What the Settings page's Auto quality row shows (#390): whether the probe may still lower the tier.
+        /// Read off <see cref="_qualityPinnedByPlayer"/> rather than kept as a flag of its own, so the row cannot
+        /// say anything the probe is not doing — a tier picked on the Quality row, or named on the command line,
+        /// reads as Off, because for this run it is.
+        /// </summary>
+        internal bool IsAdaptiveQualityEnabled => !_qualityPinnedByPlayer;
+
+        /// <summary>
         /// True once the quality tier is not to be touched again: the player named one on the command line, the
-        /// player set one in Settings, the machine proved fast enough, or there is nothing left to lower. It is a
-        /// one-way latch on purpose — a dial that keeps moving under the player is worse than one that is merely
-        /// wrong once.
+        /// player set one in Settings or turned Auto quality off, the machine proved fast enough, or there is
+        /// nothing left to lower. It is a one-way latch on purpose — a dial that keeps moving under the player is
+        /// worse than one that is merely wrong once.
         /// </summary>
         private bool _qualitySettled;
 
         /// <summary>
-        /// Whether the tier was fixed by the player (the command line or the Settings row) rather than reached by
-        /// the probe. A player-fixed tier is the player's decision and is never re-measured; a probe-reached one
-        /// is only this machine's answer for <i>this</i> back-buffer size, so a fullscreen switch — which moves
-        /// the back buffer from 1600×900 to the display's native resolution and back, a fill-rate change of
-        /// several times — re-opens it (see <see cref="ToggleFullscreen"/>).
+        /// Whether the tier was fixed by the player (the command line, the Quality row, or Auto quality turned
+        /// off) rather than reached by the probe. A player-fixed tier is the player's decision and is never
+        /// re-measured; a probe-reached one is only this machine's answer for <i>this</i> back-buffer size, so a
+        /// fullscreen switch — which moves the back buffer from 1600×900 to the display's native resolution and
+        /// back, a fill-rate change of several times — re-opens it (see <see cref="ToggleFullscreen"/>).
         /// </summary>
         private bool _qualityPinnedByPlayer;
 
@@ -234,6 +242,15 @@ namespace BS3D
                 return;
             }
 
+            //Nothing left to give, and the step below would "lower" Low to Low — a [quality] line and a notice for
+            //a change that never happened. Reachable because a re-open does not ask which tier is in force: a
+            //level built at Low, or Auto quality turned back on over a pinned Low (#390).
+            if (_quality == QualityLevel.Low)
+            {
+                _qualitySettled = true;
+                return;
+            }
+
             //Steps the TIER, not supersampling alone, which is the whole point of #63: on the two city scenes
             //supersampling is only the first of three measured levers, and stepping it alone left the neon city
             //at 30 FPS with 40% still on the table.
@@ -307,14 +324,65 @@ namespace BS3D
             _qualityPinnedByPlayer = true;
             _qualitySettled = true;
 
-            //And it outlives the run (#354). This is the ONLY thing that writes a tier to the settings file:
-            //the probe's own verdict is deliberately never stored, because the probe can only step a tier
-            //DOWN, so a remembered verdict would be a ratchet that one unlucky measurement — a build running
-            //in the background, a thermal dip — closed for good.
+            //And it outlives the run (#354). The probe's own verdict is deliberately never stored, because the
+            //probe can only step a tier DOWN, so a remembered verdict would be a ratchet that one unlucky
+            //measurement — a build running in the background, a thermal dip — closed for good. The only other
+            //click that writes a tier is Auto quality turned off, and that is the player's answer too (see
+            //GameSettings.Quality).
             _settings.Quality = _quality;
+
+            //Picking a tier IS turning the probe off, and has been for as long as the pin above has existed —
+            //but nothing on screen said so. The file now says it in words, and the Auto quality row reads Off
+            //the moment the click lands (#390).
+            _settings.AdaptiveQuality = false;
             SaveSettings();
 
             _mainMenuPage.ClearQualityNotice();
+
+            //ApplyQuality has refreshed the page already, but before the pin above, which would leave Auto
+            //quality reading On under a tier that had just switched it off
+            _settingsPage.Refresh();
+        }
+
+        /// <summary>
+        /// The Auto quality row (#390): whether the game may lower the tier by itself. It lets a player who would
+        /// rather keep a tier — High included — at whatever frame rate it costs say so from the very first run,
+        /// rather than only by cycling the Quality row and happening to know that doing so switches the probe off.
+        /// <para>
+        /// <b>Off</b> pins the tier the Quality row shows and stores it with the switch, so the next launch comes
+        /// up the way the page looked when the player decided.
+        /// </para>
+        /// <para>
+        /// <b>On</b> hands the tier back to the probe the way a fresh install has it: the stored tier is cleared,
+        /// so the next launch starts at High and measures, and this run re-opens one probe window on the spot
+        /// instead of waiting for a restart. That window starts from the tier in force — the probe only ever steps
+        /// down, so a machine that holds it keeps it.
+        /// </para>
+        /// </summary>
+        internal void ToggleAdaptiveQuality()
+        {
+            if (_qualityPinnedByPlayer)
+            {
+                _qualityPinnedByPlayer = false;
+                ReopenQualityProbe();
+
+                _settings.AdaptiveQuality = true;
+                _settings.Quality = null;
+            }
+            else
+            {
+                _qualityPinnedByPlayer = true;
+                _qualitySettled = true;
+
+                _settings.AdaptiveQuality = false;
+                _settings.Quality = _quality;
+            }
+
+            SaveSettings();
+
+            //Either way the notice has been answered: the player is on the page it pointed them at
+            _mainMenuPage.ClearQualityNotice();
+            _settingsPage.Refresh();
         }
 
         /// <summary>

@@ -1,0 +1,23 @@
+{
+  "file": "theme-ember.wav",
+  "created": "2026-09-16",
+  "counterpart_of": "MusicTheme.Ember -- Game/Audio/ProceduralMusic.cs (rock ballad, power chords through a distorted guitar, half-time verses and full-time choruses, ten sections, 2:25, E minor notated at 134 and felt at 67)",
+  "purpose": "Reference render for the proposal to replace the procedural music with generated audio. Not wired into any content pipeline.",
+  "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- generate-music.ps1 + loop_crossfade.py",
+  "request": {
+    "caption": "Rock power-ballad instrumental, distorted electric guitar playing power chords with no third (open fifths), half-time groove under the verses opening into a full-time driving groove in the choruses, the build comes from the amplifier being pushed harder, emotional and anthemic, no vocals",
+    "instrumental": true,
+    "duration": 120,
+    "bpm": 134,
+    "keyscale": "E minor",
+    "inference_steps": 8,
+    "output_format": "wav32"
+  },
+  "lm_enriched_caption": "An instrumental hard rock track driven by an expressive lead electric guitar with a thick, saturated distortion tone rich with sustain and feedback. The piece opens with a soulful, melodic guitar solo featuring prominent string bends and vibrato over atmospheric chords. A full band enters establishing a steady mid-tempo groove with clean bass and crisp drums. The arrangement builds into powerful sections where layered guitars play harmonized riffs that function like vocal lines, punctuated by aggressive staccato phrases. The centerpiece is an extended, virtuosic guitar solo filled with rapid-fire licks, soaring bends, whammy bar dives, and intricate runs across the fretboard, showcasing a strong blues-rock influence before concluding on a sustained chord progression accompanied by the sound of audience applause fading out.",
+  "brief_drift": "The largest of the set: a power ballad came back as a lead-guitar showcase with a virtuoso solo, and the LM asked for audience applause fading out at the end. The loop is cut from 42-100s of the render, so the ending is not in it; a spectral-flatness check of the render found no sustained noise-like (applause) passage either. Whether the rest still reads as Ember is a listening call; lm_negative_prompt \"guitar solo, audience applause, live recording\" is the obvious next try.",
+  "post_process": "loop_crossfade.py: a 32-bar loop cut out of the render's body -- source 42.33s..99.70s of the render with its first and last 5s dropped, tempo measured 133.6 bpm, 0.9s equal-power crossfade of the audio past the end into the start -> 57.4s seamless loop",
+  "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+  "license": "ACE-Step 1.5: MIT (code and weights)",
+  "measured": "ace-lm 51.8s, ace-synth 79.6s; VAE decode 4 tiles in 67.8s.",
+  "loop_check": "rhythm of the two streams under the crossfade r=0.54 against the track's own passages a bar apart r=0.58; spectrum cos=0.63. Verdict: in time"
+}

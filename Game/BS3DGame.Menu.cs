@@ -314,6 +314,17 @@ namespace BS3D
         /// </summary>
         internal int MenuColumnWidth => Scaled(MENU_BUTTON_WIDTH);
 
+        //A plate's inset around what it holds (see Plate), in design units.
+        private const int MENU_PLATE_PADDING_X = 106;
+        private const int MENU_PLATE_PADDING_Y = 67;
+
+        /// <summary>
+        /// How wide the content of a plate cut to <see cref="MenuColumnWidth"/> may be, in pixels at the layout in
+        /// force — the result screen's, the one plate pinned to the column (#179). Wrapping text inside it has to
+        /// know, because a Myra label wraps only against a width it is given (#397).
+        /// </summary>
+        internal int MenuColumnPlateContentWidth => MenuColumnWidth - 2 * Scaled(MENU_PLATE_PADDING_X);
+
         //Held direction repeats: one step, a pause long enough that a deliberate single press stays single,
         //then a steady walk. Both are wall-clock seconds and not frame counts, or the list would run faster on
         //a faster machine — the same rule the rattle's phase and the menu's orbit follow.
@@ -1425,7 +1436,7 @@ namespace BS3D
             Panel plate = new()
             {
                 Background = new SolidBrush(MENU_PLATE),
-                Padding = ScaledThickness(106, 67),
+                Padding = ScaledThickness(MENU_PLATE_PADDING_X, MENU_PLATE_PADDING_Y),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
             };

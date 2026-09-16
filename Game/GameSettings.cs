@@ -129,10 +129,31 @@ namespace BS3D
         /// When it is set it behaves exactly as <c>quality=</c> does: the tier is applied and the probe is
         /// told not to second-guess it (<c>_qualityPinnedByPlayer</c>).
         /// </para>
+        /// <para>
+        /// Two clicks write it, both of them the player's (#390): the Quality row stores the tier it cycled to,
+        /// and turning <see cref="AdaptiveQuality"/> off stores the tier that row is showing. The second can be a
+        /// tier the probe reached, and it is still not the ratchet above — the player turned the probe off while
+        /// looking at it, with the Quality row beside the switch to raise it again.
+        /// </para>
         /// </summary>
         [JsonPropertyName("quality")]
         [JsonConverter(typeof(JsonStringEnumConverter))]
         public QualityLevel? Quality { get; set; }
+
+        /// <summary>
+        /// Whether the game may lower the tier on its own (#390), for the player who would rather keep one —
+        /// High included — at whatever frame rate it costs. <b>True by default, because that is what the game
+        /// already did</b>, so nobody who never opens the page sees a change.
+        /// <para>
+        /// False pins the tier at startup exactly as a stored <see cref="Quality"/> does, and wins when none is
+        /// stored too: the tier is then High, the authored look. A stored tier switched the probe off before
+        /// this existed, so a file written back then — a tier and no key — still pins, and the row reads Off
+        /// over it. The two clicks keep the pair honest from here on: picking a tier writes this false, and
+        /// turning this back on clears the tier.
+        /// </para>
+        /// </summary>
+        [JsonPropertyName("adaptiveQuality")]
+        public bool AdaptiveQuality { get; set; } = true;
 
         [JsonIgnore]
         internal string Path { get; private set; }

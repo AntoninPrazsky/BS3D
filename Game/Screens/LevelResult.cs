@@ -75,13 +75,35 @@ namespace BS3D.Screens
         public readonly bool HasNextLevel;
 
         /// <summary>
-        /// Whether the star total — this clear's own stars already counted — opens the next entry. Decides
-        /// whether "Next Level" is offered, and its false is what the unlock note explains.
+        /// Whether the campaign opens the next entry — this clear's own stars already counted, and the sequence
+        /// rule (#347) asked as well. Decides whether "Next Level" is offered, and its false is what
+        /// <see cref="UnlockNote"/> explains.
         /// </summary>
         public readonly bool NextLevelUnlocked;
 
         /// <summary>The next entry's gate, for the note under the total; 0 when there is no gate or no next level.</summary>
         public readonly int NextLevelMinStars;
+
+        /// <summary>
+        /// Whether what shuts the next entry is the <b>sequence</b> rather than the price (#397) — it lies past
+        /// the campaign's frontier (<c>BS3DGame.IsLevelBeyondReach</c>), however many stars the player holds.
+        /// <para>
+        /// A clear moves the frontier past the level it cleared <i>only when that level was the frontier</i>.
+        /// Replaying a level cleared out of order — the author's own save holds twenty-eight past its frontier,
+        /// and the debug unlock leaves more behind it — clears a level the frontier is nowhere near, so the next
+        /// entry stays shut by the sequence. The note used to quote the star gate regardless, and printed
+        /// "unlocks at 150 ★ — you have 306": a reason its own two numbers refuted.
+        /// </para>
+        /// </summary>
+        public readonly bool NextLevelBeyondReach;
+
+        /// <summary>
+        /// The campaign's frontier (#397) — the level that has to be finished first when
+        /// <see cref="NextLevelBeyondReach"/> is true: its 1-based place and what the set calls it. Unread
+        /// otherwise, where there is no level standing in the way to name.
+        /// </summary>
+        public readonly int FrontierLevelNumber;
+        public readonly string FrontierLevelName;
 
         /// <summary>
         /// Whether this level may be skipped past — the campaign's relief valve (#347), one to a chapter. Only
@@ -126,6 +148,7 @@ namespace BS3D.Screens
         public LevelResult(bool cleared, string failureText, int stars, bool newBest, int levelBalls,
             string levelName, int levelNumber,
             bool hasNextLevel, bool nextLevelUnlocked, int nextLevelMinStars, int totalStars,
+            bool nextLevelBeyondReach, int frontierLevelNumber, string frontierLevelName,
             bool canSkip,
             string nextLevelName,
             bool campaignComplete,
@@ -144,6 +167,9 @@ namespace BS3D.Screens
             HasNextLevel = hasNextLevel;
             NextLevelUnlocked = nextLevelUnlocked;
             NextLevelMinStars = nextLevelMinStars;
+            NextLevelBeyondReach = nextLevelBeyondReach;
+            FrontierLevelNumber = frontierLevelNumber;
+            FrontierLevelName = frontierLevelName ?? string.Empty;
             CanSkip = canSkip;
             TotalStars = totalStars;
             CampaignComplete = campaignComplete;
@@ -229,6 +255,30 @@ namespace BS3D.Screens
         /// </summary>
         public string NextLevelLabel =>
             string.IsNullOrWhiteSpace(NextLevelName) ? "Next Level" : $"Next: {NextLevelName}";
+
+        /// <summary>
+        /// Why the next level is not on offer, in a sentence — or empty when it is, or when there is none
+        /// (the only two cases the Next Level button is not simply absent for a reason worth saying).
+        /// <para>
+        /// <b>It names the lock that actually holds</b> (#397) — the same one the level picker names for that
+        /// entry, so the two surfaces cannot give one entry two different reasons: past the frontier it is the
+        /// sequence and the level standing in the way, short of the price it is the price against what the
+        /// player holds. The sequence is asked first for the picker's own reason — quoting a star price the
+        /// player already holds reads as a bug rather than as a rule.
+        /// </para>
+        /// <para>
+        /// <b>Two lines on purpose, the rule over the figures.</b> The plate it sits on is cut to the menu
+        /// column, and a single sentence left to wrap broke wherever the width happened to fall — photographed
+        /// as "Level 3 ·" over "Toadstool is next". The explicit break puts the level's name on a line of its own.
+        /// </para>
+        /// </summary>
+        public string UnlockNote =>
+            !HasNextLevel || NextLevelUnlocked ? string.Empty
+            : NextLevelBeyondReach
+                ? string.IsNullOrWhiteSpace(FrontierLevelName)
+                    ? "Levels open one at a time"
+                    : $"Levels open one at a time\nLevel {FrontierLevelNumber} · {FrontierLevelName} is next"
+            : $"Next level unlocks at {NextLevelMinStars} ★\nYou have {TotalStars}";
 
         /// <summary>
         /// The skip button's caption. It names what the player is <b>going to</b> for the reason

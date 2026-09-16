@@ -163,6 +163,10 @@ namespace BS3D.Screens
                         _testArmed.Clear();
                         _testArmed.Add(bomb);
 
+                        //Emptied here because DetonateBombs appends and never clears (#396: a landing's four
+                        //removals share one list and the contact handler empties it once per landing).
+                        _testDetonations.Clear();
+
                         BallsReleased released = BallsConstraintsBuilder.DetonateBombs(_testArmed, _physicsBalls, _map,
                             _world.Simulation, _fallingBalls, _testDetonations);
 
@@ -820,6 +824,13 @@ namespace BS3D.Screens
                 nextLevelUnlocked: !lastEntry && Game.IsLevelUnlocked(_levelIndex + 1),
                 nextLevelMinStars: lastEntry ? 0 : Game.LevelMinStars(_levelIndex + 1),
                 totalStars: Game.TotalStars,
+
+                //And WHICH lock holds it shut (#397), so the note can name the right one. A clear only moves the
+                //frontier past a level that was the frontier; replaying one cleared out of order leaves the next
+                //entry shut by the sequence, whatever the stars say. Read after the record, like the rest.
+                nextLevelBeyondReach: !lastEntry && Game.IsLevelBeyondReach(_levelIndex + 1),
+                frontierLevelNumber: Game.FirstUnfinishedLevel + 1,
+                frontierLevelName: LevelName(Game.FirstUnfinishedLevel),
 
                 //And whether there is a bounded way past this level at all (#347). Read AFTER the record above,
                 //like the unlock beside it, so it cannot describe a campaign one level out of date. A clear

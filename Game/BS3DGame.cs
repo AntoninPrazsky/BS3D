@@ -258,6 +258,22 @@ namespace BS3D
         private readonly bool _startupLost;
 
         /// <summary>
+        /// <c>nextlocked=&lt;stars|sequence&gt;</c>: shuts the startup result page's next level by that lock (#397),
+        /// or null to leave it open. The note that explains a missing Next Level had never been looked at from a
+        /// test — the page hardcoded the next level open — and the one time it was seen, in play, it quoted a
+        /// star price the player already held and ran past the right edge of its plate.
+        /// </summary>
+        private readonly string _startupNextLocked;
+
+        private const string STARTUP_LOCK_STARS = "stars";
+        private const string STARTUP_LOCK_SEQUENCE = "sequence";
+
+        /// <summary>Whether <paramref name="lockName"/> is one of the locks <c>nextlocked=</c> takes.</summary>
+        internal static bool IsStartupNextLock(string lockName) =>
+            string.Equals(lockName, STARTUP_LOCK_STARS, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(lockName, STARTUP_LOCK_SEQUENCE, StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>
         /// <c>pick</c> / <c>pick=&lt;chapter&gt;</c>: put the level picker up at boot, on that chapter (1-based)
         /// or on whichever one the page itself would open (#273). Null for neither.
         /// <para>
@@ -729,7 +745,7 @@ namespace BS3D
             bool? uncappedFps = null, SceneKind? scene = null, byte? skyDome = null, bool logFrameRate = false,
             QualityLevel? quality = null, bool celebrate = false, bool confetti = false, bool lasers = false,
             bool mute = false, bool play = false, bool result = false, bool blockDone = false, bool lost = false,
-            int? resultStars = null, int? streak = null, int wildcardEvery = 0, float[] shotSeconds = null, string level = null, string levelFile = null,
+            int? resultStars = null, string nextLocked = null, int? streak = null, int wildcardEvery = 0, float[] shotSeconds = null, string level = null, string levelFile = null,
             string preview = null, BallStyle? ballStyle = null, string pick = null, int fpsCap = 0,
             bool noFocusPause = false, float[] detonateSeconds = null)
         {
@@ -778,9 +794,11 @@ namespace BS3D
             //Asking for a FAILED result page means asking for the result page, so "lost" implies "result" rather
             //than needing it alongside — the same rule "level=" implies "play" by. Written here and not left to
             //the caller because the first thing `lost` did on its own was put the main menu up and say nothing.
-            _startupResult = result || lost;
+            //"nextlocked=" (#397) is a statement about that same page, so it implies it for the same reason.
+            _startupResult = result || lost || nextLocked != null;
             _startupBlockDone = blockDone;
             _startupLost = lost;
+            _startupNextLocked = nextLocked;
             _startupPick = pick;
             _shotSchedule = shotSeconds;
             _detonateSchedule = detonateSeconds;
@@ -810,11 +828,13 @@ namespace BS3D
             _startupSkyDome = skyDome;
             _logFrameRate = logFrameRate;
 
-            //Either one is the player's decision and settles the question for good; with neither, the adaptive
-            //path is free to measure this machine and step the tier down. The distinction matters on a fullscreen
-            //switch: a player-pinned tier stays put, a probe-reached one is only this machine's answer for this
-            //back-buffer size and gets re-measured (see ToggleFullscreen).
-            _qualityPinnedByPlayer = supersampleFactor.HasValue || chosenQuality.HasValue;
+            //Any of these is the player's decision and settles the question for good: a named tier, a named
+            //factor, or Auto quality turned off in Settings (#390) — which has to win even when no tier was ever
+            //chosen, and then plays High. With none of them the adaptive path is free to measure this machine and
+            //step the tier down. The distinction matters on a fullscreen switch: a player-pinned tier stays put, a
+            //probe-reached one is only this machine's answer for this back-buffer size and gets re-measured (see
+            //ToggleFullscreen).
+            _qualityPinnedByPlayer = supersampleFactor.HasValue || chosenQuality.HasValue || !_settings.AdaptiveQuality;
             _qualitySettled = _qualityPinnedByPlayer;
 
             //exposure= first, then what the player set, then the game's own default
@@ -1742,6 +1762,20 @@ namespace BS3D
                 //figures below simply go unread — and newBest is refused outright, a lost level having no best.
                 bool lost = _startupLost;
 
+                //"nextlocked=" shuts the next level by one lock or the other (#397). Both figures are the widest
+                //the note can actually get, for the "real entries" reason below: the price is the set's LAST gate
+                //against a total just short of it, and the frontier named is the longest name standing ahead of
+                //this page's level — ahead, because a frontier past the level just cleared is not a state play
+                //can reach.
+                bool lockedBySequence = string.Equals(_startupNextLocked, STARTUP_LOCK_SEQUENCE, StringComparison.OrdinalIgnoreCase);
+                bool lockedByStars = _startupNextLocked != null && !lockedBySequence;
+                int lastGate = LevelCount > 0 ? LevelMinStars(LevelCount - 1) : 0;
+                int shownGate = lastGate > 0 ? lastGate : 150;
+                int frontier = 0;
+
+                for (int i = 1; i < Math.Min(12, LevelCount); i++)
+                    if (LevelDisplayName(i).Length > LevelDisplayName(frontier).Length) frontier = i;
+
                 PresentResult(new LevelResult(cleared: !lost,
                     failureText: lost ? "The cluster reached the line." : null,
                     stars: lost ? 0 : testStars, newBest: !lost,
@@ -1757,7 +1791,11 @@ namespace BS3D
                     //different layout. Two of the longest names in the shipped set, so what is looked at is the
                     //widest the identity line and the Next button can actually get. Falls back off a set.
                     levelName: LevelCount > 12 ? LevelDisplayName(12) : "Trilithon", levelNumber: 13,
-                    hasNextLevel: true, nextLevelUnlocked: true, nextLevelMinStars: 1, totalStars: testStars,
+                    hasNextLevel: true, nextLevelUnlocked: _startupNextLocked == null,
+                    nextLevelMinStars: lockedByStars ? shownGate : 1, totalStars: lockedByStars ? shownGate - 2 : testStars,
+                    nextLevelBeyondReach: lockedBySequence,
+                    frontierLevelNumber: frontier + 1,
+                    frontierLevelName: LevelCount > 0 ? LevelDisplayName(frontier) : "Pinwheel",
 
                     //The skip is offered on the photographed FAILURE and nowhere else (#347), which is where it
                     //is offered in play — so "result lost" is a shot of the page a stuck player sees, button

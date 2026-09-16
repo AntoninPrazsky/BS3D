@@ -2116,3 +2116,796 @@ Dvě části, přesně jak je issue dělí:
 **Prosím do merge nesahat na** `BallsConstraintsBuilder.cs`, `BallContactEventHandler.cs`, `BallLanding.cs`, `GameplayScreen.Rules.cs` a `ProceduralAudio.cs`.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-14 — Claude Code (dvanáctý zápis dne)
+
+**#389 je na větvi `389-bomb-detonation` (`53117b8`, `47f3a92`, `307de65`), NEmergnuto: čeká na majitelovo oko a ucho**, protože vzhled a zvuk výbuchu se schvalují pohledem a poslechem (precedens #222 a #333).
+
+### ⚠ Skutečná příčina hlášení nebyla ta, kterou tipovalo issue
+
+Issue píše, že „it just falls" dělají hlavně sirotci výbuchu, kteří padají s nulovou rychlostí. **Změřeno: z nedotčeného clusteru bomba ve Ventu, Sillu i Paroxysmu osiří 0–1 kouli.** Viníkem byly oběti samy. `Throw` bral střed výbuchu z `BallsMap.GetRealPosition`, tedy ze surového rámce mřížky, jenže tělesa leží centrovaná (`Center()`) a posunutá o `worldOffset` — na všech třech levelech o (−7,5; −5,4; −7,5), dvanáct jednotek proti poloměru dva. Každá oběť tak „ležela za okrajem", dostala okrajových 2,46 j/s a všechny jedním směrem: **koherence směru 0,99–1,00, průměrný kosinus ven ~0** — deska koulí driftující do rohu arény. Po opravě (odhoz od polohy **těla** bomby, poloměr dál v rámci mřížky) 3,40–3,75 j/s, kosinus ven +0,68 až +1,00, koherence 0,18–0,47 (zbytek je geometrie: bomba na spodku má oběti hlavně nad sebou), nic na kamenu ostrova, zbylý cluster se neotřese víc. Změřeno odhozeným rigem ve scratchpadu (reálná Bepu simulace bez grafiky, každá z 19 bomb zvlášť). Sirotci dostali odhoz taky (okrajová rychlost × poloměr/vzdálenost, podlaha `BLAST_ORPHAN_MIN_SPEED` 0,8 j/s) — ale je to druhá, menší půlka. **LevelGen řádek po řádku stejný**; dva výchozí běhy předem potvrdily, že je deterministický, takže nula rozdílů něco znamená.
+
+### Okamžik detonace
+
+`Detonation` (světová poloha těla, článek řetězu, kolik vzala) na `BallLanding.Detonations` — dřív nešlo říct, *kde* co bouchlo, `Destroyed` sdílí bomba se zapem a kyselinou a `World` je buňka rány, ne bomby. Nad tím: `Blasts` + `Blast.fx` (záblesk, ohnivá koule, 96 jisker, jeden draw call, idiom ohňostroje), `SceneLights.SetFlash` (jedno světlo na jeden snímek do volného slotu, lampu scény nikdy nevyhodí), `PlayBlast` s `RenderBlast` (měřitelné bez audio zařízení, šev `MusicBake`), `CameraShake.Rumble` (třetí kanál, 9 Hz, ~0,6 s, bez zpětného rázu). Řetěz se hraje po článcích o 70 ms; efekt běží na **simulačních** hodinách, takže se zpomalí s drop cinematicem. Testovací páka `detonate=<t>` na hodinách `shot=`.
+
+### ⚠ Past, kterou ukázal až první snímek ve hře
+
+**Rázový prstenec (tenké mezikruží) četl jako halo nakreslené přes cluster** — dokonalý kruh, na řetězu dva jako ikona. Nic na výbuchu není kruh; quad se stal ohnivou koulí roztrhanou šumem. Týž snímek našel záblesk moc malý a jiskry bílé (třpytky, ne oheň) a světlo (5; 2,2; 0,7) na koulích skoro k nenalezení. Druhé kolo opravilo všechno tři.
+
+### ⚠ Dvě provozní pasti
+
+1. **`GameplayScreen` se staví dřív než `ProceduralAudio`** (`BS3DGame.LoadContent`, ř. 1117 proti 1121). Audio předané do konstruktoru efektu by bylo navždy `null` a výbuch tiše němý. Předává se do každého `Update`.
+2. **PowerShell 5.1: here-string s dvojitými uvozovkami do `git commit -m` rozseká zprávu na pathspecy** — commit se neprovede („pathspec … did not match") a řetěz pokračuje dál. Zprávu dávat přes `git commit -F <soubor>`.
+
+### Herní kamera proti cinematicu
+
+První výbuch (26 i 117 koulí) spustí drop cinematic, který během zlomku sekundy vystoupá nad cluster. **Pohled herní kamery jsem proto fotil na druhé detonaci**, která rekord 1,25× nepřekoná. Bomby uvnitř clusteru (Sill je má ve sloupcích) jsou z výšky cinematicu schované za koulemi a čte jen světlo mezerami. Na jednom snímku ke konci cinematicu byl **objektiv uvnitř kola děla** — cizí vada, nesahal jsem na ni.
+
+### Ověřeno
+
+- Game, Testbed, MapEditor i BS3DLibs 0 chyb; LevelGen exit 0 a výstup beze změny; ScoreSim „All levels rate the right way round"; `Game/Levels` beze změny.
+- 5 GPU běhů (majitel povolil 6), okno 1600×900, `fpscap=75`, `quality=high`, `mute`, `[build]` řádek zkontrolován při každém (poučení z #326). Vent, Sill, a na Ventu i `balls=lava` a `balls=plasma` — záblesk vede snímek i na svítících materiálech.
+- Zvuk: RMS 0,202, crest 4,81, 97,8 % energie pod 150 Hz (report ohňostroje 94 %), první 10ms okno na 75 % maxima, −40 dB za 1,19 s.
+
+### Co zůstává
+
+- **Zvuk ve hře nikdo neslyšel** (všechny běhy `mute`), WAV poslán majiteli. Dunění kamery ze snímku posoudit nejde.
+- **Merge až na majitelovo slovo.**
+- Cinematic: rychlé stoupání nad cluster u výbuchu uvnitř clusteru a objektiv v kole děla — kandidáti na issue, nezakládal jsem.
+
+**Nic dalšího si neberu.**
+
+---
+
+## 2026-09-14 — Claude Code (třináctý zápis dne)
+
+**Beru si #390 (přepínač adaptivní kvality v Nastavení).** Větev `390-adaptive-quality-toggle`, **v samostatném worktree `BS3D-390`**: hlavní checkout drží #389 (`389-bomb-detonation`), na které souběžně píše jiná seance, takže na něj nesahám a nepřepínám mu větev.
+
+Sahám na `Game/GameSettings.cs`, `Game/BS3DGame.Quality.cs`, `Game/Screens/SettingsPage.cs`, `docs/game-shell.md` a na **jeden blok** `Game/BS3DGame.cs` (pin sondy při startu — nejbližší hunk #389 je o 26 řádků výš, merge se nepotká).
+
+⚠ **Ověření dočasně podmění `%LOCALAPPDATA%\BS3D\Settings.json`**: zálohované, po testu vrácené bajt za bajtem a zkontrolované otiskem. Kdo by v tu chvíli pouštěl hru, dostane testovací nastavení. Majitel schválil čtyři krátké běhy v okně s `fpscap=40`.
+
+**Nic dalšího si neberu.**
+
+---
+
+## 2026-09-14 — Claude Code (čtrnáctý zápis dne)
+
+**#390 je na `main`u (`1b1f6a7`, merge `0ebe472`): v Nastavení je řádek Auto quality, hned pod Quality.** Větev je smazaná lokálně i na originu. Pracoval jsem ve worktree `BS3D-390`, hlavní checkout s #389 zůstal nedotčený. Issue je zatím otevřené, zavření nechávám na majiteli.
+
+### Co to je a proč právě takhle
+
+Ruční výběr kvality vypínal sondu navždy už dřív (pin v `CycleQuality`, uložený tier pinuje při každém startu), jen to nikde nebylo vidět. Řádek proto **nemá vlastní příznak**: čte `!_qualityPinnedByPlayer`, takže nemůže tvrdit nic, co sonda nedělá. Klik na Quality ho viditelně přepne na Off a běh s `quality=`/`ssaa=` ukazuje Off.
+
+- **Off** zapíše `"adaptiveQuality": false` a k tomu tier, který řádek Quality právě ukazuje, i když ho dosáhla sonda. Není to ratchet z #354: hráč sondu vypnul s tím tierem před očima a řádek, kterým ho zvedne, má hned nad přepínačem.
+- **On** uložený tier smaže (další start = High a měření jako po čisté instalaci) a hned otevře jedno okno sondy od tieru, který platí.
+- **Start:** klíč `false` pinuje stejně jako uložený tier, i když žádný uložený není, a pak hraje High. Starý soubor s tierem a bez klíče pinuje dál a řádek ukáže Off, takže se nikomu chování nezměnilo.
+
+### ⚠ Chyba, kterou nová cesta zpřístupnila na jedno kliknutí
+
+Re-open se neptá, na jakém tieru sonda stojí, takže okno pod floorem na **Low** „snížilo Low na Low": řádek `[quality]` a oznámení v menu pro změnu, která se nestala. Narazit na to šlo i dřív (level postavený na Low na stroji pod floorem), teď by stačilo zapnout Auto quality nad pinnutým Low. Krok na Low teď jen zavře latch.
+
+### Jak ověřit sondu na rychlém desktopu
+
+Desktop pod floor (68 při 75 Hz) nikdy nespadne, takže test „vypnuto" by sám nic nedokazoval. **`fpscap=40` sondu spustí pokaždé**, a to s menší zátěží než cap na refresh. Čtyři krátké běhy v okně (majitel schválil čtyři), `mute`, `logfps`, `[build]` z worktree zkontrolovaný:
+
+1. Level 1 s nastavením beze změny: High → Medium → Low, první krok u patnáctého sekundového odečtu. Stejně jako main.
+2. Totéž s `"adaptiveQuality": false`: **31 odečtů pod floorem, z toho 8 ve fullscreenu 3840×1600 mezi dvěma F11, a ani jeden řádek `[quality]`.**
+3. Front-end, klávesami do Nastavení: zapnutí pod otevřenou stránkou dalo High → Medium → Low do deseti vteřin. Klik na Quality pak řádek přepnul na Off a zapsal Medium + `false`.
+4. Z uloženého Medium: hraje od prvního odečtu bez sondy. On dal jeden řádek Medium → Low. Off zapsal `"quality": "Low"` (vidět v `.bak`). On zapsal `true` bez tieru a deset vteřin pod floorem na Low nedalo řádek ani oznámení.
+
+Snímky stránky potvrzují každý stav. Nový řádek srovnal výšku obou sloupců, Back zůstává na obrazovce a panel měří 817 px při 1600×900 (komentář ve `SettingsPage` říkal 805, přepsáno změřeným). `Game.sln` 0 chyb a 0 upozornění. Změna je jen v projektu Game, který žádný jiný solution nestaví.
+
+### ⚠ Hra nemá argument na jiný soubor s nastavením
+
+Běhy proto podměňovaly skutečný `%LOCALAPPDATA%\BS3D\Settings.json`. Oba soubory (i `.bak`) jsou vrácené bajt za bajtem i s časy zápisu a otisky jsou ověřené.
+
+**Nález, který není můj:** `Progress.json` se změnil ve **20:20:02**, čtyři minuty před mým prvním během. Přibyl `"Vent.json": { "score": 28180, "stars": 4 }`. Nejspíš jsou to testy #389 na Volcano levelech (snímky v hlavním checkoutu 20:02–20:05; `detonate=` bombu opravdu odpálí). Nevracel jsem to, `Progress.json.bak` drží stav z 2. 9. Jestli ten záznam v kampani chce, rozhodne majitel.
+
+**Mimochodem:** `docs/formats-and-tools.md` odkazuje na „The settings page" v `docs/game-shell.md`, jenže taková sekce tam není (nastavení je bullet v „The front end"). Nechal jsem to být.
+
+**Nic dalšího si neberu.**
+
+---
+
+## 2026-09-14 — Claude Code (patnáctý zápis dne)
+
+**#389: majitel si výbuch pustil ve hře. Vzhled prošel, zvuk ne. Pětkrát jsem ho předělal a teď je na větvi `389-bomb-detonation` jen s basy (`955d2e4`).** Pořád NEmergnuto, čeká se na majitelovo ucho. Založil jsem **#394** (barvy levelu 80). Majitel si ho vyžádal.
+
+### Zvuk bomby: pět verzí a verdikt ke každé
+
+1. **„Myška upustila křišťálový hrníček."** 97,8 % energie pod 150 Hz jsem mylně četl jako hloubku. Jenže **89,8 % leželo pod 60 Hz** (31 Hz a sub na 15,5 Hz), kde repro nehraje nic. Slyšitelné pásmo mělo −24 dBFS a v něm cvakání úlomků s tóny 2,4–5,2 kHz. **Poučení: rozdělení energie přes celé spektrum ránu od cvaknutí neodliší. Slyšitelné pásmo 60 Hz–8 kHz se musí měřit zvlášť** (harness to od teď dělá).
+2. **„Hrozně digitální a málo dunivé."** Hukot ze šumu, sutina, tanh drive a gate po 75 ms zvedly slyšitelné pásmo o 10,6 dB. Každá z těch vrstev je ale učebnicový zdroj „digitálna". K tomu verdikt: **jde o příjemnost a basy, ne o fyzikální věrohodnost** (uloženo do paměti).
+3. **Jen teplá rána** (sinus bez driveru, kaskádové low-passy, strop 2,8 kHz): „příjemnější, ale málo výrazný, vrať krátké pištivé střepiny".
+4. **Rána + devět klesajících svistů střepin** vyvážených RMS: **„Ne. Pištění úplně pryč, jen maximální basy."** Pozdější verdikt platí.
+5. **Teď:** rána, dunění, „whump" pod 650 Hz a úder, vše pod 1,4 kHz, komprese + look-ahead limiter a žádný drive. **RMS 0,282, crest 3,37**, tedy nejhlasitější a nejhutnější z pěti; 84,7 % pod 60 Hz, nad 2 kHz nic.
+
+### ⚠ Dvě pasti míchání, obě změřené dřív, než šly ven
+
+- Vyvážení dvou polovin **podle špičky** nechalo svisty na 0,4 % energie, protože špičku horní poloviny dělalo prvních pár vzorků praskotu.
+- **Kompresor sleduje průměrnou úroveň**, takže šumové špičky jím proletěly a určily finální normalizaci: crest 9,47, na papíře hlasitější mix, v uchu tišší zvuk. Proto vznikly `Compress` (look-ahead) a `Limit` (look-ahead peak limiter) v `ProceduralAudio`.
+
+### #394: barvy levelu 80 (Paroxysm)
+
+Majitel: barvy jsou si moc podobné, v dělu mají jiný odstín a nevíš, co střílíš. Zjištěno ze souboru a generátoru, vše je v issue:
+
+- láva pod dómem 9 a sedm inkoustů (krusta černá/hnědá/stříbrná, jádro červená/oranžová/žlutá/bílá), takže obě známé těsné dvojice (#315) jsou v jednom levelu;
+- **#315 lávu měřilo pod scénou The Reveal, ne pod sopkou**, kde se teď hraje (a sopka tlačí na koule vlastní rudá světla);
+- blokový zákon Eruption je „horké členy na dvou inkoustech", jádro Paroxysmu jich má čtyři;
+- za sklem v dělu je podle měření #365 hnědá tmavší než černá;
+- **čtyři barvy jádra jsou na startu úplně zazděné (z 65 koulí jádra není odkrytá ani jedna)**, a zásobník je přesto nabízí. Majitel se na to ptal jako první („nabízí se mi červená, není to kvůli bombě?"). Bomby to nejsou, `BallKinds.Matchable` je ze sčítání vylučuje. Jestli nabízet jen odkryté barvy, je rozhodnutí o obtížnosti a nechávám ho majiteli.
+
+### ⚠ Oprava k čtrnáctému zápisu: Vent v `Progress.json` nejspíš nejsou moje testy
+
+Zápis výš připisuje `"Vent.json": { "score": 28180, "stars": 4 }` testům #389. **Mých pět GPU běhů (20:02–20:05) v logu nemá jediný řádek `[level]`**, žádný level tedy nedohrál a nezobrazil výsledek. Soubor se změnil ve **20:20:02**, patnáct minut po posledním z nich a poté, co jsem majiteli poradil, jak si výbuch zkusit (`level=Sill detonate=10`). Nejspíš to je majitelovo vlastní hraní. Nic jsem nevracel.
+
+**Nic dalšího si neberu.**
+
+---
+
+## 2026-09-14 — Claude Code (šestnáctý zápis dne)
+
+**Založil jsem #395 na majitelův pokyn: barvy koulí ve všech deseti lávových levelech (The Eruption) se špatně rozeznávají a kulička v dělu svítí světleji než stejná barva na mapě.** #394 (level 80) je jeden konkrétní případ. Do #394 jsem napsal komentář, že rozhodnutí v #395 ho má zavřít nebo zúžit.
+
+- **Těsné dvojice nejsou výjimka, jsou paleta celého bloku:** černá+hnědá v 9 z 10 levelů, oranžová+hnědá v 8, červená+oranžová v 8, černá+stříbrná v 6. Sečteno ze souborů levelů.
+- **Světlejší kulička v dělu je potvrzená v kódu, ne jen tušená.** `LavaPS` násobí svit švů `breath = lerp(1 − PulseDepth, 1, beat)` a lineárně okluzí. Cluster se ve hře kreslí s `PULSE_DEPTH_RIPPLING` 0,38, takže mezi údery svítí na 0,62 plného svitu. Zásobník jde přes still plane s `pulseDepth: 0` a `BallRenderSet.UNOCCLUDED`, takže svítí vždy na 1. Nabitá koule tedy svítí zhruba 1,6× víc než odpočívající koule clusteru a v ústí má navíc halo (#236). Všechna tři rozhodnutí jsou záměrná (#236, #252, #303) a na vinylu neškodná; na emisivním stylu ale mění barvu.
+- ⚠ **Na obrazovce to změřené není.** Issue navrhuje nejdřív snímky ve hře s drženým RMB a paletu pod sopkou (#315 měřilo lávu pod scénou The Reveal).
+
+Nic jsem neopravoval. **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-15 — Claude Code
+
+**Beru si #393 (dvacátá scéna: časná 80. léta výpočetní grafiky, mřížka z pojmenované matematiky — Tron), na majitelův výslovný pokyn.** Větev `393-tron-grid-scene`, založená z aktuálního `origin/main` (tenhle zápis jde přímo na `main` z worktree `BS3D-322`, hlavní checkout stojí na `389-bomb-detonation` a nesahám na něj).
+
+Rozhodnutí z issue, než padne kód — cituju je tu, aby je nikdo nemusel dohledávat, kdyby se do toho měl zapojit ještě někdo jiný:
+
+- **`SceneKind.Grid`** (issue navrhuje přímo tenhle název), tvar Měsíce/Aurory — `ReplacesSky` **i** `IsSolidTerrainScene` zároveň (třetí scéna v obou rodinách po #125 a #205), žádná dome, vlastní světelný rig.
+- **Jen pozadí.** Koule, dělo i ostrov zůstávají na běžné osvětlené cestě `InstancedModel.fx`, jen podbarvené studeným cyan rigem téhle scény — to je issue's vlastní doporučená výchozí volba ("the smaller, cheaper, more consistent change"), ne můj zkrat.
+- **Podlaha je doopravdy plochá** (konstantní výška, žádné pole a žádný součet oktáv, žádný gradientní normál — normála je vždy nahoru), takže mříž samotná stojí skoro zadarmo. Nad ní **Hilbertova křivka** jako obvodová kresba: bitová rekurze `xy2d` na souřadnicích buňky (dlaždice 64×64, modulo tak aby se opakovala přes celou plochu), hrana mřížky svítí jasněji tam, kde odděluje dvě po sobě jdoucí buňky křivky. Žádná derivace uvnitř té rekurze, takže je bezpečná vedle `fwidth` na antialiasing čáry.
+- **Vědomě ne azimutální motiv (atan2/spirála/úhel).** Deník nese tři nezávislá nahlášení téhož švu (Mars, kaverna, a potřetí aurora #205 — `atan2` nakrmený rovnou do šumu). Hilbertova křivka a mříž samy o sobě žádný úhel nepočítají, takže tomuhle švu nemůžou podlehnout — první řez jde jen na tenhle motiv.
+- **Obloha je prázdná černá s ditherem proti bankování, bez hvězd.** Hvězdná mřížka je pohled vesmíru/Měsíce/Aurory; tahle scéna má číst jako "nic nevysíláno", ne jako další noční obloha, a je to i nejlevnější varianta z pěti scén nahrazujících oblohu.
+- Credit čtyřem CG studiím Tronu (1982) a hlavně procesu podsvícené optické kompozice (odkud je "černé tělo, svítí jen švy") půjde do `docs/scenes.md`, jak issue výslovně žádá — do shaderového komentáře taky, ať přežije i bez dokumentu.
+
+**Cíl je změřit, ne odhadnout**: issue klade laťku "nejlevnější scéna ve hře" (pod kavernou, 5,96 ms) a tvrdí, že plochá podlaha + mříž na to má nárok algoritmicky, ne škrtem v kvalitním tieru. Změřím na konci stejným postupem jako Aurora (Testbed, `nopost nocap logfps`, jedna kontrolní scéna vedle).
+
+**Kampaň, druhé motivy (Life na oknech, spirála, Mandelbrot) a černé tělo sahající na kouli/dělo jsou mimo rozsah** — issue to sama odděluje jako následné kroky.
+
+**Nic jiného si neberu.**
+
+---
+
+## 2026-09-15 — Claude Code (druhý zápis dne)
+
+**#393 je na větvi `393-tron-grid-scene` (`57b2eca`), NEmergnuto: čeká na majitelovo oko** — nová scéna, nová estetika, stejný precedens jako bomba (#389) a polar (#222). `SceneKind.Grid`, `Grid.fx` + `GridSceneConfig`, `scene=grid`/`scene=tron` v Testbedu.
+
+**Tvar podle issue vlastních doporučených výchozích voleb**: `ReplacesSky` **i** `IsSolidTerrainScene` (třetí scéna v obou rodinách po Měsíci a auroře), podlaha jen pozadí (koule/dělo/ostrov zůstávají na běžné osvětlené cestě, jen podbarvené studeným cyan rigem — issue's vlastní "smaller, cheaper, more consistent change"), žádná mřížka výšek (podlaha je doopravdy plochá — konstantní `TerrainHeight`, žádný součet oktáv, žádný gradientní normál), obloha prázdná černá s ditherem a bez hvězd.
+
+**Motiv: Hilbertova křivka jako obvodová kresba, vědomě ne úhlová (spirála/soustředné kruhy).** Deník nese tři nezávislá nahlášení téhož švu (Mars, kaverna, aurora — `atan2` nakrmený rovnou do šumu); buňková mřížka a test "jsou si sousedé po sobě jdoucí na křivce" nepočítají žádný úhel, takže tomuhle švu nemůžou podlehnout vůbec.
+
+**⚠ Dva nálezy, které ukázal až skutečný capture, oba zapsané do `docs/scenes.md`:**
+
+1. **Dlaždice křivky se nesbaluje, a naivní sbalení dalo šev přesně křížem přes arénu.** Hilbertova křivka nemá index 0 a index N²−1 sousední, takže sbalení do `[0, N)` je skutečná nespojitost na každé hranici dlaždice — a hranice padaly na world `x, z = 0`, tedy přesně tam, kde stojí ostrov. Oprava: posun o půl dlaždice před sbalením, takže na počátku světa je **střed** dlaždice, ne její šev. Chyceno okem na debug průchodu (barvení podle "je nejbližší hrana na křivce"), který ukázal vzor zrcadlený přesně podle `x=0` a `z=0`.
+2. **Stejně široká, jen jasnější čára se z hráčské vzdálenosti změřila jako žádná čára.** Debug izolace potvrdila, že porovnání souvislosti funguje (zapíná se na skoro polovině hran, přesně jak křivka navštěvující každou buňku dvakrát predikuje) — ale v běžné hře byla stopa vizuálně příliš tenká na to, aby se v hustém poli čar odlišila. Širší záběr ji ukázal jasně. Oprava: `GridAccentWidthScale` (2,4) — stopa je teď širší, ne jen jasnější, vybráno PŘED anti-aliasing maskou, ne po ní.
+
+**Ověřeno:** všechny tři executables staví čistě (`dotnet build` na všech čtyřech .sln), Game a MapEditor naběhnou bez pádu na nové konstrukční cestě (kouřový test, oba killnuté hned po startu, žádný zásah do majitelova `Progress.json`), LevelGen a ScoreSim exit 0 beze změny výstupu. **Výkon: jednorázová kontrola na referenčním desktopu (6900 XT)**, Testbed, pevná kamera, `nopost nocap logfps`, 1600×900 ssaa 2: Grid **0,45–0,46 ms** proti kaverně (dosud nejlevnější změřená scéna) **1,08–1,09 ms** za stejných podmínek — issue's vlastní laťka splněná bez jediné redukované techniky, protože plochá podlaha nemá co redukovat. Není to párový `alt=` sweep a není to #209's vlastní 5,96 ms z reálného levelu — psáno v `docs/scenes.md` jako jednorázová kontrola, ne měření.
+
+**Mimo rozsah, schválně (issue to sama odděluje jako následné kroky):** kampaňové zařazení, druhé motivy (spirála, Conway's Life na oknech, Mandelbrot), černé tělo sahající na kouli/dělo.
+
+**Nic dalšího si neberu.**
+
+---
+
+## 2026-09-15 — Claude Code (třetí zápis dne)
+
+**#393, druhé kolo: majitel se podíval a řekl "chybějí tam další objekty, co na scéně mít má být".** Zeptal jsem se na konkrétní volbu (AskUserQuestion) — vybral obojí z issue's vlastního seznamu: **vzdálené monolity** a **okna s Conway's Game of Life**. Pořád na `393-tron-grid-scene`, pořád nemergnuto, commit `0d1c6c4`.
+
+**Devět jednoduchých hranolů na kruhu kolem arény** (`GridTowerConfig`: `Count`=9, poloměr 160–380 — daleko od hratelné plochy), deterministicky ze `Seed`=393, aby Hra/Testbed/editor stavěly stejné věže na stejná místa (stejný důvod, proč je mapa sdílená mezi třemi). `BuildGridTowers` staví jen čtyři svislé boční stěny (zrcadlí `BoxMesh.AddFace`'s vlastní čtyři parametry i vinutí) — žádná střecha/podlaha, protože ji hráčská kamera z nízkého postoje nikdy neuvidí. Geometrie je zapečená rovnou ve world-space do vlastního vertex bufferu, žádná world matice, žádné instancování — pár quadů na draw je přesně to, co si plamen ohně (flame billboard) už dovolil.
+
+**Okna čtou jeden sdílený Game of Life 32×32, ne simulaci na věž.** `StepGridLife` (obyčejná toroidální pravidla) kroká na CPU, `LifeStepInterval`=0,5 s — issue's vlastní "pár generací za sekundu, ne za snímek, má to číst jako hodiny, ne blikání" — a jen dokud je Grid opravdu kreslená scéna. Upload na texturu jen když se generace opravdu změnila (`UploadGridLifeTexture`, jeden opakovaně použitý buffer, žádná alokace za krok). Každá stěna čte stejnou desku na vlastním pevném náhodném offsetu, takže žádné dvě stěny v celé scéně neukazují identický výřez.
+
+**⚠ Neporušená deska zvadne, a oprava je levnější než detekce.** Náhodný Life na malé toroidální desce se během pár set generací (pár minut při defaultním intervalu) usadí do statické směsi still lifes a oscilátorů — což by četlo jako "okna se prostě zastavila" — a vymření je ještě horší. `StepGridLife` proto **každou generaci** převrátí tři náhodné buňky bez ohledu na verdikt pravidel — levnější než detekovat stagnaci nebo vymření, a odpověď na obojí najednou.
+
+**⚠ Uprostřed session spadl desktop (Kernel-Power).** Přesně vzorec z paměti "desktop-hard-resets-under-load" — spustil jsem víc běhů Testbedu po sobě, poslední s `nocap`. Working tree přežil beze ztráty (jen needitované soubory na disku, nic v paměti procesu). Zeptal jsem se majitele, jestli pokračovat — řekl ano, ale jen s `fpscap=75`. **Výkon proto NEPŘEMĚŘENO** po přidání věží — `fpscap=75` na scéně běžící v tisících FPS je plošina, ne číslo. `docs/scenes.md` to říká rovnou, ne že by starý údaj (0,45 ms) nesl dál jako by pořád platil.
+
+**Ověřeno:** všechny čtyři solutions staví čistě, Hra i editor naběhnou bez pádu na nové konstrukční cestě (kouřové testy, `fpscap=60`/výchozí, killnuté hned po startu), dva capture osm sekund od sebe potvrzují, že se deska Life opravdu hýbe, LevelGen a ScoreSim exit 0 beze změny výstupu. Vizuálně z hráčské kamery (`campos=0,-4,30 camtarget=0,-8,0`, `fpscap=75`) jsou dvě věže vidět za dělem a čtou se dobře i v běžném herním záběru, ne jen z širokého ustavujícího záběru.
+
+**Pořád na majitelovo oko** — obě kola teď na téže větvi, žádný merge.
+
+**Nic dalšího si neberu.**
+
+---
+
+## 2026-09-15 — Claude Code (čtvrtý zápis dne)
+
+**#393, třetí kolo, dva požadavky z téhož druhého review.** Pořád `393-tron-grid-scene`, commit `6761335`.
+
+1. **"Těch budov je tam málo a některé by měly mít krychlový tvar, aby to nevypadalo jako budovy, ale jako abstraktní objekty z digitálního světa."** `Count` 9→18, `CubeFraction` 0,4 — čtyřicet procent je teď velká, skoro-krychlová (`CubeSizeMin/Max` 45–75, tak aby jedna stěna ukázala skoro celou 32×32 Life desku najednou, ne jen výřez), zbytek zůstávají věže (`TowerHeightMin/Max`, `TowerFootprintMin/Max`, beze změny). Krychle navíc dostává i horní stěnu (věž ne — hráčská kamera z nízka strop věže nikdy neuvidí). Retry přes kružnice odstupu (`placed` list, 20 pokusů), aby se hustší pole nepřekrývalo.
+2. **"Stav Conwayovy hry by se měl lišit i mezi jednotlivými věžemi/objekty — jiný seed, různé hezké varianty."** Každý objekt teď nese **vlastní nezávislou** `GridLifeBoard` (vlastní current/next mřížka, vlastní textura, vlastní hodiny kroku) místo čtení jednoho sdíleného pole na offset. Jeden sdílený `Random` stream pořád seeduje všechny desky, ale každá spotřebuje jinou část streamu — Life je dost chaotický na to, aby dva nesouvisející starty do pár generací úplně rozešly. **⚠ Důsledek: sdílený vertex/index buffer zůstává jeden, ale kreslení teď stojí jeden draw call na objekt místo jednoho na všechny** — draw call drží jen jednu texturu najednou a každý objekt má teď svou. `BuildGridTowers` si navíc pamatuje (startIndex, počet trojúhelníků) na objekt.
+
+**Ověřeno:** všechny 4 solutions staví čistě, Hra i editor naběhnou bez pádu, `fpscap=75` screenshot z dálky ukazuje věže i krychle vedle sebe s viditelně ODLIŠNÝM stavem Life (ne výřezy ze stejného obrázku), LevelGen a ScoreSim exit 0 beze změny.
+
+**Výkon pořád nepřeměřeno** (stejný důvod jako minule — `fpscap=75` je plošina na tomhle rozsahu FPS), `docs/scenes.md`'s poznámka platí dál a teď se vztahuje i na víc geometrie a víc draw callů — pořád odhad, ne číslo.
+
+**Pořád na majitelovo oko, všechna tři kola na jedné větvi.**
+
+**Nic dalšího si neberu.**
+
+---
+
+## 2026-09-15 — Claude Code (pátý zápis dne)
+
+**#393 je na `main`u** (merge `ed08046`, `--no-ff` přes `git -C BS3D-322`, tři commity `393-tron-grid-scene` dovnitř beze změny). Majitel po třetím kole řekl "Mergni to". Větev smazaná lokálně i na originu, hlavní checkout přešel na `origin/main` (main sám drží worktree `BS3D-322` — checkout proto detached, ne branch, aby šla stará větev smazat). `BS3DLibs.sln` po mergi staví čistě na `BS3D-322`. Issue nechávám otevřené, zavření na slovo majitele.
+
+**Nic dalšího si neberu.**
+
+---
+
+## 2026-09-15 — Claude Code (šestý zápis dne)
+
+**Beru si revizi #393 (Grid) na majitelův pokyn: "zkontroluj, navrhni, co by šlo vylepšit, a vylepši to".** Větev `393-grid-review` z `origin/main`, hlavní checkout. Nálezy ověřené offline sondou (C# ve scratchpadu, jen CPU), které jdou do kódu:
+
+1. **Hilbertova "stopa" není křivka.** Shader rozsvěcí hranu mezi dvěma po sobě jdoucími *buňkami* — to je hrana, kterou křivka *překračuje*, kolmá na její směr — takže na podlaze vzniká bludiště nesouvislých příček: na 301×301 vrcholech 5 390 izolovaných, 18 027 slepých konců, 28 549 T-křižovatek. Oprava za stejnou cenu (tři `xy2d`): uzly křivky jsou *vrcholy* mřížky a svítí úsečka mezi dvěma po sobě jdoucími vrcholy. Hilbertova křivka začíná v (0,0) a končí v (N−1,0), takže se dlaždice v ose x řetězí (N²−1 → 0) — sonda: **každý vrchol má stupeň přesně 2**, jedna souvislá křivka a žádný šev.
+2. **Antialiasing čar** bere izotropní `length(fwidth(xz))` pro obě osy a maska neztrácí energii, když stopa pixelu přeroste šířku čáry → v klouzavém pohledu čáry v dálce tloustnou a zjasňují. Oprava: derivace po osách + zachování pokrytí.
+3. **Objekty nemají svítící hrany** — tělo je skoro barva voidu, siluety se ztrácejí; přitom "světlo jen ze švů" je hlavní pravidlo issue.
+4. **Life je náhodná 28% polévka + 3 náhodné buňky za generaci**, majitel chtěl "hezké varianty". Oprava: pojmenované vzory s ověřenou periodou (glider, LWSS/MWSS/HWSS, pulsar P3, pentadekatlon P15, Kokova galaxie P8, osmička P8, tumbler P14, octagon 2 P5; metuzalémy R-pentomino a diehard), nový vzor při stagnaci (perioda ≤ 2 nebo vymření — 28% polévka stagnuje v mediánu po 365 generacích), řádky jako `uint` s bitovou sčítačkou (bit-exact proti naivním pravidlům na 500 deskách × 200 generacích; 18 desek 0,0019 ms místo 0,18 ms), rozfázované hodiny desek a dosvit fosforu.
+5. **Zastaralé komentáře a doc** po třetím kole ("one shared Game of Life", "flips three cells" — ve skutečnosti přiřazuje náhodnou hodnotu, atd.).
+
+Ambience beze změny (majitel: nechat). GPU session povolená s `fpscap=75`, zhruba 10–12 krátkých spuštění.
+
+**Nic jiného si neberu.**
+
+---
+
+## 2026-09-15 — Claude Code (sedmý zápis dne)
+
+**Revize #393 je na větvi `393-grid-review` (`63a63ad`), pushnuto, NEmergnuto — čeká na majitelovo oko** (nový vzhled scény, stejný precedens jako tři kola #393). Detail v `docs/scenes.md`, "The Grid".
+
+- **Hilbertova křivka po vrcholech mřížky**, `TraceStride` 2, dlaždice řetězené (N²−1 → 0): každý uzel má stupeň přesně 2, žádný šev. Oba ⚠ nálezy prvního řezu (šířka stopy, šev přes arénu) byly tentýž žebřík příček viděný ze dvou stran.
+- **AA čar po osách se zachováním pokrytí** (`GridAxisFootprint`/`GridLineMask`) — jasný pás tlustých čar u horizontu v širokém záběru zmizel.
+- **Svítící hrany všech objektů** (`FaceLocal`, `EdgeWidth` 0,9), střecha na každém, cull zadních stěn.
+- **Nový `Prazsky.Core/Render/GridLife.cs`**: pojmenované vzory (periody ověřené ve všech 8 orientacích), stagnace → další vzor, rozpočet 360 generací, řádky `uint` (2,9 µs na 18 desek, 0 alokací), rozfázované hodiny, dosvit fosforu (`PhosphorDecay` 0,12 s), deska obtočená kolem objektu a vystředěná na stěnu k aréně. Seed z placement streamu se stejným počtem tahů jako dřív → žádný objekt se nepohnul.
+
+**Ověřeno:** všechny čtyři solutions staví; 5 spuštění celkem (4× Testbed, 1× Game menu), všechna v okně s `fpscap=75`, bez incidentu; snímky před/po z herní kamery i ze širokého záběru; dosvit potvrzen na dvou snímcích 0,25 s od sebe; `Settings.json`/`Progress.json` i `.bak` po běhu Game bajtově stejné. **GPU výkon nepřeměřen** (pod `fpscap=75` to nejde), `docs/scenes.md` to říká rovnou. Issue nechávám otevřené.
+
+**Nic dalšího si neberu.**
+
+---
+
+## 2026-09-15 — Claude Code (osmý zápis dne)
+
+**Nová dávka playtest poznámek (obecné postřehy ze hraní, ne tabulka Zábavnost/Obtížnost jako v [[playtest-log-triage]]) protříděna do třinácti položek → jedenáct nových issues + komentář.** Postup jako u první dávky: `gh issue list`/`search` a čtení deníku napřed, ať se nic nezaloží zdvojeně. Majitel řekl výslovně "založ issues na základě těchto poznámek" — takže na rozdíl od první dávky, kde se netriviální podíl řádků nezakládal (byly to jen pozitivní/neutrální postřehy), tady byla založena issue na každou jednotlivou položku, včetně jedné, co je jen návrhem alternativy k už jednou schválenému a zavřenému řešení (#412) — o tom, co založit a co ne, rozhoduje majitelovo slovo, ne moje čtení "už to bylo jednou odsouhlaseno".
+
+**Nové:** #401 (Space hvězdný třpyt jak diskotékový stroboskop), #402 (chybí motion blur na rychlém pohybu děla/koule), #403 (nohy lafety jsou jen kvádry `AddBox`, chtějí detail jako kola), #404 (brainstorm: vlastní vzhled ostrova pro každou scénu — dnes jeden sdílený `ArenaIsland`), #405 (výběr levelu v menu nerespektuje scénu/styl kuliček — `LevelSelectPage` se vůbec nedotýká `BackdropScreen`u), #406 (chybí možnost přehrát si `ChapterIntro` tour scény ze `ScenePage`), #407 (drop cinematic se u scén s otevřeným trychtýřem (`OpenBelow`) nejdřív moc přiblíží k trychtýři a pak odskočí), #408 (menu kamera občas prolétá skrz mapu při orbitu — `BackdropScreen`/`FrameOrbitFor` zřejmě nemá klíčování na shluk jako drop cinematic na ostrov), #409 (Space's `ChapterIntro` končí nepříjemným pohledem shora dolů do ostrova), #410 (koule občas odskočí bez přichycení i když náhled slibuje zásah — nová instance třídy bugu #70/#265, ne reopen), #412 (popelavá značka odpojených koulí z #342 nečte se dobře, majitel navrhuje stabilní průhlednost s plynulým fade-inem místo desaturace — nová issue, ne reopen #342, protože mechanismus #342 funguje jak byl navržen, jde o iteraci na vzhledu).
+
+**Komentář na #395** (existující, otevřené): majitelův konkrétní požadavek na opravu lávových barev — silnější linky, které nejdou až do `LavaIncandescent` bílé, ale do primární barvy koule — je konkrétní verze kroku 3 issue's vlastního návrhu, proto komentář a ne nová issue.
+
+**Nic dalšího si neberu.**
+
+---
+
+## 2026-09-15 — Claude Code (devátý zápis dne)
+
+**Revize #393 je na `main`u — merge `cf1c22e`** (`--no-ff` přes `BS3D-322`, `BS3DLibs.sln` po mergi staví čistě). Majitel po sedmém zápisu: "Vypadá to dobře! Jenom objekt, na kterém je úzká hra života, by potřeboval ještě jeden pixel nalevo."
+
+**Ta poznámka byla obecná chyba, ne jedna věž (`43deede`).** Deska mapuje svůj střed (hranici mezi buňkami 15 a 16) na střed stěny, ale vzor s lichou šířkou na tu hranici vycentrovat nejde — ležel o půl okénka vedle, takže jeden okraj byl o celé okénko širší. Sonda: **96 ze 128** kombinací vzor × orientace nebylo na středu desky. `GridLife.CentreX/CentreY` hlásí, kde střed vzoru opravdu přistál (proti orazítkovaným buňkám 0 neshod ze 128), a `GridLifeCentreOffset` posune desku o rozdíl v obou osách. Ověřeno snímkem téže herní kamery ve stejných časech (desky jsou deterministické): pentadekatlon i jeho široká fáze mají teď po obou stranách stejně okének.
+
+Celkem 6 spuštění za celou revizi, všechna `fpscap=75`, bez incidentu. Všechny čtyři solutions staví. Větev smazaná lokálně i na originu, hlavní checkout detached na `origin/main` (main drží worktree `BS3D-322`). Issue nechávám otevřené, zavření na slovo majitele.
+
+**Dodatek:** majitel řekl "393 zavři, je to hotové" — **#393 zavřeno** s komentářem (co je na `main`u a co zůstává mimo rozsah podle issue samotné: kampaň, spirála/Mandelbrot, black-body mód pro koule a dělo).
+
+**Nic dalšího si neberu.**
+
+---
+
+## 2026-09-15 — Claude Code (desátý zápis dne)
+
+**Založeno #420: nová kapitola (dvanáctý blok, deset levelů) ve scéně Grid**, na majitelův pokyn. Duplicitu jsem hledal na GitHubu (kapitola, grid, tron, aurora, polar) i v deníku: kapitolu nemá Grid, aurora (#205) ani polar (#222) a issue na ni neexistovalo.
+
+Issue navrhuje styl "tvar levelu je pojmenovaná matematická konstrukce", tedy tezi samotné scény. Kandidáti: generace Life naskládané jako patra (čas jako výška), 3D Hilbertova křivka, Mengerova houba a Sierpińského pyramida, drátěná tělesa. Vyjmenovává existující mantinely: 13 barev, pravidla bran, 35 s visení v Game pro tenké tvary (Trellis, Bolt), `palette.ps1` pod cyan rigem Gridu, `[aimcheck]` v Game, ScoreSim. Majiteli nechává rozhodnutí: pořadí (append nebo vložení; odhad rampy při 120 položkách 236 proti 476 hvězdám, v issue označený jako přepočítat), materiál (reprise), hudbu, jméno bloku a to, jestli blok přinese do kampaně některou z hotových, ale nikde nepoužitých koulí.
+
+**Změřeno při psaní:** v 110 shipnutých levelech je `"k"` 1–4 (kámen, sklo, bomba, zap) ve 3–5 souborech, **wildcard, kyselina, led, nákaza, gravitace a těžká koule v žádném**. ⚠ Grep podle jmen druhů (`"Rock"` apod.) vrací nulu i pro kámen: level ukládá druh číselně jako `"k": N` (`BallKind`).
+
+**Nic si neberu** — #420 je volné.
+
+---
+
+## 2026-09-15 — Claude Code (jedenáctý zápis dne)
+
+**Beru si #397 (výsledková obrazovka: „Next level unlocks at 150 ★ — you have 306“).** Větev `397-result-sequence-note` z `origin/main`, hlavní checkout. Na #389 (`389-bomb-detonation`, pořád nemergnutá) nesahám: jeho hunky v `GameplayScreen.Rules.cs` jsou na řádcích 58–200, můj je u `ShowResultScreen` (~745).
+
+**Příčina ověřená na majitelově `Progress.json` (jen čtení), ne odhadnutá:** „Unlock all“ zapnuté nebylo — po každém startu je vypnuté a nikam se neukládá, a kdyby zapnuté bylo, `||` v `IsLevelUnlocked` by Next Level ukázal. Vent (#76) byl už dohraný (4★), frontier je **#58 Highwall**, Sill (#77) nedohraný → zamyká ho **sekvence**, hvězdy ne. Komentář v `ResultPage` tvrdil, že sekvence na clear dosáhnout nemůže („frontier se už posunul za tenhle level“), což platí jen když dohraný level *byl* frontier. Replay levelu dohraného mimo pořadí (autorův save jich má víc) to vyvrací.
+
+Oprava: `LevelResult.UnlockNote` jmenuje zámek, který opravdu drží (sekvence napřed, slovy výběru levelů), poznámka se zalamuje do šířky plátu (v play přetékala z pravého okraje), nový testovací argument `nextlocked=<stars|sequence>` na stránce `result`. Majitel povolil 3 krátké běhy Game (`fpscap=75`, okno, `mute`).
+
+**Nic dalšího si neberu.**
+
+**Dodatek: #397 je na `main`u — merge `6f4fe09`** (commit `df5dfb4`, `--no-ff` přes `BS3D-322`, `Game` po mergi staví s 0 chybami). Větev smazaná lokálně i na originu, hlavní checkout detached na `origin/main`. Issue nechávám otevřené, zavření na slovo majitele.
+
+- **Poznámka je teď dvouřádková, pravidlo nad čísly:** `Next level unlocks at 216 ★` / `You have 214`, nebo `Levels open one at a time` / `Level 3 · Toadstool is next`. První řez byla jedna věta a zalomení ji rozlomilo uprostřed jména („Level 3 ·“ / „Toadstool is next“). Explicitní `\n` Myra (FontStashSharp) v zalamovaném labelu respektuje, ověřeno snímkem.
+- **Proč přetékala:** mechanismus jsem neověřoval, viděl jsem jen výsledek (text začíná u levého okraje popisků a pokračuje ven z plátu). Komentář u `MinWidth` tvrdil, že poznámka „smí být delší než sloupec, místo aby se ořízla“, a v praxi to znamenalo text ven z plátu. Teď má `Wrap` a `Width = BS3DGame.MenuColumnPlateContentWidth` (sloupec minus odsazení plátu; odsazení je nově pojmenovaná konstanta místo literálu 106/67).
+- **Doc drift opravený cestou:** `docs/game-session.md` jmenovalo frontier `FirstUnclearedLevel` („první nedohraný“), v kódu je `FirstUnfinishedLevel` (nedohraný **ani nepřeskočený**).
+- **Ověřeno:** 3 běhy Game (sequence dvakrát — jednou jako jedna věta, jednou dvouřádkově —, stars jednou), všechny v okně s `fpscap=75`, bez incidentu, `[build]` kontrolovaný. `Settings.json`, `Progress.json` a obě `.bak` mají po bězích stejné SHA-256 jako před nimi. Kontrolní běh `result` bez zámku jsem vyměnil za druhý pokus o znění: prázdná poznámka je `Visible = false` stejně jako dřív.
+- **Nerozhodnuté, pro majitele:** hráč, který dohraje level za frontierem, dostane jen Retry a Main Menu. Tlačítko „Go to: Level 58 · Highwall“ by bylo akčnější než věta, ale mění, co výsledková stránka nabízí, tak jsem ho nedělal.
+
+---
+
+## 2026-09-15 — Claude Code (dvanáctý zápis dne)
+
+**Beru si #403 (nohy lafety jsou jen kvádry `AddBox`) na majitelův pokyn „vem další issue, klidně grafické“.** Větev `403-trail-legs` z `origin/main`, hlavní checkout. Sahám na `BS3DLibs/Prazsky.Core/Render/GunCarriageMesh.cs`, podle potřeby na `MeshBuilder.cs` a figury lafety v `Prazsky.BS3D/GameObjects/CannonRig.cs`, a na `docs/testbed.md`. Nemergnutá #389 nemění ani jeden z těch souborů.
+
+⚠ Issue odkazuje na `GunWheelMesh` jako vzor detailu. Ten od #129 neexistuje, kola jsou `OmniWheelMesh`/`OmniRollerMesh`. `docs/testbed.md` ho i se „spoked wheels“ ještě jmenuje v odstavci o `CannonRig`, to je drift a opravím ho v téže změně.
+
+**Nic dalšího si neberu.**
+
+---
+
+## 2026-09-15 — Claude Code (třináctý zápis dne)
+
+**#403 je na větvi `403-trail-legs` (`a349e7a`), pushnuto, NEmergnuto: čeká na majitelovo oko** (nový vzhled děla, stejný precedens jako #389 a #393). Majitel během práce napsal „teď kanon začíná vypadat k světu“ a v rámci téhož issue přidal hranaté bloky, do kterých nohy vstupují, tedy líce lafety.
+
+- **Nohy (`241bee7`):** zúžený skříňový nosník se zkosenými hranami a dvěma objímkami, kloub s čepem na vnější straně líce, skloněná radlice s broušenou hranou a výztuhou, zvedací madlo. Z původního kvádru zůstala přesně vnitřní a horní stěna, noha rostla jen ven a dolů. Pro závěr hlavně, který při velké elevaci klesá mezi nohy, je to konstrukcí stejně bezpečné jako kvádr, bez proměřování všech elevací. Objímky vystupují na všechny strany, a proto stojí jen tam, kde to výpočet dovoluje. Vnitřní stěna nohy leží asi na 0,75 + 0,70·t od osy (t je poloha podél nohy od kořene, 0 až 1), nejširší ocel hlavně (základní prstenec) na 0,845. Kolize je tedy vyloučená od t = 0,16 a objímky sedí na 0,34 a 0,49.
+- **Líce (`7cbc0fc`):** oblouk kolem osy čepu s poloměrem `CHEEK_TOP_Y` (0,2 → 0,34, konstanta dostala nový význam), tečné přechody do ramen, sražení vnější stěny, ložiskové prstence čepu a nápravy, dva šrouby a žebro. Vnitřní stěna zůstala na místě, přiléhá k hlavni.
+- **Výsledek:** 4 běhy Testbedu z povolených 6, všechny s `fpscap=75`, bez incidentu. Snímky z herní kamery ve 25°, 40°/40° (stejný záběr jako výchozí stav) a 80° (závěr mezi nohama bez kolize). Všechny čtyři solutions staví s 0 chybami. Opravený drift: `GunWheelMesh` a „spoked wheels“ v `docs/testbed.md` i v CLAUDE.md jsou teď `OmniWheelMesh`/`OmniRollerMesh`.
+
+### ⚠ Dvě pasti snímkování, obě změřené
+
+- **Řádek `[build]` v Testbedu razítkuje jen `Testbed.dll`.** Změna v knihovně se na něm neukáže: běh 3 měl stejný hash jako běh 2, a přesto kreslil nový mesh. Důkazem je čas zápisu `Prazsky.Core.dll` vedle exe proti času zdroje.
+- **Opakované `shot=` se nesčítají.** Tři argumenty `shot=` v jednom běhu daly jediný PNG. Časy patří do jednoho seznamu, třeba `shot=9,12,14.5`.
+
+**Nic dalšího si neberu.**
+
+---
+
+## 2026-09-15 — Claude Code (čtrnáctý zápis dne)
+
+**#403, další kolo: majitel viděl, že noha „viditelně tuneluje“ plech lafety.** Pořád na větvi `403-trail-legs` (tip `ef22675`), pořád NEmergnuto, čeká na majitelovo oko.
+
+- **Příčina je geometrická a v kódu už byla: noha je širší než plech, do kterého vchází** (0,18–0,22 proti 0,14), takže jím prošla oběma stranami. Dovnitř mezi plechy vyčuhoval proužek, a to je místo, kam se herní kamera dívá. Zvenku a na zadní hraně vznikal zkosený osmiúhelník průsečnic. Žádná šířka nohy se do tak tenkého plechu nevejde.
+- **Oprava (`7ae767a`):** kořen nohy je usazený tak, že jeho nejvnitřnější roh leží 0,005 za vnitřní rovinou plechu. Poloha je dopočítaná v kódu, protože u nohy, která se rozbíhá a zároveň klesá, je horní osa (upright) nakloněná o 0,13 v x a spodní vnitřní roh tak sahá o 0,03 dál dovnitř než samotná stěna. Dolní zadní čtvrtina plechu je navenek zesílená do patky (socket) se sraženými hranami, ložiskem kloubu a čepem. Místo nohy na výstupu z rovné zadní stěny zakrývá objímka. Starý kloub na plechu je pryč. Každá část nohy se tím posunula dál od hlavně, takže vůči závěru je to jen lepší.
+- **Kola:** nejblíž vnitřnímu plechu kola je čep kloubu, s rezervou 0,02 (1,09 proti 1,11). Objímka má nejvýš 1,066. Poloviční šířka kořene nohy klesla z 0,11 na 0,09.
+- **Ověřeno:** běh 5 z povolených 6 (`fpscap=75`, bez incidentu). Detail zezadu mezi nohama, herní kamera rovně a s traverzem ±40° ukazují, že noha nikde neprochází a vychází z patky přes objímku. Testbed i Game staví s 0 chybami, `docs/testbed.md` je aktualizovaný.
+
+**Nic dalšího si neberu.**
+
+
+---
+
+## 2026-09-15 — Claude Code (patnáctý zápis dne)
+
+**Beru si #396 (osiřelá bomba vybuchne).** Dnes se bomba odjišťuje dvěma způsoby, oba geometrické: zásah vedle ní (`CollectArmedSpecials`) a dosah cizího výbuchu (`DetonateBombs`, řetězení přes worklist). Chybí třetí, čistě **konstrukční**: bomba, které `GetCellsDisconnectedFromCeiling()` sebere poslední cestu ke stropu, dnes spadne jako obyčejná koule. Větev `396-orphan-bomb`.
+
+**⚠ Není to opomenutí, je to obrácení dosavadního pravidla** — a to je na tomhle úkolu to podstatné. `BallContactEventHandler` u sběru odjištěných bomb doslova píše: „bomba, kterou release OSIŘÍ, už spadla a nesmí vybuchnout ve vzduchu". Issue říká opak („je oddělená, takže jde"), takže se nemění jen kód, ale i ten komentář — jinak by v repu stálo špatné „proč".
+
+**Beru trigger, ne efekt ani model:** flash/ohnivá koule a zvuk jsou #389, aktivační/nábojový model je #392.
+
+**Nic dalšího si neberu.**
+
+
+---
+
+## 2026-09-15 — Claude Code (šestnáctý zápis dne)
+
+**#396 hotové na větvi `396-orphan-bomb` (`abc15fa`, `f86369b`), NEmergnuto.** Osiřelá bomba vybuchne. Větev přerebasovaná na aktuální `origin/main` (byla odbočená uprostřed #393), čtyři solutions 0 chyb.
+
+### Pravidlo je napsané jednou, a to je na tom to podstatné
+
+Čtyři odstraňovací cesty (match, zap, acid, blast) končily **doslovnou kopií** téhož `foreach (cell in GetCellsDisconnectedFromCeiling()) ReleaseBall(cell)`. Kdyby pravidlo „co dělá odpojená buňka" šlo do nich, psalo by se čtyřikrát — a popáté v `SagProbe`, který si celé přistání opakuje. Místo toho je jeden sdílený `ResolveDisconnected`, do kterého ty čtyři ústí. **Sonda nedostala ani řádek**, přesně jak to v #329 udělal thaw; co se v ní měnit muselo, byl komentář.
+
+**Chůze běží ve smyčce, ne jednou na konci**, protože výbuch osiřelé bomby může podetnout další podporu. Končí na `queued` množině: nejvýš jedno kolo na bombu v poli.
+
+### ⚠ Obrátil jsem pravidlo, které stálo napsané pětkrát
+
+„Bomba, kterou release osiří, už spadla a nesmí vybuchnout ve vzduchu" stálo v `BallContactEventHandler`, v `SagProbe`, v `BallKind.Bomb`, v `docs/game-session.md` a v `docs/formats-and-tools.md`. Všech pět přepsáno v témž commitu — nejen kód. Argument proti nim: **chůze je flood fill nad mapou, ne fyzikální událost**, najde bombu v okamžiku, kdy jí podporu podetnou, a koule se ještě ani nehnula. Žádný „vzduch" tam není.
+
+### Skóre: rozhodnuto per oběť, a je to invariant, ne odhad
+
+Oběť výbuchu, kterou chůze **už předtím** našla jako visící na ničem, zůstává `Orphaned` (dvojnásobná sazba) — odešla proto, že jí někdo podetnul podporu, výbuch jenom vybral, kterým směrem letí. `Destroyed` je jen to, co výbuch vezme z **pořád stojícího** clusteru. Alternativa (celý rádius jako Destroyed) byla spočítaná a zamítnutá: koule, které už vydělávaly dvojnásobek, by spadly na sazbu matche, takže **efektnější výsledek by platil míň**. Tak vznikl invariant, který je teď napsaný v `BallsReleased`: *výbuch osiřelé bomby může k hodnotě výstřelu jen přidat.*
+
+Na první kolo `DetonateBombs` je množina „už padajících" prázdná, takže **odjištěná bomba se počítá přesně jako před #396** — žádná existující cesta se nehnula.
+
+### ⚠ `Destroyed > 0` přestalo být testem „vybuchla bomba"
+
+Výbuch uvnitř už padající oblasti nezničí nic — a přesně na tenhle test visela `[shot]` řádka. Teď počítá bomby, které **vystřelily** (`detonatedInto`, vzorem `thawedInto`). ⚠ **Ta řádka se nečistí v žádné ze čtyř metod, ale jednou za přistání v handleru** — detonace patří přistání, ne jednomu jeho kroku.
+
+### ⚠ Seam s #389 je skutečný a **změřený**, ne odhadnutý
+
+`origin/389-bomb-detonation` (hotová, čeká na majitele) přepisuje **tutéž smyčku** a přidává `Detonation` záznam s pozicí těla, hloubkou řetězu a počtem. Zkušební merge: **10 konfliktních hunků / ~199 řádků ve dvou souborech** (`BallsConstraintsBuilder.cs`, `BallContactEventHandler.cs`), všechno ostatní se slučuje samo.
+
+- **Kvůli tomu jsem `BallLanding.Detonated` zase zahodil**, i když jsem ho už měl napsaný: #389 dává na totéž místo bohatší `Detonations`, takže můj holý počet by byl druhá, horší odpověď na stejnou otázku — a hlavně by přidal konflikt do souboru, který sahá do Hry. Po zahození se `BallLanding.cs` sloučí bez konfliktu.
+- **Instrukce pro toho, kdo bude mergovat:** vzít smyčku z #396 (`ResolveDisconnected`) a dovnitř ní vložit z #389 `links`, `blasts`, `Throw` z těla místo z buňky a `ThrowOrphan`; `detonationsInto?.Add(...)` patří přesně tam, kde teď stojí `detonatedInto?.Add(bomb)`. **Bez toho posledního kroku osiřelá bomba po mergi #389 vybuchne beze záblesku a beze zvuku.**
+
+### Ověřeno
+
+- **Čtyři solutions 0 chyb; LevelGen exit 0 a `Game/Levels` beze změny; ScoreSim „All levels rate the right way round".** LevelGenovy statické brány bombu vůbec nemodelují (`Program.cs:1618-1624` to říká samo), takže se výstup změnit ani nemohl.
+- **Bezgrafický rig** (scratchpad, referencuje tři knihovny, sonda `SagProbe`ova tvaru bez kroku simulace), pět scénářů, čísla před/po:
+
+| scénář | před | po |
+|---|---|---|
+| A: bomba pod řezem | 3 m, 5 o, **0 vystřelilo** | 3 m, 5 o, **1 vystřelila** |
+| B: stojící cluster v dosahu | 3 m, 5 o | 3 m, **6 o, 3 zničené** |
+| C: dvě bomby týmž řezem | 3 m, 8 o, 0 vystřelilo | 3 m, 8 o, **2 vystřelily** |
+| D: druhá bomba osiřelá **výbuchem první** | 3 m, 1 o, **bomba zůstala stát** | 3 m, **3 o, 3 zničené**, obě vystřelily |
+| E: `Testbed\Maps\OrphanBomb.json` | — | 18 m, 63 o, bomba v (2,4,7) |
+
+D je ten, který odděluje jednokolovou odpověď od smyčkové: druhá bomba není v rádiusu první a osiří až tím, co první výbuch sebral. A na A i C je vidět, proč byl potřeba počet vystřelených — čísla se **nezměnila vůbec**, a přitom bomba vybuchla.
+
+- **Sonda na třech ostrých levelech s bombami** (`--sag=Vent,Sill,Paroxysm`, před i po): všechny tři pořád **sagged 0 of 5, worst: Cleared**. Verdikt se nehnul. Jednotlivá čísla ano (Vent 23 ran místo 26 a 2,68 od čáry místo 0,90; Sill 41/33 a −0,43/−0,12; Paroxysm 10/10 a −0,97/−0,75) — ⚠ **to není A/B, jsou to jiné průchody**: první osiřelá bomba změní pole a každý další výstřel model vybírá proti levelu, který druhý běh nikdy neviděl.
+- **Za běhu v Testbedu** (`Maps\Bombs.json`, `at=`/`aim=`/`Space`): `[shot] 1 bomb(s) armed, ... 2 bomb(s) fired, destroyed 44, orphaned 0` — handlerová cesta, čištění seznamu i nová řádka ověřené v reálné smyčce. (Dvě vystřelené z jedné odjištěné je řetěz rádiusem, který je tu od #326.)
+
+### Co NENÍ ověřené a nebudu to předstírat
+
+**Osiřelou detonaci se mi nepodařilo vyvolat skriptovaným výstřelem.** `aim=` mířím naslepo bez pohledu na obrazovku a z ~30 pokusů na nové mapě nepřistála ani jedna rána (`bounced` nebo nic). To je omezení, které `docs/testbed.md` samo přiznává („no scripted firing by mouse"), ne vlastnost změny — mapa visí správně, ověřeno snímkem, a rigem se řeže přesně tak, jak má. **Mapa je pro majitelovu ruku a myš, ne pro skript.**
+
+### `Testbed\Maps\OrphanBomb.json` — proč je postavená takhle
+
+235 koulí, **jediná matchovatelná barva v celé mapě** (zbytek obarven greedy tak, že se žádné dvě sousedící neshodují — generátor si to sám dokazuje flood fillem), a **bomba zahrabaná**: každá buňka, která se jí dotýká, je obsazená, takže ji výstřel **nemůže** odjistit tak, jak se bomba odjišťuje od #326. Co v ní vybuchne, může být jen nový trigger.
+
+### Co si neberu
+
+Efekt (#389), aktivační model (#392) a **naučit `ScoreSim` výbuch**. To poslední je pojmenované i v docs: #396 tu díru **rozšířilo, ne prohloubilo** — přibyla přistání, která jsou zčásti orphan a zčásti destroyed, a ten model je neumí vyrobit ani v principu. Sazba je pořád *zdůvodněná, ne změřená*, stejně jako před #396.
+
+**Bezgrafický rig zůstal ve scratchpadu** (tj. zmizí). Jestli ho má být čtvrtý nástroj vedle LevelGenu, ScoreSimu a MusicBaku, je to rozhodnutí majitele — nabízím, nedělám.
+
+**Merge na slovo majitele; zavření issue taky.**
+
+---
+
+## 2026-09-15 — Claude Code (sedmnáctý zápis dne)
+
+**#396 je na `main`u** (merge `ea43ea4`, `--no-ff`) **a zavřené** — majitel řekl "Mergni, uzavři". Větev smazána lokálně i na originu. Zápisy výše zůstávají stát tak, jak byly psané — včetně "NEmergnuto" a "merge na slovo majitele", což tímhle přestalo platit. Šev s #389 je pořád otevřený a změřený (10 hunků / ~199 řádků), instrukce pro merge je v zápisu výše.
+
+**Beru si #395 (lávové barvy).** Majitel: *"Tam je to vážně problémové a potřebujeme dramatické vylepšení."* Větev `395-lava-colours`. Issue má dvě půlky a **tři majitelovy komentáře**, které směr určují přesněji než tělo issue:
+
+1. **Barvy se na Eruption bloku slévají.** Deset levelů, osm inkoustů; černá+hnědá v devíti z deseti, oranž+hnědá v osmi, červená+oranž v osmi. ⚠ **#315 měřilo Lavu pod JINOU scénou a jinou kopulí** — pod sopkou a jejími červeno-oranžovými světly, kde se těch deset levelů skutečně hraje, paletě nikdo nikdy nezměřil.
+2. **Konkrétní zadání na opravu palety (komentář 12:41):** linky mají být **tlustší** a **nemají jít až do bílé** — nejteplejší bod má pořád číst jako vlastní barva koule, jen jasnější. Dnes `LavaCorePower` nese jádro do `LavaIncandescent` (1.0, 0.86, 0.62), jedné sdílené skoro-bílé, ať je koule jakkoli barevná — což je přesně důvod, proč červená, oranžová a žlutá konvergují.
+3. **Kulka v děle svítí světleji než táž barva na clusteru** — tři mechanismy, každý s vlastním důvodem (#252 zásobník nedýchá, #303 cluster je zastíněný, #236 halo v notchi). ⚠ Majitelův komentář (07:42) říká, že to **není problém jen Lávy/Plasmy** — též tři mechanismy platí pro všechny styly a jen *emisní* příspěvek byl odůvodněn jako malý; obyčejný difuzní rozdíl změřený nebyl. Měřím tedy i na vinylu.
+4. **A má to herní následek, ne jen estetický** (komentář 12:43, Volley): majitel měl za to, že se stejnobarevný cluster nerozpojuje — tedy že je to bug v pravidle — když ve skutečnosti střílel do barvy, která jen vypadala podobně.
+
+**Nic dalšího si neberu.**
+
+---
+
+## 2026-09-15 — Claude Code (osmnáctý zápis dne)
+
+**#395 (lávové barvy), první polovina hotová a na `main`u. ⚠ ISSUE NEZAVÍRÁM — druhá polovina zůstává a je pojmenovaná níž pro toho, kdo přijde po mně.** Dochází mi týdenní limit, majitel řekl „dostaně co máš na main a napiš komentáře pro ostatní agenty“ — takže tohle je předavka, ne hotová věc.
+
+### ⚠ Nejdůležitější věc z celého úkolu: **paleta se změřila dobře a to byla past**
+
+`palette.ps1 -Whole` pod sopkou a kopulí 9 — pod scénou, kde se těch deset levelů **opravdu hraje** a kterou #315 nikdy neměřilo (měřilo Lavu pod Reveal) — dává nejtěsnější pár **orange/brown 7,4 dE** proti vinylové kontrole 7,9. Tedy: nic. A přitom si majitel stěžuje právem.
+
+**Průměr přes disk je pro tenhle styl špatný přístroj.** Michá svítící síť s kůrů, která je na všech třinácti stejně černá, a hlásí barvu, kterou oko nikdy neizoluje. Co oko na lávě čte, je **síť**. Změřeno přes **nejjasnější desetinu disku**, čtyři snímky na build: původní styl měl střední sytost jader **0,283** přes osm inkoustů bloku — silver **0,00**, black 0,06, blue 0,07, white 0,11 — tedy osm ze třinácti koulí nosilo **neutrální** síť, a nejtěsnější pár byl **yellow/white 7,6 dE** na všech čtyřech snímcích. To je `LavaIncandescent`: přenos do skoro-bílé byl **nezastropovaný**.
+
+**Skript na to je ve scratchpadu a zmizí** (`cores.py`). Jestli se v tomhle bude pokračovat, patří to jako třetí režim do `palette.ps1` vedle výchozího a `-Whole`; nabízím, nedělám — skill je majitelův nástroj.
+
+### Co je opraveno (tři páky, všechny v `InstancedModel.fx` + jedna konstanta v `BallRenderSet`)
+
+- **`LavaCoreCarry` 0,30** — zastropuje, jak daleko jde jádro do bílé. **`LavaCoreLift` 1,4** vrací jako **jas** to, co dosud říkala ztráta barvy. Majitelova věta doslova: *nejteplejší bod má pořád číst jako barva koule, jen jasnější.* ⚠ Carry **není nula** záměrně — jádro přesně vlastní barvy čte jako čára namalovaná v drážce, což je právě to, kvůli čemu carry vzniklo.
+- **`LavaHuePower` 1,7** — řeže normalizovaný odstín hlouběji. ⚠ **Ne `SaturateTint`**, což je ta zřejmá volba a **nedělá nic**: její první krok je `primary/peak`, což styl už měl. Stálo mě to jeden pokus, ať to nestojí dalšího.
+- **`LavaValuePower` 1,0** — rozevírá odmocninu v `TintEmission`, která stlačovala jedinou osu, co na teplé inkousty zbývá. ⚠ Je to **lávina vlastní kopie** křivky, ne zásah do sdílené — tu volá i **plasma**, kterou jsem neměřil.
+- **Šířka švů 0,36 → 0,46 a `LavaHeatWidth` 1,9 → 1,55 v jednom kroku.** ⚠ **Nelze zvednout jedno bez druhého**: šířka halo je **násobek** švu a `SeamLine` porovnává |sin| proti šířce, takže součin blízko 1 rozsvítí celou kouli. Halo drží 0,684 → 0,713.
+
+**Změřeno** (čtyři snímky na build, týž pin): střední sytost jader **0,283 → 0,510, +80 %**, každý inkoust nahoru (brown 0,58→0,76, red 0,40→0,58, orange 0,36→0,52, yellow 0,24→0,36).
+
+### ⚠ CO TO NEOPRAVILO — a tady je čára pro dalšího agenta
+
+Nejtěsnější pár se pohnul jen **7,6 → 8,0 dE**. Ale **změnil identitu**: z yellow/white (neutrální splynutí, co dělal bílý carry — to je pryč) na **brown/orange/red**. Ty tři jsou **jedna barevná rodina** a odstínem se rozdělit nedají; jediná osa je hodnota, `LavaValuePower` ji už utratil, a co zbývá, jsou **inkousty bloku** — tedy krok 3 samotného issue, v `LevelGen`, kde zákon Eruption zní tři studené a dva teplé a **Meander, Plume a Paroxysm nesou víc**. To je podle mě příští krok a je to změna, která přegeneruje level soubory (pozor: brány LevelGenu, ScoreSim, sonda).
+
+### Druhá půlka issue: kulka v děle — **dýchání opraveno, zastínění NE**
+
+Nový uniform **`StillEmission`** (default 1, no-op). Still plane ho dostává `1 - PulseDepth`. Důvod: **#252 „nabítá koule nedýchají“ bylo uděláno jako `PulseDepth = 0`, jenže to neznamená „klid“, ale „trvale na VRCHOLU kývu“** — všechny emisní výrazy jsou `lerp(1 - PulseDepth, 1, beat)`. Kulka tedy svítila ~1,6× proti klidové kouli v clusteru. ⚠ **Záměrně samostatný uniform a ne menší `PulseDepth`** — ten by kulku rozdýchal, což #252 na majitelův pokyn právě odstranilo.
+
+**Still plane používají JEN čtyři řádky** v `Game/Screens/GameplayScreen.Draw.cs` (488, 495, 496, 498) — Testbedův zásobník ani aim ghost na něm nejsou (obojí `still: false`). Blast radius je tedy úzký; ověřeno čtením, ne odhadem.
+
+**⚠ Co zůstává z téhle půlky:**
+1. **Zastínění.** Kulka dostává `UNOCCLUDED`, koule v clusteru ne. Po mé opravě je poměr cca 2,5× → **~1,35×**, zbytek je právě tohle. Issue navrhuje dát nabítým koulím „typické povrchové zastínění“ — **to je ale rozhodnutí vkusu, ne aritmetiky**: kulka v hlavni kolem sebe opravdu nic nemá a `UNOCCLUDED` to říká pravdivě. Nechávám majiteli.
+2. **Majitelův komentář ze 7:42 žádá změřit i NEemisivní styl** (vinyl na obyčejné scéně), protože těch tři mechanismů platí pro všechny styly. **Neuděláno.** Aritmetika ovšem říká, že to není jen Láva: v `BallEmission` je to `(1-PulseDepth)*occ² + PulseDepth*beat`, takže still plane s occ=1 dostával 1,0 proti klidové kouli 0,62·occ² — při occ 0,8 je to **2,5× i na vinylu**. `StillEmission` to sráží všem stylům najednou.
+3. **Vizuálně NEOVĚŘENO před/po pro kulku.** Udělal jsem jen kouřový test (`BS3D.exe play level=Vent shot=9` — hra běží, cluster čte dobře), ne párové snímky notche proti kouli též barvy, které issue žádá s drženým RMB.
+
+### Ověřeno
+
+Čtyři solutions 0 chyb; LevelGen exit 0 a `Game/Levels` beze změny; ScoreSim „All levels rate the right way round“; hra na Ventu naběhne a hraje. **Neměřený výkon** — přibyl jeden `pow` a jeden násobek na pixel v `LavaPS`, což je řádově to, co #338 změřilo jako šum, ale **změřeno to není a nemám to vydávat za změřené**.
+
+### Ostatní styly
+
+`StillEmission` je default 1 a dechájící plane ho dostává 1, takže **mimo still plane je to identita**. Ale je to čtyři místa v shaderu (`BallEmission`, bubble, plasma, lava) — kdo bude sáhat na emisi, ať to čte.
+
+**Nic dalšího si neberu — dochází mi limit. Kdo vezme pokračování, začíná u „CO TO NEOPRAVILO“ výše.**
+
+---
+
+## 2026-09-15 — Claude Code (zápis k #403, tunelování hlavně)
+
+**#403, další kolo: majitel viděl, že hlaveň při zvedání prochází boky lafety.** Pořád na větvi `403-trail-legs` (tip `6966491`, kód `1fcc954`), pořád NEmergnuto, čeká na majitelovo oko.
+
+- **Změřeno na CPU, ne odhadnuto.** Výpočet ve scratchpadu projde každou elevaci od −6° do 87° (vůči lafetě; na misce se lafeta naklání až o ~6,4°, takže relativně až ~86,6°) a zdvih zpětného rázu 0–1,15. Proti tomu testuje každou část lafety. **Základní prstenec závěru (r 0,845, nejširší ocel děla) procházel vnitřní stranou plechů (0,78) od ~36° až nahoru, až 0,065 hluboko. Stejně tak kořeny nohou a od 52° i celou tyč nápravy (0,84 hluboko).** **Původní kvádry dělaly totéž**, takže vada je starší než brackety z #403.
+- **Oprava je pravidlo, ne kontrola póz.** Lafeta se otáčí s míříkem, hlaveň se tedy jen zvedá kolem osy čepů a klouže podél své osy. Plechy proto obepínají hlaveň (`CHEEK_INNER_X`) jen v **nábě**, tedy do vzdálenosti, na kterou se širší ocel nikdy nepřiblíží, zpětný ráz započítaný (`CannonMesh.NearestSteelWiderThan` − `CHEEK_HUB_CLEARANCE`, na shipnutých figurách 1,25). Jinde stojí na nejširší oceli + `CHEEK_RELIEF_CLEARANCE` (0,865). Obojí se čte z postavené hlavně. Nohy jsou usazené za touto rovinou. **Náprava jsou dva čepy končící v plechu**, protože závěr při velké elevaci zabírá celý prostor mezi plechy a žádná příčka tam stát nemůže.
+- **⚠ Úzké hrdlo jsou kola, ne hlaveň.** Mezi odsazenou rovinou a vnitřním plechem kola zbývá tam, kde noha vychází z patky, jen ~0,245. Výpočet kontroluje i kola: noha s poloviční šířkou 0,09 zajela do plechu kola o 0,011, při 0,075 má vůli 0,021. **Průřezy nohou jsou proto svislé**, ne kolmé na nohu, protože kolmý průřez nohy, která se rozbíhá i klesá, naklání vnitřní stěnu dole o 0,03 dovnitř. Kloub se přestěhoval na horní hranu patky, protože na vnější stěně patky pro něj u kola není místo.
+- **Kola jsem schválně NEposunul.** Rozchod 1,5 vstupuje do `GameCameraFit.CANNON_DRAIN_CLEARANCE` (vnitřní kolo při plném traverzu stojí na hraně zlatého lemu), takže posun ven by změnil parkování děla na všech levelech.
+- **Ověřeno:** 1 běh ze 2 povolených (`fpscap=75`, bez incidentu). Herní kamera ve 25°, 40°, 60°, 80° a v 60° s traverzem 35°: závěr klesá mezi plechy bez průniku, pod ním už není žádná tyč. Testbed, Game i MapEditor staví s 0 chybami, `docs/testbed.md` je aktualizovaný.
+
+**Nic dalšího si neberu.**
+
+---
+
+## 2026-09-15 — Claude Code (třináctý zápis dne)
+
+**Další dávka playtestu (tabulka Zábavnost/Obtížnost, Plume až Obsidian — Eruption's ocas plus celý Spectrum, Arcade a Mirage, 30 levelů) protříděna do dvou nových issues + pěti komentářů**, stejnou disciplínou jako první a druhá dávka ([[playtest-log-triage]] v paměti — tahle dávka dotáhla tabulku k Obsidianu, `Levels.json`'s poslednímu ze 111 levelů, takže celá shipnutá kampaň teď má projetý jeden playtest): komentář, ne nová issue, kde už existující issue kryje totéž; nová issue jen tam, kde nic nekrylo. `gh issue list` a čtení tohoto deníku napřed a ještě jednou těsně před zakládáním (dvě samostatné kontroly, ne jedna).
+
+**Nové:** #421 (Donut: barvy — čokoládové těsto/bobulová poleva nečtou se jako donut, majitel navrhuje těstovou barvu, růžovou polevu, tříbarevné posypání), #422 (`Block11_Mirage.cs`'s hlavičkový komentář o skle je doc drift — pořád popisuje pre-#344 mechaniku "jedno políčko obarví jen sousední tabule", kód dávno barví celou spojenou skupinu přes `ColourTransparentGroup`; ověřeno přímo v `BallsMap.cs`).
+
+**⚠ #422 jsem si po založení musel sám opravit komentářem** — teprve při psaní TOHOTO zápisu jsem našel `2026-09-03, čtvrtý zápis dne` (řádek ~588 výš), kde #344's implementace řeší přesně Facetův případ a ověřuje ho čtrnácti tvrzeními proti skutečné `BallsMap`, ne mockem: Facetových 64 skleněných tabulí se navzájem vůbec nedotýká (64 těles po jedné), trik je v tom, že jedna dopadová buňka se diagonálně dotýká DVOU different izolovaných tabulí najednou, takže `ColourTransparentGroup` proběhne dvakrát a obě vyjdou obarvené z jedné rány — a přesně tohle "Facetův tah" je jedno z těch čtrnácti ověřených tvrzení. Moje issue's bod 2 ("ověřit ve hře, jestli se Facetovy tabule opravdu párují") tedy míří na něco, co už bylo ověřeno proti knihovně samotné — zůstává jen ten doc drift v hlavičkovém komentáři, ne přehrání ve hře. **Poučení pro příště: hlubší historie v deníku (ne jen ocas) může vyvrátit vlastní issue dřív, než ji stihne přečíst majitel** — grep na klíčové jméno přes CELÝ soubor (a archiv), ne jen `tail`, patří před založení stejně jako `gh issue list`.
+
+**Komentáře:** #395 (otevřená, lávové barvy) — Plume/Sill/Fume/Caldera jako další potvrzení, a nové vodítko: Sill a Fume táhne černá/hnědá/stříbrná (studená rodina), zatímco issue's vlastní "what's left" jmenuje jen teplou (hnědá/oranžová/červená) jako nevyřešenou; Caldera's "celá kapitola se bude muset předělat" jako nejsilnější verdikt dosud. #389 (otevřená, bomba nemá detonaci) — Vent jako přímý repro (bomby jen spadnou); Paroxysm's poznámka o novém typu kuličky na konci kapitoly, co se stejně bude předělávat, jako poznámka k pořadí zavádění speciálů (ověřeno v `Block08_Eruption.cs`: Bomb i Zap se v kapitole objevují už dřív, takže nejde o technicky nový druh, spíš o první čitelné rozpoznání). #359 (zavřená) — Cube a Cabinet jako dva další "reached the line" reporty, oba už měřené pod issue's vlastním prahem 4 z 5 (Cube 2/5, Cabinet 3/5 — "Amphora's own reading"), ale nejsilnější subjektivní reporty dosud (feedback po 10 a 20 pokusech) — mezera mezi prahem a skutečnou tolerancí, neřešeno, jen zapsáno pro majitelovo rozhodnutí. #360 (zavřená) — Cabinet's tvarová nečitelnost, přesně ten level, co #360's vlastní uzavírací komentář výslovně vynechal ze scope. #413 (otevřená, pořadí levelů) — rozšířeno o Spectrum (Trellis/Pleat swap, Bolt na konec kapitoly, Kiln blíž začátku), Arcade (Ziggurat vs. Cube jako opener), Mirage (Trefoil vs. Facet's záměrný "učí mechaniku" opener — konflikt, neřešeno; Keystone dřív; Obsidian — `Levels.json`'s opravdu poslední ze 111 levelů, ne jen kapitoly — jako antiklimaktický konec celé kampaně).
+
+**Pozitivní/neutrální řádky (drtivá většina dávky) nepotřebovaly issue, ale majitel výslovně chtěl zachytit i to, PROČ jsou dobré levely dobré**, aby další generování v `Tools/LevelGen` dál opakovalo totéž místo jen reagování na stížnosti. Nová paměť `level-design-fun-patterns` (odkazovaná z `level-design-rules` a `levelgen-universal-generator-goal`): strategické riziko/odměna jako nejčastější "tohle je skvělé" vzorec (Pleat/Trellis/Reel/Tetra), flexibilní strop dovednosti (Ghost — 3 rány nebo pomalé patlání, obojí legitimní), jedna silná čitelná vizuální myšlenka nad pouhou správnou okupací (Seam — "Extrémní" zábavnost, strop škály celé dávky; kontrapříklady Cabinet a Plume, kde je vzor v pořádku, ale téma se nečte), rytmus kapitoly (lehký/atraktivní opener, těžký closer, ale ne anticlimatický konec celé kampaně — Obsidian), náhoda v tahu kuliček je přijatelná do měřené míry (Globe potvrzuje #359's vlastní práh, ale Cube/Cabinet ukazují, kde ta míra končí).
+
+**Nic dalšího si neberu.**
+
+---
+
+## 2026-09-15 — Claude Code (čtvrtá dávka poznámek z playtestu, #423-438)
+
+**Majitel poslal další volný seznam postřehů z hraní (~18 položek — vizuál, chování kamery, pár bugů), s výslovnou instrukcí založit issue na základě těchto poznámek.** Stejný tvar úkolu jako dávka zdokumentovaná v [[playtest-log-triage]] (#401-#412) — tedy žádné filtrování na „jen to, co je skutečně problém": jedna položka na issue, i když se překrývá s něčím starším. Před založením zkontrolován `gh issue list` (běžel až po #422, oba nové) a tento deník.
+
+**Jedna položka se do issue nedostala:** tráva v lese (nečte se jako tráva, navíc není tak zelená jako skutečné lesní dno) přesně sedí na už otevřené #281 (design brainstorm o trávě louky/savany/lesa) — přidán komentář místo duplicity, s tím jedním detailem (barva), co #281 samo nejmenuje.
+
+**Založeno šestnáct issues, #423-438:**
+- #423 — drenážní trychtýř: skleněný kužel čte jako fasetovaný, ne hladký. **Ověřeno vizuálně, ne jen čtením kódu** — `403-trail-legs` (hlavní větev) aktuálně nejde přeložit (`TRUNNION_OUTER_X` neexistuje, rozepsaná práce na #403), takže jsem postavil Testbed ve WORKTREE `BS3D-322` (ten, co nese tenhle deník) po `git pull --ff-only`, a odtud vyfotil trychtýř shora i od boku (`scene=meadow`/`scene=savanna`, `nopost nooverc`). Vidět čistý vějíř ~64 střídavě světlých/tmavých klínů, stejný pod oběma scénami i úhly — geometricky obě `FunnelMesh` konstruktory i `FunnelRimsMesh` už mají per-vertex hladké normály (jako opravený `TrophyMesh`), takže to není chybějící vyhlazení sítě, spíš specular/Fresnel na 64 segmentech u odrazivého materiálu (stejná třída problému, jakou `TrophyMesh`ův komentář pojmenovává pro „mirror-finish" povrch).
+- #424 — kamera na padající kuličky (`DropCinematic`) by měla vždycky naskočit na výstřel, co dokončí level, i pod `MIN_BALLS=12`.
+- #425 — barevný záblesk na ústí hlavně (`BallGlow`) je billboard čelem ke kameře, occlusion hlavní se mění s každou rotací — proto to „tuneluje" nekonzistentně; návrh je skutečný prstenec/límec jako geometrie.
+- #426 — diamantový pohár: křišťál nemá lom světla, jen alpha-blend pozadí — nečte se jako sklo.
+- #427 — nová obrazovka Help (pravidla, speciální koule, budoucí power-upy, slovník skóre s příkladem výpočtu, ovládání) — výslovně odlišná od #189 (tutoriál).
+- #428 — 2D náhled mapy: kuličky pod červenou čarou mizí skoro okamžitě (`PROFILE_SINK_FADE = 2` proti ~36 jednotkám skutečného pádu do `KILL_PLANE_Y`).
+- #429 — tvar poháru přes všechny tiery je plochý/primitivní, chce výšku a zdobení (kameny), ne jen hladkost (#271 řeší jen fasety).
+- #430 — ohňostroj po výhře: kamera na výsledkové stránce se na explozi skoro nedívá, a výška výbuchu je vyladěná proti herní kameře, ne proti orbitu na result page.
+- #431 — žádná zpětná vazba na stropu náklonu hlavně — mířící kříž by měl červeně blikat na `ElevationLimit`.
+- #432 — kuličky pořád přichytávají na samý okraj stropu; majitel navrhuje zakázat vystřeleným kuličkám přímé přichycení ke stropu úplně (jen k jiným kuličkám).
+- #433 — neonové město: úvodní průlet kamerou mezi mrakodrapy zblízka (styl Spider-Mana), ne vzdálený záběr.
+- #434 — „cluster reached the line" má být dramatická: kamera na místo dopadu, čára zesvítí, zvuk/VFX — majitel to sám označil jako velký úkol.
+- #435 — okenní rámy na budovách čtou jako tenké/nevýrazné, přestože shader (`WindowFrameProfile` v `InstancedModel.fx`) má hotovou geometrii i stínování — vypadá to na ladění `CitySceneConfig` (`WindowFrameWidth/Height` jsou dnes malé proti rozteči).
+- #436 — střechy City/Neon City chtějí satelity/antény/5G vysílače.
+- #437 — Wildcard kulička nemá žádný vizuální signál v okamžiku, kdy se na dopadu ustálí na konkrétní barvě.
+- #438 — pauza rozostří 3D scénu (`FrameBlur` → `PostProcessPipeline.Resolve`), ale HUD (`PlayHud`, kreslený zvlášť přes `OverlayBatch` PO resolve) zůstává ostrý včetně létajícího čísla skóre — majitel si všiml právě u něj, ale je to obecná mezera.
+
+**Nic dalšího si neberu.**
+
+**Dodatek: #403 je na `main`u — merge `471ac69`** (`--no-ff` přes `BS3D-322`). Majitel: „věřím ti, že vypadají dobře, tak to mergni“. `BS3DLibs.sln`, `Testbed.sln` i `Game.sln` po mergi staví s 0 chybami. Větev je smazaná lokálně i na originu, hlavní checkout stojí detached na `origin/main`. Issue nechávám otevřené, zavření je na slovu majitele.
+
+**Dodatek:** majitel řekl „Zavři“ a **#403 je zavřené** s komentářem: nohy, plechy, pravidlo průchodu hlavně a zdůvodnění, proč kola zůstala na místě. Po restartu desktopu (Kernel-Power 41 v 19:58, v klidu, 3 minuty po posledních buildech) prošel `git fsck` bez chyb. Jedinou škodou byl vynulovaný `refs/remotes/origin/HEAD`, který opravilo `git remote set-head origin -a`.
+
+---
+
+## 2026-09-15 — Claude Code (zápis k #431, strop náklonu)
+
+**Beru si #431 (hráč nedostane žádnou odezvu, když narazí na strop náklonu).** Větev `431-elevation-cap-feedback`, pracuju v hlavním checkoutu `BS3D`.
+
+- **Hlaveň zůstává na `ElevationLimit`/`MinElevation` tvrdě oříznutá, „gumový“ bude jen signál.** Kdyby hlaveň přejela přes limit, vrátily by se slepé rány do té části vysokého levelu, kterou limit zakazuje právě kvůli nim.
+- **Signál se čte ze vstupu, ne z pózy.** `Cannon.Aim` (myš i pad) pozná, že hráč chtěl náklon za stropem. Chůze, plynulý návrat míření ani `aim=` signál nevyvolají. Doznívání se řídí časem, ne počtem snímků.
+- **Kříž v ADS, a v přehledu nejspíš i paprsek.** `docs/game-session.md` říká, že v přehledu nese paprsek totéž, co v přesném míření kříž. Kdyby signál dostal jen kříž, hráč bez RMB by zůstal bez odezvy.
+
+**Nic dalšího si neberu.**
+
+---
+
+## 2026-09-15 — Claude Code (zápis k #431, hotovo)
+
+**#431 je na `main`u — merge `98b419b`** (`--no-ff` přes `BS3D-322`). Větev je smazaná lokálně i na originu a hlavní checkout `BS3D` stojí detached na `origin/main`. Issue nechávám otevřené, zavření je na slovu majitele.
+
+- **Co to dělá:** když hráč tlačí mířením do stropu náklonu, kříž v ADS i paprsek v přehledu blikají červeně (`Crosshair.WARNING`, 4 Hz, pokles na 15 %). `Cannon.ElevationStrain` zvedá jen `Cannon.Aim`, tedy vstup, a jen ve směru, kterým se vstup pohnul. Plná hodnota drží 0,1 s po posledním zatlačení a pak během 0,25 s klesne na nulu. Hlaveň zůstává tvrdě oříznutá. `PREVIEW_REFUSED` je teď `Crosshair.WARNING`, takže odmítnutí i strop mají jednu červenou.
+- **⚠ Testbedův `aim=` signál NEVYVOLÁ, a to je záměr:** jde přes `AimTo`, ne přes vstup. Kdo bude ověřovat něco, co čte vstup, musí do okna s fokusem posílat `mouse_event`: klik do titulku, kontrola `GetForegroundWindow`, `-12 px` každých 15 ms. `rmb=` přitom normálně funguje. Skript byl ve scratchpadu a zmizí.
+- **Ověřeno:** bezgrafický rig 21/21, tj. časování na 30/75/240 Hz, 80Hz myš na 240Hz displeji a nic, co není vstup (traverz podél stropu, chůze, snížený limit, `AimTo`, `Restart`). Pak 1 běh Testbedu ze 3, které majitel povolil (`fpscap=75`, bez incidentu): v klidu bílá 213,224,217, u stropu vrchol 189,74,82 a dno 77,73,103, po puštění, s hlavní pořád na stropu, zase bílá 204,209,218. Game, Testbed i MapEditor staví s 0 chybami.
+- **Neověřeno za běhu: paprsek a kříž ve hře.** Game nemá timeline a paprsek je jen v ní, takže ho zatím nikdo neviděl.
+- **Mimo scope:** strop traverzu (±45°) je stejně tichý, ale issue mluví jen o náklonu. Rumble na padu patří k #378.
+
+**Nic dalšího si neberu.**
+
+---
+
+## 2026-09-15 — Claude Code (zápis k #431, druhé kolo)
+
+**Beru si druhé kolo #431.** Větev `431-elevation-rubber`, hlavní checkout `BS3D`. Po restartu (21:03:30) byl `git fsck` čistý a refy v pořádku. Majitel napsal: *„to červené by mělo pulzovat i velikostí - být větší, nechat uživatele přejet dál a viditelně/cítitelně ho stáhnout zase dolů. Ne takhle jednoduše. Opravdu důražně.“*
+
+- **Majitel tím obrací moje rozhodnutí „gumový je jen signál, hlaveň ne“.** Hlaveň teď přetáhne přes strop s klesajícím přírůstkem a pružina ji stáhne zpátky. Kamera v přesném míření jde s ní, takže to hráč i ucítí. Cena: rána vystřelená během přetažení letí o pár stupňů nad limit, dokud pružina nevrátí hlaveň. Řeknu majiteli číslo, ne dojem.
+- **Kříž bude pulzovat velikostí** a při plném napětí bude znatelně větší.
+
+**Nic dalšího si neberu.**
+
+---
+
+## 2026-09-15 — Claude Code (zápis k #431, druhé kolo hotovo)
+
+**Druhé kolo #431 je na `main`u — merge `10c7eee`** (`--no-ff` přes `BS3D-322`). Větev je smazaná lokálně i na originu a checkout `BS3D` stojí detached na `origin/main`. Issue nechávám otevřené, zavření je na slovu majitele.
+
+- **Guma v hlavni:** tlak přes strop natáhne pózu s klesajícím přírůstkem až o `ELEVATION_OVERSHOOT` (0,10 rad, ~5,7°). Když tlak skončí, pružina (~3 Hz, tlumení 0,4) stáhne hlaveň asi o čtvrtinu švihu pod strop a pak ji na něj usadí. Je to jedna póza, takže s ní jde i kamera v ADS, paprsek, duch a rána. `AimTo`, `AimAt` a `Restart` gumu zahodí, strop pózy je `POSE_ELEVATION_CEILING` (1,52 rad). **Cena:** rána vystřelená během natažení letí až ~6° nad limit, přitom `TALL_AIM_MARGIN` vysokých levelů je jen 0,05.
+- **Geometrii jsem ověřil čtením kódu, ne odhadem.** Konec závěru má na 80,2° nad kamenem vůli 0,29 a do svislé polohy klesne o méně než 0,05 (poznámka k #287 v `CannonRig`). Vůle lafety z #403 je pravidlo, které platí pro jakýkoli náklon.
+- **Kříž:** při napětí je 1,5× větší a na světlém vrcholu blikání pulzuje na 2×.
+- **Ověřeno:** rig 18/18 na 30/75/240 Hz. Pak 1 běh Testbedu ze 2 povolených (`fpscap=75`, bez incidentu). Výpisy `C` ukázaly při tlačení 85,7°, po puštění 78,9°, pak 80,5° a nakonec přesně 80,2°. Kříž na 900 px měřil při tlačení 14/39/4 px (odstup/délka/tloušťka) v červené, po usazení 7/20/2 px v bílé. Game, Testbed i MapEditor staví s 0 chybami.
+- **⚠ Past z paměti se zopakovala:** měřicí funkce PowerShellu pojmenovaná `Diff` ve skutečnosti volala alias `Compare-Object` ([[powershell-alias-beats-function]]). Funkce pojmenovávej ve tvaru sloveso-podstatné jméno.
+- **Neověřeno za běhu:** paprsek a kříž ve hře, protože Game nemá timeline.
+
+**Nic dalšího si neberu.**
+
+---
+
+## 2026-09-15 — Claude Code (zápis k #431, třetí kolo)
+
+**Beru si třetí kolo #431.** Větev `431-refuse-over-cap`, checkout `BS3D`. Majitel: *„mě hra nechá vystřelit, když mířím výš než nejvýš - v ten vrcholný gumový moment. Toho jde zneužít. Jakmile mířidlo bliká červeně nebo jsme jinak v maximu, nesmí jít vystřelit. Mohl by se ozvat nějaký negativní/pesimistický zvuk.“*
+
+- **Pravidlo patří do `Cannon`, platí stejně pro Game i Testbed.** Výstřel se odmítne, dokud trvá napětí (kříž bliká) nebo dokud póza stojí za svorkou. Tím zmizí cena přetažení, kterou jsem ve druhém kole jen pojmenoval.
+- **Zvuk:** krátký, teplý a zamítavý, podle [[game-sfx-pleasant-over-credible]].
+
+**Nic dalšího si neberu.**
+
+---
+
+## 2026-09-16 — Claude Code (zápis k #431, třetí kolo hotovo)
+
+**Třetí kolo #431 je na `main`u — merge `1f61fd2`** (`--no-ff` přes `BS3D-322`). Větev je smazaná lokálně i na originu a checkout `BS3D` stojí detached na `origin/main`. Issue nechávám otevřené, zavření je na slovu majitele.
+
+- **Výstřel se odmítne, když platí `Cannon.ElevationRefusesShot`.** Platí po celou dobu napětí, tedy přesně když kříž nebo paprsek bliká, a jako pojistka i když póza stojí za svorkou o víc než `ELEVATION_FIRE_TOLERANCE` (0,01 rad). Tolerance není nula, protože druhý švih pružiny zpět přes strop přijde až po skončení blikání (změřeno 0,33°). Na stropu v klidu zbraň střílí. Game zahraje `PlayShotRefused` a skryje ducha, Testbed vypíše `[shot] refused`.
+- **Zvuk:** suché nepoziční „bwom-bwoww“, dvě noty klesající o malou tercii (220→208 a 185→165 Hz), pod nimi subbas o oktávu níž, bez šumu a bez driveru. Změřeno z téže aritmetiky, protože `SynthShotRefused` je statická metoda: 0,50 s, těžiště spektra 186 Hz, 82 % energie ve 150–300 Hz, nad 600 Hz nic. **Majitel ho zatím neslyšel.**
+- **Ověřeno:** rig 22/22 (odmítnutí končí 0,30–0,35 s po tlaku a nikdy nenastane bez blikání). V Testbedu `Space` při 85,7° dvakrát vypsal `[shot] refused`, po usazení na 80,2° rána vyletěla (snímek). Game, Testbed i MapEditor staví s 0 chybami.
+- **⚠ Aider v hlavním checkoutu.** Majitel dnes v `BS3D` zkoušel lokální AI (Aider). Ta mi mezi 11:51 a 12:17 nacommitovala tři commity přímo na moji větev `431-refuse-over-cap`, pod majitelovým jménem. První z nich smazal z `PlayHud.cs` 1727 řádků a Game přestala jít sestavit. Majitel řekl, ať je zahodím. Moje soubory jsem uložil do stashe, větev posunul `checkout -B` na `origin/main` a stash vrátil, takže commity zůstaly jen v reflogu. Aiderovu úpravu `.gitignore` (`.aider*`) jsem nechal necommitnutou. **Než začneš buildit nebo mergovat, zkontroluj `git log` a reflog, jestli ti na větvi nepřibylo něco cizího.**
+
+**Nic dalšího si neberu.**
+
+---
+
+## 2026-09-16 — Claude Code (lokální AI: nástroj SemanticSearch)
+
+**Beru si nový nástroj `Tools/SemanticSearch`.** Větev `semantic-search-tool`, checkout `BS3D`. Majitel: *„Chci to nachovat jako nástroj a zkoumej další možnosti lokální AI pro práci na naší hře.“*
+
+- **Co předcházelo (změřeno dnes, podrobnosti v paměti `local-llm-lm-studio`):** DeepSeek-Coder-V2-Lite přes Aider pro úpravy kódu nestojí za to, udělal polovinu zadání a přepsal konce řádků. Embeddingy `nomic-embed-text-v1.5` z LM Studia našly u 4 ze 7 známých dvojic issue protějšek na 1.–2. místě. Pro český deník jsou slabé (odpovědi na 62., 201., 70. a 9. místě z 532).
+- **Nástroj bude hledat hlavně v issue** (kontrola duplicit před založením). Deník půjde přidat přepínačem s varováním a model půjde vyměnit za vícejazyčný.
+- **Potom prozkoumám Gemmu 4 (VLM):** jestli z obrázku levelu pozná, co má tvar představovat. Na to si playtesty stěžují opakovaně (#360, #415, #418, #421).
+
+**Nic dalšího si neberu.**
+
+**Dodatek: `Tools/SemanticSearch` je na `main`u — merge `7e2ea2c`**, větev smazaná. Dokumentace je v „The semantic search“ v `docs/formats-and-tools.md` a `CLAUDE.md` teď uvádí čtyři nástroje. Issue se stahují živě přes `gh`, vektory jsou v cache po modelech a korpusech v `%LOCALAPPDATA%\BS3D-Tools`. První běh s `--journal` trvá 31 s, další 4–7 s. **Před založením issue spusť `dotnet run --project Tools\SemanticSearch -- --file draft.md`** (potřebuje LM Studio s `text-embedding-nomic-embed-text-v1.5`).
+
+---
+
+## 2026-09-16 — Claude Code (lokální AI: co funguje a co ne)
+
+Majitel chtěl prozkoumat, k čemu se lokální modely z LM Studia hodí pro práci na hře. Všechno jsem měřil proti předem známé odpovědi. Podrobnosti jsou v paměti `local-llm-lm-studio`, zkušební nástroje zůstaly ve scratchpadu a zmizí.
+
+- **Úpravy kódu (DeepSeek-Coder-V2-Lite přes Aider): ne.** Udělal polovinu zadání a přepsal konce řádků. Kontrola stála víc než samotná práce.
+- **Hledání v issue podle významu (embeddingy nomic): ano.** Z toho vznikl `Tools/SemanticSearch` (merge `7e2ea2c`). V českém deníku je slabé.
+- **Gemma 4 na malé detaily ve snímku:** na výřezu kolem kříže 7/7, na celém zmenšeném snímku 5/7. Na přesné kontroly zůstává pixelové měření.
+- **Gemma na čitelnost tvaru levelu: ne.** Testoval jsem 18 levelů: 9, které podle playtestu nečtou, a 9 bez výtky. Snímky byly z `BS3D.exe play level=X shot=14`. Naslepo pojmenovala správně jen Heart, Star a Smiley, souměrné vzory označuje za „butterfly“. Hodnocení 1–5 skupiny neodděluje: 2,0 proti 2,8, na plochém 2D náhledu 2,1 proti 2,9. Jediná zajímavá shoda: Chest dvakrát nazvala vlajkou, přesně jako majitel v #418. ⚠ Kontrolní skupina je slabá, protože „bez výtky“ neznamená „čte“. Žirafu v levelu Giraffe nevidím ani já.
+- **Gemma na otázku „co se změnilo“ mezi dvěma snímky: nejslibnější.** U dvojice se známým rozdílem správně popsala zvětšený červený kříž. Na tentýž soubor dvakrát odpověděla „vypadají stejně“ a žádný rozdíl si nevymyslela. Na výřezu vyjmenovala změnu barvy, tloušťky i délky ramen. Je ale pomalá (20–80 s na dvojici) a směr pohybu kamery popsala špatně.
+- **⚠ Technika:** `"reasoning_effort": "none"` vypíná Gemmě přemýšlení (1,3 s místo 8,5 s). S kontextem 16k a plným snímkem model padal. Během testu LM Studio jednou nahlásilo `vk::Queue::submit: ErrorDeviceLost` a model se sám znovu načetl s kontextem 65k. V systémovém logu není reset ovladače (4101) ani restart (41/6008).
+- **Majitelovy soubory:** `Settings.json` i `Progress.json` mají po všech 19 spuštěních hry stejné otisky.
+
+**Nic dalšího si neberu.**
+
+---
+
+## 2026-09-16 — Claude Code (skill `local-ai`)
+
+**Beru si skill `.claude/skills/local-ai`.** Větev `local-ai-skill`, checkout `BS3D`. Majitel: *„udělej si na použití tohohle AI skill, když jsi na tomhle stroji. Potom se podívej po dalších AI modelech, které by nám mohli v něčem týkajícím se vývoje hry pomoci.“* Skill popíše, co se z lokálních modelů v LM Studiu změřilo jako užitečné. Místo dočasného klienta ze scratchpadu dostane skript `vision.ps1`. Potom udělám průzkum dalších modelů, zatím bez stahování.
+
+**Nic dalšího si neberu.**
+
+**Dodatek: skill `local-ai` je na `main`u — merge `94d6b48`**, větev smazaná. `vision.ps1` jsem ověřil v PowerShellu 5.1 na dvojici snímků se známým rozdílem: za 16,7 s správně vyjmenoval barvu, tloušťku i délku ramen kříže.
+
+---
+
+## 2026-09-16 — Claude Code (zápis k #395, druhá půlka)
+
+**Beru si druhou půlku #395 (inkousty bloku Eruption), na majitelův výběr ze shortlistu.** Větev `395-eruption-inks` z `origin/main`, hlavní checkout. Začínám u „CO TO NEOPRAVILO“ z předávky (osmnáctý zápis 15. 9.) a u majitelova komentáře k Sill/Fume/Caldera.
+
+- **Pracovní hypotéza z kódu, zatím NEzměřená:** láva ukáže jen **odstín** švu (`tint / peak`, pak `LavaHuePower`) a jas podle luminance tintu. Tím padá celý „čedičový registr“ bloku do dvou tříd: **hnědá = tmavší oranžová** a **černá, stříbrná i bílá = světlá neutrální**. Sill (černá/hnědá/stříbrná + oranžová/žlutá) má tedy jen tři čitelné odstíny na pět inkoustů, což sedí na „nedá se dohrát“.
+- **Nejdřív měřím** jádra všech třinácti pod sopkou a kopulí 9 (nejjasnější desetina disku, několik fází). Teprve z matice vyberu inkousty a přepíšu zákon bloku v `Block08_Eruption.cs`.
+- **Měním level soubory**, takže brány LevelGenu, ScoreSim a sonda. Před mergem to ukážu majiteli, protože je to nová barevnost celé kapitoly.
+- Zastínění kulky v děle (bod 2 předávky) zůstává na majitelově vkusu, nesahám na něj.
+
+**Nic dalšího si neberu.**
+
+---
+
+## 2026-09-16 — Claude Code (průzkum dalších lokálních modelů)
+
+Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vývoj BS3D na majitelově RX 6900 XT (16 GB, Windows, AMD):
+
+- **Qwen3-Embedding-0.6B (GGUF):** vícejazyčné embeddingy, umí i češtinu. Je to nejlevnější pokus a opravuje jedinou slabinu `SemanticSearch`, český deník: stačí položit tytéž české dotazy se známým pořadím přes `--model`. ⚠ Qwen3-Embedding chce u dotazu instrukční prefix, který nástroj zatím nezná.
+- **Whisper large-v3-turbo přes whisper.cpp s Vulkanem:** poznámky z playtestu by šlo diktovat česky. Na RX 6800 přepsal 17,5s klip za 434 ms. Voxtral z LM Studio Bionic češtinu neumí.
+- **Qwen3-VL-8B (katalog LM Studia):** druhý vision model, lze ho porovnat s Gemmou na téže sadě snímků se známou odpovědí.
+- **Obrázky jako reference (FLUX/SDXL):** oficiální ComfyUI s ROCm řadu RX 6000 na Windows nepodporuje, zbývá komunitní build s RDNA2 nebo AMD Amuse. U 6900 XT jsou hlášené pády. Hodilo by se jen na reference k #429, #404 a #436, ve hře zůstává procedurální generování.
+- **Stable Audio 3.0 Small-SFX:** otevřené váhy, 459M parametrů, vygenerovaný zvuk lze komerčně použít. Bez ROCm pro RX 6000 na Windows by běžel nejspíš jen na CPU. Zvuk ve hře je procedurální, takže nanejvýš jako reference. Hudbu majitel řeší lidskými skladbami (#391).
+- **Hlas:** Piper má český hlas „jirka“, Kokoro anglický. Jen kdyby hra chtěla hlasové hlášky.
+
+**Stahování a instalace jsou na slovu majitele.**
+
+**Dodatek:** majitel diktování i hlas vyloučil natrvalo: *„Diktovat nikdy nebudu chtít místo psaní. Vždycky budu psát na klávesnici. Hlas neřeš.“* Pro zbylé modely jsou založená issues k otestování na tomhle stroji:
+- #439: Qwen3-Embedding pro `SemanticSearch` na českém deníku.
+- #440: Qwen3-VL proti Gemmě na téže sadě snímků se známou odpovědí.
+- #441: generování obrázků jako reference k #429, #404 a #436.
+- #442: Stable Audio Small-SFX jako reference pro procedurální zvuk.
+
+⚠ #442 stojí vedle majitelova rozhodnutí z #187 (žádná AI generace hudby), proto issue před instalací žádá jeho potvrzení. Duplicity jsem před založením ověřil i přes `SemanticSearch --file`. Nejbližší issue měla skóre 0,74–0,79 a týkala se jiných témat.
+
+---
+
+## 2026-09-16 — Claude Code (lokální AI: generovaná hudba, #443)
+
+**Majitel změnil rozhodnutí o hudbě.** Po poslechu lokálně vygenerovaných skladeb chce procedurální hudbu nahradit generovaným audiem a procedurální kusy nechat jako easter egg na About (přehrávač: pauza, další skladba, jednoduchý 2D vizualizér). Založeno jako **#443**. Tím se pro **hudbu** obrací #187 („žádná AI generace“) ze 14. 9.; osud #391 (lidské skladby z OpenGameArt) je na majiteli. Věta „Hudbu majitel řeší lidskými skladbami (#391)“ z předchozího zápisu už pro hudbu neplatí; k efektům (#442) #443 nic nového neříká.
+
+- **Engine:** ACE-Step 1.5 přes `acestep.cpp` v0.0.5 (hotové Windows binárky s Vulkanem) na RX 6900 XT, bez ROCm. Modely Q8_0 GGUF (~7,7 GB). Skripty jsou mimo repo v `C:\Users\panrd\AI` (`generate-music.ps1`, `loop_crossfade.py`). **Licence MIT** (kód i váhy, ověřeno přes GitHub API a Hugging Face). Můj první commit uváděl Apache 2.0, opraveno v `5b098a7`.
+- **Reference na `main`u:** `Research/AI-Music/` — protějšky všech pěti `MusicTheme` a menu plus jedna nová skladba, každá se sidecarem `.json` (prompt, co z něj LM udělal, střih loopu, měření). Merge `9029e8c` a `5b098a7`, ~166 MB WAV (32-bit float).
+- **⚠ Pasti, změřené:**
+  - VAE dekóduje napevno na **48 kHz**; `wav32` je přesnost vzorku, ne vzorkovací frekvence.
+  - Délka renderu: 150 s = 5 dlaždic VAE (163 s dekódování, prošlo), **199 s = 6 dlaždic a `ace-synth` spadl** (0xC0000409). Bohemia je proto renderovaná jen na 120 s.
+  - **ComfyUI node `acestep-cpp-comfyui` s binárkami v0.0.5 nefunguje** (volá novější CLI), binárky se volají přímo.
+  - **Request JSON nesmí mít BOM:** `Set-Content -Encoding utf8` v PS 5.1 ho přidá a parser spadne.
+  - `wav32` je IEEE float (format tag 3) a stdlib `wave` ho nepřečte.
+  - **LM přepisuje zadání:** Mural, definovaný tím, že kick NEhraje na všechny čtyři doby, dostal „steady four-on-the-floor“; z Emberu (power ballada) udělal virtuózní kytarové sólo s potleskem. Krátký prompt na efekt („UI chime“) skončil jako sólové piano.
+  - **Loop přehnutím konce do začátku nefunguje:** vygenerovaná skladba *končí*, na švu game-track-01 spadla úroveň z 1,0 na 0,04 mediánu. Loopy se proto stříhají z těla renderu na celé takty (tempo sedí na ±1 % zadání), zarovnané na milisekundu, s kontrolou rytmu pod crossfadem proti tomu, jak skladba navazuje sama na sebe o takt dál. Pod ní zůstává jen Bohemia (r 0,43 proti 0,53): render kolem 76 s mění rytmus.
+- **Koordinace:** hlavní checkout `BS3D` jsem nechal session s #395, commity šly přes dočasný worktree a `BS3D-322`. Session bs3d-49 dostala o změně rozhodnutí zprávu.
+
+**Nic dalšího si neberu.** Implementace #443 čeká na slovo majitele.
+
+**Dodatek: tři punkové variace Emberu jsou na `main`u — merge `2466a75`**, větev smazaná. Majitel chtěl Ember „ve stylu punk rocku, jako Green Day – Boulevard of Broken Dreams“. Prompt styl popisuje, ale kapelu ani píseň nejmenuje, aby model nekopíroval konkrétní nahrávku. LM ani jednu variantu nenechal jako punk: vyšel alt rock/grunge, metal s double-kickem a blues-rock se sóly (podrobnosti v sidecarech). Všechny tři loopy drží rytmus. Pro věrnější styl zbývá nevyzkoušená páka `use_cot_caption: false`, kdy DiT dostane caption tak, jak je napsaný. GPU jsem si předem vyžádal od bs3d-49 (uvolnila Gemmu) a po dokončení jí ho zprávou vrátil. Nechat ACE-Step (~6 GB) a načtenou Gemmu 4 (12,8 GB) běžet na 16GB kartě naráz nejde. S volnou GPU trvalo dekódování VAE (4 dlaždice) 35–36 s, u odpoledních témat 68–137 s, jenže tehdy jsem nekontroloval, co v paměti karty drželo LM Studio.
+
+**Dodatek 2: punk-04 a punk-05 jsou na `main`u — merge `16f1c58`**, větev smazaná, shrnutí v komentáři k #443. Majitel chtěl dvě skladby, jejichž prompt Green Day jmenuje („děláme to jenom tady doma“). Proto vznikly nejdřív jen lokálně: repo je **veřejné**. Po poslechu majitel rozhodl, že ani jedna nezní poznatelně jako Green Day ani jako konkrétní píseň, a nechal je přejmenovat a použít ve hře. Sidecary uvádějí přesný prompt i tento verdikt. Změřeno: **`use_cot_caption: false` funguje**, LM pak caption předá doslova a doplní jen bpm, tóninu a délku. **Tempo není zaručené:** punk-05 měl zadáno 180 BPM a vyšel na ~96 (cítěno ~192). Loop stříhaný na mřížce 180 byl rytmicky pod skladbou samotnou, přestřižený na půlčasové mřížce drží (r 0,40 → 0,83).
+
+---
+
+## 2026-09-16 — Claude Code (zápis k #440)
+
+**Beru si #440 (Qwen3-VL-8B proti Gemmě 4).** Větev založím, až bude co měnit v repu: skill a výchozí model `vision.ps1` se změní podle výsledků.
+
+- Oba modely pojedou přes `vision.ps1` na **totožných obrázcích**: devět snímků kříže, tři dvojice před/po a 18 snímků levelů z dnešního odpoledne. Hru znovu nespouštím, takže se majitelova uložená hra nezmění. Gemmu přeměřím celou, protože její test kříže běžel ještě se zapnutým přemýšlením.
+- Stahuju `qwen/qwen3-vl-8b@q8_0` (~9 GB, stejná kvantizace jako Gemma). Oba modely se do 16 GB nevejdou naráz, poběží tedy postupně.
+- Majitel chce výsledek vidět: udělám stránku s každým testovaným obrázkem, správnou odpovědí a odpověďmi obou modelů.
+- ⚠ V LM Studiu je načtená druhá instance `nomic-embed-text` s TTL 1 h, kterou jsem nenačítal já, nejspíš jiné sezení. Uvolňuju jen to, co jsem načetl sám.
+
+**Nic dalšího si neberu.**
+
+**Dodatek: #440 je hotové a skill je na `main`u — merge `8af8001`**, větev smazaná. Oba modely prošly stejných 96 otázek přes `vision.ps1` (Q8_0, kontext 8k, bez přemýšlení, teplota 0), každý zvlášť.
+- **Kříž:** na výřezu 256 px Gemma 7/7, Qwen 6/7. Qwen u bílého kříže nad pestrým clusterem odpověděl „none“, odpovídá ale za 0,3 s, Gemma za 1,3 s. Na celém snímku oba 5/7, koule v letu oba 2/2.
+- **Dvojice před/po:** Gemma 3½/4, Qwen 3/4. Tentýž soubor dvakrát oba označili za identický. Qwen jako jediný popsal, že se hlaveň zvedla k obloze, a všiml si žluté koule u spodního okraje, která tam opravdu přibyla (ověřeno výřezem). Zvětšení kříže ale vynechal.
+- **Levely:** naslepo oba 3–4 z 18. Qwen hodnotí štědře a na 3D snímku skupiny neodliší (3,8 proti 3,7). Často odpovídá „cannonball pattern“.
+- **Plné snímky:** Qwen s kontextem 16k zvládl snímek 1600×900 i jejich dvojici bez pádu (12 s a 29 s), Gemma na tomtéž dřív spadla.
+- **Verdikt:** výchozí zůstává Gemma. Qwen je ve skillu jako volba pro sdílenou kartu (9,9 GB proti 12,8 GB) a pro plné snímky. Čísla jsou v komentáři v #440. Stránka s každým testovaným obrázkem je majitelův artefakt: https://claude.ai/artifact/EPYRKr3q4VfHhSSor93qiv. Zavření #440 nechávám na majiteli.
+- **GPU:** kartu jsem dvakrát zprávou předal bs3d-81 na generování hudby a dvakrát ji dostal zpátky. Druhá instance `nomic-embed-text` patřila bs3d-81.
+
+---
+
+## 2026-09-16 — Claude Code (zápis k #395, druhá půlka hotová)
+
+**Inkousty bloku Eruption jsou na `main`u — merge `8f1528b`**, větev smazaná lokálně i na originu. Pracoval jsem na notebooku (ThinkPad, `C:\GitHub`), ne v desktopovém `BS3D`. **#394 je zavřené, #395 nechávám na majitelův pokyn otevřené** kvůli zbytku s dělem. Oba komentáře v issues nesou čísla.
+
+- **Příčina:** lávový styl ukáže barvu jen jako **odstín** švu. Hnědá je tmavší oranžová a černá, stříbrná i bílá jsou stejná světlá neutrální síť. Osm inkoustů bloku tak dávalo pět barev.
+- **Měření:** snímky `Thirteen_Colors` pod sopkou a kopulí 9, sedm fází srdečního tepu, nejjasnější čtvrtina a polovina disku, světlost s poloviční vahou. Pět nejtěsnějších dvojic celé palety leželo uvnitř bloku: oranžová/hnědá 6,1, červená/oranžová 6,8, červená/hnědá 7,7, černá/stříbrná 8,4, bílá/žlutá 12,0. Sill měl na pět inkoustů tři barvy.
+- **Nová paleta**, konstanty `ERUPTION_*` v `Block08_Eruption.cs`:
+  - horké: červená a žlutá,
+  - studené: černá, azurová a tmavě modrá,
+  - šestá: fialová, jen kde je nutná.
+  - Level má nejvýš 6 barev. Nejtěsnější dvojice je 25,2, se šestou 21,4.
+  - Majitel vybral tuto variantu ze srovnání Sillu ve hře, proti variantě se zelenou (20,6). Čistě teplá paleta udělat nejde: na lávě jsou jen tři teplé nebo neutrální rodiny.
+- **Skupiny:** devět levelů má stejné skupiny, zatížení kotev i dosažitelnost. **Meander:** jezy mají celé šestou barvu, 36 → 33 skupin. **Fume:** pořadí barev v trubkách jsem vybral výpočtem nad skutečnými kontakty kuliček, protože dvě první pořadí slepila trubky (35kuličková skupina).
+- **⚠ Past:** „trubky se nedotýkají“ platí jen pro některé páry. Trubky 0/2 a 2/4 se dotýkají, 2/4 i napříč patry. U každého přebarvení s méně barvami porovnej počty skupin v reportu LevelGenu před a po.
+- **Ověřeno:** LevelGen exit 0, změnilo se jen 10 souborů levelů a v nich jen hodnoty `"t"`. ScoreSim hodnotí ve správném pořadí. Čtyři solutions bez chyb. Sonda dala na všech deseti stejné verdikty: Breach a Causeway na setinu stejně, Caldera stejná hra rána po ráně. Běhy hry: Testbed 1×, Game 14× (prototypy a porovnání před a po), všechny s `fpscap=75`.
+- **⚠ Nalezeno mimo zadání:** Caldera má na `main`u **2 z 5 už před změnou**, jedno prověšení u 4. rány při stojícím skle. Dokumentace uvádí 1 z 5. Zapsáno u `CALDERA_BENCH`, neopraveno. Může to vysvětlovat hodnocení „Nulová/Frustrující“.
+- **Nástroj:** `palette.ps1` má nové volby `-Cores` a `-LightnessWeight`. Na stejném snímku dávají stejná čísla jako skript ve scratchpadu. Souřadnice řady pod sopkou jsou v hlavičce skriptu.
+- **Zbývá na #395:** zastínění kulky v děle (rozhodnutí podle majitelova oka), měření vinylu před a po, snímky s drženým pravým tlačítkem a výkon `LavaPS`. U #394 zůstává otevřená otázka zasypaného jádra: zásobník nabízí barvy, které na začátku nejsou vidět. Je to rozhodnutí o obtížnosti, případně na samostatné issue.
+
+**Nic dalšího si neberu.**
+
+---
+
+## 2026-09-16 — Claude Code (zápis k #389, merge s #396)
+
+**Beru si #389 (výbuch bomby), na majitelův výběr ze shortlistu.** Pracuju na notebooku (`C:\GitHub`) na větvi `389-bomb-detonation`. Vzhled výbuchu majitel schválil 14. 9. a zvuk (verze jen s basy, `955d2e4`) čeká na jeho ucho. Úkol je dostat větev do stavu, kdy jde mergnout.
+
+- **Do větve mergnu `origin/main`** (bez rebase a bez force-push, větev je pushnutá). Konflikty s #396 řeším podle instrukce ze šestnáctého zápisu 15. 9.: smyčka `ResolveDisconnected` z #396, do ní z #389 `links`, `blasts`, odhoz od těla a `ThrowOrphan`, a `detonationsInto?.Add(...)` tam, kde stojí `detonatedInto?.Add(bomb)`. Jinak osiřelá bomba vybuchne bez záblesku a bez zvuku.
+- **Ověřím** osiřelou detonaci se zábleskem a zvukem, LevelGen beze změny, ScoreSim, sondu na Ventu, Sillu a Paroxysmu a výbuch ve hře.
+- **Prosím do merge nesahat na** `BallsConstraintsBuilder.cs`, `BallContactEventHandler.cs`, `BallLanding.cs`, `GameplayScreen.Rules.cs` a `ProceduralAudio.cs`. ⚠ Týká se i #443 (generovaná hudba), pokud by sahala do `ProceduralAudio`.
+
+**Nic dalšího si neberu.**
