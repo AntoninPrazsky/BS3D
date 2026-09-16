@@ -74,7 +74,7 @@ namespace Prazsky.BS3D.Levels
         /// <para>
         /// A string rather than an enum on purpose: the music lives in the game executable and this format is
         /// the shared library's, so the name is a parse key exactly as a scene's is
-        /// (<c>ProceduralMusic.ThemeFor</c>), and an unknown spelling falls back rather than throwing.
+        /// (<c>GameMusic.ThemeFor</c>), and an unknown spelling falls back rather than throwing.
         /// </para>
         /// </summary>
         [JsonPropertyName("music")]

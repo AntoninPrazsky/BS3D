@@ -376,6 +376,31 @@ namespace BS3D
         /// </summary>
         internal int ForcedWildcardEvery => _startupWildcardEvery;
 
+        //Testing only: the "detonate=" argument (#389) — wall-clock seconds at which the session sets off a bomb —
+        //and how far through that schedule the run has got.
+        private readonly float[] _detonateSchedule;
+        private int _detonateNext;
+
+        /// <summary>
+        /// Testing only (the <c>detonate=</c> argument, #389): whether a scheduled detonation has come due on the
+        /// wall clock — the <c>shot=</c> schedule's clock, so the two can be written against each other — and
+        /// consumes it if it has. One per call, so two falling due on one frame go off on two frames.
+        /// <para>
+        /// It exists because a blast cannot otherwise be reached by a run nobody is sitting at: it takes a shot
+        /// landed in the gap beside a bomb, the Game's aim cannot be scripted, and the effect is the Game's alone.
+        /// The <c>celebrate</c> reasoning, for the one effect that also throws balls — and like <c>wildcard=</c> it
+        /// does change play, because the bomb it sets off really goes.
+        /// </para>
+        /// </summary>
+        internal bool TryTakeForcedDetonation()
+        {
+            if (_detonateSchedule == null || _detonateNext >= _detonateSchedule.Length) return false;
+            if (_wallClock < _detonateSchedule[_detonateNext]) return false;
+
+            _detonateNext++;
+            return true;
+        }
+
         /// <summary>
         /// Whether edge-driven input (presses, clicks) may act this frame. False for one frame after focus
         /// returns: the very click that refocuses a windowed game would otherwise read as a fresh press
@@ -723,14 +748,14 @@ namespace BS3D
         /// on that chapter or on the one the page itself chooses. See <see cref="_startupPick"/> for why a page
         /// two keypresses away needs an argument at all, and why the chapter is the half that matters.
         /// </param>
-        /// <param name="about">
-        /// Testing only (the <c>about</c> / <c>about=play</c> argument): open the About page at boot, and with
-        /// <c>play</c> start its player — see <see cref="_startupAbout"/>.
-        /// </param>
         /// <param name="shotSeconds">
         /// Testing only (the <c>shot=</c> argument): wall-clock seconds after start at which to save a PNG of
         /// the frame, or null for none. It is the trigger F12 cannot be — a locked desktop takes no keystrokes
         /// — and the one that makes a shot repeatable. See <c>BS3DGame.Screenshot.cs</c>.
+        /// </param>
+        /// <param name="detonateSeconds">
+        /// <c>detonate=</c>: wall-clock seconds at which the level being played sets off one of its bombs (#389),
+        /// on the clock <paramref name="shotSeconds"/> counts. Null for none — see <see cref="TryTakeForcedDetonation"/>.
         /// </param>
         public BS3DGame(bool? fullscreen = null, int? supersampleFactor = null, float exposure = DEFAULT_EXPOSURE,
             bool? uncappedFps = null, SceneKind? scene = null, byte? skyDome = null, bool logFrameRate = false,
@@ -738,7 +763,7 @@ namespace BS3D
             bool mute = false, bool play = false, bool result = false, bool blockDone = false, bool lost = false,
             int? resultStars = null, string nextLocked = null, int? streak = null, int wildcardEvery = 0, float[] shotSeconds = null, string level = null, string levelFile = null,
             string preview = null, BallStyle? ballStyle = null, string pick = null, int fpsCap = 0,
-            bool noFocusPause = false, string about = null)
+            bool noFocusPause = false, float[] detonateSeconds = null, string about = null)
         {
             //See PauseOnFocusLoss: a capture schedule implies the opt-out, because a shot of the pause page is
             //not the shot that was asked for.
@@ -793,6 +818,7 @@ namespace BS3D
             _startupPick = pick;
             _startupAbout = about;
             _shotSchedule = shotSeconds;
+            _detonateSchedule = detonateSeconds;
             if (mute) _masterVolume = 0f;
 
             //A tier the player chose in Settings is honoured exactly as quality= is — it is the same kind of

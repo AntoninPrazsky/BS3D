@@ -2931,3 +2931,73 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
 - **Gemma 4:** stejný soubor dvakrát → model se nevolá; dvojice sekundu od sebe → „změnil se FPS counter“ (opravdu); zaměřovač bílý → červený a dvakrát větší → celý snímek i výřez správně („zčervenal a zvětšil se, hlaveň se posunula“); náklon kamery nahoru → správně „cluster zmizel“, ale chybně „dělo je blíž“. Celý běh 70 s, z toho 12 s načtení modelu.
 - Bez LM Studia (notebook) skript řekne, že model neběží, a vydá jen rozdíl, který sám odpoví „změnilo se něco a kde“.
 - Gemma je po testu vyložená a bs3d-81 ví, že GPU je volné.
+
+---
+
+## 2026-09-16 — Claude Code (zápis k #443)
+
+**Beru si #443 (generovaná hudba místo procedurální).** Větev `443-generated-music`, vlastní worktree `BS3D-443`, hlavní checkout `BS3D` nechávám ostatním. Majitel: *„Pusť se do #443.“* Rozhodnutí k obsahu: **levely s Emberem budou střídat šest variant** (Ember a punk 01–05), level soubory se nemění. **Bohemia jde do hry tak, jak je.** `game-track-01` zůstává v Research.
+
+- **Plán:** skladby půjdou do `Game/Music` jako 16bit WAV 48 kHz. Kopírují se do výstupu bez MGCB a načítají se na pozadí přímo do 16bit PCM, které řetěz `DynamicSoundEffectInstance` už dnes dostává. Fronta, fady (#211), bezešvé opakování (#212) a výběr v Nastavení (#279) tak zůstávají. **Fanfáry zůstávají procedurální.** About dostane přehrávač procedurálních skladeb: pauza, další skladba a jednoduchý 2D vizualizér. Opravím dokumentaci (`game-feedback.md`, `game-shell.md`, `formats-and-tools.md`, CLAUDE.md).
+- **Nesahám** na `ProceduralAudio.cs` ani na soubory fyziky, které #389 zamyká.
+- ⚠ Commit `a196cf6` se zprávou „claim #443“ obsahuje ve skutečnosti **dodatek bs3d-49 ke `capture-review`**. V `BS3D-322` jsme commitovali ve stejnou chvíli a můj `git add` vzal její necommitnutý text. Obsah je správný, popis ne. Historii `main` nepřepisuju, tenhle zápis je skutečný claim.
+
+**Nic dalšího si neberu.**
+
+---
+
+## 2026-09-16 — Claude Code, bs3d-49 (#441 lokální generování obrázků)
+
+**Beru si #441.** Majitel: *„Vyber další AI task, co použije grafiku.“* V repozitáři nic neměním, kromě tohoto deníku a na konci případně skillu `local-ai`.
+
+- **Cesta:** issue počítá s AMD Amuse nebo ComfyUI s ROCm, které na řadě RX 6000 pod Windows padá. Zkouším místo toho **stable-diffusion.cpp přes Vulkan**. Je to stejná knihovna ggml, na které tu už spolehlivě běží `acestep.cpp` (#443), a nepotřebuje ROCm ani instalátor. Binárky a modely leží v `C:\Users\panrd\AI\sd`, mimo repo.
+- **Model:** Z-Image-Turbo Q8_0 (6B, 8 kroků, Apache 2.0) s textovým enkodérem Qwen3-4B Q8_0. FLUX.2 klein 4B (také Apache) jen jako srovnání, pokud Z-Image nevyjde.
+- **Změřím:** čas na obrázek, VRAM a stabilitu (každý `ErrorDeviceLost`, reset ovladače nebo restart zapíšu hned). Obrázky budou reference k #429 (pohár), #436 (střechy City) a #404 (ostrov podle scény). Majiteli je ukážu na stránce, protože verdikt, jestli pomáhají, je jeho.
+- GPU sdílím s bs3d-81 (ACE-Step, #443), domlouváme se zprávami.
+
+**Nic dalšího si neberu.**
+
+---
+
+## 2026-09-16 — Claude Code (zápis k #389, sloučeno s #396, čeká na ucho)
+
+**#389 je sloučené s `main`em na větvi `389-bomb-detonation` (merge `621742f`, pushnuto), NEmergnuto do `main`u.** Čeká se na majitelův poslech zvuku (verze jen s basy). Pracoval jsem na notebooku v `C:\GitHub`.
+
+- **Sloučení podle instrukce ze 15. 9.:** kostrou je smyčka `ResolveDisconnected` z #396. Do ní jsem vložil z #389 `links`, `blasts`, odhoz od **těla** bomby a `ThrowOrphan` (při finálním uvolnění, jen pokud v témže průchodu něco vybuchlo). `Detonation` se zapisuje na jediném řádku, kde se rozhoduje, že bomba vybuchla. Osiřelá bomba tak má záblesk i zvuk.
+- **Jeden seznam `List<Detonation>` nahradil seznam buněk z #396.** Plní ho všechny čtyři odstraňovací cesty a handler ho vyčistí jednou za dopad v `CollectArmedSpecials`.
+- **⚠ Past, kterou auto-merge vložil potichu:** `_detonations.Clear()` z #389 stálo těsně před `DetonateBombs`. Po #396 by smazalo bomby, které odpálil match, zap nebo kyselina. Odstraněno. Testovací páka `detonate=` si teď seznam čistí sama.
+- **Článek řetězu pro bombu odpálenou kontrolou odpojení:** o jeden víc než nejhlubší článek, který v průchodu už vybuchl. Pokud ještě nic nevybuchlo, dostane 0 (odpálil ji match, zap nebo kyselina, tedy událost samotného dopadu).
+- **Ověřeno:**
+  - Čtyři solutions bez chyb.
+  - Bezgrafický test proti skutečné knihovně 11/11: bomba osiřelá matchem má záznam s článkem 0 a všechno, co vzala, odletí nejméně 0,8 j/s. Bomba osiřelá výbuchem jiné bomby mimo jeho dosah dostane článek 1. Obyčejný match bez bomby nedá záznam a sirotek padá z klidu. Seznam se přes dvě volání jen doplňuje.
+  - LevelGen exit 0, `Game/Levels` beze změny. ScoreSim „right way round“.
+  - Sonda `--sag=Vent,Sill,Paroxysm`: všechny tři 0 z 5 jako na `main`u (Vent 26 ran/2,49, Sill 35/−0,00, Paroxysm 9/−0,53; na `main`u 23/2,70, 35/0,08, 9/−0,48). Jiná čísla vznikají tím, že teď letí i sirotci.
+  - Ve hře `level=Sill detonate=10`: „5 went off, 117 destroyed“, výbuch se vykreslí.
+- **Zvuk:** vyrenderovaný přes reflexi z `BS3D.dll` do WAV ve scratchpadu. RMS 0,282 a crest 3,37 sedí na verzi 5 z patnáctého zápisu 14. 9.
+- **Pořád platí prosba nesahat do merge** na `BallsConstraintsBuilder.cs`, `BallContactEventHandler.cs`, `BallLanding.cs`, `GameplayScreen.Rules.cs` a `ProceduralAudio.cs`.
+
+**Nic dalšího si neberu.**
+
+**Dodatek: #389 je na `main`u — merge `172a92e` — a zavřené.** Majitel si poslechl zvuk: „Zní dobře, mergni a zavři.“ Po mergi se BS3DLibs i Game sestaví bez chyb. Větev je smazaná lokálně i na originu, až poté, co prošel push `main`u. Tím **padá prosba nesahat na pět souborů** výše. Komentář v issue shrnuje příčinu (střed odhozu v mřížkovém rámci, ne sirotci), co se dodalo, sloučení s #396 a co zůstává: poznámka majitele z playtestu Paroxysmu, že bombu je lepší představit na začátku kapitoly, a ScoreSim, který výbuch pořád nemodeluje.
+
+**Claude Code, bs3d-49: #441, výsledek měření (verdikt je na majiteli).** Navazuje na můj claim výše.
+
+- **stable-diffusion.cpp přes Vulkan na RX 6900 XT funguje.** Použil jsem build `master-869-07a85c7` pro win-vulkan, Z-Image-Turbo Q8_0, Qwen3-4B-Instruct-2507 Q8_0 jako textový enkodér a `ae.safetensors`, dohromady 11,2 GB stahování a nic se neinstalovalo. Spouštím `sd-server.exe` (API `/sdapi/v1/txt2img`) na portu **7860**, protože výchozí 1234 je port LM Studia.
+- **Nastavení:** když je všechno na kartě, nevejde se. Váhy mají 10,5 GB a výpočet difuze chce 4,3 GB. S `--offload-to-cpu` trval obrázek 832×1216 **62,8 s**, protože dekódování přeteklo na CPU (25 s). S `--offload-to-cpu --vae-tiling` trvá **33–37 s**, z toho dekódování 3,8 s, a švy nejsou vidět. Proces bral až 10,5 GB a celá karta měla obsazeno až 12,8 GB, takže **s hrou ani s Gemmou 4 se nevejde**.
+- **Stabilita:** 20 obrázků bez chyby. V System logu mezi 20:10 a 20:31 není 4101, 41 ani 6008.
+- **Obrázky** (5× pohár k #429, 3× střechy k #436, 6× ostrov k #404) sedí na zadání. Odchylky: safíry na stříbrném poháru jsou jinde, než chtěl prompt, a na rozpisu střešních prvků je nápis „5G“, přestože ho prompt zakazoval. **Poučení k promptům:** první verze ostrovů popisovala „glass funnel drain“ a všech šest obrázků postavilo na plošinu sklenici na martini. Když jsem odtok popsal tvarem (díra zapuštěná do podlahy, lícující okraj, „Nothing stands on the platform“), bylo to se stejnými seedy správně na všech šesti.
+- Skripty `gen.py` (dávka promptů přes server) a `vram-watch.ps1` a prompty `prompts-441*.json` jsou v `C:\Users\panrd\AI\sd`, obrázky v `out\zimage`. Server je vypnutý a karta volná.
+- **Čeká se na majitele:** pomáhají obrázky při navrhování? Podle toho postup zapíšu do skillu `local-ai`, nebo #441 uzavřu jako „nestojí za to“.
+
+---
+
+## 2026-09-16 — Claude Code (série malých oprav: #422, #424, #428, #405)
+
+**Beru si čtyři malé issue, na majitelův výběr ze shortlistu.** Každé dostane vlastní větev a pojedou po sobě na notebooku v `C:\GitHub`:
+
+1. **#422** — hlavička `Block11_Mirage.cs` pořád popisuje pravidlo skla z doby před #344. Opravím jen dokumentaci. Facet je ověřený už z #344 (zápis ze 3. 9.).
+2. **#424** — rána, která vyčistí level, spustí kameru pádu i pod hranicí `MIN_BALLS`, pokud ji hráč nevypnul v Nastavení. Soubory `GameplayScreen.Rules.cs` a `DropCinematic.cs`.
+3. **#428** — v 2D náhledu mapy mají padající kuličky mizet až dole u počitadla, ne hned pod čarou. Soubor `PlayHud.cs`.
+4. **#405** — výběr levelu v menu má na pozadí ukázat scénu a styl kuliček toho levelu. Soubory `LevelSelectPage.cs` a `BackdropScreen.cs`. ⚠ #443 upravuje About a `docs/game-shell.md`; na About nesahám, v dokumentaci se případně sejdeme.
+
+**Nic dalšího si neberu.**

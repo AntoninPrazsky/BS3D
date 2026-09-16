@@ -101,7 +101,7 @@ namespace BS3D.Audio
         /// How much of their normal level the fireworks play at, 1 for full. Ducked while a fanfare is
         /// sounding, because the two arrive at the same moment and the reports are broadband and loud enough
         /// to bury a tune underneath them — a bang is an event and the fanfare is the point, so the bang gives
-        /// way. Set per frame by the host from <c>ProceduralMusic.IsFanfarePlaying</c>.
+        /// way. Set per frame by the host from <c>GameMusic.IsFanfarePlaying</c>.
         /// <para>
         /// A gain on the <b>next</b> play rather than on the ones already sounding: a burst is short enough that
         /// ducking only what has yet to start is indistinguishable from ducking everything, and the alternative
@@ -140,8 +140,11 @@ namespace BS3D.Audio
         private readonly SoundEffect[][] _landed;
         private readonly SoundEffect _release;
 
-        /// <summary>Ice breaking (#329) — the one sound a <c>BallKind</c> has of its own.</summary>
+        /// <summary>Ice breaking (#329) — the first sound a <c>BallKind</c> had of its own.</summary>
         private readonly SoundEffect _iceBreak;
+
+        /// <summary>A bomb going off (#389) — until then it sounded exactly like a big release.</summary>
+        private readonly SoundEffect _blast;
         private readonly SoundEffect _fireworkLaunch;
         private readonly SoundEffect _fireworkBurst;
         private readonly SoundEffect _partyPopper;
@@ -162,6 +165,9 @@ namespace BS3D.Audio
 
         /// <inheritdoc cref="_iceBreak"/>
         private readonly VoiceRing _iceBreakRing;
+
+        /// <inheritdoc cref="_blast"/>
+        private readonly VoiceRing _blastRing;
         private readonly VoiceRing _launchRing;
         private readonly VoiceRing _burstRing;
 
@@ -205,6 +211,12 @@ namespace BS3D.Audio
         //because it IS one event: the group leaving. Two, not three, because unlike a release it cannot
         //overlap itself: a second landing cannot resolve while the first is still in flight.
         private const int ICE_BREAK_VOICES = 2;
+
+        //A blast's report is 1.8 s, and a chain sets one off per link a CHAIN_STAGGER apart (Blasts) — so one
+        //landing wants as many voices at once as its chain is long. Five is the longest chain one landing sets
+        //off in the campaign (Sill, Paroxysm); eight is that with room, and it is the effect's own slot count, so
+        //every blast that can be drawn at once can also be heard at once.
+        private const int BLAST_VOICES = 8;   //Blasts.MAX_BLASTS
 
         //The whistle is 0.55 s, and it is the OPENING BARRAGE that sizes this rather than the steady state: at
         //the start of a display every shell slot is free, so shells go up at INTERVAL_OPENING (~14 a second)
@@ -255,6 +267,7 @@ namespace BS3D.Audio
 
             _release = BakeRelease();
             _iceBreak = BakeIceBreak();
+            _blast = BakeBlast();
             _fireworkLaunch = BakeFireworkLaunch();
             _fireworkBurst = BakeFireworkBurst();
             _partyPopper = BakePartyPopper();
@@ -269,6 +282,7 @@ namespace BS3D.Audio
             _shootRing = new VoiceRing(_shoot, SHOOT_VOICES);
             _releaseRing = new VoiceRing(_release, RELEASE_VOICES);
             _iceBreakRing = new VoiceRing(_iceBreak, ICE_BREAK_VOICES);
+            _blastRing = new VoiceRing(_blast, BLAST_VOICES);
             _launchRing = new VoiceRing(_fireworkLaunch, LAUNCH_VOICES);
             _burstRing = new VoiceRing(_fireworkBurst, BURST_VOICES);
             _eruptionRing = new VoiceRing(_eruption, ERUPTION_VOICES);
@@ -420,6 +434,49 @@ namespace BS3D.Audio
             Speak(_iceBreakRing, world, NEAR_WIDEN, MathHelper.Clamp(volume * Level, 0f, 1f),
                 MathHelper.Clamp(NextPitch(0.08f) - size * 0.10f, -1f, 1f));
         }
+
+        /// <summary>
+        /// A bomb going off (#389), spoken from where its body was. <paramref name="size"/> (0…1) is how much the
+        /// blast took, and it scales the report the way the release's count does: bigger is louder and a shade
+        /// deeper.
+        /// <para>
+        /// <b>One report per blast, and a chain is a run of them</b>, staggered link by link by the caller
+        /// (<c>Blasts</c>) — the opposite ruling to the ice, whose blocks are one event and are spoken as one. A
+        /// chain IS several events: each bomb goes off where it stands, and hearing them go is what says a chain.
+        /// </para>
+        /// <para>
+        /// It takes over from the release for the balls a blast took (see <c>GameplayScreen.OnBallLanded</c>). A
+        /// landing that completes a group <i>and</i> sets a bomb off still plays both, and the blast is meant to
+        /// bury the release there rather than sit politely beside it: the first bake kept the two apart by
+        /// register — its debris above the release's pops, as the ice does — and what that bought was a bomb heard
+        /// as a glass breaking. See <see cref="RenderBlast"/>.
+        /// </para>
+        /// <para>
+        /// <b>Near-flat with distance, and at full level.</b> It first took a landing's falloff and a size term
+        /// starting at 0.72, which put a bomb at the cluster's stand-off at about 60 % — under the gun's own shot,
+        /// which plays flat at full level. The loudest event of a level cannot be quieter than the most frequent
+        /// one. The distance term is the firework's kind now, which only separates near from far.
+        /// </para>
+        /// </summary>
+        /// <param name="link">How far down its chain this blast is (<c>Detonation.Link</c>); every link past the
+        /// first plays at <see cref="BLAST_CHAIN_LEVEL"/>.</param>
+        public void PlayBlast(Vector3 world, float size, int link)
+        {
+            float distance = DistanceTo(world);
+            float volume = (0.88f + 0.12f * size) * (0.85f + 0.15f * MathHelper.Clamp(1f - distance / 120f, 0f, 1f));
+
+            if (link > 0) volume *= BLAST_CHAIN_LEVEL;
+
+            Speak(_blastRing, world, NEAR_WIDEN, MathHelper.Clamp(volume * Level, 0f, 1f),
+                MathHelper.Clamp(NextPitch(0.05f) - size * 0.12f, -1f, 1f));
+        }
+
+        /// <summary>
+        /// What a chain's later links play at, as a fraction of the first (#389). Five full-level reports inside a
+        /// third of a second sum past full scale in the mix and clip, and what a chain has to say is "again, and
+        /// again" rather than the same peak five times over.
+        /// </summary>
+        private const float BLAST_CHAIN_LEVEL = 0.72f;
 
         /// <summary>
         /// A shell leaving the ground: the rising whistle, spoken from the point it was fired from. Pitched a little
@@ -1230,8 +1287,9 @@ namespace BS3D.Audio
         /// <summary>
         /// A group coming loose: the snap of the lattice letting go, then the freed balls popping away one
         /// after another — a quick rising run of six pops. The pops are <b>band-passed noise, not tones</b>,
-        /// and that is deliberate: the level theme transposes itself per pass (see <c>ProceduralMusic</c>), so
-        /// a melodic run in any fixed key would land wrong against half of them, where a noise pop's "pitch"
+        /// and that is deliberate: the level music changes key from piece to piece (the five recordings of #443
+        /// sit in four keys, and the procedural pieces before them transposed per pass), so a
+        /// melodic run in any fixed key would land wrong against most of them, where a noise pop's "pitch"
         /// is a gesture the ear reads against nothing. The run rises (release reads as reward, even though the
         /// balls fall), accelerates slightly, and trails off — the group receding as it goes.
         /// </summary>
@@ -1355,6 +1413,126 @@ namespace BS3D.Audio
 
             Normalize(signal, 0.85f);
             return ToSoundEffect(signal);
+        }
+
+        /// <summary>A bomb going off (#389), wrapped for playback. The arithmetic is <see cref="RenderBlast"/>.</summary>
+        private SoundEffect BakeBlast() => ToSoundEffect(RenderBlast());
+
+        /// <summary>
+        /// A bomb going off in the arena (#389): a big, warm <b>boom</b> and nothing but bass — the deepest and the
+        /// loudest thing a level does.
+        /// <para>
+        /// <b>⚠ Four bakes were rejected in the game on the way here, and the owner's verdicts are the design.</b>
+        /// The first was measured as a deep bang and heard as "a mouse dropping a crystal cup": 89.8 % of its energy
+        /// under 60 Hz, where a speaker plays next to nothing, and glassy clicks with 2.4–5.2 kHz tones for what was
+        /// left. The second fixed those measurements with a noise roar, rubble and a <c>tanh</c> drive and was
+        /// "horribly digital, and not booming" — and the ruling came with it: <i>pleasantness and bass, not physical
+        /// credibility</i>. The third was a warm boom alone, low-passed at 2.8 kHz and peak-normalised, and was "more
+        /// pleasant, but not distinct enough". The fourth put nine shrapnel whizzes back over that boom at a measured
+        /// balance, and was refused outright: <i>"take the squealing away completely and leave only maximum
+        /// bass"</i>. So:
+        /// </para>
+        /// <list type="bullet">
+        /// <item><b>The boom</b>: an undriven sine dropping 130 → 44 Hz with a soft octave over it. <b>The rumble</b>:
+        /// noise through three cascaded low-passes at 200 Hz, 18 dB an octave, so no hiss survives. <b>The
+        /// whump</b>: the same under 650 Hz and gone in half a second — the part of the body a speaker with no low
+        /// end still plays. <b>The thump</b>: a burst cascaded under 800 Hz, an impact rather than a crack.</item>
+        /// <item><b>No top at all</b>: a short fused echo and a modest reverb, then the whole signal low-passed twice
+        /// at 1.4 kHz.</item>
+        /// <item><b>As loud as it will go without bending the wave</b>: compressed (<see cref="Compress"/>, a slow
+        /// look-ahead gain) and peak-limited (<see cref="Limit"/>), never driven. The third bake's lack of presence
+        /// was partly the price of plain peak normalisation — its crest factor was 5.29, this one's is 3.37 — and a
+        /// <c>tanh</c> is what "digital" was.</item>
+        /// </list>
+        /// <para>
+        /// <b>Rendered apart from the buffer it is wrapped in</b>, so its numbers can be read without an audio
+        /// device — the seam <c>Tools/MusicBake</c> uses on the music, from the other side of this folder.
+        /// </para>
+        /// </summary>
+        private static float[] RenderBlast()
+        {
+            //Three seconds, of which the last 0.6 s is a fade: a boom this long is still sounding where a shorter
+            //buffer would end, and a tail that is cut off rather than decayed is a click on every bomb.
+            const float duration = 3.0f;
+            const float fadeSeconds = 0.6f;
+            int samples = (int)(SAMPLE_RATE * duration);
+
+            //The boom, the rumble, the whump and the thump: bass, and nothing over it (see the summary).
+            float[] low = new float[samples];
+
+            //THE BOOM: a sine dropping into the low end and ringing there, with a soft octave over it.
+            const float dropTime = 0.16f;
+            const float startHz = 130f, endHz = 44f;
+            float phase = 0f;
+
+            for (int i = 0; i < samples; i++)
+            {
+                float t = (float)i / SAMPLE_RATE;
+
+                float freq = t < dropTime ? startHz * MathF.Pow(endHz / startHz, t / dropTime) : endHz;
+                phase += 2f * MathF.PI * freq / SAMPLE_RATE;
+
+                //A 3 ms ramp: a sine that starts on a step starts on a click.
+                float attack = MathF.Min(1f, t / 0.003f);
+
+                low[i] += MathF.Sin(phase) * attack * MathF.Exp(-t * 2.2f);
+                low[i] += MathF.Sin(2f * phase) * 0.30f * attack * MathF.Exp(-t * 3.6f);
+            }
+
+            //THE RUMBLE and THE WHUMP: three cascaded one-pole low-passes each, 18 dB an octave where one gives 6,
+            //so nothing of the noise's top survives either. The gains are large because each pole takes most of
+            //the level with it.
+            float[] rumble = LowPassArray(LowPassArray(LowPassArray(MakeNoiseArray(samples, seed: 6151), 200f), 200f), 200f);
+            float[] whump = LowPassArray(LowPassArray(LowPassArray(MakeNoiseArray(samples, seed: 7309), 650f), 650f), 650f);
+
+            for (int i = 0; i < samples; i++)
+            {
+                float t = (float)i / SAMPLE_RATE;
+
+                float rumbleEnvelope = MathF.Min(1f, t / 0.015f) * (0.7f * MathF.Exp(-t * 2.4f) + 0.3f * MathF.Exp(-t * 0.8f));
+                float whumpEnvelope = MathF.Min(1f, t / 0.006f) * MathF.Exp(-t * 6f);
+
+                low[i] += rumble[i] * 12f * rumbleEnvelope;
+                low[i] += whump[i] * 5f * whumpEnvelope;
+            }
+
+            //THE THUMP: noise cascaded under 800 Hz for the first 90 ms — the moment of impact.
+            float[] thump = LowPassArray(LowPassArray(MakeNoiseArray(samples, seed: 3313), 800f), 800f);
+            int thumpSamples = (int)(SAMPLE_RATE * 0.09f);
+
+            for (int i = 0; i < thumpSamples; i++)
+            {
+                float t = (float)i / SAMPLE_RATE;
+                low[i] += thump[i] * 5f * MathF.Min(1f, t / 0.002f) * MathF.Exp(-t * 38f);
+            }
+
+            //The room: six taps from 25 ms that fuse into the boom (their copies darker each time) and a modest reverb
+            //— then everything over the low end taken off, twice. What leaves is bass, and nothing a speaker can
+            //squeal with: the shrapnel that stood over it in the fourth bake was refused outright.
+            RollingEcho(low, taps: 6, firstDelaySeconds: 0.025f, spread: 1.4f, feedback: 0.7f, mix: 0.3f);
+            ApplyReverb(low, roomScale: 0.85f, wet: 0.2f, decay: 0.5f);
+            float[] signal = LowPassArray(LowPassArray(low, 1400f), 1400f);
+
+            //As loud as it will go without bending the wave. To a peak of one first, so the compressor's threshold
+            //is a level rather than an accident of the gains; compressed rather than driven (see Compress, and there
+            //for the lookahead); the peaks its average cannot see limited away before the final peak is taken, or
+            //they would set it (see Limit); and to the final peak.
+            Normalize(signal, 1f);
+            Compress(signal, threshold: 0.3f, ratio: 3f, attackSeconds: 0.01f, releaseSeconds: 0.25f, lookaheadSeconds: 0.01f);
+            Normalize(signal, 1f);
+            Limit(signal, ceiling: 0.45f, lookaheadSeconds: 0.005f, releaseSeconds: 0.08f);
+            Normalize(signal, 0.95f);
+
+            //Down to silence over the last 0.6 s, smoothstepped so neither end of the fade is a corner.
+            int fadeStart = samples - (int)(SAMPLE_RATE * fadeSeconds);
+
+            for (int i = fadeStart; i < samples; i++)
+            {
+                float u = (float)(i - fadeStart) / (samples - fadeStart);
+                signal[i] *= 1f - u * u * (3f - 2f * u);
+            }
+
+            return signal;
         }
 
         /// <summary>
@@ -1916,6 +2094,85 @@ namespace BS3D.Audio
         }
 
         /// <summary>
+        /// A smooth feed-forward compressor: wherever the signal's level, followed with the given attack and
+        /// release, rises over <paramref name="threshold"/>, it is turned down by <paramref name="ratio"/>. What a
+        /// sound that has to be louder without being <i>distorted</i> takes instead of <see cref="Loudness"/> (#389).
+        /// <para>
+        /// <b>The difference from Loudness is the whole reason this exists.</b> A <c>tanh</c> bends the waveform
+        /// itself, sample by sample, and the odd harmonics it adds to a low boom are heard as "digital" — the owner's
+        /// word for the blast's second bake. A compressor changes a <i>gain</i>, slowly, and leaves the shape of the
+        /// wave alone. The level is followed on the squared signal rather than its magnitude, and with an attack in
+        /// tens of milliseconds, so that a 44 Hz boom is not itself turned up and down at 44 Hz — which would be the
+        /// tanh's fault arriving by another door.
+        /// </para>
+        /// <para>
+        /// <b>It looks ahead</b> by <paramref name="lookaheadSeconds"/>: the level that sets a sample's gain is read
+        /// that far in front of it. Without that, a transient on the very first samples — a blast's crack — rises
+        /// faster than any attack in tens of milliseconds can follow, sails through untouched, and then holds the
+        /// peak that the caller's normalisation divides everything else down by. Measured on the blast's first
+        /// two-half bake: crest factor 7.63 and a quieter sound than the bake before it, which had no compressor at
+        /// all. Reading ahead is safe in place, since the samples read have not been changed yet.
+        /// </para>
+        /// </summary>
+        private static void Compress(float[] signal, float threshold, float ratio, float attackSeconds, float releaseSeconds,
+            float lookaheadSeconds = 0f)
+        {
+            float attack = MathF.Exp(-1f / (attackSeconds * SAMPLE_RATE));
+            float release = MathF.Exp(-1f / (releaseSeconds * SAMPLE_RATE));
+            float exponent = 1f - 1f / ratio;
+            int lookahead = (int)(lookaheadSeconds * SAMPLE_RATE);
+            float squared = 0f;
+
+            for (int i = 0; i < signal.Length; i++)
+            {
+                float ahead = signal[Math.Min(i + lookahead, signal.Length - 1)];
+                float power = ahead * ahead;
+                float coefficient = power > squared ? attack : release;
+                squared = coefficient * squared + (1f - coefficient) * power;
+
+                float level = MathF.Sqrt(squared);
+                if (level > threshold) signal[i] *= MathF.Pow(threshold / level, exponent);
+            }
+        }
+
+        /// <summary>
+        /// A look-ahead peak limiter: no sample leaves above <paramref name="ceiling"/>, and the gain that keeps
+        /// it there comes down <i>before</i> the peak arrives and recovers over <paramref name="releaseSeconds"/>
+        /// — so a spike is turned down rather than cut off, and the wave keeps its shape (#389).
+        /// <para>
+        /// <b><see cref="Compress"/> cannot do this job, and the reason is what it listens to.</b> It follows a level
+        /// averaged over its attack, and a spike a few samples long barely moves an average. Measured on the blast's
+        /// bake with the shrapnel mixed in at a stated RMS balance: the compressor took the body down and let the
+        /// noise spikes of the shrapnel's tear straight through, the final peak normalisation divided everything by
+        /// them, and the crest factor went to 9.47 — a louder mix on paper and a quieter sound. A limiter reads the
+        /// peak itself: each sample's gain is the smallest the next <paramref name="lookaheadSeconds"/> will need,
+        /// taken instantly, and allowed back up only slowly.
+        /// </para>
+        /// </summary>
+        private static void Limit(float[] signal, float ceiling, float lookaheadSeconds, float releaseSeconds)
+        {
+            int lookahead = Math.Max(1, (int)(lookaheadSeconds * SAMPLE_RATE));
+            float release = MathF.Exp(-1f / (releaseSeconds * SAMPLE_RATE));
+            float gain = 1f;
+
+            for (int i = 0; i < signal.Length; i++)
+            {
+                //The loudest sample this one's gain has to have made room for by the time it arrives. Bake-time
+                //only, so the plain window scan is cheap enough: a few milliseconds per sound.
+                float peak = 0f;
+                int end = Math.Min(i + lookahead, signal.Length);
+                for (int j = i; j < end; j++) peak = MathF.Max(peak, MathF.Abs(signal[j]));
+
+                float needed = peak > ceiling ? ceiling / peak : 1f;
+
+                //Down at once, up slowly.
+                gain = needed < gain ? needed : needed + (gain - needed) * release;
+
+                signal[i] *= gain;
+            }
+        }
+
+        /// <summary>
         /// Slap-back repeats: a few discrete, progressively darker and quieter copies of the signal delayed
         /// behind it. This — not the reverb — is what makes a firework sound like it went off <i>over</i>
         /// something: the report reaches you once through the air and then again off every building, hillside
@@ -1990,6 +2247,7 @@ namespace BS3D.Audio
                     if (row != null) foreach (VoiceRing ring in row) ring?.Dispose();
             _releaseRing?.Dispose();
             _iceBreakRing?.Dispose();
+            _blastRing?.Dispose();
             _launchRing?.Dispose();
             _burstRing?.Dispose();
             _eruptionRing?.Dispose();
@@ -2000,6 +2258,7 @@ namespace BS3D.Audio
                     if (row != null) foreach (SoundEffect effect in row) effect?.Dispose();
             _release?.Dispose();
             _iceBreak?.Dispose();
+            _blast?.Dispose();
             _fireworkLaunch?.Dispose();
             _fireworkBurst?.Dispose();
             _partyPopper?.Dispose();

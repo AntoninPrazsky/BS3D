@@ -9,13 +9,19 @@ namespace Prazsky.Core.Camera
     /// (the lens is thrown back along the view and the muzzle rises) and settles quickly, and a
     /// <b>shake</b>, which is a random rattle of the whole frame, roll included, decaying to nothing.
     /// <para>
+    /// And a third, for a violent event that is not the camera's own (#389): a <b>rumble</b> — a slower,
+    /// heavier, longer shake with no recoil in it, fed by <see cref="Rumble"/>. A bomb going off out in the
+    /// scene does not throw the lens back or lift a muzzle; it shoves the whole world, and a shake at the
+    /// gun's own frequency read as the gun firing a second time.
+    /// </para>
+    /// <para>
     /// It produces offsets only — it owns no pose and knows nothing about where the camera is. The camera
     /// adds them onto whatever pose it computed for the frame (see the game's <c>RecoilCamera</c>), so a
     /// kick can never fight with the pose logic or leave the camera displaced once it has decayed: at
     /// rest every output here is exactly zero.
     /// </para>
     /// <para>
-    /// Both decays are <b>linear in time</b>, not exponential, so the shake genuinely ends rather than
+    /// Every decay is <b>linear in time</b>, not exponential, so the shake genuinely ends rather than
     /// approaching zero forever and leaving a permanent sub-pixel jitter in the frame. The rattle's phase
     /// runs off accumulated seconds, so its shape is the same at 30 and at 300 FPS — nothing here is tied
     /// to the frame rate.
@@ -66,15 +72,41 @@ namespace Prazsky.Core.Camera
         /// <summary>Fraction the field of view widens at the peak of the kick (a small punch outwards).</summary>
         public float MaxFovPunch { get; set; } = 0.035f;
 
+        /// <summary>
+        /// How fast the rumble dies, per second (1 ÷ this is its length: ~0.6 s) — twice the rattle's length,
+        /// because a blast's shove is carried by the ground and outlasts the crack that started it.
+        /// </summary>
+        public float RumbleDecay { get; set; } = 1.6f;
+
+        /// <summary>
+        /// Rumble frequency — well under the rattle's, and that is most of what tells the two events apart.
+        /// A gun is a hard jolt at the lens; a blast out in the scene is the whole frame being heaved, and at
+        /// the rattle's 24 Hz it read as the gun going off again.
+        /// </summary>
+        public float RumbleFrequency { get; set; } = 9f;
+
+        /// <summary>Peak random pitch of the rumble, radians.</summary>
+        public float MaxRumblePitch { get; set; } = 0.014f;
+
+        /// <summary>Peak random yaw of the rumble, radians.</summary>
+        public float MaxRumbleYaw { get; set; } = 0.011f;
+
+        /// <summary>Peak random roll of the rumble, radians — the largest of the three, for the rattle's reason.</summary>
+        public float MaxRumbleRoll { get; set; } = 0.030f;
+
+        /// <summary>Peak lateral/vertical displacement of the lens under the rumble, world units.</summary>
+        public float MaxRumbleOffset { get; set; } = 0.20f;
+
         private float _trauma;
         private float _recoil;
+        private float _rumble;
         private float _time;
 
         /// <summary>
         /// Whether anything is still moving. Zero here means every offset below is exactly zero, so a
         /// caller may skip the work entirely.
         /// </summary>
-        public bool IsActive => _trauma > 0f || _recoil > 0f;
+        public bool IsActive => _trauma > 0f || _recoil > 0f || _rumble > 0f;
 
         /// <summary>
         /// Adds one event's worth of kick. Accumulates and saturates at 1, so firing repeatedly keeps the
@@ -89,12 +121,27 @@ namespace Prazsky.Core.Camera
             _recoil = MathHelper.Clamp(_recoil + strength, 0f, 1f);
         }
 
+        /// <summary>
+        /// Adds one event's worth of <b>rumble</b> (#389) — a shake with no recoil in it, for something
+        /// violent that happened out in the scene rather than at the lens. Accumulates and saturates at 1
+        /// like <see cref="Kick"/>, and runs beside it rather than instead of it: a shot fired into a blast
+        /// still kicks on top of the heave.
+        /// </summary>
+        /// <param name="strength">How hard, 0 to 1 for a full rumble.</param>
+        public void Rumble(float strength)
+        {
+            if (strength <= 0f) return;
+
+            _rumble = MathHelper.Clamp(_rumble + strength, 0f, 1f);
+        }
+
         public void Update(float elapsedSeconds)
         {
             _time += elapsedSeconds;
 
             _trauma = MathF.Max(0f, _trauma - TraumaDecay * elapsedSeconds);
             _recoil = MathF.Max(0f, _recoil - RecoilDecay * elapsedSeconds);
+            _rumble = MathF.Max(0f, _rumble - RumbleDecay * elapsedSeconds);
         }
 
         /// <summary>Drops the kick immediately (a cut, a respawn — anywhere continuity is not wanted).</summary>
@@ -102,6 +149,7 @@ namespace Prazsky.Core.Camera
         {
             _trauma = 0f;
             _recoil = 0f;
+            _rumble = 0f;
         }
 
         /// <summary>
@@ -113,9 +161,13 @@ namespace Prazsky.Core.Camera
 
         private float RecoilAmount => _recoil * _recoil;
 
+        /// <summary>The rumble's amplitude, squared for the rattle's reason.</summary>
+        private float RumbleAmount => _rumble * _rumble;
+
         /// <summary>
         /// Angular offset of the frame: X pitch, Y yaw, Z roll, in radians. The pitch carries the
-        /// recoil's muzzle rise on top of the random rattle.
+        /// recoil's muzzle rise on top of the random rattle, and the rumble is added over both on its own
+        /// clock and its own seeds, so the two never beat into one pattern.
         /// </summary>
         public Vector3 RotationOffset
         {
@@ -124,10 +176,14 @@ namespace Prazsky.Core.Camera
                 float shake = ShakeAmount;
                 float t = _time * ShakeFrequency;
 
+                float rumble = RumbleAmount;
+                float r = _time * RumbleFrequency;
+
                 return new Vector3(
-                    Noise(t, 0f) * MaxPitch * shake + RecoilAmount * MaxRecoilPitch,
-                    Noise(t, 11.3f) * MaxYaw * shake,
-                    Noise(t, 23.7f) * MaxRoll * shake);
+                    Noise(t, 0f) * MaxPitch * shake + RecoilAmount * MaxRecoilPitch
+                        + Noise(r, 41.9f) * MaxRumblePitch * rumble,
+                    Noise(t, 11.3f) * MaxYaw * shake + Noise(r, 53.3f) * MaxRumbleYaw * rumble,
+                    Noise(t, 23.7f) * MaxRoll * shake + Noise(r, 67.1f) * MaxRumbleRoll * rumble);
             }
         }
 
@@ -139,7 +195,11 @@ namespace Prazsky.Core.Camera
                 float shake = ShakeAmount;
                 float t = _time * ShakeFrequency;
 
-                return new Vector2(Noise(t, 5.1f), Noise(t, 17.9f)) * MaxOffset * shake;
+                float rumble = RumbleAmount;
+                float r = _time * RumbleFrequency;
+
+                return new Vector2(Noise(t, 5.1f), Noise(t, 17.9f)) * MaxOffset * shake
+                    + new Vector2(Noise(r, 71.3f), Noise(r, 83.9f)) * MaxRumbleOffset * rumble;
             }
         }
 

@@ -111,6 +111,9 @@ namespace BS3D.Screens
             //not this level's danger.
             _laserGrid.Reset();
 
+            //Nor a blast from the last level still burning over the new field (#389).
+            _blasts.Reset();
+
             //Last, now that the field, the cannon and the game camera are all fit to this level: the one
             //thing here that reads the fit rather than only resetting state (#267).
             TryBeginChapterIntro();
@@ -188,6 +191,7 @@ namespace BS3D.Screens
             _ballGlow.Dispose();
             _crosshair.Dispose();
             _laserGrid.Dispose();
+            _blasts.Dispose();
         }
 
         /// <summary>

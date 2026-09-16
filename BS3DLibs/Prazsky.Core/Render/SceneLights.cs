@@ -64,6 +64,29 @@ namespace Prazsky.Core.Render
         //the scene turns out to be.
         private int _lastCount = -1;
 
+        //The one light a caller may add for a single frame (#389): a blast's flash. Stated per frame and
+        //consumed by the next Apply, so a flash can never outlive the frame that asked for it — and a host
+        //that never asks (the front end, the Testbed, the editor) never lights one. A range of zero is "none".
+        private Vector3 _flashPosition;
+        private Vector3 _flashColor;
+        private float _flashRange;
+
+        /// <summary>
+        /// Adds one short-lived light to the <b>next</b> <see cref="Apply"/> only (#389) — a blast lighting up
+        /// the balls, the island and the gun around it for the fraction of a second it lasts. It takes the
+        /// first slot the scene has left free and is dropped when there is none: the savanna's ring of
+        /// campfires can fill all <see cref="MaxLights"/>, and a flash that evicted a fire would put that fire
+        /// out for a frame, which is a flicker rather than a flash.
+        /// </summary>
+        /// <param name="color">Linear radiance, as every slot here takes it.</param>
+        /// <param name="range">Where the light has fallen to nothing; zero or less adds nothing.</param>
+        public void SetFlash(Vector3 position, Vector3 color, float range)
+        {
+            _flashPosition = position;
+            _flashColor = color;
+            _flashRange = range;
+        }
+
         /// <summary>
         /// Caches the four parameter references off the shared instanced effect — the effect the balls, the
         /// island, the cannon/gun and the city all draw through, since one push has to reach all of them.
@@ -172,6 +195,21 @@ namespace Prazsky.Core.Render
                     _lightColor[i] = (i % 2 == 0) ? neonLook.Magenta.ToVector3() : neonLook.Cyan.ToVector3();
                     _lightRange[i] = neonLook.LightRange;
                 }
+            }
+
+            //And a flash over the scene's own lamps, in the first slot they left free (#389). Consumed here
+            //whether or not it found one, so a flash lights the frame that asked for it and no other.
+            if (_flashRange > 0f)
+            {
+                if (count < MaxLights)
+                {
+                    _lightPosition[count] = _flashPosition;
+                    _lightColor[count] = _flashColor;
+                    _lightRange[count] = _flashRange;
+                    count++;
+                }
+
+                _flashRange = 0f;
             }
 
             //A scene with no lights only needs the count pushed the first time it goes to zero — nothing
