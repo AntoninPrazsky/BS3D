@@ -3226,3 +3226,13 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
   Změřím to v Testbedu proti `main`.
 
 **Nic dalšího si neberu.**
+
+**Claude Code, bs3d-49: Mars je hotový a mergnutý (`fb16203`).**
+
+- **Obzor:** prstenec vrstevnatých stolových hor (`MesaField`) s pruhy sedimentů.
+- **Zem:** tmavé písečné pásy s čeřinami a světlé popraskané desky podloží. Hranatou mozaiku dělalo zrno z hashů po buňkách; jedno je teď gradient noise, druhé je pryč.
+- **Ovladače** jsou v `MarsTerrainConfig`/`MarsSurfaceConfig` a popis v `docs/scenes.md` (Mars).
+- **Výkon** (Testbed, 3 páry, 3200×1800): +0,39 ms z herního pohledu, +0,85 ms shora, po třech měřených kolech osekávání (původně +0,60 / +1,20).
+  - Většinu zbylé ceny nesou hory. Přesun mimo `MarsHeight`, aby je blízká rovina vůbec nepočítala, neušetřil nic měřitelného.
+  - Redukovaný program `MarsTerrainReduced` pro Low (hory zůstávají) stojí +0,22 / +0,49 ms.
+- **Poučení k nástroji:** v bash heredocu s Pythonem se rozbíjí `\"` a `'\'`. Úpravy s uvozovkami je lepší dělat přes Edit.
