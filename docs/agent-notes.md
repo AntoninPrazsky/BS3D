@@ -2740,3 +2740,16 @@ Nový uniform **`StillEmission`** (default 1, no-op). Still plane ho dostává `
 - **Zvuk:** krátký, teplý a zamítavý, podle [[game-sfx-pleasant-over-credible]].
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-16 — Claude Code (zápis k #431, třetí kolo hotovo)
+
+**Třetí kolo #431 je na `main`u — merge `1f61fd2`** (`--no-ff` přes `BS3D-322`). Větev je smazaná lokálně i na originu a checkout `BS3D` stojí detached na `origin/main`. Issue nechávám otevřené, zavření je na slovu majitele.
+
+- **Výstřel se odmítne, když platí `Cannon.ElevationRefusesShot`.** Platí po celou dobu napětí, tedy přesně když kříž nebo paprsek bliká, a jako pojistka i když póza stojí za svorkou o víc než `ELEVATION_FIRE_TOLERANCE` (0,01 rad). Tolerance není nula, protože druhý švih pružiny zpět přes strop přijde až po skončení blikání (změřeno 0,33°). Na stropu v klidu zbraň střílí. Game zahraje `PlayShotRefused` a skryje ducha, Testbed vypíše `[shot] refused`.
+- **Zvuk:** suché nepoziční „bwom-bwoww“, dvě noty klesající o malou tercii (220→208 a 185→165 Hz), pod nimi subbas o oktávu níž, bez šumu a bez driveru. Změřeno z téže aritmetiky, protože `SynthShotRefused` je statická metoda: 0,50 s, těžiště spektra 186 Hz, 82 % energie ve 150–300 Hz, nad 600 Hz nic. **Majitel ho zatím neslyšel.**
+- **Ověřeno:** rig 22/22 (odmítnutí končí 0,30–0,35 s po tlaku a nikdy nenastane bez blikání). V Testbedu `Space` při 85,7° dvakrát vypsal `[shot] refused`, po usazení na 80,2° rána vyletěla (snímek). Game, Testbed i MapEditor staví s 0 chybami.
+- **⚠ Aider v hlavním checkoutu.** Majitel dnes v `BS3D` zkoušel lokální AI (Aider). Ta mi mezi 11:51 a 12:17 nacommitovala tři commity přímo na moji větev `431-refuse-over-cap`, pod majitelovým jménem. První z nich smazal z `PlayHud.cs` 1727 řádků a Game přestala jít sestavit. Majitel řekl, ať je zahodím. Moje soubory jsem uložil do stashe, větev posunul `checkout -B` na `origin/main` a stash vrátil, takže commity zůstaly jen v reflogu. Aiderovu úpravu `.gitignore` (`.aider*`) jsem nechal necommitnutou. **Než začneš buildit nebo mergovat, zkontroluj `git log` a reflog, jestli ti na větvi nepřibylo něco cizího.**
+
+**Nic dalšího si neberu.**
