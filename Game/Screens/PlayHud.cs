@@ -588,10 +588,16 @@ namespace BS3D.Screens
         private const float PROFILE_FLIGHT_RING = 0.42f;
 
         /// <summary>
-        /// How far below the death line a falling ball goes on being drawn, fading to nothing over the distance
-        /// (#134). In <b>world units</b>, like everything else the panel measures, so it is the same fall at
-        /// every resolution — about 22 px at a 1600×900 client and 52 at 2160p, which stays inside the space
-        /// under the panel.
+        /// The <b>least</b> distance below the death line a falling ball goes on being drawn, fading to nothing
+        /// over it (#134). In <b>world units</b>, like everything else the panel measures.
+        /// <para>
+        /// <b>Since #428 it is only the floor</b>: the fall actually drawn runs down to just above the balls-left
+        /// readout (see <see cref="DrawClusterProfile"/>), which is a screen distance converted at the panel's own
+        /// scale. It was the whole fall until then, about 22 px at a 1600×900 client and 52 at 2160p — and the
+        /// owner's report was exactly that: a ball "vanishes almost as soon as it crosses the line", when it is
+        /// still falling for another 36 units. This stays as the answer for a window so short the readout sits
+        /// above the line.
+        /// </para>
         /// <para>
         /// It is a distance and not a duration, which means the dissolve lasts as long as the ball's own speed
         /// says it should: a ball let go just over the line crawls out, one arriving from the top of the field
@@ -602,6 +608,14 @@ namespace BS3D.Screens
         /// </para>
         /// </summary>
         private const float PROFILE_SINK_FADE = 2f;
+
+        /// <summary>
+        /// How much of that fall a ball is drawn at full strength before it starts to dissolve (#428). The owner
+        /// asked to SEE the balls falling on towards the drain, so the first part of the fall is plain falling;
+        /// a fade that started at the line would dim them the moment they crossed it and read as the old vanish,
+        /// only slower.
+        /// </summary>
+        private const float PROFILE_SINK_HOLD = 0.6f;
 
         //The death line, in design units — thick enough to read as a deliberate mark at the panel's scale, since
         //a 2-pixel line over a lit skyline is sub-pixel and gone. It is a THRESHOLD and not a thing, so it has no
@@ -829,7 +843,7 @@ namespace BS3D.Screens
 
             //The side cut, drawn first so the corner readouts and any incoming award pass over it rather than
             //under it — the same reason DrawAwards is last in this block.
-            DrawClusterProfile(viewport, in profile, balls);
+            DrawClusterProfile(viewport, in profile, balls, BallsLeftTop(score, viewport, margin));
 
             //The score, top right — the FPS line owns the top left (InfoRenderer draws after this, in
             //base.Draw). Its right edge is the pivot everything above hangs off, so the margin holds while the
@@ -939,6 +953,25 @@ namespace BS3D.Screens
         /// a size now, for the reason set out at <c>HUD_LOW_EMPHASIS</c>.)
         /// </para>
         /// </summary>
+        /// <summary>
+        /// Where the top of the balls-left readout stands, in pixels — the bottom of the frame's margin when there
+        /// is no budget and so no readout. Measured the way <see cref="DrawBallsLeft"/> lays it out (the louder
+        /// fonts once the count is low), with a digit and the plural caption, whose heights do not change with
+        /// the count. The side cut's falling balls dissolve down to here (#428).
+        /// </summary>
+        private float BallsLeftTop(ScoreKeeper score, Viewport viewport, int margin)
+        {
+            float bottom = viewport.Height - margin;
+            if (score.ShotsRemaining is not int left) return bottom;
+
+            bool low = left <= HUD_LOW_BALLS;
+            SpriteFontBase font = low ? _game.HudFontScoreLoud : _game.HudFontScore;
+            SpriteFontBase captionFont = low ? _game.HudFontLabelLoud : _game.HudFontLabel;
+
+            return bottom - captionFont.MeasureString("balls left").Y - Scaled(HUD_LINE_GAP)
+                   - font.MeasureString("0").Y;
+        }
+
         private void DrawBallsLeft(ScoreKeeper score, Viewport viewport, int margin)
         {
             if (score.ShotsRemaining is not int left) return;
@@ -1249,7 +1282,8 @@ namespace BS3D.Screens
         /// are made: the markers read straight off the span the session already filled.
         /// </para>
         /// </summary>
-        private void DrawClusterProfile(Viewport viewport, in ClusterProfile profile, ReadOnlySpan<BallMarker> balls)
+        private void DrawClusterProfile(Viewport viewport, in ClusterProfile profile, ReadOnlySpan<BallMarker> balls,
+            float readoutTop)
         {
             //Copied off the `in` parameter into plain locals: a local function cannot capture an `in` parameter,
             //and these are everything the projections below read off the profile.
@@ -1304,6 +1338,17 @@ namespace BS3D.Screens
             //sit edge-to-edge the way the real cluster actually packs.
             float markerRadius = pixelsPerUnit * 0.5f;
 
+            //HOW FAR UNDER THE LINE A FALLING BALL IS STILL DRAWN (#428): down to just above the balls-left
+            //readout, the one thing under the panel it must not run into — so the player watches the balls go on
+            //falling towards the drain rather than vanishing at the line. A screen distance turned into world
+            //units at the panel's own scale, so the fade stays a distance and the panel stays stateless (see
+            //PROFILE_SINK_FADE); never shorter than that floor, and never longer than the fall the game really
+            //draws, since a ball the kill plane takes mid-fade would pop out exactly as #134's did.
+            float floorPx = readoutTop - Scaled(HUD_LINE_GAP) - markerRadius;
+            float sinkFade = Math.Clamp((floorPx - WorldToPanelY(bottomY)) / pixelsPerUnit,
+                PROFILE_SINK_FADE, bottomY - GameplayScreen.KILL_PLANE_Y);
+            float sinkHold = sinkFade * PROFILE_SINK_HOLD;
+
             SpriteBatch batch = _game.OverlayBatch;
             Texture2D pixel = Pixel;
 
@@ -1354,7 +1399,8 @@ namespace BS3D.Screens
                 //drawing it there would say the one thing this panel's floor means: lost. A ball on its way
                 //DOWN has crossed for real, and cutting it dead on the frame it crosses is the pop #134 is
                 //about, when the ball is in fact still falling for another 36 units before KILL_PLANE_Y takes
-                //it. So it goes on falling out of the panel and dissolves over PROFILE_SINK_FADE.
+                //it. So it goes on falling out of the panel, whole for the first PROFILE_SINK_HOLD of sinkFade
+                //and dissolving over the rest (#428).
                 //
                 //Which of the two this is comes off the body's own velocity (BallMarker.Falling), not off the
                 //list it came from: a shot that missed is still in _shotBalls on the way back down. Cluster
@@ -1364,9 +1410,9 @@ namespace BS3D.Screens
 
                 if (sink > 0f)
                 {
-                    if (!marker.Falling || sink >= PROFILE_SINK_FADE) continue;
+                    if (!marker.Falling || sink >= sinkFade) continue;
 
-                    alpha = 1f - sink / PROFILE_SINK_FADE;
+                    alpha = sink <= sinkHold ? 1f : 1f - (sink - sinkHold) / (sinkFade - sinkHold);
                 }
 
                 float px = WorldToPanelX(marker.World);
