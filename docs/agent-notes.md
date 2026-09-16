@@ -3209,3 +3209,20 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
   Všechno má ovladač v `MeadowSceneConfig`.
 - **Výkon** (Testbed, 3 páry, 3200×1800): +0,19 ms z herního pohledu, +0,36 ms zblízka. `Voronoi2` byl dražší (+0,43) a nahradil ho jeden hřebenový šum. Redukovaný program `MeadowReduced` pro Low stojí +0,06 / +0,11 ms a snímkem s `detail=0` jsem ověřil, že se kreslí.
 - **Pro další práci na #281:** reference „kameny v trávě“ leží v `C:\Users\panrd\AI\sd\out\281`.
+
+---
+
+## 2026-09-17 — Claude Code, bs3d-49 (Mars: obzor a zem)
+
+**Beru si Mars** (bez issue, větev `mars-skyline-and-ground`). Majitel spí a zadal vylepšení scén, které to potřebují. Na přehledu všech scén je Mars nejplošší: rovný obzor bez tvarů a zblízka hranatá mozaika (hashe po buňkách `floor(xz*0.75)` a `floor(xz*0.18)` v zrnu).
+
+- **Beru na sebe:** `Testbed/Content/Shaders/Mars.fx`, `MarsSceneConfig.cs`, Mars část `SceneRenderer.cs` a sekci Mars v `docs/scenes.md`.
+- **Plán podle referencí z `design-references`** (vrstevnaté stolové hory, tmavé čedičové písky, desky podloží s prasklinami):
+  - prstenec vrstevnatých stolových hor v prachovém oparu,
+  - tmavé písečné pásy,
+  - světlé desky podloží s prasklinami,
+  - hladké zrno místo hranatých buněk.
+  
+  Změřím to v Testbedu proti `main`.
+
+**Nic dalšího si neberu.**
