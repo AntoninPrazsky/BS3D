@@ -140,6 +140,8 @@ namespace MapEditor
         private City _city;
         private BoxMesh _unitBox;
         private InstancedModelRenderer _cityRenderer;
+        //The equipment on the city's roofs (#436), redressed whenever an edit rebuilds the city
+        private CityRooftops _rooftops;
         //The city's fixed parameters; the G panel edits them live for tuning, nothing persists them
         private CitySceneConfig _cityConfig = new();
 
@@ -444,6 +446,7 @@ namespace MapEditor
                 CityConfig = _cityConfig,
                 SpecularAmbientStrength = CITY_SPECULAR_AMBIENT
             };
+            _rooftops = new CityRooftops(GraphicsDevice, _instancingEffect, _city, _cityConfig, SCENE_AMBIENT_INTENSITY);
 
             //After the scene renderer, because the rig consults it for the scenes that state their own lighting
             _rig = new SkyLightRig(_sceneRenderer);
@@ -607,6 +610,9 @@ namespace MapEditor
                 case CitySceneConfig city:
                     _city = new City(seed: 20260720, arenaHalfExtent: ARENA_HALF_EXTENT, config: city);
                     _cityRenderer.CityConfig = city;
+                    //The roofs follow the new buildings and the edited chances; the renderers survive, so
+                    //nothing needs re-lighting
+                    _rooftops.Rebuild(_city, city);
                     break;
                 case SceneConfig sceneConfig:
                     _sceneRenderer.Apply(sceneConfig);
@@ -682,6 +688,7 @@ namespace MapEditor
 
             foreach (InstancedModelRenderer renderer in _balls.Renderers) _rig.ApplyTo(renderer);
             _rig.ApplyTo(_cityRenderer);
+            foreach (InstancedModelRenderer renderer in _rooftops.Renderers) _rig.ApplyTo(renderer);
 
             //Every variant of every scattered kind, or a spruce of the variant this missed would stand under the
             //light rig of whatever dome was up when it was made. The array the component hands back, walked
@@ -1038,6 +1045,7 @@ namespace MapEditor
                 //Frustum-culled and ordered near to far, as the game draws it — see City.PrepareVisible
                 int visibleBuildings = _city.PrepareVisible(Camera3D);
                 _cityRenderer.Draw(Camera3D, _city.Visible, visibleBuildings, _sceneEffectParams);
+                _rooftops.Draw(Camera3D, neon, frame.Time);
             }
             else
                 //The target goes in so the cavern and the dream can be shaded at the back buffer's size and
@@ -1138,6 +1146,7 @@ namespace MapEditor
             _balls?.Dispose();
             _sceneRenderer?.Dispose();
             _cityRenderer?.Dispose();
+            _rooftops?.Dispose();
             //Every mesh, renderer and procedural texture of the forest scatter, in one call — its stone texture
             //included, the editor having handed it none of its own
             _forestScatter?.Dispose();

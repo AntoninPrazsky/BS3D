@@ -273,6 +273,9 @@ namespace Testbed
         private City _city;
         private BoxMesh _unitBox;
         private InstancedModelRenderer _cityRenderer;
+        //The equipment on the city's roofs (#436) — the Game's own, drawn here too so a rooftop can be framed
+        //and measured from a pinned camera
+        private CityRooftops _rooftops;
         private CitySceneConfig _cityConfig = new();
         //The whole arena the gun stands on: the stone cap and concrete drum of the round island, the glass drain
         //bored through its middle, the two gold beads that ring the drain's circles, and the dark pit shaft that
@@ -976,6 +979,8 @@ namespace Testbed
             _skyLitRenderers.Add(_cannonRig.WheelRenderer);
             _skyLitRenderers.Add(_cannonRig.RollerRenderer);
             if (_cityRenderer != null) _skyLitRenderers.Add(_cityRenderer);
+            if (_rooftops != null)
+                foreach (InstancedModelRenderer renderer in _rooftops.Renderers) _skyLitRenderers.Add(renderer);
             //The island's cap and drum, the drain's glass and its gold beads — but deliberately not its pit
             //shaft, which is a hole in the ground no dome may bleach. Appended rather than enumerated: this
             //list is refilled every frame by the overcast lerp, and an iterator would allocate per call.
@@ -1303,6 +1308,9 @@ namespace Testbed
                 //thousand towers bleached the skyline into a white cliff with the windows lost in it.
                 SpecularAmbientStrength = 0.07f
             };
+
+            _rooftops = new CityRooftops(GraphicsDevice, _instancingEffect, _city, _cityConfig, SCENE_AMBIENT_INTENSITY);
+            Console.WriteLine($"[city] {_rooftops.Total} pieces of rooftop equipment");
 
             //The arena the gun stands on, all of it: the island's stone cap and concrete drum, the glass
             //drain bored through the middle, its two gold beads and the dark pit shaft that backs the glass
@@ -1748,6 +1756,7 @@ namespace Testbed
             //stone texture here (none was handed in), so nothing outside it is waiting on this.
             _forestScatter?.Dispose();
             _auroraScatter?.Dispose();
+            _rooftops?.Dispose();
             _ceilingPlate?.Dispose();
             _sceneRenderer?.Dispose();
             _pipeline?.Dispose();

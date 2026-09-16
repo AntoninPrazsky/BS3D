@@ -412,6 +412,10 @@ namespace BS3D
             {
                 _cityConfig.RadiusBlocks = preset.CityRadiusBlocks;
                 _city = new City(seed: CITY_SEED, arenaHalfExtent: ArenaIsland.RADIUS, config: _cityConfig);
+
+                //The roofs follow the buildings: a piece's placement is a function of its own tower, so the
+                //towers the two cities share keep exactly the equipment they had
+                _rooftops?.Rebuild(_city, _cityConfig);
             }
             else _cityConfig.RadiusBlocks = preset.CityRadiusBlocks;
 

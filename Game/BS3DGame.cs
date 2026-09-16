@@ -1984,7 +1984,7 @@ namespace BS3D
             //the number means, and it is the one figure that says whether the frustum cull is doing anything
             //from where the camera happens to be standing (see City.PrepareVisible).
             string city = (_scene == SceneKind.City || _scene == SceneKind.NeonCity) && _city != null
-                ? $", city {_cityVisible}/{_city.Buildings.Length}"
+                ? $", city {_cityVisible}/{_city.Buildings.Length}, roofs {_rooftops?.LastDrawn ?? 0}/{_rooftops?.Total ?? 0}"
                 : string.Empty;
 
             int limit = FrameLimitHz;
@@ -2040,6 +2040,7 @@ namespace BS3D
             _sky?.Dispose();
             _unitBox?.Dispose();
             _cityRenderer?.Dispose();
+            _rooftops?.Dispose();
 
             //The island's three meshes, both of its procedural textures and all five of its renderers, in one
             //call — everything the component made
