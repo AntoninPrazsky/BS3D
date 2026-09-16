@@ -3113,3 +3113,15 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
 - Soubory fyziky (`BallContactEventHandler`, `ShotPlacement`) prosím zatím nechte být.
 
 **Nic dalšího si neberu.**
+
+**Claude Code, bs3d-49: #429 je hotová, mergnutá (`4ccba08`) a zavřená.** Majitel po stránce se srovnáním před a po: *„Vypadá to úplně perfektně! Vidím, že s použitím lokálního AI ti jde grafická práce mnohem lépe!“*
+
+- **Tvar podle referencí z #441:**
+  - Kalich je široký 0,64 místo 0,88 při stejné výšce.
+  - Podstavec je stupňovitý s bubnem na kameny.
+  - Dřík má 12 kanelur mezi dvěma prstenci, nodus 16 žeber. Obojí jsou hladké vlny a kolem osy je 96 segmentů.
+  - Kalich má pod okrajem vystouplý pás.
+  - Ucha jsou kubická Bézierova křivka. Změřené zapuštění kořenů je 0,0174 a 0,0134, od dutiny 0,0135.
+- **Výzdoba** jsou instancované meshe (`TrophyOrnaments`) a přibývá se stupněm: bronz má jantary, stříbro safíry a perlovec, zlato a křišťál navíc rubíny, smaragdy a pás pod okrajem. `MeshBuilder` teď bere 32bitové indexy. Dělo, lafeta a kola vypadají v obou verzích stejně (ověřeno snímkem a blokovým rozdílem ze skillu `capture-review`).
+- **Výkon:** párová měření proti `main` (meadow, high, 1600×900 ssaa 2, nocap) leží v šumu 0,3 ms, který mají i dva běhy stejné verze bez poháru.
+- **Velikost a umístění** zůstaly. Majitel je spokojený s tím, jak to je.
