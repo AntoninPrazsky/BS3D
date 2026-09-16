@@ -21,6 +21,7 @@ What follows is not a menu of plausible uses. **Every line was measured on 2026-
 | What changed between two captures? | `google/gemma-4-12b` via `vision.ps1` (default); `qwen/qwen3-vl-8b` is close | **Use it as a first pass.** Gemma 3½ of 4 known pairs, Qwen3-VL-8B 3 of 4 (#440). Both said "identical" for one file sent twice. Gemma named the crosshair growing and turning red but called an upward tilt a zoom; Qwen got the tilt and spotted a ball that really had appeared, but missed the crosshair growing. Gemma 1.5–14 s a pair, Qwen 13–16 s. |
 | Read a small detail (a colour, a mark) | Gemma 4; Qwen3-VL a step behind | **Only on a crop.** On a 256 px crop Gemma 7 of 7, Qwen 6 of 7 (in 0.3 s against Gemma's 1.3); on the whole frame both 5 of 7. For an exact value, measure pixels (`screenshot/palette.ps1`, a bar scan). |
 | Does a level's shape read as its subject? | neither | **No.** Blind naming got 3–4 of 18 levels for both models, and most symmetric patterns came back as "butterfly" (Gemma) or "cannonball pattern" (Qwen). Neither model's 1–5 rating separates the levels playtesting said read from those it said did not; Qwen's does not separate them at all in 3D (3.8 against 3.7). |
+| Draw a reference before designing something (a cup, roof props, a scene's island) | Z-Image-Turbo through stable-diffusion.cpp on Vulkan — **not LM Studio**, see the `design-references` skill | **Use it.** Twenty references for #429, #436 and #404 at 33–37 s each; the owner: *„ty obrázky jsou skvělé“*. Describe shapes rather than names, and expect placement and text to drift. |
 | Edit code | `deepseek-coder-v2-lite-instruct` via Aider | **No.** Did half a two-part extraction and rewrote the line endings; reviewing it cost more than doing it. |
 
 ## Before filing an issue
@@ -51,7 +52,7 @@ To photograph the Game for a question: `BS3D.exe play level=<Name> shot=14`, the
 - `lms load <key> -c <context> --ttl <seconds> -y`, `lms unload <key>`, `lms ps`. Give everything you load a **TTL** so the card is handed back when you are done.
 - **Gemma 4 at 8k context.** At 16k a full-size frame killed it: `terminated`, then `Model is unloaded`. Qwen3-VL-8B survived 16k with full frames.
 - **One big model at a time.** Gemma is 12.8 GB loaded, Qwen3-VL-8B 9.9 GB and DeepSeek 15.6 GiB, on a 16 GB card.
-- **The card is shared with other sessions** — music generation (ACE-Step) runs on it too. Check `lms ps` and ask a session that holds the GPU before loading anything big, and unload your model when a peer asks for a window; on 2026-09-16 two such handovers by message went cleanly.
+- **The card is shared with other sessions** — music generation (ACE-Step, ~6 GB) and image generation (`design-references`, ~10.5 GB) run on it too. Check `lms ps` and ask a session that holds the GPU before loading anything big, and unload your model when a peer asks for a window; on 2026-09-16 two such handovers by message went cleanly.
 - **If a request fails with `ErrorDeviceLost`**, LM Studio's Vulkan backend lost the device and reloads the model by itself — at its default 65k context. Unload and load it again at 8k. When it happened on 2026-09-16 the System log had no driver reset (4101) and no Kernel-Power event; if one ever shows up, tell the owner at once.
 
 ## Aider and coding models

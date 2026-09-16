@@ -1,0 +1,126 @@
+<#
+.SYNOPSIS
+Renders design reference images locally: Z-Image-Turbo through stable-diffusion.cpp's sd-server on Vulkan.
+
+.DESCRIPTION
+Starts sd-server when nothing listens on -Port (and stops it again when done, unless -KeepServer), renders every
+prompt -Count times with consecutive seeds, and writes <name>-<seed>.png beside a <name>-<seed>.txt that carries
+the prompt, size, seed and time. Everything goes under -Out, outside the repository by default.
+
+The server flags are the ones measured on #441 (RX 6900 XT, 16 GB): everything on the card does not fit,
+--offload-to-cpu alone decodes on the CPU (63 s an image), --offload-to-cpu --vae-tiling renders in 33-37 s.
+
+.EXAMPLE
+.\render-references.ps1 -Name cup-gold -Width 832 -Height 1216 -Count 3 -Prompt "Studio product photograph of ..."
+
+.EXAMPLE
+.\render-references.ps1 -PromptFile C:\Users\panrd\AI\sd\prompts-441.json -Out C:\Users\panrd\AI\sd\out\441
+# the file is a JSON array of { "name": "...", "prompt": "...", "w": 1216, "h": 832, "seed": 1 } (w, h, seed optional)
+#>
+param(
+    [string]$Prompt,
+    [string]$Name = 'reference',
+    [string]$PromptFile,
+    [int]$Width = 1216,
+    [int]$Height = 832,
+    [int]$Seed = -1,
+    [int]$Count = 1,
+    [int]$Steps = 8,
+    [string]$Out,
+    [string]$Root = 'C:\Users\panrd\AI\sd',
+    [int]$Port = 7860,
+    [switch]$KeepServer
+)
+$ErrorActionPreference = 'Stop'
+
+if (-not $Prompt -and -not $PromptFile) { throw 'Pass -Prompt or -PromptFile.' }
+if (-not $Out) { $Out = Join-Path $Root ('out\' + (Get-Date -Format 'yyyyMMdd-HHmmss')) }
+New-Item -ItemType Directory -Force -Path $Out | Out-Null
+
+$exe = Join-Path $Root 'bin\sd-server.exe'
+$models = Join-Path $Root 'models'
+$diffusion = Join-Path $models 'z_image_turbo-Q8_0.gguf'
+$encoder = Join-Path $models 'Qwen3-4B-Instruct-2507-Q8_0.gguf'
+$vae = Join-Path $models 'ae.safetensors'
+foreach ($f in @($exe, $diffusion, $encoder, $vae)) {
+    if (-not (Test-Path $f)) { throw "Missing $f - see 'Setting it up' in the design-references SKILL.md." }
+}
+
+# The work list: one entry per prompt, each rendered -Count times.
+$items = @()
+if ($PromptFile) {
+    foreach ($it in (Get-Content -Raw -Encoding UTF8 $PromptFile | ConvertFrom-Json)) {
+        $w = $Width; $h = $Height; $s = $Seed
+        if ($it.w) { $w = [int]$it.w }
+        if ($it.h) { $h = [int]$it.h }
+        if ($null -ne $it.seed) { $s = [int]$it.seed }
+        $items += [pscustomobject]@{ Name = $it.name; Prompt = $it.prompt; W = $w; H = $h; Seed = $s }
+    }
+} else {
+    $items += [pscustomobject]@{ Name = $Name; Prompt = $Prompt; W = $Width; H = $Height; Seed = $Seed }
+}
+
+function Test-ServerPort([int]$p) {
+    $c = New-Object Net.Sockets.TcpClient
+    try { $c.Connect('127.0.0.1', $p); return $true } catch { return $false } finally { $c.Close() }
+}
+
+# The card is shared: say what else holds it before taking ~10.5 GB of it.
+try {
+    $loaded = @((Invoke-RestMethod -Uri 'http://localhost:1234/api/v0/models' -TimeoutSec 3).data |
+        Where-Object { $_.state -eq 'loaded' -and $_.type -ne 'embeddings' })
+    if ($loaded.Count) {
+        Write-Warning ("LM Studio has loaded: " + (($loaded | ForEach-Object { $_.id }) -join ', ') +
+            ". It and this renderer do not fit on the 16 GB card together - unload it or ask the session that loaded it.")
+    }
+} catch {}
+try {
+    $used = ((Get-Counter '\GPU Adapter Memory(*)\Dedicated Usage').CounterSamples |
+        Measure-Object -Property CookedValue -Maximum).Maximum / 1GB
+    Write-Host ("GPU memory in use before starting: {0:N1} GB" -f $used)
+} catch {}
+
+$proc = $null
+$log = Join-Path $Out 'server.log'
+try {
+    if (Test-ServerPort $Port) {
+        Write-Host "Reusing the server already listening on port $Port."
+    } else {
+        $serverArgs = @('--listen-port', $Port, '--diffusion-model', "`"$diffusion`"", '--vae', "`"$vae`"",
+            '--llm', "`"$encoder`"", '--offload-to-cpu', '--vae-tiling')
+        $proc = Start-Process -FilePath $exe -ArgumentList $serverArgs -RedirectStandardOutput $log `
+            -RedirectStandardError "$log.err" -WindowStyle Hidden -PassThru
+        $deadline = (Get-Date).AddSeconds(180)
+        while (-not (Test-ServerPort $Port)) {
+            if ($proc.HasExited) { throw "sd-server exited with code $($proc.ExitCode); see $log and $log.err" }
+            if ((Get-Date) -gt $deadline) { throw "sd-server did not listen on port $Port within 180 s; see $log" }
+            Start-Sleep -Milliseconds 500
+        }
+        Write-Host "sd-server started (pid $($proc.Id))."
+    }
+
+    foreach ($it in $items) {
+        $base = $it.Seed
+        if ($base -lt 0) { $base = Get-Random -Minimum 1 -Maximum 2000000000 }
+        for ($i = 0; $i -lt $Count; $i++) {
+            $s = $base + $i
+            $body = @{ prompt = $it.Prompt; negative_prompt = ''; width = $it.W; height = $it.H; steps = $Steps;
+                cfg_scale = 1.0; seed = $s; batch_size = 1 } | ConvertTo-Json -Compress
+            $sw = [Diagnostics.Stopwatch]::StartNew()
+            $res = Invoke-RestMethod -Uri "http://127.0.0.1:$Port/sdapi/v1/txt2img" -Method Post `
+                -Body ([Text.Encoding]::UTF8.GetBytes($body)) -ContentType 'application/json; charset=utf-8' -TimeoutSec 1800
+            $secs = $sw.Elapsed.TotalSeconds
+            $file = Join-Path $Out ("{0}-{1}" -f $it.Name, $s)
+            [IO.File]::WriteAllBytes("$file.png", [Convert]::FromBase64String($res.images[0]))
+            $meta = "name: $($it.Name)`r`nseed: $s`r`nsize: $($it.W)x$($it.H)`r`nsteps: $Steps`r`nseconds: " +
+                $secs.ToString('F1', [Globalization.CultureInfo]::InvariantCulture) + "`r`n`r`n$($it.Prompt)`r`n"
+            [IO.File]::WriteAllText("$file.txt", $meta, (New-Object Text.UTF8Encoding($false)))
+            Write-Host ("{0}  {1}x{2}  seed {3}  {4:N1} s" -f "$file.png", $it.W, $it.H, $s, $secs)
+        }
+    }
+} finally {
+    if ($proc -and -not $KeepServer -and -not $proc.HasExited) {
+        Stop-Process -Id $proc.Id -Force
+        Write-Host 'sd-server stopped; the card is free.'
+    }
+}
