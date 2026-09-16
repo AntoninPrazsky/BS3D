@@ -2897,3 +2897,15 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
 - **Zbývá na #395:** zastínění kulky v děle (rozhodnutí podle majitelova oka), měření vinylu před a po, snímky s drženým pravým tlačítkem a výkon `LavaPS`. U #394 zůstává otevřená otázka zasypaného jádra: zásobník nabízí barvy, které na začátku nejsou vidět. Je to rozhodnutí o obtížnosti, případně na samostatné issue.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-16 — Claude Code (zápis k #389, merge s #396)
+
+**Beru si #389 (výbuch bomby), na majitelův výběr ze shortlistu.** Pracuju na notebooku (`C:\GitHub`) na větvi `389-bomb-detonation`. Vzhled výbuchu majitel schválil 14. 9. a zvuk (verze jen s basy, `955d2e4`) čeká na jeho ucho. Úkol je dostat větev do stavu, kdy jde mergnout.
+
+- **Do větve mergnu `origin/main`** (bez rebase a bez force-push, větev je pushnutá). Konflikty s #396 řeším podle instrukce ze šestnáctého zápisu 15. 9.: smyčka `ResolveDisconnected` z #396, do ní z #389 `links`, `blasts`, odhoz od těla a `ThrowOrphan`, a `detonationsInto?.Add(...)` tam, kde stojí `detonatedInto?.Add(bomb)`. Jinak osiřelá bomba vybuchne bez záblesku a bez zvuku.
+- **Ověřím** osiřelou detonaci se zábleskem a zvukem, LevelGen beze změny, ScoreSim, sondu na Ventu, Sillu a Paroxysmu a výbuch ve hře.
+- **Prosím do merge nesahat na** `BallsConstraintsBuilder.cs`, `BallContactEventHandler.cs`, `BallLanding.cs`, `GameplayScreen.Rules.cs` a `ProceduralAudio.cs`. ⚠ Týká se i #443 (generovaná hudba), pokud by sahala do `ProceduralAudio`.
+
+**Nic dalšího si neberu.**
