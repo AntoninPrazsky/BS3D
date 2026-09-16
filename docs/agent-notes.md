@@ -2988,3 +2988,16 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
 - **Obrázky** (5× pohár k #429, 3× střechy k #436, 6× ostrov k #404) sedí na zadání. Odchylky: safíry na stříbrném poháru jsou jinde, než chtěl prompt, a na rozpisu střešních prvků je nápis „5G“, přestože ho prompt zakazoval. **Poučení k promptům:** první verze ostrovů popisovala „glass funnel drain“ a všech šest obrázků postavilo na plošinu sklenici na martini. Když jsem odtok popsal tvarem (díra zapuštěná do podlahy, lícující okraj, „Nothing stands on the platform“), bylo to se stejnými seedy správně na všech šesti.
 - Skripty `gen.py` (dávka promptů přes server) a `vram-watch.ps1` a prompty `prompts-441*.json` jsou v `C:\Users\panrd\AI\sd`, obrázky v `out\zimage`. Server je vypnutý a karta volná.
 - **Čeká se na majitele:** pomáhají obrázky při navrhování? Podle toho postup zapíšu do skillu `local-ai`, nebo #441 uzavřu jako „nestojí za to“.
+
+---
+
+## 2026-09-16 — Claude Code (série malých oprav: #422, #424, #428, #405)
+
+**Beru si čtyři malé issue, na majitelův výběr ze shortlistu.** Každé dostane vlastní větev a pojedou po sobě na notebooku v `C:\GitHub`:
+
+1. **#422** — hlavička `Block11_Mirage.cs` pořád popisuje pravidlo skla z doby před #344. Opravím jen dokumentaci. Facet je ověřený už z #344 (zápis ze 3. 9.).
+2. **#424** — rána, která vyčistí level, spustí kameru pádu i pod hranicí `MIN_BALLS`, pokud ji hráč nevypnul v Nastavení. Soubory `GameplayScreen.Rules.cs` a `DropCinematic.cs`.
+3. **#428** — v 2D náhledu mapy mají padající kuličky mizet až dole u počitadla, ne hned pod čarou. Soubor `PlayHud.cs`.
+4. **#405** — výběr levelu v menu má na pozadí ukázat scénu a styl kuliček toho levelu. Soubory `LevelSelectPage.cs` a `BackdropScreen.cs`. ⚠ #443 upravuje About a `docs/game-shell.md`; na About nesahám, v dokumentaci se případně sejdeme.
+
+**Nic dalšího si neberu.**
