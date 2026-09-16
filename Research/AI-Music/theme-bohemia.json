@@ -1,0 +1,23 @@
+{
+  "file": "theme-bohemia.wav",
+  "created": "2026-09-16",
+  "counterpart_of": "MusicTheme.Bohemia -- Game/Audio/ProceduralMusic.cs (D Dorian at 116, strings, brass pillars, tuned drum; statement, second subject, coda; twelve sections, 3:19)",
+  "purpose": "Reference render for the proposal to replace the procedural music with generated audio. Not wired into any content pipeline.",
+  "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- generate-music.ps1 + loop_crossfade.py",
+  "request": {
+    "caption": "Epic orchestral dance-hybrid instrumental in D Dorian mode, driving dance-floor beat under a lush string section and bold brass pillars, a tuned melodic drum accent, a clear main theme, a contrasting second theme, and a coda that returns to the main theme, cinematic and grand, no vocals",
+    "instrumental": true,
+    "duration": 120,
+    "bpm": 116,
+    "keyscale": "D minor",
+    "inference_steps": 8,
+    "output_format": "wav32"
+  },
+  "lm_enriched_caption": "An intense, cinematic orchestral piece driven by powerful, staccato string ostinatos that create immediate tension. The arrangement builds relentlessly with layers of epic percussion hits and soaring brass swells over the driving strings. The track transitions into an electronic-infused climax around the one-minute mark, introducing synth arpeggios and a driving beat beneath the continuing orchestral force. A brief breakdown offers a moment of suspense before launching back into a massive crescendo featuring choir-like pads and thunderous drums, culminating in a final, impactful hit followed by abrupt silence.",
+  "post_process": "loop_crossfade.py: a 20-bar loop cut out of the render's body -- source 34.26s..76.00s of the render with its first and last 5s dropped, tempo measured 115.3 bpm, 1.04s equal-power crossfade of the audio past the end into the start -> 41.7s seamless loop",
+  "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+  "license": "ACE-Step 1.5: MIT (code and weights)",
+  "keyscale_note": "D Dorian is not a value the request's key field offers; 'D minor' is the nearest, and the mode is named in the caption instead.",
+  "measured": "First attempt at the real piece's 199s needed 6 VAE tiles and ace-synth crashed (exit -1073740791 / 0xC0000409) after 147s of LM work. Retried at 120s: ace-lm 46.9s, ace-synth 155.8s, VAE decode 4 tiles in 137.0s.",
+  "loop_check": "rhythm of the two streams under the crossfade r=0.43 against the track's own passages a bar apart r=0.53; spectrum cos=0.47. Verdict: BELOW the track's own timekeeping -- listen. The render is through-composed: an electronic climax with a different rhythm enters near 76s, so the only consistent material is the orchestral stretch 34-76s. A longer loop needs a regeneration asking for one steady groove, not a recut."
+}

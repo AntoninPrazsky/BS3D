@@ -1,13 +1,24 @@
-Local AI music generation exploration (ACE-Step 1.5 / acestep.cpp, run locally on
-an AMD RX 6900 XT via Vulkan -- see each .json sidecar for the exact prompt and
-parameters that produced the matching .wav).
+Locally generated music (ACE-Step 1.5 through acestep.cpp, on the desktop's AMD
+RX 6900 XT via Vulkan). Each .wav has a .json sidecar with the exact prompt, what
+the model's LM rewrote it into, the loop cut and what was measured.
 
-Reference/exploration only, same spirit as Music.txt one level up. BS3D's real
-music is entirely procedural (Game/Audio/ProceduralMusic.cs) -- fully authored
-scores rendered from oscillators, no tracker file, no asset, no pipeline step.
-Nothing here is wired into any content pipeline or asset build.
+Reference renders for the proposal to replace the procedural music (see the
+GitHub issue that links here). BS3D's shipped music is still entirely procedural
+(Game/Audio/ProceduralMusic.cs) and nothing here is wired into a content pipeline.
 
-  menu-loop-v2.wav   59.2s, A minor, 100 BPM -- seamless loop (crossfaded),
-                     brief taken from ProceduralMusic.cs::BakeMenu
-  game-track-01.wav  90s, C major, 124 BPM -- energetic in-level piece, key/tempo
-                     deliberately distinct from all five MusicTheme entries
+All loops, 48 kHz, 32-bit float, stereo.
+
+  menu-loop-v2.wav    59.2s  A minor  100  front end's loop (BakeMenu's brief)
+  theme-pulse.wav     63.8s  A minor  128  MusicTheme.Pulse
+  theme-bohemia.wav   41.7s  D minor* 116  MusicTheme.Bohemia   loop below the
+                                           track's own timekeeping -- listen
+  theme-nocturne.wav  80.0s  --       96   MusicTheme.Nocturne
+  theme-mural.wav     88.0s  G major  120  MusicTheme.Mural
+  theme-ember.wav     57.4s  E minor  134  MusicTheme.Ember
+  game-track-01.wav   61.4s  C major  124  a new piece, not a counterpart
+
+  * D Dorian was asked for in the caption; the key field has no modes.
+
+The theme loops and game-track-01 are whole-bar loops cut out of the body of a
+longer render, aligned to the millisecond and crossfaded for about two beats.
+menu-loop-v2 predates that and is the render's tail folded into its head.
