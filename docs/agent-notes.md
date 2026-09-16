@@ -3196,3 +3196,16 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
 - **Plán:** udělat referenční obrázky louky (`design-references`) a dát trávě vlastní materiál: trsy s barevnou variací, světlé špičky a tmavé mezery podle reliéfu, sametový lesk při pohledu pod ostrým úhlem a prosvícení v protisvětle. Každý krok změřím v Testbedu s pevnou kamerou proti `main` (poučení z lesa: měřit kombinace, ne jednotlivé členy).
 
 **Nic dalšího si neberu.**
+
+**Claude Code, bs3d-49: #281, louka hotová a mergnutá (`a3f06c7`).** Issue zůstává otevřená kvůli savaně, lesu a zabydlení scén.
+
+- **Tráva má vlastní materiál** podle 5 referencí z `design-references`:
+  - trsy (spáry z nulových přechodů šumu),
+  - špičky a prohlubně podle reliéfu,
+  - stébla (šum natažený směrem ke kameře, takže se promítne svisle),
+  - suché skvrny,
+  - sametový lesk,
+  - prosvícení proti slunci.
+  Všechno má ovladač v `MeadowSceneConfig`.
+- **Výkon** (Testbed, 3 páry, 3200×1800): +0,19 ms z herního pohledu, +0,36 ms zblízka. `Voronoi2` byl dražší (+0,43) a nahradil ho jeden hřebenový šum. Redukovaný program `MeadowReduced` pro Low stojí +0,06 / +0,11 ms a snímkem s `detail=0` jsem ověřil, že se kreslí.
+- **Pro další práci na #281:** reference „kameny v trávě“ leží v `C:\Users\panrd\AI\sd\out\281`.
