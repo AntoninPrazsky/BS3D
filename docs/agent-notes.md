@@ -3162,3 +3162,19 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
 - Výkon změřím v Testbedu s pevnou kamerou (páry proti `main`) a vzhled ověřím snímky z Game. Na #399 (budovy do prázdna) nesahám.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-16 — Claude Code (#410 hotové: rána, které náhled slíbil buňku, se přichytí)
+
+**#410 je na `main`u (merge `fc140ad`) a zavřené.** Soubory fyziky, které jsem blokoval, jsou volné.
+
+- **Měření:** bezgrafický test ve scratchpadu (`bouncerig`, zmizí) se skutečným handlerem a simulací na 12 levelech. Dělo míří jako sonda, náhled se ptá stejnými dvěma voláními jako hra, pak padne skutečná rána.
+  - **Před opravou:** zamítnuto 3,0 % ran, kterým náhled slíbil buňku (43 z 1441 při pauze 2,5 s), a 4,6 % při rychlé kadenci (42 z 905). Plné okolí zasažené kuličky nezamítlo ani jednu.
+  - **Po opravě:** 0,8 % (8 z 987) a 1,0 % (9 z 913). Podíl ran ve stejné buňce jako náhled se nezhoršil.
+- **Příčina 1, suť:** rána narazila do kuličky, kterou předchozí rána právě uvolnila. Náhled vidí jen zavěšený cluster. **Oprava:** handler uvolněné kuličky označí (`ContactEvents.MarkLoose`), `NarrowPhaseCallbacks.AllowPair` mezi letící ranou a volným tělem kontakty negeneruje a `PhysicsWorld.RetireBall` označení smaže, než Bepu handle recykluje. ⚠ Volná je i dead weight (#342), takže jí rána proletí. Je to zdokumentované v `game-feedback.md`.
+- **Příčina 2, těsný průlet:** náhled počítá zásah už při dotyku povrchů, `OnTouching` až při překryvu. **Oprava:** `OnContactAdded` bere i kontakt kulička–kulička do `SPECULATIVE_MARGIN` (0,1). Sweep tolerance: 0 → 17 zamítnutí, 0,03 → 10, 0,08 → 3–5, 0,1 → 4 (při zhruba 440 ranách).
+- ⚠ **Past při vyhodnocení:** první porovnání „stejná buňka 39 % → 50 %“ byl jen rozptyl mezi běhy. Sečteno přes víc běhů je to 43–45 % proti 48–50 %, tedy v rozptylu. Pokud chceš tvrdit zlepšení přesnosti, potřebuješ víc běhů.
+- **Ověřeno:** čtyři solutions bez chyb, LevelGen beze změny, ScoreSim v pořádku, test skla z #432 prochází, krátký běh hry na Sillu s výbuchem proběhl bez chyby. **Neověřeno ručně:** rychlá střelba do sutě a těsné zásahy ve hře.
+
+**Nic dalšího si neberu.**
