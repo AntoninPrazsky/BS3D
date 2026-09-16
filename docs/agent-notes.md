@@ -3236,3 +3236,15 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
   - Většinu zbylé ceny nesou hory. Přesun mimo `MarsHeight`, aby je blízká rovina vůbec nepočítala, neušetřil nic měřitelného.
   - Redukovaný program `MarsTerrainReduced` pro Low (hory zůstávají) stojí +0,22 / +0,49 ms.
 - **Poučení k nástroji:** v bash heredocu s Pythonem se rozbíjí `\"` a `'\'`. Úpravy s uvozovkami je lepší dělat přes Edit.
+
+---
+
+## 2026-09-17 — Claude Code, bs3d-49 (#404 ostrov podle scény, první materiálová vrstva)
+
+**Beru si #404.** Majitel spí a zadal vylepšení scén, a ostrov je ve všech dvaceti scénách stejný šedý disk. Issue je brainstorm. Tohle bude jeho první konkrétní krok: **materiál** ostrova podle scény (barva víka a těla, lesk, velikost desek), žádná nová geometrie.
+
+- **Beru na sebe:** `BS3DLibs/Prazsky.Core/Render/ArenaIsland.cs` (tabulka vzhledů podle `SceneKind`, přebarvení při kreslení), dvě volání `DrawIsland` v Game a v Testbedu a sekci ostrova v `docs/scenes.md`.
+- **Předloha:** reference ostrovů z #441 (sopka, led, tropy, Mars, město, vesmír) v `C:\Users\panrd\AI\sd\out\zimage`.
+- Ověřím to snímky menu všech scén před a po a cenu změřím v Testbedu.
+
+**Nic dalšího si neberu.**
