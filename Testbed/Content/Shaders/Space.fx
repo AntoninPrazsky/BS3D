@@ -355,6 +355,29 @@ static const float VOLUME_DARK_MATTER = 0.30;
 //How much of the flat between-filaments haze is kept. See where it is used for why it is a fraction.
 static const float VOLUME_HAZE = 0.22;
 
+//The ceiling on how far ONE iteration may move the point (#401), and the whole of that issue's "disco strobe".
+//The map's sphere inversion divides by dot(p,p), so an iterate that lands near the origin is thrown out by the
+//reciprocal. Sampled in a CPU copy of this march over 24 cameras and times, an iteration moves 4.4 at the
+//99th percentile and 7.8 at the 99.9th, and the near-singular ones reach 219. Summed and CUBED, one of them lit
+//a disc of the web at radiances up to 141 against GLARE_THRESHOLD's 0.55: a spot a few pixels across bloomed
+//into a halo many times that, and went out again within a third of a second, because nothing in this field is
+//more sensitive to its input than a near-singular iterate and the drift alone carries it off the march step it
+//was sampled on. At 8 the cap sits just above that 99.9th percentile, so the web is left as it was tuned and
+//only the singular tail is clipped: from the pinned Testbed camera, sky pixels changing by more than 40 codes
+//between frames 0.3 s apart fell from ~4 600-5 300 to ~130-660, and none of the sky reaches code 220 any more.
+//
+//Per ITERATION rather than on the step's sum, because a cap on the sum was tried first and did nothing useful:
+//it flattened the disc's core and left the same disc popping in and out, the sum being large only inside it.
+//
+//And it rises as 1/s toward the eye (VOLUME_JUMP_CAP_NEAR). The same singular neighbourhood subtends an angle
+//inversely proportional to its distance, so a near step magnifies its clipped disc - and the first step, whose
+//samples for the whole frame lie within 0.05 of the eye, has large jumps that are the soft glow the camera
+//stands in rather than any glint. A flat cap of 12 dimmed exactly that glow (the sky's mean fell by a tenth);
+//holding cap * s at 3 or more keeps a near step's clipped disc no wider on screen than a far one's and the
+//glow where it was (the mean within 2 %, the difference being the glints' own light).
+static const float VOLUME_JUMP_CAP = 8.0;
+static const float VOLUME_JUMP_CAP_NEAR = 3.0;
+
 //A fixed basis, orthonormal to about three decimals, that shares no axis with the world's. Baked as a
 //constant because it never changes and the compiler folds it into the multiplies.
 static const float3x3 VOLUME_BASIS = float3x3(
@@ -397,13 +420,16 @@ float3 StarNestVolume(float3 dir, float3 eye, out float transmittance)
         float previousLength = 0.0;
         float activity = 0.0;
 
+        //See VOLUME_JUMP_CAP: the far steps' ceiling, raised as 1/s for the near ones
+        float jumpCap = max(VOLUME_JUMP_CAP, VOLUME_JUMP_CAP_NEAR / s);
+
         [unroll]
         for (int i = 0; i < VOLUME_ITERATIONS; i++)
         {
             p = abs(p) / dot(p, p) - VOLUME_FORMULA;
 
             float currentLength = length(p);
-            activity += abs(currentLength - previousLength);
+            activity += min(abs(currentLength - previousLength), jumpCap);
             previousLength = currentLength;
         }
 
