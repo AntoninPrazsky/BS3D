@@ -20,6 +20,28 @@ namespace Prazsky.BS3D.Physics
         {
             ContactEvents _events;
 
+            /// <summary>
+            /// Both overloads' answer. At least one of the two has to be dynamic (kinematic and static pairs cannot make
+            /// constraints), and <b>a shot in flight passes through a loose ball</b> (#410): the landing preview solves
+            /// against the hanging structure only, so a ball released a moment ago and still falling through the line of
+            /// fire is invisible to it, and a shot fired straight after a match met that debris and bounced off it after a
+            /// ghost had shown where it would stick. Measured with the real handler on twelve shipped levels at a fast
+            /// player's cadence, that was the largest single cause of a promised shot being refused (11 of 21 refusals in
+            /// about 450 shots). What falls away is scenery rather than an obstacle, which is how a match's debris reads
+            /// in any game of this kind. Both reads are bitset lookups over flags only ever written between steps.
+            /// </summary>
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            private bool AllowPair(CollidableReference a, CollidableReference b)
+            {
+                if (a.Mobility != CollidableMobility.Dynamic && b.Mobility != CollidableMobility.Dynamic) return false;
+
+                if (a.Mobility == CollidableMobility.Dynamic && b.Mobility == CollidableMobility.Dynamic
+                    && ((_events.IsListener(a) && _events.IsLoose(b)) || (_events.IsListener(b) && _events.IsLoose(a))))
+                    return false;
+
+                return true;
+            }
+
             public NarrowPhaseCallbacks(ContactEvents events)
             {
                 _events = events;
@@ -53,7 +75,7 @@ namespace Prazsky.BS3D.Physics
 
                 //This function also exposes the speculative margin. It can be validly written to, but that is a very rare use case.
                 //Most of the time, you can ignore this function's speculativeMargin parameter entirely.
-                return a.Mobility == CollidableMobility.Dynamic || b.Mobility == CollidableMobility.Dynamic;
+                return AllowPair(a, b);
             }
 
             /// <summary>
@@ -144,7 +166,7 @@ namespace Prazsky.BS3D.Physics
 
                 //This function also exposes the speculative margin. It can be validly written to, but that is a very rare use case.
                 //Most of the time, you can ignore this function's speculativeMargin parameter entirely.
-                return a.Mobility == CollidableMobility.Dynamic || b.Mobility == CollidableMobility.Dynamic;
+                return AllowPair(a, b);
             }
         }
 
