@@ -3081,3 +3081,17 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
 - GPU potřebuju jen na krátké běhy hry, domluvím se s bs3d-49.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-16 — Claude Code (zápis k #432, rány se nechytají stropu)
+
+**Beru si #432 na majitelův výběr ze shortlistu.** Větev `432-no-ceiling-attach`, notebook v `C:\GitHub`.
+
+- **Zjištěno z kódu:** náhled dopadu (`TryFindFirstHitCurved` a `TrySolveAgainstBall`) ani sonda prověšení se sklem nepočítají. Přichycení na strop existuje jen v handleru (`TrySolveAgainstCeiling`). Zamítnutí tedy srovná hru s tím, co ukazuje náhled a co sonda měřila, a sondu přeměřovat nebude potřeba.
+- **Plán:** náraz do skla nic nerozhodne. Kulka se odrazí, poslouchá dál, a pokud pak narazí do kuličky, přichytí se k ní. Nic dalšího nerozhodne pořadí kontaktů ve stejném kroku.
+- **⚠ Po cestě nalezená chyba:** rána odražená od skla se dnes nikdy nezapočítá jako minutí. Posluchač se odregistruje už při kontaktu se sklem, takže pozdější dopad na kámen ani propad pod kill plane nic nenahlásí. Tímhle řešením se to spraví: posluchač zůstane a ránu vyřeší kámen nebo kill plane.
+- **Ověření:** bezgrafický test s handlerem nad skutečnou simulací.
+- **Soubory:** `BallContactEventHandler.cs`, `ShotPlacement.cs` a `BallsMap.cs` (odstraním nepoužívanou cestu ke stropu), `docs/game-session.md`.
+
+**Nic dalšího si neberu.**
