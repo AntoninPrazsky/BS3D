@@ -3101,3 +3101,15 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
 - **Neověřeno ve hře:** Game nemá skriptované míření, takže skutečný výstřel do skla zbývá majiteli. Test zůstal ve scratchpadu (`glassrig`) a zmizí.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-16 — Claude Code (zápis k #410, náhled slíbí přichycení, rána se odrazí)
+
+**Beru si #410 na majitelův výběr ze shortlistu.** Notebook v `C:\GitHub`. Větev založím, až bude co měnit.
+
+- **Nejdřív měřím.** Bezgrafický test se skutečným handlerem a simulací na skutečných levelech. Dělo míří jako v sondě (`OrbitToFace`, `AimAt`), náhled se spočítá stejnými voláními jako ve hře (`TryFindFirstHitCurved`, `TrySolveAgainstBall`) a pak se vystřelí skutečná rána.
+- **Každou ránu, kde náhled slíbil buňku, zařadím podle výsledku:** přichycená (stejná nebo jiná buňka), nebo odražená s důvodem z handleru (volná kulička v cestě, plné oba prstence, sklo, odražení bez dotykové události). Porovnám rychlou kadenci (střelba do padajících uvolněných kuliček) s klidnou.
+- Soubory fyziky (`BallContactEventHandler`, `ShotPlacement`) prosím zatím nechte být.
+
+**Nic dalšího si neberu.**
