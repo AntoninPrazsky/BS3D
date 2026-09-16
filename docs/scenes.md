@@ -47,6 +47,25 @@ The island is a **cast-concrete drum with a dressed stone top and a moulded copi
 - **The physics ring stops at `ArenaIsland.FLOOR_RADIUS`, not at `ArenaIsland.RADIUS`** — `IslandMesh.FloorRadius` of it, the dish's own outer arris rather than the edge of the platform. Carried out to the widest point it would hold a ball up on air over the coping's wash.
 - **Two meshes because it is two materials**, split at the coping's drip and built from one polyline so they cannot drift apart: the stone cap (coursed slab joints, the sky reflection turned down so it is matte) and the concrete drum (no joints — it is cast, not laid — a coarser relief and barely any reflection). `Prazsky.Core.Render.LatheMesh` is the general machinery: a surface of revolution from a cross-section polyline, per-point creases, and an optional radial irregularity (a function of angle and *world height*, so two lathes sharing an edge are displaced identically along it) that keeps the drum from reading as a machined part. Its triangles are wound clockwise from outside, so unlike `DiscMesh` the island now takes ordinary back-face culling — which is what would *show* a winding mistake rather than hide one.
 
+**The island takes each scene's own material since #404**, the issue's first concrete pass. Until then one island design, the grey dressed stone and concrete that came out of the Testbed, stood in all twenty scenes, so a desert, a volcano, a polar ice sheet and deep space all stood their cannon on the identical slab.
+- **What changes.** `ArenaIsland.LookFor(scene)` gives the cap's and the drum's albedo, how polished each is (`SpecularAmbientStrength`) and the cap's slab size, read off the island references #441 rendered and off each scene's own ground:
+  - sandstone for the savanna and the desert;
+  - red sandstone for the outback, rust rock for Mars;
+  - blue-grey granite for the mountains, mossy stone for the forest;
+  - black basalt for the volcano, wet dark rock for the cavern, rain-dark slate for the storm;
+  - glacier ice for the polar sheet, frosted stone under the aurora;
+  - pale coral limestone for the tropical beach;
+  - pastel marble for the dream, regolith concrete for the Moon;
+  - polished pale concrete and steel for the city, dark polished granite for the neon city (so the neon has something to lie in);
+  - machined plates for space, glossy black for the grid.
+  
+  **Material only**: the geometry, the joints, the relief and the detail textures are the same everywhere.
+- **The meadow and the sea keep the authored stone and draw exactly as before, untinted.** It was always their stone.
+- **How.** The colour rides the renderer's per-draw diffuse tint, which reduces the authored material to its luminance and multiplies by 1.25 first, so `TintFor` divides that out and the wanted albedo lands exactly. The look is resolved **per draw** from the scene `DrawIsland` is now handed, not pushed on a scene switch: the callers set their scene in several places (a startup argument, a level load, the scene page), and a look one of them forgot to push would stand in the wrong scene.
+- **It costs nothing measurable, and it should not.** The single-world `Draw` the island used already went through the one-instance overload the tint rides on. Measured in the Testbed against `main` from the play camera (`campos=0,-4,30 camtarget=0,-8,0`, 3200×1800, `nocap`, three pairs): the desert −0.01 / 0.00 / 0.00 ms, the polar sheet 0.00 / +0.01 / +0.01.
+- **Tuned by looking at every scene's front end before and after.** The first pass had the savanna's and Mars's sandstone too orange, and space's plates, the aurora's frost and the storm's polished slate close to white. All five came down, and the tropical limestone lost its cream.
+- **Not yet done, and the rest of #404:** per-scene geometry and dressing (lava cracks, ice overhang, driftwood rails, hazard stripes, running lights), and whether the drain's glass and gold should follow suit.
+
 Three things it cost to get right, all worth knowing before touching any other stone surface:
 
 - **`Ground_8.png` does not tile, and never did.** The stone covers only the left ~1073 columns of its 2048² canvas; the rest is pure black. The triplanar projection therefore multiplied roughly half of every surface it was mapped onto by zero — which is what left the island's wall reading as a black band, at *any* detail scale, since no scale avoids the black. Both members now use `Prazsky.Core.Render.SurfaceTexture` instead: procedural concrete and stone generated at load on a noise lattice that wraps at the texture edge, so they tile by construction, with a linear-space mip chain. No content-project change in either executable, and no asset to get wrong.
