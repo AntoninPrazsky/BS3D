@@ -221,10 +221,19 @@ namespace BS3D.Screens
             //player just watched come off the cluster, not about which rule took it.
             int total = released.Total;
 
-            //Big enough to be a spectacle at all, and bigger than anything this level has already shown the
-            //player — see DropCinematic.MustBeatBestBy for why the second half cannot be a fixed count.
-            bool worthWatching = total >= DropCinematic.MIN_BALLS
-                                 && total >= _biggestDrop * DropCinematic.MustBeatBestBy;
+            //THE SHOT THAT CLEARS THE LEVEL IS ALWAYS WORTH WATCHING, however little it drops (#424). Both bars
+            //below are about a drop in the MIDDLE of a level — whether it is a spectacle, and whether it beats
+            //what the player has already seen here — and neither describes the last shot, which is the one the
+            //level was for: three balls are the whole ending when they are the last three. Asked here, before
+            //CheckLevelCleared, on the very count that method reads, so the two cannot disagree about which shot
+            //it was; and only when something fell, since a subject of nothing has no centre to frame.
+            bool clearsLevel = total > 0 && _map.GetRemovableBallsCount() == 0;
+
+            //Otherwise: big enough to be a spectacle at all, and bigger than anything this level has already
+            //shown the player — see DropCinematic.MustBeatBestBy for why the second half cannot be a fixed count.
+            bool worthWatching = clearsLevel
+                                 || (total >= DropCinematic.MIN_BALLS
+                                     && total >= _biggestDrop * DropCinematic.MustBeatBestBy);
 
             //Raised by every release, including the ones refused below: a collapse the player watched happen
             //has moved what "big" means here, whether or not the camera went with it.
@@ -268,7 +277,8 @@ namespace BS3D.Screens
             //it actually chose. It carries the bar it beat as well, because "why did that one fire and not the
             //last one" is now a question about the level's history rather than about a constant.
             Console.WriteLine($"[cinematic] {total} balls ({released})"
-                + $" beat a best of {previousBest}, from y={centre.Y:F1}, {_cinematic.Describe()}");
+                + (clearsLevel ? " cleared the level" : $" beat a best of {previousBest}")
+                + $", from y={centre.Y:F1}, {_cinematic.Describe()}");
         }
 
         /// <summary>

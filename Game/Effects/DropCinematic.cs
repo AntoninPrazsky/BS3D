@@ -81,6 +81,11 @@ namespace BS3D.Effects
         /// spectacle however early in the level it lands. Matched and orphaned together — a shot that drops
         /// three of its own colour and brings nine more down with it is exactly the shot worth watching, and
         /// the scorer already pays double for the orphans.
+        /// <para>
+        /// <b>Neither bar applies to the shot that clears the level</b> (#424): the trigger lets that one through
+        /// whatever it drops, because both are about a drop in the middle of a level and the last three balls
+        /// are the whole ending. The player's own "Drop camera" row still refuses it.
+        /// </para>
         /// </summary>
         public const int MIN_BALLS = 12;
 
