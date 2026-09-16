@@ -21,7 +21,7 @@ namespace Prazsky.Core.Render
     internal sealed class MeshBuilder
     {
         private readonly List<VertexPositionNormalTexture> _vertices = new();
-        private readonly List<short> _indices = new();
+        private readonly List<int> _indices = new();
 
         /// <summary>
         /// Adds a triangle wound so <paramref name="faceNormal"/> is the front side under MonoGame's default
@@ -49,14 +49,14 @@ namespace Prazsky.Core.Render
                 (tb, tc) = (tc, tb);
             }
 
-            short baseIndex = (short)_vertices.Count;
+            int baseIndex = _vertices.Count;
             _vertices.Add(new VertexPositionNormalTexture(a, Vector3.Normalize(na), ta));
             _vertices.Add(new VertexPositionNormalTexture(b, Vector3.Normalize(nb), tb));
             _vertices.Add(new VertexPositionNormalTexture(c, Vector3.Normalize(nc), tc));
 
             _indices.Add(baseIndex);
-            _indices.Add((short)(baseIndex + 1));
-            _indices.Add((short)(baseIndex + 2));
+            _indices.Add(baseIndex + 1);
+            _indices.Add(baseIndex + 2);
         }
 
         public void AddQuad(Vector3 a, Vector3 b, Vector3 c, Vector3 d,
@@ -242,20 +242,37 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// Uploads what was added. The 16-bit index buffer holds because every consumer here is a prop of a
-        /// few hundred triangles; the builder throws rather than silently wrapping if one ever is not
-        /// (the mountain grid's 16-bit wrap cost a long hunt — see docs/rendering.md).
+        /// Uploads what was added, choosing the index width the way <see cref="LatheMesh"/> does: sixteen bits
+        /// while every vertex is addressable by them, thirty-two past that. A 16-bit index silently wraps and
+        /// sends far triangles to the wrong corners of the mesh (the mountain grid's long hunt — see
+        /// docs/rendering.md), so the width is chosen rather than assumed.
+        /// <para>
+        /// The ceiling used to be <c>short.MaxValue</c> and a throw. The indices were stored SIGNED, which
+        /// halved a sixteen-bit buffer that the GPU reads unsigned, and the builder charges six vertices a quad,
+        /// so the trophy cup sat at 30 000 of those 32 767 and every profile ring it could have had was spent
+        /// on that bookkeeping (#429). Every executable runs the HiDef profile, which takes 32-bit indices.
+        /// </para>
         /// </summary>
         public (VertexBuffer Vertices, IndexBuffer Indices, int PrimitiveCount) Build(GraphicsDevice device)
         {
-            if (_vertices.Count > short.MaxValue)
-                throw new InvalidOperationException($"MeshBuilder overflowed 16-bit indices ({_vertices.Count} vertices).");
-
             var vertexBuffer = new VertexBuffer(device, VertexPositionNormalTexture.VertexDeclaration, _vertices.Count, BufferUsage.WriteOnly);
             vertexBuffer.SetData(_vertices.ToArray());
 
-            var indexBuffer = new IndexBuffer(device, IndexElementSize.SixteenBits, _indices.Count, BufferUsage.WriteOnly);
-            indexBuffer.SetData(_indices.ToArray());
+            IndexBuffer indexBuffer;
+
+            if (_vertices.Count <= ushort.MaxValue)
+            {
+                var narrow = new short[_indices.Count];
+                for (int n = 0; n < narrow.Length; n++) narrow[n] = unchecked((short)_indices[n]);
+
+                indexBuffer = new IndexBuffer(device, IndexElementSize.SixteenBits, narrow.Length, BufferUsage.WriteOnly);
+                indexBuffer.SetData(narrow);
+            }
+            else
+            {
+                indexBuffer = new IndexBuffer(device, IndexElementSize.ThirtyTwoBits, _indices.Count, BufferUsage.WriteOnly);
+                indexBuffer.SetData(_indices.ToArray());
+            }
 
             return (vertexBuffer, indexBuffer, _indices.Count / 3);
         }
