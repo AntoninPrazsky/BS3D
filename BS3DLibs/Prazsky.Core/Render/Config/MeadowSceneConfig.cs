@@ -63,6 +63,33 @@ namespace Prazsky.Core.Render
         /// <summary>Fine grass texture blades-per-world-unit.</summary>
         public float GrassReliefFrequency { get; set; } = 2f;
 
+        /// <summary>
+        /// The light, drier colour a blade's tip shows where the relief stands high (#281), linear. Grass that is
+        /// one green from root to tip is the "green stone" the issue names.
+        /// </summary>
+        public Rgb GrassTipColor { get; set; } = new(0.36f, 0.50f, 0.11f);
+
+        /// <summary>How far the tips lighten towards <see cref="GrassTipColor"/> and the hollows between them darken, 0..1.</summary>
+        public float GrassTipStrength { get; set; } = 0.7f;
+
+        /// <summary>World units across one clump of grass (#281).</summary>
+        public float GrassClumpSize { get; set; } = 0.55f;
+
+        /// <summary>How much one clump's shade differs from the next, and how dark the seams between them are, 0..1.</summary>
+        public float GrassClumpStrength { get; set; } = 0.6f;
+
+        /// <summary>How far the broad dry patches pull the grass towards yellow-green, 0..1.</summary>
+        public float GrassDryPatchStrength { get; set; } = 0.45f;
+
+        /// <summary>
+        /// The velvet (#281): light the field gives back where it is seen edge-on, which is what makes a far slope
+        /// read as a soft carpet rather than as a painted hill.
+        /// </summary>
+        public float GrassSheenStrength { get; set; } = 0.35f;
+
+        /// <summary>The glow of blades lit from behind, looking towards the sun (#281).</summary>
+        public float GrassTranslucency { get; set; } = 0.9f;
+
         /// <summary>The scattered wildflowers.</summary>
         public FlowersConfig Flowers { get; set; } = new();
     }

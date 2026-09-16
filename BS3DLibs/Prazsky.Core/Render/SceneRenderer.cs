@@ -3958,8 +3958,18 @@ namespace Prazsky.Core.Render
             _sprayIndexBuffer.SetData(sprayIndices);
         }
 
+        /// <summary>
+        /// The meadow's full field or its reduced one (#281): the grass material's clumps and blade
+        /// strokes are the two near-field terms that cost, and the reduced program drops both. By technique for
+        /// <see cref="SelectForestTechnique"/>'s reason.
+        /// </summary>
+        private void SelectMeadowTechnique() =>
+            _meadowEffect.CurrentTechnique = _meadowEffect.Techniques[_sceneDetail > 0.5f ? "Meadow" : "MeadowReduced"];
+
         private void ApplyMeadowParameters()
         {
+            SelectMeadowTechnique();
+
             _meadowEffect.Parameters["MeadowLevelY"].SetValue(_meadowConfig.LevelY);
             _meadowEffect.Parameters["HillHeight"].SetValue(_meadowConfig.HillHeight);
             _meadowEffect.Parameters["ClearingRadius"].SetValue(_meadowConfig.ClearingRadius);
@@ -3975,6 +3985,13 @@ namespace Prazsky.Core.Render
             _meadowEffect.Parameters["WindRippleStrength"].SetValue(_meadowConfig.WindRippleStrength);
             _meadowEffect.Parameters["GrassReliefStrength"].SetValue(_meadowConfig.GrassReliefStrength);
             _meadowEffect.Parameters["GrassReliefFrequency"].SetValue(_meadowConfig.GrassReliefFrequency);
+            _meadowEffect.Parameters["GrassTipColor"].SetValue(_meadowConfig.GrassTipColor.ToVector3());
+            _meadowEffect.Parameters["GrassTipStrength"].SetValue(_meadowConfig.GrassTipStrength);
+            _meadowEffect.Parameters["GrassClumpSize"].SetValue(_meadowConfig.GrassClumpSize);
+            _meadowEffect.Parameters["GrassClumpStrength"].SetValue(_meadowConfig.GrassClumpStrength);
+            _meadowEffect.Parameters["GrassDryPatchStrength"].SetValue(_meadowConfig.GrassDryPatchStrength);
+            _meadowEffect.Parameters["GrassSheenStrength"].SetValue(_meadowConfig.GrassSheenStrength);
+            _meadowEffect.Parameters["GrassTranslucency"].SetValue(_meadowConfig.GrassTranslucency);
             _meadowEffect.Parameters["FlowerDensity"].SetValue(_meadowConfig.Flowers.Density);
             _meadowEffect.Parameters["FlowerSpacing"].SetValue(_meadowConfig.Flowers.Spacing);
             _meadowEffect.Parameters["FlowerSize"].SetValue(_meadowConfig.Flowers.Size);
@@ -3989,6 +4006,7 @@ namespace Prazsky.Core.Render
         private void SelectDetailTechniques()
         {
             SelectForestTechnique();
+            SelectMeadowTechnique();
 
             //The cavern is BACK (#298), and it left and returned for different reasons — see Cavern.fx's own
             //note at the techniques. It went in #250, when the pair it used to drop was cut from the authored
