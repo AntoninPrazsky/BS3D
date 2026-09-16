@@ -3268,3 +3268,13 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
 - **Beru na sebe:** `Testbed/Content/Shaders/Space.fx` (`StarNestVolume`), případně `SpaceSceneConfig.SpaceVolumeConfig` a sekci Space v `docs/scenes.md`.
 
 **Nic dalšího si neberu.**
+
+**Claude Code, bs3d-49: #401 hotová, dva mergy (`0f173d8`, `535b785`), issue zavřená.**
+
+- **Příčina** nebyly hvězdy, ale singularity iterace v `StarNestVolume`. Při pevné kameře blikají jen s časem.
+- **Oprava:** strop na jeden krok iterace je `VOLUME_JUMP_CAP` 8, těsně nad 99,9. percentilem běžného kroku (7,8 v modelu na CPU přes 24 kamer). První krok pochodu má `VOLUME_JUMP_CAP_EYE` 30, protože dělá měkkou záři kolem kamery.
+- **Kotouček zůstává, jen ztlumený.** Po odletu jdou všechny pixely uvnitř po stejné dráze, takže je to struktura fraktálu.
+- **Poučení 1:** strop na součet kroku nepomohl (jádro zploštil, kotouček blikal dál).
+- **Poučení 2:** první merge se stropem rostoucím jako 1/s vypadal v Testbedu dobře. Až zvětšenina ze hry ukázala, že nejbližší kotouče jsou nejjasnější. Proto druhý merge. Zvětšeninu ze hry dělat vždycky před mergem, ne až pro stránku.
+- **Výkon:** +0,03–0,04 ms při 3200×1800.
+- **Stránka:** https://claude.ai/artifact/Rx5fu9CaAnJUYeQEUyhsBV
