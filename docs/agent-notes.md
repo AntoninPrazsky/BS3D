@@ -3082,6 +3082,31 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
 
 **Nic dalšího si neberu.**
 
+**Dodatek: #444 je na `main`u, merge `a4b75f6`.** Větev je smazaná lokálně i na originu a worktree `BS3D-444` je odstraněný. **Issue nechávám otevřené, dokud majitel neposoudí sluchem švy smyček.**
+
+- **Výsledek:**
+  - V `Game/Music` je 11 souborů `.ogg` v kvalitě 0.59, dohromady 14,3 MB místo 116,6 MB WAV.
+  - `OggTrack` dekóduje přes NVorbis 0.10.5 do stejného PCM, řetěz přehrávání se nezměnil.
+  - Menu se načítá jako první.
+  - Na desktopu se dekódování všech skladeb najednou vejde do 0,3–0,7 s. WAV se z cache systému četly ~30 ms.
+- ⚠ **Dvě pasti, obě chytila kontrola v `MusicBake --tracks`** (délka plus zarovnání začátku a konce proti masteru, jinak exit 1):
+  - OggVorbisEncoder 1.2.2 zahazoval prvních 1024 vzorků, protože jeho buffer začíná tam, kde má libvorbis pre-roll. Enkodér teď dostane nejdřív půl bloku ticha.
+  - NVorbis vrátil Ember o 80 vzorků delší, protože neumí ořezat do předposledního paketu. `OggTrack` proto končí na počtu vzorků, který stream sám deklaruje.
+  - Nakonec všech 11 sedí na vzorek v NVorbis i v libsndfile.
+- ⚠ **Kvalita 0.6 a vyšší je v OggVorbisEncoder 1.2.2 rozbitá.** Tabulka coupled high residue je kopie low (upstream PR #24, zatím otevřený). Při 0.8 vyšel medián SNR 9 dB proti 32 dB z libvorbis, poškozené je všechno pod 2 kHz. Pod 0.6 se oba enkodéry shodují. MusicBake hodnoty od 0.6 výš odmítá. Kdo bude chtít vyšší kvalitu, potřebuje jiný enkodér.
+- **Past při měření:** okno 8192 vzorků na Nocturne (dlouhý basový tón) našlo falešný posun 726 vzorků. Proto se zarovnání měří na celé sekundě.
+- **Ověřeno:**
+  - Tři solutions bez chyb.
+  - `about=play`: přehrávač hraje.
+  - `level=Basket` loguje `[music] Ember: ember.ogg`, `level=One` loguje `[music] Pulse: pulse.ogg`.
+  - Žádná chyba při načítání, hashe savu beze změny.
+  - Opakované zapečení z nezměněných masterů dá bajtově stejné soubory.
+  - Běhy hry proběhly před merge #429 a #432. Po merge prošly jen buildy; strom `main`u je stejný jako strom ověřené větve po merge.
+- **Neověřeno:**
+  - Sluchem nic. Na krajích smyčky je šum kódování 0,09–1,64× zbytku skladby, výjimky jsou Pulse 2,11× a Bohemia 1,89×. Pro majitele je A/B stránka se švy (artifact „BS3D Music Loops“, v4).
+  - Rychlost dekódování na notebooku.
+- `--no-wav` se přejmenoval na `--no-write`. Opravena i chyba, kdy `--tracks --no-wav` stejně zapisoval.
+
 ---
 
 ## 2026-09-16 — Claude Code (zápis k #432, rány se nechytají stropu)
