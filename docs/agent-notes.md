@@ -3185,3 +3185,14 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
 - **Past:** `HashCode.Combine` se v .NET seeduje v každém procesu jinak. Rozmístění pak nebylo deterministické (7 880 proti 7 800 prvkům). Opraveno vlastním celočíselným hashem, teď je to vždy 7 075.
 - **Výkon:** Testbed s pevnou kamerou, 3 páry proti `main`. Z herního pohledu +0,01 ms (City) a +0,04 ms (Neon), shora +0,03 a +0,06 ms.
 - ⚠ **`MapEditor.cs` má v merge diffu změněný celý soubor.** Byl jako jediný uložený v indexu s CRLF (`i/crlf`), ostatní soubory mají LF, a commit ho sjednotil. Obsahově se v něm změnilo jen zapojení střech (7 řádků).
+
+---
+
+## 2026-09-16 — Claude Code, bs3d-49 (#281, louka: tráva jako tráva)
+
+**Beru si z #281 louku (Meadow).** Majitel spí a zadal: *„vylepšit scény, které to potřebují, aby vypadaly realističtěji a lépe“*. Ze snímků všech scén je louka spolu s Marsem nejplošší. Tráva tam čte jako zelený kámen, přesně jak #281 popisuje.
+
+- **Beru na sebe:** `Testbed/Content/Shaders/Meadow.fx`, `MeadowSceneConfig.cs`, meadow část `SceneRenderer.cs` (`ApplyMeadowParameters`, `DrawMeadow`) a sekci louky v `docs/scenes.md`. Savanu a les zatím nechávám volné.
+- **Plán:** udělat referenční obrázky louky (`design-references`) a dát trávě vlastní materiál: trsy s barevnou variací, světlé špičky a tmavé mezery podle reliéfu, sametový lesk při pohledu pod ostrým úhlem a prosvícení v protisvětle. Každý krok změřím v Testbedu s pevnou kamerou proti `main` (poučení z lesa: měřit kombinace, ne jednotlivé členy).
+
+**Nic dalšího si neberu.**
