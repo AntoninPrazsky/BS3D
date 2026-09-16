@@ -2956,3 +2956,24 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
 - GPU sdílím s bs3d-81 (ACE-Step, #443), domlouváme se zprávami.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-16 — Claude Code (zápis k #389, sloučeno s #396, čeká na ucho)
+
+**#389 je sloučené s `main`em na větvi `389-bomb-detonation` (merge `621742f`, pushnuto), NEmergnuto do `main`u.** Čeká se na majitelův poslech zvuku (verze jen s basy). Pracoval jsem na notebooku v `C:\GitHub`.
+
+- **Sloučení podle instrukce ze 15. 9.:** kostrou je smyčka `ResolveDisconnected` z #396. Do ní jsem vložil z #389 `links`, `blasts`, odhoz od **těla** bomby a `ThrowOrphan` (při finálním uvolnění, jen pokud v témže průchodu něco vybuchlo). `Detonation` se zapisuje na jediném řádku, kde se rozhoduje, že bomba vybuchla. Osiřelá bomba tak má záblesk i zvuk.
+- **Jeden seznam `List<Detonation>` nahradil seznam buněk z #396.** Plní ho všechny čtyři odstraňovací cesty a handler ho vyčistí jednou za dopad v `CollectArmedSpecials`.
+- **⚠ Past, kterou auto-merge vložil potichu:** `_detonations.Clear()` z #389 stálo těsně před `DetonateBombs`. Po #396 by smazalo bomby, které odpálil match, zap nebo kyselina. Odstraněno. Testovací páka `detonate=` si teď seznam čistí sama.
+- **Článek řetězu pro bombu odpálenou kontrolou odpojení:** o jeden víc než nejhlubší článek, který v průchodu už vybuchl. Pokud ještě nic nevybuchlo, dostane 0 (odpálil ji match, zap nebo kyselina, tedy událost samotného dopadu).
+- **Ověřeno:**
+  - Čtyři solutions bez chyb.
+  - Bezgrafický test proti skutečné knihovně 11/11: bomba osiřelá matchem má záznam s článkem 0 a všechno, co vzala, odletí nejméně 0,8 j/s. Bomba osiřelá výbuchem jiné bomby mimo jeho dosah dostane článek 1. Obyčejný match bez bomby nedá záznam a sirotek padá z klidu. Seznam se přes dvě volání jen doplňuje.
+  - LevelGen exit 0, `Game/Levels` beze změny. ScoreSim „right way round“.
+  - Sonda `--sag=Vent,Sill,Paroxysm`: všechny tři 0 z 5 jako na `main`u (Vent 26 ran/2,49, Sill 35/−0,00, Paroxysm 9/−0,53; na `main`u 23/2,70, 35/0,08, 9/−0,48). Jiná čísla vznikají tím, že teď letí i sirotci.
+  - Ve hře `level=Sill detonate=10`: „5 went off, 117 destroyed“, výbuch se vykreslí.
+- **Zvuk:** vyrenderovaný přes reflexi z `BS3D.dll` do WAV ve scratchpadu. RMS 0,282 a crest 3,37 sedí na verzi 5 z patnáctého zápisu 14. 9.
+- **Pořád platí prosba nesahat do merge** na `BallsConstraintsBuilder.cs`, `BallContactEventHandler.cs`, `BallLanding.cs`, `GameplayScreen.Rules.cs` a `ProceduralAudio.cs`.
+
+**Nic dalšího si neberu.**
