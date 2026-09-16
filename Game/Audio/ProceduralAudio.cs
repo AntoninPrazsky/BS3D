@@ -125,7 +125,14 @@ namespace BS3D.Audio
         private const float STAR_VOLUME = 0.55f;
         private const float STAR_FINAL_LIFT = 1.15f;
 
+        //The gun refusing a shot (#431) sits above a menu press — it answers a trigger pulled in play and has to be
+        //heard over the level's own sound — and well under the shot it replaces, because it is a "no", not an event.
+        private const float SHOT_REFUSED_VOLUME = 0.5f;
+
         private readonly SoundEffect _shoot;
+
+        /// <summary>The gun refusing a shot at the elevation clamp (#431); see <see cref="BakeShotRefused"/>.</summary>
+        private readonly SoundEffect _shotRefused;
 
         //[style][type]: what a ball of that material in that colour sounds like landing (#314). A row is baked
         //on demand by PrepareLanded and then kept for the life of the process — see that method for why this is
@@ -252,6 +259,7 @@ namespace BS3D.Audio
             _fireworkBurst = BakeFireworkBurst();
             _partyPopper = BakePartyPopper();
             _uiClick = BakeUiClick();
+            _shotRefused = BakeShotRefused();
             _starEarned = BakeStarEarned();
             _thunder = BakeThunder();
             _eruption = BakeEruption();
@@ -529,6 +537,17 @@ namespace BS3D.Audio
         public void PlayUiBack()
         {
             _uiClick.Play(UI_CLICK_VOLUME * Level * NON_SPATIAL_TRIM, -0.3f + NextPitch(0.03f), 0f);
+        }
+
+        /// <summary>
+        /// The gun refusing a shot because the aim is pressed into the elevation clamp (#431). Unplaced and dry like
+        /// the UI's sounds, for the reason <see cref="BakeShotRefused"/> gives, but billed to the effects row with the
+        /// gun: it answers a trigger the player pulled in play. A small pitch nudge only, so it stays one recognisable
+        /// "no" however often it is asked.
+        /// </summary>
+        public void PlayShotRefused()
+        {
+            _shotRefused.Play(SHOT_REFUSED_VOLUME * Level * NON_SPATIAL_TRIM, NextPitch(0.02f), 0f);
         }
 
         /// <summary>
@@ -1100,6 +1119,61 @@ namespace BS3D.Audio
 
             Normalize(signal, 0.9f);
             return ToSoundEffect(signal);
+        }
+
+        /// <summary>
+        /// The gun refusing a shot (#431): the aim is pressed into, or stretched past, the elevation clamp. A soft,
+        /// low "bwom-bwoww" — two round notes falling a minor third, the second sagging a further tone as it dies —
+        /// so it reads as "no" without a buzzer's edge.
+        /// <list type="bullet">
+        /// <item><description><b>Warm and low, nothing on top</b>, the owner's standing ruling on this game's
+        /// effects: a fundamental with two soft harmonics and a sub octave under it, rolled off twice at 1.4 kHz, no
+        /// noise layer (a noise onset hisses) and no drive.</description></item>
+        /// <item><description><b>Dry and unplaced, like the menu's clicks.</b> It is the player's own hand being
+        /// told no, not an event out in the scene, and placed at the muzzle it would seem to come from the gun
+        /// rather than from the rule.</description></item>
+        /// <item><description><b>It falls, and falls twice.</b> Every rising gesture in this file is a reward — the
+        /// release's run, the stars — and this is the one sound that goes down.</description></item>
+        /// </list>
+        /// </summary>
+        private SoundEffect BakeShotRefused() => ToSoundEffect(SynthShotRefused());
+
+        //The refusal's samples apart from its SoundEffect, so a bake tool can render the very arithmetic the game plays
+        private static float[] SynthShotRefused()
+        {
+            const float duration = 0.5f;
+            float[] signal = new float[(int)(SAMPLE_RATE * duration)];
+
+            AddRefusedNote(signal, start: 0f, length: 0.15f, fromHz: 220f, toHz: 208f, decay: 9f);
+            AddRefusedNote(signal, start: 0.16f, length: 0.34f, fromHz: 185f, toHz: 165f, decay: 5.5f);
+
+            //Twice, because one pole alone leaves the third harmonic's edge on each attack
+            signal = LowPassArray(LowPassArray(signal, 1400f), 1400f);
+
+            Normalize(signal, 0.9f);
+            return signal;
+        }
+
+        //One note of the refusal, gliding from fromHz to toHz across its length: a fundamental with two soft harmonics
+        //and a sub octave, an 8 ms attack so it never clicks on, and a 25 ms fade to silence at its end
+        private static void AddRefusedNote(float[] signal, float start, float length, float fromHz, float toHz, float decay)
+        {
+            int first = (int)(start * SAMPLE_RATE);
+            int count = Math.Min((int)(length * SAMPLE_RATE), signal.Length - first);
+
+            float phase = 0f;
+            for (int i = 0; i < count; i++)
+            {
+                float t = (float)i / SAMPLE_RATE;
+                phase += 2f * MathF.PI * fromHz * MathF.Pow(toHz / fromHz, t / length) / SAMPLE_RATE;
+
+                float envelope = MathF.Min(1f, t / 0.008f) * MathF.Exp(-t * decay) * MathF.Min(1f, (length - t) / 0.025f);
+
+                float tone = MathF.Sin(phase) + 0.3f * MathF.Sin(2f * phase) + 0.1f * MathF.Sin(3f * phase)
+                    + 0.35f * MathF.Sin(0.5f * phase);
+
+                signal[first + i] += tone * envelope;
+            }
         }
 
         /// <summary>
@@ -1930,6 +2004,7 @@ namespace BS3D.Audio
             _fireworkBurst?.Dispose();
             _partyPopper?.Dispose();
             _uiClick?.Dispose();
+            _shotRefused?.Dispose();
             _starEarned?.Dispose();
             _thunder?.Dispose();
             _eruption?.Dispose();
