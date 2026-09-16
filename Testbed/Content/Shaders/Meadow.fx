@@ -55,6 +55,19 @@ float WindRippleStrength;
 float GrassReliefStrength;
 float GrassReliefFrequency;
 
+//THE GRASS AS A MATERIAL (#281). The relief above is the same bump-and-matte recipe the mountain's rock and
+//the island's stone use, which is why the field read as green stone: nothing in it said "blades". What does,
+//read off real meadows (references rendered for #281): clumps of slightly different greens with darker seams
+//between them, light dry tips over dark hollows, broad drier patches, a velvety sheen where the field is seen
+//edge-on, and blades that glow when the sun is behind them.
+float3 GrassTipColor;        //the light, drier colour a blade's tip takes, linear
+float GrassTipStrength;      //how far tips lighten and hollows darken, 0..1
+float GrassClumpSize;        //world units across one clump
+float GrassClumpStrength;    //how much clumps differ and how dark the seams between them are, 0..1
+float GrassDryPatchStrength; //how far the broad dry patches pull towards yellow-green, 0..1
+float GrassSheenStrength;    //the velvet: light the field gives back where it is seen edge-on
+float GrassTranslucency;     //the glow of blades with the sun behind them
+
 //Wildflowers: how many of the grid cells carry one, how far apart the cells are, and the flower size
 float FlowerDensity;
 float FlowerSpacing;
@@ -163,7 +176,7 @@ float GrassRelief(float2 xz, float footprint, float gust)
     return Fbm2Combed(p, WindDirection, GRASS_COMB_STRETCH, 3, footprint * f) * GRASS_FBM_GAIN * GrassReliefStrength;
 }
 
-float4 MeadowPS(MeadowVertexOutput input) : COLOR
+float4 MeadowField(MeadowVertexOutput input, bool detail)
 {
     float3 worldPosition = input.WorldPosition;
 
@@ -254,6 +267,54 @@ float4 MeadowPS(MeadowVertexOutput input) : COLOR
     float patch = CloudNoise(worldPosition.xz * 0.15) * 0.5 + 0.5;
     float3 grass = lerp(GrassColorDark, GrassColor, patch);
 
+    //Broader still, the DRY patches (#281): stretches of the field a few tens of metres across where the grass
+    //has gone yellow-green. Squared, so most of the meadow stays lush and the dry ground comes in islands.
+    float dry = saturate(CloudNoise(worldPosition.xz * 0.043 + 17.3) * 0.5 + 0.5);
+    grass = lerp(grass, grass * float3(1.20, 1.03, 0.62), GrassDryPatchStrength * dry * dry);
+
+    //CLUMPS (#281): grass grows in tufts, and a tuft is its own shade of green with a darker seam of shadow
+    //between it and the next. The zero-crossings of a gradient noise one clump across give the seams — a
+    //connected web of thin lines, which is what a cellular field would give, at one noise instead of Voronoi2's
+    //nine hashes (measured: 0.43 → 0.36 ms added at the near camera) — and a noise at the same scale gives each
+    //clump its own brightness.
+    //Band-limited as a whole: once a clump is a couple of pixels the seams would shimmer, so the lot fades to
+    //its mean and the far field is simply green.
+    //One of the reduced program's two cuts (see MeadowReducedPS).
+    if (detail)
+    {
+        float clumpFade = saturate(1.0 - 2.5 * footprint / max(GrassClumpSize, 1e-3));
+        float2 clumpDomain = worldPosition.xz / max(GrassClumpSize, 1e-3);
+        float seam = 1.0 - smoothstep(0.0, 0.22, abs(GradientNoise2(clumpDomain)));
+        float clumpShade = GradientNoise2(clumpDomain * 0.7 + 5.1);
+        grass *= 1.0 + GrassClumpStrength * clumpFade * (0.32 * clumpShade - 0.55 * seam + 0.2);
+        grass = lerp(grass, grass * float3(1.10, 1.0, 0.82), GrassClumpStrength * clumpFade * saturate(clumpShade));
+    }
+
+    //TIPS AND HOLLOWS (#281), off the very relief that tilts the normal: where the combed field stands high
+    //the blades' light, drier tips are showing, where it dips the eye is looking down into the shade between
+    //them. Normalised to the relief's own amplitude, so it means the same at any GrassReliefStrength; and it
+    //needs no band limit of its own — the relief's octaves already fade with the footprint, so this fades
+    //with them and the far field keeps its mean.
+    float blade = relief / max(GrassReliefStrength * GRASS_FBM_GAIN, 1e-4);
+    grass *= 1.0 + 0.32 * GrassTipStrength * clamp(blade, -1.0, 1.0);
+    grass = lerp(grass, GrassTipColor, 0.45 * GrassTipStrength * saturate(blade));
+
+    //BLADES SEEN FROM THE SIDE (#281). A standing blade is a vertical stroke to a camera looking across the
+    //field, and nothing drawn on the ground plane is — every other term here is isotropic or combed along the
+    //wind. A fine noise stretched along the ground direction TOWARDS THE CAMERA projects to exactly those
+    //strokes: lines radiating from the vanishing point, upright in front of the lens. Light where a tip catches
+    //the sky, dark in the gaps. Two octaves, band-limited like everything at this scale, so it is the near
+    //field's and is gone well before it could shimmer.
+    //The reduced program's other cut.
+    if (detail)
+    {
+        float strokeFrequency = GrassReliefFrequency * 4.0;
+        float strokes = Fbm2Combed(worldPosition.xz * strokeFrequency, CameraPosition.xz - worldPosition.xz,
+            6.0, 2, footprint * strokeFrequency);
+        grass *= 1.0 + 0.85 * GrassTipStrength * strokes;
+        grass = lerp(grass, GrassTipColor, 0.5 * GrassTipStrength * saturate(strokes * 2.0));
+    }
+
     //Wind combing the grass: the gust computed above, darkening the blades it lays over and letting the ones
     //behind it stand back up. Same dial and the same ±12 % it always had; what it is applied to is a patch
     //travelling downwind rather than an infinite plane wave (#276 — see WindGust in Noise.fxh).
@@ -287,6 +348,29 @@ float4 MeadowPS(MeadowVertexOutput input) : COLOR
 
     float3 color = grass * (skyAmbient * AmbientStrength + SunColor * ndotl * sunlight);
 
+    //THE VELVET AND THE GLOW (#281), the two things no matte surface does and grass always does. Both off the
+    //terrain's base normal rather than the perturbed one — they are about how the FIELD is seen, and the blade
+    //relief is far too fine to decide it — and both kept off the flowers, which are petals and not blades.
+    //
+    // * The sheen: a meadow seen edge-on is a sea of blade tips catching the light, so it brightens and pales
+    //   towards grazing — which is what makes a far slope read as a soft carpet and not a painted hill.
+    // * The translucency: a blade is thin, and with the sun behind it light comes THROUGH, yellow-green. Looking
+    //   towards the sun the field glows, strongest where it is seen edge-on and gone in the cloud shadows.
+    float3 toCamera = normalize(CameraPosition - worldPosition);
+    float grazing = 1.0 - saturate(dot(baseNormal, toCamera));
+    grazing *= grazing * grazing;
+    float bladeCover = 1.0 - flowerMask;
+
+    float3 sheenColor = lerp(grass, GrassTipColor, 0.5) + 0.12;
+    color += bladeCover * GrassSheenStrength * grazing * sheenColor
+        * (skyAmbient * AmbientStrength + SunColor * (0.35 * sunlight));
+
+    float towardSun = saturate(dot(-toCamera, SunDirection));
+    float backlit = towardSun * towardSun;
+    backlit *= backlit * backlit;
+    color += bladeCover * GrassTranslucency * backlit * sunlight * (0.35 + 0.65 * pow(grazing, 0.33))
+        * SunColor * lerp(grass, GrassTipColor, 0.6);
+
     //Horizon haze: the distant hills soften into the skyline
     float dist = distance(CameraPosition, worldPosition);
     float haze = saturate(dist / HorizonHazeDistance);
@@ -295,11 +379,27 @@ float4 MeadowPS(MeadowVertexOutput input) : COLOR
     return float4(color, 1.0);
 }
 
+//Two programs from one body (#281), the forest's pattern. "Meadow" is the authored field; "MeadowReduced" is the
+//same field without the two near-field terms that cost the most — the clump seams and the blade strokes —
+//and keeps everything that is arithmetic on values already computed (the tips, the dry patches, the velvet and
+//the glow). SceneRenderer.SceneDetail picks; the Game's Low tier takes the reduced one.
+float4 MeadowPS(MeadowVertexOutput input) : COLOR { return MeadowField(input, true); }
+float4 MeadowReducedPS(MeadowVertexOutput input) : COLOR { return MeadowField(input, false); }
+
 technique Meadow
 {
     pass P0
     {
         VertexShader = compile VS_SHADERMODEL MeadowVS();
         PixelShader = compile PS_SHADERMODEL MeadowPS();
+    }
+};
+
+technique MeadowReduced
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL MeadowVS();
+        PixelShader = compile PS_SHADERMODEL MeadowReducedPS();
     }
 };
