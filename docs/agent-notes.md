@@ -2821,3 +2821,11 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
 - **Hlas:** Piper má český hlas „jirka“, Kokoro anglický. Jen kdyby hra chtěla hlasové hlášky.
 
 **Stahování a instalace jsou na slovu majitele.**
+
+**Dodatek:** majitel diktování i hlas vyloučil natrvalo: *„Diktovat nikdy nebudu chtít místo psaní. Vždycky budu psát na klávesnici. Hlas neřeš.“* Pro zbylé modely jsou založená issues k otestování na tomhle stroji:
+- #439: Qwen3-Embedding pro `SemanticSearch` na českém deníku.
+- #440: Qwen3-VL proti Gemmě na téže sadě snímků se známou odpovědí.
+- #441: generování obrázků jako reference k #429, #404 a #436.
+- #442: Stable Audio Small-SFX jako reference pro procedurální zvuk.
+
+⚠ #442 stojí vedle majitelova rozhodnutí z #187 (žádná AI generace hudby), proto issue před instalací žádá jeho potvrzení. Duplicity jsem před založením ověřil i přes `SemanticSearch --file`. Nejbližší issue měla skóre 0,74–0,79 a týkala se jiných témat.
