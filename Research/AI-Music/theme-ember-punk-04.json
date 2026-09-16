@@ -2,7 +2,7 @@
   "file": "theme-ember-punk-04.wav",
   "created": "2026-09-16",
   "variation_of": "theme-ember.wav (MusicTheme.Ember counterpart)",
-  "purpose": "Master of Game/Music/ember-punk-04.wav, which the game plays since #443: written from this file by Tools/MusicBake --tracks (brought to the loudness of the procedural piece in its slot, peaks held under full scale, 16-bit PCM).",
+  "purpose": "Master of Game/Music/ember-punk-04.ogg, which the game plays since #443: written from this file by Tools/MusicBake --tracks (brought to the loudness of the procedural piece in its slot, peaks held under full scale, encoded as Ogg Vorbis since #444).",
   "provenance": "Generated first for home listening under the name ember-green-day-0N: at the owner's request this prompt NAMES a real band and a real song/album as the style reference (the punk-01..03 prompts only described the style). The owner listened and judged, 2026-09-16: neither recording is recognisable as Green Day or as a specific song; cleared to rename and use in the game.",
   "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- generate-music.ps1 -NoCotCaption -Loop",
   "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",

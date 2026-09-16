@@ -8,7 +8,7 @@ namespace BS3D.Audio
 {
     /// <summary>
     /// The game's music since #443: generated recordings (ACE-Step 1.5, see <c>Research/AI-Music</c>), one
-    /// seamless loop per <see cref="MusicTheme"/> slot plus the front end's loop, read from <c>Music/*.wav</c>
+    /// seamless loop per <see cref="MusicTheme"/> slot plus the front end's loop, read from <c>Music/*.ogg</c>
     /// beside the executable. The procedural compositions that played here until then are the About page's now
     /// (<see cref="ProceduralJukebox"/>); the fanfares stayed procedural and are still baked by
     /// <see cref="ProceduralMusic"/>, which this class owns and forwards to, so the rest of the game keeps asking
@@ -23,23 +23,23 @@ namespace BS3D.Audio
     /// from its render's body, so it has no prelude for a level to skip.
     /// </para>
     /// <para>
-    /// The files are 16-bit stereo PCM at <see cref="SAMPLE_RATE"/>, which is what the voice consumes, so a
-    /// track is the data chunk and nothing else — no decoder, no content pipeline. They are written by
-    /// <c>Tools/MusicBake --tracks</c> from the float masters, brought to the loudness the procedural piece in
-    /// the same slot measured, which is why <see cref="MUSIC_VOLUME"/> and <see cref="MENU_VOLUME"/> kept their
-    /// values: the mix the effects were tuned against did not move.
+    /// The files are Ogg Vorbis at <see cref="SAMPLE_RATE"/> (#444; .wav until then), decoded on a background
+    /// thread into the 16-bit stereo PCM the voice consumes (<see cref="OggTrack"/>), so the chain plays exactly
+    /// the kind of buffer it always has. Not content: the pipeline's
+    /// <see cref="SoundEffect"/> gives its samples back to no one, and the feed has to submit them itself. They are
+    /// written by <c>Tools/MusicBake --tracks</c> from the float masters, brought to the loudness the procedural
+    /// piece in the same slot measured, which is why <see cref="MUSIC_VOLUME"/> and <see cref="MENU_VOLUME"/> kept
+    /// their values: the mix the effects were tuned against did not move.
     /// </para>
     /// </summary>
     public sealed class GameMusic : IDisposable
     {
         private const string MUSIC_DIRECTORY = "Music";
         private const string MENU_TRACK = "menu";
+        private const string TRACK_EXTENSION = ".ogg";
 
         /// <summary>The rate ACE-Step renders at and every track is written at; the procedural pieces are 44.1 kHz.</summary>
         private const int SAMPLE_RATE = 48000;
-
-        /// <summary>One frame of the interleaved 16-bit stereo the tracks are.</summary>
-        private const int BYTES_PER_FRAME = 4;
 
         /// <summary>
         /// The authored level of the music, well under the effects — a soundtrack is not an event. A constant
@@ -69,7 +69,7 @@ namespace BS3D.Audio
 
         /// <summary>
         /// Every slot's tracks, loaded on background threads at construction and never replaced — the theme's own
-        /// file first, then its variants (<c>ember-*.wav</c>) in name order. A task that finished with null is a
+        /// file first, then its variants (<c>ember-*.ogg</c>) in name order. A task that finished with null is a
         /// file that could not be read, already logged; a slot with no tasks has no file at all and plays silence.
         /// </summary>
         private readonly Task<byte[]>[][] _tracks = new Task<byte[]>[ThemeCount][];
@@ -113,17 +113,21 @@ namespace BS3D.Audio
         {
             string directory = Path.Combine(AppContext.BaseDirectory, MUSIC_DIRECTORY);
 
+            //The lobby first: it is what the splash hands over to, and every load below queues on the same pool —
+            //on a machine with fewer cores than tracks, whatever is handed over last decodes last
+            _menuLoad = Load(Path.Combine(directory, MENU_TRACK + TRACK_EXTENSION));
+
             for (int slot = 0; slot < ThemeCount; slot++)
             {
                 string name = ((MusicTheme)slot).ToString().ToLowerInvariant();
                 List<string> files = new();
 
-                string own = Path.Combine(directory, name + ".wav");
+                string own = Path.Combine(directory, name + TRACK_EXTENSION);
                 if (File.Exists(own)) files.Add(own);
 
                 if (Directory.Exists(directory))
                 {
-                    string[] variants = Directory.GetFiles(directory, name + "-*.wav");
+                    string[] variants = Directory.GetFiles(directory, name + "-*" + TRACK_EXTENSION);
                     Array.Sort(variants, StringComparer.Ordinal);
                     files.AddRange(variants);
                 }
@@ -139,8 +143,6 @@ namespace BS3D.Audio
                     _trackNames[slot][i] = Path.GetFileName(files[i]);
                 }
             }
-
-            _menuLoad = Load(Path.Combine(directory, MENU_TRACK + ".wav"));
         }
 
         /// <summary>True while a fanfare is sounding; the host ducks the fireworks under it.</summary>
@@ -467,12 +469,16 @@ namespace BS3D.Audio
             }
         }
 
-        /// <summary>Reads one track on a background thread; null, logged, when the file cannot be played.</summary>
+        /// <summary>
+        /// Decodes one track on a background thread; null, logged, when the file cannot be played. Every track is
+        /// started at construction, so they decode side by side while the splash is up — see
+        /// <c>Tools/MusicBake --tracks</c> for what that costs.
+        /// </summary>
         private static Task<byte[]> Load(string path) => Task.Run(() =>
         {
             try
             {
-                return ReadPcm(path);
+                return OggTrack.Decode(path, SAMPLE_RATE);
             }
             catch (Exception exception)
             {
@@ -480,55 +486,6 @@ namespace BS3D.Audio
                 return null;
             }
         });
-
-        /// <summary>
-        /// The data chunk of a 16-bit stereo PCM .wav at <see cref="SAMPLE_RATE"/>, which is exactly what the voice
-        /// and <see cref="SoundEffect"/> take. The chunks are walked rather than a 44-byte header assumed, and any
-        /// other format is refused rather than played at the wrong speed or as noise.
-        /// </summary>
-        private static byte[] ReadPcm(string path)
-        {
-            byte[] file = File.ReadAllBytes(path);
-
-            if (file.Length < 12 || file[0] != 'R' || file[1] != 'I' || file[2] != 'F' || file[3] != 'F'
-                || file[8] != 'W' || file[9] != 'A' || file[10] != 'V' || file[11] != 'E')
-                throw new InvalidDataException("not a RIFF/WAVE file");
-
-            int format = 0, channels = 0, rate = 0, bits = 0, dataAt = -1, dataLength = 0;
-
-            for (int pos = 12; pos + 8 <= file.Length;)
-            {
-                int size = BitConverter.ToInt32(file, pos + 4);
-                if (size < 0) break;
-
-                if (file[pos] == 'f' && file[pos + 1] == 'm' && file[pos + 2] == 't' && file[pos + 3] == ' ' && pos + 24 <= file.Length)
-                {
-                    format = BitConverter.ToInt16(file, pos + 8);
-                    channels = BitConverter.ToInt16(file, pos + 10);
-                    rate = BitConverter.ToInt32(file, pos + 12);
-                    bits = BitConverter.ToInt16(file, pos + 22);
-                }
-                else if (file[pos] == 'd' && file[pos + 1] == 'a' && file[pos + 2] == 't' && file[pos + 3] == 'a')
-                {
-                    dataAt = pos + 8;
-                    dataLength = Math.Min(size, file.Length - dataAt);
-                }
-
-                pos += 8 + size + (size & 1);
-            }
-
-            if (format != 1 || bits != 16 || channels != 2 || rate != SAMPLE_RATE)
-                throw new InvalidDataException($"expected 16-bit stereo PCM at {SAMPLE_RATE} Hz, found format {format}, {bits} bits, {channels} channels, {rate} Hz");
-
-            if (dataAt < 0) throw new InvalidDataException("no data chunk");
-
-            dataLength -= dataLength % BYTES_PER_FRAME;
-
-            byte[] pcm = new byte[dataLength];
-            Buffer.BlockCopy(file, dataAt, pcm, 0, dataLength);
-
-            return pcm;
-        }
 
         public void Dispose()
         {

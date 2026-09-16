@@ -2,7 +2,7 @@
   "file": "theme-nocturne.wav",
   "created": "2026-09-16",
   "counterpart_of": "MusicTheme.Nocturne -- Game/Audio/ProceduralMusic.cs (smooth jazz, sevenths and ninths on a swung grid, walking bass, piano carrying the tune, nine sections, 3:02 at 96)",
-  "purpose": "Master of Game/Music/nocturne.wav, which the game plays since #443: written from this file by Tools/MusicBake --tracks (brought to the loudness of the procedural piece in its slot, peaks held under full scale, 16-bit PCM).",
+  "purpose": "Master of Game/Music/nocturne.ogg, which the game plays since #443: written from this file by Tools/MusicBake --tracks (brought to the loudness of the procedural piece in its slot, peaks held under full scale, encoded as Ogg Vorbis since #444).",
   "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- generate-music.ps1 + loop_crossfade.py",
   "request": {
     "caption": "Smooth jazz instrumental, swung rhythm, walking double bass, mellow electric piano (Rhodes) carrying the melody with jazzy seventh and ninth chords, soft brushed drums, relaxed sophisticated late-night lounge mood, no vocals",

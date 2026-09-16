@@ -48,6 +48,9 @@
     compile and never reaches here; see Prazsky.Core.csproj.-->
     <PackageReference Include="MonoGame.Framework.WindowsDX" Version="3.8.5" />
     <PackageReference Include="Myra" Version="1.6.3" />
+    <!--The music's decoder (#444, MIT): Game/Music is Ogg Vorbis, decoded to PCM at load by Audio/OggTrack.cs.
+    Tools/MusicBake compiles that file too and pins the same version, so what it measures is what plays.-->
+    <PackageReference Include="NVorbis" Version="0.10.5" />
   </ItemGroup>
 
   <!--The menu UI's fonts (Myra renders through FontStashSharp, which needs TTF bytes at runtime). Anton sets
@@ -66,11 +69,11 @@
   <ItemGroup>
     <Content Include="Levels\**\*.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
-  <!--The music (#443), for the same reason: 16-bit PCM .wav files GameMusic reads straight into the buffers it
-  submits, so there is nothing for the pipeline to compile. Written by Tools/MusicBake's tracks mode from the masters
-  in Research/AI-Music; a track or an Ember variant can be replaced by dropping a file here.-->
+  <!--The music (#443), for the same reason: Ogg Vorbis files (#444) GameMusic decodes into the PCM buffers it
+  submits itself, which a pipeline SoundEffect would never hand back. Written by Tools/MusicBake's tracks mode from
+  the masters in Research/AI-Music; a track or an Ember variant can be replaced by dropping a file here.-->
   <ItemGroup>
-    <Content Include="Music\*.wav" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Music\*.ogg" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\BS3DLibs\Prazsky.BS3D.Physics\Prazsky.BS3D.Physics.csproj" />

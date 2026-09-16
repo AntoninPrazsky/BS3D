@@ -1,9 +1,11 @@
 using BS3D.Audio;
+using OggVorbisEncoder;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Threading.Tasks;
 
 namespace BS3D.Tools.MusicBake
 {
@@ -23,8 +25,10 @@ namespace BS3D.Tools.MusicBake
     /// the procedural pieces are the About page's. The masters in <c>Research/AI-Music</c> are 32-bit float and
     /// louder than anything the game's mix was tuned against, with peaks above full scale; this brings each one
     /// to the loudness the procedural piece in its slot measured, holds its peaks under full scale, and writes
-    /// the 16-bit PCM <c>GameMusic</c> submits to <c>Game/Music</c> — printing the same table, so the old and
-    /// the new sit in one set of numbers.
+    /// it to <c>Game/Music</c> as the Ogg Vorbis <c>GameMusic</c> decodes (#444) — printing the same table, so
+    /// the old and the new sit in one set of numbers. Every track it encodes it also decodes again, through the
+    /// game's own <see cref="OggTrack"/>, and says what came back: the length a loop depends on to the frame,
+    /// what the codec did at the loop's two edges, and how long the game's load of all of them takes.
     /// </para>
     /// </summary>
     internal static class Program
@@ -49,9 +53,43 @@ namespace BS3D.Tools.MusicBake
         private const float KNEE = 0.891f;
 
         /// <summary>
+        /// The Vorbis quality the tracks are encoded at, on libvorbis's scale of −0.1 to 1 (oggenc's <c>-q</c> over
+        /// ten). <c>--quality</c> overrides it for a trial run, up to <see cref="OGG_QUALITY_LIMIT"/>. The highest the
+        /// encoder gets right, rather than a listening choice: under the limit OggVorbisEncoder matched libvorbis at
+        /// the same setting in size, in signal-to-noise ratio, and within 0.4 dB of it in each of the six bands the
+        /// table reports (#444, all 11 tracks at 0.5 and 0.59, worst track per band).
+        /// </summary>
+        private const float OGG_QUALITY = 0.59f;
+
+        /// <summary>
+        /// Where OggVorbisEncoder 1.2.2 goes wrong, refused rather than written. From quality 0.6 its stereo setup
+        /// switches to the coupled high residue, and that table is a copy of the low one (its upstream PR #24, open
+        /// as of 2026-09-16): at 0.8 the tracks came back with a median signal-to-noise ratio of 9 dB where
+        /// libvorbis gives 32, the damage all under 2 kHz, where this music keeps nearly all of its energy.
+        /// </summary>
+        private const float OGG_QUALITY_LIMIT = 0.6f;
+
+        /// <summary>How much of a track the encoder is handed at a time: a second of audio.</summary>
+        private const int OGG_CHUNK_FRAMES = 48000;
+
+        /// <summary>
+        /// How many frames at each end of a track are held to the rest of it in the loop-edge check, about 43 ms:
+        /// the stretch either side of the wrap in which a codec that treats a file's edges worse than its body
+        /// would show it.
+        /// </summary>
+        private const int EDGE_FRAMES = 2048;
+
+        /// <summary>
+        /// How much of a track the alignment check matches against its master: a second. A shorter stretch can
+        /// lie — 8192 frames of Nocturne's opening, a sustained low note, matched best 726 frames out (a period of
+        /// about 66 Hz) on a decode that was exact, as a second-long window then confirmed.
+        /// </summary>
+        private const int LAG_WINDOW_FRAMES = 48000;
+
+        /// <summary>
         /// Master (in <c>Research/AI-Music</c>, without .wav) → the file the game plays (in <c>Game/Music</c>) and
         /// the loudness it is brought to. The game finds its files by name — a theme's own name, then its variants
-        /// as <c>name-*.wav</c> in order — so adding a variant is a line here and nothing in the game.
+        /// as <c>name-*.ogg</c> in order — so adding a variant is a line here and nothing in the game.
         /// </summary>
         private static readonly (string Master, string Track, double RmsDb)[] TRACKS =
         {
@@ -71,25 +109,34 @@ namespace BS3D.Tools.MusicBake
         private static int Main(string[] args)
         {
             string outDir = "MusicBake";
-            bool wav = true;
+            bool write = true;
+            bool tracks = false;
+            float quality = OGG_QUALITY;
             string only = null;
 
+            //Every argument is read before anything runs: "--tracks --no-write" used to start writing the moment
+            //"--tracks" was reached, with the flag after it never seen
             for (int i = 0; i < args.Length; i++)
             {
                 string arg = args[i];
 
                 if (Is(arg, "--out") && i + 1 < args.Length) outDir = args[++i];
                 else if (Is(arg, "--theme") && i + 1 < args.Length) only = args[++i];
-                else if (Is(arg, "--no-wav")) wav = false;
-                else if (Is(arg, "--tracks")) return BuildTracks(wav);
+                else if (Is(arg, "--no-write")) write = false;
+                else if (Is(arg, "--tracks")) tracks = true;
+                else if (Is(arg, "--quality") && i + 1 < args.Length
+                    && float.TryParse(args[++i], NumberStyles.Float, CultureInfo.InvariantCulture, out quality)
+                    && quality >= -0.1f && quality < OGG_QUALITY_LIMIT) continue;
                 else
                 {
-                    Console.WriteLine("usage: MusicBake [--out <dir>] [--theme <name>] [--no-wav] | --tracks [--no-wav]");
+                    Console.WriteLine("usage: MusicBake [--out <dir>] [--theme <name>] [--no-write] | --tracks [--quality <-0.1..0.59>] [--no-write]");
                     return 2;
                 }
             }
 
-            if (wav) Directory.CreateDirectory(outDir);
+            if (tracks) return BuildTracks(write, quality);
+
+            if (write) Directory.CreateDirectory(outDir);
 
             List<string> names = new();
 
@@ -120,10 +167,10 @@ namespace BS3D.Tools.MusicBake
 
                 Report(name, mix, SAMPLE_RATE, clock.Elapsed.TotalMilliseconds, entry);
 
-                if (wav) WriteWav(Path.Combine(outDir, $"{name.ToLowerInvariant()}.wav"), mix, SAMPLE_RATE);
+                if (write) WriteWav(Path.Combine(outDir, $"{name.ToLowerInvariant()}.wav"), mix, SAMPLE_RATE);
             }
 
-            if (wav) Console.WriteLine($"\nWritten to {Path.GetFullPath(outDir)}");
+            if (write) Console.WriteLine($"\nWritten to {Path.GetFullPath(outDir)}");
 
             return 0;
         }
@@ -132,11 +179,13 @@ namespace BS3D.Tools.MusicBake
 
         /// <summary>
         /// Builds <c>Game/Music</c> from the masters: each brought to its loudness, its peaks shaped under full
-        /// scale, written as 16-bit PCM at the master's own rate. <paramref name="wav"/> false measures without
-        /// writing. The table's "bake" column is the processing time and "entry" is empty — a generated loop is
-        /// cut from its render's body, so a level opens on it wherever it opens.
+        /// scale, encoded as Ogg Vorbis at <paramref name="quality"/> and the master's own rate, then decoded again
+        /// through <see cref="OggTrack"/> and checked. <paramref name="write"/> false measures without writing. The
+        /// table's "bake" column is the processing time and "entry" is empty — a generated loop is cut from its
+        /// render's body, so a level opens on it wherever it opens. Exits 1 if any track decodes to a different
+        /// length than its master, since that loop would open a gap at every repeat.
         /// </summary>
-        private static int BuildTracks(bool wav)
+        private static int BuildTracks(bool write, float quality)
         {
             string repo = FindRepo();
             if (repo == null)
@@ -147,12 +196,19 @@ namespace BS3D.Tools.MusicBake
 
             string masters = Path.Combine(repo, "Research", "AI-Music");
             string tracks = Path.Combine(repo, "Game", "Music");
-            if (wav) Directory.CreateDirectory(tracks);
+            if (write) Directory.CreateDirectory(tracks);
 
             Console.WriteLine("track            secs  bake  entry   peak    rms   bal  mono | <100 100-200 200-500  500-2k   2k-6k    6k+ |  head   tail");
 
-            foreach ((string master, string track, double rmsDb) in TRACKS)
+            List<byte[]> encoded = new();
+            long wavBytes = 0, oggBytes = 0;
+            double seconds = 0, decodeMs = 0;
+            int trackRate = 0;
+            bool framesHold = true;
+
+            for (int t = 0; t < TRACKS.Length; t++)
             {
+                (string master, string track, double rmsDb) = TRACKS[t];
                 string path = Path.Combine(masters, master + ".wav");
                 if (!File.Exists(path))
                 {
@@ -190,12 +246,229 @@ namespace BS3D.Tools.MusicBake
                 Console.WriteLine($"                 from {master}.wav at {rate} Hz: gain {gainDb:+0.0;-0.0} dB, "
                     + $"{100.0 * shaped / mix.Length:0.000} % of samples shaped above -1 dBFS");
 
-                if (wav) WriteWav(Path.Combine(tracks, track + ".wav"), mix, rate);
+                //The serial is fixed per track rather than random, so an unchanged master rebakes to the same bytes
+                byte[] ogg = EncodeOgg(mix, rate, quality, serial: t + 1, title: track);
+
+                Stopwatch decodeClock = Stopwatch.StartNew();
+                byte[] decoded = OggTrack.Decode(new MemoryStream(ogg), rate);
+                decodeClock.Stop();
+
+                int frames = mix.Length / 2;
+
+                (int clipped, double edgeRatio, double wrapGrowth, int headLag, int tailLag) = CompareDecoded(mix, decoded);
+
+                //A length can come out right with the audio still shifted, so the two ends are placed as well
+                bool fits = decoded.Length / 4 == frames && headLag == 0 && tailLag == 0;
+                framesHold &= fits;
+
+                double trackSeconds = frames / (double)rate;
+                Console.WriteLine($"                 ogg q{quality.ToString("0.0#", CultureInfo.InvariantCulture)}: "
+                    + $"{ogg.Length / 1024.0:0} KiB, {ogg.Length * 8 / trackSeconds / 1000:0} kbps, decoded in {decodeClock.Elapsed.TotalMilliseconds:0} ms "
+                    + $"to {decoded.Length / 4} of {frames} frames, head {headLag:+0;-0;0} and tail {tailLag:+0;-0;0} frames out{(fits ? "" : " - DOES NOT FIT")}; "
+                    + $"{clipped} samples clipped; coding error at the loop edges {edgeRatio:0.00}x the body's; "
+                    + $"step across the wrap {wrapGrowth:+0.0000;-0.0000;0.0000} of full scale");
+
+                if (write) File.WriteAllBytes(Path.Combine(tracks, track + ".ogg"), ogg);
+
+                encoded.Add(ogg);
+                wavBytes += 44 + frames * 4L;
+                oggBytes += ogg.Length;
+                seconds += trackSeconds;
+                decodeMs += decodeClock.Elapsed.TotalMilliseconds;
+                trackRate = rate;
             }
 
-            if (wav) Console.WriteLine($"\nWritten to {tracks}");
+            //What GameMusic's constructor does: every track handed to the thread pool at once
+            Stopwatch together = Stopwatch.StartNew();
+            Task[] loads = new Task[encoded.Count];
+            for (int i = 0; i < loads.Length; i++)
+            {
+                byte[] ogg = encoded[i];
+                loads[i] = Task.Run(() => OggTrack.Decode(new MemoryStream(ogg), trackRate));
+            }
+            Task.WaitAll(loads);
+            together.Stop();
 
-            return 0;
+            Console.WriteLine($"\n{encoded.Count} tracks, {seconds:0.0} s: {oggBytes / 1048576.0:0.0} MB of Ogg Vorbis against "
+                + $"{wavBytes / 1048576.0:0.0} MB as 16-bit .wav ({100.0 * oggBytes / wavBytes:0} %), {oggBytes * 8 / seconds / 1000:0} kbps on average");
+            Console.WriteLine($"Decoding took {decodeMs:0} ms one track after another, and {together.Elapsed.TotalMilliseconds:0} ms "
+                + $"all at once on the thread pool as the game loads them ({Environment.ProcessorCount} logical processors)");
+
+            if (!framesHold) Console.WriteLine("A track does not decode to its master's frames in place: its loop would jump or gap at every repeat");
+            if (write) Console.WriteLine($"Written to {tracks}");
+
+            return framesHold ? 0 : 1;
+        }
+
+        /// <summary>
+        /// A track as Ogg Vorbis at <paramref name="quality"/>, in memory. The three header packets go first, flushed
+        /// onto pages of their own so the audio starts on a fresh page as the Vorbis spec requires, then the audio a
+        /// second at a time, then the end of stream, which stamps the last page with the frame count a decoder trims
+        /// the final block to. Whether the result decodes to the master's frames, and in the right place, is
+        /// <see cref="CompareDecoded"/>'s to say — the encoder's own start was a thousand frames out.
+        /// </summary>
+        private static byte[] EncodeOgg(float[] mix, int rate, float quality, int serial, string title)
+        {
+            int frames = mix.Length / 2;
+
+            float[][] planar = { new float[frames], new float[frames] };
+            for (int f = 0; f < frames; f++)
+            {
+                planar[0][f] = mix[f * 2];
+                planar[1][f] = mix[f * 2 + 1];
+            }
+
+            VorbisInfo info = VorbisInfo.InitVariableBitRate(2, rate, quality);
+            OggStream stream = new(serial);
+
+            Comments comments = new();
+            comments.AddTag("TITLE", title);
+
+            using MemoryStream output = new();
+
+            stream.PacketIn(HeaderPacketBuilder.BuildInfoPacket(info));
+            stream.PacketIn(HeaderPacketBuilder.BuildCommentsPacket(comments));
+            stream.PacketIn(HeaderPacketBuilder.BuildBooksPacket(info));
+            FlushPages(stream, output, force: true);
+
+            ProcessingState state = ProcessingState.Create(info);
+
+            //OggVorbisEncoder 1.2.2 starts its buffer empty where libvorbis starts it half a long block in (its
+            //pcm_current = centerW), then extrapolates backwards over that first half-block as libvorbis does over
+            //its pre-roll: so the first half-block of the TRACK was overwritten and never decoded, and every track
+            //came back exactly that much short at the head (1024 frames at 48 kHz, through NVorbis and libsndfile
+            //alike). Half a block is written first, then, for the extrapolation to overwrite instead.
+            int preroll = info.CodecSetup.BlockSizes[1] / 2;
+            state.WriteData(new[] { new float[preroll], new float[preroll] }, preroll);
+            Drain(state, stream, output);
+
+            for (int at = 0; at < frames; at += OGG_CHUNK_FRAMES)
+            {
+                state.WriteData(planar, Math.Min(OGG_CHUNK_FRAMES, frames - at), at);
+                Drain(state, stream, output);
+            }
+
+            //Separate from the loop on purpose: the library's own example calls it only when the read index lands
+            //exactly on the end, which a track whose length is not a whole number of chunks never does
+            state.WriteEndOfStream();
+            Drain(state, stream, output);
+            FlushPages(stream, output, force: true);
+
+            return output.ToArray();
+        }
+
+        private static void Drain(ProcessingState state, OggStream stream, Stream output)
+        {
+            while (!stream.Finished && state.PacketOut(out OggPacket packet))
+            {
+                stream.PacketIn(packet);
+                FlushPages(stream, output, force: false);
+            }
+        }
+
+        private static void FlushPages(OggStream stream, Stream output, bool force)
+        {
+            while (stream.PageOut(out OggPage page, force))
+            {
+                output.Write(page.Header, 0, page.Header.Length);
+                output.Write(page.Body, 0, page.Body.Length);
+            }
+        }
+
+        /// <summary>
+        /// The decoded track against the 16-bit samples the .wav would have held (the same clamp-and-scale):
+        /// how many samples the codec pushed onto the rails that were not there, how much larger the coding error
+        /// is in the <see cref="EDGE_FRAMES"/> at either end than across the rest (the loop's wrap is those two
+        /// stretches back to back), how much bigger the step from the last frame to the first became, as a
+        /// fraction of full scale, and how many frames the decoded audio sits away from the master's near each
+        /// end. Measured over the shorter of the two if the lengths differ, so everything but the lags means
+        /// little until those are zero.
+        /// </summary>
+        private static (int Clipped, double EdgeRatio, double WrapGrowth, int HeadLag, int TailLag) CompareDecoded(float[] mix, byte[] decoded)
+        {
+            int frames = Math.Min(mix.Length / 2, decoded.Length / 4);
+
+            short Reference(int sample) => (short)(Math.Clamp(mix[sample], -1f, 1f) * short.MaxValue);
+            short Decoded(int sample) => BitConverter.ToInt16(decoded, sample * 2);
+
+            int clipped = 0;
+            double headSum = 0, tailSum = 0, bodySum = 0;
+
+            for (int s = 0; s < frames * 2; s++)
+            {
+                short r = Reference(s), d = Decoded(s);
+
+                if (Math.Abs((int)d) >= short.MaxValue && Math.Abs((int)r) < short.MaxValue) clipped++;
+
+                double e = (d - r) / (double)short.MaxValue;
+                int frame = s / 2;
+
+                if (frame < EDGE_FRAMES) headSum += e * e;
+                else if (frame >= frames - EDGE_FRAMES) tailSum += e * e;
+                else bodySum += e * e;
+            }
+
+            double edgeSamples = EDGE_FRAMES * 2.0;
+            double bodyRms = Math.Sqrt(bodySum / Math.Max(1, frames * 2 - 2 * edgeSamples));
+            double edgeRatio = bodyRms > 0 ? Math.Sqrt(Math.Max(headSum, tailSum) / edgeSamples) / bodyRms : 0;
+
+            double wrapGrowth = double.NegativeInfinity;
+            for (int c = 0; c < 2; c++)
+            {
+                int first = c, last = (frames - 1) * 2 + c;
+                double decodedStep = Math.Abs(Decoded(last) - Decoded(first)) / (double)short.MaxValue;
+                double referenceStep = Math.Abs(Reference(last) - Reference(first)) / (double)short.MaxValue;
+                wrapGrowth = Math.Max(wrapGrowth, decodedStep - referenceStep);
+            }
+
+            int headLag = Lag(mix, decoded, 2 * EDGE_FRAMES);
+            int tailLag = Lag(mix, decoded, decoded.Length / 4 - 2 * EDGE_FRAMES - LAG_WINDOW_FRAMES);
+
+            return (clipped, edgeRatio, wrapGrowth, headLag, tailLag);
+        }
+
+        /// <summary>
+        /// Where <see cref="LAG_WINDOW_FRAMES"/> of the decoded track starting at <paramref name="at"/> sit in the
+        /// master: the shift, within a long Vorbis block either way, at which the mono folds differ least. Zero is
+        /// the answer a sample-exact codec gives. Lag zero is tried first so every other shift can stop summing
+        /// the moment it has lost, which is what makes a second-long window affordable.
+        /// </summary>
+        private static int Lag(float[] mix, byte[] decoded, int at)
+        {
+            const int REACH = 2048;
+
+            if (at < 0 || (at + LAG_WINDOW_FRAMES) * 4 > decoded.Length) return 0;
+
+            double[] mono = new double[LAG_WINDOW_FRAMES];
+            for (int f = 0; f < mono.Length; f++)
+                mono[f] = (BitConverter.ToInt16(decoded, (at + f) * 4) + BitConverter.ToInt16(decoded, (at + f) * 4 + 2)) / (2.0 * short.MaxValue);
+
+            int bestLag = 0;
+            double bestError = double.PositiveInfinity;
+
+            for (int step = 0; step <= 2 * REACH + 1; step++)
+            {
+                //0, then -REACH..REACH skipping 0
+                int lag = step == 0 ? 0 : step - 1 - REACH;
+                if (step > 0 && lag == 0) continue;
+                if (at + lag < 0 || (at + lag + mono.Length) * 2 > mix.Length) continue;
+
+                double error = 0;
+
+                for (int f = 0; f < mono.Length && error < bestError; f++)
+                {
+                    double r = (mix[(at + lag + f) * 2] + mix[(at + lag + f) * 2 + 1]) * 0.5;
+                    error += (mono[f] - r) * (mono[f] - r);
+                }
+
+                if (error < bestError)
+                {
+                    bestError = error;
+                    bestLag = lag;
+                }
+            }
+
+            return bestLag;
         }
 
         //By landmark rather than by counting "..", as SemanticSearch does
