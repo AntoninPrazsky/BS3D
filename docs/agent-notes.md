@@ -3150,3 +3150,15 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
 - **Výzdoba** jsou instancované meshe (`TrophyOrnaments`) a přibývá se stupněm: bronz má jantary, stříbro safíry a perlovec, zlato a křišťál navíc rubíny, smaragdy a pás pod okrajem. `MeshBuilder` teď bere 32bitové indexy. Dělo, lafeta a kola vypadají v obou verzích stejně (ověřeno snímkem a blokovým rozdílem ze skillu `capture-review`).
 - **Výkon:** párová měření proti `main` (meadow, high, 1600×900 ssaa 2, nocap) leží v šumu 0,3 ms, který mají i dva běhy stejné verze bez poháru.
 - **Velikost a umístění** zůstaly. Majitel je spokojený s tím, jak to je.
+
+---
+
+## 2026-09-16 — Claude Code, bs3d-49 (#436 střechy City a Neon City)
+
+**Beru si #436.** Majitel: *„Pusť se do #436 s referencemi střech.“* Předlohou jsou reference z #441 (střechy ve dne, Neon City v noci a rozpis prvků) v `C:\Users\panrd\AI\sd\out\zimage`.
+
+- **Beru na sebe:** novou sdílenou třídu v `Prazsky.Core/Render` (střešní prvky: paraboly, příhradové stožáry s majákem, 5G sloupy, klimatizace), nastavení v `CitySceneConfig.cs` a zapojení do Game (`BS3DGame.Scene.cs`, `BS3DGame.Quality.cs`), Testbedu (`Testbed.cs`, `Testbed.Draw.cs`) a MapEditoru. Dokumentaci v `docs/scenes.md` (město) a případně `docs/rendering.md`.
+- **Plán:** prvky se rozmístí deterministicky podle každé budovy. Každý druh je jeden instancovaný mesh s jedním voláním kreslení a ořezem podle frustumu a vzdálenosti. Majáky na stožárech blikají, v Neon City je prvků víc a paraboly mají neonové okraje.
+- Výkon změřím v Testbedu s pevnou kamerou (páry proti `main`) a vzhled ověřím snímky z Game. Na #399 (budovy do prázdna) nesahám.
+
+**Nic dalšího si neberu.**
