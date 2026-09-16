@@ -58,17 +58,27 @@ namespace BS3D.Screens
             //What came loose answers separately (#46): the lattice's snap and the freed group popping away,
             //scaled by how much of it there is. A plain attach stays just the thunk above. It sounds from the
             //cell that broke and stays there rather than following the group down — see PlayRelease.
-            //Total rather than the two named counts since #326, so a blast's victims are heard: they are balls
-            //coming away from the cluster like any other, whichever rule took them.
-            int released = landing.Released.Total;
+            //
+            //A landing that set bombs off counts only its GROUP here (#389). #326 made this the total so that a
+            //blast's victims would be heard at all; a blast has its own report now, spoken from where it went
+            //off, and folding its victims in as well would put a release the size of half the cluster under a
+            //chain of reports. The blast's orphans share one count with the match's (BallsReleased), so they go
+            //with the louder of the two voices.
+            int released = landing.Detonations.Count > 0 ? landing.Released.Matched : landing.Released.Total;
             if (released > 0) Game.Audio.PlayRelease(landing.World, released);
+
+            //And the blasts themselves (#389): each flash, report and jolt at the place it happened, and each link
+            //of a chain a beat behind the bomb that set it off. Handed over now, inside the landing, because the
+            //list is the contact handler's and the next landing refills it — Blasts copies what it needs.
+            if (landing.Detonations.Count > 0) _blasts.SetOff(landing.Detonations);
 
             //And the ice this landing broke (#329), over the release it always arrives with — the thaw only
             //ever happens because a group left, so these two sound together by construction and never alone.
-            //It is the one BallKind with a sound of its own, and the reason is that it is the one whose
-            //effect the player cannot see happen: a bomb throws its victims across the arena, a zap empties a
-            //colour off the field, an acid drills a visible shaft — a thaw changes what one ball IS, three
-            //cells away from where the eye was. See BakeIceBreak for how it is heard through the release.
+            //It was the first BallKind with a sound of its own, and the reason is that it is the one whose
+            //effect the player cannot see happen: a zap empties a colour off the field and an acid drills a
+            //visible shaft — a thaw changes what one ball IS, three cells away from where the eye was. See
+            //BakeIceBreak for how it is heard through the release. (The bomb has one too since #389, for the
+            //opposite reason: its effect is the loudest thing a level can do, and it sounded like a release.)
             if (landing.Thawed > 0) Game.Audio.PlayIceBreak(landing.World, landing.Thawed);
 
             ScoreAward award = _score.Landed(landing.Released.Matched, landing.Released.Orphaned,
@@ -122,6 +132,75 @@ namespace BS3D.Screens
 
             CheckLevelCleared();
         }
+
+        /// <summary>
+        /// Testing only (the <c>detonate=</c> argument, #389): sets off one bomb of the level as if a shot had just
+        /// landed beside it, and answers it the way <see cref="OnBallLanded"/> answers a real blast — the flash, the
+        /// report and the rumble, the ripple, the census, the cinematic and the ends of the level — with no shot
+        /// in it, so no landing thunk, no award and no streak.
+        /// <para>
+        /// <b>Which bomb:</b> the lowest one a shot could reach — standing, with an empty neighbour — walking up
+        /// from the field's bottom level. The play camera looks up at a cluster's underside, and a blast on top of
+        /// the cluster is one the lens cannot see.
+        /// </para>
+        /// </summary>
+        internal void DetonateForTesting()
+        {
+            if (LevelDecided) return;
+
+            StaticBall[,,] cells = _map.GetStaticBallsArray();
+            XZLevel size = _map.GetStaticBallsArraySize();
+
+            for (int level = 0; level < size.Level; level++)
+                for (int x = 0; x < size.X; x++)
+                    for (int z = 0; z < size.Z; z++)
+                    {
+                        if (cells[x, z, level] == null || cells[x, z, level].Kind != BallKind.Bomb) continue;
+
+                        XZLevel bomb = new(x, z, level);
+                        if (!HasEmptyNeighbour(cells, bomb, size)) continue;
+
+                        _testArmed.Clear();
+                        _testArmed.Add(bomb);
+
+                        //Emptied here because DetonateBombs appends and never clears (#396: a landing's four
+                        //removals share one list and the contact handler empties it once per landing).
+                        _testDetonations.Clear();
+
+                        BallsReleased released = BallsConstraintsBuilder.DetonateBombs(_testArmed, _physicsBalls, _map,
+                            _world.Simulation, _fallingBalls, _testDetonations);
+
+                        Console.WriteLine($"[detonate] bomb at ({x}, {z}, {level}): {_testDetonations.Count} went off,"
+                            + $" {released}");
+
+                        _blasts.SetOff(_testDetonations);
+                        StartRipple(bomb);
+
+                        RecountBallTypes();
+                        if (AnyBallTypeAlive()) Transmute();
+
+                        TryBeginDropCinematic(released);
+                        FeedTallColumn();
+                        CheckLevelCleared();
+                        return;
+                    }
+
+            Console.WriteLine("[detonate] no bomb a shot could reach is left standing");
+        }
+
+        private static bool HasEmptyNeighbour(StaticBall[,,] cells, XZLevel cell, XZLevel size)
+        {
+            foreach (XZLevel neighbour in BallsMap.GetNeighboringCells(cell, size))
+                if (cells[neighbour.X, neighbour.Z, neighbour.Level] == null) return true;
+
+            return false;
+        }
+
+        /// <inheritdoc cref="DetonateForTesting"/>
+        private readonly List<XZLevel> _testArmed = new(1);
+
+        /// <inheritdoc cref="DetonateForTesting"/>
+        private readonly List<Detonation> _testDetonations = new(Blasts.MAX_BLASTS);
 
         /// <summary>
         /// Hands the camera to <see cref="DropCinematic"/> if this shot cut enough loose to be worth

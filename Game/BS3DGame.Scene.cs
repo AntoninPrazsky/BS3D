@@ -734,6 +734,14 @@ namespace BS3D
         internal void DrawSettingGlass() => _island.DrawGlass(_camera, _sceneEffectParams);
 
         /// <summary>
+        /// Adds one short light to the <b>next</b> frame's scene lights (#389) — a blast lighting the cluster, the
+        /// island and the gun around it. Stated per frame by whoever wants it, before <see cref="BeginSceneDraw"/>,
+        /// and consumed there; see <see cref="SceneLights.SetFlash"/>.
+        /// </summary>
+        internal void SetSceneFlash(Vector3 position, Vector3 color, float range) =>
+            _sceneLights.SetFlash(position, color, range);
+
+        /// <summary>
         /// The ceiling's glass plate, drawn <b>without writing depth</b> — the session's plate from
         /// <c>GameplayScreen</c> and the front end's preview plate from <c>BackdropScreen</c> both come through
         /// here, so the state is stated once rather than in each of them.

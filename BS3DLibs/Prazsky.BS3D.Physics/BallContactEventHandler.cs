@@ -167,9 +167,12 @@ namespace Prazsky.BS3D.Physics
         private readonly List<XZLevel> _thawedCells = new(12);
 
         /// <summary>
-        /// Scratch for every bomb this landing set off (#396) — filled by the release, like
-        /// <see cref="_thawedCells"/> and unlike the three armed lists, because since #396 a bomb has a
-        /// trigger the landing cannot see: losing its last path to the glass.
+        /// Every bomb this landing set off, as a <see cref="Detonation"/> — where its body was, how far down a
+        /// chain it came and what it took (#389) — filled by the release, like <see cref="_thawedCells"/> and
+        /// unlike the three armed lists, because since #396 a bomb has a trigger the landing cannot see: losing
+        /// its last path to the glass. Handed out on <see cref="BallLanding.Detonations"/>, which is why it is
+        /// emptied on every landing rather than only on one that arms a bomb, and a field rather than a list per
+        /// shot on <see cref="_colouredCells"/>' reasoning: a landing is the one moment that must not stall.
         /// <para>
         /// <b>It is handed to all FOUR removals and emptied once</b>, which is why it is not sized off a
         /// cell's twelve neighbours the way the armed lists are: a match, a zap, a shaft and a blast can each
@@ -184,16 +187,13 @@ namespace Prazsky.BS3D.Physics
         /// bomb that visibly exploded.
         /// </para>
         /// <para>
-        /// <b>⚠ It stops at the log, and deliberately: it is NOT put on <see cref="BallLanding"/>.</b> #389 —
-        /// finished on its own branch while this was written, and not merged — gives a detonation a record of
-        /// its own (<c>Detonation</c>: where the bomb's body was, how far down a chain it came, what it took)
-        /// and hands the list out on the landing. That is the reporting this game wants and a count of mine
-        /// beside it would be a second, worse answer to the same question. So this branch reports only where it
-        /// must and leaves the record to #389; when the two meet, the bombs the walk fires want
-        /// <c>Detonation</c>s like any other, and they come out of the same loop.
+        /// <b>#396 and #389 met here.</b> #396 kept this a list of cells for the log alone and left the record to
+        /// #389, which had been handing out a list filled by the blast only; merged, it is one list of
+        /// <see cref="Detonation"/>s filled by all four removals, so a bomb the walk fires gets its flash, its
+        /// report and its jolt like any other — they come out of the same loop.
         /// </para>
         /// </summary>
-        private readonly List<XZLevel> _detonatedBombs = new(8);
+        private readonly List<Detonation> _detonations = new(8);
 
         private readonly ConcurrentQueue<QueuedContact> _queuedContacts = new();
 
@@ -533,7 +533,7 @@ namespace Prazsky.BS3D.Physics
             //out. Nothing else on this path had to be added, and nothing in the Testbed or the sag probe did
             //either, which is the whole argument for putting it there; see that method's remarks.
             BallsReleased released = BallsConstraintsBuilder.ReleaseSameTypeCluster(physicsBall, _physicsBalls,
-                _map, _simulation, _fallingBalls, _thawedCells, _detonatedBombs);
+                _map, _simulation, _fallingBalls, _thawedCells, _detonations);
 
             //Then the zap, over whatever the match left standing (#327). ⚠ BEFORE the blast, and the order is
             //a ruling: a blast that ate the zap ball first would silently swallow one of the two effects the
@@ -542,7 +542,7 @@ namespace Prazsky.BS3D.Physics
             if (_triggeredZaps.Count > 0)
                 released = released.Plus(BallsConstraintsBuilder.ZapColour(
                     _triggeredZaps, physicsBall.Type, _physicsBalls, _map, _simulation, _fallingBalls,
-                    _detonatedBombs));
+                    _detonations));
 
             //Then the acid (#328), still ahead of the blast and on the zap's argument exactly: a blast that ate
             //the acid ball first would silently swallow one of the effects the player armed with one landing,
@@ -553,13 +553,17 @@ namespace Prazsky.BS3D.Physics
             //is safe rather than merely survivable, and it is the acid's own flavour — it eats what is under it.
             if (_triggeredAcids.Count > 0)
                 released = released.Plus(BallsConstraintsBuilder.DissolveAcids(
-                    _triggeredAcids, _physicsBalls, _map, _simulation, _fallingBalls, _detonatedBombs));
+                    _triggeredAcids, _physicsBalls, _map, _simulation, _fallingBalls, _detonations));
 
             //Then the blast, over whatever the match left standing - and its own disconnection pass runs
             //inside it, so a hole opened under half the cluster brings that half down as well.
+            //⚠ _detonations is NOT emptied here, although #389 first did exactly that: since #396 the three
+            //removals above can fire bombs too, and a clear at this point would throw their records away — an
+            //orphaned bomb would then go off with no flash and no report. It is emptied once per landing, in
+            //CollectArmedSpecials.
             if (_armedBombs.Count > 0)
                 released = released.Plus(BallsConstraintsBuilder.DetonateBombs(
-                    _armedBombs, _physicsBalls, _map, _simulation, _fallingBalls, _detonatedBombs));
+                    _armedBombs, _physicsBalls, _map, _simulation, _fallingBalls, _detonations));
 
             //Reported whether or not anything fell: a shot that stuck without completing a group is still a
             //resolved shot, and the streak rule has to hear about it. Taken before the release above could
@@ -574,8 +578,9 @@ namespace Prazsky.BS3D.Physics
                 + $"; released {released.Matched} matched, {released.Orphaned} orphaned");
 
             //The blast's own line, on the same terms and for the same reason (#326): a level whose bombs are
-            //not going off says so here rather than being diagnosed from a screenshot, and printing the armed
-            //COUNT beside the destroyed one is what tells a chain apart from a single big radius.
+            //not going off says so here rather than being diagnosed from a screenshot. How many WENT OFF beside
+            //how many the landing armed is what tells a chain apart from a single big radius — which the armed
+            //count alone never could (#389): one landing that sets off a chain of five arms exactly one bomb.
             //⚠ The test is the number of bombs that FIRED and no longer "destroyed > 0" (#396): an orphaned
             //bomb going off inside a region that was already falling destroys nothing, so the old test printed
             //nothing for it. Fired beside armed is what tells a chain from a single radius, which is what the
@@ -583,10 +588,10 @@ namespace Prazsky.BS3D.Physics
             //since a blast's radius has chained into one since #326 and the walk only since #396. What says
             //the walk fired one is "fired > 0 with nothing armed", and that is the shape of a match, a zap or
             //a shaft that cut a bomb's last support.
-            if (_detonatedBombs.Count > 0 || released.Destroyed > 0)
+            if (_detonations.Count > 0 || released.Destroyed > 0)
                 Console.WriteLine($"[shot] {_armedBombs.Count} bomb(s) armed,"
                 + $" {_triggeredZaps.Count} zap(s) and {_triggeredAcids.Count} acid(s) triggered at the landing;"
-                + $" {_detonatedBombs.Count} bomb(s) fired,"
+                + $" {_detonations.Count} bomb(s) fired,"
                 + $" destroyed {released.Destroyed}, orphaned {released.Orphaned}");
 
             //And the ice's own line, on the glass's terms and for its reason (#329): a level whose frozen balls
@@ -597,7 +602,7 @@ namespace Prazsky.BS3D.Physics
                 + $" beside a group of {released.Matched}");
 
             BallLanded?.Invoke(new BallLanding(released, restPosition, physicsBall.Type, cell, coloured,
-                _thawedCells.Count));
+                _thawedCells.Count, _detonations));
 
             return true;
         }
@@ -622,8 +627,10 @@ namespace Prazsky.BS3D.Physics
             //Emptied HERE although nothing here fills it (#396): it is the one point every landing passes
             //through before any removal runs, and the four removals below all append to it rather than clear
             //it — a detonation belongs to a landing, not to one of its four steps. Clearing it inside any of
-            //them would throw away the bombs an earlier step had already set off.
-            _detonatedBombs.Clear();
+            //them would throw away the bombs an earlier step had already set off. And it has to be emptied on
+            //EVERY landing, not only on one that arms a bomb (#389): BallLanding hands this list out, and a
+            //landing that set nothing off must not report the previous one's blasts.
+            _detonations.Clear();
 
             StaticBall[,,] cells = _map.GetStaticBallsArray();
             XZLevel size = new(_map.StageSizeX, _map.StageSizeZ, _map.Levels);
