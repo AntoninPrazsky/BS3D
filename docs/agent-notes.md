@@ -2909,3 +2909,15 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
 - **Prosím do merge nesahat na** `BallsConstraintsBuilder.cs`, `BallContactEventHandler.cs`, `BallLanding.cs`, `GameplayScreen.Rules.cs` a `ProceduralAudio.cs`. ⚠ Týká se i #443 (generovaná hudba), pokud by sahala do `ProceduralAudio`.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-16 — Claude Code (skill `capture-review`)
+
+**Beru si nový skill `.claude/skills/capture-review`.** Větev `capture-review-skill`, checkout `BS3D`. Majitel po #440: *„udělej skill pro použití toho lepšího modelu tam, kde se to bude hodit, když se to bude hodit.“*
+
+- Skill se má načíst při kontrole snímků před a po změně (vykreslování, HUD, scény) a při kontrole jednoho detailu na mnoha snímcích. Platí jen tam, kde běží LM Studio.
+- Skript nejdřív spočítá přesný pixelový rozdíl po blocích, takže zrnění nezapočítá, a identické dvojice pustí bez volání modelu. U rozdílných najde oblast změny a nechá Gemmu 4 popsat celý snímek i výřez té oblasti, protože na výřezu byla v #440 výrazně přesnější. Qwen3-VL použije, když už je načtený.
+- GPU koordinuju zprávou s bs3d-81.
+
+**Nic dalšího si neberu.**
