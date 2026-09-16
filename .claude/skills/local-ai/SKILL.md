@@ -18,9 +18,9 @@ What follows is not a menu of plausible uses. **Every line was measured on 2026-
 |---|---|---|
 | Is there already an issue like this one? | `text-embedding-nomic-embed-text-v1.5` via `Tools/SemanticSearch` | **Use it.** Known partners ranked 1st–2nd for 4 of 7 probes; the other three sat under issues on the same subject. |
 | Find something in the Czech agent journal | same | **Don't trust it.** Czech questions put the answer 9th–201st of 532. Ask in English (ranked 2nd), or try a multilingual model. |
-| What changed between two captures? | `google/gemma-4-12b` via `vision.ps1` | **Use it as a first pass.** Named the crosshair growing and turning red; said "identical" for one file sent twice; mis-stated which way a camera moved. 20–80 s a pair. |
-| Read a small detail (a colour, a mark) | Gemma 4 | **Only on a crop.** 7 of 7 on a 256 px crop, 5 of 7 on the whole frame. For an exact value, measure pixels (`screenshot/palette.ps1`, a bar scan). |
-| Does a level's shape read as its subject? | Gemma 4 | **No.** Blind naming got Heart, Star and Smiley and called most other symmetric patterns "butterfly"; ratings did not separate the levels playtesting said read from those it said did not. |
+| What changed between two captures? | `google/gemma-4-12b` via `vision.ps1` (default); `qwen/qwen3-vl-8b` is close | **Use it as a first pass.** Gemma 3½ of 4 known pairs, Qwen3-VL-8B 3 of 4 (#440). Both said "identical" for one file sent twice. Gemma named the crosshair growing and turning red but called an upward tilt a zoom; Qwen got the tilt and spotted a ball that really had appeared, but missed the crosshair growing. Gemma 1.5–14 s a pair, Qwen 13–16 s. |
+| Read a small detail (a colour, a mark) | Gemma 4; Qwen3-VL a step behind | **Only on a crop.** On a 256 px crop Gemma 7 of 7, Qwen 6 of 7 (in 0.3 s against Gemma's 1.3); on the whole frame both 5 of 7. For an exact value, measure pixels (`screenshot/palette.ps1`, a bar scan). |
+| Does a level's shape read as its subject? | neither | **No.** Blind naming got 3–4 of 18 levels for both models, and most symmetric patterns came back as "butterfly" (Gemma) or "cannonball pattern" (Qwen). Neither model's 1–5 rating separates the levels playtesting said read from those it said did not; Qwen's does not separate them at all in 3D (3.8 against 3.7). |
 | Edit code | `deepseek-coder-v2-lite-instruct` via Aider | **No.** Did half a two-part extraction and rewrote the line endings; reviewing it cost more than doing it. |
 
 ## Before filing an issue
@@ -40,16 +40,18 @@ The issues come live through `gh` on every run, so an issue filed a minute ago i
 
 - **The point is the sweep, not the single pair.** Looking at two captures yourself costs a few thousand tokens and is more reliable; asking the model costs a hundred tokens of answer. Over twenty scenes before and after a shader change, let it describe every pair and open only the ones whose description is unexpected.
 - **Crop to what the question is about** (`-Crop 256` round the centre, `-Rect "x,y,w,h,scale"` anywhere else): a crosshair over a busy cluster simply is not there for it in a scaled whole frame.
-- **Its answer is a lead, never a measurement.** It said a camera moved "forward and downward" when it had tilted up. Confirm anything that matters with the pixels or your own eyes before it goes into a document.
+- **Its answer is a lead, never a measurement.** Gemma called a camera tilting up a zoom. Confirm anything that matters with the pixels or your own eyes before it goes into a document.
 - Thinking is off unless `-Think` is passed — on these tasks it was ~20× slower and no better, and with thinking on a small `max_tokens` comes back as an empty answer.
+- **Gemma 4 is the default; reach for `-Model qwen/qwen3-vl-8b` in two cases (#440).** When the card is shared — Qwen is 9.9 GB loaded against Gemma's 12.8, so a ~6 GB job such as the music generation fits beside it — and when a frame has to go in at full size: loaded at 16k, Qwen answered correctly on a 1600×900 frame (12 s) and on a pair of them (29 s), where Gemma at 16k fell over. Everywhere else it was a step behind: it said "none" for a white crosshair over the busy cluster that Gemma read, and it rates any level shape generously.
 
 To photograph the Game for a question: `BS3D.exe play level=<Name> shot=14`, then stop the process once its `[shot]` line is logged (~20 s a level, past any chapter-intro tour). **The Game reads and writes the owner's real `%LOCALAPPDATA%\BS3D` save** — hash `Settings.json` and `Progress.json` before and after (they came back byte-identical across nineteen such launches). The Testbed takes `shot=` too and touches no save.
 
 ## Running LM Studio
 
 - `lms load <key> -c <context> --ttl <seconds> -y`, `lms unload <key>`, `lms ps`. Give everything you load a **TTL** so the card is handed back when you are done.
-- **Gemma 4 at 8k context.** At 16k a full-size frame killed it: `terminated`, then `Model is unloaded`.
-- **One big model at a time.** Gemma is 12.8 GB loaded and DeepSeek 15.6 GiB, on a 16 GB card.
+- **Gemma 4 at 8k context.** At 16k a full-size frame killed it: `terminated`, then `Model is unloaded`. Qwen3-VL-8B survived 16k with full frames.
+- **One big model at a time.** Gemma is 12.8 GB loaded, Qwen3-VL-8B 9.9 GB and DeepSeek 15.6 GiB, on a 16 GB card.
+- **The card is shared with other sessions** — music generation (ACE-Step) runs on it too. Check `lms ps` and ask a session that holds the GPU before loading anything big, and unload your model when a peer asks for a window; on 2026-09-16 two such handovers by message went cleanly.
 - **If a request fails with `ErrorDeviceLost`**, LM Studio's Vulkan backend lost the device and reloads the model by itself — at its default 65k context. Unload and load it again at 8k. When it happened on 2026-09-16 the System log had no driver reset (4101) and no Kernel-Power event; if one ever shows up, tell the owner at once.
 
 ## Aider and coding models

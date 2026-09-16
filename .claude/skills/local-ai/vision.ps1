@@ -1,4 +1,6 @@
 # Ask the local vision model in LM Studio (Gemma 4) about one image, or about what changed between two.
+# -Model qwen/qwen3-vl-8b is the measured alternative (#440): a step behind Gemma on crops and pairs, but 9.9 GB
+# against 12.8 and it took full-size frames at 16k context where Gemma fell over. See SKILL.md for when to use it.
 #
 #   .\vision.ps1 -Image before.png -Image2 after.png -Question "The two images are two frames from the same game, taken a moment apart. List the visible differences between them, most important first, as at most five short bullet points. If they look identical, say so."
 #   .\vision.ps1 -Image frame.png -Crop 256 -Question "What colour is the crosshair in the centre? One word."
