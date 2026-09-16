@@ -38,7 +38,7 @@ The issues come live through `gh` on every run, so an issue filed a minute ago i
 .\.claude\skills\local-ai\vision.ps1 -Load -Image before.png -Image2 after.png -Question "The two images are two frames from the same game, taken a moment apart. List the visible differences between them, most important first, as at most five short bullet points. If they look identical, say so."
 ```
 
-- **The point is the sweep, not the single pair.** Looking at two captures yourself costs a few thousand tokens and is more reliable; asking the model costs a hundred tokens of answer. Over twenty scenes before and after a shader change, let it describe every pair and open only the ones whose description is unexpected.
+- **The point is the sweep, not the single pair.** Looking at two captures yourself costs a few thousand tokens and is more reliable; asking the model costs a hundred tokens of answer. Over twenty scenes before and after a shader change, let it describe every pair and open only the ones whose description is unexpected. **For that, use the `capture-review` skill**, which runs an exact block diff first (identical pairs never reach the model) and asks about crops of the changed regions as well as the whole frame.
 - **Crop to what the question is about** (`-Crop 256` round the centre, `-Rect "x,y,w,h,scale"` anywhere else): a crosshair over a busy cluster simply is not there for it in a scaled whole frame.
 - **Its answer is a lead, never a measurement.** Gemma called a camera tilting up a zoom. Confirm anything that matters with the pixels or your own eyes before it goes into a document.
 - Thinking is off unless `-Think` is passed — on these tasks it was ~20× slower and no better, and with thinking on a small `max_tokens` comes back as an empty answer.
