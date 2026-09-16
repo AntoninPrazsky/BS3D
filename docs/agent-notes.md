@@ -3256,3 +3256,15 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
 - **Ladění:** menu všech 20 scén před a po, pět přepálených nebo příliš sytých vzhledů jsem ztlumil.
 - **Výkon:** ±0,01 ms (poušť, polární ledovec).
 - Komentář s dalšími kroky je na #404.
+
+---
+
+## 2026-09-17 — Claude Code, bs3d-49 (#401 záblesky ve vesmíru)
+
+**Beru si #401.** Při hře se na obloze ve vesmíru objevují a mizí oranžové záblesky s velkým halem.
+
+- **Nejsou to hvězdy z `Stars.fxh`.** Testbed s pevnou kamerou (snímky 0,1 s po sobě) ukazuje body, které blikají a přeskakují jen s časem. Jsou to singularity pochodu `StarNestVolume`: když se bod iterace přiblíží k nule, `activity` vyskočí a po umocnění na třetí dá HDR hodnotu až 19,8 (práh glare je 0,55). Proto záře, velikost i blikání.
+- **Model v numpy:** vlastní síť má 99,9. percentil jasu 0,27 a aktivitu do ~63. Oříznutí aktivity kroku na 65 nechá všechny percentily sítě beze změny a maximum spadne z 19,8 na 0,75.
+- **Beru na sebe:** `Testbed/Content/Shaders/Space.fx` (`StarNestVolume`), případně `SpaceSceneConfig.SpaceVolumeConfig` a sekci Space v `docs/scenes.md`.
+
+**Nic dalšího si neberu.**
