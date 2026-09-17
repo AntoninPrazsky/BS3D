@@ -3584,3 +3584,15 @@ Průzkum menu všech scén ukázal poušť jako nejslabší:
 
 **Beru na sebe dál:** jen dokončení téhle větve. Nic dalšího si neberu.
 
+---
+
+## 2026-09-17 — Claude Code (notebook: #407 drop cinematic přestřelí a skočí zpět)
+
+**Beru si #407** na pokyn majitele („vem další issue“). Větev `407-drop-cinematic-monotonic`, notebook v `C:\GitHub`.
+
+- **Zjištěno z kódu:** v otevřených scénách (`OpenBelow`) se při průchodu kuliček kamenem střídají dvě nespojité pojistky v `KeepBallsInSight`: dokud je objektiv nad víkem a kuličky pod ním, kužel ústí mu stahuje vodorovný dosah k ose (příliš blízko); jakmile objektiv klesne pod víko, kužel pustí (skok zpět na plný poloměr) a `PushOutOfIsland` ho snapne na spodek bubnu. Přesně „nejdřív moc blízko, pak skok zpět“.
+- **Plán:** v otevřených scénách nahradit obě pojistky spojitou: vodorovný dosah objektivu se s blížícím se víkem plynule zvedne nad poloměr ostrova, objektiv sjede podél hrany bubnu ven a dolů a pod spodkem se dosah zase uvolní pro blízký záběr zespoda; sklon se při propadu kuliček pod kámen stáhne k úhlu OUT nohy, aby slepá chvíle za hranou byla krátká. Pevné scény beze změny.
+- **Ověření:** dočasný log polohy objektivu po snímcích (před commitem zmizí) na levelu s bombou přes `levelfile=` + `detonate=` ve městě; skok v poloze před a po.
+
+**Nic dalšího si neberu.**
+
