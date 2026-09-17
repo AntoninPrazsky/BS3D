@@ -139,17 +139,30 @@ namespace Prazsky.Core.Render
         public Rgb RockColorBright { get; set; } = new(0.40f, 0.115f, 0.035f);
 
         /// <summary>
-        /// Desert varnish: the near-black mineral skin left where water has run repeatedly down one line. It is
-        /// what turns a red dome into a weathered one, and the streaks are the strongest single cue that this
-        /// rock has been standing a long time.
+        /// Desert varnish: the near-black mineral skin left where water has run repeatedly down one line. On a
+        /// monolith that is the whole wall, hung with streaks from the crown's edge down, and the streaks are the
+        /// strongest single cue that this rock has been standing a long time.
         /// </summary>
         public Rgb VarnishColor { get; set; } = new(0.030f, 0.021f, 0.019f);
 
-        /// <summary>How much of the flank the varnish claims. 0 leaves clean unstreaked rock.</summary>
+        /// <summary>How dark the streaks down the walls run. 0 leaves clean unstreaked rock.</summary>
         public float VarnishStrength { get; set; } = 0.55f;
 
-        /// <summary>How hard the varnish glints. The one glossy thing in the scene — the ground never takes it.</summary>
-        public float VarnishGloss { get; set; } = 0.5f;
+        /// <summary>
+        /// How hard the varnish glints. The one glossy thing in the scene — the ground never takes it. 0.5 until the
+        /// varnish moved from a few gully lines onto the whole wall, where a glint that strong painted every
+        /// streak on a sunlit face white.
+        /// </summary>
+        public float VarnishGloss { get; set; } = 0.12f;
+
+        /// <summary>The paler rock where the oxidised skin has flaked away — a washed-out orange, not a cream.</summary>
+        public Rgb FlakeColor { get; set; } = new(0.46f, 0.17f, 0.06f);
+
+        /// <summary>How much of the walls the flaking claims, mostly low on them. 0 leaves the skin whole.</summary>
+        public float FlakeStrength { get; set; } = 0.55f;
+
+        /// <summary>How dark the hollows along a wall's foot are. 0 lights the foot like the face above it.</summary>
+        public float CaveShade { get; set; } = 0.6f;
 
         /// <summary>Roughly how many gullies run round a formation, over 2·pi. They are cut into the geometry, so
         /// they reach the silhouette — and so they must stay several grid cells wide, which is what caps this.</summary>
@@ -165,20 +178,22 @@ namespace Prazsky.Core.Render
         /// </summary>
         public float RockRelief { get; set; } = 0.55f;
 
-        /// <summary>Red sand.</summary>
-        public Rgb SoilColor { get; set; } = new(0.34f, 0.095f, 0.032f);
+        /// <summary>Red sand — a vivid iron red, redder than the brown-orange it was before the references.</summary>
+        public Rgb SoilColor { get; set; } = new(0.40f, 0.078f, 0.026f);
 
         /// <summary>The paler dust that gathers on it in patches — sand is never one colour.</summary>
-        public Rgb SoilColorPale { get; set; } = new(0.50f, 0.215f, 0.088f);
+        public Rgb SoilColorPale { get; set; } = new(0.56f, 0.17f, 0.065f);
 
-        /// <summary>Dry spinifex: the olive-straw of a tussock that has not seen rain this year.</summary>
-        public Rgb SpinifexColor { get; set; } = new(0.155f, 0.148f, 0.055f);
+        /// <summary>Spinifex: the grey-green of a tussock, kept close to the sand's own value so the tussocks are
+        /// texture from the play camera rather than a pattern of dots on it.</summary>
+        public Rgb SpinifexColor { get; set; } = new(0.13f, 0.14f, 0.08f);
 
         /// <summary>World units between hummocks. Plants competing for the same water space themselves out,
         /// which is why the field that draws them is cellular rather than a noise mottle.</summary>
         public float SpinifexSpacing { get; set; } = 2.6f;
 
-        /// <summary>How much of the ground the hummocks claim where they grow. 0 is bare gibber plain.</summary>
+        /// <summary>How big the tussocks grow where they grow (it scales each one's radius, so a thin stand has
+        /// fewer and smaller tussocks rather than fainter ones). 0 is bare gibber plain.</summary>
         public float SpinifexCover { get; set; } = 0.7f;
 
         /// <summary>How high a tussock stands (world units of relief), so it catches the sun on its own dome.</summary>
@@ -206,6 +221,14 @@ namespace Prazsky.Core.Render
         /// <summary>World distance over which the plain melts into the skyline. Must stay inside the terrain
         /// grid's half-extent (500), or the mesh's own edge shows against the dome.</summary>
         public float HorizonHazeDistance { get; set; } = 480f;
+
+        /// <summary>
+        /// How far the last stretch of the haze leans from the dome's horizon colour towards the dust's own hue
+        /// (0 = straight to the horizon colour). The desert's dial and for the desert's reason: under the teal and
+        /// purple domes the far plain used to fade teal, which never matched the sky either, since the dome's
+        /// horizon uniform and the horizon the dome draws differ (see <c>Outback.fx</c>).
+        /// </summary>
+        public float HazeWarmth { get; set; } = 0.85f;
 
         /// <summary>
         /// Heat shimmer over the middle distance — the one thing here that moves besides the cloud shadows and
