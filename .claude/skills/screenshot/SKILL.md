@@ -386,7 +386,9 @@ $g.DrawImage($crop, 0,0,1520,680); $big.Save('shot_crop.png')
 ```
 
 Note the HUD text and the crosshair draw **after** the tonemap resolve (display space), so they stay sharp and are
-never affected by scene-space effects like the underwater blur — don't judge a blur by the overlay.
+never affected by scene-space effects like the underwater blur — don't judge a blur by the overlay. (The one
+exception is the Game's HUD under a page's blur, a pause: since #438 it is drawn into a layer and softened
+with the frame, so a paused Game capture is *supposed* to show a soft HUD.)
 
 ## Comparing the Testbed against the map editor (#367)
 
