@@ -93,9 +93,30 @@ namespace BS3D.Effects
         //different scale: four keys of position and look-at, and the wide legs' field of view. The keys are
         //named by their SUBJECT — environment, arena, map, arrival — because that is the order the owner
         //asked the tour to take.
-        private Vector3[] _positions = new Vector3[4];
+        //
+        //THE POSITIONS ARE POLAR ABOUT THE CENTRE SINCE #409 — azimuth, elevation and radius, as one Vector3
+        //per key — and the look-ats stay Cartesian. A Cartesian spline through four stands around an arena
+        //bows INWARD between them (a Catmull-Rom's tangent at a key is the chord between its neighbours), and
+        //when two neighbouring stands were near-opposite the chord ran through the arena's axis: the radius
+        //floor then pushed the lens straight UP over the island, and it rode the floor's sphere looking down
+        //into the funnel. Traced on Comet, the Nebula's opener: 81 degrees of elevation on the map leg in one
+        //roll, and the arrival leg riding the floor for a quarter of the tour at 46 degrees in another — the
+        //owner's "ends up looking down into the island from an odd angle". Interpolating the stands
+        //themselves keeps every sample on a smooth orbit at the interpolated radius, and the azimuths are laid
+        //along ONE continuous turn from the scene's stand to the gun (see Begin), so no leg ever crosses the
+        //axis and the floor never has anything to do.
+        private Vector3[] _polar = new Vector3[4];
         private Vector3[] _targets = new Vector3[4];
         private float _fovWide, _fovGame;
+
+        //How much of the turn left after the arena key the map key takes; the rest is the arrival's.
+        private const float MAP_KEY_TURN_SHARE = 0.6f;
+
+        //The band the turn from the arena key to the gun should fall in, for a stand the scene fixed (see
+        //ChooseTurn): under the floor the map and arrival legs would be a near-stand-still, over the ceiling
+        //most of a lap in the tour's last two thirds — 75 to 200 degrees.
+        private const float MIN_REMAINING_TURN = MathHelper.Pi * 0.42f;
+        private const float MAX_REMAINING_TURN = MathHelper.Pi * 1.11f;
 
         /// <summary>
         /// Takes the camera. <paramref name="centre"/> is the point the ordinary gameplay camera already
@@ -129,21 +150,37 @@ namespace BS3D.Effects
             float islandRadius = ArenaIsland.RADIUS;
             float islandTopY = ArenaIsland.TOP_Y;
 
-            float bearing = (float)random.NextDouble() * MathHelper.TwoPi;
+            //Where the gun stands, in the tour's own terms: the last key IS this pose, and every azimuth below
+            //is laid out relative to it (#409).
+            Vector3 toGun = gamePosition - centre;
+            float gunAzimuth = MathF.Atan2(toGun.Z, toGun.X);
+            float gunElevation = MathF.Atan2(toGun.Y, MathF.Sqrt(toGun.X * toGun.X + toGun.Z * toGun.Z));
+            float gunRadius = toGun.Length();
 
-            //How far one leg sweeps round the arena, and in which direction — rolled, so the same chapter
-            //opening twice in two runs of the program is still two different flights.
-            float sweep = MathHelper.ToRadians(Lerp(random, 105f, 155f)) * (random.Next(2) == 0 ? 1f : -1f);
+            //How far one leg sweeps round the arena, and which way — rolled, so the same chapter opening twice
+            //in two runs of the program is still two different flights. Both are only PROPOSALS here: the tour
+            //has to end at the gameplay pose, and which way round it turns to get there is settled below with
+            //the gun in view (#409), because a turn that ignored the gun was what lunged across the axis.
+            float sweep = MathHelper.ToRadians(Lerp(random, 105f, 155f));
+            int rolledSign = random.Next(2) == 0 ? 1 : -1;
+
+            //THE STAND IS PLACED OFF THE GUN for a scene that is the same in every direction (#409): the tour
+            //turns the sweep from the stand to the arena key and then a rolled remainder more to the gun, all
+            //one way round, so the whole flight is one turn of about 195 to 325 degrees that ends on the gun.
+            //It was a bare roll, and a bare roll can land the stand anywhere against the gun — one turn from
+            //it too short to carry the map and the arrival, the other most of a lap. A landmark scene ignores
+            //this bearing outright and has its stand chosen for it below.
+            float remainingRolled = MathHelper.ToRadians(Lerp(random, 90f, 170f));
+            float bearing = gunAzimuth - rolledSign * (sweep + remainingRolled);
 
             //Asked AFTER the roll and given it, because half the scenes build their viewpoint out of it —
             //see SceneRenderer.TryGetViewpoint. Null when nothing was handed in (a caller with no scene
             //renderer at all) or when the scene has no viewpoint of its own.
             SceneViewpoint? viewpoint = sceneViewpoint?.Invoke(bearing);
 
-            Vector3 At(float azimuth, float elevation, float radius) => centre + new Vector3(
-                MathF.Cos(azimuth) * MathF.Cos(elevation) * radius,
-                MathF.Sin(elevation) * radius,
-                MathF.Sin(azimuth) * MathF.Cos(elevation) * radius);
+            //The first two keys as (azimuth, elevation, radius), before the direction of travel is known: the
+            //arena key's azimuth is the stand plus a signed share of the sweep, so it is finished below.
+            float azimuth0, elevation0, radius0, arenaShare, elevation1, radius1;
 
             //THE FIRST TWO KEYS ARE THE SCENE'S OWN SINCE #289, when it has a viewpoint to give. They were a
             //rolled bearing and a look across the island's far rim whatever the backdrop was — a fair shot
@@ -161,18 +198,18 @@ namespace BS3D.Effects
                 Vector3 toSubject = view.LookAt - centre;
                 float subjectBearing = MathF.Atan2(toSubject.Z, toSubject.X);
 
-                float stand = subjectBearing + MathHelper.ToRadians(view.BearingOffsetDegrees);
-                float elevScene = _elev0 = MathHelper.ToRadians(view.ElevationDegrees);
-
-                _positions[0] = At(stand, elevScene, gameDistance * view.DistanceScale);
+                azimuth0 = subjectBearing + MathHelper.ToRadians(view.BearingOffsetDegrees);
+                elevation0 = _elev0 = MathHelper.ToRadians(view.ElevationDegrees);
+                radius0 = gameDistance * view.DistanceScale;
                 _targets[0] = view.LookAt;
 
                 //KEY 1 IS THE SAME SUBJECT FROM FURTHER ROUND, and a move rather than a second still: a bit
                 //over a third of the leg's sweep, nearer and a little higher, with the look-at eased a third
                 //of the way back towards the arena. So the island and its cluster enter the frame from the
                 //side while the scene is still the subject, instead of the shot cutting away to them.
-                _positions[1] = At(stand + sweep * 0.38f, elevScene + MathHelper.ToRadians(9f),
-                    gameDistance * view.DistanceScale * 0.86f);
+                arenaShare = 0.38f;
+                elevation1 = elevation0 + MathHelper.ToRadians(9f);
+                radius1 = radius0 * 0.86f;
                 _targets[1] = Vector3.Lerp(view.LookAt, centre, 0.34f);
             }
             else
@@ -183,26 +220,52 @@ namespace BS3D.Effects
                 //why it was worth replacing, and exactly why it is a safe thing to fall back to.
                 _subject = "the rim";
 
-                float elev0 = _elev0 = MathHelper.ToRadians(Lerp(random, 8f, 16f));
-                _positions[0] = At(bearing, elev0, gameDistance * Lerp(random, 1.9f, 2.4f));
+                azimuth0 = bearing;
+                elevation0 = _elev0 = MathHelper.ToRadians(Lerp(random, 8f, 16f));
+                radius0 = gameDistance * Lerp(random, 1.9f, 2.4f);
                 _targets[0] = centre + new Vector3(
                     -MathF.Cos(bearing) * islandRadius * Lerp(random, 0.8f, 1.0f),
                     islandTopY + 2f - centre.Y,
                     -MathF.Sin(bearing) * islandRadius * Lerp(random, 0.8f, 1.0f));
 
-                float elev1 = MathHelper.ToRadians(Lerp(random, 22f, 32f));
-                _positions[1] = At(bearing + sweep, elev1, gameDistance * Lerp(random, 1.5f, 1.8f));
+                arenaShare = 1f;
+                elevation1 = MathHelper.ToRadians(Lerp(random, 22f, 32f));
+                radius1 = gameDistance * Lerp(random, 1.5f, 1.8f);
                 _targets[1] = new Vector3(centre.X, islandTopY + 3f, centre.Z);
             }
 
+            //WHICH WAY ROUND (#409). The arena key sits a signed share of the sweep from the stand, and from
+            //there the tour still has to reach the gun. A scene with no landmark had its stand placed so that
+            //carrying on the rolled way round gets there in a turn worth having; a landmark's stand is where
+            //the landmark put it, so the two directions are weighed against the gun (ChooseTurn) — and the
+            //tour may swing one way to the arena key and come BACK the other to the gun, which for a stand
+            //close to the gun's own bearing is the difference between a look around and a lap.
+            int arenaSign, arrivalSign;
+            float remaining;
+
+            if (viewpoint.HasValue)
+                ChooseTurn(azimuth0, arenaShare * sweep, gunAzimuth, rolledSign, out arenaSign, out arrivalSign, out remaining);
+            else
+            {
+                arenaSign = arrivalSign = rolledSign;
+                remaining = RemainingTurn(azimuth0 + arenaSign * sweep, gunAzimuth, arrivalSign);
+            }
+
+            float azimuth1 = azimuth0 + arenaSign * arenaShare * sweep;
+
+            _polar[0] = new Vector3(azimuth0, elevation0, radius0);
+            _polar[1] = new Vector3(azimuth1, elevation1, radius1);
+
             //KEY 2, THE MAP: on round again and up — the one proper look at the cluster, from high enough to
-            //show the glass it hangs from.
+            //show the glass it hangs from. Most of the way round to the gun, so the arrival is the shorter leg.
             float elev2 = _elev2 = MathHelper.ToRadians(Lerp(random, 38f, 48f));
-            _positions[2] = At(bearing + 2f * sweep, elev2, gameDistance * Lerp(random, 1.25f, 1.45f));
+            _polar[2] = new Vector3(azimuth1 + arrivalSign * MAP_KEY_TURN_SHARE * remaining, elev2,
+                gameDistance * Lerp(random, 1.25f, 1.45f));
             _targets[2] = centre;
 
-            //KEY 3, THE ARRIVAL: the gameplay pose itself, verbatim.
-            _positions[3] = gamePosition;
+            //KEY 3, THE ARRIVAL: the gameplay pose itself — its own azimuth, continued rather than wrapped, so
+            //the spline turns through the remaining arc instead of unwinding the whole tour.
+            _polar[3] = new Vector3(azimuth1 + arrivalSign * remaining, gunElevation, gunRadius);
             _targets[3] = gameTarget;
 
             //A touch wider than the gameplay frame at the start — an establishing shot reads the place, not
@@ -261,10 +324,10 @@ namespace BS3D.Effects
         //ASCII only and invariant, for the same reason DropCinematic.Describe is: a console whose code page
         //mangles a degree sign, and a figure two machines might compare.
         public string Describe() => string.Format(CultureInfo.InvariantCulture,
-            "'{0}' {1:F0} out at {2:F0}deg -> in -> map {3:F0} out at {4:F0}deg -> game pose, {5:F1}s",
-            _subject, (_positions[0] - _centre).Length(), MathHelper.ToDegrees(_elev0),
-            (_positions[2] - _centre).Length(), MathHelper.ToDegrees(_elev2),
-            DURATION_SECONDS);
+            "'{0}' {1:F0} out at {2:F0}deg -> in -> map {3:F0} out at {4:F0}deg -> game pose, {5:F1}s, turning {6:F0}deg",
+            _subject, _polar[0].Z, MathHelper.ToDegrees(_elev0),
+            _polar[2].Z, MathHelper.ToDegrees(_elev2),
+            DURATION_SECONDS, MathHelper.ToDegrees(_polar[3].X - _polar[0].X));
 
         private Vector3 _centre;
         private float _elev0, _elev2, _minRadius;
@@ -285,23 +348,91 @@ namespace BS3D.Effects
         {
             float t = Smooth(Saturate(_elapsed / DURATION_SECONDS));
 
-            Position = Spline(_positions, t);
+            //The stands are swept in polar terms (#409): a sample is a point on an orbit at the interpolated
+            //radius, so between two stands the lens goes ROUND the arena and never through it, whatever the
+            //angle between them. The look-at stays a Cartesian sweep, which for points far outside the arena
+            //is exactly what it should be.
+            Vector3 polar = Spline(_polar, t);
+
+            Position = _centre + Orbit(polar.X, polar.Y, polar.Z);
             Target = Spline(_targets, t);
             FieldOfView = MathHelper.Lerp(_fovWide, _fovGame, t);
 
-            //⚠ NEVER THROUGH THE CLUSTER, and this is a floor rather than a taste. Every key stands well
-            //outside the hanging field, but a Catmull-Rom's tangent at a key is the chord between its
-            //neighbours, so a leg running from a far key to a near one bows INWARD between the two. #289's
-            //opening legs stand as far out as the SCENE asks rather than at a fixed multiple of the level's
-            //own stand-off, which made that bow deep enough to fly the lens through the balls — photographed
-            //on the volcano's opening as a frame of nothing but ball at arm's length. Floored here rather
-            //than by pulling the keys in, because where to stand is the part a scene is allowed to choose;
-            //and it cannot disturb the arrival, since key 3 is the gameplay pose and stands at exactly the
-            //stand-off this is a fraction of.
+            //⚠ NEVER THROUGH THE CLUSTER, and this is a floor rather than a taste. It was load-bearing while
+            //the stands were splined in Cartesian terms: a Catmull-Rom's tangent at a key is the chord between
+            //its neighbours, so a leg running from a far key to a near one bowed INWARD between the two, and
+            //#289's opening legs stand as far out as the SCENE asks, which made that bow deep enough to fly the
+            //lens through the balls — photographed on the volcano's opening as a frame of nothing but ball at
+            //arm's length. The polar sweep above has no inward bow (the radius is interpolated between keys
+            //that all stand at or beyond the gameplay stand-off, monotonically), so this never fires now; it
+            //stays because it is one line and the one thing it guards is the one thing the shot must never do.
             Vector3 away = Position - _centre;
             float radius = away.Length();
 
             if (radius > 1e-4f && radius < _minRadius) Position = _centre + away * (_minRadius / radius);
+        }
+
+        /// <summary>A stand on the orbit about the centre: azimuth and elevation in radians, radius in units.</summary>
+        private static Vector3 Orbit(float azimuth, float elevation, float radius) => new(
+            MathF.Cos(azimuth) * MathF.Cos(elevation) * radius,
+            MathF.Sin(elevation) * radius,
+            MathF.Sin(azimuth) * MathF.Cos(elevation) * radius);
+
+        /// <summary>
+        /// Which way the arena leg swings and which way the tour then goes to the gun, for a stand the scene
+        /// fixed (#409). Four candidates, tried in order of preference — carrying on the rolled way, carrying
+        /// on the other way, swinging the rolled way and coming back, swinging the other way and coming back
+        /// — and the first whose turn to the gun falls in the band is taken; if none does, the one nearest
+        /// the band. The band is what stops the map and the arrival from being a stand-still at one end and
+        /// a lap at the other: Space's planet stands 32 degrees off the gun, and carrying on either way from
+        /// there was 270 to 340 degrees of turn in six seconds, which the trace measured at over 80 degrees a
+        /// second through the middle of the tour.
+        /// </summary>
+        private static void ChooseTurn(float stand, float arenaTurn, float gunAzimuth, int rolledSign,
+            out int arenaSign, out int arrivalSign, out float remaining)
+        {
+            Span<(int arena, int arrival)> candidates = stackalloc (int, int)[]
+            {
+                (rolledSign, rolledSign), (-rolledSign, -rolledSign), (rolledSign, -rolledSign), (-rolledSign, rolledSign)
+            };
+
+            arenaSign = arrivalSign = rolledSign;
+            remaining = 0f;
+            float best = float.MaxValue;
+
+            foreach ((int arena, int arrival) in candidates)
+            {
+                float turn = RemainingTurn(stand + arena * arenaTurn, gunAzimuth, arrival);
+
+                float outside = turn < MIN_REMAINING_TURN ? MIN_REMAINING_TURN - turn
+                    : turn > MAX_REMAINING_TURN ? turn - MAX_REMAINING_TURN
+                    : 0f;
+
+                if (outside < best)
+                {
+                    best = outside;
+                    arenaSign = arena;
+                    arrivalSign = arrival;
+                    remaining = turn;
+                }
+
+                if (outside == 0f) break;
+            }
+        }
+
+        /// <summary>
+        /// How far round, in <paramref name="sign"/>'s direction, a turn from <paramref name="from"/> has to go
+        /// to reach <paramref name="to"/>: in (0, 2π], never negative and never zero, so a stand exactly on
+        /// the gun's bearing is a full lap rather than no leg at all.
+        /// </summary>
+        private static float RemainingTurn(float from, float to, int sign)
+        {
+            float turn = (to - from) * sign;
+            turn %= MathHelper.TwoPi;
+
+            if (turn <= 0f) turn += MathHelper.TwoPi;
+
+            return turn;
         }
 
         /// <summary>
