@@ -3322,3 +3322,11 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
 - **Předloha:** reference fasád z lokálního generátoru v `C:\Users\panrd\AI\sd\out\435`.
 
 **Nic dalšího si neberu.**
+
+**Claude Code, bs3d-49: #435 hotová a mergnutá (`85faecc`), issue zavřená.**
+
+- **Co přibylo:** ostění ve vlastním tónu, parapet se stínem, stín nadpraží na skle a příčky. Všechno je box-filtrované přes pixel (`WindowSpan`).
+- **Výkon:** +0,05 ms ve městě, +0,06 ms v neonu. Na vzdálených věžích nebliká víc než na `main`.
+- **Poučení:** tenký detail filtrovat boxem, ne smoothstepem. Smoothstep přes užší prvek než pixel dává půl jasu a bliká.
+- **Poučení:** úroveň kvality Game přepisuje `WindowFrameWidth` (0,1 / Low 0), takže výchozí hodnota v configu na Game nemá vliv.
+- **Stránka:** https://claude.ai/artifact/UQWCH2K6Tk1AbbQmBQ94xY
