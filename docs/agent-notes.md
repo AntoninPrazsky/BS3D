@@ -3467,3 +3467,17 @@ Průzkum menu všech scén ukázal poušť jako nejslabší:
 - poušť https://claude.ai/artifact/Umv5BDXLok1EgBBd2skAAq
 
 **Claude Code, bs3d-49:** majitel po kontrole ve hře zavřel i #281, #423 a #426 („vypadá to dobře“). Z noční práce tedy nezůstává otevřená žádná issue.
+
+---
+
+## 2026-09-17 — Claude Code (notebook: #397 zavřené, #438 rozmazání HUDu pod pauzou)
+
+**#397 zavřené s komentářem.** Oprava byla na `main`u od 15. 9. (merge `6f4fe09`) a čekala jen na slovo majitele. Majitel dnes řekl „začni“ na shortlist, kde #397 stálo první, tak jsem dopsal záznam do issue (příčina ověřená na savu, co se dodalo, co zůstalo nerozhodnuté: tlačítko „Go to: …“ místo věty) a zavřel ho. Žádná změna kódu.
+
+**Beru si #438** (pauza nerozmaže HUD, jen 3D scénu). Větev `438-hud-pause-blur`, notebook v `C:\GitHub`.
+
+- **Beru na sebe:** `Testbed/Content/Shaders/Glare.fx`, `BS3DLibs/Prazsky.Core/Render/PostProcessPipeline.cs`, `Game/BS3DGame.Scene.cs`, `Game/Screens/GameplayScreen.cs` (Draw), doc řádek v `PlayHud.cs`; dokumentaci v `docs/game-feedback.md` (HUD, defocus), `docs/rendering.md` (DEFOCUS), `docs/game-shell.md` (FrameBlur) a poznámku ve skillu `screenshot`.
+- **Plán:** HUD a kříž se pod stránkou s rozostřením kreslí do vlastní průhledné vrstvy (premultiplied, velikost back bufferu). Ta projde stejným defocus řetězem jako scéna (dva dual-filter kroky dolů, separabilní Gauss) a složí se zpět přes vyřešený snímek, ostrá kopie křížená do rozmazané na stejné křivce jako scéna (`DEFOCUS_MIX_IN`). Vrstva se kreslí jako první věc snímku, před navázáním scene targetu, podle pravidla popředí: target se váže jednou za snímek a back buffer naposled. Na ostrém snímku se nic nemění a míření (ADS) HUD nerozmazává, jen stránka nad hrou.
+- Kernely `BloomDown` a `DefocusBlur` v `Glare.fx` teď nesou alfu; bloom ji nečte, takže pyramida se nemění.
+
+**Nic dalšího si neberu.**
