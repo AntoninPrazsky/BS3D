@@ -60,6 +60,17 @@ float WindRippleStrength;
 float GrassReliefStrength;
 float GrassReliefFrequency;
 
+//THE GRASS AS A MATERIAL (#281), read off references rendered for it (a savanna field, the same field towards a low
+//sun, bunch grass from above): savanna grass grows in separate tufts with the red earth showing between them, its
+//dry tips are pale straw, and the field has a sheen seen edge-on and glows gold looking into the sun. The meadow
+//got the same treatment first; the dials mean the same things here.
+float3 GrassTipColor;
+float GrassTipStrength;
+float TuftSize;
+float TuftStrength;
+float GrassSheenStrength;
+float GrassTranslucency;
+
 //Scene point lights (the savanna's campfire) that light the grass under every dome, same as InstancedModel.fx.
 //Colours are linear radiance.
 #define MAX_SCENE_LIGHTS 8
@@ -200,7 +211,7 @@ float HearthBurn(float2 xz)
     return saturate(burn * (0.82 + 0.36 * (CloudNoise(xz * 0.45) * 0.5 + 0.5)));
 }
 
-float4 SavannaPS(SavannaVertexOutput input) : COLOR
+float4 SavannaField(SavannaVertexOutput input, bool detail)
 {
     float3 worldPosition = input.WorldPosition;
 
@@ -226,6 +237,20 @@ float4 SavannaPS(SavannaVertexOutput input) : COLOR
     //How burnt this spot is (#282): the campfires ring the island and each has burnt the grass under it.
     float burn = HearthBurn(worldPosition.xz);
 
+    //CLUMPS (#281): savanna grass grows in bunches, and a bunch is its own shade of dry gold or green - a noise one
+    //bunch across, band-limited as a whole, and one of the reduced program's two cuts. No more than that, and the
+    //layouts that tried for more were each rejected on sight: jittered discs with earth round each read as polka
+    //dots, the same discs raised into domes in the relief read as a field of pebbles (green stone, the very report
+    //this answers), and the meadow's clump seams - dark lines along a noise's zero-crossings - drew a web of worm-like
+    //cracks under a high sun, which reads as dried mud. What makes grass read as grass at a field's distance is
+    //fibre, not form: the tips, the strokes, the sheen and the glow below.
+    float clumpShade = 0.0;
+    if (detail)
+    {
+        float clumpFade = saturate(1.0 - 2.5 * footprint / max(TuftSize, 1e-3)) * (1.0 - burn);
+        clumpShade = GradientNoise2(worldPosition.xz / max(TuftSize, 1e-3) + 5.1) * clumpFade;
+    }
+
     //Fine grass texture tilts it, so the grass catches the light unevenly and the wind reads on it - and it
     //fades out with the char, because what that relief is a texture OF is blades, and a hearth has none.
     float relief = GrassRelief(worldPosition.xz, footprint, gust) * (1.0 - burn * 0.85);
@@ -241,10 +266,33 @@ float4 SavannaPS(SavannaVertexOutput input) : COLOR
     float3 grass = lerp(GrassColorDry, GrassColor, saturate((patchLarge - 0.12) * 1.9) * (0.7 + 0.3 * patchMed));
     grass = lerp(grass, GrassColorBare, smoothstep(0.72, 0.85, bare) * 0.55);
 
+    grass *= 1.0 + TuftStrength * 0.45 * clumpShade;
+    grass = lerp(grass, grass * float3(1.12, 1.0, 0.78), TuftStrength * saturate(clumpShade * 1.5));
+
     //Wind combing the grass: the gust computed above, over the blades it lays down. Same dial and the same
     //range it always had; what it is applied to is a travelling patch rather than an infinite plane wave
     //42 world units across (#276 — see WindGust in Noise.fxh).
     grass *= 1.0 + gust * WindRippleStrength * (1.0 - burn);
+
+    //TIPS AND HOLLOWS (#281), off the very relief that tilts the normal: where the combed field stands high the dry,
+    //pale tips are showing, where it dips the eye is looking down between the blades. Normalised to the relief's own
+    //amplitude, and it needs no band limit of its own - the relief's octaves already fade with the footprint.
+    float blade = relief / max(GrassReliefStrength * GRASS_FBM_GAIN, 1e-4);
+    float tipCover = 1.0 - burn;
+    grass *= 1.0 + 0.32 * GrassTipStrength * clamp(blade, -1.0, 1.0) * tipCover;
+    grass = lerp(grass, GrassTipColor, 0.45 * GrassTipStrength * saturate(blade) * tipCover);
+
+    //BLADES SEEN FROM THE SIDE (#281), the meadow's strokes: a fine noise stretched along the ground towards the
+    //camera projects to upright strokes in front of the lens - longer here, the savanna's grass being tall. The
+    //reduced program's other cut.
+    if (detail)
+    {
+        float strokeFrequency = GrassReliefFrequency * 3.0;
+        float strokes = Fbm2Combed(worldPosition.xz * strokeFrequency, CameraPosition.xz - worldPosition.xz,
+            6.0, 2, footprint * strokeFrequency);
+        grass *= 1.0 + 0.85 * GrassTipStrength * strokes * tipCover;
+        grass = lerp(grass, GrassTipColor, 0.5 * GrassTipStrength * saturate(strokes * 2.0) * tipCover);
+    }
 
     //And the hearth over the top of all three tones: ash across the burnt ring, char at the fire's own foot.
     //Two steps rather than one lerp so the patch has an edge INSIDE it - a fire pit is a dark eye in a pale
@@ -273,6 +321,24 @@ float4 SavannaPS(SavannaVertexOutput input) : COLOR
 
     float3 color = grass * (skyAmbient * AmbientStrength + SunColor * ndotl * sunlight + sceneLight);
 
+    //THE SHEEN AND THE GLOW (#281), the meadow's two: a field seen edge-on is a sea of tips catching the light, and a
+    //blade is thin, so with the sun behind it light comes through - gold here, which is the savanna at the hour its
+    //default dome is set to. Off the base normal, since both are about how the FIELD is seen; kept off the char.
+    float3 toCamera = normalize(CameraPosition - worldPosition);
+    float grazing = 1.0 - saturate(dot(baseNormal, toCamera));
+    grazing *= grazing * grazing;
+    float bladeCover = 1.0 - burn;
+
+    float3 sheenColor = lerp(grass, GrassTipColor, 0.5) + 0.1;
+    color += bladeCover * GrassSheenStrength * grazing * sheenColor
+        * (skyAmbient * AmbientStrength + SunColor * (0.35 * sunlight));
+
+    float towardSun = saturate(dot(-toCamera, SunDirection));
+    float backlit = towardSun * towardSun;
+    backlit *= backlit * backlit;
+    color += bladeCover * GrassTranslucency * backlit * sunlight * (0.35 + 0.65 * pow(grazing, 0.33))
+        * SunColor * lerp(grass, GrassTipColor, 0.7);
+
     //Horizon haze: the distant field softens into the skyline
     float dist = distance(CameraPosition, worldPosition);
     float haze = saturate(dist / HorizonHazeDistance);
@@ -281,11 +347,26 @@ float4 SavannaPS(SavannaVertexOutput input) : COLOR
     return float4(color, 1.0);
 }
 
+float4 SavannaPS(SavannaVertexOutput input) : COLOR { return SavannaField(input, true); }
+float4 SavannaReducedPS(SavannaVertexOutput input) : COLOR { return SavannaField(input, false); }
+
 technique Savanna
 {
     pass P0
     {
         VertexShader = compile VS_SHADERMODEL SavannaVS();
         PixelShader = compile PS_SHADERMODEL SavannaPS();
+    }
+};
+
+//Two programs from one body (#281), the meadow's and the forest's pattern. "Savanna" is the authored field;
+//"SavannaReduced" gives up the tuft gaps and the blade strokes and keeps everything that is arithmetic on values
+//already computed. SceneRenderer.SceneDetail picks; the Game's Low tier takes the reduced one.
+technique SavannaReduced
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL SavannaVS();
+        PixelShader = compile PS_SHADERMODEL SavannaReducedPS();
     }
 };
