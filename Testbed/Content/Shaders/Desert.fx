@@ -95,6 +95,16 @@ float3 SandColorPale;
 //How much of the sky's hemisphere light reaches the flats
 float AmbientStrength;
 
+//Sunlight thrown back off the lit sand onto the faces the sun does not reach. It is what makes a slip face read
+//warm brown in every reference rather than the sky's blue: the shadowed side of a dune is lit mostly by the
+//dune beside it.
+float SandBounce;
+
+//How far the distance haze leans from the dome's horizon colour towards the sand's own hue. The air over an erg
+//carries its dust, so the far dunes fade warm, not into whatever the horizon of the dome happens to be (under the
+//purple and teal domes the far dunes used to fade cyan).
+float HazeWarmth;
+
 //How hard the sun glints off the sand at a grazing angle. Sand is close to matte but not matte: quartz grains
 //are little mirrors, and a dune with the sun low behind it carries a sheen along its crest lines.
 float SheenStrength;
@@ -104,41 +114,153 @@ float HorizonHazeDistance;
 
 //--- The dune field -----------------------------------------------------------------------------------
 
-//Rolling dunes. Two long, low waves along mixed directions give the shape of the field; a THIRD term is
-//waveshaped into crest lines, which is the one thing the old smooth four-sine sum could not do. A dune has a
-//sharp crest and a long windward face, not the rounded top of a sine: 1 - |x| puts a ridge wherever its wave
-//crosses zero, and the smoothstep sharpens that ridge.
+//THE DUNES ARE CUT BY THE WIND (redrawn against references rendered locally for this pass). A real dune is
+//not a hump: sand climbs a long gentle WINDWARD slope, breaks over a knife-edge crest and avalanches down a
+//short steep SLIP FACE on the lee side, and from any low vantage the whole erg reads by that - a bright face
+//and a dark face meeting on a sharp line. The field used to be a symmetric waveshaped sine sum, which drew
+//rounded lumps with no lee side at all and, repeated to the horizon, a lumpy wall.
 //
-//How far it may be sharpened is set by the grid, not by taste. The mesh is DESERT_GRID_N over DESERT_EXTENT,
-//a cell of ~2.8 world units, and the ridge terms' own wavelengths are ~57 and ~30 units - so the crest's
-//effective width stays several cells wide and the geometry can still hold it. Sharpened further the crest
-//would fall between vertices, and the per-pixel normal would then shade a ridge the silhouette does not have.
+//So each dune set is a SAWTOOTH along the wind (DuneProfile): the height climbs over DUNE_WINDWARD of the
+//period and falls over the rest, its crest a corner and its trough rounded flat. The crests are made sinuous by
+//warping the along-wind coordinate with slow noise across the wind, and their height wanders along the crest,
+//so no two dunes are the same and the rows never read as ploughing. A second, smaller set crossing at an angle
+//takes over where it stands taller (a max, not a sum, which keeps both sets' crests sharp where a sum would
+//round them into each other).
 //
-//The constant at the end takes the mean back to about zero. It has to: the whole field is multiplied by the
-//clearing ramp, so a field with a mean would rise with the ramp and the desert would read as a shallow bowl
-//with the island at the bottom of it.
-float DuneSum(float2 p)
+//The grid holds it: a cell is ~2.8 units and the slip face alone runs over ~16, so the silhouette follows, and
+//the per-pixel normal below draws the crest as the sharp shading line it is even between vertices.
+static const float DUNE_SPACING = 64.0;       //crest to crest along the wind, world units
+static const float DUNE_WINDWARD = 0.75;      //the share of each period the windward slope takes
+static const float DUNE_MEAN = 0.30;          //the field's mean, sampled numerically, taken back off - see DuneField
+
+//The shared gradient noise WITH ITS ANALYTIC GRADIENT: (value, d/dx, d/dy). The same hash and the same quintic fade
+//as Noise.fxh's GradientNoise2, so the value is that function's to the bit - it has to be, because the vertex shader
+//displaces the grid by this field and the pixel shader lights it by its gradient, and the two must describe one
+//surface. Written out rather than differenced for cost, which is measured: the dune field has five noises in it,
+//and the pixel normal used to be three finite-difference taps of the whole field - fifteen noises a pixel over a
+//frame that is mostly sand, +1.6 ms looking across the dunes. One evaluation with its gradient is five.
+float3 GradientNoise2Grad(float2 p)
 {
-    float base = 0.62 * sin(dot(p, float2(0.090, 0.052)))
-        + 0.24 * sin(dot(p, float2(-0.041, 0.101)) + 1.7);
+    float2 i = floor(p);
+    float2 f = frac(p);
+    float2 u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
+    float2 du = 30.0 * f * f * (f * (f - 2.0) + 1.0);
 
-    float ridge = 0.74 * sin(dot(p, float2(0.071, -0.083)) + 3.1)
-        + 0.26 * sin(dot(p, float2(0.163, 0.128)) + 5.2);
+    float2 ga = NoiseHash22(i);
+    float2 gb = NoiseHash22(i + float2(1.0, 0.0));
+    float2 gc = NoiseHash22(i + float2(0.0, 1.0));
+    float2 gd = NoiseHash22(i + float2(1.0, 1.0));
 
-    float crest = smoothstep(0.08, 1.0, 1.0 - abs(ridge));
+    float va = dot(ga, f);
+    float vb = dot(gb, f - float2(1.0, 0.0));
+    float vc = dot(gc, f - float2(0.0, 1.0));
+    float vd = dot(gd, f - float2(1.0, 1.0));
 
-    return base + 0.62 * crest - 0.25;
+    float k = va - vb - vc + vd;
+    float value = va + u.x * (vb - va) + u.y * (vc - va) + u.x * u.y * k;
+    float2 gradient = ga + u.x * (gb - ga) + u.y * (gc - ga) + u.x * u.y * (ga - gb - gc + gd)
+        + du * (u.yx * k + float2(vb, vc) - va);
+
+    return float3(value, gradient);
 }
 
-//The full displaced sand height at a world point: flat at DesertLevelY inside the clearing around the island,
-//rising into dunes with distance. Tapped both to displace the vertex (VS) and, thrice, for the per-pixel
-//normal (PS) - the one field, so the two can never drift apart.
-float DesertHeight(float2 p)
+//One dune set's profile along its own cycle coordinate, and the profile's derivative with respect to that coordinate.
+float DuneProfile(float cycles, out float slope)
 {
-    float dist = length(p);
-    float ramp = smoothstep(ClearingRadius, ClearingRadius + ClearingTransition, dist);
+    float t = frac(cycles);
+    float rise = t / DUNE_WINDWARD;
+    float fall = (1.0 - t) / (1.0 - DUNE_WINDWARD);
+    float h = saturate(min(rise, fall));
 
-    return DesertLevelY + DuneAmplitude * ramp * DuneSum(p);
+    //h^1.5: flat in the interdune trough, a corner at the crest
+    float root = sqrt(h);
+    slope = 1.5 * root * (rise < fall ? 1.0 / DUNE_WINDWARD : -1.0 / (1.0 - DUNE_WINDWARD));
+
+    return h * root;
+}
+
+//smoothstep(0.2, 0.75, x) with its derivative
+float DuneStrength(float x, out float slope)
+{
+    float t = saturate((x - 0.2) / 0.55);
+    slope = 6.0 * t * (1.0 - t) / 0.55;
+
+    return t * t * (3.0 - 2.0 * t);
+}
+
+//The dune field in units of DuneAmplitude, and its exact gradient. The mean goes back off because the whole field is
+//multiplied by the clearing ramp: a field with a mean would rise with the ramp and the desert would read as a shallow
+//bowl with the island at the bottom of it.
+float DuneField(float2 p, out float2 gradient)
+{
+    float2 wind = normalize(WindDirection + float2(1e-4, 0.0));
+    float2 across = float2(-wind.y, wind.x);
+
+    float along = dot(p, wind);
+    float side = dot(p, across);
+
+    //Sinuous crests: the along-wind coordinate bends slowly across the wind, and a little faster everywhere
+    float3 n1 = GradientNoise2Grad(float2(side * 0.012, along * 0.004) + 3.7);
+    float3 n2 = GradientNoise2Grad(p * 0.021 + 11.0);
+    float warped = along + n1.x * 70.0 + n2.x * 12.0;
+    float2 warpedGradient = wind + 70.0 * (n1.y * 0.012 * across + n1.z * 0.004 * wind) + 12.0 * 0.021 * n2.yz;
+
+    //The crest's height wanders along it, so the dunes are not one extruded profile - and where it runs low the
+    //dune is let go altogether rather than kept small. A dune a fraction of a unit high still has the full slip
+    //face of its period, and turned away from a low sun that face is a line of shade a few pixels wide: the first
+    //build drew them all over the interdune flats as thin dark cracks.
+    float3 n3 = GradientNoise2Grad(float2(side * 0.009, along * 0.006) + 5.3);
+    float strengthSlope;
+    float strength = DuneStrength(0.6 + 1.2 * n3.x, strengthSlope);
+    float2 strengthGradient = strengthSlope * 1.2 * (n3.y * 0.009 * across + n3.z * 0.006 * wind);
+
+    float majorSlope;
+    float majorProfile = DuneProfile(warped / DUNE_SPACING, majorSlope);
+    float major = majorProfile * strength;
+    float2 majorGradient = majorSlope * warpedGradient / DUNE_SPACING * strength + majorProfile * strengthGradient;
+
+    //The secondary set, 35 degrees off the wind and a little under half the spacing, let go the same way and more often
+    float2 wind2 = float2(wind.x * 0.819 - wind.y * 0.574, wind.x * 0.574 + wind.y * 0.819);
+    float3 n4 = GradientNoise2Grad(p * 0.017 + 29.0);
+    float3 n5 = GradientNoise2Grad(p * 0.008 + 41.0);
+    float minorStrengthSlope;
+    float minorStrength = DuneStrength(0.45 + 1.2 * n5.x, minorStrengthSlope);
+    float minorSpacing = DUNE_SPACING * 0.46;
+    float minorSlope;
+    float minorProfile = DuneProfile((dot(p, wind2) + n4.x * 20.0) / minorSpacing, minorSlope);
+    float minor = minorProfile * 0.5 * minorStrength;
+    float2 minorGradient = 0.5 * (minorSlope * (wind2 + 20.0 * 0.017 * n4.yz) / minorSpacing * minorStrength
+        + minorProfile * minorStrengthSlope * 1.2 * 0.008 * n5.yz);
+
+    //A long low swell under the whole erg, so the dune rows ride over rises rather than lying on a table
+    float2 k1 = float2(0.017, 0.011);
+    float2 k2 = float2(-0.009, 0.021);
+    float swell = 0.22 * sin(dot(p, k1)) + 0.12 * sin(dot(p, k2) + 1.7);
+    float2 swellGradient = 0.22 * cos(dot(p, k1)) * k1 + 0.12 * cos(dot(p, k2) + 1.7) * k2;
+
+    //A max, not a sum (see above); the gradient is the taller set's
+    bool majorWins = major >= minor;
+    gradient = (majorWins ? majorGradient : minorGradient) + swellGradient;
+
+    return (majorWins ? major : minor) + swell - DUNE_MEAN;
+}
+
+//The full displaced sand height at a world point, and its gradient: flat at DesertLevelY inside the clearing around
+//the island, rising into dunes with distance. The vertex shader displaces by the height and the pixel shader lights
+//by the gradient - the one field, so the two can never drift apart.
+float DesertHeight(float2 p, out float2 gradient)
+{
+    float dist = max(length(p), 1e-3);
+    float t = saturate((dist - ClearingRadius) / ClearingTransition);
+    float ramp = t * t * (3.0 - 2.0 * t);
+    float2 rampGradient = (6.0 * t * (1.0 - t) / ClearingTransition) * (p / dist);
+
+    float2 fieldGradient;
+    float field = DuneField(p, fieldGradient);
+
+    gradient = DuneAmplitude * (rampGradient * field + ramp * fieldGradient);
+
+    return DesertLevelY + DuneAmplitude * ramp * field;
 }
 
 struct DesertVertexInput
@@ -159,7 +281,8 @@ DesertVertexOutput DesertVS(DesertVertexInput input)
     //Local grid position + the snapped origin gives the world XZ; the dunes are sampled there, so they sit
     //still in the world while the grid slides under them
     float2 worldXZ = input.Position.xz + OriginXZ;
-    float3 worldPosition = float3(worldXZ.x, DesertHeight(worldXZ), worldXZ.y);
+    float2 unusedGradient;
+    float3 worldPosition = float3(worldXZ.x, DesertHeight(worldXZ, unusedGradient), worldXZ.y);
 
     output.WorldPosition = worldPosition;
     output.Position = mul(mul(float4(worldPosition, 1.0), View), Projection);
@@ -296,15 +419,13 @@ float4 DesertPS(DesertVertexOutput input) : COLOR
     float dist = distance(CameraPosition, worldPosition);
     float footprint = length(fwidth(worldPosition.xz));
 
-    //The base dune normal, taken PER PIXEL from the height field's gradient (three cheap taps) rather than
-    //interpolated from a per-vertex normal - this is what removes the coarse mesh's facet/grid pattern.
-    float e = 1.5;
-    float h = DesertHeight(worldPosition.xz);
-    float hx = DesertHeight(worldPosition.xz + float2(e, 0.0));
-    float hz = DesertHeight(worldPosition.xz + float2(0.0, e));
-
-    //The dune's own slope, which the three taps above have already paid for
-    float2 duneSlope = float2(hx - h, hz - h) / e;
+    //The base dune normal, taken PER PIXEL from the height field's gradient rather than interpolated from a
+    //per-vertex normal - this is what removes the coarse mesh's facet/grid pattern. The gradient is ANALYTIC since
+    //the dune pass (see GradientNoise2Grad): it was three finite-difference taps of the field, which the dunes'
+    //noise made fifteen noises a pixel. Exact, it also draws the crest as the corner it is rather than smearing it
+    //over the taps' 1.5 units.
+    float2 duneSlope;
+    DesertHeight(worldPosition.xz, duneSlope);
     float3 duneNormal = normalize(float3(-duneSlope.x, 1.0, -duneSlope.y));
 
     //The ripple field's domain: WARPED BY THE DUNE'S OWN SLOPE so the lines bend as they run over a crest and
@@ -368,7 +489,11 @@ float4 DesertPS(DesertVertexOutput input) : COLOR
     //Hemisphere sky light: up-facing sand takes the zenith, slopes towards the skyline take the horizon
     float3 skyAmbient = lerp(HorizonColor, ZenithColor, saturate(normal.y * 0.5 + 0.5));
 
-    float3 color = sand * (skyAmbient * AmbientStrength + SunColor * ndotl * sunlight);
+    //The bounce off the lit sand (see SandBounce): strongest on faces turned away from the sun, and it goes where
+    //the sun goes, since it is the sun's light at second hand
+    float3 bounce = SunColor * saturate(SunDirection.y + 0.2) * SandColorPale * SandBounce * (1.0 - ndotl * sunlight);
+
+    float3 color = sand * (skyAmbient * AmbientStrength + SunColor * ndotl * sunlight + bounce);
 
     //The sheen. Quartz grains are little mirrors, so sand is not quite matte: with the sun low, its crest
     //lines catch a glint. A wide Blinn lobe rather than a tight one - the reflection is off a million grains
@@ -386,12 +511,23 @@ float4 DesertPS(DesertVertexOutput input) : COLOR
     float2 dustP = (worldPosition.xz + WindDirection * DesertTime * DustSpeed) * 0.03;
     float dust = saturate(CloudNoise(dustP) * 0.5 + 0.5);
     dust *= DustStrength * saturate(dist / DustStart);
-    float3 dustColor = SandColor * skyAmbient * 2.0 + HorizonColor * 0.4;
+    //The warm murk the far erg fades into (see HazeWarmth): the horizon's brightness in the sand's hue, leaned
+    //towards by HazeWarmth. The dust veil takes it too - it used to add the horizon colour itself, which is
+    //where the cyan came from under the cool domes.
+    float horizonLuma = dot(HorizonColor, float3(0.2126, 0.7152, 0.0722));
+    float3 sandHue = SandColor / max(dot(SandColor, float3(0.2126, 0.7152, 0.0722)), 1e-3);
+    float3 murk = lerp(HorizonColor, sandHue * horizonLuma, HazeWarmth);
+
+    float3 dustColor = lerp(SandColor * skyAmbient * 2.0, murk, 0.5);
     color = lerp(color, dustColor, saturate(dust));
 
-    //Horizon haze: the finite grid melts into the skyline color, so it has no edge and no seam with the dome
+    //Horizon haze, into the warm murk. It used to go straight to HorizonColor on the argument that matching it hides
+    //the finite grid's edge against the dome, and that argument did not hold: under dome 13 the uniform is teal
+    //while the dome draws its horizon lilac-grey, in the Game and the Testbed alike, so the far dunes stood against
+    //the sky as a teal band that matched nothing. What stands there now is the erg's own dust-hazed skyline, which
+    //is what the edge of a desert looks like.
     float haze = saturate(dist / HorizonHazeDistance);
-    color = lerp(color, HorizonColor, haze * haze);
+    color = lerp(color, murk, haze * haze);
 
     return float4(color, 1.0);
 }

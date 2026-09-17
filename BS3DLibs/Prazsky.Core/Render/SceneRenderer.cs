@@ -2134,6 +2134,8 @@ namespace Prazsky.Core.Render
             _desertEffect.Parameters["SandColorPale"].SetValue(_desertConfig.SandColorPale.ToVector3());
             _desertEffect.Parameters["SheenStrength"].SetValue(_desertConfig.SheenStrength);
             _desertEffect.Parameters["AmbientStrength"].SetValue(_desertConfig.AmbientStrength);
+            _desertEffect.Parameters["SandBounce"].SetValue(_desertConfig.SandBounce);
+            _desertEffect.Parameters["HazeWarmth"].SetValue(_desertConfig.HazeWarmth);
             _desertEffect.Parameters["WindDirection"].SetValue(_desertConfig.Wind.ToVector2());
             _desertEffect.Parameters["HorizonHazeDistance"].SetValue(_desertConfig.HorizonHazeDistance);
         }
