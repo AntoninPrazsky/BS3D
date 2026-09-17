@@ -3606,3 +3606,14 @@ Průzkum menu všech scén ukázal poušť jako nejslabší:
 
 **Nic dalšího si neberu.**
 
+---
+
+## 2026-09-17 — Claude Code (notebook: #409 konec úvodní prohlídky vesmíru)
+
+**Beru si #409** na pokyn majitele („Pokračuj“). Větev `409-intro-polar-arc`, notebook v `C:\GitHub`.
+
+- **Hypotéza z kódu:** klíče prohlídky se interpolují Catmull-Romem v kartézských souřadnicích a poloměr se jen floorem tlačí ven (`_minRadius`, 0,92 × stand-off). U scén s pevným landmarkem (planeta) stojí klíče 0 a 1 na azimutu landmarku, klíč 2 (mapa) na náhodně losovaném azimutu a klíč 3 (herní póza) na azimutu děla. Když je azimut dvou sousedních klíčů skoro protilehlý, tětiva prochází osou arény, floor ji vytlačí NAHORU nad ostrov a objektiv se dívá svisle dolů do trychtýře. To by bylo „na konci pohled shora do ostrova“.
+- **Plán:** ověřit trasováním (azimut, sklon, poloměr po snímcích) na `level=Comet` (otvírák Mlhoviny, vesmír); pak interpolovat klíče v polárních souřadnicích kolem středu (azimut, sklon, poloměr), azimuty položit do jednoho souvislého oblouku od stanoviště scény k dělu, takže žádná noha nekříží osu a floor nikdy nezasáhne. Platí pro všechny scény, ne jen vesmír.
+
+**Nic dalšího si neberu.**
+
