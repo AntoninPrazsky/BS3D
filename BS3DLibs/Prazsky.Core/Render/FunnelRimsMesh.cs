@@ -97,6 +97,19 @@ namespace Prazsky.Core.Render
         private const float COLLAR_DROP = 0.35f;
 
         /// <summary>
+        /// How far the collar's end sinks through the glass - deeper than <see cref="EDGE_SINK"/>, and that is the point
+        /// (#423). The collar runs from <see cref="LIP_LIFT"/> above the glass at the lip to this far outside it, and
+        /// the line where it passes through a surface is the gold's visible inner edge: through the glass in the scenes
+        /// that are open below, and through the dark pit sheath - which hugs the glass, 0 to 0.01 out across the
+        /// collar's run - in the solid-terrain ones. At EDGE_SINK the collar crossed both at a slope of about 0.15, and
+        /// depth precision drew that grazing crossing as a row of teeth along the whole rim: dark ones against the pit
+        /// in every solid-terrain scene, the "sharp edges on the part of the funnel that isn't the glass" of the report.
+        /// At this depth the slope is 0.38 and the line holds, and it crosses at the same place, so the rim looks as
+        /// wide as it did.
+        /// </summary>
+        private const float COLLAR_SINK = 0.12f;
+
+        /// <summary>
         /// One ring of a band's cross-section: where it sits in the funnel's (radius, y) half-plane, the
         /// grade of the surface it lies on there, and how far it stands off that surface along the surface's
         /// own normal — positive out of the material, negative into it.
@@ -154,7 +167,7 @@ namespace Prazsky.Core.Render
             float halfTop = topWidth * Constants.HALF;
             BandRing[] topRings =
             {
-                new(topRadius - COLLAR_DROP, -COLLAR_DROP * coneGrade, coneGrade, -EDGE_SINK),
+                new(topRadius - COLLAR_DROP, -COLLAR_DROP * coneGrade, coneGrade, -COLLAR_SINK),
                 new(topRadius, 0f, dishGrade, LIP_LIFT),
                 new(topRadius + halfTop, halfTop * dishGrade, dishGrade, SURFACE_LIFT),
                 new(topRadius + topWidth, topWidth * dishGrade, dishGrade, -EDGE_SINK),

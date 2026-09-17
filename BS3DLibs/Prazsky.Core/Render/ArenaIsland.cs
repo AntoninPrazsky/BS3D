@@ -198,6 +198,14 @@ namespace Prazsky.Core.Render
         public const float FUNNEL_BOTTOM_Y = -27.5f;  //~18 below the rim: a wall steep enough to run a ball down
         public const int FUNNEL_SEGMENTS = 64;
 
+        //What the drain is DRAWN at (#423), apart from FUNNEL_SEGMENTS, which is what the physics builds its collision
+        //mesh from and so what the balls roll on. At 64 the gold band's outer edge read as a polygon against the stone,
+        //a 1.37-unit chord at the mouth. At 256 the chord is 0.34, and the drawn cone stands at most 0.017 off the
+        //collision cone's flats (14 x (1 - cos(pi/64))), under a tenth of a ball radius and inside the gold bands'
+        //EDGE_SINK (FunnelRimsMesh). The glass's concentric bands are the fix for its fan of wedges; see FunnelMesh's `bands`.
+        public const int FUNNEL_DRAWN_SEGMENTS = 256;
+        public const int FUNNEL_GLASS_BANDS = 16;
+
         /// <summary>
         /// How far the stone top falls from its outer arris (<see cref="FLOOR_RADIUS"/>, which stays at
         /// <see cref="TOP_Y"/>) to the drain's mouth: the walkable ring is a shallow dish (~6.4° over the
@@ -509,7 +517,8 @@ namespace Prazsky.Core.Render
             //everything else.
             float funnelHeight = TOP_Y - DISH_DEPTH - FUNNEL_BOTTOM_Y;
 
-            _funnelMesh = new FunnelMesh(device, FUNNEL_TOP_RADIUS, FUNNEL_HOLE_RADIUS, funnelHeight, FUNNEL_SEGMENTS, 0f);
+            _funnelMesh = new FunnelMesh(device, FUNNEL_TOP_RADIUS, FUNNEL_HOLE_RADIUS, funnelHeight, FUNNEL_DRAWN_SEGMENTS, 0f,
+                FUNNEL_GLASS_BANDS);
 
             //TwoSidedNormals because the cone is one open single-sided wall drawn CullNone: without it the
             //outside — which the open-below scenes and the drop cinematic's dive film from underneath — is
@@ -528,7 +537,7 @@ namespace Prazsky.Core.Render
             //grade goes in because the top band lies on the stone, which is the one surface here the mesh
             //cannot work out from the funnel's own figures.
             _funnelRimsMesh = new FunnelRimsMesh(device, FUNNEL_TOP_RADIUS, FUNNEL_HOLE_RADIUS, funnelHeight,
-                FUNNEL_RIM_TOP_WIDTH, FUNNEL_RIM_HOLE_WIDTH, DISH_GRADE, FUNNEL_SEGMENTS);
+                FUNNEL_RIM_TOP_WIDTH, FUNNEL_RIM_HOLE_WIDTH, DISH_GRADE, FUNNEL_DRAWN_SEGMENTS);
 
             _funnelRimsRenderer = new InstancedModelRenderer(device, _funnelRimsMesh, FUNNEL_RIM_COLOR, instancingEffect)
             {
@@ -548,12 +557,19 @@ namespace Prazsky.Core.Render
             //outside face shades right through TwoSidedNormals, like the glass). Deliberately NOT enrolled
             //in the caller's sky lighting, and near-matte, so no dome bleaches the inside of a hole in the
             //ground; the gold beads hide the mouth ring and the knee it shares with the funnel.
-            _pitMesh = new FunnelMesh(device, new (float Radius, float Y)[]
+            //The sheath band is cut into the glass's own geometric bands (#423) for the glass's reason - one long
+            //trapezoid per facet draws a fan of wedges - and the stations stay on one straight line, so every sub-band
+            //carries the same cone normal and the sheath is the same surface it was.
+            var pitProfile = new (float Radius, float Y)[FUNNEL_GLASS_BANDS + 2];
+            float sheathHole = FUNNEL_HOLE_RADIUS + PIT_SHEATH_CLEARANCE;
+            for (int k = 0; k <= FUNNEL_GLASS_BANDS; k++)
             {
-                (FUNNEL_TOP_RADIUS, 0f),
-                (FUNNEL_HOLE_RADIUS + PIT_SHEATH_CLEARANCE, -funnelHeight),
-                (PIT_HOLE_RADIUS, -(TOP_Y - DISH_DEPTH - PIT_BOTTOM_Y)),
-            }, FUNNEL_SEGMENTS);
+                float radius = FUNNEL_TOP_RADIUS * MathF.Pow(sheathHole / FUNNEL_TOP_RADIUS, k / (float)FUNNEL_GLASS_BANDS);
+                pitProfile[k] = (radius, -funnelHeight * (FUNNEL_TOP_RADIUS - radius) / (FUNNEL_TOP_RADIUS - sheathHole));
+            }
+            pitProfile[FUNNEL_GLASS_BANDS] = (sheathHole, -funnelHeight);
+            pitProfile[FUNNEL_GLASS_BANDS + 1] = (PIT_HOLE_RADIUS, -(TOP_Y - DISH_DEPTH - PIT_BOTTOM_Y));
+            _pitMesh = new FunnelMesh(device, pitProfile, FUNNEL_DRAWN_SEGMENTS);
             _pitRenderer = new InstancedModelRenderer(device, _pitMesh, PIT_COLOR, instancingEffect)
             {
                 SpecularAmbientStrength = 0.03f,
