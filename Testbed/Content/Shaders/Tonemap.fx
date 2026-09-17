@@ -269,7 +269,11 @@ float4 SampleForeground(float2 uv)
     return layer / (SupersampleFactor * SupersampleFactor);
 }
 
-float4 MainPS(VertexShaderOutput input) : COLOR
+//The resolve's linear half - everything the frame gets before the curve - for one screen position. Lifted out of
+//MainPS whole for #426: the crystal cup's refraction re-resolves the frame under the glass at bent coordinates, and
+//a second copy of this would be two resolves that can disagree. Every texture read in it is tex2Dlod (the glare's
+//was tex2D, and there are no mips on that target either), so the composite may call it inside a branch.
+float3 ResolveLinear(float2 uv)
 {
     float3 color;
 
@@ -282,7 +286,7 @@ float4 MainPS(VertexShaderOutput input) : COLOR
         //ChromaticAberration exactly at the corners: |fromCentre|*dot there is 1/(2*sqrt(2)), which the
         //2.828 undoes. Green anchors the geometry: the eye reads luminance mostly from green, so the
         //image never appears to move when the effect toggles.
-        float2 fromCentre = input.TexCoord - 0.5;
+        float2 fromCentre = uv - 0.5;
         float2 shift = fromCentre * dot(fromCentre, fromCentre) * (ChromaticAberration * 2.828);
 
         //SPECTRAL, rather than one point sample per channel. Sampling R, G and B at three fixed offsets does
@@ -308,7 +312,7 @@ float4 MainPS(VertexShaderOutput input) : COLOR
             float f = (c + 0.5) / ABERRATION_TAPS;
             float3 weight = saturate(1.0 - abs(f - float3(0.0, 0.5, 1.0)) * 2.0);
 
-            spectral += SampleScene(input.TexCoord + shift * (1.0 - 2.0 * f)) * weight;
+            spectral += SampleScene(uv + shift * (1.0 - 2.0 * f)) * weight;
             weightSum += weight;
         }
 
@@ -316,7 +320,7 @@ float4 MainPS(VertexShaderOutput input) : COLOR
     }
     else
     {
-        color = SampleScene(input.TexCoord);
+        color = SampleScene(uv);
     }
 
     //Underwater peripheral blur: a diver's vision goes soft towards the edges. A cheap 8-tap spiral disc blur
@@ -325,7 +329,7 @@ float4 MainPS(VertexShaderOutput input) : COLOR
     //path (no divergence) and it costs nothing above water; tex2Dlod reads level 0 (there are no mips here).
     if (UnderwaterAmount > 0.0)
     {
-        float edge = saturate(length(input.TexCoord - 0.5) * PERIPHERY_EDGE);
+        float edge = saturate(length(uv - 0.5) * PERIPHERY_EDGE);
         float blend = UnderwaterAmount * edge * edge;
         float radius = blend * UNDERWATER_BLUR_RADIUS;
 
@@ -336,7 +340,7 @@ float4 MainPS(VertexShaderOutput input) : COLOR
             float f = (t + 0.5) / 8.0;
             float ang = 2.3999632 * t;                    //golden angle -> an even spiral, no hexagonal ghosting
             float2 off = float2(cos(ang), sin(ang)) * (sqrt(f) * radius);
-            disc += tex2Dlod(SceneSampler, float4(input.TexCoord + off, 0, 0)).rgb;
+            disc += tex2Dlod(SceneSampler, float4(uv + off, 0, 0)).rgb;
         }
 
         color = lerp(color, disc * 0.125, blend);
@@ -351,21 +355,69 @@ float4 MainPS(VertexShaderOutput input) : COLOR
     {
         //DefocusFocus (see its declaration) holds the centre of the frame in focus for precise aim; at 0
         //the lerp is the identity and the whole frame takes DefocusAmount, exactly as before #214
-        float edge = saturate(length(input.TexCoord - 0.5) * PERIPHERY_EDGE);
+        float edge = saturate(length(uv - 0.5) * PERIPHERY_EDGE);
         float blend = DefocusAmount * lerp(1.0, edge * edge, DefocusFocus);
 
-        color = lerp(color, tex2Dlod(DefocusSampler, float4(input.TexCoord, 0, 0)).rgb, blend);
+        color = lerp(color, tex2Dlod(DefocusSampler, float4(uv, 0, 0)).rgb, blend);
     }
 
     //Glare goes in here, in linear light and before the curve. Added after the curve it would look like
     //a decal; added here it pushes the pixels it lands on up the highlight roll-off, so a glaring ball
     //bleaches towards white through the same response as everything else.
-    color += tex2D(GlareSampler, input.TexCoord).rgb * GlareIntensity;
+    color += tex2Dlod(GlareSampler, float4(uv, 0, 0)).rgb * GlareIntensity;
 
     //Underwater murk (see the uniforms): absorb the scene towards the water tint and add its in-scattered
     //glow, ramped by how deep the camera is under the surface. In linear light, before the curve, so the
     //submerged scene rolls through the same highlight response as everything else. A no-op above water.
     color = lerp(color, color * UnderwaterAbsorb + UnderwaterInscatter, UnderwaterAmount);
+
+    return color;
+}
+
+//The refraction layer (#426): a screen-uv shift per pixel where a presented piece of glass bends the eye, and in blue
+//how edge-on that glass is. Drawn by InstancedRefraction in InstancedModel.fx into a target sized and sampled
+//exactly like the foreground layer, so the two agree on every edge.
+texture RefractionTexture;
+sampler2D RefractionSampler = sampler_state
+{
+    Texture = <RefractionTexture>;
+    MinFilter = Point;
+    MagFilter = Point;
+    MipFilter = None;
+    AddressU = Clamp;
+    AddressV = Clamp;
+};
+
+//1 while the frame presents glass that bends light, 0 otherwise - a uniform, so the branch below is non-divergent
+float RefractionEnabled;
+
+//How far the three channels part along the bend: a crystal disperses, and a fringe of colour where the bend is
+//strongest is most of what separates cut glass from a lens in the eye's reading of it
+static const float REFRACTION_DISPERSION = 0.025;
+
+//How dark the glass's own silhouette goes where it is seen edge-on - light meeting a steep inside surface is
+//reflected back rather than let through, so real glass draws its outline dark against a bright background
+static const float REFRACTION_EDGE_DARK = 0.55;
+
+float4 SampleRefraction(float2 uv)
+{
+    float4 bend = 0;
+
+    for (int y = 0; y < SupersampleFactor; y++)
+    {
+        for (int x = 0; x < SupersampleFactor; x++)
+        {
+            float2 offset = (float2(x, y) + 0.5 - SupersampleFactor * 0.5) * SourceTexelSize;
+            bend += tex2Dlod(RefractionSampler, float4(uv + offset, 0, 0));
+        }
+    }
+
+    return bend / (SupersampleFactor * SupersampleFactor);
+}
+
+float4 MainPS(VertexShaderOutput input) : COLOR
+{
+    float3 color = ResolveLinear(input.TexCoord);
 
     //Averaging happens in linear light, before the curve: averaging tonemapped samples would average
     //display values, which is the same mistake as compositing in gamma space.
@@ -397,7 +449,45 @@ float4 ForegroundCompositePS(VertexShaderOutput input) : COLOR
     float3 mapped = ACESFilmic(layer.rgb * Exposure);
     mapped = ApplyGrain(mapped, input.TexCoord);
 
-    return float4(LinearToSrgb(mapped), layer.a);
+    float4 result = float4(LinearToSrgb(mapped), layer.a);
+
+    //THE GLASS BENDS WHAT IS BEHIND IT (#426). Under glass that refracts, the frame the resolve already put on the
+    //back buffer shows through undisplaced, and nothing can bend a target that is bound for writing - so the frame
+    //is resolved again here, at the coordinates the glass sends the eye to, and laid under the layer in place of
+    //the one beneath. Three resolves, one per channel along the bend, for the dispersion. Expensive where the glass
+    //is and free everywhere else (the inner branch is on the pixel's own coverage), and the only glass that asks
+    //for it is the crystal cup on a result page, where the owner ruled the frame time is there to spend.
+    //
+    //Premultiplied, as the layer is: the blend is One / InverseSourceAlpha, so to replace the undisplaced frame
+    //with the bent one under a coverage m the source must carry the bent frame at weight (1 - layer.a) * m and
+    //claim alpha layer.a + m - layer.a * m.
+    [branch]
+    if (RefractionEnabled > 0.0)
+    {
+        float4 bend = SampleRefraction(input.TexCoord);
+        float coverage = saturate(bend.a);
+
+        [branch]
+        if (coverage > 0.002)
+        {
+            float2 shift = bend.xy / coverage * float2(-1.0, 1.0);
+            float3 behind = float3(
+                ResolveLinear(input.TexCoord + shift * (1.0 + REFRACTION_DISPERSION)).r,
+                ResolveLinear(input.TexCoord + shift).g,
+                ResolveLinear(input.TexCoord + shift * (1.0 - REFRACTION_DISPERSION)).b);
+
+            float edge = saturate(bend.b / coverage);
+            behind *= 1.0 - REFRACTION_EDGE_DARK * edge * edge * edge;
+
+            float3 behindMapped = ApplyGrain(ACESFilmic(behind * Exposure), input.TexCoord);
+            float weight = (1.0 - layer.a) * coverage;
+
+            result.rgb += LinearToSrgb(behindMapped) * weight;
+            result.a = layer.a + coverage - layer.a * coverage;
+        }
+    }
+
+    return result;
 }
 
 technique Tonemap

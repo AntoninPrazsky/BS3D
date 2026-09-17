@@ -111,6 +111,10 @@ namespace Prazsky.Core.Render
         //only one executable's one page ever shows it.
         private RenderTarget2D _foregroundTarget;
 
+        //THE REFRACTION LAYER (#426): where a presented piece of glass bends the eye, drawn beside the foreground layer
+        //and read by the same composite. As lazy as the foreground target, and for the same reason.
+        private RenderTarget2D _refractionTarget;
+
         private VertexBuffer _fullScreenQuad;
 
         //Cached in the constructor: the resolve runs every frame and the by-name indexer is a linear scan
@@ -131,6 +135,8 @@ namespace Prazsky.Core.Render
         private readonly EffectParameter _tonemapDefocusAmountParam;
         private readonly EffectParameter _tonemapDefocusFocusParam;
         private readonly EffectParameter _tonemapForegroundTextureParam;
+        private readonly EffectParameter _tonemapRefractionTextureParam;
+        private readonly EffectParameter _tonemapRefractionEnabledParam;
         private readonly EffectParameter _tonemapGlareTextureParam;
         private readonly EffectParameter _tonemapGlareIntensityParam;
         private readonly EffectParameter _tonemapSceneTextureParam;
@@ -203,6 +209,8 @@ namespace Prazsky.Core.Render
             _tonemapDefocusAmountParam = tonemapEffect.Parameters["DefocusAmount"];
             _tonemapDefocusFocusParam = tonemapEffect.Parameters["DefocusFocus"];
             _tonemapForegroundTextureParam = tonemapEffect.Parameters["ForegroundTexture"];
+            _tonemapRefractionTextureParam = tonemapEffect.Parameters["RefractionTexture"];
+            _tonemapRefractionEnabledParam = tonemapEffect.Parameters["RefractionEnabled"];
             _tonemapGlareTextureParam = tonemapEffect.Parameters["GlareTexture"];
             _tonemapGlareIntensityParam = tonemapEffect.Parameters["GlareIntensity"];
             _tonemapSceneTextureParam = tonemapEffect.Parameters["SceneTexture"];
@@ -376,6 +384,8 @@ namespace Prazsky.Core.Render
                 //target is rebuilt by EnsureTarget, which compares the sample count as well as the size.
                 _foregroundTarget?.Dispose();
                 _foregroundTarget = null;
+                _refractionTarget?.Dispose();
+                _refractionTarget = null;
 
                 EnsureTarget();
             }
@@ -571,6 +581,34 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
+        /// The refraction layer's target (#426): where a presented piece of glass in the foreground layer bends the eye,
+        /// as a screen-uv shift per pixel (see <c>InstancedRefraction</c> in InstancedModel.fx). Configured exactly
+        /// like <see cref="ForegroundTarget"/> - the same size, supersampling and multisampling - so the composite reads
+        /// both with the same box filter and their edges agree, with a depth buffer of its own because only the nearest
+        /// surface's bend may survive. Signed values, so a float format. The caller binds it, clears it to zero and
+        /// draws the glass; built on first use, so nothing that never presents glass allocates it.
+        /// </summary>
+        public RenderTarget2D RefractionTarget
+        {
+            get
+            {
+                int width = _device.PresentationParameters.BackBufferWidth * _supersampleFactor;
+                int height = _device.PresentationParameters.BackBufferHeight * _supersampleFactor;
+
+                if (width <= 0 || height <= 0) return _refractionTarget;
+
+                if (_refractionTarget == null || _refractionTarget.Width != width || _refractionTarget.Height != height)
+                {
+                    _refractionTarget?.Dispose();
+                    _refractionTarget = new RenderTarget2D(_device, width, height, false, SurfaceFormat.HdrBlendable,
+                        DepthFormat.Depth24Stencil8, _supersampleFactor > 1 ? 0 : _msaaSamples, RenderTargetUsage.DiscardContents);
+                }
+
+                return _refractionTarget;
+            }
+        }
+
+        /// <summary>
         /// Composites the sharp foreground layer over the resolved frame — the layer's own exit from linear
         /// light, run by the same effect and the same figures (exposure, ACES, grain, sRGB) as the resolve
         /// itself, so all the move out of the HDR pass changed about the object is that the defocus no
@@ -580,7 +618,10 @@ namespace Prazsky.Core.Render
         /// </summary>
         /// <param name="foreground">The layer this frame drew into <see cref="ForegroundTarget"/>. What is
         /// being presented is the caller's knowledge; where it lives is the pipeline's.</param>
-        public void CompositeForeground(Texture2D foreground)
+        /// <param name="refraction">The layer this frame drew into <see cref="RefractionTarget"/>, or null when nothing
+        /// presented bends light. Where it is set, the composite re-resolves the frame under the glass at the bent
+        /// coordinates instead of letting the undisplaced frame show through (#426).</param>
+        public void CompositeForeground(Texture2D foreground, Texture2D refraction = null)
         {
             _device.SetRenderTarget(null);
 
@@ -593,6 +634,8 @@ namespace Prazsky.Core.Render
             _device.SetVertexBuffer(_fullScreenQuad);
 
             _tonemapForegroundTextureParam.SetValue(foreground);
+            _tonemapRefractionEnabledParam.SetValue(refraction != null ? 1f : 0f);
+            if (refraction != null) _tonemapRefractionTextureParam.SetValue(refraction);
             _tonemapEffect.CurrentTechnique = _foregroundCompositeTechnique;
             DrawFullScreenQuad(_tonemapEffect);
             _tonemapEffect.CurrentTechnique = _tonemapTechnique;
@@ -804,6 +847,7 @@ namespace Prazsky.Core.Render
             _defocusAcross?.Dispose();
             _defocusBlurred?.Dispose();
             _foregroundTarget?.Dispose();
+            _refractionTarget?.Dispose();
 
             _fullScreenQuad?.Dispose();
         }

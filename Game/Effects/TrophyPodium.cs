@@ -51,6 +51,12 @@ namespace BS3D.Effects
 /// exist — inside the HDR pass the cup would have been transparent to a scene that was about to be
 /// blurred <i>with</i> it.
 /// </para>
+/// <para>
+/// <b>And since #426 it bends what shows through.</b> Through alone it read as fake: the frame behind was dimmed and
+/// never displaced. <see cref="DrawRefraction"/> draws where the crystal sends the eye into the pipeline's refraction
+/// target, and the composite re-resolves the frame under the glass at those coordinates - so the crystal is no
+/// longer free, and the result page is where the owner ruled that it may cost (see docs/rendering.md).
+/// </para>
     /// </summary>
     public sealed class TrophyPodium : IDisposable
     {
@@ -196,6 +202,19 @@ namespace BS3D.Effects
 
         /// <summary>True while a cup is being shown, so a caller can skip the draw entirely.</summary>
         public bool Active => _tier > 0;
+
+        /// <summary>Whether the cup being presented is glass that bends what is behind it (#426) - the crystal tier.</summary>
+        public bool Refracts => _tier > 0 && _translucent[_tier];
+
+        //HOW FAR THROUGH THE CRYSTAL THE EYE IS CARRIED, in world units at the cup's rest SIZE, and so how hard it bends
+        //the frame behind it (#426; see InstancedRefraction in InstancedModel.fx). Scaled with the cup, so the bend is
+        //the same look through the reveal and the dolly. Strong enough that the background FLIPS inside the bowl and the
+        //stem, which is what the references rendered for #426 show a thick crystal cup do - a cup that only nudged what
+        //is behind it would read as a slightly wobbly pane, and the report was that it reads as no glass at all.
+        private const float REFRACTION_DEPTH = 0.55f;
+
+        //This frame's world matrix, kept by Draw for DrawRefraction: the cup must bend light exactly where it was drawn
+        private Matrix _world;
 
         /// <summary>
         /// The four tiers' renderers, all four whether the cup is presenting or not — for
@@ -678,6 +697,27 @@ namespace BS3D.Effects
             _device.DepthStencilState = glass ? DepthStencilState.DepthRead : DepthStencilState.Default;
 
             _renderers[_tier].Draw(camera, world, _materials[_tier]);
+
+            _world = world;
+            _worldScale = scale;
+        }
+
+        private float _worldScale;
+
+        /// <summary>
+        /// Draws where the crystal bends the eye into the bound refraction target (#426), after <see cref="Draw"/> has
+        /// placed the cup this frame. Only the nearest surface of each pixel counts, so this pass writes depth, and it
+        /// culls nothing, because looking into the bowl the nearest surface is its inside.
+        /// </summary>
+        public void DrawRefraction(ICamera camera)
+        {
+            if (!Refracts) return;
+
+            _device.BlendState = BlendState.Opaque;
+            _device.DepthStencilState = DepthStencilState.Default;
+            _device.RasterizerState = RasterizerState.CullNone;
+
+            _renderers[_tier].DrawRefraction(camera, _world, REFRACTION_DEPTH * _worldScale / SIZE);
         }
 
         public void Dispose()
