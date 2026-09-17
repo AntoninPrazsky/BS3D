@@ -2209,6 +2209,7 @@ namespace Prazsky.Core.Render
             _outbackEffect.Parameters["SpinifexCover"].SetValue(surface.SpinifexCover);
             _outbackEffect.Parameters["SpinifexRelief"].SetValue(surface.SpinifexRelief);
             _outbackEffect.Parameters["AmbientStrength"].SetValue(surface.AmbientStrength);
+            _outbackEffect.Parameters["SoilBounce"].SetValue(surface.SoilBounce);
 
             _outbackEffect.Parameters["HazeTint"].SetValue(air.HazeTint.ToVector3());
             _outbackEffect.Parameters["DustStrength"].SetValue(air.DustStrength);

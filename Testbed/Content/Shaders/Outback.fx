@@ -34,9 +34,10 @@
 //REDRAWN AGAINST REFERENCES rendered locally for this pass. What a monolith out there actually is, seen from
 //its plain: a LOAF, not a whaleback - walls standing near vertical to a rounded crown (see Bornhardt) - hung
 //with dense black water streaks from the crown's edge down, pale where the skin has flaked off, dark hollows
-//at the foot; and the ground is a vivid red sand with separate grey-green tussocks on it, not a mottle. The
-//streaks are the one new field that pays its own way (a GradientNoise3), and they run on the formation's own
-//BEARING rather than on the world, for the gullies' reason (see RockLayer).
+//at the foot; and the ground is a vivid red sand with separate tussocks on it, not a mottle. Two new fields pay
+//their own way: the streaks (a GradientNoise3, behind a branch, since only a wall reads it) and the tussocks'
+//frayed outline (a GradientNoise2). The streaks run on the formation's own BEARING rather than on the world,
+//for the gullies' reason (see RockLayer).
 //
 //Shader Model 5.0, built out of this one directory by all three executables. It borrows the scene toolkit:
 //the sky is the current dome's two-colour gradient in linear radiance, every procedural feature band-limits
@@ -129,6 +130,11 @@ float3 SpinifexColor;
 
 //How much of the sky's hemisphere light fills the flats
 float AmbientStrength;
+
+//Sunlight thrown back off the lit red sand onto the faces turned towards it - the desert's SandBounce, here
+//for the walls. It is what keeps a monolith's shaded side a deep red with its streaks readable in every
+//reference, where the sky's light alone left the loaf's near-vertical walls close to black under a low sun.
+float SoilBounce;
 
 //How hard the desert varnish glints. Varnish is a genuinely glossy mineral skin - it is the one part of this
 //scene that is not matte - so the term is gated on the rock mask and stays off the ground entirely.
@@ -522,14 +528,23 @@ float4 OutbackPS(OutbackVertexOutput input) : COLOR
     const float streakDown = 0.03;
     const float streakWidth = 1.4;
 
-    float streakField = GradientNoise3(float3(here.Bearing, here.Height * streakDown));
-    float streakFootprint = rayFootprint / streakWidth;
-    float streakThreshold = 0.08 - rib * 0.30 + broad * 0.12;
-    float streakEdge = streakFootprint * 0.35 + 0.03;
+    //Behind a branch, because the streaks exist only on a wall and a wall is a small part of any frame this scene
+    //is drawn in: everywhere else both of their uses (the varnish and the flaking) are multiplied by `wallGate`
+    //and come out 0 whatever this is. Nothing inside takes a derivative - the footprint is read above.
+    float streak = 0.0;
 
-    float streak = lerp(1.0 - smoothstep(-0.4, 0.4, streakThreshold),
-        smoothstep(streakThreshold - streakEdge, streakThreshold + streakEdge, streakField),
-        saturate(1.0 - 1.5 * streakFootprint));
+    [branch]
+    if (wallGate * rockMask > 0.0)
+    {
+        float streakField = GradientNoise3(float3(here.Bearing, here.Height * streakDown));
+        float streakFootprint = rayFootprint / streakWidth;
+        float streakThreshold = 0.08 - rib * 0.30 + broad * 0.12;
+        float streakEdge = streakFootprint * 0.35 + 0.03;
+
+        streak = lerp(1.0 - smoothstep(-0.4, 0.4, streakThreshold),
+            smoothstep(streakThreshold - streakEdge, streakThreshold + streakEdge, streakField),
+            saturate(1.0 - 1.5 * streakFootprint));
+    }
 
     //Only down a wall, and not in its lowest reach, where the references show the rock flaking and hollowed.
     float varnish = streak * wallGate * smoothstep(0.12, 0.45, here.Body) * VarnishStrength;
@@ -568,8 +583,9 @@ float4 OutbackPS(OutbackVertexOutput input) : COLOR
     //stand came out as FAINT tussocks rather than as fewer of them, and the ground read as an olive mottle over
     //brown. The mask and the cover now set each tussock's RADIUS - where the patch runs thin there are small
     //ones and then none - and the edge is a narrow band. Sized up to be unmistakable, the first cut read as
-    //polka dots, the savanna's tuft-disc failure; they stay small, patchy and a grey-green close to the sand's
-    //own value, which is what keeps them texture from where the game is played.
+    //polka dots, the savanna's tuft-disc failure, so they stay small and patchy. Seen in the game they then read
+    //as BEANS - see the fray, the dome and SpinifexColor below for the three things that took that away.
+    //
     //A RAW VORONOI FIELD IS A HONEYCOMB, and it drew one: its sites are one per cell jittered by only 0.4, so
     //the tussocks came out on a near-perfect hexagonal packing with the bare ground between them reading as a
     //connected web — the plane-wave-sine failure in cellular form. Two things break it and both are needed.
@@ -599,7 +615,14 @@ float4 OutbackPS(OutbackVertexOutput input) : COLOR
     float detail = saturate(1.0 - footprint * 2.5 / SpinifexSpacing);
     float cellDistance = Voronoi2(spinifexP);
 
-    float tussock = (1.0 - smoothstep(tussockRadius - 0.05 - aa, tussockRadius + 0.03 + aa * 2.0, cellDistance)) * present;
+    //RAGGED, not round: spinifex is a ball of spines, and an exact disc of it is a pebble - which is what a field
+    //of them read as, grey beans on the sand. A fine noise pushes the distance in and out a few times round
+    //each tussock so its outline frays; faded with the pixel like everything else here, so a far tussock is a
+    //soft blob rather than a shimmer.
+    const float frayFrequency = 2.4;
+    cellDistance += GradientNoise2(worldPosition.xz * frayFrequency) * 0.16 * saturate(1.0 - footprint * frayFrequency * 2.0);
+
+    float tussock = (1.0 - smoothstep(tussockRadius - 0.14 - aa, tussockRadius + 0.05 + aa * 2.0, cellDistance)) * present;
     float hummock = lerp(saturate(PI * tussockRadius * tussockRadius), tussock, detail);
 
     //The shade a tussock throws on the sand round its foot - a ring rather than a cast shadow, because a cast
@@ -608,9 +631,19 @@ float4 OutbackPS(OutbackVertexOutput input) : COLOR
     float ring = lerp(saturate(PI * ringRadius * ringRadius) * present,
         (1.0 - smoothstep(tussockRadius, tussockRadius + 0.18 + aa * 2.0, cellDistance)) * present, detail);
 
-    //A tussock is lighter at its crown, where the spinifex's pale tips catch the sky, and darker at its skirt.
+    //A tussock is a little lighter at its crown, where the spinifex's pale tips catch the sky. Only a little:
+    //darkened hard at its skirt it drew a dark-rimmed disc, and under a low sun a field of those read as seeds
+    //or as pits in the sand. The dome below is what gives it a lit side and a shaded one.
     float tip = 1.0 - smoothstep(0.0, tussockRadius * 0.9 + aa, cellDistance);
-    float3 tussockColor = SpinifexColor * lerp(0.85, 1.25, lerp(0.5, tip, detail));
+    float3 tussockColor = SpinifexColor * lerp(0.95, 1.15, lerp(0.5, tip, detail));
+
+    //THE TUSSOCK IS A DOME, not a plateau. Its relief used to be the colour mask itself - flat on top with a
+    //cliff at the rim - so the normal turned only in a thin ring, and every tussock came out as a flat pill
+    //with a dark crescent on one edge. (1 - x^2)^2 is round over the top and meets the sand with no crease,
+    //so the whole clump takes the sun on one side and turns away from it on the other.
+    float domeReach = saturate(cellDistance / max(tussockRadius + 0.03, 1e-3));
+    float dome = saturate(1.0 - domeReach * domeReach);
+    dome *= dome * present;
 
     float3 soil = lerp(SoilColor, SoilColorPale, saturate(broad * -1.7 + 0.5));
 
@@ -625,9 +658,9 @@ float4 OutbackPS(OutbackVertexOutput input) : COLOR
     //--- Normal and colour -----------------------------------------------------------------------------
     //ONE height field for the fine relief and ONE perturbation off it, the two materials' reliefs lerped by the
     //same mask their colours are. Two PerturbNormalFromHeight calls would be two more pairs of screen
-    //derivatives for a result that is a lerp of the inputs anyway. The tussocks' relief takes the sharp field
-    //faded by the detail, not the averaged one - an average cover is a colour, and has no relief to give.
-    float relief = lerp(tussock * detail * SpinifexRelief, rockSurface * RockRelief, rockMask);
+    //derivatives for a result that is a lerp of the inputs anyway. The tussocks' relief takes the dome faded by
+    //the detail, not the averaged cover - an average cover is a colour, and has no relief to give.
+    float relief = lerp(dome * detail * SpinifexRelief, rockSurface * RockRelief, rockMask);
     float3 normal = PerturbNormalFromHeight(baseNormal, worldPosition, relief);
 
     float3 albedo = lerp(ground, rock, rockMask);
@@ -648,7 +681,14 @@ float4 OutbackPS(OutbackVertexOutput input) : COLOR
     //Hemisphere sky light: up-facing ground takes the zenith, faces turned to the skyline take the horizon
     float3 skyAmbient = lerp(HorizonColor, ZenithColor, saturate(normal.y * 0.5 + 0.5));
 
-    float3 color = albedo * (skyAmbient * AmbientStrength + SunColor * ndotl * sunlight);
+    //The bounce off the lit sand (see SoilBounce). It goes where the sun goes, since it is the sun's light at
+    //second hand; it is strongest on the faces the sun does not reach; and it is weighted by how far a face
+    //turns towards the GROUND, which is where it comes from - so the walls take it and the flat plain, which
+    //faces the sky, takes none and keeps exactly the colour it had.
+    float3 bounce = SunColor * saturate(SunDirection.y + 0.2) * SoilColorPale * SoilBounce
+        * saturate(1.0 - normal.y) * (1.0 - ndotl * sunlight);
+
+    float3 color = albedo * (skyAmbient * AmbientStrength + SunColor * ndotl * sunlight + bounce);
 
     //The varnish glint. Desert varnish is a genuinely glossy skin and the only thing in this scene that is not
     //matte, so the lobe is tighter than the desert's grain sheen and it is gated on BOTH the varnish and the
