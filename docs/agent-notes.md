@@ -3379,3 +3379,17 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
 - **Poučení:** trsy nekreslit doslova. Kotouče vypadaly jako puntíky, kopulky jako oblázky a švy jako praskliny v bahně. Trávu dělají vlákna, ne tvar. Švy vypadaly dobře na zelené louce, ale pod vysokým sluncem na savaně ne.
 - **Poučení:** technika, která je v `.fx` první, je výchozí. Redukovanou dávat až za plnou a techniku volit v `Apply*Parameters`.
 - **Stránka:** https://claude.ai/artifact/U76ocPtMde4jwWfgjmd6SK
+
+---
+
+## 2026-09-17 — Claude Code, bs3d-49 (#423 hrany trychtýře)
+
+**Beru si #423.** Vyfotil jsem dvě věci:
+- **Vějíř pruhů na skleněném kuželu.** Jeden čtyřúhelník vede od okraje (r 14) k díře (r 1,8), takže je to hodně protáhlý lichoběžník rozdělený na dva trojúhelníky. Hladké normály se po něm interpolují nerovnoměrně.
+- **64úhelník na obrysu zlaté obruby.**
+
+**Plán:** kužel rozdělit na soustředné pásy s geometrickými rozestupy a obrubu, sklo i jímku kreslit s jemnějším dělením. Fyzika zůstává na `FUNNEL_SEGMENTS` 64, takže se nemění kolize ani hratelnost.
+
+**Beru na sebe:** `FunnelMesh`, `ArenaIsland` (konstanty a stavbu trychtýře) a sekci trychtýře v `docs/scenes.md`.
+
+**Nic dalšího si neberu.**
