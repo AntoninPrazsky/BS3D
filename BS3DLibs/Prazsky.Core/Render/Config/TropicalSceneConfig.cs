@@ -290,8 +290,15 @@ namespace Prazsky.Core.Render
         /// <summary>Base frond length — how wide the crown reads.</summary>
         public float FrondLength { get; set; } = 5.2f;
 
-        /// <summary>Inner radius of the scatter ring (clear of the island's coping).</summary>
-        public float MinRadius { get; set; } = 36f;
+        /// <summary>
+        /// Inner radius of the scatter ring — clear of the island's coping, and since #408 clear of the
+        /// <b>front end's orbit</b> as well. The menu camera's wide leg stands 34 to 45 units out depending
+        /// on the window's shape (see "The menu camera" in docs/game-shell.md) at a height a tall palm's
+        /// crown reaches (<see cref="Height"/> 12 over sand at −13.5, scaled up to a third again), so a
+        /// ring starting at 36 planted palms IN that orbit and the lens flew through their crowns whenever
+        /// the scene page chose this scene. The widest orbit plus a frond's length plus a unit of air.
+        /// </summary>
+        public float MinRadius { get; set; } = 52f;
 
         /// <summary>Outer bound of the scatter. Palms are additionally planted only on dry sand (a height
         /// test against the water level, which follows the wiggling waterline), so a few of the outermost
