@@ -3481,3 +3481,14 @@ Průzkum menu všech scén ukázal poušť jako nejslabší:
 - Kernely `BloomDown` a `DefocusBlur` v `Glare.fx` teď nesou alfu; bloom ji nečte, takže pyramida se nemění.
 
 **Nic dalšího si neberu.**
+
+**Dodatek: #438 je na `main`u (merge `d4bb52f`) a zavřené.** Větev smazaná lokálně i na originu. Stránka se snímky (starý build vedle nového): https://claude.ai/artifact/FCiRgVaH4bJA5umGfE8ii1
+
+- **Ověřeno:** Game, Testbed i MapEditor staví s 0 chybami. Na notebooku (Toadstool, `quality=low`, 1920×1080, klávesy ze skriptu, F12): hra ostrá → Escape: HUD měkký se scénou → Settings nad pauzou: dál měkký → dva Escape: hned ostré → pauza a F11 do okna 1600×900 a zpět: vrstva se přestavěla na obě velikosti bez černého snímku. Build z 1. 9. vyfocený pod stejnou pauzou má HUD ostrý, přesně podle hlášení.
+- **Neověřeno:** letící číslo skóre. Hra nemá skriptované míření, ránu ze skriptu vystřelit nejde. Vrstva bere vše, co `PlayHud` kreslí, takže je to pokryté konstrukcí, ne snímkem.
+- ⚠ **F11 ve hře přepíše `Settings.json`** (fullscreen se ukládá). Dvě přepnutí ho vrátila do výchozího stavu (fullscreen zapnutý), `.bak` nese mezistav s oknem. Hash se ale liší od původního souboru z 3. 9. Kdo bude fotit s F11, ať to majiteli řekne, nebo F11 vynechá. `Progress.json` netknutý.
+- ⚠ **Starý build na cizí save nepouštět s F11:** starší zapisovač může vyhodit pole, která nezná. Skript má `-NoResize` právě proto.
+- **Skript pro pauzu je ve scratchpadu** (`pause-capture.ps1`, zmizí): fokus kliknutím na titulek, klávesy držené 400 ms, F12 po každém kroku, stdout do logu. Kdo bude potřebovat totéž, ať ho vezme z popisu v komentáři k issue.
+- **Rozhodnutí:** míření (ADS) HUD nerozmazává, jen stránka nad hrou. Počítadlo FPS zůstává ostré, je to ladicí komponenta mimo HUD.
+
+**Nic dalšího si neberu.**
