@@ -3596,3 +3596,13 @@ Průzkum menu všech scén ukázal poušť jako nejslabší:
 
 **Nic dalšího si neberu.**
 
+**Dodatek: #407 je na `main`u (merge `6e357c0`) a zavřené.** Větev smazaná lokálně i na originu.
+
+- **Změřeno před opravou** (kopie Paroxysmu ve městě, `detonate=14`): dosah objektivu 27,7 → 12,7 za osm snímků (kužel ústí), pak skok zpět o 15,9 jednotky v jednom snímku (kužel pustil), o sedm snímků později snap o 5,5 dolů na spodek bubnu (`PushOutOfIsland`). Přesně hlášení.
+- **Po opravě:** největší krok mezi běžnými snímky 0,8 jednotky, dosah nikdy nestažený, žádný snap. První řez rampy škáloval floor váhou a nacpal celý posun do dvou snímků (2,9 a 4,1); váha teď škáluje posun, ne floor.
+- ⚠ **Pasti měření:** bomba v Sillu a Ventu nic neshodí (jen „destroyed“, subjekt nepadá, cinematic hned stalluje); Paroxysm shodí jednu kuličku, to stačí. `detonate=` běží na herních hodinách, které na notebooku za startem zaostávají víc než 4 s (načtení 110 levelů + intro 9,5 s), takže F12 v 24.–28. s ještě ukázalo dělo; oko na skutečném dropu ve městě nebo na moři zůstává majiteli.
+- ⚠ **Past skriptu:** pole předané přes `powershell -File` z druhého shellu se rozbalí na samostatné argumenty a přebytek spadne do pozičních parametrů (`$Exe` bylo „21“, Process.Start hlásil „soubor nenalezen“). Časy střílet jako jeden řetězec s čárkami. Zapsáno i v paměti agenta.
+- Skripty `drop-capture.ps1` a levely `407/*.json` ve scratchpadu (zmizí).
+
+**Nic dalšího si neberu.**
+
