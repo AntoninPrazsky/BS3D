@@ -103,10 +103,20 @@ namespace Prazsky.Core.Render
         /// Half-width of the square opening the funnel sits in. The flat collar fills from the rim out to this
         /// square (thin at the edge midpoints, widest at the corners). Pass 0 (or &lt;= topRadius) for no collar.
         /// </param>
-        public FunnelMesh(GraphicsDevice graphicsDevice, float topRadius, float holeRadius, float height, int segments, float squareHalf = 0f)
+        /// <param name="bands">
+        /// How many concentric bands the wall is cut into between the rim and the hole (#423). One band makes every
+        /// facet a trapezoid as wide as the rim at one end and as narrow as the hole at the other - 7.8 : 1 on the
+        /// drain - and a quad that shape is two triangles whose barycentric interpolation of the smooth vertex
+        /// normals does not follow the azimuth across the facet: each triangle is shaded as if its normal swung at
+        /// a different rate, and a reflective surface draws that as a fan of light and dark wedges from the hole to
+        /// the rim. The bands are spaced GEOMETRICALLY (every band's rim-to-hole width ratio the same), so no facet
+        /// anywhere on the wall is a long trapezoid; at 16 bands on the drain the ratio is 1.14 : 1.
+        /// </param>
+        public FunnelMesh(GraphicsDevice graphicsDevice, float topRadius, float holeRadius, float height, int segments, float squareHalf = 0f, int bands = 1)
         {
             bool collar = squareHalf > topRadius;
-            int quads = collar ? segments * 2 : segments;
+            bands = Math.Max(bands, 1);
+            int quads = segments * bands + (collar ? segments : 0);
 
             var vertices = new VertexPositionNormalTexture[quads * 4];
             var indices = new short[quads * 6];
@@ -124,13 +134,18 @@ namespace Prazsky.Core.Render
                 float u0 = s / (float)segments;
                 float u1 = (s + 1) / (float)segments;
 
-                //Cone wall: rim (radius topRadius, y 0) down to the hole (radius holeRadius, y -height)
+                //Cone wall: rim (radius topRadius, y 0) down to the hole (radius holeRadius, y -height), band by band
                 Vector3 coneNormal0 = WallNormal(a0), coneNormal1 = WallNormal(a1);
-                AddVert(Ring(a0, topRadius, 0f), coneNormal0, new Vector2(u0, 0f));
-                AddVert(Ring(a1, topRadius, 0f), coneNormal1, new Vector2(u1, 0f));
-                AddVert(Ring(a1, holeRadius, -height), coneNormal1, new Vector2(u1, 1f));
-                AddVert(Ring(a0, holeRadius, -height), coneNormal0, new Vector2(u0, 1f));
-                Quad();
+                for (int b = 0; b < bands; b++)
+                {
+                    float rTop = BandRadius(b), rBottom = BandRadius(b + 1);
+                    float vTop = b / (float)bands, vBottom = (b + 1) / (float)bands;
+                    AddVert(Ring(a0, rTop, WallY(rTop)), coneNormal0, new Vector2(u0, vTop));
+                    AddVert(Ring(a1, rTop, WallY(rTop)), coneNormal1, new Vector2(u1, vTop));
+                    AddVert(Ring(a1, rBottom, WallY(rBottom)), coneNormal1, new Vector2(u1, vBottom));
+                    AddVert(Ring(a0, rBottom, WallY(rBottom)), coneNormal0, new Vector2(u0, vBottom));
+                    Quad();
+                }
 
                 if (collar)
                 {
@@ -144,6 +159,13 @@ namespace Prazsky.Core.Render
             }
 
             void AddVert(Vector3 pos, Vector3 normal, Vector2 uv) => vertices[v++] = new VertexPositionNormalTexture(pos, normal, uv);
+
+            //The band boundaries: geometric in radius, exactly the rim at 0 and the hole at `bands`
+            float BandRadius(int k) => k == 0 ? topRadius : k == bands ? holeRadius
+                : topRadius * (float)Math.Pow(holeRadius / topRadius, k / (double)bands);
+
+            //The wall is a straight cone, so a radius fixes the height
+            float WallY(float radius) => -height * (topRadius - radius) / (topRadius - holeRadius);
 
             void Quad()
             {
