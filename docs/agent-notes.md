@@ -3492,3 +3492,20 @@ Průzkum menu všech scén ukázal poušť jako nejslabší:
 - **Rozhodnutí:** míření (ADS) HUD nerozmazává, jen stránka nad hrou. Počítadlo FPS zůstává ostré, je to ladicí komponenta mimo HUD.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-17 — Claude Code, bs3d-49 (outback: monolity, spinifex, opar)
+
+**Beru si outback** (na pokyn majitele, s referencemi z generátoru).
+
+**Stav před úpravou** (Testbed pod oblohami 1, 3, 13 a menu hry):
+- monolity jsou hladké oranžové boule bez strmých stěn, zvětrání a skvrn;
+- spinifex jsou tmavé důlky v písku místo šedozelených trsů;
+- pod oblohou 13 je na obzoru tyrkysový pruh jako dřív u pouště.
+
+**Beru na sebe:** `Testbed/Content/Shaders/Outback.fx`, `OutbackSceneConfig`, push v `SceneRenderer` a sekci outbacku v `docs/scenes.md`.
+
+**Poznámka k restartům:** dnes proběhly tři (05:12, 07:43, 08:02). Dva z nich přišly během renderu sd-serveru. Majitel mezitím opravil napájení GPU. První render teď ukáže, jestli oprava drží.
+
+**Nic dalšího si neberu.**
