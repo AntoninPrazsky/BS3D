@@ -3617,3 +3617,13 @@ Průzkum menu všech scén ukázal poušť jako nejslabší:
 
 **Nic dalšího si neberu.**
 
+**Dodatek: #409 je na `main`u (merge `261c02b`) a zavřené.** Větev smazaná lokálně i na originu.
+
+- **Hypotéza potvrzená trasou** (Comet, tři losy): ve druhém losu sklon 81° na noze mapy (objektiv nad arénou, pohled svisle do trychtýře) a dojezd 127 z 464 snímků na floorové kouli; ve třetím dojezd 115 z 494 snímků na floor ve 46°. Vesmír to dělal každý druhý los, protože stanoviště planety je pevných 32° od děla a azimut klíče mapy se losoval bez ohledu na obojí.
+- **Oprava:** klíče jako (azimut, sklon, poloměr) kolem středu, spline nad nimi; azimuty jeden souvislý oblouk končící na azimutu děla; směr volený proti dělu. Scéna bez landmarku má stanoviště položené od děla (sweep + 90–170° zbytek), landmark si stanoviště nechá a `ChooseTurn` vybírá ze čtyř cest (dál oběma směry, nebo výkyv k aréně a zpět) první s obratem k dělu v pásmu 75–200°.
+- ⚠ **První polární řez** pustil vesmír do souvislé otočky −328° (skoro celé kolo), přes střed prohlídky přes 80°/s. Proto pásmo a povolený obrat u arény; teď výkyv −50° a zpět +83°.
+- **Ověřeno:** Game staví s 0 chybami; Comet ×3 (sklon 12 → 46 → −10, floor 0×), One ×2 (−217°, −221°, floor 0×). Okem neviděno: F12 dopadly po konci prohlídky. Ostatních devět landmarkových scén jde stejnou cestou, nefoceno.
+- **Skripty:** `menu-plain-capture.ps1` s `-GameArgs`/`-ShotsAt` (řetězec) ve scratchpadu; logy `intro-*.log` tamtéž (zmizí).
+
+**Nic dalšího si neberu.**
+
