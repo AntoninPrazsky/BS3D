@@ -2854,6 +2854,8 @@ namespace Prazsky.Core.Render
 
         private void ApplySavannaParameters()
         {
+            SelectSavannaTechnique();
+
             _savannaEffect.Parameters["SavannaLevelY"].SetValue(_savannaConfig.LevelY);
             _savannaEffect.Parameters["HillHeight"].SetValue(_savannaConfig.HillHeight);
             _savannaEffect.Parameters["ClearingRadius"].SetValue(_savannaConfig.ClearingRadius);
@@ -2862,6 +2864,12 @@ namespace Prazsky.Core.Render
             _savannaEffect.Parameters["GrassColor"].SetValue(_savannaConfig.GrassSavanna.ToVector3());
             _savannaEffect.Parameters["GrassColorDry"].SetValue(_savannaConfig.GrassDry.ToVector3());
             _savannaEffect.Parameters["GrassColorBare"].SetValue(_savannaConfig.GrassBare.ToVector3());
+            _savannaEffect.Parameters["GrassTipColor"].SetValue(_savannaConfig.GrassTipColor.ToVector3());
+            _savannaEffect.Parameters["GrassTipStrength"].SetValue(_savannaConfig.GrassTipStrength);
+            _savannaEffect.Parameters["TuftSize"].SetValue(_savannaConfig.TuftSize);
+            _savannaEffect.Parameters["TuftStrength"].SetValue(_savannaConfig.TuftStrength);
+            _savannaEffect.Parameters["GrassSheenStrength"].SetValue(_savannaConfig.GrassSheenStrength);
+            _savannaEffect.Parameters["GrassTranslucency"].SetValue(_savannaConfig.GrassTranslucency);
             _savannaEffect.Parameters["AmbientStrength"].SetValue(_savannaConfig.AmbientStrength);
             _savannaEffect.Parameters["WindDirection"].SetValue(_savannaConfig.Wind.ToVector2());
             _savannaEffect.Parameters["HorizonHazeDistance"].SetValue(_savannaConfig.HorizonHazeDistance);
@@ -3990,6 +3998,10 @@ namespace Prazsky.Core.Render
         private void SelectMeadowTechnique() =>
             _meadowEffect.CurrentTechnique = _meadowEffect.Techniques[_sceneDetail > 0.5f ? "Meadow" : "MeadowReduced"];
 
+        //The savanna's two programs (#281), the meadow's pair: the reduced one gives up the tuft gaps and the blade strokes
+        private void SelectSavannaTechnique() =>
+            _savannaEffect.CurrentTechnique = _savannaEffect.Techniques[_sceneDetail > 0.5f ? "Savanna" : "SavannaReduced"];
+
         private void ApplyMeadowParameters()
         {
             SelectMeadowTechnique();
@@ -4031,6 +4043,7 @@ namespace Prazsky.Core.Render
         {
             SelectForestTechnique();
             SelectMeadowTechnique();
+            SelectSavannaTechnique();
             SelectMarsTechnique();
 
             //The cavern is BACK (#298), and it left and returned for different reasons — see Cavern.fx's own

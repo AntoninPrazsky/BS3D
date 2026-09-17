@@ -37,8 +37,26 @@ namespace Prazsky.Core.Render
         /// <summary>Dry golden grass (linear, patches).</summary>
         public Rgb GrassDry { get; set; } = new(0.40f, 0.31f, 0.10f);
 
-        /// <summary>Bare reddish earth (linear).</summary>
+        /// <summary>Bare reddish earth (linear), in patches.</summary>
         public Rgb GrassBare { get; set; } = new(0.26f, 0.15f, 0.08f);
+
+        /// <summary>The pale straw of the dry blade tips (linear, #281).</summary>
+        public Rgb GrassTipColor { get; set; } = new(0.50f, 0.40f, 0.17f);
+
+        /// <summary>How strongly the tips, the hollows and the blade strokes show (0 = the field is flat colour).</summary>
+        public float GrassTipStrength { get; set; } = 0.8f;
+
+        /// <summary>How big a bunch of grass is, in world units.</summary>
+        public float TuftSize { get; set; } = 1.1f;
+
+        /// <summary>How strongly the bunches show, each its own shade of dry gold or green (0 = none).</summary>
+        public float TuftStrength { get; set; } = 0.6f;
+
+        /// <summary>The sheen of a field seen edge-on (0 = matte).</summary>
+        public float GrassSheenStrength { get; set; } = 0.3f;
+
+        /// <summary>How brightly the grass glows looking towards the sun (0 = none).</summary>
+        public float GrassTranslucency { get; set; } = 1.0f;
 
         /// <summary>How much sky fills the flats (ambient hemisphere strength).</summary>
         public float AmbientStrength { get; set; } = 0.7f;
