@@ -3403,3 +3403,15 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
 - **Poučení 1:** varianta s jímkou odsunutou od límce vypadala v Testbedu čistě, ale ve hře ukázala široký světlý pruh. Zvětšeninu ze hry dělat před mergem (stejné poučení jako u #401).
 - **Poučení 2:** zubatá hrana mezi dvěma neprůhlednými povrchy je skoro vždy křížení pod malým úhlem. Pomůže strmější úhel, ne větší mezera.
 - **Stránka:** https://claude.ai/artifact/Q7FTbhXh9kdMFqkVgEy5YY
+
+---
+
+## 2026-09-17 — Claude Code, bs3d-49 (#426 lom světla v křišťálovém poháru)
+
+**Beru si #426.** Křišťálový pohár pozadí jen ztlumí přes alfa, nijak ho neohne.
+
+- **Plán:** druhý průchod poháru do vlastního cíle, který zapíše posun pozadí podle normály nejbližšího povrchu a hloubky. Kompozice popředí pak pod pohárem znovu vyřeší scénu na posunutých souřadnicích, s malou disperzí a tmavými okraji.
+- **Předloha:** reference křišťálového poháru z lokálního generátoru (`C:\Users\panrd\AI\sd\out\426`): obraz v kalichu je převrácený a stažený, u okrajů se lom zesiluje.
+- **Beru na sebe:** `Tonemap.fx` (rozklad `MainPS` a kompozice popředí), `PostProcessPipeline` (cíl lomu), `InstancedModel.fx` a `InstancedModelRenderer` (technika lomu), `TrophyPodium`, `BS3DGame.Scene.cs` (kreslení popředí) a `docs/rendering.md` / `docs/game-feedback.md`.
+
+**Nic dalšího si neberu.**
