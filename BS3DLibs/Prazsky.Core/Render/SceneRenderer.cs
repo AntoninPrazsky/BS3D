@@ -2196,6 +2196,9 @@ namespace Prazsky.Core.Render
             _outbackEffect.Parameters["VarnishColor"].SetValue(surface.VarnishColor.ToVector3());
             _outbackEffect.Parameters["VarnishStrength"].SetValue(surface.VarnishStrength);
             _outbackEffect.Parameters["VarnishGloss"].SetValue(surface.VarnishGloss);
+            _outbackEffect.Parameters["FlakeColor"].SetValue(surface.FlakeColor.ToVector3());
+            _outbackEffect.Parameters["FlakeStrength"].SetValue(surface.FlakeStrength);
+            _outbackEffect.Parameters["CaveShade"].SetValue(surface.CaveShade);
             _outbackEffect.Parameters["RibCount"].SetValue(surface.RibCount);
             _outbackEffect.Parameters["RibDepth"].SetValue(surface.RibDepth);
             _outbackEffect.Parameters["RockRelief"].SetValue(surface.RockRelief);
@@ -2206,10 +2209,12 @@ namespace Prazsky.Core.Render
             _outbackEffect.Parameters["SpinifexCover"].SetValue(surface.SpinifexCover);
             _outbackEffect.Parameters["SpinifexRelief"].SetValue(surface.SpinifexRelief);
             _outbackEffect.Parameters["AmbientStrength"].SetValue(surface.AmbientStrength);
+            _outbackEffect.Parameters["SoilBounce"].SetValue(surface.SoilBounce);
 
             _outbackEffect.Parameters["HazeTint"].SetValue(air.HazeTint.ToVector3());
             _outbackEffect.Parameters["DustStrength"].SetValue(air.DustStrength);
             _outbackEffect.Parameters["HorizonHazeDistance"].SetValue(air.HorizonHazeDistance);
+            _outbackEffect.Parameters["HazeWarmth"].SetValue(air.HazeWarmth);
             _outbackEffect.Parameters["HeatShimmer"].SetValue(air.HeatShimmer);
             _outbackEffect.Parameters["WindDirection"].SetValue(air.Wind.ToVector2());
         }
