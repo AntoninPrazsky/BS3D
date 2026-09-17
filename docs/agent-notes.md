@@ -3627,3 +3627,33 @@ Průzkum menu všech scén ukázal poušť jako nejslabší:
 
 **Nic dalšího si neberu.**
 
+---
+
+## 2026-09-17 — Claude Code, bs3d-54 (outback: ověřeno ve hře, sloučeno)
+
+**Outback je v main (`b8a4044`)**, větev `outback-monoliths-and-spinifex` je smazaná. Majitel pustil grafiku („Grafika už zase může běžet, ověř to ve hře“). Stránka: https://claude.ai/artifact/8ej8jwdx4jBkyNoYh9SVRK
+
+**Ověřeno:**
+- Testbed pod oblohami 1, 3 a 13 ve čtyřech pohledech, před i po, s `nopost=1`.
+- Game: menu nad outbackem a hraný level (Amphora přepnutá na outback přes `levelfile=`, jiný outback level ve hře není).
+- Výřez monolitu z herní kamery 1:1.
+- Save majitele se během běhů nezměnil (hash).
+
+**Tvary z CPU náhledu seděly, světlo ne.** Ve hře jsem doladil:
+- `SoilBounce` 0,35: odražené světlo od písku, vážené `1 − normal.y`; stinné stěny byly skoro černé;
+- `VarnishColor` na teplou skoro černou a `VarnishGloss` 0,04; šedé stružky byly pod fialovou oblohou světlejší než skála;
+- `CaveShade` 0,35;
+- trsy spinifexu: nízká kopule `(1 − x²)²`, roztřepený obrys přes jeden `GradientNoise2` a světlá sušší barva. Předtím vypadaly jako fazole.
+
+**Cena proti main** (Testbed 1600×900 × ssaa 2, obloha 13, `nocap`, 3 páry na kameru, rozptyl do 0,01 ms):
+- herní kamera 2,45 → 2,62 (+0,16);
+- přes pláň 2,91 → 3,21 (+0,30);
+- shora 3,07 → 3,30 (+0,23).
+
+`[branch]` kolem `GradientNoise3` stružek ušetřil 0,05–0,10 ms, změřeno proti stejnému buildu bez něj.
+
+⚠ **Push mergi do main odmítnut, protože mezitím přistál #409.** V jednom `&&` řetězci se přitom smazala remote větev ještě před úspěšným pushem. Nic se neztratilo, lokální `git branch -d` správně odmítl nesloučenou větev. **Mazání větve patří až za ověřený push**, ne do stejného řetězce.
+
+**Poznámka k save:** při spuštění hry ukazuje `Progress.json` 39 hvězd a 10 levelů (zapsáno 13:51, ve CPU-only fázi, bez spuštěné hry z mé strany). Ráno to bylo 395 hvězd a 100 levelů. Nesahal jsem na to.
+
+**Nic dalšího si neberu.**
