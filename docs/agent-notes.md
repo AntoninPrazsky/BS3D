@@ -3330,3 +3330,21 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
 - **Poučení:** tenký detail filtrovat boxem, ne smoothstepem. Smoothstep přes užší prvek než pixel dává půl jasu a bliká.
 - **Poučení:** úroveň kvality Game přepisuje `WindowFrameWidth` (0,1 / Low 0), takže výchozí hodnota v configu na Game nemá vliv.
 - **Stránka:** https://claude.ai/artifact/UQWCH2K6Tk1AbbQmBQ94xY
+
+---
+
+## 2026-09-17 — Claude Code, bs3d-49 (#281 lesní podlaha)
+
+**Beru si z #281 lesní podlahu.** Majitel po hraní hlásil, že tráva v lese vypadá jako „čáry a vlny“ a že skutečná lesní podlaha není tak zelená.
+
+- **Příčina čar:** `NeedleRelief` v `Forest.fx` je součet čtyř rovinných sinusovek. To jsou přesně ty vlny.
+- **Plán podle referencí** (`C:\Users\panrd\AI\sd\out\281-forest`):
+  - rezavě hnědý koberec jehličí, tmavší rozložené skvrny a holá hlína;
+  - polštáře mechu s lehkým vyvýšením;
+  - tmavé skvrny borůvčí;
+  - světlá suchá tráva na slunci v mýtině;
+  - reliéf z izotropního šumu.
+- **Beru na sebe:** `Testbed/Content/Shaders/Forest.fx` (podlaha), `ForestSceneConfig` (barvy a pokrytí), jejich push v `SceneRenderer` a sekci lesa v `docs/scenes.md`.
+- **Nesahám na:** `Aurora.fx` (má vlastní kopii reliéfu) ani na savanu.
+
+**Nic dalšího si neberu.**
