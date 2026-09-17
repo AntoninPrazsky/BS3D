@@ -37,6 +37,12 @@ namespace BS3D.Screens
     /// then watched from a fixed 44 units away through a 60 degree lens reads as a speck floating short of the
     /// ceiling, whatever size the map is.
     /// </para>
+    /// <para>
+    /// And since #408 the camera is <b>never inside the map</b>: the pass keeps a floor of air off the
+    /// cluster's bounding sphere, and a map the level picker asks to hang while the lens is in among the
+    /// balls of the one before it waits until the lens has backed out of where it would stand — see
+    /// <see cref="StepPreviewRequest"/>.
+    /// </para>
     /// </summary>
     internal sealed class BackdropScreen : Screen
     {
@@ -155,6 +161,15 @@ namespace BS3D.Screens
         //in three times this. Off elapsed seconds and not a frame count, like everything else here.
         private const float FRAMING_EASE_SECONDS = 1.2f;
 
+        //And how quickly it drifts while a map is WAITING to hang because the lens stands where its balls
+        //would be (#408, see StepPreviewRequest): brisk, so the player who stopped on a tile sees its level
+        //within a second rather than watching the camera amble out of the way. Still an ease and not a cut.
+        private const float CLEARING_EASE_SECONDS = 0.3f;
+
+        //What the front end actually has hanging, as a framing — where the drift goes back to if a map that
+        //was waiting to hang is dropped before it did (the picker's focus moved on, or a session took over).
+        private OrbitFraming _hungFraming = OrbitFraming.Bare;
+
         //=== HOW MUCH OF THE FRAME EACH LEG FILLS ===
 
         //THE WIDE LEG'S JOB IS THE WHOLE SCENE, and the island is what measures it: a disc of radius R sits
@@ -194,6 +209,20 @@ namespace BS3D.Screens
         //but stay small, and a ball passing IN FRONT of a small corner mark is honest parallax rather than
         //the broken-looking name a full-size one showed.
         private const float CLOSE_CLEARANCE = 1.5f;
+
+        //How far either way a cycle rolls its clearance (#261's "one pass skims closer among the balls than
+        //the last", #408's home for it): a fraction of CLOSE_CLEARANCE, so the air runs 0.9 to 2.1 units.
+        //It was a scale of 0.95–1.05 on the whole stand-off until #408, and that ate the floor rather than
+        //jittering around it — at 0.95 of (span + 1.5) a wide map kept a third of a unit — which was also
+        //what made the deferred hang below unreachable on such a map: it waits for half the floor.
+        private const float CLOSE_CLEARANCE_JITTER = 0.4f;
+
+        //How much air a map has to have off the lens before it is HUNG (#408) — half the pass's floor, and
+        //the two are different questions. The floor is where the pass settles; this is only whether a ball
+        //of the incoming map could stand at the lens on the frame it appears, while the drift is still
+        //carrying the lens out to the full figure. Below the smallest clearance a cycle can roll, so a
+        //waiting map always gets hung.
+        private const float HANG_CLEARANCE = CLOSE_CLEARANCE * 0.5f;
 
         //=== THE HEIGHTS ===
 
@@ -241,12 +270,45 @@ namespace BS3D.Screens
         /// </param>
         internal void FrameOrbitFor(BallsMap map, float topLevelY)
         {
+            //A session installing its level supersedes whatever the picker was still waiting to hang (#408):
+            //the front end is about to go dormant, and the map it comes back to is rolled afresh anyway
+            DropPending();
+
             if (map == null)
             {
+                _hungFraming = OrbitFraming.Bare;
                 SetFraming(OrbitFraming.Bare);
                 return;
             }
 
+            ApplyFraming(SolveFraming(map, topLevelY), map);
+        }
+
+        /// <summary>
+        /// Takes a solved framing as the one the front end has hanging and the one the flight drifts towards,
+        /// and writes the one <c>[orbit]</c> line — at the window's CURRENT shape, which is what makes it a
+        /// reading of the fit rather than a restatement of it: the two stand-offs are solved per frame and
+        /// move with a resize.
+        /// </summary>
+        private void ApplyFraming(in OrbitFraming framing, BallsMap map)
+        {
+            _hungFraming = framing;
+            SetFraming(framing);
+
+            Console.WriteLine($"[orbit] framed for {map.GetBallsCount()} balls:"
+                + $" reach {framing.SpanXZ:F1} x {framing.HalfHeight:F1}"
+                + $", aim y {framing.CentreY:F1}"
+                + $", wide {WideRadius(framing):F1}"
+                + $", close {CloseRadius(framing, CLOSE_CLEARANCE):F1}"
+                + $", crane {framing.UnderY:F1} to {framing.OverY:F1}");
+        }
+
+        /// <summary>
+        /// The measurements of one hanging map (see <see cref="OrbitFraming"/>), solved and not yet applied —
+        /// so a map that has to wait before it hangs (#408) can be measured for the wait.
+        /// </summary>
+        private static OrbitFraming SolveFraming(BallsMap map, float topLevelY)
+        {
             XZLevel size = map.GetStaticBallsArraySize();
             byte topLevel = (byte)(size.Level - 1);
 
@@ -265,21 +327,12 @@ namespace BS3D.Screens
             float halfX = CeilingPlate.FootprintFor(map.StageSizeX) * Constants.HALF;
             float halfZ = CeilingPlate.FootprintFor(map.StageSizeZ) * Constants.HALF;
 
-            SetFraming(new OrbitFraming(
+            return new OrbitFraming(
                 MathF.Sqrt(halfX * halfX + halfZ * halfZ),
                 (topY - bottomY) * Constants.HALF,
                 centreY,
                 MathF.Max(bottomY - CRANE_UNDER_CLUSTER, LENS_FLOOR_Y),
-                topY + CRANE_OVER_CLUSTER));
-
-            //At the window's CURRENT shape, which is what makes this a reading of the fit rather than a
-            //restatement of it: the two stand-offs are solved per frame and move with a resize.
-            Console.WriteLine($"[orbit] framed for {map.GetBallsCount()} balls:"
-                + $" reach {_framingTarget.SpanXZ:F1} x {_framingTarget.HalfHeight:F1}"
-                + $", aim y {_framingTarget.CentreY:F1}"
-                + $", wide {WideRadius(_framingTarget):F1}"
-                + $", close {CloseRadius(_framingTarget):F1}"
-                + $", crane {_framingTarget.UnderY:F1} to {_framingTarget.OverY:F1}");
+                topY + CRANE_OVER_CLUSTER);
         }
 
         /// <summary>
@@ -335,18 +388,30 @@ namespace BS3D.Screens
 
         /// <summary>
         /// The fly-in's stand-off: as near as the map can be framed on the axis that binds, held off by
-        /// <see cref="CLOSE_CLEARANCE"/> — which is what actually decides it on nearly every shipped level.
+        /// <paramref name="clearance"/> — the cycle's roll about <see cref="CLOSE_CLEARANCE"/>, which is what
+        /// actually decides it on nearly every shipped level. The clearance is the parameter and not the
+        /// figure, so that a cycle's roll can only ever move the pass INSIDE the floor's own range (#408).
         /// </summary>
-        private float CloseRadius(in OrbitFraming framing)
+        private float CloseRadius(in OrbitFraming framing, float clearance)
         {
             FrameHalfAngles(out float vertical, out float horizontal);
 
             return MathF.Max(
-                framing.Span + CLOSE_CLEARANCE,
+                framing.Span + clearance,
                 MathF.Max(
                     StandOffFor(framing.HalfHeight, vertical, CLOSE_MAP_SHARE),
                     StandOffFor(framing.SpanXZ, horizontal, CLOSE_MAP_SHARE)));
         }
+
+        /// <summary>
+        /// Whether the lens, where the flight last put it, stands clear of a map framed as
+        /// <paramref name="framing"/> by <see cref="HANG_CLEARANCE"/> — outside its bounding sphere by that
+        /// much, which is the one test that holds from every bearing and every height of the crane at once.
+        /// The pose is last frame's, since the request is stepped before the flight; a frame's movement is
+        /// nothing against the margin.
+        /// </summary>
+        private bool LensClearOf(in OrbitFraming framing) =>
+            Vector3.Distance(_lens, new Vector3(0f, framing.CentreY, 0f)) >= framing.Span + HANG_CLEARANCE;
 
         #endregion
 
@@ -358,6 +423,11 @@ namespace BS3D.Screens
 
         //And how far into the current fly-in cycle it is, on that same clock and for that same reason.
         private float _flightClock;
+
+        //Where the flight last put the lens — what a map waiting to hang is measured against (#408). The
+        //orbit's own pose and not the camera's: under the result page the camera is a blend of this and the
+        //gun's, and the question is where the FLIGHT stands, since that is what the hang would land under.
+        private Vector3 _lens = new(0f, 0f, 1e4f);
 
         //=== THE CYCLE, ROLLED FRESH AT THE TOP OF EVERY ONE ===
         //
@@ -396,10 +466,11 @@ namespace BS3D.Screens
         private float _retreatSeconds = RETREAT_SECONDS;
 
         //Whether this pass's crane starts over the top of the map (and comes down it) or from under the
-        //bottom (and climbs), and how near this pass stands off — a few per cent either way of what the fit
-        //solved, so one pass skims closer among the balls than the last one did.
+        //bottom (and climbs), and how much air this pass leaves off the balls — CLOSE_CLEARANCE rolled
+        //within CLOSE_CLEARANCE_JITTER either way, so one pass skims closer among the balls than the last
+        //one did, and none of them closer than the floor allows.
         private bool _craneFromOver;
-        private float _closeStandOffScale = 1f;
+        private float _closeClearance = CLOSE_CLEARANCE;
 
         private float ExcursionSeconds => _approachSeconds + _closeSeconds + _retreatSeconds;
         private float CycleSeconds => _wideSeconds + ExcursionSeconds;
@@ -434,7 +505,7 @@ namespace BS3D.Screens
             _closeSeconds = CLOSE_SECONDS + (float)RANDOM.NextDouble() * CLOSE_JITTER_SECONDS;
             _retreatSeconds = RETREAT_SECONDS + (float)RANDOM.NextDouble() * RETREAT_JITTER_SECONDS;
             _craneFromOver = RANDOM.NextDouble() < 0.5;
-            _closeStandOffScale = 0.95f + (float)RANDOM.NextDouble() * 0.1f;
+            _closeClearance = CLOSE_CLEARANCE * (1f + (2f * (float)RANDOM.NextDouble() - 1f) * CLOSE_CLEARANCE_JITTER);
         }
 
         /// <summary>
@@ -525,9 +596,11 @@ namespace BS3D.Screens
         internal void AdvanceOrbit(float elapsed, out Vector3 position, out Vector3 target, out float fieldOfView)
         {
             //Exponential approach, so the drift onto a newly rolled map's framing is frame-rate independent
-            //and has no arrival to overshoot. It is a no-op on every frame the map has not changed.
-            _framing = OrbitFraming.Lerp(_framing, _framingTarget,
-                1f - MathF.Exp(-elapsed / FRAMING_EASE_SECONDS));
+            //and has no arrival to overshoot. It is a no-op on every frame the map has not changed. Brisker
+            //while a map is waiting on the lens to get out of its way (#408), because that wait is the one
+            //the player is watching.
+            float ease = _pendingIndex >= 0 ? CLEARING_EASE_SECONDS : FRAMING_EASE_SECONDS;
+            _framing = OrbitFraming.Lerp(_framing, _framingTarget, 1f - MathF.Exp(-elapsed / ease));
 
             _flightClock += elapsed;
             if (_flightClock >= CycleSeconds)
@@ -540,9 +613,9 @@ namespace BS3D.Screens
 
             //Both stand-offs solved here, from the map's measurements and the window's own shape, rather than
             //stored with the framing — see OrbitFraming for why they cannot be settled at load. The close one
-            //carries this cycle's rolled stand-off scale, so one pass skims nearer the balls than the last.
+            //carries this cycle's rolled clearance, so one pass skims nearer the balls than the last.
             float radius = MathHelper.Lerp(WideRadius(_framing),
-                CloseRadius(_framing) * _closeStandOffScale, closeness);
+                CloseRadius(_framing, _closeClearance), closeness);
 
             float height = MathF.Max(LENS_FLOOR_Y, MathHelper.Lerp(
                 _framing.CentreY - WIDE_LENS_DROP,
@@ -553,6 +626,7 @@ namespace BS3D.Screens
             if (_angle >= MathHelper.TwoPi) _angle -= MathHelper.TwoPi;
 
             position = new Vector3(MathF.Cos(_angle) * radius, height, MathF.Sin(_angle) * radius);
+            _lens = position;
 
             //Both legs aim at the middle of what hangs, and the camera's own height is what changes around it.
             //Aiming the crane anywhere else would swing the map across the frame as the lens climbed.
@@ -611,6 +685,8 @@ namespace BS3D.Screens
         /// </summary>
         internal void RollPreviewMap()
         {
+            DropPending();
+
             _previewMap = null;
             _previewIndex = -1;
             _requestedPreview = -1;
@@ -677,6 +753,18 @@ namespace BS3D.Screens
         private int _requestedPreview = -1;
         private float _requestSettle;
 
+        //A settled request that is read, centred, solved and NOT yet hung, because the lens stood where its
+        //balls would be (#408): everything the hang needs, held until the flight has carried the lens clear.
+        //The framing target already points at it — that drift is what clears the lens.
+        private int _pendingIndex = -1;
+        private BallsMap _pendingMap;
+        private string _pendingName;
+        private BallStyle _pendingStyle;
+        private Level _pendingLevel;
+        private Vector3 _pendingOffset;
+        private float _pendingCeilingCentreY, _pendingTopLevelY;
+        private OrbitFraming _pendingFraming;
+
         /// <summary>
         /// Asks the backdrop to hang entry <paramref name="index"/> of the set <b>in its own scene, sky, weather
         /// and material</b> — what the level picker does with the tile its pointer or cursor stands on (#405).
@@ -700,6 +788,16 @@ namespace BS3D.Screens
         {
             if (index == _previewIndex)
             {
+                //Back on the tile that hangs: nothing left to wait for, settling or pending
+                _requestedPreview = -1;
+                DropPending();
+                return;
+            }
+
+            //Already read and waiting on the lens: a settling request for another tile is withdrawn, or it
+            //would replace the very map the focus has come back to
+            if (index == _pendingIndex)
+            {
                 _requestedPreview = -1;
                 return;
             }
@@ -710,17 +808,48 @@ namespace BS3D.Screens
             _requestSettle = PREVIEW_SETTLE_SECONDS;
         }
 
-        /// <summary>The settled half of <see cref="RequestPreview"/>, stepped from <see cref="Update"/>.</summary>
+        /// <summary>
+        /// The settled half of <see cref="RequestPreview"/>, stepped from <see cref="Update"/> — in two steps
+        /// since #408. A request whose focus has rested is <b>read and solved</b> (<see cref="TakePending"/>),
+        /// which also points the flight's framing at it; it is <b>hung</b> only once the lens stands clear of
+        /// where its balls would be (<see cref="LensClearOf"/>), which on the wide leg is at once and on the
+        /// close pass is after the drift has backed the lens out — under a second, at
+        /// <see cref="CLEARING_EASE_SECONDS"/>.
+        /// <para>
+        /// ⚠ <b>NEVER HANG A MAP AROUND THE LENS.</b> The pass keeps a floor of air off the bounding sphere of
+        /// the map that hangs, but a map hung while the camera is in among the balls of a smaller one appears
+        /// AROUND the camera — a twenty-level column materializing about a lens that was skimming a pancake —
+        /// and the drift then backs the lens out through the balls it is now inside of. That was the owner's
+        /// "the camera abruptly flies through the map" (#408): a cut in what hangs, under a camera placed for
+        /// what hung before. The flight is still not restarted, which #405 asked for: the camera carries on
+        /// round the island and drifts out, and the map arrives the moment there is room for it.
+        /// </para>
+        /// </summary>
         private void StepPreviewRequest(float elapsed)
         {
-            if (_requestedPreview < 0) return;
+            if (_requestedPreview >= 0)
+            {
+                _requestSettle -= elapsed;
 
-            _requestSettle -= elapsed;
-            if (_requestSettle > 0f) return;
+                if (_requestSettle <= 0f)
+                {
+                    int index = _requestedPreview;
+                    _requestedPreview = -1;
+                    TakePending(index);
+                }
+            }
 
-            int index = _requestedPreview;
-            _requestedPreview = -1;
+            if (_pendingIndex < 0 || !LensClearOf(in _pendingFraming)) return;
 
+            HangPending();
+        }
+
+        /// <summary>
+        /// Reads entry <paramref name="index"/> and solves everything its hang needs — the offset, the glass,
+        /// the framing — without hanging it, and turns the flight towards it so the lens starts making room.
+        /// </summary>
+        private void TakePending(int index)
+        {
             LevelSet set = Game.LevelSet;
             if (set == null || index < 0 || index >= set.Count) return;
 
@@ -729,17 +858,61 @@ namespace BS3D.Screens
             if (!TryLoadPreview(set, index, out BallsMap map, out string name, out BallStyle style, out Level level))
                 return;
 
+            map.Center();
+
+            _pendingIndex = index;
+            _pendingMap = map;
+            _pendingName = name;
+            _pendingStyle = style;
+            _pendingLevel = level;
+            _pendingTopLevelY = SolveHang(map, out _pendingOffset, out _pendingCeilingCentreY);
+            _pendingFraming = SolveFraming(map, _pendingTopLevelY);
+
+            //The flight starts drifting onto the new map's framing NOW, whether or not it can hang yet: on the
+            //wide leg that is the same drift #405 had, and on the close pass it is what carries the lens out
+            SetFraming(_pendingFraming);
+
+            if (!LensClearOf(in _pendingFraming))
+                Console.WriteLine($"[menu] preview map {name} waits for the lens to clear the cluster");
+        }
+
+        /// <summary>Hangs the waiting map, its place first — the order a session builds a level in.</summary>
+        private void HangPending()
+        {
             //The place before the map, in the order a session builds a level (GameplayScreen.BuildLevel): the
             //scene states its own dome and weather, the level then says which dome and what it is like today, and
             //the map is hung last so the menu's glass takes the light rig those just derived.
-            if (level != null)
+            if (_pendingLevel != null)
             {
-                if (level.Scene is SceneKind scene) Game.SetScene(scene);
-                Game.SetSkyDome(Math.Clamp(level.SkyDome, (byte)1, BS3DGame.SKY_DOME_COUNT));
-                Game.ApplySceneWeather(level.Weather);
+                if (_pendingLevel.Scene is SceneKind scene) Game.SetScene(scene);
+                Game.SetSkyDome(Math.Clamp(_pendingLevel.SkyDome, (byte)1, BS3DGame.SKY_DOME_COUNT));
+                Game.ApplySceneWeather(_pendingLevel.Weather);
             }
 
-            HangPreview(map, name, style, index);
+            HangPreview(_pendingMap, _pendingName, _pendingStyle, _pendingIndex,
+                _pendingOffset, _pendingCeilingCentreY, _pendingTopLevelY);
+
+            ClearPending();
+        }
+
+        /// <summary>
+        /// Forgets a map waiting to hang, and turns the flight back to the map that does hang — the focus moved
+        /// on, or a session took over; either way what the lens was making room for is not coming.
+        /// </summary>
+        private void DropPending()
+        {
+            if (_pendingIndex < 0) return;
+
+            ClearPending();
+            SetFraming(_hungFraming);
+        }
+
+        private void ClearPending()
+        {
+            _pendingIndex = -1;
+            _pendingMap = null;
+            _pendingName = null;
+            _pendingLevel = null;
         }
 
         /// <summary>
@@ -786,19 +959,15 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// Hangs a read map over the island as the front end's preview: centred, at the offset a session would
-        /// hang it at, raised to where the ceiling socket settles it, under the menu's own glass, with the
-        /// camera's framing aimed at it. Shared by the random roll and the level picker's request (#405).
+        /// Where a read map hangs: at the offset a session would hang it at, raised to where the ceiling socket
+        /// settles it, with its glass over it. Solved apart from the hang itself since #408, so a map that has
+        /// to wait for the lens can be measured for the wait. The map must be centred first.
         /// </summary>
-        private void HangPreview(BallsMap map, string name, BallStyle style, int index)
+        /// <returns>World Y the top level of balls hangs at — the figure the framing is solved off.</returns>
+        private static float SolveHang(BallsMap map, out Vector3 offset, out float ceilingCentreY)
         {
-            map.Center();
-            _previewMap = map;
-            _previewIndex = index;
-            _previewStyle = Game.BallStyleOverride ?? style;
-            _previewOffset = GameplayScreen.FitClusterWorldOffset(map, out float fieldTopY);
-
-            float ceilingCentreY = CeilingPlate.CentreYAbove(fieldTopY);
+            offset = GameplayScreen.FitClusterWorldOffset(map, out float fieldTopY);
+            ceilingCentreY = CeilingPlate.CentreYAbove(fieldTopY);
 
             //AND THEN RAISED TO WHERE THE PHYSICS WOULD HAVE PUT IT, which is the other half of #254 and
             //the half that is not about the camera at all. A played cluster does not rest on its lattice:
@@ -810,7 +979,32 @@ namespace BS3D.Screens
             //of daylight short of the glass — a gap no level ever shows in play, on the one screen whose
             //job is to promise what play looks like.
             float topLevelY = BallsConstraintsBuilder.CeilingRestY(ceilingCentreY);
-            _previewOffset.Y += topLevelY - fieldTopY;
+            offset.Y += topLevelY - fieldTopY;
+
+            return topLevelY;
+        }
+
+        /// <summary>
+        /// Hangs a read map over the island as the front end's preview: centred, at the offset a session would
+        /// hang it at, raised to where the ceiling socket settles it, under the menu's own glass, with the
+        /// camera's framing aimed at it. The random roll's form; the level picker's request (#405) hangs
+        /// through the overload below with the figures it solved while it waited (#408).
+        /// </summary>
+        private void HangPreview(BallsMap map, string name, BallStyle style, int index)
+        {
+            map.Center();
+            float topLevelY = SolveHang(map, out Vector3 offset, out float ceilingCentreY);
+            HangPreview(map, name, style, index, offset, ceilingCentreY, topLevelY);
+        }
+
+        /// <summary>The hang itself, off figures <see cref="SolveHang"/> already solved for a centred map.</summary>
+        private void HangPreview(BallsMap map, string name, BallStyle style, int index,
+            Vector3 offset, float ceilingCentreY, float topLevelY)
+        {
+            _previewMap = map;
+            _previewIndex = index;
+            _previewStyle = Game.BallStyleOverride ?? style;
+            _previewOffset = offset;
 
             //The menu's glass over what was just hung, and the sky palette the fresh renderer starts
             //without — the same re-run the session makes after its own refit.
@@ -819,8 +1013,9 @@ namespace BS3D.Screens
             _menuCeilingWorld = Matrix.CreateTranslation(0f, ceilingCentreY, 0f);
 
             //And the camera framed for it, off where the balls have just been hung rather than off the
-            //lattice they would have hung on.
-            FrameOrbitFor(map, topLevelY);
+            //lattice they would have hung on. Applied rather than solved again: a map that waited was
+            //already measured, and what hangs and what the flight frames must be one reading.
+            ApplyFraming(SolveFraming(map, topLevelY), map);
 
             Console.WriteLine($"[menu] preview map {name} — {map.GetBallsCount()} balls, {BallStyles.ToName(_previewStyle)}"
                 + $", {Game.Scene}");
