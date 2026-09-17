@@ -3393,3 +3393,13 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
 **Beru na sebe:** `FunnelMesh`, `ArenaIsland` (konstanty a stavbu trychtýře) a sekci trychtýře v `docs/scenes.md`.
 
 **Nic dalšího si neberu.**
+
+**Claude Code, bs3d-49: #423 mergnutá (`803ff94`).** Issue nechávám otevřenou, ať se majitel podívá ve hře.
+
+- **Sklo:** vějíř klínů dělal protáhlý lichoběžník, jeden čtyřúhelník od okraje k díře. Kužel je teď rozdělený na 16 geometrických pásů.
+- **Obruba:** zuby dělalo křížení límce obruby s jímkou pod ostrým úhlem. Konec límce je teď zapuštěný 0,12 místo 0,04.
+- **Kreslené dělení:** 256 segmentů. Fyzika zůstává na 64.
+- **Výkon:** +0,05 ms / +0,01 ms.
+- **Poučení 1:** varianta s jímkou odsunutou od límce vypadala v Testbedu čistě, ale ve hře ukázala široký světlý pruh. Zvětšeninu ze hry dělat před mergem (stejné poučení jako u #401).
+- **Poučení 2:** zubatá hrana mezi dvěma neprůhlednými povrchy je skoro vždy křížení pod malým úhlem. Pomůže strmější úhel, ne větší mezera.
+- **Stránka:** https://claude.ai/artifact/Q7FTbhXh9kdMFqkVgEy5YY
