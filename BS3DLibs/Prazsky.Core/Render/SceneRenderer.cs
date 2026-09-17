@@ -4069,6 +4069,15 @@ namespace Prazsky.Core.Render
             _forestEffect.Parameters["FloorLumpFrequency"].SetValue(_forestConfig.FloorLumpFrequency);
             _forestEffect.Parameters["ForestColor"].SetValue(_forestConfig.ForestColor.ToVector3());
             _forestEffect.Parameters["ForestColorDark"].SetValue(_forestConfig.ForestColorDark.ToVector3());
+            _forestEffect.Parameters["LitterColor"].SetValue(_forestConfig.LitterColor.ToVector3());
+            _forestEffect.Parameters["LitterColorDark"].SetValue(_forestConfig.LitterColorDark.ToVector3());
+            _forestEffect.Parameters["EarthColor"].SetValue(_forestConfig.EarthColor.ToVector3());
+            _forestEffect.Parameters["UndergrowthColor"].SetValue(_forestConfig.UndergrowthColor.ToVector3());
+            _forestEffect.Parameters["DryGrassColor"].SetValue(_forestConfig.DryGrassColor.ToVector3());
+            _forestEffect.Parameters["MossCoverage"].SetValue(_forestConfig.MossCoverage);
+            _forestEffect.Parameters["UndergrowthCoverage"].SetValue(_forestConfig.UndergrowthCoverage);
+            _forestEffect.Parameters["DryGrassCoverage"].SetValue(_forestConfig.DryGrassCoverage);
+            _forestEffect.Parameters["MossHeight"].SetValue(_forestConfig.MossHeight);
             _forestEffect.Parameters["TreelineColor"].SetValue(_forestConfig.TreelineColor.ToVector3());
             _forestEffect.Parameters["TreelineStrength"].SetValue(_forestConfig.TreelineStrength);
             _forestEffect.Parameters["AmbientStrength"].SetValue(_forestConfig.AmbientStrength);

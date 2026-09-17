@@ -19,7 +19,8 @@
 
 #include "Clouds.fxh"
 //For WindGust (#276) — the one copy of the gust field the meadow and the savanna also read the wind off.
-//This scene kept its own four-sine needle field and its own ForestFbm; nothing else here comes from Noise.fxh.
+//Since #281 the floor also draws its litter, moss, bilberry and dry grass from Fbm2BandLimited, Fbm2Combed and
+//GradientNoise2 here; the four-sine needle field and the private ForestFbm it replaced are gone.
 #include "Noise.fxh"
 
 float4x4 View;
@@ -75,6 +76,19 @@ float WindRippleStrength;
 //than the meadow's grass relief, because a needle floor reads coarser than a lawn
 float NeedleReliefStrength;
 float NeedleReliefFrequency;
+
+//What lies on the floor (#281), read off references rendered for it: a carpet of rusty needle litter with darker
+//decayed patches and bare earth, cushions of moss (ForestColor/ForestColorDark are their lit and shaded greens),
+//dark patches of bilberry, and pale dry grass where the clearing stands open to the sun. Linear albedo.
+float3 LitterColor;
+float3 LitterColorDark;
+float3 EarthColor;
+float3 UndergrowthColor;
+float3 DryGrassColor;
+float MossCoverage;
+float UndergrowthCoverage;
+float DryGrassCoverage;
+float MossHeight;
 
 //The floor's two expensive extras - the triplanar normal variation and the procedural tree shadows - are
 //switched by TECHNIQUE rather than by a uniform, and they go together. Both facts are measured rather than
@@ -164,11 +178,9 @@ ForestVertexOutput ForestVS(ForestVertexInput input)
     return output;
 }
 
-//A fine needle/moss texture that drifts on the wind, band-limited PER OCTAVE against the footprint (the
-//ball relief's rule: one global fade has to be tuned for the finest wave and flattens the lot at arm's
-//length, while per-octave fades let each drop out exactly where the pixels stop resolving it). Four
-//octaves rather than two: two sines interfere into a soft weave, which is most of what read as "blurred"
-//on the near floor - a needle floor is fine, sharp and directionless.
+//The fine litter texture, band-limited PER OCTAVE against the footprint (the ball relief's rule: one global
+//fade has to be tuned for the finest octave and flattens the lot at arm's length, while per-octave fades let
+//each drop out exactly where the pixels stop resolving it). A needle floor is fine, sharp and directionless.
 //⚠ A FOREST FLOOR DOES NOT DRIFT (#276). This sampled at `xz + WindDirection * ForestTime * 0.7` — the same
 //flat 0.7 world units a second the meadow and the savanna carried, character for character, and the same
 //fault in all three: the floor's own texture slid across the ground for ever. Grass at least bends, so those
@@ -177,15 +189,12 @@ ForestVertexOutput ForestVS(ForestVertexInput input)
 //through the canopy, which the gust darkens further down.
 float NeedleRelief(float2 xz, float footprint)
 {
-    float2 p = xz;
-    float f = NeedleReliefFrequency;
-
-    float h = 0.45 * sin(dot(p, normalize(float2(0.9, 0.3))) * f) * saturate(1.0 - footprint * f / 3.14159265)
-        + 0.28 * sin(dot(p, normalize(float2(-0.4, 1.0))) * f * 1.83) * saturate(1.0 - footprint * f * 1.83 / 3.14159265)
-        + 0.17 * sin(dot(p, normalize(float2(0.2, -1.0))) * f * 3.1) * saturate(1.0 - footprint * f * 3.1 / 3.14159265)
-        + 0.10 * sin(dot(p, normalize(float2(-1.0, -0.35))) * f * 5.7) * saturate(1.0 - footprint * f * 5.7 / 3.14159265);
-
-    return h * NeedleReliefStrength;
+    //Isotropic noise, not sines (#281). This was four plane waves at fixed angles, and summed plane waves keep
+    //their planes however many there are: the owner's playtest read the floor as "lines and waves", which is
+    //exactly what it drew. A litter of needles is directionless, so the relief is band-limited gradient noise
+    //whose octaves are rotated against each other (Fbm2BandLimited), and each octave fades where the pixels
+    //stop resolving it.
+    return Fbm2BandLimited(xz * NeedleReliefFrequency, 3, footprint * NeedleReliefFrequency) * NeedleReliefStrength;
 }
 
 //The terrain's base normal, per pixel from the height field's own gradient - the savanna's fix, and the
@@ -200,50 +209,6 @@ float3 TerrainNormal(float2 p)
     float hz = TerrainHeight(p + float2(0.0, e));
 
     return normalize(float3(-(hx - h) / e,1.0, -(hz - h) / e));
-}
-
-//Fractional Brownian motion on the shared gradient noise (CloudNoise, Clouds.fxh) - four octaves, each band-
-//limited against the pixel's footprint the way every other procedural feature in this project is (NeedleRelief,
-//CloudDetailD): one global fade would have to be tuned for the finest octave and would flatten the coarse ones
-//at arm's length, while per-octave fades let each drop out exactly where the pixels stop resolving it. Amplitudes
-//sum to 1 so the result sits in roughly the same range as a single CloudNoise tap (after its own spread/saturate).
-//Replaces the hand-spread single-frequency noise taps the floor colour used to read off: a single octave reads as
-//smooth patches, four sum to the broken, organic mottle a real forest floor has.
-float ForestFbm(float2 p, float footprint)
-{
-    float sum = 0.0;
-    float amplitude = 0.5;
-    float frequency = 1.0;
-
-    [unroll]
-    for (int octave = 0; octave < 4; octave++)
-    {
-        float resolvable = saturate(1.0 - footprint * frequency * 0.9);
-        sum += amplitude * resolvable * CloudNoise(p * frequency + octave * 29.7);
-        amplitude *= 0.5;
-        frequency *= 2.1;
-    }
-
-    return sum;
-}
-
-//Perturbs a surface normal with a triplanar FBM field, after dr2's VaryNf: three taps of the field on the
-//planes perpendicular to the normal (yz, zx, xy), differenced against the central tap, folded back into the
-//normal the way a tangent-space bump would be. This is a SECOND, finer layer over PerturbNormalFromHeight: the
-//relief tilts the normal along the needle/moss waves, this one adds the broken micro-relief that a single
-//frequency cannot. TerrainNormal itself is untouched - it must stay the gradient of TerrainHeight, which the
-//scatter plants trees on.
-float3 VaryNormal(float3 p, float3 n, float frequency, float strength, float footprint)
-{
-    float2 e = float2(0.1, 0.0);
-
-    float c = ForestFbm(p.yz * frequency, footprint);
-    float gx = ForestFbm((p + e.xyy).yz * frequency, footprint) - c;
-    float gy = ForestFbm((p + e.yxy).zx * frequency, footprint) - c;
-    float gz = ForestFbm((p + e.yyx).xy * frequency, footprint) - c;
-    float3 g = float3(gx, gy, gz);
-
-    return normalize(n + strength * (g - n * dot(n, g)));
 }
 
 //Procedural tree shadows on the forest floor, after dr2's ObjSShadow but without a distance field: the trees
@@ -336,33 +301,70 @@ float4 ForestFloor(ForestVertexOutput input, bool detail)
 
     float3 baseNormal = TerrainNormal(worldPosition.xz);
     float footprint = length(fwidth(worldPosition.xz));
+    float2 xz = worldPosition.xz;
 
-    //Fine needle/moss texture tilts the normal, so the floor catches the light unevenly and the wind reads on it
-    float relief = NeedleRelief(worldPosition.xz, footprint);
+    //Slope drives what grows where, the way it does on a real bank: the flats keep the moss and the bilberry,
+    //the banks wash to litter and bare earth. Without it the floor reads as one material however it is lit.
+    float slope = smoothstep(0.55, 0.85, baseNormal.y);
+
+    //WHAT LIES ON THE FLOOR (#281), read off references rendered for it. The first build gave every layer a field
+    //of its own and cost 0.64-1.04 ms more than the green floor it replaced (3200x1800, three pairs); three fields
+    //read for several things each draw the same picture. `broad` is how damp the ground is - bilberry and moss
+    //gather where it is high, dry grass where it is low, which is also how a real clearing sorts them; `tone` is
+    //the litter's own mottle, and where it is lowest the litter has worn through to earth; `fine` breaks the
+    //cushions' edges, clumps the bilberry and varies the moss, and fades out before it could shimmer.
+    float broad = Fbm2BandLimited(xz * 0.06 + 19.0, 2, footprint * 0.06);
+    float tone = Fbm2BandLimited(xz * 0.22 + 7.0, 2, footprint * 0.22);
+    float fine = GradientNoise2(xz * 1.6 + 67.0) * saturate(1.0 - footprint * 1.6);
+
+    //MOSS CUSHIONS: rounded islands off a thresholded noise, their outline broken by `fine` because a clean
+    //threshold drew them as paint splotches. Worked out before the normal, because a cushion is a low dome and
+    //rides in the relief. Past a few cushions a pixel the mask fades to its own average rather than to speckle.
+    float mossResolved = saturate(1.6 - footprint * 0.45);
+    float mossField = GradientNoise2(xz * 0.2 + 13.0) + 0.45 * GradientNoise2(xz * 0.47 + 41.0) + 0.22 * fine;
+    float mossThreshold = 0.45 - MossCoverage - 0.6 * broad;
+    float moss = lerp(MossCoverage * 0.5, smoothstep(mossThreshold, mossThreshold + 0.3, mossField), mossResolved) * slope;
+
+    //The litter's own relief and the cushions' rise tilt the normal, so the floor catches the light unevenly.
+    //There is no second, finer normal layer any more: VaryNormal's triplanar FBM (sixteen noise taps a pixel)
+    //was added over the sine relief to break it up, and the relief is noise itself now.
+    float relief = NeedleRelief(xz, footprint) + moss * mossResolved * MossHeight;
     float3 normal = PerturbNormalFromHeight(baseNormal, worldPosition, relief);
 
-    //A second, finer relief layer over the needle waves: triplanar FBM perturbs the normal with the broken
-    //micro-relief a single frequency cannot (VaryNormal, after dr2's VaryNf). Where the needle relief is the
-    //comb the wind reads on, this is the rough moss-and-root grain that stops the floor shading flat. Lighter
-    //than the needle relief itself, and band-limited through ForestFbm so the near floor gets the detail and the
-    //far ridge does not shimmer.
-    //Behind FloorDetail: one of the two extras the reduced tier gives up. What is lost is the near floor's
-    //micro-grain, which the band limit has already faded to nothing a short way out - so the reduced floor is
-    //the same picture beyond arm's length and a slightly smoother one underfoot.
-    if (detail) normal = VaryNormal(worldPosition, normal, 1.8, 0.35, footprint);
+    //THE FLOOR IS NOT GREEN. It was moss green wherever it was flat, and the owner's playtest said a real forest
+    //floor is not that green; the references agree - under spruce the ground is a carpet of rusty needles, with
+    //the green in cushions and patches on top of it. So the base is the litter, in two tones, and everything green
+    //is laid over it.
+    float3 floor = lerp(LitterColorDark, LitterColor, saturate(0.55 + 0.9 * tone));
 
-    //Undergrowth colour: mossy green in broad patches, varying towards the dark needle litter and shadow, so
-    //the floor is not one flat green but mottled the way a real clearing is. ForestFbm (four octaves of the shared
-    //gradient noise) replaces the single CloudNoise tap a single octave reads as: smooth patches, where four sum
-    //to the broken organic mottle a real forest floor has. Spread and saturated the same way as before - CloudNoise
-    //clusters hard around zero (one sigma 0.18, 5-95% inside +/-0.3), so the gain is well over 1.
-    float patch = saturate(ForestFbm(worldPosition.xz * 0.15, footprint) * 1.4 + 0.5);
+    //The needles themselves, near the lens: noise drawn out along a direction that wanders with the litter's mottle,
+    //so the carpet reads as strands lying every which way rather than as smooth brown. Gone well before a strand
+    //is under a pixel. Behind FloorDetail with the tree shadows - the pair the reduced tier gives up.
+    if (detail)
+    {
+        float needles = Fbm2Combed(xz * 5.0, float2(cos(tone * 12.0), sin(tone * 12.0)), 6.0, 1, footprint * 5.0);
+        floor *= 1.0 + 0.35 * needles * saturate(1.5 - footprint * 4.0);
+    }
 
-    //Slope drives the colour the way it does on a real bank: flats keep the moss (cool green, ForestColor),
-    //slopes wash to bare earth and litter (warm-dark, ForestColorDark dimmed). dr2 mixes by vn.y the same way;
-    //without it the floor reads as one material however it is lit, because the colour never answers the form.
-    float slope = smoothstep(0.55, 0.85, baseNormal.y);
-    float3 floor = lerp(ForestColorDark * 0.8, ForestColor, patch * slope);
+    //Bare dark earth where the litter is thinnest, more of it on the banks
+    float earth = smoothstep(0.3, 0.55, -tone) * (1.0 - 0.5 * slope);
+    floor = lerp(floor, EarthColor, earth * 0.8);
+
+    //Bilberry: low dark-green patches several units across on the damp ground, broken into leafy clumps up close
+    float leafy = 0.75 + 0.5 * fine;
+    float undergrowth = smoothstep(-0.1, 0.15, broad + UndergrowthCoverage - 0.5) * lerp(0.5, 1.0, slope);
+    floor = lerp(floor, UndergrowthColor * leafy, undergrowth);
+
+    //Pale dry grass on the dry ground where the clearing stands open to the sun, fading out towards its edge
+    float open = 1.0 - smoothstep(ClearingRadius * 0.45, ClearingRadius * 0.85, length(xz));
+    float dry = smoothstep(-0.1, 0.2, DryGrassCoverage - 0.5 - broad) * open * (1.0 - undergrowth);
+    floor = lerp(floor, DryGrassColor * (0.85 + 0.3 * leafy), dry);
+
+    //The moss last, over everything, with a darker contact rim in the litter round each cushion - the cue that it
+    //stands on the floor rather than being painted on it
+    float rim = saturate(moss * (1.0 - moss) * 4.0) * mossResolved;
+    floor *= 1.0 - 0.3 * rim;
+    floor = lerp(floor, lerp(ForestColorDark, ForestColor, saturate(0.5 + 0.8 * fine)), moss);
 
     //Wind over the clearing, and on a forest floor this is the ONLY thing the wind does: patches of shade
     //running across the ground as the canopy moves over it. Same dial and the same range it always had; what
@@ -373,12 +375,6 @@ float4 ForestFloor(ForestVertexOutput input, bool detail)
     float wind = WindGust(worldPosition.xz, WindDirection, ForestTime, WindRippleFrequency,
         WindRippleSpeed / max(WindRippleFrequency, 1e-4), footprint);
     floor *= 1.0 + wind * WindRippleStrength;
-
-    //Scattered darker litter patches - the fallen needles and leaf decay that sit between the moss, finer than
-    //the broad colour patches and darker still, so the floor reads as layered ground cover rather than one tone.
-    //ForestFbm at a finer scale, the same spread-and-saturate.
-    float litter = saturate(ForestFbm(worldPosition.xz * 0.6 + 47.0, footprint) * 1.6 + 0.5);
-    floor = lerp(floor, ForestColorDark * 0.7, litter * litter * 0.5);
 
     //Needle-scale colour grain, the finest layer: twigs, cones and litter flecks at arm's length, gone by
     //the middle distance (band-limited to nothing before it can shimmer). This is the layer whose absence
