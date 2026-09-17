@@ -276,6 +276,8 @@ namespace Testbed
         //The equipment on the city's roofs (#436) — the Game's own, drawn here too so a rooftop can be framed
         //and measured from a pinned camera
         private CityRooftops _rooftops;
+        //The street level the towers stand on (#399), the Game's own too
+        private CityStreets _streets;
         private CitySceneConfig _cityConfig = new();
         //The whole arena the gun stands on: the stone cap and concrete drum of the round island, the glass drain
         //bored through its middle, the two gold beads that ring the drain's circles, and the dark pit shaft that
@@ -1311,6 +1313,7 @@ namespace Testbed
 
             _rooftops = new CityRooftops(GraphicsDevice, _instancingEffect, _city, _cityConfig, SCENE_AMBIENT_INTENSITY);
             Console.WriteLine($"[city] {_rooftops.Total} pieces of rooftop equipment");
+            _streets = new CityStreets(GraphicsDevice, Content.Load<Effect>("Shaders/CityStreets"), _city);
 
             //The arena the gun stands on, all of it: the island's stone cap and concrete drum, the glass
             //drain bored through the middle, its two gold beads and the dark pit shaft that backs the glass
@@ -1757,6 +1760,7 @@ namespace Testbed
             _forestScatter?.Dispose();
             _auroraScatter?.Dispose();
             _rooftops?.Dispose();
+            _streets?.Dispose();
             _ceilingPlate?.Dispose();
             _sceneRenderer?.Dispose();
             _pipeline?.Dispose();

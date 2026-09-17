@@ -416,6 +416,7 @@ namespace BS3D
                 //The roofs follow the buildings: a piece's placement is a function of its own tower, so the
                 //towers the two cities share keep exactly the equipment they had
                 _rooftops?.Rebuild(_city, _cityConfig);
+                _streets?.Rebuild(_city);
             }
             else _cityConfig.RadiusBlocks = preset.CityRadiusBlocks;
 

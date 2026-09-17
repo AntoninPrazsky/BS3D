@@ -151,6 +151,9 @@ namespace BS3D
         //buildings and redressed whenever that city is rebuilt (ApplyQuality)
         private CityRooftops _rooftops;
 
+        //The street level the towers stand on (#399), following _city's grid and rebuilt with it (ApplyQuality)
+        private CityStreets _streets;
+
         //The whole arena the gun stands on: the round island's stone cap and concrete drum, the glass drain
         //bored through its middle, the two gold beads that ring the drain's circles, and the dark pit shaft
         //that backs the glass in the solid-terrain scenes. Every mesh, procedural texture, renderer, world
@@ -256,6 +259,9 @@ namespace BS3D
 
             //The equipment on the roofs (#436), placed on the buildings the city above just made
             _rooftops = new CityRooftops(GraphicsDevice, _instancingEffect, _city, _cityConfig, SCENE_AMBIENT_INTENSITY);
+
+            //The street level under them (#399), on the same grid
+            _streets = new CityStreets(GraphicsDevice, Content.Load<Effect>("Shaders/CityStreets"), _city);
 
             //The arena the gun stands on, all of it: the island's stone cap and concrete drum, the glass drain
             //bored through the middle, its two gold beads and the dark pit shaft that backs the glass where the
@@ -707,6 +713,10 @@ namespace BS3D
                 //The roofs' equipment after the towers it stands on, in the same opaque state; the neon city
                 //adds its extra pieces and the dishes' neon rings, and the beacons flash on the wall clock
                 _rooftops.Draw(_camera, _scene == SceneKind.NeonCity, _wallClock);
+
+                //The street level last of the city (#399): every pixel of it a tower stands in front of is
+                //rejected by the depth test before the shader runs
+                _streets.Draw(sceneFrame, _cityConfig.Streets, _scene == SceneKind.NeonCity, _cityConfig.NeonLook);
             }
             //The target goes in so the cavern and the dream can be shaded at the back buffer's size and scaled
             //up (#155). Passed rather than remembered, so it cannot be the one the pipeline held before a

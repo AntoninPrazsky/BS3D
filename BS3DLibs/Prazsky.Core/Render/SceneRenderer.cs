@@ -1806,12 +1806,14 @@ namespace Prazsky.Core.Render
             {
                 //THE TWO CITIES LOOK DOWN, and they are the only ones here that do. Everything else in this
                 //table is on or above the horizon; the city's own subject is the one thing under it — the
-                //arena hangs over a canyon whose towers rise out of a shaft hundreds of units deep, which is
-                //the single fact about this backdrop a player standing on the island cannot see. Stated in
-                //figures rather than read off a config because the city is the CALLER's: this class draws
-                //none of it and holds no CitySceneConfig (see ApplyConfig's own case for it).
+                //arena hangs over a canyon whose towers rise a hundred units out of the street, which is the
+                //single fact about this backdrop a player standing on the island cannot see. The shot looks at
+                //that street (CitySceneConfig.BaseY, -100 since #399; it looked 50 units under it at -150 while
+                //the towers still ran down to -420). Stated in figures rather than read off a config because the
+                //city is the CALLER's: this class draws none of it and holds no CitySceneConfig (see
+                //ApplyConfig's own case for it).
                 case SceneKind.City:
-                    viewpoint = new SceneViewpoint(AtBearing(bearing, 55f, -150f), 2.0f, 34f, 135f, "the canyon");
+                    viewpoint = new SceneViewpoint(AtBearing(bearing, 55f, -100f), 2.0f, 34f, 135f, "the canyon");
                     return true;
 
                 //The neon city is that same canyon after dark, and what is worth the look is the LIT

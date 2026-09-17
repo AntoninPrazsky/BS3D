@@ -42,8 +42,14 @@ namespace Prazsky.Core.Render
         /// <summary>How far above and below the roofline the tops are allowed to wander.</summary>
         public float RooflineSpread { get; set; } = 26f;
 
-        /// <summary>Where every building starts; far down so streets read as canyons falling into darkness.</summary>
-        public float BaseY { get; set; } = -420f;
+        /// <summary>
+        /// Where every building starts: the street level, which <see cref="CityStreets"/> draws (#399). It was
+        /// -420 until then, so the streets read as canyons falling into darkness, and they did not: 400 units under
+        /// the island no camera ever reached, and the boxes ended over the open sky dome, which showed as bright
+        /// slits between the towers from any view that looked down. At -100 the generator's bounds put a tower between
+        /// 83 and 156 units tall at 14 blocks (38 to 71 floors), and the island's top stands 91.5 over the square.
+        /// </summary>
+        public float BaseY { get; set; } = -100f;
 
         /// <summary>Towers taper down away from the centre; how much shorter per block outward.</summary>
         public float TaperPerBlock { get; set; } = 1.8f;
@@ -193,6 +199,86 @@ namespace Prazsky.Core.Render
 
         /// <summary>The equipment on the roofs — masts, dishes, 5G poles, air conditioning (#436).</summary>
         public RooftopConfig Rooftops { get; set; } = new();
+
+        /// <summary>The street level the towers stand on — asphalt, markings, sidewalks, plazas, traffic (#399).</summary>
+        public CityStreetsConfig Streets { get; set; } = new();
+    }
+
+    /// <summary>
+    /// How the street level under the towers looks (#399), read on every draw so the map editor's panel edits it
+    /// live. Where the streets run is not here: that is the city's own grid (<see cref="CitySceneConfig.BlockPitch"/>,
+    /// <see cref="CitySceneConfig.StreetWidth"/>), so the two cannot disagree. Colours are linear albedo unless
+    /// named a radiance. The treatment was read off references rendered locally for #399: a canyon seen from
+    /// above by day, one intersection from straight above, a paved square, and the same canyons at night.
+    /// </summary>
+    public sealed class CityStreetsConfig
+    {
+        /// <summary>How far each sidewalk reaches out from the block into the street; the asphalt is what is left.</summary>
+        public float SidewalkWidth { get; set; } = 1.2f;
+
+        /// <summary>Radius of the curb where two sidewalks meet at a crossing.</summary>
+        public float CornerRadius { get; set; } = 2.2f;
+
+        /// <summary>The road surface.</summary>
+        public Rgb AsphaltColor { get; set; } = new(0.052f, 0.053f, 0.057f);
+
+        /// <summary>The concrete slabs of a sidewalk around a built block.</summary>
+        public Rgb SidewalkColor { get; set; } = new(0.25f, 0.24f, 0.225f);
+
+        /// <summary>The stone paving of a block with no tower on it — the generator's plazas and the square under the island.</summary>
+        public Rgb PlazaColor { get; set; } = new(0.30f, 0.28f, 0.25f);
+
+        /// <summary>The curb stones along every sidewalk's edge.</summary>
+        public Rgb CurbColor { get; set; } = new(0.36f, 0.35f, 0.33f);
+
+        /// <summary>Lane lines, stop lines and crosswalk stripes — worn paint, not new.</summary>
+        public Rgb MarkingColor { get; set; } = new(0.52f, 0.52f, 0.49f);
+
+        /// <summary>How much open sky lights the ground, before the canyon takes its share.</summary>
+        public float AmbientStrength { get; set; } = 0.65f;
+
+        /// <summary>
+        /// The fraction of the sky still seen from the floor of a street with towers on both sides. A canyon of
+        /// this depth sees a few percent of it geometrically; the rest of what lights a real street is light the
+        /// facades throw down (<see cref="FacadeBounce"/>), so this is a look, not a view factor.
+        /// </summary>
+        public float CanyonSkyView { get; set; } = 0.22f;
+
+        /// <summary>The fraction of direct sun that reaches the floor of such a street.</summary>
+        public float CanyonSunView { get; set; } = 0.08f;
+
+        /// <summary>Light thrown down by sunlit facades onto a street between towers, as a fraction of the sun.</summary>
+        public float FacadeBounce { get; set; } = 0.12f;
+
+        /// <summary>
+        /// The distance over which the ground past the city's last block fades into the horizon's colour. Nothing
+        /// inside the city fades: the towers take no haze, and a street under one they are not in reads as a veil.
+        /// </summary>
+        public float HazeDistance { get; set; } = 900f;
+
+        /// <summary>Chance that a parking slot in a lane holds a car.</summary>
+        public float CarChance { get; set; } = 0.45f;
+
+        /// <summary>The crowns of the trees in the squares (linear albedo).</summary>
+        public Rgb TreeColor { get; set; } = new(0.045f, 0.085f, 0.03f);
+
+        /// <summary>Chance that a place in a square's grid of trees holds one.</summary>
+        public float TreeChance { get; set; } = 0.7f;
+
+        /// <summary>Ambient irradiance on the ground in the neon city (linear), in place of the dome's: the neon carries the night whatever the dome.</summary>
+        public Rgb NeonAmbient { get; set; } = new(0.010f, 0.010f, 0.016f);
+
+        /// <summary>The street lamps' light in the neon city (linear irradiance at a pool's centre).</summary>
+        public Rgb LampColor { get; set; } = new(1.3f, 0.62f, 0.2f);
+
+        /// <summary>How far apart the lamps stand along a curb.</summary>
+        public float LampSpacing { get; set; } = 10f;
+
+        /// <summary>How brightly the shops' neon spills onto the sidewalk at a tower's foot, as a multiple of the neon lights' colours.</summary>
+        public float NeonSpill { get; set; } = 0.22f;
+
+        /// <summary>The colour the neon city's ground fades into with distance (linear radiance).</summary>
+        public Rgb NeonHazeColor { get; set; } = new(0.012f, 0.010f, 0.022f);
     }
 
     /// <summary>
