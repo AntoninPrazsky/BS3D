@@ -170,6 +170,32 @@ namespace Prazsky.Core.Render
         /// </summary>
         public float WindowFrameShading { get; set; } = 0.55f;
 
+        /// <summary>
+        /// The window surround's albedo, the glazing bars' and the sill's, as a multiple of the wall's own (#435): a
+        /// lighter stone surround on a plaster wall, and on the neon city's dark walls a frame only a little less
+        /// dark. With the sill and the bars it is what a window reads by at a tower's distance, where the
+        /// moulding's relief is under a pixel.
+        /// </summary>
+        public float WindowFrameTone { get; set; } = 1.6f;
+
+        /// <summary>How tall the sill under each window is, in world units.</summary>
+        public float WindowSillHeight { get; set; } = 0.14f;
+
+        /// <summary>How far the sill runs past the surround at each side, in world units.</summary>
+        public float WindowSillOverhang { get; set; } = 0.1f;
+
+        /// <summary>How far down the wall the sill's shadow reaches, in world units.</summary>
+        public float WindowSillShadow { get; set; } = 0.22f;
+
+        /// <summary>How dark the sill's shadow is (0 = none).</summary>
+        public float WindowSillShading { get; set; } = 0.5f;
+
+        /// <summary>How deep the reveal's shadow reaches down the recessed glass from its head, in world units.</summary>
+        public float WindowRevealDepth { get; set; } = 0.16f;
+
+        /// <summary>The width of the glazing bars across each pane (one upright, one rail), in world units (0 = none).</summary>
+        public float WindowBarWidth { get; set; } = 0.07f;
+
         /// <summary>Wall border kept clear of glass at every building edge, in world units.</summary>
         public float WindowMargin { get; set; } = 0.9f;
 

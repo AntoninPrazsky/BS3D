@@ -85,7 +85,8 @@ namespace BS3D
         /// evaluations per city pixel. Measured at 9.1 ms of the same pre-sort frame (9%); see
         /// <see cref="FacadeGrainStrength"/> for what the sort did to both. Zeroed, a pane is cut flat into the
         /// wall, which the shader's own comment warns "reads as a hole in it" — so this is the second thing to
-        /// give up, not the first.
+        /// give up, not the first. Since #435 it takes the pane's surround with it but not the sill, its shadow,
+        /// the reveal or the glazing bars, which draw on every tier (see "The city's windows" in docs/rendering.md).
         /// </summary>
         public readonly float WindowFrameWidth;
 

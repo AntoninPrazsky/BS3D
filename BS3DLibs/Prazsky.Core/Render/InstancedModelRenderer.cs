@@ -178,6 +178,8 @@ namespace Prazsky.Core.Render
 
         private EffectParameter _windowPitchXParam, _windowPitchYParam, _windowFillXParam, _windowFillYParam,
             _windowFrameWidthParam, _windowFrameHeightParam, _windowFrameShadingParam,
+            _windowFrameToneParam, _windowSillHeightParam, _windowSillOverhangParam, _windowSillShadowParam,
+            _windowSillShadingParam, _windowRevealDepthParam, _windowBarWidthParam,
             _windowMarginParam, _windowLitFractionParam, _windowWarmParam, _windowCoolParam,
             _windowHoldSecondsParam, _windowHoldVariationParam, _windowSwitchFadeParam;
 
@@ -1017,6 +1019,13 @@ namespace Prazsky.Core.Render
             _windowFrameWidthParam = _effect.Parameters["WindowFrameWidth"];
             _windowFrameHeightParam = _effect.Parameters["WindowFrameHeight"];
             _windowFrameShadingParam = _effect.Parameters["WindowFrameShading"];
+            _windowFrameToneParam = _effect.Parameters["WindowFrameTone"];
+            _windowSillHeightParam = _effect.Parameters["WindowSillHeight"];
+            _windowSillOverhangParam = _effect.Parameters["WindowSillOverhang"];
+            _windowSillShadowParam = _effect.Parameters["WindowSillShadow"];
+            _windowSillShadingParam = _effect.Parameters["WindowSillShading"];
+            _windowRevealDepthParam = _effect.Parameters["WindowRevealDepth"];
+            _windowBarWidthParam = _effect.Parameters["WindowBarWidth"];
             _windowMarginParam = _effect.Parameters["WindowMargin"];
             _windowLitFractionParam = _effect.Parameters["WindowLitFraction"];
             _windowWarmParam = _effect.Parameters["WindowWarm"];
@@ -1331,6 +1340,13 @@ namespace Prazsky.Core.Render
                 _windowFrameWidthParam.SetValue(city.WindowFrameWidth);
                 _windowFrameHeightParam.SetValue(city.WindowFrameHeight);
                 _windowFrameShadingParam.SetValue(city.WindowFrameShading);
+                _windowFrameToneParam.SetValue(city.WindowFrameTone);
+                _windowSillHeightParam.SetValue(city.WindowSillHeight);
+                _windowSillOverhangParam.SetValue(city.WindowSillOverhang);
+                _windowSillShadowParam.SetValue(city.WindowSillShadow);
+                _windowSillShadingParam.SetValue(city.WindowSillShading);
+                _windowRevealDepthParam.SetValue(city.WindowRevealDepth);
+                _windowBarWidthParam.SetValue(city.WindowBarWidth);
                 _windowMarginParam.SetValue(city.WindowMargin);
                 _windowLitFractionParam.SetValue(city.WindowLitFraction);
                 _windowWarmParam.SetValue(city.WindowWarm.ToVector3());
