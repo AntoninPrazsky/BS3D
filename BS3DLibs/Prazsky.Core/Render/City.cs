@@ -13,7 +13,8 @@ namespace Prazsky.Core.Render
     /// The play surface sits low among the towers, which is what the whole arrangement is for: the arena
     /// is the small round stone island in a clearing between skyscrapers, and the blocks under it are
     /// left out rather than built and hidden (#275) — no camera the game uses ever looks down the drain
-    /// funnel far enough to see them.
+    /// funnel far enough to see them. The towers stand on a street level at <see cref="GroundY"/> (#399),
+    /// which <see cref="CityStreets"/> draws from the same grid this class lays the blocks out on.
     /// Buildings are scaled non-uniformly through their instance matrix, which is safe here because the
     /// boxes are axis-aligned in object space — a diagonal scale maps each face normal onto itself, so
     /// normalizing in the pixel shader recovers it without an inverse transpose.
@@ -26,6 +27,31 @@ namespace Prazsky.Core.Render
     {
         /// <summary>Every building the generator made, in generator order. <see cref="Visible"/> is what to draw.</summary>
         public ModelInstance[] Buildings { get; }
+
+        /// <summary>
+        /// The layout this city was built on, taken from its config at construction (#399). The street level
+        /// reads these rather than the config itself, so a config edited after the build — the map editor's
+        /// live panel — cannot draw streets through towers the city has not been rebuilt to match.
+        /// </summary>
+        public float BlockPitch { get; }
+
+        /// <inheritdoc cref="BlockPitch"/>
+        public float StreetWidth { get; }
+
+        /// <summary>How many blocks the grid reaches from the centre each way; the grid is <c>2 × this + 1</c> blocks square.</summary>
+        public int RadiusBlocks { get; }
+
+        /// <summary>Where every building starts: the street level (<see cref="CitySceneConfig.BaseY"/> when built).</summary>
+        public float GroundY { get; }
+
+        /// <summary>
+        /// Whether each block of the grid carries at least one building, row by row in <c>z</c> then <c>x</c>
+        /// from <c>-RadiusBlocks</c>: <c>BlockBuilt[(z + R) * (2R + 1) + (x + R)]</c>. A block left out — the
+        /// clearing under the arena and the generator's scattered plazas — is where the street level lays
+        /// paving instead of a sidewalk, and the density of built blocks around a street is how deep a canyon
+        /// it stands in.
+        /// </summary>
+        public bool[] BlockBuilt { get; }
 
         /// <summary>
         /// The buildings worth drawing this frame — those inside the frustum, ordered near to far — filled by
@@ -73,6 +99,14 @@ namespace Prazsky.Core.Render
             List<ModelInstance> buildings = new();
 
             float buildable = config.BlockPitch - config.StreetWidth;
+
+            BlockPitch = config.BlockPitch;
+            StreetWidth = config.StreetWidth;
+            RadiusBlocks = config.RadiusBlocks;
+            GroundY = config.BaseY;
+
+            int blocksPerSide = 2 * config.RadiusBlocks + 1;
+            BlockBuilt = new bool[blocksPerSide * blocksPerSide];
 
             for (int blockX = -config.RadiusBlocks; blockX <= config.RadiusBlocks; blockX++)
                 for (int blockZ = -config.RadiusBlocks; blockZ <= config.RadiusBlocks; blockZ++)
@@ -126,6 +160,7 @@ namespace Prazsky.Core.Render
                             Matrix world = Matrix.CreateScale(sizeX, height, sizeZ) * Matrix.CreateTranslation(center);
 
                             buildings.Add(new ModelInstance(world, NO_OCCLUSION));
+                            BlockBuilt[(blockZ + config.RadiusBlocks) * blocksPerSide + blockX + config.RadiusBlocks] = true;
                         }
                 }
 

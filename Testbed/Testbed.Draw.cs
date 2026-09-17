@@ -113,6 +113,9 @@ namespace Testbed
 
                     //The roofs' equipment after the towers it stands on (#436), as the Game draws it
                     _rooftops?.Draw(_camera, neon, _pulseSeconds);
+
+                    //The street level last of the city (#399), as the Game draws it
+                    _streets?.Draw(sceneFrame, _cityConfig.Streets, neon, _cityConfig.NeonLook);
                 }
                 else
                     //The target goes in so the cavern and the dream can be shaded at the back buffer's size and

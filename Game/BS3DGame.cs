@@ -2041,6 +2041,7 @@ namespace BS3D
             _unitBox?.Dispose();
             _cityRenderer?.Dispose();
             _rooftops?.Dispose();
+            _streets?.Dispose();
 
             //The island's three meshes, both of its procedural textures and all five of its renderers, in one
             //call — everything the component made

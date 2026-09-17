@@ -142,6 +142,8 @@ namespace MapEditor
         private InstancedModelRenderer _cityRenderer;
         //The equipment on the city's roofs (#436), redressed whenever an edit rebuilds the city
         private CityRooftops _rooftops;
+        //The street level the towers stand on (#399), rebuilt with the city
+        private CityStreets _streets;
         //The city's fixed parameters; the G panel edits them live for tuning, nothing persists them
         private CitySceneConfig _cityConfig = new();
 
@@ -447,6 +449,7 @@ namespace MapEditor
                 SpecularAmbientStrength = CITY_SPECULAR_AMBIENT
             };
             _rooftops = new CityRooftops(GraphicsDevice, _instancingEffect, _city, _cityConfig, SCENE_AMBIENT_INTENSITY);
+            _streets = new CityStreets(GraphicsDevice, Content.Load<Effect>("Shaders/CityStreets"), _city);
 
             //After the scene renderer, because the rig consults it for the scenes that state their own lighting
             _rig = new SkyLightRig(_sceneRenderer);
@@ -613,6 +616,7 @@ namespace MapEditor
                     //The roofs follow the new buildings and the edited chances; the renderers survive, so
                     //nothing needs re-lighting
                     _rooftops.Rebuild(_city, city);
+                    _streets.Rebuild(_city);
                     break;
                 case SceneConfig sceneConfig:
                     _sceneRenderer.Apply(sceneConfig);
@@ -1046,6 +1050,7 @@ namespace MapEditor
                 int visibleBuildings = _city.PrepareVisible(Camera3D);
                 _cityRenderer.Draw(Camera3D, _city.Visible, visibleBuildings, _sceneEffectParams);
                 _rooftops.Draw(Camera3D, neon, frame.Time);
+                _streets.Draw(frame, _cityConfig.Streets, neon, _cityConfig.NeonLook);
             }
             else
                 //The target goes in so the cavern and the dream can be shaded at the back buffer's size and
@@ -1147,6 +1152,7 @@ namespace MapEditor
             _sceneRenderer?.Dispose();
             _cityRenderer?.Dispose();
             _rooftops?.Dispose();
+            _streets?.Dispose();
             //Every mesh, renderer and procedural texture of the forest scatter, in one call — its stone texture
             //included, the editor having handed it none of its own
             _forestScatter?.Dispose();
