@@ -545,16 +545,28 @@ namespace BS3D
         private RenderTarget2D _foregroundToComposite;
 
         /// <summary>
+        /// Where the presented glass bends the eye this frame (#426), composited with <see cref="_foregroundToComposite"/>
+        /// - or null when nothing presented refracts. Spent and cleared with it.
+        /// </summary>
+        private RenderTarget2D _refractionToComposite;
+
+        /// <summary>
         /// Puts the frame's sharp foreground layer over everything, the UI included — the last picture the frame
         /// draws (#242). Called from the host's <c>Draw</c> after the desktop has rendered and <b>before</b> the
         /// screenshot writer reads the back buffer, or a capture would miss the thing the page is about.
         /// </summary>
         internal void CompositeForegroundLast()
         {
-            if (_foregroundToComposite == null) return;
+            if (_foregroundToComposite == null)
+            {
+                //The refraction belongs to the layer it bends, so it is spent with it even when there is none to spend
+                _refractionToComposite = null;
+                return;
+            }
 
-            _pipeline.CompositeForeground(_foregroundToComposite);
+            _pipeline.CompositeForeground(_foregroundToComposite, _refractionToComposite);
             _foregroundToComposite = null;
+            _refractionToComposite = null;
         }
 
         /// <summary>
@@ -626,6 +638,17 @@ namespace BS3D
 
                 if (confettiUp) _confetti.Draw(_camera);
                 if (trophyUp) _trophy.Draw(_camera);
+
+                //The crystal's bend (#426), into a target of its own after the layer it belongs to, and before the scene
+                //takes its bind - the DiscardContents rule above, which this keeps: each target is bound once a frame.
+                //Cleared to zero, which is "no glass here, no shift".
+                if (trophyUp && _trophy.Refracts)
+                {
+                    GraphicsDevice.SetRenderTarget(_pipeline.RefractionTarget);
+                    GraphicsDevice.Clear(Color.Transparent);
+                    _trophy.DrawRefraction(_camera);
+                    _refractionToComposite = _pipeline.RefractionTarget;
+                }
 
                 GraphicsDevice.BlendState = blend;
                 GraphicsDevice.DepthStencilState = depth;

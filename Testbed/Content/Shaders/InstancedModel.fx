@@ -6894,3 +6894,37 @@ technique InstancedDepth
         PixelShader = compile PS_SHADERMODEL DepthPS();
     }
 };
+
+//THE CRYSTAL'S REFRACTION (#426). The crystal cup is alpha-blended over the frame behind it, which dims and tints
+//what shows through and never bends it, and the owner's report was that it reads as fake because of exactly that.
+//This pass draws the cup a second time into its own target (PostProcessPipeline.RefractionTarget), writing depth,
+//so only the nearest surface of each pixel survives, and records where that surface sends the eye: the shift in
+//screen uv the composite applies to the frame it re-resolves under the cup (Tonemap.fx, ForegroundCompositePS).
+//
+//The shift is the surface's view-space normal carried RefractionDepth world units in, projected at the surface's
+//own depth - so it is a distance through the glass rather than a fraction of the screen, and the bending keeps the
+//same look as the cup dollies in and out. Along the silhouette the normal lies in the view plane and the shift is
+//largest, which is what a real rim does; across the middle of the bowl it swings from one side to the other, so a
+//strong enough depth flips the background inside the bowl, which is what the references rendered for #426 show a
+//thick crystal cup do. Blue channel: how edge-on the surface is, for the composite's darkening of the rim.
+float RefractionDepth;
+
+float4 RefractionPS(VertexShaderOutput input, bool isFrontFace : SV_IsFrontFace) : COLOR
+{
+    float3 normal = normalize(input.WorldNormal) * (isFrontFace ? 1.0 : -1.0);
+    float3 viewNormal = mul(normal, (float3x3)View);
+    float viewDepth = max(-mul(float4(input.WorldPosition, 1.0), View).z, 0.05);
+
+    float2 shift = viewNormal.xy * (RefractionDepth / viewDepth) * float2(Projection._11, Projection._22) * 0.5;
+
+    return float4(shift, saturate(1.0 - abs(viewNormal.z)), 1.0);
+}
+
+technique InstancedRefraction
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL MainVS();
+        PixelShader = compile PS_SHADERMODEL RefractionPS();
+    }
+};

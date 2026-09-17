@@ -192,6 +192,8 @@ namespace Prazsky.Core.Render
             _windowHighlightBoostParam, _windowReflectionBoostParam, _windowGlassColorParam;
 
         private EffectTechnique _depthTechnique;
+        private EffectTechnique _refractionTechnique;
+        private EffectParameter _refractionDepthParam;
 
         /// <summary>
         /// Optional detail texture modulating the material colors of a model that carries no texture
@@ -1045,6 +1047,8 @@ namespace Prazsky.Core.Render
             _windowReflectionBoostParam = _effect.Parameters["WindowReflectionBoost"];
             _windowGlassColorParam = _effect.Parameters["WindowGlassColor"];
             _depthTechnique = _effect.Techniques["InstancedDepth"];
+            _refractionTechnique = _effect.Techniques["InstancedRefraction"];
+            _refractionDepthParam = _effect.Parameters["RefractionDepth"];
 
             //Cached before the SetLightTint call below, which reads them. The rig used to be looked up by
             //name inside SetLightTint, which was fine while it ran once per dome switch — the Testbed's
@@ -1151,6 +1155,42 @@ namespace Prazsky.Core.Render
                 _effect.CurrentTechnique.Passes[0].Apply();
 
                 _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, part.StartIndex, part.PrimitiveCount, instanceCount);
+            }
+
+            _effect.CurrentTechnique = _mainTechnique;
+        }
+
+        /// <summary>
+        /// Draws one instance into the currently bound refraction target (#426): not its light, but where the nearest
+        /// surface of each pixel bends the eye - see <c>InstancedRefraction</c> in InstancedModel.fx. The caller states
+        /// the render states (depth test and write on, so only the nearest surface survives).
+        /// </summary>
+        /// <param name="depth">How far through the glass the eye is carried, in world units: the bending's strength.</param>
+        public void DrawRefraction(ICamera camera, Matrix world, float depth)
+        {
+            _singleInstance[0] = new ModelInstance(world, new Vector4(0f, 0f, 0f, 1f));
+            EnsureInstanceBufferCapacity(1);
+            _instanceBuffer.SetData(_singleInstance, 0, 1, SetDataOptions.Discard);
+
+            _viewParam.SetValue(camera.View);
+            _projectionParam.SetValue(camera.Projection);
+            _refractionDepthParam.SetValue(depth);
+            _effect.CurrentTechnique = _refractionTechnique;
+
+            for (int i = 0; i < _parts.Length; i++)
+            {
+                ref MeshPartData part = ref _parts[i];
+
+                _boneParam.SetValue(part.BoneTransform);
+
+                _graphicsDevice.SetVertexBuffers(
+                    new VertexBufferBinding(part.VertexBuffer, part.VertexOffset, 0),
+                    new VertexBufferBinding(_instanceBuffer, 0, 1));
+                _graphicsDevice.Indices = part.IndexBuffer;
+
+                _effect.CurrentTechnique.Passes[0].Apply();
+
+                _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, part.StartIndex, part.PrimitiveCount, 1);
             }
 
             _effect.CurrentTechnique = _mainTechnique;
