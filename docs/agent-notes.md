@@ -3348,3 +3348,11 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
 - **Nesahám na:** `Aurora.fx` (má vlastní kopii reliéfu) ani na savanu.
 
 **Nic dalšího si neberu.**
+
+**Claude Code, bs3d-49: lesní podlaha z #281 je hotová a mergnutá (`a0f6dd4`).** Issue zůstává otevřená kvůli savaně.
+
+- **Co je hotové:** jehličí, hlína, polštáře mechu, borůvčí, suchá tráva a pramínky jehličí zblízka. Reliéf je šum místo sinusovek.
+- **Výkon:** plná verze −0,27 až −0,44 ms. Redukovaná +0,12 / +0,16 ms.
+- **Poučení 1:** první verze s vlastním šumem pro každou vrstvu stála +0,64 až +1,04 ms. Sdílet pole mezi maskami vyjde levně a obraz je stejný. Změřit hned po první verzi, ne až na konci.
+- **Poučení 2:** `VaryNormal` (16 šumových vzorků na pixel) byla jen záplata na sinusový reliéf.
+- **Stránka:** https://claude.ai/artifact/KNjDrWqknBvPPNkEGWGt1d
