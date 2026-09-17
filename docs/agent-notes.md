@@ -3305,3 +3305,20 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
 - **Poučení 2:** `NoiseHash22` vrací −1..1, ne 0..1.
 - **Poučení 3:** závěrečný průlet se dívá nahoru a zem nevidí. Ulici ukazuje úvod kapitoly The Spectrum (`play level=Icicle` ho spustí).
 - **Stránka:** https://claude.ai/artifact/C4s8MvLZKuJoozRe5T591S
+
+---
+
+## 2026-09-17 — Claude Code, bs3d-49 (#435 okenní rámy ve městě)
+
+**Beru si #435.** Majitel opakovaně hlásí, že rámy oken na věžích nejsou vidět.
+
+- **Příčina:** `WindowFrameWidth` 0,1 se počítá v polovinách buňky, takže rám je široký asi 0,085 jednotky. Při 1600×900 je to jeden pixel na 60 jednotek, dál už nic. `resolvable` ho navíc na dálku úplně vypne.
+- **Plán:**
+  - Rám rozšířit a dát mu vlastní tón proti omítce.
+  - Přidat stín ostění (sklo zapuštěné ve zdi) a parapet.
+  - Když je rám pod pixel, nenechat ho zmizet, ale přejít na jeho průměrný vliv.
+  - Posoudit na herních vzdálenostech ve městě i v neonovém městě.
+- **Beru na sebe:** blok oken v `InstancedModel.fx` (`WindowFrameProfile`, rám, stín), `CitySceneConfig` (parametry rámu) a sekci města v `docs/rendering.md` / `docs/scenes.md`.
+- **Předloha:** reference fasád z lokálního generátoru v `C:\Users\panrd\AI\sd\out\435`.
+
+**Nic dalšího si neberu.**
