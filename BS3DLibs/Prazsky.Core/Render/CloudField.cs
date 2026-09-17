@@ -59,10 +59,21 @@ namespace Prazsky.Core.Render
         /// frame the scene changes, and weather follows the sound's rule and not the frame's for the same
         /// reason: a backdrop may be swapped in one frame because it is a different PLACE, where a sky
         /// closing over is the same place changing. Longer than the ambience's 1.5 s because a sky is bigger
-        /// and slower than a sound — and because <see cref="SkyLightRig.StepOvercast"/> lerps the light
-        /// rig's own answer over 2.5 s, so matching it is what makes the deck and the rig arrive together.
+        /// and slower than a sound.
+        /// <para>
+        /// <b>Eight seconds since #411, from 2.5.</b> The owner liked the sky changing and asked for it slower:
+        /// at 2.5 s a smoothstep spends its whole visible middle in about a second, which reads as a dissolve
+        /// between two skies rather than as weather moving. Eight is long enough to read as a sky closing over
+        /// or clearing while the eye is on it, and short enough that a level's own sky is up before a chapter
+        /// intro (9.5 s) hands the gun over. The 2.5 was chosen to match <see cref="SkyLightRig.StepOvercast"/>'s
+        /// response, so the deck and the light rig arrived together; that rig is stepped by the Testbed alone
+        /// (the Game never lerps its ambient towards the overcast palette, see docs/game-session.md), and it
+        /// follows the deck's <i>cover</i> with its own 2.5 s lag whatever the deck's fade is, so the deck still
+        /// leads and the rig still arrives behind it — a beat later on a longer fade, which is the right way
+        /// round for light under cloud.
+        /// </para>
         /// </summary>
-        private const float WEATHER_FADE_SECONDS = 2.5f;
+        private const float WEATHER_FADE_SECONDS = 8f;
 
         /// <summary>World Y the cloud plane sits at — the weather's, blended while one is changing.</summary>
         public float PlaneY => _look.PlaneY;
@@ -111,7 +122,9 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Puts a sky up with no fade — what a caller building a scene from nothing wants, where a fade
-        /// would be the first two seconds of every level spent arriving at its own weather.
+        /// would be the first <see cref="WEATHER_FADE_SECONDS"/> of every level spent arriving at its own
+        /// weather. (No executable calls it today: the Game fades into every level's sky on purpose, the
+        /// owner's word being that the change is worth watching, #411.)
         /// </summary>
         public void SetWeatherImmediately(WeatherPreset preset)
         {
