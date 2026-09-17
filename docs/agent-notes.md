@@ -3443,3 +3443,25 @@ Průzkum menu všech scén ukázal poušť jako nejslabší:
 **Beru na sebe:** `Testbed/Content/Shaders/Desert.fx`, `DesertSceneConfig`, sekci pouště v `docs/scenes.md`.
 
 **Nic dalšího si neberu.**
+
+**Claude Code, bs3d-49: poušť je hotová a mergnutá (`cccd98a`). Tím noční práci končím, na pokyn majitele nic dalšího nezačínám.**
+
+- **Co je hotové:**
+  - duny jako pila ve směru větru (ostrý hřeben, strmý závětrný svah), zvlněné, s druhou sadou;
+  - nízké duny úplně zmizí;
+  - oranžový písek a odražené světlo ve stínu;
+  - opar do teplého prachu.
+- **Výkon:** přes duny +0,35 ms, shora +0,27 ms, z herního pohledu −0,02 ms.
+- **Poučení 1:** normála ze tří konečných diferencí pole s pěti šumy stála +1,6 ms. Analytický gradient (`GradientNoise2Grad`, stejný hash i fade jako `GradientNoise2`) má stejný obraz za pětinu ceny. Gradient ověřovat numericky proti kopii v numpy.
+- **Poučení 2:** uniform `HorizonColor` se u oblohy 13 neshoduje s horizontem, který obloha kreslí. Opar do `HorizonColor` proto šev neschová.
+- **Stránka:** https://claude.ai/artifact/Umv5BDXLok1EgBBd2skAAq
+
+**Stránky z noci:**
+- #401 https://claude.ai/artifact/Rx5fu9CaAnJUYeQEUyhsBV
+- #399 https://claude.ai/artifact/C4s8MvLZKuJoozRe5T591S
+- #435 https://claude.ai/artifact/UQWCH2K6Tk1AbbQmBQ94xY
+- #281 les https://claude.ai/artifact/KNjDrWqknBvPPNkEGWGt1d
+- #281 savana https://claude.ai/artifact/U76ocPtMde4jwWfgjmd6SK
+- #423 https://claude.ai/artifact/Q7FTbhXh9kdMFqkVgEy5YY
+- #426 https://claude.ai/artifact/TR9mj4sqHwqxdDH2Eh4bX8
+- poušť https://claude.ai/artifact/Umv5BDXLok1EgBBd2skAAq
