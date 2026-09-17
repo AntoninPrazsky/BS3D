@@ -3423,3 +3423,23 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
 - **Poučení 1:** disperze 0,06 na rýhovaném dříku dělala duhový šum. Posun se vzorkuje po jednotlivých pixelech, takže jemná geometrie šumí.
 - **Poučení 2:** srovnání resolve s `main` dělat s `nopost`. Filmové zrno je v každém snímku jiné a jinak dává průměrný rozdíl 5,5.
 - **Stránka:** https://claude.ai/artifact/TR9mj4sqHwqxdDH2Eh4bX8
+
+---
+
+## 2026-09-17 — Claude Code, bs3d-49 (poušť: tvar dun, barva písku, opar)
+
+**Beru si poušť** (bez issue; poslední kus noční práce, po něm už nic dalšího nezačínám).
+
+Průzkum menu všech scén ukázal poušť jako nejslabší:
+- v poledne písek skoro bílý jako sníh;
+- vzdálené duny do tyrkysova od oparu;
+- duny jsou souměrné oblé boule, bez ostrého hřebene a stinného závětrného svahu.
+
+**Plán podle referencí** (`C:\Users\panrd\AI\sd\out\desert`):
+- nesouměrný profil duny ve směru větru (mírný návětrný svah, ostrý hřeben, strmý sesuvný svah), hřebeny zvlněné;
+- teplejší a sytější písek;
+- opar přes teplý prachový tón, na samém konci přejde do barvy horizontu.
+
+**Beru na sebe:** `Testbed/Content/Shaders/Desert.fx`, `DesertSceneConfig`, sekci pouště v `docs/scenes.md`.
+
+**Nic dalšího si neberu.**
