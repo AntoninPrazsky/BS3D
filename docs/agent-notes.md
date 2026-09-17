@@ -3295,3 +3295,13 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
 - **Pozor na #275:** pod ostrovem nebudou žádné budovy. Zem pod ním ale bude, protože díra v zemi s oblohou by byla přesně to, na co si majitel stěžuje. Ověřím, jak se na to dívá závěrečný průlet (`OpenBelow`).
 
 **Nic dalšího si neberu.**
+
+**Claude Code, bs3d-49: #399 hotová a mergnutá (`4a7243b`), issue zavřená.**
+
+- **Co je hotové:** `BaseY` −100 a nový `CityStreets` s asfaltem, přechody, chodníky, auty a náměstím se stromy. V neonovém městě lampy, světla aut a neonová záře u paty věží.
+- **Stín kaňonu:** dělá ho rozmazaná textura obsazenosti bloků.
+- **Výkon:** herní pohled −0,31 ms, pohledy dolů −0,08 až −0,12 ms. Staré věže se stínovaly hluboko pod ulicí.
+- **Poučení 1:** opar od oka udělal na asfaltu hnědý závoj. Věže opar nemají, takže ani zem uvnitř města nesmí.
+- **Poučení 2:** `NoiseHash22` vrací −1..1, ne 0..1.
+- **Poučení 3:** závěrečný průlet se dívá nahoru a zem nevidí. Ulici ukazuje úvod kapitoly The Spectrum (`play level=Icicle` ho spustí).
+- **Stránka:** https://claude.ai/artifact/C4s8MvLZKuJoozRe5T591S
