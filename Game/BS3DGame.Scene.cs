@@ -570,6 +570,44 @@ namespace BS3D
         }
 
         /// <summary>
+        /// Opens the frame's overlay layer (#438): binds the pipeline's <see cref="PostProcessPipeline.OverlayTarget"/>
+        /// and clears it transparent, so what the session draws next — its HUD and its crosshair, through
+        /// <see cref="OverlayBatch"/> exactly as it draws them onto the back buffer — lands in a layer
+        /// <see cref="EndOverlayLayer"/> takes out of focus and <see cref="CompositeOverlayLayer"/> puts back
+        /// over the resolved frame, softened with it. Call it <b>before</b> <see cref="BeginSceneDraw"/>, for
+        /// the foreground layer's reason (see there): a target is bound once a frame and the back buffer last
+        /// of all, so the layer and its blur have to be finished before the scene is ever bound.
+        /// </summary>
+        /// <returns>False, with nothing bound, while the window is minimized and there is no target to draw
+        /// into — the caller then draws its overlay straight onto the frame, as on any unblurred one.</returns>
+        internal bool BeginOverlayLayer()
+        {
+            RenderTarget2D layer = _pipeline.OverlayTarget;
+            if (layer == null) return false;
+
+            GraphicsDevice.SetRenderTarget(layer);
+
+            //Transparent, not black, and stated: the alpha is the coverage the composite blends by, so it has
+            //to say "nothing here" everywhere the HUD is not — and the clear MonoGame gives a discarded target
+            //on binding it is an opaque purple
+            GraphicsDevice.Clear(Color.Transparent);
+
+            return true;
+        }
+
+        /// <summary>
+        /// Closes the overlay layer: takes what was drawn into it out of focus by <paramref name="blur"/>,
+        /// through the pipeline's own defocus chain, while the scene target is still unbound.
+        /// </summary>
+        internal void EndOverlayLayer(float blur) => _pipeline.DefocusOverlay(blur);
+
+        /// <summary>
+        /// Lays the frame's overlay layer over the resolved frame, softened by <paramref name="blur"/> — after
+        /// <see cref="FinishSceneDraw"/>, in the slot the session's direct overlay draw takes on a sharp frame.
+        /// </summary>
+        internal void CompositeOverlayLayer(float blur) => _pipeline.CompositeOverlay(blur);
+
+        /// <summary>
         /// Everything up to the frame's first gameplay slot: binds the HDR scene target, clears it to the
         /// dome's horizon, hands the clouds and the camera to the shaders, draws the sky, the backdrop and
         /// the island with its pit, and returns the <see cref="SceneFrame"/> the closing slices need. The

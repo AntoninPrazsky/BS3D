@@ -15,7 +15,9 @@ namespace BS3D.Screens
     /// The in-play readout — score, streak and balls left in the corners, and the numbers that fly from the
     /// balls they were earned on into the score. Drawn with <see cref="SpriteBatch"/> and the menu's own Inter
     /// after the tonemap resolve, in display space, like the crosshair and for the same reason: a HUD
-    /// downsampled with the scene would be soft.
+    /// downsampled with the scene would be soft. Under a page's blur it goes into the pipeline's overlay
+    /// layer instead and is softened with the frame (#438) — <see cref="GameplayScreen.Draw"/>'s business,
+    /// not this class's: it draws the same picture into whatever is bound.
     /// <para>
     /// <b>Not Myra.</b> Myra is deliberately driven only while a menu page is up — <c>Desktop.Render</c> also
     /// consumes the mouse and the keyboard, and the game captures the cursor while playing — so putting the HUD

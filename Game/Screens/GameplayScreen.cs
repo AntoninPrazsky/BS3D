@@ -148,6 +148,21 @@ namespace BS3D.Screens
         float IFrameBlurSource.FrameBlur => _preciseAim.Blend * ADS_DEFOCUS;
         float IFrameBlurSource.FrameBlurFocus => 1f;
 
+        /// <summary>
+        /// How far the frame's <b>overlay</b> — the HUD and the crosshair, drawn in display space after the
+        /// resolve — goes out of focus this frame (#438): the blur of the page standing over this screen, and
+        /// only a page's. The session's own answer above is a lens leaning in, and the readouts are not seen
+        /// through that lens: they are on the glass, and they stay sharp while the periphery softens behind
+        /// them. A page's blur is the whole frame going soft because the menu is now the subject, and a HUD
+        /// left pixel-sharp inside it read as a fault — the owner's report was the score's count-up hanging
+        /// crisp over a paused, blurred arena. In practice this is the pause's ramp and the pages that inherit
+        /// it (Settings and Scene over a pause, <c>MenuPage.FrameBlur</c>'s default): the result page blurs
+        /// too, but the overlay is gone by then (see <see cref="Draw"/>). Zero while this screen is active,
+        /// which is every frame of play, so the direct draw costs what it always did.
+        /// </summary>
+        private float OverlayBlur =>
+            Manager?.Active is IFrameBlurSource page && !ReferenceEquals(page, this) ? page.FrameBlur : 0f;
+
         #endregion
 
         #region The in-play HUD (display space, after the resolve)
@@ -1409,6 +1424,25 @@ namespace BS3D.Screens
                 return;
             }
 
+            //THE OVERLAY — the HUD and the crosshair — is display space, drawn after the resolve at the foot of
+            //this method. Under a page's blur it is drawn into a LAYER instead (#438), so it softens with the
+            //arena rather than staying pixel-sharp over a frame that has gone out of focus; and the layer is
+            //the FIRST thing the frame draws, before the scene target is ever bound, for the rule the sharp
+            //foreground layer learned the expensive way: a target is bound once a frame and the back buffer
+            //last of all, because binding a discarded target clears it (see BS3DGame.BeginSceneDraw). The
+            //blurred layer is composited back over the resolved frame exactly where the direct draw would
+            //have gone, so nothing above or below it in the frame moves. Free on every unblurred frame, which
+            //is all of play: the direct path is what it always was.
+            bool overlayUp = !LevelOver;
+            float overlayBlur = overlayUp ? OverlayBlur : 0f;
+            bool overlayLayered = overlayBlur > 0f && Game.BeginOverlayLayer();
+
+            if (overlayLayered)
+            {
+                DrawOverlay();
+                Game.EndOverlayLayer(overlayBlur);
+            }
+
             //This frame's ball collection, opened here and closed by the one Draw below. It is a ref struct and
             //lives as a LOCAL, deliberately: BeginFrame is the only thing that can open one, it empties the
             //buckets on the way and it throws if a second is opened before the first is drawn — which is what
@@ -1521,7 +1555,7 @@ namespace BS3D.Screens
             Game.FinishSceneDraw(sceneFrame);
 
             //Display space from here down: the resolve is the frame's one and only exit from linear light,
-            //and the crosshair and the FPS overlay (a component, drawn in base.Draw after this) are sRGB.
+            //and the overlay and the FPS overlay (a component, drawn in base.Draw after this) are sRGB.
             //Not once the level is over. The result screen states the score itself, so the in-play readout
             //behind it is the same figure said twice — and worse, the corners are the only thing on the frame
             //that would still be pinned to the screen while the camera is released and swings out around the
@@ -1529,20 +1563,32 @@ namespace BS3D.Screens
             //is not stepped under the page (#241 runs the world there, not the readouts), so it would hang
             //frozen and be reprojected against a moving camera, sliding across the frame on its way to a
             //score nobody is playing for any more.
-            if (!LevelOver)
-            {
-                PlayHud.ClusterProfile profile = BuildClusterProfile(out int ballCount);
+            //
+            //Blurred under a page, the overlay was drawn into its layer at the top of this method, and what
+            //goes here is the layer softened (#438); sharp, it is drawn straight onto the frame as ever.
+            if (overlayLayered) Game.CompositeOverlayLayer(overlayBlur);
+            else if (overlayUp) DrawOverlay();
+        }
 
-                //Through LoadedColour, so a wildcard's disc cycles with the ball it stands for (#330). The strip
-                //is the only place the queue can be read while the eye is on the cluster, so it is exactly where
-                //the two must not disagree — a disc showing the dealt colour under a wildcard would be a wrong
-                //answer in the one readout built to be trusted at a glance (#236).
-                for (int i = 0; i < _magazineQueue.Length; i++) _magazineQueue[i] = LoadedColour(i);
+        /// <summary>
+        /// The session's display-space overlay: the HUD and the crosshair, into the host's batch — onto the
+        /// back buffer after the resolve on a sharp frame, into the pipeline's overlay layer under a page's
+        /// blur (#438). One method for both, so the two cannot drift apart in what they draw; where it lands
+        /// is the caller's business, and what is bound when it is called.
+        /// </summary>
+        private void DrawOverlay()
+        {
+            PlayHud.ClusterProfile profile = BuildClusterProfile(out int ballCount);
 
-                _hud.Draw(_score, Camera, in profile,
-                    new ReadOnlySpan<PlayHud.BallMarker>(_profileBalls, 0, ballCount),
-                    _magazineQueue);
-            }
+            //Through LoadedColour, so a wildcard's disc cycles with the ball it stands for (#330). The strip
+            //is the only place the queue can be read while the eye is on the cluster, so it is exactly where
+            //the two must not disagree — a disc showing the dealt colour under a wildcard would be a wrong
+            //answer in the one readout built to be trusted at a glance (#236).
+            for (int i = 0; i < _magazineQueue.Length; i++) _magazineQueue[i] = LoadedColour(i);
+
+            _hud.Draw(_score, Camera, in profile,
+                new ReadOnlySpan<PlayHud.BallMarker>(_profileBalls, 0, ballCount),
+                _magazineQueue);
 
             //The crosshair, into the host's overlay batch (the one the HUD above just used): shown only while
             //precise aim is leaning in, that being the only pose whose lens looks along the shot, and faded up
@@ -1552,19 +1598,20 @@ namespace BS3D.Screens
             //need a warning, and a warning that cries wolf is one nobody reads. Note the opacity is the ADS blend,
             //so this mark exists only while the lens looks along the bore; the overview's signal is the ghost.
             //
-            //And not once the level is over — the same gate the HUD above is behind, and for a reason of its own
-            //besides: the blend this fades on is frozen under the result page, because UpdateUnderResult runs the
-            //world and not the game (#241) and nothing there steps the lean out, so a loss taken mid-hold left
-            //the reticle parked at full opacity over the numbers for as long as the page stood (#259). A cut
-            //rather than a fade, like the aim blur's at the same moment — the page owns the frame from there on,
-            //and a lens nobody is aiming is not a thing to keep.
+            //And not once the level is over — the same gate the HUD above is behind (the caller's overlayUp), and
+            //for a reason of its own besides: the blend this fades on is frozen under the result page, because
+            //UpdateUnderResult runs the world and not the game (#241) and nothing there steps the lean out, so a
+            //loss taken mid-hold left the reticle parked at full opacity over the numbers for as long as the page
+            //stood (#259). A cut rather than a fade, like the aim blur's at the same moment — the page owns the
+            //frame from there on, and a lens nobody is aiming is not a thing to keep. A PAUSE taken mid-hold
+            //freezes the blend the same way, and there the reticle stays — softened with the rest of the overlay
+            //under the page's blur (#438), which is what a lens the player let go of should look like.
             //
             //And it blinks red while the player pushes the aim into the elevation clamp (#431), which the beam
             //says in the overview the same way — see AimStrain.
-            if (!LevelOver)
-                _crosshair.Draw(Game.OverlayBatch, _preciseAim.Blend,
-                    _previewReachesCluster && !_previewHasCell ? PREVIEW_REFUSED : null,
-                    AimStrain, WallClock);
+            _crosshair.Draw(Game.OverlayBatch, _preciseAim.Blend,
+                _previewReachesCluster && !_previewHasCell ? PREVIEW_REFUSED : null,
+                AimStrain, WallClock);
         }
 
     }

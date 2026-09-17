@@ -13,7 +13,9 @@ namespace Prazsky.Core.Render
     /// display space. The one optional stage is the <b>defocus</b> — the whole frame taken out of focus by a
     /// caller's amount, built on demand out of the very same target and mixed in by the resolve (see the
     /// DEFOCUS block below) — with one exemption: the <b>sharp foreground</b> layer, a second HDR target for
-    /// the one object a caller wants presented over the softening frame rather than softened with it.
+    /// the one object a caller wants presented over the softening frame rather than softened with it, and
+    /// one extension the other way: the <b>overlay layer</b>, a display-space target for what a caller draws
+    /// <i>after</i> the resolve and still wants softened with the frame (#438).
     /// <para>
     /// The look values are <c>required</c> on purpose: every one of them is a per-executable decision (the
     /// map editor runs a different glare threshold than the game shipped, the game alone toggles the lens
@@ -115,6 +117,17 @@ namespace Prazsky.Core.Render
         //and read by the same composite. As lazy as the foreground target, and for the same reason.
         private RenderTarget2D _refractionTarget;
 
+        //THE OVERLAY LAYER (#438): the foreground's opposite. A display-space layer the caller draws AFTER the
+        //frame has left linear light — the game's in-play HUD and its crosshair — held in a transparent
+        //target of its own so it can be taken OUT of focus with the frame under a page's blur, rather than
+        //staying pixel-sharp over an arena that has gone soft. It goes down through the defocus's own two
+        //kernels, borrowing the chain's scratch targets (the halfway step, the working copy and the across
+        //pass), and keeps only its blurred result in a target of its own: the scene's blur is rebuilt on
+        //every frame the resolve reads it and would overwrite a shared one. CompositeOverlay then lerps the
+        //sharp layer into the blurred one over the resolved frame, premultiplied like the foreground's
+        //composite. As lazy as that layer, and for the same reason: one executable's one page asks for it.
+        private RenderTarget2D _overlayTarget, _overlayBlurred;
+
         private VertexBuffer _fullScreenQuad;
 
         //Cached in the constructor: the resolve runs every frame and the by-name indexer is a linear scan
@@ -125,12 +138,15 @@ namespace Prazsky.Core.Render
         private readonly EffectTechnique _bloomDownTechnique;
         private readonly EffectTechnique _bloomUpTechnique;
         private readonly EffectTechnique _defocusBlurTechnique;
+        private readonly EffectTechnique _overlayCompositeTechnique;
         private readonly EffectTechnique _tonemapTechnique;
         private readonly EffectTechnique _foregroundCompositeTechnique;
         private readonly EffectParameter _glareSourceTextureParam;
         private readonly EffectParameter _glareSourceTexelSizeParam;
         private readonly EffectParameter _glareThresholdParam;
         private readonly EffectParameter _blurStepParam;
+        private readonly EffectParameter _glareOverlayTextureParam;
+        private readonly EffectParameter _glareOverlayMixParam;
         private readonly EffectParameter _tonemapDefocusTextureParam;
         private readonly EffectParameter _tonemapDefocusAmountParam;
         private readonly EffectParameter _tonemapDefocusFocusParam;
@@ -177,11 +193,12 @@ namespace Prazsky.Core.Render
         //aim's periphery-only one — which is a handful of frames per session.
         private float _defocusFocus;
 
-        //The composite's blend: the foreground layer rides PREMULTIPLIED alpha (an opaque write's colour is
+        //The composites' blend: the foreground layer rides PREMULTIPLIED alpha (an opaque write's colour is
         //its full colour whatever partial coverage antialiasing left the sample), so covering the frame is
-        //source as-is plus destination by what the coverage has not taken. Static rather than per frame,
-        //like every state object here — see BestPractices.md.
-        private static readonly BlendState PremultipliedForegroundBlend = new()
+        //source as-is plus destination by what the coverage has not taken. The overlay layer (#438) rides
+        //the same, being drawn by SpriteBatch's own AlphaBlend, which is this very blend. Static rather
+        //than per frame, like every state object here — see BestPractices.md.
+        private static readonly BlendState PremultipliedLayerBlend = new()
         {
             ColorSourceBlend = Blend.One,
             ColorDestinationBlend = Blend.InverseSourceAlpha,
@@ -199,12 +216,15 @@ namespace Prazsky.Core.Render
             _bloomDownTechnique = glareEffect.Techniques["BloomDown"];
             _bloomUpTechnique = glareEffect.Techniques["BloomUp"];
             _defocusBlurTechnique = glareEffect.Techniques["DefocusBlur"];
+            _overlayCompositeTechnique = glareEffect.Techniques["OverlayComposite"];
             _tonemapTechnique = tonemapEffect.Techniques["Tonemap"];
             _foregroundCompositeTechnique = tonemapEffect.Techniques["ForegroundComposite"];
             _glareSourceTextureParam = glareEffect.Parameters["SourceTexture"];
             _glareSourceTexelSizeParam = glareEffect.Parameters["SourceTexelSize"];
             _glareThresholdParam = glareEffect.Parameters["GlareThreshold"];
             _blurStepParam = glareEffect.Parameters["BlurStep"];
+            _glareOverlayTextureParam = glareEffect.Parameters["OverlayTexture"];
+            _glareOverlayMixParam = glareEffect.Parameters["OverlayMix"];
             _tonemapDefocusTextureParam = tonemapEffect.Parameters["DefocusTexture"];
             _tonemapDefocusAmountParam = tonemapEffect.Parameters["DefocusAmount"];
             _tonemapDefocusFocusParam = tonemapEffect.Parameters["DefocusFocus"];
@@ -628,7 +648,7 @@ namespace Prazsky.Core.Render
             //The technique goes back to the resolve's own afterwards, and for a real reason rather than
             //tidiness: nothing else in this class ever sets it, so a composite that left its own behind
             //would have the next frame's resolve quietly resolving with it.
-            _device.BlendState = PremultipliedForegroundBlend;
+            _device.BlendState = PremultipliedLayerBlend;
             _device.DepthStencilState = DepthStencilState.None;
             _device.RasterizerState = RasterizerState.CullNone;
             _device.SetVertexBuffer(_fullScreenQuad);
@@ -642,6 +662,100 @@ namespace Prazsky.Core.Render
 
             //The blend especially: the resolve leaves Opaque behind on purpose, and every caller after
             //this draws expecting it
+            _device.BlendState = BlendState.Opaque;
+        }
+
+        /// <summary>
+        /// The overlay layer's own target (see the OVERLAY LAYER block at the top, #438): the caller binds it,
+        /// clears it <b>transparent</b> and draws its display-space overlay into it exactly as it would draw
+        /// it onto the back buffer — <c>SpriteBatch</c>'s default <c>AlphaBlend</c> is the premultiplied blend
+        /// the composite expects — then hands the frame's amount to <see cref="DefocusOverlay"/>. The back
+        /// buffer's own size in an 8-bit format, because what it holds is finished, sRGB-encoded display
+        /// colour and never radiance; no depth and no multisampling, a 2D layer having no edges to resolve.
+        /// Built on first use and carrying a resize the way <see cref="ForegroundTarget"/> does, so the
+        /// executables that never soften an overlay never allocate it; and, like that one, left as it is
+        /// while the window is minimized, where there is nothing to draw into.
+        /// </summary>
+        public RenderTarget2D OverlayTarget
+        {
+            get
+            {
+                int width = _device.PresentationParameters.BackBufferWidth;
+                int height = _device.PresentationParameters.BackBufferHeight;
+
+                if (width <= 0 || height <= 0) return _overlayTarget;
+
+                if (_overlayTarget == null || _overlayTarget.Width != width || _overlayTarget.Height != height)
+                {
+                    _overlayTarget?.Dispose();
+                    _overlayTarget = new RenderTarget2D(_device, width, height, false, SurfaceFormat.Color,
+                        DepthFormat.None, 0, RenderTargetUsage.DiscardContents);
+                }
+
+                return _overlayTarget;
+            }
+        }
+
+        /// <summary>
+        /// Takes the overlay layer out of focus (#438): the two dual-filter steps down to the defocus's working
+        /// resolution and the separable Gaussian across it and down it — the scene's own chain on the scene's
+        /// own dial. <paramref name="amount"/> drives the blur's width here and its mix in
+        /// <see cref="CompositeOverlay"/>, the two curves off one figure exactly as <see cref="DrawDefocus"/>
+        /// and <see cref="Resolve"/> share it, so the layer softens on the very frames the frame under it does.
+        /// <para>
+        /// <b>Call it BEFORE the scene target is bound for the frame</b>, straight after the layer is drawn.
+        /// Every pass here binds a render target, and the discipline the foreground layer learned the
+        /// expensive way stands (see the foreground notes in docs/rendering.md): a target is bound once a
+        /// frame, the back buffer last of all at the resolve, and nothing is bound twice — binding a discarded
+        /// target clears it. The scratch targets borrowed are the scene blur's, which the resolve rebuilds
+        /// after this anyway; only the blurred result has to survive to the composite, and it is nobody
+        /// else's. A no-op while the window is minimized and there is no layer.
+        /// </para>
+        /// </summary>
+        public void DefocusOverlay(float amount)
+        {
+            if (_overlayTarget == null) return;
+
+            EnsureDefocusChain();
+
+            int width = Math.Max(_device.PresentationParameters.BackBufferWidth / DEFOCUS_DIVISOR, 1);
+            int height = Math.Max(_device.PresentationParameters.BackBufferHeight / DEFOCUS_DIVISOR, 1);
+
+            //Its own result target, sized with the chain and rebuilt with it; 8-bit like the layer it is a
+            //blurred copy of, which a premultiplied 0–1 layer fills without loss
+            if (_overlayBlurred == null || _overlayBlurred.Width != width || _overlayBlurred.Height != height)
+            {
+                _overlayBlurred?.Dispose();
+                _overlayBlurred = new RenderTarget2D(_device, width, height, false, SurfaceFormat.Color, DepthFormat.None);
+            }
+
+            DrawDefocusChain(_overlayTarget, _overlayBlurred, amount);
+        }
+
+        /// <summary>
+        /// Lays the overlay layer over the resolved frame (#438): the sharp layer crossfaded into the blurred
+        /// copy <see cref="DefocusOverlay"/> built, on the resolve's own early takeover
+        /// (<see cref="DEFOCUS_MIX_IN"/>), through the premultiplied blend the foreground's composite uses.
+        /// Call it after <see cref="Resolve"/> with the back buffer bound, where the caller would otherwise
+        /// have drawn the overlay directly: it draws where it is and binds nothing. Leaves
+        /// <see cref="BlendState.Opaque"/> behind, as the resolve does.
+        /// </summary>
+        /// <param name="amount">The frame's defocus amount, 0–1 — the same figure the layer was blurred by.</param>
+        public void CompositeOverlay(float amount)
+        {
+            if (_overlayTarget == null || _overlayBlurred == null) return;
+
+            _device.BlendState = PremultipliedLayerBlend;
+            _device.DepthStencilState = DepthStencilState.None;
+            _device.RasterizerState = RasterizerState.CullNone;
+            _device.SetVertexBuffer(_fullScreenQuad);
+
+            _glareEffect.CurrentTechnique = _overlayCompositeTechnique;
+            _glareSourceTextureParam.SetValue(_overlayBlurred);
+            _glareOverlayTextureParam.SetValue(_overlayTarget);
+            _glareOverlayMixParam.SetValue(Math.Min(1f, amount / DEFOCUS_MIX_IN));
+            DrawFullScreenQuad(_glareEffect);
+
             _device.BlendState = BlendState.Opaque;
         }
 
@@ -714,7 +828,17 @@ namespace Prazsky.Core.Render
         private void DrawDefocus(float amount)
         {
             EnsureDefocusChain();
+            DrawDefocusChain(_sceneTarget, _defocusBlurred, amount);
+        }
 
+        /// <summary>
+        /// The chain itself, in one copy for the scene and for the overlay layer (#438): two dual-filter
+        /// steps from <paramref name="source"/> down to the working resolution, then the separable Gaussian
+        /// across and down, the blurred result landing in <paramref name="destination"/>. Needs the chain's
+        /// scratch targets built (<see cref="EnsureDefocusChain"/>).
+        /// </summary>
+        private void DrawDefocusChain(RenderTarget2D source, RenderTarget2D destination, float amount)
+        {
             _device.BlendState = BlendState.Opaque;
             _device.DepthStencilState = DepthStencilState.None;
             _device.RasterizerState = RasterizerState.CullNone;
@@ -722,7 +846,7 @@ namespace Prazsky.Core.Render
 
             _glareEffect.CurrentTechnique = _bloomDownTechnique;
 
-            DrawDefocusStepDown(_sceneTarget, _defocusHalf);
+            DrawDefocusStepDown(source, _defocusHalf);
             DrawDefocusStepDown(_defocusHalf, _defocusSmall);
 
             //The separable Gaussian: across, then down. The spacing is what grows with the effect and the tap
@@ -738,7 +862,7 @@ namespace Prazsky.Core.Render
             _blurStepParam.SetValue(new Vector2(step / _defocusSmall.Width, 0f));
             DrawFullScreenQuad(_glareEffect);
 
-            _device.SetRenderTarget(_defocusBlurred);
+            _device.SetRenderTarget(destination);
             _glareSourceTextureParam.SetValue(_defocusAcross);
             _blurStepParam.SetValue(new Vector2(0f, step / _defocusAcross.Height));
             DrawFullScreenQuad(_glareEffect);
@@ -753,7 +877,8 @@ namespace Prazsky.Core.Render
         /// which is the one thing this could get wrong: that kernel is written for a source at exactly twice
         /// the destination, where one source texel is half a destination texel — but the scene target is
         /// <see cref="SupersampleFactor"/> times larger again, so offsets sized off it would sample a corner
-        /// of the block an output texel stands for and alias the rest of it away.
+        /// of the block an output texel stands for and alias the rest of it away. (The overlay layer is the
+        /// back buffer's own size, where the two placements coincide.)
         /// </remarks>
         private void DrawDefocusStepDown(RenderTarget2D source, RenderTarget2D destination)
         {
@@ -848,6 +973,8 @@ namespace Prazsky.Core.Render
             _defocusBlurred?.Dispose();
             _foregroundTarget?.Dispose();
             _refractionTarget?.Dispose();
+            _overlayTarget?.Dispose();
+            _overlayBlurred?.Dispose();
 
             _fullScreenQuad?.Dispose();
         }
