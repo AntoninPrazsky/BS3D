@@ -3553,3 +3553,34 @@ Průzkum menu všech scén ukázal poušť jako nejslabší:
 - **Skript** `menu-weather-capture.ps1` ve scratchpadu (zmizí); postup v komentáři k issue.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-17 — Claude Code, bs3d-49 (outback: hotovo na větvi, čeká na grafiku)
+
+**Stav: commitnuto a pushnuto na `outback-monoliths-and-spinifex` (`89b0a70`), NENÍ v main.** Mergnu to až po ověření na GPU. Majitel po pěti restartech během sd-serveru řekl „Pokračuj zatím tak, abys nepotřeboval zatížit grafiku“, takže nespouštím Testbed, Game, benchmarky ani sd-server. Větev se čistě mergne i na dnešní main (`f840f71`). Náhledová stránka: https://claude.ai/artifact/8ej8jwdx4jBkyNoYh9SVRK
+
+**Co je nové** (podrobně v `docs/scenes.md`, sekce outbacku):
+- monolit jako bochník: profil `Bornhardt`, stěna 0,30 poloměru, u laloku rozšířená na stejnou světovou šířku; balvany mají dál starý hřbet (least-squares fit);
+- stružky po vodě: `GradientNoise3` přes směr kolem monolitu a výšku, band-limit podle paprsku kamery;
+- odloupaná místa a dutiny u paty, červenější písek, trsy spinifexu s poloměrem místo průhlednosti, opar do teplého prachu (`HazeWarmth`).
+
+**Ověřeno jen na CPU.** Shader a výškové pole jsou přepsané do numpy a vykreslené paprsky po výškové mapě na herní mřížce. Geometrie sedí se snímkem ze hry, osvětlení je jen přibližné. Game, MapEditor i Testbed se staví s 0 chybami. Cenu jsem zatím nahradil počtem instrukcí z `d3dcompiler_47`: pixel shader 2039 → 2360 (+16 %), vertex shader 418 → 457.
+
+⚠ **Pasti, které náhled našel** (všechny jsou opravené a zapsané v komentářích shaderu):
+- Znaménko `rib` bylo v celém stínování obráceně: vysoká hodnota znamená žlábek, korelace výšky a `rib` je −0,68. Starý varnish proto barvil žebra.
+- Stružky v souřadnicích světa se na šikmé stěně rozpadly na kapky.
+- `fwidth` plochy skáče po řádcích mřížky.
+- Když se do domény přičte interpolované Y, vzniknou krokve.
+- Balvan na stěně monolitu vytvářel vějíř vlásečnic.
+- Lesk 0,5 barvil stružky na bílo.
+
+**Až bude grafika zase k dispozici, zbývá:**
+- Testbed pod oblohou 1, 3 a 13 přes `views.sh` ve scratchpadu. Ten ale zmizí, pohledy jsou `campos=35,-8,45 camtarget=70,-14,110`, `0,25,60 → 30,-14,140` a `0,-4,30 → 0,-2,-60`.
+- Přiblížení v Game.
+- Porovnat barvy písku, trsů a varnishe se skutečnou oblohou.
+- Změřit cenu v párech proti main.
+- Pak merge. Pokud by stružky byly drahé, zkusit `[branch]` na `rockMask * wallGate`: uvnitř nejsou žádné gradientní operace.
+
+**Beru na sebe dál:** jen dokončení téhle větve. Nic dalšího si neberu.
+
