@@ -6048,6 +6048,18 @@ float WindowFrameHeight;
 //darkens and lightens the render's tone, which at this range is the stronger cue.
 float WindowFrameShading;
 
+//What makes a window read as a window from across the arena (#435), drawn from references rendered for it: a
+//surround in a tone of its own, a sill under the pane with a lit top and a shadow on the wall below, the
+//reveal's shadow along the top of the recessed glass, and glazing bars across the pane. All in world units
+//except the tone, a multiple of the wall's own albedo, so the neon city's dark walls keep dark frames.
+float WindowFrameTone;
+float WindowSillHeight;
+float WindowSillOverhang;
+float WindowSillShadow;
+float WindowSillShading;
+float WindowRevealDepth;
+float WindowBarWidth;
+
 //Wall border kept clear of glass at every building edge (see CityPS): the grid is laid out per building
 //with this margin held at every side, so no window is ever jammed into a corner and every tower matches.
 float WindowMargin;
@@ -6252,6 +6264,15 @@ float3 WindowFrameProfile(float withinCell, float WindowFill, float WindowFrameW
     return result;
 }
 
+//How much of a pixel the interval [a, b] covers, the pixel spanning `footprint` about x: a box filter, not a
+//smoothstep. A smoothstep across a feature narrower than the pixel still peaks at a half, so a glazing bar a
+//tenth of a pixel wide would draw as a half-bright line; the box filter gives it its tenth, which is what keeps
+//the window surround's pieces reading at their true weight on the far towers instead of shimmering or vanishing.
+float WindowSpan(float x, float a, float b, float footprint)
+{
+    return saturate((min(x + 0.5 * footprint, b) - max(x - 0.5 * footprint, a)) / max(footprint, 1e-4));
+}
+
 //The city needs each building's own extent, not just world position, so windows can be laid out relative to
 //the tower (a consistent edge margin) instead of on a world grid that clips them at the corners. This VS
 //hands the pixel shader the offset from the building's centre and the building's world size. The box is the
@@ -6364,6 +6385,46 @@ float4 CityPS(CityVSOutput input) : COLOR
     //mirrors the sky. Faded to the windows' own area fraction at distance, the same band-limiting the
     //emission gets, so a far tower becomes one averaged material instead of aliasing between two.
     float glass = lerp(WindowFillX * WindowFillY * hasGrid * inside.x * inside.y, window, resolvable);
+
+    //--- The surround, the sill, the reveal and the glazing bars (#435) ------------------------------------------
+    //The moulding below was already here and was right in shape, and it still could not be seen: it was a tenth of
+    //a half-cell wide, about 0.085 world units, which is one pixel at 60 units at 1600x900 and nothing past it, and
+    //`resolvable` then switched it off entirely wherever a pixel covered more than a window. What the references
+    //show a window reading by at a tower's distance is not a moulding's relief but four flat, box-filtered cues
+    //that survive being small: the surround's own tone, the sill's lit top over its shadow, the reveal's shadow on
+    //the glass, and the bars across the pane. Measured in withinCell's half-cell units, so every width is divided
+    //by the half-cell it runs across; the footprint is doubled for the same reason (it is in whole cells).
+    float2 halfCell = cellPitch * 0.5;
+    float2 cellFootprint = max(footprint * 2.0, 1e-4);
+    float signedCellY = (frac(grid.y) - 0.5) * 2.0;
+    float windowGate = hasGrid * inside.x * inside.y * vertical;
+
+    float paneSpan = WindowSpan(withinCell.x, -WindowFillX, WindowFillX, cellFootprint.x)
+        * WindowSpan(signedCellY, -WindowFillY, WindowFillY, cellFootprint.y);
+    float surroundX = WindowFillX + WindowFrameWidth;
+    float surroundY = WindowFillY + WindowFrameWidth;
+    float surround = saturate(WindowSpan(withinCell.x, -surroundX, surroundX, cellFootprint.x)
+        * WindowSpan(signedCellY, -surroundY, surroundY, cellFootprint.y) - paneSpan) * windowGate;
+
+    float sillHalfX = surroundX + WindowSillOverhang / halfCell.x;
+    float sillTop = -surroundY;
+    float sillBottom = sillTop - WindowSillHeight / halfCell.y;
+    float sillAcross = WindowSpan(withinCell.x, -sillHalfX, sillHalfX, cellFootprint.x);
+    float sill = sillAcross * WindowSpan(signedCellY, sillBottom, sillTop, cellFootprint.y) * windowGate;
+    float sillShade = sillAcross * WindowSpan(signedCellY, sillBottom - WindowSillShadow / halfCell.y, sillBottom, cellFootprint.y) * windowGate;
+
+    float reveal = WindowSpan(withinCell.x, -WindowFillX, WindowFillX, cellFootprint.x)
+        * WindowSpan(signedCellY, WindowFillY - WindowRevealDepth / halfCell.y, WindowFillY, cellFootprint.y) * windowGate;
+
+    //One upright down the middle and one rail a third of the way up, the way a sash window is divided
+    float barHalfX = 0.5 * WindowBarWidth / halfCell.x;
+    float barHalfY = 0.5 * WindowBarWidth / halfCell.y;
+    float railY = WindowFillY * 0.33;
+    float bars = saturate(WindowSpan(withinCell.x, -barHalfX, barHalfX, cellFootprint.x)
+        + WindowSpan(signedCellY, railY - barHalfY, railY + barHalfY, cellFootprint.y)) * paneSpan * windowGate;
+
+    glass *= 1.0 - bars;
+    coverage *= (1.0 - bars) * (1.0 - 0.5 * reveal);
 
     //The plaster frame moulding around each pane. Two earlier versions were wrong in instructive ways: the
     //first combined the two axes with max and drew a grid over the facade; the second was a correct ring but
@@ -6529,12 +6590,22 @@ float4 CityPS(CityVSOutput input) : COLOR
     facadeColor *= 1.0 - WindowFrameShading * 0.9 * frameShadow;
     cavity = saturate(cavity - WindowFrameShading * 0.5 * frameShadow);
 
+    //The surround, the bars and the sill in the frame's own tone; the sill's top faces the sky, so it is lighter
+    //again, and the wall under it is in its shadow (#435, see the block where the masks are made)
+    facadeColor *= lerp(1.0, WindowFrameTone, saturate(surround + sill + bars));
+    facadeColor *= 1.0 + 0.35 * sill;
+    facadeColor *= 1.0 - WindowSillShading * sillShade;
+    cavity = saturate(cavity - 0.5 * WindowSillShading * sillShade);
+
     //And the glass gets its own albedo, which is DARK: what is behind a pane is a dim room, not a rendered
     //wall. That is the other half of why the windows read as glass and the wall does not -- a dark surface
     //under a bright mirror is exactly what glass looks like, and it is the same combination that was wrong
     //on the plaster. It also gives a facade its variation back: a pane is dark where it faces nothing and
     //bright where it catches the sky, which is how a glazed tower reads at all.
     facadeColor = lerp(facadeColor, WindowGlassColor, glass);
+
+    //The recessed glass lies in the reveal's shadow along its head
+    facadeColor *= 1.0 - 0.45 * reveal * glass;
 
     //Two materials on one triangle, blended per pixel: rough plaster, and the glass of the windows in it.
     SurfaceSpecular surface;
