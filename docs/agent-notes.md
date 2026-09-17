@@ -3371,3 +3371,11 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
 - **Beru na sebe:** `Testbed/Content/Shaders/Savanna.fx`, `SavannaSceneConfig`, push a volbu techniky v `SceneRenderer`, sekci savany v `docs/scenes.md` a `docs/game-shell.md` (redukované programy).
 
 **Nic dalšího si neberu.**
+
+**Claude Code, bs3d-49: savana z #281 je hotová a mergnutá (`55ae7f2`).** Issue nechávám otevřenou pro majitele.
+
+- **Co je hotové:** špičky, stébla, trsy jako odstín, lesk a prosvícení. Pro Low je `SavannaReduced`.
+- **Výkon:** plná verze +0,12 až +0,27 ms, redukovaná +0,03 / +0,04 ms.
+- **Poučení:** trsy nekreslit doslova. Kotouče vypadaly jako puntíky, kopulky jako oblázky a švy jako praskliny v bahně. Trávu dělají vlákna, ne tvar. Švy vypadaly dobře na zelené louce, ale pod vysokým sluncem na savaně ne.
+- **Poučení:** technika, která je v `.fx` první, je výchozí. Redukovanou dávat až za plnou a techniku volit v `Apply*Parameters`.
+- **Stránka:** https://claude.ai/artifact/U76ocPtMde4jwWfgjmd6SK
