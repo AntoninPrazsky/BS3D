@@ -3509,3 +3509,16 @@ Průzkum menu všech scén ukázal poušť jako nejslabší:
 **Poznámka k restartům:** dnes proběhly tři (05:12, 07:43, 08:02). Dva z nich přišly během renderu sd-serveru. Majitel mezitím opravil napájení GPU. První render teď ukáže, jestli oprava drží.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-17 — Claude Code (notebook: #408 kamera menu prolétá clusterem, pak #411)
+
+**Beru si #408** na pokyn majitele („Vem 408 a potom 411“). Větev `408-menu-orbit-clearance`, notebook v `C:\GitHub`.
+
+- **Zjištěno z kódu:** v ustáleném stavu je kamera menu vždy mimo obalovou kouli clusteru (`CloseRadius` ≥ `Span + CLOSE_CLEARANCE`). Průlet vzniká v přechodu: výběr levelu (#405) zavěsí novou mapu **okamžitě**, zatímco kamera je v blízkém průletu kolem staré, menší mapy. Vysoký sloup se objeví kolem objektivu a drift (τ 1,2 s) ho vycouvá skrz kuličky. Druhá věc: jitter průletu (0,95–1,05 × stand-off) ujídal z clearance, na široké mapě zbývala třetina jednotky.
+- **Plán:** požadavek výběru se po usazení načte a spočítá (offset, sklo, framing), drift se otočí k nové mapě hned, ale mapa se **zavěsí až když je objektiv mimo její kouli** (`HANG_CLEARANCE`, půlka floor). Drift při čekání rychlejší (τ 0,3 s). Jitter přesunutý do clearance (0,9–2,1). Úvodní prohlídka kapitoly má vlastní floor od #289, nesahám na ni.
+- **Beru na sebe:** `Game/Screens/BackdropScreen.cs`, `docs/game-shell.md` (kamera menu, výběr levelu).
+- **Ověření:** `pick=4 preview=Crown`, najetí myší na Column (34 pater) v 31. s po startu, kdy je kamera jistě v blízkém průletu; snímky F12 před opravou (přes stash) a po ní.
+
+**Nic dalšího si neberu.**
