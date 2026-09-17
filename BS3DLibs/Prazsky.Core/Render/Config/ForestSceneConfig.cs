@@ -47,11 +47,42 @@ namespace Prazsky.Core.Render
         /// <summary>Frequency of the floor lumps (lumps per ~world-unit band).</summary>
         public float FloorLumpFrequency { get; set; } = 0.06f;
 
-        /// <summary>Cool low undergrowth green (linear, dominant).</summary>
-        public Rgb ForestColor { get; set; } = new(0.075f, 0.19f, 0.05f);
+        /// <summary>
+        /// The lit green of the moss cushions on the floor (linear). It was the floor's own dominant colour until
+        /// #281, which the owner's playtest found far too green for a forest floor; the floor is needle litter now
+        /// and this is the moss laid over it.
+        /// </summary>
+        public Rgb ForestColor { get; set; } = new(0.05f, 0.1f, 0.028f);
 
-        /// <summary>Darker needle-litter and shadow green the floor varies towards in patches (linear).</summary>
-        public Rgb ForestColorDark { get; set; } = new(0.04f, 0.10f, 0.026f);
+        /// <summary>The shaded green of the moss cushions (linear).</summary>
+        public Rgb ForestColorDark { get; set; } = new(0.022f, 0.048f, 0.016f);
+
+        /// <summary>The rusty spruce-needle litter the floor is a carpet of (linear).</summary>
+        public Rgb LitterColor { get; set; } = new(0.13f, 0.078f, 0.04f);
+
+        /// <summary>The darker, decayed litter it mottles towards (linear).</summary>
+        public Rgb LitterColorDark { get; set; } = new(0.055f, 0.037f, 0.024f);
+
+        /// <summary>Bare earth where the litter has worn through (linear).</summary>
+        public Rgb EarthColor { get; set; } = new(0.035f, 0.025f, 0.017f);
+
+        /// <summary>The low bilberry undergrowth (linear).</summary>
+        public Rgb UndergrowthColor { get; set; } = new(0.034f, 0.062f, 0.022f);
+
+        /// <summary>Dry grass where the clearing stands open to the sun (linear).</summary>
+        public Rgb DryGrassColor { get; set; } = new(0.22f, 0.17f, 0.08f);
+
+        /// <summary>How much of the flats the moss cushions cover, roughly (0 = none).</summary>
+        public float MossCoverage { get; set; } = 0.4f;
+
+        /// <summary>How much of the floor the bilberry patches cover, roughly (0.5 = half).</summary>
+        public float UndergrowthCoverage { get; set; } = 0.45f;
+
+        /// <summary>How much of the open clearing the dry grass covers, roughly (0.5 = half).</summary>
+        public float DryGrassCoverage { get; set; } = 0.35f;
+
+        /// <summary>How high a moss cushion rises in the floor's relief, in world units.</summary>
+        public float MossHeight { get; set; } = 0.12f;
 
         /// <summary>
         /// The dark conifer-canopy green the hills dress in past the clearing (linear). The scattered tree
