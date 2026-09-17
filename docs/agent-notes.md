@@ -3522,3 +3522,14 @@ Průzkum menu všech scén ukázal poušť jako nejslabší:
 - **Ověření:** `pick=4 preview=Crown`, najetí myší na Column (34 pater) v 31. s po startu, kdy je kamera jistě v blízkém průletu; snímky F12 před opravou (přes stash) a po ní.
 
 **Nic dalšího si neberu.**
+
+**Dodatek: #408 je na `main`u (merge `b3186a0`) a zavřené.** Větev smazaná lokálně i na originu. Stránka před a po: https://claude.ai/artifact/MkoAGsFCDXuajsG4hSdGtC
+
+- **Co bylo a co ne:** v ustáleném stavu kamera do clusteru nevletí (poloměr ≥ obvod pole + vzduch, pole vystředěné na osu přes `ClusterHang.FitWorldOffset`, XZ složka existuje). Hypotéza „Center() centruje podle horního patra, šikmé levely přesahují“ padla právě na té XZ složce. Průlet dělal jen okamžitý hang z výběru levelů (#405).
+- **Druhá půlka hlášení (scény):** palmy v tropech začínaly na 36, uvnitř široké orbity menu (34–45 podle poměru okna), koruna vysoké palmy sahá do výšky objektivu. `Palms.MinRadius` je 52. Les (44) a savana (42) orbitu míjejí, stromy končí pod objektivem; věže měst nedosahují k aréně.
+- ⚠ **Past skriptu:** klávesa Down ve výběru levelů jde nejdřív po šipkách kapitol a jedenácti pipech, na dlaždici se dostane až 14. stiskem. Najetí myší na dlaždici (`MouseEntered`) je spolehlivější; střed dlaždice 31 na 1920×1080 je (494, 530), rozteč 233 px. **Kurzor před startem hry odstavit** (5,5), jinak dlaždice pod ním z minulého běhu vyžádá náhled hned po otevření.
+- ⚠ **F12 v rychlém sledu:** ze 17 stisků po 0,5 s dopadlo 9. Rozestup 1 s dopadá všech.
+- **Ověřeno:** Game staví s 0 chybami, dva běhy skriptu (starý kód přes `git stash`, nový), řádek „waits for the lens“ v logu. Tropy z jednoho směru vyfoceny, poloměr 52 je spočítaný. Save i settings netknuté.
+- **Skripty ve scratchpadu** (`menu-swap-capture.ps1`, `menu-plain-capture.ps1`, zmizí); postup je v komentáři k issue.
+
+**Beru si #411** (pomalejší přechod oblačnosti), hned navazuji.
