@@ -156,6 +156,24 @@ namespace BS3D.Effects
         //the axis — and they all are, they scatter — is inside the aperture rather than exactly on its edge.
         private const float MOUTH_MARGIN = 3f;
 
+        //THE OPEN SCENES' WAY PAST THE STONE (#407). A shot that goes under the island has to get from above
+        //the top face to under the underside, and the only continuous way round a drum is round its OUTSIDE.
+        //While the lens is within the drum's own height band its horizontal reach is held past the rim, and
+        //that floor is eased in over RIM_APPROACH units of lens height above the band and out over the same
+        //below it, so the lens drifts outward as it comes down on the platform and back in once it is under
+        //it, with no frame on which it is somewhere else than the frame before. RIM_MARGIN over the drum's
+        //own clearance keeps PushOutOfIsland — still the last resort — from ever having to fire.
+        private const float RIM_APPROACH = 6f;
+        private const float RIM_MARGIN = 1f;
+
+        //And how fast the lens DIVES once the balls are under the stone: the elevation is pulled towards the
+        //OUT leg's own angle over this many units of the subject's descent below the top face. The band's
+        //stone side hides the balls from a lens outside the rim, so the lens is asked to get under the
+        //underside about as fast as the balls get into the throat — in the trace that drove this, 3 units
+        //of descent is a third of a second of slow motion. The same shape as SUBMERGE_PULL_DEPTH, for the
+        //same reason: a pulled angle keeps the orbit's own geometry, a clamped height does not.
+        private const float STONE_DIVE_DEPTH = 3f;
+
         //How many units the SUBJECT has to be under the sea before the elevation pull (#193) is fully
         //engaged — see SubmergeElevationPull. Short on purpose: the report was the eye still floating above
         //the surface with the subject already 3-7 units under it, so the pull has to close most of that gap
@@ -407,6 +425,12 @@ namespace BS3D.Effects
             float submerge = SubmergeElevationPull();
             if (submerge > 0f) elevation = MathHelper.Lerp(elevation, _elevationOut, submerge);
 
+            //And towards the same angle as the subject goes under the STONE in an open scene (#407): the lens
+            //passes the platform round its rim, where the drum's side hides the balls, so it dives for the
+            //underside — where they show through the glass — about as fast as they go into the throat.
+            float dive = StoneDivePull();
+            if (dive > 0f) elevation = MathHelper.Lerp(elevation, _elevationOut, dive);
+
             float azimuth = _azimuth + _orbitRate * _elapsed;
 
             float horizontal = MathF.Cos(elevation) * radius;
@@ -454,6 +478,15 @@ namespace BS3D.Effects
         private float SubmergeElevationPull() =>
             _isSea ? Saturate((_seaLevelY - _pivot.Y) / SUBMERGE_PULL_DEPTH) : 0f;
 
+        /// <summary>
+        /// How hard <see cref="Frame"/> should pull the elevation towards the OUT leg's diving angle because the
+        /// subject is under the island's top face in an open scene (#407), 0 at the face to 1 a full
+        /// <see cref="STONE_DIVE_DEPTH"/> under it. Always 0 in a solid-terrain scene, whose shot climbs and
+        /// looks down the throat and has no underside to dive for.
+        /// </summary>
+        private float StoneDivePull() =>
+            _openBelow ? Saturate((ISLAND_Y - _pivot.Y) / STONE_DIVE_DEPTH) : 0f;
+
         //Whether the shot may go UNDER the island is SceneRenderer.OpenBelow since #75, and it is defined there
         //as the exact complement of IsSolidTerrainScene — the two hand-kept lists this file and the host each
         //carried are one decision now. The reasoning is the library's in full: the two cities continue
@@ -477,15 +510,25 @@ namespace BS3D.Effects
             bool aboveStone = !_openBelow || _pivot.Y > ISLAND_Y;
 
             if (aboveStone) lens.Y = MathF.Max(lens.Y, ISLAND_Y + STONE_CLEARANCE);
-            else lens = PushOutOfIsland(lens);
+            else lens = PushOutOfIsland(KeepOutsideRim(lens));
 
             //The mouth is the only hole in the stone, so a lens above it can see a ball below it only by
             //looking through that hole: the sight line has to cross the mouth plane inside the rim. The lens
             //lies in the cone that runs from the ball up through the rim, and clamping its horizontal reach
             //to satisfy that is what swings the shot overhead as the balls run deeper — the further down they
             //are, the narrower the set of places that can still see them. It is the whole of how a
-            //solid-terrain scene is filmed, and a safety net in the others.
-            if (lens.Y > ISLAND_Y && _pivot.Y < ISLAND_Y - 0.5f)
+            //solid-terrain scene is filmed.
+            //
+            //⚠ AND IT IS NOT APPLIED IN AN OPEN SCENE ANY MORE (#407). It used to be "a safety net in the
+            //others", and in the others it was the fault the owner reported: a lens on its way UNDER the
+            //island is above the top face for a few frames after the balls have gone below it, and in those
+            //frames this cone dragged it in over the mouth — 27.7 units of reach down to 12.7 over eight
+            //frames in the trace — and then, the moment the lens's own height dropped below the face, let go
+            //of it in a single 16-unit jump back out. Too close and then a jump back, exactly as reported. An
+            //open scene's lens is heading for the underside, where the balls show through the glass anyway,
+            //so the honest answer for those few frames is to let the annulus hide them and get under it
+            //fast (StoneDivePull), not to fit the lens through a hole it is about to leave behind.
+            if (!_openBelow && lens.Y > ISLAND_Y && _pivot.Y < ISLAND_Y - 0.5f)
             {
                 float depth = ISLAND_Y - _pivot.Y;
                 float height = lens.Y - _pivot.Y;
@@ -507,10 +550,54 @@ namespace BS3D.Effects
         }
 
         /// <summary>
+        /// The open scenes' continuous way past the platform (#407): while the lens is within the drum's own
+        /// height band its horizontal reach is held past the rim (<see cref="RIM_APPROACH"/>,
+        /// <see cref="RIM_MARGIN"/>), the floor eased in as it comes down on the band from above and out as it
+        /// leaves it below, so the lens slides down the OUTSIDE of the drum instead of being snapped from its
+        /// top face to its underside. The reach is measured from the drain's axis, the drum's own centre,
+        /// as the mouth cone measures it.
+        /// <para>
+        /// This is what <see cref="PushOutOfIsland"/> used to do in one frame: the lens's own curve took it
+        /// into the band inside the rim, and the push put it on the underside — a 5.5-unit drop between two
+        /// frames in the trace that drove this, on top of the mouth cone's jump a few frames earlier. The push
+        /// stays behind this as the last resort, and with the margin here it has nothing left to catch.
+        /// </para>
+        /// </summary>
+        private static Vector3 KeepOutsideRim(Vector3 lens)
+        {
+            float top = ISLAND_Y + STONE_CLEARANCE;
+            float bottom = ISLAND_Y - ArenaIsland.EDGE_HEIGHT - STONE_CLEARANCE;
+
+            float outside = lens.Y > top ? lens.Y - top : lens.Y < bottom ? bottom - lens.Y : 0f;
+            float weight = 1f - Saturate(outside / RIM_APPROACH);
+
+            if (weight <= 0f) return lens;
+
+            float floor = ArenaIsland.RADIUS + STONE_CLEARANCE + RIM_MARGIN;
+
+            Vector2 flat = new(lens.X, lens.Z);
+            float reach = flat.Length();
+
+            //The weight scales the MOVE and not the floor. Scaling the floor put the whole push into the few
+            //frames where the scaled floor crossed the lens's own reach (a lens 5 units inside the rim was
+            //pushed out over two frames and let back in over two), which is a smaller version of the snap this
+            //replaces; scaling the move spreads it over the whole approach band, whatever the lens's own reach.
+            if (reach < floor && reach > 1e-3f)
+            {
+                flat *= MathHelper.Lerp(1f, floor / reach, weight);
+                lens.X = flat.X;
+                lens.Z = flat.Y;
+            }
+
+            return lens;
+        }
+
+        /// <summary>
         /// The island as the solid it is — a drum of stone from the top face down to the underside. A lens
         /// inside it sees the inside of the platform and nothing else, which is what a shot that swung low
         /// used to drive straight through. Pushed out through the face on the side the balls are on, so the
-        /// escape never puts the platform between the two.
+        /// escape never puts the platform between the two. Since #407 it is the last resort behind
+        /// <see cref="KeepOutsideRim"/>, which keeps the lens out of the drum continuously.
         /// </summary>
         private static Vector3 PushOutOfIsland(Vector3 lens)
         {
