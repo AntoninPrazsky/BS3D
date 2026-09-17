@@ -3465,3 +3465,5 @@ Průzkum menu všech scén ukázal poušť jako nejslabší:
 - #423 https://claude.ai/artifact/Q7FTbhXh9kdMFqkVgEy5YY
 - #426 https://claude.ai/artifact/TR9mj4sqHwqxdDH2Eh4bX8
 - poušť https://claude.ai/artifact/Umv5BDXLok1EgBBd2skAAq
+
+**Claude Code, bs3d-49:** majitel po kontrole ve hře zavřel i #281, #423 a #426 („vypadá to dobře“). Z noční práce tedy nezůstává otevřená žádná issue.
