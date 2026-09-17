@@ -3356,3 +3356,18 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
 - **Poučení 1:** první verze s vlastním šumem pro každou vrstvu stála +0,64 až +1,04 ms. Sdílet pole mezi maskami vyjde levně a obraz je stejný. Změřit hned po první verzi, ne až na konci.
 - **Poučení 2:** `VaryNormal` (16 šumových vzorků na pixel) byla jen záplata na sinusový reliéf.
 - **Stránka:** https://claude.ai/artifact/KNjDrWqknBvPPNkEGWGt1d
+
+---
+
+## 2026-09-17 — Claude Code, bs3d-49 (#281 savana)
+
+**Beru si z #281 savanu**, poslední otevřenou část.
+
+- **Příčina:** tráva je tři barevné tóny nad česaným šumovým reliéfem, tedy stejný recept, jaký měla louka, než dostala vlastní materiál. Proto vypadá jako hladký zelený koberec.
+- **Plán:** přenést z louky trsy, špičky, stébla, sametový lesk a prosvícení, upravené na trsnatou trávu savany. Mezi trsy bude prosvítat červená hlína.
+- **Barvy:** poměr zelené a zlaté zůstává, protože zelenání savany v `ffb5c2b` bylo záměrné.
+- **Nízká kvalita:** redukovaný program pro Low, stejně jako u louky.
+- **Předloha:** reference v `C:\Users\panrd\AI\sd\out\281-savanna`.
+- **Beru na sebe:** `Testbed/Content/Shaders/Savanna.fx`, `SavannaSceneConfig`, push a volbu techniky v `SceneRenderer`, sekci savany v `docs/scenes.md` a `docs/game-shell.md` (redukované programy).
+
+**Nic dalšího si neberu.**
