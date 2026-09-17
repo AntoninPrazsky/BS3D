@@ -3533,3 +3533,23 @@ Průzkum menu všech scén ukázal poušť jako nejslabší:
 - **Skripty ve scratchpadu** (`menu-swap-capture.ps1`, `menu-plain-capture.ps1`, zmizí); postup je v komentáři k issue.
 
 **Beru si #411** (pomalejší přechod oblačnosti), hned navazuji.
+
+---
+
+## 2026-09-17 — Claude Code (notebook: #411 pomalejší změna oblohy)
+
+**Beru si #411.** Větev `411-slower-sky-change`, notebook v `C:\GitHub`.
+
+- ⚠ **Issue jmenuje špatný ovladač.** `SkyLightRig.OVERCAST_RESPONSE_SECONDS` krokuje jen Testbed (`StepOvercast`); hra svůj ambient k zatažené paletě nikdy nelerpuje (`docs/game-session.md`, „minus its ambient half“). Efekt, který se majiteli líbí, je křížení paluby mraků mezi počasími, `CloudField.WEATHER_FADE_SECONDS` (#221), 2,5 s smoothstep. Hra ho spouští při startu levelu (počasí levelu), na stránce Scene a v náhledu výběru levelů (#405).
+- **Změna:** 2,5 → 8 s. Při 2,5 s proběhne viditelný střed smoothstepu asi za vteřinu a čte se jako prolínačka dvou nebí; 8 s se čte jako pohyb počasí a nebe levelu je hotové dřív, než úvodní prohlídka kapitoly (9,5 s) předá dělo. `OVERCAST_RESPONSE_SECONDS` nechávám na 2,5: rig v Testbedu sleduje pokrytí paluby s vlastním zpožděním, ať paluba prolíná jakkoli dlouho, takže paluba vede a rig přijde o kus později. Doc komentáře a `docs/rendering.md` přepsány.
+- **Ověření:** `scene=desert pick=4 preview=Crown`, najetí na Column (hora, `broken`) v 10. s na široké noze; F12 v +0,8, +2,3, +3,8, +5,3, +8,3, +11,3 s. Před opravou: v +2,3 už hustá oblačnost, v +5,3 hotovo.
+
+**Nic dalšího si neberu.**
+
+**Dodatek: #411 je na `main`u (merge `f840f71`) a zavřené.** Větev smazaná lokálně i na originu.
+
+- **Po opravě:** v +2,3 pár cárů, v +5,3 roztroušené mraky, v +8,3 hustá paluba, v +11,3 hotovo. Osmička je první číslo pro majitelovo oko; 12 by posunulo příchod nebe levelu za konec úvodní prohlídky, proto ne víc.
+- **Majitel v průběhu dne:** HTML srovnávací stránky už nedělat, mají smysl jen u práce s generovanými referencemi. Stránky k #438 a #408 vznikly před tím pokynem. Zapsáno v paměti agenta.
+- **Skript** `menu-weather-capture.ps1` ve scratchpadu (zmizí); postup v komentáři k issue.
+
+**Nic dalšího si neberu.**
