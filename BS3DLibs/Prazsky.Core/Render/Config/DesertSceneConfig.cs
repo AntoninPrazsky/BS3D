@@ -48,15 +48,20 @@ namespace Prazsky.Core.Render
         public float DustStart { get; set; } = 240f;
 
         /// <summary>Warm sand reflectance (linear) — the ochre of the ripple troughs. Also reused in-shader as the dust colour.</summary>
-        public Rgb SandColor { get; set; } = new(0.55f, 0.38f, 0.18f);
+        public Rgb SandColor { get; set; } = new(0.48f, 0.24f, 0.085f);
 
         /// <summary>
         /// The bleached pale tone (linear) the sand mixes towards in patches — the colour of a sun-scoured
         /// crest. Sand is never one colour, and one colour is exactly what this scene looked like before:
         /// a broad noise field mixes the two, so the dunes carry patches instead of reading as a lit floor.
         /// Warmer than white on purpose, so a patch of it is still sand rather than a bald spot.
+        /// <para>
+        /// Both colours were paler until the dune pass that took its look from locally rendered references (0.55/0.38/0.18
+        /// and 0.82/0.68/0.44): under a noon dome the crests tonemapped to near white and the erg read as snow. Real
+        /// erg sand is orange-tan in full sun; these are those references' crest and trough tones, linearised.
+        /// </para>
         /// </summary>
-        public Rgb SandColorPale { get; set; } = new(0.82f, 0.68f, 0.44f);
+        public Rgb SandColorPale { get; set; } = new(0.68f, 0.42f, 0.2f);
 
         /// <summary>
         /// How hard the sun glints off the sand at a grazing angle. Quartz grains are little mirrors, so sand
@@ -67,6 +72,21 @@ namespace Prazsky.Core.Render
 
         /// <summary>How much of the sky's hemisphere light fills the flats.</summary>
         public float AmbientStrength { get; set; } = 0.65f;
+
+        /// <summary>
+        /// Sunlight thrown back off the lit sand onto the faces the sun does not reach, as a fraction of the sun. It
+        /// is why a slip face reads warm brown rather than sky-blue: the shadowed side of a dune is lit mostly by
+        /// the dune beside it.
+        /// </summary>
+        public float SandBounce { get; set; } = 0.22f;
+
+        /// <summary>
+        /// How far the distance haze leans from the dome's horizon colour towards the sand's own hue (0 = straight to
+        /// the horizon). The air over an erg carries its dust, so the far dunes fade warm; under the purple and teal
+        /// domes they used to fade cyan - which never matched the sky either, since the dome's horizon uniform and the
+        /// horizon the dome draws differ (see Desert.fx).
+        /// </summary>
+        public float HazeWarmth { get; set; } = 0.85f;
 
         /// <summary>The wind, a direction in the XZ plane.</summary>
         public Vec2 Wind { get; set; } = new(0.86f, 0.51f);
