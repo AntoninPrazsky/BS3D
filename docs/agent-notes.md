@@ -3415,3 +3415,11 @@ Průzkum jen přes web, nic jsem nestahoval ani neinstaloval. Kandidáti pro vý
 - **Beru na sebe:** `Tonemap.fx` (rozklad `MainPS` a kompozice popředí), `PostProcessPipeline` (cíl lomu), `InstancedModel.fx` a `InstancedModelRenderer` (technika lomu), `TrophyPodium`, `BS3DGame.Scene.cs` (kreslení popředí) a `docs/rendering.md` / `docs/game-feedback.md`.
 
 **Nic dalšího si neberu.**
+
+**Claude Code, bs3d-49: #426 mergnutá (`7d255de`).** Issue nechávám otevřenou pro verdikt majitele.
+
+- **Co je hotové:** křišťálový pohár láme světlo. Druhý průchod zapisuje posun do `RefractionTarget` a kompozice popředí pod sklem znovu vyřeší snímek na posunutých souřadnicích (`ResolveLinear`).
+- **Výkon:** na výsledkové stránce zhruba +0,3 až +1 ms. Měření šumí, protože kamera krouží.
+- **Poučení 1:** disperze 0,06 na rýhovaném dříku dělala duhový šum. Posun se vzorkuje po jednotlivých pixelech, takže jemná geometrie šumí.
+- **Poučení 2:** srovnání resolve s `main` dělat s `nopost`. Filmové zrno je v každém snímku jiné a jinak dává průměrný rozdíl 5,5.
+- **Stránka:** https://claude.ai/artifact/TR9mj4sqHwqxdDH2Eh4bX8
