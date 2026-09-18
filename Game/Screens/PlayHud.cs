@@ -661,6 +661,7 @@ namespace BS3D.Screens
             _scorePulse.Reset();
             _streakPulse.Reset();
             _ballsPulse.Reset();
+            _tutorialPulse.Reset();
 
             _ballsShown = score.ShotsRemaining ?? -1;
             _multiplierShown = score.Multiplier;
@@ -721,6 +722,7 @@ namespace BS3D.Screens
             _scorePulse.Update(elapsed);
             _streakPulse.Update(elapsed);
             _ballsPulse.Update(elapsed);
+            _tutorialPulse.Update(elapsed);
         }
 
         /// <summary>
@@ -833,7 +835,7 @@ namespace BS3D.Screens
         /// <param name="queue">The loaded rounds, slot 0 first — <see cref="DrawMagazine"/>'s subject (#236).
         /// A span over a buffer the caller keeps, like <paramref name="balls"/>, so a frame costs nothing.</param>
         internal void Draw(ScoreKeeper score, ICamera camera, in ClusterProfile profile, ReadOnlySpan<BallMarker> balls,
-            ReadOnlySpan<BallType> queue)
+            ReadOnlySpan<BallType> queue, Tutorial tutorial)
         {
             _game.EnsureHudFonts();
 
@@ -867,6 +869,7 @@ namespace BS3D.Screens
             DrawStreak(score, viewport, margin, scoreAnchor.Y + scoreSize.Y * 0.5f + Scaled(HUD_LINE_GAP));
             DrawBallsLeft(score, viewport, margin);
             DrawMagazine(queue, score, viewport, margin);
+            DrawTutorial(tutorial, viewport, margin);
 
             //Last, so the numbers coming in pass over the readouts rather than under them
             DrawAwards(camera, viewport, scoreAnchor - new Vector2(scoreSize.X * 0.5f, 0f));
@@ -1682,6 +1685,98 @@ namespace BS3D.Screens
             }
 
             _game.OverlayBatch.DrawString(font, text, position, colour, 0f, Vector2.Zero, scaling);
+        }
+
+        #endregion
+
+        #region The tutorial card (#189)
+
+        //The card: a keycap, a mouse or a trigger out of the prompt font, the line of what to do beside it and
+        //a smaller line under that, top centre — the one strip along the top that is empty in both poses (the
+        //FPS line owns the top left and the score the top right), and the place the eye passes between the
+        //cluster and the score. No plate, on the HUD's own rule: the text carries its backing and its shadow
+        //like every other readout, so the card reads as a line spoken over the scene rather than a box nailed
+        //to it. Its state is Tutorial's; this draws what it reads there, the way the rest of the HUD reads the
+        //score keeper.
+        private const int HUD_TUTORIAL_GLYPH_GAP = 30;
+        private const int HUD_TUTORIAL_LINE_GAP = 4;
+
+        //The pop-in starts this small and overshoots to full through EaseOutBack: a card that lands with a
+        //bounce reads as the game offering something, where one that fades in reads as a notice. The praise
+        //kicks the same spring the score takes, so a lesson done is answered the way a point scored is.
+        private const float HUD_TUTORIAL_ARRIVE_FROM = 0.6f;
+        private const float HUD_TUTORIAL_PRAISE_KICK = 0.3f;
+
+        //A slow bob while a card waits — motion is what says "this is asking you" over a still frame, and it
+        //is far smaller and slower than the balls-left breath, which is the alarm's shape and must stay it
+        private const int HUD_TUTORIAL_BOB = 5;
+        private const float HUD_TUTORIAL_BOB_PERIOD = 2.8f;
+
+        private Pulse _tutorialPulse;
+
+        /// <summary>An action on the card was just done: the card pops the way the score does on a hit.</summary>
+        internal void KickTutorial() => _tutorialPulse.Kick(HUD_TUTORIAL_PRAISE_KICK);
+
+        /// <summary>
+        /// The tutorial's card, if one is up: the glyphs, the line and the smaller line laid out as one block
+        /// and scaled about its own centre, so the bounce and the praise's kick swell it in place rather than
+        /// shouldering it along the top of the frame. Every colour is premultiplied by the card's presence, as
+        /// every fading readout here is, so the backing and the shadow fade with the text.
+        /// </summary>
+        private void DrawTutorial(Tutorial tutorial, Viewport viewport, int margin)
+        {
+            float presence = tutorial.Presence;
+            if (presence <= 0.005f) return;
+
+            string caption = tutorial.Caption;
+            if (string.IsNullOrEmpty(caption)) return;
+
+            string glyph = tutorial.Glyph;
+            string detail = tutorial.Detail;
+            bool praising = tutorial.Praising;
+
+            SpriteFontBase glyphFont = _game.HudFontPrompt;
+            SpriteFontBase captionFont = _game.HudFontTutorial;
+            SpriteFontBase detailFont = _game.HudFontTutorialDetail;
+
+            Vector2 glyphSize = string.IsNullOrEmpty(glyph) ? Vector2.Zero : glyphFont.MeasureString(glyph);
+            Vector2 captionSize = captionFont.MeasureString(caption);
+            Vector2 detailSize = string.IsNullOrEmpty(detail) ? Vector2.Zero : detailFont.MeasureString(detail);
+
+            float gap = glyphSize.X > 0f ? Scaled(HUD_TUTORIAL_GLYPH_GAP) : 0f;
+            float lineGap = detailSize.Y > 0f ? Scaled(HUD_TUTORIAL_LINE_GAP) : 0f;
+            float textWidth = MathF.Max(captionSize.X, detailSize.X);
+            float textHeight = captionSize.Y + lineGap + detailSize.Y;
+            float width = glyphSize.X + gap + textWidth;
+            float height = MathF.Max(glyphSize.Y, textHeight);
+
+            float alpha = MathHelper.Clamp(presence, 0f, 1f);
+            float scale = MathHelper.Lerp(HUD_TUTORIAL_ARRIVE_FROM, 1f, EaseOutBack(alpha)) * _tutorialPulse.Scale;
+            float bob = praising ? 0f
+                : MathF.Sin(tutorial.Age * MathHelper.TwoPi / HUD_TUTORIAL_BOB_PERIOD) * Scaled(HUD_TUTORIAL_BOB);
+
+            Vector2 centre = new(viewport.Width * 0.5f, margin + height * 0.5f + bob);
+            Vector2 origin = centre - new Vector2(width, height) * (0.5f * scale);
+
+            //The praise takes the accent, because a lesson done IS gain — the one thing the accent means here
+            Color textColour = (praising ? HUD_ACCENT : BS3DGame.MENU_TEXT) * alpha;
+
+            if (glyphSize.X > 0f)
+                DrawString(glyphFont, glyph, origin + new Vector2(0f, (height - glyphSize.Y) * 0.5f * scale),
+                    BS3DGame.MENU_TEXT * alpha, scale);
+
+            Vector2 captionAt = origin + new Vector2((glyphSize.X + gap) * scale, (height - textHeight) * 0.5f * scale);
+
+            //And flares the way the score does on a hit — the same amber, the same blurred halo — gone as the
+            //word settles
+            if (praising)
+                DrawGlow(captionFont, caption, captionAt, captionSize, scale, tutorial.PraiseHeat, HUD_ACCENT, HUD_GLOW_PASSES);
+
+            DrawString(captionFont, caption, captionAt, textColour, scale);
+
+            if (detailSize.Y > 0f)
+                DrawString(detailFont, detail, captionAt + new Vector2(0f, (captionSize.Y + lineGap) * scale),
+                    HUD_CAPTION * alpha, scale);
         }
 
         #endregion

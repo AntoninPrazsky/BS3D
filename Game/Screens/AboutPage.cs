@@ -45,7 +45,9 @@ namespace BS3D.Screens
             column.Widgets.Add(Paragraph(
                 text: "Controls: Mouse aims, Left Click or Space fires, Right Click leans along the barrel, "
                       + "A/D traverses the carriage, W/S adjusts depth, Esc pauses, F10 hides the FPS counter, "
-                      + "F11 toggles fullscreen, F12 saves a screenshot."));
+                      + "F11 toggles fullscreen, F12 saves a screenshot. Gamepad: the right stick aims, "
+                      + "the right trigger fires, the left trigger leans in, the left stick traverses and walks, "
+                      + "Back pauses. The first chapter teaches all of this as you play."));
             column.Widgets.Add(Paragraph(
                 text: "Built on MonoGame (DirectX 11) and BepuPhysics 2. Everything you see—from the spheres to the city—is procedural: "
                       + "no 3D models, only pure code. The music was generated locally with ACE-Step 1.5. "

@@ -126,6 +126,11 @@ namespace BS3D.Screens
             _ceilingFlash = 1f;
             StartCeilingRipple();
 
+            //The tutorial's glass lesson fires on the step the shot count forced, on the frame the plate lights
+            //(#189) — never on a feed step, which is a tall level's reward and would teach the pressure in the
+            //wrong colour
+            if (!feeding) _tutorial.Trigger(Tutorial.Lesson.Ceiling);
+
             Console.WriteLine($"[ceiling] Step to {_ceilingTargetY:F2} (death line {CEILING_DEATH_Y:F2})"
                 + $", {(feeding ? "feeding" : "pressure")}"
                 + $", shots fired {_score.ShotsFired}, waited {waited:F2} s");

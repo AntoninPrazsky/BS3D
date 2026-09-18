@@ -52,6 +52,14 @@ namespace BS3D
             //within two ceiling steps of losing it, which can no more be scripted than clearing one can.
             bool lasers = false;
 
+            //Testing only: offer every tutorial card as if none had been taught, and record none (#189). The
+            //cards are gated on the save — a lesson done is never shown again — so on a save that finished the
+            //chapter months ago they are otherwise unreachable, and a run that taught them for real would write
+            //to the owner's save, which no scripted run may do. "tutorial" keeps the real detection (play the
+            //level and the cards answer); "tutorial=demo" is a reel that runs every card on a clock, for a run
+            //nothing can press a key in. Null means the argument was absent.
+            string tutorial = null;
+
             //Testing only: start with the master volume at zero. A scripted screenshot or benchmark run has
             //no business making noise. There IS a settings file since #354, and this deliberately does not
             //touch it — mute is a run's instruction, so it silences this run and is never written back.
@@ -85,6 +93,10 @@ namespace BS3D
             //Testing only: open the About page at boot, and with "about=play" start its player (#443). Null means
             //the argument was absent; empty means the page alone.
             string about = null;
+
+            //Testing only: open the Settings page at boot (#189), on "about"'s and "pick"'s reasoning — three
+            //presses reach it on a machine somebody is sitting at, and none reach it from a script.
+            bool settings = false;
 
             //Testing only: draw every ball in one style whatever the level files say (#258). Null means the
             //argument was absent, and then each map is drawn in what it is authored in, as a player sees it.
@@ -180,6 +192,10 @@ namespace BS3D
                 else if (arg.StartsWith("wildcard=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("wildcard=".Length), out int parsedWildcard)) wildcardEvery = parsedWildcard;
                 //"lasers" pins the floor alarm's laser net on while a level is played, for the same reason.
                 else if (string.Equals(arg, "lasers", StringComparison.OrdinalIgnoreCase)) lasers = true;
+                //"tutorial" offers every tutorial card and records nothing, "tutorial=demo" reels them (#189) —
+                //see the argument's own note above.
+                else if (string.Equals(arg, "tutorial", StringComparison.OrdinalIgnoreCase)) tutorial = "force";
+                else if (arg.StartsWith("tutorial=", StringComparison.OrdinalIgnoreCase)) tutorial = arg.Substring("tutorial=".Length);
                 //"mute" starts silent, for the harnesses; the settings rows can still raise it.
                 else if (string.Equals(arg, "mute", StringComparison.OrdinalIgnoreCase)) mute = true;
                 //"play" skips the front end into the first level, so a session's figures can be measured at all.
@@ -231,6 +247,8 @@ namespace BS3D
                 //"about" puts the About page up at boot and "about=play" starts its player of the original score
                 //(#443) — pick's reasoning, plus the press a visualizer needs before there is anything to see.
                 else if (string.Equals(arg, "about", StringComparison.OrdinalIgnoreCase)) about = string.Empty;
+                //"settings" puts the Settings page up at boot (#189), for photographing a row.
+                else if (string.Equals(arg, "settings", StringComparison.OrdinalIgnoreCase)) settings = true;
                 else if (arg.StartsWith("about=", StringComparison.OrdinalIgnoreCase)) about = arg.Substring("about=".Length);
                 //"preview=<n|name>" pins which map the FRONT END hangs, the way "level=" pins which one is
                 //played. The menu's camera is framed for that map since #254, so without this two shots of
@@ -251,7 +269,8 @@ namespace BS3D
                 uncappedFps: uncappedFps, scene: scene, skyDome: skyDome, logFrameRate: logFrameRate, quality: quality,
                 celebrate: celebrate, confetti: confetti, lasers: lasers, mute: mute, play: play, result: result, blockDone: blockDone, lost: lost, resultStars: resultStars, nextLocked: nextLocked, streak: streak, wildcardEvery: wildcardEvery,
                 shotSeconds: shotSeconds, level: level, levelFile: levelFile, preview: preview, ballStyle: ballStyle, pick: pick, fpsCap: fpsCap,
-                noFocusPause: noFocusPause, detonateSeconds: detonateSeconds, about: about);
+                noFocusPause: noFocusPause, detonateSeconds: detonateSeconds, about: about, tutorial: tutorial,
+                settings: settings);
             game.Run();
         }
 

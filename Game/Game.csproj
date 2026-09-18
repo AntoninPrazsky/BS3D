@@ -54,14 +54,18 @@
   </ItemGroup>
 
   <!--The menu UI's fonts (Myra renders through FontStashSharp, which needs TTF bytes at runtime). Anton sets
-  everything meant to be loud (the title, the menu entries, the HUD) and Inter the small print under it. Both
-  are SIL OFL 1.1, so redistribution is permitted and each ships with its licence beside it; Segoe UI (the
-  InfoRenderer's spritefont source) is not, and neither is Impact, which is why the Impact look is Anton.
-  Embedded so no on-disk path has to exist at runtime and nothing flows through the MGCB content pipeline.-->
+  everything meant to be loud (the title, the menu entries, the HUD) and Inter the small print under it, and
+  PromptFont (#189, v1.15, shinmera.com/promptfont) draws the tutorial's keycaps, mouse buttons and gamepad
+  triggers - glyphs rather than bitmaps, so they scale with the HUD and nothing goes through the content
+  pipeline for them. All three are SIL OFL 1.1, so redistribution is permitted and each ships with its
+  licence beside it; Segoe UI (the InfoRenderer's spritefont source) is not, and neither is Impact, which is
+  why the Impact look is Anton. Embedded so no on-disk path has to exist at runtime and nothing flows through
+  the MGCB content pipeline.-->
   <ItemGroup>
     <EmbeddedResource Include="Content\Fonts\Anton-Regular.ttf" />
     <EmbeddedResource Include="Content\Fonts\Inter-Regular.ttf" />
     <EmbeddedResource Include="Content\Fonts\Inter-Bold.ttf" />
+    <EmbeddedResource Include="Content\Fonts\PromptFont.ttf" />
   </ItemGroup>
   <!--The levels and the set that orders them. Plain files copied beside the exe rather than MGCB content:
   they are data the game reads with System.Text.Json at runtime, not assets the pipeline compiles, and keeping
