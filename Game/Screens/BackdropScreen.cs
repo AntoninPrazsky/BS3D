@@ -1057,9 +1057,16 @@ namespace BS3D.Screens
             //reached at all once a session is on the stack.
             //
             //IT IS THE SAME OBJECT ON BOTH PAGES, and the page only says WHICH COMPOSITION it is heading for:
-            //the title card wants the whole name on one line in the middle of the frame, the menu wants it in
-            //the corner. The move between them belongs to the wordmark, so no page can leave it stranded half
-            //way across the frame, and the splash's replacement by the menu is what starts it (#248).
+            //under the splash it stands in the 2D logo's own layout in the middle of the frame, where the
+            //picture is cross-fading into it (#454); the menu wants it in the corner. The move between them
+            //belongs to the wordmark, so no page can leave it stranded half way across the frame, and the
+            //splash's replacement by the menu is what starts it (#248).
+            //
+            //UNDER THE SPLASH IT IS DRAWN ONLY ONCE THE HAND-OVER HAS BEGUN (SplashPage.WordmarkShown). The
+            //page opens black with the picture over it and the scene arrives behind the picture first; letters
+            //standing in the scene from frame one would show round the picture's edges as the black went, and
+            //the title would be seen arriving twice. From the frame the picture starts to thin, the letters
+            //are under it in its own place, and what the picture leaves behind is them.
             //
             //After the balls and BEFORE the drain's glass, so the frame's stated order holds — every opaque
             //thing, then everything translucent. It states its own three states and puts them back.
@@ -1070,7 +1077,7 @@ namespace BS3D.Screens
             //block's SIZE, the reveal's own idiom, because the letters are opaque geometry and have no alpha
             //to fade.
             Screen active = Manager?.Active;
-            if (active is MainMenuPage || active is SplashPage)
+            if (active is MainMenuPage || (active is SplashPage splash && splash.WordmarkShown))
                 Game.TitleWordmark?.Draw(Game.Camera, Game.WallClock, settled: active is MainMenuPage,
                     presence: MathHelper.Lerp(1f, WORDMARK_ASIDE_SCALE, Closeness(_flightClock)));
 

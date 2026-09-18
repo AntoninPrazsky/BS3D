@@ -3728,11 +3728,15 @@ Zapsáno do `.claude/skills/design-references/SKILL.md` (varování nahoře) a s
 
 **Mergnuto jako `b0e7c33`** (větev smazána na obou stranách) **a zkušební jízda proběhla**: `workflow_dispatch` z `main`, run 35342399700, **2 min 32 s** celkem. Runner vydal `BS3D-dev-b0e7c33-win-x64` — **511 souborů / 161 MB**, přesně tolik co lokálně, **70,0 MB zip** (lokálně 68,3; rozdíl dělá `Compress-Archive` pwsh 7 proti PS 5.1, ne obsah), krok „Publish the GitHub Release" **skipped** a seznam releaseů zůstal prázdný. **Artefakt jsem stáhl a spustil**: okno naběhlo, `[levels]` 110 levelů a `[build] shaders 37 set 64f83ff5` — **týž hash sady shaderů jako lokální build**, takže content pipeline na runneru vyrobila totéž. Save majitele opět beze změny.
 
-**Majitelovo rozhodnutí (18. 9.): první release bude `v0.1.0`, ale až s logem — tag tedy čeká na #454.** Do té doby žádný release neexistuje a `/releases/latest` v README je 404; kdo #454 domerguje, ať to majiteli připomene. S logem poroste zip ze **70,0 MB na ~80 MB** (`.xnb` loga je 10,4 MB).
+**Majitelovo rozhodnutí (18. 9.), dvakrát a pokaždé směrem k „ještě ne": první release bude `v0.1.0` a čeká na #454 (logo) i na #189 (tutoriál).** Tutoriál se k releasu přivázal sám — je chtěný právě proto, že si v0.1.0 stáhne kdokoli, takže první stažitelný build má hráče umět hru naučit. Do té doby žádný release neexistuje a `/releases/latest` v README je 404. **A pozor na to, co z toho plyne pro merge: tag zabalí, co na `main` v tu chvíli stojí** — kdo mergne něco rozdělaného před tagem, vydal to.
+
+⚠ **Moje „~80 MB s logem" byl odhad a je špatně.** Vzal jsem 10,4 MB `.xnb` jako přírůstek zipu, jenže ta textura je z velké části průhledná čerň a deflate ji složí na jednotky MB; session #454 naměřila lokální publish s logem na **70,9 MB** proti 68,3 bez něj. Číslo z runneru vytiskne workflow samo („MB zipped") v běhu, který release vydá — do zápisu o releasu tedy nepůjde odhad, ale to, co změřil stroj, který ten zip vyrobil.
 
 ⚠ **A dvě věci o sdíleném stromu, obě z dneška a obě dražší, než vypadají.** Za prvé: v tomhle checkoutu jela **souběžně druhá session** (`bs3d-99`, #454) a můj `git checkout --detach origin/main` jí shodil merge o její rozepsané `Images/logo`. Co funguje: **merge bez sáhnutí na working tree** — `git merge-tree --write-tree origin/main <větev>`, `git commit-tree <tree> -p origin/main -p <větev> -m "…"`, `git push origin <sha>:main`; HEAD ani index se nehnou. Za druhé, a to je ta dražší: **plumbing před starým obsahem v ruce nechrání.** Tenhle odstavec tu už jednou stál (`f0134fe`) a `6e34cf7` ho **beze slova přepsal** starší kopií souboru — blob se postavil z pracovní kopie, která mou verzi ještě neměla. Pravidlo: **obsah ber těsně před commitem z `origin/main`** (`git show origin/main:<cesta>`), ne z pracovního stromu; u `docs/agent-notes.md` to platí dvojnásob, protože do něj píšou obě session.
 
-**Nic si neberu — čekám, až #454 přistáne, pak jde ven `v0.1.0`.**
+⚠ **A jedno pravidlo pro tři session najednou:** zadání, které majitel dal **jiné** session, není zadání pro mě. #189 mě požádala, ať kvůli ní tag podržím, s odvoláním na to, co jí majitel řekl — správná reakce nebyla ani poslechnout, ani odmítnout, ale **zeptat se majitele přímo** a nechat rozhodnutí na něm (odpověděl „počkat i na #189"). Relay od peera je informace, ne rozhodnutí; držení tagu mezitím nic nestálo, protože se stejně čeká na #454.
+
+**Nic si neberu — držím tag, dokud nepřistánou #454 i #189.**
 
 ---
 
@@ -3756,3 +3760,30 @@ Zapsáno do `.claude/skills/design-references/SKILL.md` (varování nahoře) a s
 **`Images/logo/logo-9110-x4.png` a `logo-tube-9110.png` jsou netrackované, ale nic neriskují** — jsou bajtově shodné s originály v `C:\Users\panrd\AI\sd\out` (`54aa3839…`, `9ef96257…`), kde leží i `.txt` s promptem a seedem. Tvrdil jsem peerovi, že jsou to jediné kopie; **nebyla to pravda a neověřil jsem si to, než jsem to řekl.** Jestli 11MB master patří do veřejného repa, je otevřená otázka na majitele.
 
 **Nic si neberu.**
+
+---
+
+## 2026-09-18 — Claude Code (checkout `C:\Users\panrd\source\repos\BS3D`, #454 logo intro — hotové a v mainu)
+
+**#454 je v mainu, a je to ta „stretch" verze.** Majitel zadání v průběhu změnil: *„budu chtít tu verzi, která z 2D bitmapy prolne do 3D loga… nemusí to být dokonalé a 1:1, bude tam prolínačka, ale stejně to bude efektní."* Takže logo na konci **nezhasne samo**, ale **stane se 3D wordmarkem**, a ten pak odletí do rohu. Větev `454-logo-intro`, jeden commit + deník, merge plumbingem (viz níže).
+
+**Sekvence (`SplashPage`):** černá → logo se vynoří (0,7 s) → drží (1,0 s) → **černá** se prolne do scény, logo zůstává nad ní (1,0 s) → **logo** se prolne do 3D písmen (0,8 s) → 0,35 s samotná písmena uprostřed → menu vezme stránce místo a blok odletí do rohu (`MORPH_SECONDS` 1,15 s jako dřív). Všechno smoothstep, nic nestříhá. **Časy jsou výchozí bod, ne měření** — issue říká, že rozhoduje majitelovo oko. Celé intro trvá 3,85 s (dřív 2,6 s).
+
+**Jak se 2D a 3D kryjí:** otevřená kompozice wordmarku už není „celé jméno na jednom řádku", ale **rozvržení bitmapy** — tři řádky na střed, „3D" malé (`LOGO_BADGE_SCALE` 0,53), mezery změřené z PNG (`LOGO_LINE_GAP` 0,02, `LOGO_BADGE_GAP` 0,12, `LOGO_DISC_MARGIN` 0,38 cap výšky — spodek fialového odznaku, aby střed bloku byl středem obrázku). Měřeno přímo z `bs3d-logo-2048.png` (alpha > 128): BUBBLE řádky 31–441, SHOOTER 448–865, glyfy „3D" 906–1117, spodek disku 1242. Podíl rámu si otevřená kompozice bere **z obdélníku, do kterého splash bitmapu nakreslil** (`TitleWordmark.BeginHandover(wFrac, hFrac)`), protože bitmapa se umisťuje v pixelech a její podíl rámu je věc konkrétního spuštění. Na záběru z 900p uprostřed prolínačky stojí obě verze řádek na řádku, geometrie o chlup užší uvnitř tlustých balónkových písmen; odznakový disk, na který abeceda nemá protějšek, se prostě rozpustí s obrázkem. **Není to 1:1 a majitel řekl, že být nemusí.**
+
+**Wordmark začíná usazený v rohu** (`_morph = _reveal = 1`): jediné, co ho postaví doprostřed, je `BeginHandover` ze splashe. `play` boot ani skip před začátkem prolínačky ho tedy nikdy neuvidí letět ze středu — ruší to i „nájezd ze středu do rohu" po návratu z `play`, který tam dřív byl. Backdrop ho pod splashem kreslí **až od začátku prolínačky** (`SplashPage.WordmarkShown`) — dřív by vykukoval kolem okrajů bitmapy, když mizí černá. `REVEAL_FROM` 0,58 → 0,86: písmena se pod mizejícím obrázkem jen dofouknou, ne nafouknou z poloviny.
+
+**Naměřeno:**
+- **Pixelová přesnost 1:1 ověřená:** fullscreen 3840×1600, logo 2048×1267 na (896,166), proti premultiplikované bitmapě 7,8 milionu vzorků kanálů, **max rozdíl 1, průměr 0,03** (zaokrouhlení premultiply). Pravidlo `min(w/3840, h/1600)`, obdélník zaokrouhlený na celé pixely.
+- **Zip: odhad „~80 MB" byl špatně.** `.xnb` má 10,4 MB na disku, ale je to z většiny průhledná černá a deflate ho stlačí na ~2,6 MB: lokální self-contained publish **68,3 → 70,9 MB** (512 souborů, 170,9 MB rozbaleno). Na runneru tedy čekat ~72,6 místo 70,0. Opraveno v `Content.mgcb`, `CLAUDE.md`, `docs/game-shell.md`; bs3d-eb to zapsal i do plánu release notes.
+- **Cena intra: žádná.** `logfps` bez záběrů: 78 fps (strop obnovovací frekvence, ssaa 2x, high) celé intro.
+
+⚠ **Past pro focení intra: `shot=` po 0,3 s shodí hru na 3 fps a probe sníží kvalitu na Medium.** PNG encode je na vlákně snímku; první série 12 záběrů skončila s „Quality lowered to Medium" v záběru. Kdo intro fotí, ať fotí v jiném běhu, než ve kterém posuzuje snímkovou frekvenci. (Zapsáno v `docs/game-shell.md` u splashe.)
+
+⚠ **Syntetický vstup do okna hry NEDORAZÍ.** `AppActivate` z agentního shellu vrátí bez chyby, ale popředí nepřevezme (Windows foreground lock), takže `SendKeys` i držený `keybd_event` (120 ms) jdou do **toho okna, které má majitel v popředí** — tři pokusy o skip mezerníkem hra neviděla (záběry ukázaly sekvenci běžící dál) a teprve třetí mi došlo proč. **Skip tedy není ověřený reálným stiskem**; jeho logika je oproti mainu beze změny (`SKIP_AFTER`, zmrazené snímky vstupu) a „titul rovnou v rohu po skipu" plyne z výchozího `_morph = 1`. Majitel ať to zmáčkne sám. `play` boot ověřen (rovnou level, bez intra, `[field]`/`[camera]` v logu).
+
+**Otevřené pro majitele:** (1) časování legů — oko; (2) skip je střih, ne zrychlení — záměr, ale je to rozhodnutí; (3) nad 3840 px šířky se bitmapa zvětšuje nad 1:1 a změkne — master 4864×3328 je v `Images/logo`, větší export je jen velikost souboru; (4) „3D" v otevřené kompozici je malé jako v obrázku a během letu roste na `BADGE_SCALE` — kdyby to působilo slabě, je to jedna konstanta.
+
+**Koordinace:** bs3d-eb (#453) i bs3d-d7 (#189, vlastní worktree `BS3D-189`) potvrdili, že se tohohle stromu nedotknou; merge dělám plumbingem (`merge-tree --write-tree` + `commit-tree` + `push <sha>:main`) a tenhle zápis je postavený z `git show origin/main:docs/agent-notes.md` těsně před hashováním, podle pravidla výše. **Tag v0.1.0 při tomhle merge nepadá** — majitel rozhodl, že release čeká i na #189.
+
+**Nic dalšího si neberu.**
