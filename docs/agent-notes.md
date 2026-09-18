@@ -3677,3 +3677,22 @@ Zapsáno do `.claude/skills/design-references/SKILL.md` (varování nahoře) a s
 **Pozor na `main` v `BS3D-322`:** ten worktree má `main` na `1ace6c0`, což je **90 commitů za `origin/main`**. Není to divergence, jen zapomenutý checkout — ale `git checkout main` v hlavním worktree kvůli němu selže a `git push origin main` odmítne rewind. Merge jsem proto udělal přes `git checkout --detach origin/main` a `git push origin HEAD:main`.
 
 **Nic si neberu, čekám na majitelovo rozhodnutí, jak logo dodělat.**
+
+---
+
+## 2026-09-18 — Claude Code (checkout `C:\Users\panrd\source\repos\BS3D`)
+
+**Průchod na majitelovo zadání „pošlu ti poznámky, ze kterých založ issues" — osm založených (#445–#452), žádný kód.** Zapisuji sem ze stejného důvodu jako zápis z #353–#358: tenhle deník má na duplicitní zakládání vlastní jizvu.
+
+- **#445 Tropical** — pláž chce detail a rozmanitost, navrženo přes `design-references`. Dnes: čtyři varianty palmy, 110 kusů, kamenná šňůra na čáře vody, laguna na `Sea.fx`. **V žádném levelu kampaně se nehraje** (11 bloků jede na jedenácti jiných scénách), takže je to backdrop, který si hráč vybere v menu.
+- **#446 Hudba — dodělat výměnu.** #443 dodalo 11 stop, ale **jedenáct kapitol se dělí o pět skladeb** (pulse hraje Meadow, Quarry i Arcade; bohemia Tower + Spectrum; nocturne Reveal + Nebula; mural Gallery + Mirage; ember Coil + Eruption). `Research/AI-Music/game-track-01.wav` je vyrenderovaná nová skladba, která nikdy nedostala slot. Fanfáry zůstaly procedurální (`GameMusic.cs:68,284-295`) a #443 je nechalo „mimo rozsah, pokud majitel neřekne jinak" — tohle je to „jinak". Za ponechání fanfár procedurálních mluví `TryGetFanfare`/#158: nahrávka nemá tóninu ani tempo, které HUD čte.
+- **#447 Úvodní prohlídka Meadow se dívá do země.** Není to dojem, je to v číslech: `SceneRenderer.cs:1857` míří 70 jednotek ven, **25 jednotek uvnitř ploché mýtiny o poloměru 95**, jednu jednotku nad trávou — kopce (jediný reliéf scény) začínají až za tím. A `6f` elevace se měří od středu prohlídky, což je cílová výška kamery levelu nahoře u shluku, ne od trávy na −14. Komentář na 1854-1856 dnešní záběr **výslovně obhajuje** („subjektem louky jsou květiny"), takže se musí přepsat spolu s kódem.
+- **#448 Přesné míření + A/D trhá obraz.** Pořadí updatu je v pořádku (kanón na `GameplayScreen.cs:1253`, kamera na 1339, komentář v `Camera.cs:71-74` to hlídá schválně). Neověřená stopa: hra nevsyncuje a `FrameLimiter` cílí **3 % NAD refresh** (`REFRESH_MARGIN`, `FrameLimiter.cs:41`) — což je obhájené v termínech *doručených snímků*, nikdy proti *pohybu*, a plynulý pan přes celou obrazovku je nejcitlivější test pacingu, jaký hra má. Testbed to umí odehrát bez klávesnice (`hold=` na A + `rmb=` přes týž interval) a jeho idle **spinuje celou periodu**, kde herní většinu prospí — takže je to zároveň rozlišovač.
+- **#449 Hudba Meadow nesedí** — pulse je moll eurodance/trance pod rozkvetlou loukou. Nejde přegenerovat slot: `pulse` hraje i Quarry (Měsíc) a Arcade (neon). Chce to novou skladbu ve vlastním slotu, čímž to visí na #446.
+- **#450 Pohár: dva pásy ťupek v podstavci jsou přerušené kvůli uchu, které tam není.** Jednořádková věc: `BeadRow` aplikuje `NearHandle` na všechny čtyři řady (`TrophyPodium.cs:520`), ale dvě z nich jsou bubínek podstavce na `y = 0,028` a `0,110`, zatímco nejnižší bod ucha je `y = 0,580` (`TrophyMesh.cs:210-213`). Každá z těch dvou řad ztrácí **deset ťupek z devadesáti** ve dvou obloucích po 18,3°. Vlastní komentář konstanty už říká „the handle's upper root lands in **the band**". Stříbro (ťupky bez uch) je uzavřené dokola — to je důkaz, že příčina je ten skip a nic na geometrii bubínku.
+- **#451 Savana** — čtyři varianty akácie a dvě keře na celou scénu; upgrade přes reference, ale s měřením ceny (#165/#172 ji mají v historii jako drahou scénu).
+- **#452 README screenshot** — od jeho pořízení (28. 8.) přistálo na mainu **187 merge commitů**, a v záběru je navíc ladicí `FPS: 78`. Majitel chce starý nemazat, jen nezobrazovat — přesně to už jednou proběhlo jako `d78028d`, takže je na to vzor. Obě jména `screenshot1.*` jsou obsazená.
+
+⚠ **Sémantická kontrola duplicit NEPROBĚHLA**: `Tools/SemanticSearch` potřebuje LM Studio na `localhost:1234` a to teď neodpovídá (HTTP 000). Duplicity jsem procházel ručně přes `gh issue list --search` po tématech (tropical/savanna, music, trophy, README) plus celý seznam otevřených. Kdo na těchhle issues sáhne, ať kontrolu pustí znovu — a platí, co je v deníku už zapsané: **kontrola duplicit má životnost v minutách**.
+
+**Nic si neberu.**
