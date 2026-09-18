@@ -3727,3 +3727,26 @@ Zapsáno do `.claude/skills/design-references/SKILL.md` (varování nahoře) a s
 ⚠ **README odkazuje na `/releases/latest`, což je 404, dokud nepadne první tag.** Merge a tag proto patří k sobě; pořadí je merge → ruční běh (zkouška, nic se nepublikuje) → `v0.1.0`. **Tag je majitelovo rozhodnutí** — je to první věc z tohohle repa, která jde ven k lidem, a exe je **nepodepsané** (certifikát je jediná část téhle úlohy, která stojí peníze), takže SmartScreen při prvním spuštění zahlásí „Windows protected your PC". Release notes to hráči říkají rovnou i s cestou ven (More info → Run anyway).
 
 **Nic dalšího si neberu — čekám na majitelovo slovo k merge a tagu.**
+
+---
+
+## 2026-09-18 — Claude Code, bs3d-9f (logo hotové, #454 založené; oprava mého dřívějšího zápisu)
+
+**Ruším větu z dnešního ranního zápisu „čekám na majitelovo rozhodnutí, jak logo dodělat".** Logo je hotové a v mainu.
+
+**Cesta k němu:** seed 9110 z těch šestnácti variant → `sd-cli -M upscale` s RealESRGAN x4plus_anime_6B na 4864×3328 → vystřižení pozadí do straight alfy → `Images/logo/bs3d-logo-2048.png` (2048×1267), sloučeno jako `a0cce59`. **Zacommitoval jsem ho záměrně před funkcí**: `build.yml` staví na `windows-latest`, takže záznam v `.mgcb` mířící na necommitnutý soubor neshodí druhý stroj, ale rovnou CI.
+
+**Majitel vybral prostý řez podle souvislosti, protože zachovává fialový lem kolem písmen** („alespoň náznaky"). Tím **zamítl obě rozhodnutí matting sítě** — ta lem zahodila a udělala vnitřky písmen průhledné. Já jsem do skillu napsal, že ten lem „kdekoli jinde působí jako obrys samolepky"; **byl to odhad vydávaný za zjištění a byl špatně**, opraveno v `8c6874c`. Hybrid a verze od sítě jsou alternativy, ne vylepšení.
+
+**Naměřeno a zapsané v `.claude/skills/design-references/SKILL.md`:**
+- **sd-server je nespolehlivý, ne mrtvý.** Ráno sedm pádů ze sedmi (včetně Q4 bez offloadu, který se celý vešel na kartu — `VRAM 7921.64MB, RAM 0.00MB` — a spadl o to dřív). Odpoledne **šestnáct obrázků v kuse čistě, beze změny konfigurace**. Majitel mezitím dělal na napájení a potvrdil, že už nepadá ani hra bez capu.
+- **Hires fix je na tomhle stroji mimo hru:** druhý průchod ve 2432×1664 nedostal pinned buffer, **680 a 889 s na krok** proti 3,45 s, 77,5 GB commitu, stroj na 92,2 z 92,4 GB limitu. Zvětšovat se musí upscalerem, ne přegenerováním.
+- **Větší model nevyhrál:** BiRefNet full (973 MB) rozmazal písmena tam, kde lite (224 MB) ne.
+
+**#454** — po spuštění hry se má zobrazit tahle 2D bitmapa nad černou, pak se scéna prolne dovnitř a logo vyblednout. Ruší to nájezd 3D wordmarku ze středu do rohu, takže **komentáře v `SplashPage`, `MainMenuPage` a `TitleWordmark` se tím stanou lživými** — popisují ten přesun jako důvod, proč #248 vyprázdnilo 2D kartu. Musí se přepsat ve stejné změně. Vzorec na 1:1 v majitelově pásmu je `min(width/3840, height/1600)`; `.xnb` bude 10,4 MB (BC3 blokuje 1267 nedělitelné čtyřmi), což zvětší release zip ze 68 na ~78 MB — rozhodnutí je majitelovo a je zapsané v issue.
+
+⚠ **Sdíleli jsme s bs3d-eb jeden pracovní strom**, ne oddělené worktrees, takže se srážely i `git checkout`. Řešení, které funguje: merge udělat **plumbingem** (`git merge-tree --write-tree` + `commit-tree` + `push <sha>:main`), pracovní strom se pak vůbec nedotkne. Tenhle zápis je tak zapsaný taky.
+
+**`Images/logo/logo-9110-x4.png` a `logo-tube-9110.png` jsou netrackované, ale nic neriskují** — jsou bajtově shodné s originály v `C:\Users\panrd\AI\sd\out` (`54aa3839…`, `9ef96257…`), kde leží i `.txt` s promptem a seedem. Tvrdil jsem peerovi, že jsou to jediné kopie; **nebyla to pravda a neověřil jsem si to, než jsem to řekl.** Jestli 11MB master patří do veřejného repa, je otevřená otázka na majitele.
+
+**Nic si neberu.**
