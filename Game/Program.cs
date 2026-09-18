@@ -19,6 +19,11 @@ namespace BS3D
             //Null means "nobody said", which is what lets the settings file answer instead (#354). A plain
             //false could not say the difference between "the player asked for a window" and "no argument was
             //given", so a stored fullscreen would have been silently ignored on every launch.
+            //
+            //Both sides are wired since #455: the stored default became fullscreen, so a run on a machine with
+            //no settings file — a fresh checkout, a downloaded release, a scripted capture on either — had no
+            //way left to ask for a window at all. "windowed" is that way, and it is the false this has always
+            //been able to carry.
             bool? fullscreen = null;
             bool? uncappedFps = null;
 
@@ -145,6 +150,9 @@ namespace BS3D
             foreach (string arg in args)
             {
                 if (string.Equals(arg, "fullscreen", StringComparison.OrdinalIgnoreCase)) fullscreen = true;
+                //Its pair (#455). Neither is written back to the settings file — both are a run's instruction,
+                //like "mute" — so a windowed capture run leaves a player's stored fullscreen exactly as it was.
+                else if (string.Equals(arg, "windowed", StringComparison.OrdinalIgnoreCase)) fullscreen = false;
                 //"nocap" lifts the frame limiter's ceiling so real rendering headroom can be measured. It meant
                 //"disables vsync" until #270 — the game presents immediately in EVERY mode now, so all this
                 //picks is FrameLimiter's target.
