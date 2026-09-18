@@ -3696,3 +3696,34 @@ Zapsáno do `.claude/skills/design-references/SKILL.md` (varování nahoře) a s
 ⚠ **Sémantická kontrola duplicit NEPROBĚHLA**: `Tools/SemanticSearch` potřebuje LM Studio na `localhost:1234` a to teď neodpovídá (HTTP 000). Duplicity jsem procházel ručně přes `gh issue list --search` po tématech (tropical/savanna, music, trophy, README) plus celý seznam otevřených. Kdo na těchhle issues sáhne, ať kontrolu pustí znovu — a platí, co je v deníku už zapsané: **kontrola duplicit má životnost v minutách**.
 
 **Nic si neberu.**
+
+---
+
+## 2026-09-18 — Claude Code (checkout `C:\Users\panrd\source\repos\BS3D`, druhý zápis dne)
+
+**#453 (nově založené): `release.yml` — stahovatelná binárka, kterou hráč na Windows 10/11 rozbalí a spustí, aniž by cokoli instaloval.** Větev `453-release-workflow`. Majitelova otázka zněla „jde to, a bez placení GitHubu?" — jde, a **zdarma to je proto, že tenhle repozitář je public**: standardní runnery ani úložiště/přenos releasů se u public repozitářů neúčtují. (Na private by se Windows minuty počítaly **dvojnásobnou** sazbou — proto je ta věta i v komentáři workflow.)
+
+**Změřeno lokálně dřív, než jsem cokoli napsal** (`dotnet publish Game/Game.csproj -c Release -r win-x64 --self-contained true`):
+
+| co | kolik |
+|---|---|
+| rozbaleno | 163 MB, 511 souborů |
+| zip | **68,3 MB** (limit assetu je 2 GB) |
+| obsah | 38 `.xnb` (**stejný počet jako běžný build** — nic se cestou neztratilo), 111 levelů, 11 `.ogg` |
+
+**Binárka byla opravdu spuštěná** mimo strom (`%TEMP%\bs3d-pub\BS3D.exe mute`): okno naběhlo, `[build]` ohlásil 37 shaderů, `[levels]` načetl 110 levelů, stderr prázdný. **Save majitele je před i po bajt za bajtem stejný** (hashe `Settings.json` i `Progress.json` kontrolované kolem běhu) — to je tady pravidlo, ne zdvořilost.
+
+**Proč to vůbec může fungovat bez instalace:** `MonoGame.Framework.WindowsDX` 3.8.5 nese v balíčku **jedinou managed assembly a žádnou nativní knihovnu**, takže jediné nativní závislosti jsou d3d11/dxgi/XAudio2 samotných Windows (od Win10 1607 přítomné) — self-contained publish přibalí zbytek runtime a tím je seznam úplný.
+
+**Rozhodnutí zapsaná do workflow, aby je nikdo neobjevoval znovu:**
+- **Bez trimu a bez single-file.** Myra, FontStashSharp i content pipeline sahají na typy reflexí a `Content/`, `Levels/`, `Music/` stejně musí ležet vedle exe — jeden soubor by nekoupil nic a rozbít umí hodně. `.pdb` zůstávají schválně: bez nich je hráčův crash report bez čísel řádků.
+- **Publikuje jen tag `v*`.** Tlačítko „Run workflow" udělá **týž build** a nechá zip jen jako artefakt workflow — zkušební jízda, po které ven nejde nic.
+- **Krok „Check the published folder is playable"** ověří pět věcí (exe, `coreclr.dll`, zkompilované shadery, levely, hudba). Složka plná DLL bez contentu je pořád složka plná DLL a ta chyba by se jinak projevila až u hráče.
+- `Compress-Archive` nad **adresářem** drží ten adresář uvnitř archivu — rozbalení položí jednu složku, ne tři stovky souborů do Downloads.
+- **Nic se nedupluje s `build.yml`:** jeho `on: [push]` je bez filtru, takže střílí **i na push tagu** — obě brány (determinismus LevelGenu, ScoreSim) tedy u releasu běží vedle, aniž by je release workflow opisoval.
+
+**Ověření toho, co ověřit šlo, dokud workflow není na mainu:** YAML rozparsován, každý `run` blok protažen PowerShell parserem (6/6 bez chyby), krok s kontrolou složky **spuštěn lokálně v obou větvích** (pozitivní: 511 souborů/161 MB; negativní: po schování `Music` správně hodil „the published folder is missing: the music"), a u `gh release create` ověřeno, že kombinaci `--notes-file` + `--generate-notes` CLI přijímá. **Vlastní běh na GitHubu ověřený NENÍ a být nemůže** — `workflow_dispatch` jde spustit až z výchozí větve.
+
+⚠ **README odkazuje na `/releases/latest`, což je 404, dokud nepadne první tag.** Merge a tag proto patří k sobě; pořadí je merge → ruční běh (zkouška, nic se nepublikuje) → `v0.1.0`. **Tag je majitelovo rozhodnutí** — je to první věc z tohohle repa, která jde ven k lidem, a exe je **nepodepsané** (certifikát je jediná část téhle úlohy, která stojí peníze), takže SmartScreen při prvním spuštění zahlásí „Windows protected your PC". Release notes to hráči říkají rovnou i s cestou ven (More info → Run anyway).
+
+**Nic dalšího si neberu — čekám na majitelovo slovo k merge a tagu.**

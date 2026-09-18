@@ -9,6 +9,19 @@ things out — nothing here is trying to be groundbreaking, it's just a small ga
 
 ![Screenshot](/Images/screenshot1.jpg)
 
+## Download and play
+
+Windows 10 or 11, 64-bit, and **nothing to install** — the .NET runtime, MonoGame and everything else the
+game needs travel inside the zip.
+
+Take the newest [release](https://github.com/AntoninPrazsky/BS3D/releases/latest), right-click the zip →
+Properties → tick **Unblock** (Windows marks everything it downloads), extract it and run `BS3D.exe`. The
+exe is not code-signed, so SmartScreen says "Windows protected your PC" the first time: **More info → Run
+anyway**. Progress and settings live in `%LOCALAPPDATA%\BS3D` rather than in the game's folder, so that
+folder can be replaced or deleted without losing a save.
+
+Everything below is about building it yourself instead.
+
 ## What's in the repo
 
 - **`Game`** — the shipping game (`BS3D.exe`): a menu-driven front end (main menu, settings, a level
