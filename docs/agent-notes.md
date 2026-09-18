@@ -3728,11 +3728,15 @@ Zapsáno do `.claude/skills/design-references/SKILL.md` (varování nahoře) a s
 
 **Mergnuto jako `b0e7c33`** (větev smazána na obou stranách) **a zkušební jízda proběhla**: `workflow_dispatch` z `main`, run 35342399700, **2 min 32 s** celkem. Runner vydal `BS3D-dev-b0e7c33-win-x64` — **511 souborů / 161 MB**, přesně tolik co lokálně, **70,0 MB zip** (lokálně 68,3; rozdíl dělá `Compress-Archive` pwsh 7 proti PS 5.1, ne obsah), krok „Publish the GitHub Release" **skipped** a seznam releaseů zůstal prázdný. **Artefakt jsem stáhl a spustil**: okno naběhlo, `[levels]` 110 levelů a `[build] shaders 37 set 64f83ff5` — **týž hash sady shaderů jako lokální build**, takže content pipeline na runneru vyrobila totéž. Save majitele opět beze změny.
 
-**Majitelovo rozhodnutí (18. 9.): první release bude `v0.1.0`, ale až s logem — tag tedy čeká na #454.** Do té doby žádný release neexistuje a `/releases/latest` v README je 404; kdo #454 domerguje, ať to majiteli připomene. S logem poroste zip ze **70,0 MB na ~80 MB** (`.xnb` loga je 10,4 MB).
+**Majitelovo rozhodnutí (18. 9.), dvakrát a pokaždé směrem k „ještě ne": první release bude `v0.1.0` a čeká na #454 (logo) i na #189 (tutoriál).** Tutoriál se k releasu přivázal sám — je chtěný právě proto, že si v0.1.0 stáhne kdokoli, takže první stažitelný build má hráče umět hru naučit. Do té doby žádný release neexistuje a `/releases/latest` v README je 404. **A pozor na to, co z toho plyne pro merge: tag zabalí, co na `main` v tu chvíli stojí** — kdo mergne něco rozdělaného před tagem, vydal to.
+
+⚠ **Moje „~80 MB s logem" byl odhad a je špatně.** Vzal jsem 10,4 MB `.xnb` jako přírůstek zipu, jenže ta textura je z velké části průhledná čerň a deflate ji složí na jednotky MB; session #454 naměřila lokální publish s logem na **70,9 MB** proti 68,3 bez něj. Číslo z runneru vytiskne workflow samo („MB zipped") v běhu, který release vydá — do zápisu o releasu tedy nepůjde odhad, ale to, co změřil stroj, který ten zip vyrobil.
 
 ⚠ **A dvě věci o sdíleném stromu, obě z dneška a obě dražší, než vypadají.** Za prvé: v tomhle checkoutu jela **souběžně druhá session** (`bs3d-99`, #454) a můj `git checkout --detach origin/main` jí shodil merge o její rozepsané `Images/logo`. Co funguje: **merge bez sáhnutí na working tree** — `git merge-tree --write-tree origin/main <větev>`, `git commit-tree <tree> -p origin/main -p <větev> -m "…"`, `git push origin <sha>:main`; HEAD ani index se nehnou. Za druhé, a to je ta dražší: **plumbing před starým obsahem v ruce nechrání.** Tenhle odstavec tu už jednou stál (`f0134fe`) a `6e34cf7` ho **beze slova přepsal** starší kopií souboru — blob se postavil z pracovní kopie, která mou verzi ještě neměla. Pravidlo: **obsah ber těsně před commitem z `origin/main`** (`git show origin/main:<cesta>`), ne z pracovního stromu; u `docs/agent-notes.md` to platí dvojnásob, protože do něj píšou obě session.
 
-**Nic si neberu — čekám, až #454 přistáne, pak jde ven `v0.1.0`.**
+⚠ **A jedno pravidlo pro tři session najednou:** zadání, které majitel dal **jiné** session, není zadání pro mě. #189 mě požádala, ať kvůli ní tag podržím, s odvoláním na to, co jí majitel řekl — správná reakce nebyla ani poslechnout, ani odmítnout, ale **zeptat se majitele přímo** a nechat rozhodnutí na něm (odpověděl „počkat i na #189"). Relay od peera je informace, ne rozhodnutí; držení tagu mezitím nic nestálo, protože se stejně čeká na #454.
+
+**Nic si neberu — držím tag, dokud nepřistánou #454 i #189.**
 
 ---
 
