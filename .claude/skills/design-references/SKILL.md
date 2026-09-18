@@ -50,6 +50,20 @@ The script starts `sd-server` if nothing listens on port 7860 (LM Studio holds 1
 
 **Watch the variable name if you extend the script.** PowerShell identifiers are case-insensitive, so a parameter `$ServerArgs` *is* the local `$serverArgs` the script builds its command line in: the local assignment silently ate the parameter, the array was appended to itself, and the run looked normal while rendering at the old size with none of the flags. The parameter is `-ExtraServerArgs` for that reason. A rendered image proves nothing about which flags were used — read them back out of `server.log`.
 
+## Cutting the background out
+
+`cutout-alpha.py` turns a chosen reference into a straight-alpha RGBA PNG, cropped to what is drawn and scaled to a target width. It needs numpy, Pillow and scipy, which the **system Python does not have** — run it with the ComfyUI virtualenv's interpreter:
+
+```powershell
+& C:\Users\panrd\AI\ComfyUI\venv\Scripts\python.exe .\.claude\skills\design-references\cutout-alpha.py `
+    <in.png> <out.png> 2048 [t_lo] [t_hi]
+```
+
+- **A colour key does not work on this art and the reason generalises.** Between each letter and its outline runs a dark groove only ~16 units from the background colour, so any threshold that keeps the groove also keeps half the background. The script identifies background by **connectivity** instead: a near-background pixel is background only if it can be reached from the frame edge without crossing artwork, so grooves, letter counters and any enclosed dark stay opaque whatever their colour. Single grains of film noise clear the threshold too, and one at the frame edge stretches the crop box over the whole picture — regions under 256 px are dropped before the box is measured.
+- **Choose the cut from the image's own histogram.** On the logo the distance-from-background was cleanly bimodal: frame noise at ~1, the outer glow spanning 8–45, artwork above ~145 (the 70th and 75th percentiles of the frame were 43.7 and 145.2). The default 45/95 lands in that gap.
+- **Drop the glow unless the logo will sit on the dark background it was drawn against.** A glow drawn as light over dark plum is *darker* than a pale background, so over the game's sky it composites as a purple smudge rather than as light. Cutting at 25/80 to keep a little of it is worse than either extreme: un-compositing at low alpha drives the colour towards white and the word gets a pale sticker fringe.
+- The resize happens in **premultiplied** space and is un-premultiplied afterwards, or transparent pixels' colour bleeds into the edge. The PNG is straight alpha, which is what `Content.mgcb` wants — every content project here already passes `/processorParam:PremultiplyAlpha=True`, so the pipeline premultiplies on build and `BlendState.AlphaBlend` is correct. A texture loaded at runtime with `Texture2D.FromStream` instead is **not** premultiplied and will fringe.
+
 ## Showing them
 
 The owner judges whether a reference helps, so **publish a page**: each image with its prompt and one line on what it got right and what deviates from the prompt. #441 did it that way and the owner answered from the page.
