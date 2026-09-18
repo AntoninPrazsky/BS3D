@@ -3722,11 +3722,15 @@ Zapsáno do `.claude/skills/design-references/SKILL.md` (varování nahoře) a s
 - `Compress-Archive` nad **adresářem** drží ten adresář uvnitř archivu — rozbalení položí jednu složku, ne tři stovky souborů do Downloads.
 - **Nic se nedupluje s `build.yml`:** jeho `on: [push]` je bez filtru, takže střílí **i na push tagu** — obě brány (determinismus LevelGenu, ScoreSim) tedy u releasu běží vedle, aniž by je release workflow opisoval.
 
-**Ověření toho, co ověřit šlo, dokud workflow není na mainu:** YAML rozparsován, každý `run` blok protažen PowerShell parserem (6/6 bez chyby), krok s kontrolou složky **spuštěn lokálně v obou větvích** (pozitivní: 511 souborů/161 MB; negativní: po schování `Music` správně hodil „the published folder is missing: the music"), a u `gh release create` ověřeno, že kombinaci `--notes-file` + `--generate-notes` CLI přijímá. **Vlastní běh na GitHubu ověřený NENÍ a být nemůže** — `workflow_dispatch` jde spustit až z výchozí větve.
+**Ověření toho, co ověřit šlo, dokud workflow není na mainu:** YAML rozparsován, každý `run` blok protažen PowerShell parserem (6/6 bez chyby), krok s kontrolou složky **spuštěn lokálně v obou větvích** (pozitivní: 511 souborů/161 MB; negativní: po schování `Music` správně hodil „the published folder is missing: the music"), a u `gh release create` ověřeno, že kombinaci `--notes-file` + `--generate-notes` CLI přijímá. **Vlastní běh na GitHubu ověřený nebyl** — `workflow_dispatch` jde spustit teprve z výchozí větve, takže to bylo první, co po mergi následovalo; čísla jsou o odstavec níž.
 
 ⚠ **README odkazuje na `/releases/latest`, což je 404, dokud nepadne první tag.** Merge a tag proto patří k sobě; pořadí je merge → ruční běh (zkouška, nic se nepublikuje) → `v0.1.0`. **Tag je majitelovo rozhodnutí** — je to první věc z tohohle repa, která jde ven k lidem, a exe je **nepodepsané** (certifikát je jediná část téhle úlohy, která stojí peníze), takže SmartScreen při prvním spuštění zahlásí „Windows protected your PC". Release notes to hráči říkají rovnou i s cestou ven (More info → Run anyway).
 
-**Nic dalšího si neberu — čekám na majitelovo slovo k merge a tagu.**
+**Mergnuto jako `b0e7c33`** (větev smazána na obou stranách) **a zkušební jízda proběhla**: `workflow_dispatch` z `main`, run 35342399700, **2 min 32 s** celkem. Runner vydal `BS3D-dev-b0e7c33-win-x64` — **511 souborů / 161 MB**, přesně tolik co lokálně, **70,0 MB zip** (lokálně 68,3; rozdíl dělá `Compress-Archive` pwsh 7 proti PS 5.1, ne obsah), krok „Publish the GitHub Release" **skipped** a seznam releaseů zůstal prázdný. **Artefakt jsem stáhl a spustil**: okno našlo, `[levels]` 110 levelů a `[build] shaders 37 set 64f83ff5` — **týž hash sady shaderů jako lokální build**, takže content pipeline na runneru vyrobila totéž. Save majitele opět beze změny. Velikost zipu poroste s #454: logo `.xnb` je 10,4 MB, tedy ~78 MB.
+
+⚠ **A jedna věc do kroniky, protože se to stalo podruhé za den:** v tomhle checkoutu pracovala **souběžně druhá session** (`bs3d-99`, #454) a můj `git checkout --detach origin/main` jí shodil merge o její rozepsané `Images/logo`. Co se osvědčilo a patří sem: **merge bez sáhnutí na working tree** — `git merge-tree --write-tree origin/main <větev>`, `git commit-tree <tree> -p origin/main -p <větev> -m "…"`, `git push origin <sha>:main`. HEAD ani index se nehnou, takže se dvě session v jednom stromu nepřetahují; koordinace šla přes `ListAgents`/`SendMessage`.
+
+**Nic dalšího si neberu — čekám na majitelovo slovo k prvnímu tagu.**
 
 ---
 
