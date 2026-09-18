@@ -3657,3 +3657,23 @@ Průzkum menu všech scén ukázal poušť jako nejslabší:
 **Poznámka k save:** při spuštění hry ukazuje `Progress.json` 39 hvězd a 10 levelů (zapsáno 13:51, ve CPU-only fázi, bez spuštěné hry z mé strany). Ráno to bylo 395 hvězd a 100 levelů. Nesahal jsem na to.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-18 — Claude Code, bs3d-9f (logo pro hru; sd-server shodil stroj dvakrát)
+
+Majitel chtěl namalovat logo hry přes Z-Image-Turbo. **Dvě ze dvou spuštění `sd-server` skončila tvrdým restartem** (9:57:56 a 10:13:02, `Kernel-Power 41` + `6008`, BugcheckCode 0, bez WHEA a bez 4101). Dohromady je to **sedm ze sedmi** za 17. a 18. 9., přičemž bs3d-ed týž den udělal ~40 běhů Testbedu/Game a tři **nezastropované** benchmark sweepy úplně čistě.
+
+**Teorie o offloadu je vyvrácená, neopakovat ji.** Stálo v paměti i v dokumentaci, že spouštěčem je `--offload-to-cpu` a jeho streamování vah přes PCIe každý krok. Majitel navrhl zkusit Q4 bez offloadu; model se stáhl (`z_image_turbo-Q4_K.gguf`, 3,86 GB) a **vešel se celý na kartu** — auto-fit zapsal `total params memory size = 7921.64MB (VRAM 7921.64MB, RAM 0.00MB)`, nic v RAM, nic se nestreamovalo. Stroj spadl **během několika sekund po prvním sampling kroku, bez jediného obrázku**, tedy dřív než offloadovaný Q8 běh, který stihl čtyři. Majitelův závěr: *„velikost modelu nemá vliv"*. Spouštěčem je **Vulkan compute zátěž sd.cpp**, ne přenosy a ne velikost vah — což zároveň vysvětluje, proč jsou Testbed a Game v pohodě při jakémkoli FPS: rasterizace nemá profil hustého matmulu.
+
+Vyloučeno k dnešku: výměna kabelu, zvýšený power limit, snížený power limit o 10 %, Q8 s offloadem, Q4_K bez offloadu. **Před dalším spuštěním `sd-server` se ptát majitele** a říct mu, že je to sedm ze sedmi.
+
+Zapsáno do `.claude/skills/design-references/SKILL.md` (varování nahoře) a skript umí `-DiffusionModel`, `-Encoder` a `-NoOffload`, aby šla konfigurace pojmenovat; defaulty zůstaly. Sloučeno jako `050ad3f`.
+
+**Co přežilo:** čtyři obrázky v `C:\Users\panrd\AI\sd\out\logo`, ze šesti zamýšlených směrů dva. `logo-tube-word-9101/9102` je trefa — nafouknuté duhové trubkové písmo s tmavým lemem, text napsaný správně, v podstatě 2D verze toho, co `TitleWordmark` staví ve 3D. `logo-cluster-lockup-9201/9202` má dobrou kompozici, ale v promptu jsem jméno nevyhláskoval, takže model napsal „Locces"/„Locles" — **jméno se do promptu musí psát v uvozovkách**.
+
+⚠ **Zopakoval jsem chybu z 2026-09-17 o pár řádků výš: v jednom `&&`/`;` řetězci se smazala remote větev dřív, než prošel push.** Nic se neztratilo (lokální `git branch -d` i remote merge šly dorovnat), ale pravidlo platí doslova: **mazání větve až za ověřeným pushem, samostatným příkazem.**
+
+**Pozor na `main` v `BS3D-322`:** ten worktree má `main` na `1ace6c0`, což je **90 commitů za `origin/main`**. Není to divergence, jen zapomenutý checkout — ale `git checkout main` v hlavním worktree kvůli němu selže a `git push origin main` odmítne rewind. Merge jsem proto udělal přes `git checkout --detach origin/main` a `git push origin HEAD:main`.
+
+**Nic si neberu, čekám na majitelovo rozhodnutí, jak logo dodělat.**
