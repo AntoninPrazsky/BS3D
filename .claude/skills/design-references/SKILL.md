@@ -5,7 +5,9 @@ description: Draw reference images locally before designing how something in BS3
 
 # Design references
 
-The game draws everything procedurally, and designing a mesh or a material in code is easier with something concrete to look at. This skill renders that something locally. **The owner's verdict on the first twenty (#441, 2026-09-16): *„ty obrázky jsou skvělé“*.**
+The game draws everything procedurally, and designing a mesh or a material in code is easier with something concrete to look at. This skill renders that something locally. **The owner's verdict on the first twenty (#441, 2026-09-16): *„ty obrázky jsou skvělé”*.**
+
+> **⚠️ This renderer hard-resets the owner's desktop, and as of 2026-09-18 nothing has made it stop. Ask before running it.** Seven of seven runs on 2026-09-17 and 2026-09-18 ended in instant power loss (`Kernel-Power 41`, BugcheckCode 0, no WHEA, no 4101), the longest surviving four images and the shortest producing none — while roughly a hundred Testbed and Game runs across the same two days, uncapped ones included, were clean. **Do not re-run the configurations already ruled out:** a replaced GPU cable, the power limit raised, the power limit lowered 10 %, and `Q4_K` + the Q8 encoder with **no offload at all** (auto-fit reported `VRAM 7921.64MB, RAM 0.00MB`, everything resident, and it died within seconds of the first sampling step). Quantization and `--offload-to-cpu` are both irrelevant — the owner's own reading, *„velikost modelu nemá vliv”*, is what the logs show. What reproduces it is sd.cpp's **Vulkan compute** load, a different power profile from the rasterizing the three executables do. Assume every image a run produces will be lost, keep the output outside the repository, and have everything pushed before starting.
 
 ```powershell
 .\.claude\skills\design-references\render-references.ps1 -Name cup-gold -Width 832 -Height 1216 -Count 3 -Prompt "Studio product photograph of ..."
