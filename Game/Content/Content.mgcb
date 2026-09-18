@@ -14,7 +14,8 @@
 
 # Everything here is built straight out of the Testbed's content directory, so there is one copy of each
 # shader, texture and dome in the repository and a change reaches every executable at once (the map editor
-# does the same). Nothing in this project has content of its own yet.
+# does the same). The one exception is the logo below, which is the Game's alone and lives in Images/logo
+# beside its master — the same "build it where it already is" rule, pointed at a different directory.
 
 # The overlay's font (FPS). The same description the Testbed's overlay uses, so the two read alike.
 #begin ../../Testbed/Content/Fonts/segoeui.spritefont
@@ -23,6 +24,35 @@
 /processorParam:PremultiplyAlpha=True
 /processorParam:TextureFormat=Color
 /build:../../Testbed/Content/Fonts/segoeui.spritefont;Fonts/segoeui.spritefont
+
+# The 2D logo the game opens on (#454) — the game's first and only bitmap asset, 2048 x 1267 RGBA straight
+# alpha, cut out and trimmed to the drawing (Images/logo/README.md says how it was made and what must not be
+# quietly undone). Loaded as "Images/Logo" and drawn by SplashPage, pixel for pixel at the owner's resolutions.
+#
+# PremultiplyAlpha=True is what BlendState.AlphaBlend wants and what makes a fade a plain scale on Color;
+# loading the PNG with Texture2D.FromStream instead would skip it and fringe every edge.
+#
+# TextureFormat=Color, uncompressed, is a decision and not a default left standing: 2048 x 1267 x 4 is 10.4 MB
+# in the .xnb (/compress:False above), which is what lands beside the exe. What it costs the DOWNLOAD was
+# measured rather than reckoned from that figure, and the reckoning ("roughly 80 MB") was wrong: the file is
+# mostly transparent black and deflates to about 2.6 MB, so a local self-contained publish went from 68.3 MB
+# to 70.9 MB zipped. Compressed (BC3) would be a quarter of the on-disk size, but the height is not divisible
+# by four, so the file would have to be padded or resized first, and block compression on this logo's large
+# smooth gradients is exactly the case where banding shows. Padding to 1268 rows is the cheap experiment if
+# the size is ever worth attacking. No mipmaps: the picture is only ever drawn at 1:1 or scaled DOWN through
+# a bilinear sampler, and at the common half scale (1080p) that sampler is already an exact 2 x 2 box; a
+# chain would add a third to the size for a softer picture at 1:1.
+#begin ../../Images/logo/bs3d-logo-2048.png
+/importer:TextureImporter
+/processor:TextureProcessor
+/processorParam:ColorKeyColor=255,0,255,255
+/processorParam:ColorKeyEnabled=False
+/processorParam:GenerateMipmaps=False
+/processorParam:PremultiplyAlpha=True
+/processorParam:ResizeToPowerOfTwo=False
+/processorParam:MakeSquare=False
+/processorParam:TextureFormat=Color
+/build:../../Images/logo/bs3d-logo-2048.png;Images/Logo.png
 
 #begin ../../Testbed/Content/Shaders/InstancedModel.fx
 /importer:EffectImporter
