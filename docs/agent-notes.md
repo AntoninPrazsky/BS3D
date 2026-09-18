@@ -3787,3 +3787,31 @@ Zapsáno do `.claude/skills/design-references/SKILL.md` (varování nahoře) a s
 **Koordinace:** bs3d-eb (#453) i bs3d-d7 (#189, vlastní worktree `BS3D-189`) potvrdili, že se tohohle stromu nedotknou; merge dělám plumbingem (`merge-tree --write-tree` + `commit-tree` + `push <sha>:main`) a tenhle zápis je postavený z `git show origin/main:docs/agent-notes.md` těsně před hashováním, podle pravidla výše. **Tag v0.1.0 při tomhle merge nepadá** — majitel rozhodl, že release čeká i na #189.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-18 — Claude Code, bs3d-d7 (worktree `C:\Users\panrd\source\repos\BS3D-189`, #189 tutoriál — hotové a v mainu)
+
+**#189: hra poprvé něco učí.** Větev `189-tutorial`, celá v samostatném worktree, protože sdílený strom měla bs3d-84 s rozdělaným #454. Majitelovo zadání: postupně a **velmi pomalu**, zábavně, vypínatelné v nastavení (defaultně zapnuté), celá první kapitola jako tutoriál, a **font s klávesami** na obrázky kláves.
+
+**Co to je:** karta nahoře uprostřed HUDu — glyf klávesy/myši/triggeru z **PromptFontu** (v1.15, SIL OFL 1.1 jako Anton a Inter, embedded stejně, licence vedle), řádek co udělat a menší řádek pod ním. **Deset lekcí přes prvních šest levelů Meadow**: One učí jen mířit, střílet a „tři stejné padají"; Bullseye přesné míření (+ kontextově sklo a čáru), Toadstool pojezd A/D, Pinwheel krok W/S, Diabolo streak (kontextově), Shuttle bonus za nevystřílené koule; zbylé čtyři levely kapitoly se jen hrají. **Akční lekce** čeká, až hráč tu věc opravdu udělá (míření = pohyb pózy o 0,06 rad, výstřel = koule opustila hlaveň, match = skórující dopad, držení 0,35 s bez přerušení), a pak se překlopí na pochvalu — *Nice! Boom! Perfect! Sharp! Smooth! Closer!* — v jantaru HUDu, s jeho září, s kopnutím pružiny skóre a s tónem hvězdy. Karta nikdy neblokuje, po 22 s to vzdá **nezapsaná** a vrátí se v dalším levelu. **Kontextové** lekce (sklo na krok tlaku, čára na rozsvícení laserové sítě, streak na násobiči > 1) přeruší kartu, která zrovna stojí, a ta se vrátí hned za nimi. Vynechaná lekce jde s hráčem do dalšího levelu kapitoly; za kapitolou nic.
+
+**Naučeno jednou, navždy — a pamatuje si to save:** `PlayerProgress.Lessons` (`"lessons"`, null do první lekce, starší build klíč ignoruje a učí znovu — argument `skipped`). Řádek **Tutorial** pod CONTROLS (`GameSettings.Tutorial`) je opt-out čtený každý snímek (vzor citlivosti — jde otevřít z pauzy); schovává karty, nezapomíná. **Reset progress** maže i lekce.
+
+**Karta kreslí pro ruku, kterou hráč právě používá** (poslední vstup = klávesnice/myš nebo pad, přepíná se živě), a **každý padový prompt jmenuje binding, který existuje** — což si vyžádalo jedinou herní změnu: **levá páčka teď pojíždí a kráčí s dělem** (`PAD_WALK_DEADZONE` 0,35, držení, ne rychlost). Do #189 pad uměl mířit, střílet a naklonit se a nic dělem neotočilo; issue to označila jako blokátor kompletní sady promptů.
+
+**Naměřeno / vyzkoušeno:**
+- **Headless rig** ve scratchpadu (skutečná `Tutorial` třída + falešné hodiny + set místo save): **45 kontrol, všechny PASS**. Rig našel **dvě chyby dřív, než se cokoli fotilo**: (1) karta vypnutá z nastavení jen odešla místo aby ustoupila do fronty — „po zapnutí pokračuje" byl komentář, ne chování; (2) **pochvala se při odchodu překlopila zpátky na instrukci** (`Praising` četl jen fázi, odchod je fáze vlastní) — drží se teď přes odchod.
+- **Demo reel vyfocen** (`level=One tutorial=demo`, 1600×900, `quality=low`): všech deset karet i pochvaly. **První řez 88/62/100 design units vyšel jako overlay label — 37 px textu** nad shlukem, na který se oko dívá; teď **112/76/128** (47 px), mezi skóre (140) a popiskem (76).
+- Stránka nastavení vyfocena přes nový argument `settings`.
+- **Skutečná detekce ve běžící hře NEBYLA odehraná** — syntetický vstup do hry z agentního shellu nedorazí (poznámka bs3d-84 z dneška, potvrzená v paměti agenta). Hooky jsou přečtené a rig pokrývá stavový automat; **zbývá, aby majitel zahrál `level=One tutorial`** a viděl karty odpovídat na skutečné akce.
+- Majitelův `Settings.json` i `Progress.json` mají po všech třech bězích **stejné hashe** (žádný testovací režim nic nezapisuje).
+- Všechny čtyři solutions staví s 0 chybami; Game s 0 varováními.
+
+⚠ **PromptFont: repozitář žádné TTF nemá** — jen FontForge `.sfd` a kompilační skript; GitHub je archivovaný a projekt se přestěhoval na Codeberg. Hotový font je v release zipu (`promptfont.zip`, Codeberg releases v1.15). Keycapy sedí na **fullwidth latince** (U+FF37 = klávesa W), myš U+27FC/U+27F5/U+27F6, triggery U+2196/U+2197, páčka U+21CD. Dva keycapy vedle sebe = dva codepointy **bez mezery** (jestli U+0020 kreslí keycap Space, nezjišťováno).
+
+⚠ **Testovací páky:** `tutorial` = všechny karty se skutečnou detekcí, nic se nezapisuje (pro majitele s dohraným savem); `tutorial=demo` = reel po 4 s na kartu; `settings` = stránka nastavení při startu.
+
+**Koordinace:** bs3d-84 (#454) i bs3d-eb (#453) potvrzeni; majitelovo rozhodnutí přes bs3d-eb: **v0.1.0 čeká na #454 i #189**, tag posílá bs3d-eb po slově majitele. Merge plumbingem přes `origin/main` (bfd7cae, #454 už v mainu, sloučeno do větve bez konfliktů); tento zápis postavený nad `origin/main`'s blobem.
+
+**Nic dalšího si neberu.**
