@@ -64,6 +64,29 @@ The script starts `sd-server` if nothing listens on port 7860 (LM Studio holds 1
 - **Drop the glow unless the logo will sit on the dark background it was drawn against.** A glow drawn as light over dark plum is *darker* than a pale background, so over the game's sky it composites as a purple smudge rather than as light. Cutting at 25/80 to keep a little of it is worse than either extreme: un-compositing at low alpha drives the colour towards white and the word gets a pale sticker fringe.
 - The resize happens in **premultiplied** space and is un-premultiplied afterwards, or transparent pixels' colour bleeds into the edge. The PNG is straight alpha, which is what `Content.mgcb` wants — every content project here already passes `/processorParam:PremultiplyAlpha=True`, so the pipeline premultiplies on build and `BlendState.AlphaBlend` is correct. A texture loaded at runtime with `Texture2D.FromStream` instead is **not** premultiplied and will fringe.
 
+### Letting a network decide instead — measured, and it is not a clear win
+
+`matte-birefnet.py` runs **BiRefNet** (MIT, ONNX Runtime, **CPU only — it cannot cost a GPU reset**) and `combine-matte.py` gates the connectivity cut with its mask. Models live in `C:\Users\panrd\AI\matting\models`, in their own venv (`C:\Users\panrd\AI\matting\venv`, onnxruntime + numpy + Pillow) so ComfyUI's environment is untouched; `combine-matte.py` needs scipy and runs under ComfyUI's interpreter.
+
+```powershell
+& C:\Users\panrd\AI\matting\venv\Scripts\python.exe .\.claude\skills\design-references\matte-birefnet.py `
+    C:\Users\panrd\AI\matting\models\birefnet-lite.onnx <in.png> <out.png> 2048
+```
+
+Measured on the logo (4864×3328 source, output 2048 wide):
+
+| | inference | fully opaque | soft edge |
+|---|---|---|---|
+| connectivity cut | — | 40.6 % | 7.5 % |
+| BiRefNet lite (224 MB) | 6.2 s | 12.6 % | 35.4 % |
+| BiRefNet full (973 MB) | 11.2 s | 26.0 % | 19.2 % |
+| hybrid (cut gated by lite) | +1 s | 38.6 % | 6.1 % |
+
+- **The big model was worse than the small one.** BiRefNet full smeared the right-hand letters and dirtied the bottom edges; lite did not. Four times the weights bought nothing here, so try lite first and only reach for full if lite fails.
+- **A matting net is soft by construction.** BiRefNet takes a fixed 1024×1024 input, so on a 4864-wide source the matte is upscaled 4.75× before it meets the picture. It cannot resolve a keyline a few pixels wide, which is why its soft fraction is three to five times the cut's.
+- **Where it beat the hand-written cut was judgement, not precision.** It made two calls the cut cannot: it dropped the thin purple keyline looping each letter, and it made the letter counters transparent. Both look better over the game's bright sky — the keyline was drawn to work against dark plum and reads as a sticker outline anywhere else, and see-through counters read as letterforms rather than as a decal. **That is the useful division of labour: ask the net what the mark is, ask the cut where its edge is.** The hybrid keeps the cut's 6 % soft edge and takes the net's answer to both questions.
+- **Generating alpha directly is not available here.** Z-Image-Turbo decodes RGB through its VAE; there is no alpha anywhere in the path, and any transparency-capable model is a *different* model, so it would produce a different picture rather than this one with an alpha channel. LayerDiffuse (SDXL/SD1.5) is the mainstream option and sd.cpp does not support it; ComfyUI here is CPU-only torch with an empty model tree. This sd.cpp build *does* carry `--qwen-image-layers` for Qwen-Image-Layered, but Qwen-Image is a 20B model — around 12 GB of weights even at Q4, on a machine where the 7 GB Z-Image already wanted 77 GB of commit for one 2× pass.
+
 ## Showing them
 
 The owner judges whether a reference helps, so **publish a page**: each image with its prompt and one line on what it got right and what deviates from the prompt. #441 did it that way and the owner answered from the page.
