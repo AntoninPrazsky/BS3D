@@ -174,6 +174,14 @@ namespace BS3D.Screens
         /// </summary>
         private readonly PlayHud _hud;
 
+        /// <summary>
+        /// The tutorial's lessons and their card (#189): what the first chapter teaches and how far it has got.
+        /// Its own class for the HUD's reason — it is the feel of being taught, and the part most likely to be
+        /// retuned — and it draws nothing: the HUD draws what it reads there. This screen feeds it the events
+        /// (a shot, a landing, a hold, the glass stepping, the net lighting) and the frame.
+        /// </summary>
+        private readonly Tutorial _tutorial;
+
         //The crosshair: four bars around a clear centre, struck from a white texel it makes itself. Its own
         //component since #76 — the bars, their size on the screen, the premultiplied white they are drawn in
         //and the skip below a hundredth of an opacity are all Crosshair's, and the Testbed draws the same one
@@ -1039,6 +1047,11 @@ namespace BS3D.Screens
                 ForcedMultiplier = game.ForcedStreak
             };
 
+            //Taught once, ever, and the save remembers (PlayerProgress.Lessons) — through the host's own two
+            //verbs, so the write goes the one way every save write goes. The testing argument offers every card
+            //and writes nothing.
+            _tutorial = new Tutorial(game.WasLessonTaught, game.RecordLessonTaught, game.TutorialMode);
+
             //Orbit centre is the field the cluster hangs over. No trunnion height goes in: the gun stands on
             //the island's dished stone, so its height is the carriage's own figure of its radius
             //(CannonRig.TrunnionHeightAt) and the pose re-seats it on every move — the wheels stay on the
@@ -1336,6 +1349,17 @@ namespace BS3D.Screens
             _smears.Update(elapsed);
             _hud.Update(elapsed, _score);
 
+            //The tutorial's card (#189): the settings row read here every frame, a camera takeover hiding it, and
+            //a decided level ending it. A lesson just done is answered the way a point scored is — the HUD's own
+            //kick, and the rating's chime at its root — because the card is a small dare and doing it wins it.
+            _tutorial.Update(elapsed, Game.IsTutorialEnabled, CameraTakeoverEngaged, LevelDecided);
+
+            if (_tutorial.TakePraiseCue())
+            {
+                _hud.KickTutorial();
+                Game.Audio.PlayStarEarned(0, 1, 0f);
+            }
+
             UpdateCamera(elapsed);
 
             //Last, because FinishLevel hands the player the result screen — pushed over this one, so the rest
@@ -1588,7 +1612,7 @@ namespace BS3D.Screens
 
             _hud.Draw(_score, Camera, in profile,
                 new ReadOnlySpan<PlayHud.BallMarker>(_profileBalls, 0, ballCount),
-                _magazineQueue);
+                _magazineQueue, _tutorial);
 
             //The crosshair, into the host's overlay batch (the one the HUD above just used): shown only while
             //precise aim is leaning in, that being the only pose whose lens looks along the shot, and faded up

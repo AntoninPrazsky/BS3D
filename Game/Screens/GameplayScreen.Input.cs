@@ -7,6 +7,7 @@ using Prazsky.BS3D;
 using Prazsky.Core.Render;
 using Prazsky.Core.Tools;
 using Prazsky.Core;
+using System;
 
 
 namespace BS3D.Screens
@@ -38,6 +39,16 @@ namespace BS3D.Screens
         /// </para>
         /// </summary>
         private const float FIRE_TRIGGER_THRESHOLD = 0.5f;
+
+        /// <summary>
+        /// How far the pad's left stick has to be pushed before it turns or walks the gun (#189), and past which
+        /// its right stick counts as the player's hand being on the pad. A hold and not a rate: past it the stick
+        /// is a key held down, so a stick and a key move the carriage identically and neither player has a faster
+        /// gun. Lower than the menu's <c>NAV_STICK_DEADZONE</c> (0.55), because a menu step is an edge to
+        /// debounce and this is a hold to keep up; well above zero, because a stick at rest must not creep the
+        /// carriage round the field.
+        /// </summary>
+        private const float PAD_WALK_DEADZONE = 0.35f;
 
         /// <summary>
         /// This frame's keyboard and pad actions: pause, the window toggles, the shot, the traverse.
@@ -103,15 +114,38 @@ namespace BS3D.Screens
                 return false;
             }
 
-            //The carriage traverses on A/D and walks on W/S: turning orbits the field, walking closes on it —
-            //standing nearer steepens the shot up into the cluster's underside, standing further flattens it.
-            //Both are holds at the same ±1 protocol, and the walk's ends are rubber (Cannon.ADVANCE_EASE_ZONE),
-            //not stops.
-            if (keyboard.IsKeyDown(Keys.A)) _cannon.Orbit(CANNON_ORBIT_RATE);
-            else if (keyboard.IsKeyDown(Keys.D)) _cannon.Orbit(-CANNON_ORBIT_RATE);
+            //The carriage traverses on A/D and walks on W/S — and since #189 on the pad's LEFT STICK, sideways
+            //and up/down, which was the one thing a pad could not do: the right stick aims, the triggers fire and
+            //lean, and nothing turned or walked the gun, so the tutorial's pad cards would have promised a
+            //binding that did not exist. Turning orbits the field, walking closes on it — standing nearer
+            //steepens the shot up into the cluster's underside, standing further flattens it. All of them are
+            //holds at the same ±1 protocol (a stick past its deadzone is a key held down, not a rate), and the
+            //walk's ends are rubber (Cannon.ADVANCE_EASE_ZONE), not stops.
+            float stickX = pad.IsConnected ? pad.ThumbSticks.Left.X : 0f;
+            float stickY = pad.IsConnected ? pad.ThumbSticks.Left.Y : 0f;
 
-            if (keyboard.IsKeyDown(Keys.W)) _cannon.Advance(CANNON_ADVANCE_RATE);
-            else if (keyboard.IsKeyDown(Keys.S)) _cannon.Advance(-CANNON_ADVANCE_RATE);
+            bool traverseLeft = keyboard.IsKeyDown(Keys.A) || stickX < -PAD_WALK_DEADZONE;
+            bool traverseRight = keyboard.IsKeyDown(Keys.D) || stickX > PAD_WALK_DEADZONE;
+            bool walkIn = keyboard.IsKeyDown(Keys.W) || stickY > PAD_WALK_DEADZONE;
+            bool walkOut = keyboard.IsKeyDown(Keys.S) || stickY < -PAD_WALK_DEADZONE;
+
+            if (traverseLeft) _cannon.Orbit(CANNON_ORBIT_RATE);
+            else if (traverseRight) _cannon.Orbit(-CANNON_ORBIT_RATE);
+
+            if (walkIn) _cannon.Advance(CANNON_ADVANCE_RATE);
+            else if (walkOut) _cannon.Advance(-CANNON_ADVANCE_RATE);
+
+            //What the tutorial's traverse and walk lessons wait for (#189), and which device's card it draws: a
+            //key here is the keyboard's hand, a stick past its deadzone the pad's
+            float elapsed = (float)gameTime.ElapsedGameTime.TotalSeconds;
+            _tutorial.NoteHold(Tutorial.Lesson.Traverse, traverseLeft || traverseRight, elapsed);
+            _tutorial.NoteHold(Tutorial.Lesson.Walk, walkIn || walkOut, elapsed);
+
+            if (keyboard.IsKeyDown(Keys.A) || keyboard.IsKeyDown(Keys.D) || keyboard.IsKeyDown(Keys.W)
+                || keyboard.IsKeyDown(Keys.S) || keyboard.IsKeyDown(Keys.Space))
+                _tutorial.NoteDevice(Tutorial.Device.KeyboardMouse);
+            else if (MathF.Abs(stickX) > PAD_WALK_DEADZONE || MathF.Abs(stickY) > PAD_WALK_DEADZONE)
+                _tutorial.NoteDevice(Tutorial.Device.Gamepad);
 
             Game.PreviousKeyboard = keyboard;
 
@@ -141,6 +175,18 @@ namespace BS3D.Screens
             int centreY = GraphicsDevice.Viewport.Height / 2;
 
             MouseState mouse = Mouse.GetState();
+
+            //Which device the tutorial draws its card for (#189): the mouse moved off the centre it was put back
+            //to last frame, or a button on it; else the pad's sticks, triggers or A. The keys say so in
+            //UpdateInput. Read before the recentre below, which is what puts the pointer back on the centre.
+            if ((_cursorCaptured && (mouse.X != centreX || mouse.Y != centreY))
+                || mouse.LeftButton == ButtonState.Pressed || mouse.RightButton == ButtonState.Pressed)
+                _tutorial.NoteDevice(Tutorial.Device.KeyboardMouse);
+            else if (pad.IsConnected
+                && (pad.ThumbSticks.Right.LengthSquared() > PAD_WALK_DEADZONE * PAD_WALK_DEADZONE
+                    || pad.Triggers.Left > PreciseAim.TRIGGER_THRESHOLD || pad.Triggers.Right > FIRE_TRIGGER_THRESHOLD
+                    || pad.IsButtonDown(Buttons.A)))
+                _tutorial.NoteDevice(Tutorial.Device.Gamepad);
 
             //The click that takes the cursor. Gated on edgeInputAllowed like every other edge, which is what
             //keeps the click that merely brings the window forward from also capturing — that one lands on a
@@ -203,6 +249,9 @@ namespace BS3D.Screens
             //default MouseState reads every button released, which is exactly "ask the pad alone".
             _adsHeld = _cursorCaptured ? PreciseAim.ButtonHeld(mouse, pad) : PreciseAim.ButtonHeld(default, pad);
 
+            //The lean lesson waits on the hold (#189)
+            _tutorial.NoteHold(Tutorial.Lesson.LeanIn, _adsHeld, (float)gameTime.ElapsedGameTime.TotalSeconds);
+
             if (_cursorCaptured) _mouseAim.Recentre(centreX, centreY);
 
             //Only its LeftButton is ever read (the shot's edge test above); the aim delta is measured against
@@ -223,6 +272,9 @@ namespace BS3D.Screens
                 }
                 else if (pad.Triggers.Right <= FIRE_TRIGGER_THRESHOLD) _padTriggerReleased = true;
             }
+
+            //And the aim lesson reads the pose once the mouse and the pad have both had their say (#189)
+            _tutorial.NoteAim(_cannon.Traverse, _cannon.Elevation);
 
             //Stored here rather than in UpdateInput, which runs first: the Back button's press edge is
             //measured against the previous *frame*, so the snapshot has to be the last thing the frame does
@@ -291,6 +343,9 @@ namespace BS3D.Screens
             //The ball is spent the instant it leaves the barrel. What it *did* takes a physics step or more to
             //resolve, so the budget and the score are driven by different events on purpose — see ScoreKeeper.
             _score.Shot();
+
+            //The tutorial's fire lesson is the shot leaving, not the shot landing (#189)
+            _tutorial.Report(Tutorial.Lesson.Fire);
 
             //The same shot drives the ceiling's descent: every ceilingStep-th shot steps the glass down. Checked
             //after Shot() so ShotsFired includes the one just fired, and the scorer owns the cadence exactly as it

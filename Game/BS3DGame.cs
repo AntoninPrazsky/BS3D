@@ -207,6 +207,10 @@ namespace BS3D
         //Testing only: the "lasers" argument, read by the session's warning check every frame.
         private readonly bool _startupLasers;
 
+        //Testing only: the "tutorial" argument (#189) — every card offered, none recorded, and as a reel with
+        //"=demo". See Tutorial.Mode.
+        private readonly Tutorial.Mode _tutorialMode;
+
         //Testing only: the "play" argument. Consumed on the first Update rather than at the end of
         //LoadContent, because the screen manager queues its mutations: BuildMenu's pushes are still pending
         //there, so StartGame's PopTo<BackdropScreen> would test an empty live stack, silently skip, and
@@ -300,6 +304,9 @@ namespace BS3D
         /// </summary>
         private string _startupAbout;
 
+        //Testing only: the "settings" argument (#189) — the Settings page at boot, on _startupAbout's reasoning
+        private bool _startupSettings;
+
         //Wall clock. Everything alive in the scene runs off it — the balls' heartbeat, the city's windows —
         //so none of it is tied to a simulation that may later be paused.
         private float _wallClock;
@@ -368,6 +375,14 @@ namespace BS3D
         /// scripted than clearing one can — the <c>celebrate</c> reasoning, for the session-owned effect.
         /// </summary>
         internal bool ForceLaserWarning => _startupLasers;
+
+        /// <summary>
+        /// Testing only (the <c>tutorial</c> argument, #189): offer every tutorial card as if none had been
+        /// taught, and record none — with the real detection, or as a reel every card of which runs on a clock
+        /// (<c>tutorial=demo</c>). The cards are gated on the save, so on a save that finished the chapter they
+        /// are otherwise unreachable — and a run that taught them for real would write to the owner's save.
+        /// </summary>
+        internal Tutorial.Mode TutorialMode => _tutorialMode;
 
         /// <summary>
         /// Testing only (the <c>streak=</c> argument): the multiplier the HUD's streak readout should show,
@@ -533,6 +548,11 @@ namespace BS3D
         //the same balls come off the cluster and fall the same way — it only leaves the lens where it was.
         private bool _dropCinematic = true;
 
+        //On by default (#189): whether the first chapter's tutorial cards are shown. The settings row's
+        //opt-out, read by the session every frame so a change made from the pause lands at once; what has
+        //been TAUGHT is the save's record (PlayerProgress.Lessons), never this flag.
+        private bool _tutorial = true;
+
         //The debug unlock (#349): off at every launch and never written anywhere. It is deliberately NOT
         //persisted — a development convenience that survived a restart would eventually be left on, and the
         //one thing this must never do is make a player's own progress look further along than it is. It
@@ -628,6 +648,17 @@ namespace BS3D
         //are authored larger still than the score they land on
         private const int HUD_FONT_POPUP = 112;
 
+        //The tutorial's card (#189): its line, the smaller line under it, and the prompt font's keycaps beside
+        //them. Authored loud on the HUD's own brief — the first cut at 88 photographed as an overlay label at a
+        //900p client, 37 px of type over a cluster the eye is on, which is the barely-there failure the HUD's
+        //sizes exist to avoid; it sits between the score (140) and the label (76), louder than a caption and
+        //quieter than the number. The keycap's size is its own figure rather than the caption's, because
+        //PromptFont draws a key as a rounded square filling its em while a line of Anton stands well short of
+        //its em — set so the two read as one line, looked at rather than derived.
+        private const int HUD_FONT_TUTORIAL = 112;
+        private const int HUD_FONT_TUTORIAL_DETAIL = 76;
+        private const int HUD_FONT_PROMPT = 128;
+
         //The balls-left alarm's first step, which used to be a heavier weight and cannot be: the display face
         //has ONE weight, so a bold slot would resolve to the very same glyphs and the step would vanish in
         //silence — a documented escalation quietly reduced from three steps to two. It is a size step instead.
@@ -638,6 +669,7 @@ namespace BS3D
 
         private SpriteFontBase _hudFontScore, _hudFontLabel, _hudFontPopup;
         private SpriteFontBase _hudFontScoreLoud, _hudFontLabelLoud;
+        private SpriteFontBase _hudFontTutorial, _hudFontTutorialDetail, _hudFontPrompt;
         private int _hudFontsForHeight = -1;
 
         internal SpriteFontBase HudFontScore => _hudFontScore;
@@ -649,6 +681,11 @@ namespace BS3D
 
         /// <summary>The caption under a low balls-left readout, grown to match <see cref="HudFontScoreLoud"/>.</summary>
         internal SpriteFontBase HudFontLabelLoud => _hudFontLabelLoud;
+
+        /// <summary>The tutorial card's line, its smaller second line, and the prompt font for its keycaps (#189).</summary>
+        internal SpriteFontBase HudFontTutorial => _hudFontTutorial;
+        internal SpriteFontBase HudFontTutorialDetail => _hudFontTutorialDetail;
+        internal SpriteFontBase HudFontPrompt => _hudFontPrompt;
 
         /// <summary>
         /// Resolves the HUD's fonts for the viewport they are about to be drawn into. Called by the gameplay
@@ -667,6 +704,9 @@ namespace BS3D
             _hudFontPopup = _menuFontSystemDisplay.GetFont(Scaled(HUD_FONT_POPUP));
             _hudFontScoreLoud = _menuFontSystemDisplay.GetFont(Scaled((int)(HUD_FONT_SCORE * HUD_LOW_EMPHASIS)));
             _hudFontLabelLoud = _menuFontSystemDisplay.GetFont(Scaled((int)(HUD_FONT_LABEL * HUD_LOW_EMPHASIS)));
+            _hudFontTutorial = _menuFontSystemDisplay.GetFont(Scaled(HUD_FONT_TUTORIAL));
+            _hudFontTutorialDetail = _menuFontSystemDisplay.GetFont(Scaled(HUD_FONT_TUTORIAL_DETAIL));
+            _hudFontPrompt = _menuFontSystemPrompt.GetFont(Scaled(HUD_FONT_PROMPT));
         }
 
         #endregion
@@ -774,13 +814,24 @@ namespace BS3D
         /// <c>detonate=</c>: wall-clock seconds at which the level being played sets off one of its bombs (#389),
         /// on the clock <paramref name="shotSeconds"/> counts. Null for none — see <see cref="TryTakeForcedDetonation"/>.
         /// </param>
+        /// <param name="tutorial">
+        /// Testing only (the <c>tutorial</c> argument, #189): every tutorial card offered and none recorded —
+        /// <c>"force"</c> with the real detection, <c>"demo"</c> as a reel; see <see cref="TutorialMode"/>. Null
+        /// for the argument's absence, which is every player's run.
+        /// </param>
+        /// <param name="settings">
+        /// Testing only (the <c>settings</c> argument, #189): open the Settings page at boot, on
+        /// <paramref name="about"/>'s reasoning — a page a few presses away on a machine somebody is sitting at,
+        /// and none from a script.
+        /// </param>
         public BS3DGame(bool? fullscreen = null, int? supersampleFactor = null, float exposure = DEFAULT_EXPOSURE,
             bool? uncappedFps = null, SceneKind? scene = null, byte? skyDome = null, bool logFrameRate = false,
             QualityLevel? quality = null, bool celebrate = false, bool confetti = false, bool lasers = false,
             bool mute = false, bool play = false, bool result = false, bool blockDone = false, bool lost = false,
             int? resultStars = null, string nextLocked = null, int? streak = null, int wildcardEvery = 0, float[] shotSeconds = null, string level = null, string levelFile = null,
             string preview = null, BallStyle? ballStyle = null, string pick = null, int fpsCap = 0,
-            bool noFocusPause = false, float[] detonateSeconds = null, string about = null)
+            bool noFocusPause = false, float[] detonateSeconds = null, string about = null, string tutorial = null,
+            bool settings = false)
         {
             //See PauseOnFocusLoss: a capture schedule implies the opt-out, because a shot of the pause page is
             //not the shot that was asked for.
@@ -803,6 +854,7 @@ namespace BS3D
             _aberration = _settings.Aberration;
             _grain = _settings.Grain;
             _dropCinematic = _settings.DropCinematic;
+            _tutorial = _settings.Tutorial;
 
             //Seeded BEFORE SetScene rather than applied after it, which is the opposite of what sky= does and
             //deliberately so: the six scenes that state a dome of their own must still replace it, and every
@@ -818,6 +870,11 @@ namespace BS3D
             _startupStreak = streak;
             _startupWildcardEvery = wildcardEvery;
             _startupLasers = lasers;
+            //Any spelling but "demo" is the plain force: a mistyped reel still shows the cards, and says so by
+            //waiting for the player rather than running on
+            _tutorialMode = tutorial == null ? Tutorial.Mode.Normal
+                : string.Equals(tutorial, "demo", StringComparison.OrdinalIgnoreCase) ? Tutorial.Mode.Demo
+                : Tutorial.Mode.Force;
             _startupLevel = level;
             StartupLevelFile = string.IsNullOrWhiteSpace(levelFile) ? null : levelFile;
             _startupPreview = preview;
@@ -834,6 +891,7 @@ namespace BS3D
             _startupNextLocked = nextLocked;
             _startupPick = pick;
             _startupAbout = about;
+            _startupSettings = settings;
             _shotSchedule = shotSeconds;
             _detonateSchedule = detonateSeconds;
             if (mute) _masterVolume = 0f;
@@ -1435,6 +1493,20 @@ namespace BS3D
             return improved;
         }
 
+        /// <summary>Whether the save records this tutorial lesson as done (#189). False with no campaign loaded.</summary>
+        internal bool WasLessonTaught(string lesson) => _progress != null && _progress.WasTaught(lesson);
+
+        /// <summary>
+        /// Records a completed tutorial lesson and writes the save there and then, for the reason
+        /// <see cref="RecordLevelResult"/> does: a lesson taught and then lost to a crash is a lesson taught twice.
+        /// </summary>
+        internal void RecordLessonTaught(string lesson)
+        {
+            if (_progress == null) return;
+
+            if (_progress.Teach(lesson)) SaveProgress();
+        }
+
         /// <summary>
         /// Back to zero stars and no bests — the settings row's action (#92: useful for testing as much as
         /// for a player who wants a fresh start). The locks in the picker follow the totals, so levels close
@@ -1796,6 +1868,14 @@ namespace BS3D
                 OpenAbout();
             }
 
+            //And the Settings page (#189), held back past the title card for the same reason
+            if (_startupSettings && !_screens.Contains<SplashPage>())
+            {
+                _startupSettings = false;
+
+                OpenSettings();
+            }
+
             //And the same for the result screen, over whatever is on the stack — the front end, unless "play"
             //above has just put a level under it. The figures are a plausible clear rather than zeros: the page
             //lays out its breakdown from them, and a screen of dashes would not be the screen being looked at.
@@ -2088,6 +2168,7 @@ namespace BS3D
             _menuFontSystem?.Dispose();
             _menuFontSystemBold?.Dispose();
             _menuFontSystemDisplay?.Dispose();
+            _menuFontSystemPrompt?.Dispose();
 
             //The session: the simulation, the contact events, the dispatcher, the pool and the shot-trail
             //buffers all live on the gameplay screen now, which disposes them in the order they need
