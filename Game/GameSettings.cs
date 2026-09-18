@@ -88,8 +88,18 @@ namespace BS3D
         [JsonPropertyName("sky")]
         public byte SkyDome { get; set; }
 
+        /// <summary>
+        /// <b>True by default, so a first launch fills the screen</b> (#455). It is the one default that is
+        /// about people who have never run this game: until #453 made the build downloadable, every machine
+        /// that ran it had a settings file, and the `false` this used to inherit from <c>bool</c> was an
+        /// omission rather than an answer — a stranger's first impression was a 1600×900 window on a 4K panel.
+        /// Fullscreen here costs nothing it would not cost anyway: <c>SetGraphics</c> is borderless at
+        /// <c>CurrentDisplayMode</c> (#157), so it is the panel's own resolution with nothing scaled and no
+        /// display mode to lose. The moment the player answers — F11 or the Settings row, both of which write
+        /// through <c>ToggleFullscreen</c> — this default never speaks again.
+        /// </summary>
         [JsonPropertyName("fullscreen")]
-        public bool Fullscreen { get; set; }
+        public bool Fullscreen { get; set; } = true;
 
         /// <summary>
         /// <b>True by default, because that is what the game already did</b> — <c>InfoRenderer</c> is a

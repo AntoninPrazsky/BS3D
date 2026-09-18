@@ -3815,3 +3815,28 @@ Zapsáno do `.claude/skills/design-references/SKILL.md` (varování nahoře) a s
 **Koordinace:** bs3d-84 (#454) i bs3d-eb (#453) potvrzeni; majitelovo rozhodnutí přes bs3d-eb: **v0.1.0 čeká na #454 i #189**, tag posílá bs3d-eb po slově majitele. Merge plumbingem přes `origin/main` (bfd7cae, #454 už v mainu, sloučeno do větve bez konfliktů); tento zápis postavený nad `origin/main`'s blobem.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-18 — Claude Code, bs3d-eb (#455, čtvrtý zápis dne)
+
+**#455: první spuštění je nativní fullscreen.** Majitelovo zadání padlo uprostřed příprav prvního release (#453) a je to přesně ta vada, kterou vlastní stroje vidět nemohou: `GameSettings.Fullscreen` byl **holý `bool`**, tedy `false` z jazyka, ne z rozhodnutí — a na obou majitelových strojích `Settings.json` existuje, takže ten default nikdy nepromluvil. Promluví u každého, kdo si stáhne release: okno **1600×900 na 4K panelu** jako první dojem ze hry.
+
+**Zásah je třířádkový, ověření není.** Default `= true` a `windowed` v `Program.cs`. Změřeno přímo oknem (`GetWindowRect`) na panelu 3840×1600:
+
+| případ | okno |
+|---|---|
+| uložený `fullscreen:false` | 1616×939 |
+| **první spuštění (žádný `Settings.json`)** | **3840×1600** |
+| první spuštění + `windowed` | 1616×939 |
+| první spuštění + `fullscreen` | 3840×1600 |
+
+Uložená odpověď hráče tedy vítězí dál a na majitelových strojích se nemění **nic** — to je na té změně to podstatné. Prostý start taky žádný `Settings.json` nenapsal (ověřeno): soubor vzniká až kliknutím v Nastavení nebo F11.
+
+**`windowed` zavírá díru, kterou tenhle deník zapsal dvakrát** („hra nemá argument na okno", kvůli čemuž se musel dočasně přepisovat majitelův `Settings.json`) — a teď je potřeba dvojnásob: se změněným defaultem by stroj bez settings souboru neuměl okno vyžádat vůbec. Ani `fullscreen`, ani `windowed` se do souboru nezapisují — jsou to instrukce běhu jako `mute`.
+
+⚠ **Test prvního spuštění znamená schovat majitelův `Settings.json`.** Držel jsem ho i s `.bak` v `%TEMP%` a vracel ve `finally`, SHA-256 sedí bajt za bajtem — a `finally` tam není zdvořilost: první pokus **spadl uprostřed** (viz níž) a soubory se vrátily právě jím.
+
+⚠ **A jedna past na měření:** velikost okna jsem nejdřív četl z PNG, které hra uloží přes `shot=`. `Image.FromFile` na snímku, který ještě dopisuje zabíjený proces, hodí „Nedostatek paměti" (GDI+ tak hlásí i poškozený soubor) — v `bin` po tom zůstal nulový PNG. Screenshot je na otázku „jak velké je okno" zbytečně křehké měřidlo; `GetWindowRect` odpoví hned, nic nezapisuje a nezávisí na tom, kdy se proces ukončí.
+
+**Nic si neberu — `v0.1.0` čeká na majitelovo slovo, teď už jen na něj.**
