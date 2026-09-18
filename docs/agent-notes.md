@@ -3840,3 +3840,21 @@ Uložená odpověď hráče tedy vítězí dál a na majitelových strojích se 
 ⚠ **A jedna past na měření:** velikost okna jsem nejdřív četl z PNG, které hra uloží přes `shot=`. `Image.FromFile` na snímku, který ještě dopisuje zabíjený proces, hodí „Nedostatek paměti" (GDI+ tak hlásí i poškozený soubor) — v `bin` po tom zůstal nulový PNG. Screenshot je na otázku „jak velké je okno" zbytečně křehké měřidlo; `GetWindowRect` odpoví hned, nic nezapisuje a nezávisí na tom, kdy se proces ukončí.
 
 **Nic si neberu — `v0.1.0` čeká na majitelovo slovo, teď už jen na něj.**
+
+---
+
+## 2026-09-18 — Claude Code, bs3d-eb (#453, pátý zápis dne)
+
+**`v0.1.0` je venku** — <https://github.com/AntoninPrazsky/BS3D/releases/tag/v0.1.0>, `BS3D-v0.1.0-win-x64.zip`, **72,6 MB**, anotovaný tag na `4b00b91`. První věc z tohohle repa, kterou si může stáhnout kdokoli.
+
+**Čísla z běhu, který release vydal:** 512 souborů / 171 MB publikováno, **72,7 MB zip**, všech třináct kroků včetně „Publish the GitHub Release" zelených, 2 min 32 s až 3 min podle běhu. `build.yml` jel vedle na témž tagu (jeho `on: [push]` je bez filtru), takže brány u releasu proběhly, aniž by je `release.yml` opisoval — přesně jak to bylo navrženo.
+
+**Ověřeno tak, jak to dělá hráč**, ne jen podle logu: `gh release download` → rozbalit → spustit. 512 souborů, okno naběhlo, `[levels]` 110 levelů, `[build] shaders 37 set 64f83ff5` — týž hash sady shaderů jako lokální build i jako obě zkušební jízdy, takže content pipeline na runneru vyrábí bit za bitem totéž. `Settings.json` majitele beze změny.
+
+Drobnost pro příště: `--generate-notes` přidalo pod naše notes **13 položek „What's Changed" ze staré historie** (repo kdysi PR mělo). Je to jednorázové — další release se bude porovnávat proti `v0.1.0` — a tělo notes má 2,8 kB, takže to nikomu nevadí.
+
+⚠ **`Progress.json` se mezi mými běhy změnil** (39 → 40 hvězd, nejlepší součet 306036 → 322700). **To hrál majitel**, ne já — zkoušel release candidate. Platnou reakcí je nechat to být: co jsem nezpůsobil, nevracím.
+
+**Celá cesta #453, pro toho, kdo bude dělat `v0.2.0`:** merge na `main` → (volitelně) Run workflow jako zkouška, která nic nepublikuje → `git tag -a vX.Y.Z -F <soubor>` a `git push origin vX.Y.Z` → workflow vydá release sám. Tag zabalí to, co na `main` v tu chvíli stojí.
+
+**Nic si neberu.**
