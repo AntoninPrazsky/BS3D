@@ -335,9 +335,23 @@ namespace BS3D
         /// <summary>
         /// The game's name as 3D lettering (#248). On the host because it is drawn in the scene's HDR pass and
         /// is lit by the scene's own rig; the backdrop screen decides <i>when</i>, which is while the main menu
-        /// is the page on top — see <see cref="TitleWordmark"/>.
+        /// is the page on top, and under the splash from the frame the 2D logo starts cross-fading into it
+        /// (#454) — see <see cref="TitleWordmark"/>.
         /// </summary>
         internal TitleWordmark TitleWordmark => _titleWordmark;
+
+        /// <summary>
+        /// The game's 2D logo (#454), the picture the game opens on — premultiplied by the content pipeline,
+        /// which is what the overlay batch's blend expects. Drawn by <see cref="Screens.SplashPage"/> alone;
+        /// on the host because content is loaded in one place and handed out, like the fonts.
+        /// </summary>
+        internal Texture2D Logo => _logo;
+
+        /// <summary>
+        /// The one white texel the host stretches its full-frame quads from: the scrim under a page that dims
+        /// a stopped game (#114), and the black the intro opens on (#454).
+        /// </summary>
+        internal Texture2D Texel => _scrimTexel;
 
         /// <summary>The music: generated loops for the levels and the menu (#443), and the procedural fanfares.</summary>
         internal GameMusic Music => _music;
@@ -668,6 +682,9 @@ namespace BS3D
         //crosshair and retired it when the shared Crosshair brought its own; this is its return, for the one
         //quad Myra may not draw — see the scrim block in Draw.
         private Texture2D _scrimTexel;
+
+        //The 2D logo (#454), content-managed like the effects: it is unloaded with the rest of the content
+        private Texture2D _logo;
 
         private KeyboardState _previousKeyboard;
         private GamePadState _previousPad;
@@ -1065,9 +1082,18 @@ namespace BS3D
             //The overlay's own batch, shared by the HUD and the crosshair the session draws into it
             _spriteBatch = new SpriteBatch(GraphicsDevice);
 
-            //And the texel the host's scrim quad is stretched from (#114) — see the scrim block in Draw
+            //And the texel the host's full-frame quads are stretched from — the scrim (#114, see the scrim
+            //block in Draw) and the intro's black (#454, SplashPage.Draw)
             _scrimTexel = new Texture2D(GraphicsDevice, 1, 1);
             _scrimTexel.SetData(new[] { Color.White });
+
+            //The 2D logo the game opens on (#454): the game's first and only bitmap asset, built out of
+            //Images/logo by the content project — through the pipeline and not Texture2D.FromStream, because
+            //the pipeline premultiplies (PremultiplyAlpha=True) and FromStream does not, and a straight-alpha
+            //picture through AlphaBlend fringes at every edge. Uncompressed Color, 10.4 MB on disk: the file is
+            //1267 rows high, which block compression cannot take without padding, and its large smooth
+            //gradients are the case where BC3 bands — the reasoning is on the entry in Content.mgcb.
+            _logo = Content.Load<Texture2D>("Images/Logo");
 
             #region Balls
 
@@ -1777,7 +1803,8 @@ namespace BS3D
             //Held back until the TITLE CARD has gone, which is not a nicety: the splash hands over with a
             //Replace (it is the only page over the backdrop at boot, so it has to take its own place), and a
             //Replace pops whatever is on top — so a result page pushed at boot was silently swallowed by the
-            //main menu arriving 2.6 s later. Measured that way round, which is how it is known.
+            //main menu arriving a few seconds later (SplashPage.SECONDS; it was 2.6 s when this was measured,
+            //and #454's logo intro made it longer). Measured that way round, which is how it is known.
             if (_startupResult && !_screens.Contains<SplashPage>())
             {
                 _startupResult = false;

@@ -22,6 +22,17 @@ namespace BS3D.Effects
     /// the 2D road is not built at all, and the label is gone.
     /// </para>
     /// <para>
+    /// <b>It is also what the game's 2D logo turns into (#454).</b> The game opens on a flat bitmap of the logo
+    /// (<see cref="Screens.SplashPage"/>: up out of black, the scene cross-faded in behind it), and the picture
+    /// then cross-fades into these letters standing in the picture's own layout in the middle of the frame —
+    /// see the <c>LOGO_</c> constants, every one measured off the bitmap — before the block flies to the corner
+    /// as the menu arrives. That hand-over is the <i>only</i> time the title is in the middle of the frame:
+    /// it starts settled in its corner (<see cref="_morph"/>), and <see cref="BeginHandover"/> is what puts
+    /// it in the picture's place. Until #454 the title opened centred on one line on its own account and moved
+    /// to the corner when the splash handed over; the bitmap is the first impression now, and a second title
+    /// arriving in the middle of the frame under it would have been two openings.
+    /// </para>
+    /// <para>
     /// <b>It is placed against the FRAME, not against the world</b>, for the reason
     /// <see cref="TrophyPodium"/> is: the front end turns the camera around the island once every ninety
     /// seconds, so anything left standing in the arena swings out of shot. The anchor is stated in normalised
@@ -175,13 +186,53 @@ namespace BS3D.Effects
         private const float BLOCK_HEIGHT_FRACTION = 0.66f;
         private const float BLOCK_WIDTH_FRACTION = 0.62f;
 
-        //AND THE OPENING COMPOSITION'S SHARE, which is the same title on ONE line in the middle of the frame
-        //(see the class remarks on the two compositions). Width binds here and height cannot: one line of this
-        //name is about eleven cap heights wide against one and a bit tall, so the height fraction is only a
-        //guard against a very tall window. 0.88 puts the line nearly edge to edge, which is what a title card
-        //is for.
-        private const float OPEN_WIDTH_FRACTION = 0.88f;
-        private const float OPEN_HEIGHT_FRACTION = 0.55f;
+        //=== THE OPENING COMPOSITION IS THE 2D LOGO'S LAYOUT (#454) ===
+        //
+        //The game opens on a flat bitmap of its logo (Images/logo/bs3d-logo-2048.png, drawn by SplashPage), and
+        //this wordmark is what that picture CROSS-FADES INTO before flying to its corner — so the composition
+        //the letters stand in while the picture thins has to be the picture's own, or the hand-over reads as
+        //one title being swapped for another. The bitmap is "BUBBLE" over "SHOOTER", both lines centred and
+        //nearly touching, with a small "3D" set in a round badge tucked under the second word. Every figure
+        //below was MEASURED off that bitmap (alpha > 128, in the 2048 x 1267 file) and is stated in cap heights
+        //of a word line, where one word line's ink (cap + two tube radii) is the 414 px the bitmap's two words
+        //average: BUBBLE rows 31–441, SHOOTER rows 448–865, the "3D" glyphs rows 906–1117 and the badge disc's
+        //bottom at 1242.
+        //
+        //It cannot be 1:1 and is not meant to be — the bitmap's letters are fat balloon lettering in a different
+        //hand, and matching them would be a redesign of LetterMesh — but with the LINES in the same places the
+        //picture and the geometry are the same object at the moment of the cut, and the disc, which this
+        //alphabet has no counterpart for, simply dissolves with the picture. The owner's ruling was exactly
+        //that: "it need not be perfect and 1:1, there will be a cross-fade, and it will still be striking".
+
+        //The daylight between the two words' ink: six rows, all but touching (0.018 of a cap).
+        private const float LOGO_LINE_GAP = 0.02f;
+
+        //From the second word's ink down to the top of the "3D" glyphs — forty rows, the badge's rim.
+        private const float LOGO_BADGE_GAP = 0.12f;
+
+        //How big the "3D" is against a word line in the PICTURE: 212 rows of ink against 414, and 337 columns
+        //against the 598 this alphabet's "3D" would take at full size — the two agree on about a half. It is
+        //the opposite of the menu's BADGE_SCALE, and the move between the two compositions is where the badge
+        //GROWS: the picture's small "3D" in its disc swells into the menu's big one as the block flies.
+        private const float LOGO_BADGE_SCALE = 0.53f;
+
+        //The disc runs on below the "3D" glyphs (rows 1117 to 1242), and the block's box carries that empty
+        //depth so that its CENTRE is the picture's centre — the fit and the anchor place the box's centre on
+        //the frame's, and a box that stopped at the glyphs would stand the whole word a few per cent high.
+        private const float LOGO_DISC_MARGIN = 0.38f;
+
+        //How much of the DRAWN bitmap its ink actually covers, width and height — the file is cropped to the
+        //drawing with a few pixels of clear margin (35 columns left, 37 right, 31 rows above, 25 below), and
+        //the splash hands over the rectangle it drew, not the ink. The open composition asks for the ink's
+        //share of the frame, so the second word lands on the picture's second word rather than a shade wider.
+        private const float LOGO_INK_WIDTH_SHARE = 1977f / 2048f;
+        private const float LOGO_INK_HEIGHT_SHARE = 1211f / 1267f;
+
+        //What the open composition asks for when NOTHING has handed a picture over — a share no frame ever
+        //shows, because the title stands settled in its corner from the first frame unless BeginHandover is
+        //called (see _morph). Kept sane rather than zero so a stray draw could not divide by nothing.
+        private const float OPEN_WIDTH_FRACTION = 0.53f;
+        private const float OPEN_HEIGHT_FRACTION = 0.76f;
 
         //=== THE MOTION ===
 
@@ -212,13 +263,18 @@ namespace BS3D.Effects
         //How long the title takes to leave the middle of the frame and settle into its corner. Long enough to
         //be watched rather than glimpsed, and short enough that a player who came to press Play is not made to
         //wait for it - and it is a smoothstep, so it leaves and arrives at rest and only the middle is quick.
+        //It runs once per launch, when the splash hands the front end over after the 2D logo has cross-faded
+        //into these letters (#454); a launch that skipped the splash never sees it (see _morph).
         private const float MORPH_SECONDS = 1.15f;
 
-        //The arrival, at the very start of the game. The title swells into place rather than cutting in - the
-        //splash's own doc has the rule ("a card that cuts in reads as a stutter") and it applied to the 2D
-        //label this took the place of. It starts at a size rather than at nothing because the letters are
-        //opaque geometry: there is no alpha to fade here, and a word growing from zero reads as a dot.
-        private const float REVEAL_SECONDS = 0.65f, REVEAL_FROM = 0.58f;
+        //The arrival — and since #454 it happens UNDER THE FADING PICTURE rather than into an empty frame.
+        //BeginHandover starts it on the frame the splash begins thinning the bitmap, so the letters swell the
+        //last few per cent into place while the flat picture over them goes, and the flare below lands as the
+        //last of it leaves: the picture inflates into geometry rather than being replaced by it. The swell is
+        //small on purpose — it was 0.58 when the title arrived alone at boot, and a word growing by that much
+        //under a picture that stays put reads as two things, not one. It starts at a size rather than at
+        //nothing because the letters are opaque geometry: there is no alpha to fade here.
+        private const float REVEAL_SECONDS = 0.7f, REVEAL_FROM = 0.86f;
 
         //Below this the whole draw is skipped — a presence that has all but reached zero is a block of
         //degenerate sub-pixel matrices nobody can see. A guard on the caller's scalar rather than a state
@@ -393,17 +449,28 @@ namespace BS3D.Effects
         private readonly Letter[] _letters;
 
         //THE TWO COMPOSITIONS, both solved once at construction, and every frame is somewhere between them.
-        //_open is the title card: the whole name on one line in the middle of the frame. _settled is the menu's:
-        //one word to a line, right-aligned into the corner, the last word blown up into a badge.
+        //_open is the 2D logo's layout (#454): the same three lines centred in the middle of the frame, the
+        //badge small, in the rectangle the splash drew the bitmap in — see the LOGO_ constants. _settled is the
+        //menu's: one word to a line, right-aligned into the corner, the last word blown up into a badge. The
+        //open block is the one field here that is not readonly, because its share of the frame is the
+        //picture's and the picture is placed in pixels: BeginHandover restates it per launch.
         private readonly Placement[] _open, _settled;
-        private readonly Composition _openBlock, _settledBlock;
+        private Composition _openBlock;
+        private readonly Composition _settledBlock;
 
         //Where between them this frame is, 0 open and 1 settled, and the wall clock it was last advanced
         //against. The morph is driven off the WALL CLOCK rather than an elapsed value because this class is
         //only ever reached from a draw: a frame that is not drawn is a frame in which nothing here should have
         //moved. A gap in the drawing — a level played, then Main Menu — comes back as one huge step, which
         //saturates the morph and is exactly right, because the title belongs in its corner by then.
-        private float _morph, _reveal;
+        //
+        //BOTH START AT ONE, SETTLED AND ARRIVED (#454): the title stands in its menu corner from the first
+        //frame it is ever drawn and never occupies the middle of the frame on its own account. The only thing
+        //that puts it there is the splash handing the 2D logo over (BeginHandover), which is the one launch
+        //path that has a picture for it to stand in — a `play` boot, or a skip before the hand-over began,
+        //finds the title already in its corner rather than watching it fly there over a frame it never opened
+        //in the middle of.
+        private float _morph = 1f, _reveal = 1f;
         private float _lastClock = -1f;
 
         //THE KEYLINE PASS IS ONE DRAW A LETTER, like the body pass, and it was eleven INSTANCED draws until
@@ -617,10 +684,12 @@ namespace BS3D.Effects
         /// Lays the whole title out in one composition and hands back both the block it came to and where every
         /// letter sits in it.
         /// <para>
-        /// The two differ in exactly three ways, and the rest of this method does not know which it is building:
-        /// the <b>lines</b> (one word each when settled, the whole name joined by spaces on one line when not),
-        /// the <b>alignment</b> (right against the block when settled, centred in it when not) and the
-        /// <b>badge</b> (the last line blown up when settled, everything level when not).
+        /// Both compositions are one word to a line, and they differ in exactly three ways, which is all this
+        /// method knows about which it is building: the <b>alignment</b> (right against the block when settled,
+        /// centred in it when not), the <b>badge</b> (the last line blown up to <see cref="BADGE_SCALE"/> when
+        /// settled, shrunk to the picture's <see cref="LOGO_BADGE_SCALE"/> when not) and the <b>spacing</b>
+        /// (the menu's <see cref="LINE_GAP"/> everywhere when settled; the bitmap's own measured gaps and the
+        /// empty depth of its badge disc when not — see the <c>LOGO_</c> constants).
         /// </para>
         /// <para>
         /// It works in block space: <c>x</c> runs LEFT from 0, the right-hand ink edge of the widest line, and
@@ -630,7 +699,7 @@ namespace BS3D.Effects
         /// </summary>
         private Composition Place(string[] words, bool settled, float tracking, out Placement[] placements)
         {
-            string[] lines = settled ? words : new[] { string.Join(" ", words) };
+            string[] lines = words;
 
             float[] lineWidth = new float[lines.Length];
             float widestInk = 0f;
@@ -663,8 +732,8 @@ namespace BS3D.Effects
                 {
                     float advance = LetterShapes.Advance(c);
 
-                    //A space moved the pen and is not a letter — which is the one thing the joined-up single
-                    //line has that the one-word-a-line composition does not.
+                    //A space moves the pen and is not a letter. No word carries one to-day — the title is split
+                    //on them — but the alphabet supports it, and a title that gained one should lay out.
                     if (c != ' ')
                         raw.Add(new Placement(
                             pen + advance * 0.5f * scale,
@@ -674,9 +743,19 @@ namespace BS3D.Effects
                 }
 
                 inkTop -= (LetterShapes.CAP_HEIGHT + 2f * TUBE_RADIUS) * scale;
+
+                //The gap to the next line. The menu's is one figure scaled by the taller of the two lines it
+                //separates; the picture's are its own two measured gaps, in word-line cap heights, and the
+                //last is the badge's rim rather than daylight (see LOGO_BADGE_GAP).
                 if (l < lines.Length - 1)
-                    inkTop -= LINE_GAP * MathF.Max(scale, LineScale(l + 1, lines.Length, settled));
+                    inkTop -= settled
+                        ? LINE_GAP * MathF.Max(scale, LineScale(l + 1, lines.Length, settled))
+                        : l == lines.Length - 2 ? LOGO_BADGE_GAP : LOGO_LINE_GAP;
             }
+
+            //The picture's badge disc runs on below its glyphs, and the box carries that depth so its centre is
+            //the picture's centre — see LOGO_DISC_MARGIN.
+            if (!settled) inkTop -= LOGO_DISC_MARGIN;
 
             float width = widestInk;
             float height = -inkTop + 2f * WAVE_DEPTH * tallestLine;
@@ -701,11 +780,12 @@ namespace BS3D.Effects
         }
 
         /// <summary>
-        /// The scale of one line: level everywhere, except that the settled composition blows the last line up
-        /// into a badge. The opening one is all on one line and has nothing to blow up.
+        /// The scale of one line: level everywhere except the last, which the settled composition blows up
+        /// into the menu's badge and the opening one shrinks to the picture's small "3D" in its disc. A
+        /// one-word title has no badge line in either.
         /// </summary>
         private static float LineScale(int line, int lines, bool settled) =>
-            settled && lines > 1 && line == lines - 1 ? BADGE_SCALE : 1f;
+            lines > 1 && line == lines - 1 ? (settled ? BADGE_SCALE : LOGO_BADGE_SCALE) : 1f;
 
         /// <summary>Keeps only the characters this alphabet can set, so an unsettable title degrades rather than throws.</summary>
         private static string Drawable(string word)
@@ -779,10 +859,11 @@ namespace BS3D.Effects
         /// menu, which is the same argument the balls' heartbeat and the clouds' drift make.
         /// </param>
         /// <param name="settled">
-        /// Which composition to move towards: <c>false</c> is the title card's, the whole name on one line in
-        /// the middle of the frame; <c>true</c> is the menu's, one word to a line in the corner with the last
-        /// blown up. The caller states the <i>target</i> and never the progress — the move itself is this
-        /// class's, so a page cannot leave the title half way across the frame.
+        /// Which composition to move towards: <c>false</c> is the 2D logo's layout, the three lines centred in
+        /// the middle of the frame where the splash drew the picture; <c>true</c> is the menu's, one word to a
+        /// line in the corner with the last blown up. The caller states the <i>target</i> and never the
+        /// progress — the move itself is this class's, so a page cannot leave the title half way across the
+        /// frame. The title starts settled, so <c>false</c> only means anything after <see cref="BeginHandover"/>.
         /// </param>
         /// <param name="presence">
         /// How present the title is, 1 fully and 0 not at all — the front end's fly-in passes its closeness
@@ -1021,6 +1102,39 @@ namespace BS3D.Effects
             _device.BlendState = BlendState.AlphaBlend;
             _device.DepthStencilState = DepthStencilState.Default;
             _device.RasterizerState = RasterizerState.CullCounterClockwise;
+        }
+
+        /// <summary>
+        /// The splash handing the 2D logo over (#454): from the next draw the title stands in the <b>opening</b>
+        /// composition — the picture's own layout, fitted to the rectangle the picture was drawn in — and its
+        /// arrival swell starts over, so the letters inflate into place under the bitmap as the splash thins
+        /// it. The move to the corner then begins when a caller first asks for <c>settled: true</c>, which is
+        /// the main menu arriving.
+        /// </summary>
+        /// <param name="logoWidthFraction">
+        /// The drawn bitmap's width as a fraction of the frame's — the whole file's, margins and all; the
+        /// ink's share of it is this class's own figure (<see cref="LOGO_INK_WIDTH_SHARE"/>).
+        /// </param>
+        /// <param name="logoHeightFraction">Its height, likewise.</param>
+        /// <remarks>
+        /// The picture is placed in <i>pixels</i> (one source pixel to one display pixel across the owner's
+        /// resolutions, scaled below them), so its share of the frame is a fact of this launch rather than a
+        /// constant, and it is restated here rather than assumed. The open composition's other figures — the
+        /// lines, the gaps, the small badge — were measured off the bitmap once and do not move.
+        /// <para>
+        /// The clock is reset with it: the first draw after this call steps by nothing, so the swell starts at
+        /// exactly <see cref="REVEAL_FROM"/> on the frame the fade begins rather than a frame's worth in.
+        /// </para>
+        /// </remarks>
+        public void BeginHandover(float logoWidthFraction, float logoHeightFraction)
+        {
+            _openBlock = new Composition(_openBlock.Width, _openBlock.Height,
+                logoWidthFraction * LOGO_INK_WIDTH_SHARE, logoHeightFraction * LOGO_INK_HEIGHT_SHARE,
+                0f, 0f, 0f);
+
+            _morph = 0f;
+            _reveal = 0f;
+            _lastClock = -1f;
         }
 
         /// <summary>
