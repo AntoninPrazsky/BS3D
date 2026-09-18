@@ -46,6 +46,7 @@ param(
     [string]$DiffusionModel = 'z_image_turbo-Q8_0.gguf',
     [string]$Encoder = 'Qwen3-4B-Instruct-2507-Q8_0.gguf',
     [switch]$NoOffload,
+    [string[]]$ExtraServerArgs,
     [switch]$KeepServer
 )
 $ErrorActionPreference = 'Stop'
@@ -102,6 +103,9 @@ try {
 $proc = $null
 $log = Join-Path $Out 'server.log'
 try {
+    #What the .txt records about the server. A reused one was started by someone else, so its options are not
+    #ours to claim - say so rather than writing this run's intended flags over an image they did not shape.
+    $serverNote = 'reused, options unknown'
     if (Test-ServerPort $Port) {
         Write-Host "Reusing the server already listening on port $Port."
     } else {
@@ -110,6 +114,13 @@ try {
         #Offloading stays the default because the Q8 weights do not fit otherwise; it is NOT what causes the
         #resets (see the .DESCRIPTION - a no-offload Q4_K run died sooner), so -NoOffload is not a safer mode.
         if (-not $NoOffload) { $serverArgs += '--offload-to-cpu' }
+        #-ExtraServerArgs carries sd-server's default generation options, which is where the highres fix lives
+        #(--hires --hires-scale --hires-upscaler --hires-denoising-strength). They belong on the server rather
+        #than in the request because the prompt reaches the server as JSON and never goes near a command line:
+        #a prompt with quotes in it would not survive the re-quoting, and a changed prompt is a changed image.
+        if ($ExtraServerArgs) { $serverArgs += $ExtraServerArgs }
+        #Skip --listen-port and its value; the rest is what shaped the image.
+        $serverNote = ($serverArgs | Select-Object -Skip 2) -join ' '
         Write-Host ("Models: {0} + {1}{2}" -f [IO.Path]::GetFileName($diffusion),
             [IO.Path]::GetFileName($encoder), $(if ($NoOffload) { ', all on the card' } else { ', offloading to RAM' }))
         $proc = Start-Process -FilePath $exe -ArgumentList $serverArgs -RedirectStandardOutput $log `
@@ -136,7 +147,11 @@ try {
             $secs = $sw.Elapsed.TotalSeconds
             $file = Join-Path $Out ("{0}-{1}" -f $it.Name, $s)
             [IO.File]::WriteAllBytes("$file.png", [Convert]::FromBase64String($res.images[0]))
-            $meta = "name: $($it.Name)`r`nseed: $s`r`nsize: $($it.W)x$($it.H)`r`nsteps: $Steps`r`nseconds: " +
+            #The .txt is what a reference is re-rendered from, so it carries everything that shaped the image:
+            #the server options too, since a highres fix changes the output while the request stays the same.
+            $meta = "name: $($it.Name)`r`nseed: $s`r`nsize: $($it.W)x$($it.H)`r`nsteps: $Steps`r`nmodel: " +
+                [IO.Path]::GetFileName($diffusion) + " + " + [IO.Path]::GetFileName($encoder) +
+                "`r`nserver: " + $serverNote + "`r`nseconds: " +
                 $secs.ToString('F1', [Globalization.CultureInfo]::InvariantCulture) + "`r`n`r`n$($it.Prompt)`r`n"
             [IO.File]::WriteAllText("$file.txt", $meta, (New-Object Text.UTF8Encoding($false)))
             Write-Host ("{0}  {1}x{2}  seed {3}  {4:N1} s" -f "$file.png", $it.W, $it.H, $s, $secs)

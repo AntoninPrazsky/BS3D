@@ -35,6 +35,21 @@ The script starts `sd-server` if nothing listens on port 7860 (LM Studio holds 1
 - **Size:** 832×1216 for a tall object, 1216×832 for a scene. 8 steps at cfg 1 are the Turbo model's settings, so leave them.
 - **More seeds beat more rewording** when the prompt already says the right thing: `-Count 3` is three variants for ~105 s.
 
+## Making a chosen one bigger
+
+**Upscale it; do not re-render it larger.** A seed does not survive a change of size — the latent noise is a different shape, so the same prompt and seed at another resolution gives a different picture, not a bigger one. And the highres fix is not available on this machine:
+
+- **`--hires` at scale 2 measured 680 and 889 seconds per step** (against 3.45 s/step at 1216×832), because the second pass at 2432×1664 cannot get a pinned buffer — `ggml_vulkan: Failed to allocate pinned memory (Requested buffer size exceeds device buffer size limit)` — and falls back to unpinned transfers. `sd-server` took **77.5 GB of commit**, the machine reached **92.2 GB of its 92.4 GB commit limit**, and the run died on the script's 30-minute request timeout with nothing written. Eight steps would have been about two hours of thrashing. Anything that *samples* at that size hits the same wall, img2img included.
+- **What works is `sd-cli -M upscale`, in about ten seconds:**
+  ```powershell
+  & C:\Users\panrd\AI\sd\bin\sd-cli.exe -M upscale -i <in.png> `
+      --upscale-model C:\Users\panrd\AI\sd\models\RealESRGAN_x4plus_anime_6B.pth -o <out.png>
+  ```
+  1216×832 → 4864×3328, 8.2 s of upscaling, tiled at 128 px so the memory cost is nothing. The **anime_6B** variant is the right one for this project's references — it is trained for illustration, which is what a flat glossy logo or a concept sheet is; the general `x4plus` model invents photographic texture. Checked at 1:1 against a bicubic resample of the same image to the same size: the keyline is a clean edge instead of a soft ramp and the speculars keep a defined border. Nothing is re-sampled, so the composition is exactly the one that was chosen.
+- The upscaler is not part of the original setup; fetch it once from [Real-ESRGAN v0.2.2.4](https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.2.4/RealESRGAN_x4plus_anime_6B.pth) (18 MB) into `models\`.
+
+**Watch the variable name if you extend the script.** PowerShell identifiers are case-insensitive, so a parameter `$ServerArgs` *is* the local `$serverArgs` the script builds its command line in: the local assignment silently ate the parameter, the array was appended to itself, and the run looked normal while rendering at the old size with none of the flags. The parameter is `-ExtraServerArgs` for that reason. A rendered image proves nothing about which flags were used — read them back out of `server.log`.
+
 ## Showing them
 
 The owner judges whether a reference helps, so **publish a page**: each image with its prompt and one line on what it got right and what deviates from the prompt. #441 did it that way and the owner answered from the page.
