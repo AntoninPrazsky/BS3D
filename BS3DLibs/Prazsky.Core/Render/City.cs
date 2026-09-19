@@ -1,4 +1,4 @@
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using Prazsky.Core.Camera;
 using System;
 using System.Collections.Generic;
@@ -93,32 +93,38 @@ namespace Prazsky.Core.Render
         /// the arena sits in a clearing rather than inside a building.
         /// </param>
         /// <param name="config">The city's layout configuration (block pitch, radius, roofline, taper, base).</param>
-        public City(int seed, float arenaHalfExtent, CitySceneConfig config)
+        /// <param name="config">The scene's own dials — both cities' layouts live on it.</param>
+        /// <param name="neon">Which of the two this is. <b>They are different cities, not one city relit</b>
+        /// (the owner's report, #471's follow-up): a second seed and a skyline of its own, so no block carries
+        /// the same tower at the same size. See <see cref="CitySceneConfig.NeonLayout"/>.</param>
+        /// <param name="arenaHalfExtent">The clearing the island stands in.</param>
+        public City(CitySceneConfig config, bool neon, float arenaHalfExtent)
         {
-            Random random = new(seed);
+            CityLayout layout = config.LayoutFor(neon);
+            Random random = new(layout.Seed);
             List<ModelInstance> buildings = new();
 
-            float buildable = config.BlockPitch - config.StreetWidth;
+            float buildable = layout.BlockPitch - layout.StreetWidth;
 
-            BlockPitch = config.BlockPitch;
-            StreetWidth = config.StreetWidth;
-            RadiusBlocks = config.RadiusBlocks;
-            GroundY = config.BaseY;
+            BlockPitch = layout.BlockPitch;
+            StreetWidth = layout.StreetWidth;
+            RadiusBlocks = layout.RadiusBlocks;
+            GroundY = layout.BaseY;
 
-            int blocksPerSide = 2 * config.RadiusBlocks + 1;
+            int blocksPerSide = 2 * layout.RadiusBlocks + 1;
             BlockBuilt = new bool[blocksPerSide * blocksPerSide];
 
-            for (int blockX = -config.RadiusBlocks; blockX <= config.RadiusBlocks; blockX++)
-                for (int blockZ = -config.RadiusBlocks; blockZ <= config.RadiusBlocks; blockZ++)
+            for (int blockX = -layout.RadiusBlocks; blockX <= layout.RadiusBlocks; blockX++)
+                for (int blockZ = -layout.RadiusBlocks; blockZ <= layout.RadiusBlocks; blockZ++)
                 {
-                    Vector2 blockCenter = new(blockX * config.BlockPitch, blockZ * config.BlockPitch);
+                    Vector2 blockCenter = new(blockX * layout.BlockPitch, blockZ * layout.BlockPitch);
 
                     //Blocks under the arena are left out entirely (#275) rather than kept and cut short: no
                     //play or drop-cinematic camera angle ever looks down the funnel's narrow throat far
                     //enough to see them, so the earlier "cut-off towers open a drop" shaft was cost with no
                     //payoff. The clearing above still needs no separate check — the roofline never reaches
                     //down to it either way.
-                    float clearance = arenaHalfExtent + config.StreetWidth;
+                    float clearance = arenaHalfExtent + layout.StreetWidth;
                     if (Math.Abs(blockCenter.X) < clearance + buildable * 0.5f &&
                         Math.Abs(blockCenter.Y) < clearance + buildable * 0.5f) continue;
 
@@ -143,16 +149,16 @@ namespace Prazsky.Core.Render
 
                             float distanceInBlocks = MathF.Max(Math.Abs(blockX), Math.Abs(blockZ));
 
-                            float top = config.RooflineY
-                                - distanceInBlocks * config.TaperPerBlock
-                                + (float)(random.NextDouble() * 2 - 1) * config.RooflineSpread;
+                            float top = layout.RooflineY
+                                - distanceInBlocks * layout.TaperPerBlock
+                                + (float)(random.NextDouble() * 2 - 1) * layout.RooflineSpread;
 
-                            float height = top - config.BaseY;
+                            float height = top - layout.BaseY;
                             if (height <= 1f) continue;
 
                             Vector3 center = new(
                                 blockCenter.X + offsetX,
-                                config.BaseY + height * 0.5f,
+                                layout.BaseY + height * 0.5f,
                                 blockCenter.Y + offsetZ);
 
                             //Scale then translate: no rotation, so the box stays axis-aligned and its
@@ -160,7 +166,7 @@ namespace Prazsky.Core.Render
                             Matrix world = Matrix.CreateScale(sizeX, height, sizeZ) * Matrix.CreateTranslation(center);
 
                             buildings.Add(new ModelInstance(world, NO_OCCLUSION));
-                            BlockBuilt[(blockZ + config.RadiusBlocks) * blocksPerSide + blockX + config.RadiusBlocks] = true;
+                            BlockBuilt[(blockZ + layout.RadiusBlocks) * blocksPerSide + blockX + layout.RadiusBlocks] = true;
                         }
                 }
 

@@ -1,4 +1,4 @@
-using MapEditor.GUI;
+﻿using MapEditor.GUI;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -138,6 +138,10 @@ namespace MapEditor
         private BallStyle _ballStyle = BallStyle.Beach;
 
         private City _city;
+
+        //Which of the two cities _city holds (#471's follow-up), so V rebuilds only when it crosses between
+        //them and a live config edit rebuilds the one that is up.
+        private bool _cityIsNeon;
         private BoxMesh _unitBox;
         private InstancedModelRenderer _cityRenderer;
         //The equipment on the city's roofs (#436), redressed whenever an edit rebuilds the city
@@ -441,7 +445,8 @@ namespace MapEditor
             //has to be told the factor — sized in texels a star would come out four times dimmer at 2x
             _sceneRenderer = new SceneRenderer(GraphicsDevice, Content) { SupersampleFactor = SUPERSAMPLE_FACTOR };
             _unitBox = new BoxMesh(GraphicsDevice, 1f, 1f, 1f);
-            _city = new City(seed: 20260720, arenaHalfExtent: ARENA_HALF_EXTENT, config: _cityConfig);
+            _city = new City(_cityConfig, neon: _scene == SceneKind.NeonCity, ARENA_HALF_EXTENT);
+            _cityIsNeon = _scene == SceneKind.NeonCity;
             _cityRenderer = new InstancedModelRenderer(GraphicsDevice, _unitBox, Vector3.One, _instancingEffect)
             {
                 CityWindowBrightness = _cityConfig.WindowBrightness,
@@ -498,6 +503,11 @@ namespace MapEditor
             //twenty sky domes on one key already, so an eighteen-long wrap is this program's own idiom rather
             //than a new burden, and a modifier would want a keyboard state CameraInputHelper does not hand out.
             _scene = SceneRenderer.NextScene(_scene);
+
+            //⚠ The day city and the neon city are DIFFERENT CITIES since #471's follow-up — a second seed and
+            //a skyline of its own — so V crossing between them re-runs the generator. An author previewing a
+            //map in the neon city has to be shown the neon city.
+            EnsureCityLayout(_scene == SceneKind.NeonCity);
 
             Info.CustomText = $"Scene: {SceneRenderer.SceneName(_scene)}";
 
@@ -605,13 +615,25 @@ namespace MapEditor
             _sceneConfigHeader.Text = $"{_scene}  —  edit to preview live; not saved  (G: hide)";
         }
 
+        /// <summary>Re-runs the city generator when V crosses between the day city and the neon one, and
+        /// nothing otherwise. The roofs and the streets follow through their own <c>Rebuild</c>.</summary>
+        private void EnsureCityLayout(bool neon)
+        {
+            if (_city == null || neon == _cityIsNeon) return;
+
+            _cityIsNeon = neon;
+            _city = new City(_cityConfig, neon, ARENA_HALF_EXTENT);
+            _rooftops.Rebuild(_city, _cityConfig);
+            _streets.Rebuild(_city);
+        }
+
         /// <summary>Re-applies the edited scene config so the backdrop updates in place.</summary>
         private void OnSceneConfigEdited()
         {
             switch (_sceneConfigGrid.Object)
             {
                 case CitySceneConfig city:
-                    _city = new City(seed: 20260720, arenaHalfExtent: ARENA_HALF_EXTENT, config: city);
+                    _city = new City(city, _cityIsNeon, ARENA_HALF_EXTENT);
                     _cityRenderer.CityConfig = city;
                     //The roofs follow the new buildings and the edited chances; the renderers survive, so
                     //nothing needs re-lighting
