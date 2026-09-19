@@ -3858,3 +3858,16 @@ Drobnost pro příště: `--generate-notes` přidalo pod naše notes **13 polož
 **Celá cesta #453, pro toho, kdo bude dělat `v0.2.0`:** merge na `main` → (volitelně) Run workflow jako zkouška, která nic nepublikuje → `git tag -a vX.Y.Z -F <soubor>` a `git push origin vX.Y.Z` → workflow vydá release sám. Tag zabalí to, co na `main` v tu chvíli stojí.
 
 **Nic si neberu.**
+
+---
+
+## 2026-09-19 — Claude Code, bs3d-49 (čtvrtá dávka poznámek majitele z hraní → #457–#462, jen issues)
+
+**Šest poznámek, šest issues**, na výslovný pokyn „založ issues" (jedna na poznámku — pravidlo ze zápisu o třetí dávce). Sémantické hledání (nomic, 440 issues) na všech šest napřed: **žádná duplicita** — nejblíž stojí rodiče a sourozenci (#205 → #462 vedle #451/#445; #189 → #457/#459/#460/#461; #434/#359 → #459; #448 → #460), a na #189 i #205 visí komentář s odkazy.
+
+- **#462 aurora** („moc rychlá, les primitivní, nejdřív AI předloha"): pohyb jsou **dvě hodiny** a issue jmenuje obě — `DriftSpeed` 0,15 rad/s točí celé pole záclon kolem zenitu, tj. **8,6°/s, otočka za 42 s** (záhyb přejde 60° záběru za ~7 s); `PulseSpeed` 0,9 rad/s (7 s cyklus) byl při #205 zrychlen z 0,35 podle **dvou stillů 5 s od sebe** — to je test na fázový rozdíl ve fotce, ne na to, jak nebe čte v pohybu. Les je 380 smrků ze šesti meshů `ForestScatterRenderer`u a nic víc; majitelův brief na cenu: je tma, detail má být náznak, ne geometrie.
+- **#458 Saturn na dvě rány**: čte se přímo z návrhu (`Saturn()`, `Block01_Meadow.cs`) — koule je **dvě 180° půlky** (modrá/zelená, každá jedna skupina), jediná kotva je `SATURN_CAP` (377 koulí na devíti stropních buňkách, číslo z #359), prstenec i paprsky visí z koule. Dva matche = dvě nosné cesty pryč, zbytek padá jako sirotci; zamýšlená hra (tři žluté rány, nebo odstřelit paprsky) se nikdy nesehraje. `Validate` má drop test (co jedna barva osiří), **ne** „kolika matchi se pole vyprázdní" — issue navrhuje tu bránu do LevelGenu.
+- **#457 pořadí Meadow vs. žebřík lekcí**: žebřík z #189 byl položen **na** pořadí, které existovalo dřív, a nikdo nekontroloval opačný směr (level před lekcí nesmí potřebovat to, co lekce učí). Navržena varianta `AimReachability` přibitá na klidové stanoviště (bez pojezdu a kroku) jako měřitelné kritérium; #413 je totéž pro pozdější bloky.
+- **#459 Amphora**: o čáře mluví jen kontextová karta `line` (až se rozsvítí síť) a o pravidle „dotyk čáry = prohra" nic; a tutoriál **nemá konec** — poslední karta je `budget` na Shuttle. Majitel chce před Amphorou pravidlo a hned za ním gratulaci a „vzhůru na dobrodružství". **#460** kombinace RMB + W/S/A/D jako jedenáctá akční lekce (⚠ vede hráče rovnou do #448 judderu — napřed nebo spolu). **#461** text karty: 112/76/128 du = **47 px na 900p, 83 px na 3840×1600**; majitel po hraní: „mnohem větší".
+
+⚠ Žádný kód, žádný capture, nic nově naměřeno — všechna čísla jsou z kódu, z docs a z dřívějších zápisů, a issues to říkají. **Nic si neberu.**
