@@ -4496,3 +4496,9 @@ Nález, který **zviditelnilo právě to losování**: dosavadní stav byl jeden
 - ⚠ **Dvě další omezení vypadla až ze stavby a jsou teď napsaná u konstanty:** čepice nesmí vzít inkoust prstenců (obojek prstenců běží i = 14..16, čepice vlastní 16, takže buňka obojku na 15 leží přímo pod čepicí — sdílení je slije do skupiny 108 koulí), ani bílou horní pás nohou (ta jde až do 15 a čepici potkává na 16). Dno je tedy **čtyři inkousty čepice + jeden prstence + jeden vršky nohou = šest**.
 - **Každý inkoust dál slouží jedné noze a jedné výseči čepice**, a to není estetika: drží to čtveřici vyrovnanou na 48–68 koulích. Sjednocení nohou projde všemi gates stejně, ale nechá tři barvy čepice na 16, 24 a 24 koulích.
 - **Strukturálně čistá záměna identit:** 27 skupin před i po, nejhorší rána 96 (16 %) před i po, zátěž kotvy 34,0, vyčištění ≥ 4. Počty po barvách jsou tatáž multimnožina, jen přeskládaná.
+
+**#431 zavřené BEZ změny kódu — bylo hotové a jen nezavřené.** Postaveno ve třech kolech, poslední merge `1f61fd2`; issue mělo nula komentářů. Než jsem začal psát, našel jsem v `Cannon.cs` `ElevationStrain`, `ELEVATION_OVERSHOOT`, pružinu i `ElevationRefusesShot`, všechno s odkazem `(#431)`.
+
+- ⚠ **Testbedem to ověřit nejde a je to napsané v samotném designu:** `aim=` **nastavuje** pózu přes `AimTo`, kdežto strain se schválně zvedá **jen ze vstupu**. Ověřoval jsem to tedy ve hře — myš držená nahoru proti stropu přes zafokusované okno, snímky před tlakem a během něj.
+- **Změřeno na uložených snímcích** ve stejném okně pixelů podél paprsku, průměr R−B jasných pixelů: v klidu **−23** (modře laděná bílá paprsku), při tlaku **+17** a **+22**. Skok ~40 bodů, okem čárky přecházejí z bílé do oranžovočervené.
+- **Poučení do dalšího výběru:** než sáhnu na issue, které vypadá jako „chybí funkce", stojí za to `grep` na číslo issue v kódu. Tohle bylo hotové a druhá instance dnes zavřela čtyři další ve stejném stavu.
