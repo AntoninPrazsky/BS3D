@@ -28,6 +28,10 @@ namespace Testbed
 
         protected override void Draw(GameTime gameTime)
         {
+            //The sun's shadow maps come first (#469): their own target, drawn before the scene's
+            //DiscardContents target is bound, because binding that target again would clear it.
+            _sceneRenderer.DrawShadowMaps(_scene, _camera, _rig.SunDirection);
+
             //The scene goes through the HDR target; the crosshair and the text overlay are drawn after the
             //resolve, at native resolution and in display space, so they stay exactly as authored instead
             //of being softened by the downsample and bent by the tonemap curve

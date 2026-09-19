@@ -3940,3 +3940,20 @@ Drobnost pro příště: `--generate-notes` přidalo pod naše notes **13 polož
 **Změřeno** (Testbed proti mainu ve worktree, 13 jednotek od ohně s celým plamenem přes objektiv, dome 14, 1600×900 ssaa 4, `nopost`, `fpscap=400`, dva páry): **7,64 → 7,79 / 7,64 → 7,76 ms, +0,13 ms**. Z hrací kamery je oheň pár set pixelů, tam to nic nestojí.
 
 **Neověřeno:** intro kapitoly ve hře (kamera obíhá kolem ohně 0 — jeden billboard nemá hloubku; issue navrhuje víc billboardů, nechávám na oku majitele), tier Low. Zbývá z majitelova zadání: **#469 stíny** — beru si.
+
+---
+
+## 2026-09-19 — Claude Code, bs3d-f0 (#469 stíny od slunce, hotovo a na mainu)
+
+**Větev `469-savanna-shadows`, merge `--no-ff` na main.** Majitel po #451: „objekty se vzájemně nezastiňují, žádné stíny na zemi — vypadá to špatně." V projektu **žádná scéna stíny neměla** (jen cloud shadow a relief self-shadow). Postaveno jako infrastruktura, savana první zákazník:
+
+- **`SunShadowMap`** (Prazsky.Core): 32bit `Single` render target s clip hloubkou (MonoGame depth buffer k samplování nedá), ortografická matice od slunce fitnutá každý snímek kolem kamery (extent 260 j., 2048 texelů → 0,13 j./texel), **okno přichycené na celé texely v light space** — jinak stíny plavou po trávě s každým pohybem kamery (stejná myšlenka jako mřížka terénu přichycená na buňku).
+- **`Shadows.fxh`**: jedna kopie uniformů + `SunShadow()` — 9 tapů PCF, slope-scaled bias (0,45 j. → do jednotek mapy přes její hloubkový rozsah), fade na posledních 6 % mapy, `tex2Dlod` protože běží pod `[branch]` na síle (gradient v divergentním toku kompilátor odmítá). `Acacia.fx` má `ShadowCaster` techniku (všechny buckety + kameny ohnišť, CullNone) a tap na sluneční člen; `Savanna.fx` tap skládá do `sunlight`, který už tlumí mraky → zastíněná tráva se ani neleskne, ani nesvítí proti slunci; bere `baseNormal`, ne učesanou.
+- ⚠ **Kdy se mapa kreslí, je celý trik**: scénový target je `DiscardContents`, přepnutí pryč a zpět uprostřed snímku by **smazalo už nakreslenou oblohu** (cavern si to může dovolit jen proto, že oblohu nahrazuje). Proto `SceneRenderer.DrawShadowMaps(scene, camera, sun)` volají všechny tři exe **před navázáním scénového targetu** — Game jako první věc v `BeginSceneDraw` (ještě před vrstvou poháru), Testbed a editor na začátku `Draw`. No-op mimo savanu, na Low, při síle 0 a se sluncem pod 0,08.
+- Ostrov **nevrhá** (kreslí přes `InstancedModel.fx` bez caster techniky) — příští krok.
+
+**Změřeno** (Testbed proti mainu ve worktree, dome 14, 1600×900 ssaa 4, `nopost`, `fpscap=400`, dva páry): **+0,15 / +0,19 / +0,12 ms** (venku 7,98/8,03 → 8,16/8,14; nadhled 9,00/9,06 → 9,19/9,25; oheň 8,44/8,41 → 8,54/8,55), znaménko 6/6 — caster pass (~40 instancovaných drawů do 2048 mapy) plus 9 tapů na pixel terénu a rostlin, stejný řád jako sám rozptyl (+0,14 až +0,34).
+
+**Ověřeno snímky** ze čtyř kamer + baobab zblízka: stromy, balvany, kopje, palmy i baobab vrhají stín na trávu a na sebe (kmen pod korunou), bez acne, okraj mapy se ztrácí neznatelně. Game i MapEditor staví (exit 0); ve hře samotné neověřeno — hrací pohled jen z Testbedu v game módu.
+
+**Stránka před/po** doplněna o oheň, baobab s palmou a stíny: <https://claude.ai/artifact/D6DwJ4rdgvMSP8sxnNHdYj>. **Nic dalšího si neberu.**
