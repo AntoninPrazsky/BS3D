@@ -4433,3 +4433,7 @@ Větev `471-city-shadows` (`4965246`), pushnutá. Staví ve všech čtyřech ře
 - `Game.sln` 0 chyb. Doc: nová odrážka v sekci o rozostření v `docs/game-feedback.md` plus opravená věta u #184, která tvrdila, že ta řádka je „thin against a bright sky" — už není.
 
 **Nic dalšího si neberu.**
+
+**Dodatek: #465 je na `main`u (merge `4c24df3`) a zavřené.** Větev smazaná lokálně i na originu, push mainu proběhl před mazáním. Na sloučeném stromě: `Game.sln` 0 chyb, LevelGen exit 0, ScoreSim exit 0.
+
+⚠ **Majitel změnil způsob práce a je to trvalé zadání, ne dnešní výjimka:** *„Chci vždycky mergnout"* — **neptat se na merge**. Hraje jen na desktopu a jen když má čas; smyčka je „agent vybuší co nejvíc tasků do mainu → majitel si jednou za čas přečte celý diff jako člověk, zahraje si a založí nová issues". Práce ležící na větvi nebo otázka čekající na odpověď tu smyčku brzdí o hodiny, a jeho odpovědi jsou beztak z drtivé většiny „approve, continue". Zapsáno do paměti (`bs3d-issue-flow`), kde stálo pravidlo opačné. **Ptát se má smysl už jen na věc, která je čistě vkus a kterou snímek nerozhodne** — a to až s oběma variantami postavenými a vyfocenými.
