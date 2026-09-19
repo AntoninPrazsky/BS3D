@@ -717,6 +717,13 @@ namespace Prazsky.Core.Render
         private readonly VertexBuffer _flameVertexBuffer;
         private readonly IndexBuffer _flameIndexBuffer;
 
+        //The sparks over each fire (#468): one shared buffer of MAX_SPARKS billboards, the fire's own
+        //technique in Flame.fx animating them off the wall clock, drawn per fire after its flame.
+        private const int MAX_SPARKS = 32;
+        private VertexBuffer _sparkVertexBuffer;
+        private IndexBuffer _sparkIndexBuffer;
+        private EffectTechnique _flameTechnique, _sparkTechnique;
+
         //Maximum scene point lights, matching MAX_SCENE_LIGHTS in InstancedModel.fx / Savanna.fx
         private const int MAX_SCENE_LIGHTS = 8;
         private readonly Vector3[] _savannaLightPos = new Vector3[MAX_SCENE_LIGHTS];
@@ -1279,6 +1286,11 @@ namespace Prazsky.Core.Render
             short[] flameIndices = { 0, 1, 2, 2, 1, 3 };
             _flameIndexBuffer = new IndexBuffer(graphicsDevice, IndexElementSize.SixteenBits, 6, BufferUsage.WriteOnly);
             _flameIndexBuffer.SetData(flameIndices);
+            _flameTechnique = _flameEffect.Techniques["Flame"];
+            _sparkTechnique = _flameEffect.Techniques["Sparks"];
+            //The sparks (#468): one shared buffer of billboards on the fountain's pattern, each fire drawing
+            //the first SparkCount of them with its own position and clock.
+            BuildBillboardParticles(MAX_SPARKS, 4680, ref _sparkVertexBuffer, ref _sparkIndexBuffer);
 
             //--- Birds: one shared rest-pose mesh, and each bird's orbit and flap cycle seeded once
             _birdsEffect = content.Load<Effect>("Shaders/Birds");
@@ -5456,6 +5468,7 @@ namespace Prazsky.Core.Render
             EffectParameter flameSeed = _flameEffect.Parameters["FlameSeed"];
             EffectParameter flameTime = _flameEffect.Parameters["FlameTime"];
 
+            _flameEffect.CurrentTechnique = _flameTechnique;
             for (int fire = 0; fire < SavannaCampfireCount; fire++)
             {
                 flamePosition.SetValue(SavannaCampfirePosition(fire));
@@ -5467,6 +5480,24 @@ namespace Prazsky.Core.Render
 
                 _flameEffect.CurrentTechnique.Passes[0].Apply();
                 _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, 2);
+            }
+
+            //The sparks (#468): the same per-fire uniforms over the shared spark buffer, one draw per fire.
+            int sparks = Math.Clamp(_savannaConfig.Campfire.SparkCount, 0, MAX_SPARKS);
+            if (sparks > 0 && _sparkVertexBuffer != null)
+            {
+                _flameEffect.CurrentTechnique = _sparkTechnique;
+                _graphicsDevice.SetVertexBuffer(_sparkVertexBuffer);
+                _graphicsDevice.Indices = _sparkIndexBuffer;
+                for (int fire = 0; fire < SavannaCampfireCount; fire++)
+                {
+                    flamePosition.SetValue(SavannaCampfirePosition(fire));
+                    flameSeed.SetValue(1f + fire * 0.031f);
+                    flameTime.SetValue(frame.Time + fire * 3.77f);
+                    _flameEffect.CurrentTechnique.Passes[0].Apply();
+                    _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, sparks * 2);
+                }
+                _flameEffect.CurrentTechnique = _flameTechnique;
             }
 
             _graphicsDevice.BlendState = BlendState.AlphaBlend;
@@ -6424,6 +6455,8 @@ namespace Prazsky.Core.Render
             DisposeHearthStones();
             _flameVertexBuffer?.Dispose();
             _flameIndexBuffer?.Dispose();
+            _sparkVertexBuffer?.Dispose();
+            _sparkIndexBuffer?.Dispose();
             _birdMesh?.Dispose();
             _mountainVertexBuffer?.Dispose();
             _mountainIndexBuffer?.Dispose();

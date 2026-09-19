@@ -354,6 +354,13 @@ namespace Prazsky.Core.Render
         /// </summary>
         public float FlameHeightScale { get; set; } = 6.0f;
 
+        /// <summary>
+        /// Sparks rising out of each fire (#468), from a shared buffer of 32 at most: each a small bright
+        /// billboard on its own looping life off the wall clock, born in the base, cooling from yellow-white
+        /// to red as it climbs, gone by the top of the flame. 0 draws none.
+        /// </summary>
+        public int SparkCount { get; set; } = 20;
+
 
         /// <summary>
         /// The scorched ground under a fire, as a multiple of <see cref="FlameSize"/> — so a bigger fire
