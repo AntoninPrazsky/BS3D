@@ -1923,11 +1923,38 @@ namespace BS3D.Tools.LevelGen
         //⚠ Three inks on the BLOCK grid were measured and are not enough on this body: at 2x2 blocks the
         //count exploded (66 groups, 0.79 a shot, 19 repair rewrites at the inner face) and at 3x2 the null
         //diagonal refused brown back into a 59-ball net. The grid itself is the fault on a torus, so the
-        //colour is a STRIPE now — see DonutColour. Black is chocolate dough; navy is a berry glaze — and the
-        //anchor annulus is glaze, so the level's top interleaves three colours instead of two.
-        private static readonly BallType[] DONUT_DOUGH = { BallType.Type10, BallType.Type9, BallType.Type8 };
-        private static readonly BallType[] DONUT_GLAZE = { BallType.Type6, BallType.Type4, BallType.Type12 };
-        private static readonly BallType[] DONUT_SPRINKLES = { BallType.Type7, BallType.Type5 };
+        //colour is a STRIPE now — see DonutColour. The anchor annulus is glaze, so the level's top
+        //interleaves three colours instead of two.
+        //
+        //WHICH three is #421, and the structure above had nothing to do with it. The first cut was a
+        //chocolate cake with a berry glaze — dough brown/orange/BLACK, glaze magenta/beige/NAVY — and the
+        //owner played it and reported that it does not read as a donut at all. The fault is one sentence:
+        //each band was three inks that do not belong to one material, and in both bands the odd ink out was
+        //the loud one. Black is not a dough shade, it is a burn; navy is not an icing, it is a bruise; and
+        //BEIGE IN THE GLAZE was the worst of the three, because beige is the most dough-coloured ink in the
+        //palette and it was sitting in the band that had to read as icing. A third of each band was arguing
+        //with the other two thirds, so neither band said what it was.
+        //
+        //So the rule is now hue-coherence per band, and the bands are disjoint from each other and from the
+        //sprinkles (nine of the thirteen inks, no ink in two roles): the dough is the three warm ones that
+        //are all shades a baked ring actually goes — light crumb, golden, browned edge — and the glaze is
+        //magenta-led with red under it and silver where the icing has set, so two thirds of it is pink and
+        //the third is a highlight rather than a second colour fighting it.
+        //
+        //⚠ The owner asked for "cyan/magenta/yellow sprinkles" and magenta is not one of them, deliberately:
+        //magenta is the glaze's own lead ink, so a magenta sprinkle would be invisible ON it and would fuse
+        //WITH it — the one thing this level's colouring is not allowed to do (see the staircases above).
+        //Green takes its place, which keeps all three sprinkles cool and bright against a warm pink ground.
+        private static readonly BallType[] DONUT_DOUGH = { BallType.Type4, BallType.Type9, BallType.Type10 };
+        //⚠ The ORDER inside each array is not decoration: the stripe geometry gives the three slots uneven
+        //masses, measured on the built level at 100/80/85 balls for the dough and 66/84/94 for the glaze.
+        //Silver therefore sits in the glaze's SMALLEST slot and the two pinks take the two largest, so the
+        //band comes out 73 % pink rather than the 61 % it read when magenta held the smallest slot — the
+        //difference between an icing with a highlight and an icing arguing with a grey. Beige leads the
+        //dough for the same reason and the opposite one: a ring is mostly its light crumb, browned at the
+        //edges and not through.
+        private static readonly BallType[] DONUT_GLAZE = { BallType.Type11, BallType.Type1, BallType.Type6 };
+        private static readonly BallType[] DONUT_SPRINKLES = { BallType.Type5, BallType.Type7, BallType.Type2 };
 
         /// <summary>Distance from the tube's own core circle — the ring's radius in its cross-section.</summary>
         private static float DonutTube(float r, int i, int depth)
@@ -1979,6 +2006,14 @@ namespace BS3D.Tools.LevelGen
         /// The presence and the colour are read off <b>different</b> bits of the same hash. Taken off the
         /// same ones they correlate — a test of <c>h % 4</c> only ever admits even hashes, so a colour picked
         /// with <c>h % 2</c> would be the first entry every time and the second would never be drawn at all.
+        /// <para>
+        /// ⚠ <b>Which is why the colour is taken off the HIGH bits and not off <c>h % n</c></b> (#421). While
+        /// there were two sprinkles, <c>h % 2</c> was bit 0 alone and the presence test's bits 5–6 could not
+        /// reach it. A third colour turns that into <c>h % 3</c>, which is a modulus over the <i>whole</i>
+        /// word — the presence bits included — and the two correlate again at once: measured on the shipped
+        /// level, the three colours came out <b>49, 27 and 4</b> balls, and four balls of a colour is a ball
+        /// type the magazine can barely deal. Shifting past the presence bits first restores the even split.
+        /// </para>
         /// </remarks>
         private static bool DonutSprinkle(int blockColumn, int blockRow, out BallType colour)
         {
@@ -1987,7 +2022,7 @@ namespace BS3D.Tools.LevelGen
             h *= 2654435761;
             h ^= h >> 16;
 
-            colour = DONUT_SPRINKLES[h % (uint)DONUT_SPRINKLES.Length];
+            colour = DONUT_SPRINKLES[(h >> 20) % (uint)DONUT_SPRINKLES.Length];
 
             return ((h >> 5) & 3) == 0;
         }
