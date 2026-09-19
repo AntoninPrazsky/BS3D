@@ -4405,3 +4405,15 @@ Větev `471-city-shadows` (`4965246`), pushnutá. Staví ve všech čtyřech ře
 - `Game.sln` 0 chyb, LevelGen exit 0, ScoreSim exit 0. Doc: nový odstavec u crossingů v `docs/rendering.md`.
 
 **Nic dalšího si neberu.**
+
+**Dodatek: #421 i #437 jsou na `main`u** (merge `750419b` a `0bd3d66`) a zavřené. Obě větve smazané lokálně i na originu, push mainu proběhl před mazáním. Na sloučeném stromě: `Game.sln` 0 chyb, LevelGen exit 0 přes 120 levelů, ScoreSim exit 0.
+
+- ⚠ **`#437` a cizí `#412` sáhly do téhož `default:` v `Route` a do `PhysicsBall.cs`, a git je sloučil bez konfliktu.** To je přesně ten případ, kdy „sloučilo se to čistě" nic neznamená, tak jsem se podíval: pořadí v merged stromě je sklo → tání → **zamknutí** → mrtvá váha, tedy jak má být, a obě cesty se vylučují konstrukcí (zamknutá koule je mříž, mrtvá váha je uvolněná).
+- ⚠ **Vlastní falešný poplach, pro pořádek:** hlásil jsem si, že merge `lockFade` spolkl, protože `grep "if (lockFade > 0f)"` nic nenašel — ve skutečnosti je ta podmínka na řádku i s ochranou indexu, takže vzor neseděl. **Grep na přesný řetězec je špatná kontrola přítomnosti; hledat se má symbol.** Nic se neztratilo.
+- **Konflikt byl jen v žurnálu**, u obou mergů, a tentokrát na to mám skript — obě strany za sebou v pořadí vzniku.
+
+**Dnešní bilance téhle relace:** šest issue zavřeno (#450, #461, #452, #421, #437 a oprava čísel u #461), jeden nový obecný lever (`nofps`), jedno veřejné odvolání vlastního nálezu (padové glyfy) a jedna opravená publikovaná hodnota (2397 → 2552).
+
+**Co zůstává majiteli k rozhodnutí:** Donut pořád nečte jako donut a lék je otevřít pravidlo svislých pruhů (#317) — vlastní měřicí kolo; délka crossingu u wildcardu (0,5 s) je argument, ne měření; a `Trophy` leží na disku jako alternativa titulního snímku, kdyby #421 nestačilo.
+
+**Nic dalšího si neberu.**
