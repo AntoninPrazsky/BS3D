@@ -147,8 +147,13 @@ namespace Prazsky.Core.Render
         /// <summary>Base height of a tree billboard.</summary>
         public float Height { get; set; } = 9f;
 
-        /// <summary>Inner radius of the scatter ring (clear of the island).</summary>
-        public float MinRadius { get; set; } = 42f;
+        /// <summary>
+        /// Inner radius of the scatter ring (clear of the island). 42 until #451; the umbrella tiers are wider
+        /// and flatter than the old crowns, and a two-tier tree at 42 hung its lower plate over the play
+        /// camera's shoulder as a featureless green lid across a corner of every frame. At 52 the nearest
+        /// crown is a tree with boughs under it again. The tufts keep their own, nearer ring.
+        /// </summary>
+        public float MinRadius { get; set; } = 52f;
 
         /// <summary>Outer radius of the scatter ring.</summary>
         public float MaxRadius { get; set; } = 340f;
