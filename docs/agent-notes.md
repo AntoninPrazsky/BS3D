@@ -3892,3 +3892,25 @@ Drobnost pro příště: `--generate-notes` přidalo pod naše notes **13 polož
 ⚠ **Past na nástroje:** bash heredoc s backticky v těle v tomhle harnessu selže i s uvozeným oddělovačem („unexpected EOF while looking for matching `'`") — těla issues psát Write toolem a předat `--body-file`.
 
 ⚠ Žádný kód, žádný capture, nic nově naměřeno — všechna čísla jsou z kódu a z docs. **Nic si neberu.**
+
+---
+
+## 2026-09-19 — Claude Code, bs3d-f0 (#451 savana z předloh, hotovo a na mainu)
+
+**Zadání majitele: „vyber komplexní issue, na kterém můžeme pracovat s lokálním generativním AI, a začni."** Vybráno #451 (savana: akácie bez detailu, scéna primitivní) — nejkomplexnější z reference-first issues, scéna druhé kapitoly. Větev `451-savanna-rework`, merge `--no-ff` na `main`, větev smazána. Stránka před/po s předlohami a cenou pro verdikt majitele: <https://claude.ai/artifact/D6DwJ4rdgvMSP8sxnNHdYj>.
+
+**Předlohy: 20 obrázků za 12 minut, bez restartu.** `render-references.ps1 -PromptFile C:\Users\panrd\AI\sd\prompts-451-savanna.json -Count 2` — deset promptů (pláň za zlaté hodiny, háj shora, list siluet akácií, akácie zblízka, list dalších rostlin, list prvků na zemi, termitiště s kopje, stezka, a dva pro #468: ohniště v noci a koncept plamene), výstup `out\451\refs`. ⚠ Klasifikátor auto režimu spuštění `sd-server` **nejdřív odmítl** („Interfere With Workloads"); majitel mid-session výslovně potvrdil („spouštět sd-server můžeš jak chceš"), druhý pokus prošel. Předchozí #281 reference (tři obrázky trávy) už nesly siluety akácií a stačily na první návrh, než dojely nové.
+
+**Co reference řekly** (tři věci, každá je jedna výsadba): koruna je *tenká plochá vrstva*, nízká klenba nad plochým spodkem, širší než strom vysoký, s paprsky větví pod ní, větve se větví dvakrát; pláň nese *věci* (trsy, křoví, termitiště jako věže 3–4× vyšší než široké, kopje 2–3 stromy vysoké, osamělé balvany, vybělené padlé kmeny, vyšlapaná úzká stezka); obzor zavírá *tmavá linie lesa* v oparu.
+
+**Postaveno:** `AcaciaMesh` ve čtyřech `AcaciaKind` (vzrostlá ± druhé patro, zlomená s holým pahýlem, mladá, mrtvá s větvičkami), koruna `FoliageStyle.Tier` (nový `BottomFlatten` — tuck sám dá kužel, ne podlahu), patra do jednoho meshe (`FoliageMesh.Generate` do cizích listů), druhé větvení. `SavannaScatter` (kde + co; s čím zůstává rendereru — lesní split) sází vše z jednoho semínka a jedné occupancy do `ScatterBucket` se **statickými** instance buffery (starý path přepisoval sdílený dynamický buffer při každém drawu). `GrassTuftMesh` z dvoustranných listů, `TermiteMoundMesh`, `DeadwoodMesh`, `RockMesh` kulatější pro kopje. `Acacia.fx`: `Custom` (TEXCOORD5) = suchost + jas na instanci, `DiffuseDry`, `BarkStrength` (Fbm3 tažený podél Y), opar 1,5× vzdálenosti terénu. `Savanna.fx`: stezky = nulové vrstevnice jednoho `CloudNoise` tapu za `[branch]`, `worn = max(burn, trail)` zhasíná listy, barva vlastní. Konfig `SavannaDressingConfig` + `AcaciaConfig` (frakce druhů, Count 140, BushFraction 0,3, **MinRadius 42 → 52**).
+
+**Tři iterace podle snímků, ne podle citu:** (1) trsy jako spiked `FoliageMesh` vyšly na 16 slices jako **žluté brambory** → skutečné listy; (2) treeline na 380–520 se rozpustila v oparu do béžova → 300–400 a `PLANT_HAZE_REACH` 1,5; stezka na `TrailWidth` 0,035 četla jako silnice → 0,02; (3) dvoupatrová koruna na poloměru 42 visela hrací kameře přes rameno jako zelené víko → 52.
+
+**Změřeno** (Testbed proti mainu ve worktree, dome 14, 1600×900 **ssaa 4**, `nopost`, `fpscap=400`, tři pevné kamery, tři páry střídavě, mediány z 12 čtení po 4 zahřívacích): **+0,14 / +0,29 / +0,34 ms** (venku 7,87→8,01; nadhled 8,71→9,00; oheň s korunou přes objektiv 8,21→8,55), znaménko 9/9. ⚠ **První pokus na ssaa 2 neměřil nic** — oba buildy seděly na capu 400 (2,50 ms), přesně plateau z benchmark skillu. ⚠ Skript: parametr funkce pojmenovaný `$args` je v PS **prázdný** (automatická proměnná), `[fps]` řádka tiskne **desetinnou čárku** (`332,2 (3,01 ms)`) → regex na tečku nematchne a běh čte jako „no output"; a Windows cesta předaná `.ps1` z **bash** toolu bez uvozovek přijde o zpětná lomítka (výstup skončil ve složce `UserspanrdAIsdout451after2`). Všechno do paměti.
+
+**Ověřeno:** Testbed, Game i MapEditor builds exit 0; šest pevných kamer před/po (3840×1600, `nopost`, sky 14 jako Galerie) na stránce; ze hry samotné (F10 v Testbedu na levelu Giraffe) hrací pohled na stránce jako hero. Neověřeno: Game.exe spuštěné jako hráč (jen Testbed v game módu), tier Low (tufts `DetailOnly` jen z kódu), MapEditor V-cyklus.
+
+**Zbývá otevřené** (v issue komentáři): baobab a dumová palma z listu rostlin nepostaveny (jeden dva baobaby = další krajinný prvek jako kopje — na slovo majitele), „něco živého v dálce", oheň sám je #468 (reference z téže dávky, komentář tam). `docs/scenes.md` „The savanna" a `CLAUDE.md` změněny s prací. Worktree `BS3D-main` (základ měření) odstraněn.
+
+**Nic si neberu.**
