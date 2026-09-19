@@ -4718,3 +4718,20 @@ Dosavadní pravidlo „syntetický vstup se do `BS3D.exe` nikdy nedostane" je **
 **Bilance celé relace (game-0c, Sonnet):** #475 (splash blend), #456 (hudební fade), #463 (About kredity) hotové a smergnuté; #457 správně stažené (kolize s bs3d-f0, zadání neobstálo měření); #377 zavřené bez psaní kódu (už hotové vedlejším produktem #189); #464 částečně (infrastruktura hotová, přehrávání ne). Jedna vlastní chyba: journal commit omylem na `448-frame-pacing` místo `main` — opraveno plumbingem, branch nedotčen, nahlášeno bs3d-f0.
 
 **Nic dalšího si neberu — limit.**
+
+---
+
+## 2026-09-19 — Claude Code, bs3d-f0 (dial `shadow=`, merge `4f9c5af`)
+
+**Majitel dal ještě kus limitu, tak jsem postavil to, co jsem o hodinu dřív označil za chybějící nástroj.** Sluneční stínovou mapu jde teď **svépomocí přehodit v jednom procesu**.
+
+- `SceneRenderer.ShadowScale` násobí `ShadowConfig.Strength` scény, která je zrovna nahoru. ⚠ **0 znamená přesně totéž co `Strength` 0** — žádný target, žádný caster pass, nula každému receiveru. **Jedna cesta kódem pro „žádné stíny", ne dvě, co se mohou rozejít.**
+- Testbed to pinuje `shadow=<0..1>` a hlavně **alternuje**: `alt=shadow=0;shadow=1` dá párová `[fps]` okna na jedné kameře, jednom seedu a jednom buildu. `detail=0` náhrada není — mapu přeskočí, ale s ní přepne několik scén na redukovaný program, takže pár přes něj měří směs.
+- **Ověřeno dvakrát.** Okem: savana, dome 5, táž kamera i seed — `shadow=0` nemá stíny stromů, stín ostrova na trávě ani stín děla na kamenu; `shadow=1` má všechny tři. Hodinami, **poprvé z jednoho buildu**: 1600×900 ssaa 4, `nopost nooverc nocap`, `campos=0,6,60 camtarget=0,-8,0`, čtyři rozehřívací okna zahozena — **8,89 ms při `shadow=0` proti 9,07 při `shadow=1`, +0,18 ms**. #471 dalo worktreem +0,19 (les), +0,20 (pláž) a +0,19 (louka), takže jednoprocesové čtení padlo přesně na ně — to je ta křížová kontrola, která říká, že dial měří totéž co starý rig.
+- ⚠ **Past nalezená při práci, zapsána do `docs/testbed.md`: alternuj kvůli číslům, pouštěj naplocho kvůli obrázkům.** `shot=` proti alternovanému běhu je přesně ten sampler trap, před kterým tenhle repozitář varuje všude jinde — **oba naplánované snímky padly do `shadow=1` oken** a „pár" byly dva stejné obrázky.
+- Overlay tiskne `shadow <x>` **jen když není 1**. Hra `ShadowScale` nikde nepíše a **není to kvalitní tier** — tier má na stíny `SceneDetail`.
+
+⚠ **A ještě jedna poučka o sobě:** gaty jsem nejdřív pustil jako `dotnet run --project … -v q --nologo` a **`--nologo` došlo do ScoreSimu jako argument — hledal `--nologo\Levels.json` a spadl s exit 127.** Diváno bez přemýšlení by to bylo buď „gate padá, můj kód je špatně", nebo — hůře — falcšný „LevelGen exit 0" u nástroje, který stejný argument jen ignoroval. **Gaty se pouštějí bez přepínačů `dotnet build`u.** Oba pak projdou (0 a 0).
+
+**Co to odblokuje:** městská půlka #471 (`471-city-shadows`, přerovnaná na `b576ffe`) jde teď změřit jedním během, a otázka „stojí receiver ulic za to?" je týž sweep s registrací `CityStreets.fx` a bez ní. Rámování zůstává samostatný problém.
+
