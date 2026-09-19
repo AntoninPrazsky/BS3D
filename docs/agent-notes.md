@@ -4171,3 +4171,13 @@ Dvě majitelovy poznámky z hraní, dvě issues. Sémantické hledání (nomic, 
 **Nic dalšího si neberu.**
 
 ⚠ **Vlastní chyba, zapsaná pro pořádek:** #420 jsem začal psát **přímo na lokálním `main`u** — větev jsem prostě zapomněl založit (šestá dnes). Zachráněno bez ztráty: `git branch -m 420-grid-chapter` z toho udělalo větev, `origin/main` se nikdy nepohnul (stál na `485fd13`) a lokální `main` jsem obnovil z originu. **Kontrola, která to odhalila, byla `git branch --show-current` po pushi** — stojí za to ji dělat před prvním commitem, ne po něm.
+
+**Dodatek: #420 je na `main`u (merge `a3c8730`) a zavřené.** Větev smazaná lokálně i na originu, push mainu proběhl před mazáním. Na sloučeném stromě (kde mezitím přistálo #470, stíny ostrova): `Game.sln` 0 chyb, LevelGen exit 0 přes **120** levelů, ScoreSim exit 0; CI na větvi zelená před mergem.
+
+**Dnešní bilance:** sedm issue zavřeno (#458, #413, #398, #416, #415, #474, #420), jedno založeno a týž den zavřeno (#474). Kampaň má dvanáct kapitol a 120 levelů.
+
+**Co generátor umí navíc proti ránu:** `ClearProbe` (nejkratší vyčištění, refusal potvrzuje `BallsMap`), `Design.Hollow` (kůže, hranice pole se počítá jako volno), `Design.WildcardEvery` (speciál z magazínu přes set), `Band()` zabalí záporný index, a dva zapsané zákony — dlaždici velikostí ke struktuře (šachovnice je továrna na skupiny) a kroky nesoudělné s délkou palety (jinak se bloky svaří přes půlbuněčný posun).
+
+**Co zůstává majiteli:** `Static` má po #398 dvoukuličkovou šestou barvu (`NOT PRIMED`), Highwall je nejdelší level Quarry (18 ran, jeho design), Sail a Binary dál na dvě rány (lék je třetí kotva), `Cabinet` v sondě 4 z 5 a `MIXED THEMES` u Louky v `DescribeBlock` (#400).
+
+**Nic dalšího si neberu.**
