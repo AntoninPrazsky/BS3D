@@ -901,10 +901,25 @@ namespace BS3D.Tools.LevelGen
             return ok;
         }
 
+        /// <summary>
+        /// How few shots a level may leave unspent by the dearest order that cleared it before the sag table
+        /// marks it THIN (#414). A <b>ranking and not a verdict</b>, like everything else that table prints:
+        /// this probe shoots at random and a random player is worse than the one a budget is priced for, so a
+        /// thin margin here is a thing to go and look at rather than a refusal.
+        /// <para>
+        /// Six, and the figure is the owner's playtest rather than a round number: Causeway's worst clearing
+        /// order spent <b>50 of 52</b> and its own design doc called that measured and safe, while the report
+        /// from play was that players run out of balls on it. Two is inside the range one ricochet or one
+        /// colour misread costs. Six is two of those plus one, which is the least that reads as margin.
+        /// </para>
+        /// </summary>
+        private const int CLEAR_MARGIN_TO_REPORT = 6;
+
         private static bool RunSagGate(LevelSet set, string[] only)
         {
             Console.WriteLine();
             Console.WriteLine("=== sag probe: every level hung in the real simulation and played ===");
+            Console.WriteLine("    (clear margin = shots left unspent by the dearest order that actually cleared it)");
             Console.WriteLine("    (clearance = how far the lowest ball stayed above the death line;"
                               + " negative is under it and still inside the swing allowance)");
             Console.WriteLine("    ⚠ A RANKING, NOT A VERDICT - it refuses nothing and fails nothing."
@@ -948,10 +963,28 @@ namespace BS3D.Tools.LevelGen
                 //fitted to twelve levels is not yet entitled to refuse a design - see this method's doc.
                 bool sagged = sags >= SagProbe.SAG_RUNS_TO_REPORT;
 
+                //THE CLEAR MARGIN (#414), which is a different question from everything above it and was
+                //readable here all along without being named: how many shots the DEAREST order that actually
+                //cleared the level left unspent. The sag probe asks whether the cluster survives; a level can
+                //survive every order and still be one the player runs out of balls on, which is exactly what
+                //the owner reported on Causeway - its worst clearing order spent 50 of 52 and the doc called
+                //that measured and safe. Two shots is inside the range a real player loses to one ricochet.
+                //
+                //⚠ It is taken over the CLEARING runs only. A run that ended OutOfShots spent the whole budget
+                //by definition, so folding those in would price every level at a margin of zero and say
+                //nothing - and this probe shoots at random, so its running out is not evidence (the outcome's
+                //own note says so). A level no order cleared has no margin to report rather than a margin of
+                //nought; it is the sag lines above that speak for those.
+                int[] cleared = runs.Where(r => r.Outcome == SagProbe.Outcome.Cleared).Select(r => r.Shots).ToArray();
+                int? margin = entry.Shots.HasValue && cleared.Length > 0 ? entry.Shots.Value - cleared.Max() : null;
+
                 Console.WriteLine($"  {i + 1,2}. {entry.Name,-12} sagged {sags} of {runs.Length}; worst: "
                     + $"{worst.Outcome,-11} after {worst.Shots,3} shot(s) of "
                     + $"{(entry.Shots.HasValue ? entry.Shots.Value.ToString() : "∞"),3}"
                     + $", closest the line came {worst.WorstClearance,6:F2}"
+                    + (margin is int m
+                        ? $", clear margin {m,3}" + (m < CLEAR_MARGIN_TO_REPORT ? " <-- THIN" : string.Empty)
+                        : ", clear margin    -")
                     + (sagged
                         //Which pressure ended it, because that is the distinction #288 got the wrong way
                         //round: a level that sags with the glass still at rest is a LAYOUT fault, and no
