@@ -549,7 +549,10 @@ namespace BS3D.Tools.LevelGen
 
                 //5. THE CAVERN - "The Reveal". An outer body with a differently-shaped thing standing inside
                 //it; clearing the outside is the payoff (#161).
-                Onion(), Chest(), Fossil(), Mango(), Spark(), Grotto(), Scales(), Ship(), Spring(), Lantern(),
+                //SPRING BEFORE SHIP since #413, on the owner's playtest: Ship rated higher difficulty than
+                //Spring and stood in front of it, which the tool's own ratio agrees with (Ship 2.45 shots a
+                //group against Spring's 4.80). One swap; nothing else in the block moved.
+                Onion(), Chest(), Fossil(), Mango(), Spark(), Grotto(), Scales(), Spring(), Ship(), Lantern(),
 
                 //6. THE MOON - "The Quarry". Chunky lattice-aligned blocks of colour, five or six of them, and
                 //no plate to trigger anywhere: every shot is a shot at a handful of balls. Colossus closes it,
@@ -567,7 +570,20 @@ namespace BS3D.Tools.LevelGen
             //(the names fall out of positions, so nothing refuses the set) but would misfile them - Comet
             //labelled the Quarry's, Colossus labelled the Nebula's, and THE QUARRY COMPLETE celebrating on
             //the wrong level. Only DescribeBlock's non-gating MIXED print would show it.
-            Design[] nebula = { Comet(), Vortex(), Carousel(), Wishbone(), Sail(), Analemma(), Binary(), Kepler(), Orrery(), Garland() };
+            //ORRERY CLOSES THE BLOCK since #413, where Garland did - the owner's playtest ("very demanding
+            //but nice, I'd picture this as the chapter's last") and the tool agreeing: 52 standing groups
+            //against 72 shots is 1.38 a group, the block's tightest by a factor of two and at the hard edge
+            //of the whole game. THE COLOUR RAMP SURVIVES IT, which is the only thing that could have
+            //refused the swap: Kepler, Orrery and Garland all play thirteen, so the finale still plays
+            //every colour the game has. What it costs is stated rather than hidden - Garland is the harder
+            //DRAW (thirteen live colours against Orrery's release quanta) and now stands second-to-last, so
+            //the block ends on the tighter budget rather than on the scarcer magazine.
+            //⚠ WISHBONE'S DIP (fourth, right after Carousel) IS LEFT STANDING and it is not an oversight:
+            //inside this block's own colour ramp there is no move that fixes it. Wishbone plays six colours
+            //where Vortex and Carousel play five, so pulling it earlier puts a six-colour level in front of
+            //two five-colour ones, and the only other lever is its budget (54 shots on 11 groups, 4.91) -
+            //which is a level-design change and not an ordering one. #413 says so itself.
+            Design[] nebula = { Comet(), Vortex(), Carousel(), Wishbone(), Sail(), Analemma(), Binary(), Kepler(), Garland(), Orrery() };
 
             //8. THE VOLCANO - "The Eruption" (#295). THE GLOW IS THE LOAD: the molten seams are what
             //everything hangs by, so reading where a level shines is reading where it will break - and every
@@ -579,8 +595,16 @@ namespace BS3D.Tools.LevelGen
             //into the campaign (#368) - the volcano being the one place a bomb does not have to explain
             //itself. See the block's own region for the statement in full and for the engineering law every
             //design here obeys (a designed breakaway is always the lowest thing on its own load path).
+            //CAUSEWAY MOVED FROM SECOND TO EIGHTH (#413), and the level the owner asked about is the one
+            //that did NOT move. The playtest note was Breach ("a fairly demanding, big level - not sure it
+            //should be first"), and the measurement answers it: at 1.71 shots a group Breach is the second
+            //GENTLEST level in the block, which is what its own doc already claimed and what an opener
+            //should be - it reads imposing because it is big, not because it is tight. Causeway behind it
+            //reads 0.87, the tightest budget in the campaign after Caldera's 0.71 and the subject of #414,
+            //so the block's real ordering fault was the SECOND level rather than the first. It now sits
+            //beside Caldera, where the two tightest in the chapter belong.
             Design[] volcano =
-                { Breach(), Causeway(), Meander(), Volley(), Plume(), Vent(), Sill(), Fume(), Caldera(), Paroxysm() };
+                { Breach(), Meander(), Volley(), Plume(), Vent(), Sill(), Fume(), Causeway(), Caldera(), Paroxysm() };
 
             //9. THE CITY AT DAWN - "The Spectrum" (#253). One HUE FAMILY a level, swept through the whole
             //body as a gradient: white to cyan to blue to navy and back, a heat ramp, a green one, a twilight
@@ -603,13 +627,23 @@ namespace BS3D.Tools.LevelGen
             //tiers it prices shots that cascade (one cleared tier orphans everything below it, so Pleat's
             //probe runs clear on a third of the budget). Re-measured after the tiers the counts run 6, 17,
             //9, 35, 15, 19, 26, 22, 26 and 31 - Pleat's 35 at fourth position outranks the Turbine - so the
-            //order no longer tracks the count, deliberately. The two ends still stand: the Icicle opens,
-            //being the plainest body in it, and the Turbine still closes the BLOCK - the campaign it closed
-            //until #300 now ends a chapter later. The families are not what ramps - a green level is no
-            //harder than a blue one.
+            //order no longer tracks the count, deliberately. The families are not what ramps - a green
+            //level is no harder than a blue one.
+            //
+            //THE ICICLE STILL OPENS IT AND BOLT NOW CLOSES IT (#413). The opener is unchanged and for the
+            //reason it always was, being the plainest body here. The other end is the owner's playtest
+            //ruling: "Bolt should be the chapter's last level." What that overrides is worth naming, since
+            //this comment used to state it as settled - the Turbine closed the block because it had closed
+            //the CAMPAIGN, and #300 moved the campaign's last word to the Arcade a chapter later, so the
+            //argument had already outlived itself. The Turbine keeps ninth and keeps its finale figure
+            //(1.68 a group, tighter than Bolt's 2.32): the block now ends on the level the owner wants to
+            //end on rather than on the tightest ratio, which is the same call #300 made about the cities.
+            //Two more moves come from the same playtest, both of them a level put where it plays: TRELLIS
+            //AHEAD OF PLEAT (3.47 against 1.37 - it stood behind the block's tightest level and reads
+            //easier than it), and KILN PULLED FORWARD to fourth ("nice, large level, not very difficult").
             //Its designs live in their own array for the same reason the Nebula's and the Arcade's do - see
             //WriteLevelSet.
-            Design[] spectrum = { Icicle(), Pinecone(), Hourglass(), Pleat(), Trellis(), Bolt(), Totem(), Kiln(), Girandole(), Turbine() };
+            Design[] spectrum = { Icicle(), Pinecone(), Hourglass(), Kiln(), Trellis(), Pleat(), Totem(), Girandole(), Turbine(), Bolt() };
 
             //10. THE NEON CITY - "The Arcade" - THE CAMPAIGN'S LAST BLOCK since #300. Five HOLLOW pixel-art
             //solids: the Gallery's drawn symbols given a third dimension, wrapped onto a die, a stepped
@@ -626,8 +660,14 @@ namespace BS3D.Tools.LevelGen
             //entry, so it moves off Turbine onto Globe - and the block that measures tightest (1.33-1.65 a
             //group against the Spectrum's 1.37-6.67) now sits last, which is #300's other half: the campaign
             //climaxes where it ends.
+            //THE ZIGGURAT OPENS IT SINCE #413, where the Cube did, and the two halves of that came from
+            //opposite directions. The owner's playtest called the ziggurat a "nice, simple level" that
+            //belongs near the chapter's start and reported the CUBE as severe (#359); the tool says the
+            //same thing in its own terms - the cube reads 1.33 shots a group, the tightest in a block whose
+            //whole band is 1.33 to 1.65, so the chapter opened on its hardest level. The cube takes sixth.
+            //Globe still closes it and still closes the campaign (#300): that end was never in question.
             //Its designs live in their own array for the same reason the Nebula's do - see WriteLevelSet.
-            Design[] arcade = { Cube(), Ziggurat(), Reel(), Donut(), Ghost(), Cabinet(), Tetra(), Giza(), Trophy(), Globe() };
+            Design[] arcade = { Ziggurat(), Reel(), Donut(), Ghost(), Cabinet(), Cube(), Tetra(), Giza(), Trophy(), Globe() };
 
             //11. THE DREAM - "The Mirage" (#323/#325), THE CAMPAIGN'S LAST BLOCK, and the first chapter in
             //the game whose subject is a RULE rather than a shape. Ten levels, and they are two fives: the
@@ -657,10 +697,22 @@ namespace BS3D.Tools.LevelGen
             //place the arena is not, and the balls stop obeying the rules the other hundred levels taught.
             //Its designs live in their own array for the reason the Nebula's, the Eruption's, the Spectrum's
             //and the Arcade's do - see WriteLevelSet.
+            //THREE MOVES FROM THE OWNER'S PLAYTEST (#413), and the two fives are untouched as fives - the
+            //glass half still comes first and one new kind still arrives a level, which is the block's own
+            //law and was never in question. TREFOIL OPENS instead of Facet ("very nice, pleasant level -
+            //should be this chapter's first!"), which costs the one thing Facet's doc claims for itself:
+            //that the chapter's first shot teaches the glass. It is a cost and not a wash, so it is written
+            //into both designs - Trefoil is glass too and teaches it a level later. KEYSTONE PULLED FORWARD
+            //to second of the rock five ("clears very quickly by shooting upward"), and CAIRN CLOSES THE
+            //BLOCK AND THE CAMPAIGN where Obsidian did: the owner's note on Obsidian was "very simple level,
+            //I don't know if it should be last. Probably not!", and the tool reads it the loosest in the
+            //block at 2.94 shots a group against Cairn's 1.76. Cairn is also the level whose own doc asks
+            //for "bookkeeping of a kind nothing before it has asked for" - four chambers, each with the
+            //four colours in a different order - which is a finale's job.
             Design[] mirage =
             {
-                Facet(), Trefoil(), Harlequin(), Diadem(), Solitaire(),
-                Anvil(), Seam(), Keystone(), Cairn(), Obsidian(),
+                Trefoil(), Facet(), Harlequin(), Diadem(), Solitaire(),
+                Anvil(), Keystone(), Seam(), Obsidian(), Cairn(),
             };
 
             bool ok = true;
@@ -1114,6 +1166,94 @@ namespace BS3D.Tools.LevelGen
         #region Emitting one design
 
         /// <returns>Whether the level that came out passed every check.</returns>
+        /// <summary>
+        /// Takes the inside out of a body, leaving <paramref name="skin"/> cells of it standing against every
+        /// free cell — <see cref="Design.Hollow"/>'s implementation, and the answer to #398.
+        /// </summary>
+        /// <remarks>
+        /// A multi-source walk out of the free space rather than a test per cell: every empty cell of the
+        /// layout box, and the box's own outside, is distance zero, and a ball is kept while it is within
+        /// <paramref name="skin"/> steps of one. <b>The steps are the lattice's</b>
+        /// (<see cref="BallsMap.FillNeighboringCells"/>), never a rule written here — a cross-level neighbour
+        /// is a diagonal in (x, z) and the offsets depend on the level's parity, which is exactly the sort of
+        /// thing a second copy gets wrong.
+        /// <para>
+        /// <b>⚠ A cell on the box's boundary is skin whatever stands around it</b>, which is what keeps the
+        /// anchor course whole: the top course has no level above it, so its cells are one step from the
+        /// outside and no depth of hollowing can take them. The same is true of the floor and the four walls,
+        /// so a body that fills its box keeps its whole surface and loses only what is buried.
+        /// </para>
+        /// <para>
+        /// It runs on the LAYOUT box and not on the field, and the two agree in parity because
+        /// <see cref="Emit"/> refuses an odd offset — the same fact <c>Centred</c> leans on.
+        /// </para>
+        /// </remarks>
+        /// <returns>How many balls it took out, for the emitter's own line.</returns>
+        private static int HollowOut(BallPositionType[,,] balls, byte n, byte depth, int skin)
+        {
+            XZLevel size = new(n, n, depth);
+            int[] distance = new int[n * n * depth];
+            Queue<XZLevel> frontier = new();
+            Span<XZLevel> neighbours = stackalloc XZLevel[BallsMap.MAX_NEIGHBORS];
+
+            int Key(int x, int z, int i) => (i * n + x) * n + z;
+
+            for (int i = 0; i < depth; i++)
+                for (int x = 0; x < n; x++)
+                    for (int z = 0; z < n; z++)
+                    {
+                        if (balls[x, z, i] == null)
+                        {
+                            distance[Key(x, z, i)] = 0;
+                            frontier.Enqueue(new XZLevel(x, z, i));
+                            continue;
+                        }
+
+                        distance[Key(x, z, i)] = int.MaxValue;
+
+                        //The box's outside is free, so a ball that lost a neighbour to the clip is already
+                        //skin - that is what holds the anchor course, the floor and the walls.
+                        if (BallsMap.FillNeighboringCells(new XZLevel(x, z, i), size, neighbours)
+                            < BallsMap.MAX_NEIGHBORS)
+                        {
+                            distance[Key(x, z, i)] = 1;
+                            frontier.Enqueue(new XZLevel(x, z, i));
+                        }
+                    }
+
+            while (frontier.Count > 0)
+            {
+                XZLevel cell = frontier.Dequeue();
+                int next = distance[Key(cell.X, cell.Z, cell.Level)] + 1;
+                if (next > skin) continue;
+
+                int count = BallsMap.FillNeighboringCells(cell, size, neighbours);
+                for (int k = 0; k < count; k++)
+                {
+                    XZLevel neighbour = neighbours[k];
+                    int key = Key(neighbour.X, neighbour.Z, neighbour.Level);
+                    if (balls[neighbour.X, neighbour.Z, neighbour.Level] == null || distance[key] <= next) continue;
+
+                    distance[key] = next;
+                    frontier.Enqueue(neighbour);
+                }
+            }
+
+            int removed = 0;
+
+            for (int i = 0; i < depth; i++)
+                for (int x = 0; x < n; x++)
+                    for (int z = 0; z < n; z++)
+                    {
+                        if (balls[x, z, i] == null || distance[Key(x, z, i)] <= skin) continue;
+
+                        balls[x, z, i] = null;
+                        removed++;
+                    }
+
+            return removed;
+        }
+
         private static bool Emit(Design design)
         {
             byte n = design.Grid;
@@ -1185,6 +1325,10 @@ namespace BS3D.Tools.LevelGen
                     }
             }
 
+            //THE SKIN (#398), before the repair pass rather than after it: hollowing can leave a ball
+            //with one neighbour where it had six, and the repair is what looks at that.
+            int hollowed = design.Hollow > 0 ? HollowOut(balls, n, depth, design.Hollow) : 0;
+
             int repaired = RepairLonelyBalls(balls, n, depth, offset, fieldLevels);
 
             Level level = new()
@@ -1200,6 +1344,11 @@ namespace BS3D.Tools.LevelGen
 
             string path = Path.Combine(_outDir, design.File);
             level.Save(path);
+
+            //What the skin took out, said where the level's own figures are said (#398).
+            if (hollowed > 0)
+                Console.WriteLine($"--- {design.File}: hollowed to a skin of {design.Hollow}, "
+                                  + $"{hollowed} buried ball(s) taken out");
 
             return Validate(design, path, repaired);
         }
@@ -2406,6 +2555,38 @@ namespace BS3D.Tools.LevelGen
             /// </summary>
             public SceneKind Scene;
             public byte Sky;
+
+            /// <summary>
+            /// <b>How many cells of skin a body keeps; zero, the default, leaves it solid.</b> A design says
+            /// what its silhouette is and this says how much of the inside of that silhouette is actually
+            /// there — every cell further than this from a free cell is taken out, so the shape, the
+            /// anchors and every visible face are untouched and what goes is the part no player ever sees.
+            /// <para>
+            /// It exists for #398, where the owner's verdict on a whole chapter was the same sentence nine
+            /// times over: <i>"this level takes too long to finish, but otherwise isn't much of a
+            /// challenge - I start shooting mindlessly just to get it over with. It should be less
+            /// dense."</i> The Quarry's five #255 structures had already been rebuilt once for SHAPE - a
+            /// lintel on pillars, loads on slings, a hanging wall on a seam - and the measurement is what
+            /// said the rebuild had not touched the other axis: they shipped at 229 to 432 balls, three of
+            /// the five HEAVIER than the solid masses they stood beside, because a member drawn as a member
+            /// is still filled in behind its face.
+            /// </para>
+            /// <para>
+            /// <b>The field's own boundary counts as free</b>, which is the half of the rule that keeps a
+            /// level hanging: the top course is against the glass and has nothing above it, so every anchor
+            /// is skin by construction and no hollowing can cost a level its grip. The floor and the field
+            /// walls answer the same way.
+            /// </para>
+            /// <para>
+            /// <b>⚠ It is not a difficulty lever on its own.</b> How long a level takes to play is its
+            /// standing-group count far more than its ball count, and a skin cuts a 2x2x2 tile in half
+            /// rather than removing it — so a body hollowed and left otherwise alone plays just as many
+            /// shots for smaller payouts, which is the complaint made worse. It is paired with the tile
+            /// size (<see cref="Prism"/> recorded that remedy first, doubling a tile to stop its last
+            /// storey dragging) and with a re-priced budget every time it is used.
+            /// </para>
+            /// </summary>
+            public int Hollow;
 
             /// <summary>
             /// Which composition the level plays, written into <c>Level.Music</c> — and it is a property of

@@ -1,4 +1,4 @@
-using Prazsky.BS3D.GameStructure;
+﻿using Prazsky.BS3D.GameStructure;
 using Prazsky.Core.Render;
 using System;
 
@@ -57,8 +57,9 @@ namespace BS3D.Tools.LevelGen
         //count sets the budget: see CUBE_GROUND_BLOCK, where the same cube measured 75, 44 and 34 groups at
         //three block sizes. All five budgets are priced off the ratio Validate prints. THEY SHIPPED AS A
         //RAMP - 1.65 -> 1.58 -> 1.50 -> 1.44 -> 1.37 - and the sag fixes have since bent it rather than
-        //retuned it: the opener reads 1.33 (Cube's corner posts bought eight groups, #317), the reel and
-        //ziggurat stand where they shipped, the donut reads 1.49 (#317 restriped its bands, 35 groups on the
+        //retuned it: the CUBE reads 1.33 (its corner posts bought eight groups, #317) - and since #413 that
+        //is no longer the OPENER's number, the ziggurat's 1.58 is; the reel and ziggurat otherwise stand
+        //where they shipped, the donut reads 1.49 (#317 restriped its bands, 35 groups on the
         //same 52 shots) and the finale 1.40 (#301's two-cell wall merged blocks through its thickness and
         //the budget was re-priced - see Globe's own doc). Nothing was re-slotted on the number: the naive
         //ratio undercounts every level whose fix added designed cascades (the Spectrum's ramp comment records
@@ -76,9 +77,16 @@ namespace BS3D.Tools.LevelGen
         /// <summary>
         /// A hollow cube ten cells on a side with an arcade glyph on every face the player can see: an
         /// invader, a key, a coin and a lightning bolt round the four walls, and a cross on the bottom plate
-        /// the game's low camera reads best. The block's opener and its plainest statement — a cube is the
-        /// shape whose pixel grid needs no explaining, and one big symbol a face is exactly what the Gallery
-        /// drew on a flat wall, put where it has to be walked around.
+        /// the game's low camera reads best. The block's plainest statement — a cube is the shape whose pixel
+        /// grid needs no explaining, and one big symbol a face is exactly what the Gallery drew on a flat
+        /// wall, put where it has to be walked around.
+        /// <para>
+        /// <b>⚠ It OPENED the block until #413 and now stands sixth</b>, which is the plainest statement
+        /// being the wrong job for it: at 1.33 shots a group it is the tightest level in a block whose whole
+        /// band is 1.33 to 1.65, and the owner's playtest reported it as severe (#359) while calling the
+        /// <see cref="Ziggurat"/> behind it a nice simple level. A chapter states its premise with its first
+        /// level and should not also spend it on its hardest.
+        /// </para>
         /// <para>
         /// <b>The four walls are drawn in two ground pairs and the plates in a third.</b> A single dithered
         /// ground over a whole cube is one colour reaching every face through the edges, the top plate — the

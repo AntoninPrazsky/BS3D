@@ -1,4 +1,4 @@
-using Prazsky.BS3D.GameStructure;
+﻿using Prazsky.BS3D.GameStructure;
 using Prazsky.Core.Render;
 using System;
 
@@ -51,7 +51,8 @@ namespace BS3D.Tools.LevelGen
         //edges no colour could have followed.
 
         /// <summary>
-        /// <b>The block's opener, and the level that teaches what the glass IS.</b> A terraced octahedron —
+        /// <b>The level that teaches what the glass IS — and it is the block's SECOND since #413.</b> A
+        /// terraced octahedron —
         /// <see cref="Gem"/>'s own solid, four facet steps of taxicab rings — with the outermost ring of
         /// every second course drawn in clear glass, so the stone is a coloured gem wearing a clear rim
         /// round each of its terraces.
@@ -90,8 +91,13 @@ namespace BS3D.Tools.LevelGen
         };
 
         /// <summary>
-        /// <b>Three small pyramids grown into one another</b> — the owner's own asking, and the block's
-        /// second level. Each is <see cref="One"/>'s perfect cannonball pyramid hanging point down; their
+        /// <b>Three small pyramids grown into one another</b> — the owner's own asking, and since #413 the
+        /// block's OPENER, on the owner's playtest ("very nice, pleasant level - should be this chapter's
+        /// first!"). What that moved off <see cref="Facet"/> is a real cost and is written there too: the
+        /// chapter's first shot no longer teaches the glass on purpose. It still teaches it here, a level
+        /// earlier than it used to and less pointedly - every arris of these pyramids is clear, so the first
+        /// landing beside one colours a line of it. Each is <see cref="One"/>'s perfect cannonball pyramid
+        /// hanging point down; their
         /// centres stand six cells apart on a triangle, so the three hang separately for their lower half
         /// and merge into one plate over their top four courses.
         /// <para>
@@ -404,7 +410,7 @@ namespace BS3D.Tools.LevelGen
         /// each other at all.
         /// </para>
         /// <para>
-        /// <b>The piers are one cell thick, and that is not <see cref="Seam"/>'s mistake repeated.</b> A
+        /// <b>The piers are one cell thick, and that is not the mistake <see cref="Seam"/> records.</b> A
         /// pier is AXIS-ALIGNED: an on-level step changes <c>x</c> by exactly one and a cross-level step by
         /// nought or one, so nothing crosses a single missing column of <c>x</c>. It is only the DIAGONAL
         /// wall that leaks at one cell, which is why the seam's is three and these are one.
@@ -428,9 +434,15 @@ namespace BS3D.Tools.LevelGen
         };
 
         /// <summary>
-        /// <b>Four chambers under one roof.</b> A round body quartered by two crossed walls of stone that
-        /// run from the bottom to one course short of the glass, each quarter carrying the same four colours
-        /// in a different order.
+        /// <b>Four chambers under one roof, and since #413 the chapter's finale and the campaign's last
+        /// level.</b> A round body quartered by two crossed walls of stone that run from the bottom to one
+        /// course short of the glass, each quarter carrying the same four colours in a different order.
+        /// <para>
+        /// <b>It closes the campaign because of the paragraph below rather than because of a number.</b> The
+        /// owner's playtest sent <see cref="Obsidian"/> back from the slot as too simple for it; of what was
+        /// left this is the level that asks the most of the player, and the tool's own reading agrees without
+        /// deciding it (1.76 shots a group against Obsidian's 2.94, 673 balls, the block's largest budget).
+        /// </para>
         /// <para>
         /// This is <see cref="Seam"/>'s lesson taken as far as it goes: one colour standing in all four
         /// quarters is four separate groups on every course but the topmost, and the level is four small
@@ -474,7 +486,10 @@ namespace BS3D.Tools.LevelGen
         };
 
         /// <summary>
-        /// <b>The chapter's finale and the campaign's last level.</b> A solid stepped octahedron with a vein
+        /// <b>The chapter's ninth level, and its finale and the campaign's last until #413.</b> The owner's
+        /// playtest moved it: "very simple level, I don't know if it should be last. Probably not!" - and the
+        /// tool agrees in its own terms, 2.94 shots a group being the loosest in the block. What closes the
+        /// chapter and the campaign now is <see cref="Cairn"/>. A solid stepped octahedron with a vein
         /// of stone winding up through it — one wedge of every course, turned a fraction of a turn a course,
         /// so the vein spirals from the point to within one course of the glass.
         /// <para>

@@ -4015,3 +4015,47 @@ Dvě majitelovy poznámky z hraní, dvě issues. Sémantické hledání (nomic, 
 - ⚠ **Past, do které jsem šlápl:** `git push origin main && git push origin --delete <branch>` jsem pustil jako řetěz, push mainu **spadl** (main se mezitím pohnul o dva commity), ale smazání větve prošlo. Práce se neztratila (merge commit byl v lokálním mainu) a replay přes `git rebase --rebase-merges origin/main` ho přenesl, ale **mazat větev až po úspěšném pushi** — přesně to, co má v paměti agenta napsané. Během jedné hodiny se main pohnul třikrát (#451 savana, #470/#471, #472/#473), takže konflikt v tomhle deníku byl pokaždé.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-19 — Claude Code (notebook: #413 pořadí levelů v blocích, pak #398)
+
+**Beru si #413** na pokyn majitele („Vem 413 a potom 398"). Větev `413-block-order`, notebook v `C:\GitHub`.
+
+- ⚠ **Issue je větší než titulek:** komentář ho rozšiřuje z Reveal/Nebula/Eruption ještě na **Spectrum, Arcade a Mirage** (Trellis×Pleat, Bolt jako závěr, Kiln dopředu, Ziggurat/Cube, Trefoil×Facet, Keystone dopředu, Obsidian jako poslední level *celé kampaně*). Celkem šest bloků.
+- **Majitelovo pravidlo na konci komentáře je zadání:** obtížnost kapitoly smí prostě stoupat, ale těžké a lehké se mají **střídat v příjemném rytmu**; kde je rozhodnutí opravdu nejasné, **zeptat se, ne hádat**; a jeden běh může být štěstím lehký i těžký na tomtéž levelu (#359).
+- **Pořadí se needituje v `Levels.json`** (ten generátor přepisuje), ale v polích `designs`/`nebula`/… v `Tools/LevelGen/Program.cs`. Odemykací rampa je **poziční** (`MinStarsAt`) a save je klíčovaný jménem souboru, takže přesun v rámci bloku brány přepočítá sám a progres přežije.
+- **Co k tomu mám nového:** od #458 umí generátor **nejkratší vyčištění** a kolik z pole seberou shodou — nová osa obtížnosti, kterou #413 při zakládání neměl. K tomu výstřely na skupinu, nejlepší jedna rána, anchor load, sonda a ScoreSim.
+- **Beru na sebe:** `Tools/LevelGen/Program.cs` (pole pořadí + komentáře bloků), `Game/Levels/Levels.json` (regenerace), `docs/formats-and-tools.md`.
+
+**Nic dalšího si neberu.**
+
+**Dodatek: #413 hotové na větvi `413-block-order` (`0d83b45`), NENÍ v mainu.** Čeká na slovo majitele.
+
+- **Šest bloků přeskládáno**, čtyři rozhodnutí vzata přímo od majitele (ptal jsem se, jak si přál): Bolt zavírá Spektrum (Turbine 9.), Cairn zavírá Fata morgánu i kampaň (Obsidian 9.), Trefoil otvírá Fata morgánu (Facet 2.), Ziggurat otvírá Arcade (Cube 6.). Bez ptaní, protože to majitel řekl přímo a data souhlasí: Spring před Ship, Orrery zavírá Mlhovinu, Trellis před Pleat, Kiln na 4.
+- ⚠ **Level, na který se majitel v Erupci ptal, je ten jediný, který se nehnul.** Breach měří 1,71 výstřelu na skupinu = druhý nejvolnější v bloku, takže jako otvírák sedí (je velký, ne těsný). Co v tom bloku sedělo špatně, byla **Causeway na druhé pozici** (0,87, nejtěsnější v kampani po Caldeře, viz #414) — přesunuta na osmou, k Caldeře.
+- **Osa, která sedla majitelovu cítění, jsou výstřely na skupinu** (Ship 2,45 × Spring 4,80; Wishbone 4,91 × Carousel 3,00; Orrery 1,38; Trellis 3,47 × Pleat 1,37; Cube 1,33; Obsidian 2,94). Jediná výjimka je **Ziggurat** — majitel ho má za jednoduchý, ratio říká druhý nejtěsnější v bloku; jeho pravé číslo je **nejkratší vyčištění 24 ran**, nejvíc v kampani, což je level *dlouhý*, ne těžký. Ty dvě stížnosti rozlišila teprve sonda z #458.
+- **Wishbone nechávám být a je to zapsané v kódu:** uvnitř barevné rampy Mlhoviny neexistuje tah, který by to spravil (hraje šest barev proti pěti u Vortexu a Carouselu), a druhá páka je rozpočet — což je designová změna, ne pořadí. Přesně jak #413 samo píše.
+- **Přepsané docy, které lhaly už před dneškem:** Turbine „the campaign's last level" (#300 to přesunul o kapitolu dál) a Garland „the finale" bloku, který teď končí Orrerym. Dál Cube, Facet, Trefoil, Obsidian, Cairn a Keystone (odkaz na Seam přeformulován tak, aby netvrdil pořadí).
+- **Ověřeno:** LevelGen exit 0 přes 110 levelů, ScoreSim exit 0, jedenáct bloků po deseti, a **hra sama** načte položku 110 jako Cairn s `[aimcheck] PASS`. Mění se jen `Levels.json` — žádný level soubor se nehnul o bajt, brány se přepočítaly pozičně a save je klíčovaný jménem souboru.
+- ⚠ **Dva nálezy mimo zadání:** (1) `Cabinet` čte v sondě **4 z 5** (práh hlášení), přestože ho #301 kdysi spravil na 2–3 — buď regrese, nebo rozptyl; zaslouží pohled. (2) `DescribeBlock` u Louky tiskne `MIXED THEMES, MIXED BALL STYLES` a tiskl to i před mou prací — patří k #400.
+- ⚠ **Past nástroje, potvrzená podruhé:** tělo heredocu i `python -c "…"` s apostrofy/zpětnými uvozovkami tenhle harness mrší (kolega to má v zápisu z dneška taky). Skripty i delší texty psát **Write toolem** a teprve pak spouštět.
+
+**Beru si #398** (Quarry hraje pomalu a stejně), hned navazuji.
+
+---
+
+## 2026-09-19 — Claude Code (notebook: #398 Quarry hraje pomalu a stejně)
+
+**Beru si #398** na pokyn majitele („Vem 413 a potom 398"). Větev `413-block-order` (pokračuje v ní, obě issue jsou pořadí/obsah kapitol a majitel je zadal jedním dechem) — commit `3911786`. **NENÍ v mainu**, čeká na slovo majitele.
+
+- **Majitelův verdikt je u všech devíti levelů stejná věta:** „trvá moc dlouho, ale výzva to není — začnu bezmyšlenkovitě střílet, ať už to skončí. Měl by být méně hustý." Issue navrhuje **méně kuliček, ne menší level**.
+- **Postavil jsem obecnou páku `Design.Hollow`**: kůže o n buňkách, všechno hlubší pryč, a **hranice pole se počítá jako volno** — takže kotevní kurz, podlaha i stěny si nechají každou buňku a žádné vydlabání nemůže levelu vzít úchyt. Kroky jsou `BallsMap.FillNeighboringCells`, ne druhá kopie paritního pravidla.
+- ⚠ **A samo o sobě to kapitolu PRODLOUŽILO** — tohle je nález, který jsem musel změřit, abych mu věřil: kůže rozřízne dlaždici 2×2×2 napůl, takže stejný počet skupin platí polovinu. Mosaic 34 → 46 stojících skupin, Highwall 45 → 53, nejkratší vyčištění (sonda z #458) 10 → 16 a 23 → 32. **Délku levelu dělá počet skupin, ne počet kuliček** — hustota bylo majitelovo slovo pro to, co cítil, ne ta věc sama.
+- **Odpověď je dlaždice:** `QUARRY_TILE` 3 a `QUARRY_COURSE` 2 (blok měl 2 a 1–2). Není to nový nápad — **Prism** má v docu zapsáno, že přesně tímhle se řešila první verze téhle stížnosti („the widest step … took two dozen shots on its own"). K tomu dvě jednotlivosti: **Highwall** měl lavice šachovnicí 2×2 dvou barev (bloky se dotýkají jen diagonálně, což mřížka nespojuje → lavice byla desítky čtyřkuličkových skupin), teď jsou to pruhy; **Crib** má klády 2 buňky široké místo 3, protože kurz vysoký jeden level je celý kůže a vydlabání se k němu nedostane.
+- **Čísla (kuličky / skupiny / nejkratší vyčištění):** Mosaic 387/34/10 → 346/27/10, Prism 351/22/12 → 233/17/10, Hopper 465/30/17 → 345/29/12, Trilithon 229/35/17 → 217/20/11, Gantry 322/56/23 → 310/35/11, Fault 330/41/9 → 237/35/5, Crib 432/41/12 → 288/48/11, Highwall 428/45/23 → 297/30/18, Static 370/42/19 → 241/17/11. **Medián kapitoly 11 ran proti 17** a Quarry už nevlastní ocas kampaně (držel pět z osmi nejdelších levelů hry).
+- **Rozpočty přeceněné** proti novým počtům skupin (1,25–2,00 na skupinu, blok měl 1,14–2,73). Jediný, co nespadl, je Crib — jeho skupiny naopak povyrostly.
+- **Ověřeno:** LevelGen exit 0 (110 levelů), ScoreSim exit 0, hra načte Gantry s 48 ranami a `[aimcheck] PASS`, Highwall a Mosaic vyfoceny před/po ze stejného stanoviště (silueta sedí, barva čte jako větší bloky). **Sonda:** nových devět 0,0,1,2,0,3,3,2,0 z pěti, všechno pod prahem 4; staré soubory proti novým za stejných mírných podmínek ocenily samotné ztenčení na **Fault 0→1, Crib 1→1, Trilithon 0→1, Highwall 0→2** — směr, pro který ten blok existuje. **Kadenci stropu jsem s rozpočty schválně nepřitáhl**: ta rezerva je to, čím se hustota platí.
+- **Co zůstává majiteli:** Highwall je dál nejdelší věc v kapitole (18 ran) a je to jeho vlastní design („every column is solid to the glass, no physics theatre by design") — zkrátit ho znamená udělat z něj jiný level. A Colossus (#392) jsem nechal být, jak issue říká.
+
+**Nic dalšího si neberu.**

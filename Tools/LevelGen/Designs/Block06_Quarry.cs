@@ -1,4 +1,4 @@
-using Prazsky.BS3D.GameStructure;
+﻿using Prazsky.BS3D.GameStructure;
 using Prazsky.Core.Render;
 using System;
 
@@ -11,6 +11,23 @@ namespace BS3D.Tools.LevelGen
     /// </summary>
     internal static partial class Program
     {
+        //THE QUARRY'S TILE (#398), and it is the block's second density lever rather than a spelling of
+        //the first. The owner's verdict on all nine of these levels was one sentence repeated: the level
+        //takes too long to finish and is not much of a challenge while it does. How long a level takes is
+        //its STANDING-GROUP count far more than its ball count - a shot takes one group - so hollowing the
+        //bodies (Design.Hollow) could not answer it alone: a skin cuts a tile in half, which leaves just as
+        //many groups paying half as much, and the measurement said exactly that (Mosaic 34 groups -> 46,
+        //Highwall 45 -> 53, the shortest clear rising from 10 to 16 and 23 to 32). So the tile widens with
+        //the hollowing: three cells across and two courses tall where the block shipped two and one or two.
+        //
+        //IT IS THE BLOCK'S OWN RECORDED REMEDY, not a new idea - see Prism, whose tile was doubled in
+        //height for this complaint's first appearance ("the widest step is the last thing left standing and
+        //it took two dozen shots on its own"). What a tile must not become is a PLATE: the block's identity
+        //is that no shot triggers the whole body, and an 18-cell tile hollowed to its skin pays six to ten
+        //balls where a plate elsewhere in the campaign pays dozens.
+        private const int QUARRY_TILE = 3;
+        private const int QUARRY_COURSE = 2;
+
 
         /// <summary>
         /// A cylinder tiled in 2x2x2 blocks of colour — a chunky mosaic column. Horizontal colour bands
@@ -37,14 +54,18 @@ namespace BS3D.Tools.LevelGen
             Sky = 13,
             //The one design that has to be worked rather than triggered: its best shot takes 24 of 387
             //balls, so it wants a budget nearer two shots per block than the four-shot cascades elsewhere
-            Shots = 56,
+            //56 until #398, against 34 standing groups. The skin and the wider tile left 27, and the
+            //budget follows them down: 1.48 shots a group, the same trade as before on a body a third
+            //lighter.
+            Shots = 40,
             CeilingStep = 8,
             Music = MUSIC_QUARRY,
                 Balls = BALLS_QUARRY,
+            Hollow = 2,
             Occupied = (r, ang, i, depth) => r <= 4.5f,
             //Blocked on the raw indices rather than on the centred position: the blocks are meant to be
             //lattice-aligned, and the half-cell stagger between levels is the packing showing through.
-            BlockColour = (x, z, i) => Band((x / 2) + (z / 2) + (i / 2),
+            BlockColour = (x, z, i) => Band((x / QUARRY_TILE) + (z / QUARRY_TILE) + (i / QUARRY_COURSE),
                 new[] { BallType.Type5, BallType.Type6, BallType.Type7 }),
         };
 
@@ -68,16 +89,20 @@ namespace BS3D.Tools.LevelGen
             Sky = 13,
             Music = MUSIC_QUARRY,
                 Balls = BALLS_QUARRY,
-            Shots = 60,
+            //60 until #398, when the tile went to three cells across and the body to a skin: 22 groups
+            //became 17, and the old budget was 3.5 shots a group - a level that could be played twice
+            //over inside its own allowance.
+            Shots = 30,
             CeilingStep = 6,
             //Stepped, so the silhouette is not another cylinder and the lower steps are reachable early
+            Hollow = 1,
             Occupied = (r, ang, i, depth) => r <= 5.5f - (depth - 1 - i) * 0.55f,
             //Blocks TWO levels tall (x / 2, z / 2, i / 2), where this shipped with one. One level made the
             //group four balls, and against five colours that is a shot for every four — the widest step is
             //the last thing left standing and it took two dozen shots on its own, which is the "the last
             //storey drags" this was reported as. Two levels doubles every group to eight without touching
             //the shape or the palette, which are the parts worth keeping.
-            BlockColour = (x, z, i) => Scatter(x / 2, z / 2, i / 2,
+            BlockColour = (x, z, i) => Scatter(x / QUARRY_TILE, z / QUARRY_TILE, i / QUARRY_COURSE,
                 new[] { BallType.Type1, BallType.Type2, BallType.Type3, BallType.Type5, BallType.Type7 }),
         };
 
@@ -103,10 +128,14 @@ namespace BS3D.Tools.LevelGen
             Sky = 13,
             Music = MUSIC_QUARRY,
                 Balls = BALLS_QUARRY,
-            Shots = 60,
+            //60 until #398 against 42 groups; 17 now. Six colours is still the whole difficulty, and the
+            //draw wastes shots this budget has to carry - which is why it is priced looser than the
+            //three-colour levels here, at 2.0 a group rather than 1.5.
+            Shots = 34,
             CeilingStep = 5,
+            Hollow = 1,
             Occupied = (r, ang, i, depth) => r <= 5.5f,
-            BlockColour = (x, z, i) => Scatter(x / 2, z / 2, i,
+            BlockColour = (x, z, i) => Scatter(x / QUARRY_TILE, z / QUARRY_TILE, i / QUARRY_COURSE,
                 new[] { BallType.Type1, BallType.Type2, BallType.Type3, BallType.Type5, BallType.Type6, BallType.Type7 }),
         };
 
@@ -158,15 +187,18 @@ namespace BS3D.Tools.LevelGen
             //layout, so the budget and the descent run out together. 465 balls against Prism's 351 and six
             //colours against five is where the difficulty is — 7.8 balls a shot, between Static's 6.2 and
             //Colossus's 8.1.
-            Shots = 60,
+            //60 until #398. The pit lost its buried mass to the skin and its tiles widened to three; 29
+            //groups of six colours price at 46.
+            Shots = 46,
             CeilingStep = 6,
             //Chebyshev at x.75 rather than on the half: the polar round-trip makes an exactly attainable
             //threshold a coin toss per cell, which is what costs One.json's slab four of its hundred balls.
             //The pit's own threshold is compared against r itself, which the emitter builds without
             //trigonometry, and 3.6 - 0.9i never lands on an attainable radius.
+            Hollow = 1,
             Occupied = (r, ang, i, depth) => Chebyshev(r, ang) <= HOPPER_WALL
                                              && r >= HOPPER_MOUTH - i * HOPPER_BENCH,
-            BlockColour = (x, z, i) => Scatter(x / 2, z / 2, i / 2,
+            BlockColour = (x, z, i) => Scatter(x / QUARRY_TILE, z / QUARRY_TILE, i / QUARRY_COURSE,
                 new[] { BallType.Type1, BallType.Type2, BallType.Type3, BallType.Type5, BallType.Type6, BallType.Type7 }),
         };
 
@@ -180,10 +212,36 @@ namespace BS3D.Tools.LevelGen
         //rather than excavation, and the physics moments are earned by cutting the right member instead of
         //granted by a lucky colour.
         //
-        //THE ORDER IS A RAMP OF WHAT THE STRUCTURE ASKS FOR: Trilithon (229 balls, pick which pillar
-        //falls), Gantry (322, find the four-ball sling under each load), Fault (330, quarry the seam the
-        //hanging wall hangs on), Crib (432, unseat the corner welds), Highwall (428, no theatre at all -
-        //the near-Colossus ratio does the work).
+        //THE ORDER IS A RAMP OF WHAT THE STRUCTURE ASKS FOR: Trilithon (pick which pillar falls), Gantry
+        //(find the four-ball sling under each load), Fault (quarry the seam the hanging wall hangs on),
+        //Crib (unseat the corner welds), Highwall (no theatre at all - the tight ratio does the work).
+        //
+        //THE QUARRY THINNED (#398), AND IT IS THE AXIS #255 DID NOT TOUCH. The owner played all nine of
+        //these and wrote the same sentence under every one: "this level takes too long to finish, but
+        //otherwise isn't much of a challenge - as a player I start shooting mindlessly just to get it over
+        //with. It should be less dense." #255 had rebuilt five of them as STRUCTURES and left them as heavy
+        //as the masses they replaced - a member drawn as a member is still filled in behind its face, and
+        //the five shipped at 229 to 432 balls, three of them heavier than the solid cylinders beside them.
+        //
+        //⚠ WHAT MADE THEM LONG WAS THE GROUP COUNT AND NOT THE BALL COUNT, and that had to be measured to be
+        //believed. Hollowing the bodies alone (Design.Hollow, a skin of one or two cells) took a quarter of
+        //the mass out and made the chapter LONGER: a skin cuts a 2x2x2 tile in half, so the same number of
+        //groups pay half as much each. Mosaic went 34 standing groups to 46, Highwall 45 to 53, and the
+        //shortest clear (ClearProbe, #458) rose from 10 matched shots to 16 and from 23 to 32. The tile is
+        //what answered the complaint - QUARRY_TILE, three cells across and two courses tall - and the
+        //hollowing is what answered the owner's own words about density. Both, and then the budgets.
+        //
+        //WHAT IT COST AND WHAT IT BOUGHT, per level, balls / standing groups / matched shots to clear:
+        //  Mosaic    387/34/10 -> 346/27/10    Prism     351/22/12 -> 233/17/10
+        //  Hopper    465/30/17 -> 345/29/12    Trilithon 229/35/17 -> 217/20/11
+        //  Gantry    322/56/23 -> 310/35/11    Fault     330/41/ 9 -> 237/35/ 5
+        //  Crib      432/41/12 -> 288/48/11    Highwall  428/45/23 -> 297/30/18
+        //  Static    370/42/19 -> 241/17/11
+        //The chapter's median clear is 11 matched shots where it was 17, and the Quarry no longer owns the
+        //campaign's tail. Two levels did not come all the way: Crib's group count ROSE, because two-cell
+        //logs cut its mass by a third and cut each course into smaller pieces at the same time; and
+        //Highwall stays the longest thing here at 18, which is its own design (see its doc - every column
+        //is solid to the glass, so there is no cascade anywhere in it by intent).
         //
         //SERVICE COLOURS are the block's one new colour idea: a colour that exists ONLY in a structural
         //member (Gantry's slings and hinge, Fault's breccia seam), so releasing it is a statement about
@@ -238,8 +296,10 @@ namespace BS3D.Tools.LevelGen
                 Balls = BALLS_QUARRY,
             //About six shots buy a pillar; the spec prices the whole level at about 1.4 shots a group,
             //the friendliest in the block, which is what makes the smallest cluster its natural opener
-            Shots = 42,
+            //42 until #398 against 35 groups; 20 now, on the same monument.
+            Shots = 30,
             CeilingStep = 5,
+            Hollow = 1,
             OccupiedBlock = (x, z, i, depth) => TrilithonStone(x, z, i),
             BlockColour = TrilithonColour,
         };
@@ -308,7 +368,8 @@ namespace BS3D.Tools.LevelGen
         /// level.
         /// </summary>
         private static BallType TrilithonColour(int x, int z, int i) =>
-            Band((x - TRILITHON_SPAN_LO) / 2 + 2 * ((z - 4) / 2) + 3 * (i / 2), TRILITHON_PALETTE);
+            Band((x - TRILITHON_SPAN_LO) / QUARRY_TILE + 2 * ((z - 4) / QUARRY_TILE) + 3 * (i / QUARRY_COURSE),
+                TRILITHON_PALETTE);
 
         /// <summary>
         /// Four quarried blocks hanging from a crane deck on four-ball slings - cut the sling, not the
@@ -357,8 +418,11 @@ namespace BS3D.Tools.LevelGen
             //for the shot that misses, and the ratio is not comparable with Static's 1.43 in any case,
             //Static having no cascade anywhere on it by design. 1.14 keeps this the tightest of the
             //five and off the floor.
-            Shots = 64,
+            //64 until #398, when 56 standing groups became 35. This is the level the complaint named,
+            //and the one the tile helped most: 23 matched shots to clear, now 11.
+            Shots = 48,
             CeilingStep = 6,
+            Hollow = 1,
             OccupiedBlock = (x, z, i, depth) => GantrySteel(x, z, i),
             BlockColour = GantryColour,
         };
@@ -447,7 +511,8 @@ namespace BS3D.Tools.LevelGen
             //colours, anchored at its own corner (x 2, z 3, i 6) so every index is non-negative for
             //Band's bare %. The two courses sit three palette steps apart, so no tile continues down.
             if (i >= GANTRY_DECK_BASE)
-                return Band((x - 2) / 2 + 2 * ((z - 3) / 2) + 3 * (i - GANTRY_DECK_BASE), GANTRY_PALETTE);
+                return Band((x - 2) / QUARRY_TILE + 2 * ((z - 3) / QUARRY_TILE) + 3 * (i - GANTRY_DECK_BASE),
+                    GANTRY_PALETTE);
 
             int sling = GantrySling(x, z);
 
@@ -502,8 +567,10 @@ namespace BS3D.Tools.LevelGen
             Sky = QUARRY_SKY,
             Music = MUSIC_QUARRY,
                 Balls = BALLS_QUARRY,
-            Shots = 58,
+            //58 until #398 against 41 groups; 35 now, on a body a third lighter.
+            Shots = 46,
             CeilingStep = 6,
+            Hollow = 1,
             OccupiedBlock = (x, z, i, depth) => FaultBody(x, z, i) != 0,
             BlockColour = FaultColour,
         };
@@ -580,7 +647,7 @@ namespace BS3D.Tools.LevelGen
             //The overburden: the slab's top course carries the six colours in 2x2x1 blocks, which is what
             //stops either slab's anchor course being a single group
             if (stratum == 7)
-                return Band((x - 1) / 2 + (z - 5) / 2, FAULT_OVERBURDEN);
+                return Band((x - 1) / QUARRY_TILE + (z - 5) / QUARRY_TILE, FAULT_OVERBURDEN);
 
             //A stratum one level thick, striped in 2-wide x-strips of its own pair
             return FAULT_STRATA[stratum - 3][((x - 1) / 2) % 2];
@@ -623,8 +690,13 @@ namespace BS3D.Tools.LevelGen
             Sky = QUARRY_SKY,
             Music = MUSIC_QUARRY,
                 Balls = BALLS_QUARRY,
+            //60 still, and it is the one budget here that did not fall. The log cabin is the level whose
+            //group count ROSE (41 to 48): two-cell logs cut a third of the mass off it but cut each course
+            //into smaller pieces, and six colours over a flat body (best single shot 2 %) needs every shot
+            //it has. Its length came down on the other axis - 288 balls where it hung 432.
             Shots = 60,
             CeilingStep = 6,
+            Hollow = 1,
             OccupiedBlock = (x, z, i, depth) => CribCourse(x, z, i),
             BlockColour = CribColour,
         };
@@ -633,6 +705,8 @@ namespace BS3D.Tools.LevelGen
         //two slabs running along X, odd courses two along Z, 54 balls a course. The top course (i 7, along
         //Z) is bonded to the glass along its full length, and the corner seats are the 3x3 overlaps at the
         //footprint's four corners.
+        //How wide a log is, across its own run. Three until #398 - see CribCourse for why it is two.
+        private const int CRIB_LOG = 2;
         private const int CRIB_LO = 2;
         private const int CRIB_HI = 10;
 
@@ -650,7 +724,13 @@ namespace BS3D.Tools.LevelGen
             //Across the course's own run: even courses run along X and are cut in z, odd the reverse
             int across = i % 2 == 0 ? z : x;
 
-            return across <= CRIB_LO + 2 || across >= CRIB_HI - 2;
+            //A LOG IS TWO CELLS WIDE SINCE #398, where it was three. Design.Hollow cannot reach this level -
+            //a course is one level tall, so every cell of it already touches the free space above and below
+            //and the skin takes 36 balls of 432 - which left the log cabin the heaviest thing in a chapter
+            //the owner had just called too long, nine times over. Two cells is a third of the mass off the
+            //whole body, and the corner seats the design hangs on are still two cells by two where the
+            //courses cross.
+            return across <= CRIB_LO + CRIB_LOG - 1 || across >= CRIB_HI - CRIB_LOG + 1;
         }
 
         //Six mutually non-confusable colours. The order matters only through the phase walk in CribColour:
@@ -721,8 +801,12 @@ namespace BS3D.Tools.LevelGen
             Sky = QUARRY_SKY,
             Music = MUSIC_QUARRY,
                 Balls = BALLS_QUARRY,
-            Shots = 60,
+            //60 until #398 against 45 groups; 30 now. The budget still carries the block's longest clear
+            //(18 matched shots against a median of 11) - see this level's own doc for why that is the
+            //design rather than an oversight.
+            Shots = 44,
             CeilingStep = 7,
+            Hollow = 1,
             OccupiedBlock = (x, z, i, depth) => HighwallBench(x, z, i),
             BlockColour = HighwallColour,
         };
@@ -787,7 +871,7 @@ namespace BS3D.Tools.LevelGen
             //gate - the one percolation risk is dike blocks fusing diagonally with bench blocks through
             //the half-shift.
             if (HighwallDike(x, i))
-                return ((z - HIGHWALL_Z_LO) / 2 + i / 2) % 2 == 0
+                return ((z - HIGHWALL_Z_LO) / QUARRY_TILE + i / QUARRY_COURSE) % 2 == 0
                     ? BallType.Type10    //brown
                     : BallType.Type11;   //silver
 
@@ -796,11 +880,20 @@ namespace BS3D.Tools.LevelGen
             //The glass bench: the six-colour hash, +1 per x block and +2 per z block, so no two touching
             //blocks agree - diagonals step by 3 and -1, never 0 modulo 6
             if (bench == 3)
-                return Band((x - HIGHWALL_X_LO) / 2 + 2 * ((z - HIGHWALL_Z_LO) / 2), HIGHWALL_PALETTE);
+                return Band((x - HIGHWALL_X_LO) / QUARRY_TILE + 2 * ((z - HIGHWALL_Z_LO) / QUARRY_TILE),
+                    HIGHWALL_PALETTE);
 
-            //A lower bench: its own pair in a 2x2 checker
-            return HIGHWALL_BENCH_PAIRS[bench][
-                ((x - HIGHWALL_X_LO) / 2 + (z - HIGHWALL_Z_LO) / 2) % 2];
+            //A lower bench: its own pair, STRIPED ACROSS THE FACE rather than checkered over it. This was
+            //a 2x2 checker until #398 and it is where the whole level's length lived: a checker of two
+            //colours puts every block of a colour diagonally to the next, which the lattice does not join,
+            //so a bench was dozens of four-ball groups that touched nothing of their own - a field of
+            //separate shots wearing the shape of a bench. It measured 45 standing groups and 23 matched
+            //shots to clear, the longest in the chapter, and widening the checker's tile alone barely moved
+            //it (35 groups, 20 shots) because a checker's groups are separate however big its squares are.
+            //A stripe is one group down the bench's whole depth, which is what a bench should trade as; the
+            //pairs stay disjoint per bench, so nothing crosses a bench boundary and the percolation
+            //argument above is untouched.
+            return HIGHWALL_BENCH_PAIRS[bench][((x - HIGHWALL_X_LO) / QUARRY_TILE) % 2];
         }
 
         #endregion
