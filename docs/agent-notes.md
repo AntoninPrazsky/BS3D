@@ -4102,3 +4102,28 @@ Dvě majitelovy poznámky z hraní, dvě issues. Sémantické hledání (nomic, 
 **Co zůstává majiteli k rozhodnutí:** #474 (tříranové levely, Horn 90 % shodou), Highwall jako nejdelší level Quarry (18 ran, jeho vlastní design), Sail a Binary dál na dvě rány (lék je třetí kotva, ne obal), lem pro Sail (varianta, kterou nevybral, a která jediná spraví těch 67 %), `Cabinet` v sondě 4 z 5 a `MIXED THEMES` u Louky v `DescribeBlock` (#400).
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-19 — Claude Code (notebook: #474 práh na tříranové levely, pak lem pro Sail)
+
+**Beru si #474** na pokyn majitele („Vem 474 a potom lem pro Sail"). Větev `474-cheap-clear-threshold`, notebook v `C:\GitHub`.
+
+- **Majitel vybral nejširší variantu:** brána z #458 se posouvá na **„pod 4 rány a přes 50 % shodou"**. Hloubka vyčerpávajícího hledání (`PROVEN_SHOTS` = 3) na to stačí beze změny — „méně než čtyři" je přesně to, co umí dokázat.
+- ⚠ **Lean leží na čáře:** 258 z 515 je 50,09 %, ale celočíselné procento se zkrátí na 50 a `> 50` by ho pustilo. Porovnání proto dělám přesně (`Matched * 100 > Removable * 50`), jak jsem majiteli sliboval — odmítnuté budou **Horn (90 %), Trophy (68 %), Onion (64 %) a Lean (50,09 %)**.
+- **Plán na ty čtyři:** lék je barvení, ne tvar — řez plent do výsečí jako u Saturnu, takže silueta každého zůstane. Jeden po druhém, po každém měřit.
+- **Potom lem pro Sail** (#415): varianta, kterou majitel tehdy nevybral a která jediná spraví jeho 67 % jednou ranou — lano po bocích plachty jako druhá nosná cesta.
+- **Beru na sebe:** `Tools/LevelGen/ClearProbe.cs`, `Designs/Block04_Tower.cs`, `Block05_Reveal.cs`, `Block07_Nebula.cs`, `Block10_Arcade.cs`, `Game/Levels/*`, docs.
+
+**Nic dalšího si neberu.**
+
+**Dodatek: #474 i lem pro Sail hotové na větvi `474-cheap-clear-threshold` (`e733e65`), NENÍ v mainu.**
+
+- **Brána** z #458 je na „pod **4** rány a přes 50 % shodou" (majitelova volba ze tří nabídnutých). Porovnání **násobí místo dělení**: Lean má 258 z 515 = 50,09 %, což se v logu tiskne jako 50 — level přes čáru by prošel na zaokrouhlení.
+- **Čtyři levely, které tím spadly, jsou překreslené barvou — ani jedna buňka se nehnula**, silueta, počet koulí i rozpočet zůstaly: Horn (skořepiny → skin ve čtyřech výsečích zlato/stříbro, 4 → 10 skupin, vyčištění 3 → 6), Onion (bílá dužina byla jedna skupina 300 → výseče střídají bílou a stříbrnou, 6 → 15, 3 → 5), Lean (zdivo sčítané prostě → čtyři barvy a kroky 1, 2, 3, 16 → 28, 3 → 4), Trophy (zlato jako dvouprvkový dither → tři zlata a dva kroky, 19 → 29, 3 → 10).
+- ⚠ **Tři ze čtyř jsou tatáž vada v jiném hávu** a repo ji zná: prostý součet dá dvěma blokům krok od sebe v opačných osách stejný index a **křížlevelový soused JE diagonála v (x, z)**, takže se svaří přes půlbuněčný posun do plátů. Lék jsou kroky nesoudělné s délkou palety (Trilithon to říká první), a dvouprvkový dither je mít nemůže — proto Trophy potřebovalo třetí zlato dřív, než kroky vůbec mohly fungovat.
+- ⚠ **U Hornu jsem dvě barvy zavrhl až po měření:** jantarová je ta záměnná dvojice, o které je otevřené #395 (vyfoceno — proti červené dužině čte jako jeden kalný pás u ústí), a slonovina se na špičce **svařila s bílým jádrem** (tam mají skořepiny po jedné buňce) do skupiny 218 koulí, 43 % jednou ranou. Stříbro nepatří ani jednomu sousedovi.
+- **Lem pro Sail** (druhá půlka #415): vnější sloupec plátna **přebarvený, ne přidaný** — plachta má stejný počet koulí — po obou bocích ve dvou barvách, aby ani jeden nebyl jedna skupina kolem celého obvodu. **Nejhorší jedna rána 67 % → 14 %**, protože to, co spadne pod diagonálním řezem, teď drží lem. Vyfoceno.
+- **Ověřeno:** LevelGen exit 0 přes 110 levelů, ScoreSim exit 0, sonda na čtyřech překreslených 0, 0, 1, 2 z pěti (práh 4). Trophy šlo 0 → 2, což je jediný posun; pořadí hry se barvou mění, geometrie ne.
+
+**Nic dalšího si neberu.**

@@ -1,4 +1,4 @@
-using Prazsky.BS3D.GameStructure;
+﻿using Prazsky.BS3D.GameStructure;
 using Prazsky.Core.Render;
 using System;
 
@@ -277,7 +277,7 @@ namespace BS3D.Tools.LevelGen
             Shots = 80,
             CeilingStep = 6,
             Occupied = (r, ang, i, depth) => r <= HornRim(i),
-            Colour = (r, ang, i, depth) => HornShell(r, i),
+            Colour = (r, ang, i, depth) => HornShell(r, ang, i),
         };
 
         /// <summary>
@@ -399,8 +399,17 @@ namespace BS3D.Tools.LevelGen
             Shots = 78,
             CeilingStep = 6,
             OccupiedBlock = (x, z, i, depth) => LeanRadius(x, z, i, depth) <= LEAN_RADIUS,
-            BlockColour = (x, z, i) => Band((x / 3) + (z / 3) + (i / 3),
-                new[] { BallType.Type1, BallType.Type4, BallType.Type3 }),
+            //FOUR COLOURS AND THREE STRIDES SINCE #474, where this was three colours summed plainly. A
+            //plain sum gives two blocks a step apart in opposite axes the SAME index - (+1, -1, 0) adds
+            //nothing - and a cross-level neighbour is a diagonal in (x, z), so those blocks welded through
+            //the half-shift into diagonal sheets of masonry running the height of the tower: the blue read
+            //164 balls in one group and three matched shots took 258 of 515, half the level. Strides of 1,
+            //2 and 3 against a palette of four leave no face or edge step at zero modulo four, so no two
+            //touching blocks can agree and a group is a block again. Silver joins the three: it is the
+            //fourth masonry colour and it also puts a fourth on the anchor course, which is what the
+            //shortest-clear floor reads.
+            BlockColour = (x, z, i) => Band((x / 3) + 2 * (z / 3) + 3 * (i / 3),
+                new[] { BallType.Type1, BallType.Type4, BallType.Type3, BallType.Type11 }),
         };
 
         #endregion
@@ -1150,6 +1159,28 @@ namespace BS3D.Tools.LevelGen
         private const float HORN_CORE = 0.45f;
         private const float HORN_SKIN = 0.78f;
 
+        //THE SKIN IS STAVED SINCE #474, and the number it answers is 90 %. Three shells meant three standing
+        //groups: the gold skin, the red flesh and the white core, each one piece from the point to the glass,
+        //so three matched shots took 458 of this level's 506 balls and the rest fell behind them - the
+        //cheap-clear gate's own definition of a level matched away rather than played. Four staves in two
+        //golds make the skin four groups that meet only through the flesh, so the peel is four shots and the
+        //level is six. The shells themselves are untouched, which is the design: what the player sees is a
+        //horn wound in ribbons rather than a plain gold cone, and every stave still runs point to glass and
+        //still carries its colour into the narrow stalk, which is what HornShell exists for.
+        //
+        //SILVER FOR THE ALTERNATE STAVE, and the two it is not are both measured. AMBER was the first try
+        //and it is the confusable pair #395 is open about - photographed, the orange and the red flesh read
+        //as one muddy band at the mouth, where the flesh is widest. IVORY was the second, on the argument
+        //that the flesh stands between the staves and the white core at every level so the two could share a
+        //colour: they do not. At the tip the shells are a cell each and they touch, and the core welded to
+        //two staves into a single 218-ball group - 43 % of the level in one shot. Silver belongs to neither
+        //neighbour and the level reads as a horn banded in two metals.
+        private const int HORN_STAVES = 4;
+
+        //An eighth of a turn, so the four seams sit off the lattice's own axes - Diabolo's rule, and here it
+        //also keeps a seam from running down the line the gun opens on.
+        private const float HORN_STAVE_SEAM = 0.125f;
+
         /// <summary>The horn's radius at one layout level — <see cref="HORN_TIP"/> at the point, opening quadratically.</summary>
         private static float HornRim(int i) => HORN_TIP + HORN_FLARE * i * i;
 
@@ -1159,13 +1190,17 @@ namespace BS3D.Tools.LevelGen
         /// See <see cref="Horn"/> for the two reasons that matters (the anchor rule and the magazine's draw) and
         /// <see cref="OnionShell"/> for the same trick answering the same trap on a sphere.
         /// </summary>
-        private static BallType HornShell(float r, int i)
+        private static BallType HornShell(float r, float ang, int i)
         {
             float shell = r / HornRim(i);
 
             if (shell <= HORN_CORE) return BallType.Type4;  //white core
             if (shell <= HORN_SKIN) return BallType.Type1;  //red flesh
-            return BallType.Type7;                          //gold skin
+
+            //The skin, in staves (#474): two golds alternating, so a stave's own colour returns only on the
+            //far side of the horn and the two never touch.
+            return Band(SectorIndex(ang, HORN_STAVE_SEAM, HORN_STAVES),
+                new[] { BallType.Type7, BallType.Type11 });  //gold / silver
         }
 
         //Each strand's centre runs at HELIX_RADIUS from the axis and the strand itself is a disc of
