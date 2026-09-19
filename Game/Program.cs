@@ -115,6 +115,10 @@ namespace BS3D
             //presses reach it on a machine somebody is sitting at, and none reach it from a script.
             bool settings = false;
 
+            //Testing only: open the Help screen at boot, and "help=<n>" on its nth page (#427). Null means
+            //the argument was absent; the number is 1-based because that is what the page prints about itself.
+            int? help = null;
+
             //Testing only: draw every ball in one style whatever the level files say (#258). Null means the
             //argument was absent, and then each map is drawn in what it is authored in, as a player sees it.
             //It exists because the two styles can otherwise only be compared across two DIFFERENT levels —
@@ -292,6 +296,12 @@ namespace BS3D
                 else if (string.Equals(arg, "about", StringComparison.OrdinalIgnoreCase)) about = string.Empty;
                 //"settings" puts the Settings page up at boot (#189), for photographing a row.
                 else if (string.Equals(arg, "settings", StringComparison.OrdinalIgnoreCase)) settings = true;
+                //"help" opens the Help screen and "help=<n>" opens it on that page (#427) - the same reasoning
+                //one turn further, since Help is six pages behind one entry and its Previous/Next stand side
+                //by side, so a scripted walk has to guess a focus order to reach page four at all.
+                else if (string.Equals(arg, "help", StringComparison.OrdinalIgnoreCase)) help = 1;
+                else if (arg.StartsWith("help=", StringComparison.OrdinalIgnoreCase)
+                    && int.TryParse(arg.Substring("help=".Length), out int parsedHelp)) help = parsedHelp;
                 else if (arg.StartsWith("about=", StringComparison.OrdinalIgnoreCase)) about = arg.Substring("about=".Length);
                 //"preview=<n|name>" pins which map the FRONT END hangs, the way "level=" pins which one is
                 //played. The menu's camera is framed for that map since #254, so without this two shots of
@@ -313,7 +323,7 @@ namespace BS3D
                 celebrate: celebrate, confetti: confetti, lasers: lasers, mute: mute, noFpsOverlay: noFpsOverlay, play: play, result: result, blockDone: blockDone, lost: lost, resultStars: resultStars, nextLocked: nextLocked, streak: streak, wildcardEvery: wildcardEvery,
                 shotSeconds: shotSeconds, level: level, levelFile: levelFile, preview: preview, ballStyle: ballStyle, pick: pick, fpsCap: fpsCap,
                 noFocusPause: noFocusPause, detonateSeconds: detonateSeconds, about: about, tutorial: tutorial,
-                settings: settings, sceneSeed: sceneSeed, tour: tour,
+                settings: settings, help: help, sceneSeed: sceneSeed, tour: tour,
                 windowWidth: windowWidth, windowHeight: windowHeight, lineLoss: lineLoss);
             game.Run();
         }

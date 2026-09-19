@@ -312,7 +312,10 @@ namespace BS3D
         private string _startupAbout;
 
         //Testing only: the "settings" argument (#189) — the Settings page at boot, on _startupAbout's reasoning
-        private bool _startupSettings;
+        private bool _startupSettings;
+
+        //Which Help page to open at boot, 1-based, or null for "not asked" (#427)
+        private int? _startupHelp;
 
         //Wall clock. Everything alive in the scene runs off it — the balls' heartbeat, the city's windows —
         //so none of it is tied to a simulation that may later be paused.
@@ -867,7 +870,7 @@ namespace BS3D
             int? resultStars = null, string nextLocked = null, int? streak = null, int wildcardEvery = 0, float[] shotSeconds = null, string level = null, string levelFile = null,
             string preview = null, BallStyle? ballStyle = null, string pick = null, int fpsCap = 0,
             bool noFocusPause = false, float[] detonateSeconds = null, string about = null, string tutorial = null,
-            bool settings = false, int? sceneSeed = null, bool tour = false,
+            bool settings = false, int? help = null, int? sceneSeed = null, bool tour = false,
             int windowWidth = 0, int windowHeight = 0, float lineLoss = 0f)
         {
             //The scene's procedural roll (see _sceneSeedOffset): rolled once per launch unless the command
@@ -947,7 +950,8 @@ namespace BS3D
             _startupNextLocked = nextLocked;
             _startupPick = pick;
             _startupAbout = about;
-            _startupSettings = settings;
+            _startupSettings = settings;
+            _startupHelp = help;
             _startupTour = tour;
             _startupLineLoss = lineLoss;
             _shotSchedule = shotSeconds;
@@ -1945,6 +1949,14 @@ namespace BS3D
                 _startupSettings = false;
 
                 OpenSettings();
+            }
+
+            //And the Help screen, on whichever of its pages was asked for (#427)
+            if (_startupHelp is int helpPage && !_screens.Contains<SplashPage>())
+            {
+                _startupHelp = null;
+
+                OpenHelp(helpPage);
             }
 
             //And the same for the result screen, over whatever is on the stack — the front end, unless "play"
