@@ -158,7 +158,7 @@ namespace BS3D.Tools.LevelGen
             OccupiedBlock = (x, z, i, depth) => ChestPart(x, z, i) != 0,
             BlockColour = (x, z, i) => ChestPart(x, z, i) == 2
                 ? BallType.Type4
-                : Band((x / 2) + (z / 2), new[] { BallType.Type8, BallType.Type1, BallType.Type7 }),
+                : Band((x / 2) + (z / 2), CHEST_SLATS),
         };
 
         /// <summary>
@@ -1282,6 +1282,24 @@ namespace BS3D.Tools.LevelGen
         private const float CHEST_WALL = 2f;
         private const int CHEST_LID = 2;
         private const int CHEST_FLOOR = 2;
+
+        //THE CRATE'S MATERIALS (#419's block, recoloured by #421's sibling #418). It was black, red and yellow
+        //- dark iron, red paint and brass, which is what the design doc above still asks for - and the owner
+        //played it and asked why a level called Chest looks like a national flag. He is right, and the
+        //photograph says so plainly: the slats come off the play camera as three BROAD VERTICAL BANDS across
+        //the front face, and black-red-gold in broad vertical bands is a flag before it is anything else.
+        //
+        //⚠ The banding is not the fault and must not be touched: (x / 2) + (z / 2) is Mosaic's rule with the
+        //level term dropped, and it is what keeps two same-coloured columns from ever merging across levels
+        //(see the design doc). The colours are the fault, and the fix is to make the same three bands read as
+        //a crate's own materials - because broad vertical bands ARE what a crate looks like, once they are
+        //the colours of one. Timber, iron banding and brass fittings, which is also the first thing on this
+        //level that answers the second half of the owner's question: why it is called Chest.
+        //
+        //None of the three is a flag colour beside the other two, and all three are far apart to play with:
+        //brown (0.42, 0.24, 0.11), silver (0.50, 0.53, 0.58) and orange (1.00, 0.50, 0.03). The pearl keeps
+        //Type4, which is the palette's white and still the lightest thing in the box.
+        private static readonly BallType[] CHEST_SLATS = { BallType.Type10, BallType.Type11, BallType.Type9 };
 
         //The pearl and the cord it hangs from. PEARL_DROP is measured from the glass, so the pearl sits low in
         //the box with air above it and the cord visible through the hole the player opens.
