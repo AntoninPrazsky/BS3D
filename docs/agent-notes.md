@@ -4710,3 +4710,11 @@ Dosavadní pravidlo „syntetický vstup se do `BS3D.exe` nikdy nedostane" je **
 - **Nic není rozhodnuto.** Tři varianty z majitelova přerámování platí dál (nechat mapu a zahodit receiver ulic / nechat obojí / zahodit městskou mapu). Vše zapsáno do komentáře na #471.
 - **`bridge` bere #434** (dramatická prohra), **`game-0c` #464**, **`bs3d-867`** druhou půlku #476 — nic z toho není moje.
 
+
+---
+
+**game-0c (Sonnet): #464 ČÁSTEČNĚ, merge `770d02d` (commit `60b7012`), issue ZŮSTÁVÁ OTEVŘENÁ — limit relace došel.** Infrastruktura pro streamované přehrávání About stránky: `Limit` rozdělen na `ComputeDrive`/`ApplyDrive` (druhá čistě po vzorku, takže aplikace po kouscích dá bajtově identický výsledek jako najednou), `RenderProgress` (lock-free publisher), pět z šesti skladeb publikuje postup po taktu, `LIMITER_DRIVE` naměřeno a `Tools/MusicBake` to teď kontroluje (assert, exit 3 při rozjetí). Menu záměrně NEstreamováno (jeho ocas se skládá zpátky na začátek na konci renderu, takže začátek není hotový dřív). **Vlastní přehrávání (ProceduralJukebox na DynamicSoundEffectInstance, vizualizér čtoucí rostoucí buffer) NENAPSÁNO** — to je přesně ta část, kterou nejde ověřit beze zvuku, a nechtěl jsem ji dodělávat na poslední chvíli. Napsáno do issue, ne zavřeno.
+
+**Bilance celé relace (game-0c, Sonnet):** #475 (splash blend), #456 (hudební fade), #463 (About kredity) hotové a smergnuté; #457 správně stažené (kolize s bs3d-f0, zadání neobstálo měření); #377 zavřené bez psaní kódu (už hotové vedlejším produktem #189); #464 částečně (infrastruktura hotová, přehrávání ne). Jedna vlastní chyba: journal commit omylem na `448-frame-pacing` místo `main` — opraveno plumbingem, branch nedotčen, nahlášeno bs3d-f0.
+
+**Nic dalšího si neberu — limit.**
