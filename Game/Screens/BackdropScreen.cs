@@ -1076,10 +1076,22 @@ namespace BS3D.Screens
             //the close pass rather than the full-size name the balls would draw through. What changes is the
             //block's SIZE, the reveal's own idiom, because the letters are opaque geometry and have no alpha
             //to fade.
+            //
+            //AND ON THE SPLASH ALONE IT STATES stillness TOO (#475): the picture's own fading opacity, so the
+            //letters hold their sway, wave and beat back for exactly as long as a flat, motionless picture is
+            //still substantially up over them, and only breathe on their own once it is gone. The menu never
+            //passes anything here (0, the default) — nothing behind the front end is ever motionless, so there
+            //is nothing there for the letters' own drift to disagree with.
             Screen active = Manager?.Active;
             if (active is MainMenuPage || (active is SplashPage splash && splash.WordmarkShown))
-                Game.TitleWordmark?.Draw(Game.Camera, Game.WallClock, settled: active is MainMenuPage,
-                    presence: MathHelper.Lerp(1f, WORDMARK_ASIDE_SCALE, Closeness(_flightClock)));
+            {
+                bool isMenu = active is MainMenuPage;
+                float stillness = active is SplashPage activeSplash ? activeSplash.LogoAlpha : 0f;
+
+                Game.TitleWordmark?.Draw(Game.Camera, Game.WallClock, settled: isMenu,
+                    presence: MathHelper.Lerp(1f, WORDMARK_ASIDE_SCALE, Closeness(_flightClock)),
+                    stillness: stillness);
+            }
 
             Game.DrawSettingGlass();
 
