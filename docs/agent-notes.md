@@ -4448,3 +4448,36 @@ Větev `471-city-shadows` (`4965246`), pushnutá. Staví ve všech čtyřech ře
 - **Vyfoceny čtyři styly na Grottu v nativním rozlišení, než jsem vybral:** vinyl, mramor, gem, led. Led cluster vybělí a patří hoře a Gridu; gem je rušivý a patří neonu.
 - **Deset souborů, změnilo se v nich jen pole `balls`** — mapy jsou bit po bitu shodné (ověřeno porovnáním proti HEAD).
 - ⚠ **Nové od protistrany, platí pro všechny moje další captury:** existuje `sceneseed=` a **každé spuštění losuje rozmístění** (města, les, savana, palmy, Grid). Každý A/B pár musí seed pinovat, jinak porovnávám dvě různá města. `sceneseed=0` je to, co je vydané.
+
+---
+
+## 2026-09-19 — Claude Code, bs3d-f0 (dvě města, procedurální seed, #476; beru #448)
+
+**Majitel dal stálý pokyn: mergovat bez ptaní, brát další issue a jet, dokud nedojde limit.** Důvod je jeho vlastní: je na hru sám, limit účtu je úzké hrdlo (proto střídá víc účtů) a celý diff si stejně čte jako člověk potom. Zapsáno do paměti; přestávám se ptát.
+
+### Dvě různá města (merge `b25566e`)
+
+Majitelův nález: „city a neon city mají úplně stejné budovy — na stejných místech, ve stejné velikosti." Příčina byla jedna konstanta: **seed byl natvrdo v každém ze tří exe**, takže obě scény generovaly totéž město a lišily se jen světlem. `CitySceneConfig` nese oba layouty, `City` bere scénu místo seedu, hostitelé přegenerují při přechodu mezi nimi. Neonové: druhý seed, blok 25/30, ulice 7,5/9, poloměr 16/14, roofline 46/34, rozptyl 36/26, taper 2,6/1,8. **Změřeno 2322 budov proti 1777.** Liší se jen layout — fasády, okna a neon zůstaly. ⚠ `BaseY` obě sdílejí schválně: jinak by výpusť ostrova v každém dosahovala na jinou podlahu.
+
+### Procedurální seed scény (merge `62f7ba8`)
+
+Majitelovo zadání: „vyzdvihnout procedurálnost, aby to pokaždé vypadalo jinak." Jeho vlastní rámec, který stojí za zapamatování: **u procedurální hudby to neobstálo, u scény ano, protože obraz nemá „zní / nezní" a scény jsou statické.**
+
+- **Jeden offset, rolnutý jednou za spuštění**, přičtený ke všem seedovaným uspořádáním: obě města, střechy, les, auroří háj, savanní osázení, palmy, Life desky Gridu.
+- ⚠ **Offset, ne seed.** Každý generátor si nechává svou konstantu. Jeden společný seed by všechny scény přelosoval ze stejného čísla a tiše zkoreloval uspořádání, která spolu nesouvisí.
+- ⚠ **Losuje se jednou, ne při každé stavbě.** Krok kvality i změna scény generátor pouštějí znovu a musí dostat **stejné** město — silueta přeskládaná tím, že hráč otevřel Nastavení, čte jako chyba.
+- ⚠ **`sceneseed=` není vymoženost, drží nástroje.** Dvojice snímků i měřené A/B musí v obou půlkách koukat na stejné uspořádání. Obě exe tisknou `[sceneseed] <n>`. **Změřeno: `sceneseed=0` postaví 1777 budov a 7075 kusů střešní techniky — přesně dosavadní čísla — dvakrát; tři rolnuté běhy 1812/1803/1860 a 7096/7084/7416.** Editor losuje a pin nemá schválně.
+
+### #476 — cestička obchází strom (merge `9004991`)
+
+Nález, který **zviditelnilo právě to losování**: dosavadní stav byl jeden hod kostkou, kterému to náhodou nevadilo.
+
+- Trasy kreslí shader jako vrstevnice šumu, rostliny sází CPU. **Ani jeden o druhém nevěděl.** `TrailWarpField` je malé CPU pole „kterým směrem uhnout", kterým se **domain-warpuje vzorkování** trasy: bod u rostliny vzorkuje šum, jako by stál dál, takže vrstevnice je odtlačena a přijde jako **oblouk**. Vyříznout trasu u stromu byla druhá možnost a nevzal jsem ji — cesta, co začíná a končí, je jiný špatný obrázek.
+- ⚠ **Oblouk je široký a začíná daleko, a to je majitelova druhá poznámka, ne vkus:** „lidé mají oči a vyhýbají se už z dálky." Dosah **34 jednotek za okrajem rostliny**, odstrčení 16. Odpuzování začínající u kůry by četlo jako zlom na poslední chvíli — tak obchází strom mravenec, ne člověk.
+- **Sčítá se, nebere se nejbližší:** dva stromy u sebe odtlačí cestu kolem **obou**; nejbližší-only by ji poslal do mezery mezi kmeny, což je jediná stopa, kterou by člověk nešel.
+- ⚠ **Past, kterou jsem zaplatil jedním párem snímků:** uniformy jsem nejdřív tlačil v `ApplySavannaParameters`, jenže **ta běží dřív než osázení**, takže textura byla vždycky null. Snímky s vyhýbáním „zapnutým" a „vypnutým" vyšly identické — protože bylo vypnuté v obou. Tlačí se teď tam, kde pole vzniká.
+- **Ověřeno** shora na třech seedech a proti témuž snímku s dialem 0. **Zbývá druhá půlka #476:** osázení pořád o trasách neví, takže rostlina může padnout na cestu, kterou warp neohnul dost (hustý shluk, cesta mezi dvěma kmeny). Chce to CPU zrcadlo šumu trasy.
+
+**Sezení dnes ještě: kolega `github-59` zavřel #450, #461, #452, #421, #437, #465 a bere #419, #418, #417, #431, #425. Nová session `game-0c` (Sonnet, tentýž stroj) bere #475 a pracuje ve worktree, aby nesahala na sdílený checkout — správně.** ⚠ Prý existuje třetí session, Opus na notebooku přes Remote Control; z tohoto stroje **není vidět** ani v `ListAgents`.
+
+**Beru si #448** (přesné míření škube při A/D). Vybral jsem si to sám na sebe: `combine` karta z #460 vede nového hráče přímo do toho gesta, takže ta vada je teď první věc, kterou kombinace učí.
