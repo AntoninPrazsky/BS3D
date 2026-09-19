@@ -1790,6 +1790,13 @@ namespace BS3D
 
         protected override void Update(GameTime gameTime)
         {
+            //Paced BY the compositor rather than against it (#448), at the TOP of the frame: the wait ends
+            //just past a composition, the frame is built and presented inside the interval that follows, and
+            //DWM picks up exactly one frame per refresh. EndFrame's clock stays behind it as the fallback,
+            //and remains the whole story whenever a NUMBER was named - a benchmark's fpscap= or a player's
+            //Settings row mean that number and not the compositor's rate.
+            if (_fpsCap <= 0 && !_uncappedFps && _displayRefreshHz > 0) _frameLimiter.WaitForCompositor();
+
             float elapsed = (float)gameTime.ElapsedGameTime.TotalSeconds;
             _wallClock += elapsed;
 

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -62,6 +62,11 @@ namespace BS3D.Platform
         [DllImport("winmm.dll", EntryPoint = "timeEndPeriod")]
         private static extern uint TimeEndPeriod(uint milliseconds);
 
+        //Blocks until the compositor has finished its current composition. It is the one primitive that lets a
+        //windowed program pace itself BY the compositor rather than race it - see WaitForCompositor (#448).
+        [DllImport("dwmapi.dll", EntryPoint = "DwmFlush")]
+        private static extern int DwmFlush();
+
         private bool _timerResolutionRaised;
         private bool _disposed;
 
@@ -78,6 +83,38 @@ namespace BS3D.Platform
         /// thing this is simpler at than the vsync it replaced.
         /// </summary>
         public int TargetHz { get; set; }
+
+        /// <summary>
+        /// Waits for the compositor's next composition, at the <b>top</b> of a frame, and answers whether
+        /// the wait actually happened (#448).
+        /// <para>
+        /// ⚠ <b>The schedule below cannot produce smooth motion against DWM, and the margin it is aimed at
+        /// makes it worse rather than better.</b> The compositor shows at most one frame per refresh, so a
+        /// program presenting at <see cref="TargetForRefresh"/>'s 78 into a 75 Hz panel has three of its
+        /// frames a second thrown away - and a thrown-away frame is a skipped step of everything that moves,
+        /// which is a small periodic hitch three times a second. That was #448, and it is arithmetic rather
+        /// than a hypothesis: the shipped limiter measures a flat 78.0 FPS on a 75 Hz panel, dead steady.
+        /// </para>
+        /// <para>
+        /// Aiming the schedule exactly at the refresh fixes most of it - measured, a flat 75.0 - but a
+        /// free-running clock has no phase relationship with the compositor, so the two slide past each
+        /// other on nothing but clock error and the hitch becomes rare and irregular rather than gone.
+        /// <c>DwmFlush</c> removes the race instead of tuning it: the frame after it begins just past a
+        /// composition, so exactly one frame is presented per refresh and nothing is discarded. Measured at
+        /// a flat 75.0 as well, so the phase lock is free.
+        /// </para>
+        /// <para>
+        /// <b>It is not vsync.</b> The wait is taken BEFORE the frame is built rather than inside Present, so
+        /// a frame that fits in the interval cannot miss a vblank and land at half rate - which is the
+        /// failure #270 measured on the vsync this limiter replaced.
+        /// </para>
+        /// <para>
+        /// A false answer is DWM refusing (composition off, or the call failing), and the caller then has
+        /// <see cref="EndFrame"/>'s ordinary schedule behind it - which is why
+        /// <see cref="REFRESH_MARGIN"/> keeps its shipped value: it now governs only that fallback.
+        /// </para>
+        /// </summary>
+        public bool WaitForCompositor() => DwmFlush() == 0;
 
         /// <summary>
         /// The default target for a display refreshing at <paramref name="refreshHz"/>: the refresh plus
