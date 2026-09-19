@@ -1,4 +1,4 @@
-using BS3D.Platform;
+﻿using BS3D.Platform;
 using Prazsky.Core.Render;
 using System;
 
@@ -411,7 +411,7 @@ namespace BS3D
             if (_city != null && _cityConfig.RadiusBlocks != preset.CityRadiusBlocks)
             {
                 _cityConfig.RadiusBlocks = preset.CityRadiusBlocks;
-                _city = new City(seed: CITY_SEED, arenaHalfExtent: ArenaIsland.RADIUS, config: _cityConfig);
+                _city = new City(_cityConfig, _cityIsNeon, ArenaIsland.RADIUS);
 
                 //The roofs follow the buildings: a piece's placement is a function of its own tower, so the
                 //towers the two cities share keep exactly the equipment they had

@@ -271,6 +271,10 @@ namespace Testbed
         #region City, island and funnel (the city is the default of the seven scenes)
 
         private City _city;
+
+        //Which of the two cities _city holds, so a scene change that does not cross between them rebuilds
+        //nothing.
+        private bool _cityIsNeon;
         private BoxMesh _unitBox;
         private InstancedModelRenderer _cityRenderer;
         //The equipment on the city's roofs (#436) — the Game's own, drawn here too so a rooftop can be framed
@@ -1213,9 +1217,26 @@ namespace Testbed
         /// into the next; an alternating measurement must not, because a fade is state carried across the
         /// switch and the window after it would be measuring the transition rather than the scene.
         /// </param>
+        /// <summary>Re-runs the city generator when the scene crosses between the two cities, and nothing
+        /// otherwise. The roofs and the streets follow through their own <c>Rebuild</c>.</summary>
+        private void EnsureCityLayout(bool neon)
+        {
+            if (_city == null || neon == _cityIsNeon) return;
+
+            _cityIsNeon = neon;
+            _city = new City(_cityConfig, neon, ArenaIsland.RADIUS);
+            _rooftops.Rebuild(_city, _cityConfig);
+            _streets.Rebuild(_city);
+        }
+
         private void SetScene(SceneKind scene, bool immediately = false)
         {
             _scene = scene;
+
+            //⚠ The day city and the neon city are DIFFERENT CITIES, so crossing between them re-runs the
+            //generator (#471's follow-up). One layout served both until the owner reported it: same buildings,
+            //same places, same sizes, lit twice.
+            EnsureCityLayout(scene == SceneKind.NeonCity);
 
             InvalidateOverlay();
 
@@ -1292,7 +1313,8 @@ namespace Testbed
 
             //The clearing the city keeps clear of towers is now the round island's radius, so the towers
             //frame the small island closely instead of a big plaza
-            _city = new City(seed: 20260720, arenaHalfExtent: ArenaIsland.RADIUS, config: _cityConfig);
+            _city = new City(_cityConfig, neon: _scene == SceneKind.NeonCity, ArenaIsland.RADIUS);
+            _cityIsNeon = _scene == SceneKind.NeonCity;
 
             Console.WriteLine($"[city] {_city.Buildings.Length} buildings, island radius {ArenaIsland.RADIUS}, floor at {ArenaIsland.TOP_Y}");
 
