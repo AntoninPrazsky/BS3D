@@ -1973,11 +1973,27 @@ namespace Prazsky.Core.Render
                         2.4f, 15f, 0f, "the peaks");
                     return true;
 
-                //And the closest and lowest, for the opposite reason: a meadow's subject is the flowers, and
-                //they are a few units across. Anything the other scenes' distances would show of this one is
-                //green.
+                //THE HILLS, FROM DOWN IN THE GRASS. ⚠ This shot used to name the FLOWERS and stand 70 units
+                //out at one unit over the grass, on the argument that a meadow's subject is small and that
+                //any of the other scenes' distances would show nothing but green. The owner played it and
+                //it is the opposite that happened: 70 units is twenty-five INSIDE the flat clearing, so the
+                //lens looked down at level ground with the hills starting behind the look-at, and the first
+                //establishing shot of the game was a green carpet with no horizon in it at all.
+                //
+                //The flowers were never showable anyway — spacing 2.2 and size 0.22 — and "so the grass can
+                //be seen" is about the grass's own shading: the tips, the tufts, the wind bands and the
+                //translucency, all of which read at a low raking angle and none of which reads from above.
+                //So the look-at goes out ONTO the rise (past ClearingRadius, a third of the way up the
+                //hills) and the elevation goes NEGATIVE, which is what actually puts the lens near the
+                //ground: elevation is measured from the tour's centre, and that centre is the level's own
+                //camera target up at the hanging cluster — six degrees off THAT still rides high over a
+                //meadow whose ground is fourteen units below the arena plane.
                 case SceneKind.Meadow:
-                    viewpoint = new SceneViewpoint(AtBearing(bearing, 70f, _meadowConfig.LevelY + 1f), 1.5f, 6f, 0f, "the flowers");
+                    viewpoint = new SceneViewpoint(
+                        AtBearing(bearing,
+                            _meadowConfig.ClearingRadius + _meadowConfig.ClearingTransition * 0.55f,
+                            _meadowConfig.LevelY + _meadowConfig.HillHeight * 0.30f),
+                        1.8f, -7f, 0f, "the hills");
                     return true;
 
                 //The tree line at crown height, near enough that a trunk is a trunk. The forest's scatter
