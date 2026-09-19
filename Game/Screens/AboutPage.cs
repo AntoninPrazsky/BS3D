@@ -3,7 +3,6 @@ using Microsoft.Xna.Framework;
 using System;
 using System.Diagnostics;
 using Myra.Graphics2D.UI;
-using Color = Microsoft.Xna.Framework.Color;
 using HorizontalAlignment = Myra.Graphics2D.UI.HorizontalAlignment;
 using Label = Myra.Graphics2D.UI.Label;
 
@@ -14,9 +13,20 @@ namespace BS3D.Screens
     /// procedural score, kept as a small player once generated recordings replaced it as the level music: play
     /// and pause, the next piece, and a spectrum.
     /// </summary>
+    /// <remarks>
+    /// <b>Two columns (#463), on Settings' own pattern</b> (<see cref="SettingsPage"/>'s class remarks explain
+    /// why a split beats a scroller): left, what the game is and what it is built on; right, what it was made
+    /// with and the score's player, since that is the one thing on this page with a fixed width of its own
+    /// (<see cref="ColumnWidth"/>) that a narrower single column would have had to fight. Every paragraph is
+    /// cut to <see cref="ColumnWidth"/> now rather than a page-specific figure, so the credits text lines up
+    /// with the player's own widgets and with a button's width everywhere else in the menu — one number
+    /// instead of two that could drift apart.
+    /// </remarks>
     internal sealed class AboutPage : MenuPage
     {
-        private const int TEXT_WIDTH = 1860;
+        //The gap between the two columns, on GROUP_GAP's own figure from SettingsPage — wide enough that it
+        //reads as the seam between two groups rather than one more paragraph's own margin.
+        private const int COLUMN_GAP = 110;
 
         //Two entries side by side where every other entry on a page is one column wide, so each is a little under
         //half of one and the row spans the same column the visualizer does.
@@ -37,24 +47,70 @@ namespace BS3D.Screens
         protected override Widget BuildTree()
         {
             VerticalStackPanel column = MenuColumn();
-
             column.Widgets.Add(ScreenHeading("ABOUT"));
-            column.Widgets.Add(Paragraph(
-                text: BS3DGame.GAME_TITLE + " is a 3D arcade puzzle. Aim, match, and collapse color clusters hanging beneath a glass ceiling. "
-                                          + "Matching three or more drops them—severing everything anchored below."));
-            column.Widgets.Add(Paragraph(
-                text: "Controls: Mouse aims, Left Click or Space fires, Right Click leans along the barrel, "
-                      + "A/D traverses the carriage, W/S adjusts depth, Esc pauses, F10 hides the FPS counter, "
-                      + "F11 toggles fullscreen, F12 saves a screenshot. Gamepad: the right stick aims, "
-                      + "the right trigger fires, the left trigger leans in, the left stick traverses and walks, "
-                      + "Back pauses. The first chapter teaches all of this as you play."));
-            column.Widgets.Add(Paragraph(
-                text: "Built on MonoGame (DirectX 11) and BepuPhysics 2. Everything you see—from the spheres to the city—is procedural: "
-                      + "no 3D models, only pure code. The music was generated locally with ACE-Step 1.5. "
-                      + "Typefaces Anton and Inter (both SIL OFL 1.1)."));
-            column.Widgets.Add(Link("github.com/AntoninPrazsky/BS3D", "https://github.com/AntoninPrazsky/BS3D"));
 
-            column.Widgets.Add(Paragraph(
+            HorizontalStackPanel columns = new()
+            {
+                Spacing = Scaled(COLUMN_GAP),
+                HorizontalAlignment = HorizontalAlignment.Center,
+            };
+
+            //Added in this order, and that IS the nav order — see SettingsPage's own remarks on why
+            columns.Widgets.Add(BuildAboutColumn());
+            columns.Widgets.Add(BuildCreditsColumn());
+
+            column.Widgets.Add(columns);
+            column.Widgets.Add(MenuButton("Back", GoBack));
+
+            return ScreenRoot(Plate(column));
+        }
+
+        /// <summary>
+        /// The left column: what the game is, and what it is built on — everything a player reads before
+        /// anything they can click. The repository is a real menu entry now (#463) rather than a label a
+        /// pointer could reach and a pad could not.
+        /// </summary>
+        private VerticalStackPanel BuildAboutColumn()
+        {
+            VerticalStackPanel left = SubColumn();
+
+            left.Widgets.Add(Paragraph(
+                text: BS3DGame.GAME_TITLE + " is a 3D arcade puzzle. Aim, match, and collapse color clusters hanging beneath a glass ceiling. "
+                                          + "Matching three or more drops them—severing everything anchored below. "
+                                          + "The first chapter teaches the controls as you play."));
+            left.Widgets.Add(Paragraph(
+                text: "Built on .NET 10, MonoGame 3.8.5 (DirectX 11) and BepuPhysics 2.5, with Myra for the interface, "
+                      + "FontStashSharp for the text and NVorbis for the music. Everything you see—from the spheres "
+                      + "to the city—is procedural: no 3D models, only pure code. Typefaces Anton, Inter and "
+                      + "PromptFont (all SIL OFL 1.1)."));
+
+            //TODO(#463): MonoGame's and BepuPhysics' logos go here, beside their credit above — waiting on the
+            //owner's own artwork, which this issue does not carry. An image widget each, through the content
+            //pipeline the splash logo already goes through (Content.mgcb, PremultiplyAlpha), plus each
+            //project's logo-usage terms recorded beside the asset the way the fonts' OFL files sit beside the
+            //TTFs — see the issue for the full note.
+
+            left.Widgets.Add(MenuButton("github.com/AntoninPrazsky/BS3D", OpenRepository));
+
+            return left;
+        }
+
+        /// <summary>
+        /// The right column: what the game was made with, and the one thing on this page with a fixed width
+        /// of its own — the original procedural score's player, moved here whole rather than split, since the
+        /// visualizer and its two buttons are one unit (#463).
+        /// </summary>
+        private VerticalStackPanel BuildCreditsColumn()
+        {
+            VerticalStackPanel right = SubColumn();
+
+            right.Widgets.Add(Paragraph(
+                text: "Made with Claude (Anthropic), through Claude Code—the code, the shaders, the level designs, "
+                      + "the tools and the documentation. The rest was generated locally: the music with ACE-Step 1.5, "
+                      + "the opening logo and every design reference with Z-Image-Turbo (the logo upscaled with "
+                      + "RealESRGAN), and small local models—Gemma, nomic-embed—as development tools."));
+
+            right.Widgets.Add(Paragraph(
                 text: "The game's original score was written as code too—oscillators and arrays, synthesized the moment it plays. "
                       + "It is still in here:"));
 
@@ -67,9 +123,9 @@ namespace BS3D.Screens
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = ScaledThickness(0, 0, 0, 20),
             };
-            column.Widgets.Add(_pieceLabel);
+            right.Widgets.Add(_pieceLabel);
 
-            column.Widgets.Add(new MusicVisualizer(jukebox, ColumnWidth, Scaled(VISUALIZER_HEIGHT), Scaled(VISUALIZER_BAR_GAP))
+            right.Widgets.Add(new MusicVisualizer(jukebox, ColumnWidth, Scaled(VISUALIZER_HEIGHT), Scaled(VISUALIZER_BAR_GAP))
             {
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = ScaledThickness(0, 0, 0, 24),
@@ -90,11 +146,35 @@ namespace BS3D.Screens
             next.Width = Scaled(PLAYER_BUTTON_WIDTH);
             controls.Widgets.Add(next);
 
-            column.Widgets.Add(controls);
+            right.Widgets.Add(controls);
 
-            column.Widgets.Add(MenuButton("Back", GoBack));
+            return right;
+        }
 
-            return ScreenRoot(Plate(column));
+        /// <summary>One of the page's two side-by-side groups — MenuColumn's own spacing, unaligned to it.</summary>
+        private VerticalStackPanel SubColumn() => new()
+        {
+            Spacing = Scaled(24),
+            HorizontalAlignment = HorizontalAlignment.Center,
+        };
+
+        /// <summary>
+        /// Hands the repository's address to whatever the desktop registered for it (#463) — the click a real
+        /// menu entry gives for free, which the address written out as a plain label never could.
+        /// </summary>
+        private static void OpenRepository()
+        {
+            try
+            {
+                //UseShellExecute hands the address to whatever the desktop registered for it; without it .NET
+                //would try to run the URL as an executable and throw every time.
+                Process.Start(new ProcessStartInfo { FileName = "https://github.com/AntoninPrazsky/BS3D", UseShellExecute = true });
+            }
+            catch (Exception)
+            {
+                //A machine with no handler registered throws rather than doing nothing, and an About page is
+                //no place to take the game down. The button's own text is the address, to be read or copied.
+            }
         }
 
         internal override void Refresh()
@@ -144,66 +224,17 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// The repository address, as something the pointer can open. Myra has no link widget, so this is a
-        /// <see cref="Paragraph"/> with a touch handler — but sized to its own text rather than left at the
-        /// prose width: the paragraphs are a fixed <see cref="TEXT_WIDTH"/> and centred, so a link keeping that
-        /// width would light up and open the browser anywhere across the column, with nothing drawn to say why.
-        /// It marks itself the way every other active thing in this menu does, by brightness and never by hue
-        /// (see the palette in BS3DGame.Menu.cs): a step above the prose at rest, and the pointer lifts a slab
-        /// under it — the same wash, off the same shared brush, that a menu entry answers with. Text alone
-        /// could not carry the hover: at rest it is already MENU_TEXT, and the last eleven greys to white are
-        /// not a step anyone sees. Pad and arrow keys do not reach it — the navigation walks the tree for
-        /// buttons — which is why the address is written out in full, a thing to read before a thing to click.
+        /// One paragraph of prose, cut to <see cref="ColumnWidth"/> (#463) — the same figure a button and the
+        /// player's own widgets are cut to, so a column's text lines up with everything under it instead of
+        /// keeping a page-specific width of its own.
         /// </summary>
-        private Label Link(string text, string url)
-        {
-            Label label = Paragraph(text);
-
-            //Shrink to the text: Paragraph is built for a column-wide block, and this has to be the hit area
-            label.Width = null;
-            label.Wrap = false;
-            label.TextColor = BS3DGame.MENU_TEXT;
-
-            //Room for the hover slab to sit off the glyphs rather than tight against them
-            label.Padding = ScaledThickness(24, 10);
-
-            label.MouseEntered += (_, _) =>
-            {
-                label.Background = BS3DGame.MENU_BUTTON_OVER_BRUSH;
-                label.TextColor = Color.White;
-            };
-
-            label.MouseLeft += (_, _) =>
-            {
-                label.Background = null;
-                label.TextColor = BS3DGame.MENU_TEXT;
-            };
-
-            label.TouchDown += (_, _) =>
-            {
-                try
-                {
-                    //UseShellExecute hands the address to whatever the desktop registered for it; without it
-                    //.NET would try to run the URL as an executable and throw every time.
-                    Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
-                }
-                catch (Exception)
-                {
-                    //A machine with no handler registered throws rather than doing nothing, and an About page
-                    //is no place to take the game down. Nothing opens; the address is on screen to be copied.
-                }
-            };
-
-            return label;
-        }
-
         private Label Paragraph(string text) => new()
         {
             Text = text,
             Font = FontSmall,
             TextColor = BS3DGame.MENU_TEXT_BODY,
             Wrap = true,
-            Width = Scaled(TEXT_WIDTH),
+            Width = ColumnWidth,
             HorizontalAlignment = HorizontalAlignment.Center,
             Margin = ScaledThickness(0, 0, 0, 34),
         };
