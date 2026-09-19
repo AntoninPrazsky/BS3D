@@ -4042,3 +4042,20 @@ Dvě majitelovy poznámky z hraní, dvě issues. Sémantické hledání (nomic, 
 - ⚠ **Past nástroje, potvrzená podruhé:** tělo heredocu i `python -c "…"` s apostrofy/zpětnými uvozovkami tenhle harness mrší (kolega to má v zápisu z dneška taky). Skripty i delší texty psát **Write toolem** a teprve pak spouštět.
 
 **Beru si #398** (Quarry hraje pomalu a stejně), hned navazuji.
+
+---
+
+## 2026-09-19 — Claude Code (notebook: #398 Quarry hraje pomalu a stejně)
+
+**Beru si #398** na pokyn majitele („Vem 413 a potom 398"). Větev `413-block-order` (pokračuje v ní, obě issue jsou pořadí/obsah kapitol a majitel je zadal jedním dechem) — commit `3911786`. **NENÍ v mainu**, čeká na slovo majitele.
+
+- **Majitelův verdikt je u všech devíti levelů stejná věta:** „trvá moc dlouho, ale výzva to není — začnu bezmyšlenkovitě střílet, ať už to skončí. Měl by být méně hustý." Issue navrhuje **méně kuliček, ne menší level**.
+- **Postavil jsem obecnou páku `Design.Hollow`**: kůže o n buňkách, všechno hlubší pryč, a **hranice pole se počítá jako volno** — takže kotevní kurz, podlaha i stěny si nechají každou buňku a žádné vydlabání nemůže levelu vzít úchyt. Kroky jsou `BallsMap.FillNeighboringCells`, ne druhá kopie paritního pravidla.
+- ⚠ **A samo o sobě to kapitolu PRODLOUŽILO** — tohle je nález, který jsem musel změřit, abych mu věřil: kůže rozřízne dlaždici 2×2×2 napůl, takže stejný počet skupin platí polovinu. Mosaic 34 → 46 stojících skupin, Highwall 45 → 53, nejkratší vyčištění (sonda z #458) 10 → 16 a 23 → 32. **Délku levelu dělá počet skupin, ne počet kuliček** — hustota bylo majitelovo slovo pro to, co cítil, ne ta věc sama.
+- **Odpověď je dlaždice:** `QUARRY_TILE` 3 a `QUARRY_COURSE` 2 (blok měl 2 a 1–2). Není to nový nápad — **Prism** má v docu zapsáno, že přesně tímhle se řešila první verze téhle stížnosti („the widest step … took two dozen shots on its own"). K tomu dvě jednotlivosti: **Highwall** měl lavice šachovnicí 2×2 dvou barev (bloky se dotýkají jen diagonálně, což mřížka nespojuje → lavice byla desítky čtyřkuličkových skupin), teď jsou to pruhy; **Crib** má klády 2 buňky široké místo 3, protože kurz vysoký jeden level je celý kůže a vydlabání se k němu nedostane.
+- **Čísla (kuličky / skupiny / nejkratší vyčištění):** Mosaic 387/34/10 → 346/27/10, Prism 351/22/12 → 233/17/10, Hopper 465/30/17 → 345/29/12, Trilithon 229/35/17 → 217/20/11, Gantry 322/56/23 → 310/35/11, Fault 330/41/9 → 237/35/5, Crib 432/41/12 → 288/48/11, Highwall 428/45/23 → 297/30/18, Static 370/42/19 → 241/17/11. **Medián kapitoly 11 ran proti 17** a Quarry už nevlastní ocas kampaně (držel pět z osmi nejdelších levelů hry).
+- **Rozpočty přeceněné** proti novým počtům skupin (1,25–2,00 na skupinu, blok měl 1,14–2,73). Jediný, co nespadl, je Crib — jeho skupiny naopak povyrostly.
+- **Ověřeno:** LevelGen exit 0 (110 levelů), ScoreSim exit 0, hra načte Gantry s 48 ranami a `[aimcheck] PASS`, Highwall a Mosaic vyfoceny před/po ze stejného stanoviště (silueta sedí, barva čte jako větší bloky). **Sonda:** nových devět 0,0,1,2,0,3,3,2,0 z pěti, všechno pod prahem 4; staré soubory proti novým za stejných mírných podmínek ocenily samotné ztenčení na **Fault 0→1, Crib 1→1, Trilithon 0→1, Highwall 0→2** — směr, pro který ten blok existuje. **Kadenci stropu jsem s rozpočty schválně nepřitáhl**: ta rezerva je to, čím se hustota platí.
+- **Co zůstává majiteli:** Highwall je dál nejdelší věc v kapitole (18 ran) a je to jeho vlastní design („every column is solid to the glass, no physics theatre by design") — zkrátit ho znamená udělat z něj jiný level. A Colossus (#392) jsem nechal být, jak issue říká.
+
+**Nic dalšího si neberu.**
