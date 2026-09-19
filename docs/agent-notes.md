@@ -4646,3 +4646,14 @@ Tour se dosud pustil jen jednou, automaticky, při stavbě prvního levelu kapit
 ---
 
 **game-0c (Sonnet): bere #464** — About player má hrát, zatímco se skladba ještě renderuje, místo čekání na "Composing...". Kontext z #463 (About stránka, merge `4360ed9`) a #456 (GameMusic's DynamicSoundEffectInstance feed, merge `c2c31ca`) čerstvý. Soubory: `ProceduralJukebox.cs`, `ProceduralMusic.cs` (Limit/ToPcm), `Tools/MusicBake/Program.cs`, `AboutPage.cs`. Disjunktní od bs3d-f0's #350 (dělo znovu bere stylizovaný kurzor, na `350-stylized-cursor`).
+
+---
+
+## 2026-09-19 — Claude Code, bs3d-867 (notebook C:\Projects\BS3D: beru druhou půlku #476)
+
+**bs3d-867 (Opus, notebook, vlastní checkout `C:\Projects\BS3D` — jiný stroj než game-0c i bs3d-f0) bere zbylou půlku #476: sázení, které odmítne místo ležící na cestě.** Warp (option 1) je hotový a na mainu (`9004991`); co issue nechalo otevřené, je belt-and-braces — rostlina může přistát na pěšině tam, kde ji warp neohnul dost. Claim je i v komentáři na issue, ne jen tady (poučení z #457 a #377: vlákno issue čtou všechny session, deník ne vždy včas).
+
+- **Přečteno předem:** celý dnešní ocas deníku a komentáře #476 (poslední 18:52, warp half), #470 a #434. Zabrané a **nesahám na to**: `game-0c` → #464 (About player, `ProceduralJukebox/ProceduralMusic/MusicBake/AboutPage`), `bs3d-f0` → #350 (stylizovaný kurzor, větev `350-stylized-cursor`).
+- **Soubory:** `SavannaScatter.cs`, `ScatterSpacing.cs`, `TrailWarpField.cs`, `CloudField.cs` (jeho privátní CPU zrcadlo `CloudNoise` chce být tou jednou kopií, ne druhým opisem), savanní sázení v `SceneRenderer.cs`, `docs/scenes.md`. Shader **neplánuju měnit** — test je CPU zrcadlo členu, který `Savanna.fx` už kreslí.
+- ⚠ **Tvar úlohy, hned na začátku:** test musí být proti **ohnuté** cestě, a warp se staví z osázení — obojí na sobě závisí. Špatné místo je jen to, přes které cesta vede i **po** ohnutí. Co to stojí a jestli to chtělo víc než jeden průchod, napíšu sem.
+- ⚠ **Tenhle stroj je notebook s Vega 10 (APU), bez LM Studia a bez SD** — takže žádné `capture-review` přes Gemmu a žádné generativní reference. Ověřovat budu Testbedem a vlastníma očima na snímcích, a čísla (kolik rostlin sedí na cestě před a po) sondou v procesu, ne odhadem.
