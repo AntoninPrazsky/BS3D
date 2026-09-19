@@ -1,4 +1,4 @@
-using Prazsky.BS3D.GameStructure;
+﻿using Prazsky.BS3D.GameStructure;
 using Prazsky.Core.Render;
 using System;
 
@@ -290,12 +290,23 @@ namespace BS3D.Tools.LevelGen
             //budget reads under the tool's 1.00 floor (0.87), and that floor's own text excepts exactly this
             //shape — a level built of cascades (Gantry's case; the Pleat's #302 caveat) where one band shot
             //drops everything below it in the bundle, so the real cost is ~2 shots a bundle plus the misses.
-            //46 was the first pricing and the probe's worst order ran out with 8 balls standing; 52 clears
-            //it. The #288 sum: clearance at depth 12 in field 18 is Cube's own figure (5.38 over the line),
-            //52 shots at a step of 8 buy six descents of 0.60 = 3.60, leaving 1.78 — clear of the 1.00
-            //allowance with a bundle's own swing on top.
-            Shots = 52,
-            CeilingStep = 8,
+            //46 was the first pricing and the probe's worst order ran out with 8 balls standing; 52 cleared
+            //it, and 52 was the number until the owner played it and reported that players run out of balls
+            //(#414). Both facts were true: the sag probe read 0 of 5 losing orders on 52 and its own doc
+            //called the budget measured — but the sag probe asks whether the cluster SURVIVES, and this
+            //level's dearest clearing order spent 51 of the 52. **A margin of one shot is inside what a
+            //single ricochet or colour misread costs**, which is the report in one line. The probe now
+            //names that number (see Program's CLEAR_MARGIN_TO_REPORT), and it read THIN here.
+            //
+            //⚠ THE BUDGET AND THE CEILING STEP GO UP TOGETHER, and that is the whole of the fix rather than
+            //an extra. The glass descends once every CeilingStep shots, so buying the player eight more shots
+            //at a step of 8 buys the CLUSTER another descent — 0.60 nearer the line — and the headroom the
+            //report asked for would have been paid for with pressure the report never mentioned. At 60 and a
+            //step of 10 the descent count is six exactly as it was, so the #288 sum below is unchanged: 5.38
+            //over the line, six descents of 0.60 = 3.60, leaving 1.78, clear of the 1.00 allowance with a
+            //bundle's own swing on top. What the player gets is eight more shots against the same glass.
+            Shots = 60,
+            CeilingStep = 10,
             OccupiedBlock = (x, z, i, depth) => CausewayBundle(x, z, i, depth) != 0,
             BlockColour = CausewayColour,
         };
