@@ -706,6 +706,9 @@ namespace Prazsky.Core.Render
         //savanna's planting, the beach's palms, the city's roofs, the Grid's boards. 0 is what shipped.
         private readonly int _seedOffset;
 
+        //Where the savanna's trails step aside for what is standing on it (#476), built with the planting.
+        private TrailWarpField _trailWarp;
+
         private SunShadowMap _sunShadowMap;
         private bool _shadowsActive;
         private EffectTechnique _acaciaTechnique, _acaciaShadowTechnique;
@@ -3078,6 +3081,26 @@ namespace Prazsky.Core.Render
 
             _savannaScatter = new SavannaScatter(_graphicsDevice, _savannaConfig, SavannaTerrainHeight, reserved,
                 SavannaScatter.DEFAULT_SEED + _seedOffset);
+
+            //And where the trails have to go round it (#476): built from the planting that has just been
+            //done, so the field and the plants it bends for cannot disagree. Rebuilt with the scatter for
+            //the same reason — the map editor's live panel re-plants, and a field left behind would send the
+            //paths round trees that are no longer there.
+            _trailWarp?.Dispose();
+            _trailWarp = _savannaConfig.TrailAvoidOffset > 0f
+                ? new TrailWarpField(_graphicsDevice, _savannaScatter.Standing,
+                    _savannaConfig.TrailAvoidMinRadius, _savannaConfig.TrailAvoidReach,
+                    _savannaConfig.TrailAvoidOffset, SAVANNA_EXTENT)
+                : null;
+
+            //⚠ And the uniforms are pushed HERE rather than in ApplySavannaParameters, which is where every
+            //other savanna dial goes: that method runs BEFORE the planting does, so the texture it pushed
+            //was always null and the warp never reached the shader. It cost one capture pair that looked
+            //exactly like the feature not working — the paths were identical with it on and off, because
+            //it was off both times.
+            _savannaEffect.Parameters["TrailWarpTexture"].SetValue(_trailWarp?.Texture);
+            _savannaEffect.Parameters["TrailWarpExtent"].SetValue(_trailWarp?.Extent ?? 1f);
+            _savannaEffect.Parameters["TrailWarpAmount"].SetValue(_trailWarp == null ? 0f : _trailWarp.MaxOffset);
         }
 
 
@@ -5333,6 +5356,7 @@ namespace Prazsky.Core.Render
             if (_sunShadowMap == null || _sunShadowMap.Size != size)
             {
                 _sunShadowMap?.Dispose();
+            _trailWarp?.Dispose();
                 _sunShadowMap = new SunShadowMap(_graphicsDevice, size);
             }
 
