@@ -1,4 +1,4 @@
-using Prazsky.BS3D.GameStructure;
+﻿using Prazsky.BS3D.GameStructure;
 using Prazsky.Core.Render;
 using System;
 
@@ -550,11 +550,20 @@ namespace BS3D.Tools.LevelGen
         /// which is the judged spec's second check and what stops the roof reading as one lump.
         /// </para>
         /// <para>
+        /// <b>⚠ The cap is checked on the SPIRE GRID since #416, and it was a 2x2 check before that.</b> The
+        /// check itself is not the question - the cap is bonded to the glass cell by cell, so same-colour
+        /// squares have to meet only at their diagonals or the ceiling is one group holding the whole level.
+        /// Its SIZE was: at two cells the nine-by-nine cap came out as twenty-five blocks, nine of them
+        /// hanging a stalactite and sixteen hanging nothing, so the level finished on sixteen four-ball
+        /// squares stuck to the glass at one shot each. The owner played it and said so: <i>"at the end it
+        /// takes a while to shoot down the magenta squares on the ceiling."</i> At three the squares are the
+        /// spire grid - nine of them, one stalactite each - so the roof comes down with the spires and the
+        /// level ends on its own release rhythm instead of trailing off into pot-shots.
+        /// <para>
         /// Gate watch: the unshot sag test was the first thing run, the twelve-level one-cell walls being
         /// the batch's nearest thing to the Ziggurat's eight-second death - they hold, the corners doing
-        /// what the Chest's do. The cap's 2x2 check keeps same-colour blocks touching only at their
-        /// diagonals, so a spire and the block it hangs under are one modest group and nothing else.
-        /// Disjoint palettes: {red, yellow, green} outside against {cyan, magenta} inside.
+        /// what the Chest's do. Disjoint palettes: {red, yellow, green} outside against {cyan, magenta}
+        /// inside.
         /// </para>
         /// </summary>
         private static Design Grotto() => new()
@@ -585,6 +594,22 @@ namespace BS3D.Tools.LevelGen
         //The width of a wall stripe, in cells, around the perimeter. Three cells against a palette of three
         //makes every stripe a tall sheet reaching the glass and no two neighbouring stripes alike.
         private const int GROTTO_STRIPE = 3;
+
+        //HOW BIG A SQUARE OF THE CAP IS (#416), and three rather than two is the whole of that issue. The
+        //cap is the interior of the crate at the top course - nine by nine - bonded to the glass cell by
+        //cell, and it is checked so that same-colour squares touch only at their diagonals, which the
+        //lattice does not join: without that the cap would be one group holding the whole level and one
+        //lucky ball would end it. At two cells a square that check cut the ceiling into TWENTY-FIVE blocks
+        //(the first row of each axis only one cell wide), of which nine hang a stalactite and sixteen hang
+        //nothing - so the level ended with sixteen four-ball squares stuck to the glass, one shot each,
+        //which is what the owner played: "at the end it takes a while to shoot down the magenta squares on
+        //the ceiling".
+        //
+        //THREE IS THE SPIRE GRID ITSELF. Nine cells divide into three squares exactly, and the nine
+        //footings in GROTTO_SPIRES fall one to a square - so every square of the roof is one stalactite's
+        //own square, the cap comes down WITH the spires, and there is no ceiling left over to pick off. The
+        //check is untouched as a check: a 3x3 square still meets its own colour only corner to corner.
+        private const int GROTTO_CAP_BLOCK = 3;
 
         /// <summary>
         /// What a cell is: 0 nothing, 1 the crate's wall, 2 the cap, 3 a stalactite. The cap and the spires
@@ -677,8 +702,8 @@ namespace BS3D.Tools.LevelGen
             }
 
             //The cap's check, and the spires read it at their own footing so a spire matches its block
-            int bx = (part == 3 ? GrottoSpireOrigin(x, z, 0) : x) / 2;
-            int bz = (part == 3 ? GrottoSpireOrigin(x, z, 1) : z) / 2;
+            int bx = (part == 3 ? GrottoSpireOrigin(x, z, 0) : x) / GROTTO_CAP_BLOCK;
+            int bz = (part == 3 ? GrottoSpireOrigin(x, z, 1) : z) / GROTTO_CAP_BLOCK;
 
             return ((bx + bz) & 1) == 0 ? BallType.Type5 : BallType.Type6;   //cyan / magenta
         }

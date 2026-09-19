@@ -226,6 +226,16 @@ with stripes (a checker's blocks touch only diagonally, which the lattice does n
 of four-ball groups wearing the shape of a bench: 45 groups, and widening the checker's tile alone barely moved
 it).
 
+**⚠ A CHECKER IS A GROUP FACTORY, and that is worth carrying out of this block** — the same fault, found
+independently, is what #416 was: the Grotto's ceiling cap is checked so that same-colour squares meet only at
+their diagonals (it is bonded to the glass cell by cell, so one connected cap would end the level on one ball),
+and at two cells a square that left the nine-by-nine cap as twenty-five blocks, nine of them hanging a
+stalactite and sixteen hanging nothing. The owner played it as *"at the end it takes a while to shoot down the
+magenta squares on the ceiling"*. The cure is the same shape as Highwall's and is not to stop checking: **size
+the check to the structure**. Three cells makes the cap's squares the spire grid itself — nine squares, one
+stalactite each, verified off `GROTTO_SPIRES` — so the roof comes down with the spires: the cave's own tail
+went from 7 matched shots to 5 and the level from 27 standing groups to 22.
+
 **What it cost the physics, measured both ways.** Under the set's own pressures the reworked nine read 0, 0, 1,
 2, 0, 3, 3, 2, 0 of five losing orders — all under `SAG_RUNS_TO_REPORT` (4). Old files against new under
 *identical* gentle conditions (`--sagfile`, no budget, glass at rest) price the thinning itself: **Fault 0 → 1,
