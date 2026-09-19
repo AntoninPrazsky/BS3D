@@ -1,4 +1,4 @@
-﻿using Prazsky.BS3D.GameStructure;
+using Prazsky.BS3D.GameStructure;
 using Prazsky.Core.Render;
 using Prazsky.Core.Tools;
 using System;
@@ -33,6 +33,7 @@ namespace BS3D
             //vsync-capped level could only ever say "dearer than one refresh". Zero means no cap.
             int fpsCap = 0;
             int? sceneSeed = null;
+            bool tour = false;
             float exposure = 0f;
 
             //Left null when absent, so the game keeps doing what it normally does: a random one of the fifteen
@@ -174,6 +175,11 @@ namespace BS3D
                 //It is what makes a capture pair or a measured A/B comparable at all once the roll is the
                 //default, and 0 is the arrangement everything before the feature was photographed against.
                 else if (arg.StartsWith("sceneseed=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("sceneseed=".Length), out int parsedSceneSeed)) sceneSeed = parsedSceneSeed;
+
+                //"tour" opens the scene menu with the current scene's establishing flight already running
+                //(#406) - the only way a replayed tour can be photographed, since a synthetic click never
+                //reaches this window.
+                else if (string.Equals(arg, "tour", StringComparison.OrdinalIgnoreCase)) tour = true;
                 //"ssaa=<n>" trades sharpness against fill rate; "exposure=<f>" is the renderer's shutter speed
                 else if (arg.StartsWith("ssaa=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("ssaa=".Length), out int parsedSsaa)) supersampleFactor = parsedSsaa;
                 else if (arg.StartsWith("exposure=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("exposure=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedExposure)) exposure = parsedExposure;
@@ -294,7 +300,7 @@ namespace BS3D
                 celebrate: celebrate, confetti: confetti, lasers: lasers, mute: mute, noFpsOverlay: noFpsOverlay, play: play, result: result, blockDone: blockDone, lost: lost, resultStars: resultStars, nextLocked: nextLocked, streak: streak, wildcardEvery: wildcardEvery,
                 shotSeconds: shotSeconds, level: level, levelFile: levelFile, preview: preview, ballStyle: ballStyle, pick: pick, fpsCap: fpsCap,
                 noFocusPause: noFocusPause, detonateSeconds: detonateSeconds, about: about, tutorial: tutorial,
-                settings: settings, sceneSeed: sceneSeed);
+                settings: settings, sceneSeed: sceneSeed, tour: tour);
             game.Run();
         }
 

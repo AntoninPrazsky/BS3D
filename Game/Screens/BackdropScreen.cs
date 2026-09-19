@@ -1,4 +1,5 @@
-﻿using Microsoft.Xna.Framework;
+﻿using BS3D.Effects;
+using Microsoft.Xna.Framework;
 using Prazsky.BS3D;
 using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.GameStructure.DataBags;
@@ -449,6 +450,41 @@ namespace BS3D.Screens
         /// </summary>
         internal bool HoldWideLeg { get; set; }
 
+        //The scene's own establishing tour, replayed on demand from the scene menu (#406). It is the very
+        //same ChapterIntro a chapter's opening level runs - not a second flight built to look like it - so
+        //what the player reviews here is what they will be shown in play, and a change to one is a change
+        //to both. The front end has no gun and no level, so what it hands over as the "gameplay pose" is
+        //its own orbit: the tour's last key is where the menu camera already stands, which is what makes
+        //the blend back onto the flight a nudge between near-identical poses rather than a cut.
+        private readonly ChapterIntro _tour = new();
+        private static readonly Random TOUR_RANDOM = new();
+
+        /// <summary>Whether a replayed tour is on the camera right now (#406).</summary>
+        internal bool TourEngaged => _tour.Engaged;
+
+        /// <summary>
+        /// Plays the current scene's own observation tour against the menu's backdrop (#406), from where the
+        /// camera stands. Ignored while one is already running, so leaning on the scene list does not stack
+        /// flights.
+        /// </summary>
+        internal void PlayTour()
+        {
+            if (_tour.Engaged) return;
+
+            //The wide leg's own pose IS the pose the tour returns to, so it is what goes in as the
+            //"gameplay" one. Taken from the live camera rather than re-solved: the flight may be anywhere
+            //in its cycle when the player asks, and the tour has to land where the camera actually is.
+            Vector3 centre = new(0f, _framing.CentreY, 0f);
+
+            _tour.Begin(centre, Vector3.Distance(_lens, centre), FOV, _lens, centre,
+                Game.SceneViewpointAt, TOUR_RANDOM);
+
+            Console.WriteLine($"[tour] {SceneRenderer.SceneName(Game.Scene)}: {_tour.Describe()}");
+        }
+
+        /// <summary>Cuts a replayed tour short — any input on the scene page does this.</summary>
+        internal bool TrySkipTour() => _tour.TrySkip();
+
         //Where the flight last put the lens — what a map waiting to hang is measured against (#408). The
         //orbit's own pose and not the camera's: under the result page the camera is a blend of this and the
         //gun's, and the question is where the FLIGHT stands, since that is what the hang would land under.
@@ -589,6 +625,17 @@ namespace BS3D.Screens
             StepPreviewRequest(elapsed);
 
             AdvanceOrbit(elapsed, out Vector3 position, out Vector3 target, out float fieldOfView);
+
+            //A replayed tour takes the camera off the flight for as long as it runs (#406), and blends back
+            //onto it the way the chapter's own does - the flight has gone on turning underneath, so what it
+            //returns to is a live pose and not the one it left.
+            _tour.Update(elapsed);
+            if (_tour.Engaged)
+            {
+                position = Vector3.Lerp(position, _tour.Position, _tour.Blend);
+                target = Vector3.Lerp(target, _tour.Target, _tour.Blend);
+                fieldOfView = MathHelper.Lerp(fieldOfView, _tour.FieldOfView, _tour.Blend);
+            }
 
             RecoilCamera camera = Game.Camera;
 
