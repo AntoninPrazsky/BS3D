@@ -88,6 +88,25 @@ namespace Prazsky.BS3D.Physics
         public const float COLOUR_FADE_SECONDS = 0.35f;
 
         /// <summary>
+        /// How long a wildcard is drawn crossing from the colour it was wearing into the colour it locked
+        /// into on landing (#437). Half again as long as <see cref="COLOUR_FADE_SECONDS"/>, and the reason is
+        /// what the two crossings have to overcome: the glass one starts from a look nothing else in the
+        /// frame has - clear - so it is legible the moment it begins, while this one starts and ends on an
+        /// ordinary ball of an ordinary colour, so what the eye has to catch is a colour travelling rather
+        /// than a material changing.
+        /// <para>
+        /// Still under half a second, because it is competing with the very group it may have just completed:
+        /// a ball still visibly becoming blue while blue balls rain past it reads as two events rather than
+        /// one, which is <see cref="COLOUR_FADE_SECONDS"/>'s own argument and binds here too.
+        /// </para>
+        /// <para>
+        /// Public for its neighbour's reason: the crossing is <b>armed</b> in the contact handler and
+        /// <b>spent</b> here, and one figure in two places would be one figure until somebody tuned it.
+        /// </para>
+        /// </summary>
+        public const float LOCK_FADE_SECONDS = 0.5f;
+
+        /// <summary>
         /// How slowly a released ball has to be moving to count as standing still, in world units a second
         /// (#342). Well under the speed a ball rolling down the island's dish keeps, and well over the jitter
         /// a solver leaves in a body that is resting on its neighbours.
@@ -260,7 +279,8 @@ namespace Prazsky.BS3D.Physics
                 EaseOcclusion(ball, occlusionTarget, ease),
                 _advanceRipple == null ? 0f : _advanceRipple(ball, elapsedSeconds),
                 ball.Kind, AdvanceColourFade(ball, elapsedSeconds), deadWeight,
-                AdvanceThawFade(ball, elapsedSeconds), AdvanceInfectFade(ball, elapsedSeconds), released);
+                AdvanceThawFade(ball, elapsedSeconds), AdvanceInfectFade(ball, elapsedSeconds), released,
+                AdvanceLockFade(ball, elapsedSeconds), ball.LockFromType);
         }
 
         /// <summary>
@@ -328,6 +348,32 @@ namespace Prazsky.BS3D.Physics
             }
 
             return 1f - ball.ColourFadeRemaining / COLOUR_FADE_SECONDS;
+        }
+
+        /// <summary>
+        /// Advances a freshly locked wildcard's crossing into its new colour and answers how far through it
+        /// is (#437) - <see cref="AdvanceColourFade"/> in every respect, and deliberately so: the same
+        /// countdown on the ball, the same fraction reported up, the same once-a-frame visit.
+        /// <para>
+        /// It cannot collide with the other three. A ball that has just locked was a wildcard, and a wildcard
+        /// is never glass, never ice and never sick - the kinds are exclusive by construction - so no ball can
+        /// be halfway through two of these at once whatever order the walk runs them in.
+        /// </para>
+        /// </summary>
+        private static float AdvanceLockFade(PhysicsBall ball, float elapsedSeconds)
+        {
+            //The resting case, which is every ball of every level that hands out no wildcards: one compare.
+            if (ball.LockFadeRemaining <= 0f) return 0f;
+
+            ball.LockFadeRemaining -= elapsedSeconds;
+
+            if (ball.LockFadeRemaining <= 0f)
+            {
+                ball.LockFadeRemaining = 0f;
+                return 0f;
+            }
+
+            return 1f - ball.LockFadeRemaining / LOCK_FADE_SECONDS;
         }
 
         /// <summary>

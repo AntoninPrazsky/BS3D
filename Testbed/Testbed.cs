@@ -272,6 +272,20 @@ namespace Testbed
 
         private City _city;
 
+        //THE SCENE'S PROCEDURAL ROLL (the owner's "let it look different each time"). One offset, rolled once
+        //per launch and added to every seeded arrangement in the program: both cities, their roofs, the
+        //forest's wood, the aurora's, the savanna's planting, the beach's palms and the Grid's boards. Rolled
+        //ONCE rather than per build, so a quality step or a scene change re-runs a generator and gets the SAME
+        //city back - a skyline that rearranged itself because the player opened Settings would read as a fault.
+        //
+        //Pinned by sceneseed=, and that argument is not a nicety: a capture pair or a measured A/B has to be
+        //looking at the same arrangement on both halves, and after the roll it would not be. 0 is what shipped.
+        private readonly int _sceneSeedOffset;
+
+        //Which of the two cities _city holds, so a scene change that does not cross between them rebuilds
+        //nothing.
+        private bool _cityIsNeon;
+
         //The city's shadow fit (#471), the Game's own figures restated rather than shared: they are a HOST's,
         //and this executable is the other host. Tighter than the ten scenes SceneRenderer fits itself (the
         //streets receive and the towers cast, so a tower's edge wants the texels) and taller (the ground is
@@ -575,6 +589,15 @@ namespace Testbed
             //which is exactly what a script driving both cannot afford). An unrecognised name leaves the
             //default city standing. It is no longer the only way to reach eleven of the eighteen: since #380
             //NumPad2 walks the whole enum, so this pins where a run STARTS rather than what it can see.
+            //The scene's procedural roll (see _sceneSeedOffset), and the line that makes a capture of it
+            //reproducible: a frame of a city nobody can generate twice is a frame nobody can compare against.
+            _sceneSeedOffset = options.SceneSeed ?? Random.Shared.Next();
+            Console.WriteLine($"[sceneseed] {_sceneSeedOffset}"
+                + (options.SceneSeed.HasValue ? " (pinned)" : " (rolled; pin it with sceneseed=)"));
+
+            _cityConfig.Seed += _sceneSeedOffset;
+            _cityConfig.NeonLayout.Seed += _sceneSeedOffset;
+
             if (SceneRenderer.TryParseScene(options.Scene, out SceneKind startupScene)) _scene = startupScene;
             _exposure = options.Exposure > 0f ? options.Exposure : DEFAULT_EXPOSURE;
             _supersampleFactor = Math.Clamp(options.SupersampleFactor, 1, 4); //"ssaa=<n>" trades sharpness against fill rate
@@ -825,7 +848,7 @@ namespace Testbed
             //so a scene looks the same in both
             //SupersampleFactor: the space scene sizes its stars in OUTPUT pixels rather than in texels, so it
             //has to be told what ssaa= settled on — sized in texels a star would be four times dimmer at 2x
-            _sceneRenderer = new SceneRenderer(GraphicsDevice, Content) { SupersampleFactor = _supersampleFactor };
+            _sceneRenderer = new SceneRenderer(GraphicsDevice, Content, _sceneSeedOffset) { SupersampleFactor = _supersampleFactor };
 
             //The city's sun shadows (#471), registered exactly as the Game registers them and for the reason
             //this executable exists: the streets are a hundred units under the island, so the only camera that
@@ -874,11 +897,13 @@ namespace Testbed
             //white sky. No stone texture handed in: the component builds one, ArenaIsland's being its private
             //business. The ambient is the scene's, exactly as the island is given it.
             _forestScatter = new ForestScatterRenderer(GraphicsDevice, _instancingEffect,
-                (ForestSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Forest), SCENE_AMBIENT_INTENSITY);
+                (ForestSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Forest), SCENE_AMBIENT_INTENSITY,
+                seed: ForestScatterRenderer.DEFAULT_SEED + _sceneSeedOffset);
 
             //The aurora's own wood, a second planting from its own config - see AuroraSceneConfig's class doc.
             _auroraScatter = new ForestScatterRenderer(GraphicsDevice, _instancingEffect,
-                ((AuroraSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Aurora)).Terrain, SCENE_AMBIENT_INTENSITY);
+                ((AuroraSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Aurora)).Terrain, SCENE_AMBIENT_INTENSITY,
+                seed: ForestScatterRenderer.DEFAULT_SEED + _sceneSeedOffset);
 
             //No trunnion height goes in: the gun stands on the island's dished stone, so its height is the
             //carriage's own figure of its radius (CannonRig.TrunnionHeightAt) and the pose re-seats it on
@@ -1234,9 +1259,26 @@ namespace Testbed
         /// into the next; an alternating measurement must not, because a fade is state carried across the
         /// switch and the window after it would be measuring the transition rather than the scene.
         /// </param>
+        /// <summary>Re-runs the city generator when the scene crosses between the two cities, and nothing
+        /// otherwise. The roofs and the streets follow through their own <c>Rebuild</c>.</summary>
+        private void EnsureCityLayout(bool neon)
+        {
+            if (_city == null || neon == _cityIsNeon) return;
+
+            _cityIsNeon = neon;
+            _city = new City(_cityConfig, neon, ArenaIsland.RADIUS);
+            _rooftops.Rebuild(_city, _cityConfig);
+            _streets.Rebuild(_city);
+        }
+
         private void SetScene(SceneKind scene, bool immediately = false)
         {
             _scene = scene;
+
+            //⚠ The day city and the neon city are DIFFERENT CITIES, so crossing between them re-runs the
+            //generator (#471's follow-up). One layout served both until the owner reported it: same buildings,
+            //same places, same sizes, lit twice.
+            EnsureCityLayout(scene == SceneKind.NeonCity);
 
             InvalidateOverlay();
 
@@ -1313,7 +1355,8 @@ namespace Testbed
 
             //The clearing the city keeps clear of towers is now the round island's radius, so the towers
             //frame the small island closely instead of a big plaza
-            _city = new City(seed: 20260720, arenaHalfExtent: ArenaIsland.RADIUS, config: _cityConfig);
+            _city = new City(_cityConfig, neon: _scene == SceneKind.NeonCity, ArenaIsland.RADIUS);
+            _cityIsNeon = _scene == SceneKind.NeonCity;
 
             Console.WriteLine($"[city] {_city.Buildings.Length} buildings, island radius {ArenaIsland.RADIUS}, floor at {ArenaIsland.TOP_Y}");
 
@@ -1332,7 +1375,8 @@ namespace Testbed
                 SpecularAmbientStrength = 0.07f
             };
 
-            _rooftops = new CityRooftops(GraphicsDevice, _instancingEffect, _city, _cityConfig, SCENE_AMBIENT_INTENSITY);
+            _rooftops = new CityRooftops(GraphicsDevice, _instancingEffect, _city, _cityConfig, SCENE_AMBIENT_INTENSITY,
+                CityRooftops.DEFAULT_SEED + _sceneSeedOffset);
             Console.WriteLine($"[city] {_rooftops.Total} pieces of rooftop equipment");
             _streetEffect = Content.Load<Effect>("Shaders/CityStreets");
             _streets = new CityStreets(GraphicsDevice, _streetEffect, _city);

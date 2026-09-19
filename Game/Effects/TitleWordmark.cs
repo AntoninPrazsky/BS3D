@@ -1,4 +1,4 @@
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Prazsky.Core.Camera;
 using Prazsky.Core.Render;
@@ -227,6 +227,32 @@ namespace BS3D.Effects
         //share of the frame, so the second word lands on the picture's second word rather than a shade wider.
         private const float LOGO_INK_WIDTH_SHARE = 1977f / 2048f;
         private const float LOGO_INK_HEIGHT_SHARE = 1211f / 1267f;
+
+        //⚠ THE ONE FIGURE ABOVE THAT IS NOT A PIXEL MEASUREMENT, AND #475 IS WHAT EXPOSED THE GAP IT LEAVES.
+        //Every LOGO_ constant above fixes a VERTICAL rhythm (the gaps, the badge's shrink, the disc's margin),
+        //but nothing ties the block's WIDTH to the picture at all — the open composition's lines were laid out
+        //at the menu's own tracking (2*TUBE_RADIUS + DAYLIGHT = 0.36), which is a figure about the MENU's
+        //corner, not about this bitmap. Solved from the two ink measurements above and this alphabet's own
+        //letter widths: the block comes out 6.66 cap-heights wide by 3.81 tall at the menu's tracking, W/H =
+        //1.749, where the picture's own ink rectangle (1977 x 1211) is 1.633 - a block proportionally WIDER
+        //than the picture by enough that Draw's fit (whichever of width/height binds) came out WIDTH-bound,
+        //so the letters stood at 93% of the picture's own height. That is not "a shade narrower" (the class
+        //remarks' own claim, from a single photographed frame): three lines compressed 7% short cascades into
+        //a few pixels of drift by BUBBLE and enough by "3D" to double-expose rather than land on it, which is
+        //what a WATCHED run shows and a single mid-fade photograph did not.
+        //
+        //Tightened for the open composition alone (the menu's own tracking is untouched - it was never the
+        //complaint) to 0.32, which brings W/H to 1.686 - not exact, because exact (0.2862) undercuts the
+        //keyline clearance two adjacent rims need: TRACKING - 2*TUBE_RADIUS is the gap between them, and it
+        //has to clear 2*OUTLINE_WIDTH (0.044) before any of it is daylight rather than two rims touching. The
+        //floor is 2*(TUBE_RADIUS + OUTLINE_WIDTH) = 0.304; this keeps a hair above it rather than reopening
+        //the fold/touching-rim trap OUTLINE_WIDTH's own remarks warn about. What is left (1.686 against 1.633
+        //- the letters realise 97% of the picture's own height instead of 93%, half the shortfall) is the
+        //residual the owner's own ruling on #454 already accepted - a cross-fade, not a match - and closing
+        //it further is exactly the LetterMesh redesign that issue ruled out of scope. (Verified with a script,
+        //not carried over: the figures above are LetterShapes' actual per-glyph advances summed by hand, not
+        //an estimate.)
+        private const float LOGO_TRACKING = 0.32f;
 
         //What the open composition asks for when NOTHING has handed a picture over — a share no frame ever
         //shows, because the title stands settled in its corner from the first frame unless BeginHandover is
@@ -653,8 +679,10 @@ namespace BS3D.Effects
             _letterWorld = new Matrix[_letters.Length];
 
             //=== And the two compositions the same letters are laid out in ===
+            //The open composition gets its OWN tracking (see LOGO_TRACKING) - the menu's is a figure about
+            //the menu's corner and was never asked to agree with the picture's own width.
             _settledBlock = Place(words, settled: true, tracking, out _settled);
-            _openBlock = Place(words, settled: false, tracking, out _open);
+            _openBlock = Place(words, settled: false, LOGO_TRACKING, out _open);
 
             for (int i = 0; i < _letters.Length; i++)
                 _widestLetter = MathF.Max(_widestLetter,
@@ -873,9 +901,23 @@ namespace BS3D.Effects
         /// opaque geometry with no alpha to fade; at or below <see cref="MIN_PRESENCE"/> nothing is drawn at
         /// all. The caller supplies the easing — this class holds no clock of the flight's.
         /// </param>
+        /// <param name="stillness">
+        /// How much of the block's own idle motion to hold back, 1 fully and 0 not at all (#475). Nothing
+        /// asked for this while the wordmark only ever stood alone; it exists because the splash's hand-over
+        /// stands these letters under a flat, motionless PICTURE for the width of the cross-fade, and every
+        /// term below that moves on the wall clock — the block's yaw and pitch sway, the per-letter wave and
+        /// turn, the beat's scale pulse — kept moving under it regardless. A static picture and a swaying,
+        /// waving object never read as the same thing, whatever their silhouettes agree on; the reveal's own
+        /// swell was already cut for exactly this reason (see <see cref="REVEAL_FROM"/>), and this finishes
+        /// the job for the motion nothing had touched. The caller passes the picture's own fading opacity —
+        /// full while it still covers the letters, easing to nothing as it goes — so the letters stand as
+        /// still as the thing they are replacing for as long as that thing is still up, and wake into their
+        /// ordinary drift only once they are the only object left. <see cref="BOW_DEPTH"/> is untouched: it is
+        /// a fixed shape, not a motion, and does not read as the letters moving at all.
+        /// </param>
         /// <remarks>
         /// <b>The draw states are stated here and put back</b>, which is the contract <c>ArenaIsland</c>'s
-        /// slices and <c>BallGlow</c> keep: the caller's next act is the frame's translucent glass, and it is
+        /// slices keep: the caller's next act is the frame's translucent glass, and it is
         /// entitled to find the states <c>BeginSceneDraw</c> left for the scene. Nothing is inherited either —
         /// what ran last before this is the ball draw, and what a frame starts with depends on which pass
         /// finished the one before it.
@@ -890,7 +932,7 @@ namespace BS3D.Effects
         /// themselves.
         /// </para>
         /// </remarks>
-        public void Draw(ICamera camera, float wallClock, bool settled, float presence = 1f)
+        public void Draw(ICamera camera, float wallClock, bool settled, float presence = 1f, float stillness = 0f)
         {
             if (_letters.Length == 0) return;
 
@@ -898,6 +940,12 @@ namespace BS3D.Effects
             //saturates the morph and the reveal — the behaviour a level played and returned from already has,
             //and the one a twenty-second pass deserves too. Eased by the caller; this class only scales.
             if (presence <= MIN_PRESENCE) return;
+
+            //THE ONE FACTOR EVERY IDLE-MOTION TERM BELOW IS SCALED BY (#475) — see stillness's own remarks.
+            //Not clamped: the caller's own value (the splash's LogoOpacity) is already a SmoothStep output and
+            //never leaves 0..1, and a class that clamped its caller's contract quietly would hide the day that
+            //contract breaks instead of showing a wrong picture that gets noticed.
+            float motion = 1f - stillness;
 
             //THE MOVE AND THE ARRIVAL, both stepped off the wall clock rather than off an elapsed value handed
             //in, because this class is only ever reached from a draw: a frame that was not drawn is a frame in
@@ -982,7 +1030,11 @@ namespace BS3D.Effects
             //scaling the cap shrinks the whole block about its anchored corner — letters, keylines and auras
             //together — with no second scale to keep in step. The reveal is the same trick arriving, and for
             //the same reason: opaque tubes cannot fade, they can only be small.
-            cap *= (1f + SCALE_BEAT * (beat * 2f - 1f)) * MathHelper.Lerp(REVEAL_FROM, 1f, reveal) * presence;
+            //
+            //THE BEAT'S OWN SWING IS WHAT STILLNESS HOLDS BACK HERE (#475) — the reveal's swell is not: that
+            //growth IS the letters arriving, the one motion the picture's own thinning is supposed to read
+            //as, where the beat is idle breathing that has nothing to do with the hand-over at all.
+            cap *= (1f + motion * SCALE_BEAT * (beat * 2f - 1f)) * MathHelper.Lerp(REVEAL_FROM, 1f, reveal) * presence;
 
             //THE ANCHOR, and it carries the same perspective term the fit above does — for the same reason and
             //with the same arithmetic. The corner has to land ON the inset when it is at its NEAREST, so the
@@ -1001,10 +1053,12 @@ namespace BS3D.Effects
                 + up * (block.EdgeY * ((halfHeight - inset) * shrink - block.Height * cap * 0.5f));
 
             //Block space to world: x right, y up, z towards the lens — then the block's own two sways, applied
-            //BEFORE the basis so they turn the word about its own axes rather than about the world's.
+            //BEFORE the basis so they turn the word about its own axes rather than about the world's. Both
+            //sways are stillness's to hold back (#475): block.Yaw itself is untouched, so the open composition
+            //(whose own Yaw is 0) still turns dead level under a picture that has no perspective of its own.
             Matrix blockToWorld =
-                Matrix.CreateRotationY(block.Yaw + YAW_SWAY * MathF.Sin(wallClock * YAW_RATE))
-                * Matrix.CreateRotationX(PITCH_ANGLE * MathF.Sin(wallClock * PITCH_RATE))
+                Matrix.CreateRotationY(block.Yaw + motion * YAW_SWAY * MathF.Sin(wallClock * YAW_RATE))
+                * Matrix.CreateRotationX(motion * PITCH_ANGLE * MathF.Sin(wallClock * PITCH_RATE))
                 * new Matrix(
                     right.X, right.Y, right.Z, 0f,
                     up.X, up.Y, up.Z, 0f,
@@ -1016,7 +1070,7 @@ namespace BS3D.Effects
 
             for (int i = 0; i < _letters.Length; i++)
                 _letterWorld[i] = LetterWorld(in _letters[i], Placement.Lerp(in _open[i], in _settled[i], morph),
-                    cap, wallClock, in blockToWorld);
+                    cap, wallClock, motion, in blockToWorld);
 
             //=== The letters first, one draw each, because the colour is a per-draw uniform ===
             //
@@ -1141,21 +1195,28 @@ namespace BS3D.Effects
         /// One letter's world matrix. It is centred on its own middle before anything turns it, or the letter
         /// would swing about its bottom-left corner like a flag on a pole rather than turning on the spot.
         /// </summary>
-        private static Matrix LetterWorld(in Letter letter, Placement at, float cap, float wallClock,
+        /// <param name="motion">
+        /// Stillness's complement (#475), scaling the wave and the letter's own turn the same way <c>Draw</c>
+        /// scales the block's sway — the per-letter motion is the one most likely to read as swimming under a
+        /// static picture, since it moves each letter off the line the picture drew it on individually rather
+        /// than turning the whole block as one rigid thing.
+        /// </param>
+        private static Matrix LetterWorld(in Letter letter, Placement at, float cap, float wallClock, float motion,
             in Matrix blockToWorld)
         {
             //Exactly one cycle of the wave across the whole wordmark - see WAVE_DEPTH.
             float wavePhase = (letter.Phase - wallClock * WAVE_RATE) * MathHelper.TwoPi;
             float wave = MathF.Sin(wavePhase);
 
-            //Bowed towards the lens by how far across the BLOCK it stands - see Placement.Across.
+            //Bowed towards the lens by how far across the BLOCK it stands - see Placement.Across. Not scaled
+            //by motion: a fixed shape, not a motion - see stillness's own remarks on Draw.
             float z = BOW_DEPTH * (1f - at.Across * at.Across);
 
             return
                 Matrix.CreateTranslation(-letter.Advance * 0.5f, -LetterShapes.CAP_HEIGHT * 0.5f, 0f)
                 * Matrix.CreateScale(cap * at.Scale)
-                * Matrix.CreateRotationY(LETTER_YAW * MathF.Cos(wavePhase))
-                * Matrix.CreateTranslation(at.X * cap, (at.Y + wave * WAVE_DEPTH * at.Scale) * cap, z * cap)
+                * Matrix.CreateRotationY(motion * LETTER_YAW * MathF.Cos(wavePhase))
+                * Matrix.CreateTranslation(at.X * cap, (at.Y + motion * wave * WAVE_DEPTH * at.Scale) * cap, z * cap)
                 * blockToWorld;
         }
 

@@ -106,6 +106,28 @@ namespace Prazsky.Core.Render
         /// <summary>How closely the trails wander, in cycles per world unit — the lower, the longer their bends.</summary>
         public float TrailFrequency { get; set; } = 0.0045f;
 
+        /// <summary>
+        /// How far a path steps aside to go round what is standing on the plain (#476), in world units. 0
+        /// leaves the trails running wherever the noise puts them, which is what they did until the owner saw
+        /// one crossing a tree.
+        /// </summary>
+        public float TrailAvoidOffset { get; set; } = 16f;
+
+        /// <summary>
+        /// How far out from a plant's own edge the path starts bending, in world units. ⚠ <b>It is deliberately
+        /// several times a trunk's width</b>: the owner's note is that people see a tree coming and are already
+        /// going round it from a distance, so a repulsion that began at the bark would read as a kink at the
+        /// last moment rather than as a detour.
+        /// </summary>
+        public float TrailAvoidReach { get; set; } = 34f;
+
+        /// <summary>
+        /// How big a thing has to be before a path goes round it rather than through it. Grass is walked
+        /// through; a tree, a mound, a kopje and a fallen trunk are not. It is also what keeps the field cheap
+        /// to build — the ground cover is most of what is planted.
+        /// </summary>
+        public float TrailAvoidMinRadius { get; set; } = 2f;
+
         /// <summary>Scattered acacia trees and low bushes.</summary>
         public AcaciaConfig Acacia { get; set; } = new();
 

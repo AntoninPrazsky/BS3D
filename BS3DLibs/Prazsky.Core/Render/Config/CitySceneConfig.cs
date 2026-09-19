@@ -55,6 +55,40 @@ namespace Prazsky.Core.Render
         public float TaperPerBlock { get; set; } = 1.8f;
 
         /// <summary>
+        /// Which city the generator makes. It was a constant in each of the three executables until #471's
+        /// follow-up, which is how the day city and the neon city came to be the <b>same city</b>.
+        /// </summary>
+        public int Seed { get; set; } = 20260720;
+
+        /// <summary>
+        /// <b>And the neon city is a different city, not the same one relit.</b> The owner's report: the two
+        /// scenes had buildings in the same places at the same sizes, which is what happens when one seed and
+        /// one set of layout dials serve both. These are the neon city's own — a second seed, so no block
+        /// carries the same tower, and a skyline of its own: a downtown at night reads as taller, tighter and
+        /// more uneven than a daylit business district, so the blocks are closer together, the roofline higher
+        /// and its spread wider.
+        /// <para>
+        /// Only the LAYOUT differs. The facades, the windows and the neon are the day city's own dials and
+        /// <see cref="NeonLook"/>'s — the complaint was about where the buildings stand and how big they are,
+        /// and making the two cities differ in material as well would be a second change wearing this one's
+        /// clothes.
+        /// </para>
+        /// </summary>
+        public NeonCityLayoutConfig NeonLayout { get; set; } = new();
+
+        /// <summary>
+        /// The seven figures <see cref="City"/> lays a grid out from, for whichever of the two cities is being
+        /// built. <see cref="BaseY"/> is not among them: both cities stand on the one street level, because the
+        /// island hangs at a fixed height over it and the drain would otherwise reach a different floor in each.
+        /// </summary>
+        public CityLayout LayoutFor(bool neon) => neon
+            ? new CityLayout(NeonLayout.Seed, NeonLayout.BlockPitch, NeonLayout.StreetWidth,
+                NeonLayout.RadiusBlocks, BaseY, NeonLayout.RooflineY, NeonLayout.RooflineSpread,
+                NeonLayout.TaperPerBlock)
+            : new CityLayout(Seed, BlockPitch, StreetWidth, RadiusBlocks, BaseY, RooflineY, RooflineSpread,
+                TaperPerBlock);
+
+        /// <summary>
         /// Albedo of the plaster between the windows by day, in <b>linear</b> radiance. A real albedo, not a
         /// dark one: neither specular term is multiplied by albedo, so with a near-black facade the whole
         /// brightness of a tower was its white highlight and its grazing sky reflection — a dark surface under
@@ -378,4 +412,44 @@ namespace Prazsky.Core.Render
         /// <summary>Cyan neon point-light colour (linear radiance, over 1).</summary>
         public Rgb Cyan { get; set; } = new(0.25f, 2.2f, 2.8f);
     }
+
+    /// <summary>
+    /// The neon city's own layout (#471 follow-up): what makes it a different city from the day one rather
+    /// than the same city under different lights. Every figure here has a daylight counterpart on
+    /// <see cref="CitySceneConfig"/>; see <see cref="CitySceneConfig.NeonLayout"/> for why only layout differs.
+    /// </summary>
+    public sealed class NeonCityLayoutConfig
+    {
+        /// <summary>A second seed, so no block carries the same tower as the day city's.</summary>
+        public int Seed { get; set; } = 19940312;
+
+        /// <summary>Closer together than the day city's 30: a night downtown is a tighter grid.</summary>
+        public float BlockPitch { get; set; } = 25f;
+
+        /// <summary>And narrower streets with it, so the canyons stay canyons at the smaller pitch.</summary>
+        public float StreetWidth { get; set; } = 7.5f;
+
+        /// <summary>One block further out than the day city's 14, which keeps the skyline's silhouette
+        /// reaching as far at the smaller pitch.</summary>
+        public int RadiusBlocks { get; set; } = 16;
+
+        /// <summary>Taller than the day city's 34.</summary>
+        public float RooflineY { get; set; } = 46f;
+
+        /// <summary>And far more uneven than its 26 — the ragged skyline is most of what says "a different
+        /// city" from the game camera, which sees rooflines and facades and almost none of the street.</summary>
+        public float RooflineSpread { get; set; } = 36f;
+
+        /// <summary>Falls away faster than the day city's 1.8, so the centre reads as a core.</summary>
+        public float TaperPerBlock { get; set; } = 2.6f;
+    }
+
+    /// <summary>
+    /// One city's grid, as <see cref="City"/> reads it — the day city's figures or the neon city's, chosen by
+    /// <see cref="CitySceneConfig.LayoutFor"/>. A readonly struct carrying seven numbers: it exists so the
+    /// generator takes ONE argument that says which city it is building, rather than seven that a caller could
+    /// mix between the two.
+    /// </summary>
+    public readonly record struct CityLayout(int Seed, float BlockPitch, float StreetWidth, int RadiusBlocks,
+        float BaseY, float RooflineY, float RooflineSpread, float TaperPerBlock);
 }

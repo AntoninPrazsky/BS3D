@@ -702,6 +702,13 @@ namespace Prazsky.Core.Render
         //The sun's shadow map (#469, in every terrain scene since #471): rendered by DrawShadowMaps before
         //the scene pass and read by whichever effects include Shadows.fxh. One map, one target, one set of
         //uniforms — what changes per scene is which config asks for it, how the map is fitted and who casts.
+        //Every seeded arrangement in every scene is shifted by this (see the constructor's parameter): the
+        //savanna's planting, the beach's palms, the city's roofs, the Grid's boards. 0 is what shipped.
+        private readonly int _seedOffset;
+
+        //Where the savanna's trails step aside for what is standing on it (#476), built with the planting.
+        private TrailWarpField _trailWarp;
+
         private SunShadowMap _sunShadowMap;
         private bool _shadowsActive;
         private EffectTechnique _acaciaTechnique, _acaciaShadowTechnique;
@@ -1195,8 +1202,22 @@ namespace Prazsky.Core.Render
         /// <c>Sea.fx</c>, <c>Savanna.fx</c>, <c>Birds.fx</c>, <c>Mountain.fx</c>, <c>Snow.fx</c>, <c>Spray.fx</c>, <c>Meadow.fx</c>
         /// out of the Testbed content directory).
         /// </param>
-        public SceneRenderer(GraphicsDevice graphicsDevice, ContentManager content)
+        /// <param name="seedOffset">
+        /// Shifts every seeded arrangement in every scene (#: the owner's "let it look different each time").
+        /// <b>0 is the arrangement that shipped</b>, to the plant — which is what makes a capture or a
+        /// measurement reproducible at all once the default is random: pin it and you are looking at the scene
+        /// everything before this was photographed against.
+        /// <para>
+        /// It is an OFFSET and not a seed, deliberately. Each generator keeps its own constant and adds this,
+        /// so the savanna's planting and the palms' clumping stay as unlike each other as they were authored
+        /// to be; one shared seed would have made every scene re-roll from the same number and quietly
+        /// correlate arrangements that have nothing to do with each other.
+        /// </para>
+        /// </param>
+        public SceneRenderer(GraphicsDevice graphicsDevice, ContentManager content, int seedOffset = 0)
         {
+            _seedOffset = seedOffset;
+
             _graphicsDevice = graphicsDevice;
 
             //--- Sea: a camera-centred grid displaced into Gerstner waves; DrawSea snaps it to a cell and sets
@@ -2013,11 +2034,27 @@ namespace Prazsky.Core.Render
                         2.4f, 15f, 0f, "the peaks");
                     return true;
 
-                //And the closest and lowest, for the opposite reason: a meadow's subject is the flowers, and
-                //they are a few units across. Anything the other scenes' distances would show of this one is
-                //green.
+                //THE HILLS, FROM DOWN IN THE GRASS. ⚠ This shot used to name the FLOWERS and stand 70 units
+                //out at one unit over the grass, on the argument that a meadow's subject is small and that
+                //any of the other scenes' distances would show nothing but green. The owner played it and
+                //it is the opposite that happened: 70 units is twenty-five INSIDE the flat clearing, so the
+                //lens looked down at level ground with the hills starting behind the look-at, and the first
+                //establishing shot of the game was a green carpet with no horizon in it at all.
+                //
+                //The flowers were never showable anyway — spacing 2.2 and size 0.22 — and "so the grass can
+                //be seen" is about the grass's own shading: the tips, the tufts, the wind bands and the
+                //translucency, all of which read at a low raking angle and none of which reads from above.
+                //So the look-at goes out ONTO the rise (past ClearingRadius, a third of the way up the
+                //hills) and the elevation goes NEGATIVE, which is what actually puts the lens near the
+                //ground: elevation is measured from the tour's centre, and that centre is the level's own
+                //camera target up at the hanging cluster — six degrees off THAT still rides high over a
+                //meadow whose ground is fourteen units below the arena plane.
                 case SceneKind.Meadow:
-                    viewpoint = new SceneViewpoint(AtBearing(bearing, 70f, _meadowConfig.LevelY + 1f), 1.5f, 6f, 0f, "the flowers");
+                    viewpoint = new SceneViewpoint(
+                        AtBearing(bearing,
+                            _meadowConfig.ClearingRadius + _meadowConfig.ClearingTransition * 0.55f,
+                            _meadowConfig.LevelY + _meadowConfig.HillHeight * 0.30f),
+                        1.8f, -7f, 0f, "the hills");
                     return true;
 
                 //The tree line at crown height, near enough that a trunk is a trunk. The forest's scatter
@@ -2638,7 +2675,7 @@ namespace Prazsky.Core.Render
             _stormCloudPuffCount = massCount * perMass;
 
             CloudPuffVertex[] vertices = new CloudPuffVertex[_stormCloudPuffCount * 4];
-            Random rng = new(90219);
+            Random rng = new(90219 + _seedOffset);
 
             float inner = MathF.Max(c.InnerRadius, 1f);
             float outer = MathF.Max(c.OuterRadius, inner + 1f);
@@ -3119,7 +3156,28 @@ namespace Prazsky.Core.Render
                 reserved.Add(new ScatterSpacing.Footprint(at.X, at.Z, hearth));
             }
 
-            _savannaScatter = new SavannaScatter(_graphicsDevice, _savannaConfig, SavannaTerrainHeight, reserved);
+            _savannaScatter = new SavannaScatter(_graphicsDevice, _savannaConfig, SavannaTerrainHeight, reserved,
+                SavannaScatter.DEFAULT_SEED + _seedOffset);
+
+            //And where the trails have to go round it (#476): built from the planting that has just been
+            //done, so the field and the plants it bends for cannot disagree. Rebuilt with the scatter for
+            //the same reason — the map editor's live panel re-plants, and a field left behind would send the
+            //paths round trees that are no longer there.
+            _trailWarp?.Dispose();
+            _trailWarp = _savannaConfig.TrailAvoidOffset > 0f
+                ? new TrailWarpField(_graphicsDevice, _savannaScatter.Standing,
+                    _savannaConfig.TrailAvoidMinRadius, _savannaConfig.TrailAvoidReach,
+                    _savannaConfig.TrailAvoidOffset, SAVANNA_EXTENT)
+                : null;
+
+            //⚠ And the uniforms are pushed HERE rather than in ApplySavannaParameters, which is where every
+            //other savanna dial goes: that method runs BEFORE the planting does, so the texture it pushed
+            //was always null and the warp never reached the shader. It cost one capture pair that looked
+            //exactly like the feature not working — the paths were identical with it on and off, because
+            //it was off both times.
+            _savannaEffect.Parameters["TrailWarpTexture"].SetValue(_trailWarp?.Texture);
+            _savannaEffect.Parameters["TrailWarpExtent"].SetValue(_trailWarp?.Extent ?? 1f);
+            _savannaEffect.Parameters["TrailWarpAmount"].SetValue(_trailWarp == null ? 0f : _trailWarp.MaxOffset);
         }
 
 
@@ -3163,7 +3221,7 @@ namespace Prazsky.Core.Render
             }
 
             int fires = SavannaCampfireCount;
-            Random rng = new(28204);
+            Random rng = new(28204 + _seedOffset);
             _hearthStoneInstances = new ModelInstance[fires][];
 
             for (int fire = 0; fire < fires; fire++)
@@ -3240,7 +3298,7 @@ namespace Prazsky.Core.Render
             PalmConfig palms = _tropicalConfig.Palms;
             TropicalRockConfig rocks = _tropicalConfig.Rocks;
             float waterY = _tropicalConfig.Water.LevelY;
-            Random rng = new(244);
+            Random rng = new(244 + _seedOffset);
 
             //--- The palm variants: rolled proportions and structural seeds, so a grove is a mix rather
             //than one palm stamped out. The variety is in the mesh and never in a per-instance stretch
@@ -3490,7 +3548,7 @@ namespace Prazsky.Core.Render
         private void BuildVolcanoBuffers()
         {
             VolcanoSceneConfig volcano = _volcanoConfig;
-            Random rng = new(4177);
+            Random rng = new(4177 + _seedOffset);
 
             //--- The rivers. Radial from the cone's axis, and the FIRST one is aimed to pass the arena: that
             //is the whole point of the scene's lighting, since a flow nobody stands beside lights nothing.
@@ -5376,6 +5434,7 @@ namespace Prazsky.Core.Render
             if (_sunShadowMap == null || _sunShadowMap.Size != size)
             {
                 _sunShadowMap?.Dispose();
+            _trailWarp?.Dispose();
                 _sunShadowMap = new SunShadowMap(_graphicsDevice, size);
             }
 
@@ -5974,7 +6033,15 @@ namespace Prazsky.Core.Render
             _flameEffect.Parameters["FlameSize"].SetValue(_savannaConfig.Campfire.FlameSize);
             _flameEffect.Parameters["FlameHeightScale"].SetValue(_savannaConfig.Campfire.FlameHeightScale);
 
-            _graphicsDevice.BlendState = BlendState.Additive;
+            //⚠ ALPHA-BLENDED AND NOT ADDITIVE SINCE #468, and that is what lets a fire be RED.
+            //Additive cannot make a red flame over a bright sky: the background's own green and blue
+            //stay under whatever red is added to them, so a daylit savanna's fires washed to
+            //yellow-white however the colour ramp was tuned - twice. The shader already returns its
+            //colour PREMULTIPLIED by the coverage, which is exactly what BlendState.AlphaBlend takes
+            //(One / InverseSourceAlpha), so the dense body now REPLACES what is behind it and the
+            //thin edges still add. It goes on blooming, because the colours are linear radiance over 1
+            //and the glare pass reads the scene target rather than the blend.
+            _graphicsDevice.BlendState = BlendState.AlphaBlend;
             _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
             _graphicsDevice.RasterizerState = RasterizerState.CullNone;
 
@@ -6775,7 +6842,7 @@ namespace Prazsky.Core.Render
 
             //Fixed seed: placement is data every host must agree on, and so, since the boards are seeded from the
             //same stream, is what each solid shows.
-            Random placement = new(towers.Seed);
+            Random placement = new(towers.Seed + _seedOffset);
 
             //The first CubeFraction of Count are cubes, the rest towers - which member of the count gets
             //which shape carries no meaning (angle and radius are drawn independently either way), so there

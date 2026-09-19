@@ -296,6 +296,13 @@ namespace BS3D
         /// </summary>
         private string _startupPick;
 
+        //Testing only: the "tour" argument (#406) - the scene menu with the current scene's establishing
+        //flight already running, which is the only way this can be photographed from a script.
+        private bool _startupTour;
+
+        //Testing only: the "lineloss" argument (#434) — see StagedLineLossSeconds.
+        private float _startupLineLoss;
+
         /// <summary>
         /// <c>about</c> / <c>about=play</c>: put the About page up at boot, and with <c>play</c> start its player
         /// on the first piece (#443). Null for neither. The page is two presses away for someone at the machine
@@ -306,6 +313,9 @@ namespace BS3D
 
         //Testing only: the "settings" argument (#189) — the Settings page at boot, on _startupAbout's reasoning
         private bool _startupSettings;
+
+        //Which Help page to open at boot, 1-based, or null for "not asked" (#427)
+        private int? _startupHelp;
 
         //Wall clock. Everything alive in the scene runs off it — the balls' heartbeat, the city's windows —
         //so none of it is tied to a simulation that may later be paused.
@@ -375,6 +385,14 @@ namespace BS3D
         /// scripted than clearing one can — the <c>celebrate</c> reasoning, for the session-owned effect.
         /// </summary>
         internal bool ForceLaserWarning => _startupLasers;
+
+        /// <summary>
+        /// Testing only (<c>lineloss</c>, #434): seconds into a level at which the line's loss is staged, or
+        /// 0 for never. A real line loss takes a descending ceiling and a couple of dozen shots and cannot be
+        /// reached from a script at all — the Game takes no synthetic input — so the one moment this feature
+        /// exists for would otherwise be unphotographable.
+        /// </summary>
+        internal float StagedLineLossSeconds => _startupLineLoss;
 
         /// <summary>
         /// Testing only (the <c>tutorial</c> argument, #189): offer every tutorial card as if none had been
@@ -852,8 +870,16 @@ namespace BS3D
             int? resultStars = null, string nextLocked = null, int? streak = null, int wildcardEvery = 0, float[] shotSeconds = null, string level = null, string levelFile = null,
             string preview = null, BallStyle? ballStyle = null, string pick = null, int fpsCap = 0,
             bool noFocusPause = false, float[] detonateSeconds = null, string about = null, string tutorial = null,
-            bool settings = false)
+            bool settings = false, int? help = null, int? sceneSeed = null, bool tour = false,
+            int windowWidth = 0, int windowHeight = 0, float lineLoss = 0f)
         {
+            //The scene's procedural roll (see _sceneSeedOffset): rolled once per launch unless the command
+            //line pins it, and printed either way - a frame of a city nobody can generate twice is a frame
+            //nobody can compare against.
+            _sceneSeedOffset = sceneSeed ?? Random.Shared.Next();
+            Console.WriteLine($"[sceneseed] {_sceneSeedOffset}"
+                + (sceneSeed.HasValue ? " (pinned)" : " (rolled; pin it with sceneseed=)"));
+
             //See PauseOnFocusLoss: a capture schedule implies the opt-out, because a shot of the pause page is
             //not the shot that was asked for.
             PauseOnFocusLoss = !noFocusPause && shotSeconds == null;
@@ -885,6 +911,18 @@ namespace BS3D
             BallStyleOverride = ballStyle;
 
             _fullscreen = fullscreen ?? _settings.Fullscreen;
+
+            //⚠ The windowed back buffer, pinned from the command line - the Testbed has had width=/height=
+            //since it was the only executable anything was photographed in, and the Game silently IGNORED
+            //them: a run asking for 3840x1600 came back at the default 1600x900, and the frame looks
+            //perfectly plausible at the wrong size. Several issues ask for captures at the owner's own
+            //panel (a HUD's type, a menu's layout) and could not have them.
+            //
+            //It moves the WINDOWED size only. Fullscreen is the display's, which is this project's standing
+            //rule (the game always renders at the panel's native resolution), and a capture argument does
+            //not get to break it.
+            if (windowWidth > 0 && windowHeight > 0)
+                _windowedSize = new Point(windowWidth, windowHeight);
             _startupCelebrate = celebrate;
             _startupConfetti = confetti;
             _startupResultStars = resultStars;
@@ -913,6 +951,9 @@ namespace BS3D
             _startupPick = pick;
             _startupAbout = about;
             _startupSettings = settings;
+            _startupHelp = help;
+            _startupTour = tour;
+            _startupLineLoss = lineLoss;
             _shotSchedule = shotSeconds;
             _detonateSchedule = detonateSeconds;
             if (mute) _masterVolume = 0f;
@@ -1123,6 +1164,12 @@ namespace BS3D
             //After base.Initialize, so the window's handle exists and MonoGame's own icon assignment has
             //already been published — this has to win that race, not lose it.
             WindowIcon.Apply(Window.Handle);
+
+            //And the pointer the front end is clicked with, in place of the stock arrow (#350). Set exactly
+            //once, here: it is a GDI cursor handle, so a per-frame call would build and abandon one per frame.
+            //It stays set for the life of the window — IsMouseVisible below only ever HIDES it, and the play
+            //loop that hides it draws the procedural Crosshair in its place.
+            PointerCursor.Apply(GraphicsDevice);
         }
 
         protected override void LoadContent()
@@ -1200,7 +1247,7 @@ namespace BS3D
             //The nine self-lit backdrops, shared with the Testbed and the map editor — one copy of every
             //scene shader, built out of the Testbed's content directory. The hole radius is fixed (the island
             //never moves or resizes here), so it is set once rather than per frame.
-            _sceneRenderer = new SceneRenderer(GraphicsDevice, Content)
+            _sceneRenderer = new SceneRenderer(GraphicsDevice, Content, _sceneSeedOffset)
             {
                 TerrainHoleRadius = ArenaIsland.TERRAIN_HOLE_RADIUS,
                 SupersampleFactor = _supersampleFactor,
@@ -1753,6 +1800,13 @@ namespace BS3D
 
         protected override void Update(GameTime gameTime)
         {
+            //Paced BY the compositor rather than against it (#448), at the TOP of the frame: the wait ends
+            //just past a composition, the frame is built and presented inside the interval that follows, and
+            //DWM picks up exactly one frame per refresh. EndFrame's clock stays behind it as the fallback,
+            //and remains the whole story whenever a NUMBER was named - a benchmark's fpscap= or a player's
+            //Settings row mean that number and not the compositor's rate.
+            if (_fpsCap <= 0 && !_uncappedFps && _displayRefreshHz > 0) _frameLimiter.WaitForCompositor();
+
             float elapsed = (float)gameTime.ElapsedGameTime.TotalSeconds;
             _wallClock += elapsed;
 
@@ -1890,12 +1944,32 @@ namespace BS3D
                 OpenAbout();
             }
 
+            //The scene menu with its tour already flying (#406), held back past the title card for the same
+            //reason. It is the argument that makes a replayed tour photographable at all: the menu cannot be
+            //driven from a script here (a synthetic click lands in whatever window has focus, never in this
+            //one), and it is also what the owner will page through to review the twenty.
+            if (_startupTour && !_screens.Contains<SplashPage>())
+            {
+                _startupTour = false;
+
+                OpenSceneSelect();
+                _backdrop?.PlayTour();
+            }
+
             //And the Settings page (#189), held back past the title card for the same reason
             if (_startupSettings && !_screens.Contains<SplashPage>())
             {
                 _startupSettings = false;
 
                 OpenSettings();
+            }
+
+            //And the Help screen, on whichever of its pages was asked for (#427)
+            if (_startupHelp is int helpPage && !_screens.Contains<SplashPage>())
+            {
+                _startupHelp = null;
+
+                OpenHelp(helpPage);
             }
 
             //And the same for the result screen, over whatever is on the stack — the front end, unless "play"

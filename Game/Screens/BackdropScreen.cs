@@ -1,3 +1,4 @@
+﻿using BS3D.Effects;
 using Microsoft.Xna.Framework;
 using Prazsky.BS3D;
 using Prazsky.BS3D.GameStructure;
@@ -424,6 +425,66 @@ namespace BS3D.Screens
         //And how far into the current fly-in cycle it is, on that same clock and for that same reason.
         private float _flightClock;
 
+        /// <summary>
+        /// How far the wide leg's aim is dropped BELOW the cluster's middle, as a fraction of the frame's
+        /// own half-height (#472). Dropping the aim raises the subject in the frame, so this is "put the
+        /// cluster this much higher" stated in the only unit that means the same thing at every aspect and
+        /// every stand-off. 0 is the main menu's framing and the default.
+        /// <para>
+        /// The level picker asks for it while its page is up and releases it on leaving: the page's own
+        /// question is <i>what does this level look like</i>, and it was being answered behind the widgets
+        /// asking it.
+        /// </para>
+        /// </summary>
+        internal float FramingLift { get; set; }
+
+        /// <summary>
+        /// Hold the flight on its <b>wide leg</b> (#472): the fly-in among the balls exists to show them in
+        /// detail on the main menu, and under the picker it puts the lens inside a cluster the player is
+        /// trying to see whole. Held, every tile gets the same establishing view.
+        /// <para>
+        /// It does not freeze an excursion already under way — that would snap the lens — and it does not
+        /// stop the orbit: the clock simply stops at the end of the wide leg, so the camera goes on turning
+        /// and never leaves it. Clearing this resumes from exactly there.
+        /// </para>
+        /// </summary>
+        internal bool HoldWideLeg { get; set; }
+
+        //The scene's own establishing tour, replayed on demand from the scene menu (#406). It is the very
+        //same ChapterIntro a chapter's opening level runs - not a second flight built to look like it - so
+        //what the player reviews here is what they will be shown in play, and a change to one is a change
+        //to both. The front end has no gun and no level, so what it hands over as the "gameplay pose" is
+        //its own orbit: the tour's last key is where the menu camera already stands, which is what makes
+        //the blend back onto the flight a nudge between near-identical poses rather than a cut.
+        private readonly ChapterIntro _tour = new();
+        private static readonly Random TOUR_RANDOM = new();
+
+        /// <summary>Whether a replayed tour is on the camera right now (#406).</summary>
+        internal bool TourEngaged => _tour.Engaged;
+
+        /// <summary>
+        /// Plays the current scene's own observation tour against the menu's backdrop (#406), from where the
+        /// camera stands. Ignored while one is already running, so leaning on the scene list does not stack
+        /// flights.
+        /// </summary>
+        internal void PlayTour()
+        {
+            if (_tour.Engaged) return;
+
+            //The wide leg's own pose IS the pose the tour returns to, so it is what goes in as the
+            //"gameplay" one. Taken from the live camera rather than re-solved: the flight may be anywhere
+            //in its cycle when the player asks, and the tour has to land where the camera actually is.
+            Vector3 centre = new(0f, _framing.CentreY, 0f);
+
+            _tour.Begin(centre, Vector3.Distance(_lens, centre), FOV, _lens, centre,
+                Game.SceneViewpointAt, TOUR_RANDOM);
+
+            Console.WriteLine($"[tour] {SceneRenderer.SceneName(Game.Scene)}: {_tour.Describe()}");
+        }
+
+        /// <summary>Cuts a replayed tour short — any input on the scene page does this.</summary>
+        internal bool TrySkipTour() => _tour.TrySkip();
+
         //Where the flight last put the lens — what a map waiting to hang is measured against (#408). The
         //orbit's own pose and not the camera's: under the result page the camera is a blend of this and the
         //gun's, and the question is where the FLIGHT stands, since that is what the hang would land under.
@@ -565,6 +626,17 @@ namespace BS3D.Screens
 
             AdvanceOrbit(elapsed, out Vector3 position, out Vector3 target, out float fieldOfView);
 
+            //A replayed tour takes the camera off the flight for as long as it runs (#406), and blends back
+            //onto it the way the chapter's own does - the flight has gone on turning underneath, so what it
+            //returns to is a live pose and not the one it left.
+            _tour.Update(elapsed);
+            if (_tour.Engaged)
+            {
+                position = Vector3.Lerp(position, _tour.Position, _tour.Blend);
+                target = Vector3.Lerp(target, _tour.Target, _tour.Blend);
+                fieldOfView = MathHelper.Lerp(fieldOfView, _tour.FieldOfView, _tour.Blend);
+            }
+
             RecoilCamera camera = Game.Camera;
 
             camera.BasePosition = position;
@@ -602,7 +674,13 @@ namespace BS3D.Screens
             float ease = _pendingIndex >= 0 ? CLEARING_EASE_SECONDS : FRAMING_EASE_SECONDS;
             _framing = OrbitFraming.Lerp(_framing, _framingTarget, 1f - MathF.Exp(-elapsed / ease));
 
-            _flightClock += elapsed;
+            //Held on the wide leg, the clock stops at its end rather than being frozen where it stands: an
+            //excursion already running finishes, and the next wide leg is where it waits (#472).
+            if (HoldWideLeg && Closeness(_flightClock) <= 0f && _flightClock < _wideSeconds)
+                _flightClock = MathF.Min(_flightClock + elapsed, _wideSeconds);
+            else if (HoldWideLeg && Closeness(_flightClock) <= 0f) { }
+            else _flightClock += elapsed;
+
             if (_flightClock >= CycleSeconds)
             {
                 _flightClock -= CycleSeconds;
@@ -630,8 +708,16 @@ namespace BS3D.Screens
 
             //Both legs aim at the middle of what hangs, and the camera's own height is what changes around it.
             //Aiming the crane anywhere else would swing the map across the frame as the lens climbed.
-            target = new Vector3(0f, _framing.CentreY, 0f);
+            //The aim, dropped by FramingLift so the subject rides higher in the frame (#472). Stated as a
+            //fraction of the half-frame and turned into world units HERE, where the stand-off and the field
+            //of view are both known - a lift written in world units would mean a different share of the
+            //picture at every aspect and every map size.
             fieldOfView = FOV;
+
+            float lift = FramingLift <= 0f ? 0f
+                : MathF.Tan(fieldOfView * 0.5f) * radius * FramingLift;
+
+            target = new Vector3(0f, _framing.CentreY - lift, 0f);
         }
 
         /// <summary>
@@ -1076,10 +1162,22 @@ namespace BS3D.Screens
             //the close pass rather than the full-size name the balls would draw through. What changes is the
             //block's SIZE, the reveal's own idiom, because the letters are opaque geometry and have no alpha
             //to fade.
+            //
+            //AND ON THE SPLASH ALONE IT STATES stillness TOO (#475): the picture's own fading opacity, so the
+            //letters hold their sway, wave and beat back for exactly as long as a flat, motionless picture is
+            //still substantially up over them, and only breathe on their own once it is gone. The menu never
+            //passes anything here (0, the default) — nothing behind the front end is ever motionless, so there
+            //is nothing there for the letters' own drift to disagree with.
             Screen active = Manager?.Active;
             if (active is MainMenuPage || (active is SplashPage splash && splash.WordmarkShown))
-                Game.TitleWordmark?.Draw(Game.Camera, Game.WallClock, settled: active is MainMenuPage,
-                    presence: MathHelper.Lerp(1f, WORDMARK_ASIDE_SCALE, Closeness(_flightClock)));
+            {
+                bool isMenu = active is MainMenuPage;
+                float stillness = active is SplashPage activeSplash ? activeSplash.LogoAlpha : 0f;
+
+                Game.TitleWordmark?.Draw(Game.Camera, Game.WallClock, settled: isMenu,
+                    presence: MathHelper.Lerp(1f, WORDMARK_ASIDE_SCALE, Closeness(_flightClock)),
+                    stillness: stillness);
+            }
 
             Game.DrawSettingGlass();
 

@@ -117,6 +117,15 @@ namespace BS3D.Screens
         internal bool WordmarkShown => _handedOver;
 
         /// <summary>
+        /// How much of the picture is still up, 1 fully and 0 gone — <see cref="BackdropScreen"/> hands this
+        /// straight to <c>TitleWordmark.Draw</c>'s <c>stillness</c> (#475), so the letters hold their idle
+        /// drift back for exactly as long as the flat picture they are standing in for is still substantially
+        /// on screen, and wake into their ordinary motion on the same curve the picture fades by — one number
+        /// answering both, rather than a second clock that could drift from the first.
+        /// </summary>
+        internal float LogoAlpha => LogoOpacity(_age);
+
+        /// <summary>
         /// Nothing. The picture is not a widget — see the class remarks for why it is drawn by this page's own
         /// <see cref="Draw"/> rather than laid out by Myra — so the root stays empty on purpose.
         /// </summary>

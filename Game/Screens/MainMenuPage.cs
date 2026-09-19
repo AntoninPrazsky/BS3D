@@ -1,4 +1,4 @@
-using Myra.Graphics2D;
+﻿using Myra.Graphics2D;
 using Myra.Graphics2D.Brushes;
 using Myra.Graphics2D.UI;
 using HorizontalAlignment = Myra.Graphics2D.UI.HorizontalAlignment;
@@ -122,6 +122,9 @@ namespace BS3D.Screens
             column.Widgets.Add(FrontEndEntry("Play", Game.OpenLevelSelect, out _playLabel));
             column.Widgets.Add(FrontEndEntry("Scene", Game.OpenSceneSelect));
             column.Widgets.Add(FrontEndEntry("Settings", Game.OpenSettings));
+            //Before About and after the rest: a player who wants to know HOW should not have to read what
+            //the game is built on first (#427).
+            column.Widgets.Add(FrontEndEntry("Help", Game.OpenHelp));
             column.Widgets.Add(FrontEndEntry("About", Game.OpenAbout));
             column.Widgets.Add(FrontEndEntry("Quit", Game.Exit));
 

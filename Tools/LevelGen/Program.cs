@@ -316,16 +316,33 @@ namespace BS3D.Tools.LevelGen
         private const BallStyle BALLS_TOWER = BallStyle.Ice;
 
         /// <summary>
-        /// <b>The Reveal — the vinyl beach ball</b>, since #295 moved the molten crust to the volcano its own
-        /// entry always said had the better claim (the sentence stood here from #310 and came true). The
-        /// vinyl is the right second choice for the cavern twice over: the block's statement is the
-        /// <i>payoff</i> — a thing hidden inside another thing — not the material, so the plainest style is
-        /// the one that does not compete with it; and the vinyl's emissive heartbeat was designed against
-        /// dark backdrops, so the campaign's dark chapter is where the classic ball still reads as alive.
-        /// (#313 recorded the lava/cavern pairing as the set's weakest — it read close to the plasma two
-        /// chapters on; this move retires that note.)
+        /// <b>The Reveal — polished marble</b> (#419). It was the vinyl beach ball from #295 to here, and the
+        /// owner played it and reported that a beach ball and a cave do not go together. He is right, and the
+        /// two arguments that put the vinyl here are worth answering rather than deleting, because one of
+        /// them was never about the vinyl at all.
+        /// <para>
+        /// <b>"The plainest style does not compete with the payoff"</b> still holds and still points here.
+        /// The block's statement is the <i>payoff</i> — a thing hidden inside another thing — so the material
+        /// must stay quiet, which rules out the gem and the plasma. Marble is quiet: one solid colour with a
+        /// vein through it. Photographed against the vinyl on Grotto, it is the VINYL that is the busier
+        /// figure of the two, because its five white gores cut every ball into bands before the level's own
+        /// colours are read at all.
+        /// </para>
+        /// <para>
+        /// <b>"The vinyl's emissive heartbeat was designed against dark backdrops"</b> was the weaker half and
+        /// it does not survive being checked: the heartbeat is not the vinyl's. Every ball technique carries
+        /// <c>BallEmission</c> by contract — it is point 2 of the list in <c>InstancedModel.fx</c>'s own note
+        /// on what a ball technique must do — and <c>MarblePS</c> carries it like the rest. The dark chapter
+        /// keeps its breathing cluster whichever of the two it is drawn in.
+        /// </para>
+        /// <para>
+        /// What marble adds is the thing the report is actually about: <b>mass</b>. It is the heavy style, a
+        /// piece of cut stone, and this is the campaign's chapter under rock. The desert carries it too and
+        /// that is fine — ice and porcelain each already serve two chapters, and a sunlit sandstone canyon
+        /// and a dark cave light the same material into two different looks.
+        /// </para>
         /// </summary>
-        private const BallStyle BALLS_REVEAL = BallStyle.Beach;
+        private const BallStyle BALLS_REVEAL = BallStyle.Marble;
 
         /// <summary>
         /// <b>The Quarry — anodised metal</b> (#306). A quarry on the moon is a chapter about extracted ore,
@@ -884,10 +901,25 @@ namespace BS3D.Tools.LevelGen
             return ok;
         }
 
+        /// <summary>
+        /// How few shots a level may leave unspent by the dearest order that cleared it before the sag table
+        /// marks it THIN (#414). A <b>ranking and not a verdict</b>, like everything else that table prints:
+        /// this probe shoots at random and a random player is worse than the one a budget is priced for, so a
+        /// thin margin here is a thing to go and look at rather than a refusal.
+        /// <para>
+        /// Six, and the figure is the owner's playtest rather than a round number: Causeway's worst clearing
+        /// order spent <b>50 of 52</b> and its own design doc called that measured and safe, while the report
+        /// from play was that players run out of balls on it. Two is inside the range one ricochet or one
+        /// colour misread costs. Six is two of those plus one, which is the least that reads as margin.
+        /// </para>
+        /// </summary>
+        private const int CLEAR_MARGIN_TO_REPORT = 6;
+
         private static bool RunSagGate(LevelSet set, string[] only)
         {
             Console.WriteLine();
             Console.WriteLine("=== sag probe: every level hung in the real simulation and played ===");
+            Console.WriteLine("    (clear margin = shots left unspent by the dearest order that actually cleared it)");
             Console.WriteLine("    (clearance = how far the lowest ball stayed above the death line;"
                               + " negative is under it and still inside the swing allowance)");
             Console.WriteLine("    ⚠ A RANKING, NOT A VERDICT - it refuses nothing and fails nothing."
@@ -931,10 +963,28 @@ namespace BS3D.Tools.LevelGen
                 //fitted to twelve levels is not yet entitled to refuse a design - see this method's doc.
                 bool sagged = sags >= SagProbe.SAG_RUNS_TO_REPORT;
 
+                //THE CLEAR MARGIN (#414), which is a different question from everything above it and was
+                //readable here all along without being named: how many shots the DEAREST order that actually
+                //cleared the level left unspent. The sag probe asks whether the cluster survives; a level can
+                //survive every order and still be one the player runs out of balls on, which is exactly what
+                //the owner reported on Causeway - its worst clearing order spent 50 of 52 and the doc called
+                //that measured and safe. Two shots is inside the range a real player loses to one ricochet.
+                //
+                //⚠ It is taken over the CLEARING runs only. A run that ended OutOfShots spent the whole budget
+                //by definition, so folding those in would price every level at a margin of zero and say
+                //nothing - and this probe shoots at random, so its running out is not evidence (the outcome's
+                //own note says so). A level no order cleared has no margin to report rather than a margin of
+                //nought; it is the sag lines above that speak for those.
+                int[] cleared = runs.Where(r => r.Outcome == SagProbe.Outcome.Cleared).Select(r => r.Shots).ToArray();
+                int? margin = entry.Shots.HasValue && cleared.Length > 0 ? entry.Shots.Value - cleared.Max() : null;
+
                 Console.WriteLine($"  {i + 1,2}. {entry.Name,-12} sagged {sags} of {runs.Length}; worst: "
                     + $"{worst.Outcome,-11} after {worst.Shots,3} shot(s) of "
                     + $"{(entry.Shots.HasValue ? entry.Shots.Value.ToString() : "∞"),3}"
                     + $", closest the line came {worst.WorstClearance,6:F2}"
+                    + (margin is int m
+                        ? $", clear margin {m,3}" + (m < CLEAR_MARGIN_TO_REPORT ? " <-- THIN" : string.Empty)
+                        : ", clear margin    -")
                     + (sagged
                         //Which pressure ended it, because that is the distinction #288 got the wrong way
                         //round: a level that sags with the glass still at rest is a LAYOUT fault, and no

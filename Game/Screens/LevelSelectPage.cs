@@ -1,4 +1,4 @@
-using Myra.Graphics2D.UI;
+﻿using Myra.Graphics2D.UI;
 using Prazsky.BS3D.Scoring;
 using System;
 using System.Collections.Generic;
@@ -58,14 +58,21 @@ namespace BS3D.Screens
         //The tile: wide enough for the longest shipped name in the small face with room to spare, tall
         //enough for the number, the name and the star row without crowding — in the menu's 2160p design
         //units, resolved at build time like every other size here.
-        private const int TILE_WIDTH = 440;
-        private const int TILE_HEIGHT = 300;
+        //⚠ SMALLER SINCE #472, and the reason is the page's own question. The backdrop hangs the level the
+        //cursor is on (#405) and the owner could not see it: a column of 440×300 tiles through the middle of
+        //the frame answers "what does this level look like?" behind the widgets asking it. The tile still
+        //has to carry the number, the name and the star row without crowding, which is what stops this
+        //going smaller still.
+        private const int TILE_WIDTH = 330;
+        private const int TILE_HEIGHT = 210;
 
         //Four to a row was cut for a column that scrolled; a chapter of ten wants FIVE, which is two full rows
         //and no scrollbar (#273). The tile itself was re-checked against the wider grid and kept: nothing about
         //a name got longer, and five of these plus the plate's padding still fit the design width at 5:4, which
         //is the narrowest shape a window here is likely to take.
-        private const int TILE_COLUMNS = 4;
+        //And WIDER rows with the smaller tiles (#472): the same ten entries in fewer, shorter rows is what
+        //turns the block from a column through the frame into a band along the bottom of it.
+        private const int TILE_COLUMNS = 6;
         private const int CHAPTER_COLUMNS = 5;
 
         /// <summary>
@@ -74,6 +81,16 @@ namespace BS3D.Screens
         /// chaptered page carries more above the grid (the pager row with the chapter's readout in it, and the
         /// pips) and therefore reserves more; both are sums of the figures below them and not guesses.
         /// </summary>
+        //How far the band sits off the bottom of the frame (#472). Enough that it reads as a band rather
+        //than as something falling off the edge, and no more - every unit of it is cluster the player
+        //cannot see.
+        private const int PLATE_BOTTOM_MARGIN = 60;
+
+        //How much higher the cluster is asked to ride while this page is up, as a fraction of the frame's
+        //half-height (BackdropScreen.FramingLift). Enough to clear the band below it; more would push the
+        //island's own top out of the frame, which is the other half of what a preview has to show.
+        private const float PREVIEW_LIFT = 0.42f;
+
         private const int LIST_SURROUNDINGS = 700;
         private const int CHAPTER_SURROUNDINGS = 1010;
 
@@ -218,7 +235,15 @@ namespace BS3D.Screens
 
             page.Widgets.Add(MenuButton("Back", GoBack));
 
-            return ScreenRoot(Plate(page));
+            //⚠ PULLED DOWN INTO A BAND rather than centred like every other page (#472). This is the one
+            //page whose backdrop is part of the answer - it hangs the level the cursor is on - so the
+            //widgets get the bottom of the frame and the cluster gets the rest. Every other page is centred
+            //and stays so: they have nothing behind them the player is trying to read.
+            Panel plate = Plate(page);
+            plate.VerticalAlignment = VerticalAlignment.Bottom;
+            plate.Margin = ScaledThickness(0, 0, 0, PLATE_BOTTOM_MARGIN);
+
+            return ScreenRoot(plate);
         }
 
         /// <summary>
@@ -659,6 +684,33 @@ namespace BS3D.Screens
         /// which can open tiles and change their bottom lines — while the tree they are written onto only
         /// changes on a resize.
         /// </summary>
+        /// <summary>
+        /// Takes the backdrop's framing while this page is up (#472): the cluster lifted clear of the band
+        /// of tiles, and the flight held on its wide leg so every tile is previewed from the same
+        /// establishing turn instead of from inside the balls.
+        /// </summary>
+        public override void Enter()
+        {
+            base.Enter();
+            SetBackdropFraming(PREVIEW_LIFT, hold: true);
+        }
+
+        /// <summary>And gives it back, so the main menu's framing is untouched by having been here.</summary>
+        public override void Leave()
+        {
+            SetBackdropFraming(0f, hold: false);
+            base.Leave();
+        }
+
+        private void SetBackdropFraming(float lift, bool hold)
+        {
+            BackdropScreen backdrop = Manager?.Find<BackdropScreen>();
+            if (backdrop == null) return;
+
+            backdrop.FramingLift = lift;
+            backdrop.HoldWideLeg = hold;
+        }
+
         internal override void Refresh()
         {
             //The tree may not exist yet: the page is only built when it is first shown

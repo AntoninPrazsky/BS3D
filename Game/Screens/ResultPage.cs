@@ -1,6 +1,7 @@
-using BS3D.Audio;
+﻿using BS3D.Audio;
 using Microsoft.Xna.Framework;
 using Myra.Graphics2D.UI;
+using System.Collections.Generic;
 using Prazsky.Core.Camera;
 using Prazsky.BS3D.Scoring;
 using System;
@@ -22,6 +23,99 @@ namespace BS3D.Screens
     internal sealed class ResultPage : MenuPage
     {
         private Label _heading, _milestone, _levelLine, _newBest, _reason, _bareScore, _skipNote;
+
+        //THE UPPER STACK CARRIES ITS OWN BACKING (#465), because it is the one part of this page that has no
+        //plate and cannot have the scrim back. Everything from the heading down to "New best" stands on the
+        //LIVE arena — #178 swapped the darkening scrim for the defocus and gave the breakdown a plate at the
+        //same time, and the defocus is deliberately late (BLUR_DELAY_SECONDS 3.4 s of sharp frame first) so
+        //the fireworks and the star reveal arrive in focus. Which means that for the first several seconds,
+        //exactly when the page is READ, its own text is white type over whatever the level happened to be
+        //played under.
+        //
+        //Brightness was the lever three times — #238's failure reason, #313's level line and #199's "New
+        //best" each walked from MENU_TEXT_DIM up to MENU_TEXT_BODY after a capture — and _newBest's own note
+        //already says why it cannot go a fourth: "Backdrop-dependent legibility is not a dimmer shade of
+        //legible." The owner's report is the body white itself vanishing over a bright sky, and photographed
+        //over the tropical beach it is not only the two small lines: the HEADING goes too, white on white
+        //cloud, which is why the shadow is put under every line of the stack rather than under the two that
+        //were named.
+        //
+        //A SHADOW AND NOT A PLATE, of the three answers the issue offered. A plate under the whole stack puts
+        //a dark block over the very fireworks the page exists to show; a plate under only the body lines has
+        //to be TWO plates, because the star row stands between the level line and "New best", and three dark
+        //blocks on one page (the breakdown makes a third) read as furniture. The shadow is also the HUD's own
+        //answer to the identical problem one screen over — "the text carries its backing and its shadow like
+        //every other readout" (PlayHud's tutorial card) — so it is this game's existing vocabulary rather
+        //than a fourth idea. Both were photographed before choosing, which is what the issue asked for.
+        //
+        //It is TWO LABELS and not a stroke because Myra draws a label in one colour and has no outline; the
+        //dark copy sits in the same panel, offset, drawn first. The cost is one more string draw per line on
+        //a page that has six of them and no animation in the type, which is nothing next to the arena behind
+        //it.
+        private const int SHADOW_OFFSET = 5;
+
+        //Not black: a hard black edge on white type reads as a printing fault on a bright sky, where a
+        //softened one reads as depth. Alpha rather than a grey, so what shows through is the scene's own
+        //colour darkened rather than a grey halo the backdrop cannot tint.
+        private static readonly Color TEXT_SHADOW = new(0, 0, 0, 190);
+
+        //Every wrapped line: the foreground label, the dark copy under it and the panel that holds both. A
+        //list rather than a field each, so SyncShadows is one loop and a line added later cannot be forgotten
+        //in it — the fault this page has already made three times with colours.
+        private readonly List<(Label Text, Label Shadow, Panel Panel)> _shadowed = new();
+
+        /// <summary>
+        /// Wraps one line of the upper stack in a panel with a dark copy of itself under it, and records the
+        /// pair for <see cref="SyncShadows"/>. The line's own margin moves to the panel, since the panel is
+        /// what the column now stacks.
+        /// </summary>
+        private Panel Shadowed(Label text)
+        {
+            Label shadow = new()
+            {
+                Text = text.Text,
+                Font = text.Font,
+                TextColor = TEXT_SHADOW,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Left = Scaled(SHADOW_OFFSET),
+                Top = Scaled(SHADOW_OFFSET),
+            };
+
+            Panel panel = new()
+            {
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = text.Margin,
+
+                //The offset copy would otherwise be measured at the foreground label's own extent and clipped
+                //along its right and bottom edges by exactly SHADOW_OFFSET.
+                Padding = ScaledThickness(0, 0, SHADOW_OFFSET, SHADOW_OFFSET),
+            };
+
+            text.Margin = default;
+
+            panel.Widgets.Add(shadow);
+            panel.Widgets.Add(text);
+
+            _shadowed.Add((text, shadow, panel));
+
+            return panel;
+        }
+
+        /// <summary>
+        /// Copies each wrapped line's text and visibility down onto its shadow, after the page has written
+        /// them all. Hiding the <b>panel</b> rather than the shadow is what keeps a hidden line taking no
+        /// space in the column.
+        /// </summary>
+        private void SyncShadows()
+        {
+            for (int i = 0; i < _shadowed.Count; i++)
+            {
+                (Label text, Label shadow, Panel panel) = _shadowed[i];
+
+                shadow.Text = text.Text;
+                panel.Visible = text.Visible;
+            }
+        }
 
         //One widget per slot rather than one string of glyphs: a Label's glyphs cannot be scaled, coloured or
         //timed apart from each other, and the reveal needs all three per star (#139).
@@ -101,6 +195,27 @@ namespace BS3D.Screens
         /// short enough that it is over well before anyone has finished reading the breakdown.
         /// </summary>
         private const float ORBIT_EASE_SECONDS = 2.5f;
+
+        //THE GLANCE UP AT THE FIREWORKS (#430). The shells burst 44 to 122 units over the island, a ceiling
+        //tuned against the PLAY camera - which looks up at the cluster, so anything lower falls behind it and
+        //is never seen. The result page then hands the camera to the menu orbit, which looks level across the
+        //arena at the trophy, and the show goes off above the frame. Two cameras, one burst height, and the
+        //height was tuned for the other one.
+        //
+        //The answer is the first of the two the issue offers: the page looks UP now and then, rather than the
+        //shells being brought down. Bringing them down would break the camera they were tuned for - they are
+        //launched on the clear, while the gun's view is still up - and a player who has just won should be
+        //shown the arena AND the sky, not made to choose.
+        private const float GLANCE_PERIOD = 9.5f;
+        private const float GLANCE_RISE = 1.6f;
+        private const float GLANCE_HOLD = 3.2f;
+
+        //How far the aim point is lifted at the top of a glance, in world units. The burst zone's own floor,
+        //near enough: raising the aim by this puts the lower half of the zone across the frame's middle and
+        //the higher shells in its top, which is the whole zone in shot rather than the best part of it.
+        private const float GLANCE_HEIGHT = 46f;
+
+        private float _glanceClock;
 
         private float _orbitBlend;
         private Vector3 _fromPosition, _fromTarget;
@@ -204,6 +319,12 @@ namespace BS3D.Screens
 
             RecoilCamera camera = Game.Camera;
 
+            //The glance (#430), on top of the orbit's own aim and only while something is actually in the
+            //air: a camera that pitches up at an empty sky reads as a fault, and the shells are finite.
+            //Folded into the ORBIT's target before the release blend, so the first seconds - when the page is
+            //still easing off the gun's pose - are not yanked upward as well.
+            target.Y += Glance(elapsed);
+
             camera.BasePosition = Vector3.Lerp(_fromPosition, position, eased);
             camera.BaseTarget = Vector3.Lerp(_fromTarget, target, eased);
             camera.FieldOfView = MathHelper.Lerp(_fromFov, fieldOfView, eased);
@@ -215,6 +336,38 @@ namespace BS3D.Screens
             //Also what settles the recoil: the last shot's kick decays here rather than being frozen into the
             //pose the player is left looking at
             camera.Update(elapsed);
+        }
+
+        /// <summary>
+        /// How far the aim is lifted towards the burst zone this frame (#430): level, then up over
+        /// <see cref="GLANCE_RISE"/>, held for <see cref="GLANCE_HOLD"/>, and back down the same way - a
+        /// look, not a pitch that stays. Zero whenever the sky is empty, and the clock is <b>reset</b> then
+        /// rather than left running, so the first glance after a burst begins at its start instead of
+        /// wherever the cycle happened to stand.
+        /// <para>
+        /// Smoothstep at both ends, for the reason the release blend above gives: a linear rise starts with
+        /// a lurch, and a camera that lurches upward at the sky reads as the frame being dragged rather than
+        /// as somebody looking.
+        /// </para>
+        /// </summary>
+        private float Glance(float elapsed)
+        {
+            if (Game.Fireworks == null || !Game.Fireworks.Active)
+            {
+                _glanceClock = 0f;
+                return 0f;
+            }
+
+            _glanceClock += elapsed;
+            if (_glanceClock >= GLANCE_PERIOD) _glanceClock -= GLANCE_PERIOD;
+
+            //Up, hold, down, then the rest of the period looking at the arena and its trophy.
+            float t = _glanceClock;
+            float up = MathHelper.SmoothStep(0f, 1f, MathHelper.Clamp(t / GLANCE_RISE, 0f, 1f));
+            float down = MathHelper.SmoothStep(0f, 1f,
+                MathHelper.Clamp((t - GLANCE_RISE - GLANCE_HOLD) / GLANCE_RISE, 0f, 1f));
+
+            return (up - down) * GLANCE_HEIGHT;
         }
 
         #endregion
@@ -486,6 +639,8 @@ namespace BS3D.Screens
 
         protected override Widget BuildTree()
         {
+            _shadowed.Clear();
+
             VerticalStackPanel column = MenuColumn();
 
             //CLEARED / FAILED / CAMPAIGN COMPLETE — a title's size, like the main menu's name, because this is
@@ -498,7 +653,7 @@ namespace BS3D.Screens
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = ScaledThickness(0, 0, 0, 30),
             };
-            column.Widgets.Add(_heading);
+            column.Widgets.Add(Shadowed(_heading));
 
             //A finished block's own line, under the chapter's name in the heading and only on the milestone
             //(#184). It is where the block gets to be a place rather than a number: the heading says THE TOWER
@@ -512,7 +667,7 @@ namespace BS3D.Screens
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = ScaledThickness(0, 0, 0, 26),
             };
-            column.Widgets.Add(_milestone);
+            column.Widgets.Add(Shadowed(_milestone));
 
             //WHICH LEVEL THIS WAS (#313), and it is on every ending rather than only on a clear: "CLEARED" over
             //a lit arena told a player who had just spent several minutes on a level nothing about which one it
@@ -534,7 +689,7 @@ namespace BS3D.Screens
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = ScaledThickness(0, 0, 0, 26),
             };
-            column.Widgets.Add(_levelLine);
+            column.Widgets.Add(Shadowed(_levelLine));
 
             //The star rating, straight under the verdict — the headline a player reads at a glance where the
             //score below is the arithmetic (#111). Set in Inter (FontStars), not the display face: Anton has
@@ -589,7 +744,7 @@ namespace BS3D.Screens
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = ScaledThickness(0, 0, 0, 12),
             };
-            column.Widgets.Add(_newBest);
+            column.Widgets.Add(Shadowed(_newBest));
 
             //Which limit ran out, said plainly — only on a fail. Held back (Visible = false) on a cleared level.
             //
@@ -608,7 +763,7 @@ namespace BS3D.Screens
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = ScaledThickness(0, 0, 0, 12),
             };
-            column.Widgets.Add(_reason);
+            column.Widgets.Add(Shadowed(_reason));
 
             //The score reached, on a fail. The breakdown below is rightly held back — a failed level is awarded
             //no completion bonus and its partial rows would explain a total nobody is being offered — but the
@@ -621,7 +776,7 @@ namespace BS3D.Screens
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = ScaledThickness(0, 0, 0, 30),
             };
-            column.Widgets.Add(_bareScore);
+            column.Widgets.Add(Shadowed(_bareScore));
 
             //What a skip COSTS, on the page that offers one (#347). Its own label rather than a longer caption
             //on the button, for two reasons: a button carries a destination and not a sentence, and a Myra
@@ -859,6 +1014,10 @@ namespace BS3D.Screens
             //two can never disagree about whether a skip is on offer.
             _skipNote.Text = _result.CanSkip ? "Skipping spends this chapter's one skip" : string.Empty;
             _skipNote.Visible = _result.CanSkip;
+
+            //Last, so every line above has already been written and hidden: the dark copies take their text and
+            //their visibility from the lines they sit under, which is what keeps one assignment per line (#465).
+            SyncShadows();
 
             _breakdown.Visible = _result.ShowsBreakdown;
 

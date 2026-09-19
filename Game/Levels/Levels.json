@@ -622,9 +622,9 @@
       "file": "Causeway.json",
       "name": "Causeway",
       "block": "The Eruption",
-      "shots": 52,
+      "shots": 60,
       "minStars": 152,
-      "ceilingStep": 8
+      "ceilingStep": 10
     },
     {
       "file": "Caldera.json",

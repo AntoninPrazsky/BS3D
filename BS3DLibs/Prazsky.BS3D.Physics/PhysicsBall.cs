@@ -201,6 +201,45 @@ namespace Prazsky.BS3D.Physics
         public float InfectFadeRemaining;
 
         /// <summary>
+        /// Seconds left of this ball's <b>lock-in</b> crossing (#437), counting down to zero — set on a
+        /// <see cref="BallKind.Wildcard"/> that has just landed and resolved to a colour it was <i>not</i>
+        /// already wearing, for <c>ClusterCollector.LOCK_FADE_SECONDS</c>.
+        /// <para>
+        /// It needs a second field of its own beside it (<see cref="LockFromType"/>), and it is the first
+        /// crossing here that does. Every one before it crosses out of a <b>region</b>, which the kind or a
+        /// second timer can name — the hollow glass, the ice, the slime, the ash. This one crosses out of an
+        /// ordinary ball's own colour plane into a different ordinary ball's colour plane, so what it has to
+        /// remember is not which bucket but <i>which colour</i>, and no timer can carry that.
+        /// </para>
+        /// <para>
+        /// <b>Only when the colour actually changed</b>, which is what makes this a cue rather than
+        /// decoration: a wildcard that lands beside nothing matchable keeps the colour the player was already
+        /// looking at (see <c>BallContactEventHandler</c>), and a crossing from a colour to itself is two
+        /// draws partitioning one ball's pixels between two identical looks — work that shows nothing.
+        /// </para>
+        /// <para>
+        /// Cosmetic, on <see cref="ColourFadeRemaining"/>'s terms: the ball is logically its new colour from
+        /// the instant the contact resolved — the cell, the group, the award and the next shot's match all
+        /// read it that frame — and a shot fired at a half-locked ball is answered by what it already is.
+        /// </para>
+        /// </summary>
+        public float LockFadeRemaining;
+
+        /// <summary>
+        /// The colour a wildcard was wearing at the instant it locked (#437), which is the half of its
+        /// crossing that goes <b>out</b>. Meaningless unless <see cref="LockFadeRemaining"/> is above zero.
+        /// <para>
+        /// It is read off the ball's own <see cref="Type"/> before the resolve overwrites it, and that is the
+        /// truest answer available rather than a convenience: the game keeps a wildcard's <c>Type</c> equal to
+        /// whatever the shared cycle is showing on every frame it is in the air, so the type it carries into
+        /// the contact <i>is</i> the colour the player was looking at when it arrived. Nothing needs to ask
+        /// <c>WildcardCycle</c>, which is also what keeps #330's one-clock rule intact — this reads a colour
+        /// that has already been decided rather than sampling the cycle a second time.
+        /// </para>
+        /// </summary>
+        public BallType LockFromType;
+
+        /// <summary>
         /// How long this released ball has been standing still, in seconds — the measure of whether it is on
         /// its way to the drain or has simply stopped where it was (#342). Reset the moment it moves again: a
         /// group nudged loose by a later landing is falling once more and is no longer dead weight.

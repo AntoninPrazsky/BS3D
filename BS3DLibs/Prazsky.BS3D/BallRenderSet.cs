@@ -2636,7 +2636,8 @@ namespace Prazsky.BS3D
         /// </para>
         /// </summary>
         private void Route(BallKind kind, int typeIndex, int lod, in ModelInstance instance, bool still,
-            float colourFade, float deadWeight = 0f, float thawFade = 0f, float infectFade = 0f)
+            float colourFade, float deadWeight = 0f, float thawFade = 0f, float infectFade = 0f,
+            float lockFade = 0f, int lockFromIndex = -1)
         {
             switch (kind)
             {
@@ -2764,6 +2765,26 @@ namespace Prazsky.BS3D
                         break;
                     }
 
+                    //And a LOCK-IN is the same crossing with both ends in the ORDINARY colour planes (#437):
+                    //the colour a wildcard was wearing when it landed going out at +d while the colour it
+                    //resolved to comes in at -d, so the instant it stops being a wildcard is a thing that
+                    //happens rather than a cycle that stopped between two frames. It is the first crossing
+                    //here whose second bucket is not a region but another COLOUR, which is why it is the only
+                    //one that needs an index passed in beside the fade - see PhysicsBall.LockFromType.
+                    //
+                    //A wildcard that kept the colour it was showing never arms it, so lockFromIndex is always
+                    //a different colour from typeIndex here; the guard below is for a caller that has not
+                    //been told, not for that case.
+                    //
+                    //It cannot collide with the two above: a ball that has just locked was a wildcard, and a
+                    //wildcard is neither glass nor ice, so neither of those crossings can be running on it.
+                    if (lockFade > 0f && lockFromIndex >= 0 && lockFromIndex < BallRenderSet.TYPE_COUNT)
+                    {
+                        _set.Store(typeIndex, lod, instance.WithDissolve(-lockFade), still);
+                        _set.Store(lockFromIndex, lod, instance.WithDissolve(lockFade), still);
+                        break;
+                    }
+
                     //And DEAD WEIGHT is the same crossing pointed at a different second bucket (#342): the
                     //ball's own colour going out at +d while the ash comes in at -d, so a released ball that
                     //has stopped fades to spent over half a second instead of switching between two frames.
@@ -2798,6 +2819,10 @@ namespace Prazsky.BS3D
         /// <param name="colourFade">How far a freshly coloured transparent ball is through its crossing, 0 for
         /// every other ball there has ever been (#325) — see <see cref="Route"/> for what the two ends of it
         /// are drawn as.</param>
+        /// <param name="lockFade">How far a freshly landed wildcard is through its crossing into the colour it
+        /// locked into, 0 for every other ball (#437).</param>
+        /// <param name="lockFrom">The colour that crossing comes OUT of — the one the wildcard was wearing when
+        /// it landed. Read only while <paramref name="lockFade"/> is above zero.</param>
         /// <param name="still">True for a ball that must <b>not breathe</b> — a RELEASED one since #473, on
         /// the rule #252 stated one place over for the rounds in the magazine: the heartbeat is what says a
         /// ball is part of the hanging map, so a ball that has left it must not keep the beat. It cannot be a
@@ -2805,7 +2830,8 @@ namespace Prazsky.BS3D
         /// plane and a draw of its own.</param>
         public void AddOriented(BallType type, Vector3 position, in Quaternion orientation, Vector4 occlusion,
             float ripple = 0f, BallKind kind = BallKind.Normal, float colourFade = 0f, float deadWeight = 0f,
-            float thawFade = 0f, float infectFade = 0f, bool still = false)
+            float thawFade = 0f, float infectFade = 0f, bool still = false, float lockFade = 0f,
+            BallType lockFrom = default)
         {
             int typeIndex = (int)type - 1;
             if (typeIndex < 0 || typeIndex >= BallRenderSet.TYPE_COUNT) return;
@@ -2817,7 +2843,8 @@ namespace Prazsky.BS3D
             world.M43 = position.Z;
 
             Route(kind, typeIndex, _set.LodFor(Vector3.DistanceSquared(position, _eye)),
-                new ModelInstance(world, occlusion, 0f, ripple), still, colourFade, deadWeight, thawFade, infectFade);
+                new ModelInstance(world, occlusion, 0f, ripple), still, colourFade, deadWeight, thawFade,
+                infectFade, lockFade, (int)lockFrom - 1);
         }
 
         /// <summary>

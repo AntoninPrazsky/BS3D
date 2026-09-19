@@ -32,6 +32,10 @@ namespace BS3D
             //leave the card flat out. The Testbed has had it since #250; the Game needed it for #270, where a
             //vsync-capped level could only ever say "dearer than one refresh". Zero means no cap.
             int fpsCap = 0;
+            int? sceneSeed = null;
+            bool tour = false;
+            int windowWidth = 0, windowHeight = 0;
+            float lineLoss = 0f;
             float exposure = 0f;
 
             //Left null when absent, so the game keeps doing what it normally does: a random one of the fifteen
@@ -111,6 +115,10 @@ namespace BS3D
             //presses reach it on a machine somebody is sitting at, and none reach it from a script.
             bool settings = false;
 
+            //Testing only: open the Help screen at boot, and "help=<n>" on its nth page (#427). Null means
+            //the argument was absent; the number is 1-based because that is what the page prints about itself.
+            int? help = null;
+
             //Testing only: draw every ball in one style whatever the level files say (#258). Null means the
             //argument was absent, and then each map is drawn in what it is authored in, as a player sees it.
             //It exists because the two styles can otherwise only be compared across two DIFFERENT levels —
@@ -168,6 +176,27 @@ namespace BS3D
                 //"fpscap=N" is that same ceiling set by hand, and it wins over "nocap" outright rather than
                 //being reconciled with it (BS3DGame.FrameLimitHz), so the two cannot be given inconsistently.
                 else if (arg.StartsWith("fpscap=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("fpscap=".Length), out int parsedCap) && parsedCap > 0) fpsCap = parsedCap;
+
+                //"sceneseed=N" pins every scene's procedural arrangement, which each launch otherwise rolls.
+                //It is what makes a capture pair or a measured A/B comparable at all once the roll is the
+                //default, and 0 is the arrangement everything before the feature was photographed against.
+                else if (arg.StartsWith("sceneseed=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("sceneseed=".Length), out int parsedSceneSeed)) sceneSeed = parsedSceneSeed;
+
+                //"tour" opens the scene menu with the current scene's establishing flight already running
+                //(#406) - the only way a replayed tour can be photographed, since a synthetic click never
+                //reaches this window.
+                else if (string.Equals(arg, "tour", StringComparison.OrdinalIgnoreCase)) tour = true;
+
+                //"lineloss=SECONDS" stages the line's loss that far into a level (#434). A real one needs a
+                //descending ceiling and a couple of dozen shots, and the Game takes no synthetic input, so
+                //without this the one moment the feature exists for cannot be photographed.
+                else if (arg.StartsWith("lineloss=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("lineloss=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedLineLoss) && parsedLineLoss > 0f) lineLoss = parsedLineLoss;
+
+                //"width=N"/"height=N" pin the WINDOWED back buffer, as the Testbed's own pair does. Until they
+                //were added here the Game ignored them silently, so a capture asked for at the owner's panel
+                //came back at the default window and looked entirely plausible.
+                else if (arg.StartsWith("width=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("width=".Length), out int parsedWidth) && parsedWidth > 0) windowWidth = parsedWidth;
+                else if (arg.StartsWith("height=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("height=".Length), out int parsedHeight) && parsedHeight > 0) windowHeight = parsedHeight;
                 //"ssaa=<n>" trades sharpness against fill rate; "exposure=<f>" is the renderer's shutter speed
                 else if (arg.StartsWith("ssaa=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("ssaa=".Length), out int parsedSsaa)) supersampleFactor = parsedSsaa;
                 else if (arg.StartsWith("exposure=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("exposure=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedExposure)) exposure = parsedExposure;
@@ -267,6 +296,12 @@ namespace BS3D
                 else if (string.Equals(arg, "about", StringComparison.OrdinalIgnoreCase)) about = string.Empty;
                 //"settings" puts the Settings page up at boot (#189), for photographing a row.
                 else if (string.Equals(arg, "settings", StringComparison.OrdinalIgnoreCase)) settings = true;
+                //"help" opens the Help screen and "help=<n>" opens it on that page (#427) - the same reasoning
+                //one turn further, since Help is six pages behind one entry and its Previous/Next stand side
+                //by side, so a scripted walk has to guess a focus order to reach page four at all.
+                else if (string.Equals(arg, "help", StringComparison.OrdinalIgnoreCase)) help = 1;
+                else if (arg.StartsWith("help=", StringComparison.OrdinalIgnoreCase)
+                    && int.TryParse(arg.Substring("help=".Length), out int parsedHelp)) help = parsedHelp;
                 else if (arg.StartsWith("about=", StringComparison.OrdinalIgnoreCase)) about = arg.Substring("about=".Length);
                 //"preview=<n|name>" pins which map the FRONT END hangs, the way "level=" pins which one is
                 //played. The menu's camera is framed for that map since #254, so without this two shots of
@@ -288,7 +323,8 @@ namespace BS3D
                 celebrate: celebrate, confetti: confetti, lasers: lasers, mute: mute, noFpsOverlay: noFpsOverlay, play: play, result: result, blockDone: blockDone, lost: lost, resultStars: resultStars, nextLocked: nextLocked, streak: streak, wildcardEvery: wildcardEvery,
                 shotSeconds: shotSeconds, level: level, levelFile: levelFile, preview: preview, ballStyle: ballStyle, pick: pick, fpsCap: fpsCap,
                 noFocusPause: noFocusPause, detonateSeconds: detonateSeconds, about: about, tutorial: tutorial,
-                settings: settings);
+                settings: settings, help: help, sceneSeed: sceneSeed, tour: tour,
+                windowWidth: windowWidth, windowHeight: windowHeight, lineLoss: lineLoss);
             game.Run();
         }
 

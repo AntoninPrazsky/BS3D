@@ -886,6 +886,14 @@ namespace BS3D.Screens
         //the fact that the gun does not answer while it is engaged.
         private readonly DropCinematic _cinematic = new();
 
+        //The loss-side counterpart (#434): the camera flown at the point the cluster crossed the line, and
+        //the beat the ending is held back for while it happens.
+        private readonly LineLossCinematic _lineLoss = new();
+        private bool _lineLossShown;
+
+        //Seconds this level has been running, for the staged loss the lineloss argument asks for.
+        private float _lineLossClock;
+
         //Which released balls this cinematic is following, by body handle — see TryBeginDropCinematic for why
         //handles and not list indices, and why recycling cannot bite here.
         private readonly HashSet<int> _cinematicSubject = new();
@@ -910,7 +918,7 @@ namespace BS3D.Screens
         /// to begin, and <see cref="BuildLevel"/> resets the drop cinematic before a new level's own intro
         /// could ever start. Asking both costs nothing and needs no third flag to say which one is live.
         /// </summary>
-        private bool CameraTakeoverEngaged => _cinematic.Engaged || _chapterIntro.Engaged;
+        private bool CameraTakeoverEngaged => _cinematic.Engaged || _chapterIntro.Engaged || _lineLoss.Engaged;
 
         /// <summary>Skips whichever takeover is currently running — see <see cref="CameraTakeoverEngaged"/>
         /// for why asking both is safe.</summary>
@@ -1005,7 +1013,6 @@ namespace BS3D.Screens
         /// The muzzle round's coloured halo — what says "this one, right now" since #236, in place of the white
         /// ripple #175 used to breathe on the ball itself. See <c>MuzzleGlowStrength</c>.
         /// </summary>
-        private readonly BallGlow _ballGlow;
 
         /// <summary>Where the beam starts. Stored rather than recomputed in <c>Draw</c>, so the line, the ghost and the shot cannot disagree about where the bore is.</summary>
         private Vector3 _previewMuzzle;
@@ -1114,7 +1121,6 @@ namespace BS3D.Screens
             //Its OWN effect and not the trail's, unlike the two above: this billboard is placed from a centre
             //and the view basis rather than from two world points, so there is no quad to share and no widths
             //to fight over — which is the mess sharing ShotTrail cost those two.
-            _ballGlow = new BallGlow(GraphicsDevice, Game.Content.Load<Effect>("Shaders/BallGlow"));
 
             //And the crosshair's own white texel, which the host used to hold for it
             _crosshair = new Crosshair(GraphicsDevice);
@@ -1299,6 +1305,9 @@ namespace BS3D.Screens
             //The cinematic reads the balls where the last step left them and answers with this frame's pose and
             //time scale, so the scale is applied to the very step its own framing was chosen against.
             _cinematic.Update(elapsed, TryGetDropCentre(out Vector3 dropCentre), dropCentre);
+
+            //And the line's own (#434), which also decides when the ending it is holding back goes up.
+            StepLineLoss(elapsed);
 
             if (!_cinematic.Engaged) _cinematicSubject.Clear();
 
@@ -1533,17 +1542,18 @@ namespace BS3D.Screens
             Matrix barrelWorld = _cannon.BarrelWorld();
 
             Game.CannonRig.Draw(Camera, barrelWorld, Game.SceneEffectParams);
+
+            //The next round's colour, stated by the collar around the muzzle (#425). Opaque geometry drawn with
+            //the barrel it rings, not with the additive marks below: it is part of the gun, so the cluster and
+            //the carriage occlude it exactly as they occlude the tube, and nothing about what the player sees
+            //depends on which way the gun happens to be turned.
+            DrawMuzzleCollar(barrelWorld);
             Game.CannonRig.DrawCarriage(Camera, _cannon.CarriageWorld(), _cannon.WheelTravel, _cannon.SlideTravel, Game.SceneEffectParams);
 
             //Everything collected above, as one instanced draw per ball type and LOD level — and the frame's
             //collection is closed by it. The heartbeat runs on the WALL clock: the balls go on breathing while
             //a pause has the session frozen, because it is what they are and not something they are doing.
             Game.Balls.Draw(WallClock);
-
-            //The muzzle round's halo, first of the three additive draws: it is the quietest and a shot's flare
-            //should sit over it. Its middle is carved out by the depth buffer the balls above just wrote, which
-            //is what makes it a ring around the round rather than a wash over it (#236, and see BallGlow).
-            DrawMuzzleGlow();
 
             //Over the opaque scene (which the depth buffer now holds, so the cluster and the gun occlude
             //them) and additive, so they glow through the glare. It puts back exactly the states it found,

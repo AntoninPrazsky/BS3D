@@ -94,6 +94,18 @@ namespace BS3D.Screens
         protected abstract Widget BuildTree();
 
         /// <summary>
+        /// Throws this page's tree away, so the next read of <see cref="Root"/> builds it again (#427). For a
+        /// page whose <b>content</b> changes and not only its size — the Help screen, which is several pages
+        /// behind one menu entry and swaps which of them it is showing.
+        /// <para>
+        /// It goes through the same door a resize does rather than round it: the rebuild re-runs
+        /// <see cref="Refresh"/> and re-collects the pad's navigation entries, which a page that merely
+        /// hid and showed widgets would have to do for itself and would eventually forget.
+        /// </para>
+        /// </summary>
+        protected void InvalidateTree() => _builtForLayout = -1;
+
+        /// <summary>
         /// Whether Escape and the pad's B leave this page. False where there is nowhere to go back <i>to</i>:
         /// the main menu (quitting is an entry, and a front end that closes on a tapped key closes by
         /// accident) and the result screen (the level has already ended, so "back one level" means nothing).

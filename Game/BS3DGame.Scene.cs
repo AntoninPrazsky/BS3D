@@ -153,6 +153,21 @@ namespace BS3D
 
         private City _city;
 
+        //THE SCENE'S PROCEDURAL ROLL (the owner's "let it look different each time"). One offset, rolled
+        //once per launch and added to every seeded arrangement in the program: both cities, their roofs, the
+        //forest's wood, the aurora's, the savanna's planting, the beach's palms and the Grid's boards.
+        //
+        //Rolled ONCE rather than per build, so a quality step or a scene change re-runs a generator and gets
+        //the SAME city back - a skyline that rearranged itself because the player opened Settings would read
+        //as a fault rather than as variety. Pinned by sceneseed=, and that argument is not a nicety: a
+        //capture pair or a measured A/B has to look at the same arrangement on both halves. 0 is what shipped.
+        internal int SceneSeedOffset => _sceneSeedOffset;
+        private readonly int _sceneSeedOffset;
+
+        //Which of the two cities _city currently holds, so a scene change that does not cross between them
+        //rebuilds nothing (#471's follow-up).
+        private bool _cityIsNeon;
+
         //How many of the city's buildings the last frame actually drew, for the logfps line. A frame's worth of
         //diagnostics, not state anything renders from.
         private int _cityVisible;
@@ -253,7 +268,14 @@ namespace BS3D
         private void BuildScene()
         {
             _unitBox = new BoxMesh(GraphicsDevice, 1f, 1f, 1f);
-            _city = new City(seed: CITY_SEED, arenaHalfExtent: ArenaIsland.RADIUS, config: _cityConfig);
+            //Both cities take the launch's roll too, so a new session is a new skyline (#: procedural
+            //scenes). Applied to the CONFIG rather than at the call, because every rebuild - a quality
+            //step, a scene change - reads it back and has to get the same city.
+            _cityConfig.Seed += _sceneSeedOffset;
+            _cityConfig.NeonLayout.Seed += _sceneSeedOffset;
+
+            _city = new City(_cityConfig, neon: _scene == SceneKind.NeonCity, ArenaIsland.RADIUS);
+            _cityIsNeon = _scene == SceneKind.NeonCity;
 
             //The neon flags are what SetScene switches between the two city lightings; these are only the
             //values they start at, and are overwritten before the first frame is drawn.
@@ -270,7 +292,8 @@ namespace BS3D
             };
 
             //The equipment on the roofs (#436), placed on the buildings the city above just made
-            _rooftops = new CityRooftops(GraphicsDevice, _instancingEffect, _city, _cityConfig, SCENE_AMBIENT_INTENSITY);
+            _rooftops = new CityRooftops(GraphicsDevice, _instancingEffect, _city, _cityConfig, SCENE_AMBIENT_INTENSITY,
+                CityRooftops.DEFAULT_SEED + _sceneSeedOffset);
 
             //The street level under them (#399), on the same grid
             Effect streetEffect = Content.Load<Effect>("Shaders/CityStreets");
@@ -315,11 +338,13 @@ namespace BS3D
             //its own, since ArenaIsland's is that component's private business. The ambient is the scene's, so
             //it is handed over as it is to the island.
             _forestScatter = new ForestScatterRenderer(GraphicsDevice, _instancingEffect,
-                (ForestSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Forest), SCENE_AMBIENT_INTENSITY);
+                (ForestSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Forest), SCENE_AMBIENT_INTENSITY,
+                seed: ForestScatterRenderer.DEFAULT_SEED + _sceneSeedOffset);
 
             //The aurora's own wood, a second planting from its own config - see AuroraSceneConfig's class doc.
             _auroraScatter = new ForestScatterRenderer(GraphicsDevice, _instancingEffect,
-                ((AuroraSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Aurora)).Terrain, SCENE_AMBIENT_INTENSITY);
+                ((AuroraSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Aurora)).Terrain, SCENE_AMBIENT_INTENSITY,
+                seed: ForestScatterRenderer.DEFAULT_SEED + _sceneSeedOffset);
 
             //Note the glass the cluster hangs from is NOT built here: its footprint is the loaded level's
             //field, so RebuildCeilingRenderer fits it (and refits it on every level) — which is why the
@@ -467,6 +492,14 @@ namespace BS3D
             //Neither city is drawn by the SceneRenderer — the city is one instanced box mesh under the shared
             //shader's city technique, and its two lightings are a flag and a brightness on the renderer.
             bool neon = scene == SceneKind.NeonCity;
+
+            //⚠ AND THE TWO ARE DIFFERENT CITIES, so the generator has to be re-run when the scene crosses
+            //between them (#471's follow-up). They shared one layout until the owner reported it: same
+            //buildings, same places, same sizes, lit twice. Rebuilt rather than held as two, because it costs
+            //one generator pass at a scene change — a load moment already — against two of everything for the
+            //life of the program, and nothing here is on a per-frame path.
+            EnsureCityLayout(neon);
+
             _cityRenderer.CityNeon = neon ? 1f : 0f;
             _cityRenderer.CityWindowBrightness = neon ? _cityConfig.NeonLook.WindowBrightness : _cityConfig.WindowBrightness;
 
@@ -862,6 +895,27 @@ namespace BS3D
         /// <see cref="SceneRenderer.DrawShadowMaps"/> never runs a caster pass there at all.
         /// </para>
         /// </summary>
+        /// <summary>
+        /// Re-runs the city generator when the scene crosses between the day city and the neon one, and does
+        /// nothing at all otherwise. <b>They are two different cities</b> — a second seed and a skyline of its
+        /// own — rather than one city under two lightings, which is what they were until the owner reported
+        /// that the buildings stood in the same places at the same sizes in both.
+        /// <para>
+        /// The roofs and the street level follow the buildings they dress, through their own <c>Rebuild</c>;
+        /// the renderer survives, so nothing needs re-lighting. Called from <see cref="SetScene"/> only — the
+        /// one place a scene change happens.
+        /// </para>
+        /// </summary>
+        private void EnsureCityLayout(bool neon)
+        {
+            if (_city == null || neon == _cityIsNeon) return;
+
+            _cityIsNeon = neon;
+            _city = new City(_cityConfig, neon, ArenaIsland.RADIUS);
+            _rooftops.Rebuild(_city, _cityConfig);
+            _streets.Rebuild(_city);
+        }
+
         private void DrawShadowCasters(Matrix shadowViewProjection)
         {
             _island?.DrawShadow(shadowViewProjection);

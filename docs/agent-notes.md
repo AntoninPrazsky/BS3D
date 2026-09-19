@@ -4344,3 +4344,338 @@ Tep je uniform na renderer, takže ho hrála i skupina právě uříznutá, celo
 **Dřív dnes:** #471 a #466 na mainu, čtyři dávno hotové issue zavřené (#453, #454, #455, #469).
 
 **Z dávky zbývá: #412** (značka mrtvé váhy — designové rozhodnutí, chce majitelovo oko), **městská půlka #471** a **#465**. **Beru si je dál v tomhle pořadí.** Kolega drží #437 a #421 a ví o překryvu s #412 v tématu „jak koule říká, čím je".
+
+---
+
+## 2026-09-19 — Claude Code, bs3d-f0 (#412 na mainu, městská půlka #471 na větvi a NEOVĚŘENÁ)
+
+### #412 — mrtvá váha je průhledná, protože popel četl jako kámen
+
+**Na `main`u (merge `c7ff82f`), issue zavřené.**
+
+- ⚠ **Vyfotil jsem obě varianty ze stejné kamery na stejném clusteru a příčina je vidět okamžitě, není to otázka vkusu.** Popel z #342 je **šedá neprůhledná koule mezi barevnými neprůhlednými koulemi — což je přesně to, co je kámen (#324)**. Značka „tohle je neživá kulisa" a značka „tohle bylo tvoje a je to mrtvá váha" říkaly totéž stejnými slovy. Proto nebylo poznat, co se snaží sdělit.
+- **Teď je to slabě průhledná skořápka** (`DEAD_OPACITY` 0,34, `DEAD_EMISSION` 0,12 aby přežila tmavý dóm). Průhlednost se nesráží s ničím: nic jiného ve hře průsvitné není kromě čirého skla, a to nemá barvu vůbec.
+- **Nestálo to žádnou práci v shaderu**, a to z toho udělalo levnou odpověď: půjčuje si dvoustěnný alfa průchod skla (`DrawHollow`). Varianta, kterou issue nadhazovalo — nechat kouli materiál a dát jí alfu — znamená uniform a násobení ve **všech dvaceti** ball technikách a třináct bucketů místo jedné oblasti.
+- **Daň vzata vědomě:** mrtvá koule už není vinyl ani mramor levelu. Jenže ten materiál byl přesně to, co ji odlišovalo od kamene, a je to přesně ten rozdíl, který se nečetl.
+- **Pořadí kreslení se posunulo** na konec, za sklo — průhledná koule potřebuje mít v cíli všechno, co jí má prosvítat.
+- ⚠ **Co vyfoceno NENÍ a je to ten případ, co se musí posoudit ve hře: pár mrtvých koulí mezi živými.** Ani jedno exe se do skutečného stavu mrtvé váhy ze skriptu dostat nedá (Testbed ji neoznačuje vůbec, jak issue samo píše), takže snímek si značku vynutil na celém clusteru — to ukáže materiál poctivě, ale ne kontrast, o který jde.
+
+### Městská půlka #471 — hotová infrastruktura, **NEOVĚŘENO, do mainu nejde**
+
+Větev `471-city-shadows` (`4965246`), pushnutá. Staví ve všech čtyřech řešeních.
+
+- **`SceneRenderer.SetHostShadowScene(...)`** je API pro backdrop, který renderer nevlastní: `GetSceneConfig` na město vrací **null**, věže jsou hostitelovy `InstancedModelRenderer`y a `CityStreets.fx` si načítá hostitel — všechny tři části stínu leží mimo ten soubor. Dialy a fit jdou do malého registru, který `DrawShadowMaps` i `TryShadowFit` konzultují, když config chybí; příjemci se přilepí k načtenému inventáři.
+- **Castery jsou VŠECHNY věže, schválně ne `City.Visible`:** ta množina je ořezaná na **kamerový** frustum, a věž kousek za okrajem obrazovky je přesně ta, jejíž stín padá přes ulici, na kterou se hráč dívá. Je to jeden instancovaný draw tak jako tak, takže cull by nekoupil nic a stál by právě ty stíny, o které jde.
+- **Fit je těsnější a vyšší** než u deseti scén, které si renderer fituje sám: 180 místo 260 (ulice přijímají, věže vrhají, hrana věže má být nejtvrdší čára ve snímku) a krabice sahá od úrovně ulice 100 pod ostrovem po nejvyšší věž 156 nad ní.
+- ⚠ **Registrace v Testbedu musí být až za vznikem `SceneRenderer`u**, ne u stavby města — to běží dřív a renderer ještě neexistuje. Stálo to jeden pád.
+- ⚠ **Proč to nemerguju:** **nemám snímek stínu na ulici ani měření.** Čtyři pokusy o zarámování ulice zevnitř čtrnáctiblokového města skončily mezi dvěma věžemi nebo nad střechami. A issue si samo říká o měření („the cities will not be that cheap") — mapa 2048 s 1777 castery je přesně místo, kde by se to projevilo. Pustit grafickou změnu do nejdražší scény ve hře bez obojího je pod laťkou, kterou jsem dnes držel u cizí práce, tak ji držím i u své.
+- **Co s tím dál:** zarámovat ulici jde nejspíš přes `arena=none` a kameru posazenou do **plaza** v centru (ostrov tam stojí, takže kolem něj je volno), ne do kaňonu; nebo město dočasně prořídit `RadiusBlocks`. Pak dvojice měřených běhů proti mainu jako u #471.
+
+**Z majitelovy dávky zbývá `#465`** (podklad pod řádek levelu na výsledkové stránce) **a ověření města.**
+
+---
+
+## 2026-09-19 — Claude Code (notebook: #421 barvy donutu, a #437 po něm)
+
+**Beru si #421 a #437** na majitelův pokyn („vem obě"). Ohlášeno druhé instanci **předem**. Větev `421-donut-colours`, commit `2d53c77`. **NENÍ v mainu.**
+
+- **Vada nebyla ve struktuře, ale v tom, KTERÉ tři inkousty.** V obou pásech byl ten třetí ten nejhlasitější: černá není odstín těsta, je to spálenina; námořnická modř není poleva, je to modřina; a **béžová seděla v POLEVĚ**, což je ze všech tří nejhorší — béžová je nejtěstovatější inkoust palety a stála v pásu, který měl číst jako cukr. Třetina každého pásu se hádala se zbylými dvěma třetinami.
+- **Pravidlo je teď hueová soudržnost pásu**, pásy disjunktní navzájem i od posypu (devět inkoustů, žádný ve dvou rolích). Těsto béžová/oranžová/hnědá, poleva magenta vedoucí, pod ní červená a stříbro tam, kde poleva zatuhla — **73 % růžové podle počtu koulí**.
+- ⚠ **Pořadí uvnitř pole je nosné a změřil jsem ho, ne odhadl:** pruhová geometrie dává třem slotům nestejné hmoty (těsto 100/80/85, poleva 66/84/94). Stříbro proto sedí v nejmenším slotu polevy a dvě růžové ve dvou největších; s magentou v nejmenším slotu četl pás jen 61 % růžově. Vyfoceno obojí.
+- ⚠ **Posypový hash měl latentní vadu, kterou probudila až třetí barva.** Jeho vlastní `remark` říká, že přítomnost a barva se musí číst z různých bitů; při dvou barvách bylo `h % 2` bit 0 a bity 5–6 testu přítomnosti na něj nedosáhly. `h % 3` je ale **modulo přes celé slovo**, bity přítomnosti včetně — změřeno na hotovém levelu **49, 27 a 4 koule**. Čtyři koule barvy je typ, který magazín sotva rozdá. Posun za bity přítomnosti dává 31, 26, 22 z týchž 79.
+- **Strukturálně je to no-op, a to je pointa:** 588 koulí v týchž buňkách, 35 stojících skupin před i po, nejhorší jedna rána 30 koulí (5 %) před i po, nejkratší vyčištění 5 → 6, zátěž kotvy 13,4 → 12,8.
+- ⚠ **A teď to, co NEVYŘEŠIL, protože to zadání vyloučilo.** Level pořád nečte jako donut na první pohled, a příčina je strukturální: **pruhy běží svisle kolem prstence**, takže každý pás je mávátko tří barev, ne jeden materiál. Žádná volba inkoustů to neopraví — palety třináct inkoustů nemá druhou růžovou a pravidlo „tři inkousty na pás" je z #317, kde dva slévaly prstenec do 55–66kuličkových schodišť a sonda četla 4–5 z 5 prohraných pořadí. Opravit to znamená otevřít pravidlo pruhů, a to je vlastní měřicí kolo, ne barvení. Napsáno majiteli do issue, ať rozhodne on.
+- **Vyzkoušel jsem a zavrhl styl koulí:** `balls=vinyl` na tomtéž clusteru přes `balls=` páku (#258 na to existuje). Sytější je, ale **bílé klíny plážového míče cluster ještě rozdrobí** — sklo zůstává. Vyfoceno.
+- **Přefocen i titulní snímek README** (`Images/screenshot2.jpg`), protože rámeček, který přistál s #452, je právě tenhle level a ukazoval staré barvy.
+- LevelGen exit 0 přes 120 levelů, ScoreSim exit 0, `Game.sln` 0 chyb.
+
+**Dál beru #437.**
+
+---
+
+**Dodatek: #437 hotové na větvi `437-wildcard-lock-cue` (`af31166`), NENÍ v mainu.**
+
+- **Slovník mi dala druhá instance a je to nejcennější věc dneška.** Emisní tep znamená „tahle koule je součástí visící mapy" a nic jiného (#252, #324, #473); slovo repa pro **událost** je **crossing** — dvojí kresba téže koule, jedna ven na `+d`, druhá dovnitř na `−d`. `Route` jich má čtyři (sklo #325, tání #329, infekce #331, mrtvá váha #342). Zamknutí wildcardu je událost, takže je to pátý crossing — **a nepotřebuje ani řádek shaderu**, což zároveň odpovědělo na otázku, jestli si sáhnu do `InstancedModel.fx` (nesáhl).
+- ⚠ **Je to první crossing, jehož druhý kbelík není REGION, ale jiná barva.** Čtyři předchozí kříží ven ze skla, ledu, slizu nebo popela — to kind nebo druhý časovač pojmenovat umí. Tenhle kříží barvu do barvy, takže musí vedle časovače nést i **index** (`PhysicsBall.LockFromType`). To je nové pravidlo pro příští crossing a je zapsané u toho pole.
+- **Odkud se bere odcházející barva:** z `Type` koule, než ji resolve přepíše. Hra drží typ wildcardu rovný tomu, co ukazují sdílené hodiny, každý snímek, co je ve vzduchu — takže ten typ **je** barva, na kterou se hráč díval. Nic se `WildcardCycle` neptá podruhé a jedny hodiny z #330 zůstávají jedny.
+- **Běží jen když se barva opravdu změnila.** Wildcard, který nic nedoplní, si nechá, co ukazoval, a křížit barvu se sebou jsou dvě kresby jedné koule dělící si pixely mezi dva shodné vzhledy.
+- ⚠ **Dvě pasti při ověřování, obě moje:** (1) **bez `play` se `level=` neuplatní** — hra zůstala v menu a mé Space odklikly „Play", takže běžel úplně jiný level; (2) **přesměrovaný stdout se při `Stop-Process` nedopláchne**, takže `[shot]` řádky z konce běhu prostě chybí a vypadá to, že se nic nestalo. Spolehlivé je koukat na obraz, ne na log.
+- **Ověřeno obrazem, ne úvahou:** `wildcard=1` + střelba Space přes fokus na titulkový pruh. Magazín ukazuje **pět stejných koulí** — což je #330 fungující (jedny hodiny pro celou frontu), ne chyba. S crossingem dočasně na 4 s je rozmíchaná dvoubarevná koule v clusteru nepřehlédnutelná; při ostrých **0,5 s** se dá pořád chytit i na statickém snímku, takže v pohybu čte.
+- **0,5 s je argument, ne měření**, a je to majitelovo k posouzení ve hře: sklo kříží z průhledné, což je kontrast, jaký v rámu nic jiného nemá, a je hotové za 0,35 s; tohle začíná i končí na obyčejné kouli obyčejné barvy, takže potřebuje déle — a pořád je pod vteřinou, za kterou spadne skupina, kterou ta rána mohla doplnit.
+- `Game.sln` 0 chyb, LevelGen exit 0, ScoreSim exit 0. Doc: nový odstavec u crossingů v `docs/rendering.md`.
+
+**Nic dalšího si neberu.**
+
+**Dodatek: #421 i #437 jsou na `main`u** (merge `750419b` a `0bd3d66`) a zavřené. Obě větve smazané lokálně i na originu, push mainu proběhl před mazáním. Na sloučeném stromě: `Game.sln` 0 chyb, LevelGen exit 0 přes 120 levelů, ScoreSim exit 0.
+
+- ⚠ **`#437` a cizí `#412` sáhly do téhož `default:` v `Route` a do `PhysicsBall.cs`, a git je sloučil bez konfliktu.** To je přesně ten případ, kdy „sloučilo se to čistě" nic neznamená, tak jsem se podíval: pořadí v merged stromě je sklo → tání → **zamknutí** → mrtvá váha, tedy jak má být, a obě cesty se vylučují konstrukcí (zamknutá koule je mříž, mrtvá váha je uvolněná).
+- ⚠ **Vlastní falešný poplach, pro pořádek:** hlásil jsem si, že merge `lockFade` spolkl, protože `grep "if (lockFade > 0f)"` nic nenašel — ve skutečnosti je ta podmínka na řádku i s ochranou indexu, takže vzor neseděl. **Grep na přesný řetězec je špatná kontrola přítomnosti; hledat se má symbol.** Nic se neztratilo.
+- **Konflikt byl jen v žurnálu**, u obou mergů, a tentokrát na to mám skript — obě strany za sebou v pořadí vzniku.
+
+**Dnešní bilance téhle relace:** šest issue zavřeno (#450, #461, #452, #421, #437 a oprava čísel u #461), jeden nový obecný lever (`nofps`), jedno veřejné odvolání vlastního nálezu (padové glyfy) a jedna opravená publikovaná hodnota (2397 → 2552).
+
+**Co zůstává majiteli k rozhodnutí:** Donut pořád nečte jako donut a lék je otevřít pravidlo svislých pruhů (#317) — vlastní měřicí kolo; délka crossingu u wildcardu (0,5 s) je argument, ne měření; a `Trophy` leží na disku jako alternativa titulního snímku, kdyby #421 nestačilo.
+
+**Nic dalšího si neberu.**
+
+---
+
+## 2026-09-19 — Claude Code (notebook: #465 čitelnost horního bloku výsledkové stránky)
+
+**Beru si #465**, které mi druhá instance uvolnila jako poslední ze své dávky — a ohlásil jsem ho **předem**, což je poučení z dnešní kolize na #466. Větev `465-result-page-plate`, commit `f867025`. **NENÍ v mainu.**
+
+- **Snímek „před" ukázal víc, než issue popisovalo.** Nad tropickou oblohou nejsou nečitelné jen ty dvě řádky, které majitel jmenoval — **nečitelný je i nadpis** („THE GALLERY" je bílé písmo v bílém mraku). Rozšířil jsem to tedy na celý horní blok a napsal proč: opravit řádky pod nadpisem, který zůstane nečitelný, by bylo divné půlřešení.
+- **Vybral jsem stín, ne plate, a obojí jsem vyfotil, jak issue žádalo.** Plate má strukturální problém, který issue nepředvídalo: **mezi řádkou levelu a „New best" stojí řada hvězd**, takže „plate pod dvě řádky" jsou nutně **dva** plate, a s rozpisem skóre jsou to tři tmavé bloky na jedné stránce. Vyfoceno: varianta s plate navíc **nechává nadpis přesně tak nečitelný, jak byl**, a posouvá hvězdy dolů.
+- **Stín je slovník, který hra už má** — HUD to řeší o obrazovku vedle stejně („text si nese svoje podložení a svůj stín"). Tohle mi dnes vyšlo potřetí: nejlepší odpověď bývá ta, kterou repo už jednou vyslovil jinde.
+- ⚠ **Myra nemá obrys**, kreslí label v jedné barvě. Takže jsou to **dva labely** v jednom panelu, tmavý posunutý a kreslený první. `SyncShadows` kopíruje text i viditelnost dolů až potom, co stránka všechno vyplnila — **jedno přiřazení na řádku**, takže na nově přidanou řádku nejde zapomenout; to je vada, kterou tahle stránka udělala s barvami už třikrát (#238, #313, #199).
+- ⚠ **Panel potřebuje padding rovný posunu**, jinak se posunutá kopie měří na rozměr popředního labelu a **ořízne se zprava a zdola** přesně o ten posun.
+- **Ověřeno i tam, kde stín mohl uškodit:** nad **vesmírem** (tmavé pozadí, kde by přidaná tma mohla číst jako svatozář — nečte) a na **prohře**, jejíž řádka s důvodem stojí v témže bloku. Při 1600×900 i 1920×1080.
+- `Game.sln` 0 chyb. Doc: nová odrážka v sekci o rozostření v `docs/game-feedback.md` plus opravená věta u #184, která tvrdila, že ta řádka je „thin against a bright sky" — už není.
+
+**Nic dalšího si neberu.**
+
+**Dodatek: #465 je na `main`u (merge `4c24df3`) a zavřené.** Větev smazaná lokálně i na originu, push mainu proběhl před mazáním. Na sloučeném stromě: `Game.sln` 0 chyb, LevelGen exit 0, ScoreSim exit 0.
+
+⚠ **Majitel změnil způsob práce a je to trvalé zadání, ne dnešní výjimka:** *„Chci vždycky mergnout"* — **neptat se na merge**. Hraje jen na desktopu a jen když má čas; smyčka je „agent vybuší co nejvíc tasků do mainu → majitel si jednou za čas přečte celý diff jako člověk, zahraje si a založí nová issues". Práce ležící na větvi nebo otázka čekající na odpověď tu smyčku brzdí o hodiny, a jeho odpovědi jsou beztak z drtivé většiny „approve, continue". Zapsáno do paměti (`bs3d-issue-flow`), kde stálo pravidlo opačné. **Ptát se má smysl už jen na věc, která je čistě vkus a kterou snímek nerozhodne** — a to až s oběma variantami postavenými a vyfocenými.
+
+---
+
+## 2026-09-19 — Claude Code (notebook: dávka #419, #418, #417, #431, #425 — ohlášeno předem)
+
+**#419 hotové, commit `1724098`.** Jeskynní kapitola je jediná, která zůstala na výchozím plážovém míči, zatímco každá jiná má materiál vybraný k pozadí. Teď je v **mramoru**.
+
+- ⚠ **Ta konstanta měla napsané DVA důvody a vypořádat se s nimi bylo víc práce než ta změna.** První („nejprostší styl nekonkuruje pointě bloku") **platí dál a ukazuje sem** — mramor je tichý, jedna barva a žíla; vyfoceno proti vinylu je to naopak **vinyl, kdo je z těch dvou rušivější**, protože jeho pět bílých klínů rozřeže každou kouli na pásy dřív, než se přečtou barvy levelu. Druhý („vinylův emisní tep byl navržen proti tmavým pozadím") **neobstál při ověření**: tep není vinylův, **`BallEmission` nese každá koulová technika povinně** (bod 2 ve vlastním seznamu `InstancedModel.fx`) a `MarblePS` ho nese taky.
+- **Vyfoceny čtyři styly na Grottu v nativním rozlišení, než jsem vybral:** vinyl, mramor, gem, led. Led cluster vybělí a patří hoře a Gridu; gem je rušivý a patří neonu.
+- **Deset souborů, změnilo se v nich jen pole `balls`** — mapy jsou bit po bitu shodné (ověřeno porovnáním proti HEAD).
+- ⚠ **Nové od protistrany, platí pro všechny moje další captury:** existuje `sceneseed=` a **každé spuštění losuje rozmístění** (města, les, savana, palmy, Grid). Každý A/B pár musí seed pinovat, jinak porovnávám dvě různá města. `sceneseed=0` je to, co je vydané.
+
+---
+
+## 2026-09-19 — Claude Code, bs3d-f0 (dvě města, procedurální seed, #476; beru #448)
+
+**Majitel dal stálý pokyn: mergovat bez ptaní, brát další issue a jet, dokud nedojde limit.** Důvod je jeho vlastní: je na hru sám, limit účtu je úzké hrdlo (proto střídá víc účtů) a celý diff si stejně čte jako člověk potom. Zapsáno do paměti; přestávám se ptát.
+
+### Dvě různá města (merge `b25566e`)
+
+Majitelův nález: „city a neon city mají úplně stejné budovy — na stejných místech, ve stejné velikosti." Příčina byla jedna konstanta: **seed byl natvrdo v každém ze tří exe**, takže obě scény generovaly totéž město a lišily se jen světlem. `CitySceneConfig` nese oba layouty, `City` bere scénu místo seedu, hostitelé přegenerují při přechodu mezi nimi. Neonové: druhý seed, blok 25/30, ulice 7,5/9, poloměr 16/14, roofline 46/34, rozptyl 36/26, taper 2,6/1,8. **Změřeno 2322 budov proti 1777.** Liší se jen layout — fasády, okna a neon zůstaly. ⚠ `BaseY` obě sdílejí schválně: jinak by výpusť ostrova v každém dosahovala na jinou podlahu.
+
+### Procedurální seed scény (merge `62f7ba8`)
+
+Majitelovo zadání: „vyzdvihnout procedurálnost, aby to pokaždé vypadalo jinak." Jeho vlastní rámec, který stojí za zapamatování: **u procedurální hudby to neobstálo, u scény ano, protože obraz nemá „zní / nezní" a scény jsou statické.**
+
+- **Jeden offset, rolnutý jednou za spuštění**, přičtený ke všem seedovaným uspořádáním: obě města, střechy, les, auroří háj, savanní osázení, palmy, Life desky Gridu.
+- ⚠ **Offset, ne seed.** Každý generátor si nechává svou konstantu. Jeden společný seed by všechny scény přelosoval ze stejného čísla a tiše zkoreloval uspořádání, která spolu nesouvisí.
+- ⚠ **Losuje se jednou, ne při každé stavbě.** Krok kvality i změna scény generátor pouštějí znovu a musí dostat **stejné** město — silueta přeskládaná tím, že hráč otevřel Nastavení, čte jako chyba.
+- ⚠ **`sceneseed=` není vymoženost, drží nástroje.** Dvojice snímků i měřené A/B musí v obou půlkách koukat na stejné uspořádání. Obě exe tisknou `[sceneseed] <n>`. **Změřeno: `sceneseed=0` postaví 1777 budov a 7075 kusů střešní techniky — přesně dosavadní čísla — dvakrát; tři rolnuté běhy 1812/1803/1860 a 7096/7084/7416.** Editor losuje a pin nemá schválně.
+
+### #476 — cestička obchází strom (merge `9004991`)
+
+Nález, který **zviditelnilo právě to losování**: dosavadní stav byl jeden hod kostkou, kterému to náhodou nevadilo.
+
+- Trasy kreslí shader jako vrstevnice šumu, rostliny sází CPU. **Ani jeden o druhém nevěděl.** `TrailWarpField` je malé CPU pole „kterým směrem uhnout", kterým se **domain-warpuje vzorkování** trasy: bod u rostliny vzorkuje šum, jako by stál dál, takže vrstevnice je odtlačena a přijde jako **oblouk**. Vyříznout trasu u stromu byla druhá možnost a nevzal jsem ji — cesta, co začíná a končí, je jiný špatný obrázek.
+- ⚠ **Oblouk je široký a začíná daleko, a to je majitelova druhá poznámka, ne vkus:** „lidé mají oči a vyhýbají se už z dálky." Dosah **34 jednotek za okrajem rostliny**, odstrčení 16. Odpuzování začínající u kůry by četlo jako zlom na poslední chvíli — tak obchází strom mravenec, ne člověk.
+- **Sčítá se, nebere se nejbližší:** dva stromy u sebe odtlačí cestu kolem **obou**; nejbližší-only by ji poslal do mezery mezi kmeny, což je jediná stopa, kterou by člověk nešel.
+- ⚠ **Past, kterou jsem zaplatil jedním párem snímků:** uniformy jsem nejdřív tlačil v `ApplySavannaParameters`, jenže **ta běží dřív než osázení**, takže textura byla vždycky null. Snímky s vyhýbáním „zapnutým" a „vypnutým" vyšly identické — protože bylo vypnuté v obou. Tlačí se teď tam, kde pole vzniká.
+- **Ověřeno** shora na třech seedech a proti témuž snímku s dialem 0. **Zbývá druhá půlka #476:** osázení pořád o trasách neví, takže rostlina může padnout na cestu, kterou warp neohnul dost (hustý shluk, cesta mezi dvěma kmeny). Chce to CPU zrcadlo šumu trasy.
+
+**Sezení dnes ještě: kolega `github-59` zavřel #450, #461, #452, #421, #437, #465 a bere #419, #418, #417, #431, #425. Nová session `game-0c` (Sonnet, tentýž stroj) bere #475 a pracuje ve worktree, aby nesahala na sdílený checkout — správně.** ⚠ Prý existuje třetí session, Opus na notebooku přes Remote Control; z tohoto stroje **není vidět** ani v `ListAgents`.
+
+**Beru si #448** (přesné míření škube při A/D). Vybral jsem si to sám na sebe: `combine` karta z #460 vede nového hráče přímo do toho gesta, takže ta vada je teď první věc, kterou kombinace učí.
+
+---
+
+**#418 hotové, commit `804f9a0`.** Chest byl doslova vlajka: tři široké svislé pásy červená/zlatá/černá přes celou přední stěnu.
+
+- ⚠ **Pásování není vada a nesahal jsem na něj** — `(x/2)+(z/2)` je Mosaicovo pravidlo bez patrového členu a drží, aby se dva stejnobarevné sloupce nikdy nespojily přes patra. **Vadné byly barvy.**
+- **A ty pásy jsou zároveň řešení:** široké svislé pásy **jsou** prkna, jakmile mají barvy bedny. Hnědá (dřevo), stříbrná (železné pásy), oranžová (mosazné kování). Zároveň to poprvé odpovídá na druhou půlku majitelovy otázky — proč se to jmenuje Chest.
+- **Strukturálně no-op, ověřeno proti číslům, která si design sám zapsal** (630 koulí, 30 skupin, 12 v párech, 0 přebarvených) — sedí do posledního.
+
+**#417 hotové, commit `722ab1d`.** Pylon měl šest barev, z toho čtyři sytá primárka (červená, modrá, zelená, magenta) — jedna na nohu, aby se nohy rozeznaly. Nikdo tu šestici nikdy nevybral jako *sadu*.
+
+- ⚠ **Nejcennější je to, co NEJDE: počet barev snížit nelze, a je to změřené.** Zjevné řešení (dvě barvy v čepici úhlopříčně, nohy sjednotit — nohy se navzájem nedotýkají, takže se nic neslije) jsem postavil a **generátor ho odmítl jednou řádkou: čepice je KOTVICÍ KURZ**, takže počet barev na ní je spodní mez počtu ran. Při čtyřech čte sonda „no fewer than 4"; při dvou **vyčistí celé pole DVĚ rány** — čepice spadne a všechno pod ní osiří. Řezat čepici je změna obtížnosti převlečená za paletu.
+- ⚠ **Dvě další omezení vypadla až ze stavby a jsou teď napsaná u konstanty:** čepice nesmí vzít inkoust prstenců (obojek prstenců běží i = 14..16, čepice vlastní 16, takže buňka obojku na 15 leží přímo pod čepicí — sdílení je slije do skupiny 108 koulí), ani bílou horní pás nohou (ta jde až do 15 a čepici potkává na 16). Dno je tedy **čtyři inkousty čepice + jeden prstence + jeden vršky nohou = šest**.
+- **Každý inkoust dál slouží jedné noze a jedné výseči čepice**, a to není estetika: drží to čtveřici vyrovnanou na 48–68 koulích. Sjednocení nohou projde všemi gates stejně, ale nechá tři barvy čepice na 16, 24 a 24 koulích.
+- **Strukturálně čistá záměna identit:** 27 skupin před i po, nejhorší rána 96 (16 %) před i po, zátěž kotvy 34,0, vyčištění ≥ 4. Počty po barvách jsou tatáž multimnožina, jen přeskládaná.
+
+**#431 zavřené BEZ změny kódu — bylo hotové a jen nezavřené.** Postaveno ve třech kolech, poslední merge `1f61fd2`; issue mělo nula komentářů. Než jsem začal psát, našel jsem v `Cannon.cs` `ElevationStrain`, `ELEVATION_OVERSHOOT`, pružinu i `ElevationRefusesShot`, všechno s odkazem `(#431)`.
+
+- ⚠ **Testbedem to ověřit nejde a je to napsané v samotném designu:** `aim=` **nastavuje** pózu přes `AimTo`, kdežto strain se schválně zvedá **jen ze vstupu**. Ověřoval jsem to tedy ve hře — myš držená nahoru proti stropu přes zafokusované okno, snímky před tlakem a během něj.
+- **Změřeno na uložených snímcích** ve stejném okně pixelů podél paprsku, průměr R−B jasných pixelů: v klidu **−23** (modře laděná bílá paprsku), při tlaku **+17** a **+22**. Skok ~40 bodů, okem čárky přecházejí z bílé do oranžovočervené.
+- **Poučení do dalšího výběru:** než sáhnu na issue, které vypadá jako „chybí funkce", stojí za to `grep` na číslo issue v kódu. Tohle bylo hotové a druhá instance dnes zavřela čtyři další ve stejném stavu.
+
+---
+
+## 2026-09-19 — Claude Code, bs3d-f0 (#447, #472, #406 na mainu; #448 jen diagnóza)
+
+⚠ **Nejdřív poučení o sobě:** napsal jsem „beru další issue a jedu dál" a pak jsem skončil tah. Majitel mi musel napsat, abych pokračoval — což je přesně to, co jeho stálý pokyn zakazuje. **Ohlásit pokračování a skončit je horší než se zeptat**, protože to vypadá jako práce. Od té zprávy jedu ve stejném tahu dál.
+
+### #448 — diagnóza hotová, oprava NE, nic nezkommitováno
+
+- **Příčina je aritmetika, ne hypotéza:** `TargetForRefresh(75)` = `ceil(75 × 1,03)` = **78**, panel má 75 Hz, kompozitor ukáže nejvýš jeden snímek na obnovu → **tři snímky za sekundu se zahodí**, a zahozený snímek je vynechaný krok všeho, co se hýbe. „Škube to párkrát za vteřinu" na číslo.
+- ⚠ **A je to vidět na každém snímku, co tenhle projekt kdy udělal:** v rohu stojí `FPS: 78` na 75Hz panelu. Doc limiteru navíc obhajuje tu rezervu **jen v pojmech „snímek je připravený"**, nikdy v pojmech pohybu — a tohle je případ, kde se to rozchází.
+- **Zkusil jsem `DwmFlush` (pacing podle kompozitoru) a vyšlo to hůř: 33 FPS proti 78.** Přesunutý na začátek snímku přestal blokovat vůbec.
+- ⚠ **Past, kvůli které tomu měření nevěřím a proto jsem nic neposlal:** `benchmark.ps1` **posílá vždycky `nocap`**, takže každý běh přes něj je *neomezený*, pokud se nedá `fpscap=`. Dvě ze tří mých čísel tedy neměřila limiter vůbec. **Změnu tempa snímků celé hry na zmatených datech poslat nejde.** Do issue jsem napsal diagnózu, tři varianty (margin 1,0 je jednořádková a vezme většinu výhry) a postup, jak to měřit bez toho harnessu.
+
+### #447 — kapitolní záběr Louky (merge `b7c2d13`)
+
+**První ustavující záběr celé hry byl zelený koberec bez obzoru.** Dvě chyby najednou: look-at 70 jednotek proti `ClearingRadius` 95 byl **uvnitř mýtiny**, takže záběr mířil na placku a kopce začínaly až za ním; a **elevace se měří od středu tour**, což je kamerový cíl levelu nahoře u clusteru, takže šest stupňů od *toho* pořád jede vysoko nad loukou, jejíž zem je 14 pod rovinou arény.
+
+Oprava je obojí: look-at jde **na svah** (`ClearingRadius + ClearingTransition × 0,55`) a elevace jde **do záporu** (−7°), což je to, co objektiv doopravdy sníží. Kytky nešly ukázat nikdy (rozteč 2,2, velikost 0,22) — „ať je vidět tráva" jsem četl jako stínování trávy: špičky, trsy, větrné pruhy, prosvítání, a to všechno čte při nízkém tečném úhlu a nic z toho shora. Starý komentář tvrdil opak a je nahrazen, ne ponechán.
+
+### #472 — výběr levelu (merge `c889867`)
+
+Dlaždice 440×300 → **330×210**, neкapitolová mřížka šest na řádek místo čtyř, plate **zarovnaný dolů**. Je to jediná stránka ve hře stažená dolů a komentář říká proč: ostatní jsou vystředěné, protože za nimi není nic, co by bylo součástí odpovědi — tahle má za sebou level, na který se hráč dívá.
+
+- **`BackdropScreen.FramingLift`** snižuje cíl širokého ramene pod střed clusteru, což cluster ve snímku zvedne. ⚠ Je to **zlomek půlky výšky snímku**, ne světové jednotky, a na jednotky se převádí tam, kde je známý odstup i zorný úhel — zdvih ve světových jednotkách by znamenal jiný podíl obrazu na každém poměru stran a u každé velikosti mapy.
+- **`HoldWideLeg`** zastaví let na konci širokého ramene, takže každá dlaždice se ukazuje ze stejného ustavujícího otočení místo zevnitř koulí. Nezmrazí rozjetý nálet (to by objektiv seklo) a nezastaví obíhání.
+
+### #406 — tour na vyžádání (merge `c46de98`)
+
+Tour se dosud pustil jen jednou, automaticky, při stavbě prvního levelu kapitoly — takže **jedenáct z dvaceti pozadí nešlo vidět nikdy**, protože v nich žádná kapitola nezačíná. Teď ho pustí výběr scény v menu. ⚠ **Je to týž `ChapterIntro`**, ne druhý let postavený, aby vypadal stejně: co si majitel prohlédne, je to, co uvidí ve hře. Za „herní pózu" se dává **živý objektiv letu**, takže poslední klíč tour je tam, kde kamera menu už stojí. Stránka se na dobu letu schová (jinak je to chyba z #472 o stránku vedle) a vrátí se.
+
+⚠ **Argument `tour` není pohodlí:** syntetické kliknutí do tohohle okna nikdy nedojde, takže bez něj přehraný tour **nejde ze skriptu vyfotit vůbec**. Je to zároveň nástroj pro #433.
+
+**Beru si #433** (neonové město: proletět mezi věžemi místo vzdáleného přeletu) — právě jsem si na to postavil měřidlo.
+
+---
+
+**#425 hotové, commit `2e769f4`.** Barevná záře příští koule v ústí byla **camera-facing billboard**, takže její viditelný tvar určovalo, co zrovna zaclonila hlaveň — majitelova výtka „pokaždé to vypadá jinak" popisovala techniku fungující přesně podle návrhu. Vyfoceno přes čtyři natočení: beztvará šmouba, jednou přes půl obrazu, jindy dvě oddělené skvrny.
+
+- **Náhrada je geometrie přišroubovaná k hlavni:** `CannonRig` soustruží pásek oceli kolem trubky těsně za ústím, svítící barvou příští rány. Otáčí se s dělem, takže hráč čte **jeden prstenec, jen různě zkrácený**.
+- ⚠ **Kolem trubky, ne na čele, a je to vynucené:** z herní kamery je dělo vidět zezadu, takže **čelo ústí míří pryč** a kotouč vsazený do něj by byl větší část levelu neviditelný. To jsem si uvědomil při návrhu, ne až po prvním snímku.
+- ⚠ **Dvě čísla vyfocena, ne vymyšlena.** Při vlastní 0..1 tintu sedí pásek **pod prahem záře** a čte jako mírně obarvená ocel — přesně ta „faint ring nobody reads", před kterou varuje poznámka původního hala. Při jeho vlastních **3× je nepřehlédnutelný a BÍLÝ**: trojnásobek syté barvy přetlačí všechny kanály přes 1, tonemap je slije a to jediné, co má pásek říkat, zmizí první. Je tedy **normalizovaný na vlastní peak a vytažený na 1,35** — září jen dominantní kanál, odstín zůstane. Normalizace navíc dává všem ranám stejný jas bez ohledu na váhu jejich barvy, což značka chce a světlo ne.
+- **S předmětem odchází i půlka #321:** halo se muselo v precise aimu **zmenšovat**, protože kotouč ukotvený u koule a měřený v poloměrech koule leží přesně přes buňky, kvůli kterým se hráč naklání. Pásek na dělu nezakrývá nic, takže `MUZZLE_GLOW_ADS_RADII` mizí, místo aby dostal obdobu. Tlumení síly zůstává.
+- **`BallGlow` i jeho shader smazány** — hra byla jejich jediný konzument, podle pravidla, kterým v #76 odešel bílý texel. Všechny tři exe staví.
+
+---
+
+## 2026-09-19 — Claude Code, game-0c (desktop, Sonnet, #475 splash blend — hotovo a v mainu)
+
+**#475 hotové, merge `7e3089f` (commit `b8bbc3c`), issue zavřená.** Majitel přímo: prolnutí 2D loga do 3D wordmarku při startu „se neprolne úplně čistě, okraje přesně nepasují." Pracoval jsem ve vlastním worktree (`C:\Users\panrd\source\repos\BS3D-475`), protože bs3d-f0 měl v tu chvíli rozdělané #476 přímo ve sdíleném checkoutu — disjunktní soubory, ale sdílené HEAD by riskovalo jeho commit na mou větev. Merge plumbingem (`merge-tree` → `commit-tree` → `push sha:main`), bez sáhnutí na working tree.
+
+**Dvě změřené, ne odhadnuté příčiny, obě opravené:**
+
+- ⚠ **Nic v `TitleWordmark`u neváže ŠÍŘKU otevřené kompozice na obrázek — jen její svislý rytmus.** `LOGO_LINE_GAP`/`LOGO_BADGE_GAP`/`LOGO_BADGE_SCALE`/`LOGO_DISC_MARGIN` jsou všechny změřené z bitmapy, ale řádky se skládaly na **menu vlastním** trackingu (0.36), který o obrázku nic neví. Spočteno ručně z `LetterShapes`' vlastních šířek písmen: blok vychází 6,66 cap-height široký, 3,81 vysoký, W/H=1,749, proti obrázkovému inkoustu 1977×1211=1,633. `Draw`'s fit bere těsnější z šířky/výšky, takže vyhrála šířka a písmena reálně vyšla na **93 %** výšky obrázku — tři řádky stlačené o 7 % se sčítají a u „3D" už to čte jako zdvojené písmo. `LOGO_TRACKING=0.32` (jen otevřená kompozice, menu beze změny) stáhne poměr na 1,686 — ne přesně (přesná hodnota 0,2862 podlézá vůli, kterou potřebují dvě sousední obrysové linky, než se přestanou dotýkat: podlaha je `2*(TUBE_RADIUS+OUTLINE_WIDTH)=0.304`), ale nedostatek klesl ze 7 % na 3 %.
+- ⚠ **Písmena se hýbou pod NEHYBNÝM obrázkem, a nikdo to netlumil.** Reveal (`REVEAL_FROM`) byl kvůli přesně tomuhle už jednou zmenšený (#454, „a word growing under a picture that stays put reads as two things"), ale houpání (yaw/pitch sway), vlna a otočka každého písmene a tep škály na to nikdy neslyšely — běžely na wall clocku bez ohledu na to, co je pod nimi. `TitleWordmark.Draw` bere nový parametr `stillness` (1=drženo, 0=volně), `BackdropScreen` mu posílá `SplashPage.LogoAlpha` (blednutí obrázku) jen když je splash nahoře — takže písmena stojí stejně nehybně jako obrázek, dokud je obrázek vidět, a ožijí přesně na jeho vlastní křivce. `BOW_DEPTH` schválně beze změny (tvar, ne pohyb).
+- **Ověřeno fotograficky před/po na několika bodech prolnutí (2,72–3,50 s)**, ne úvahou: zdvojený kroužek/písmo u odznaku „3D" i zdvojené „R" ze SHOOTER zmizely, čistá otevřená kompozice na 3,50 s (pohyb zpátky na 100 %) nemá nový defekt z těsnějšího trackingu. **Vlastní past:** model (Gemma 4) na celý snímek řekl „žádný rozdíl" — až ořez na samotný odznak (`-Rect`) dal správnou odpověď (zdvojení v prvním, čisté ve druhém). Skillův vlastní varovný řádek („crop to what the question is about") platil doslova.
+- Zkoušeno na Low/Medium/High kvalitě (geometrie stejná, jak se čekalo — nic tady není quality-gated).
+
+**⚠ Past pro příště, stála skoro hodinu: `shot=` s VÍCE časy v jednom běhu Game.exe se občas po 3–4 snímcích tiše zastaví — žádná chyba, žádný `[shot] failed`, `[fps]` řádky běží dál normální rychlostí, proces `Responding: True`. Nesouvisí s rozlišením ani s tím, kam v ději časy padnou (zkoušeno v okně startu i daleko po něm). Obchází se spuštěním **jednoho procesu na jeden `shot=`** — spolehlivě fungovalo přes dvě desítky běhů.** Testbed v tomhle problém nemá (jeho vlastní skill dokumentuje víc časů v řadě jako běžné).
+
+⚠ **Oprava/upřesnění nálezu výš, od bs3d-f0: `_wallClock` startuje od PRVNÍHO `Update`, ne od spuštění procesu (ověřeno v kódu — `BS3DGame.Update`'s `_wallClock += elapsed` je bezpodmínečné), takže každá položka schedule padne teprve tolik sekund PO načtení obsahu.** Sedm časů v jejich běhu dalo sedm souborů, když nechali víc reálného času — takže „zaseklo se" byl u nich prostě „zabité příliš brzo". **U mě to ale nesedí beze zbytku:** i 28s čekání (viz test výš) dalo pořád jen čtyři soubory ze schedule 2,60–3,60 (rozpětí jen 1 herní sekundu) — pokud by šlo čistě o načítání, 28s by na to muselo stačit, protože samostatné jednosnímkové běhy tou dobou spolehlivě doběhly za ~10s. Nejpravděpodobnější vysvětlení, nedokázané: souběžná GPU zátěž od druhé session (bs3d-f0 zrovna dělal #448) mohla načítání natáhnout přes mých 28s zrovna v těch bězích. **Řešení stojí: víc reálného času, a když to nestačí, jeden proces na snímek jako záloha.**
+
+**⚠ A druhá past, levnější: `width=`/`height=` ze `screenshot`/SKILL.md jsou TESTBED, ne Game — `Program.cs` (Game) je vůbec neparsuje, tiše se ignorují a padne default 1600×900.** Skript hlásí úspěch a vrátí snímek, který vypadá rozumně, jen v jiném rozlišení, než jaké bylo požádáno. Skutečné jiné rozlišení Game.exe skriptovaně nejde nastavit vůbec — `fullscreen` běží na desktopové (tady 3840×1600), okenní resize přes `SetWindowPos` po startu jsem zkusil a neuchytilo se (buď na to okno v tu chvíli ještě neposlouchá, nebo chce `WM_EXITSIZEMOVE`, ne holé `SetWindowPos` — nedozkoumáno). Oprava #475 na tom nestála: je celá v podílech rámu a NDC kotvě, žádná pixelová konstanta, takže rozlišení nezávislost je spíš logická než vyfocená.
+
+**Nic dalšího si neberu.**
+
+---
+
+**game-0c (Sonnet, tentýž stroj) bere #457** — pořadí deseti levelů Meadow tak, aby žádný nepotřeboval ovládání, které tutoriál ještě neučil. #458 a #459, na kterých #457 čeká, jsou obě zavřené, takže je odblokované. Pracuju ve vlastním worktree (`BS3D-457`), soubory `Tools/LevelGen/Program.cs`, `AimReachability.cs`, `Game/Screens/Tutorial.cs`, `docs/game-feedback.md` — disjunktní od bs3d-f0's #448 (`BS3DGame.cs`, `Program.cs` v Game, ne LevelGen).
+
+**Dodatek, pár minut nato: #457 STÁHNUTO — kolize s bs3d-f0, který ho měl už dřív dnes a vlastní zadání nepřežilo měření.** Zpráva od nich mě zastavila dřív, než jsem stihl cokoliv napsat (přečetl jsem jen `Tutorial.cs`, nic v LevelGenu ani `AimReachability`u). **Jejich nález je přesně to, co tenhle deník chce: negativní výsledek jako nález, ne jako nic.** `AimReachability.CheckFromStand` (dělo od stojanu, žádné A/D, žádné W/S) dá **KAŽDOU** kouli v Meadow zásažitelnou — a na nejtěžších tvarech kampaně (Column 11×11×34, Horn, Colossus, Highwall) taky. Je to tautologie ze stavby: pole svírá od stojanu asi 20°, dělo má kužel 45° (`Cannon.MaxTraverse`), takže žádná buňka nemůže být mimo něj. Druhý nástroj (`ClearProbe` se záplavou z jedné strany) dal identické „nejkratší vyčištění" ze všech směrů, protože záplava po sousedství **nemá směr** — prstenec prázdných buněk kolem shluku spojí blízkou stěnu se vzdálenou. Oba nástroje **vráceny zpět**, ne odeslány — „check, který nemůže selhat, není check". Jejich doporučení: zavřít issue, nebo přerámovat na otázku pro playtest (pocit z hraní, ne měřitelná veličina) nebo na vlastní issue pro směrový ray-cast model (drahý — tisíce paprsků, přepočet po každém řezu). Větev `457-meadow-order` i lokální branch smazané, nic nebylo commitnuté. **Poučení pro příště, které si beru osobně: před claimem issue číst i JEJÍ KOMENTÁŘE na GitHubu, ne jen popis** — žurnál může zpoždovat o hodiny, komentář na issue ne.
+
+---
+
+**game-0c (Sonnet, tentýž stroj) bere #456** — hudba naskakuje na plnou hlasitost, chce to fade na každém startu i stopu kromě vlastního bezešvého loop wrapu. Přečetl jsem komentáře na issue předem (jen majitelův odkaz na #467, žádný cizí zásah). Soubory: `Game/Audio/GameMusic.cs`, `Game/Audio/MusicFade.cs`, `docs/game-feedback.md`.
+
+**#414 hotové, commit `a04fbcb`.** Majitel hlásil, že na Causeway hráčům docházejí koule; design doc přitom tvrdil, že rozpočet je změřený a bezpečný, a sonda četla 0 z 5 prohraných pořadí. **Obojí byla pravda** — sondy se ptá, jestli cluster **přežije**, ne jestli rozpočet **vyčistí**.
+
+- **Obecná půlka první:** tabulka teď pojmenovává **clear margin** — kolik ran nechalo nevyčerpaných to nejdražší pořadí, které level opravdu vyčistilo — a pod `CLEAR_MARGIN_TO_REPORT` (6) ho značí **THIN**. To číslo tam bylo celou dobu (`SagProbe.Run.Shots`) a tabulka ho i tiskla, ale nikdo ho neodečetl od rozpočtu, takže level ránu od kraje vypadal stejně jako level s dvaceti. **Causeway měřil 1.**
+- ⚠ **Bere se jen z pořadí, která vyčistila.** Běh končící `OutOfShots` spotřeboval rozpočet z definice, takže zahrnout je znamená ocenit každý level na nulu a neříct nic.
+- ⚠ **Oprava tenkého levelu zvedá rozpočet A kadenci skla SPOLU**, a to je celá pointa, ne přídavek: sklo klesá jednou za `CeilingStep` ran, takže osm ran navíc při nezměněném kroku 8 koupí **clusteru další sestup** — 0,60 blíž k čáře — a rezerva, o kterou majitel žádal, by byla zaplacena tlakem, o kterém nemluvil. 52 ran při kroku 8 → **60 při kroku 10**: šest sestupů tak jako tak, součet z #288 beze změny.
+- **Změřeno:** clear margin **1 → 9**, propad 0 z 5 před i po, vzdálenost od čáry 3,54 → 3,61 (uvnitř vlastní nestability sondy).
+
+**#456 hotové, merge `c2c31ca` (commit `d26b139`), issue zavřená.** Dosud fadoval jen ODCHÁZEJÍCÍ konec při přechodu mezi dvěma skladbami ("fading the outgoing side alone already is the crossfade") — pravda pro handover, ne pro první start: téma prvního levelu i lobby loop naskakovaly na plnou hlasitost od vzorku jedna, a od #443 je smyčka vyříznutá z těla renderu bez předehry, takže první vzorek je rovnou plnotučný groove.
+
+- **`MusicFade` dostal `Arrive(seconds)` vedle `Reset()`** — nastartuje instanci potichu a vede ji k plné, místo aby na ni skočila. `GameMusic` má nové `_themeFade` (vedle existujícího `_retiringFade` pro odchod), zapletené do `ThemeVolume` stejně jako ostatní.
+- ⚠ **`Arrive()` se volá přesně tam, kde strana FAKTICKY začne znít, ne kde si o to volající řekl.** Past byla v `PlayMenu()`: originál volal svou "arrival" větev bezpodmínečně, i když `_menu` byl ještě `null` (soubor se ještě nenačetl) — kdybych tam `Arrive()` zavolal rovnou, hodiny rampy by běžely od chvíle, kdy o hudbu někdo požádal, ne od chvíle, kdy fakticky spustila, a pomalejší načtení než `MENU_ARRIVAL_SECONDS` by pak otevřelo rovnou na plno. Řešení: tři místa volají `Arrive()` — `Advance()`'s čerstvý řetěz, `PlayMenu()`'s vlastní `Play()` (když je soubor už načtený), a `Update()`'s dokončení načtení (když nebyl).
+- **Výjimka (smyčkový wrap) je strukturálně netknutá** — feed v `Update()` (`PendingBufferCount < 2`) na `_themeFade` vůbec nesahá, `Arrive()` běží jen při vzniku nového řetězu.
+- ⚠ **Ověřeno čísly, ne uchem (to nemám):** dočasný debug print (odstraněný před commitem) ukázal obě rampy hladce stoupat z ~0 na 1,000 přesně, se stavem `Playing` po celou dobu (ne ticho-pak-skok), a zastavit se bez dalších zápisů po dosažení cíle. `THEME_ARRIVAL_SECONDS=1.2`, `MENU_ARRIVAL_SECONDS=0.5` jsou issue's vlastní navržené výchozí hodnoty, ne měření — přesné délky jsou majitelovo ucho.
+- **Schválně nesáhnuto: `Stop()` (konec levelu) pořád stopne mrtvě** — issue sama žádala nechat na majiteli, jestli "každý stop" má zahrnovat i tenhle (důvod je ticho, do kterého dopadají ohňostrojové rány).
+- `Game.sln` 0 chyb, 0 varování.
+
+**Nic dalšího si neberu.**
+
+---
+
+**game-0c (Sonnet): #377 (gamepad neumí traverzovat/chodit) STÁHNUTO bez psaní kódu — je to už dávno hotové.** `GameplayScreen.Input.cs` má levou páčku napojenou na `Orbit`/`Advance` (řádky 124–136) jako vedlejší produkt merge #189 (`57d7505`, 2026-09-18 — deset dní PO založení #377, proto se nikdo neprovázal). `_carriageMoving` pro #460's combine lesson je taky správně zapojené. Nález i uzavření napsané rovnou do komentáře na #377 (ne jen sem) — bs3d-f0's dobrá rada z dneška: issue vlákno je to jediné místo, které si přečtou všechny tři session, žurnál a přímé zprávy ne vždy stihnou včas. Neověřeno na skutečném gamepadu — nemám ho, bs3d-f0 taky ne, zapsáno jako otevřené, ne jako hotové.
+
+**Nic dalšího si neberu.**
+
+---
+
+**#395: vzal jsem si ho, zjistil, že je z velké části hotové, a zavřel tři ze čtyř otevřených položek MĚŘENÍM místo kódem.** Nic se nemergovalo, větev zahozena prázdná.
+
+- **„Náboj v ústí je světlejší" už nereprodukuje.** Ze tří příčin, které issue pojmenovalo, byly dvě opravené na něm samotném a **třetí (halo) odešla s mým #425**. Změřeno metodou, kterou si issue samo zvolilo — průměr **nejjasnější desetiny disku**: náboj v zářezu **182,6** jasu proti 187,7 / 209,0 / 212,9 u koulí clusteru. Je ze všech čtyř **nejtmavší**, ne nejsvětlejší.
+- ⚠ **Caveat jsem napsal, ne zametl:** ty řádky nejsou táž barva (frontu nejde připnout), takže to ohraničuje pořadí jasu, neměří to sladěnou dvojici.
+- **Výkon: přidaný `pow` je neměřitelný.** `pow(hue, LavaHuePower)` vyndán a vrácen, Testbed na Ventu (393 lávových koulí), ssaa 2: 43,63 / 43,03 ms se shipped proti 42,69 / 43,30 bez — **~0,3 ms proti rozptylu 0,6 ms uvnitř samotného shipped**. ⚠ Izoluje to *ten* pow, ne „všechno, co #395 přidalo": rovný revert shaderu už čistý A/B není, protože od té doby do souboru přistála #426, #435 a #470.
+- ⚠ **Past v metodě, do které jsem šlápl:** `palette.ps1 -Whole` pod vulkánem dává červená/hnědá 5,0 a oranžová/hnědá 8,7 dE, což vypadá jako ta výtka a není: průměr disku ovládá kůra stejně tmavá u všech třinácti, **a hnědá s oranžovou už Eruption inkousty nejsou** — blok byl překreslený na červenou, žlutou, černou, cyan, navy a magentu. **Měřil jsem paletu místo bloku.**
+- **Zůstává jediné rozhodnutí, a je majitelovo:** okluze náboje v zářezu (kreslí se `UNOCCLUDED`, ~1,35× proti kouli v clusteru). Na naměřených číslech už tu vadu nepůsobí, a srovnat ji by náboj ztížilo číst, což jde proti #175/#236/#365. Nechal jsem to být a napsal proč.
+- ⚠ **Popáté dnes: issue, které vypadá jako práce, bylo hotové.** Zapsáno jako návyk: před převzetím číst **komentáře** issue, ne jen tělo, a `grep` na číslo issue v kódu.
+
+---
+
+**game-0c (Sonnet): #463 hotové, merge `4360ed9` (commit `077251a`), issue zavřená.** About stránka: dva sloupce po vzoru `SettingsPage` (levý „co hra je" + „na čem je postavená", pravý „čím byla vytvořená" + hráč skladby), odstavec s ovládáním pryč (jedna věta do textu, dokud nebude #427), repo odkaz teď skutečné menu tlačítko dosažitelné padem/šipkami místo staré myší-only nálepky.
+
+- **Kredity ověřeny proti souborům, ne opsané z issue:** .NET 10, MonoGame 3.8.5, BepuPhysics 2.5.0-beta.29, Myra 1.6.3, FontStashSharp 1.5.6, NVorbis 0.10.5 — přímo z `Game.csproj`. Fonty Anton/Inter/PromptFont s OFL soubory vedle TTF — ověřeno, že tam skutečně leží. Claude/ACE-Step/Z-Image-Turbo/RealESRGAN/Gemma/nomic-embed — proti žurnálu a skillům (`design-references`, `local-ai`), ne z paměti.
+- **Loga (MonoGame, Bepu) NEpřidána** — issue sama říká, že čeká na majitelovy podklady. Zapsán jen TODO komentář v kódu, kam přijdou, žádný viditelný placeholder box.
+- ⚠ **README's "stale" řádek už stale nebyl.** Issue tvrdila, že README má zastaralou větu o hudbě generované v kódu — při ověření (vždycky ověřit, ne převzít) už tam byla správná verze ("the levels play recordings now"). Nesahal jsem na README vůbec.
+- **Ověřeno snímky, ne úvahou:** `about`/`about=play` + `shot=` na 1600×900 a na majitelově vlastním 3840×1600 (21,6:9) přes `width=`/`height=`, které mezitím (od založení issue) dorazily i do Game — cizí oprava, díky za ni. Obojí drží layout beze změny poměru stran.
+- ⚠ **Pad/šipky ověřeny jen čtením kódu** (`CollectNavEntries`' pravidlo pořadí vložení), ne skutečným stiskem — Game nemá žádný skriptovací mechanismus pro pad/klávesy jako Testbed. Zapsáno jako neověřené, ne jako hotové.
+
+**Nic dalšího si neberu.**
+
+---
+
+**#427 hotové, commit `0d5178e`.** Nová Help obrazovka: šest stránek za jednou položkou menu — jak se to hraje, skóre, zvláštní koule, kampaň, sklo a čára, ovládání.
+
+- **Propočet skóre se počítá sám z `ScoreKeeper`u**, netiskne se natvrdo. Ručně napsaný příklad by byl špatně při prvním doladění bodování a nic by to neřeklo. Na levelu One vyjde nevystřelená koule na **513** bodů z `4 × 10 × 385 / 30`.
+- ⚠ **Past, kterou stránka ovládání našla a stojí za zapamatování: `HudFontPrompt` je na menu `null`.** HUDí fonty staví `EnsureHudFonts`, které volá jen herní obrazovka — a **Myra label s null fontem nenakreslí nic, tiše**, text řádky se přitom vysází vedle mezery, kde měla být klávesa. Vyfoceno přesně tak, než vznikl `MenuFontPrompt`. Tohle je přesně ten druh vady, kterou build nezachytí a snímek ano.
+- **Listování jde stejnými dveřmi jako resize:** `MenuPage.InvalidateTree` zahodí strom, takže další čtení `Root` ho postaví znovu — a tím se znovu zavolá `Refresh` a posbírají navigační položky pro pad. Stránka, která by jen schovávala a ukazovala widgety, by obojí musela dělat sama a jednou by na to zapomněla.
+- **`help` a `help=<n>` otevřou obrazovku při startu na dané stránce** — po vzoru `about` a `settings`, o jeden stupeň dál: šest stránek za jednou položkou a Previous/Next vedle sebe znamená, že skriptovaná procházka musí **hádat pořadí fokusu**, aby se vůbec dostala na čtvrtou. Dvě kola focení jsem takhle prošustroval, než jsem tu páku přidal.
+
+⚠ **Vlastní chyba, a ta nejhorší dneška: mergem #427 jsem na jeden commit rozbil `main`.** Konflikt byl ve dvou souborech — v žurnálu, jako vždycky, a v `BS3DGame.cs`, který konfliktoval **celý** (obě strany se liší koncem řádků, takže git nenašel společný blok). Vyřešil jsem to řetězem `resolve_journal.py || git add -A && git commit --no-edit`, jenže **ten skript zná jen `docs/agent-notes.md`**. Žurnál spravil, a `-A` za ním zacommitovalo `BS3DGame.cs` se značkami `<<<<<<<` uvnitř.
+
+- **Poučení je tvar příkazu, ne ten konflikt: nikdy neřetězit cílený resolver do `git add -A`.** Resolver spraví, co zná, a `-A` zacommituje, co nezná.
+- **Druhá půlka poučení: build po mergi jsem SPUSTIL a viděl `Počet chyb: 3`** — ale v témže řetězu, kde hned za ním byl `git push`. Kontrola, jejíž výsledek nikdo nečte dřív, než se pushne, není kontrola.
+- **Oprava dopředu, ne přepsáním historie** (main sdílí víc strojů): vzít mainovou verzi souboru a znovu do ní vložit přesně ty čtyři úpravy #427 — zjištěné `diff`em větve proti její vlastní merge base, ne z hlavy. Commit `368aef5`. Vzít kteroukoli stranu vcelku by bylo špatně v opačných směrech.
+- **Ověřeno po opravě:** všechna čtyři řešení staví, LevelGen exit 0, ScoreSim exit 0, `git grep` nenajde v celém stromě jedinou značku.
+
+**Sonda clear margin doběhla přes všech 120 levelů: v celé kampani je THIN jediný — `Sill`, rezerva 5.** Osm nejtěsnějších je 5, 7, 8, 9, 11, 12, 12, 13, takže Causeway (teď 9) je venku a další v pořadí má 7. ⚠ **Sill má v téže řádce i „closest the line came −0,03"** — jako jediný level ze sondy se dostal **pod** čáru (uvnitř povolené výchylky, takže to není prohra). Dvě tenké rezervy na jednom místě, a nejsou nezávislé: docházející rány jsou přesně to, kdy hráč přestane mít čím cluster zvednout. Zapsáno do #414, neopravoval jsem to.
+
+---
+
+**game-0c (Sonnet): bere #464** — About player má hrát, zatímco se skladba ještě renderuje, místo čekání na "Composing...". Kontext z #463 (About stránka, merge `4360ed9`) a #456 (GameMusic's DynamicSoundEffectInstance feed, merge `c2c31ca`) čerstvý. Soubory: `ProceduralJukebox.cs`, `ProceduralMusic.cs` (Limit/ToPcm), `Tools/MusicBake/Program.cs`, `AboutPage.cs`. Disjunktní od bs3d-f0's #350 (dělo znovu bere stylizovaný kurzor, na `350-stylized-cursor`).
+
+---
+
+## 2026-09-19 — Claude Code, bs3d-867 (notebook C:\Projects\BS3D: beru druhou půlku #476)
+
+**bs3d-867 (Opus, notebook, vlastní checkout `C:\Projects\BS3D` — jiný stroj než game-0c i bs3d-f0) bere zbylou půlku #476: sázení, které odmítne místo ležící na cestě.** Warp (option 1) je hotový a na mainu (`9004991`); co issue nechalo otevřené, je belt-and-braces — rostlina může přistát na pěšině tam, kde ji warp neohnul dost. Claim je i v komentáři na issue, ne jen tady (poučení z #457 a #377: vlákno issue čtou všechny session, deník ne vždy včas).
+
+- **Přečteno předem:** celý dnešní ocas deníku a komentáře #476 (poslední 18:52, warp half), #470 a #434. Zabrané a **nesahám na to**: `game-0c` → #464 (About player, `ProceduralJukebox/ProceduralMusic/MusicBake/AboutPage`), `bs3d-f0` → #350 (stylizovaný kurzor, větev `350-stylized-cursor`).
+- **Soubory:** `SavannaScatter.cs`, `ScatterSpacing.cs`, `TrailWarpField.cs`, `CloudField.cs` (jeho privátní CPU zrcadlo `CloudNoise` chce být tou jednou kopií, ne druhým opisem), savanní sázení v `SceneRenderer.cs`, `docs/scenes.md`. Shader **neplánuju měnit** — test je CPU zrcadlo členu, který `Savanna.fx` už kreslí.
+- ⚠ **Tvar úlohy, hned na začátku:** test musí být proti **ohnuté** cestě, a warp se staví z osázení — obojí na sobě závisí. Špatné místo je jen to, přes které cesta vede i **po** ohnutí. Co to stojí a jestli to chtělo víc než jeden průchod, napíšu sem.
+- ⚠ **Tenhle stroj je notebook s Vega 10 (APU), bez LM Studia a bez SD** — takže žádné `capture-review` přes Gemmu a žádné generativní reference. Ověřovat budu Testbedem a vlastníma očima na snímcích, a čísla (kolik rostlin sedí na cestě před a po) sondou v procesu, ne odhadem.
+
+---
+
+## 2026-09-19 — Claude Code, bs3d-f0 (#350: stylizovaný kurzor, merge `a83a8be`)
+
+**Kurzor menu je teď vlastní a vzniká při načtení** — `Texture2D` postavená ze **signed distance field**u a jednou poslaná přes `Mouse.SetCursor`. Žádný bitmapový asset, žádná položka v content pipeline, nic navíc v release zipu.
+
+- **Proč generovaně, a ne nakresleně:** **velikost se bere z displeje** (0,026 jeho výšky, ořez 26–72 px). Šipka vyexportovaná pro 1080p je na 4K panelu, který je pro tenhle projekt základ, smetíčko. **Změřeno na 3840×1600: šipka 41,6 px v kurzoru 55×55, hotspot 4,4.** A barvy zůstávají v kódu vedle palety menu, ne zapečené v PNG, které by někdo musel znovu exportovat, až se paleta hne.
+- **Šedá, dvakrát záměrně:** stojí nad dvaceti pozadími, jejichž palety nemají nic společného (pravidlo chromu), **a šedý bitmap je bajt po bajtu tentýž, i kdyby předek RGBA→BGRA do GDI byl obráceně** — barevná šipka je přesně ten druh chyby, který se ukáže až na cizím stroji.
+- **SDF je to, co nechá jednu aritmetiku sloužit každé velikosti:** obrys je pás v pevné vzdálenosti **vně** silhuety, stín je totéž pole vzorkované z posunutého bodu a antialiasing je pokrytí, které vzdálenost už říká. Supersamplovaný polygon by chtěl tři věci zvlášť a ještě přelaďovat po velikostech.
+- ⚠ **`Mouse.SetCursor` se volá přesně jednou, z `Initialize`.** Předává oknu GDI handle kurzoru, takže volání po snímcích by po snímcích jeden stavělo a zahazovalo — známá cesta k náhodnému pádu MonoGame. `IsMouseVisible` je nedotčené a dělá dál jediné, co dělalo: **skrývá**. Skrytý kurzor není odvolaný kurzor.
+
+### ⚠ Kurzor se v tomhle projektu **nedá vyfotit** — a náhrada je lepší než fotka
+
+Ani jedna z našich dvou cest zachycení ho nevidí: `shot=` ukládá back buffer a plocha v něm není, `screenshot.ps1` dělá `CopyFromScreen`, což je BitBlt, a ten ukazatel nekreslí. Sonda je **`GetCursorInfo` → živý handle → `DrawIconEx`** na vlastní podložku tří šedí — a odpoví najednou na identitu (náš, nebo `IDC_ARROW`?), hotspot i čitelnost, což fotka neumí.
+
+**Změřeno:** handle je stejný po změně velikosti okna, po odchodu ukazatele z okna a návratu, **a po přepnutí do fullscreenu a zpět** — což je jediný `ApplyChanges` (reset zařízení), který hra za běhu má. V `GameplayScreen` sonda hlásí **žádný kurzor**, a Escape přivede tentýž handle zpátky. `Progress.json` beze změny (hash před/po).
+
+### ⚠ Nález, který platí pro všechny session: **syntetické klávesy do Hry DOJDOU**
+
+Dosavadní pravidlo „syntetický vstup se do `BS3D.exe` nikdy nedostane" je **o `AppActivate`, ne o MonoGame**. Z PowerShellu, který zavolal `user32!SetForegroundWindow(hwnd)` přímo a předtím přesunul fyzický ukazatel do okna `SetCursorPos`em, **obyčejný `keybd_event` s F11 přepnul BS3D do fullscreenu a zase zpět** (rect změřen 1616×939 → 3840×1600 → 1616×939) a **Escape otevřel pauzu**. Recept: `Start-Process -PassThru`, počkat na `MainWindowHandle`, `SetForegroundWindow`, `SetCursorPos` do klientské plochy, pak `keybd_event`. Testovací argument je pořád lepší (opakovatelný, nepotřebuje popredí), ale **cesta řízená vstupem už není neověřitelná**.
+
