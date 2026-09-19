@@ -1,4 +1,4 @@
-using FontStashSharp;
+﻿using FontStashSharp;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Prazsky.BS3D.GameStructure;
@@ -1766,7 +1766,7 @@ namespace BS3D.Screens
             float scale = MathHelper.Lerp(HUD_TUTORIAL_ARRIVE_FROM, 1f, EaseOutBack(alpha)) * _tutorialPulse.Scale;
 
             //THE CARD IS SCALED TO THE STRIP IT HAS, and at the shipped sizes this never bites (#461): the
-            //widest card of the fifteen measures 2397 design units against ~3060 of strip at 16:9, and the
+            //widest card of the fifteen measures 2552 design units against ~3020 of strip at 16:9, and the
             //arrival's overshoot and the praise's kick both swell words far shorter than the instruction they
             //replace. What it is for is the two cases no authored figure can answer — a window narrower than
             //16:9, and a caption someone adds later — where a card would otherwise walk into the score. It

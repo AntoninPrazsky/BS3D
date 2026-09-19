@@ -668,8 +668,8 @@ namespace BS3D
         //as one line.
         //
         //What this size costs is width, and PlayHud.DrawTutorial is where that is paid: the widest card
-        //measures 2397 design units at these sizes (the pad's "Hold the left trigger to look down the barrel")
-        //against a strip of about 3060 between the two top corners at 16:9, so nothing wraps — and the card is
+        //measures 2552 design units at these sizes (the pad's "Hold the left trigger to look down the barrel")
+        //against a strip of about 3020 between the two top corners at 16:9, so nothing wraps — and the card is
         //scaled to the strip if a narrower window or a longer string would ever reach the score.
         private const int HUD_FONT_TUTORIAL = 200;
         private const int HUD_FONT_TUTORIAL_DETAIL = 120;

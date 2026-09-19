@@ -4217,3 +4217,16 @@ Dvě majitelovy poznámky z hraní, dvě issues. Sémantické hledání (nomic, 
 - **Vedle běží cizí větev `471-shadows-every-scene`** (stíny do všech scén) — nedotčená, není moje.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-19 — Claude Code (notebook: oprava vlastního čísla u #461)
+
+**Oprava k dnešnímu #461, na větvi `461-card-width-figures`.** Dvě věci, které jsem v žurnálu i v komentáři u #461 napsal, byly **špatně**, a přišla na to druhá instance (`bs3d-f0`, desktop) tím, že si sáhla rovnou do `cmap`/`hmtx` PromptFontu.
+
+- ⚠ **„Padové glyfy jsou nejspíš chybějící" je nepravda a beru to zpět.** `⇍`, `↖` i `↗` ve fontu jsou, mají obrys a **advance přes celý em**, stejně jako klávesy. Změřeno znovu vlastním přípravkem se správnými kódy: při keycapu 228 měří **všech osm glyfů 190 jednotek** — myš, klávesy i pad. Žádná neviditelná značka na padových kartičkách není a **není co zakládat**.
+- ⚠ **Past, která to způsobila, a je obecná:** přípravek jsem psal přes shellový heredoc a **záměny non-ASCII znaků se do souboru nikdy nepropsaly** — `grep` to potvrdil, v souboru zůstaly moje původní *odhadnuté* PUA kódy (`` a spol.). Kontrolní běh přitom vrátil *jiná* čísla než první (změnila se mezera u glyfu), takže to vypadalo, že se soubor mění. **Nezmapovaný PUA kód nespadne, vrátí věrohodnou šířku** — proto to prošlo jako nález místo jako chyba měřidla. Přípravek je teď čistě ASCII se `\uXXXX` escapy a má v hlavičce napsáno proč. (Sedí to na paměť „no-powershell-source-edits" — tady to nebyl PowerShell ani sledovaný soubor, ale tentýž druh škody.)
+- **Důsledek pro #461: nejširší kartička je 2552, ne 2397**, a pruh při 16:9 je ~**3020**, ne 3060 (3840 − 2 × (92 + 237 + 80)). **Závěr se nemění** — 2552 se do 3022 vejde i s přestřelením příletu (×1,1 → 2807), takže se pořád nic nezalamuje a pojistka nezabírá. Opraveno na třech místech, kde to číslo stálo: `BS3DGame.cs`, `PlayHud.cs` a `docs/game-feedback.md`.
+- **Co si z toho beru:** číslo z jednorázového přípravku je hodnota měřidla, ne měřeného — a než ho napíšu do docu nebo do issue, musí mít aspoň jednu kontrolu, která by při rozbitém měřidle **spadla**. Tady stačilo vypsat šířku každého glyfu zvlášť; osm stejných čísel proti dvěma různým je vidět na první pohled.
+
+**Nic dalšího si neberu.**
