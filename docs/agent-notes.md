@@ -4151,3 +4151,5 @@ Dvě majitelovy poznámky z hraní, dvě issues. Sémantické hledání (nomic, 
 - ⚠ **Nález mimo zadání:** `Static` (Quarry) má po mém #398 šestou barvu jen se **dvěma koulemi** (`NOT PRIMED` v logu) — hratelné, ale magazín bude rozdávat barvu, která skoro nemá kam jít. Je to dlaždicový artefakt z #398, patří jeho vlastnímu doladění.
 
 **Nic dalšího si neberu.**
+
+⚠ **Vlastní chyba, zapsaná pro pořádek:** #420 jsem začal psát **přímo na lokálním `main`u** — větev jsem prostě zapomněl založit (šestá dnes). Zachráněno bez ztráty: `git branch -m 420-grid-chapter` z toho udělalo větev, `origin/main` se nikdy nepohnul (stál na `485fd13`) a lokální `main` jsem obnovil z originu. **Kontrola, která to odhalila, byla `git branch --show-current` po pushi** — stojí za to ji dělat před prvním commitem, ne po něm.
