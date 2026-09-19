@@ -4066,3 +4066,31 @@ Dvě majitelovy poznámky z hraní, dvě issues. Sémantické hledání (nomic, 
 - **Co po dnešku zůstává majiteli:** #474 (tříranové levely — Horn sebere shodou 90 %, Trophy 68), Highwall jako nejdelší level Quarry (18 ran, je to jeho design), `Cabinet` v sondě 4 z 5 (práh hlášení, #301 ho kdysi spravil na 2–3) a `MIXED THEMES` u Louky v `DescribeBlock` (patří k #400).
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-19 — Claude Code (notebook: #416 Grotto se dojídá po jedné buňce, pak #415)
+
+**Beru si #416** na pokyn majitele („Vem 416 a potom 415"). Větev `416-grotto-cap`, notebook v `C:\GitHub`.
+
+- **Zjištěno z kódu:** Grottova čepice je celý vnitřek horního kurzu (x, z ∈ 3..11, tedy 9×9 = 81 buněk) obarvený šachovnicí **2×2** v cyan/magenta. Na devíti místech z ní visí krápník. Blok 2×2 nad mřížkou 9×9 dává **25 bloků** (první je jen jednu buňku široký), takže po odstřelení krápníků zůstává ~16 čtyřkuličkových bloků přilepených ke sklu, každý na vlastní ránu — přesně „na konci chvíli trvá odstřelit magentové čtverce na stropě".
+- ⚠ **Šachovnice je tam schválně** („same-colour blocks touching only at their diagonals, so a spire and the block it hangs under are one modest group") — čepice je přibondovaná ke sklu buňku po buňce, takže jedna velká souvislá skupina by byl one-shot level. Řešení tedy není šachovnici zrušit, ale **zvětšit její pole**.
+- **Plán:** blok čepice 2 → 3. Devět políček 3×3 přesně pokryje 9×9 a **každé z nich nese právě jeden z devíti krápníků** (spočítáno z `GROTTO_SPIRES`: patky mapují na všech devět bloků, každý jednou), takže čepice se uklízí *spolu* s krápníky a žádný zbytek nezůstává. Je to totéž, co včera vyšlo v Quarry u Highwallu (šachovnice = desítky nespojených skupin).
+- **Ověření:** LevelGen (skupiny, nejkratší vyčištění, one-shot %), sonda na Grottu staré proti novému za stejných podmínek, ScoreSim, a pohled ve hře.
+- **Beru na sebe:** `Tools/LevelGen/Designs/Block05_Reveal.cs`, `Game/Levels/Grotto.json`, docs.
+
+**Nic dalšího si neberu.**
+
+**Dodatek: #416 i #415 hotové na větvi `416-grotto-cap`** (commity `b21d55a` a `ef9dd66`). **NENÍ v mainu**, čeká na slovo majitele.
+
+**#416 Grotto:** čepice je teď kostkovaná **na mřížce krápníků** (blok 3 místo 2). Devět políček 3×3 přesně pokryje strop 9×9 a každé nese právě jeden z devíti krápníků, takže strop padá *spolu* s nimi a nezůstává nic k dobírání. Šachovnice jako taková zůstává — je nosná (čepice je přibondovaná ke sklu buňku po buňce, jedna souvislá skupina by byla one-shot level), měnila se jen její velikost. **Změřeno:** ocas levelu (soubor se stěnami odstřelenými, což je to, na co hráč na konci kouká) se čistí **5 ranami místo 7**, celý level 22 skupin proti 27 a 19 ran proti 21. Sonda 0 z 5 před i po. Vyfoceno před/po ze stejného stanoviště — strop čte jako devět střídavých čtverců, ne jako cyan s roztroušenými magentovými fleky.
+
+**#415 Sail a Binary:** čím je „obalit" jsem nehádal, ale zeptal se — majitel vybral **ráhno a otěž** pro plachtu a **akreční disk** pro dvojhvězdu.
+
+- ⚠ **Ráhno jako jeden pruh jedné barvy je úzké hrdlo, ne ráhno.** Plátno končí pod ním a lana začínají nad ním, takže se stalo jediným spojem mezi nimi: **jedna rána 306 z 378 koulí (80 %)**, kde nejhorší číslo levelu bylo 67 %. Teď jsou to dvě půlky ve dvou barvách a uříznutí jedné předá plátno druhému rameni — což je přesně moment, kvůli kterému level existuje.
+- ⚠ **A ráhno těch 67 % neopravuje**, ačkoli jsem to majiteli při výběru tvrdil. Pruhy plachty běží **diagonálně**, takže pruh je řez napříč plátnem a všechno pod ním visí na ničem; držet to může jen lano po **bocích** — a to je lem, varianta, kterou majitel nevybral. Číslo je levelu vlastní a zůstává; napsáno v docu obou konstant i v docu designu.
+- **Disk** je elipsa, protože to vynucuje pole: primár stojí 3,0 od osy a v krajním sloupci nesmí stát koule (brána na boční rezervu), takže disk má v ose x 3,4 a v z půl pole. Od děla se čte hranou — pruh prachu po obou stranách hvězdy — a při traverzu se rozevře do elipsy. **Je bílý, ne černý**: vyfoceno obojí, černá na téhle obloze čte jako díra v mlhovině, ne jako těleso.
+- **Čísla:** Sail 352 → 378 koulí, 10 → 13 skupin; Binary 402 → 442, 12 → 13. Obojí beze změny rozpočtu (výstřely na skupinu 5,6 → 4,3 a 5,0 → 4,6). Sonda **0 z 5 před i po**, ale Sailu klesla nejhorší rezerva z 7,10 na −0,13 (uvnitř povolené výchylky) — je to otěž visící kurz pod plátnem.
+- **Co zůstává:** oba levely se dál čistí **dvěma ranami** (u obou jsou to dvě kotvy u skla — plachta visí za dva rohy, dvojhvězda na dvou šňůrách). Je to jejich konstrukce, ne chyba, a brána z #458 je pouští (shodou berou 9 a 13 % pole). Kdyby to majiteli vadilo, je to třetí kotva, ne obal.
+
+**Nic dalšího si neberu.**
