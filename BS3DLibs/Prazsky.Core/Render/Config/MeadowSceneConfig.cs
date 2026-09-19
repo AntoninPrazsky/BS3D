@@ -14,7 +14,16 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// Fair-weather cumulus over green hills under the one clear blue dome - the game's opening chapter plays here and its sky is the one the whole feature's numbers were tuned against.
         /// </summary>
-        public MeadowSceneConfig() => Weather = WeatherPreset.Scattered;
+        public MeadowSceneConfig()
+        {
+            Weather = WeatherPreset.Scattered;
+
+            //The sun's cast shadows (#471), at the savanna's own figures — 0.9 is a shadow that is dark without
+            //reading as a hole, and 260 units at 2048 is 0.13 units a texel. The island and the gun are the
+            //only things standing on the hill, and this is the chapter a new player opens the game on — the one
+            //cast shadow they see first.
+            Shadows = new ShadowConfig(strength: 0.9f);
+        }
 
         /// <summary>Basin the arena sits in, rising into rolling hills with distance; stays below the island
         /// top (<see cref="ArenaIsland.TOP_Y"/>, -8.5 — the old -10.7 referent was the removed recessed glass

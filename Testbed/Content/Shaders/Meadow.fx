@@ -12,6 +12,9 @@
 #define PS_SHADERMODEL ps_5_0
 
 #include "Clouds.fxh"
+//The sun's cast shadows (#469, in this scene since #471): SceneRenderer renders the map before the scene
+//pass and this reads it. See Shadows.fxh for what casts and what a receiver owes.
+#include "Shadows.fxh"
 #include "Noise.fxh"
 
 float4x4 View;
@@ -343,6 +346,15 @@ float4 MeadowField(MeadowVertexOutput input, bool detail)
     //Matte grass: the sun and the sky hemisphere, dimmed by the shared cloud shadow so the same clouds that
     //drift across the sky sweep their shadows over the field
     float sunlight = CloudSunlight(worldPosition, SunDirection);
+
+    //The sun's cast shadows (#471), into the same sunlight factor the clouds dim, so everything read off it
+    //is shadowed at once. What casts here: the island and the gun standing on the hill — the meadow scatters
+    //nothing of its own, and this is the scene the first chapter plays in, so it is the one shadow a new
+    //player sees first.
+    [branch]
+    if (ShadowStrength > 0.0)
+        sunlight *= SunShadow(worldPosition, baseNormal, SunDirection);
+
     float ndotl = saturate(dot(normal, SunDirection));
     float3 skyAmbient = lerp(HorizonColor, ZenithColor, saturate(normal.y * 0.5 + 0.5));
 

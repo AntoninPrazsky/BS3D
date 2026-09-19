@@ -14,7 +14,16 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// High ground makes its own cloud: a broken deck sitting on the range is what a mountain sky does, and the holes are what let the peaks catch light in patches.
         /// </summary>
-        public MountainSceneConfig() => Weather = WeatherPreset.Broken;
+        public MountainSceneConfig()
+        {
+            Weather = WeatherPreset.Broken;
+
+            //The sun's cast shadows (#471), at the savanna's own figures — 0.9 is a shadow that is dark without
+            //reading as a hole, and 260 units at 2048 is 0.13 units a texel. The island and the gun on the snow
+            //of the basin. The peaks shade nothing but themselves — they are terrain, and the map's box is
+            //fitted to the basin rather than to them (TryShadowFit).
+            Shadows = new ShadowConfig(strength: 0.9f);
+        }
 
         /// <summary>Basin floor level Y (the basin stays below the island top,
         /// <see cref="ArenaIsland.TOP_Y"/> = -8.5; the old -10.7 referent was the square plaza's recessed glass

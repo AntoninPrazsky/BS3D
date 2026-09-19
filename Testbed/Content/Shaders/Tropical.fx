@@ -32,6 +32,9 @@
 #define PS_SHADERMODEL ps_5_0
 
 #include "Clouds.fxh"
+//The sun's cast shadows (#469, in this scene since #471): SceneRenderer renders the map before the scene
+//pass and this reads it. See Shadows.fxh for what casts and what a receiver owes.
+#include "Shadows.fxh"
 
 //The shared noise library: gradient noise for the sand's patches and the canopy's mottle, combed fBm
 //for the sand's wind ripple. Its hashes are the sine-free ones and its gradient noise fades
@@ -347,6 +350,14 @@ float4 TropicalPS(TropicalVertexOutput input) : COLOR
 
     //--- Lighting --------------------------------------------------------------------------------------
     float sunlight = CloudSunlight(worldPosition, SunDirection);
+
+    //The sun's cast shadows (#471), into the same sunlight factor the clouds dim, so everything read off it
+    //is shadowed at once. What casts here: the palms and the rocks, which is what a beach is: palm shadows on
+    //sand.
+    [branch]
+    if (ShadowStrength > 0.0)
+        sunlight *= SunShadow(worldPosition, baseNormal, SunDirection);
+
     float ndotl = saturate(dot(normal, SunDirection));
 
     //Hemisphere sky light: up-facing ground takes the zenith, faces turned to the skyline take the horizon

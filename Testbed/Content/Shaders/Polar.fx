@@ -42,6 +42,9 @@
 #define PS_SHADERMODEL ps_5_0
 
 #include "Clouds.fxh"
+//The sun's cast shadows (#469, in this scene since #471): SceneRenderer renders the map before the scene
+//pass and this reads it. See Shadows.fxh for what casts and what a receiver owes.
+#include "Shadows.fxh"
 #include "Noise.fxh"
 
 float4x4 View;
@@ -385,6 +388,14 @@ float4 PolarPS(PolarVertexOutput input) : COLOR
 
     //--- The light ------------------------------------------------------------------------------------
     float sunlight = CloudSunlight(worldPosition, SunDirection);
+
+    //The sun's cast shadows (#471), into the same sunlight factor the clouds dim, so everything read off it
+    //is shadowed at once. What casts here: the island and the gun on the ice. It lands in the sky's own blue,
+    //which is the colour this scene's shadows have always been — see the ambient term just below.
+    [branch]
+    if (ShadowStrength > 0.0)
+        sunlight *= SunShadow(worldPosition, baseNormal, SunDirection);
+
     float ndotl = saturate(dot(normal, SunDirection));
 
     //Hemisphere sky light. THE SHADOW'S COLOUR IS THIS TERM, and on this scene it carries the picture: snow

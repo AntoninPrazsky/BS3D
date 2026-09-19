@@ -24,7 +24,16 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// Red earth under a big sky with a few cumulus in it - the outback's own postcard, and a step off the desert's emptiness so the two do not read as one place twice.
         /// </summary>
-        public OutbackSceneConfig() => Weather = WeatherPreset.Scattered;
+        public OutbackSceneConfig()
+        {
+            Weather = WeatherPreset.Scattered;
+
+            //The sun's cast shadows (#471), at the savanna's own figures — 0.9 is a shadow that is dark without
+            //reading as a hole, and 260 units at 2048 is 0.13 units a texel. The dusk dome this scene is
+            //usually seen under throws the island's shadow a long way over the spinifex, which is the whole of
+            //what the map buys here.
+            Shadows = new ShadowConfig(strength: 0.9f);
+        }
 
         /// <summary>The plain and the monoliths standing on it.</summary>
         public OutbackTerrainConfig Terrain { get; set; } = new();

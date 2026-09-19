@@ -18,6 +18,9 @@
 #define PS_SHADERMODEL ps_5_0
 
 #include "Clouds.fxh"
+//The sun's cast shadows (#469, in this scene since #471): SceneRenderer renders the map before the scene
+//pass and this reads it. See Shadows.fxh for what casts and what a receiver owes.
+#include "Shadows.fxh"
 //For WindGust (#276) — the one copy of the gust field the meadow and the savanna also read the wind off.
 //Since #281 the floor also draws its litter, moss, bilberry and dry grass from Fbm2BandLimited, Fbm2Combed and
 //GradientNoise2 here; the four-sine needle field and the private ForestFbm it replaced are gone.
@@ -413,6 +416,13 @@ float4 ForestFloor(ForestVertexOutput input, bool detail)
     //scatter's real trees stand there, and theirs is the only shadow that should show), rising to full under the
     //procedural wood beyond it. Lower ambient than the meadow: a clearing is shaded by the trees around it.
     float sunlight = CloudSunlight(worldPosition, SunDirection);
+
+    //The sun's cast shadows (#471), into the same sunlight factor the clouds dim, so everything read off it
+    //is shadowed at once. What casts here: the wood's own trees, boulders and stumps, which stand in the
+    //clearing the procedural canopy shadow below deliberately leaves alone.
+    [branch]
+    if (ShadowStrength > 0.0)
+        sunlight *= SunShadow(worldPosition, baseNormal, SunDirection);
 
     //The other extra behind FloorDetail. The cloud shadow above is NOT given up with it: that one is shared
     //with every other scene and costs a fraction of this, and a clearing with no drifting shade at all reads

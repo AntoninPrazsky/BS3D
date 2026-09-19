@@ -37,6 +37,9 @@
 #define PS_SHADERMODEL ps_5_0
 
 #include "Clouds.fxh"
+//The sun's cast shadows (#469, in this scene since #471): SceneRenderer renders the map before the scene
+//pass and this reads it. See Shadows.fxh for what casts and what a receiver owes.
+#include "Shadows.fxh"
 
 //The shared noise library, for the gradient noise the sand pattern and the sand's colour patches are built
 //from. Its hashes are the sine-free ones and its gradient noise fades QUINTICALLY, which matters here more
@@ -484,6 +487,14 @@ float4 DesertPS(DesertVertexOutput input) : COLOR
     //Sand is a near-matte diffuse surface: the sun rakes the dunes (lit windward faces, shadowed lee ones)
     //and the sky fills the rest. The cloud shadow dims the sun exactly as it does for the whole scene.
     float sunlight = CloudSunlight(worldPosition, SunDirection);
+
+    //The sun's cast shadows (#471), into the same sunlight factor the clouds dim, so everything read off it
+    //is shadowed at once. What casts here: the island and the gun on the sand. The dune normal rather than
+    //the rippled one, so the ripples do not put the sand in and out of its own bias.
+    [branch]
+    if (ShadowStrength > 0.0)
+        sunlight *= SunShadow(worldPosition, duneNormal, SunDirection);
+
     float ndotl = saturate(dot(normal, SunDirection));
 
     //Hemisphere sky light: up-facing sand takes the zenith, slopes towards the skyline take the horizon

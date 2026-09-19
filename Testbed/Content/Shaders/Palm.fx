@@ -21,6 +21,9 @@
 //For the fronds' leaf mottle - a 3D field of world position, so it has no seam and does not swim as
 //the frond turns with its tree (Acacia.fx's own reasoning).
 #include "Noise.fxh"
+//The sun's cast shadows (#471): a palm stands in the shadow of the palm beside it, and throws its own
+//across the sand - the acacia's arrangement again, ShadowCaster technique at the bottom included.
+#include "Shadows.fxh"
 
 float4x4 View;
 float4x4 Projection;
@@ -77,6 +80,20 @@ struct PalmVertexOutput
     float3 WorldNormal : TEXCOORD1;
 };
 
+//The sway: two incommensurate oscillators (a single sin is a metronome), travelling downwind, phased off
+//the instance's own position so a grove never beats in unison. Applied after the world transform in world
+//space - the frond strips are built in the mesh's own frame, but the wind does not care which tree it is
+//moving. A function rather than two copies because the shadow caster has to bend a frond exactly as the
+//drawn one bends, and a shadow that lags its own leaf is the sort of fault nobody can name and everybody
+//sees.
+float4 Sway(float4 worldPosition, float4 instanceRow, float weight)
+{
+    float phase = dot(instanceRow.xz, WindDirection) * 0.35 + PalmTime * SwaySpeed;
+    worldPosition.xz += WindDirection * SwayStrength * weight
+        * (sin(phase) + 0.5 * sin(phase * 2.3 + 1.7));
+    return worldPosition;
+}
+
 PalmVertexOutput PalmVS(PalmVertexInput input)
 {
     PalmVertexOutput output;
@@ -84,15 +101,9 @@ PalmVertexOutput PalmVS(PalmVertexInput input)
     float4x4 world = float4x4(input.World1, input.World2, input.World3, input.World4);
     float4 worldPosition = mul(input.Position, world);
 
-    //The sway: two incommensurate oscillators (a single sin is a metronome), travelling downwind,
-    //phased off the instance's own position so a grove never beats in unison. Applied after the world
-    //transform in world space - the frond strips are built in the mesh's own frame, but the wind does
-    //not care which tree it is moving.
-    float3 instancePos = float3(input.World4.x, input.World4.y, input.World4.z);
-    float phase = dot(instancePos.xz, WindDirection) * 0.35 + PalmTime * SwaySpeed;
-
-    worldPosition.xz += WindDirection * SwayStrength * input.Sway.x
-        * (sin(phase) + 0.5 * sin(phase * 2.3 + 1.7));
+    //The sway, one copy (see Sway below): the shadow caster bends the crown by exactly the same
+    //arithmetic, or a frond and the shadow it throws would part company in the wind.
+    worldPosition = Sway(worldPosition, input.World4, input.Sway.x);
 
     output.WorldPosition = worldPosition.xyz;
     output.Position = mul(mul(worldPosition, View), Projection);
@@ -115,7 +126,15 @@ float4 PalmPS(PalmVertexOutput input) : COLOR
     //mesh tilts along its spine, so a drooping frond shades under itself for free.
     float3 ambient = lerp(HorizonColor, ZenithColor, saturate(N.y * 0.5 + 0.5));
     float ndotl = saturate(dot(N, SunDirection));
-    float3 color = DiffuseColor * (ambient + SunColor * ndotl);
+
+    //The sun's cast shadows (#471): the sun term alone, the dome's ambient stays - a palm under the crown
+    //of its neighbour is still lit by the sky. Off the map (ShadowStrength 0) the branch is skipped.
+    float shadow = 1.0;
+    [branch]
+    if (ShadowStrength > 0.0)
+        shadow = SunShadow(input.WorldPosition, N, SunDirection);
+
+    float3 color = DiffuseColor * (ambient + SunColor * ndotl * shadow);
 
     //The fronds' leaf mottle: a 3D field of WORLD position, so neighbouring crowns do not share a
     //pattern and the mottle does not slide over the leaves as they sway. Zero on wood (DappleStrength 0).
@@ -131,5 +150,40 @@ technique Palm
     {
         VertexShader = compile VS_SHADERMODEL PalmVS();
         PixelShader = compile PS_SHADERMODEL PalmPS();
+    }
+};
+
+//--- The shadow caster (#471): the same instanced geometry drawn from the sun into SunShadowMap's target,
+//writing the map's own clip depth (orthographic, so linear) into a 32-bit channel. No material, no light -
+//the instance stream is read for the world matrix, and the sway weight for the wind. Acacia.fx's caster
+//with the one addition that shader has no need of.
+
+struct PalmShadowOutput
+{
+    float4 Position : SV_POSITION;
+    float Depth : TEXCOORD0;
+};
+
+PalmShadowOutput PalmShadowVS(PalmVertexInput input)
+{
+    PalmShadowOutput output;
+    float4x4 world = float4x4(input.World1, input.World2, input.World3, input.World4);
+    float4 worldPosition = Sway(mul(input.Position, world), input.World4, input.Sway.x);
+    output.Position = mul(worldPosition, ShadowViewProjection);
+    output.Depth = output.Position.z;
+    return output;
+}
+
+float4 PalmShadowPS(PalmShadowOutput input) : COLOR
+{
+    return float4(input.Depth, 0.0, 0.0, 1.0);
+}
+
+technique ShadowCaster
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL PalmShadowVS();
+        PixelShader = compile PS_SHADERMODEL PalmShadowPS();
     }
 };

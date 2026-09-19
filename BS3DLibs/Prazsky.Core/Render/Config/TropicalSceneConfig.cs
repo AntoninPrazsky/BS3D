@@ -21,7 +21,16 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// The beach is a postcard by design (#244 chose its dome for the brightest blue in the set), and a postcard's sky is a few cumulus over turquoise water - closing it over would take away the thing the scene was built for.
         /// </summary>
-        public TropicalSceneConfig() => Weather = WeatherPreset.Scattered;
+        public TropicalSceneConfig()
+        {
+            Weather = WeatherPreset.Scattered;
+
+            //The sun's cast shadows (#471), at the savanna's own figures — 0.9 is a shadow that is dark without
+            //reading as a hole, and 260 units at 2048 is 0.13 units a texel. The one scene besides the savanna
+            //whose own planting casts: palm shadows on sand are the beach, and 110 palms standing in flat light
+            //were what the scene was missing.
+            Shadows = new ShadowConfig(strength: 0.9f);
+        }
 
         /// <summary>The land: the beach's profile from the island's foot, down through the waterline, out
         /// to the lagoon bed and up into the green shore ridge that closes the horizon.</summary>

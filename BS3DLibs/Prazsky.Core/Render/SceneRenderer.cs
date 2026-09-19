@@ -699,25 +699,27 @@ namespace Prazsky.Core.Render
         //FIRE with that fire's light, so their instances are uploaded per draw (SetDataOptions.Discard).
         private DynamicVertexBuffer _acaciaInstanceBuffer;
 
-        //The sun's shadow map (#469): rendered by DrawShadowMaps before the scene pass and read by Savanna.fx
-        //and Acacia.fx through Shadows.fxh. The savanna's today; SunShadowMap is the infrastructure any
-        //terrain scene can adopt. The techniques and the parameters are cached at load (BestPractices.md §1).
+        //The sun's shadow map (#469, in every terrain scene since #471): rendered by DrawShadowMaps before
+        //the scene pass and read by whichever effects include Shadows.fxh. One map, one target, one set of
+        //uniforms — what changes per scene is which config asks for it, how the map is fitted and who casts.
         private SunShadowMap _sunShadowMap;
         private bool _shadowsActive;
         private EffectTechnique _acaciaTechnique, _acaciaShadowTechnique;
-        private EffectParameter _acaciaShadowMapParam, _acaciaShadowViewProjectionParam, _acaciaShadowTexelParam,
-            _acaciaShadowStrengthParam, _acaciaShadowBiasParam;
-        private EffectParameter _savannaShadowMapParam, _savannaShadowViewProjectionParam, _savannaShadowTexelParam,
-            _savannaShadowStrengthParam, _savannaShadowBiasParam;
+        private EffectTechnique _palmTechnique, _palmShadowTechnique;
+
+        //Every receiver's five parameters, cached at load (BestPractices.md §1 — the by-name indexer is a
+        //linear scan) and pushed in one indexed loop. An array of the struct rather than five fields per
+        //effect: with ten terrain shaders reading the map, a named quintet each was the shape that made the
+        //savanna's version look like a savanna feature instead of the infrastructure it is.
+        private ShadowReceiver[] _shadowReceivers;
 
         //And the SHARED instanced effect's (#470), which is the one push that reaches the island, its drain,
-        //the gun, the city and every ball at once — the same argument SceneLights makes for its four. The
-        //effect is the caller's (each executable loads its own Shaders/InstancedModel and hands it in), so
-        //the references are cached the first time one is seen and re-cached if a different effect ever
-        //arrives; a by-name lookup per frame is a linear scan (BestPractices.md §1).
+        //the gun, the city and every ball at once — the same argument SceneLights makes for its four. It is
+        //apart from the array above because the effect is the CALLER's (each executable loads its own
+        //Shaders/InstancedModel and hands it to DrawShadowMaps), so it is registered on the first frame one
+        //is seen rather than at load, and re-registered if a different effect ever arrives.
         private Effect _instancedShadowEffect;
-        private EffectParameter _instancedShadowMapParam, _instancedShadowViewProjectionParam,
-            _instancedShadowTexelParam, _instancedShadowStrengthParam, _instancedShadowBiasParam;
+        private ShadowReceiver _instancedShadowReceiver;
 
         //The depth bias in world units, turned into the map's own units each frame off its depth range: about
         //three and a half texels of a 2048 map over 260 units, enough that a plate of foliage lit from above
@@ -727,6 +729,17 @@ namespace Prazsky.Core.Render
         //How high the sun has to stand (its direction's Y) for a map to be worth drawing: lower and every
         //shadow is a streak the length of the map, and at a dome's dusk the sun term is next to nothing.
         private const float SHADOW_MIN_SUN_HEIGHT = 0.08f;
+
+        //Slack on both ends of the fitted box (TryShadowFit), so a terrain figure that is a MEAN rather than a
+        //maximum — every one of them is — does not clip a hollow out of the bottom of the map or a crown off
+        //the top of it. Ten units is under a texel of depth at any of the ranges in play.
+        private const float SHADOW_FIT_MARGIN = 10f;
+
+        //And how far over the island's cap the box must reach whatever the ground does: the gun standing on
+        //the stone, which in every scene but the savanna, the forest and the beach is the only thing casting
+        //at all. Measured off ArenaIsland.TOP_Y rather than off the terrain, because the island's height is
+        //the island's and no scene's.
+        private const float SHADOW_ISLAND_HEADROOM = 12f;
 
         //The campfires' hearths (#282): a ring of stones set around each fire, and the scorched ground under
         //it. The stones ride the acacia's own instanced path - same shader, same lighting as everything else
@@ -1229,6 +1242,8 @@ namespace Prazsky.Core.Render
             _palmWindParam = _palmEffect.Parameters["WindDirection"];
             _palmSwayStrengthParam = _palmEffect.Parameters["SwayStrength"];
             _palmSwaySpeedParam = _palmEffect.Parameters["SwaySpeed"];
+            _palmTechnique = _palmEffect.Techniques["Palm"];
+            _palmShadowTechnique = _palmEffect.Techniques["ShadowCaster"];
             BuildTropicalBuffers();
 
             //--- Volcano (#223): the fifteenth scene — the flank of an erupting cone, its lava rivers and the
@@ -1299,19 +1314,6 @@ namespace Prazsky.Core.Render
             _acaciaHazeParam = _acaciaEffect.Parameters["HorizonHazeDistance"];
             _acaciaTechnique = _acaciaEffect.Techniques["Acacia"];
             _acaciaShadowTechnique = _acaciaEffect.Techniques["ShadowCaster"];
-            _acaciaShadowMapParam = _acaciaEffect.Parameters["ShadowMap"];
-            _acaciaShadowViewProjectionParam = _acaciaEffect.Parameters["ShadowViewProjection"];
-            _acaciaShadowTexelParam = _acaciaEffect.Parameters["ShadowTexel"];
-            _acaciaShadowStrengthParam = _acaciaEffect.Parameters["ShadowStrength"];
-            _acaciaShadowBiasParam = _acaciaEffect.Parameters["ShadowBias"];
-            _savannaShadowMapParam = _savannaEffect.Parameters["ShadowMap"];
-            _savannaShadowViewProjectionParam = _savannaEffect.Parameters["ShadowViewProjection"];
-            _savannaShadowTexelParam = _savannaEffect.Parameters["ShadowTexel"];
-            _savannaShadowStrengthParam = _savannaEffect.Parameters["ShadowStrength"];
-            _savannaShadowBiasParam = _savannaEffect.Parameters["ShadowBias"];
-            //No map until DrawShadowMaps says so: a receiver at strength 0 skips its taps.
-            _acaciaShadowStrengthParam.SetValue(0f);
-            _savannaShadowStrengthParam.SetValue(0f);
             ApplyAcaciaParameters();
             BuildSavannaScatter();
             BuildHearthStones();
@@ -1496,6 +1498,49 @@ namespace Prazsky.Core.Render
             //board per solid included (BuildGridTowers) - one call for both, since a later config edit
             //needs to redo exactly the same pair.
             ApplyGridParameters();
+
+            //Last, because it needs every effect above to exist: the one list of everything that reads the
+            //sun's shadow map (#471).
+            RegisterShadowReceivers();
+        }
+
+        /// <summary>
+        /// Collects every effect of this renderer's that includes <c>Shadows.fxh</c> into the one array
+        /// <see cref="DrawShadowMaps"/> pushes to, and starts them all at strength 0 — no map until a frame
+        /// says otherwise, which is what their <c>[branch]</c> skips their nine taps on.
+        /// <para>
+        /// <b>The list is the feature's inventory</b>: a scene whose terrain shader is missing here draws no
+        /// shadow however loudly its config asks for one, and a shader that includes the header but is not
+        /// listed reads an unbound texture at whatever strength was last pushed to it. The shared instanced
+        /// effect is deliberately not here — it is the caller's, and registers itself on the first frame it
+        /// is handed in.
+        /// </para>
+        /// <para>
+        /// Sea and Storm are absent on purpose. The storm draws no ground at all (<c>StormClouds.fx</c> is the
+        /// cloud itself, and the island in it stands on nothing a shadow could land on), and the sea is water:
+        /// a shadow inside its Fresnel, foam and subsurface terms is a look decision of its own rather than a
+        /// line, and one nobody has asked for. The six sky-replacing scenes have no sun over the horizon and
+        /// the gate already skips them.
+        /// </para>
+        /// </summary>
+        private void RegisterShadowReceivers()
+        {
+            Effect[] effects =
+            {
+                _savannaEffect, _acaciaEffect,       //#469's two: the plain and what stands on it
+                _meadowEffect,                       //#471, and the first chapter plays here
+                _forestEffect,                       //its floor; the trees receive through the shared effect
+                _mountainEffect, _desertEffect, _outbackEffect,
+                _tropicalEffect, _palmEffect,        //the sand and the palms standing on it
+                _volcanoEffect, _marsEffect, _polarEffect
+            };
+
+            _shadowReceivers = new ShadowReceiver[effects.Length];
+            for (int i = 0; i < effects.Length; i++)
+            {
+                _shadowReceivers[i] = new ShadowReceiver(effects[i]);
+                _shadowReceivers[i].Disable();
+            }
         }
 
         /// <summary>
@@ -5179,32 +5224,42 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// Renders this frame's shadow maps (#469) — the savanna's sun shadow map, today — and hands them to
-        /// the receivers' effects. <b>Call it before binding the scene target</b>: the map is its own render
-        /// target and the scene target is <see cref="RenderTargetUsage.DiscardContents"/>, so switching away
-        /// from the scene target mid-frame would clear the sky already drawn into it. Leaves the back buffer
-        /// bound and the GPU states as it found them is <i>not</i> promised — the caller states its own before
-        /// its scene, as every executable already does after the sky.
+        /// Renders this frame's sun shadow map and hands it to the receivers' effects. <b>Call it before
+        /// binding the scene target</b>: the map is its own render target and the scene target is
+        /// <see cref="RenderTargetUsage.DiscardContents"/>, so switching away from the scene target mid-frame
+        /// would clear the sky already drawn into it. Leaves the back buffer bound; that it leaves the GPU
+        /// states as it found them is <i>not</i> promised — the caller states its own before its scene, as
+        /// every executable already does after the sky.
         /// <para>
-        /// A no-op for every other scene, at the Low tier, at <see cref="SavannaSceneConfig.ShadowStrength"/>
-        /// 0 and with the sun at or below <see cref="SHADOW_MIN_SUN_HEIGHT"/>: in all of those the receivers
-        /// are handed a strength of 0 and skip their taps, and no target is touched.
+        /// <b>It is the scene's own decision since #471</b>, where it was the savanna's alone (#469): the gate
+        /// is <see cref="SceneConfig.Shadows"/> on whichever backdrop is up, so a scene opts in by saying so
+        /// in its config and this method names no scene to decide <i>whether</i>. It still names them to
+        /// decide two things that are genuinely per scene — how the map is fitted
+        /// (<see cref="TryShadowFit"/>) and which of this renderer's own scatter casts into it.
         /// </para>
         /// <para>
-        /// What casts: every bucket of the scatter and the hearth stones, through <c>Acacia.fx</c>'s
-        /// <c>ShadowCaster</c> technique with the culling off (two-sided blades and fans, and a closed solid
-        /// drawn from both sides cannot peter-pan), and then whatever <paramref name="extraCasters"/> draws —
-        /// the island and the gun (#470), which are the host's objects and not this renderer's.
+        /// A no-op at the Low tier, at <see cref="ShadowConfig.Strength"/> 0, with the sun at or below
+        /// <see cref="SHADOW_MIN_SUN_HEIGHT"/>, in any scene with no fit, and — in the eight scenes whose
+        /// casters are all the host's — for a caller that passes no <paramref name="extraCasters"/> at all:
+        /// in every one of those each receiver is handed a strength of 0 and skips its taps, and no target is
+        /// touched.
         /// </para>
         /// <para>
-        /// <b>What receives is everything</b>, once <paramref name="instancedEffect"/> is handed in: the tap
-        /// sits in <c>InstancedModel.fx</c>'s <c>ShadePixel</c>, so the island's cap, the drain, the gun, the
-        /// city and the balls all read the map from the one push, exactly as <see cref="SceneLights"/>
-        /// reaches them from one. A caller that passes no effect still gets the scatter's own shadows; it
-        /// simply leaves everything drawn through the shared effect unshadowed.
+        /// What casts: the scene's own planting where this renderer owns it — the savanna's scatter and hearth
+        /// stones through <c>Acacia.fx</c>'s <c>ShadowCaster</c>, the beach's palms and rocks through
+        /// <c>Palm.fx</c>'s own — and then whatever <paramref name="extraCasters"/> draws: the island, the gun
+        /// (#470) and the forest's wood, which are the host's objects and not this renderer's.
+        /// </para>
+        /// <para>
+        /// <b>What receives is everything</b> that includes <c>Shadows.fxh</c>: the terrain shaders listed in
+        /// <see cref="RegisterShadowReceivers"/>, and — once <paramref name="instancedEffect"/> is handed in —
+        /// the island's cap, the drain, the gun, the city and the balls, which all read the map from that one
+        /// push exactly as <see cref="SceneLights"/> reaches them from one. A caller that passes no effect
+        /// still gets the scene's own shadows; it simply leaves everything drawn through the shared effect
+        /// unshadowed.
         /// </para>
         /// </summary>
-        /// <param name="scene">The backdrop being drawn; only the savanna has a map today.</param>
+        /// <param name="scene">The backdrop being drawn; its config says whether it has a map.</param>
         /// <param name="camera">This frame's camera — the map is fitted round where it stands.</param>
         /// <param name="sunDirection">The direction <b>towards</b> the sun, from the dome's own rig.</param>
         /// <param name="instancedEffect">The shared <c>Shaders/InstancedModel</c> effect, so everything drawn
@@ -5215,46 +5270,54 @@ namespace Prazsky.Core.Render
         public void DrawShadowMaps(SceneKind scene, ICamera camera, Vector3 sunDirection,
             Effect instancedEffect = null, Action<Matrix> extraCasters = null)
         {
-            //The shared effect's parameter references, cached on the first frame one is handed in (#470)
+            //The shared effect's parameters, cached on the first frame one is handed in (#470). It is the
+            //caller's effect, so it cannot be registered at load with the rest (RegisterShadowReceivers).
             if (instancedEffect != null && !ReferenceEquals(instancedEffect, _instancedShadowEffect))
             {
                 _instancedShadowEffect = instancedEffect;
-                _instancedShadowMapParam = instancedEffect.Parameters["ShadowMap"];
-                _instancedShadowViewProjectionParam = instancedEffect.Parameters["ShadowViewProjection"];
-                _instancedShadowTexelParam = instancedEffect.Parameters["ShadowTexel"];
-                _instancedShadowStrengthParam = instancedEffect.Parameters["ShadowStrength"];
-                _instancedShadowBiasParam = instancedEffect.Parameters["ShadowBias"];
-                _instancedShadowStrengthParam?.SetValue(0f);
+                _instancedShadowReceiver = new ShadowReceiver(instancedEffect);
+                _instancedShadowReceiver.Disable();
             }
 
-            SavannaSceneConfig cfg = _savannaConfig;
-            bool wanted = scene == SceneKind.Savanna && cfg.ShadowStrength > 0f && _sceneDetail > 0.5f
-                && sunDirection.Y > SHADOW_MIN_SUN_HEIGHT && _savannaScatter != null;
+            //Is there anything to cast at all? Only the savanna and the beach have planting of this
+            //renderer's own; in the other eight the casters are all the host's, so a caller that registers
+            //none of them — the MAP EDITOR, which draws no island, no gun and no wood — would render an empty
+            //map and then pay nine taps a pixel to read that everything is lit. The editor is the caller this
+            //spares, and it is the only one: both other executables always hand a callback in.
+            bool sceneCasts = scene == SceneKind.Savanna || scene == SceneKind.Tropical;
+
+            //Then the gates that cost least to fail first: does this scene ask for a map at all, is the tier
+            //high enough, is the sun above the horizon, and does the scene have a ground to fit a map round.
+            //The city's config lives outside this renderer, so GetSceneConfig answers null for it.
+            bool wanted = false;
+            Vector3 centre = Vector3.Zero;
+            float yMin = 0f, yMax = 0f;
+            ShadowConfig shadows = GetSceneConfig(scene)?.Shadows;
+            if (shadows != null && shadows.Enabled && (sceneCasts || extraCasters != null)
+                && _sceneDetail > 0.5f && sunDirection.Y > SHADOW_MIN_SUN_HEIGHT)
+            {
+                wanted = TryShadowFit(scene, camera, out centre, out yMin, out yMax);
+            }
+
             if (!wanted)
             {
                 if (_shadowsActive)
                 {
                     _shadowsActive = false;
-                    _acaciaShadowStrengthParam.SetValue(0f);
-                    _savannaShadowStrengthParam.SetValue(0f);
-                    _instancedShadowStrengthParam?.SetValue(0f);
+                    for (int i = 0; i < _shadowReceivers.Length; i++) _shadowReceivers[i].Disable();
+                    _instancedShadowReceiver.Disable();
                 }
                 return;
             }
 
-            int size = Math.Clamp(cfg.ShadowMapSize, 256, 8192);
+            int size = Math.Clamp(shadows.MapSize, 256, 8192);
             if (_sunShadowMap == null || _sunShadowMap.Size != size)
             {
                 _sunShadowMap?.Dispose();
                 _sunShadowMap = new SunShadowMap(_graphicsDevice, size);
             }
 
-            //Fitted round the camera's ground position, from below the plain's lowest ground to above its
-            //highest hill plus the tallest thing standing on it.
-            Vector3 at = camera.Position;
-            float yMin = cfg.LevelY - cfg.HillHeight * 0.5f - 10f;
-            float yMax = cfg.LevelY + cfg.HillHeight + cfg.Dressing.BaobabHeight * 1.5f + 10f;
-            _sunShadowMap.Fit(new Vector3(at.X, cfg.LevelY, at.Z), sunDirection, cfg.ShadowExtent, yMin, yMax);
+            _sunShadowMap.Fit(centre, sunDirection, shadows.Extent, yMin, yMax);
 
             _graphicsDevice.SetRenderTarget(_sunShadowMap.Target);
             _graphicsDevice.Clear(Color.White);
@@ -5262,8 +5325,177 @@ namespace Prazsky.Core.Render
             _graphicsDevice.DepthStencilState = DepthStencilState.Default;
             _graphicsDevice.RasterizerState = RasterizerState.CullNone;
 
+            //This scene's own planting — the two scatters this renderer owns. The culling stays off for both:
+            //two-sided blades, fans and fronds, and a closed solid drawn from both sides cannot peter-pan out
+            //of its own shadow. The FOREST's wood is not here because it is not this renderer's: the hosts own
+            //their ForestScatterRenderer, so it casts through extraCasters below with the island and the gun.
+            switch (scene)
+            {
+                case SceneKind.Savanna:
+                    DrawSavannaShadowCasters();
+                    break;
+                case SceneKind.Tropical:
+                    DrawTropicalShadowCasters();
+                    break;
+            }
+
+            //And whatever the caller casts (#470): the island and the gun, which are the executable's objects
+            //and not this renderer's ("the setting, in one copy" — the renderer draws the scene's own scatter
+            //and the host draws what stands on it). It draws through InstancedModelRenderer.DrawDepth, which
+            //states the technique it needs and puts the main one back.
+            extraCasters?.Invoke(_sunShadowMap.ViewProjection);
+
+            _graphicsDevice.SetRenderTarget(null);
+
+            //Hand the map to every receiver: the matrix, the texel, the strength, and the bias in the map's
+            //own depth units. ⚠ ShadowViewProjection is pushed here AND by the caster pass above (both
+            //InstancedModelRenderer.DrawDepth and the scatter's own technique set it): the same matrix and
+            //the same uniform, and a caster's write is what a caller drawing into a map of its own would
+            //leave behind, so this one is the frame's last word on it.
+            float bias = SHADOW_BIAS_UNITS / _sunShadowMap.DepthRange;
+            for (int i = 0; i < _shadowReceivers.Length; i++)
+            {
+                _shadowReceivers[i].Push(_sunShadowMap.Target, _sunShadowMap.ViewProjection,
+                    _sunShadowMap.Texel, shadows.Strength, bias);
+            }
+
+            //The shared instanced effect, which is what makes the island, the gun, the city and the balls
+            //receive — one push for all of them (#470).
+            _instancedShadowReceiver.Push(_sunShadowMap.Target, _sunShadowMap.ViewProjection,
+                _sunShadowMap.Texel, shadows.Strength, bias);
+
+            _shadowsActive = true;
+        }
+
+        /// <summary>
+        /// Where this scene's shadow map sits and how tall a box it spans: the camera's own ground position,
+        /// and a height range from below the lowest ground the map will cover to above the tallest thing that
+        /// casts into it. False for a scene with no ground of its own, which is what keeps a backdrop out of
+        /// the feature even if its config asks for shadows.
+        /// <para>
+        /// <b>The range is computed here rather than authored in <see cref="ShadowConfig"/>, and that is the
+        /// decision worth knowing.</b> It is not a designer's number: it follows the scene's own hill height
+        /// and dressing, which are dials that get tuned. Written beside them as a figure it would be a second
+        /// copy of the terrain's proportions and one that drifts silently — the map keeps rendering, it simply
+        /// stops covering what stands in it, and nothing in the frame says why.
+        /// </para>
+        /// <para>
+        /// A box far bigger than it needs to be is not free either: the bias is carried in the map's own depth
+        /// units (<c>SHADOW_BIAS_UNITS / DepthRange</c>), so a range stretched to cover a peak two hundred
+        /// units away coarsens the bias for the grass under the gun. Hence a scene's own relief rather than
+        /// one number for all of them.
+        /// </para>
+        /// <para>
+        /// <b>Which scenes are here is the same list as <see cref="RegisterShadowReceivers"/>' and has to
+        /// stay so</b>: a scene fitted but not receiving casts into a map nobody reads, and a scene receiving
+        /// but not fitted is handed 0 every frame. Sea and Storm are deliberately in neither — see that
+        /// method for why.
+        /// </para>
+        /// </summary>
+        private bool TryShadowFit(SceneKind scene, ICamera camera, out Vector3 centre, out float yMin, out float yMax)
+        {
+            centre = Vector3.Zero;
+            yMin = yMax = 0f;
+
+            float groundY, below, above;
+            switch (scene)
+            {
+                case SceneKind.Savanna:
+                    //#469's own fit, kept to the digit: half a rise below the plain, and a baobab and a half
+                    //over the rises. It is the one that was measured and photographed, so it stays its own
+                    //expression rather than joining the shared headroom below.
+                    groundY = _savannaConfig.LevelY;
+                    below = _savannaConfig.HillHeight * 0.5f;
+                    above = _savannaConfig.HillHeight + _savannaConfig.Dressing.BaobabHeight * 1.5f;
+                    break;
+
+                case SceneKind.Meadow:
+                    groundY = _meadowConfig.LevelY;
+                    below = _meadowConfig.HillHeight * 0.5f;
+                    above = _meadowConfig.HillHeight;
+                    break;
+
+                case SceneKind.Forest:
+                    groundY = _forestConfig.LevelY;
+                    below = _forestConfig.HillHeight * 0.5f;
+                    above = _forestConfig.HillHeight;
+                    break;
+
+                case SceneKind.Mountain:
+                    //The peaks are the terrain's own silhouette and mostly stand outside the map's extent;
+                    //what has to be covered is the basin the island sits in, so half the range's height is
+                    //the box rather than all of it — a range fitted to an 82-unit peak coarsens the bias on
+                    //the snow at the gun's feet for a ridge no map reaches.
+                    groundY = _mountainConfig.LevelY;
+                    below = _mountainConfig.Height * 0.25f;
+                    above = _mountainConfig.Height * 0.5f;
+                    break;
+
+                case SceneKind.Desert:
+                    groundY = _desertConfig.LevelY;
+                    below = _desertConfig.DuneAmplitude;
+                    above = _desertConfig.DuneAmplitude;
+                    break;
+
+                case SceneKind.Outback:
+                    //The monoliths are terrain, not props, and they are what a map here has to clear.
+                    groundY = _outbackConfig.Terrain.LevelY;
+                    below = _outbackConfig.Terrain.OutcropHeight;
+                    above = _outbackConfig.Terrain.RockHeight;
+                    break;
+
+                case SceneKind.Tropical:
+                    groundY = _tropicalConfig.Terrain.LevelY;
+                    below = _tropicalConfig.Terrain.HillHeight * 0.5f;
+                    above = _tropicalConfig.Terrain.HillHeight;
+                    break;
+
+                case SceneKind.Volcano:
+                    //Same argument as the mountain: the cone is 140 units of far-away silhouette and the flank
+                    //under the island is what the map covers.
+                    groundY = _volcanoConfig.LevelY;
+                    below = _volcanoConfig.ConeHeight * 0.15f;
+                    above = _volcanoConfig.ConeHeight * 0.3f;
+                    break;
+
+                case SceneKind.Mars:
+                    groundY = _marsConfig.Terrain.LevelY;
+                    below = _marsConfig.Terrain.CraterAmplitude * 2f;
+                    above = _marsConfig.Terrain.MesaHeight * 0.5f;
+                    break;
+
+                case SceneKind.Polar:
+                    groundY = _polarConfig.LevelY;
+                    below = _polarConfig.SwellAmplitude * 2f;
+                    above = _polarConfig.RidgeHeight;
+                    break;
+
+                default:
+                    return false;
+            }
+
+            Vector3 at = camera.Position;
+            centre = new Vector3(at.X, groundY, at.Z);
+            yMin = groundY - below - SHADOW_FIT_MARGIN;
+
+            //Whatever the terrain does, the box has to clear the island's cap with the gun standing on it —
+            //in every scene but the savanna and the forest those two ARE the casters, and a box fitted to a
+            //flat plain would clip the very thing throwing the shadow.
+            yMax = MathF.Max(groundY + above, ArenaIsland.TOP_Y + SHADOW_ISLAND_HEADROOM) + SHADOW_FIT_MARGIN;
+            return true;
+        }
+
+        /// <summary>
+        /// The savanna's own casters (#469): every bucket of the scatter and the ring of hearth stones,
+        /// through <c>Acacia.fx</c>'s <c>ShadowCaster</c> technique. Puts the main technique back on the way
+        /// out, the way <see cref="InstancedModelRenderer.DrawDepth"/> does.
+        /// </summary>
+        private void DrawSavannaShadowCasters()
+        {
+            if (_savannaScatter == null) return;
+
             _acaciaEffect.CurrentTechnique = _acaciaShadowTechnique;
-            _acaciaShadowViewProjectionParam.SetValue(_sunShadowMap.ViewProjection);
+            _acaciaEffect.Parameters["ShadowViewProjection"].SetValue(_sunShadowMap.ViewProjection);
             _acaciaEffect.CurrentTechnique.Passes[0].Apply();
 
             ScatterBucket[] buckets = _savannaScatter.Buckets;
@@ -5294,43 +5526,53 @@ namespace Prazsky.Core.Render
             }
 
             _acaciaEffect.CurrentTechnique = _acaciaTechnique;
+        }
 
-            //And whatever the caller casts (#470): the island and the gun, which are the executable's objects
-            //and not this renderer's ("the setting, in one copy" — the renderer draws the scene's own scatter
-            //and the host draws what stands on it). It draws through InstancedModelRenderer.DrawDepth, which
-            //states the technique it needs and puts the main one back.
-            extraCasters?.Invoke(_sunShadowMap.ViewProjection);
+        /// <summary>
+        /// The beach's own casters (#471): the palms and the waterline's rocks, through <c>Palm.fx</c>'s
+        /// <c>ShadowCaster</c> — the same draws <see cref="DrawPalms"/> and <see cref="DrawTropicalRocks"/>
+        /// make, with the technique swapped, so a frond's shadow is cut from the frond and not from a
+        /// stand-in. Palm shadows on sand are what a beach looks like, which is why this scene has casters of
+        /// its own at all while the desert and the outback make do with the island's.
+        /// <para>
+        /// ⚠ <b>The sway is one frame stale here.</b> The map is drawn before the scene, so the wind's clock
+        /// on the effect (<c>PalmTime</c>, the wind and its speed) is still the previous frame's — only the
+        /// per-draw sway strength is set below. At the beach's sway speed that is under a hundredth of a
+        /// radian of phase, which moves a frond tip by a fraction of a millimetre; re-pushing this frame's
+        /// clock would mean handing this method a <see cref="SceneFrame"/> it otherwise has no use for.
+        /// </para>
+        /// </summary>
+        private void DrawTropicalShadowCasters()
+        {
+            if (_palmMeshes == null) return;
 
-            _graphicsDevice.SetRenderTarget(null);
+            _palmEffect.CurrentTechnique = _palmShadowTechnique;
 
-            //Hand the map to the receivers: the matrix, the texel, the strength, and the bias in the map's
-            //own depth units.
-            float bias = SHADOW_BIAS_UNITS / _sunShadowMap.DepthRange;
-            _acaciaShadowMapParam.SetValue(_sunShadowMap.Target);
-            _acaciaShadowTexelParam.SetValue(_sunShadowMap.Texel);
-            _acaciaShadowStrengthParam.SetValue(cfg.ShadowStrength);
-            _acaciaShadowBiasParam.SetValue(bias);
-            _savannaShadowMapParam.SetValue(_sunShadowMap.Target);
-            _savannaShadowViewProjectionParam.SetValue(_sunShadowMap.ViewProjection);
-            _savannaShadowTexelParam.SetValue(_sunShadowMap.Texel);
-            _savannaShadowStrengthParam.SetValue(cfg.ShadowStrength);
-            _savannaShadowBiasParam.SetValue(bias);
-
-            //And the shared instanced effect, which is what makes the island, the gun, the city and the balls
-            //receive — one push for all of them (#470). ⚠ ShadowViewProjection is pushed here AND by
-            //InstancedModelRenderer.DrawDepth during the caster pass above: the same matrix, the same
-            //uniform, and the caster's write is what a caller drawing into a map of its own would leave
-            //behind, so this one is the frame's last word on it.
-            if (_instancedShadowStrengthParam != null)
+            for (int m = 0; m < _palmMeshes.Length; m++)
             {
-                _instancedShadowMapParam.SetValue(_sunShadowMap.Target);
-                _instancedShadowViewProjectionParam.SetValue(_sunShadowMap.ViewProjection);
-                _instancedShadowTexelParam.SetValue(_sunShadowMap.Texel);
-                _instancedShadowStrengthParam.SetValue(cfg.ShadowStrength);
-                _instancedShadowBiasParam.SetValue(bias);
+                ModelInstance[] instances = _palmInstances[m];
+                if (instances.Length == 0) continue;
+
+                float sway = _tropicalConfig.Palms.SwayStrength;
+                DrawPalmPart(_palmMeshes[m].Fronds, instances, Vector3.Zero, dappleStrength: 0f, swayStrength: sway);
+                DrawPalmPart(_palmMeshes[m].Wood, instances, Vector3.Zero, dappleStrength: 0f, swayStrength: sway);
             }
 
-            _shadowsActive = true;
+            if (_tropicalRockMeshes != null)
+            {
+                for (int m = 0; m < _tropicalRockMeshes.Length; m++)
+                {
+                    ModelInstance[] instances = _tropicalRockInstances[m];
+                    if (instances.Length == 0) continue;
+
+                    //No sway, for the reason DrawTropicalRocks gives: these are lathe meshes whose TEXCOORD0.x
+                    //is a circumference, which this shader reads as its sway weight. At the palms' strength
+                    //the stones shear open — and a sheared stone casts a sheared shadow.
+                    DrawPalmPart(_tropicalRockMeshes[m], instances, Vector3.Zero, dappleStrength: 0f, swayStrength: 0f);
+                }
+            }
+
+            _palmEffect.CurrentTechnique = _palmTechnique;
         }
 
         /// <summary>

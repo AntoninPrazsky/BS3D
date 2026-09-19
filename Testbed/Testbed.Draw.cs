@@ -232,7 +232,8 @@ namespace Testbed
         }
 
         /// <summary>
-        /// What this program casts into the sun's shadow map (#470): the island and the gun. Handed to
+        /// What this program casts into the sun's shadow map (#470): the island, the gun, and in the forest
+        /// the wood standing round them (#471). Handed to
         /// <see cref="SceneRenderer.DrawShadowMaps"/> with the map's target already bound and its states set.
         /// <para>
         /// <b>It casts exactly what the scene block above draws</b>, on the same conditions — the island
@@ -249,6 +250,11 @@ namespace Testbed
             if (_cannonRig != null && _cannon != null)
                 _cannonRig.DrawShadow(shadowViewProjection, _cannon.BarrelWorld(), _cannon.CarriageWorld(),
                     _cannon.WheelTravel, _cannon.SlideTravel);
+
+            //The wood, on the same gate the scene block draws it on (#471). It is the host's object like the
+            //island is, which is why it casts from here and not from inside the renderer. The AURORA's stand
+            //is deliberately left out: that scene's sun is below the horizon and DrawShadowMaps never asks.
+            if (_scene == SceneKind.Forest) _forestScatter?.DrawShadow(shadowViewProjection);
         }
 
         //The Game's counter restated rather than shared, because there is nothing to share it through: both are
