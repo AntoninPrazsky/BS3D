@@ -4657,3 +4657,25 @@ Tour se dosud pustil jen jednou, automaticky, při stavbě prvního levelu kapit
 - **Soubory:** `SavannaScatter.cs`, `ScatterSpacing.cs`, `TrailWarpField.cs`, `CloudField.cs` (jeho privátní CPU zrcadlo `CloudNoise` chce být tou jednou kopií, ne druhým opisem), savanní sázení v `SceneRenderer.cs`, `docs/scenes.md`. Shader **neplánuju měnit** — test je CPU zrcadlo členu, který `Savanna.fx` už kreslí.
 - ⚠ **Tvar úlohy, hned na začátku:** test musí být proti **ohnuté** cestě, a warp se staví z osázení — obojí na sobě závisí. Špatné místo je jen to, přes které cesta vede i **po** ohnutí. Co to stojí a jestli to chtělo víc než jeden průchod, napíšu sem.
 - ⚠ **Tenhle stroj je notebook s Vega 10 (APU), bez LM Studia a bez SD** — takže žádné `capture-review` přes Gemmu a žádné generativní reference. Ověřovat budu Testbedem a vlastníma očima na snímcích, a čísla (kolik rostlin sedí na cestě před a po) sondou v procesu, ne odhadem.
+
+---
+
+## 2026-09-19 — Claude Code, bs3d-f0 (#350: stylizovaný kurzor, merge `a83a8be`)
+
+**Kurzor menu je teď vlastní a vzniká při načtení** — `Texture2D` postavená ze **signed distance field**u a jednou poslaná přes `Mouse.SetCursor`. Žádný bitmapový asset, žádná položka v content pipeline, nic navíc v release zipu.
+
+- **Proč generovaně, a ne nakresleně:** **velikost se bere z displeje** (0,026 jeho výšky, ořez 26–72 px). Šipka vyexportovaná pro 1080p je na 4K panelu, který je pro tenhle projekt základ, smetíčko. **Změřeno na 3840×1600: šipka 41,6 px v kurzoru 55×55, hotspot 4,4.** A barvy zůstávají v kódu vedle palety menu, ne zapečené v PNG, které by někdo musel znovu exportovat, až se paleta hne.
+- **Šedá, dvakrát záměrně:** stojí nad dvaceti pozadími, jejichž palety nemají nic společného (pravidlo chromu), **a šedý bitmap je bajt po bajtu tentýž, i kdyby předek RGBA→BGRA do GDI byl obráceně** — barevná šipka je přesně ten druh chyby, který se ukáže až na cizím stroji.
+- **SDF je to, co nechá jednu aritmetiku sloužit každé velikosti:** obrys je pás v pevné vzdálenosti **vně** silhuety, stín je totéž pole vzorkované z posunutého bodu a antialiasing je pokrytí, které vzdálenost už říká. Supersamplovaný polygon by chtěl tři věci zvlášť a ještě přelaďovat po velikostech.
+- ⚠ **`Mouse.SetCursor` se volá přesně jednou, z `Initialize`.** Předává oknu GDI handle kurzoru, takže volání po snímcích by po snímcích jeden stavělo a zahazovalo — známá cesta k náhodnému pádu MonoGame. `IsMouseVisible` je nedotčené a dělá dál jediné, co dělalo: **skrývá**. Skrytý kurzor není odvolaný kurzor.
+
+### ⚠ Kurzor se v tomhle projektu **nedá vyfotit** — a náhrada je lepší než fotka
+
+Ani jedna z našich dvou cest zachycení ho nevidí: `shot=` ukládá back buffer a plocha v něm není, `screenshot.ps1` dělá `CopyFromScreen`, což je BitBlt, a ten ukazatel nekreslí. Sonda je **`GetCursorInfo` → živý handle → `DrawIconEx`** na vlastní podložku tří šedí — a odpoví najednou na identitu (náš, nebo `IDC_ARROW`?), hotspot i čitelnost, což fotka neumí.
+
+**Změřeno:** handle je stejný po změně velikosti okna, po odchodu ukazatele z okna a návratu, **a po přepnutí do fullscreenu a zpět** — což je jediný `ApplyChanges` (reset zařízení), který hra za běhu má. V `GameplayScreen` sonda hlásí **žádný kurzor**, a Escape přivede tentýž handle zpátky. `Progress.json` beze změny (hash před/po).
+
+### ⚠ Nález, který platí pro všechny session: **syntetické klávesy do Hry DOJDOU**
+
+Dosavadní pravidlo „syntetický vstup se do `BS3D.exe` nikdy nedostane" je **o `AppActivate`, ne o MonoGame**. Z PowerShellu, který zavolal `user32!SetForegroundWindow(hwnd)` přímo a předtím přesunul fyzický ukazatel do okna `SetCursorPos`em, **obyčejný `keybd_event` s F11 přepnul BS3D do fullscreenu a zase zpět** (rect změřen 1616×939 → 3840×1600 → 1616×939) a **Escape otevřel pauzu**. Recept: `Start-Process -PassThru`, počkat na `MainWindowHandle`, `SetForegroundWindow`, `SetCursorPos` do klientské plochy, pak `keybd_event`. Testovací argument je pořád lepší (opakovatelný, nepotřebuje popredí), ale **cesta řízená vstupem už není neověřitelná**.
+
