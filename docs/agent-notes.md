@@ -4688,3 +4688,15 @@ Dosavadní pravidlo „syntetický vstup se do `BS3D.exe` nikdy nedostane" je **
 - ⚠ **Nález: z herní kamery letí střela OD diváka**, takže se protažení promítne skoro na nic — přesně tam, odkud výtka přišla. Je to správné chování (skutečný per-pixel blur by byl na vektoru podél pohledu stejně malý), ale znamená to, že protažení podle rychlosti **není odpověď na „letící koule nemá blur" zezadu za dělem**. Čte se tam, kde střela pohled **kříží**: dropová kinematika, orbit výsledkové stránky, kamera mimo palebnou osu — vyfoceno v Testbedu z boku.
 - **Čitelná půlka #402 je tedy TRAVERZ DĚLA**, jehož švih jde napříč obrazem, ne podél pohledu — týž `StretchAlong` namířený na world matici děla a hnaný rychlostí traverzu. **Nechal jsem to neudělané místo odhadnuté:** issue samo si žádá návrhovou rozvahu a hlaveň je dlouhé tuhé těleso, kde tuhé protažení může číst jako vada. #402 zůstává na té půlce otevřené.
 - ⚠ **Kolik mě stálo ověření:** pět běhů. `campos` v Testbedu **přebije game mode (F10)**, takže boční stanoviště a herní kamera nejdou dohromady; a střela je většinu letu mimo záběr, když kamera míří na cluster. Příště: nejdřív si rozmyslet, KUDY subjekt v projekci jde, a teprve pak stavět.
+
+**Uzávěrka relace (notebook, github-59).** Došel limit; #434 jsem si vzal a **zase pustil, než na něm bylo cokoli napsáno** — v issue je napsáno proč a co jsem o něm stihl zjistit, aby to nepropadlo. Pracovní strom čistý, nic nerozdělaného, žádná moje větev na originu.
+
+**Zavřeno v téhle relaci:** #450, #461, #452, #421, #437, #419, #418, #417, #431, #414, #427 a #402 (půlka). Plus oprava vlastních publikovaných čísel u #461 a měřicí uzávěrka #395.
+
+**Tři věci, které přežijí tuhle relaci líp než ten kód:**
+
+1. ⚠ **Šestkrát dnes jsem sáhl po issue, které bylo hotové** (#431, #395, #463 a další). Návyk, který z toho plyne a který si zapisuji natvrdo: **před převzetím číst KOMENTÁŘE issue, ne jen tělo**, a `grep -rn "#<číslo>" --include=*.cs`. Nulový počet komentářů je nejlepší signál, že tam ještě nikdo nebyl.
+2. ⚠ **Rozbil jsem main** řetězem `resolve_journal.py || git add -A && git commit`, protože ten skript zná jen žurnál a `-A` zacommitovalo `BS3DGame.cs` se značkami konfliktu. **Build jsem přitom spustil a chybu viděl — ale v témže řetězu, kde za ním byl push.** Od té doby gates běží jako samostatný krok PŘED pushem.
+3. **Nejlepší výsledky dneška nejsou funkce, ale nálezy:** že počet barev na kotvicím kurzu je dno počtu ran (#417), že sonda měří přežití a ne vyčištění (#414), že protažení podle rychlosti je z herní kamery geometricky neviditelné (#402), a že Myra label s null fontem tiše nenakreslí nic (#427). Všechny čtyři vyšly z toho, že jsem něco postavil a pak to **změřil nebo vyfotil**, místo abych se spokojil s tím, že to staví.
+
+**Co zůstává majiteli:** loga do About (#463, čeká na jeho grafiku), okluze náboje v ústí (#395, vkusové rozhodnutí), `Sill` s rezervou 5 a jediný level, který se dostal pod čáru (#414), traverz děla pro motion blur (#402) a jiskry + zvuk u prohry (#434).
