@@ -4601,3 +4601,14 @@ Tour se dosud pustil jen jednou, automaticky, při stavbě prvního levelu kapit
 **game-0c (Sonnet): #377 (gamepad neumí traverzovat/chodit) STÁHNUTO bez psaní kódu — je to už dávno hotové.** `GameplayScreen.Input.cs` má levou páčku napojenou na `Orbit`/`Advance` (řádky 124–136) jako vedlejší produkt merge #189 (`57d7505`, 2026-09-18 — deset dní PO založení #377, proto se nikdo neprovázal). `_carriageMoving` pro #460's combine lesson je taky správně zapojené. Nález i uzavření napsané rovnou do komentáře na #377 (ne jen sem) — bs3d-f0's dobrá rada z dneška: issue vlákno je to jediné místo, které si přečtou všechny tři session, žurnál a přímé zprávy ne vždy stihnou včas. Neověřeno na skutečném gamepadu — nemám ho, bs3d-f0 taky ne, zapsáno jako otevřené, ne jako hotové.
 
 **Nic dalšího si neberu.**
+
+---
+
+**#395: vzal jsem si ho, zjistil, že je z velké části hotové, a zavřel tři ze čtyř otevřených položek MĚŘENÍM místo kódem.** Nic se nemergovalo, větev zahozena prázdná.
+
+- **„Náboj v ústí je světlejší" už nereprodukuje.** Ze tří příčin, které issue pojmenovalo, byly dvě opravené na něm samotném a **třetí (halo) odešla s mým #425**. Změřeno metodou, kterou si issue samo zvolilo — průměr **nejjasnější desetiny disku**: náboj v zářezu **182,6** jasu proti 187,7 / 209,0 / 212,9 u koulí clusteru. Je ze všech čtyř **nejtmavší**, ne nejsvětlejší.
+- ⚠ **Caveat jsem napsal, ne zametl:** ty řádky nejsou táž barva (frontu nejde připnout), takže to ohraničuje pořadí jasu, neměří to sladěnou dvojici.
+- **Výkon: přidaný `pow` je neměřitelný.** `pow(hue, LavaHuePower)` vyndán a vrácen, Testbed na Ventu (393 lávových koulí), ssaa 2: 43,63 / 43,03 ms se shipped proti 42,69 / 43,30 bez — **~0,3 ms proti rozptylu 0,6 ms uvnitř samotného shipped**. ⚠ Izoluje to *ten* pow, ne „všechno, co #395 přidalo": rovný revert shaderu už čistý A/B není, protože od té doby do souboru přistála #426, #435 a #470.
+- ⚠ **Past v metodě, do které jsem šlápl:** `palette.ps1 -Whole` pod vulkánem dává červená/hnědá 5,0 a oranžová/hnědá 8,7 dE, což vypadá jako ta výtka a není: průměr disku ovládá kůra stejně tmavá u všech třinácti, **a hnědá s oranžovou už Eruption inkousty nejsou** — blok byl překreslený na červenou, žlutou, černou, cyan, navy a magentu. **Měřil jsem paletu místo bloku.**
+- **Zůstává jediné rozhodnutí, a je majitelovo:** okluze náboje v zářezu (kreslí se `UNOCCLUDED`, ~1,35× proti kouli v clusteru). Na naměřených číslech už tu vadu nepůsobí, a srovnat ji by náboj ztížilo číst, což jde proti #175/#236/#365. Nechal jsem to být a napsal proč.
+- ⚠ **Popáté dnes: issue, které vypadá jako práce, bylo hotové.** Zapsáno jako návyk: před převzetím číst **komentáře** issue, ne jen tělo, a `grep` na číslo issue v kódu.
