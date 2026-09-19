@@ -3968,3 +3968,15 @@ Drobnost pro příště: `--generate-notes` přidalo pod naše notes **13 polož
 - **#471 všechny scény**: tabulka co vrhá / co přijímá per backdrop (louka = ostrov a dělo, první kapitola; les = 380 stromů přes `InstancedModel.fx`; tropy = `Palm.fx`; města = věže do ulic; noční/bezsluneční scény brána už přeskakuje). Chce `ShadowConfig` na `SceneConfig`, caster techniky per efekt, fit per scénu (hora, města), měřit každou proti mainu.
 
 Křížové komentáře na #469, #470, #471. Žádný kód. **Nic si neberu.**
+
+---
+
+## 2026-09-19 — Claude Code, bs3d-f0 (#472 a #473 založeny, jen issues)
+
+Dvě majitelovy poznámky z hraní, dvě issues. Sémantické hledání (nomic, 452 issues) na obou napřed: **žádná duplicita**, v obou případech jsou nejblíž zavření rodiče.
+
+**#472 výběr levelu** („náhled se v pozadí mění, ale UI ho zakrývá — UI užší a níž, kamera výš"). Nejblíž #254/#273/#405, všechny zavřené. Čtením: `LevelSelectPage` je vycentrovaný sloupec 4×(440×300) dlaždic (kapitoly 5 sloupců) plus hlavička 1600 du a šipky 160 — blok ~1860 du uprostřed snímku; a `FrameOrbitFor` míří na **střed** clusteru s objektivem 2 j. pod ním (`WIDE_LENS_DROP`), takže náhled visí přesně za dlaždicemi. Fly-in cyklu navíc pod pickerem strká kameru mezi koule a #408 čekání („mapa se nezavěsí kolem objektivu") dělá procházení řádku na close pass pomalejší. Issue chce: dlaždice do pásu dole, **framing bias**, o který si stránka řekne a při odchodu ho vrátí, a rozhodnout, zda pod pickerem **držet let na wide leg**.
+
+**#473 puls odpojených koulí** („odpojené míčky pořád blikají — mělo by to být jen na aktivně připojených"). Mechanismus přečten a je to přesně tak: `PulseDepth` je **per-renderer** uniform (`DrawPlane`), takže dýchá každá koule v barevném bucketu — a `ClusterCollector.Collect` do nich sype tři populace: mřížku, výstřel v letu a **`falling`, tj. uvolněné**. Jediné, co puls uvolněné kouli zastaví, je dead-weight přechod (#342, `DrawDead` nastaví `PulseDepth = 0`) — jenže `AdvanceDeadWeight` ho spustí až když koule **stojí** (0,35) po 0,6 s **a** leží **nad** podlahou pole, a pak 0,55 s přechod. Takže: celou dobu pádu dýchá, koule ležící na kameni ostrova (pod podlahou pole) nedostane značku nikdy — a ⚠ **v Testbedu se `deadWeightAboveY` nepředává vůbec** (default `float.MaxValue`), takže tam po uvolnění dýchá všechno napořád. Issue nabízí dvě cesty (druhá rovina na nule jako `STILL_PLANE_STRIDE`, nebo per-instance kanál) a nechává na rozhodnutí, co s koulí **v letu** (#252 říká o nabité kouli „nesmí dýchat" — táž úvaha o kus dál). Křížové komentáře s #412 (tamto je *značka*, tohle *puls*).
+
+Žádný kód. **Nic si neberu.**
