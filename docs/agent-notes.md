@@ -4066,3 +4066,17 @@ Dvě majitelovy poznámky z hraní, dvě issues. Sémantické hledání (nomic, 
 - **Co po dnešku zůstává majiteli:** #474 (tříranové levely — Horn sebere shodou 90 %, Trophy 68), Highwall jako nejdelší level Quarry (18 ran, je to jeho design), `Cabinet` v sondě 4 z 5 (práh hlášení, #301 ho kdysi spravil na 2–3) a `MIXED THEMES` u Louky v `DescribeBlock` (patří k #400).
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-19 — Claude Code (notebook: #416 Grotto se dojídá po jedné buňce, pak #415)
+
+**Beru si #416** na pokyn majitele („Vem 416 a potom 415"). Větev `416-grotto-cap`, notebook v `C:\GitHub`.
+
+- **Zjištěno z kódu:** Grottova čepice je celý vnitřek horního kurzu (x, z ∈ 3..11, tedy 9×9 = 81 buněk) obarvený šachovnicí **2×2** v cyan/magenta. Na devíti místech z ní visí krápník. Blok 2×2 nad mřížkou 9×9 dává **25 bloků** (první je jen jednu buňku široký), takže po odstřelení krápníků zůstává ~16 čtyřkuličkových bloků přilepených ke sklu, každý na vlastní ránu — přesně „na konci chvíli trvá odstřelit magentové čtverce na stropě".
+- ⚠ **Šachovnice je tam schválně** („same-colour blocks touching only at their diagonals, so a spire and the block it hangs under are one modest group") — čepice je přibondovaná ke sklu buňku po buňce, takže jedna velká souvislá skupina by byl one-shot level. Řešení tedy není šachovnici zrušit, ale **zvětšit její pole**.
+- **Plán:** blok čepice 2 → 3. Devět políček 3×3 přesně pokryje 9×9 a **každé z nich nese právě jeden z devíti krápníků** (spočítáno z `GROTTO_SPIRES`: patky mapují na všech devět bloků, každý jednou), takže čepice se uklízí *spolu* s krápníky a žádný zbytek nezůstává. Je to totéž, co včera vyšlo v Quarry u Highwallu (šachovnice = desítky nespojených skupin).
+- **Ověření:** LevelGen (skupiny, nejkratší vyčištění, one-shot %), sonda na Grottu staré proti novému za stejných podmínek, ScoreSim, a pohled ve hře.
+- **Beru na sebe:** `Tools/LevelGen/Designs/Block05_Reveal.cs`, `Game/Levels/Grotto.json`, docs.
+
+**Nic dalšího si neberu.**
