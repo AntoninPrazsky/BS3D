@@ -3928,3 +3928,15 @@ Drobnost pro příště: `--generate-notes` přidalo pod naše notes **13 polož
 **#469 založeno** (stíny: nic na savaně nevrhá stín — žádná scéna v projektu nemá shadow mapu, jen cloud shadow a relief self-shadow). Sémantické hledání: nejbližší #451/#282/#468, duplicita žádná. Návrh v issue: jedna ortografická shadow mapa od slunce kolem kamery, depth technika na `Acacia.fx`, PCF tapy v `Savanna.fx` a `Acacia.fx`, jako infrastruktura i pro les/louku/pláž.
 
 **Beru si #468 (oheň) a pak #469 (stíny).**
+
+---
+
+## 2026-09-19 — Claude Code, bs3d-f0 (#468 oheň, hotovo a na mainu)
+
+**Větev `468-campfire`, merge `--no-ff` na main.** `Flame.fx` byl jeden sinusově vlnící jazyk, jantar → oranžová, bez červené a bez struktury — svíčka, přesně jak majitel napsal. Podle dvou referencí z dávky #451 (`468-campfire-photo`, `468-campfire-concept`): **tři jazyky** (každý vlastní střed a šířka na rychlostech natažených `FlameSeed`), ohýbané dvěma **fBm poli scrollujícími vzhůru** (plazma), která tělo zároveň **odřezávají tím víc, čím výš** — dole široká plná základna, nahoře oddělené špičky a odtržené cáry. Rampa červená → oranžová → žlutobílá podle žáru, dole žhavější, takže jádro zůstává u paty. **Jiskry**: druhá technika nad sdíleným bufferem 32 billboardů (`BuildBillboardParticles`), každá na smyčce z hodin bez stavu, jeden draw na oheň; `CampfireConfig.SparkCount` 20.
+
+⚠ **První řez byl bílý sloup**: jádro (2,6/2,0/0,85) a oranžová 2,0 v aditivu nad denní oblohou + rameno tonemapu → všechno nad ~1,5 do bílé, červená nikde. O stop níž (1,9/1,35/0,45; 1,45/0,42/0,05; 0,95/0,07/0,01) a jádro jen v základně — a teprve pak je vidět, že jazyky mají červené špičky. Posuzováno z výřezu 1000×1400 v plném rozlišení, ne ze zmenšeného náhledu: v náhledu jiskry nevidět vůbec.
+
+**Změřeno** (Testbed proti mainu ve worktree, 13 jednotek od ohně s celým plamenem přes objektiv, dome 14, 1600×900 ssaa 4, `nopost`, `fpscap=400`, dva páry): **7,64 → 7,79 / 7,64 → 7,76 ms, +0,13 ms**. Z hrací kamery je oheň pár set pixelů, tam to nic nestojí.
+
+**Neověřeno:** intro kapitoly ve hře (kamera obíhá kolem ohně 0 — jeden billboard nemá hloubku; issue navrhuje víc billboardů, nechávám na oku majitele), tier Low. Zbývá z majitelova zadání: **#469 stíny** — beru si.
