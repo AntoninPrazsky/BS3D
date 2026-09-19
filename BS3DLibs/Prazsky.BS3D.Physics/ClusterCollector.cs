@@ -1,4 +1,4 @@
-using BepuPhysics;
+﻿using BepuPhysics;
 using Microsoft.Xna.Framework;
 using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.GameStructure.DataBags;
@@ -217,8 +217,14 @@ namespace Prazsky.BS3D.Physics
             if (falling != null)
                 for (int i = 0; i < falling.Count; i++)
                 {
+                    //⚠ AND THE ONLY POPULATION THAT MUST NOT BREATHE (#473). The heartbeat is what says a ball
+                    //is part of the hanging map — the owner's report was that released balls "keep playing that
+                    //blinking effect" on the way down, which reads as the cluster still owning what it has just
+                    //let go of. It is #252's rule one place over: the rounds in the magazine do not breathe
+                    //either, for the same reason and by the same mechanism (the still plane).
                     Collect(frame, falling[i], BallRenderSet.UNOCCLUDED, ease, glideRetained, elapsedSeconds,
-                        interpolationAlpha, AdvanceDeadWeight(falling[i], elapsedSeconds, deadWeightAboveY));
+                        interpolationAlpha, AdvanceDeadWeight(falling[i], elapsedSeconds, deadWeightAboveY),
+                        released: true);
                     visited++;
                 }
 
@@ -229,7 +235,8 @@ namespace Prazsky.BS3D.Physics
         //by the caller's accumulator fraction (#293) — plus whatever is left of its arrival glide, turned the
         //way the pose turns it, shaded by the eased occlusion and lit by however far its flare has got.
         private void Collect(in BallDrawFrame frame, PhysicsBall ball, Vector4 occlusionTarget, float ease,
-            float glideRetained, float elapsedSeconds, float interpolationAlpha, float deadWeight = 0f)
+            float glideRetained, float elapsedSeconds, float interpolationAlpha, float deadWeight = 0f,
+            bool released = false)
         {
             ball.InterpolatedPose(interpolationAlpha, out System.Numerics.Vector3 position,
                 out System.Numerics.Quaternion orientation);
@@ -253,7 +260,7 @@ namespace Prazsky.BS3D.Physics
                 EaseOcclusion(ball, occlusionTarget, ease),
                 _advanceRipple == null ? 0f : _advanceRipple(ball, elapsedSeconds),
                 ball.Kind, AdvanceColourFade(ball, elapsedSeconds), deadWeight,
-                AdvanceThawFade(ball, elapsedSeconds), AdvanceInfectFade(ball, elapsedSeconds));
+                AdvanceThawFade(ball, elapsedSeconds), AdvanceInfectFade(ball, elapsedSeconds), released);
         }
 
         /// <summary>

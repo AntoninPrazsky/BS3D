@@ -1,4 +1,4 @@
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.GameStructure.DataBags;
@@ -2734,9 +2734,14 @@ namespace Prazsky.BS3D
         /// <param name="colourFade">How far a freshly coloured transparent ball is through its crossing, 0 for
         /// every other ball there has ever been (#325) — see <see cref="Route"/> for what the two ends of it
         /// are drawn as.</param>
+        /// <param name="still">True for a ball that must <b>not breathe</b> — a RELEASED one since #473, on
+        /// the rule #252 stated one place over for the rounds in the magazine: the heartbeat is what says a
+        /// ball is part of the hanging map, so a ball that has left it must not keep the beat. It cannot be a
+        /// value on the instance — the pulse is a per-renderer uniform — so it routes the ball into the still
+        /// plane and a draw of its own.</param>
         public void AddOriented(BallType type, Vector3 position, in Quaternion orientation, Vector4 occlusion,
             float ripple = 0f, BallKind kind = BallKind.Normal, float colourFade = 0f, float deadWeight = 0f,
-            float thawFade = 0f, float infectFade = 0f)
+            float thawFade = 0f, float infectFade = 0f, bool still = false)
         {
             int typeIndex = (int)type - 1;
             if (typeIndex < 0 || typeIndex >= BallRenderSet.TYPE_COUNT) return;
@@ -2748,7 +2753,7 @@ namespace Prazsky.BS3D
             world.M43 = position.Z;
 
             Route(kind, typeIndex, _set.LodFor(Vector3.DistanceSquared(position, _eye)),
-                new ModelInstance(world, occlusion, 0f, ripple), still: false, colourFade, deadWeight, thawFade, infectFade);
+                new ModelInstance(world, occlusion, 0f, ripple), still, colourFade, deadWeight, thawFade, infectFade);
         }
 
         /// <summary>
