@@ -4754,3 +4754,24 @@ Dosavadní pravidlo „syntetický vstup se do `BS3D.exe` nikdy nedostane" je **
 
 **Nic si neberu — jen triage, žádný kód.**
 
+
+---
+
+## 2026-09-20 — Claude Code, bs3d-867 (notebook C:\Projects\BS3D: druhá půlka #476 na mainu, issue zavřená)
+
+**#476 hotové celé, merge `daa9514` (commit `3c5f9e2`), issue zavřená.** Sázení teď odmítne místo, pod kterým je vyšlapaná zem. `SavannaTrails` je CPU zrcadlo členu, který `Savanna.fx` kreslí — týž šum, totéž nulové pásmo a **týž warp**, což je ta část, která rozhodla o tvaru celého řešení; bez dvou činitelů, které patří shaderu a ne zemi (`TrailStrength` = jak *sytě* se cesta kreslí, a band-limiting fade = funkce velikosti pixelu). `ShaderMath` drží jedinou C# kopii `CloudNoise` z `Clouds.fxh`, kterou teď čte i `CloudField` — druhý opis hashe by byl druhá šance rozejít se se shaderem.
+
+- **Testuje se KMEN, ne koruna** — v jediném bodě, kde věc stojí, schválně ne přes footprint od rozestupů, který je dosah koruny. Cesta vedoucí *pod* korunou je přesně to, co cesta dělá; nesmysl je kmen ve vyšlapané hlíně. A platí to na **všechno sázené, trsy trávy včetně**: trs je moc malý, aby ho cesta obcházela, a zároveň je to přesně to, z čeho je cesta vyšlapaná.
+- ⚠ **Obě půlky na sobě závisí, takže se pláň osází TŘIKRÁT.** Cesta se ohýbá podle toho, co na pláni stojí, takže „je tohle místo na cestě?" nejde zodpovědět, dokud pláň není osázená — a odpověď rostlinami hýbe. Ohýbat cesty podle toho, co zrovna stálo (ten samozřejmý způsob: jeden průchod, seznam roste za pochodu), spravilo **přízemní porost**, který jde do země poslední, a s **STROMY** neudělalo skoro nic — jdou první, kdy není co obcházet: 23 → 12, 22 → 20, 14 → 15. A stromy jsou to, o čem je majitelův report. První průchod tedy zjistí, kudy stezky povedou, další sázejí mimo ně; drží se poslední.
+- ⚠ **Každé místo si háže VLASTNÍ kostkou.** Na sdíleném proudu jeden návrh navíc přeháže každou rostlinu za sebou, takže každý průchod je nová savana testovaná proti stezkám pláně, která už neexistuje — nekonverguje nic. Vedlejší dar: před/po snímky jsou čitelné, protože se liší jen rostliny, které se opravdu pohnuly.
+- ⚠ **Cesta musela být PRVNÍ klíč řazení, ne penalizace přičtená k rozestupu.** Naceněná prohrávala s místem na loket pokaždé: strom s dvaceti jednotkami prostoru *na* stezce porazil ten, co musel proplést korunu vedle souseda. **16–19 rostlin na seed se takhle vrátilo na cesty**, proti 19–25 celkem stojícím na nich na konci. A ani v jednom případě nebylo všech osm návrhů na stezce — vždycky bylo kam jinam.
+- **Změřeno, šest scene seedů, rostliny stojící na cestě** (stromy apod. + přízemní porost, z asi 230 + 255): **19+14, 19+15, 19+17, 12+15, 16+13, 17+9 → 1+0, 5+1, 3+2, 1+0, 0+0, 4+0.**
+- ⚠ **Nekonverguje to k nule a nemá.** Každý průchod pár rostlin posune, a posunutá rostlina posune cesty kolem sebe — takže průchod zároveň uklízí i tvoří. Za třetím se to vyrovná (4 a 5 obkročmo kolem 3, ne lepší). Zbývá hrstka kmenů na *okraji* stezky.
+- **Nevyměnilo to vadu #108 za tuhle**, což je ta kontrola, na které záleželo: dvojic stojících v sobě je na hotové pláni **stejně** (3, 0 a 1 u tří seedů, které vůbec nějaké mají; nejhorší marže −2,1 / 0,0 / −0,8 před i po). Při téhle hustotě rostlina odmítnutá z cesty dopadne na volnou zem, ne do souseda.
+- **Cena:** aritmetika sázení třikrát — **10 ms jeden průchod, 18 dva, 24 tři** na tomhle notebooku (Vega 10 APU), při načtení scény a při re-plantu v editoru, který v téže vteřině staví dvacet pět meshů. **Per-frame nic**: shader se neměnil a texturu, kterou vzorkuje, měl už předtím.
+- **Metodika, kdyby to někdo měřil znovu:** dočasná sonda přímo v `SavannaScatter` (počet rostlin nad `TRAIL_REFUSE` proti finálnímu poli, podíl vyšlapané země, dvojice v sobě, čas), řízená přes env proměnné, a Testbed s `scene=savanna sceneseed=N at=3.5:Escape`. Před commitem **kompletně odstraněná** — `git grep` na `TEMP PROBE` i `BS3D_TRAIL` je prázdný. Před/po dvojice snímků z `campos=150,110,-150 camtarget=110,-12,-90` s `nopost nooverc arena=none`.
+- **Ověřeno po mergi na aktuálním mainu** (mezitím tam přistály #350, #402, `shadow=` a hudební půlka #464 — disjunktní, merge bez konfliktu): všechna čtyři řešení 0 chyb, LevelGen exit 0, ScoreSim exit 0, savana vyfocená ze sloučeného buildu.
+
+⚠ **Poznámka k pořadí práce, protože mě to stálo dvě kola:** obojí, co je výš označené ⚠, vypadalo při čtení kódu jako detail a bylo to jádro. Kdybych po prvním měření („velké rostliny se skoro nezlepšily") napsal do issue „hotovo, zlepšeno o polovinu", bylo by to pravda o číslech a lež o zadání — zlepšila se tráva, ne stromy, a report je o stromech. **Rozpad čísla podle toho, co majitel skutečně vidí, je ta věc, kterou se to chytlo.**
+
+**Nic dalšího si neberu.**
