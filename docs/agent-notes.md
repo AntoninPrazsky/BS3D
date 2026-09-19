@@ -4127,3 +4127,11 @@ Dvě majitelovy poznámky z hraní, dvě issues. Sémantické hledání (nomic, 
 - **Ověřeno:** LevelGen exit 0 přes 110 levelů, ScoreSim exit 0, sonda na čtyřech překreslených 0, 0, 1, 2 z pěti (práh 4). Trophy šlo 0 → 2, což je jediný posun; pořadí hry se barvou mění, geometrie ne.
 
 **Nic dalšího si neberu.**
+
+**Dodatek: #474 a lem pro Sail jsou na `main`u (merge `b70b6c6`) a #474 zavřené.** Větev smazaná lokálně i na originu, push mainu proběhl před mazáním. Na sloučeném stromě: `Game.sln` 0 chyb, LevelGen exit 0, ScoreSim exit 0; CI na větvi zelená před mergem.
+
+**Dnešní bilance:** šest issue zavřeno (#458, #413, #398, #416, #415, #474), jedno založeno (#474) a téhož dne i zavřeno. Generátor má tři nové obecné páky (`ClearProbe`, `Design.Hollow`, zákon o šachovnici) a jedno zpřesněné pravidlo (kroky nesoudělné s délkou palety, jinak se bloky svaří přes půlbuněčný posun — Lean, Trophy, a dřív Ghost/Cabinet/Globe v #301).
+
+**Co zůstává majiteli:** Highwall jako nejdelší level Quarry (18 ran, jeho design), Sail a Binary dál na dvě rány (lék je třetí kotva), `Cabinet` v sondě 4 z 5 a `MIXED THEMES` u Louky v `DescribeBlock` (#400).
+
+**Nic dalšího si neberu.**
