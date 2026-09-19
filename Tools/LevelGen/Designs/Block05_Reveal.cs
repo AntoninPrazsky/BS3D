@@ -1213,7 +1213,17 @@ namespace BS3D.Tools.LevelGen
             float bulk = ONION_BULK + ONION_SWING * swing;
 
             if (shell <= ONION_RADIUS * heart) return BallType.Type2; //green heart
-            if (shell <= ONION_RADIUS * bulk) return BallType.Type4;  //white bulk
+
+            //THE BULK ALTERNATES BY STAVE SINCE #474. The swing above already cuts it into wedges that each
+            //stand the full height - but they all wore one white, so the bulk was ONE standing group of 300
+            //balls and the level went in three matched shots: skin, bulk, skin, with the heart falling
+            //behind them, 616 of 959 matched away. Two whites turn the same wedges into groups that meet
+            //only through the skin, and the level asks four shots where it asked three. The wedges are the
+            //ones the swing was already drawing; nothing about the shape moved.
+            if (shell <= ONION_RADIUS * bulk)
+                return ((int)MathF.Floor((ang + MathF.PI) / MathF.Tau * ONION_STAVES) & 1) == 0
+                    ? BallType.Type4      //white bulk
+                    : BallType.Type11;    //silver bulk, the alternate stave
             return BallType.Type7;                                    //yellow skin
         }
 

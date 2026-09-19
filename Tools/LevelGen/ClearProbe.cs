@@ -86,8 +86,18 @@ namespace BS3D.Tools.LevelGen
         /// rope tops of eight balls drops all 147). A gate refusing every clear under three shots would have
         /// sent seventeen levels back, which is a campaign rewrite rather than a gate.
         /// </para>
+        /// <para>
+        /// <b>⚠ THREE UNTIL #474, AND FOUR IS THE OWNER'S RULING RATHER THAN A MEASUREMENT.</b> #458 drew the
+        /// line where the only reported fault was; the table it printed then showed nine more levels emptying
+        /// in three, four of them matching most of themselves away — Horn <b>90 %</b>, Trophy 68, Onion 64,
+        /// Lean 50.1 — and whether that is the same fault one shot further out is a question about what those
+        /// chapters are for, which is not the tool's to answer. Asked, the owner took the widest of the three
+        /// options offered: the rule keeps its percentage and reaches one shot further. The four levels it
+        /// then refused were redrawn the way Saturn was, by cutting their plates into sectors — a colouring,
+        /// never a shape.
+        /// </para>
         /// </summary>
-        internal const int MINIMUM_CLEAR_SHOTS = 3;
+        internal const int MINIMUM_CLEAR_SHOTS = 4;
 
         /// <summary>
         /// <b>And the other half: how much of the field the cheap clear takes by MATCHING rather than by
@@ -103,11 +113,10 @@ namespace BS3D.Tools.LevelGen
         /// Fifty is the middle of that gap and it refuses exactly the design the owner sent back.
         /// </para>
         /// <para>
-        /// <b>⚠ It deliberately does not reach the three-shot levels</b>, where Horn matches 90 % of its four
-        /// shells away and Trophy 68. Those are the same arithmetic one shot further out, and whether a
-        /// chapter of shells wants that is a design question the owner has never asked about them — the gate
-        /// refuses what was reported and the log states the rest, so tightening this is a reading of the table
-        /// rather than a new instrument.
+        /// <b>⚠ The comparison is exact and not on the printed percentage</b>, and #474 is the reason:
+        /// <c>Lean</c> matches 258 of 515 away, 50.09 %, which the integer percentage in the log truncates to
+        /// 50 — so a level genuinely over the line would have passed on a rounding. The percentage is for
+        /// reading; the refusal multiplies out.
         /// </para>
         /// </summary>
         internal const int CHEAP_CLEAR_MATCHED_PERCENT = 50;
@@ -148,7 +157,7 @@ namespace BS3D.Tools.LevelGen
             /// </para>
             /// </summary>
             internal bool TooCheap => Exact && Shortest < MINIMUM_CLEAR_SHOTS
-                                      && MatchedPercent > CHEAP_CLEAR_MATCHED_PERCENT && Replayed;
+                                      && Matched * 100 > Removable * CHEAP_CLEAR_MATCHED_PERCENT && Replayed;
 
             /// <summary>How much of the field the cheap clear takes by MATCHING rather than by orphaning — the
             /// figure that separates a level whose mass is its own two groups from one whose thin support was

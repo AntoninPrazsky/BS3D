@@ -1298,7 +1298,13 @@ namespace BS3D.Tools.LevelGen
         private const int TROPHY_STUD_STRIDE = 3;
         private const int TROPHY_STUD_PHASE = 1;
 
-        private static readonly BallType[] TROPHY_GOLD = { BallType.Type7, BallType.Type9 };     //yellow, orange
+        //THREE GOLDS AND NOT TWO SINCE #474, and it is the diagonal fuse this file already records
+        //elsewhere: a two-entry dither has every other block agreeing with the one diagonally above it, and
+        //a cross-level neighbour IS a diagonal in (x, z), so the orange welded through the half-shift into a
+        //192-ball sheet and three matched shots took 344 of the cup's 504 balls. A third entry breaks it,
+        //and white is the one that reads as part of the same metal rather than as a new material.
+        private static readonly BallType[] TROPHY_GOLD =
+            { BallType.Type7, BallType.Type9, BallType.Type4 };                                  //yellow, orange, white
         private static readonly BallType[] TROPHY_MARBLE = { BallType.Type12, BallType.Type11 }; //navy, silver
         private const BallType TROPHY_CUT = BallType.Type10;                                     //brown, the stem
         private const BallType TROPHY_ENGRAVING = BallType.Type12;                               //navy
@@ -1437,7 +1443,8 @@ namespace BS3D.Tools.LevelGen
                     return TROPHY_STUD;
             }
 
-            return Band(column / TROPHY_BLOCK_ARC + (TROPHY_RIM - i) / TROPHY_BLOCK_LEVELS, TROPHY_GOLD);
+            //Two strides, so a block and the one diagonally above it differ as well (#474)
+            return Band(column / TROPHY_BLOCK_ARC + 2 * ((TROPHY_RIM - i) / TROPHY_BLOCK_LEVELS), TROPHY_GOLD);
         }
 
         #endregion

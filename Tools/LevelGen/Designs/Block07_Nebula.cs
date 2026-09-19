@@ -303,9 +303,16 @@ namespace BS3D.Tools.LevelGen
         /// drawn as one bar of one colour is a <i>bottleneck</i> - it becomes the only link between cloth
         /// and halyards, and one shot at it took 80 % of the level, so it is two half-spars in two colours
         /// and cutting one hands that shoulder's cloth to the other, which is this level's own moment
-        /// anyway. And the spars do not touch the 67 %: a diagonal stripe cuts straight across the cloth
-        /// and only a rope down the SIDES could hold what falls below it. That would be a hem, and the hem
-        /// was the option not taken.
+        /// anyway. And the spars did not touch the 67 %: a diagonal stripe cuts straight across the cloth
+        /// and only a rope down the SIDES can hold what falls below it.
+        /// </para>
+        /// <para>
+        /// <b>THE HEM IS THAT ROPE and it came a day later, on the owner's word once the measurement was
+        /// in.</b> The outer column of cloth on each side is recoloured rather than added - the sheet keeps
+        /// every ball it had - so luff and leech run boom to yard and a stripe cut no longer severs the
+        /// sheet: what hangs below the cut still hangs from the hem. Two colours, one a side, for the
+        /// yard's own reason. The level's worst single shot falls from <b>67 % to 14 %</b>, and what it
+        /// looks like is a sail with a tabling round it rather than a rectangle of stripes.
         /// </para>
         /// <para>
         /// <b>The sheet is two cells thick and that is structural, not a look</b> - the Pictures' own rule
@@ -403,6 +410,20 @@ namespace BS3D.Tools.LevelGen
         //Where the yard's two halves meet: the cloth's own middle column, the port half taking it.
         private const int SAIL_YARD_MID = (SAIL_X_MIN + SAIL_X_MAX) / 2;
 
+        //THE HEM, and it is the half of #415 that was left on the table. The spars dressed the level and
+        //said so; what they could not touch was the number under the complaint - the five stripes run
+        //DIAGONALLY, so a stripe is a cut straight across the cloth and everything below it hangs on
+        //nothing. One shot took 254 of 378 balls, 67 %. A hem is the only thing that answers it: the outer
+        //column of cloth on each side, recoloured rather than added, runs luff and leech from the boom to
+        //the yard and holds the two halves of a cut sheet to each other. It costs no balls at all - the
+        //cloth is the same cloth - and it is what a sail has: a tabling round its edge, bolt-rope and all.
+        //
+        //TWO COLOURS, one a side, for the reason the yard has two: one hem of one colour would be a single
+        //group running the whole perimeter, and cutting it would hand the diagonal its severed sheet back.
+        //Port and starboard are separate groups that meet nowhere - the boom is olive between them at the
+        //foot and the yard's two halves at the head, neither of them a hem colour.
+        private const int SAIL_HEM = 1;
+
         //The probe, slung under the sheet's middle: a round body, so it is the one part measured in the
         //centred frame, and it hangs on the field axis whatever the level's parity does to the columns.
         private const int SAIL_PROBE_LEVEL = 2;
@@ -457,6 +478,14 @@ namespace BS3D.Tools.LevelGen
                     return port ? BallType.Type10 : BallType.Type11;   //brown / silver, the two anchors
 
                 return port ? BallType.Type1 : BallType.Type8;         //red / black
+            }
+
+            //The hem, luff and leech, before the stripes read the cloth: it is the cloth's own outer
+            //column recoloured, so the sheet keeps every ball it had (see SAIL_HEM).
+            if (i >= SAIL_BOTTOM && i <= SAIL_TOP)
+            {
+                if (x < SAIL_X_MIN + SAIL_HEM) return BallType.Type11;    //silver, the luff
+                if (x > SAIL_X_MAX - SAIL_HEM) return BallType.Type10;    //brown, the leech
             }
 
             //The yard, port and starboard, in two colours that appear nowhere else on the level - see the

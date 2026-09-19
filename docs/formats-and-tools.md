@@ -413,11 +413,33 @@ What separates Saturn from those sixteen is **how much of the field the cheap cl
 by orphaning** — #458's own sentence, *"the two easiest shots on the field end the level"*, turned into a number,
 because a group you cannot miss is a group that is a large part of what is hanging there. Saturn matched **61 %**
 away in its two shots; every other two-shot level is at **39 % or below** (Crane 39, Minaret 29, Ghost 21, median
-12). The refusal is therefore both halves at once — **a clear in under 3 shots that matches over 50 % of the
-removable field** — which refuses exactly the design the owner sent back and passes every other level in the pack.
-It deliberately does **not** reach the three-shot levels, where Horn matches 90 % of its four shells away and
-Trophy 68: that is the same arithmetic one shot further out, the owner has never complained of it, and tightening
-the rule is a reading of the table above rather than a new instrument.
+12). The refusal is therefore both halves at once — **a clear in under 4 shots that matches over 50 % of the
+removable field**.
+
+**⚠ It was under 3 until #474, and the extra shot is the owner's ruling rather than a measurement.** #458 drew the
+line where the only reported fault was and said so; the table it printed then showed nine more levels emptying in
+three, four of them matching most of themselves away — **Horn 90 %, Trophy 68, Onion 64, Lean 50.1** — and whether
+that is the same fault one shot further out is a question about what those chapters are for, which the tool cannot
+answer. Asked, the owner took the widest of three options offered. The four levels the wider rule then refused were
+redrawn the way Saturn was, and the cure was a **colouring** in every case — not one cell moved:
+
+| level | what it was | what it is | groups | shortest clear |
+|---|---|---|---|---|
+| Horn | three concentric shells, one colour each | the gold skin staved in four, gold and silver alternating | 4 → 10 | 3 → 6 |
+| Onion | the white bulk one group of 300 | the same wedges the swing already drew, alternating white and silver | 6 → 15 | 3 → 5 |
+| Lean | 3×3×3 masonry summed over three colours | four colours and strides 1, 2, 3 | 16 → 28 | 3 → 4 |
+| Trophy | the bowl's gold a two-entry dither | three golds and two strides | 19 → 29 | 3 → 10 |
+
+**Three of those four are the same fault wearing different clothes, and it is one this file already names:** a
+*plain sum* over a palette gives two blocks a step apart in opposite axes the same index, and **a cross-level
+neighbour is a diagonal in (x, z)** — so those blocks weld through the half-shift into sheets. Strides that are
+coprime with the palette length are the cure (Trilithon's "+1 per x tile, +2 per z tile and +3 per level pair" was
+the first statement of it), and a two-entry dither cannot have them at all, which is why Trophy needed a third gold
+before its strides could work.
+
+**⚠ The refusal multiplies out rather than reading the printed percentage**, which #474 is also the reason for:
+Lean matches 258 of 515, 50.09 %, and the integer percentage in the log truncates that to 50 — a level genuinely
+over the line would have passed on a rounding.
 
 **The search is exhaustive as deep as it reports (3), so a refusal is proved rather than sampled** — and then the
 line it found is **played back through `BallsMap` itself** (put the ball, colour the glass, count the group, take
