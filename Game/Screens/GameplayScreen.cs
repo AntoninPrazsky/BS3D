@@ -130,6 +130,11 @@ namespace BS3D.Screens
         private readonly PreciseAim _preciseAim = new();
         private bool _adsHeld;
 
+        //Whether the carriage was being driven this frame (A/D or W/S), kept for the length of one update so
+        //the combination lesson can read it together with _adsHeld (#460). The two halves are read in
+        //different parts of the update, and the gesture being taught is holding them AT ONCE.
+        private bool _carriageMoving;
+
         //Peak defocus amount at a full lean (#214) — what the periphery reaches while the frame's centre is
         //held in focus by the shape (PostProcessPipeline.Resolve's defocusFocus; the falloff itself lives in
         //Tonemap.fx). Well under the result page's 1: at 1 the edges are a field of colour and glow, which is

@@ -1,4 +1,4 @@
-using Microsoft.Xna.Framework.Input;
+﻿using Microsoft.Xna.Framework.Input;
 using Microsoft.Xna.Framework;
 using Prazsky.BS3D.GameObjects;
 using Prazsky.BS3D.GameStructure;
@@ -141,6 +141,12 @@ namespace BS3D.Screens
             _tutorial.NoteHold(Tutorial.Lesson.Traverse, traverseLeft || traverseRight, elapsed);
             _tutorial.NoteHold(Tutorial.Lesson.Walk, walkIn || walkOut, elapsed);
 
+            //And what the COMBINATION lesson waits for (#460): the carriage moving at all, remembered for the
+            //frame so it can be read together with the close-up's hold, which is taken further down this same
+            //update. Both halves have to be true on ONE frame — the gesture the lesson teaches is holding them
+            //at once, and a player alternating them would otherwise complete a card they had not performed.
+            _carriageMoving = traverseLeft || traverseRight || walkIn || walkOut;
+
             if (keyboard.IsKeyDown(Keys.A) || keyboard.IsKeyDown(Keys.D) || keyboard.IsKeyDown(Keys.W)
                 || keyboard.IsKeyDown(Keys.S) || keyboard.IsKeyDown(Keys.Space))
                 _tutorial.NoteDevice(Tutorial.Device.KeyboardMouse);
@@ -251,6 +257,12 @@ namespace BS3D.Screens
 
             //The lean lesson waits on the hold (#189)
             _tutorial.NoteHold(Tutorial.Lesson.LeanIn, _adsHeld, (float)gameTime.ElapsedGameTime.TotalSeconds);
+
+            //And the combination (#460), read here rather than beside the carriage's own keys because this is
+            //where the close-up's half of it is known — so the AND is taken on one frame's two facts and not
+            //across two frames.
+            _tutorial.NoteHold(Tutorial.Lesson.Combine, _adsHeld && _carriageMoving,
+                (float)gameTime.ElapsedGameTime.TotalSeconds);
 
             if (_cursorCaptured) _mouseAim.Recentre(centreX, centreY);
 

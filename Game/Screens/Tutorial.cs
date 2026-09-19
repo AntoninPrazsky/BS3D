@@ -62,7 +62,7 @@ namespace BS3D.Screens
     /// </summary>
     internal sealed class Tutorial
     {
-        internal enum Lesson { Aim, Fire, Match, LeanIn, Ceiling, Line, Traverse, Walk, Streak, Budget }
+        internal enum Lesson { Aim, Fire, Match, LeanIn, Ceiling, Line, Traverse, Walk, Combine, Streak, Budget, LineRule, Graduated }
 
         /// <summary>What the player's hand was last on, which is what the card draws for.</summary>
         internal enum Device { KeyboardMouse, Gamepad }
@@ -96,6 +96,14 @@ namespace BS3D.Screens
 
             /// <summary>Ends when the game reports the thing was done, not on a clock.</summary>
             public bool Action;
+
+            /// <summary>
+            /// The card is a <b>reward rather than a notice</b> (#459): it arrives wearing the praise's own
+            /// dress — the accent, the halo, the score's spring and the chime — instead of earning it. There is
+            /// exactly one, the send-off that closes the ladder, and it is informational because there is
+            /// nothing left to ask the player to do.
+            /// </summary>
+            public bool Celebrates;
 
             public string Glyph, PadGlyph;
             public string Caption, PadCaption;
@@ -180,6 +188,19 @@ namespace BS3D.Screens
             },
             new()
             {
+                //THE COMBINATION (#460): the three movement lessons above teach their parts one at a time and
+                //nothing says they compose — but composing them IS the precise shot, and a player who has done
+                //three cards separately has no reason to try holding two at once. Late in the ladder on
+                //purpose: it asks for all three of its parts to be in hand.
+                Lesson = Lesson.Combine, Key = "combine", FromLevel = 4, Action = true,
+                Glyph = MOUSE_RIGHT + KEY_A + KEY_D, Caption = "Hold the close-up and turn with it",
+                Detail = "Line the shot up from inside the close-up",
+                PadGlyph = PAD_LEFT_TRIGGER + PAD_STICK, PadCaption = "Hold the left trigger and push the stick",
+                PadDetail = "Line the shot up from inside the close-up",
+                Praise = "Together!",
+            },
+            new()
+            {
                 Lesson = Lesson.Streak, Key = "streak", FromLevel = 4, Contextual = true,
                 Caption = "Hit after hit multiplies your score", Detail = "A miss resets the streak",
             },
@@ -187,6 +208,27 @@ namespace BS3D.Screens
             {
                 Lesson = Lesson.Budget, Key = "budget", FromLevel = 5,
                 Caption = "Spare shots pay a bonus at the end", Detail = "Clear the field in fewer for more stars",
+            },
+            new()
+            {
+                //THE RULE, BEFORE IT BITES (#459). The contextual `line` card above is the warning in the
+                //moment — it fires when the floor's net first comes on and says what to do about it. This one
+                //says what is at stake, on the opening of the level where losing to the line first becomes a
+                //real risk, because a player who meets the loss with nothing having told them the rule reads
+                //it as the game being unfair rather than as a rule they now know.
+                Lesson = Lesson.LineRule, Key = "linerule", FromLevel = 6,
+                Caption = "If the cluster reaches the line, the level is lost",
+                Detail = "Keep it light — a heavy cluster hangs low and swings lower",
+            },
+            new()
+            {
+                //AND THE SEND-OFF (#459), which is the last card of the ladder: the tutorial had no end before
+                //this, so a player was never told they had been taught everything — the cards simply stopped.
+                //It celebrates rather than informs (see Definition.Celebrates), because being told you are done
+                //is a reward and reads as one only if it is dressed as one.
+                Lesson = Lesson.Graduated, Key = "graduated", FromLevel = 6, Celebrates = true,
+                Caption = "That's everything — you know the game",
+                Detail = "The rest is the adventure. Go!",
             },
         };
 
@@ -288,7 +330,15 @@ namespace BS3D.Screens
         /// <summary>1 on the frame the praise lands, falling to 0 as it ends — the flash's own clock, which is
         /// shorter than the praise's hold (see <see cref="PRAISE_FLARE_SECONDS"/>).</summary>
         internal float PraiseHeat => _phase == Phase.Praising
-            ? MathF.Max(0f, 1f - _praise / PRAISE_FLARE_SECONDS) : 0f;
+            ? MathF.Max(0f, 1f - _praise / PRAISE_FLARE_SECONDS)
+            : Celebrating ? MathF.Max(0f, 1f - _age / PRAISE_FLARE_SECONDS) : 0f;
+
+        /// <summary>
+        /// This card arrives already wearing the praise's dress (#459) — the send-off that closes the ladder.
+        /// The HUD gives its caption the accent and the halo, and the cue fires on the frame it appears rather
+        /// than on a frame the player earned, because there is nothing left here to earn.
+        /// </summary>
+        internal bool Celebrating => _card != null && _card.Celebrates;
 
         /// <summary>
         /// The praise word once the action has been done, or null. <b>It stands beside the instruction rather
@@ -524,6 +574,9 @@ namespace BS3D.Screens
         private void Show(Definition lesson)
         {
             _card = lesson;
+
+            //A celebrating card is its own praise (#459): the chime and the score's spring go off as it lands.
+            if (lesson.Celebrates) _praiseCue = true;
             _phase = Phase.Arriving;
             _presence = 0f;
             _age = 0f;
