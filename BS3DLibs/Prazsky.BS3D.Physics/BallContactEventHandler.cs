@@ -1,4 +1,4 @@
-using BepuPhysics;
+﻿using BepuPhysics;
 using BepuPhysics.Collidables;
 using BepuPhysics.CollisionDetection;
 using Microsoft.Xna.Framework;
@@ -464,6 +464,25 @@ namespace Prazsky.BS3D.Physics
             if (physicsBall.Kind == BallKind.Wildcard)
             {
                 bool joined = _map.TryChooseWildcardColour(cell, out BallType wildcardColour, out int wildcardGroup);
+
+                //THE MOMENT IT STOPS BEING ONE IS THE MOMENT WORTH SEEING (#437). Until here the ball has been
+                //visibly, continuously dissolving between colours and never settling, which is the whole of how
+                //a wildcard says what it is; the instant it resolves, that motion simply stopped wherever the
+                //shared cycle happened to be, and an onlooker could not tell it from any other ball landing.
+                //So the ball crosses into its new colour the way every other change of look in this game does
+                //— two draws of it partitioning one ball's pixels, the colour it was wearing going out while
+                //the colour it has become comes in — over ClusterCollector.LOCK_FADE_SECONDS.
+                //
+                //The outgoing colour is the Type it arrives with, which the comment above already explains is
+                //what the cycle was showing, so this asks WildcardCycle nothing and #330's one clock stays the
+                //one clock. Only when the colour actually changes: a wildcard that completes nothing keeps
+                //what it had, and crossing a colour with itself draws two identical halves of one ball.
+                if (joined && wildcardColour != physicsBall.Type)
+                {
+                    physicsBall.LockFromType = physicsBall.Type;
+                    physicsBall.LockFadeRemaining = ClusterCollector.LOCK_FADE_SECONDS;
+                }
+
                 if (joined) physicsBall.Type = wildcardColour;
 
                 physicsBall.Kind = BallKind.Normal;
@@ -471,7 +490,7 @@ namespace Prazsky.BS3D.Physics
                 //A rare-event line in the manner of the two below it: a handful a level at most, and it is what
                 //says whether the wildcards a level hands out are landing on anything worth completing
                 Console.WriteLine(joined
-                    ? $"[shot] wildcard landed as {physicsBall.Type}, group of {wildcardGroup}"
+                    ? $"[shot] wildcard landed as {physicsBall.Type} (was showing {physicsBall.LockFromType}), group of {wildcardGroup}"
                     : $"[shot] wildcard landed beside nothing matchable, kept {physicsBall.Type}");
             }
 
