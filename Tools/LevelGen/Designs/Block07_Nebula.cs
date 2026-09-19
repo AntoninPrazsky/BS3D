@@ -286,9 +286,27 @@ namespace BS3D.Tools.LevelGen
         /// <summary>
         /// A solar sail flown from two halyards with a probe slung beneath it - <b>the pack's only flown
         /// PLANE</b>, and the one silhouette in the game that is neither a solid nor a strand. Nine columns
-        /// wide, thirteen levels tall and two plies thick, hung by its two top corners; cut one halyard's
-        /// lower band and the sheet drops that shoulder and slews from the other, the largest swinging AREA
-        /// anywhere in the campaign, with the probe pendulating under it.
+        /// wide, thirteen levels tall and two plies thick, bent to a YARD at the head and a BOOM at the
+        /// foot; cut one halyard's lower band and the sheet drops that shoulder and slews from the other,
+        /// the largest swinging AREA anywhere in the campaign, with the probe pendulating under it.
+        /// <para>
+        /// <b>⚠ The spars arrived in #415 and they are dressing that turned out to be structure.</b> The
+        /// owner played the level as <i>"oddly simple - it might want wrapping in some kind of plaster"</i>,
+        /// and the measurement agreed in its own words: one shot took <b>67 %</b> of the field and two
+        /// matched shots emptied it. The reason is the stripes - they run diagonally, so a stripe is a cut
+        /// straight across the cloth and everything below it was held by nothing else. The yard ties the
+        /// two halyards into one head, so the sheet hangs from a beam instead of from two corners and a
+        /// the boom finishes the foot and gives the swing something to end on.
+        /// </para>
+        /// <para>
+        /// <b>⚠ Two things the spars turned out NOT to be, both measured rather than reasoned:</b> a yard
+        /// drawn as one bar of one colour is a <i>bottleneck</i> - it becomes the only link between cloth
+        /// and halyards, and one shot at it took 80 % of the level, so it is two half-spars in two colours
+        /// and cutting one hands that shoulder's cloth to the other, which is this level's own moment
+        /// anyway. And the spars do not touch the 67 %: a diagonal stripe cuts straight across the cloth
+        /// and only a rope down the SIDES could hold what falls below it. That would be a hem, and the hem
+        /// was the option not taken.
+        /// </para>
         /// <para>
         /// <b>The sheet is two cells thick and that is structural, not a look</b> - the Pictures' own rule
         /// (#130), which this reuses rather than re-derives: one ply is a wall whose cross-level contacts
@@ -353,9 +371,37 @@ namespace BS3D.Tools.LevelGen
         //The halyards. WIDE is three columns rather than the spec's single-cell corner root: it is the
         //gateNotes' own sag remedy taken before the measurement, and it leaves three unsupported cells of
         //top edge instead of seven. FOOT is where they meet the sheet, CAP where the upper band starts.
+        //FOOT was 17 until #415, where the yard now stands.
         private const int SAIL_HALYARD_WIDE = 3;
-        private const int SAIL_HALYARD_FOOT = 17;
+        private const int SAIL_HALYARD_FOOT = 18;
         private const int SAIL_HALYARD_CAP = 21;
+
+        //THE SPARS (#415). The owner played this level as "oddly simple - it might want wrapping in some
+        //kind of plaster", and what it was missing is what a sail hangs ON: it was a rectangle of cloth
+        //with two stubby posts over it. A YARD across the head at SAIL_YARD and a BOOM across the foot at
+        //SAIL_BOOM, both a cell past the cloth at either end (OVERHANG) and both two plies like everything
+        //else on this level, are what the silhouette wanted - and they are the same thirty-odd balls the
+        //halyards' lowest course gives back, since the yard now stands where that course did.
+        //
+        //⚠ THE YARD IS TWO HALF-SPARS AND THAT IS NOT DECORATION, IT IS THE FIRST MEASUREMENT THIS
+        //CHANGE MADE. Drawn as one bar of one colour it becomes the ONLY thing between the cloth and the
+        //halyards - the sheet ends at SAIL_TOP, the halyards now start above the yard - so a single shot at
+        //it took 306 of 378 balls, 80 %, where the level's worst was 67 % before the spar existed. Split
+        //port and starboard it is the level's own moment instead: cut one half and that shoulder's cloth
+        //hangs from the other, which is what cutting a halyard has always done here. The two halves are two
+        //colours that appear nowhere else on the level, so neither can be taken with anything but itself.
+        //
+        //⚠ AND THE SPARS DO NOT FIX THE 67 %, which was worth finding out rather than assuming. The sheet's
+        //stripes run DIAGONALLY, so a stripe is a cut straight across the cloth and everything below it
+        //hangs on nothing - a beam over the head cannot help that, only a rope down the SIDES could, and
+        //that is the hem this change deliberately did not take (the owner chose the spars). The number
+        //stands and is the level's, not the spars'.
+        private const int SAIL_YARD = 17;
+        private const int SAIL_BOOM = 3;
+        private const int SAIL_SPAR_OVERHANG = 1;
+
+        //Where the yard's two halves meet: the cloth's own middle column, the port half taking it.
+        private const int SAIL_YARD_MID = (SAIL_X_MIN + SAIL_X_MAX) / 2;
 
         //The probe, slung under the sheet's middle: a round body, so it is the one part measured in the
         //centred frame, and it hangs on the field axis whatever the level's parity does to the columns.
@@ -391,6 +437,10 @@ namespace BS3D.Tools.LevelGen
                 return (x >= SAIL_X_MIN && x < SAIL_X_MIN + SAIL_HALYARD_WIDE)
                     || (x > SAIL_X_MAX - SAIL_HALYARD_WIDE && x <= SAIL_X_MAX);
 
+            //The spars, a cell proud of the cloth at either end (#415)
+            if (i == SAIL_YARD || i == SAIL_BOOM)
+                return x >= SAIL_X_MIN - SAIL_SPAR_OVERHANG && x <= SAIL_X_MAX + SAIL_SPAR_OVERHANG;
+
             return i >= SAIL_BOTTOM && i <= SAIL_TOP && x >= SAIL_X_MIN && x <= SAIL_X_MAX;
         }
 
@@ -408,6 +458,15 @@ namespace BS3D.Tools.LevelGen
 
                 return port ? BallType.Type1 : BallType.Type8;         //red / black
             }
+
+            //The yard, port and starboard, in two colours that appear nowhere else on the level - see the
+            //constants for why one bar of one colour is a bottleneck rather than a spar.
+            if (i == SAIL_YARD) return x <= SAIL_YARD_MID
+                ? BallType.Type13    //olive, the port half
+                : BallType.Type9;    //orange, the starboard half
+
+            //The boom hangs under the cloth and takes only itself, so it stays one piece.
+            if (i == SAIL_BOOM) return BallType.Type13;   //olive
 
             //The sheet: five diagonal stripes on x + level, the clamp taking the last one's remainder
             if (i >= SAIL_BOTTOM)
@@ -632,6 +691,12 @@ namespace BS3D.Tools.LevelGen
         /// own radius it reaches column 13 of 15 on the unshifted levels.
         /// </para>
         /// </summary>
+        //THE DISC IS #415's ANSWER AND IT IS DRESSING THAT CARRIES ITS OWN WEIGHT. The level was read in
+        //playtest as "another simple level that's missing a shell": two small bodies on two strands with a
+        //stream between them, and nothing around any of it. What the ring adds is width the silhouette did
+        //not have and a body the stream visibly ends in - and it adds it where the level can afford it,
+        //hung off the primary's own shell rather than off the lanyard, so the strand above carries a wider
+        //object without carrying a longer one. See BINARY_DISC_X for why it is an ellipse and not a circle.
         private static Design Binary() => new()
         {
             File = "Binary.json",
@@ -686,6 +751,23 @@ namespace BS3D.Tools.LevelGen
         private const int BINARY_STREAM_FOOT = 8;
 
         //The grafted polar jet, off the primary's bottom cap and in the shell's own colour
+        //THE ACCRETION DISC (#415). The owner played this level as "another simple level that's missing a
+        //shell", and what a binary with a stream running between its stars is missing is the thing the
+        //stream feeds. It is a flat ring in the primary's own plane, one course thick, and it is an ELLIPSE
+        //rather than a circle for a reason the field imposes: the primary's centre is 3.0 off the axis, and
+        //a ball may not stand in the field's outermost column (the lateral-margin gate), so the disc has
+        //3.4 to give in x and the whole half-field in z. Seen from the gun's own bearing it therefore reads
+        //edge-on, a bar of dust either side of the star, and swings round into a broad ellipse as the
+        //player traverses - which is what a ring system looks like and is the width this level did not have.
+        //
+        //INNER is a FRACTION of those radii and it is deliberately well inside the star: the ring has to be
+        //anchored to the body it circles, not hung beside it, and at 0.5 its inner edge is 1.7 from the
+        //centre in x against the primary's own 2.7. What is drawn is therefore the part that stands proud
+        //of the star, all of it touching the shell it grew out of.
+        private const float BINARY_DISC_X = 3.4f;
+        private const float BINARY_DISC_Z = 5.5f;
+        private const float BINARY_DISC_INNER = 0.5f;
+
         private const float BINARY_JET = 1.1f;
         private const int BINARY_JET_TOP = 9;
         private const int BINARY_JET_FOOT = 6;
@@ -716,6 +798,18 @@ namespace BS3D.Tools.LevelGen
             float secondary = MathF.Sqrt(Squared(dx - BINARY_SECONDARY_X) + dz * dz
                                          + Squared((i - BINARY_SECONDARY_LEVEL) * INV_SQRT_TWO));
             if (secondary <= BINARY_SECONDARY) return secondary <= BINARY_SECONDARY_HEART ? 7 : 6;
+
+            //The disc, in the primary's own course and nowhere else (#415). It is tested after the two
+            //stars so the shell keeps every cell it had, and before the stream so the ring reads as one
+            //body where the two cross.
+            if (i == BINARY_PRIMARY_LEVEL)
+            {
+                float rx = (dx - BINARY_PRIMARY_X) / BINARY_DISC_X;
+                float rz = dz / BINARY_DISC_Z;
+                float ring = MathF.Sqrt(rx * rx + rz * rz);
+
+                if (ring <= 1f && ring >= BINARY_DISC_INNER) return 9;
+            }
 
             if (i >= BINARY_STREAM_FOOT && i <= BINARY_STREAM_TOP)
             {
@@ -758,6 +852,11 @@ namespace BS3D.Tools.LevelGen
                 5 => BallType.Type13,    //olive  - its heart
                 6 => BallType.Type12,    //navy   - the secondary's shell
                 7 => BallType.Type11,    //silver - its heart, hidden until the navy pops
+                //White and not the black a dust ring would really be: photographed both ways against
+                //this backdrop, black reads as a hole in the nebula rather than as a body (#415). The
+                //colour is shared with lanyard A's top band, twenty courses up and touching nothing
+                //here.
+                9 => BallType.Type4,     //white  - the disc
                 _ => BallType.Type10,    //brown  - the jet, fused into the shell's group by design
             };
         }
