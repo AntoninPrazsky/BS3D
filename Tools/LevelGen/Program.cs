@@ -316,16 +316,33 @@ namespace BS3D.Tools.LevelGen
         private const BallStyle BALLS_TOWER = BallStyle.Ice;
 
         /// <summary>
-        /// <b>The Reveal — the vinyl beach ball</b>, since #295 moved the molten crust to the volcano its own
-        /// entry always said had the better claim (the sentence stood here from #310 and came true). The
-        /// vinyl is the right second choice for the cavern twice over: the block's statement is the
-        /// <i>payoff</i> — a thing hidden inside another thing — not the material, so the plainest style is
-        /// the one that does not compete with it; and the vinyl's emissive heartbeat was designed against
-        /// dark backdrops, so the campaign's dark chapter is where the classic ball still reads as alive.
-        /// (#313 recorded the lava/cavern pairing as the set's weakest — it read close to the plasma two
-        /// chapters on; this move retires that note.)
+        /// <b>The Reveal — polished marble</b> (#419). It was the vinyl beach ball from #295 to here, and the
+        /// owner played it and reported that a beach ball and a cave do not go together. He is right, and the
+        /// two arguments that put the vinyl here are worth answering rather than deleting, because one of
+        /// them was never about the vinyl at all.
+        /// <para>
+        /// <b>"The plainest style does not compete with the payoff"</b> still holds and still points here.
+        /// The block's statement is the <i>payoff</i> — a thing hidden inside another thing — so the material
+        /// must stay quiet, which rules out the gem and the plasma. Marble is quiet: one solid colour with a
+        /// vein through it. Photographed against the vinyl on Grotto, it is the VINYL that is the busier
+        /// figure of the two, because its five white gores cut every ball into bands before the level's own
+        /// colours are read at all.
+        /// </para>
+        /// <para>
+        /// <b>"The vinyl's emissive heartbeat was designed against dark backdrops"</b> was the weaker half and
+        /// it does not survive being checked: the heartbeat is not the vinyl's. Every ball technique carries
+        /// <c>BallEmission</c> by contract — it is point 2 of the list in <c>InstancedModel.fx</c>'s own note
+        /// on what a ball technique must do — and <c>MarblePS</c> carries it like the rest. The dark chapter
+        /// keeps its breathing cluster whichever of the two it is drawn in.
+        /// </para>
+        /// <para>
+        /// What marble adds is the thing the report is actually about: <b>mass</b>. It is the heavy style, a
+        /// piece of cut stone, and this is the campaign's chapter under rock. The desert carries it too and
+        /// that is fine — ice and porcelain each already serve two chapters, and a sunlit sandstone canyon
+        /// and a dark cave light the same material into two different looks.
+        /// </para>
         /// </summary>
-        private const BallStyle BALLS_REVEAL = BallStyle.Beach;
+        private const BallStyle BALLS_REVEAL = BallStyle.Marble;
 
         /// <summary>
         /// <b>The Quarry — anodised metal</b> (#306). A quarry on the moon is a chapter about extracted ore,
