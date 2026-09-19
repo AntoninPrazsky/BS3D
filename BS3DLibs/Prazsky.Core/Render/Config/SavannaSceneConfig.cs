@@ -85,6 +85,10 @@ namespace Prazsky.Core.Render
         /// <summary>Scattered acacia trees and low bushes.</summary>
         public AcaciaConfig Acacia { get; set; } = new();
 
+        /// <summary>Everything else standing on the plain (#451): grass tufts, scrub, termite mounds, kopjes,
+        /// fallen trees and the dark treeline at the horizon.</summary>
+        public SavannaDressingConfig Dressing { get; set; } = new();
+
         /// <summary>The ring of campfires: their point lights and their visible flame billboards.</summary>
         public CampfireConfig Campfire { get; set; } = new();
 
@@ -92,19 +96,33 @@ namespace Prazsky.Core.Render
         public BirdsConfig Birds { get; set; } = new();
     }
 
-    /// <summary>Scattered acacia trees and low bushes over the savanna (upright billboards planted on the ground).</summary>
+    /// <summary>Scattered acacia trees and low bushes over the savanna (real instanced geometry planted on the ground, #202).</summary>
     public sealed class AcaciaConfig
     {
         /// <summary>
         /// Number of scattered acacia trees and low bushes. 8 until #168, then 64; raised to 120 with #202,
         /// when the trees became real 3D geometry and a denser savanna was asked for — still dotted and open
         /// rather than a forest, but the plain no longer reads as empty. The scatter is instanced, so the
-        /// count is a look decision rather than a budget one (the forest's 240 make the same point).
+        /// count is a look decision rather than a budget one (the forest's 240 make the same point). 140
+        /// since #451, with the bush share lowered: the scrub is a planting of its own now
+        /// (<see cref="SavannaDressingConfig.ScrubCount"/>), so the bushes here are the few big ones.
         /// </summary>
-        public int Count { get; set; } = 120;
+        public int Count { get; set; } = 140;
 
         /// <summary>Fraction of the scatter that are low bushes rather than trees.</summary>
-        public float BushFraction { get; set; } = 0.45f;
+        public float BushFraction { get; set; } = 0.3f;
+
+        /// <summary>Of the trees, the share planted young (<see cref="AcaciaKind.Young"/>) — slender, one small crown.</summary>
+        public float YoungFraction { get; set; } = 0.2f;
+
+        /// <summary>Of the trees, the share standing dead (<see cref="AcaciaKind.Dead"/>) — bare twigs, bleached.</summary>
+        public float DeadFraction { get; set; } = 0.12f;
+
+        /// <summary>Of the trees, the share storm-broken (<see cref="AcaciaKind.Broken"/>) — a crown to one side and a bare spar.</summary>
+        public float BrokenFraction { get; set; } = 0.1f;
+
+        /// <summary>Bleached wood (linear): a dead tree's whole silhouette, a broken tree's spar is still bark.</summary>
+        public Rgb DeadwoodColor { get; set; } = new(0.30f, 0.255f, 0.19f);
 
         /// <summary>Base half-width of a tree crown.</summary>
         public float Width { get; set; } = 6f;
@@ -136,6 +154,91 @@ namespace Prazsky.Core.Render
 
         /// <summary>Dark brown trunk (linear).</summary>
         public Rgb TrunkColor { get; set; } = new(0.09f, 0.06f, 0.035f);
+    }
+
+    /// <summary>
+    /// What stands on the savanna besides the acacias (#451): the plain's own furniture, planted by
+    /// <see cref="SavannaScatter"/> on the same terrain and drawn on the same instanced path, sharing one
+    /// occupancy list with the trees so nothing lands inside anything else. Every kind has a count and a
+    /// colour and little more — where each stands is the scatter's own rule, the same as the trees'.
+    /// <para>
+    /// The counts were chosen by looking at the front end's orbit and the play camera, against the
+    /// references rendered for #451: a savanna's character is in what is scattered across it, and a plain
+    /// with only one kind of thing on it reads as a pattern however many of that thing there are.
+    /// </para>
+    /// </summary>
+    public sealed class SavannaDressingConfig
+    {
+        /// <summary>Bunches of tall dry grass, the most numerous thing on the plain and the nearest to the
+        /// island. Dropped at the Game's Low tier (they are the cheapest to lose and the most draws).</summary>
+        public int TuftCount { get; set; } = 220;
+
+        /// <summary>The tufts' ring: from just outside the fires to where they stop reading as more than dots.</summary>
+        public float TuftMinRadius { get; set; } = 40f;
+        public float TuftMaxRadius { get; set; } = 200f;
+
+        /// <summary>The tufts' size, in world units (half-width; a tuft stands about as tall as it is wide).</summary>
+        public float TuftSize { get; set; } = 1.5f;
+
+        /// <summary>Dry straw (linear) — the tufts' colour, a shade paler than the ground's own tip colour.</summary>
+        public Rgb TuftColor { get; set; } = new(0.42f, 0.33f, 0.13f);
+
+        /// <summary>Low thorny scrub, in thickets around the groves and the odd one alone.</summary>
+        public int ScrubCount { get; set; } = 70;
+
+        /// <summary>The scrub's half-width in world units.</summary>
+        public float ScrubSize { get; set; } = 2.2f;
+
+        /// <summary>Grey-green (linear) — thorn scrub is duller than the acacias' foliage.</summary>
+        public Rgb ScrubColor { get; set; } = new(0.085f, 0.125f, 0.055f);
+
+        /// <summary>Termite mounds: tall spires of red earth standing alone in the grass.</summary>
+        public int MoundCount { get; set; } = 14;
+
+        /// <summary>A mound's height in world units (about half an acacia's); the foot is a third of it wide.</summary>
+        public float MoundHeight { get; set; } = 4.5f;
+
+        /// <summary>Red earth (linear), the same family as the ground's own bare patches but redder.</summary>
+        public Rgb MoundColor { get; set; } = new(0.27f, 0.12f, 0.05f);
+
+        /// <summary>Kopjes: piles of big rounded granite boulders, a few to the whole plain.</summary>
+        public int KopjeCount { get; set; } = 5;
+
+        /// <summary>Boulders per kopje, rolled between these.</summary>
+        public int KopjeRocksMin { get; set; } = 3;
+        public int KopjeRocksMax { get; set; } = 6;
+
+        /// <summary>A kopje boulder's radius in world units (the largest; the rest are rolled down from it).</summary>
+        public float KopjeRockSize { get; set; } = 5f;
+
+        /// <summary>Warm grey granite (linear).</summary>
+        public Rgb RockColor { get; set; } = new(0.22f, 0.20f, 0.175f);
+
+        /// <summary>Fallen trees lying in the grass.</summary>
+        public int LogCount { get; set; } = 12;
+
+        /// <summary>A log's length in world units; its thickness is a tenth of it.</summary>
+        public float LogLength { get; set; } = 9f;
+
+        /// <summary>
+        /// The treeline: a band of dark low scrub masses and a few far acacias out beyond the plain, in the
+        /// horizon haze, so the horizon is a wooded edge rather than a bare line — the reference savannas all
+        /// close on one, and it is the cheapest thing that gives the scatter depth. Drawn opaque like the rest.
+        /// </summary>
+        public int TreelineCount { get; set; } = 150;
+
+        /// <summary>How many far acacias stand in the treeline band (the mature variants, planted big).</summary>
+        public int TreelineTreeCount { get; set; } = 28;
+
+        /// <summary>The treeline's band, outside the plain's own ring and inside the haze.</summary>
+        public float TreelineMinRadius { get; set; } = 380f;
+        public float TreelineMaxRadius { get; set; } = 520f;
+
+        /// <summary>A treeline mass's half-width in world units.</summary>
+        public float TreelineSize { get; set; } = 16f;
+
+        /// <summary>Near-black green (linear): distant scrub in its own shadow; the haze then lifts it towards the sky.</summary>
+        public Rgb TreelineColor { get; set; } = new(0.04f, 0.065f, 0.03f);
     }
 
     /// <summary>
