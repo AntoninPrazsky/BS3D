@@ -4253,3 +4253,22 @@ Dvě majitelovy poznámky z hraní, dvě issues. Sémantické hledání (nomic, 
 **Co v #471 zůstává otevřené a je to v issue napsané:** město a neonové město (jiný tvar — config, věže i shader ulice jsou hostitelovy), moře a bouřka (obojí s důvodem), a z #470 dál koule jako **caster** na plotnu.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-19 — Claude Code, bs3d-f0 (#471 na mainu, #466 hotové, úklid backlogu)
+
+**Majitel zadal celou dávku** („zpracuj postupně všechna tato issues") z mého vlastního návrhu: tutoriálový blok, #473+#412, městská půlka #471 a #465. Tohle je první splátka.
+
+**#471 je na `main`u (merge `90263de`)** a větev smazaná. **#466 taky (merge `6c5d8e0`)**, issue zavřené.
+
+- ⚠ **Kolize s druhou session, a byla to moje chyba stejně jako její.** Vzal jsem si #461 i #466 na jednu větev; kolega mezitím **#461 udělal a zmergoval** (`d4deb9a`). Zachytilo to jeho vlastní `SendMessage` — zeptal se, co držím, ne až po merge. **Zahodil jsem svou půlku #461 celou** a přesadil #466 na jeho main. Jeho řešení je navíc lepší než moje: **škáluje kartu na volný pruh** (`HUD_TUTORIAL_CLEARANCE`) místo mého lámání řádků — žádný wrap kód k udržování a chytá to i odskok karty, což můj neuměl. Poučení do příště: **oznámit issue před začátkem, ne po něm** (kolega to sám navrhl a drží se toho).
+- **#466 jsou tři hodiny místo jedné.** Instrukce stojí `MIN_READ_SECONDS` 2,8 s od příchodu karty **ať se děje co se děje**, chvála drží `PRAISE_SECONDS` (1,3 → 2,2 s) od akce, a karta odchází, až doběhnou **obě**. Akce se dál zapisuje na svém snímku a zvonek i pružina skóre tam dál cvaknou — čeká jen text.
+- ⚠ **Chvála šla nakonec POD detail, ne nad caption, a rozhodl to snímek, ne úvaha.** Postavil jsem to nejdřív podle issue (řádek nad instrukcí) a vyfotil: aby chvála nepostrčila instrukci dolů přesně ve chvíli, kdy si ji hráč zaslouží přečíst, musí se ten řádek **rezervovat od příchodu karty** — a rezervovaný tlačí každou instrukci o řádek hlouběji do clusteru za řádek, který je většinu času prázdný. Zespodu se nehne nic, co už je přečtené, karta roste do prázdna pod sebou a pořadí čte, jak se to děje. Stojí to výšku, ne šířku, takže kolegovo škálování na pruh to neohrožuje.
+- **Ověřeno headless rigem**, který kompiluje **skutečný** `Tutorial.cs` proti falešným hodinám snímku (#189 měl takový v scratchpadu, udělal jsem ho znovu): **19 kontrol**, včetně akce v 0,2 s, která instrukci neusekne, detailu přežívajícího chválu, karty stojící ve 2,2 s (kdy by ji samotná chvála už vzala), signálu chvály padnoucího **právě jednou** na snímku akce, a pozdní akce, která dostane plný hold. Rig je v scratchpadu, ne v repu — jako ten původní.
+- ⚠ **Kolegův nález o PromptFontu je planý poplach a ověřil jsem to daty fontu, ne měřením.** Hlásil, že pad glyfy `⇍`/`↖`/`↗` měří 53 jednotek proti 167 u myši a klávesnice, což by znamenalo skoro neviditelnou značku na každé gamepadové kartě. Přečetl jsem `cmap`, `hmtx` a `loca`/`glyf` přímo z `PromptFont.ttf`: **všech deset glyfů má reálné gid (nikdy 0/.notdef), reálný obrys a plnou šířku em (1000 z 1000)** — stejnou jako klávesy. Font je v pořádku, nic se nefiluje. Nejpravděpodobnější příčina jeho čísla je měření pad glyfu v **Antonu** místo v PromptFontu (Anton `Ａ`/`Ｄ` má, U+21CD ne). Okem v běžící hře neověřeno a ověřit nejde — na `Tutorial.NoteDevice` nevede žádná páka z příkazové řádky a pad tu není.
+- ⚠ **Past, kterou jsem si zopakoval dvakrát:** `tutorial=demo` běh se sám neukončí (Game nemá `at=` timeline jako Testbed), takže po každém focení zůstane `BS3D.exe` viset a **ohlásí se to až příštím buildem** jako zámek na `apphost.exe`. Je to `benchmark` past 6 v jiném hávu. Spouštět přes `Start-Process -PassThru` a zabít.
+
+**Zavřel jsem čtyři issue, které byly dávno hotové a jen nezavřené:** #453 (`release.yml` + v0.1.0), #454 (`SplashPage`), #455 (nativní fullscreen, na mainu jako `04bae06` — majitel ho měl v mém návrhu jako práci, a ono to bylo hotové) a #469 (savanní mapa; jeho vlastní poslední komentář říká „what stays here is the savanna's own map, done"). **#444 a #470 jsem nechal otevřené** — obě mají ve svém posledním komentáři napsáno proč (majitel chce doposlechnout smyčky hudby; koule jako caster patří za měření).
+
+**Beru si dál #457, #459 a #460** (zbytek tutoriálového bloku), pak #473+#412, městskou půlku #471 a #465. Kolega ví a bere si #452 a #437.
