@@ -17,6 +17,9 @@
 //For the canopy's leaf mottle and the bark's fissures - 3D fields of world position, so they have no seam
 //and do not swim as the plant turns with its instance, the same reasoning the crown fields carry.
 #include "Noise.fxh"
+//The sun's cast shadows (#469): every plant receives them, and the ShadowCaster technique below is how
+//every plant is drawn INTO the map.
+#include "Shadows.fxh"
 
 float4x4 View;
 float4x4 Projection;
@@ -111,7 +114,15 @@ float4 AcaciaPS(AcaciaVertexOutput input) : COLOR
     //normal's height, plus the sun's own diffuse.
     float3 ambient = lerp(HorizonColor, ZenithColor, saturate(N.y * 0.5 + 0.5));
     float ndotl = saturate(dot(N, SunDirection));
-    float3 color = albedo * (ambient + SunColor * ndotl);
+
+    //The sun's cast shadow (#469): a trunk under its own crown, a boulder behind another, a tuft under a
+    //tree - the sun term alone, the dome's ambient stays. Off the map (ShadowStrength 0) the branch is skipped.
+    float shadow = 1.0;
+    [branch]
+    if (ShadowStrength > 0.0)
+        shadow = SunShadow(input.WorldPosition, N, SunDirection);
+
+    float3 color = albedo * (ambient + SunColor * (ndotl * shadow));
 
     //The canopy's leaf mottle: a 3D field of WORLD position, so a big canopy gets bigger clumps in the same
     //place every frame and neighbouring trees do not share a pattern. Zero on a trunk (DappleStrength 0).
@@ -147,5 +158,39 @@ technique Acacia
     {
         VertexShader = compile VS_SHADERMODEL AcaciaVS();
         PixelShader = compile PS_SHADERMODEL AcaciaPS();
+    }
+};
+
+//--- The shadow caster (#469): the same instanced geometry drawn from the sun into SunShadowMap's target,
+//writing the map's own clip depth (orthographic, so linear) into a 32-bit channel. No material, no light -
+//the instance stream is read for the world matrix and nothing else.
+
+struct ShadowVertexOutput
+{
+    float4 Position : SV_POSITION;
+    float Depth : TEXCOORD0;
+};
+
+ShadowVertexOutput ShadowVS(AcaciaVertexInput input)
+{
+    ShadowVertexOutput output;
+    float4x4 world = float4x4(input.World1, input.World2, input.World3, input.World4);
+    float4 worldPosition = mul(input.Position, world);
+    output.Position = mul(worldPosition, ShadowViewProjection);
+    output.Depth = output.Position.z;
+    return output;
+}
+
+float4 ShadowPS(ShadowVertexOutput input) : COLOR
+{
+    return float4(input.Depth, 0.0, 0.0, 1.0);
+}
+
+technique ShadowCaster
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL ShadowVS();
+        PixelShader = compile PS_SHADERMODEL ShadowPS();
     }
 };

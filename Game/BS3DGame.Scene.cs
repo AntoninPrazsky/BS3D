@@ -658,6 +658,12 @@ namespace BS3D
             //What it does NOT lose is being tonemapped with the frame — the composite runs it through the
             // same exposure, curve and grain — so the paper still reads as lit rather than luminous, which
             // was the reason it sat in the HDR pass in the first place (#215).
+            //
+            //And before ANY of it, the sun's shadow maps (#469): their own target, drawn while nothing of
+            // this frame's is bound, for the same discard reason - the map is read by the scene pass, so it
+            // has to exist before the scene target is bound and cannot be made between two binds of it.
+            _sceneRenderer.DrawShadowMaps(_scene, _camera, _rig.SunDirection);
+
             bool trophyUp = _trophy != null && _trophy.Active;
             bool confettiUp = _confetti != null && _confetti.Active;
 

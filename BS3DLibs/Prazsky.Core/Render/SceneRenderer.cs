@@ -699,6 +699,26 @@ namespace Prazsky.Core.Render
         //FIRE with that fire's light, so their instances are uploaded per draw (SetDataOptions.Discard).
         private DynamicVertexBuffer _acaciaInstanceBuffer;
 
+        //The sun's shadow map (#469): rendered by DrawShadowMaps before the scene pass and read by Savanna.fx
+        //and Acacia.fx through Shadows.fxh. The savanna's today; SunShadowMap is the infrastructure any
+        //terrain scene can adopt. The techniques and the parameters are cached at load (BestPractices.md §1).
+        private SunShadowMap _sunShadowMap;
+        private bool _shadowsActive;
+        private EffectTechnique _acaciaTechnique, _acaciaShadowTechnique;
+        private EffectParameter _acaciaShadowMapParam, _acaciaShadowViewProjectionParam, _acaciaShadowTexelParam,
+            _acaciaShadowStrengthParam, _acaciaShadowBiasParam;
+        private EffectParameter _savannaShadowMapParam, _savannaShadowViewProjectionParam, _savannaShadowTexelParam,
+            _savannaShadowStrengthParam, _savannaShadowBiasParam;
+
+        //The depth bias in world units, turned into the map's own units each frame off its depth range: about
+        //three and a half texels of a 2048 map over 260 units, enough that a plate of foliage lit from above
+        //does not stripe itself and small enough that a tuft still shadows its own foot.
+        private const float SHADOW_BIAS_UNITS = 0.45f;
+
+        //How high the sun has to stand (its direction's Y) for a map to be worth drawing: lower and every
+        //shadow is a streak the length of the map, and at a dome's dusk the sun term is next to nothing.
+        private const float SHADOW_MIN_SUN_HEIGHT = 0.08f;
+
         //The campfires' hearths (#282): a ring of stones set around each fire, and the scorched ground under
         //it. The stones ride the acacia's own instanced path - same shader, same lighting as everything else
         //planted on this terrain - with one draw per FIRE rather than per mesh variant, because what differs
@@ -1268,6 +1288,21 @@ namespace Prazsky.Core.Render
             _acaciaBarkParam = _acaciaEffect.Parameters["BarkStrength"];
             _acaciaAddedLightParam = _acaciaEffect.Parameters["AddedLight"];
             _acaciaHazeParam = _acaciaEffect.Parameters["HorizonHazeDistance"];
+            _acaciaTechnique = _acaciaEffect.Techniques["Acacia"];
+            _acaciaShadowTechnique = _acaciaEffect.Techniques["ShadowCaster"];
+            _acaciaShadowMapParam = _acaciaEffect.Parameters["ShadowMap"];
+            _acaciaShadowViewProjectionParam = _acaciaEffect.Parameters["ShadowViewProjection"];
+            _acaciaShadowTexelParam = _acaciaEffect.Parameters["ShadowTexel"];
+            _acaciaShadowStrengthParam = _acaciaEffect.Parameters["ShadowStrength"];
+            _acaciaShadowBiasParam = _acaciaEffect.Parameters["ShadowBias"];
+            _savannaShadowMapParam = _savannaEffect.Parameters["ShadowMap"];
+            _savannaShadowViewProjectionParam = _savannaEffect.Parameters["ShadowViewProjection"];
+            _savannaShadowTexelParam = _savannaEffect.Parameters["ShadowTexel"];
+            _savannaShadowStrengthParam = _savannaEffect.Parameters["ShadowStrength"];
+            _savannaShadowBiasParam = _savannaEffect.Parameters["ShadowBias"];
+            //No map until DrawShadowMaps says so: a receiver at strength 0 skips its taps.
+            _acaciaShadowStrengthParam.SetValue(0f);
+            _savannaShadowStrengthParam.SetValue(0f);
             ApplyAcaciaParameters();
             BuildSavannaScatter();
             BuildHearthStones();
@@ -5106,13 +5141,7 @@ namespace Prazsky.Core.Render
         private void DrawAcaciaPart(IProceduralMesh mesh, ModelInstance[] instances, Vector3 diffuse, float dappleStrength,
             Vector3 addedLight = default)
         {
-            if (_acaciaInstanceBuffer == null || _acaciaInstanceBuffer.VertexCount < instances.Length)
-            {
-                _acaciaInstanceBuffer?.Dispose();
-                _acaciaInstanceBuffer = new DynamicVertexBuffer(_graphicsDevice, ModelInstance.VertexDeclaration,
-                    instances.Length, BufferUsage.WriteOnly);
-            }
-            _acaciaInstanceBuffer.SetData(instances, 0, instances.Length, SetDataOptions.Discard);
+            UploadHearthInstances(instances);
 
             _acaciaDiffuseParam.SetValue(diffuse);
             _acaciaDiffuseDryParam.SetValue(diffuse);   //no dryness on a stone: Custom.x is zero on every hearth instance
@@ -5126,6 +5155,123 @@ namespace Prazsky.Core.Render
                 new VertexBufferBinding(_acaciaInstanceBuffer, 0, 1));
             _graphicsDevice.Indices = mesh.IndexBuffer;
             _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, mesh.PrimitiveCount, instances.Length);
+        }
+
+        /// <summary>The hearth stones' per-draw upload into the one dynamic instance buffer, grown as needed.</summary>
+        private void UploadHearthInstances(ModelInstance[] instances)
+        {
+            if (_acaciaInstanceBuffer == null || _acaciaInstanceBuffer.VertexCount < instances.Length)
+            {
+                _acaciaInstanceBuffer?.Dispose();
+                _acaciaInstanceBuffer = new DynamicVertexBuffer(_graphicsDevice, ModelInstance.VertexDeclaration,
+                    instances.Length, BufferUsage.WriteOnly);
+            }
+            _acaciaInstanceBuffer.SetData(instances, 0, instances.Length, SetDataOptions.Discard);
+        }
+
+        /// <summary>
+        /// Renders this frame's shadow maps (#469) — the savanna's sun shadow map, today — and hands them to
+        /// the receivers' effects. <b>Call it before binding the scene target</b>: the map is its own render
+        /// target and the scene target is <see cref="RenderTargetUsage.DiscardContents"/>, so switching away
+        /// from the scene target mid-frame would clear the sky already drawn into it. Leaves the back buffer
+        /// bound and the GPU states as it found them is <i>not</i> promised — the caller states its own before
+        /// its scene, as every executable already does after the sky.
+        /// <para>
+        /// A no-op for every other scene, at the Low tier, at <see cref="SavannaSceneConfig.ShadowStrength"/>
+        /// 0 and with the sun at or below <see cref="SHADOW_MIN_SUN_HEIGHT"/>: in all of those the receivers
+        /// are handed a strength of 0 and skip their taps, and no target is touched.
+        /// </para>
+        /// <para>
+        /// What casts: every bucket of the scatter and the hearth stones, through <c>Acacia.fx</c>'s
+        /// <c>ShadowCaster</c> technique with the culling off (two-sided blades and fans, and a closed solid
+        /// drawn from both sides cannot peter-pan). What does not, yet: the island — it is
+        /// <see cref="ArenaIsland"/>'s and draws through <c>InstancedModel.fx</c>, which has no caster
+        /// technique; its shadow on the grass is the next thing this could do.
+        /// </para>
+        /// </summary>
+        public void DrawShadowMaps(SceneKind scene, ICamera camera, Vector3 sunDirection)
+        {
+            SavannaSceneConfig cfg = _savannaConfig;
+            bool wanted = scene == SceneKind.Savanna && cfg.ShadowStrength > 0f && _sceneDetail > 0.5f
+                && sunDirection.Y > SHADOW_MIN_SUN_HEIGHT && _savannaScatter != null;
+            if (!wanted)
+            {
+                if (_shadowsActive)
+                {
+                    _shadowsActive = false;
+                    _acaciaShadowStrengthParam.SetValue(0f);
+                    _savannaShadowStrengthParam.SetValue(0f);
+                }
+                return;
+            }
+
+            int size = Math.Clamp(cfg.ShadowMapSize, 256, 8192);
+            if (_sunShadowMap == null || _sunShadowMap.Size != size)
+            {
+                _sunShadowMap?.Dispose();
+                _sunShadowMap = new SunShadowMap(_graphicsDevice, size);
+            }
+
+            //Fitted round the camera's ground position, from below the plain's lowest ground to above its
+            //highest hill plus the tallest thing standing on it.
+            Vector3 at = camera.Position;
+            float yMin = cfg.LevelY - cfg.HillHeight * 0.5f - 10f;
+            float yMax = cfg.LevelY + cfg.HillHeight + cfg.Dressing.BaobabHeight * 1.5f + 10f;
+            _sunShadowMap.Fit(new Vector3(at.X, cfg.LevelY, at.Z), sunDirection, cfg.ShadowExtent, yMin, yMax);
+
+            _graphicsDevice.SetRenderTarget(_sunShadowMap.Target);
+            _graphicsDevice.Clear(Color.White);
+            _graphicsDevice.BlendState = BlendState.Opaque;
+            _graphicsDevice.DepthStencilState = DepthStencilState.Default;
+            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
+
+            _acaciaEffect.CurrentTechnique = _acaciaShadowTechnique;
+            _acaciaShadowViewProjectionParam.SetValue(_sunShadowMap.ViewProjection);
+            _acaciaEffect.CurrentTechnique.Passes[0].Apply();
+
+            ScatterBucket[] buckets = _savannaScatter.Buckets;
+            for (int b = 0; b < buckets.Length; b++)
+            {
+                ScatterBucket bucket = buckets[b];
+                _graphicsDevice.SetVertexBuffers(
+                    new VertexBufferBinding(bucket.Mesh.VertexBuffer, 0, 0),
+                    new VertexBufferBinding(bucket.Instances, 0, 1));
+                _graphicsDevice.Indices = bucket.Mesh.IndexBuffer;
+                _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, bucket.Mesh.PrimitiveCount, bucket.Count);
+            }
+
+            if (_hearthStoneInstances != null && _hearthStoneMeshes != null)
+            {
+                for (int fire = 0; fire < _hearthStoneInstances.Length; fire++)
+                {
+                    ModelInstance[] instances = _hearthStoneInstances[fire];
+                    if (instances == null || instances.Length == 0) continue;
+                    UploadHearthInstances(instances);
+                    IProceduralMesh mesh = _hearthStoneMeshes[fire % _hearthStoneMeshes.Length];
+                    _graphicsDevice.SetVertexBuffers(
+                        new VertexBufferBinding(mesh.VertexBuffer, 0, 0),
+                        new VertexBufferBinding(_acaciaInstanceBuffer, 0, 1));
+                    _graphicsDevice.Indices = mesh.IndexBuffer;
+                    _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, mesh.PrimitiveCount, instances.Length);
+                }
+            }
+
+            _acaciaEffect.CurrentTechnique = _acaciaTechnique;
+            _graphicsDevice.SetRenderTarget(null);
+
+            //Hand the map to the receivers: the matrix, the texel, the strength, and the bias in the map's
+            //own depth units.
+            float bias = SHADOW_BIAS_UNITS / _sunShadowMap.DepthRange;
+            _acaciaShadowMapParam.SetValue(_sunShadowMap.Target);
+            _acaciaShadowTexelParam.SetValue(_sunShadowMap.Texel);
+            _acaciaShadowStrengthParam.SetValue(cfg.ShadowStrength);
+            _acaciaShadowBiasParam.SetValue(bias);
+            _savannaShadowMapParam.SetValue(_sunShadowMap.Target);
+            _savannaShadowViewProjectionParam.SetValue(_sunShadowMap.ViewProjection);
+            _savannaShadowTexelParam.SetValue(_sunShadowMap.Texel);
+            _savannaShadowStrengthParam.SetValue(cfg.ShadowStrength);
+            _savannaShadowBiasParam.SetValue(bias);
+            _shadowsActive = true;
         }
 
         /// <summary>
@@ -6457,6 +6603,7 @@ namespace Prazsky.Core.Render
             _flameIndexBuffer?.Dispose();
             _sparkVertexBuffer?.Dispose();
             _sparkIndexBuffer?.Dispose();
+            _sunShadowMap?.Dispose();
             _birdMesh?.Dispose();
             _mountainVertexBuffer?.Dispose();
             _mountainIndexBuffer?.Dispose();

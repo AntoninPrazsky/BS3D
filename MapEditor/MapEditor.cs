@@ -955,6 +955,10 @@ namespace MapEditor
 
         protected override void Draw(GameTime gameTime)
         {
+            //The sun's shadow maps come first (#469): their own target, before the scene's DiscardContents
+            //target is bound - so the editor previews the savanna's shadows exactly as the game draws them.
+            _sceneRenderer.DrawShadowMaps(_scene, Camera3D, _rig.SunDirection);
+
             //The scene is drawn in linear radiance into the HDR target; the pipeline's Resolve box-filters,
             //glares, tonemaps and sRGB-encodes it onto the back buffer. The selector gizmo and the text
             //overlay are drawn after that, in display space, so they stay exactly as authored — the same

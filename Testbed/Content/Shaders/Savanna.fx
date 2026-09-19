@@ -16,6 +16,8 @@
 
 #include "Clouds.fxh"
 #include "Noise.fxh"
+//The sun's cast shadows (#469): the acacias, the rocks and the mounds on the grass, off SceneRenderer's map.
+#include "Shadows.fxh"
 
 float4x4 View;
 float4x4 Projection;
@@ -331,6 +333,14 @@ float4 SavannaField(SavannaVertexOutput input, bool detail)
     //Matte grass: the sun and the sky hemisphere, dimmed by the shared cloud shadow so the same clouds that
     //drift across the sky sweep their shadows over the field
     float sunlight = CloudSunlight(worldPosition, SunDirection);
+
+    //The sun's cast shadows (#469), into the same sunlight factor the clouds dim: the sun term, the sheen and
+    //the backlit glow all read off it, so shadowed grass neither glints nor glows. The base normal rather than
+    //the combed one, so the blades' relief does not put the field in and out of its own bias.
+    [branch]
+    if (ShadowStrength > 0.0)
+        sunlight *= SunShadow(worldPosition, baseNormal, SunDirection);
+
     float ndotl = saturate(dot(normal, SunDirection));
     float3 skyAmbient = lerp(HorizonColor, ZenithColor, saturate(normal.y * 0.5 + 0.5));
 

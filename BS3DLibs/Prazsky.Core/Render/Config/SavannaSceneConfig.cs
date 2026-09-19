@@ -98,6 +98,19 @@ namespace Prazsky.Core.Render
         /// <summary>How closely the trails wander, in cycles per world unit — the lower, the longer their bends.</summary>
         public float TrailFrequency { get; set; } = 0.0045f;
 
+        /// <summary>
+        /// The sun's cast shadows (#469): how dark a full shadow is (1 = the sun term gone entirely; a little
+        /// under it keeps a shadow from reading as a hole in the ground), 0 = no shadow map at all.
+        /// </summary>
+        public float ShadowStrength { get; set; } = 0.9f;
+
+        /// <summary>How far round the camera the shadow map reaches, in world units square. Shadows exist
+        /// inside it and fade out at its edge; the map's texel is this over its size.</summary>
+        public float ShadowExtent { get; set; } = 260f;
+
+        /// <summary>The shadow map's size in texels a side. 2048 over 260 units is 0.13 units a texel.</summary>
+        public int ShadowMapSize { get; set; } = 2048;
+
         /// <summary>Scattered acacia trees and low bushes.</summary>
         public AcaciaConfig Acacia { get; set; } = new();
 
