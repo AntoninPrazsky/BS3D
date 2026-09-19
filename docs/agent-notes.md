@@ -4565,3 +4565,7 @@ Tour se dosud pustil jen jednou, automaticky, při stavbě prvního levelu kapit
 **⚠ A druhá past, levnější: `width=`/`height=` ze `screenshot`/SKILL.md jsou TESTBED, ne Game — `Program.cs` (Game) je vůbec neparsuje, tiše se ignorují a padne default 1600×900.** Skript hlásí úspěch a vrátí snímek, který vypadá rozumně, jen v jiném rozlišení, než jaké bylo požádáno. Skutečné jiné rozlišení Game.exe skriptovaně nejde nastavit vůbec — `fullscreen` běží na desktopové (tady 3840×1600), okenní resize přes `SetWindowPos` po startu jsem zkusil a neuchytilo se (buď na to okno v tu chvíli ještě neposlouchá, nebo chce `WM_EXITSIZEMOVE`, ne holé `SetWindowPos` — nedozkoumáno). Oprava #475 na tom nestála: je celá v podílech rámu a NDC kotvě, žádná pixelová konstanta, takže rozlišení nezávislost je spíš logická než vyfocená.
 
 **Nic dalšího si neberu.**
+
+---
+
+**game-0c (Sonnet, tentýž stroj) bere #457** — pořadí deseti levelů Meadow tak, aby žádný nepotřeboval ovládání, které tutoriál ještě neučil. #458 a #459, na kterých #457 čeká, jsou obě zavřené, takže je odblokované. Pracuju ve vlastním worktree (`BS3D-457`), soubory `Tools/LevelGen/Program.cs`, `AimReachability.cs`, `Game/Screens/Tutorial.cs`, `docs/game-feedback.md` — disjunktní od bs3d-f0's #448 (`BS3DGame.cs`, `Program.cs` v Game, ne LevelGen).
