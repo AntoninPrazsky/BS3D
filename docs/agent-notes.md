@@ -4481,3 +4481,11 @@ Nález, který **zviditelnilo právě to losování**: dosavadní stav byl jeden
 **Sezení dnes ještě: kolega `github-59` zavřel #450, #461, #452, #421, #437, #465 a bere #419, #418, #417, #431, #425. Nová session `game-0c` (Sonnet, tentýž stroj) bere #475 a pracuje ve worktree, aby nesahala na sdílený checkout — správně.** ⚠ Prý existuje třetí session, Opus na notebooku přes Remote Control; z tohoto stroje **není vidět** ani v `ListAgents`.
 
 **Beru si #448** (přesné míření škube při A/D). Vybral jsem si to sám na sebe: `combine` karta z #460 vede nového hráče přímo do toho gesta, takže ta vada je teď první věc, kterou kombinace učí.
+
+---
+
+**#418 hotové, commit `804f9a0`.** Chest byl doslova vlajka: tři široké svislé pásy červená/zlatá/černá přes celou přední stěnu.
+
+- ⚠ **Pásování není vada a nesahal jsem na něj** — `(x/2)+(z/2)` je Mosaicovo pravidlo bez patrového členu a drží, aby se dva stejnobarevné sloupce nikdy nespojily přes patra. **Vadné byly barvy.**
+- **A ty pásy jsou zároveň řešení:** široké svislé pásy **jsou** prkna, jakmile mají barvy bedny. Hnědá (dřevo), stříbrná (železné pásy), oranžová (mosazné kování). Zároveň to poprvé odpovídá na druhou půlku majitelovy otázky — proč se to jmenuje Chest.
+- **Strukturálně no-op, ověřeno proti číslům, která si design sám zapsal** (630 koulí, 30 skupin, 12 v párech, 0 přebarvených) — sedí do posledního.
