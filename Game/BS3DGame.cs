@@ -856,7 +856,8 @@ namespace BS3D
             int? resultStars = null, string nextLocked = null, int? streak = null, int wildcardEvery = 0, float[] shotSeconds = null, string level = null, string levelFile = null,
             string preview = null, BallStyle? ballStyle = null, string pick = null, int fpsCap = 0,
             bool noFocusPause = false, float[] detonateSeconds = null, string about = null, string tutorial = null,
-            bool settings = false, int? sceneSeed = null, bool tour = false)
+            bool settings = false, int? sceneSeed = null, bool tour = false,
+            int windowWidth = 0, int windowHeight = 0)
         {
             //The scene's procedural roll (see _sceneSeedOffset): rolled once per launch unless the command
             //line pins it, and printed either way - a frame of a city nobody can generate twice is a frame
@@ -896,6 +897,18 @@ namespace BS3D
             BallStyleOverride = ballStyle;
 
             _fullscreen = fullscreen ?? _settings.Fullscreen;
+
+            //⚠ The windowed back buffer, pinned from the command line - the Testbed has had width=/height=
+            //since it was the only executable anything was photographed in, and the Game silently IGNORED
+            //them: a run asking for 3840x1600 came back at the default 1600x900, and the frame looks
+            //perfectly plausible at the wrong size. Several issues ask for captures at the owner's own
+            //panel (a HUD's type, a menu's layout) and could not have them.
+            //
+            //It moves the WINDOWED size only. Fullscreen is the display's, which is this project's standing
+            //rule (the game always renders at the panel's native resolution), and a capture argument does
+            //not get to break it.
+            if (windowWidth > 0 && windowHeight > 0)
+                _windowedSize = new Point(windowWidth, windowHeight);
             _startupCelebrate = celebrate;
             _startupConfetti = confetti;
             _startupResultStars = resultStars;

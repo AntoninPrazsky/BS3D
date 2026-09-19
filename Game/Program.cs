@@ -1,4 +1,4 @@
-using Prazsky.BS3D.GameStructure;
+﻿using Prazsky.BS3D.GameStructure;
 using Prazsky.Core.Render;
 using Prazsky.Core.Tools;
 using System;
@@ -34,6 +34,7 @@ namespace BS3D
             int fpsCap = 0;
             int? sceneSeed = null;
             bool tour = false;
+            int windowWidth = 0, windowHeight = 0;
             float exposure = 0f;
 
             //Left null when absent, so the game keeps doing what it normally does: a random one of the fifteen
@@ -180,6 +181,12 @@ namespace BS3D
                 //(#406) - the only way a replayed tour can be photographed, since a synthetic click never
                 //reaches this window.
                 else if (string.Equals(arg, "tour", StringComparison.OrdinalIgnoreCase)) tour = true;
+
+                //"width=N"/"height=N" pin the WINDOWED back buffer, as the Testbed's own pair does. Until they
+                //were added here the Game ignored them silently, so a capture asked for at the owner's panel
+                //came back at the default window and looked entirely plausible.
+                else if (arg.StartsWith("width=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("width=".Length), out int parsedWidth) && parsedWidth > 0) windowWidth = parsedWidth;
+                else if (arg.StartsWith("height=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("height=".Length), out int parsedHeight) && parsedHeight > 0) windowHeight = parsedHeight;
                 //"ssaa=<n>" trades sharpness against fill rate; "exposure=<f>" is the renderer's shutter speed
                 else if (arg.StartsWith("ssaa=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("ssaa=".Length), out int parsedSsaa)) supersampleFactor = parsedSsaa;
                 else if (arg.StartsWith("exposure=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("exposure=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedExposure)) exposure = parsedExposure;
@@ -300,7 +307,8 @@ namespace BS3D
                 celebrate: celebrate, confetti: confetti, lasers: lasers, mute: mute, noFpsOverlay: noFpsOverlay, play: play, result: result, blockDone: blockDone, lost: lost, resultStars: resultStars, nextLocked: nextLocked, streak: streak, wildcardEvery: wildcardEvery,
                 shotSeconds: shotSeconds, level: level, levelFile: levelFile, preview: preview, ballStyle: ballStyle, pick: pick, fpsCap: fpsCap,
                 noFocusPause: noFocusPause, detonateSeconds: detonateSeconds, about: about, tutorial: tutorial,
-                settings: settings, sceneSeed: sceneSeed, tour: tour);
+                settings: settings, sceneSeed: sceneSeed, tour: tour,
+                windowWidth: windowWidth, windowHeight: windowHeight);
             game.Run();
         }
 
