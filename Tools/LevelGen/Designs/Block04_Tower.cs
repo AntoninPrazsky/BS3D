@@ -1060,14 +1060,52 @@ namespace BS3D.Tools.LevelGen
         //ring a heavier one-ink target. What answered the sag instead was height off the line, the gentler
         //splay, the taller rings and the cap collar - see Depth and PYLON_RINGS.
 
-        //Leg primaries, indexed NE, SE, SW, NW - the order PylonLeg and the cap quadrants both speak
+        //THE PALETTE IS A PYLON'S OWN, AND IT IS FOUR INKS RATHER THAN SIX (#417). It was red, blue, green
+        //and magenta on the legs and the cap, white between them and brown on the girdles, and the owner
+        //played it and said: cut the number of colours down, they do not go together. Six was never a
+        //decision either - the four primaries are one per leg, which the geometry wanted so the four legs
+        //could be told apart, and nothing ever chose the SET.
+        //
+        //This is a transmission pylon, standing on a snow mountain, drawn in ice. So it takes the palette a
+        //pylon actually has: galvanised steel, and the red-and-white warning bands a tall mast carries.
+        //Silver girdles, legs banded red and white from the feet up, and a cap of steel and shadow.
+        //
+        //⚠ SIX INKS IS FORCED, AND MEASURING THAT IS MOST OF WHAT THIS ISSUE COST. The obvious reading of
+        //"cut the number of colours down" is to give the cap two inks diagonally and let the four legs share
+        //- the legs never touch each other, so nothing merges. It was tried and the generator refused it in
+        //one line: **the cap is the ANCHOR COURSE**, so the number of colours standing on it is the level's
+        //floor on shots. Four inks up there is why the probe reads "no fewer than 4"; at two, TWO shots empty
+        //the whole field (the cap goes, and everything under it orphans). Cutting the cap is a difficulty
+        //change wearing a palette's clothes.
+        //
+        //What the cap may NOT take is equally measured. Not the girdles' ink: the cap collar (PYLON_RINGS'
+        //first entry) runs i = 14..16 and the cap owns 16, so a collar cell at 15 sits directly under a cap
+        //cell, and sharing joins them into a 108-ball group. Not the legs' upper band either: that band is
+        //white all the way to 15 and meets the cap at 16. So the floor is four cap inks + one for the rings
+        //+ one for the leg tops = SIX, and six is what this level has. The legs' lower band is free to reuse
+        //a cap ink, because it never reaches the cap.
+        //
+        //So the count stays, the structure stays, and only the SET changes - which is the half of the report
+        //that was actually about colour. It was red, blue, green and magenta: four saturated primaries, one
+        //per leg, picked so the four legs could be told apart and never picked as a set. This is a
+        //transmission pylon standing on a snow mountain and drawn in ice, so it takes a pylon's own palette -
+        //galvanised steel, shadowed steel, warning red and rust - with rusted iron on the girdles and the
+        //white warning band between the leg courses. Nothing blue, green or magenta is left in it.
+        //
+        //⚠ Each ink still serves ONE LEG AND ONE CAP QUADRANT, which is worth keeping for a reason that is
+        //not the look: it is what keeps the four roughly even (48-68 balls each). Banding all four legs in
+        //one colour was measured too and passes every gate identically, but it leaves three of the cap inks
+        //on 16, 24 and 24 balls - colours the magazine would deal a handful of times in a 580-ball level.
         private static readonly BallType[] PYLON_PRIMARIES =
         {
-            BallType.Type1,   //red - NE
-            BallType.Type3,   //blue - SE
-            BallType.Type2,   //green - SW
-            BallType.Type6,   //magenta - NW
+            BallType.Type11,  //galvanised steel - NE
+            BallType.Type8,   //shadowed steel - SE
+            BallType.Type1,   //warning red - SW
+            BallType.Type9,   //rust - NW
         };
+
+        private const BallType PYLON_WHITE = BallType.Type4;     //the white warning band between the courses
+        private const BallType PYLON_STEEL = BallType.Type10;    //rusted iron, the girdle rings
 
         /// <summary>The NE leg's low corner index at one layout level - the splay schedule in one line.</summary>
         private static int PylonLegAnchor(int i) => PYLON_FOOT_ANCHOR - i / PYLON_LEG_BAND;
@@ -1128,7 +1166,7 @@ namespace BS3D.Tools.LevelGen
         {
             int leg = PylonLeg(x, z, i);
             if (leg != 0)
-                return (i / PYLON_LEG_BAND) % 2 == 0 ? PYLON_PRIMARIES[leg - 1] : BallType.Type4;  //white
+                return (i / PYLON_LEG_BAND) % 2 == 0 ? PYLON_PRIMARIES[leg - 1] : PYLON_WHITE;
 
             if (PylonCap(x, z, i))
             {
@@ -1141,7 +1179,7 @@ namespace BS3D.Tools.LevelGen
             //loop is worse than a missing one, because a C-ring swings 7-10 units where a closed loop cannot
             //lengthen, and a released loop at least goes symmetrically. The loop being a one-shot 25-121 ball
             //release is the design's own "re-hanging itself off its own girdle rings" premise.
-            return BallType.Type10;   //brown
+            return PYLON_STEEL;
         }
 
         #endregion
