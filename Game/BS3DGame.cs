@@ -1164,6 +1164,12 @@ namespace BS3D
             //After base.Initialize, so the window's handle exists and MonoGame's own icon assignment has
             //already been published — this has to win that race, not lose it.
             WindowIcon.Apply(Window.Handle);
+
+            //And the pointer the front end is clicked with, in place of the stock arrow (#350). Set exactly
+            //once, here: it is a GDI cursor handle, so a per-frame call would build and abandon one per frame.
+            //It stays set for the life of the window — IsMouseVisible below only ever HIDES it, and the play
+            //loop that hides it draws the procedural Crosshair in its place.
+            PointerCursor.Apply(GraphicsDevice);
         }
 
         protected override void LoadContent()
