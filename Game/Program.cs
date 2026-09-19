@@ -70,6 +70,14 @@ namespace BS3D
             //touch it — mute is a run's instruction, so it silences this run and is never written back.
             bool mute = false;
 
+            //Testing only: start with the FPS overlay hidden, whatever the settings file says. Exactly "mute"'s
+            //argument in the other sense (#452): a picture meant for somebody else — the README's screenshot,
+            //a capture filed with an issue — has no business carrying a debug readout, and until this existed
+            //the only way to take one was F10, which WRITES the player's settings file on both presses. A run's
+            //instruction, never written back; F10 still toggles it from here, and the settings row still owns
+            //what a player sees.
+            bool noFpsOverlay = false;
+
             //Testing only: keep a level running when the window loses focus (#355). Same population as "mute"
             //— a run nobody is sitting at — and for the mirror-image reason: a level that pauses itself while
             //unattended stops producing the frames the run was started to collect.
@@ -206,6 +214,8 @@ namespace BS3D
                 else if (arg.StartsWith("tutorial=", StringComparison.OrdinalIgnoreCase)) tutorial = arg.Substring("tutorial=".Length);
                 //"mute" starts silent, for the harnesses; the settings rows can still raise it.
                 else if (string.Equals(arg, "mute", StringComparison.OrdinalIgnoreCase)) mute = true;
+                //"nofps" hides the FPS overlay for this run, for a picture somebody else will look at (#452).
+                else if (string.Equals(arg, "nofps", StringComparison.OrdinalIgnoreCase)) noFpsOverlay = true;
                 //"play" skips the front end into the first level, so a session's figures can be measured at all.
                 else if (string.Equals(arg, "play", StringComparison.OrdinalIgnoreCase)) play = true;
                 //"level=<n|name>" does the same for any entry of the set — its 1-based place, as the title bar
@@ -275,7 +285,7 @@ namespace BS3D
 
             using var game = new BS3DGame(fullscreen: fullscreen, supersampleFactor: supersampleFactor, exposure: exposure,
                 uncappedFps: uncappedFps, scene: scene, skyDome: skyDome, logFrameRate: logFrameRate, quality: quality,
-                celebrate: celebrate, confetti: confetti, lasers: lasers, mute: mute, play: play, result: result, blockDone: blockDone, lost: lost, resultStars: resultStars, nextLocked: nextLocked, streak: streak, wildcardEvery: wildcardEvery,
+                celebrate: celebrate, confetti: confetti, lasers: lasers, mute: mute, noFpsOverlay: noFpsOverlay, play: play, result: result, blockDone: blockDone, lost: lost, resultStars: resultStars, nextLocked: nextLocked, streak: streak, wildcardEvery: wildcardEvery,
                 shotSeconds: shotSeconds, level: level, levelFile: levelFile, preview: preview, ballStyle: ballStyle, pick: pick, fpsCap: fpsCap,
                 noFocusPause: noFocusPause, detonateSeconds: detonateSeconds, about: about, tutorial: tutorial,
                 settings: settings);

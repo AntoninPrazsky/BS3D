@@ -4287,3 +4287,20 @@ Dvě majitelovy poznámky z hraní, dvě issues. Sémantické hledání (nomic, 
 - **Co si z toho beru:** číslo z jednorázového přípravku je hodnota měřidla, ne měřeného — a než ho napíšu do docu nebo do issue, musí mít aspoň jednu kontrolu, která by při rozbitém měřidle **spadla**. Tady stačilo vypsat šířku každého glyfu zvlášť; osm stejných čísel proti dvěma různým je vidět na první pohled.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-19 — Claude Code (notebook: #452 nový screenshot do README)
+
+**Beru si #452** na majitelův pokyn pracovat dál. Větev `452-readme-screenshot`, commit `3f7ed1c`. **NENÍ v mainu.**
+
+- ⚠ **Nejdřív jsem se domluvil s druhou instancí a vyplatilo se to.** `bs3d-f0` (desktop) má od majitele dávku, kterou dělá v pořadí: **#466, #457, #459, #460, #473, #412, městskou půlku #471 a #465**. Původně jsem si vzal #466 a musel ho zase pustit — větev jsem zahodil dřív, než na ní byl řádek. **Pravidlo pro příště: ohlásit issue PŘED začátkem, ne po něm.** Kdo co drží, se dá přečíst i z repa (`git branch -r` a žurnál na cizí větvi), ale rozdělaná práce, která ještě není pushnutá, tam vidět není.
+- **`nofps` je nový obecný lever, a je to `mute` v druhém smyslu.** FPS overlay je hráčovo nastavení a jediná cesta, jak ho schovat, bylo **F10 — které při obou stiscích ZAPISUJE `Settings.json`**. Každý „čistý" snímek tedy dosud špinil majitelův `%LOCALAPPDATA%`. `nofps` je instrukce běhu, která se nikdy nezapisuje zpět; F10 i řádek v nastavení si to dál vlastní. **Ověřeno hashem `Settings.json` před a po — totožný.**
+- ⚠ **Past, na kterou jsem si sám skočil:** pro opravnou větev jsem přebuildoval Release z kódu **bez** `nofps` a před dalším focením nezbuildoval zpátky — tři snímky přišly s `FPS: 18` v rohu, přestože argument na příkazové řádce byl. **Neznámý argument hra mlčky ignoruje**, takže to nevypadá jako chyba, jen se nic nestane. Kontrola je levná a dělám ji teď vždycky: přečíst levý horní roh snímku programově (počet světlých pixelů v obdélníku 160×40) místo koukání.
+- **Vybráno ze sedmi kandidátů ve čtyřech scénách** (savana/Giraffe, sopka/Caldera, hory/Helix, neon/Donut, Globe, Ziggurat, Trophy), všechny 1920×1080 nativně, `quality=high`. **Majitel vybral neonové město (Donut).**
+- ⚠ **Nabídl jsem mu k tomu jednu věc, kterou jsem si uvědomil až po jeho volbě a nechal ji na něm:** na Donut je otevřené **#421** („barvy nečtou jako donut"), takže na titulní straně bude cluster s otevřenou výtkou, a `Trophy` z téže scény čte proti chladnému městu výrazně líp (teplé zlato/oranž proti magentě a cyanu). Leží vedle na disku, přehodit je jeden řádek.
+- **Text README opraven v témže commitu, na majitelovu volbu** (issue to výslovně nechávalo na něm): 90 levelů v 9 kapitolách → **120 ve 12**, 17 pozadí → **20**, a věta „i hudba je generovaná kódem" → hudba jsou od #443 nahrávky, procedurální skóre zůstalo na přehrávači v About. Upřesněna i věta o `MusicBake`, která uměla jen půlku toho, co nástroj dělá.
+- **Staré soubory zůstaly**, `screenshot1.jpg` i `screenshot1.png`, a nereferencuje je nic — `grep` to potvrdil. Nový je `screenshot2.jpg`, 742 kB proti 414 kB starého (neonová scéna má zrno a hodně detailu, JPEG q92).
+- `Game.sln` 0 chyb.
+
+**Nic dalšího si neberu.**
