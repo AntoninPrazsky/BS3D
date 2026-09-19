@@ -406,7 +406,7 @@
       "file": "Four.json",
       "name": "Mosaic",
       "block": "The Quarry",
-      "shots": 56,
+      "shots": 40,
       "minStars": 98,
       "ceilingStep": 8
     },
@@ -414,7 +414,7 @@
       "file": "Eight.json",
       "name": "Prism",
       "block": "The Quarry",
-      "shots": 60,
+      "shots": 30,
       "minStars": 100,
       "ceilingStep": 6
     },
@@ -422,7 +422,7 @@
       "file": "Hopper.json",
       "name": "Hopper",
       "block": "The Quarry",
-      "shots": 60,
+      "shots": 46,
       "minStars": 102,
       "ceilingStep": 6
     },
@@ -430,7 +430,7 @@
       "file": "Trilithon.json",
       "name": "Trilithon",
       "block": "The Quarry",
-      "shots": 42,
+      "shots": 30,
       "minStars": 104,
       "ceilingStep": 5
     },
@@ -438,7 +438,7 @@
       "file": "Gantry.json",
       "name": "Gantry",
       "block": "The Quarry",
-      "shots": 64,
+      "shots": 48,
       "minStars": 106,
       "ceilingStep": 6
     },
@@ -446,7 +446,7 @@
       "file": "Fault.json",
       "name": "Fault",
       "block": "The Quarry",
-      "shots": 58,
+      "shots": 46,
       "minStars": 108,
       "ceilingStep": 6
     },
@@ -462,7 +462,7 @@
       "file": "Highwall.json",
       "name": "Highwall",
       "block": "The Quarry",
-      "shots": 60,
+      "shots": 44,
       "minStars": 112,
       "ceilingStep": 7
     },
@@ -470,7 +470,7 @@
       "file": "Nine.json",
       "name": "Static",
       "block": "The Quarry",
-      "shots": 60,
+      "shots": 34,
       "minStars": 114,
       "ceilingStep": 5
     },

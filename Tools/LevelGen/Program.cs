@@ -1166,6 +1166,94 @@ namespace BS3D.Tools.LevelGen
         #region Emitting one design
 
         /// <returns>Whether the level that came out passed every check.</returns>
+        /// <summary>
+        /// Takes the inside out of a body, leaving <paramref name="skin"/> cells of it standing against every
+        /// free cell — <see cref="Design.Hollow"/>'s implementation, and the answer to #398.
+        /// </summary>
+        /// <remarks>
+        /// A multi-source walk out of the free space rather than a test per cell: every empty cell of the
+        /// layout box, and the box's own outside, is distance zero, and a ball is kept while it is within
+        /// <paramref name="skin"/> steps of one. <b>The steps are the lattice's</b>
+        /// (<see cref="BallsMap.FillNeighboringCells"/>), never a rule written here — a cross-level neighbour
+        /// is a diagonal in (x, z) and the offsets depend on the level's parity, which is exactly the sort of
+        /// thing a second copy gets wrong.
+        /// <para>
+        /// <b>⚠ A cell on the box's boundary is skin whatever stands around it</b>, which is what keeps the
+        /// anchor course whole: the top course has no level above it, so its cells are one step from the
+        /// outside and no depth of hollowing can take them. The same is true of the floor and the four walls,
+        /// so a body that fills its box keeps its whole surface and loses only what is buried.
+        /// </para>
+        /// <para>
+        /// It runs on the LAYOUT box and not on the field, and the two agree in parity because
+        /// <see cref="Emit"/> refuses an odd offset — the same fact <c>Centred</c> leans on.
+        /// </para>
+        /// </remarks>
+        /// <returns>How many balls it took out, for the emitter's own line.</returns>
+        private static int HollowOut(BallPositionType[,,] balls, byte n, byte depth, int skin)
+        {
+            XZLevel size = new(n, n, depth);
+            int[] distance = new int[n * n * depth];
+            Queue<XZLevel> frontier = new();
+            Span<XZLevel> neighbours = stackalloc XZLevel[BallsMap.MAX_NEIGHBORS];
+
+            int Key(int x, int z, int i) => (i * n + x) * n + z;
+
+            for (int i = 0; i < depth; i++)
+                for (int x = 0; x < n; x++)
+                    for (int z = 0; z < n; z++)
+                    {
+                        if (balls[x, z, i] == null)
+                        {
+                            distance[Key(x, z, i)] = 0;
+                            frontier.Enqueue(new XZLevel(x, z, i));
+                            continue;
+                        }
+
+                        distance[Key(x, z, i)] = int.MaxValue;
+
+                        //The box's outside is free, so a ball that lost a neighbour to the clip is already
+                        //skin - that is what holds the anchor course, the floor and the walls.
+                        if (BallsMap.FillNeighboringCells(new XZLevel(x, z, i), size, neighbours)
+                            < BallsMap.MAX_NEIGHBORS)
+                        {
+                            distance[Key(x, z, i)] = 1;
+                            frontier.Enqueue(new XZLevel(x, z, i));
+                        }
+                    }
+
+            while (frontier.Count > 0)
+            {
+                XZLevel cell = frontier.Dequeue();
+                int next = distance[Key(cell.X, cell.Z, cell.Level)] + 1;
+                if (next > skin) continue;
+
+                int count = BallsMap.FillNeighboringCells(cell, size, neighbours);
+                for (int k = 0; k < count; k++)
+                {
+                    XZLevel neighbour = neighbours[k];
+                    int key = Key(neighbour.X, neighbour.Z, neighbour.Level);
+                    if (balls[neighbour.X, neighbour.Z, neighbour.Level] == null || distance[key] <= next) continue;
+
+                    distance[key] = next;
+                    frontier.Enqueue(neighbour);
+                }
+            }
+
+            int removed = 0;
+
+            for (int i = 0; i < depth; i++)
+                for (int x = 0; x < n; x++)
+                    for (int z = 0; z < n; z++)
+                    {
+                        if (balls[x, z, i] == null || distance[Key(x, z, i)] <= skin) continue;
+
+                        balls[x, z, i] = null;
+                        removed++;
+                    }
+
+            return removed;
+        }
+
         private static bool Emit(Design design)
         {
             byte n = design.Grid;
@@ -1237,6 +1325,10 @@ namespace BS3D.Tools.LevelGen
                     }
             }
 
+            //THE SKIN (#398), before the repair pass rather than after it: hollowing can leave a ball
+            //with one neighbour where it had six, and the repair is what looks at that.
+            int hollowed = design.Hollow > 0 ? HollowOut(balls, n, depth, design.Hollow) : 0;
+
             int repaired = RepairLonelyBalls(balls, n, depth, offset, fieldLevels);
 
             Level level = new()
@@ -1252,6 +1344,11 @@ namespace BS3D.Tools.LevelGen
 
             string path = Path.Combine(_outDir, design.File);
             level.Save(path);
+
+            //What the skin took out, said where the level's own figures are said (#398).
+            if (hollowed > 0)
+                Console.WriteLine($"--- {design.File}: hollowed to a skin of {design.Hollow}, "
+                                  + $"{hollowed} buried ball(s) taken out");
 
             return Validate(design, path, repaired);
         }
@@ -2458,6 +2555,38 @@ namespace BS3D.Tools.LevelGen
             /// </summary>
             public SceneKind Scene;
             public byte Sky;
+
+            /// <summary>
+            /// <b>How many cells of skin a body keeps; zero, the default, leaves it solid.</b> A design says
+            /// what its silhouette is and this says how much of the inside of that silhouette is actually
+            /// there — every cell further than this from a free cell is taken out, so the shape, the
+            /// anchors and every visible face are untouched and what goes is the part no player ever sees.
+            /// <para>
+            /// It exists for #398, where the owner's verdict on a whole chapter was the same sentence nine
+            /// times over: <i>"this level takes too long to finish, but otherwise isn't much of a
+            /// challenge - I start shooting mindlessly just to get it over with. It should be less
+            /// dense."</i> The Quarry's five #255 structures had already been rebuilt once for SHAPE - a
+            /// lintel on pillars, loads on slings, a hanging wall on a seam - and the measurement is what
+            /// said the rebuild had not touched the other axis: they shipped at 229 to 432 balls, three of
+            /// the five HEAVIER than the solid masses they stood beside, because a member drawn as a member
+            /// is still filled in behind its face.
+            /// </para>
+            /// <para>
+            /// <b>The field's own boundary counts as free</b>, which is the half of the rule that keeps a
+            /// level hanging: the top course is against the glass and has nothing above it, so every anchor
+            /// is skin by construction and no hollowing can cost a level its grip. The floor and the field
+            /// walls answer the same way.
+            /// </para>
+            /// <para>
+            /// <b>⚠ It is not a difficulty lever on its own.</b> How long a level takes to play is its
+            /// standing-group count far more than its ball count, and a skin cuts a 2x2x2 tile in half
+            /// rather than removing it — so a body hollowed and left otherwise alone plays just as many
+            /// shots for smaller payouts, which is the complaint made worse. It is paired with the tile
+            /// size (<see cref="Prism"/> recorded that remedy first, doubling a tile to stop its last
+            /// storey dragging) and with a re-priced budget every time it is used.
+            /// </para>
+            /// </summary>
+            public int Hollow;
 
             /// <summary>
             /// Which composition the level plays, written into <c>Level.Music</c> — and it is a property of
