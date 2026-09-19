@@ -1,4 +1,4 @@
-using Prazsky.BS3D.GameStructure;
+﻿using Prazsky.BS3D.GameStructure;
 using Prazsky.Core.Render;
 using System;
 
@@ -257,7 +257,9 @@ namespace BS3D.Tools.LevelGen
         };
 
         /// <summary>
-        /// The block's finale and the campaign's last level: blades on a slowly turning core wearing the
+        /// <b>The block's ninth level since #413, and its finale until then</b> - the campaign's last level
+        /// until #300 before that, so this doc has now outlived two ends and states neither. Blades on a
+        /// slowly turning core wearing the
         /// <b>whole wheel</b> - red, orange, yellow, green, cyan, blue, magenta - swept HELICALLY, so every
         /// blade is its own hue at any height and the wheel turns as it descends. The chapter's thesis stated
         /// once and entire: the family here is the spectrum itself, and the ordering is the only thing
@@ -266,7 +268,8 @@ namespace BS3D.Tools.LevelGen
         /// <b>Seven live colours is the difficulty, and it is scarcity rather than mass</b> - the magazine
         /// draws evenly among the colours still standing, so the wanted ball arrives one time in seven, and
         /// the level is priced against that rather than against its size. <see cref="Garland"/> is the only
-        /// harder draw in the game (thirteen), and it closes the Nebula for the same reason.
+        /// harder draw in the game (thirteen); it closed the Nebula on that argument until #413 moved the
+        /// owner's harder-PLAYING level into the slot instead.
         /// </para>
         /// <para>
         /// <b>The helix is why the blades are safe to cut.</b> A blade is a radial slab reaching the top

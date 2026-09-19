@@ -549,7 +549,10 @@ namespace BS3D.Tools.LevelGen
 
                 //5. THE CAVERN - "The Reveal". An outer body with a differently-shaped thing standing inside
                 //it; clearing the outside is the payoff (#161).
-                Onion(), Chest(), Fossil(), Mango(), Spark(), Grotto(), Scales(), Ship(), Spring(), Lantern(),
+                //SPRING BEFORE SHIP since #413, on the owner's playtest: Ship rated higher difficulty than
+                //Spring and stood in front of it, which the tool's own ratio agrees with (Ship 2.45 shots a
+                //group against Spring's 4.80). One swap; nothing else in the block moved.
+                Onion(), Chest(), Fossil(), Mango(), Spark(), Grotto(), Scales(), Spring(), Ship(), Lantern(),
 
                 //6. THE MOON - "The Quarry". Chunky lattice-aligned blocks of colour, five or six of them, and
                 //no plate to trigger anywhere: every shot is a shot at a handful of balls. Colossus closes it,
@@ -567,7 +570,20 @@ namespace BS3D.Tools.LevelGen
             //(the names fall out of positions, so nothing refuses the set) but would misfile them - Comet
             //labelled the Quarry's, Colossus labelled the Nebula's, and THE QUARRY COMPLETE celebrating on
             //the wrong level. Only DescribeBlock's non-gating MIXED print would show it.
-            Design[] nebula = { Comet(), Vortex(), Carousel(), Wishbone(), Sail(), Analemma(), Binary(), Kepler(), Orrery(), Garland() };
+            //ORRERY CLOSES THE BLOCK since #413, where Garland did - the owner's playtest ("very demanding
+            //but nice, I'd picture this as the chapter's last") and the tool agreeing: 52 standing groups
+            //against 72 shots is 1.38 a group, the block's tightest by a factor of two and at the hard edge
+            //of the whole game. THE COLOUR RAMP SURVIVES IT, which is the only thing that could have
+            //refused the swap: Kepler, Orrery and Garland all play thirteen, so the finale still plays
+            //every colour the game has. What it costs is stated rather than hidden - Garland is the harder
+            //DRAW (thirteen live colours against Orrery's release quanta) and now stands second-to-last, so
+            //the block ends on the tighter budget rather than on the scarcer magazine.
+            //⚠ WISHBONE'S DIP (fourth, right after Carousel) IS LEFT STANDING and it is not an oversight:
+            //inside this block's own colour ramp there is no move that fixes it. Wishbone plays six colours
+            //where Vortex and Carousel play five, so pulling it earlier puts a six-colour level in front of
+            //two five-colour ones, and the only other lever is its budget (54 shots on 11 groups, 4.91) -
+            //which is a level-design change and not an ordering one. #413 says so itself.
+            Design[] nebula = { Comet(), Vortex(), Carousel(), Wishbone(), Sail(), Analemma(), Binary(), Kepler(), Garland(), Orrery() };
 
             //8. THE VOLCANO - "The Eruption" (#295). THE GLOW IS THE LOAD: the molten seams are what
             //everything hangs by, so reading where a level shines is reading where it will break - and every
@@ -579,8 +595,16 @@ namespace BS3D.Tools.LevelGen
             //into the campaign (#368) - the volcano being the one place a bomb does not have to explain
             //itself. See the block's own region for the statement in full and for the engineering law every
             //design here obeys (a designed breakaway is always the lowest thing on its own load path).
+            //CAUSEWAY MOVED FROM SECOND TO EIGHTH (#413), and the level the owner asked about is the one
+            //that did NOT move. The playtest note was Breach ("a fairly demanding, big level - not sure it
+            //should be first"), and the measurement answers it: at 1.71 shots a group Breach is the second
+            //GENTLEST level in the block, which is what its own doc already claimed and what an opener
+            //should be - it reads imposing because it is big, not because it is tight. Causeway behind it
+            //reads 0.87, the tightest budget in the campaign after Caldera's 0.71 and the subject of #414,
+            //so the block's real ordering fault was the SECOND level rather than the first. It now sits
+            //beside Caldera, where the two tightest in the chapter belong.
             Design[] volcano =
-                { Breach(), Causeway(), Meander(), Volley(), Plume(), Vent(), Sill(), Fume(), Caldera(), Paroxysm() };
+                { Breach(), Meander(), Volley(), Plume(), Vent(), Sill(), Fume(), Causeway(), Caldera(), Paroxysm() };
 
             //9. THE CITY AT DAWN - "The Spectrum" (#253). One HUE FAMILY a level, swept through the whole
             //body as a gradient: white to cyan to blue to navy and back, a heat ramp, a green one, a twilight
@@ -603,13 +627,23 @@ namespace BS3D.Tools.LevelGen
             //tiers it prices shots that cascade (one cleared tier orphans everything below it, so Pleat's
             //probe runs clear on a third of the budget). Re-measured after the tiers the counts run 6, 17,
             //9, 35, 15, 19, 26, 22, 26 and 31 - Pleat's 35 at fourth position outranks the Turbine - so the
-            //order no longer tracks the count, deliberately. The two ends still stand: the Icicle opens,
-            //being the plainest body in it, and the Turbine still closes the BLOCK - the campaign it closed
-            //until #300 now ends a chapter later. The families are not what ramps - a green level is no
-            //harder than a blue one.
+            //order no longer tracks the count, deliberately. The families are not what ramps - a green
+            //level is no harder than a blue one.
+            //
+            //THE ICICLE STILL OPENS IT AND BOLT NOW CLOSES IT (#413). The opener is unchanged and for the
+            //reason it always was, being the plainest body here. The other end is the owner's playtest
+            //ruling: "Bolt should be the chapter's last level." What that overrides is worth naming, since
+            //this comment used to state it as settled - the Turbine closed the block because it had closed
+            //the CAMPAIGN, and #300 moved the campaign's last word to the Arcade a chapter later, so the
+            //argument had already outlived itself. The Turbine keeps ninth and keeps its finale figure
+            //(1.68 a group, tighter than Bolt's 2.32): the block now ends on the level the owner wants to
+            //end on rather than on the tightest ratio, which is the same call #300 made about the cities.
+            //Two more moves come from the same playtest, both of them a level put where it plays: TRELLIS
+            //AHEAD OF PLEAT (3.47 against 1.37 - it stood behind the block's tightest level and reads
+            //easier than it), and KILN PULLED FORWARD to fourth ("nice, large level, not very difficult").
             //Its designs live in their own array for the same reason the Nebula's and the Arcade's do - see
             //WriteLevelSet.
-            Design[] spectrum = { Icicle(), Pinecone(), Hourglass(), Pleat(), Trellis(), Bolt(), Totem(), Kiln(), Girandole(), Turbine() };
+            Design[] spectrum = { Icicle(), Pinecone(), Hourglass(), Kiln(), Trellis(), Pleat(), Totem(), Girandole(), Turbine(), Bolt() };
 
             //10. THE NEON CITY - "The Arcade" - THE CAMPAIGN'S LAST BLOCK since #300. Five HOLLOW pixel-art
             //solids: the Gallery's drawn symbols given a third dimension, wrapped onto a die, a stepped
@@ -626,8 +660,14 @@ namespace BS3D.Tools.LevelGen
             //entry, so it moves off Turbine onto Globe - and the block that measures tightest (1.33-1.65 a
             //group against the Spectrum's 1.37-6.67) now sits last, which is #300's other half: the campaign
             //climaxes where it ends.
+            //THE ZIGGURAT OPENS IT SINCE #413, where the Cube did, and the two halves of that came from
+            //opposite directions. The owner's playtest called the ziggurat a "nice, simple level" that
+            //belongs near the chapter's start and reported the CUBE as severe (#359); the tool says the
+            //same thing in its own terms - the cube reads 1.33 shots a group, the tightest in a block whose
+            //whole band is 1.33 to 1.65, so the chapter opened on its hardest level. The cube takes sixth.
+            //Globe still closes it and still closes the campaign (#300): that end was never in question.
             //Its designs live in their own array for the same reason the Nebula's do - see WriteLevelSet.
-            Design[] arcade = { Cube(), Ziggurat(), Reel(), Donut(), Ghost(), Cabinet(), Tetra(), Giza(), Trophy(), Globe() };
+            Design[] arcade = { Ziggurat(), Reel(), Donut(), Ghost(), Cabinet(), Cube(), Tetra(), Giza(), Trophy(), Globe() };
 
             //11. THE DREAM - "The Mirage" (#323/#325), THE CAMPAIGN'S LAST BLOCK, and the first chapter in
             //the game whose subject is a RULE rather than a shape. Ten levels, and they are two fives: the
@@ -657,10 +697,22 @@ namespace BS3D.Tools.LevelGen
             //place the arena is not, and the balls stop obeying the rules the other hundred levels taught.
             //Its designs live in their own array for the reason the Nebula's, the Eruption's, the Spectrum's
             //and the Arcade's do - see WriteLevelSet.
+            //THREE MOVES FROM THE OWNER'S PLAYTEST (#413), and the two fives are untouched as fives - the
+            //glass half still comes first and one new kind still arrives a level, which is the block's own
+            //law and was never in question. TREFOIL OPENS instead of Facet ("very nice, pleasant level -
+            //should be this chapter's first!"), which costs the one thing Facet's doc claims for itself:
+            //that the chapter's first shot teaches the glass. It is a cost and not a wash, so it is written
+            //into both designs - Trefoil is glass too and teaches it a level later. KEYSTONE PULLED FORWARD
+            //to second of the rock five ("clears very quickly by shooting upward"), and CAIRN CLOSES THE
+            //BLOCK AND THE CAMPAIGN where Obsidian did: the owner's note on Obsidian was "very simple level,
+            //I don't know if it should be last. Probably not!", and the tool reads it the loosest in the
+            //block at 2.94 shots a group against Cairn's 1.76. Cairn is also the level whose own doc asks
+            //for "bookkeeping of a kind nothing before it has asked for" - four chambers, each with the
+            //four colours in a different order - which is a finale's job.
             Design[] mirage =
             {
-                Facet(), Trefoil(), Harlequin(), Diadem(), Solitaire(),
-                Anvil(), Seam(), Keystone(), Cairn(), Obsidian(),
+                Trefoil(), Facet(), Harlequin(), Diadem(), Solitaire(),
+                Anvil(), Keystone(), Seam(), Obsidian(), Cairn(),
             };
 
             bool ok = true;

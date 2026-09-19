@@ -1,4 +1,4 @@
-using Prazsky.BS3D.GameStructure;
+﻿using Prazsky.BS3D.GameStructure;
 using Prazsky.Core.Render;
 using System;
 
@@ -209,7 +209,9 @@ namespace BS3D.Tools.LevelGen
         };
 
         /// <summary>
-        /// The finale, and the one level in the game that plays <b>every colour it has</b>: fourteen beads on
+        /// <b>The one level in the game that plays every colour it has</b>, and the block's ninth since #413
+        /// (it was the finale until the owner's playtest asked for <see cref="Orrery"/> there; see the block's
+        /// array in <c>Program.Main</c> for what that trades). Fourteen beads on
         /// two counter-turning strands, each bead its own colour with the strand below it hanging in
         /// that colour too — thirteen colours across fourteen packets, so nothing anywhere is a plate and the
         /// magazine's even draw over the live colours is the difficulty itself. The strands pass each other
@@ -217,7 +219,8 @@ namespace BS3D.Tools.LevelGen
         /// cutting a top bead strands nothing: the rest of that strand still hangs off the other at the
         /// passes.
         /// <para>
-        /// Hard the way the owner asked the campaign to end (#182), and hard by SCARCITY rather than by mass:
+        /// Hard the way the owner asked the campaign to end (#182) - the campaign ended here until #300 and the
+        /// block until #413, and neither move touched what makes it hard - and hard by SCARCITY rather than by mass:
         /// a bead and its strand tail is a group of a couple dozen, the best single shot in the level is a
         /// fraction of what any other level offers, and the ceiling steps at the Quarry finale's own cadence.
         /// </para>
