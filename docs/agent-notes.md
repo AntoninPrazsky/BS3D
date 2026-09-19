@@ -4437,3 +4437,14 @@ Větev `471-city-shadows` (`4965246`), pushnutá. Staví ve všech čtyřech ře
 **Dodatek: #465 je na `main`u (merge `4c24df3`) a zavřené.** Větev smazaná lokálně i na originu, push mainu proběhl před mazáním. Na sloučeném stromě: `Game.sln` 0 chyb, LevelGen exit 0, ScoreSim exit 0.
 
 ⚠ **Majitel změnil způsob práce a je to trvalé zadání, ne dnešní výjimka:** *„Chci vždycky mergnout"* — **neptat se na merge**. Hraje jen na desktopu a jen když má čas; smyčka je „agent vybuší co nejvíc tasků do mainu → majitel si jednou za čas přečte celý diff jako člověk, zahraje si a založí nová issues". Práce ležící na větvi nebo otázka čekající na odpověď tu smyčku brzdí o hodiny, a jeho odpovědi jsou beztak z drtivé většiny „approve, continue". Zapsáno do paměti (`bs3d-issue-flow`), kde stálo pravidlo opačné. **Ptát se má smysl už jen na věc, která je čistě vkus a kterou snímek nerozhodne** — a to až s oběma variantami postavenými a vyfocenými.
+
+---
+
+## 2026-09-19 — Claude Code (notebook: dávka #419, #418, #417, #431, #425 — ohlášeno předem)
+
+**#419 hotové, commit `1724098`.** Jeskynní kapitola je jediná, která zůstala na výchozím plážovém míči, zatímco každá jiná má materiál vybraný k pozadí. Teď je v **mramoru**.
+
+- ⚠ **Ta konstanta měla napsané DVA důvody a vypořádat se s nimi bylo víc práce než ta změna.** První („nejprostší styl nekonkuruje pointě bloku") **platí dál a ukazuje sem** — mramor je tichý, jedna barva a žíla; vyfoceno proti vinylu je to naopak **vinyl, kdo je z těch dvou rušivější**, protože jeho pět bílých klínů rozřeže každou kouli na pásy dřív, než se přečtou barvy levelu. Druhý („vinylův emisní tep byl navržen proti tmavým pozadím") **neobstál při ověření**: tep není vinylův, **`BallEmission` nese každá koulová technika povinně** (bod 2 ve vlastním seznamu `InstancedModel.fx`) a `MarblePS` ho nese taky.
+- **Vyfoceny čtyři styly na Grottu v nativním rozlišení, než jsem vybral:** vinyl, mramor, gem, led. Led cluster vybělí a patří hoře a Gridu; gem je rušivý a patří neonu.
+- **Deset souborů, změnilo se v nich jen pole `balls`** — mapy jsou bit po bitu shodné (ověřeno porovnáním proti HEAD).
+- ⚠ **Nové od protistrany, platí pro všechny moje další captury:** existuje `sceneseed=` a **každé spuštění losuje rozmístění** (města, les, savana, palmy, Grid). Každý A/B pár musí seed pinovat, jinak porovnávám dvě různá města. `sceneseed=0` je to, co je vydané.
