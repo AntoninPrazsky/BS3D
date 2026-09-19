@@ -1,4 +1,4 @@
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Prazsky.Core.Camera;
 using System;
@@ -96,6 +96,17 @@ namespace BS3D.Effects
 
         /// <summary>Whether the net is currently armed — the trigger reads this for its hysteresis.</summary>
         internal bool Visible => _visible;
+
+        //The kill flare (#434): how bright the net goes when the cluster crosses it, and how long it takes
+        //to get there. Well over the warning's own ceiling of 1 - the beam is drawn into the HDR target and
+        //the glare pass reads it, so this is what makes the line BLOOM across the frame rather than merely
+        //brighten. The rise is a third of a second: long enough not to be one frame's flash, short enough
+        //that it is already happening while the camera is still on its way.
+        private const float FLARE_INTENSITY = 3.2f;
+        private const float FLARE_IN = 0.33f;
+
+        //When the flare began, or +inf for a net that has not killed anything.
+        private float _flareAt = float.PositiveInfinity;
 
         public LaserGrid(GraphicsDevice device, Effect effect, Vector3 color)
         {
@@ -200,6 +211,23 @@ namespace BS3D.Effects
         /// executes the expiry, because it is the only thing still running under the result page. <c>Min</c>,
         /// so a second presentation cannot push a running linger out.
         /// </summary>
+        /// <summary>
+        /// The cluster has just crossed the line and the level is lost (#434): the net stops warning and
+        /// starts <b>cutting</b>. It flares to <see cref="FLARE_INTENSITY"/> over <see cref="FLARE_IN"/> and
+        /// stays there while the loss is being shown, which is the beat the camera spends flying at the
+        /// crossing point.
+        /// <para>
+        /// It rides <b>over</b> the ordinary envelope rather than replacing it, so a net already at full
+        /// warning does not dip on the frame it kills: the envelope is what the net's arrival and departure
+        /// are made of, and the flare is a different statement laid on top of the same beam.
+        /// </para>
+        /// </summary>
+        internal void Flare(float now)
+        {
+            if (_flareAt < float.PositiveInfinity) return;   //once; a loss cannot be lost twice
+            _flareAt = now;
+        }
+
         internal void NoticeLevelEnded(float now)
         {
             if (!_visible) return;
@@ -213,6 +241,7 @@ namespace BS3D.Effects
             _visible = false;
             _transitionAt = 0f;
             _envelopeAtTransition = 0f;
+            _flareAt = float.PositiveInfinity;
             _expireAt = float.PositiveInfinity;
         }
 
@@ -253,6 +282,16 @@ namespace BS3D.Effects
 
             float pulse = 0.5f - 0.5f * MathF.Cos(MathHelper.TwoPi * PULSE_HZ * now);
             float intensity = envelope * (PULSE_FLOOR + (1f - PULSE_FLOOR) * pulse * pulse);
+
+            //The kill flare (#434), over the top of all of it: the net that has been warning for the last
+            //few shots is now the thing that ended the level, and it should read as cutting rather than as
+            //pulsing a little brighter. Eased in, because a step would land on one frame and be gone before
+            //the camera arrives.
+            if (_flareAt < float.PositiveInfinity)
+            {
+                float t = MathHelper.Clamp((now - _flareAt) / FLARE_IN, 0f, 1f);
+                intensity = MathHelper.Lerp(intensity, FLARE_INTENSITY, MathHelper.SmoothStep(0f, 1f, t));
+            }
 
             _viewParam.SetValue(camera.View);
             _projectionParam.SetValue(camera.Projection);

@@ -300,6 +300,9 @@ namespace BS3D
         //flight already running, which is the only way this can be photographed from a script.
         private bool _startupTour;
 
+        //Testing only: the "lineloss" argument (#434) — see StagedLineLossSeconds.
+        private float _startupLineLoss;
+
         /// <summary>
         /// <c>about</c> / <c>about=play</c>: put the About page up at boot, and with <c>play</c> start its player
         /// on the first piece (#443). Null for neither. The page is two presses away for someone at the machine
@@ -379,6 +382,14 @@ namespace BS3D
         /// scripted than clearing one can — the <c>celebrate</c> reasoning, for the session-owned effect.
         /// </summary>
         internal bool ForceLaserWarning => _startupLasers;
+
+        /// <summary>
+        /// Testing only (<c>lineloss</c>, #434): seconds into a level at which the line's loss is staged, or
+        /// 0 for never. A real line loss takes a descending ceiling and a couple of dozen shots and cannot be
+        /// reached from a script at all — the Game takes no synthetic input — so the one moment this feature
+        /// exists for would otherwise be unphotographable.
+        /// </summary>
+        internal float StagedLineLossSeconds => _startupLineLoss;
 
         /// <summary>
         /// Testing only (the <c>tutorial</c> argument, #189): offer every tutorial card as if none had been
@@ -857,7 +868,7 @@ namespace BS3D
             string preview = null, BallStyle? ballStyle = null, string pick = null, int fpsCap = 0,
             bool noFocusPause = false, float[] detonateSeconds = null, string about = null, string tutorial = null,
             bool settings = false, int? sceneSeed = null, bool tour = false,
-            int windowWidth = 0, int windowHeight = 0)
+            int windowWidth = 0, int windowHeight = 0, float lineLoss = 0f)
         {
             //The scene's procedural roll (see _sceneSeedOffset): rolled once per launch unless the command
             //line pins it, and printed either way - a frame of a city nobody can generate twice is a frame
@@ -938,6 +949,7 @@ namespace BS3D
             _startupAbout = about;
             _startupSettings = settings;
             _startupTour = tour;
+            _startupLineLoss = lineLoss;
             _shotSchedule = shotSeconds;
             _detonateSchedule = detonateSeconds;
             if (mute) _masterVolume = 0f;

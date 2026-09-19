@@ -172,6 +172,9 @@ namespace BS3D.Screens
             //A cinematic caught mid-shot by a level ending under it would otherwise hold the camera and the
             //controls into the next level, and its subject handles belong to a simulation that is now gone
             _cinematic.Reset();
+            _lineLoss.Reset();
+            _lineLossShown = false;
+            _lineLossClock = 0f;
             _cinematicSubject.Clear();
 
             //And a chapter intro caught mid-tour by the same — quitting to the main menu during one, say —

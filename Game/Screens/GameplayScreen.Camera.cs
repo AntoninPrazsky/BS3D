@@ -1,4 +1,4 @@
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using Prazsky.BS3D;
 using Prazsky.BS3D.GameObjects;
 using Prazsky.BS3D.GameStructure;
@@ -104,6 +104,18 @@ namespace BS3D.Screens
             //cinematic's rather than before it for no reason beyond call order, since CameraTakeoverEngaged's
             //own remarks are what actually keep the two from ever being nonzero on the same frame. No roll:
             //an establishing shot stays level, so only the drop cinematic's tilt above ever moves BaseRoll.
+            //The line's loss, on the same idiom again (#434). Before the chapter intro for no reason beyond
+            //call order: the two cannot be nonzero on the same frame - an intro runs on a level's opening and
+            //this on its ending - and CameraTakeoverEngaged is what actually holds that.
+            float lineLoss = _lineLoss.Blend;
+
+            if (lineLoss > 0f)
+            {
+                position = Vector3.Lerp(position, _lineLoss.Position, lineLoss);
+                target = Vector3.Lerp(target, _lineLoss.Target, lineLoss);
+                fov = MathHelper.Lerp(fov, _lineLoss.FieldOfView, lineLoss);
+            }
+
             float intro = _chapterIntro.Blend;
 
             if (intro > 0f)
