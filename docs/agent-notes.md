@@ -4344,3 +4344,31 @@ Tep je uniform na renderer, takže ho hrála i skupina právě uříznutá, celo
 **Dřív dnes:** #471 a #466 na mainu, čtyři dávno hotové issue zavřené (#453, #454, #455, #469).
 
 **Z dávky zbývá: #412** (značka mrtvé váhy — designové rozhodnutí, chce majitelovo oko), **městská půlka #471** a **#465**. **Beru si je dál v tomhle pořadí.** Kolega drží #437 a #421 a ví o překryvu s #412 v tématu „jak koule říká, čím je".
+
+---
+
+## 2026-09-19 — Claude Code, bs3d-f0 (#412 na mainu, městská půlka #471 na větvi a NEOVĚŘENÁ)
+
+### #412 — mrtvá váha je průhledná, protože popel četl jako kámen
+
+**Na `main`u (merge `c7ff82f`), issue zavřené.**
+
+- ⚠ **Vyfotil jsem obě varianty ze stejné kamery na stejném clusteru a příčina je vidět okamžitě, není to otázka vkusu.** Popel z #342 je **šedá neprůhledná koule mezi barevnými neprůhlednými koulemi — což je přesně to, co je kámen (#324)**. Značka „tohle je neživá kulisa" a značka „tohle bylo tvoje a je to mrtvá váha" říkaly totéž stejnými slovy. Proto nebylo poznat, co se snaží sdělit.
+- **Teď je to slabě průhledná skořápka** (`DEAD_OPACITY` 0,34, `DEAD_EMISSION` 0,12 aby přežila tmavý dóm). Průhlednost se nesráží s ničím: nic jiného ve hře průsvitné není kromě čirého skla, a to nemá barvu vůbec.
+- **Nestálo to žádnou práci v shaderu**, a to z toho udělalo levnou odpověď: půjčuje si dvoustěnný alfa průchod skla (`DrawHollow`). Varianta, kterou issue nadhazovalo — nechat kouli materiál a dát jí alfu — znamená uniform a násobení ve **všech dvaceti** ball technikách a třináct bucketů místo jedné oblasti.
+- **Daň vzata vědomě:** mrtvá koule už není vinyl ani mramor levelu. Jenže ten materiál byl přesně to, co ji odlišovalo od kamene, a je to přesně ten rozdíl, který se nečetl.
+- **Pořadí kreslení se posunulo** na konec, za sklo — průhledná koule potřebuje mít v cíli všechno, co jí má prosvítat.
+- ⚠ **Co vyfoceno NENÍ a je to ten případ, co se musí posoudit ve hře: pár mrtvých koulí mezi živými.** Ani jedno exe se do skutečného stavu mrtvé váhy ze skriptu dostat nedá (Testbed ji neoznačuje vůbec, jak issue samo píše), takže snímek si značku vynutil na celém clusteru — to ukáže materiál poctivě, ale ne kontrast, o který jde.
+
+### Městská půlka #471 — hotová infrastruktura, **NEOVĚŘENO, do mainu nejde**
+
+Větev `471-city-shadows` (`4965246`), pushnutá. Staví ve všech čtyřech řešeních.
+
+- **`SceneRenderer.SetHostShadowScene(...)`** je API pro backdrop, který renderer nevlastní: `GetSceneConfig` na město vrací **null**, věže jsou hostitelovy `InstancedModelRenderer`y a `CityStreets.fx` si načítá hostitel — všechny tři části stínu leží mimo ten soubor. Dialy a fit jdou do malého registru, který `DrawShadowMaps` i `TryShadowFit` konzultují, když config chybí; příjemci se přilepí k načtenému inventáři.
+- **Castery jsou VŠECHNY věže, schválně ne `City.Visible`:** ta množina je ořezaná na **kamerový** frustum, a věž kousek za okrajem obrazovky je přesně ta, jejíž stín padá přes ulici, na kterou se hráč dívá. Je to jeden instancovaný draw tak jako tak, takže cull by nekoupil nic a stál by právě ty stíny, o které jde.
+- **Fit je těsnější a vyšší** než u deseti scén, které si renderer fituje sám: 180 místo 260 (ulice přijímají, věže vrhají, hrana věže má být nejtvrdší čára ve snímku) a krabice sahá od úrovně ulice 100 pod ostrovem po nejvyšší věž 156 nad ní.
+- ⚠ **Registrace v Testbedu musí být až za vznikem `SceneRenderer`u**, ne u stavby města — to běží dřív a renderer ještě neexistuje. Stálo to jeden pád.
+- ⚠ **Proč to nemerguju:** **nemám snímek stínu na ulici ani měření.** Čtyři pokusy o zarámování ulice zevnitř čtrnáctiblokového města skončily mezi dvěma věžemi nebo nad střechami. A issue si samo říká o měření („the cities will not be that cheap") — mapa 2048 s 1777 castery je přesně místo, kde by se to projevilo. Pustit grafickou změnu do nejdražší scény ve hře bez obojího je pod laťkou, kterou jsem dnes držel u cizí práce, tak ji držím i u své.
+- **Co s tím dál:** zarámovat ulici jde nejspíš přes `arena=none` a kameru posazenou do **plaza** v centru (ostrov tam stojí, takže kolem něj je volno), ne do kaňonu; nebo město dočasně prořídit `RadiusBlocks`. Pak dvojice měřených běhů proti mainu jako u #471.
+
+**Z majitelovy dávky zbývá `#465`** (podklad pod řádek levelu na výsledkové stránce) **a ověření města.**
