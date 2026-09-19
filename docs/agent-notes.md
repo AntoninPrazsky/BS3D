@@ -4102,3 +4102,17 @@ Dvě majitelovy poznámky z hraní, dvě issues. Sémantické hledání (nomic, 
 **Co zůstává majiteli k rozhodnutí:** #474 (tříranové levely, Horn 90 % shodou), Highwall jako nejdelší level Quarry (18 ran, jeho vlastní design), Sail a Binary dál na dvě rány (lék je třetí kotva, ne obal), lem pro Sail (varianta, kterou nevybral, a která jediná spraví těch 67 %), `Cabinet` v sondě 4 z 5 a `MIXED THEMES` u Louky v `DescribeBlock` (#400).
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-19 — Claude Code (notebook: #474 práh na tříranové levely, pak lem pro Sail)
+
+**Beru si #474** na pokyn majitele („Vem 474 a potom lem pro Sail"). Větev `474-cheap-clear-threshold`, notebook v `C:\GitHub`.
+
+- **Majitel vybral nejširší variantu:** brána z #458 se posouvá na **„pod 4 rány a přes 50 % shodou"**. Hloubka vyčerpávajícího hledání (`PROVEN_SHOTS` = 3) na to stačí beze změny — „méně než čtyři" je přesně to, co umí dokázat.
+- ⚠ **Lean leží na čáře:** 258 z 515 je 50,09 %, ale celočíselné procento se zkrátí na 50 a `> 50` by ho pustilo. Porovnání proto dělám přesně (`Matched * 100 > Removable * 50`), jak jsem majiteli sliboval — odmítnuté budou **Horn (90 %), Trophy (68 %), Onion (64 %) a Lean (50,09 %)**.
+- **Plán na ty čtyři:** lék je barvení, ne tvar — řez plent do výsečí jako u Saturnu, takže silueta každého zůstane. Jeden po druhém, po každém měřit.
+- **Potom lem pro Sail** (#415): varianta, kterou majitel tehdy nevybral a která jediná spraví jeho 67 % jednou ranou — lano po bocích plachty jako druhá nosná cesta.
+- **Beru na sebe:** `Tools/LevelGen/ClearProbe.cs`, `Designs/Block04_Tower.cs`, `Block05_Reveal.cs`, `Block07_Nebula.cs`, `Block10_Arcade.cs`, `Game/Levels/*`, docs.
+
+**Nic dalšího si neberu.**
