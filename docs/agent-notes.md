@@ -4372,3 +4372,21 @@ Větev `471-city-shadows` (`4965246`), pushnutá. Staví ve všech čtyřech ře
 - **Co s tím dál:** zarámovat ulici jde nejspíš přes `arena=none` a kameru posazenou do **plaza** v centru (ostrov tam stojí, takže kolem něj je volno), ne do kaňonu; nebo město dočasně prořídit `RadiusBlocks`. Pak dvojice měřených běhů proti mainu jako u #471.
 
 **Z majitelovy dávky zbývá `#465`** (podklad pod řádek levelu na výsledkové stránce) **a ověření města.**
+
+---
+
+## 2026-09-19 — Claude Code (notebook: #421 barvy donutu, a #437 po něm)
+
+**Beru si #421 a #437** na majitelův pokyn („vem obě"). Ohlášeno druhé instanci **předem**. Větev `421-donut-colours`, commit `2d53c77`. **NENÍ v mainu.**
+
+- **Vada nebyla ve struktuře, ale v tom, KTERÉ tři inkousty.** V obou pásech byl ten třetí ten nejhlasitější: černá není odstín těsta, je to spálenina; námořnická modř není poleva, je to modřina; a **béžová seděla v POLEVĚ**, což je ze všech tří nejhorší — béžová je nejtěstovatější inkoust palety a stála v pásu, který měl číst jako cukr. Třetina každého pásu se hádala se zbylými dvěma třetinami.
+- **Pravidlo je teď hueová soudržnost pásu**, pásy disjunktní navzájem i od posypu (devět inkoustů, žádný ve dvou rolích). Těsto béžová/oranžová/hnědá, poleva magenta vedoucí, pod ní červená a stříbro tam, kde poleva zatuhla — **73 % růžové podle počtu koulí**.
+- ⚠ **Pořadí uvnitř pole je nosné a změřil jsem ho, ne odhadl:** pruhová geometrie dává třem slotům nestejné hmoty (těsto 100/80/85, poleva 66/84/94). Stříbro proto sedí v nejmenším slotu polevy a dvě růžové ve dvou největších; s magentou v nejmenším slotu četl pás jen 61 % růžově. Vyfoceno obojí.
+- ⚠ **Posypový hash měl latentní vadu, kterou probudila až třetí barva.** Jeho vlastní `remark` říká, že přítomnost a barva se musí číst z různých bitů; při dvou barvách bylo `h % 2` bit 0 a bity 5–6 testu přítomnosti na něj nedosáhly. `h % 3` je ale **modulo přes celé slovo**, bity přítomnosti včetně — změřeno na hotovém levelu **49, 27 a 4 koule**. Čtyři koule barvy je typ, který magazín sotva rozdá. Posun za bity přítomnosti dává 31, 26, 22 z týchž 79.
+- **Strukturálně je to no-op, a to je pointa:** 588 koulí v týchž buňkách, 35 stojících skupin před i po, nejhorší jedna rána 30 koulí (5 %) před i po, nejkratší vyčištění 5 → 6, zátěž kotvy 13,4 → 12,8.
+- ⚠ **A teď to, co NEVYŘEŠIL, protože to zadání vyloučilo.** Level pořád nečte jako donut na první pohled, a příčina je strukturální: **pruhy běží svisle kolem prstence**, takže každý pás je mávátko tří barev, ne jeden materiál. Žádná volba inkoustů to neopraví — palety třináct inkoustů nemá druhou růžovou a pravidlo „tři inkousty na pás" je z #317, kde dva slévaly prstenec do 55–66kuličkových schodišť a sonda četla 4–5 z 5 prohraných pořadí. Opravit to znamená otevřít pravidlo pruhů, a to je vlastní měřicí kolo, ne barvení. Napsáno majiteli do issue, ať rozhodne on.
+- **Vyzkoušel jsem a zavrhl styl koulí:** `balls=vinyl` na tomtéž clusteru přes `balls=` páku (#258 na to existuje). Sytější je, ale **bílé klíny plážového míče cluster ještě rozdrobí** — sklo zůstává. Vyfoceno.
+- **Přefocen i titulní snímek README** (`Images/screenshot2.jpg`), protože rámeček, který přistál s #452, je právě tenhle level a ukazoval staré barvy.
+- LevelGen exit 0 přes 120 levelů, ScoreSim exit 0, `Game.sln` 0 chyb.
+
+**Dál beru #437.**
