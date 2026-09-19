@@ -4584,3 +4584,14 @@ Tour se dosud pustil jen jednou, automaticky, při stavbě prvního levelu kapit
 - ⚠ **Bere se jen z pořadí, která vyčistila.** Běh končící `OutOfShots` spotřeboval rozpočet z definice, takže zahrnout je znamená ocenit každý level na nulu a neříct nic.
 - ⚠ **Oprava tenkého levelu zvedá rozpočet A kadenci skla SPOLU**, a to je celá pointa, ne přídavek: sklo klesá jednou za `CeilingStep` ran, takže osm ran navíc při nezměněném kroku 8 koupí **clusteru další sestup** — 0,60 blíž k čáře — a rezerva, o kterou majitel žádal, by byla zaplacena tlakem, o kterém nemluvil. 52 ran při kroku 8 → **60 při kroku 10**: šest sestupů tak jako tak, součet z #288 beze změny.
 - **Změřeno:** clear margin **1 → 9**, propad 0 z 5 před i po, vzdálenost od čáry 3,54 → 3,61 (uvnitř vlastní nestability sondy).
+
+**#456 hotové, merge `c2c31ca` (commit `d26b139`), issue zavřená.** Dosud fadoval jen ODCHÁZEJÍCÍ konec při přechodu mezi dvěma skladbami ("fading the outgoing side alone already is the crossfade") — pravda pro handover, ne pro první start: téma prvního levelu i lobby loop naskakovaly na plnou hlasitost od vzorku jedna, a od #443 je smyčka vyříznutá z těla renderu bez předehry, takže první vzorek je rovnou plnotučný groove.
+
+- **`MusicFade` dostal `Arrive(seconds)` vedle `Reset()`** — nastartuje instanci potichu a vede ji k plné, místo aby na ni skočila. `GameMusic` má nové `_themeFade` (vedle existujícího `_retiringFade` pro odchod), zapletené do `ThemeVolume` stejně jako ostatní.
+- ⚠ **`Arrive()` se volá přesně tam, kde strana FAKTICKY začne znít, ne kde si o to volající řekl.** Past byla v `PlayMenu()`: originál volal svou "arrival" větev bezpodmínečně, i když `_menu` byl ještě `null` (soubor se ještě nenačetl) — kdybych tam `Arrive()` zavolal rovnou, hodiny rampy by běžely od chvíle, kdy o hudbu někdo požádal, ne od chvíle, kdy fakticky spustila, a pomalejší načtení než `MENU_ARRIVAL_SECONDS` by pak otevřelo rovnou na plno. Řešení: tři místa volají `Arrive()` — `Advance()`'s čerstvý řetěz, `PlayMenu()`'s vlastní `Play()` (když je soubor už načtený), a `Update()`'s dokončení načtení (když nebyl).
+- **Výjimka (smyčkový wrap) je strukturálně netknutá** — feed v `Update()` (`PendingBufferCount < 2`) na `_themeFade` vůbec nesahá, `Arrive()` běží jen při vzniku nového řetězu.
+- ⚠ **Ověřeno čísly, ne uchem (to nemám):** dočasný debug print (odstraněný před commitem) ukázal obě rampy hladce stoupat z ~0 na 1,000 přesně, se stavem `Playing` po celou dobu (ne ticho-pak-skok), a zastavit se bez dalších zápisů po dosažení cíle. `THEME_ARRIVAL_SECONDS=1.2`, `MENU_ARRIVAL_SECONDS=0.5` jsou issue's vlastní navržené výchozí hodnoty, ne měření — přesné délky jsou majitelovo ucho.
+- **Schválně nesáhnuto: `Stop()` (konec levelu) pořád stopne mrtvě** — issue sama žádala nechat na majiteli, jestli "každý stop" má zahrnovat i tenhle (důvod je ticho, do kterého dopadají ohňostrojové rány).
+- `Game.sln` 0 chyb, 0 varování.
+
+**Nic dalšího si neberu.**
