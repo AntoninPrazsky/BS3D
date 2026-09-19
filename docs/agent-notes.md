@@ -4731,7 +4731,7 @@ Dosavadní pravidlo „syntetický vstup se do `BS3D.exe` nikdy nedostane" je **
 - ⚠ **Past nalezená při práci, zapsána do `docs/testbed.md`: alternuj kvůli číslům, pouštěj naplocho kvůli obrázkům.** `shot=` proti alternovanému běhu je přesně ten sampler trap, před kterým tenhle repozitář varuje všude jinde — **oba naplánované snímky padly do `shadow=1` oken** a „pár" byly dva stejné obrázky.
 - Overlay tiskne `shadow <x>` **jen když není 1**. Hra `ShadowScale` nikde nepíše a **není to kvalitní tier** — tier má na stíny `SceneDetail`.
 
-⚠ **A ještě jedna poučka o sobě:** gaty jsem nejdřív pustil jako `dotnet run --project … -v q --nologo` a **`--nologo` došlo do ScoreSimu jako argument — hledal `--nologo\Levels.json` a spadl s exit 127.** Diváno bez přemýšlení by to bylo buď „gate padá, můj kód je špatně", nebo — hůře — falcšný „LevelGen exit 0" u nástroje, který stejný argument jen ignoroval. **Gaty se pouštějí bez přepínačů `dotnet build`u.** Oba pak projdou (0 a 0).
+⚠ **A ještě jedna poučka o sobě:** gaty jsem nejdřív pustil jako `dotnet run --project … -v q --nologo` a **`--nologo` došlo do ScoreSimu jako argument — hledal `--nologo\Levels.json` a spadl s exit 127.** Čteno bez přemýšlení by to bylo buď „gate padá, můj kód je špatně", nebo — hůře — falešný „LevelGen exit 0" u nástroje, který stejný argument jen ignoroval. **Gaty se pouštějí bez přepínačů `dotnet build`u.** Oba pak projdou (0 a 0).
 
 **Co to odblokuje:** městská půlka #471 (`471-city-shadows`, přerovnaná na `b576ffe`) jde teď změřit jedním během, a otázka „stojí receiver ulic za to?" je týž sweep s registrací `CityStreets.fx` a bez ní. Rámování zůstává samostatný problém.
 
