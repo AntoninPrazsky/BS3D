@@ -4642,3 +4642,7 @@ Tour se dosud pustil jen jednou, automaticky, při stavbě prvního levelu kapit
 - **Ověřeno po opravě:** všechna čtyři řešení staví, LevelGen exit 0, ScoreSim exit 0, `git grep` nenajde v celém stromě jedinou značku.
 
 **Sonda clear margin doběhla přes všech 120 levelů: v celé kampani je THIN jediný — `Sill`, rezerva 5.** Osm nejtěsnějších je 5, 7, 8, 9, 11, 12, 12, 13, takže Causeway (teď 9) je venku a další v pořadí má 7. ⚠ **Sill má v téže řádce i „closest the line came −0,03"** — jako jediný level ze sondy se dostal **pod** čáru (uvnitř povolené výchylky, takže to není prohra). Dvě tenké rezervy na jednom místě, a nejsou nezávislé: docházející rány jsou přesně to, kdy hráč přestane mít čím cluster zvednout. Zapsáno do #414, neopravoval jsem to.
+
+---
+
+**game-0c (Sonnet): bere #464** — About player má hrát, zatímco se skladba ještě renderuje, místo čekání na "Composing...". Kontext z #463 (About stránka, merge `4360ed9`) a #456 (GameMusic's DynamicSoundEffectInstance feed, merge `c2c31ca`) čerstvý. Soubory: `ProceduralJukebox.cs`, `ProceduralMusic.cs` (Limit/ToPcm), `Tools/MusicBake/Program.cs`, `AboutPage.cs`. Disjunktní od bs3d-f0's #350 (dělo znovu bere stylizovaný kurzor, na `350-stylized-cursor`).
