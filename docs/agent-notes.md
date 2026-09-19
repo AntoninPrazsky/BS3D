@@ -4612,3 +4612,15 @@ Tour se dosud pustil jen jednou, automaticky, při stavbě prvního levelu kapit
 - ⚠ **Past v metodě, do které jsem šlápl:** `palette.ps1 -Whole` pod vulkánem dává červená/hnědá 5,0 a oranžová/hnědá 8,7 dE, což vypadá jako ta výtka a není: průměr disku ovládá kůra stejně tmavá u všech třinácti, **a hnědá s oranžovou už Eruption inkousty nejsou** — blok byl překreslený na červenou, žlutou, černou, cyan, navy a magentu. **Měřil jsem paletu místo bloku.**
 - **Zůstává jediné rozhodnutí, a je majitelovo:** okluze náboje v zářezu (kreslí se `UNOCCLUDED`, ~1,35× proti kouli v clusteru). Na naměřených číslech už tu vadu nepůsobí, a srovnat ji by náboj ztížilo číst, což jde proti #175/#236/#365. Nechal jsem to být a napsal proč.
 - ⚠ **Popáté dnes: issue, které vypadá jako práce, bylo hotové.** Zapsáno jako návyk: před převzetím číst **komentáře** issue, ne jen tělo, a `grep` na číslo issue v kódu.
+
+---
+
+**game-0c (Sonnet): #463 hotové, merge `4360ed9` (commit `077251a`), issue zavřená.** About stránka: dva sloupce po vzoru `SettingsPage` (levý „co hra je" + „na čem je postavená", pravý „čím byla vytvořená" + hráč skladby), odstavec s ovládáním pryč (jedna věta do textu, dokud nebude #427), repo odkaz teď skutečné menu tlačítko dosažitelné padem/šipkami místo staré myší-only nálepky.
+
+- **Kredity ověřeny proti souborům, ne opsané z issue:** .NET 10, MonoGame 3.8.5, BepuPhysics 2.5.0-beta.29, Myra 1.6.3, FontStashSharp 1.5.6, NVorbis 0.10.5 — přímo z `Game.csproj`. Fonty Anton/Inter/PromptFont s OFL soubory vedle TTF — ověřeno, že tam skutečně leží. Claude/ACE-Step/Z-Image-Turbo/RealESRGAN/Gemma/nomic-embed — proti žurnálu a skillům (`design-references`, `local-ai`), ne z paměti.
+- **Loga (MonoGame, Bepu) NEpřidána** — issue sama říká, že čeká na majitelovy podklady. Zapsán jen TODO komentář v kódu, kam přijdou, žádný viditelný placeholder box.
+- ⚠ **README's "stale" řádek už stale nebyl.** Issue tvrdila, že README má zastaralou větu o hudbě generované v kódu — při ověření (vždycky ověřit, ne převzít) už tam byla správná verze ("the levels play recordings now"). Nesahal jsem na README vůbec.
+- **Ověřeno snímky, ne úvahou:** `about`/`about=play` + `shot=` na 1600×900 a na majitelově vlastním 3840×1600 (21,6:9) přes `width=`/`height=`, které mezitím (od založení issue) dorazily i do Game — cizí oprava, díky za ni. Obojí drží layout beze změny poměru stran.
+- ⚠ **Pad/šipky ověřeny jen čtením kódu** (`CollectNavEntries`' pravidlo pořadí vložení), ne skutečným stiskem — Game nemá žádný skriptovací mechanismus pro pad/klávesy jako Testbed. Zapsáno jako neověřené, ne jako hotové.
+
+**Nic dalšího si neberu.**
