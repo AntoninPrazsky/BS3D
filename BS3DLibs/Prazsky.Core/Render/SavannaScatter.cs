@@ -108,7 +108,7 @@ namespace Prazsky.Core.Render
             var buckets = new List<ScatterBucket>();
 
             //--- The meshes: a few variants of every kind, each at rolled proportions and its own structural seed.
-            const int MATURE = 4, BROKEN = 1, YOUNG = 2, DEAD = 2, BUSH = 2, SCRUB = 2, TUFT = 3, MOUND = 2, ROCK = 3, LOG = 2, TREELINE = 2;
+            const int MATURE = 4, BROKEN = 1, YOUNG = 2, DEAD = 2, BUSH = 2, SCRUB = 2, TUFT = 3, MOUND = 2, ROCK = 3, LOG = 2, TREELINE = 2, BAOBAB = 2, DOUM = 2;
 
             var trees = new List<AcaciaMesh>();
             for (int m = 0; m < MATURE; m++)
@@ -180,6 +180,14 @@ namespace Prazsky.Core.Render
                 logs[m] = Own(new DeadwoodMesh(device, len, len * 0.1f * (0.8f + 0.4f * (float)rng.NextDouble()), 4500 + m));
             }
 
+            var baobabs = new BaobabMesh[BAOBAB];
+            for (int m = 0; m < BAOBAB; m++)
+                baobabs[m] = Own(new BaobabMesh(device, dr.BaobabHeight * (0.85f + 0.3f * (float)rng.NextDouble()), 4700 + m));
+
+            var doums = new DoumPalmMesh[DOUM];
+            for (int m = 0; m < DOUM; m++)
+                doums[m] = Own(new DoumPalmMesh(device, dr.DoumPalmHeight * (0.85f + 0.3f * (float)rng.NextDouble()), 4800 + m));
+
             var treeline = new FoliageMesh[TREELINE];
             for (int m = 0; m < TREELINE; m++)
             {
@@ -197,6 +205,8 @@ namespace Prazsky.Core.Render
             var moundInstances = Lists(MOUND);
             var rockInstances = Lists(ROCK);
             var logInstances = Lists(LOG);
+            var baobabInstances = Lists(BAOBAB);
+            var doumInstances = Lists(DOUM);
             var treelineInstances = Lists(TREELINE);
 
             //Cluster centres the plants gather around, so the savanna reads as groves rather than an even
@@ -391,6 +401,31 @@ namespace Prazsky.Core.Render
                 }
             }
 
+            //--- The baobabs: alone in the open like the mounds, never in a grove, and big - the footprint is
+            //the crown's reach, so nothing else stands under one.
+            for (int i = 0; i < dr.BaobabCount; i++)
+            {
+                int variant = rng.Next(BAOBAB);
+                float s = 0.85f + 0.3f * (float)rng.NextDouble();
+                (float x, float z) = Place(dr.BaobabHeight * 0.45f * s, ac.MinRadius + 30f, ac.MaxRadius, 0f, 0f);
+                baobabInstances[variant].Add(Plant(x, z, s, 0.03f * (float)rng.NextDouble(), 0f, (float)rng.NextDouble(), Jitter()));
+            }
+
+            //--- The doum palms: in clumps of two or three, the way they grow, each clump placed as a whole
+            //and its palms kept out of each other inside it.
+            for (int i = 0; i < dr.DoumPalmCount;)
+            {
+                int clump = Math.Min(2 + rng.Next(2), dr.DoumPalmCount - i);
+                (float cx, float cz) = Place(dr.DoumPalmHeight * 0.5f, ac.MinRadius + 10f, ac.MaxRadius, 0.5f, ac.ClusterSpread);
+                for (int p = 0; p < clump; p++, i++)
+                {
+                    float a = (float)rng.NextDouble() * MathHelper.TwoPi;
+                    float d = p == 0 ? 0f : dr.DoumPalmHeight * (0.25f + 0.25f * (float)rng.NextDouble());
+                    float s = 0.8f + 0.4f * (float)rng.NextDouble();
+                    doumInstances[rng.Next(DOUM)].Add(Plant(cx + MathF.Cos(a) * d, cz + MathF.Sin(a) * d, s, 0.08f * (float)rng.NextDouble(), 0f, (float)rng.NextDouble(), Jitter()));
+                }
+            }
+
             //--- The lone boulders: the kopjes' own meshes at a smaller size, each alone and half-buried.
             for (int i = 0; i < dr.BoulderCount; i++)
             {
@@ -469,6 +504,19 @@ namespace Prazsky.Core.Render
             //The stone takes a little of the foliage's mottle: lichen, the patches every reference boulder wears.
             Add(buckets, device, rocks, rockInstances, rockColor, rockColor * new Vector3(1.1f, 1.05f, 0.95f), dapple: 0.35f, bark: 0f, detailOnly: false);
             Add(buckets, device, logs, logInstances, deadwood, deadwoodDry, dapple: 0f, bark: 0.6f, detailOnly: false);
+            Vector3 baobabColor = dr.BaobabColor.ToVector3();
+            for (int m = 0; m < BAOBAB; m++)
+            {
+                if (baobabInstances[m].Count == 0) continue;
+                buckets.Add(new ScatterBucket(device, baobabs[m].Wood, baobabInstances[m], baobabColor, baobabColor * 1.08f, dapple: 0f, bark: 0.25f, detailOnly: false));
+                buckets.Add(new ScatterBucket(device, baobabs[m].Foliage, baobabInstances[m], canopy, canopyDry, dapple: 0.5f, bark: 0f, detailOnly: false));
+            }
+            for (int m = 0; m < DOUM; m++)
+            {
+                if (doumInstances[m].Count == 0) continue;
+                buckets.Add(new ScatterBucket(device, doums[m].Wood, doumInstances[m], trunk, trunk * 1.15f, dapple: 0f, bark: 0.6f, detailOnly: false));
+                buckets.Add(new ScatterBucket(device, doums[m].Fronds, doumInstances[m], canopy * new Vector3(1.1f, 1.15f, 0.9f), canopyDry, dapple: 0.4f, bark: 0f, detailOnly: false));
+            }
             Vector3 tuftColor = dr.TuftColor.ToVector3();
             Add(buckets, device, tufts, tuftInstances, tuftColor, tuftColor * new Vector3(0.6f, 0.8f, 0.6f), dapple: 0.8f, bark: 0f, detailOnly: true);
             Vector3 treelineColor = dr.TreelineColor.ToVector3();

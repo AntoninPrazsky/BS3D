@@ -73,37 +73,14 @@ namespace Prazsky.Core.Render
                     Vector3 c = spine[s + 1] + side * w1, d = spine[s + 1] - side * w1;
                     Vector3 tangent = spine[s + 1] - spine[s];
                     Vector3 n = Vector3.Normalize(Vector3.Cross(side, tangent));
-                    AddQuad(v, idx, a, bq, c, d, n);
-                    AddQuad(v, idx, a, bq, c, d, -n);
+                    TubeGeometry.AddRibbon(v, idx, a, bq, c, d, n);
+                    TubeGeometry.AddRibbon(v, idx, a, bq, c, d, -n);
                 }
             }
 
             PrimitiveCount = idx.Count / 3;
             BoundingSphere = new BoundingSphere(new Vector3(0f, height * 0.4f, 0f), reach + radius * 0.2f);
             (VertexBuffer, IndexBuffer) = TubeGeometry.Upload(device, v, idx);
-        }
-
-        //One face of a ribbon segment, wound so that it FACES `n`: MonoGame's front face is clockwise seen
-        //from outside, i.e. (b - a) x (c - a) pointing away from the viewer, so the winding is checked against
-        //the normal rather than assumed (see the triangle-winding convention in CLAUDE.md).
-        private static void AddQuad(List<VertexPositionNormalTexture> v, List<short> idx,
-            Vector3 a, Vector3 b, Vector3 c, Vector3 d, Vector3 n)
-        {
-            short i0 = (short)v.Count;
-            v.Add(new VertexPositionNormalTexture(a, n, new Vector2(0f, 0f)));
-            v.Add(new VertexPositionNormalTexture(b, n, new Vector2(1f, 0f)));
-            v.Add(new VertexPositionNormalTexture(c, n, new Vector2(1f, 1f)));
-            v.Add(new VertexPositionNormalTexture(d, n, new Vector2(0f, 1f)));
-            bool flip = Vector3.Dot(Vector3.Cross(b - a, c - a), n) > 0f;
-            AddTriangle(idx, i0, (short)(i0 + 1), (short)(i0 + 2), flip);
-            AddTriangle(idx, i0, (short)(i0 + 2), (short)(i0 + 3), flip);
-        }
-
-        private static void AddTriangle(List<short> idx, short a, short b, short c, bool flip)
-        {
-            idx.Add(a);
-            idx.Add(flip ? c : b);
-            idx.Add(flip ? b : c);
         }
 
         public void Dispose()

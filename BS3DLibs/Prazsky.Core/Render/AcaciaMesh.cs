@@ -319,6 +319,77 @@ namespace Prazsky.Core.Render
             }
         }
 
+        /// <summary>
+        /// One face of a ribbon (a grass blade, a palm's fan blade), wound so that it FACES <paramref name="n"/>:
+        /// MonoGame's front face is clockwise seen from outside, i.e. (b - a) × (c - a) pointing away from the
+        /// viewer, so the winding is checked against the normal rather than assumed (see the triangle-winding
+        /// convention in CLAUDE.md). Call it twice with ±n for a two-sided sheet under ordinary culling.
+        /// </summary>
+        public static void AddRibbon(List<VertexPositionNormalTexture> v, List<short> idx,
+            Vector3 a, Vector3 b, Vector3 c, Vector3 d, Vector3 n)
+        {
+            short i0 = (short)v.Count;
+            v.Add(new VertexPositionNormalTexture(a, n, new Vector2(0f, 0f)));
+            v.Add(new VertexPositionNormalTexture(b, n, new Vector2(1f, 0f)));
+            v.Add(new VertexPositionNormalTexture(c, n, new Vector2(1f, 1f)));
+            v.Add(new VertexPositionNormalTexture(d, n, new Vector2(0f, 1f)));
+            bool flip = Vector3.Dot(Vector3.Cross(b - a, c - a), n) > 0f;
+            idx.Add(i0); idx.Add(flip ? (short)(i0 + 2) : (short)(i0 + 1)); idx.Add(flip ? (short)(i0 + 1) : (short)(i0 + 2));
+            idx.Add(i0); idx.Add(flip ? (short)(i0 + 3) : (short)(i0 + 2)); idx.Add(flip ? (short)(i0 + 2) : (short)(i0 + 3));
+        }
+
+        /// <summary>
+        /// A surface of revolution about the Y axis appended to the lists — a trunk that is not a straight
+        /// tube (the baobab's bottle) — from a profile of (radius, y) points traced <b>top → outside →
+        /// underside</b> as <see cref="LatheMesh"/> takes it. Smooth normals off the profile's own tangent,
+        /// an optional <see cref="LatheMesh.Irregularity"/> wobble scaled per ring, wound like
+        /// <see cref="AddTube"/>. A lathe in the acacia's own lists rather than a <see cref="LatheMesh"/>
+        /// read back, because the lathe's buffers are write-only and cannot be read back at all.
+        /// </summary>
+        public static void AddRevolved(List<VertexPositionNormalTexture> v, List<short> idx, int seg,
+            IReadOnlyList<(float radius, float y, float wobble)> profile, float irregularityAmplitude, float irregularityPhase)
+        {
+            int rings = profile.Count;
+            Vector3 u = Vector3.UnitZ, w = Vector3.UnitX;   //AddTube's own basis for an axis pointing up
+
+            //Per-ring profile normal: the tangent turned a quarter so it points out of the solid for a
+            //profile traced downward on the outside (and up on a top run out from the axis).
+            var normal2 = new Vector2[rings];
+            for (int i = 0; i < rings; i++)
+            {
+                int i0 = Math.Max(i - 1, 0), i1 = Math.Min(i + 1, rings - 1);
+                Vector2 t = new(profile[i1].radius - profile[i0].radius, profile[i1].y - profile[i0].y);
+                if (t.LengthSquared() < 1e-8f) t = new Vector2(0f, -1f);
+                t.Normalize();
+                normal2[i] = new Vector2(-t.Y, t.X);
+            }
+
+            short baseIdx = (short)v.Count;
+            for (int i = 0; i < rings; i++)
+            {
+                (float radius, float y, float wobble) = profile[i];
+                for (int s = 0; s <= seg; s++)
+                {
+                    float ang = MathHelper.TwoPi * s / seg;
+                    Vector3 dir = u * MathF.Cos(ang) + w * MathF.Sin(ang);
+                    float r = radius + irregularityAmplitude * wobble * LatheMesh.Irregularity(ang + irregularityPhase, y);
+                    Vector3 n = Vector3.Normalize(dir * normal2[i].X + Vector3.Up * normal2[i].Y);
+                    v.Add(new VertexPositionNormalTexture(dir * r + Vector3.Up * y, n, new Vector2(s / (float)seg, i / (float)(rings - 1))));
+                }
+            }
+            //Between ring i (upper) and ring i+1 (lower): AddTube's index pattern with a = the lower ring.
+            for (int i = 0; i < rings - 1; i++)
+            {
+                int upper = baseIdx + i * (seg + 1);
+                int lower = upper + seg + 1;
+                for (int s = 0; s < seg; s++)
+                {
+                    idx.Add((short)(lower + s)); idx.Add((short)(upper + s)); idx.Add((short)(lower + s + 1));
+                    idx.Add((short)(lower + s + 1)); idx.Add((short)(upper + s)); idx.Add((short)(upper + s + 1));
+                }
+            }
+        }
+
         public static (VertexBuffer, IndexBuffer) Upload(GraphicsDevice device, List<VertexPositionNormalTexture> v, List<short> idx)
         {
             var vb = new VertexBuffer(device, VertexPositionNormalTexture.VertexDeclaration, v.Count, BufferUsage.WriteOnly);

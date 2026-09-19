@@ -244,6 +244,21 @@ namespace Prazsky.Core.Render
         /// <summary>Warm grey granite (linear).</summary>
         public Rgb RockColor { get; set; } = new(0.22f, 0.20f, 0.175f);
 
+        /// <summary>Baobabs: a few, alone, each a landmark like a kopje (the owner's ask off the #451 plants sheet).</summary>
+        public int BaobabCount { get; set; } = 3;
+
+        /// <summary>A baobab's height in world units — taller than an acacia, and most of it trunk.</summary>
+        public float BaobabHeight { get; set; } = 14f;
+
+        /// <summary>Smooth grey-brown bark (linear), paler and greyer than the acacias' trunks.</summary>
+        public Rgb BaobabColor { get; set; } = new(0.185f, 0.165f, 0.15f);
+
+        /// <summary>Doum palms: the forking fan palm, planted in small clumps (the owner's ask off the #451 plants sheet).</summary>
+        public int DoumPalmCount { get; set; } = 7;
+
+        /// <summary>A doum palm's height in world units, to the top of its heads.</summary>
+        public float DoumPalmHeight { get; set; } = 11f;
+
         /// <summary>Fallen trees lying in the grass.</summary>
         public int LogCount { get; set; } = 12;
 
