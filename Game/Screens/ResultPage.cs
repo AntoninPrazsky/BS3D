@@ -196,6 +196,27 @@ namespace BS3D.Screens
         /// </summary>
         private const float ORBIT_EASE_SECONDS = 2.5f;
 
+        //THE GLANCE UP AT THE FIREWORKS (#430). The shells burst 44 to 122 units over the island, a ceiling
+        //tuned against the PLAY camera - which looks up at the cluster, so anything lower falls behind it and
+        //is never seen. The result page then hands the camera to the menu orbit, which looks level across the
+        //arena at the trophy, and the show goes off above the frame. Two cameras, one burst height, and the
+        //height was tuned for the other one.
+        //
+        //The answer is the first of the two the issue offers: the page looks UP now and then, rather than the
+        //shells being brought down. Bringing them down would break the camera they were tuned for - they are
+        //launched on the clear, while the gun's view is still up - and a player who has just won should be
+        //shown the arena AND the sky, not made to choose.
+        private const float GLANCE_PERIOD = 9.5f;
+        private const float GLANCE_RISE = 1.6f;
+        private const float GLANCE_HOLD = 3.2f;
+
+        //How far the aim point is lifted at the top of a glance, in world units. The burst zone's own floor,
+        //near enough: raising the aim by this puts the lower half of the zone across the frame's middle and
+        //the higher shells in its top, which is the whole zone in shot rather than the best part of it.
+        private const float GLANCE_HEIGHT = 46f;
+
+        private float _glanceClock;
+
         private float _orbitBlend;
         private Vector3 _fromPosition, _fromTarget;
         private float _fromFov, _fromRoll;
@@ -298,6 +319,12 @@ namespace BS3D.Screens
 
             RecoilCamera camera = Game.Camera;
 
+            //The glance (#430), on top of the orbit's own aim and only while something is actually in the
+            //air: a camera that pitches up at an empty sky reads as a fault, and the shells are finite.
+            //Folded into the ORBIT's target before the release blend, so the first seconds - when the page is
+            //still easing off the gun's pose - are not yanked upward as well.
+            target.Y += Glance(elapsed);
+
             camera.BasePosition = Vector3.Lerp(_fromPosition, position, eased);
             camera.BaseTarget = Vector3.Lerp(_fromTarget, target, eased);
             camera.FieldOfView = MathHelper.Lerp(_fromFov, fieldOfView, eased);
@@ -309,6 +336,38 @@ namespace BS3D.Screens
             //Also what settles the recoil: the last shot's kick decays here rather than being frozen into the
             //pose the player is left looking at
             camera.Update(elapsed);
+        }
+
+        /// <summary>
+        /// How far the aim is lifted towards the burst zone this frame (#430): level, then up over
+        /// <see cref="GLANCE_RISE"/>, held for <see cref="GLANCE_HOLD"/>, and back down the same way - a
+        /// look, not a pitch that stays. Zero whenever the sky is empty, and the clock is <b>reset</b> then
+        /// rather than left running, so the first glance after a burst begins at its start instead of
+        /// wherever the cycle happened to stand.
+        /// <para>
+        /// Smoothstep at both ends, for the reason the release blend above gives: a linear rise starts with
+        /// a lurch, and a camera that lurches upward at the sky reads as the frame being dragged rather than
+        /// as somebody looking.
+        /// </para>
+        /// </summary>
+        private float Glance(float elapsed)
+        {
+            if (Game.Fireworks == null || !Game.Fireworks.Active)
+            {
+                _glanceClock = 0f;
+                return 0f;
+            }
+
+            _glanceClock += elapsed;
+            if (_glanceClock >= GLANCE_PERIOD) _glanceClock -= GLANCE_PERIOD;
+
+            //Up, hold, down, then the rest of the period looking at the arena and its trophy.
+            float t = _glanceClock;
+            float up = MathHelper.SmoothStep(0f, 1f, MathHelper.Clamp(t / GLANCE_RISE, 0f, 1f));
+            float down = MathHelper.SmoothStep(0f, 1f,
+                MathHelper.Clamp((t - GLANCE_RISE - GLANCE_HOLD) / GLANCE_RISE, 0f, 1f));
+
+            return (up - down) * GLANCE_HEIGHT;
         }
 
         #endregion
