@@ -1058,6 +1058,13 @@ namespace BS3D.Screens
             //stone wherever the walk stands.
             _cannon = new Cannon(new Vector3(0f, 5f, 0f), 20f);
 
+            //What this session adds to the sun's shadow map (#470): its gun. The host owns the rig and draws
+            //the island; where the gun STANDS is this screen's, and the shadow pass runs before any screen
+            //has drawn, so the session hands the host a closure rather than the host reaching in. Cleared by
+            //TearDown, or the front end would go on casting a gun that is no longer anywhere.
+            Game.SessionShadowCasters = vp => Game.CannonRig.DrawShadow(vp, _cannon.BarrelWorld(),
+                _cannon.CarriageWorld(), _cannon.WheelTravel, _cannon.SlideTravel);
+
             //The queue's colours are the level's business (RandomBallType draws only among what is still
             //hanging), so what to load next is injected; the constructor deals a full queue with it, which is
             //what gives the player something to read from the first frame. The two hooks carry this screen's

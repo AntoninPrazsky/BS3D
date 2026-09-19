@@ -662,7 +662,9 @@ namespace BS3D
             //And before ANY of it, the sun's shadow maps (#469): their own target, drawn while nothing of
             // this frame's is bound, for the same discard reason - the map is read by the scene pass, so it
             // has to exist before the scene target is bound and cannot be made between two binds of it.
-            _sceneRenderer.DrawShadowMaps(_scene, _camera, _rig.SunDirection);
+            // The effect is what makes everything drawn through it RECEIVE, and the callback is what the
+            // island and a live session's gun CAST with (#470).
+            _sceneRenderer.DrawShadowMaps(_scene, _camera, _rig.SunDirection, _instancingEffect, DrawShadowCasters);
 
             bool trophyUp = _trophy != null && _trophy.Active;
             bool confettiUp = _confetti != null && _confetti.Active;
@@ -817,6 +819,28 @@ namespace BS3D
 
             return sceneFrame;
         }
+
+        /// <summary>
+        /// What this program casts into the sun's shadow map (#470): the island, always — it is the host's
+        /// and stands in every scene, front end included — and the gun, which is a <b>session's</b> and is
+        /// therefore drawn by whatever <see cref="SessionShadowCasters"/> the session put there.
+        /// </summary>
+        private void DrawShadowCasters(Matrix shadowViewProjection)
+        {
+            _island?.DrawShadow(shadowViewProjection);
+            SessionShadowCasters?.Invoke(shadowViewProjection);
+        }
+
+        /// <summary>
+        /// What a live session adds to the sun's shadow map: its gun. Set by <c>GameplayScreen</c> while it
+        /// is on the stack and cleared by its teardown, because the gun's <i>pose</i> is the session's and
+        /// not this host's — the host owns the rig, the session owns where it stands.
+        /// <para>
+        /// A hook rather than a reach into the screen stack: the shadow pass runs at the top of
+        /// <see cref="BeginSceneDraw"/>, before any screen has drawn, and the front end has no gun at all.
+        /// </para>
+        /// </summary>
+        internal System.Action<Matrix> SessionShadowCasters { get; set; }
 
         /// <summary>
         /// The drain's gold beads and its glass, after the frame's opaque work: the beads are opaque but the

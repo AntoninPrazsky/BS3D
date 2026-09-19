@@ -143,6 +143,11 @@ namespace BS3D.Screens
             Game.Confetti?.Stop();
             Game.Trophy?.Hide();
 
+            //The gun stops casting with the session that owned its pose (#470); the island goes on casting,
+            //being the host's. Without this the front end would draw a gun's shadow onto the stone with no
+            //gun standing on it.
+            Game.SessionShadowCasters = null;
+
             //Idempotent, which is what this needs: DisposeResources runs it again on the way out of the program
             _world?.Dispose();
 

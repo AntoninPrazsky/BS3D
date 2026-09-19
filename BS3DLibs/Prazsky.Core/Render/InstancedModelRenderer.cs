@@ -916,7 +916,10 @@ namespace Prazsky.Core.Render
             _effect.Parameters["DirLight1Direction"].SetValue(DefaultLighting.Light1Direction);
             _effect.Parameters["DirLight2Direction"].SetValue(DefaultLighting.Light2Direction);
             _keyLightPositionParam = _effect.Parameters["KeyLightPosition"];
-            _lightViewProjectionParam = _effect.Parameters["LightViewProjection"];
+            //Shadows.fxh's own matrix since #470, not a LightViewProjection of this pass's: the caster below
+            //and the receivers in ShadePixel have to agree about where the light stands, and two uniforms
+            //holding the same matrix is how they stop agreeing.
+            _lightViewProjectionParam = _effect.Parameters["ShadowViewProjection"];
             _groundHeightParam = _effect.Parameters["GroundHeight"];
 
             _textureParam = _effect.Parameters["Texture"];
@@ -1130,6 +1133,16 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// Draws the given instances into the currently bound shadow map render target:
         /// depth only, from the light's point of view. One draw call per model mesh part.
+        /// <para>
+        /// <b>It was written before anything called it and had no caller at all until #470.</b> What it was
+        /// waiting for was a map to draw into, which <see cref="SunShadowMap"/> is (#469), and things worth
+        /// casting, which the island, the gun and the city are. It restores <c>_mainTechnique</c> on the way
+        /// out, so a caller may sit it between ordinary draws.
+        /// </para>
+        /// <para>
+        /// The caller states the target and the states: <see cref="SceneRenderer.DrawShadowMaps"/> binds the
+        /// map, clears it and sets opaque/depth-default/CullNone, then hands the matrix to whoever casts.
+        /// </para>
         /// </summary>
         public void DrawDepth(Matrix lightViewProjection, ModelInstance[] instances, int instanceCount)
         {
@@ -1568,6 +1581,17 @@ namespace Prazsky.Core.Render
         {
             _singleInstance[0] = new ModelInstance(world, new Vector4(0f, 0f, 0f, 1f));
             Draw(camera, _singleInstance, 1, effectParams);
+        }
+
+        /// <summary>
+        /// One instance into the bound shadow map (#470) — <see cref="DrawDepth(Matrix, ModelInstance[], int)"/>
+        /// for a prop that is drawn from a single world matrix, which is most of what casts: the island's cap
+        /// and drum, the gun's barrel and carriage.
+        /// </summary>
+        public void DrawDepth(Matrix shadowViewProjection, Matrix world)
+        {
+            _singleInstance[0] = new ModelInstance(world, new Vector4(0f, 0f, 0f, 1f));
+            DrawDepth(shadowViewProjection, _singleInstance, 1);
         }
 
         private void EnsureInstanceBufferCapacity(int instanceCapacity)
