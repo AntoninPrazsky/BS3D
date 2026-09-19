@@ -52,9 +52,20 @@ namespace BS3D.Audio
 
         //How long a piece the player is walking away from takes to leave (#211): the theme can be left mid-chorus
         //and is the widest thing here to put down gently, while leaving the lobby should feel prompt — it is a
-        //level starting. The arrival never ramps; fading the outgoing side alone already is the crossfade.
+        //level starting.
         private const float THEME_FADE_SECONDS = 0.9f;
         private const float MENU_FADE_SECONDS = 0.5f;
+
+        //How long the ARRIVING side ramps in (#456). Until this the arrival never ramped at all — "fading the
+        //outgoing side alone already is the crossfade" — which was true only of a HAND-OVER between two
+        //pieces; the first level's own arrival has nothing leaving under it to make the switch read as one,
+        //and a generated loop (#443) is cut from a render's body with no prelude, so what a fresh chain's
+        //first sample gave was a full-band groove at once. The theme's own arrival runs a little LONGER than
+        //the lobby's leaving, so the two overlap as a real cross-fade rather than meeting at a gap; the
+        //lobby's own arrival is about as long as its own leaving. Lengths are a starting point, not a
+        //measurement — the owner's ear decides (#456).
+        private const float THEME_ARRIVAL_SECONDS = 1.2f;
+        private const float MENU_ARRIVAL_SECONDS = 0.5f;
 
         /// <summary>
         /// How long the game's music takes to step aside for the About page's player, and to come back after it.
@@ -97,6 +108,13 @@ namespace BS3D.Audio
         /// <summary>A chain on its way out (#211), faded and disposed at silence; see <see cref="RetireVoice"/>.</summary>
         private DynamicSoundEffectInstance _retiring;
         private readonly MusicFade _retiringFade = new();
+
+        /// <summary>
+        /// The SOUNDING chain's own arrival (#456) — <see cref="Advance"/> sets it running every time it builds
+        /// a fresh <see cref="_voice"/>, and only then: the feed's resubmit path in <see cref="Update"/> never
+        /// touches it, so a loop's own wrap is untouched, exactly as the issue's exception asks.
+        /// </summary>
+        private readonly MusicFade _themeFade = new();
 
         private Task<byte[]> _menuLoad;
         private SoundEffect _menuTrack;
@@ -261,17 +279,20 @@ namespace BS3D.Audio
                 //A stop caught mid-fade: the same loop is still sounding, so it ramps back rather than snapping
                 _menuFade.To(1f, MENU_FADE_SECONDS);
             }
-            else
+            else if (_menu != null)
             {
-                //An arrival: a fully faded stop rewound the loop, which restarts at its head at full
-                _menuFade.Reset();
-
-                if (_menu != null)
-                {
-                    _menu.Volume = MenuVolume;
-                    _menu.Play();
-                }
+                //An arrival (#456): a fully faded stop rewound the loop, which restarts at its head and ramps
+                //up rather than snapping to full. Arrive() is called here, at the actual Play(), rather than
+                //unconditionally above — the other branch below is the file not having loaded yet, where
+                //Update's own arrival covers it the same way once it has, on its own frame rather than this one.
+                _menuFade.Arrive(MENU_ARRIVAL_SECONDS);
+                _menu.Volume = MenuVolume;
+                _menu.Play();
             }
+
+            //else: the file has not loaded yet. Update's load-completion branch plays it once it has, and
+            //arrives it there — calling Arrive() here would start the ramp's clock before there is anything
+            //sounding to ramp, and a load that outlasts MENU_ARRIVAL_SECONDS would then open at full anyway.
         }
 
         /// <summary>Stops the front end's loop by fading — it only ever stops for a level starting over it.</summary>
@@ -324,7 +345,16 @@ namespace BS3D.Audio
                         //A splash clicked through fast can have a ramp already in flight before the file landed
                         _menu.Volume = MenuVolume;
 
-                        if (_menuWanted) _menu.Play();
+                        //The common case: PlayMenu() was already called, on a file that had not loaded yet, so
+                        //its own arrival branch above had nothing to Play() and left this to here (#456) — the
+                        //ramp's clock starts NOW, the frame the loop actually starts sounding, not whenever the
+                        //splash happened to ask for it.
+                        if (_menuWanted)
+                        {
+                            _menuFade.Arrive(MENU_ARRIVAL_SECONDS);
+                            _menu.Volume = MenuVolume;
+                            _menu.Play();
+                        }
                     }
                 }
                 catch (Exception exception)
@@ -355,7 +385,7 @@ namespace BS3D.Audio
             }
         }
 
-        private float ThemeVolume => MUSIC_VOLUME * _gain * _yield.Applied;
+        private float ThemeVolume => MUSIC_VOLUME * _gain * _themeFade.Applied * _yield.Applied;
         private float MenuVolume => MENU_VOLUME * _gain * _menuFade.Applied * _yield.Applied;
         private float RetiringVolume => MUSIC_VOLUME * _gain * _retiringFade.Applied * _yield.Applied;
 
@@ -381,7 +411,8 @@ namespace BS3D.Audio
                 if (_menuFade.Silent) _menu.Stop();
             }
 
-            if (yieldMoved && _voice != null) _voice.Volume = ThemeVolume;
+            //Same shape as the menu's block above, for the sounding chain's own arrival (#456)
+            if ((_themeFade.Advance(elapsed) | yieldMoved) && _voice != null) _voice.Volume = ThemeVolume;
 
             if ((_retiringFade.Advance(elapsed) | yieldMoved) && _retiring != null)
             {
@@ -446,7 +477,12 @@ namespace BS3D.Audio
 
                     DynamicSoundEffectInstance old = _voice;
 
+                    //Arrived before the volume is read (#456), so the first sample this chain ever plays is
+                    //already at the ramp's own start rather than at ThemeVolume's full figure — a fresh chain
+                    //is exactly what an arrival is, whether it is level one's own or a switch's (RetireVoice
+                    //has already moved whatever was sounding off to _retiring, which fades on its own terms).
                     _voice = new DynamicSoundEffectInstance(SAMPLE_RATE, AudioChannels.Stereo);
+                    _themeFade.Arrive(THEME_ARRIVAL_SECONDS);
                     _voice.Volume = ThemeVolume;
                     _voice.SubmitBuffer(track.Result);
                     _sounding = track;
