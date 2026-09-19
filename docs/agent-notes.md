@@ -3627,3 +3627,18 @@ Průzkum menu všech scén ukázal poušť jako nejslabší:
 
 **Nic dalšího si neberu.**
 
+
+---
+
+## 2026-09-19 — Claude Code (notebook: #458 Saturn se vyčistí dvěma ranami)
+
+**Beru si #458** na pokyn majitele („vyber nějaký komplexní a začni na něm pracovat"). Větev `458-shortest-clear-gate`, notebook v `C:\GitHub`.
+
+- **Zjištěno z kódu:** Saturnův globus jsou dvě 180° poledníkové půle (modrá, zelená) a kotevní kurz (`i = depth-1`, `r ≤ SATURN_CAP`) je rozdělený přesně mezi ně — takže dvě shody vezmou všechny kotvy a prstenec i paprsky spadnou za nimi jako sirotci. `DropTest` se ptá, co jedna rána shodí, nikdy kolik shod stačí na prázdné pole.
+- **Plán, dvě půlky:**
+  1. **Nová brána** `Tools/LevelGen/ClearProbe.cs` — nejkratší vyčištění: tah = dopad do prázdné buňky vedle stojící kuličky, obarvení skla (`ColourTransparentGroup`), skupina ≥ `MINIMUM_CLUSTER_SIZE`, pak pád sirotků; cíl je nula odstranitelných kuliček. Vyčerpávající do hloubky, na které brána odmítá, dál paprskem (beam) jen pro číslo do logu. Model **vynechává** výbuch bomby, zap, kyselinu, led a nákazu, takže naměřené číslo je horní odhad — brána proto nemůže odmítnout level, který levný není, jen minout ten, který je.
+  2. **Překreslení Saturnu** tak, aby dvě rány nesebraly všechny kotvy — víc výsečí, paleta bloku beze změny.
+- **Pořadí:** nejdřív brána, změřit rozdělení přes všech 110 levelů, teprve z těch čísel zvolit práh a cíl pro Saturn.
+- **Beru na sebe:** `Tools/LevelGen/*`, `Game/Levels/*` (regenerace), `docs/formats-and-tools.md`.
+
+**Nic dalšího si neberu.**
