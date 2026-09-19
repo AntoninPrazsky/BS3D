@@ -227,7 +227,7 @@ namespace Prazsky.BS3D.Physics
                 for (int i = 0; i < shot.Count; i++)
                 {
                     Collect(frame, shot[i], BallRenderSet.UNOCCLUDED, ease, glideRetained, elapsedSeconds,
-                        interpolationAlpha);
+                        interpolationAlpha, stretched: true);
                     visited++;
                 }
 
@@ -255,7 +255,7 @@ namespace Prazsky.BS3D.Physics
         //way the pose turns it, shaded by the eased occlusion and lit by however far its flare has got.
         private void Collect(in BallDrawFrame frame, PhysicsBall ball, Vector4 occlusionTarget, float ease,
             float glideRetained, float elapsedSeconds, float interpolationAlpha, float deadWeight = 0f,
-            bool released = false)
+            bool released = false, bool stretched = false)
         {
             ball.InterpolatedPose(interpolationAlpha, out System.Numerics.Vector3 position,
                 out System.Numerics.Quaternion orientation);
@@ -280,8 +280,57 @@ namespace Prazsky.BS3D.Physics
                 _advanceRipple == null ? 0f : _advanceRipple(ball, elapsedSeconds),
                 ball.Kind, AdvanceColourFade(ball, elapsedSeconds), deadWeight,
                 AdvanceThawFade(ball, elapsedSeconds), AdvanceInfectFade(ball, elapsedSeconds), released,
-                AdvanceLockFade(ball, elapsedSeconds), ball.LockFromType);
+                AdvanceLockFade(ball, elapsedSeconds), ball.LockFromType,
+                stretched ? MotionStretch(ball) : Vector3.Zero);
         }
+
+        /// <summary>
+        /// How far a ball in flight is drawn stretched, as its direction of travel scaled by how much longer
+        /// it is drawn (#402). Zero below <see cref="STRETCH_FLOOR_SPEED"/>, which is what keeps every ball
+        /// that is not moving fast — and the frame after a shot lands, and a shot at the top of a lob —
+        /// exactly the sphere it has always been.
+        /// <para>
+        /// <b>Only a shot in flight is offered it</b>, and that is a rule rather than a saving. A released
+        /// ball falls just as fast and must NOT smear: its fall is the payoff the player is watching, and a
+        /// cluster raining stretched ellipsoids reads as the frame rate having collapsed. The shot is the one
+        /// ball whose speed is a thing the player aimed, so it is the one ball whose speed is worth drawing.
+        /// </para>
+        /// <para>
+        /// It reads the body's own <b>velocity</b> rather than differencing poses between frames, for
+        /// <see cref="AdvanceDeadWeight"/>'s reason one step over: the pose is already being interpolated for
+        /// the draw, so a difference taken from it would carry the interpolation's own smoothing, while the
+        /// velocity is the number the solver actually holds.
+        /// </para>
+        /// </summary>
+        private static Vector3 MotionStretch(PhysicsBall ball)
+        {
+            System.Numerics.Vector3 velocity = ball.BallReference.Velocity.Linear;
+
+            float speed = velocity.Length();
+            if (speed <= STRETCH_FLOOR_SPEED) return Vector3.Zero;
+
+            //Capped, and the cap is most of what makes this readable rather than silly: a shot leaves the
+            //muzzle fast enough that an uncapped proportional stretch draws a streak several balls long, which
+            //stops reading as a ball at all. The growth is also taken from the speed ABOVE the floor, so the
+            //effect arrives from nothing instead of stepping in at full strength the instant a ball qualifies.
+            float over = (speed - STRETCH_FLOOR_SPEED) * STRETCH_PER_UNIT_SPEED;
+
+            return (velocity / speed).ToXna() * MathF.Min(over, STRETCH_CEILING);
+        }
+
+        /// <summary>
+        /// The speed a ball has to be doing before it is drawn stretched at all, in world units a second.
+        /// Above a released ball's terminal fall through the field and well under a shot's muzzle speed, so
+        /// the population it selects is the one the doc on <see cref="MotionStretch"/> describes even before
+        /// the caller's own gate.
+        /// </summary>
+        private const float STRETCH_FLOOR_SPEED = 18f;
+
+        /// <summary>How much longer a ball is drawn per world unit a second over the floor, and the most it may
+        /// ever be. At the ceiling the ball is half again as long as it is wide — enough to read as speed at
+        /// the distance a shot crosses, and short of the streak that stops reading as a ball.</summary>
+        private const float STRETCH_PER_UNIT_SPEED = 0.010f;
+        private const float STRETCH_CEILING = 0.5f;
 
         /// <summary>
         /// Advances a released ball's crossing to the <b>dead weight</b> look and answers how far through it
