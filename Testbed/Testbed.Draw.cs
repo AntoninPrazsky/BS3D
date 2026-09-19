@@ -255,6 +255,12 @@ namespace Testbed
             //island is, which is why it casts from here and not from inside the renderer. The AURORA's stand
             //is deliberately left out: that scene's sun is below the horizon and DrawShadowMaps never asks.
             if (_scene == SceneKind.Forest) _forestScatter?.DrawShadow(shadowViewProjection);
+
+            //And the city's towers (#471). ⚠ ALL of them rather than City.Visible, which is culled to the
+            //CAMERA's frustum — a tower just off the side of the screen is exactly the one whose shadow falls
+            //across the street being looked at. One instanced draw either way.
+            if (_scene == SceneKind.City || _scene == SceneKind.NeonCity)
+                _cityRenderer?.DrawDepth(shadowViewProjection, _city.Buildings, _city.Buildings.Length);
         }
 
         //The Game's counter restated rather than shared, because there is nothing to share it through: both are

@@ -20,6 +20,9 @@
 #define PS_SHADERMODEL ps_5_0
 
 #include "Clouds.fxh"
+//The sun's cast shadows (#471): the towers standing on this street, drawn into SceneRenderer's map before
+//the scene pass. See Shadows.fxh for what a receiver owes.
+#include "Shadows.fxh"
 #include "Noise.fxh"
 
 float4x4 View;
@@ -336,6 +339,15 @@ float4 StreetPS(StreetVertexOutput input) : COLOR
     float sunView = lerp(1.0, CanyonSunView * openness, density * density);
 
     float sunlight = CloudSunlight(world, SunDirection);
+
+    //The sun's cast shadows (#471), into the same sunlight factor the clouds dim. What casts here is the city
+    //itself: at every sun but noon the towers throw the streets between them into shade, which is what a city
+    //at street level looks like and what this scene had none of. The normal is straight up - the street IS the
+    //ground plane, and the kerbs and markings are colour rather than relief.
+    [branch]
+    if (ShadowStrength > 0.0)
+        sunlight *= SunShadow(world, float3(0.0, 1.0, 0.0), SunDirection);
+
     float sunUp = saturate(SunDirection.y);
 
     float3 dayLight = ZenithColor * AmbientStrength * skyView

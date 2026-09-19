@@ -271,6 +271,17 @@ namespace Testbed
         #region City, island and funnel (the city is the default of the seven scenes)
 
         private City _city;
+
+        //The city's shadow fit (#471), the Game's own figures restated rather than shared: they are a HOST's,
+        //and this executable is the other host. Tighter than the ten scenes SceneRenderer fits itself (the
+        //streets receive and the towers cast, so a tower's edge wants the texels) and taller (the ground is
+        //the street level far under the island).
+        private const float CITY_SHADOW_EXTENT = 180f;
+        private const float CITY_SHADOW_BELOW = 10f;
+        private const float CITY_SHADOW_ABOVE = 170f;
+
+        //Kept because the shadow registration below needs it, and it is loaded where the city is built.
+        private Effect _streetEffect;
         private BoxMesh _unitBox;
         private InstancedModelRenderer _cityRenderer;
         //The equipment on the city's roofs (#436) — the Game's own, drawn here too so a rooftop can be framed
@@ -816,6 +827,16 @@ namespace Testbed
             //has to be told what ssaa= settled on — sized in texels a star would be four times dimmer at 2x
             _sceneRenderer = new SceneRenderer(GraphicsDevice, Content) { SupersampleFactor = _supersampleFactor };
 
+            //The city's sun shadows (#471), registered exactly as the Game registers them and for the reason
+            //this executable exists: the streets are a hundred units under the island, so the only camera that
+            //can be put where they are judged from is this one's. It has to be here rather than beside the
+            //city's own build — that runs first, and the renderer being registered with does not exist yet.
+            ShadowConfig cityShadows = new(strength: 0.85f, extent: CITY_SHADOW_EXTENT);
+            _sceneRenderer.SetHostShadowScene(SceneKind.City, cityShadows, _cityConfig.BaseY,
+                CITY_SHADOW_BELOW, CITY_SHADOW_ABOVE, _streetEffect);
+            _sceneRenderer.SetHostShadowScene(SceneKind.NeonCity, cityShadows, _cityConfig.BaseY,
+                CITY_SHADOW_BELOW, CITY_SHADOW_ABOVE, _streetEffect);
+
             //#298 PROBE: "detail=" pins SceneRenderer.SceneDetail so a reduced program can be measured and
             //photographed here, where the camera can be pinned. Left alone the Testbed draws the full look.
             if (_options.SceneDetail >= 0f) _sceneRenderer.SceneDetail = _options.SceneDetail;
@@ -1313,7 +1334,8 @@ namespace Testbed
 
             _rooftops = new CityRooftops(GraphicsDevice, _instancingEffect, _city, _cityConfig, SCENE_AMBIENT_INTENSITY);
             Console.WriteLine($"[city] {_rooftops.Total} pieces of rooftop equipment");
-            _streets = new CityStreets(GraphicsDevice, Content.Load<Effect>("Shaders/CityStreets"), _city);
+            _streetEffect = Content.Load<Effect>("Shaders/CityStreets");
+            _streets = new CityStreets(GraphicsDevice, _streetEffect, _city);
 
             //The arena the gun stands on, all of it: the island's stone cap and concrete drum, the glass
             //drain bored through the middle, its two gold beads and the dark pit shaft that backs the glass
