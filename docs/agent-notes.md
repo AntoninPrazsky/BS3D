@@ -4029,3 +4029,16 @@ Dvě majitelovy poznámky z hraní, dvě issues. Sémantické hledání (nomic, 
 - **Beru na sebe:** `Tools/LevelGen/Program.cs` (pole pořadí + komentáře bloků), `Game/Levels/Levels.json` (regenerace), `docs/formats-and-tools.md`.
 
 **Nic dalšího si neberu.**
+
+**Dodatek: #413 hotové na větvi `413-block-order` (`0d83b45`), NENÍ v mainu.** Čeká na slovo majitele.
+
+- **Šest bloků přeskládáno**, čtyři rozhodnutí vzata přímo od majitele (ptal jsem se, jak si přál): Bolt zavírá Spektrum (Turbine 9.), Cairn zavírá Fata morgánu i kampaň (Obsidian 9.), Trefoil otvírá Fata morgánu (Facet 2.), Ziggurat otvírá Arcade (Cube 6.). Bez ptaní, protože to majitel řekl přímo a data souhlasí: Spring před Ship, Orrery zavírá Mlhovinu, Trellis před Pleat, Kiln na 4.
+- ⚠ **Level, na který se majitel v Erupci ptal, je ten jediný, který se nehnul.** Breach měří 1,71 výstřelu na skupinu = druhý nejvolnější v bloku, takže jako otvírák sedí (je velký, ne těsný). Co v tom bloku sedělo špatně, byla **Causeway na druhé pozici** (0,87, nejtěsnější v kampani po Caldeře, viz #414) — přesunuta na osmou, k Caldeře.
+- **Osa, která sedla majitelovu cítění, jsou výstřely na skupinu** (Ship 2,45 × Spring 4,80; Wishbone 4,91 × Carousel 3,00; Orrery 1,38; Trellis 3,47 × Pleat 1,37; Cube 1,33; Obsidian 2,94). Jediná výjimka je **Ziggurat** — majitel ho má za jednoduchý, ratio říká druhý nejtěsnější v bloku; jeho pravé číslo je **nejkratší vyčištění 24 ran**, nejvíc v kampani, což je level *dlouhý*, ne těžký. Ty dvě stížnosti rozlišila teprve sonda z #458.
+- **Wishbone nechávám být a je to zapsané v kódu:** uvnitř barevné rampy Mlhoviny neexistuje tah, který by to spravil (hraje šest barev proti pěti u Vortexu a Carouselu), a druhá páka je rozpočet — což je designová změna, ne pořadí. Přesně jak #413 samo píše.
+- **Přepsané docy, které lhaly už před dneškem:** Turbine „the campaign's last level" (#300 to přesunul o kapitolu dál) a Garland „the finale" bloku, který teď končí Orrerym. Dál Cube, Facet, Trefoil, Obsidian, Cairn a Keystone (odkaz na Seam přeformulován tak, aby netvrdil pořadí).
+- **Ověřeno:** LevelGen exit 0 přes 110 levelů, ScoreSim exit 0, jedenáct bloků po deseti, a **hra sama** načte položku 110 jako Cairn s `[aimcheck] PASS`. Mění se jen `Levels.json` — žádný level soubor se nehnul o bajt, brány se přepočítaly pozičně a save je klíčovaný jménem souboru.
+- ⚠ **Dva nálezy mimo zadání:** (1) `Cabinet` čte v sondě **4 z 5** (práh hlášení), přestože ho #301 kdysi spravil na 2–3 — buď regrese, nebo rozptyl; zaslouží pohled. (2) `DescribeBlock` u Louky tiskne `MIXED THEMES, MIXED BALL STYLES` a tiskl to i před mou prací — patří k #400.
+- ⚠ **Past nástroje, potvrzená podruhé:** tělo heredocu i `python -c "…"` s apostrofy/zpětnými uvozovkami tenhle harness mrší (kolega to má v zápisu z dneška taky). Skripty i delší texty psát **Write toolem** a teprve pak spouštět.
+
+**Beru si #398** (Quarry hraje pomalu a stejně), hned navazuji.
