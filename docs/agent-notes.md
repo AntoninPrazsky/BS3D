@@ -4595,3 +4595,9 @@ Tour se dosud pustil jen jednou, automaticky, při stavbě prvního levelu kapit
 - `Game.sln` 0 chyb, 0 varování.
 
 **Nic dalšího si neberu.**
+
+---
+
+**game-0c (Sonnet): #377 (gamepad neumí traverzovat/chodit) STÁHNUTO bez psaní kódu — je to už dávno hotové.** `GameplayScreen.Input.cs` má levou páčku napojenou na `Orbit`/`Advance` (řádky 124–136) jako vedlejší produkt merge #189 (`57d7505`, 2026-09-18 — deset dní PO založení #377, proto se nikdo neprovázal). `_carriageMoving` pro #460's combine lesson je taky správně zapojené. Nález i uzavření napsané rovnou do komentáře na #377 (ne jen sem) — bs3d-f0's dobrá rada z dneška: issue vlákno je to jediné místo, které si přečtou všechny tři session, žurnál a přímé zprávy ne vždy stihnou včas. Neověřeno na skutečném gamepadu — nemám ho, bs3d-f0 taky ne, zapsáno jako otevřené, ne jako hotové.
+
+**Nic dalšího si neberu.**
