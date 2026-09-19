@@ -97,59 +97,84 @@ namespace Prazsky.Core.Render
                 {
                     float worldX = -half + (x + 0.5f) * texelSize;
 
-                    //Summed rather than nearest-only: two trees close together should push a path out round
-                    //BOTH of them, and a nearest-only field would send it into the gap between their trunks,
-                    //which is the one line a person would not take.
-                    float offsetX = 0f, offsetZ = 0f;
-
-                    for (int i = 0; i < obstacles.Count; i++)
-                    {
-                        ScatterSpacing.Footprint obstacle = obstacles[i];
-
-                        float dx = worldX - obstacle.X;
-                        float dz = worldZ - obstacle.Z;
-                        float distanceSquared = dx * dx + dz * dz;
-
-                        //The reach is measured from the obstacle's EDGE, not its centre, so a baobab is given
-                        //the same margin past its own bulk as a sapling is past its stem.
-                        float outer = obstacle.Radius + reach;
-                        if (distanceSquared >= outer * outer) continue;
-
-                        float distance = MathF.Sqrt(distanceSquared);
-
-                        //Smooth all the way to zero at the rim: a falloff with a corner in it puts a corner in
-                        //the path, and the eye finds a kink in a track faster than it finds the track.
-                        float t = 1f - distance / outer;
-                        float push = t * t * (3f - 2f * t);      //smoothstep
-
-                        //Directly under the trunk there is no direction to step; the sum of its neighbours
-                        //decides it, and at the centre of a lone tree the field is zero — which is right, since
-                        //the bend is already complete by the time a path would reach it.
-                        if (distance > 1e-3f)
-                        {
-                            offsetX += dx / distance * push;
-                            offsetZ += dz / distance * push;
-                        }
-                    }
-
-                    //Clamped rather than normalised: inside a dense clump the sum can exceed one obstacle's
-                    //worth, and that is the field saying "further out still", which is correct until it would
-                    //throw the path further than the shader's own offset allows.
-                    float length = MathF.Sqrt(offsetX * offsetX + offsetZ * offsetZ);
-                    if (length > 1f)
-                    {
-                        offsetX /= length;
-                        offsetZ /= length;
-                    }
+                    Vector2 step = StepAside(obstacles, reach, worldX, worldZ);
 
                     texels[z * SIZE + x] = new Color(
-                        offsetX * 0.5f + 0.5f,
-                        offsetZ * 0.5f + 0.5f,
+                        step.X * 0.5f + 0.5f,
+                        step.Y * 0.5f + 0.5f,
                         0f, 1f);
                 }
             }
 
             Texture.SetData(texels);
+        }
+
+        /// <summary>
+        /// <b>Which way a path has to step aside at one point, and how hard</b> — the rule the texture above
+        /// is a sampled copy of, in world coordinates and at full precision.
+        /// <para>
+        /// It is public because the <b>planting</b> asks it too (#476's second half): a site is only
+        /// genuinely bad if the path still runs over it <i>after</i> it has bent, so
+        /// <see cref="SavannaScatter"/> warps its trail test through this same function rather than through
+        /// a texture that does not exist until the planting it is built from has finished. One rule, asked
+        /// twice — a second transcription here would let the path a plant is refused for and the path the
+        /// shader draws drift apart.
+        /// </para>
+        /// </summary>
+        /// <param name="obstacles">What is worth going round, <b>already filtered</b> by footprint radius —
+        /// the caller keeps that list, because the constructor below filters it once and the planting
+        /// rebuilds it between its sweeps.</param>
+        /// <param name="reach">See <see cref="Reach"/>.</param>
+        /// <returns>The step aside as a vector of at most unit length; multiply by the offset in world
+        /// units (<see cref="MaxOffset"/>, the shader's <c>TrailWarpAmount</c>) to get one.</returns>
+        public static Vector2 StepAside(IReadOnlyList<ScatterSpacing.Footprint> obstacles, float reach, float x, float z)
+        {
+            //Summed rather than nearest-only: two trees close together should push a path out round
+            //BOTH of them, and a nearest-only field would send it into the gap between their trunks,
+            //which is the one line a person would not take.
+            float offsetX = 0f, offsetZ = 0f;
+
+            for (int i = 0; i < obstacles.Count; i++)
+            {
+                ScatterSpacing.Footprint obstacle = obstacles[i];
+
+                float dx = x - obstacle.X;
+                float dz = z - obstacle.Z;
+                float distanceSquared = dx * dx + dz * dz;
+
+                //The reach is measured from the obstacle's EDGE, not its centre, so a baobab is given
+                //the same margin past its own bulk as a sapling is past its stem.
+                float outer = obstacle.Radius + reach;
+                if (distanceSquared >= outer * outer) continue;
+
+                float distance = MathF.Sqrt(distanceSquared);
+
+                //Smooth all the way to zero at the rim: a falloff with a corner in it puts a corner in
+                //the path, and the eye finds a kink in a track faster than it finds the track.
+                float t = 1f - distance / outer;
+                float push = t * t * (3f - 2f * t);      //smoothstep
+
+                //Directly under the trunk there is no direction to step; the sum of its neighbours
+                //decides it, and at the centre of a lone tree the field is zero — which is right, since
+                //the bend is already complete by the time a path would reach it.
+                if (distance > 1e-3f)
+                {
+                    offsetX += dx / distance * push;
+                    offsetZ += dz / distance * push;
+                }
+            }
+
+            //Clamped rather than normalised: inside a dense clump the sum can exceed one obstacle's
+            //worth, and that is the field saying "further out still", which is correct until it would
+            //throw the path further than the shader's own offset allows.
+            float length = MathF.Sqrt(offsetX * offsetX + offsetZ * offsetZ);
+            if (length > 1f)
+            {
+                offsetX /= length;
+                offsetZ /= length;
+            }
+
+            return new Vector2(offsetX, offsetZ);
         }
 
         /// <summary>

@@ -442,8 +442,8 @@ namespace Prazsky.Core.Render
         {
             Vector2 drift = Wind * Time;
 
-            float w = 0.62f * Noise((world + drift) * Scale);
-            w += 0.38f * (Noise((world + drift * 1.6f) * (Scale * 2.7f) + new Vector2(31.4f)));
+            float w = 0.62f * ShaderMath.Noise((world + drift) * Scale);
+            w += 0.38f * (ShaderMath.Noise((world + drift * 1.6f) * (Scale * 2.7f) + new Vector2(31.4f)));
 
             return w;
         }
@@ -489,46 +489,8 @@ namespace Prazsky.Core.Render
             return MathHelper.Lerp(1f, ShadowFloor, MathHelper.Clamp(Cover(hit) * ShadowGain, 0f, 1f));
         }
 
-        //Scalar rather than vectorised, and componentwise rather than clever, because every line of it has
-        //to correspond to a line of HLSL that can be read next to it.
-        private static float Frac(float value) => value - MathF.Floor(value);
-
-        private static Vector2 Hash22(float px, float py)
-        {
-            float x = Frac(px * 0.1031f);
-            float y = Frac(py * 0.1030f);
-            float z = Frac(px * 0.0973f);
-
-            float d = x * (y + 33.33f) + y * (z + 33.33f) + z * (x + 33.33f);
-
-            x += d;
-            y += d;
-            z += d;
-
-            return new Vector2(Frac((x + y) * z) * 2f - 1f, Frac((x + z) * y) * 2f - 1f);
-        }
-
-        private static float Noise(Vector2 p)
-        {
-            float cellX = MathF.Floor(p.X);
-            float cellY = MathF.Floor(p.Y);
-
-            float fx = p.X - cellX;
-            float fy = p.Y - cellY;
-
-            //Quintic, matching the shader: the sky is shaded off this field's slope, so its second
-            //derivative has to be continuous as well
-            float ux = fx * fx * fx * (fx * (fx * 6f - 15f) + 10f);
-            float uy = fy * fy * fy * (fy * (fy * 6f - 15f) + 10f);
-
-            float a = Dot(Hash22(cellX, cellY), fx, fy);
-            float b = Dot(Hash22(cellX + 1f, cellY), fx - 1f, fy);
-            float c = Dot(Hash22(cellX, cellY + 1f), fx, fy - 1f);
-            float d = Dot(Hash22(cellX + 1f, cellY + 1f), fx - 1f, fy - 1f);
-
-            return MathHelper.Lerp(MathHelper.Lerp(a, b, ux), MathHelper.Lerp(c, d, ux), uy);
-        }
-
-        private static float Dot(Vector2 gradient, float x, float y) => gradient.X * x + gradient.Y * y;
+        //The gradient noise this field is built out of moved to ShaderMath when the savanna's trails
+        //needed the same mirror (#476): it is Clouds.fxh's CloudNoise, and two transcriptions of it would
+        //be two chances to drift from the shader that draws with it.
     }
 }
