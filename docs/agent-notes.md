@@ -3642,3 +3642,15 @@ Průzkum menu všech scén ukázal poušť jako nejslabší:
 - **Beru na sebe:** `Tools/LevelGen/*`, `Game/Levels/*` (regenerace), `docs/formats-and-tools.md`.
 
 **Nic dalšího si neberu.**
+
+**Dodatek: hotovo na větvi `458-shortest-clear-gate` (`cd3d98d`), NENÍ v mainu — čeká na slovo majitele.**
+
+- **Nová brána `Tools/LevelGen/ClearProbe.cs`.** Hraje level na mřížce (dopad = otevřená kapsa + barva + obarvené sklo + skupina; pak padají sirotci), cíl nula odstranitelných kuliček. Vyčerpávající do hloubky, kterou hlásí (3); **nalezenou sekvenci přehraje přes `BallsMap`** (pořadí `BallContactEventHandler`u) a teprve když knihovna souhlasí, level odmítne. Levná půlka je zdola omezená a rozhodne většinu balíku bez jediného tahu: kulička na kotevním kurzu nemůže osiřet, takže **level nejde vyčistit méně ranami, než kolik barev na kotevním kurzu stojí**.
+- ⚠ **Balík mě opravil: samotný počet ran bránou být nemůže.** Kromě Saturnu se **16 levelů čistí dvěma ranami a dalších 9 třemi** — a nejsou to chyby: pole visí jen na horním kurzu, takže nejlevnější vyčištění je vždycky „přestřihni, co to drží", a půlka Coilu je tak **navržená** (Pendant je závaží na čtyřech lanech, dvě hlavy lan po 8 kuličkách shodí všech 147). Brána na „méně než tři rány" by vrátila 17 shipnutých levelů. Rozlišuje až **kolik pole ty rány seberou shodou** místo osiřením: Saturn 61 %, každý další dvouranový level 39 % a níž (Crane 39, Minaret 29, Ghost 21, medián 12,5). Práh je tedy dvojitý — pod 3 rány A přes 50 % shodou — a odmítá přesně to, co majitel vrátil.
+- **Saturn: šest poledníkových výsečí** přes vlastní čtyři barvy (Diabolova konstrukce o dva levely dřív ve stejném bloku). Kotevní kurz byl `zelená ×5, modrá ×4`, teď `zelená ×4, modrá ×3, žlutá ×1, červená ×1` → „no fewer than 4", jak čte všech devět sourozenců. **Ani jedna buňka se nehnula** (stejných 377 obsazených buněk, prstenec, paprsky i silueta), změnila se jen barva. Anchor load 64,5 → 57,8, sonda 2 z 5 → **1 z 5** za tlaků setu.
+- **Ověřeno:** LevelGen exit 0 přes všech 110 levelů, exit 1 na starém Saturnu přes `--clearfile`; ScoreSim exit 0; Game.sln staví s 0 chybami; level vyfocen ve hře i v Testbedu (výseče čtu jako poledníky, všechny čtyři barvy v pohledu od děla).
+- **Nové přepínače:** `--clear` přidá paprskový (beam) řádek — horní odhad, tak i označený — a `--clearfile=<cesty>` se ptá na soubory mimo set. Odtud čísla za hloubkou 3: 17 levelů na 4, ocas až **Ziggurat 24**, a **Colossus** (jediný ručně kreslený, `Validate` ho nikdy nevidí) „no fewer than 6", beam 18.
+- ⚠ **Nález mimo zadání, nesahám na to:** komentář u `Diabolo` říká „Six sectors onto three colours … Band folds sector k and k + 3 onto one entry", ale paleta má **čtyři** položky, takže se sklápí k a k+4. Buď je komentář zastaralý, nebo paleta. Patří k #400.
+- **Co zůstává:** merge na slovo majitele. Otevřená otázka pro něj: tříranové levely (Horn sebere shodou 90 %, Trophy 68) brána dnes nechává být — je to jeho rozhodnutí, ne nástroje.
+
+**Nic dalšího si neberu.**
