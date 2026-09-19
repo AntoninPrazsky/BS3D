@@ -3957,3 +3957,14 @@ Drobnost pro příště: `--generate-notes` přidalo pod naše notes **13 polož
 **Ověřeno snímky** ze čtyř kamer + baobab zblízka: stromy, balvany, kopje, palmy i baobab vrhají stín na trávu a na sebe (kmen pod korunou), bez acne, okraj mapy se ztrácí neznatelně. Game i MapEditor staví (exit 0); ve hře samotné neověřeno — hrací pohled jen z Testbedu v game módu.
 
 **Stránka před/po** doplněna o oheň, baobab s palmou a stíny: <https://claude.ai/artifact/D6DwJ4rdgvMSP8sxnNHdYj>. **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-19 — Claude Code, bs3d-f0 (#470 a #471 založeny, jen issues)
+
+**Na pokyn majitele „založ issue na vrhání stínu ostrovem a obecně na přidání stínů do všech scén"** — dvě poznámky, dvě issues. Sémantické hledání (nomic, 452 issues) na obou: **žádná duplicita**, nejblíž #404 (vzhled ostrova per scéna), #282, #451.
+
+- **#470 ostrov**: ostrov, děla i koule kreslí přes `InstancedModel.fx`, který nemá caster techniku a `Shadows.fxh` neincluduje — největší těleso scény nevrhá nic a plotna nic nepřijímá. Chce: cap a drum do mapy, dělo na plotnu, plotna přijímá; koule (nejtěžší pass) jako měřená volba až potom. ⚠ `DrawShadowMaps` ostrov kreslit nemůže (je to objekt exe, ne rendereru — „the setting, in one copy") → buď callback na castery, nebo `SunShadowMap` jako objekt, který exe samo otevře kolem svých casterů; druhé je čistší a #471 ho bude chtít stejně.
+- **#471 všechny scény**: tabulka co vrhá / co přijímá per backdrop (louka = ostrov a dělo, první kapitola; les = 380 stromů přes `InstancedModel.fx`; tropy = `Palm.fx`; města = věže do ulic; noční/bezsluneční scény brána už přeskakuje). Chce `ShadowConfig` na `SceneConfig`, caster techniky per efekt, fit per scénu (hora, města), měřit každou proti mainu.
+
+Křížové komentáře na #469, #470, #471. Žádný kód. **Nic si neberu.**
