@@ -4735,3 +4735,22 @@ Dosavadní pravidlo „syntetický vstup se do `BS3D.exe` nikdy nedostane" je **
 
 **Co to odblokuje:** městská půlka #471 (`471-city-shadows`, přerovnaná na `b576ffe`) jde teď změřit jedním během, a otázka „stojí receiver ulic za to?" je týž sweep s registrací `CityStreets.fx` a bez ní. Rámování zůstává samostatný problém.
 
+---
+
+## 2026-09-19/20 — Claude Code (šestá dávka volných poznámek, deset issues)
+
+**Majitel poslal deset volných postřehů z hraní, s výslovným „založ na základě nich issues" — založeno 1:1, žádné svinuté do komentáře.** Napřed anti-duplicate legwork: `gh issue list --search` po klíčových slovech + `Tools/SemanticSearch --file` na celou dávku (žádný silný zásah, nejbližší 0,789) + přečtení dnešního ocasu deníku. Osm z deseti navazuje na issue zavřenou nebo otevřenou dnes/nedávno — dostaly i odkazující komentář tam, ne jen nové issue.
+
+- **#477** — mouse v ADS je po #384 subjektivně POMALEJŠÍ, ne rychlejší. #384 samo je matematicky v pořádku (tangent ratio ~0,828 proti FOV), ale majitel chce ADS rychlejší, ne geometricky „správné". Komentář na #384.
+- **#478** — barva náboje v ústí (#425's lathovaný límec, `main` `67efa2e`) majiteli nesedí barvou a je moc velká/neprůhledná. ⚠ Dva different mechanismy dnes existovaly (starý `BallGlow` billboard vs. nový límec) — nejasné, proti kterému majitel hrál. Komentář na #425.
+- **#479** — CLEARED obrazovka (`ResultPage.BuildBreakdown`) čte jako daňový formulář, ne jako hra. Nová issue, žádný předchůdce.
+- **#480** — periodické „glance up" na ohňostroj (#430, `GLANCE_RISE/HOLD/HEIGHT`) je dobrý nápad, ale moc rychlý/silný — motion sickness. Komentář na #430.
+- **#481** — ohně (#468, dnes zavřené) jsou pořád ploché billboardy z boku. #468's vlastní prostřední komentář to už pojmenoval („left open for that") a issue se zavřela stejně. Komentář na #468.
+- **#482** — generovat a REÁLNĚ NASADIT zvukové efekty (fanfáry, ohňostroj, kuličky) AI modelem, ne jen referenci jako #442. Je to zvukový ekvivalent toho, co #443 udělalo hudbě (a tím implicitně řeší #442's vlastní otázku o #187). Komentář na #442.
+- **#483** — pouštní kapitola (The Coil) potvrzena hraním jako dobrý vzor (zvuk/vizuál/obtížnost) — čistě pozitivní poznámka, založena i tak na majitelův výslovný pokyn. Bez předchůdce, kříženo na #446/#449/#398/#451.
+- **#484** — stíny na High jsou „kostičkované" + otázka, jestli založit tier „Ultra" nad High's 75Hz/6900XT cíl. Rozlišeno na dvě otázky (doladit MapSize/Extent vs. nový tier). Komentář na #471.
+- **#485** — poklice omni kola (#129) jsou jen plochý kotouč — #129's vlastní návrh to přiznává (hub byl záměrně jednoduchý, důraz byl na válečky). Komentář na #129.
+- **#486** — rozšířit desert's `ember`+5 vzor (#446's tabulka) na každou kapitolu, cíl ~10 skladeb na kapitolu. Komentář na #446, který pojmenovává i mechanickou překážku (`MusicTheme` enum lookup).
+
+**Nic si neberu — jen triage, žádný kód.**
+
