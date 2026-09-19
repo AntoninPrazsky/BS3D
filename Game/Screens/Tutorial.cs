@@ -1,4 +1,4 @@
-using Prazsky.BS3D.Levels;
+﻿using Prazsky.BS3D.Levels;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -24,8 +24,11 @@ namespace BS3D.Screens
     /// <para>
     /// <b>Two kinds of lesson, told apart by how they end.</b> An <see cref="Definition.Action"/> lesson stays
     /// up until the game reports the thing was done — the barrel actually moved, a shot actually left, a group
-    /// actually fell — and then flips to its praise word, which is what makes it feel like a game rather than a
-    /// manual: the card is a small dare, and doing the thing wins it. It is never blocking — the gun answers
+    /// actually fell — and is then <b>joined</b> by its praise word, which is what makes it feel like a game
+    /// rather than a manual: the card is a small dare, and doing the thing wins it. Joined rather than replaced
+    /// since #466, and held to <see cref="MIN_READ_SECONDS"/> whatever happens: the card used to flip on the
+    /// frame of the action and take its detail line with it, so the lessons a player does fastest — which are
+    /// the first ones they meet — showed their instruction for a fraction of a second. It is never blocking — the gun answers
     /// throughout — and it gives up after <see cref="ACTION_TIMEOUT"/> rather than nagging for the whole level,
     /// coming back on the next one. An informational lesson (the glass, the streak, the line, the budget) has
     /// nothing to wait for, so it holds <see cref="INFO_SECONDS"/> and goes. Three of those are
@@ -196,7 +199,19 @@ namespace BS3D.Screens
         private const float ARRIVE_SECONDS = 0.4f;
         private const float LEAVE_SECONDS = 0.35f;
         private const float SUPPRESS_SECONDS = 0.25f;
-        private const float PRAISE_SECONDS = 1.3f;
+        private const float PRAISE_SECONDS = 2.2f;
+
+        //How long an action card's INSTRUCTION is guaranteed to stand, counted from the moment the card is up
+        //(#466). Until #466 there was no such guarantee at all and the card flipped to its praise word on the
+        //frame the action landed — so the fastest lessons, which are the first ones a new player meets, showed
+        //their instruction for a fraction of a second and the owner's report was that the text "just flashes
+        //past and the player has no time to read it". The action is still recorded on its own frame and the
+        //chime and the score's spring still fire there; only the TEXT waits.
+        private const float MIN_READ_SECONDS = 2.8f;
+
+        //The praise's flare is its own, shorter clock than the praise itself: the glow is a flash answering the
+        //moment, and stretched over the whole hold it would read as a word that simply glows.
+        private const float PRAISE_FLARE_SECONDS = 0.9f;
         private const float INFO_SECONDS = 7f;
         private const float ACTION_TIMEOUT = 22f;
         private const float FIRST_CARD_DELAY = 0.9f;
@@ -270,28 +285,38 @@ namespace BS3D.Screens
         /// </summary>
         internal bool Praising => _phase == Phase.Praising || (_phase == Phase.Leaving && _praised);
 
-        /// <summary>1 on the frame the praise lands, falling to 0 as it ends — the flash's own clock.</summary>
-        internal float PraiseHeat => _phase == Phase.Praising ? 1f - _praise / PRAISE_SECONDS : 0f;
+        /// <summary>1 on the frame the praise lands, falling to 0 as it ends — the flash's own clock, which is
+        /// shorter than the praise's hold (see <see cref="PRAISE_FLARE_SECONDS"/>).</summary>
+        internal float PraiseHeat => _phase == Phase.Praising
+            ? MathF.Max(0f, 1f - _praise / PRAISE_FLARE_SECONDS) : 0f;
+
+        /// <summary>
+        /// The praise word once the action has been done, or null. <b>It stands beside the instruction rather
+        /// than in its place since #466</b>: the caption and the detail line stay legible under it and the
+        /// whole card leaves together, where before the praise replaced the caption and took the detail line
+        /// away entirely — so the one moment the player had earned the right to re-read the lesson was the
+        /// moment it disappeared.
+        /// </summary>
+        internal string Praise => Praising && _card != null ? _card.Praise : null;
 
         /// <summary>The prompt font's glyphs for the card — a keycap, a mouse, a trigger — or null for none.</summary>
         internal string Glyph => _card == null ? null
             : _device == Device.Gamepad ? _card.PadGlyph ?? _card.Glyph : _card.Glyph;
 
-        /// <summary>The line of what to do, or the praise once it has been done.</summary>
+        /// <summary>The line of what to do. It stays up through the praise since #466 — see <see cref="Praise"/>.</summary>
         internal string Caption
         {
             get
             {
                 if (_card == null) return null;
-                if (Praising) return _card.Praise;
                 if (_card.Lesson == Lesson.Ceiling) return _ceilingCaption;
 
                 return _device == Device.Gamepad ? _card.PadCaption ?? _card.Caption : _card.Caption;
             }
         }
 
-        /// <summary>The smaller second line, or null for a one-line card. Gone while the praise is up.</summary>
-        internal string Detail => _card == null || Praising ? null
+        /// <summary>The smaller second line, or null for a one-line card. It stays up through the praise too (#466).</summary>
+        internal string Detail => _card == null ? null
             : _device == Device.Gamepad && _card.PadCaption != null ? _card.PadDetail : _card.Detail;
 
         /// <summary>
@@ -476,7 +501,10 @@ namespace BS3D.Screens
                     _age += elapsed;
                     _praise += elapsed;
 
-                    if (_praise >= PRAISE_SECONDS) _phase = Phase.Leaving;
+                    //Both clocks, not either (#466): the praise has had its hold AND the instruction has stood
+                    //long enough to be read. An action done in the first half-second — the common case on the
+                    //fire and aim lessons — is what the second half of that is for.
+                    if (_praise >= PRAISE_SECONDS && _age >= MIN_READ_SECONDS) _phase = Phase.Leaving;
                     break;
 
                 case Phase.Leaving:
