@@ -421,6 +421,11 @@ namespace BS3D.Tools.LevelGen
         /// <summary>Where the levels are written. Set once in <see cref="Main"/>, read by everything below.</summary>
         private static string _outDir;
 
+        /// <summary>Whether <c>--clear</c> was asked for: the shortest-clear gate then reports a beam line as
+        /// well as its floor (#458). It changes what is printed and never what is refused — see
+        /// <see cref="ClearProbe"/>.</summary>
+        private static bool _deepClear;
+
         private static int Main(string[] args)
         {
             //The output directory is still the first PLAIN argument, exactly as it was; the flags are named so
@@ -443,6 +448,19 @@ namespace BS3D.Tools.LevelGen
                 .ToArray();
 
             if (sagFiles.Length > 0) return RunSagFiles(sagFiles) ? 0 : 1;
+
+            //THE SHORTEST CLEAR (#458). The gate itself runs on every invocation and costs milliseconds - see
+            //ClearProbe for why the floor answers most of the pack before a move is played. `--clear` adds the
+            //beam, which is the only way to get a number out of a level the gate stops searching, and
+            //`--clearfile=` asks it of a level file the set has never heard of, exactly as `--sagfile=` does.
+            _deepClear = args.Any(a => a == "--clear");
+
+            string[] clearFiles = args
+                .Where(a => a.StartsWith("--clearfile=", StringComparison.Ordinal))
+                .SelectMany(a => a["--clearfile=".Length..].Split(',', StringSplitOptions.RemoveEmptyEntries))
+                .ToArray();
+
+            if (clearFiles.Length > 0) return RunClearFiles(clearFiles) ? 0 : 1;
 
             try
             {
@@ -740,6 +758,42 @@ namespace BS3D.Tools.LevelGen
                 Console.WriteLine($"      {heavy} heavy ball(s); the same level at ordinary mass sagged "
                     + $"{plainSags} of {plain.Length}, closest {plainWorst.WorstClearance,6:F2}"
                     + $" - the mass is worth {plainWorst.WorstClearance - worst.WorstClearance,5:F2} of clearance");
+            }
+
+            return ok;
+        }
+
+        /// <summary>
+        /// Asks the shortest-clear gate (#458) about level FILES rather than about the designs this tool
+        /// writes — a scratch level, a level being redrawn, or the one shipped level nothing here generates.
+        /// <b>Colossus is the reason it exists</b>: it is hand-drawn, so <see cref="Validate"/> never sees it,
+        /// and "every shipped level needs at least four shots" is a claim about the campaign rather than about
+        /// the generator. Always deep, since a file asked about one at a time is worth the beam's tenth of a
+        /// second.
+        /// </summary>
+        private static bool RunClearFiles(string[] paths)
+        {
+            Console.WriteLine("=== shortest clear: the named level FILES ===");
+
+            bool ok = true;
+
+            foreach (string path in paths)
+            {
+                if (!File.Exists(path))
+                {
+                    Console.WriteLine($"  {Path.GetFileName(path),-16} MISSING - not on disk");
+                    ok = false;
+                    continue;
+                }
+
+                Level level = Level.Load(path);
+                ClearProbe.Reading clear = ClearProbe.Measure(level.Map, deep: true);
+
+                Console.WriteLine($"  {Path.GetFileName(path),-16} {clear.Removable,4} removable balls;"
+                                  + $" shortest clear: {clear.Describe()}"
+                                  + (clear.TooCheap ? "  <-- CLEARS TOO CHEAPLY" : string.Empty));
+
+                if (clear.TooCheap) ok = false;
             }
 
             return ok;
@@ -1407,10 +1461,20 @@ namespace BS3D.Tools.LevelGen
                                   + (percent >= ONE_SHOT_PERCENT ? "  <-- ONE-SHOT LEVEL" : string.Empty));
             }
 
+            //HOW FEW SHOTS EMPTY IT (#458), and it is the question every line above turns its back on: each of
+            //them reads ONE cut, and Saturn's fault was the second one. See ClearProbe for what a move is, what
+            //it deliberately does not play, and why the anchor course's colour count answers most of the pack
+            //before a move is played.
+            ClearProbe.Reading clear = ClearProbe.Measure(loaded.Map, _deepClear);
+            Console.WriteLine($"    shortest clear: {clear.Describe()}"
+                              + (clear.TooCheap
+                                  ? $"  <-- MATCHED AWAY IN UNDER {ClearProbe.MINIMUM_CLEAR_SHOTS} SHOTS"
+                                  : string.Empty));
+
             return disconnected == 0 && lonely.Alone == 0 && !oneShot && margin >= 1
                    && stranded.Walled == 0 && stranded.Anchoring == 0 && stranded.CeilingRocks == 0
                    && stranded.AloneGlass == 0 && stranded.SealedIce == 0 && stranded.CeilingInfection == 0
-                   && stranded.BuriedWells == 0 && stranded.InertHeavy == 0;
+                   && stranded.BuriedWells == 0 && stranded.InertHeavy == 0 && !clear.TooCheap;
         }
 
         /// <summary>

@@ -3980,3 +3980,30 @@ Dvě majitelovy poznámky z hraní, dvě issues. Sémantické hledání (nomic, 
 **#473 puls odpojených koulí** („odpojené míčky pořád blikají — mělo by to být jen na aktivně připojených"). Mechanismus přečten a je to přesně tak: `PulseDepth` je **per-renderer** uniform (`DrawPlane`), takže dýchá každá koule v barevném bucketu — a `ClusterCollector.Collect` do nich sype tři populace: mřížku, výstřel v letu a **`falling`, tj. uvolněné**. Jediné, co puls uvolněné kouli zastaví, je dead-weight přechod (#342, `DrawDead` nastaví `PulseDepth = 0`) — jenže `AdvanceDeadWeight` ho spustí až když koule **stojí** (0,35) po 0,6 s **a** leží **nad** podlahou pole, a pak 0,55 s přechod. Takže: celou dobu pádu dýchá, koule ležící na kameni ostrova (pod podlahou pole) nedostane značku nikdy — a ⚠ **v Testbedu se `deadWeightAboveY` nepředává vůbec** (default `float.MaxValue`), takže tam po uvolnění dýchá všechno napořád. Issue nabízí dvě cesty (druhá rovina na nule jako `STILL_PLANE_STRIDE`, nebo per-instance kanál) a nechává na rozhodnutí, co s koulí **v letu** (#252 říká o nabité kouli „nesmí dýchat" — táž úvaha o kus dál). Křížové komentáře s #412 (tamto je *značka*, tohle *puls*).
 
 Žádný kód. **Nic si neberu.**
+
+---
+
+## 2026-09-19 — Claude Code (notebook: #458 Saturn se vyčistí dvěma ranami)
+
+**Beru si #458** na pokyn majitele („vyber nějaký komplexní a začni na něm pracovat"). Větev `458-shortest-clear-gate`, notebook v `C:\GitHub`.
+
+- **Zjištěno z kódu:** Saturnův globus jsou dvě 180° poledníkové půle (modrá, zelená) a kotevní kurz (`i = depth-1`, `r ≤ SATURN_CAP`) je rozdělený přesně mezi ně — takže dvě shody vezmou všechny kotvy a prstenec i paprsky spadnou za nimi jako sirotci. `DropTest` se ptá, co jedna rána shodí, nikdy kolik shod stačí na prázdné pole.
+- **Plán, dvě půlky:**
+  1. **Nová brána** `Tools/LevelGen/ClearProbe.cs` — nejkratší vyčištění: tah = dopad do prázdné buňky vedle stojící kuličky, obarvení skla (`ColourTransparentGroup`), skupina ≥ `MINIMUM_CLUSTER_SIZE`, pak pád sirotků; cíl je nula odstranitelných kuliček. Vyčerpávající do hloubky, na které brána odmítá, dál paprskem (beam) jen pro číslo do logu. Model **vynechává** výbuch bomby, zap, kyselinu, led a nákazu, takže naměřené číslo je horní odhad — brána proto nemůže odmítnout level, který levný není, jen minout ten, který je.
+  2. **Překreslení Saturnu** tak, aby dvě rány nesebraly všechny kotvy — víc výsečí, paleta bloku beze změny.
+- **Pořadí:** nejdřív brána, změřit rozdělení přes všech 110 levelů, teprve z těch čísel zvolit práh a cíl pro Saturn.
+- **Beru na sebe:** `Tools/LevelGen/*`, `Game/Levels/*` (regenerace), `docs/formats-and-tools.md`.
+
+**Nic dalšího si neberu.**
+
+**Dodatek: hotovo na větvi `458-shortest-clear-gate` (`cd3d98d`), NENÍ v mainu — čeká na slovo majitele.**
+
+- **Nová brána `Tools/LevelGen/ClearProbe.cs`.** Hraje level na mřížce (dopad = otevřená kapsa + barva + obarvené sklo + skupina; pak padají sirotci), cíl nula odstranitelných kuliček. Vyčerpávající do hloubky, kterou hlásí (3); **nalezenou sekvenci přehraje přes `BallsMap`** (pořadí `BallContactEventHandler`u) a teprve když knihovna souhlasí, level odmítne. Levná půlka je zdola omezená a rozhodne většinu balíku bez jediného tahu: kulička na kotevním kurzu nemůže osiřet, takže **level nejde vyčistit méně ranami, než kolik barev na kotevním kurzu stojí**.
+- ⚠ **Balík mě opravil: samotný počet ran bránou být nemůže.** Kromě Saturnu se **16 levelů čistí dvěma ranami a dalších 9 třemi** — a nejsou to chyby: pole visí jen na horním kurzu, takže nejlevnější vyčištění je vždycky „přestřihni, co to drží", a půlka Coilu je tak **navržená** (Pendant je závaží na čtyřech lanech, dvě hlavy lan po 8 kuličkách shodí všech 147). Brána na „méně než tři rány" by vrátila 17 shipnutých levelů. Rozlišuje až **kolik pole ty rány seberou shodou** místo osiřením: Saturn 61 %, každý další dvouranový level 39 % a níž (Crane 39, Minaret 29, Ghost 21, medián 12,5). Práh je tedy dvojitý — pod 3 rány A přes 50 % shodou — a odmítá přesně to, co majitel vrátil.
+- **Saturn: šest poledníkových výsečí** přes vlastní čtyři barvy (Diabolova konstrukce o dva levely dřív ve stejném bloku). Kotevní kurz byl `zelená ×5, modrá ×4`, teď `zelená ×4, modrá ×3, žlutá ×1, červená ×1` → „no fewer than 4", jak čte všech devět sourozenců. **Ani jedna buňka se nehnula** (stejných 377 obsazených buněk, prstenec, paprsky i silueta), změnila se jen barva. Anchor load 64,5 → 57,8, sonda 2 z 5 → **1 z 5** za tlaků setu.
+- **Ověřeno:** LevelGen exit 0 přes všech 110 levelů, exit 1 na starém Saturnu přes `--clearfile`; ScoreSim exit 0; Game.sln staví s 0 chybami; level vyfocen ve hře i v Testbedu (výseče čtu jako poledníky, všechny čtyři barvy v pohledu od děla).
+- **Nové přepínače:** `--clear` přidá paprskový (beam) řádek — horní odhad, tak i označený — a `--clearfile=<cesty>` se ptá na soubory mimo set. Odtud čísla za hloubkou 3: 17 levelů na 4, ocas až **Ziggurat 24**, a **Colossus** (jediný ručně kreslený, `Validate` ho nikdy nevidí) „no fewer than 6", beam 18.
+- ⚠ **Nález mimo zadání, nesahám na to:** komentář u `Diabolo` říká „Six sectors onto three colours … Band folds sector k and k + 3 onto one entry", ale paleta má **čtyři** položky, takže se sklápí k a k+4. Buď je komentář zastaralý, nebo paleta. Patří k #400.
+- **Co zůstává:** merge na slovo majitele. Otevřená otázka pro něj: tříranové levely (Horn sebere shodou 90 %, Trophy 68) brána dnes nechává být — je to jeho rozhodnutí, ne nástroje.
+
+**Nic dalšího si neberu.**

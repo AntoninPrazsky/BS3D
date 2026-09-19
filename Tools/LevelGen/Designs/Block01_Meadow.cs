@@ -892,11 +892,41 @@ namespace BS3D.Tools.LevelGen
         /// path: any one spoke can carry it because the hoop distributes the load around itself.
         /// <para>
         /// Both of the judged spec's amendments are taken. It is <b>Saturn</b>, not the working name Halo
-        /// (the campaign's nebula block already owns that word); and the planet is TWO 180-degree meridian
-        /// halves, blue and green, rather than the drawn three - the five-colour palette trimmed to the
-        /// block's four, dropping white, which also removes the white/yellow confusable pair the spec
-        /// flagged. The seam (<see cref="SATURN_SEAM"/>, a quarter turn) runs down the +/-Z meridians so
-        /// both halves face the gun, each ~29 % and orphaning nothing.
+        /// (the campaign's nebula block already owns that word); and the five-colour palette is trimmed to
+        /// the block's four, dropping white, which also removes the white/yellow confusable pair the spec
+        /// flagged.
+        /// </para>
+        /// <para>
+        /// <b>⚠ THE PLANET IS SIX MERIDIAN GORES AND WAS TWO HEMISPHERES UNTIL #458, WHICH IS THE ONE THING
+        /// TO KNOW ABOUT THIS DESIGN.</b> Two halves, blue and green, were one connected group each and were
+        /// <i>all</i> that stood on the anchor course - so one blue match and one green match took all 377
+        /// balls, the ring and the spokes falling as orphans behind them, off a budget of 36. The owner
+        /// played it and sent it back in four words: <i>"Saturn can be finished in two shots."</i> Every gate
+        /// this tool had passed it, and each of them honestly: nothing floats, nothing stands alone, the best
+        /// single shot took 33 %, the anchor load was the block's boldest but within it. What none of them
+        /// asked was <b>how few matches empty the field</b>, which is <see cref="ClearProbe"/> now, and what
+        /// it reads off this design is the shape of the fix: <b>a level cannot be emptied in fewer shots than
+        /// there are colours standing on its anchor course</b>, and this one carried two.
+        /// <para>
+        /// So the globe is cut into <see cref="SATURN_GORES"/> sixty-degree gores over the same four colours,
+        /// which is <see cref="Diabolo"/>'s construction two levels earlier in the same block, and the cap
+        /// carries all four of them. The level reads <i>no fewer than four</i>, where its nine siblings all
+        /// do and it alone did not. Nothing else about the planet moves: the gores still run glass to pole,
+        /// so the block's one rule holds (a colour is never a horizontal shell alone), and each is still a
+        /// plate of dozens rather than a stripe.
+        /// </para>
+        /// </para>
+        /// <para>
+        /// The seam (<see cref="SATURN_SEAM"/>) puts the six boundaries at 30 degrees plus multiples of 60,
+        /// which is worth two sentences because it decides two different things. <b>What the player sees:</b>
+        /// the gun starts on +Z, so the visible hemisphere runs from the middle of one gore to the middle of
+        /// the fourth - <i>all four colours are in view from the first shot</i>, where three consecutive
+        /// whole gores would have hidden one. <b>What touches what:</b> a gore's colour is the colour of the
+        /// balls the spokes are rooted in, and a red gore rooting a red spoke welds the two into one group.
+        /// Six sixty-degree gores and four spokes ninety degrees apart cannot avoid that - the gaps between
+        /// the spokes' own reach are 52 degrees wide and a gore is 60 - so it is <b>placed</b> rather than
+        /// dodged: red is centred on -X, the spoke furthest round from the gun, and the three spokes the
+        /// player faces stay the isolated four-ball groups the design is about.
         /// </para>
         /// <para>
         /// The geometry: a sphere of <see cref="SATURN_GLOBE"/> about the equator between the ring's two
@@ -945,9 +975,19 @@ namespace BS3D.Tools.LevelGen
         private const float SATURN_SPOKE_OUTER = 4.5f;
         private const float SATURN_SPOKE_HALF = 0.9f;
 
-        //A quarter turn: the two-sector seam lands on the +/-Z meridians, so the gun starting on +Z sees
-        //both hemispheres from the first shot instead of one face-on and one hidden behind the mass.
-        private const float SATURN_SEAM = 0.25f;
+        //THE GORES (#458). Six of them over the design's own four colours, so Band folds gore k and k + 4
+        //onto one entry: blue and green are each painted on two gores 120 degrees apart, yellow and red on
+        //one each. The palette is the planet's alone - the yellow of the ring and the red of the spokes are
+        //the SAME two entries, which is deliberate rather than a clash: it is the block's four colours and no
+        //more, and the ring stays a group of its own because the one-cell air gap keeps it off the globe.
+        //
+        //SEAM: the boundaries land at 30 + 60k degrees, so a gore is CENTRED on each lattice axis and the
+        //visible hemisphere from +Z spans four of them. It also centres the red gore on -X - see the design's
+        //doc for why that spoke is the one chosen to be welded into its gore.
+        private const int SATURN_GORES = 6;
+        private static readonly BallType[] SATURN_PALETTE =
+            { BallType.Type3, BallType.Type2, BallType.Type7, BallType.Type1 }; //blue, green, yellow, red
+        private const float SATURN_SEAM = 7f / 12f;
 
         /// <summary>
         /// Whether a cell is on the planet, its cap, its ring or a spoke. The sphere's own test bounds it
@@ -968,10 +1008,10 @@ namespace BS3D.Tools.LevelGen
         }
 
         /// <summary>
-        /// The planet's colour: the ring yellow, the spokes red, the sphere in two meridian halves. Ring
-        /// before spoke, because the two windows overlap between <see cref="SATURN_RING_INNER"/> and
-        /// <see cref="SATURN_SPOKE_OUTER"/> and the ring must stay uniform - it is coloured as ONE group on
-        /// purpose, the block's loudest lesson.
+        /// The planet's colour: the ring yellow, the spokes red, the sphere in <see cref="SATURN_GORES"/>
+        /// meridian gores. Ring before spoke, because the two windows overlap between
+        /// <see cref="SATURN_RING_INNER"/> and <see cref="SATURN_SPOKE_OUTER"/> and the ring must stay uniform
+        /// - it is coloured as ONE group on purpose, the block's loudest lesson.
         /// </summary>
         private static BallType SaturnColour(float r, float ang, int i, int depth)
         {
@@ -981,8 +1021,7 @@ namespace BS3D.Tools.LevelGen
             if (SaturnRingCourse(i) && SaturnSpoke(r, ang))
                 return BallType.Type1; //red - the four spokes, small isolated groups on purpose
 
-            return Band(SectorIndex(ang, SATURN_SEAM, 2),
-                new[] { BallType.Type3, BallType.Type2 }); //blue, green
+            return Band(SectorIndex(ang, SATURN_SEAM, SATURN_GORES), SATURN_PALETTE);
         }
 
         /// <summary>The cell's true 3D distance from the sphere's centre on the equator line, the vertical

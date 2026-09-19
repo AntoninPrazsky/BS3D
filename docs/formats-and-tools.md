@@ -246,7 +246,7 @@ The model loads a colour the way `RandomBallType` does (uniform over the colours
 | level | sag | ceiling anchors → after one shot | anchor load | biggest standing group |
 |---|---|---|---|---|
 | Amphora | **3 of 5** | 20 → 14 | 33.8 | 64 of 502 (13 %) |
-| Saturn | **2 of 5** | 9 → 4 | **64.5** | 128 of 377 (34 %) |
+| Saturn | **2 of 5** → **1 of 5** after #458 | 9 → 4, now 9 → 5 | **64.5** → 57.8 | 128 of 377 (34 %) |
 | Meerkat | **2 of 5** → **1 of 5** after the fix below | 26 → 22 | 16.2 | **86 of 364 (24 %)** → 54 (14 %) |
 | Giraffe | **1 of 5** | 30 → 26 | 15.8 | 30 of 420 (7 %) |
 
@@ -254,7 +254,7 @@ The three figures already quoted in the source (Amphora 3, Saturn 2, Giraffe 1) 
 
 **The sag does not track the anchor load and it does not track the group size either — each of these levels loses its own way**, which is why "the game is luck" is the wrong single diagnosis:
 
-- **Amphora and Saturn are anchor-starved.** Saturn hangs 377 balls on **nine** ceiling cells and one shot leaves four of them; Amphora is the level `WorstAnchorLoad` was written about. Their remedy is anchors or width, and it changes the shape of a vase and a planet, so it is the owner's call and is **not** taken here.
+- **Amphora and Saturn are anchor-starved.** Saturn hangs 377 balls on **nine** ceiling cells and one shot leaves four of them; Amphora is the level `WorstAnchorLoad` was written about. Their remedy is anchors or width, and it changes the shape of a vase and a planet, so it is the owner's call and was **not** taken here. **#458 reached the same place from the other side and the figures moved with it**: cutting Saturn's globe into six gores over its own four colours put four colours on the anchor course (the point of that change, see the shortest-clear gate below), and because no single match now takes half the cap, the worst shot leaves **five** anchors rather than four — anchor load **64.5 → 57.8**, sag **2 of 5 → 1 of 5** under this table's own pressures. The planet's shape, its 377 cells and its nine anchors are untouched; only the colouring moved.
 - **Meerkat was a single group.** The trace names it outright: **every losing run lost on the shot that matched its 86-ball brown group**, and the runs where the same group went later survived with eight units of clearance. That is not the physics being unpredictable, it is one shot taking a quarter of the cluster.
 - **Giraffe is the floor.** 1 of 5 with no group over 7 % and a healthy anchor load is what the source already calls "the estimator's floor for a 14-course curtain".
 
@@ -269,6 +269,74 @@ Measured on every run, printed beside the group count, and **new**: only the fie
 It came out of the probe rather than from reasoning. Hanging **Amphora** in the real simulation and shooting one group off it dropped the ceiling links from **20 to 14 with nothing orphaned**, and the vase then descended five and a half units in a second — through a death line it had started four and a half above. Every gate in this tool passed that level, and passes it still: nothing floats, nothing stands alone, its best single shot takes 12 %.
 
 The pack's spread of *balls per surviving anchor at the worst single shot* runs from **Gantry at 3.4** to **Giza at 139.2**, and the shipped set sits across the whole of it: Trilithon 4.4, Cube 7.1, Cabinet 12.0, Ziggurat 12.7, Chest 13.8, Spring 15.1, Belfry 17.1, Vortex 25.9, Analemma 29.8, Pylon 34.0, Globe 35.1, Orrery 37.0, Bolt 64.7, Ghost 66.8, Ten 100.8. (#301's fixes moved the five it touched — Globe most, 92.4 → 35.1, the polar plateau's whole point — but only as a side effect; the loads above are the re-measured set.) **⚠ It does not separate the reported levels from the rest either** — Giza at 139 and Ten at 101 are worse than most of the reported nine ever were and are not complained about, while Cabinet was reported at 13.1 — so it is a figure to design against and *not* a gate, and no threshold is enforced on it. What it is good for is the same thing the group-count ratio is good for: knowing, while a design is being written, that a shape hanging 900 balls off five cells is asking something of the glass that a shape hanging 300 off ninety is not. **#325 is the first time it would have answered a question in advance**: `Diadem` was the one level of 105 the probe reported, its cause was that a ring band has fewer ceiling sockets than a solid body of the same width, and widening the band from 80 anchors to 100 is the whole fix. The Mirage's ten sit at **3.7 (Trefoil) to 14.7 (Keystone)**, which is the low end of this table — a chapter built out of wide flat plates and stone tops.
+
+### The shortest clear: how few shots empty the field (#458)
+
+**Every gate above reads ONE cut.** The drop test asks what one shot is worth and refuses a level where one shot
+is worth everything; the anchor load asks what the glass carries afterwards. The fault none of them can see is a
+level that is not taken by one shot and *is* taken by two — and the owner found it by playing: **"Saturn can be
+finished in two shots."** The planet was two 180-degree meridian halves, blue and green, so its anchor course
+carried exactly two colours and two matches took all 377 balls off a budget of 36, the ring and the spokes falling
+as orphans behind them. Every number the tool printed about it was true: nothing floats, nothing stands alone, the
+best single shot took 33 %, the anchor load was the block's boldest and inside the pack's spread.
+
+`Tools/LevelGen/ClearProbe.cs` asks the missing question on every run. It **plays** the level on the lattice — a
+move is a landing (an empty pocket a shot can reach, a colour, the glass body that landing would colour, and the
+group it completes), then everything that group was holding up falls with it — and the field is *clear* when no
+removable ball is left standing, which is `CheckLevelCleared`'s own condition. The answer is the fewest moves that
+get there. It is not the simulation: `SagProbe` is that, and costs minutes where this costs milliseconds.
+
+**The cheap half is a sound lower bound and it answers most of the pack before a move is played.** The
+disconnection walk seeds from every cell of the field's **top** level, so a ball up there can never be orphaned —
+nothing the player does to the rest of the level can drop it, and it has to be *matched*. One shot matches one
+group and a group is one colour, so **a level cannot be emptied in fewer shots than there are colours standing on
+its anchor course**. Saturn's fault is that sentence as a number, and so is its cure:
+
+| Saturn's anchor course (9 cells) | colours | shortest clear |
+|---|---|---|
+| before #458 | green x5, blue x4 | **2 shots**, matching 233 of 377 (61 %) |
+| after | green x4, blue x3, yellow x1, red x1 | **no fewer than 4** — the block's own standard |
+
+**⚠ THE REFUSAL IS NOT THE SHOT COUNT, AND THAT IS WHAT THE PACK TAUGHT THE GATE.** Measured over all 110 shipped
+levels the day it was written: **sixteen levels besides Saturn empty in two matched shots and nine more in three**
+(Pendant, Mobile, Column, Helix, Sail, Analemma, Binary, Kepler, Orrery, Garland, Ghost, Giza, Globe, Bridge,
+Crane and Minaret at two; Horn, Trophy, Onion, Lean, Wishbone, Cairn, Cube, Knot and Carousel at three). They are
+not faults. A field hangs off its top course alone, so the cheapest clear is always *cut what holds it* — and half
+the Coil block is **designed** to be cut that way: Pendant is a weight on four ropes, and taking two rope tops of
+eight balls apiece drops all 147. A gate refusing every clear under three shots would have sent seventeen shipped
+levels back, which is a campaign rewrite and not a gate.
+
+What separates Saturn from those sixteen is **how much of the field the cheap clear takes by matching rather than
+by orphaning** — #458's own sentence, *"the two easiest shots on the field end the level"*, turned into a number,
+because a group you cannot miss is a group that is a large part of what is hanging there. Saturn matched **61 %**
+away in its two shots; every other two-shot level is at **39 % or below** (Crane 39, Minaret 29, Ghost 21, median
+12). The refusal is therefore both halves at once — **a clear in under 3 shots that matches over 50 % of the
+removable field** — which refuses exactly the design the owner sent back and passes every other level in the pack.
+It deliberately does **not** reach the three-shot levels, where Horn matches 90 % of its four shells away and
+Trophy 68: that is the same arithmetic one shot further out, the owner has never complained of it, and tightening
+the rule is a reading of the table above rather than a new instrument.
+
+**The search is exhaustive as deep as it reports (3), so a refusal is proved rather than sampled** — and then the
+line it found is **played back through `BallsMap` itself** (put the ball, colour the glass, count the group, take
+it, drop the orphans: `BallContactEventHandler`'s own order) and the refusal is only made if the library agrees
+the field really is empty. A model is a second copy of a rule, and the one thing worth doing with a second copy is
+checking it against the first; a disagreement prints as a fault in the tool rather than as a refused level.
+
+**What it does not play, and why it is still sound.** Only the ordinary landing: the match, the glass a landing
+colours (whole bodies, #344) and the orphans. A blast, a zap, an acid shaft, a thaw and an infection are not —
+they live in `BallsConstraintsBuilder` over a `PhysicsBall` array, and a second copy of them here is the one thing
+this repository refuses. A **setup shot** is not modelled either: a landing that completes no group parks a ball
+and is still a shot spent, so no sequence left out can be *shorter* than one played. Both omissions point the same
+way — **the probe can only over-state how many shots a level needs** — so a level it refuses is really that cheap,
+and the levels holding a bomb or a zap are the ones it can miss. The same conservatism decides where a shot may
+land: the empty cells are flooded from the field's walls and floor (never from its lid, which is the glass), and a
+pocket that flood cannot reach is not offered, since an unreachable landing would make a clear look cheaper than
+it is.
+
+`--clear` adds a **beam** line to every level's report — one greedy line of play, an upper bound and labelled one —
+which is where the pack's deeper figures come from: seventeen levels clear in 4, and the tail runs out to
+**Ziggurat at 24**. `--clearfile=<path,...>` asks the same of level files the set has never heard of, which is how
+Colossus (the one hand-drawn level, which `Validate` never sees) and a design being redrawn get measured.
 
 ### The coiled levels (#207)
 
