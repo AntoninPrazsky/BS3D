@@ -32,11 +32,23 @@ namespace BS3D.Audio
             _seconds = seconds;
         }
 
-        /// <summary>Rest at full, instantly — what putting a fresh piece on does.</summary>
+        /// <summary>Rest at full, instantly — what a chain being RETIRED starts its fade-out from.</summary>
         public void Reset()
         {
             Level = 1f;
             Target = 1f;
+        }
+
+        /// <summary>
+        /// Rest at silence, then walk to full over <paramref name="seconds"/> — what a fresh chain's own
+        /// ARRIVAL does (#456): unlike <see cref="Reset"/>, which puts a piece on at once, this is for the
+        /// piece a caller is bringing UP rather than one already sounding at its authored level.
+        /// </summary>
+        public void Arrive(float seconds)
+        {
+            Level = 0f;
+            Target = 1f;
+            _seconds = seconds;
         }
 
         /// <summary>Walks the level one frame towards the target. True when it moved.</summary>
