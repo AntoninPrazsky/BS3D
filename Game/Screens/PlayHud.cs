@@ -1,4 +1,4 @@
-using FontStashSharp;
+﻿using FontStashSharp;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Prazsky.BS3D.GameStructure;
@@ -1704,6 +1704,11 @@ namespace BS3D.Screens
         private const int HUD_TUTORIAL_GLYPH_GAP = 48;
         private const int HUD_TUTORIAL_LINE_GAP = 10;
 
+        //Between the detail line and the praise word that lands under it (#466). Wider than the line gap above
+        //it, because that gap binds two halves of one instruction and this one separates the instruction from
+        //the answer to it.
+        private const int HUD_TUTORIAL_PRAISE_GAP = 26;
+
         //How much of the top strip the card leaves between itself and the corner readouts (#461). The card is
         //CENTRED, so what bounds it is the nearer top corner mirrored about the centre — and that corner is the
         //score's, not the FPS line's: the score is the wider of the two at every size the game runs (five
@@ -1733,6 +1738,18 @@ namespace BS3D.Screens
         /// and scaled about its own centre, so the bounce and the praise's kick swell it in place rather than
         /// shouldering it along the top of the frame. Every colour is premultiplied by the card's presence, as
         /// every fading readout here is, so the backing and the shadow fade with the text.
+        /// <para>
+        /// <b>The praise word is a third line under the detail since #466</b>, where it used to <i>be</i> the
+        /// caption — the card flipped on the frame the action landed and took its detail line away with it, so
+        /// the lessons a player does fastest showed their instruction for a fraction of a second. It goes
+        /// underneath rather than above, which is the arrangement the issue offered: a row above has to be
+        /// <i>reserved</i> from the card's arrival or it shoves the caption down the frame at the instant the
+        /// player has earned the right to re-read it — and reserved, it pushes every instruction a line deeper
+        /// into the cluster for a row that is empty most of the time. Built both ways and photographed.
+        /// Underneath, nothing already read ever moves, the card grows into the space below it, and the order
+        /// reads the way it happens: do this, then well done. It costs height and not width, so the strip clamp
+        /// below is unaffected.
+        /// </para>
         /// </summary>
         /// <param name="scoreLeft">The left edge of the score block, which is what the card may not reach.</param>
         private void DrawTutorial(Tutorial tutorial, Viewport viewport, int margin, float scoreLeft)
@@ -1745,6 +1762,7 @@ namespace BS3D.Screens
 
             string glyph = tutorial.Glyph;
             string detail = tutorial.Detail;
+            string praise = tutorial.Praise;
             bool praising = tutorial.Praising;
 
             SpriteFontBase glyphFont = _game.HudFontPrompt;
@@ -1754,11 +1772,13 @@ namespace BS3D.Screens
             Vector2 glyphSize = string.IsNullOrEmpty(glyph) ? Vector2.Zero : glyphFont.MeasureString(glyph);
             Vector2 captionSize = captionFont.MeasureString(caption);
             Vector2 detailSize = string.IsNullOrEmpty(detail) ? Vector2.Zero : detailFont.MeasureString(detail);
+            Vector2 praiseSize = string.IsNullOrEmpty(praise) ? Vector2.Zero : captionFont.MeasureString(praise);
 
             float gap = glyphSize.X > 0f ? Scaled(HUD_TUTORIAL_GLYPH_GAP) : 0f;
             float lineGap = detailSize.Y > 0f ? Scaled(HUD_TUTORIAL_LINE_GAP) : 0f;
-            float textWidth = MathF.Max(captionSize.X, detailSize.X);
-            float textHeight = captionSize.Y + lineGap + detailSize.Y;
+            float praiseGap = praiseSize.Y > 0f ? Scaled(HUD_TUTORIAL_PRAISE_GAP) : 0f;
+            float textWidth = MathF.Max(MathF.Max(captionSize.X, detailSize.X), praiseSize.X);
+            float textHeight = captionSize.Y + lineGap + detailSize.Y + praiseGap + praiseSize.Y;
             float width = glyphSize.X + gap + textWidth;
             float height = MathF.Max(glyphSize.Y, textHeight);
 
@@ -1780,25 +1800,29 @@ namespace BS3D.Screens
             Vector2 centre = new(viewport.Width * 0.5f, margin + height * 0.5f + bob);
             Vector2 origin = centre - new Vector2(width, height) * (0.5f * scale);
 
-            //The praise takes the accent, because a lesson done IS gain — the one thing the accent means here
-            Color textColour = (praising ? HUD_ACCENT : BS3DGame.MENU_TEXT) * alpha;
-
             if (glyphSize.X > 0f)
                 DrawString(glyphFont, glyph, origin + new Vector2(0f, (height - glyphSize.Y) * 0.5f * scale),
                     BS3DGame.MENU_TEXT * alpha, scale);
 
             Vector2 captionAt = origin + new Vector2((glyphSize.X + gap) * scale, (height - textHeight) * 0.5f * scale);
 
-            //And flares the way the score does on a hit — the same amber, the same blurred halo — gone as the
-            //word settles
-            if (praising)
-                DrawGlow(captionFont, caption, captionAt, captionSize, scale, tutorial.PraiseHeat, HUD_ACCENT, HUD_GLOW_PASSES);
-
-            DrawString(captionFont, caption, captionAt, textColour, scale);
+            DrawString(captionFont, caption, captionAt, BS3DGame.MENU_TEXT * alpha, scale);
 
             if (detailSize.Y > 0f)
                 DrawString(detailFont, detail, captionAt + new Vector2(0f, (captionSize.Y + lineGap) * scale),
                     HUD_CAPTION * alpha, scale);
+
+            //The praise word, once the action has been done (#466): the accent, because a lesson done IS gain —
+            //the one thing the accent means here — and it flares the way the score does on a hit, the same
+            //amber and the same blurred halo, gone as the word settles.
+            if (praiseSize.Y > 0f)
+            {
+                Vector2 praiseAt = captionAt
+                    + new Vector2(0f, (captionSize.Y + lineGap + detailSize.Y + praiseGap) * scale);
+
+                DrawGlow(captionFont, praise, praiseAt, praiseSize, scale, tutorial.PraiseHeat, HUD_ACCENT, HUD_GLOW_PASSES);
+                DrawString(captionFont, praise, praiseAt, HUD_ACCENT * alpha, scale);
+            }
         }
 
         #endregion
