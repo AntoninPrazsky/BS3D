@@ -59,6 +59,7 @@ namespace BS3D
         private LevelSelectPage _levelSelectPage;
         private ScenePage _scenePage;
         private AboutPage _aboutPage;
+        private HelpPage _helpPage;
         private ResultPage _resultPage;
 
         /// <summary>
@@ -125,6 +126,7 @@ namespace BS3D
         //rule above: its own system, or Anton's own A would be drawn where a keycap A was asked for.
         private FontSystem _menuFontSystemPrompt;
         private SpriteFontBase _menuFontBody, _menuFontSmall, _menuFontHeading, _menuFontTitle, _menuFontStars;
+        private SpriteFontBase _menuFontPrompt;
         private SpriteFontBase _menuFontSection;
         private SpriteFontBase _menuFontFrontEntry;
 
@@ -456,6 +458,7 @@ namespace BS3D
             _levelSelectPage = new LevelSelectPage(this);
             _scenePage = new ScenePage(this);
             _aboutPage = new AboutPage(this);
+            _helpPage = new HelpPage(this);
             _resultPage = new ResultPage(this);
 
             EnsureMenuLayout();
@@ -492,6 +495,7 @@ namespace BS3D
             //About's paragraphs and a level's rules are read at and a condensed display face closes up there.
             _menuFontSmall = _menuFontSystem.GetFont(Scaled(MENU_FONT_SMALL));
             _menuFontBody = _menuFontSystemDisplay.GetFont(Scaled(MENU_FONT_BODY));
+            _menuFontPrompt = _menuFontSystemPrompt.GetFont(Scaled(MENU_FONT_BODY * 6 / 5));
             _menuFontHeading = _menuFontSystemDisplay.GetFont(Scaled(MENU_FONT_HEADING));
             //The DISPLAY face, not the small one it replaced: a section label over display-face rows belongs to them.
             _menuFontSection = _menuFontSystemDisplay.GetFont(Scaled(MENU_FONT_SECTION));
@@ -554,6 +558,23 @@ namespace BS3D
 
         //The fonts and the palette are the frame's, not any one page's — every page is set in the same type
         internal SpriteFontBase MenuFontBody => _menuFontBody;
+
+        /// <summary>
+        /// PromptFont at the menu's own body size, for a page that draws real keycaps (#427's Help).
+        /// <para>
+        /// ⚠ It is resolved HERE and not taken from <c>HudFontPrompt</c>, which is the trap this answers: the
+        /// HUD's fonts are built by <c>EnsureHudFonts</c>, which only the gameplay screen calls, so on a menu
+        /// page that accessor is <b>null</b> — and a Myra label given a null font draws nothing at all,
+        /// silently, with the line's text still laid out beside the gap where the key should be. Photographed
+        /// exactly so before this existed.
+        /// </para>
+        /// <para>
+        /// A fifth over the body size, because PromptFont fills its em with a rounded keycap while a line of
+        /// the display face stands well short of one — the same relation <c>HUD_FONT_PROMPT</c> holds to the
+        /// tutorial card's caption, and arrived at the same way, by looking at it.
+        /// </para>
+        /// </summary>
+        internal SpriteFontBase MenuFontPrompt => _menuFontPrompt;
         internal SpriteFontBase MenuFontSmall => _menuFontSmall;
         internal SpriteFontBase MenuFontHeading => _menuFontHeading;
         internal SpriteFontBase MenuFontSection => _menuFontSection;
@@ -1008,6 +1029,16 @@ namespace BS3D
         internal void OpenSceneSelect() => OpenPage(_scenePage);
         internal void OpenSettings() => OpenPage(_settingsPage);
         internal void OpenAbout() => OpenPage(_aboutPage);
+
+        /// <summary>The Help screen (#427): how it is played, the scoring, the odd balls, the campaign and the controls.</summary>
+        internal void OpenHelp() => OpenPage(_helpPage);
+
+        /// <summary>The Help screen on a stated page, 1-based — the <c>help=</c> argument's entry (#427).</summary>
+        internal void OpenHelp(int page)
+        {
+            _helpPage.ShowPage(page);
+            OpenPage(_helpPage);
+        }
 
         /// <summary>
         /// What the result screen's "Main Menu" does. The session is torn down, not kept: a level that has

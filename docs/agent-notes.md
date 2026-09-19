@@ -4624,3 +4624,12 @@ Tour se dosud pustil jen jednou, automaticky, při stavbě prvního levelu kapit
 - ⚠ **Pad/šipky ověřeny jen čtením kódu** (`CollectNavEntries`' pravidlo pořadí vložení), ne skutečným stiskem — Game nemá žádný skriptovací mechanismus pro pad/klávesy jako Testbed. Zapsáno jako neověřené, ne jako hotové.
 
 **Nic dalšího si neberu.**
+
+---
+
+**#427 hotové, commit `0d5178e`.** Nová Help obrazovka: šest stránek za jednou položkou menu — jak se to hraje, skóre, zvláštní koule, kampaň, sklo a čára, ovládání.
+
+- **Propočet skóre se počítá sám z `ScoreKeeper`u**, netiskne se natvrdo. Ručně napsaný příklad by byl špatně při prvním doladění bodování a nic by to neřeklo. Na levelu One vyjde nevystřelená koule na **513** bodů z `4 × 10 × 385 / 30`.
+- ⚠ **Past, kterou stránka ovládání našla a stojí za zapamatování: `HudFontPrompt` je na menu `null`.** HUDí fonty staví `EnsureHudFonts`, které volá jen herní obrazovka — a **Myra label s null fontem nenakreslí nic, tiše**, text řádky se přitom vysází vedle mezery, kde měla být klávesa. Vyfoceno přesně tak, než vznikl `MenuFontPrompt`. Tohle je přesně ten druh vady, kterou build nezachytí a snímek ano.
+- **Listování jde stejnými dveřmi jako resize:** `MenuPage.InvalidateTree` zahodí strom, takže další čtení `Root` ho postaví znovu — a tím se znovu zavolá `Refresh` a posbírají navigační položky pro pad. Stránka, která by jen schovávala a ukazovala widgety, by obojí musela dělat sama a jednou by na to zapomněla.
+- **`help` a `help=<n>` otevřou obrazovku při startu na dané stránce** — po vzoru `about` a `settings`, o jeden stupeň dál: šest stránek za jednou položkou a Previous/Next vedle sebe znamená, že skriptovaná procházka musí **hádat pořadí fokusu**, aby se vůbec dostala na čtvrtou. Dvě kola focení jsem takhle prošustroval, než jsem tu páku přidal.
