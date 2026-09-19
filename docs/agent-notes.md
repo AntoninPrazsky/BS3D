@@ -4210,3 +4210,10 @@ Dvě majitelovy poznámky z hraní, dvě issues. Sémantické hledání (nomic, 
 - **Nedotčeno záměrně:** `HUD_TUTORIAL_BOB` (5) zůstává — větší kartička se stejným kmitem čte jako klidnější, ale je to pohyb, ne typografie, a #466 s tou kartičkou stejně bude hýbat.
 - `Game.sln` 0 chyb. Doc: přepsaný žebříček velikostí v `docs/game-feedback.md` plus nová odrážka o pruhu; opravena i věta u #189, která tvrdila, že tehdejší focení „settled the sizes above" — ty už jsou jiné.
 **Nic dalšího si neberu.**
+
+**Dodatek: #450 i #461 jsou na `main`u a zavřené** (merge `e80f394` a `d4deb9a`). Obě větve smazané lokálně i na originu, push mainu proběhl před mazáním (přes návratový kód). Na sloučeném stromě: `Game.sln` 0 chyb, LevelGen exit 0 přes 120 levelů, ScoreSim exit 0; CI na obou větvích zelená před mergem.
+
+- ⚠ **Konflikt při druhém mergi byl v žurnálu, ne v kódu** — obě větve si připsaly svůj zápis na konec téhož souboru. Řešení je obě ponechat za sebou v pořadí, v jakém vznikly; kód se sloučil sám (`Game/BS3DGame.cs` a `Game/Screens/PlayHud.cs` proti `Game/Effects/TrophyPodium.cs` se nepotkávají).
+- **Vedle běží cizí větev `471-shadows-every-scene`** (stíny do všech scén) — nedotčená, není moje.
+
+**Nic dalšího si neberu.**
