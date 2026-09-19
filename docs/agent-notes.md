@@ -4344,3 +4344,16 @@ Tep je uniform na renderer, takže ho hrála i skupina právě uříznutá, celo
 **Dřív dnes:** #471 a #466 na mainu, čtyři dávno hotové issue zavřené (#453, #454, #455, #469).
 
 **Z dávky zbývá: #412** (značka mrtvé váhy — designové rozhodnutí, chce majitelovo oko), **městská půlka #471** a **#465**. **Beru si je dál v tomhle pořadí.** Kolega drží #437 a #421 a ví o překryvu s #412 v tématu „jak koule říká, čím je".
+
+**Dodatek: #437 hotové na větvi `437-wildcard-lock-cue` (`af31166`), NENÍ v mainu.**
+
+- **Slovník mi dala druhá instance a je to nejcennější věc dneška.** Emisní tep znamená „tahle koule je součástí visící mapy" a nic jiného (#252, #324, #473); slovo repa pro **událost** je **crossing** — dvojí kresba téže koule, jedna ven na `+d`, druhá dovnitř na `−d`. `Route` jich má čtyři (sklo #325, tání #329, infekce #331, mrtvá váha #342). Zamknutí wildcardu je událost, takže je to pátý crossing — **a nepotřebuje ani řádek shaderu**, což zároveň odpovědělo na otázku, jestli si sáhnu do `InstancedModel.fx` (nesáhl).
+- ⚠ **Je to první crossing, jehož druhý kbelík není REGION, ale jiná barva.** Čtyři předchozí kříží ven ze skla, ledu, slizu nebo popela — to kind nebo druhý časovač pojmenovat umí. Tenhle kříží barvu do barvy, takže musí vedle časovače nést i **index** (`PhysicsBall.LockFromType`). To je nové pravidlo pro příští crossing a je zapsané u toho pole.
+- **Odkud se bere odcházející barva:** z `Type` koule, než ji resolve přepíše. Hra drží typ wildcardu rovný tomu, co ukazují sdílené hodiny, každý snímek, co je ve vzduchu — takže ten typ **je** barva, na kterou se hráč díval. Nic se `WildcardCycle` neptá podruhé a jedny hodiny z #330 zůstávají jedny.
+- **Běží jen když se barva opravdu změnila.** Wildcard, který nic nedoplní, si nechá, co ukazoval, a křížit barvu se sebou jsou dvě kresby jedné koule dělící si pixely mezi dva shodné vzhledy.
+- ⚠ **Dvě pasti při ověřování, obě moje:** (1) **bez `play` se `level=` neuplatní** — hra zůstala v menu a mé Space odklikly „Play", takže běžel úplně jiný level; (2) **přesměrovaný stdout se při `Stop-Process` nedopláchne**, takže `[shot]` řádky z konce běhu prostě chybí a vypadá to, že se nic nestalo. Spolehlivé je koukat na obraz, ne na log.
+- **Ověřeno obrazem, ne úvahou:** `wildcard=1` + střelba Space přes fokus na titulkový pruh. Magazín ukazuje **pět stejných koulí** — což je #330 fungující (jedny hodiny pro celou frontu), ne chyba. S crossingem dočasně na 4 s je rozmíchaná dvoubarevná koule v clusteru nepřehlédnutelná; při ostrých **0,5 s** se dá pořád chytit i na statickém snímku, takže v pohybu čte.
+- **0,5 s je argument, ne měření**, a je to majitelovo k posouzení ve hře: sklo kříží z průhledné, což je kontrast, jaký v rámu nic jiného nemá, a je hotové za 0,35 s; tohle začíná i končí na obyčejné kouli obyčejné barvy, takže potřebuje déle — a pořád je pod vteřinou, za kterou spadne skupina, kterou ta rána mohla doplnit.
+- `Game.sln` 0 chyb, LevelGen exit 0, ScoreSim exit 0. Doc: nový odstavec u crossingů v `docs/rendering.md`.
+
+**Nic dalšího si neberu.**
