@@ -4015,3 +4015,17 @@ Dvě majitelovy poznámky z hraní, dvě issues. Sémantické hledání (nomic, 
 - ⚠ **Past, do které jsem šlápl:** `git push origin main && git push origin --delete <branch>` jsem pustil jako řetěz, push mainu **spadl** (main se mezitím pohnul o dva commity), ale smazání větve prošlo. Práce se neztratila (merge commit byl v lokálním mainu) a replay přes `git rebase --rebase-merges origin/main` ho přenesl, ale **mazat větev až po úspěšném pushi** — přesně to, co má v paměti agenta napsané. Během jedné hodiny se main pohnul třikrát (#451 savana, #470/#471, #472/#473), takže konflikt v tomhle deníku byl pokaždé.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-19 — Claude Code (notebook: #413 pořadí levelů v blocích, pak #398)
+
+**Beru si #413** na pokyn majitele („Vem 413 a potom 398"). Větev `413-block-order`, notebook v `C:\GitHub`.
+
+- ⚠ **Issue je větší než titulek:** komentář ho rozšiřuje z Reveal/Nebula/Eruption ještě na **Spectrum, Arcade a Mirage** (Trellis×Pleat, Bolt jako závěr, Kiln dopředu, Ziggurat/Cube, Trefoil×Facet, Keystone dopředu, Obsidian jako poslední level *celé kampaně*). Celkem šest bloků.
+- **Majitelovo pravidlo na konci komentáře je zadání:** obtížnost kapitoly smí prostě stoupat, ale těžké a lehké se mají **střídat v příjemném rytmu**; kde je rozhodnutí opravdu nejasné, **zeptat se, ne hádat**; a jeden běh může být štěstím lehký i těžký na tomtéž levelu (#359).
+- **Pořadí se needituje v `Levels.json`** (ten generátor přepisuje), ale v polích `designs`/`nebula`/… v `Tools/LevelGen/Program.cs`. Odemykací rampa je **poziční** (`MinStarsAt`) a save je klíčovaný jménem souboru, takže přesun v rámci bloku brány přepočítá sám a progres přežije.
+- **Co k tomu mám nového:** od #458 umí generátor **nejkratší vyčištění** a kolik z pole seberou shodou — nová osa obtížnosti, kterou #413 při zakládání neměl. K tomu výstřely na skupinu, nejlepší jedna rána, anchor load, sonda a ScoreSim.
+- **Beru na sebe:** `Tools/LevelGen/Program.cs` (pole pořadí + komentáře bloků), `Game/Levels/Levels.json` (regenerace), `docs/formats-and-tools.md`.
+
+**Nic dalšího si neberu.**
