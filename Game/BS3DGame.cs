@@ -852,8 +852,15 @@ namespace BS3D
             int? resultStars = null, string nextLocked = null, int? streak = null, int wildcardEvery = 0, float[] shotSeconds = null, string level = null, string levelFile = null,
             string preview = null, BallStyle? ballStyle = null, string pick = null, int fpsCap = 0,
             bool noFocusPause = false, float[] detonateSeconds = null, string about = null, string tutorial = null,
-            bool settings = false)
+            bool settings = false, int? sceneSeed = null)
         {
+            //The scene's procedural roll (see _sceneSeedOffset): rolled once per launch unless the command
+            //line pins it, and printed either way - a frame of a city nobody can generate twice is a frame
+            //nobody can compare against.
+            _sceneSeedOffset = sceneSeed ?? Random.Shared.Next();
+            Console.WriteLine($"[sceneseed] {_sceneSeedOffset}"
+                + (sceneSeed.HasValue ? " (pinned)" : " (rolled; pin it with sceneseed=)"));
+
             //See PauseOnFocusLoss: a capture schedule implies the opt-out, because a shot of the pause page is
             //not the shot that was asked for.
             PauseOnFocusLoss = !noFocusPause && shotSeconds == null;
@@ -1200,7 +1207,7 @@ namespace BS3D
             //The nine self-lit backdrops, shared with the Testbed and the map editor — one copy of every
             //scene shader, built out of the Testbed's content directory. The hole radius is fixed (the island
             //never moves or resizes here), so it is set once rather than per frame.
-            _sceneRenderer = new SceneRenderer(GraphicsDevice, Content)
+            _sceneRenderer = new SceneRenderer(GraphicsDevice, Content, _sceneSeedOffset)
             {
                 TerrainHoleRadius = ArenaIsland.TERRAIN_HOLE_RADIUS,
                 SupersampleFactor = _supersampleFactor,

@@ -272,6 +272,16 @@ namespace Testbed
 
         private City _city;
 
+        //THE SCENE'S PROCEDURAL ROLL (the owner's "let it look different each time"). One offset, rolled once
+        //per launch and added to every seeded arrangement in the program: both cities, their roofs, the
+        //forest's wood, the aurora's, the savanna's planting, the beach's palms and the Grid's boards. Rolled
+        //ONCE rather than per build, so a quality step or a scene change re-runs a generator and gets the SAME
+        //city back - a skyline that rearranged itself because the player opened Settings would read as a fault.
+        //
+        //Pinned by sceneseed=, and that argument is not a nicety: a capture pair or a measured A/B has to be
+        //looking at the same arrangement on both halves, and after the roll it would not be. 0 is what shipped.
+        private readonly int _sceneSeedOffset;
+
         //Which of the two cities _city holds, so a scene change that does not cross between them rebuilds
         //nothing.
         private bool _cityIsNeon;
@@ -568,6 +578,15 @@ namespace Testbed
             //which is exactly what a script driving both cannot afford). An unrecognised name leaves the
             //default city standing. It is no longer the only way to reach eleven of the eighteen: since #380
             //NumPad2 walks the whole enum, so this pins where a run STARTS rather than what it can see.
+            //The scene's procedural roll (see _sceneSeedOffset), and the line that makes a capture of it
+            //reproducible: a frame of a city nobody can generate twice is a frame nobody can compare against.
+            _sceneSeedOffset = options.SceneSeed ?? Random.Shared.Next();
+            Console.WriteLine($"[sceneseed] {_sceneSeedOffset}"
+                + (options.SceneSeed.HasValue ? " (pinned)" : " (rolled; pin it with sceneseed=)"));
+
+            _cityConfig.Seed += _sceneSeedOffset;
+            _cityConfig.NeonLayout.Seed += _sceneSeedOffset;
+
             if (SceneRenderer.TryParseScene(options.Scene, out SceneKind startupScene)) _scene = startupScene;
             _exposure = options.Exposure > 0f ? options.Exposure : DEFAULT_EXPOSURE;
             _supersampleFactor = Math.Clamp(options.SupersampleFactor, 1, 4); //"ssaa=<n>" trades sharpness against fill rate
@@ -818,7 +837,7 @@ namespace Testbed
             //so a scene looks the same in both
             //SupersampleFactor: the space scene sizes its stars in OUTPUT pixels rather than in texels, so it
             //has to be told what ssaa= settled on — sized in texels a star would be four times dimmer at 2x
-            _sceneRenderer = new SceneRenderer(GraphicsDevice, Content) { SupersampleFactor = _supersampleFactor };
+            _sceneRenderer = new SceneRenderer(GraphicsDevice, Content, _sceneSeedOffset) { SupersampleFactor = _supersampleFactor };
 
             //#298 PROBE: "detail=" pins SceneRenderer.SceneDetail so a reduced program can be measured and
             //photographed here, where the camera can be pinned. Left alone the Testbed draws the full look.
@@ -857,11 +876,13 @@ namespace Testbed
             //white sky. No stone texture handed in: the component builds one, ArenaIsland's being its private
             //business. The ambient is the scene's, exactly as the island is given it.
             _forestScatter = new ForestScatterRenderer(GraphicsDevice, _instancingEffect,
-                (ForestSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Forest), SCENE_AMBIENT_INTENSITY);
+                (ForestSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Forest), SCENE_AMBIENT_INTENSITY,
+                seed: ForestScatterRenderer.DEFAULT_SEED + _sceneSeedOffset);
 
             //The aurora's own wood, a second planting from its own config - see AuroraSceneConfig's class doc.
             _auroraScatter = new ForestScatterRenderer(GraphicsDevice, _instancingEffect,
-                ((AuroraSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Aurora)).Terrain, SCENE_AMBIENT_INTENSITY);
+                ((AuroraSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Aurora)).Terrain, SCENE_AMBIENT_INTENSITY,
+                seed: ForestScatterRenderer.DEFAULT_SEED + _sceneSeedOffset);
 
             //No trunnion height goes in: the gun stands on the island's dished stone, so its height is the
             //carriage's own figure of its radius (CannonRig.TrunnionHeightAt) and the pose re-seats it on
@@ -1333,7 +1354,8 @@ namespace Testbed
                 SpecularAmbientStrength = 0.07f
             };
 
-            _rooftops = new CityRooftops(GraphicsDevice, _instancingEffect, _city, _cityConfig, SCENE_AMBIENT_INTENSITY);
+            _rooftops = new CityRooftops(GraphicsDevice, _instancingEffect, _city, _cityConfig, SCENE_AMBIENT_INTENSITY,
+                CityRooftops.DEFAULT_SEED + _sceneSeedOffset);
             Console.WriteLine($"[city] {_rooftops.Total} pieces of rooftop equipment");
             _streets = new CityStreets(GraphicsDevice, Content.Load<Effect>("Shaders/CityStreets"), _city);
 

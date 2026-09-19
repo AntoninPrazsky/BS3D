@@ -139,6 +139,12 @@ namespace MapEditor
 
         private City _city;
 
+        //The scene's procedural roll, rolled once per launch and added to every seeded arrangement (both
+        //cities, their roofs, the wood, the savanna's planting, the palms). The editor has no command line
+        //to pin it with, and wants none: an author is looking at whether a MAP reads against a backdrop,
+        //and a backdrop that is a different city each session is a better test of that than one that is not.
+        private readonly int _sceneSeedOffset = Random.Shared.Next();
+
         //Which of the two cities _city holds (#471's follow-up), so V rebuilds only when it crosses between
         //them and a live config edit rebuilds the one that is up.
         private bool _cityIsNeon;
@@ -443,8 +449,11 @@ namespace MapEditor
             //takes part in the sky lighting below like the balls do.
             //SupersampleFactor: the space scene sizes its stars in OUTPUT pixels rather than in texels, so it
             //has to be told the factor — sized in texels a star would come out four times dimmer at 2x
-            _sceneRenderer = new SceneRenderer(GraphicsDevice, Content) { SupersampleFactor = SUPERSAMPLE_FACTOR };
+            _sceneRenderer = new SceneRenderer(GraphicsDevice, Content, _sceneSeedOffset) { SupersampleFactor = SUPERSAMPLE_FACTOR };
             _unitBox = new BoxMesh(GraphicsDevice, 1f, 1f, 1f);
+            _cityConfig.Seed += _sceneSeedOffset;
+            _cityConfig.NeonLayout.Seed += _sceneSeedOffset;
+
             _city = new City(_cityConfig, neon: _scene == SceneKind.NeonCity, ARENA_HALF_EXTENT);
             _cityIsNeon = _scene == SceneKind.NeonCity;
             _cityRenderer = new InstancedModelRenderer(GraphicsDevice, _unitBox, Vector3.One, _instancingEffect)
@@ -453,7 +462,8 @@ namespace MapEditor
                 CityConfig = _cityConfig,
                 SpecularAmbientStrength = CITY_SPECULAR_AMBIENT
             };
-            _rooftops = new CityRooftops(GraphicsDevice, _instancingEffect, _city, _cityConfig, SCENE_AMBIENT_INTENSITY);
+            _rooftops = new CityRooftops(GraphicsDevice, _instancingEffect, _city, _cityConfig, SCENE_AMBIENT_INTENSITY,
+                CityRooftops.DEFAULT_SEED + _sceneSeedOffset);
             _streets = new CityStreets(GraphicsDevice, Content.Load<Effect>("Shaders/CityStreets"), _city);
 
             //After the scene renderer, because the rig consults it for the scenes that state their own lighting
