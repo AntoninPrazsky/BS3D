@@ -189,7 +189,15 @@ namespace BS3D.Tools.LevelGen
         {
             ("The Meadow", 10), ("The Gallery", 10), ("The Coil", 10), ("The Tower", 10), ("The Reveal", 10),
             ("The Quarry", 10), ("The Nebula", 10), ("The Eruption", 10), ("The Spectrum", 10), ("The Arcade", 10),
-            ("The Mirage", 10),
+            //THE GRID IS INSERTED ELEVENTH RATHER THAN APPENDED (#420), and that is the owner's ruling on the
+            //one thing the position decides: the Mirage keeps the campaign's last word. Its own doc argues
+            //for it in a sentence nothing here beats - "the eleventh chapter is the one place the arena is
+            //not, and the balls stop obeying the rules the other hundred levels taught" - and a chapter of
+            //named constructions is not that. Where the Grid does belong is between the made light and the
+            //dream: the neon city, then a lattice that is nothing but made light, then the place that is not
+            //a place. Every entry after it carries a gate twenty stars higher, which needed no retuning
+            //because MinStarsAt is a function of POSITION (see it for the arithmetic that survives this).
+            ("The Grid", 10), ("The Mirage", 10),
         };
 
         //THE BLOCKS' THEMES (#194). A block's piece is named on every level of it, so the music changes
@@ -239,6 +247,11 @@ namespace BS3D.Tools.LevelGen
         //the kick never marking all four beats, the hook down in a melodic sub - so it is the one composition
         //whose weight lands where a listener does not expect it, which is what a chapter of balls that are
         //not what they look like wants behind it. A hallucination is a place where the beat is off.
+        //The Grid takes Pulse, which is the fourth chapter to and the only defensible reprise left: it is
+        //the one electronic piece the game has and this is the one chapter built out of arithmetic. A sixth
+        //composition is its own work (Tools/MusicBake, and a desktop to render it on), not this issue's.
+        private const string MUSIC_GRID = "pulse";
+
         private const string MUSIC_MIRAGE = "mural";
 
         /// <summary>
@@ -391,6 +404,12 @@ namespace BS3D.Tools.LevelGen
         /// two comparisons the granite is hardest to win.
         /// </para>
         /// </summary>
+        //ICE for the Grid (#420), the owner's pick of the three reprises offered, and the argument is the
+        //scene's light: the backdrop is black, the rig is cool cyan-blue, and a translucent ball refracting
+        //that rig is the closest thing this game has to a hologram. The Tower wears the same material under
+        //a violet dusk over mountains, which is far enough away that neither chapter reads as the other.
+        private const BallStyle BALLS_GRID = BallStyle.Ice;
+
         private const BallStyle BALLS_MIRAGE = BallStyle.Porcelain;
 
         /// <summary>
@@ -709,6 +728,19 @@ namespace BS3D.Tools.LevelGen
             //block at 2.94 shots a group against Cairn's 1.76. Cairn is also the level whose own doc asks
             //for "bookkeeping of a kind nothing before it has asked for" - four chambers, each with the
             //four colours in a different order - which is a finale's job.
+            //11. THE GRID (#420) - the arena inside the machine, and the one block whose style is a THESIS
+            //rather than a family of silhouettes: every level is a NAMED MATHEMATICAL CONSTRUCTION. The scene
+            //(#393) is built on that same sentence - its floor is a Hilbert curve rather than a noise field,
+            //"named mathematics rather than noise" - so the chapter is the cluster answering the backdrop.
+            //It is also the campaign's first block to carry a SPECIAL: the wildcard, taught the Eruption's
+            //way, cheap and unmissable on Sierpinski and a tool on Gyroid. See Designs/Block12_Grid.cs for
+            //what each construction is and for the block's one standing danger, which is thinness.
+            Design[] grid =
+            {
+                Menger(), Sierpinski(), Cantor(), Koch(), Hilbert(),
+                Helicoid(), Phyllotaxis(), Gyroid(), Life(), Tesseract(),
+            };
+
             Design[] mirage =
             {
                 Trefoil(), Facet(), Harlequin(), Diadem(), Solitaire(),
@@ -721,9 +753,10 @@ namespace BS3D.Tools.LevelGen
             foreach (Design design in volcano) ok &= Emit(design);
             foreach (Design design in spectrum) ok &= Emit(design);
             foreach (Design design in arcade) ok &= Emit(design);
+            foreach (Design design in grid) ok &= Emit(design);
             foreach (Design design in mirage) ok &= Emit(design);
 
-            LevelSet set = WriteLevelSet(designs, nebula, volcano, spectrum, arcade, mirage);
+            LevelSet set = WriteLevelSet(designs, nebula, volcano, spectrum, arcade, grid, mirage);
 
             //The gate that hangs the levels instead of reading them (#301/#302). Off the WRITTEN SET rather
             //than off the designs above, for two reasons: the set is where a level's budget and ceiling step
@@ -1010,6 +1043,7 @@ namespace BS3D.Tools.LevelGen
                     Block = BlockNameAt(i),
                     Shots = d.Shots,
                     CeilingStep = d.CeilingStep,
+                    WildcardEvery = d.WildcardEvery,
                     MinStars = MinStarsAt(i),
                 });
             }
@@ -1039,6 +1073,7 @@ namespace BS3D.Tools.LevelGen
                         Block = BlockNameAt(index),
                         Shots = d.Shots,
                         CeilingStep = d.CeilingStep,
+                        WildcardEvery = d.WildcardEvery,
                         MinStars = MinStarsAt(index),
                     });
                 }
@@ -2628,6 +2663,20 @@ namespace BS3D.Tools.LevelGen
 
             public int Shots;
             public int CeilingStep;
+
+            /// <summary>
+            /// One ball in this many dealt into the magazine is a <b>wildcard</b> (#330), the joker that
+            /// matches whatever it lands beside — null, the default, for every level that wants none, which
+            /// was every shipped level until #420.
+            /// <para>
+            /// It is a property of the <b>set entry</b> and not of the layout, which is why it lives here
+            /// rather than in the design's own drawing: a wildcard arrives through the magazine, so how
+            /// often one comes is a rule about the level being played rather than about the picture hanging
+            /// in it. <c>LevelSet</c> refuses a cadence of zero; the writer below passes this straight
+            /// through.
+            /// </para>
+            /// </summary>
+            public int? WildcardEvery;
 
             /// <summary>Round radius, angle, layout level, layout depth -> is there a ball here.</summary>
             public Func<float, float, int, int, bool> Occupied;

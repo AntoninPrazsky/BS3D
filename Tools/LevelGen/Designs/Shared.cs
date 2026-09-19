@@ -1,4 +1,4 @@
-using Prazsky.BS3D.GameStructure;
+﻿using Prazsky.BS3D.GameStructure;
 using System;
 
 namespace BS3D.Tools.LevelGen
@@ -24,7 +24,15 @@ namespace BS3D.Tools.LevelGen
 
         #region Colour helpers
 
-        private static BallType Band(int band, BallType[] palette) => palette[band % palette.Length];
+        /// <summary>
+        /// The palette entry a band index lands on, wrapping. <b>A NEGATIVE index wraps rather than
+        /// throwing</b>, which is <see cref="SectorIndex"/>'s own normalisation arriving where the second
+        /// caller needed it (#420): a design whose shape reaches outside its own origin - the Koch island's
+        /// bumps stand a unit proud of the square they grow on - produces one, and the alternative is every
+        /// such design carrying an offset that means nothing except "do not crash here".
+        /// </summary>
+        private static BallType Band(int band, BallType[] palette) =>
+            palette[((band % palette.Length) + palette.Length) % palette.Length];
 
         /// <summary>
         /// Reads a bitmap written as text — the <see cref="SYMBOL_INK"/> characters are the symbol's inks and

@@ -4153,3 +4153,21 @@ Dvě majitelovy poznámky z hraní, dvě issues. Sémantické hledání (nomic, 
 
 **Zbývá otevřené v #470**, a nechal jsem to tam napsané: koule jako **caster** na plotnu (nejtěžší pass v projektu, patří to za měření, ne před). Sousední #471 (mapa do všech scén) tím dostal hotovou caster techniku pro les, města i ostrov.
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-19 — Claude Code (notebook: #420 dvanáctá kapitola v Gridu)
+
+**Beru si #420** na pokyn majitele („Vem 420"). Větev `420-grid-chapter`, commit `be4918d`. **NENÍ v mainu.**
+
+- **Čtyři rozhodnutí, která si issue nechávalo majiteli, jsem se zeptal a mám je:** kapitola je **vložená jedenáctá** (Fata morgána si nechává poslední slovo kampaně — její doc to obhajuje větou, kterou nic z Gridu netrumfne), jmenuje se **The Grid**, koule jsou **ice** (průsvitné sklo pod chladným modrozeleným rigem je nejblíž hologramu) a blok přináší **wildcard** — vůbec první speciál v kampani, učený po vzoru Erupce (levně a nepřehlédnutelně na Sierpinském, jako nástroj na Gyroidu, vzácnost ve finále). Hudba je `pulse`; to je rozhodnutí nástroje, ne majitele: jediná elektronická skladba pro jedinou kapitolu z aritmetiky.
+- **Set má 120 položek a poslední brána je 236 hvězd** — přesně to, co issue předpovídalo. Rampa je poziční, takže se nic nepřepočítávalo ručně.
+- ⚠ **Vlastní nebezpečí bloku je tenkost a sonda ho našla.** Tři konstrukce si vyžádaly skutečné překreslení: (1) paritní pravidlo na jednotlivých buňkách je v téhle mřížce **prach** — Sierpinského podtrojúhelníky se dotýkají rohy, a roh není soused: 114 skupin po 3,1 koule, 142 v párech; jednotka jsou teď dvě buňky. (2) Cantorův druhý řez svisle nechal **108 koulí viset na ničem**; druhá rekurze je proto nakreslená barvou a design říká proč. (3) **Gyroid ztratil pět pořadí z pěti** a Tesseract čtyři — minimální plocha je plech a drátěný model je samá hrana; po ztlustění (tři buňky přes fold, tříbuňkové sloupky) čtou 1 a 2.
+- ⚠ **Dvě barvení se musela změřit, ne vymyslet:** hladké obarvení plného disku **je** jeho spirální ramena (4 skupiny po 185 koulích, a strides to nerozbily — pomohl až hash), a „jedna barva na rodinu" u Tesseractu udělala z vnějšího rámu jednu skupinu, která vzala 640 ze 640 jednou ranou.
+- **`Band()` teď záporný index zabalí** místo vyhození výjimky — je to normalizace, kterou `SectorIndex` má odjakživa, a Kochovy boule trčí pod počátek svého čtverce.
+- **Ověřeno:** LevelGen exit 0 přes 120 levelů, ScoreSim exit 0, sonda přes celou kapitolu 1, 1, 0, 0, 0, 1, 0, 1, 0, 2 z pěti (práh 4), hra načte Menger jako položku 101 s `[aimcheck] PASS`, nejtěžší level kapitoly (Tesseract, 1070 koulí) běží **51 FPS na High v 1080p** na notebooku. Vyfoceno v Testbedu i ve hře včetně **úvodní prohlídky kapitoly** — stanoviště, které #393 jen napsalo do configu a nikdo ho neviděl.
+- ⚠ **Nález mimo zadání:** `Static` (Quarry) má po mém #398 šestou barvu jen se **dvěma koulemi** (`NOT PRIMED` v logu) — hratelné, ale magazín bude rozdávat barvu, která skoro nemá kam jít. Je to dlaždicový artefakt z #398, patří jeho vlastnímu doladění.
+
+**Nic dalšího si neberu.**
+
+⚠ **Vlastní chyba, zapsaná pro pořádek:** #420 jsem začal psát **přímo na lokálním `main`u** — větev jsem prostě zapomněl založit (šestá dnes). Zachráněno bez ztráty: `git branch -m 420-grid-chapter` z toho udělalo větev, `origin/main` se nikdy nepohnul (stál na `485fd13`) a lokální `main` jsem obnovil z originu. **Kontrola, která to odhalila, byla `git branch --show-current` po pushi** — stojí za to ji dělat před prvním commitem, ne po něm.
