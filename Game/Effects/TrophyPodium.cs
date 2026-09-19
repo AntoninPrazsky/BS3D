@@ -162,8 +162,9 @@ namespace BS3D.Effects
         //beads are small enough that a row reads as texture along an edge, not as balls.
         private const float STONE = 0.021f, SMALL_STONE = 0.012f, CALYX_STONE = 0.017f, BEAD = 0.0065f;
 
-        //How far either side of a handle a beaded row leaves a gap, in radians: the handle's upper root lands
-        //in the band, and a bead half inside the tube reads as a burr on the casting.
+        //How far either side of a handle a BAND row leaves a gap, in radians: the handle's upper root lands
+        //in the band, and a bead half inside the tube reads as a burr on the casting. The plinth's drum rows
+        //do not take it — nothing of the handle comes within three quarters of the cup's height of them.
         private const float HANDLE_CLEARANCE = 0.16f;
 
         /// <summary>
@@ -502,22 +503,24 @@ namespace BS3D.Effects
 
             if (beads)
             {
-                BeadRow(TrophyMesh.DRUM_RADIUS, TrophyMesh.DRUM_BOTTOM_Y);
-                BeadRow(TrophyMesh.DRUM_RADIUS, TrophyMesh.DRUM_TOP_Y);
-                BeadRow(TrophyMesh.BAND_RADIUS, TrophyMesh.BAND_BOTTOM_Y);
-                BeadRow(TrophyMesh.BAND_RADIUS, TrophyMesh.BAND_TOP_Y);
+                //The drum's rows close all the way round even on a handled tier: the clearance belongs to the
+                //BAND, where a handle's root lands, and the drum is the length of the cup away from it (#450).
+                BeadRow(TrophyMesh.DRUM_RADIUS, TrophyMesh.DRUM_BOTTOM_Y, clearHandles: false);
+                BeadRow(TrophyMesh.DRUM_RADIUS, TrophyMesh.DRUM_TOP_Y, clearHandles: false);
+                BeadRow(TrophyMesh.BAND_RADIUS, TrophyMesh.BAND_BOTTOM_Y, clearHandles: handles);
+                BeadRow(TrophyMesh.BAND_RADIUS, TrophyMesh.BAND_TOP_Y, clearHandles: handles);
             }
 
             //A beaded moulding along an arris: centred on the edge itself, so each bead stands three quarters
             //proud of the corner it runs along, spaced a little over a bead apart
-            void BeadRow(float radius, float y)
+            void BeadRow(float radius, float y, bool clearHandles)
             {
                 int count = (int)(MathHelper.TwoPi * radius / (2.3f * BEAD));
 
                 for (int i = 0; i < count; i++)
                 {
                     float angle = i * MathHelper.TwoPi / count;
-                    if (handles && NearHandle(angle, HANDLE_CLEARANCE)) continue;
+                    if (clearHandles && NearHandle(angle, HANDLE_CLEARANCE)) continue;
 
                     Place(_beadMesh, metal, TrophyMesh.Ornament(radius, y, Vector2.UnitX, angle, BEAD));
                 }
