@@ -141,6 +141,17 @@ namespace BS3D
 
         private City _city;
 
+        //THE SCENE'S PROCEDURAL ROLL (the owner's "let it look different each time"). One offset, rolled
+        //once per launch and added to every seeded arrangement in the program: both cities, their roofs, the
+        //forest's wood, the aurora's, the savanna's planting, the beach's palms and the Grid's boards.
+        //
+        //Rolled ONCE rather than per build, so a quality step or a scene change re-runs a generator and gets
+        //the SAME city back - a skyline that rearranged itself because the player opened Settings would read
+        //as a fault rather than as variety. Pinned by sceneseed=, and that argument is not a nicety: a
+        //capture pair or a measured A/B has to look at the same arrangement on both halves. 0 is what shipped.
+        internal int SceneSeedOffset => _sceneSeedOffset;
+        private readonly int _sceneSeedOffset;
+
         //Which of the two cities _city currently holds, so a scene change that does not cross between them
         //rebuilds nothing (#471's follow-up).
         private bool _cityIsNeon;
@@ -245,6 +256,12 @@ namespace BS3D
         private void BuildScene()
         {
             _unitBox = new BoxMesh(GraphicsDevice, 1f, 1f, 1f);
+            //Both cities take the launch's roll too, so a new session is a new skyline (#: procedural
+            //scenes). Applied to the CONFIG rather than at the call, because every rebuild - a quality
+            //step, a scene change - reads it back and has to get the same city.
+            _cityConfig.Seed += _sceneSeedOffset;
+            _cityConfig.NeonLayout.Seed += _sceneSeedOffset;
+
             _city = new City(_cityConfig, neon: _scene == SceneKind.NeonCity, ArenaIsland.RADIUS);
             _cityIsNeon = _scene == SceneKind.NeonCity;
 
@@ -263,7 +280,8 @@ namespace BS3D
             };
 
             //The equipment on the roofs (#436), placed on the buildings the city above just made
-            _rooftops = new CityRooftops(GraphicsDevice, _instancingEffect, _city, _cityConfig, SCENE_AMBIENT_INTENSITY);
+            _rooftops = new CityRooftops(GraphicsDevice, _instancingEffect, _city, _cityConfig, SCENE_AMBIENT_INTENSITY,
+                CityRooftops.DEFAULT_SEED + _sceneSeedOffset);
 
             //The street level under them (#399), on the same grid
             _streets = new CityStreets(GraphicsDevice, Content.Load<Effect>("Shaders/CityStreets"), _city);
@@ -290,11 +308,13 @@ namespace BS3D
             //its own, since ArenaIsland's is that component's private business. The ambient is the scene's, so
             //it is handed over as it is to the island.
             _forestScatter = new ForestScatterRenderer(GraphicsDevice, _instancingEffect,
-                (ForestSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Forest), SCENE_AMBIENT_INTENSITY);
+                (ForestSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Forest), SCENE_AMBIENT_INTENSITY,
+                seed: ForestScatterRenderer.DEFAULT_SEED + _sceneSeedOffset);
 
             //The aurora's own wood, a second planting from its own config - see AuroraSceneConfig's class doc.
             _auroraScatter = new ForestScatterRenderer(GraphicsDevice, _instancingEffect,
-                ((AuroraSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Aurora)).Terrain, SCENE_AMBIENT_INTENSITY);
+                ((AuroraSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Aurora)).Terrain, SCENE_AMBIENT_INTENSITY,
+                seed: ForestScatterRenderer.DEFAULT_SEED + _sceneSeedOffset);
 
             //Note the glass the cluster hangs from is NOT built here: its footprint is the loaded level's
             //field, so RebuildCeilingRenderer fits it (and refits it on every level) — which is why the

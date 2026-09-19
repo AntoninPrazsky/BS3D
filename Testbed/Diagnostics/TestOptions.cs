@@ -232,6 +232,15 @@ namespace Testbed.Diagnostics
         public string Scene { get; private set; }
 
         /// <summary>
+        /// <c>sceneseed=&lt;n&gt;</c>: pins every scene's procedural arrangement. Without it each launch rolls a
+        /// new one, which is the point of the feature - <b>and is exactly why this argument exists</b>: a
+        /// capture pair or a measured A/B has to be looking at the same city, the same wood and the same
+        /// planting on both halves, and after the roll it would not be. <b>0 is the arrangement everything
+        /// before the feature was photographed against.</b>
+        /// </summary>
+        public int? SceneSeed { get; private set; }
+
+        /// <summary>
         /// <c>weather=&lt;clear|scattered|broken|overcast|storm&gt;</c>: the sky over the starting scene,
         /// overriding whatever that scene asks for (#221). Testing only, and it exists for one reason the
         /// scene defaults cannot serve: judging five skies means seeing them over the SAME backdrop under
@@ -399,6 +408,9 @@ namespace Testbed.Diagnostics
                 else if (arg.StartsWith("detail=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("detail=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedDetail)) options.SceneDetail = parsedDetail;
                 else if (arg.StartsWith("exposure=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("exposure=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedExposure)) options.Exposure = parsedExposure;
                 else if (arg.StartsWith("scene=", StringComparison.OrdinalIgnoreCase)) options.Scene = arg.Substring("scene=".Length);
+                else if (arg.StartsWith("sceneseed=", StringComparison.OrdinalIgnoreCase)
+                    && int.TryParse(arg.Substring("sceneseed=".Length), NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsedSceneSeed))
+                    options.SceneSeed = parsedSceneSeed;
                 else if (arg.StartsWith("weather=", StringComparison.OrdinalIgnoreCase)) options.Weather = arg.Substring("weather=".Length);
                 else if (arg.StartsWith("balls=", StringComparison.OrdinalIgnoreCase) && BallStyles.TryParse(arg.Substring("balls=".Length), out BallStyle parsedBalls)) options.Balls = parsedBalls;
                 else if (arg.StartsWith("width=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("width=".Length), out int parsedWidth) && parsedWidth > 0) options.WindowWidth = parsedWidth;

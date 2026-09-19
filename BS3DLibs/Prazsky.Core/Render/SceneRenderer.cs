@@ -702,6 +702,10 @@ namespace Prazsky.Core.Render
         //The sun's shadow map (#469, in every terrain scene since #471): rendered by DrawShadowMaps before
         //the scene pass and read by whichever effects include Shadows.fxh. One map, one target, one set of
         //uniforms — what changes per scene is which config asks for it, how the map is fitted and who casts.
+        //Every seeded arrangement in every scene is shifted by this (see the constructor's parameter): the
+        //savanna's planting, the beach's palms, the city's roofs, the Grid's boards. 0 is what shipped.
+        private readonly int _seedOffset;
+
         private SunShadowMap _sunShadowMap;
         private bool _shadowsActive;
         private EffectTechnique _acaciaTechnique, _acaciaShadowTechnique;
@@ -1186,8 +1190,22 @@ namespace Prazsky.Core.Render
         /// <c>Sea.fx</c>, <c>Savanna.fx</c>, <c>Birds.fx</c>, <c>Mountain.fx</c>, <c>Snow.fx</c>, <c>Spray.fx</c>, <c>Meadow.fx</c>
         /// out of the Testbed content directory).
         /// </param>
-        public SceneRenderer(GraphicsDevice graphicsDevice, ContentManager content)
+        /// <param name="seedOffset">
+        /// Shifts every seeded arrangement in every scene (#: the owner's "let it look different each time").
+        /// <b>0 is the arrangement that shipped</b>, to the plant — which is what makes a capture or a
+        /// measurement reproducible at all once the default is random: pin it and you are looking at the scene
+        /// everything before this was photographed against.
+        /// <para>
+        /// It is an OFFSET and not a seed, deliberately. Each generator keeps its own constant and adds this,
+        /// so the savanna's planting and the palms' clumping stay as unlike each other as they were authored
+        /// to be; one shared seed would have made every scene re-roll from the same number and quietly
+        /// correlate arrangements that have nothing to do with each other.
+        /// </para>
+        /// </param>
+        public SceneRenderer(GraphicsDevice graphicsDevice, ContentManager content, int seedOffset = 0)
         {
+            _seedOffset = seedOffset;
+
             _graphicsDevice = graphicsDevice;
 
             //--- Sea: a camera-centred grid displaced into Gerstner waves; DrawSea snaps it to a cell and sets
@@ -2577,7 +2595,7 @@ namespace Prazsky.Core.Render
             _stormCloudPuffCount = massCount * perMass;
 
             CloudPuffVertex[] vertices = new CloudPuffVertex[_stormCloudPuffCount * 4];
-            Random rng = new(90219);
+            Random rng = new(90219 + _seedOffset);
 
             float inner = MathF.Max(c.InnerRadius, 1f);
             float outer = MathF.Max(c.OuterRadius, inner + 1f);
@@ -3058,7 +3076,8 @@ namespace Prazsky.Core.Render
                 reserved.Add(new ScatterSpacing.Footprint(at.X, at.Z, hearth));
             }
 
-            _savannaScatter = new SavannaScatter(_graphicsDevice, _savannaConfig, SavannaTerrainHeight, reserved);
+            _savannaScatter = new SavannaScatter(_graphicsDevice, _savannaConfig, SavannaTerrainHeight, reserved,
+                SavannaScatter.DEFAULT_SEED + _seedOffset);
         }
 
 
@@ -3102,7 +3121,7 @@ namespace Prazsky.Core.Render
             }
 
             int fires = SavannaCampfireCount;
-            Random rng = new(28204);
+            Random rng = new(28204 + _seedOffset);
             _hearthStoneInstances = new ModelInstance[fires][];
 
             for (int fire = 0; fire < fires; fire++)
@@ -3179,7 +3198,7 @@ namespace Prazsky.Core.Render
             PalmConfig palms = _tropicalConfig.Palms;
             TropicalRockConfig rocks = _tropicalConfig.Rocks;
             float waterY = _tropicalConfig.Water.LevelY;
-            Random rng = new(244);
+            Random rng = new(244 + _seedOffset);
 
             //--- The palm variants: rolled proportions and structural seeds, so a grove is a mix rather
             //than one palm stamped out. The variety is in the mesh and never in a per-instance stretch
@@ -3429,7 +3448,7 @@ namespace Prazsky.Core.Render
         private void BuildVolcanoBuffers()
         {
             VolcanoSceneConfig volcano = _volcanoConfig;
-            Random rng = new(4177);
+            Random rng = new(4177 + _seedOffset);
 
             //--- The rivers. Radial from the cone's axis, and the FIRST one is aimed to pass the arena: that
             //is the whole point of the scene's lighting, since a flow nobody stands beside lights nothing.
@@ -6703,7 +6722,7 @@ namespace Prazsky.Core.Render
 
             //Fixed seed: placement is data every host must agree on, and so, since the boards are seeded from the
             //same stream, is what each solid shows.
-            Random placement = new(towers.Seed);
+            Random placement = new(towers.Seed + _seedOffset);
 
             //The first CubeFraction of Count are cubes, the rest towers - which member of the count gets
             //which shape carries no meaning (angle and radius are drawn independently either way), so there
