@@ -315,11 +315,13 @@ namespace BS3D.Screens
         //washed towards white while the player aimed. It said "this one" by spending the very thing it was
         //there to reveal. The owner's words: the thing pulses, but the pulse itself is what blurs the colour.
         //
-        //So the breath moved OFF the ball and into a halo AROUND it, in the round's own colour — BallGlow, one
-        //additive camera-facing billboard whose middle the depth buffer removes for free (the ball is nearer
-        //the lens than the quad behind it), so it is a ring outside the silhouette rather than a wash over it.
-        //From this camera the barrel rejects most of it too, and what comes out of the notch reads as the gun
-        //lit from inside by the colour it is about to fire.
+        //So the breath moved OFF the ball and into a mark AROUND it, in the round's own colour. That was a
+        //camera-facing billboard for #236 and #321, and it is the gun's own MUZZLE COLLAR since #425: a band of
+        //steel ringing the tube's tip, glowing in the colour about to fire. The billboard's visible shape was
+        //whatever the barrel's cylinder happened not to occlude from the current view, so it changed with every
+        //degree of traverse - the owner's report, and the technique working exactly as built. Geometry bolted to
+        //the barrel cannot do that: it turns with the gun, and what the player reads is one ring foreshortened.
+        //See CannonRig.DrawMuzzleCollar, which owns the band's figures and its radiance.
         //
         //Two mechanisms were refused before that one and both are MEASURED, so neither is worth retrying: a
         //same-hue flare through this same ripple channel was tried at full strength (0.97) and could not be
@@ -331,9 +333,10 @@ namespace BS3D.Screens
         //kept: what was wrong with the mark was the channel, not its timing.
 
         /// <summary>
-        /// The halo's strength at rest, 0…1. Where the ripple it replaced had to stay under the glare threshold
-        /// to avoid bleaching the ball, this is <b>meant</b> to bloom — the colour is the signal, and a halo
-        /// under the threshold is a faint ring nobody reads. <see cref="BallGlow"/> holds the radiance boost.
+        /// The mark's strength at rest, 0…1. Where the ripple it replaced had to stay under the glare threshold
+        /// to avoid bleaching the ball, this is <b>meant</b> to bloom — the colour is the signal, and a mark
+        /// under the threshold is a faint ring nobody reads. <c>CannonRig</c> holds the radiance boost and the
+        /// hue normalisation that keeps the bloom the round's own colour instead of white.
         /// </summary>
         private const float MUZZLE_GLOW_BASE = 0.62f;
 
@@ -358,18 +361,13 @@ namespace BS3D.Screens
         /// </summary>
         private const float MUZZLE_GLOW_ADS_STRENGTH = 0.3f;
 
-        /// <summary>
-        /// The halo's reach at full lean, in ball radii, against <see cref="BallGlow.RADIUS_IN_BALL_RADII"/>'s
-        /// 4 (#321). Halved rather than taken to nothing: the ring has to keep an annulus outside the round's
-        /// own silhouette or there is nothing to see, and that class's own note puts the floor for that at 1.
-        /// <para>
-        /// <b>The size is the half of this the report named first</b> — "a blooming, breathing ring four ball
-        /// radii across covers the cells the player is leaning in to read". Strength alone would not have
-        /// answered it: a dimmer disc of the same size still sits over the same cells, and this mode exists to
-        /// look <i>along</i> the bore at exactly those.
-        /// </para>
-        /// </summary>
-        private const float MUZZLE_GLOW_ADS_RADII = 2f;
+        //⚠ #321'S OTHER HALF IS GONE WITH ITS SUBJECT (#425). The halo had to SHRINK in precise aim as well as
+        //dim, because "a blooming, breathing ring four ball radii across covers the cells the player is leaning
+        //in to read" — a disc anchored at the round and sized in ball radii sits over the field whatever its
+        //brightness. The collar is on the GUN: a band round the tube's tip, the same size in every mode, and it
+        //covers nothing the lens is leaning in to read. So MUZZLE_GLOW_ADS_RADII has no subject any more and is
+        //not replaced by a collar equivalent. The strength damping below stays, because that half of the report
+        //was about how loud the mark is and a mark on the gun can still be too loud.
 
         /// <summary>
         /// The halo the muzzle round carries this frame, or zero when no shot would leave the barrel at all —
@@ -413,10 +411,16 @@ namespace BS3D.Screens
         /// signal handed between two lenses rather than three things competing for the middle of the frame.
         /// </para>
         /// </summary>
-        private void DrawMuzzleGlow() =>
-            _ballGlow.Draw(Camera, _muzzleBallPosition, Constants.HALF,
-                BasicEffectParamsProvider.GetDiffuseTintByType(LoadedColour(0)), MuzzleGlowStrength(),
-                MathHelper.Lerp(BallGlow.RADIUS_IN_BALL_RADII, MUZZLE_GLOW_ADS_RADII, _preciseAim.Blend));
+        /// <summary>
+        /// The muzzle collar in the next round's colour (#425): the gun's own band of steel, glowing at
+        /// whatever <see cref="MuzzleGlowStrength"/> says this frame. Drawn with the barrel, opaque, in the
+        /// barrel's own pose - so the shape the player reads is the same ring foreshortened at every traverse
+        /// and elevation, which is the whole of what this replaced a camera-facing billboard for.
+        /// </summary>
+        private void DrawMuzzleCollar(Matrix barrelWorld) =>
+            Game.CannonRig.DrawMuzzleCollar(Camera, barrelWorld, Game.SceneEffectParams,
+                BasicEffectParamsProvider.GetDiffuseTintByType(LoadedColour(0)),
+                MuzzleGlowStrength());
 
         #endregion
 

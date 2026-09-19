@@ -1,4 +1,4 @@
-using BS3D.Audio;
+﻿using BS3D.Audio;
 using BepuPhysics;
 using Microsoft.Xna.Framework;
 using Prazsky.BS3D.GameObjects;
@@ -200,7 +200,6 @@ namespace BS3D.Screens
             //which the content manager owns and which those two share
             _smears.Dispose();
             _aimBeam.Dispose();
-            _ballGlow.Dispose();
             _crosshair.Dispose();
             _laserGrid.Dispose();
             _blasts.Dispose();

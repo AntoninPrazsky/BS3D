@@ -1,4 +1,4 @@
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Prazsky.Core.Camera;
 using Prazsky.Core.Render;
@@ -55,6 +55,44 @@ namespace Prazsky.BS3D
         /// <summary>Radial thickness of the steel; the outer radius is this plus <see cref="BORE_RADIUS"/>.
         /// Thin, but the slot's cut edges are closed by rim faces so it does not read as paper-thin.</summary>
         public const float WALL_THICKNESS = 0.14f;
+
+        //THE MUZZLE COLLAR (#425): a band of steel ringing the tube just behind the muzzle face, which GLOWS in
+        //the colour of the round about to fire. It replaces a camera-facing billboard, and the whole of why is
+        //that this is GEOMETRY: it turns with the gun, so what the player sees is the same ring foreshortened,
+        //at every traverse and every elevation. The billboard's shape was decided by which part of the quad the
+        //barrel's cylinder happened to occlude from the current view - the owner's report was that it "clips
+        //through the barrel differently on every rotation", and that was the technique working as designed.
+        //
+        //It stands PROUD of the muzzle swell and not on the face. From the play camera the gun is seen from
+        //behind, so the muzzle FACE points away and a disc set into it would be invisible for most of a level;
+        //a band around the outside is seen from every side, and from precise aim - looking along the bore - it
+        //is the ring ahead of the eye. The swell crests at BORE_RADIUS + WALL_THICKNESS + 0.055 = 0.795, so the
+        //collar's crest clears it by a clear margin rather than fighting it for the silhouette.
+        private const float COLLAR_ROOT_RADIUS = 0.78f;
+        private const float COLLAR_CREST_RADIUS = 0.98f;
+        private const float COLLAR_LENGTH = 0.20f;      //along the bore, from the muzzle face backwards
+        private const float COLLAR_SHOULDER = 0.05f;    //how much of that length each chamfer takes
+        private const int COLLAR_SEGMENTS = 48;
+
+        //Dark steel, so what the eye reads is the emission and not a pale ring wearing a tint. The renderer is
+        //deliberately NOT enrolled in the host's sky rig: a band whose whole job is to state a colour must
+        //state THAT colour under every one of the twenty domes, and the sky is what would tint it.
+        private static readonly Vector3 COLLAR_STEEL = new(0.06f, 0.06f, 0.07f);
+
+        //⚠ THE TINT IS NORMALISED TO ITS OWN PEAK AND THEN PUSHED JUST OVER 1, and both halves were
+        //photographed before they were settled. At the tint's own 0..1 the band sits under the glare threshold
+        //and comes out as a slightly-tinted ring of steel - the "faint ring nobody reads" the halo it replaces
+        //warns about in its own note. At the halo's 3x it is unmistakable and WHITE: three times a saturated
+        //colour puts every channel over 1, the tonemap clips them together, and the one thing the band exists
+        //to say is the first thing lost. Just over 1 blooms the dominant channel alone, so the ring glows in
+        //the round's own hue.
+        //
+        //Normalising also makes every round's mark the same brightness whatever its colour weighs, which a
+        //marker wants and a light does not: the dim browns would otherwise be a duller announcement than the
+        //yellows for no reason the player could act on. The floor catches the near-black round, which has no
+        //hue to normalise and would otherwise mark the muzzle with nothing at all.
+        private const float COLLAR_BRIGHTNESS = 1.35f;
+        private const float COLLAR_COLOR_FLOOR = 0.22f;
 
         /// <summary>
         /// Half-width of the top slot, in radians from straight up — so a ~57° window. Sized by what it has to
@@ -429,6 +467,9 @@ namespace Prazsky.BS3D
         private CannonGlassMesh _glassMesh;
         private InstancedModelRenderer _glassRenderer;
 
+        private LatheMesh _collarMesh;
+        private InstancedModelRenderer _collarRenderer;
+
         private GunCarriageMesh _carriageMesh;
         private InstancedModelRenderer _carriageRenderer;
         private OmniWheelMesh _wheelMesh;
@@ -495,6 +536,29 @@ namespace Prazsky.BS3D
             _renderer = new InstancedModelRenderer(graphicsDevice, _mesh, STEEL_COLOR, instancingEffect)
             {
                 SpecularAmbientStrength = SPECULAR_AMBIENT_STRENGTH
+            };
+
+            //The muzzle collar (#425), lathed in the barrel's own frame off the barrel's own figures, so the
+            //ring that glows and the tube it rings cannot drift apart. The lathe turns about Y and the bore
+            //runs along Z, so the profile's Y IS the local Z here and the draw turns it a quarter about X.
+            //Ordered from the muzzle face BACKWARDS, which is what puts the normals outwards.
+            _collarMesh = new LatheMesh(graphicsDevice, new[]
+            {
+                new LathePoint(COLLAR_ROOT_RADIUS, muzzleZ, crease: true),
+                new LathePoint(COLLAR_CREST_RADIUS, muzzleZ + COLLAR_SHOULDER, crease: true),
+                new LathePoint(COLLAR_CREST_RADIUS, muzzleZ + COLLAR_LENGTH - COLLAR_SHOULDER, crease: true),
+                new LathePoint(COLLAR_ROOT_RADIUS, muzzleZ + COLLAR_LENGTH, crease: true),
+            }, COLLAR_SEGMENTS);
+
+            _collarRenderer = new InstancedModelRenderer(graphicsDevice, _collarMesh, COLLAR_STEEL, instancingEffect)
+            {
+                SpecularAmbientStrength = SPECULAR_AMBIENT_STRENGTH,
+
+                //The band radiates its own colour rather than reflecting one: EmissiveTint carries the round's
+                //colour per frame and this is what says how much of it leaves the surface. One, because the
+                //tint the caller hands in is already scaled by the breath and by precise aim's damping - two
+                //dials for one brightness is two places for it to be turned down twice.
+                EmissiveStrength = 1f,
             };
 
             //The window's glazing, cut to the very figures the window was: the front ball's centre is exactly
@@ -611,6 +675,34 @@ namespace Prazsky.BS3D
                 ArenaIsland.FloorHeightAt(MathF.Sqrt(world.M41 * world.M41 + world.M43 * world.M43));
 
             _renderer.Draw(camera, world, effectParams);
+        }
+
+        /// <summary>
+        /// Draws the muzzle collar in the colour of the round about to fire (#425) - the band around the tube's
+        /// tip, glowing at <paramref name="strength"/>. Nothing is drawn at zero, so the gate lives in the
+        /// caller's one answer to "would a shot leave the barrel this instant" rather than being spelled here.
+        /// <para>
+        /// It takes the <b>same</b> pose the barrel was drawn with this frame, recoil stroke and all, for
+        /// <see cref="DrawGlass"/>'s reason: a collar drawn against anything else slides along the tube it
+        /// rings. The quarter turn about X is the lathe's axis meeting the bore's - see the mesh's own note.
+        /// </para>
+        /// </summary>
+        /// <param name="tint">The round's colour, already scaled by whatever breath or damping the caller
+        /// applies. Linear, as everything this renderer takes is.</param>
+        public void DrawMuzzleCollar(ICamera camera, Matrix world, BasicEffectParams effectParams,
+            Vector3 tint, float strength)
+        {
+            if (strength <= 0f) return;
+
+            _collarRenderer.GroundHeight =
+                ArenaIsland.FloorHeightAt(MathF.Sqrt(world.M41 * world.M41 + world.M43 * world.M43));
+
+            float peak = MathF.Max(tint.X, MathF.Max(tint.Y, tint.Z));
+            Vector3 hue = peak > COLLAR_COLOR_FLOOR ? tint / peak : new Vector3(COLLAR_COLOR_FLOOR);
+
+            _collarRenderer.EmissiveTint = hue * (COLLAR_BRIGHTNESS * strength);
+
+            _collarRenderer.Draw(camera, Matrix.CreateRotationX(MathHelper.PiOver2) * world, effectParams);
         }
 
         /// <summary>

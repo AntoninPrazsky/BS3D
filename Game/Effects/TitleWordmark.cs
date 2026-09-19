@@ -1,4 +1,4 @@
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Prazsky.Core.Camera;
 using Prazsky.Core.Render;
@@ -875,7 +875,7 @@ namespace BS3D.Effects
         /// </param>
         /// <remarks>
         /// <b>The draw states are stated here and put back</b>, which is the contract <c>ArenaIsland</c>'s
-        /// slices and <c>BallGlow</c> keep: the caller's next act is the frame's translucent glass, and it is
+        /// slices keep: the caller's next act is the frame's translucent glass, and it is
         /// entitled to find the states <c>BeginSceneDraw</c> left for the scene. Nothing is inherited either —
         /// what ran last before this is the ball draw, and what a frame starts with depends on which pass
         /// finished the one before it.
