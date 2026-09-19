@@ -1,4 +1,4 @@
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
@@ -89,6 +89,14 @@ namespace Prazsky.Core.Render
         /// <summary>Every draw of the scatter, in draw order. Never empty buckets — a kind with a count of
         /// zero simply has none.</summary>
         public ScatterBucket[] Buckets { get; private set; }
+
+        /// <summary>
+        /// Everything the planting put on the ground, with its own footprint radius - the list
+        /// <see cref="ScatterSpacing"/> kept plants out of each other with, handed on rather than thrown
+        /// away. <see cref="TrailWarpField"/> reads it to know what a worn path has to go round (#476); the
+        /// hearths the caller reserved are in it too, which is right - nobody walks through a campfire.
+        /// </summary>
+        public IReadOnlyList<ScatterSpacing.Footprint> Standing { get; private set; }
 
         private readonly List<IDisposable> _meshes = new();
 
@@ -225,6 +233,7 @@ namespace Prazsky.Core.Render
             //copy with the forest's (#108). One list for the whole plain: a mound does not stand inside a
             //tree, and nothing stands in a hearth.
             var standing = new List<ScatterSpacing.Footprint>(reserved);
+            Standing = standing;
 
             //One proposal of a spot: near a cluster centre (denser towards it) or anywhere in the ring.
             (float, float) Propose(float minR, float maxR, float clusterShare, float spread)

@@ -69,6 +69,27 @@ float TrailStrength;
 float TrailWidth;
 float TrailFrequency;
 
+//Where a path has to step aside, and which way (#476). A small CPU-built RG field over the plain: the
+//trail's noise is sampled at the warped position, so a contour that would have crossed a tree is pushed out
+//and arrives as a BEND. It is the answer to "nobody wears a track through a trunk", and the reach is wide
+//on purpose - a person crossing open ground sees the tree coming and is already going round it.
+//
+//Zero TrailWarpAmount leaves the sampling exactly where it was, which is what every scene but the savanna
+//gets and what this one had before #476.
+texture TrailWarpTexture;
+sampler2D TrailWarpSampler = sampler_state
+{
+    Texture = <TrailWarpTexture>;
+    MinFilter = Linear;
+    MagFilter = Linear;
+    MipFilter = None;
+    AddressU = Clamp;
+    AddressV = Clamp;
+};
+
+float TrailWarpExtent;
+float TrailWarpAmount;
+
 //THE GRASS AS A MATERIAL (#281), read off references rendered for it (a savanna field, the same field towards a low
 //sun, bunch grass from above): savanna grass grows in separate tufts with the red earth showing between them, its
 //dry tips are pale straw, and the field has a sheen seen edge-on and glows gold looking into the sun. The meadow
@@ -255,7 +276,17 @@ float4 SavannaField(SavannaVertexOutput input, bool detail)
     [branch]
     if (TrailStrength > 0.0)
     {
-        float contour = abs(CloudNoise(worldPosition.xz * TrailFrequency + 33.0));
+        //The step aside, read off the field the planting built (#476). tex2Dlod rather than tex2D: this is
+        //inside a [branch] and a gradient instruction in divergent flow is what the compiler refuses. Clamped
+        //addressing means the field simply runs out past the plain's edge, where there is nothing to go round.
+        float2 warp = float2(0.0, 0.0);
+        if (TrailWarpAmount > 0.0)
+        {
+            float2 warpUv = worldPosition.xz / TrailWarpExtent + 0.5;
+            warp = (tex2Dlod(TrailWarpSampler, float4(warpUv, 0.0, 0.0)).rg * 2.0 - 1.0) * TrailWarpAmount;
+        }
+
+        float contour = abs(CloudNoise((worldPosition.xz + warp) * TrailFrequency + 33.0));
         float trailFade = saturate(1.0 - footprint * TrailFrequency / max(TrailWidth, 1e-4) * 0.5);
         trail = (1.0 - smoothstep(TrailWidth * 0.5, TrailWidth, contour)) * trailFade * TrailStrength;
     }
