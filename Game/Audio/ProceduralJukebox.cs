@@ -202,8 +202,8 @@ namespace BS3D.Audio
             MusicTheme? theme = PIECES[_index].Theme;
 
             _render = Task.Run(() => ProceduralMusic.ToPcm(theme is MusicTheme composition
-                ? ProceduralMusic.Render(composition)
-                : ProceduralMusic.RenderMenu()));
+                ? ProceduralMusic.Render(composition, out _)
+                : ProceduralMusic.RenderMenu(out _)));
         }
 
         private void Realize(Task<byte[]> ready)
