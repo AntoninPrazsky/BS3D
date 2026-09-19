@@ -869,7 +869,10 @@ namespace BS3D.Screens
             DrawStreak(score, viewport, margin, scoreAnchor.Y + scoreSize.Y * 0.5f + Scaled(HUD_LINE_GAP));
             DrawBallsLeft(score, viewport, margin);
             DrawMagazine(queue, score, viewport, margin);
-            DrawTutorial(tutorial, viewport, margin);
+
+            //The card is given the score's left edge rather than measuring it again: it is what bounds the
+            //strip the card may stand in (#461), and one measurement cannot disagree with the other.
+            DrawTutorial(tutorial, viewport, margin, scoreAnchor.X - scoreSize.X);
 
             //Last, so the numbers coming in pass over the readouts rather than under them
             DrawAwards(camera, viewport, scoreAnchor - new Vector2(scoreSize.X * 0.5f, 0f));
@@ -1698,8 +1701,16 @@ namespace BS3D.Screens
         //like every other readout, so the card reads as a line spoken over the scene rather than a box nailed
         //to it. Its state is Tutorial's; this draws what it reads there, the way the rest of the HUD reads the
         //score keeper.
-        private const int HUD_TUTORIAL_GLYPH_GAP = 30;
-        private const int HUD_TUTORIAL_LINE_GAP = 4;
+        private const int HUD_TUTORIAL_GLYPH_GAP = 48;
+        private const int HUD_TUTORIAL_LINE_GAP = 10;
+
+        //How much of the top strip the card leaves between itself and the corner readouts (#461). The card is
+        //CENTRED, so what bounds it is the nearer top corner mirrored about the centre — and that corner is the
+        //score's, not the FPS line's: the score is the wider of the two at every size the game runs (five
+        //digits of the display face measure 237 design units against the FPS line's ~145 of Segoe UI), so a
+        //card that clears the score clears the line as well. Stated as a distance rather than as an aspect, so
+        //the owner's 21.6:9 panel simply gets a wider strip than 16:9 does and a narrow window a tighter one.
+        private const int HUD_TUTORIAL_CLEARANCE = 80;
 
         //The pop-in starts this small and overshoots to full through EaseOutBack: a card that lands with a
         //bounce reads as the game offering something, where one that fades in reads as a notice. The praise
@@ -1723,7 +1734,8 @@ namespace BS3D.Screens
         /// shouldering it along the top of the frame. Every colour is premultiplied by the card's presence, as
         /// every fading readout here is, so the backing and the shadow fade with the text.
         /// </summary>
-        private void DrawTutorial(Tutorial tutorial, Viewport viewport, int margin)
+        /// <param name="scoreLeft">The left edge of the score block, which is what the card may not reach.</param>
+        private void DrawTutorial(Tutorial tutorial, Viewport viewport, int margin, float scoreLeft)
         {
             float presence = tutorial.Presence;
             if (presence <= 0.005f) return;
@@ -1752,6 +1764,16 @@ namespace BS3D.Screens
 
             float alpha = MathHelper.Clamp(presence, 0f, 1f);
             float scale = MathHelper.Lerp(HUD_TUTORIAL_ARRIVE_FROM, 1f, EaseOutBack(alpha)) * _tutorialPulse.Scale;
+
+            //THE CARD IS SCALED TO THE STRIP IT HAS, and at the shipped sizes this never bites (#461): the
+            //widest card of the fifteen measures 2397 design units against ~3060 of strip at 16:9, and the
+            //arrival's overshoot and the praise's kick both swell words far shorter than the instruction they
+            //replace. What it is for is the two cases no authored figure can answer — a window narrower than
+            //16:9, and a caption someone adds later — where a card would otherwise walk into the score. It
+            //caps the animated scale rather than the layout, so a clamped card cannot bounce past the number
+            //either.
+            float halfStrip = MathF.Max(0f, scoreLeft - Scaled(HUD_TUTORIAL_CLEARANCE) - viewport.Width * 0.5f);
+            if (width > 0f) scale = MathF.Min(scale, 2f * halfStrip / width);
             float bob = praising ? 0f
                 : MathF.Sin(tutorial.Age * MathHelper.TwoPi / HUD_TUTORIAL_BOB_PERIOD) * Scaled(HUD_TUTORIAL_BOB);
 
