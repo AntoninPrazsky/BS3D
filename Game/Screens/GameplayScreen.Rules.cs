@@ -87,7 +87,15 @@ namespace BS3D.Screens
             //What the shot was worth, born on the cell it landed in and flown into the corner from there. The
             //type is the colour of the group it completed — a match is by definition three of one colour
             //touching — and is what the number is tinted with on the way; see PlayHud.
-            if (award.Scored) _hud.AddAward(landing.World, award, landing.Type);
+            if (award.Scored)
+            {
+                _hud.AddAward(landing.World, award, landing.Type);
+
+                //The tutorial's match lesson done in earnest, and — the keeper having just raised the multiplier
+                //for the next shot, which is the frame the HUD's badge lights — its streak lesson's cue (#189)
+                _tutorial.Report(Tutorial.Lesson.Match);
+                if (_score.Multiplier > 1) _tutorial.Trigger(Tutorial.Lesson.Streak);
+            }
 
             //The light runs out through the cluster from where the ball hit. Started AFTER the release above,
             //so the wave walks the cluster that is left rather than the one that was: it goes around the hole
@@ -666,7 +674,13 @@ namespace BS3D.Screens
             float threshold = CEILING_DEATH_Y + LASER_WARN_STEPS * CEILING_DESCENT_PER_STEP;
             if (_laserGrid.Visible) threshold += LASER_WARN_HYSTERESIS;
 
-            _laserGrid.SetVisible(Game.ForceLaserWarning || lowestBallY <= threshold, WallClock);
+            bool warn = Game.ForceLaserWarning || lowestBallY <= threshold;
+
+            //The net coming ON is the tutorial's cue for its line lesson (#189) — the one moment there is
+            //something to say it about — and never the pinned-on net of a `lasers` run, which is nobody playing
+            if (warn && !_laserGrid.Visible && !Game.ForceLaserWarning) _tutorial.Trigger(Tutorial.Lesson.Line);
+
+            _laserGrid.SetVisible(warn, WallClock);
         }
 
         /// <summary>

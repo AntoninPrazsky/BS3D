@@ -3627,6 +3627,271 @@ Průzkum menu všech scén ukázal poušť jako nejslabší:
 
 **Nic dalšího si neberu.**
 
+---
+
+## 2026-09-17 — Claude Code, bs3d-54 (outback: ověřeno ve hře, sloučeno)
+
+**Outback je v main (`b8a4044`)**, větev `outback-monoliths-and-spinifex` je smazaná. Majitel pustil grafiku („Grafika už zase může běžet, ověř to ve hře“). Stránka: https://claude.ai/artifact/8ej8jwdx4jBkyNoYh9SVRK
+
+**Ověřeno:**
+- Testbed pod oblohami 1, 3 a 13 ve čtyřech pohledech, před i po, s `nopost=1`.
+- Game: menu nad outbackem a hraný level (Amphora přepnutá na outback přes `levelfile=`, jiný outback level ve hře není).
+- Výřez monolitu z herní kamery 1:1.
+- Save majitele se během běhů nezměnil (hash).
+
+**Tvary z CPU náhledu seděly, světlo ne.** Ve hře jsem doladil:
+- `SoilBounce` 0,35: odražené světlo od písku, vážené `1 − normal.y`; stinné stěny byly skoro černé;
+- `VarnishColor` na teplou skoro černou a `VarnishGloss` 0,04; šedé stružky byly pod fialovou oblohou světlejší než skála;
+- `CaveShade` 0,35;
+- trsy spinifexu: nízká kopule `(1 − x²)²`, roztřepený obrys přes jeden `GradientNoise2` a světlá sušší barva. Předtím vypadaly jako fazole.
+
+**Cena proti main** (Testbed 1600×900 × ssaa 2, obloha 13, `nocap`, 3 páry na kameru, rozptyl do 0,01 ms):
+- herní kamera 2,45 → 2,62 (+0,16);
+- přes pláň 2,91 → 3,21 (+0,30);
+- shora 3,07 → 3,30 (+0,23).
+
+`[branch]` kolem `GradientNoise3` stružek ušetřil 0,05–0,10 ms, změřeno proti stejnému buildu bez něj.
+
+⚠ **Push mergi do main odmítnut, protože mezitím přistál #409.** V jednom `&&` řetězci se přitom smazala remote větev ještě před úspěšným pushem. Nic se neztratilo, lokální `git branch -d` správně odmítl nesloučenou větev. **Mazání větve patří až za ověřený push**, ne do stejného řetězce.
+
+**Poznámka k save:** při spuštění hry ukazuje `Progress.json` 39 hvězd a 10 levelů (zapsáno 13:51, ve CPU-only fázi, bez spuštěné hry z mé strany). Ráno to bylo 395 hvězd a 100 levelů. Nesahal jsem na to.
+
+**Nic dalšího si neberu.**
+
+---
+
+## 2026-09-18 — Claude Code, bs3d-9f (logo pro hru; sd-server shodil stroj dvakrát)
+
+Majitel chtěl namalovat logo hry přes Z-Image-Turbo. **Dvě ze dvou spuštění `sd-server` skončila tvrdým restartem** (9:57:56 a 10:13:02, `Kernel-Power 41` + `6008`, BugcheckCode 0, bez WHEA a bez 4101). Dohromady je to **sedm ze sedmi** za 17. a 18. 9., přičemž bs3d-ed týž den udělal ~40 běhů Testbedu/Game a tři **nezastropované** benchmark sweepy úplně čistě.
+
+**Teorie o offloadu je vyvrácená, neopakovat ji.** Stálo v paměti i v dokumentaci, že spouštěčem je `--offload-to-cpu` a jeho streamování vah přes PCIe každý krok. Majitel navrhl zkusit Q4 bez offloadu; model se stáhl (`z_image_turbo-Q4_K.gguf`, 3,86 GB) a **vešel se celý na kartu** — auto-fit zapsal `total params memory size = 7921.64MB (VRAM 7921.64MB, RAM 0.00MB)`, nic v RAM, nic se nestreamovalo. Stroj spadl **během několika sekund po prvním sampling kroku, bez jediného obrázku**, tedy dřív než offloadovaný Q8 běh, který stihl čtyři. Majitelův závěr: *„velikost modelu nemá vliv"*. Spouštěčem je **Vulkan compute zátěž sd.cpp**, ne přenosy a ne velikost vah — což zároveň vysvětluje, proč jsou Testbed a Game v pohodě při jakémkoli FPS: rasterizace nemá profil hustého matmulu.
+
+Vyloučeno k dnešku: výměna kabelu, zvýšený power limit, snížený power limit o 10 %, Q8 s offloadem, Q4_K bez offloadu. **Před dalším spuštěním `sd-server` se ptát majitele** a říct mu, že je to sedm ze sedmi.
+
+Zapsáno do `.claude/skills/design-references/SKILL.md` (varování nahoře) a skript umí `-DiffusionModel`, `-Encoder` a `-NoOffload`, aby šla konfigurace pojmenovat; defaulty zůstaly. Sloučeno jako `050ad3f`.
+
+**Co přežilo:** čtyři obrázky v `C:\Users\panrd\AI\sd\out\logo`, ze šesti zamýšlených směrů dva. `logo-tube-word-9101/9102` je trefa — nafouknuté duhové trubkové písmo s tmavým lemem, text napsaný správně, v podstatě 2D verze toho, co `TitleWordmark` staví ve 3D. `logo-cluster-lockup-9201/9202` má dobrou kompozici, ale v promptu jsem jméno nevyhláskoval, takže model napsal „Locces"/„Locles" — **jméno se do promptu musí psát v uvozovkách**.
+
+⚠ **Zopakoval jsem chybu z 2026-09-17 o pár řádků výš: v jednom `&&`/`;` řetězci se smazala remote větev dřív, než prošel push.** Nic se neztratilo (lokální `git branch -d` i remote merge šly dorovnat), ale pravidlo platí doslova: **mazání větve až za ověřeným pushem, samostatným příkazem.**
+
+**Pozor na `main` v `BS3D-322`:** ten worktree má `main` na `1ace6c0`, což je **90 commitů za `origin/main`**. Není to divergence, jen zapomenutý checkout — ale `git checkout main` v hlavním worktree kvůli němu selže a `git push origin main` odmítne rewind. Merge jsem proto udělal přes `git checkout --detach origin/main` a `git push origin HEAD:main`.
+
+**Nic si neberu, čekám na majitelovo rozhodnutí, jak logo dodělat.**
+
+---
+
+## 2026-09-18 — Claude Code (checkout `C:\Users\panrd\source\repos\BS3D`)
+
+**Průchod na majitelovo zadání „pošlu ti poznámky, ze kterých založ issues" — osm založených (#445–#452), žádný kód.** Zapisuji sem ze stejného důvodu jako zápis z #353–#358: tenhle deník má na duplicitní zakládání vlastní jizvu.
+
+- **#445 Tropical** — pláž chce detail a rozmanitost, navrženo přes `design-references`. Dnes: čtyři varianty palmy, 110 kusů, kamenná šňůra na čáře vody, laguna na `Sea.fx`. **V žádném levelu kampaně se nehraje** (11 bloků jede na jedenácti jiných scénách), takže je to backdrop, který si hráč vybere v menu.
+- **#446 Hudba — dodělat výměnu.** #443 dodalo 11 stop, ale **jedenáct kapitol se dělí o pět skladeb** (pulse hraje Meadow, Quarry i Arcade; bohemia Tower + Spectrum; nocturne Reveal + Nebula; mural Gallery + Mirage; ember Coil + Eruption). `Research/AI-Music/game-track-01.wav` je vyrenderovaná nová skladba, která nikdy nedostala slot. Fanfáry zůstaly procedurální (`GameMusic.cs:68,284-295`) a #443 je nechalo „mimo rozsah, pokud majitel neřekne jinak" — tohle je to „jinak". Za ponechání fanfár procedurálních mluví `TryGetFanfare`/#158: nahrávka nemá tóninu ani tempo, které HUD čte.
+- **#447 Úvodní prohlídka Meadow se dívá do země.** Není to dojem, je to v číslech: `SceneRenderer.cs:1857` míří 70 jednotek ven, **25 jednotek uvnitř ploché mýtiny o poloměru 95**, jednu jednotku nad trávou — kopce (jediný reliéf scény) začínají až za tím. A `6f` elevace se měří od středu prohlídky, což je cílová výška kamery levelu nahoře u shluku, ne od trávy na −14. Komentář na 1854-1856 dnešní záběr **výslovně obhajuje** („subjektem louky jsou květiny"), takže se musí přepsat spolu s kódem.
+- **#448 Přesné míření + A/D trhá obraz.** Pořadí updatu je v pořádku (kanón na `GameplayScreen.cs:1253`, kamera na 1339, komentář v `Camera.cs:71-74` to hlídá schválně). Neověřená stopa: hra nevsyncuje a `FrameLimiter` cílí **3 % NAD refresh** (`REFRESH_MARGIN`, `FrameLimiter.cs:41`) — což je obhájené v termínech *doručených snímků*, nikdy proti *pohybu*, a plynulý pan přes celou obrazovku je nejcitlivější test pacingu, jaký hra má. Testbed to umí odehrát bez klávesnice (`hold=` na A + `rmb=` přes týž interval) a jeho idle **spinuje celou periodu**, kde herní většinu prospí — takže je to zároveň rozlišovač.
+- **#449 Hudba Meadow nesedí** — pulse je moll eurodance/trance pod rozkvetlou loukou. Nejde přegenerovat slot: `pulse` hraje i Quarry (Měsíc) a Arcade (neon). Chce to novou skladbu ve vlastním slotu, čímž to visí na #446.
+- **#450 Pohár: dva pásy ťupek v podstavci jsou přerušené kvůli uchu, které tam není.** Jednořádková věc: `BeadRow` aplikuje `NearHandle` na všechny čtyři řady (`TrophyPodium.cs:520`), ale dvě z nich jsou bubínek podstavce na `y = 0,028` a `0,110`, zatímco nejnižší bod ucha je `y = 0,580` (`TrophyMesh.cs:210-213`). Každá z těch dvou řad ztrácí **deset ťupek z devadesáti** ve dvou obloucích po 18,3°. Vlastní komentář konstanty už říká „the handle's upper root lands in **the band**". Stříbro (ťupky bez uch) je uzavřené dokola — to je důkaz, že příčina je ten skip a nic na geometrii bubínku.
+- **#451 Savana** — čtyři varianty akácie a dvě keře na celou scénu; upgrade přes reference, ale s měřením ceny (#165/#172 ji mají v historii jako drahou scénu).
+- **#452 README screenshot** — od jeho pořízení (28. 8.) přistálo na mainu **187 merge commitů**, a v záběru je navíc ladicí `FPS: 78`. Majitel chce starý nemazat, jen nezobrazovat — přesně to už jednou proběhlo jako `d78028d`, takže je na to vzor. Obě jména `screenshot1.*` jsou obsazená.
+
+⚠ **Sémantická kontrola duplicit NEPROBĚHLA**: `Tools/SemanticSearch` potřebuje LM Studio na `localhost:1234` a to teď neodpovídá (HTTP 000). Duplicity jsem procházel ručně přes `gh issue list --search` po tématech (tropical/savanna, music, trophy, README) plus celý seznam otevřených. Kdo na těchhle issues sáhne, ať kontrolu pustí znovu — a platí, co je v deníku už zapsané: **kontrola duplicit má životnost v minutách**.
+
+**Nic si neberu.**
+
+---
+
+## 2026-09-18 — Claude Code (checkout `C:\Users\panrd\source\repos\BS3D`, druhý zápis dne)
+
+**#453 (nově založené): `release.yml` — stahovatelná binárka, kterou hráč na Windows 10/11 rozbalí a spustí, aniž by cokoli instaloval.** Větev `453-release-workflow`. Majitelova otázka zněla „jde to, a bez placení GitHubu?" — jde, a **zdarma to je proto, že tenhle repozitář je public**: standardní runnery ani úložiště/přenos releasů se u public repozitářů neúčtují. (Na private by se Windows minuty počítaly **dvojnásobnou** sazbou — proto je ta věta i v komentáři workflow.)
+
+**Změřeno lokálně dřív, než jsem cokoli napsal** (`dotnet publish Game/Game.csproj -c Release -r win-x64 --self-contained true`):
+
+| co | kolik |
+|---|---|
+| rozbaleno | 163 MB, 511 souborů |
+| zip | **68,3 MB** (limit assetu je 2 GB) |
+| obsah | 38 `.xnb` (**stejný počet jako běžný build** — nic se cestou neztratilo), 111 levelů, 11 `.ogg` |
+
+**Binárka byla opravdu spuštěná** mimo strom (`%TEMP%\bs3d-pub\BS3D.exe mute`): okno naběhlo, `[build]` ohlásil 37 shaderů, `[levels]` načetl 110 levelů, stderr prázdný. **Save majitele je před i po bajt za bajtem stejný** (hashe `Settings.json` i `Progress.json` kontrolované kolem běhu) — to je tady pravidlo, ne zdvořilost.
+
+**Proč to vůbec může fungovat bez instalace:** `MonoGame.Framework.WindowsDX` 3.8.5 nese v balíčku **jedinou managed assembly a žádnou nativní knihovnu**, takže jediné nativní závislosti jsou d3d11/dxgi/XAudio2 samotných Windows (od Win10 1607 přítomné) — self-contained publish přibalí zbytek runtime a tím je seznam úplný.
+
+**Rozhodnutí zapsaná do workflow, aby je nikdo neobjevoval znovu:**
+- **Bez trimu a bez single-file.** Myra, FontStashSharp i content pipeline sahají na typy reflexí a `Content/`, `Levels/`, `Music/` stejně musí ležet vedle exe — jeden soubor by nekoupil nic a rozbít umí hodně. `.pdb` zůstávají schválně: bez nich je hráčův crash report bez čísel řádků.
+- **Publikuje jen tag `v*`.** Tlačítko „Run workflow" udělá **týž build** a nechá zip jen jako artefakt workflow — zkušební jízda, po které ven nejde nic.
+- **Krok „Check the published folder is playable"** ověří pět věcí (exe, `coreclr.dll`, zkompilované shadery, levely, hudba). Složka plná DLL bez contentu je pořád složka plná DLL a ta chyba by se jinak projevila až u hráče.
+- `Compress-Archive` nad **adresářem** drží ten adresář uvnitř archivu — rozbalení položí jednu složku, ne tři stovky souborů do Downloads.
+- **Nic se nedupluje s `build.yml`:** jeho `on: [push]` je bez filtru, takže střílí **i na push tagu** — obě brány (determinismus LevelGenu, ScoreSim) tedy u releasu běží vedle, aniž by je release workflow opisoval.
+
+**Ověření toho, co ověřit šlo, dokud workflow není na mainu:** YAML rozparsován, každý `run` blok protažen PowerShell parserem (6/6 bez chyby), krok s kontrolou složky **spuštěn lokálně v obou větvích** (pozitivní: 511 souborů/161 MB; negativní: po schování `Music` správně hodil „the published folder is missing: the music"), a u `gh release create` ověřeno, že kombinaci `--notes-file` + `--generate-notes` CLI přijímá. **Vlastní běh na GitHubu ověřený nebyl** — `workflow_dispatch` jde spustit teprve z výchozí větve, takže to bylo první, co po mergi následovalo; čísla jsou o dva odstavce níž.
+
+⚠ **README odkazuje na `/releases/latest`, což je 404, dokud nepadne první tag.** Merge a tag proto patří k sobě; pořadí je merge → ruční běh (zkouška, nic se nepublikuje) → `v0.1.0`. **Tag je majitelovo rozhodnutí** — je to první věc z tohohle repa, která jde ven k lidem, a exe je **nepodepsané** (certifikát je jediná část téhle úlohy, která stojí peníze), takže SmartScreen při prvním spuštění zahlásí „Windows protected your PC". Release notes to hráči říkají rovnou i s cestou ven (More info → Run anyway).
+
+**Mergnuto jako `b0e7c33`** (větev smazána na obou stranách) **a zkušební jízda proběhla**: `workflow_dispatch` z `main`, run 35342399700, **2 min 32 s** celkem. Runner vydal `BS3D-dev-b0e7c33-win-x64` — **511 souborů / 161 MB**, přesně tolik co lokálně, **70,0 MB zip** (lokálně 68,3; rozdíl dělá `Compress-Archive` pwsh 7 proti PS 5.1, ne obsah), krok „Publish the GitHub Release" **skipped** a seznam releaseů zůstal prázdný. **Artefakt jsem stáhl a spustil**: okno naběhlo, `[levels]` 110 levelů a `[build] shaders 37 set 64f83ff5` — **týž hash sady shaderů jako lokální build**, takže content pipeline na runneru vyrobila totéž. Save majitele opět beze změny.
+
+**Majitelovo rozhodnutí (18. 9.), dvakrát a pokaždé směrem k „ještě ne": první release bude `v0.1.0` a čeká na #454 (logo) i na #189 (tutoriál).** Tutoriál se k releasu přivázal sám — je chtěný právě proto, že si v0.1.0 stáhne kdokoli, takže první stažitelný build má hráče umět hru naučit. Do té doby žádný release neexistuje a `/releases/latest` v README je 404. **A pozor na to, co z toho plyne pro merge: tag zabalí, co na `main` v tu chvíli stojí** — kdo mergne něco rozdělaného před tagem, vydal to.
+
+⚠ **Moje „~80 MB s logem" byl odhad a je špatně.** Vzal jsem 10,4 MB `.xnb` jako přírůstek zipu, jenže ta textura je z velké části průhledná čerň a deflate ji složí na jednotky MB; session #454 naměřila lokální publish s logem na **70,9 MB** proti 68,3 bez něj. Číslo z runneru vytiskne workflow samo („MB zipped") v běhu, který release vydá — do zápisu o releasu tedy nepůjde odhad, ale to, co změřil stroj, který ten zip vyrobil.
+
+⚠ **A dvě věci o sdíleném stromu, obě z dneška a obě dražší, než vypadají.** Za prvé: v tomhle checkoutu jela **souběžně druhá session** (`bs3d-99`, #454) a můj `git checkout --detach origin/main` jí shodil merge o její rozepsané `Images/logo`. Co funguje: **merge bez sáhnutí na working tree** — `git merge-tree --write-tree origin/main <větev>`, `git commit-tree <tree> -p origin/main -p <větev> -m "…"`, `git push origin <sha>:main`; HEAD ani index se nehnou. Za druhé, a to je ta dražší: **plumbing před starým obsahem v ruce nechrání.** Tenhle odstavec tu už jednou stál (`f0134fe`) a `6e34cf7` ho **beze slova přepsal** starší kopií souboru — blob se postavil z pracovní kopie, která mou verzi ještě neměla. Pravidlo: **obsah ber těsně před commitem z `origin/main`** (`git show origin/main:<cesta>`), ne z pracovního stromu; u `docs/agent-notes.md` to platí dvojnásob, protože do něj píšou obě session.
+
+⚠ **A jedno pravidlo pro tři session najednou:** zadání, které majitel dal **jiné** session, není zadání pro mě. #189 mě požádala, ať kvůli ní tag podržím, s odvoláním na to, co jí majitel řekl — správná reakce nebyla ani poslechnout, ani odmítnout, ale **zeptat se majitele přímo** a nechat rozhodnutí na něm (odpověděl „počkat i na #189"). Relay od peera je informace, ne rozhodnutí; držení tagu mezitím nic nestálo, protože se stejně čeká na #454.
+
+**Nic si neberu — držím tag, dokud nepřistánou #454 i #189.**
+
+---
+
+## 2026-09-18 — Claude Code, bs3d-9f (logo hotové, #454 založené; oprava mého dřívějšího zápisu)
+
+**Ruším větu z dnešního ranního zápisu „čekám na majitelovo rozhodnutí, jak logo dodělat".** Logo je hotové a v mainu.
+
+**Cesta k němu:** seed 9110 z těch šestnácti variant → `sd-cli -M upscale` s RealESRGAN x4plus_anime_6B na 4864×3328 → vystřižení pozadí do straight alfy → `Images/logo/bs3d-logo-2048.png` (2048×1267), sloučeno jako `a0cce59`. **Zacommitoval jsem ho záměrně před funkcí**: `build.yml` staví na `windows-latest`, takže záznam v `.mgcb` mířící na necommitnutý soubor neshodí druhý stroj, ale rovnou CI.
+
+**Majitel vybral prostý řez podle souvislosti, protože zachovává fialový lem kolem písmen** („alespoň náznaky"). Tím **zamítl obě rozhodnutí matting sítě** — ta lem zahodila a udělala vnitřky písmen průhledné. Já jsem do skillu napsal, že ten lem „kdekoli jinde působí jako obrys samolepky"; **byl to odhad vydávaný za zjištění a byl špatně**, opraveno v `8c6874c`. Hybrid a verze od sítě jsou alternativy, ne vylepšení.
+
+**Naměřeno a zapsané v `.claude/skills/design-references/SKILL.md`:**
+- **sd-server je nespolehlivý, ne mrtvý.** Ráno sedm pádů ze sedmi (včetně Q4 bez offloadu, který se celý vešel na kartu — `VRAM 7921.64MB, RAM 0.00MB` — a spadl o to dřív). Odpoledne **šestnáct obrázků v kuse čistě, beze změny konfigurace**. Majitel mezitím dělal na napájení a potvrdil, že už nepadá ani hra bez capu.
+- **Hires fix je na tomhle stroji mimo hru:** druhý průchod ve 2432×1664 nedostal pinned buffer, **680 a 889 s na krok** proti 3,45 s, 77,5 GB commitu, stroj na 92,2 z 92,4 GB limitu. Zvětšovat se musí upscalerem, ne přegenerováním.
+- **Větší model nevyhrál:** BiRefNet full (973 MB) rozmazal písmena tam, kde lite (224 MB) ne.
+
+**#454** — po spuštění hry se má zobrazit tahle 2D bitmapa nad černou, pak se scéna prolne dovnitř a logo vyblednout. Ruší to nájezd 3D wordmarku ze středu do rohu, takže **komentáře v `SplashPage`, `MainMenuPage` a `TitleWordmark` se tím stanou lživými** — popisují ten přesun jako důvod, proč #248 vyprázdnilo 2D kartu. Musí se přepsat ve stejné změně. Vzorec na 1:1 v majitelově pásmu je `min(width/3840, height/1600)`; `.xnb` bude 10,4 MB (BC3 blokuje 1267 nedělitelné čtyřmi), což zvětší release zip ze 68 na ~78 MB — rozhodnutí je majitelovo a je zapsané v issue.
+
+⚠ **Sdíleli jsme s bs3d-eb jeden pracovní strom**, ne oddělené worktrees, takže se srážely i `git checkout`. Řešení, které funguje: merge udělat **plumbingem** (`git merge-tree --write-tree` + `commit-tree` + `push <sha>:main`), pracovní strom se pak vůbec nedotkne. Tenhle zápis je tak zapsaný taky.
+
+**`Images/logo/logo-9110-x4.png` a `logo-tube-9110.png` jsou netrackované, ale nic neriskují** — jsou bajtově shodné s originály v `C:\Users\panrd\AI\sd\out` (`54aa3839…`, `9ef96257…`), kde leží i `.txt` s promptem a seedem. Tvrdil jsem peerovi, že jsou to jediné kopie; **nebyla to pravda a neověřil jsem si to, než jsem to řekl.** Jestli 11MB master patří do veřejného repa, je otevřená otázka na majitele.
+
+**Nic si neberu.**
+
+---
+
+## 2026-09-18 — Claude Code (checkout `C:\Users\panrd\source\repos\BS3D`, #454 logo intro — hotové a v mainu)
+
+**#454 je v mainu, a je to ta „stretch" verze.** Majitel zadání v průběhu změnil: *„budu chtít tu verzi, která z 2D bitmapy prolne do 3D loga… nemusí to být dokonalé a 1:1, bude tam prolínačka, ale stejně to bude efektní."* Takže logo na konci **nezhasne samo**, ale **stane se 3D wordmarkem**, a ten pak odletí do rohu. Větev `454-logo-intro`, jeden commit + deník, merge plumbingem (viz níže).
+
+**Sekvence (`SplashPage`):** černá → logo se vynoří (0,7 s) → drží (1,0 s) → **černá** se prolne do scény, logo zůstává nad ní (1,0 s) → **logo** se prolne do 3D písmen (0,8 s) → 0,35 s samotná písmena uprostřed → menu vezme stránce místo a blok odletí do rohu (`MORPH_SECONDS` 1,15 s jako dřív). Všechno smoothstep, nic nestříhá. **Časy jsou výchozí bod, ne měření** — issue říká, že rozhoduje majitelovo oko. Celé intro trvá 3,85 s (dřív 2,6 s).
+
+**Jak se 2D a 3D kryjí:** otevřená kompozice wordmarku už není „celé jméno na jednom řádku", ale **rozvržení bitmapy** — tři řádky na střed, „3D" malé (`LOGO_BADGE_SCALE` 0,53), mezery změřené z PNG (`LOGO_LINE_GAP` 0,02, `LOGO_BADGE_GAP` 0,12, `LOGO_DISC_MARGIN` 0,38 cap výšky — spodek fialového odznaku, aby střed bloku byl středem obrázku). Měřeno přímo z `bs3d-logo-2048.png` (alpha > 128): BUBBLE řádky 31–441, SHOOTER 448–865, glyfy „3D" 906–1117, spodek disku 1242. Podíl rámu si otevřená kompozice bere **z obdélníku, do kterého splash bitmapu nakreslil** (`TitleWordmark.BeginHandover(wFrac, hFrac)`), protože bitmapa se umisťuje v pixelech a její podíl rámu je věc konkrétního spuštění. Na záběru z 900p uprostřed prolínačky stojí obě verze řádek na řádku, geometrie o chlup užší uvnitř tlustých balónkových písmen; odznakový disk, na který abeceda nemá protějšek, se prostě rozpustí s obrázkem. **Není to 1:1 a majitel řekl, že být nemusí.**
+
+**Wordmark začíná usazený v rohu** (`_morph = _reveal = 1`): jediné, co ho postaví doprostřed, je `BeginHandover` ze splashe. `play` boot ani skip před začátkem prolínačky ho tedy nikdy neuvidí letět ze středu — ruší to i „nájezd ze středu do rohu" po návratu z `play`, který tam dřív byl. Backdrop ho pod splashem kreslí **až od začátku prolínačky** (`SplashPage.WordmarkShown`) — dřív by vykukoval kolem okrajů bitmapy, když mizí černá. `REVEAL_FROM` 0,58 → 0,86: písmena se pod mizejícím obrázkem jen dofouknou, ne nafouknou z poloviny.
+
+**Naměřeno:**
+- **Pixelová přesnost 1:1 ověřená:** fullscreen 3840×1600, logo 2048×1267 na (896,166), proti premultiplikované bitmapě 7,8 milionu vzorků kanálů, **max rozdíl 1, průměr 0,03** (zaokrouhlení premultiply). Pravidlo `min(w/3840, h/1600)`, obdélník zaokrouhlený na celé pixely.
+- **Zip: odhad „~80 MB" byl špatně.** `.xnb` má 10,4 MB na disku, ale je to z většiny průhledná černá a deflate ho stlačí na ~2,6 MB: lokální self-contained publish **68,3 → 70,9 MB** (512 souborů, 170,9 MB rozbaleno). Na runneru tedy čekat ~72,6 místo 70,0. Opraveno v `Content.mgcb`, `CLAUDE.md`, `docs/game-shell.md`; bs3d-eb to zapsal i do plánu release notes.
+- **Cena intra: žádná.** `logfps` bez záběrů: 78 fps (strop obnovovací frekvence, ssaa 2x, high) celé intro.
+
+⚠ **Past pro focení intra: `shot=` po 0,3 s shodí hru na 3 fps a probe sníží kvalitu na Medium.** PNG encode je na vlákně snímku; první série 12 záběrů skončila s „Quality lowered to Medium" v záběru. Kdo intro fotí, ať fotí v jiném běhu, než ve kterém posuzuje snímkovou frekvenci. (Zapsáno v `docs/game-shell.md` u splashe.)
+
+⚠ **Syntetický vstup do okna hry NEDORAZÍ.** `AppActivate` z agentního shellu vrátí bez chyby, ale popředí nepřevezme (Windows foreground lock), takže `SendKeys` i držený `keybd_event` (120 ms) jdou do **toho okna, které má majitel v popředí** — tři pokusy o skip mezerníkem hra neviděla (záběry ukázaly sekvenci běžící dál) a teprve třetí mi došlo proč. **Skip tedy není ověřený reálným stiskem**; jeho logika je oproti mainu beze změny (`SKIP_AFTER`, zmrazené snímky vstupu) a „titul rovnou v rohu po skipu" plyne z výchozího `_morph = 1`. Majitel ať to zmáčkne sám. `play` boot ověřen (rovnou level, bez intra, `[field]`/`[camera]` v logu).
+
+**Otevřené pro majitele:** (1) časování legů — oko; (2) skip je střih, ne zrychlení — záměr, ale je to rozhodnutí; (3) nad 3840 px šířky se bitmapa zvětšuje nad 1:1 a změkne — master 4864×3328 je v `Images/logo`, větší export je jen velikost souboru; (4) „3D" v otevřené kompozici je malé jako v obrázku a během letu roste na `BADGE_SCALE` — kdyby to působilo slabě, je to jedna konstanta.
+
+**Koordinace:** bs3d-eb (#453) i bs3d-d7 (#189, vlastní worktree `BS3D-189`) potvrdili, že se tohohle stromu nedotknou; merge dělám plumbingem (`merge-tree --write-tree` + `commit-tree` + `push <sha>:main`) a tenhle zápis je postavený z `git show origin/main:docs/agent-notes.md` těsně před hashováním, podle pravidla výše. **Tag v0.1.0 při tomhle merge nepadá** — majitel rozhodl, že release čeká i na #189.
+
+**Nic dalšího si neberu.**
+
+---
+
+## 2026-09-18 — Claude Code, bs3d-d7 (worktree `C:\Users\panrd\source\repos\BS3D-189`, #189 tutoriál — hotové a v mainu)
+
+**#189: hra poprvé něco učí.** Větev `189-tutorial`, celá v samostatném worktree, protože sdílený strom měla bs3d-84 s rozdělaným #454. Majitelovo zadání: postupně a **velmi pomalu**, zábavně, vypínatelné v nastavení (defaultně zapnuté), celá první kapitola jako tutoriál, a **font s klávesami** na obrázky kláves.
+
+**Co to je:** karta nahoře uprostřed HUDu — glyf klávesy/myši/triggeru z **PromptFontu** (v1.15, SIL OFL 1.1 jako Anton a Inter, embedded stejně, licence vedle), řádek co udělat a menší řádek pod ním. **Deset lekcí přes prvních šest levelů Meadow**: One učí jen mířit, střílet a „tři stejné padají"; Bullseye přesné míření (+ kontextově sklo a čáru), Toadstool pojezd A/D, Pinwheel krok W/S, Diabolo streak (kontextově), Shuttle bonus za nevystřílené koule; zbylé čtyři levely kapitoly se jen hrají. **Akční lekce** čeká, až hráč tu věc opravdu udělá (míření = pohyb pózy o 0,06 rad, výstřel = koule opustila hlaveň, match = skórující dopad, držení 0,35 s bez přerušení), a pak se překlopí na pochvalu — *Nice! Boom! Perfect! Sharp! Smooth! Closer!* — v jantaru HUDu, s jeho září, s kopnutím pružiny skóre a s tónem hvězdy. Karta nikdy neblokuje, po 22 s to vzdá **nezapsaná** a vrátí se v dalším levelu. **Kontextové** lekce (sklo na krok tlaku, čára na rozsvícení laserové sítě, streak na násobiči > 1) přeruší kartu, která zrovna stojí, a ta se vrátí hned za nimi. Vynechaná lekce jde s hráčem do dalšího levelu kapitoly; za kapitolou nic.
+
+**Naučeno jednou, navždy — a pamatuje si to save:** `PlayerProgress.Lessons` (`"lessons"`, null do první lekce, starší build klíč ignoruje a učí znovu — argument `skipped`). Řádek **Tutorial** pod CONTROLS (`GameSettings.Tutorial`) je opt-out čtený každý snímek (vzor citlivosti — jde otevřít z pauzy); schovává karty, nezapomíná. **Reset progress** maže i lekce.
+
+**Karta kreslí pro ruku, kterou hráč právě používá** (poslední vstup = klávesnice/myš nebo pad, přepíná se živě), a **každý padový prompt jmenuje binding, který existuje** — což si vyžádalo jedinou herní změnu: **levá páčka teď pojíždí a kráčí s dělem** (`PAD_WALK_DEADZONE` 0,35, držení, ne rychlost). Do #189 pad uměl mířit, střílet a naklonit se a nic dělem neotočilo; issue to označila jako blokátor kompletní sady promptů.
+
+**Naměřeno / vyzkoušeno:**
+- **Headless rig** ve scratchpadu (skutečná `Tutorial` třída + falešné hodiny + set místo save): **45 kontrol, všechny PASS**. Rig našel **dvě chyby dřív, než se cokoli fotilo**: (1) karta vypnutá z nastavení jen odešla místo aby ustoupila do fronty — „po zapnutí pokračuje" byl komentář, ne chování; (2) **pochvala se při odchodu překlopila zpátky na instrukci** (`Praising` četl jen fázi, odchod je fáze vlastní) — drží se teď přes odchod.
+- **Demo reel vyfocen** (`level=One tutorial=demo`, 1600×900, `quality=low`): všech deset karet i pochvaly. **První řez 88/62/100 design units vyšel jako overlay label — 37 px textu** nad shlukem, na který se oko dívá; teď **112/76/128** (47 px), mezi skóre (140) a popiskem (76).
+- Stránka nastavení vyfocena přes nový argument `settings`.
+- **Skutečná detekce ve běžící hře NEBYLA odehraná** — syntetický vstup do hry z agentního shellu nedorazí (poznámka bs3d-84 z dneška, potvrzená v paměti agenta). Hooky jsou přečtené a rig pokrývá stavový automat; **zbývá, aby majitel zahrál `level=One tutorial`** a viděl karty odpovídat na skutečné akce.
+- Majitelův `Settings.json` i `Progress.json` mají po všech třech bězích **stejné hashe** (žádný testovací režim nic nezapisuje).
+- Všechny čtyři solutions staví s 0 chybami; Game s 0 varováními.
+
+⚠ **PromptFont: repozitář žádné TTF nemá** — jen FontForge `.sfd` a kompilační skript; GitHub je archivovaný a projekt se přestěhoval na Codeberg. Hotový font je v release zipu (`promptfont.zip`, Codeberg releases v1.15). Keycapy sedí na **fullwidth latince** (U+FF37 = klávesa W), myš U+27FC/U+27F5/U+27F6, triggery U+2196/U+2197, páčka U+21CD. Dva keycapy vedle sebe = dva codepointy **bez mezery** (jestli U+0020 kreslí keycap Space, nezjišťováno).
+
+⚠ **Testovací páky:** `tutorial` = všechny karty se skutečnou detekcí, nic se nezapisuje (pro majitele s dohraným savem); `tutorial=demo` = reel po 4 s na kartu; `settings` = stránka nastavení při startu.
+
+**Koordinace:** bs3d-84 (#454) i bs3d-eb (#453) potvrzeni; majitelovo rozhodnutí přes bs3d-eb: **v0.1.0 čeká na #454 i #189**, tag posílá bs3d-eb po slově majitele. Merge plumbingem přes `origin/main` (bfd7cae, #454 už v mainu, sloučeno do větve bez konfliktů); tento zápis postavený nad `origin/main`'s blobem.
+
+**Nic dalšího si neberu.**
+
+---
+
+## 2026-09-18 — Claude Code, bs3d-eb (#455, čtvrtý zápis dne)
+
+**#455: první spuštění je nativní fullscreen.** Majitelovo zadání padlo uprostřed příprav prvního release (#453) a je to přesně ta vada, kterou vlastní stroje vidět nemohou: `GameSettings.Fullscreen` byl **holý `bool`**, tedy `false` z jazyka, ne z rozhodnutí — a na obou majitelových strojích `Settings.json` existuje, takže ten default nikdy nepromluvil. Promluví u každého, kdo si stáhne release: okno **1600×900 na 4K panelu** jako první dojem ze hry.
+
+**Zásah je třířádkový, ověření není.** Default `= true` a `windowed` v `Program.cs`. Změřeno přímo oknem (`GetWindowRect`) na panelu 3840×1600:
+
+| případ | okno |
+|---|---|
+| uložený `fullscreen:false` | 1616×939 |
+| **první spuštění (žádný `Settings.json`)** | **3840×1600** |
+| první spuštění + `windowed` | 1616×939 |
+| první spuštění + `fullscreen` | 3840×1600 |
+
+Uložená odpověď hráče tedy vítězí dál a na majitelových strojích se nemění **nic** — to je na té změně to podstatné. Prostý start taky žádný `Settings.json` nenapsal (ověřeno): soubor vzniká až kliknutím v Nastavení nebo F11.
+
+**`windowed` zavírá díru, kterou tenhle deník zapsal dvakrát** („hra nemá argument na okno", kvůli čemuž se musel dočasně přepisovat majitelův `Settings.json`) — a teď je potřeba dvojnásob: se změněným defaultem by stroj bez settings souboru neuměl okno vyžádat vůbec. Ani `fullscreen`, ani `windowed` se do souboru nezapisují — jsou to instrukce běhu jako `mute`.
+
+⚠ **Test prvního spuštění znamená schovat majitelův `Settings.json`.** Držel jsem ho i s `.bak` v `%TEMP%` a vracel ve `finally`, SHA-256 sedí bajt za bajtem — a `finally` tam není zdvořilost: první pokus **spadl uprostřed** (viz níž) a soubory se vrátily právě jím.
+
+⚠ **A jedna past na měření:** velikost okna jsem nejdřív četl z PNG, které hra uloží přes `shot=`. `Image.FromFile` na snímku, který ještě dopisuje zabíjený proces, hodí „Nedostatek paměti" (GDI+ tak hlásí i poškozený soubor) — v `bin` po tom zůstal nulový PNG. Screenshot je na otázku „jak velké je okno" zbytečně křehké měřidlo; `GetWindowRect` odpoví hned, nic nezapisuje a nezávisí na tom, kdy se proces ukončí.
+
+**Nic si neberu — `v0.1.0` čeká na majitelovo slovo, teď už jen na něj.**
+
+---
+
+## 2026-09-18 — Claude Code, bs3d-eb (#453, pátý zápis dne)
+
+**`v0.1.0` je venku** — <https://github.com/AntoninPrazsky/BS3D/releases/tag/v0.1.0>, `BS3D-v0.1.0-win-x64.zip`, **72,6 MB**, anotovaný tag na `4b00b91`. První věc z tohohle repa, kterou si může stáhnout kdokoli.
+
+**Čísla z běhu, který release vydal:** 512 souborů / 171 MB publikováno, **72,7 MB zip**, všech třináct kroků včetně „Publish the GitHub Release" zelených, 2 min 32 s až 3 min podle běhu. `build.yml` jel vedle na témž tagu (jeho `on: [push]` je bez filtru), takže brány u releasu proběhly, aniž by je `release.yml` opisoval — přesně jak to bylo navrženo.
+
+**Ověřeno tak, jak to dělá hráč**, ne jen podle logu: `gh release download` → rozbalit → spustit. 512 souborů, okno naběhlo, `[levels]` 110 levelů, `[build] shaders 37 set 64f83ff5` — týž hash sady shaderů jako lokální build i jako obě zkušební jízdy, takže content pipeline na runneru vyrábí bit za bitem totéž. `Settings.json` majitele beze změny.
+
+Drobnost pro příště: `--generate-notes` přidalo pod naše notes **13 položek „What's Changed" ze staré historie** (repo kdysi PR mělo). Je to jednorázové — další release se bude porovnávat proti `v0.1.0` — a tělo notes má 2,8 kB, takže to nikomu nevadí.
+
+⚠ **`Progress.json` se mezi mými běhy změnil** (39 → 40 hvězd, nejlepší součet 306036 → 322700). **To hrál majitel**, ne já — zkoušel release candidate. Platnou reakcí je nechat to být: co jsem nezpůsobil, nevracím.
+
+**Celá cesta #453, pro toho, kdo bude dělat `v0.2.0`:** merge na `main` → (volitelně) Run workflow jako zkouška, která nic nepublikuje → `git tag -a vX.Y.Z -F <soubor>` a `git push origin vX.Y.Z` → workflow vydá release sám. Tag zabalí to, co na `main` v tu chvíli stojí.
+
+**Nic si neberu.**
+
+---
+
+## 2026-09-19 — Claude Code, bs3d-49 (čtvrtá dávka poznámek majitele z hraní → #457–#462, jen issues)
+
+**Šest poznámek, šest issues**, na výslovný pokyn „založ issues" (jedna na poznámku — pravidlo ze zápisu o třetí dávce). Sémantické hledání (nomic, 440 issues) na všech šest napřed: **žádná duplicita** — nejblíž stojí rodiče a sourozenci (#205 → #462 vedle #451/#445; #189 → #457/#459/#460/#461; #434/#359 → #459; #448 → #460), a na #189 i #205 visí komentář s odkazy.
+
+- **#462 aurora** („moc rychlá, les primitivní, nejdřív AI předloha"): pohyb jsou **dvě hodiny** a issue jmenuje obě — `DriftSpeed` 0,15 rad/s točí celé pole záclon kolem zenitu, tj. **8,6°/s, otočka za 42 s** (záhyb přejde 60° záběru za ~7 s); `PulseSpeed` 0,9 rad/s (7 s cyklus) byl při #205 zrychlen z 0,35 podle **dvou stillů 5 s od sebe** — to je test na fázový rozdíl ve fotce, ne na to, jak nebe čte v pohybu. Les je 380 smrků ze šesti meshů `ForestScatterRenderer`u a nic víc; majitelův brief na cenu: je tma, detail má být náznak, ne geometrie.
+- **#458 Saturn na dvě rány**: čte se přímo z návrhu (`Saturn()`, `Block01_Meadow.cs`) — koule je **dvě 180° půlky** (modrá/zelená, každá jedna skupina), jediná kotva je `SATURN_CAP` (377 koulí na devíti stropních buňkách, číslo z #359), prstenec i paprsky visí z koule. Dva matche = dvě nosné cesty pryč, zbytek padá jako sirotci; zamýšlená hra (tři žluté rány, nebo odstřelit paprsky) se nikdy nesehraje. `Validate` má drop test (co jedna barva osiří), **ne** „kolika matchi se pole vyprázdní" — issue navrhuje tu bránu do LevelGenu.
+- **#457 pořadí Meadow vs. žebřík lekcí**: žebřík z #189 byl položen **na** pořadí, které existovalo dřív, a nikdo nekontroloval opačný směr (level před lekcí nesmí potřebovat to, co lekce učí). Navržena varianta `AimReachability` přibitá na klidové stanoviště (bez pojezdu a kroku) jako měřitelné kritérium; #413 je totéž pro pozdější bloky.
+- **#459 Amphora**: o čáře mluví jen kontextová karta `line` (až se rozsvítí síť) a o pravidle „dotyk čáry = prohra" nic; a tutoriál **nemá konec** — poslední karta je `budget` na Shuttle. Majitel chce před Amphorou pravidlo a hned za ním gratulaci a „vzhůru na dobrodružství". **#460** kombinace RMB + W/S/A/D jako jedenáctá akční lekce (⚠ vede hráče rovnou do #448 judderu — napřed nebo spolu). **#461** text karty: 112/76/128 du = **47 px na 900p, 83 px na 3840×1600**; majitel po hraní: „mnohem větší".
+
+⚠ Žádný kód, žádný capture, nic nově naměřeno — všechna čísla jsou z kódu, z docs a z dřívějších zápisů, a issues to říkají. **Nic si neberu.**
+
+**Dodatek téhož dne — #463 About** (jedna poznámka, jedna issue, sémantické hledání našlo jen #443/#427): plné kredity včetně AI (Claude přes Claude Code; lokálně ACE-Step 1.5 na hudbu, Z-Image-Turbo přes stable-diffusion.cpp na logo #454 a design předlohy, LM Studio modely jako nástroje), **loga MonoGame a Bepu jako ručně připravené podklady od majitele — issue na ně čeká**, dva sloupce podle vzoru `SettingsPage`, a odstavec s ovládáním z About pryč (tutoriál #189 + Help #427, kde teď PromptFont je — komentář tam visí). Při psaní zjištěno: README větu „even the music are generated in code" má od #443 zastaralou — do issue jako součást téže změny. **Nic si neberu.**
+
+**Dodatek — #464, přehrávač na About „Composing…"** (majitelova otázka, pak pokyn: hrát co nejdřív). Zjištěno čtením: skladba se renderuje **celá** do jednoho float bufferu (2:25–3:19 stereo), pak `ToPcm` → jeden `SoundEffect`; do té doby ticho; každé Next renderuje znovu. **Změřeno `MusicBake --no-write` na desktopu (sloupec `bake`, ms):** Release 0,4–4,7 s (Bohemia 4,7), **Debug 1,6–14,5 s** — a `dotnet run` staví Debug (`OutputPath bin\`), takže lokálně se hraje pomalá varianta. Render je 30–150× rychlejší než real time, streamování je tedy na místě. ⚠ **Jediná překážka streamování je `Limit`**: drive se počítá z RMS celého kusu (jedno číslo na všechny vzorky, #119). Řešení v issue: kusy jsou od #229 bit-for-bit deterministické, takže drive je konstanta na kus — změřit v MusicBake, uložit vedle kusu, nástrojem hlídat drift. Noty píšou jen dopředu od svého stepu, nejdelší hlas drží 15,5 stepu (takt = 16), takže „dva takty za renderem" je bezpečný chunk. **Nic si neberu.**
+
+---
+
+## 2026-09-19 — Claude Code (checkout `C:\Users\panrd\source\repos\BS3D`, úklid stromu a pátá dávka poznámek majitele → #465–#468, jen issues)
+
+**Nejdřív úklid repa na majitelův pokyn** („podívej se, jestli máme lokálně rozpracovanou práci"): žádná nebyla. Zbytky po dřívějších merge: worktrees `BS3D-234` a `BS3D-322` (obě větve dávno v mainu, #234 a #322 zavřené; `BS3D-322` držel lokální `main` 120 commitů pozadu, takže hlavní checkout stál na detached HEAD), větve `234-first-level-pyramid` a `389-bomb-detonation` (sloučené, upstream pryč) a dva stash označené autorem jako překonané (14. 8. a 26. 8.). Vše odstraněno; stash musel dropnout majitel sám — `git stash drop` klasifikátor auto režimu agentovi odmítá. Netrackovaný `Research/Music.txt` (21 odkazů OpenGameArt, odpovídá zavřenému #391) zůstal, je majitelův.
+
+**Čtyři poznámky, čtyři issues**, na výslovný pokyn „založ issues pro". Sémantické hledání (nomic, 448 issues) napřed na všech čtyřech: **žádná duplicita**, nejblíž stojí rodiče (#178/#179/#199 → #465; #460/#461 → #466; #456/#119 → #467; #282/#451 → #468). Křížové komentáře na #451, #189 a #456.
+
+- **#465 výsledková obrazovka** („Level 2: Bullseye" a „New best" nejsou vidět na světlé scéně, dokud se pozadí nerozmaže): horní blok `ResultPage` stojí od #178 přímo na ostré aréně (scrim nahradilo rozostření) a to přichází záměrně pozdě — `BLUR_DELAY_SECONDS` 3,4 s, pak 16 s náběh. Jas textu už byl zvednut třikrát (#238, #313, #199) a komentář u `_newBest` sám říká, že legibilita závislá na pozadí není o odstín tmavší legibilita. Majitelův návrh — plotna jako pod rozpadem skóre — je tedy jediná páka, co zbyla; issue nabízí plotnu jen pod dvěma řádky, pod celým blokem, nebo obrys glyfů, a vylučuje posun rozostření dopředu (chrání ohňostroj a reveal hvězd).
+- **#466 tutoriál, texty moc krátce**: `Complete()` přepne kartu na pochvalu **ve stejném snímku**, kdy detekce padne — `Caption` vrací pochvalu, `Detail` null — a pochvala drží jen `PRAISE_SECONDS` 1,3 s. Míření se splní na 0,06 rad, držení na 0,35 s, takže první kartu levelu hráč splní dřív, než ji dočte. Issue chce minimální dobu čtení, pochvalu **vedle** instrukce místo ní a delší dojezd; rig ze zápisu k #189 je místo pro nové případy. Vedle #461 (větší text) druhá změna layoutu téže karty — navrženo řešit spolu.
+- **#467 hudba potišeji než efekty i na 100 %**: řádky nastavení jen škálují konstanty — `MUSIC_VOLUME` 0,34 na stopách vypálených na −15 dBFS RMS proti `BASE_VOLUME` 1,0 efektů. Hlavička `GameMusic` tvrdí, že „mix se nepohnul", protože generované stopy byly dorovnány na RMS procedurálních — jenže stejné RMS dvou úplně jiných materiálů není stejná hlasitost (MusicBake neměří LUFS). Komentář u `BASE_VOLUME` sám jmenuje páky pro opačný směr; issue je zrcadlí a chce rozhodnutí uchem ve hře (0,34 → 0,5 → 0,7) plus LUFS sloupec do MusicBake. Souvisí s #456 (větší skok lobby → level).
+- **#468 plamínky na savaně**: `Flame.fx` kreslí na jeden billboard **jeden** jazyk — jedna středová čára se dvěma sinusy, jantarové jádro (2,0 / 1,15 / 0,35) do oranžového okraje (1,5 / 0,34 / 0,04), **žádná červená**, žádná vnitřní struktura, jiskry ani kouř. Přesně svíčka. Majitel čeká oheň: víc jazyků, plazma, oranžová až červená. Zvlášť od #451 (tam jsou akácie a obsah pláně), protože oheň je jediný detail, na který intro kapitoly míří kamerou (`TryGetViewpoint`, fire 0). Cesty: shader na témž billboardu (3–5 jazyků, fbm, třetí barevná zarážka), víc billboardů na oheň jako `LavaFountain.fx`, jiskry; napřed reference přes `design-references`.
+
+⚠ **Past na nástroje:** bash heredoc s backticky v těle v tomhle harnessu selže i s uvozeným oddělovačem („unexpected EOF while looking for matching `'`") — těla issues psát Write toolem a předat `--body-file`.
+
+⚠ Žádný kód, žádný capture, nic nově naměřeno — všechna čísla jsou z kódu a z docs. **Nic si neberu.**
 
 ---
 

@@ -76,6 +76,10 @@ namespace BS3D.Screens
             _hud.Reset(_score);
             _levelLost = false;
 
+            //And what this level may teach (#189): nothing past the first chapter, nothing already taught, and
+            //the glass lesson only with this level's own cadence to name
+            _tutorial.BeginLevel(index, Tutorial.LastLevelOf(Game.LevelSet), LevelCeilingStep(index));
+
             //The outcome has to be cleared here now that it is read for something other than building the
             //result screen: it gates the HUD, so a level entered with the last one's Failed still standing
             //would play with no readout at all. It was harmless while ShowResultScreen was its only reader —
@@ -168,6 +172,9 @@ namespace BS3D.Screens
             //And a chapter intro caught mid-tour by the same — quitting to the main menu during one, say —
             //for the identical reason: it must not hold the camera and the controls into whatever comes next.
             _chapterIntro.Reset();
+
+            //And a tutorial card caught up, which belongs to the level that is going (#189)
+            _tutorial.Reset();
 
             //The magazine is not refilled here: its colours belong to a level, and InstallLevel loads the
             //next one's before the queue means anything again

@@ -120,6 +120,10 @@ namespace BS3D
         //glyph, so a second face added beside the first would never be reached — the first has every glyph.
         //Picking a face means picking a system.
         private FontSystem _menuFontSystem, _menuFontSystemBold, _menuFontSystemDisplay;
+
+        //And a fourth for the prompt font (#189) — the tutorial's keycaps, mouse buttons and triggers — on the
+        //rule above: its own system, or Anton's own A would be drawn where a keycap A was asked for.
+        private FontSystem _menuFontSystemPrompt;
         private SpriteFontBase _menuFontBody, _menuFontSmall, _menuFontHeading, _menuFontTitle, _menuFontStars;
         private SpriteFontBase _menuFontSection;
         private SpriteFontBase _menuFontFrontEntry;
@@ -438,6 +442,7 @@ namespace BS3D
             _menuFontSystemDisplay = LoadEmbeddedFont("BS3D.Content.Fonts.Anton-Regular.ttf");
             _menuFontSystem = LoadEmbeddedFont("BS3D.Content.Fonts.Inter-Regular.ttf");
             _menuFontSystemBold = LoadEmbeddedFont("BS3D.Content.Fonts.Inter-Bold.ttf");
+            _menuFontSystemPrompt = LoadEmbeddedFont("BS3D.Content.Fonts.PromptFont.ttf");
 
             _desktop = new Desktop();
 
@@ -586,6 +591,10 @@ namespace BS3D
         internal bool IsAberrationEnabled => _aberration;
         internal bool IsGrainEnabled => _grain;
         internal bool IsDropCinematicEnabled => _dropCinematic;
+
+        //The tutorial's switch (#189), read by the session every frame on MouseSensitivity's argument: the row
+        //can move under a level standing paused behind the settings page.
+        internal bool IsTutorialEnabled => _tutorial;
         internal SceneKind Scene => _scene;
 
         //DropCinematic's own submerge pull (#193) reads this once at Begin rather than holding a

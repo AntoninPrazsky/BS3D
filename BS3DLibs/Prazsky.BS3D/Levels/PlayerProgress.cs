@@ -90,6 +90,23 @@ namespace Prazsky.BS3D.Levels
         [JsonPropertyName("skipped")]
         public List<string> Skipped { get; set; }
 
+        /// <summary>
+        /// The tutorial's lessons the player has completed (#189), by each lesson's own key (<c>"aim"</c>,
+        /// <c>"fire"</c>, …, the game's <c>Tutorial</c> class names them). A lesson recorded here is never
+        /// offered again — replaying the opener for a better rating is not a second tutorial, and neither is a
+        /// second launch — which is why it is the save's and not the settings file's: it is a record of what
+        /// the player has <i>done</i>, and the settings row beside it is only whether they want to be shown
+        /// the rest.
+        /// <para>
+        /// <b>Null until the first lesson</b>, on <see cref="Skipped"/>'s own argument: a save with none in it
+        /// round-trips exactly as it did before this existed, and an older build ignores the key and simply
+        /// teaches again, which is the safe direction. <see cref="Reset"/> clears it with the stars, so a
+        /// fresh start is taught afresh.
+        /// </para>
+        /// </summary>
+        [JsonPropertyName("lessons")]
+        public List<string> Lessons { get; set; }
+
         /// <summary>Where this progress was loaded from and where <see cref="Save"/> writes it back.</summary>
         [JsonIgnore]
         public string Path { get; private set; }
@@ -298,15 +315,36 @@ namespace Prazsky.BS3D.Levels
             return true;
         }
 
+        /// <summary>Whether the player has completed this tutorial lesson (#189).</summary>
+        public bool WasTaught(string lesson) =>
+            lesson != null && Lessons != null && Lessons.Contains(lesson);
+
+        /// <summary>
+        /// Records a completed lesson (#189). Idempotent, like <see cref="Skip"/>, and for its reason: whether a
+        /// lesson is due at all is the tutorial's own rule, and this file's job is to remember.
+        /// </summary>
+        /// <returns>Whether anything changed, so a caller knows whether it needs to save.</returns>
+        public bool Teach(string lesson)
+        {
+            if (string.IsNullOrEmpty(lesson) || WasTaught(lesson)) return false;
+
+            Lessons ??= new List<string>();
+            Lessons.Add(lesson);
+
+            return true;
+        }
+
         /// <summary>
         /// Back to a fresh start: every best gone, <b>and every skip with them</b> — a skip is progress through
         /// the campaign, so a reset that left them standing would hand the player a campaign whose walls were
-        /// already spent. The settings row that offers this saves after it.
+        /// already spent — and every tutorial lesson too (#189), because a player starting over may be handing
+        /// the game to somebody else. The settings row that offers this saves after it.
         /// </summary>
         public void Reset()
         {
             Levels.Clear();
             Skipped = null;
+            Lessons = null;
         }
     }
 

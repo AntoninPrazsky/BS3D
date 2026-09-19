@@ -1,0 +1,137 @@
+name: Release
+
+# A build a player can actually run (#453). Deliberately a second workflow rather than another job in
+# build.yml: an ordinary push has to stay as cheap as it is, and a release is not something every commit
+# should produce.
+#
+# Two ways in, and only one of them publishes anything:
+#   * pushing a tag "v*" — builds, zips and publishes a GitHub Release with the zip attached;
+#   * the "Run workflow" button — the same build, the zip left as a workflow artifact and NO release
+#     created, so the whole pipeline can be rehearsed without anything becoming public.
+#
+# build.yml's "on: [push]" fires for a tag push as well, so the two gates (the level generator's
+# determinism check and ScoreSim) run beside this workflow on the same commit; nothing is repeated here.
+#
+# It costs nothing: this repository is public, and GitHub bills neither standard-runner minutes nor
+# release storage and bandwidth for public repositories. (Windows minutes are billed at twice the Linux
+# rate on private ones, which is the only reason that sentence is worth writing down.)
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+# The workflow token is read-only by default and creating a release has to write. Nothing else here does.
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      # The content build shells out to `dotnet mgcb` with the manifest search walking up from the *project*
+      # directory, so this runs in Game/ (CLAUDE.md's build section explains why each executable carries its
+      # own manifest). Only the Game ships, so only its manifest is restored.
+      - name: Restore content tools (Game)
+        run: dotnet tool restore
+        working-directory: Game
+
+      # One step decides what this build is called and every step after it reads the answer out of the
+      # environment rather than deriving it again. A tag names itself; a manual run is "dev-<short sha>",
+      # which can never be mistaken for a release and says what it is at a glance.
+      - name: Name this build
+        shell: pwsh
+        run: |
+          $version = if ('${{ github.ref_type }}' -eq 'tag') { '${{ github.ref_name }}' } else { 'dev-' + '${{ github.sha }}'.Substring(0, 7) }
+          Add-Content -Path $env:GITHUB_ENV -Value "BUILD_VERSION=$version" -Encoding utf8
+          Add-Content -Path $env:GITHUB_ENV -Value "BUILD_NAME=BS3D-$version-win-x64" -Encoding utf8
+
+      # Self-contained: the .NET runtime travels inside the folder, which is the whole promise of the
+      # download — the player installs nothing. Deliberately NOT trimmed and NOT packed into a single file:
+      # Myra, FontStashSharp and the content pipeline all reach for types by reflection, and Content/,
+      # Levels/ and Music/ have to sit beside the exe anyway, so one exe would buy nothing and could only
+      # break something. The .pdb files are kept on purpose — they are what turns a player's crash report
+      # into a stack trace with line numbers.
+      - name: Publish the game (self-contained, win-x64)
+        shell: pwsh
+        run: |
+          $publishArgs = @('publish', 'Game/Game.csproj', '-c', 'Release', '-r', 'win-x64', '--self-contained', 'true', '-o', "publish/$env:BUILD_NAME")
+          # A plain numeric tag ("v1.2.3") also stamps the assembly, so the exe's own version matches the
+          # release it came out of; anything else (a suffixed tag, a manual run) leaves the default alone.
+          if ($env:BUILD_VERSION -match '^v(\d+(\.\d+){1,3})$') { $publishArgs += "-p:Version=$($Matches[1])" }
+          dotnet @publishArgs
+
+      # A published folder missing its content is still a folder full of DLLs, and that failure would show
+      # up on a player's machine rather than here. These five are what a playable, install-nothing build
+      # cannot be without: the exe, the runtime beside it, the compiled shaders, the levels and the music.
+      - name: Check the published folder is playable
+        shell: pwsh
+        run: |
+          $root = "publish/$env:BUILD_NAME"
+          $missing = @()
+          if (-not (Test-Path "$root/BS3D.exe")) { $missing += 'BS3D.exe' }
+          if (-not (Test-Path "$root/coreclr.dll")) { $missing += 'the .NET runtime (coreclr.dll) - is this really a self-contained publish?' }
+          if (-not (Test-Path "$root/Content/Shaders/InstancedModel.xnb")) { $missing += 'the compiled shaders' }
+          if (-not (Get-ChildItem "$root/Levels" -Filter *.json -ErrorAction SilentlyContinue)) { $missing += 'the levels' }
+          if (-not (Get-ChildItem "$root/Music" -Filter *.ogg -ErrorAction SilentlyContinue)) { $missing += 'the music' }
+          if ($missing.Count -gt 0) { throw "The published folder is missing: $($missing -join '; ')" }
+          $files = Get-ChildItem $root -Recurse -File
+          "{0} published {1:N0} file(s), {2:N0} MB" -f $env:BUILD_NAME, $files.Count, (($files | Measure-Object Length -Sum).Sum / 1MB)
+
+      # Compress-Archive on a *directory* keeps that directory inside the archive, which is the point:
+      # extracting drops one BS3D-... folder rather than spraying three hundred files into Downloads.
+      - name: Zip the published folder
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "publish/$env:BUILD_NAME" -DestinationPath "$env:BUILD_NAME.zip" -CompressionLevel Optimal
+          "{0:N1} MB zipped" -f ((Get-Item "$env:BUILD_NAME.zip").Length / 1MB)
+
+      # Every run keeps the zip, tagged or not, and this is what makes the manual run worth having: the
+      # pipeline can be rehearsed, downloaded and played without anything being published to anyone.
+      - name: Keep the zip as a workflow artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ env.BUILD_NAME }}
+          path: ${{ env.BUILD_NAME }}.zip
+          retention-days: 90
+
+      # Only a tag publishes. The notes lead with what the download needs and what Windows will say about
+      # it, because an unsigned exe surprises people; GitHub's generated list of what changed since the
+      # previous tag is appended underneath by --generate-notes.
+      - name: Publish the GitHub Release
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $notes = @'
+          ## Download and play
+
+          **Windows 10 or 11, 64-bit. Nothing to install** — the .NET runtime, MonoGame and everything else
+          the game needs travel inside the zip. A DirectX 11 capable graphics card is all it asks of the
+          machine.
+
+          1. Download the `BS3D-...-win-x64.zip` below.
+          2. Right-click the zip, choose Properties and tick **Unblock** (Windows marks everything
+             downloaded), then extract it.
+          3. Run `BS3D.exe` from the extracted folder.
+
+          The exe is not code-signed — a signing certificate is the one part of this that costs money — so
+          SmartScreen will say "Windows protected your PC" on the first launch: choose **More info**, then
+          **Run anyway**.
+
+          Progress and settings live in `%LOCALAPPDATA%\BS3D`, not in the game's folder, so the folder can be
+          replaced or deleted without losing a save.
+          '@
+          Set-Content -Path release-notes.md -Value $notes -Encoding utf8
+          $releaseArgs = @('release', 'create', $env:BUILD_VERSION, "$env:BUILD_NAME.zip", '--title', "BS3D $env:BUILD_VERSION", '--notes-file', 'release-notes.md', '--generate-notes')
+          # A tag carrying a suffix ("v0.2.0-beta") is a prerelease and GitHub should label it as one.
+          if ($env:BUILD_VERSION -match '-') { $releaseArgs += '--prerelease' }
+          gh @releaseArgs

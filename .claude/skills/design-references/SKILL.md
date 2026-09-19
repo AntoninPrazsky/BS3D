@@ -5,7 +5,11 @@ description: Draw reference images locally before designing how something in BS3
 
 # Design references
 
-The game draws everything procedurally, and designing a mesh or a material in code is easier with something concrete to look at. This skill renders that something locally. **The owner's verdict on the first twenty (#441, 2026-09-16): *„ty obrázky jsou skvělé“*.**
+The game draws everything procedurally, and designing a mesh or a material in code is easier with something concrete to look at. This skill renders that something locally. **The owner's verdict on the first twenty (#441, 2026-09-16): *„ty obrázky jsou skvělé”*.**
+
+> **⚠️ This renderer has hard-reset the owner's desktop seven times, then rendered sixteen images straight through. Treat a run as likely to survive but never assume it.** Seven of seven runs on 2026-09-17 and the morning of 2026-09-18 ended in instant power loss (`Kernel-Power 41`, BugcheckCode 0, no WHEA, no 4101), the longest surviving four images and the shortest producing none, while roughly a hundred Testbed and Game runs across the same days were clean. **Then, the same afternoon and with no configuration changed, a 16-image run (~10 minutes, Q8 + offload) completed with nothing to report** — the owner had been working on the machine's power in between and observed that the Game had stopped crashing too. So the fault is in the machine, it is intermittent, and it is not something a flag on this script controls.
+>
+> **Do not go looking for it in the renderer's settings.** Already ruled out: a replaced GPU cable, the power limit raised, the power limit lowered 10 %, `Q8` with offload, and `Q4_K` + the Q8 encoder with **no offload at all** — auto-fit reported `VRAM 7921.64MB, RAM 0.00MB`, everything resident, and it died within seconds of the first sampling step, sooner than the offloaded run that managed four images. Quantization and `--offload-to-cpu` are both irrelevant; the owner's reading, *„velikost modelu nemá vliv”*, is what the logs show. **Practical rule: assume any run may die at any moment.** Images are written one at a time and survive, so prefer one server and many seeds over many short runs, keep the output outside the repository, and have everything pushed before starting.
 
 ```powershell
 .\.claude\skills\design-references\render-references.ps1 -Name cup-gold -Width 832 -Height 1216 -Count 3 -Prompt "Studio product photograph of ..."
@@ -30,6 +34,59 @@ The script starts `sd-server` if nothing listens on port 7860 (LM Studio holds 1
 - *"Front elevation, orthographic, perfectly symmetrical"* came back as a flat illustration rather than a photograph. It still gave a clean silhouette that reads as a lathe profile, which is what a revolved mesh like `TrophyMesh` needs.
 - **Size:** 832×1216 for a tall object, 1216×832 for a scene. 8 steps at cfg 1 are the Turbo model's settings, so leave them.
 - **More seeds beat more rewording** when the prompt already says the right thing: `-Count 3` is three variants for ~105 s.
+
+## Making a chosen one bigger
+
+**Upscale it; do not re-render it larger.** A seed does not survive a change of size — the latent noise is a different shape, so the same prompt and seed at another resolution gives a different picture, not a bigger one. And the highres fix is not available on this machine:
+
+- **`--hires` at scale 2 measured 680 and 889 seconds per step** (against 3.45 s/step at 1216×832), because the second pass at 2432×1664 cannot get a pinned buffer — `ggml_vulkan: Failed to allocate pinned memory (Requested buffer size exceeds device buffer size limit)` — and falls back to unpinned transfers. `sd-server` took **77.5 GB of commit**, the machine reached **92.2 GB of its 92.4 GB commit limit**, and the run died on the script's 30-minute request timeout with nothing written. Eight steps would have been about two hours of thrashing. Anything that *samples* at that size hits the same wall, img2img included.
+- **What works is `sd-cli -M upscale`, in about ten seconds:**
+  ```powershell
+  & C:\Users\panrd\AI\sd\bin\sd-cli.exe -M upscale -i <in.png> `
+      --upscale-model C:\Users\panrd\AI\sd\models\RealESRGAN_x4plus_anime_6B.pth -o <out.png>
+  ```
+  1216×832 → 4864×3328, 8.2 s of upscaling, tiled at 128 px so the memory cost is nothing. The **anime_6B** variant is the right one for this project's references — it is trained for illustration, which is what a flat glossy logo or a concept sheet is; the general `x4plus` model invents photographic texture. Checked at 1:1 against a bicubic resample of the same image to the same size: the keyline is a clean edge instead of a soft ramp and the speculars keep a defined border. Nothing is re-sampled, so the composition is exactly the one that was chosen.
+- The upscaler is not part of the original setup; fetch it once from [Real-ESRGAN v0.2.2.4](https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.2.4/RealESRGAN_x4plus_anime_6B.pth) (18 MB) into `models\`.
+
+**Watch the variable name if you extend the script.** PowerShell identifiers are case-insensitive, so a parameter `$ServerArgs` *is* the local `$serverArgs` the script builds its command line in: the local assignment silently ate the parameter, the array was appended to itself, and the run looked normal while rendering at the old size with none of the flags. The parameter is `-ExtraServerArgs` for that reason. A rendered image proves nothing about which flags were used — read them back out of `server.log`.
+
+## Cutting the background out
+
+`cutout-alpha.py` turns a chosen reference into a straight-alpha RGBA PNG, cropped to what is drawn and scaled to a target width. It needs numpy, Pillow and scipy, which the **system Python does not have** — run it with the ComfyUI virtualenv's interpreter:
+
+```powershell
+& C:\Users\panrd\AI\ComfyUI\venv\Scripts\python.exe .\.claude\skills\design-references\cutout-alpha.py `
+    <in.png> <out.png> 2048 [t_lo] [t_hi]
+```
+
+- **A colour key does not work on this art and the reason generalises.** Between each letter and its outline runs a dark groove only ~16 units from the background colour, so any threshold that keeps the groove also keeps half the background. The script identifies background by **connectivity** instead: a near-background pixel is background only if it can be reached from the frame edge without crossing artwork, so grooves, letter counters and any enclosed dark stay opaque whatever their colour. Single grains of film noise clear the threshold too, and one at the frame edge stretches the crop box over the whole picture — regions under 256 px are dropped before the box is measured.
+- **Choose the cut from the image's own histogram.** On the logo the distance-from-background was cleanly bimodal: frame noise at ~1, the outer glow spanning 8–45, artwork above ~145 (the 70th and 75th percentiles of the frame were 43.7 and 145.2). The default 45/95 lands in that gap.
+- **Drop the glow unless the logo will sit on the dark background it was drawn against.** A glow drawn as light over dark plum is *darker* than a pale background, so over the game's sky it composites as a purple smudge rather than as light. Cutting at 25/80 to keep a little of it is worse than either extreme: un-compositing at low alpha drives the colour towards white and the word gets a pale sticker fringe.
+- The resize happens in **premultiplied** space and is un-premultiplied afterwards, or transparent pixels' colour bleeds into the edge. The PNG is straight alpha, which is what `Content.mgcb` wants — every content project here already passes `/processorParam:PremultiplyAlpha=True`, so the pipeline premultiplies on build and `BlendState.AlphaBlend` is correct. A texture loaded at runtime with `Texture2D.FromStream` instead is **not** premultiplied and will fringe.
+
+### Letting a network decide instead — measured, and it is not a clear win
+
+`matte-birefnet.py` runs **BiRefNet** (MIT, ONNX Runtime, **CPU only — it cannot cost a GPU reset**) and `combine-matte.py` gates the connectivity cut with its mask. Models live in `C:\Users\panrd\AI\matting\models`, in their own venv (`C:\Users\panrd\AI\matting\venv`, onnxruntime + numpy + Pillow) so ComfyUI's environment is untouched; `combine-matte.py` needs scipy and runs under ComfyUI's interpreter.
+
+```powershell
+& C:\Users\panrd\AI\matting\venv\Scripts\python.exe .\.claude\skills\design-references\matte-birefnet.py `
+    C:\Users\panrd\AI\matting\models\birefnet-lite.onnx <in.png> <out.png> 2048
+```
+
+Measured on the logo (4864×3328 source, output 2048 wide):
+
+| | inference | fully opaque | soft edge |
+|---|---|---|---|
+| connectivity cut | — | 40.6 % | 7.5 % |
+| BiRefNet lite (224 MB) | 6.2 s | 12.6 % | 35.4 % |
+| BiRefNet full (973 MB) | 11.2 s | 26.0 % | 19.2 % |
+| hybrid (cut gated by lite) | +1 s | 38.6 % | 6.1 % |
+
+- **The big model was worse than the small one.** BiRefNet full smeared the right-hand letters and dirtied the bottom edges; lite did not. Four times the weights bought nothing here, so try lite first and only reach for full if lite fails.
+- **A matting net is soft by construction.** BiRefNet takes a fixed 1024×1024 input, so on a 4864-wide source the matte is upscaled 4.75× before it meets the picture. It cannot resolve a keyline a few pixels wide, which is why its soft fraction is three to five times the cut's.
+- **It made two calls the cut cannot** — it dropped the thin purple keyline looping each letter, and it made the letter counters transparent — and **the owner rejected both**. Shown all four versions over sky and over white he picked the plain cut: *„Nejlepší je pořád bs3d-logo-2048.png, protože zachovává fialový obrys textu (alespoň náznaky)."* My own note here said the keyline "reads as a sticker outline" anywhere but the plum it was drawn on; that was a guess, and it was wrong. The keyline is part of the mark to him even in traces, so **the hybrid and the net-only versions are alternatives, not improvements, and the plain cut is what the logo is.**
+- **The finding that survives is about where each method is strong, not about which output to ship.** The net answers *what the subject is* and cannot resolve a thin edge; the cut answers *where the edge is* and has no opinion about what belongs. `combine-matte.py` exists to compose the two when a reference genuinely needs the net's judgement — and this logo shows that whether it does is an aesthetic call, so **put the versions in front of the owner rather than choosing for him**.
+- **Generating alpha directly is not available here.** Z-Image-Turbo decodes RGB through its VAE; there is no alpha anywhere in the path, and any transparency-capable model is a *different* model, so it would produce a different picture rather than this one with an alpha channel. LayerDiffuse (SDXL/SD1.5) is the mainstream option and sd.cpp does not support it; ComfyUI here is CPU-only torch with an empty model tree. This sd.cpp build *does* carry `--qwen-image-layers` for Qwen-Image-Layered, but Qwen-Image is a 20B model — around 12 GB of weights even at Q4, on a machine where the 7 GB Z-Image already wanted 77 GB of commit for one 2× pass.
 
 ## Showing them
 

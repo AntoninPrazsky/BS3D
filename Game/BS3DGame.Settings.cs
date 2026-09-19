@@ -332,6 +332,23 @@ namespace BS3D
         }
 
         /// <summary>
+        /// Toggles the tutorial (#189): the first chapter's cards stay the game's default and this is the opt-out
+        /// for a player who does not want to be told. Read by the session every frame
+        /// (<see cref="IsTutorialEnabled"/>), so a card up when this is turned off from the pause comes down at
+        /// once, and turning it back on resumes with the lesson that was up. It touches nothing already taught
+        /// — that is the save's record, and Reset progress is what clears it.
+        /// </summary>
+        internal void ToggleTutorial()
+        {
+            _tutorial = !_tutorial;
+
+            _settings.Tutorial = _tutorial;
+            SaveSettings();
+
+            _settingsPage.Refresh();
+        }
+
+        /// <summary>
         /// Toggles the debug unlock (#349): every level selectable regardless of the star total, for reaching
         /// one to test it without earning the stars first. It overrides <see cref="IsLevelUnlocked"/> and
         /// writes nothing — <c>PlayerProgress</c> is untouched, so turning it off restores the real state

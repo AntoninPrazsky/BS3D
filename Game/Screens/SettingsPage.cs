@@ -60,7 +60,7 @@ namespace BS3D.Screens
         private const int GROUP_HEADING_GAP = 40;
 
         private Label _fullscreenValue, _qualityValue, _adaptiveQualityValue, _exposureValue, _skyValue, _fpsValue, _fpsLimitValue;
-        private Label _volumeValue, _effectsValue, _musicValue, _ambienceValue, _trackValue, _sensitivityValue;
+        private Label _volumeValue, _effectsValue, _musicValue, _ambienceValue, _trackValue, _sensitivityValue, _tutorialValue;
         private Label _aberrationValue, _grainValue, _dropCinematicValue;
         private Label _progressValue, _unlockAllValue;
 
@@ -164,7 +164,7 @@ namespace BS3D.Screens
             //with the looks, while this is neither a look nor a sound and would be a lie under either heading.
             //A CONTROLS group is also one that genuinely exists rather than one promised by a lone row - the
             //pad's rate is a separate quantity that may earn its own row (see MouseAim.PAD_RATE), and this is
-            //where it would go.
+            //where it would go; the tutorial's switch (#189) is the second row it got.
             AddGroupHeading(grid, 6, "CONTROLS", first: false);
 
             //Above CAMPAIGN rather than below it, because the campaign rows are the destructive pair and the
@@ -172,17 +172,21 @@ namespace BS3D.Screens
             //that erases every star.
             AddRow(grid, 7, "Sensitivity", Game.CycleSensitivity, out _sensitivityValue);
 
-            AddGroupHeading(grid, 8, "CAMPAIGN", first: false);
+            //The tutorial's opt-out (#189). Under CONTROLS because what the first chapter's cards teach IS the
+            //controls, so the switch that hides them belongs beside the dial that tunes them.
+            AddRow(grid, 8, "Tutorial", Game.ToggleTutorial, out _tutorialValue);
+
+            AddGroupHeading(grid, 9, "CAMPAIGN", first: false);
 
             //The campaign back to zero stars (#92) — for testing as much as for a fresh start. The resting
             //value shows the star total the click would erase; the click itself is two-step (see _resetArmed).
-            AddRow(grid, 9, "Reset progress", OnResetProgress, out _progressValue);
+            AddRow(grid, 10, "Reset progress", OnResetProgress, out _progressValue);
 
             //The debug unlock (#349). Under the campaign heading rather than among the looks because it is the
             //same kind of thing the row above is - the player's record - and it is a DEVELOPMENT convenience:
             //it is off at every launch and writes nothing, so it can never make a real save read further along
             //than it is. Hiding it behind a build flag is a shipping concern and not one yet.
-            AddRow(grid, 10, "Unlock all", Game.ToggleUnlockAll, out _unlockAllValue);
+            AddRow(grid, 11, "Unlock all", Game.ToggleUnlockAll, out _unlockAllValue);
 
             return grid;
         }
@@ -281,6 +285,7 @@ namespace BS3D.Screens
             _aberrationValue.Text = Game.IsAberrationEnabled ? "On" : "Off";
             _grainValue.Text = Game.IsGrainEnabled ? "On" : "Off";
             _dropCinematicValue.Text = Game.IsDropCinematicEnabled ? "On" : "Off";
+            _tutorialValue.Text = Game.IsTutorialEnabled ? "On" : "Off";
             _unlockAllValue.Text = Game.IsUnlockAllEnabled ? "On" : "Off";
             _volumeValue.Text = FormatVolume(Game.MasterVolume);
             _effectsValue.Text = FormatVolume(Game.SfxVolume);
