@@ -4311,3 +4311,36 @@ Dvě majitelovy poznámky z hraní, dvě issues. Sémantické hledání (nomic, 
 - **Konflikt byl zase jen v žurnálu**, u prvního mergu; u druhého se soubor sloučil sám.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-19 — Claude Code, bs3d-f0 (#457 změřeno a padlo, #459+#460 a #473 na mainu)
+
+Druhá splátka majitelovy dávky. **Na `main`u: #459+#460 (merge `b5142aa`) a #473 (merge `4c3d3ae`)**, obojí zavřené, větve smazané. **#457 nic nezkommitoval a je to jeho výsledek.**
+
+### #457 — premisa issue neplatí, a stálo to dva nástroje
+
+Issue tvrdí, že v Louce stojí levely dřív, než se naučí ovládání, které potřebují. **Změřeno to neplatí a ani platit nemůže.**
+
+- **První nástroj, `AimReachability.CheckFromStand`:** dělo zapíchnuté v klidovém postoji (bez A/D, bez W/S), každá visící koule dotázaná, jestli na ni jde položit hlaveň uvnitř vlastních dorazů. Přes **skutečnou geometrii Game** (ne LevelGenu — `LogAimReachability` si to sám zdůvodňuje). Výsledek: **ze všech deseti levelů Louky je každá koule dosažitelná samotnou myší.** ⚠ Pak jsem to pustil na nejtěžší tvary ve hře, abych zjistil, jestli ta kontrola **vůbec může** selhat: Column (11×11×34), Horn (13×13×30), Colossus, Highwall (nejširší) — všude všechno dosažitelné. **Je to tautologie a je to strukturální:** pole podepře od stanoviště asi 20° proti 45° kuželu traverzu hlavně, a u vysokých polí se elevační limit **sám počítá** z téže geometrie (`SolveElevationLimit`), takže překročit se nedá konstrukcí. **Vráceno, ne odesláno.**
+- **Druhý nástroj, `ClearProbe.MeasureFromOneSide`:** stejné dohrání levelu, ale flood volného prostoru nasazený jen od **blízké stěny a podlahy** místo všech čtyř — tedy rány z jednoho směru. Deset levelů Louky, každý dvakrát: **4/4, 4/4, 6/6, 4/4, 4/4, 7/7, 5/5, 4/4, 4/4, 5/5** — identické. A identické i na Cube, Globe, Pendant, Horn a Colossu, do posledního tahu. ⚠ **A to je vada modelu, ne výsledek:** buňkový flood **nemá v sobě směr**, cluster visí v poli širším než on sám, takže prstenec prázdných buněk kolem něj spojí blízkou stěnu s dalekou. **Taky vráceno.**
+- **Co z toho zbývá:** co A/D a W/S kupují, není **míření**, ale **přístup** — přímá rána se zastaví o první kouli, takže na odvrácenou stranu clusteru se dá zamířit, ale ne vždy dostřelit. Poctivá odpověď potřebuje **směrový model viditelnosti počítaný po každém řezu** (paprsek z pevného ústí na každé kandidátní přistání, znovu po každém odstřelu — spočítaný jednou na netknutém clusteru by podhodnocoval, což je ten směr chyby, který si tenhle nástroj zakazuje). To je vlastní issue, ne poznámka pod čarou.
+- ⚠ **Poučení pro mě:** postavil jsem dva nástroje a oba skončily jako kontrola, která nemůže selhat. Ten test („pusť to na nejtěžší případ v repu a zjisti, jestli to umí spadnout") **patří před** psaní reportu, ne za něj. Podruhé jsem si ho vzpomněl sám, poprvé jen proto, že první výsledek vypadal podezřele jednotně.
+
+### #459 a #460 — tři karty do žebříčku
+
+- **`combine` (#460):** přesné míření **a zároveň** A/D nebo W/S držené `HOLD_SECONDS`. Půlky se čtou v různých částech updatu, takže `_carriageMoving` se pamatuje na snímek a **AND se bere ze dvou faktů jednoho snímku**, ne přes dva — jinak by kartu splnil hráč, co obě půlky **střídá**, tedy gesto, které nikdy neudělal.
+- **`linerule` (#459):** pravidlo dřív, než kousne. Kontextová karta `line` zůstává — ta říká, co **dělat** ve chvíli, kdy se síť rozsvítí; tahle na začátku Amphory říká, co je v **sázce**.
+- **`graduated` (#459):** konec žebříčku, který dosud žádný neměl. Nová vlajka `Definition.Celebrates`: karta přijde rovnou v šatech chvály (akcent, svatozář, pružina skóre, zvonek), místo aby si je zasloužila později — protože „jsi hotov" je odměna a čte se jako odměna, jen když tak vypadá. Právě jedna karta v žebříčku ji má.
+- **Ověřeno rigem nad skutečným `Tutorial.cs` — teď 28 kontrol.** ⚠ Past, kterou jsem si vyrobil: procházku žebříčkem jsem psal **po kartách** a ohlásila chybějící kartu, která tam byla — karty nejsou stejně dlouhé, takže krok po kartě jednu přeskočí. Vzorkuju po 0,25 s.
+- ⚠ **#448 je teď na kritické cestě:** `combine` vede nového hráče přímo do A/D pod přesným mířením, což je přesně to gesto, které škube. Napsáno do issue.
+
+### #473 — uvolněná koule přestala dýchat
+
+Tep je uniform na renderer, takže ho hrála i skupina právě uříznutá, celou cestu dolů. Je to **pravidlo #252 o populaci vedle** (náboje v zásobníku taky nedýchají), tak to bere i jeho mechanismus: klidová rovina a vlastní draw při `PulseDepth` 0. `ClusterCollector` populace už rozlišuje, takže je to jeden argument na smyčce `falling`.
+
+- ⚠ **Rána v letu dýchá dál, a je to rozhodnutí.** Je to koule na cestě k tomu stát se součástí mapy, a okamžik, kdy přestane, je okamžik, kdy dorazí. Napsáno do issue, ať to majitel může otočit jedním argumentem.
+
+**Dřív dnes:** #471 a #466 na mainu, čtyři dávno hotové issue zavřené (#453, #454, #455, #469).
+
+**Z dávky zbývá: #412** (značka mrtvé váhy — designové rozhodnutí, chce majitelovo oko), **městská půlka #471** a **#465**. **Beru si je dál v tomhle pořadí.** Kolega drží #437 a #421 a ví o překryvu s #412 v tématu „jak koule říká, čím je".
