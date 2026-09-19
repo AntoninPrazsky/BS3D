@@ -822,13 +822,22 @@ namespace BS3D
 
         /// <summary>
         /// What this program casts into the sun's shadow map (#470): the island, always — it is the host's
-        /// and stands in every scene, front end included — and the gun, which is a <b>session's</b> and is
-        /// therefore drawn by whatever <see cref="SessionShadowCasters"/> the session put there.
+        /// and stands in every scene, front end included — the gun, which is a <b>session's</b> and is
+        /// therefore drawn by whatever <see cref="SessionShadowCasters"/> the session put there, and in the
+        /// forest the wood standing round both (#471).
+        /// <para>
+        /// The forest's stand is the host's object the way the island is, which is why it casts from here and
+        /// not from inside <see cref="SceneRenderer"/> with the savanna's scatter and the beach's palms. The
+        /// <b>aurora's</b> stand is deliberately absent: that scene's sun is below the horizon, so
+        /// <see cref="SceneRenderer.DrawShadowMaps"/> never runs a caster pass there at all.
+        /// </para>
         /// </summary>
         private void DrawShadowCasters(Matrix shadowViewProjection)
         {
             _island?.DrawShadow(shadowViewProjection);
             SessionShadowCasters?.Invoke(shadowViewProjection);
+
+            if (_scene == SceneKind.Forest) _forestScatter?.DrawShadow(shadowViewProjection);
         }
 
         /// <summary>

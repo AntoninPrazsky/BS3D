@@ -17,6 +17,9 @@
 #define PS_SHADERMODEL ps_5_0
 
 #include "Clouds.fxh"
+//The sun's cast shadows (#469, in this scene since #471): SceneRenderer renders the map before the scene
+//pass and this reads it. See Shadows.fxh for what casts and what a receiver owes.
+#include "Shadows.fxh"
 
 //The shared noise library, for the ridged fractal field the massing is built from. Its opening states this
 //scene's own defect: a sum of plane-wave sines keeps its planes however many terms it has, and that is what
@@ -326,6 +329,14 @@ float4 MountainSurface(MountainVertexOutput input, uniform bool fullDetail)
     float3 albedo = lerp(rock, SnowColor, snow);
 
     float sunlight = CloudSunlight(worldPosition, SunDirection);
+
+    //The sun's cast shadows (#471), into the same sunlight factor the clouds dim, so everything read off it
+    //is shadowed at once. What casts here: the island and the gun — the peaks shade nothing but themselves,
+    //and the map's height range has to span them or the fit is wrong.
+    [branch]
+    if (ShadowStrength > 0.0)
+        sunlight *= SunShadow(worldPosition, baseNormal, SunDirection);
+
     float ndotl = saturate(dot(normal, SunDirection));
 
     //Hemisphere sky light: up-facing takes the zenith, slopes take the horizon. The blue zenith filling the

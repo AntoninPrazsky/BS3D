@@ -14,7 +14,16 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// A desert sky is empty, and that is the whole of why the scene reads as one - dunes under unbroken sun. It is also the honest use of Clear: a scene that wants no weather rather than a scene that cannot have any.
         /// </summary>
-        public DesertSceneConfig() => Weather = WeatherPreset.Clear;
+        public DesertSceneConfig()
+        {
+            Weather = WeatherPreset.Clear;
+
+            //The sun's cast shadows (#471), at the savanna's own figures — 0.9 is a shadow that is dark without
+            //reading as a hole, and 260 units at 2048 is 0.13 units a texel. A clear dome and raking sun: the
+            //dunes already read as lit and shadowed sides, and what was missing was the island's own shadow
+            //lying across them.
+            Shadows = new ShadowConfig(strength: 0.9f);
+        }
 
         /// <summary>Mean sand level in the clearing (the island's foot).</summary>
         public float LevelY { get; set; } = -13.5f;

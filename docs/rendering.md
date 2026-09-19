@@ -80,7 +80,55 @@ A fourth is the **Moon's earthshine** (`TryGetMoonEarthshine`), the planetshine'
 
 ⚠ **At the savanna's own dome the island's shadow is nearly invisible, and that is geometry rather than a fault.** Dome 14's sun is high, the cap stands five units over the grass, and the terrain has the island's own footprint cut out of it — so the shadow falls into the hole it casts from and only a crescent reaches the grass. The first captures of #470 read as "nothing happened" for exactly that reason, and the check that settles it is **a low sun**: under dome 5 the island throws a long ellipse across the ground and the gun's shadow lies plainly across the cap's stone. Photograph a shadow at a low sun before believing it is missing.
 
-The savanna is the first scene; the forest, the meadow, the beach and the outback have the same scatter-on-terrain shape and would take it the same way — a caster technique on their plant effects and the include in their terrain shaders — and with #470 the island and the gun already cast in whichever scene next gets a map (#471).
+The savanna was the first scene, and #471 carried the map to nine more — see below.
+
+### Every scene with a sun over it (#471)
+
+**The map stopped being the savanna's in #471 and became the setting's.** What #469 built was infrastructure with one customer, and the shape of the code said so: the gate read `scene == SceneKind.Savanna`, the three dials sat on `SavannaSceneConfig`, and the receivers were three named quintets of `EffectParameter` fields. Adding one scene meant five more fields, five more lookups and five more `SetValue` lines in three places; adding ten meant fifty. So the generalisation came first and the scenes after it:
+
+- **`ShadowConfig` on the base `SceneConfig`** — `Strength`, `Extent`, `MapSize` — for the same reason `Weather` is on the base: every backdrop with a sun can throw shadows, and a dial on the base is one the map editor's PropertyGrid picks up for all twenty at once. **`Strength` 0 is the default and means "no map at all"**: no target allocated, no caster pass, every receiver handed 0. A scene opts in where the rest of its look is stated, exactly as `Scattered` lets a scene say nothing about weather and render what it always did.
+- **`ShadowReceiver`** is the one copy of "an effect that reads the map": the five `Shadows.fxh` parameters looked up once and pushed together. `RegisterShadowReceivers` collects every one of this renderer's at load and `DrawShadowMaps` walks the array. The shared instanced effect stays apart because it is the *caller's* — it registers itself on the first frame one is handed in.
+- **Which scenes are listed there is the feature's inventory**, and it must match `TryShadowFit`'s switch: a scene fitted but not receiving casts into a map nobody reads, and a scene receiving but not fitted is handed 0 every frame.
+
+**Ten backdrops have a map now** — the savanna, the meadow, the forest, the mountains, the desert, the outback, the beach, the volcano, Mars and the polar ice — all at the savanna's own figures (0.9 over 260 units at 2048, which is 0.13 units a texel). **Sea and Storm are deliberately out, and so are the six sky-replacing scenes.** The storm draws no ground at all — `StormClouds.fx` *is* the cloud, and the island in it stands on nothing a shadow could land on. The sea is water: a shadow inside its Fresnel, foam and subsurface terms is a look decision of its own rather than a line, and nobody has asked for one. Space, the dream, the cavern, the Moon, the aurora and the Grid have no sun above the horizon and `SHADOW_MIN_SUN_HEIGHT` already skipped them.
+
+**The city is out too, and for a reason worth stating because it is not laziness.** The city is the one backdrop `SceneRenderer` does not own: `GetSceneConfig` answers **null** for `City`/`NeonCity` (the host holds the `CitySceneConfig`), the towers are the host's `InstancedModelRenderer`s, and `CityStreets.fx` is loaded by the host as well. So all three parts of a shadow — the config, the casters and the receiver — live outside this renderer, which makes it a different change from the nine here rather than a tenth copy of the same one. It is also the expensive one: the issue's own note asks for a tighter extent there, because the streets are the receivers and the towers are tall.
+
+**What casts, and who draws it.** The split follows the one CLAUDE.md already draws between the renderer and the host:
+
+| Scene | Casters | Drawn by |
+|---|---|---|
+| Savanna | the scatter and the hearth stones (`Acacia.fx`'s `ShadowCaster`) | `SceneRenderer` |
+| Tropical | 110 palms and the waterline's rocks (`Palm.fx`'s own, new in #471) | `SceneRenderer` |
+| Forest | the wood — trees, boulders, stumps (`InstancedModel.fx`'s `InstancedDepth`) | the **host**: it owns the `ForestScatterRenderer` |
+| every one of the ten | the island and the gun | the **host** (#470) |
+
+`ForestScatterRenderer.DrawShadow` is `Draw`'s depth twin, and it is **six calls a variant rather than twelve**: the drawn pass splits a tree into trunk and crown because their *tints* differ, and a depth pass has no tint.
+
+- ⚠ **`Palm.fx`'s caster had to learn the sway, and the sway had to become a function.** A palm's crown is displaced in the vertex shader off `PalmTime` and the wind; a caster that skipped it would throw the shadow of a palm standing still while the drawn one waved. `Sway()` is now one copy both techniques call. What is still one frame stale is the *clock*: the map is drawn before the scene, so `PalmTime` on the effect is the previous frame's. At the beach's sway speed that is under a hundredth of a radian, a fraction of a millimetre at a frond tip, and the alternative is handing `DrawShadowMaps` a `SceneFrame` it has no other use for.
+- ⚠ **The rocks cast with the sway strength at zero**, for the reason `DrawTropicalRocks` already gives: they are `LatheMesh`es whose `TEXCOORD0.x` is a circumference, which this shader reads as its sway weight. At the palms' strength the stones shear open — and a sheared stone casts a sheared shadow.
+
+**The fit is computed per scene, not authored** (`TryShadowFit`), and that is a deliberate departure from the issue's own suggestion. A height range written into `ShadowConfig` would be a second copy of the terrain's proportions sitting beside the dials it has to follow — `HillHeight`, `DuneAmplitude`, `RockHeight` — and a copy that drifts *silently*: the map keeps rendering, it simply stops covering what stands in it, and nothing in the frame says why. So each scene's case reads that scene's own figures, with two shared constants over them: `SHADOW_FIT_MARGIN` (10 units of slack, because every one of those figures is a mean rather than a maximum) and `SHADOW_ISLAND_HEADROOM` (12 units over `ArenaIsland.TOP_Y`, because in seven of the ten scenes the island and the gun *are* the casters and a box fitted to a flat plain would clip the very thing throwing the shadow).
+
+- **The mountain and the volcano take half their relief, not all of it.** A range fitted to an 82-unit peak or a 140-unit cone coarsens the bias on the snow at the gun's feet for a ridge no 260-unit map reaches: the peaks are terrain, they stand outside the extent, and they shade nothing but themselves. The savanna keeps #469's own expression to the digit — half a rise below the plain, a baobab and a half above them — because that is the fit that was measured and photographed.
+
+**A map nobody casts into is skipped outright**, and the caller that needed it is the **map editor**: it draws no island, no gun and no wood, so in the eight scenes whose casters are all the host's it would have rendered an empty map and then paid nine taps a pixel to read back that everything is lit. The gate is the `extraCasters` callback itself — a host that registers nothing, in a scene with no planting of this renderer's own, gets no map. Both other executables always hand a callback in, so nothing there changes. In the savanna and the beach the editor keeps its shadows, which is right: that planting is the renderer's and the editor draws it.
+
+**Cost, measured against `main` in the Testbed** — dome 8, 1600×900 at ssaa 4 (23 Mpix), `nopost nooverc`, `fpscap=400`, `campos=0,6,60 camtarget=0,-8,0`, 16-second runs with the first four readings dropped, medians of twelve to thirteen, two alternating pairs a scene, on the 5900X / RX 6900 XT:
+
+| Scene | casters | `main` | this | delta |
+|---|---|---|---|---|
+| Forest | 380 trees, boulders and stumps, the island and the gun | 10.17 / 10.25 ms | 10.38 / 10.41 | **+0.19** |
+| Tropical | 110 palms, the rocks, the island and the gun | 7.53 / 7.54 | 7.74 / 7.73 | **+0.20** |
+| Meadow | the island and the gun, and nothing else | 7.79 / 7.76 | 7.96 / 7.97 | **+0.19** |
+| Savanna (control) | unchanged | 8.88 / 8.96 | 8.91 / 8.97 | +0.02 / +0.01 |
+
+- ⚠ **The meadow costs the same as the forest, and that is the number worth keeping.** One caster against three hundred and eighty, and the delta is identical to two decimal places — so what a scene pays for its shadows is **the receiver**, nine taps over a full-screen terrain shader, and the caster pass is lost in the noise beside it. #470 said the same thing from the other end (its caster-only measurement sat on the floor and the cost showed up on the cluster). Two things follow. The map is about the same price in *every* scene, which is what made rolling it out to nine at once a predictable change rather than a gamble; and if the price is ever to come down, the lever is the tap count or the terrain's branch, not the list of what casts.
+- **The savanna at the measurement floor is the control the refactor needed**: `ShadowConfig`, the receiver array and the per-scene fit moved every line of #469's path, and the scene it was built for renders at the same cost within 0.02 ms.
+- One `main` savanna reading came back at **35.71 ms** and is discarded as the stray it is (`benchmark` trap 6/12): its pair read 8.98, and four fresh alternating runs afterwards gave 8.88 / 8.96 against 8.91 / 8.97.
+- Build under measurement: `Testbed.dll e5d8e31c`, `shaders 32 set c60d9f0f`.
+
+⚠ **Photograph a new scene's shadows under a sun that is actually up.** The trap #470 wrote down applies to every scene and bit again here: the first meadow capture was taken under **dome 5**, whose sun is below `SHADOW_MIN_SUN_HEIGHT`, so the gate correctly drew no map and the frame read as "the feature does not work". Under **dome 8** the same camera shows the island's shadow as a long clean ellipse across the grass. Dome 8 (14° elevation) is the dome to check a new scene with; dome 14, the savanna's own, is the one that hides a shadow in the hole the terrain cuts under the island.
 
 ## The weather (Testbed)
 

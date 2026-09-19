@@ -1,4 +1,4 @@
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Prazsky.Core.Camera;
 using Prazsky.Core.Tools;
@@ -299,6 +299,38 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
+        /// The same six kinds drawn again from the sun, into the shadow map <c>SceneRenderer.DrawShadowMaps</c>
+        /// has bound (#471): depth only, no material and no light, through
+        /// <see cref="InstancedModelRenderer.DrawDepth"/> and <c>InstancedModel.fx</c>'s <c>InstancedDepth</c>
+        /// technique. The densest scatter in the project is the one whose shadow matters most — a wood where
+        /// every trunk stands on evenly lit floor is what #469 was opened about, in another scene.
+        /// <para>
+        /// <b>Trunks and crowns are one draw each here, not two.</b> The drawn pass splits them because their
+        /// TINTS differ (bark against foliage, a per-draw uniform); a depth pass has no tint, so the crown's
+        /// and the trunk's meshes are simply two more sets of geometry over the same instances. It stays six
+        /// calls per variant rather than twelve for that reason.
+        /// </para>
+        /// <para>
+        /// <b>The caller states everything</b>: the map bound, cleared, opaque, depth-default and
+        /// <see cref="RasterizerState.CullNone"/> — see <c>DrawShadowMaps</c>. Like <see cref="Draw"/> this
+        /// touches no state of its own, allocates nothing, and leaves the renderers on their main technique
+        /// (<c>DrawDepth</c> restores it). And like it, the scene gate is the caller's: this casts the wood
+        /// whenever it is called.
+        /// </para>
+        /// </summary>
+        /// <param name="shadowViewProjection">World → the map's clip space, from
+        /// <c>SunShadowMap.ViewProjection</c>.</param>
+        public void DrawShadow(Matrix shadowViewProjection)
+        {
+            CastScatter(shadowViewProjection, _coniferTrunkRenderers, _scatter.Conifers);
+            CastScatter(shadowViewProjection, _coniferCrownRenderers, _scatter.Conifers);
+            CastScatter(shadowViewProjection, _broadleafTrunkRenderers, _scatter.Broadleaves);
+            CastScatter(shadowViewProjection, _broadleafCrownRenderers, _scatter.Broadleaves);
+            CastScatter(shadowViewProjection, _rockRenderers, _scatter.Rocks);
+            CastScatter(shadowViewProjection, _stumpRenderers, _scatter.Stumps);
+        }
+
+        /// <summary>
         /// Rebuilds everything the config decides — the meshes, the renderers, the encoded tints and the
         /// scatter — for a config that has changed under the component. <b>This is what the map editor's live
         /// scene-config grid needs</b> and the Game never has: an edit there re-applies the config to the
@@ -564,6 +596,21 @@ namespace Prazsky.Core.Render
                 if (bucket.Length == 0) continue;   //a variant no instance fell to; Draw would no-op anyway
 
                 renderers[variant].Draw(camera, bucket, bucket.Length, effectParams, srgbTints[variant]);
+            }
+        }
+
+        //DrawScatter's depth twin (#471): the same per-variant loop with no material to push. A second small
+        //method rather than a flag on DrawScatter, because the two share only the loop - the drawn one needs a
+        //camera and a tint, this one needs neither and cannot be given them.
+        private void CastScatter(Matrix shadowViewProjection, InstancedModelRenderer[] renderers,
+            ModelInstance[][] instances)
+        {
+            for (int variant = 0; variant < renderers.Length; variant++)
+            {
+                ModelInstance[] bucket = instances[variant];
+                if (bucket.Length == 0) continue;
+
+                renderers[variant].DrawDepth(shadowViewProjection, bucket, bucket.Length);
             }
         }
 

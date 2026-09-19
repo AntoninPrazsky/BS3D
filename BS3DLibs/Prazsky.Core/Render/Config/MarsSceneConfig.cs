@@ -1,4 +1,4 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 
 namespace Prazsky.Core.Render
 {
@@ -41,7 +41,16 @@ namespace Prazsky.Core.Render
         /// the shared cloud deck stays off rather than defaulting on and drawing Earth cumulus over a
         /// Martian sky.
         /// </summary>
-        public MarsSceneConfig() => Weather = WeatherPreset.Clear;
+        public MarsSceneConfig()
+        {
+            Weather = WeatherPreset.Clear;
+
+            //The sun's cast shadows (#471), at the savanna's own figures — 0.9 is a shadow that is dark without
+            //reading as a hole, and 260 units at 2048 is 0.13 units a texel. A thin atmosphere means hard
+            //shadows, and Mars is the scene where a soft one would read as wrong: the island's edge on the rust
+            //should be a line.
+            Shadows = new ShadowConfig(strength: 0.9f);
+        }
 
         /// <summary>The cratered plain.</summary>
         public MarsTerrainConfig Terrain { get; set; } = new();

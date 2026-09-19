@@ -23,7 +23,16 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// The one scene whose own sky should be ugly: ash and heat over black basalt want a heavy low deck with the light nearly out of it, and it is the only backdrop in the set that gains rather than loses by going dark.
         /// </summary>
-        public VolcanoSceneConfig() => Weather = WeatherPreset.Storm;
+        public VolcanoSceneConfig()
+        {
+            Weather = WeatherPreset.Storm;
+
+            //The sun's cast shadows (#471), at the savanna's own figures — 0.9 is a shadow that is dark without
+            //reading as a hole, and 260 units at 2048 is 0.13 units a texel. The island and the gun on the
+            //flank. The lava's own light is not a shadow caster — the map is the sun's, and this scene's sun is
+            //what the storm deck leaves of it.
+            Shadows = new ShadowConfig(strength: 0.9f);
+        }
 
         /// <summary>Mean ground level in the clearing (the island's foot), as in the desert and the outback.</summary>
         public float LevelY { get; set; } = -13.5f;

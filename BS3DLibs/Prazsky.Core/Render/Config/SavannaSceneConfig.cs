@@ -14,7 +14,15 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// The gold-horizon dome the block chose wants sky behind it: scattered cloud keeps the warm horizon visible where a closed deck would grey it out.
         /// </summary>
-        public SavannaSceneConfig() => Weather = WeatherPreset.Scattered;
+        public SavannaSceneConfig()
+        {
+            Weather = WeatherPreset.Scattered;
+
+            //The first scene to cast a shadow (#469) and the numbers the whole feature was tuned against:
+            //0.9 leaves a shadow dark without reading as a hole, 260 units square round the camera puts the
+            //edge outside every camera that plays here, and 2048 over that is 0.13 units a texel.
+            Shadows = new ShadowConfig(strength: 0.9f, extent: 260f, mapSize: 2048);
+        }
 
         /// <summary>Mean grass level, sitting at the island's foot (world origin clearing).</summary>
         public float LevelY { get; set; } = -13.5f;
@@ -97,19 +105,6 @@ namespace Prazsky.Core.Render
 
         /// <summary>How closely the trails wander, in cycles per world unit — the lower, the longer their bends.</summary>
         public float TrailFrequency { get; set; } = 0.0045f;
-
-        /// <summary>
-        /// The sun's cast shadows (#469): how dark a full shadow is (1 = the sun term gone entirely; a little
-        /// under it keeps a shadow from reading as a hole in the ground), 0 = no shadow map at all.
-        /// </summary>
-        public float ShadowStrength { get; set; } = 0.9f;
-
-        /// <summary>How far round the camera the shadow map reaches, in world units square. Shadows exist
-        /// inside it and fade out at its edge; the map's texel is this over its size.</summary>
-        public float ShadowExtent { get; set; } = 260f;
-
-        /// <summary>The shadow map's size in texels a side. 2048 over 260 units is 0.13 units a texel.</summary>
-        public int ShadowMapSize { get; set; } = 2048;
 
         /// <summary>Scattered acacia trees and low bushes.</summary>
         public AcaciaConfig Acacia { get; set; } = new();

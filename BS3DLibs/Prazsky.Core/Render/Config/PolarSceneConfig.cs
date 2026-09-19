@@ -1,4 +1,4 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 
 namespace Prazsky.Core.Render
 {
@@ -24,7 +24,16 @@ namespace Prazsky.Core.Render
         /// real look — a whiteout with no shadows at all — but it is the one weather in which this scene has
         /// nothing to show, so it is not the default.
         /// </summary>
-        public PolarSceneConfig() => Weather = WeatherPreset.Clear;
+        public PolarSceneConfig()
+        {
+            Weather = WeatherPreset.Clear;
+
+            //The sun's cast shadows (#471), at the savanna's own figures — 0.9 is a shadow that is dark without
+            //reading as a hole, and 260 units at 2048 is 0.13 units a texel. The shadow lands in the sky's own
+            //blue here, which is the colour this scene's shadows have always been — the ambient term is what
+            //carries the picture (see Polar.fx).
+            Shadows = new ShadowConfig(strength: 0.9f);
+        }
 
         /// <summary>Mean ice level in the clearing (the island's foot).</summary>
         public float LevelY { get; set; } = -13.5f;

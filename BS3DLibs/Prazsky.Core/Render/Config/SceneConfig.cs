@@ -60,5 +60,17 @@ namespace Prazsky.Core.Render
         /// </para>
         /// </summary>
         public WeatherPreset Weather { get; set; } = WeatherPreset.Scattered;
+
+        /// <summary>
+        /// The sun's cast shadows over this backdrop (#469, on the base class since #471). Here for the same
+        /// reason as <see cref="Weather"/>: every scene with a sun over it can throw shadows, so a dial on
+        /// the base is one the map editor's PropertyGrid picks up for all twenty at once — and while these
+        /// three lived on <c>SavannaSceneConfig</c> the renderer's gate had to name that one scene.
+        /// <para>
+        /// <b>The default is off</b> (<see cref="ShadowConfig.Strength"/> 0, no target allocated and every
+        /// receiver handed 0), so a scene opts in where the rest of its look is stated.
+        /// </para>
+        /// </summary>
+        public ShadowConfig Shadows { get; set; } = new();
     }
 }
