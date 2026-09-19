@@ -1,4 +1,4 @@
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Prazsky.BS3D;
 using Prazsky.BS3D.GameObjects;
@@ -29,8 +29,10 @@ namespace Testbed
         protected override void Draw(GameTime gameTime)
         {
             //The sun's shadow maps come first (#469): their own target, drawn before the scene's
-            //DiscardContents target is bound, because binding that target again would clear it.
-            _sceneRenderer.DrawShadowMaps(_scene, _camera, _rig.SunDirection);
+            //DiscardContents target is bound, because binding that target again would clear it. The effect
+            //makes everything drawn through it RECEIVE, and the callback is what the island and the gun CAST
+            //with (#470) — they are this program's objects, so the renderer asks rather than reaches.
+            _sceneRenderer.DrawShadowMaps(_scene, _camera, _rig.SunDirection, _instancingEffect, DrawShadowCasters);
 
             //The scene goes through the HDR target; the crosshair and the text overlay are drawn after the
             //resolve, at native resolution and in display space, so they stay exactly as authored instead
@@ -227,6 +229,26 @@ namespace Testbed
             //clock the clouds and the pulse run on, so a scheduled shot lands at the same moment whether the
             //simulation is running, slowed or frozen.
             _shots?.Service(_pulseSeconds, _scene.ToString());
+        }
+
+        /// <summary>
+        /// What this program casts into the sun's shadow map (#470): the island and the gun. Handed to
+        /// <see cref="SceneRenderer.DrawShadowMaps"/> with the map's target already bound and its states set.
+        /// <para>
+        /// <b>It casts exactly what the scene block above draws</b>, on the same conditions — the island
+        /// honours <c>arena=</c> inside <see cref="ArenaIsland.DrawShadow"/>, and the gun is drawn in both
+        /// modes, so it casts in both. A caster list that drifts from the draw list is a shadow with nothing
+        /// standing in it, or a thing standing in the sun with no shadow.
+        /// </para>
+        /// </summary>
+        private void DrawShadowCasters(Matrix shadowViewProjection)
+        {
+
+            _island?.DrawShadow(shadowViewProjection);
+
+            if (_cannonRig != null && _cannon != null)
+                _cannonRig.DrawShadow(shadowViewProjection, _cannon.BarrelWorld(), _cannon.CarriageWorld(),
+                    _cannon.WheelTravel, _cannon.SlideTravel);
         }
 
         //The Game's counter restated rather than shared, because there is nothing to share it through: both are

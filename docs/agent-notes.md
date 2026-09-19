@@ -4102,3 +4102,26 @@ Dvě majitelovy poznámky z hraní, dvě issues. Sémantické hledání (nomic, 
 **Co zůstává majiteli k rozhodnutí:** #474 (tříranové levely, Horn 90 % shodou), Highwall jako nejdelší level Quarry (18 ran, jeho vlastní design), Sail a Binary dál na dvě rány (lék je třetí kotva, ne obal), lem pro Sail (varianta, kterou nevybral, a která jediná spraví těch 67 %), `Cabinet` v sondě 4 z 5 a `MIXED THEMES` u Louky v `DescribeBlock` (#400).
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-19 — Claude Code, bs3d-f0 (#470 ostrov a dělo vrhají stín, hotovo a na mainu)
+
+**Větev `470-island-shadow`, merge `--no-ff` na main.** #469 dal savaně shadow mapu s jediným zákazníkem — rozptylem. Ostrov v ní nebyl: kamenný kotouč třicet jednotek široký nevrhal na trávu nic, dělo nevrhalo na kámen, na kterém stojí, a plotna se chovala, jako by nad ní nic nestálo.
+
+- **Caster už v repu byl a nikdy ho nikdo nezavolal**: technika `InstancedDepth` a `InstancedModelRenderer.DrawDepth`, napsané pro shadow mapping a čekající na mapu. Teď berou `ShadowViewProjection` ze `Shadows.fxh` místo vlastní `LightViewProjection` — caster a příjemce se nesmějí rozejít v tom, kde stojí světlo — a mají přetížení na jednu world matici.
+- **Příjem** je jeden řádek v `ShadePixel`, přesně ten, na kterém už jede stín mraků: ostrov, výpusť, dělo, město i koule čtou mapu z jednoho pushe (argument `SceneLights`). ⚠ Platí za to i koule: větev je přes celý draw uniformní, takže cluster, který nic nestíní, stejně odtočí devět tapů. Kdyby to vadilo, brána je per-renderer vlajka po vzoru `DirLightStrength`.
+- **Sklo nevrhá, a to je pravidlo, ne opomenutí**: shadow mapa nezná průhlednost, takže skleněná výpusť nebo zasklené okénko děla by vrhaly jako plný kámen — výpusť by četla jako tmavý disk uvnitř stínu ostrova.
+- **Kdo castery kreslí, je hostitel, ne renderer** (ostrov je objekt exe). `DrawShadowMaps` proto bere callback. V Game jde dělo ještě o krok dál: rig je hostitelův, ale jeho **póza je sezení**, takže `GameplayScreen` strčí hostiteli closure (`SessionShadowCasters`) a teardown ji nuluje — jinak by front end kreslil stín děla, které tam nestojí.
+
+⚠ **Hodinu jsem hledal chybu, která tam nebyla.** Při doméně 14 (vlastní dóm savany) stojí slunce vysoko, plotna je pět jednotek nad trávou a terén má pod ostrovem **vyříznutou díru** — stín tedy padá do díry, ze které se vrhá, a na trávu vyjde srpek. První snímky proto četly jako „nefunguje to". Diagnostika, která to nakonec rozsekla, stála tři buildy: (1) vypsat, jestli se parametry vůbec resolvnou a castery volají — ano; (2) **číst obsah mapy zpět** (`GetData` na `Single` target, počet texelů < 0,999): rozptyl 358 689, po casterech 427 166, takže ostrov **zapisoval**; (3) vypsat hodnotu uniformu v okamžiku kreslení ostrova (`strength=0,9`) — takže i příjem běžel. Teprve pak došlo, že chybí **nízké slunce**: pod dómem 5 vrhá ostrov dlouhou elipsu přes zem a stín děla leží přes dlažbu plotny. **Do docs zapsáno jako past: stín foť při nízkém slunci, než ho prohlásíš za chybějící.**
+
+⚠ Menší past: zkouška „obarvi větev na zeleno" (`return float4(0,4,0,1)` uprostřed `ShadePixel`) shodila exe segfaultem. Build přitom prošel. Nehnal jsem to dál; hodnotu uniformu přečíst z C# je levnější a jednoznačnější.
+
+**Změřeno** (Testbed proti mainu ve worktree, dome 14, 1600×900 ssaa 4, `nopost`, `fpscap=400`, dva páry): **na dně rozlišení měřidla** — venku 8,14/8,12 → 8,14/8,20, u ohně 8,60/8,56 → 8,60/8,55 (jeden pár nahoru, jeden plochý, jeden o chlup dolů). Castery jsou šest malých instancovaných drawů a na těch kamerách je jediný nový příjemce ostrov sám. **Za příjem se platí u clusteru**, který ty kamery nemají — Testbed nic nezavěsí, dokud mu mapu nedáš: s `Giraffe` (315 koulí) přes celý snímek z `campos=0,6,44` je to **8,57/8,54 → 8,62/8,60, +0,05 ms**, znaménko 2/2. To je devět tapů přes každý pixel koule pro cluster, který nic nestíní — číslo, které hlídat, až mapa dojde do scény s větším.
+
+**Ověřeno:** Testbed při dómu 5 (ostrov i dělo vrhají), Game spustí savanní level s dělem (78 FPS), všechny tři exe staví. Neověřeno: tier Low, editor V-cyklus.
+
+**Zbývá otevřené v #470**, a nechal jsem to tam napsané: koule jako **caster** na plotnu (nejtěžší pass v projektu, patří to za měření, ne před). Sousední #471 (mapa do všech scén) tím dostal hotovou caster techniku pro les, města i ostrov.
+
+**Nic dalšího si neberu.**

@@ -700,6 +700,31 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
+        /// Draws the island into the bound sun shadow map (#470): the <b>cap and the drum</b>, which is the
+        /// whole of its silhouette against the sun — a stone disc thirty units across on a drum, and until
+        /// this existed the biggest solid in the scene threw nothing onto the grass beside it.
+        /// <para>
+        /// <b>What deliberately does not cast.</b> The drain's glass and its gold beads are translucent and
+        /// tiny respectively, and the pit is a hole: a shadow map has no opacity, so a glass funnel drawn
+        /// into it would cast as solid stone — the drain would read as a dark disc in the middle of the
+        /// island's own shadow, which is the opposite of what glass does. The cap already covers their
+        /// footprint from any sun that clears the horizon.
+        /// </para>
+        /// <para>
+        /// <see cref="Members"/> is honoured exactly as in <see cref="DrawIsland"/>, so a Testbed run with
+        /// <c>arena=none</c> casts nothing and one with <c>arena=all,-cap</c> casts only the drum — the
+        /// isolation argument keeps working on the shadow as well as on the picture.
+        /// </para>
+        /// </summary>
+        /// <param name="shadowViewProjection">The map's world → clip matrix, from
+        /// <see cref="SunShadowMap.ViewProjection"/>.</param>
+        public void DrawShadow(Matrix shadowViewProjection)
+        {
+            if ((Members & ArenaMembers.Cap) != 0) _capRenderer.DrawDepth(shadowViewProjection, _world);
+            if ((Members & ArenaMembers.Drum) != 0) _bodyRenderer.DrawDepth(shadowViewProjection, _world);
+        }
+
+        /// <summary>
         /// The dark pit shaft, in the solid-terrain scenes only, before the glass that composites over it.
         /// The classification is <see cref="SceneRenderer.IsSolidTerrainScene"/> — the shared one, hoisted in
         /// #75 out of the private copy each executable kept (the forest was once missing from both).

@@ -710,6 +710,15 @@ namespace Prazsky.Core.Render
         private EffectParameter _savannaShadowMapParam, _savannaShadowViewProjectionParam, _savannaShadowTexelParam,
             _savannaShadowStrengthParam, _savannaShadowBiasParam;
 
+        //And the SHARED instanced effect's (#470), which is the one push that reaches the island, its drain,
+        //the gun, the city and every ball at once — the same argument SceneLights makes for its four. The
+        //effect is the caller's (each executable loads its own Shaders/InstancedModel and hands it in), so
+        //the references are cached the first time one is seen and re-cached if a different effect ever
+        //arrives; a by-name lookup per frame is a linear scan (BestPractices.md §1).
+        private Effect _instancedShadowEffect;
+        private EffectParameter _instancedShadowMapParam, _instancedShadowViewProjectionParam,
+            _instancedShadowTexelParam, _instancedShadowStrengthParam, _instancedShadowBiasParam;
+
         //The depth bias in world units, turned into the map's own units each frame off its depth range: about
         //three and a half texels of a 2048 map over 260 units, enough that a plate of foliage lit from above
         //does not stripe itself and small enough that a tuft still shadows its own foot.
@@ -5184,13 +5193,40 @@ namespace Prazsky.Core.Render
         /// <para>
         /// What casts: every bucket of the scatter and the hearth stones, through <c>Acacia.fx</c>'s
         /// <c>ShadowCaster</c> technique with the culling off (two-sided blades and fans, and a closed solid
-        /// drawn from both sides cannot peter-pan). What does not, yet: the island — it is
-        /// <see cref="ArenaIsland"/>'s and draws through <c>InstancedModel.fx</c>, which has no caster
-        /// technique; its shadow on the grass is the next thing this could do.
+        /// drawn from both sides cannot peter-pan), and then whatever <paramref name="extraCasters"/> draws —
+        /// the island and the gun (#470), which are the host's objects and not this renderer's.
+        /// </para>
+        /// <para>
+        /// <b>What receives is everything</b>, once <paramref name="instancedEffect"/> is handed in: the tap
+        /// sits in <c>InstancedModel.fx</c>'s <c>ShadePixel</c>, so the island's cap, the drain, the gun, the
+        /// city and the balls all read the map from the one push, exactly as <see cref="SceneLights"/>
+        /// reaches them from one. A caller that passes no effect still gets the scatter's own shadows; it
+        /// simply leaves everything drawn through the shared effect unshadowed.
         /// </para>
         /// </summary>
-        public void DrawShadowMaps(SceneKind scene, ICamera camera, Vector3 sunDirection)
+        /// <param name="scene">The backdrop being drawn; only the savanna has a map today.</param>
+        /// <param name="camera">This frame's camera — the map is fitted round where it stands.</param>
+        /// <param name="sunDirection">The direction <b>towards</b> the sun, from the dome's own rig.</param>
+        /// <param name="instancedEffect">The shared <c>Shaders/InstancedModel</c> effect, so everything drawn
+        /// through it receives. The caller's, and the same instance for the life of the program.</param>
+        /// <param name="extraCasters">Draws the host's own casters into the map, handed the map's world →
+        /// clip matrix. Called with the target bound and the states set; see
+        /// <see cref="ArenaIsland.DrawShadow"/>.</param>
+        public void DrawShadowMaps(SceneKind scene, ICamera camera, Vector3 sunDirection,
+            Effect instancedEffect = null, Action<Matrix> extraCasters = null)
         {
+            //The shared effect's parameter references, cached on the first frame one is handed in (#470)
+            if (instancedEffect != null && !ReferenceEquals(instancedEffect, _instancedShadowEffect))
+            {
+                _instancedShadowEffect = instancedEffect;
+                _instancedShadowMapParam = instancedEffect.Parameters["ShadowMap"];
+                _instancedShadowViewProjectionParam = instancedEffect.Parameters["ShadowViewProjection"];
+                _instancedShadowTexelParam = instancedEffect.Parameters["ShadowTexel"];
+                _instancedShadowStrengthParam = instancedEffect.Parameters["ShadowStrength"];
+                _instancedShadowBiasParam = instancedEffect.Parameters["ShadowBias"];
+                _instancedShadowStrengthParam?.SetValue(0f);
+            }
+
             SavannaSceneConfig cfg = _savannaConfig;
             bool wanted = scene == SceneKind.Savanna && cfg.ShadowStrength > 0f && _sceneDetail > 0.5f
                 && sunDirection.Y > SHADOW_MIN_SUN_HEIGHT && _savannaScatter != null;
@@ -5201,6 +5237,7 @@ namespace Prazsky.Core.Render
                     _shadowsActive = false;
                     _acaciaShadowStrengthParam.SetValue(0f);
                     _savannaShadowStrengthParam.SetValue(0f);
+                    _instancedShadowStrengthParam?.SetValue(0f);
                 }
                 return;
             }
@@ -5257,6 +5294,13 @@ namespace Prazsky.Core.Render
             }
 
             _acaciaEffect.CurrentTechnique = _acaciaTechnique;
+
+            //And whatever the caller casts (#470): the island and the gun, which are the executable's objects
+            //and not this renderer's ("the setting, in one copy" — the renderer draws the scene's own scatter
+            //and the host draws what stands on it). It draws through InstancedModelRenderer.DrawDepth, which
+            //states the technique it needs and puts the main one back.
+            extraCasters?.Invoke(_sunShadowMap.ViewProjection);
+
             _graphicsDevice.SetRenderTarget(null);
 
             //Hand the map to the receivers: the matrix, the texel, the strength, and the bias in the map's
@@ -5271,6 +5315,21 @@ namespace Prazsky.Core.Render
             _savannaShadowTexelParam.SetValue(_sunShadowMap.Texel);
             _savannaShadowStrengthParam.SetValue(cfg.ShadowStrength);
             _savannaShadowBiasParam.SetValue(bias);
+
+            //And the shared instanced effect, which is what makes the island, the gun, the city and the balls
+            //receive — one push for all of them (#470). ⚠ ShadowViewProjection is pushed here AND by
+            //InstancedModelRenderer.DrawDepth during the caster pass above: the same matrix, the same
+            //uniform, and the caster's write is what a caller drawing into a map of its own would leave
+            //behind, so this one is the frame's last word on it.
+            if (_instancedShadowStrengthParam != null)
+            {
+                _instancedShadowMapParam.SetValue(_sunShadowMap.Target);
+                _instancedShadowViewProjectionParam.SetValue(_sunShadowMap.ViewProjection);
+                _instancedShadowTexelParam.SetValue(_sunShadowMap.Texel);
+                _instancedShadowStrengthParam.SetValue(cfg.ShadowStrength);
+                _instancedShadowBiasParam.SetValue(bias);
+            }
+
             _shadowsActive = true;
         }
 

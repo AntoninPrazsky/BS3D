@@ -957,7 +957,9 @@ namespace MapEditor
         {
             //The sun's shadow maps come first (#469): their own target, before the scene's DiscardContents
             //target is bound - so the editor previews the savanna's shadows exactly as the game draws them.
-            _sceneRenderer.DrawShadowMaps(_scene, Camera3D, _rig.SunDirection);
+            //The effect is handed over so the BALLS receive (#470); the editor draws no island and no gun, so
+            //it registers no casters of its own and the scatter is the whole of what throws a shadow here.
+            _sceneRenderer.DrawShadowMaps(_scene, Camera3D, _rig.SunDirection, _instancingEffect);
 
             //The scene is drawn in linear radiance into the HDR target; the pipeline's Resolve box-filters,
             //glares, tonemaps and sRGB-encodes it onto the back buffer. The selector gizmo and the text

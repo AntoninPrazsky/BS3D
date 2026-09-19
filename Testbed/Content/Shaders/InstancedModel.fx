@@ -31,6 +31,13 @@ float3 SrgbToLinear(float3 color)
 //what no number of plane waves adds up to, and the library's own header is the argument for why.
 #include "Noise.fxh"
 
+//The sun's CAST shadows (#469, #470): the map's uniforms and the nine-tap PCF, in one copy with every other
+//receiver. Everything drawn through this effect receives - the island, its drain, the gun, the city and the
+//balls - because the tap sits in ShadePixel, which is the one place that knows how a pixel is lit. The
+//InstancedDepth technique at the foot of this file is the matching CASTER, and it is what puts the island
+//and the gun INTO the map; the two halves share ShadowViewProjection, so there is one matrix and not two.
+#include "Shadows.fxh"
+
 //Towards the sun. The key light is positional and sits only forty units off, so its direction swings
 //right across the scene - useless for a shadow that has to fall in parallel bands over a whole city.
 float3 SunDirection;
@@ -437,6 +444,18 @@ float4 ShadePixel(float3 worldPosition, float3 rawWorldNormal, float4 occlusionD
     //The cloud shadow rides on the same multiplier the relief's own bumps use, which is why one line here
     //puts weather across the whole scene at once - balls, city, floor and cannon all come through here.
     float sunlight = keyShadow * CloudSunlight(worldPosition, SunDirection);
+
+    //And the sun's CAST shadow rides the very same multiplier (#470), which is why one line here puts the
+    //island's shadow on the grass, the gun's on the stone and the trees' on both. It is the sun term alone -
+    //the fill and back lights stand in for bounced light and a shadow does not take that away, exactly as
+    //the relief's self-shadow above does not. Savanna.fx folds its own tap into the same factor, so the
+    //grass beside the island and the island itself are shadowed by one rule and cannot disagree.
+    //
+    //Uniform branch: ShadowStrength is 0 whenever no map is bound (every scene but the savanna today, the
+    //Low tier, a sun near the horizon), so a wavefront takes one side and nothing inside takes a derivative.
+    [branch]
+    if (ShadowStrength > 0.0)
+        sunlight *= SunShadow(worldPosition, worldNormal, SunDirection);
 
     float3 diffuse = keyDiffuse * sunlight;
     float3 specular = keySpecular * sunlight;
@@ -6857,10 +6876,13 @@ technique InstancedModelTriplanarProbe6
     }
 };
 
-//Depth-only pass for shadow mapping: renders the instances from the light's point of view,
-//writing normalized depth into the red channel of a Single-format render target.
-
-float4x4 LightViewProjection;
+//THE CASTER (#470). Depth-only pass for shadow mapping: renders the instances from the light's point of
+//view, writing the map's own depth into the red channel of its Single-format render target.
+//
+//It was written long before anything called it and sat unused until #470 - the island, the gun and the
+//city are what it was waiting for. The matrix is Shadows.fxh's own ShadowViewProjection rather than a
+//LightViewProjection of its own: a caster and a receiver that disagreed about where the light stands would
+//shadow the scene from two places, and one uniform cannot.
 
 struct DepthVertexShaderOutput
 {
@@ -6875,7 +6897,7 @@ DepthVertexShaderOutput DepthVS(VertexShaderInput input, InstanceInput instance)
     float4x4 world = float4x4(instance.WorldRow1, instance.WorldRow2, instance.WorldRow3, instance.WorldRow4);
     float4 worldPosition = mul(mul(input.Position, Bone), world);
 
-    output.Position = mul(worldPosition, LightViewProjection);
+    output.Position = mul(worldPosition, ShadowViewProjection);
     output.Depth = output.Position.z / output.Position.w;
 
     return output;

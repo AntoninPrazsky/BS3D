@@ -666,6 +666,54 @@ namespace Prazsky.BS3D
 
             _carriageRenderer.Draw(camera, carriageWorld, effectParams);
 
+            PoseWheels(carriageWorld, wheelTravel, orbitTravel);
+
+            _wheelRenderer.Draw(camera, _wheelInstances, 2, effectParams);
+            _rollerRenderer.Draw(camera, _rollerInstances, ROLLER_INSTANCES, effectParams);
+        }
+
+        /// <summary>
+        /// Draws the gun into the bound sun shadow map (#470): the barrel, the carriage, the wheels and their
+        /// rollers, at this frame's pose — which is what finally puts the gun <i>on</i> the island's stone
+        /// rather than over it.
+        /// <para>
+        /// <b>The glazed loading window deliberately does not cast.</b> A shadow map has no opacity, so a
+        /// pane of dark blue glass drawn into it would throw the same solid shadow the breech does, and the
+        /// window would read as a slab. The barrel around it already casts.
+        /// </para>
+        /// <para>
+        /// It poses the wheels a second time this frame (<see cref="PoseWheels"/>), because the shadow pass
+        /// runs before the scene's and the arrays it fills have not been written yet. Twenty-six small matrix
+        /// multiplies against a pass that exists to be drawn into twice; sharing the arrays across the two
+        /// passes would mean the shadow silently used the <i>previous</i> frame's pose.
+        /// </para>
+        /// </summary>
+        /// <param name="shadowViewProjection">The map's world → clip matrix, from
+        /// <see cref="Prazsky.Core.Render.SunShadowMap.ViewProjection"/>.</param>
+        /// <param name="barrelWorld">The barrel's pose, as <see cref="Draw"/> takes it.</param>
+        /// <param name="carriageWorld">The carriage's pose, as <see cref="DrawCarriage"/> takes it.</param>
+        /// <param name="wheelTravel">How far the gun has walked, for the wheels' roll.</param>
+        /// <param name="orbitTravel">How far it has traversed, for the rollers' spin.</param>
+        public void DrawShadow(Matrix shadowViewProjection, Matrix barrelWorld, Matrix carriageWorld,
+            float wheelTravel, float orbitTravel)
+        {
+            _renderer.DrawDepth(shadowViewProjection, barrelWorld);
+            _carriageRenderer.DrawDepth(shadowViewProjection, carriageWorld);
+
+            PoseWheels(carriageWorld, wheelTravel, orbitTravel);
+
+            _wheelRenderer.DrawDepth(shadowViewProjection, _wheelInstances, 2);
+            _rollerRenderer.DrawDepth(shadowViewProjection, _rollerInstances, ROLLER_INSTANCES);
+        }
+
+        /// <summary>
+        /// Fills <see cref="_wheelInstances"/> and <see cref="_rollerInstances"/> with this frame's poses —
+        /// the two omnidirectional wheels on their axle and every roller in its seat on both of them. Shared
+        /// by <see cref="DrawCarriage"/> and <see cref="DrawShadow"/> so the gun's shadow is posed by the
+        /// same arithmetic as the gun, and a change to the roll cannot reach one and miss the other.
+        /// </summary>
+        private void PoseWheels(Matrix carriageWorld, float wheelTravel, float orbitTravel)
+        {
             //Walking toward the field is motion along local -Z; rolling with it takes the wheel's top the same
             //way, which about the +X axle is a negative rotation. Wrapped per circumference before the divide,
             //so a long session's travel cannot walk the angle out into float noise.
@@ -683,8 +731,6 @@ namespace Prazsky.BS3D
             wheel.M41 = WHEEL_TRACK;
             Matrix rightWheel = wheel * carriageWorld;
             _wheelInstances[1] = new ModelInstance(rightWheel, new Vector4(0f, 0f, 0f, 1f));
-
-            _wheelRenderer.Draw(camera, _wheelInstances, 2, effectParams);
 
             //The rollers. Their spin is the SIDEWAYS ground over a roller's own radius, exactly as the body's
             //roll is the forward ground over the wheel's — same rule, other axis. Wrapped per circumference
@@ -707,8 +753,6 @@ namespace Prazsky.BS3D
                 _rollerInstances[_rollerSeats.Length + i] =
                     new ModelInstance(_rollerSpun[i] * rightWheel, new Vector4(0f, 0f, 0f, 1f));
             }
-
-            _rollerRenderer.Draw(camera, _rollerInstances, ROLLER_INSTANCES, effectParams);
         }
 
         /// <summary>
