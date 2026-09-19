@@ -484,6 +484,11 @@ namespace BS3D
         //the Testbed's own text overlay is still on F12).
         private InfoRenderer _info;
 
+        //A run that said "nofps": the overlay starts hidden whatever the settings file says, and the file is
+        //not touched (#452). This is the run's instruction only — F10 and the settings row still own it from
+        //here, so a capture run that later wants the readout can still ask for it.
+        private bool _noFpsOverlay;
+
         //One SpriteBatch for everything drawn over the resolve: the gameplay screen's HUD and its crosshair
         //both go into this one. The white texel that used to sit beside it went with the crosshair in #76 —
         //Prazsky.Core.Render.Crosshair makes its own, and it was the texel's only consumer, so the host no
@@ -843,7 +848,7 @@ namespace BS3D
         public BS3DGame(bool? fullscreen = null, int? supersampleFactor = null, float exposure = DEFAULT_EXPOSURE,
             bool? uncappedFps = null, SceneKind? scene = null, byte? skyDome = null, bool logFrameRate = false,
             QualityLevel? quality = null, bool celebrate = false, bool confetti = false, bool lasers = false,
-            bool mute = false, bool play = false, bool result = false, bool blockDone = false, bool lost = false,
+            bool mute = false, bool noFpsOverlay = false, bool play = false, bool result = false, bool blockDone = false, bool lost = false,
             int? resultStars = null, string nextLocked = null, int? streak = null, int wildcardEvery = 0, float[] shotSeconds = null, string level = null, string levelFile = null,
             string preview = null, BallStyle? ballStyle = null, string pick = null, int fpsCap = 0,
             bool noFocusPause = false, float[] detonateSeconds = null, string about = null, string tutorial = null,
@@ -911,6 +916,7 @@ namespace BS3D
             _shotSchedule = shotSeconds;
             _detonateSchedule = detonateSeconds;
             if (mute) _masterVolume = 0f;
+            _noFpsOverlay = noFpsOverlay;
 
             //A tier the player chose in Settings is honoured exactly as quality= is — it is the same kind of
             //statement, made in a different place — and an argument outranks it, being this run's instruction.
@@ -1107,7 +1113,7 @@ namespace BS3D
             _info = new InfoRenderer(this, "Content/Fonts/segoeui")
             {
                 DrawOrder = int.MaxValue,
-                Visible = _settings.FpsOverlay,
+                Visible = _settings.FpsOverlay && !_noFpsOverlay,
             };
 
             Components.Add(_info);

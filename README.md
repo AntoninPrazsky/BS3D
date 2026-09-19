@@ -7,7 +7,9 @@ things out — nothing here is trying to be groundbreaking, it's just a small ga
 
 ## Screenshot
 
-![Screenshot](/Images/screenshot1.jpg)
+![Screenshot](/Images/screenshot2.jpg)
+
+*A level of the neon city chapter, captured in game at 1920×1080.*
 
 ## Download and play
 
@@ -25,8 +27,8 @@ Everything below is about building it yourself instead.
 ## What's in the repo
 
 - **`Game`** — the shipping game (`BS3D.exe`): a menu-driven front end (main menu, settings, a level
-  picker organized into chapters), 90 hand-built levels grouped into 9 chapters, a star rating and score
-  per level, and 17 different backdrops (sea, desert, mountains, a neon city, a volcano, deep space, and
+  picker organized into chapters), 120 hand-built levels grouped into 12 chapters, a star rating and score
+  per level, and 20 different backdrops (sea, desert, mountains, a neon city, a volcano, deep space, and
   more) the levels play against.
 - **`Testbed`** — where every system actually gets built and tuned before it reaches the game: shooting,
   the physics simulation, the camera, the HUD. Loads test maps from `Testbed/Maps`.
@@ -41,11 +43,13 @@ turns a grid of balls into a physical structure that can be shot at, break apart
 
 A few smaller command-line tools (`Tools/`) support the above: one generates and validates the game's
 levels, one plays every shipped level through the real scoring code to make sure the star rating actually
-tracks skill, and one renders the game's procedurally-composed music to `.wav` for a quick listen.
+tracks skill, and one renders the procedurally-composed score to `.wav` for a quick listen and bakes the
+music the game ships with.
 
 Very little in the game is a hand-made asset — the ball meshes, the cannon, the island, the skies, the
-scenery in every backdrop, and even the music are generated in code rather than imported from a modelling
-or audio tool.
+scenery in every backdrop and every sound effect are generated in code rather than imported from a
+modelling or audio tool. The music is the one thing that is not, any more: the levels play recordings
+now, and the original procedurally-composed score is kept on a small player on the About page.
 
 ## Building and running
 
