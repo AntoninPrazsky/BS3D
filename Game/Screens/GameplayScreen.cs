@@ -886,6 +886,14 @@ namespace BS3D.Screens
         //the fact that the gun does not answer while it is engaged.
         private readonly DropCinematic _cinematic = new();
 
+        //The loss-side counterpart (#434): the camera flown at the point the cluster crossed the line, and
+        //the beat the ending is held back for while it happens.
+        private readonly LineLossCinematic _lineLoss = new();
+        private bool _lineLossShown;
+
+        //Seconds this level has been running, for the staged loss the lineloss argument asks for.
+        private float _lineLossClock;
+
         //Which released balls this cinematic is following, by body handle — see TryBeginDropCinematic for why
         //handles and not list indices, and why recycling cannot bite here.
         private readonly HashSet<int> _cinematicSubject = new();
@@ -910,7 +918,7 @@ namespace BS3D.Screens
         /// to begin, and <see cref="BuildLevel"/> resets the drop cinematic before a new level's own intro
         /// could ever start. Asking both costs nothing and needs no third flag to say which one is live.
         /// </summary>
-        private bool CameraTakeoverEngaged => _cinematic.Engaged || _chapterIntro.Engaged;
+        private bool CameraTakeoverEngaged => _cinematic.Engaged || _chapterIntro.Engaged || _lineLoss.Engaged;
 
         /// <summary>Skips whichever takeover is currently running — see <see cref="CameraTakeoverEngaged"/>
         /// for why asking both is safe.</summary>
@@ -1297,6 +1305,9 @@ namespace BS3D.Screens
             //The cinematic reads the balls where the last step left them and answers with this frame's pose and
             //time scale, so the scale is applied to the very step its own framing was chosen against.
             _cinematic.Update(elapsed, TryGetDropCentre(out Vector3 dropCentre), dropCentre);
+
+            //And the line's own (#434), which also decides when the ending it is holding back goes up.
+            StepLineLoss(elapsed);
 
             if (!_cinematic.Engaged) _cinematicSubject.Clear();
 

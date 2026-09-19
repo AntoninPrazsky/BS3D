@@ -1,4 +1,4 @@
-using BS3D.Effects;
+﻿using BS3D.Effects;
 using BepuPhysics;
 using Microsoft.Xna.Framework;
 using Prazsky.BS3D.GameStructure.DataBags;
@@ -602,6 +602,10 @@ namespace BS3D.Screens
             XZLevel size = XZLevel.FromArray(_physicsBalls);
             float lowestBallY = float.MaxValue;
 
+            //And WHERE it is, not only how low (#434): the loss cinematic flies at the point the cluster
+            //crossed at, and the same walk already has it in hand.
+            Vector3 lowestBallAt = Vector3.Zero;
+
             for (int level = 0; level < size.Level; level++)
                 for (int x = 0; x < size.X; x++)
                     for (int z = 0; z < size.Z; z++)
@@ -609,8 +613,12 @@ namespace BS3D.Screens
                         PhysicsBall ball = _physicsBalls[x, z, level];
                         if (ball == null) continue;
 
-                        float y = ball.BallReference.Pose.Position.Y;
-                        if (y < lowestBallY) lowestBallY = y;
+                        System.Numerics.Vector3 at = ball.BallReference.Pose.Position;
+                        if (at.Y < lowestBallY)
+                        {
+                            lowestBallY = at.Y;
+                            lowestBallAt = at.ToXna();
+                        }
                     }
 
             //Before the loss test, so the frame that loses also lights the net the loss was promised on —
@@ -629,6 +637,7 @@ namespace BS3D.Screens
                 //nothing to wait for: the descent has genuinely put a ball under, and holding the verdict for
                 //a second would only be a second of watching a lost level.
                 case ClusterLineVerdict.PastAllowance:
+                    BeginLineLoss(lowestBallAt);
                     LoseLevel(LevelFailure.ClusterReachedLine,
                         $"a ball at {lowestBallY:F2} <= {CEILING_DEATH_Y - CLUSTER_SWING_ALLOWANCE:F2}"
                         + $" ({CLUSTER_SWING_ALLOWANCE:F2} past the line, deeper than a swing goes)");
@@ -636,6 +645,7 @@ namespace BS3D.Screens
 
                 //Otherwise the line had to be HELD rather than merely touched.
                 case ClusterLineVerdict.HeldTooLong:
+                    BeginLineLoss(lowestBallAt);
                     LoseLevel(LevelFailure.ClusterReachedLine,
                         $"a ball at {lowestBallY:F2} <= {CEILING_DEATH_Y:F2} held for"
                         + $" {_lineWatch.BelowLineSeconds:F2} s (grace {CLUSTER_BELOW_LINE_GRACE:F2} s)");
@@ -732,6 +742,84 @@ namespace BS3D.Screens
         /// The figures behind the loss. <b>Logged and never shown</b>: what a player needs is which limit ran
         /// out, and a world-space Y against a death line tells them nothing they can act on.
         /// </param>
+        /// <summary>
+        /// Hands the camera to the line's own cinematic and lights the net (#434) — called on the frame the
+        /// cluster crosses, BEFORE <see cref="LoseLevel"/>, because that method asks whether this is running
+        /// to decide whether the ending may go up yet.
+        /// </summary>
+        /// <summary>The cluster's lowest live ball, for the staged loss above. False on an empty field.</summary>
+        private bool TryGetLowestBall(out Vector3 lowest)
+        {
+            lowest = Vector3.Zero;
+            if (_physicsBalls == null) return false;
+
+            XZLevel size = XZLevel.FromArray(_physicsBalls);
+            float lowestY = float.MaxValue;
+
+            for (int level = 0; level < size.Level; level++)
+                for (int x = 0; x < size.X; x++)
+                    for (int z = 0; z < size.Z; z++)
+                    {
+                        PhysicsBall ball = _physicsBalls[x, z, level];
+                        if (ball == null) continue;
+
+                        System.Numerics.Vector3 at = ball.BallReference.Pose.Position;
+                        if (at.Y >= lowestY) continue;
+
+                        lowestY = at.Y;
+                        lowest = at.ToXna();
+                    }
+
+            return lowestY < float.MaxValue;
+        }
+
+        private void BeginLineLoss(Vector3 crossing)
+        {
+            if (_levelLost) return;
+
+            _lineLoss.Begin(crossing, Camera.Position,
+                new Vector3(_cannon.OrbitCenter.X, crossing.Y, _cannon.OrbitCenter.Z), GAME_FOV);
+
+            //The net stops warning and starts cutting. Its own clock is the wall clock, like everything else
+            //it does.
+            _laserGrid.Flare(WallClock);
+
+            Console.WriteLine($"[lineloss] {_lineLoss.Describe()}");
+        }
+
+        /// <summary>
+        /// Steps the line's cinematic and puts the ending up when its beat is over. Called every frame from
+        /// the session's update: the cinematic is the only thing running between the crossing and the result
+        /// page, so nothing else can be trusted to end it.
+        /// </summary>
+        private void StepLineLoss(float elapsed)
+        {
+            _lineLossClock += elapsed;
+
+            //The staged one (#434's testing lever): the same two calls the real crossing makes, on a clock,
+            //because a real line loss cannot be reached from a script. It aims at the cluster's own lowest
+            //ball, so what is photographed is a real crossing point and not an invented one.
+            if (Game.StagedLineLossSeconds > 0f && !_levelLost && !LevelDecided
+                && _lineLossClock >= Game.StagedLineLossSeconds && TryGetLowestBall(out Vector3 staged))
+            {
+                BeginLineLoss(staged);
+                LoseLevel(LevelFailure.ClusterReachedLine, "staged by the lineloss argument");
+            }
+
+            if (!_lineLoss.Engaged) return;
+
+            _lineLoss.Update(elapsed);
+
+            if (!_lineLoss.HoldExpired || _lineLossShown) return;
+            _lineLossShown = true;
+
+            //Released first, so the blend back towards the player's pose is already running when the result
+            //page takes the camera from it — the page eases from wherever the lens stands, and a lens still
+            //pinned at the crossing point would make that ease start from a pose nothing else knows about.
+            _lineLoss.Release();
+            ShowResultScreen();
+        }
+
         private void LoseLevel(LevelFailure failure, string diagnostic)
         {
             //Once only: a descent and a budget can reach their lines on the same frame, and a loss in flight
@@ -752,6 +840,13 @@ namespace BS3D.Screens
 
             _pendingOutcome = LevelOutcome.Failed;
             _pendingFailure = failure;
+
+            //⚠ THE LINE'S LOSS HOLDS THE ENDING BACK (#434). Every other ending goes up now; this one waits
+            //while the camera flies at the point the cluster crossed and the net flares behind it. Until this
+            //the loss went straight from the crossing frame to a page of numbers, and the owner's report was
+            //that there was no way to see what had happened or why. StepLineLoss shows it when the beat ends.
+            if (_lineLoss.Engaged) return;
+
             ShowResultScreen();
         }
 

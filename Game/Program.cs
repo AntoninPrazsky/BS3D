@@ -35,6 +35,7 @@ namespace BS3D
             int? sceneSeed = null;
             bool tour = false;
             int windowWidth = 0, windowHeight = 0;
+            float lineLoss = 0f;
             float exposure = 0f;
 
             //Left null when absent, so the game keeps doing what it normally does: a random one of the fifteen
@@ -182,6 +183,11 @@ namespace BS3D
                 //reaches this window.
                 else if (string.Equals(arg, "tour", StringComparison.OrdinalIgnoreCase)) tour = true;
 
+                //"lineloss=SECONDS" stages the line's loss that far into a level (#434). A real one needs a
+                //descending ceiling and a couple of dozen shots, and the Game takes no synthetic input, so
+                //without this the one moment the feature exists for cannot be photographed.
+                else if (arg.StartsWith("lineloss=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("lineloss=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedLineLoss) && parsedLineLoss > 0f) lineLoss = parsedLineLoss;
+
                 //"width=N"/"height=N" pin the WINDOWED back buffer, as the Testbed's own pair does. Until they
                 //were added here the Game ignored them silently, so a capture asked for at the owner's panel
                 //came back at the default window and looked entirely plausible.
@@ -308,7 +314,7 @@ namespace BS3D
                 shotSeconds: shotSeconds, level: level, levelFile: levelFile, preview: preview, ballStyle: ballStyle, pick: pick, fpsCap: fpsCap,
                 noFocusPause: noFocusPause, detonateSeconds: detonateSeconds, about: about, tutorial: tutorial,
                 settings: settings, sceneSeed: sceneSeed, tour: tour,
-                windowWidth: windowWidth, windowHeight: windowHeight);
+                windowWidth: windowWidth, windowHeight: windowHeight, lineLoss: lineLoss);
             game.Run();
         }
 
