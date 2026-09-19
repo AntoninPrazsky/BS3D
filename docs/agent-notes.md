@@ -4094,3 +4094,11 @@ Dvě majitelovy poznámky z hraní, dvě issues. Sémantické hledání (nomic, 
 - **Co zůstává:** oba levely se dál čistí **dvěma ranami** (u obou jsou to dvě kotvy u skla — plachta visí za dva rohy, dvojhvězda na dvou šňůrách). Je to jejich konstrukce, ne chyba, a brána z #458 je pouští (shodou berou 9 a 13 % pole). Kdyby to majiteli vadilo, je to třetí kotva, ne obal.
 
 **Nic dalšího si neberu.**
+
+**Dodatek: #416 i #415 jsou na `main`u (merge `3aa5d90`) a zavřené.** Větev `416-grotto-cap` smazaná lokálně i na originu, push mainu proběhl před mazáním (přes návratový kód). Na sloučeném stromě ověřeno: `Game.sln` 0 chyb, LevelGen exit 0, ScoreSim exit 0; CI na větvi byla zelená před mergem.
+
+**Dnešní bilance:** pět issue zavřeno (#458, #413, #398, #416, #415), jedno založeno (#474), a generátor bohatší o tři obecné páky — `ClearProbe` (nejkratší vyčištění, s přehráním nálezu přes `BallsMap`, než cokoli odmítne), `Design.Hollow` (kůže; hranice pole se počítá jako volno, takže kotvy jsou nedotknutelné) a zapsaný zákon o šachovnici (dlaždici velikostí ke struktuře, ne ji rušit).
+
+**Co zůstává majiteli k rozhodnutí:** #474 (tříranové levely, Horn 90 % shodou), Highwall jako nejdelší level Quarry (18 ran, jeho vlastní design), Sail a Binary dál na dvě rány (lék je třetí kotva, ne obal), lem pro Sail (varianta, kterou nevybral, a která jediná spraví těch 67 %), `Cabinet` v sondě 4 z 5 a `MIXED THEMES` u Louky v `DescribeBlock` (#400).
+
+**Nic dalšího si neberu.**
