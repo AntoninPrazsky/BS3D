@@ -4007,3 +4007,11 @@ Dvě majitelovy poznámky z hraní, dvě issues. Sémantické hledání (nomic, 
 - **Co zůstává:** merge na slovo majitele. Otevřená otázka pro něj: tříranové levely (Horn sebere shodou 90 %, Trophy 68) brána dnes nechává být — je to jeho rozhodnutí, ne nástroje.
 
 **Nic dalšího si neberu.**
+
+**Dodatek: #458 je na `main`u (merge `3cfc81a`) a zavřené.** Větev smazaná lokálně i na originu. Následné issue **#474** (tříranové levely) založeno.
+
+- **Brána a level jsou na mainu** přesně tak, jak je popsané výš; po mergi znovu ověřeno na sloučeném stromě: `Game.sln` 0 chyb, LevelGen exit 0 přes 110 levelů, ScoreSim exit 0. CI na větvi proběhla zeleně ještě před mergem.
+- **#474**: devět levelů se čistí třemi shodami a tři z nich si přitom seberou většinu sebe — **Horn 458 z 506 (90 %)**, Trophy 344 z 504 (68 %), Onion 616 z 959 (64 %), pak Lean 50 %, Wishbone 41 %, Cairn 33 %, Cube 20 %, Knot 18 %, Carousel 12 %. Hornova vlastní poznámka („four shells mean the budget is not the thing being fought at all") je obhajoba i obžaloba zároveň — proto rozhodnutí majiteli, se třemi variantami (nechat, práh na „pod 4 rány a přes 50 %", nebo jen zvednout procento na 65). ⚠ Založeno **bez `Tools/SemanticSearch`** (LM Studio je na desktopu, tohle je notebook); ruční kontrola proti otevřenému seznamu, nejblíž #458, #413, #414 — žádná duplicita.
+- ⚠ **Past, do které jsem šlápl:** `git push origin main && git push origin --delete <branch>` jsem pustil jako řetěz, push mainu **spadl** (main se mezitím pohnul o dva commity), ale smazání větve prošlo. Práce se neztratila (merge commit byl v lokálním mainu) a replay přes `git rebase --rebase-merges origin/main` ho přenesl, ale **mazat větev až po úspěšném pushi** — přesně to, co má v paměti agenta napsané. Během jedné hodiny se main pohnul třikrát (#451 savana, #470/#471, #472/#473), takže konflikt v tomhle deníku byl pokaždé.
+
+**Nic dalšího si neberu.**
