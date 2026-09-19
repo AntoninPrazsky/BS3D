@@ -133,9 +133,20 @@ float4 FlamePS(FlameVertexOutput input) : COLOR
 
     //The colour ramp, hotter low down: red where the fire is thinnest (the tips and the shreds), orange
     //through the body, yellow-white only in the core and across the base over the embers.
-    float h = saturate(heat * (0.8 + 0.8 * (1.0 - v)));
-    float3 color = lerp(FIRE_RED, FIRE_ORANGE, smoothstep(0.05, 0.5, h));
-    color = lerp(color, FIRE_CORE, smoothstep(0.7, 1.0, h));
+    //
+    //⚠ THE CORE IS GATED ON HEIGHT AS WELL AS ON HEAT, and that is the whole of why the red shows at all.
+    //The first cut said in its own comment that the core was "confined to the base" and it was not: h alone
+    //decided the colour, and h carries a (1 - v) boost, so any heat over about 0.6 reached full core - which
+    //is most of the body, all the way up the tongues. Photographed under the savanna's own dome, eight fires
+    //read as eight white-yellow candles with a red fringe too thin and too faint to see, which is the report
+    //this issue was opened on, one rewrite later. The gate below cuts the core off above the bottom third,
+    //so the yellow-white is the fire's SEAT and the tongues leaving it cool through orange into red.
+    float h = saturate(heat * (0.55 + 0.75 * (1.0 - v)));
+
+    //Widened with it: the red band used to end at h 0.5 and now runs to 0.65, so the shreds and the thin
+    //outer edge of every tongue are red rather than a rim on an orange body.
+    float3 color = lerp(FIRE_RED, FIRE_ORANGE, smoothstep(0.10, 0.65, h));
+    color = lerp(color, FIRE_CORE, smoothstep(0.85, 1.0, h) * smoothstep(0.34, 0.06, v));
 
     //Premultiplied by the coverage so additive blending fades it out towards the edges
     float alpha = smoothstep(0.0, 0.35, heat);

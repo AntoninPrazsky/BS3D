@@ -5961,7 +5961,15 @@ namespace Prazsky.Core.Render
             _flameEffect.Parameters["FlameSize"].SetValue(_savannaConfig.Campfire.FlameSize);
             _flameEffect.Parameters["FlameHeightScale"].SetValue(_savannaConfig.Campfire.FlameHeightScale);
 
-            _graphicsDevice.BlendState = BlendState.Additive;
+            //⚠ ALPHA-BLENDED AND NOT ADDITIVE SINCE #468, and that is what lets a fire be RED.
+            //Additive cannot make a red flame over a bright sky: the background's own green and blue
+            //stay under whatever red is added to them, so a daylit savanna's fires washed to
+            //yellow-white however the colour ramp was tuned - twice. The shader already returns its
+            //colour PREMULTIPLIED by the coverage, which is exactly what BlendState.AlphaBlend takes
+            //(One / InverseSourceAlpha), so the dense body now REPLACES what is behind it and the
+            //thin edges still add. It goes on blooming, because the colours are linear radiance over 1
+            //and the glare pass reads the scene target rather than the blend.
+            _graphicsDevice.BlendState = BlendState.AlphaBlend;
             _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
             _graphicsDevice.RasterizerState = RasterizerState.CullNone;
 
