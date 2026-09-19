@@ -2886,6 +2886,9 @@ namespace Prazsky.Core.Render
             _savannaEffect.Parameters["WindRippleStrength"].SetValue(_savannaConfig.WindRippleStrength);
             _savannaEffect.Parameters["GrassReliefStrength"].SetValue(_savannaConfig.GrassReliefStrength);
             _savannaEffect.Parameters["GrassReliefFrequency"].SetValue(_savannaConfig.GrassReliefFrequency);
+            _savannaEffect.Parameters["TrailStrength"].SetValue(_savannaConfig.TrailStrength);
+            _savannaEffect.Parameters["TrailWidth"].SetValue(_savannaConfig.TrailWidth);
+            _savannaEffect.Parameters["TrailFrequency"].SetValue(_savannaConfig.TrailFrequency);
 
             ApplyHearthParameters();
         }

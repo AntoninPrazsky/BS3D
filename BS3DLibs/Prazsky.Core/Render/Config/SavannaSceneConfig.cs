@@ -82,6 +82,22 @@ namespace Prazsky.Core.Render
         /// <summary>Fine grass texture frequency.</summary>
         public float GrassReliefFrequency { get; set; } = 2f;
 
+        /// <summary>
+        /// Game trails (#451): bare red earth worn through the grass in wandering lines, the contour lines of
+        /// one low-frequency noise — a network of paths that meander and fork the way tracks trodden across
+        /// a plain do, with no plane wave in them (a sine would lay a trail in a row of identical bends).
+        /// How bare the trail is, 0 = none (and the term is skipped in the shader).
+        /// </summary>
+        public float TrailStrength { get; set; } = 0.8f;
+
+        /// <summary>How wide a trail is, as the width of the noise's zero band (in noise units, not world
+        /// units — in world units it is about this over <see cref="TrailFrequency"/>, four to five units at
+        /// the defaults, a track and not a road; 0.035 read as a road).</summary>
+        public float TrailWidth { get; set; } = 0.02f;
+
+        /// <summary>How closely the trails wander, in cycles per world unit — the lower, the longer their bends.</summary>
+        public float TrailFrequency { get; set; } = 0.0045f;
+
         /// <summary>Scattered acacia trees and low bushes.</summary>
         public AcaciaConfig Acacia { get; set; } = new();
 
@@ -121,8 +137,9 @@ namespace Prazsky.Core.Render
         /// <summary>Of the trees, the share storm-broken (<see cref="AcaciaKind.Broken"/>) — a crown to one side and a bare spar.</summary>
         public float BrokenFraction { get; set; } = 0.1f;
 
-        /// <summary>Bleached wood (linear): a dead tree's whole silhouette, a broken tree's spar is still bark.</summary>
-        public Rgb DeadwoodColor { get; set; } = new(0.30f, 0.255f, 0.19f);
+        /// <summary>Bleached wood (linear), pale and grey the way the references' dead trees are: a dead
+        /// tree's whole silhouette and the fallen logs; a broken tree's spar is still bark.</summary>
+        public Rgb DeadwoodColor { get; set; } = new(0.34f, 0.31f, 0.26f);
 
         /// <summary>Base half-width of a tree crown.</summary>
         public float Width { get; set; } = 6f;
@@ -208,8 +225,16 @@ namespace Prazsky.Core.Render
         public int KopjeRocksMin { get; set; } = 3;
         public int KopjeRocksMax { get; set; } = 6;
 
-        /// <summary>A kopje boulder's radius in world units (the largest; the rest are rolled down from it).</summary>
-        public float KopjeRockSize { get; set; } = 5f;
+        /// <summary>A kopje boulder's radius in world units (the largest; the rest are rolled down from it).
+        /// A kopje is a landmark: the reference outcrops stand two or three acacias tall.</summary>
+        public float KopjeRockSize { get; set; } = 8f;
+
+        /// <summary>Single boulders lying alone in the grass, half-buried — the references have as many of
+        /// these as they have piles.</summary>
+        public int BoulderCount { get; set; } = 16;
+
+        /// <summary>A lone boulder's radius in world units (the largest; the rest are rolled down from it).</summary>
+        public float BoulderSize { get; set; } = 3f;
 
         /// <summary>Warm grey granite (linear).</summary>
         public Rgb RockColor { get; set; } = new(0.22f, 0.20f, 0.175f);
@@ -230,9 +255,15 @@ namespace Prazsky.Core.Render
         /// <summary>How many far acacias stand in the treeline band (the mature variants, planted big).</summary>
         public int TreelineTreeCount { get; set; } = 28;
 
-        /// <summary>The treeline's band, outside the plain's own ring and inside the haze.</summary>
-        public float TreelineMinRadius { get; set; } = 380f;
-        public float TreelineMaxRadius { get; set; } = 520f;
+        /// <summary>
+        /// The treeline's band: the outer part of the plain's own ring and a little beyond it. It stood at
+        /// 380-520 first, past the acacias, and the haze took it — Acacia.fx fades a plant to the horizon
+        /// colour by the ground's own rule, and at 450 out that is three-quarters of the way to sky, so the
+        /// masses came out as pale lumps on a pale hill. At 300-400 they keep a third to a half of their
+        /// dark, which is what a wooded edge in the haze looks like in the references.
+        /// </summary>
+        public float TreelineMinRadius { get; set; } = 300f;
+        public float TreelineMaxRadius { get; set; } = 400f;
 
         /// <summary>A treeline mass's half-width in world units.</summary>
         public float TreelineSize { get; set; } = 16f;

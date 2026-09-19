@@ -37,9 +37,13 @@ float DappleStrength;
 float BarkStrength;
 
 //The distance the plant melts into the skyline over - Savanna.fx's own HorizonHazeDistance, handed over so a
-//far tree fades exactly as the ground it stands on does. Without it the treeline stood in full colour on a
-//hazed hillside, which is most of what made the far scatter read as pasted on (#451).
+//far tree fades the way the ground it stands on does. Without it the treeline stood in full colour on a
+//hazed hillside, which is most of what made the far scatter read as pasted on (#451). It is stretched by
+//PLANT_HAZE_REACH below: at the ground's own distance the treeline at 300-400 out came back as pale lumps on
+//a pale hill, and the references keep a far wooded edge darker than the field under it - a dark object in
+//aerial perspective stays darker than a bright one beside it.
 float HorizonHazeDistance;
+static const float PLANT_HAZE_REACH = 1.5;
 
 //Light this draw carries that the scene's own sun and dome do not account for, added flat after them. It is
 //zero for every plant and non-zero for exactly one thing: the campfires' hearth stones (#282), which stand
@@ -131,7 +135,7 @@ float4 AcaciaPS(AcaciaVertexOutput input) : COLOR
 
     //Horizon haze, the ground's own: a far plant softens into the skyline at the rate the field under it does.
     float dist = distance(CameraPosition, input.WorldPosition);
-    float haze = saturate(dist / HorizonHazeDistance);
+    float haze = saturate(dist / (HorizonHazeDistance * PLANT_HAZE_REACH));
     color = lerp(color, HorizonColor, haze * haze);
 
     return float4(color, 1.0);

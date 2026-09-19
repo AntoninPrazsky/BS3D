@@ -60,6 +60,13 @@ float WindRippleStrength;
 float GrassReliefStrength;
 float GrassReliefFrequency;
 
+//Game trails (#451): bare earth worn through the grass along the zero contours of one low-frequency noise,
+//which wander and fork the way trodden paths do and carry no plane wave. How bare (0 skips the term), how
+//wide the zero band is, and how closely the paths wander.
+float TrailStrength;
+float TrailWidth;
+float TrailFrequency;
+
 //THE GRASS AS A MATERIAL (#281), read off references rendered for it (a savanna field, the same field towards a low
 //sun, bunch grass from above): savanna grass grows in separate tufts with the red earth showing between them, its
 //dry tips are pale straw, and the field has a sheen seen edge-on and glows gold looking into the sun. The meadow
@@ -237,6 +244,23 @@ float4 SavannaField(SavannaVertexOutput input, bool detail)
     //How burnt this spot is (#282): the campfires ring the island and each has burnt the grass under it.
     float burn = HearthBurn(worldPosition.xz);
 
+    //How trodden it is (#451): a game trail is grass worn away to the earth, so it takes the hearth's own
+    //route through the material below - the relief, the tips, the strokes and the sheen all read off
+    //(1 - worn), and a trail is a milder wear than a fire. One noise tap, band-limited by hand: the trail's
+    //own width in world units is TrailWidth / TrailFrequency, and past the footprint where it is under a
+    //pixel wide it fades out rather than aliasing into a shimmer of dots along the horizon.
+    float trail = 0.0;
+    [branch]
+    if (TrailStrength > 0.0)
+    {
+        float contour = abs(CloudNoise(worldPosition.xz * TrailFrequency + 33.0));
+        float trailFade = saturate(1.0 - footprint * TrailFrequency / max(TrailWidth, 1e-4) * 0.5);
+        trail = (1.0 - smoothstep(TrailWidth * 0.5, TrailWidth, contour)) * trailFade * TrailStrength;
+    }
+    //Where the blades are gone, by either route: the hearth's char or the trail's wear. The COLOUR of the two
+    //stays separate below - a hearth is ash and char, a trail is the red earth the grass grew out of.
+    float worn = max(burn, trail);
+
     //CLUMPS (#281): savanna grass grows in bunches, and a bunch is its own shade of dry gold or green - a noise one
     //bunch across, band-limited as a whole, and one of the reduced program's two cuts. No more than that, and the
     //layouts that tried for more were each rejected on sight: jittered discs with earth round each read as polka
@@ -247,13 +271,13 @@ float4 SavannaField(SavannaVertexOutput input, bool detail)
     float clumpShade = 0.0;
     if (detail)
     {
-        float clumpFade = saturate(1.0 - 2.5 * footprint / max(TuftSize, 1e-3)) * (1.0 - burn);
+        float clumpFade = saturate(1.0 - 2.5 * footprint / max(TuftSize, 1e-3)) * (1.0 - worn);
         clumpShade = GradientNoise2(worldPosition.xz / max(TuftSize, 1e-3) + 5.1) * clumpFade;
     }
 
     //Fine grass texture tilts it, so the grass catches the light unevenly and the wind reads on it - and it
     //fades out with the char, because what that relief is a texture OF is blades, and a hearth has none.
-    float relief = GrassRelief(worldPosition.xz, footprint, gust) * (1.0 - burn * 0.85);
+    float relief = GrassRelief(worldPosition.xz, footprint, gust) * (1.0 - worn * 0.85);
     float3 normal = PerturbNormalFromHeight(baseNormal, worldPosition, relief);
 
     //Three-tone grass: dry gold as the base, green flushes where it is lusher, and patches of bare reddish
@@ -272,13 +296,13 @@ float4 SavannaField(SavannaVertexOutput input, bool detail)
     //Wind combing the grass: the gust computed above, over the blades it lays down. Same dial and the same
     //range it always had; what it is applied to is a travelling patch rather than an infinite plane wave
     //42 world units across (#276 — see WindGust in Noise.fxh).
-    grass *= 1.0 + gust * WindRippleStrength * (1.0 - burn);
+    grass *= 1.0 + gust * WindRippleStrength * (1.0 - worn);
 
     //TIPS AND HOLLOWS (#281), off the very relief that tilts the normal: where the combed field stands high the dry,
     //pale tips are showing, where it dips the eye is looking down between the blades. Normalised to the relief's own
     //amplitude, and it needs no band limit of its own - the relief's octaves already fade with the footprint.
     float blade = relief / max(GrassReliefStrength * GRASS_FBM_GAIN, 1e-4);
-    float tipCover = 1.0 - burn;
+    float tipCover = 1.0 - worn;
     grass *= 1.0 + 0.32 * GrassTipStrength * clamp(blade, -1.0, 1.0) * tipCover;
     grass = lerp(grass, GrassTipColor, 0.45 * GrassTipStrength * saturate(blade) * tipCover);
 
@@ -293,6 +317,10 @@ float4 SavannaField(SavannaVertexOutput input, bool detail)
         grass *= 1.0 + 0.85 * GrassTipStrength * strokes * tipCover;
         grass = lerp(grass, GrassTipColor, 0.5 * GrassTipStrength * saturate(strokes * 2.0) * tipCover);
     }
+
+    //The trail's earth (#451): the ground's own bare-patch colour, redder and lighter for being trodden
+    //dust rather than shaded soil under grass, worn through where the path runs.
+    grass = lerp(grass, GrassColorBare * float3(1.5, 1.15, 0.95), trail);
 
     //And the hearth over the top of all three tones: ash across the burnt ring, char at the fire's own foot.
     //Two steps rather than one lerp so the patch has an edge INSIDE it - a fire pit is a dark eye in a pale
@@ -327,7 +355,7 @@ float4 SavannaField(SavannaVertexOutput input, bool detail)
     float3 toCamera = normalize(CameraPosition - worldPosition);
     float grazing = 1.0 - saturate(dot(baseNormal, toCamera));
     grazing *= grazing * grazing;
-    float bladeCover = 1.0 - burn;
+    float bladeCover = 1.0 - worn;
 
     float3 sheenColor = lerp(grass, GrassTipColor, 0.5) + 0.1;
     color += bladeCover * GrassSheenStrength * grazing * sheenColor

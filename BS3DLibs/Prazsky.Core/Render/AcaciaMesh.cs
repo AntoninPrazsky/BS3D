@@ -198,6 +198,22 @@ namespace Prazsky.Core.Render
                     TubeGeometry.AddTube(v, idx, SEG, fork, trunkRadius * 0.6f, mid, trunkRadius * 0.42f);
                     TubeGeometry.AddTube(v, idx, SEG, mid, trunkRadius * 0.42f, tip, trunkRadius * 0.14f);
 
+                    //The second forking (#451): from the bough's middle two thinner limbs splay to either side
+                    //and reach the rim, the spokes an umbrella acacia shows under its crown — the references
+                    //fork twice at least, and one bough per spoke read as a stick under a lid.
+                    if (!twigs)
+                    {
+                        for (int side = -1; side <= 1; side += 2)
+                        {
+                            float sa = a + side * (0.3f + 0.25f * (float)rng.NextDouble());
+                            float sSpread = spread * (0.85f + 0.3f * (float)rng.NextDouble());
+                            Vector3 sDir = new(MathF.Cos(sa), 0f, MathF.Sin(sa));
+                            Vector3 sTip = fork + sDir * sSpread + Vector3.Up * (tipY - forkY + (float)(rng.NextDouble() - 0.3) * treeHeight * 0.04f);
+                            TubeGeometry.AddTube(v, idx, 5, mid, trunkRadius * 0.3f, sTip, trunkRadius * 0.08f);
+                            reach = MathF.Max(reach, sSpread);
+                        }
+                    }
+
                     if (twigs)
                     {
                         //Two twigs off the upper half of each bough, splayed off its bearing and rising, each
@@ -344,6 +360,10 @@ namespace Prazsky.Core.Render
     {
         /// <summary>How much the very top is flattened (0 = a full dome, 1 = the top pole sits at the equator).</summary>
         public readonly float TopFlatten;
+        /// <summary>How much the underside is flattened the same way (0 = a full dome below, 1 = a flat
+        /// underside) — an umbrella crown is a low dome over a flat underside, and the tuck alone cannot
+        /// give that: it narrows the lower half towards the pole, which is a cone, not a floor.</summary>
+        public readonly float BottomFlatten;
         /// <summary>How hard the underside narrows towards the bottom pole (0 = a full sphere below).</summary>
         public readonly float TuckStrength;
         /// <summary>The base unevenness's share of the radius — the rim's raggedness.</summary>
@@ -355,10 +375,10 @@ namespace Prazsky.Core.Render
         /// <summary>The range a lobe's direction is drawn from, as the height on the unit sphere (−1..1).</summary>
         public readonly float LobeYMin, LobeYMax;
 
-        public FoliageStyle(float topFlatten, float tuckStrength, float rimNoise, int lobesMin, int lobesMax,
+        public FoliageStyle(float topFlatten, float bottomFlatten, float tuckStrength, float rimNoise, int lobesMin, int lobesMax,
             float lobeWeightMin, float lobeWeightMax, float lobeSharpMin, float lobeSharpMax, float lobeYMin, float lobeYMax)
         {
-            TopFlatten = topFlatten; TuckStrength = tuckStrength; RimNoise = rimNoise;
+            TopFlatten = topFlatten; BottomFlatten = bottomFlatten; TuckStrength = tuckStrength; RimNoise = rimNoise;
             LobesMin = lobesMin; LobesMax = lobesMax;
             LobeWeightMin = lobeWeightMin; LobeWeightMax = lobeWeightMax;
             LobeSharpMin = lobeSharpMin; LobeSharpMax = lobeSharpMax;
@@ -367,19 +387,20 @@ namespace Prazsky.Core.Render
 
         /// <summary>The #202 crown, unchanged: a billowing mass of overlapping lobes, flattened a little on top.
         /// The savanna's bushes are still this.</summary>
-        public static readonly FoliageStyle Crown = new(0.35f, 0.5f, 0.18f, 7, 10, 0.14f, 0.42f, 2.2f, 5.7f, -0.1f, 0.9f);
+        public static readonly FoliageStyle Crown = new(0.35f, 0f, 0.5f, 0.18f, 7, 10, 0.14f, 0.42f, 2.2f, 5.7f, -0.1f, 0.9f);
 
-        /// <summary>An acacia's plate of foliage: flat on top, tucked hard underneath so it is a thin layer at
-        /// the rim, its rim more ragged and its lobes flatter and more numerous — a layer of fine foliage
-        /// seen from the side, not a ball.</summary>
-        public static readonly FoliageStyle Tier = new(0.6f, 0.65f, 0.30f, 9, 13, 0.10f, 0.32f, 3f, 7f, -0.2f, 0.7f);
+        /// <summary>An acacia's umbrella of foliage, read off the #451 references: a low dome on top over a
+        /// nearly flat underside, so it is a thin layer at the rim and thickest at the middle; its rim more
+        /// ragged and its lobes flatter and more numerous than a crown's — a layer of fine foliage seen from
+        /// the side, not a ball on a stick.</summary>
+        public static readonly FoliageStyle Tier = new(0.4f, 0.75f, 0.3f, 0.30f, 9, 13, 0.10f, 0.32f, 3f, 7f, -0.2f, 0.7f);
 
         /// <summary>Low thorny scrub: rounder than a crown, its lobes small and everywhere.</summary>
-        public static readonly FoliageStyle Scrub = new(0.1f, 0.3f, 0.2f, 8, 12, 0.15f, 0.35f, 2f, 4f, -0.2f, 1f);
+        public static readonly FoliageStyle Scrub = new(0.1f, 0f, 0.3f, 0.2f, 8, 12, 0.15f, 0.35f, 2f, 4f, -0.2f, 1f);
 
         /// <summary>A bunch of tall grass: many sharp lobes all pointing up and out, so the silhouette is
         /// spiked rather than rounded, over a sphere the caller buries to its waist.</summary>
-        public static readonly FoliageStyle Tuft = new(0f, 0f, 0.25f, 14, 20, 0.25f, 0.55f, 6f, 12f, 0.1f, 0.9f);
+        public static readonly FoliageStyle Tuft = new(0f, 0f, 0f, 0.25f, 14, 20, 0.25f, 0.55f, 6f, 12f, 0.1f, 0.9f);
     }
 
     /// <summary>
@@ -460,8 +481,9 @@ namespace Prazsky.Core.Render
                 float swell = 1f + Bulge(dir);
                 float tuck = BottomTuck(dir.Y, style.TuckStrength);
                 float rXZ = radius * swell * (1f - tuck);
-                //Flatten the top so the mass reads flat-topped rather than domed, by the style's amount.
-                float yScale = dir.Y > 0f ? halfHeight * (1f - style.TopFlatten * dir.Y) : halfHeight;
+                //Flatten the top so the mass reads flat-topped rather than domed, and the underside so it
+                //reads as a layer rather than a ball, each by the style's amount.
+                float yScale = dir.Y > 0f ? halfHeight * (1f - style.TopFlatten * dir.Y) : halfHeight * (1f + style.BottomFlatten * dir.Y);
                 Vector3 pos = new(centre.X + dir.X * rXZ, centre.Y + dir.Y * yScale * swell, centre.Z + dir.Z * rXZ);
                 reach = MathF.Max(reach, (pos - centre).Length());
                 return new VertexPositionNormalTexture(pos, dir, new Vector2(dir.X * 0.5f + 0.5f, dir.Z * 0.5f + 0.5f));

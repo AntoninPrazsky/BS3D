@@ -149,27 +149,28 @@ namespace Prazsky.Core.Render
                 scrub[m] = Own(new FoliageMesh(device, r, hh, centreY: hh * 0.8f, seed: 4300 + m, FoliageStyle.Scrub));
             }
 
-            var tufts = new FoliageMesh[TUFT];
+            var tufts = new GrassTuftMesh[TUFT];
             for (int m = 0; m < TUFT; m++)
             {
                 float r = dr.TuftSize * (0.8f + 0.4f * (float)rng.NextDouble());
-                float hh = r * (0.9f + 0.3f * (float)rng.NextDouble());
-                //Buried to the waist: the sphere's lower half is in the ground, so what stands is the spiked top.
-                tufts[m] = Own(new FoliageMesh(device, r, hh, centreY: hh * 0.35f, seed: 4400 + m, FoliageStyle.Tuft));
+                tufts[m] = Own(new GrassTuftMesh(device, r, r * (1.1f + 0.4f * (float)rng.NextDouble()), 4400 + m));
             }
 
             var mounds = new TermiteMoundMesh[MOUND];
             for (int m = 0; m < MOUND; m++)
             {
+                //The references' mounds are spires: three to four times as tall as their column is wide.
                 float h = dr.MoundHeight * (0.85f + 0.3f * (float)rng.NextDouble());
-                mounds[m] = Own(new TermiteMoundMesh(device, h * 0.33f * (0.9f + 0.2f * (float)rng.NextDouble()), h, irregularityPhase: 1.3f * m));
+                mounds[m] = Own(new TermiteMoundMesh(device, h * 0.18f * (0.9f + 0.2f * (float)rng.NextDouble()), h, irregularityPhase: 1.3f * m));
             }
 
+            //Rounder than the forest's flattened boulders: a kopje's rocks are eggs of granite as tall as they
+            //are wide, and the same three meshes serve the lone boulders at a fraction of the size.
             var rocks = new RockMesh[ROCK];
             for (int m = 0; m < ROCK; m++)
             {
                 float r = dr.KopjeRockSize * (0.75f + 0.12f * m);
-                rocks[m] = Own(new RockMesh(device, r, r * (0.6f + 0.25f * (float)rng.NextDouble()), 16, irregularityPhase: 1.7f * m + 0.4f));
+                rocks[m] = Own(new RockMesh(device, r, r * (0.85f + 0.3f * (float)rng.NextDouble()), 16, irregularityPhase: 1.7f * m + 0.4f));
             }
 
             var logs = new DeadwoodMesh[LOG];
@@ -390,6 +391,16 @@ namespace Prazsky.Core.Render
                 }
             }
 
+            //--- The lone boulders: the kopjes' own meshes at a smaller size, each alone and half-buried.
+            for (int i = 0; i < dr.BoulderCount; i++)
+            {
+                int variant = rng.Next(ROCK);
+                float s = dr.BoulderSize / dr.KopjeRockSize * (0.6f + 0.5f * (float)rng.NextDouble());
+                float r = rocks[variant].BoundingSphere.Radius * s;
+                (float x, float z) = Place(r, ac.MinRadius, ac.MaxRadius, 0.4f, ac.ClusterSpread);
+                rockInstances[variant].Add(Plant(x, z, s, 0.1f + 0.2f * (float)rng.NextDouble(), r * 0.3f, 0.4f * (float)rng.NextDouble(), Jitter()));
+            }
+
             //--- The fallen trees: in the open and at the groves' edges alike, sunk a quarter of their thickness.
             for (int i = 0; i < dr.LogCount; i++)
             {
@@ -455,7 +466,8 @@ namespace Prazsky.Core.Render
             Vector3 moundColor = dr.MoundColor.ToVector3();
             Add(buckets, device, mounds, moundInstances, moundColor, moundColor * new Vector3(1.15f, 1.2f, 1.3f), dapple: 0f, bark: 0.45f, detailOnly: false);
             Vector3 rockColor = dr.RockColor.ToVector3();
-            Add(buckets, device, rocks, rockInstances, rockColor, rockColor * new Vector3(1.1f, 1.05f, 0.95f), dapple: 0f, bark: 0f, detailOnly: false);
+            //The stone takes a little of the foliage's mottle: lichen, the patches every reference boulder wears.
+            Add(buckets, device, rocks, rockInstances, rockColor, rockColor * new Vector3(1.1f, 1.05f, 0.95f), dapple: 0.35f, bark: 0f, detailOnly: false);
             Add(buckets, device, logs, logInstances, deadwood, deadwoodDry, dapple: 0f, bark: 0.6f, detailOnly: false);
             Vector3 tuftColor = dr.TuftColor.ToVector3();
             Add(buckets, device, tufts, tuftInstances, tuftColor, tuftColor * new Vector3(0.6f, 0.8f, 0.6f), dapple: 0.8f, bark: 0f, detailOnly: true);
