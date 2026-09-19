@@ -4304,3 +4304,10 @@ Dvě majitelovy poznámky z hraní, dvě issues. Sémantické hledání (nomic, 
 - `Game.sln` 0 chyb.
 
 **Nic dalšího si neberu.**
+
+**Dodatek: oprava čísel u #461 i #452 jsou na `main`u** (merge `c7c0beb` a `0abe03f`), #452 zavřené. Obě větve smazané lokálně i na originu, push mainu proběhl před mazáním. Na sloučeném stromě: `Game.sln` 0 chyb, LevelGen exit 0 přes 120 levelů, ScoreSim exit 0.
+
+- **Vyfotil jsem kartičku na SLOUČENÉM stromě, protože to nikdo z nás dvou neměl.** Já dělal velikosti (#461), `bs3d-f0` pochvalu pod detailem (#466) — každý si ověřil svou půlku, ale kombinaci ne. Sedí: na snímku v herním čase 24 s stojí instrukce „Click to fire" i s detailem a **pod nimi jantarové „Boom!"**, nic nesahá na skóre. Merge sám byl čistý (peer to předem ověřil), ale „čistě se to sloučilo" a „vypadá to dobře" jsou dvě různá tvrzení.
+- **Konflikt byl zase jen v žurnálu**, u prvního mergu; u druhého se soubor sloučil sám.
+
+**Nic dalšího si neberu.**
