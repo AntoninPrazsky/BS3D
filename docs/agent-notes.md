@@ -4536,3 +4536,13 @@ Tour se dosud pustil jen jednou, automaticky, při stavbě prvního levelu kapit
 ⚠ **Argument `tour` není pohodlí:** syntetické kliknutí do tohohle okna nikdy nedojde, takže bez něj přehraný tour **nejde ze skriptu vyfotit vůbec**. Je to zároveň nástroj pro #433.
 
 **Beru si #433** (neonové město: proletět mezi věžemi místo vzdáleného přeletu) — právě jsem si na to postavil měřidlo.
+
+---
+
+**#425 hotové, commit `2e769f4`.** Barevná záře příští koule v ústí byla **camera-facing billboard**, takže její viditelný tvar určovalo, co zrovna zaclonila hlaveň — majitelova výtka „pokaždé to vypadá jinak" popisovala techniku fungující přesně podle návrhu. Vyfoceno přes čtyři natočení: beztvará šmouba, jednou přes půl obrazu, jindy dvě oddělené skvrny.
+
+- **Náhrada je geometrie přišroubovaná k hlavni:** `CannonRig` soustruží pásek oceli kolem trubky těsně za ústím, svítící barvou příští rány. Otáčí se s dělem, takže hráč čte **jeden prstenec, jen různě zkrácený**.
+- ⚠ **Kolem trubky, ne na čele, a je to vynucené:** z herní kamery je dělo vidět zezadu, takže **čelo ústí míří pryč** a kotouč vsazený do něj by byl větší část levelu neviditelný. To jsem si uvědomil při návrhu, ne až po prvním snímku.
+- ⚠ **Dvě čísla vyfocena, ne vymyšlena.** Při vlastní 0..1 tintu sedí pásek **pod prahem záře** a čte jako mírně obarvená ocel — přesně ta „faint ring nobody reads", před kterou varuje poznámka původního hala. Při jeho vlastních **3× je nepřehlédnutelný a BÍLÝ**: trojnásobek syté barvy přetlačí všechny kanály přes 1, tonemap je slije a to jediné, co má pásek říkat, zmizí první. Je tedy **normalizovaný na vlastní peak a vytažený na 1,35** — září jen dominantní kanál, odstín zůstane. Normalizace navíc dává všem ranám stejný jas bez ohledu na váhu jejich barvy, což značka chce a světlo ne.
+- **S předmětem odchází i půlka #321:** halo se muselo v precise aimu **zmenšovat**, protože kotouč ukotvený u koule a měřený v poloměrech koule leží přesně přes buňky, kvůli kterým se hráč naklání. Pásek na dělu nezakrývá nic, takže `MUZZLE_GLOW_ADS_RADII` mizí, místo aby dostal obdobu. Tlumení síly zůstává.
+- **`BallGlow` i jeho shader smazány** — hra byla jejich jediný konzument, podle pravidla, kterým v #76 odešel bílý texel. Všechny tři exe staví.
