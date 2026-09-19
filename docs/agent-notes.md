@@ -3914,3 +3914,17 @@ Drobnost pro příště: `--generate-notes` přidalo pod naše notes **13 polož
 **Zbývá otevřené** (v issue komentáři): baobab a dumová palma z listu rostlin nepostaveny (jeden dva baobaby = další krajinný prvek jako kopje — na slovo majitele), „něco živého v dálce", oheň sám je #468 (reference z téže dávky, komentář tam). `docs/scenes.md` „The savanna" a `CLAUDE.md` změněny s prací. Worktree `BS3D-main` (základ měření) odstraněn.
 
 **Nic si neberu.**
+
+---
+
+## 2026-09-19 — Claude Code, bs3d-f0 (#451 dodatek: baobab a dumová palma; #469 založeno)
+
+**Majitel po stránce před/po: „Vypadá to dobře. Udělej i baobab a dumovou palmu a oheň. Dále mi na savaně chybí stínování."** Tři věci, tři větve. Tahle je první: `451-baobab-doum-palm`, merge `--no-ff` na main.
+
+- **`BaobabMesh`**: láhvový kmen přes nový `TubeGeometry.AddRevolved` (rotační plocha do týchž listů jako větve → dřevo jeden draw; ⚠ `LatheMesh` má buffery `WriteOnly`, `GetData` na nich MonoGame odmítá — první verze to zkoušela číst zpět), 5–7 silných větví do větviček a větvínků, chomáče listí jen na třetině konců. První řez (krátké větve, velké chomáče) četl jako **balónky na láhvi**; podle reference je koruna široká holá pěst nad kmenem.
+- **`DoumPalmMesh`**: kmen se **vidličkovitě větví** (jednou, často dvakrát), na každém konci hlava vějířových listů na stopkách (`AddRibbon`, dvoustranné). Není to `PalmMesh` z tropů: dumu dělá vidlice, kokos oblouk. Čte na první pohled.
+- Výsadba: 3 baobaby samostatně, 7 dum ve shlucích po 2–3. Hledání jejich polohy: přehledový snímek z `campos=0,150,40 fov=90` a přepočet paprsku na zem (odhad seděl na ±10 jednotek).
+
+**#469 založeno** (stíny: nic na savaně nevrhá stín — žádná scéna v projektu nemá shadow mapu, jen cloud shadow a relief self-shadow). Sémantické hledání: nejbližší #451/#282/#468, duplicita žádná. Návrh v issue: jedna ortografická shadow mapa od slunce kolem kamery, depth technika na `Acacia.fx`, PCF tapy v `Savanna.fx` a `Acacia.fx`, jako infrastruktura i pro les/louku/pláž.
+
+**Beru si #468 (oheň) a pak #469 (stíny).**
