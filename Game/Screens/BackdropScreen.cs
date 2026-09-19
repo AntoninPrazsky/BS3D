@@ -1,4 +1,4 @@
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using Prazsky.BS3D;
 using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.GameStructure.DataBags;
@@ -424,6 +424,31 @@ namespace BS3D.Screens
         //And how far into the current fly-in cycle it is, on that same clock and for that same reason.
         private float _flightClock;
 
+        /// <summary>
+        /// How far the wide leg's aim is dropped BELOW the cluster's middle, as a fraction of the frame's
+        /// own half-height (#472). Dropping the aim raises the subject in the frame, so this is "put the
+        /// cluster this much higher" stated in the only unit that means the same thing at every aspect and
+        /// every stand-off. 0 is the main menu's framing and the default.
+        /// <para>
+        /// The level picker asks for it while its page is up and releases it on leaving: the page's own
+        /// question is <i>what does this level look like</i>, and it was being answered behind the widgets
+        /// asking it.
+        /// </para>
+        /// </summary>
+        internal float FramingLift { get; set; }
+
+        /// <summary>
+        /// Hold the flight on its <b>wide leg</b> (#472): the fly-in among the balls exists to show them in
+        /// detail on the main menu, and under the picker it puts the lens inside a cluster the player is
+        /// trying to see whole. Held, every tile gets the same establishing view.
+        /// <para>
+        /// It does not freeze an excursion already under way — that would snap the lens — and it does not
+        /// stop the orbit: the clock simply stops at the end of the wide leg, so the camera goes on turning
+        /// and never leaves it. Clearing this resumes from exactly there.
+        /// </para>
+        /// </summary>
+        internal bool HoldWideLeg { get; set; }
+
         //Where the flight last put the lens — what a map waiting to hang is measured against (#408). The
         //orbit's own pose and not the camera's: under the result page the camera is a blend of this and the
         //gun's, and the question is where the FLIGHT stands, since that is what the hang would land under.
@@ -602,7 +627,13 @@ namespace BS3D.Screens
             float ease = _pendingIndex >= 0 ? CLEARING_EASE_SECONDS : FRAMING_EASE_SECONDS;
             _framing = OrbitFraming.Lerp(_framing, _framingTarget, 1f - MathF.Exp(-elapsed / ease));
 
-            _flightClock += elapsed;
+            //Held on the wide leg, the clock stops at its end rather than being frozen where it stands: an
+            //excursion already running finishes, and the next wide leg is where it waits (#472).
+            if (HoldWideLeg && Closeness(_flightClock) <= 0f && _flightClock < _wideSeconds)
+                _flightClock = MathF.Min(_flightClock + elapsed, _wideSeconds);
+            else if (HoldWideLeg && Closeness(_flightClock) <= 0f) { }
+            else _flightClock += elapsed;
+
             if (_flightClock >= CycleSeconds)
             {
                 _flightClock -= CycleSeconds;
@@ -630,8 +661,16 @@ namespace BS3D.Screens
 
             //Both legs aim at the middle of what hangs, and the camera's own height is what changes around it.
             //Aiming the crane anywhere else would swing the map across the frame as the lens climbed.
-            target = new Vector3(0f, _framing.CentreY, 0f);
+            //The aim, dropped by FramingLift so the subject rides higher in the frame (#472). Stated as a
+            //fraction of the half-frame and turned into world units HERE, where the stand-off and the field
+            //of view are both known - a lift written in world units would mean a different share of the
+            //picture at every aspect and every map size.
             fieldOfView = FOV;
+
+            float lift = FramingLift <= 0f ? 0f
+                : MathF.Tan(fieldOfView * 0.5f) * radius * FramingLift;
+
+            target = new Vector3(0f, _framing.CentreY - lift, 0f);
         }
 
         /// <summary>
