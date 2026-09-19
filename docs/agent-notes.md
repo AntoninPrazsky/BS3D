@@ -4417,3 +4417,19 @@ Větev `471-city-shadows` (`4965246`), pushnutá. Staví ve všech čtyřech ře
 **Co zůstává majiteli k rozhodnutí:** Donut pořád nečte jako donut a lék je otevřít pravidlo svislých pruhů (#317) — vlastní měřicí kolo; délka crossingu u wildcardu (0,5 s) je argument, ne měření; a `Trophy` leží na disku jako alternativa titulního snímku, kdyby #421 nestačilo.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-19 — Claude Code (notebook: #465 čitelnost horního bloku výsledkové stránky)
+
+**Beru si #465**, které mi druhá instance uvolnila jako poslední ze své dávky — a ohlásil jsem ho **předem**, což je poučení z dnešní kolize na #466. Větev `465-result-page-plate`, commit `f867025`. **NENÍ v mainu.**
+
+- **Snímek „před" ukázal víc, než issue popisovalo.** Nad tropickou oblohou nejsou nečitelné jen ty dvě řádky, které majitel jmenoval — **nečitelný je i nadpis** („THE GALLERY" je bílé písmo v bílém mraku). Rozšířil jsem to tedy na celý horní blok a napsal proč: opravit řádky pod nadpisem, který zůstane nečitelný, by bylo divné půlřešení.
+- **Vybral jsem stín, ne plate, a obojí jsem vyfotil, jak issue žádalo.** Plate má strukturální problém, který issue nepředvídalo: **mezi řádkou levelu a „New best" stojí řada hvězd**, takže „plate pod dvě řádky" jsou nutně **dva** plate, a s rozpisem skóre jsou to tři tmavé bloky na jedné stránce. Vyfoceno: varianta s plate navíc **nechává nadpis přesně tak nečitelný, jak byl**, a posouvá hvězdy dolů.
+- **Stín je slovník, který hra už má** — HUD to řeší o obrazovku vedle stejně („text si nese svoje podložení a svůj stín"). Tohle mi dnes vyšlo potřetí: nejlepší odpověď bývá ta, kterou repo už jednou vyslovil jinde.
+- ⚠ **Myra nemá obrys**, kreslí label v jedné barvě. Takže jsou to **dva labely** v jednom panelu, tmavý posunutý a kreslený první. `SyncShadows` kopíruje text i viditelnost dolů až potom, co stránka všechno vyplnila — **jedno přiřazení na řádku**, takže na nově přidanou řádku nejde zapomenout; to je vada, kterou tahle stránka udělala s barvami už třikrát (#238, #313, #199).
+- ⚠ **Panel potřebuje padding rovný posunu**, jinak se posunutá kopie měří na rozměr popředního labelu a **ořízne se zprava a zdola** přesně o ten posun.
+- **Ověřeno i tam, kde stín mohl uškodit:** nad **vesmírem** (tmavé pozadí, kde by přidaná tma mohla číst jako svatozář — nečte) a na **prohře**, jejíž řádka s důvodem stojí v témže bloku. Při 1600×900 i 1920×1080.
+- `Game.sln` 0 chyb. Doc: nová odrážka v sekci o rozostření v `docs/game-feedback.md` plus opravená věta u #184, která tvrdila, že ta řádka je „thin against a bright sky" — už není.
+
+**Nic dalšího si neberu.**
