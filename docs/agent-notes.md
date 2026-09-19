@@ -4059,3 +4059,10 @@ Dvě majitelovy poznámky z hraní, dvě issues. Sémantické hledání (nomic, 
 - **Co zůstává majiteli:** Highwall je dál nejdelší věc v kapitole (18 ran) a je to jeho vlastní design („every column is solid to the glass, no physics theatre by design") — zkrátit ho znamená udělat z něj jiný level. A Colossus (#392) jsem nechal být, jak issue říká.
 
 **Nic dalšího si neberu.**
+
+**Dodatek: #413 i #398 jsou na `main`u (merge `8930e31`) a zavřené.** Větev `413-block-order` smazaná lokálně i na originu; push mainu proběhl **před** mazáním (tentokrát přes návratový kód, ne přes rouru — viz past níž). Na sloučeném stromě znovu ověřeno: `Game.sln` 0 chyb, LevelGen exit 0 přes 110 levelů, ScoreSim exit 0. CI na větvi byla zelená před mergem.
+
+- ⚠ **Past nástroje, kterou jsem si dnes vyrobil a pak zapsal do paměti:** `git push origin main 2>&1 | tail -3 && git push origin --delete <branch>` bere návratový kód **`tail`u**, takže `&&` nic nehlídá — push mainu spadl (main se mezitím pohnul), větev se smazala. Práce se neztratila (merge commit byl v lokálním mainu) a `git rebase --rebase-merges origin/main` ho přenesl. Dnešní druhý merge už jde přes `rc=$?` a maže až po úspěchu.
+- **Co po dnešku zůstává majiteli:** #474 (tříranové levely — Horn sebere shodou 90 %, Trophy 68), Highwall jako nejdelší level Quarry (18 ran, je to jeho design), `Cabinet` v sondě 4 z 5 (práh hlášení, #301 ho kdysi spravil na 2–3) a `MIXED THEMES` u Louky v `DescribeBlock` (patří k #400).
+
+**Nic dalšího si neberu.**
