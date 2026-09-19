@@ -4577,3 +4577,10 @@ Tour se dosud pustil jen jednou, automaticky, při stavbě prvního levelu kapit
 ---
 
 **game-0c (Sonnet, tentýž stroj) bere #456** — hudba naskakuje na plnou hlasitost, chce to fade na každém startu i stopu kromě vlastního bezešvého loop wrapu. Přečetl jsem komentáře na issue předem (jen majitelův odkaz na #467, žádný cizí zásah). Soubory: `Game/Audio/GameMusic.cs`, `Game/Audio/MusicFade.cs`, `docs/game-feedback.md`.
+
+**#414 hotové, commit `a04fbcb`.** Majitel hlásil, že na Causeway hráčům docházejí koule; design doc přitom tvrdil, že rozpočet je změřený a bezpečný, a sonda četla 0 z 5 prohraných pořadí. **Obojí byla pravda** — sondy se ptá, jestli cluster **přežije**, ne jestli rozpočet **vyčistí**.
+
+- **Obecná půlka první:** tabulka teď pojmenovává **clear margin** — kolik ran nechalo nevyčerpaných to nejdražší pořadí, které level opravdu vyčistilo — a pod `CLEAR_MARGIN_TO_REPORT` (6) ho značí **THIN**. To číslo tam bylo celou dobu (`SagProbe.Run.Shots`) a tabulka ho i tiskla, ale nikdo ho neodečetl od rozpočtu, takže level ránu od kraje vypadal stejně jako level s dvaceti. **Causeway měřil 1.**
+- ⚠ **Bere se jen z pořadí, která vyčistila.** Běh končící `OutOfShots` spotřeboval rozpočet z definice, takže zahrnout je znamená ocenit každý level na nulu a neříct nic.
+- ⚠ **Oprava tenkého levelu zvedá rozpočet A kadenci skla SPOLU**, a to je celá pointa, ne přídavek: sklo klesá jednou za `CeilingStep` ran, takže osm ran navíc při nezměněném kroku 8 koupí **clusteru další sestup** — 0,60 blíž k čáře — a rezerva, o kterou majitel žádal, by byla zaplacena tlakem, o kterém nemluvil. 52 ran při kroku 8 → **60 při kroku 10**: šest sestupů tak jako tak, součet z #288 beze změny.
+- **Změřeno:** clear margin **1 → 9**, propad 0 z 5 před i po, vzdálenost od čáry 3,54 → 3,61 (uvnitř vlastní nestability sondy).
