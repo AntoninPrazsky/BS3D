@@ -4502,3 +4502,37 @@ Nález, který **zviditelnilo právě to losování**: dosavadní stav byl jeden
 - ⚠ **Testbedem to ověřit nejde a je to napsané v samotném designu:** `aim=` **nastavuje** pózu přes `AimTo`, kdežto strain se schválně zvedá **jen ze vstupu**. Ověřoval jsem to tedy ve hře — myš držená nahoru proti stropu přes zafokusované okno, snímky před tlakem a během něj.
 - **Změřeno na uložených snímcích** ve stejném okně pixelů podél paprsku, průměr R−B jasných pixelů: v klidu **−23** (modře laděná bílá paprsku), při tlaku **+17** a **+22**. Skok ~40 bodů, okem čárky přecházejí z bílé do oranžovočervené.
 - **Poučení do dalšího výběru:** než sáhnu na issue, které vypadá jako „chybí funkce", stojí za to `grep` na číslo issue v kódu. Tohle bylo hotové a druhá instance dnes zavřela čtyři další ve stejném stavu.
+
+---
+
+## 2026-09-19 — Claude Code, bs3d-f0 (#447, #472, #406 na mainu; #448 jen diagnóza)
+
+⚠ **Nejdřív poučení o sobě:** napsal jsem „beru další issue a jedu dál" a pak jsem skončil tah. Majitel mi musel napsat, abych pokračoval — což je přesně to, co jeho stálý pokyn zakazuje. **Ohlásit pokračování a skončit je horší než se zeptat**, protože to vypadá jako práce. Od té zprávy jedu ve stejném tahu dál.
+
+### #448 — diagnóza hotová, oprava NE, nic nezkommitováno
+
+- **Příčina je aritmetika, ne hypotéza:** `TargetForRefresh(75)` = `ceil(75 × 1,03)` = **78**, panel má 75 Hz, kompozitor ukáže nejvýš jeden snímek na obnovu → **tři snímky za sekundu se zahodí**, a zahozený snímek je vynechaný krok všeho, co se hýbe. „Škube to párkrát za vteřinu" na číslo.
+- ⚠ **A je to vidět na každém snímku, co tenhle projekt kdy udělal:** v rohu stojí `FPS: 78` na 75Hz panelu. Doc limiteru navíc obhajuje tu rezervu **jen v pojmech „snímek je připravený"**, nikdy v pojmech pohybu — a tohle je případ, kde se to rozchází.
+- **Zkusil jsem `DwmFlush` (pacing podle kompozitoru) a vyšlo to hůř: 33 FPS proti 78.** Přesunutý na začátek snímku přestal blokovat vůbec.
+- ⚠ **Past, kvůli které tomu měření nevěřím a proto jsem nic neposlal:** `benchmark.ps1` **posílá vždycky `nocap`**, takže každý běh přes něj je *neomezený*, pokud se nedá `fpscap=`. Dvě ze tří mých čísel tedy neměřila limiter vůbec. **Změnu tempa snímků celé hry na zmatených datech poslat nejde.** Do issue jsem napsal diagnózu, tři varianty (margin 1,0 je jednořádková a vezme většinu výhry) a postup, jak to měřit bez toho harnessu.
+
+### #447 — kapitolní záběr Louky (merge `b7c2d13`)
+
+**První ustavující záběr celé hry byl zelený koberec bez obzoru.** Dvě chyby najednou: look-at 70 jednotek proti `ClearingRadius` 95 byl **uvnitř mýtiny**, takže záběr mířil na placku a kopce začínaly až za ním; a **elevace se měří od středu tour**, což je kamerový cíl levelu nahoře u clusteru, takže šest stupňů od *toho* pořád jede vysoko nad loukou, jejíž zem je 14 pod rovinou arény.
+
+Oprava je obojí: look-at jde **na svah** (`ClearingRadius + ClearingTransition × 0,55`) a elevace jde **do záporu** (−7°), což je to, co objektiv doopravdy sníží. Kytky nešly ukázat nikdy (rozteč 2,2, velikost 0,22) — „ať je vidět tráva" jsem četl jako stínování trávy: špičky, trsy, větrné pruhy, prosvítání, a to všechno čte při nízkém tečném úhlu a nic z toho shora. Starý komentář tvrdil opak a je nahrazen, ne ponechán.
+
+### #472 — výběr levelu (merge `c889867`)
+
+Dlaždice 440×300 → **330×210**, neкapitolová mřížka šest na řádek místo čtyř, plate **zarovnaný dolů**. Je to jediná stránka ve hře stažená dolů a komentář říká proč: ostatní jsou vystředěné, protože za nimi není nic, co by bylo součástí odpovědi — tahle má za sebou level, na který se hráč dívá.
+
+- **`BackdropScreen.FramingLift`** snižuje cíl širokého ramene pod střed clusteru, což cluster ve snímku zvedne. ⚠ Je to **zlomek půlky výšky snímku**, ne světové jednotky, a na jednotky se převádí tam, kde je známý odstup i zorný úhel — zdvih ve světových jednotkách by znamenal jiný podíl obrazu na každém poměru stran a u každé velikosti mapy.
+- **`HoldWideLeg`** zastaví let na konci širokého ramene, takže každá dlaždice se ukazuje ze stejného ustavujícího otočení místo zevnitř koulí. Nezmrazí rozjetý nálet (to by objektiv seklo) a nezastaví obíhání.
+
+### #406 — tour na vyžádání (merge `c46de98`)
+
+Tour se dosud pustil jen jednou, automaticky, při stavbě prvního levelu kapitoly — takže **jedenáct z dvaceti pozadí nešlo vidět nikdy**, protože v nich žádná kapitola nezačíná. Teď ho pustí výběr scény v menu. ⚠ **Je to týž `ChapterIntro`**, ne druhý let postavený, aby vypadal stejně: co si majitel prohlédne, je to, co uvidí ve hře. Za „herní pózu" se dává **živý objektiv letu**, takže poslední klíč tour je tam, kde kamera menu už stojí. Stránka se na dobu letu schová (jinak je to chyba z #472 o stránku vedle) a vrátí se.
+
+⚠ **Argument `tour` není pohodlí:** syntetické kliknutí do tohohle okna nikdy nedojde, takže bez něj přehraný tour **nejde ze skriptu vyfotit vůbec**. Je to zároveň nástroj pro #433.
+
+**Beru si #433** (neonové město: proletět mezi věžemi místo vzdáleného přeletu) — právě jsem si na to postavil měřidlo.
