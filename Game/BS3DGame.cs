@@ -649,15 +649,31 @@ namespace BS3D
         private const int HUD_FONT_POPUP = 112;
 
         //The tutorial's card (#189): its line, the smaller line under it, and the prompt font's keycaps beside
-        //them. Authored loud on the HUD's own brief — the first cut at 88 photographed as an overlay label at a
-        //900p client, 37 px of type over a cluster the eye is on, which is the barely-there failure the HUD's
-        //sizes exist to avoid; it sits between the score (140) and the label (76), louder than a caption and
-        //quieter than the number. The keycap's size is its own figure rather than the caption's, because
-        //PromptFont draws a key as a rounded square filling its em while a line of Anton stands well short of
-        //its em — set so the two read as one line, looked at rather than derived.
-        private const int HUD_FONT_TUTORIAL = 112;
-        private const int HUD_FONT_TUTORIAL_DETAIL = 76;
-        private const int HUD_FONT_PROMPT = 128;
+        //them. **The loudest type in the game, over the score itself (#461)**, and the ladder here has now been
+        //climbed twice: 88 photographed as an overlay label at a 900p client (37 px of type over a cluster the
+        //eye is on), 112 was chosen to sit BETWEEN the score (140) and the label (76) — "louder than a caption
+        //and quieter than the number" — and the owner played that and reported it still far too small.
+        //
+        //The reasoning that produced 112 was the HUD's, and it was the wrong brief: it sized the card like a
+        //READOUT, ranking it against the score and the label. It is not one. The score is a number a player
+        //glances at, and it is on screen for the whole level; the card is the one piece of text a new player
+        //MUST read, it is up for a few seconds, and it appears on the levels where the eye is least able to
+        //leave the cluster. So it outranks the number rather than sitting under it: 200 against the score's
+        //140, which is 83 px of caption at a 900p client and 178 at the owner's 3840×1600 panel.
+        //
+        //The detail line is 120 — bigger than the whole card's old CAPTION — and keeps its own rank under the
+        //line it explains. The keycap is its own figure rather than the caption's, because PromptFont draws a
+        //key as a rounded square filling its em while a line of Anton stands well short of its em; 228 holds
+        //the 128:112 relation the first cut was looked at and settled on, so the key and the words still read
+        //as one line.
+        //
+        //What this size costs is width, and PlayHud.DrawTutorial is where that is paid: the widest card
+        //measures 2397 design units at these sizes (the pad's "Hold the left trigger to look down the barrel")
+        //against a strip of about 3060 between the two top corners at 16:9, so nothing wraps — and the card is
+        //scaled to the strip if a narrower window or a longer string would ever reach the score.
+        private const int HUD_FONT_TUTORIAL = 200;
+        private const int HUD_FONT_TUTORIAL_DETAIL = 120;
+        private const int HUD_FONT_PROMPT = 228;
 
         //The balls-left alarm's first step, which used to be a heavier weight and cannot be: the display face
         //has ONE weight, so a bold slot would resolve to the very same glyphs and the step would vanish in
