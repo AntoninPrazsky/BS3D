@@ -4181,3 +4181,18 @@ Dvě majitelovy poznámky z hraní, dvě issues. Sémantické hledání (nomic, 
 **Co zůstává majiteli:** `Static` má po #398 dvoukuličkovou šestou barvu (`NOT PRIMED`), Highwall je nejdelší level Quarry (18 ran, jeho design), Sail a Binary dál na dvě rány (lék je třetí kotva), `Cabinet` v sondě 4 z 5 a `MIXED THEMES` u Louky v `DescribeBlock` (#400).
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-19 — Claude Code (notebook: #450 pás ťupek v podstavci poháru)
+
+**Beru si #450** na majitelův pokyn vybrat jednodušší issue. Větev `450-plinth-beads`, commit `e444b7c`. **NENÍ v mainu.**
+
+- **Je to přesně to, co issue předpovídalo, a ani o řádek víc.** `BeadRow` bral průchodku pro ucho na všechny čtyři řady; dvě z nich jsou bubínek podstavce (`y = 0,028` a `0,110` výšky poháru), zatímco nejnižší bod ucha kdekoli je `0,580` — délka kalicha daleko. Zlato a Diamant tím ztrácely **deset ťupek z devadesáti** ve dvou obloucích po 18,3° na azimutu 0 a π. Průchodka je teď argument `BeadRow`u: `true` pro dvě pásové řady, `false` pro bubínek.
+- **Počet je dopočítaný z poloměru a úhly jsou `i * TwoPi / count`, takže se kruh bez skipu uzavře přesně** — nebylo kam umístit šev.
+- ⚠ **Stříbro bylo důkaz, ne vedlejší případ.** Staví se `handles: false`, takže jeho bubínek byl dokola zavřený odjakživa; to je to, co říká, že příčina byl ten skip a ne geometrie bubínku. Po změně je stříbro i bronz bit po bitu stejné (stříbro: `clearHandles` je u obou řad `handles`, tedy `false` jako dřív; bronz `beads: false` nemá řady vůbec).
+- **Ověřeno vyfocením před/po ze stejných časů herních hodin** (`result stars=3 quality=high windowed mute shot=8,9,10,11,12,13`, Release output): obě řady bubínku teď obíhají celý obvod, na zlatě i na křišťálu. Diamant je průhledný, takže jsou na něm vidět ťupky i na odvrácené straně — a obě řady jsou celé. **Pásové řady na kalichu si mezeru u kořene ucha nechaly** (vyfoceno zvlášť), což je to, o co šlo.
+- **Pozice v záběru:** podstavec je na výsledkové stránce vlevo dole a dolly ho na blízkém konci ořezává spodní hranou — čitelně je vidět zhruba v polovině periody (u mě `t = 9` a `t = 11` herních hodin). Je to dokumentovaná vlastnost `NDC_Y = -0,15` (komentář nad konstantou to říká sám), ne chyba rámování.
+- `Game.sln` 0 chyb. Doc: přibyla odrážka v `docs/game-feedback.md` u ozdob poháru — která řada mezeru bere a proč.
+
+**Nic dalšího si neberu.**
