@@ -1806,7 +1806,14 @@ namespace BS3D.Screens
 
             Vector2 captionAt = origin + new Vector2((glyphSize.X + gap) * scale, (height - textHeight) * 0.5f * scale);
 
-            DrawString(captionFont, caption, captionAt, BS3DGame.MENU_TEXT * alpha, scale);
+            //The send-off that closes the ladder wears the praise's dress from the moment it lands (#459):
+            //there is nothing left on it to earn, so it arrives celebrating instead of turning amber later.
+            if (tutorial.Celebrating)
+                DrawGlow(captionFont, caption, captionAt, captionSize, scale, tutorial.PraiseHeat, HUD_ACCENT,
+                    HUD_GLOW_PASSES);
+
+            DrawString(captionFont, caption, captionAt,
+                (tutorial.Celebrating ? HUD_ACCENT : BS3DGame.MENU_TEXT) * alpha, scale);
 
             if (detailSize.Y > 0f)
                 DrawString(detailFont, detail, captionAt + new Vector2(0f, (captionSize.Y + lineGap) * scale),
