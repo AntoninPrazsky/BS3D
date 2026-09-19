@@ -1157,6 +1157,17 @@ namespace Prazsky.BS3D
         //fourteenth colour.
         private static readonly Vector3 DEAD_TINT = new(0.62f, 0.64f, 0.68f);
 
+        //How solid a dead ball stays (#412). The ash tint #342 shipped was opaque and the owner played it and
+        //could not read what it was saying; transparency is a different language for the same state and the
+        //one he asked for — a ball you can see the cluster through is a ball that has stopped being part of
+        //it, which is what the mark means. Weak rather than faint: at the glass's own 0.06 a dead ball all but
+        //vanishes, and a ball that is invisible is not a mark, it is a bug report.
+        private const float DEAD_OPACITY = 0.34f;
+
+        //And it gives back a little light of its own, so a dead ball against a dark dome is still there. The
+        //glass's 0.05 reads as nothing on the cavern and the storm.
+        private const float DEAD_EMISSION = 0.12f;
+
         private readonly ModelInstance[][] _buckets;
         private readonly int[] _counts;
         private readonly int[] _lodTotals;
@@ -1679,10 +1690,6 @@ namespace Prazsky.BS3D
             //one special in this list that light does not get into.
             DrawHeavy(camera);
 
-            //And the dead weight with them (#342), which is the same argument once more — see DrawDead for
-            //what it does and does not state, and for why it is drawn here even on a transparent style.
-            DrawDead(camera);
-
             //Asked as the question it IS — does light get through this material — and not as "is this the
             //bubble" (#304). The two were the same answer only while the bubble was the one transparent style.
             if (BallStyles.IsTransparent(_style)) DrawShell(camera);
@@ -1694,6 +1701,12 @@ namespace Prazsky.BS3D
             //composites over the films for the same reason, which is the honest approximation the shell draw
             //already makes among the films themselves (see DrawShell on why nothing here is sorted).
             DrawHollow(camera);
+
+            //And the dead weight LAST, with the glass and for the glass's own reason since #412: it is
+            //transparent now, so everything that should show through it has to be in the target already. Until
+            //#412 it was an opaque ash tint and was drawn with the solids, where a transparent draw would have
+            //composited over nothing.
+            DrawDead(camera);
         }
 
         /// <summary>
@@ -2105,20 +2118,37 @@ namespace Prazsky.BS3D
         }
 
         /// <summary>
-        /// The dead weight (#342): released balls that came to rest instead of falling, drawn in the level's
-        /// own material with the colour taken out of them and the heartbeat stopped.
+        /// The dead weight (#342, re-marked in #412): released balls that came to rest instead of falling,
+        /// drawn as a <b>weakly transparent shell of their own</b> with the heartbeat stopped — a ball you can
+        /// see the cluster through is a ball that has stopped being part of it.
         /// <para>
-        /// <b>It states two uniforms and deliberately not a third.</b> The tint is
-        /// <see cref="DEAD_TINT"/> — one draw's worth of ash, which is what makes this a region rather than
-        /// thirteen — and the pulse depth is zero, so the ball stops breathing with the cluster it is no
-        /// longer part of. What it does <i>not</i> state is <c>Shading</c>: a dead ball is the same vinyl,
-        /// glass or marble the level is made of, and that is what tells it apart from a rock at a glance.
+        /// ⚠ <b>It shipped as an opaque ash TINT and the owner played it and could not read what it was
+        /// saying.</b> Photographed side by side at the same camera, the reason is plain and it is not a matter
+        /// of taste: the ash reads as <b>stone</b>. It is a grey opaque ball among coloured opaque balls, which
+        /// is exactly what a rock is (<see cref="DrawRocks"/>) — so the one mark that means "this is inert
+        /// scenery" and the one that means "this was yours and is now dead weight" were saying the same thing
+        /// in the same words. Transparency is a different language and collides with nothing: no other ball in
+        /// the game is see-through except the clear glass, which has no colour at all.
         /// </para>
         /// <para>
-        /// Drawn with the opaque kinds and before the films, on <see cref="DrawRocks"/>'s argument: on a
-        /// transparent style this is the wrong side of the blend for a ball that should show what is behind
-        /// it, and it is the right side for every other style. A dead ball on a bubble level is rare enough,
-        /// and visible enough either way, that the fixed order is worth more than the correct blend.
+        /// It borrows the glass's two-wall alpha pass rather than inventing a third transparency
+        /// (<see cref="DrawHollow"/>): the same far-wall-then-near-wall pair, for the same reason — one wall of
+        /// a hollow shell drawn alone reads as a cut-open ball. <b>No shader work at all</b>, which is what
+        /// made this the cheap answer: a per-draw alpha on the ball's own material would have meant a uniform
+        /// and a multiply in all twenty ball techniques.
+        /// </para>
+        /// <para>
+        /// <b>What it gives up is the level's own material</b>, and that is the trade #412 makes knowingly: a
+        /// dead ball was the same vinyl, glass or marble as the rest, which is what used to tell it from a
+        /// rock — and that distinction was the one the owner could not read anyway. Keeping the material AND
+        /// the transparency would mean thirteen buckets instead of one region, and the alpha in every
+        /// technique. One region, one tint, one pair of passes.
+        /// </para>
+        /// <para>
+        /// <b>Drawn last, with the glass and after it</b>, which is the change of order #412 brings: it is
+        /// transparent now, so everything that should show through it has to be in the target already — the
+        /// opaque cluster, the island, the gun, and the clear glass under that. While it was an opaque ash it
+        /// belonged with the solids, where a transparent draw would have composited over nothing.
         /// </para>
         /// </summary>
         private void DrawDead(ICamera camera)
@@ -2127,11 +2157,51 @@ namespace Prazsky.BS3D
             for (int lod = 0; lod < LodCount && !any; lod++) any = _counts[DEAD_REGION_START + lod] > 0;
 
             //A level with nothing stuck in it — which is most levels, most of the time — never touches a
-            //renderer for this, so the style stays pushed exactly as it was
+            //renderer or a device state for this, so the style stays pushed exactly as it was
             if (!any) return;
 
-            for (int lod = 0; lod < LodCount; lod++) _renderers[lod].PulseDepth = 0f;
+            BlendState blend = _device.BlendState;
+            DepthStencilState depth = _device.DepthStencilState;
+            RasterizerState raster = _device.RasterizerState;
 
+            for (int lod = 0; lod < LodCount; lod++)
+            {
+                InstancedModelRenderer renderer = _renderers[lod];
+
+                renderer.Shading = BallShading.Hollow;
+                renderer.BubbleBodyOpacity = DEAD_OPACITY;
+
+                //It does not breathe, which is the whole point of the mark: the heartbeat is the cluster
+                //saying a ball is part of it, and this one is not (the same rule #473 applies to a released
+                //ball on its way down).
+                renderer.PulseDepth = 0f;
+                renderer.EmissiveStrength = DEAD_EMISSION;
+            }
+
+            _device.BlendState = BlendState.AlphaBlend;
+
+            //The far wall first, tested but not written; then the near one in the ordinary cull, writing
+            //depth. The same pair, for the same reason, as the glass and the bubble: one wall of a hollow
+            //shell drawn alone reads as a cut-open ball.
+            _device.DepthStencilState = DepthStencilState.DepthRead;
+            _device.RasterizerState = RasterizerState.CullClockwise;
+            SetShell(BUBBLE_FAR_WALL);
+            DrawDeadPlane(camera);
+
+            _device.DepthStencilState = DepthStencilState.Default;
+            _device.RasterizerState = RasterizerState.CullCounterClockwise;
+            SetShell(BUBBLE_NEAR_WALL);
+            DrawDeadPlane(camera);
+
+            _device.BlendState = blend;
+            _device.DepthStencilState = depth;
+            _device.RasterizerState = raster;
+
+            ApplyStyle();
+        }
+
+        private void DrawDeadPlane(ICamera camera)
+        {
             for (int lod = 0; lod < LodCount; lod++)
             {
                 int bucketIndex = DEAD_REGION_START + lod;
@@ -2142,15 +2212,9 @@ namespace Prazsky.BS3D
                 //in its colour's bucket, exactly as the glass half of a crossing is (see DrawHollow)
                 _lodTotals[lod] += count;
 
-                //The ash is a TINT and the effect params are the stone's: what those carry is the AMBIENT,
-                //which is the whole of a ball's unlit side, and handing null takes DefaultLighting's dim blue
-                //(the rock's own first-build bug). Neutral params under a neutral tint is the same material
-                //argument the rock makes, one step less carved.
                 _renderers[lod].Draw(camera, _buckets[bucketIndex], count, BasicEffectParamsProvider.Dead,
                     DEAD_TINT);
             }
-
-            ApplyStyle();
         }
 
         /// <summary>
