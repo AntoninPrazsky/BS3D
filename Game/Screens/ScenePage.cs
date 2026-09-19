@@ -1,4 +1,4 @@
-using Myra.Graphics2D.UI;
+﻿using Myra.Graphics2D.UI;
 using Prazsky.Core.Render;
 using HorizontalAlignment = Myra.Graphics2D.UI.HorizontalAlignment;
 using Label = Myra.Graphics2D.UI.Label;
@@ -15,6 +15,9 @@ namespace BS3D.Screens
         //One label per SceneKind, indexed by the enum's own value — the count and the names are
         //SceneRenderer's since #75, so a new scene reaches this list without being added to it
         private readonly Label[] _sceneLabels = new Label[SceneRenderer.SceneCount];
+
+        //The page's own plate, kept so it can be hidden while a tour flies (#406).
+        private Panel _plate;
 
         /// <summary>
         /// What the page needs around the list — the heading, the note under it, the Back button and the
@@ -55,13 +58,34 @@ namespace BS3D.Screens
             });
             column.Widgets.Add(MenuButton("Back", GoBack));
 
-            return ScreenRoot(Plate(column));
+            _plate = Plate(column);
+            return ScreenRoot(_plate);
         }
 
         private void Choose(SceneKind scene)
         {
             Game.SetScene(scene);
             Refresh();
+
+            //And show it (#406). The tour is the scene's own establishing flight — the very ChapterIntro a
+            //chapter's opening level runs, not a second flight built to look like it — so what is reviewed
+            //here is what will be shown in play. Picking a scene IS the request: the owner's ask was to be
+            //able to review all of them by switching through the list, and a separate button would mean two
+            //presses per scene to do what one already implies.
+            Manager?.Find<BackdropScreen>()?.PlayTour();
+        }
+
+        /// <summary>
+        /// The page gets out of the way while a tour is flying (#406) and comes back when it lands. A tour
+        /// watched from behind the very list that asked for it is the fault #472 fixed on the level picker,
+        /// one page over — and here there is nothing to read while it runs, so the page can simply go.
+        /// </summary>
+        public override void Update(Microsoft.Xna.Framework.GameTime gameTime)
+        {
+            base.Update(gameTime);
+
+            BackdropScreen backdrop = Manager?.Find<BackdropScreen>();
+            if (_plate != null && backdrop != null) _plate.Visible = !backdrop.TourEngaged;
         }
 
         /// <summary>

@@ -296,6 +296,10 @@ namespace BS3D
         /// </summary>
         private string _startupPick;
 
+        //Testing only: the "tour" argument (#406) - the scene menu with the current scene's establishing
+        //flight already running, which is the only way this can be photographed from a script.
+        private bool _startupTour;
+
         /// <summary>
         /// <c>about</c> / <c>about=play</c>: put the About page up at boot, and with <c>play</c> start its player
         /// on the first piece (#443). Null for neither. The page is two presses away for someone at the machine
@@ -852,7 +856,7 @@ namespace BS3D
             int? resultStars = null, string nextLocked = null, int? streak = null, int wildcardEvery = 0, float[] shotSeconds = null, string level = null, string levelFile = null,
             string preview = null, BallStyle? ballStyle = null, string pick = null, int fpsCap = 0,
             bool noFocusPause = false, float[] detonateSeconds = null, string about = null, string tutorial = null,
-            bool settings = false, int? sceneSeed = null)
+            bool settings = false, int? sceneSeed = null, bool tour = false)
         {
             //The scene's procedural roll (see _sceneSeedOffset): rolled once per launch unless the command
             //line pins it, and printed either way - a frame of a city nobody can generate twice is a frame
@@ -920,6 +924,7 @@ namespace BS3D
             _startupPick = pick;
             _startupAbout = about;
             _startupSettings = settings;
+            _startupTour = tour;
             _shotSchedule = shotSeconds;
             _detonateSchedule = detonateSeconds;
             if (mute) _masterVolume = 0f;
@@ -1895,6 +1900,18 @@ namespace BS3D
                 _startupAbout = null;
 
                 OpenAbout();
+            }
+
+            //The scene menu with its tour already flying (#406), held back past the title card for the same
+            //reason. It is the argument that makes a replayed tour photographable at all: the menu cannot be
+            //driven from a script here (a synthetic click lands in whatever window has focus, never in this
+            //one), and it is also what the owner will page through to review the twenty.
+            if (_startupTour && !_screens.Contains<SplashPage>())
+            {
+                _startupTour = false;
+
+                OpenSceneSelect();
+                _backdrop?.PlayTour();
             }
 
             //And the Settings page (#189), held back past the title card for the same reason
