@@ -748,6 +748,41 @@ namespace Prazsky.Core.Render
         //the island's and no scene's.
         private const float SHADOW_ISLAND_HEADROOM = 12f;
 
+        private float _shadowScale = 1f;
+
+        /// <summary>
+        /// A global multiplier over every scene's <see cref="ShadowConfig.Strength"/>, clamped to 0..1.
+        /// <b>0 means exactly what a <c>Strength</c> of 0 means</b> — no target, no caster pass, every
+        /// receiver handed 0 and skipping its nine taps — so the two spellings of "no shadows" are one code
+        /// path and cannot drift apart.
+        /// <para>
+        /// <b>It exists to be swept, and the sweep is the point.</b> Until it there was no way to measure or
+        /// photograph a shadow map against its own absence <i>inside one process</i>: #469, #470 and #471
+        /// each had to build a worktree of <c>main</c> and run two executables, which is the setup that
+        /// produces a capture pair differing in more than the thing under test — #476 lost a round to exactly
+        /// that when a uniform was pushed on a path that had not run yet, and both halves of its "on/off"
+        /// comparison were off. With this, <c>alt=shadow=0;shadow=1</c> in the Testbed gives paired windows
+        /// on one camera, one scene seed and one build.
+        /// </para>
+        /// <para>
+        /// <b><c>SceneDetail</c> 0 is not a substitute</b>, although it does skip the map: it switches several
+        /// scenes to a reduced program at the same time, so a pair taken across it measures a mixture and
+        /// says nothing about the shadow.
+        /// </para>
+        /// <para>
+        /// A fraction between is a look dial rather than a measurement one — it dims the shadow without
+        /// changing what is drawn or how many taps are paid, so it costs the same as 1 and is useful only for
+        /// judging how dark a full shadow should read. <b>The shipped value is 1</b>; nothing in the Game
+        /// writes this, and it is not a quality tier (a tier drops effects, and the tier's own lever on
+        /// shadows is <c>SceneDetail</c>).
+        /// </para>
+        /// </summary>
+        public float ShadowScale
+        {
+            get => _shadowScale;
+            set => _shadowScale = MathHelper.Clamp(value, 0f, 1f);
+        }
+
         //The campfires' hearths (#282): a ring of stones set around each fire, and the scorched ground under
         //it. The stones ride the acacia's own instanced path - same shader, same lighting as everything else
         //planted on this terrain - with one draw per FIRE rather than per mesh variant, because what differs
@@ -5296,7 +5331,8 @@ namespace Prazsky.Core.Render
         /// (<see cref="TryShadowFit"/>) and which of this renderer's own scatter casts into it.
         /// </para>
         /// <para>
-        /// A no-op at the Low tier, at <see cref="ShadowConfig.Strength"/> 0, with the sun at or below
+        /// A no-op at the Low tier, at <see cref="ShadowConfig.Strength"/> 0, at <see cref="ShadowScale"/> 0,
+        /// with the sun at or below
         /// <see cref="SHADOW_MIN_SUN_HEIGHT"/>, in any scene with no fit, and — in the eight scenes whose
         /// casters are all the host's — for a caller that passes no <paramref name="extraCasters"/> at all:
         /// in every one of those each receiver is handed a strength of 0 and skips its taps, and no target is
@@ -5351,7 +5387,8 @@ namespace Prazsky.Core.Render
             Vector3 centre = Vector3.Zero;
             float yMin = 0f, yMax = 0f;
             ShadowConfig shadows = GetSceneConfig(scene)?.Shadows;
-            if (shadows != null && shadows.Enabled && (sceneCasts || extraCasters != null)
+            if (shadows != null && shadows.Enabled && _shadowScale > 0f
+                && (sceneCasts || extraCasters != null)
                 && _sceneDetail > 0.5f && sunDirection.Y > SHADOW_MIN_SUN_HEIGHT)
             {
                 wanted = TryShadowFit(scene, camera, out centre, out yMin, out yMax);
@@ -5415,13 +5452,13 @@ namespace Prazsky.Core.Render
             for (int i = 0; i < _shadowReceivers.Length; i++)
             {
                 _shadowReceivers[i].Push(_sunShadowMap.Target, _sunShadowMap.ViewProjection,
-                    _sunShadowMap.Texel, shadows.Strength, bias);
+                    _sunShadowMap.Texel, shadows.Strength * _shadowScale, bias);
             }
 
             //The shared instanced effect, which is what makes the island, the gun, the city and the balls
             //receive — one push for all of them (#470).
             _instancedShadowReceiver.Push(_sunShadowMap.Target, _sunShadowMap.ViewProjection,
-                _sunShadowMap.Texel, shadows.Strength, bias);
+                _sunShadowMap.Texel, shadows.Strength * _shadowScale, bias);
 
             _shadowsActive = true;
         }

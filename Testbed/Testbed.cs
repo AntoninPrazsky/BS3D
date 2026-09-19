@@ -843,6 +843,12 @@ namespace Testbed
             //photographed here, where the camera can be pinned. Left alone the Testbed draws the full look.
             if (_options.SceneDetail >= 0f) _sceneRenderer.SceneDetail = _options.SceneDetail;
 
+            //#471 PROBE: "shadow=" pins SceneRenderer.ShadowScale so a sun shadow map can be measured and
+            //photographed against its own absence WITHOUT a second build - 0 is what a scene with no map
+            //renders, exactly. It is alternable (see ApplyVariant), which is the point: alt=shadow=0;shadow=1
+            //puts both halves of the comparison in one process, on one camera and one scene seed.
+            if (_options.ShadowScale >= 0f) _sceneRenderer.ShadowScale = _options.ShadowScale;
+
             //After the scene renderer, which the rig consults for the scenes that state their own lighting. The
             //cloud hook is captured ONCE here rather than per frame: a method group written at the call site
             //builds a fresh delegate every time it is evaluated, and this one used to be evaluated in Draw.
@@ -1467,6 +1473,14 @@ namespace Testbed
 
                     case "detail":
                         if (float.TryParse(pin.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out float detail)) _sceneRenderer.SceneDetail = detail;
+                        break;
+
+                    //Nothing is carried across this switch: the map is rebuilt from scratch every frame and
+                    //0 leaves no target bound and every receiver reading 0, so the window after a switch
+                    //measures the variant and not the transition - which is the whole test for an alternable
+                    //dial (see nooverc, which fails it).
+                    case "shadow":
+                        if (float.TryParse(pin.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out float shadow)) _sceneRenderer.ShadowScale = shadow;
                         break;
 
                     case "exposure":
