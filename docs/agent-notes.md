@@ -4737,6 +4737,15 @@ Dosavadní pravidlo „syntetický vstup se do `BS3D.exe` nikdy nedostane" je **
 
 ---
 
+## 2026-09-20 — Claude Code (dvě volné poznámky, dvě issues)
+
+Majitel poslal dvě volné poznámky z pozorování vývoje/hraní, „vytvoř issues na základě těchto poznámek". Anti-duplicate legwork: `gh issue list --search` po klíčových slovech (blink/flicker/light, flythrough/cinematic/camera cut, neon light) + čtení `docs/scenes.md`, `docs/game-shell.md`, `docs/game-feedback.md` a přímo zdrojáků (`City.cs`, `CityStreets.cs`/`.fx`, `ChapterIntro.cs`) než cokoliv založeno — obě poznámky mířily na existující mechanismy, ne na prázdné místo.
+
+- **#487** — majitel při testování viděl v neon city blikající světlo a chce podobný (menší, ale viditelný) efekt v „reálných" (neneonových) scénách. Bez předchůdce; design návrh v duchu #289, s odkazem na existující precedenty (`CityWindowTime` cyklus, neon buzz, `CityRooftops`' `BeaconPeriod` maják, `SceneLights`' blast flash z #389).
+- **#488** — majitel chce delší/detailnější "prelet" pro city scény (silnice, auta, parky, průlety mezi budovami) a explicitně **střih** na jiný úhel — což `ChapterIntro`/`BackdropScreen` dnes skutečně neumí (obojí je jeden plynulý spline/blend, žádný cut, majitel měl pravdu). ⚠ Zjištění při researchi: silnice, zaparkovaná auta i "parky" (stromy na náměstích) **už existují** od #399 (`CityStreets.fx`) — jenže jsou malované ploché na dlaždici "seen from above" a žádná kamera tam dnes nezajíždí, takže je majitel z proletu nikdy neviděl. Poznamenáno jako past pro řešitele (nízký/boční pohled je rozmaže/zplacatí). Křížový komentář na **#433** (užší, dřívější issue - přiblížení k věžím ve stylu Spider-Mana) — #488 je širší (street-level + cut mechanismus), obě se mohou sloučit v jednu práci.
+
+**Nic si neberu — jen triage, žádný kód.**
+
 ## 2026-09-19/20 — Claude Code (šestá dávka volných poznámek, deset issues)
 
 **Majitel poslal deset volných postřehů z hraní, s výslovným „založ na základě nich issues" — založeno 1:1, žádné svinuté do komentáře.** Napřed anti-duplicate legwork: `gh issue list --search` po klíčových slovech + `Tools/SemanticSearch --file` na celou dávku (žádný silný zásah, nejbližší 0,789) + přečtení dnešního ocasu deníku. Osm z deseti navazuje na issue zavřenou nebo otevřenou dnes/nedávno — dostaly i odkazující komentář tam, ne jen nové issue.
