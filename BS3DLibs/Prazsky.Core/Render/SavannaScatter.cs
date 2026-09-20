@@ -86,6 +86,56 @@ namespace Prazsky.Core.Render
         /// <summary>The scatter seed the savanna shipped with in #202; the same seed always plants the same plain.</summary>
         public const int DEFAULT_SEED = 90125;
 
+        /// <summary>
+        /// How trodden the ground under a plant may be before the site is refused (#476), on
+        /// <see cref="SavannaTrails.Trodden"/>'s 0…1 — 1 being the bare middle of a path and 0 the grass
+        /// beside it. Low, because it is the <b>worn earth</b> that nothing should be standing in, and the
+        /// outermost fringe of the band is grass that has merely been walked on.
+        /// <para>
+        /// It costs next to nothing to be strict here. A path is about four world units wide against a plain
+        /// some seven hundred across, so only a few per cent of the ground is refused, and a plant gets
+        /// <see cref="ScatterSpacing.TRIES"/> proposals — all eight landing on a track is a case that does
+        /// not arise. A constant rather than a dial on the config for that reason: unlike the warp's reach,
+        /// which is an authored judgement about how early a person steps aside, there is nothing here to
+        /// tune towards. Nothing grows in the middle of a worn path.
+        /// </para>
+        /// </summary>
+        public const float TRAIL_REFUSE = 0.12f;
+
+        /// <summary>
+        /// How many times the plain is planted (#476). The first sweep finds out where the paths will run
+        /// and the rest plant clear of them — see the sweep loop, where the argument that forced the shape
+        /// is recorded. A sweep is arithmetic and nothing else: the meshes and the instance buffers, which
+        /// are what a scatter build actually costs, are made once however many sweeps there are.
+        /// <para>
+        /// <b>Three, measured</b> — plants left standing on a path, over six scene seeds (trees and the
+        /// like + ground cover, out of some 230 + 255):
+        /// </para>
+        /// <list type="table">
+        /// <item><description>1 sweep, which is no test at all — <b>19+14, 19+15, 19+17, 12+15, 16+13, 17+9</b></description></item>
+        /// <item><description>2 sweeps — 3+2, 6+8, 6+5, …</description></item>
+        /// <item><description><b>3 sweeps — 1+0, 5+1, 3+2, 1+0, 0+0, 4+0</b></description></item>
+        /// <item><description>4 and 5 — no better: 2+0, 6+4, 3+1 and 1+0, 2+1, 2+0, which straddle three</description></item>
+        /// </list>
+        /// <para>
+        /// ⚠ <b>It does not converge to nothing, and it is not supposed to.</b> Each sweep moves a few
+        /// plants, and moving a plant moves the paths near it — so a sweep both clears offenders and makes
+        /// a couple of new ones, and past three the two roughly balance. What is left is a handful of stems
+        /// at the <i>fringe</i> of a track on a plain of some 480 plants — 14 of them over those six seeds
+        /// against 102 with one sweep, a seventh of what the untested planting leaves.
+        /// </para>
+        /// <para>
+        /// The cost is the planting's own arithmetic, three times over: <b>10 ms for one sweep, 18 for two,
+        /// 24 for three</b> on this project's slow machine (Vega 10 APU), at scene load and in the editor's
+        /// re-plant, which rebuilds twenty-five meshes in the same breath.
+        /// </para>
+        /// </summary>
+        private const int PLANTING_SWEEPS = 3;
+
+        /// <summary>Keeps the planting's dice clear of the mesh variants' — the two are rolled off the same
+        /// seed and must not be the same sequence.</summary>
+        private const int PLANTING_STREAM = 0x5CA7;
+
         /// <summary>Every draw of the scatter, in draw order. Never empty buckets — a kind with a count of
         /// zero simply has none.</summary>
         public ScatterBucket[] Buckets { get; private set; }
@@ -95,6 +145,15 @@ namespace Prazsky.Core.Render
         /// <see cref="ScatterSpacing"/> kept plants out of each other with, handed on rather than thrown
         /// away. <see cref="TrailWarpField"/> reads it to know what a worn path has to go round (#476); the
         /// hearths the caller reserved are in it too, which is right - nobody walks through a campfire.
+        /// <para>
+        /// The planting reads the paths back the other way round as it goes, through
+        /// <see cref="SavannaTrails"/> and <see cref="TRAIL_REFUSE"/>: what a path bends round and what may
+        /// stand on a path are two questions, and the answers differ. A tuft of grass is too small for a
+        /// track to go round - it is walked straight through - but it is also the very thing a worn path is
+        /// worn out OF, so a tuft standing in the bare middle of one is exactly the artefact. Hence the
+        /// asymmetry: the warp is built from what is big enough to walk round
+        /// (<see cref="SavannaSceneConfig.TrailAvoidMinRadius"/>), the refusal applies to everything planted.
+        /// </para>
         /// </summary>
         public IReadOnlyList<ScatterSpacing.Footprint> Standing { get; private set; }
 
@@ -235,23 +294,40 @@ namespace Prazsky.Core.Render
             var standing = new List<ScatterSpacing.Footprint>(reserved);
             Standing = standing;
 
+            //And the subset of it a worn path goes ROUND (#476) — what the trail test below bends the paths
+            //by. It holds the PREVIOUS sweep's finished plain rather than the one being planted; see the
+            //sweep loop for why, and note that TrailWarpField filters by the same radius when it bakes the
+            //texture the shader samples, so the two sides mean the same thing by "worth going round".
+            var bendBy = new List<ScatterSpacing.Footprint>();
+
+            //Which site is being placed, counted from the start of each sweep: it is what keys a site's own
+            //stream of dice (see Propose), so the n-th plant of one sweep is the n-th plant of the next.
+            int sitesPlaced = 0;
+
             //One proposal of a spot: near a cluster centre (denser towards it) or anywhere in the ring.
-            (float, float) Propose(float minR, float maxR, float clusterShare, float spread)
+            //
+            //⚠ It draws from the SITE's own stream, not from the planting's (#476). A site that needs a
+            //second proposal must not shift the dice for everything planted after it: the sweep below
+            //plants the same plain several times over and keeps the last, and that only converges if a
+            //plant moved in one sweep moves ALONE. On a shared stream it would not — one extra proposal
+            //re-rolls every plant after it, and each sweep would be a fresh savanna tested against the
+            //paths of a plain that no longer exists.
+            (float, float) Propose(Random site, float minR, float maxR, float clusterShare, float spread)
             {
                 float cx, cz;
-                if (rng.NextDouble() < clusterShare)
+                if (site.NextDouble() < clusterShare)
                 {
-                    int c = rng.Next(ac.Clusters);
-                    float off = (float)rng.NextDouble();
+                    int c = site.Next(ac.Clusters);
+                    float off = (float)site.NextDouble();
                     float d = off * off * spread;
-                    float da = (float)rng.NextDouble() * MathHelper.TwoPi;
+                    float da = (float)site.NextDouble() * MathHelper.TwoPi;
                     cx = clusterX[c] + MathF.Cos(da) * d;
                     cz = clusterZ[c] + MathF.Sin(da) * d;
                 }
                 else
                 {
-                    float a = (float)rng.NextDouble() * MathHelper.TwoPi;
-                    float r = minR + (float)rng.NextDouble() * (maxR - minR);
+                    float a = (float)site.NextDouble() * MathHelper.TwoPi;
+                    float r = minR + (float)site.NextDouble() * (maxR - minR);
                     cx = MathF.Cos(a) * r;
                     cz = MathF.Sin(a) * r;
                 }
@@ -264,28 +340,6 @@ namespace Prazsky.Core.Render
                     cz *= to / dist;
                 }
                 return (cx, cz);
-            }
-
-            //The best of a few proposals against what stands already: the first clear one, else the least
-            //crowded. Records the footprint and returns where it landed.
-            (float x, float z) Place(float halfWidth, float minR, float maxR, float clusterShare, float spread)
-            {
-                float x = 0f, z = 0f;
-                float bestClearance = float.NegativeInfinity;
-                for (int attempt = 0; attempt < ScatterSpacing.TRIES; attempt++)
-                {
-                    (float cx, float cz) = Propose(minR, maxR, clusterShare, spread);
-                    float clearance = ScatterSpacing.Clearance(cx, cz, halfWidth, standing);
-                    if (clearance > bestClearance)
-                    {
-                        bestClearance = clearance;
-                        x = cx;
-                        z = cz;
-                    }
-                    if (clearance >= 0f) break;
-                }
-                standing.Add(new ScatterSpacing.Footprint(x, z, halfWidth));
-                return (x, z);
             }
 
             //A plant's own frame: a small lean off vertical (a leaning tree reads as a tree, a tilted one as a
@@ -305,160 +359,258 @@ namespace Prazsky.Core.Render
 
             float Jitter() => (float)(rng.NextDouble() - 0.5) * 0.24f;
 
-            //--- The acacias and the bushes: #202's planting, with the trees split across their kinds.
-            for (int i = 0; i < ac.Count; i++)
+            //Everything on the plain, in one sweep — and the plain is planted SEVERAL TIMES OVER (#476).
+            //The shape is odd enough to be worth the paragraph, because a measurement forced it rather than
+            //taste choosing it.
+            //
+            //A path bends round what stands on the plain, so "is this site on a path?" cannot be answered
+            //until the plain is planted — and the answer moves the plants. The two depend on each other.
+            //Bending the paths by whatever happened to be standing already (the obvious way: one sweep, the
+            //list growing as it goes) fixed the GROUND COVER, which goes in last when nearly everything is
+            //already in, and did next to nothing for the TREES, which go in FIRST, when there is nothing
+            //for a path to bend round yet — measured over three seeds, trees on a path went 23 → 12,
+            //22 → 20 and 14 → 15. The trees are what the owner's report is about.
+            //
+            //So the first sweep plants the plain with no trail test at all, and what it puts down is what
+            //the paths are bent by in the next, which plants the same plain again from the same dice and
+            //this time declines the sites those paths run through. Only the last sweep's instances are
+            //kept; the ones before it exist to find out where the tracks will be. PLANTING_SWEEPS carries
+            //the count and what each one is worth.
+            void PlantThePlain(bool avoidTrails)
             {
-                //Rolled BEFORE the position, because the position depends on how wide this plant is: a bush
-                //needs a third of a tree's room and should not be pushed out as though it needed all of it.
-                float rand = (float)rng.NextDouble();
-                bool isBush = rng.NextDouble() < ac.BushFraction;
+                //The same dice every sweep, so each one is the last with its offenders moved rather than a
+                //fresh savanna. Reset here and not at the top: the meshes and the cluster centres above are
+                //rolled once and stay.
+                rng = new Random(seed ^ PLANTING_STREAM);
+                sitesPlaced = 0;
 
-                if (isBush)
+                standing.Clear();
+                standing.AddRange(reserved);
+
+                for (int m = 0; m < treeInstances.Length; m++) treeInstances[m].Clear();
+                Clear(bushInstances); Clear(scrubInstances); Clear(tuftInstances); Clear(moundInstances);
+                Clear(rockInstances); Clear(logInstances); Clear(baobabInstances); Clear(doumInstances);
+
+                //The best of a few proposals against what stands already: the first clear one, else the
+                //least crowded. Records the footprint and returns where it landed.
+                //
+                //"Clear" is two questions since #476 — room to stand, and NOT ON A PATH. The second is the
+                //belt and braces behind TrailWarpField: the path already bends round what is planted, and
+                //this refuses the sites where the bend could not carry it clear (a dense clump, or a track
+                //threading between two trunks). In the first sweep there are no paths to answer to yet.
+                (float x, float z) Place(float halfWidth, float minR, float maxR, float clusterShare, float spread)
                 {
-                    float sizeScale = 0.7f + 0.6f * rand;
-                    (float x, float z) = Place(ac.Width * 0.5f * sizeScale, ac.MinRadius, ac.MaxRadius, 0.82f, ac.ClusterSpread);
-                    bushInstances[rng.Next(BUSH)].Add(Plant(x, z, sizeScale, 0.06f * (float)rng.NextDouble(), 0f, (float)rng.NextDouble(), Jitter()));
-                    continue;
+                    Random site = new(seed * 397 + sitesPlaced++);
+
+                    float x = 0f, z = 0f;
+                    float bestClearance = float.NegativeInfinity;
+                    bool bestOnPath = true;     //nothing is chosen yet, and anything at all beats that
+                    for (int attempt = 0; attempt < ScatterSpacing.TRIES; attempt++)
+                    {
+                        (float cx, float cz) = Propose(site, minR, maxR, clusterShare, spread);
+                        float clearance = ScatterSpacing.Clearance(cx, cz, halfWidth, standing);
+
+                        //⚠ The STEM, not the crown: the trodden ground is tested at the one point the thing
+                        //actually stands on, and deliberately not over the spacing footprint, which is the
+                        //crown's reach. A path running under a canopy is what a path does — people walk
+                        //under trees — and refusing every site whose crown oversails a track would empty
+                        //the groves along every path on the plain. What is nonsense is the TRUNK in the
+                        //worn earth.
+                        float trodden = avoidTrails ? SavannaTrails.Trodden(cx, cz, bendBy, config) : 0f;
+
+                        bool onPath = trodden > TRAIL_REFUSE;
+
+                        //⚠ Two keys, and the PATH is the first of them — not a penalty added to the
+                        //clearance, which is what this was until it was measured. Where no proposal is both
+                        //clear and off a path, a priced trail loses to elbow room every time: a tree with
+                        //twenty units of space on a track beat one that had to interlace a crown to stand
+                        //beside it, and 16 to 19 plants a seed were put back onto a path that way, against
+                        //19 to 25 still standing on one at the end — nearly all of what was left. And in
+                        //not one case were all eight proposals on a track: there was always somewhere else
+                        //to stand. Ranking the path first costs little, and the measurement says how much:
+                        //it is the gap between the roomiest proposal and the roomiest off-path one, and
+                        //only about one proposal in ten is on a path at all.
+                        if ((bestOnPath && !onPath) || (onPath == bestOnPath && clearance > bestClearance))
+                        {
+                            bestOnPath = onPath;
+                            bestClearance = clearance;
+                            x = cx;
+                            z = cz;
+                        }
+                        if (clearance >= 0f && !onPath) break;
+                    }
+                    standing.Add(new ScatterSpacing.Footprint(x, z, halfWidth));
+
+                    return (x, z);
                 }
 
-                //Which kind of tree: the fractions are of the trees, taken in turn.
-                float kindRoll = (float)rng.NextDouble();
-                AcaciaKind kind = kindRoll < ac.DeadFraction ? AcaciaKind.Dead
-                    : kindRoll < ac.DeadFraction + ac.YoungFraction ? AcaciaKind.Young
-                    : kindRoll < ac.DeadFraction + ac.YoungFraction + ac.BrokenFraction ? AcaciaKind.Broken
-                    : AcaciaKind.Mature;
-
-                int first = kind switch { AcaciaKind.Mature => 0, AcaciaKind.Broken => MATURE, AcaciaKind.Young => MATURE + BROKEN, _ => MATURE + BROKEN + YOUNG };
-                int count = kind switch { AcaciaKind.Mature => MATURE, AcaciaKind.Broken => BROKEN, AcaciaKind.Young => YOUNG, _ => DEAD };
-                int variant = first + rng.Next(count);
-
-                float treeScale = 0.8f + 0.5f * rand;
-                float halfWidth = ac.Width * treeScale * (kind == AcaciaKind.Young ? 0.6f : 1f);
+                //--- The acacias and the bushes: #202's planting, with the trees split across their kinds.
+                for (int i = 0; i < ac.Count; i++)
                 {
-                    (float x, float z) = Place(halfWidth, ac.MinRadius, ac.MaxRadius, 0.82f, ac.ClusterSpread);
-                    //A dead tree is one shade of bleached wood; the living ones each lean their own way towards dry.
-                    float dryness = kind == AcaciaKind.Dead ? 0f : (float)rng.NextDouble();
-                    float lean = (kind == AcaciaKind.Broken ? 0.10f : 0.06f) * (float)rng.NextDouble();
-                    treeInstances[variant].Add(Plant(x, z, treeScale, lean, 0f, dryness, Jitter()));
+                    //Rolled BEFORE the position, because the position depends on how wide this plant is: a bush
+                    //needs a third of a tree's room and should not be pushed out as though it needed all of it.
+                    float rand = (float)rng.NextDouble();
+                    bool isBush = rng.NextDouble() < ac.BushFraction;
+
+                    if (isBush)
+                    {
+                        float sizeScale = 0.7f + 0.6f * rand;
+                        (float x, float z) = Place(ac.Width * 0.5f * sizeScale, ac.MinRadius, ac.MaxRadius, 0.82f, ac.ClusterSpread);
+                        bushInstances[rng.Next(BUSH)].Add(Plant(x, z, sizeScale, 0.06f * (float)rng.NextDouble(), 0f, (float)rng.NextDouble(), Jitter()));
+                        continue;
+                    }
+
+                    //Which kind of tree: the fractions are of the trees, taken in turn.
+                    float kindRoll = (float)rng.NextDouble();
+                    AcaciaKind kind = kindRoll < ac.DeadFraction ? AcaciaKind.Dead
+                        : kindRoll < ac.DeadFraction + ac.YoungFraction ? AcaciaKind.Young
+                        : kindRoll < ac.DeadFraction + ac.YoungFraction + ac.BrokenFraction ? AcaciaKind.Broken
+                        : AcaciaKind.Mature;
+
+                    int first = kind switch { AcaciaKind.Mature => 0, AcaciaKind.Broken => MATURE, AcaciaKind.Young => MATURE + BROKEN, _ => MATURE + BROKEN + YOUNG };
+                    int count = kind switch { AcaciaKind.Mature => MATURE, AcaciaKind.Broken => BROKEN, AcaciaKind.Young => YOUNG, _ => DEAD };
+                    int variant = first + rng.Next(count);
+
+                    float treeScale = 0.8f + 0.5f * rand;
+                    float halfWidth = ac.Width * treeScale * (kind == AcaciaKind.Young ? 0.6f : 1f);
+                    {
+                        (float x, float z) = Place(halfWidth, ac.MinRadius, ac.MaxRadius, 0.82f, ac.ClusterSpread);
+                        //A dead tree is one shade of bleached wood; the living ones each lean their own way towards dry.
+                        float dryness = kind == AcaciaKind.Dead ? 0f : (float)rng.NextDouble();
+                        float lean = (kind == AcaciaKind.Broken ? 0.10f : 0.06f) * (float)rng.NextDouble();
+                        treeInstances[variant].Add(Plant(x, z, treeScale, lean, 0f, dryness, Jitter()));
+                    }
                 }
-            }
 
-            //--- The scrub: thickets round the groves (a tighter spread than the trees') and the odd one alone.
-            for (int i = 0; i < dr.ScrubCount; i++)
-            {
-                float s = 0.7f + 0.6f * (float)rng.NextDouble();
-                (float x, float z) = Place(dr.ScrubSize * s, ac.MinRadius, ac.MaxRadius, 0.7f, ac.ClusterSpread * 0.8f);
-                scrubInstances[rng.Next(SCRUB)].Add(Plant(x, z, s, 0.08f * (float)rng.NextDouble(), 0f, (float)rng.NextDouble(), Jitter()));
-            }
+                //--- The scrub: thickets round the groves (a tighter spread than the trees') and the odd one alone.
+                for (int i = 0; i < dr.ScrubCount; i++)
+                {
+                    float s = 0.7f + 0.6f * (float)rng.NextDouble();
+                    (float x, float z) = Place(dr.ScrubSize * s, ac.MinRadius, ac.MaxRadius, 0.7f, ac.ClusterSpread * 0.8f);
+                    scrubInstances[rng.Next(SCRUB)].Add(Plant(x, z, s, 0.08f * (float)rng.NextDouble(), 0f, (float)rng.NextDouble(), Jitter()));
+                }
 
-            //--- The termite mounds: alone in the open, never in a grove, sunk a little into the earth they are made of.
-            for (int i = 0; i < dr.MoundCount; i++)
-            {
-                float s = 0.7f + 0.6f * (float)rng.NextDouble();
-                (float x, float z) = Place(dr.MoundHeight * 0.4f * s, ac.MinRadius + 20f, ac.MaxRadius, 0f, 0f);
-                moundInstances[rng.Next(MOUND)].Add(Plant(x, z, s, 0.05f * (float)rng.NextDouble(), 0.15f * s, 0.3f * (float)rng.NextDouble(), Jitter()));
-            }
+                //--- The termite mounds: alone in the open, never in a grove, sunk a little into the earth they are made of.
+                for (int i = 0; i < dr.MoundCount; i++)
+                {
+                    float s = 0.7f + 0.6f * (float)rng.NextDouble();
+                    (float x, float z) = Place(dr.MoundHeight * 0.4f * s, ac.MinRadius + 20f, ac.MaxRadius, 0f, 0f);
+                    moundInstances[rng.Next(MOUND)].Add(Plant(x, z, s, 0.05f * (float)rng.NextDouble(), 0.15f * s, 0.3f * (float)rng.NextDouble(), Jitter()));
+                }
 
-            //--- The kopjes: a pile of boulders each, the biggest at the middle and set into the ground, the
-            //rest round it and one or two up on the big one - a heap, which is what a kopje is.
-            for (int k = 0; k < dr.KopjeCount; k++)
-            {
-                int rockCount = dr.KopjeRocksMin + rng.Next(Math.Max(1, dr.KopjeRocksMax - dr.KopjeRocksMin + 1));
-                float pileRadius = dr.KopjeRockSize * 2.2f;
-                (float kx, float kz) = Place(pileRadius, ac.MinRadius + 40f, ac.MaxRadius, 0f, 0f);
-                float ground = terrainHeight(kx, kz);
-                float baseHeight = 0f;
-                for (int r = 0; r < rockCount; r++)
+                //--- The kopjes: a pile of boulders each, the biggest at the middle and set into the ground, the
+                //rest round it and one or two up on the big one - a heap, which is what a kopje is.
+                for (int k = 0; k < dr.KopjeCount; k++)
+                {
+                    int rockCount = dr.KopjeRocksMin + rng.Next(Math.Max(1, dr.KopjeRocksMax - dr.KopjeRocksMin + 1));
+                    float pileRadius = dr.KopjeRockSize * 2.2f;
+                    (float kx, float kz) = Place(pileRadius, ac.MinRadius + 40f, ac.MaxRadius, 0f, 0f);
+                    float ground = terrainHeight(kx, kz);
+                    float baseHeight = 0f;
+                    for (int r = 0; r < rockCount; r++)
+                    {
+                        int variant = rng.Next(ROCK);
+                        float s, x, z, y, tilt;
+                        if (r == 0)
+                        {
+                            s = 0.9f + 0.2f * (float)rng.NextDouble();
+                            x = kx; z = kz;
+                            baseHeight = rocks[variant].BoundingSphere.Radius * 0.9f * s;
+                            y = ground - baseHeight * 0.3f;
+                            tilt = 0.05f + 0.1f * (float)rng.NextDouble();
+                        }
+                        else if (r < 3)
+                        {
+                            //Up on the base rock, smaller, tipped over its shoulder.
+                            s = 0.45f + 0.25f * (float)rng.NextDouble();
+                            float a = (float)rng.NextDouble() * MathHelper.TwoPi;
+                            float d = dr.KopjeRockSize * (0.3f + 0.4f * (float)rng.NextDouble());
+                            x = kx + MathF.Cos(a) * d; z = kz + MathF.Sin(a) * d;
+                            y = ground + baseHeight * 0.55f;
+                            tilt = 0.15f + 0.3f * (float)rng.NextDouble();
+                        }
+                        else
+                        {
+                            //Round the foot, half-buried.
+                            s = 0.4f + 0.4f * (float)rng.NextDouble();
+                            float a = (float)rng.NextDouble() * MathHelper.TwoPi;
+                            float d = dr.KopjeRockSize * (1.0f + 0.6f * (float)rng.NextDouble());
+                            x = kx + MathF.Cos(a) * d; z = kz + MathF.Sin(a) * d;
+                            y = terrainHeight(x, z) - dr.KopjeRockSize * s * 0.25f;
+                            tilt = 0.1f + 0.25f * (float)rng.NextDouble();
+                        }
+                        float yaw = (float)rng.NextDouble() * MathHelper.TwoPi;
+                        float tiltDir = (float)rng.NextDouble() * MathHelper.TwoPi;
+                        Matrix world = Matrix.CreateScale(s)
+                            * Matrix.CreateFromAxisAngle(new Vector3(MathF.Cos(tiltDir), 0f, MathF.Sin(tiltDir)), tilt)
+                            * Matrix.CreateRotationY(yaw)
+                            * Matrix.CreateTranslation(x, y, z);
+                        rockInstances[variant].Add(new ModelInstance(world, new Vector4(0.4f * (float)rng.NextDouble(), Jitter(), 0f, 0f)));
+                    }
+                }
+
+                //--- The baobabs: alone in the open like the mounds, never in a grove, and big - the footprint is
+                //the crown's reach, so nothing else stands under one.
+                for (int i = 0; i < dr.BaobabCount; i++)
+                {
+                    int variant = rng.Next(BAOBAB);
+                    float s = 0.85f + 0.3f * (float)rng.NextDouble();
+                    (float x, float z) = Place(dr.BaobabHeight * 0.45f * s, ac.MinRadius + 30f, ac.MaxRadius, 0f, 0f);
+                    baobabInstances[variant].Add(Plant(x, z, s, 0.03f * (float)rng.NextDouble(), 0f, (float)rng.NextDouble(), Jitter()));
+                }
+
+                //--- The doum palms: in clumps of two or three, the way they grow, each clump placed as a whole
+                //and its palms kept out of each other inside it.
+                for (int i = 0; i < dr.DoumPalmCount;)
+                {
+                    int clump = Math.Min(2 + rng.Next(2), dr.DoumPalmCount - i);
+                    (float cx, float cz) = Place(dr.DoumPalmHeight * 0.5f, ac.MinRadius + 10f, ac.MaxRadius, 0.5f, ac.ClusterSpread);
+                    for (int p = 0; p < clump; p++, i++)
+                    {
+                        float a = (float)rng.NextDouble() * MathHelper.TwoPi;
+                        float d = p == 0 ? 0f : dr.DoumPalmHeight * (0.25f + 0.25f * (float)rng.NextDouble());
+                        float s = 0.8f + 0.4f * (float)rng.NextDouble();
+                        doumInstances[rng.Next(DOUM)].Add(Plant(cx + MathF.Cos(a) * d, cz + MathF.Sin(a) * d, s, 0.08f * (float)rng.NextDouble(), 0f, (float)rng.NextDouble(), Jitter()));
+                    }
+                }
+
+                //--- The lone boulders: the kopjes' own meshes at a smaller size, each alone and half-buried.
+                for (int i = 0; i < dr.BoulderCount; i++)
                 {
                     int variant = rng.Next(ROCK);
-                    float s, x, z, y, tilt;
-                    if (r == 0)
-                    {
-                        s = 0.9f + 0.2f * (float)rng.NextDouble();
-                        x = kx; z = kz;
-                        baseHeight = rocks[variant].BoundingSphere.Radius * 0.9f * s;
-                        y = ground - baseHeight * 0.3f;
-                        tilt = 0.05f + 0.1f * (float)rng.NextDouble();
-                    }
-                    else if (r < 3)
-                    {
-                        //Up on the base rock, smaller, tipped over its shoulder.
-                        s = 0.45f + 0.25f * (float)rng.NextDouble();
-                        float a = (float)rng.NextDouble() * MathHelper.TwoPi;
-                        float d = dr.KopjeRockSize * (0.3f + 0.4f * (float)rng.NextDouble());
-                        x = kx + MathF.Cos(a) * d; z = kz + MathF.Sin(a) * d;
-                        y = ground + baseHeight * 0.55f;
-                        tilt = 0.15f + 0.3f * (float)rng.NextDouble();
-                    }
-                    else
-                    {
-                        //Round the foot, half-buried.
-                        s = 0.4f + 0.4f * (float)rng.NextDouble();
-                        float a = (float)rng.NextDouble() * MathHelper.TwoPi;
-                        float d = dr.KopjeRockSize * (1.0f + 0.6f * (float)rng.NextDouble());
-                        x = kx + MathF.Cos(a) * d; z = kz + MathF.Sin(a) * d;
-                        y = terrainHeight(x, z) - dr.KopjeRockSize * s * 0.25f;
-                        tilt = 0.1f + 0.25f * (float)rng.NextDouble();
-                    }
-                    float yaw = (float)rng.NextDouble() * MathHelper.TwoPi;
-                    float tiltDir = (float)rng.NextDouble() * MathHelper.TwoPi;
-                    Matrix world = Matrix.CreateScale(s)
-                        * Matrix.CreateFromAxisAngle(new Vector3(MathF.Cos(tiltDir), 0f, MathF.Sin(tiltDir)), tilt)
-                        * Matrix.CreateRotationY(yaw)
-                        * Matrix.CreateTranslation(x, y, z);
-                    rockInstances[variant].Add(new ModelInstance(world, new Vector4(0.4f * (float)rng.NextDouble(), Jitter(), 0f, 0f)));
+                    float s = dr.BoulderSize / dr.KopjeRockSize * (0.6f + 0.5f * (float)rng.NextDouble());
+                    float r = rocks[variant].BoundingSphere.Radius * s;
+                    (float x, float z) = Place(r, ac.MinRadius, ac.MaxRadius, 0.4f, ac.ClusterSpread);
+                    rockInstances[variant].Add(Plant(x, z, s, 0.1f + 0.2f * (float)rng.NextDouble(), r * 0.3f, 0.4f * (float)rng.NextDouble(), Jitter()));
                 }
-            }
 
-            //--- The baobabs: alone in the open like the mounds, never in a grove, and big - the footprint is
-            //the crown's reach, so nothing else stands under one.
-            for (int i = 0; i < dr.BaobabCount; i++)
-            {
-                int variant = rng.Next(BAOBAB);
-                float s = 0.85f + 0.3f * (float)rng.NextDouble();
-                (float x, float z) = Place(dr.BaobabHeight * 0.45f * s, ac.MinRadius + 30f, ac.MaxRadius, 0f, 0f);
-                baobabInstances[variant].Add(Plant(x, z, s, 0.03f * (float)rng.NextDouble(), 0f, (float)rng.NextDouble(), Jitter()));
-            }
-
-            //--- The doum palms: in clumps of two or three, the way they grow, each clump placed as a whole
-            //and its palms kept out of each other inside it.
-            for (int i = 0; i < dr.DoumPalmCount;)
-            {
-                int clump = Math.Min(2 + rng.Next(2), dr.DoumPalmCount - i);
-                (float cx, float cz) = Place(dr.DoumPalmHeight * 0.5f, ac.MinRadius + 10f, ac.MaxRadius, 0.5f, ac.ClusterSpread);
-                for (int p = 0; p < clump; p++, i++)
+                //--- The fallen trees: in the open and at the groves' edges alike, sunk a quarter of their thickness.
+                for (int i = 0; i < dr.LogCount; i++)
                 {
-                    float a = (float)rng.NextDouble() * MathHelper.TwoPi;
-                    float d = p == 0 ? 0f : dr.DoumPalmHeight * (0.25f + 0.25f * (float)rng.NextDouble());
                     float s = 0.8f + 0.4f * (float)rng.NextDouble();
-                    doumInstances[rng.Next(DOUM)].Add(Plant(cx + MathF.Cos(a) * d, cz + MathF.Sin(a) * d, s, 0.08f * (float)rng.NextDouble(), 0f, (float)rng.NextDouble(), Jitter()));
+                    (float x, float z) = Place(dr.LogLength * 0.5f * s, ac.MinRadius, ac.MaxRadius, 0.5f, ac.ClusterSpread);
+                    logInstances[rng.Next(LOG)].Add(Plant(x, z, s, 0.04f * (float)rng.NextDouble(), 0f, 0.5f * (float)rng.NextDouble(), Jitter()));
+                }
+
+                //--- The tufts: everywhere, nearest the island of anything, and cheap to lose (DetailOnly).
+                for (int i = 0; i < dr.TuftCount; i++)
+                {
+                    float s = 0.7f + 0.6f * (float)rng.NextDouble();
+                    (float x, float z) = Place(dr.TuftSize * s, dr.TuftMinRadius, dr.TuftMaxRadius, 0.3f, ac.ClusterSpread);
+                    tuftInstances[rng.Next(TUFT)].Add(Plant(x, z, s, 0.1f * (float)rng.NextDouble(), 0f, (float)rng.NextDouble(), Jitter()));
                 }
             }
 
-            //--- The lone boulders: the kopjes' own meshes at a smaller size, each alone and half-buried.
-            for (int i = 0; i < dr.BoulderCount; i++)
+            for (int sweep = 0; sweep < PLANTING_SWEEPS; sweep++)
             {
-                int variant = rng.Next(ROCK);
-                float s = dr.BoulderSize / dr.KopjeRockSize * (0.6f + 0.5f * (float)rng.NextDouble());
-                float r = rocks[variant].BoundingSphere.Radius * s;
-                (float x, float z) = Place(r, ac.MinRadius, ac.MaxRadius, 0.4f, ac.ClusterSpread);
-                rockInstances[variant].Add(Plant(x, z, s, 0.1f + 0.2f * (float)rng.NextDouble(), r * 0.3f, 0.4f * (float)rng.NextDouble(), Jitter()));
-            }
+                PlantThePlain(avoidTrails: sweep > 0);
 
-            //--- The fallen trees: in the open and at the groves' edges alike, sunk a quarter of their thickness.
-            for (int i = 0; i < dr.LogCount; i++)
-            {
-                float s = 0.8f + 0.4f * (float)rng.NextDouble();
-                (float x, float z) = Place(dr.LogLength * 0.5f * s, ac.MinRadius, ac.MaxRadius, 0.5f, ac.ClusterSpread);
-                logInstances[rng.Next(LOG)].Add(Plant(x, z, s, 0.04f * (float)rng.NextDouble(), 0f, 0.5f * (float)rng.NextDouble(), Jitter()));
-            }
-
-            //--- The tufts: everywhere, nearest the island of anything, and cheap to lose (DetailOnly).
-            for (int i = 0; i < dr.TuftCount; i++)
-            {
-                float s = 0.7f + 0.6f * (float)rng.NextDouble();
-                (float x, float z) = Place(dr.TuftSize * s, dr.TuftMinRadius, dr.TuftMaxRadius, 0.3f, ac.ClusterSpread);
-                tuftInstances[rng.Next(TUFT)].Add(Plant(x, z, s, 0.1f * (float)rng.NextDouble(), 0f, (float)rng.NextDouble(), Jitter()));
+                //What the next sweep's paths bend round: this sweep's finished plain, whole, rather than a
+                //list that grew as it went. A path is bent by the whole plain or it is bent by an accident
+                //of planting order, and the texture the shader samples is built from the whole plain too.
+                bendBy.Clear();
+                for (int i = 0; i < standing.Count; i++)
+                    if (standing[i].Radius >= config.TrailAvoidMinRadius) bendBy.Add(standing[i]);
             }
 
             //--- The treeline: its own band beyond the plain and its own occupancy - nothing out there meets
@@ -532,6 +684,11 @@ namespace Prazsky.Core.Render
             Add(buckets, device, treeline, treelineInstances, treelineColor, treelineColor * 1.6f, dapple: 0.4f, bark: 0f, detailOnly: false);
 
             Buckets = buckets.ToArray();
+        }
+
+        private static void Clear(List<ModelInstance>[] lists)
+        {
+            for (int i = 0; i < lists.Length; i++) lists[i].Clear();
         }
 
         private static List<ModelInstance>[] Lists(int count)

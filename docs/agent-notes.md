@@ -4679,3 +4679,99 @@ Ani jedna z našich dvou cest zachycení ho nevidí: `shot=` ukládá back buffe
 
 Dosavadní pravidlo „syntetický vstup se do `BS3D.exe` nikdy nedostane" je **o `AppActivate`, ne o MonoGame**. Z PowerShellu, který zavolal `user32!SetForegroundWindow(hwnd)` přímo a předtím přesunul fyzický ukazatel do okna `SetCursorPos`em, **obyčejný `keybd_event` s F11 přepnul BS3D do fullscreenu a zase zpět** (rect změřen 1616×939 → 3840×1600 → 1616×939) a **Escape otevřel pauzu**. Recept: `Start-Process -PassThru`, počkat na `MainWindowHandle`, `SetForegroundWindow`, `SetCursorPos` do klientské plochy, pak `keybd_event`. Testovací argument je pořád lepší (opakovatelný, nepotřebuje popredí), ale **cesta řízená vstupem už není neověřitelná**.
 
+---
+
+**#402 — půlka hotová, commit `a08f990`, a nález je cennější než ta funkce.** Letící střela se teď kreslí protažená podél vlastní rychlosti: world-space outer product `I + k n nᵀ` přinásobený na otočení koule, **žádný nový pass, žádná druhá kresba**, devět násobení na hrstku koulí za snímek.
+
+- ⚠ **World space, a tedy AŽ ZA otočením — proto outer product a ne scale matice.** Koule se za letu točí, a scale složený do jejího lokálního rámu by smyk otáčel se vzorem místo aby ho držel podél dráhy.
+- **Nabízí se jen střele v letu, a to je pravidlo, ne úspora.** Uvolněná koule padá stejně rychle a smazat se **nesmí**: její pád je odměna, na kterou se hráč dívá, a déšť protažených elipsoidů čte jako propadlý framerate.
+- ⚠ **Nález: z herní kamery letí střela OD diváka**, takže se protažení promítne skoro na nic — přesně tam, odkud výtka přišla. Je to správné chování (skutečný per-pixel blur by byl na vektoru podél pohledu stejně malý), ale znamená to, že protažení podle rychlosti **není odpověď na „letící koule nemá blur" zezadu za dělem**. Čte se tam, kde střela pohled **kříží**: dropová kinematika, orbit výsledkové stránky, kamera mimo palebnou osu — vyfoceno v Testbedu z boku.
+- **Čitelná půlka #402 je tedy TRAVERZ DĚLA**, jehož švih jde napříč obrazem, ne podél pohledu — týž `StretchAlong` namířený na world matici děla a hnaný rychlostí traverzu. **Nechal jsem to neudělané místo odhadnuté:** issue samo si žádá návrhovou rozvahu a hlaveň je dlouhé tuhé těleso, kde tuhé protažení může číst jako vada. #402 zůstává na té půlce otevřené.
+- ⚠ **Kolik mě stálo ověření:** pět běhů. `campos` v Testbedu **přebije game mode (F10)**, takže boční stanoviště a herní kamera nejdou dohromady; a střela je většinu letu mimo záběr, když kamera míří na cluster. Příště: nejdřív si rozmyslet, KUDY subjekt v projekci jde, a teprve pak stavět.
+
+**Uzávěrka relace (notebook, github-59).** Došel limit; #434 jsem si vzal a **zase pustil, než na něm bylo cokoli napsáno** — v issue je napsáno proč a co jsem o něm stihl zjistit, aby to nepropadlo. Pracovní strom čistý, nic nerozdělaného, žádná moje větev na originu.
+
+**Zavřeno v téhle relaci:** #450, #461, #452, #421, #437, #419, #418, #417, #431, #414, #427 a #402 (půlka). Plus oprava vlastních publikovaných čísel u #461 a měřicí uzávěrka #395.
+
+**Tři věci, které přežijí tuhle relaci líp než ten kód:**
+
+1. ⚠ **Šestkrát dnes jsem sáhl po issue, které bylo hotové** (#431, #395, #463 a další). Návyk, který z toho plyne a který si zapisuji natvrdo: **před převzetím číst KOMENTÁŘE issue, ne jen tělo**, a `grep -rn "#<číslo>" --include=*.cs`. Nulový počet komentářů je nejlepší signál, že tam ještě nikdo nebyl.
+2. ⚠ **Rozbil jsem main** řetězem `resolve_journal.py || git add -A && git commit`, protože ten skript zná jen žurnál a `-A` zacommitovalo `BS3DGame.cs` se značkami konfliktu. **Build jsem přitom spustil a chybu viděl — ale v témže řetězu, kde za ním byl push.** Od té doby gates běží jako samostatný krok PŘED pushem.
+3. **Nejlepší výsledky dneška nejsou funkce, ale nálezy:** že počet barev na kotvicím kurzu je dno počtu ran (#417), že sonda měří přežití a ne vyčištění (#414), že protažení podle rychlosti je z herní kamery geometricky neviditelné (#402), a že Myra label s null fontem tiše nenakreslí nic (#427). Všechny čtyři vyšly z toho, že jsem něco postavil a pak to **změřil nebo vyfotil**, místo abych se spokojil s tím, že to staví.
+
+**Co zůstává majiteli:** loga do About (#463, čeká na jeho grafiku), okluze náboje v ústí (#395, vkusové rozhodnutí), `Sill` s rezervou 5 a jediný level, který se dostal pod čáru (#414), traverz děla pro motion blur (#402) a jiskry + zvuk u prohry (#434).
+
+---
+
+**bs3d-f0, končím sezíí (majitel: doše limit).** `471-city-shadows` je **přerovnána na aktuální `main`** (merge `b576ffe`, pushnuto, konflikt v `Testbed.cs` byl jen dvě přídání do téhož bloku polí — obojí ponìháno; všechna čtyři řešení stavějí). **Nemerguju** — pořád chybí snímek stínu věže na věži a měření.
+
+- **Potvrzeno, že problém s rámováním je geometrický, ne smůla.** Herní kamera stojí ~60 jednotek od ostrova, blok města měří 25 a ulice 7,5 — objektiv je tedy dva až tři bloky hluboko v kaňonu. Snímek z `campos=0,6,60 camtarget=0,-8,0 scene=city sky=8` má fasádu v levé třetině a fasádu v pravé, obě ploché: jedna tmavá, druhá osvícená. **To je `dot(N, Sun)` a nic jiného — v záběru není žádný vržený stín, na kterým by se to dalo posoudit.** Herní kamera na tu otázku nemůže odpovědět; chce to nízké slunce a pohled podél něj, nebo vantage nad střechami.
+- ⚠ **Mezera v nástroji, a je to to první, co bych opravil:** **stínovou mapu nejde A/B-ovat v jednom procesu.** Alternovatelné dialy `alt=` jsou `arena`, `capprobe`, `scene`, `sky`, `balls`, `ssaa`, `msaa`, `rscale`, `detail`, `exposure`, `nopost` — **`shadow` mezi nimi není**. Každé měření stínu v #469, #470 i #471 tedy muselo být worktree, druhý build a dva procesy, což je přesně sestava, která vyrobí dvojici snímků lišících se víc než měřenou věcí (#476 na tom přišel o kolo). Chce to `shadow=<0|1>` → `SceneRenderer.ShadowScale` násobící `ShadowConfig.Strength`, kde 0 znamená totéž co `Strength` 0 dnes: žádný target, žádný caster pass, nula každému receiveru. Pak `alt=shadow=0;shadow=1` dá párová okna na jedné kameře, jednom seedu a v jednom procesu. `detail=0` náhrada není — mapu přeskočí, ale změní s ní další průchody, takže měří směs. **Nestavěl jsem to** — nový dial patří před měření, ne za něj.
+- **Nic není rozhodnuto.** Tři varianty z majitelova přerámování platí dál (nechat mapu a zahodit receiver ulic / nechat obojí / zahodit městskou mapu). Vše zapsáno do komentáře na #471.
+- **`bridge` bere #434** (dramatická prohra), **`game-0c` #464**, **`bs3d-867`** druhou půlku #476 — nic z toho není moje.
+
+
+---
+
+**game-0c (Sonnet): #464 ČÁSTEČNĚ, merge `770d02d` (commit `60b7012`), issue ZŮSTÁVÁ OTEVŘENÁ — limit relace došel.** Infrastruktura pro streamované přehrávání About stránky: `Limit` rozdělen na `ComputeDrive`/`ApplyDrive` (druhá čistě po vzorku, takže aplikace po kouscích dá bajtově identický výsledek jako najednou), `RenderProgress` (lock-free publisher), pět z šesti skladeb publikuje postup po taktu, `LIMITER_DRIVE` naměřeno a `Tools/MusicBake` to teď kontroluje (assert, exit 3 při rozjetí). Menu záměrně NEstreamováno (jeho ocas se skládá zpátky na začátek na konci renderu, takže začátek není hotový dřív). **Vlastní přehrávání (ProceduralJukebox na DynamicSoundEffectInstance, vizualizér čtoucí rostoucí buffer) NENAPSÁNO** — to je přesně ta část, kterou nejde ověřit beze zvuku, a nechtěl jsem ji dodělávat na poslední chvíli. Napsáno do issue, ne zavřeno.
+
+**Bilance celé relace (game-0c, Sonnet):** #475 (splash blend), #456 (hudební fade), #463 (About kredity) hotové a smergnuté; #457 správně stažené (kolize s bs3d-f0, zadání neobstálo měření); #377 zavřené bez psaní kódu (už hotové vedlejším produktem #189); #464 částečně (infrastruktura hotová, přehrávání ne). Jedna vlastní chyba: journal commit omylem na `448-frame-pacing` místo `main` — opraveno plumbingem, branch nedotčen, nahlášeno bs3d-f0.
+
+**Nic dalšího si neberu — limit.**
+
+---
+
+## 2026-09-19 — Claude Code, bs3d-f0 (dial `shadow=`, merge `4f9c5af`)
+
+**Majitel dal ještě kus limitu, tak jsem postavil to, co jsem o hodinu dřív označil za chybějící nástroj.** Sluneční stínovou mapu jde teď **svépomocí přehodit v jednom procesu**.
+
+- `SceneRenderer.ShadowScale` násobí `ShadowConfig.Strength` scény, která je zrovna nahoru. ⚠ **0 znamená přesně totéž co `Strength` 0** — žádný target, žádný caster pass, nula každému receiveru. **Jedna cesta kódem pro „žádné stíny", ne dvě, co se mohou rozejít.**
+- Testbed to pinuje `shadow=<0..1>` a hlavně **alternuje**: `alt=shadow=0;shadow=1` dá párová `[fps]` okna na jedné kameře, jednom seedu a jednom buildu. `detail=0` náhrada není — mapu přeskočí, ale s ní přepne několik scén na redukovaný program, takže pár přes něj měří směs.
+- **Ověřeno dvakrát.** Okem: savana, dome 5, táž kamera i seed — `shadow=0` nemá stíny stromů, stín ostrova na trávě ani stín děla na kamenu; `shadow=1` má všechny tři. Hodinami, **poprvé z jednoho buildu**: 1600×900 ssaa 4, `nopost nooverc nocap`, `campos=0,6,60 camtarget=0,-8,0`, čtyři rozehřívací okna zahozena — **8,89 ms při `shadow=0` proti 9,07 při `shadow=1`, +0,18 ms**. #471 dalo worktreem +0,19 (les), +0,20 (pláž) a +0,19 (louka), takže jednoprocesové čtení padlo přesně na ně — to je ta křížová kontrola, která říká, že dial měří totéž co starý rig.
+- ⚠ **Past nalezená při práci, zapsána do `docs/testbed.md`: alternuj kvůli číslům, pouštěj naplocho kvůli obrázkům.** `shot=` proti alternovanému běhu je přesně ten sampler trap, před kterým tenhle repozitář varuje všude jinde — **oba naplánované snímky padly do `shadow=1` oken** a „pár" byly dva stejné obrázky.
+- Overlay tiskne `shadow <x>` **jen když není 1**. Hra `ShadowScale` nikde nepíše a **není to kvalitní tier** — tier má na stíny `SceneDetail`.
+
+⚠ **A ještě jedna poučka o sobě:** gaty jsem nejdřív pustil jako `dotnet run --project … -v q --nologo` a **`--nologo` došlo do ScoreSimu jako argument — hledal `--nologo\Levels.json` a spadl s exit 127.** Čteno bez přemýšlení by to bylo buď „gate padá, můj kód je špatně", nebo — hůře — falešný „LevelGen exit 0" u nástroje, který stejný argument jen ignoroval. **Gaty se pouštějí bez přepínačů `dotnet build`u.** Oba pak projdou (0 a 0).
+
+**Co to odblokuje:** městská půlka #471 (`471-city-shadows`, přerovnaná na `b576ffe`) jde teď změřit jedním během, a otázka „stojí receiver ulic za to?" je týž sweep s registrací `CityStreets.fx` a bez ní. Rámování zůstává samostatný problém.
+
+---
+
+## 2026-09-19/20 — Claude Code (šestá dávka volných poznámek, deset issues)
+
+**Majitel poslal deset volných postřehů z hraní, s výslovným „založ na základě nich issues" — založeno 1:1, žádné svinuté do komentáře.** Napřed anti-duplicate legwork: `gh issue list --search` po klíčových slovech + `Tools/SemanticSearch --file` na celou dávku (žádný silný zásah, nejbližší 0,789) + přečtení dnešního ocasu deníku. Osm z deseti navazuje na issue zavřenou nebo otevřenou dnes/nedávno — dostaly i odkazující komentář tam, ne jen nové issue.
+
+- **#477** — mouse v ADS je po #384 subjektivně POMALEJŠÍ, ne rychlejší. #384 samo je matematicky v pořádku (tangent ratio ~0,828 proti FOV), ale majitel chce ADS rychlejší, ne geometricky „správné". Komentář na #384.
+- **#478** — barva náboje v ústí (#425's lathovaný límec, `main` `67efa2e`) majiteli nesedí barvou a je moc velká/neprůhledná. ⚠ Dva different mechanismy dnes existovaly (starý `BallGlow` billboard vs. nový límec) — nejasné, proti kterému majitel hrál. Komentář na #425.
+- **#479** — CLEARED obrazovka (`ResultPage.BuildBreakdown`) čte jako daňový formulář, ne jako hra. Nová issue, žádný předchůdce.
+- **#480** — periodické „glance up" na ohňostroj (#430, `GLANCE_RISE/HOLD/HEIGHT`) je dobrý nápad, ale moc rychlý/silný — motion sickness. Komentář na #430.
+- **#481** — ohně (#468, dnes zavřené) jsou pořád ploché billboardy z boku. #468's vlastní prostřední komentář to už pojmenoval („left open for that") a issue se zavřela stejně. Komentář na #468.
+- **#482** — generovat a REÁLNĚ NASADIT zvukové efekty (fanfáry, ohňostroj, kuličky) AI modelem, ne jen referenci jako #442. Je to zvukový ekvivalent toho, co #443 udělalo hudbě (a tím implicitně řeší #442's vlastní otázku o #187). Komentář na #442.
+- **#483** — pouštní kapitola (The Coil) potvrzena hraním jako dobrý vzor (zvuk/vizuál/obtížnost) — čistě pozitivní poznámka, založena i tak na majitelův výslovný pokyn. Bez předchůdce, kříženo na #446/#449/#398/#451.
+- **#484** — stíny na High jsou „kostičkované" + otázka, jestli založit tier „Ultra" nad High's 75Hz/6900XT cíl. Rozlišeno na dvě otázky (doladit MapSize/Extent vs. nový tier). Komentář na #471.
+- **#485** — poklice omni kola (#129) jsou jen plochý kotouč — #129's vlastní návrh to přiznává (hub byl záměrně jednoduchý, důraz byl na válečky). Komentář na #129.
+- **#486** — rozšířit desert's `ember`+5 vzor (#446's tabulka) na každou kapitolu, cíl ~10 skladeb na kapitolu. Komentář na #446, který pojmenovává i mechanickou překážku (`MusicTheme` enum lookup).
+
+**Nic si neberu — jen triage, žádný kód.**
+
+
+---
+
+## 2026-09-20 — Claude Code, bs3d-867 (notebook C:\Projects\BS3D: druhá půlka #476 na mainu, issue zavřená)
+
+**#476 hotové celé, merge `daa9514` (commit `3c5f9e2`), issue zavřená.** Sázení teď odmítne místo, pod kterým je vyšlapaná zem. `SavannaTrails` je CPU zrcadlo členu, který `Savanna.fx` kreslí — týž šum, totéž nulové pásmo a **týž warp**, což je ta část, která rozhodla o tvaru celého řešení; bez dvou činitelů, které patří shaderu a ne zemi (`TrailStrength` = jak *sytě* se cesta kreslí, a band-limiting fade = funkce velikosti pixelu). `ShaderMath` drží jedinou C# kopii `CloudNoise` z `Clouds.fxh`, kterou teď čte i `CloudField` — druhý opis hashe by byl druhá šance rozejít se se shaderem.
+
+- **Testuje se KMEN, ne koruna** — v jediném bodě, kde věc stojí, schválně ne přes footprint od rozestupů, který je dosah koruny. Cesta vedoucí *pod* korunou je přesně to, co cesta dělá; nesmysl je kmen ve vyšlapané hlíně. A platí to na **všechno sázené, trsy trávy včetně**: trs je moc malý, aby ho cesta obcházela, a zároveň je to přesně to, z čeho je cesta vyšlapaná.
+- ⚠ **Obě půlky na sobě závisí, takže se pláň osází TŘIKRÁT.** Cesta se ohýbá podle toho, co na pláni stojí, takže „je tohle místo na cestě?" nejde zodpovědět, dokud pláň není osázená — a odpověď rostlinami hýbe. Ohýbat cesty podle toho, co zrovna stálo (ten samozřejmý způsob: jeden průchod, seznam roste za pochodu), spravilo **přízemní porost**, který jde do země poslední, a s **STROMY** neudělalo skoro nic — jdou první, kdy není co obcházet: 23 → 12, 22 → 20, 14 → 15. A stromy jsou to, o čem je majitelův report. První průchod tedy zjistí, kudy stezky povedou, další sázejí mimo ně; drží se poslední.
+- ⚠ **Každé místo si háže VLASTNÍ kostkou.** Na sdíleném proudu jeden návrh navíc přeháže každou rostlinu za sebou, takže každý průchod je nová savana testovaná proti stezkám pláně, která už neexistuje — nekonverguje nic. Vedlejší dar: před/po snímky jsou čitelné, protože se liší jen rostliny, které se opravdu pohnuly.
+- ⚠ **Cesta musela být PRVNÍ klíč řazení, ne penalizace přičtená k rozestupu.** Naceněná prohrávala s místem na loket pokaždé: strom s dvaceti jednotkami prostoru *na* stezce porazil ten, co musel proplést korunu vedle souseda. **16–19 rostlin na seed se takhle vrátilo na cesty**, proti 19–25 celkem stojícím na nich na konci. A ani v jednom případě nebylo všech osm návrhů na stezce — vždycky bylo kam jinam.
+- **Změřeno, šest scene seedů, rostliny stojící na cestě** (stromy apod. + přízemní porost, z asi 230 + 255): **19+14, 19+15, 19+17, 12+15, 16+13, 17+9 → 1+0, 5+1, 3+2, 1+0, 0+0, 4+0.**
+- ⚠ **Nekonverguje to k nule a nemá.** Každý průchod pár rostlin posune, a posunutá rostlina posune cesty kolem sebe — takže průchod zároveň uklízí i tvoří. Za třetím se to vyrovná (4 a 5 obkročmo kolem 3, ne lepší). Zbývá hrstka kmenů na *okraji* stezky.
+- **Nevyměnilo to vadu #108 za tuhle**, což je ta kontrola, na které záleželo: dvojic stojících v sobě je na hotové pláni **stejně** (3, 0 a 1 u tří seedů, které vůbec nějaké mají; nejhorší marže −2,1 / 0,0 / −0,8 před i po). Při téhle hustotě rostlina odmítnutá z cesty dopadne na volnou zem, ne do souseda.
+- **Cena:** aritmetika sázení třikrát — **10 ms jeden průchod, 18 dva, 24 tři** na tomhle notebooku (Vega 10 APU), při načtení scény a při re-plantu v editoru, který v téže vteřině staví dvacet pět meshů. **Per-frame nic**: shader se neměnil a texturu, kterou vzorkuje, měl už předtím.
+- **Metodika, kdyby to někdo měřil znovu:** dočasná sonda přímo v `SavannaScatter` (počet rostlin nad `TRAIL_REFUSE` proti finálnímu poli, podíl vyšlapané země, dvojice v sobě, čas), řízená přes env proměnné, a Testbed s `scene=savanna sceneseed=N at=3.5:Escape`. Před commitem **kompletně odstraněná** — `git grep` na `TEMP PROBE` i `BS3D_TRAIL` je prázdný. Před/po dvojice snímků z `campos=150,110,-150 camtarget=110,-12,-90` s `nopost nooverc arena=none`.
+- **Ověřeno po mergi na aktuálním mainu** (mezitím tam přistály #350, #402, `shadow=` a hudební půlka #464 — disjunktní, merge bez konfliktu): všechna čtyři řešení 0 chyb, LevelGen exit 0, ScoreSim exit 0, savana vyfocená ze sloučeného buildu.
+
+⚠ **Poznámka k pořadí práce, protože mě to stálo dvě kola:** obojí, co je výš označené ⚠, vypadalo při čtení kódu jako detail a bylo to jádro. Kdybych po prvním měření („velké rostliny se skoro nezlepšily") napsal do issue „hotovo, zlepšeno o polovinu", bylo by to pravda o číslech a lež o zadání — zlepšila se tráva, ne stromy, a report je o stromech. **Rozpad čísla podle toho, co majitel skutečně vidí, je ta věc, kterou se to chytlo.**
+
+**Nic dalšího si neberu.**

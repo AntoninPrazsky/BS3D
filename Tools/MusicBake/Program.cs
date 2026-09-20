@@ -36,6 +36,16 @@ namespace BS3D.Tools.MusicBake
         private const int SAMPLE_RATE = 44100;
 
         /// <summary>
+        /// How far <see cref="ProceduralMusic.LIMITER_DRIVE"/>'s stored figure may sit from a fresh measurement
+        /// before this tool calls it stale (#464). Not zero: two runs of the SAME deterministic render (#229)
+        /// should in principle agree exactly, but the summed-square RMS in <c>ComputeDrive</c> is a double
+        /// accumulated over several million adds in a different order than whatever produced the stored
+        /// figure's own run, so float/double rounding alone earns a hair of slack. A real drift from an edited
+        /// composition is orders of magnitude past this.
+        /// </summary>
+        private const float DRIVE_TOLERANCE = 0.0001f;
+
+        /// <summary>
         /// Where a generated theme is brought to, as combined L+R RMS in dBFS: what the five procedural themes
         /// measure through this tool (−14.9 to −15.2). The game's mix — music under the effects, the fanfare over
         /// the music — was tuned against that level, so a track arriving at it changes nothing about the balance.
@@ -147,6 +157,8 @@ namespace BS3D.Tools.MusicBake
 
             Console.WriteLine("piece            secs  bake  entry   peak    rms   bal  mono | <100 100-200 200-500  500-2k   2k-6k    6k+ |  head   tail");
 
+            bool driveOk = true;
+
             foreach (string name in names)
             {
                 bool menu = Is(name, "Menu");
@@ -154,8 +166,8 @@ namespace BS3D.Tools.MusicBake
                 Stopwatch clock = Stopwatch.StartNew();
 
                 float[] mix = menu
-                    ? ProceduralMusic.RenderMenu()
-                    : ProceduralMusic.Render(Enum.Parse<MusicTheme>(name));
+                    ? ProceduralMusic.RenderMenu(out float drive)
+                    : ProceduralMusic.Render(Enum.Parse<MusicTheme>(name), out drive);
 
                 clock.Stop();
 
@@ -167,7 +179,29 @@ namespace BS3D.Tools.MusicBake
 
                 Report(name, mix, SAMPLE_RATE, clock.Elapsed.TotalMilliseconds, entry);
 
+                //#464: a streamed render cannot compute this live, so it plays back a stored figure instead —
+                //here is where that figure gets checked. Menu is baked too, at the table's last slot, for the
+                //day someone streams it, even though nothing reads it yet (see BakeMenu's own remarks on why
+                //not) — checked all the same, since a stored figure nobody checks is worse than none.
+                {
+                    int index = menu ? ProceduralMusic.LIMITER_DRIVE.Length - 1 : (int)Enum.Parse<MusicTheme>(name);
+                    float stored = ProceduralMusic.LIMITER_DRIVE[index];
+                    float driveError = MathF.Abs(drive - stored) / MathF.Max(drive, 1e-6f);
+
+                    if (driveError > DRIVE_TOLERANCE)
+                    {
+                        Console.WriteLine($"  ⚠ drive: measured {drive:F6}, LIMITER_DRIVE[{index}] stores {stored:F6} ({driveError * 100:F2}% off) — re-bake it");
+                        driveOk = false;
+                    }
+                }
+
                 if (write) WriteWav(Path.Combine(outDir, $"{name.ToLowerInvariant()}.wav"), mix, SAMPLE_RATE);
+            }
+
+            if (!driveOk)
+            {
+                Console.WriteLine("\nLIMITER_DRIVE is stale against at least one piece above — a streamed render of it would use the wrong gain.");
+                return 3;
             }
 
             if (write) Console.WriteLine($"\nWritten to {Path.GetFullPath(outDir)}");

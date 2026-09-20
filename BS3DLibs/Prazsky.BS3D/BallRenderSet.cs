@@ -2831,12 +2831,28 @@ namespace Prazsky.BS3D
         public void AddOriented(BallType type, Vector3 position, in Quaternion orientation, Vector4 occlusion,
             float ripple = 0f, BallKind kind = BallKind.Normal, float colourFade = 0f, float deadWeight = 0f,
             float thawFade = 0f, float infectFade = 0f, bool still = false, float lockFade = 0f,
-            BallType lockFrom = default)
+            BallType lockFrom = default, Vector3 stretch = default)
         {
             int typeIndex = (int)type - 1;
             if (typeIndex < 0 || typeIndex >= BallRenderSet.TYPE_COUNT) return;
 
             Matrix world = Matrix.CreateFromQuaternion(orientation);
+
+            //MOTION STRETCH (#402): the ball is drawn longer along the way it is going. `stretch` is that
+            //direction scaled by how much longer - zero, which is every ball that is not a shot in flight,
+            //costs one length test and nothing else.
+            //
+            //⚠ It is applied in WORLD space and therefore AFTER the ball's own turn, which is what makes it
+            //an outer product rather than a scale matrix: a ball spins as it flies, and a scale composed into
+            //its local frame would swing the smear round with the pattern instead of holding it along the
+            //trajectory. S = I + k*n*n^T stretches by (1 + k) along n and leaves every direction across it
+            //alone, and world3x3 = S * R is nine multiply-adds on a handful of balls a frame.
+            float extra = stretch.Length();
+            if (extra > 0f)
+            {
+                Vector3 n = stretch / extra;
+                StretchAlong(ref world, n, extra);
+            }
 
             world.M41 = position.X;
             world.M42 = position.Y;
@@ -2845,6 +2861,25 @@ namespace Prazsky.BS3D
             Route(kind, typeIndex, _set.LodFor(Vector3.DistanceSquared(position, _eye)),
                 new ModelInstance(world, occlusion, 0f, ripple), still, colourFade, deadWeight, thawFade,
                 infectFade, lockFade, (int)lockFrom - 1);
+        }
+
+        /// <summary>
+        /// Post-multiplies <paramref name="world"/>'s rotation by the world-space stretch <c>I + k n n^T</c> —
+        /// longer by <c>1 + k</c> along <paramref name="n"/>, untouched across it. Written out rather than
+        /// built as a <see cref="Matrix"/> and multiplied, because this is a per-ball path and the general
+        /// multiply is 27 products where this is 9 (BestPractices.md's own rule about the translation, one
+        /// step further along the same loop).
+        /// </summary>
+        private static void StretchAlong(ref Matrix world, in Vector3 n, float k)
+        {
+            //Row r of (S * R) is row r of R plus n scaled by k times (row r of R . n)
+            float d1 = world.M11 * n.X + world.M12 * n.Y + world.M13 * n.Z;
+            float d2 = world.M21 * n.X + world.M22 * n.Y + world.M23 * n.Z;
+            float d3 = world.M31 * n.X + world.M32 * n.Y + world.M33 * n.Z;
+
+            world.M11 += k * d1 * n.X; world.M12 += k * d1 * n.Y; world.M13 += k * d1 * n.Z;
+            world.M21 += k * d2 * n.X; world.M22 += k * d2 * n.Y; world.M23 += k * d2 * n.Z;
+            world.M31 += k * d3 * n.X; world.M32 += k * d3 * n.Y; world.M33 += k * d3 * n.Z;
         }
 
         /// <summary>

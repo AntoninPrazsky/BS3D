@@ -488,17 +488,27 @@ namespace BS3D.Audio
         /// the tool measures and writes to a .wav is the same arithmetic the player plays, not a second copy of
         /// this switch.
         /// </summary>
-        internal static float[] Render(MusicTheme theme) => theme switch
+        /// <param name="drive">
+        /// The drive actually used to soft-limit the piece — <see cref="LIMITER_DRIVE"/>'s stored figure when
+        /// <paramref name="progress"/> streamed it, or this render's own freshly computed one when it did not.
+        /// <c>Tools/MusicBake</c> reads it to assert the stored table still matches (#464).
+        /// </param>
+        /// <param name="progress">
+        /// Non-null streams the render (#464): the piece plays from <see cref="RenderProgress.Mix"/> while
+        /// this call is still running, catching up behind <see cref="LOOKBACK_STEPS"/>. Null renders exactly
+        /// as before this issue — the whole piece, in one call, soft-limited once at the end.
+        /// </param>
+        internal static float[] Render(MusicTheme theme, out float drive, RenderProgress progress = null) => theme switch
         {
-            MusicTheme.Bohemia => BakeBohemia(),
-            MusicTheme.Nocturne => BakeJazz(),
-            MusicTheme.Mural => BakeMural(),
-            MusicTheme.Ember => BakeEmber(),
-            _ => Bake(),
+            MusicTheme.Bohemia => BakeBohemia(progress, out drive),
+            MusicTheme.Nocturne => BakeJazz(progress, out drive),
+            MusicTheme.Mural => BakeMural(progress, out drive),
+            MusicTheme.Ember => BakeEmber(progress, out drive),
+            _ => Bake(progress, out drive),
         };
 
-        /// <summary>The front end's piece, through the same door.</summary>
-        internal static float[] RenderMenu() => BakeMenu();
+        /// <summary>The front end's piece, through the same door. Never streamed — see <see cref="BakeMenu"/>.</summary>
+        internal static float[] RenderMenu(out float drive) => BakeMenu(out drive);
 
         /// <summary>
         /// The victory fanfare: bright, major, rising, and scaled by how well the player did — a bigger score
@@ -641,9 +651,10 @@ namespace BS3D.Audio
 
         /// <summary>
         /// Renders the whole arrangement into one float buffer. Every voice writes into the same mix
-        /// additively, and the lot is soft-limited at the end.
+        /// additively, and the lot is soft-limited at the end — or, streamed (#464), a bar or so behind the
+        /// loop as it goes; see <see cref="PublishProgress"/>.
         /// </summary>
-        private static float[] Bake()
+        private static float[] Bake(RenderProgress progress, out float drive)
         {
             Score score = PULSE_SCORE;
 
@@ -657,9 +668,16 @@ namespace BS3D.Audio
             //nominal tempo: rounding per step and then trusting the nominal length leaves a fraction of a step
             //of silence at the seam.
             float[] mix = NewMix(samplesPerStep * totalSteps);
+            if (progress != null) progress.Mix = mix;
+
+            //The streamed drive is known before a single sample is written (#464); the one-shot drive is not
+            //known until every sample is, which is exactly why it is a separate figure computed after the loop.
+            drive = progress != null ? LIMITER_DRIVE[(int)MusicTheme.Pulse] : 0f;
 
             for (int step = 0; step < totalSteps; step++)
             {
+                if (step % STEPS_PER_BAR == 0) PublishProgress(progress, mix, step, samplesPerStep, drive);
+
                 int at = step * samplesPerStep;
                 int bar = step / STEPS_PER_BAR;
                 int inBar = step % STEPS_PER_BAR;
@@ -858,8 +876,10 @@ namespace BS3D.Audio
             }
 
             //Soft-limited, not peak-normalised — see ProceduralAudio.Loudness for why that distinction matters
-            //to anything with a transient in it, and a kick is nothing but transient.
-            Limit(mix, targetRms: 0.20f, ceiling: 0.95f);
+            //to anything with a transient in it, and a kick is nothing but transient. Streamed, the loop above
+            //already drove everything but the last margin; one-shot, nothing has been driven yet at all.
+            if (progress != null) FinishStreaming(progress, mix, drive);
+            else { drive = ComputeDrive(mix, targetRms: 0.20f); ApplyDrive(mix, 0, mix.Length, drive, LIMITER_CEILING); }
 
             return mix;
         }
@@ -1024,7 +1044,7 @@ namespace BS3D.Audio
         /// hand, not a second soundtrack.
         /// </para>
         /// </summary>
-        private static float[] BakeBohemia()
+        private static float[] BakeBohemia(RenderProgress progress, out float drive)
         {
             Score score = BOHEMIA_SCORE;
 
@@ -1035,9 +1055,13 @@ namespace BS3D.Audio
             int totalSteps = BOHEMIA_ARRANGEMENT.Length * STEPS_PER_SECTION;
 
             float[] mix = NewMix(samplesPerStep * totalSteps);
+            if (progress != null) progress.Mix = mix;
+            drive = progress != null ? LIMITER_DRIVE[(int)MusicTheme.Bohemia] : 0f;
 
             for (int step = 0; step < totalSteps; step++)
             {
+                if (step % STEPS_PER_BAR == 0) PublishProgress(progress, mix, step, samplesPerStep, drive);
+
                 int at = step * samplesPerStep;
                 int bar = step / STEPS_PER_BAR;
                 int inBar = step % STEPS_PER_BAR;
@@ -1225,7 +1249,8 @@ namespace BS3D.Audio
                     Lead(mix, at, arp[3] + 12 + transpose, secondsPerStep * 1.2f, 0.22f * level);
             }
 
-            Limit(mix, targetRms: 0.20f, ceiling: 0.95f);
+            if (progress != null) FinishStreaming(progress, mix, drive);
+            else { drive = ComputeDrive(mix, targetRms: 0.20f); ApplyDrive(mix, 0, mix.Length, drive, LIMITER_CEILING); }
 
             return mix;
         }
@@ -1400,7 +1425,7 @@ namespace BS3D.Audio
         /// It shares every instrument with the other two pieces except the bass, and that one exception is the
         /// point: a dance bass is a saw held through a filter, and a walking bass is <i>plucked</i>.
         /// </summary>
-        private static float[] BakeJazz()
+        private static float[] BakeJazz(RenderProgress progress, out float drive)
         {
             Score score = JAZZ_SCORE;
 
@@ -1412,9 +1437,13 @@ namespace BS3D.Audio
 
             //A bar of room past the end, so a note struck on the last beat rings out instead of being cut
             float[] mix = NewMix(samplesPerStep * (totalSteps + STEPS_PER_BAR));
+            if (progress != null) progress.Mix = mix;
+            drive = progress != null ? LIMITER_DRIVE[(int)MusicTheme.Nocturne] : 0f;
 
             for (int step = 0; step < totalSteps; step++)
             {
+                if (step % STEPS_PER_BAR == 0) PublishProgress(progress, mix, step, samplesPerStep, drive);
+
                 int at = SwungAt(step, samplesPerStep);
                 int bar = step / STEPS_PER_BAR;
                 int inBar = step % STEPS_PER_BAR;
@@ -1523,7 +1552,8 @@ namespace BS3D.Audio
             //arrangement — a trio against a dance floor and an orchestra — and letting it also be quieter by
             //level would put a 2 dB drop between two levels of one set. It measured exactly that at 0.16
             //before this number was matched to Pulse's. The intimacy has to come from what is playing.
-            Limit(mix, targetRms: 0.20f, ceiling: 0.95f);
+            if (progress != null) FinishStreaming(progress, mix, drive);
+            else { drive = ComputeDrive(mix, targetRms: 0.20f); ApplyDrive(mix, 0, mix.Length, drive, LIMITER_CEILING); }
 
             return mix;
         }
@@ -1840,7 +1870,7 @@ namespace BS3D.Audio
         /// is written for and the <see cref="Marimba"/> that carries the verse, and retired the polka's
         /// clarinet with the polka.
         /// </summary>
-        private static float[] BakeMural()
+        private static float[] BakeMural(RenderProgress progress, out float drive)
         {
             Score score = MURAL_SCORE;
 
@@ -1852,9 +1882,13 @@ namespace BS3D.Audio
 
             //A bar of room past the end, so the outro's last floor note rings out instead of being cut.
             float[] mix = NewMix(samplesPerStep * (totalSteps + STEPS_PER_BAR));
+            if (progress != null) progress.Mix = mix;
+            drive = progress != null ? LIMITER_DRIVE[(int)MusicTheme.Mural] : 0f;
 
             for (int step = 0; step < totalSteps; step++)
             {
+                if (step % STEPS_PER_BAR == 0) PublishProgress(progress, mix, step, samplesPerStep, drive);
+
                 int at = step * samplesPerStep;
                 int bar = step / STEPS_PER_BAR;
                 int inBar = step % STEPS_PER_BAR;
@@ -2124,7 +2158,8 @@ namespace BS3D.Audio
 
             //The set's own target: a groove is not quieter than a dance track, and a level step between two
             //entries of one set is the thing this number exists to prevent.
-            Limit(mix, targetRms: 0.20f, ceiling: 0.95f);
+            if (progress != null) FinishStreaming(progress, mix, drive);
+            else { drive = ComputeDrive(mix, targetRms: 0.20f); ApplyDrive(mix, 0, mix.Length, drive, LIMITER_CEILING); }
 
             return mix;
         }
@@ -2334,7 +2369,7 @@ namespace BS3D.Audio
         /// kit, the bass, the floor, the keys, the pad and the string section the other four pieces already
         /// play.
         /// </summary>
-        private static float[] BakeEmber()
+        private static float[] BakeEmber(RenderProgress progress, out float drive)
         {
             Score score = EMBER_SCORE;
 
@@ -2347,9 +2382,13 @@ namespace BS3D.Audio
             //A bar of room past the end: the last chorus's crash rings for well over a second, and a cymbal
             //cut off mid-wash is the click the fanfares' own tail constants exist to prevent.
             float[] mix = NewMix(samplesPerStep * (totalSteps + STEPS_PER_BAR));
+            if (progress != null) progress.Mix = mix;
+            drive = progress != null ? LIMITER_DRIVE[(int)MusicTheme.Ember] : 0f;
 
             for (int step = 0; step < totalSteps; step++)
             {
+                if (step % STEPS_PER_BAR == 0) PublishProgress(progress, mix, step, samplesPerStep, drive);
+
                 int at = step * samplesPerStep;
                 int bar = step / STEPS_PER_BAR;
                 int inBar = step % STEPS_PER_BAR;
@@ -2564,7 +2603,8 @@ namespace BS3D.Audio
 
             //The set's own target. A ballad is not quieter than a groove; what makes it a ballad is what is in
             //it, and a level step between two entries of one set is the thing this number exists to prevent.
-            Limit(mix, targetRms: 0.20f, ceiling: 0.95f);
+            if (progress != null) FinishStreaming(progress, mix, drive);
+            else { drive = ComputeDrive(mix, targetRms: 0.20f); ApplyDrive(mix, 0, mix.Length, drive, LIMITER_CEILING); }
 
             return mix;
         }
@@ -2606,7 +2646,7 @@ namespace BS3D.Audio
             new(0, 3, 12, 4), new(4, 2, 12, 4), new(8, 0, 24, 8)
         };
 
-        private static float[] BakeMenu()
+        private static float[] BakeMenu(out float drive)
         {
             //Unhurried but moving. It started at 80–92 and dragged, then ran as a roll inside 94–106 for a
             //while; 100 is the middle of that band and what the loop is authored at (#229) — the line walks
@@ -2713,7 +2753,14 @@ namespace BS3D.Audio
             Array.Copy(mix, loop, loopSamples * 2);
             for (int i = 0; i < tailSamples * 2; i++) loop[i] += mix[loopSamples * 2 + i];
 
-            Limit(loop, targetRms: 0.12f, ceiling: 0.9f);
+            //Live-computed, always — never streamed (#464). The fold above adds the tail back onto the head,
+            //so the loop's own first bar is not actually finished until this point, which is the one shape
+            //none of the other pieces have: streaming it would mean promising a caller "safe" samples at the
+            //very start of the buffer that a later step is still going to add to. Menu is also the fastest
+            //render of the six by a wide margin (#464's own measured table), so the case for paying that
+            //complexity down is the weakest here of anywhere in the file.
+            drive = ComputeDrive(loop, targetRms: 0.12f);
+            ApplyDrive(loop, 0, loop.Length, drive, ceiling: 0.9f);
             return loop;
         }
 
@@ -4271,17 +4318,110 @@ namespace BS3D.Audio
         /// side alone, which is the image pumping — the classic way to wreck a mix while making each channel
         /// individually correct. If this ever grows a real envelope follower, the gain must stay linked.
         /// </para>
+        /// <para>
+        /// <b>Split into <see cref="ComputeDrive"/> and <see cref="ApplyDrive"/> since #464</b>, which is what
+        /// makes a streamed render possible at all: this one-shot form still measures its own signal and
+        /// drives it in the same call, exactly as before, but a streamed render cannot — the drive needs the
+        /// WHOLE piece's RMS, which is exactly what waiting for defeats the point of. See
+        /// <see cref="LIMITER_DRIVE"/> for how a streamed render gets a number instead.
+        /// </para>
         /// </summary>
-        private static void Limit(float[] signal, float targetRms, float ceiling)
+        private static void Limit(float[] signal, float targetRms, float ceiling) =>
+            ApplyDrive(signal, 0, signal.Length, ComputeDrive(signal, targetRms), ceiling);
+
+        /// <summary>
+        /// The one number <see cref="Limit"/> derives from a signal: how hard it has to be driven to reach
+        /// <paramref name="targetRms"/>. Exposed on its own so <c>Tools/MusicBake</c> can measure it fresh
+        /// against <see cref="LIMITER_DRIVE"/>'s stored figure, and so a one-shot render can still compute its
+        /// own the way it always has.
+        /// </summary>
+        internal static float ComputeDrive(float[] signal, float targetRms)
         {
             double sum = 0.0;
             for (int i = 0; i < signal.Length; i++) sum += signal[i] * (double)signal[i];
 
             float rms = (float)Math.Sqrt(sum / Math.Max(1, signal.Length));
-            if (rms < 1e-6f) return;
+            return rms < 1e-6f ? 1f : targetRms / rms;
+        }
 
-            float drive = targetRms / rms;
-            for (int i = 0; i < signal.Length; i++) signal[i] = MathF.Tanh(signal[i] * drive) * ceiling;
+        /// <summary>
+        /// <see cref="Limit"/>'s other half: the per-sample soft clip alone, over
+        /// <paramref name="signal"/>[<paramref name="start"/> .. <paramref name="start"/>+<paramref name="count"/>).
+        /// Pure per sample — nothing here reads a neighbour — so applying it to a piece one chunk at a time
+        /// during a streamed render gives <b>exactly</b> the bytes applying it to the whole finished signal at
+        /// once would, provided the same <paramref name="drive"/> is used throughout: chunking changes nothing
+        /// a stateful effect would have cared about, because there is no state. That equivalence is <see cref="ComputeDrive"/>'s cousin. It is what #464's own verification rests on rather than trusting the
+        /// two paths agree by inspection.
+        /// </summary>
+        internal static void ApplyDrive(float[] signal, int start, int count, float drive, float ceiling)
+        {
+            int end = start + count;
+            for (int i = start; i < end; i++) signal[i] = MathF.Tanh(signal[i] * drive) * ceiling;
+        }
+
+        //=== STREAMING (#464) ===
+
+        /// <summary>
+        /// Every piece's own drive, baked once and asserted by <c>Tools/MusicBake</c> rather than trusted —
+        /// see <see cref="ComputeDrive"/>'s own remarks on why a streamed render needs this instead of
+        /// computing its own: the drive needs the WHOLE piece's RMS, and a streamed render's whole point is
+        /// never waiting for that. Valid only because every piece renders bit-for-bit identically (#229,
+        /// SHA1-verified in <c>docs/game-feedback.md</c>) — a composition that changed under this figure
+        /// without being re-baked is exactly what the tool's assertion catches. In <see cref="Render"/>'s own
+        /// order, Menu last (baked for completeness; nothing streams it yet — see <see cref="RenderMenu"/>).
+        /// </summary>
+        internal static readonly float[] LIMITER_DRIVE = { 1.135726f, 1.164101f, 2.214679f, 1.507223f, 0.841610f, 1.203728f };
+
+        private const float LIMITER_CEILING = 0.95f;
+
+        /// <summary>
+        /// How many steps a streamed render holds back behind the step it is writing before treating anything
+        /// as finished (#464) — four bars, and that is deliberately generous rather than tight. The longest
+        /// reach found by grepping every piece for a literal <c>secondsPerStep * N</c> or a <c>note.Length</c>
+        /// term is <see cref="STEPS_PER_BAR"/> + 0.4 (a floor note held past its bar line, Pulse's
+        /// <c>SubBass</c>) — a little over ONE bar — but a grep is not a proof over four thousand lines of
+        /// hand-placed durations, some of them computed rather than literal, and the cost of being wrong here
+        /// is an audible hole or a doubled note, not a wrong number in a log. Four bars costs a bar or so of
+        /// extra latency before the tail of a chunk counts as safe, against a render that runs 30-150x real
+        /// time (#464's own measured table) — noise against the seconds of "Composing..." this exists to cut.
+        /// </summary>
+        private const int LOOKBACK_STEPS = 4 * STEPS_PER_BAR;
+
+        /// <summary>
+        /// Called from inside a piece's own step loop, roughly once a bar: applies <paramref name="drive"/> to
+        /// every frame newly behind the safety margin and publishes the new safe point. A no-op below
+        /// <see cref="RenderProgress"/> for a one-shot render (<paramref name="progress"/> null) and for the
+        /// first <see cref="LOOKBACK_STEPS"/> of any render, which is exactly why the margin has to be paid in
+        /// latency rather than in never covering the start.
+        /// </summary>
+        private static void PublishProgress(RenderProgress progress, float[] mix, int step, int samplesPerStep, float drive)
+        {
+            if (progress == null) return;
+
+            int safeSteps = step - LOOKBACK_STEPS;
+            if (safeSteps <= 0) return;
+
+            int safeFrames = Math.Min(mix.Length / 2, safeSteps * samplesPerStep);
+            if (safeFrames <= progress.SafeFrames) return;
+
+            ApplyDrive(mix, progress.SafeFrames * 2, (safeFrames - progress.SafeFrames) * 2, drive, LIMITER_CEILING);
+            progress.Publish(safeFrames);
+        }
+
+        /// <summary>
+        /// Finishes a streamed render: drives whatever the loop's own margin never caught up to — the last
+        /// <see cref="LOOKBACK_STEPS"/> worth, always, and the whole piece if <paramref name="progress"/> was
+        /// never far enough behind to publish at all (a very short render) — then publishes the true end. A
+        /// one-shot render (<paramref name="progress"/> null) never reaches this; its caller uses
+        /// <see cref="Limit"/> instead, which is the same arithmetic run the way it always was.
+        /// </summary>
+        private static void FinishStreaming(RenderProgress progress, float[] mix, float drive)
+        {
+            if (progress == null) return;
+
+            int totalFrames = mix.Length / 2;
+            if (totalFrames > progress.SafeFrames) ApplyDrive(mix, progress.SafeFrames * 2, (totalFrames - progress.SafeFrames) * 2, drive, LIMITER_CEILING);
+            progress.Publish(totalFrames);
         }
 
         /// <summary>

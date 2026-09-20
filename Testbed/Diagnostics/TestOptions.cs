@@ -224,6 +224,22 @@ namespace Testbed.Diagnostics
         /// </para>
         /// </summary>
         public float SceneDetail { get; private set; } = -1f;
+        /// <summary>
+        /// <c>shadow=&lt;0..1&gt;</c>: a multiplier over whichever scene's <c>ShadowConfig.Strength</c> is up -
+        /// <c>SceneRenderer.ShadowScale</c>. 0 is no map at all (no target, no caster pass, no taps), 1 the
+        /// authored look. -1 leaves it alone, which is the default.
+        /// <para>
+        /// <b>It is here so a shadow map can be swept, and the sweep is the whole reason it exists.</b> Until
+        /// it there was no way to measure or photograph a shadow against its own absence inside ONE process:
+        /// #469, #470 and #471 each had to build a worktree of <c>main</c> and run two executables, which is
+        /// exactly the setup that hands back a capture pair differing in more than the thing under test.
+        /// <c>alt=shadow=0;shadow=1</c> gives paired <c>[fps]</c> windows on one camera, one scene seed and
+        /// one build. <c>detail=0</c> is not a substitute: it skips the map but switches several scenes to a
+        /// reduced program with it, so a pair taken across it measures a mixture.
+        /// </para>
+        /// </summary>
+        public float ShadowScale { get; private set; } = -1f;
+
 
         /// <summary><c>exposure=&lt;f&gt;</c>: the renderer's shutter speed. 0 = unset, so the default stands.</summary>
         public float Exposure { get; private set; }
@@ -406,6 +422,7 @@ namespace Testbed.Diagnostics
                 else if (arg.StartsWith("msaa=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("msaa=".Length), out int parsedMsaa)) options.MsaaSamples = parsedMsaa;
                 else if (arg.StartsWith("rscale=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("rscale=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedRscale)) options.RenderScale = parsedRscale;
                 else if (arg.StartsWith("detail=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("detail=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedDetail)) options.SceneDetail = parsedDetail;
+                else if (arg.StartsWith("shadow=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("shadow=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedShadow)) options.ShadowScale = parsedShadow;
                 else if (arg.StartsWith("exposure=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("exposure=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedExposure)) options.Exposure = parsedExposure;
                 else if (arg.StartsWith("scene=", StringComparison.OrdinalIgnoreCase)) options.Scene = arg.Substring("scene=".Length);
                 else if (arg.StartsWith("sceneseed=", StringComparison.OrdinalIgnoreCase)

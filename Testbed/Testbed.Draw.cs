@@ -5,6 +5,7 @@ using Prazsky.BS3D.GameObjects;
 using Prazsky.Core.Render;
 using System;
 using System.Diagnostics;
+using System.Globalization;
 using System.Threading;
 using Testbed.Diagnostics;
 
@@ -339,6 +340,10 @@ namespace Testbed
                 + $", msaa {_pipeline.SceneTarget?.MultiSampleCount ?? 0}x (asked {(_supersampleFactor > 1 ? 0 : _pipeline.MsaaSamples)})"
                 + $", target {_pipeline.SceneTarget?.Width ?? 0}x{_pipeline.SceneTarget?.Height ?? 0} (rscale {_pipeline.RenderScale:0.##})"
                 + $", detail {(_sceneRenderer.SceneDetail > 0.5f ? "full" : "reduced")}"
+                //Only when it is NOT the shipped 1 (#471): a capture taken with the sun shadows turned down or
+                //off has to say so on its own face, and a line that said "shadow 1" on every ordinary run would
+                //be one more column to read past in every sweep that is not about shadows.
+                + (_sceneRenderer.ShadowScale < 1f ? $", shadow {_sceneRenderer.ShadowScale.ToString("0.##", CultureInfo.InvariantCulture)}" : string.Empty)
                 + $", {GraphicsDevice.PresentationParameters.BackBufferWidth}x{GraphicsDevice.PresentationParameters.BackBufferHeight}"
                 + $", vsync {(_options.UncappedFps ? "off" : "on")}{(_options.FpsCap > 0 ? $" (cap {_options.FpsCap})" : "")}, arena {_island.Members}{(alternating || capProbe > 0 ? $", capprobe {capProbe}" : "")}, balls {_collectedBalls}"
                 //The variant's own text last, in the caller's words rather than restated from the live
