@@ -4784,3 +4784,20 @@ Majitel poslal dvě volné poznámky z pozorování vývoje/hraní, „vytvoř i
 ⚠ **Poznámka k pořadí práce, protože mě to stálo dvě kola:** obojí, co je výš označené ⚠, vypadalo při čtení kódu jako detail a bylo to jádro. Kdybych po prvním měření („velké rostliny se skoro nezlepšily") napsal do issue „hotovo, zlepšeno o polovinu", bylo by to pravda o číslech a lež o zadání — zlepšila se tráva, ne stromy, a report je o stromech. **Rozpad čísla podle toho, co majitel skutečně vidí, je ta věc, kterou se to chytlo.**
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-20 — Claude Code (dokončení #471, městská půlka, merge `06cbdd3`)
+
+**Majitel se zeptal na rozdělanou práci; #471 (`471-city-shadows`, nemergnutá od `4965246`, výslovně „NOT verified") byla to jediné, co viselo.** Issue čekala přesně na `shadow=` dial ze včerejška — a taky na to, aby ji někdo mergnul na aktuální main, protože branch byla přerovnaná na `main` ještě **před** tím dialem.
+
+- **Nejdřív past, ve které jsem sám uvízl.** `git merge origin/main` do `471-city-shadows` prošel, ale první `shadow=0`/`shadow=1` porovnání vyšlo bajtově identické. Důvod: branch byla naposledy přerovnaná PŘED `4f9c5af`, takže `shadow=` parametr byl tiše ignorovaný (padal do `StartupMapPath`) a obě „varianty" byly ve skutečnosti default. Musel jsem branch **znovu** mergnout s aktuálním mainem (konflikt v `SceneRenderer.cs` — HEAD přidal `_hostShadowScenes` fallback, main přidal `_shadowScale > 0f` gate, obojí ponecháno).
+- ⚠ **Druhá past, čistě moje: nezacitovaný `;` v bashi.** `alt=shadow=0;shadow=1` bez uvozovek bash rozdělí na dva příkazy — `at=22:Escape` skončilo v tom druhém (tiché no-op přiřazení proměnné, žádná chyba) a Testbed běžel donekonečna s jedinou variantou. Řešení: `"alt=shadow=0;shadow=1"` v uvozovkách. Zabitý osiřelý proces, zopakováno čistě.
+- **Rámování vyřešeno zvednutím kamery nad střechy** (`campos=300,80,-300 camtarget=0,-40,0`, dome 8, `arena=none`) — herní kamera (~60 jednotek, 2-3 bloky v kaňonu) je slepá ulička, jak psala issue. Block-diff proti `shadow=0` na 10,5 % rámu, soustředěno na věže, ne na oblohu — ořez ukazuje čistý tmavý pás na horních patrech věže, kam padá stín vyššího souseda.
+- **Ulice naopak měřením padla.** Snímek z kaňonu (`campos=45,-90,90 camtarget=45,-97,220`) proti `shadow=0`: fasády se dramaticky mění, dlažba skoro vůbec — `CityStreets.fx`'s vlastní hlavička to vysvětluje, okupační člen už z #399 počítá s tím, že 9-jednotková ulice mezi 100-jednotkovými věžemi je „ve stínu" při každé výšce slunce. `Shadows.fxh` receiver ze shaderu **odstraněn** (majitelovo přerámování — „ulice je sotva vidět" — teď má i měření za sebou).
+- **Cena, jeden proces, párově:** `shadow=0` ~7,08 ms, `shadow=1` ~7,30 ms, **+0,22–0,23 ms** na herní vantage — stejný řád jako meadow/forest (+0,19 na jednoho/380 casterů), a odebrání street receiveru číslo nehnulo ani o setinu (jeho cena byla v šumu, ne v nákladu).
+- **Dokumentováno**: CLAUDE.md (deset → jedenáct z dvaceti), `docs/rendering.md` (nová sekce „The city's shadows"), `docs/scenes.md`.
+
+⚠ **Vedlejší nález, opraven na vlastní malé větvi (`alt-shadow-dial-announce`, merge `719182c`):** `alt=shadow=0;shadow=1` fungoval správně (case ve switchi `ApplyVariant` existuje od `4f9c5af`), ale `ALTERNATION_DIALS` — pole, které `AnnounceVariants` kontroluje — nikdy nedostalo „shadow" přidané, takže každý běh tiskl falešné `[alt] ignored 'shadow'`. `docs/testbed.md` už „shadow" v seznamu mělo; jen tohle pole se rozešlo. Jednořádková oprava, samostatný branch/merge/smazání, protože nesouvisí s #471 samo o sobě.
+
+**Nic dalšího si neberu.**
