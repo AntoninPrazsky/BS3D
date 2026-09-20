@@ -720,6 +720,15 @@ namespace Prazsky.Core.Render
         //savanna's version look like a savanna feature instead of the infrastructure it is.
         private ShadowReceiver[] _shadowReceivers;
 
+        //And the scenes this renderer does NOT own (#471): the city and the neon city, whose config, towers
+        //and street shader are all the host's, so GetSceneConfig answers null for them. The host states its
+        //own dials and its own fit once at load; everything after that is the same path as the other ten.
+        private readonly Dictionary<SceneKind, HostShadowScene> _hostShadowScenes = new();
+
+        /// <summary>A backdrop whose shadow dials and fit come from the host rather than from a
+        /// <see cref="SceneConfig"/> this renderer holds — see <see cref="SetHostShadowScene"/>.</summary>
+        private readonly record struct HostShadowScene(ShadowConfig Shadows, float GroundY, float Below, float Above);
+
         //And the SHARED instanced effect's (#470), which is the one push that reaches the island, its drain,
         //the gun, the city and every ball at once — the same argument SceneLights makes for its four. It is
         //apart from the array above because the effect is the CALLER's (each executable loads its own
@@ -1598,6 +1607,58 @@ namespace Prazsky.Core.Render
                 _shadowReceivers[i].Disable();
             }
         }
+
+        /// <summary>
+        /// Gives a <b>host-owned</b> backdrop a sun shadow map (#471): its dials, where its ground sits and how
+        /// far the map's box must reach below and above it, plus whatever of the host's effects receive. Called
+        /// once at load, never per frame.
+        /// <para>
+        /// <b>The city is why this exists and is the only caller today.</b> It is the one backdrop this
+        /// renderer does not own — <see cref="GetSceneConfig"/> answers <c>null</c> for it, its towers are the
+        /// host's <see cref="InstancedModelRenderer"/>s and <c>CityStreets.fx</c> is loaded by the host — so
+        /// all three parts of a shadow live outside this file. Everything after the registration is the same
+        /// path the other ten take: the same map, the same fit, the same nine taps.
+        /// </para>
+        /// <para>
+        /// The casters are still the host's own business, through <c>DrawShadowMaps</c>'s <c>extraCasters</c>,
+        /// exactly as the island, the gun and the forest's wood already are.
+        /// </para>
+        /// </summary>
+        /// <param name="scene">The backdrop. Called once per kind — the city and the neon city are two.</param>
+        /// <param name="shadows">Its dials. <see cref="ShadowConfig.Strength"/> 0 leaves it without a map.</param>
+        /// <param name="groundY">Where its ground sits in world Y — the street level, for the city.</param>
+        /// <param name="below">How far under that the map's box must reach.</param>
+        /// <param name="above">And how far over it: the tallest thing that casts, which for the city is a
+        /// tower.</param>
+        /// <param name="receivers">The host's own effects that include <c>Shadows.fxh</c>.</param>
+        public void SetHostShadowScene(SceneKind scene, ShadowConfig shadows, float groundY, float below,
+            float above, params Effect[] receivers)
+        {
+            _hostShadowScenes[scene] = new HostShadowScene(shadows, groundY, below, above);
+
+            if (receivers == null || receivers.Length == 0) return;
+
+            //Appended rather than rebuilt: the load-time list is this renderer's own inventory and a host's
+            //effects join it. Two registrations of the same scene (the city and the neon city share a street
+            //shader) would otherwise push the same effect twice a frame, which is harmless but is a lie about
+            //what the array is, so an effect already in it is skipped.
+            for (int i = 0; i < receivers.Length; i++)
+            {
+                if (receivers[i] == null) continue;
+
+                ShadowReceiver receiver = new(receivers[i]);
+                if (!receiver.IsValid || Registered(receivers[i])) continue;
+
+                Array.Resize(ref _shadowReceivers, _shadowReceivers.Length + 1);
+                _shadowReceivers[^1] = receiver;
+                _shadowReceivers[^1].Disable();
+                _hostReceiverEffects.Add(receivers[i]);
+            }
+
+            bool Registered(Effect effect) => _hostReceiverEffects.Contains(effect);
+        }
+
+        private readonly List<Effect> _hostReceiverEffects = new();
 
         /// <summary>
         /// True for the scenes that replace the SKY rather than the ground — space, the dream, the cavern,
@@ -5386,7 +5447,8 @@ namespace Prazsky.Core.Render
             bool wanted = false;
             Vector3 centre = Vector3.Zero;
             float yMin = 0f, yMax = 0f;
-            ShadowConfig shadows = GetSceneConfig(scene)?.Shadows;
+            ShadowConfig shadows = GetSceneConfig(scene)?.Shadows
+                ?? (_hostShadowScenes.TryGetValue(scene, out HostShadowScene hostScene) ? hostScene.Shadows : null);
             if (shadows != null && shadows.Enabled && _shadowScale > 0f
                 && (sceneCasts || extraCasters != null)
                 && _sceneDetail > 0.5f && sunDirection.Y > SHADOW_MIN_SUN_HEIGHT)
@@ -5494,6 +5556,16 @@ namespace Prazsky.Core.Render
             yMin = yMax = 0f;
 
             float groundY, below, above;
+
+            //A host-owned backdrop states its own (#471): the city's ground is its street level and its relief
+            //is the towers standing on it, neither of which this renderer has ever been told about.
+            if (_hostShadowScenes.TryGetValue(scene, out HostShadowScene host))
+            {
+                groundY = host.GroundY;
+                below = host.Below;
+                above = host.Above;
+            }
+            else
             switch (scene)
             {
                 case SceneKind.Savanna:

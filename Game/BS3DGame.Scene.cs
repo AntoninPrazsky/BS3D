@@ -139,6 +139,18 @@ namespace BS3D
         //smaller radius produces the same towers, minus the outer rings, rather than a different city
         private const int CITY_SEED = 20260720;
 
+        //The city's own shadow fit (#471), which is nothing like the ten scenes SceneRenderer fits itself.
+        //TIGHTER than their 260: the streets are what receives and the towers are what casts, so the same 2048
+        //texels spread over 260 units land about 0.13 to a texel and a tower's edge comes out soft where it
+        //should be the hardest line in the frame. 180 puts it at 0.09.
+        private const float CITY_SHADOW_EXTENT = 180f;
+
+        //And the box is TALL rather than deep, which is the other thing the city does not share: the ground is
+        //the street level 100 units under the island, and the tallest tower stands 156 over it (the generator's
+        //own bound, see CitySceneConfig.BaseY). A box that stopped at the island would clip the casters.
+        private const float CITY_SHADOW_BELOW = 10f;
+        private const float CITY_SHADOW_ABOVE = 170f;
+
         private City _city;
 
         //THE SCENE'S PROCEDURAL ROLL (the owner's "let it look different each time"). One offset, rolled
@@ -284,7 +296,32 @@ namespace BS3D
                 CityRooftops.DEFAULT_SEED + _sceneSeedOffset);
 
             //The street level under them (#399), on the same grid
-            _streets = new CityStreets(GraphicsDevice, Content.Load<Effect>("Shaders/CityStreets"), _city);
+            Effect streetEffect = Content.Load<Effect>("Shaders/CityStreets");
+            _streets = new CityStreets(GraphicsDevice, streetEffect, _city);
+
+            //The city's sun shadows (#471). It is the one backdrop SceneRenderer does not own — this config
+            //and those towers are this file's — so the dials and the fit are handed over rather than found.
+            //The fit's ground is the street level the towers stand on, and its ceiling has to clear the
+            //tallest of them: the generator's bounds put a tower 83 to 156 units over BaseY, and the box is
+            //cut at CITY_SHADOW_EXTENT, TIGHTER than the other ten scenes' on purpose — a tower's edge wants
+            //the texels the same 2048 spread over 260 units would leave coarse.
+            //
+            //No receiver is handed in. CityStreets.fx carried one for a session and it came back out: paired
+            //against the towers, which DO receive (through the shared InstancedModel effect, #470, with no
+            //registration of its own needed here), a street-level capture showed the pavement barely moving
+            //between shadow=0 and shadow=1 — the OCCUPANCY term CityStreets.fx already shades a canyon street
+            //by is tuned to read as shadowed at every sun height regardless, so the map bought a receiver for
+            //ground nobody can tell is shadowed. The towers' own shading is what changed dramatically in the
+            //same pair.
+            //
+            //Both kinds are registered. The NEON city is at night and its sun is under the gate, so it costs
+            //nothing and the day/night decision stays in one place (SHADOW_MIN_SUN_HEIGHT) rather than being
+            //restated here as "the city only".
+            ShadowConfig cityShadows = new(strength: 0.85f, extent: CITY_SHADOW_EXTENT);
+            _sceneRenderer.SetHostShadowScene(SceneKind.City, cityShadows, _cityConfig.BaseY,
+                CITY_SHADOW_BELOW, CITY_SHADOW_ABOVE);
+            _sceneRenderer.SetHostShadowScene(SceneKind.NeonCity, cityShadows, _cityConfig.BaseY,
+                CITY_SHADOW_BELOW, CITY_SHADOW_ABOVE);
 
             //The arena the gun stands on, all of it: the island's stone cap and concrete drum, the glass drain
             //bored through the middle, its two gold beads and the dark pit shaft that backs the glass where the
@@ -892,6 +929,13 @@ namespace BS3D
             SessionShadowCasters?.Invoke(shadowViewProjection);
 
             if (_scene == SceneKind.Forest) _forestScatter?.DrawShadow(shadowViewProjection);
+
+            //And the city's towers (#471). ⚠ ALL of them, not City.Visible: that set is culled to the
+            //CAMERA's frustum, and a tower just off the side of the screen is exactly the one whose shadow
+            //falls across the street the player is looking at. It is one instanced draw of some 1800 boxes
+            //into the map either way, so the cull would buy nothing and cost the shadows that matter most.
+            if (_scene == SceneKind.City || _scene == SceneKind.NeonCity)
+                _cityRenderer?.DrawDepth(shadowViewProjection, _city.Buildings, _city.Buildings.Length);
         }
 
         /// <summary>

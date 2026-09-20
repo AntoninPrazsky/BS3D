@@ -285,6 +285,15 @@ namespace Testbed
         //Which of the two cities _city holds, so a scene change that does not cross between them rebuilds
         //nothing.
         private bool _cityIsNeon;
+
+        //The city's shadow fit (#471), the Game's own figures restated rather than shared: they are a HOST's,
+        //and this executable is the other host. Tighter than the ten scenes SceneRenderer fits itself (the
+        //streets receive and the towers cast, so a tower's edge wants the texels) and taller (the ground is
+        //the street level far under the island).
+        private const float CITY_SHADOW_EXTENT = 180f;
+        private const float CITY_SHADOW_BELOW = 10f;
+        private const float CITY_SHADOW_ABOVE = 170f;
+
         private BoxMesh _unitBox;
         private InstancedModelRenderer _cityRenderer;
         //The equipment on the city's roofs (#436) — the Game's own, drawn here too so a rooftop can be framed
@@ -838,6 +847,18 @@ namespace Testbed
             //SupersampleFactor: the space scene sizes its stars in OUTPUT pixels rather than in texels, so it
             //has to be told what ssaa= settled on — sized in texels a star would be four times dimmer at 2x
             _sceneRenderer = new SceneRenderer(GraphicsDevice, Content, _sceneSeedOffset) { SupersampleFactor = _supersampleFactor };
+
+            //The city's sun shadows (#471), registered exactly as the Game registers them and for the reason
+            //this executable exists: the streets are a hundred units under the island, so the only camera that
+            //can be put where they are judged from is this one's. It has to be here rather than beside the
+            //city's own build — that runs first, and the renderer being registered with does not exist yet.
+            //No receiver is handed in — see BuildCity's own comment on CityStreets, which is where that was
+            //tried and measured back out.
+            ShadowConfig cityShadows = new(strength: 0.85f, extent: CITY_SHADOW_EXTENT);
+            _sceneRenderer.SetHostShadowScene(SceneKind.City, cityShadows, _cityConfig.BaseY,
+                CITY_SHADOW_BELOW, CITY_SHADOW_ABOVE);
+            _sceneRenderer.SetHostShadowScene(SceneKind.NeonCity, cityShadows, _cityConfig.BaseY,
+                CITY_SHADOW_BELOW, CITY_SHADOW_ABOVE);
 
             //#298 PROBE: "detail=" pins SceneRenderer.SceneDetail so a reduced program can be measured and
             //photographed here, where the camera can be pinned. Left alone the Testbed draws the full look.

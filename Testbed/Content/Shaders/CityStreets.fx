@@ -336,6 +336,15 @@ float4 StreetPS(StreetVertexOutput input) : COLOR
     float sunView = lerp(1.0, CanyonSunView * openness, density * density);
 
     float sunlight = CloudSunlight(world, SunDirection);
+
+    //#471 tried the sun's cast shadows here too and dropped them again: paired against the towers' own map
+    //(which stayed - see InstancedModel.fx), a street-level capture showed the pavement barely moving between
+    //shadow=0 and shadow=1, because the OCCUPANCY term above is already doing this job - a street between two
+    //100-unit towers 9 units apart reads as shadowed at every sun height the analytic density*density curve
+    //was tuned against, map or no map. The facades changed dramatically in the same pair; the ground the
+    //player is looking down at during a fly-over or the drop cinematic did not. So the receiver bought a
+    //street nobody can tell is shadowed, for the one extra tap this scene's already-expensive pixel shader
+    //could do without.
     float sunUp = saturate(SunDirection.y);
 
     float3 dayLight = ZenithColor * AmbientStrength * skyView
