@@ -294,8 +294,6 @@ namespace Testbed
         private const float CITY_SHADOW_BELOW = 10f;
         private const float CITY_SHADOW_ABOVE = 170f;
 
-        //Kept because the shadow registration below needs it, and it is loaded where the city is built.
-        private Effect _streetEffect;
         private BoxMesh _unitBox;
         private InstancedModelRenderer _cityRenderer;
         //The equipment on the city's roofs (#436) — the Game's own, drawn here too so a rooftop can be framed
@@ -854,11 +852,13 @@ namespace Testbed
             //this executable exists: the streets are a hundred units under the island, so the only camera that
             //can be put where they are judged from is this one's. It has to be here rather than beside the
             //city's own build — that runs first, and the renderer being registered with does not exist yet.
+            //No receiver is handed in — see BuildCity's own comment on CityStreets, which is where that was
+            //tried and measured back out.
             ShadowConfig cityShadows = new(strength: 0.85f, extent: CITY_SHADOW_EXTENT);
             _sceneRenderer.SetHostShadowScene(SceneKind.City, cityShadows, _cityConfig.BaseY,
-                CITY_SHADOW_BELOW, CITY_SHADOW_ABOVE, _streetEffect);
+                CITY_SHADOW_BELOW, CITY_SHADOW_ABOVE);
             _sceneRenderer.SetHostShadowScene(SceneKind.NeonCity, cityShadows, _cityConfig.BaseY,
-                CITY_SHADOW_BELOW, CITY_SHADOW_ABOVE, _streetEffect);
+                CITY_SHADOW_BELOW, CITY_SHADOW_ABOVE);
 
             //#298 PROBE: "detail=" pins SceneRenderer.SceneDetail so a reduced program can be measured and
             //photographed here, where the camera can be pinned. Left alone the Testbed draws the full look.
@@ -1384,8 +1384,7 @@ namespace Testbed
             _rooftops = new CityRooftops(GraphicsDevice, _instancingEffect, _city, _cityConfig, SCENE_AMBIENT_INTENSITY,
                 CityRooftops.DEFAULT_SEED + _sceneSeedOffset);
             Console.WriteLine($"[city] {_rooftops.Total} pieces of rooftop equipment");
-            _streetEffect = Content.Load<Effect>("Shaders/CityStreets");
-            _streets = new CityStreets(GraphicsDevice, _streetEffect, _city);
+            _streets = new CityStreets(GraphicsDevice, Content.Load<Effect>("Shaders/CityStreets"), _city);
 
             //The arena the gun stands on, all of it: the island's stone cap and concrete drum, the glass
             //drain bored through the middle, its two gold beads and the dark pit shaft that backs the glass

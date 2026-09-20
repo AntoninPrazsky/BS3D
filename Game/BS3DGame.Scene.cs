@@ -299,22 +299,29 @@ namespace BS3D
             Effect streetEffect = Content.Load<Effect>("Shaders/CityStreets");
             _streets = new CityStreets(GraphicsDevice, streetEffect, _city);
 
-            //The city's sun shadows (#471). It is the one backdrop SceneRenderer does not own — this config,
-            //those towers and that street shader are all this file's — so the dials, the fit and the receiver
-            //are handed over rather than found. The fit's ground is the street level the towers stand on, and
-            //its ceiling has to clear the tallest of them: the generator's bounds put a tower 83 to 156 units
-            //over BaseY, and the box is cut at the camera's own 260-unit... no, at CITY_SHADOW_EXTENT, which
-            //is TIGHTER than the other ten scenes' on purpose — the streets are the receivers and the towers
-            //are tall, so the same texel count spread over 260 units is coarse on a tower's edge.
+            //The city's sun shadows (#471). It is the one backdrop SceneRenderer does not own — this config
+            //and those towers are this file's — so the dials and the fit are handed over rather than found.
+            //The fit's ground is the street level the towers stand on, and its ceiling has to clear the
+            //tallest of them: the generator's bounds put a tower 83 to 156 units over BaseY, and the box is
+            //cut at CITY_SHADOW_EXTENT, TIGHTER than the other ten scenes' on purpose — a tower's edge wants
+            //the texels the same 2048 spread over 260 units would leave coarse.
+            //
+            //No receiver is handed in. CityStreets.fx carried one for a session and it came back out: paired
+            //against the towers, which DO receive (through the shared InstancedModel effect, #470, with no
+            //registration of its own needed here), a street-level capture showed the pavement barely moving
+            //between shadow=0 and shadow=1 — the OCCUPANCY term CityStreets.fx already shades a canyon street
+            //by is tuned to read as shadowed at every sun height regardless, so the map bought a receiver for
+            //ground nobody can tell is shadowed. The towers' own shading is what changed dramatically in the
+            //same pair.
             //
             //Both kinds are registered. The NEON city is at night and its sun is under the gate, so it costs
             //nothing and the day/night decision stays in one place (SHADOW_MIN_SUN_HEIGHT) rather than being
             //restated here as "the city only".
             ShadowConfig cityShadows = new(strength: 0.85f, extent: CITY_SHADOW_EXTENT);
             _sceneRenderer.SetHostShadowScene(SceneKind.City, cityShadows, _cityConfig.BaseY,
-                CITY_SHADOW_BELOW, CITY_SHADOW_ABOVE, streetEffect);
+                CITY_SHADOW_BELOW, CITY_SHADOW_ABOVE);
             _sceneRenderer.SetHostShadowScene(SceneKind.NeonCity, cityShadows, _cityConfig.BaseY,
-                CITY_SHADOW_BELOW, CITY_SHADOW_ABOVE, streetEffect);
+                CITY_SHADOW_BELOW, CITY_SHADOW_ABOVE);
 
             //The arena the gun stands on, all of it: the island's stone cap and concrete drum, the glass drain
             //bored through the middle, its two gold beads and the dark pit shaft that backs the glass where the

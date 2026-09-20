@@ -20,9 +20,6 @@
 #define PS_SHADERMODEL ps_5_0
 
 #include "Clouds.fxh"
-//The sun's cast shadows (#471): the towers standing on this street, drawn into SceneRenderer's map before
-//the scene pass. See Shadows.fxh for what a receiver owes.
-#include "Shadows.fxh"
 #include "Noise.fxh"
 
 float4x4 View;
@@ -340,14 +337,14 @@ float4 StreetPS(StreetVertexOutput input) : COLOR
 
     float sunlight = CloudSunlight(world, SunDirection);
 
-    //The sun's cast shadows (#471), into the same sunlight factor the clouds dim. What casts here is the city
-    //itself: at every sun but noon the towers throw the streets between them into shade, which is what a city
-    //at street level looks like and what this scene had none of. The normal is straight up - the street IS the
-    //ground plane, and the kerbs and markings are colour rather than relief.
-    [branch]
-    if (ShadowStrength > 0.0)
-        sunlight *= SunShadow(world, float3(0.0, 1.0, 0.0), SunDirection);
-
+    //#471 tried the sun's cast shadows here too and dropped them again: paired against the towers' own map
+    //(which stayed - see InstancedModel.fx), a street-level capture showed the pavement barely moving between
+    //shadow=0 and shadow=1, because the OCCUPANCY term above is already doing this job - a street between two
+    //100-unit towers 9 units apart reads as shadowed at every sun height the analytic density*density curve
+    //was tuned against, map or no map. The facades changed dramatically in the same pair; the ground the
+    //player is looking down at during a fly-over or the drop cinematic did not. So the receiver bought a
+    //street nobody can tell is shadowed, for the one extra tap this scene's already-expensive pixel shader
+    //could do without.
     float sunUp = saturate(SunDirection.y);
 
     float3 dayLight = ZenithColor * AmbientStrength * skyView
