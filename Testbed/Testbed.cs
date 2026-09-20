@@ -1412,7 +1412,7 @@ namespace Testbed
         /// or a setter whose whole effect lands in the same frame.
         /// </summary>
         private static readonly string[] ALTERNATION_DIALS =
-            { "arena", "capprobe", "scene", "sky", "balls", "ssaa", "msaa", "rscale", "detail", "exposure", "nopost" };
+            { "arena", "capprobe", "scene", "sky", "balls", "ssaa", "msaa", "rscale", "detail", "shadow", "exposure", "nopost" };
 
         /// <summary>
         /// Prints the sweep's plan before the first window, and names anything it will not switch. A pin that
