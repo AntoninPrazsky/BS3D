@@ -293,9 +293,9 @@ namespace Testbed
         /// <para>
         /// #151 built this for the arena's members and its cap probe; #374 made the variant a list of the
         /// command line's own pins, so a scene, a dome, a ball material, <c>ssaa</c>, <c>msaa</c>,
-        /// <c>rscale</c>, <c>detail</c>, <c>exposure</c> and <c>nopost</c> can be swept the same way — and
-        /// retired the "TEMPORARY" the first two carried, since a general mechanism is not a probe. What may
-        /// be alternated is decided by hysteresis and nothing else: see <c>ApplyVariant</c>.
+        /// <c>rscale</c>, <c>detail</c>, <c>shadow</c>, <c>exposure</c> and <c>nopost</c> can be swept the same
+        /// way — and retired the "TEMPORARY" the first two carried, since a general mechanism is not a probe.
+        /// What may be alternated is decided by hysteresis and nothing else: see <c>ApplyVariant</c>.
         /// </para>
         /// </summary>
         private void AdvanceVariant()
