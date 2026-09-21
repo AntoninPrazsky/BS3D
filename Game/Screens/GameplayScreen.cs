@@ -924,7 +924,8 @@ namespace BS3D.Screens
         /// for why asking both is safe.</summary>
         private void SkipCameraTakeover()
         {
-            _cinematic.TrySkip();
+            //A skip that took is the player saying they know: the HUD's hint retires for the session (#499)
+            if (_cinematic.TrySkip()) _hud.NoteCinematicSkipped();
             _chapterIntro.TrySkip();
         }
 
@@ -1369,6 +1370,7 @@ namespace BS3D.Screens
 
             _smears.Update(elapsed);
             _hud.Update(elapsed, _score);
+            _hud.UpdateSkipHint(elapsed, _cinematic.Running, _cinematic.Elapsed);
 
             //The tutorial's card (#189): the settings row read here every frame, a camera takeover hiding it, and
             //a decided level ending it. A lesson just done is answered the way a point scored is — the HUD's own

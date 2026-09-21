@@ -349,6 +349,12 @@ namespace BS3D.Screens
         /// </summary>
         internal string Praise => Praising && _card != null ? _card.Praise : null;
 
+        /// <summary>Whether the last input was the pad: what any prompt outside the cards asks to pick its glyph (#499).</summary>
+        internal bool OnGamepad => _device == Device.Gamepad;
+
+        /// <summary>The glyph for the button that skips a cinematic — the fire button, which is what skips (#499).</summary>
+        internal string SkipGlyph => _device == Device.Gamepad ? PAD_RIGHT_TRIGGER : MOUSE_LEFT;
+
         /// <summary>The prompt font's glyphs for the card — a keycap, a mouse, a trigger — or null for none.</summary>
         internal string Glyph => _card == null ? null
             : _device == Device.Gamepad ? _card.PadGlyph ?? _card.Glyph : _card.Glyph;

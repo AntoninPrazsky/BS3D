@@ -48,6 +48,11 @@ namespace BS3D.Effects
         /// </summary>
         public bool Engaged => _running || _blend > 0f;
 
+        /// <summary>True while the cinematic itself runs (not its blend back), and how long it has: what the HUD's
+        /// skip hint reads (#499), so the hint can wait out <see cref="SKIP_LOCKOUT"/> and a moment more.</summary>
+        public bool Running => _running;
+        public float Elapsed => _elapsed;
+
         /// <summary>How much of the frame is the cinematic's, 0 to 1. Ease, never a cut.</summary>
         public float Blend => _blend;
 

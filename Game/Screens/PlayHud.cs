@@ -873,6 +873,7 @@ namespace BS3D.Screens
             //The card is given the score's left edge rather than measuring it again: it is what bounds the
             //strip the card may stand in (#461), and one measurement cannot disagree with the other.
             DrawTutorial(tutorial, viewport, margin, scoreAnchor.X - scoreSize.X);
+            DrawSkipHint(tutorial, viewport, margin);
 
             //Last, so the numbers coming in pass over the readouts rather than under them
             DrawAwards(camera, viewport, scoreAnchor - new Vector2(scoreSize.X * 0.5f, 0f));
@@ -1732,6 +1733,72 @@ namespace BS3D.Screens
 
         /// <summary>An action on the card was just done: the card pops the way the score does on a hit.</summary>
         internal void KickTutorial() => _tutorialPulse.Kick(HUD_TUTORIAL_PRAISE_KICK);
+
+        #region The drop cinematic's skip hint (#499)
+
+        //The drop cinematic has been skippable since it existed (DropCinematic.TrySkip, past a 0.3 s lockout so the
+        //shot that triggered it cannot skip it), and nothing ever said so: the owner asked for a hint that appears a
+        //moment after the camera lets go. It waits a second — past the lockout, and long enough for the player to
+        //have seen what they did — and it does not nag: a session shows it on the first few cinematics, or until
+        //the player has skipped one, and then never again. Session-wide on purpose (statics): a hint is for the
+        //player who does not know, and a session is what they learn in; a new session is a new player as far as
+        //the game can tell.
+        private const float SKIP_HINT_DELAY = 1.0f;
+        private const float SKIP_HINT_FADE = 0.35f;
+        private const int SKIP_HINT_SHOWINGS = 3;
+        private const string SKIP_HINT_MOUSE = "Click or Space to skip";
+        private const string SKIP_HINT_PAD = "to skip";
+        private const int HUD_SKIP_HINT_GAP = 10;
+
+        private static int s_skipHintShowings;
+        private static bool s_skipHintLearnt;
+        private float _skipHintAlpha;
+        private bool _skipHintArmed;
+
+        /// <summary>The player skipped one: they know, and the hint retires for the session.</summary>
+        internal void NoteCinematicSkipped() => s_skipHintLearnt = true;
+
+        /// <summary>Once a frame from the screen, with the cinematic's own state — the HUD's Update knows no cinematic.</summary>
+        internal void UpdateSkipHint(float elapsed, bool cinematicRunning, float cinematicElapsed)
+        {
+            bool allowed = !s_skipHintLearnt && (_skipHintArmed || s_skipHintShowings < SKIP_HINT_SHOWINGS);
+            bool wanted = cinematicRunning && cinematicElapsed >= SKIP_HINT_DELAY && allowed;
+
+            if (wanted && !_skipHintArmed) { _skipHintArmed = true; s_skipHintShowings++; }
+            if (!cinematicRunning) _skipHintArmed = false;
+
+            float target = wanted ? 1f : 0f;
+            float step = elapsed / SKIP_HINT_FADE;
+            _skipHintAlpha = _skipHintAlpha < target ? MathF.Min(target, _skipHintAlpha + step) : MathF.Max(target, _skipHintAlpha - step);
+        }
+
+        //Bottom centre, under the action and clear of the queue and the score: a glyph and a short line in the
+        //tutorial's detail font, faded by the hint's own presence. The glyph is the fire button's, since that is
+        //what skips, in whichever device the tutorial last saw.
+        private void DrawSkipHint(Tutorial tutorial, Viewport viewport, int margin)
+        {
+            float alpha = _skipHintAlpha;
+            if (alpha <= 0.005f) return;
+
+            string glyph = tutorial.SkipGlyph;
+            string caption = tutorial.OnGamepad ? SKIP_HINT_PAD : SKIP_HINT_MOUSE;
+
+            SpriteFontBase glyphFont = _game.HudFontPrompt;
+            SpriteFontBase captionFont = _game.HudFontTutorialDetail;
+
+            Vector2 glyphSize = glyphFont.MeasureString(glyph);
+            Vector2 captionSize = captionFont.MeasureString(caption);
+            float gap = Scaled(HUD_SKIP_HINT_GAP);
+            float width = glyphSize.X + gap + captionSize.X;
+            float height = MathF.Max(glyphSize.Y, captionSize.Y);
+
+            Vector2 origin = new(viewport.Width * 0.5f - width * 0.5f, viewport.Height - margin - height);
+
+            DrawString(glyphFont, glyph, origin + new Vector2(0f, (height - glyphSize.Y) * 0.5f), BS3DGame.MENU_TEXT * alpha, 1f);
+            DrawString(captionFont, caption, origin + new Vector2(glyphSize.X + gap, (height - captionSize.Y) * 0.5f), HUD_CAPTION * alpha, 1f);
+        }
+
+        #endregion
 
         /// <summary>
         /// The tutorial's card, if one is up: the glyphs, the line and the smaller line laid out as one block
