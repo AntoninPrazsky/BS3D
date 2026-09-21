@@ -206,8 +206,13 @@ namespace BS3D.Screens
         //shells being brought down. Bringing them down would break the camera they were tuned for - they are
         //launched on the clear, while the gun's view is still up - and a player who has just won should be
         //shown the arena AND the sky, not made to choose.
-        private const float GLANCE_PERIOD = 9.5f;
-        private const float GLANCE_RISE = 1.6f;
+        //SLOWER since #480: the owner found the 1.6 s rise read as the camera falling onto its back, a comfort
+        //complaint rather than a framing one. The rise (and the matching fall) is doubled, which halves the
+        //peak rate of the SmoothStep — 43 world units a second at the top of the ease became 22 — and the
+        //period grows by the same 3.2 s so the level stretch between glances is what it was; the height and
+        //the hold stay, because #430's framing (the whole burst zone in shot) is settled and must not move.
+        private const float GLANCE_PERIOD = 12.7f;
+        private const float GLANCE_RISE = 3.2f;
         private const float GLANCE_HOLD = 3.2f;
 
         //How far the aim point is lifted at the top of a glance, in world units. The burst zone's own floor,
