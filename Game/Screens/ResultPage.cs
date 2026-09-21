@@ -260,6 +260,7 @@ namespace BS3D.Screens
 
             TakeCadenceFromFanfare();
             ApplyStars();
+            ApplyBreakdownReveal();
 
             //Started at the bearing the lens is already on, so the release is straight out from the arena
             Game.Backdrop.AlignOrbitTo(_fromPosition);
@@ -307,6 +308,7 @@ namespace BS3D.Screens
 
                 AnnounceLandedStars();
                 ApplyStars();
+                ApplyBreakdownReveal();
 
                 //One last pass has just run at or past the end, so the row is on its exact resting values
                 if (_revealClock >= RevealTotalSeconds) _revealSettled = true;
@@ -487,13 +489,24 @@ namespace BS3D.Screens
         private const float REVEAL_SETTLE_FROM = 0.66f;
 
         /// <summary>
-        /// When the last slot has finished settling — past this nothing in the row is moving, which is what
-        /// <see cref="_revealSettled"/> uses to stop touching it. It reads the <b>live</b> delay and step and
-        /// not the defaults: since #158 those come from the fanfare's tempo, and a constant computed off the
-        /// authored figures would latch the row early and freeze it mid-reveal at any slower beat.
+        /// When the last star has finished settling. It reads the <b>live</b> delay and step and not the
+        /// defaults: since #158 those come from the fanfare's tempo, and a constant computed off the authored
+        /// figures would latch the row early and freeze it mid-reveal at any slower beat. Named for the star
+        /// row specifically now that <see cref="RevealTotalSeconds"/> covers the breakdown's own reveal too
+        /// (#479) — the breakdown's timing is built on top of this one, never the other way round.
         /// </summary>
-        private float RevealTotalSeconds =>
+        private float StarRevealTotalSeconds =>
             _revealDelay + (StarRating.MAX - 1) * _revealStep + REVEAL_PUNCH_SECONDS;
+
+        /// <summary>
+        /// Past this, nothing on the page is still moving — which is what <see cref="_revealSettled"/> uses
+        /// to stop touching either reveal. On a clear that shows a breakdown this runs past the last star into
+        /// the sum settling behind it (#479, <see cref="BreakdownTotalRevealTime"/>); on a fail, or the built-in
+        /// pyramid's bare-score fallback, there is no breakdown to wait for and the star row's own total stands.
+        /// </summary>
+        private float RevealTotalSeconds => _result.ShowsBreakdown
+            ? BreakdownTotalRevealTime + BREAKDOWN_PUNCH_SECONDS
+            : StarRevealTotalSeconds;
 
         private float _revealClock;
         private int _starsAnnounced;
@@ -645,6 +658,110 @@ namespace BS3D.Screens
                 Game.Audio?.PlayStarEarned(_starsAnnounced, _result.Stars, ChimeSemitones(_starsAnnounced));
                 Game.Rumble?.Kick(STAR_RUMBLE_LEFT, STAR_RUMBLE_RIGHT, STAR_RUMBLE_SECONDS);
                 _starsAnnounced++;
+            }
+        }
+
+        #endregion
+
+        #region The sum adds up (#479)
+
+        //The breakdown used to be written once, whole, the instant Refresh ran — every row and the total
+        //sitting there together from the first frame, which is exactly what read as a filled-in form rather
+        //than a game telling you what you earned. It now lands the same way the row above it does: each
+        //value arrives with the star row's own punch (PunchScale), staggered after the stars settle, from a
+        //placeholder dash to its earned number — the caption and the plate are there from the first frame
+        //(there is a sum coming), only the numbers themselves perform.
+
+        /// <summary>Held on screen before a value has landed — the row is there, its number is not yet.</summary>
+        private const string PENDING_MARK = "—";
+
+        /// <summary>A beat after the last star, so the rating is read before the arithmetic behind it starts.</summary>
+        private const float BREAKDOWN_REVEAL_GAP_SECONDS = 0.3f;
+
+        /// <summary>Between one row landing and the next.</summary>
+        private const float BREAKDOWN_ROW_STEP_SECONDS = 0.14f;
+
+        /// <summary>One row's own travel — quicker than a star's <see cref="REVEAL_PUNCH_SECONDS"/>: four of
+        /// these plus the total run in the time one star does, and a punch that size on a line of body text
+        /// would overshoot further than the text is tall.</summary>
+        private const float BREAKDOWN_PUNCH_SECONDS = 0.22f;
+
+        /// <summary>Matched, orphaned, streak bonus, shots unused — the total lands one step after the last.</summary>
+        private const int BREAKDOWN_ROW_COUNT = 4;
+
+        /// <summary>When row <paramref name="row"/> (0-based, in <see cref="BuildBreakdown"/>'s own order) lands.</summary>
+        private float BreakdownRowRevealTime(int row) =>
+            StarRevealTotalSeconds + BREAKDOWN_REVEAL_GAP_SECONDS + row * BREAKDOWN_ROW_STEP_SECONDS;
+
+        /// <summary>When the total lands — one step past the last detail row, the sum arriving after its terms.</summary>
+        private float BreakdownTotalRevealTime => BreakdownRowRevealTime(BREAKDOWN_ROW_COUNT);
+
+        /// <summary>
+        /// Writes one row from <see cref="_revealClock"/>: a dash and an empty detail before its own reveal
+        /// time, the real figures and the star row's own punch from it. <paramref name="detail"/> is null for
+        /// the streak-bonus row, which has no "count × worth" to show.
+        /// </summary>
+        private void WriteBreakdownRow(int row, Label detail, string detailText, Label value, string valueText)
+        {
+            float progress = (_revealClock - BreakdownRowRevealTime(row)) / BREAKDOWN_PUNCH_SECONDS;
+
+            if (progress < 0f)
+            {
+                if (detail != null) detail.Text = string.Empty;
+                value.Text = PENDING_MARK;
+                value.Scale = Vector2.One;
+                return;
+            }
+
+            if (detail != null) detail.Text = detailText;
+            value.Text = valueText;
+            value.Scale = new Vector2(PunchScale(progress));
+        }
+
+        /// <summary>
+        /// Writes the whole breakdown from <see cref="_revealClock"/>, exactly as <see cref="ApplyStars"/>
+        /// writes the row above it and for the identical reason: a resize can rebuild this page's tree
+        /// mid-reveal, and the new tree has to come up wherever the clock already stands rather than at the
+        /// reveal's first frame. A no-op on a fail (<see cref="LevelResult.ShowsBreakdown"/> is <c>Cleared</c>),
+        /// where the grid is hidden and there is nothing here to write.
+        /// <para>
+        /// The total takes the earned rating's own colour (<see cref="BS3DGame.StarTierColor"/>) — safe here
+        /// specifically because it sits on the breakdown's own plate, the one place on this page the
+        /// greyscale-chrome rule already carries a licensed exception for a rating's own readout (see
+        /// <c>STAR_EMPTY</c>'s remarks in <c>BS3DGame</c>). It is not a second accent; it is the same one,
+        /// tying the number that earned the rating to the rating it earned.
+        /// </para>
+        /// </summary>
+        private void ApplyBreakdownReveal()
+        {
+            if (_breakdown == null || !_result.ShowsBreakdown) return;
+
+            WriteBreakdownRow(0, _matchedDetail, $"{_result.MatchedBalls} × {ScoreKeeper.MatchedBallPoints}",
+                _matchedValue, ScoreText.Of(_result.MatchedBalls * ScoreKeeper.MatchedBallPoints));
+
+            WriteBreakdownRow(1, _orphanedDetail, $"{_result.OrphanedBalls} × {ScoreKeeper.OrphanedBallPoints}",
+                _orphanedValue, ScoreText.Of(_result.OrphanedBalls * ScoreKeeper.OrphanedBallPoints));
+
+            WriteBreakdownRow(2, null, null, _streakValue, ScoreText.Of(_result.StreakBonus));
+
+            string unusedDetailText = _result.HadBudget
+                ? $"{_result.UnusedShotsAwarded} × {ScoreKeeper.UnusedShotPoints}"
+                : "—";
+            WriteBreakdownRow(3, _unusedDetail, unusedDetailText, _unusedValue,
+                ScoreText.Of(_result.CompletionBonusAwarded));
+
+            float totalProgress = (_revealClock - BreakdownTotalRevealTime) / BREAKDOWN_PUNCH_SECONDS;
+
+            _totalValue.TextColor = BS3DGame.StarTierColor(_result.Stars);
+            if (totalProgress < 0f)
+            {
+                _totalValue.Text = PENDING_MARK;
+                _totalValue.Scale = Vector2.One;
+            }
+            else
+            {
+                _totalValue.Text = ScoreText.Of(_result.Score);
+                _totalValue.Scale = new Vector2(PunchScale(totalProgress));
             }
         }
 
@@ -875,8 +992,19 @@ namespace BS3D.Screens
             AddRow(grid, 2, "streak bonus", out _, out _streakValue);
             AddRow(grid, 3, "shots unused", out _unusedDetail, out _unusedValue);
 
+            //A hairline rule was tried here (#479) — under the four rows, over the total — and dropped. Three
+            //shapes of it (an empty Panel, a Pixels-sized row under it, an empty-then-space-text Label with
+            //the same background and row) all measured, laid out and positioned correctly by every other
+            //signal on the page — the total shifted down to make room for each attempt exactly as asked — and
+            //not one of them painted a single pixel. Whatever Myra (1.6.3) needs of a Background-only line
+            //that carries no visible content, this was not it, and the extra top margin below is what is left
+            //of the rule's own spacing rather than a stray number: the total still wants a beat of air before
+            //it, rule or no rule.
+            //
             //The total sits on its own line under the rows — in the value column, so it lines up under the row
             //totals — in the heading weight, so it reads as the answer rather than as another line of the sum.
+            //TransformOrigin centres its own punch (#479, see ApplyBreakdownReveal): it lands like a star does,
+            //oversized and settling, rather than simply appearing.
             grid.RowsProportions.Add(new Proportion(ProportionType.Auto));
             _totalValue = new Label
             {
@@ -885,6 +1013,8 @@ namespace BS3D.Screens
                 TextColor = BS3DGame.MENU_TEXT,
                 HorizontalAlignment = HorizontalAlignment.Right,
                 VerticalAlignment = VerticalAlignment.Center,
+                TransformOrigin = new Vector2(0.5f, 0.5f),
+                Margin = ScaledThickness(0, 24, 0, 0),
             };
             Grid.SetColumn(_totalValue, 2);
             Grid.SetRow(_totalValue, 4);
@@ -970,6 +1100,11 @@ namespace BS3D.Screens
                 TextColor = BS3DGame.MENU_TEXT,
                 HorizontalAlignment = HorizontalAlignment.Right,
                 VerticalAlignment = VerticalAlignment.Center,
+
+                //Centres the punch ApplyBreakdownReveal drives it with (#479) — the same reason the star
+                //slots set it, and for the identical effect: the number pops in place rather than growing
+                //from a corner.
+                TransformOrigin = new Vector2(0.5f, 0.5f),
             };
             Grid.SetColumn(value, 2);
             Grid.SetRow(value, row);
@@ -1036,18 +1171,6 @@ namespace BS3D.Screens
 
             if (_result.ShowsBreakdown)
             {
-                _matchedDetail.Text = $"{_result.MatchedBalls} × {ScoreKeeper.MatchedBallPoints}";
-                _matchedValue.Text = ScoreText.Of(_result.MatchedBalls * ScoreKeeper.MatchedBallPoints);
-                _orphanedDetail.Text = $"{_result.OrphanedBalls} × {ScoreKeeper.OrphanedBallPoints}";
-                _orphanedValue.Text = ScoreText.Of(_result.OrphanedBalls * ScoreKeeper.OrphanedBallPoints);
-                _streakValue.Text = ScoreText.Of(_result.StreakBonus);
-
-                _unusedDetail.Text = _result.HadBudget
-                    ? $"{_result.UnusedShotsAwarded} × {ScoreKeeper.UnusedShotPoints}"
-                    : "—";
-                _unusedValue.Text = ScoreText.Of(_result.CompletionBonusAwarded);
-                _totalValue.Text = ScoreText.Of(_result.Score);
-
                 //Only below four stars — NextStarScore's own -1 says there is nothing left to project towards,
                 //the same sentinel LevelResult itself uses, so this can never show a note the total contradicts.
                 bool hasNextStar = _result.NextStarScore >= 0;
@@ -1070,6 +1193,11 @@ namespace BS3D.Screens
                 _unlockNote.Text = unlockNote;
                 _unlockNote.Visible = unlockNote.Length > 0;
             }
+
+            //The rows and the total are the reveal's to write, not this method's (#479) — see
+            //ApplyBreakdownReveal, which this also primes immediately so nothing is a blank frame before
+            //Update's first tick (ApplyStars' own reason, above).
+            ApplyBreakdownReveal();
 
             //Next Level is shown only when the level was cleared, there is another entry to go to AND the
             //campaign opens it. Absent, not disabled, when any of that fails — a greyed-out button over a
