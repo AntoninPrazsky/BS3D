@@ -5152,3 +5152,23 @@ Souhlasí to s verdiktem výš: Gemma dobře jmenuje místa v kódu, ale ke kaž
 **Na majiteli**: zda je pohyb teď správně (ze snímků se posoudit nedá) a kolik tyrkysu má sníh nést. **Neuděláno a pojmenováno**: sníh na větvích (druhý lathe na variantu nebo nový člen ve sdíleném shaderu) a opar mezi kmeny. Issue nechávám otevřené na jeho pohled.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-21 — Claude Code (desktop: třetí Gemmino review, `InstancedModel.fx` — nic k založení, dva zastaralé komentáře opraveny)
+
+**Majitel poslal Gemmino review hlavního shaderu:** 4 „chyby" a 5 doporučení. Ověřeno proti kódu:
+
+- **„AddSceneLights počítá všech 8 slotů, i když svítí jedno světlo" — nepravda.** Smyčka je `[loop] for (i < SceneLightCount)`, takže už teď běží jen přes živé sloty. Doporučení č. 1 (pole indexů aktivních světel) tím odpadá.
+- **„Stíny se počítají v hlavní cestě, pro koule můžou být drahé" — už je to vyřešené i změřené.** Tap stojí za `[branch]` na uniformu `ShadowStrength`. Cenu za koule změřilo #470: +0,05 ms s 315 koulemi přes celý snímek. `docs/rendering.md` říká, co udělat, kdyby to jednou začalo vadit (flag na renderer podle vzoru `DirLightStrength`).
+- **„Ruční sRGB převod, riziko dvojí korekce" — hypotetické.** Každé vzorkování linearizuje hned v tapu a komentář u `ShadePixel` to říká. Konkrétní případ Gemma nemá.
+- **„Blinn-Phong, přejít na PBR (GGX)" — rozhodnutí o vzhledu, ne technický dluh.** Přímé světlo záměrně kopíruje `BasicEffect`. Odraz okolí už má Schlickův Fresnel s ohledem na drsnost, drsnost odvozenou z exponentu a `Metalness`, takže zlato zrcadlí oblohu zlatě. Převod na Cook-Torrance by změnil vzhled každého vyladěného materiálu. Založit jen na majitelovo přání.
+- **„Atlas textur / bindless" — řeší neexistující problém.** Koule nemají textury a texturovaná je jediná technika.
+- **„SeaLevelY/KillPlaneY do `EnvironmentParams.fxh`"** — přesun dvou uniformů nic nezpřehlední. Soubor je opravdu velký (6952 řádků), ale tenhle návrh to neřeší.
+- **„`half` místo `float`" — na SM5 nic nedělá.** fxc mapuje `half` na `float` u všech cílů od D3D10. Jediná skutečná páka by byl `min16float` a ten by bylo nutné změřit.
+
+**Vedlejší nález, opraveno (merge `052bf5b`):** komentář u `[branch]` v `ShadePixel` i `docs/rendering.md` („When it is drawn is the whole trick") pořád tvrdily, že mapu stínů má jen savana. Od #471 ji má jedenáct scén. Bez mapy jsou moře, bouře a šest scén, které nahrazují oblohu. Jen komentáře, bez buildu.
+
+Tentokrát Gemma zaměňuje, co kód dělá, s tím, co by kód obecně mohl dělat. Dvě „chyby" jsou v kódu vyřešené přesně tak, jak radí.
+
+**Nic dalšího si neberu.**
