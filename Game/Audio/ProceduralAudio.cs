@@ -241,15 +241,16 @@ namespace BS3D.Audio
         private const int LAUNCH_VOICES = 4;
 
         //A launch heard from the crowd, not the pad (#498): 0.08 was already "far under the report", and with
-        //the barrage stacking ten of them it was not. 0.02 is −12 dB on each, so the capped stack of four sits
-        //where a single one used to.
-        private const float LAUNCH_LEVEL = 0.02f;
+        //the barrage stacking ten of them it was not. 0.012 is −16 dB on each, so the capped stack of four sits
+        //well under where a single one used to.
+        private const float LAUNCH_LEVEL = 0.012f;
 
         //A report is 2.6 s, and during the barrage all MAX_SHELLS shells report inside one such window — so the
         //peak is the shell count itself, by construction. Its margin is already slightly NEGATIVE: a shell slot
         //can free and refire in RISE_MIN + LIFE_MIN = 2.52 s, inside the 2.6 s report, so in the worst case a
         //report loses its last ~80 ms — which is reverb tail, under everything else in a barrage, and inaudible.
-        //A longer burst bake or a shorter shell life eats into real sound, silently.
+        //A longer burst bake or a shorter shell life eats into real sound, silently. (The recorded report, #482,
+        //is a 4 s file whose sound is over in under two: a boom and a short tail, see "The sound".)
         private const int BURST_VOICES = 32;   //Fireworks.MAX_SHELLS
 
         //A boom is 5.0 s and the volcano stages one burst per period (19 s by default), so two would do. Three
@@ -1585,6 +1586,7 @@ namespace BS3D.Audio
             //rather than a firework. A whistling shell is genuinely piercing; up here it reads as one, and it
             //is the LEVEL rather than the pitch that keeps it from being shrill.
             const float startHz = 900f, endHz = 2600f;
+            const float LAUNCH_WHISTLE = 0f;
             float phase = 0f;
 
             for (int i = 0; i < samples; i++)
@@ -1612,9 +1614,10 @@ namespace BS3D.Audio
                 //means the tone is a departure rather than a note.
                 float env = MathF.Min(1f, t / 0.012f) * MathF.Pow(1f - u, 1.6f);
 
-                //The whistle under the fizz (#498: 0.5 → 0.15) — from the crowd a rising tone is the last thing
-                //a launch is, and the tone is what stacked into the chorus
-                signal[i] += tone * 0.15f * env;
+                //The whistle is OUT (#498: 0.5 → 0.15 → 0) — from the crowd a rising tone is the last thing a
+                //launch is, and the tone is what stacked into the chorus; the fizz alone says a shell went up.
+                //The tone is still synthesized so the day it is wanted again it is one constant, not a rewrite.
+                signal[i] += tone * LAUNCH_WHISTLE * env;
             }
 
             //The fizz, and it now carries the launch rather than accompanying it. A firework leaving the
