@@ -74,7 +74,13 @@ namespace Prazsky.BS3D.Input
         public void RegisterCurrentInputState()
         {
             _currentKeyboardState = Keyboard.GetState();
-            _currentGamePadState = GamePad.GetState(PlayerIndex.One);
+
+            //Circular rather than the default IndependentAxes (#352, #515): the default clamps each stick
+            //axis on its own, a SQUARE dead zone that moves the camera on a diagonal push where the same push
+            //along one axis alone would not, and pulls the reported direction towards the axes near the edge.
+            //Both sticks read from this one state below - Move off the left, Rotate off the right - and a
+            //circular zone is the more correct shape for either.
+            _currentGamePadState = GamePad.GetState(PlayerIndex.One, GamePadDeadZone.Circular);
             _currentMouseState = Mouse.GetState();
         }
 
