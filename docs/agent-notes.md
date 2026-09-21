@@ -5231,3 +5231,16 @@ Obě issues nechávám otevřené na majitelův pohled v pohybu.
 - **Ověřeno**: čtyři solutiony čistě, `LevelGen`/`ScoreSim` exit 0, hra se rozjede a hraje bez pádu i bez připojeného padu.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-21 — Claude Code (notebook: #516 na mainu, merge `3ce76e4`)
+
+**Desátá věc ten den, na výslovný pokyn „Vem další issue".** Pokračoval jsem v pořadí, co jsem sám sepsal pod #352: #516, `GetCapabilities` hlídající rumble (#378) a ikony tutoriálu.
+
+- **Rumble půlka hotová**: `GamepadRumble.Update` teď čte `GamePad.GetCapabilities` těsně před `SetVibration` (nekešuje, ale to volání beztak neběží víc než jednou za změnu rumble stavu — hlídá to už `_silent`). Bez motoru vůbec `SetVibration` nevolá; s jedním motorem vynuluje kanál, co motor nemá.
+- ⚠ **Ikony tutoriálu se ukázaly nemít co opravovat.** Prošel jsem `Tutorial.cs` a `GameplayScreen.Input.cs`: `NoteDevice` přepíná do gamepad módu čistě podle toho, jestli hráč hnul páčkou/spouští/tlačítkem — takže zařízení bez nich (volant, arkádová páka) do gamepad módu nikdy nespadne a zůstane na klávesnicových kartách, což je už správné chování samo od sebe. A samotné glyfy jsou abstraktní šipkové/dingbat znaky s obecným textem „stick"/„trigger", ne písmeno Xbox tlačítka ani značková ikona — nebylo tam nic konkrétního, co by `GamePadType` mělo přepínat. Neopravoval jsem chybu, co tam není.
+- ⚠ **Neověřeno na skutečném více-motorovém ani bezmotorovém padu** — stejný důvod jako u #515, žádný gamepad po ruce. Zato jsem přes vnější vstřik kláves vystřelil šest ran do běžící hry (bez připojeného padu) — strop klesl po páté, což potvrdilo, že nová větev `Update` proběhla opakovaně bez výjimky.
+- **Ověřeno**: čtyři solutiony čistě, `LevelGen`/`ScoreSim` exit 0.
+
+**Nic dalšího si neberu.**
