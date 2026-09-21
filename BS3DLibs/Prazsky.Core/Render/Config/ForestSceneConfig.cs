@@ -144,6 +144,18 @@ namespace Prazsky.Core.Render
         /// <summary>The scattered stumps and fallen logs.</summary>
         public ForestStumpConfig Stumps { get; set; } = new();
 
+        /// <summary>
+        /// Standing dead spruces (#462, <see cref="SnagMesh"/>) — none in the daytime forest, a few in the
+        /// aurora's boreal wood. <see cref="ForestDeadwoodConfig.Length"/> is a snag's height.
+        /// </summary>
+        public ForestDeadwoodConfig Snags { get; set; } = new() { Length = 11f, Radius = 0.3f };
+
+        /// <summary>
+        /// Fallen trunks lying on the floor (#462, the savanna's <see cref="DeadwoodMesh"/>) — none in the
+        /// daytime forest, a few in the aurora's. <see cref="ForestDeadwoodConfig.Length"/> is end to end.
+        /// </summary>
+        public ForestDeadwoodConfig Logs { get; set; } = new() { Length = 8f, Radius = 0.38f, MaxScale = 1.3f };
+
         /// <summary>The firefly-like lights over the floor (#487).</summary>
         public ForestFireflyConfig Fireflies { get; set; } = new();
     }
@@ -213,6 +225,26 @@ namespace Prazsky.Core.Render
         public float ConiferCrownHeight { get; set; } = 9.5f;
 
         /// <summary>
+        /// The fewest branch whorls a spruce crown is built with; each mesh variant rolls between this and
+        /// <c>ConiferTiers + ConiferTierSpread - 1</c> (<see cref="TreeMesh"/>). Four to six is the daytime
+        /// forest's broad garden spruce. A boreal spruce (the aurora's, #462) is a narrow spire of many short
+        /// whorls, and it is the count of them far more than the proportions that says so — the same crown
+        /// at four tiers reads as a stack of cones.
+        /// </summary>
+        public int ConiferTiers { get; set; } = 4;
+
+        /// <summary>How many different whorl counts the variants roll between, from <see cref="ConiferTiers"/> up (at least 1).</summary>
+        public int ConiferTierSpread { get; set; } = 3;
+
+        /// <summary>
+        /// How uneven a spruce's whorls are — the spread of their widths from tier to tier and the wobble of
+        /// each skirt's edge round the stem, together (<see cref="TreeMesh"/>). 1 is the forest as it was
+        /// built. A boreal spruce (#462) is ragged, its branches broken and uneven, where a garden one is
+        /// trim; a regular stack of many whorls reads as a pagoda.
+        /// </summary>
+        public float ConiferRaggedness { get; set; } = 1f;
+
+        /// <summary>
         /// Bark colour (linear radiance), applied as the trunk renderers' diffuse tint. Only mildly warm: the
         /// bark texture carries a warm tint of its own, and a saturated brown under it reads as a terracotta
         /// pipe rather than as a trunk.
@@ -262,6 +294,48 @@ namespace Prazsky.Core.Render
         /// boulders came out as pale buns lying in the grass rather than as granite.
         /// </summary>
         public Rgb Color { get; set; } = new(0.075f, 0.077f, 0.08f);
+    }
+
+    /// <summary>
+    /// Dead wood scattered through the forest (#462): the standing snags and the fallen logs share this shape,
+    /// each as its own group on <see cref="ForestSceneConfig"/>. <b>None by default</b> — the daytime forest
+    /// never had any, and a count of zero plants nothing — so it is a scene that asks for them.
+    /// </summary>
+    public sealed class ForestDeadwoodConfig
+    {
+        /// <summary>Number scattered across the floor. Zero plants none.</summary>
+        public int Count { get; set; }
+
+        /// <summary>Inner radius of the scatter ring (kept clear of the island).</summary>
+        public float MinRadius { get; set; } = 46f;
+
+        /// <summary>Outer radius of the scatter ring.</summary>
+        public float MaxRadius { get; set; } = 340f;
+
+        /// <summary>Number of cluster centres they gather around.</summary>
+        public int Clusters { get; set; } = 10;
+
+        /// <summary>Spread around each cluster centre.</summary>
+        public float ClusterSpread { get; set; } = 30f;
+
+        /// <summary>Smallest scale.</summary>
+        public float MinScale { get; set; } = 0.7f;
+
+        /// <summary>Largest scale.</summary>
+        public float MaxScale { get; set; } = 1.4f;
+
+        /// <summary>A snag's height, or a log's length end to end (world units, before per-instance scale).</summary>
+        public float Length { get; set; } = 10f;
+
+        /// <summary>Radius at the thick end.</summary>
+        public float Radius { get; set; } = 0.35f;
+
+        /// <summary>
+        /// Dead wood colour (linear radiance), applied as the renderers' diffuse tint over the bark texture.
+        /// Grey and paler than living bark: wood that has stood or lain dead for years loses its bark and
+        /// weathers silver, which is what makes a snag read against the dark spruces round it.
+        /// </summary>
+        public Rgb Color { get; set; } = new(0.11f, 0.105f, 0.10f);
     }
 
     /// <summary>The scattered stumps and fallen logs of the forest floor.</summary>

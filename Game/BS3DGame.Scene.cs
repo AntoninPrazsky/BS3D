@@ -886,6 +886,12 @@ namespace BS3D
                 //keeps this cheap once it settles. The clock is the same wall clock the scene lights and
                 //the city windows already use above, so nothing here can drift out of step with the sky.
                 _auroraScatter.ApplySkyTint(_sceneRenderer.AuroraGlowColor(_wallClock));
+
+                //And the island, the gun and the balls take the sky's hue through the scene's own light rig
+                //(#462), on the same clock. The rig steps rather than slides (SceneRenderer.AnimatesLightRig),
+                //so the re-light — whose walk is an iterator — runs about once a second at most, not per frame.
+                if (_rig.StepSceneLight(_wallClock)) ApplySkyLighting();
+
                 _auroraScatter.Draw(_camera);
             }
 

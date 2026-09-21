@@ -7,12 +7,12 @@ using System;
 namespace Prazsky.Core.Render
 {
     /// <summary>
-    /// The forest scatter's rendering hardware: everything the trees, boulders and stumps are drawn
-    /// <b>with</b>, as <see cref="ForestScatter"/> is everything about <b>where</b> they stand. The two
-    /// procedural <see cref="SurfaceTexture"/>s, the fifteen mesh variants (six spruces, four broadleaves,
-    /// three boulders, two stumps), the twenty-five <see cref="InstancedModelRenderer"/>s that dress them as
-    /// bark, foliage, weathered stone and sawn wood, the three matte <see cref="BasicEffectParams"/>, the
-    /// per-variant tints and the six instanced draws.
+    /// The forest scatter's rendering hardware: everything the trees, boulders, stumps and dead wood are
+    /// drawn <b>with</b>, as <see cref="ForestScatter"/> is everything about <b>where</b> they stand. The two
+    /// procedural <see cref="SurfaceTexture"/>s, the twenty mesh variants (six spruces, four broadleaves,
+    /// three boulders, two stumps, and since #462 three snags and two fallen logs), the thirty
+    /// <see cref="InstancedModelRenderer"/>s that dress them as bark, foliage, weathered stone and sawn wood,
+    /// the three matte <see cref="BasicEffectParams"/>, the per-variant tints and the eight instanced draws.
     /// <para>
     /// It lived in the Game alone until #75, which is exactly why the Testbed and the map editor drew the
     /// forest as a bare clearing — the terrain under it was always the shared <see cref="SceneRenderer"/>'s,
@@ -148,14 +148,22 @@ namespace Prazsky.Core.Render
         private RockMesh[] _rockMeshes;
         private StumpMesh[] _stumpMeshes;
 
+        //The dead wood (#462): standing snags and fallen logs, bark-dressed like the stumps. Built for every
+        //planting, the daytime forest's included, whose config plants none of either — two small tube meshes
+        //each and five renderers that never draw (DrawScatter skips an empty bucket), against a second code
+        //path for a wood without them.
+        private SnagMesh[] _snagMeshes;
+        private DeadwoodMesh[] _logMeshes;
+
         //A trunk and a crown are two renderers because they are two materials — bark and foliage — and the
         //diffuse tint is a per-draw uniform, not per-instance. Every variant is its own instanced draw, which
         //is why these are arrays rather than single renderers.
         private InstancedModelRenderer[] _coniferTrunkRenderers, _coniferCrownRenderers;
         private InstancedModelRenderer[] _broadleafTrunkRenderers, _broadleafCrownRenderers;
         private InstancedModelRenderer[] _rockRenderers, _stumpRenderers;
+        private InstancedModelRenderer[] _snagRenderers, _logRenderers;
 
-        //The flat list of all twenty-five, in draw order. See Renderers.
+        //The flat list of all thirty, in draw order. See Renderers.
         private InstancedModelRenderer[] _renderers;
 
         //One already-encoded sRGB tint per mesh variant per draw — the whole point of the cache. Six arrays
@@ -164,6 +172,7 @@ namespace Prazsky.Core.Render
         private Vector3[] _coniferTrunkTints, _coniferCrownTints;
         private Vector3[] _broadleafTrunkTints, _broadleafCrownTints;
         private Vector3[] _rockTints, _stumpTints;
+        private Vector3[] _snagTints, _logTints;
 
         //The dome hue the tints above were last encoded against, so re-encoding is skipped on every frame the
         //dome has not moved — which is nearly all of them, since ApplySkyTint is called from the same
@@ -174,11 +183,12 @@ namespace Prazsky.Core.Render
         //The authored linear colours, kept because the encoded tints above can no longer be re-derived from
         //themselves: the sky shift is applied on the way in, so re-encoding needs the originals.
         private Vector3 _barkColorLinear, _coniferColorLinear, _foliageColorLinear, _rockColorLinear, _stumpColorLinear;
+        private Vector3 _snagColorLinear, _logColorLinear;
 
         private ForestScatter _scatter;
 
         /// <summary>
-        /// Builds the whole wood here and now: both procedural textures, the fifteen meshes, the twenty-five
+        /// Builds the whole wood here and now: both procedural textures, the twenty meshes, the thirty
         /// renderers with their per-material dressing, the encoded tints and the scatter itself. There is
         /// nothing runtime about any of it — the scatter is a fixed default forest, as the city is a fixed
         /// default city — so a caller with a static config builds it once at load and never touches it again.
@@ -261,8 +271,8 @@ namespace Prazsky.Core.Render
         public InstancedModelRenderer[] Renderers => _renderers;
 
         /// <summary>
-        /// The six instanced draws, in order: conifer trunks, conifer crowns, broadleaf trunks, broadleaf
-        /// crowns, boulders, stumps — one draw per kind per mesh variant, and per material within a tree. A
+        /// The eight instanced draws, in order: conifer trunks, conifer crowns, broadleaf trunks, broadleaf
+        /// crowns, boulders, stumps, snags, logs — one draw per kind per mesh variant, and per material within a tree. A
         /// species' trunk and crown read that variant's own scatter of world matrices (the crown mesh is built
         /// sitting on its trunk's top, so one position places both) and are two draws because their tints
         /// differ — bark and foliage — and the diffuse tint is a per-draw uniform.
@@ -296,10 +306,12 @@ namespace Prazsky.Core.Render
             DrawScatter(camera, _broadleafCrownRenderers, _scatter.Broadleaves, _foliageEffectParams, _broadleafCrownTints);
             DrawScatter(camera, _rockRenderers, _scatter.Rocks, _rockEffectParams, _rockTints);
             DrawScatter(camera, _stumpRenderers, _scatter.Stumps, _barkEffectParams, _stumpTints);
+            DrawScatter(camera, _snagRenderers, _scatter.Snags, _barkEffectParams, _snagTints);
+            DrawScatter(camera, _logRenderers, _scatter.Logs, _barkEffectParams, _logTints);
         }
 
         /// <summary>
-        /// The same six kinds drawn again from the sun, into the shadow map <c>SceneRenderer.DrawShadowMaps</c>
+        /// The same eight kinds drawn again from the sun, into the shadow map <c>SceneRenderer.DrawShadowMaps</c>
         /// has bound (#471): depth only, no material and no light, through
         /// <see cref="InstancedModelRenderer.DrawDepth"/> and <c>InstancedModel.fx</c>'s <c>InstancedDepth</c>
         /// technique. The densest scatter in the project is the one whose shadow matters most — a wood where
@@ -307,8 +319,8 @@ namespace Prazsky.Core.Render
         /// <para>
         /// <b>Trunks and crowns are one draw each here, not two.</b> The drawn pass splits them because their
         /// TINTS differ (bark against foliage, a per-draw uniform); a depth pass has no tint, so the crown's
-        /// and the trunk's meshes are simply two more sets of geometry over the same instances. It stays six
-        /// calls per variant rather than twelve for that reason.
+        /// and the trunk's meshes are simply two more sets of geometry over the same instances. It stays eight
+        /// calls per variant rather than sixteen for that reason.
         /// </para>
         /// <para>
         /// <b>The caller states everything</b>: the map bound, cleared, opaque, depth-default and
@@ -328,6 +340,8 @@ namespace Prazsky.Core.Render
             CastScatter(shadowViewProjection, _broadleafCrownRenderers, _scatter.Broadleaves);
             CastScatter(shadowViewProjection, _rockRenderers, _scatter.Rocks);
             CastScatter(shadowViewProjection, _stumpRenderers, _scatter.Stumps);
+            CastScatter(shadowViewProjection, _snagRenderers, _scatter.Snags);
+            CastScatter(shadowViewProjection, _logRenderers, _scatter.Logs);
         }
 
         /// <summary>
@@ -344,7 +358,7 @@ namespace Prazsky.Core.Render
         /// as a bug in the editor rather than in here.
         /// </para>
         /// <para>
-        /// <b>A load-time cost, not a per-frame one</b> — fifteen meshes and twenty-five instance buffers are
+        /// <b>A load-time cost, not a per-frame one</b> — twenty meshes and thirty instance buffers are
         /// released and rebuilt — so call it when a config actually changed and not on the draw path. The two
         /// textures and the three <see cref="BasicEffectParams"/> survive it: neither depends on the config.
         /// </para>
@@ -364,7 +378,7 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// Everything this component made: the fifteen meshes, all twenty-five renderers (each holding a
+        /// Everything this component made: the twenty meshes, all thirty renderers (each holding a
         /// native instance buffer), the bark and foliage textures — and the stone texture only if it built
         /// that one itself. A stone texture handed to the constructor belongs to the caller and is left
         /// alone; the Game's used to be the island's own, disposed with the island's block, and disposing a
@@ -423,6 +437,22 @@ namespace Prazsky.Core.Render
                 new StumpMesh(_device, config.Stumps.Radius * 1.3f, config.Stumps.Height * 0.55f, irregularityPhase: 3.3f)
             };
 
+            //Three snags and two logs: a snag is one bent trunk and its stubs, and it is the stubs' layout and
+            //the lean the scatter gives it that tell one from another, so fewer variants than the spruces need.
+            ForestDeadwoodConfig snags = config.Snags, logs = config.Logs;
+            _snagMeshes = new[]
+            {
+                new SnagMesh(_device, snags.Length, snags.Radius, seed: 131),
+                new SnagMesh(_device, snags.Length * 1.3f, snags.Radius * 1.1f, seed: 137),   //a tall one, broken high
+                new SnagMesh(_device, snags.Length * 0.65f, snags.Radius * 0.95f, seed: 139)  //broken low - most of it gone
+            };
+
+            _logMeshes = new[]
+            {
+                new DeadwoodMesh(_device, logs.Length, logs.Radius, seed: 149),
+                new DeadwoodMesh(_device, logs.Length * 0.7f, logs.Radius * 0.85f, seed: 151)
+            };
+
             //The tint tables are indexed by mesh variant, so a variant past the end of its table throws inside
             //the draw — where the forest is only ever on screen in one scene, so it would be a crash nobody met
             //until they picked the forest. It was an unchecked coupling between two lists in one file for as
@@ -443,14 +473,16 @@ namespace Prazsky.Core.Render
             _broadleafCrownRenderers = Array.ConvertAll(_broadleafMeshes, m => NewCrownRenderer(m.Crown));
             _rockRenderers = Array.ConvertAll(_rockMeshes, m => NewRockRenderer(m));
             _stumpRenderers = Array.ConvertAll(_stumpMeshes, m => NewStumpRenderer(m));
+            _snagRenderers = Array.ConvertAll(_snagMeshes, m => NewStumpRenderer(m));
+            _logRenderers = Array.ConvertAll(_logMeshes, m => NewStumpRenderer(m));
 
-            //The one flat list, in draw order (see Renderers). Built from the six arrays rather than filled
+            //The one flat list, in draw order (see Renderers). Built from the eight arrays rather than filled
             //alongside them, so a kind added later joins the sky lighting and the disposal by being added here
             //once instead of in three places.
             _renderers = new InstancedModelRenderer[
                 _coniferTrunkRenderers.Length + _coniferCrownRenderers.Length +
                 _broadleafTrunkRenderers.Length + _broadleafCrownRenderers.Length +
-                _rockRenderers.Length + _stumpRenderers.Length];
+                _rockRenderers.Length + _stumpRenderers.Length + _snagRenderers.Length + _logRenderers.Length];
 
             int next = 0;
             next = CopyInto(_coniferTrunkRenderers, next);
@@ -458,7 +490,9 @@ namespace Prazsky.Core.Render
             next = CopyInto(_broadleafTrunkRenderers, next);
             next = CopyInto(_broadleafCrownRenderers, next);
             next = CopyInto(_rockRenderers, next);
-            CopyInto(_stumpRenderers, next);
+            next = CopyInto(_stumpRenderers, next);
+            next = CopyInto(_snagRenderers, next);
+            CopyInto(_logRenderers, next);
 
             //The trunks of both species share the bark colour; the stumps have a lighter wood of their own,
             //being mostly the pale sawn face. Only the two canopies take per-variant multipliers.
@@ -467,6 +501,8 @@ namespace Prazsky.Core.Render
             _foliageColorLinear = trees.FoliageColor.ToVector3();
             _rockColorLinear = config.Rocks.Color.ToVector3();
             _stumpColorLinear = config.Stumps.Color.ToVector3();
+            _snagColorLinear = snags.Color.ToVector3();
+            _logColorLinear = logs.Color.ToVector3();
 
             EncodeAllTints();
 
@@ -477,6 +513,7 @@ namespace Prazsky.Core.Render
             //than at the draw.
             _scatter = new ForestScatter(_seed, config,
                 _coniferMeshes.Length, _broadleafMeshes.Length, _rockMeshes.Length, _stumpMeshes.Length,
+                _snagMeshes.Length, _logMeshes.Length,
                 (x, z) => SceneRenderer.ForestTerrainHeight(x, z, config));
         }
 
@@ -543,8 +580,8 @@ namespace Prazsky.Core.Render
             return Vector3.Lerp(linear, domeHued, SKY_TINT_STRENGTH);
         }
 
-        //Re-encodes every tint table from the authored linear colours. Cheap and rare: six small arrays,
-        //twenty-five entries between them, run at build, at a replant and when the dome's hue actually moves.
+        //Re-encodes every tint table from the authored linear colours. Cheap and rare: eight small arrays,
+        //thirty entries between them, run at build, at a replant and when the dome's hue actually moves.
         private void EncodeAllTints()
         {
             //The trunks of both species share the bark colour; the stumps have a lighter wood of their own,
@@ -555,6 +592,8 @@ namespace Prazsky.Core.Render
             _broadleafCrownTints = EncodeTints(_foliageColorLinear, _broadleafMeshes.Length, BROADLEAF_TINTS);
             _rockTints = EncodeTints(_rockColorLinear, _rockMeshes.Length, null);
             _stumpTints = EncodeTints(_stumpColorLinear, _stumpMeshes.Length, null);
+            _snagTints = EncodeTints(_snagColorLinear, _snagMeshes.Length, null);
+            _logTints = EncodeTints(_logColorLinear, _logMeshes.Length, null);
         }
 
         /// <summary>
@@ -568,7 +607,7 @@ namespace Prazsky.Core.Render
         /// </param>
         /// <remarks>
         /// Guarded on the value, because this is called from a per-frame pass (the overcast lerp re-applies the
-        /// rig every frame) and re-encoding twenty-five tints every frame for a dome that has not moved is
+        /// rig every frame) and re-encoding thirty tints every frame for a dome that has not moved is
         /// exactly the kind of per-frame arithmetic the tint cache exists to avoid.
         /// </remarks>
         public void ApplySkyTint(Vector3 domeTint)
@@ -622,7 +661,8 @@ namespace Prazsky.Core.Render
                 trunkBaseRadius: cfg.TrunkBaseRadius * width, trunkTopRadius: cfg.TrunkTopRadius * width,
                 trunkHeight: cfg.ConiferTrunkHeight * height,
                 crownRadius: cfg.ConiferCrownRadius * width, crownHeight: cfg.ConiferCrownHeight * height,
-                seed: seed);
+                seed: seed, coniferTiers: cfg.ConiferTiers, coniferTierSpread: cfg.ConiferTierSpread,
+                coniferRaggedness: cfg.ConiferRaggedness);
 
         private TreeMesh NewBroadleaf(ForestTreeConfig cfg, float width, float height, int seed) =>
             new(_device, TreeSpecies.Broadleaf,
@@ -711,6 +751,8 @@ namespace Prazsky.Core.Render
             if (_broadleafMeshes != null) foreach (TreeMesh mesh in _broadleafMeshes) mesh?.Dispose();
             if (_rockMeshes != null) foreach (RockMesh mesh in _rockMeshes) mesh?.Dispose();
             if (_stumpMeshes != null) foreach (StumpMesh mesh in _stumpMeshes) mesh?.Dispose();
+            if (_snagMeshes != null) foreach (SnagMesh mesh in _snagMeshes) mesh?.Dispose();
+            if (_logMeshes != null) foreach (DeadwoodMesh mesh in _logMeshes) mesh?.Dispose();
         }
     }
 }

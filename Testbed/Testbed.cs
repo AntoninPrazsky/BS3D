@@ -1153,6 +1153,11 @@ namespace Testbed
             if (!_options.NoOvercast)
                 _rig.StepOvercast(_clouds.CoverAround(Vector2.Zero, OVERCAST_SAMPLE_RADIUS), elapsedSeconds);
 
+            //A scene rig that moves with time (the aurora's takes its sky's hue, #462) is stepped here, on
+            //the clock the Testbed draws that sky with. Its answer is not needed: the push below runs every
+            //frame anyway.
+            _rig.StepSceneLight(_pulseSeconds);
+
             //Refilled every frame into one reused list, and pushed by index, so the per-frame path allocates
             //nothing — this is the caller BestPractices.md §3 records the iterator incident for
             _rig.ApplyTo(SkyLitRenderers());

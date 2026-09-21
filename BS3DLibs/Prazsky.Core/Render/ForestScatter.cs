@@ -11,8 +11,8 @@ namespace Prazsky.Core.Render
     /// cluster centres so the forest reads as groves rather than a regular grid, with a few solitaries — and
     /// everything kept clear of the island the arena stands on.
     /// <para>
-    /// The output is one instance array per object kind (two tree species, rocks, stumps) <b>per mesh
-    /// variant</b>, because each variant is its own instanced draw (its own mesh, and its own tint — a
+    /// The output is one instance array per object kind (two tree species, rocks, stumps, and since #462
+    /// standing snags and fallen logs) <b>per mesh variant</b>, because each variant is its own instanced draw (its own mesh, and its own tint — a
     /// per-draw uniform, not per-instance). A kind with several variants is what stops the eye reading a
     /// grove as one tree stamped out fifty times: the caller builds the same species at a few sets of
     /// proportions and this hands back which instances belong to each. Every variant of a species is scattered
@@ -35,6 +35,12 @@ namespace Prazsky.Core.Render
         /// <summary>Cut stumps by mesh variant.</summary>
         public ModelInstance[][] Stumps { get; }
 
+        /// <summary>Standing dead spruces by mesh variant (#462). Empty buckets where the config plants none.</summary>
+        public ModelInstance[][] Snags { get; }
+
+        /// <summary>Fallen logs by mesh variant (#462). Empty buckets where the config plants none.</summary>
+        public ModelInstance[][] Logs { get; }
+
         //No neighbouring-cell occlusion; the instanced shader still expects the vector (W=1 = fully open).
         private static readonly Vector4 NO_OCCLUSION = new(0f, 0f, 0f, 1f);
 
@@ -49,21 +55,31 @@ namespace Prazsky.Core.Render
         //A stump was cut where it grew, so it keeps a tree's modest lean.
         private const float STUMP_LEAN = 0.07f;
 
+        //A snag leans far more than a living tree: dead roots let go, and a crooked grey trunk among straight
+        //dark ones is half of what the references show a snag as. Past about 0.3 it reads as falling.
+        private const float SNAG_LEAN = 0.28f;
+
+        //A log lies on the floor: only enough tilt to follow the lie of the ground it fell across.
+        private const float LOG_LEAN = 0.05f;
+
+        //A snag's clearance is its bare trunk and stubs, far narrower than a crown; a log's is half its length,
+        //which keeps two from lying through each other.
+        private const float SNAG_FOOTPRINT = 1.2f;
+
+        //The horizontal radius of a tree at scale 1, which is what two instances have to clear between them,
+        //is the crown radius the meshes are built at — ForestTreeConfig.CrownRadius and ConiferCrownRadius,
+        //read in the constructor. The crown is the widest part of a tree and the only part whose overlap the
+        //eye catches. They were constants here (3.1 and 2.6, the daytime figures) until #462 planted a wood of
+        //spires half that wide, which the constants would have spaced as though they were garden spruces.
+
         /// <summary>
-        /// The horizontal radius of each kind at scale 1, which is what two instances have to clear between
-        /// them. Taken from the crown radii the meshes are actually built at
-        /// (<c>ForestTreeConfig.CrownRadius</c> 3.1 and <c>ConiferCrownRadius</c> 2.6) rather than guessed —
-        /// the crown is the widest part of a tree and the only part whose overlap the eye catches.
+        /// The horizontal radius of a boulder at scale 1, which is what two of them have to clear between
+        /// them. A constant, as it always was: the widest of the three boulder variants is built at 1.25 of
+        /// <c>Rocks.Radius</c>, and this clears it with room for the tumble.
         /// </summary>
-        private const float BROADLEAF_FOOTPRINT = 3.1f;
-
-        /// <inheritdoc cref="BROADLEAF_FOOTPRINT"/>
-        private const float CONIFER_FOOTPRINT = 2.6f;
-
-        /// <inheritdoc cref="BROADLEAF_FOOTPRINT"/>
         private const float ROCK_FOOTPRINT = 1.6f;
 
-        /// <inheritdoc cref="BROADLEAF_FOOTPRINT"/>
+        /// <summary>The horizontal radius of a stump at scale 1 — the wider of its two variants, as for the boulders.</summary>
         private const float STUMP_FOOTPRINT = 1.1f;
 
         /// <param name="seed">Scatter seed; the same seed always gives the same forest.</param>
@@ -73,16 +89,20 @@ namespace Prazsky.Core.Render
         /// <param name="broadleafVariants">How many broadleaf meshes the caller built.</param>
         /// <param name="rockVariants">How many boulder meshes the caller built.</param>
         /// <param name="stumpVariants">How many stump meshes the caller built.</param>
+        /// <param name="snagVariants">How many snag meshes the caller built.</param>
+        /// <param name="logVariants">How many log meshes the caller built.</param>
         /// <param name="terrainHeight">The forest floor height at a world XZ point — mirrors Forest.fx's
         /// TerrainHeight (see <see cref="SceneRenderer.ForestTerrainHeight"/>), so trees are planted on the
         /// ground the shader draws rather than floating or buried.</param>
         public ForestScatter(int seed, ForestSceneConfig config,
             int coniferVariants, int broadleafVariants, int rockVariants, int stumpVariants,
-            Func<float, float, float> terrainHeight)
+            int snagVariants, int logVariants, Func<float, float, float> terrainHeight)
         {
             ForestTreeConfig trees = config.Trees;
             ForestRockConfig rocks = config.Rocks;
             ForestStumpConfig stumps = config.Stumps;
+            ForestDeadwoodConfig snags = config.Snags;
+            ForestDeadwoodConfig logs = config.Logs;
 
             Random rng = new(seed);
 
@@ -101,10 +121,10 @@ namespace Prazsky.Core.Render
 
             Conifers = Scatter(coniferCount, trees.MinRadius, trees.MaxRadius, trees.Clusters, trees.ClusterSpread,
                 trees.MinScale, trees.MaxScale, TREE_LEAN, coniferVariants, terrainHeight, rng,
-                CONIFER_FOOTPRINT, trunks);
+                trees.ConiferCrownRadius, trunks);
             Broadleaves = Scatter(trees.Count - coniferCount, trees.MinRadius, trees.MaxRadius, trees.Clusters, trees.ClusterSpread,
                 trees.MinScale, trees.MaxScale, TREE_LEAN, broadleafVariants, terrainHeight, rng,
-                BROADLEAF_FOOTPRINT, trunks);
+                trees.CrownRadius, trunks);
 
             //Their own lists: a pile of boulders in one spot reads as a pile, but a boulder inside another
             //boulder reads as a bug, and the same for stumps.
@@ -114,6 +134,18 @@ namespace Prazsky.Core.Render
             Stumps = Scatter(stumps.Count, stumps.MinRadius, stumps.MaxRadius, stumps.Clusters, stumps.ClusterSpread,
                 stumps.MinScale, stumps.MaxScale, STUMP_LEAN, stumpVariants, terrainHeight, rng,
                 STUMP_FOOTPRINT, new List<ScatterSpacing.Footprint>(stumps.Count));
+
+            //The dead wood last (#462), and that order is load-bearing: the four kinds above draw from the one
+            //rng stream, so anything scattered before them would re-plant the whole daytime forest. After them
+            //it moves nothing that was there. The snags join the TREES' list — a dead spruce standing inside a
+            //living one is the overlap the eye catches — and the logs keep their own, since a trunk lying at
+            //the foot of a tree is exactly where one falls.
+            Snags = Scatter(snags.Count, snags.MinRadius, snags.MaxRadius, snags.Clusters, snags.ClusterSpread,
+                snags.MinScale, snags.MaxScale, SNAG_LEAN, snagVariants, terrainHeight, rng,
+                SNAG_FOOTPRINT, trunks);
+            Logs = Scatter(logs.Count, logs.MinRadius, logs.MaxRadius, logs.Clusters, logs.ClusterSpread,
+                logs.MinScale, logs.MaxScale, LOG_LEAN, logVariants, terrainHeight, rng,
+                logs.Length * 0.5f, new List<ScatterSpacing.Footprint>(logs.Count));
         }
 
         //One clumped scatter of <count> instances between <minRadius> and <maxRadius> from the world origin,

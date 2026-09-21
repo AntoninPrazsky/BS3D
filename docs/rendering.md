@@ -107,7 +107,7 @@ The savanna was the first scene, and #471 carried the map to nine more — see b
 | Forest | the wood — trees, boulders, stumps (`InstancedModel.fx`'s `InstancedDepth`) | the **host**: it owns the `ForestScatterRenderer` |
 | every one of the ten | the island and the gun | the **host** (#470) |
 
-`ForestScatterRenderer.DrawShadow` is `Draw`'s depth twin, and it is **six calls a variant rather than twelve**: the drawn pass splits a tree into trunk and crown because their *tints* differ, and a depth pass has no tint.
+`ForestScatterRenderer.DrawShadow` is `Draw`'s depth twin, and it is **eight calls a variant rather than sixteen** (six before #462's snags and logs): the drawn pass splits a tree into trunk and crown because their *tints* differ, and a depth pass has no tint.
 
 - ⚠ **`Palm.fx`'s caster had to learn the sway, and the sway had to become a function.** A palm's crown is displaced in the vertex shader off `PalmTime` and the wind; a caster that skipped it would throw the shadow of a palm standing still while the drawn one waved. `Sway()` is now one copy both techniques call. What is still one frame stale is the *clock*: the map is drawn before the scene, so `PalmTime` on the effect is the previous frame's. At the beach's sway speed that is under a hundredth of a radian, a fraction of a millimetre at a frond tip, and the alternative is handing `DrawShadowMaps` a `SceneFrame` it has no other use for.
 - ⚠ **The rocks cast with the sway strength at zero**, for the reason `DrawTropicalRocks` already gives: they are `LatheMesh`es whose `TEXCOORD0.x` is a circumference, which this shader reads as its sway weight. At the palms' strength the stones shear open — and a sheared stone casts a sheared shadow.

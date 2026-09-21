@@ -108,6 +108,10 @@ namespace Prazsky.Core.Render
 
         private SceneKind _scene;
 
+        //The wall clock an animated scene rig was last stepped to (StepSceneLight). Kept so a SetSky or an
+        //overcast step in between re-derives the scene's rig at the same moment rather than at zero.
+        private float _sceneClock;
+
         /// <param name="sceneRenderer">The scene renderer whose <c>TryGetLightRig</c> is consulted, or null for
         /// a caller with no scenes. All three executables have one, the map editor included — a level sets its
         /// scene from its own config, and previewing a sky-replacing level under the wrong sun is the one thing
@@ -224,6 +228,32 @@ namespace Prazsky.Core.Render
             Derive();
         }
 
+        /// <summary>
+        /// Steps a scene rig that moves with time — the aurora's, which takes the hue of its own sky (#462,
+        /// <see cref="SceneRenderer.AnimatesLightRig"/>) — and says whether the rig changed. Call it every
+        /// frame; when it returns true, push the rig to the renderers again exactly as after
+        /// <see cref="SetSky"/>. For every other scene it is one static test and returns false.
+        /// <para>
+        /// <b>A bool rather than a re-push in here</b>, because which renderers take part is each caller's
+        /// (see the class doc), and because the scene steps its rig rather than sliding it: the answer is
+        /// false on nearly every frame, so a caller whose walk allocates (the Game's is an iterator) pays for
+        /// it about once a second at most, and not sixty times.
+        /// </para>
+        /// </summary>
+        /// <param name="wallClock">Wall-clock seconds — the clock the scene's own sky and its ground are
+        /// drawn on, or the island's light and the sky above it fall out of step.</param>
+        public bool StepSceneLight(float wallClock)
+        {
+            if (!SceneRenderer.AnimatesLightRig(_scene)) return false;
+
+            _sceneClock = wallClock;
+
+            Vector3 key = KeyTint, back = BackTint, sky = SkyAmbient, ground = GroundAmbient;
+            Derive();
+
+            return KeyTint != key || BackTint != back || SkyAmbient != sky || GroundAmbient != ground;
+        }
+
         private void Derive()
         {
             //Where the light lives, which since #220 is the dome's business rather than one constant's — a
@@ -244,7 +274,7 @@ namespace Prazsky.Core.Render
             SkyAmbient = Vector3.Lerp(ZenithLinear * ZENITH_AMBIENT_SCALE, OVERCAST_SKY, Overcast);
             GroundAmbient = Vector3.Lerp(HorizonLinear * GROUND_BOUNCE_SCALE, OVERCAST_GROUND, Overcast);
 
-            if (_sceneRenderer != null && _sceneRenderer.TryGetLightRig(_scene, out SceneLightRig rig))
+            if (_sceneRenderer != null && _sceneRenderer.TryGetLightRig(_scene, _sceneClock, out SceneLightRig rig))
             {
                 SkyAmbient = rig.SkyAmbient;
                 GroundAmbient = rig.GroundAmbient;
