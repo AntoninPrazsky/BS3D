@@ -7,7 +7,7 @@ description: Draw reference images locally before designing how something in BS3
 
 The game draws everything procedurally, and designing a mesh or a material in code is easier with something concrete to look at. This skill renders that something locally. **The owner's verdict on the first twenty (#441, 2026-09-16): *„ty obrázky jsou skvělé”*.**
 
-> **⚠️ This renderer has hard-reset the owner's desktop seven times, then rendered sixteen images straight through. Treat a run as likely to survive but never assume it.** Seven of seven runs on 2026-09-17 and the morning of 2026-09-18 ended in instant power loss (`Kernel-Power 41`, BugcheckCode 0, no WHEA, no 4101), the longest surviving four images and the shortest producing none, while roughly a hundred Testbed and Game runs across the same days were clean. **Then, the same afternoon and with no configuration changed, a 16-image run (~10 minutes, Q8 + offload) completed with nothing to report** — the owner had been working on the machine's power in between and observed that the Game had stopped crashing too. So the fault is in the machine, it is intermittent, and it is not something a flag on this script controls.
+> **⚠️ This renderer has hard-reset the owner's desktop eight times, with one sixteen-image run straight through in between; the eighth was 2026-09-21, five images into #489's img2img run. Treat every run as one that may die at any moment — what it has written by then survives.** Seven of seven runs on 2026-09-17 and the morning of 2026-09-18 ended in instant power loss (`Kernel-Power 41`, BugcheckCode 0, no WHEA, no 4101), the longest surviving four images and the shortest producing none, while roughly a hundred Testbed and Game runs across the same days were clean. **Then, the same afternoon and with no configuration changed, a 16-image run (~10 minutes, Q8 + offload) completed with nothing to report** — the owner had been working on the machine's power in between and observed that the Game had stopped crashing too. So the fault is in the machine, it is intermittent, and it is not something a flag on this script controls.
 >
 > **Do not go looking for it in the renderer's settings.** Already ruled out: a replaced GPU cable, the power limit raised, the power limit lowered 10 %, `Q8` with offload, and `Q4_K` + the Q8 encoder with **no offload at all** — auto-fit reported `VRAM 7921.64MB, RAM 0.00MB`, everything resident, and it died within seconds of the first sampling step, sooner than the offloaded run that managed four images. Quantization and `--offload-to-cpu` are both irrelevant; the owner's reading, *„velikost modelu nemá vliv”*, is what the logs show. **Practical rule: assume any run may die at any moment.** Images are written one at a time and survive, so prefer one server and many seeds over many short runs, keep the output outside the repository, and have everything pushed before starting.
 
@@ -34,6 +34,26 @@ The script starts `sd-server` if nothing listens on port 7860 (LM Studio holds 1
 - *"Front elevation, orthographic, perfectly symmetrical"* came back as a flat illustration rather than a photograph. It still gave a clean silhouette that reads as a lathe profile, which is what a revolved mesh like `TrophyMesh` needs.
 - **Size:** 832×1216 for a tall object, 1216×832 for a scene. 8 steps at cfg 1 are the Turbo model's settings, so leave them.
 - **More seeds beat more rewording** when the prompt already says the right thing: `-Count 3` is three variants for ~105 s.
+
+## Drawing over the game's own frame (#489)
+
+`-Init <capture.png> -Strength <s>` renders **over a Testbed capture** through sd-server's img2img instead of from noise, so the reference keeps the game's composition — the island, the drain, the gun, the cluster and the horizon stay where `campos`/`camtarget` put them — and only what the prompt describes is redrawn. The capture is fitted to the render size (scaled to cover it, centre-cropped, never stretched) and written once beside the first seed as `<name>-<seed>-init.png`, so what went in is on record; the sidecar carries `init:` and `strength:`. A prompt-file entry may name its own `init` and `strength`. `-DryRun` builds every request and writes the fitted image without starting a server.
+
+**Capture the frame with the post effects off and at the render size.** `nopost` zeroes the film grain and the chromatic aberration, which would otherwise go into the model as texture; `width=1216 height=832` makes the back buffer the render size so nothing is resampled; `F12` hides the overlay and `shot=` saves the frame from inside the program:
+
+```
+Testbed.exe Maps\Full.json scene=aurora campos=0,-4,30 camtarget=0,-8,0 width=1216 height=832 nopost fpscap=75 at=6:F12 shot=8 at=11:Escape
+```
+
+**Measured on the aurora (2026-09-21, the wood #462 complains about), one prompt from that issue's brief, seeds 11–13** — the images are in `C:\Users\panrd\AI\sd\out\489`:
+
+| Strength | Seconds an image | What came back |
+|---|---|---|
+| 0.35 | 18.4 | The game's frame with a light retouch: the stamped spruces are still stamps, the balls, the gun and the tiles are the Testbed's. Nothing to design from. |
+| 0.5 | 25.4 | **The reference the issue asked for.** Same island, drain, gun and cluster in the same places; the wood redrawn as layered silhouettes in depth — tall thin spruces, dead spars, leaning trunks, a darker treeline behind, snow patches on the platform — with rays in the curtains. The cannon comes back as a period gun and the balls as a mixed cluster: the price of the redraw, and irrelevant to a scene reference. |
+| 0.65, 0.8 | — | **Not rendered: the machine hard-reset on the sixth image** (Kernel-Power 41 at 09:22:22, four minutes in, five images written). The range above 0.5 is unmeasured. |
+
+The first image of a run costs about 8 s more than the rest (the init image's VAE encode and the graph build). So for a scene rework **start at 0.5**; go lower only to keep one specific object as it is, and expect 0.35 to hand the game back.
 
 ## Making a chosen one bigger
 

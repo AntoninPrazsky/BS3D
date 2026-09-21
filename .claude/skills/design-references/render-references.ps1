@@ -12,7 +12,8 @@ The server flags are the ones measured on #441 (RX 6900 XT, 16 GB): the Q8 weigh
 
 THIS RENDERER TAKES THE DESKTOP DOWN, AND NO CONFIGURATION OF IT HAS AVOIDED THAT. Seven of seven runs
 between 2026-09-17 and 2026-09-18 ended in an instant hard reset (Kernel-Power 41, BugcheckCode 0, no WHEA,
-no 4101) while ~100 Testbed/Game runs on the same days were clean, uncapped ones included.
+no 4101) while ~100 Testbed/Game runs on the same days were clean, uncapped ones included. An eighth on
+2026-09-21, five images into #489's img2img sweep, after a sixteen-image run had gone through clean in between.
 
 The offload theory was wrong and is recorded here so it is not re-run: --offload-to-cpu streams weights over
 PCIe every step, so the suspicion was those transients. The test that killed it was Q4_K + the Q8 encoder
@@ -29,7 +30,16 @@ owner before starting this script at all.
 
 .EXAMPLE
 .\render-references.ps1 -PromptFile C:\Users\panrd\AI\sd\prompts-441.json -Out C:\Users\panrd\AI\sd\out\441
-# the file is a JSON array of { "name": "...", "prompt": "...", "w": 1216, "h": 832, "seed": 1 } (w, h, seed optional)
+# the file is a JSON array of { "name": "...", "prompt": "...", "w": 1216, "h": 832, "seed": 1, "init": "...", "strength": 0.6 }
+# (w, h, seed, init and strength optional)
+
+.EXAMPLE
+.\render-references.ps1 -Name aurora-wood -Init C:\...\testbed-20260921-Aurora.png -Strength 0.6 -Count 3 -Prompt "Game environment concept art: ..."
+# img2img (#489): the capture is fitted to -Width x -Height (scaled to cover it, centre-cropped, never stretched) and
+# the model takes it -Strength of the way back to noise before redrawing, so the game's own framing survives - the
+# island, the cluster and the horizon stay where the Testbed put them. Measured on the aurora: see "Drawing over the
+# game's own frame" in SKILL.md. -DryRun builds every request and writes the fitted init image, posting nothing and
+# starting no server.
 #>
 param(
     [string]$Prompt,
@@ -40,6 +50,9 @@ param(
     [int]$Seed = -1,
     [int]$Count = 1,
     [int]$Steps = 8,
+    [string]$Init,
+    [double]$Strength = 0.6,
+    [switch]$DryRun,
     [string]$Out,
     [string]$Root = 'C:\Users\panrd\AI\sd',
     [int]$Port = 7860,
@@ -74,10 +87,37 @@ if ($PromptFile) {
         if ($it.w) { $w = [int]$it.w }
         if ($it.h) { $h = [int]$it.h }
         if ($null -ne $it.seed) { $s = [int]$it.seed }
-        $items += [pscustomobject]@{ Name = $it.name; Prompt = $it.prompt; W = $w; H = $h; Seed = $s }
+        $init = $Init; $strength = $Strength
+        if ($it.init) { $init = [string]$it.init }
+        if ($null -ne $it.strength) { $strength = [double]$it.strength }
+        $items += [pscustomobject]@{ Name = $it.name; Prompt = $it.prompt; W = $w; H = $h; Seed = $s; Init = $init; Strength = $strength }
     }
 } else {
-    $items += [pscustomobject]@{ Name = $Name; Prompt = $Prompt; W = $Width; H = $Height; Seed = $Seed }
+    $items += [pscustomobject]@{ Name = $Name; Prompt = $Prompt; W = $Width; H = $Height; Seed = $Seed; Init = $Init; Strength = $Strength }
+}
+foreach ($it in $items) {
+    if ($it.Init -and -not (Test-Path $it.Init)) { throw "Init image not found: $($it.Init)" }
+}
+
+Add-Type -AssemblyName System.Drawing
+# The init image fitted to the render size: scaled to cover it and centre-cropped, never stretched, because a capture is
+# 3840x1600 or 1600x900 and the render sizes are 1216x832-class. Sampling at the capture's own size instead is the
+# pinned-memory wall recorded under "Making a chosen one bigger" in SKILL.md.
+function Get-InitPng([string]$path, [int]$w, [int]$h) {
+    $src = [Drawing.Image]::FromFile($path)
+    try {
+        $scale = [Math]::Max($w / $src.Width, $h / $src.Height)
+        $dw = [int][Math]::Round($src.Width * $scale); $dh = [int][Math]::Round($src.Height * $scale)
+        $bmp = New-Object Drawing.Bitmap $w, $h
+        $g = [Drawing.Graphics]::FromImage($bmp)
+        $g.InterpolationMode = [Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+        $g.DrawImage($src, [int](($w - $dw) / 2), [int](($h - $dh) / 2), $dw, $dh)
+        $g.Dispose()
+        $ms = New-Object IO.MemoryStream
+        $bmp.Save($ms, [Drawing.Imaging.ImageFormat]::Png)
+        $bmp.Dispose()
+        return $ms.ToArray()
+    } finally { $src.Dispose() }
 }
 
 function Test-ServerPort([int]$p) {
@@ -106,7 +146,9 @@ try {
     #What the .txt records about the server. A reused one was started by someone else, so its options are not
     #ours to claim - say so rather than writing this run's intended flags over an image they did not shape.
     $serverNote = 'reused, options unknown'
-    if (Test-ServerPort $Port) {
+    if ($DryRun) {
+        Write-Host 'Dry run: nothing is posted and no server is started.'
+    } elseif (Test-ServerPort $Port) {
         Write-Host "Reusing the server already listening on port $Port."
     } else {
         $serverArgs = @('--listen-port', $Port, '--diffusion-model', "`"$diffusion`"", '--vae', "`"$vae`"",
@@ -139,19 +181,37 @@ try {
         if ($base -lt 0) { $base = Get-Random -Minimum 1 -Maximum 2000000000 }
         for ($i = 0; $i -lt $Count; $i++) {
             $s = $base + $i
-            $body = @{ prompt = $it.Prompt; negative_prompt = ''; width = $it.W; height = $it.H; steps = $Steps;
-                cfg_scale = 1.0; seed = $s; batch_size = 1 } | ConvertTo-Json -Compress
+            $request = @{ prompt = $it.Prompt; negative_prompt = ''; width = $it.W; height = $it.H; steps = $Steps;
+                cfg_scale = 1.0; seed = $s; batch_size = 1 }
+            $file = Join-Path $Out ("{0}-{1}" -f $it.Name, $s)
+            $mode = 'txt2img'
+            if ($it.Init) {
+                #img2img (#489): the same request plus the fitted capture and how far back towards noise it is taken.
+                #The fitted image is written once beside the first seed, so what the model started from is on record.
+                $mode = 'img2img'
+                $png = Get-InitPng $it.Init $it.W $it.H
+                if ($i -eq 0) { [IO.File]::WriteAllBytes("$file-init.png", $png) }
+                $request.init_images = @([Convert]::ToBase64String($png))
+                $request.denoising_strength = $it.Strength
+            }
+            $body = $request | ConvertTo-Json -Compress
+            if ($DryRun) {
+                Write-Host ("{0}  {1}  {2}x{3}  seed {4}  request {5} bytes{6}" -f "$file.png", $mode, $it.W, $it.H, $s,
+                    $body.Length, $(if ($it.Init) { "  strength $($it.Strength) over $($it.Init)" } else { '' }))
+                continue
+            }
             $sw = [Diagnostics.Stopwatch]::StartNew()
-            $res = Invoke-RestMethod -Uri "http://127.0.0.1:$Port/sdapi/v1/txt2img" -Method Post `
+            $res = Invoke-RestMethod -Uri "http://127.0.0.1:$Port/sdapi/v1/$mode" -Method Post `
                 -Body ([Text.Encoding]::UTF8.GetBytes($body)) -ContentType 'application/json; charset=utf-8' -TimeoutSec 1800
             $secs = $sw.Elapsed.TotalSeconds
-            $file = Join-Path $Out ("{0}-{1}" -f $it.Name, $s)
             [IO.File]::WriteAllBytes("$file.png", [Convert]::FromBase64String($res.images[0]))
             #The .txt is what a reference is re-rendered from, so it carries everything that shaped the image:
             #the server options too, since a highres fix changes the output while the request stays the same.
             $meta = "name: $($it.Name)`r`nseed: $s`r`nsize: $($it.W)x$($it.H)`r`nsteps: $Steps`r`nmodel: " +
                 [IO.Path]::GetFileName($diffusion) + " + " + [IO.Path]::GetFileName($encoder) +
-                "`r`nserver: " + $serverNote + "`r`nseconds: " +
+                "`r`nserver: " + $serverNote +
+                $(if ($it.Init) { "`r`ninit: $($it.Init)`r`nstrength: " + $it.Strength.ToString([Globalization.CultureInfo]::InvariantCulture) } else { '' }) +
+                "`r`nseconds: " +
                 $secs.ToString('F1', [Globalization.CultureInfo]::InvariantCulture) + "`r`n`r`n$($it.Prompt)`r`n"
             [IO.File]::WriteAllText("$file.txt", $meta, (New-Object Text.UTF8Encoding($false)))
             Write-Host ("{0}  {1}x{2}  seed {3}  {4:N1} s" -f "$file.png", $it.W, $it.H, $s, $secs)
