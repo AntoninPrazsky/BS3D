@@ -18,6 +18,7 @@ What follows is not a menu of plausible uses. **Every line was measured on 2026-
 |---|---|---|
 | Is there already an issue like this one? | `text-embedding-nomic-embed-text-v1.5` via `Tools/SemanticSearch` | **Use it.** Known partners ranked 1st–2nd for 4 of 7 probes; the other three sat under issues on the same subject. |
 | Find something in the Czech agent journal | same | **Don't trust it.** Czech questions put the answer 9th–201st of 532. Ask in English (ranked 2nd), or try a multilingual model. |
+| Which section of `docs/` answers this? | same, via `Tools/SemanticSearch --docs` | **Use it (#490).** Fifteen known-answer questions: the right section 1st eleven times, 2nd three times, once 115th (CLAUDE.md's "Project", a piece about six things at once — the top hit, `docs/testbed.md`'s opening, answered it too). |
 | What changed between two captures? | `google/gemma-4-12b` via `vision.ps1` (default); `qwen/qwen3-vl-8b` is close | **Use it as a first pass.** Gemma 3½ of 4 known pairs, Qwen3-VL-8B 3 of 4 (#440). Both said "identical" for one file sent twice. Gemma named the crosshair growing and turning red but called an upward tilt a zoom; Qwen got the tilt and spotted a ball that really had appeared, but missed the crosshair growing. Gemma 1.5–14 s a pair, Qwen 13–16 s. |
 | Read a small detail (a colour, a mark) | Gemma 4; Qwen3-VL a step behind | **Only on a crop.** On a 256 px crop Gemma 7 of 7, Qwen 6 of 7 (in 0.3 s against Gemma's 1.3); on the whole frame both 5 of 7. For an exact value, measure pixels (`screenshot/palette.ps1`, a bar scan). |
 | Does a level's shape read as its subject? | neither | **No.** Blind naming got 3–4 of 18 levels for both models, and most symmetric patterns came back as "butterfly" (Gemma) or "cannonball pattern" (Qwen). Neither model's 1–5 rating separates the levels playtesting said read from those it said did not; Qwen's does not separate them at all in 3D (3.8 against 3.7). |
@@ -32,6 +33,14 @@ dotnet run --project Tools\SemanticSearch -- --file draft.md     # or --issue 42
 ```
 
 The issues come live through `gh` on every run, so an issue filed a minute ago is in the list. **Read the top five rather than trusting a score**: known duplicates and follow-ups scored 0.84–0.91, but an issue merely on the same subject reached 0.875, so there is no threshold that separates them. The whole tool is documented under "The semantic search" in `docs/formats-and-tools.md`.
+
+## Before reading a whole document
+
+```powershell
+dotnet run --project Tools\SemanticSearch -- --docs "why are the shadow maps drawn before the scene target is bound"
+```
+
+It prints the sections most likely to hold the answer, with the first line of the piece under each label — a section here can run to thirty pieces, so open the file at that heading rather than from the top. The first run embeds the 1010 pieces in ~27 s; after that the corpus costs nothing over an issues-only run. Measured on 2026-09-21 (#490): the known section first for 11 of 15 questions and second for 3; the miss was a question about one paragraph of a section that is about six things.
 
 ## Comparing captures
 

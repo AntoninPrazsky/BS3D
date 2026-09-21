@@ -23,6 +23,13 @@ namespace BS3D.Tools.SemanticSearch
     /// 201, 70 and 9 of 532 chunks. The default model is English-centric, which is why the journal is behind a switch and
     /// says so when it answers.
     /// </para>
+    /// <para>
+    /// <b>The documents (#490, measured 2026-09-21):</b> fifteen paraphrased questions whose answer sits in one known
+    /// section of <c>docs/</c>, CLAUDE.md or BestPractices.md put that section 1st eleven times and 2nd three times. The
+    /// one miss is CLAUDE.md's "Project" at 115th — a piece that packs the merge rule, the three executables and the
+    /// Testbed's role into one text, of which the question matched a tenth — while the top hit, <c>docs/testbed.md</c>'s
+    /// own opening, answered it as well. 1010 pieces from 1.8 MB, 27 s to embed on the first run.
+    /// </para>
     /// </summary>
     internal static class Program
     {
@@ -73,6 +80,7 @@ namespace BS3D.Tools.SemanticSearch
             //One cache per corpus, so a run that searches only the issues cannot throw away the journal's vectors
             EmbeddingCache issueCache = EmbeddingCache.Load(options.Model, "issues");
             EmbeddingCache journalCache = options.Journal ? EmbeddingCache.Load(options.Model, "journal") : null;
+            EmbeddingCache docsCache = options.Docs ? EmbeddingCache.Load(options.Model, "docs") : null;
 
             try
             {
@@ -100,6 +108,21 @@ namespace BS3D.Tools.SemanticSearch
                     foreach ((Doc doc, float score) in Rank(chunks, query).Take(options.Top))
                         Console.WriteLine($"  {score:F3}  {doc.Title}");
                 }
+
+                if (options.Docs)
+                {
+                    List<Doc> chunks = ChunkDocs(repo);
+                    (embedded, cached) = await client.EmbedDocuments(chunks, docsCache);
+
+                    //A section of these documents runs to pages, so a hit says where in it the piece starts
+                    Console.WriteLine();
+                    Console.WriteLine($"[search] docs: {chunks.Count} chunks, {embedded} embedded now, {cached} from cache");
+                    foreach ((Doc doc, float score) in Rank(chunks, query).Take(options.Top))
+                    {
+                        Console.WriteLine($"  {score:F3}  {doc.Title}");
+                        Console.WriteLine($"         {Trim(Opening(doc.Text), 120)}");
+                    }
+                }
             }
             catch (EmbeddingException e)
             {
@@ -110,6 +133,7 @@ namespace BS3D.Tools.SemanticSearch
             {
                 issueCache.Save();
                 journalCache?.Save();
+                docsCache?.Save();
             }
 
             return 0;
@@ -117,7 +141,7 @@ namespace BS3D.Tools.SemanticSearch
 
         private static void PrintUsage()
         {
-            Console.WriteLine("SemanticSearch: GitHub issues (and journal entries) that mean the same as a text, via a local embedding model in LM Studio.");
+            Console.WriteLine("SemanticSearch: GitHub issues (and journal entries, and sections of the documents) that mean the same as a text, via a local embedding model in LM Studio.");
             Console.WriteLine();
             Console.WriteLine("  dotnet run --project Tools\\SemanticSearch -- \"text to look for\"");
             Console.WriteLine("  dotnet run --project Tools\\SemanticSearch -- --issue 425        the issues most like #425");
@@ -125,6 +149,7 @@ namespace BS3D.Tools.SemanticSearch
             Console.WriteLine();
             Console.WriteLine("  --open           open issues only");
             Console.WriteLine("  --journal        also search docs/agent-notes.md and docs/agent-notes-archive/");
+            Console.WriteLine("  --docs           also search docs/*.md, CLAUDE.md and BestPractices.md, section by section");
             Console.WriteLine("  --top N          results per list (8)");
             Console.WriteLine($"  --model KEY      embedding model ({DEFAULT_MODEL})");
             Console.WriteLine($"  --endpoint URL   LM Studio's OpenAI-compatible base ({DEFAULT_ENDPOINT})");
@@ -178,7 +203,8 @@ namespace BS3D.Tools.SemanticSearch
 
         /// <summary>
         /// The journal cut into entries at its <c>## </c> headings, and each entry into pieces short enough for the model,
-        /// at paragraph breaks. Every piece carries its entry's heading, which is what dates it and says whose it is.
+        /// at paragraph breaks. Every piece carries its entry's heading, which is what dates it and says whose it is. The
+        /// <c>### </c> headings inside an entry are not cuts: an entry is one agent's one sitting, and that is the unit.
         /// </summary>
         private static List<Doc> ChunkJournal(string repo)
         {
@@ -187,39 +213,97 @@ namespace BS3D.Tools.SemanticSearch
             if (Directory.Exists(archive)) files.AddRange(Directory.GetFiles(archive, "*.md").OrderBy(f => f));
 
             var chunks = new List<Doc>();
-            foreach (string file in files)
-            {
-                string name = Path.GetFileName(file);
-                string heading = "(before the first entry)";
-                var entry = new StringBuilder();
-
-                void Flush()
-                {
-                    if (entry.Length == 0) return;
-                    var pieces = new List<string>();
-                    var piece = new StringBuilder();
-                    int room = MAX_CHARS - 200;
-                    foreach (string paragraph in entry.ToString().Split("\n\n"))
-                    {
-                        string p = paragraph.Length > room ? paragraph[..room] : paragraph;
-                        if (piece.Length > 0 && piece.Length + p.Length + 2 > room) { pieces.Add(piece.ToString()); piece.Clear(); }
-                        piece.Append(p).Append("\n\n");
-                    }
-                    if (piece.Length > 0) pieces.Add(piece.ToString());
-
-                    for (int k = 0; k < pieces.Count; k++)
-                        chunks.Add(new Doc { Title = $"{name} | {heading} | part {k + 1}/{pieces.Count}", Text = heading + "\n" + pieces[k] });
-                    entry.Clear();
-                }
-
-                foreach (string line in File.ReadLines(file))
-                {
-                    if (line.StartsWith("## ")) { Flush(); heading = line[3..].Trim(); continue; }
-                    entry.Append(line).Append('\n');
-                }
-                Flush();
-            }
+            foreach (string file in files) ChunkMarkdown(file, subsections: false, "(before the first entry)", chunks);
             return chunks;
+        }
+
+        /// <summary>
+        /// The documents cut at their <c>## </c> and <c>### </c> headings — a subsection is labelled under its section, so
+        /// a hit names the place to open — and then into pieces exactly as the journal is. The documents are the ones in
+        /// <c>docs/</c> that are not the journal, plus <c>CLAUDE.md</c> and <c>BestPractices.md</c>: what CLAUDE.md tells
+        /// an agent to read before working on an area, which is the reading this corpus exists to shorten.
+        /// </summary>
+        private static List<Doc> ChunkDocs(string repo)
+        {
+            var files = new List<string> { Path.Combine(repo, "CLAUDE.md"), Path.Combine(repo, "BestPractices.md") };
+            files.AddRange(Directory.GetFiles(Path.Combine(repo, "docs"), "*.md")
+                .Where(f => !Path.GetFileName(f).StartsWith("agent-notes")).OrderBy(f => f));
+
+            var chunks = new List<Doc>();
+            foreach (string file in files) ChunkMarkdown(file, subsections: true, "(before the first heading)", chunks);
+            return chunks;
+        }
+
+        /// <summary>
+        /// One Markdown file into <see cref="Doc"/>s: cut at its <c>## </c> headings (and at <c>### </c> when
+        /// <paramref name="subsections"/>, labelled "section › subsection"), each stretch then at paragraph breaks into
+        /// pieces under <see cref="MAX_CHARS"/>, and a paragraph longer than a piece at its sentence ends — this
+        /// project's documents run to paragraphs of several thousand characters, and clipping one would index only its
+        /// opening. Every piece's text opens with its heading, and its label says file, heading and part.
+        /// </summary>
+        private static void ChunkMarkdown(string file, bool subsections, string opening, List<Doc> chunks)
+        {
+            string name = Path.GetFileName(file);
+            string section = opening, subsection = null;
+            var stretch = new StringBuilder();
+
+            void Flush()
+            {
+                string text = stretch.ToString();
+                stretch.Clear();
+                if (text.Trim().Length == 0) return;
+
+                string heading = subsection == null ? section : $"{section} › {subsection}";
+                List<string> pieces = Pieces(text, MAX_CHARS - 200);
+                for (int k = 0; k < pieces.Count; k++)
+                    chunks.Add(new Doc { Title = $"{name} | {heading} | part {k + 1}/{pieces.Count}", Text = heading + "\n" + pieces[k] });
+            }
+
+            foreach (string line in File.ReadLines(file))
+            {
+                if (line.StartsWith("## ")) { Flush(); section = line[3..].Trim(); subsection = null; continue; }
+                if (subsections && line.StartsWith("### ")) { Flush(); subsection = line[4..].Trim(); continue; }
+                stretch.Append(line).Append('\n');
+            }
+            Flush();
+        }
+
+        //Paragraphs packed into pieces of at most `room` characters, a paragraph longer than that cut first
+        private static List<string> Pieces(string stretch, int room)
+        {
+            var pieces = new List<string>();
+            var piece = new StringBuilder();
+            foreach (string paragraph in stretch.Split("\n\n"))
+                foreach (string p in Sentences(paragraph, room))
+                {
+                    if (piece.Length > 0 && piece.Length + p.Length + 2 > room) { pieces.Add(piece.ToString()); piece.Clear(); }
+                    piece.Append(p).Append("\n\n");
+                }
+            if (piece.Length > 0) pieces.Add(piece.ToString());
+            return pieces;
+        }
+
+        //A paragraph in runs of at most `room` characters, cut at the last sentence end that fits — at a word when the
+        //first half has no sentence end, and mid-word only when it has no space either
+        private static IEnumerable<string> Sentences(string paragraph, int room)
+        {
+            while (paragraph.Length > room)
+            {
+                int cut = paragraph.LastIndexOf(". ", room - 1, StringComparison.Ordinal);
+                if (cut < room / 2) cut = paragraph.LastIndexOf(' ', room - 1);
+                if (cut < room / 2) cut = room - 1;
+                yield return paragraph[..(cut + 1)].TrimEnd();
+                paragraph = paragraph[(cut + 1)..].TrimStart();
+            }
+            if (paragraph.Length > 0) yield return paragraph;
+        }
+
+        //A piece's text after its heading line, on one line: what the section says at that point
+        private static string Opening(string text)
+        {
+            int newline = text.IndexOf('\n');
+            string body = newline < 0 ? text : text[(newline + 1)..];
+            return string.Join(' ', body.Split((char[])null, StringSplitOptions.RemoveEmptyEntries));
         }
 
         private static IEnumerable<(Doc doc, float score)> Rank(IEnumerable<Doc> docs, float[] query) =>
@@ -252,6 +336,7 @@ namespace BS3D.Tools.SemanticSearch
         public int Issue;
         public string File;
         public bool Journal;
+        public bool Docs;
         public bool OpenOnly;
         public int Top = 8;
         public string Model;
@@ -286,6 +371,7 @@ namespace BS3D.Tools.SemanticSearch
                         options.Endpoint = args[i].TrimEnd('/');
                         break;
                     case "--journal": options.Journal = true; break;
+                    case "--docs": options.Docs = true; break;
                     case "--open": options.OpenOnly = true; break;
                     default:
                         if (args[i].StartsWith("-")) return null;
