@@ -5091,4 +5091,15 @@ Pět háků, každý vedle zvuku nebo záblesku, který už tu chvíli odpovíd�
 
 **Nic dalšího si neberu.**
 
+---
+
+## 2026-09-21 — Claude Code (notebook: #513 čtyři seznamy poolovány, merge `ecfef0b`)
+
+**Páté issue ten den na notebooku — a tohle mi jiná relace na téže noze rovnou naservírovala.** `#513` bylo založeno pár minut předtím, ověřené proti kódu (ne slepě z Gemmina reviewu), se štítkem „good first issue" a s přesným návodem, co udělat — přesně ten typ issue, co jde vzít bez dohledávání kontextu. Větev `513-pool-release-handle-lists`, commit `4f71d3c`.
+
+- **`BallsConstraintsBuilder.cs` mělo čtyři místa, co si alokovaly čerstvý `List<ConstraintHandle>` (a u zapu/šachty ještě druhý seznam) na každé volání** — `ReleaseSameTypeCluster`, `DetonateBombs`, `ZapColour`, `DissolveAcids` — přesně na tom sledu volání, který `_thawScratch` (stejný soubor) a `_colouredCells`/`_armedBombs`/atd. (`BallContactEventHandler`, stejná cesta) už dávno poolují. Tři nová statická pole (`_handleScratch`, `_victimsScratch`, `_shaftScratch`), čištěná na začátku každé metody přesně tam, kde dřív stálo `new()`. `ReleaseAllBalls` (Testbedovo `End`, ne herní cesta) záměrně nedotčeno, přesně jak issue scopovalo.
+- **Ne hot-path oprava — po vlastní vteřině to issue samo přiznává.** Běží to na přistání, co opravdu něco dokončilo (skupina, zap, šachta), pár tvorbrát za level, ne za snímek. Důvod udělat to stejně je ten, co už stojí u `_thawScratch`: konzistence uvnitř sledu, který je jinak bezalokační, ať příští čtenář nehádá, proč jsou tyhle čtyři výjimkou.
+- ⚠ **`_handleScratch`'s vlastní `.Clear()` je ve skutečnosti zbytečný — `ReleaseBall` ho čistí sám při každém volání**, dřív než ho kdy čte. Nechal jsem explicitní čištění stejně, přesně jak issue žádalo, aby správnost nezávisela na dohledání cizí metody jako implicitní smlouvy.
+- **Ověřeno dvěma nezávislými cestami:** `ScoreSim` přehrálo všech 120 levelů skutečnou cestou uvolnění skupin, hvězdy ve správném pořadí; Testbed `autoshoot` na `Bombs`/`Zaps`/`Acid`/`Frozen`/`OrphanBomb`/`Full`, žádná výjimka, a log ukázal „Removed a fallen ball from the simulation" — důkaz, že upravená cesta opravdu proběhla, ne jen že se to zkompilovalo.
+
 **Nic dalšího si neberu.**
