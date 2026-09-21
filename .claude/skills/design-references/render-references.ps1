@@ -12,7 +12,8 @@ The server flags are the ones measured on #441 (RX 6900 XT, 16 GB): the Q8 weigh
 
 THIS RENDERER TAKES THE DESKTOP DOWN, AND NO CONFIGURATION OF IT HAS AVOIDED THAT. Seven of seven runs
 between 2026-09-17 and 2026-09-18 ended in an instant hard reset (Kernel-Power 41, BugcheckCode 0, no WHEA,
-no 4101) while ~100 Testbed/Game runs on the same days were clean, uncapped ones included.
+no 4101) while ~100 Testbed/Game runs on the same days were clean, uncapped ones included. An eighth on
+2026-09-21, five images into #489's img2img sweep, after a sixteen-image run had gone through clean in between.
 
 The offload theory was wrong and is recorded here so it is not re-run: --offload-to-cpu streams weights over
 PCIe every step, so the suspicion was those transients. The test that killed it was Q4_K + the Q8 encoder
