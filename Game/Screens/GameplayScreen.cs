@@ -1099,9 +1099,9 @@ namespace BS3D.Screens
 
             //The queue's colours are the level's business (RandomBallType draws only among what is still
             //hanging), so what to load next is injected; the constructor deals a full queue with it, which is
-            //what gives the player something to read from the first frame. The two hooks carry this screen's
-            //transmute state through every shift, so the three arrays stay drawn in step — wired once, here,
-            //since a delegate built per shot would allocate one per round fired.
+            //what gives the player something to read from the first frame. The three hooks carry this screen's
+            //transmute state through every shift and every swap, so the three arrays stay drawn in step —
+            //wired once, here, since a delegate built per shot would allocate one per round fired.
             _magazine = new Magazine(RandomBallType,
                 (destination, source) =>
                 {
@@ -1124,6 +1124,15 @@ namespace BS3D.Screens
                     //And what this one IS, which is this screen's rule and not the magazine's — the deal is the
                     //one moment it is decided, and the count behind it is the level's (#330)
                     _magazineKind[slot] = NextLoadedKind();
+                },
+                (a, b) =>
+                {
+                    //A true exchange and not two carried copies (#392, see Magazine.SwapSlots' own remarks on
+                    //why): the ball a slot is dissolving out of, how far through that it is, and what kind it
+                    //is all have to travel with the colour that just swapped places, not be overwritten by it.
+                    (_magazineFrom[a], _magazineFrom[b]) = (_magazineFrom[b], _magazineFrom[a]);
+                    (_magazineTransmute[a], _magazineTransmute[b]) = (_magazineTransmute[b], _magazineTransmute[a]);
+                    (_magazineKind[a], _magazineKind[b]) = (_magazineKind[b], _magazineKind[a]);
                 });
 
             //The work each physics step carries inside it, wired once here for the reason the field states

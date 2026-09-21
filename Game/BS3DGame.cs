@@ -208,6 +208,11 @@ namespace BS3D
         //level, since no shipped level asks for one. Zero leaves each level entry's own rule standing.
         private readonly int _startupWildcardEvery;
 
+        //Testing only: the "powerups=" argument (#392), in wildcard='s own shape — "swap:1,rainbow:1" — since
+        //no shipped or generated level authors a power-up charge yet. Null grants nothing; GameplayScreen
+        //does its own parsing, since only it knows the PowerupKind enum this string names.
+        private readonly string _startupPowerups;
+
         //Testing only: the "lasers" argument, read by the session's warning check every frame.
         private readonly bool _startupLasers;
 
@@ -429,6 +434,15 @@ namespace BS3D
         /// </para>
         /// </summary>
         internal int ForcedWildcardEvery => _startupWildcardEvery;
+
+        /// <summary>
+        /// Testing only (the <c>powerups=</c> argument, #392): this level's starting power-up charges, as
+        /// <c>"kind:count"</c> pairs separated by commas — <c>powerups=swap:1</c>. Null grants nothing, which
+        /// is every shipped level today, exactly as no shipped level hands out a wildcard until <c>wildcard=</c>
+        /// forces one. The only door to a mechanism that cannot be authored into a map, for the same reason
+        /// <c>wildcard=</c>'s own remarks give.
+        /// </summary>
+        internal string ForcedPowerups => _startupPowerups;
 
         //Testing only: the "detonate=" argument (#389) — wall-clock seconds at which the session sets off a bomb —
         //and how far through that schedule the run has got.
@@ -874,7 +888,7 @@ namespace BS3D
             bool? uncappedFps = null, SceneKind? scene = null, byte? skyDome = null, bool logFrameRate = false,
             QualityLevel? quality = null, bool celebrate = false, bool confetti = false, bool lasers = false,
             bool mute = false, bool noFpsOverlay = false, bool play = false, bool result = false, bool blockDone = false, bool lost = false,
-            int? resultStars = null, string nextLocked = null, int? streak = null, int wildcardEvery = 0, float[] shotSeconds = null, string level = null, string levelFile = null,
+            int? resultStars = null, string nextLocked = null, int? streak = null, int wildcardEvery = 0, string powerups = null, float[] shotSeconds = null, string level = null, string levelFile = null,
             string preview = null, BallStyle? ballStyle = null, string pick = null, int fpsCap = 0,
             bool noFocusPause = false, float[] detonateSeconds = null, string about = null, string tutorial = null,
             bool settings = false, int? help = null, int? sceneSeed = null, bool tour = false,
@@ -936,6 +950,7 @@ namespace BS3D
             _startupResultStars = resultStars;
             _startupStreak = streak;
             _startupWildcardEvery = wildcardEvery;
+            _startupPowerups = powerups;
             _startupLasers = lasers;
             //Any spelling but "demo" is the plain force: a mistyped reel still shows the cards, and says so by
             //waiting for the player rather than running on

@@ -154,6 +154,10 @@ namespace BS3D
             int? streak = null;
             int wildcardEvery = 0;
 
+            //Testing only: this level's power-up charges (#392), "kind:count" pairs separated by commas
+            //("powerups=swap:1"). Null grants nothing, since no shipped or generated level authors one yet.
+            string powerups = null;
+
             //Testing only: wall-clock seconds at which the game saves a PNG of its own frame. Null means the
             //argument was absent, which is every run but a scripted one. F12 does the same thing by hand — but
             //only this trigger survives a LOCKED desktop, which takes no keystrokes at all (#191).
@@ -235,6 +239,11 @@ namespace BS3D
                 //DOES change play, unlike the levers above it — it has to, because no shipped level hands one
                 //out and a wildcard cannot be authored into a map: it is the gun's ball, not the cluster's.
                 else if (arg.StartsWith("wildcard=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("wildcard=".Length), out int parsedWildcard)) wildcardEvery = parsedWildcard;
+                //"powerups=<kind:count,...>" grants power-up charges (#392) on whatever level is played, in
+                //wildcard='s own shape and for the same reason: no shipped or generated level authors one yet.
+                //Passed through as a raw string — GameplayScreen does its own parsing, since only it knows
+                //the PowerupKind enum this names.
+                else if (arg.StartsWith("powerups=", StringComparison.OrdinalIgnoreCase)) powerups = arg.Substring("powerups=".Length);
                 //"lasers" pins the floor alarm's laser net on while a level is played, for the same reason.
                 else if (string.Equals(arg, "lasers", StringComparison.OrdinalIgnoreCase)) lasers = true;
                 //"tutorial" offers every tutorial card and records nothing, "tutorial=demo" reels them (#189) —
@@ -320,7 +329,7 @@ namespace BS3D
 
             using var game = new BS3DGame(fullscreen: fullscreen, supersampleFactor: supersampleFactor, exposure: exposure,
                 uncappedFps: uncappedFps, scene: scene, skyDome: skyDome, logFrameRate: logFrameRate, quality: quality,
-                celebrate: celebrate, confetti: confetti, lasers: lasers, mute: mute, noFpsOverlay: noFpsOverlay, play: play, result: result, blockDone: blockDone, lost: lost, resultStars: resultStars, nextLocked: nextLocked, streak: streak, wildcardEvery: wildcardEvery,
+                celebrate: celebrate, confetti: confetti, lasers: lasers, mute: mute, noFpsOverlay: noFpsOverlay, play: play, result: result, blockDone: blockDone, lost: lost, resultStars: resultStars, nextLocked: nextLocked, streak: streak, wildcardEvery: wildcardEvery, powerups: powerups,
                 shotSeconds: shotSeconds, level: level, levelFile: levelFile, preview: preview, ballStyle: ballStyle, pick: pick, fpsCap: fpsCap,
                 noFocusPause: noFocusPause, detonateSeconds: detonateSeconds, about: about, tutorial: tutorial,
                 settings: settings, help: help, sceneSeed: sceneSeed, tour: tour,

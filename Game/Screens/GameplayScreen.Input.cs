@@ -106,6 +106,14 @@ namespace BS3D.Screens
 
                 //Space fires; the gamepad fires off its right trigger, read with the aim (below)
                 if (Game.IsKeyEdge(keyboard, Keys.Space)) Shoot();
+
+                //E (the pad's X) activates the one power-up this issue proves (#392) — a fixed, un-aimed
+                //action, unlike a shot, so it needs no direction and no muzzle. CanActivate is asked rather
+                //than assumed: a charge might be spent, the level might already be decided, or a camera
+                //takeover might have started the very frame this edge fired.
+                if (Game.IsKeyEdge(keyboard, Keys.E)
+                    || (pad.IsButtonDown(Buttons.X) && !Game.PreviousPad.IsButtonDown(Buttons.X)))
+                    if (CanActivate(PowerupKind.Swap)) Activate(PowerupKind.Swap);
             }
             else if (CameraTakeoverEngaged)
             {
