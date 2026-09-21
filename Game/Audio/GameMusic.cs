@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework.Audio;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Threading.Tasks;
 
@@ -78,6 +79,12 @@ namespace BS3D.Audio
 
         private readonly ProceduralMusic _fanfares = new();
 
+        //The victory fanfare as a recording (#482), from the effects' folder rather than the music's: it is one of the
+        //owner's chosen renders, at the effects' 44.1 kHz, and its ROOT and BPM tags are what the star chime tunes to
+        private const string SFX_DIRECTORY = "Sfx";
+        private const string VICTORY_FILE = "victory-fanfare";
+        private Task<(float[] Pcm, ProceduralMusic.FanfareShape Shape)> _victoryLoad;
+
         /// <summary>
         /// Every slot's tracks, loaded on background threads at construction and never replaced — the theme's own
         /// file first, then its variants (<c>ember-*.ogg</c>) in name order. A task that finished with null is a
@@ -134,6 +141,9 @@ namespace BS3D.Audio
             //The lobby first: it is what the splash hands over to, and every load below queues on the same pool —
             //on a machine with fewer cores than tracks, whatever is handed over last decodes last
             _menuLoad = Load(Path.Combine(directory, MENU_TRACK + TRACK_EXTENSION));
+
+            string victory = Path.Combine(AppContext.BaseDirectory, SFX_DIRECTORY, VICTORY_FILE + TRACK_EXTENSION);
+            if (File.Exists(victory)) _victoryLoad = LoadVictory(victory);
 
             for (int slot = 0; slot < ThemeCount; slot++)
             {
@@ -328,6 +338,13 @@ namespace BS3D.Audio
             _fanfares.Update(elapsed);
             AdvanceFades(elapsed);
 
+            if (_victoryLoad != null && _victoryLoad.IsCompleted)
+            {
+                Task<(float[] Pcm, ProceduralMusic.FanfareShape Shape)> ready = _victoryLoad;
+                _victoryLoad = null;
+                if (ready.Result.Pcm != null) _fanfares.SetVictoryRecording(ready.Result.Pcm, ready.Result.Shape);
+            }
+
             if (_menuLoad != null && _menuLoad.IsCompleted)
             {
                 Task<byte[]> ready = _menuLoad;
@@ -510,6 +527,36 @@ namespace BS3D.Audio
         /// started at construction, so they decode side by side while the splash is up — see
         /// <c>Tools/MusicBake --tracks</c> for what that costs.
         /// </summary>
+        /// <summary>
+        /// The recording as the fanfare player takes it: interleaved stereo floats at <see cref="ProceduralMusic.SAMPLE_RATE"/>
+        /// (the effects' rate, not the tracks'), and the ROOT and BPM tags <c>Tools/MusicBake --sfx --music</c> wrote into
+        /// the file. Null when the file cannot be read or carries no key: an untuned chime over a recording is the fault
+        /// #158 removed, so a recording without its tags is not played at all and the bake stands.
+        /// </summary>
+        private static Task<(float[] Pcm, ProceduralMusic.FanfareShape Shape)> LoadVictory(string path) => Task.Run(() =>
+        {
+            try
+            {
+                if (!int.TryParse(OggTrack.ReadTag(path, "ROOT"), out int root)
+                    || !float.TryParse(OggTrack.ReadTag(path, "BPM"), NumberStyles.Float, CultureInfo.InvariantCulture, out float bpm))
+                {
+                    Console.WriteLine($"[music] the victory recording carries no ROOT/BPM tags, the fanfare stays baked: {path}");
+                    return (null, default);
+                }
+
+                byte[] pcm = OggTrack.Decode(path, ProceduralMusic.SAMPLE_RATE);
+                float[] samples = new float[pcm.Length / 2];
+                for (int i = 0; i < samples.Length; i++)
+                    samples[i] = (short)(pcm[i * 2] | (pcm[i * 2 + 1] << 8)) / 32768f;
+                return (samples, new ProceduralMusic.FanfareShape(root, bpm, victory: true));
+            }
+            catch (Exception exception)
+            {
+                Console.WriteLine($"[music] the victory recording could not be read: {exception.Message}");
+                return (null, default);
+            }
+        });
+
         private static Task<byte[]> Load(string path) => Task.Run(() =>
         {
             try
