@@ -581,7 +581,15 @@ namespace BS3D.Tools.LevelGen
                 //game (90 shots, ceiling every 5), so the chapter opens on its longest level; Crown moving to
                 //second keeps its teaching intact, the axis and the drain up the middle of it reading just as
                 //well behind the premise as ahead of it.
-                Column(), Crown(), Horn(), Helix(), Pagoda(), Spyglass(), Belfry(), Organ(), Pylon(), Lean(),
+                //
+                //PAGODA CLOSES IT since #501: the owner's play found it "quite big and hard — the hardest of
+                //the chapter", and the rule for the order inside a block (#413) is that difficulty may trend
+                //upward as long as hard and easy alternate, with the hardest last. It sat fifth, in the middle,
+                //where #255 put it as one of the five new designs; the five after it move up one. Pylon's own
+                //comment called itself the finale for its physics thesis — it keeps the thesis and gives up
+                //the slot. The unlock ramp is a function of position (MinStarsAt), so the swap costs it
+                //nothing; the gates and ScoreSim ran over the regenerated set.
+                Column(), Crown(), Horn(), Helix(), Spyglass(), Belfry(), Organ(), Pylon(), Lean(), Pagoda(),
 
                 //5. THE CAVERN - "The Reveal". An outer body with a differently-shaped thing standing inside
                 //it; clearing the outside is the payoff (#161).

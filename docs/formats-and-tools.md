@@ -257,7 +257,7 @@ deliberately **not** re-tightened with the budgets: that headroom is what pays f
 the owner that came with the answers is the part to read first: a chapter's difficulty may simply trend upward, as
 long as hard and easy levels **alternate at a pleasant rhythm** rather than everything reading uniformly hard or
 uniformly easy; one run's luck can make the same level easy or punishing (#359 measured that and accepted it); and
-where a call is genuinely unclear, **ask rather than guess**. Four of the six calls below were asked.
+where a call is genuinely unclear, **ask rather than guess**. Four of the six calls below were asked. (A seventh came from the owner's own play, #501: **Pagoda, "quite big and hard — the hardest of the chapter", moved from fifth in The Tower to last**, the five after it up one; Pylon keeps its physics thesis and gave up the finale slot. The ramp is positional, so nothing else moved; the gates and ScoreSim ran over the regenerated set and the level files came back byte-identical.)
 
 What the tool contributes is corroboration and never the verdict. **Shots per group is the figure that tracked the
 owner's felt difficulty** on every level of this batch but one: Ship 2.45 against Spring 4.80, Wishbone 4.91 against
