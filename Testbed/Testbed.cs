@@ -1412,7 +1412,7 @@ namespace Testbed
         /// or a setter whose whole effect lands in the same frame.
         /// </summary>
         private static readonly string[] ALTERNATION_DIALS =
-            { "arena", "capprobe", "scene", "sky", "balls", "ssaa", "msaa", "rscale", "detail", "shadow", "exposure", "nopost" };
+            { "arena", "capprobe", "scene", "sky", "balls", "ssaa", "msaa", "rscale", "detail", "shadow", "shadowmap", "exposure", "nopost" };
 
         /// <summary>
         /// Prints the sweep's plan before the first window, and names anything it will not switch. A pin that
@@ -1502,6 +1502,12 @@ namespace Testbed
                     //dial (see nooverc, which fails it).
                     case "shadow":
                         if (float.TryParse(pin.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out float shadow)) _sceneRenderer.ShadowScale = shadow;
+                        break;
+
+                    //The map's size (#484): 0 hands back the scene's own. Alternable because the renderer rebuilds
+                    //the map whenever the size differs, so each window measures its own map.
+                    case "shadowmap":
+                        if (int.TryParse(pin.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int mapSize)) _sceneRenderer.ShadowMapSizeOverride = mapSize;
                         break;
 
                     case "exposure":

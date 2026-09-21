@@ -434,6 +434,12 @@ namespace BS3D
             //owner asked for, a tier that drops effects.
             if (_sceneRenderer != null) _sceneRenderer.SceneDetail = quality == QualityLevel.Low ? 0f : 1f;
 
+            //And the sun shadow map's size (#484): a cap the renderer holds every scene's ShadowConfig.MapSize
+            //under — 4096 at High, 2048 below it — rebuilt on the next shadowed frame when it changes. The one
+            //entry the tier owns that costs memory rather than time (134 MB against 33.5), which is what keeps
+            //8192 a Testbed dial and not a rung above this one. See QualityPreset.ShadowMapCap.
+            if (_sceneRenderer != null) _sceneRenderer.ShadowMapSizeCap = preset.ShadowMapCap;
+
             //And the arena's stone cap, which is the first thing the tier reaches that is NOT a scene — it is
             //in all fifteen of them and under the gun in every frame of every level, and #151 measured it at
             //88 % of the arena's cost. Reduced, its height field is three relief octaves instead of seven:

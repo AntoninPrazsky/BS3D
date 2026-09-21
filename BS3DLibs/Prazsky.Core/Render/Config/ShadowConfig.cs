@@ -39,15 +39,19 @@ namespace Prazsky.Core.Render
         /// <see cref="MapSize"/>.</summary>
         public float Extent { get; set; } = 260f;
 
-        /// <summary>The map's size in texels a side. 2048 over 260 units is 0.13 units a texel, and the
-        /// nine-tap box's penumbra about a third of a unit — a sunlit edge.</summary>
-        public int MapSize { get; set; } = 2048;
+        /// <summary>The map's size in texels a side, at High: 4096 over 260 units is 0.063 units a texel, and the
+        /// nine-tap box's penumbra about a fifth of a unit — a sunlit edge. It was 2048 (0.13 a texel, a third of a
+        /// unit) until #484, whose play-camera captures read that as blocky, and 2048 is still what the Game builds
+        /// below High through <c>SceneRenderer.ShadowMapSizeCap</c>. Eight bytes a texel: 134 MB here, 33.5 at
+        /// 2048, and 537 at the 8192 the Testbed's <c>shadowmap=</c> can ask for — which is why 8192 is a dial and
+        /// not a default.</summary>
+        public int MapSize { get; set; } = 4096;
 
         /// <summary>A scene's shadows, stated where the rest of its look is. The parameterless constructor is
         /// what System.Text.Json and the map editor's PropertyGrid need.</summary>
         public ShadowConfig() { }
 
-        public ShadowConfig(float strength, float extent = 260f, int mapSize = 2048)
+        public ShadowConfig(float strength, float extent = 260f, int mapSize = 4096)
         {
             Strength = strength;
             Extent = extent;
