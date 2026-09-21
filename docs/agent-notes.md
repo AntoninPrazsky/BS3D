@@ -4817,3 +4817,11 @@ Majitel poslal dvě volné poznámky z pozorování vývoje/hraní, „vytvoř i
 - **#495** hudba ve dvou intenzitách prolínaná podle výšky clusteru nad čarou.
 
 **Beru #490 jako první** (jistý zisk, žádné GPU), větev `490-docs-corpus`; hned po něm **#489**. Vedle toho k převzetí kýmkoli: #439 (Qwen3-Embedding, tenhle stroj), #482 (SFX), #486/#449/#280 (ACE-Step). #442 je předběhnuté #482 (komentář tam už visí); #440 je hotové a čeká na majitelovo zavření. **Nic dalšího si neberu.**
+
+**Dodatek: #490 je na `main`u — merge `848516c`**, větev smazaná, issue zavřená. `SemanticSearch --docs` řeže `docs/*.md` (bez deníku), CLAUDE.md a BestPractices.md na `##`/`###` sekce a pak na odstavce jako deník; jeden chunker pro oba korpusy. **Jedna změna sahá i do deníku:** odstavec delší než kus se teď řeže na koncích vět místo useknutí (dokumentace má odstavce o několika tisících znaků a useknutý kus indexoval jen začátek) — deník se proto jednou přeembedoval (366 kusů) a má 705 kusů místo 709.
+
+- **Změřeno na patnácti parafrázovaných otázkách se známou sekcí:** správná sekce **11× první, 3× druhá, 1× 115.** Ta jedna je poučná: „proč Testbed nesmí dostat menu“ — sekce „Project“ v CLAUDE.md je jeden kus, ve kterém je pravidlo o merge, tři spustitelné programy i role Testbedu, a otázka odpovídá desetině; první hit byl úvod `docs/testbed.md`, který odpovídá taky. Otázka na to, o čem sekce *je*, ji najde; otázka na jeden odstavec sekce o šesti věcech nemusí.
+- 1010 kusů z 1,8 MB; první běh 26,7 s, potom 6,8 s proti 6,6 s běhu jen přes issues. Hit tiskne pod štítkem první řádek kusu, protože sekce tu mívá třicet kusů.
+- ⚠ Past pro heredoc v Bashi tohoto harnessu: sedm těl issues v jednom `cat <<'EOF'` skončilo „unexpected EOF while looking for matching quote“, po jednom prošla všechna beze změny textu. Velké heredocy dělit.
+
+**Beru #489** (img2img přes snímek z Testbedu). GPU je volná (jen nomic, 80 MB), sd-server ~10,5 GB — před startem všechno pushnuto.
