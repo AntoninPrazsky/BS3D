@@ -82,6 +82,12 @@ namespace BS3D.Tools.MusicBake
         /// <summary>How much of a track the encoder is handed at a time: a second of audio.</summary>
         private const int OGG_CHUNK_FRAMES = 48000;
 
+        //The generated sound effects (#482): the game's effects are baked at 44.1 kHz (ProceduralAudio.SAMPLE_RATE), and
+        //a render that is not is refused rather than resampled here. The file is written at a sane peak; the loudness
+        //law is the game's own at load, so a chosen sound is stored as it was chosen.
+        private const int SFX_RATE = 44100;
+        private const float SFX_PEAK = 0.9f;
+
         /// <summary>
         /// How many frames at each end of a track are held to the rest of it in the loop-edge check, about 43 ms:
         /// the stretch either side of the wrap in which a codec that treats a file's edges worse than its body
@@ -123,6 +129,7 @@ namespace BS3D.Tools.MusicBake
             bool tracks = false;
             float quality = OGG_QUALITY;
             string only = null;
+            string sfxWav = null, sfxName = null;
 
             //Every argument is read before anything runs: "--tracks --no-write" used to start writing the moment
             //"--tracks" was reached, with the flag after it never seen
@@ -134,17 +141,19 @@ namespace BS3D.Tools.MusicBake
                 else if (Is(arg, "--theme") && i + 1 < args.Length) only = args[++i];
                 else if (Is(arg, "--no-write")) write = false;
                 else if (Is(arg, "--tracks")) tracks = true;
+                else if (Is(arg, "--sfx") && i + 2 < args.Length) { sfxWav = args[++i]; sfxName = args[++i]; }
                 else if (Is(arg, "--quality") && i + 1 < args.Length
                     && float.TryParse(args[++i], NumberStyles.Float, CultureInfo.InvariantCulture, out quality)
                     && quality >= -0.1f && quality < OGG_QUALITY_LIMIT) continue;
                 else
                 {
-                    Console.WriteLine("usage: MusicBake [--out <dir>] [--theme <name>] [--no-write] | --tracks [--quality <-0.1..0.59>] [--no-write]");
+                    Console.WriteLine("usage: MusicBake [--out <dir>] [--theme <name>] [--no-write] | --tracks [--quality <-0.1..0.59>] [--no-write] | --sfx <wav> <name> [--no-write]");
                     return 2;
                 }
             }
 
             if (tracks) return BuildTracks(write, quality);
+            if (sfxWav != null) return BuildSfx(sfxWav, sfxName, write, quality);
 
             if (write) Directory.CreateDirectory(outDir);
 
@@ -207,6 +216,72 @@ namespace BS3D.Tools.MusicBake
             if (write) Console.WriteLine($"\nWritten to {Path.GetFullPath(outDir)}");
 
             return 0;
+        }
+
+        /// <summary>
+        /// One generated sound effect (#482) → <c>Game/Sfx/&lt;name&gt;.ogg</c>. The render is read as a master is,
+        /// mixed to <b>mono</b> — the game's effects are placed by <c>Apply3D</c>, which takes a mono source — peak-normalised
+        /// to <see cref="SFX_PEAK"/>, written through the same encoder as a track and decoded straight back through the
+        /// game's decoder, as a track is, so the length is proved to survive. It is stereo on disk with both channels the
+        /// one signal, because the encoder and <see cref="OggTrack.Decode(Stream, int)"/> are stereo-only and a second
+        /// channel of a two-second sound costs nothing; the game reads one channel back (<c>ProceduralAudio.TryLoadSfx</c>).
+        /// </summary>
+        private static int BuildSfx(string wavPath, string name, bool write, float quality)
+        {
+            string repo = FindRepo();
+            if (repo == null)
+            {
+                Console.WriteLine("MusicBake --sfx: run from inside the repository (no Game.sln with a docs folder above it)");
+                return 1;
+            }
+            if (!File.Exists(wavPath))
+            {
+                Console.WriteLine($"MusicBake --sfx: missing {wavPath}");
+                return 1;
+            }
+
+            (float[] mix, int rate) = ReadWav(wavPath);
+            if (rate != SFX_RATE)
+            {
+                Console.WriteLine($"MusicBake --sfx: {wavPath} is {rate} Hz and the game's effects are {SFX_RATE} Hz");
+                return 1;
+            }
+
+            int frames = mix.Length / 2;
+            float[] mono = new float[frames];
+            float peak = 0f;
+            for (int f = 0; f < frames; f++)
+            {
+                mono[f] = (mix[f * 2] + mix[f * 2 + 1]) * 0.5f;
+                peak = Math.Max(peak, Math.Abs(mono[f]));
+            }
+            if (peak > 1e-6f) for (int f = 0; f < frames; f++) mono[f] *= SFX_PEAK / peak;
+
+            double sum = 0;
+            foreach (float s in mono) sum += (double)s * s;
+            double rms = Math.Sqrt(sum / Math.Max(1, frames));
+
+            float[] dup = new float[frames * 2];
+            for (int f = 0; f < frames; f++) dup[f * 2] = dup[f * 2 + 1] = mono[f];
+
+            //A serial the file's bytes can be reproduced from: a string's hash code changes per process in .NET
+            int serial = 0x1000;
+            foreach (char c in name) serial = unchecked(serial * 31 + c);
+            byte[] ogg = EncodeOgg(dup, rate, quality, serial, title: name);
+
+            string dir = Path.Combine(repo, "Game", "Sfx");
+            string path = Path.Combine(dir, name + ".ogg");
+            if (write)
+            {
+                Directory.CreateDirectory(dir);
+                File.WriteAllBytes(path, ogg);
+            }
+
+            int back = OggTrack.Decode(new MemoryStream(ogg), rate).Length / 4;
+            Console.WriteLine($"{name,-16} {frames / (double)rate,5:F2} s  peak {SFX_PEAK:F2}  rms {Db(rms),6:F1} dBFS  crest {SFX_PEAK / rms,5:F2}"
+                + $"  ogg {ogg.Length / 1024.0,6:F1} KB  decoded {back} of {frames} frames"
+                + (back == frames ? "" : "  LENGTH DIFFERS") + (write ? "  -> " + path : "  (not written)"));
+            return back == frames ? 0 : 1;
         }
 
         private static bool Is(string a, string b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
