@@ -58,6 +58,18 @@ namespace BS3D
             _settingsPage.Refresh();
         }
 
+        /// <summary>The lean's own rung (#497), walked exactly as <see cref="CycleSensitivity"/> walks the general one.</summary>
+        internal void CycleAimSensitivity()
+        {
+            int rung = Array.IndexOf(SENSITIVITY_LADDER, _aimSensitivity);
+            _aimSensitivity = SENSITIVITY_LADDER[(rung + 1) % SENSITIVITY_LADDER.Length];
+
+            _settings.AimSensitivity = _aimSensitivity;
+            SaveSettings();
+
+            _settingsPage.Refresh();
+        }
+
         /// <summary>
         /// The rung nearest <paramref name="stored"/> <b>by ratio</b>, which is the only comparison that means
         /// anything on a ladder whose steps are ratios. The general form rather than an example, because the
