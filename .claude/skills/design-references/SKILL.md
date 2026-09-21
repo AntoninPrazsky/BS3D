@@ -51,9 +51,10 @@ Testbed.exe Maps\Full.json scene=aurora campos=0,-4,30 camtarget=0,-8,0 width=12
 |---|---|---|
 | 0.35 | 18.4 | The game's frame with a light retouch: the stamped spruces are still stamps, the balls, the gun and the tiles are the Testbed's. Nothing to design from. |
 | 0.5 | 25.4 | **The reference the issue asked for.** Same island, drain, gun and cluster in the same places; the wood redrawn as layered silhouettes in depth — tall thin spruces, dead spars, leaning trunks, a darker treeline behind, snow patches on the platform — with rays in the curtains. The cannon comes back as a period gun and the balls as a mixed cluster: the price of the redraw, and irrelevant to a scene reference. |
-| 0.65, 0.8 | — | **Not rendered: the machine hard-reset on the sixth image** (Kernel-Power 41 at 09:22:22, four minutes in, five images written). The range above 0.5 is unmeasured. |
+| 0.65 | 28–37 | Still the game's layout, and the redraw starts eating the island's own features: the glass drain came back as a flat glass disc under the gun, the cluster shrank, the wood gained layers and snow. Usable for the backdrop, not for anything on the platform. |
+| 0.8 | 137–140 | **The composition is gone**: the island replaced by a small railed pit in a snowy clearing, ground fog, lit trunks, the cluster a handful of balls. A beautiful concept of the scene and no longer a reference *over the game's frame* — that is text-to-image with a colour hint. |
 
-The first image of a run costs about 8 s more than the rest (the init image's VAE encode and the graph build). So for a scene rework **start at 0.5**; go lower only to keep one specific object as it is, and expect 0.35 to hand the game back.
+The first image of a run costs about 8 s more than the rest (the init image's VAE encode and the graph build). So for a scene rework **start at 0.5**; go lower only to keep one specific object as it is, and expect 0.35 to hand the game back, 0.65 to start replacing what stands on the island and 0.8 to replace the composition. **Measured in two runs**: 0.35 and 0.5 before the reset of 09:22, 0.65 and 0.8 at 10:30–10:50 with the owner's go after he had raised the GPU power limit — that run went through clean, but its step time rose from ~3.5 s to ~18.7 s from the third image on (28–37 s an image became 123–140 s) while a 3.3 GB download ran beside it and stayed slow after; the cause is not isolated, so the two timing columns are not comparable and the 0.8 figure is not the model's cost.
 
 ## Making a chosen one bigger
 
