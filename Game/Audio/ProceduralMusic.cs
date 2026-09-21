@@ -501,8 +501,10 @@ namespace BS3D.Audio
         /// </param>
         /// <param name="progress">
         /// Non-null streams the render (#464): the piece plays from <see cref="RenderProgress.Mix"/> while
-        /// this call is still running, catching up behind <see cref="LOOKBACK_STEPS"/>. Null renders exactly
-        /// as before this issue — the whole piece, in one call, soft-limited once at the end.
+        /// this call is still running, catching up behind <see cref="LOOKBACK_STEPS"/>, and
+        /// <see cref="RenderProgress.Cancel"/> makes this call unwind at its next bar through
+        /// <see cref="OperationCanceledException"/>. Null renders exactly as before this issue — the whole
+        /// piece, in one call, soft-limited once at the end.
         /// </param>
         internal static float[] Render(MusicTheme theme, out float drive, RenderProgress progress = null) => theme switch
         {
@@ -4427,6 +4429,10 @@ namespace BS3D.Audio
         {
             if (progress == null) return;
 
+            //The reader has moved on (the About page's Next, or the page left): the one place every piece passes
+            //once a bar, so the one check that reaches all five loops without touching any of them
+            if (progress.Cancelled) throw new OperationCanceledException();
+
             int safeSteps = step - LOOKBACK_STEPS;
             if (safeSteps <= 0) return;
 
@@ -4461,15 +4467,24 @@ namespace BS3D.Audio
         internal static byte[] ToPcm(float[] signal)
         {
             byte[] pcm = new byte[signal.Length * 2];
+            ToPcm(signal, pcm, 0, signal.Length);
+            return pcm;
+        }
 
-            for (int i = 0; i < signal.Length; i++)
+        /// <summary>
+        /// The same conversion over one stretch of a signal — samples [<paramref name="fromSample"/>,
+        /// <paramref name="toSample"/>) — into a buffer already sized for the whole of it (#464): the About page's
+        /// player converts each newly final run as the render publishes it, so a piece is converted exactly once,
+        /// in place, and its first bar is playable before its last is written.
+        /// </summary>
+        internal static void ToPcm(float[] signal, byte[] pcm, int fromSample, int toSample)
+        {
+            for (int i = fromSample; i < toSample; i++)
             {
                 short v = (short)(MathHelper.Clamp(signal[i], -1f, 1f) * short.MaxValue);
                 pcm[i * 2] = (byte)(v & 0xff);
                 pcm[i * 2 + 1] = (byte)((v >> 8) & 0xff);
             }
-
-            return pcm;
         }
 
         private static SoundEffect ToSoundEffect(float[] signal)
