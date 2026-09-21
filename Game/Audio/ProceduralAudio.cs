@@ -233,8 +233,17 @@ namespace BS3D.Audio
         //The whistle is 0.55 s, and it is the OPENING BARRAGE that sizes this rather than the steady state: at
         //the start of a display every shell slot is free, so shells go up at INTERVAL_OPENING (~14 a second)
         //until the slots run out, not at the recycling rate the display settles into. Simulated over the real
-        //schedule, the peak is ten whistles at once.
-        private const int LAUNCH_VOICES = 12;
+        //schedule, the peak is ten whistles at once — and twelve voices let all ten SOUND at once, which at
+        //0.08 apiece summed to 0.8 of a burst, in the 1–2.6 kHz band the ear hears best: the very "chorus of
+        //kettles" the level was chosen to avoid, and what the owner heard as the whoosh drowning the display
+        //(#498). Four voices cap the stack: the fifth launch steals the oldest whistle, which in a barrage is
+        //the one nobody can pick out anyway, and four at LAUNCH_LEVEL sum to what ONE old whistle was.
+        private const int LAUNCH_VOICES = 4;
+
+        //A launch heard from the crowd, not the pad (#498): 0.08 was already "far under the report", and with
+        //the barrage stacking ten of them it was not. 0.02 is −12 dB on each, so the capped stack of four sits
+        //where a single one used to.
+        private const float LAUNCH_LEVEL = 0.02f;
 
         //A report is 2.6 s, and during the barrage all MAX_SHELLS shells report inside one such window — so the
         //peak is the shell count itself, by construction. Its margin is already slightly NEGATIVE: a shell slot
@@ -498,11 +507,11 @@ namespace BS3D.Audio
         /// </summary>
         public void PlayFireworkLaunch(Vector3 world)
         {
-            //FAR under the report, and much further under than it was. The bang is the event; the launch only
-            //says one is coming, and with a shell going up every fraction of a second anything audible enough
-            //to identify turns the display into a chorus of kettles. At this level it is a texture — the sense
-            //that something went up — rather than a sound the ear stops to listen to.
-            Speak(_launchRing, world, SKY_WIDEN, 0.08f * Level * FireworkDuck, NextPitch(0.3f));
+            //FAR under the report. The bang is the event; the launch only says one is coming, and with a shell
+            //going up every fraction of a second anything audible enough to identify turns the display into a
+            //chorus of kettles. At this level it is a texture — the sense that something went up — rather than
+            //a sound the ear stops to listen to. See LAUNCH_LEVEL and LAUNCH_VOICES for how the barrage stacks.
+            Speak(_launchRing, world, SKY_WIDEN, LAUNCH_LEVEL * Level * FireworkDuck, NextPitch(0.3f));
         }
 
         /// <summary>
@@ -1603,14 +1612,18 @@ namespace BS3D.Audio
                 //means the tone is a departure rather than a note.
                 float env = MathF.Min(1f, t / 0.012f) * MathF.Pow(1f - u, 1.6f);
 
-                signal[i] += tone * 0.5f * env;
+                //The whistle under the fizz (#498: 0.5 → 0.15) — from the crowd a rising tone is the last thing
+                //a launch is, and the tone is what stacked into the chorus
+                signal[i] += tone * 0.15f * env;
             }
 
             //The fizz, and it now carries the launch rather than accompanying it. A firework leaving the
             //ground is a burning fuse and a jet of gas before it is a tone at all — this is the sparkler the
             //whole thing actually is, and pushing the balance this way is what stops the launch being a horn
             //with a hiss on top. Band-passed high, where a spitting fuse lives.
-            float[] air = BandPass(MakeNoiseArray(samples, seed: 7717), 1400f, 9000f);
+            //The fizz, and only its lower half (#498: 1.4–9 kHz → 1.4–4.5): the top of a hiss is what carries
+            //across a display as "whoosh", and hiss is the one thing the game's sound taste refuses
+            float[] air = BandPass(MakeNoiseArray(samples, seed: 7717), 1400f, 4500f);
             for (int i = 0; i < samples; i++)
             {
                 float t = (float)i / SAMPLE_RATE;
@@ -1619,7 +1632,7 @@ namespace BS3D.Audio
                 //Thickest at the start, where the motor is doing the most work, and thinning as it climbs
                 //away — the reverse of the tone, which is what makes the two read as one object.
                 float env = MathF.Min(1f, t / 0.008f) * MathF.Pow(1f - u, 1.2f);
-                signal[i] += air[i] * 0.55f * env;
+                signal[i] += air[i] * 0.35f * env;
             }
 
             //Barely any room on this one: the shell is climbing away into open sky, and a long tail on a rising
