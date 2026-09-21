@@ -112,7 +112,7 @@ namespace Prazsky.Core.Render
         /// <summary>The height of the calyx row: the stones round the bowl's own foot, on its curved flare.</summary>
         public const float CALYX_Y = 0.700f;
 
-        //THE PROFILE, traced as one continuous polyline: from the centre of the underside, out along the foot,
+        //THE PROFILE, traced as one continuous polyline: from the centre of the underside (a vault since #502), out along the foot,
         //up the jewelled drum, in and up the trumpet into the stem, over the collars and the knop, out into
         //the bowl, over the band and the lip, and back DOWN THE INSIDE to the centre of the bowl's floor. Both
         //ends touch the axis, so the solid is closed by the profile itself and needs no separate caps.
@@ -132,8 +132,19 @@ namespace Prazsky.Core.Render
         //a step, a collar, a band — because an unbroken run is what reads as turned on a lathe in one pass.
         private static readonly Ring[] PROFILE =
         {
-            new(0.000f, 0.000f),
-            new(0.238f, 0.000f, true),               //the foot's underside, out to its edge
+            //The underside is a VAULT, not a disc (#502): the result page's glance up at the fireworks (#430)
+            //passes under the foot, and a flat disc there read as an unfinished model on the one object
+            //presented closest to the player. A real cup's foot is recessed - the rim stands on the plinth
+            //and the underside domes up into the foot to a small central boss - so the profile starts at the
+            //axis 0.034 up and falls to the rim, which Densify turns into a curve; the rim ring's crease
+            //breaks the normal where the vault meets the wall. Traced axis-outward like the disc was, so it
+            //faces the way the disc faced.
+            new(0.000f, 0.034f),
+            new(0.040f, 0.033f),
+            new(0.090f, 0.028f),
+            new(0.140f, 0.020f),
+            new(0.190f, 0.010f),
+            new(0.238f, 0.000f, true),               //the foot's rim, where the vault meets the plinth
             new(0.238f, 0.018f, true),               //the foot rim's own wall
             new(DRUM_RADIUS, DRUM_BOTTOM_Y, true),   //a step in onto the drum
             new(DRUM_RADIUS, DRUM_TOP_Y, true),      //the drum: the lower row of stones is set on this wall
