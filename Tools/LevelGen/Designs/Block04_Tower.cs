@@ -959,7 +959,7 @@ namespace BS3D.Tools.LevelGen
         }
 
         /// <summary>
-        /// A four-legged mountain pylon felled leg by leg - the block's finale and its physics thesis
+        /// A four-legged mountain pylon felled leg by leg - the block's physics thesis (and its finale until #501 put Pagoda last)
         /// stated loudest. A solid 5x5 cap bonds to the glass; four 2x2 legs splay outward from under it,
         /// stepping one cell out in x AND z every <see cref="PYLON_LEG_BAND"/>-level band with a
         /// one-column overlap at every step, so a leg is bonded vertically through every step and never

@@ -275,19 +275,11 @@
       "ceilingStep": 5
     },
     {
-      "file": "Pagoda.json",
-      "name": "Pagoda",
-      "block": "The Tower",
-      "shots": 78,
-      "minStars": 66,
-      "ceilingStep": 5
-    },
-    {
       "file": "Spyglass.json",
       "name": "Spyglass",
       "block": "The Tower",
       "shots": 72,
-      "minStars": 68,
+      "minStars": 66,
       "ceilingStep": 6
     },
     {
@@ -295,7 +287,7 @@
       "name": "Belfry",
       "block": "The Tower",
       "shots": 84,
-      "minStars": 70,
+      "minStars": 68,
       "ceilingStep": 5
     },
     {
@@ -303,7 +295,7 @@
       "name": "Organ",
       "block": "The Tower",
       "shots": 86,
-      "minStars": 72,
+      "minStars": 70,
       "ceilingStep": 5
     },
     {
@@ -311,7 +303,7 @@
       "name": "Pylon",
       "block": "The Tower",
       "shots": 74,
-      "minStars": 74,
+      "minStars": 72,
       "ceilingStep": 9
     },
     {
@@ -319,8 +311,16 @@
       "name": "Lean",
       "block": "The Tower",
       "shots": 78,
-      "minStars": 76,
+      "minStars": 74,
       "ceilingStep": 6
+    },
+    {
+      "file": "Pagoda.json",
+      "name": "Pagoda",
+      "block": "The Tower",
+      "shots": 78,
+      "minStars": 76,
+      "ceilingStep": 5
     },
     {
       "file": "Eleven.json",
