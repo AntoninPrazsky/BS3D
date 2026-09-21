@@ -5008,6 +5008,8 @@ Pět háků, každý vedle zvuku nebo záblesku, který už tu chvíli odpovíd�
 - **Vibrace je stav zařízení, ne stav snímku** — mixer se srazí na nulu okamžitě, jakmile podmínka padne, a `UnloadContent` posílá jedno poslední přímé `SetVibration(0, 0)` na odchodu, protože mixer už žádný další frame na dojetí nedostane.
 - Řádek **Rumble** v Nastavení vedle čtyř hlasitostí, stejný žebřík po čtvrtinách s vypnutím, stejná perzistence přes `GameSettings`/`ApplyVolumes`.
 
+⚠ **Neověřeno pocitem — na stroji není žádný pad.** #188 už zjistilo, že `true` z `SetVibration` neříká nic o tom, který motor se skutečně točil, a to platí i tady: ověřil jsem kompilaci (všechny čtyři solutiony, `LevelGen`, `ScoreSim`, všechno nula) a běh (`BS3D.exe play level=1 result celebrate stars=3` — kapitolní intro, vynucená výhra, celá tříhvězdná odhalovačka bez výjimky, `SetVibration` se volá a vrací se, ať pad je připojený nebo ne). Síla, délka a rozdělení mezi kanály pro všech pět je první odhad podle stejné úvahy jako u zvuku, ne měření. Issue nechávám otevřené na majitelův pocit — a v komentáři přesně napsané, co má vyzkoušet.
+
 ---
 
 ## 2026-09-21 — Claude Code (notebook: #487 světlušky v lese, merge `03de94a`)
@@ -5021,4 +5023,17 @@ Pět háků, každý vedle zvuku nebo záblesku, který už tu chvíli odpovíd�
 
 **Nic dalšího si neberu.**
 
-⚠ **Neověřeno pocitem — na stroji není žádný pad.** #188 už zjistilo, že `true` z `SetVibration` neříká nic o tom, který motor se skutečně točil, a to platí i tady: ověřil jsem kompilaci (všechny čtyři solutiony, `LevelGen`, `ScoreSim`, všechno nula) a běh (`BS3D.exe play level=1 result celebrate stars=3` — kapitolní intro, vynucená výhra, celá tříhvězdná odhalovačka bez výjimky, `SetVibration` se volá a vrací se, ať pad je připojený nebo ne). Síla, délka a rozdělení mezi kanály pro všech pět je první odhad podle stejné úvahy jako u zvuku, ne měření. Issue nechávám otevřené na majitelův pocit — a v komentáři přesně napsané, co má vyzkoušet.
+---
+
+## 2026-09-21 — Claude Code (notebook: #485 náboj kola s víčkem, merge `6be677e`)
+
+**Vzal jsem #485 hned po #487, na stejném stroji.** Kolo #129 mělo náboj záměrně jako nejjednodušší možný tvar — plochý kotouč — protože tehdejší odměna byla válečkový prstenec, ne bok kola. Majitel: „jen plochá deska, chce něco modernějšího/vojenštějšího". Větev `485-wheel-hubcap`, commit `5ed62e6`.
+
+- **`OmniWheelMesh.AddHubcap`**: stupňovité, sražené středové víčko a prstenec osmi šestihranných šroubů, obojí kresleno NAD stávající plochou plochu desky, ne vykrojené z ní — víčko a šrouby sedí striktně dál po X (ven), takže korektně zakryjí, co je pod nimi, a pár skrytých trojúhelníků pod tím nestojí za druhou cestu kódu na kole, které se kreslí ve dvou instancích celkem. Normála sraženého pláště je stejný vzorec jako `OmniRollerMesh.Surface` (rotační plocha), jen se sklonem konstantním místo profilu `ρ(t)`.
+- Obě nové míry jsou zlomky `plateRadius`, ne absolutní čísla — kdyby se kolo někdy přeladilo, detail se škáluje s ním; jen krok víčka a velikost šroubů zůstávají absolutní (čtou jako hotový díl bez ohledu na velikost kola).
+- **Ověřeno vizuálně** bokorysem těsně u podvozku (`campos=10,-7.3,31 camtarget=0,-7.3,31`, `scene=meadow`) — nalezení téhle kamery stálo tři pokusy: pohled zezadu (přes `F10`) vidí kolo z boku (válečkový obrys, plochá strana kolmo k pohledu, nic vidět), teprve pohled kolmo k ose (podél ±X) ukáže plochou stranu čelně. Na výsledném snímku sraženina i všech osm šroubů čitelné proti desce.
+- Ověřeno: všechny čtyři solutiony čisté, `LevelGen` i `ScoreSim` prošly.
+
+**Poučení pro žurnál sám:** tahle relace omylem rozřízla předchozí (#378) záznam vpůli — `Read` s `limit=61` uřízl poslední odstavec, `Edit` pak vložil nový nadpis přesně tam, kde uříznutý text chyběl. Opraveno přesunem odstavce zpátky před `---`. Při psaní do konce souboru vždycky `tail`/`wc -l` napřed, ne odhad podle jednoho dřívějšího čtení.
+
+**Nic dalšího si neberu.**
