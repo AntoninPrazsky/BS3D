@@ -16,9 +16,9 @@ What follows is not a menu of plausible uses. **Every line was measured on 2026-
 
 | Task | Model | Verdict |
 |---|---|---|
-| Is there already an issue like this one? | `text-embedding-nomic-embed-text-v1.5` via `Tools/SemanticSearch` | **Use it.** Known partners ranked 1st–2nd for 4 of 7 probes; the other three sat under issues on the same subject. |
-| Find something in the Czech agent journal | same | **Don't trust it.** Czech questions put the answer 9th–201st of 532. Ask in English (ranked 2nd), or try a multilingual model. |
-| Which section of `docs/` answers this? | same, via `Tools/SemanticSearch --docs` | **Use it (#490).** Fifteen known-answer questions: the right section 1st eleven times, 2nd three times, once 115th (CLAUDE.md's "Project", a piece about six things at once — the top hit, `docs/testbed.md`'s opening, answered it too). |
+| Is there already an issue like this one? | `text-embedding-qwen3-embedding-0.6b` via `Tools/SemanticSearch` (the default since #439) | **Use it.** Seven probes with a known partner: 1st five times, 3rd twice. nomic on the same probes: 1st four times, then 2nd, 4th and 9th. |
+| Find something in the Czech agent journal | same, `--journal` | **Use it, in Czech (#439).** Six questions with a known marker: the answer 2nd, 2nd, 8th, 8th, 17th and 49th of 707 chunks — in the top ten for 5 of 6, where nomic managed 3 of 6 (1st, 2nd, 10th, 83rd, 86th, 273rd). Read the top ten, not the top one. |
+| Which section of `docs/` answers this? | same, `--docs` | **Use it (#490).** Fifteen known-answer questions: the right section 1st twelve times, 2nd twice, once 20th (CLAUDE.md's "Project", a piece about six things at once — the top hit, `docs/testbed.md`'s opening, answered it too; nomic had it 115th). |
 | What changed between two captures? | `google/gemma-4-12b` via `vision.ps1` (default); `qwen/qwen3-vl-8b` is close | **Use it as a first pass.** Gemma 3½ of 4 known pairs, Qwen3-VL-8B 3 of 4 (#440). Both said "identical" for one file sent twice. Gemma named the crosshair growing and turning red but called an upward tilt a zoom; Qwen got the tilt and spotted a ball that really had appeared, but missed the crosshair growing. Gemma 1.5–14 s a pair, Qwen 13–16 s. |
 | Read a small detail (a colour, a mark) | Gemma 4; Qwen3-VL a step behind | **Only on a crop.** On a 256 px crop Gemma 7 of 7, Qwen 6 of 7 (in 0.3 s against Gemma's 1.3); on the whole frame both 5 of 7. For an exact value, measure pixels (`screenshot/palette.ps1`, a bar scan). |
 | Does a level's shape read as its subject? | neither | **No.** Blind naming got 3–4 of 18 levels for both models, and most symmetric patterns came back as "butterfly" (Gemma) or "cannonball pattern" (Qwen). Neither model's 1–5 rating separates the levels playtesting said read from those it said did not; Qwen's does not separate them at all in 3D (3.8 against 3.7). |
@@ -28,7 +28,7 @@ What follows is not a menu of plausible uses. **Every line was measured on 2026-
 ## Before filing an issue
 
 ```powershell
-& "$env:USERPROFILE\.lmstudio\bin\lms.exe" load text-embedding-nomic-embed-text-v1.5 --ttl 1800 -y   # 80 MB
+& "$env:USERPROFILE\.lmstudio\bin\lms.exe" load text-embedding-qwen3-embedding-0.6b --ttl 1800 -y   # 639 MB; --gpu off works too, embedding is cheap
 dotnet run --project Tools\SemanticSearch -- --file draft.md     # or --issue 425, or "free text"
 ```
 
@@ -40,7 +40,7 @@ The issues come live through `gh` on every run, so an issue filed a minute ago i
 dotnet run --project Tools\SemanticSearch -- --docs "why are the shadow maps drawn before the scene target is bound"
 ```
 
-It prints the sections most likely to hold the answer, with the first line of the piece under each label — a section here can run to thirty pieces, so open the file at that heading rather than from the top. The first run embeds the 1010 pieces in ~27 s; after that the corpus costs nothing over an issues-only run. Measured on 2026-09-21 (#490): the known section first for 11 of 15 questions and second for 3; the miss was a question about one paragraph of a section that is about six things.
+It prints the sections most likely to hold the answer, with the first line of the piece under each label — a section here can run to thirty pieces, so open the file at that heading rather than from the top. The first run embeds the 1011 pieces once (27 s for nomic on the GPU, 112 s for Qwen3 on the CPU alone); after that the corpus costs nothing over an issues-only run. Measured on 2026-09-21 (#490, #439): the known section first for 12 of 15 questions and second for 2; the miss was a question about one paragraph of a section that is about six things. Add `--mark <text>` to read off the rank of the first result carrying a known marker — that is how every number in this table was measured.
 
 ## Comparing captures
 
@@ -59,6 +59,7 @@ To photograph the Game for a question: `BS3D.exe play level=<Name> shot=14`, the
 ## Running LM Studio
 
 - `lms load <key> -c <context> --ttl <seconds> -y`, `lms unload <key>`, `lms ps`. Give everything you load a **TTL** so the card is handed back when you are done.
+- **After a reboot the server may not be on 1234.** `lms server status` says whether it runs; `lms server start` answering `listen EACCES … 1234` means Windows reserved the port (`netsh interface ipv4 show excludedportrange protocol=tcp`; on 2026-09-21 the range 1136–1235 covered it after one reboot and 1237–1336 covered 1240 after the next). Start it on a free port (`lms server start --port 8765`) and pass the tool `--endpoint http://localhost:8765/v1`; `vision.ps1` and the other scripts still expect 1234.
 - **Gemma 4 at 8k context.** At 16k a full-size frame killed it: `terminated`, then `Model is unloaded`. Qwen3-VL-8B survived 16k with full frames.
 - **One big model at a time.** Gemma is 12.8 GB loaded, Qwen3-VL-8B 9.9 GB and DeepSeek 15.6 GiB, on a 16 GB card.
 - **The card is shared with other sessions** — music generation (ACE-Step, ~6 GB) and image generation (`design-references`, ~10.5 GB) run on it too. Check `lms ps` and ask a session that holds the GPU before loading anything big, and unload your model when a peer asks for a window; on 2026-09-16 two such handovers by message went cleanly.

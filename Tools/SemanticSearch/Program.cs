@@ -20,21 +20,32 @@ namespace BS3D.Tools.SemanticSearch
     /// <b>Measured before it was kept (2026-09-16), and the two halves came out very differently.</b> Over the 422
     /// issues, the known partner of 4 out of 7 probes ranked 1st or 2nd, and the other three ranked 9, 11 and 53, each
     /// under issues on the same subject. Over the Czech journal, paraphrased Czech questions put the answer at ranks 62,
-    /// 201, 70 and 9 of 532 chunks. The default model is English-centric, which is why the journal is behind a switch and
-    /// says so when it answers.
+    /// 201, 70 and 9 of 532 chunks. That model (nomic-embed-text) is English-centric, which is why the journal is behind
+    /// a switch and why <c>--model</c> exists.
     /// </para>
     /// <para>
-    /// <b>The documents (#490, measured 2026-09-21):</b> fifteen paraphrased questions whose answer sits in one known
-    /// section of <c>docs/</c>, CLAUDE.md or BestPractices.md put that section 1st eleven times and 2nd three times. The
-    /// one miss is CLAUDE.md's "Project" at 115th — a piece that packs the merge rule, the three executables and the
-    /// Testbed's role into one text, of which the question matched a tenth — while the top hit, <c>docs/testbed.md</c>'s
-    /// own opening, answered it as well. 1010 pieces from 1.8 MB, 27 s to embed on the first run.
+    /// <b>The default became Qwen3-Embedding-0.6B on 2026-09-21 (#439), on the same questions, paired.</b> Issues, the
+    /// known partner's rank, nomic against Qwen3: 1/1, 1/1, 1/1, 9/3, 4/3, 2/1, 1/1. The Czech journal, the rank of the
+    /// first of 707 chunks carrying the answer's marker: 83/49, 273/8, 1/2, 86/17, 2/8 (the one question asked in
+    /// English), 10/2 — the answer in the top ten for 5 of 6 questions against 3 of 6. The documents (#490's fifteen
+    /// questions): nomic 11 first, 3 second, one 115th; Qwen3 12 first, 2 second, that one 20th. <c>--mark</c> is how
+    /// these were read off, so the next model is measured the same way.
+    /// </para>
+    /// <para>
+    /// <b>The documents (#490, measured 2026-09-21 with nomic):</b> fifteen paraphrased questions whose answer sits in
+    /// one known section of <c>docs/</c>, CLAUDE.md or BestPractices.md put that section 1st eleven times and 2nd three
+    /// times. The one miss is CLAUDE.md's "Project" at 115th — a piece that packs the merge rule, the three executables
+    /// and the Testbed's role into one text, of which the question matched a tenth — while the top hit,
+    /// <c>docs/testbed.md</c>'s own opening, answered it as well. 1010 pieces from 1.8 MB, 27 s to embed on the first
+    /// run on the GPU; Qwen3 took 112 s for the same on the CPU alone (the GPU figure is unmeasured — the machine reset).
     /// </para>
     /// </summary>
     internal static class Program
     {
         private const string DEFAULT_ENDPOINT = "http://localhost:1234/v1";
-        private const string DEFAULT_MODEL = "text-embedding-nomic-embed-text-v1.5";
+        //Qwen3-Embedding-0.6B since #439: never worse than nomic on the English issues and far better on the Czech journal
+        private const string DEFAULT_MODEL = "text-embedding-qwen3-embedding-0.6b";
+        private const string NOMIC_MODEL = "text-embedding-nomic-embed-text-v1.5";
 
         //nomic-embed-text reads at most 2048 tokens; 2500 characters of this project's English and Czech stays under it
         private const int MAX_CHARS = 2500;
@@ -93,8 +104,10 @@ namespace BS3D.Tools.SemanticSearch
 
                 Console.WriteLine($"[search] {options.Model}: {pool.Count} issues ranked, {embedded} embedded now, {cached} from cache");
                 Console.WriteLine($"[search] query: {queryLabel}");
-                foreach ((Doc doc, float score) in Rank(pool, query).Take(options.Top))
+                List<(Doc doc, float score)> ranked = Rank(pool, query).ToList();
+                foreach ((Doc doc, float score) in ranked.Take(options.Top))
                     Console.WriteLine($"  {score:F3}  #{doc.Number,-4} {(doc.Open ? "open  " : "closed")}  {Trim(doc.Title, 110)}");
+                ReportMark("issues", ranked, options.Mark);
 
                 if (options.Journal)
                 {
@@ -103,10 +116,12 @@ namespace BS3D.Tools.SemanticSearch
 
                     Console.WriteLine();
                     Console.WriteLine($"[search] journal: {chunks.Count} chunks, {embedded} embedded now, {cached} from cache");
-                    if (options.Model == DEFAULT_MODEL)
-                        Console.WriteLine("[search] the default model is English-centric: Czech questions ranked the answer 9th to 201st of 532 in the trial. Ask in English, or pass a multilingual --model.");
-                    foreach ((Doc doc, float score) in Rank(chunks, query).Take(options.Top))
+                    if (options.Model == NOMIC_MODEL)
+                        Console.WriteLine($"[search] nomic is English-centric: on the six Czech journal questions it ranked the answer 1st to 273rd against {DEFAULT_MODEL}'s 2nd to 49th (#439). Ask in English, or use the default model.");
+                    ranked = Rank(chunks, query).ToList();
+                    foreach ((Doc doc, float score) in ranked.Take(options.Top))
                         Console.WriteLine($"  {score:F3}  {doc.Title}");
+                    ReportMark("journal", ranked, options.Mark);
                 }
 
                 if (options.Docs)
@@ -117,11 +132,13 @@ namespace BS3D.Tools.SemanticSearch
                     //A section of these documents runs to pages, so a hit says where in it the piece starts
                     Console.WriteLine();
                     Console.WriteLine($"[search] docs: {chunks.Count} chunks, {embedded} embedded now, {cached} from cache");
-                    foreach ((Doc doc, float score) in Rank(chunks, query).Take(options.Top))
+                    ranked = Rank(chunks, query).ToList();
+                    foreach ((Doc doc, float score) in ranked.Take(options.Top))
                     {
                         Console.WriteLine($"  {score:F3}  {doc.Title}");
                         Console.WriteLine($"         {Trim(Opening(doc.Text), 120)}");
                     }
+                    ReportMark("docs", ranked, options.Mark);
                 }
             }
             catch (EmbeddingException e)
@@ -151,6 +168,7 @@ namespace BS3D.Tools.SemanticSearch
             Console.WriteLine("  --journal        also search docs/agent-notes.md and docs/agent-notes-archive/");
             Console.WriteLine("  --docs           also search docs/*.md, CLAUDE.md and BestPractices.md, section by section");
             Console.WriteLine("  --top N          results per list (8)");
+            Console.WriteLine("  --mark TEXT      also report the rank of the first result whose text contains TEXT (a known answer's marker)");
             Console.WriteLine($"  --model KEY      embedding model ({DEFAULT_MODEL})");
             Console.WriteLine($"  --endpoint URL   LM Studio's OpenAI-compatible base ({DEFAULT_ENDPOINT})");
             Console.WriteLine();
@@ -309,6 +327,29 @@ namespace BS3D.Tools.SemanticSearch
         private static IEnumerable<(Doc doc, float score)> Rank(IEnumerable<Doc> docs, float[] query) =>
             docs.Select(d => (d, Dot(d.Vector, query))).OrderByDescending(x => x.Item2);
 
+        /// <summary>
+        /// The measurement behind every verdict in this tool's documentation, made repeatable: where in the ranking the
+        /// first text carrying <paramref name="mark"/> sits — an issue number, a class name, a marker known to be in the
+        /// entry that answers the question — so a model or a chunking can be compared on the same questions later.
+        /// </summary>
+        private static void ReportMark(string corpus, List<(Doc doc, float score)> ranked, string mark)
+        {
+            if (mark == null) return;
+
+            int first = 0, carrying = 0;
+            string label = null;
+            for (int i = 0; i < ranked.Count; i++)
+            {
+                Doc doc = ranked[i].doc;
+                if (!doc.Text.Contains(mark, StringComparison.Ordinal)) continue;
+                carrying++;
+                if (first == 0) { first = i + 1; label = doc.Number > 0 ? $"#{doc.Number} {Trim(doc.Title, 70)}" : doc.Title; }
+            }
+            Console.WriteLine(first == 0
+                ? $"[mark] {corpus}: \"{mark}\" is in none of the {ranked.Count} texts"
+                : $"[mark] {corpus}: \"{mark}\" first at rank {first} of {ranked.Count} ({carrying} carry it) — {label}");
+        }
+
         private static float Dot(float[] a, float[] b)
         {
             float sum = 0f;
@@ -338,6 +379,7 @@ namespace BS3D.Tools.SemanticSearch
         public bool Journal;
         public bool Docs;
         public bool OpenOnly;
+        public string Mark;
         public int Top = 8;
         public string Model;
         public string Endpoint;
@@ -372,6 +414,10 @@ namespace BS3D.Tools.SemanticSearch
                         break;
                     case "--journal": options.Journal = true; break;
                     case "--docs": options.Docs = true; break;
+                    case "--mark":
+                        if (++i >= args.Length) return null;
+                        options.Mark = args[i];
+                        break;
                     case "--open": options.OpenOnly = true; break;
                     default:
                         if (args[i].StartsWith("-")) return null;
@@ -395,7 +441,7 @@ namespace BS3D.Tools.SemanticSearch
     /// LM Studio's <c>/embeddings</c>. Documents go through an <see cref="EmbeddingCache"/>, so only a text it has not
     /// seen is sent; the query is one request and is not cached. The prefixes are the model family's own —
     /// nomic-embed-text is trained with <c>search_document:</c> and <c>search_query:</c>, e5 with <c>passage:</c> and
-    /// <c>query:</c> — and a family this does not know gets none.
+    /// <c>query:</c>, Qwen3-Embedding with an instruction on the query alone — and a family this does not know gets none.
     /// </summary>
     internal sealed class EmbeddingClient
     {
@@ -412,9 +458,12 @@ namespace BS3D.Tools.SemanticSearch
             _endpoint = endpoint;
             _model = model;
 
+            //Qwen3-Embedding takes an instruction on the QUERY side only ("Instruct: <task>\nQuery: <text>") and the
+            //documents bare; without it the model is being compared on a footing it was not trained for (#439)
             string family = model.ToLowerInvariant();
             (_documentPrefix, _queryPrefix) = family.Contains("nomic") ? ("search_document: ", "search_query: ")
                 : family.Contains("e5") ? ("passage: ", "query: ")
+                : family.Contains("qwen3-embedding") ? ("", "Instruct: Given a question, retrieve the notes and issues that answer it\nQuery: ")
                 : ("", "");
         }
 
