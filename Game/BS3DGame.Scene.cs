@@ -210,6 +210,9 @@ namespace BS3D
         //config (AuroraSceneConfig.Terrain), its own meshes and tints. See AuroraSceneConfig's class doc.
         private ForestScatterRenderer _auroraScatter;
 
+        //The forest's handful of firefly-like blinking lights (#487), planted over the same floor.
+        private ForestFireflies _forestFireflies;
+
         //The scene's own point lights (the neon city's ring of magenta and cyan around the island, the
         //savanna's campfire, space's planetshine) pushed onto the shared instanced effect each frame, so the
         //balls, the island, the gun and the city all take them on top of the sun and the dome. The slots, the
@@ -351,6 +354,10 @@ namespace BS3D
             //The aurora's own wood, a second planting from its own config - see AuroraSceneConfig's class doc.
             _auroraScatter = new ForestScatterRenderer(GraphicsDevice, _instancingEffect,
                 ((AuroraSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Aurora)).Terrain, SCENE_AMBIENT_INTENSITY,
+                seed: ForestScatterRenderer.DEFAULT_SEED + _sceneSeedOffset);
+
+            _forestFireflies = new ForestFireflies(GraphicsDevice, _instancingEffect,
+                (ForestSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Forest), SCENE_AMBIENT_INTENSITY,
                 seed: ForestScatterRenderer.DEFAULT_SEED + _sceneSeedOffset);
 
             //Note the glass the cluster hangs from is NOT built here: its footprint is the loaded level's
@@ -867,6 +874,10 @@ namespace BS3D
             //gate stays here because the component draws the wood whenever it is called — where it sits in the
             //frame and whether this frame wants it at all are this file's business, not its.
             if (_scene == SceneKind.Forest) _forestScatter.Draw(_camera);
+
+            //The forest's firefly-like blinking lights (#487), on the same wall clock the roof beacon and the
+            //campfire blink and flicker on.
+            if (_scene == SceneKind.Forest) _forestFireflies?.Draw(_camera, _wallClock);
 
             if (_scene == SceneKind.Aurora)
             {

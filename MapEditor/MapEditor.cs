@@ -173,6 +173,9 @@ namespace MapEditor
         //config (AuroraSceneConfig.Terrain), its own meshes and tints. See AuroraSceneConfig's class doc.
         private ForestScatterRenderer _auroraScatter;
 
+        //The forest's handful of firefly-like blinking lights (#487), planted over the same floor.
+        private ForestFireflies _forestFireflies;
+
         //A level dropped or opened is parsed off the render thread (like a map file), but its scene/sky/city
         //application touches GPU resources (Content.Load, buffer rebuilds, a new City), so the parsed level is
         //stashed here and applied on the main thread in Update. See ApplyPendingLevel.
@@ -480,6 +483,9 @@ namespace MapEditor
             _auroraScatter = new ForestScatterRenderer(GraphicsDevice, _instancingEffect,
                 ((AuroraSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Aurora)).Terrain, SCENE_AMBIENT_INTENSITY);
 
+            _forestFireflies = new ForestFireflies(GraphicsDevice, _instancingEffect,
+                (ForestSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Forest), SCENE_AMBIENT_INTENSITY);
+
             ApplySkyLighting();
 
             _pipeline.EnsureTarget();
@@ -661,6 +667,7 @@ namespace MapEditor
                     if (sceneConfig is ForestSceneConfig forest)
                     {
                         _forestScatter.Replant(forest);
+                        _forestFireflies.Replant(forest);
                         ApplySkyLighting();
                     }
 
@@ -1101,6 +1108,10 @@ namespace MapEditor
             //touches none of it, so the balls drawn after this are unaffected.
             if (_scene == SceneKind.Forest) _forestScatter?.Draw(Camera3D);
 
+            //The forest's firefly-like blinking lights (#487), on the same wall clock the roof beacon
+            //flashes on
+            if (_scene == SceneKind.Forest) _forestFireflies?.Draw(Camera3D, frame.Time);
+
             if (_scene == SceneKind.Aurora)
             {
                 //Re-tinted here rather than in ApplySkyLighting (see there): the aurora's hue keeps
@@ -1195,6 +1206,7 @@ namespace MapEditor
             //included, the editor having handed it none of its own
             _forestScatter?.Dispose();
             _auroraScatter?.Dispose();
+            _forestFireflies?.Dispose();
             //The dome's two buffers and its owned BasicEffect (the editor's only dome draw path)
             _sky?.Dispose();
             _unitBox?.Dispose();

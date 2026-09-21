@@ -143,6 +143,9 @@ namespace Prazsky.Core.Render
 
         /// <summary>The scattered stumps and fallen logs.</summary>
         public ForestStumpConfig Stumps { get; set; } = new();
+
+        /// <summary>The firefly-like lights over the floor (#487).</summary>
+        public ForestFireflyConfig Fireflies { get; set; } = new();
     }
 
     /// <summary>
@@ -294,5 +297,58 @@ namespace Prazsky.Core.Render
         /// <summary>Stump wood colour (linear radiance), applied as the stump renderers' diffuse tint. Lighter
         /// than the bark it shares a texture with — a stump is mostly the pale sawn face.</summary>
         public Rgb Color { get; set; } = new(0.095f, 0.072f, 0.048f);
+    }
+
+    /// <summary>
+    /// A handful of firefly-like lights hovering over the floor among the trees (#487): each one blinks ON
+    /// and then OFF on its own wall-clock period, in the spirit of the city roof beacon's hard flash
+    /// (<see cref="CityRooftops"/>, #436) rather than the campfire's continuous flicker or the city window's
+    /// soft cross-fade — a naturalistic scene's own answer to the same idiom.
+    /// </summary>
+    public sealed class ForestFireflyConfig
+    {
+        /// <summary>How many fireflies hover over the clearing.</summary>
+        public int Count { get; set; } = 5;
+
+        /// <summary>Nearest a firefly may sit to the island (world units from the origin).</summary>
+        public float MinRadius { get; set; } = 40f;
+
+        /// <summary>Farthest a firefly may sit from the island — kept well inside the tree scatter's own
+        /// <see cref="ForestTreeConfig.MaxRadius"/>, so every one stays in range of a camera in the clearing.</summary>
+        public float MaxRadius { get; set; } = 75f;
+
+        /// <summary>How far a firefly hovers above the ground it was planted on.</summary>
+        public float HoverHeight { get; set; } = 0.5f;
+
+        /// <summary>
+        /// Radius of the small glowing sphere each firefly is (world units). Measured rather than guessed at
+        /// a real firefly's own scale (a centimetre or so): at 40-75 units out that came back under a pixel
+        /// at 1600x900 and the bloom had nothing to spread from, which read as nothing lit at all rather than
+        /// as a dim one. This is a stylised size — bigger than life, the same liberty the roof beacon's own
+        /// sphere already takes on a mast — chosen to hold a few pixels pre-bloom at the far end of
+        /// <see cref="MaxRadius"/> so the bloom pass has a seed to work from.
+        /// </summary>
+        public float BodyRadius { get; set; } = 0.3f;
+
+        /// <summary>Shortest blink period, in seconds (a randomly rolled period between this and
+        /// <see cref="MaxPeriod"/> per firefly, so the handful of them never beat in unison).</summary>
+        public float MinPeriod { get; set; } = 2.2f;
+
+        /// <summary>Longest blink period, in seconds.</summary>
+        public float MaxPeriod { get; set; } = 4.0f;
+
+        /// <summary>Share of its own period a firefly spends lit, the beacon's own figure (#436).</summary>
+        public float OnFraction { get; set; } = 0.22f;
+
+        /// <summary>
+        /// Peak emissive brightness (linear radiance) at the centre of the ON pulse — the beacon's own figure
+        /// (<see cref="RooftopConfig.BeaconBrightness"/>), high enough over <c>GLARE_THRESHOLD</c> that so
+        /// small a body still blooms and reads from a distance.
+        /// </summary>
+        public float Brightness { get; set; } = 3.2f;
+
+        /// <summary>The glow's colour (linear radiance) — a firefly's own warm yellow-green, not the beacon's
+        /// warning red.</summary>
+        public Rgb Color { get; set; } = new(0.55f, 0.95f, 0.25f);
     }
 }
