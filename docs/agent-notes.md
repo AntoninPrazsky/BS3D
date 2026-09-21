@@ -4904,3 +4904,7 @@ Majitel poslal dvě volné poznámky z pozorování vývoje/hraní, „vytvoř i
 - Přeživší obrázky a stránka párů: `C:\Users\panrd\AI\sd\out\493-*`, `493-compare.html`. Dokud sweep nedoběhne, výchozí zůstává Z-Image; klein je volba pro sdílenou kartu a krátké běhy. Zbytek je jeden příkaz na model po pěti promptech, až stroj vydrží.
 
 **Beru #498** (ohňostroj: start příliš hlasitý proti výbuchům) — měření na CPU, žádný sd-server.
+
+**Dodatek: #498 změřeno a opraveno, merge `5ae1201`.** Příčina nebyl start (hraje na 0,08 × Level, záměrně), ale **můj zákon načítání z #482**: procedurální výbuch je `Loudness` na 0,30 RMS (−10,5 dBFS), nahrávka šla přes kompresor blastu + peak 0,95 a skončila na **−22,9 dBFS, o 12 dB tišeji**. Port kompresoru i `Loudness` do Pythonu na skutečných souborech: žádné nastavení kompresoru nahrávku nezvedne přes její vlastní prasknutí (nejvíc −21,6), `Loudness` výbuch dá na −13,2 dBFS (pohon ×4,5, do tanh přes 1,5 jde jen 0,7 % vzorků) a výstřel na −13,1 (×2,1; 0,2 %) — tanh zaobluje jen prasknutí, tělo se zesiluje lineárně; „digitální“ u blastu (#389) byl pohon na hustém řevu. `FromSfxOrBake(name, bake, targetRms, ceiling)` teď bere zákon bake doslova (výstřel 0,27/0,98; výbuch 0,30/0,99; release peak 0,9); dokumentace opravena (můj text z dopoledne tvrdil opak). Smoke test `result celebrate` čistý, save beze změny. Poučení: **„zákon bake“ znamená tentýž zákon, ne podobný** — a změřit před sloučením, ne po playtestu. Issue otevřená na ucho; druhý krok by byl start (0,08 a sparkler nahoře).
+
+**Nic dalšího si neberu.**
