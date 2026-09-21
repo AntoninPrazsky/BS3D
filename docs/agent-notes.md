@@ -5190,3 +5190,19 @@ Tentokrát Gemma zaměňuje, co kód dělá, s tím, co by kód obecně mohl dě
 Obě issues nechávám otevřené na majitelův pohled v pohybu.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-21 — Claude Code (notebook: #470 zbylá polovina — cluster vrhá stín, merge `9019806`)
+
+**Sedmé issue ten den na notebooku.** #470 zůstalo schválně otevřené na jedinou zbylou věc: ostrov a dělo do slunečního stínu už vrhaly (základ #470), ale visící koule ne — a issue sám říká, že jde o nejdražší průchod projektu, takže se to má nejdřív změřit. Větev `470-ball-shadow-casting`, commit `5213b52`.
+
+- **`BallRenderSet.DrawShadow`** projde všechny naplněné koše ze snímku — každý druh a každý LOD, dýchající i speciály — a vrhne je přes `InstancedModelRenderer.DrawDepth`, tu samou techniku, co už používá ostrov a dělo. Stínová mapa nemá barvu, takže nepotřebuje žádné z `Draw`'s větvení podle druhu.
+- **Pořadí ve snímku**: hra už sbírá koule před `BeginSceneDraw` (`GameplayScreen.Draw` i `BackdropScreen.Draw`), takže tam se nic přeskládávat nemuselo. Testbed ne — jeho `BeginFrame`/`Collect`/`CollectMagazineBalls` se přesunulo na začátek `Draw`, před `DrawShadowMaps`, aby bylo co vrhat; samotné vykreslení zůstalo přesně tam, kde bylo.
+- ⚠ **První verze volala `DrawDepth` pro každý neprázdný koš zvlášť, a to bylo na slabé grafice drahé — z důvodu, co nemá nic společného s fill rate.** Všechny čtyři LOD renderery sdílejí JEDEN `Effect`, takže každé volání přepínalo techniku (do `InstancedDepth` a zpět) na sdíleném stavu — level s pár speciály může mít přes deset neprázdných košů. `DrawShadow` teď napřed slije všechny koše jednoho LOD do jednoho poolovaného scratch pole a `DrawDepth` zavolá jednou na LOD, co má co kreslit — nejvýš čtyřikrát místo přes deseti.
+- ⚠ **Druhá nalezená chyba: Testbedův parser argumentů neznal `ballshadow=` a tiše ho bral jako cestu k mapě**, čímž přepsal už načtenou úroveň — přesně past, co už komentář u `logfps` varuje. Doplněn chybějící case a `TestOptions.BallShadowCasting`.
+- **Změřeno na tomhle stroji, ne na referenčním 5900X / RX 6900 XT — v `docs/rendering.md` označeno k přeměření tam.** Při `ssaa=4` (těžké zatížení GPU) bylo A/B zašuměné, ale trvale oddělené kolem +2 ms; při `ssaa=1` (zátěž, co tenhle stroj zvládá) stejné srovnání vyšlo v šumu, ~+0,06 ms. Dohromady to čte jako nasycení GPU zvětšující malý, skoro pevný náklad na odeslání spíš než náklad rostoucí s fill rate — takže jde ve výchozím stavu zapnuté, ale číslo čeká na potvrzení na skutečné referenční sestavě.
+- **Potvrzeno okem při nízkém slunci** (dome 5, přesně past, co #470 sám zmiňuje): Giraffe s `ballshadow=1` ukazuje na savaně jasný stín zhruba siluety clusteru, s `ballshadow=0` žádný.
+- **Ověřeno**: čtyři solutiony čistě, `LevelGen`/`ScoreSim` exit 0, hra rozehrála 420kuličkový level bez pádu a bez vizuální regrese.
+
+**Nic dalšího si neberu.**
