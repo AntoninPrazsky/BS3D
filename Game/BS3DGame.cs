@@ -149,6 +149,10 @@ namespace BS3D
         //screen and, later, the menu — same pattern as the camera.
         private ProceduralAudio _audio;
 
+        //The pad's own answer to a shot (#378). Built alongside the audio, for the same reason: the per-event
+        //paths only ever call Kick, never touch GamePad themselves.
+        private GamepadRumble _rumble;
+
         //The victory display. The frame's, not the session's: it has to go on running once the result screen
         //covers the gameplay screen, which is exactly when the player is watching it.
         private Fireworks _fireworks;
@@ -328,6 +332,9 @@ namespace BS3D
 
         /// <summary>Procedurally generated SFX, shared by the gameplay screen and the menu.</summary>
         internal ProceduralAudio Audio => _audio;
+
+        /// <summary>The pad's two body motors (#378), fed a <c>Kick</c> from wherever a violent moment already is.</summary>
+        internal GamepadRumble Rumble => _rumble;
 
         /// <summary>
         /// The victory display. On the host rather than on the session because a cleared level puts the result
@@ -898,6 +905,7 @@ namespace BS3D
             _sfxVolume = _settings.SfxVolume;
             _musicVolume = _settings.MusicVolume;
             _ambienceVolume = _settings.AmbienceVolume;
+            _rumbleStrength = _settings.RumbleStrength;
             _aberration = _settings.Aberration;
             _grain = _settings.Grain;
             _dropCinematic = _settings.DropCinematic;
@@ -1344,6 +1352,10 @@ namespace BS3D
             //The SFX are synthesized from raw PCM here, once, so the per-event paths only ever play a buffer —
             //no asset files, no pipeline step.
             _audio = new ProceduralAudio();
+
+            //The pad's own mixer (#378) — no device or content dependency, built here purely to sit beside
+            //the audio it answers alongside.
+            _rumble = new GamepadRumble();
 
             //The victory display. Its one static buffer is built here too, so a cleared level costs nothing
             //but a handful of uniforms.
@@ -1907,6 +1919,14 @@ namespace BS3D
             //a page opened by a click lands here on the following frame, which is the deferred design.
             _screens.Update(gameTime);
 
+            //The pad's own decay, and the one SetVibration call a frame (#378). Read fresh rather than
+            //latched: paused, unfocused or off the gameplay screen (the front end, a settings panel reached
+            //some other way) all silence it on the spot regardless of what a covered session's own Update is
+            //still feeding into it underneath — see GamepadRumble.Update. The result page stays allowed on
+            //purpose: it covers the gameplay screen without leaving the stack (#241) and the star reveal it
+            //hosts is one of this feature's own five triggers.
+            _rumble.Update(elapsed, IsActive && _screens.Contains<GameplayScreen>() && !_screens.Contains<PausePage>());
+
             //Testing only (the play argument): jump into the first level through the very pop-and-push a
             //player's click takes. After the stack update above, so BuildMenu's queued pushes have been
             //applied and PopTo<BackdropScreen> sees the backdrop it pops to — the splash is drawn for the
@@ -2227,6 +2247,11 @@ namespace BS3D
 
         protected override void UnloadContent()
         {
+            //First, and unconditionally: vibration is a device state, not a frame state, and the pad does not
+            //know the process is about to leave (#378). Direct rather than through _rumble — there is no more
+            //frame for a mixer to decay over, only one last word to the device.
+            GamePad.SetVibration(PlayerIndex.One, 0f, 0f);
+
             //Not a GPU resource, but it holds the process's timer resolution at 1 ms while it is limiting
             //anything, and timeBeginPeriod has to be paired with timeEndPeriod (#270)
             _frameLimiter.Dispose();

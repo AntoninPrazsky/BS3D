@@ -392,6 +392,9 @@ namespace BS3D.Screens
             //sees is unambiguously their own shot.
             Camera.Shake.Kick(RECOIL_KICK);
 
+            //And felt in the hands too (#378), the same moment.
+            Game.Rumble.Kick(SHOT_RUMBLE_LEFT, SHOT_RUMBLE_RIGHT, SHOT_RUMBLE_SECONDS);
+
             //Heard as well as felt, and heard FROM THE MUZZLE — the same point the round is spawned at above
             //and the same one the smear is drawn from, so the crack, the ball and the streak cannot disagree
             //about where the shot left. The muzzle sits a dozen-odd units dead ahead of the lens, so what this

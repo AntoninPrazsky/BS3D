@@ -123,6 +123,9 @@ namespace BS3D
 
         internal void CycleAmbienceVolume() => CycleVolume(ref _ambienceVolume, v => _settings.AmbienceVolume = v);
 
+        /// <summary>The pad's own row (#378) — not audio, but cycled and stored exactly like the four above it.</summary>
+        internal void CycleRumbleStrength() => CycleVolume(ref _rumbleStrength, v => _settings.RumbleStrength = v);
+
         /// <summary>
         /// Which theme plays, cycled so it can be listened to (#279). It is a <b>preview</b> and not a
         /// setting: nothing on this path reaches <c>_settings</c>, so it cannot outlive the run, and nothing
@@ -206,7 +209,10 @@ namespace BS3D
 
         /// <summary>
         /// The one place the player's gains reach the audio: effects and music each take master times their
-        /// own row, so the two subsystems cannot disagree about what the master row means.
+        /// own row, so the two subsystems cannot disagree about what the master row means. The pad's row
+        /// (#378) rides along here too — it answers to no master row of its own (there is nothing else it is
+        /// a fraction OF), but every cycle that calls this is a click on one of these rows, so folding it in
+        /// is what keeps a change taking effect the instant it is clicked, like the four beside it.
         /// </summary>
         private void ApplyVolumes()
         {
@@ -224,6 +230,8 @@ namespace BS3D
             //nothing the player did, so a player who turned the atmosphere down has already said what they
             //think of it. See ProceduralAudio.WeatherGain.
             _audio.WeatherGain = _masterVolume * _ambienceVolume;
+
+            _rumble.Strength = _rumbleStrength;
         }
 
         internal void ToggleFullscreen()
