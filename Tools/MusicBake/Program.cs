@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace BS3D.Tools.MusicBake
@@ -130,6 +131,9 @@ namespace BS3D.Tools.MusicBake
             float quality = OGG_QUALITY;
             string only = null;
             string sfxWav = null, sfxName = null;
+            bool sfxMusic = false;
+            int sfxRoot = -1;
+            float sfxBpm = 0f;
 
             //Every argument is read before anything runs: "--tracks --no-write" used to start writing the moment
             //"--tracks" was reached, with the flag after it never seen
@@ -142,18 +146,22 @@ namespace BS3D.Tools.MusicBake
                 else if (Is(arg, "--no-write")) write = false;
                 else if (Is(arg, "--tracks")) tracks = true;
                 else if (Is(arg, "--sfx") && i + 2 < args.Length) { sfxWav = args[++i]; sfxName = args[++i]; }
+                else if (Is(arg, "--music")) sfxMusic = true;
+                else if (Is(arg, "--root") && i + 1 < args.Length && int.TryParse(args[++i], out sfxRoot)) continue;
+                else if (Is(arg, "--bpm") && i + 1 < args.Length
+                    && float.TryParse(args[++i], NumberStyles.Float, CultureInfo.InvariantCulture, out sfxBpm)) continue;
                 else if (Is(arg, "--quality") && i + 1 < args.Length
                     && float.TryParse(args[++i], NumberStyles.Float, CultureInfo.InvariantCulture, out quality)
                     && quality >= -0.1f && quality < OGG_QUALITY_LIMIT) continue;
                 else
                 {
-                    Console.WriteLine("usage: MusicBake [--out <dir>] [--theme <name>] [--no-write] | --tracks [--quality <-0.1..0.59>] [--no-write] | --sfx <wav> <name> [--no-write]");
+                    Console.WriteLine("usage: MusicBake [--out <dir>] [--theme <name>] [--no-write] | --tracks [--quality <-0.1..0.59>] [--no-write] | --sfx <wav> <name> [--music [--root <midi>] [--bpm <n>]] [--no-write]");
                     return 2;
                 }
             }
 
             if (tracks) return BuildTracks(write, quality);
-            if (sfxWav != null) return BuildSfx(sfxWav, sfxName, write, quality);
+            if (sfxWav != null) return BuildSfx(sfxWav, sfxName, write, quality, sfxMusic, sfxRoot, sfxBpm);
 
             if (write) Directory.CreateDirectory(outDir);
 
@@ -226,7 +234,7 @@ namespace BS3D.Tools.MusicBake
         /// one signal, because the encoder and <see cref="OggTrack.Decode(Stream, int)"/> are stereo-only and a second
         /// channel of a two-second sound costs nothing; the game reads one channel back (<c>ProceduralAudio.TryLoadSfx</c>).
         /// </summary>
-        private static int BuildSfx(string wavPath, string name, bool write, float quality)
+        private static int BuildSfx(string wavPath, string name, bool write, float quality, bool music, int rootOverride, float bpmOverride)
         {
             string repo = FindRepo();
             if (repo == null)
@@ -253,21 +261,43 @@ namespace BS3D.Tools.MusicBake
             for (int f = 0; f < frames; f++)
             {
                 mono[f] = (mix[f * 2] + mix[f * 2 + 1]) * 0.5f;
-                peak = Math.Max(peak, Math.Abs(mono[f]));
+                peak = Math.Max(peak, Math.Abs(music ? mix[f * 2] : mono[f]));
+                if (music) peak = Math.Max(peak, Math.Abs(mix[f * 2 + 1]));
             }
-            if (peak > 1e-6f) for (int f = 0; f < frames; f++) mono[f] *= SFX_PEAK / peak;
+
+            //A sound is mono for Apply3D; a piece of MUSIC (--music: the victory fanfare, #482) keeps its stereo image and
+            //carries the key and tempo the star chime tunes to, measured here or given on the command line
+            float[] dup = new float[frames * 2];
+            if (music)
+            {
+                for (int i = 0; i < dup.Length; i++) dup[i] = peak > 1e-6f ? mix[i] * SFX_PEAK / peak : mix[i];
+            }
+            else
+            {
+                if (peak > 1e-6f) for (int f = 0; f < frames; f++) mono[f] *= SFX_PEAK / peak;
+                for (int f = 0; f < frames; f++) dup[f * 2] = dup[f * 2 + 1] = mono[f];
+            }
 
             double sum = 0;
             foreach (float s in mono) sum += (double)s * s;
-            double rms = Math.Sqrt(sum / Math.Max(1, frames));
+            double rms = Math.Sqrt(sum / Math.Max(1, frames)) * (peak > 1e-6f ? SFX_PEAK / peak : 1f);
 
-            float[] dup = new float[frames * 2];
-            for (int f = 0; f < frames; f++) dup[f * 2] = dup[f * 2 + 1] = mono[f];
+            List<(string Name, string Value)> tags = new();
+            string shape = "";
+            if (music)
+            {
+                (int root, float bpm, string keys) = EstimateKeyAndTempo(mono, rate);
+                if (rootOverride >= 0) root = rootOverride;
+                if (bpmOverride > 0f) bpm = bpmOverride;
+                tags.Add(("ROOT", root.ToString(CultureInfo.InvariantCulture)));
+                tags.Add(("BPM", bpm.ToString("F1", CultureInfo.InvariantCulture)));
+                shape = $"  ROOT {root} ({NoteName(root)}) BPM {bpm:F1} [{keys}]";
+            }
 
             //A serial the file's bytes can be reproduced from: a string's hash code changes per process in .NET
             int serial = 0x1000;
             foreach (char c in name) serial = unchecked(serial * 31 + c);
-            byte[] ogg = EncodeOgg(dup, rate, quality, serial, title: name);
+            byte[] ogg = EncodeOgg(dup, rate, quality, serial, title: name, tags);
 
             string dir = Path.Combine(repo, "Game", "Sfx");
             string path = Path.Combine(dir, name + ".ogg");
@@ -280,8 +310,91 @@ namespace BS3D.Tools.MusicBake
             int back = OggTrack.Decode(new MemoryStream(ogg), rate).Length / 4;
             Console.WriteLine($"{name,-16} {frames / (double)rate,5:F2} s  peak {SFX_PEAK:F2}  rms {Db(rms),6:F1} dBFS  crest {SFX_PEAK / rms,5:F2}"
                 + $"  ogg {ogg.Length / 1024.0,6:F1} KB  decoded {back} of {frames} frames"
-                + (back == frames ? "" : "  LENGTH DIFFERS") + (write ? "  -> " + path : "  (not written)"));
+                + (back == frames ? "" : "  LENGTH DIFFERS") + shape + (write ? "  -> " + path : "  (not written)"));
             return back == frames ? 0 : 1;
+        }
+
+        private static readonly string[] NOTE_NAMES = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
+
+        private static string NoteName(int midi) => NOTE_NAMES[((midi % 12) + 12) % 12] + (midi / 12 - 1);
+
+        //Krumhansl-Kessler major key profile: how much each scale degree, from the tonic, belongs to a major key
+        private static readonly double[] MAJOR_PROFILE = { 6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88 };
+
+        /// <summary>
+        /// The key and the tempo of a short piece, for the tags the fanfare's file carries (#482). The key: a chroma
+        /// over the whole piece — every FFT bin between 80 Hz and 2 kHz folded onto its pitch class, weighted by its
+        /// magnitude — correlated with the major profile at each of the twelve roots, the best taken, written as the
+        /// MIDI note in the fourth octave (C4 = 60, where the baked victory sits). The tempo: the onset strength (the
+        /// positive spectral flux per hop) autocorrelated over 70–180 BPM, the strongest lag taken. Both are estimates
+        /// from a few seconds of brass — the printout names the runners-up, and <c>--root</c>/<c>--bpm</c> override them.
+        /// </summary>
+        private static (int Root, float Bpm, string Candidates) EstimateKeyAndTempo(float[] mono, int rate)
+        {
+            const int Window = 4096, Hop = 1024;
+            int bins = Window / 2;
+            double[] chroma = new double[12];
+            double[] re = new double[Window], im = new double[Window], previous = new double[bins];
+            List<double> onset = new();
+
+            for (int at = 0; at + Window <= mono.Length; at += Hop)
+            {
+                for (int i = 0; i < Window; i++)
+                {
+                    double w = 0.5 - 0.5 * Math.Cos(2 * Math.PI * i / (Window - 1));
+                    re[i] = mono[at + i] * w;
+                    im[i] = 0;
+                }
+                Spectrum.Fft(re, im);
+
+                double flux = 0;
+                for (int k = 1; k < bins; k++)
+                {
+                    double magnitude = Math.Sqrt(re[k] * re[k] + im[k] * im[k]);
+                    double frequency = k * (double)rate / Window;
+                    if (frequency >= 80 && frequency <= 2000)
+                    {
+                        int pitchClass = (((int)Math.Round(12 * Math.Log2(frequency / 440.0)) + 9) % 12 + 12) % 12;
+                        chroma[pitchClass] += magnitude;
+                    }
+                    double rise = magnitude - previous[k];
+                    if (rise > 0) flux += rise;
+                    previous[k] = magnitude;
+                }
+                onset.Add(flux);
+            }
+
+            //The key: Pearson correlation of the chroma against the profile rotated to each root
+            double chromaMean = chroma.Average(), profileMean = MAJOR_PROFILE.Average();
+            var scores = new List<(int Root, double Score)>();
+            for (int root = 0; root < 12; root++)
+            {
+                double dot = 0, cc = 0, pp = 0;
+                for (int i = 0; i < 12; i++)
+                {
+                    double c = chroma[(root + i) % 12] - chromaMean, q = MAJOR_PROFILE[i] - profileMean;
+                    dot += c * q; cc += c * c; pp += q * q;
+                }
+                scores.Add((root, cc > 0 ? dot / Math.Sqrt(cc * pp) : 0));
+            }
+            scores.Sort((a, b) => b.Score.CompareTo(a.Score));
+
+            //The tempo: autocorrelation of the onset strength over the lags of 70–180 BPM
+            double hopSeconds = Hop / (double)rate;
+            double onsetMean = onset.Count > 0 ? onset.Average() : 0;
+            int lagMin = (int)Math.Round(60.0 / 180.0 / hopSeconds), lagMax = (int)Math.Round(60.0 / 70.0 / hopSeconds);
+            double bestScore = double.MinValue; int bestLag = lagMin;
+            for (int lag = lagMin; lag <= Math.Min(lagMax, onset.Count - 2); lag++)
+            {
+                double s = 0; int n = 0;
+                for (int i = lag; i < onset.Count; i++) { s += (onset[i] - onsetMean) * (onset[i - lag] - onsetMean); n++; }
+                s = n > 0 ? s / n : 0;
+                if (s > bestScore) { bestScore = s; bestLag = lag; }
+            }
+            float bpm = (float)(60.0 / (bestLag * hopSeconds));
+
+            string candidates = string.Join(" ", scores.Take(3).Select(s => $"{NOTE_NAMES[s.Root]}:{s.Score:F2}"));
+            return (60 + scores[0].Root, bpm, candidates);
         }
 
         private static bool Is(string a, string b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
@@ -416,7 +529,7 @@ namespace BS3D.Tools.MusicBake
         /// the final block to. Whether the result decodes to the master's frames, and in the right place, is
         /// <see cref="CompareDecoded"/>'s to say — the encoder's own start was a thousand frames out.
         /// </summary>
-        private static byte[] EncodeOgg(float[] mix, int rate, float quality, int serial, string title)
+        private static byte[] EncodeOgg(float[] mix, int rate, float quality, int serial, string title, List<(string Name, string Value)> tags = null)
         {
             int frames = mix.Length / 2;
 
@@ -432,6 +545,7 @@ namespace BS3D.Tools.MusicBake
 
             Comments comments = new();
             comments.AddTag("TITLE", title);
+            if (tags != null) foreach ((string tagName, string value) in tags) comments.AddTag(tagName, value);
 
             using MemoryStream output = new();
 

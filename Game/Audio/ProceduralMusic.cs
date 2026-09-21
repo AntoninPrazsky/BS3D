@@ -424,6 +424,12 @@ namespace BS3D.Audio
         private Task<(float[] Pcm, FanfareShape Shape)> _fanfareBake;
         private FanfareShape _fanfareShape;
 
+        //The victory as a recording (#482): interleaved stereo floats at SAMPLE_RATE with the key and tempo the file
+        //declares, handed in by GameMusic once the file has decoded. Null until then, and forever when there is no
+        //file, in which case the piece is baked as it always was.
+        private float[] _victoryRecording;
+        private FanfareShape _victoryRecordingShape;
+
         //Wall clock since the fanfare actually started SOUNDING, which is what a beat grid has to be measured
         //from. It cannot be taken from the bake: the piece is synthesized on a background thread and realized
         //whenever that finishes, which on a slow machine is a good fraction of a second later.
@@ -548,6 +554,19 @@ namespace BS3D.Audio
         }
 
         /// <summary>
+        /// The victory fanfare as a recording (#482): the render the owner chose rather than the bake, with the key
+        /// and tempo its file declares, so the star chime is in tune with it and paced by its beat exactly as over the
+        /// baked piece. What a recording cannot do is what <see cref="StartFanfare"/>'s intensity did — grow with the
+        /// score — and that is the trade the owner chose over a piece that is different every time. The defeat stays
+        /// baked: the recording is a win, and a loss is not the moment for it.
+        /// </summary>
+        public void SetVictoryRecording(float[] pcm, FanfareShape shape)
+        {
+            _victoryRecording = pcm;
+            _victoryRecordingShape = shape;
+        }
+
+        /// <summary>
         /// The two announcements' authored shapes (#229). Both were rolled per result — a key out of three or
         /// four and a tempo out of a band, so that two wins in a row were not the same piece. They are frozen
         /// for the reason every other piece in this file is, and with the least regret of any of them: a win
@@ -578,6 +597,16 @@ namespace BS3D.Audio
             //is still going and has to be in its key, and it cannot wait seconds for the audio. That used to
             //be an argument for rolling the key on the calling thread; with the shape authored it is simply a
             //constant, and the argument survives only as the reason this line stands above the bake.
+            //The recording, when there is one, arrives through the very path the bake does — a completed task — so
+            //the realization, the clock the chime measures its beats from, the fades and the ducking are one code
+            if (victory && _victoryRecording != null)
+            {
+                _fanfareShape = _victoryRecordingShape;
+                _fanfareShapeKnown = true;
+                _fanfareBake = Task.FromResult((_victoryRecording, _victoryRecordingShape));
+                return;
+            }
+
             FanfareShape shape = victory ? VICTORY_SHAPE : DEFEAT_SHAPE;
 
             _fanfareShape = shape;

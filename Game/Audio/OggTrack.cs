@@ -25,6 +25,19 @@ namespace BS3D.Audio
         /// <summary>How much is decoded between conversions: a quarter of a second of float scratch, not the whole track.</summary>
         private const int CHUNK_FRAMES = 12000;
 
+        /// <summary>
+        /// One Vorbis comment off a file (#482): what a recording says about itself that its samples cannot — the
+        /// victory fanfare's key (<c>ROOT</c>, a MIDI note) and tempo (<c>BPM</c>), which the star chime tunes to and
+        /// paces by. <c>Tools/MusicBake --sfx --music</c> writes them. Null when the file has no such tag.
+        /// </summary>
+        public static string ReadTag(string path, string name)
+        {
+            using FileStream file = File.OpenRead(path);
+            using VorbisReader reader = new(file, closeOnDispose: false);
+            string value = reader.Tags.GetTagSingle(name);
+            return string.IsNullOrEmpty(value) ? null : value;
+        }
+
         public static byte[] Decode(string path, int sampleRate)
         {
             using FileStream file = File.OpenRead(path);
