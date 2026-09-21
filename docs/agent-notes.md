@@ -5118,3 +5118,18 @@ Pět háků, každý vedle zvuku nebo záblesku, který už tu chvíli odpovíd�
 Souhlasí to s verdiktem výš: Gemma dobře jmenuje místa v kódu, ale ke každému „protože" potřebuje ověření v kódu, i když se tváří jako ověřené.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-21 — Claude Code (notebook: #392 kontrakt power-upů, dokázaný na Swapu, merge `2701856`)
+
+**Šesté issue ten den na notebooku.** #392 chtělo jen kontrakt — datový model a aktivaci, ne konkrétní power-up — a issue samo řekl, ať se dokáže jedním, co má nejmíň pohyblivých částí. Zvolil jsem Swap: prohodí dva náboje v zásobníku. Větev `392-powerup-contract`, commit `c4e6570`.
+
+- **`PowerupKind`** (`Game/Screens/GameplayScreen.Powerups.cs`, nový soubor): uzavřený byte enum, jen `None` a `Swap` — Rainbow, Bomb a cokoli jiného z #213 zůstává na svá vlastní budoucí issue, ne napůl zadrátované už teď.
+- **`Magazine.SwapSlots(a, b)`** dostalo vlastní háček `_slotSwapped`, schválně oddělený od existujícího `_slotCarried`. `_slotCarried`'s smlouva je `cíl = zdroj` — jednosměrná kopie, správná pro `Advance`'s kaskádový posun — a dvě takové volání za sebou by při falšování prohození nechaly oba sloty se stejnou hodnotou. `_slotSwapped` se vypálí jednou za prohození a volajícímu nechá udělat opravdovou výměnu na svých paralelních polích (`GameplayScreen` tak drží `_magazineFrom`/`_magazineTransmute`/`_magazineKind` v kroku).
+- **`GrantPowerupCharges`/`CanActivate`/`Activate`**: jeden počet nábojů na druh, udělen čerstvě v `BuildLevel` (retry dostane to, co level uděluje, ne co předchozí pokus utratil), nikdy neukládaný do `PlayerProgress` — přesně jak zbytek stavu relace. `CanActivate` kontroluje náboj a `Shoot`'s vlastní dvě pojistky (`!CameraTakeoverEngaged`, `!LevelDecided`). `Activate` se nedotýká `ScoreKeeper` ani tempa stropu — power-up není výstřel.
+- **Spoušť**: E (nebo gamepadové X) aktivuje Swap, prohodí ústí hlavně se slotem za ním.
+- **Testovací argument**: `powerups=swap:1` (`BS3DGame.ForcedPowerups`), ve tvaru `wildcard=` a stejně shovívavě parsovaný — žádný vyrobený ani vygenerovaný level zatím náboj neuděluje, protože skutečný výběr (který ze dvou z pěti slotů prohodit) by byl první myší ovládaný HUD prvek téhle hry, věcně větší funkce než samotný power-up. Ten výběr a rozvržení ikony/počtu v HUD zůstávají schválně jako budoucí issue (`PowerupCharges` už je pro něj vystavené).
+- **Ověřeno**: všechna čtyři řešení se sestavila čistě; `LevelGen`/`ScoreSim` beze změny (nulová parita napříč všemi 120 levely, protože bez `powerups=` nikdo náboj nedostane); a proti běžícímu Game s `powerups=swap:1` stisk E vnějším vstřikem klávesy potvrdil přes dočasný log prohození dvou různých hodnot slotů (`slot0=Type1 slot1=Type3` → `slot0=Type3 slot1=Type1`), než byla ověřovací instrumentace odstraněna.
+
+**Nic dalšího si neberu.**
