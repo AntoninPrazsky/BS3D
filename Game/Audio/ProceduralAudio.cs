@@ -154,6 +154,7 @@ namespace BS3D.Audio
 
         /// <summary>Ice breaking (#329) — the first sound a <c>BallKind</c> had of its own.</summary>
         private readonly SoundEffect _iceBreak;
+        private readonly SoundEffect _ceilingStep;
 
         /// <summary>A bomb going off (#389) — until then it sounded exactly like a big release.</summary>
         private readonly SoundEffect _blast;
@@ -177,6 +178,7 @@ namespace BS3D.Audio
 
         /// <inheritdoc cref="_iceBreak"/>
         private readonly VoiceRing _iceBreakRing;
+        private readonly VoiceRing _ceilingRing;
 
         /// <inheritdoc cref="_blast"/>
         private readonly VoiceRing _blastRing;
@@ -223,6 +225,13 @@ namespace BS3D.Audio
         //because it IS one event: the group leaving. Two, not three, because unlike a release it cannot
         //overlap itself: a second landing cannot resolve while the first is still in flight.
         private const int ICE_BREAK_VOICES = 2;
+
+        //The ceiling's step (#500): a step is one event and the next is shots away, so two voices cover a feed
+        //step landing on a pressure step. Quiet by design — it says "look up" under the music and never
+        //competes with a shot; a feed step, the tall level's reward, softer still.
+        private const int CEILING_VOICES = 2;
+        private const float CEILING_LEVEL = 0.5f;
+        private const float CEILING_FEED_LEVEL = 0.35f;
 
         //A blast's report is 1.8 s, and a chain sets one off per link a CHAIN_STAGGER apart (Blasts) — so one
         //landing wants as many voices at once as its chain is long. Five is the longest chain one landing sets
@@ -290,6 +299,7 @@ namespace BS3D.Audio
 
             _release = FromSfxOrBake("release", BakeRelease);
             _iceBreak = BakeIceBreak();
+            _ceilingStep = FromSfxOrBake("ceiling-step", BakeCeilingStep);
             _blast = BakeBlast();
             _fireworkLaunch = BakeFireworkLaunch();
             _fireworkBurst = FromSfxOrBake("firework-burst", BakeFireworkBurst, targetRms: 0.30f, ceiling: 0.99f);
@@ -305,6 +315,7 @@ namespace BS3D.Audio
             _shootRing = new VoiceRing(_shoot, SHOOT_VOICES);
             _releaseRing = new VoiceRing(_release, RELEASE_VOICES);
             _iceBreakRing = new VoiceRing(_iceBreak, ICE_BREAK_VOICES);
+            _ceilingRing = new VoiceRing(_ceilingStep, CEILING_VOICES);
             _blastRing = new VoiceRing(_blast, BLAST_VOICES);
             _launchRing = new VoiceRing(_fireworkLaunch, LAUNCH_VOICES);
             _burstRing = new VoiceRing(_fireworkBurst, BURST_VOICES);
@@ -2252,6 +2263,69 @@ namespace BS3D.Audio
             return new SoundEffect(pcm, SAMPLE_RATE, AudioChannels.Mono);
         }
 
+        #region The ceiling's step (#500)
+
+        /// <summary>
+        /// The ceiling's step, spoken from the plate: the one event that moves the whole cluster was seen — the
+        /// glass flashes, the wave runs down the balls — and never heard. Placed like a landing and attenuated with
+        /// distance to the same floor; quiet by design, it says "look up" and does not compete with a shot or the
+        /// music. A feed step (a tall level handing down more of its column, the cold-blue flash) plays softer:
+        /// nothing went wrong, the plate just moved. The sound is <c>Sfx/ceiling-step.ogg</c> when the file is
+        /// there (#482's route) and <see cref="BakeCeilingStep"/> when it is not.
+        /// </summary>
+        public void PlayCeilingStep(Vector3 plate, bool feed)
+        {
+            float volume = (feed ? CEILING_FEED_LEVEL : CEILING_LEVEL) * VolumeForDistance(DistanceTo(plate));
+            Speak(_ceilingRing, plate, NEAR_WIDEN, MathHelper.Clamp(volume * Level, 0f, 1f), NextPitch(0.04f));
+        }
+
+        /// <summary>
+        /// The step as a bake, for when the file is not there: a heavy plate moving — a hum falling from 70 to
+        /// 48 Hz with its second harmonic over a rumble of low-passed noise — and a soft stop where the slide ends
+        /// (0.6 units at 1.5 a second, 0.4 s): a 90 Hz thump with a click on its front so it settles rather than
+        /// sounds a note. Bass-led and short; it is not the alarm, the flash is.
+        /// </summary>
+        private static SoundEffect BakeCeilingStep()
+        {
+            const float duration = 1.4f;
+            int samples = (int)(SAMPLE_RATE * duration);
+            float[] signal = new float[samples];
+
+            float phase = 0f;
+            for (int i = 0; i < samples; i++)
+            {
+                float t = (float)i / SAMPLE_RATE;
+                float u = t / duration;
+                float freq = 70f - 22f * MathF.Min(1f, t / 0.5f);
+                phase += 2f * MathF.PI * freq / SAMPLE_RATE;
+                float env = MathF.Min(1f, t / 0.03f) * MathF.Pow(1f - u, 1.4f);
+                signal[i] += (MathF.Sin(phase) + 0.35f * MathF.Sin(2f * phase)) * 0.55f * env;
+            }
+
+            float[] rumble = LowPassArray(MakeNoiseArray(samples, seed: 5003), 120f);
+            for (int i = 0; i < samples; i++)
+            {
+                float t = (float)i / SAMPLE_RATE;
+                float env = MathF.Min(1f, t / 0.02f) * MathF.Max(0f, 1f - t / 0.6f);
+                signal[i] += rumble[i] * 0.8f * env;
+            }
+
+            int stopAt = (int)(SAMPLE_RATE * 0.42f);
+            float thumpPhase = 0f;
+            for (int i = stopAt; i < samples; i++)
+            {
+                float t = (float)(i - stopAt) / SAMPLE_RATE;
+                thumpPhase += 2f * MathF.PI * (90f - 30f * MathF.Min(1f, t / 0.15f)) / SAMPLE_RATE;
+                signal[i] += MathF.Sin(thumpPhase) * 0.7f * MathF.Exp(-t / 0.12f) + Noise(i) * 0.15f * MathF.Exp(-t / 0.006f);
+            }
+
+            ApplyReverb(signal, roomScale: 0.5f, wet: 0.18f, decay: 0.3f);
+            Normalize(signal, 0.9f);
+            return ToSoundEffect(signal);
+        }
+
+        #endregion
+
         #region The generated effects (#482)
 
         /// <summary>
@@ -2365,6 +2439,7 @@ namespace BS3D.Audio
                     if (row != null) foreach (VoiceRing ring in row) ring?.Dispose();
             _releaseRing?.Dispose();
             _iceBreakRing?.Dispose();
+            _ceilingRing?.Dispose();
             _blastRing?.Dispose();
             _launchRing?.Dispose();
             _burstRing?.Dispose();
@@ -2376,6 +2451,7 @@ namespace BS3D.Audio
                     if (row != null) foreach (SoundEffect effect in row) effect?.Dispose();
             _release?.Dispose();
             _iceBreak?.Dispose();
+            _ceilingStep?.Dispose();
             _blast?.Dispose();
             _fireworkLaunch?.Dispose();
             _fireworkBurst?.Dispose();
