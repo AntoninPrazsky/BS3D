@@ -784,6 +784,9 @@ namespace BS3D.Screens
             //it does.
             _laserGrid.Flare(WallClock);
 
+            //And is heard cutting, from the crossing point the lens is flying to (#434)
+            Game.Audio.PlayLineLoss(crossing);
+
             Console.WriteLine($"[lineloss] {_lineLoss.Describe()}");
         }
 
