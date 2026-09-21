@@ -267,7 +267,7 @@ namespace BS3D.Audio
             //instant the player leans in or holds a turn, which is an artifact of a camera and not a sound.
             SoundEffect.DopplerScale = 0f;
 
-            _shoot = FromSfxOrBake("shoot", BakeShoot, report: true);
+            _shoot = FromSfxOrBake("shoot", BakeShoot, targetRms: 0.27f, ceiling: 0.98f);
 
             //The landings are the one family of sounds that is not baked here: they are (colour x material)
             //since #314, and a LEVEL NAMES ONE MATERIAL, so the row that level needs is the only one worth
@@ -278,11 +278,11 @@ namespace BS3D.Audio
             _landedSfx = TryLoadSfx("landed");
             PrepareLanded(BallStyle.Beach);
 
-            _release = FromSfxOrBake("release", BakeRelease, report: false);
+            _release = FromSfxOrBake("release", BakeRelease);
             _iceBreak = BakeIceBreak();
             _blast = BakeBlast();
             _fireworkLaunch = BakeFireworkLaunch();
-            _fireworkBurst = FromSfxOrBake("firework-burst", BakeFireworkBurst, report: true);
+            _fireworkBurst = FromSfxOrBake("firework-burst", BakeFireworkBurst, targetRms: 0.30f, ceiling: 0.99f);
             _partyPopper = BakePartyPopper();
             _uiClick = BakeUiClick();
             _shotRefused = BakeShotRefused();
@@ -2264,22 +2264,26 @@ namespace BS3D.Audio
         }
 
         /// <summary>
-        /// The file if there is one, put through the law its bake uses, else the bake. A <paramref name="report"/> — the
-        /// shot, the firework's burst — is compressed the way the blast is (#389: a compressor changes a gain and leaves
-        /// the wave alone, where the <c>tanh</c> in <see cref="Loudness"/> is what the owner heard as "digital") and then
-        /// normalised; anything else is peak-normalised as its bake is, since a thunk or a run of pops has no crack for
-        /// a peak to hide the body under.
+        /// The file if there is one, put through the very law its bake uses, else the bake. A report — the shot at
+        /// 0.27 RMS, the firework's burst at 0.30 — takes <see cref="Loudness"/> with its bake's own figures; anything
+        /// else is peak-normalised to 0.9 as its bake is.
+        /// <para>
+        /// <b>Why Loudness and not the blast's compressor (#498).</b> The first integration (#482) put a report through
+        /// <see cref="Compress"/> and a 0.95 peak, on the reasoning that a <c>tanh</c> is what the owner called "digital"
+        /// on the blast — and the burst came out 12 dB under the bake it replaced: −22.9 dBFS against the bake's −10.5,
+        /// because a recording's crack sets the peak and a compressor cannot lift the body past it (the strongest
+        /// setting tried reached −21.6). Measured on the two files: the bake's Loudness lands the burst at −13.2 dBFS
+        /// with a drive of ×4.5 and the shot at −13.1 with ×2.1, and only 0.7 % and 0.2 % of their samples go past 1.5
+        /// into the tanh — the crack alone is rounded, the body is scaled linearly. The blast's "digital" was a drive on a
+        /// dense roar, where everything saturated; that is not this.
+        /// </para>
         /// </summary>
-        private static SoundEffect FromSfxOrBake(string name, Func<SoundEffect> bake, bool report)
+        private static SoundEffect FromSfxOrBake(string name, Func<SoundEffect> bake, float targetRms = 0f, float ceiling = 0f)
         {
             float[] signal = TryLoadSfx(name);
             if (signal == null) return bake();
 
-            if (report)
-            {
-                Compress(signal, threshold: 0.3f, ratio: 3f, attackSeconds: 0.01f, releaseSeconds: 0.25f, lookaheadSeconds: 0.01f);
-                Normalize(signal, 0.95f);
-            }
+            if (targetRms > 0f) Loudness(signal, targetRms, ceiling);
             else Normalize(signal, 0.9f);
 
             return ToSoundEffect(signal);
