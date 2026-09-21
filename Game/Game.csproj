@@ -79,6 +79,12 @@
   <ItemGroup>
     <Content Include="Music\*.ogg" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+  <!--The generated sound effects (#482): Ogg Vorbis files ProceduralAudio decodes at load and puts through its bakes'
+  own loudness law and voices; a file that is missing leaves the procedural bake standing. Written by Tools/MusicBake's
+  sfx mode from a render the owner chose; a sound is replaced by dropping a file here.-->
+  <ItemGroup>
+    <Content Include="Sfx\*.ogg" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\BS3DLibs\Prazsky.BS3D.Physics\Prazsky.BS3D.Physics.csproj" />
     <ProjectReference Include="..\BS3DLibs\Prazsky.BS3D\Prazsky.BS3D.csproj" />

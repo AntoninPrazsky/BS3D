@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework.Audio;
 using Prazsky.BS3D.GameStructure;
 using Prazsky.Core.Camera;
 using System;
+using System.IO;
 
 namespace BS3D.Audio
 {
@@ -131,6 +132,17 @@ namespace BS3D.Audio
 
         private readonly SoundEffect _shoot;
 
+        //The generated sound effects (#482): Sfx/<name>.ogg beside the executable, written by Tools/MusicBake --sfx from
+        //a render the owner chose, decoded at load and put through the bake's own loudness law and voices. A file that
+        //is not there leaves the procedural bake standing, so the folder can be emptied sound by sound. The landing's
+        //signal is kept, because its rows are baked per material, lazily (PrepareLanded).
+        private const string SFX_DIRECTORY = "Sfx";
+        private readonly float[] _landedSfx;
+
+        //Where on the landing's colour ladder the generated file plays as rendered: the middle of thirteen, so the ends
+        //sit one octave either way of it rather than two octaves up
+        private const int LANDED_SFX_ROOT_TYPE = 7;
+
         /// <summary>The gun refusing a shot at the elevation clamp (#431); see <see cref="BakeShotRefused"/>.</summary>
         private readonly SoundEffect _shotRefused;
 
@@ -255,7 +267,7 @@ namespace BS3D.Audio
             //instant the player leans in or holds a turn, which is an artifact of a camera and not a sound.
             SoundEffect.DopplerScale = 0f;
 
-            _shoot = BakeShoot();
+            _shoot = FromSfxOrBake("shoot", BakeShoot, report: true);
 
             //The landings are the one family of sounds that is not baked here: they are (colour x material)
             //since #314, and a LEVEL NAMES ONE MATERIAL, so the row that level needs is the only one worth
@@ -263,13 +275,14 @@ namespace BS3D.Audio
             //unauthored plays, and because a first level should not pay for its row.
             _landed = new SoundEffect[BallStyleCount][];
             _landedRings = new VoiceRing[BallStyleCount][];
+            _landedSfx = TryLoadSfx("landed");
             PrepareLanded(BallStyle.Beach);
 
-            _release = BakeRelease();
+            _release = FromSfxOrBake("release", BakeRelease, report: false);
             _iceBreak = BakeIceBreak();
             _blast = BakeBlast();
             _fireworkLaunch = BakeFireworkLaunch();
-            _fireworkBurst = BakeFireworkBurst();
+            _fireworkBurst = FromSfxOrBake("firework-burst", BakeFireworkBurst, report: true);
             _partyPopper = BakePartyPopper();
             _uiClick = BakeUiClick();
             _shotRefused = BakeShotRefused();
@@ -334,7 +347,7 @@ namespace BS3D.Audio
 
             for (int type = 1; type <= BallTypes.Count; type++)
             {
-                effects[type] = BakeLanded(type, material);
+                effects[type] = _landedSfx != null ? LandedFromSfx(type, material) : BakeLanded(type, material);
                 rings[type] = new VoiceRing(effects[type], LANDED_VOICES);
             }
 
@@ -2222,6 +2235,91 @@ namespace BS3D.Audio
 
             return new SoundEffect(pcm, SAMPLE_RATE, AudioChannels.Mono);
         }
+
+        #region The generated effects (#482)
+
+        /// <summary>
+        /// A generated effect off disk: <c>Sfx/&lt;name&gt;.ogg</c> beside the executable, decoded through the music's own
+        /// decoder and read back as <b>mono</b> — the tool writes both channels the same, and <c>Apply3D</c> takes one.
+        /// Null when the file is absent or unreadable, and the caller bakes as before: a missing file is a sound the
+        /// player still hears, not a crash, and a load path logs nothing (BestPractices 4).
+        /// </summary>
+        private static float[] TryLoadSfx(string name)
+        {
+            string path = Path.Combine(AppContext.BaseDirectory, SFX_DIRECTORY, name + ".ogg");
+            if (!File.Exists(path)) return null;
+
+            try
+            {
+                byte[] pcm = OggTrack.Decode(path, SAMPLE_RATE);
+                float[] signal = new float[pcm.Length / 4];
+                for (int i = 0; i < signal.Length; i++)
+                    signal[i] = (short)(pcm[i * 4] | (pcm[i * 4 + 1] << 8)) / 32768f;
+                return signal.Length > 0 ? signal : null;
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// The file if there is one, put through the law its bake uses, else the bake. A <paramref name="report"/> — the
+        /// shot, the firework's burst — is compressed the way the blast is (#389: a compressor changes a gain and leaves
+        /// the wave alone, where the <c>tanh</c> in <see cref="Loudness"/> is what the owner heard as "digital") and then
+        /// normalised; anything else is peak-normalised as its bake is, since a thunk or a run of pops has no crack for
+        /// a peak to hide the body under.
+        /// </summary>
+        private static SoundEffect FromSfxOrBake(string name, Func<SoundEffect> bake, bool report)
+        {
+            float[] signal = TryLoadSfx(name);
+            if (signal == null) return bake();
+
+            if (report)
+            {
+                Compress(signal, threshold: 0.3f, ratio: 3f, attackSeconds: 0.01f, releaseSeconds: 0.25f, lookaheadSeconds: 0.01f);
+                Normalize(signal, 0.95f);
+            }
+            else Normalize(signal, 0.9f);
+
+            return ToSoundEffect(signal);
+        }
+
+        /// <summary>
+        /// The generated landing on the bake's own colour ladder: the file resampled by 2^((type − <see cref="LANDED_SFX_ROOT_TYPE"/>)/6),
+        /// a whole tone per colour exactly as <see cref="BakeLanded"/> tunes its note, times the material's <c>PitchScale</c>, so a
+        /// colour is still told by its pitch and a material by its transposition. What a file cannot carry is the material's
+        /// ring, partials and sub (#314): every material lands with the one timbre the owner chose, shifted.
+        /// </summary>
+        private SoundEffect LandedFromSfx(int type, in LandedMaterial material)
+        {
+            float ratio = material.PitchScale * MathF.Pow(2f, (type - LANDED_SFX_ROOT_TYPE) / 6f);
+            float[] signal = Resample(_landedSfx, ratio);
+            Normalize(signal, 0.9f);
+            return ToSoundEffect(signal);
+        }
+
+        /// <summary>
+        /// <paramref name="source"/> played <paramref name="ratio"/> times faster — a pitch shift by resampling, the tape
+        /// way, so a higher colour is also a shorter thud, which is what a smaller thing sounds like. Linear interpolation:
+        /// a thud has no top end for it to dull.
+        /// </summary>
+        private static float[] Resample(float[] source, float ratio)
+        {
+            int length = Math.Max(1, (int)(source.Length / ratio));
+            float[] result = new float[length];
+            for (int i = 0; i < length; i++)
+            {
+                float at = i * ratio;
+                int index = (int)at;
+                if (index >= source.Length - 1) { result[i] = source[^1]; continue; }
+                float frac = at - index;
+                result[i] = source[index] + (source[index + 1] - source[index]) * frac;
+            }
+            return result;
+        }
+
+        #endregion
 
         /// <summary>A cheap deterministic noise source for transients — quality is irrelevant for a few ms of crackle.</summary>
         private static float Noise(int i) => Noise(i, 0);

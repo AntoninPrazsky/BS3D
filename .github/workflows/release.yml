@@ -81,6 +81,7 @@ jobs:
           if (-not (Test-Path "$root/Content/Shaders/InstancedModel.xnb")) { $missing += 'the compiled shaders' }
           if (-not (Get-ChildItem "$root/Levels" -Filter *.json -ErrorAction SilentlyContinue)) { $missing += 'the levels' }
           if (-not (Get-ChildItem "$root/Music" -Filter *.ogg -ErrorAction SilentlyContinue)) { $missing += 'the music' }
+          if (-not (Get-ChildItem "$root/Sfx" -Filter *.ogg -ErrorAction SilentlyContinue)) { $missing += 'the sound effects' }
           if ($missing.Count -gt 0) { throw "The published folder is missing: $($missing -join '; ')" }
           $files = Get-ChildItem $root -Recurse -File
           "{0} published {1:N0} file(s), {2:N0} MB" -f $env:BUILD_NAME, $files.Count, (($files | Measure-Object Length -Sum).Sum / 1MB)

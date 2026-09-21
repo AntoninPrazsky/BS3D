@@ -43,6 +43,20 @@ dotnet run --project Tools\SemanticSearch -- --docs "why are the shadow maps dra
 
 It prints the sections most likely to hold the answer, with the first line of the piece under each label — a section here can run to thirty pieces, so open the file at that heading rather than from the top. The first run embeds the 1011 pieces once (27 s for nomic on the GPU, 112 s for Qwen3 on the CPU alone); after that the corpus costs nothing over an issues-only run. Measured on 2026-09-21 (#490, #439): the known section first for 12 of 15 questions and second for 2; the miss was a question about one paragraph of a section that is about six things. Add `--mark <text>` to read off the rank of the first result carrying a known marker — that is how every number in this table was measured. Add `--ask` to either command and Gemma 4 answers from those results, naming the notes it used (load it first: `lms load google/gemma-4-12b -c 16384 --ttl 1800 -y`; `--gpu off` works and is how it was measured). What it names is what to open; it does not say when the notes do not hold the answer.
 
+## Generating a sound effect (#482)
+
+Stable Audio 3 Small-SFX on the **CPU** (torch has no GPU on this card): `C:\Users\panrd\AI\sfx\venv` (uv, Python 3.13, torch 2.7.1 CPU, the `stable-audio-3` library), the model in the Hugging Face cache — it is gated, and the owner's login is on the desktop (`venv\Scripts\hf.exe auth whoami`).
+
+```powershell
+cd C:\Users\panrd\AI\sfx
+venv\Scripts\python.exe generate-sfx.py prompts.json --model small-sfx --out out\<batch> --steps 8 --cfg 1 --count 3 --normalize -1
+```
+
+- **Measured 2026-09-21:** 9 s to load, **5.6–6.3 s a render** of 1.5–4 s at 44.1 kHz stereo, 8 steps at cfg 1 (the model's own defaults). `small-sfx-base`, the ungated pre-trained checkpoint, renders full-scale noise — do not use it. The base config points its text encoder at the gated repo; the script rewrites the conditioner to the model's own.
+- **The prompts, learnt over three rounds with the owner's ear:** "soft, gentle, clean" came back *dull, weak and boring*; write "punchy, satisfying, arcade, big, juicy" for everything but impacts — and tell an impact its volume in words ("moderate volume", "gentle attack", negative "loud, distorted, clipping, aggressive") or the model saturates: 8 of 9 attach renders clipped until it was. Balloons render harsh whatever the clip count says. Warm and bass-heavy is still the taste; the game's taste rule stands.
+- **The batch is listened to from `out\<batch>\index.html`** (players beside the files, the prompt under each, clipped rows flagged), one prompt family at a time, and a shortlist page is assembled from the picks. `--normalize -1` for listening; the game applies its own law at load.
+- **Into the game:** `dotnet run --project Tools\MusicBake -c Release -- --sfx <render.wav> <shoot|landed|release|firework-burst>` writes `Game/Sfx/<name>.ogg`; `git add` it at once. A file that is not there leaves the procedural bake standing.
+
 ## Comparing captures
 
 ```powershell
