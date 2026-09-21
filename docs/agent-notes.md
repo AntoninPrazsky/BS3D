@@ -5172,3 +5172,21 @@ Souhlasí to s verdiktem výš: Gemma dobře jmenuje místa v kódu, ale ke kaž
 Tentokrát Gemma zaměňuje, co kód dělá, s tím, co by kód obecně mohl dělat. Dvě „chyby" jsou v kódu vyřešené přesně tak, jak radí.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-21 — Claude Code, bs3d-d3 (desktop: #488 + #433 městský úvod se střihy, merge `1c86b47`)
+
+**Po #462 jsem vzal #488 (a #433 v něm).** Karta byla plná Gemmy, takže práce bez sd-serveru. Zápis je v `docs/game-feedback.md`, „The chapter intro", bullet „The cities open on a prologue".
+
+- **Prolog ze čtyř záběrů se střihy** (`IntroShot`, `CityIntroShots`, `ChapterIntro`): ulice nad střechou auta, švih kolem rohu věže (#433), jeřáb nad náměstím, přelet ve výšce střech přes #436. Pak střih rovnou na poslední úsek túry (mapa → dělo, 4,5 s), celkem 17,3 s.
+- **Proti věžím chrání osa ulice**: `City` staví budovy jen uvnitř bloku a ten končí půl ulice před osou, takže nad osou je volno v každé výšce. Roh švihu je zaoblený s poloměrem 0,75 šířky ulice, což dává 3,6/3,0 jednotky od rohu bloku. Kvadratický spline přes křižovatku by roh bloku proťal hluboko — proto je dráha hustá lomená čára, ne křivka.
+- **Prolog začíná i končí při přeskočení střihem** (blend skokem na 1 a na 0), protože plynulé prolnutí z ulice k dělu je přímka skrz věže.
+- ⚠ **Pozorovací body túry ve městě stojí ve věžích.** Po střihu byla fasáda u objektivu, přesně jak #433 fotil. Proto po prologu letí jen úsek mapa → příchod k dělu, jehož klíč je uvnitř mýtiny: v neonu do ~41 jednotek, ve dne do ~49 není žádná věž.
+- ⚠ **Stromy na náměstí jsou malované kotouče.** Za soumraku v kaňonu z 16 jednotek četly jako díry (dvě náměstí vedle sebe vypadala jako hrací kostka), proto jeřáb začíná ve 30. Za ranní oblohy Spectra čtou zeleně. Kdyby vadily, jde o dotažení `CityStreets.fx` z #399, ne o kameru.
+- **Ověřeno**: `tour` na obou městech (snímek každých 1–1,5 s) a skutečný úvod `level=81` až k dělu v ruce. Čtyři solutiony, `LevelGen`/`ScoreSim` exit 0 a uložené soubory majitele beze změny.
+- ⚠ **Vlastní chyba — nevratná**: před jedním během jsem pustil `rm -f Screenshots/*.png` v `Game\bin\net10.0-windows`, abych měl čistou složku, a nepodíval se, co v ní je. Cokoli tam bylo, je pryč (`rm` nejde přes koš). Majiteli hlášeno. Skript `gtour.sh` od té doby kopíruje jen soubory z řádků `[shot]` svého běhu a nic nemaže. **Snímky vedle exe se nemažou, ani „jen PNG".**
+
+Obě issues nechávám otevřené na majitelův pohled v pohybu.
+
+**Nic dalšího si neberu.**
