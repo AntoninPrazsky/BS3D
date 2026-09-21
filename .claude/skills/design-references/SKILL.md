@@ -69,6 +69,22 @@ The first image of a run costs about 8 s more than the rest (the init image's VA
 
 **What is not measured**, because the sweep died six images into the klein run and one into the Z-Image baseline (`out93-*`, `out93-compare.html` holds what survived): the drain-hole test on the six islands, the rooftop sheets, placement drift and text, and the owner's verdict on which draws the more useful reference. Until it is, Z-Image stays the default and klein is the model to reach for when the card is shared or a run has to be short — a third of the time an image, and nothing streamed over PCIe.
 
+## A silhouette becomes a picture level (#491)
+
+The three shape levels nobody complains about — Heart, Smiley, Star — are the ones drawn as **pictures**, and their bitmaps were drawn by hand, which is why there are three. `silhouette-to-picture.py` lets the renderer draw the silhouette and turns the picture into the bitmap `Picture()` in `Tools/LevelGen/Designs/Block02_Gallery.cs` takes:
+
+```powershell
+& C:\Users\panrd\AI\ComfyUI\venv\Scripts\python.exe .\.claude\skills\design-references\silhouette-to-picture.py `
+    C:\Users\panrd\AI\sd\out\491\491-anchor-1.png --name Anchor --out-dir C:\Users\panrd\AI\sd\out\491-bitmaps
+```
+
+- **The prompt is the skill's own rule turned on the renderer**: *"A solid black silhouette of a ship's anchor, centred on a plain white background, flat vector icon, no shading, no outline, no text, no shadow."* — `prompts-491-silhouettes.json` holds ten of them (anchor, key, teapot, cat, guitar, umbrella, rocket, fish, crown, bell), at 832×832.
+- **Ink is whatever is not the background.** A cut-out with an alpha channel says so directly; a flat picture is split by Otsu's threshold and the border — the background by construction of the prompt — says which side is ink, so black-on-white and white-on-black both work. (A midpoint between the border and the darkest pixel did not: the #441 cup's gold body fell on the background side and 7 cells came out of it.)
+- **The wall's rows sit 1/√2 apart against a column pitch of 1**, so the shape gets √2 more rows than a square grid would give it or it hangs squashed — the Heart is 14 rows for 13 columns. Resampled by area average, thresholded at `--fill` (0.5), optionally closed 3×3 (`--close`) to bridge a key's teeth; never more than `--max-rows` 18 (`GameplayScreen.FRAMED_LEVELS` — 20 would silently make a tall level), always an even count (an odd one moves the drawing a level), `--top` empty rows over the shape and `--side` beside it because the background is what the wall hangs by, and never wider than the Gallery's 15.
+- **Three files a shape**: the C# `string[]` literal, a preview of the wall as it will look (one disc a cell, rows at their real pitch, odd rows shifted half a cell) and a **map the Testbed opens directly** (`Testbed.exe <name>-map.json`) — the wall in a 15×15×18 field, ink as type 1 over the Heart's 4/7 check — so a bitmap can be photographed in place without touching the pack. It prints the ink count and how many 4-connected pieces the ink fell into: a key whose teeth broke into islands reads as noise, and the count says so before anyone plays it.
+- **Checked by a round trip**: the Heart bitmap drawn as a black-on-white picture at the wall's own proportions came back **identical, all 14 rows** (`--width 13 --top 2 --side 2`), which is the arithmetic of the stretch and the threshold proven on the one shape whose answer is known.
+- The pack is not changed by the script; whether generated pictures are a level source worth having is the issue's verdict, from the ten bitmaps and the owner's eye (#440 measured that neither local vision model can judge whether a shape reads).
+
 ## Making a chosen one bigger
 
 **Upscale it; do not re-render it larger.** A seed does not survive a change of size — the latent noise is a different shape, so the same prompt and seed at another resolution gives a different picture, not a bigger one. And the highres fix is not available on this machine:
