@@ -60,7 +60,7 @@ namespace BS3D.Screens
         private const int GROUP_HEADING_GAP = 40;
 
         private Label _fullscreenValue, _qualityValue, _adaptiveQualityValue, _exposureValue, _skyValue, _fpsValue, _fpsLimitValue;
-        private Label _volumeValue, _effectsValue, _musicValue, _ambienceValue, _trackValue, _sensitivityValue, _tutorialValue;
+        private Label _volumeValue, _effectsValue, _musicValue, _ambienceValue, _trackValue, _sensitivityValue, _aimSensitivityValue, _tutorialValue;
         private Label _aberrationValue, _grainValue, _dropCinematicValue;
         private Label _progressValue, _unlockAllValue;
 
@@ -172,21 +172,25 @@ namespace BS3D.Screens
             //that erases every star.
             AddRow(grid, 7, "Sensitivity", Game.CycleSensitivity, out _sensitivityValue);
 
+            //The lean's own dial (#497): a second rung over the first, read as precise aim blends in. The same
+            //ladder and the same percentages, so the two rows read as one family; 100 % is #384's feel.
+            AddRow(grid, 8, "Aim sensitivity", Game.CycleAimSensitivity, out _aimSensitivityValue);
+
             //The tutorial's opt-out (#189). Under CONTROLS because what the first chapter's cards teach IS the
             //controls, so the switch that hides them belongs beside the dial that tunes them.
-            AddRow(grid, 8, "Tutorial", Game.ToggleTutorial, out _tutorialValue);
+            AddRow(grid, 9, "Tutorial", Game.ToggleTutorial, out _tutorialValue);
 
-            AddGroupHeading(grid, 9, "CAMPAIGN", first: false);
+            AddGroupHeading(grid, 10, "CAMPAIGN", first: false);
 
             //The campaign back to zero stars (#92) — for testing as much as for a fresh start. The resting
             //value shows the star total the click would erase; the click itself is two-step (see _resetArmed).
-            AddRow(grid, 10, "Reset progress", OnResetProgress, out _progressValue);
+            AddRow(grid, 11, "Reset progress", OnResetProgress, out _progressValue);
 
             //The debug unlock (#349). Under the campaign heading rather than among the looks because it is the
             //same kind of thing the row above is - the player's record - and it is a DEVELOPMENT convenience:
             //it is off at every launch and writes nothing, so it can never make a real save read further along
             //than it is. Hiding it behind a build flag is a shipping concern and not one yet.
-            AddRow(grid, 11, "Unlock all", Game.ToggleUnlockAll, out _unlockAllValue);
+            AddRow(grid, 12, "Unlock all", Game.ToggleUnlockAll, out _unlockAllValue);
 
             return grid;
         }
@@ -299,6 +303,7 @@ namespace BS3D.Screens
             //ladder is written so that it is (0.75 is "75 %", where a multiplier would have to print "0.8×"
             //and lie, or "0.75×" and read as arithmetic).
             _sensitivityValue.Text = FormatSensitivity(Game.MouseSensitivity);
+            _aimSensitivityValue.Text = FormatSensitivity(Game.AimSensitivity);
             //In words, not the ★ glyph the picker uses: the value column is set in the display face like
             //every row here, and Anton simply has no star glyph — FontStashSharp would drop it and leave a
             //bare number (which is exactly how this line first rendered).

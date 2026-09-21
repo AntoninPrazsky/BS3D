@@ -78,6 +78,15 @@ namespace BS3D
         public float Sensitivity { get; set; } = 1f;
 
         /// <summary>
+        /// The player's multiplier on the cursor's rate <b>while precisely aiming</b>, over the general one and
+        /// over the lens's own FOV-ratio slowing (#384), off the same ladder (#497). 1 is exactly the feel #384
+        /// shipped, so a player who never opens the row keeps it; the owner's own answer to #477 is a rung here.
+        /// Snapped onto the ladder by the game like <see cref="Sensitivity"/>.
+        /// </summary>
+        [JsonPropertyName("aimSensitivity")]
+        public float AimSensitivity { get; set; } = 1f;
+
+        /// <summary>
         /// The sky the front end comes up under, or 0 for "whatever the scene wants". It is seeded
         /// <b>before</b> <c>SetScene</c> runs rather than after, which is what keeps it from overriding the
         /// six scenes that state a dome of their own (the sea, the savanna, the tropics, the volcano, Mars

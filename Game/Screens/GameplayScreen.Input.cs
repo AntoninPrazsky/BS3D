@@ -239,9 +239,12 @@ namespace BS3D.Screens
             //reads the lean, which is an order this file and PreciseAim both state reasons for. A frame of lag
             //on a factor whose own ease is BLEND_TAU (0.08 s, ~90 % in 0.18 s) is far below what a hand can
             //feel; a camera reading a lean the gun has not been posed for is not.
+            //And the player's own dial on the lean (#497), riding the same blend the lens's ratio rides, so it
+            //is exactly 1 in the overview and the aim row's rung once the lean is in — never a step at the edge
             if (_cursorCaptured)
                 _mouseAim.ApplyCursor(_cannon, mouse, centreX, centreY, gameTime,
-                    Game.MouseSensitivity * _preciseAim.CursorRateScale(GAME_FOV));
+                    Game.MouseSensitivity * MathHelper.Lerp(1f, Game.AimSensitivity, _preciseAim.Blend)
+                    * _preciseAim.CursorRateScale(GAME_FOV));
 
             //The shot edge is gated on the same "a captured frame has been seen" flag the aim is: on the frame
             //the baseline is dropped there is no aim to fire along yet, so no phantom shot goes off either

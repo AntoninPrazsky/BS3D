@@ -417,6 +417,9 @@ namespace BS3D
         //frame, and an index would have to be resolved there instead.
         private float _mouseSensitivity = 1f;
 
+        //The lean's own rung (#497), the same shape for the same reason
+        private float _aimSensitivity = 1f;
+
         //1 is the authored mix; the "mute" argument starts the master at 0 (see the constructor).
         private float _masterVolume = 1f;
         private float _sfxVolume = 1f;
@@ -603,6 +606,14 @@ namespace BS3D
         /// session at its start would be the stale one.
         /// </summary>
         internal float MouseSensitivity => _mouseSensitivity;
+
+        /// <summary>
+        /// The player's dial on the lean's own rate (#497): what the session multiplies the cursor's rate by
+        /// as precise aim blends in, on top of <see cref="MouseSensitivity"/> and of the lens's FOV-ratio
+        /// slowing — so 100 % is #384's feel exactly and the row is the player's number over it. Read where it
+        /// is used, as the general one is, for the same reason.
+        /// </summary>
+        internal float AimSensitivity => _aimSensitivity;
 
         //Which composition is sounding, or null for Auto — the piece the moment plays by itself, which is the
         //front end's loop in the menus and the level's own theme in a level. Read straight off the music and

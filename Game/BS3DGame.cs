@@ -1002,6 +1002,7 @@ namespace BS3D
             //unable to aim at all with nothing on screen to say why, and the settings row could not walk back
             //to a rung from a value that is not on one.
             _mouseSensitivity = NearestSensitivityRung(_settings.Sensitivity);
+            _aimSensitivity = NearestSensitivityRung(_settings.AimSensitivity);
 
             _uncappedFps = uncappedFps ?? _settings.UncappedFps;
 
