@@ -1,0 +1,16 @@
+# Commits that touched every line of a file without changing a line of its meaning.
+# `git blame` would otherwise credit those lines to the reformatting rather than to
+# the change that wrote them, which is the one thing this repository's history is for.
+#
+# GitHub reads this file by name and skips these revisions in its blame view with no
+# setting anywhere. Locally it takes one command, once per clone:
+#
+#     git config blame.ignoreRevsFile .git-blame-ignore-revs
+#
+# Add a revision here only when it is a pure reformatting — if `git diff -w` over it
+# shows real content, it does not belong in this file.
+
+# Declared the line endings (LF everywhere, .gitattributes) and renormalized the 28
+# blobs still stored CRLF, 2026-09-21. `git diff -w` over it reports .gitattributes
+# and nothing else.
+cd133c9acc10455d76089525b0239262ba0fe557
