@@ -5218,3 +5218,16 @@ Obě issues nechávám otevřené na majitelův pohled v pohybu.
 - **#457 zavřeno jako "not planned"** s odkazem na #514. Mechanismus, co název issue popisuje, v kampani neexistuje — zbývá jen otázka pocitu ze hraní (hraje se blok líp s A/D, i když ho nutně nepotřebuje?), a to je majitelova věc z hraní, ne z měření.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-21 — Claude Code (notebook: #352 přehled MonoGame API zavřen, sedm issue založeno, #515 hotové, merge `46a43f8`)
+
+**Devátá věc ten den.** #352 (přehled vlastního API MonoGame proti tomu, co si BS3D staví samo) mělo na vlákně už kompletní, dobře strukturovaný nález z 2026-09-21 — obě strany, sedm konkrétních návrhů v pořadí podle ceny. Nic k dopracování na samotném přehledu, jen rozhodnutí, co s návrhy.
+
+- **Zavřel jsem #352** (nález doručen) a **založil sedm issue z jeho vlastního pořadí** (#515–#521): kruhová mrtvá zóna páky, `GetCapabilities` hlídající rumble (#378) a ikony tutoriálu, kolečko myši na stránkovači levelů a v nastavení, `InactiveSleepTime` při alt-tabu, `Curve` tečny na křivce úvodu kapitoly místo ořezu Catmull-Romova prohnutí, analogová spoušť pro plynulý náklon přesného míření, a `Stroked` efekt FontStashSharp místo dvojice popisků na stínovaný text výsledkové stránky.
+- **Vzal jsem si #515 rovnou** (nejmenší a nejjasnější): tři místa, co čtou páku pro **spojitou** hodnotu páčky (ne jen tlačítko nebo digitální práh), přepnuta z výchozí `IndependentAxes` na `GamePadDeadZone.Circular` — `GameplayScreen.cs`'s jedno čtení za snímek (míření i postup), sdílený `CameraInputHelper` (takže Testbed i MapEditor to dostanou zadarmo přes volnou kameru) a Testbedův vlastní herní poll (`MouseAim.ApplyPad`). Nechal jsem beze změny menu (`NAV_STICK_DEADZONE` je digitální práh) a dvě čistě tlačítková čtení (skip na úvodní obrazovce, `PreviousPad` na hranu).
+- ⚠ **Neověřeno pocitem — na tomhle stroji není připojený gamepad**, a issue sám říká, že tohle chce ověřit v ruce. Kód je úzký, dobře zdokumentovaný jeden parametr jednoho volání MonoGame API, takže správnost mám za jistou; pocit nechávám tomu, kdo příště bude mít pad po ruce.
+- **Ověřeno**: čtyři solutiony čistě, `LevelGen`/`ScoreSim` exit 0, hra se rozjede a hraje bez pádu i bez připojeného padu.
+
+**Nic dalšího si neberu.**
