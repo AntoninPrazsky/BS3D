@@ -156,6 +156,9 @@ namespace BS3D.Audio
         private readonly SoundEffect _iceBreak;
         private readonly SoundEffect _ceilingStep;
 
+        /// <summary>The net cutting the cluster that reached the line (#434) — the loss's one sound.</summary>
+        private readonly SoundEffect _lineLoss;
+
         /// <summary>A bomb going off (#389) — until then it sounded exactly like a big release.</summary>
         private readonly SoundEffect _blast;
         private readonly SoundEffect _fireworkLaunch;
@@ -179,6 +182,7 @@ namespace BS3D.Audio
         /// <inheritdoc cref="_iceBreak"/>
         private readonly VoiceRing _iceBreakRing;
         private readonly VoiceRing _ceilingRing;
+        private readonly VoiceRing _lineLossRing;
 
         /// <inheritdoc cref="_blast"/>
         private readonly VoiceRing _blastRing;
@@ -232,6 +236,11 @@ namespace BS3D.Audio
         private const int CEILING_VOICES = 2;
         private const float CEILING_LEVEL = 0.5f;
         private const float CEILING_FEED_LEVEL = 0.35f;
+
+        //The line's cut (#434): one voice, since there is exactly one loss, at most of the master — it is the
+        //ending, and the one sound in the game that is meant to be louder than the shot that caused it
+        private const int LINE_LOSS_VOICES = 1;
+        private const float LINE_LOSS_LEVEL = 0.9f;
 
         //A blast's report is 1.8 s, and a chain sets one off per link a CHAIN_STAGGER apart (Blasts) — so one
         //landing wants as many voices at once as its chain is long. Five is the longest chain one landing sets
@@ -300,6 +309,7 @@ namespace BS3D.Audio
             _release = FromSfxOrBake("release", BakeRelease);
             _iceBreak = BakeIceBreak();
             _ceilingStep = FromSfxOrBake("ceiling-step", BakeCeilingStep);
+            _lineLoss = FromSfxOrBake("line-loss", BakeLineLoss, targetRms: 0.22f, ceiling: 0.98f);
             _blast = BakeBlast();
             _fireworkLaunch = BakeFireworkLaunch();
             _fireworkBurst = FromSfxOrBake("firework-burst", BakeFireworkBurst, targetRms: 0.30f, ceiling: 0.99f);
@@ -316,6 +326,7 @@ namespace BS3D.Audio
             _releaseRing = new VoiceRing(_release, RELEASE_VOICES);
             _iceBreakRing = new VoiceRing(_iceBreak, ICE_BREAK_VOICES);
             _ceilingRing = new VoiceRing(_ceilingStep, CEILING_VOICES);
+            _lineLossRing = new VoiceRing(_lineLoss, LINE_LOSS_VOICES);
             _blastRing = new VoiceRing(_blast, BLAST_VOICES);
             _launchRing = new VoiceRing(_fireworkLaunch, LAUNCH_VOICES);
             _burstRing = new VoiceRing(_fireworkBurst, BURST_VOICES);
@@ -2326,6 +2337,85 @@ namespace BS3D.Audio
 
         #endregion
 
+        #region The line's cut (#434)
+
+        /// <summary>
+        /// The cluster has reached the line and the net is cutting it (#434): the one sound of the loss, started on
+        /// the frame the cluster crosses and placed at the crossing point the camera is flying to — so it is also
+        /// where the player's ear is sent while their eye is still on its way. Loud on purpose and on a flat law:
+        /// this is the level's own ending, there is exactly one of it, and the lens is about to stand thirteen
+        /// units from it whatever the stand was at the crossing. The sound is <c>Sfx/line-loss.ogg</c> when the
+        /// file is there (#482's route — a laser searing metal, picked by measurement) and <see cref="BakeLineLoss"/>
+        /// when it is not. The music is not touched: the ending's own fade is the result page's to make.
+        /// </summary>
+        public void PlayLineLoss(Vector3 crossing)
+        {
+            Speak(_lineLossRing, crossing, NEAR_WIDEN, MathHelper.Clamp(LINE_LOSS_LEVEL * Level, 0f, 1f), NextPitch(0.03f));
+        }
+
+        /// <summary>
+        /// The cut as a bake, for when the file is not there: a laser going in — a thump with a click as it bites,
+        /// then an electric hum (100 Hz and its second and third harmonics, buzzing at 7 Hz) that holds for the
+        /// beat the camera holds and lets go — with the sear over it: noise in the 1.2–4 kHz band gated by a
+        /// crackle of random impulses, and sparser, brighter ticks for the sparks. The hum leads and the sear sits
+        /// well under it, because a sizzle that led would be the hiss the owner hears as "digital" (#498); the whole
+        /// is rolled off at 6 kHz for the same reason. Peak-normalised, the report law is for the recording.
+        /// </summary>
+        private static SoundEffect BakeLineLoss()
+        {
+            const float duration = 2.6f;
+            const float hold = 1.7f;
+            int samples = (int)(SAMPLE_RATE * duration);
+            float[] signal = new float[samples];
+
+            Random random = new(434);
+            float phase = 0f, thumpPhase = 0f;
+            float lowA = 0f, lowB = 0f, highA = 0f, crackle = 0f, spark = 0f, roll = 0f;
+
+            for (int i = 0; i < samples; i++)
+            {
+                float t = (float)i / SAMPLE_RATE;
+
+                //The bite: a 55→32 Hz thump with a click on its front, gone within a tenth of a second
+                float thumpFreq = 55f - 23f * MathF.Min(1f, t / 0.08f);
+                thumpPhase += 2f * MathF.PI * thumpFreq / SAMPLE_RATE;
+                float thump = MathF.Sin(thumpPhase) * MathF.Exp(-t * 18f) * 0.9f;
+                float click = t < 0.004f ? ((float)random.NextDouble() * 2f - 1f) * (1f - t / 0.004f) * 0.5f : 0f;
+
+                //The hum: up in 30 ms, held for the beat, then let go over the rest
+                float humEnvelope = MathF.Min(1f, t / 0.03f) * (t < hold ? 1f : MathF.Exp(-(t - hold) * 4f));
+                phase += 2f * MathF.PI * 100f / SAMPLE_RATE;
+                float buzz = 0.85f + 0.15f * MathF.Sin(2f * MathF.PI * 7f * t);
+                float hum = (MathF.Sin(phase) + 0.45f * MathF.Sin(2f * phase) + 0.25f * MathF.Sin(3f * phase)) * buzz * humEnvelope * 0.42f;
+
+                //The sear: band-passed noise gated by a crackle (about 70 impulses a second, each dying in 8 ms)
+                float noise = (float)random.NextDouble() * 2f - 1f;
+                lowA += (noise - lowA) * 0.45f;
+                lowB += (lowA - lowB) * 0.45f;
+                highA += (lowB - highA) * 0.16f;
+                float band = lowB - highA;
+                if (random.NextDouble() < 70.0 / SAMPLE_RATE) crackle = 0.6f + 0.4f * (float)random.NextDouble();
+                crackle *= 1f - 1f / (SAMPLE_RATE * 0.008f);
+                float sear = band * (0.25f + crackle) * humEnvelope * 0.28f;
+
+                //The sparks: sparser, brighter ticks — a spark is a tick, not a tone
+                if (random.NextDouble() < 25.0 / SAMPLE_RATE) spark = 0.5f + 0.5f * (float)random.NextDouble();
+                spark *= 1f - 1f / (SAMPLE_RATE * 0.002f);
+                float sparks = (noise - lowA) * spark * humEnvelope * 0.35f;
+
+                float sample = thump + click + hum + sear + sparks;
+
+                //Rolled off at about 6 kHz — one pole — for warmth
+                roll += (sample - roll) * 0.6f;
+                signal[i] = roll;
+            }
+
+            Normalize(signal, 0.9f);
+            return ToSoundEffect(signal);
+        }
+
+        #endregion
+
         #region The generated effects (#482)
 
         /// <summary>
@@ -2452,6 +2542,7 @@ namespace BS3D.Audio
             _release?.Dispose();
             _iceBreak?.Dispose();
             _ceilingStep?.Dispose();
+            _lineLoss?.Dispose();
             _blast?.Dispose();
             _fireworkLaunch?.Dispose();
             _fireworkBurst?.Dispose();
