@@ -64,6 +64,15 @@ namespace BS3D
         [JsonPropertyName("ambience")]
         public float AmbienceVolume { get; set; } = 1f;
 
+        /// <summary>
+        /// The pad's two body motors (#378), 0 for off, on the same quarter-step ladder as the volumes above —
+        /// it is the mix's fourth channel to the player (how hard the game hits back) rather than a control
+        /// rate like <see cref="Sensitivity"/>, so it sits with what the volumes already are and not with what
+        /// the sensitivities are.
+        /// </summary>
+        [JsonPropertyName("rumble")]
+        public float RumbleStrength { get; set; } = 1f;
+
         /// <summary>The tonemap's shutter, off the exposure ladder. Zero means the game's own default.</summary>
         [JsonPropertyName("exposure")]
         public float Exposure { get; set; }

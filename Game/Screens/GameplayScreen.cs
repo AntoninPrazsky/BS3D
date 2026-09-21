@@ -556,6 +556,15 @@ namespace BS3D.Screens
         //other half of the frame when it fires, short enough not to sit there as decoration.
         private const float CEILING_FLASH_SECONDS = 1.1f;
 
+        //The pad's answer to a step (#378) — heavier and longer than a shot or a landing, the way the plate's
+        //own slide is a slower event than either. Left-heavy for the shove; halved on a feed step
+        //(CEILING_RUMBLE_FEED_SCALE) for the same reason PlayCeilingStep and the flash colour go soft on one:
+        //a feed is the game rewarding the player, not warning them.
+        private const float CEILING_RUMBLE_LEFT = 0.6f;
+        private const float CEILING_RUMBLE_RIGHT = 0.25f;
+        private const float CEILING_RUMBLE_SECONDS = 0.5f;
+        private const float CEILING_RUMBLE_FEED_SCALE = 0.5f;
+
         //Linear radiance, well over GLARE_THRESHOLD so the plate blooms rather than merely turning pink. Red
         //with almost nothing in the other two channels: this is the game's one alarm COLOUR — the ceiling
         //flash and the floor net both take it (LaserGrid is handed this very constant), so the two read as
@@ -860,6 +869,13 @@ namespace BS3D.Screens
         //two shots in quick succession accumulate straight back up to the response that was too strong.
         private const float RECOIL_KICK = 1f;
 
+        //How hard a shot answers in the player's hands (#378) — the recoil's own two channels: a heavier
+        //thump on the left motor than the buzz on the right, same as the physical difference the two motors
+        //are built on, decaying quickly so a burst of shots reads as a burst and not a held buzz.
+        private const float SHOT_RUMBLE_LEFT = 0.55f;
+        private const float SHOT_RUMBLE_RIGHT = 0.25f;
+        private const float SHOT_RUMBLE_SECONDS = 0.12f;
+
         //The gun's own recoil — the tube thrown back along its bore, and since #115 the undercarriage's
         //smaller, later shove under it — is the shared Cannon's now (Cannon.RECOIL_BACK/RECOIL_DECAY/
         //CARRIAGE_RECOIL_BACK): two responses off one clock only stay one clock if the gun owns it. This
@@ -939,6 +955,9 @@ namespace BS3D.Screens
         //is added (Shoot), that they age every frame this screen updates, and where the draw sits in the
         //frame, which the call site in Draw states.
         private readonly LaunchSmears _smears;
+
+        //The line loss's spark shower (#434), which shares the smears' effect instance and their draw slot
+        private readonly LineSparks _lineSparks;
 
         private static readonly Random RANDOM = new();
 
@@ -1113,6 +1132,10 @@ namespace BS3D.Screens
             //The smears' billboard quad and every parameter handle their draw needs, in one construction. The
             //effect is the content manager's and is never disposed there.
             _smears = new LaunchSmears(GraphicsDevice, Game.Content.Load<Effect>("Shaders/ShotTrail"));
+
+            //And the line loss's sparks borrow that same effect instance a third time (#434), which is why
+            //all three push the trail widths per draw rather than once here - see LineSparks' own class doc.
+            _lineSparks = new LineSparks(GraphicsDevice, Game.Content.Load<Effect>("Shaders/ShotTrail"));
 
             //The aim beam borrows the SAME effect instance — it is the same billboard between two world points,
             //and a short segment of it comes out as a dash for free. Sharing it is why both components now push
@@ -1369,6 +1392,12 @@ namespace BS3D.Screens
             UpdateShotPreview();
 
             _smears.Update(elapsed);
+
+            //The frame's own elapsed, UNSCALED by the cinematic's time scale, exactly as the smears above
+            //take it: the shower answers a moment rather than running inside the simulation, and the line
+            //loss's own cinematic does not slow time the way the drop's does anyway.
+            _lineSparks.Update(elapsed);
+
             _hud.Update(elapsed, _score);
             _hud.UpdateSkipHint(elapsed, _cinematic.Running, _cinematic.Elapsed);
 
@@ -1561,6 +1590,10 @@ namespace BS3D.Screens
             //them) and additive, so they glow through the glare. It puts back exactly the states it found,
             //so the frame's translucent baseline still stands for the glass below.
             _smears.Draw(Camera);
+
+            //In the smears' own slot and states, for the same reasons: additive over the opaque scene, so the
+            //cluster and the gun occlude the shower and it blooms through the glare with them (#434).
+            _lineSparks.Draw(Camera);
 
             //The aim beam in the smears' own slot and states — additive, depth-read — so the cluster and the gun
             //occlude it and it blooms through the glare with them. After the smears rather than before for one

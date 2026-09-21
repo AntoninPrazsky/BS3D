@@ -42,6 +42,21 @@ namespace Prazsky.Core.Render
         private const int PLATE_SEGMENTS = 24;
         private const int HUB_SEGMENTS = 12;
 
+        //The hub face detail (#485): a chamfered, stepped centre cap and a ring of hex bolt heads, both
+        //standing proud of the plates' own flat faces — a real wheel's hub is machined, not a bare disc.
+        //Every figure here is a FRACTION of the plate radius rather than an absolute one, so the detail
+        //scales cleanly if the wheel is ever re-tuned; only the step and the bolts' own size are absolute,
+        //since those read as a fixed manufactured part regardless of the wheel's own size.
+        private const int HUBCAP_SEGMENTS = 20;
+        private const float HUBCAP_RADIUS_FRACTION = 0.42f;  //the cap's own radius, short of the bolt ring
+        private const float HUBCAP_TOP_FRACTION = 0.80f;     //the flat top, the chamfer being the remainder
+        private const float HUBCAP_STEP = 0.045f;            //how far the cap stands proud of the plate face
+        private const int BOLT_COUNT = 8;                    //an armoured road wheel's flange, not a car's five
+        private const int BOLT_SEGMENTS = 6;                 //hex heads, not round rivets
+        private const float BOLT_RADIUS_FRACTION = 0.62f;    //the ring the bolts sit on, outside the cap
+        private const float BOLT_HEAD_RADIUS = 0.055f;
+        private const float BOLT_HEAD_HEIGHT = 0.03f;
+
         /// <param name="radius">Outer radius of the wheel — the circle the rollers' envelope must trace.</param>
         /// <param name="rollerRadius">The rollers' fattest radius. The plates stop at <c>radius - this</c>, so
         /// they sit inside the envelope and never touch the ground.</param>
@@ -65,6 +80,12 @@ namespace Prazsky.Core.Render
 
             //The hub between them, its ends showing on both sides
             builder.AddTubeX(Vector3.Zero, plateOuterX, hubRadius, HUB_SEGMENTS);
+
+            //The hub cap and its bolt ring, on each plate's OUTWARD face — the one a camera outside the
+            //wheel actually sees. Drawn on top of the flat face above rather than carved out of it: see
+            //AddHubcap's own remarks on why the hidden geometry underneath is not worth a second code path.
+            AddHubcap(builder, plateOuterX, plateRadius);
+            AddHubcap(builder, -plateOuterX, plateRadius);
 
             (VertexBuffer, IndexBuffer, PrimitiveCount) = builder.Build(graphicsDevice);
             BoundingSphere = new BoundingSphere(Vector3.Zero, radius);
@@ -99,6 +120,68 @@ namespace Prazsky.Core.Render
                     Vector3.Left, Vector3.Left, Vector3.Left, Vector3.Left, Vector3.Left);
                 builder.AddQuad(i0 + right, i1 + right, o1 + right, o0 + right,
                     Vector3.Right, Vector3.Right, Vector3.Right, Vector3.Right, Vector3.Right);
+            }
+        }
+
+        /// <summary>
+        /// The hub face detail (#485): a chamfered, stepped centre cap plus a ring of hex bolt heads, standing
+        /// proud of the flat annular face <see cref="AddPlate"/> already drew at <paramref name="outerFaceX"/>
+        /// — a real wheel's hub is machined, not a bare disc, and #129's own design comment named the plain
+        /// hub as deliberately unfinished business, the roller ring being that issue's whole payoff.
+        /// <para>
+        /// Drawn <b>on top of</b> the existing flat face rather than carved out of it: the cap and the bolts
+        /// sit strictly farther along X (outward, away from the wheel's mid-plane) than anything already
+        /// there, so they occlude it cleanly with no depth fight, and the handful of triangles left hidden
+        /// underneath is not worth a second code path splitting <see cref="AddPlate"/>'s annulus around them —
+        /// this wheel draws as two instances in total.
+        /// </para>
+        /// </summary>
+        private static void AddHubcap(MeshBuilder builder, float outerFaceX, float plateRadius)
+        {
+            float sign = MathF.Sign(outerFaceX);
+            float baseRadius = plateRadius * HUBCAP_RADIUS_FRACTION;
+            float topRadius = baseRadius * HUBCAP_TOP_FRACTION;
+            float baseX = outerFaceX;
+            float topX = outerFaceX + sign * HUBCAP_STEP;
+            Vector3 baseCentre = new(baseX, 0f, 0f), topCentre = new(topX, 0f, 0f);
+            Vector3 axisOut = new(sign, 0f, 0f);
+
+            //The chamfer's slope, constant along its straight profile — the same surface-of-revolution
+            //normal OmniRollerMesh.Surface uses for its own (curved) profile, with no angular term since
+            //this one has none: a cone's outward normal leans along its own taper as well as radially.
+            float slope = (topRadius - baseRadius) / (sign * HUBCAP_STEP);
+            Vector3 axial = new(-slope, 0f, 0f);
+
+            for (int i = 0; i < HUBCAP_SEGMENTS; i++)
+            {
+                float a0 = i / (float)HUBCAP_SEGMENTS * MathHelper.TwoPi;
+                float a1 = (i + 1) / (float)HUBCAP_SEGMENTS * MathHelper.TwoPi;
+
+                Vector3 d0 = new(0f, MathF.Cos(a0), MathF.Sin(a0));
+                Vector3 d1 = new(0f, MathF.Cos(a1), MathF.Sin(a1));
+
+                Vector3 n0 = Vector3.Normalize(axial + d0), n1 = Vector3.Normalize(axial + d1);
+
+                //The chamfer wall, base ring to top ring
+                builder.AddQuad(d0 * baseRadius + baseCentre, d1 * baseRadius + baseCentre,
+                    d1 * topRadius + topCentre, d0 * topRadius + topCentre, n0, n1, n1, n0, n0 + n1);
+
+                //The flat top, closing the cone
+                builder.AddTriangle(topCentre, d0 * topRadius + topCentre, d1 * topRadius + topCentre,
+                    axisOut, axisOut, axisOut, axisOut);
+            }
+
+            //The bolt ring, outside the cap on the plate's own flat face — each a short hex prism standing
+            //proud of it, embedded flush with its base so nothing shows beneath it.
+            float boltRingRadius = plateRadius * BOLT_RADIUS_FRACTION;
+
+            for (int i = 0; i < BOLT_COUNT; i++)
+            {
+                float angle = i / (float)BOLT_COUNT * MathHelper.TwoPi;
+                Vector3 boltCentre = new(outerFaceX + sign * BOLT_HEAD_HEIGHT * 0.5f,
+                    MathF.Cos(angle) * boltRingRadius, MathF.Sin(angle) * boltRingRadius);
+
+                builder.AddTubeX(boltCentre, BOLT_HEAD_HEIGHT * 0.5f, BOLT_HEAD_RADIUS, BOLT_SEGMENTS);
             }
         }
 

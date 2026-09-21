@@ -138,6 +138,10 @@ namespace Testbed
                 if (_scene == SceneKind.Forest) _forestScatter?.Draw(_camera);
                 if (_scene == SceneKind.Aurora) _auroraScatter?.Draw(_camera);
 
+                //The forest's firefly-like blinking lights (#487), on the same wall clock the beacon and the
+                //campfire blink and flicker on — off pause, on with the game.
+                if (_scene == SceneKind.Forest) _forestFireflies?.Draw(_camera, _pulseSeconds);
+
                 //The round island, opaque: its stone cap and concrete drum. Then the dark pit shaft behind the
                 //drain, which is drawn in the solid-terrain scenes only and brings its own culling with it.
                 //Each slice owns the states its own geometry needs; where they sit in the frame is this file's

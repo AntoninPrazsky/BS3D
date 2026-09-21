@@ -426,6 +426,9 @@ namespace BS3D
         private float _musicVolume = 1f;
         private float _ambienceVolume = 1f;
 
+        //The pad's own row (#378), the volumes' shape and the volumes' default.
+        private float _rumbleStrength = 1f;
+
         #endregion
 
         #region The menu's screens
@@ -597,6 +600,7 @@ namespace BS3D
         internal float SfxVolume => _sfxVolume;
         internal float MusicVolume => _musicVolume;
         internal float AmbienceVolume => _ambienceVolume;
+        internal float RumbleStrength => _rumbleStrength;
 
         /// <summary>
         /// The player's aim dial (#384), read by <c>GameplayScreen</c> straight into

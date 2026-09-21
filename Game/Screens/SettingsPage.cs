@@ -60,7 +60,7 @@ namespace BS3D.Screens
         private const int GROUP_HEADING_GAP = 40;
 
         private Label _fullscreenValue, _qualityValue, _adaptiveQualityValue, _exposureValue, _skyValue, _fpsValue, _fpsLimitValue;
-        private Label _volumeValue, _effectsValue, _musicValue, _ambienceValue, _trackValue, _sensitivityValue, _aimSensitivityValue, _tutorialValue;
+        private Label _volumeValue, _effectsValue, _musicValue, _ambienceValue, _rumbleValue, _trackValue, _sensitivityValue, _aimSensitivityValue, _tutorialValue;
         private Label _aberrationValue, _grainValue, _dropCinematicValue;
         private Label _progressValue, _unlockAllValue;
 
@@ -153,11 +153,17 @@ namespace BS3D.Screens
             AddRow(grid, 3, "Music", Game.CycleMusicVolume, out _musicValue);
             AddRow(grid, 4, "Ambience", Game.CycleAmbienceVolume, out _ambienceValue);
 
+            //The pad's own row (#378) — not audio, but the same kind of thing to the player as the four rows
+            //above it: how hard the game hits back, on the same quarter-step-with-off ladder. It sits with
+            //them and not with CONTROLS below, which is about the player's OWN input rate rather than what
+            //the game answers with.
+            AddRow(grid, 5, "Rumble", Game.CycleRumbleStrength, out _rumbleValue);
+
             //Which piece plays, so a composition can be heard in the game against the real mix rather
             //than only in a .wav or by finding a level of the right chapter (#279). Under the volume rows
             //because it is the same kind of thing the player hears them through — and a listening tool
             //and not a setting: it writes nothing, and the game takes the choice back at the next level.
-            AddRow(grid, 5, "Track", Game.CycleMusicTrack, out _trackValue);
+            AddRow(grid, 6, "Track", Game.CycleMusicTrack, out _trackValue);
 
             //The aim dial (#384). It gets a heading of its own where the drop camera deliberately did not,
             //and the difference is not how many rows each has: that one IS a look to the player, so it belongs
@@ -165,32 +171,32 @@ namespace BS3D.Screens
             //A CONTROLS group is also one that genuinely exists rather than one promised by a lone row - the
             //pad's rate is a separate quantity that may earn its own row (see MouseAim.PAD_RATE), and this is
             //where it would go; the tutorial's switch (#189) is the second row it got.
-            AddGroupHeading(grid, 6, "CONTROLS", first: false);
+            AddGroupHeading(grid, 7, "CONTROLS", first: false);
 
             //Above CAMPAIGN rather than below it, because the campaign rows are the destructive pair and the
             //page keeps them last - a row a player is meant to click freely does not belong under the one
             //that erases every star.
-            AddRow(grid, 7, "Sensitivity", Game.CycleSensitivity, out _sensitivityValue);
+            AddRow(grid, 8, "Sensitivity", Game.CycleSensitivity, out _sensitivityValue);
 
             //The lean's own dial (#497): a second rung over the first, read as precise aim blends in. The same
             //ladder and the same percentages, so the two rows read as one family; 100 % is #384's feel.
-            AddRow(grid, 8, "Aim sensitivity", Game.CycleAimSensitivity, out _aimSensitivityValue);
+            AddRow(grid, 9, "Aim sensitivity", Game.CycleAimSensitivity, out _aimSensitivityValue);
 
             //The tutorial's opt-out (#189). Under CONTROLS because what the first chapter's cards teach IS the
             //controls, so the switch that hides them belongs beside the dial that tunes them.
-            AddRow(grid, 9, "Tutorial", Game.ToggleTutorial, out _tutorialValue);
+            AddRow(grid, 10, "Tutorial", Game.ToggleTutorial, out _tutorialValue);
 
-            AddGroupHeading(grid, 10, "CAMPAIGN", first: false);
+            AddGroupHeading(grid, 11, "CAMPAIGN", first: false);
 
             //The campaign back to zero stars (#92) — for testing as much as for a fresh start. The resting
             //value shows the star total the click would erase; the click itself is two-step (see _resetArmed).
-            AddRow(grid, 11, "Reset progress", OnResetProgress, out _progressValue);
+            AddRow(grid, 12, "Reset progress", OnResetProgress, out _progressValue);
 
             //The debug unlock (#349). Under the campaign heading rather than among the looks because it is the
             //same kind of thing the row above is - the player's record - and it is a DEVELOPMENT convenience:
             //it is off at every launch and writes nothing, so it can never make a real save read further along
             //than it is. Hiding it behind a build flag is a shipping concern and not one yet.
-            AddRow(grid, 12, "Unlock all", Game.ToggleUnlockAll, out _unlockAllValue);
+            AddRow(grid, 13, "Unlock all", Game.ToggleUnlockAll, out _unlockAllValue);
 
             return grid;
         }
@@ -295,6 +301,7 @@ namespace BS3D.Screens
             _effectsValue.Text = FormatVolume(Game.SfxVolume);
             _musicValue.Text = FormatVolume(Game.MusicVolume);
             _ambienceValue.Text = FormatVolume(Game.AmbienceVolume);
+            _rumbleValue.Text = FormatVolume(Game.RumbleStrength);
             //"Auto" is not one of the pieces: it is whatever the moment plays unasked — the front end's
             //loop in the menus, the level's own theme in a level. The rest name themselves off MusicTheme,
             //so a sixth composition appears in this row with no wiring here at all.

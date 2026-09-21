@@ -322,6 +322,9 @@ namespace Testbed
         //the other's trees. See AuroraSceneConfig's class doc.
         private ForestScatterRenderer _auroraScatter;
 
+        //The forest's handful of firefly-like blinking lights (#487), planted over the same floor.
+        private ForestFireflies _forestFireflies;
+
         //Which environment the arena stands in. City is the default; Sea, Savanna, Desert, Mountain, Meadow and
         //NeonCity swap the city (and only the city) for open water, a savanna, a Sahara of dunes, a snowy range,
         //a flowering meadow, or the same city lit up in neon — the round island stays in all seven.
@@ -909,6 +912,10 @@ namespace Testbed
             //The aurora's own wood, a second planting from its own config - see AuroraSceneConfig's class doc.
             _auroraScatter = new ForestScatterRenderer(GraphicsDevice, _instancingEffect,
                 ((AuroraSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Aurora)).Terrain, SCENE_AMBIENT_INTENSITY,
+                seed: ForestScatterRenderer.DEFAULT_SEED + _sceneSeedOffset);
+
+            _forestFireflies = new ForestFireflies(GraphicsDevice, _instancingEffect,
+                (ForestSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Forest), SCENE_AMBIENT_INTENSITY,
                 seed: ForestScatterRenderer.DEFAULT_SEED + _sceneSeedOffset);
 
             //No trunnion height goes in: the gun stands on the island's dished stone, so its height is the
@@ -1844,6 +1851,7 @@ namespace Testbed
             //stone texture here (none was handed in), so nothing outside it is waiting on this.
             _forestScatter?.Dispose();
             _auroraScatter?.Dispose();
+            _forestFireflies?.Dispose();
             _rooftops?.Dispose();
             _streets?.Dispose();
             _ceilingPlate?.Dispose();

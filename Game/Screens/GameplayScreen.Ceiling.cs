@@ -129,6 +129,11 @@ namespace BS3D.Screens
             //And is heard (#500): from the plate, where it is, the feed's step softer than the pressure's
             Game.Audio.PlayCeilingStep(new Microsoft.Xna.Framework.Vector3(0f, _ceilingY, 0f), feeding);
 
+            //And felt (#378), the feed step soft for the same reason it is heard and seen soft.
+            float ceilingRumbleScale = feeding ? CEILING_RUMBLE_FEED_SCALE : 1f;
+            Game.Rumble.Kick(CEILING_RUMBLE_LEFT * ceilingRumbleScale, CEILING_RUMBLE_RIGHT * ceilingRumbleScale,
+                CEILING_RUMBLE_SECONDS);
+
             //The tutorial's glass lesson fires on the step the shot count forced, on the frame the plate lights
             //(#189) — never on a feed step, which is a tall level's reward and would teach the pressure in the
             //wrong colour
