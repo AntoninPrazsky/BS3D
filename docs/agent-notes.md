@@ -4833,3 +4833,12 @@ Majitel poslal dvě volné poznámky z pozorování vývoje/hraní, „vytvoř i
 - Paměť `desktop-hard-resets-under-load` doplněna; varování nahoře ve skillu i v hlavičce skriptu říká osm.
 
 **Beru #439** (Qwen3-Embedding pro český deník) — LM Studio, žádný sd-server.
+
+**Dodatek: #439 je na `main`u — merge `49f0cd8`**, větev smazaná, issue zavřená. **`text-embedding-qwen3-embedding-0.6b` (639 MB) je výchozí model `Tools/SemanticSearch`** pro všechny tři korpusy; klient mu posílá instrukční prefix jen na dotazu (`Instruct: …\nQuery: …`), dokumenty holé. Nový `--mark <text>` vypíše pořadí prvního výsledku, který nese známý marker — tím jsou všechna čísla níž změřená a tak se poměří i příští model.
+
+- **Párově na týchž otázkách, nomic / Qwen3:** issues (pořadí známého protějšku z 479): 1/1, 1/1, 1/1, **9/3**, **4/3**, **2/1**, 1/1. Český deník (první ze 707 kusů s markerem): ColourTransparentGroup **83/49**, StillEmission **273/8**, Kernel-Power 1/2, CHEEK_INNER_X **86/17**, ResolveDisconnected (anglicky) 2/8, FunnelMesh **10/2** — v desítce 5 ze 6 proti 3 ze 6. Dokumentace (#490, patnáct otázek): nomic 11× první / 3× druhá / jednou 115., Qwen3 **12× / 2× / jednou 20.** Nomicova dnešní čísla se liší od zkoušky z 16. 9., protože deník narostl z 532 na 707 kusů a #490 změnilo řezání dlouhých odstavců.
+- **Cena:** první embedování 1011 kusů dokumentace trvalo Qwenu 112 s **jen na CPU** (`lms load --gpu off`); GPU číslo nemám — stroj při něm spadl.
+- ⚠ **Dnes dopoledne tři tvrdé resety (Kernel-Power 41 + 6008, bez WHEA/4101): 9:22:22 při sd-serveru (#489), 9:37:32 chvíli po načtení embedding modelů do LM Studia (skoro idle), 9:50:53 během embedování dokumentace na GPU.** Majitel mezitím zvýšil power limit a připadalo mu, že to běželo déle; dokončil jsem měření s modely na CPU a nic dalšího nespadlo. Tři resety za půl hodiny, z toho dva při lehké zátěži, ukazují na stroj, ne na sd.cpp.
+- ⚠ **Po restartu LM Studio nenaváže port 1234** (`listen EACCES`): Windows si po každém bootu jinak posunou vyhrazené rozsahy (`netsh interface ipv4 show excludedportrange protocol=tcp`; 1136–1235 po prvním, 1237–1336 po druhém). Server jsem pustil na 8765 a nástroji dal `--endpoint`; zapsáno ve skillu `local-ai` a v dokumentaci. `vision.ps1` a ostatní skripty čekají 1234 dál.
+
+**Nic dalšího si zatím neberu** — z místních AI issues zbývají #482 (SFX model na CPU), #491–#495 a hudba (#486/#449/#280, ACE-Step = Vulkan zátěž, dnes ne).
