@@ -760,6 +760,21 @@ namespace Prazsky.Core.Render
         private float _shadowScale = 1f;
 
         /// <summary>
+        /// A map size to build instead of the scene's <c>ShadowConfig.MapSize</c>, or 0 for the scene's own (#484). The
+        /// Testbed's <c>shadowmap=</c> dial, so 2048 and 4096 can be photographed and paired in one process: the map
+        /// is rebuilt whenever the size it was built at differs, which is what makes the dial alternable.
+        /// </summary>
+        public int ShadowMapSizeOverride { get; set; }
+
+        /// <summary>
+        /// The most texels a side the map may have, or 0 for no cap (#484): the Game's quality tier, which holds a
+        /// scene's <c>ShadowConfig.MapSize</c> (4096) under 2048 below High. A cap rather than a tier's own size
+        /// because a tier only ever takes away (#298's rule) — a scene authored small must not come out larger on a
+        /// lower rung. <see cref="ShadowMapSizeOverride"/> wins over it: the instrument pins, the tier limits.
+        /// </summary>
+        public int ShadowMapSizeCap { get; set; }
+
+        /// <summary>
         /// A global multiplier over every scene's <see cref="ShadowConfig.Strength"/>, clamped to 0..1.
         /// <b>0 means exactly what a <c>Strength</c> of 0 means</b> — no target, no caster pass, every
         /// receiver handed 0 and skipping its nine taps — so the two spellings of "no shadows" are one code
@@ -5467,11 +5482,20 @@ namespace Prazsky.Core.Render
                 return;
             }
 
-            int size = Math.Clamp(shadows.MapSize, 256, 8192);
+            //The scene's own size, held under the tier's cap, unless the instrument pins one outright (#484). The
+            //clamp's top is what a card should be asked for rather than what D3D11 allows: at eight bytes a texel
+            //(a Single target over a Depth24 buffer) 8192 is a 537 MB map, 4096 is 134 MB and 2048 is 33.5.
+            int size = shadows.MapSize;
+            if (ShadowMapSizeCap > 0) size = Math.Min(size, ShadowMapSizeCap);
+            if (ShadowMapSizeOverride > 0) size = ShadowMapSizeOverride;
+            size = Math.Clamp(size, 256, 8192);
+
+            //⚠ Nothing but the map is disposed here. #476 left the savanna's trail-warp field's Dispose in this
+            //block for two days (its home is Dispose() below), so the first map a process built — the first
+            //shadowed frame after a scene's build — threw away the texture the savanna effect was still bound to.
             if (_sunShadowMap == null || _sunShadowMap.Size != size)
             {
                 _sunShadowMap?.Dispose();
-            _trailWarp?.Dispose();
                 _sunShadowMap = new SunShadowMap(_graphicsDevice, size);
             }
 
@@ -7081,6 +7105,7 @@ namespace Prazsky.Core.Render
             _sparkVertexBuffer?.Dispose();
             _sparkIndexBuffer?.Dispose();
             _sunShadowMap?.Dispose();
+            _trailWarp?.Dispose();
             _birdMesh?.Dispose();
             _mountainVertexBuffer?.Dispose();
             _mountainIndexBuffer?.Dispose();

@@ -124,14 +124,31 @@ namespace BS3D
         /// </summary>
         public readonly int MsaaSamples;
 
+        /// <summary>
+        /// The most texels a side the sun shadow map may have on this rung, or 0 for a scene's own
+        /// <c>ShadowConfig.MapSize</c> (#484). <c>High</c> takes the authored 4096 (0.063 units a texel over the
+        /// 260-unit extent); <c>Medium</c> and <c>Low</c> hold it at the 2048 the map shipped with, which is a
+        /// quarter of the memory (33.5 MB against 134, eight bytes a texel) and the same nine taps a pixel.
+        /// <para>
+        /// <b>Measured</b> in the Testbed on the reference desktop, the savanna's play vantage at 1920×1080, ssaa
+        /// 2, alternating in one process: 2048 3.45–3.49 ms, 4096 3.50–3.53, 8192 3.66–3.70 — the receiver's nine
+        /// taps cost the same whatever the map, so a size costs its rasterisation and its cache and neither
+        /// shows until 8192. <c>Low</c> skips the map through <c>SceneDetail</c> anyway; its figure is stated for
+        /// honesty. A cap rather than a size because a tier only takes away (#298): a scene authored small must not
+        /// come out larger on a lower rung. See "Sun shadows" in docs/rendering.md.
+        /// </para>
+        /// </summary>
+        public readonly int ShadowMapCap;
+
         public QualityPreset(int supersampleFactor, float facadeGrainStrength, float windowFrameWidth, int cityRadiusBlocks,
-            int msaaSamples)
+            int msaaSamples, int shadowMapCap)
         {
             SupersampleFactor = supersampleFactor;
             FacadeGrainStrength = facadeGrainStrength;
             WindowFrameWidth = windowFrameWidth;
             CityRadiusBlocks = cityRadiusBlocks;
             MsaaSamples = msaaSamples;
+            ShadowMapCap = shadowMapCap;
         }
 
         /// <summary>
@@ -166,7 +183,7 @@ namespace BS3D
             //    rather than at Medium — see the note on Medium below for what moved and why
             //  · and the reduced programs the mountain and the cavern grew for it
             //The city's two dials stay, being the only entries that were ever worth anything here.
-            new(supersampleFactor: 1, facadeGrainStrength: 0f, windowFrameWidth: 0f, cityRadiusBlocks: 14, msaaSamples: 2),
+            new(supersampleFactor: 1, facadeGrainStrength: 0f, windowFrameWidth: 0f, cityRadiusBlocks: 14, msaaSamples: 2, shadowMapCap: 2048),
 
             //Medium — 30 FPS on the worst scene. Supersampling is what this STRUCT gives up, and it is the one
             //change that reaches all fifteen scenes: on the weak machine it is worth 46 to 58 % of the frame
@@ -183,10 +200,10 @@ namespace BS3D
             //(#298's own figure), and SceneDetail reached only the forest and the dream, neither of which is
             //among the levels that fail to hold Medium there. So the rung that was already over budget on
             //that hardware did not get dearer where it was hurting.
-            new(supersampleFactor: 1, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14, msaaSamples: PostProcessPipeline.MSAA_SAMPLES),
+            new(supersampleFactor: 1, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14, msaaSamples: PostProcessPipeline.MSAA_SAMPLES, shadowMapCap: 2048),
 
             //High — the look the game was authored at, unchanged.
-            new(supersampleFactor: 2, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14, msaaSamples: PostProcessPipeline.MSAA_SAMPLES),
+            new(supersampleFactor: 2, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14, msaaSamples: PostProcessPipeline.MSAA_SAMPLES, shadowMapCap: 0),
         };
     }
 }
