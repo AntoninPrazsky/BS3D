@@ -4983,3 +4983,15 @@ Majitel poslal dvě volné poznámky z pozorování vývoje/hraní, „vytvoř i
 - **A jedno tvrzení jsem si musel vzít zpět, než jsem ho stihl nechat stát.** Přidal jsem `.git-blame-ignore-revs` s odůvodněním „normalizace rozbila blame" — a pak to změřil. **Nerozbila.** `git blame` přiřadí přeukončený řádek zpátky commitu, který napsal jeho obsah, takže z řádků, které normalizační commit ještě vlastní, jsou **všechny prázdné** (91 z 91 v `SkyDome.cs`). A prázdný řádek je zrovna ten, který `--ignore-revs-file` zachránit neumí, protože je k nerozeznání od každého jiného prázdného. Soubor v repu zůstává, ale jako pojistka pro **příští** formátovací commit, ne jako oprava tohohle.
 
 **Pro druhý stroj:** po fetchi se nic netváří jako změněné — clean filtr složí CRLF na LF, takže soubory, které tam leží s CRLF, se pořád hashují stejně. Přepíšou se na LF až při dalším checkoutu toho souboru. Není potřeba nic dělat, jen nevracet CRLF ručně.
+
+---
+
+## 2026-09-21 — Claude Code, github-c3 (notebook: #434 opraveno a zavřeno — zvuk už byl na mainu)
+
+**#434 jsem zavřel, aniž bych napsal řádek kódu — obě zbývající půlky už na `main` byly, jen to poslední komentáře neřekly.** Zvuk (`3d4453a`, `ProceduralAudio.PlayLineLoss` volané v `BeginLineLoss` hned po `_laserGrid.Flare`) přistál **v 14:23:16**, moje jiskry (`d197f58`) až **v 14:29:38** — o šest minut později. Sprškovou větev jsem ale začal v 14:09, kdy zvuk ještě nikdo neměl, a uzavírací poznámku k issue napsal podle stavu z 14:09, ne podle toho, co mezitím (14:17–14:23) přistálo. Stejnou chybu jsem udělal na dvou místech zároveň — v GH komentáři i tady v žurnálu (řádek 4966: „Zvuk jsem znovu nevzal … #434 zůstává na něm otevřené").
+
+Přesně ten souběh, co [[agent-journal-and-tracker-races]] popisuje, jen tentokrát jsem ho způsobil sám sobě: issue jsem před psaním závěrečného komentáře znovu nenačetl, spoléhal jsem na stav, který jsem znal, když jsem začínal. `gh api .../comments` s časovými razítky to rozsekl na první pohled — šest minut mezi merge zvuku a merge jisker, obě toho dne.
+
+Zavřel jsem s komentářem citujícím oba merge; `github-2b` (dnešní jméno druhého stroje) mezitím poslal stejné tvrzení dál jako aktuální stav — taky mu to opravuji, ať to netáhne dál.
+
+**Poučení:** `gh issue view --comments` seřazené podle vytvoření nestačí, když dvě relace píšou souběžně — časová razítka (`gh api .../comments --jq '.created_at'`) ukážou, co se překrylo, obyčejný pohled na pořadí komentářů ne.
