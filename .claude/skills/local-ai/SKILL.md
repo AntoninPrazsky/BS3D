@@ -23,7 +23,8 @@ What follows is not a menu of plausible uses. **Every line was measured on 2026-
 | What changed between two captures? | `google/gemma-4-12b` via `vision.ps1` (default); `qwen/qwen3-vl-8b` is close | **Use it as a first pass.** Gemma 3½ of 4 known pairs, Qwen3-VL-8B 3 of 4 (#440). Both said "identical" for one file sent twice. Gemma named the crosshair growing and turning red but called an upward tilt a zoom; Qwen got the tilt and spotted a ball that really had appeared, but missed the crosshair growing. Gemma 1.5–14 s a pair, Qwen 13–16 s. |
 | Read a small detail (a colour, a mark) | Gemma 4; Qwen3-VL a step behind | **Only on a crop.** On a 256 px crop Gemma 7 of 7, Qwen 6 of 7 (in 0.3 s against Gemma's 1.3); on the whole frame both 5 of 7. For an exact value, measure pixels (`screenshot/palette.ps1`, a bar scan). |
 | Does a level's shape read as its subject? | neither | **No.** Blind naming got 3–4 of 18 levels for both models, and most symmetric patterns came back as "butterfly" (Gemma) or "cannonball pattern" (Qwen). Neither model's 1–5 rating separates the levels playtesting said read from those it said did not; Qwen's does not separate them at all in 3D (3.8 against 3.7). |
-| Draw a reference before designing something (a cup, roof props, a scene's island) | Z-Image-Turbo through stable-diffusion.cpp on Vulkan — **not LM Studio**, see the `design-references` skill | **Use it.** Twenty references for #429, #436 and #404 at 33–37 s each; the owner: *„ty obrázky jsou skvělé“*. Describe shapes rather than names, and expect placement and text to drift. |
+| Draw a reference before designing something (a cup, roof props, a scene's island) | Z-Image-Turbo through stable-diffusion.cpp on Vulkan — **not LM Studio**, see the `design-references` skill |
+| A mesh to read a lathe profile or a prop's proportions from | TripoSR on the CPU (`C:\Users\panrd\AI\3d`, #492) | **Use it for one object on a plain background** — ~45 s an image (7 s model, 22 s marching cubes at 256), a clean revolved silhouette for the cup and an umbrella crown on a forked trunk for the acacia; a scene capture gives blobs. See "A mesh from a picture" below. | **Use it.** Twenty references for #429, #436 and #404 at 33–37 s each; the owner: *„ty obrázky jsou skvělé“*. Describe shapes rather than names, and expect placement and text to drift. |
 | Edit code | `deepseek-coder-v2-lite-instruct` via Aider | **No.** Did half a two-part extraction and rewrote the line endings; reviewing it cost more than doing it. |
 
 ## Before filing an issue
@@ -56,6 +57,34 @@ venv\Scripts\python.exe generate-sfx.py prompts.json --model small-sfx --out out
 - **The prompts, learnt over three rounds with the owner's ear:** "soft, gentle, clean" came back *dull, weak and boring*; write "punchy, satisfying, arcade, big, juicy" for everything but impacts — and tell an impact its volume in words ("moderate volume", "gentle attack", negative "loud, distorted, clipping, aggressive") or the model saturates: 8 of 9 attach renders clipped until it was. Balloons render harsh whatever the clip count says. Warm and bass-heavy is still the taste; the game's taste rule stands.
 - **The batch is listened to from `out\<batch>\index.html`** (players beside the files, the prompt under each, clipped rows flagged), one prompt family at a time, and a shortlist page is assembled from the picks. `--normalize -1` for listening; the game applies its own law at load.
 - **Into the game:** `dotnet run --project Tools\MusicBake -c Release -- --sfx <render.wav> <shoot|landed|release|firework-burst|ceiling-step|line-loss>` writes `Game/Sfx/<name>.ogg`; `git add` it at once. A file that is not there leaves the procedural bake standing. The victory fanfare goes in with `--sfx <render.wav> victory-fanfare --music`, which keeps the stereo image and measures the key and tempo the star chime tunes to (printed with the runners-up; `--root <midi>`/`--bpm <n>` override them).
+
+## A mesh from a picture (#492)
+
+**TripoSR runs on the CPU here, and a single object on a plain background comes back as a usable silhouette in about 45 s.** Everything lives in `C:\Users\panrd\AI\3d`, outside the repository: a venv (uv, Python 3.12, `torch 2.14 +cpu`, `transformers 4.46.3`, `trimesh`, `rembg` + `onnxruntime`, `PyMCubes`), the `TripoSR` clone (MIT, code and weights; `stabilityai/TripoSR` is not gated — 1.6 GB, fetched on first run, plus rembg's 1 GB cut-out model) and two scripts. `patch-tripo.py` is what made it run on Windows without a compiler: the `torchmcubes` extension the README pins has to be built, so `tsr/models/isosurface.py` takes **PyMCubes** instead (the same `(vertices, faces)` pair, vertices handed back in torchmcubes' reversed axis order so the caller's own swap still lands on `(i, j, k)` — checked on a sphere before any image), and `run.py`'s `xatlas`/`moderngl` texture-baking imports are made optional.
+
+```powershell
+C:\Users\panrd\AI\3d\run-tripo.ps1 -Images "C:\...\cup.png;C:\...\acacia.png" -Out C:/Users/panrd/AI/3d/out/492 -Resolution 256
+& C:\Users\panrd\AI\ComfyUI\venv\Scripts\python.exe C:\Users\panrd\AI\3d\mesh-sheet.py out\492\0\mesh.obj out\492\0\sheet.png
+```
+
+The runner times the process and samples its peak working set; `<out>/<n>/mesh.obj` is the mesh and `input.png` beside it is what the cut-out handed the model. `mesh-sheet.py` draws the three silhouettes (two upright views and the top — **the meshes come out with +Z up**, and which upright view is the picture's own front depends on the mesh: the cup's handles stood in the second panel) with the vertex count and extent in the header, which is enough to judge one without a viewer. Images are one `;`-joined string because bash eats the backslashes of an unquoted Windows path and `-File` mode does not split a comma list — the first run died on exactly that.
+
+**Measured on 2026-09-21** (Ryzen 9 5900X, resolution 256, four inputs in one process, `out\492\index.html` has the inputs, the cut-outs and the sheets side by side):
+
+| | seconds | verts / tris | what came back |
+|---|---|---|---|
+| model load | 4.9 | — | after the one-time downloads |
+| background removal, per image | ~16 | — | rembg on the CPU |
+| the model, per image | 6.7–6.9 | — | |
+| marching cubes at 256, per image | 21.6–22.0 | — | the biggest cost, and it scales with the cube of the resolution; at 384 the cup took {CUP384} |
+| **the #441 gold cup** (a studio-shot reference) | | 22 828 / 45 676 | **a clean revolved silhouette** — bowl, knop, stem and flared foot read as a lathe profile from the front, the two handles stand out from the side, the top view shows the bowl's opening. This is what `TrophyMesh` was designed from by eye, and it would have been designed faster from this. |
+| the #451 acacia close-up | | 75 114 / 149 988 | the umbrella crown and the forked trunk in proportion from the side; the crown itself is a cloud of blobs, and from above it has a plus-shaped structure the picture never had. Proportions, not branching. |
+| the #451 termite kopje | | 20 866 / 41 724 | rembg kept only the mound and dropped the boulders behind it, so the "boulder" test became a termite mound: a smooth spindle, fine as far as it goes. |
+| a Testbed capture of the procedural baobab | | 16 098 / 32 184 | **garbage** — a scene has no single foreground for the cut-out to find, and the model was handed scattered blobs of grass and canopy. |
+
+Wall time for the four: 190 s; the working set reached at least 11.6 GB (sampled from outside; the runner's own sampler read zero on that run and is fixed since).
+
+**Verdict: worth having, for one thing.** Feed it **one object on a plain background** — a product-shot reference from `design-references` is the ideal input, and a scene or a capture is not — and it gives back a silhouette and proportions from every side in under a minute, which is more than a picture gives (the cup's handles and bowl depth were never in the front view). It does not give surface detail, branching or anything a mesh would be built from directly; nothing it produces ships, as with the images. `--mc-resolution` is the only dial worth touching. Not tried: Stable Fast 3D (a Stability community licence, the README says CPU-capable) — the next candidate if a finer surface is ever wanted; Hunyuan3D-2's licence excludes the EU and TRELLIS needs CUDA kernels, so neither is on this machine.
 
 ## Comparing captures
 
