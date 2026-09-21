@@ -89,6 +89,7 @@ namespace Prazsky.BS3D
         private readonly Func<BallType> _nextType;
         private readonly Action<int, int> _slotCarried;
         private readonly Action<int, BallType> _slotLoaded;
+        private readonly Action<int, int> _slotSwapped;
 
         /// <param name="nextType">What to load, asked once per dealt slot. Must answer a real
         /// <see cref="BallType"/> — see the class remarks on the invariant. Each executable's own policy; see the
@@ -100,20 +101,28 @@ namespace Prazsky.BS3D
         /// whatever per-slot state a fresh ball has none of. Fires from <see cref="Refill"/> and for
         /// <see cref="Advance"/>'s tail, never from <see cref="Recolour"/> — a re-coloured ball is precisely the
         /// one whose old colour must be kept.</param>
+        /// <param name="slotSwapped">Called once with both slots when <see cref="SwapSlots"/> exchanges them, so
+        /// a caller with per-slot state of its own can exchange it too. Deliberately a <b>separate</b> hook from
+        /// <paramref name="slotCarried"/> rather than two calls to it: that one's own contract is a one-way copy
+        /// (<c>destination = source</c>), correct for <see cref="Advance"/>'s cascading shift and wrong for a
+        /// swap — two such calls in either order leave both slots holding the same value, not exchanged. A
+        /// caller wires this one as a true exchange (a temporary and two writes) over each of its own arrays.
+        /// Null for a caller with no per-slot state (the Testbed) or no swap of its own (#392's first caller).</param>
         /// <remarks>
-        /// Both hooks are handed over <b>once</b>, here, and not per shot: a delegate built at the call site of
-        /// every advance would allocate one per round fired. Neither reads anything back out of the magazine —
+        /// All three hooks are handed over <b>once</b>, here, and not per shot: a delegate built at the call site
+        /// of every advance would allocate one per round fired. None reads anything back out of the magazine —
         /// the loaded hook is <i>given</i> the colour — so a caller can wire them from a constructor that has not
         /// yet assigned the field it is building, which it will: the constructor deals a full queue and fires
         /// <paramref name="slotLoaded"/> <see cref="SIZE"/> times before it returns. Whatever state those hooks
         /// write to has to exist by then, though, which is the caller's own initialisation order to get right.
         /// </remarks>
         public Magazine(Func<BallType> nextType, Action<int, int> slotCarried = null,
-            Action<int, BallType> slotLoaded = null)
+            Action<int, BallType> slotLoaded = null, Action<int, int> slotSwapped = null)
         {
             _nextType = nextType ?? throw new ArgumentNullException(nameof(nextType));
             _slotCarried = slotCarried;
             _slotLoaded = slotLoaded;
+            _slotSwapped = slotSwapped;
 
             //A full queue from the first frame, so the player has something to read and nothing has to cope with
             //an empty slot that cannot legally exist
@@ -208,6 +217,26 @@ namespace Prazsky.BS3D
                 "A magazine slot cannot hold the unused zero ball type; the queue may never empty.");
 
             _queue[slot] = type;
+        }
+
+        /// <summary>
+        /// Exchanges two loaded slots' colours in place — a power-up's own operation (#392, <c>PowerupKind.Swap</c>
+        /// being its first), and the one thing <see cref="Advance"/> and <see cref="Recolour"/> do not offer:
+        /// neither reorders the queue. The "never empty" invariant is untouched, because a swap only ever
+        /// exchanges two already-valid slots, and the slide is left alone — nothing here glides, both balls are
+        /// already exactly where they sit in the bore.
+        /// <para>
+        /// Fires <paramref name="slotSwapped"/> once, with both slots, so a caller can exchange its own per-slot
+        /// state the same way — see that parameter's remarks on why it is not <c>slotCarried</c> called twice.
+        /// A no-op on <c>a == b</c>, which fires nothing: nothing has actually moved.
+        /// </para>
+        /// </summary>
+        public void SwapSlots(int a, int b)
+        {
+            if (a == b) return;
+
+            (_queue[a], _queue[b]) = (_queue[b], _queue[a]);
+            _slotSwapped?.Invoke(a, b);
         }
 
         //Loads one slot from the injected policy and tells the caller about it. The one place a slot's colour is

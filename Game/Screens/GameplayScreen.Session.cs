@@ -310,6 +310,10 @@ namespace BS3D.Screens
             _wildcardEvery = LevelWildcardEvery(index);
             _ballsDealt = 0;
 
+            //This level's power-up charges (#392) — granted fresh here, exactly as the wildcard cadence
+            //above is, so a retry is granted what the level grants and not what a previous attempt spent.
+            GrantPowerupCharges();
+
             //A whole fresh queue for the new level: its colours belong to a level, and the level the standing
             //queue was drawn from is gone. Refill deals every slot through the loaded hook, which is what
             //clears any half-finished dissolve the last session left in one.
