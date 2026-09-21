@@ -255,13 +255,15 @@ Each `SceneKind` names **somewhere in itself worth looking at, and how a camera 
 
 | Scene | Points at | Out | Up | Offset |
 |---|---|---|---|---|
-| City | the canyon: down the shaft the towers rise out of, the one thing about this backdrop a player on the island cannot see | 2.0× | 34° | 135° |
-| Neon city | the lit roofline at the top of that same shaft — a dark shaft photographs as nothing at night | 2.0× | 10° | 160° |
+| City | the canyon: down the shaft the towers rise out of, the one thing about this backdrop a player on the island cannot see — **not flown since #488**, see below | 2.0× | 34° | 135° |
+| Neon city | the lit roofline at the top of that same shaft — a dark shaft photographs as nothing at night — **not flown since #488** | 2.0× | 10° | 160° |
 | Sea | the open water at the horizon, at `SeaSceneConfig.LevelY`: from a few metres up a sea *is* the glint and the horizon | 2.1× | 6° | 0° |
 | Savanna | the campfire, `SavannaCampfirePosition(0)` — the only subject here that is also a **light** | 1.7× | 11° | 35° |
 | Desert | the dune skyline, where one crest stands against the next; from above dunes are a texture | 2.2× | 8° | 0° |
 | Mountains | the peaks, at `LevelY + Height × 0.75` and from the furthest stand in the table | 2.4× | 15° | 0° |
 | Meadow | **the hills**, from down in the grass: the look-at goes out onto the rise and the elevation is **negative** (#447) | 1.8× | −7° | 0° |
+
+**The two cities' viewpoints are stated and no longer flown (#488).** Both cities open their chapter intro — and their tour replayed from the scene menu — on a prologue of cut-together shots in their own streets, and after a prologue the tour flies only its last leg, the map and the arrival (see "The chapter intro" in `docs/game-feedback.md`). The reason is this table's own weakness in a city, which #433 photographed: a viewpoint is a bearing on a circle round the arena, and in a city that circle runs through the towers — the neon roofline's stand came out as a facade at arm's length straight after the prologue's cut. The rows stay, because `TryGetViewpoint` is still the one answer for anything else that asks where the scene is worth looking.
 
 ⚠ **The meadow's own entry was wrong until #447, and it is worth knowing how**, because the same shape of mistake is available to every scene here. It named *the flowers* and stood 70 units out at one unit over the grass, on the argument that a meadow's subject is small and any of the other scenes' distances would show nothing but green. Two things were wrong with that. The **look-at was inside the clearing** — 70 against a `ClearingRadius` of 95 — so the shot pointed at flat ground with the hills starting *behind* it; and the **elevation is measured from the tour's centre**, which is the level's own camera target up at the hanging cluster, so six degrees off *that* still rides high over a meadow whose ground is fourteen units below the arena plane. The first establishing shot of the whole game was a green carpet with no horizon in it.
 
