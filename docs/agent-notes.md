@@ -4888,3 +4888,13 @@ Majitel poslal dvě volné poznámky z pozorování vývoje/hraní, „vytvoř i
 **Nic dalšího si neberu.** #482 čeká jen na majitelovo ucho na fanfáru s hvězdami; pak zavřít.
 
 **Dodatek: #482 zavřeno** — majitel po poslechu ve hře: *„Zní to dobře.“* Pět generovaných zvuků shipuje z `Game/Sfx`, bake za každým chybějícím souborem. Před vydáním zbývá jeho čtení licence (registrace, atribuce); #442 (reference-only výzkum) je tímto předběhnuté a čeká na jeho zavření.
+
+**Dodatek: sedmá dávka volných poznámek majitele (2026-09-21) → šest issues, 1:1.** Duplicity: `gh issue list --search` po tématech + `SemanticSearch` (Qwen3, endpoint 8765) na každou poznámku zvlášť — žádná; nejbližší jsou zavřené #472, #384, #290, #363, #413, které nové issues citují.
+- **#496** výběr levelu na 3840×1600: stránka moc vysoká a úzká — rozvržení podle poměru stran (navazuje na #472, komentář tam).
+- **#497** dvě řady citlivosti myši: obecná a při míření; gamepad výslovně později (komentář v #477, kterou tahle řada zodpoví).
+- **#498** ohňostroj: whoosh startu moc hlasitý, výbuchy slabé — ⚠ pravděpodobně i důsledek #482 (výbuch je nahrávka přes kompresor + peak 0,95, procedurální byl `Loudness` 0,30 RMS; poměr k procedurálnímu startu nikdo neměřil), komentář v #482.
+- **#499** hint „Click or Space to skip“ při drop cinematic, chvíli po startu (lockout 0,3 s už existuje, jen o něm nikdo neví).
+- **#500** zvuk sestupu stropu vedle modrého blikání (umístěný na desce, tichý, basový; pipeline #482 nebo bake).
+- **#501** Pagoda (35) jako závěr Toweru — pořadí podle obtížnosti, precedens #413/#206, přegenerovat LevelGen + ScoreSim.
+
+**Nic dalšího si neberu.** Rozdělané #493 (FLUX.2 klein): zjištěno, že `black-forest-labs/FLUX.2-klein-4B` je Apache 2.0 a negated, GGUF u `leejet/FLUX.2-klein-4B-GGUF`, VAE `flux2_ae.safetensors` z FLUX.2-dev repa, enkodér Qwen3-4B (máme); nic staženo.
