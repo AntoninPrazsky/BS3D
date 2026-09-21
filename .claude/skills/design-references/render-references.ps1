@@ -58,6 +58,7 @@ param(
     [int]$Port = 7860,
     [string]$DiffusionModel = 'z_image_turbo-Q8_0.gguf',
     [string]$Encoder = 'Qwen3-4B-Instruct-2507-Q8_0.gguf',
+    [string]$Vae = 'ae.safetensors',
     [switch]$NoOffload,
     [string[]]$ExtraServerArgs,
     [switch]$KeepServer
@@ -74,7 +75,7 @@ $models = Join-Path $Root 'models'
 function Resolve-Model([string]$p) { if ([IO.Path]::IsPathRooted($p)) { $p } else { Join-Path $models $p } }
 $diffusion = Resolve-Model $DiffusionModel
 $encoder = Resolve-Model $Encoder
-$vae = Join-Path $models 'ae.safetensors'
+$vae = Resolve-Model $Vae
 foreach ($f in @($exe, $diffusion, $encoder, $vae)) {
     if (-not (Test-Path $f)) { throw "Missing $f - see 'Setting it up' in the design-references SKILL.md." }
 }
@@ -209,7 +210,7 @@ try {
             #the server options too, since a highres fix changes the output while the request stays the same.
             $meta = "name: $($it.Name)`r`nseed: $s`r`nsize: $($it.W)x$($it.H)`r`nsteps: $Steps`r`nmodel: " +
                 [IO.Path]::GetFileName($diffusion) + " + " + [IO.Path]::GetFileName($encoder) +
-                "`r`nserver: " + $serverNote +
+                "`r`nserver: " + $serverNote + "`r`nvae: " + [IO.Path]::GetFileName($vae) +
                 $(if ($it.Init) { "`r`ninit: $($it.Init)`r`nstrength: " + $it.Strength.ToString([Globalization.CultureInfo]::InvariantCulture) } else { '' }) +
                 "`r`nseconds: " +
                 $secs.ToString('F1', [Globalization.CultureInfo]::InvariantCulture) + "`r`n`r`n$($it.Prompt)`r`n"
