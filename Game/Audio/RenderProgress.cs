@@ -22,6 +22,7 @@ namespace BS3D.Audio
     internal sealed class RenderProgress
     {
         private int _safeFrames;
+        private bool _cancelled;
 
         /// <summary>
         /// The whole piece's own buffer, sized once to its final length and never replaced or resized — set by
@@ -45,5 +46,16 @@ namespace BS3D.Audio
         /// own bug, not a race this class exists to close.
         /// </summary>
         public void Publish(int safeFrames) => Volatile.Write(ref _safeFrames, safeFrames);
+
+        /// <summary>
+        /// Set by the reader that no longer wants this render (#464 — the About page's Next, or the page being
+        /// left): the renderer reads it once a bar, at the publish it would have made there, and unwinds through
+        /// <see cref="System.OperationCanceledException"/>. A bar of synthesis is milliseconds of work, so a
+        /// cancelled render is gone before the one replacing it has published anything. Volatile for the reason
+        /// the count is; one-way, since a render that has unwound cannot be resumed.
+        /// </summary>
+        public bool Cancelled => Volatile.Read(ref _cancelled);
+
+        public void Cancel() => Volatile.Write(ref _cancelled, true);
     }
 }

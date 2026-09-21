@@ -175,6 +175,7 @@ namespace BS3D.Tools.MusicBake
             Console.WriteLine("piece            secs  bake  entry   peak    rms   bal  mono | <100 100-200 200-500  500-2k   2k-6k    6k+ |  head   tail");
 
             bool driveOk = true;
+            bool streamOk = true;
 
             foreach (string name in names)
             {
@@ -212,6 +213,40 @@ namespace BS3D.Tools.MusicBake
                     }
                 }
 
+                //#464's other half, checked here too: a STREAMED render of the same piece — driven a bar at a
+                //time behind its margin, the tail at the end — has to come out as the one-shot render did, or the
+                //About page plays something this tool never measured. To within one 16-bit step rather than to
+                //the bit: the streamed render drives by the stored figure and the one-shot by its own fresh one,
+                //which agree to DRIVE_TOLERANCE and not exactly. A bar left undriven, driven twice, or published
+                //before it was finished would show as whole samples off, never as a single step.
+                if (!menu)
+                {
+                    RenderProgress progress = new();
+                    float[] streamed = ProceduralMusic.Render(Enum.Parse<MusicTheme>(name), out _, progress);
+
+                    int worst = 0, differing = 0;
+                    if (streamed.Length != mix.Length || progress.SafeFrames != streamed.Length / 2) worst = int.MaxValue;
+                    else
+                    {
+                        byte[] a = ProceduralMusic.ToPcm(mix), b = ProceduralMusic.ToPcm(streamed);
+                        for (int i = 0; i < a.Length; i += 2)
+                        {
+                            int d = Math.Abs((short)(a[i] | (a[i + 1] << 8)) - (short)(b[i] | (b[i + 1] << 8)));
+                            if (d == 0) continue;
+                            differing++;
+                            if (d > worst) worst = d;
+                        }
+                    }
+
+                    Console.WriteLine(worst == 0
+                        ? "  stream: identical to the one-shot render"
+                        : worst == int.MaxValue
+                            ? $"  ⚠ stream: {streamed.Length} samples against {mix.Length}, {progress.SafeFrames} frames published"
+                            : $"  stream: within {worst} step{(worst == 1 ? "" : "s")} of 16-bit on {differing} of {mix.Length} samples");
+
+                    if (worst > 1) streamOk = false;
+                }
+
                 if (write) WriteWav(Path.Combine(outDir, $"{name.ToLowerInvariant()}.wav"), mix, SAMPLE_RATE);
             }
 
@@ -219,6 +254,12 @@ namespace BS3D.Tools.MusicBake
             {
                 Console.WriteLine("\nLIMITER_DRIVE is stale against at least one piece above — a streamed render of it would use the wrong gain.");
                 return 3;
+            }
+
+            if (!streamOk)
+            {
+                Console.WriteLine("\nA streamed render above is not the one-shot render — the About page would play something this tool never measured.");
+                return 4;
             }
 
             if (write) Console.WriteLine($"\nWritten to {Path.GetFullPath(outDir)}");
