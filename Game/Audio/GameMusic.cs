@@ -30,7 +30,8 @@ namespace BS3D.Audio
     /// <see cref="SoundEffect"/> gives its samples back to no one, and the feed has to submit them itself. They are
     /// written by <c>Tools/MusicBake --tracks</c> from the float masters, brought to the loudness the procedural
     /// piece in the same slot measured, which is why <see cref="MUSIC_VOLUME"/> and <see cref="MENU_VOLUME"/> kept
-    /// their values: the mix the effects were tuned against did not move.
+    /// their values: the mix the effects were tuned against did not move — until #467 raised the music, see
+    /// <see cref="MUSIC_VOLUME"/>.
     /// </para>
     /// </summary>
     public sealed class GameMusic : IDisposable
@@ -43,13 +44,23 @@ namespace BS3D.Audio
         private const int SAMPLE_RATE = 48000;
 
         /// <summary>
-        /// The authored level of the music, well under the effects — a soundtrack is not an event. A constant
-        /// so the balance keeps its tuning; the player's settings rows scale it through <see cref="Gain"/>.
+        /// The authored level of the music, under the effects — a soundtrack is not an event. A constant so the
+        /// balance keeps its tuning; the player's settings rows scale it through <see cref="Gain"/>.
+        /// <para>
+        /// <b>0.34 → 0.5 (+3.4 dB) in #467</b>, on the owner's ear: the music sat noticeably under the effects with
+        /// every row at 100 %, and the rows only attenuate, so he had no lever. The 0.34 was tuned against the
+        /// procedural score, and the generated tracks (#443) were brought to the same RMS — but a full-band mix
+        /// cut from a render and a sparse synthetic piece at one RMS are not one loudness, and RMS is all the
+        /// bakery measures. The first of the two steps the issue proposes (0.5, then 0.7); the ear decides the
+        /// second. A theme peaks under full scale, so it cannot clip alone at any gain up to 1 — the sum with a
+        /// big release is what to listen for.
+        /// </para>
         /// </summary>
-        public const float MUSIC_VOLUME = 0.34f;
+        public const float MUSIC_VOLUME = 0.5f;
 
-        /// <summary>The front end's loop, under even the theme: a lobby, not a dancefloor.</summary>
-        public const float MENU_VOLUME = 0.2f;
+        /// <summary>The front end's loop, under even the theme: a lobby, not a dancefloor. Raised with the theme in
+        /// #467 by the same ratio (0.2 → 0.29), so the lobby-to-level step #456 fades is what it was.</summary>
+        public const float MENU_VOLUME = 0.29f;
 
         //How long a piece the player is walking away from takes to leave (#211): the theme can be left mid-chorus
         //and is the widest thing here to put down gently, while leaving the lobby should feel prompt — it is a
