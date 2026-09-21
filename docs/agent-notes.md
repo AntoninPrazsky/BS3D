@@ -4918,3 +4918,7 @@ Majitel poslal dvě volné poznámky z pozorování vývoje/hraní, „vytvoř i
 **Nic dalšího si neberu.**
 
 **Dodatek: #498 zavřeno** — majitel po poslechu ve hře: *„Teď je to dobré.“* Ohňostroj: výbuch `c-12` (rána), start bez hvizdu na 0,012, reporty přes zákon bake; fanfára slyšet.
+
+**Dodatek: #502 založeno, #501 hotovo a zavřeno (merge `7e38b70`).** Majitel při pohledu kamery nahoru na ohňostroj (#430) vidí pohár zespodu a spodek je plochý → **#502** (klenutá noha v lathe profilu `TrophyMesh`, navinutá dolů; ověřit na stránce výsledku a Testbedem zespodu). **#501:** Pagoda z páté pozice Toweru na poslední (40.), pět designů za ní o jednu výš; Pylon si nechává fyzikální tezi a vzdává „finále“ (komentář opraven). `LevelGen` prošel branami (soubory levelů bajtově stejné, jen `Levels.json` — pořadí a poziční rampa, Pagoda odemyká na 76 hvězd), `ScoreSim` čistý. Zapsáno jako sedmé rozhodnutí o pořadí v „Play order inside a block“.
+
+**Nic dalšího si neberu.** Z dnešní dávky zbývají #496 (výběr levelu na 3840×1600), #497 (dvě řady citlivosti), #499 (hint skip), #500 (zvuk sestupu stropu), #502 (noha poháru); GPU: #493 sweep, #491, #495.
