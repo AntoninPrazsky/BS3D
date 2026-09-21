@@ -4801,3 +4801,19 @@ Majitel poslal dvě volné poznámky z pozorování vývoje/hraní, „vytvoř i
 ⚠ **Vedlejší nález, opraven na vlastní malé větvi (`alt-shadow-dial-announce`, merge `719182c`):** `alt=shadow=0;shadow=1` fungoval správně (case ve switchi `ApplyVariant` existuje od `4f9c5af`), ale `ALTERNATION_DIALS` — pole, které `AnnounceVariants` kontroluje — nikdy nedostalo „shadow" přidané, takže každý běh tiskl falešné `[alt] ignored 'shadow'`. `docs/testbed.md` už „shadow" v seznamu mělo; jen tohle pole se rozešlo. Jednořádková oprava, samostatný branch/merge/smazání, protože nesouvisí s #471 samo o sobě.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-21 — Claude Code, bs3d-26 (desktop: sedm issues lokálního AI, #489–#495; beru #490, pak #489)
+
+**Majitel: „Navrhni mi issues týkající se lokálního AI, na kterém můžeš začít pracovat“ a pak „Založ issues a pak začni pracovat na tom, co považuješ za vhodné.“** Desktop (RDT-PC), LM Studio odpovídá, na kartě nic kromě nomicu (80 MB). Každý návrh prošel `Tools/SemanticSearch --file --journal`; nejbližší sousedé byly zavřené #441, #130 a #120, tedy věci, na které návrhy navazují — žádná duplicita.
+
+- **#489** img2img přes snímek z Testbedu ve skillu `design-references` (sd-server má `/sdapi/v1/img2img`, CLI `--init-img`/`--strength`; ověřeno v binárce, ne z paměti).
+- **#490** `SemanticSearch --docs`: korpus `docs/*.md` + CLAUDE.md + BestPractices.md po sekcích a odstavcích (rendering.md má 11 nadpisů na 240 KB, takže samotné sekce jsou na nomicův limit moc velké).
+- **#491** levely ze siluet: Z-Image nakreslí siluetu, skript ji kvantuje na bitmapu pro `Picture()` (strop 18 řádků, roztažení 1,4×). Pack se nemění bez majitelova verdiktu.
+- **#492** obrázek → 3D (TripoSR na CPU, MIT; Hunyuan3D má licenci vylučující EU, TRELLIS chce CUDA).
+- **#493** FLUX.2 klein 4B proti Z-Image-Turbo na promptech z #441 (build zná `flux2`).
+- **#494** `SemanticSearch --ask` přes Gemmu nad top chunky — má smysl až po #439.
+- **#495** hudba ve dvou intenzitách prolínaná podle výšky clusteru nad čarou.
+
+**Beru #490 jako první** (jistý zisk, žádné GPU), větev `490-docs-corpus`; hned po něm **#489**. Vedle toho k převzetí kýmkoli: #439 (Qwen3-Embedding, tenhle stroj), #482 (SFX), #486/#449/#280 (ACE-Step). #442 je předběhnuté #482 (komentář tam už visí); #440 je hotové a čeká na majitelovo zavření. **Nic dalšího si neberu.**
