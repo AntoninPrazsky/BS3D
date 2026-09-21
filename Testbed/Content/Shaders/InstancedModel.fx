@@ -451,8 +451,8 @@ float4 ShadePixel(float3 worldPosition, float3 rawWorldNormal, float4 occlusionD
     //the relief's self-shadow above does not. Savanna.fx folds its own tap into the same factor, so the
     //grass beside the island and the island itself are shadowed by one rule and cannot disagree.
     //
-    //Uniform branch: ShadowStrength is 0 whenever no map is bound (every scene but the savanna today, the
-    //Low tier, a sun near the horizon), so a wavefront takes one side and nothing inside takes a derivative.
+    //Uniform branch: ShadowStrength is 0 whenever no map is bound (the sea, the storm, a sky-replacing scene,
+    //the Low tier, a sun near the horizon), so a wavefront takes one side and nothing inside takes a derivative.
     [branch]
     if (ShadowStrength > 0.0)
         sunlight *= SunShadow(worldPosition, worldNormal, SunDirection);
