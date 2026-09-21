@@ -292,10 +292,10 @@ namespace Prazsky.BS3D.Physics
             if (cluster.Count < MINIMUM_CLUSTER_SIZE) return default;
 
             XZLevel size = map.GetStaticBallsArraySize();
-            List<ConstraintHandle> handleBuffer = new();
+            _handleScratch.Clear();
 
             foreach (XZLevel cell in cluster)
-                ReleaseBall(cell, physicsBalls, map, simulation, size, handleBuffer, releasedInto);
+                ReleaseBall(cell, physicsBalls, map, simulation, size, _handleScratch, releasedInto);
 
             ThawFrozen(cluster, physicsBalls, map, thawedInto);
 
@@ -303,7 +303,7 @@ namespace Prazsky.BS3D.Physics
             //releasing them explicitly cuts those constraints so they fall as individual balls. Since #396 the
             //walk also sets off any BOMB it finds hanging on nothing, which is why this is one shared method
             //rather than the four copies of the same foreach it used to be — see ResolveDisconnected.
-            BallsReleased fell = ResolveDisconnected(null, physicsBalls, map, simulation, size, handleBuffer,
+            BallsReleased fell = ResolveDisconnected(null, physicsBalls, map, simulation, size, _handleScratch,
                 releasedInto, detonationsInto);
 
             return new BallsReleased(cluster.Count, fell.Orphaned, fell.Destroyed);
@@ -333,6 +333,17 @@ namespace Prazsky.BS3D.Physics
         /// </para>
         /// </summary>
         private static readonly List<XZLevel> _thawScratch = new(12);
+
+        //Three more of the same idea (#513), for the same reason _thawScratch is one: a match's release, a
+        //blast, a zap and a shaft all used to allocate their own working lists fresh, on the one call sequence
+        //in this class that has otherwise gone out of its way to be allocation-free per event. Not per frame —
+        //ReleaseBall.CollectConstraintHandles runs on a landing that actually completed something, a handful
+        //of times a level — so this is a consistency fix, not a measured hot-path one; see #513 for why it is
+        //still worth doing. Cleared at the top of every method that uses one, exactly where the old `new()`
+        //sat, so nothing here depends on a callee's own clearing as an implicit contract.
+        private static readonly List<ConstraintHandle> _handleScratch = new();
+        private static readonly List<XZLevel> _victimsScratch = new();
+        private static readonly List<XZLevel> _shaftScratch = new();
 
         /// <inheritdoc cref="_thawScratch"/>
         private static void ThawFrozen(List<XZLevel> cluster, PhysicsBall[,,] physicsBalls, BallsMap map,
@@ -563,8 +574,9 @@ namespace Prazsky.BS3D.Physics
         {
             if (armed == null || armed.Count == 0) return default;
 
+            _handleScratch.Clear();
             return ResolveDisconnected(armed, physicsBalls, map, simulation, map.GetStaticBallsArraySize(),
-                new List<ConstraintHandle>(), releasedInto, detonationsInto);
+                _handleScratch, releasedInto, detonationsInto);
         }
 
         /// <summary>
@@ -886,9 +898,8 @@ namespace Prazsky.BS3D.Physics
 
             XZLevel size = map.GetStaticBallsArraySize();
             StaticBall[,,] cells = map.GetStaticBallsArray();
-            List<ConstraintHandle> handleBuffer = new();
-
-            List<XZLevel> victims = new();
+            _handleScratch.Clear();
+            _victimsScratch.Clear();
 
             //The zaps themselves first, so a zap that has already left (orphaned by the match this landing
             //completed) takes nothing with it, and one that is still standing is destroyed by its own firing.
@@ -898,7 +909,7 @@ namespace Prazsky.BS3D.Physics
             {
                 if (cells[at.X, at.Z, at.Level] == null || cells[at.X, at.Z, at.Level].Kind != BallKind.Zap) continue;
 
-                victims.Add(at);
+                _victimsScratch.Add(at);
                 fired = true;
             }
 
@@ -914,22 +925,22 @@ namespace Prazsky.BS3D.Physics
 
                         if (ball == null || ball.Type != colour || !BallKinds.Matchable(ball.Kind)) continue;
 
-                        victims.Add(new XZLevel(x, z, level));
+                        _victimsScratch.Add(new XZLevel(x, z, level));
                     }
 
             int destroyed = 0;
 
-            foreach (XZLevel at in victims)
+            foreach (XZLevel at in _victimsScratch)
             {
                 PhysicsBall ball = physicsBalls[at.X, at.Z, at.Level];
 
-                ReleaseBall(at, physicsBalls, map, simulation, size, handleBuffer, releasedInto);
+                ReleaseBall(at, physicsBalls, map, simulation, size, _handleScratch, releasedInto);
                 destroyed++;
 
                 if (ball != null) Loosen(ball);
             }
 
-            BallsReleased fell = ResolveDisconnected(null, physicsBalls, map, simulation, size, handleBuffer,
+            BallsReleased fell = ResolveDisconnected(null, physicsBalls, map, simulation, size, _handleScratch,
                 releasedInto, detonationsInto);
 
             return new BallsReleased(0, fell.Orphaned, destroyed + fell.Destroyed);
@@ -999,8 +1010,8 @@ namespace Prazsky.BS3D.Physics
 
             XZLevel size = map.GetStaticBallsArraySize();
             StaticBall[,,] cells = map.GetStaticBallsArray();
-            List<ConstraintHandle> handleBuffer = new();
-            List<XZLevel> shaft = new();
+            _handleScratch.Clear();
+            _shaftScratch.Clear();
 
             int destroyed = 0;
 
@@ -1009,13 +1020,13 @@ namespace Prazsky.BS3D.Physics
                 if (cells[acid.X, acid.Z, acid.Level] == null
                     || cells[acid.X, acid.Z, acid.Level].Kind != BallKind.Acid) continue;
 
-                map.CollectAcidShaft(acid, shaft);
+                map.CollectAcidShaft(acid, _shaftScratch);
 
-                foreach (XZLevel cell in shaft)
+                foreach (XZLevel cell in _shaftScratch)
                 {
                     PhysicsBall ball = physicsBalls[cell.X, cell.Z, cell.Level];
 
-                    ReleaseBall(cell, physicsBalls, map, simulation, size, handleBuffer, releasedInto);
+                    ReleaseBall(cell, physicsBalls, map, simulation, size, _handleScratch, releasedInto);
                     destroyed++;
 
                     if (ball != null) ball.BallReference.Velocity.Linear += new Vector3(0f, -ACID_SPEED, 0f);
@@ -1024,7 +1035,7 @@ namespace Prazsky.BS3D.Physics
 
             //And the half every removal in this game shares: what was only held up by what just went takes the
             //same path down. On a shaft this is usually the larger number of the two.
-            BallsReleased fell = ResolveDisconnected(null, physicsBalls, map, simulation, size, handleBuffer,
+            BallsReleased fell = ResolveDisconnected(null, physicsBalls, map, simulation, size, _handleScratch,
                 releasedInto, detonationsInto);
 
             return new BallsReleased(0, fell.Orphaned, destroyed + fell.Destroyed);
