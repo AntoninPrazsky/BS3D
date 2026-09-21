@@ -4842,3 +4842,11 @@ Majitel poslal dvě volné poznámky z pozorování vývoje/hraní, „vytvoř i
 - ⚠ **Po restartu LM Studio nenaváže port 1234** (`listen EACCES`): Windows si po každém bootu jinak posunou vyhrazené rozsahy (`netsh interface ipv4 show excludedportrange protocol=tcp`; 1136–1235 po prvním, 1237–1336 po druhém). Server jsem pustil na 8765 a nástroji dal `--endpoint`; zapsáno ve skillu `local-ai` a v dokumentaci. `vision.ps1` a ostatní skripty čekají 1234 dál.
 
 **Nic dalšího si zatím neberu** — z místních AI issues zbývají #482 (SFX model na CPU), #491–#495 a hudba (#486/#449/#280, ACE-Step = Vulkan zátěž, dnes ne).
+
+**Dodatek: #494 je na `main`u — merge `eca8514`**, větev smazaná, issue zavřená. `SemanticSearch --ask` podá přesně ty výsledky, které vytiskl (`--top`, korpusy podle přepínačů, issues jen když žádný jiný), Gemmě 4 (`--answer-model`, thinking vypnuté, teplota 0) a vytiskne krátkou odpověď s čísly poznámek, ze kterých je; s `--mark` řekne, jestli citovaná poznámka nese marker.
+
+- **Změřeno s Gemmou jen na CPU** (`lms load google/gemma-4-12b --gpu off -c 16384`, načtení 15 s, 12,8 GB RAM; po ranních resetech jsem kartu nezatěžoval), deset poznámek na otázku, 3,2–8k tokenů promptu, **53–134 s na odpověď**. Deník (šest otázek z #439): 3× správně s citací záznamu s markerem (StillEmission, Kernel-Power, FunnelMesh), 2× citovaná *jiná část správného záznamu* (CHEEK_INNER_X — kus s markerem byl 17., ResolveDisconnected — 8., ale model citoval sousední zápis), a **1× (ColourTransparentGroup, marker na 49. místě, tedy mimo desítku) sebevědomá odpověď na sousední otázku** o sag probe místo „v poznámkách to není“ — instrukci to říct ignoroval. Dokumentace (čtyři otázky z #490): 4 ze 4 správně s citací správné sekce.
+- **Verdikt: stopa, nikdy zdroj.** Cituje se záznam, ne model; odpověď, jejíž citované záznamy vypadají mimo téma, je znamení, že řazení minulo. Zapsáno v `docs/formats-and-tools.md`, CLAUDE.md a skillu `local-ai`.
+- Regex citací bere i `[3, 8]` — model sdružuje citace, když dvě poznámky říkají totéž.
+
+**Nic dalšího si neberu.** Zbývající místní AI issues: #482 (SFX model na CPU; váhy Stability na HF jsou nejspíš za souhlasem s licencí — majitelův účet), #491/#493 (sd-server, dnes ne), #492 (TripoSR na CPU), #495 (ACE-Step = Vulkan). #440 hotové, čeká na zavření majitelem; #442 předběhnuté #482.
