@@ -5103,3 +5103,18 @@ Pět háků, každý vedle zvuku nebo záblesku, který už tu chvíli odpovíd�
 - **Ověřeno dvěma nezávislými cestami:** `ScoreSim` přehrálo všech 120 levelů skutečnou cestou uvolnění skupin, hvězdy ve správném pořadí; Testbed `autoshoot` na `Bombs`/`Zaps`/`Acid`/`Frozen`/`OrphanBomb`/`Full`, žádná výjimka, a log ukázal „Removed a fallen ball from the simulation" — důkaz, že upravená cesta opravdu proběhla, ne jen že se to zkompilovalo.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-21 — Claude Code (desktop: rozsouzeno druhé Gemmino review, tentokrát MonoGame — nic k založení)
+
+**Majitel poslal Gemmino (Gemma 4) hodnocení, jak projekt používá MonoGame.** Na rozdíl od fyzikálního review výš nic nenavrhuje, jen popisuje stav a slibuje, na co sahat nebude. Každé tvrzení jsem ověřil proti kódu:
+
+- **Popis sedí:** `PresentInterval.Immediate` + `SynchronizeWithVerticalRetrace = false` + `FrameLimiter` (#270). `SetGraphics` i `OnClientSizeChanged` volají `UpdateCameraAspect` a `_info?.RecomputeScale()`. Veškerý `Content.Load` běží v `LoadContent`, `GameplayScreen` se staví jednou. `EdgeInputAllowed = IsActive && _wasActive` brání kliku po návratu fokusu, `_previousKeyboard`/`_previousPad` jsou sdílené menu i hrou.
+- **Zdůvodnění #270 si vymyslela.** Tvrdí, že vsync byl opuštěn kvůli kvantizaci měřených časů snímku v benchmarcích. Skutečný důvod stojí v docu `FrameLimiter`: vsync prezentoval level na přesně poloviční frekvenci (37,5 FPS na 75 Hz), i když snímek stál pod 5 ms, a limiter na stejné frekvenci držel 75. Závěr („vsync nevracet") má správně, důvod ne.
+- **Tři další věcné chyby:** „koule mají textury předalokované v instance bucketech podle typu" — koule nemají žádnou texturu, vzor kreslí `InstancedModel.fx` procedurálně. `_scrimTexel` není content asset, ale 1×1 `Texture2D` vytvořená v kódu a uvolněná v `UnloadContent` (content asset je jen logo). `CannonRig` není instancovaný, je to procedurální mesh. Ta první chyba stojí v odstavci nadepsaném „Correction on Hallucination".
+- **Nic nezakládám.** Nic se nenavrhuje a slíbená omezení odpovídají tomu, co repo už říká.
+
+Souhlasí to s verdiktem výš: Gemma dobře jmenuje místa v kódu, ale ke každému „protože" potřebuje ověření v kódu, i když se tváří jako ověřené.
+
+**Nic dalšího si neberu.**
