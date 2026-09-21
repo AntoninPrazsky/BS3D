@@ -47,9 +47,17 @@ namespace Prazsky.Core.Render
         /// <param name="seed">Rolls everything structural: the spruce's tier layout, the broadleaf's lobes,
         /// the wobble phases. The same seed always builds the same tree.</param>
         /// <param name="segments">Facets around the trunk axis. The crown uses its own facet count.</param>
+        /// <param name="coniferTiers">The fewest whorls a spruce crown rolls (see
+        /// <see cref="ForestTreeConfig.ConiferTiers"/>); ignored for a broadleaf.</param>
+        /// <param name="coniferTierSpread">How many whorl counts a spruce rolls between, from
+        /// <paramref name="coniferTiers"/> up. The defaults are the four-to-six the forest was built with, and
+        /// they consume the seed exactly as it always has, so a caller that passes neither gets the same tree.</param>
+        /// <param name="coniferRaggedness">How uneven a spruce's whorls are (see
+        /// <see cref="ForestTreeConfig.ConiferRaggedness"/>); 1 is the forest as it was built.</param>
         public TreeMesh(GraphicsDevice graphicsDevice, TreeSpecies species,
             float trunkBaseRadius, float trunkTopRadius, float trunkHeight,
-            float crownRadius, float crownHeight, int seed = 0, int segments = 8)
+            float crownRadius, float crownHeight, int seed = 0, int segments = 8,
+            int coniferTiers = 4, int coniferTierSpread = 3, float coniferRaggedness = 1f)
         {
             Random rng = new(seed);
 
@@ -76,7 +84,8 @@ namespace Prazsky.Core.Render
                 irregularityPhase: phase);
 
             Crown = species == TreeSpecies.Conifer
-                ? BuildConiferCrown(graphicsDevice, crownRadius, crownHeight, trunkHeight, rng, phase)
+                ? BuildConiferCrown(graphicsDevice, crownRadius, crownHeight, trunkHeight, rng, phase,
+                    coniferTiers, coniferTierSpread, coniferRaggedness)
                 : new BroadleafCrownMesh(graphicsDevice, crownRadius, crownHeight, trunkHeight, rng, phase);
         }
 
@@ -92,17 +101,18 @@ namespace Prazsky.Core.Render
         /// conifer is its own shadow.
         /// </summary>
         private static LatheMesh BuildConiferCrown(GraphicsDevice graphicsDevice, float radius, float height,
-            float baseY, Random rng, float phase)
+            float baseY, Random rng, float phase, int minTiers, int tierSpread, float raggedness)
         {
-            int tiers = 4 + rng.Next(3);                             //4..6 whorls
+            int tiers = Math.Max(2, minTiers) + rng.Next(Math.Max(1, tierSpread));   //4..6 whorls by default
             float taper = 0.78f + 0.30f * (float)rng.NextDouble();   //how fast the skirts widen downwards
             float pinch = 0.52f + 0.12f * (float)rng.NextDouble();   //how far under a skirt the stem shows
             float tierHeight = height / tiers;
 
             //A ring near the tip is narrower than the wobble's peak, and a displacement past the axis turns
             //the ring inside out — so each ring's wobble is capped at a share of its own radius (against the
-            //largest amplitude rolled below, displacement stays under half the ring).
-            float SafeWobble(float ringRadius, float cap) => MathF.Min(cap, ringRadius / (radius * 0.40f));
+            //largest amplitude rolled below, displacement stays under half the ring). The raggedness scales
+            //that amplitude, so it scales the cap with it.
+            float SafeWobble(float ringRadius, float cap) => MathF.Min(cap, ringRadius / (radius * 0.40f * raggedness));
 
             var profile = new List<LathePoint> { new(0f, baseY + height) };
 
@@ -114,8 +124,10 @@ namespace Prazsky.Core.Render
                 float u = t / (float)tiers;
 
                 //The skirt widens down the crown on the rolled taper, jittered per tier — but never narrower
-                //than the layer above it, or the silhouette inverts into something no spruce grows.
-                float skirtRadius = radius * MathF.Pow(u, taper) * (0.9f + 0.2f * (float)rng.NextDouble());
+                //than the layer above it, or the silhouette inverts into something no spruce grows. The
+                //jitter's width is the raggedness: ±10 % at 1, the forest as it was built.
+                float skirtRadius = radius * MathF.Pow(u, taper)
+                    * (1f - 0.1f * raggedness + 0.2f * raggedness * (float)rng.NextDouble());
                 skirtRadius = MathF.Max(skirtRadius, previousSkirtRadius * 1.06f);
 
                 float droop = tierHeight * (0.12f + 0.16f * (float)rng.NextDouble());
@@ -144,7 +156,7 @@ namespace Prazsky.Core.Render
             //revolution, and at ten facets the 7-wave term aliased down to a lateral shift — fine on a smooth
             //cone, but a skirt edge is the one ring the eye traces, so it gets the sampling to break honestly.
             return new LatheMesh(graphicsDevice, profile, segments: 14,
-                irregularityAmplitude: radius * (0.12f + 0.06f * (float)rng.NextDouble()),
+                irregularityAmplitude: radius * (0.12f + 0.06f * (float)rng.NextDouble()) * raggedness,
                 irregularityPhase: phase);
         }
 

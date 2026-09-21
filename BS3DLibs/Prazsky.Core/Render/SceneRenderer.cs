@@ -1159,7 +1159,7 @@ namespace Prazsky.Core.Render
         //cached once and pushed once.
         private readonly EffectParameter _auroraOriginXZ, _auroraHoleRadius, _auroraView, _auroraProjection,
             _auroraCameraPosition, _auroraInverseViewProjection, _auroraTerrainTime, _auroraSkyTime,
-            _auroraSunColor, _auroraZenithColor, _auroraHorizonColor, _auroraSupersample;
+            _auroraHueShift, _auroraSunColor, _auroraZenithColor, _auroraHorizonColor, _auroraSupersample;
 
         private const int AURORA_GRID_N = 220;
         private const float AURORA_EXTENT = 1200f;
@@ -1568,6 +1568,7 @@ namespace Prazsky.Core.Render
             _auroraInverseViewProjection = _auroraEffect.Parameters["InverseViewProjection"];
             _auroraTerrainTime = _auroraEffect.Parameters["AuroraTerrainTime"];
             _auroraSkyTime = _auroraEffect.Parameters["AuroraSkyTime"];
+            _auroraHueShift = _auroraEffect.Parameters["AuroraHueShift"];
             _auroraSunColor = _auroraEffect.Parameters["SunColor"];
             _auroraZenithColor = _auroraEffect.Parameters["ZenithColor"];
             _auroraHorizonColor = _auroraEffect.Parameters["HorizonColor"];
@@ -1955,8 +1956,17 @@ namespace Prazsky.Core.Render
         /// The caller applies this in its own <c>ApplySkyLighting</c> in place of the four dome-derived
         /// values, and everything else there — the key light's position, the renderers it walks — is unchanged.
         /// </para>
+        /// <para>
+        /// <b>One of them moves: the aurora's</b> (#462 — <see cref="AnimatesLightRig"/>), which takes the
+        /// hue of its own sky, so <paramref name="wallClock"/> is read there and nowhere else. Every other rig
+        /// is a constant of its config and ignores it.
+        /// </para>
         /// </summary>
-        public bool TryGetLightRig(SceneKind kind, out SceneLightRig rig)
+        /// <param name="kind">The scene asked about.</param>
+        /// <param name="wallClock">Wall-clock seconds, the clock <see cref="AuroraGlowColor"/> and the scene's
+        /// own sky run on — only an animated rig reads it.</param>
+        /// <param name="rig">The scene's own rig, when it states one.</param>
+        public bool TryGetLightRig(SceneKind kind, float wallClock, out SceneLightRig rig)
         {
             switch (kind)
             {
@@ -2004,15 +2014,20 @@ namespace Prazsky.Core.Render
                         moon.BackTint.ToVector3());
                     return true;
 
-                //The aurora's is static and deliberately restrained — see AuroraLightingConfig's class doc
-                //for why the balls, the island and the gun do not visibly pulse the way the sky and the
-                //ground do: that would read as a fault rather than as weather.
+                //The aurora's takes the COLOUR of its sky (#462, the owner: "the glow should reflect its
+                //light's colour onto the cannon and the island") but not its breathing — see
+                //AuroraLightingConfig's class doc for why a gun that pulses with the sky reads as a fault. The
+                //hue is the slow drift's (a cycle of minutes), stepped rather than continuous so a host re-lights
+                //its renderers about once a second at most instead of every frame — see AnimatesLightRig.
                 case SceneKind.Aurora:
                     AuroraLightingConfig auroraLighting = _auroraConfig.Lighting;
+                    float steppedMix = MathF.Round(AuroraLightMix(wallClock) * AURORA_RIG_STEPS) / AURORA_RIG_STEPS;
+                    Vector3 hue = Vector3.Lerp(_auroraConfig.Aurora.ColorLow.ToVector3(),
+                        _auroraConfig.Aurora.ColorHigh.ToVector3(), steppedMix);
                     rig = new SceneLightRig(
-                        auroraLighting.SkyAmbient.ToVector3(),
-                        auroraLighting.GroundAmbient.ToVector3(),
-                        auroraLighting.KeyTint.ToVector3(),
+                        TowardsHue(auroraLighting.SkyAmbient.ToVector3(), hue, auroraLighting.GlowTint),
+                        TowardsHue(auroraLighting.GroundAmbient.ToVector3(), hue, auroraLighting.GlowTint * 0.5f),
+                        TowardsHue(auroraLighting.KeyTint.ToVector3(), hue, auroraLighting.GlowTint),
                         auroraLighting.BackTint.ToVector3());
                     return true;
 
@@ -4486,6 +4501,9 @@ namespace Prazsky.Core.Render
             _auroraEffect.Parameters["AuroraCurtainScale"].SetValue(aurora.CurtainScale);
             _auroraEffect.Parameters["AuroraCurtainWarp"].SetValue(aurora.CurtainWarp);
             _auroraEffect.Parameters["AuroraDriftSpeed"].SetValue(aurora.DriftSpeed);
+            _auroraEffect.Parameters["AuroraMorphSpeed"].SetValue(aurora.MorphSpeed);
+            _auroraEffect.Parameters["AuroraRayScale"].SetValue(aurora.RayScale);
+            _auroraEffect.Parameters["AuroraRayStrength"].SetValue(aurora.RayStrength);
             _auroraEffect.Parameters["AuroraPulseSpeed"].SetValue(aurora.PulseSpeed);
             _auroraEffect.Parameters["AuroraPulseDepth"].SetValue(aurora.PulseDepth);
 
@@ -6706,6 +6724,68 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
+        /// The aurora's slow hue drift at <paramref name="wallClock"/>, as the shift it adds to the sky's own
+        /// low-to-high colour ramp (<c>Aurora.fx</c>'s <c>AuroraHueShift</c>): up to half of
+        /// <see cref="AuroraSkyConfig.HueSwing"/> either way, positive towards <see cref="AuroraSkyConfig.ColorHigh"/>.
+        /// </summary>
+        private float AuroraHueShift(float wallClock) =>
+            0.5f * _auroraConfig.Aurora.HueSwing * MathF.Sin(wallClock * _auroraConfig.Aurora.DriftHueSpeed);
+
+        /// <summary>
+        /// Where the band's light <b>as a whole</b> sits between <see cref="AuroraSkyConfig.ColorLow"/> (0) and
+        /// <see cref="AuroraSkyConfig.ColorHigh"/> (1) before the drift moves it: the sky ramps green to violet
+        /// with elevation inside the band, but the lower folds are the brighter and the larger part of what a
+        /// camera near the ground sees, so the light the band throws is mostly green. Judged against captures
+        /// of the sky (#462), not integrated.
+        /// </summary>
+        private const float AURORA_LIGHT_MIX = 0.3f;
+
+        /// <summary>
+        /// The colour mix of the light the aurora throws at <paramref name="wallClock"/> — <see cref="AURORA_LIGHT_MIX"/>
+        /// moved by the very drift the sky draws (<see cref="AuroraHueShift"/>). The one number the ground's
+        /// wash (<see cref="AuroraGlowColor"/>) and the light rig on the island, the gun and the balls
+        /// (<see cref="TryGetLightRig"/>) both read, so neither can disagree with the sky over it.
+        /// <para>
+        /// <b>⚠ Until #462 there was no such agreement to have.</b> The drift was a CPU-side clock only — the
+        /// sky's shader never drew it — and it swung the ground's light the whole way from pure green to pure
+        /// violet, so for half of every cycle the clearing went violet under a sky that stayed green. Found
+        /// when the island first took the same light and came out lavender under a green curtain.
+        /// </para>
+        /// </summary>
+        private float AuroraLightMix(float wallClock) =>
+            MathHelper.Clamp(AURORA_LIGHT_MIX + AuroraHueShift(wallClock), 0f, 1f);
+
+        /// <summary>
+        /// How finely the aurora's light rig follows the hue drift: the colour mix's 0–1 range in this many
+        /// steps. A host re-lights its renderers only when a step changes the rig
+        /// (<see cref="SkyLightRig.StepSceneLight"/>), and the Game's walk over them is an iterator — so a
+        /// continuous hue would cost a re-light and an allocation every frame for a colour that takes over a
+        /// minute to cross its range. At 128 steps a re-light comes about once a second at the drift's
+        /// fastest, and each moves a tint by under one percent, which no eye catches as a step.
+        /// </summary>
+        private const float AURORA_RIG_STEPS = 128f;
+
+        /// <summary>
+        /// True for a scene whose own light rig moves with time (<see cref="TryGetLightRig"/>'s wall-clock
+        /// argument), so a host has to step it (<see cref="SkyLightRig.StepSceneLight"/>) rather than derive it
+        /// once per scene switch. Only the aurora's, since #462.
+        /// </summary>
+        public static bool AnimatesLightRig(SceneKind kind) => kind == SceneKind.Aurora;
+
+        /// <summary>
+        /// Carries a light part of the way to <paramref name="hue"/> <b>at its own brightness</b> — the idea
+        /// <see cref="ForestScatterRenderer"/>'s <c>ShiftTowardsSky</c> applies to a pigment, applied to a
+        /// light: what the aurora gives the island and the gun is its colour, not more or less light.
+        /// </summary>
+        private static Vector3 TowardsHue(Vector3 light, Vector3 hue, float strength)
+        {
+            float hueLuminance = ColorSpace.Luminance(hue);
+            if (hueLuminance <= 1e-4f) return light;
+
+            return Vector3.Lerp(light, hue * (ColorSpace.Luminance(light) / hueLuminance), strength);
+        }
+
+        /// <summary>
         /// The aurora's current dominant colour and brightness (linear radiance), on the same slow hue-drift
         /// clock <c>Aurora.fx</c>'s own sky pass runs (<see cref="AuroraSkyConfig.DriftHueSpeed"/>) but
         /// without that shader's curtain noise or its faster brightness pulse
@@ -6727,7 +6807,7 @@ namespace Prazsky.Core.Render
         public Vector3 AuroraGlowColor(float wallClock)
         {
             AuroraSkyConfig aurora = _auroraConfig.Aurora;
-            float drift = 0.5f + 0.5f * MathF.Sin(wallClock * aurora.DriftHueSpeed);
+            float drift = AuroraLightMix(wallClock);
 
             //A small fraction of the sky's own peak, not all of it (#205's first capture read as daylit
             //rather than night with the sky's own Intensity carried straight across): the sky pass draws
@@ -6759,7 +6839,7 @@ namespace Prazsky.Core.Render
             _auroraCameraPosition.SetValue(frame.Camera.Position);
             _auroraTerrainTime.SetValue(frame.Time);
             _auroraSunColor.SetValue(glow);
-            _auroraZenithColor.SetValue(glow);
+            _auroraZenithColor.SetValue(glow + _auroraConfig.GroundStarlight.ToVector3());
             _auroraHorizonColor.SetValue(_auroraConfig.Lighting.GroundAmbient.ToVector3());
 
             _graphicsDevice.BlendState = BlendState.Opaque;
@@ -6779,6 +6859,7 @@ namespace Prazsky.Core.Render
             _auroraInverseViewProjection.SetValue(Matrix.Invert(frame.Camera.View * frame.Camera.Projection));
             _auroraSupersample.SetValue((float)SupersampleFactor);
             _auroraSkyTime.SetValue(frame.Time);
+            _auroraHueShift.SetValue(AuroraHueShift(frame.Time));
 
             _graphicsDevice.SetVertexBuffer(_spaceQuad);
             _auroraEffect.CurrentTechnique = _auroraSkyTechnique;

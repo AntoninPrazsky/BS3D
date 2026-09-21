@@ -1118,6 +1118,11 @@ namespace MapEditor
                 //drifting for as long as the scene is up, not only on a switch. ApplySkyTint's own value
                 //guard is what keeps this cheap once it settles.
                 _auroraScatter?.ApplySkyTint(_sceneRenderer.AuroraGlowColor(_sceneSeconds));
+
+                //The balls take the sky's hue through the scene's own light rig (#462), on the same clock;
+                //the rig steps rather than slides, so this re-lights about once a second at most.
+                if (_rig.StepSceneLight(_sceneSeconds)) ApplySkyLighting();
+
                 _auroraScatter?.Draw(Camera3D);
             }
         }

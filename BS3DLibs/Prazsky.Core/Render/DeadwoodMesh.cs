@@ -9,7 +9,8 @@ namespace Prazsky.Core.Render
     /// A fallen tree for the savanna (#451): a tapered, slightly bent log lying along +X with its ends sawn
     /// (capped — the cut end is what faces a camera walking past), and a few broken branch stubs standing
     /// off it. Built from <see cref="TubeGeometry"/>'s sticks like the acacia's wood, and drawn in the same
-    /// bleached deadwood colour as a dead tree.
+    /// bleached deadwood colour as a dead tree. Since #462 the aurora's boreal wood lays a few in the snow
+    /// too, through <see cref="ForestScatterRenderer"/>, beside the standing <see cref="SnagMesh"/>.
     /// </summary>
     public sealed class DeadwoodMesh : IProceduralMesh, IDisposable
     {

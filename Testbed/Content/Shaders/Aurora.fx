@@ -272,8 +272,22 @@ float AuroraBandSoftness;
 float AuroraCurtainScale;
 float AuroraCurtainWarp;
 float AuroraDriftSpeed;
+float AuroraMorphSpeed;
 float AuroraPulseSpeed;
 float AuroraPulseDepth;
+
+//The slow hue drift (#462), pushed per frame by DrawAurora from SceneRenderer.AuroraHueShift: added to the
+//low-to-high colour ramp inside the band, so the whole curtain leans greener or more violet over minutes.
+//The same number the ground's light and the island's light rig are coloured from, which is the point of it
+//being pushed rather than re-derived here - until #462 only the CPU side had a drift at all, and the ground
+//went violet under a sky that never did.
+float AuroraHueShift;
+
+//The rays (#462): the fine vertical striation every photograph and every reference rendered for the pass
+//shows INSIDE a curtain - the folds alone read as soft smoke. RayScale is their frequency across the sky,
+//RayStrength how deep they cut the curtain's brightness. See Aurora().
+float AuroraRayScale;
+float AuroraRayStrength;
 
 //The aurora ribbons: a band across the upper sky (elevation measured from the horizon, so BandHeight reads
 //the way its own doc states it — "how much of the upper sky"), folded into curtains by 3D noise on the
@@ -294,7 +308,7 @@ float AuroraPulseDepth;
 //rotated vector has nothing to wrap), and the STREAKS are 3D noise on that rotated direction with its own
 //vertical axis compressed by CurtainWarp — Fbm2Combed's stretch-along-an-axis idea, carried into 3D so
 //there is no 2D chart anywhere underneath it to seam on.
-float3 Aurora(float3 dir, float time)
+float3 Aurora(float3 dir, float time, float pixelAngle)
 {
     float elevation = saturate(dir.y);
     float bandLow = 1.0 - AuroraBandHeight - AuroraBandSoftness;
@@ -315,16 +329,36 @@ float3 Aurora(float3 dir, float time)
     //CurtainWarp compresses the vertical axis of the noise domain, so a fold changes little as elevation
     //rises and reads as a long streak rather than a blob — high warp, long ribbons; low warp (floored well
     //short of zero, or the division blows up), closer to a flat mottle.
+    //
+    //MorphSpeed slides the domain along that same compressed axis (#462): the folds change shape IN PLACE
+    //rather than only being carried round the sky by the drift, which is what a real curtain does — it
+    //ripples and re-forms, it does not rotate like a carousel. Along the long axis on purpose: a slide
+    //there changes a streak slowly, where the same speed across it would sweep folds sideways.
     float3 comb = float3(rotated.x, rotated.y / max(AuroraCurtainWarp, 0.15), rotated.z) * AuroraCurtainScale;
+    comb.y += time * AuroraMorphSpeed;
     float streaks = Fbm3(comb, 4);
     float curtain = pow(saturate(streaks * 0.6 + 0.55), 2.4);
+
+    //The rays (#462): one octave of the same 3D noise on the same rotated direction, at a far higher
+    //frequency across the sky and stretched a further RAY_STRETCH along its long axis, so it is a comb of
+    //thin vertical striations rather than a finer mottle. They cut INTO the curtain's brightness rather than
+    //adding to it, so the folds keep their shape and gain structure inside it. Sliding along the long axis a
+    //few times faster than the folds re-form, which is the slow shimmer real rays have. Faded out as a ray
+    //approaches the pixel's own size - a comb finer than the pixels would alias into crawling moire.
+    const float RAY_STRETCH = 7.0;
+    float3 rayDomain = float3(rotated.x, rotated.y / (max(AuroraCurtainWarp, 0.15) * RAY_STRETCH), rotated.z)
+        * AuroraRayScale;
+    rayDomain.y += time * AuroraMorphSpeed * 4.0;
+    float rays = saturate(0.5 + 1.4 * GradientNoise3(rayDomain));
+    float rayFade = saturate(1.5 - pixelAngle * AuroraRayScale * 3.0);
+    curtain *= lerp(1.0, 0.3 + 1.0 * rays, AuroraRayStrength * rayFade);
 
     //Two clocks summed rather than one, so the envelope never repeats on a plain, watchable period — the
     //slower is 31/100 of the primary rather than a round fraction, for the same reason.
     float pulse = 1.0 - AuroraPulseDepth * (0.5 + 0.5 * sin(time * AuroraPulseSpeed))
                        * (0.7 + 0.3 * sin(time * AuroraPulseSpeed * 0.31 + 1.7));
 
-    float withinBand = saturate((elevation - bandLow) / max(AuroraBandHeight, 1e-4));
+    float withinBand = saturate((elevation - bandLow) / max(AuroraBandHeight, 1e-4) + AuroraHueShift);
     float3 colour = lerp(AuroraColorLow, AuroraColorHigh, withinBand);
 
     return colour * (AuroraIntensity * band * curtain * pulse);
@@ -367,7 +401,7 @@ float4 AuroraSkyPS(AuroraSkyVertexOutput input) : COLOR
     //Additive, not composited: the aurora adds light in FRONT of the stars rather than replacing them, so
     //a bright fold never fully erases what is behind it — the issue's own "stars partially visible
     //through/alongside the aurora".
-    sky += Aurora(dir, AuroraSkyTime);
+    sky += Aurora(dir, AuroraSkyTime, pixelAngle);
 
     return float4(sky, 1.0);
 }
