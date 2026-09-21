@@ -825,6 +825,13 @@ namespace Prazsky.Core.Render
         private readonly VertexBuffer _flameVertexBuffer;
         private readonly IndexBuffer _flameIndexBuffer;
 
+        //Sub-flames per fire (#481), matching Flame.fx's own SUBFLAME_COUNT exactly: separate camera-facing
+        //quads rather than one, so a fire has a silhouette that parallaxes as the view orbits it instead of
+        //flipping between "fire" and "a picture of a fire" the way one quad always does. The buffer built
+        //below is FLAME_SUBFLAME_COUNT quads laid end to end, X of each vertex's Position carrying which one
+        //it belongs to - the shader indexes its own offset/scale/seed tables with it.
+        private const int FLAME_SUBFLAME_COUNT = 3;
+
         //The sparks over each fire (#468): one shared buffer of MAX_SPARKS billboards, the fire's own
         //technique in Flame.fx animating them off the wall clock, drawn per fire after its flame.
         private const int MAX_SPARKS = 32;
@@ -1398,19 +1405,34 @@ namespace Prazsky.Core.Render
             BuildSavannaScatter();
             BuildHearthStones();
 
-            //--- Campfire flame: one billboard drawn as a procedural flame at the campfire position
+            //--- Campfire flame: FLAME_SUBFLAME_COUNT billboards per fire (#481), one quad each, laid end to
+            //end in a single buffer - Position.X of every vertex of a quad carries which sub-flame it is,
+            //which is all Flame.fx needs to look up that sub-flame's own offset/scale/seed.
             _flameEffect = content.Load<Effect>("Shaders/Flame");
-            BillboardVertex[] flameVertices =
+            BillboardVertex[] flameVertices = new BillboardVertex[FLAME_SUBFLAME_COUNT * 4];
+            short[] flameIndices = new short[FLAME_SUBFLAME_COUNT * 6];
+
+            for (int sub = 0; sub < FLAME_SUBFLAME_COUNT; sub++)
             {
-                new(Vector3.Zero, new Vector3(-1f, 0f, 0f)),
-                new(Vector3.Zero, new Vector3(1f, 0f, 0f)),
-                new(Vector3.Zero, new Vector3(-1f, 1f, 0f)),
-                new(Vector3.Zero, new Vector3(1f, 1f, 0f))
-            };
-            _flameVertexBuffer = new VertexBuffer(graphicsDevice, BillboardVertex.Declaration, 4, BufferUsage.WriteOnly);
+                int v = sub * 4;
+                Vector3 subIndex = new(sub, 0f, 0f);
+                flameVertices[v + 0] = new(subIndex, new Vector3(-1f, 0f, 0f));
+                flameVertices[v + 1] = new(subIndex, new Vector3(1f, 0f, 0f));
+                flameVertices[v + 2] = new(subIndex, new Vector3(-1f, 1f, 0f));
+                flameVertices[v + 3] = new(subIndex, new Vector3(1f, 1f, 0f));
+
+                int i = sub * 6;
+                flameIndices[i + 0] = (short)(v + 0);
+                flameIndices[i + 1] = (short)(v + 1);
+                flameIndices[i + 2] = (short)(v + 2);
+                flameIndices[i + 3] = (short)(v + 2);
+                flameIndices[i + 4] = (short)(v + 1);
+                flameIndices[i + 5] = (short)(v + 3);
+            }
+
+            _flameVertexBuffer = new VertexBuffer(graphicsDevice, BillboardVertex.Declaration, flameVertices.Length, BufferUsage.WriteOnly);
             _flameVertexBuffer.SetData(flameVertices);
-            short[] flameIndices = { 0, 1, 2, 2, 1, 3 };
-            _flameIndexBuffer = new IndexBuffer(graphicsDevice, IndexElementSize.SixteenBits, 6, BufferUsage.WriteOnly);
+            _flameIndexBuffer = new IndexBuffer(graphicsDevice, IndexElementSize.SixteenBits, flameIndices.Length, BufferUsage.WriteOnly);
             _flameIndexBuffer.SetData(flameIndices);
             _flameTechnique = _flameEffect.Techniques["Flame"];
             _sparkTechnique = _flameEffect.Techniques["Sparks"];
@@ -6081,9 +6103,10 @@ namespace Prazsky.Core.Render
         /// in front hides one) but writing no depth. The light each casts is a separate scene point light.
         /// Savanna scene only, drawn last with the overlays.
         /// <para>
-        /// A draw per fire rather than one instanced pass: it is two triangles each, eight of them at most,
-        /// once a frame and only in this scene — and the alternative is an instance buffer and a vertex format
-        /// for a quad that already has neither. What varies per fire is two uniforms.
+        /// A draw per fire rather than one instanced pass: it is <see cref="FLAME_SUBFLAME_COUNT"/> quads
+        /// each (#481, six triangles), eight fires at most, once a frame and only in this scene — and the
+        /// alternative is an instance buffer and a vertex format for a quad that already has neither. What
+        /// varies per fire is two uniforms; the sub-flames themselves are the one buffer built once.
         /// </para>
         /// </summary>
         private void DrawFlame(in SceneFrame frame)
@@ -6126,7 +6149,7 @@ namespace Prazsky.Core.Render
                 flameTime.SetValue(frame.Time + fire * 3.77f);
 
                 _flameEffect.CurrentTechnique.Passes[0].Apply();
-                _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, 2);
+                _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, FLAME_SUBFLAME_COUNT * 2);
             }
 
             //The sparks (#468): the same per-fire uniforms over the shared spark buffer, one draw per fire.
