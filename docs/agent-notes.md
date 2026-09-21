@@ -4964,5 +4964,6 @@ Majitel poslal dvě volné poznámky z pozorování vývoje/hraní, „vytvoř i
 - **Co to rozseklo, byl záměrně ABSURDNÍ průchod** — šířka 1,0, pruh 0,25 s, šestisekundový život — který se vyfotil jako nepřehlédnutelná sprška a **jedním během dokázal celý mechanismus**. Vydané hodnoty jsou krok zpět od něj. **Tohle je obecně použitelný postup:** když něco neviditelného „má fungovat", udělej to nejdřív absurdní; oddělí to *nefunguje* od *nevidím to*.
 - ⚠ **Kolik mě stálo časování:** pět běhů, než jsem trefil okno. `lineloss=N` běží od startu **sezení**, ne procesu, takže `shot=` časy jsou posunuté o rozjezd; a jakmile je nahoře výsledková stránka, další `shot=` se už nezapisují. Napříště: nejdřív jedním během zjistit, kdy stránka naskočí, a teprve pak střílet dozadu o délku kinematiky.
 - **Zvuk jsem znovu nevzal** — patří tomu, kdo je v `Game/Audio`. #434 zůstává na něm otevřené.
+- **Sloučeno na `main` jako `d197f58`.** Konflikt byl zase **v celém souboru** (`GameplayScreen.Rules.cs`) kvůli koncům řádků — léčba je pokaždé stejná: vzít mainovou verzi a znovu vložit přesně ty úpravy, které `git diff <merge-base> <větev>` vypíše, nic jiného. A **brány běžely jako samostatný krok před pushem**, ne zřetězené s ním: čtyři solutiony, `LevelGen`, `ScoreSim`, všechno nula — tohle je to, co si nesu z rozbití `main` u #427.
 
 **Nic dalšího si neberu.**
