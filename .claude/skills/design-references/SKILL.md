@@ -58,7 +58,7 @@ The first image of a run costs about 8 s more than the rest (the init image's VA
 
 ## A second model: FLUX.2 klein 4B (#493, set up and half-measured)
 
-`-DiffusionModel flux-2-klein-4b-Q8_0.gguf -Encoder Qwen3-4B-Q8_0.gguf -Vae full_encoder_small_decoder.safetensors -NoOffload -Steps 4` — the files are in `models\` (from `leejet/FLUX.2-klein-4B-GGUF`, `unsloth/Qwen3-4B-GGUF` and `black-forest-labs/FLUX.2-small-decoder`, all Apache 2.0 and none gated; the FLUX.2-dev VAE is gated, the small decoder is sd.cpp's own listed alternative). The encoder is the plain Qwen3-4B, not Z-Image's Instruct-2507 — the one klein was trained against.
+`-DiffusionModel flux-2-klein-4b-Q8_0.gguf -Encoder Qwen3-4B-Q8_0.gguf -Vae full_encoder_small_decoder.safetensors -NoOffload -Steps 4` — the files are in `models` (from `leejet/FLUX.2-klein-4B-GGUF`, `unsloth/Qwen3-4B-GGUF` and `black-forest-labs/FLUX.2-small-decoder`, all Apache 2.0 and none gated; the FLUX.2-dev VAE is gated, the small decoder is sd.cpp's own listed alternative). The encoder is the plain Qwen3-4B, not Z-Image's Instruct-2507 — the one klein was trained against.
 
 **Measured on 2026-09-21, before the machine reset on both runs:**
 
@@ -81,7 +81,7 @@ The first image of a run costs about 8 s more than the rest (the init image's VA
       --upscale-model C:\Users\panrd\AI\sd\models\RealESRGAN_x4plus_anime_6B.pth -o <out.png>
   ```
   1216×832 → 4864×3328, 8.2 s of upscaling, tiled at 128 px so the memory cost is nothing. The **anime_6B** variant is the right one for this project's references — it is trained for illustration, which is what a flat glossy logo or a concept sheet is; the general `x4plus` model invents photographic texture. Checked at 1:1 against a bicubic resample of the same image to the same size: the keyline is a clean edge instead of a soft ramp and the speculars keep a defined border. Nothing is re-sampled, so the composition is exactly the one that was chosen.
-- The upscaler is not part of the original setup; fetch it once from [Real-ESRGAN v0.2.2.4](https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.2.4/RealESRGAN_x4plus_anime_6B.pth) (18 MB) into `models\`.
+- The upscaler is not part of the original setup; fetch it once from [Real-ESRGAN v0.2.2.4](https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.2.4/RealESRGAN_x4plus_anime_6B.pth) (18 MB) into `models`.
 
 **Watch the variable name if you extend the script.** PowerShell identifiers are case-insensitive, so a parameter `$ServerArgs` *is* the local `$serverArgs` the script builds its command line in: the local assignment silently ate the parameter, the array was appended to itself, and the run looked normal while rendering at the old size with none of the flags. The parameter is `-ExtraServerArgs` for that reason. A rendered image proves nothing about which flags were used — read them back out of `server.log`.
 
@@ -143,7 +143,7 @@ The owner judges whether a reference helps, so **publish a page**: each image wi
 
 Everything lives in `C:\Users\panrd\AI\sd`, outside the repository. Nothing is installed; it is one unpacked zip and three model files.
 
-- `bin\`: the Windows **Vulkan** build from [stable-diffusion.cpp releases](https://github.com/leejet/stable-diffusion.cpp/releases), `sd-master-<hash>-bin-win-vulkan-x64.zip`. Measured with `master-869-07a85c7`.
+- `bin`: the Windows **Vulkan** build from [stable-diffusion.cpp releases](https://github.com/leejet/stable-diffusion.cpp/releases), `sd-master-<hash>-bin-win-vulkan-x64.zip`. Measured with `master-869-07a85c7`.
 - `models\z_image_turbo-Q8_0.gguf` (6.6 GB): [leejet/Z-Image-Turbo-GGUF](https://huggingface.co/leejet/Z-Image-Turbo-GGUF). Apache 2.0.
 - `models\Qwen3-4B-Instruct-2507-Q8_0.gguf` (4.3 GB), the text encoder: [unsloth/Qwen3-4B-Instruct-2507-GGUF](https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF). Apache 2.0.
 - `models\ae.safetensors` (335 MB), the VAE: [Comfy-Org/z_image_turbo](https://huggingface.co/Comfy-Org/z_image_turbo/tree/main/split_files/vae).
