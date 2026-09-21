@@ -5008,4 +5008,17 @@ Pět háků, každý vedle zvuku nebo záblesku, který už tu chvíli odpovíd�
 - **Vibrace je stav zařízení, ne stav snímku** — mixer se srazí na nulu okamžitě, jakmile podmínka padne, a `UnloadContent` posílá jedno poslední přímé `SetVibration(0, 0)` na odchodu, protože mixer už žádný další frame na dojetí nedostane.
 - Řádek **Rumble** v Nastavení vedle čtyř hlasitostí, stejný žebřík po čtvrtinách s vypnutím, stejná perzistence přes `GameSettings`/`ApplyVolumes`.
 
+---
+
+## 2026-09-21 — Claude Code (notebook: #487 světlušky v lese, merge `03de94a`)
+
+**Vzal jsem #487** — majitel viděl blikající světlo v neon city a chtěl obdobu i v „opravdové" scéně, „na malé ploše, ale jasně vidět". Pracoval jsem na notebooku (ThinkPad, `C:\GitHub`), takže bez desktopových AI nástrojů (LM Studio, stable-diffusion.cpp) — issue sám navrhoval `design-references` na koncept, ale žádný z nabízených nápadů (světlušky, maják, okno v budově) referenční obrázek vlastně nepotřeboval. Větev `487-forest-fireflies`, commit `c537f3a`.
+
+- **`ForestFireflies`** (`BS3DLibs/Prazsky.Core/Render/ForestFireflies.cs`): pár malých koulí nad podlahou lesa, každá bliká ZAPNUTO-VYPNUTO na vlastní periodě, přesně idiomem střešního majáku (#436, `CityRooftops`) — tvrdý sinusový pulz přes podíl vlastní periody — a ne spojitým prskáním ohniště ani měkkým prolnutím okna. Jen emisivní (`EmissiveTint` nad `GLARE_THRESHOLD`, ať to zář), takže nic nesvítí a `SceneLights`' hlídané větve (komentář tam výslovně varuje před sedmou větví) se to vůbec netýká. Config na `ForestSceneConfig.Fireflies`, zapojeno do všech tří spustitelných na stejném místě jako `ForestScatterRenderer`, editor ho přesazuje přesně tam, kde už přesazuje les.
+- ⚠ **První řez byl neviditelný, a byl to stejný druh chyby jako #434's jiskry: MĚŘÍTKO.** `BodyRadius` 0,07 (opravdová velikost světlušky) na 40–90 jednotek dálky vyšlo pod pixel při 1600×900 — bloom neměl z čeho kreslit. Ověřeno napřed přes `sceneseed=` (pinned) a pixelový diff mezi snímkem SVÍTÍ/NESVÍTÍ na stejné kameře: barva tam byla, přesně jeden pixel. `BodyRadius` šel na 0,3 — stylizovaná velikost, stejná licence, jakou si bere majákova vlastní nadsazená koule na stožáru — a teď čte jako malá, ale zřetelně viditelná tečka, ověřeno z dálky i zblízka (kamera mířená přímo na jednu světlušku).
+- **Sázka na difference dvou snímků skoro svedla na scestí:** v kameře s dělem v záběru diff nejjasnější místo ukázal na obojek u ústí hlavně (#478) a barvu wildcard cyklu, ne na světlušku — obě se taky mění každý snímek. Rozhodlo teprve spočítání přesného on/off času ze zafixovaného seedu (perioda/fáze) a porovnání s tím, co je na plátně v tu vteřinu.
+- Ověřeno: všechny čtyři solutiony čisté, `LevelGen` i `ScoreSim` prošly (nic z tohohle nemění).
+
+**Nic dalšího si neberu.**
+
 ⚠ **Neověřeno pocitem — na stroji není žádný pad.** #188 už zjistilo, že `true` z `SetVibration` neříká nic o tom, který motor se skutečně točil, a to platí i tady: ověřil jsem kompilaci (všechny čtyři solutiony, `LevelGen`, `ScoreSim`, všechno nula) a běh (`BS3D.exe play level=1 result celebrate stars=3` — kapitolní intro, vynucená výhra, celá tříhvězdná odhalovačka bez výjimky, `SetVibration` se volá a vrací se, ať pad je připojený nebo ne). Síla, délka a rozdělení mezi kanály pro všech pět je první odhad podle stejné úvahy jako u zvuku, ne měření. Issue nechávám otevřené na majitelův pocit — a v komentáři přesně napsané, co má vyzkoušet.
