@@ -19,6 +19,7 @@ The script starts `sd-server` if nothing listens on port 7860 (LM Studio holds 1
 ## What it is for, and what not
 
 - **For:** a few concrete variants before a design is written in code. On #441 it drew five cups for #429 (tall, gems in raised settings, a lathe-readable front view), rooftops and a prop sheet for #436, and the island in six scenes' materials for #404.
+- **A chosen reference can go on to become a mesh reference** (#492): TripoSR on the CPU turns one object on a plain background into an OBJ in about 45 s, silhouette and proportions from every side — see "A mesh from a picture" in the `local-ai` skill.
 - **Not for anything shipped.** No textures, sprites or meshes come out of it. The game stays procedural, and the repository is public, so **keep generated images out of it** unless the owner asks.
 - **Not for exact detail.** Placement in a prompt is a suggestion: sapphires asked "around the base of the bowl" went into the plinth. Text appears when told not to ("5G" printed on a panel and an air conditioner). Counts and proportions drift. Take the idea, not the measurements.
 
