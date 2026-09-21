@@ -784,6 +784,11 @@ namespace BS3D.Screens
             //it does.
             _laserGrid.Flare(WallClock);
 
+            //And it throws sparks where it cut (#434). The crossing point is handed over rather than
+            //recomputed, so the shower and the lens the cinematic just flew there cannot disagree about
+            //where the moment happened.
+            _lineSparks.Strike(crossing);
+
             //And is heard cutting, from the crossing point the lens is flying to (#434)
             Game.Audio.PlayLineLoss(crossing);
 
@@ -911,6 +916,7 @@ namespace BS3D.Screens
             //camera turns around it. Dropped rather than converted to wall clock: a level that has ended has
             //no shot worth still showing.
             _smears.Clear();
+            _lineSparks.Clear();
 
             //The figures are handed over as a SNAPSHOT taken now, not read by the screen when it draws. The
             //level does not stop the instant it is cleared — the collapse is held for a beat and a player who
