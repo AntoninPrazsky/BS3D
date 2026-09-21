@@ -4990,8 +4990,22 @@ Majitel poslal dvě volné poznámky z pozorování vývoje/hraní, „vytvoř i
 
 **#434 jsem zavřel, aniž bych napsal řádek kódu — obě zbývající půlky už na `main` byly, jen to poslední komentáře neřekly.** Zvuk (`3d4453a`, `ProceduralAudio.PlayLineLoss` volané v `BeginLineLoss` hned po `_laserGrid.Flare`) přistál **v 14:23:16**, moje jiskry (`d197f58`) až **v 14:29:38** — o šest minut později. Sprškovou větev jsem ale začal v 14:09, kdy zvuk ještě nikdo neměl, a uzavírací poznámku k issue napsal podle stavu z 14:09, ne podle toho, co mezitím (14:17–14:23) přistálo. Stejnou chybu jsem udělal na dvou místech zároveň — v GH komentáři i tady v žurnálu (řádek 4966: „Zvuk jsem znovu nevzal … #434 zůstává na něm otevřené").
 
-Přesně ten souběh, co [[agent-journal-and-tracker-races]] popisuje, jen tentokrát jsem ho způsobil sám sobě: issue jsem před psaním závěrečného komentáře znovu nenačetl, spoléhal jsem na stav, který jsem znal, když jsem začínal. `gh api .../comments` s časovými razítky to rozsekl na první pohled — šest minut mezi merge zvuku a merge jisker, obě toho dne.
+Přesně ten souběh, na který dva agenti pracující souběžně vždycky narazí dřív nebo později, jen tentokrát jsem ho způsobil sám sobě: issue jsem před psaním závěrečného komentáře znovu nenačetl, spoléhal jsem na stav, který jsem znal, když jsem začínal. `gh api .../comments` s časovými razítky to rozsekl na první pohled — šest minut mezi merge zvuku a merge jisker, obě toho dne.
 
 Zavřel jsem s komentářem citujícím oba merge; `github-2b` (dnešní jméno druhého stroje) mezitím poslal stejné tvrzení dál jako aktuální stav — taky mu to opravuji, ať to netáhne dál.
 
 **Poučení:** `gh issue view --comments` seřazené podle vytvoření nestačí, když dvě relace píšou souběžně — časová razítka (`gh api .../comments --jq '.created_at'`) ukážou, co se překrylo, obyčejný pohled na pořadí komentářů ne.
+
+---
+
+## 2026-09-21 — Claude Code, github-c3 (notebook: #378 gamepad rumble na obou motorech, merge `935cbd2`)
+
+**Vzal jsem #378 — zvuk (#46/#482) a náraz kamery (`CameraShake`) už měly odpověď, ruce ne.** `Game/GamepadRumble.cs`: malý mixer nad oběma tělovými motory, tvar okopírovaný z `CameraShake` (`Prazsky.Core.Camera`) — dva kanály, každý se sčítá a ořezává na 1 přes `Kick(left, right, seconds)` a lineárně dojíždí na nulu za svůj vlastní `seconds`, jedno `SetVibration` volání za frame, aby se dvě události ve stejném snímku sečetly, místo aby druhá tiše přepsala tu první.
+
+Pět háků, každý vedle zvuku nebo záblesku, který už tu chvíli odpovídá — žádný nový hook: výstřel (`Shoot`, vedle `Camera.Shake.Kick`), dopad koule i bez uvolnění (`OnBallLanded`, vedle `PlayLanded`), uvolnění skupiny vážené počtem (vedle `PlayRelease`), krok stropu — na feed kroku napůl, přesně jak to dělá `PlayCeilingStep` i barva záblesku (`StartCeilingDescent`), a hvězda na výsledkové stránce (`AnnounceLandedStars`, vedle `PlayStarEarned`).
+
+- **Co pouští výstup, není to, která obrazovka `Kick` zavolala, ale podmínka čtená znovu každý frame v `BS3DGame.Update`:** `IsActive && Contains<GameplayScreen>() && !Contains<PausePage>()`. Výsledková stránka zůstává povolená záměrně — kryje herní obrazovku, aniž by ji sundala ze zásobníku (#241), a hostí právě tu hvězdnou spoušť. Pauza, ztráta fokusu nebo hlavní menu čtou false bez ohledu na to, co do mixeru ještě sype kryté `Update` pod tím.
+- **Vibrace je stav zařízení, ne stav snímku** — mixer se srazí na nulu okamžitě, jakmile podmínka padne, a `UnloadContent` posílá jedno poslední přímé `SetVibration(0, 0)` na odchodu, protože mixer už žádný další frame na dojetí nedostane.
+- Řádek **Rumble** v Nastavení vedle čtyř hlasitostí, stejný žebřík po čtvrtinách s vypnutím, stejná perzistence přes `GameSettings`/`ApplyVolumes`.
+
+⚠ **Neověřeno pocitem — na stroji není žádný pad.** #188 už zjistilo, že `true` z `SetVibration` neříká nic o tom, který motor se skutečně točil, a to platí i tady: ověřil jsem kompilaci (všechny čtyři solutiony, `LevelGen`, `ScoreSim`, všechno nula) a běh (`BS3D.exe play level=1 result celebrate stars=3` — kapitolní intro, vynucená výhra, celá tříhvězdná odhalovačka bez výjimky, `SetVibration` se volá a vrací se, ať pad je připojený nebo ne). Síla, délka a rozdělení mezi kanály pro všech pět je první odhad podle stejné úvahy jako u zvuku, ne měření. Issue nechávám otevřené na majitelův pocit — a v komentáři přesně napsané, co má vyzkoušet.
