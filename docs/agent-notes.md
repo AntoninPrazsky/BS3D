@@ -4938,3 +4938,5 @@ Majitel poslal dvě volné poznámky z pozorování vývoje/hraní, „vytvoř i
 **Nic dalšího si neberu.** Dávka #496–#502 hotová (#496 a #502 na majitelův pohled). Otevřené místní AI: #493 sweep, #491, #495 (GPU); #440/#442 na zavření.
 
 **Dodatek: #480 na mainu, merge `72253cf`** — pohled výsledkové stránky vzhůru: `GLANCE_RISE` 1,6 → 3,2 s (pád stejně), špičková rychlost SmoothStepu 43 → 22 jednotek/s, `GLANCE_PERIOD` 9,5 → 12,7 (rovný úsek mezi pohledy stejný), výška a hold beze změny (#430 stojí). Pocit je majitelův; další páka kvintický ease, pak výška. **Beru #478** (límec ústí: barva a velikost).
+
+**Dodatek: #478 na mainu, merge `b1773bb`** — límec ústí: před/po ze stejné vteřiny téhož levelu z herní kamery: bílé kolo kolem hlavně (žlutá koule nabitá, 1,35 přes rameno tonemapu vzalo odstín) → tenký kroužek: hřeben 0,98 → 0,86, délka 0,20 → 0,12, jas 1,35 → 1,05. Po-snímek měl nabitou bledou kouli, odstín na syté barvě je majitelův pohled. Dokumentace límce: v docs zmínka nebyla, doplňuji zvlášť.
