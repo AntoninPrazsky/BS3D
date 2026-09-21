@@ -1,16 +1,29 @@
-//The visible fire of the savanna's campfires (#282, #468): one upright billboard per fire, the pixel shader
-//a procedural FIRE - several tongues that split and rejoin over a turbulent body, a broad yellow-white base
-//over the hearth narrowing into orange licks with red tips and detached red shreds - and, in a second
-//technique over a small shared buffer of billboards, the sparks rising out of it. Both drawn additively and
-//bright (radiance well over 1), so they glow and bloom through the glare pass the way a real fire throws
-//light. The illumination a fire casts on the ground, the balls and the island is a separate scene point
-//light (see AddSceneLights); this is only the source you see. Depth-read (the terrain or platform in front
-//hides it) but writes no depth. Testbed-shared, SM 5.0.
+//The visible fire of the savanna's campfires (#282, #468, #481): SUBFLAME_COUNT upright billboards per fire
+//- not one - the pixel shader a procedural FIRE on each: several tongues that split and rejoin over a
+//turbulent body, a broad yellow-white base over the hearth narrowing into orange licks with red tips and
+//detached red shreds - and, in a second technique over a small shared buffer of billboards, the sparks
+//rising out of it. Both drawn additively and bright (radiance well over 1), so they glow and bloom through
+//the glare pass the way a real fire throws light. The illumination a fire casts on the ground, the balls
+//and the island is a separate scene point light (see AddSceneLights); this is only the source you see.
+//Depth-read (the terrain or platform in front hides it) but writes no depth. Testbed-shared, SM 5.0.
 //
 //Until #468 this was ONE tongue: a centre line wobbled by two sines, a width of (1 - v), amber core to
 //orange edge, no red anywhere and no structure inside - exactly a candle or a lighter, which is what the
 //owner saw. The references rendered for it (468-campfire-photo, 468-campfire-concept) are the brief: a wide
 //bright base, tongues that break apart higher up, red only at the outer tips and in what detaches, sparks.
+//
+//#468 fixed the SHAPE and left the SILHOUETTE: every fire was still exactly one camera-facing quad, so
+//however good the plasma inside it, the fire could never be seen from the side - a billboard always turns
+//to face the lens, so orbiting it (the chapter intro and the front end's menu both orbit round fire 0) never
+//shows a different face, which is the one thing a real fire always does. #481 is this: SUBFLAME_COUNT
+//separate billboards per fire, each its own small camera-facing quad at its own offset from the hearth
+//centre and its own seed (so no two run the same plasma), rather than one quad scaled up. Every one still
+//turns to face the camera on its own - the depth comes from the OFFSETS parallaxing against each other and
+//against the ground as the view moves, exactly the trick a tree's billboard cross or a grass clump's few
+//crossed quads already use, and the pattern LavaFountain.fx already uses for the volcano's jets (one static
+//buffer of camera-facing quads, drawn per source). Sub-flame 0 sits exactly where the old single quad did,
+//at its old scale and seed, so the view the fire was tuned against (front-on, from the play camera) is
+//pixel-for-pixel what it always was; only the two smaller sub-flames beside it are new.
 
 #define VS_SHADERMODEL vs_5_0
 #define PS_SHADERMODEL ps_5_0
@@ -53,9 +66,21 @@ static const float3 FIRE_CORE = float3(1.9, 1.35, 0.45);
 static const float3 SPARK_HOT = float3(3.0, 2.0, 0.8);
 static const float3 SPARK_COOL = float3(1.4, 0.2, 0.03);
 
+//The fire's sub-flames (#481): a fixed arrangement, not a per-fire random one - it is the fire's own shape,
+//the way three tongues rather than two is. Index 0 is the old single quad exactly (zero offset, full scale,
+//no seed shift); 1 and 2 are smaller licks tucked either side of it, close enough that head-on they read as
+//part of the same fire rather than three campfires, far enough apart that orbiting the hearth visibly
+//parallaxes them against each other and the ground. World-space XZ, a fraction of FlameSize.
+#define SUBFLAME_COUNT 3
+static const float2 SUBFLAME_OFFSET[SUBFLAME_COUNT] = { float2(0.0, 0.0), float2(0.34, 0.20), float2(-0.28, -0.24) };
+static const float SUBFLAME_SCALE[SUBFLAME_COUNT] = { 1.0, 0.62, 0.55 };
+//Added straight onto FlameSeed before it drives the plasma (FlamePS's own r), so no two sub-flames of the
+//same fire share a turbulence any more than two different fires do.
+static const float SUBFLAME_SEED_OFFSET[SUBFLAME_COUNT] = { 0.0, 1.7, 3.1 };
+
 struct FlameVertexInput
 {
-    float4 Position : POSITION0; //the fire quad: ignored (one billboard at FlamePosition); a spark: its three randoms
+    float4 Position : POSITION0; //the fire quad: X is which sub-flame (#481), 0..SUBFLAME_COUNT-1; a spark: its three randoms
     float3 Data : TEXCOORD0;     //the fire quad: (corner u in {-1,1}, corner v in {0,1}, unused); a spark: (corner x, corner y in {-1,1}, a fourth random)
 };
 
@@ -64,6 +89,7 @@ struct FlameVertexOutput
     float4 Position : SV_POSITION;
     float2 UV : TEXCOORD0;
     float Fade : TEXCOORD1;
+    float SeedOffset : TEXCOORD2; //which sub-flame this quad is (#481), added onto FlameSeed in the pixel shader
 };
 
 //A camera-facing quad's right vector at a point: horizontal, so the billboard stands upright and turns to
@@ -79,13 +105,21 @@ FlameVertexOutput FlameVS(FlameVertexInput input)
 {
     FlameVertexOutput output;
 
-    float w = FlameSize;
-    float h = FlameSize * FlameHeightScale;
-    float3 world = FlamePosition + FacingRight(FlamePosition) * (input.Data.x * w) + float3(0.0, 1.0, 0.0) * (input.Data.y * h);
+    //Sub-flame 0 is FlamePosition itself, at full scale - the old single quad, unmoved (#481). The other
+    //two sit a fraction of FlameSize away in world XZ and stand smaller, so head-on the fire still reads as
+    //the one shape it was tuned as, with two lesser licks either side of it.
+    int sub = (int)input.Position.x;
+    float3 subPosition = FlamePosition + float3(SUBFLAME_OFFSET[sub].x, 0.0, SUBFLAME_OFFSET[sub].y) * FlameSize;
+    float scale = SUBFLAME_SCALE[sub];
+
+    float w = FlameSize * scale;
+    float h = FlameSize * FlameHeightScale * scale;
+    float3 world = subPosition + FacingRight(subPosition) * (input.Data.x * w) + float3(0.0, 1.0, 0.0) * (input.Data.y * h);
 
     output.Position = mul(mul(float4(world, 1.0), View), Projection);
     output.UV = input.Data.xy;
     output.Fade = 1.0;
+    output.SeedOffset = SUBFLAME_SEED_OFFSET[sub];
 
     return output;
 }
@@ -94,12 +128,14 @@ float4 FlamePS(FlameVertexOutput input) : COLOR
 {
     float u = input.UV.x; //[-1,1]
     float v = input.UV.y; //[0,1], 0 at the base
-    float r = FlameSeed;
+    //The seed offset (#481) is what keeps a fire's own three sub-flames from running the identical plasma a
+    //fraction apart - the same idea FlameSeed already is between different fires, one level down.
+    float r = FlameSeed + input.SeedOffset;
     float t = FlameTime;
 
-    //The body's turbulence: two fBm fields scrolling UP at different rates, offset per fire so no two fires
-    //share a pattern. This is the "plasma" - the structure inside the fire, the ragged edges, and the cut
-    //that breaks the tongues apart towards their tips.
+    //The body's turbulence: two fBm fields scrolling UP at different rates, offset per fire (and per
+    //sub-flame) so no two share a pattern. This is the "plasma" - the structure inside the fire, the ragged
+    //edges, and the cut that breaks the tongues apart towards their tips.
     float2 p = float2(u * 1.8, v * 3.2 - t * 1.2 * r) + float2(r * 11.0, 0.0);
     float n1 = Fbm2(p, 3);
     float n2 = Fbm2(p * 2.1 + float2(3.7, -t * 0.6 * r), 2);
@@ -183,6 +219,7 @@ FlameVertexOutput SparkVS(FlameVertexInput input)
     output.UV = corner;
     //Fades slowly at first and fast at the end, so a spark is seen climbing rather than dying at the base.
     output.Fade = 1.0 - phase * phase;
+    output.SeedOffset = 0.0; //unread by SparkPS; only here because the struct is shared with FlameVS
 
     return output;
 }
