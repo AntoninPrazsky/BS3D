@@ -29,10 +29,29 @@ namespace Testbed
 
         protected override void Draw(GameTime gameTime)
         {
+            //This frame's ball collection, opened here rather than beside the rest of the scene block below —
+            //moved for the balls' own shadow (#470's remaining half): the sun's shadow map is drawn next, and
+            //casting the cluster into it needs the buckets already full. The Game never had to move this; its
+            //screens already collect before their own BeginSceneDraw, which runs the shadow pass first thing.
+            //Gated on _draw exactly as the scene block below is (F6, "Hide/show 3D rendering") and for the same
+            //pairing reason: BeginFrame here is closed by the Draw call inside that block, further down, so the
+            //two must open and close together or the NEXT frame's BeginFrame throws having found this one still
+            //open. A ref struct local by design — see BallRenderSet's remarks — so it cannot leak past this method.
+            if (_draw)
+            {
+                BallDrawFrame frame = _balls.BeginFrame(_camera);
+
+                _collectedBalls = _collector.Collect(frame, (float)gameTime.ElapsedGameTime.TotalSeconds,
+                    _physicsBalls, _shotBalls, _fallingBalls);
+
+                CollectMagazineBalls(frame);
+            }
+
             //The sun's shadow maps come first (#469): their own target, drawn before the scene's
             //DiscardContents target is bound, because binding that target again would clear it. The effect
-            //makes everything drawn through it RECEIVE, and the callback is what the island and the gun CAST
-            //with (#470) — they are this program's objects, so the renderer asks rather than reaches.
+            //makes everything drawn through it RECEIVE, and the callback is what the island, the gun and now
+            //the balls CAST with (#470) — they are this program's objects, so the renderer asks rather than
+            //reaches.
             _sceneRenderer.DrawShadowMaps(_scene, _camera, _rig.SunDirection, _instancingEffect, DrawShadowCasters);
 
             //The scene goes through the HDR target; the crosshair and the text overlay are drawn after the
@@ -156,25 +175,13 @@ namespace Testbed
                 _cannonRig.Draw(_camera, barrelWorld, _sceneEffectParams);
                 _cannonRig.DrawCarriage(_camera, _cannon.CarriageWorld(), _cannon.WheelTravel, _cannon.SlideTravel, _sceneEffectParams);
 
-                //Every ball on the scene, collected and then put out: one instanced draw call per type and LOD
-                //level. BeginFrame empties the buckets and is the only way to fill them, which is what makes the
-                //once-per-frame visit structural rather than a rule to remember — the walk below advances each
-                //ball's occlusion ease and its arrival glide, so a second collection in one frame would run both
-                //at double speed while the drawn frame still looked perfectly correct (see BallRenderSet's
-                //remarks; it throws rather than allow it). A ref struct local by design: it allocates nothing and
-                //cannot be stashed in a field to bucket the next frame's balls against this frame's camera.
+                //Every ball on the scene, put out: one instanced draw call per type and LOD level. Collected
+                //further up this method now, before the shadow map — see the comment there — rather than here;
+                //this is only the close of the frame BeginFrame opened up there, on the WALL clock so the balls
+                //keep breathing while the simulation is paused or slowed.
                 //
                 //Where this sits in the frame is still this file's: over the opaque scene, so the cluster and the
                 //gun are in the depth buffer, and before the shots' additive smears and the drain's glass.
-                BallDrawFrame frame = _balls.BeginFrame(_camera);
-
-                _collectedBalls = _collector.Collect(frame, (float)gameTime.ElapsedGameTime.TotalSeconds,
-                    _physicsBalls, _shotBalls, _fallingBalls);
-
-                //The loaded queue goes into the same open frame, being balls like any other
-                CollectMagazineBalls(frame);
-
-                //Wall clock, not the simulation's step: the balls keep breathing while it is paused or slowed
                 _balls.Draw(_pulseSeconds);
 
                 //The launch smears trailing the shots, over the opaque scene (which the depth buffer now holds,
@@ -237,14 +244,17 @@ namespace Testbed
         }
 
         /// <summary>
-        /// What this program casts into the sun's shadow map (#470): the island, the gun, and in the forest
-        /// the wood standing round them (#471). Handed to
-        /// <see cref="SceneRenderer.DrawShadowMaps"/> with the map's target already bound and its states set.
+        /// What this program casts into the sun's shadow map (#470): the island, the gun, the balls
+        /// (#470's own remaining half, behind the <c>ballshadow=</c> dial below) and in the forest the wood
+        /// standing round them (#471). Handed to <see cref="SceneRenderer.DrawShadowMaps"/> with the map's
+        /// target already bound and its states set.
         /// <para>
         /// <b>It casts exactly what the scene block above draws</b>, on the same conditions — the island
         /// honours <c>arena=</c> inside <see cref="ArenaIsland.DrawShadow"/>, and the gun is drawn in both
         /// modes, so it casts in both. A caster list that drifts from the draw list is a shadow with nothing
-        /// standing in it, or a thing standing in the sun with no shadow.
+        /// standing in it, or a thing standing in the sun with no shadow. The balls follow the same rule
+        /// through <c>_draw</c> (F6): this method does not check it directly, but the buckets it reads are
+        /// only ever filled while <c>_draw</c> is true — see the collection moved to the top of <c>Draw</c>.
         /// </para>
         /// </summary>
         private void DrawShadowCasters(Matrix shadowViewProjection)
@@ -255,6 +265,11 @@ namespace Testbed
             if (_cannonRig != null && _cannon != null)
                 _cannonRig.DrawShadow(shadowViewProjection, _cannon.BarrelWorld(), _cannon.CarriageWorld(),
                     _cannon.WheelTravel, _cannon.SlideTravel);
+
+            //The cluster (#470's own remaining half). Gated by its own dial rather than shipped bare, on the
+            //issue's own instruction: it is the project's heaviest pass, so it gets a measured on/off rather
+            //than joining the island and the gun above unconditionally. See "ballshadow=" in ApplyVariant.
+            if (_ballShadowCasting) _balls?.DrawShadow(shadowViewProjection);
 
             //The wood, on the same gate the scene block draws it on (#471). It is the host's object like the
             //island is, which is why it casts from here and not from inside the renderer. The AURORA's stand

@@ -147,6 +147,12 @@ namespace Testbed
         private bool _gameMode = false;
         private bool _slowSimulation = false;
 
+        //Whether the balls cast into the sun's shadow map (#470's own remaining half), on by default —
+        //ballshadow=0 turns it off for an A/B against the island-and-gun-only shadow #470's base work shipped.
+        //A Testbed-only dial: the Game always casts (BS3DGame.DrawShadowCasters), since there is no session
+        //this measured cost could be too much for that the map's own Strength gate does not already answer.
+        private bool _ballShadowCasting = true;
+
         //How far back the game camera stands and how high it aims - both solved per map and per display by
         //GameCameraFit.Solve rather than tuned, because both of its inputs move underneath a fixed number. Every
         //dial of that solve is GameCameraFit's own since #76 - the camera's height below the trunnions (and the
@@ -873,6 +879,10 @@ namespace Testbed
             //puts both halves of the comparison in one process, on one camera and one scene seed.
             if (_options.ShadowScale >= 0f) _sceneRenderer.ShadowScale = _options.ShadowScale;
 
+            //#470 PROBE: "ballshadow=" pins whether the balls cast into the map, isolating the cluster's own
+            //cost from the island-and-gun-only shadow above. Alternable the same way: alt=ballshadow=0;ballshadow=1.
+            if (_options.BallShadowCasting.HasValue) _ballShadowCasting = _options.BallShadowCasting.Value;
+
             //After the scene renderer, which the rig consults for the scenes that state their own lighting. The
             //cloud hook is captured ONCE here rather than per frame: a method group written at the call site
             //builds a fresh delegate every time it is evaluated, and this one used to be evaluated in Draw.
@@ -1424,7 +1434,7 @@ namespace Testbed
         /// or a setter whose whole effect lands in the same frame.
         /// </summary>
         private static readonly string[] ALTERNATION_DIALS =
-            { "arena", "capprobe", "scene", "sky", "balls", "ssaa", "msaa", "rscale", "detail", "shadow", "shadowmap", "exposure", "nopost" };
+            { "arena", "capprobe", "scene", "sky", "balls", "ssaa", "msaa", "rscale", "detail", "shadow", "shadowmap", "ballshadow", "exposure", "nopost" };
 
         /// <summary>
         /// Prints the sweep's plan before the first window, and names anything it will not switch. A pin that
@@ -1520,6 +1530,13 @@ namespace Testbed
                     //the map whenever the size differs, so each window measures its own map.
                     case "shadowmap":
                         if (int.TryParse(pin.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int mapSize)) _sceneRenderer.ShadowMapSizeOverride = mapSize;
+                        break;
+
+                    //Whether the balls cast into the map (#470's own remaining half). On by default, like
+                    //"shadow" is; ballshadow=0 isolates the cluster's own cost from the island-and-gun-only
+                    //shadow #470's base work already shipped, in one alternating process.
+                    case "ballshadow":
+                        _ballShadowCasting = pin.Value is not ("0" or "false" or "off");
                         break;
 
                     case "exposure":

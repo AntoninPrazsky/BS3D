@@ -1610,6 +1610,100 @@ namespace Prazsky.BS3D
             }
         }
 
+        //Per-LOD scratch for DrawShadow, merging every kind's bucket at one LOD into a single instanced draw
+        //(see DrawShadow's own remarks on why the merge is worth its copy). Pooled the same way the buckets
+        //themselves are - grown by doubling, never shrunk, sized on demand rather than up front, so a caller
+        //that never casts (ShadowConfig.Strength 0, the common case today off the Testbed) allocates nothing.
+        private ModelInstance[][] _shadowScratch;
+        private int[] _shadowScratchCounts;
+
+        /// <summary>
+        /// Casts this frame's collected balls into the currently bound sun shadow map — #470's own remaining
+        /// half, left open there behind a measurement. One depth-only instanced draw per LOD that has anything
+        /// in it, merging every kind's bucket at that LOD first: a shadow map has no colour, so a bomb, a rock
+        /// and a plain vinyl ball are the same solid to it, and the walk needs none of the per-kind branching
+        /// <see cref="Draw"/> does for exactly that reason.
+        /// <para>
+        /// <b>The merge is not an optimisation of convenience.</b> The first cut called <c>DrawDepth</c> once
+        /// per non-empty bucket directly — up to a dozen or so on a level with a few specials loaded — and
+        /// every call switches <see cref="InstancedModelRenderer"/>'s shared effect to its depth technique and
+        /// straight back to the main one, because every LOD's renderer wraps the very same <c>Effect</c>
+        /// instance (see the constructor). On the reference desktop that measured in the noise, the way the
+        /// island and the gun's own casters already do; on a weaker GPU it measured over two milliseconds on
+        /// one 420-ball level, an order of magnitude past what receiving the same map costs the same cluster
+        /// (docs/rendering.md, "the cluster" under #470). Copying every bucket's instances into one array per
+        /// LOD first cuts the technique round-trip from once a bucket to at most once per <see cref="LodCount"/>,
+        /// which is where the machine-dependent cost belonged all along: it is submission overhead, not fill
+        /// rate, and submission overhead is what a slow CPU or driver pays for disproportionately.
+        /// </para>
+        /// <para>
+        /// <b>Must be called after <see cref="BeginFrame"/> and whichever <c>Collect</c>/<c>Add</c> calls have
+        /// populated the buckets, and before <see cref="Draw"/> closes the frame.</b> The sun's shadow map is
+        /// drawn before the scene target is ever bound (<c>SceneRenderer.DrawShadowMaps</c>'s own rule), which
+        /// in the Game already sits after the frame's own collection — the front end's preview collects the
+        /// same way — but the Testbed had to move its collection earlier in the frame for there to be anything
+        /// in the buckets yet to cast.
+        /// </para>
+        /// <para>
+        /// <b>A bucket's own LOD is <c>bucketIndex % LodCount</c></b>, which is what lets one walk merge every
+        /// kind without naming one of them: every region above starts on a multiple of <see cref="LodCount"/>
+        /// (<c>STILL_PLANE_STRIDE</c> is <c>TYPE_COUNT * LodCount</c>, and every region after it is built by
+        /// adding a further multiple of one or the other), so the remainder is always the LOD whichever kind
+        /// or type a bucket belongs to.
+        /// </para>
+        /// </summary>
+        public void DrawShadow(Matrix shadowViewProjection)
+        {
+            if (_frameCamera == null) throw new InvalidOperationException(
+                "BeginFrame must open the frame, and its Collect/Add calls must have populated the buckets, " +
+                "before the balls can be cast into a shadow map.");
+
+            _shadowScratch ??= new ModelInstance[LodCount][];
+            _shadowScratchCounts ??= new int[LodCount];
+
+            Array.Clear(_shadowScratchCounts);
+
+            for (int bucketIndex = 0; bucketIndex < _buckets.Length; bucketIndex++)
+            {
+                int count = _counts[bucketIndex];
+                if (count == 0) continue;
+
+                AppendToShadowScratch(bucketIndex % LodCount, _buckets[bucketIndex], count);
+            }
+
+            for (int lod = 0; lod < LodCount; lod++)
+            {
+                int count = _shadowScratchCounts[lod];
+                if (count == 0) continue;
+
+                _renderers[lod].DrawDepth(shadowViewProjection, _shadowScratch[lod], count);
+            }
+        }
+
+        private void AppendToShadowScratch(int lod, ModelInstance[] source, int count)
+        {
+            ModelInstance[] scratch = _shadowScratch[lod];
+            int existing = _shadowScratchCounts[lod];
+            int needed = existing + count;
+
+            if (scratch == null)
+            {
+                scratch = new ModelInstance[Math.Max(needed, BUCKET_INITIAL_CAPACITY)];
+                _shadowScratch[lod] = scratch;
+            }
+            else if (needed > scratch.Length)
+            {
+                int newLength = scratch.Length * 2;
+                while (newLength < needed) newLength *= 2;
+
+                Array.Resize(ref scratch, newLength);
+                _shadowScratch[lod] = scratch;
+            }
+
+            Array.Copy(source, 0, scratch, existing, count);
+            _shadowScratchCounts[lod] = needed;
+        }
+
         /// <summary>
         /// Puts out everything collected this frame: one instanced draw call per ball type and LOD level, with
         /// that type's material and diffuse tint — twice over for a glass bubble, which is a shell with two

@@ -240,6 +240,13 @@ namespace Testbed.Diagnostics
         /// </summary>
         public float ShadowScale { get; private set; } = -1f;
 
+        /// <summary>
+        /// <c>ballshadow=&lt;0|1&gt;</c>: whether the balls cast into the sun's shadow map (#470's own remaining
+        /// half). Null leaves the Testbed's own default (on) alone, on <see cref="ShadowScale"/>'s pattern -
+        /// this exists so the cluster's own cost can be isolated in an A/B from the island-and-gun-only shadow
+        /// #470's base work already shipped, in one process against a fixed camera and scene seed.
+        /// </summary>
+        public bool? BallShadowCasting { get; private set; }
 
         /// <summary><c>exposure=&lt;f&gt;</c>: the renderer's shutter speed. 0 = unset, so the default stands.</summary>
         public float Exposure { get; private set; }
@@ -423,6 +430,10 @@ namespace Testbed.Diagnostics
                 else if (arg.StartsWith("rscale=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("rscale=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedRscale)) options.RenderScale = parsedRscale;
                 else if (arg.StartsWith("detail=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("detail=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedDetail)) options.SceneDetail = parsedDetail;
                 else if (arg.StartsWith("shadow=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("shadow=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedShadow)) options.ShadowScale = parsedShadow;
+                //Read here for the same reason "logfps" is (see the comment above it): an argument this parse
+                //does not recognise falls through to StartupMapPath, so "ballshadow=0" before now overwrote
+                //whatever level or map path had already been parsed with the literal text "ballshadow=0".
+                else if (arg.StartsWith("ballshadow=", StringComparison.OrdinalIgnoreCase)) options.BallShadowCasting = arg.Substring("ballshadow=".Length) is not ("0" or "false" or "off");
                 else if (arg.StartsWith("exposure=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("exposure=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedExposure)) options.Exposure = parsedExposure;
                 else if (arg.StartsWith("scene=", StringComparison.OrdinalIgnoreCase)) options.Scene = arg.Substring("scene=".Length);
                 else if (arg.StartsWith("sceneseed=", StringComparison.OrdinalIgnoreCase)
