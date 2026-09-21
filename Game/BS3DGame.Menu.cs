@@ -649,6 +649,19 @@ namespace BS3D
                 ? viewpoint
                 : null;
 
+        /// <summary>
+        /// The live scene's own shots to cut together ahead of its chapter tour (#488), or null for a scene
+        /// with none. Only the two cities have any: their street level, plazas and canyons are where no spline
+        /// round the arena can go, and they are built off the city this game is drawing right now — so the
+        /// shots stand in the very streets on screen, the day city's or the neon one's.
+        /// </summary>
+        /// <param name="fieldOfView">The frame the tour ends on, which each shot widens from.</param>
+        /// <param name="random">The intro's own roll.</param>
+        internal BS3D.Effects.IntroShot[] IntroPrologue(float fieldOfView, Random random) =>
+            _scene is SceneKind.City or SceneKind.NeonCity
+                ? BS3D.Effects.CityIntroShots.Build(_city, fieldOfView, random)
+                : null;
+
         internal int LevelCount => _levelSet?.Count ?? 0;
         internal string LevelDisplayName(int index) => _levelSet.DisplayName(index);
         internal string LevelRulesText(int index) => _levelSet.DescribeRules(index);

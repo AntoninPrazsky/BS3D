@@ -39,6 +39,19 @@ namespace BS3D.Effects
     /// it, so a savanna still names its campfire while a meadow still comes in from anywhere.
     /// </para>
     /// <para>
+    /// <b>And since #488 a scene may open with a PROLOGUE of cut-together shots</b> (<see cref="IntroShot"/>) —
+    /// the cities, whose streets, plazas and canyons between towers are ninety units under the island and
+    /// somewhere no spline round the arena can reach without flying through the city on its way. The prologue
+    /// plays first, shot by shot with a hard cut between each, then cuts to the tour. A cut is the one thing
+    /// the blend cannot do and the one thing this needed: so an intro with a prologue is taken with a cut
+    /// (the blend jumps to 1) and a skip during it hands back with one (the blend drops to 0), because a
+    /// blend between the street and the gameplay pose is a straight line through the towers between them.
+    /// After a prologue the tour flies only its LAST leg, the map and the arrival: the prologue has shown the
+    /// place, and in a city the tour's two scene stands are points on a circle round the arena that runs
+    /// through the towers (#433's own finding) — photographed on the neon city as a facade at arm's length
+    /// straight after the cut. The map key stands inside the clearing the island is built in.
+    /// </para>
+    /// <para>
     /// <b>What is deliberately not here, unlike the drop cinematic.</b> There is no subject to follow — the
     /// cluster is hanging, not falling — so there is no time scale: the world runs at its ordinary speed
     /// throughout, because nothing about a fresh level's rest pose needs slowing down to be read. And the
@@ -89,6 +102,24 @@ namespace BS3D.Effects
         private float _blend;
         private float _elapsed;
 
+        //The prologue (#488): shots cut together ahead of the tour, or empty. Its length is added to the
+        //tour's own, so the tour itself is the same flight with or without one.
+        private IntroShot[] _prologue = Array.Empty<IntroShot>();
+        private float _prologueSeconds;
+
+        //How long the tour's last leg runs on its own after a prologue — the map and the arrival (see the
+        //class doc). Long enough for one proper look at the cluster before the gun is handed over.
+        private const float ARRIVAL_SECONDS = 4.5f;
+
+        //The tour flown this time: all four keys, or after a prologue only the last two (their own arrays,
+        //filled in Begin, so Frame walks whichever it is handed and allocates nothing).
+        private readonly Vector3[] _tailPolar = new Vector3[2];
+        private readonly Vector3[] _tailTargets = new Vector3[2];
+        private float TourSeconds => _prologue.Length > 0 ? ARRIVAL_SECONDS : DURATION_SECONDS;
+
+        //The whole intro, prologue and tour.
+        private float TotalSeconds => _prologueSeconds + TourSeconds;
+
         //The shot, rolled once in Begin, so consecutive chapter openings are not the same flight at a
         //different scale: four keys of position and look-at, and the wide legs' field of view. The keys are
         //named by their SUBJECT — environment, arena, map, arrival — because that is the order the owner
@@ -133,13 +164,26 @@ namespace BS3D.Effects
         /// here and half the scenes answer out of it. Null, or a null answer, falls back to the pre-#289
         /// sweep across the island's rim.
         /// </para>
+        /// <para>
+        /// <paramref name="prologue"/> is the scene's own shots to cut together ahead of the tour (#488), or
+        /// null for a scene that has none — every scene but the two cities.
+        /// </para>
         /// </summary>
         public void Begin(Vector3 centre, float gameDistance, float gameFov,
-            Vector3 gamePosition, Vector3 gameTarget, Func<float, SceneViewpoint?> sceneViewpoint, Random random)
+            Vector3 gamePosition, Vector3 gameTarget, Func<float, SceneViewpoint?> sceneViewpoint, Random random,
+            IntroShot[] prologue = null)
         {
             _running = true;
             _elapsed = 0f;
             _centre = centre;
+
+            _prologue = prologue ?? Array.Empty<IntroShot>();
+            _prologueSeconds = 0f;
+            foreach (IntroShot shot in _prologue) _prologueSeconds += shot.Seconds;
+
+            //Taken with a CUT when it opens on a shot of its own: the first shot is a street under the island,
+            //and a blend in from the gameplay pose would glide there through the towers (see the class doc).
+            if (_prologue.Length > 0) _blend = 1f;
 
             //How near the arena the flight is ever allowed to pass — see the clamp in Frame. Just inside the
             //gameplay stand-off, because the LAST key is the gameplay pose and must not be pushed anywhere.
@@ -273,6 +317,11 @@ namespace BS3D.Effects
             //own frame is exactly what the player is handed.
             _fovWide = gameFov * Lerp(random, 0.96f, 1.10f);
             _fovGame = gameFov;
+
+            _tailPolar[0] = _polar[2];
+            _tailPolar[1] = _polar[3];
+            _tailTargets[0] = _targets[2];
+            _tailTargets[1] = _targets[3];
         }
 
         /// <summary>One frame. Call every frame regardless of <see cref="Engaged"/>; a no-op once it is not.</summary>
@@ -282,7 +331,7 @@ namespace BS3D.Effects
             {
                 _elapsed += elapsed;
 
-                if (_elapsed >= DURATION_SECONDS) End();
+                if (_elapsed >= TotalSeconds) End();
             }
 
             float target = _running ? 1f : 0f;
@@ -308,6 +357,11 @@ namespace BS3D.Effects
         {
             if (!_running || _elapsed < SKIP_LOCKOUT) return false;
 
+            //Out of a prologue shot it is a CUT back to the gun, not the ordinary ease: the ease is a straight
+            //line from the lens to the gameplay pose, and from a street ninety units under the island that line
+            //runs through the towers (see the class doc). From the tour it eases as it always has.
+            if (_elapsed < _prologueSeconds) _blend = 0f;
+
             End();
             return true;
         }
@@ -318,16 +372,35 @@ namespace BS3D.Effects
             _running = false;
             _blend = 0f;
             _elapsed = 0f;
+            _prologue = Array.Empty<IntroShot>();
+            _prologueSeconds = 0f;
         }
 
         /// <summary>What the roll picked, for the one log line the trigger writes.</summary>
         //ASCII only and invariant, for the same reason DropCinematic.Describe is: a console whose code page
         //mangles a degree sign, and a figure two machines might compare.
-        public string Describe() => string.Format(CultureInfo.InvariantCulture,
+        public string Describe() => _prologue.Length > 0
+            ? DescribePrologue() + string.Format(CultureInfo.InvariantCulture,
+                "map {0:F0} out at {1:F0}deg -> game pose, {2:F1}s; {3:F1}s in all",
+                _polar[2].Z, MathHelper.ToDegrees(_elev2), ARRIVAL_SECONDS, TotalSeconds)
+            : string.Format(CultureInfo.InvariantCulture,
             "'{0}' {1:F0} out at {2:F0}deg -> in -> map {3:F0} out at {4:F0}deg -> game pose, {5:F1}s, turning {6:F0}deg",
             _subject, _polar[0].Z, MathHelper.ToDegrees(_elev0),
             _polar[2].Z, MathHelper.ToDegrees(_elev2),
             DURATION_SECONDS, MathHelper.ToDegrees(_polar[3].X - _polar[0].X));
+
+        //"cut 'the street' 3.6s | 'the swing' 3.0s | cut -> " ahead of the tour's own description, or nothing.
+        private string DescribePrologue()
+        {
+            if (_prologue.Length == 0) return string.Empty;
+
+            var text = new System.Text.StringBuilder("cut ");
+            for (int i = 0; i < _prologue.Length; i++)
+                text.Append(i == 0 ? "" : " | ").Append('\'').Append(_prologue[i].Name).Append('\'').Append(' ')
+                    .Append(_prologue[i].Seconds.ToString("F1", CultureInfo.InvariantCulture)).Append('s');
+
+            return text.Append(" | cut -> ").ToString();
+        }
 
         private Vector3 _centre;
         private float _elev0, _elev2, _minRadius;
@@ -346,16 +419,37 @@ namespace BS3D.Effects
         /// </summary>
         private void Frame()
         {
-            float t = Smooth(Saturate(_elapsed / DURATION_SECONDS));
+            //A prologue shot, while one is running: its own pose, and the next shot's first frame is a cut.
+            if (_elapsed < _prologueSeconds)
+            {
+                float start = 0f;
+
+                foreach (IntroShot shot in _prologue)
+                {
+                    if (_elapsed < start + shot.Seconds)
+                    {
+                        shot.Pose((_elapsed - start) / shot.Seconds, out Vector3 position, out Vector3 target);
+                        Position = position;
+                        Target = target;
+                        FieldOfView = shot.FieldOfView;
+                        return;
+                    }
+
+                    start += shot.Seconds;
+                }
+            }
+
+            float t = Smooth(Saturate((_elapsed - _prologueSeconds) / TourSeconds));
+            bool tail = _prologue.Length > 0;
 
             //The stands are swept in polar terms (#409): a sample is a point on an orbit at the interpolated
             //radius, so between two stands the lens goes ROUND the arena and never through it, whatever the
             //angle between them. The look-at stays a Cartesian sweep, which for points far outside the arena
             //is exactly what it should be.
-            Vector3 polar = Spline(_polar, t);
+            Vector3 polar = Spline(tail ? _tailPolar : _polar, t);
 
             Position = _centre + Orbit(polar.X, polar.Y, polar.Z);
-            Target = Spline(_targets, t);
+            Target = Spline(tail ? _tailTargets : _targets, t);
             FieldOfView = MathHelper.Lerp(_fovWide, _fovGame, t);
 
             //⚠ NEVER THROUGH THE CLUSTER, and this is a floor rather than a taste. It was load-bearing while

@@ -477,7 +477,7 @@ namespace BS3D.Screens
             Vector3 centre = new(0f, _framing.CentreY, 0f);
 
             _tour.Begin(centre, Vector3.Distance(_lens, centre), FOV, _lens, centre,
-                Game.SceneViewpointAt, TOUR_RANDOM);
+                Game.SceneViewpointAt, TOUR_RANDOM, Game.IntroPrologue(FOV, TOUR_RANDOM));
 
             Console.WriteLine($"[tour] {SceneRenderer.SceneName(Game.Scene)}: {_tour.Describe()}");
         }
