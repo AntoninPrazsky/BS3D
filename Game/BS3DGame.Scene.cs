@@ -905,12 +905,22 @@ namespace BS3D
         /// What this program casts into the sun's shadow map (#470): the island, always — it is the host's
         /// and stands in every scene, front end included — the gun, which is a <b>session's</b> and is
         /// therefore drawn by whatever <see cref="SessionShadowCasters"/> the session put there, and in the
-        /// forest the wood standing round both (#471).
+        /// forest the wood standing round both (#471). <b>And the balls</b> (#470's own remaining half): every
+        /// bucket <see cref="Balls"/> collected this frame — the cluster, the shots in flight, the loaded
+        /// queue, the front end's preview — whatever is on screen when this runs.
         /// <para>
         /// The forest's stand is the host's object the way the island is, which is why it casts from here and
         /// not from inside <see cref="SceneRenderer"/> with the savanna's scatter and the beach's palms. The
         /// <b>aurora's</b> stand is deliberately absent: that scene's sun is below the horizon, so
         /// <see cref="SceneRenderer.DrawShadowMaps"/> never runs a caster pass there at all.
+        /// </para>
+        /// <para>
+        /// <b>Safe unconditionally</b> because both callers that fill <see cref="Balls"/>'s buckets —
+        /// <c>GameplayScreen.Draw</c> and <c>BackdropScreen.Draw</c> — collect <b>before</b> calling
+        /// <see cref="BeginSceneDraw"/>, which is what runs the shadow pass first thing (see the long comment
+        /// there): by the time this is reached, the buckets already hold this frame's balls and not the
+        /// previous one's. <see cref="BallRenderSet.DrawShadow"/> is a no-op on an empty bucket, so a frame
+        /// with no balls at all (there is none in this game) would simply cast nothing.
         /// </para>
         /// </summary>
         /// <summary>
@@ -938,6 +948,7 @@ namespace BS3D
         {
             _island?.DrawShadow(shadowViewProjection);
             SessionShadowCasters?.Invoke(shadowViewProjection);
+            _balls?.DrawShadow(shadowViewProjection);
 
             if (_scene == SceneKind.Forest) _forestScatter?.DrawShadow(shadowViewProjection);
 
