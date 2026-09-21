@@ -556,6 +556,15 @@ namespace BS3D.Screens
         //other half of the frame when it fires, short enough not to sit there as decoration.
         private const float CEILING_FLASH_SECONDS = 1.1f;
 
+        //The pad's answer to a step (#378) — heavier and longer than a shot or a landing, the way the plate's
+        //own slide is a slower event than either. Left-heavy for the shove; halved on a feed step
+        //(CEILING_RUMBLE_FEED_SCALE) for the same reason PlayCeilingStep and the flash colour go soft on one:
+        //a feed is the game rewarding the player, not warning them.
+        private const float CEILING_RUMBLE_LEFT = 0.6f;
+        private const float CEILING_RUMBLE_RIGHT = 0.25f;
+        private const float CEILING_RUMBLE_SECONDS = 0.5f;
+        private const float CEILING_RUMBLE_FEED_SCALE = 0.5f;
+
         //Linear radiance, well over GLARE_THRESHOLD so the plate blooms rather than merely turning pink. Red
         //with almost nothing in the other two channels: this is the game's one alarm COLOUR — the ceiling
         //flash and the floor net both take it (LaserGrid is handed this very constant), so the two read as
@@ -859,6 +868,13 @@ namespace BS3D.Screens
         //(BS3DGame.CAMERA_SHAKE_SCALE), not the strength of one shot. Kicking at a fraction instead would let
         //two shots in quick succession accumulate straight back up to the response that was too strong.
         private const float RECOIL_KICK = 1f;
+
+        //How hard a shot answers in the player's hands (#378) — the recoil's own two channels: a heavier
+        //thump on the left motor than the buzz on the right, same as the physical difference the two motors
+        //are built on, decaying quickly so a burst of shots reads as a burst and not a held buzz.
+        private const float SHOT_RUMBLE_LEFT = 0.55f;
+        private const float SHOT_RUMBLE_RIGHT = 0.25f;
+        private const float SHOT_RUMBLE_SECONDS = 0.12f;
 
         //The gun's own recoil — the tube thrown back along its bore, and since #115 the undercarriage's
         //smaller, later shove under it — is the shared Cannon's now (Cannon.RECOIL_BACK/RECOIL_DECAY/

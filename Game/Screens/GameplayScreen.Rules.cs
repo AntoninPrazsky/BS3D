@@ -31,6 +31,18 @@ namespace BS3D.Screens
     {
         #region The level's rules and its end
 
+        //The pad's answer to what a landing does (#378). A plain attach is a light tap — mostly the right
+        //motor's buzz, matching a landing's own quick, bright thunk (see PlayLanded below) — and a release on
+        //top of it is heavier and grows with how much of the cluster let go, the same shape PlayRelease scales
+        //its own loudness by.
+        private const float LANDING_RUMBLE_LEFT = 0.12f;
+        private const float LANDING_RUMBLE_RIGHT = 0.3f;
+        private const float LANDING_RUMBLE_SECONDS = 0.08f;
+
+        private const float RELEASE_RUMBLE_BASE = 0.22f;
+        private const float RELEASE_RUMBLE_PER_BALL = 0.04f;
+        private const float RELEASE_RUMBLE_SECONDS = 0.28f;
+
         /// <summary>
         /// A shot has landed in the lattice, having cut <paramref name="landing"/>'s balls loose. Zero of all three means
         /// it stuck without doing anything, which the scorer treats as a spent shot.
@@ -55,6 +67,10 @@ namespace BS3D.Screens
             //property of the level and not of the ball that just arrived.
             Game.Audio.PlayLanded(landing.Type, _ballStyle, landing.World);
 
+            //And felt (#378): a light tap on every landing, whether or not it completed anything — the pad's
+            //own version of the thunk above.
+            Game.Rumble.Kick(LANDING_RUMBLE_LEFT, LANDING_RUMBLE_RIGHT, LANDING_RUMBLE_SECONDS);
+
             //What came loose answers separately (#46): the lattice's snap and the freed group popping away,
             //scaled by how much of it there is. A plain attach stays just the thunk above. It sounds from the
             //cell that broke and stays there rather than following the group down — see PlayRelease.
@@ -65,7 +81,16 @@ namespace BS3D.Screens
             //chain of reports. The blast's orphans share one count with the match's (BallsReleased), so they go
             //with the louder of the two voices.
             int released = landing.Detonations.Count > 0 ? landing.Released.Matched : landing.Released.Total;
-            if (released > 0) Game.Audio.PlayRelease(landing.World, released);
+            if (released > 0)
+            {
+                Game.Audio.PlayRelease(landing.World, released);
+
+                //Weighted by how much let go (#378), the same shape as the sound it rides under. Left-heavy,
+                //for a thud rather than a buzz — the group leaving is a bigger event than the shot that cut it.
+                float releaseWeight = MathHelper.Clamp(
+                    RELEASE_RUMBLE_BASE + released * RELEASE_RUMBLE_PER_BALL, 0f, 1f);
+                Game.Rumble.Kick(releaseWeight, releaseWeight * 0.7f, RELEASE_RUMBLE_SECONDS);
+            }
 
             //And the blasts themselves (#389): each flash, report and jolt at the place it happened, and each link
             //of a chain a beat behind the bomb that set it off. Handed over now, inside the landing, because the

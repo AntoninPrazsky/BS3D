@@ -471,6 +471,13 @@ namespace BS3D.Screens
         /// <summary>One star's own travel, from oversized to seated.</summary>
         private const float REVEAL_PUNCH_SECONDS = 0.34f;
 
+        //The pad's own tick per star (#378) — light, and mostly the right motor's buzz, matching a medal
+        //struck rather than a landing's thump or a shot's kick. The one trigger of the five that fires while
+        //the gameplay screen is covered rather than active — see BS3DGame.Update's own allowed condition.
+        private const float STAR_RUMBLE_LEFT = 0.15f;
+        private const float STAR_RUMBLE_RIGHT = 0.35f;
+        private const float STAR_RUMBLE_SECONDS = 0.15f;
+
         /// <summary>How large a star starts, as a multiple of its seated size.</summary>
         private const float REVEAL_START_SCALE = 2.4f;
 
@@ -636,6 +643,7 @@ namespace BS3D.Screens
             while (_starsAnnounced < _result.Stars && _revealClock >= RevealTimeOf(_starsAnnounced))
             {
                 Game.Audio?.PlayStarEarned(_starsAnnounced, _result.Stars, ChimeSemitones(_starsAnnounced));
+                Game.Rumble?.Kick(STAR_RUMBLE_LEFT, STAR_RUMBLE_RIGHT, STAR_RUMBLE_SECONDS);
                 _starsAnnounced++;
             }
         }
