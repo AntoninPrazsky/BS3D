@@ -95,7 +95,11 @@ namespace Testbed
             //records as declined: the Testbed is not the product, and the cost is one extra poll per device.
             KeyboardState keyboard = Keyboard.GetState();
             MouseState mouse = Mouse.GetState();
-            GamePadState pad = GamePad.GetState(PlayerIndex.One);
+
+            //Circular rather than the default IndependentAxes (#352, #515): the default clamps each stick
+            //axis on its own, a SQUARE dead zone that the Game's own aim poll no longer uses (GameplayScreen.cs)
+            //- this is the same pad, handed to the same MouseAim.ApplyPad below.
+            GamePadState pad = GamePad.GetState(PlayerIndex.One, GamePadDeadZone.Circular);
 
             //Orbiting the cannon around the field is on A/D and walking it towards the field and back on W/S —
             //in the free fly camera all four stay the camera's own, which is why the free-mode early-out above

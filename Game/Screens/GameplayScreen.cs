@@ -1242,8 +1242,13 @@ namespace BS3D.Screens
                 Game.IsMouseVisible = !_cursorCaptured;
 
                 //One XInput poll for the whole frame: UpdateInput and UpdateAim used to each poll the pad,
-                //two OS queries of the same slot microseconds apart
-                GamePadState pad = GamePad.GetState(PlayerIndex.One);
+                //two OS queries of the same slot microseconds apart. Circular rather than the default
+                //IndependentAxes (#352, #515): the default clamps each stick axis on its own, which is a
+                //SQUARE dead zone - a small diagonal push moves the stick while the same push along a single
+                //axis does not, and near the edge the reported direction pulls towards the axes. Both sticks
+                //read from this one state - the right (aim, MouseAim.Update) and the left (advance,
+                //GameplayScreen.Input.cs) - and a circular zone is the more correct shape for either.
+                GamePadState pad = GamePad.GetState(PlayerIndex.One, GamePadDeadZone.Circular);
 
                 //A pause takes effect at the top of the NEXT frame, because that is where ScreenManager applies
                 //stack changes — so without stopping here the rest of THIS frame would go on running against a
