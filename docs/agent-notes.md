@@ -5133,3 +5133,22 @@ Souhlasí to s verdiktem výš: Gemma dobře jmenuje místa v kódu, ale ke kaž
 - **Ověřeno**: všechna čtyři řešení se sestavila čistě; `LevelGen`/`ScoreSim` beze změny (nulová parita napříč všemi 120 levely, protože bez `powerups=` nikdo náboj nedostane); a proti běžícímu Game s `powerups=swap:1` stisk E vnějším vstřikem klávesy potvrdil přes dočasný log prohození dvou různých hodnot slotů (`slot0=Type1 slot1=Type3` → `slot0=Type3 slot1=Type1`), než byla ověřovací instrumentace odstraněna.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-21 — Claude Code, bs3d-d3 (desktop: #462 aurora — boreální noc na sněhu, merge `fdf1950`)
+
+**Vzal jsem #462**: majitel „aurora se hýbe moc rychle a les působí primitivně, nejdřív předloha z generativní AI". Předlohy už ležely z #489 (`C:\Users\panrd\AI\sd\out\489`, img2img přes tuhle scénu), takže sd-server nebylo třeba spouštět — kartu stejně celou dobu držela Gemma v LM Studiu. Plný zápis je v `docs/scenes.md`, „A boreal night, from references (#462)".
+
+- **⚠ Hodnotová stavba byla obráceně a to byla největší změna.** Tmavý mech pod zeleně nasvícenými stromky = jedna černá hmota s vánočními stromky. Všechny předlohy mají **sníh** pod téměř černými smrky. Čistě konfigurace (`AuroraFloor` bral barvy z configu), plus `GroundStarlight` — neutrální světlo oblohy, jinak je bílá zem pod samotnou září natřená zeleně.
+- **Boreální smrky**: `ForestTreeConfig` dostal `ConiferTiers`/`ConiferTierSpread`/`ConiferRaggedness` (aurora 9–13 pater, roztřepenost 2); výchozí hodnoty = denní les a **generátor náhody se spotřebovává stejně**, takže denní les je bit po bitu stejný (ověřeno rozborem výrazů, ne snímkem). Mnoho pravidelných pater čte zblízka jako pagoda — roztřepenost to láme. 850 stromů i na kopcích → zubatý obzor. Rozestup v `ForestScatter` se teď čte z configu (dřív konstanty denních korun).
+- **Souše a padlé kmeny**: nový `SnagMesh` + savanový `DeadwoodMesh` jako nové druhy rozsazování (výchozí počet 0), rozsazené **až po** původních čtyřech — sdílený rng stream by jinak přesadil celý denní les. ⚠ První souš četla jako bambus: šedý pigment posunutý `ApplySkyTint` k zelené + zelené klíčové světlo + teplá kůra = bledý olivový výhonek. Tlustší a tmavě šedá.
+- **Pohyb**: `DriftSpeed` 0,15 → 0,02 (kolotoč), nový `MorphSpeed` (záhyby se přetvářejí na místě), `PulseSpeed` 0,9 → 0,4. **Paprsky**: jedna oktáva svisle roztaženého šumu řeže do jasu opony, tlumená u velikosti pixelu; na 40 to u zenitu četlo jako srst, vydáno 24.
+- **Majitel během práce: „záře by měla odrážet barvu světla na kanon a ostrov."** `TryGetLightRig` bere hodiny, `SceneRenderer.AnimatesLightRig` + `SkyLightRig.StepSceneLight` krokují rig aurory ve všech třech programech; kvantováno na 128 kroků, protože herní přesvícení chodí přes iterátor (alokace) — krok nejvýš zhruba jednou za sekundu. ⚠ **Tím vyplula chyba z #205: posun odstínu existoval jen na CPU**, shader nebe ho nikdy nekreslil, takže zem polovinu každého cyklu fialověla pod zeleným nebem. Nikdo to na tmavém mechu neviděl; první snímek s ostrovem pod stejným světlem byl levandulový pod zelenou oponou. Teď jedno číslo (`AuroraHueShift`) řídí nebe, zem i rig.
+- ⚠ **Vlastní chyba v číslech**: napsal jsem do tří komentářů „přesvícení párkrát za sekundu" — ve skutečnosti se směs mění nejvýš o 0,175·0,045 ≈ 0,008/s, tedy jeden krok ze 128 zhruba **jednou za sekundu**. Opraveno před commitem.
+- **Cena**, párové A/B proti mainu v Testbedu (6900 XT, 1600×900 ssaa 2, čtyři střídání): hráčův pohled 2,71 → 2,92 ms (**+0,21**), celý les v záběru 2,47 → 2,78 (**+0,32**). ⚠ **Tři první kola padla do doby, kdy Gemma zpracovávala prompt: 10–17 ms na obou buildech.** A první běh hry na 3840×1600 kvůli tomu adaptivní sondou spadl na Medium (37 FPS) — párové ověření hry pak dalo obě verze 9–12 ms. **Kdo tu měří, ať nejdřív koukne na `lms ps`: STATUS jiný než IDLE = měření nemá cenu.**
+- Ověřeno: čtyři solutiony, `LevelGen`/`ScoreSim` exit 0 (i po sloučení s #392), hra na auroře bez výjimky, majitelovy `Progress.json`/`Settings.json` beze změny (hash před/po).
+
+**Na majiteli**: zda je pohyb teď správně (ze snímků se posoudit nedá) a kolik tyrkysu má sníh nést. **Neuděláno a pojmenováno**: sníh na větvích (druhý lathe na variantu nebo nový člen ve sdíleném shaderu) a opar mezi kmeny. Issue nechávám otevřené na jeho pohled.
+
+**Nic dalšího si neberu.**
