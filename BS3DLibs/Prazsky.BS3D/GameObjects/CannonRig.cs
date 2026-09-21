@@ -69,8 +69,11 @@ namespace Prazsky.BS3D
         //is the ring ahead of the eye. The swell crests at BORE_RADIUS + WALL_THICKNESS + 0.055 = 0.795, so the
         //collar's crest clears it by a clear margin rather than fighting it for the silhouette.
         private const float COLLAR_ROOT_RADIUS = 0.78f;
-        private const float COLLAR_CREST_RADIUS = 0.98f;
-        private const float COLLAR_LENGTH = 0.20f;      //along the bore, from the muzzle face backwards
+        //SMALLER since #478: the owner found the band blocking the view of where the shot goes from the play
+        //camera, which #425 had reasoned about for precise aim only. Half as proud of the tube, and a little
+        //over half as long - a mark at the muzzle, not a wheel on it.
+        private const float COLLAR_CREST_RADIUS = 0.86f;
+        private const float COLLAR_LENGTH = 0.12f;      //along the bore, from the muzzle face backwards
         private const float COLLAR_SHOULDER = 0.05f;    //how much of that length each chamfer takes
         private const int COLLAR_SEGMENTS = 48;
 
@@ -91,7 +94,12 @@ namespace Prazsky.BS3D
         //marker wants and a light does not: the dim browns would otherwise be a duller announcement than the
         //yellows for no reason the player could act on. The floor catches the near-black round, which has no
         //hue to normalise and would otherwise mark the muzzle with nothing at all.
-        private const float COLLAR_BRIGHTNESS = 1.35f;
+        //
+        //1.35 was too much after all (#478): photographed from the play camera with a yellow round loaded, the
+        //band came out WHITE - the push over 1 through the tonemap's shoulder had taken the hue with it, the very
+        //loss the 3x note above describes, only later. Just over 1 now means just over: the dominant channel
+        //still blooms, the others stay where the hue put them.
+        private const float COLLAR_BRIGHTNESS = 1.05f;
         private const float COLLAR_COLOR_FLOOR = 0.22f;
 
         /// <summary>
