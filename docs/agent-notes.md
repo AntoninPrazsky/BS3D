@@ -5206,3 +5206,15 @@ Obě issues nechávám otevřené na majitelův pohled v pohybu.
 - **Ověřeno**: čtyři solutiony čistě, `LevelGen`/`ScoreSim` exit 0, hra rozehrála 420kuličkový level bez pádu a bez vizuální regrese.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-21 — Claude Code (notebook: #457 zavřeno bez kódu, #514 založeno)
+
+**Osmá věc ten den, žádný commit.** #457 už mělo na svém vlákně kompletní nález z 2026-09-19 (jiná relace): dva nástroje na otázku „potřebuje nějaký level Louky ovládání, co karta ještě neučila" a oba vyšly jako kontrola, co nemůže selhat — `AimReachability.CheckFromStand` dá dosažitelnou úplně každou kouli i na nejtěžších tvarech hry (Column, Horn, Colossus, Highwall), protože pole svírá od stanoviště ~20° proti 45° kuželu hlavně; a `ClearProbe` se záplavou z jedné strany dá identický výsledek jako ze všech čtyř, protože záplava po sousedství nemá směr a prstenec prázdných buněk kolem clusteru spojí blízkou stěnu s dalekou tak jako tak.
+
+- **Přečetl jsem celé vlákno issue (ne jen deník) a nález beru jako hotový** — nic k přeměřování, jen rozhodnutí, co s tím. Doporučení tam už stálo: zavřít, nebo postavit směrový model jako vlastní issue.
+- **Založil jsem #514** — směrový, po-stavový model viditelnosti (paprsek z pevné hlavně na kandidátní buňku, přepočet po každém řezu, protože řez otevírá čáry, co byly dřív zavřené) — to jediné, co by na otázku „je buňka DOLETOVÁ, ne jen zamiřitelná" mohlo odpovědět poctivě. Sémantické hledání nešlo spustit (LM Studio neběží), ruční `gh issue list --search` na klíčová slova nic podobného nenašel.
+- **#457 zavřeno jako "not planned"** s odkazem na #514. Mechanismus, co název issue popisuje, v kampani neexistuje — zbývá jen otázka pocitu ze hraní (hraje se blok líp s A/D, i když ho nutně nepotřebuje?), a to je majitelova věc z hraní, ne z měření.
+
+**Nic dalšího si neberu.**
