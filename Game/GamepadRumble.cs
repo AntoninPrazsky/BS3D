@@ -71,6 +71,14 @@ namespace BS3D
         /// now — unfocused, paused or off the gameplay screen reads false regardless of what is still ringing,
         /// since vibration is a device state that outlives the frame that asked for it and has to be told to
         /// stop rather than merely left alone.
+        /// <para>
+        /// <b>Gated by <see cref="GamePad.GetCapabilities"/> since #516</b> — until then this fired blind: a
+        /// connected pad with no vibration motors at all (a wheel, a generic pad through an XInput shim) got
+        /// <c>SetVibration</c> on every shot regardless, and a pad with only one motor got told to drive the
+        /// other anyway. Read once per call rather than cached, so a pad swapped mid-session is never fed
+        /// stale capabilities — cheap next to <c>SetVibration</c> itself, and this method already fires no
+        /// more often than the rumble actually changes (the <c>_silent</c> guard above it).
+        /// </para>
         /// </summary>
         public void Update(float elapsedSeconds, bool allowed)
         {
@@ -88,7 +96,17 @@ namespace BS3D
             bool silentNow = _left <= 0f && _right <= 0f;
             if (silentNow && _silent) return;
 
-            GamePad.SetVibration(PlayerIndex.One, _left * Strength, _right * Strength);
+            GamePadCapabilities capabilities = GamePad.GetCapabilities(PlayerIndex.One);
+            if (!capabilities.HasLeftVibrationMotor && !capabilities.HasRightVibrationMotor)
+            {
+                _silent = true;
+                return;
+            }
+
+            float left = capabilities.HasLeftVibrationMotor ? _left * Strength : 0f;
+            float right = capabilities.HasRightVibrationMotor ? _right * Strength : 0f;
+
+            GamePad.SetVibration(PlayerIndex.One, left, right);
             _silent = silentNow;
         }
     }
