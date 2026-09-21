@@ -4825,3 +4825,11 @@ Majitel poslal dvě volné poznámky z pozorování vývoje/hraní, „vytvoř i
 - ⚠ Past pro heredoc v Bashi tohoto harnessu: sedm těl issues v jednom `cat <<'EOF'` skončilo „unexpected EOF while looking for matching quote“, po jednom prošla všechna beze změny textu. Velké heredocy dělit.
 
 **Beru #489** (img2img přes snímek z Testbedu). GPU je volná (jen nomic, 80 MB), sd-server ~10,5 GB — před startem všechno pushnuto.
+
+**Dodatek: #489 je na `main`u — merge `36ad38a`**, větev smazaná, issue nechávám otevřenou na majitelův verdikt. `render-references.ps1 -Init <snímek> -Strength <s>` kreslí přes `/sdapi/v1/img2img` nad snímkem z Testbedu (napasovaný na velikost renderu, cover + střed, nikdy roztažený; `-DryRun` bez serveru). Recept na snímek: `nopost width=1216 height=832 at=6:F12 shot=8`.
+
+- **Změřeno na auroře (dřevo z #462), seedy 11–13:** síla **0,35** (18,4 s) vrací hru s lehkým retušem, k ničemu; **0,5** (25,4 s) je přesně ta reference — ostrov, trychtýř, dělo i cluster na místě, les překreslený do vrstvených siluet s mrtvými kmeny, náklony, tmavší linkou vzadu a sněhem na plošině. První obrázek běhu je o ~8 s dražší (VAE encode initu + graf). Obrázky v `C:\Users\panrd\AI\sd\out\489`.
+- ⚠ **Osmý reset od sd-serveru z devíti běhů: boot 9:22:18, Kernel-Power 41 v 9:22:22, 6008 v 9:22:30**, bez WHEA a 4101 — při šestém obrázku, čtyři minuty po startu, pět obrázků zapsáno. Ptal jsem se předem a majitel dal výslovné „Ano, spusť to“. Session Claude Code s tím spadla také (úloha na pozadí se v nové session vrátila jako „stopped“); repo v pořádku (`git fsck` čistý, `origin/HEAD` neporušený, větev byla pushnutá). Síly 0,65 a 0,8 zůstaly nezměřené. **Do dalšího rozhodnutí majitele sd-server nespouštím.**
+- Paměť `desktop-hard-resets-under-load` doplněna; varování nahoře ve skillu i v hlavičce skriptu říká osm.
+
+**Beru #439** (Qwen3-Embedding pro český deník) — LM Studio, žádný sd-server.
