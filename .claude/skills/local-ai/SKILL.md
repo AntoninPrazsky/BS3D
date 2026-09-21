@@ -82,7 +82,7 @@ The runner times the process and samples its peak working set; `<out>/<n>/mesh.o
 | the #451 termite kopje | | 20 866 / 41 724 | rembg kept only the mound and dropped the boulders behind it, so the "boulder" test became a termite mound: a smooth spindle, fine as far as it goes. |
 | a Testbed capture of the procedural baobab | | 16 098 / 32 184 | **garbage** — a scene has no single foreground for the cut-out to find, and the model was handed scattered blobs of grass and canopy. |
 
-Wall time for the four: 190 s; the working set reached at least 11.6 GB (sampled from outside; the runner's own sampler read zero on that run and is fixed since).
+Wall time for the four: 190 s; the working set reached at least 11.6 GB (sampled from outside with `Get-Process` mid-run; the runner's own sampler reads zero on every run so far and is not fixed — sample from outside until it is).
 
 **Verdict: worth having, for one thing.** Feed it **one object on a plain background** — a product-shot reference from `design-references` is the ideal input, and a scene or a capture is not — and it gives back a silhouette and proportions from every side in under a minute, which is more than a picture gives (the cup's handles and bowl depth were never in the front view). It does not give surface detail, branching or anything a mesh would be built from directly; nothing it produces ships, as with the images. `--mc-resolution` is the only dial worth touching. Not tried: Stable Fast 3D (a Stability community licence, the README says CPU-capable) — the next candidate if a finer surface is ever wanted; Hunyuan3D-2's licence excludes the EU and TRELLIS needs CUDA kernels, so neither is on this machine.
 
