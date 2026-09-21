@@ -7,6 +7,7 @@ using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace BS3D.Tools.SemanticSearch
@@ -32,6 +33,12 @@ namespace BS3D.Tools.SemanticSearch
     /// these were read off, so the next model is measured the same way.
     /// </para>
     /// <para>
+    /// <b><c>--ask</c> (#494, measured 2026-09-21):</b> the ten results handed to Gemma 4 12B on the CPU, 53–134 s an
+    /// answer. Journal: right and citing the marker's entry 3 of 6, a sibling part of the right entry 2, and once, with
+    /// the marker outside the ten, a confident answer to a neighbouring question — the instruction to say that the notes
+    /// do not answer was ignored. Documents: 4 of 4. A lead into the cited entry, never a source.
+    /// </para>
+    /// <para>
     /// <b>The documents (#490, measured 2026-09-21 with nomic):</b> fifteen paraphrased questions whose answer sits in
     /// one known section of <c>docs/</c>, CLAUDE.md or BestPractices.md put that section 1st eleven times and 2nd three
     /// times. The one miss is CLAUDE.md's "Project" at 115th — a piece that packs the merge rule, the three executables
@@ -46,6 +53,15 @@ namespace BS3D.Tools.SemanticSearch
         //Qwen3-Embedding-0.6B since #439: never worse than nomic on the English issues and far better on the Czech journal
         private const string DEFAULT_MODEL = "text-embedding-qwen3-embedding-0.6b";
         private const string NOMIC_MODEL = "text-embedding-nomic-embed-text-v1.5";
+        private const string DEFAULT_ANSWER_MODEL = "google/gemma-4-12b";
+
+        //Nothing but the notes, the question's language, short, every statement with its note: the answer is a pointer
+        //into the journal, and a pointer that guesses is worse than none
+        private const string ANSWER_INSTRUCTIONS =
+            "You answer questions about the BS3D game project from the numbered notes you are given, and from nothing else. " +
+            "Answer in the language of the question, plainly, in at most five sentences. After each statement put the number " +
+            "of the note it comes from in square brackets, like [2]. If the notes do not contain the answer, say so in one " +
+            "sentence and do not guess.";
 
         //nomic-embed-text reads at most 2048 tokens; 2500 characters of this project's English and Czech stays under it
         private const int MAX_CHARS = 2500;
@@ -109,6 +125,10 @@ namespace BS3D.Tools.SemanticSearch
                     Console.WriteLine($"  {score:F3}  #{doc.Number,-4} {(doc.Open ? "open  " : "closed")}  {Trim(doc.Title, 110)}");
                 ReportMark("issues", ranked, options.Mark);
 
+                //What --ask reads: the corpora asked for, the issues only when no other was (#494)
+                var context = new List<(Doc doc, float score)>();
+                if (!options.Journal && !options.Docs) context.AddRange(ranked);
+
                 if (options.Journal)
                 {
                     List<Doc> chunks = ChunkJournal(repo);
@@ -122,6 +142,7 @@ namespace BS3D.Tools.SemanticSearch
                     foreach ((Doc doc, float score) in ranked.Take(options.Top))
                         Console.WriteLine($"  {score:F3}  {doc.Title}");
                     ReportMark("journal", ranked, options.Mark);
+                    context.AddRange(ranked);
                 }
 
                 if (options.Docs)
@@ -139,7 +160,11 @@ namespace BS3D.Tools.SemanticSearch
                         Console.WriteLine($"         {Trim(Opening(doc.Text), 120)}");
                     }
                     ReportMark("docs", ranked, options.Mark);
+                    context.AddRange(ranked);
                 }
+
+                if (options.Ask)
+                    await Answer(options, queryText, context.OrderByDescending(x => x.score).Take(options.Top).Select(x => x.doc).ToList());
             }
             catch (EmbeddingException e)
             {
@@ -169,6 +194,8 @@ namespace BS3D.Tools.SemanticSearch
             Console.WriteLine("  --docs           also search docs/*.md, CLAUDE.md and BestPractices.md, section by section");
             Console.WriteLine("  --top N          results per list (8)");
             Console.WriteLine("  --mark TEXT      also report the rank of the first result whose text contains TEXT (a known answer's marker)");
+            Console.WriteLine("  --ask            answer the question from the results shown, through a local chat model; a lead, never a source");
+            Console.WriteLine($"  --answer-model KEY  the chat model --ask uses ({DEFAULT_ANSWER_MODEL})");
             Console.WriteLine($"  --model KEY      embedding model ({DEFAULT_MODEL})");
             Console.WriteLine($"  --endpoint URL   LM Studio's OpenAI-compatible base ({DEFAULT_ENDPOINT})");
             Console.WriteLine();
@@ -324,6 +351,74 @@ namespace BS3D.Tools.SemanticSearch
             return string.Join(' ', body.Split((char[])null, StringSplitOptions.RemoveEmptyEntries));
         }
 
+        /// <summary>
+        /// The top-ranked notes handed to a local chat model with the question (#494): a short answer that names the
+        /// notes it came from, so the reader jumps to the entry instead of reading the file. The notes it reads are
+        /// exactly the results printed above it, so what it could and could not have known is on the screen. <b>The
+        /// answer is a lead and never a source</b> — what a document cites is the entry, not the model.
+        /// </summary>
+        private static async Task Answer(Options options, string question, List<Doc> notes)
+        {
+            var prompt = new StringBuilder();
+            prompt.Append("Question: ").Append(question.Trim()).Append("\n\nNotes:\n");
+            for (int i = 0; i < notes.Count; i++)
+                prompt.Append('[').Append(i + 1).Append("] ").Append(Label(notes[i])).Append('\n').Append(notes[i].Text.Trim()).Append("\n\n");
+
+            //reasoning_effort "none" turns a thinking model's thinking off: measured ~20x slower and no better on this
+            //project's questions (the local-ai skill), and with a small max_tokens it comes back as an empty answer
+            string body = JsonSerializer.Serialize(new
+            {
+                model = options.AnswerModel,
+                temperature = 0,
+                max_tokens = 600,
+                reasoning_effort = "none",
+                messages = new object[]
+                {
+                    new { role = "system", content = ANSWER_INSTRUCTIONS },
+                    new { role = "user", content = prompt.ToString() }
+                }
+            });
+
+            using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(30) };
+            var sw = Stopwatch.StartNew();
+            HttpResponseMessage response;
+            try
+            {
+                response = await http.PostAsync(options.Endpoint + "/chat/completions", new StringContent(body, Encoding.UTF8, "application/json"));
+            }
+            catch (HttpRequestException e)
+            {
+                throw new EmbeddingException($"[ask] LM Studio is not answering at {options.Endpoint} ({e.Message})");
+            }
+            string json = await response.Content.ReadAsStringAsync();
+            if (!response.IsSuccessStatusCode)
+                throw new EmbeddingException($"[ask] LM Studio refused the question ({(int)response.StatusCode}): {json.Trim()}\n[ask] is the model loaded? lms load {options.AnswerModel}");
+
+            using JsonDocument doc = JsonDocument.Parse(json);
+            string answer = doc.RootElement.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString()?.Trim() ?? "";
+            int promptTokens = doc.RootElement.TryGetProperty("usage", out JsonElement usage) && usage.TryGetProperty("prompt_tokens", out JsonElement pt) ? pt.GetInt32() : 0;
+
+            Console.WriteLine();
+            Console.WriteLine($"[ask] {options.AnswerModel} over {notes.Count} notes ({promptTokens} prompt tokens), {sw.Elapsed.TotalSeconds:F1} s:");
+            Console.WriteLine(answer);
+
+            //"[8]" and "[3, 8]" alike: the model groups its citations when two notes say the same thing
+            List<int> cited = Regex.Matches(answer, @"\[(\d+(?:\s*,\s*\d+)*)\]")
+                .SelectMany(m => m.Groups[1].Value.Split(',')).Select(s => int.Parse(s.Trim()))
+                .Where(n => n >= 1 && n <= notes.Count).Distinct().OrderBy(n => n).ToList();
+            foreach (int n in cited) Console.WriteLine($"  [{n}] {Label(notes[n - 1])}");
+
+            if (options.Mark != null)
+            {
+                int carrying = notes.FindIndex(d => d.Text.Contains(options.Mark, StringComparison.Ordinal)) + 1;
+                Console.WriteLine(carrying == 0 ? $"[mark] ask: no note handed to the model carries \"{options.Mark}\""
+                    : cited.Contains(carrying) ? $"[mark] ask: note [{carrying}] carries \"{options.Mark}\" and was cited"
+                    : $"[mark] ask: note [{carrying}] carries \"{options.Mark}\" and was NOT cited");
+            }
+        }
+
+        private static string Label(Doc doc) => doc.Number > 0 ? $"#{doc.Number} {doc.Title}" : doc.Title;
+
         private static IEnumerable<(Doc doc, float score)> Rank(IEnumerable<Doc> docs, float[] query) =>
             docs.Select(d => (d, Dot(d.Vector, query))).OrderByDescending(x => x.Item2);
 
@@ -380,6 +475,8 @@ namespace BS3D.Tools.SemanticSearch
         public bool Docs;
         public bool OpenOnly;
         public string Mark;
+        public bool Ask;
+        public string AnswerModel = "google/gemma-4-12b";
         public int Top = 8;
         public string Model;
         public string Endpoint;
@@ -417,6 +514,11 @@ namespace BS3D.Tools.SemanticSearch
                     case "--mark":
                         if (++i >= args.Length) return null;
                         options.Mark = args[i];
+                        break;
+                    case "--ask": options.Ask = true; break;
+                    case "--answer-model":
+                        if (++i >= args.Length) return null;
+                        options.AnswerModel = args[i];
                         break;
                     case "--open": options.OpenOnly = true; break;
                     default:
