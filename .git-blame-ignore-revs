@@ -13,4 +13,10 @@
 # Declared the line endings (LF everywhere, .gitattributes) and renormalized the 28
 # blobs still stored CRLF, 2026-09-21. `git diff -w` over it reports .gitattributes
 # and nothing else.
+#
+# Measured after the fact: this one barely needed ignoring. Blame re-attributes a
+# re-ended line to the commit that wrote its content, so the only lines this commit
+# still owns are BLANK ones (91 of 91 in SkyDome.cs) — and a blank line is exactly
+# what --ignore-revs-file cannot rescue, being indistinguishable from every other
+# blank line. Kept for the next reformatting commit, which may not be so lucky.
 cd133c9acc10455d76089525b0239262ba0fe557
