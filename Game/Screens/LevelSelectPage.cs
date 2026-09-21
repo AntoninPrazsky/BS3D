@@ -91,6 +91,24 @@ namespace BS3D.Screens
         //island's own top out of the frame, which is the other half of what a preview has to show.
         private const float PREVIEW_LIFT = 0.42f;
 
+        //The page's own factor on top of the menu scale (#496). The menu scales by HEIGHT (MENU_DESIGN_HEIGHT), so
+        //this page keeps the same share of the frame's height at every aspect - 62 % of it in the chapter view,
+        //measured at 1920x1080 and at 3840x1600 alike - and on the owner's 2.4:1 monitor that share read as a
+        //tall, narrow block with the preview squeezed above it: "lower and less wide, and more of the map
+        //would show". So the page's geometry - tiles, pips, arrows, spacing, the header's width - shrinks by
+        //16:9 over the frame's aspect, clamped: exactly 1 at 16:9 and 16:10 (#472's layout untouched), 0.74 at
+        //2.4:1. Fonts are the menu's and do not shrink, which is why a tile's HEIGHT is not fitted (see BuildTile).
+        private const float FIT_ASPECT = 16f / 9f;
+        private const float FIT_FLOOR = 0.7f;
+
+        private int Fit(int designUnits)
+        {
+            Microsoft.Xna.Framework.Graphics.Viewport viewport = Game.GraphicsDevice.Viewport;
+            float aspect = viewport.Height > 0 ? viewport.Width / (float)viewport.Height : FIT_ASPECT;
+            float fit = Math.Clamp(FIT_ASPECT / aspect, FIT_FLOOR, 1f);
+            return Math.Max(1, (int)MathF.Round(designUnits * fit));
+        }
+
         private const int LIST_SURROUNDINGS = 700;
         private const int CHAPTER_SURROUNDINGS = 1010;
 
@@ -228,7 +246,7 @@ namespace BS3D.Screens
                 Font = FontSmall,
                 TextColor = BS3DGame.MENU_TEXT_DIM,
                 HorizontalAlignment = HorizontalAlignment.Center,
-                Height = Scaled(70),
+                Height = Scaled(Fit(70)),
                 Margin = ScaledThickness(0, 13, 0, 13),
             };
             page.Widgets.Add(_detail);
@@ -269,8 +287,8 @@ namespace BS3D.Screens
 
             Grid grid = new()
             {
-                ColumnSpacing = Scaled(26),
-                RowSpacing = Scaled(26),
+                ColumnSpacing = Scaled(Fit(26)),
+                RowSpacing = Scaled(Fit(26)),
                 HorizontalAlignment = HorizontalAlignment.Center,
             };
 
@@ -320,8 +338,8 @@ namespace BS3D.Screens
 
             VerticalStackPanel header = new()
             {
-                Width = Scaled(CHAPTER_HEADER_WIDTH),
-                Spacing = Scaled(8),
+                Width = Scaled(Fit(CHAPTER_HEADER_WIDTH)),
+                Spacing = Scaled(Fit(8)),
                 VerticalAlignment = VerticalAlignment.Center,
             };
             header.Widgets.Add(_chapterName);
@@ -329,7 +347,7 @@ namespace BS3D.Screens
 
             HorizontalStackPanel row = new()
             {
-                Spacing = Scaled(20),
+                Spacing = Scaled(Fit(20)),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = ScaledThickness(0, 0, 0, 20),
             };
@@ -359,7 +377,7 @@ namespace BS3D.Screens
                 VerticalAlignment = VerticalAlignment.Center,
             };
 
-            return Game.MenuTile(caption, () => TurnChapter(direction), ARROW_SIZE, ARROW_SIZE);
+            return Game.MenuTile(caption, () => TurnChapter(direction), Fit(ARROW_SIZE), Fit(ARROW_SIZE));
         }
 
         /// <summary>
@@ -384,7 +402,7 @@ namespace BS3D.Screens
         {
             HorizontalStackPanel row = new()
             {
-                Spacing = Scaled(18),
+                Spacing = Scaled(Fit(18)),
                 HorizontalAlignment = HorizontalAlignment.Center,
             };
 
@@ -404,7 +422,7 @@ namespace BS3D.Screens
                 //rather than eleven closures over the loop variable's last value.
                 int chapter = c;
 
-                row.Widgets.Add(Game.MenuTile(pip, () => GoToChapter(chapter), PIP_SIZE, PIP_SIZE));
+                row.Widgets.Add(Game.MenuTile(pip, () => GoToChapter(chapter), Fit(PIP_SIZE), Fit(PIP_SIZE)));
             }
 
             return row;
@@ -445,7 +463,7 @@ namespace BS3D.Screens
         {
             VerticalStackPanel content = new()
             {
-                Spacing = Scaled(6),
+                Spacing = Scaled(Fit(6)),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
             };
@@ -481,7 +499,9 @@ namespace BS3D.Screens
             starRow.Widgets.Add(starsRest);
             content.Widgets.Add(starRow);
 
-            Button tile = Game.MenuTile(content, () => StartSlot(slot), TILE_WIDTH, TILE_HEIGHT);
+            //The width fits, the HEIGHT does not: a tile's number over its name is font-bound, and the fonts are
+            //the menu's - fitting the height clipped every name at 2.4:1 (photographed, #496)
+            Button tile = Game.MenuTile(content, () => StartSlot(slot), Fit(TILE_WIDTH), TILE_HEIGHT);
 
             //The pointer's half of the detail line; the focus cursor's half is NavFocusChanged. Leaving only
             //clears a description this tile still owns — the cursor may already have replaced it.
