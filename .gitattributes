@@ -1,0 +1,66 @@
+# Line endings, declared once — for every machine, every editor and every script.
+#
+# Until 2026-09-21 this repository had no .gitattributes at all, so what ended a line
+# was decided by each machine's core.autocrlf and by whatever tool happened to write
+# the file. The result was two populations of source: 470 blobs stored LF and 28 stored
+# CRLF (the 2023-era library sources, the .sln/.csproj set, and the agent journal).
+# A tool that assumed one got the other wrong about one time in twenty, and the cost
+# landed at the merge rather than at the edit: a file whose every line differs from
+# main's conflicts WHOLE, so the two or three real changes had to be dug back out of a
+# conflict spanning the entire file. That happened on nearly every merge into main.
+#
+# Worse, GameplayScreen.Session.cs had picked up two \r\r\n sequences from a script
+# that wrote one ending into a file that used the other. A lone CR makes git classify
+# a file as BINARY — it was the only .cs in the repo git would not diff or merge by
+# line at all, and nothing said so.
+#
+# LF is the choice because 470 of the 498 text blobs already were LF (CRLF would have
+# meant rewriting 470 files instead of 28), because every tool writes LF unless told
+# otherwise, and because .claude/hooks/*.sh must be LF or bash refuses the shebang —
+# and one of those hooks is what refuses `git reset --hard` in this repository.
+#
+# eol=lf sets the WORKING TREE too, not just the stored blob, deliberately: a uniform
+# file on disk is one a script cannot half-convert. Editors here (Visual Studio, Rider,
+# VS Code) all write LF happily on Windows, and git's clean filter folds CRLF back to
+# LF anyway, so a tool that still writes CRLF costs nothing and shows no diff.
+
+* text=auto eol=lf
+
+# Sources, markup and configuration — always text, never guessed.
+*.cs          text eol=lf
+*.fx          text eol=lf
+*.fxh         text eol=lf
+*.json        text eol=lf
+*.md          text eol=lf
+*.txt         text eol=lf
+*.csproj      text eol=lf
+*.sln         text eol=lf
+*.mgcb        text eol=lf
+*.spritefont  text eol=lf
+*.svg         text eol=lf
+*.yml         text eol=lf
+*.ps1         text eol=lf
+*.py          text eol=lf
+.editorconfig text eol=lf
+.gitignore    text eol=lf
+.gitattributes text eol=lf
+
+# Shell scripts MUST be LF: a CRLF shebang makes bash fail with a message that names
+# neither the file nor the reason. .claude/hooks/guard-destructive-git.sh is one.
+*.sh          text eol=lf
+
+# Media and compiled content — stored byte for byte, never diffed, never converted.
+*.png  binary
+*.jpg  binary
+*.ico  binary
+*.ttf  binary
+*.ogg  binary
+*.wav  binary
+*.xnb  binary
+
+# Model assets (.x, .dae, .obj, .mtl) are TEXT and are treated as such by the rule at
+# the top, deliberately. Marking them `binary` was tried first, to leave pipeline input
+# nobody edits alone — and it did the opposite: `binary` freezes the WORKING TREE copy,
+# which autocrlf had smudged to CRLF, so the stored blobs grew instead of staying put.
+# Every one of them is stored LF today, so treating them as text keeps them byte for
+# byte identical, and the content build compiles all of them on the way to the gates.

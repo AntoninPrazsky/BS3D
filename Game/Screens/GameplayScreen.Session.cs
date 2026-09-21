@@ -160,7 +160,7 @@ namespace BS3D.Screens
             //Cleared, never reassigned: the contact handler holds these very instances
             _shotBalls.Clear();
             _fallingBalls.Clear();
-            _smears.Clear();
+            _smears.Clear();
             _lineSparks.Clear();
 
             _physicsAccumulator = 0f;
@@ -202,7 +202,7 @@ namespace BS3D.Screens
 
             //The smears' and the beam's billboard quads and the crosshair's one texel — not the trail effect,
             //which the content manager owns and which those two share
-            _smears.Dispose();
+            _smears.Dispose();
             _lineSparks.Dispose();
             _aimBeam.Dispose();
             _crosshair.Dispose();
