@@ -98,6 +98,16 @@ namespace BS3D
         //resolution while it is limiting anything, and that is paired.
         private readonly FrameLimiter _frameLimiter = new();
 
+        //What a player's UNFOCUSED window sleeps before every tick (#518). MonoGame sleeps InactiveSleepTime
+        //ahead of each tick while IsActive is false, and its default of 20 ms left an alt-tabbed game drawing
+        //its paused level — the whole scene with the pause page over it — at 37.5 FPS on the desktop, 42 % of
+        //the GPU's engine time, for a picture nobody was looking at (the front end, which does not pause, the
+        //same at 53 %). Ten ticks a second is plenty to notice the focus coming back, and the music does not
+        //care: GameMusic hands the voice whole tracks and the About page's jukebox keeps a second and a half
+        //queued (three half-second chunks), so neither runs dry between ticks. Zero for a scripted run — the
+        //constructor decides, see PauseOnFocusLoss.
+        private static readonly TimeSpan INACTIVE_SLEEP = TimeSpan.FromMilliseconds(100);
+
         //The monitor's refresh, re-read wherever the quality probe's floor is (startup and every resize, so a
         //window moved to another panel corrects itself). Zero when the adapter reports nothing sensible —
         //headless, a remote session — and unlimited is then the honest answer rather than a 0 FPS cap.
@@ -908,6 +918,15 @@ namespace BS3D
             //See PauseOnFocusLoss: a capture schedule implies the opt-out, because a shot of the pause page is
             //not the shot that was asked for.
             PauseOnFocusLoss = !noFocusPause && shotSeconds == null;
+
+            //An unfocused window sleeps between ticks (#518) — unless this is a scripted run, which is the one
+            //case EXPECTED to run unfocused: the capture harness launches the game without activating it
+            //(SW_SHOWMINNOACTIVE, so the owner's keystrokes stay the owner's), and shot='s seconds and logfps's
+            //readings both assume the frame rate is the level's own. Such a run sleeps not at all, which is the
+            //Testbed's rule for an unattended one (docs/testbed.md). A player's window sleeps INACTIVE_SLEEP,
+            //the front end included: a menu orbiting at ten frames a second behind another window is the game
+            //idling, exactly as its not pausing there is.
+            InactiveSleepTime = PauseOnFocusLoss && !logFrameRate ? INACTIVE_SLEEP : TimeSpan.Zero;
 
             //No longer implies uncappedFps the way the Testbed's does: since #270 the game presents
             //immediately in EVERY mode, so there is no vsync wait left for a cap to have to escape.
