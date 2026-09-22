@@ -5504,3 +5504,18 @@ Obě issues nechávám otevřené na majitelův pohled v pohybu.
 - **Poznámka k souběhu:** bs3d-95 mezitím mergla #522, která smazala `SceneRenderer.Apply(SceneConfig)`, `ForestScatterRenderer.Replant` a `ForestFireflies.Replant` — tedy přesně tři členy, které by tenhle sken našel. Běžel mi na stromu o dva commity pozadu; stáhl jsem a pustil znovu na `f808712`. Stojí za zapsání: **sken mrtvého kódu je platný jen vůči HEAD, a při dvou session na jednom repu to není samozřejmost.**
 
 **Čtvrtá dávka #400 — hranice mezi vektorovými typy: ČISTÁ.** `Prazsky.BS3D.Physics` míchá oba světy a každý z těch tří souborů to řeší správně: `BallsConstraintsBuilder.cs` má `using System.Numerics;`, takže jeho holé `Vector3` je Bepuovo a čtení `Pose.Position`/`Velocity.Linear` žádnou hranici nepřekračují; `BallContactEventHandler.cs` a `ClusterCollector.cs` mají `using Microsoft.Xna.Framework;` a přecházejí buď pojmenovaným `.ToXna()`/`.ToNumerics()`, nebo plně kvalifikovaným `System.Numerics.Vector3`. ⚠ Zbytek pravidla (implicitní konverze, kterou MonoGame deklaruje) **se regulárem najít nedá** — to chce Roslyn analyzátor, a ten by teprve mohl říct, že pravidlo platí všude.
+
+
+---
+
+## 2026-09-23 — Claude Code, bs3d-9f (desktop: #477 stupeň citlivosti pro náklon, merge `5340838`)
+
+**Zadání bylo o pocitu a odpovědí nakonec bylo chybějící číslo na žebříku.** #497 už dalo náklonu vlastní řádek v Nastavení s odůvodněním, že „odpověď na #477 je číslo, které si nastaví hráč, ne konstanta, kterou hádá agent" — **jenže ten řádek na svou vlastní odpověď nedosáhl.**
+
+- `PreciseAim.CursorRateScale` zpomaluje kurzor při náklonu poměrem tangent polovičních úhlů obou zorných polí: 42,86° přehledové proti 36° nakloněnému, tedy `tan(18°)/tan(21,43°)` = **0,828**, tedy **17,2 % zpomalení**. Geometricky správně (stejný pohyb ruky urazí v obou režimech stejnou vzdálenost po obrazovce) a majitel to z hraní čte prostě jako moc pomalé.
+- Kompenzující násobek je `1/0,828` = **1,208**. **Žebřík šel 1 → 1,5.** Hráč, co na tu stížnost chtěl odpovědět, mohl buď nechat 17 % zpomalení, nebo přestřelit na 24 % *rychleji* než přehled. **Žádný stupeň mezi tím neexistoval.**
+- **1,25 je ten chybějící stupeň** (0,828 × 1,25 = **1,035**, parita do 3,5 %) a je od #477 výchozí hodnotou `AimSensitivity`. Z krabice tedy ruka v přesném míření jede zhruba stejně rychle jako mimo něj; kdo chce geometrickou odpověď #384, dá řádek na 100 %.
+- **⚠ Nová výchozí hodnota nesahá na uložený soubor, který ten klíč už má** — takže stroj, ze kterého #477 vzešlo, musí na ten řádek jednou kliknout. Tak je to správně: soubor nastavení je hráčův a výchozí hodnota, která by ho potichu přepsala, by byla horší chyba než ta stížnost. (Ověřeno: hash `Settings.json` po herním běhu beze změny.)
+- Dokumentace: `docs/game-shell.md` u obou řad citlivosti (žebřík je teď 50/75/100/**125**/150/200/300 %).
+
+**Poučení, které stojí za zapsání:** #497 postavilo správnou věc (dial místo konstanty) a přesto to stížnost nevyřešilo, protože **dial bez stupně na správném místě je pořád konstanta.** Když se příště na pocitovou stížnost odpovídá knoflíkem, patří k tomu spočítat, jestli ten knoflík na kýženou hodnotu vůbec dosáhne.
