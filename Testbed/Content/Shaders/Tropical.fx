@@ -130,6 +130,20 @@ static const float JUNGLE_RISE = 4.0;
 //same AMPLITUDE, and the difference was that the desert's is organised and shaded and this was neither.
 static const float RIPPLE_SHADE = 0.24;
 
+//THE FOAM LINE (#445). The one thing every reference of a tropical waterline has and this beach had none
+//of: a thin white lace where the last of a wave runs out on the wet sand. It is on the LAND and not on the
+//water - Sea.fx draws the lagoon and its whitecaps, and a lagoon this calm makes none at its own edge, so
+//the surf's residue has to be sand shading. Keyed on height above the water like the wet band it sits in,
+//so it follows both coasts' wiggling waterlines exactly and costs no new field to do it.
+//
+//The band's middle stands a little ABOVE the water, which is where the swash actually dies: a line centred
+//on the waterline itself is half under the lagoon and reads as a ring drawn round the island.
+static const float FOAM_CENTRE = 0.12;     //world units above the water level
+static const float FOAM_HALF = 0.42;       //half-width of the band
+static const float FOAM_STRENGTH = 0.55;   //how far the sand goes towards white in the band's middle
+static const float FOAM_LACE_SCALE = 0.75; //the lace's frequency, in cycles per world unit
+static const float FOAM_DRIFT = 0.10;      //how fast the lace creeps along the shore
+
 //--- The land ------------------------------------------------------------------------------------------
 
 //The waterline's radius at a bearing: the mean wobbled by three sine octaves (integer multipliers of
@@ -313,6 +327,18 @@ float4 TropicalPS(TropicalVertexOutput input) : COLOR
     //to the coast, so it follows the wiggling waterline of either coast exactly.
     float wet = 1.0 - smoothstep(0.12, 1.05, here - WaterLevelY);
     sand *= lerp(1.0, 0.60, wet);
+
+    //The foam line, over the wet band and inside it. It is LACE and not a stripe: a swash line is scalloped,
+    //and a smooth band at a constant height reads as a contour drawn round the island - which is exactly
+    //what the shore ring's own radial construction would give it. The lace is one octave of the same
+    //gradient noise creeping slowly along the shore, so the line breathes without any surf being simulated.
+    //It rides `wet`, so foam can only appear where the sand is wet, and it fades with the same footprint
+    //band-limit everything else on this beach does.
+    float toWater = here - WaterLevelY;
+    float foamBand = smoothstep(FOAM_HALF, 0.0, abs(toWater - FOAM_CENTRE));
+    float lace = 0.45 + 0.55 * saturate(GradientNoise2(worldPosition.xz * FOAM_LACE_SCALE
+        + WindDirection * (TropicalTime * FOAM_DRIFT)) * 1.9 + 0.5);
+    sand = lerp(sand, SandColorPale * 1.35, saturate(foamBand * lace * wet) * FOAM_STRENGTH);
 
     //The shell-and-coral grain, one hash per pixel over a fine lattice, gone within a few units — the
     //fade finishes while a cell is still two pixels wide (the desert's grain rule).

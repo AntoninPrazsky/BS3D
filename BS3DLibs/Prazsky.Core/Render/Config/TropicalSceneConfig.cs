@@ -49,6 +49,9 @@ namespace Prazsky.Core.Render
         /// <summary>The rocks strung along the waterline, green-capped with moss.</summary>
         public TropicalRockConfig Rocks { get; set; } = new();
 
+        /// <summary>What lies and grows on the sand besides the palms and the rocks (#445).</summary>
+        public TropicalDressingConfig Dressing { get; set; } = new();
+
         /// <summary>
         /// The shared flock of birds circling over the lagoon — the same buffer the savanna, the desert
         /// and the outback draw from, so this count only ever raises the size the four of them share.
@@ -368,5 +371,70 @@ namespace Prazsky.Core.Render
 
         /// <summary>The moss cap's green (linear).</summary>
         public Rgb MossColor { get; set; } = new(0.045f, 0.10f, 0.03f);
+    }
+
+    /// <summary>
+    /// What lies and grows on the sand besides the palms and the rocks (#445): the band of low green scrub
+    /// and sea grass at the tree line, and the driftwood the sea leaves at the waterline. Every reference
+    /// rendered for this beach has all three and the scene had none of them — it was a sand ring with one
+    /// tree species on it, and the issue's own words were "nothing else grows, nothing lies on the sand".
+    /// <para>
+    /// None of it needs a mesh of its own: the savanna's scrub foliage, its grass tuft and its fallen log
+    /// are these things at another size and colour, which is what the shared mesh library is for. They are
+    /// drawn through the palm effect beside the rocks and, like the rocks, they do not sway — see
+    /// <c>SceneRenderer.DrawTropicalDressing</c> for why that is a decision rather than an omission.
+    /// </para>
+    /// </summary>
+    public sealed class TropicalDressingConfig
+    {
+        /// <summary>How many scrub bushes. They clump around the palms' own cluster centres, so the green
+        /// gathers where the shade is rather than dusting the beach evenly.</summary>
+        public int ScrubCount { get; set; } = 250;
+
+        /// <summary>
+        /// A bush's half-width in world units. Low — a beach's undergrowth is knee-high scrub, and anything
+        /// taller competes with the palms it is supposed to sit under. ⚠ It was 1.7 for one round and that
+        /// reads as <i>green boulders</i>: a `FoliageMesh` is a smooth lobed dome, and at a couple of world
+        /// units across it has no detail inside its own silhouette, so a few big ones photograph as beanbags
+        /// dropped on the sand. Many small ones read as a thicket, which is what the references show;
+        /// the count carries the coverage and the size carries the reading.
+        /// </summary>
+        public float ScrubSize { get; set; } = 1.05f;
+
+        /// <summary>How many sea-grass tufts. The most numerous kind, because in the references the grass is
+        /// what actually covers the ground between the bushes.</summary>
+        public int TuftCount { get; set; } = 520;
+
+        /// <summary>A tuft's half-width in world units.</summary>
+        public float TuftSize { get; set; } = 0.70f;
+
+        /// <summary>How many pieces of driftwood lie at the waterline.</summary>
+        public int DriftCount { get; set; } = 26;
+
+        /// <summary>A driftwood log's length in world units.</summary>
+        public float DriftLength { get; set; } = 3.4f;
+
+        /// <summary>A driftwood log's radius in world units.</summary>
+        public float DriftRadius { get; set; } = 0.30f;
+
+        /// <summary>Inner radius of the dressing's ring. Inside the palms' own <c>MinRadius</c>, because the
+        /// grass runs closer to the arena than a tree can — but still clear of the coping.</summary>
+        public float MinRadius { get; set; } = 40f;
+
+        /// <summary>Outer bound. Past the palms' ring, so the grass carries on down to the water while the
+        /// trees stop short of it.</summary>
+        public float MaxRadius { get; set; } = 104f;
+
+        /// <summary>The scrub's green (linear). Duller and greyer than the palms' crowns: beach scrub is
+        /// salt-burnt, and a bush as green as a frond reads as a lawn.</summary>
+        public Rgb ScrubColor { get; set; } = new(0.055f, 0.105f, 0.035f);
+
+        /// <summary>The sea grass's green (linear) — paler and yellower than the scrub, which is what dune
+        /// grass is.</summary>
+        public Rgb TuftColor { get; set; } = new(0.115f, 0.135f, 0.048f);
+
+        /// <summary>Driftwood's bleached grey (linear). Sun and salt take the brown out of it, so it is far
+        /// paler than the palms' trunks and reads against the sand by being cooler, not darker.</summary>
+        public Rgb DriftColor { get; set; } = new(0.155f, 0.145f, 0.125f);
     }
 }
