@@ -11,15 +11,6 @@ using Prazsky.Core;
 using Prazsky.Core.Camera;
 using Prazsky.Core.Render;
 using Prazsky.Core.Tools;
-using Myra;
-using Myra.Graphics2D;
-using Myra.Graphics2D.Brushes;
-using Myra.Graphics2D.UI;
-//PropertyGrid, Label and HorizontalAlignment also exist in System.Windows.Forms (used here for the file
-//dialogs), so alias Myra's (VerticalAlignment has no WinForms twin, so it needs none)
-using MyraPropertyGrid = Myra.Graphics2D.UI.Properties.PropertyGrid;
-using MyraLabel = Myra.Graphics2D.UI.Label;
-using MyraHAlign = Myra.Graphics2D.UI.HorizontalAlignment;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -145,16 +136,17 @@ namespace MapEditor
         //and a backdrop that is a different city each session is a better test of that than one that is not.
         private readonly int _sceneSeedOffset = Random.Shared.Next();
 
-        //Which of the two cities _city holds (#471's follow-up), so V rebuilds only when it crosses between
-        //them and a live config edit rebuilds the one that is up.
+        //Which of the two cities _city holds (#471's follow-up), so V rebuilds only when it crosses between them.
         private bool _cityIsNeon;
         private BoxMesh _unitBox;
         private InstancedModelRenderer _cityRenderer;
-        //The equipment on the city's roofs (#436), redressed whenever an edit rebuilds the city
+        //The equipment on the city's roofs (#436), redressed whenever V rebuilds the city
         private CityRooftops _rooftops;
         //The street level the towers stand on (#399), rebuilt with the city
         private CityStreets _streets;
-        //The city's fixed parameters; the G panel edits them live for tuning, nothing persists them
+        //The city's fixed parameters — in code like every other scene's (SceneRenderer.GetSceneConfig), and
+        //out here only because the city itself is: City and the instanced city technique live outside the
+        //SceneRenderer. Nothing edits it at runtime any more (the live scene-config panel went in #522).
         private CitySceneConfig _cityConfig = new();
 
         //The forest's scattered trees, boulders and stumps, so a forest level previews with the wood standing on
@@ -181,15 +173,6 @@ namespace MapEditor
         //stashed here and applied on the main thread in Update. See ApplyPendingLevel.
         private Level _pendingLevel;
         private readonly object _pendingLevelLock = new();
-
-        //Myra in-engine GUI (issue #45): a live scene-config editor (issue #33). The PropertyGrid reflects over
-        //the active scene's SceneConfig POCO (issue #44); editing a value re-applies it, so the backdrop updates
-        //in place. G toggles the panel. Myra's default stylesheet is embedded, so no content pipeline is needed.
-        private Desktop _desktop;
-        private MyraPropertyGrid _sceneConfigGrid;
-        private MyraLabel _sceneConfigHeader;
-        private Widget _sceneConfigPanel;
-        private bool _sceneConfigPanelVisible = true;
 
         //Wall-clock seconds the scene motion runs off (waves, wind, birds, snow), so the environment keeps
         //moving the way it does in the game instead of freezing
@@ -314,7 +297,6 @@ namespace MapEditor
                 new(mgKeys.V, SwitchScene, "Cycle scene (the current one is named in the line below)"),
                 new(mgKeys.L, SwitchBallStyle, "Cycle ball material (the current one is named in the line below)"),
                 new(mgKeys.K, CycleBallKind, "Cycle ball kind (the current one is named in the line below)"),
-                new(mgKeys.G, ToggleSceneConfigPanel, "Show/hide scene-config editor"),
 
                 new(mgKeys.F1, SaveJson, "Save map to file (JSON)"),
                 new(mgKeys.F2, LoadJson, "Load map or level from file (JSON)"),
@@ -490,8 +472,6 @@ namespace MapEditor
 
             _pipeline.EnsureTarget();
 
-            BuildSceneConfigPanel();
-
             //Load a map or level handed on the command line (a level stashes to _pendingLevel and lands next Update)
             if (!string.IsNullOrEmpty(StartupFilePath) && File.Exists(StartupFilePath))
                 DeserializeMapFromJsonFile(StartupFilePath);
@@ -538,8 +518,6 @@ namespace MapEditor
             //(GameplayScreen.Session's SetSkyDome call). Setting it on a scene cycle would overwrite the
             //author's choice for a preview, which is a lie in the one direction that also destroys their work.
             ApplySkyLighting();
-
-            RebindSceneConfigGrid();
         }
 
         /// <summary>
@@ -548,7 +526,7 @@ namespace MapEditor
         /// writes it into the level file beside the scene and the dome, and loading one brings it back.
         /// <para>
         /// On <c>L</c> for "look", which is what was free: S, W, A, D, Q and E drive the camera, B is the sky
-        /// dome, V the scene, G the tuning panel, N fills the map and M clears it. There is no count of styles
+        /// dome, V the scene, N fills the map and M clears it. There is no count of styles
         /// here — the cycle is <see cref="BallStyles.Next"/>'s, off the enum itself, so a third material cannot
         /// be added and left unreachable in the one program that exists to choose between them.
         /// </para>
@@ -580,57 +558,6 @@ namespace MapEditor
             if (_balls != null) _balls.Style = style;
         }
 
-        /// <summary>
-        /// Builds the Myra scene-config editor: a right-docked panel with a header and a scrollable PropertyGrid
-        /// that reflects over the active scene's config. Editing a value re-applies the config live.
-        /// </summary>
-        private void BuildSceneConfigPanel()
-        {
-            MyraEnvironment.Game = this;
-            _desktop = new Desktop();
-
-            _sceneConfigGrid = new MyraPropertyGrid { IgnoreCollections = true };
-            _sceneConfigGrid.PropertyChanged += (s, e) => OnSceneConfigEdited();
-
-            var scroll = new ScrollViewer
-            {
-                Content = _sceneConfigGrid,
-                HorizontalAlignment = MyraHAlign.Stretch,
-                VerticalAlignment = VerticalAlignment.Stretch,
-            };
-
-            _sceneConfigHeader = new MyraLabel { Text = "Scene", Wrap = true, Padding = new Thickness(6, 6, 6, 8) };
-
-            var layout = new Grid { Padding = new Thickness(4), Background = new SolidBrush(new Color(12, 12, 18, 214)) };
-            layout.RowsProportions.Add(new Proportion(ProportionType.Auto));
-            layout.RowsProportions.Add(new Proportion(ProportionType.Fill));
-            Grid.SetRow(_sceneConfigHeader, 0);
-            Grid.SetRow(scroll, 1);
-            layout.Widgets.Add(_sceneConfigHeader);
-            layout.Widgets.Add(scroll);
-
-            layout.HorizontalAlignment = MyraHAlign.Right;
-            layout.VerticalAlignment = VerticalAlignment.Stretch;
-            layout.Width = 360;
-
-            _sceneConfigPanel = layout;
-            _desktop.Root = _sceneConfigPanel;
-
-            RebindSceneConfigGrid();
-        }
-
-        /// <summary>Points the PropertyGrid at the current scene's config (the editor's CitySceneConfig for the city).</summary>
-        private void RebindSceneConfigGrid()
-        {
-            if (_sceneConfigGrid == null) return;
-
-            bool isCity = _scene == SceneKind.City || _scene == SceneKind.NeonCity;
-            if (isCity) _cityConfig.Neon = _scene == SceneKind.NeonCity; //show the config's Neon matching the current view
-
-            _sceneConfigGrid.Object = isCity ? _cityConfig : _sceneRenderer.GetSceneConfig(_scene);
-            _sceneConfigHeader.Text = $"{_scene}  —  edit to preview live; not saved  (G: hide)";
-        }
-
         /// <summary>Re-runs the city generator when V crosses between the day city and the neon one, and
         /// nothing otherwise. The roofs and the streets follow through their own <c>Rebuild</c>.</summary>
         private void EnsureCityLayout(bool neon)
@@ -641,52 +568,6 @@ namespace MapEditor
             _city = new City(_cityConfig, neon, ARENA_HALF_EXTENT);
             _rooftops.Rebuild(_city, _cityConfig);
             _streets.Rebuild(_city);
-        }
-
-        /// <summary>Re-applies the edited scene config so the backdrop updates in place.</summary>
-        private void OnSceneConfigEdited()
-        {
-            switch (_sceneConfigGrid.Object)
-            {
-                case CitySceneConfig city:
-                    _city = new City(city, _cityIsNeon, ARENA_HALF_EXTENT);
-                    _cityRenderer.CityConfig = city;
-                    //The roofs follow the new buildings and the edited chances; the renderers survive, so
-                    //nothing needs re-lighting
-                    _rooftops.Rebuild(_city, city);
-                    _streets.Rebuild(_city);
-                    break;
-                case SceneConfig sceneConfig:
-                    _sceneRenderer.Apply(sceneConfig);
-
-                    //A forest edit reaches into the meshes as well as the planting — the tree, boulder and stump
-                    //proportions are baked into them and the three colours into the cached tints — so the wood is
-                    //rebuilt whole rather than merely re-planted, and then re-lit, its renderers all being new.
-                    //This is the one thing the game never needs: nothing there edits a scene config at runtime,
-                    //which is exactly why the component reads the config at build time only.
-                    if (sceneConfig is ForestSceneConfig forest)
-                    {
-                        _forestScatter.Replant(forest);
-                        _forestFireflies.Replant(forest);
-                        ApplySkyLighting();
-                    }
-
-                    //The aurora's own wood, replanted from its OWN nested Terrain group rather than the
-                    //config edited directly - the PropertyGrid binds AuroraSceneConfig as a whole, and
-                    //Replant wants only the ForestSceneConfig-shaped Terrain inside it.
-                    if (sceneConfig is AuroraSceneConfig aurora)
-                    {
-                        _auroraScatter.Replant(aurora.Terrain);
-                        ApplySkyLighting();
-                    }
-                    break;
-            }
-        }
-
-        private void ToggleSceneConfigPanel()
-        {
-            _sceneConfigPanelVisible = !_sceneConfigPanelVisible;
-            _sceneConfigPanel.Visible = _sceneConfigPanelVisible;
         }
 
         /// <summary>
@@ -715,11 +596,6 @@ namespace MapEditor
         /// reads the sky. There is no island, no drain and no ceiling here to light.
         /// </para>
         /// <para>
-        /// Run again after every <see cref="ForestScatterRenderer.Replant"/>: a re-planted wood is twenty-five
-        /// brand-new renderers, none of which has been told the dome's palette, exactly as a refitted
-        /// <c>CeilingPlate</c> is in the game.
-        /// </para>
-        /// </summary>
         private void ApplySkyLighting()
         {
             //A scene that states its own rig — space, the dream, the cavern — has to be honoured here too, or a
@@ -805,20 +681,16 @@ namespace MapEditor
 
             _cih.RegisterCurrentInputState();
 
-            //When a Myra widget owns the keyboard (a value is being typed) or the mouse is over the panel, the
-            //editor's own keys and camera must stand down, or typing "42" would fire hotkeys and dragging a
-            //slider would spin the camera. Myra processes its input in Draw (_desktop.Render), so these flags
-            //reflect the previous frame — a negligible lag.
-            bool guiHasKeyboard = _desktop?.FocusedKeyboardWidget != null;
-            bool guiHasMouse = _sceneConfigPanelVisible && (_desktop?.IsMouseOverGUI ?? false);
-
-            if (!guiHasKeyboard)
-                foreach (var action in _actions) if (_cih.PressedOnce(action.Key, action.Button)) action.Method();
+            //Nothing arbitrates the input any more: the editor had an in-engine GUI (the live scene-config
+            //panel, #33/#45) whose focused widget or hovered panel used to stand the hotkeys and the camera
+            //down, and #522 removed it — the editor's keys and camera are the only readers of the keyboard and
+            //the mouse now, the WinForms dialogs being modal.
+            foreach (var action in _actions) if (_cih.PressedOnce(action.Key, action.Button)) action.Method();
 
             //No circular camera movement: its NumPad7/9 orbit keys are ball types here (7 recoloured the
             //selector on every orbit press long before #152 put orange on 9). Mouse rotation and D1-D6 views
             //cover what the orbit did.
-            if (!guiHasKeyboard && !guiHasMouse) _cih.CameraMovement(gameTime, allowCircularMovement: false);
+            _cih.CameraMovement(gameTime, allowCircularMovement: false);
             _cih.RegisterPreviousInputState();
             
             _cih.Update(gameTime);
@@ -977,9 +849,6 @@ namespace MapEditor
                 //The level's dome wins over whatever is up (the sky key still cycles freely from here)
                 SetSkyDome(Math.Clamp((int)level.SkyDome, 1, SKY_DOME_COUNT));
 
-                //Point the live tuning panel at the named scene's config (and sync the city's Neon flag)
-                RebindSceneConfigGrid();
-
                 string levelName = string.IsNullOrEmpty(level.Name) ? "Untitled" : level.Name;
                 Info.CustomText = $"Level: {levelName}, scene {_scene}, sky {_skyDomeNumber}, "
                     + $"{BallStyles.ToName(_ballStyle)} balls";
@@ -1074,10 +943,6 @@ namespace MapEditor
             _axisGizmo.Draw(Camera3D);
 
             base.Draw(gameTime);
-
-            //The Myra GUI renders last, on top of everything, straight to the back buffer (base.Draw and
-            //the pipeline's Resolve leave it bound). Render also processes Myra's own mouse/keyboard input.
-            _desktop.Render();
         }
 
         /// <summary>

@@ -342,11 +342,10 @@ namespace BS3D
             //The forest's scattered trees, rocks and stumps, all of it: both procedural textures, the fifteen
             //mesh variants, the twenty-five renderers with their bark, foliage, stone and sawn-wood dressing,
             //the matte materials and the tints encoded once from the config. The config is the SceneRenderer's
-            //own instance and is read at build time only, which is all this executable ever needs — nothing
-            //here edits a scene config at runtime, so there is no Replant call in the Game (the map editor's
-            //live grid is the one caller that has to make it). No stone texture handed in: the component builds
-            //its own, since ArenaIsland's is that component's private business. The ambient is the scene's, so
-            //it is handed over as it is to the island.
+            //own instance and is read at build time only — nothing edits a scene config at runtime anywhere since
+            //#522 took the map editor's live grid, the one caller that needed a Replant. No stone texture handed
+            //in: the component builds its own, since ArenaIsland's is that component's private business. The
+            //ambient is the scene's, so it is handed over as it is to the island.
             _forestScatter = new ForestScatterRenderer(GraphicsDevice, _instancingEffect,
                 (ForestSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Forest), SCENE_AMBIENT_INTENSITY,
                 seed: ForestScatterRenderer.DEFAULT_SEED + _sceneSeedOffset);

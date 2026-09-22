@@ -1863,106 +1863,7 @@ namespace Prazsky.Core.Render
             }
         }
 
-        #region Scene-config apply (issue #32)
-
-        /// <summary>
-        /// Applies a scene configuration at runtime — the path a loaded level takes. Re-pushes the scene's
-        /// effect parameters and rebuilds the scatter/particle buffers the config sizes (acacias, birds,
-        /// snow, spray). A <see cref="CitySceneConfig"/> is a no-op here: the city lives outside the
-        /// SceneRenderer (<see cref="City"/> + the instanced city technique), so its caller applies it.
-        /// </summary>
-        public void Apply(SceneConfig config)
-        {
-            switch (config)
-            {
-                case SeaSceneConfig sea:
-                    _seaConfig = sea;
-                    ApplySeaParameters();
-                    ApplySprayParameters();
-                    BuildSprayBuffers();
-                    break;
-                case DesertSceneConfig desert:
-                    _desertConfig = desert; //terrain params re-pushed below; birds read per frame from the config
-                    ApplyDesertParameters();
-                    SeedBirdFlock();        //the shared flock is sized from all the scenes that draw it
-                    break;
-                case OutbackSceneConfig outback:
-                    _outbackConfig = outback;
-                    ApplyOutbackParameters();
-                    SeedBirdFlock();        //the shared flock is sized from all the scenes that draw it
-                    break;
-                case TropicalSceneConfig tropical:
-                    _tropicalConfig = tropical;
-                    ApplyTropicalParameters();
-                    BuildTropicalBuffers(); //palm and rock positions depend on the terrain, so the change re-plants them
-                    SeedBirdFlock();        //the shared flock is sized from all the scenes that draw it
-                    break;
-                case VolcanoSceneConfig volcano:
-                    _volcanoConfig = volcano;
-                    ApplyVolcanoParameters();
-                    BuildVolcanoBuffers(); //the vents and the rivers stand on the terrain, so a terrain edit re-solves them
-                    break;
-                case MarsSceneConfig mars:
-                    _marsConfig = mars;
-                    ApplyMarsParameters();
-                    break;
-                case StormSceneConfig storm:
-                    _stormConfig = storm;
-                    ApplyStormParameters();
-                    break;
-                case PolarSceneConfig polar:
-                    _polarConfig = polar;
-                    ApplyPolarParameters();
-                    break;
-                case SavannaSceneConfig savanna:
-                    _savannaConfig = savanna;
-                    ApplySavannaParameters();
-                    ApplyAcaciaParameters();
-                    BuildSavannaScatter();  //plant positions depend on the terrain, so the terrain change re-plants them
-                    BuildHearthStones();    //and so do the fires' own hearths, which stand on it too
-                    SeedBirdFlock();        //the shared flock is sized from all the scenes that draw it
-                    break;
-                case MountainSceneConfig mountain:
-                    _mountainConfig = mountain;
-                    ApplyMountainParameters();
-                    BuildSnowBuffers();
-                    break;
-                case MeadowSceneConfig meadow:
-                    _meadowConfig = meadow;
-                    ApplyMeadowParameters();
-                    break;
-                case ForestSceneConfig forest:
-                    _forestConfig = forest;
-                    ApplyForestParameters();
-                    break;
-                case SpaceSceneConfig space:
-                    _spaceConfig = space;
-                    ApplySpaceParameters();
-                    break;
-                case DreamSceneConfig dream:
-                    _dreamConfig = dream;
-                    ApplyDreamParameters();
-                    break;
-                case CavernSceneConfig cavern:
-                    _cavernConfig = cavern;
-                    ApplyCavernParameters();
-                    break;
-                case MoonSceneConfig moon:
-                    _moonConfig = moon;
-                    ApplyMoonParameters();
-                    break;
-                case AuroraSceneConfig aurora:
-                    _auroraConfig = aurora;
-                    ApplyAuroraParameters();
-                    break;
-                case GridSceneConfig grid:
-                    _gridConfig = grid;
-                    ApplyGridParameters();
-                    break;
-                case CitySceneConfig:
-                    break;
-            }
-        }
+        #region Scene parameters (each config pushed to its effect and buffers; issue #32, #44)
 
         /// <summary>
         /// The sun a scene states for itself, overriding both the dome's and the shared domeless one, and false
@@ -2105,9 +2006,9 @@ namespace Prazsky.Core.Render
         /// </para>
         /// <para>
         /// <paramref name="bearing"/> is the caller's own roll, used by the scenes with nothing fixed to
-        /// point at and ignored by the ones that have. Figures come off each scene's live config wherever the
-        /// scene has one, so the map editor's panel and a level's own config move the viewpoint with the
-        /// feature instead of leaving it pointing where the feature used to be.
+        /// point at and ignored by the ones that have. Figures come off each scene's config wherever the
+        /// scene has one, so a feature moved in code moves the viewpoint with it instead of leaving it
+        /// pointing where the feature used to be.
         /// </para>
         /// </summary>
         /// <returns>Always true today. It is a Try so that a scene added without a viewpoint is a shot that
@@ -3318,8 +3219,8 @@ namespace Prazsky.Core.Render
 
             //And where the trails have to go round it (#476): built from the planting that has just been
             //done, so the field and the plants it bends for cannot disagree. Rebuilt with the scatter for
-            //the same reason — the map editor's live panel re-plants, and a field left behind would send the
-            //paths round trees that are no longer there.
+            //the same reason: a field left behind by a planting would send the paths round trees that are no
+            //longer there.
             _trailWarp?.Dispose();
             _trailWarp = _savannaConfig.TrailAvoidOffset > 0f
                 ? new TrailWarpField(_graphicsDevice, _savannaScatter.Standing,
@@ -4813,9 +4714,9 @@ namespace Prazsky.Core.Render
             _gridEffect.Parameters["GridFaceShadeFloor"].SetValue(towers.FaceShadeFloor);
             _gridEffect.Parameters["GridPhosphorDecay"].SetValue(towers.PhosphorDecay);
 
-            //Placement (count/radius/height/footprint/seed) and the boards only take effect through a rebuild —
-            //a live edit in the map editor's panel is exactly the case BuildGridTowers exists to answer, the same
-            //reason a forest config edit calls Replant rather than waiting for the next scene switch.
+            //Placement (count/radius/height/footprint/seed) and the boards only take effect through a rebuild, so
+            //the parameters and the solids are pushed from one place — which is what kept the two in step while
+            //the map editor's live panel (gone in #522) could re-apply a config at any moment.
             BuildGridTowers();
         }
 
@@ -7300,7 +7201,7 @@ namespace Prazsky.Core.Render
         /// faces are culled. Also (re)builds one <see cref="GridLifeBoard"/> per solid, seeded from the same
         /// placement stream, so every host shows the same patterns on the same solids. Idempotent and safe to
         /// call again from <see cref="ApplyGridParameters"/>: disposes whatever it last built before building the
-        /// new placement, the same shape <c>ForestScatterRenderer.Replant</c> takes for a live config edit.
+        /// new placement.
         /// </summary>
         private void BuildGridTowers()
         {

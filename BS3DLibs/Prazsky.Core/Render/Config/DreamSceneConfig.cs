@@ -9,8 +9,9 @@ namespace Prazsky.Core.Render
     /// and its own light rig (<see cref="Lighting"/>). Deliberately a scene of contrasts — sharp against
     /// blurred, fast against slow — which is what the groups below dial.
     /// <para>
-    /// Named nested objects, never arrays: the map editor's PropertyGrid is built <c>IgnoreCollections</c>,
-    /// so a list would be invisible in the live scene-config editor.
+    /// Named nested objects rather than arrays — the shape the map editor's PropertyGrid once required (it
+    /// was built <c>IgnoreCollections</c>; the panel went in #522), kept because a named group reads as a
+    /// config and an index does not.
     /// </para>
     /// </summary>
     public sealed class DreamSceneConfig : SceneConfig

@@ -48,7 +48,7 @@ namespace Prazsky.Core.Render
         public int MapSize { get; set; } = 4096;
 
         /// <summary>A scene's shadows, stated where the rest of its look is. The parameterless constructor is
-        /// what System.Text.Json and the map editor's PropertyGrid need.</summary>
+        /// the <c>= new()</c> default every scene starts from (shadows off); the other states a scene's own.</summary>
         public ShadowConfig() { }
 
         public ShadowConfig(float strength, float extent = 260f, int mapSize = 4096)

@@ -12,8 +12,9 @@ namespace Prazsky.Core.Render
     /// </para>
     /// <para>
     /// Grouped rather than flat because the dials fall into families a designer tunes one at a time — and as
-    /// named nested objects rather than a collection, since the map editor's <c>PropertyGrid</c> is built
-    /// <c>IgnoreCollections = true</c> and a list would simply be invisible in the live scene-config editor.
+    /// named nested objects rather than a collection: that was the map editor's <c>PropertyGrid</c>'s rule
+    /// (built <c>IgnoreCollections = true</c>, gone with the panel in #522), and it stays because a named
+    /// group reads as a config where an index does not.
     /// </para>
     /// </summary>
     public sealed class OutbackSceneConfig : SceneConfig

@@ -9,8 +9,8 @@ namespace Prazsky.Core.Render
     /// tropical island's lagoon rather than on an open sea.
     /// <para>
     /// Every colour is <b>linear radiance</b>, like every other scene config's, and the dials are grouped
-    /// as named nested objects because the map editor's <c>PropertyGrid</c> is built
-    /// <c>IgnoreCollections = true</c> — see <see cref="OutbackSceneConfig"/> for the reasoning in full.
+    /// as named nested objects — see <see cref="OutbackSceneConfig"/> for where that shape came from and
+    /// why it stays.
     /// </para>
     /// </summary>
     public sealed class TropicalSceneConfig : SceneConfig

@@ -11,7 +11,8 @@ namespace Prazsky.Core.Render
     /// The config is wired to all three of its sites: <see cref="City"/>'s constructor reads the layout,
     /// <see cref="InstancedModelRenderer.CityConfig"/> pushes the window look to the shader on every city
     /// draw, and the caller reads <see cref="WindowBrightness"/> / <see cref="NeonLook"/> for the day/neon
-    /// relight — which is what lets the map editor's PropertyGrid edit the city live.
+    /// relight. Fixed in code like every scene's config: nothing edits it at runtime since #522 removed the
+    /// map editor's live panel over it.
     /// </summary>
     public sealed class CitySceneConfig : SceneConfig
     {
@@ -265,8 +266,7 @@ namespace Prazsky.Core.Render
     }
 
     /// <summary>
-    /// How the street level under the towers looks (#399), read on every draw so the map editor's panel edits it
-    /// live. Where the streets run is not here: that is the city's own grid (<see cref="CitySceneConfig.BlockPitch"/>,
+    /// How the street level under the towers looks (#399), read on every draw. Where the streets run is not here: that is the city's own grid (<see cref="CitySceneConfig.BlockPitch"/>,
     /// <see cref="CitySceneConfig.StreetWidth"/>), so the two cannot disagree. Colours are linear albedo unless
     /// named a radiance. The treatment was read off references rendered locally for #399: a canyon seen from
     /// above by day, one intersection from straight above, a paved square, and the same canyons at night.
