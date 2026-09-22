@@ -5424,3 +5424,20 @@ Obě issues nechávám otevřené na majitelův pohled v pohybu.
 - **Cena:** 8,76/8,76 ms proti 9,02/9,02 na herní pozici a 9,42/9,42 proti 9,74 z výšky (rozptyly 0,05 ms a méně na sedmi z osmi běhů, sady shaderů `1111f0cc` proti `783ec82c`). ⚠ **Herní kamera tu cenu platí, i když z toho skoro nic nevidí** — římsa ostrova zakrývá blízký písek a dekorace začíná na 40 jednotkách; pěnová čára je člen terénního shaderu placený nad každým pixelem písku tak jako tak.
 
 **Devět scén za tuhle session (#509, #504, #508, #507, #505, #506, #503, #510, #511, #445 — deset). Jdu dál.**
+
+
+---
+
+## 2026-09-22 — Claude Code, bs3d-9f (desktop: #512 Grid — hero objekt a plošné stínování, merge `54e1199`)
+
+**Jedenáctá scéna téhle session,** a jiného tvaru než ostatní: Grid **nesmí** vypadat fotorealisticky, takže reference nejsou fotky, ale jazyk té doby — filmové stilly rané CG z 80. let, list „landmark" těles z roku 1982, vektorová arkádová grafika, přelet nad obvodovou krajinou a malá kotoulející se tělesa. `C:\Users\panrd\AI\sd\out\512`.
+
+- **⚠ Tělesa měla JEDNU plochou barvu na všech stěnách, takže krychle byla drátěný obrys a ne objem.** Každá reference tohohle jazyka (a film, ke kterému se scéna hlásí) dělá to jediné, co si renderer v roce 1982 mohl dovolit: **jedna hodnota na stěnu**, podle úhlu mezi stěnou a pevným směrem. Žádné světlo, žádný útlum, nic per-pixel. Vertex teď nese vnější normálu stěny (`right × up`, vlastní invariant `BoxMesh`u, díky kterému jeden helper obslouží boční stěnu i střechu).
+- **`BodyColor` s tím musel nahoru čtyřnásobně, a to není zesvětlení.** Stará hodnota byla pár kódů od prázdnoty — schválně, švy byly přidané přesně kvůli tomu — takže násobit ji členem podle natočení nezměnilo nic, co by oko našlo. Při `0,011/0,033/0,049` **tmavé stěny sedí tam, kde dřív byly všechny**, a zvedne se jen ta osvětlená.
+- **Hero objekt je prstenec stojící na hraně.** Z pěti tvarů, které list nakreslil (stupňovitý zikkurat, fasetový mnohostěn na podstavci, věž se štěrbinami, prstenec na hraně, hromada krychlí), je prstenec ta **jediná silueta, kterou tahle scéna nemá**: všechno ostatní na té podlaze je kvádr, takže prstenec čte jako orientační bod z libovolného azimutu — a to je celá jeho práce. Pořád je to kombinatorické těleso: fasetový torus z 28 lichoběžníkových segmentů po čtyřech plochých quadech, takže zůstává ve slovníku `BoxMesh`, ne sweep trubky. Jeho rovina míří k aréně, takže herní kamera vidí prstenec a ne tyč na hraně, a stojí na podlaze.
+- **⚠ Spoje segmentů nesmí svítit, jinak je z toho sud s žebry.** Švový shader rozsvěcí všechny čtyři okraje každého quadu, takže fasetový prstenec kreslený jako věž by měl 28 jasných žeber. Každý quad proto hlásí face-local X přišpendlené doprostřed schválně široké stěny, takže jeho dva *příčné* okraje se nikdy nedostanou na šířku hrany od pixelu; kreslí se jen dlouhé okraje a oko dostane **dvě čisté kolejnice** běžící kolem prstence.
+- **Všechna navíjení plynou z jedné identity a ani jedno není hádané:** s pravotočivou trojicí `(side, up, planeNormal)` je tangenta × normála roviny radiální směr a radiální × tangenta je normála roviny — z toho vyjdou vnější pás, vnitřní pás i oba boky.
+- **⚠ Testbed přeseje uspořádání každé scény při každém spuštění, pokud to nepřišpendlí `sceneseed=`, a A/B bez toho jsou dvě různé scény.** První dvojice před/po pro tenhle průchod se vrátila s viditelně jinou sadou těles v obou půlkách, a v kódu umístění se nezměnilo nic. `sceneseed=0` je to, co se dodává; každý porovnávaný snímek ho má. (Sekce o ceně u polární záře ho už používala; zapisuju to sem, protože tady to stálo jeden snímek.)
+- **⚠ `fpscap=400` na téhle scéně neměří nic:** obě půlky seděly přesně na 2,50 ms, protože Grid je dost levný, aby i na 7680×3200 přeskočil 400 FPS. Čísla jsou při `fpscap=2000`: **1,81/1,81 ms proti 1,82/1,82** na herní pozici (jedna setina — ten dot plošného stínování a nic jiného) a **1,26 proti 1,23** z pohledu, kde prstenec zabírá třetinu snímku, tedy bez měřitelné ceny.
+
+**Jedenáct scén za session (#509, #504, #508, #507, #505, #506, #503, #510, #511, #445, #512).**
