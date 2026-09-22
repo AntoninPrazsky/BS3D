@@ -5477,3 +5477,9 @@ Obě issues nechávám otevřené na majitelův pohled v pohybu.
 **Co jsem v rámci #400 NEPROŠEL** (ať to někdo neodvozuje znovu): pravidlo vinutí trojúhelníků (mechanicky nezkontrolovatelné), hranice mezi `Microsoft.Xna` a `System.Numerics` vektory (počet pojmenovaných konverzí na soubor nic neříká — implicitní konverze se takhle nedají najít), mrtvý kód a nepoužité knoflíky, a duplicita v per-scene config třídách.
 
 **Koordinace:** bs3d-95 si vzala #522, chystá #518, #521. Já jsem dnes udělal jedenáct scén, #514 a tenhle první průchod #400.
+
+**Dodatek k #400, druhá dávka kontrol — všechny vyšly ČISTĚ, a to je taky výsledek** (zapsáno, aby to příští průchod nedělal znovu):
+
+- **594 vlastností ve scénických configech, ani jedna nereferencovaná** mimo adresář `Config/`. Obava z „nepoužitých knoflíků" (#274, #101) se na configy nevztahuje.
+- **707 uniformů nejvyšší úrovně ve všech shaderech, ani jeden, který by z C# nikdo nepojmenoval.** ⚠ První verze té kontroly hlásila 81 „nenastavených" a **všechny byly falešné**: regulár bral i položky `struct`ů (`float Halo;` uvnitř `RiverSample` ve `Volcano.fx`) a neuměl aliasované vyhledání (`p["AsphaltColor"]` v `CityStreets.cs` místo `effect.Parameters["…"]`). Po opravě obojího zbylo nula. Stojí za zapsání, protože je to přesně ten druh kontroly, která vypadá přesvědčivě a je celá špatně, dokud člověk dva nálezy neověří ručně.
+- **Zkopírované komentáře mezi scénickými configy: dva řádky opakované ve třech a více souborech, oba oprávněně obecné** („čím se tu svítí na ostrov, gun a koule, když není kupole" ve čtyřech scénách nahrazujících oblohu; „kolik polokulového světla vyplňuje pláně" ve třech terénních). Žádná kopírovaná chyba typu #297.
