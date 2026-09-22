@@ -68,8 +68,10 @@ namespace Prazsky.Core.Render
     /// <summary>The marbled background: sine fields on the view direction under a domain warp.</summary>
     public sealed class DreamBackgroundConfig
     {
-        /// <summary>Bands per unit of direction — how fine the marbling is.</summary>
-        public float SwirlScale { get; set; } = 2.6f;
+        /// <summary>Bands per unit of direction — how fine the marbling is. Broader since #506: the ink
+        /// and lava-lamp references gather their colour into a few big plumes, where 2.6 drew a fine even
+        /// mottle, and a mottle is what a uniform field looks like however it is coloured.</summary>
+        public float SwirlScale { get; set; } = 2.1f;
 
         /// <summary>How far the field bends its own sampling direction. 0 is straight bands; the warp is
         /// what turns bands into marbling.</summary>
@@ -81,13 +83,22 @@ namespace Prazsky.Core.Render
         /// <summary>The sharp ribbons' travel rate. Fast — they cross in seconds.</summary>
         public float SpeedFast { get; set; } = 0.6f;
 
-        /// <summary>Exponent on the ribbon layer: higher is thinner and sharper.</summary>
+        /// <summary>Exponent on the ribbon layer: higher is thinner and sharper. The ribbons carry this
+        /// sky's light since #506, so the exponent decides how much of the sphere is lit at all.</summary>
         public float RibbonSharpness { get; set; } = 7f;
 
-        /// <summary>Overall level of the marbling (linear). Kept well under the glare threshold — the
-        /// background is the canvas, and at 0.32 it washed out the orbs, sparks and solids hung on it; the
-        /// darker canvas is what lets the glows read as glows.</summary>
-        public float Brightness { get; set; } = 0.24f;
+        /// <summary>
+        /// Overall level of the marbling (linear). Kept well under the glare threshold — the background is
+        /// the canvas, and a canvas that blooms buries everything hung on it.
+        /// <para>
+        /// It went 0.32 → 0.24 because the marbling washed out the orbs, sparks and solids, and that was
+        /// treating the wrong dial: this palette is a hue wheel at constant lightness, so the brightness can
+        /// only grey the whole frame down together and never make a dark place for a glow to stand in.
+        /// #506 put that contrast in the field itself (the density term in <c>Background</c>), which is why
+        /// the level can come back up — most of the sphere is now near-empty whatever this says.
+        /// </para>
+        /// </summary>
+        public float Brightness { get; set; } = 0.30f;
     }
 
     /// <summary>
@@ -109,11 +120,23 @@ namespace Prazsky.Core.Render
         /// <summary>How fast a solid melts between its forms.</summary>
         public float MorphSpeed { get; set; } = 0.22f;
 
-        /// <summary>How much of the palette glows from inside a solid (linear).</summary>
-        public float Emission { get; set; } = 0.85f;
+        /// <summary>How much of the palette glows from inside a solid (linear). Higher since #506, where
+        /// the emission stopped covering the whole body (that read as paint) and became the rim: the same
+        /// dial now lights a tenth of the pixels it used to.</summary>
+        public float Emission { get; set; } = 1.3f;
 
-        /// <summary>How much of the marbled sky a solid mirrors — the glassy half of its shading.</summary>
-        public float Reflection { get; set; } = 0.9f;
+        /// <summary>How much of the marbled sky a solid mirrors — the glassy half of its shading, and since
+        /// #506 where its glints come from: a bright ribbon landing on a curved face is a specular.</summary>
+        public float Reflection { get; set; } = 1.0f;
+
+        /// <summary>
+        /// How deeply a solid's body stains what is seen through it (#506): the Beer-Lambert coefficient
+        /// over how face-on the surface is, which is the only measure of thickness available without a
+        /// second march. It is what makes these read as glass rather than as painted plastic — a deep
+        /// saturated core clearing towards the rim — so it is the dial to reach for first if they ever go
+        /// flat again. 0 is water-clear; above about 4 the core goes to the solid's own hue and stops.
+        /// </summary>
+        public float Absorption { get; set; } = 2.4f;
     }
 
     /// <summary>The soft orbs and the fast sparks.</summary>
@@ -126,7 +149,7 @@ namespace Prazsky.Core.Render
         /// Peak linear radiance of an orb's core. Allowed over the glare threshold deliberately: an orb is
         /// a smooth area hundreds of pixels wide, so it blooms steadily — the planet's lit-limb reasoning.
         /// </summary>
-        public float OrbBrightness { get; set; } = 0.85f;
+        public float OrbBrightness { get; set; } = 1.05f;
 
         /// <summary>
         /// Peak linear radiance of a spark's head. Kept AT the glare threshold rather than over it: a spark

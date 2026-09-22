@@ -67,6 +67,7 @@ float ShapeSize;           //base half-size of a solid, world units
 float ShapeMorphSpeed;     //how fast a solid melts between its forms
 float ShapeEmission;       //how much of the palette glows from inside a solid
 float ShapeReflection;     //how much of the marbled sky a solid mirrors
+float ShapeAbsorption;     //how deeply a solid's body stains what is seen through it (Beer, #506)
 
 //--- The soft orbs and the sparks ------------------------------------------------------------------------
 float OrbRadius;           //gaussian sigma of a soft orb, world units
@@ -119,14 +120,48 @@ float3 Background(float3 d, int warpOctaves)
     //Colouring by the intermediates rather than the final value alone is most of why warped fBm reads as
     //a substance with an inside instead of as a flat pattern.
     float3 color = Palette(field * 0.55 + t * 0.004);
-    color = lerp(color, Palette(field * 0.55 + 0.38 + t * 0.004) * 1.35, saturate(dot(q, q) * 0.35));
-    color *= 0.5 + 0.65 * saturate(length(r) * 0.65);
+    color = lerp(color, Palette(field * 0.55 + 0.38 + t * 0.004) * 1.35, saturate(dot(q, q) * 2.5));
+
+    //THE MEDIUM (#506). Every reference this scene was redrawn against - ink dropped into water, a lava
+    //lamp, luminous orbs in a dark room, glass on a dark ground - is mostly DARK, with the colour gathered
+    //into plumes and filaments standing out of that dark. This marbling was the opposite: it covered the
+    //frame at ONE value, and everything hung on it - the orbs, the sparks, the solids, the cluster itself -
+    //had nothing to stand against.
+    //
+    //The reason is the palette, and it cannot be fixed there: a cosine ramp whose three channels sit a third
+    //of a cycle apart is a hue wheel at CONSTANT lightness (mean A per channel, 0.42, whatever t is), so
+    //rotating the hue can never darken it and lowering the brightness only greys the whole frame down
+    //together - which is what the 0.32 -> 0.24 step recorded below did. The darkness has to be a DENSITY
+    //over the palette, and the warp intermediates already say where the fluid gathered and where it thinned.
+    //Squared, so most of the sphere is near-empty and the plumes are what carry the colour.
+    float density = saturate(length(r) * 2.4 - 0.18);
+    density *= density;
+    color *= 0.10 + 1.6 * density;
 
     //The ribbons: ridged fBm racing through - thin sharp filament networks, the fast half of the sky,
     //in a palette phase far from the ground they cross.
+    //The ribbons: ridged fBm racing through - thin sharp filament networks, the fast half of the sky, in a
+    //palette phase far from the ground they cross. They carry the LIGHT of this sky since #506 rather than
+    //a filigree over it: against a medium that reaches zero, the strands are what the eye reads, the way
+    //the lit threads of ink are what one reads in the water.
+    //
+    //⚠ The threshold is what makes them STRANDS, and it has to be set against the field's real distribution
+    //rather than a guessed one. A three-octave RidgedFbm3 is not centred: its octaves are each `(1-|n|)^2`,
+    //which is near 1 for the small |n| that dominates a gradient field, so it runs about 0.63 TYPICAL
+    //against a 0.875 maximum - a narrow band high up, not an 0..1 spread. Thresholding at 0.30 (which is
+    //below almost every pixel) turned the layer into a continuous pale-green wash covering the whole sphere
+    //with the medium showing through it as holes - mould rather than ink. 0.58 with the gain that maps the
+    //rest of the band onto 0..1 leaves the typical pixel dark and lights only the crests.
+    //
+    //Mostly IN the medium, too: a thread of ink is lit where the ink is, and a ribbon crossing empty sky
+    //was the other half of what filled the voids. A quarter of it is allowed out there, because the
+    //references do have wisps reaching into clear water.
+    //
+    //The core stays under the glare threshold (0.68 palette x 1.4 x Brightness): the canvas must not bloom,
+    //only what hangs on it.
     float ribbon = RidgedFbm3(d * SwirlScale * 2.2 + float3(0.0, 0.0, t * SwirlSpeedFast), 3);
-    ribbon = pow(saturate(ribbon - 0.35) * 1.7, RibbonSharpness * 0.45);
-    color += Palette(field * 0.3 + 0.61) * ribbon * 0.9;
+    ribbon = pow(saturate((ribbon - 0.58) * 3.4), RibbonSharpness * 0.45);
+    color += Palette(field * 0.3 + 0.61) * (ribbon * 1.4 * (0.25 + 0.75 * density));
 
     return DeepColor + color * BackgroundBrightness;
 }
@@ -358,13 +393,30 @@ float4 DreamScene(DreamVertexOutput input, bool detail)
 
         float ao = saturate(1.0 - 1.3 * occlusion);
 
-        //A solid is lit by the dream itself: its own palette colour glowing from inside, the marbled sky
-        //mirrored off its surface, and a fresnel rim that lifts its silhouette out of the background - the
-        //sharp edge the soft orbs exist to contrast with. The emission floor is high (a solid whose
-        //palette phase lands dark would vanish as a silhouette), but the AO is allowed to press even the
-        //emission down: a hallucination has no unlit objects, and still its folds have depth.
+        //GLASS, and not painted plastic (#506). Every glass reference is the same three things: a body one
+        //sees THROUGH, a narrow bright rim, and hard glints where a light lands on the curvature. These
+        //solids had none of them and read as matte pastel plastic hanging in the sky - a 0.55 emission floor
+        //over the whole body IS opaque paint, and a cubed fresnel is a broad wash rather than an edge.
         float3 own = Palette(bestShape * 0.17 + t * 0.010);
-        float fresnel = pow(1.0 - saturate(dot(normal, -direction)), 3.0);
+        float fresnel = pow(1.0 - saturate(dot(normal, -direction)), 4.5);
+
+        //What is behind it, STAINED BY ITS OWN THICKNESS. `color` is this ray's sky as already gathered -
+        //the marbling, and any orb or spark along it - so an orb drifting behind a solid now shines through
+        //it, which is the lava-lamp reference exactly, and for nothing. No refraction: these are thin-walled
+        //dream glass and not lenses, and a second march to bend the ray costs more than the bend resolves at
+        //this curvature.
+        //
+        //The stain is Beer-Lambert over how FACE-ON the surface is, which is the one thickness available
+        //without a second march: a ray meeting the body square crosses the most glass, one grazing the
+        //silhouette crosses almost none. That single term is what turned these from plastic into glass. The
+        //first attempt tinted the transmission by a flat factor, and it came back exactly as flat as the
+        //paint it replaced - the sky behind a solid barely changes across the twenty degrees it covers, so a
+        //body shaded by the sky alone has no internal gradient at all. Absorbing by thickness gives it the
+        //one every photograph of glass has: a deep saturated core, clearing towards the rim.
+        float facing = saturate(dot(normal, -direction));
+        float3 absorb = exp(-facing * ShapeAbsorption * (1.0 - saturate(own)));
+        float3 through = color * absorb * (0.45 + 0.55 * ao);
+
         //The reduced program mirrors a flat DeepColor rather than re-running the whole background. It is half of
         //the cheapest pair that pays anything at all (see DreamScene), and the solids are rounded and
         //semi-matte - a first-order warp is already past what a reflection at that curvature resolves.
@@ -372,8 +424,16 @@ float4 DreamScene(DreamVertexOutput input, bool detail)
 
         if (detail) mirrored = Background(reflect(direction, normal), 3);
 
-        float3 shapeColor = own * ShapeEmission * (0.55 + 0.45 * fresnel) * (0.35 + 0.65 * ao)
-            + mirrored * ShapeReflection * (0.4 + 0.6 * fresnel) * ao;
+        //The reflection answers SUPERLINEARLY, which is where the glints come from: about half the linear
+        //reflection in the empty sky and four times it in a ribbon core, so a bright ribbon landing on a
+        //curved face reads as a hard highlight rather than as a smear. That is what a glint in a studio
+        //photograph of glass actually is - a light source reflected - and it means this sky needed no light
+        //source inventing for it, having no sun. Free: `mirrored` is already in hand.
+        float3 specular = mirrored * (0.5 + 4.0 * mirrored) * ShapeReflection * (0.25 + 0.75 * fresnel) * ao;
+
+        float3 shapeColor = through * (1.0 - 0.6 * fresnel)
+            + own * ShapeEmission * (0.05 + 0.95 * fresnel) * (0.35 + 0.65 * ao)
+            + specular;
 
         //The far solids sink into the marbling rather than popping against it - a touch of the background
         //over distance, the haze idea with colour instead of grey.
