@@ -700,6 +700,14 @@ namespace BS3D.Screens
         }
 
         /// <summary>
+        /// The wheel turns the same page the arrows do (#352, #517): forward (a positive delta, the notch away
+        /// from the player) is the next chapter, the same direction scrolling down a list already reads as
+        /// everywhere else in the game. <see cref="TurnChapter"/> already guards the unchaptered and
+        /// single-chapter cases, so nothing here has to.
+        /// </summary>
+        internal override void OnScrollWheel(int delta) => TurnChapter(delta > 0 ? 1 : -1);
+
+        /// <summary>
         /// Re-reads what has moved since the page was last up: a level cleared elsewhere raises the star total,
         /// which can open tiles and change their bottom lines — while the tree they are written onto only
         /// changes on a resize.
