@@ -5317,3 +5317,17 @@ Obě issues nechávám otevřené na majitelův pohled v pohybu.
 **Co zůstává:** APU měření. #508 otevřené na majitelův pohled.
 
 **Tři scény za den (#509, #504, #508) — co se z nich přeneslo dál:** reference nejdřív, pak img2img přes vlastní herní snímek pro kompozici; hrubá pole patří do vertex shaderu (hory, žlábky zdarma proti 0,9 ms na pixel); analytický stín z tvaru samotného útvaru je levnější než jakýkoli pochod (kráter, a dřív jezero v kráteru); a **každou scénu ověřit i v Game, ne jen v Testbedu** — herní kamera míří jinam než Testbedová (u sopky to odhalilo příliš rudé mraky za clusterem).
+
+---
+
+## 2026-09-22 — Claude Code, bs3d-9f (desktop: #507 jeskyně podle referencí, merge `04f25c9`)
+
+**Čtvrtá scéna („Pracuj na dalších scénách, dokud ti nedojde limit"; majitel od klávesnice).** Jeskyně = kapitola The Reveal, a nejúspornější scéna projektu (occupancy-bound, kreslí se v rozlišení back bufferu, #155).
+
+- **Reference:** 18 txt2img (krystalová jeskyně, glowworm jeskyně, světelné šachty, podzemní řeka, žíly zblízka, stěna) + 3 img2img. `C:\Users\panrd\AI\sd\out\507`, stránka `index.html` tamtéž.
+- **Jediná nová věc: SVĚTLUŠKY na stropě.** Každá fotka živé jeskyně je souhvězdí drobných modrozelených bodů; naše jeskyně měla ve vzdálené půlce sálu jen mlhu (krystaly nesou pár desítek jednotek, žíly jen tam, kde je skála nasvícená). Jeden hash na pixel na jednobuňkové mřížce, **za datovou větví na `cove`** (jen stropní pixely platí), ve shlucích podle pole `body`, které stěna stejně počítá, a **bod je v každé vzdálenosti široký ~1,5 px** (pravidlo jiskření sněhu #278; světově velký bod je na konci 240jednotkové jeskyně podpixelový a taková pole lezou po obraze). **Cena: 3,76 → 3,79 ms** na 3840×1600 (tady se měří šířkou/výškou, ne ssaa — #155), tři páry.
+- **Barvy:** skála z modrošedé na tmavě teplou šedou a plošná výplň 0,45 → 0,30 (fotky jeskyní jsou tmavé s nasvícenými místy; vysoká výplň zvedla celou skořepinu na jednu hodnotu); žíly tenčí a řidší (mocnina 6 → 9, vyšší práh masky), zato jasnější; kaustiky 0,5 → 0,28 a krystaly jasnější (emise 1,6 → 2,3, `WallLight` 0,55 → 0,8), protože řeka byla nejjasnější věc v jeskyni — „vzorovaná podlaha" potřetí, tentokrát jasem místo vzorem.
+- **Nedotčeno:** skořepina, vlnění, rampa zrcadla a šachty (#250 je vyměnil za cenu a pořád platí), počet výtrusů.
+- **Ověřeno:** Testbed i Game (`level=Chest`, High).
+
+**Nic dalšího si neberu — jdu na #505 (vesmír).**
