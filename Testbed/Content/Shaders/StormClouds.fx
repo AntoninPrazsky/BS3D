@@ -203,8 +203,16 @@ float4 CloudPS(CloudVertexOutput input) : COLOR
     //THE SILVER LINING. Cloud is strongly forward-scattering, so a rim with the sun behind it is the
     //brightest thing in the sky - the single cue that separates a cloud from a hill of grey stone. It rides
     //the puff's own edge, which is where a billboard's optical depth is least.
+    //
+    //⚠ But it belongs to the CELL's edge and not to every puff's, and until #510 every puff inside the cell
+    //drew its own bright ring - which is precisely the glossy-ball signature `MassNormalMix` was added to
+    //kill in the diffuse term, arriving again through the additive one. The rim is gated on how near the
+    //puff stands to the cell's own silhouette: `MassNormal` is the direction out of the cell's middle, so a
+    //puff square-on to the eye has |dot| near 1 and takes none of it, and one out at the cell's edge has
+    //|dot| near 0 and takes it all. One dot and an abs, on a value the vertex shader already hands over.
     float towardsSun = saturate(dot(-towardsEye, SunDirection));
-    color += TopColor * SunColor * (SilverStrength * saturate(r2) * pow(towardsSun, 4.0));
+    float cellRim = saturate(1.0 - abs(dot(input.MassNormal, towardsEye)));
+    color += TopColor * SunColor * (SilverStrength * saturate(r2) * pow(towardsSun, 4.0) * cellRim);
 
     //--- The flash -----------------------------------------------------------------------------------
     //Lightning lights cloud FROM INSIDE: a whole cell goes translucent for a beat. So this is emissive and

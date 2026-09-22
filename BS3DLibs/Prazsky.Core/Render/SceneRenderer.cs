@@ -2843,8 +2843,18 @@ namespace Prazsky.Core.Render
                         MathF.Sin(ringAngle) * ring);
 
                     //Smaller lobes towards the crown: that gradient IS the cauliflower.
+                    //
+                    //⚠ And the sizes within one cell span MANY SCALES, which is the other half of why a field
+                    //of billboards reads as bubble wrap (#510). Every aircraft-window reference shows a cell
+                    //built of big lobes with smaller lobes standing on them and smaller ones again on those,
+                    //where this drew one uniform band (0.22–0.40 of the cell, a ±29 % spread): balls of one
+                    //size tile, and the eye counts them. Squaring the roll over a much wider band keeps the
+                    //mean about where it was — 0.12 + (0.58 − 0.12)/3 = 0.27 against the old 0.31, so a cell
+                    //has the same body — while giving it a long tail of real lobes and a crowd of small
+                    //billows to break their outlines with.
+                    float sizeRoll = (float)rng.NextDouble();
                     float puffRadius = massRadius
-                        * Lerp(c.PuffScaleMin, MathF.Max(c.PuffScaleMax, c.PuffScaleMin), (float)rng.NextDouble())
+                        * Lerp(c.PuffScaleMin, MathF.Max(c.PuffScaleMax, c.PuffScaleMin), sizeRoll * sizeRoll)
                         * Lerp(1f, 0.62f, h);
 
                     float seed = (float)rng.NextDouble();
