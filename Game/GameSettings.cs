@@ -88,12 +88,25 @@ namespace BS3D
 
         /// <summary>
         /// The player's multiplier on the cursor's rate <b>while precisely aiming</b>, over the general one and
-        /// over the lens's own FOV-ratio slowing (#384), off the same ladder (#497). 1 is exactly the feel #384
-        /// shipped, so a player who never opens the row keeps it; the owner's own answer to #477 is a rung here.
-        /// Snapped onto the ladder by the game like <see cref="Sensitivity"/>.
+        /// over the lens's own FOV-ratio slowing (#384), off the same ladder (#497). Snapped onto the ladder by
+        /// the game like <see cref="Sensitivity"/>.
+        /// <para>
+        /// <b>It ships at 1.25 since #477, and the figure is not a taste.</b> <c>PreciseAim.CursorRateScale</c>
+        /// slows the leaned cursor by the ratio of the two fields' half-angle tangents — 0.828 on this game's
+        /// pair, a <b>17.2 %</b> slowdown — which is geometrically right and which the owner's playtest read as
+        /// simply too slow. 1.25 puts the leaned rate back at <b>1.035 ×</b> the overview's, parity to within
+        /// 3.5 %, so out of the box the hand moves in precise aim at about the speed it moves outside it. A
+        /// player who wants #384's geometric answer sets the row to 100 %.
+        /// </para>
+        /// <para>
+        /// ⚠ <b>An existing save keeps whatever it stored</b>, since this default only fills a missing value —
+        /// so the machine that raised #477 has to touch the row once, or delete the key. That is the right way
+        /// round: a settings file is the player's, and a new default silently rewriting one would be worse than
+        /// the complaint it answers.
+        /// </para>
         /// </summary>
         [JsonPropertyName("aimSensitivity")]
-        public float AimSensitivity { get; set; } = 1f;
+        public float AimSensitivity { get; set; } = 1.25f;
 
         /// <summary>
         /// The sky the front end comes up under, or 0 for "whatever the scene wants". It is seeded
