@@ -5642,3 +5642,14 @@ Předchozí zápis říkal, že to dostavět znamená sáhnout do brány a že t
 - **Kontrola se nemaže.** Je to pojistka proti tomu, že se geometrie pohne — zabrala by den, kdy fit postaví dělo tak blízko, že se nad pole nedokouká. Jen se od teď nesmí číst jako odpověď o levelu.
 - **Dotčeno:** `BestPractices.md` (+§10), `BS3DLibs/Prazsky.BS3D/AimReachability.cs` (class doc), `Game/Screens/GameplayScreen.Camera.cs` (komentář), `CLAUDE.md` (věta o `BestPractices.md` tvrdila, že drží „per-frame render hygiene in full" — §9 a §10 o snímcích nejsou).
 - **Ověřeno:** `Game.sln` 0 chyb (jen dvě dávné CS0067 v `CameraInputHelper`).
+
+---
+
+## 2026-09-23 — Claude Code, bs3d-95 (desktop: #491 druhá půlka — dvacet siluet vyrenderováno, deset stěn vyfoceno, stránka pro majitelův verdikt)
+
+**Dodělal jsem, co #491 nechalo („still to do — the renders and the verdict"):** `render-references.ps1 -PromptFile prompts-491-silhouettes.json -Out out\491 -Count 2` (Z-Image-Turbo, 832×832, ~23 s obrázek, karta po skončení volná — skript sd-server sám zastaví), pak `silhouette-to-picture.py` na každou z dvaceti siluet při fill 0,5/0,4/0,3 bez closingu, výběr varianty s nejméně kusy inkoustu, Testbed `<name>-map.json scene=savanna sceneseed=0 at=2:F10 at=3:F12 shot=6 at=8:Escape` (deset běhů, bez fokusu), a stránka: https://claude.ai/artifact/6vrcbPb89chrxgGnt5G33W (= `C:\Users\panrd\AI\sd\out\491-page.html`; skripty `quantize-all.py`, `capture-all.ps1`, `make-page.py` ve scratchpadu téhle session, výstupy v `out\491`, `out\491-bitmaps`, `out\491-captures`). Komentář s tabulkou na issue; **verdikt je majitelův** (#440: vision modely to neposoudí), pack nezměněný.
+
+- **Vzor je šířka, ne model.** Rendery jsou čisté siluety pokaždé (žádný seed neselhal). Čte se všechno, co dostalo 11 kreslených sloupců: deštník, zvon, koruna, ryba, raketa, konvice. Vysoké tvary jsou o sloupce **okradené konstrukcí** — strop 18 řádků a √2 natažení dají tvaru 1,3:1 devět sloupců a klíči či kytaře **pět**, a v pěti sloupcích nic nemá zuby. Levné východisko, netestované: vysoké subjekty promptovat **ležící** (klíč na boku, kytara na zádech — stěna Galerie je 15 široká a jen 18 vysoká), nebo skriptu dovolit oříznout řádky a podržet šířku.
+- **`--close` není odpověď:** kotvu srazil z 8 kusů na 1 tím, že z ramen udělal desku. Fill má menší váhu než šířka — šest čitelných čte na 0,4–0,5; pro tenký tvar 0,3 drží tahy za cenu slití.
+- **⚠ Kapkový stín vs. obrys na stránce výsledku (#521) a tohle mají společné:** stránka s před/po pro majitele je levnější než dohadování, a Artifact tool ji publikuje z jednoho HTML (data URI, 1,7 MB; kontrakt: `<title>` + `<style>` nahoře, bez `<html>/<body>`, tokeny pro obě témata).
+
