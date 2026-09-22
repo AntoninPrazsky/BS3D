@@ -4654,6 +4654,7 @@ namespace Prazsky.Core.Render
             _dreamEffect.Parameters["ShapeMorphSpeed"].SetValue(shapes.MorphSpeed);
             _dreamEffect.Parameters["ShapeEmission"].SetValue(shapes.Emission);
             _dreamEffect.Parameters["ShapeReflection"].SetValue(shapes.Reflection);
+            _dreamEffect.Parameters["ShapeAbsorption"].SetValue(shapes.Absorption);
 
             DreamGlowsConfig glows = dream.Glows;
             _dreamEffect.Parameters["OrbRadius"].SetValue(glows.OrbRadius);
