@@ -5279,3 +5279,21 @@ Obě issues nechávám otevřené na majitelův pohled v pohybu.
 - **Ověřeno:** čtyři solutiony čisté; Game `level=Breach` na High i Low (úvod kapitoly chytil erupci), editor map načte Vent bez chyby; save majitele hash před/po beze změny.
 
 **Co zůstává:** APU měření `VolcanoReduced` (notebook) — mezera, kterou sekce nese od #223. #509 nechávám otevřené na majitelův pohled na stránku. **Pro #503–#512:** kanál „světlo ze země" na mracích je obecný (bouře, Mars…), `FieldCracks`/stružky jsou vzor pro zářící čáry, a srovnávací stránka + img2img přes herní snímek se osvědčily jako postup.
+
+---
+
+## 2026-09-22 — Claude Code, bs3d-9f (desktop: #504 hory podle referencí, merge `bb9bca2`)
+
+**Druhá scéna po sopce, na „Vem další scénu".** Hory = kapitola The Tower (4/12), dome 8 (fialový soumrak), ledové koule; scéna s nejtěsnějším rozpočtem na desktopu (12,35 ms fullscreen High proti 13,3).
+
+- **Reference:** 24 txt2img (pásmo z údolí za soumraku, štíty pod fialovou oblohou, stěna se sutí, rozpadlá sněžná čára, pásma v oparu, sněžení, sastrugi, kar) + 6 img2img přes snímky Testbedu. `C:\Users\panrd\AI\sd\out\504`, **stránka `C:\Users\panrd\AI\sd\out\504\index.html`**.
+- **Co se změnilo** (celé v `docs/scenes.md` „Redrawn from references (#504)"): ostrá hranice sníh/skála (pásmo `RockSlope→SnowSlope` a sněžná čára přes druhý úzký smoothstep — lineárně to míchalo bílou s černou do jednolité lily); skála skoro černá; **žlábkované stěny** (biplanární šum natažený podél Y posouvá práh sněhu); **zasněžené dno kotle**; polokoule ambientu dává ploše nahoru čtvrtinu horizontu (jinak sytý zenit domu 8 udělal ze sněhu fialové moře); **alpenglow** podle výšky při nízkém slunci; **masivy** (jedna oktáva šumu škáluje výšku 0,35–1,6, hřeben už není pila).
+- **Pasti:**
+  1. **Česat šum podél spádnice = cik-cak krokve.** Rotovaná doména kolem počátku světa skáče na každé fasetě. Biplanární šum bez rotace (x,y)/(z,y) je správně.
+  2. **Dva šumy na pixel stály 0,9 ms, za datovou větví pořád 0,3** (occupancy). **Ve vertex shaderu zdarma** — žlábek o rozestupu 10 mřížka 3,34 unese. Hrubé pole → vertex shader, obecné poučení pro drahé scény.
+  3. **Reliéf skály se od #208 aplikoval dvakrát** (`rockNormal` a pak znovu `Perturb(rockNormal, relief)`); ponecháno jako dvojnásobný gain, o jeden `PerturbNormalFromHeight` na pixel míň — ten zaplatil zbytek.
+- **Cena** (desktop, 23 Mpix, `fpscap=400`, střídavě proti `main`): herní pin **10,01 → 9,97 ms**, pásmo **9,30 → 9,28**, `MountainReduced` beze změny. Nákladově neutrální.
+- **Záměrně nechané:** šesticípé vločky (#85; reference kreslí měkké tečky, to #85 odmítlo), ridged charakter (#86), fialový dome kapitoly.
+- **Ověřeno:** čtyři solutiony čisté; Game `level=Column` High/Low; save majitele hash beze změny.
+
+**Co zůstává:** APU měření (notebook). #504 otevřené na majitelův pohled na stránku.
