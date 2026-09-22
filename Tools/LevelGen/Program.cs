@@ -508,6 +508,25 @@ namespace BS3D.Tools.LevelGen
                 .SelectMany(a => a["--arrivalfile=".Length..].Split(',', StringSplitOptions.RemoveEmptyEntries))
                 .ToArray();
 
+            //`--arrival` on its own is the whole shipped pack, which is what anyone actually wants to see and
+            //what a 120-path command line was standing in the way of. `--arrivalfile=` stays for a level the
+            //set has never heard of, exactly as `--sagfile=` and `--clearfile=` do.
+            if (arrivalFiles.Length == 0 && args.Any(a => a == "--arrival"))
+            {
+                try
+                {
+                    arrivalFiles = Directory.GetFiles(FindLevelsDirectory(), "*.json")
+                        .Where(p => !string.Equals(Path.GetFileName(p), "Levels.json", StringComparison.OrdinalIgnoreCase))
+                        .OrderBy(p => p, StringComparer.OrdinalIgnoreCase)
+                        .ToArray();
+                }
+                catch (DirectoryNotFoundException e)
+                {
+                    Console.WriteLine(e.Message);
+                    return 1;
+                }
+            }
+
             if (arrivalFiles.Length > 0) return RunArrivalFiles(arrivalFiles) ? 0 : 1;
 
             try
@@ -942,7 +961,7 @@ namespace BS3D.Tools.LevelGen
         /// </summary>
         private static bool RunArrivalFiles(string[] paths)
         {
-            Console.WriteLine("=== shot arrival: the named level FILES, on the intact field ===");
+            Console.WriteLine($"=== shot arrival: {paths.Length} level file(s), on the intact field and after each cut ===");
 
             bool ok = true;
 
