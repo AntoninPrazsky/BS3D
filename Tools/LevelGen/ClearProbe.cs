@@ -309,13 +309,21 @@ namespace BS3D.Tools.LevelGen
         /// (rightly) gives up on — it costs about a tenth of a second a level and says nothing the gate needs,
         /// so it is opt-in.
         /// </summary>
-        internal static Reading Measure(BallPositionTypes data, bool deep)
+        /// <param name="afterMove">
+        /// Called with the field as <see cref="BallsMap"/> has it after each cut of the line that cleared the
+        /// level, for a caller that wants to ask something of the level <b>as it is played</b> rather than as
+        /// it was authored — #514's arrival report is the first, since a landing blocked on the intact cluster
+        /// is very often reachable once a cut has opened the line to it. Null for the gate, which is what every
+        /// other caller passes, and it is <b>only</b> called when a line was found and is being replayed
+        /// through the library, so a level the search gives up on calls it not at all.
+        /// </param>
+        internal static Reading Measure(BallPositionTypes data, bool deep, Action<BallsMap> afterMove = null)
         {
             ClearProbe probe = new(data);
-            return probe.Run(data, deep);
+            return probe.Run(data, deep, afterMove);
         }
 
-        private Reading Run(BallPositionTypes data, bool deep)
+        private Reading Run(BallPositionTypes data, bool deep, Action<BallsMap> afterMove)
         {
             int floor = AnchorColourFloor(_present);
             List<Move> line = new();
@@ -332,7 +340,7 @@ namespace BS3D.Tools.LevelGen
                 line.Clear();
                 if (!Search(_present, Hash(_present), budget, line)) continue;
 
-                bool replayed = Replay(data, line);
+                bool replayed = Replay(data, line, afterMove);
                 int matched = 0;
                 foreach (Move shot in line) matched += shot.Cells.Count;
 
@@ -375,7 +383,7 @@ namespace BS3D.Tools.LevelGen
         /// the tool rather than quietly refusing a level that plays perfectly well.
         /// </para>
         /// </summary>
-        private bool Replay(BallPositionTypes data, List<Move> line)
+        private bool Replay(BallPositionTypes data, List<Move> line, Action<BallsMap> afterMove)
         {
             BallsMap map = new(data);
             List<XZLevel> coloured = new();
@@ -397,6 +405,11 @@ namespace BS3D.Tools.LevelGen
                 foreach (XZLevel member in group) map.RemoveBallAt((byte)member.X, (byte)member.Z, (byte)member.Level);
                 foreach (XZLevel orphan in map.GetCellsDisconnectedFromCeiling())
                     map.RemoveBallAt((byte)orphan.X, (byte)orphan.Z, (byte)orphan.Level);
+
+                //The field as the game's own map code has it after this cut, for a caller that wants to ask
+                //something of the level as it is PLAYED rather than as it was authored (#514's arrival report
+                //is the first). Null for the gate itself, which is what every existing caller passes.
+                afterMove?.Invoke(map);
             }
 
             return map.GetRemovableBallsCount() == 0;
