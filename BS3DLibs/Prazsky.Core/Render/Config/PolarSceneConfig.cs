@@ -48,8 +48,14 @@ namespace Prazsky.Core.Render
         /// geometry carries <see cref="SwellAmplitude"/> and these are a normal perturbation, exactly as the
         /// desert's dunes are geometry and its ripples are not.
         /// </para>
+        /// <para>
+        /// 0.22 → <b>0.48</b> (#511): both low-sun references are gold on the crests against deep blue in the
+        /// troughs, and that contrast is <i>form</i> shading — a lit face and a shaded one. At 0.22 the
+        /// perturbation tilted the normal so little that N·L barely varied across a drift, so the plain read
+        /// as one tone with a pattern printed on it rather than as carved snow.
+        /// </para>
         /// </summary>
-        public float DriftAmplitude { get; set; } = 0.22f;
+        public float DriftAmplitude { get; set; } = 0.48f;
 
         /// <summary>Sastrugi across the wind, in ridges per world unit.</summary>
         public float DriftFrequency { get; set; } = 0.28f;
@@ -67,8 +73,19 @@ namespace Prazsky.Core.Render
         /// </summary>
         public float DriftStretch { get; set; } = 4.5f;
 
-        /// <summary>Radius of the flat clearing the island stands in, before the field rises.</summary>
-        public float ClearingRadius { get; set; } = 70f;
+        /// <summary>
+        /// Radius of the flat clearing the island stands in, before the field rises.
+        /// <para>
+        /// ⚠ It also gates the crevasses (<c>CrevasseField</c> holds them off out to <c>0.8 ×</c> this and
+        /// opens them fully at <c>1.5 ×</c>), and at 70 that put the scene's signature feature entirely
+        /// outside <b>56 units</b> — on an island only 26 in radius (#511). The owner's original report was
+        /// that the cracked ice glowing blue is nowhere to be seen; ungating it from the distant front was
+        /// half the answer and this was the other half. 42 keeps the arena whole for the stated reason — a
+        /// crack under the island would be a hole the player cannot fall into — and lets the nearest slot
+        /// open at about 34 units, where it can actually be looked at.
+        /// </para>
+        /// </summary>
+        public float ClearingRadius { get; set; } = 42f;
 
         /// <summary>Transition band over which the flat clearing rises into the open field.</summary>
         public float ClearingTransition { get; set; } = 90f;
@@ -110,8 +127,15 @@ namespace Prazsky.Core.Render
         /// couple of world units and a feature narrower than several cells falls between vertices, which is
         /// the desert's own rule. The depth the eye reads is carried by the transmission instead — a crevasse
         /// is a slot that glows cyan and darkens with its own depth, which is what one looks like from above.
+        /// <para>
+        /// ⚠ It said "deliberately shallow" at <b>8</b>, against a slot 3.3 units wide — deeper than wide, on
+        /// a 2.5-unit grid (#511). The dip was smeared over two or three cells into a broad V whose flanks
+        /// came out near-vertical, so <c>steepness</c> saturated along them, <c>iceness</c> went to 1 and
+        /// they drew as bare ice <i>brighter</i> than the snow: measured at luminance 155–169 against the
+        /// snow's 137–162, which is the bright welt this scene's comments record arguing out once already.
+        /// </para>
         /// </summary>
-        public float CrevasseDepth { get; set; } = 8f;
+        public float CrevasseDepth { get; set; } = 3f;
 
         /// <summary>How close together the crevasses run, in slots per world unit.</summary>
         public float CrevasseFrequency { get; set; } = 0.075f;
@@ -122,8 +146,13 @@ namespace Prazsky.Core.Render
         /// on the front's strain they existed only hundreds of units out, where no camera ever goes, so the
         /// cracked ice this scene is <i>for</i> was nowhere to be seen. They open in fields, and the clearing
         /// the island stands on is kept whole.
+        /// <para>
+        /// 8 → <b>4</b> (#511): the field is <c>sin(x · CrevasseFrequency)</c> cut at <c>|lines| &lt; 1/s</c>,
+        /// so 8 is a slot about 3.3 world units across and 4 is about 6.7 — two and a half grid cells, which
+        /// is what the desert's rule asks for. See <see cref="CrevasseDepth"/> for what the narrow one cost.
+        /// </para>
         /// </summary>
-        public float CrevasseSharpness { get; set; } = 8f;
+        public float CrevasseSharpness { get; set; } = 4f;
 
         /// <summary>
         /// How far the inside of a slot goes down against its own lip (1 is no darkening at all).
@@ -181,8 +210,12 @@ namespace Prazsky.Core.Render
         /// </summary>
         public Rgb IceColor { get; set; } = new(0.17f, 0.55f, 0.62f);
 
-        /// <summary>How much of the sky's hemisphere light fills the flats.</summary>
-        public float AmbientStrength { get; set; } = 0.5f;
+        /// <summary>
+        /// How much of the sky's hemisphere light fills the flats. 0.5 → <b>0.40</b> (#511): at 0.5 the fill
+        /// lifted what little shade <see cref="DriftAmplitude"/> was making and the troughs came out the
+        /// average of everything rather than the dome's blue, which is the colour a snow shadow is.
+        /// </summary>
+        public float AmbientStrength { get; set; } = 0.40f;
 
         /// <summary>
         /// How hard the glaze reflects the sun. A <b>tight</b> lobe rather than the desert's broad sheen:

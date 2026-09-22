@@ -451,7 +451,20 @@ float4 PolarPS(PolarVertexOutput input) : COLOR
     //it, because the one surface that should show the ice's inside was busy mirroring the horizon. A wall is
     //rough, fractured ice rather than a polished sheet, so its mirror is weak and its light is the light
     //that came through it.
-    fresnel *= 1.0 - wall * 0.7;
+    //⚠ AND A SCOURED PATCH IS NOT THE REASON IT IS BRIGHT - measured, after the obvious guess was wrong
+    //(#511). A blue-ice area photographs as a pale cyan lagoon painted on the plain, brighter than the snow
+    //around it, where every reference's bare ice is slightly DARKER than snow and mottled with dust and old
+    //cracks. The obvious cause is the mirror: the sastrugi are deliberately flattened off such a patch just
+    //above (they are snow shapes, and carving them into bare glacier would be worse), so it has no relief
+    //left to break the reflection and returns the sky almost whole. Holding the reflection back there the
+    //way a crevasse wall's already is made the patch **brighter**, not darker - (133.7, 180.3, 210.6)
+    //against (127.7, 173.2, 207.9) over the same 3000 samples - because what the lerp hands back at a lower
+    //fresnel is `snow * 0.55 + transmission`, and on a blue-ice patch that is brighter than the sky it was
+    //mirroring. **The transmission is what makes it bright**, and the transmission there is deliberate: it
+    //is the term that answered the owner's report that this scene's cyan was nowhere the camera looks. So
+    //whether the patch is too bright is a question about `TransmissionStrength` and `BlueIce`'s weight in
+    //`thickness`, not about the glaze, and it is the owner's call rather than a defect to quietly tune.
+    fresnel *= (1.0 - wall * 0.7);
 
     float3 ice = lerp(snow * 0.55 + transmission, skyReflection, fresnel);
 
