@@ -5528,3 +5528,16 @@ Obě issues nechávám otevřené na majitelův pohled v pohybu.
 - Klon `Game/BS3DGame.Scene.cs:349` ↔ `Testbed/Testbed.cs:918` je jen tři podobná volání konstruktoru za sebou, ne sdílená logika.
 
 **Tím je první průchod #400 uzavřený.** Prošlo: vrstvení, GPU state objekty, per-frame parametry (→ #523), drift čísel (→ #525, dva opravené), zdraví backlogu (→ #524), mrtvé knoflíky, mrtvé uniformy, kopírované komentáře, mrtvé typy (→ #526), hranice vektorů, kopírovaný kód. **Neprošlo:** pravidlo vinutí trojúhelníků (chce vizuální ověření nebo analyzátor) a implicitní konverze vektorů (chce Roslyn).
+
+
+---
+
+## 2026-09-23 — Claude Code, bs3d-9f (desktop: návrhové komentáře k #213 a #230, brány ověřené)
+
+**Obě projektové brány po celém dnešním sezení procházejí:** `ScoreSim` končí „All levels rate the right way round" (exit 0) a `LevelGen --clearfile=` projde všech 120 levelů bez jediného „CLEARS TOO CHEAPLY" (exit 0).
+
+**#213 (power-upy) — komentář, a začíná opravou premisy.** Prošel jsem kód a **dvě ze tří jmenovaných myšlenek už existují**: „rainbow ball" **je hotový a hraje se** (`BallKind.Wildcard`, `LevelWildcardEvery` ho dává každých N koulí podle levelu, `StepWildcards` mu drží barvu za letu, `WildcardCycle` má jeden hodinový zdroj na sezení kvůli #330), a bomba existuje jako **druh v clusteru** s řetězícím výbuchem — chybí jen ji **vystřelit**. Skutečný nález je asymetrie: **cluster má deset druhů koulí, hráč má jeden.** Nové je jen *swap* (a ten má herní riziko, ne technické: „hraj, co ti přijde" je jediná věc, která z fronty dělá omezení). Navrženy čtyři další opřené o existující mechaniky — barvicí střela (skleněná koule už bere barvu dopadu), brzda stropu, řez kotvy (`ResolveDisconnected` už tu lekci učí, jen náhodou), vylepšený náhled nad `ShotPlacement`.
+
+**#230 (velikonoční vajíčka) — komentář, a jeho jádro je jedna dělicí čára:** *sahá to na simulaci, nebo ne?* Vajíčko, co je jen vidět nebo slyšet, je zadarmo; vajíčko, co sáhne na fyziku nebo pravidla, **tiše zneplatní všechny tři brány** — „jeden den v roce lehčí gravitace" je změna, kterou `SagProbe` neviděl a `ClearProbe` nepočítal, a „každá koule duhová" by ten den srazila každý level na dva tři výstřely. Kalendářní vajíčko tedy jen kosmeticky. Dál: **„tvar v troskách" je z celého seznamu technicky nejlíp připravený** — obrázkové levely jsou bitmapy, `Picture()` je bere jako `string[]`, `silhouette-to-picture.py` umí z libovolné siluety takovou bitmapu udělat a zbývající cluster je táž datová struktura. Přidány tři další: dno odtoku (vidět jen při sestupném záběru, takže se dá najít jen hraním *špatně*), vzácné semínko scény, a poznámka, že **About už jedno vajíčko má** (procedurální hudba, #443).
+
+**Obě issue nechávám otevřené** — jsou to návrhy k posouzení, ne práce k zavření.
