@@ -35,6 +35,30 @@ namespace Prazsky.BS3D
     /// cell per orbit angle, for an answer that is still only about one straight aim out of a continuum.
     /// </para>
     /// <para>
+    /// <b>⚠ IT HAS NEVER REPORTED A FAILURE, AND ON A TALL FIELD IT STRUCTURALLY CANNOT (#527).</b> A
+    /// <c>PASS</c> here is worth much less than it reads as, for two separate reasons:
+    /// <list type="bullet">
+    /// <item><description>
+    /// On a field taller than the camera frames, the <c>maxElevation</c> it is handed is
+    /// <c>GameplayScreen.SolveElevationLimit</c>'s output — which is <b>this same function's own
+    /// <c>WorstElevation</c> over the same band plus a margin</b>, deliberately, so that the limit and the
+    /// check policing it cannot disagree. The comparison is therefore arithmetic against itself, and the
+    /// only way it can still fail is the steepest cell exceeding <see cref="Cannon.MaxElevation"/> outright
+    /// — which is a question about the gun's own clamp, not about the band.
+    /// </description></item>
+    /// <item><description>
+    /// On every other field the gun is stood back far enough to frame the whole of it, so the facing shot is
+    /// never steep. Measured over the campaign on 2026-09-19 (another session, on the Game's real geometry
+    /// rather than the generator's): every cell of every level reachable, the hardest shapes in the
+    /// pack — <c>Column</c> 11×11×34, <c>Horn</c>, <c>Colossus</c>, <c>Highwall</c> — included.
+    /// </description></item>
+    /// </list>
+    /// It is kept rather than deleted because it is the guard against the geometry moving: it would fire the
+    /// day a fit stood the gun close enough to a field to look up past its clamp, and that is worth a line in
+    /// the log. But <b>do not take a pass from it as an answer about a level</b>, which is what
+    /// <c>BestPractices.md</c> §10 was written about.
+    /// </para>
+    /// <para>
     /// <b>What says a level with wells is finishable is <c>Tools/LevelGen</c>'s sag probe</b>, which fires real
     /// shots and — since #332 — sweeps them with <c>ShotPlacement.TryFindFirstHitCurved</c> off the level's own
     /// wells, so it plays the game the player plays. The static half of the gate is the generator's refusal of

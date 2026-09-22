@@ -301,8 +301,15 @@ namespace BS3D.Screens
             //On a tall field the question is asked of the WORKING BAND — the underside plus the aim's
             //headroom — and against the limit the gun is actually held to there. Everything above that band
             //is unreachable now by design; the descent is what brings it into the band, and asking about it
-            //where it currently hangs returns "unfinishable" for a level that finishes. The band is not a
-            //tautology: it can still fail, and would if the gun stood too close to look up at its own top.
+            //where it currently hangs returns "unfinishable" for a level that finishes.
+            //
+            //⚠ BUT ON A TALL FIELD THIS COMPARISON IS AGAINST ITSELF, and this comment claimed otherwise
+            //until #527. SolveElevationLimit below returns min(MaxElevation, WorstElevation + margin) off
+            //this very same Check over this very same band, so the band's own limit can never be what fails
+            //it — a FAIL here needs the steepest cell to exceed Cannon.MaxElevation outright, which is the
+            //gun's clamp and nothing to do with the band. The line is still worth printing (it is what would
+            //say so the day a fit stands the gun too close), but a PASS on a tall level is not evidence the
+            //level is playable. AimReachability's own class doc and BestPractices.md §10 carry it.
             AimReachabilityResult reach = AimReachability.Check(
                 _map, _cannon.OrbitRadius, _cannon.Position.Y, _cannon.ElevationLimit,
                 FieldIsTallerThanFrame ? TallAimBandTop() : int.MaxValue,

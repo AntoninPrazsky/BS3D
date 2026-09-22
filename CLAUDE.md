@@ -99,7 +99,7 @@ Each constraint is shared by two balls, so `PhysicsBall` stores handles in three
 | The Testbed's shooting, cannon or cameras, or driving a run without a keyboard | `docs/testbed.md` | Saving a frame (`shot=`/`shotframe=`) and the command line's own input timeline (`at=`/`hold=`), the gameplay hardware the Testbed and the Game share in one copy — the gun, the physics session, the ball draw, the aim, the smear and the crosshair — the shot and its launch smear, the procedural cannon and its magazine, the game-mode camera and precise aim (ADS) |
 | Map/level JSON, the map editor, the icon, what a run says it is | `docs/formats-and-tools.md` | The map, `Level` and `LevelSet` formats and their System.Text.Json handling, the map editor's render pipeline and the note on the scene-config panel it no longer has, the executables' application icon, the `[build]` lines every run opens with |
 
-`BestPractices.md` holds the per-frame render hygiene in full, each rule with the incident that taught it.
+`BestPractices.md` holds the per-frame render hygiene in full, each rule with the incident that taught it — plus the two rules that are not about frames at all: §9, that a confirmed inefficiency is not automatically worth fixing, and §10, that **a check's answer is evidence only once its failing branch has been seen to fire on real data**.
 
 ## Conventions
 
