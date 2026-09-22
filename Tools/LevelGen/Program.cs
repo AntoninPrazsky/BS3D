@@ -498,6 +498,18 @@ namespace BS3D.Tools.LevelGen
 
             if (clearFiles.Length > 0) return RunClearFiles(clearFiles) ? 0 : 1;
 
+            //SHOT ARRIVAL (#514). Asks, of the level files named, which landings a straight shot can actually
+            //get to and how far round the orbit the gun has to walk to get to them. Opt-in and file-scoped for
+            //now: it is a measurement of the shipped pack before it is a gate, for the reason RunArrivalFiles
+            //states — a check whose job is to refuse a design has to be shown not to refuse the designs that
+            //already play.
+            string[] arrivalFiles = args
+                .Where(a => a.StartsWith("--arrivalfile=", StringComparison.Ordinal))
+                .SelectMany(a => a["--arrivalfile=".Length..].Split(',', StringSplitOptions.RemoveEmptyEntries))
+                .ToArray();
+
+            if (arrivalFiles.Length > 0) return RunArrivalFiles(arrivalFiles) ? 0 : 1;
+
             try
             {
                 _outDir = dirArg ?? FindLevelsDirectory();
@@ -904,6 +916,100 @@ namespace BS3D.Tools.LevelGen
                                   + (clear.TooCheap ? "  <-- CLEARS TOO CHEAPLY" : string.Empty));
 
                 if (clear.TooCheap) ok = false;
+            }
+
+            return ok;
+        }
+
+        /// <summary>
+        /// <b>What #514 asks of the shipped pack, before anything is gated on it.</b> For every landing a shot
+        /// could be aimed at on the intact field, it asks which station round the orbit a straight shot can
+        /// actually arrive from, and reports three things: landings no station on the whole orbit reaches (a
+        /// fault, if any exist), landings the <b>opening stance alone</b> cannot reach, and the furthest walk
+        /// any landing demands.
+        /// <para>
+        /// The middle number is the measurable form of #457's question — whether a level needs the A/D control
+        /// its tutorial card has not taught — and the first is the one that could ever refuse a design. It is a
+        /// report and not a gate deliberately: a check that refuses level designs has to be shown first not to
+        /// refuse the designs that already play, and the way to show that is to print what it says about all of
+        /// them and look.
+        /// </para>
+        /// <para>
+        /// ⚠ It reads the <b>intact</b> field, which is the pessimistic end of the answer and is stated as
+        /// such: a cut opens lines that were closed, so the true figure over a whole play can only be better
+        /// than this one. Nothing here should be read as "this many landings are unreachable in play".
+        /// </para>
+        /// </summary>
+        private static bool RunArrivalFiles(string[] paths)
+        {
+            Console.WriteLine("=== shot arrival: the named level FILES, on the intact field ===");
+
+            bool ok = true;
+
+            //Hoisted out of the loop below: a stackalloc inside one grows the frame once per level (CA2014),
+            //and the buffer is the same size for every field anyway.
+            Span<XZLevel> found = stackalloc XZLevel[BallsMap.MAX_NEIGHBORS];
+
+            foreach (string path in paths)
+            {
+                if (!File.Exists(path))
+                {
+                    Console.WriteLine($"  {Path.GetFileName(path),-16} MISSING - not on disk");
+                    ok = false;
+                    continue;
+                }
+
+                Level level = Level.Load(path);
+                BallsMap map = new(level.Map);
+                StaticBall[,,] array = map.GetStaticBallsArray();
+
+                int sizeX = map.StageSizeX, sizeZ = map.StageSizeZ, levels = map.Levels;
+                int n = sizeX * sizeZ * levels;
+
+                bool[] present = new bool[n];
+                for (int l = 0; l < levels; l++)
+                    for (int x = 0; x < sizeX; x++)
+                        for (int z = 0; z < sizeZ; z++)
+                            present[(l * sizeX + x) * sizeZ + z] = array[x, z, l] != null;
+
+                ArrivalProbe probe = new(map);
+                XZLevel size = new(sizeX, sizeZ, levels);
+
+                int landings = 0, unreachable = 0, needsWalk = 0, fromRest = 0;
+                float furthest = 0f;
+
+                for (int l = 0; l < levels; l++)
+                    for (int x = 0; x < sizeX; x++)
+                        for (int z = 0; z < sizeZ; z++)
+                        {
+                            int cell = (l * sizeX + x) * sizeZ + z;
+                            if (present[cell]) continue;
+
+                            //A landing is an empty cell that touches something standing — the same definition
+                            //ClearProbe's own move generation uses, so the two probes are asking about the
+                            //same set of shots.
+                            bool touches = false;
+                            int count = BallsMap.FillNeighboringCells(new XZLevel(x, z, l), size, found);
+                            for (int i = 0; i < count && !touches; i++)
+                                touches = present[(found[i].Level * sizeX + found[i].X) * sizeZ + found[i].Z];
+
+                            if (!touches) continue;
+
+                            landings++;
+                            int station = probe.ArrivalStation(present, cell);
+
+                            if (station < 0) { unreachable++; continue; }
+
+                            float walk = ArrivalProbe.WalkDegrees(station);
+                            if (walk > 0f) needsWalk++; else fromRest++;
+                            if (walk > furthest) furthest = walk;
+                        }
+
+                Console.WriteLine($"  {Path.GetFileName(path),-16} {landings,5} landings;"
+                                  + $" {fromRest,5} from the opening stance;"
+                                  + $" {needsWalk,5} need a walk;"
+                                  + $" {unreachable,4} from no station;"
+                                  + $" furthest {furthest,5:F1} deg");
             }
 
             return ok;
