@@ -39,6 +39,10 @@ float DropletSize;
 float3 SprayColor;
 float SprayOpacity;
 
+//How close to the lens a particle stops being drawable. World units; see the near fade in SprayVS.
+static const float SPRAY_NEAR_BLIND = 5.0;
+static const float SPRAY_NEAR_FULL = 20.0;
+
 struct SprayVertexInput
 {
     float4 Position : POSITION0; //Base position of the particle, a fixed random point in the unit cube
@@ -82,9 +86,16 @@ SprayVertexOutput SprayVS(SprayVertexInput input)
     //wisps (the spindrift haze). The wisps stay small - large billboards read as bokeh orbs, not mist - and
     //those were the round white "snowballs" of #169, so their size multiplier is cut back here on top of the
     //streak shape below.
+    //⚠ #169 cut the mist class's size and it was not enough: seen over open water the slab still read as
+    //white confetti scattered evenly over every wave - litter, not weather - and it was BRIGHTER than the
+    //whitecaps it is supposed to be torn from, which inverts the whole hierarchy of the scene (#503). Two
+    //things were wrong with it and both are here. The wisps were up to 3.4 x DropletSize, which at the
+    //distances this sea is actually watched from is a resolvable lozenge rather than haze; and the droplets
+    //carried full class opacity, so each one drew as a hard white dash against dark water. A wisp is now at
+    //most 1.7 x and a droplet carries two thirds of its old weight, which puts the spray back under the foam.
     float isMist = step(r, 0.4);
-    float size = DropletSize * lerp(0.5 + 1.0 * r, 1.8 + 1.6 * r, isMist);
-    float classOpacity = lerp(1.0, 0.14, isMist);
+    float size = DropletSize * lerp(0.5 + 0.8 * r, 0.9 + 0.8 * r, isMist);
+    float classOpacity = lerp(0.65, 0.12, isMist);
 
     //Spray is torn off the waves and blown DOWNWIND, so it reads as streaks and flecks, not discs (#169). The
     //billboard is stretched along the wind's direction as that projects onto the screen and thinned across it,
@@ -115,9 +126,20 @@ SprayVertexOutput SprayVS(SprayVertexInput input)
     float edge = saturate((1.0 - 2.0 * max(abs(o.x - 0.5), abs(o.z - 0.5))) * 3.0);
     float heightFade = saturate((1.0 - o.y) * 1.4 + 0.15);
 
+    //⚠ And fade the NEAR ones out, which is what #169's shaping could not reach (#503). The slab is centred
+    //on the camera in XZ, so a particle can sit a world unit from the lens - where a 0.1-unit billboard
+    //covers forty pixels and draws its own outline, however small the size dial is set. Those were the white
+    //lozenges standing over the sky in every sea capture, and shrinking the class only shrank them: the
+    //nearest particle is always the biggest one on the screen. Nothing inside SPRAY_NEAR_BLIND draws at all
+    //and the fade is complete by SPRAY_NEAR_FULL, by which distance a droplet is a fleck. It costs the
+    //foreground density, which is the right trade: a droplet that close would be an out-of-focus blur in
+    //any photograph, and the references' spray is a fine haze off the crests, never a scattering of discs.
+    float nearFade = saturate((distance(center, CameraPosition) - SPRAY_NEAR_BLIND)
+        / (SPRAY_NEAR_FULL - SPRAY_NEAR_BLIND));
+
     output.Position = mul(mul(float4(world, 1.0), View), Projection);
     output.Corner = input.Data.xy;
-    output.Alpha = edge * heightFade * classOpacity;
+    output.Alpha = edge * heightFade * classOpacity * nearFade;
 
     return output;
 }
