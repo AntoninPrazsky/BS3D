@@ -330,11 +330,18 @@ float3 GridTowerBodyColor;
 float3 GridTowerWindowColor;
 float3 GridTowerEdgeColor;
 
+//The flat shade's fixed direction and its floor (#512). A DIRECTION and not a light: nothing here attenuates,
+//nothing casts, and the term is constant across a face by construction. The floor is what keeps a face turned
+//away findable against the void.
+float3 GridFaceLight;
+float GridFaceShadeFloor;
+
 struct GridTowerVertexInput
 {
     float3 Position : POSITION0;
     float2 WindowUV : TEXCOORD0;
     float4 FaceLocal : TEXCOORD1;
+    float3 FaceNormal : NORMAL0;
 };
 
 struct GridTowerVertexOutput
@@ -342,6 +349,7 @@ struct GridTowerVertexOutput
     float4 Position : SV_POSITION;
     float2 WindowUV : TEXCOORD0;
     float4 FaceLocal : TEXCOORD1;
+    float3 FaceNormal : TEXCOORD2;
 };
 
 GridTowerVertexOutput GridTowerVS(GridTowerVertexInput input)
@@ -352,6 +360,7 @@ GridTowerVertexOutput GridTowerVS(GridTowerVertexInput input)
     output.Position = mul(mul(float4(input.Position, 1.0), View), Projection);
     output.WindowUV = input.WindowUV;
     output.FaceLocal = input.FaceLocal;
+    output.FaceNormal = input.FaceNormal;
 
     return output;
 }
@@ -395,7 +404,20 @@ float4 GridTowerPS(GridTowerVertexOutput input) : COLOR
     float edge = max(GridLineMask(edgeDist.x, localFootprint.x, GridTowerEdgeWidth, size.x),
                      GridLineMask(edgeDist.y, localFootprint.y, GridTowerEdgeWidth, size.y));
 
-    float3 color = lerp(GridTowerBodyColor, GridTowerWindowColor, lit);
+    //⚠ THE BODY IS FLAT-SHADED PER FACE (#512), and without that a solid is a wireframe and not a solid.
+    //Every face took one `GridTowerBodyColor`, so a cube's three visible faces were the same few codes over
+    //the void and what stood out there was an outline with some lit windows inside it. Every reference of
+    //this vocabulary - and the film it is credited to - does the one thing a 1982 renderer could afford:
+    //ONE value a face, off the angle between that face and a fixed direction. No light, no falloff, no
+    //per-pixel anything; the normal is constant across a quad by construction, so this costs a dot and a
+    //lerp and is the whole of why a flat-shaded polyhedron reads as a volume.
+    //
+    //The floor is deliberately well above zero: a face turned away has to stay a shade the eye can find
+    //against the void, or the solid loses that side of its silhouette and the seams have to carry it alone.
+    float facing = saturate(dot(normalize(input.FaceNormal), GridFaceLight));
+    float3 body = GridTowerBodyColor * (GridFaceShadeFloor + (1.0 - GridFaceShadeFloor) * facing);
+
+    float3 color = lerp(body, GridTowerWindowColor, lit);
     color = lerp(color, GridTowerEdgeColor, edge);
 
     return float4(color, 1.0);

@@ -46,6 +46,9 @@ namespace Prazsky.Core.Render
         /// <summary>The distant solids standing on the floor: glowing seams, and windows each running a Game of Life of their own.</summary>
         public GridTowerConfig Towers { get; set; } = new();
 
+        /// <summary>The landmark standing far out on the floor (#512) — a ring on edge.</summary>
+        public GridLandmarkConfig Landmark { get; set; } = new();
+
         /// <summary>What lights the island, the gun and the balls here, since there is no dome to derive it from.</summary>
         public GridLightingConfig Lighting { get; set; } = new();
     }
@@ -161,7 +164,7 @@ namespace Prazsky.Core.Render
         public float WindowMargin { get; set; } = 0.16f;
 
         /// <summary>The solid's own dark body (linear) — not exactly <see cref="GridTerrainConfig.BodyColor"/>: a vertical face and a horizontal floor read the void's own ambient differently, the same reason the light rig's own sky and ground ambients differ.</summary>
-        public Rgb BodyColor { get; set; } = new(0.0025f, 0.0075f, 0.0110f);
+        public Rgb BodyColor { get; set; } = new(0.0110f, 0.0330f, 0.0490f);
 
         /// <summary>A lit window (linear) — past the glare threshold like the floor's own Hilbert trace, so a lit face reads as a field of small bright panes rather than a grey chequerboard.</summary>
         public Rgb WindowColor { get; set; } = new(0.60f, 1.85f, 2.05f);
@@ -171,6 +174,22 @@ namespace Prazsky.Core.Render
 
         /// <summary>A solid's glowing seams (linear) — past the glare threshold, so the silhouette blooms against the void the way the floor's trace does; without them the body is within a few codes of the void and only the lit windows show.</summary>
         public Rgb EdgeColor { get; set; } = new(0.70f, 2.20f, 2.60f);
+
+        /// <summary>
+        /// The direction the solids' bodies are flat-shaded against (#512), normalized on the way in. It is a
+        /// <b>direction and not a light</b>: nothing attenuates, nothing casts, and the term is constant
+        /// across a face by construction — which is exactly what a 1982 renderer could afford and exactly
+        /// what makes a flat-shaded polyhedron read as a volume. Every reference of this vocabulary shows one
+        /// face of a solid bright and the others near-black; before this every face took one body colour, so
+        /// a cube's three visible faces were the same few codes over the void and what stood out there was an
+        /// outline with lit windows inside it rather than a solid.
+        /// </summary>
+        public Rgb FaceLight { get; set; } = new(0.55f, 0.62f, 0.56f);
+
+        /// <summary>How dark a face turned fully away goes, as a fraction of <see cref="BodyColor"/>. Well
+        /// above zero on purpose: a face that vanishes into the void loses that side of the silhouette and
+        /// leaves the seams to carry it alone.</summary>
+        public float FaceShadeFloor { get; set; } = 0.22f;
 
         /// <summary>How often each board advances a generation, in seconds. The issue's own "a few generations a second, not per-frame — needs to read as a deliberate clock, not a flicker".</summary>
         public float LifeStepInterval { get; set; } = 0.5f;
@@ -203,5 +222,46 @@ namespace Prazsky.Core.Render
 
         /// <summary>The back/fill light's tint (linear, ~1 per channel) — cooler and dimmer still.</summary>
         public Rgb BackTint { get; set; } = new(0.32f, 0.60f, 0.92f);
+    }
+
+    /// <summary>
+    /// The Grid's landmark (#512): a ring standing on edge, far out on the floor, with its own Game of Life
+    /// running round its outer band.
+    /// <para>
+    /// The scene's own documentation left a hero object unclaimed, and the references drew five candidates —
+    /// a stepped ziggurat, a faceted polyhedron on a pedestal, a slotted tower, a ring on edge and a stack of
+    /// cubes. The ring is the one silhouette <b>nothing else here has</b>: every other solid on this floor is
+    /// a box, so a ring reads as a landmark from any bearing, which is the whole job. It is still a
+    /// combinatorial solid — a faceted torus of <see cref="Segments"/> trapezoid segments, four flat quads
+    /// each — so it stays in the <c>BoxMesh</c> vocabulary the scene credits rather than sweeping a tube.
+    /// </para>
+    /// </summary>
+    public sealed class GridLandmarkConfig
+    {
+        /// <summary>Whether the landmark is built at all.</summary>
+        public bool Enabled { get; set; } = true;
+
+        /// <summary>The ring's centreline radius, in world units. Large: it has to out-read solids that are
+        /// already 45–85 units, from further away than they stand.</summary>
+        public float Radius { get; set; } = 62f;
+
+        /// <summary>Half the tube's thickness, radially — how deep the band is between its inner and outer
+        /// faces.</summary>
+        public float TubeRadius { get; set; } = 7f;
+
+        /// <summary>The band's width along the ring's own axis.</summary>
+        public float Width { get; set; } = 16f;
+
+        /// <summary>How many trapezoid segments the ring is faceted into. Enough that the silhouette reads as
+        /// a circle at this distance and few enough that it still reads as <i>built</i>, which is the whole
+        /// point of a combinatorial-solid vocabulary.</summary>
+        public int Segments { get; set; } = 28;
+
+        /// <summary>Where it stands, as a bearing in degrees round from +X.</summary>
+        public float Bearing { get; set; } = 205f;
+
+        /// <summary>How far out it stands. Past the solids' own ring (140–380) at a bearing of its own, so it
+        /// closes the skyline rather than joining the crowd.</summary>
+        public float Distance { get; set; } = 330f;
     }
 }
