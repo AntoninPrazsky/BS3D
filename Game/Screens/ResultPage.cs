@@ -1,4 +1,5 @@
 ﻿using BS3D.Audio;
+using FontStashSharp;
 using Microsoft.Xna.Framework;
 using Myra.Graphics2D.UI;
 using System.Collections.Generic;
@@ -48,74 +49,24 @@ namespace BS3D.Screens
         //every other readout" (PlayHud's tutorial card) — so it is this game's existing vocabulary rather
         //than a fourth idea. Both were photographed before choosing, which is what the issue asked for.
         //
-        //It is TWO LABELS and not a stroke because Myra draws a label in one colour and has no outline; the
-        //dark copy sits in the same panel, offset, drawn first. The cost is one more string draw per line on
-        //a page that has six of them and no animation in the type, which is nothing next to the arena behind
-        //it.
-        private const int SHADOW_OFFSET = 5;
+        //It was TWO LABELS from #465 to #521 — a dark copy in the same panel, offset, drawn first, and a
+        //SyncShadows loop copying each line's text and visibility down onto its copy — because Myra draws a
+        //label in one colour and has no outline. It is ONE label per line now, drawing its own backing
+        //(ShadowedLabel): the same string a second time through FontStashSharp's Stroked glyph effect, which
+        //dilates each glyph into an outline SHADOW_STROKE design pixels wide (scaled with the fonts), in the
+        //shadow colour, under the type. One widget, one Text, one Visible, no panel and no loop. The cost is
+        //what it was — one more string draw per line on a page with six of them and no animation in the type —
+        //from glyph variants rasterised into the atlas once.
+        private const int SHADOW_STROKE = 3;
 
         //Not black: a hard black edge on white type reads as a printing fault on a bright sky, where a
         //softened one reads as depth. Alpha rather than a grey, so what shows through is the scene's own
         //colour darkened rather than a grey halo the backdrop cannot tint.
         private static readonly Color TEXT_SHADOW = new(0, 0, 0, 190);
 
-        //Every wrapped line: the foreground label, the dark copy under it and the panel that holds both. A
-        //list rather than a field each, so SyncShadows is one loop and a line added later cannot be forgotten
-        //in it — the fault this page has already made three times with colours.
-        private readonly List<(Label Text, Label Shadow, Panel Panel)> _shadowed = new();
-
-        /// <summary>
-        /// Wraps one line of the upper stack in a panel with a dark copy of itself under it, and records the
-        /// pair for <see cref="SyncShadows"/>. The line's own margin moves to the panel, since the panel is
-        /// what the column now stacks.
-        /// </summary>
-        private Panel Shadowed(Label text)
-        {
-            Label shadow = new()
-            {
-                Text = text.Text,
-                Font = text.Font,
-                TextColor = TEXT_SHADOW,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                Left = Scaled(SHADOW_OFFSET),
-                Top = Scaled(SHADOW_OFFSET),
-            };
-
-            Panel panel = new()
-            {
-                HorizontalAlignment = HorizontalAlignment.Center,
-                Margin = text.Margin,
-
-                //The offset copy would otherwise be measured at the foreground label's own extent and clipped
-                //along its right and bottom edges by exactly SHADOW_OFFSET.
-                Padding = ScaledThickness(0, 0, SHADOW_OFFSET, SHADOW_OFFSET),
-            };
-
-            text.Margin = default;
-
-            panel.Widgets.Add(shadow);
-            panel.Widgets.Add(text);
-
-            _shadowed.Add((text, shadow, panel));
-
-            return panel;
-        }
-
-        /// <summary>
-        /// Copies each wrapped line's text and visibility down onto its shadow, after the page has written
-        /// them all. Hiding the <b>panel</b> rather than the shadow is what keeps a hidden line taking no
-        /// space in the column.
-        /// </summary>
-        private void SyncShadows()
-        {
-            for (int i = 0; i < _shadowed.Count; i++)
-            {
-                (Label text, Label shadow, Panel panel) = _shadowed[i];
-
-                shadow.Text = text.Text;
-                panel.Visible = text.Visible;
-            }
-        }
+        /// <summary>The backing every line of the upper stack draws under itself — built where <see cref="Scaled"/>
+        /// is valid, once per tree.</summary>
+        private ShadowedLabel.Style ShadowStyle() => new(FontSystemEffect.Stroked, Scaled(SHADOW_STROKE), Point.Zero, TEXT_SHADOW);
 
         //One widget per slot rather than one string of glyphs: a Label's glyphs cannot be scaled, coloured or
         //timed apart from each other, and the reveal needs all three per star (#139).
@@ -769,13 +720,13 @@ namespace BS3D.Screens
 
         protected override Widget BuildTree()
         {
-            _shadowed.Clear();
+            ShadowedLabel.Style shadow = ShadowStyle();
 
             VerticalStackPanel column = MenuColumn();
 
             //CLEARED / FAILED / CAMPAIGN COMPLETE — a title's size, like the main menu's name, because this is
             //the line the screen exists to state.
-            _heading = new Label
+            _heading = new ShadowedLabel(shadow)
             {
                 Text = string.Empty,
                 Font = FontTitle,
@@ -783,13 +734,13 @@ namespace BS3D.Screens
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = ScaledThickness(0, 0, 0, 30),
             };
-            column.Widgets.Add(Shadowed(_heading));
+            column.Widgets.Add(_heading);
 
             //A finished block's own line, under the chapter's name in the heading and only on the milestone
             //(#184). It is where the block gets to be a place rather than a number: the heading says THE TOWER
             //and this says which of how many that was, so the player learns the campaign's shape from finishing
             //one of it rather than from counting tiles in the picker. Held back on every ordinary clear.
-            _milestone = new Label
+            _milestone = new ShadowedLabel(shadow)
             {
                 Text = string.Empty,
                 Font = FontBody,
@@ -797,7 +748,7 @@ namespace BS3D.Screens
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = ScaledThickness(0, 0, 0, 26),
             };
-            column.Widgets.Add(Shadowed(_milestone));
+            column.Widgets.Add(_milestone);
 
             //WHICH LEVEL THIS WAS (#313), and it is on every ending rather than only on a clear: "CLEARED" over
             //a lit arena told a player who had just spent several minutes on a level nothing about which one it
@@ -811,7 +762,7 @@ namespace BS3D.Screens
             //its heading — over a bright tropical sky the line came out the least legible thing on the screen,
             //which is the identical fault the failure reason line was photographed committing. Body brightness
             //keeps it subordinate to the verdict above without making it an aside nobody can read.
-            _levelLine = new Label
+            _levelLine = new ShadowedLabel(shadow)
             {
                 Text = string.Empty,
                 Font = FontBody,
@@ -819,7 +770,7 @@ namespace BS3D.Screens
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = ScaledThickness(0, 0, 0, 26),
             };
-            column.Widgets.Add(Shadowed(_levelLine));
+            column.Widgets.Add(_levelLine);
 
             //The star rating, straight under the verdict — the headline a player reads at a glance where the
             //score below is the arithmetic (#111). Set in Inter (FontStars), not the display face: Anton has
@@ -866,7 +817,7 @@ namespace BS3D.Screens
             //only on the runs that earned it — rather than by a brightness that only works over half the
             //backdrops. It sits at the same MENU_TEXT_BODY as the milestone and the identity line above it, a
             //shade under the heading, which is what those two ranks are for.
-            _newBest = new Label
+            _newBest = new ShadowedLabel(shadow)
             {
                 Text = "New best",
                 Font = FontBody,
@@ -874,7 +825,7 @@ namespace BS3D.Screens
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = ScaledThickness(0, 0, 0, 12),
             };
-            column.Widgets.Add(Shadowed(_newBest));
+            column.Widgets.Add(_newBest);
 
             //Which limit ran out, said plainly — only on a fail. Held back (Visible = false) on a cleared level.
             //
@@ -885,7 +836,7 @@ namespace BS3D.Screens
             //the ball cluster, came out the LEAST legible thing on the screen, under even the score line beside
             //it. It is the one sentence saying why the level ended, so it reads at the weight of the heading
             //above it; white is what the "FAILED" heading over the same backdrop already proves carries.
-            _reason = new Label
+            _reason = new ShadowedLabel(shadow)
             {
                 Text = string.Empty,
                 Font = FontHeading,
@@ -893,12 +844,12 @@ namespace BS3D.Screens
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = ScaledThickness(0, 0, 0, 12),
             };
-            column.Widgets.Add(Shadowed(_reason));
+            column.Widgets.Add(_reason);
 
             //The score reached, on a fail. The breakdown below is rightly held back — a failed level is awarded
             //no completion bonus and its partial rows would explain a total nobody is being offered — but the
             //total itself still has to be said, or the player is told they lost and nothing about how they did.
-            _bareScore = new Label
+            _bareScore = new ShadowedLabel(shadow)
             {
                 Text = string.Empty,
                 Font = FontBody,
@@ -906,7 +857,7 @@ namespace BS3D.Screens
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = ScaledThickness(0, 0, 0, 30),
             };
-            column.Widgets.Add(Shadowed(_bareScore));
+            column.Widgets.Add(_bareScore);
 
             //What a skip COSTS, on the page that offers one (#347). Its own label rather than a longer caption
             //on the button, for two reasons: a button carries a destination and not a sentence, and a Myra
@@ -1162,10 +1113,6 @@ namespace BS3D.Screens
             //two can never disagree about whether a skip is on offer.
             _skipNote.Text = _result.CanSkip ? "Skipping spends this chapter's one skip" : string.Empty;
             _skipNote.Visible = _result.CanSkip;
-
-            //Last, so every line above has already been written and hidden: the dark copies take their text and
-            //their visibility from the lines they sit under, which is what keeps one assignment per line (#465).
-            SyncShadows();
 
             _breakdown.Visible = _result.ShowsBreakdown;
 
