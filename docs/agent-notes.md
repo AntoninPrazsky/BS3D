@@ -5244,3 +5244,17 @@ Obě issues nechávám otevřené na majitelův pohled v pohybu.
 - **Ověřeno**: čtyři solutiony čistě, `LevelGen`/`ScoreSim` exit 0.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-22 — Claude Code (notebook: #517 kolečko myši na mainu, merge `f06fa72`)
+
+**Jedenáctá věc, zase na „Vem další issue".** Pokračoval jsem v pořadí pod #352: #517, kolečko myši v levelovém pageru a v nastavení.
+
+- **Nejdřív jsem hledal, jak Myra kolečko směruje** — reflexí přes `Myra.dll` (`AcceptsMouseWheel`/`OnMouseWheel`, widget-specific routing přes `_inputContext.MouseWheelWidget` podle Myřina vlastního zdroje na GitHubu). Ukázalo se zbytečné: hra už čte `MouseState` přímo pro klávesnici/pad v `UpdateMenuChrome`, tak jsem `ScrollWheelValue` (kumulativní, hrana = rozdíl proti minulému snímku) přidal tam samou cestou a poslal ji aktivní stránce novým `MenuPage.OnScrollWheel(int delta)` (no-op default, stejný tvar jako `NavFocusChanged`).
+- **`LevelSelectPage`**: kolečko listuje kapitolu stejně jako šipky/`PageSideways` — dopředu (od hráče) je další kapitola, což je ten samý směr, co „dolů" všude jinde ve hře znamená „dál". `TurnChapter`'s vlastní hlídky (nekapitolovaný set, jedna kapitola) fungují zadarmo.
+- **`SettingsPage`**: kolečko trefuje řádek přes `Widget.IsMouseInside` (vlastní `_rows` seznam, ne sdílené `_navEntries` — to nese i Back, co není hodnota k točení) a spustí `Tag` toho tlačítka — tu samou zabalenou akci, co `MenuClickable` už dává padu a šipkám — takže kolečko cvakne stejným zvukem jako klik. Jen jeden směr na řádek existuje (žádný `Cycle*` nemá opačnou variantu), takže obě strany kolečka udělají ten samý krok — obousměrné by znamenalo sáhnout na každou `Cycle*` metodu v `BS3DGame.cs`, za rámec „malé, přídavné" issue.
+- **Ověřeno na skutečně běžící hře** — vnější vstřik myši + kolečka (`mouse_event` s `MOUSEEVENTF_WHEEL`), screenshoty před/po: kolečko nad řádkem Quality v nastavení ho přepnulo Low → Medium se stejným hoverem jako myš; kolečko dolů nad pagerem přehodilo The Quarry (kapitola 6 z 12) zpět na The Reveal (kapitola 5), i pip. Obojí funguje přesně podle návrhu.
+- **Ověřeno**: `Game.sln` čistě, `LevelGen`/`ScoreSim` exit 0.
+
+**Nic dalšího si neberu.**
