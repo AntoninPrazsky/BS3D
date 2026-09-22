@@ -51,6 +51,11 @@ namespace Prazsky.Core.Render
         //before its first ApplyDome gets the weather's own radiance rather than black.
         private Vector3 _skyTint = Vector3.One;
 
+        //A light on the ground lighting the deck from below (#509), stated by the host every frame through
+        //SetGroundGlow/ClearGroundGlow. Black means none, which is an exact no-op in the sky shader.
+        private Vector3 _groundGlowPosition, _groundGlowColor;
+        private float _groundGlowRange = 1f;
+
         /// <summary>Which authored sky is up. Set through <see cref="SetWeather"/>, which fades to it.</summary>
         public WeatherPreset Preset => _preset;
 
@@ -230,7 +235,8 @@ namespace Prazsky.Core.Render
 
             public EffectParameter SunColor, ShadowColor, DetailStrength, Opacity, HorizonFade, SunStep,
                 SelfAbsorption, SunAbsorption, SilverStrength, SilverPower, SunDirection,
-                FormStrength, ShapeStrength, CharacterStrength, SunDiscCos, SunDiscEdge, SunDiscColor;
+                FormStrength, ShapeStrength, CharacterStrength, SunDiscCos, SunDiscEdge, SunDiscColor,
+                GroundGlowPosition, GroundGlowColor, GroundGlowRange;
         }
 
         //Callers apply the field to the same two or three effects every frame, and the by-name indexer is
@@ -238,6 +244,28 @@ namespace Prazsky.Core.Render
         //the whole cloud surface of an effect is resolved by one scan per name per effect, ever, and every
         //apply path below is direct SetValue calls.
         private readonly Dictionary<Effect, EffectSlots> _slotsByEffect = new();
+
+        /// <summary>
+        /// A light on the ground that lights the underside of the deck over it — the volcano's crater, whose
+        /// glow on the cloud above it is in every eruption the #509 references drew. Only the sky shader reads
+        /// it; the shadow and the light rig do not, because it lights the cloud and not the world under it
+        /// (the world under it has the scene's own point lights for that). Only <paramref name="position"/>'s
+        /// XZ matters: the deck is a plane, and the glow falls off along it over <paramref name="range"/>.
+        /// <para>
+        /// <b>State it every frame</b>, or <see cref="ClearGroundGlow"/> — the hosts ask
+        /// <see cref="SceneRenderer.TryGetGroundGlow"/> and pass on its answer, so a scene with nothing burning
+        /// under its sky can never inherit the last one's.
+        /// </para>
+        /// </summary>
+        public void SetGroundGlow(Vector3 position, Vector3 color, float range)
+        {
+            _groundGlowPosition = position;
+            _groundGlowColor = color;
+            _groundGlowRange = MathF.Max(range, 1f);
+        }
+
+        /// <summary>No light on the ground: the sky shader's term goes to an exact zero.</summary>
+        public void ClearGroundGlow() => _groundGlowColor = Vector3.Zero;
 
         /// <summary>
         /// Hands the shared parameters to any effect that declares them — the sky shader and the scene
@@ -273,6 +301,11 @@ namespace Prazsky.Core.Render
             //weather's half moves per frame while the dome's moves once a scene. <see cref="ApplyDome"/>
             //remembers its half for exactly this.
             slots.ShadowColor?.SetValue(_look.ShadowColor * _skyTint);
+
+            //The ground's light on the deck (#509) - the sky shader's alone; no other effect declares these.
+            slots.GroundGlowPosition?.SetValue(_groundGlowPosition);
+            slots.GroundGlowColor?.SetValue(_groundGlowColor);
+            slots.GroundGlowRange?.SetValue(_groundGlowRange);
         }
 
         /// <summary>
@@ -427,7 +460,11 @@ namespace Prazsky.Core.Render
                 SunDirection = effect.Parameters["SunDirection"],
                 SunDiscCos = effect.Parameters["SunDiscCos"],
                 SunDiscEdge = effect.Parameters["SunDiscEdge"],
-                SunDiscColor = effect.Parameters["SunDiscColor"]
+                SunDiscColor = effect.Parameters["SunDiscColor"],
+
+                GroundGlowPosition = effect.Parameters["GroundGlowPosition"],
+                GroundGlowColor = effect.Parameters["GroundGlowColor"],
+                GroundGlowRange = effect.Parameters["GroundGlowRange"]
             };
             _slotsByEffect.Add(effect, slots);
 

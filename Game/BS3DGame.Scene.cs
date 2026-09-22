@@ -800,6 +800,11 @@ namespace BS3D
             if (SceneRenderer.ReplacesSky(_scene)) _clouds.SuppressOn(_instancingEffect);
             else
             {
+                //The ground's light on the deck (#509), stated every frame so no scene inherits the last one's.
+                if (_sceneRenderer.TryGetGroundGlow(_scene, _wallClock, out Vector3 glowAt, out Vector3 glowColor, out float glowRange))
+                    _clouds.SetGroundGlow(glowAt, glowColor, glowRange);
+                else _clouds.ClearGroundGlow();
+
                 _clouds.ApplyTo(_skyEffect);
                 _clouds.ApplyTo(_instancingEffect);
 

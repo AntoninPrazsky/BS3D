@@ -59,6 +59,15 @@ float3 SunDiscColor;
 float CloudFormStrength;
 float CloudShapeStrength;
 
+//A light on the GROUND lighting the deck from below (#509): the volcano's crater, whose glow on the underside of
+//the cloud over it is in every eruption the references drew. A position (only its XZ is read - the deck is a
+//plane), a colour in linear radiance and a reach along the plane. Black for every scene with nothing burning
+//under its sky, which makes the term an exact no-op rather than a branch: this is the hottest pass in the game
+//and a runtime branch keeps its registers whether it is taken or not.
+float3 GroundGlowPosition;
+float3 GroundGlowColor;
+float GroundGlowRange;
+
 struct SkyVertexInput
 {
     float4 Position : POSITION0;
@@ -160,6 +169,11 @@ float4 SkyPS(SkyVertexOutput input) : COLOR
     //cores it would otherwise wash straight back out.
     float alignment = saturate(dot(direction, SunDirection));
     lit += CloudSunColor * pow(alignment, CloudSilverPower) * CloudSilverStrength * sunlight;
+
+    //The ground's own light on the underside, falling off along the plane from the column over its source.
+    //Thicker cloud catches more of it - a thin wisp lets the glow through - but even a wisp takes some.
+    float2 fromGlow = (hit - GroundGlowPosition.xz) / max(GroundGlowRange, 1.0);
+    lit += GroundGlowColor * exp(-dot(fromGlow, fromGlow)) * (0.35 + 0.65 * density);
 
     //Cloud never reaches the horizon: the ray runs out along the plane long before it gets there, and
     //a sky that stays cloudy right down to the skyline reads as a lid rather than as weather.
