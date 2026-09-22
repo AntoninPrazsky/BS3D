@@ -5258,3 +5258,24 @@ Obě issues nechávám otevřené na majitelův pohled v pohybu.
 - **Ověřeno**: `Game.sln` čistě, `LevelGen`/`ScoreSim` exit 0.
 
 **Nic dalšího si neberu.**
+
+---
+
+## 2026-09-22 — Claude Code, bs3d-9f (desktop: #509 sopka podle referencí, merge `cc04762`)
+
+**Majitel: „Vem některou tu scénu — na co přijdeš u jedné, se může hodit i v dalších."** Z #503–#512 vybrána sopka: hraje se v ní celá kapitola The Eruption, byla nejdražší terénní scéna a dokument sám přiznával, že byla laděná úvahou, ne podle obrázku. GPU je podle majitele stabilní (2100 MHz / 1080 mV), renderovalo se bez ptaní a bez pádu.
+
+- **Reference:** 24 txt2img (8 promptů × 3 seedy: kanál proudu, čelo proudu, erupce z dálky, kráter, svah, sloup popela, fontána, lávové pole z výšky očí) + 9 img2img přes vlastní snímky Testbedu (síla 0,5/0,65). `C:\Users\panrd\AI\sd\out\509`, prompty `prompts-509-*.json`, **srovnávací stránka `C:\Users\panrd\AI\sd\out\509\index.html`** (před/po ze stejných kamer, snímky ze hry, všechny reference s řádkem, co která rozhodla). Nic z toho v repu.
+- **Co reference řekly a jak se to přeložilo** (celé v `docs/scenes.md` „Redrawn from references (#509)"): proud je hlavně TMAVÁ kůra s otevřeným jádrem (u ústí 0,85 šířky, u čela 0,22), proudnice jako ohnuté pruhy podél toku, vlasové praskliny v kůře, světlá linka na břehu; proudy úzké pod vrcholem; svah černý se stružkami od kraje kráteru (šum na KRUŽNICI, žádný šev atan2); rezavě oxidovaný vrchol; lávové jezero v kráteru; sklovitý odlesk pole (zenit, ne horizont; jen na hřbetech provazové lávy; zrno napříč spádem); klikaté praskliny v poli; jiskry jako šmouhy podél rychlosti + záře nad kráterem; sloup s hlavou, hrudkovitý, nasvícený zespodu; **mraky nad kráterem svítí** — nový obecný kanál „světlo ze země" (`SceneRenderer.TryGetGroundGlow` → `CloudField.SetGroundGlow` → `Sky.fx`, černá = přesné no-op pro ostatní scény, oba hostitelé ho píšou každý snímek).
+- **Pasti, které se hodí u dalších scén:**
+  1. **Nulová izočára šumu prahovaná |n| < w dělá na sedlech šumu tlusté kapky.** Správně je vzdálenost v pixelech `|n| / (|∇n| · footprint)`; `fwidth(n)` nejde do větve, takže sklon analyticky z `CloudNoiseD` (Clouds.fxh) — pak může čára sedět za datovou větví. Ušetřilo 0,4 ms.
+  2. **Izočára natažené šumu = uzavřené smyčky („oči")**, ne rovnoběžné čáry. Na pruhy podél toku `cos(across·k + ohyb)`.
+  3. **Odlesk z `HorizonColor` domu 9 obarvil pole do hnědého bahna** — uniforma horizontu je teplý pás mnohem jasnější než bouřková obloha, pod kterou scéna stojí.
+  4. **Testbedová herní kamera míří níž než herní póza Game** — zář na mracích vypadala v Testbedu dobře a v Game byla za clusterem sytě rudooranžová. Staženo na 0,11; čitelnost clusteru je první pravidlo scény a pozadí za ním se počítá stejně jako světlo na něm. **Scénu vždycky ověřit i v Game (`level=` + `shot=`).**
+  5. CPU zrcadlo výšky (`VolcanoGroundY`) mělo od #223 jiné konstanty roklí než shader (až 7 jednotek) — opraveno.
+- **⚠ Spouštění exe bere majiteli klávesy.** Testbed spuštěný normálně i přes PowerShell `-WindowStyle Minimized` (to je SW_SHOWMINIMIZED = aktivuje) chytal, co majitel zrovna psal — v logu `[balls]`/`[campin]`, které nikdo neskriptoval, a zkažené měření. Spouštěno pak přes `CreateProcess` se `SW_SHOWMINNOACTIVE`: fokus nebere, a Testbed (má `InactiveSleepTime` 0) měří stejně jako viditelné okno (10,00 vs 10,02 ms). Game s `shot=` implikuje `nofocuspause`, tak jde spustit stejně.
+- **Cena** (desktop, Testbed, 1600×900 ssaa 4 = 23 Mpix, dome 9, `fpscap=400`, střídavě proti `main` z worktree): široký pohled **10,0 → 11,1 ms**, `VolcanoReduced` 10,5; herní kamera **11,6 → 11,6**, `VolcanoReduced` **10,3** (levnější než main — proudy, jezero a Voronoi kůry šly za datové větve). Dva z 32 běhů spadly uprostřed na ~4,9 ms bez stopy v logu (po jednom z obou buildů), zahozeny.
+- **`VolcanoReduced`** (nový, pro Low) shazuje stružky a praskliny v poli. Ověřeno v Game `quality=low`.
+- **Ověřeno:** čtyři solutiony čisté; Game `level=Breach` na High i Low (úvod kapitoly chytil erupci), editor map načte Vent bez chyby; save majitele hash před/po beze změny.
+
+**Co zůstává:** APU měření `VolcanoReduced` (notebook) — mezera, kterou sekce nese od #223. #509 nechávám otevřené na majitelův pohled na stránku. **Pro #503–#512:** kanál „světlo ze země" na mracích je obecný (bouře, Mars…), `FieldCracks`/stružky jsou vzor pro zářící čáry, a srovnávací stránka + img2img přes herní snímek se osvědčily jako postup.
