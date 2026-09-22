@@ -1005,11 +1005,61 @@ namespace BS3D.Tools.LevelGen
                             if (walk > furthest) furthest = walk;
                         }
 
+                //⚠ AND THE SAME QUESTION ASKED OF THE LEVEL AS IT IS PLAYED (#514). The figures above are
+                //the intact cluster, which is the pessimistic end: a cut opens lines that were closed, so a
+                //landing reachable from no station now very often is one later. ClearProbe replays the line
+                //that cleared the level through BallsMap itself, and hands the field over after each cut —
+                //the game's own map code, not a second copy of the rules — so the same probe can be asked
+                //again at each state and the two numbers stand side by side.
+                int played = 0, playedLandings = 0, playedUnreachable = 0;
+
+                //A heap array rather than the stack span above: a Span is a ref struct and cannot be captured
+                //by the lambda below.
+                XZLevel[] scratch = new XZLevel[BallsMap.MAX_NEIGHBORS];
+
+                ClearProbe.Measure(level.Map, deep: false, afterMove: cut =>
+                {
+                    StaticBall[,,] now = cut.GetStaticBallsArray();
+                    bool[] standing = new bool[n];
+
+                    for (int l = 0; l < levels; l++)
+                        for (int x = 0; x < sizeX; x++)
+                            for (int z = 0; z < sizeZ; z++)
+                                standing[(l * sizeX + x) * sizeZ + z] = now[x, z, l] != null;
+
+                    played++;
+
+                    for (int l = 0; l < levels; l++)
+                        for (int x = 0; x < sizeX; x++)
+                            for (int z = 0; z < sizeZ; z++)
+                            {
+                                int cell = (l * sizeX + x) * sizeZ + z;
+                                if (standing[cell]) continue;
+
+                                bool touches = false;
+                                int count = BallsMap.FillNeighboringCells(new XZLevel(x, z, l), size, scratch);
+                                for (int i = 0; i < count && !touches; i++)
+                                    touches = standing[(scratch[i].Level * sizeX + scratch[i].X) * sizeZ + scratch[i].Z];
+
+                                if (!touches) continue;
+
+                                playedLandings++;
+                                if (probe.ArrivalStation(standing, cell) < 0) playedUnreachable++;
+                            }
+                });
+
+                float playedShare = playedLandings == 0 ? 0f : 100f * playedUnreachable / playedLandings;
+                string afterCuts = played == 0
+                    ? "  (no proven line to replay)"
+                    : $"  after {played} cut(s): {playedLandings,5} landings, {playedUnreachable,4} from no station ({playedShare:F0} %)";
+
                 Console.WriteLine($"  {Path.GetFileName(path),-16} {landings,5} landings;"
                                   + $" {fromRest,5} from the opening stance;"
                                   + $" {needsWalk,5} need a walk;"
-                                  + $" {unreachable,4} from no station;"
-                                  + $" furthest {furthest,5:F1} deg");
+                                  + $" {unreachable,4} from no station"
+                                  + $" ({(landings == 0 ? 0f : 100f * unreachable / landings):F0} %);"
+                                  + $" furthest {furthest,5:F1} deg"
+                                  + afterCuts);
             }
 
             return ok;
