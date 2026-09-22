@@ -176,6 +176,8 @@ namespace BS3D.Effects
             _running = true;
             _elapsed = 0f;
             _centre = centre;
+            _flooredFrames = 0;
+            _deepestFloor = 1f;
 
             _prologue = prologue ?? Array.Empty<IntroShot>();
             _prologueSeconds = 0f;
@@ -405,11 +407,27 @@ namespace BS3D.Effects
         private Vector3 _centre;
         private float _elev0, _elev2, _minRadius;
 
+        //The floor's own record (#519): how many frames of the last flight it pushed out, and how far under it
+        //the deepest of them came, as a fraction of the floor. Zero in every flight since #409's polar sweep,
+        //and End says so if that ever stops being true.
+        private int _flooredFrames;
+        private float _deepestFloor = 1f;
+
         //What the first two legs are of, for the one log line. Named rather than derived, so a shot that
         //fell back to the pre-#289 sweep says so in the record instead of reading as a scene's own choice.
         private string _subject = "the rim";
 
-        private void End() => _running = false;
+        //One line, only when the floor did work — a guard that fires silently is a guard nobody knows about
+        //(#519). ASCII and invariant like Describe. Every other intro ends without a word, as it always has.
+        private void End()
+        {
+            _running = false;
+
+            if (_flooredFrames > 0)
+                Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
+                    "[intro] WARNING radius floor engaged on {0} frame(s), deepest {1:F3} of the floor - the polar sweep should never reach it (#519)",
+                    _flooredFrames, _deepestFloor));
+        }
 
         /// <summary>
         /// Builds this frame's pose: the four keys swept on a Catmull-Rom spline — positions and look-ats
@@ -457,13 +475,23 @@ namespace BS3D.Effects
             //its neighbours, so a leg running from a far key to a near one bowed INWARD between the two, and
             //#289's opening legs stand as far out as the SCENE asks, which made that bow deep enough to fly the
             //lens through the balls — photographed on the volcano's opening as a frame of nothing but ball at
-            //arm's length. The polar sweep above has no inward bow (the radius is interpolated between keys
-            //that all stand at or beyond the gameplay stand-off, monotonically), so this never fires now; it
-            //stays because it is one line and the one thing it guards is the one thing the shot must never do.
+            //arm's length. The polar sweep above has no inward bow: the radius is interpolated between keys
+            //that all stand at or beyond the gameplay stand-off, monotonically (1.7-2.4x the stand-off at the
+            //scene's stand, 0.86 of that on the second key, 1.25-1.45x on the map key, 1x on arrival — and the
+            //fallback shot's 1.9-2.4 / 1.5-1.8 the same way), and a Catmull-Rom on those never dips under its
+            //last key: #519 probed twenty thousand rolls across every scene's DistanceScale and the fallback,
+            //and the least radius of every flight was the arrival key itself. So this never fires now. It
+            //stays because it is one line and the one thing it guards is the one thing the shot must never do —
+            //and since #519 it SAYS SO if it ever does (see End), instead of hiding a symptom nobody would see.
             Vector3 away = Position - _centre;
             float radius = away.Length();
 
-            if (radius > 1e-4f && radius < _minRadius) Position = _centre + away * (_minRadius / radius);
+            if (radius > 1e-4f && radius < _minRadius)
+            {
+                _flooredFrames++;
+                _deepestFloor = MathF.Min(_deepestFloor, radius / _minRadius);
+                Position = _centre + away * (_minRadius / radius);
+            }
         }
 
         /// <summary>A stand on the orbit about the centre: azimuth and elevation in radians, radius in units.</summary>
