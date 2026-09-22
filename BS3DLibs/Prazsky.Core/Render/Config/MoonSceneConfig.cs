@@ -234,8 +234,10 @@ namespace Prazsky.Core.Render
         /// <summary>Vegetated land (linear).</summary>
         public Rgb LandColor { get; set; } = new(0.11f, 0.20f, 0.07f);
 
-        /// <summary>Arid land (linear) — the desert belts.</summary>
-        public Rgb LandColorArid { get; set; } = new(0.40f, 0.30f, 0.14f);
+        /// <summary>Arid land (linear) — the desert belts. A dull brown since #508, from a saturated tan (0.40/0.30/0.14):
+        /// every Earthrise reference draws the land as brown and green under the clouds, and the tan was the
+        /// yellow blotches the marble wore at a glance.</summary>
+        public Rgb LandColorArid { get; set; } = new(0.24f, 0.19f, 0.12f);
 
         /// <summary>
         /// The weather (linear). Its luminance sits just <b>under</b> the glare threshold on purpose — the
@@ -243,15 +245,17 @@ namespace Prazsky.Core.Render
         /// </summary>
         public Rgb CloudColor { get; set; } = new(0.52f, 0.54f, 0.58f);
 
-        /// <summary>How much of the disc the weather covers, 0–1.</summary>
-        public float CloudAmount { get; set; } = 0.55f;
+        /// <summary>How much of the disc the weather covers, 0–1. 0.8 since #508, from 0.55: the Earthrise references
+        /// are a blue marble under swirling white, where the old figure left a map of continents with a few flecks.</summary>
+        public float CloudAmount { get; set; } = 0.8f;
 
         /// <summary>The atmosphere, on the limb and standing just off it (linear). Saturated blue: its
         /// brightness can run past 1 in the blue channel while the luminance stays modest.</summary>
         public Rgb RimColor { get; set; } = new(0.35f, 0.55f, 1.00f);
 
-        /// <summary>How strongly the limb and its halo glow.</summary>
-        public float RimStrength { get; set; } = 0.5f;
+        /// <summary>How strongly the limb and its halo glow. 0.3 since #508, from 0.5: the references draw Earth's
+        /// air as a thin bright edge, and at 0.5 the halo read as a glow round a lamp.</summary>
+        public float RimStrength { get; set; } = 0.3f;
 
         /// <summary>What the night side keeps. Not zero: a night side at pure black is a hole punched in
         /// the starfield rather than the dark half of a sphere.</summary>
@@ -272,6 +276,21 @@ namespace Prazsky.Core.Render
     /// </summary>
     public sealed class MoonLightingConfig
     {
+        /// <summary>
+        /// How high the sun stands over the Moon, in degrees (#508). LOW, because that is the Apollo photograph:
+        /// every surface reference drew long black shadows off every rock and a black crescent in every crater,
+        /// which is a sun a handful of degrees to a couple of dozen up - the landings were timed for it. The
+        /// scene sat on the 35 degrees every domeless scene shares (<see cref="SkyLightRig.DOMELESS_SUN_DIRECTION"/>),
+        /// which draws a crater's shadow as a sliver. A constant of the scene and not of any dome, so #220's
+        /// reason for keeping these scenes off the level's sky still holds: nothing swings it but this config.
+        /// It moves the Earth's phase with it, the phase being the angle between the two.
+        /// </summary>
+        public float SunElevationDegrees { get; set; } = 16f;
+
+        /// <summary>The sun's bearing, in degrees round from +Z towards +X — <see cref="SkyDome"/>'s own convention.
+        /// 40 is the bearing the shared domeless sun has always had.</summary>
+        public float SunAzimuthDegrees { get; set; } = 40f;
+
         /// <summary>The hemisphere ambient from above (linear): starlight and the Earth, cold, faint and blue.</summary>
         public Rgb SkyAmbient { get; set; } = new(0.030f, 0.034f, 0.052f);
 
