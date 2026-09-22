@@ -1248,17 +1248,24 @@ namespace Prazsky.Core.Render
             public Vector2 WindowUV;
             public Vector4 FaceLocal;
 
-            public GridTowerVertex(Vector3 position, Vector2 windowUV, Vector4 faceLocal)
+            //The face's outward normal (#512). Constant across a quad by construction, which is the point:
+            //what it buys is FLAT shading, one value a face, which is what a 1982 renderer did and what makes
+            //a polyhedron read as a volume with no lighting model under it at all.
+            public Vector3 FaceNormal;
+
+            public GridTowerVertex(Vector3 position, Vector2 windowUV, Vector4 faceLocal, Vector3 faceNormal)
             {
                 Position = position;
                 WindowUV = windowUV;
                 FaceLocal = faceLocal;
+                FaceNormal = faceNormal;
             }
 
             public static readonly VertexDeclaration Declaration = new(
                 new VertexElement(0, VertexElementFormat.Vector3, VertexElementUsage.Position, 0),
                 new VertexElement(12, VertexElementFormat.Vector2, VertexElementUsage.TextureCoordinate, 0),
-                new VertexElement(20, VertexElementFormat.Vector4, VertexElementUsage.TextureCoordinate, 1));
+                new VertexElement(20, VertexElementFormat.Vector4, VertexElementUsage.TextureCoordinate, 1),
+                new VertexElement(36, VertexElementFormat.Vector3, VertexElementUsage.Normal, 0));
 
             readonly VertexDeclaration IVertexType.VertexDeclaration => Declaration;
         }
@@ -4802,6 +4809,8 @@ namespace Prazsky.Core.Render
             _gridEffect.Parameters["GridTowerWindowColor"].SetValue(towers.WindowColor.ToVector3());
             _gridEffect.Parameters["GridTowerEdgeWidth"].SetValue(towers.EdgeWidth);
             _gridEffect.Parameters["GridTowerEdgeColor"].SetValue(towers.EdgeColor.ToVector3());
+            _gridEffect.Parameters["GridFaceLight"].SetValue(Vector3.Normalize(towers.FaceLight.ToVector3()));
+            _gridEffect.Parameters["GridFaceShadeFloor"].SetValue(towers.FaceShadeFloor);
             _gridEffect.Parameters["GridPhosphorDecay"].SetValue(towers.PhosphorDecay);
 
             //Placement (count/radius/height/footprint/seed) and the boards only take effect through a rebuild —
@@ -7435,11 +7444,152 @@ namespace Prazsky.Core.Render
                 _gridTowerRanges.Add((rangeStartIndex, (indices.Count - rangeStartIndex) / 3));
             }
 
+            BuildGridLandmark(vertices, indices, placement);
+
             _gridTowerVertexBuffer = new VertexBuffer(_graphicsDevice, GridTowerVertex.Declaration, vertices.Count, BufferUsage.WriteOnly);
             _gridTowerVertexBuffer.SetData(vertices.ToArray());
 
             _gridTowerIndexBuffer = new IndexBuffer(_graphicsDevice, IndexElementSize.SixteenBits, indices.Count, BufferUsage.WriteOnly);
             _gridTowerIndexBuffer.SetData(indices.ToArray());
+        }
+
+        /// <summary>
+        /// The landmark (#512): a ring standing on edge, far out on the floor. The issue asked for a hero object
+        /// with more presence than the eighteen towers and cubes, built to the same procedural-solid discipline
+        /// and lit by its own seams — and of the five shapes the references drew (a stepped ziggurat, a faceted
+        /// polyhedron on a pedestal, a slotted tower, a ring on edge, a stack of cubes) the ring is the one
+        /// silhouette <b>nothing else in this scene has</b>. Every other solid here is a box; a ring reads as a
+        /// landmark from any bearing, which is what a landmark is for.
+        /// <para>
+        /// It is a faceted torus — <see cref="GridLandmarkConfig.Segments"/> trapezoid segments, each four quads
+        /// (outer band, inner band and the two flanks) — so it stays inside the <c>BoxMesh</c> vocabulary the
+        /// scene credits to MAGI/SynthaVision: flat quads, no sculpting, nothing swept that a 1982 renderer
+        /// could not have combined out of solids.
+        /// </para>
+        /// <para>
+        /// ⚠ <b>The segment joins must not glow, or the ring is a barrel of ribs.</b> Every quad's seam shader
+        /// lights all four of its borders, so a faceted ring drawn the way a tower is would show one bright rib
+        /// per segment. Each quad therefore reports a face-local X pinned to the middle of an arbitrarily wide
+        /// face, so its two <i>across</i> borders can never be within an edge width of the pixel — only the
+        /// long borders draw, and what the eye gets is a pair of clean rails running round the ring.
+        /// </para>
+        /// </summary>
+        private void BuildGridLandmark(List<GridTowerVertex> vertices, List<short> indices, Random placement)
+        {
+            GridLandmarkConfig landmark = _gridConfig.Landmark;
+            if (!landmark.Enabled || landmark.Segments < 3) return;
+
+            float ringRadius = MathF.Max(landmark.Radius, 1f);
+            float tube = MathF.Max(landmark.TubeRadius, 0.1f);
+            float halfWidth = MathF.Max(landmark.Width, 0.1f) * 0.5f;
+
+            float bearing = MathHelper.ToRadians(landmark.Bearing);
+            Vector3 stand = new(MathF.Cos(bearing) * landmark.Distance,
+                _gridConfig.Terrain.LevelY, MathF.Sin(bearing) * landmark.Distance);
+
+            //The ring's plane faces the arena, so the play camera sees it as a ring and not as an edge-on bar.
+            Vector3 planeNormal = -Vector3.Normalize(new Vector3(stand.X, 0f, stand.Z));
+            if (planeNormal.LengthSquared() < 1e-6f) planeNormal = Vector3.Forward;
+
+            //(s, up, n) right-handed: s = up x n, so s x up = n. Every winding below is derived from that one
+            //identity, which is what keeps the outward normals outward without a single guessed sign.
+            Vector3 side = Vector3.Normalize(Vector3.Cross(Vector3.Up, planeNormal));
+
+            //Resting on the floor: the lowest point of the tube is the ground.
+            Vector3 centre = stand + Vector3.Up * (ringRadius + tube);
+
+            int rangeStartIndex = indices.Count;
+
+            //Its own board, seeded from the placement stream after every solid so no solid moved, and stamped
+            //from the TALL deck: a spaceship convoy travelling round a ring is the one thing this shape can do
+            //that a box cannot.
+            int lifeSeed = (int)(placement.NextDouble() * int.MaxValue);
+            GridLifeBoard board = new()
+            {
+                Life = new GridLife(lifeSeed, tall: true, _gridConfig.Towers.LifePatternGenerations),
+                Texture = new Texture2D(_graphicsDevice, GridLife.SIZE, GridLife.SIZE, false, SurfaceFormat.Color),
+                Phase = 0.5f,
+            };
+            UploadGridLifeTexture(board);
+            _gridLifeBoards.Add(board);
+
+            float outer = ringRadius + tube;
+            float inner = MathF.Max(ringRadius - tube, 0.2f);
+
+            //The board runs round the ring's outer band, centred on the point nearest the arena — which, the
+            //plane facing the arena, is the segment at the top of the near side. Same idea as a tower's label.
+            float perimeter = MathHelper.TwoPi * outer;
+            float boardCentre = 0.5f * GridLife.SIZE * _gridConfig.Towers.WindowCellSize;
+
+            for (int i = 0; i < landmark.Segments; i++)
+            {
+                float a0 = MathHelper.TwoPi * i / landmark.Segments;
+                float a1 = MathHelper.TwoPi * (i + 1) / landmark.Segments;
+
+                Vector3 d0 = side * MathF.Cos(a0) + Vector3.Up * MathF.Sin(a0);
+                Vector3 d1 = side * MathF.Cos(a1) + Vector3.Up * MathF.Sin(a1);
+                Vector3 tangent = Vector3.Normalize(d1 - d0);
+
+                float arc0 = perimeter * i / landmark.Segments;
+                float arc1 = perimeter * (i + 1) / landmark.Segments;
+                float u0 = boardCentre + arc0 - 0.25f * perimeter;
+                float u1 = boardCentre + arc1 - 0.25f * perimeter;
+
+                //Outer band: right = the tangent, up = the plane's normal, so right x up = the radial
+                //direction and the quad faces out of the ring.
+                AddGridQuad(vertices, indices,
+                    centre + d0 * outer - planeNormal * halfWidth, centre + d1 * outer - planeNormal * halfWidth,
+                    centre + d1 * outer + planeNormal * halfWidth, centre + d0 * outer + planeNormal * halfWidth,
+                    Vector3.Normalize(d0 + d1), u0, u1, boardCentre - halfWidth, boardCentre + halfWidth, 2f * halfWidth);
+
+                //Inner band: the same quad at the inner radius, wound the other way round so it faces the hole.
+                AddGridQuad(vertices, indices,
+                    centre + d1 * inner - planeNormal * halfWidth, centre + d0 * inner - planeNormal * halfWidth,
+                    centre + d0 * inner + planeNormal * halfWidth, centre + d1 * inner + planeNormal * halfWidth,
+                    -Vector3.Normalize(d0 + d1), u1, u0, boardCentre - halfWidth, boardCentre + halfWidth, 2f * halfWidth);
+
+                //The two flanks, each spanning inner to outer: right = radially out, up = ±the tangent, so
+                //right x up = ±the plane's normal (d x t = n, the identity this whole block rests on).
+                AddGridQuad(vertices, indices,
+                    centre + d0 * inner + planeNormal * halfWidth, centre + d0 * outer + planeNormal * halfWidth,
+                    centre + d1 * outer + planeNormal * halfWidth, centre + d1 * inner + planeNormal * halfWidth,
+                    planeNormal, u0, u1, boardCentre - tube, boardCentre + tube, 2f * tube);
+
+                AddGridQuad(vertices, indices,
+                    centre + d1 * inner - planeNormal * halfWidth, centre + d1 * outer - planeNormal * halfWidth,
+                    centre + d0 * outer - planeNormal * halfWidth, centre + d0 * inner - planeNormal * halfWidth,
+                    -planeNormal, u1, u0, boardCentre - tube, boardCentre + tube, 2f * tube);
+            }
+
+            _gridTowerRanges.Add((rangeStartIndex, (indices.Count - rangeStartIndex) / 3));
+        }
+
+        /// <summary>
+        /// One quad of the landmark, corners given bottom-left, bottom-right, top-right, top-left as seen from
+        /// outside — the same order and winding <see cref="AddTowerFace"/> builds, so the shared clockwise-from-
+        /// outside convention holds here too. <paramref name="acrossSize"/> is the band's width, which is what
+        /// the two long seams are measured against; the face-local X is pinned to the middle of a deliberately
+        /// wide face so the segment joins never draw (see <see cref="BuildGridLandmark"/>).
+        /// </summary>
+        private static void AddGridQuad(List<GridTowerVertex> vertices, List<short> indices,
+            Vector3 bl, Vector3 br, Vector3 tr, Vector3 tl, Vector3 normal,
+            float boardU0, float boardU1, float boardV0, float boardV1, float acrossSize)
+        {
+            const float NO_SEAM = 4096f;
+            int baseIndex = vertices.Count;
+
+            vertices.Add(new GridTowerVertex(bl, new Vector2(boardU0, boardV0), new Vector4(NO_SEAM * 0.5f, 0f, NO_SEAM, acrossSize), normal));
+            vertices.Add(new GridTowerVertex(br, new Vector2(boardU1, boardV0), new Vector4(NO_SEAM * 0.5f, 0f, NO_SEAM, acrossSize), normal));
+            vertices.Add(new GridTowerVertex(tr, new Vector2(boardU1, boardV1), new Vector4(NO_SEAM * 0.5f, acrossSize, NO_SEAM, acrossSize), normal));
+            vertices.Add(new GridTowerVertex(tl, new Vector2(boardU0, boardV1), new Vector4(NO_SEAM * 0.5f, acrossSize, NO_SEAM, acrossSize), normal));
+
+            indices.Add((short)baseIndex);
+            indices.Add((short)(baseIndex + 2));
+            indices.Add((short)(baseIndex + 1));
+
+            indices.Add((short)baseIndex);
+            indices.Add((short)(baseIndex + 3));
+            indices.Add((short)(baseIndex + 2));
         }
 
         //One quad face — BoxMesh.AddFace's own vertex order and winding (see its class doc). Instead of a normal
@@ -7453,12 +7603,16 @@ namespace Prazsky.Core.Render
             Vector3 r = right * (width * 0.5f);
             Vector3 u = up * (height * 0.5f);
 
+            //right x up is the outward normal — BoxMesh's own invariant, which is exactly why this one helper
+            //serves a side face and a roof alike (#512).
+            Vector3 normal = Vector3.Cross(right, up);
+
             int baseIndex = vertices.Count;
 
-            vertices.Add(new GridTowerVertex(faceCenter - r - u, boardOrigin, new Vector4(0f, 0f, width, height)));
-            vertices.Add(new GridTowerVertex(faceCenter + r - u, boardOrigin + new Vector2(width, 0f), new Vector4(width, 0f, width, height)));
-            vertices.Add(new GridTowerVertex(faceCenter + r + u, boardOrigin + new Vector2(width, height), new Vector4(width, height, width, height)));
-            vertices.Add(new GridTowerVertex(faceCenter - r + u, boardOrigin + new Vector2(0f, height), new Vector4(0f, height, width, height)));
+            vertices.Add(new GridTowerVertex(faceCenter - r - u, boardOrigin, new Vector4(0f, 0f, width, height), normal));
+            vertices.Add(new GridTowerVertex(faceCenter + r - u, boardOrigin + new Vector2(width, 0f), new Vector4(width, 0f, width, height), normal));
+            vertices.Add(new GridTowerVertex(faceCenter + r + u, boardOrigin + new Vector2(width, height), new Vector4(width, height, width, height), normal));
+            vertices.Add(new GridTowerVertex(faceCenter - r + u, boardOrigin + new Vector2(0f, height), new Vector4(0f, height, width, height), normal));
 
             indices.Add((short)baseIndex);
             indices.Add((short)(baseIndex + 2));
