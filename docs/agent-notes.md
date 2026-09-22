@@ -5604,3 +5604,12 @@ Obě issues nechávám otevřené na majitelův pohled v pohybu.
 - **Vyfoceno** `result scene=tropical shot=…` na 3840×1600 (majitelovo rozlišení) a `scene=space` 1920×1080 okno: obrys rovnoměrný po všech hranách (posunutá kopie nechávala levé/horní hrany holé nad bílým mrakem), nad tmavým vesmírem žádné halo. Snímky ve scratchpadu `521/` (before-3840x1600, after2-3840-16s, after2-1920-space). Kapkový stín je jeden řádek (`Style` bere offset a `FontSystemEffect.None`), kdyby majiteli obrys četl jako tisková vada — nechávám v issue.
 - **Pro příště:** Myřin `Label` nemá přístup k batchi; cesta k efektu FontStashSharpu z widgetu je jen `DrawRichText` + příkaz. Sedmý „hand-rolled envelope" v #400 to není — nic se nekopíruje, label kreslí dvakrát z jednoho zdroje.
 
+
+**Dodatek — #514 dostavěno, a premisa toho issue se NEPOTVRDILA (merge `d43ddbc`).**
+
+Předchozí zápis říkal, že to dostavět znamená sáhnout do brány a že to čeká na majitele. Po přečtení `Replay` se ukázalo, že **varianta 1 bránu vůbec nemění**: `Replay` už nalezenou linii přehrává přes `BallsMap`, tedy přes **herní kód**, takže předat pole po každém řezu je jeden volitelný `Action<BallsMap>` a **žádná druhá kopie pravidel**. Brána předává `null` jako doteď.
+
+- Issue tvrdí, že spočítat dosažitelnost jednou předem ji **podhodnotí**, protože řez otevírá čáry. Naměřeno přes všech **21** dodávaných levelů, které vyčerpávající hledání rozlouskne: **25,8 %** dopadů nedosažitelných odnikud na neporušeném poli proti **27,4 %** průměrem přes všechny stavy odehrané linie. **Nezlepší se to, mírně se to zhorší** — řez nějaké čáry otevře a jiné **zavře**, protože díra po skupině je obezděná tím, co zůstalo stát. U `Cube` 51 % → 51 % po třech řezech.
+- ⚠ Výhrady, obě v dokumentaci: levely s prokázanou linií jsou ty **nejmělčí** (21 ze 120), takže vychýlený vzorek, a číslo „po řezech" průměruje i skoro prázdné stavy.
+- **Co to mění pro rozhodnutí o bráně:** hlavní obava z issue („jednorázový výpočet je moc přísný, a přísnost je špatný směr chyby") **padá** — na dodávaném balíku přísnější není. Kdyby se brána dělala, nemusela by přepočítávat po každém řezu, což bylo jediné, co na ní bylo drahé.
+- **Ověřeno, že brána je nedotčená:** výstup `--clearfile=` přes 120 levelů je po zásahu **znak po znaku totožný** s výstupem před ním.
