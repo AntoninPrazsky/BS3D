@@ -5615,3 +5615,13 @@ Předchozí zápis říkal, že to dostavět znamená sáhnout do brány a že t
 - **Ověřeno, že brána je nedotčená:** výstup `--clearfile=` přes 120 levelů je po zásahu **znak po znaku totožný** s výstupem před ním.
 
 **Dodatek — `--arrival` bez seznamu je celý balík (merge `6bd0cbf`).** Report šel spustit jen vyjmenováním souborů, což pro dodávanou sadu znamenalo sestavit 120cestnou příkazovou řádku — udělal jsem to dvakrát ručně, abych dostal čísla, co jsou teď v dokumentaci. `--arrival` samotné je celý balík, 120 levelů pod čtyři sekundy; `--arrivalfile=` zůstává pro level, o kterém sada neví, přesně jako `--sagfile=` a `--clearfile=`. Hlavička výpisu se opravila taky — tvrdila „the named level FILES" i tam, kde se nic nejmenovalo.
+---
+
+## 2026-09-23 — Claude Code, bs3d-95 (desktop: #519 tečny Curve/CurveKey pro přelet kapitoly — odpověď číslem, podlaha teď hlásí)
+
+**Beru si #519** (z #352, řádek 5) — jedna z pěti issues, kterých se podle bs3d-9f nikdo nedotkl. **Premisa je zastaralá o #409:** „`Frame` floors the radius at 0,92 to hide the symptom rather than fix the cause" platilo pro kartézský spline; od #409 se stanoviště splinují **polárně** (azimut, elevace, poloměr), takže prohnutí dovnitř nemá kde vzniknout a podlaha „never fires" — což kód i docs tvrdily, ale netestovaly.
+
+- **Sonda místo přepisu:** poloměrový kanál je Catmull-Rom přes čtyři klíče, které jsou monotónní podle konstrukce: 1,7–2,4× stand-off (`DistanceScale` všech dvaceti scén, přečteno z `TryGetViewpoint`), 0,86 toho na druhém klíči, 1,25–1,45× na mapovém, 1× při doletu; fallback 1,9–2,4 / 1,5–1,8 stejně. Catmull-Rom monotónnost obecně nezachovává (strmá tečna může podběhnout nižší konec segmentu), tak jsem to změřil: **20 000 hodů přes všechny škály + rohové případy, 0 podběhnutí pod klíč doletu, 0 zásahů podlahy 0,92** — nejmenší poloměr každého letu je sám klíč doletu. `CurveTangent.Flat` u blízkého klíče by tedy neměl co odstranit; a smoothstep hodin už rychlost v doletu nuluje.
+- **Co se změnilo v kódu:** podlaha zůstává (jeden řádek, hlídá to jediné, co záběr nesmí), ale **počítá** (`_flooredFrames`, `_deepestFloor`) a `End()` vypíše jeden řádek `[intro] WARNING …` jen když zabrala — tichá pojistka je pojistka, o které nikdo neví. Let sám je bit po bitu stejný, proto žádné nové fotky jedenácti intro; ověřeno čtyřmi otevřeními kapitol (`play level=1/41/81/111`: louka, jeskyně, město s prologem, dream) — každé má svůj `[intro]` řádek, žádné WARNING.
+- **Docs:** `game-feedback.md` odrážka o podlaze (#409) doplněná o sondu a o to, že #519 nemá co odstranit.
+
