@@ -5541,3 +5541,23 @@ Obě issues nechávám otevřené na majitelův pohled v pohybu.
 **#230 (velikonoční vajíčka) — komentář, a jeho jádro je jedna dělicí čára:** *sahá to na simulaci, nebo ne?* Vajíčko, co je jen vidět nebo slyšet, je zadarmo; vajíčko, co sáhne na fyziku nebo pravidla, **tiše zneplatní všechny tři brány** — „jeden den v roce lehčí gravitace" je změna, kterou `SagProbe` neviděl a `ClearProbe` nepočítal, a „každá koule duhová" by ten den srazila každý level na dva tři výstřely. Kalendářní vajíčko tedy jen kosmeticky. Dál: **„tvar v troskách" je z celého seznamu technicky nejlíp připravený** — obrázkové levely jsou bitmapy, `Picture()` je bere jako `string[]`, `silhouette-to-picture.py` umí z libovolné siluety takovou bitmapu udělat a zbývající cluster je táž datová struktura. Přidány tři další: dno odtoku (vidět jen při sestupném záběru, takže se dá najít jen hraním *špatně*), vzácné semínko scény, a poznámka, že **About už jedno vajíčko má** (procedurální hudba, #443).
 
 **Obě issue nechávám otevřené** — jsou to návrhy k posouzení, ne práce k zavření.
+---
+
+## 2026-09-23 — Claude Code, bs3d-95 (desktop: #518 `InactiveSleepTime` — hra bez fokusu spí 100 ms na tik)
+
+**Beru si #518** (z #352, řádek 4). Nejdřív měření, jak issue chce, pak jedna konstanta a jeden řádek v konstruktoru.
+
+- **Co hra bez fokusu opravdu kreslí:** celý snímek. Pauzovaný level (pause page nad rozostřenou scénou) i front end (kamera obíhá, hudba hraje — pauza tam schválně nesahá) se renderují každý tik; MonoGame jen před každým tikem spí `InactiveSleepTime` (default 20 ms), takže **37,5 FPS** (26,7 ms = 20 ms spánku + 6,7 ms snímek).
+- **Změřeno na desktopu, 1600×900 High, `sceneseed=0`, GPU čítač `\GPU Engine(pid_*)\Utilization Percentage` sečtený přes enginy procesu, 10 vzorků po 1 s; CPU z `TotalProcessorTime` (čítač `\Process(...)` je na české Windows lokalizovaný a `Get-Counter` ho anglicky nenajde):**
+
+| stav | před | po |
+|---|---|---|
+| level pauzovaný ztrátou fokusu | 37,5 FPS, GPU 41,9 %, CPU 0,22 % z 24 jader | **10 FPS, GPU 10,6 %, CPU 0,07 %** |
+| front end (desert), bez fokusu | 37,5 FPS, GPU 52,8 %, CPU 0,21 % | **9 FPS, GPU 12,3 %, CPU 0,06 %** |
+| front end, `logfps` (skriptovaná cesta), bez fokusu | 37,5 FPS | **75,0 FPS, GPU 69 %** — spánek nula |
+
+- **Pravidlo:** `InactiveSleepTime = PauseOnFocusLoss && !logFrameRate ? 100 ms : 0`. Skriptovaný běh (`shot=`, `nofocuspause`, `logfps`) je ten, který **má** běžet bez fokusu (harness ho spouští SW_SHOWMINNOACTIVE, aby nebral majiteli klávesy), takže dostává Testbedovo pravidlo pro neobsluhovaný běh — nula. Vedlejší efekt k dobru: `logfps` bez fokusu už neměří 50FPS strop ze spánku (docs `game-shell.md` a benchmark skill přepsané; klik na titulek zůstává, protože kvalitní sonda i Myra čtou `IsActive`).
+- **Hudba:** `GameMusic` dává hlasu celé skladby (`PendingBufferCount < 2` → další celá skladba), jukebox na About stránce drží tři půlsekundové bloky — deset tiků za sekundu ani jedno nevyhladoví. Ověřeno čtením, ne uchem (bez fokusu nikdo neposlouchá).
+- **⚠ Front end bez fokusu na 9 FPS je vidět, když hra leží na druhém monitoru** — orbit se trhá. Je to jedna konstanta (`INACTIVE_SLEEP`) a majitelovo rozhodnutí; nechávám v issue.
+- **Měřicí skript** `measure-inactive.ps1` (scratchpad): spustí hru, dá jí fokus, vezme ho shellu (`SetForegroundWindow(GetShellWindow())`; když to foreground lock odmítne, ťuknutí Alt a znovu; poslední záchrana minimalizace), vzorkuje čítače, vyfotí okno (FPS overlay v rohu je důkaz — 10 a 9). Save majitele (`Progress.json`/`Settings.json`) hash před/po shodný.
+
