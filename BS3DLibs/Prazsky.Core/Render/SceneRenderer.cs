@@ -535,8 +535,19 @@ namespace Prazsky.Core.Render
         private LatheMesh[] _tropicalMossMeshes;
         private ModelInstance[][] _tropicalRockInstances; //per variant; stone and cap share the matrices
 
+        //The beach's dressing (#445): the low green scrub and sea grass at the tree line, and the driftwood
+        //lying at the waterline. Three kinds, each with its own variants and its own instance buckets, drawn
+        //through the palm effect exactly as the rocks are.
+        private FoliageMesh[] _tropicalScrubMeshes;
+        private GrassTuftMesh[] _tropicalTuftMeshes;
+        private DeadwoodMesh[] _tropicalDriftMeshes;
+        private ModelInstance[][] _tropicalScrubInstances;
+        private ModelInstance[][] _tropicalTuftInstances;
+        private ModelInstance[][] _tropicalDriftInstances;
+
         //Colours, stored from the config so the per-draw DiffuseColor can be set as each part draws.
         private Vector3 _palmFrondColor, _palmFrondDry, _palmTrunkColor, _tropicalStoneColor, _tropicalMossColor;
+        private Vector3 _tropicalScrubColor, _tropicalTuftColor, _tropicalDriftColor;
 
         #endregion
 
@@ -2580,6 +2591,11 @@ namespace Prazsky.Core.Render
             _palmTrunkColor = palms.TrunkColor.ToVector3();
             _tropicalStoneColor = rocks.StoneColor.ToVector3();
             _tropicalMossColor = rocks.MossColor.ToVector3();
+
+            TropicalDressingConfig dress = _tropicalConfig.Dressing;
+            _tropicalScrubColor = dress.ScrubColor.ToVector3();
+            _tropicalTuftColor = dress.TuftColor.ToVector3();
+            _tropicalDriftColor = dress.DriftColor.ToVector3();
         }
 
         /// <summary>
@@ -3457,6 +3473,47 @@ namespace Prazsky.Core.Render
             //phase runs against the stone's, so where the green meets the grey is a ragged line that
             //no two rocks share. The cap is a second mesh over the same instance, which is why its
             //offset is baked into its profile rather than into the instance matrix.
+            //--- The beach's dressing (#445) ----------------------------------------------------------
+            //Every reference of this beach has the same three things the scene had none of: a band of low
+            //green scrub and sea grass at the tree line, and driftwood lying on the sand. None of them needs
+            //a new mesh - the savanna's scrub foliage, its grass tuft and its fallen log are exactly these
+            //things at a different size and colour, which is the whole point of keeping the mesh library
+            //game-agnostic.
+            TropicalDressingConfig dressing = _tropicalConfig.Dressing;
+
+            const int SCRUB_VARIANTS = 3, TUFT_VARIANTS = 3, DRIFT_VARIANTS = 3;
+            _tropicalScrubMeshes = new FoliageMesh[SCRUB_VARIANTS];
+            for (int m = 0; m < SCRUB_VARIANTS; m++)
+            {
+                //⚠ Taller than it is wide is wrong for a savanna bush and right for this one. At the
+                //savanna's own proportions (a little over half its radius) a beach bush photographed from
+                //above as a flat green puddle lying on the sand, because that is what a wide low dome IS
+                //when the camera looks down on it - and the elevated three-quarter view is the one this
+                //scene is framed in. Beach scrub grows in rounded clumps; near its own width in height is
+                //what makes it read as a clump rather than as paint.
+                float r = dressing.ScrubSize * (0.75f + 0.5f * (float)rng.NextDouble());
+                float hh = r * (0.75f + 0.35f * (float)rng.NextDouble());
+                _tropicalScrubMeshes[m] = new FoliageMesh(_graphicsDevice, r, hh,
+                    centreY: hh * 0.8f, seed: 6200 + m, style: FoliageStyle.Scrub);
+            }
+
+            _tropicalTuftMeshes = new GrassTuftMesh[TUFT_VARIANTS];
+            for (int m = 0; m < TUFT_VARIANTS; m++)
+            {
+                float r = dressing.TuftSize * (0.8f + 0.4f * (float)rng.NextDouble());
+                _tropicalTuftMeshes[m] = new GrassTuftMesh(_graphicsDevice, r,
+                    r * (1.3f + 0.6f * (float)rng.NextDouble()), 6230 + m);
+            }
+
+            _tropicalDriftMeshes = new DeadwoodMesh[DRIFT_VARIANTS];
+            for (int m = 0; m < DRIFT_VARIANTS; m++)
+            {
+                _tropicalDriftMeshes[m] = new DeadwoodMesh(_graphicsDevice,
+                    length: dressing.DriftLength * (0.7f + 0.6f * (float)rng.NextDouble()),
+                    radius: dressing.DriftRadius * (0.8f + 0.5f * (float)rng.NextDouble()),
+                    seed: 6260 + m);
+            }
+
             const int ROCK_VARIANTS = 3;
             _tropicalRockMeshes = new RockMesh[ROCK_VARIANTS];
             _tropicalMossMeshes = new LatheMesh[ROCK_VARIANTS];
@@ -3554,12 +3611,31 @@ namespace Prazsky.Core.Render
                 //at the root is what wants burying.
                 Vector3 basePos = new(x, TropicalTerrainHeight(x, z, _tropicalConfig) - 0.15f, z);
 
-                //The palm's own frame: the trunk's bow is in the mesh, so the instance takes only a
-                //small lean (a leaning palm reads as wind-shaped, a tilted one as felled), a free yaw
-                //and the uniform size.
+                //The palm's own frame: the trunk's bow is in the mesh, so the instance takes the lean,
+                //a free yaw and the uniform size.
+                //
+                //⚠ AND THE LEAN IS SEAWARD AND LARGE (#445). It was 0.05 radians in a random direction -
+                //at most 2.9 degrees, and as likely inland as out - which is why 110 palms with four crown
+                //variants and a 0.62-1.47 size span still read as a plantation: the silhouette a palm is
+                //recognised by is its lean, and they had none. Every reference leans, most of them 20 to 45
+                //degrees, and they lean OUT over the water, because that is where the light is and a coconut
+                //palm grows towards it. The old comment's caution still holds and is what the bias is for -
+                //"a leaning palm reads as wind-shaped, a tilted one as felled" - so the scatter is around
+                //seaward rather than uniform, and the magnitude is a product of two rolls, which keeps most
+                //palms moderate and lets a few lie right over.
+                //
+                //Tilting +Y towards the outward unit (ux, uz) means rotating about (uz, 0, -ux): for a
+                //right-handed rotation about A the velocity of Y is A x Y, which for a horizontal A is
+                //(-Az, 0, Ax). The jitter turns that axis, so a palm leans within about 40 degrees of
+                //straight out to sea.
                 float yaw = (float)rng.NextDouble() * MathHelper.TwoPi;
-                float lean = 0.05f * (float)rng.NextDouble();
-                float leanDir = (float)rng.NextDouble() * MathHelper.TwoPi;
+
+                float r2 = MathF.Sqrt(x * x + z * z);
+                float ux = r2 > 1e-3f ? x / r2 : 1f;
+                float uz = r2 > 1e-3f ? z / r2 : 0f;
+                float seaward = MathF.Atan2(-ux, uz);
+                float leanDir = seaward + ((float)rng.NextDouble() - 0.5f) * 1.4f;
+                float lean = 0.08f + 0.55f * (float)rng.NextDouble() * (float)rng.NextDouble();
                 Matrix world = Matrix.CreateScale(sizeScale)
                     * Matrix.CreateFromAxisAngle(new Vector3(MathF.Cos(leanDir), 0f, MathF.Sin(leanDir)), lean)
                     * Matrix.CreateRotationY(yaw)
@@ -3620,6 +3696,96 @@ namespace Prazsky.Core.Render
                 rockBuckets[rng.Next(ROCK_VARIANTS)].Add(new ModelInstance(world, Vector4.Zero));
             }
 
+            //--- Planting the dressing (#445) ---------------------------------------------------------
+            //All three are scattered AFTER the palms and the rocks, and that ordering is load-bearing for the
+            //same reason the aurora's snags record: everything here draws from one rng stream, so anything
+            //inserted earlier would re-roll the whole beach behind it.
+            //
+            //No spacing test and no clearance search: these are small, they are allowed to grow against a
+            //trunk and into each other, and a tuft rejected for want of room is a tuft nobody would have
+            //missed. What each one IS tested for is the ground it stands on - the scrub and the grass want
+            //dry sand above the surf, the driftwood wants the wet band the sea actually throws it onto.
+            var scrubBuckets = new List<ModelInstance>[SCRUB_VARIANTS];
+            for (int m = 0; m < SCRUB_VARIANTS; m++) scrubBuckets[m] = new List<ModelInstance>();
+            var tuftBuckets = new List<ModelInstance>[TUFT_VARIANTS];
+            for (int m = 0; m < TUFT_VARIANTS; m++) tuftBuckets[m] = new List<ModelInstance>();
+            var driftBuckets = new List<ModelInstance>[DRIFT_VARIANTS];
+            for (int m = 0; m < DRIFT_VARIANTS; m++) driftBuckets[m] = new List<ModelInstance>();
+
+            float dressInner = MathF.Max(dressing.MinRadius, 1f);
+            float dressOuter = MathF.Max(dressing.MaxRadius, dressInner + 1f);
+
+            for (int i = 0; i < dressing.ScrubCount + dressing.TuftCount; i++)
+            {
+                bool isScrub = i < dressing.ScrubCount;
+
+                //Clumped the way the palms are, because undergrowth grows in thickets rather than evenly -
+                //and around the palms' OWN cluster centres, so the green gathers where the shade is.
+                float cx, cz;
+                if (rng.NextDouble() < 0.78)
+                {
+                    int c = rng.Next(palms.Clusters);
+                    float off = (float)rng.NextDouble();
+                    float d = off * off * palms.ClusterSpread * 1.25f;
+                    float da = (float)rng.NextDouble() * MathHelper.TwoPi;
+                    cx = clusterX[c] + MathF.Cos(da) * d;
+                    cz = clusterZ[c] + MathF.Sin(da) * d;
+                }
+                else
+                {
+                    float a = (float)rng.NextDouble() * MathHelper.TwoPi;
+                    float r = dressInner + (float)rng.NextDouble() * (dressOuter - dressInner);
+                    cx = MathF.Cos(a) * r;
+                    cz = MathF.Sin(a) * r;
+                }
+
+                float dist = MathF.Sqrt(cx * cx + cz * cz);
+                if (dist < dressInner || dist > dressOuter) continue;
+
+                float gh = TropicalTerrainHeight(cx, cz, _tropicalConfig);
+                if (gh < waterY + 0.35f) continue;   //dry sand only: nothing green grows in the surf
+
+                float size = 0.7f + 0.6f * (float)rng.NextDouble();
+                Matrix world = Matrix.CreateScale(size)
+                    * Matrix.CreateRotationY((float)rng.NextDouble() * MathHelper.TwoPi)
+                    * Matrix.CreateTranslation(new Vector3(cx, gh - 0.08f, cz));
+
+                if (isScrub) scrubBuckets[rng.Next(SCRUB_VARIANTS)].Add(new ModelInstance(world, Vector4.Zero));
+                else tuftBuckets[rng.Next(TUFT_VARIANTS)].Add(new ModelInstance(world, Vector4.Zero));
+            }
+
+            for (int i = 0; i < dressing.DriftCount; i++)
+            {
+                float a = (float)rng.NextDouble() * MathHelper.TwoPi;
+                float r = dressInner + (float)rng.NextDouble() * (dressOuter - dressInner);
+                float cx = MathF.Cos(a) * r;
+                float cz = MathF.Sin(a) * r;
+
+                //The band the sea throws a log onto and leaves it: from a little under the waterline to a
+                //couple of units above, which is the rocks' own band and for the same reason.
+                float gh = TropicalTerrainHeight(cx, cz, _tropicalConfig);
+                if (gh < waterY - 0.3f || gh > waterY + 2.2f) continue;
+
+                //A log lies where the last wave left it, so it lies ALONG the waterline more often than
+                //across it - the yaw is the tangent, scattered by about 50 degrees either way.
+                float tangent = MathF.Atan2(cx, -cz);
+                float yaw = tangent + ((float)rng.NextDouble() - 0.5f) * 1.8f;
+                float size = 0.8f + 0.5f * (float)rng.NextDouble();
+
+                Matrix world = Matrix.CreateScale(size)
+                    * Matrix.CreateRotationY(yaw)
+                    * Matrix.CreateTranslation(new Vector3(cx, gh, cz));
+
+                driftBuckets[rng.Next(DRIFT_VARIANTS)].Add(new ModelInstance(world, Vector4.Zero));
+            }
+
+            _tropicalScrubInstances = new ModelInstance[SCRUB_VARIANTS][];
+            for (int m = 0; m < SCRUB_VARIANTS; m++) _tropicalScrubInstances[m] = scrubBuckets[m].ToArray();
+            _tropicalTuftInstances = new ModelInstance[TUFT_VARIANTS][];
+            for (int m = 0; m < TUFT_VARIANTS; m++) _tropicalTuftInstances[m] = tuftBuckets[m].ToArray();
+            _tropicalDriftInstances = new ModelInstance[DRIFT_VARIANTS][];
+            for (int m = 0; m < DRIFT_VARIANTS; m++) _tropicalDriftInstances[m] = driftBuckets[m].ToArray();
+
             _palmInstances = new ModelInstance[PALM_VARIANTS][];
             for (int m = 0; m < PALM_VARIANTS; m++) _palmInstances[m] = palmBuckets[m].ToArray();
             _tropicalRockInstances = new ModelInstance[ROCK_VARIANTS][];
@@ -3663,11 +3829,17 @@ namespace Prazsky.Core.Render
         private void DisposeTropical()
         {
             if (_palmMeshes != null) foreach (PalmMesh mesh in _palmMeshes) mesh?.Dispose();
+            if (_tropicalScrubMeshes != null) foreach (FoliageMesh mesh in _tropicalScrubMeshes) mesh?.Dispose();
+            if (_tropicalTuftMeshes != null) foreach (GrassTuftMesh mesh in _tropicalTuftMeshes) mesh?.Dispose();
+            if (_tropicalDriftMeshes != null) foreach (DeadwoodMesh mesh in _tropicalDriftMeshes) mesh?.Dispose();
             if (_tropicalRockMeshes != null) foreach (RockMesh mesh in _tropicalRockMeshes) mesh?.Dispose();
             if (_tropicalMossMeshes != null) foreach (LatheMesh mesh in _tropicalMossMeshes) mesh?.Dispose();
             _palmInstanceBuffer?.Dispose();
             _palmInstanceBuffer = null;
             _palmMeshes = null;
+            _tropicalScrubMeshes = null;
+            _tropicalTuftMeshes = null;
+            _tropicalDriftMeshes = null;
             _tropicalRockMeshes = null;
             _tropicalMossMeshes = null;
         }
@@ -4828,6 +5000,7 @@ namespace Prazsky.Core.Render
                     DrawTropicalWater(frame);
                     DrawPalms(frame);
                     DrawTropicalRocks(frame);
+                    DrawTropicalDressing(frame);
                     DrawBirds(frame, _tropicalConfig.Birds);
                     break;
                 case SceneKind.Volcano:
@@ -5929,6 +6102,45 @@ namespace Prazsky.Core.Render
         /// mottle so the moss is foliage and not paint) over the same per-plant matrices, shaded by the
         /// same <c>Palm.fx</c>. Opaque and depth-writing; tropical scene only, after the palms.
         /// </summary>
+        /// <summary>
+        /// The beach's dressing (#445): the low scrub and sea grass at the tree line and the driftwood at the
+        /// waterline, through the palm effect like everything else standing on this sand.
+        /// <para>
+        /// ⚠ <b>None of it sways</b>, and that is not laziness about grass. <c>Palm.fx</c> reads
+        /// <c>TEXCOORD0.x</c> as its sway weight, which <see cref="PalmMesh"/> bakes as a deliberate ramp
+        /// from the trunk to the frond tip; every other mesh in the library puts something else there, and
+        /// at the palms' strength the rocks sheared open (see <see cref="DrawTropicalRocks"/>). A still tuft
+        /// beside a swaying palm is a smaller fault than a tuft that tears itself apart.
+        /// </para>
+        /// </summary>
+        private void DrawTropicalDressing(in SceneFrame frame)
+        {
+            if (_tropicalScrubMeshes == null) return;
+
+            ApplyPalmFrame(frame);
+
+            for (int m = 0; m < _tropicalScrubMeshes.Length; m++)
+            {
+                ModelInstance[] instances = _tropicalScrubInstances[m];
+                if (instances.Length == 0) continue;
+                DrawPalmPart(_tropicalScrubMeshes[m], instances, _tropicalScrubColor, dappleStrength: 0.35f, swayStrength: 0f);
+            }
+
+            for (int m = 0; m < _tropicalTuftMeshes.Length; m++)
+            {
+                ModelInstance[] instances = _tropicalTuftInstances[m];
+                if (instances.Length == 0) continue;
+                DrawPalmPart(_tropicalTuftMeshes[m], instances, _tropicalTuftColor, dappleStrength: 0.25f, swayStrength: 0f);
+            }
+
+            for (int m = 0; m < _tropicalDriftMeshes.Length; m++)
+            {
+                ModelInstance[] instances = _tropicalDriftInstances[m];
+                if (instances.Length == 0) continue;
+                DrawPalmPart(_tropicalDriftMeshes[m], instances, _tropicalDriftColor, dappleStrength: 0f, swayStrength: 0f);
+            }
+        }
+
         private void DrawTropicalRocks(in SceneFrame frame)
         {
             ApplyPalmFrame(frame);
