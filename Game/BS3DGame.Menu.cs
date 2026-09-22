@@ -627,10 +627,11 @@ namespace BS3D
         /// </summary>
         internal float AimSensitivity => _aimSensitivity;
 
-        //Which composition is sounding, or null for Auto — the piece the moment plays by itself, which is the
+        //Which family is sounding, or null for Auto — the piece the moment plays by itself, which is the
         //front end's loop in the menus and the level's own theme in a level. Read straight off the music and
-        //never off a remembered pick, so the track row cannot outlive what it names (#279).
-        internal MusicTheme? MusicTrack => _music?.SoundingTheme;
+        //never off a remembered pick, so the track row cannot outlive what it names (#279). A file's name
+        //(#486), so it is capitalised where it is shown.
+        internal string MusicTrack => _music?.SoundingTrack;
 
         internal bool IsAberrationEnabled => _aberration;
         internal bool IsGrainEnabled => _grain;

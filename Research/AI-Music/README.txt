@@ -3,11 +3,21 @@ RX 6900 XT via Vulkan). Each .wav has a .json sidecar with the exact prompt, wha
 the model's LM rewrote it into, the loop cut and what was measured.
 
 The MASTERS of the game's music since #443. Tools/MusicBake --tracks writes
-Game/Music/*.ogg from every file below except game-track-01 (still a reference),
-brought to the loudness of the procedural piece in its slot, peaks held under
-full scale, as the Ogg Vorbis the game decodes at load (#444; 16-bit .wav until
-then). Edit a master here and rerun the tool; never edit Game/Music by hand. The
-procedural score these replaced is on the game's About page.
+Game/Music/<track>.ogg from every file here named theme-<track>.wav, and
+menu.ogg from menu-loop-v2.wav (#486; a table of eleven rows until then -- so
+game-track-01, a reference, is left alone by its name), brought to the themes'
+loudness, peaks held under full scale, as the Ogg Vorbis the game decodes when
+a family is first asked for (#444; 16-bit .wav until then). Edit a master here
+and rerun the tool; never edit Game/Music by hand. The procedural score these
+replaced is on the game's About page.
+
+The game groups Game/Music/*.ogg into FAMILIES by the name before the first
+dash (ember.ogg and ember-punk-03.ogg are both ember's); a level's "music"
+names a family, which rotates through its recordings one per level opening, or
+one recording by its stem, which pins it. The generated families of #486 keep
+their float masters OUTSIDE the repository (a hundred 20 MB files are not for a
+public git history): MusicBake --tracks --masters <dir> reads them from there,
+and their .json sidecars are committed here beside the .ogg the game plays.
 
 All loops, 48 kHz, 32-bit float, stereo.
 

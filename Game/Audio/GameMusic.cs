@@ -8,12 +8,30 @@ using System.Threading.Tasks;
 namespace BS3D.Audio
 {
     /// <summary>
-    /// The game's music since #443: generated recordings (ACE-Step 1.5, see <c>Research/AI-Music</c>), one
-    /// seamless loop per <see cref="MusicTheme"/> slot plus the front end's loop, read from <c>Music/*.ogg</c>
-    /// beside the executable. The procedural compositions that played here until then are the About page's now
-    /// (<see cref="ProceduralJukebox"/>); the fanfares stayed procedural and are still baked by
-    /// <see cref="ProceduralMusic"/>, which this class owns and forwards to, so the rest of the game keeps asking
-    /// one object for its music.
+    /// The game's music since #443: generated recordings (ACE-Step 1.5, see <c>Research/AI-Music</c>), seamless
+    /// loops read from <c>Music/*.ogg</c> beside the executable, plus the front end's own loop. The procedural
+    /// compositions that played here until then are the About page's now (<see cref="ProceduralJukebox"/>); the
+    /// fanfares stayed procedural and are still baked by <see cref="ProceduralMusic"/>, which this class owns and
+    /// forwards to, so the rest of the game keeps asking one object for its music.
+    /// <para>
+    /// <b>The recordings are FAMILIES, keyed by name and found on disk (#486).</b> Until then a level's music
+    /// named one of five <see cref="MusicTheme"/> slots and each slot's files were its own name plus
+    /// <c>name-*.ogg</c> variants — which held for five pieces and one chapter with five variations, and not for
+    /// the owner's ask of about ten recordings a chapter, every chapter its own. Now every <c>*.ogg</c> in the
+    /// folder belongs to the family its name starts with (<c>ember.ogg</c> and <c>ember-punk-03.ogg</c> are both
+    /// <c>ember</c>'s), a level's <c>music</c> string names a family — or one recording by its file's stem, which
+    /// pins it — and a family with more than one recording rotates through them, one per level opening, exactly
+    /// as Ember's slot did. A new family is a set of files and a name in <c>Tools/LevelGen</c>; nothing here
+    /// counts them, and <see cref="MusicTheme"/> is the About page's catalogue of the procedural pieces only.
+    /// </para>
+    /// <para>
+    /// <b>A recording is decoded when its family is first asked for, not at the splash.</b> Eleven loops were
+    /// ~117 MB of PCM decoded side by side while the splash was up; a hundred would be a gigabyte, most of it
+    /// for chapters the session never reaches. So a family's recordings are decoded on demand — the one about to
+    /// play and the one after it, so a chapter's second level finds its next recording ready — and let go when
+    /// another family takes over. The first level of a session opens its theme a fraction of a second late on
+    /// the desktop, under the chapter intro's tour, and the arrival fade (#456) covers the rest.
+    /// </para>
     /// <para>
     /// <b>What changed is where a buffer comes from, and nothing about how it is played.</b> The theme still runs
     /// through one <see cref="DynamicSoundEffectInstance"/> whose queue is fed the same buffer again while it is
@@ -85,8 +103,6 @@ namespace BS3D.Audio
         /// </summary>
         private const float YIELD_FADE_SECONDS = 0.7f;
 
-        /// <summary>How many slots there are, read off the enum so a sixth theme needs nothing here (#279 steps it).</summary>
-        public static int ThemeCount { get; } = Enum.GetValues<MusicTheme>().Length;
 
         private readonly ProceduralMusic _fanfares = new();
 
@@ -97,24 +113,37 @@ namespace BS3D.Audio
         private Task<(float[] Pcm, ProceduralMusic.FanfareShape Shape)> _victoryLoad;
 
         /// <summary>
-        /// Every slot's tracks, loaded on background threads at construction and never replaced — the theme's own
-        /// file first, then its variants (<c>ember-*.ogg</c>) in name order. A task that finished with null is a
-        /// file that could not be read, already logged; a slot with no tasks has no file at all and plays silence.
+        /// One family of recordings (#486): the files that share a name before the first dash, the family's own
+        /// bare file first and then its variants in name order, each decoded on demand into <see cref="Loads"/>
+        /// (null until asked for; a task that finished with null is a file that could not be read, already logged).
+        /// <see cref="Next"/> is which recording the next chain head plays: a family with several moves on every
+        /// time a head is built for it, and a head is built exactly when a level opens (a build, a retry, a switch
+        /// of piece, a Continue), so "each start of a level in this chapter plays the next one" is this one counter.
         /// </summary>
-        private readonly Task<byte[]>[][] _tracks = new Task<byte[]>[ThemeCount][];
+        private sealed class Family
+        {
+            public string Name;
+            public string[] Files;
+            public string[] Names;
+            public Task<byte[]>[] Loads;
+            public int Next;
+        }
 
-        /// <summary>Each track's file name, beside <see cref="_tracks"/>, for the one log line a level opening writes.</summary>
-        private readonly string[][] _trackNames = new string[ThemeCount][];
+        private readonly Dictionary<string, Family> _families = new(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
-        /// Which variant of each slot the next chain head plays. A slot with several recordings — Ember, whose
-        /// punk variations the owner asked to have rotate rather than pick one — moves on every time a head is
-        /// built for it, and a head is built exactly when a level opens (a build, a retry, a switch of piece, a
-        /// Continue), so "each start of an Ember level plays the next one" is this one counter.
+        /// The families on disk, in the order the Settings row cycles them and the fallback rotation walks them:
+        /// the five pieces the game shipped with first, in the order their <see cref="MusicTheme"/> slots had (so a
+        /// level that names nothing still opens on Pulse, as it always has), then every other family by name.
         /// </summary>
-        private readonly int[] _nextVariant = new int[ThemeCount];
+        public string[] Families { get; }
 
-        private MusicTheme _theme;
+        private static readonly string[] FIRST_FAMILIES = { "pulse", "bohemia", "nocturne", "mural", "ember" };
+
+        /// <summary>The family a level asked for, and the recording it pinned within it — or −1 to rotate.</summary>
+        private Family _family;
+        private int _pinned = -1;
+
         private DynamicSoundEffectInstance _voice;
 
         /// <summary>The recording the sounding chain was built from, which the feed submits again — never a sibling variant.</summary>
@@ -156,43 +185,62 @@ namespace BS3D.Audio
             string victory = Path.Combine(AppContext.BaseDirectory, SFX_DIRECTORY, VICTORY_FILE + TRACK_EXTENSION);
             if (File.Exists(victory)) _victoryLoad = LoadVictory(victory);
 
-            for (int slot = 0; slot < ThemeCount; slot++)
+            //Every recording in the folder, grouped into families by the name before its first dash (#486): the
+            //file names only — nothing is decoded until a family is asked for. Sorted ordinally, so a family's
+            //bare file ("ember") stands before its variants ("ember-punk-01") and the variants keep their order.
+            if (Directory.Exists(directory))
             {
-                string name = ((MusicTheme)slot).ToString().ToLowerInvariant();
-                List<string> files = new();
+                string[] files = Directory.GetFiles(directory, "*" + TRACK_EXTENSION);
+                Array.Sort(files, StringComparer.Ordinal);
 
-                string own = Path.Combine(directory, name + TRACK_EXTENSION);
-                if (File.Exists(own)) files.Add(own);
-
-                if (Directory.Exists(directory))
+                Dictionary<string, List<string>> grouped = new(StringComparer.OrdinalIgnoreCase);
+                foreach (string file in files)
                 {
-                    string[] variants = Directory.GetFiles(directory, name + "-*" + TRACK_EXTENSION);
-                    Array.Sort(variants, StringComparer.Ordinal);
-                    files.AddRange(variants);
+                    string stem = Path.GetFileNameWithoutExtension(file);
+                    if (string.Equals(stem, MENU_TRACK, StringComparison.OrdinalIgnoreCase)) continue;
+
+                    int dash = stem.IndexOf('-');
+                    string family = dash < 0 ? stem : stem.Substring(0, dash);
+
+                    if (!grouped.TryGetValue(family, out List<string> members)) grouped[family] = members = new List<string>();
+                    members.Add(file);
                 }
 
-                if (files.Count == 0) Console.WriteLine($"[music] no track for {(MusicTheme)slot} in '{directory}'");
-
-                _tracks[slot] = new Task<byte[]>[files.Count];
-                _trackNames[slot] = new string[files.Count];
-
-                for (int i = 0; i < files.Count; i++)
+                foreach ((string family, List<string> members) in grouped)
                 {
-                    _tracks[slot][i] = Load(files[i]);
-                    _trackNames[slot][i] = Path.GetFileName(files[i]);
+                    string[] names = new string[members.Count];
+                    for (int i = 0; i < names.Length; i++) names[i] = Path.GetFileName(members[i]);
+
+                    _families[family] = new Family
+                    {
+                        Name = family.ToLowerInvariant(),
+                        Files = members.ToArray(),
+                        Names = names,
+                        Loads = new Task<byte[]>[members.Count],
+                    };
                 }
             }
+
+            if (_families.Count == 0) Console.WriteLine($"[music] no recordings in '{directory}'");
+
+            List<string> order = new();
+            foreach (string first in FIRST_FAMILIES) if (_families.ContainsKey(first)) order.Add(first);
+            List<string> rest = new();
+            foreach (Family family in _families.Values) if (!order.Contains(family.Name)) rest.Add(family.Name);
+            rest.Sort(StringComparer.Ordinal);
+            order.AddRange(rest);
+            Families = order.ToArray();
         }
 
         /// <summary>True while a fanfare is sounding; the host ducks the fireworks under it.</summary>
         public bool IsFanfarePlaying => _fanfares.IsFanfarePlaying;
 
         /// <summary>
-        /// Which slot the moment is sounding, and <b>null while it is not one of them</b>: the front end's own loop
-        /// is playing, or the music has failed. It reads what is WANTED, so a switch caught mid-fade already names
-        /// the arriving piece — which is what the track picker in Settings (#279) shows.
+        /// Which family the moment is sounding, and <b>null while it is not one</b>: the front end's own loop is
+        /// playing, or the music has failed. It reads what is WANTED, so a switch caught mid-fade already names
+        /// the arriving family — which is what the track picker in Settings (#279) shows.
         /// </summary>
-        public MusicTheme? SoundingTheme => _failed || _menuWanted ? null : _theme;
+        public string SoundingTrack => _failed || _menuWanted ? null : _family?.Name;
 
         /// <summary>
         /// The player's volume settings (master × music), 1 for the authored level. Pushed onto whatever is already
@@ -220,38 +268,73 @@ namespace BS3D.Audio
         }
 
         /// <summary>
-        /// The slot a level asks for by name, falling back to the pool's own rotation. Parsed rather than cast:
-        /// the level file is hand-editable, and an unknown spelling has to mean "the default", not an exception.
-        /// <paramref name="index"/> picks when nothing is named, which is why level one still opens on Pulse.
+        /// What a level asks for by name, falling back to the pool's own rotation. Resolved rather than cast: the
+        /// level file is hand-editable, and an unknown spelling has to mean "the default", not an exception. A name
+        /// is first a <b>recording</b> — <c>ember-punk-03</c> pins that one file, which is how a level gets music of
+        /// its own — and then a <b>family</b>, which rotates. <paramref name="index"/> picks when nothing is named
+        /// (the level's place in its set), which is why level one still opens on Pulse.
         /// </summary>
-        public static MusicTheme ThemeFor(string named, int index)
+        public void SetTheme(string named, int index)
         {
-            if (!string.IsNullOrWhiteSpace(named))
-                switch (named.Trim().ToLowerInvariant())
-                {
-                    case "pulse": return MusicTheme.Pulse;
-                    case "bohemia": return MusicTheme.Bohemia;
-                    case "nocturne": return MusicTheme.Nocturne;
-                    case "mural": return MusicTheme.Mural;
-                    case "ember": return MusicTheme.Ember;
+            if (Families.Length == 0) return;
 
-                    //The slot's old name — #264 replaced the piece, not the slot, and a hand-edited file still
-                    //naming the polka gets the slot rather than whatever its position happens to rotate to.
-                    case "dechovka": return MusicTheme.Mural;
+            string name = named?.Trim().ToLowerInvariant();
+
+            //The old name of Mural's slot — #264 replaced the piece, not the slot, and a hand-edited file still
+            //naming the polka gets the family rather than whatever its position happens to rotate to
+            if (name == "dechovka") name = "mural";
+
+            if (!string.IsNullOrEmpty(name))
+            {
+                int dash = name.IndexOf('-');
+                string familyName = dash < 0 ? name : name.Substring(0, dash);
+
+                if (_families.TryGetValue(familyName, out Family family))
+                {
+                    int pinned = -1;
+                    if (dash >= 0)
+                    {
+                        for (int i = 0; i < family.Names.Length; i++)
+                            if (string.Equals(Path.GetFileNameWithoutExtension(family.Names[i]), name, StringComparison.OrdinalIgnoreCase))
+                                pinned = i;
+
+                        //A pinned recording that is not there: the family plays on, rotating, and the log says so
+                        if (pinned < 0) Console.WriteLine($"[music] no recording '{name}', playing the {familyName} family instead");
+                    }
+
+                    SetFamily(family, pinned);
+                    return;
                 }
 
-            return (MusicTheme)(((index % ThemeCount) + ThemeCount) % ThemeCount);
+                Console.WriteLine($"[music] no family '{familyName}', falling back to the rotation");
+            }
+
+            SetFamily(_families[Families[((index % Families.Length) + Families.Length) % Families.Length]], -1);
+        }
+
+        /// <summary>A family by name, rotating — the Settings row's pick (#279). An unknown name is ignored.</summary>
+        public void SetTheme(string family)
+        {
+            if (family != null && _families.TryGetValue(family, out Family found)) SetFamily(found, -1);
         }
 
         /// <summary>
-        /// Which slot plays. The sounding chain is retired by a fade (#211) — what is queued on it belongs to the
-        /// piece being left — and the next <see cref="Update"/> builds the new one underneath it.
+        /// Which family plays, and which of its recordings if one is pinned. The sounding chain is retired by a
+        /// fade (#211) — what is queued on it belongs to the piece being left — and the next <see cref="Update"/>
+        /// builds the new one underneath it. The family being left lets go of its decoded recordings (#486): the
+        /// retiring chain already holds the buffer it is fading out, and a chapter come back to decodes again.
         /// </summary>
-        public void SetTheme(MusicTheme theme)
+        private void SetFamily(Family family, int pinned)
         {
-            if (_failed || theme == _theme) return;
+            if (_failed) return;
 
-            _theme = theme;
+            //The same family again with the same pin is the same music — a retry, a Continue — and keeps its chain
+            if (family == _family && pinned == _pinned) return;
+
+            if (_family != null && _family != family) Array.Clear(_family.Loads);
+
+            _family = family;
+            _pinned = pinned;
             RetireVoice(THEME_FADE_SECONDS);
         }
 
@@ -488,20 +571,34 @@ namespace BS3D.Audio
         /// </summary>
         private void Advance()
         {
+            Family family = _family;
+            if (family == null) return;
+
             try
             {
-                Task<byte[]>[] variants = _tracks[(int)_theme];
-
-                for (int tried = 0; tried < variants.Length; tried++)
+                for (int tried = 0; tried < family.Files.Length; tried++)
                 {
-                    int variant = _nextVariant[(int)_theme];
-                    Task<byte[]> track = variants[variant];
+                    //A pinned recording is always the one; otherwise the family's counter says which
+                    int variant = _pinned >= 0 ? _pinned : family.Next;
+
+                    Task<byte[]> track = family.Loads[variant] ??= Load(family.Files[variant]);
+
+                    //And the one after it starts decoding now, so the chapter's next level finds it ready (#486)
+                    if (_pinned < 0 && family.Files.Length > 1)
+                    {
+                        int following = (variant + 1) % family.Files.Length;
+                        family.Loads[following] ??= Load(family.Files[following]);
+                    }
 
                     if (!track.IsCompleted) return;
 
-                    _nextVariant[(int)_theme] = (variant + 1) % variants.Length;
+                    if (_pinned < 0) family.Next = (variant + 1) % family.Files.Length;
 
-                    if (track.Result == null) continue;
+                    if (track.Result == null)
+                    {
+                        if (_pinned >= 0) return;   //a pinned file that cannot be read stays silent, as logged
+                        continue;
+                    }
 
                     DynamicSoundEffectInstance old = _voice;
 
@@ -521,8 +618,8 @@ namespace BS3D.Audio
                     _voice.Play();
 
                     //Once per level opening, beside the "[levels] Loaded" line — the only way to tell from a log
-                    //which of a slot's recordings a level got
-                    Console.WriteLine($"[music] {_theme}: {_trackNames[(int)_theme][variant]}");
+                    //which of a family's recordings a level got
+                    Console.WriteLine($"[music] {family.Name}: {family.Names[variant]}");
                     return;
                 }
             }

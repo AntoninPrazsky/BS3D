@@ -334,9 +334,9 @@ namespace BS3D.Screens
             _ambienceValue.Text = FormatVolume(Game.AmbienceVolume);
             _rumbleValue.Text = FormatVolume(Game.RumbleStrength);
             //"Auto" is not one of the pieces: it is whatever the moment plays unasked — the front end's
-            //loop in the menus, the level's own theme in a level. The rest name themselves off MusicTheme,
-            //so a sixth composition appears in this row with no wiring here at all.
-            _trackValue.Text = Game.MusicTrack?.ToString() ?? "Auto";
+            //loop in the menus, the level's own theme in a level. The rest name themselves off the music
+            //folder's families (#486), so a new family appears in this row with no wiring here at all.
+            _trackValue.Text = Game.MusicTrack is string family ? char.ToUpperInvariant(family[0]) + family.Substring(1) : "Auto";
             //As a percentage of the shipped feel, the volume rows' own idiom, and exact at every rung — the
             //ladder is written so that it is (0.75 is "75 %", where a multiplier would have to print "0.8×"
             //and lie, or "0.75×" and read as arithmetic).
