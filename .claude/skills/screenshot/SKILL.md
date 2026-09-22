@@ -414,7 +414,7 @@ depth of the meadow's haze. So the repro is to pin *both* cameras, not to press 
 # the same pose in the Testbed, whose copy of the map is CENTRED, so X/Z come back to zero:
 Testbed.exe parity.json fov=45 width=1280 height=800 `
     campos=0,2.4748728,-11.9535 camtarget=0,2.4748728,0 nopost nooverc weather=clear
-MapEditor.exe parity.json     # then D1, F12 (text), G (the config panel)
+MapEditor.exe parity.json     # then D1, F12 (text)
 ```
 
 Hand **one level file** to both rather than a map plus flags: a level carries the scene, the dome and the ball

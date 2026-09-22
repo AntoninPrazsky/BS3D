@@ -35,9 +35,9 @@ namespace Prazsky.Core.Render
     /// <b>The per-draw tints are encoded once and cached</b>, which is the one thing the hoist changes rather
     /// than moves. The Game rebuilt all twenty-five of them on every frame the forest was on screen — a
     /// <c>GetSceneConfig</c> plus a <c>ToVector3</c> per kind and a <see cref="ColorSpace.LinearToSrgb"/> per
-    /// variant — for values that only a config edit can change. So the config is read at construction and in
-    /// <see cref="Replant"/>, and nowhere else: <b>a caller that mutates the config in place must call
-    /// <see cref="Replant"/></b> or it will go on drawing the colours the old config asked for.
+    /// variant — for values nothing can change once the wood is built. So the config is read at construction
+    /// and nowhere else: a scene's config is fixed in code, and the one thing that used to edit one at runtime
+    /// (the map editor's live panel, which this component grew a <c>Replant</c> for) went in #522.
     /// </para>
     /// <para>
     /// <b>Sky-lit enrolment stays the caller's</b>, for the reasons <see cref="SkyLightRig"/> gives — each
@@ -141,9 +141,9 @@ namespace Prazsky.Core.Render
         /// </summary>
         private const float SKY_TINT_STRENGTH = 0.34f;
 
-        //Everything below is derived from the config, so all of it is rebuilt by Replant and none of it can be
-        //readonly. The mesh variants: a bark lathe under a lathed tiered cone for a spruce or a lobed sphere
-        //for a broadleaf, plus a rock lathe and a stump lathe.
+        //Everything below is derived from the config, built by Build out of the constructor (so none of it can
+        //be readonly) and released by DisposeBuilt. The mesh variants: a bark lathe under a lathed tiered cone
+        //for a spruce or a lobed sphere for a broadleaf, plus a rock lathe and a stump lathe.
         private TreeMesh[] _coniferMeshes, _broadleafMeshes;
         private RockMesh[] _rockMeshes;
         private StumpMesh[] _stumpMeshes;
@@ -193,8 +193,8 @@ namespace Prazsky.Core.Render
         /// nothing runtime about any of it — the scatter is a fixed default forest, as the city is a fixed
         /// default city — so a caller with a static config builds it once at load and never touches it again.
         /// <para>
-        /// <b>The caller must run its own sky lighting after this</b>, and again after every
-        /// <see cref="Replant"/>: a fresh <see cref="InstancedModelRenderer"/> has never been told the dome's
+        /// <b>The caller must run its own sky lighting after this</b>: a fresh
+        /// <see cref="InstancedModelRenderer"/> has never been told the dome's
         /// palette, so until the caller's pass reaches <see cref="Renderers"/> the whole wood is lit by a white
         /// sky through a rig that was never decoded into radiance.
         /// </para>
@@ -206,7 +206,7 @@ namespace Prazsky.Core.Render
         /// and the scene's point lights automatically, exactly as the island and the city do.</param>
         /// <param name="config">The forest scene's configuration — the proportions every mesh is built from,
         /// the counts and radii the scatter is planted by, and the linear colours the tints are encoded from.
-        /// Read here and in <see cref="Replant"/> only; the instance stays the caller's (it is the
+        /// Read here only; the instance stays the caller's (it is the
         /// <see cref="SceneRenderer"/>'s in all three executables).</param>
         /// <param name="sceneAmbientIntensity">The caller's flat ambient fill for scene objects, and all the
         /// three matte <see cref="BasicEffectParams"/> need from the scene: their reason for existing is to
@@ -219,9 +219,7 @@ namespace Prazsky.Core.Render
         /// <see cref="SurfaceTexture.Stone"/> is deterministic at a fixed default seed, so an internal one is
         /// the very same 512² tile the island's is — one more copy in memory and not a pixel of
         /// difference.</param>
-        /// <param name="seed">Scatter seed; the same seed always plants the same forest. Kept for the life of
-        /// the component, so a <see cref="Replant"/> after a config edit re-plants <i>this</i> forest rather
-        /// than rolling a different one.</param>
+        /// <param name="seed">Scatter seed; the same seed always plants the same forest.</param>
         public ForestScatterRenderer(GraphicsDevice device, Effect instancingEffect, ForestSceneConfig config,
             float sceneAmbientIntensity, SurfaceTexture stoneTexture = null, int seed = DEFAULT_SEED)
         {
@@ -262,10 +260,6 @@ namespace Prazsky.Core.Render
         /// enrolment list <i>every frame</i> (the overcast lerp re-applies the rig), and <c>foreach</c> over an
         /// array allocates no enumerator while <c>foreach</c> over an <c>IReadOnlyList</c> boxes one per call.
         /// BestPractices.md §3 is the rule.
-        /// </para>
-        /// <para>
-        /// <see cref="Replant"/> builds a fresh array of fresh renderers, so read this through the property
-        /// rather than caching the reference — and re-run the sky lighting over it afterwards.
         /// </para>
         /// </summary>
         public InstancedModelRenderer[] Renderers => _renderers;
@@ -345,39 +339,6 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// Rebuilds everything the config decides — the meshes, the renderers, the encoded tints and the
-        /// scatter — for a config that has changed under the component. <b>This is what the map editor's live
-        /// scene-config grid needs</b> and the Game never has: an edit there re-applies the config to the
-        /// <see cref="SceneRenderer"/> in place, and the wood standing on the terrain has to follow it.
-        /// <para>
-        /// The whole build rather than the scatter alone, because a config edit reaches further than the
-        /// planting does: <c>Count</c>, the radii and the cluster figures are the scatter's, but
-        /// <c>TrunkBaseRadius</c>, the crown sizes and the rocks' and stumps' proportions are <b>baked into
-        /// the meshes</b>, and the three colours into the cached tints. Re-planting alone would answer a
-        /// changed count while quietly ignoring a changed shape, which is the sort of half-refresh that reads
-        /// as a bug in the editor rather than in here.
-        /// </para>
-        /// <para>
-        /// <b>A load-time cost, not a per-frame one</b> — twenty meshes and thirty instance buffers are
-        /// released and rebuilt — so call it when a config actually changed and not on the draw path. The two
-        /// textures and the three <see cref="BasicEffectParams"/> survive it: neither depends on the config.
-        /// </para>
-        /// <para>
-        /// <b>The caller must re-run its sky lighting afterwards.</b> Every renderer here is new and none of
-        /// them has been told the dome's palette; skip it and the whole wood goes flat under a white sky while
-        /// the terrain beside it stays lit. The seed is the one this was constructed with, so it is the same
-        /// forest re-planted rather than a new one.
-        /// </para>
-        /// </summary>
-        /// <param name="config">The changed configuration — normally the same instance the constructor was
-        /// given, since a live editor mutates the <see cref="SceneRenderer"/>'s own config in place.</param>
-        public void Replant(ForestSceneConfig config)
-        {
-            DisposeBuilt();
-            Build(config);
-        }
-
-        /// <summary>
         /// Everything this component made: the twenty meshes, all thirty renderers (each holding a
         /// native instance buffer), the bark and foliage textures — and the stone texture only if it built
         /// that one itself. A stone texture handed to the constructor belongs to the caller and is left
@@ -397,7 +358,8 @@ namespace Prazsky.Core.Render
             if (_ownsStoneTexture) _stoneTexture?.Dispose();
         }
 
-        //Everything the config decides, built in one place so the constructor and Replant cannot drift apart.
+        //Everything the config decides, built in one place — the constructor's whole job beyond keeping what
+        //it was handed.
         private void Build(ForestSceneConfig config)
         {
             ForestTreeConfig trees = config.Trees;
@@ -581,7 +543,7 @@ namespace Prazsky.Core.Render
         }
 
         //Re-encodes every tint table from the authored linear colours. Cheap and rare: eight small arrays,
-        //thirty entries between them, run at build, at a replant and when the dome's hue actually moves.
+        //thirty entries between them, run at build and when the dome's hue actually moves.
         private void EncodeAllTints()
         {
             //The trunks of both species share the bark colour; the stumps have a lighter wood of their own,
@@ -739,7 +701,7 @@ namespace Prazsky.Core.Render
                 SpecularAmbientStrength = 0.08f
             };
 
-        //Everything Build made, and nothing else — so Replant can run it and start over. The renderers go
+        //Everything Build made, and nothing else — what Dispose releases. The renderers go
         //through the one flat list the sky lighting walks, so a variant added later cannot be lit and then
         //leaked. Not the textures and not the effect-params: neither depends on the config.
         private void DisposeBuilt()

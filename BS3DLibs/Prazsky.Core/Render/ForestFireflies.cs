@@ -48,8 +48,8 @@ namespace Prazsky.Core.Render
         /// <param name="device">Graphics device the sphere and its instance buffer live on.</param>
         /// <param name="instancingEffect">The shared instancing effect, exactly as every other scene fixture
         /// draws through it — that is what gives the firefly the beacon's own bloom for free.</param>
-        /// <param name="config">The forest scene's configuration; read here and in <see cref="Replant"/> only,
-        /// the same contract <see cref="ForestScatterRenderer"/> keeps.</param>
+        /// <param name="config">The forest scene's configuration, read here only — the same contract
+        /// <see cref="ForestScatterRenderer"/> keeps.</param>
         /// <param name="sceneAmbientIntensity">The caller's flat ambient fill, carried only so the sphere is
         /// not pitch black between pulses; it never lights anything else. All three executables pass the same
         /// figure they hand <see cref="ForestScatterRenderer"/>.</param>
@@ -66,13 +66,6 @@ namespace Prazsky.Core.Render
 
             Plant(config, seed);
         }
-
-        /// <summary>
-        /// Rebuilds the handful of fireflies from a changed config — the map editor's live scene-config panel
-        /// calls this exactly where it already calls <see cref="ForestScatterRenderer.Replant"/>, since a
-        /// changed count, radius or period is otherwise silently ignored until the next launch.
-        /// </summary>
-        public void Replant(ForestSceneConfig config, int seed = ForestScatterRenderer.DEFAULT_SEED) => Plant(config, seed);
 
         private void Plant(ForestSceneConfig config, int seed)
         {
