@@ -160,3 +160,32 @@ A performance fix must clear the bar of **measured impact against regression ris
 after (`autoshoot nocap` on the dense map is the standing benchmark), and verify visually in every scene
 the change can touch — the review's rule of thumb was: byte-identical output or a screenshot proving the
 difference is intended.
+
+## 10. Count a check's firings on real data before treating its answer as evidence
+
+**A guard that cannot fail looks exactly like a guard that works.** Both print PASS, both sit green in the
+gate, and the only way to tell them apart is to ask how often the failing branch has ever run. Three
+instances turned up inside one week (#527), each found the same way and none by reading the check:
+
+- `AimReachability` asks whether the barrel can be laid on a cell. On a tall field the clamp it is compared
+  against is **that same function's own answer plus a margin** (`SolveElevationLimit`), so the comparison is
+  arithmetic against itself; on every other field the pack's steepest cell has never come near
+  `Cannon.MaxElevation`. Its own class doc now says so.
+- `ClearProbe`'s open-space flood asks whether a cell is connected to the outside through empty neighbours.
+  A flood has no direction in it, so the ring of empty cells round a cluster joins every wall to every
+  other and everything is connected. It passed every level of the pack.
+- The chapter intro's radius floor (#519) clamps a camera curve that a probe then showed can never reach it.
+
+The discipline, and it costs one run:
+
+- **Run the check against the worst case in the repository and see whether it can fail at all.** That test
+  belongs *before* the report is written, not after it. Both #457 tools were built, run, believed and only
+  then found to be tautologies — the second one because the first had already taught the smell.
+- **A check that cannot fire is not automatically deleted.** The cheap repair is a line in the log the day
+  it *does* fire, and a doc comment saying what a pass is worth; #519 took exactly that shape. Deleting it
+  throws away the guard against the geometry changing under it.
+- **A pass is evidence only of the question actually asked.** Write that question into the check's own doc
+  in the terms that make its limits obvious — "whether the barrel can be *pointed* at a cell", not
+  "whether the level is finishable" — so the next reader cannot take one for the other.
+- This is the same bar §9 sets for a performance fix, turned on correctness: **measure the thing before
+  believing what it says about itself.**
