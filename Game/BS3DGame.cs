@@ -789,6 +789,10 @@ namespace BS3D
         private KeyboardState _previousKeyboard;
         private GamePadState _previousPad;
 
+        //The wheel's own running total (#517): MouseState.ScrollWheelValue is cumulative, not a delta, so the
+        //edge is this minus the reading a frame ago - the same shape IsKeyEdge reads off _previousKeyboard.
+        private int _previousScrollWheelValue;
+
         internal KeyboardState PreviousKeyboard
         {
             get => _previousKeyboard;

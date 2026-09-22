@@ -1,5 +1,6 @@
 using Myra.Graphics2D.UI;
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using HorizontalAlignment = Myra.Graphics2D.UI.HorizontalAlignment;
 using Label = Myra.Graphics2D.UI.Label;
@@ -69,12 +70,22 @@ namespace BS3D.Screens
         //second wipes, and opening the page anew (Enter) stands it down again.
         private bool _resetArmed;
 
+        //Every row's own button, in build order (#517) — cleared and refilled by AddRow each time BuildTree
+        //runs, since a resize rebuilds the whole tree and a stale reference here would still answer
+        //IsMouseInside for a button no longer on screen. Kept apart from Game's own _navEntries: that list
+        //also carries the Back button, which is not a value to cycle and must not answer to the wheel.
+        private readonly List<Button> _rows = new();
+
         public SettingsPage(BS3DGame game) : base(game) { }
 
         public override void Enter() => _resetArmed = false;
 
         protected override Widget BuildTree()
         {
+            //Rebuilt below by every AddRow call this tree's build makes — cleared first so a resize does not
+            //leave a stale button from the tree just thrown away still answering the wheel.
+            _rows.Clear();
+
             VerticalStackPanel column = MenuColumn();
             column.Widgets.Add(ScreenHeading("SETTINGS"));
 
@@ -275,6 +286,26 @@ namespace BS3D.Screens
             Grid.SetColumn(button, 1);
             Grid.SetRow(button, row);
             grid.Widgets.Add(button);
+
+            _rows.Add(button);
+        }
+
+        /// <summary>
+        /// The wheel cycles whichever row it is over (#352, #517), the same one step a click already does —
+        /// there being only the one direction any row's own action performs, an up-notch and a down-notch do
+        /// the same thing. <c>Tag</c> rather than the row's own click handler directly, so the wheel plays the
+        /// same click sound a mouse press or a pad activation already does (see <c>MenuClickable</c>) instead
+        /// of silently skipping it.
+        /// </summary>
+        internal override void OnScrollWheel(int delta)
+        {
+            foreach (Button row in _rows)
+            {
+                if (!row.IsMouseInside) continue;
+
+                (row.Tag as Action)?.Invoke();
+                return;
+            }
         }
 
         /// <summary>Writes the current value onto each setting's button. Cheap, and only run on a change.</summary>

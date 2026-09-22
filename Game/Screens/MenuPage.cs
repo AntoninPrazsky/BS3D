@@ -129,6 +129,16 @@ namespace BS3D.Screens
         internal virtual void NavFocusChanged(Button focused) { }
 
         /// <summary>
+        /// The mouse wheel turned by <paramref name="delta"/> notches this frame while this page is the active
+        /// one (#352, #517) — positive away from the player, negative towards them, the raw
+        /// <c>MouseState.ScrollWheelValue</c> delta rather than a sign alone, in case a future page ever wants
+        /// to weight a fast flick against a slow one. Called from <c>BS3DGame.UpdateMenuChrome</c>, which holds
+        /// it to the same <c>EdgeInputAllowed</c> gate every other edge input here already answers to — a wheel
+        /// notch that landed the instant before a refocus must not fire twice. Most pages need nothing here.
+        /// </summary>
+        internal virtual void OnScrollWheel(int delta) { }
+
+        /// <summary>
         /// Left or right on the arrow keys, the D-pad or the left stick (−1 / +1) — <b>the page's own axis</b>,
         /// where up and down are always the focus cursor's. One page claims it: the level picker turns to the
         /// previous or next chapter (#273). Raised by the host's <c>UpdateMenuNavigation</c> with the same

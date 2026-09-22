@@ -1764,6 +1764,18 @@ namespace BS3D
             //before the snapshots below, which are what its own edge tests are read against
             UpdateMenuNavigation(elapsed, keyboard, pad, EdgeInputAllowed);
 
+            //The wheel, the one mouse input nothing here read before #517. ScrollWheelValue is cumulative
+            //over the process's whole life, so the edge is this minus a frame ago - exactly IsKeyEdge's shape,
+            //not the pad's, since there is only one wheel and no "which one" to ask. Handed to whichever page
+            //is actually on top: a page under another (the pause under settings) must not also turn a chapter
+            //behind it.
+            MouseState mouse = Mouse.GetState();
+            int scrollDelta = mouse.ScrollWheelValue - _previousScrollWheelValue;
+            _previousScrollWheelValue = mouse.ScrollWheelValue;
+
+            if (EdgeInputAllowed && scrollDelta != 0 && _screens.Active is MenuPage activePage)
+                activePage.OnScrollWheel(scrollDelta);
+
             _previousKeyboard = keyboard;
             _previousPad = pad;
         }
