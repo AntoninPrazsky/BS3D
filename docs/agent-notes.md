@@ -5561,3 +5561,22 @@ Obě issues nechávám otevřené na majitelův pohled v pohybu.
 - **⚠ Front end bez fokusu na 9 FPS je vidět, když hra leží na druhém monitoru** — orbit se trhá. Je to jedna konstanta (`INACTIVE_SLEEP`) a majitelovo rozhodnutí; nechávám v issue.
 - **Měřicí skript** `measure-inactive.ps1` (scratchpad): spustí hru, dá jí fokus, vezme ho shellu (`SetForegroundWindow(GetShellWindow())`; když to foreground lock odmítne, ťuknutí Alt a znovu; poslední záchrana minimalizace), vzorkuje čítače, vyfotí okno (FPS overlay v rohu je důkaz — 10 a 9). Save majitele (`Progress.json`/`Settings.json`) hash před/po shodný.
 
+
+
+---
+
+## 2026-09-23 — Claude Code, bs3d-9f (desktop: #95 průzkum Bepu + změřený substepping; #257 a #213/#230 návrhy; #488 **už hotové**)
+
+**⚠ Počtvrté za sezení jsem začal dělat hotovou práci: #488** (městský úvod se střihy). Přečetl jsem zadání, otevřel `ChapterIntro.cs`, potvrdil si „jeden plynulý Catmull-Rom, žádný střih" — a pak narazil na `_prologue` a `Game/Effects/CityIntroShots.cs` se záběry `Street`/`Swing`/`Plaza`. Hotové od 2026-09-21, merge `1c86b47`, včetně #433. **Zkřížil jsem proto všech 58 otevřených issues proti merge zprávám i proti tomuhle žurnálu: jen 5 je nedotčených obojím** (#520, #519, #257, #251, #95). Doplněno na #524 jako tvrdé číslo a uloženo do vlastní paměti jako pravidlo: *než si vezmeš issue, grepni jeho číslo v `agent-notes.md`*.
+
+**#95 (co ještě Bepu nabízí) — průzkum opřený o kód, a pak změřený.**
+
+- **Poziční gravitace ve hře UŽ JE, jen mimo simulaci.** `GravityWells` + `ShotPlacement.TryFindFirstHitCurved` ohýbají **náhled střely**; číslo je naměřené (625 u/s², dořešené podle toho, *kde střela dopadne*). ⚠ Přesunout studny do `IntegrateVelocity` je sice ta „levná, široká" varianta, ale **625 u/s² je šedesátinásobek zemské tíže** a vázaný cluster by to roztrhalo — chtělo by to druhé číslo pro vázaná tělesa.
+- **Vítr je nejlevnější nová fyzika, jakou si hra může koupit,** a data (směr větru per scéna) už existují jako uniforma v shaderech. V integrátoru je to jedno sčítání navíc, pořád plně široké. ⚠ Konstantní vítr na vázaném clusteru ale není vidět (vazby ho pohltí); houpání chce vítr **proměnný v čase**, což je pořád jen broadcast z hodin v `PrepareForIntegration`, tedy taky zadarmo.
+- **Per-scene gravitace je instalatérsky hotová** (`PhysicsWorld(gravityY)` parametr má), ale ⚠ **cena je v branách**: nižší gravitace = menší průvěs = každý verdikt `SagProbe` o Měsíci a vesmíru je od té chvíle neplatný, a brána doběhne a řekne OK proti špatnému modelu.
+
+**A pak jsem změřil, co jsem sám doporučil jako první — substepping — a NEVYPLÁCÍ SE.** `--sagfile=` přes čtyři nejtužší tvary (Colossus, Horn, Highwall, Cube), 5 běhů na level: **(8,1) dodávané 4 provisy z 20 / 72,5 s; (4,2) 4 z 20 / 74,5 s; (2,4) 3 z 20 / 74,8 s.** Hodnoty „nejblíž k čáře" se liší o setinu. Jeden provis z dvaceti **nejde odlišit od šumu**, takže netvrdím zlepšení; substepping stojí ~3 % a dodávané (8,1) nenechává nic ležet na stole. ⚠ Výhrada, kterou kód sám píše: ty konstanty jsou laděné *společně* s pružinami a kontaktním materiálem, takže vyvrácená je **levná varianta** („přehoď dvě čísla"), ne celý nápad.
+
+**⚠ A chyba, kterou jsem při tom udělal a stojí za zapsání:** ty dvě konstanty jsem měnil PowerShellem (`Set-Content -Encoding utf8`) a `git diff` ukázal **43 vložených / 41 smazaných řádků kvůli dvouřádkové změně** — přesně to, před čím varuje vlastní poznámka „nikdy nepiš do souborů repa PowerShellem". `git checkout --` to vrátilo čistě a em-pomlčky v souboru přežily, ale kdybych to commitnul, byl by to celosouborový šum v historii.
+
+**Návrhové komentáře:** #213 (power-upy) — ⚠ „rainbow ball" **už existuje a hraje se** jako `BallKind.Wildcard`, bomba existuje jako druh v clusteru; skutečný nález je, že **cluster má deset druhů koulí a hráč jeden**. #230 (velikonoční vajíčka) — jádrem je dělicí čára *sahá to na simulaci, nebo ne*, protože vajíčko měnící fyziku nebo pravidla **tiše zneplatní všechny tři brány**.
