@@ -353,7 +353,12 @@ static const float VOLUME_DISTANCE_FADING = 0.76;
 static const float VOLUME_DARK_MATTER = 0.30;
 
 //How much of the flat between-filaments haze is kept. See where it is used for why it is a fraction.
-static const float VOLUME_HAZE = 0.22;
+//0.12 since #505, from 0.22: every astrophotograph the references drew keeps DARK sky between its structures -
+//the dust between the filaments is a hint, not a floor - and at 0.22 the volume's flat lift filled the whole
+//frame with a brown-lilac haze that the Milky Way's band and two of the three nebulae then had to compete with.
+//The argument the figure was chosen by (Star Nest's own 3.7 is a takeover here) is the same one; only the
+//number moves, and it moves because a reference showed how far.
+static const float VOLUME_HAZE = 0.12;
 
 //The ceiling on how far ONE iteration may move the point (#401), and the whole of that issue's "disco strobe".
 //The map's sphere inversion divides by dot(p,p), so an iterate that lands near the origin is thrown out by the
