@@ -45,11 +45,16 @@ namespace Prazsky.Core.Render
         /// <summary>Snow-cap colour (linear, near white).</summary>
         public Rgb SnowColor { get; set; } = new(0.90f, 0.93f, 0.99f);
 
-        /// <summary>Dark bare rock (linear).</summary>
-        public Rgb RockColor { get; set; } = new(0.08f, 0.07f, 0.065f);
+        /// <summary>
+        /// Dark bare rock (linear). Darker since #504 (from 0.08/0.07/0.065): every range the references drew is
+        /// near-black rock against bright snow, and under this scene's violet dome the old rock took the sky's
+        /// lilac about as strongly as the snow beside it did, so the two read as one material in two tints.
+        /// </summary>
+        public Rgb RockColor { get; set; } = new(0.035f, 0.032f, 0.033f);
 
-        /// <summary>Lighter grey-brown rock (linear).</summary>
-        public Rgb RockColorLight { get; set; } = new(0.20f, 0.17f, 0.14f);
+        /// <summary>Lighter grey rock (linear), mixed against <see cref="RockColor"/> in patches. Darker and less
+        /// brown since #504, from 0.20/0.17/0.14, for the same reason.</summary>
+        public Rgb RockColorLight { get; set; } = new(0.095f, 0.088f, 0.085f);
 
         /// <summary>Lower normal.y of the snow-slope band; below this the face sheds snow to bare rock.</summary>
         public float RockSlope { get; set; } = 0.30f;
@@ -92,6 +97,25 @@ namespace Prazsky.Core.Render
 
         /// <summary>Sky-hemisphere ambient strength.</summary>
         public float AmbientStrength { get; set; } = 0.6f;
+
+        /// <summary>
+        /// How much snow the flutes on a steep face hold against the ribs between them (#504): a field that
+        /// varies fast along the face and slowly down it shifts the snow's facing threshold, lower in a couloir
+        /// and higher on a rib. Every face the references drew is striped so — dark ribs, white couloirs. 0 lays
+        /// the snow on by facing angle alone, as it was.
+        /// </summary>
+        public float FluteSnow { get; set; } = 0.35f;
+
+        /// <summary>
+        /// The world height below which a slope lies in the shadow of the range across the basin when the sun is
+        /// low (#504) — it takes a third of the sun there, rising to the whole of it at
+        /// <see cref="AlpenglowHigh"/>. The pink summits over blue snow of every dusk reference. A high sun
+        /// lights everything regardless.
+        /// </summary>
+        public float AlpenglowLow { get; set; } = 5f;
+
+        /// <summary>The world height above which a slope takes the whole of a low sun. See <see cref="AlpenglowLow"/>.</summary>
+        public float AlpenglowHigh { get; set; } = 45f;
 
         /// <summary>Distance over which the distant range fades into the alpine haze.</summary>
         public float HorizonHazeDistance { get; set; } = 500f;
