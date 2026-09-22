@@ -83,13 +83,13 @@ namespace Prazsky.Core.Render
         /// its own (it only sets the density of the streak field in <c>Sea.fx</c>), so opening it wider makes
         /// whitecap lanes more frequent, not discs bigger.
         /// </summary>
-        public float FoamCrestStart { get; set; } = 0.6f;
+        public float FoamCrestStart { get; set; } = 0.52f;
 
         /// <summary>Strength of the crest-height foam.</summary>
-        public float FoamCrestStrength { get; set; } = 0.7f;
+        public float FoamCrestStrength { get; set; } = 1.0f;
 
         /// <summary>Foam colour (linear).</summary>
-        public Rgb FoamColor { get; set; } = new(0.8f, 0.85f, 0.9f);
+        public Rgb FoamColor { get; set; } = new(0.97f, 0.98f, 1.0f);
 
         /// <summary>Strength of the subsurface crest glow when the sun is behind a wave.</summary>
         public float SssStrength { get; set; } = 0.7f;
@@ -115,7 +115,7 @@ namespace Prazsky.Core.Render
         public int ParticleCount { get; set; } = 2000;
 
         /// <summary>Slab size: wide in XZ (follows the camera), thin in Y (clings to the surface).</summary>
-        public Vec3 BoxSize { get; set; } = new(200f, 16f, 200f);
+        public Vec3 BoxSize { get; set; } = new(200f, 10f, 200f);
 
         /// <summary>Slab centre height above the mean sea level.</summary>
         public float LevelYAboveSea { get; set; } = 2f;
@@ -130,7 +130,7 @@ namespace Prazsky.Core.Render
         public float Turbulence { get; set; } = 1.6f;
 
         /// <summary>Droplet size.</summary>
-        public float DropletSize { get; set; } = 0.12f;
+        public float DropletSize { get; set; } = 0.07f;
 
         /// <summary>
         /// Spray colour (linear). Its luminance is deliberately kept just under the glare threshold — at a

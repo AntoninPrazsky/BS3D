@@ -138,6 +138,27 @@ static const float2 FOAM_STREAK_ALONG = float2(-0.3303, 0.9438);
 //with the swell. Inside the pool a POOL_CHOP fraction of the wind chop survives as a fine capillary ripple,
 //and over the last MENISCUS_BAND before the glass the normal is tilted up toward the wall — the capillary
 //climb that reads as water meeting glass instead of a razor-cut disc.
+//How far the distance haze DESATURATES its target (#503). Water at the horizon is a mirror at grazing
+//incidence, so what it shows is the whole sky standing over it - the cloud deck included - and not the
+//clear-sky horizon band that HorizonColor is. Hazing straight to that band made the far sea GREENER and
+//more saturated than the near water, which is backwards: measured under dome 13 from a play-height lens,
+//the sky just over the horizon came out (167, 176, 198) and the water just under it (60, 137, 160), a
+//107-level drop in red across one row, with the green channel RISING with distance. Every reference
+//photograph's far water is less saturated than its near water, never more. Pulling the target towards its
+//own luminance is the cheap stand-in for the sky the pass cannot sample; it keeps the target's brightness,
+//which is the half that was right. Static, not a dial: it is what water at a grazing angle IS, like the
+//foam streak fabric above, and both water scenes want it.
+static const float HAZE_DESATURATION = 0.55;
+static const float3 LUMA = float3(0.2126, 0.7152, 0.0722);
+
+//What a white cap gathers, against the (Zenith + Horizon)/2 the body is lit by (#503). Foam is a matte
+//white surface collecting light from the WHOLE hemisphere, where that average is one direction's worth, so
+//foam shaded by it alone came out a dim blue-grey smudge barely a third brighter than the water it rides -
+//and the references' foam is the brightest thing in every frame by a wide margin, bright white against
+//dark water. The gain stays under the glare threshold (0.55 on luminance) at the sea's ambient: the foam is
+//meant to read by CONTRAST against dark water, not by blooming.
+static const float FOAM_AMBIENT_GAIN = 1.9;
+
 static const float CALM_BAND = 4.0;
 static const float POOL_CHOP = 0.18;
 static const float MENISCUS_BAND = 0.9;
@@ -336,7 +357,22 @@ float4 SeaPS(SeaVertexOutput input) : COLOR
     //
     //It is 0 for the open sea and lerp(x, 1, 0) is bit-exactly x, so that scene's water is UNCHANGED — which
     //is what makes it safe to put this in the shader both water scenes draw through.
-    float shallowMix = lerp(saturate(normal.y) * 0.5 * (1.0 - 0.8 * calm), 1.0, ShallowBias);
+    //The open sea's own term is modulated by the CREST since #503. Every reference photograph of open water
+    //has dark troughs and paler flanks and crests - a crest is a thin column of water with light coming
+    //through it, a trough looks down into the deep - where this shader keyed the mix on `normal.y` alone.
+    //That is near 1 over almost the whole surface (only the steep faces tilt), so the mix barely varied and
+    //the water came out one mid value from trough to crest. The crest height is already interpolated per
+    //pixel for the foam gate, so this costs a lerp.
+    //
+    //⚠ The mean of the new factor is deliberately the old constant: lerp(0.12, 0.85, 0.5) = 0.485 against
+    //0.5, so the LAGOON - which draws through this shader with ShallowBias 0.78 and therefore keeps 22 % of
+    //this term - moves by under a hundredth of its mix from THIS line. The range is what changed, not the
+    //level. (The lagoon does move, by about 13 levels on its distant water band, and it is the desaturated
+    //haze above that moves it - measured, not assumed: (161, 167, 162) before against (148, 158, 152) after,
+    //over 1800 samples of the water either side of the palms. That one is deliberate and shared: water at a
+    //grazing angle mirrors the whole sky in a lagoon exactly as it does at sea.)
+    float openMix = saturate(normal.y) * lerp(0.12, 0.85, input.Foam.y) * (1.0 - 0.8 * calm);
+    float shallowMix = lerp(openMix, 1.0, ShallowBias);
 
     float3 body = lerp(WaterColorDeep, WaterColorShallow, shallowMix) * ambient + ZenithColor * 0.05;
 
@@ -344,8 +380,15 @@ float4 SeaPS(SeaVertexOutput input) : COLOR
 
     //Subsurface scattering: a crest glows when the sun is behind it and the eye looks into the water. The
     //classic cheap term - looking towards the sun, strongest on the raised faces of the waves, snuffed by cloud.
-    float backlight = pow(saturate(dot(viewDir, -SunDirection)), 4.0);
-    float sss = backlight * saturate(input.Foam.y * 2.0 - 0.5) * SssStrength * sunlight * (1.0 - calm);
+    //Widened and re-aimed at the CREST since #503: the translucent green edge is the signature of a wave in
+    //every backlit reference, and the fourth power put it only in the few degrees either side of looking
+    //straight into the sun - where the glint path owns the frame anyway, so it was paying for a term almost
+    //nothing ever saw. The third power spreads it across the sunward quarter of the view, and the tighter
+    //crest gate spends that back: it now needs a real crest (the top fifth of the swell) rather than
+    //anything above the mean, so what it lights is the thin water at the top of a wave, which is the only
+    //water light gets through.
+    float backlight = pow(saturate(dot(viewDir, -SunDirection)), 3.0);
+    float sss = backlight * saturate(input.Foam.y * 2.5 - 1.0) * SssStrength * sunlight * (1.0 - calm);
     color += SssColor * SunColor * sss;
 
     //Sun glint: a sharp spark where the reflected ray points at the sun, sparkling across the chop facets,
@@ -375,14 +418,30 @@ float4 SeaPS(SeaVertexOutput input) : COLOR
     float streaks = Fbm2Combed(foamDomain, FOAM_STREAK_ALONG, FOAM_STREAK_STRETCH, 4,
         footprint * FOAM_STREAK_FREQUENCY) + 0.5;
 
-    float foam = min(1.0, density * 1.15)
-        * smoothstep(0.60 - density * 0.45, 0.70 - density * 0.30, streaks) * chopFade;
-    float3 foamCol = FoamColor * (ambient + SunColor * sunlight * saturate(dot(normal, SunDirection)) * 0.7);
+    //⚠ The threshold window has to stay ABOVE the streak field's mean at every density, or the lanes stop
+    //being lanes (#503). `streaks` is an fbm plus 0.5, so it sits around 0.5; the old window slid to
+    //(0.285, 0.49) at full density, which is entirely below that mean and painted about half the area at
+    //one value - a connected sheet with a soft outline, which is the #128 blob again at a larger size. The
+    //window now slides from the top eighth of the field to its top quarter, so more energy still widens a
+    //lane but can never flood the surface.
+    //And where a lane DOES fire it goes to full white rather than to a fraction of it (#503). Scaling the
+    //alpha linearly with the density spread a little foam over a lot of water, which reads as a sheen or an
+    //oil slick - the two things the water is least like. Foam in a photograph is either there, brilliant
+    //white, or not there at all; the streak window above is what decides WHERE, and this decides that where
+    //it is, it is opaque. Rarer and stronger beats wider and dimmer, which is the same lesson the glowworms
+    //and the mineral veins each cost a session to learn.
+    float foam = saturate(density * 2.2)
+        * smoothstep(0.74 - density * 0.30, 0.88 - density * 0.26, streaks) * chopFade;
+    float3 foamCol = FoamColor * (ambient * FOAM_AMBIENT_GAIN
+        + SunColor * sunlight * saturate(dot(normal, SunDirection)) * 0.7);
     color = lerp(color, foamCol, foam);
 
-    //Horizon haze: melt the sea into the skyline color over distance, so the plane has no visible edge
+    //Horizon haze: melt the sea into the skyline color over distance, so the plane has no visible edge -
+    //towards a DESATURATED horizon since #503, for the reason HAZE_DESATURATION carries. The brightness of
+    //the target is untouched; only its saturation comes down.
+    float3 hazeTarget = lerp(HorizonColor, dot(HorizonColor, LUMA), HAZE_DESATURATION);
     float haze = saturate(dist / HorizonHazeDistance);
-    color = lerp(color, HorizonColor, haze * haze);
+    color = lerp(color, hazeTarget, haze * haze);
 
     return float4(color, 1.0);
 }
