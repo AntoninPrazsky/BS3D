@@ -5297,3 +5297,23 @@ Obě issues nechávám otevřené na majitelův pohled v pohybu.
 - **Ověřeno:** čtyři solutiony čisté; Game `level=Column` High/Low; save majitele hash beze změny.
 
 **Co zůstává:** APU měření (notebook). #504 otevřené na majitelův pohled na stránku.
+
+---
+
+## 2026-09-22 — Claude Code, bs3d-9f (desktop: #508 Měsíc podle Apollo referencí, merge `5dab4f5`)
+
+**Třetí scéna v řadě („Vem měsíc").** Kapitola The Quarry (6/12), kovové koule, scéna, která si v první větě dokumentace říká „the Apollo-photo look" a nikdy u sebe žádnou Apollo fotku neměla.
+
+- **Reference:** 21 txt2img (povrch z výšky očí, terminátor při nízkém slunci, horizont vysočin, Earthrise, čerstvý kráter, Země nad obzorem, orbitální pohled) + 6 img2img přes snímky Testbedu + 2 z první dávky. `C:\Users\panrd\AI\sd\out\508`, **stránka `index.html`** tamtéž.
+- **Tři věci řekly všechny reference a scéna neměla ani jednu:**
+  1. **Slunce je NÍZKO.** Scéna stála na 35°, které sdílejí všechny scény bez dómu; teď má vlastních 16° (`MoonLightingConfig.SunElevationDegrees`, nový `SceneRenderer.TryGetSunDirection`, který se ptá až po volbě mezi dómovým a bezdómovým sluncem). Konstanta scény, ne dómu — zdůvodnění z #220 platí dál. Mění to i fázi Země, protože ta je úhel mezi nimi.
+  2. **Kráter má v misce stín, a spočítá se ANALYTICKY** z vlastního profilu: bod je ve stínu, když okraj mezi ním a sluncem stojí výš, než kam doletí paprsek. Vzdálenost k okraji je výstup paprsku z kružnice v poloměrech kráteru. Žádný pochod, žádné tapy navíc; kopie v gradientních tapech kompilátor zahodí. Hrana stínu se nezúží pod pixel.
+  3. **Krátery jsou většinou mělké** (`depth = lerp(0.25, 1.0, roll²)` proti plochému 0,55–1,0): skutečné pole je hlavně zvětralé mísy a pár čerstvých hlubokých. Jakmile každá miska vrhala stín, staré rozdělení udělalo z moře houbu.
+- **⚠ Balvany vyzkoušeny a zamítnuty, a to poučení je obecné:** malovaný kotouč na jednobuňkové mřížce se stínem jako kapsle vypadal jako rozsypané černé čárky a díry. Pláň se odsud vidí vždycky pod plochým úhlem, kotouč NA zemi se v něm zkrátí na čárku, zatímco kámen, který zastupuje, z ní čouhá — zůstal viditelný stín bez kamene. **Kámen chce geometrii**, a Měsíc nemá CPU zrcadlo své výšky (kráterová mřížka jsou samé hashe), takže by šla jen do plochého clearingu — který herní kameře zakrývá deska ostrova.
+- **Země:** víc mraků (0,55 → 0,8), tlumenější suchá pevnina místo syté žluté, slabší okraj atmosféry (0,5 → 0,3).
+- **Cena** (desktop, 23 Mpix, střídavě proti `main`): herní pin **6,45 → 5,94 ms**, pláň **5,60 → 5,42**. Tedy LEVNĚJŠÍ; mechanismus netvrdím, tři páry na každou kameru a všechny stejným směrem.
+- **Ověřeno:** čtyři solutiony čisté; Game `level=Mosaic` (úvod kapitoly i herní póza); save majitele hash beze změny.
+
+**Co zůstává:** APU měření. #508 otevřené na majitelův pohled.
+
+**Tři scény za den (#509, #504, #508) — co se z nich přeneslo dál:** reference nejdřív, pak img2img přes vlastní herní snímek pro kompozici; hrubá pole patří do vertex shaderu (hory, žlábky zdarma proti 0,9 ms na pixel); analytický stín z tvaru samotného útvaru je levnější než jakýkoli pochod (kráter, a dřív jezero v kráteru); a **každou scénu ověřit i v Game, ne jen v Testbedu** — herní kamera míří jinam než Testbedová (u sopky to odhalilo příliš rudé mraky za clusterem).
