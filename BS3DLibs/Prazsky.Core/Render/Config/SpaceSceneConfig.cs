@@ -48,7 +48,7 @@ namespace Prazsky.Core.Render
         public SpaceNebulaConfig NebulaOne { get; set; } = new()
         {
             Direction = new Vec3(-0.18f, 0.26f, -0.95f),
-            Color = new Rgb(1.00f, 0.23f, 0.38f),
+            Color = new Rgb(1.00f, 0.17f, 0.11f),
             AngularRadiusDegrees = 27f,
             Strength = 0.78f,
             DetailScale = 5.4f,
@@ -70,7 +70,7 @@ namespace Prazsky.Core.Render
         public SpaceNebulaConfig NebulaThree { get; set; } = new()
         {
             Direction = new Vec3(-0.55f, -0.42f, 0.72f),
-            Color = new Rgb(0.34f, 0.48f, 1.00f),
+            Color = new Rgb(0.30f, 0.52f, 0.95f),
             AngularRadiusDegrees = 17f,
             Strength = 0.44f,
             DetailScale = 8.6f,
@@ -156,7 +156,7 @@ namespace Prazsky.Core.Render
         /// Overall brightness of the web. <b>Zero switches the march off entirely</b> — a uniform branch skips
         /// it, so nothing is paid for it — and restores the scene to exactly the painted sky it was before.
         /// </summary>
-        public float Strength { get; set; } = 1.0f;
+        public float Strength { get; set; } = 0.6f;
 
         /// <summary>
         /// World units to field units on the way in, and so <b>the parallax dial</b>. The field's cells are 0.85
@@ -348,14 +348,14 @@ namespace Prazsky.Core.Render
         public Vec3 CoreDirection { get; set; } = new(0.42f, -0.22f, -0.88f);
 
         /// <summary>Half-width of the band, as the sine of galactic latitude (0.135 ≈ 30° across).</summary>
-        public float Width { get; set; } = 0.135f;
+        public float Width { get; set; } = 0.105f;
 
         /// <summary>
         /// Peak linear radiance of the band at the bulge. Low on purpose: a Milky Way is a faint glow, and the
         /// first build at 0.30 tonemapped to a 75 %-grey wash that dominated the frame and buried the stars it
         /// is supposed to be made of.
         /// </summary>
-        public float Brightness { get; set; } = 0.115f;
+        public float Brightness { get; set; } = 0.150f;
 
         /// <summary>The cooler outer arms (linear, a tint the brightness multiplies).</summary>
         public Rgb Color { get; set; } = new(0.62f, 0.70f, 0.92f);
@@ -367,14 +367,14 @@ namespace Prazsky.Core.Render
         /// How hard the dust lanes cut, 0–1. Never take it to 1: at full strength the band is cut into
         /// detached islands instead of being crossed by rifts.
         /// </summary>
-        public float Dust { get; set; } = 0.88f;
+        public float Dust { get; set; } = 1.0f;
 
         /// <summary>
         /// How much denser the starfield is inside the band (0 = the same everywhere). Carries most of the
         /// band's weight now that the glow itself is faint, which is the right way round: the Milky Way is
         /// stars, and what a long exposure resolves of it is stars.
         /// </summary>
-        public float StarBoost { get; set; } = 2.6f;
+        public float StarBoost { get; set; } = 4.2f;
     }
 
     /// <summary>
@@ -472,10 +472,10 @@ namespace Prazsky.Core.Render
         /// planet stops being an object and becomes a lamp. Only the limb (see <see cref="RimStrength"/>) is
         /// allowed over.
         /// </summary>
-        public Rgb ColorLight { get; set; } = new(0.50f, 0.43f, 0.32f);
+        public Rgb ColorLight { get; set; } = new(0.62f, 0.55f, 0.42f);
 
         /// <summary>The dark belts (linear radiance).</summary>
-        public Rgb ColorDark { get; set; } = new(0.26f, 0.19f, 0.13f);
+        public Rgb ColorDark { get; set; } = new(0.21f, 0.14f, 0.09f);
 
         /// <summary>The one big storm oval (linear radiance).</summary>
         public Rgb StormColor { get; set; } = new(0.58f, 0.25f, 0.15f);
@@ -493,7 +493,7 @@ namespace Prazsky.Core.Render
         /// where an isolated bright point would pop in and out. Raise it and the bloom widens; there is no
         /// stability cliff here, only taste.
         /// </summary>
-        public float RimStrength { get; set; } = 0.30f;
+        public float RimStrength { get; set; } = 0.16f;
 
         /// <summary>
         /// What the unlit side keeps. Not zero: a night side at pure black is a hole punched in the
