@@ -208,12 +208,24 @@ static const float CRATER_MAX_RADIUS = 0.21;
 //makes the fix READ as "the squares are gone" rather than "the ground got flatter".
 static const float GRAIN_SMOOTH_GAIN = 2.0;
 
-float CraterLayer(float2 p, float seedOffset, float chance, out float ejecta)
+//THE CRATER'S OWN SHADOW (#508), and it is the Apollo look. Every surface photograph the references drew fills
+//the sunward part of a crater's bowl with a black, hard-edged shadow - the rim blocking a low sun - where this
+//field only ever shaded the bowl by its facing angle, which draws a crater as a soft dimple lit on one side and
+//a plain of them as a golf ball. It is ANALYTIC, from the crater's own profile: a point in the bowl is shadowed
+//when the lip between it and the sun stands higher than the sun's ray reaches over the distance to that lip.
+//The distance is the ray-circle exit towards the sun, in the crater's own radii; the heights are the profile
+//below. `sunDir` is the sun's horizontal direction in this layer's own turned frame, and `shadowSlope` turns a
+//horizontal distance in cells into the height, in this layer's own units, the sun's ray climbs over it - the
+//caller's arithmetic, since it knows the layer's period and its vertical scale. No march, no extra taps: the
+//crater already knows everything about itself. The gradient taps pass nothing for it and the compiler drops it.
+float CraterLayer(float2 p, float seedOffset, float chance, float2 sunDir, float shadowSlope, float pixelCells,
+    out float ejecta, out float shadow)
 {
     float2 cellId = floor(p);
     float2 f = p - cellId;
 
     ejecta = 0.0;
+    shadow = 0.0;
 
     //Three independent rolls per candidate crater: whether/what shape, size/depth, and where. Separate
     //hashes rather than one reused - a position correlated with a rim width is a correlation nobody would
@@ -248,7 +260,11 @@ float CraterLayer(float2 p, float seedOffset, float chance, out float ejecta)
     //Past the rim skirt this crater contributes nothing
     if (d >= 1.6) return 0.0;
 
-    float depth = lerp(0.55, 1.0, rollB.y);
+    //Mostly SHALLOW (#508): a real crater field is mostly old craters worn down to dishes and a few fresh deep
+    //ones, and once every crater cast its shadow the old 0.55-1.0 spread filled every bowl on the plain with
+    //black and the mare read as a sponge. The square leans the roll to the worn end; the same roll gives the
+    //ejecta below, so the few deep ones are also the ones with fresh bright rims - young is deep AND bright.
+    float depth = lerp(0.25, 1.0, rollB.y * rollB.y);
 
     //The cup: flat-bottomed rather than a cone (real simple craters have a bowl floor), zero at the rim
     //line d = 1
@@ -270,6 +286,18 @@ float CraterLayer(float2 p, float seedOffset, float chance, out float ejecta)
 
     //Fresh material where the rim stands, fading with the rim itself
     ejecta = rim * rollB.y;
+
+    //The shadow: how far this point lies below the lip's crest, against how high the sun's ray climbs on its way
+    //to the lip. Only inside the bowl - outside it the lip's own short shadow is not worth its arithmetic - and
+    //edged over a sliver so it is hard, which is the point, without stepping. The sliver never narrows under a
+    //pixel (`pixelCells`, a pixel in this layer's cells, times how fast the test changes across one), or a far
+    //crater's shadow edge crawls as the lens moves; the gradient taps pass nothing and do not care.
+    float2 q = (f - centre) / radius;
+    float b = dot(q, sunDir);
+    float toLip = -b + sqrt(max(b * b - (d * d - 1.0), 0.0));
+    float drop = (0.62 * (1.0 - rim) + cup * cup) * depth;
+    float edge = max(0.03, pixelCells * shadowSlope);
+    shadow = smoothstep(-edge, edge, drop - toLip * radius * shadowSlope) * (1.0 - smoothstep(0.92, 1.0, d));
 
     //0.62: the weight at which the lip plus its apron hands back roughly the volume the cup took out, so
     //the layer stays near mean-zero (measured over the profile, not eyeballed: the cup's area integral is
@@ -304,17 +332,37 @@ float2 TurnCrater(float2 p, float2 turn)
 //buy about half of that back deliberately rather than all of it: the plain photographed for #240 is
 //over-populated, a wall-to-wall carpet with no bare mare between anything, and the thinning is most of why
 //the fix reads as a plain rather than as the same plain jittered.
-float CraterField(float2 p, out float ejecta)
+//The shadow slope for a layer of `period` world units whose heights are scaled by `verticalScale` - see
+//CraterLayer's shadow. A flat layer (the clearing, where the ramp is zero) casts nothing.
+float CraterShadowSlope(float period, float verticalScale)
 {
-    float e0, e1, e2;
+    float tanElevation = SunDirection.y / max(length(SunDirection.xz), 1e-3);
+    return tanElevation * period / max(verticalScale, 1e-3);
+}
 
-    float height = CraterLayer(TurnCrater(p, CRATER_TURN_0) * (1.0 / 129.0), 11.3, 0.86, e0) * 0.58
-        + CraterLayer(TurnCrater(p, CRATER_TURN_1) * (1.0 / 49.0), 37.7, 0.82, e1) * 0.29
-        + CraterLayer(TurnCrater(p, CRATER_TURN_2) * (1.0 / 18.6), 71.1, 0.70, e2) * 0.13;
+float2 CraterSun(float2 turn)
+{
+    float2 sun = TurnCrater(SunDirection.xz, turn);
+    return sun / max(length(sun), 1e-4);
+}
+
+float CraterField(float2 p, float verticalScale, float footprint, out float ejecta, out float shadow)
+{
+    float e0, e1, e2, s0, s1, s2;
+
+    float height = CraterLayer(TurnCrater(p, CRATER_TURN_0) * (1.0 / 129.0), 11.3, 0.86,
+            CraterSun(CRATER_TURN_0), CraterShadowSlope(129.0, verticalScale * 0.58), footprint / 129.0, e0, s0) * 0.58
+        + CraterLayer(TurnCrater(p, CRATER_TURN_1) * (1.0 / 49.0), 37.7, 0.82,
+            CraterSun(CRATER_TURN_1), CraterShadowSlope(49.0, verticalScale * 0.29), footprint / 49.0, e1, s1) * 0.29
+        + CraterLayer(TurnCrater(p, CRATER_TURN_2) * (1.0 / 18.6), 71.1, 0.70,
+            CraterSun(CRATER_TURN_2), CraterShadowSlope(18.6, verticalScale * 0.13), footprint / 18.6, e2, s2) * 0.13;
 
     //The freshest rim wins: ejecta is a colour cue, not a height, so the octaves MAX rather than sum -
     //summed, three faint aprons stack into a pale wash that reads as dirt rather than as rays.
     ejecta = max(e0 * 0.9, max(e1, e2 * 0.8));
+
+    //Any layer's shadow is a shadow: a small crater inside a big one's shadowed bowl is simply in the dark.
+    shadow = max(s0, max(s1, s2));
 
     return height;
 }
@@ -366,7 +414,7 @@ float HighlandBelt(float2 p, float dist, float mare)
 //
 //The ejecta output is only read in the pixel shader's own tap; the vertex shader ignores it (the compiler
 //strips the dead half there).
-float MoonHeight(float2 p, out float ejecta)
+float MoonHeight(float2 p, float footprint, out float ejecta, out float shadow)
 {
     float dist = length(p);
     float ramp = smoothstep(ClearingRadius, ClearingRadius + ClearingTransition, dist);
@@ -375,7 +423,7 @@ float MoonHeight(float2 p, out float ejecta)
     //of the highland belt out past them (see HighlandBelt for why it borrows this field rather than rolling
     //its own).
     float mare = MareBase(p);
-    float field = CraterField(p, ejecta) + mare * 0.18;
+    float field = CraterField(p, CraterAmplitude * ramp, footprint, ejecta, shadow) + mare * 0.18;
 
     //The curvature is OUTSIDE the ramp: the clearing must stay flat where the island's physics floor is,
     //but the fall of the horizon is the planet's, not the field's, and ramping it would put a crease at
@@ -406,8 +454,8 @@ MoonTerrainVertexOutput MoonTerrainVS(MoonTerrainVertexInput input)
     //sit still in the world while the grid slides under them
     float2 worldXZ = input.Position.xz + OriginXZ;
 
-    float ejectaUnused;
-    float3 worldPosition = float3(worldXZ.x, MoonHeight(worldXZ, ejectaUnused), worldXZ.y);
+    float ejectaUnused, shadowUnused;
+    float3 worldPosition = float3(worldXZ.x, MoonHeight(worldXZ, 0.0, ejectaUnused, shadowUnused), worldXZ.y);
 
     output.WorldPosition = worldPosition;
     output.Position = mul(mul(float4(worldPosition, 1.0), View), Projection);
@@ -429,10 +477,10 @@ float4 MoonTerrainPS(MoonTerrainVertexOutput input) : COLOR
     //displaced mesh a per-vertex normal leaves a Mach-band grid, and per-pixel evaluation makes the
     //shading smooth regardless of tessellation.
     float e = 1.5;
-    float ejecta, ejectaX, ejectaZ;
-    float h = MoonHeight(worldPosition.xz, ejecta);
-    float hx = MoonHeight(worldPosition.xz + float2(e, 0.0), ejectaX);
-    float hz = MoonHeight(worldPosition.xz + float2(0.0, e), ejectaZ);
+    float ejecta, ejectaX, ejectaZ, craterShadow, shadowX, shadowZ;
+    float h = MoonHeight(worldPosition.xz, footprint, ejecta, craterShadow);
+    float hx = MoonHeight(worldPosition.xz + float2(e, 0.0), 0.0, ejectaX, shadowX);
+    float hz = MoonHeight(worldPosition.xz + float2(0.0, e), 0.0, ejectaZ, shadowZ);
 
     float2 slope = float2(hx - h, hz - h) / e;
     float3 baseNormal = normalize(float3(-slope.x, 1.0, -slope.y));
@@ -441,12 +489,16 @@ float4 MoonTerrainPS(MoonTerrainVertexOutput input) : COLOR
     //(normal-only - at this scale a crater is shading, not silhouette) plus an isotropic regolith relief.
     //Both band-limited against the footprint; the perturbation is derivative-driven and would checkerboard
     //the moment a wave nears pixel size.
-    float smallEjecta;
+    float smallEjecta, smallShadow;
     //Turned and thinned with the other three (#240). This is the octave the eye is closest to, so its rows
     //are the longest ones in the frame: it sat unturned on world X and Z at 5 units, which put a hundred
-    //cells of it across the near ground in a single glance.
-    float smallCraters = CraterLayer(TurnCrater(worldPosition.xz, CRATER_TURN_3) * (1.0 / 7.2), 133.7, 0.64, smallEjecta)
-        * saturate(1.0 - footprint * (2.0 / 5.0));
+    //cells of it across the near ground in a single glance. Its shadow takes the depth its normal is drawn
+    //at (MicroReliefStrength * 3 world units a unit of profile), which is shallow - a small crater's is a sliver.
+    float smallResolved = saturate(1.0 - footprint * (2.0 / 5.0));
+    float smallCraters = CraterLayer(TurnCrater(worldPosition.xz, CRATER_TURN_3) * (1.0 / 7.2), 133.7, 0.64,
+        CraterSun(CRATER_TURN_3), CraterShadowSlope(7.2, MicroReliefStrength * 3.0), footprint / 7.2, smallEjecta, smallShadow)
+        * smallResolved;
+    craterShadow = max(craterShadow, smallShadow * smallResolved);
 
     float relief = Fbm2BandLimited(worldPosition.xz * 1.7, 3, footprint * 1.7);
 
@@ -518,7 +570,16 @@ float4 MoonTerrainPS(MoonTerrainVertexOutput input) : COLOR
 
     float3 fill = AmbientColor + EarthshineColor * saturate(dot(normal, EarthDirection));
 
-    float3 color = regolith * (SunColor * ndotl + fill);
+    //The craters' hard shadows (#508) take the sun and leave the fill, which is what a lunar shadow is - near
+    //black, but the ground-bounce and the earthshine still reach into it.
+    //
+    //⚠ NOT BOULDERS. Every Apollo surface photograph is full of rocks with black shadows lying off them, and a
+    //painted rock was tried here - a disc on a single-cell lattice lit on its sunward side, its shadow the
+    //capsule it sweeps away from the sun. It read as scattered black dashes and holes: this plain is seen at a
+    //grazing angle from everywhere the game looks at it, a disc painted ON the ground foreshortens to a sliver
+    //there while the rock it stands for stands UP out of it, and what was left visible was the shadow without
+    //its rock. A rock needs geometry, and the Moon has no CPU mirror of its height to plant one on.
+    float3 color = regolith * (SunColor * ndotl * (1.0 - craterShadow) + fill);
 
     return float4(color, 1.0);
 }

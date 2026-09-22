@@ -1947,6 +1947,28 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
+        /// The sun a scene states for itself, overriding both the dome's and the shared domeless one, and false
+        /// for every scene that takes one of those. Only the Moon does (#508): its sun stands LOW, because the
+        /// Apollo photograph is long black shadows off every rock and a black crescent in every crater, and the
+        /// 35 degrees every domeless scene shares draws those as slivers. <see cref="SkyLightRig"/> asks this
+        /// after choosing between the dome's sun and the domeless one, so the island, the cluster, the terrain
+        /// and the Earth's phase all answer the one direction.
+        /// </summary>
+        public bool TryGetSunDirection(SceneKind kind, out Vector3 direction)
+        {
+            if (kind == SceneKind.Moon)
+            {
+                MoonLightingConfig lighting = _moonConfig.Lighting;
+                direction = DirectionFromElevationAzimuth(
+                    Math.Clamp(lighting.SunElevationDegrees, 1f, 89f), lighting.SunAzimuthDegrees);
+                return true;
+            }
+
+            direction = default;
+            return false;
+        }
+
+        /// <summary>
         /// The light rig a scene states for itself instead of taking the sky dome's, and false when it takes
         /// the dome's like every other one. The <b>sky-replacing</b> scenes state one as a group — space, the
         /// dream and the cavern (<see cref="ReplacesSky"/>) — each with its own colours, and they have to: they

@@ -261,6 +261,11 @@ namespace Prazsky.Core.Render
             //unlike the rig override below: ReplacesSky is a static reading of the SceneKind the caller
             //already stated, not something an instance has to be asked.
             SunDirection = SceneRenderer.ReplacesSky(_scene) ? DOMELESS_SUN_DIRECTION : _domeSunDirection;
+
+            //...unless the scene states a sun of its own, which only the Moon does (#508, its low Apollo sun).
+            if (_sceneRenderer != null && _sceneRenderer.TryGetSunDirection(_scene, out Vector3 sceneSun))
+                SunDirection = sceneSun;
+
             KeyLightPosition = SunDirection * KEY_LIGHT_DISTANCE;
 
             //The key/fill lights (the "sun" side) take on the horizon colour, the back light the zenith
