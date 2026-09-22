@@ -5519,3 +5519,12 @@ Obě issues nechávám otevřené na majitelův pohled v pohybu.
 - Dokumentace: `docs/game-shell.md` u obou řad citlivosti (žebřík je teď 50/75/100/**125**/150/200/300 %).
 
 **Poučení, které stojí za zapsání:** #497 postavilo správnou věc (dial místo konstanty) a přesto to stížnost nevyřešilo, protože **dial bez stupně na správném místě je pořád konstanta.** Když se příště na pocitovou stížnost odpovídá knoflíkem, patří k tomu spočítat, jestli ten knoflík na kýženou hodnotu vůbec dosáhne.
+
+**Pátá dávka #400 — kopírovaný kód mezi soubory: NALEZEN, ale neškodný, proto BEZ issue.**
+
+- Sken identických osmiřádkových běhů kódu (komentáře, závorky a prázdné řádky vynechané) napříč `Game/`, `Testbed/`, `MapEditor/` a `BS3DLibs/` našel 54 shod. Největší rodina: **sedm tříd si ručně píše tutéž obálku kreslení** — ulož tři stavy zařízení, nastav blend/depth/raster, navaž buffery, `Apply()`, `DrawIndexedPrimitives`, obnov stavy: `Blasts`, `Fireworks`, `LaserGrid`, `Confetti`, `LineSparks`, a v knihovně `AimBeam` a `LaunchSmears`.
+- **Ale rozešly se nikde.** Porovnal jsem, jaké stavy každá z těch sedmi nastavuje: **šest je znak po znaku totožných** (`Additive` / `DepthRead` / `CullNone`) a sedmá, `Confetti`, se liší jediným `AlphaBlend` — což je správně, konfety jsou papír, ne světlo. Past #297 („chyba cestuje s kopií, ze které se kopírovalo") tady tedy nekousla.
+- **Issue jsem nezakládal.** Sdílený pomocník by sebral ~56 řádků a příští změna stavu by dosáhla na všech sedm, ale je to údržbová úklidová práce bez nalezené vady, a #400 chce nálezy, ne úkoly. Cenné je to **ověření**, že těch sedm souhlasí — to se zapisuje, aby to příští průchod nedělal znovu.
+- Klon `Game/BS3DGame.Scene.cs:349` ↔ `Testbed/Testbed.cs:918` je jen tři podobná volání konstruktoru za sebou, ne sdílená logika.
+
+**Tím je první průchod #400 uzavřený.** Prošlo: vrstvení, GPU state objekty, per-frame parametry (→ #523), drift čísel (→ #525, dva opravené), zdraví backlogu (→ #524), mrtvé knoflíky, mrtvé uniformy, kopírované komentáře, mrtvé typy (→ #526), hranice vektorů, kopírovaný kód. **Neprošlo:** pravidlo vinutí trojúhelníků (chce vizuální ověření nebo analyzátor) a implicitní konverze vektorů (chce Roslyn).
