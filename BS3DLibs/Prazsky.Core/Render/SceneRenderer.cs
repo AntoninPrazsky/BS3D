@@ -584,8 +584,8 @@ namespace Prazsky.Core.Render
         private int _plumeQuads, _jetQuads;
 
         //Cached at load: the by-name Techniques indexer is a linear scan and this pass selects between the
-        //two of them twice a frame (BestPractices.md §1).
-        private readonly EffectTechnique _plumeTechnique, _jetTechnique;
+        //three of them every frame (BestPractices.md §1).
+        private readonly EffectTechnique _plumeTechnique, _jetTechnique, _glowTechnique;
 
         //The drifting ash, on the snowfall's machinery in its own shader (Ash.fx says why it is not Snow.fx).
         private readonly Effect _ashEffect;
@@ -1333,16 +1333,18 @@ namespace Prazsky.Core.Render
             _palmShadowTechnique = _palmEffect.Techniques["ShadowCaster"];
             BuildTropicalBuffers();
 
-            //--- Volcano (#223): the fifteenth scene — the flank of an erupting cone, its lava rivers and the
-            //crackle glow between its crust plates. The mountain's grid density, because this terrain carries
-            //a summit against the sky; the fountains, the plume and the ash are three billboard buffers over
-            //two more effects, all animated in their vertex shaders and rebuilt only when a config is applied.
+            //--- Volcano (#223, redrawn from references in #509): the fifteenth scene — the flank of an erupting
+            //cone, its crusted lava rivers, the rivulets down it and the lake in its crater. The mountain's grid
+            //density, because this terrain carries a summit against the sky; the fountains, the plume and the ash
+            //are billboard buffers over two more effects, all animated in their vertex shaders and rebuilt only
+            //when a config is applied.
             _volcanoEffect = content.Load<Effect>("Shaders/Volcano");
             CreateGridMesh(VOLCANO_GRID_N, VOLCANO_EXTENT, out _volcanoVertexBuffer, out _volcanoIndexBuffer, out _volcanoIndexCount);
 
             _fountainEffect = content.Load<Effect>("Shaders/LavaFountain");
             _plumeTechnique = _fountainEffect.Techniques["Plume"];
             _jetTechnique = _fountainEffect.Techniques["Fountain"];
+            _glowTechnique = _fountainEffect.Techniques["Glow"];
             _ashEffect = content.Load<Effect>("Shaders/Ash");
 
             ApplyVolcanoParameters();
@@ -2591,10 +2593,16 @@ namespace Prazsky.Core.Render
             _volcanoEffect.Parameters["HaloWidth"].SetValue(MathF.Max(volcano.HaloWidth, 1.05f));
             _volcanoEffect.Parameters["RockColor"].SetValue(volcano.RockColor.ToVector3());
             _volcanoEffect.Parameters["RockColorLight"].SetValue(volcano.RockColorLight.ToVector3());
+            _volcanoEffect.Parameters["ScoriaColor"].SetValue(volcano.ScoriaColor.ToVector3());
             _volcanoEffect.Parameters["LavaHot"].SetValue(volcano.LavaHot.ToVector3());
             _volcanoEffect.Parameters["LavaCool"].SetValue(volcano.LavaCool.ToVector3());
-            _volcanoEffect.Parameters["SeamGlow"].SetValue(volcano.SeamGlow);
+            _volcanoEffect.Parameters["CrustColor"].SetValue(volcano.CrustColor.ToVector3());
+            _volcanoEffect.Parameters["CrustGlow"].SetValue(volcano.CrustGlow);
+            _volcanoEffect.Parameters["CrackGlow"].SetValue(volcano.CrackGlow);
             _volcanoEffect.Parameters["PlateSize"].SetValue(MathF.Max(volcano.PlateSize, 0.1f));
+            _volcanoEffect.Parameters["SheenStrength"].SetValue(volcano.SheenStrength);
+            _volcanoEffect.Parameters["RivuletStrength"].SetValue(volcano.RivuletStrength);
+            _volcanoEffect.Parameters["FieldCrackStrength"].SetValue(volcano.FieldCrackStrength);
             _volcanoEffect.Parameters["AmbientStrength"].SetValue(volcano.AmbientStrength);
             _volcanoEffect.Parameters["HorizonHazeDistance"].SetValue(MathF.Max(volcano.HorizonHazeDistance, 1f));
             _volcanoEffect.Parameters["HazeTint"].SetValue(volcano.HazeTint.ToVector3());
@@ -2610,20 +2618,27 @@ namespace Prazsky.Core.Render
             _fountainEffect.Parameters["BlobSize"].SetValue(fountains.BlobSize);
             _fountainEffect.Parameters["WindDirection"].SetValue(volcano.Wind.ToVector2());
             _fountainEffect.Parameters["WindDrag"].SetValue(fountains.WindDrag);
+            _fountainEffect.Parameters["StreakTime"].SetValue(MathF.Max(fountains.StreakTime, 0f));
             _fountainEffect.Parameters["EruptionBoost"].SetValue(volcano.Eruption.Boost);
             _fountainEffect.Parameters["LavaHot"].SetValue(volcano.LavaHot.ToVector3());
             _fountainEffect.Parameters["LavaCool"].SetValue(volcano.LavaCool.ToVector3());
             _fountainEffect.Parameters["PlumeColor"].SetValue(fountains.PlumeColor.ToVector3());
             _fountainEffect.Parameters["PlumeStrength"].SetValue(fountains.PlumeStrength);
+            _fountainEffect.Parameters["PlumeGlow"].SetValue(fountains.PlumeGlow);
 
             //The plume's own figures are derived from the jets' rather than being four more dials: a column
-            //rises about a third as fast as a blob is thrown, lives long enough to leave the frame, and
-            //spreads to a good fraction of the crater it is standing in. Deriving them keeps a retuned
+            //rises about a third as fast as a blob is thrown, lives long enough to leave the frame, and its
+            //stem is about as wide as the crater it stands in (0.8 of it until #509, which with the head the
+            //shader now opens was still a tube next to the references' columns). Deriving them keeps a retuned
             //fountain and its own smoke in proportion, which is what a designer moving Speed actually wants.
             _fountainEffect.Parameters["PlumeRise"].SetValue(fountains.Speed * 0.55f);
-            _fountainEffect.Parameters["PlumeSpread"].SetValue(volcano.CraterRadius * 0.8f);
+            _fountainEffect.Parameters["PlumeSpread"].SetValue(volcano.CraterRadius * 1.1f);
             _fountainEffect.Parameters["PlumeLife"].SetValue(fountains.Life * 7f);
             _fountainEffect.Parameters["PlumeSize"].SetValue(fountains.BlobSize * 5f);
+
+            //The blaze over the crater is sized off the crater it stands in, for the same reason.
+            _fountainEffect.Parameters["GlowSize"].SetValue(volcano.CraterRadius * 1.6f);
+            _fountainEffect.Parameters["GlowStrength"].SetValue(MathF.Max(fountains.GlowStrength, 0f));
 
             AshConfig ash = volcano.Ash;
 
@@ -3815,8 +3830,11 @@ namespace Prazsky.Core.Render
 
             float gullyCount = MathF.Round(MathF.Max(volcano.GullyCount, 1f));
             float rake = 0.5f - 0.5f * MathF.Cos(bearing * gullyCount + 2f * MathF.Sin(bearing * 3f));
-            float gullyBand = SmoothStep(craterRadius * 1.15f, volcano.ConeRadius * 0.45f, r)
-                * SmoothStep(volcano.ConeRadius * 1.05f, volcano.ConeRadius * 0.62f, r);
+            //Volcano.fx's band to the figure. This copy carried its own (1.15, 0.45, 1.05, 0.62) from the day the
+            //scene was built, so on the lower flank - where the flow fronts' lamps run - it put the ground up to
+            //seven units above the channel the shader draws, and at a side vent's radius three and a half.
+            float gullyBand = SmoothStep(craterRadius * 1.3f, volcano.ConeRadius * 0.30f, r)
+                * SmoothStep(volcano.ConeRadius * 1.15f, volcano.ConeRadius * 0.85f, r);
 
             return volcano.LevelY + ramp * (flank - crater - volcano.GullyDepth * rake * gullyBand);
         }
@@ -3926,6 +3944,34 @@ namespace Prazsky.Core.Render
         {
             float s = MathF.Sin(n * 12.9898f) * 43758.5453f;
             return s - MathF.Floor(s);
+        }
+
+        /// <summary>
+        /// A light on the ground that lights the underside of the cloud deck, for the hosts to hand to
+        /// <see cref="CloudField.SetGroundGlow"/> every frame (#509): the volcano's crater, swelling with each
+        /// burst off the same <see cref="VolcanoEruption"/> figure the jets, the plume and the crater's lamp
+        /// ride, so the cloud flares with them. False for every scene with nothing burning under its sky, and
+        /// for the volcano with <see cref="VolcanoSceneConfig.DeckGlow"/> at zero.
+        /// </summary>
+        /// <param name="time">The same wall clock the host feeds <see cref="SceneFrame.Time"/> and the scene lights.</param>
+        public bool TryGetGroundGlow(SceneKind kind, float time, out Vector3 position, out Vector3 color, out float range)
+        {
+            VolcanoSceneConfig volcano = _volcanoConfig;
+            if (kind != SceneKind.Volcano || volcano.DeckGlow <= 0f)
+            {
+                position = default;
+                color = default;
+                range = 1f;
+                return false;
+            }
+
+            position = _ventPosition[0];
+            //A shade towards the hot end of the lava's range: the cool end alone lit the deck blood-red, where
+            //the references' clouds over a crater are orange.
+            Vector3 lava = Vector3.Lerp(volcano.LavaCool.ToVector3(), volcano.LavaHot.ToVector3(), 0.15f);
+            color = lava * volcano.DeckGlow * (0.55f + 0.9f * VolcanoEruption(time));
+            range = volcano.DeckGlowRange;
+            return true;
         }
 
         /// <summary>
@@ -4259,6 +4305,11 @@ namespace Prazsky.Core.Render
             //of each spark's trail, and an octave off both warp layers — the last being the only reduction in
             //any of these three scenes that pays on its own, since it is the only one on every pixel.
             _dreamEffect.CurrentTechnique = _dreamEffect.Techniques[_sceneDetail > 0.5f ? "Dream" : "DreamReduced"];
+
+            //The volcano (#509): the two kinds of hairline the references brought in off the flows - the
+            //rivulets down the cone and the cracks in the field - arrived together and are given up together.
+            //The flows, the crater's lake and the sheen stay on every tier; they are what the scene is.
+            _volcanoEffect.CurrentTechnique = _volcanoEffect.Techniques[_sceneDetail > 0.5f ? "Volcano" : "VolcanoReduced"];
         }
 
         private void SelectForestTechnique() =>
@@ -6012,6 +6063,16 @@ namespace Prazsky.Core.Render
                 _fountainEffect.CurrentTechnique = _jetTechnique;
                 _fountainEffect.CurrentTechnique.Passes[0].Apply();
                 _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, _plumeQuads * 6, _jetQuads * 2);
+            }
+
+            //The blaze over the crater (#509): the buffer's first quad, whose corners are all the glow's vertex
+            //shader reads - one quad, additive like the jets, so its order against them does not matter.
+            if (_volcanoConfig.Fountains.GlowStrength > 0f)
+            {
+                _graphicsDevice.BlendState = BlendState.Additive;
+                _fountainEffect.CurrentTechnique = _glowTechnique;
+                _fountainEffect.CurrentTechnique.Passes[0].Apply();
+                _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, 2);
             }
 
             _graphicsDevice.BlendState = BlendState.AlphaBlend;

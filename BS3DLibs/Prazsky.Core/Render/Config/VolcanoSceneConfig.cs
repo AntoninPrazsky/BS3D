@@ -106,6 +106,13 @@ namespace Prazsky.Core.Render
         public Rgb RockColorLight { get; set; } = new(0.085f, 0.078f, 0.074f);
 
         /// <summary>
+        /// The oxidised scoria round the summit (linear): a dark rust-red, which is what every flank the #509
+        /// references drew turns towards the crater, where the hot gases have been at the rock. Patchy, off the
+        /// same broad field as the grey scoria, so it reads as ground and not as a ring painted on the cone.
+        /// </summary>
+        public Rgb ScoriaColor { get; set; } = new(0.060f, 0.022f, 0.014f);
+
+        /// <summary>
         /// The hottest lava (linear radiance). Over 1, so the glare pass blooms it — and <b>not far</b> over
         /// 1, which is the whole difference between a river of lava and a river of light. The first pass ran
         /// this at (7.5, 2.4, 0.3) and ACES took it straight to white-yellow: past a point, adding radiance
@@ -116,10 +123,42 @@ namespace Prazsky.Core.Render
         /// <summary>Cooling lava at the crusted edge of a flow (linear radiance).</summary>
         public Rgb LavaCool { get; set; } = new(0.85f, 0.12f, 0.012f);
 
-        /// <summary>How strongly the crackle seams between the crust plates glow away from the rivers — the
-        /// "stone that cracks", which is what makes the ground read as crust over liquid rather than as painted
-        /// rock. 0 leaves a cold basalt field.</summary>
-        public float SeamGlow { get; set; } = 0.18f;
+        /// <summary>
+        /// The chilled skin a flow carries (linear albedo): dark, a shade off the basalt and a touch bluer,
+        /// because crust is glass and every reference drew it grey under the sky rather than black. Most of a
+        /// flow is this — the incandescence is its core and its cracks (#509).
+        /// </summary>
+        public Rgb CrustColor { get; set; } = new(0.030f, 0.029f, 0.032f);
+
+        /// <summary>What the crust itself still radiates, as a fraction of <see cref="LavaCool"/>: a dull red
+        /// where it is young and thin under the vent, fading down the run.</summary>
+        public float CrustGlow { get; set; } = 0.08f;
+
+        /// <summary>How brightly the hairline cracks between a flow's crust rafts glow — and, three times
+        /// over, the seams between the plates on the crater's lava lake. 0 leaves an unbroken skin.</summary>
+        public float CrackGlow { get; set; } = 0.25f;
+
+        /// <summary>
+        /// How strongly cooled lava reflects the sky. Black pahoehoe and a flow's crust are glass, and the
+        /// slate sheen they take off the sky is the one thing that tells a lava field from a heap of soot at
+        /// night — every ground-level reference in #509 drew it. Fresnel-weighted in the shader, so it is the
+        /// grazing ground the play camera looks across that takes it; the scoria and the oxidised summit are
+        /// rough and take none.
+        /// </summary>
+        public float SheenStrength { get; set; } = 1.2f;
+
+        /// <summary>
+        /// The thin incandescent threads running down the cone from its crater — a few long and most short,
+        /// each wandering on its own way down. Every eruption #509 drew had a cone streaked with fine glowing
+        /// lines rather than banded by five wide rivers. 0 turns them off; the reduced program never draws them.
+        /// </summary>
+        public float RivuletStrength { get; set; } = 2.4f;
+
+        /// <summary>
+        /// The glowing cracks wandering through the lava field: a few patches of them, and more beside the
+        /// flows, where the ground is still hot underneath. 0 turns them off; the reduced program never draws them.
+        /// </summary>
+        public float FieldCrackStrength { get; set; } = 0.7f;
 
         /// <summary>
         /// How far either side of a flow the ground is visibly heated, as a multiple of the river's own
@@ -129,8 +168,9 @@ namespace Prazsky.Core.Render
         /// </summary>
         public float HaloWidth { get; set; } = 3.0f;
 
-        /// <summary>Size of one crust plate in world units, for the crackle seams.</summary>
-        public float PlateSize { get; set; } = 2.6f;
+        /// <summary>Size of one crust raft on a flow in world units, across it; along it a raft is three times
+        /// longer, because the flow stretches it. The plates on the crater's lake are two and a half of these.</summary>
+        public float PlateSize { get; set; } = 1.8f;
 
         /// <summary>How much of the sky's hemisphere light fills the ground.</summary>
         public float AmbientStrength { get; set; } = 0.55f;
@@ -179,6 +219,25 @@ namespace Prazsky.Core.Render
         /// </summary>
         public float LightStrength { get; set; } = 0.22f;
 
+        /// <summary>
+        /// How strongly the crater lights the underside of the cloud deck over it, as a multiple of the lava's
+        /// colour a shade up from <see cref="LavaCool"/> — and it swells with each burst. Every eruption the #509 references drew
+        /// has the cloud above it lit orange from below; the deck is the sky's (<c>Sky.fx</c>), so this reaches
+        /// it through <see cref="CloudField.SetGroundGlow"/>, and the map editor, which draws no deck, cannot
+        /// show it. 0 turns it off.
+        /// <para>
+        /// <b>Held low for the cluster's sake</b>, the same readability constraint as <see cref="LightStrength"/>:
+        /// from the Game's play pose the cluster hangs directly in front of the deck over the crater, where this
+        /// glow is brightest, so the deck behind the red and yellow balls is exactly what it paints. At 0.22 the
+        /// sky there went a saturated red-orange in the Game (brighter than the Testbed's lower camera showed);
+        /// at this figure it is a warm cast that a burst lifts to a glow and then lets go of.
+        /// </para>
+        /// </summary>
+        public float DeckGlow { get; set; } = 0.11f;
+
+        /// <summary>How far along the deck from the column over the crater that glow reaches (1/e), in world units.</summary>
+        public float DeckGlowRange { get; set; } = 190f;
+
         /// <summary>The lava fountains at the crater and the side vents.</summary>
         public LavaFountainConfig Fountains { get; set; } = new();
 
@@ -198,7 +257,7 @@ namespace Prazsky.Core.Render
     public sealed class LavaFountainConfig
     {
         /// <summary>How many blobs are in flight across all vents.</summary>
-        public int ParticleCount { get; set; } = 2600;
+        public int ParticleCount { get; set; } = 4200;
 
         /// <summary>Launch speed at the crater, in world units per second, before each blob's own variation.</summary>
         public float Speed { get; set; } = 46f;
@@ -215,20 +274,41 @@ namespace Prazsky.Core.Render
 
         /// <summary>Blob size in world units, before each blob's own variation. Large, and it has to be: the
         /// cone stands a good 250 units off, where a metre-wide blob is a sub-pixel spark.</summary>
-        public float BlobSize { get; set; } = 3.2f;
+        public float BlobSize { get; set; } = 3.8f;
 
         /// <summary>How far the wind leans a jet over as it climbs.</summary>
         public float WindDrag { get; set; } = 0.22f;
 
+        /// <summary>
+        /// The exposure a blob is seen with, in seconds: each is drawn as a streak along its own velocity,
+        /// its speed across the line of sight times this long (#509). Every fountain the references drew was
+        /// a spray of bright arcs, and a field of round blobs read as confetti. 0 draws round blobs.
+        /// </summary>
+        public float StreakTime { get; set; } = 0.07f;
+
         /// <summary>The smoke plume standing over the crater. 0 turns it off.</summary>
         public float PlumeStrength { get; set; } = 1f;
 
+        /// <summary>
+        /// The blaze where the jets leave the vent, as a multiple of <see cref="VolcanoSceneConfig.LavaHot"/>:
+        /// one soft additive quad over the crater, brighter in a burst. Every eruption the #509 references drew
+        /// has it, and no count of streaks adds up to it. 0 turns it off.
+        /// </summary>
+        public float GlowStrength { get; set; } = 0.3f;
+
         /// <summary>How many of the blobs are spent on the plume rather than the jets, as a fraction.</summary>
-        public float PlumeFraction { get; set; } = 0.35f;
+        public float PlumeFraction { get; set; } = 0.25f;
 
         /// <summary>Ash-grey smoke (linear). Under the glare threshold on purpose — smoke that blooms is
         /// steam.</summary>
-        public Rgb PlumeColor { get; set; } = new(0.085f, 0.078f, 0.076f);
+        public Rgb PlumeColor { get; set; } = new(0.050f, 0.045f, 0.042f);
+
+        /// <summary>
+        /// How strongly the crater lights the plume's underside, as a multiple of <see cref="VolcanoSceneConfig.LavaCool"/>
+        /// — strongest in the stem, fading up into the head, and brighter in a burst. The column lit orange
+        /// from below is the brightest large thing in every eruption the #509 references drew.
+        /// </summary>
+        public float PlumeGlow { get; set; } = 3f;
     }
 
     /// <summary>
