@@ -411,7 +411,15 @@ namespace BS3D
         //
         //1 is on the ladder ON PURPOSE and is the default: the shipped feel has to be reachable, and it has to
         //be what a player who never opens this row keeps.
-        private static readonly float[] SENSITIVITY_LADDER = [0.5f, 0.75f, 1f, 1.5f, 2f, 3f];
+        //⚠ 1.25 EXISTS BECAUSE THE AIM ROW COULD NOT REACH ITS OWN ANSWER (#477). Precise aim multiplies the
+        //cursor rate by PreciseAim.CursorRateScale, which at this game's pair of fields of view (42.86 deg
+        //overview, 36 deg leaned) is tan(18)/tan(21.43) = 0.828 - a 17.2 % slowdown, and geometrically the
+        //right one, since it is what makes the same hand movement cover the same screen distance in both
+        //modes. The owner's playtest reads that as too slow, and the row that is supposed to let a player
+        //answer that went 1 -> 1.5: either leave 17 % of the slowdown in or overshoot to 24 % faster than the
+        //overview. The compensating multiplier is 1/0.828 = 1.208, so 1.25 is the rung that was missing -
+        //0.828 x 1.25 = 1.035, parity with the overview to within 3.5 %.
+        private static readonly float[] SENSITIVITY_LADDER = [0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f, 3f];
 
         //The player's rung, as the multiplier itself rather than an index - it is what the aim path wants every
         //frame, and an index would have to be resolved there instead.
