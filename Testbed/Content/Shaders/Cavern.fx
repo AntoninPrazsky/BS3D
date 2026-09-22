@@ -72,6 +72,7 @@ float MistHeight;          //e-folding height over which the steam thins (world 
 
 //--- The god rays -----------------------------------------------------------------------------------------
 float3 GodRayColor;        //cool shaft light (linear)
+float3 GlowwormColor;      //the constellation of points on the ceiling (linear radiance, #507)
 float GodRayStrength;
 
 //--- The crystals -----------------------------------------------------------------------------------------
@@ -164,6 +165,47 @@ float3 CrystalLightAt(float3 position)
 //RIVER used to call it a second time along the reflected ray, its mirror being the real wall rather than an
 //approximation of it. That second call is what #250 cut - the dearest single thing in the pass - so this now
 //runs at most ONCE per pixel and the signature is all that is left of the arrangement.
+//THE GLOWWORMS (#507). The one thing every photograph of a living cave has and this one did not: a
+//constellation of tiny blue-green points on the ceiling, dense in places and bare in others. They are what a
+//"bioluminescent cavern" reads as from across the chamber, where the crystals read from a few tens of units
+//and the veins only where the rock is lit at all.
+//
+//One hash a pixel, and only on the ceiling. A single-cell lattice like everything else in this project: the
+//point is jittered inside its own cell and never reaches the edge, so no neighbour has to be read. The cell is
+//small (a couple of units) because a glowworm is a POINT - the falloff below puts it at about a pixel at the
+//distance the ceiling is actually seen from, and the eye reads a field of them as a constellation rather than
+//as a dotted texture. They breathe out of step with each other; nothing else in this scene is still either.
+static const float GLOWWORM_CELL = 2.6;
+static const float GLOWWORM_CHANCE = 0.26;
+static const float GLOWWORM_RADIUS = 0.16;      //world units, the smallest a worm is drawn at
+static const float GLOWWORM_PIXEL = 0.0016;     //radians a pixel subtends, near enough for a point's size
+
+float Glowworms(float3 position, float distanceTravelled, float cove)
+{
+    [branch]
+    if (cove <= 0.02) return 0.0;
+
+    float2 cell = position.xz / GLOWWORM_CELL;
+    float2 cellId = floor(cell);
+    float2 f = cell - cellId;
+
+    float2 roll = NoiseHash22(cellId + 91.7) * 0.5 + 0.5;
+    if (roll.x > GLOWWORM_CHANCE) return 0.0;
+
+    float2 centre = 0.25 + (NoiseHash22(cellId + 13.1) * 0.5 + 0.5) * 0.5;
+    float2 d = f - centre;
+
+    //Out of step with each other, and never fully out: a glowworm dims, it does not blink.
+    float breathe = 0.55 + 0.45 * sin(CavernTime * 0.7 + roll.y * 37.0);
+
+    //A POINT STAYS ABOUT A PIXEL AND A HALF WIDE at any distance, which is the snow sparkle's own rule (#278):
+    //a world-sized dot at the far end of a 240-unit cave is a fraction of a pixel, and a field of sub-pixel
+    //dots crawls as the lens moves rather than hanging there. Its peak brightness is held instead of its area.
+    float radius = max(GLOWWORM_RADIUS, distanceTravelled * GLOWWORM_PIXEL * 1.5) / GLOWWORM_CELL;
+
+    return exp(-dot(d, d) / (radius * radius)) * breathe * cove;
+}
+
 float3 ShadeWall(float3 position, float distanceTravelled, uniform bool fullDetail)
 {
     //The shell's own normal: radial on the wall cylinder, folding smoothly into the down-facing ceiling
@@ -227,15 +269,27 @@ float3 ShadeWall(float3 position, float distanceTravelled, uniform bool fullDeta
     //slice across their junction for free - exactly like the bump, body and crack fields above, which
     //were 3D from the start. The patch mask keeps the veins THREADING - ore follows some fractures and
     //leaves others bare - where the unmasked web wallpapered the whole cave with even neon.
+    //THINNER AND FEWER since #507: every photograph of a veined cave wall draws its mineral as a narrow
+    //ribbon crossing a lot of bare rock, where these came out as broad soft bands that read as cloud on the
+    //wall rather than as ore in it. The power sharpens the ridge and the mask's threshold leaves more rock bare.
     float veinField = Fbm3(position * 0.022 + 7.0, 3);
-    float vein = pow(saturate(1.0 - abs(veinField) * 2.4), 6.0);
-    vein *= smoothstep(-0.04, 0.36, Fbm3(position * 0.0065 + 13.0, 2));
+    float vein = pow(saturate(1.0 - abs(veinField) * 3.2), 9.0);
+    vein *= smoothstep(0.02, 0.40, Fbm3(position * 0.0065 + 13.0, 2));
+
+    //The glowworms on the ceiling (#507), added to the rock's own radiance rather than to its albedo: they are
+    //light, not paint, and the rock under them stays as dark as the rest of the ceiling. In PATCHES - dense in
+    //places and bare in others, which is how every photograph of them reads - off the rock's own body field,
+    //which this shade has already paid for.
+    float worms = Glowworms(position, distanceTravelled, cove) * smoothstep(-0.25, 0.30, body);
 
     //The light: a cool key falling from the ceiling gaps against the perturbed normal, and each crystal
     //as a REAL point light - N dot L towards it over inverse square - so the rock around a magenta
     //cluster is not merely tinted magenta but LIT from the cluster's side, bumps shadowing away from it.
+    //0.30 of flat fill and not 0.45 (#507): a cave photograph is mostly DARK with the lit patches standing
+    //out of it, and the higher floor lifted every wall of the shell to about the same value, which is what
+    //made the rock read as an evenly painted shell whatever the relief under it did.
     float keyDiffuse = saturate(dot(normal, normalize(float3(0.2, 1.0, 0.15))));
-    float3 shaded = rock * (0.45 + 1.0 * keyDiffuse) + VeinColor * vein;
+    float3 shaded = rock * (0.30 + 1.15 * keyDiffuse) + VeinColor * vein + GlowwormColor * worms;
 
     [unroll]
     for (int k = 0; k < CRYSTAL_COUNT; k++)

@@ -4689,6 +4689,7 @@ namespace Prazsky.Core.Render
             CavernAirConfig air = cavern.Air;
             _cavernEffect.Parameters["GodRayColor"].SetValue(air.GodRayColor.ToVector3());
             _cavernEffect.Parameters["GodRayStrength"].SetValue(air.GodRayStrength);
+            _cavernEffect.Parameters["GlowwormColor"].SetValue(air.GlowwormColor.ToVector3());
             _cavernEffect.Parameters["SporeColor"].SetValue(air.SporeColor.ToVector3());
             _cavernEffect.Parameters["SporeBrightness"].SetValue(air.SporeBrightness);
 

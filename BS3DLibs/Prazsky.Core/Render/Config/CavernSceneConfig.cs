@@ -51,10 +51,10 @@ namespace Prazsky.Core.Render
 
         /// <summary>The walls' base colour (linear) — desaturated blue-grey, kept dark: a cave is dark, and
         /// the dark is what makes every glow in it read.</summary>
-        public Rgb RockColor { get; set; } = new(0.030f, 0.036f, 0.052f);
+        public Rgb RockColor { get; set; } = new(0.042f, 0.036f, 0.030f);
 
         /// <summary>The glowing mineral veins threading the rock (linear, gently over the rock).</summary>
-        public Rgb VeinColor { get; set; } = new(0.05f, 0.14f, 0.16f);
+        public Rgb VeinColor { get; set; } = new(0.10f, 0.26f, 0.30f);
 
         /// <summary>The abyssal blue-purple the far cave sinks into (linear).</summary>
         public Rgb FogColor { get; set; } = new(0.010f, 0.008f, 0.026f);
@@ -93,7 +93,7 @@ namespace Prazsky.Core.Render
         /// <summary>The caustic shimmer where the eye looks into the water rather than across it.
         /// Turned down from the flat-plane era's 0.8: a web bright enough to carry a textureless plane
         /// reads as patterned flooring on real waves, which carry themselves.</summary>
-        public float CausticStrength { get; set; } = 0.5f;
+        public float CausticStrength { get; set; } = 0.28f;
 
         /// <summary>The steam standing over the river (linear) — the water's glow diffused, well under the
         /// glare threshold. It earns its keep at the waterline: the analytic wall meets the analytic river
@@ -119,6 +119,14 @@ namespace Prazsky.Core.Render
 
         /// <summary>The drifting motes' colour (linear, at the glare threshold's edge — they read through
         /// their slow motion, not through bloom).</summary>
+        /// <summary>
+        /// The glowworms' colour (linear radiance, #507): a constellation of points on the cave's ceiling, which
+        /// is what every photograph of a living cave has and what this one read as missing — the crystals only
+        /// carry from a few tens of units and the veins only where the rock is lit at all. Blue-green and over 1,
+        /// so the few pixels each one covers survive the tonemap. 0 turns them off.
+        /// </summary>
+        public Rgb GlowwormColor { get; set; } = new(0.35f, 1.30f, 1.15f);
+
         public Rgb SporeColor { get; set; } = new(0.30f, 0.42f, 0.20f);
 
         /// <summary>Peak brightness of a mote's core.</summary>
@@ -136,14 +144,14 @@ namespace Prazsky.Core.Render
 
         /// <summary>Peak emissive level of a pulsing cluster. Over the glare threshold deliberately — the
         /// clusters are the cavern's light sources, and their bloom is the point.</summary>
-        public float Emission { get; set; } = 1.6f;
+        public float Emission { get; set; } = 2.3f;
 
         /// <summary>How fast the clusters pulse (phase-spread per cluster, so the cave never beats in unison).</summary>
         public float PulseSpeed { get; set; } = 0.5f;
 
         /// <summary>How much of a cluster's light pools on the rock and the water around it — the single
         /// thing that makes the crystals belong to the cave instead of being stickers on it.</summary>
-        public float WallLight { get; set; } = 0.55f;
+        public float WallLight { get; set; } = 0.8f;
     }
 
     /// <summary>
