@@ -4141,6 +4141,9 @@ namespace Prazsky.Core.Render
             _mountainEffect.Parameters["RockReliefFrequency"].SetValue(_mountainConfig.RockReliefFrequency);
             _mountainEffect.Parameters["AmbientStrength"].SetValue(_mountainConfig.AmbientStrength);
             _mountainEffect.Parameters["HorizonHazeDistance"].SetValue(_mountainConfig.HorizonHazeDistance);
+            _mountainEffect.Parameters["FluteSnow"].SetValue(_mountainConfig.FluteSnow);
+            _mountainEffect.Parameters["AlpenglowLow"].SetValue(_mountainConfig.AlpenglowLow);
+            _mountainEffect.Parameters["AlpenglowHigh"].SetValue(MathF.Max(_mountainConfig.AlpenglowHigh, _mountainConfig.AlpenglowLow + 1f));
         }
 
         /// <summary>(Re)builds the snowfall's flake buffer at the config's flake count. Deterministic seed.</summary>

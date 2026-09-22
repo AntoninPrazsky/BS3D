@@ -66,6 +66,13 @@ float RockReliefFrequency;
 float AmbientStrength;
 float HorizonHazeDistance;
 
+//#509's companion pass on the range (#504), from references: how much snow the fall-line flutes hold against
+//the ribs between them, and the altitude band a low sun's light climbs through - below AlpenglowLow a slope is
+//in the shadow of the range across the basin, above AlpenglowHigh it takes the whole sun.
+float FluteSnow;
+float AlpenglowLow;
+float AlpenglowHigh;
+
 //How far apart the first octave's ridges run, in world units; each octave after it halves that. Five puts
 //the finest at about 8 units, which the vertex grid's 3.34-unit cell (MOUNTAIN_EXTENT / (MOUNTAIN_GRID_N - 1))
 //still carries - a crest the grid cannot hold does not come out finer, it comes out jagged.
@@ -100,16 +107,59 @@ float MountainField(float2 p)
     return shaped * shaped * shaped;
 }
 
+//MASSIFS (#504). Every range the references drew has a hierarchy - a few dominant massifs, lower sections
+//and saddles between them - where the ridged field alone draws a skyline of crests all of one height, a saw
+//round the whole basin. One octave of gradient noise at several ridge spacings scales the field's height
+//between MASSIF_LOW and MASSIF_HIGH, with a mean near one so MountainHeight and the snowline keep meaning what
+//they were tuned to mean. Vertex work only - three taps a vertex - and nothing on the CPU mirrors this height.
+static const float MASSIF_SPACING = 300.0;
+static const float MASSIF_LOW = 0.35;
+static const float MASSIF_HIGH = 1.6;
+
 //The terrain displacement at a world XZ: a gentle basin around the arena (world origin) rising into peaks
-//with distance. Evaluated three times per pixel for the finite-difference normal.
+//with distance. Evaluated three times per vertex for the finite-difference normal.
 float TerrainHeight(float2 p)
 {
     float dist = length(p);
     float ramp = smoothstep(ClearingRadius, ClearingRadius + ClearingTransition, dist);
 
     float basin = ClearingRelief * (sin(dot(p, float2(0.06, 0.04))) + 0.6 * sin(dot(p, float2(-0.05, 0.08)) + 2.0));
+    float massif = lerp(MASSIF_LOW, MASSIF_HIGH, saturate(0.5 + 0.8 * GradientNoise2(p / MASSIF_SPACING + 7.3)));
 
-    return MountainLevelY + basin + MountainHeight * ramp * MountainField(p);
+    return MountainLevelY + basin + MountainHeight * ramp * massif * MountainField(p);
+}
+
+//THE FLUTES (#504). Every steep face the references drew is striped straight down: ribs of dark rock and
+//couloirs of snow, the pattern water, rockfall and avalanches cut. So the snow's facing threshold is shifted by
+//a field that varies fast ALONG the face and slowly DOWN it, which draws exactly those stripes.
+//
+//⚠ Not by combing the rock relief down the fall line, which was the first cut. A combed domain is rotated about
+//the world's origin, so where the direction changes - and a fall line changes at every facet of the grid - the
+//sampled coordinate jumps by the distance from the origin times the angle, and the faces came out covered in
+//zig-zag chevrons that followed the mesh. This never rotates anything: one noise over (x, y) and one over
+//(z, y), each stretched down the world's Y, blended by which way the face looks - the one that runs along the
+//face wins. A face at 45 degrees shows both faintly, which reads as rock.
+//
+//⚠ PER VERTEX, and that is the whole of its price. In the pixel shader the two noise taps cost 0.9 ms of a
+//10.0 ms frame (23 Mpix, the reference desktop) and still 0.3 behind a data branch on steep ground - this is
+//the scene the project already calls marginal at 4K, and an occupancy-bound pass keeps the registers a branch
+//skips. A couloir is coarse enough for the grid to carry: at FLUTE_SPACING 10 the 3.34-unit cell puts three
+//vertices across a period, the field is interpolated to the pixel, and the snow's sharp edge is drawn per
+//pixel off the interpolated value. What that costs is a slightly polygonal couloir edge up close.
+static const float FLUTE_SPACING = 10.0;  //world units between one couloir and the next, roughly
+static const float FLUTE_STRETCH = 5.0;   //how many times longer a flute is down the face than across it
+
+float Flutes(float3 worldPosition, float3 baseNormal)
+{
+    float3 q = worldPosition / FLUTE_SPACING;
+    float alongX = GradientNoise2(float2(q.x, q.y / FLUTE_STRETCH));
+    float alongZ = GradientNoise2(float2(q.z + 17.1, q.y / FLUTE_STRETCH));
+
+    float2 facing = abs(baseNormal.xz) + 1e-4;
+    float flute = lerp(alongX, alongZ, facing.x / (facing.x + facing.y));
+
+    //Only on the steep ground they belong to.
+    return flute * saturate((1.0 - baseNormal.y) * 3.0);
 }
 
 struct MountainVertexInput
@@ -122,6 +172,7 @@ struct MountainVertexOutput
     float4 Position : SV_POSITION;
     float3 WorldPosition : TEXCOORD0;
     float3 WorldNormal : TEXCOORD1;
+    float Flute : TEXCOORD2;          //the couloirs' field, per vertex (see Flutes)
 };
 
 MountainVertexOutput MountainVS(MountainVertexInput input)
@@ -142,6 +193,7 @@ MountainVertexOutput MountainVS(MountainVertexInput input)
     float3 worldPosition = float3(xz.x, height, xz.y);
     output.WorldPosition = worldPosition;
     output.Position = mul(mul(float4(worldPosition, 1.0), View), Projection);
+    output.Flute = Flutes(worldPosition, output.WorldNormal);
 
     return output;
 }
@@ -178,7 +230,12 @@ static const float TWO_PI = 6.2831853;
 //its extremes where a sine sits near them - and for equal amplitude and period a sine is half again as steep,
 //which matters because it is the field's SLOPE and not its height that tilts the normal. Confirmed by eye
 //against the old field from the same camera: the relief reads as strongly as it did, and irregularly.
-static const float ROCK_FBM_GAIN = 3.0;
+//
+//⚠ SIX since #504, applied once, where it was three applied twice: #208 split the normal's perturbation in two
+//and so tilted the lit normal by this relief TWICE from 2026-08-25 on (see the call site). The range has been
+//seen at that doubled relief ever since, and the references ask for more rock detail, not less - so the figure
+//that was on the screen is kept, and the second PerturbNormalFromHeight a pixel is not.
+static const float ROCK_FBM_GAIN = 6.0;
 
 //The authored frequency is CONVERTED rather than reinterpreted, and that is the one thing here that could
 //quietly change the look: the config's figure is a sine's angular frequency (period 2*pi/f) where a noise
@@ -195,6 +252,10 @@ float RockRelief(float2 xz, float footprint, uniform int octaves)
     return Fbm2Combed(xz * scale, ROCK_GRAIN, ROCK_STRETCH, octaves, footprint * scale)
         * (RockReliefStrength * ROCK_FBM_GAIN);
 }
+
+//How sharp the snow's edge is (#504), as half the width of the band either side of a threshold's middle that
+//the edge is drawn over - see the call site.
+static const float SNOW_EDGE = 0.16;
 
 //THE SNOW'S OWN SURFACE, which #208 found missing: the snowfields were flat SnowColor under a 40 % share of
 //the ROCK relief, and rock beside them carried grain, patches and per-pixel hash while the snow carried
@@ -297,10 +358,25 @@ float4 MountainSurface(MountainVertexOutput input, uniform bool fullDetail)
     //snowline so it is drifts and patches, not a clean contour. Read off the ROCK-perturbed normal: the
     //terrain's own slope decides what holds snow, and the snow's own relief is about to be added on top of
     //that decision rather than feeding back into it.
-    float slopeSnow = smoothstep(RockSlope, SnowSlope, rockNormal.y);
+    //The FLUTES hold the snow (#504): in a couloir the threshold drops and on a rib it climbs, so a steep face
+    //is striped dark and white the way every face in the references is, where a threshold on the facing angle
+    //alone laid the snow on as a smooth film with the rock showing only where a whole face turned steep.
+    //
+    //And the edge is SHARP: the band from RockSlope to SnowSlope is read through a second, narrow smoothstep
+    //(SNOW_EDGE either side of its middle). The references draw snow and rock as two materials with a crisp
+    //edge between them; the band read linearly MIXED them across every mid-steep face, which is most of a
+    //range, and a 40/60 blend of white and near-black under a violet sky is the uniform lilac this scene was.
+    float slopeSnow = smoothstep(0.5 - SNOW_EDGE, 0.5 + SNOW_EDGE,
+        smoothstep(RockSlope, SnowSlope, rockNormal.y + input.Flute * saturate(1.0 - footprint / FLUTE_SPACING * 2.0) * FluteSnow));
     float snowNoise = CloudNoise(worldPosition.xz * 0.03) * 9.0;
     float altSnow = smoothstep(SnowlineLow + snowNoise, SnowlineHigh + snowNoise, worldPosition.y);
-    float snowDetailed = slopeSnow * saturate(altSnow + 0.15); //a little snow even on lower shoulders
+    altSnow = smoothstep(0.5 - SNOW_EDGE, 0.5 + SNOW_EDGE, altSnow);
+    //The BASIN is snow (#504). The scene has always called itself a snow basin, and every cirque the references
+    //drew has a white floor under its walls - but the floor lies below the snowline, so it took only the 0.15
+    //shoulder below and was bare rock round the island, which the darker rock of #504 turned near black. The
+    //clearing's own ramp is what says "floor": flat and inside it, snow; up the range's foot, the snowline rules.
+    float floorSnow = 1.0 - smoothstep(ClearingRadius, ClearingRadius + ClearingTransition * 0.6, length(worldPosition.xz));
+    float snowDetailed = slopeSnow * saturate(altSnow + 0.15 + floorSnow); //a little snow even on lower shoulders
 
     //Fade the snow/rock DETAIL to a smooth snowy value with distance (footprint): the sharp rock/snow split
     //aliases into a crawl on the far, stacked ranges, so smoothing it there leaves clean snowy peaks while the
@@ -312,7 +388,14 @@ float4 MountainSurface(MountainVertexOutput input, uniform bool fullDetail)
     //SnowRelief's headstone above for what it was and the three figures that decided it. The sparkle below
     //is the half that stayed, and it still dies with detailFade like everything else the near slopes carry,
     //so the far ranges stay clean shapes in haze.
-    float3 normal = PerturbNormalFromHeight(rockNormal, worldPosition, relief);
+    //
+    //⚠ And the rock relief is applied ONCE (#504). #208 split the perturbation in two - rockNormal for the
+    //snow's decision, then `normal = Perturb(rockNormal, relief + snowRelief)` for the lighting - and so tilted
+    //the lit normal by the rock relief TWICE; #296 cut the snow's half and left `Perturb(rockNormal, relief)`
+    //standing. ROCK_FBM_GAIN was matched to the old sines by eye in #170 with one application, so from #208 on
+    //the range was shaded at about twice that relief - and that doubled relief is the one that has been on the
+    //screen, so it is kept, as a doubled gain, and the second PerturbNormalFromHeight a pixel is not.
+    float3 normal = rockNormal;
 
     //Rock varies between a dark and a lighter grey-brown in patches, so the faces are not one flat colour
     float rockPatch = saturate(CloudNoise(worldPosition.xz * 0.08 + 21.0) * 0.5 + 0.5);
@@ -337,11 +420,27 @@ float4 MountainSurface(MountainVertexOutput input, uniform bool fullDetail)
     if (ShadowStrength > 0.0)
         sunlight *= SunShadow(worldPosition, baseNormal, SunDirection);
 
+    //ALPENGLOW (#504): at a low sun the basin and the lower slopes lie in the shadow of the range across from
+    //them and only the heights still take the light - the pink summits over blue snow that every dusk reference
+    //draws, where this scene lit the whole range evenly and so drew it one lilac from floor to crest. Not a cast
+    //shadow (the map covers the basin, not the range) but the altitude the light has climbed to, scaled by how
+    //low the sun is, so a high sun lights everything as before. The floor keeps the basin from going to the
+    //ambient alone: the island stands in it lit by the rig's sun, and a black ground round it would argue.
+    float lowSun = 1.0 - smoothstep(0.2, 0.55, SunDirection.y);
+    float reach = lerp(0.35, 1.0, smoothstep(AlpenglowLow, AlpenglowHigh, worldPosition.y));
+    sunlight *= lerp(1.0, reach, lowSun);
+
     float ndotl = saturate(dot(normal, SunDirection));
 
-    //Hemisphere sky light: up-facing takes the zenith, slopes take the horizon. The blue zenith filling the
-    //shadows gives the snow its cold cast where the sun misses it.
-    float3 skyAmbient = lerp(HorizonColor, ZenithColor, saturate(normal.y * 0.5 + 0.5));
+    //Hemisphere sky light: up-facing takes mostly the zenith, slopes more of the horizon. The blue zenith filling
+    //the shadows gives the snow its cold cast where the sun misses it.
+    //
+    //MOSTLY, not wholly (#504): a surface facing straight up still sees the whole dome down to the skyline, and
+    //the horizon ring is a good quarter of what reaches it. At the old weights up-facing took the zenith alone,
+    //which was invisible while the basin floor was rock - and once #504 laid snow on it, dome 8's intensely
+    //saturated violet zenith turned the whole floor into a blue-violet sea where the references' shadowed
+    //snow is a greyed blue.
+    float3 skyAmbient = lerp(HorizonColor, ZenithColor, 0.25 + 0.5 * saturate(normal.y * 0.5 + 0.5));
 
     float3 color = albedo * (skyAmbient * AmbientStrength + SunColor * ndotl * sunlight);
 
@@ -349,9 +448,11 @@ float4 MountainSurface(MountainVertexOutput input, uniform bool fullDetail)
     //that tonemapping it down a little is the look, not a loss. Scaled by the direct sun only (ndotl and the
     //cloud shadow with it), because a glint IS reflected sun.
     //...and it is gated on the SNOW MASK, which this line said in words and did not do. Without the factor
-    //the glint dusts bare rock as readily as snowfield, and the basin floor beside the arena is rock carrying
+    //the glint dusts bare rock as readily as snowfield, and the basin floor beside the arena was rock carrying
     //the `altSnow + 0.15` shoulder and nothing more - so the brightest thing in the scene was landing on the
     //darkest ground the player stands closest to, which is why the squares above were impossible to miss.
+    //Since #504 that floor is snow, so the glint does reach the ground beside the arena now - as the
+    //footprint-sized point #278 made it, which is what a snowfield underfoot should do.
     if (fullDetail)
         color += SunColor * SnowSparkle(worldPosition.xz, normal, footprint)
             * snow * ndotl * sunlight * detailFade * 3.0;
