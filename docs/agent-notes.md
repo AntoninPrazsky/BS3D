@@ -5360,3 +5360,21 @@ Obě issues nechávám otevřené na majitelův pohled v pohybu.
 - **Ověřeno:** Testbed i Game (`level=Facet`, High i Low/redukovaný program). `Settings.json` i `Progress.json` beze změny.
 
 **Nic dalšího si neberu — jdu na #503 (moře).**
+
+---
+
+## 2026-09-22 — Claude Code, bs3d-9f (desktop: #503 moře proti fotografiím, merge `9ca5e33`)
+
+**Sedmá scéna, a první scéna projektu vůbec — nikdy nikdo nepoložil vedle ní fotku.** 18 referencí (otevřené moře za soumraku těsně nad hladinou, lámající se hřebeny zblízka, sluneční třpytka, protisvětlem prosvícený hřeben, vítr trhající spršku, moře z výšky), `C:\Users\panrd\AI\sd\out\503`. **Geometrie zůstala beze změny** — Gerstnerovo spektrum, dojezdy, klidové pásmo, tůň v odtoku, meniskus i clip. Reference nesouhlasily se *stínováním*, a říkaly totéž co den předtím sen: **voda je tmavší, než se kreslila, a bílá na ní je bělejší.**
+
+- **⚠ Dálkový opar dělal vzdálené moře SYTĚJŠÍ než blízké, což je v každé fotce naopak.** Změřeno pod kupolí 13 z herní výšky (`nopost nooverc`): nebe těsně nad obzorem (167, 176, 198), voda těsně pod ním (60, 137, 160) — propad 107 úrovní v červené přes jeden řádek — a **zelený kanál se vzdáleností ROSTL**. Příčina: `HorizonColor` je pás čisté oblohy u obzoru, jenže voda u obzoru je při tečném dopadu zrcadlo a ukazuje celou oblohu nad sebou, mraky včetně. Cíl oparu se teď táhne z 55 % k vlastní luminanci — jas zůstane (ta půlka byla správně), sytost jde dolů. Tentýž řádek teď čte (98, 133, 157).
+- **Kontrola vyloučila nejnasnadnější špatné vysvětlení:** pod *toutéž* kupolí jde poušť z nebe (156, 172, 189) do písku (156, 121, 74) — červený kanál sedí **přesně** a přechod trvá 30 řádků. Takže to není kupole, ani mechanika oparu, ani rozsah mřížky; je to stínování moře.
+- **Sahá to i na lagunu, záměrně** (`Sea.fx` je sdílený): změřeno na tropické scéně přes 1800 vzorků vody vedle palem, (161, 167, 162) → (148, 158, 152). Proto konstanta a ne knoflík — voda při tečném pohledu zrcadlí celou oblohu v laguně stejně jako na moři. **Majiteli to hlásím v komentáři, ať to posoudí.**
+- **Barva těla se klíčuje na HŘEBEN, ne jen na to, kam plocha kouká.** `normal.y` je skoro všude blízko 1, takže se směs skoro neměnila a voda byla od úžlabí ke hřebenu jedna hodnota. Nový činitel `lerp(0.12, 0.85, crest)` má **střední hodnotu rovnou té staré konstantě** (0,485 proti 0,5) — změnil se rozsah, ne úroveň.
+- **Pěna je vzácnější a silnější.** Kde pruh vznikne, jde na plnou bílou; lineární náběh rozetřel trochu pěny přes hodně vody, což čte jako olejový film. **A práh pruhů musí zůstat NAD střední hodnotou pole při každé hustotě**: `streaks` je fbm + 0,5, takže sedí kolem 0,5, a staré okno se při plné hustotě posunulo na (0,285, 0,49) — celé pod ní — a obarvilo asi polovinu plochy jednou hodnotou. To je #128 znovu, jen větší.
+- **Mezikrok, který se ukázal jako regrese, je v dokumentaci taky:** samotné utažení okna sebralo pěnu z moře úplně. Řekl to snímek, ne dodatečná úvaha.
+- **⚠ Bílé placky spršky nikdy nebyly problém tvaru a #169 na ně nemohlo dosáhnout.** Deska je vystředěná na kameru v XZ, takže částice může sedět **metr od objektivu**, kde 0,1jednotkový billboard pokryje čtyřicet pixelů a nakreslí vlastní obrys, ať je knoflík velikosti jakkoli malý — nejbližší částice je vždycky největší na obrazovce, takže zmenšení třídy jen zmenšilo placky. Teď se částice na posledním přiblížení vytrácí (pod 5 jednotkami nekreslí nic, plná od 20).
+- **Cena:** 6,74/6,75 ms proti 6,76/6,77 (3840×1600 ssaa 2). **⚠ Při ssaa 1 seděly obě půlky přesně na 2,50 ms — na capu — a neměřily nic** (past 10 ze skillu benchmark); zátěž se musela zvednout, než ten pár začal něco znamenat.
+- **Žádný dodávaný level není na moři** (dvanáct kapitol používá ostatní pozadí), takže v Game se na něj dá dostat jen výběrem scény a náhodou v úvodní obrazovce — tam to je taky ověřené.
+
+**Nic dalšího si neberu — jdu na další scénu.**
