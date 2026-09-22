@@ -120,10 +120,10 @@ namespace Prazsky.Core.Render
 
         /// <summary>A single puff's radius as a fraction of its cell's. Small enough that a cell is built of
         /// visibly separate lobes and large enough that it has no holes punched through it.</summary>
-        public float PuffScaleMin { get; set; } = 0.22f;
+        public float PuffScaleMin { get; set; } = 0.12f;
 
         /// <inheritdoc cref="PuffScaleMin"/>
-        public float PuffScaleMax { get; set; } = 0.40f;
+        public float PuffScaleMax { get; set; } = 0.58f;
 
         /// <summary>
         /// How opaque one puff is at its middle. <b>The single most important dial in this file.</b> Near 1
