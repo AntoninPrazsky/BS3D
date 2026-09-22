@@ -5345,3 +5345,18 @@ Obě issues nechávám otevřené na majitelův pohled v pohybu.
 - **Cena:** 2,74 → 2,64 ms (1920×1080 ssaa 2, `fpscap=400`). Na 3840×1600 a ssaa 1 obě verze sedí pod capem 2,5 ms.
 
 **Nic dalšího si neberu — jdu na #506 (sen).**
+
+---
+
+## 2026-09-22 — Claude Code, bs3d-9f (desktop: #506 sen podle referencí, merge `6a02b87`)
+
+**Šestá scéna.** 15 referencí (skleněná plastika na tmavém pozadí, tekutý chrom, lávová lampa, svítící koule v tmavé místnosti, inkoust ve vodě), `C:\Users\panrd\AI\sd\out\506`. Shodují se na jediné věci, a není to barva: **jsou převážně TMAVÉ a barva je v nich shrnutá do chuchvalců a vláken, která z té tmy vystupují.** Naše obloha byla přesný opak — jedna hodnota přes celý snímek.
+
+- **Jas nikdy nemohl být ten správný knoflík.** Kosinová paleta, jejíž tři kanály sedí po třetině cyklu, je barevný kruh při *konstantní světlosti* (průměr = `A`, 0,42, ať je `t` jakékoli) — otáčením odstínu ji nelze ztmavit a `Brightness` jen sníží celý snímek naráz, což přesně udělal zaznamenaný krok 0,32 → 0,24. Kontrast musí být **hustota nad** paletou; mezivýsledky warpu už říkají, kde se tekutina shrnula: `saturate(length(r)·2,4 − 0,18)` na druhou. Většina koule je teď skoro prázdná, takže `Brightness` mohl zpátky na 0,30 a `SwirlScale` 2,6 → 2,1 (reference mají pár velkých chuchvalců, ne jemnou mřenku).
+- **⚠ Práh stuh se musí nastavit podle SKUTEČNÉHO rozdělení pole, ne podle odhadnutého.** Tříoktávová `RidgedFbm3` není vycentrovaná: oktávy jsou `(1−|n|)²`, což je blízko 1 pro malá `|n|`, která v gradientním poli převažují — takže běží kolem **0,63 typicky proti maximu 0,875**, úzký pás vysoko, ne rozsah 0..1. Staré figury (`saturate(x − 0,35)·1,7`, na třetí) nechávaly jádra na **0,01**; ta bledá vlákna ve snímku byla celá vrstva. Přestřelená oprava na práh 0,30 (pod skoro každým pixelem) z ní udělala **souvislý bledě zelený závoj přes celou kouli**, kterým médium prosvítalo jako díry — plíseň místo inkoustu. Správně je **0,58** se ziskem, který zbytek pásu natáhne na 0..1; ze tří čtvrtin násobeno hustotou, protože vlákno inkoustu svítí tam, kde inkoust je.
+- **Útvary četly jako matný pastelový plast; spravil to jediný člen — Beerova absorpce podle toho, jak moc je plocha čelem.** To je jediná tloušťka dostupná bez druhého pochodu. **Nejdřív jsem zkusil ploché obarvení průhledu a vrátilo se to přesně tak ploché jako nátěr, který nahrazovalo** — obloha za útvarem se přes dvacet stupňů, které zabírá, skoro nemění, takže těleso stíněné jen oblohou nemá uvnitř žádný gradient. `exp(−facing·Absorption·(1−own))` dá ten jediný gradient, který má každá fotka skla: sytý tmavý střed, čistý okraj. Emisní podlaha mohla z 0,55 na 0,05 (starý komentář ji držel vysoko, aby útvar s tmavou fází palety nezmizel — těleso, kterým je vidět obloha, zmizet nemůže) a emise se stala lemem.
+- **Průhled i odlesky zadarmo:** `color` je v tom místě už posbíraná obloha toho paprsku, takže koule plující za útvarem jím teď prosvítá (přesně lávová lampa); odlesky odpovídají **nadlineárně** (`m·(0,5+4m)`), takže jasná stuha na zakřivené ploše je tvrdý highlight. Obloha bez slunce si nemusela žádné světlo vymýšlet — odlesk na skle ve studiu *je* odraz.
+- **Cena:** 5,95/5,95 ms na `main` proti 5,93/5,96 (3840×1600, `fpscap=400`, střídavé buildy, mediány) — **zdarma**, jak předpovídá occupancy-bound pass (#103): všechno přidané je ALU a až na dva řádky hustoty sedí uvnitř větve, kterou platí jen zasažený útvar.
+- **Ověřeno:** Testbed i Game (`level=Facet`, High i Low/redukovaný program). `Settings.json` i `Progress.json` beze změny.
+
+**Nic dalšího si neberu — jdu na #503 (moře).**
