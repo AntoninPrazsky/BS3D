@@ -5331,3 +5331,17 @@ Obě issues nechávám otevřené na majitelův pohled v pohybu.
 - **Ověřeno:** Testbed i Game (`level=Chest`, High).
 
 **Nic dalšího si neberu — jdu na #505 (vesmír).**
+
+---
+
+## 2026-09-22 — Claude Code, bs3d-9f (desktop: #505 vesmír proti astrofotografii, merge `20abe83`)
+
+**Pátá scéna.** Kapitola The Nebula. 15 referencí (jádro Mléčné dráhy, emisní mlhovina, hluboké pole, plynný obr, širokoúhlá obloha), `C:\Users\panrd\AI\sd\out\505` + `index.html`.
+
+- **Pouze barvy a hustoty, žádný nový ani zrušený člen** — objemový pochod (Star Nest) zůstal, jak je.
+- **Prázdnota musí být TMAVÁ.** Každá astrofotka drží mezi strukturami čerň; naše obloha měla přes každý pixel hnědolila závoj. `VOLUME_HAZE` 0,22 → 0,12 (člen, jehož úkolem je jen řídká látka *mezi* vlákny) a `Volume.Strength` 1,0 → 0,6. Pás i dvě ze tří mlhovin do té doby soupeřily s podlahou jasu.
+- **Pás je pás HVĚZD:** `Width` 0,135 → 0,105, `Brightness` 0,115 → 0,150, `Dust` 0,88 → 1,0 a hlavně `Stars.StarBoost` 2,6 → 4,2 — to je ta věc, která z pásu udělá pás.
+- **Mlhoviny červená H-alfa a tyrkys**, ne horká růžová; plynný obr má větší kontrast pásů a slabší okraj (0,30 → 0,16) — modrý atmosférický lem má Země, ne plynný obr.
+- **Cena:** 2,74 → 2,64 ms (1920×1080 ssaa 2, `fpscap=400`). Na 3840×1600 a ssaa 1 obě verze sedí pod capem 2,5 ms.
+
+**Nic dalšího si neberu — jdu na #506 (sen).**
