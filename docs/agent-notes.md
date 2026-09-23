@@ -5719,3 +5719,23 @@ Předchozí zápis říkal, že to dostavět znamená sáhnout do brány a že t
 - ⚠ **Netvrdit víc, než co je pravda:** zdvojnásobení mapy schod **opravdu půlí** a ten poměr se s rozlišením nemění. Mění se **zbytek** — otázka „stačí 4096?" se zodpovídala na obrazovce, kde je o 48 % míň vidět.
 - **Data pro rozhodnutí jsou už v #484 změřená:** 8192 dá na 3840×1600 schod ~2,0 řádku za **+0,16 ms** a **537 MB** proti 134 MB. Na issue jsem dal tři varianty (Ultra = 8192 jen ručně, širší PCF místo rozlišení, nebo nechat být) a **rozhodnutí nechal majiteli** — „Ultra tier" je rozhodnutí o produktu.
 - ⚠ **Dvě pasti, do kterých jsem při tom spadl a obě jsou v skillech napsané:** (1) chtěl jsem srovnat 1080p a 4K párem snímků z hry a **obě vyšly 3840×1600** — hra `width=` nepoužila a já si to neověřil na `[fps]` řádku (past 8 benchmark skillu), takže první srovnání bylo neplatné. Poměr rozlišení nakonec žádný snímek nepotřebuje, je to aritmetika. (2) Dvě masky na změření „pixelů na světovou jednotku" chytily místo ostrova **písek** a pak **oblohu** (1,1 a 3,1 milionu pixelů) — počet pixelů v masce je nejlevnější kontrola, že maska měří to, co si myslíš.
+
+---
+
+## 2026-09-23 — Claude Code, bs3d-9f (desktop: #524 přeměřeno — ze 58 otevřených issues není nedotčená ani jedna)
+
+**Když jsem #524 dnes zakládal, vyšlo „5 z 58 nedotčených". Po téhle noci je to nula.** Moje #404, #402, #484, #527 plus peerovy #518, #519, #521, #522, #486, #491 pokryly zbytek. Komentář s tabulkou je na #524.
+
+- **Metoda, reprodukovatelná:** pro každé otevřené issue hledám `(#N)` v `git log --oneline --all` a `#N` v `docs/agent-notes.md` včetně archivu.
+
+  | | počet |
+  |---|---|
+  | otevřených | **58** |
+  | **merge commit nese jejich číslo** (kód na mainu) | **39** |
+  | jmenuje je jen deník (průzkum / rozhodnutí / návrh) | 19 |
+  | **ani jedno — opravdu nezačaté** | **0** |
+
+- **Co to znamená:** seznam issues **neodlišuje „hotové, čeká na verdikt" od „nikdo na to nesáhl" vůbec**, protože druhá kategorie je prázdná. To je ta vada z #524, jen ostřejší, než jak jsem ji popsal.
+- ⚠ **Nečíst to jako víc, než to je:** „jmenuje je deník" je slabý signál (stačí zmínka mimochodem); silný je ten merge commit, a těch je 39. A těch 19 „jen deník" není odloženo — jsou to jiné druhy issues: návrhové brainstormy (#213, #230, #257), výzkum (#95, #188, #251), hudba čekající na ucho (#280, #292, #449, #495) a tři moje z #400 (#524, #525, #526), kde jsem sám napsal, že rozhodnutí je majitelovo.
+- **Štítek jsem nezaložil ani nevěšel** — štítkové schéma je majitelovo rozhodnutí; tohle jsou čísla, na kterých se dá rozhodnout.
+- **Za tuhle noc mě to pravidlo zachránilo třikrát:** #462 (merge `fdf1950`), #484 (merge `6195183` — a měl jsem čerstvý snímek, co vypadal jako ta vada) a pak #478/#378/#496/#395, které jsem si chtěl vzít po řadě. Bez grepu bych byl přepsal čtyři hotové věci.
