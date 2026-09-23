@@ -83,10 +83,17 @@ float3 HazeTint;
 float HorizonHazeDistance;
 float HazeStrength;
 
-//The wind the field drifts on, and the clock it runs off.
+//The wind the field drifts on (unit length, the host normalises it), and the clock it runs off.
 float2 WindDirection;
 float CloudTime;
 float DriftSpeed;
+
+//The band the field is built on and drifts along - half its length along the wind, both ends past the far
+//plane so the wrap at them is never in frame - and how close to the arena a cell's MIDDLE may ever come,
+//which the drift steers every cell round (#532). The host adds the largest cell's radius to the config's
+//InnerRadius, so it is the puffs that clear the arena and not just the point they stand round.
+float FieldHalfLength;
+float FieldClearance;
 
 //How much a puff shades as part of its CELL rather than as its own sphere. See StormCloudsConfig.
 float MassNormalMix;
@@ -114,6 +121,42 @@ struct CloudVertexOutput
     float3 MassNormal : TEXCOORD4;
 };
 
+//Where a CELL stands this frame, as an offset from where it was built (#532). Three things happen to it, all
+//off the cell's own middle so that every puff of the cell gets the same answer and the cell moves as one
+//body - SceneRenderer.StormCellPosition is this function's host copy, kept in step by hand, and is what puts
+//the strike inside the cell it names:
+//  * it is carried downwind at DriftSpeed;
+//  * it wraps: the field is a band aligned with the wind, 2 * FieldHalfLength long, and a cell carried off
+//    the downwind end comes back in at the upwind one. Both ends are past the far plane, so the jump is
+//    never in frame, and because the whole cell jumps at once nothing is torn. Until #532 there was no wrap
+//    at all - "a wrap would tear a mass in half" - and the annulus the field was built in emptied its
+//    upwind half within three minutes of a session and stood entirely downwind of the arena inside ten:
+//    "the clouds are in one small part";
+//  * it is steered round the arena: a Gaussian bump on the along-wind coordinate (width the clearance R,
+//    so it is gone two clearances up- or downwind) pushes the cross-wind coordinate outwards - by the whole
+//    of R on the arena's own lane, fading to nothing three clearances abeam - so a cell whose lane runs
+//    through the island flows round it instead, and the cells that would have stood in the island's disc
+//    are spread over the ring out to 3R rather than piled on its rim. The distance is never under R: the
+//    lane's own cell is at R exp(-a^2 / 2R^2) abeam, and a^2 + R^2 exp(-a^2 / R^2) has its minimum, R^2,
+//    at a = 0, while every other cell stands further out than that one. The band is built with no hole in
+//    it, so this is what holds the clearance at launch as well as after an hour.
+float2 StormCellOffset(float2 built)
+{
+    float2 across = float2(-WindDirection.y, WindDirection.x);
+    float a = dot(built, WindDirection) + CloudTime * DriftSpeed;
+    float c = dot(built, across);
+
+    float span = 2.0 * FieldHalfLength;
+    a -= span * floor((a + FieldHalfLength) / span);
+
+    float bump = exp(-(a * a) / (2.0 * FieldClearance * FieldClearance));
+    float side = c < 0.0 ? -1.0 : 1.0;
+    float abeam = abs(c);
+    c = side * (abeam + FieldClearance * bump * max(0.0, 1.0 - abeam / (3.0 * FieldClearance)));
+
+    return WindDirection * a + across * c - built;
+}
+
 CloudVertexOutput CloudVS(CloudVertexInput input)
 {
     CloudVertexOutput output;
@@ -122,10 +165,12 @@ CloudVertexOutput CloudVS(CloudVertexInput input)
     float radius = input.Data.z;
     float seed = input.Data.w;
 
-    //The field drifts downwind bodily. It is generated far wider than the far plane, so nothing has to wrap
-    //- a wrap would tear a mass in half, which is the one artefact a cloud cannot survive.
+    //The field drifts downwind, and every puff moves by what its CELL's middle moves by (#532), so a cell
+    //travels as one body: its wrap through the far end of the band and its swing round the arena are one
+    //offset for all of its puffs, and no puff can be left behind by either.
+    float2 offset = StormCellOffset(input.MassCentre.xz);
     float3 centre = input.Centre;
-    centre.xz += WindDirection * (CloudTime * DriftSpeed);
+    centre.xz += offset;
 
     //And it breathes: each puff rises and falls on its own phase, by a tenth of its own radius. Enough that
     //a mass is never quite still, far too little to read as motion.
@@ -135,7 +180,7 @@ CloudVertexOutput CloudVS(CloudVertexInput input)
 
     //The direction out of the CELL this puff belongs to. Computed here, per puff, rather than in the pixel
     //shader: it is constant across a quad, and it is what lets the cell shade as one body.
-    float3 fromMass = centre - (input.MassCentre + float3(WindDirection * (CloudTime * DriftSpeed), 0.0).xzy);
+    float3 fromMass = centre - (input.MassCentre + float3(offset.x, 0.0, offset.y));
     output.MassNormal = normalize(fromMass + float3(0.0, 0.001, 0.0));
 
     output.WorldCentre = centre;

@@ -662,6 +662,10 @@ namespace Prazsky.Core.Render
         //garbage triangles rather than failing.
         private const int STORM_MAX_QUADS = 16000;
 
+        //How far from the arena a strike may go off: a bolt beyond this is a bolt nobody sees. Tested against
+        //where a cell stands NOW (StormCellPosition), not where it was built — the field moves (#532).
+        private const float STORM_STRIKE_REACH = 420f;
+
         //Look/tuning parameters (the cloud field, the material, the flash, the air) live in
         //StormSceneConfig; SceneRenderer reads them from _stormConfig.
 
@@ -2697,8 +2701,11 @@ namespace Prazsky.Core.Render
             _stormEffect.Parameters["HazeTint"].SetValue(air.HazeTint.ToVector3());
             _stormEffect.Parameters["HorizonHazeDistance"].SetValue(MathF.Max(air.HorizonHazeDistance, 1f));
             _stormEffect.Parameters["HazeStrength"].SetValue(air.HazeStrength);
-            _stormEffect.Parameters["WindDirection"].SetValue(air.Wind.ToVector2());
+            StormWindFrame(out Vector2 wind, out _);
+            _stormEffect.Parameters["WindDirection"].SetValue(wind);
             _stormEffect.Parameters["DriftSpeed"].SetValue(air.DriftSpeed);
+            _stormEffect.Parameters["FieldHalfLength"].SetValue(MathF.Max(clouds.OuterRadius, 1f));
+            _stormEffect.Parameters["FieldClearance"].SetValue(StormCellClearance());
         }
 
         /// <summary>
@@ -2725,27 +2732,30 @@ namespace Prazsky.Core.Render
             CloudPuffVertex[] vertices = new CloudPuffVertex[_stormCloudPuffCount * 4];
             Random rng = new(90219 + _seedOffset);
 
-            float inner = MathF.Max(c.InnerRadius, 1f);
-            float outer = MathF.Max(c.OuterRadius, inner + 1f);
+            StormWindFrame(out Vector2 along, out Vector2 across);
+            float halfLength = MathF.Max(c.OuterRadius, 1f);
+            float halfWidth = MathF.Max(c.BandHalfWidth, 1f);
 
-            //Only the cells near enough for a strike in one to be worth drawing: the field runs well past
-            //the far plane so it can drift, and a bolt out there is a bolt nobody sees.
-            System.Collections.Generic.List<Vector2> strikeCells = new();
-            float strikeLimit = MathF.Min(outer, 420f);
+            //Every cell's middle where it was BUILT: a strike picks one and asks StormCellPosition where it
+            //stands now, so the list is the whole field and the reach test waits until then (#532).
+            Vector2[] strikeCells = new Vector2[massCount];
 
             int puff = 0;
             for (int m = 0; m < massCount; m++)
             {
-                //Uniform over the ANNULUS, not over the radius: sampling the radius flat crowds every cell
-                //into the middle, and a cloudscape whose cells thin out with distance reads as a bowl.
-                float t = (float)rng.NextDouble();
-                float radius = MathF.Sqrt(inner * inner + t * (outer * outer - inner * inner));
-                float bearing = (float)rng.NextDouble() * MathHelper.TwoPi;
+                //Uniform over a BAND aligned with the wind — OuterRadius up- and downwind, BandHalfWidth
+                //across — and not over an annulus (#532). The field drifts along the band and wraps through
+                //its far end, so a band is what stays evenly covered; the annulus, drifting with no wrap,
+                //emptied its upwind half within minutes. The arena's clearance is not cut out of it here:
+                //the drift steers every cell round the arena (StormClouds.fx's StormCellOffset), at launch
+                //as much as after an hour, so the band is built without a hole.
+                float a = ((float)rng.NextDouble() * 2f - 1f) * halfLength;
+                float b = ((float)rng.NextDouble() * 2f - 1f) * halfWidth;
 
-                Vector3 centre = new(MathF.Cos(bearing) * radius, Lerp(c.BaseYMin, c.BaseYMax, (float)rng.NextDouble()),
-                    MathF.Sin(bearing) * radius);
+                Vector3 centre = new(along.X * a + across.X * b, Lerp(c.BaseYMin, c.BaseYMax, (float)rng.NextDouble()),
+                    along.Y * a + across.Y * b);
 
-                if (radius <= strikeLimit) strikeCells.Add(new Vector2(centre.X, centre.Z));
+                strikeCells[m] = new Vector2(centre.X, centre.Z);
 
                 float massRadius = Lerp(c.MassRadiusMin, MathF.Max(c.MassRadiusMax, c.MassRadiusMin), (float)rng.NextDouble());
                 float massHeight = massRadius * Lerp(c.HeightScaleMin, MathF.Max(c.HeightScaleMax, c.HeightScaleMin), (float)rng.NextDouble());
@@ -2802,7 +2812,7 @@ namespace Prazsky.Core.Render
             _stormCloudVertexBuffer = new VertexBuffer(_graphicsDevice, CloudPuffVertex.Declaration, vertices.Length, BufferUsage.WriteOnly);
             _stormCloudVertexBuffer.SetData(vertices);
             _stormCloudIndexBuffer = BuildQuadIndexBuffer(_stormCloudPuffCount);
-            _stormStrikeCells = strikeCells.ToArray();
+            _stormStrikeCells = strikeCells;
         }
 
         /// <summary>
@@ -2950,6 +2960,59 @@ namespace Prazsky.Core.Render
             return period;
         }
 
+        /// <summary>The storm's wind as an orthonormal XZ frame — <paramref name="along"/> downwind and
+        /// <paramref name="across"/> its perpendicular — the axes the cloud band is built on and drifts
+        /// along. Normalised here, so a config wind that is not unit-length cannot silently mean a faster
+        /// sky, and pushed to the shader in the same form.</summary>
+        private void StormWindFrame(out Vector2 along, out Vector2 across)
+        {
+            along = _stormConfig.Air.Wind.ToVector2();
+            along = along.LengthSquared() > 1e-6f ? Vector2.Normalize(along) : Vector2.UnitX;
+            across = new Vector2(-along.Y, along.X);
+        }
+
+        /// <summary>
+        /// Where a cloud cell stands at a wall-clock time, from where it was built: carried downwind, wrapped
+        /// through the far end of the band back to the near one, and steered round the arena. <b>The host
+        /// copy of <c>StormClouds.fx</c>'s <c>StormCellOffset</c>, kept in step by hand</b> — the shader
+        /// moves the puffs and this places the strike inside them, and if the two disagreed the bolt would
+        /// go off in clear air. Which is what happened until #532: the strike stood where the cell was
+        /// built, inside it for the first half minute of a session and in the air it had left ever after.
+        /// </summary>
+        private Vector2 StormCellPosition(Vector2 built, float time)
+        {
+            StormCloudsConfig clouds = _stormConfig.Clouds;
+            StormWindFrame(out Vector2 along, out Vector2 across);
+
+            float halfLength = MathF.Max(clouds.OuterRadius, 1f);
+            float clearance = StormCellClearance();
+            float span = 2f * halfLength;
+
+            float a = Vector2.Dot(built, along) + time * _stormConfig.Air.DriftSpeed;
+            float b = Vector2.Dot(built, across);
+
+            a -= span * MathF.Floor((a + halfLength) / span);
+
+            float bump = MathF.Exp(-(a * a) / (2f * clearance * clearance));
+            float side = b < 0f ? -1f : 1f;
+            float abs = MathF.Abs(b);
+            b = side * (abs + clearance * bump * MathF.Max(0f, 1f - abs / (3f * clearance)));
+
+            return along * a + across * b;
+        }
+
+        /// <summary>
+        /// How close to the arena a cell's MIDDLE may come: <see cref="StormCloudsConfig.InnerRadius"/> for
+        /// its puffs, plus the largest cell's radius, since a puff stands up to that far from its middle.
+        /// The first cut of #532 steered the middle to <c>InnerRadius</c> alone, and the Game's front end
+        /// photographed its lens inside a puff at ten seconds — the whole frame milk.
+        /// </summary>
+        private float StormCellClearance()
+        {
+            StormCloudsConfig clouds = _stormConfig.Clouds;
+            return MathF.Max(clouds.InnerRadius, 1f) + MathF.Max(clouds.MassRadiusMax, clouds.MassRadiusMin);
+        }
+
         /// <summary>
         /// Where the current strike stands, in the XZ plane. Hashed off the same period index the envelope
         /// is, so the flash's glow and the light it throws cannot disagree about which cell went off — and
@@ -2965,10 +3028,26 @@ namespace Prazsky.Core.Render
             //air about as often as in cloud, and a discharge with nothing around it lights nothing - the
             //glow IS the flash from most cameras, since the channel itself is usually inside the cell it
             //went off in. The cells' own middles are kept when the field is built for exactly this.
-            if (_stormStrikeCells.Length > 0)
+            //
+            //And in the cell where it stands NOW (#532): the hashed pick is walked on to the first cell
+            //within reach of the arena this second, so it is still a pure function of the period index and
+            //the clock. A cell drifts 0.7 units over one strike, so the bolt rides with it unnoticed.
+            int count = _stormStrikeCells.Length;
+            if (count > 0)
             {
-                int cell = (int)(Hash01(index + 57f) * _stormStrikeCells.Length);
-                return _stormStrikeCells[Math.Clamp(cell, 0, _stormStrikeCells.Length - 1)];
+                int first = Math.Clamp((int)(Hash01(index + 57f) * count), 0, count - 1);
+                Vector2 nearest = default;
+                float nearestDistance = float.MaxValue;
+
+                for (int step = 0; step < count; step++)
+                {
+                    Vector2 at = StormCellPosition(_stormStrikeCells[(first + step) % count], time);
+                    float distance = at.Length();
+                    if (distance <= STORM_STRIKE_REACH) return at;
+                    if (distance < nearestDistance) { nearestDistance = distance; nearest = at; }
+                }
+
+                return nearest;
             }
 
             //Nothing to strike (a field configured empty): fall back to a ring outside the arena.

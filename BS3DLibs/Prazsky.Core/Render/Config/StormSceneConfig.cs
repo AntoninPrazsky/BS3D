@@ -64,35 +64,59 @@ namespace Prazsky.Core.Render
     /// cloudscape back into a ceiling.
     /// </para>
     /// <para>
-    /// <b>The field is generated once at load and is static in the world</b>, drifting bodily downwind in
-    /// the vertex shader. It is generated well past the far plane on purpose: a wrap-around would tear a
-    /// mass in half, which is the one artefact a cloud cannot survive.
+    /// <b>The field is generated once at load and moves in the vertex shader</b>: built on a band aligned
+    /// with the wind, carried downwind along it, wrapped through the band's far end back to the near one and
+    /// steered round the arena — one offset per cell, off the cell's own middle, so a cell moves as one body
+    /// (<c>StormClouds.fx</c>'s <c>StormCellOffset</c>; <c>SceneRenderer.StormCellPosition</c> is its host
+    /// copy, which is what puts the strike inside the cell it names). ⚠ Until #532 it was built in an
+    /// annulus and drifted with no wrap at all — "a wrap would tear a mass in half" — and the annulus
+    /// emptied upwind within three minutes and stood entirely downwind of the arena inside ten: "the clouds
+    /// are in one small part", the owner's verdict on #510. The wrap tears nothing because it moves the
+    /// whole cell at once, 280 units past the far plane.
     /// </para>
     /// </summary>
     public sealed class StormCloudsConfig
     {
         /// <summary>
         /// How many cumulus cells stand in the field. The puff budget is the real ceiling: the buffer is
-        /// 16-bit indexed, so cells × <see cref="PuffsPerMass"/> must stay under about 16 000 quads.
+        /// 16-bit indexed, so cells × <see cref="PuffsPerMass"/> must stay under about 16 000 quads. 180
+        /// since #532 (150 until then): the owner's verdict on #510 asked for more cloud, and the band the
+        /// field is built on since #532 is 7 % smaller than the annulus was, so this is about a quarter more
+        /// cloud per unit of sky — the cost is in "The storm" in docs/scenes.md, measured against the annulus.
         /// </summary>
-        public int MassCount { get; set; } = 150;
+        public int MassCount { get; set; } = 180;
 
         /// <summary>How many billboard puffs build one cell. Under about twenty a cell reads as a clump of
         /// balls; over about eighty the extra ones are hidden inside the ones in front.</summary>
         public int PuffsPerMass { get; set; } = 78;
 
         /// <summary>
-        /// How close to the arena a cell may stand. <b>Not decoration: it is what keeps a cloud from being
-        /// drawn in front of the island.</b> The field is alpha-blended and depth-read but written before
-        /// the arena, so a puff nearer the camera than the stone would be overpainted by it — the same
-        /// limitation the sea's spray carries. Keeping every cell outside the play camera's own stand-off
-        /// makes the case unreachable in play.
+        /// How close to the arena a cell's <i>puffs</i> may ever come — its middle stays a further
+        /// <see cref="MassRadiusMax"/> out (<c>SceneRenderer.StormCellClearance</c>). <b>Not decoration: it
+        /// is what keeps a cloud from being drawn in front of the island.</b> The field is alpha-blended and
+        /// depth-read but written before the arena, so a puff nearer the camera than the stone would be
+        /// overpainted by it — the same limitation the sea's spray carries. Keeping every puff outside the
+        /// front end's own orbit makes the case unreachable. Since #532 the drift <i>steers</i> cells round
+        /// this radius rather than the build merely starting their middles outside it: a cell whose lane down
+        /// the wind runs through the island swings round it and back, and the clearance holds after an hour
+        /// as it did at launch — until then it held for about a minute, the time the nearest upwind cell took
+        /// to arrive. ⚠ And it is the puffs' clearance, not the middle's, because the first cut of #532
+        /// steered the middle to this radius alone and the Game's front end photographed its lens inside a
+        /// puff at ten seconds: a cell's middle 105 out with a 62-unit radius has puffs 43 from the centre,
+        /// inside the orbit.
         /// </summary>
         public float InnerRadius { get; set; } = 105f;
 
-        /// <summary>How far out the field is generated. Past the far plane deliberately, so the field can
-        /// drift for a whole session without its edge ever entering the frame.</summary>
+        /// <summary>How far the band the field is built on reaches up- and downwind of the arena, in world
+        /// units — half its length. Past the far plane deliberately, so the wrap at its ends (#532) is never
+        /// in frame: a cell carried off the downwind end comes back in at the upwind one 280 units beyond
+        /// anything the camera draws.</summary>
         public float OuterRadius { get; set; } = 780f;
+
+        /// <summary>How far the band reaches across the wind, either side of the arena. The far plane plus
+        /// the largest cell, so the abeam horizon is covered to the edge of what is drawn and no further — a
+        /// cell out past it is a vertex-shader cost and nothing on the screen.</summary>
+        public float BandHalfWidth { get; set; } = 560f;
 
         /// <summary>Lowest and highest a cell's BASE may sit (world Y). The island's own deck is at −8.5, so
         /// a field sitting under that is one the arena looks down on — which is the scene.</summary>
