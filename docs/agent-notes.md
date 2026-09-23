@@ -5807,3 +5807,16 @@ Předchozí zápis říkal, že to dostavět znamená sáhnout do brány a že t
 - **Opraveno na dvou místech:** `CLAUDE.md` (aktuální velikost) a `docs/game-shell.md`, kde 68,3 → 70,9 MB je **delta loga** a platí dál — jen to už není velikost stahování, takže tam přibyla věta, že logo je dneska ~1 % místo 4 %.
 - **Není to problém, jen to musí být napsané správně:** majitelův rozpočet je ~1 GB (release je zdarma, repo je veřejné).
 - **Obecné poučení, které tahle noc dala dvakrát:** když jedna relace mergne něco velkého, **čísla v cizích dokumentech zestárnou s tím** a autor merge to nevidí, protože jeho vlastní zápis je správně. Druhá relace na to narazí náhodou. Stojí za to po velkém merge grepnout čísla, která ta změna mohla pohnout.
+
+---
+
+## 2026-09-23 — Claude Code, bs3d-9f (desktop: smoke test #486 ve hře — brány kontrolují soubory, ne přehrání)
+
+**#486 mergnul 108 nahrávek a obě brány prošly, ale nikdo hru proti tomu merge nespustil.** Brány kontrolují, že soubory existují a mají délku; nekontrolují, že si je hra vyzvedne. Pustil jsem čtyři kapitoly (`play level=1/41/81/111`, `quality=high`, `shot=12`).
+
+- **Výsledek: každá kapitola dostala jinou rodinu** — 1 `bloom`, 41 `nocturne`, 81 `skyline`, 111 `mirage`. Rodina u levelu 1 sedí na `One.json` (`"music": "bloom"`). **#486 funguje.**
+- **Jediná chyba v logu je zvukové zařízení** a je to ten případ, pro který ten catch existuje: `[music] the theme could not be realized (no audio device?) … Object reference not set to an instance of an object.` **Ověřeno, ne odhadnuto:** v registru `MMDevices\Audio\Render` **není ani jeden endpoint ve stavu ACTIVE** — v pět ráno spí monitor a bere HDMI audio s sebou, přesně jak předvídá komentář v `GameMusic.cs`.
+- ⚠ **Dvě věci v logu, které vypadaly jako vada a nejsou** — obě stojí za zapsání, protože příště vypadají stejně:
+  1. **`[game] scene Polar` u levelu 1, který je meadow.** To je past 11 z benchmark skillu: `[game] scene X` tiskne, co bylo **vyžádáno**, a já `scene=` nezadal, takže si přední scéna hodila náhodnou a level ji pak přebil. Autorita je `[fps]`, ne `[game]`.
+  2. **`bloom: bloom.ogg` vypadalo, že rodina má jediný soubor.** Má deset (`bloom.ogg` + devět variant) a kód cykluje od nuly, takže **první spuštění procesu vždycky ukáže první člen**. Rozmanitost rodiny se ze samostatného běhu ověřit nedá.
+- **Majitelův save netknutý** po čtyřech herních sezeních (hash `4D978DA1…` / `6966538B…` před i po).
