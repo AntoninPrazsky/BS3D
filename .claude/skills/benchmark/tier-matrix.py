@@ -2,7 +2,8 @@
 import re, sys, glob, os, statistics
 
 DROP = int(os.environ.get('DROP', '8'))
-FPS = re.compile(r'^\[fps\] ([\d,.]+) \(([\d,.]+) ms\) . (\w+), dome (\d+), ssaa (\d)x, (\w+), msaa (\d)x(?: \(asked (\d)\))?, detail (\w+), (\d+x\d+)')
+# The ms group is optional: builds from before #374 print the rate alone, and the ms is then 1000 / rate.
+FPS = re.compile(r'^\[fps\] ([\d,.]+)(?: \(([\d,.]+) ms\))? . (\w+), dome (\d+), ssaa (\d)x, (\w+), msaa (\d)x(?: \(asked (\d)\))?, detail (\w+), (\d+x\d+)')
 rows = []
 for path in sorted(glob.glob(os.path.join(sys.argv[1], '*.log'))):
     name = os.path.basename(path)
@@ -16,7 +17,7 @@ for path in sorted(glob.glob(os.path.join(sys.argv[1], '*.log'))):
     kept = fps[DROP:]
     if not kept:
         print('NO DATA', name, len(fps), bad[:1]); continue
-    ms = sorted(float(m.group(2).replace(',', '.')) for m in kept)
+    ms = sorted(float(m.group(2).replace(',', '.')) if m.group(2) else 1000.0 / float(m.group(1).replace(',', '.')) for m in kept)
     last = kept[-1]
     scene, dome, ssaa, t, msaa, detail, size = last.group(3), last.group(4), last.group(5), last.group(6), last.group(7), last.group(9), last.group(10)
     mixed = len({(m.group(3), m.group(6), m.group(10)) for m in kept}) > 1

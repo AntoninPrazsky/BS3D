@@ -21,6 +21,8 @@ measured with the factor **it** chose instead of one forced over the top of it.
 **For the tier ladder at real levels** (#540) use `tier-matrix.ps1` beside it: one run per level (or
 front-end scene) per tier, every `[fps]`/`[build]` line kept, then `python tier-matrix.py <dir>` prints medians
 and flags any run whose `[fps]` line is not what was asked for. The #540 table in `docs/game-shell.md` is its output.
+A Testbed `alt=` log is read by `python alt-paired.py <log> [baseline] [drop-cycles]`: whole cycles, each
+variant differenced from the baseline within its own cycle, median and how often the sign held.
 
 ## The four ways to measure nothing at all
 
@@ -118,6 +120,10 @@ Each of these has actually happened; the first two are the expensive ones.
    `alt=` (below) is the answer: cycle the variants inside one process and difference them within each cycle.
    And on a laptop, **look at what else is running before believing anything** — a stray `find` had been
    pinning a core for three and a half hours here, and killing it moved a fixed pin from 26.7 to 24.5 ms.
+   **Where no `alt=` exists — the Game at a level — repeat and take the MINIMUM of the run medians** (#540):
+   contention only ever adds time. The first pass of a 36-run tier matrix read up to 25 % high on every
+   chapter, with nothing on its `[fps]` lines to say so (Teams' WebView and Defender scanning the fresh build
+   were each holding a core); two later passes agreed with each other to 0.1 ms. One pass is an upper bound.
 
 15. **Measuring a build that is not the one you changed.** A shader edit can fail to reach the output
    directory in silence (MGCB skips an `.fx` whose `.xnb` is newer and then copies nothing), and a C# change
