@@ -664,7 +664,9 @@ namespace BS3D
         /// round the arena can go, and they are built off the city this game is drawing right now — so the
         /// shots stand in the very streets on screen, the day city's or the neon one's. And the volcano
         /// (#530): the tour looks at the cone from outside and never over its rim, and the crater is the one
-        /// picture every reference of #509 is built round.
+        /// picture every reference of #509 is built round. And the aurora (#531): its wood stands outside the
+        /// clearing where the tour's spline never goes, and the shots thread the very spruces this game
+        /// planted, off the planting itself.
         /// </summary>
         /// <param name="fieldOfView">The frame the tour ends on, which each shot widens from.</param>
         /// <param name="random">The intro's own roll.</param>
@@ -672,6 +674,8 @@ namespace BS3D
         {
             SceneKind.City or SceneKind.NeonCity => BS3D.Effects.CityIntroShots.Build(_city, fieldOfView, random),
             SceneKind.Volcano => BS3D.Effects.VolcanoIntroShots.Build(_sceneRenderer, fieldOfView, random),
+            SceneKind.Aurora => BS3D.Effects.AuroraIntroShots.Build(_auroraScatter,
+                _sceneRenderer?.GetSceneConfig(SceneKind.Aurora) as AuroraSceneConfig, fieldOfView, random),
             _ => null,
         };
 
