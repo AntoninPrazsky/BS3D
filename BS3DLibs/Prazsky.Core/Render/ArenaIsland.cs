@@ -386,6 +386,85 @@ namespace Prazsky.Core.Render
             _ => DEFAULT_LOOK
         };
 
+        /// <summary>
+        /// What the drain's ring is in one scene (#404): the band's albedo, the reflectance it mirrors the sky
+        /// in, and how hard it mirrors it (<c>SpecularAmbientStrength</c>) — which is the dial that turned out
+        /// to matter. The <b>glass</b> is deliberately not in here; see <see cref="DrainLookFor"/>.
+        /// </summary>
+        private readonly record struct DrainLook(Vector3 Rim, Vector3 RimSpecular, float Polish);
+
+        private static readonly DrainLook DEFAULT_DRAIN = new(FUNNEL_RIM_COLOR, FUNNEL_RIM_SPECULAR, 1f);
+
+        /// <summary>
+        /// How hard the ring mirrors the sky in the three scenes below. The default is 1 — the band is
+        /// <i>entirely</i> a mirror — and that is what bleaches it under a bright dome; at this the gold's own
+        /// diffuse carries the band and the sky only glints off it.
+        /// <para>
+        /// <b>⚠ It is not a dial to split the difference on: the response is V-shaped and 0.45 is near its
+        /// floor.</b> Lowering the polish walks the band from "mirror of a bright sky" towards "its own gold",
+        /// and on a pale warm cap the stone's colour lies <i>between</i> those two — so a middling value moves
+        /// the band onto the cap rather than off it. Measured on the desert, ring against cap in the frame:
+        /// <b>1.0 → 5.7 dE, 0.45 → 5.5, 0.15 → 13.3</b>. The first pass shipped 0.45 and measured no change at
+        /// all, which is what sent anyone looking. The beach, whose cap is paler than both endpoints, rises
+        /// monotonically instead (7.9 → 16.0 → 23.6) and would have hidden it.
+        /// </para>
+        /// </summary>
+        private const float BLEACHED_SKY_POLISH = 0.15f;
+
+        /// <summary>
+        /// THE DRAIN PER SCENE (#404, second pass). It changes <b>three</b> scenes of the twenty, and the
+        /// three are not the ones the obvious analysis picked.
+        /// <para>
+        /// The band's job is fixed: it rings the exact junction where the stone cap meets the glass, and it is
+        /// what makes the drain read at a glance (#94, #109, #237). #404's first pass gave nineteen scenes
+        /// their own cap colour <i>underneath</i> it without asking whether the gold still separated from what
+        /// it is now drawn against.
+        /// </para>
+        /// <para>
+        /// <b>⚠ The albedo analysis gave the wrong answer, and it is recorded because it is convincing.</b>
+        /// CIEDE2000 between the ring's authored diffuse and each cap's says gold is weakest on the four warm
+        /// rocks — outback 13.0 dE, Mars 13.0, savanna 14.0, desert 16.9 against the meadow's 21.8 — because
+        /// gold sits at Lab hue 77° and those are the only chromatic caps near it (desert 78°, savanna 81°).
+        /// A whole pass was built on that and it was <b>refuted by sampling the actual frames</b>: over
+        /// twenty captures from one fixed camera, ring against cap in the shaded picture reads <b>tropical
+        /// 7.9, desert 5.7, savanna 13.1</b> — and <b>Mars 24.1 and outback 24.9</b>, comfortably above the
+        /// meadow's 15.8. Two of the four the albedo model condemned are fine, and the beach it cleared at
+        /// 30.6 dE is the worst in the game. Albedo is not what the eye gets.
+        /// </para>
+        /// <para>
+        /// <b>The mechanism is the polish, not the hue.</b> The rims run <c>SpecularAmbientStrength</c> 1 with
+        /// <c>Metalness</c> 1, so the band is a mirror of the sky tinted by its own reflectance — and under a
+        /// bright dome over pale stone it stops being gold: sampled on the tropical beach the band comes back
+        /// <c>0.82, 0.76, 0.58</c>, which is bleached sky, against a cap of <c>0.80, 0.76, 0.64</c>. The three
+        /// failures are exactly the three brightest, palest caps under the sunniest domes, and the two red
+        /// rocks pass because their dimmer, warmer light never blows the mirror out.
+        /// </para>
+        /// <para>
+        /// <b>So the fix is to stop those three mirroring so hard</b> rather than to change the metal: at
+        /// <see cref="BLEACHED_SKY_POLISH"/> the gold's own diffuse carries the band again, and the three go
+        /// to <b>desert 13.3, savanna 14.4, tropical 23.6</b> while the other seventeen sample
+        /// <i>identically</i> in all three builds. Swapping in a cool metal — the albedo analysis's answer —
+        /// would have been actively worse here, because steel bleaches paler than gold does. The gold stays
+        /// the game's one piece of furniture in all twenty.
+        /// </para>
+        /// <para>
+        /// <b>The glass is deliberately left alone in all twenty.</b> It never has to separate from the cap —
+        /// the ring is between them by construction, and behind it is either the dark pit sheath or the scene
+        /// itself. Nothing measured says it merges with anything. See "The drain per scene" in
+        /// docs/scenes.md for what the #441 references suggested instead and why it is a follow-up: the Mars
+        /// island kept its gold by laying a broad steel apron between the red rock and the band, which is
+        /// geometry rather than colour.
+        /// </para>
+        /// </summary>
+        private static DrainLook DrainLookFor(SceneKind scene) => scene switch
+        {
+            //The three brightest, palest caps under the sunniest domes: the band mirrors the sky into the
+            //same value as the stone it rings. Same gold, less mirror.
+            SceneKind.Tropical or SceneKind.Desert or SceneKind.Savanna =>
+                DEFAULT_DRAIN with { Polish = BLEACHED_SKY_POLISH },
+            _ => DEFAULT_DRAIN
+        };
+
         //The tint that turns a material authored at STONE_COLOR (or CONCRETE_COLOR) into another albedo:
         //InstancedModelRenderer reduces the material to its luminance and multiplies by 1.25 before applying a
         //tint, so the tint that lands a colour exactly is that colour over the product.
@@ -395,6 +474,7 @@ namespace Prazsky.Core.Render
         //The one-instance arrays the tinted draws go through (the single-world overload takes no tint)
         private readonly ModelInstance[] _capInstance = new ModelInstance[1];
         private readonly ModelInstance[] _drumInstance = new ModelInstance[1];
+        private readonly ModelInstance[] _rimsInstance = new ModelInstance[1];
 
         /// <summary>
         /// Builds the whole assembly here and now — the three meshes, the two procedural textures, the five
@@ -751,7 +831,7 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// The drain's gold beads and then its glass, after the frame's opaque work: the beads are opaque, so
+        /// The drain's metal bands and then its glass, after the frame's opaque work: the bands are opaque, so
         /// they belong to the opaque scene and go down first, while the funnel composites over everything
         /// already in the frame — which is why this is a slice the caller places itself, after its balls and
         /// shot trails.
@@ -763,12 +843,31 @@ namespace Prazsky.Core.Render
         /// winding is moot — one less thing to get wrong unseen. The glass is one open, single-sided cone
         /// that has to read both looking down into it and looking up through the hole.
         /// </para>
+        /// <para>
+        /// <paramref name="scene"/> picks the ring's <b>metal</b> (<see cref="DrainLookFor"/>) — gold in
+        /// sixteen scenes and polished steel in the four whose stone is the same hue as gold. It is resolved
+        /// per draw for <see cref="DrawIsland"/>'s reason: the callers set their scene in several places, and
+        /// a look one of them forgot to push would ring the wrong stone.
+        /// </para>
         /// </summary>
-        public void DrawGlass(ICamera camera, BasicEffectParams sceneParams)
+        public void DrawGlass(ICamera camera, BasicEffectParams sceneParams, SceneKind scene)
         {
             _device.RasterizerState = RasterizerState.CullNone;
 
-            if ((Members & ArenaMembers.Rims) != 0) _funnelRimsRenderer.Draw(camera, _drainWorld, _funnelRimEffectParams);
+            if ((Members & ArenaMembers.Rims) != 0)
+            {
+                //The ring's metal, per scene (#404). Mutated rather than rebuilt: BasicEffectParams is a
+                //class, so a fresh one per frame would be a per-frame managed allocation (BestPractices.md
+                //§3), and this object is this renderer's alone.
+                DrainLook drain = DrainLookFor(scene);
+                _funnelRimEffectParams.SpecularColor = drain.RimSpecular;
+                _funnelRimsRenderer.SpecularAmbientStrength = drain.Polish;
+
+                _rimsInstance[0] = new ModelInstance(_drainWorld, new Vector4(0f, 0f, 0f, 1f));
+                _funnelRimsRenderer.Draw(camera, _rimsInstance, 1, _funnelRimEffectParams,
+                    drain.Rim == FUNNEL_RIM_COLOR ? null : TintFor(drain.Rim, FUNNEL_RIM_COLOR));
+            }
+
             if ((Members & ArenaMembers.Glass) != 0) _funnelRenderer.Draw(camera, _drainWorld, sceneParams);
 
             _device.RasterizerState = RasterizerState.CullCounterClockwise;

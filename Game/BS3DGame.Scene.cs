@@ -982,11 +982,12 @@ namespace BS3D
         internal System.Action<Matrix> SessionShadowCasters { get; set; }
 
         /// <summary>
-        /// The drain's gold beads and its glass, after the frame's opaque work: the beads are opaque but the
+        /// The drain's metal bands and its glass, after the frame's opaque work: the bands are opaque but the
         /// funnel composites over everything drawn so far — including the gameplay screen's balls, which is
-        /// why this is a separate slice the session calls after its own 3D.
+        /// why this is a separate slice the session calls after its own 3D. The scene goes in because it
+        /// picks which metal rings the drain (#404).
         /// </summary>
-        internal void DrawSettingGlass() => _island.DrawGlass(_camera, _sceneEffectParams);
+        internal void DrawSettingGlass() => _island.DrawGlass(_camera, _sceneEffectParams, _scene);
 
         /// <summary>
         /// Adds one short light to the <b>next</b> frame's scene lights (#389) — a blast lighting the cluster, the
