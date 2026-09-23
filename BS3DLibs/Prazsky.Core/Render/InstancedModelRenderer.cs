@@ -65,6 +65,7 @@ namespace Prazsky.Core.Render
         private EffectParameter _slabJointWidthParam;
         private EffectParameter _slabJointDepthParam;
         private EffectParameter _jointGlowParam, _jointGlowPatchinessParam, _topDustTintParam, _topDustStrengthParam;
+        private EffectParameter _slabWarpParam, _sideDustTintParam, _sideDustStrengthParam;
         private EffectParameter _cavityStrengthParam;
         private EffectParameter _reliefShadowStrengthParam;
         private EffectParameter _parallaxScaleParam;
@@ -314,6 +315,22 @@ namespace Prazsky.Core.Render
 
         /// <inheritdoc cref="TopDustTint"/>
         public float TopDustStrength { get; set; }
+
+        /// <summary>
+        /// The same modulation for the side faces (#534) — rime on the ice islands' drums — keyed to how far
+        /// the geometric normal is from vertical. <see cref="Vector3.One"/> and 0 are no change.
+        /// </summary>
+        public Vector3 SideDustTint { get; set; } = Vector3.One;
+
+        /// <inheritdoc cref="SideDustTint"/>
+        public float SideDustStrength { get; set; }
+
+        /// <summary>
+        /// How far the slab joint grid is bent by a world-space noise, in world units (#534): 0, the default,
+        /// is the square grid; about a unit turns it into the net of wandering fractures a sheet of ice has.
+        /// One noise read per pixel of a surface that asks for it.
+        /// </summary>
+        public float SlabWarp { get; set; }
 
         /// <summary>
         /// How dark the pits of the relief go from being shaded by their own walls (0 = off, 1 = black).
@@ -984,6 +1001,9 @@ namespace Prazsky.Core.Render
             _jointGlowPatchinessParam = _effect.Parameters["JointGlowPatchiness"];
             _topDustTintParam = _effect.Parameters["TopDustTint"];
             _topDustStrengthParam = _effect.Parameters["TopDustStrength"];
+            _slabWarpParam = _effect.Parameters["SlabWarp"];
+            _sideDustTintParam = _effect.Parameters["SideDustTint"];
+            _sideDustStrengthParam = _effect.Parameters["SideDustStrength"];
             _cavityStrengthParam = _effect.Parameters["CavityStrength"];
             _reliefShadowStrengthParam = _effect.Parameters["ReliefShadowStrength"];
             _parallaxScaleParam = _effect.Parameters["ParallaxScale"];
@@ -1353,6 +1373,9 @@ namespace Prazsky.Core.Render
             _jointGlowPatchinessParam.SetValue(JointGlowPatchiness);
             _topDustTintParam.SetValue(TopDustTint);
             _topDustStrengthParam.SetValue(TopDustStrength);
+            _slabWarpParam.SetValue(SlabWarp);
+            _sideDustTintParam.SetValue(SideDustTint);
+            _sideDustStrengthParam.SetValue(SideDustStrength);
             _cavityStrengthParam.SetValue(CavityStrength);
             _reliefShadowStrengthParam.SetValue(ReliefShadowStrength);
             _parallaxScaleParam.SetValue(ParallaxScale);

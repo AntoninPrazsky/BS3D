@@ -386,8 +386,10 @@ namespace Prazsky.Core.Render
             SceneKind.Storm => new(new Vector3(0.37f, 0.39f, 0.42f), new Vector3(0.30f, 0.32f, 0.35f), 0.18f, 0.12f, 2f),
             //Glacier ice: pale, blue in its depth, polished
             SceneKind.Polar => new(new Vector3(0.80f, 0.87f, 0.93f), new Vector3(0.62f, 0.74f, 0.84f), 0.42f, 0.30f, 3f),
-            //Frosted stone under the aurora
-            SceneKind.Aurora => new(new Vector3(0.62f, 0.66f, 0.70f), new Vector3(0.48f, 0.52f, 0.58f), 0.20f, 0.12f, 2f),
+            //Lake ice under the aurora (#534, "ice standing in ice"): a shade darker and greener than the
+            //polar glacier, since the aurora's floor is snow over a frozen lake and its light is green. It was
+            //frosted stone until #534.
+            SceneKind.Aurora => new(new Vector3(0.70f, 0.78f, 0.84f), new Vector3(0.54f, 0.66f, 0.76f), 0.36f, 0.26f, 2f),
             //Glossy black, for the grid's light to run in
             SceneKind.Grid => new(new Vector3(0.14f, 0.15f, 0.19f), new Vector3(0.12f, 0.13f, 0.16f), 0.45f, 0.30f, 3f),
             _ => DEFAULT_LOOK
@@ -501,7 +503,8 @@ namespace Prazsky.Core.Render
         /// </summary>
         private readonly record struct IslandRelief(float CapReliefFrequency, float CapReliefStrength,
             float CapJointWidth, float CapJointDepth, float CapSlab,
-            float DrumSlab, float DrumJointWidth, float DrumJointDepth, float DrumReliefFrequency, float DrumReliefStrength);
+            float DrumSlab, float DrumJointWidth, float DrumJointDepth, float DrumReliefFrequency, float DrumReliefStrength,
+            float CapWarp = 0f);
 
         //The authored stone's figures are the constructor's, restated here so a shape switch back to stone
         //restores exactly what the constructor set.
@@ -512,8 +515,11 @@ namespace Prazsky.Core.Render
             //Deep joints on both, and the drum coursed in narrow blocks: on the wall those are vertical
             //lines, which is the columns; on the top the block tops.
             IslandShape.Basalt => new(7f, 0.010f, 0.035f, 0.045f, 1.2f, 1.3f, 0.045f, 0.055f, 3f, 0.010f),
-            //No joints anywhere, a broad low relief: ice is one piece.
-            IslandShape.Ice => new(3f, 0.020f, 0f, 0f, 0f, 0f, 0f, 0f, 2.5f, 0.020f),
+            //FRACTURES on the top, not joints (#534): the grid at 2.4 units bent by 0.9 of a unit of noise, so
+            //the lines wander and the cells lose their corners - a sheet of ice cracks into a net of curved
+            //lines round cells of about one size. Thin and shallow: a fracture is a line in the ice, not a
+            //groove cut into it. The drum has none; a broad low relief on both.
+            IslandShape.Ice => new(3f, 0.020f, 0.03f, 0.02f, 2.4f, 0f, 0f, 0f, 2.5f, 0.020f, 0.9f),
             //No joints, a pitted relief on both.
             IslandShape.Coral => new(6f, 0.018f, 0f, 0f, 0f, 0f, 0f, 0f, 5f, 0.020f),
             //Panel lines, thin and sharp, on the top (the material's own plate size) and on the hull; no relief.
@@ -532,7 +538,8 @@ namespace Prazsky.Core.Render
         /// albedo of what lies on the top and <c>DustStrength</c> how much of the top it covers.
         /// </summary>
         private readonly record struct IslandDressing(Vector3 CapJointGlow, Vector3 DrumJointGlow, float EventGain,
-            Vector3 DustColor, float DustStrength, float Patchiness = 1f);
+            Vector3 DustColor, float DustStrength, float Patchiness = 1f,
+            Vector3 SideDustColor = default, float SideDustStrength = 0f);
 
         private static readonly IslandDressing NO_DRESSING = new(Vector3.Zero, Vector3.Zero, 0f, Vector3.One, 0f);
 
@@ -554,6 +561,13 @@ namespace Prazsky.Core.Render
             //light along their seams, a station's own, well under the grid's: it is lit by a sun, not a vector.
             SceneKind.Grid => new(new Vector3(0.08f, 0.50f, 0.75f), new Vector3(0.05f, 0.34f, 0.52f), 0f, Vector3.One, 0f, 0f),
             SceneKind.Space => new(new Vector3(0.11f, 0.13f, 0.17f), new Vector3(0.08f, 0.10f, 0.13f), 0f, Vector3.One, 0f, 0f),
+            //THE COLD FAMILY (#534): the fractures in the cap carry a faint cold light - the sky through the ice,
+            //where a crack scatters it - in patches, since a fracture is lit where the ice behind it is thin;
+            //and RIME on the drum, hoarfrost crusted white on the vertical faces, most of the way to white.
+            SceneKind.Polar => new(new Vector3(0.05f, 0.11f, 0.18f), Vector3.Zero, 0f, Vector3.One, 0f, 0.6f,
+                new Vector3(0.90f, 0.93f, 0.97f), 0.7f),
+            SceneKind.Aurora => new(new Vector3(0.04f, 0.10f, 0.12f), Vector3.Zero, 0f, Vector3.One, 0f, 0.6f,
+                new Vector3(0.88f, 0.92f, 0.96f), 0.7f),
             _ => NO_DRESSING
         };
 
@@ -898,6 +912,11 @@ namespace Prazsky.Core.Render
             _bodyRenderer.JointGlow = dressing.DrumJointGlow * pulse;
             _capRenderer.JointGlowPatchiness = dressing.Patchiness;
             _bodyRenderer.JointGlowPatchiness = dressing.Patchiness;
+            _capRenderer.SlabWarp = relief.CapWarp;
+            _bodyRenderer.SideDustStrength = dressing.SideDustStrength;
+            _bodyRenderer.SideDustTint = dressing.SideDustStrength > 0f
+                ? ColorSpace.SrgbToLinear(dressing.SideDustColor) / ColorSpace.SrgbToLinear(look.Drum)
+                : Vector3.One;
             _capRenderer.TopDustStrength = dressing.DustStrength;
             _capRenderer.TopDustTint = dressing.DustStrength > 0f
                 ? ColorSpace.SrgbToLinear(dressing.DustColor) / ColorSpace.SrgbToLinear(look.Cap)
