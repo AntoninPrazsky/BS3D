@@ -1126,6 +1126,9 @@ namespace BS3D.Screens
 
             SceneFrame sceneFrame = Game.BeginSceneDraw();
 
+            //The setting is what stands behind the preview plate from under it (#541) - see the session's own call
+            Game.GrabCeilingBackground(Game.MenuCeilingRenderer, _menuCeilingWorld);
+
             Game.Balls.Draw(Game.WallClock);
 
             //The game's name in 3D (#248), on the title card and on the main menu and nowhere else.

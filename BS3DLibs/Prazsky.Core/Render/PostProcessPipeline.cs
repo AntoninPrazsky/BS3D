@@ -117,6 +117,11 @@ namespace Prazsky.Core.Render
         //and read by the same composite. As lazy as the foreground target, and for the same reason.
         private RenderTarget2D _refractionTarget;
 
+        //THE GRAB (#541): a copy of the scene target as drawn so far, for a pane of glass INSIDE the scene to bend -
+        //see GrabScene. The back buffer's size, linear radiance, no depth. As lazy as the layers above: only the
+        //Game's ceiling asks for it.
+        private RenderTarget2D _grabTarget;
+
         //THE OVERLAY LAYER (#438): the foreground's opposite. A display-space layer the caller draws AFTER the
         //frame has left linear light — the game's in-play HUD and its crosshair — held in a transparent
         //target of its own so it can be taken OUT of focus with the frame under a page's blur, rather than
@@ -141,6 +146,7 @@ namespace Prazsky.Core.Render
         private readonly EffectTechnique _overlayCompositeTechnique;
         private readonly EffectTechnique _tonemapTechnique;
         private readonly EffectTechnique _foregroundCompositeTechnique;
+        private readonly EffectTechnique _sceneGrabTechnique;
         private readonly EffectParameter _glareSourceTextureParam;
         private readonly EffectParameter _glareSourceTexelSizeParam;
         private readonly EffectParameter _glareThresholdParam;
@@ -219,6 +225,7 @@ namespace Prazsky.Core.Render
             _overlayCompositeTechnique = glareEffect.Techniques["OverlayComposite"];
             _tonemapTechnique = tonemapEffect.Techniques["Tonemap"];
             _foregroundCompositeTechnique = tonemapEffect.Techniques["ForegroundComposite"];
+            _sceneGrabTechnique = tonemapEffect.Techniques["SceneGrab"];
             _glareSourceTextureParam = glareEffect.Parameters["SourceTexture"];
             _glareSourceTexelSizeParam = glareEffect.Parameters["SourceTexelSize"];
             _glareThresholdParam = glareEffect.Parameters["GlareThreshold"];
@@ -491,8 +498,13 @@ namespace Prazsky.Core.Render
             //leave with no antialiasing of any kind, on the setting a weak machine reaches for first. It
             //goes on the scene target, never the back buffer: nothing but one resolved quad ever reaches
             //that.
+            //PRESERVED rather than discarded since #541, and that is the one target in the frame the discard rule
+            //does not hold for: binding a DiscardContents target clears it (MonoGame's whole implementation of
+            //discard, which every other target here still pays when bound), and GrabScene is the one pass that has
+            //to leave the scene target mid-frame and come back to it with everything still in it. Each executable
+            //clears this target itself as it binds it, so nothing ever relied on the implicit clear.
             _sceneTarget = new RenderTarget2D(_device, width, height, false, SurfaceFormat.HdrBlendable,
-                DepthFormat.Depth24Stencil8, samples, RenderTargetUsage.DiscardContents);
+                DepthFormat.Depth24Stencil8, samples, RenderTargetUsage.PreserveContents);
 
             _sceneTargetMsaa = samples;
 
@@ -626,6 +638,85 @@ namespace Prazsky.Core.Render
 
                 return _refractionTarget;
             }
+        }
+
+        /// <summary>
+        /// The grab's target (#541): the back buffer's own size, linear radiance, no depth and no multisampling —
+        /// written whole by one full-screen pass in <see cref="GrabScene"/>. Built on first use and carrying a
+        /// resize the way <see cref="ForegroundTarget"/> does, and null while the window is minimized.
+        /// </summary>
+        private RenderTarget2D GrabTarget
+        {
+            get
+            {
+                int width = _device.PresentationParameters.BackBufferWidth;
+                int height = _device.PresentationParameters.BackBufferHeight;
+
+                if (width <= 0 || height <= 0) return _grabTarget;
+
+                if (_grabTarget == null || _grabTarget.Width != width || _grabTarget.Height != height)
+                {
+                    _grabTarget?.Dispose();
+                    _grabTarget = new RenderTarget2D(_device, width, height, false, SurfaceFormat.HdrBlendable,
+                        DepthFormat.None, 0, RenderTargetUsage.DiscardContents);
+                }
+
+                return _grabTarget;
+            }
+        }
+
+        /// <summary>
+        /// Copies what the scene target holds so far into a target of its own and binds the scene target again with
+        /// everything still in it (#541) — for a pane of glass drawn INSIDE the scene that bends what is behind it:
+        /// the pane cannot sample the target it is being drawn into, so it samples this copy at bent coordinates.
+        /// The copy is box-filtered to the back buffer's size exactly as the resolve reads the scene (the
+        /// <c>SceneGrab</c> technique, <c>SampleScene</c> in Tonemap.fx), in linear radiance.
+        /// <para>
+        /// <b>Call it with the scene target bound, and only then.</b> It is the one pass that leaves the scene
+        /// target mid-frame and comes back, which is why that target is <see cref="RenderTargetUsage.PreserveContents"/>
+        /// (see <see cref="EnsureTarget"/>): any other target in this class is still cleared by being bound, and
+        /// the rule that each is bound once a frame stands for them. Leaving a multisampled scene target resolves it,
+        /// which is most of what this costs below <see cref="SupersampleFactor"/> 2 — the frame's close resolves it
+        /// again as it always did. The blend, depth and rasterizer states are put back as they were found, so the
+        /// caller's scene pass goes on under its own.
+        /// </para>
+        /// </summary>
+        /// <returns>The copy, valid until the next grab; null while the window is minimized and there is none.</returns>
+        public Texture2D GrabScene()
+        {
+            RenderTarget2D grab = GrabTarget;
+            if (grab == null || _sceneTarget == null) return null;
+
+            BlendState blend = _device.BlendState;
+            DepthStencilState depth = _device.DepthStencilState;
+            RasterizerState raster = _device.RasterizerState;
+
+            _device.SetRenderTarget(grab);
+
+            _device.BlendState = BlendState.Opaque;
+            _device.DepthStencilState = DepthStencilState.None;
+            _device.RasterizerState = RasterizerState.CullNone;
+            _device.SetVertexBuffer(_fullScreenQuad);
+
+            //The resolve's own reading of the scene - the same texel size and the same magnify test - since the box
+            //filter the copy runs is the resolve's. Sent here too because the resolve that last sent them was the
+            //previous frame's, and a resize in between would have left them describing a disposed target.
+            _tonemapSceneTextureParam.SetValue(_sceneTarget);
+            _tonemapSourceTexelSizeParam.SetValue(new Vector2(1f / _sceneTarget.Width, 1f / _sceneTarget.Height));
+            _tonemapMagnifyParam.SetValue(
+                _sceneTarget.Width < _device.PresentationParameters.BackBufferWidth ? 1f : 0f);
+
+            _tonemapEffect.CurrentTechnique = _sceneGrabTechnique;
+            DrawFullScreenQuad(_tonemapEffect);
+            _tonemapEffect.CurrentTechnique = _tonemapTechnique;
+
+            _device.SetRenderTarget(_sceneTarget);
+
+            _device.BlendState = blend;
+            _device.DepthStencilState = depth;
+            _device.RasterizerState = raster;
+
+            return grab;
         }
 
         /// <summary>
@@ -973,6 +1064,7 @@ namespace Prazsky.Core.Render
             _defocusBlurred?.Dispose();
             _foregroundTarget?.Dispose();
             _refractionTarget?.Dispose();
+            _grabTarget?.Dispose();
             _overlayTarget?.Dispose();
             _overlayBlurred?.Dispose();
 

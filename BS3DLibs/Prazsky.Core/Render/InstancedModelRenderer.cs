@@ -197,6 +197,10 @@ namespace Prazsky.Core.Render
         private EffectTechnique _refractionTechnique;
         private EffectParameter _refractionDepthParam;
 
+        //The refracting glass (#541): its technique and the four figures only it reads
+        private EffectTechnique _glassTechnique;
+        private EffectParameter _glassBehindParam, _glassHalfExtentsParam, _glassCutPeriodParam, _glassCutSlopeParam;
+
         /// <summary>
         /// Optional detail texture modulating the material colors of a model that carries no texture
         /// of its own. Applied to the opaque mesh parts only; translucent parts (e.g. glass) stay clean.
@@ -406,6 +410,32 @@ namespace Prazsky.Core.Render
         /// sit on top of the rig in the shader, and a cave's own glow still reaches a pane under a dark sky.
         /// </summary>
         public float DirLightStrength { get; set; } = 1f;
+
+        /// <summary>
+        /// The frame behind this surface, when the surface is a slab of glass that bends it (#541): a copy of the
+        /// scene drawn so far, which the <c>InstancedGlass</c> technique shows where each pixel's ray leaves the
+        /// slab, under the surface's own lit colour — the ceiling's plate, handed the copy by the Game for the one
+        /// draw that uses it. <b>Null (the default) draws the surface as it always was</b>: the plain lit material,
+        /// alpha-blended over an undisplaced frame. Only a plain part reads it — no texture, no pattern, no detail.
+        /// <para>
+        /// A slab and nothing else: the technique traces the ray through the box <see cref="GlassHalfExtents"/>
+        /// describes, in the mesh's own space, and assumes the instance is not rotated (the ceiling only ever
+        /// moves down). It writes its pixel whole (alpha 1) rather than blending, since the copy already holds
+        /// what the blend would have laid it over — so anything drawn between the copy and this draw that stands
+        /// behind the glass is covered, and the caller takes the copy at the point that separates what is behind
+        /// the glass from what is in front of it.
+        /// </para>
+        /// </summary>
+        public Texture2D GlassBehind { get; set; }
+
+        /// <summary>The refracting slab's half size along each axis, about the mesh's origin (#541).</summary>
+        public Vector3 GlassHalfExtents { get; set; } = new(0.5f, 0.5f, 0.5f);
+
+        /// <summary>The spacing of the diamond cut the refracting technique cuts into the slab's top face, in world units (#541).</summary>
+        public float GlassCutPeriod { get; set; } = 1f;
+
+        /// <summary>How steep that cut's facets are, as the tangent of their tilt; 0 leaves the top face flat (#541).</summary>
+        public float GlassCutSlope { get; set; }
 
         /// <summary>
         /// Number of primary-colored gores of the procedural beach-ball pattern (segments around
@@ -1124,6 +1154,11 @@ namespace Prazsky.Core.Render
             _depthTechnique = _effect.Techniques["InstancedDepth"];
             _refractionTechnique = _effect.Techniques["InstancedRefraction"];
             _refractionDepthParam = _effect.Parameters["RefractionDepth"];
+            _glassTechnique = _effect.Techniques["InstancedGlass"];
+            _glassBehindParam = _effect.Parameters["GlassBehind"];
+            _glassHalfExtentsParam = _effect.Parameters["GlassHalfExtents"];
+            _glassCutPeriodParam = _effect.Parameters["GlassCutPeriod"];
+            _glassCutSlopeParam = _effect.Parameters["GlassCutSlope"];
 
             //Cached before the SetLightTint call below, which reads them. The rig used to be looked up by
             //name inside SetLightTint, which was fine while it ran once per dome switch — the Testbed's
@@ -1644,6 +1679,15 @@ namespace Prazsky.Core.Render
                     _normalMapParam.SetValue(DetailNormalMap);
                     _normalStrengthParam.SetValue(DetailNormalStrength);
                 }
+            }
+            else if (GlassBehind != null)
+            {
+                //The ceiling's glass bending the frame behind it (#541)
+                _effect.CurrentTechnique = _glassTechnique;
+                _glassBehindParam.SetValue(GlassBehind);
+                _glassHalfExtentsParam.SetValue(GlassHalfExtents);
+                _glassCutPeriodParam.SetValue(GlassCutPeriod);
+                _glassCutSlopeParam.SetValue(GlassCutSlope);
             }
             else
             {

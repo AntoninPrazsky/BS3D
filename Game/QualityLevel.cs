@@ -148,9 +148,36 @@ namespace BS3D
         /// </summary>
         public readonly int ShadowMapCap;
 
+        /// <summary>
+        /// Whether the ceiling's glass bends what is behind it (#541) - a copy of the frame taken mid-scene and a
+        /// ray traced through the cut slab per pixel of glass - or is drawn as the plain translucent pane it was.
+        /// <para>
+        /// <b>Measured</b> on the reference APU (Ryzen 7 5700U + integrated Radeon, on AC), the Game at 1600×900,
+        /// <c>nocap</c>, 45 s runs with the first eight readings dropped, the refracting pane against
+        /// <c>plainceiling</c> alternated in two cycles, the better of each pair's medians: Heart (the savanna, the
+        /// plate across the top of the frame) Low 13.61 → 14.90 ms, Medium 19.10 → 20.67, High 34.03 → 35.29;
+        /// Ziggurat (the neon city) 12.95 → 14.29, 15.52 → 17.02, 37.41 → 38.86. <b>About 1.3–1.6 ms on every
+        /// rung</b>, and nearly flat across them although High shades four times the pane's pixels — which points at
+        /// the copy (the mid-frame resolve of a multisampled target, or the supersampled one's box filter) rather
+        /// than at the pane, though the two were not separated by a measurement. Paid only while the plate is in frame (<c>BS3DGame.CeilingInView</c>): over a tall cluster the
+        /// play camera frames it out, and then nothing is copied.
+        /// </para>
+        /// <para>
+        /// <b><c>High</c> alone carries it.</b> The two rungs under it exist for a machine like that APU, and there
+        /// they are already short: <c>Low</c> misses its budget on the volcano and <c>Medium</c> fits on three
+        /// chapters of twelve (#540), so a millisecond and a half there is spent where the frame has none. A bend is
+        /// exactly the kind of thing a tier gives up (#298: a tier lowers what is drawn), and on <c>High</c> — the
+        /// desktop's rung — the owner's standing direction is to spend on the look. The desktop's own figure is not
+        /// measured; a wide part priced the multisample steps at a small fraction of the APU's (#540), and the copy
+        /// is the same kind of bandwidth.
+        /// </para>
+        /// </summary>
+        public readonly bool CeilingRefraction;
+
         public QualityPreset(int supersampleFactor, float facadeGrainStrength, float windowFrameWidth, int cityRadiusBlocks,
-            int msaaSamples, int shadowMapCap)
+            int msaaSamples, int shadowMapCap, bool ceilingRefraction)
         {
+            CeilingRefraction = ceilingRefraction;
             SupersampleFactor = supersampleFactor;
             FacadeGrainStrength = facadeGrainStrength;
             WindowFrameWidth = windowFrameWidth;
@@ -191,7 +218,7 @@ namespace BS3D
             //    rather than at Medium — see the note on Medium below for what moved and why
             //  · and the reduced programs the mountain and the cavern grew for it
             //The city's two dials stay, being the only entries that were ever worth anything here.
-            new(supersampleFactor: 1, facadeGrainStrength: 0f, windowFrameWidth: 0f, cityRadiusBlocks: 14, msaaSamples: 2, shadowMapCap: 2048),
+            new(supersampleFactor: 1, facadeGrainStrength: 0f, windowFrameWidth: 0f, cityRadiusBlocks: 14, msaaSamples: 2, shadowMapCap: 2048, ceilingRefraction: false),
 
             //Medium — 30 FPS on the worst scene. Supersampling is what this STRUCT gives up, and it is the one
             //change that reaches all fifteen scenes: on the weak machine it is worth 46 to 58 % of the frame
@@ -211,10 +238,10 @@ namespace BS3D
             //
             //4 samples rather than the pipeline's 8 since #540: on the weak machine the step is 0.65-1.38 ms
             //(see MsaaSamples), where the desktop had priced it at nothing and it had been left at 8 for that.
-            new(supersampleFactor: 1, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14, msaaSamples: 4, shadowMapCap: 2048),
+            new(supersampleFactor: 1, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14, msaaSamples: 4, shadowMapCap: 2048, ceilingRefraction: false),
 
             //High — the look the game was authored at, unchanged.
-            new(supersampleFactor: 2, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14, msaaSamples: PostProcessPipeline.MSAA_SAMPLES, shadowMapCap: 0),
+            new(supersampleFactor: 2, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14, msaaSamples: PostProcessPipeline.MSAA_SAMPLES, shadowMapCap: 0, ceilingRefraction: true),
         };
     }
 }

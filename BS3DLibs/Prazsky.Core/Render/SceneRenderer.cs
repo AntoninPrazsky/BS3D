@@ -5695,9 +5695,11 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Renders this frame's sun shadow map and hands it to the receivers' effects. <b>Call it before
-        /// binding the scene target</b>: the map is its own render target and the scene target is
-        /// <see cref="RenderTargetUsage.DiscardContents"/>, so switching away from the scene target mid-frame
-        /// would clear the sky already drawn into it. Leaves the back buffer bound; that it leaves the GPU
+        /// binding the scene target</b>: the map is its own render target, and switching away from the scene
+        /// target mid-frame to draw it cleared the sky already drawn into it while that target was
+        /// <see cref="RenderTargetUsage.DiscardContents"/>. It is preserved since #541 (the ceiling's grab has
+        /// to leave it and come back), so the switch would no longer wipe it, but it would still cost a resolve of
+        /// a multisampled target for nothing — the order stands. Leaves the back buffer bound; that it leaves the GPU
         /// states as it found them is <i>not</i> promised — the caller states its own before its scene, as
         /// every executable already does after the sky.
         /// <para>
