@@ -1,0 +1,28 @@
+{
+    "file":  "theme-lunar-dub.wav",
+    "created":  "2026-09-23",
+    "issue":  486,
+    "family":  "lunar",
+    "chapter":  "The Quarry (moon) - new: spacious, slow, grey light",
+    "purpose":  "Master of Game/Music/lunar-dub.ogg, one of the lunar family\u0027s recordings (#486): written from this file by Tools/MusicBake --tracks --masters \u003cthis folder\u003e, brought to the themes\u0027 loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository; this sidecar is committed beside the .ogg.",
+    "generator":  "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-486.ps1 -\u003e generate-music.ps1 -Loop -NoCotCaption",
+    "format":  "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model\u0027s fixed native rate",
+    "license":  "ACE-Step 1.5: MIT (code and weights)",
+    "request":  {
+                    "caption":  "Space dub instrumental: heavy slow dub bass, echoing chords, soft snare with long delay, sci-fi synth blips, deep and spacious, no vocals",
+                    "lm_negative_prompt":  "vocals, singing, audience applause, crowd noise, live recording",
+                    "instrumental":  true,
+                    "use_cot_caption":  false,
+                    "duration":  120,
+                    "bpm":  86,
+                    "keyscale":  "A minor",
+                    "inference_steps":  8,
+                    "output_format":  "wav32"
+                },
+    "post_process":  "loop_crossfade.py: a whole-bar loop cut out of the render\u0027s body (the untouched render kept as .raw.wav beside it)",
+    "loop_log":  [
+                     "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-lunar-dub.wav: 44.7s loop = source 41.90s..86.55s (15.98 bars at 85.9 bpm), crossfade 1.40s | context match 0.886 (best 0.935) | crossfade rhythm r=0.96 vs the track a bar later r=0.84: in time | spectrum cos=0.92"
+                 ],
+    "measured":  "generate-music.ps1 end to end 59.5 s (ace-lm + ace-synth + loop cut)",
+    "rendered":  true
+}
