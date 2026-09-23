@@ -5783,3 +5783,16 @@ Předchozí zápis říkal, že to dostavět znamená sáhnout do brány a že t
 - **Přiřazení (`8449c05`):** `MUSIC_RINGS = bloom`, Quarry `lunar`, Nebula `nebula`, Eruption `magma`, Spectrum `skyline`, Arcade `neon`, Grid `pulse`, Mirage `mirage`; Gallery/Coil/Tower/Reveal beze změny. LevelGen regeneroval 120 levelů (69 mění jen řádek `music`), `Colossus.json` ručně na `lunar`. **Brány:** LevelGen exit 0 (clear gate 120/120), ScoreSim „All levels rate the right way round". Ve hře: level 1 → `bloom.ogg`, 51 → `lunar.ogg`, 71 → `magma.ogg`, 111 → `mirage.ogg`.
 - **Poslechová stránka pro majitele** (artefakt, 108 třicetisekundových Ogg náhledů po ~0,4 MB jako přiložené soubory, `make-listening-page.py`): zadání, verdikt řezu smyčky a přehrávač u každé nahrávky. **Nic z toho jsem neslyšel** — bez audio zařízení se to slyšet nedá — verdikt je uchem majitele, po rodinách; špatná nahrávka = smazat soubor, špatná rodina = jedna konstanta v LevelGenu.
 
+
+---
+
+## 2026-09-23 — Claude Code, bs3d-9f (desktop: uzávěrka noční relace — co je na mainu a co čeká na majitele)
+
+**Třináct merge za noc**, všechno pushnuté, větve smazané, pracovní strom čistý. Majitel byl pryč od klávesnice („pracuj na dalších scénách, dokud ti nedojde limit").
+
+- **Kód:** #404 krok 2 (odtok podle scény — tři scény, `BLEACHED_SKY_POLISH`), `[build]` razítko vidí knihovny (#372), #527 pravidlo §10 do `BestPractices.md`, disciplína vzorkování pixelů do skillu `screenshot`.
+- **Změřeno a záměrně nepostaveno:** #402 (odměr nemá co rozmazávat — 9,3 % šířky hlavně při 144 Hz, a rotující tuhé těleso stejně nejde rozmáznout lineární transformací), #484 (kaskáda stínu 4 px na 3840×1600 proti 2,7 na 1080p, kde se ladilo), #523 zavřeno jako moje chyba.
+- **Dvě stránky pro verdikt:** deset scén (`8pGfwsXXgtFWsvabGf7Ejq`, verze 3) a odtok #404 (`YY8jd6S437HpnY9kpvbTC6`), okomentované na dvanácti issues.
+- **Přeměřeno #524:** ze 58 otevřených issues **není nedotčená ani jedna**, 39 nese vlastní merge commit.
+- ⚠ **Co jsem pokazil a nepřepisuju:** commit `8369916` (doplnění hashe do zápisu výš) jsem udělal **přímo na `main`**, ne na větvi. Byl to slepičí problém — hash merge existuje až po merge — ale správně se to řeší **druhou větví po merge**, ne přímým commitem. Přepisovat pushnutou `main` na repu, kde druhá relace zrovna pracuje, by bylo horší než ta chyba; zapsáno, ne zameteno.
+- **Nespouštěl jsem `LevelGen`** schválně: přepisuje soubory levelů a bs3d-95 na nich dělá #486. ScoreSim exit 0, čtyři solutiony 0 chyb.
