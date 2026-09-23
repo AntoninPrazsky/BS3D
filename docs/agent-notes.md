@@ -5904,3 +5904,15 @@ Předchozí zápis říkal, že to dostavět znamená sáhnout do brány a že t
 - **Cena** (Testbed, kamera vzhůru z herní pózy `campos=0,-4,30 camtarget=0,60,-120 fov=80`, 3840×1600, `nopost nooverc fpscap=400`, 20s okna, střídavé páry proti kopii binárky z mainu): main **5,25 a 5,24 ms → 5,47 a 5,48**, **+0,22 a +0,24 ms**, rozptyl 0,02 ms uvnitř běhu — dva tapy pole dosahu na každý pixel stěny a 3D hash.
 - **Foceno** z herní pózy vzhůru a z nízké kamery přes sál na cove (Testbed), a ze hry `play level=41`; stránka: https://claude.ai/artifact/2Xmnn9NeJ7nqNrvUyF9dHo.
 - ⚠ **Past focení:** `shot=4` s `at=6:Escape` nechalo dva PNG o 0 bajtech — zápis 3840×1600 snímku trvá déle než dvě sekundy a Escape ho utnul. `at=10:Escape` a `-Wait 13` stačí.
+
+---
+
+## 2026-09-23 — Claude Code, bs3d-95 (desktop: #533 ostrov — šest siluet podle rodiny scén)
+
+**Z majitelova slova k #404** („založ issues na rozdílnou geometrii ostrova a další pro scény") — #533 je geometrie; #534–#538 (oblečení per rodina) zůstávají.
+
+- **Reference nejdřív** (`design-references`, pět promptů × dva seedy, `C:\Users\panrd\AI\sd\out\533`, mimo repo): čedičový blok s prstencem sloupů, ledová kra s podemletým okrajem, korálová plošina, obrobený disk s drážkou, betonový sokl s ostrou hranou. ⚠ Reference čediče postavila sloupy jako *parapet NA vršek* — jediná věc, kterou žádný tvar nesmí (nad y=0 na okraji nic, koule by to prošly): sloupy jdou dolů ve stupních, ne nahoru.
+- **Co je na mainu:** `IslandShape` (Stone, Basalt, Ice, Coral, Machined, Plinth), `ArenaIsland.ShapeFor(scene)` vedle `LookFor`, `IslandMesh` staví polylinii per tvar; všech šest párů (čepice + buben) se staví při startu, `InstancedModelRenderer.SetMesh` přepne buffery pod JEDNÍM rendererem čepice a JEDNÍM bubnu, když se tvar změní — materiál, reliéf, spáry i zápis ve sky-lit seznamech hostitelů zůstávají. Reliéf a spáry per tvar (`ReliefFor`) se zapisují per draw jako materiál; spáry na bubnu = svislé čáry na svislé stěně = **sloupy** čediče.
+- **Invarianty, které každý tvar drží:** hrana podlahy (`FloorRadius`, y=0) je pravý kruh bez vlnění (fyzika), nic nad y=0 na okraji, ústí vrtu (zlatý pásek) nevlní, noha do 0,2 j od okraje (kryje díru v terénu). `RADIUS`/`TOP_Y`/`FLOOR_RADIUS` netknuté. Vlnící okraj (led, korál) vlní čepici i buben stejnou amplitudou a stejným per-ring wobble ve sdíleném bodě (pravidlo švu v `LatheMesh`).
+- **Cena** (Testbed, sopka, herní póza, 3840×1600, `nopost nooverc fpscap=400`, 20s okna, střídavé páry proti kopii binárky z mainu): main **12,23 a 12,34 ms → 12,31 a 12,28**, **+0,08 a −0,06 ms** — znaménko se v páru nedrží, tedy podlaha měření, jak lathe stejné velikosti pod týmž rendererem předpovídá.
+- **Foceno** z jedné kamery (`campos=30,-2,34 camtarget=0,-10,0 fov=55`) v šesti scénách před/po s referencemi vedle: https://claude.ai/artifact/VXeWyPKKHRBesZ54YzkU8r. Louka (kámen) je totožná.
