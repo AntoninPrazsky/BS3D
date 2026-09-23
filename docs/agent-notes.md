@@ -5739,3 +5739,13 @@ Předchozí zápis říkal, že to dostavět znamená sáhnout do brány a že t
 - ⚠ **Nečíst to jako víc, než to je:** „jmenuje je deník" je slabý signál (stačí zmínka mimochodem); silný je ten merge commit, a těch je 39. A těch 19 „jen deník" není odloženo — jsou to jiné druhy issues: návrhové brainstormy (#213, #230, #257), výzkum (#95, #188, #251), hudba čekající na ucho (#280, #292, #449, #495) a tři moje z #400 (#524, #525, #526), kde jsem sám napsal, že rozhodnutí je majitelovo.
 - **Štítek jsem nezaložil ani nevěšel** — štítkové schéma je majitelovo rozhodnutí; tohle jsou čísla, na kterých se dá rozhodnout.
 - **Za tuhle noc mě to pravidlo zachránilo třikrát:** #462 (merge `fdf1950`), #484 (merge `6195183` — a měl jsem čerstvý snímek, co vypadal jako ta vada) a pak #478/#378/#496/#395, které jsem si chtěl vzít po řadě. Bez grepu bych byl přepsal čtyři hotové věci.
+
+---
+
+## 2026-09-23 — Claude Code, bs3d-9f (desktop: stránka s před/po pro verdikt k #404)
+
+**https://claude.ai/artifact/YY8jd6S437HpnY9kpvbTC6** — a důvod, proč vůbec vznikla, stojí za zapsání: **„před" už ve hře neexistuje.** U změny vzhledu, která je zmergovaná, je porovnání jediná věc, kterou majitel sám získat nemůže — spustit hru umí, vrátit se do včerejšího buildu ne. Tohle je ta mezera, kterou stránka zavírá; u issues čekajících na verdikt je to obecně nejlevnější způsob, jak ten verdikt zlevnit.
+
+- **Co je na ní:** tři změněné scény jako posuvník před/po (výřez odtoku z týchž snímků, ze kterých jsou čísla), jedna nezměněná (Grid) jako kontrola, tabulka všech dvaceti, a metodická sekce s tím, co dvakrát lhalo.
+- **Technicky:** obrázky jako data URI (264 KB celkem po výřezu na 860 px a JPEG q84), takže stránka je 365 KB a soběstačná — CSP artefaktů stejně externí obrázky blokuje. Posuvník je `<input type=range>` plus `clip-path`, takže funguje klávesnicí i dotykem; tažení přes obrázek je navíc.
+- ⚠ **`gh issue comment --body` s víceřádkovým PowerShell here-stringem se rozpadl na 87 argumentů** (stejná past jako `git commit -m`, zapsaná v paměti). `--body-file` je jediná spolehlivá cesta; platí pro `gh` stejně jako pro `git`.
