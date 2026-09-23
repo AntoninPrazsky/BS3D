@@ -7,9 +7,20 @@ namespace Prazsky.Core.Render
 {
     /// <summary>
     /// The translucent glass plate a hanging ball cluster is suspended from, shared by the Testbed and the
-    /// Game (it existed twice, line for line, until #75): a procedurally generated <see cref="BoxMesh"/>
-    /// drawn through one <see cref="InstancedModelRenderer"/>, rebuilt at the exact footprint of the loaded
-    /// field — no model asset, and no non-uniform scaling of a fixed mesh.
+    /// Game (it existed twice, line for line, until #75): a procedurally generated slab — a <see cref="BoxMesh"/>
+    /// until #541, a <see cref="CutSlabMesh"/> since — drawn through one <see cref="InstancedModelRenderer"/>,
+    /// rebuilt at the exact footprint of the loaded field — no model asset, and no non-uniform scaling of a fixed
+    /// mesh.
+    /// <para>
+    /// <b>It is cut as crystal, and in the Game it bends what is behind it (#541).</b> The Game hands the renderer
+    /// a copy of the frame drawn so far (<see cref="InstancedModelRenderer.GlassBehind"/>), and the plate's
+    /// technique traces each pixel's ray through the slab — in at the face it is drawn on, out through the face it
+    /// reaches — and shows that copy where the ray leaves, under the plate's own lit surface. A flat face bends
+    /// nothing (a parallel slab only offsets), so the bend lives in the cut: the 45° <see cref="BEVEL"/> round
+    /// every edge and the diamond facets the shader cuts into the top face (<see cref="CUT_PERIOD"/>,
+    /// <see cref="CUT_SLOPE"/>). The underside stays flat, because it is what the cluster hangs from. The Testbed
+    /// never sets the copy, so it draws the cut plate as the plain translucent pane it always was.
+    /// </para>
     /// <para>
     /// <b>The drawn plate and the physics are two objects that must be given the same figures, and nothing
     /// here can keep them in step.</b> This class owns the drawn box only; the kinematic Bepu body the
@@ -86,10 +97,46 @@ namespace Prazsky.Core.Render
         /// </summary>
         public const float CLEARANCE = 2f;
 
+        /// <summary>
+        /// How far every horizontal edge of the slab is cut back, along both of its faces — a 45° bevel round the
+        /// top and round the underside (#541). The underside's is the one the play camera sees, since it looks up
+        /// at the plate from under it: a prism along the pane's edge, where the bend reads strongest.
+        /// <para>
+        /// Bounded by the cluster it hangs: the flat underside is the footprint less this on every side, and the
+        /// top level's outermost balls touch the plate half a unit in from the footprint's edge
+        /// (<see cref="FOOTPRINT_MARGIN"/>), so the bevel must stay well inside that half or those balls would hang
+        /// from a facet rather than from the glass.
+        /// </para>
+        /// </summary>
+        public const float BEVEL = 0.25f;
+
+        /// <summary>
+        /// How far each of the four vertical corners is cut back along both sides (#541), which makes the plate an
+        /// octagon rather than a rectangle. The same bound as <see cref="BEVEL"/>'s, taken at the corner: the ball
+        /// in a field's corner touches half a unit in along both axes, and the underside's cut there reaches
+        /// this plus <see cref="BEVEL"/> × √2 along the diagonal — 0.75 against the ball's 1.0.
+        /// </summary>
+        public const float CORNER_CUT = 0.4f;
+
+        /// <summary>
+        /// The spacing of the diamond cut on the top face, in world units (#541): the pyramids the shader cuts are
+        /// this far apart along each diagonal of the pane. A ball is one unit across, so a cut is about two balls
+        /// wide — large enough to read as cut glass from the play camera, small enough that a pane over a small
+        /// field still carries several.
+        /// </summary>
+        public const float CUT_PERIOD = 2f;
+
+        /// <summary>
+        /// How steep the diamond cut's facets are, as the tangent of their tilt (#541) — 0.18 is about 10°. Through
+        /// glass of index 1.5 a facet that steep turns the ray leaving it by about 5°, which is a bend the eye reads
+        /// in the sky behind the pane without the cluster's own glass under it looking broken.
+        /// </summary>
+        public const float CUT_SLOPE = 0.18f;
+
         private readonly GraphicsDevice _device;
         private readonly Effect _instancingEffect;
 
-        private BoxMesh _mesh;
+        private CutSlabMesh _mesh;
 
         /// <summary>
         /// Nothing is built here: the plate's footprint is the loaded field's, so there is no mesh and no
@@ -179,8 +226,16 @@ namespace Prazsky.Core.Render
             _mesh?.Dispose();
             Renderer?.Dispose();
 
-            _mesh = new BoxMesh(_device, FootprintFor(stageSizeX), THICKNESS, FootprintFor(stageSizeZ));
+            float sizeX = FootprintFor(stageSizeX), sizeZ = FootprintFor(stageSizeZ);
+
+            _mesh = new CutSlabMesh(_device, sizeX, THICKNESS, sizeZ, BEVEL, CORNER_CUT);
             Renderer = new InstancedModelRenderer(_device, _mesh, GLASS_COLOR, _instancingEffect, alpha);
+
+            //The figures the refracting technique traces the slab by (#541), stated on the renderer the mesh was
+            //built for so the two cannot disagree; read only while a caller has handed it a frame to bend
+            Renderer.GlassHalfExtents = new Vector3(sizeX, THICKNESS, sizeZ) * Constants.HALF;
+            Renderer.GlassCutPeriod = CUT_PERIOD;
+            Renderer.GlassCutSlope = CUT_SLOPE;
         }
 
         /// <summary>

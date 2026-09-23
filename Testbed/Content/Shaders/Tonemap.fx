@@ -507,3 +507,21 @@ technique ForegroundComposite
         PixelShader = compile PS_SHADERMODEL ForegroundCompositePS();
     }
 };
+
+//THE GRAB (#541): the scene drawn so far, box-filtered down to the output's own resolution exactly as the resolve
+//reads it, into the target a pane of glass then samples at bent coordinates (PostProcessPipeline.GrabScene). Linear
+//radiance and nothing else of the resolve's - no glare, no curve: what the glass shows goes back into the scene, which
+//is resolved whole afterwards.
+float4 SceneGrabPS(VertexShaderOutput input) : COLOR
+{
+    return float4(SampleScene(input.TexCoord), 1);
+}
+
+technique SceneGrab
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL MainVS();
+        PixelShader = compile PS_SHADERMODEL SceneGrabPS();
+    }
+};

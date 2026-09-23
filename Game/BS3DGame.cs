@@ -896,7 +896,7 @@ namespace BS3D
             string preview = null, BallStyle? ballStyle = null, string pick = null, int fpsCap = 0,
             bool noFocusPause = false, float[] detonateSeconds = null, string about = null, string tutorial = null,
             bool settings = false, int? help = null, int? sceneSeed = null, bool tour = false,
-            int windowWidth = 0, int windowHeight = 0, float lineLoss = 0f)
+            int windowWidth = 0, int windowHeight = 0, float lineLoss = 0f, bool plainCeiling = false)
         {
             //The scene's procedural roll (see _sceneSeedOffset): rolled once per launch unless the command
             //line pins it, and printed either way - a frame of a city nobody can generate twice is a frame
@@ -992,6 +992,7 @@ namespace BS3D
             _startupHelp = help;
             _startupTour = tour;
             _startupLineLoss = lineLoss;
+            _plainCeiling = plainCeiling;
             _shotSchedule = shotSeconds;
             _detonateSchedule = detonateSeconds;
             if (mute) _masterVolume = 0f;

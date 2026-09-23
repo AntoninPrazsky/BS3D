@@ -2,6 +2,7 @@
 using Microsoft.Xna.Framework.Graphics;
 using Prazsky.Core;
 using Prazsky.Core.Render;
+using Prazsky.Core.Tools;
 using System.Collections.Generic;
 
 namespace BS3D
@@ -699,7 +700,10 @@ namespace BS3D
             // everything already drawn into it. Drawing the cup before the scene's own bind keeps every
             // target on the one bind-draw-unbind lifecycle the framework promises: the foreground is
             // resolved the moment the scene takes its place, the scene is cleared only ahead of the sky
-            // the way it always was, and nothing is ever bound twice in one frame.
+            // the way it always was, and nothing is ever bound twice in one frame. (The SCENE target is the one
+            // exception since #541, and made preserved for it: the ceiling's glass bends a copy of the frame, and
+            // PostProcessPipeline.GrabScene leaves the scene target once to take it and comes back. Every other
+            // target here is still discarded, so the order below still has to hold.)
             //
             //Why a separate target at all: the result page's defocus takes everything the HDR pass holds,
             // and the one object it must not take is the cup being presented. Out here the blur is built
@@ -741,6 +745,9 @@ namespace BS3D
             // The effect is what makes everything drawn through it RECEIVE, and the callback is what the
             // island and a live session's gun CAST with (#470).
             _sceneRenderer.DrawShadowMaps(_scene, _camera, _rig.SunDirection, _instancingEffect, DrawShadowCasters);
+
+            //No copy of this frame for the ceiling's glass yet (#541) - see _ceilingGlassBehind
+            _ceilingGlassBehind = null;
 
             bool trophyUp = _trophy != null && _trophy.Active;
             bool confettiUp = _confetti != null && _confetti.Active;
@@ -1036,12 +1043,86 @@ namespace BS3D
         /// </remarks>
         internal void DrawCeilingGlass(InstancedModelRenderer renderer, Matrix world)
         {
+            //#541: the frame the glass bends - taken here, just before the pane, unless the caller took it earlier
+            //through GrabCeilingBackground, which it does from under the plate, the only place the difference shows.
+            //Before the depth state below: the grab is a pass of its own and puts back what it found. Cleared after
+            //the draw, so the next renderer through here cannot bend a copy that is not its own.
+            if (RefractsCeiling && CeilingInView(renderer, world)) renderer.GlassBehind = _ceilingGlassBehind ??= _pipeline.GrabScene();
+
             GraphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
 
             renderer.Draw(_camera, world, _sceneEffectParams);
 
             GraphicsDevice.DepthStencilState = DepthStencilState.Default;
+
+            renderer.GlassBehind = null;
         }
+
+        /// <summary>
+        /// The copy of the frame the ceiling's glass bends this frame (#541), or null until one is taken - reset at
+        /// the top of <see cref="BeginSceneDraw"/>, taken by <see cref="GrabCeilingBackground"/> or failing that by
+        /// <see cref="DrawCeilingGlass"/>, which is how a frame bends exactly one copy and never last frame's.
+        /// </summary>
+        private Texture2D _ceilingGlassBehind;
+
+        /// <summary>A run that said "plainceiling": the glass drawn unbent, for a paired cost measurement (#541).</summary>
+        private readonly bool _plainCeiling;
+
+        /// <summary>
+        /// Whether the ceiling's glass bends what is behind it this frame (#541): the tier's answer
+        /// (<see cref="QualityPreset.CeilingRefraction"/>), unless the run said "plainceiling".
+        /// </summary>
+        internal bool RefractsCeiling => !_plainCeiling && QualityPreset.Presets[(int)_quality].CeilingRefraction;
+
+        /// <summary>
+        /// Tells the host that everything drawn so far stands <b>behind</b> the ceiling's glass hanging at
+        /// <paramref name="plateWorld"/> - true of the setting when the camera is under the plate - so the copy the
+        /// glass bends is taken now, before the caller draws what hangs in front of it (#541). Call it straight
+        /// after <see cref="BeginSceneDraw"/>, from a screen that will draw a plate this frame.
+        /// <para>
+        /// The point of taking it early is what the copy must NOT hold. From under the plate, the cluster, the gun
+        /// and everything the session draws are between the lens and the glass; a copy taken at the pane would
+        /// hold them, and a pixel of glass beside a ball would bend that ball into the pane - the classic leak of a
+        /// screen-space refraction. Taken here, the copy is the sky and the backdrop, which is all that stands
+        /// behind the plate from below. From level with the plate or above it the setting is no longer everything
+        /// behind it - from above, the cluster is under the glass and must be bent with the rest - so this does
+        /// nothing and <see cref="DrawCeilingGlass"/> takes the copy at the pane, where from above everything in
+        /// the frame is beneath the glass.
+        /// </para>
+        /// <para>
+        /// What it gives up, knowingly: something the caller draws after this that stands ABOVE the plate is not
+        /// in the copy, and the pane, which writes its pixels whole, covers it where it passes behind the glass.
+        /// Nothing the game draws between the two stands there.
+        /// </para>
+        /// </summary>
+        internal void GrabCeilingBackground(InstancedModelRenderer renderer, Matrix plateWorld)
+        {
+            if (!RefractsCeiling || renderer == null || !CeilingInView(renderer, plateWorld)) return;
+
+            float underside = plateWorld.Translation.Y - CeilingPlate.THICKNESS * Constants.HALF;
+            if (_camera.Position.Y >= underside) return;
+
+            _ceilingGlassBehind = _pipeline.GrabScene();
+        }
+
+        /// <summary>
+        /// Whether any of the plate can be on screen this frame (#541) — the slab's own box, the one the renderer was
+        /// fitted to, against the camera's frustum. The copy and the traced pane are paid only for a plate that can be
+        /// seen: over a tall cluster the play camera frames the plate out of the top of the picture, and most levels
+        /// are that. A box and not the slab's bounding sphere, measured: a sphere round a plate eleven units wide
+        /// reaches several units past the pane's own faces, so over Icicle, the plate framed clean out of the top of
+        /// the picture, it still said "in view" and the copy went on costing its 1.5 ms for nothing. Cached rather
+        /// than built per frame, the frustum being a class (BestPractices.md).
+        /// </summary>
+        private bool CeilingInView(InstancedModelRenderer renderer, Matrix world)
+        {
+            _ceilingFrustum.Matrix = _camera.View * _camera.Projection;
+
+            Vector3 centre = world.Translation, half = renderer.GlassHalfExtents;
+            return _ceilingFrustum.Intersects(new BoundingBox(centre - half, centre + half));
+        }
+
+        private readonly BoundingFrustum _ceilingFrustum = new(Matrix.Identity);
 
         /// <summary>
         /// The frame's close: the scene's foreground weather — the mountain's snow, the sea's spray, the

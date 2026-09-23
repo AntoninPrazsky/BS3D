@@ -87,6 +87,11 @@ namespace BS3D
             //unattended stops producing the frames the run was started to collect.
             bool noFocusPause = false;
 
+            //Testing only: draw the ceiling as the plain translucent pane it was before #541, with no bend. The other
+            //half of a paired cost measurement of the refraction, since the Game cannot sweep variants in one
+            //process the way the Testbed's alt= does.
+            bool plainCeiling = false;
+
             //Testing only: drop straight into the first level, skipping the title card and the menu. The
             //session's placement and physics write their figures to stdout only once a level is built, and
             //building one honestly takes a mouse on a Myra button — which a scripted run does not have.
@@ -325,6 +330,8 @@ namespace BS3D
                 //nobody is sitting at: a benchmark measuring 70 seconds of frames, a capture rig on a locked
                 //desktop. "shot=" implies it on its own — see BS3DGame.PauseOnFocusLoss.
                 else if (string.Equals(arg, "nofocuspause", StringComparison.OrdinalIgnoreCase)) noFocusPause = true;
+                //"plainceiling" draws the ceiling's glass unbent (#541), for the pair a cost measurement needs.
+                else if (string.Equals(arg, "plainceiling", StringComparison.OrdinalIgnoreCase)) plainCeiling = true;
             }
 
             using var game = new BS3DGame(fullscreen: fullscreen, supersampleFactor: supersampleFactor, exposure: exposure,
@@ -333,7 +340,7 @@ namespace BS3D
                 shotSeconds: shotSeconds, level: level, levelFile: levelFile, preview: preview, ballStyle: ballStyle, pick: pick, fpsCap: fpsCap,
                 noFocusPause: noFocusPause, detonateSeconds: detonateSeconds, about: about, tutorial: tutorial,
                 settings: settings, help: help, sceneSeed: sceneSeed, tour: tour,
-                windowWidth: windowWidth, windowHeight: windowHeight, lineLoss: lineLoss);
+                windowWidth: windowWidth, windowHeight: windowHeight, lineLoss: lineLoss, plainCeiling: plainCeiling);
             game.Run();
         }
 

@@ -7059,3 +7059,208 @@ technique InstancedRefraction
         PixelShader = compile PS_SHADERMODEL RefractionPS();
     }
 };
+
+//THE CEILING'S GLASS BENDS WHAT IS BEHIND IT (#541). The plate was alpha-blended over the frame, which dims and tints
+//what shows through it and never displaces it - the state the crystal cup was in before #426. The cup's answer does
+//not fit here, because the cup is a layer outside the scene and the plate is inside it: the cluster hangs in front of
+//it, the gun is seen against it, and its own highlights are in the very frame a re-resolve would bend. So the plate
+//bends a COPY of the frame instead, taken just before it is drawn (GlassBehind, PostProcessPipeline.GrabScene), and it
+//draws in the scene like everything else - depth-tested, so what stands in front of it hides it as before, with its
+//own lit surface laid over the bent copy in the same pixel, so the highlights stay where they are.
+//
+//The copy is taken at the point that separates what is behind the glass from what is in front of it, which the host
+//picks from where the camera is (BS3DGame.GrabCeilingBackground): from under the plate, before the session's own
+//objects, so no ball pressed against the underside can be dragged into the pane; from over it, just before the pane,
+//when everything in the frame is beneath it. This pass writes its pixel whole (alpha 1), since the copy already holds
+//what the blend would have laid it over.
+//
+//WHERE A PIXEL LOOKS. The eye's ray is traced through the slab in the mesh's own space: in through the face this
+//pixel is drawn on (refracted at GLASS_INDEX), across to the first of the slab's six planes it meets, out through
+//that face (refracted again), and on for GLASS_BEHIND_DISTANCE; the copy is sampled where that point lands on the
+//screen. A flat parallel slab only offsets a ray, so across the flat underside and a flat top the image would barely
+//move - which is why the plate is CUT: 45-degree bevels round every edge (CutSlabMesh), which are prisms, and a
+//diamond cut across the top face, a field of low pyramids evaluated here rather than modelled (GlassCutNormal). The
+//underside stays flat because the cluster hangs from it, so from the play camera, which looks up at the plate, the
+//bend is seen where the ray LEAVES through the cut top - the second surface, which a single-normal shift cannot see.
+texture GlassBehind;
+sampler2D GlassBehindSampler = sampler_state
+{
+    Texture = <GlassBehind>;
+    MinFilter = Linear;
+    MagFilter = Linear;
+    MipFilter = None;
+    AddressU = Clamp;
+    AddressV = Clamp;
+};
+
+//The slab's half size about the mesh's origin, and the diamond cut on its top face: the pyramids' spacing in world
+//units and the tangent of their facets' tilt. CeilingPlate's figures, stated per draw by the renderer.
+float3 GlassHalfExtents;
+float GlassCutPeriod;
+float GlassCutSlope;
+
+//Crown glass.
+static const float GLASS_INDEX = 1.5;
+
+//How far past the slab what shows through it is taken to stand, in world units. From under the plate that is the
+//sky and the far backdrop, at hundreds; from over it, the cluster and the island, at a few. At thirty the bend is
+//three quarters of what a point at infinity would show from the play camera's ten units off, and a near cluster seen
+//from above is bent a little more than it truly would be, which reads as thicker glass rather than as an error.
+static const float GLASS_BEHIND_DISTANCE = 30.0;
+
+//How far the three channels part along the bend - the cup's REFRACTION_DISPERSION reasoning (Tonemap.fx): a fringe of
+//colour where the bend is strongest is most of what separates cut glass from a lens in the eye's reading of it.
+static const float GLASS_DISPERSION = 0.03;
+
+//The longest shift a pixel may take, as a fraction of the frame, approached softly (shift / (1 + |shift| / this)) so
+//there is no crease where the bend saturates. A ray grazing a bevel can be sent far across the screen, and past the
+//frame's edge the copy has nothing to show but its clamped border.
+static const float GLASS_MAX_SHIFT = 0.06;
+
+struct GlassVSOutput
+{
+    float4 Position : SV_POSITION;
+    float3 WorldPosition : TEXCOORD0;
+    float3 WorldNormal : TEXCOORD1;
+    float4 OcclusionData : TEXCOORD2;
+    float3 LocalPosition : TEXCOORD3;
+};
+
+GlassVSOutput GlassVS(VertexShaderInput input, InstanceInput instance)
+{
+    VertexShaderOutput main = MainVS(input, instance);
+
+    GlassVSOutput output;
+    output.Position = main.Position;
+    output.WorldPosition = main.WorldPosition;
+    output.WorldNormal = main.WorldNormal;
+    output.OcclusionData = main.OcclusionData;
+    output.LocalPosition = mul(input.Position, Bone).xyz;
+
+    return output;
+}
+
+//The diamond cut's cell coordinate at a mesh-space xz: the pyramid grid turned 45 degrees, so the cuts run corner to
+//corner of the pane the way a cut-glass tray's do. One cell per GlassCutPeriod along each diagonal.
+float2 GlassCutCell(float2 xz)
+{
+    return float2(xz.x + xz.y, xz.x - xz.y) * (0.70710678 / GlassCutPeriod);
+}
+
+//The outward normal of the diamond cut's facet at a cell coordinate. `footprint` is how many cells one pixel spans
+//(taken by the caller with fwidth, outside any branch): every facet edge is softened over about a pixel, so the bent
+//image does not alias along it, and the cut fades flat as the cells shrink towards a few pixels - a distant plate on
+//the menu's orbit - where the facets would only shimmer. `strength` scales the facets' slope on top of that: the
+//caller fades the cut out where the eye meets the pane almost edge-on (see GlassPS).
+float3 GlassCutNormal(float2 cell, float footprint, float strength)
+{
+    float2 c = frac(cell) - 0.5;
+    float2 a = abs(c);
+    float soft = max(footprint, 1e-4);
+
+    //Which of a pyramid's four facets: the side of its dominant axis, blended across the diagonals between them
+    float onX = saturate((a.x - a.y) / (2.0 * soft) + 0.5);
+
+    //And the tilt falls to nothing at the valley between two pyramids over the same pixel, so the flip from one
+    //pyramid's facet to its neighbour's is a narrow flat rather than a hard edge
+    float2 valley = saturate((0.5 - a) / soft);
+    float2 tilt = float2(sign(c.x) * onX * valley.x, sign(c.y) * (1.0 - onX) * valley.y);
+
+    float slope = GlassCutSlope * strength * saturate(1.0 - (footprint - 0.1) / 0.2);
+
+    //Back from the turned grid to xz
+    float2 t = float2(tilt.x + tilt.y, tilt.x - tilt.y) * 0.70710678;
+
+    return normalize(float3(t.x * slope, 1.0, t.y * slope));
+}
+
+float4 GlassPS(GlassVSOutput input) : COLOR
+{
+    float3 p = input.LocalPosition;
+    float3 faceNormal = normalize(input.WorldNormal);
+    float3 view = normalize(input.WorldPosition - EyePosition);
+
+    //The top face carries the cut; every other face is as modelled. The cap's normal is exactly up, so a primitive is
+    //one side of this and nothing below branches on a pixel.
+    bool onTop = faceNormal.y > 0.99;
+
+    //The cut fades out where the eye meets the pane nearly edge-on, from 78 degrees off its normal to 87. There the
+    //cells are foreshortened into slivers a few pixels tall and many wide, which the footprint fade above cannot see
+    //(it takes the larger of the two), and the facets shattered the image into a sawtooth of bands across the frame:
+    //the front end's close pass (#261) skims the plate at exactly that angle. A plate seen that way is a mirror of the
+    //sky anyway (the Fresnel term below), so what fades is a bend nobody could read.
+    float cutStrength = saturate((abs(dot(view, faceNormal)) - 0.05) / 0.15);
+
+    float2 cellHere = GlassCutCell(p.xz);
+    float footprintHere = max(fwidth(cellHere.x), fwidth(cellHere.y));
+    float3 entryNormal = onTop ? GlassCutNormal(cellHere, footprintHere, cutStrength) : faceNormal;
+
+    //In through this face...
+    float3 inside = refract(view, entryNormal, 1.0 / GLASS_INDEX);
+
+    //...across the slab to the first of its six planes the ray reaches. The bevels are not traced on the way out: a
+    //ray that leaves through one leaves within a bevel's width of the plane it is sent to instead.
+    float3 dir = inside + (inside >= 0 ? 1e-5 : -1e-5);
+    float3 toPlane = ((dir >= 0 ? GlassHalfExtents : -GlassHalfExtents) - p) / dir;
+    float t = min(toPlane.x, min(toPlane.y, toPlane.z));
+    float3 exitPoint = p + inside * t;
+
+    float3 planeNormal = t == toPlane.x ? float3(sign(dir.x), 0, 0)
+        : t == toPlane.y ? float3(0, sign(dir.y), 0)
+        : float3(0, 0, sign(dir.z));
+
+    //...and out through it: the cut's facet if that is the top, the plane otherwise
+    float2 cellThere = GlassCutCell(exitPoint.xz);
+    float footprintThere = max(fwidth(cellThere.x), fwidth(cellThere.y));
+    float3 exitNormal = planeNormal.y > 0.5 ? GlassCutNormal(cellThere, footprintThere, cutStrength) : planeNormal;
+
+    float3 leaving = refract(inside, -exitNormal, GLASS_INDEX);
+
+    //A ray the exit face turns back (total internal reflection) does leave, after a bounce this trace does not follow,
+    //back out on the eye's side of the glass: it is sent off as the eye's ray mirrored in that face, which is where
+    //such a facet's image comes from. So a facet the sky cannot pass through shows the scene under the pane instead,
+    //as real cut glass does, rather than going dark - dark was tried first and put black bands across a pane seen
+    //edge-on, where most rays meet the far face past the critical angle.
+    leaving = dot(leaving, leaving) < 1e-6 ? reflect(view, exitNormal) : leaving;
+
+    //Where that ray lands on the screen, against where this pixel is. The mesh is not rotated, so its offsets are the
+    //world's.
+    float3 seen = input.WorldPosition + (exitPoint - p) + leaving * GLASS_BEHIND_DISTANCE;
+    float4 seenClip = mul(mul(float4(seen, 1.0), View), Projection);
+    float4 hereClip = mul(mul(float4(input.WorldPosition, 1.0), View), Projection);
+
+    float2 here = hereClip.xy / hereClip.w * float2(0.5, -0.5) + 0.5;
+    float2 there = seenClip.xy / max(seenClip.w, 1e-3) * float2(0.5, -0.5) + 0.5;
+    float2 shift = seenClip.w > 1e-3 ? there - here : 0;
+
+    shift /= 1.0 + length(shift) / GLASS_MAX_SHIFT;
+
+    float3 behind = float3(
+        tex2Dlod(GlassBehindSampler, float4(here + shift * (1.0 + GLASS_DISPERSION), 0, 0)).r,
+        tex2Dlod(GlassBehindSampler, float4(here + shift, 0, 0)).g,
+        tex2Dlod(GlassBehindSampler, float4(here + shift * (1.0 - GLASS_DISPERSION), 0, 0)).b);
+
+    //What the entry face lets in, and what it turns away: at a grazing angle glass is a mirror far more than a window
+    //(Schlick at the dielectric F0). The part turned away is not lost - it is the sky reflected off the face - and
+    //ShadePixel below lays alpha's worth of that reflection on already, so the rest of it is laid on here, and a pane
+    //seen edge-on becomes a mirror of the sky rather than a dark band. Taking the transmission alone down (the first
+    //cut of this) is what darkened every grazing view: the light went nowhere.
+    float fresnel = FresnelSchlick(DielectricF0, dot(-view, entryNormal), 1.0).x;
+    float3 mirror = SkyRadiance(reflect(view, entryNormal)) * SpecularAmbientStrength;
+
+    //The plate's own surface, lit as it always was - off the cut's facet on the top face, so its highlights sparkle
+    //facet by facet from above - over what shows through it, in place of the undisplaced frame the blend would have
+    //used. Premultiplied like everything this effect writes, so the pane passes (1 - alpha) of what is behind it.
+    float4 shaded = ShadePixel(input.WorldPosition, onTop ? entryNormal : faceNormal, input.OcclusionData, float4(1, 1, 1, 1), 1, 1);
+
+    return float4(shaded.rgb + (behind * (1.0 - fresnel) + mirror * fresnel) * (1.0 - shaded.a), 1.0);
+}
+
+technique InstancedGlass
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL GlassVS();
+        PixelShader = compile PS_SHADERMODEL GlassPS();
+    }
+};

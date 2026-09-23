@@ -47,8 +47,8 @@ namespace Testbed
                 CollectMagazineBalls(frame);
             }
 
-            //The sun's shadow maps come first (#469): their own target, drawn before the scene's
-            //DiscardContents target is bound, because binding that target again would clear it. The effect
+            //The sun's shadow maps come first (#469): their own target, drawn before the scene's target is bound
+            //(see SceneRenderer.DrawShadowMaps on why the order stands now that target is preserved). The effect
             //makes everything drawn through it RECEIVE, and the callback is what the island, the gun and now
             //the balls CAST with (#470) — they are this program's objects, so the renderer asks rather than
             //reaches.

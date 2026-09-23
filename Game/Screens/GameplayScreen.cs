@@ -1576,6 +1576,10 @@ namespace BS3D.Screens
 
             SceneFrame sceneFrame = Game.BeginSceneDraw();
 
+            //Everything so far is the setting, which from under the plate is all that stands behind the ceiling's
+            //glass: the copy it bends is taken here, before the gun and the cluster hang in front of it (#541).
+            Game.GrabCeilingBackground(Game.CeilingRenderer, _ceiling.World);
+
             //The barrel, drawn with its recoil stroke: the pose is Cannon's and the hardware CannonRig's, so
             //the tube that was built and the bore a shot leaves from cannot disagree. The carriage under it
             //takes the stroke's own smaller, later share since #115 — the tube slides in the cradle and the
