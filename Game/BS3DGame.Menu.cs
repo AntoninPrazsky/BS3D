@@ -660,16 +660,20 @@ namespace BS3D
 
         /// <summary>
         /// The live scene's own shots to cut together ahead of its chapter tour (#488), or null for a scene
-        /// with none. Only the two cities have any: their street level, plazas and canyons are where no spline
+        /// with none. The two cities have them: their street level, plazas and canyons are where no spline
         /// round the arena can go, and they are built off the city this game is drawing right now — so the
-        /// shots stand in the very streets on screen, the day city's or the neon one's.
+        /// shots stand in the very streets on screen, the day city's or the neon one's. And the volcano
+        /// (#530): the tour looks at the cone from outside and never over its rim, and the crater is the one
+        /// picture every reference of #509 is built round.
         /// </summary>
         /// <param name="fieldOfView">The frame the tour ends on, which each shot widens from.</param>
         /// <param name="random">The intro's own roll.</param>
-        internal BS3D.Effects.IntroShot[] IntroPrologue(float fieldOfView, Random random) =>
-            _scene is SceneKind.City or SceneKind.NeonCity
-                ? BS3D.Effects.CityIntroShots.Build(_city, fieldOfView, random)
-                : null;
+        internal BS3D.Effects.IntroShot[] IntroPrologue(float fieldOfView, Random random) => _scene switch
+        {
+            SceneKind.City or SceneKind.NeonCity => BS3D.Effects.CityIntroShots.Build(_city, fieldOfView, random),
+            SceneKind.Volcano => BS3D.Effects.VolcanoIntroShots.Build(_sceneRenderer, fieldOfView, random),
+            _ => null,
+        };
 
         internal int LevelCount => _levelSet?.Count ?? 0;
         internal string LevelDisplayName(int index) => _levelSet.DisplayName(index);

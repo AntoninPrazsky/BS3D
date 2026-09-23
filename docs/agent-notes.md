@@ -5866,3 +5866,17 @@ Předchozí zápis říkal, že to dostavět znamená sáhnout do brány a že t
 - **Vyloučeno čtením:** stínová mapa (`Shadows.fxh` vrací mimo okno 260 j „osvětleno" a posledních 6 % vyhasíná — žádný clamp-smear do dálky), česaný reliéf a praskliny (band-limited na footprint, v dálce vyhasínají místo aliasu), popel (`Ash.fx` — kulaté billboardy v boxu kolem kamery), oblačná vrstva.
 - **Nástroj:** `529/find-stripes.py` (scratchpad) — řadí dlaždice snímků podle energie svislých hran proti vodorovným, jen PIL (tenhle Python nemá numpy). Na Testbedu ho zmátl křížek zaměřovače; ve hře nevyhodil nic pruhovitého.
 - **Další krok je majitelův:** F8 ve hře uloží snímek vedle exe (`[shot]` v konzoli), s azimutem a kamerou (orbit / intro / herní póza) se dá vrstva v Testbedu vypnout a pojmenovat. Issue nechána otevřená.
+
+---
+
+## 2026-09-23 — Claude Code, bs3d-95 (desktop: #530 sopka — prolog intra se střihem přes okraj kráteru)
+
+**Majitelův verdikt na #509** („při animaci, která level představuje, se nikdy nedívám do sopky shora — i tady by šla střihová kamera"). Mechanismus z #488 (`IntroShot`, `ChapterIntro`, `BS3DGame.IntroPrologue`) existoval jen pro města; sopka dostala vlastní `Game/Effects/VolcanoIntroShots.cs`.
+
+- **Dva záběry:** *bok* (3,2 s) — oblouk kolem kužele na 0,6 poloměru, na straně, kterou teče řeka 0 (přes lampu, co po ní jezdí, `VolcanoLightPosition(1)`), 36 j nad nejvyšší zemí pod obloukem, objektiv na jícnu, takže řeky tečou rámem dolů k objektivu a vrchol s fontánou stojí nad nimi; *kráter* (3,8 s) — přímý průlet od strany arény 55 j za osu, 40 j stranou od ní, objektiv připnutý na jícen, 16 j nad bokem až do 0,3 poloměru, pak rampa na 30 j nad okraj — okraj kráter skrývá, dokud ho objektiv nepřeleze, a jezero se otevře pod fontánou. Pak střih na poslední úsek tour (mapa, příjezd, 4,5 s). **11,5 s celkem** proti 9,5.
+- **Výšky se čtou z kužele samého:** `SceneRenderer.VolcanoGroundHeight` = zveřejněné `VolcanoGroundY` (CPU zrcadlo výškového pole bez škváry), takže cesta drží stanovenou vůli nad bokem, ať je config kužele jakýkoli.
+- ⚠ **Vedle osy, nikdy nad ní:** objektiv přímo nad pevným look-at nemá vodorovný forward, ze kterého by se dal postavit up vektor; 40 j stranou se dívá dolů ~50° v nejbližším bodě — a je mimo sloup popela.
+- ⚠ **První řez boku byla jen řeka:** 20 j nad zemí s pohledem na bod řeky protínaly rám tři proudy jako pásy saturované oranžové bez kužele kolem. 36 j výš a pohled na jícen = „erupce z dálky" z referencí #509.
+- ⚠ **Snímek kontaminovaný klávesnicí:** druhý běh měl herní pózu od 1,4 s a vystřelenou kouli — slovo „continue" napsané do terminálu přistálo v okně hry, Enter přeskočil intro. Spuštění přes `CreateProcess` + `SW_SHOWMINNOACTIVE` (`530/capture-intro-nofocus.ps1` ve scratchpadu) fokus nebere a `shot=` snímky hry vycházejí stejně — pravidlo z paměti platí i pro focení, ne jen pro měření.
+- **Co reel zviditelnil a bylo tam vždycky:** počasí levelu se z menu prolíná 8 s (`WEATHER_FADE_SECONDS`, záměrně), takže bok hraje pod rozptýlenými kumuly předchozí scény, které do kráteru ztmavnou do bouřkové vrstvy sopky. Starý tour koukal na kužel a fade skoro neukázal; prolog kouká nahoru.
+- **Vyfoceno** `play level=71`, ~každou sekundu; stránka pro verdikt: https://claude.ai/artifact/PoA768qBAaToQ4gZ48SNsg. Cena žádná (cesty se staví jednou při začátku intra).
