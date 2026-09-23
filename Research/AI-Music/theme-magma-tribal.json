@@ -1,0 +1,28 @@
+{
+    "file":  "theme-magma-tribal.wav",
+    "created":  "2026-09-23",
+    "issue":  486,
+    "family":  "magma",
+    "chapter":  "The Eruption (volcano) - new: heat, weight, drums",
+    "purpose":  "Master of Game/Music/magma-tribal.ogg, one of the magma family\u0027s recordings (#486): written from this file by Tools/MusicBake --tracks --masters \u003cthis folder\u003e, brought to the themes\u0027 loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository; this sidecar is committed beside the .ogg.",
+    "generator":  "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-486.ps1 -\u003e generate-music.ps1 -Loop -NoCotCaption",
+    "format":  "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model\u0027s fixed native rate",
+    "license":  "ACE-Step 1.5: MIT (code and weights)",
+    "request":  {
+                    "caption":  "Tribal drum and brass instrumental: pounding floor toms and congas, low brass ostinato, shakers, fiery horn melody, urgent and hot, no vocals",
+                    "lm_negative_prompt":  "vocals, singing, audience applause, crowd noise, live recording",
+                    "instrumental":  true,
+                    "use_cot_caption":  false,
+                    "duration":  120,
+                    "bpm":  140,
+                    "keyscale":  "D minor",
+                    "inference_steps":  8,
+                    "output_format":  "wav32"
+                },
+    "post_process":  "loop_crossfade.py: a whole-bar loop cut out of the render\u0027s body (the untouched render kept as .raw.wav beside it)",
+    "loop_log":  [
+                     "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-magma-tribal.wav: 51.4s loop = source 25.97s..77.40s (29.95 bars at 139.8 bpm), crossfade 0.86s | context match 0.727 (best 0.776) | crossfade rhythm r=0.91 vs the track a bar later r=0.73: in time | spectrum cos=0.89"
+                 ],
+    "measured":  "generate-music.ps1 end to end 59 s (ace-lm + ace-synth + loop cut)",
+    "rendered":  true
+}
