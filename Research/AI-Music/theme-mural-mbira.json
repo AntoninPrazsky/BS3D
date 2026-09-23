@@ -1,0 +1,28 @@
+{
+    "file":  "theme-mural-mbira.wav",
+    "created":  "2026-09-23",
+    "issue":  486,
+    "family":  "mural",
+    "chapter":  "The Gallery (savanna) - Mural: log drum and marimba, G major 120",
+    "purpose":  "Master of Game/Music/mural-mbira.ogg, one of the mural family\u0027s recordings (#486): written from this file by Tools/MusicBake --tracks --masters \u003cthis folder\u003e, brought to the themes\u0027 loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository; this sidecar is committed beside the .ogg.",
+    "generator":  "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-486.ps1 -\u003e generate-music.ps1 -Loop -NoCotCaption",
+    "format":  "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model\u0027s fixed native rate",
+    "license":  "ACE-Step 1.5: MIT (code and weights)",
+    "request":  {
+                    "caption":  "Instrumental built on interlocking mbira thumb-piano patterns, hosho shakers, soft marimba, gentle bass, bright and trance-like, major key, no vocals",
+                    "lm_negative_prompt":  "vocals, singing, audience applause, crowd noise, live recording",
+                    "instrumental":  true,
+                    "use_cot_caption":  false,
+                    "duration":  120,
+                    "bpm":  112,
+                    "keyscale":  "G major",
+                    "inference_steps":  8,
+                    "output_format":  "wav32"
+                },
+    "post_process":  "loop_crossfade.py: a whole-bar loop cut out of the render\u0027s body (the untouched render kept as .raw.wav beside it)",
+    "loop_log":  [
+                     "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-mural-mbira.wav: 61.1s loop = source 24.31s..85.40s (27.97 bars at 109.9 bpm), crossfade 1.09s | context match 0.880 (best 0.929) | crossfade rhythm r=0.91 vs the track a bar later r=0.85: in time | spectrum cos=0.86"
+                 ],
+    "measured":  "generate-music.ps1 end to end 59.3 s (ace-lm + ace-synth + loop cut)",
+    "rendered":  true
+}
