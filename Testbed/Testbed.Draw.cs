@@ -197,7 +197,7 @@ namespace Testbed
 
                 //The drain's gold beads and then its glass, after the shots' smears: the beads are opaque and
                 //belong with the opaque scene, and the glass composites over everything already in the frame.
-                _island.DrawGlass(_camera, _sceneEffectParams);
+                _island.DrawGlass(_camera, _sceneEffectParams, _scene);
 
                 _ceilingPlate.Renderer.Draw(_camera, _ceiling.World, _sceneEffectParams);
 
