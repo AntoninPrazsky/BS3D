@@ -265,6 +265,14 @@ namespace Prazsky.Core.Render
         public InstancedModelRenderer[] Renderers => _renderers;
 
         /// <summary>
+        /// Where everything stands — the planting the renderers draw — for a host laying a camera path through
+        /// the wood (the aurora's chapter intro threads its spruces, #531). Read-only by construction: the
+        /// arrays are the instance buffers' own sources, and a caller that wrote into them would move a tree
+        /// the buffer has already been filled from.
+        /// </summary>
+        public ForestScatter Scatter => _scatter;
+
+        /// <summary>
         /// The eight instanced draws, in order: conifer trunks, conifer crowns, broadleaf trunks, broadleaf
         /// crowns, boulders, stumps, snags, logs — one draw per kind per mesh variant, and per material within a tree. A
         /// species' trunk and crown read that variant's own scatter of world matrices (the crown mesh is built

@@ -43,7 +43,8 @@ namespace BS3D.Effects
     /// the cities, whose streets, plazas and canyons between towers are ninety units under the island and
     /// somewhere no spline round the arena can reach without flying through the city on its way; and since
     /// #530 the volcano, whose crater is a bowl on a summit the tour's stand outside the cone could only ever
-    /// look at, never into (<see cref="VolcanoIntroShots"/>). The prologue
+    /// look at, never into (<see cref="VolcanoIntroShots"/>); and since #531 the aurora, whose wood stands
+    /// outside the clearing the spline circles (<see cref="AuroraIntroShots"/>). The prologue
     /// plays first, shot by shot with a hard cut between each, then cuts to the tour. A cut is the one thing
     /// the blend cannot do and the one thing this needed: so an intro with a prologue is taken with a cut
     /// (the blend jumps to 1) and a skip during it hands back with one (the blend drops to 0), because a
@@ -168,7 +169,8 @@ namespace BS3D.Effects
         /// </para>
         /// <para>
         /// <paramref name="prologue"/> is the scene's own shots to cut together ahead of the tour (#488), or
-        /// null for a scene that has none — every scene but the two cities and, since #530, the volcano.
+        /// null for a scene that has none — every scene but the two cities, the volcano (#530) and the aurora
+        /// (#531).
         /// </para>
         /// </summary>
         public void Begin(Vector3 centre, float gameDistance, float gameFov,

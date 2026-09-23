@@ -2190,14 +2190,17 @@ namespace Prazsky.Core.Render
                         2.3f, 7f, 0f, "the pressure ridge");
                     return true;
 
-                //The aurora, high overhead rather than off at any one bearing — a modest horizontal reach
-                //with a tall height stands the point up in the sky itself, so a low camera stand (Up 10°,
-                //Forest's own figure — the ground here is the same shape) tilts the shot upward towards it
-                //naturally rather than needing a steep Up of its own. Unphotographed: no shipped level
-                //names this scene yet (see docs/scenes.md's own count of how many still are not).
+                //The aurora over the TREELINE, not overhead (#531): the point stood 260 units up until then,
+                //which from a stand 10° up tilted the opening at the zenith — "looks far too high up at the
+                //start", the owner's verdict on #462. It stands a little over the hills' canopy now, out past
+                //the clearing, so the shot looks along the ragged line of spruce tips with the curtains over
+                //it. ⚠ In the Game this stand is no longer flown at all: since #531 the aurora opens on a
+                //prologue of its own shots and the tour flies only its last leg after one (ChapterIntro), so
+                //what this states is the scene's viewpoint for any caller without a prologue.
                 case SceneKind.Aurora:
                     viewpoint = new SceneViewpoint(
-                        AtBearing(bearing, _auroraConfig.Terrain.ClearingRadius + 60f, 260f),
+                        AtBearing(bearing, _auroraConfig.Terrain.ClearingRadius + 60f,
+                            _auroraConfig.Terrain.LevelY + _auroraConfig.Terrain.HillHeight + 30f),
                         1.9f, 10f, 0f, "the aurora");
                     return true;
 

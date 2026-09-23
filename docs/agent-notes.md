@@ -5880,3 +5880,14 @@ Předchozí zápis říkal, že to dostavět znamená sáhnout do brány a že t
 - ⚠ **Snímek kontaminovaný klávesnicí:** druhý běh měl herní pózu od 1,4 s a vystřelenou kouli — slovo „continue" napsané do terminálu přistálo v okně hry, Enter přeskočil intro. Spuštění přes `CreateProcess` + `SW_SHOWMINNOACTIVE` (`530/capture-intro-nofocus.ps1` ve scratchpadu) fokus nebere a `shot=` snímky hry vycházejí stejně — pravidlo z paměti platí i pro focení, ne jen pro měření.
 - **Co reel zviditelnil a bylo tam vždycky:** počasí levelu se z menu prolíná 8 s (`WEATHER_FADE_SECONDS`, záměrně), takže bok hraje pod rozptýlenými kumuly předchozí scény, které do kráteru ztmavnou do bouřkové vrstvy sopky. Starý tour koukal na kužel a fade skoro neukázal; prolog kouká nahoru.
 - **Vyfoceno** `play level=71`, ~každou sekundu; stránka pro verdikt: https://claude.ai/artifact/PoA768qBAaToQ4gZ48SNsg. Cena žádná (cesty se staví jednou při začátku intra).
+
+---
+
+## 2026-09-23 — Claude Code, bs3d-95 (desktop: #531 polární záře — prolog intra mezi smrky a ze sněhu vzhůru)
+
+**Majitelův verdikt na #462** („kamera se na začátku dívá moc vysoko, nikdy neproletí lesem a zase žádné střihy"). Stejný mechanismus jako #488/#530, stromy místo věží: `Game/Effects/AuroraIntroShots.cs`, `ForestScatterRenderer.Scatter` (výsadba zveřejněná jen ke čtení), hook v `BS3DGame.IntroPrologue`.
+
+- **Dva záběry:** *les* (3,4 s) — rovný průlet 70 j prstencem stromů, 3,2 j nad sněhem, 6° vzhůru; **cesta se hledá, ne pokládá**: 120 hozených běhů, každý změřen proti všem 890 smrkům a souším (vzdálenost kmene od úsečky musí přesáhnout korunu v největším měřítku + rezervu = 3,8 j), z těch, co projdou, vyhrává nejhustší do 10 j — **vážené tak, že kmeny na obou stranách platí víc než stejný počet na jedné** (užší strana dvakrát). *Sníh* (3,4 s) — pomalý posun 14 j v 1,7 j nad sněhem, 22 j za okrajem mýtiny, 7 j od kmenů, objektiv připnutý 44° vzhůru 220 j nad les. Pak střih na poslední úsek tour. **11,3 s celkem.**
+- ⚠ **Dvě věci, které první řez fotil špatně:** dosah hustoty 16 j a holý počet vybraly běh po *okraji* háje — svah otevřeného sněhu se stromy na jedné ruce, vyfoceno jako sněžná pláň s linií lesa, ne průlet lesem; a vůle 4 j od kmene u sněžného záběru dala na dvě sekundy korunu NA objektiv. 10 j + obě strany, 7 j vůle.
+- **Look-at stanoviště tour sníženo** (`TryGetViewpoint`: z 260 j na kánoi kopců + 30) — a ve hře se po prologu vůbec nelétá (tour létá jen poslední úsek), takže je to jen výchozí bod pro volajícího bez prologu.
+- **Foceno přes `tour`** (žádný level záři neotvírá), dvakrát, protože hod je nezaseedovaný (`TOUR_RANDOM`; `sceneseed=` připne les, ne záběr). Stránka: https://claude.ai/artifact/M5edekweHRD7GWhoHWSGjG. Cena žádná mimo ~40 000 testů vzdálenosti na záběr při startu intra.
