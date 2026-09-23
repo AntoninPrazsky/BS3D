@@ -5706,3 +5706,16 @@ Předchozí zápis říkal, že to dostavět znamená sáhnout do brány a že t
   A to je **ústí**, nejrychlejší bod; závěr u čepů ujede zlomek.
 - **Dvakrát po sobě tedy vyšlo, že správně spočítané rozmáznutí v téhle hře nemá co ukázat** — první půlka narazila na to, že koule letí *od* diváka a protažení je zkrácené do ztracena. Přerámováno na majitelovo rozhodnutí: zavřít / udělat z toho vědomou **nadsázku** (nejlevnější tvar: stopa v duchu `LaunchSmears` za ústím, streak ve vzduchu místo deformovaného děla, v už existujícím průhledném slotu) / nechat na 60 Hz stroje. Můj hlas je nadsázka, ale nestavím ji bez jeho slova.
 - ⚠ **Ověřeno při tom:** v přehledu objektiv sleduje **bearing lafety, ne odměr hlavně** (`TrailedBearing` čte `_cannon.StandBearing`), takže hlaveň se při míření myší po obraze opravdu vychyluje a kamera stojí — ten případ je reálný. U chůze A/D je to naopak: kamera lafetu dohání, po rozjezdu dělo po obraze nejede vůbec.
+
+---
+
+## 2026-09-23 — Claude Code, bs3d-9f (desktop: #484 — kaskáda stínu změřená na majitelově rozlišení, ne na 1080p)
+
+**Nic jsem neměnil, jen doplnil číslo, které v #484 chybělo.** Merge `6195183` (2048 → 4096 na High) platí; tohle ho nezpochybňuje.
+
+- **Jak jsem na to přišel:** fotil jsem přední scénu hry kvůli #404 na 3840×1600 s `quality=high` a na stínu visícího shluku přes odtok je **pravidelná pravoúhlá kaskáda**. Zkontroloval jsem si nejdřív, jestli to není geometrie shluku (koule by daly oblé, fázově rozházené hrbolky) — nejsou to hrbolky, jsou to obdélníkové schody stejné velikosti, tedy texel stínové mapy.
+- **Změřeno** na pravém okraji stínu tam, kde přechází přes sklo odtoku (rovná plocha bez spár, aby hledač hrany nešel po jiné hraně), `bs3d-20260923-042135-Desert.png`: **43 schodů, medián 4,0 řádku, rozsah 2–10**. Texel z configu: `ShadowConfig.Extent / MapSize = 260 / 4096 = 0,0635` jednotky.
+- **Co #484 chybělo:** ten průchod se měřil na **1920×1080**. Poměr velikosti téhož texelu na obrazovce je přesně poměr svislých pixelů (texel je pevná světová délka), takže **týž schod je na 1080p 2,7 řádku a na majitelově panelu 4,0** — o 48 % větší.
+- ⚠ **Netvrdit víc, než co je pravda:** zdvojnásobení mapy schod **opravdu půlí** a ten poměr se s rozlišením nemění. Mění se **zbytek** — otázka „stačí 4096?" se zodpovídala na obrazovce, kde je o 48 % míň vidět.
+- **Data pro rozhodnutí jsou už v #484 změřená:** 8192 dá na 3840×1600 schod ~2,0 řádku za **+0,16 ms** a **537 MB** proti 134 MB. Na issue jsem dal tři varianty (Ultra = 8192 jen ručně, širší PCF místo rozlišení, nebo nechat být) a **rozhodnutí nechal majiteli** — „Ultra tier" je rozhodnutí o produktu.
+- ⚠ **Dvě pasti, do kterých jsem při tom spadl a obě jsou v skillech napsané:** (1) chtěl jsem srovnat 1080p a 4K párem snímků z hry a **obě vyšly 3840×1600** — hra `width=` nepoužila a já si to neověřil na `[fps]` řádku (past 8 benchmark skillu), takže první srovnání bylo neplatné. Poměr rozlišení nakonec žádný snímek nepotřebuje, je to aritmetika. (2) Dvě masky na změření „pixelů na světovou jednotku" chytily místo ostrova **písek** a pak **oblohu** (1,1 a 3,1 milionu pixelů) — počet pixelů v masce je nejlevnější kontrola, že maska měří to, co si myslíš.
