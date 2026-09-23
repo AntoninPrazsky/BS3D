@@ -22,13 +22,12 @@ measured with the factor **it** chose instead of one forced over the top of it.
 
 Each of these has actually happened; the first two are the expensive ones.
 
-1. **An unfocused window.** MonoGame sleeps `InactiveSleepTime` before every tick of an unfocused window.
-   Since #518 the Game sleeps 100 ms there for a player (an alt-tabbed game idles at 9–10 FPS) and **not at
-   all for a run that says `logfps`, `shot=` or `nofocuspause`** — the Testbed's unattended rule — so a
-   `logfps` run no longer inherits a cap from the sleep (until #518 the default 20 ms capped every unfocused
-   run near 50 FPS, and that cap quietly became the measurement). The script still clicks the title bar: the
-   quality probe runs only while `IsActive`, and Myra reads a click only then. Do not pass `-NoFocus` unless
-   the frame rate is well under the refresh either way.
+1. **An unfocused window.** MonoGame sleeps `InactiveSleepTime` before every tick of an unfocused window;
+   the Game sets it to **zero** (the owner's ruling on #518: the full frame rate even out of the foreground),
+   so a `logfps` run no longer inherits a cap from the sleep — until #518 the default 20 ms capped every
+   unfocused run near 50 FPS, and that cap quietly became the measurement. The script still clicks the title
+   bar: the quality probe runs only while `IsActive`, and Myra reads a click only then. Do not pass `-NoFocus`
+   unless the frame rate is well under the refresh either way.
 2. **Letting the adaptive path move under you.** With neither `quality=` nor `ssaa=` named, the game measures
    the machine and steps the tier down once the frame rate settles (a few seconds in, later on a machine that
    ramps slowly) — which reads as a spectacular win for whatever you were testing. Always pin one.
