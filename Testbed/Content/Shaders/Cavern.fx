@@ -170,30 +170,47 @@ float3 CrystalLightAt(float3 position)
 //"bioluminescent cavern" reads as from across the chamber, where the crystals read from a few tens of units
 //and the veins only where the rock is lit at all.
 //
-//One hash a pixel, and only on the ceiling. A single-cell lattice like everything else in this project: the
+//One hash a pixel, and only where they reach. A single-cell lattice like everything else in this project: the
 //point is jittered inside its own cell and never reaches the edge, so no neighbour has to be read. The cell is
 //small (a couple of units) because a glowworm is a POINT - the falloff below puts it at about a pixel at the
 //distance the ceiling is actually seen from, and the eye reads a field of them as a constellation rather than
 //as a dotted texture. They breathe out of step with each other; nothing else in this scene is still either.
+//
+//⚠ THE LATTICE IS THREE-DIMENSIONAL SINCE #528, AND THE REASON IS THE OWNER'S OWN WORD ON #507: "because of
+//them you can see that the shape of the ceiling is really an oval, which is unnatural." The worms were laid
+//on an XZ lattice and cut off by the cove, a height contour 22 units under the ceiling - so the constellation's
+//EDGE was that contour, a horizontal ring round the cylinder, which from any camera under it is a perfect
+//ellipse. Nothing else in the scene draws the shell's shape (the rock's fields are all functions of the hit
+//point, and a plane wearing them reads as a lit surface and never as a shape); a few hundred points with a
+//smooth boundary do. A displaced ceiling was built first and photographed IDENTICAL from below - the ceiling
+//is unlit, so a slab sagging sixteen units changes only the depth of a pixel that looks the same - and was
+//dropped: the shape the eye reads is the outline, not the surface. So the outline is what changes: the reach
+//(the caller's, ragged - see ShadeWall) runs down the wall's top in tongues and pulls back into the ceiling in
+//bays, and the lattice is a cube lattice with each point projected onto the surface it stands on, so the same
+//worms can sit on the wall's top as on the ceiling - an XZ lattice on a vertical wall degenerates into streaks.
+//One cell per cell-face the surface crosses, so the density per area is what it was.
 static const float GLOWWORM_CELL = 2.6;
 static const float GLOWWORM_CHANCE = 0.26;
 static const float GLOWWORM_RADIUS = 0.16;      //world units, the smallest a worm is drawn at
 static const float GLOWWORM_PIXEL = 0.0016;     //radians a pixel subtends, near enough for a point's size
 
-float Glowworms(float3 position, float distanceTravelled, float cove)
+float Glowworms(float3 position, float3 normal, float distanceTravelled, float reach)
 {
     [branch]
-    if (cove <= 0.02) return 0.0;
+    if (reach <= 0.02) return 0.0;
 
-    float2 cell = position.xz / GLOWWORM_CELL;
-    float2 cellId = floor(cell);
-    float2 f = cell - cellId;
+    float3 cell = position / GLOWWORM_CELL;
+    float3 cellId = floor(cell);
+    float3 f = cell - cellId;
 
-    float2 roll = NoiseHash22(cellId + 91.7) * 0.5 + 0.5;
+    float3 roll = NoiseHash33(cellId + 91.7) * 0.5 + 0.5;
     if (roll.x > GLOWWORM_CHANCE) return 0.0;
 
-    float2 centre = 0.25 + (NoiseHash22(cellId + 13.1) * 0.5 + 0.5) * 0.5;
-    float2 d = f - centre;
+    float3 centre = 0.25 + (NoiseHash33(cellId + 13.1) * 0.5 + 0.5) * 0.5;
+
+    //In the surface's own plane: the point is where the cube's centre projects onto the rock.
+    float3 d = f - centre;
+    d -= normal * dot(d, normal);
 
     //Out of step with each other, and never fully out: a glowworm dims, it does not blink.
     float breathe = 0.55 + 0.45 * sin(CavernTime * 0.7 + roll.y * 37.0);
@@ -203,7 +220,7 @@ float Glowworms(float3 position, float distanceTravelled, float cove)
     //dots crawls as the lens moves rather than hanging there. Its peak brightness is held instead of its area.
     float radius = max(GLOWWORM_RADIUS, distanceTravelled * GLOWWORM_PIXEL * 1.5) / GLOWWORM_CELL;
 
-    return exp(-dot(d, d) / (radius * radius)) * breathe * cove;
+    return exp(-dot(d, d) / (radius * radius)) * breathe * reach;
 }
 
 float3 ShadeWall(float3 position, float distanceTravelled, uniform bool fullDetail)
@@ -280,7 +297,16 @@ float3 ShadeWall(float3 position, float distanceTravelled, uniform bool fullDeta
     //light, not paint, and the rock under them stays as dark as the rest of the ceiling. In PATCHES - dense in
     //places and bare in others, which is how every photograph of them reads - off the rock's own body field,
     //which this shade has already paid for.
-    float worms = Glowworms(position, distanceTravelled, cove) * smoothstep(-0.25, 0.30, body);
+    //
+    //HOW FAR DOWN THE WALL THEY REACH IS RAGGED (#528): a low, slow 3D field decides, at every bearing, where the
+    //constellation's lower edge stands - from the cove's own height to sixty units under the ceiling - so it
+    //runs down the wall's top in tongues and pulls back in bays, and the edge the eye reads is a broken line
+    //rather than the height contour it was, which from under it was a perfect ellipse (see Glowworms). Two
+    //octaves at 120 and 60 units: a dozen tongues round the chamber, none alike. One field, two taps.
+    float reachField = Fbm3(position * 0.0085 + 5.0, 2);
+    float reachEdge = CaveCeilingY - 22.0 - 40.0 * saturate(reachField * 1.4 + 0.5);
+    float wormReach = smoothstep(reachEdge - 12.0, reachEdge + 10.0, position.y);
+    float worms = Glowworms(position, baseNormal, distanceTravelled, wormReach) * smoothstep(-0.25, 0.30, body);
 
     //The light: a cool key falling from the ceiling gaps against the perturbed normal, and each crystal
     //as a REAL point light - N dot L towards it over inverse square - so the rock around a magenta

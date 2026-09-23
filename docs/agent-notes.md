@@ -5891,3 +5891,16 @@ Předchozí zápis říkal, že to dostavět znamená sáhnout do brány a že t
 - ⚠ **Dvě věci, které první řez fotil špatně:** dosah hustoty 16 j a holý počet vybraly běh po *okraji* háje — svah otevřeného sněhu se stromy na jedné ruce, vyfoceno jako sněžná pláň s linií lesa, ne průlet lesem; a vůle 4 j od kmene u sněžného záběru dala na dvě sekundy korunu NA objektiv. 10 j + obě strany, 7 j vůle.
 - **Look-at stanoviště tour sníženo** (`TryGetViewpoint`: z 260 j na kánoi kopců + 30) — a ve hře se po prologu vůbec nelétá (tour létá jen poslední úsek), takže je to jen výchozí bod pro volajícího bez prologu.
 - **Foceno přes `tour`** (žádný level záři neotvírá), dvakrát, protože hod je nezaseedovaný (`TOUR_RANDOM`; `sceneseed=` připne les, ne záběr). Stránka: https://claude.ai/artifact/M5edekweHRD7GWhoHWSGjG. Cena žádná mimo ~40 000 testů vzdálenosti na záběr při startu intra.
+
+---
+
+## 2026-09-23 — Claude Code, bs3d-95 (desktop: #528 jeskyně — světlušky na stropě kreslily elipsu; okraj souhvězdí je teď roztrhaný)
+
+**Majitelův verdikt na #507** („kvůli světluškám na stropě je vidět, že tvar jeskyně/stropu je ve skutečnosti ovál, což je nepřirozené"). Založeno jako #528, vzato hned.
+
+- **Diagnóza:** světlušky (#507) byly ořezané *cove* — výškovou vrstevnicí 22 j pod stropem, vodorovným prstencem kolem válce — takže **okraj** souhvězdí byl ten prstenec, a prstenec kolem válce je zespodu z každé kamery dokonalá elipsa. Nic jiného ve scéně tvar skořápky nikdy nekreslilo: reliéf, vrstvy a žíly jsou pole bodu dopadu a rovina, co je nese, čte jako nasvícený povrch, ne jako tvar. Pár set bodů s hladkou hranicí ano.
+- ⚠ **První řez posunul samotnou klenbu** (strop a cove ±16 j dvouoktávového šumu, tři kroky sphere tracingu z analytického průsečíku, sklon reliéfu naklápěl normálu) — **a zespodu vyfotil totožně**: strop je neosvětlený, takže deska prohnutá o 16 j mění jen hloubku pixelu, který vypadá stejně, a okraj souhvězdí, pořád vrstevnice cove, byla táž elipsa. Zahozeno před měřením: oko čte obrys, ne povrch.
+- **Co je na mainu:** dosah světlušek dolů po stěně rozhoduje per azimut pomalé 3D pole (`reachField`, dvě oktávy na 120 a 60 j) — od výšky cove až 60 j pod strop — takže souhvězdí stéká po vršku stěny v **jazycích** a ustupuje do stropu v **zátokách**, tucet kolem sálu, žádný stejný; okraj je zlomená čára. **Mřížka je 3D** (`NoiseHash33`, krychle, bod promítnutý do roviny povrchu): XZ mřížka na svislé stěně degeneruje v pruhy. Hustota na plochu stejná.
+- **Cena** (Testbed, kamera vzhůru z herní pózy `campos=0,-4,30 camtarget=0,60,-120 fov=80`, 3840×1600, `nopost nooverc fpscap=400`, 20s okna, střídavé páry proti kopii binárky z mainu): main **5,25 a 5,24 ms → 5,47 a 5,48**, **+0,22 a +0,24 ms**, rozptyl 0,02 ms uvnitř běhu — dva tapy pole dosahu na každý pixel stěny a 3D hash.
+- **Foceno** z herní pózy vzhůru a z nízké kamery přes sál na cove (Testbed), a ze hry `play level=41`; stránka: https://claude.ai/artifact/2Xmnn9NeJ7nqNrvUyF9dHo.
+- ⚠ **Past focení:** `shot=4` s `at=6:Escape` nechalo dva PNG o 0 bajtech — zápis 3840×1600 snímku trvá déle než dvě sekundy a Escape ho utnul. `at=10:Escape` a `-Wait 13` stačí.
