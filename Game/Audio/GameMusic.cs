@@ -186,8 +186,7 @@ namespace BS3D.Audio
             if (File.Exists(victory)) _victoryLoad = LoadVictory(victory);
 
             //Every recording in the folder, grouped into families by the name before its first dash (#486): the
-            //file names only — nothing is decoded until a family is asked for. Sorted ordinally, so a family's
-            //bare file ("ember") stands before its variants ("ember-punk-01") and the variants keep their order.
+            //file names only — nothing is decoded until a family is asked for.
             if (Directory.Exists(directory))
             {
                 string[] files = Directory.GetFiles(directory, "*" + TRACK_EXTENSION);
@@ -208,6 +207,15 @@ namespace BS3D.Audio
 
                 foreach ((string family, List<string> members) in grouped)
                 {
+                    //The family's bare file first, then its variants: an ordinal sort puts "ember-punk-01.ogg" before
+                    //"ember.ogg" ('-' sorts under '.'), and a fresh launch is meant to open a chapter on the bare one
+                    members.Sort((a, b) =>
+                    {
+                        bool bareA = string.Equals(Path.GetFileNameWithoutExtension(a), family, StringComparison.OrdinalIgnoreCase);
+                        bool bareB = string.Equals(Path.GetFileNameWithoutExtension(b), family, StringComparison.OrdinalIgnoreCase);
+                        return bareA == bareB ? string.CompareOrdinal(a, b) : bareA ? -1 : 1;
+                    });
+
                     string[] names = new string[members.Count];
                     for (int i = 0; i < names.Length; i++) names[i] = Path.GetFileName(members[i]);
 
@@ -600,6 +608,13 @@ namespace BS3D.Audio
                         continue;
                     }
 
+                    //Once per level opening, beside the "[levels] Loaded" line — the only way to tell from a log
+                    //which of a family's recordings a level got. Before the voice is built rather than after it
+                    //plays, so the record stands even on a machine whose audio device is missing (the desktop's
+                    //monitor asleep takes its HDMI endpoint with it, and XAudio2 then has no device to make a
+                    //voice on) — the one case the catch below exists for.
+                    Console.WriteLine($"[music] {family.Name}: {family.Names[variant]}");
+
                     DynamicSoundEffectInstance old = _voice;
 
                     //Arrived before the volume is read (#456), so the first sample this chain ever plays is
@@ -616,16 +631,12 @@ namespace BS3D.Audio
                     old?.Dispose();
 
                     _voice.Play();
-
-                    //Once per level opening, beside the "[levels] Loaded" line — the only way to tell from a log
-                    //which of a family's recordings a level got
-                    Console.WriteLine($"[music] {family.Name}: {family.Names[variant]}");
                     return;
                 }
             }
             catch (Exception exception)
             {
-                Console.WriteLine($"[music] the theme could not be realized, playing on without it: {exception.Message}");
+                Console.WriteLine($"[music] the theme could not be realized (no audio device?), playing on without it: {exception.Message}");
                 _failed = true;
             }
         }
