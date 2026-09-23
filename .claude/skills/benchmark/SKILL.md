@@ -18,6 +18,10 @@ It reads the game's own `[fps]` lines rather than screenshotting a counter, prin
 the readings after discarding the warm-up. `-Ssaa 0` omits `ssaa=` entirely, which is how a `quality=` tier is
 measured with the factor **it** chose instead of one forced over the top of it.
 
+**For the tier ladder at real levels** (#540) use `tier-matrix.ps1` beside it: one run per level (or
+front-end scene) per tier, every `[fps]`/`[build]` line kept, then `python tier-matrix.py <dir>` prints medians
+and flags any run whose `[fps]` line is not what was asked for. The #540 table in `docs/game-shell.md` is its output.
+
 ## The four ways to measure nothing at all
 
 Each of these has actually happened; the first two are the expensive ones.
