@@ -1,4 +1,5 @@
 using Microsoft.Xna.Framework;
+using Prazsky.Core.Tools;
 using Microsoft.Xna.Framework.Graphics;
 using Prazsky.Core.Camera;
 using System;
@@ -367,8 +368,9 @@ namespace Prazsky.Core.Render
             SceneKind.Space => new(new Vector3(0.44f, 0.46f, 0.50f), new Vector3(0.26f, 0.28f, 0.32f), 0.22f, 0.20f, 4f),
             //Pastel marble, polished
             SceneKind.Dream => new(new Vector3(0.78f, 0.67f, 0.78f), new Vector3(0.66f, 0.59f, 0.74f), 0.32f, 0.20f, 2.5f),
-            //Wet dark rock
-            SceneKind.Cavern => new(new Vector3(0.31f, 0.32f, 0.34f), new Vector3(0.25f, 0.26f, 0.28f), 0.30f, 0.20f, 2f),
+            //Wet dark rock - WET since #535: the polish is the river's and the crystals' light standing on the
+            //cap as a sheen, which 0.30 read as damp and 0.48 reads as dripping.
+            SceneKind.Cavern => new(new Vector3(0.31f, 0.32f, 0.34f), new Vector3(0.25f, 0.26f, 0.28f), 0.48f, 0.36f, 2f),
             //Grey regolith concrete
             SceneKind.Moon => new(new Vector3(0.50f, 0.49f, 0.48f), new Vector3(0.42f, 0.42f, 0.42f), 0.08f, 0.05f, 2.5f),
             //Red sandstone
@@ -519,6 +521,42 @@ namespace Prazsky.Core.Render
             IslandShape.Plinth => new(4f, 0.004f, 0.020f, 0.020f, -1f, 0f, 0f, 0f, 3f, 0.006f),
             _ => STONE_RELIEF
         };
+
+        /// <summary>
+        /// THE ISLAND DRESSED PER FAMILY (#535, the volcanic and underground one first): what its joints put out
+        /// and what has settled on its top, beside the material and the shape. <c>CapJointGlow</c> and
+        /// <c>DrumJointGlow</c> are linear radiance in the joints' floors (see
+        /// <see cref="InstancedModelRenderer.JointGlow"/>), <c>EventGain</c> how much the scene's own event —
+        /// the volcano's eruption, through <see cref="EventGlow"/> — adds to them, <c>DustColor</c> the sRGB
+        /// albedo of what lies on the top and <c>DustStrength</c> how much of the top it covers.
+        /// </summary>
+        private readonly record struct IslandDressing(Vector3 CapJointGlow, Vector3 DrumJointGlow, float EventGain,
+            Vector3 DustColor, float DustStrength);
+
+        private static readonly IslandDressing NO_DRESSING = new(Vector3.Zero, Vector3.Zero, 0f, Vector3.One, 0f);
+
+        private static IslandDressing DressingFor(SceneKind scene) => scene switch
+        {
+            //Cooling cracks: the joints of the basalt block glow the flows' own dull red (VolcanoSceneConfig's
+            //LavaCool at 0.3 - a crust's glow, not a river's; the shader lights a third of the grid, in patches),
+            //the columns' joints on the drum dimmer, and every burst of the eruption pushes light up through them. Ash on the top: a warm grey
+            //over the black basalt, half the surface, so the block reads as standing in the fallout it stands in.
+            SceneKind.Volcano => new(new Vector3(0.26f, 0.036f, 0.004f), new Vector3(0.16f, 0.022f, 0.002f), 1.5f,
+                new Vector3(0.44f, 0.43f, 0.41f), 0.5f),
+            //Mineral veins: the joints carry the walls' own vein colour (CavernSceneConfig's VeinColor, half
+            //again over the walls' - a joint is a crack, and a crack is where the ore is), steady, no dust.
+            SceneKind.Cavern => new(new Vector3(0.09f, 0.24f, 0.28f), new Vector3(0.06f, 0.16f, 0.19f), 0f, Vector3.One, 0f),
+            _ => NO_DRESSING
+        };
+
+        /// <summary>
+        /// The scene's own event this frame, 0..1 — the volcano's eruption envelope
+        /// (<see cref="SceneRenderer.VolcanoEruption"/>) — which the dressing's joint glow rides (#535). The
+        /// hosts write it before <see cref="DrawIsland"/>, off the same clock their scene lights read, so the
+        /// cracks in the island brighten with the crater and the rivers and not on a beat of their own. Zero,
+        /// the default, is the steady crust glow.
+        /// </summary>
+        public float EventGlow { get; set; }
 
         private static Vector3 TintFor(Vector3 wanted, Vector3 authored) =>
             wanted / ((authored.X * 0.299f + authored.Y * 0.587f + authored.Z * 0.114f) * 1.25f);
@@ -842,6 +880,18 @@ namespace Prazsky.Core.Render
             _bodyRenderer.SlabJointDepth = relief.DrumJointDepth;
             _bodyRenderer.SurfaceReliefFrequency = relief.DrumReliefFrequency;
             _bodyRenderer.SurfaceReliefStrength = relief.DrumReliefStrength;
+
+            //The dressing (#535): the joints' glow, pushed by the scene's event, and the dust on the top. The
+            //dust tint is a ratio in linear light of what lies on the stone to the stone, so the shader's
+            //modulation lands the dust's own albedo on the faces it covers.
+            IslandDressing dressing = DressingFor(scene);
+            float pulse = 1f + dressing.EventGain * EventGlow;
+            _capRenderer.JointGlow = dressing.CapJointGlow * pulse;
+            _bodyRenderer.JointGlow = dressing.DrumJointGlow * pulse;
+            _capRenderer.TopDustStrength = dressing.DustStrength;
+            _capRenderer.TopDustTint = dressing.DustStrength > 0f
+                ? ColorSpace.SrgbToLinear(dressing.DustColor) / ColorSpace.SrgbToLinear(look.Cap)
+                : Vector3.One;
 
             if ((Members & ArenaMembers.Cap) != 0)
             {

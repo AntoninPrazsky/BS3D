@@ -5916,3 +5916,17 @@ Předchozí zápis říkal, že to dostavět znamená sáhnout do brány a že t
 - **Invarianty, které každý tvar drží:** hrana podlahy (`FloorRadius`, y=0) je pravý kruh bez vlnění (fyzika), nic nad y=0 na okraji, ústí vrtu (zlatý pásek) nevlní, noha do 0,2 j od okraje (kryje díru v terénu). `RADIUS`/`TOP_Y`/`FLOOR_RADIUS` netknuté. Vlnící okraj (led, korál) vlní čepici i buben stejnou amplitudou a stejným per-ring wobble ve sdíleném bodě (pravidlo švu v `LatheMesh`).
 - **Cena** (Testbed, sopka, herní póza, 3840×1600, `nopost nooverc fpscap=400`, 20s okna, střídavé páry proti kopii binárky z mainu): main **12,23 a 12,34 ms → 12,31 a 12,28**, **+0,08 a −0,06 ms** — znaménko se v páru nedrží, tedy podlaha měření, jak lathe stejné velikosti pod týmž rendererem předpovídá.
 - **Foceno** z jedné kamery (`campos=30,-2,34 camtarget=0,-10,0 fov=55`) v šesti scénách před/po s referencemi vedle: https://claude.ai/artifact/VXeWyPKKHRBesZ54YzkU8r. Louka (kámen) je totožná.
+
+---
+
+## 2026-09-23 — Claude Code, bs3d-95 (desktop: #535 ostrov oblečený — sopka a jeskyně)
+
+**První z pěti rodin (#534–#538) po #533.** Dva nové členy na triplanárním povrchu (`InstancedModel.fx`, `TriplanarPS` + coarse; **ne** sondy `TriplanarProbe*`, které mají tytéž řádky doslova a musí měřit, co měřily — první řez skriptu je chytil, opraveno řezáním těla funkce): `JointGlow` (lineární radiance na DNĚ spár, čteno jako groove², takže úkos zůstává tmavý) a `TopDustTint`/`TopDustStrength` (modulace albeda na plochách nahoru podle GEOMETRICKÉ normály). Obojí nula default, glow za `[branch]` na uniformě s derivacemi vzatými venku.
+
+- **Sopka:** spáry čedičového bloku = chladnoucí praskliny (`LavaCool` × 0,3 na čepici, sloupy bubnu tmavší) a **každý výbuch erupce je rozsvítí** — hostitelé píšou `ArenaIsland.EventGlow` z `SceneRenderer.VolcanoEruption` na týchž hodinách jako lampa kráteru a hrom (`EventGain` 1,5). **Popel** na vrchu: teplá šeď přes černý čedič, půl plochy.
+- **Jeskyně:** spáry nesou žíly stěn (`VeinColor` × 1,6, stále), čepice **mokrá**: polish 0,30 → 0,48, buben 0,20 → 0,36.
+- ⚠ **První řez svítil po celé délce každé spáry a vyfotil se jako neonová mřížka** (plošný spoj, ne kámen). Chladnoucí prasklina svítí, kde je kůra nejtenčí; žíla vede jen některými puklinami — nízký 3D šum (`GradientNoise3` × 0,23) teď záři hradluje: úsek spáry hoří, slábne a zhasne podél čáry, svítí ~třetina mřížky, intenzity dolů o třetinu (`LavaCool` × 0,3 na víku).
+- **Nehotovo, zapsáno:** krystal u bubnu (jsou to SDF v `Cavern.fx`), odštípnutý okraj, kapající voda.
+- **Kontrast prstence** (kamera #404 `campos=0,-1,24 camtarget=0,-9,0`, 1216×832, `nopost nooverc`, dvě stanice vlevo/vpravo na pásku, CIEDE2000 proti víku vedle): **sopka 35,6 → 33,6 dE** (popel trochu zesvětlí černé víko; louka 15,8), **jeskyně 35,4 → 35,3** — daleko nad 13, na kterých padla poušť.
+- **Cena** (Testbed, sopka, herní póza, 3840×1600, `nopost nooverc fpscap=400`, 20s okna, střídavé páry proti kopii binárky z mainu po #533): main **12,26 a 12,29 ms → 12,53 a 12,50**, **+0,27 a +0,21 ms** — větev záře na každém pixelu ostrova ve dvou oblečených scénách (druhý `SlabGroove` + jeden `GradientNoise3`); v ostatních osmnácti větev přeskočí a prach je jeden lerp.
+- **Reference** (`design-references`, 2 prompty × 2 seedy, `C:\Users\panrd\AI\sd\out\535`): oba obrázky trefily záměr — červené švy mezi tmavými deskami a popel v plochách; mokrá deska s tyrkysovými žilami v prasklinách. Stránka: https://claude.ai/artifact/6Us179KKyrVvDtmHtp6SvU.

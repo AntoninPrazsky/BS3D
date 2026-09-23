@@ -905,6 +905,9 @@ namespace BS3D
             //and which brings the culling its open cone needs with it. Each slice owns the states its own
             //geometry wants; where they sit in the frame is this file's decision, which is the whole reason
             //ArenaIsland hands them over separately.
+            //The island's own event (#535): the volcano's eruption, off the wall clock the scene lights and the
+            //thunder read, so the cracks in the basalt brighten with the crater. Zero in every other scene.
+            _island.EventGlow = _scene == SceneKind.Volcano ? _sceneRenderer.VolcanoEruption(_wallClock) : 0f;
             _island.DrawIsland(_camera, _sceneEffectParams, _scene);
             _island.DrawPit(_camera, _sceneEffectParams, _scene);
 
