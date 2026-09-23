@@ -5749,3 +5749,15 @@ Předchozí zápis říkal, že to dostavět znamená sáhnout do brány a že t
 - **Co je na ní:** tři změněné scény jako posuvník před/po (výřez odtoku z týchž snímků, ze kterých jsou čísla), jedna nezměněná (Grid) jako kontrola, tabulka všech dvaceti, a metodická sekce s tím, co dvakrát lhalo.
 - **Technicky:** obrázky jako data URI (264 KB celkem po výřezu na 860 px a JPEG q84), takže stránka je 365 KB a soběstačná — CSP artefaktů stejně externí obrázky blokuje. Posuvník je `<input type=range>` plus `clip-path`, takže funguje klávesnicí i dotykem; tažení přes obrázek je navíc.
 - ⚠ **`gh issue comment --body` s víceřádkovým PowerShell here-stringem se rozpadl na 87 argumentů** (stejná past jako `git commit -m`, zapsaná v paměti). `--body-file` je jediná spolehlivá cesta; platí pro `gh` stejně jako pro `git`.
+
+---
+
+## 2026-09-23 — Claude Code, bs3d-9f (desktop: deset scénických verdiktů na jedné stránce)
+
+**https://claude.ai/artifact/8pGfwsXXgtFWsvabGf7Ejq** — před/po ze **stejné kamery** pro deset z jedenácti scénických průchodů (#503–#508, #510–#512, #445), každá scéna jako posuvník s kotvou (`#sea`, `#cavern`, …). Odkaz je okomentovaný na všech deseti issues.
+
+- **Proč to jde udělat teprve teď:** snímky „base" a „after" z těch průchodů **pořád leží ve scratchpadu téhle session** — je to jedna dlouhá relace, takže `sea-base/game.png` proti `sea-new/game.png` a tak dál. Konvence `game.png` (herní póza Testbedu) byla ve všech deseti stejná, takže páry sedí kamera na kameru bez dalšího focení.
+- **Sopka (#509) tam schválně není.** Snímky má, ale ne z téže pózy jako ostatní a není z nich jisté, která varianta se odeslala. **Ukázat dvojici, u které si nejsem jistý, je horší než ji neukázat** — a napsat to na stránku je levnější než to zamlčet.
+- **Hory nemají `game.png`** (capture v `m-v5` nedoběhl, log tam je a png ne), použit `face.png`, který je v obou.
+- **Obecné poučení, které stojí za víc než tahle stránka:** u zmergované změny vzhledu je **porovnání jediná věc, kterou majitel sám získat nemůže** — spustit současný build umí, vrátit se do včerejšího ne. Proto se u každé práce, co končí „nechávám otevřené na majitelův pohled", vyplatí **nechat si snímky „před"** a udělat z nich stránku. Jedenáct issues je dneska otevřených jen proto, že to podívání nikdo nezlevnil.
+- **Technicky:** 20 obrázků na 840 px, JPEG q80, data URI, stránka 1,27 MB. Posuvník `<input type=range>` + `clip-path`, tažení přes obrázek navíc; lepkavá navigace se scroll-margin kotvami.
