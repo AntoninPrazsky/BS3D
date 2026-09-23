@@ -581,6 +581,19 @@ float SlabSize;
 float SlabJointWidth;
 float SlabJointDepth;
 
+//What the joints' FLOORS put out, as linear radiance (#535): the volcano island's cooling cracks glowing a
+//dull red from inside, the cavern island's mineral veins running where the walls' do. Zero on every other
+//surface, and the branch that reads it skips. Read at the groove's floor SQUARED, so the bevel stays dark
+//and only the deepest part of a crack is incandescent - which is what a cooling crack looks like.
+float3 JointGlow;
+
+//Dust settled on the up-facing faces (#535): ash on the volcano's island. A modulation of the albedo rather
+//than a colour - the ratio of the dust's linear colour to the material's, so 1 is no dust - and how much of
+//it, 0 none. Keyed to the GEOMETRIC normal, so a slope takes less and a wall none, and the grain of the relief
+//does not put dust on and off across the top.
+float3 TopDustTint;
+float TopDustStrength;
+
 //How dark the pits of the relief go from being shaded by their own walls (0 = off)
 float CavityStrength;
 
@@ -6034,6 +6047,11 @@ float4 TriplanarPS(VertexShaderOutput input) : COLOR
     float height = SceneSurfaceHeight(input.WorldPosition, dpdx, dpdy);
 
     float3 texRgb = lerp(float3(1, 1, 1), detail * DetailBoost, DetailStrength);
+
+    //The dust (#535): on the top, by the geometric normal, and only there.
+    float up = saturate(worldNormal.y);
+    texRgb = lerp(texRgb, texRgb * TopDustTint, TopDustStrength * up * up);
+
     float3 reliefNormal = PerturbNormalFromHeight(worldNormal, input.WorldPosition, height);
 
     //Cavity shading needs only the height and applies cleanly, so this path runs it instead of the generic
@@ -6041,7 +6059,24 @@ float4 TriplanarPS(VertexShaderOutput input) : COLOR
     float cavityRange = max(SurfaceReliefStrength + CavityHeadroom, 1e-6);
     float cavity = lerp(1 - CavityStrength, 1, saturate((height + SurfaceReliefStrength + CavityHeadroom) / (cavityRange + SurfaceReliefStrength)));
 
-    return ShadePixel(input.WorldPosition, reliefNormal, input.OcclusionData, float4(texRgb, 1), 1, cavity);
+    float4 shaded = ShadePixel(input.WorldPosition, reliefNormal, input.OcclusionData, float4(texRgb, 1), 1, cavity);
+
+    //The joints' glow (#535), behind a branch on the uniform: the groove is read again here rather than
+    //handed out of the height field, which every path above reads as one scalar, and its derivatives were
+    //taken outside the branch, so nothing inside it is a gradient operation.
+    [branch]
+    if (dot(JointGlow, JointGlow) > 0)
+    {
+        //IN PATCHES, not along every joint: lit along their whole length the joints photographed as a neon
+        //grid laid over the stone (the first cut), where a cooling crack glows where the crust is thinnest
+        //and a vein runs in some fractures and not others. A low world-space noise gates the glow, so a
+        //stretch of a joint burns, fades and goes dark along the line, and about a third of the grid is lit.
+        float groove = SlabGroove(input.WorldPosition, dpdx, dpdy);
+        float patch = smoothstep(0.05, 0.45, GradientNoise3(input.WorldPosition * 0.23 + 3.7));
+        shaded.rgb += JointGlow * (groove * groove * patch);
+    }
+
+    return shaded;
 }
 
 //Window layout and look. These are uniforms now, set on every city draw from CitySceneConfig (whose
@@ -6695,12 +6730,34 @@ float4 TriplanarCoarsePS(VertexShaderOutput input) : COLOR
     float height = SceneSurfaceHeightCoarse(input.WorldPosition, dpdx, dpdy);
 
     float3 texRgb = lerp(float3(1, 1, 1), detail * DetailBoost, DetailStrength);
+
+    //The dust (#535): on the top, by the geometric normal, and only there.
+    float up = saturate(worldNormal.y);
+    texRgb = lerp(texRgb, texRgb * TopDustTint, TopDustStrength * up * up);
+
     float3 reliefNormal = PerturbNormalFromHeight(worldNormal, input.WorldPosition, height);
 
     float cavityRange = max(SurfaceReliefStrength + CavityHeadroom, 1e-6);
     float cavity = lerp(1 - CavityStrength, 1, saturate((height + SurfaceReliefStrength + CavityHeadroom) / (cavityRange + SurfaceReliefStrength)));
 
-    return ShadePixel(input.WorldPosition, reliefNormal, input.OcclusionData, float4(texRgb, 1), 1, cavity);
+    float4 shaded = ShadePixel(input.WorldPosition, reliefNormal, input.OcclusionData, float4(texRgb, 1), 1, cavity);
+
+    //The joints' glow (#535), behind a branch on the uniform: the groove is read again here rather than
+    //handed out of the height field, which every path above reads as one scalar, and its derivatives were
+    //taken outside the branch, so nothing inside it is a gradient operation.
+    [branch]
+    if (dot(JointGlow, JointGlow) > 0)
+    {
+        //IN PATCHES, not along every joint: lit along their whole length the joints photographed as a neon
+        //grid laid over the stone (the first cut), where a cooling crack glows where the crust is thinnest
+        //and a vein runs in some fractures and not others. A low world-space noise gates the glow, so a
+        //stretch of a joint burns, fades and goes dark along the line, and about a third of the grid is lit.
+        float groove = SlabGroove(input.WorldPosition, dpdx, dpdy);
+        float patch = smoothstep(0.05, 0.45, GradientNoise3(input.WorldPosition * 0.23 + 3.7));
+        shaded.rgb += JointGlow * (groove * groove * patch);
+    }
+
+    return shaded;
 }
 
 technique InstancedModelTriplanarCoarse

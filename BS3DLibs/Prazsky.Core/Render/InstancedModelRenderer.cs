@@ -64,6 +64,7 @@ namespace Prazsky.Core.Render
         private EffectParameter _slabSizeParam;
         private EffectParameter _slabJointWidthParam;
         private EffectParameter _slabJointDepthParam;
+        private EffectParameter _jointGlowParam, _topDustTintParam, _topDustStrengthParam;
         private EffectParameter _cavityStrengthParam;
         private EffectParameter _reliefShadowStrengthParam;
         private EffectParameter _parallaxScaleParam;
@@ -288,6 +289,24 @@ namespace Prazsky.Core.Render
 
         /// <summary>How far a slab joint sinks below the slab faces, in world units.</summary>
         public float SlabJointDepth { get; set; } = 0.05f;
+
+        /// <summary>
+        /// What the slab joints' floors put out, as linear radiance (#535) — the volcano island's cooling
+        /// cracks, the cavern island's mineral veins. Zero, the default, costs the triplanar paths nothing:
+        /// the shader's branch on it skips. Read at the groove's floor squared, so only the deepest part of a
+        /// joint glows and its bevel stays dark.
+        /// </summary>
+        public Vector3 JointGlow { get; set; }
+
+        /// <summary>
+        /// Dust settled on the up-facing faces of a triplanar surface (#535): a modulation of the albedo — the
+        /// ratio of the dust's linear colour to the material's, so <see cref="Vector3.One"/> is no change —
+        /// and <see cref="TopDustStrength"/> how much of it, 0 none. Keyed to the geometric normal.
+        /// </summary>
+        public Vector3 TopDustTint { get; set; } = Vector3.One;
+
+        /// <inheritdoc cref="TopDustTint"/>
+        public float TopDustStrength { get; set; }
 
         /// <summary>
         /// How dark the pits of the relief go from being shaded by their own walls (0 = off, 1 = black).
@@ -954,6 +973,9 @@ namespace Prazsky.Core.Render
             _slabSizeParam = _effect.Parameters["SlabSize"];
             _slabJointWidthParam = _effect.Parameters["SlabJointWidth"];
             _slabJointDepthParam = _effect.Parameters["SlabJointDepth"];
+            _jointGlowParam = _effect.Parameters["JointGlow"];
+            _topDustTintParam = _effect.Parameters["TopDustTint"];
+            _topDustStrengthParam = _effect.Parameters["TopDustStrength"];
             _cavityStrengthParam = _effect.Parameters["CavityStrength"];
             _reliefShadowStrengthParam = _effect.Parameters["ReliefShadowStrength"];
             _parallaxScaleParam = _effect.Parameters["ParallaxScale"];
@@ -1319,6 +1341,9 @@ namespace Prazsky.Core.Render
             _slabSizeParam.SetValue(SlabSize);
             _slabJointWidthParam.SetValue(SlabJointWidth);
             _slabJointDepthParam.SetValue(SlabJointDepth);
+            _jointGlowParam.SetValue(JointGlow);
+            _topDustTintParam.SetValue(TopDustTint);
+            _topDustStrengthParam.SetValue(TopDustStrength);
             _cavityStrengthParam.SetValue(CavityStrength);
             _reliefShadowStrengthParam.SetValue(ReliefShadowStrength);
             _parallaxScaleParam.SetValue(ParallaxScale);
