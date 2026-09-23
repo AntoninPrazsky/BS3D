@@ -5854,3 +5854,15 @@ Předchozí zápis říkal, že to dostavět znamená sáhnout do brány a že t
 - **Cena** (Testbed, herní póza `campos=0,-4,30 camtarget=0,-8,0`, dome 20, 3840×1600 ssaa 2, `nopost nooverc fpscap=400`, 70s okna, střídavé páry main/změna z kopie binárky před změnou): main **8,72 a 8,71 ms** proti pásu **8,91 a 8,92** — **+0,19 a +0,21 ms** za pětinu buněk navíc a `exp`+`sqrt` na vrchol; rozptyly 8,05–9,88 proti 8,65–9,38, `[build]` razítka obou binárek v logu.
 - **Stránka před/po pro verdikt** (tři kamery × pět sekund): https://claude.ai/artifact/Lo6QYn9tmJvesQbdLFVeJN
 - ⚠ **Pravidlo, které z toho plyne:** cokoli, co se v shaderu unáší hodinami, musí mít na hostu tutéž funkci, jinak všechno, co host umisťuje do toho pole (úder, zvuk, světlo), po minutě lže. A „generováno daleko za far plane, aby se nemuselo wrapovat" znamená jen „vada se projeví za tři minuty místo hned".
+
+---
+
+## 2026-09-23 — Claude Code, bs3d-95 (desktop: #529 svislé pruhy na horizontu sopky — NEREPRODUKOVÁNO, zapsáno, ať se to nehledá dvakrát)
+
+**Majitelův verdikt na #509** („na horizontu občas vidím vertikální artefakty — přímo na horizontu, daleko — jako vertikální pruhy"). Hodina hledání bez nálezu; metoda a vyloučené vrstvy jsou v komentáři na #529, tady zkratka:
+
+- **Vyfoceno** (`main` d7a4f73): Testbed ze čtyř azimutů z paluby s úzkým objektivem (`campos=0,2,0 camtarget=±400 fov=40 shot=6,9,12`, 1920×1080), hra na 3840×1600 (front end 9 snímků přes orbit, `play level=71` 6 snímků přes intro až do herní pózy). Horizont zvětšen ×3–5 v nativních pixelech, ne posuzován ze zmenšeniny.
+- **Co na horizontu je:** zubatá silueta pláně proti dómu — reliéf škváry říznutý far plane na 500 j (opar jde do 900, takže na 500 je terén jen 22 % zamlžený a hrana je ostrá) — **totožná ve třech po sobě jdoucích snímcích**, tedy statická geometrie, ne šum. Nad ní pruhy oblačné vrstvy vodorovné na každém azimutu. Jediné pohyblivé značky u horizontu jsou vločky popela.
+- **Vyloučeno čtením:** stínová mapa (`Shadows.fxh` vrací mimo okno 260 j „osvětleno" a posledních 6 % vyhasíná — žádný clamp-smear do dálky), česaný reliéf a praskliny (band-limited na footprint, v dálce vyhasínají místo aliasu), popel (`Ash.fx` — kulaté billboardy v boxu kolem kamery), oblačná vrstva.
+- **Nástroj:** `529/find-stripes.py` (scratchpad) — řadí dlaždice snímků podle energie svislých hran proti vodorovným, jen PIL (tenhle Python nemá numpy). Na Testbedu ho zmátl křížek zaměřovače; ve hře nevyhodil nic pruhovitého.
+- **Další krok je majitelův:** F8 ve hře uloží snímek vedle exe (`[shot]` v konzoli), s azimutem a kamerou (orbit / intro / herní póza) se dá vrstva v Testbedu vypnout a pojmenovat. Issue nechána otevřená.
