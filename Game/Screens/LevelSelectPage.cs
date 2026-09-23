@@ -240,13 +240,21 @@ namespace BS3D.Screens
 
             //The one detail line (#91): the rules a tile has no room for, spoken for the tile under the
             //pointer or under the focus cursor. A fixed height, so the page does not jump as it fills and
-            //empties.
+            //empties — and since #539 a fixed WIDTH too, the grid's own, so it cannot jump sideways either:
+            //without one the line was measured at its text's extent, and a beyond-reach tile's sentence ran
+            //past the grid and widened the whole plate under the pointer (photographed at 3840×1600). The
+            //height is NOT fitted: FontSmall is the menu's unfitted 58 units, and Fit(70) at 2.4:1 was 52 —
+            //the line drew into the Back button below it. Whatever still will not fit the width is cut with an
+            //ellipsis rather than let overflow, the same choice as clipping over a widening page.
             _detail = new Label
             {
                 Font = FontSmall,
                 TextColor = BS3DGame.MENU_TEXT_DIM,
                 HorizontalAlignment = HorizontalAlignment.Center,
-                Height = Scaled(Fit(70)),
+                TextAlign = FontStashSharp.RichText.TextHorizontalAlignment.Center,
+                AutoEllipsisMethod = FontStashSharp.RichText.AutoEllipsisMethod.Character,
+                Width = Scaled(GridWidth(count)),
+                Height = Scaled(70),
                 Margin = ScaledThickness(0, 13, 0, 13),
             };
             page.Widgets.Add(_detail);
@@ -271,6 +279,17 @@ namespace BS3D.Screens
         /// it and a set with thirty in one run must still be reachable. It costs nothing when it is not needed
         /// and it is what the pad's own scroll-into-view (#245) hangs off.
         /// </summary>
+        /// <summary>
+        /// How wide the grid comes out, in design units: the tiles and the gaps between them as
+        /// <see cref="BuildGrid"/> lays them out (the tile's width is fitted, the gap is fitted, #496). The
+        /// detail line under the grid is cut to this so it can never widen the plate (#539).
+        /// </summary>
+        private int GridWidth(int count)
+        {
+            int columns = Math.Min(Math.Max(count, 1), _chaptered ? CHAPTER_COLUMNS : TILE_COLUMNS);
+            return columns * Fit(TILE_WIDTH) + (columns - 1) * Fit(26);
+        }
+
         private ScrollViewer BuildGrid(int count)
         {
             int columns = _chaptered ? CHAPTER_COLUMNS : TILE_COLUMNS;
@@ -422,7 +441,11 @@ namespace BS3D.Screens
                 //rather than eleven closures over the loop variable's last value.
                 int chapter = c;
 
-                row.Widgets.Add(Game.MenuTile(pip, () => GoToChapter(chapter), Fit(PIP_SIZE), Fit(PIP_SIZE)));
+                //NOT fitted (#539): the square's floor is the glyph, and FontStars is the menu's unfitted 140 units,
+                //so Fit(150) at 2.4:1 — 111 — put the ring outside its own plate, the plate standing up and to the
+                //left of it (photographed at 3840×1600). Same rule as the tile's height: what is font-bound keeps
+                //the font's size.
+                row.Widgets.Add(Game.MenuTile(pip, () => GoToChapter(chapter), PIP_SIZE, PIP_SIZE));
             }
 
             return row;
@@ -869,8 +892,8 @@ namespace BS3D.Screens
             _detail.Text = Game.IsLevelUnlocked(level)
                 ? $"{Game.LevelDisplayName(level)} — {Game.LevelRulesText(level)}"
                 : Game.IsLevelBeyondReach(level)
-                    ? $"{Game.LevelDisplayName(level)} — the campaign opens one level at a time;"
-                      + $" level {Game.FirstUnfinishedLevel + 1} '{Game.LevelDisplayName(Game.FirstUnfinishedLevel)}' is next"
+                    ? $"{Game.LevelDisplayName(level)} — one level at a time;"
+                      + $" next is {Game.FirstUnfinishedLevel + 1} '{Game.LevelDisplayName(Game.FirstUnfinishedLevel)}'"
                     : $"{Game.LevelDisplayName(level)} — unlocks at {Game.LevelMinStars(level)} {STAR_FILLED}, you have {Game.TotalStars}";
         }
 
