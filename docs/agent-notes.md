@@ -5984,3 +5984,14 @@ Předchozí zápis říkal, že to dostavět znamená sáhnout do brány a že t
 - **Postaveno (merge níž): Medium nese 4× MSAA místo 8×** (`QualityLevel.cs`, jedna konstanta + komentáře; `[fps]` hlásí `medium, msaa 4x`, snímek neonu má čisté siluety). Víc jsem nestavěl: louka/neon/poušť chybí na Medium 0,8–1 ms, což je zhruba velikost té úspory.
 - **Scény z menu** (jeden běh, orbit, ber jako pořadí): Low/Medium — Mars **20,9**/34,2, polár 18,4/23,8, outback 18,0/23,7, les 17,4/20,6, tropy 15,8/21,7, bouře 15,5/18,5, moře 14,2/16,7, záře 12,4/17,9.
 - **Co zbývá (v #540):** sopka potřebuje ještě ~1,8 ms; kromě pixel shaderu svahu kreslí kouřový sloup a fontány (průhledné čtverce) a popel, a **žádný přepínač je neoddělí** — další krok je sonda v Testbedu, co sloup vypne, a teprve pak ubírat oktávy. Mars v menu na Low (20,9) stojí za stejný rozbor.
+
+---
+
+## 2026-09-23 — Claude Code, github-f0 (notebook: #467 LUFS sloupec v `MusicBake` — a hypotéza issue se měřením nepotvrdila)
+
+**Vzato bez majitele u klávesnice** („zpracovávej issues, co nečekají na můj vstup"). Zbytek #467, který nečeká na ucho: K-weighted hlasitost vedle RMS.
+
+- **Co je na mainu:** `Lufs` (ITU-R BS.1770-4: K-weighting dvěma biquady, 400ms bloky s překryvem 3/4, gate −70 LUFS a relativní −10 LU), `KWeighting` odvozené z analogových prototypů (derivace libebur128), takže jeden měřič čte procedurální kusy na 44,1 kHz i stopy na 48. **`CheckMeter` běží před každou tabulkou** — koeficienty na 48 kHz proti tabulce standardu (shoda na 1e-15) a pět signálů EBU Tech 3341 na obou frekvencích ±0,1 LU; mimo → exit 5. **Selhávající větev vyzkoušena** (§10): bez relativního gate čte #3/#4 −24,2 a nástroj skončil 5. Nový režim **`--shipped`**: celou `Game/Music` dekóduje přes `OggTrack` a vytiskne tabulku bez masterů (ty jsou od #486 na desktopu).
+- **Změřeno:** pět procedurálních témat **−12,8 až −13,6 LUFS**, 118 generovaných **−15,7 až −11,9, medián −13,7** (osm z deseti mezi −14,3 a −13,0), všechno na −15,0 RMS. **Takže RMS vyrovnání generované stopy o nic neztišilo** (0,2 LU v průměru) — hudba pod efekty je věc konstant mixu, přesně ta páka, kterou #467 pohnul (0,34 → 0,5); zdůvodnění „RMS není hlasitost" v dokumentu opraveno číslem, ne smazáno.
+- **Co sloupec našel místo toho:** rozptyl **uvnitř** nahrávek 3,8 LU (`nebula-berlin` nejtišší, `neon-eurobeat` nejhlasitější), rotace kapitoly tak může skočit až o 2,5 LU mezi levely (Nebula sama −15,7 až −13,2). Dopéct na cíl v LUFS místo RMS by to zavřelo — **neudělal jsem to**: mastery jsou na desktopu a je to přeenkódování 119 souborů (~160 MB churn), majitelovo rozhodnutí.
+- Druhý krok hlasitosti (0,7) zůstává na majitelově uchu, issue otevřené.

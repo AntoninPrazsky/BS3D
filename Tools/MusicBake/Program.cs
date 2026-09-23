@@ -83,6 +83,9 @@ namespace BS3D.Tools.MusicBake
         /// <summary>How much of a track the encoder is handed at a time: a second of audio.</summary>
         private const int OGG_CHUNK_FRAMES = 48000;
 
+        /// <summary>The rate <c>GameMusic</c> decodes its tracks at (its <c>SAMPLE_RATE</c>), which <c>--shipped</c> reads them back at.</summary>
+        private const int TRACK_RATE = 48000;
+
         //The generated sound effects (#482): the game's effects are baked at 44.1 kHz (ProceduralAudio.SAMPLE_RATE), and
         //a render that is not is refused rather than resampled here. The file is written at a sane peak; the loudness
         //law is the game's own at load, so a chosen sound is stored as it was chosen.
@@ -176,6 +179,7 @@ namespace BS3D.Tools.MusicBake
             string outDir = "MusicBake";
             bool write = true;
             bool tracks = false;
+            bool shipped = false;
             float quality = OGG_QUALITY;
             string only = null;
             string extraMasters = null;
@@ -195,6 +199,7 @@ namespace BS3D.Tools.MusicBake
                 else if (Is(arg, "--theme") && i + 1 < args.Length) only = args[++i];
                 else if (Is(arg, "--no-write")) write = false;
                 else if (Is(arg, "--tracks")) tracks = true;
+                else if (Is(arg, "--shipped")) shipped = true;
                 else if (Is(arg, "--masters") && i + 1 < args.Length) extraMasters = args[++i];
                 else if (Is(arg, "--only") && i + 1 < args.Length) onlyTracks = args[++i];
                 else if (Is(arg, "--sfx") && i + 2 < args.Length) { sfxWav = args[++i]; sfxName = args[++i]; }
@@ -207,11 +212,19 @@ namespace BS3D.Tools.MusicBake
                     && quality >= -0.1f && quality < OGG_QUALITY_LIMIT) continue;
                 else
                 {
-                    Console.WriteLine("usage: MusicBake [--out <dir>] [--theme <name>] [--no-write] | --tracks [--masters <dir>] [--only <prefix>] [--quality <-0.1..0.59>] [--no-write] | --sfx <wav> <name> [--music [--root <midi>] [--bpm <n>]] [--no-write]");
+                    Console.WriteLine("usage: MusicBake [--out <dir>] [--theme <name>] [--no-write] | --tracks [--masters <dir>] [--only <prefix>] [--quality <-0.1..0.59>] [--no-write] | --shipped [--only <prefix>] | --sfx <wav> <name> [--music [--root <midi>] [--bpm <n>]] [--no-write]");
                     return 2;
                 }
             }
 
+            //#467: every table carries a loudness column, read off a meter that has just been held to its standard
+            if (sfxWav == null && !CheckMeter())
+            {
+                Console.WriteLine("The loudness meter is off its standard (above), so its lufs column would lie.");
+                return 5;
+            }
+
+            if (shipped) return MeasureShipped(onlyTracks);
             if (tracks) return BuildTracks(write, quality, extraMasters, onlyTracks);
             if (sfxWav != null) return BuildSfx(sfxWav, sfxName, write, quality, sfxMusic, sfxRoot, sfxBpm);
 
@@ -224,7 +237,7 @@ namespace BS3D.Tools.MusicBake
 
             if (only == null || Is(only, "menu")) names.Add("Menu");
 
-            Console.WriteLine("piece            secs  bake  entry   peak    rms   bal  mono | <100 100-200 200-500  500-2k   2k-6k    6k+ |  head   tail");
+            Console.WriteLine("piece            secs  bake  entry   peak    rms   lufs   bal  mono | <100 100-200 200-500  500-2k   2k-6k    6k+ |  head   tail");
 
             bool driveOk = true;
             bool streamOk = true;
@@ -490,6 +503,81 @@ namespace BS3D.Tools.MusicBake
         private static bool Is(string a, string b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
 
         /// <summary>
+        /// The table for the tracks the game ships, read back the way the game reads them (#467): every
+        /// <c>Game/Music/*.ogg</c> decoded through <see cref="OggTrack"/> at <see cref="TRACK_RATE"/>, <c>--only</c>
+        /// narrowing it by prefix, and under the table the loudness range across them. It needs no masters — since
+        /// #486 most of those live outside the repository, on the machine that generated them — so it is the one way
+        /// to put every track in one table on any machine. The "bake" column is the decode time.
+        /// </summary>
+        private static int MeasureShipped(string only)
+        {
+            string repo = FindRepo();
+            if (repo == null)
+            {
+                Console.WriteLine("MusicBake --shipped: run from inside the repository (no Game.sln with a docs folder above it)");
+                return 1;
+            }
+
+            string dir = Path.Combine(repo, "Game", "Music");
+            List<string> files = Directory.Exists(dir) ? Directory.GetFiles(dir, "*.ogg").ToList() : new();
+            files.Sort((a, b) => string.CompareOrdinal(Path.GetFileName(a), Path.GetFileName(b)));
+
+            if (only != null) files.RemoveAll(f => !Path.GetFileName(f).StartsWith(only, StringComparison.OrdinalIgnoreCase));
+            if (files.Count == 0)
+            {
+                Console.WriteLine($"MusicBake --shipped: no track in {dir}" + (only != null ? $" for --only {only}" : ""));
+                return 1;
+            }
+
+            Console.WriteLine("track            secs  bake  entry   peak    rms   lufs   bal  mono | <100 100-200 200-500  500-2k   2k-6k    6k+ |  head   tail");
+
+            List<(string Track, double Lufs)> themes = new();
+            bool read = true;
+
+            foreach (string path in files)
+            {
+                string track = Path.GetFileNameWithoutExtension(path);
+
+                Stopwatch clock = Stopwatch.StartNew();
+                byte[] pcm;
+
+                try
+                {
+                    pcm = OggTrack.Decode(path, TRACK_RATE);
+                }
+                catch (Exception exception)
+                {
+                    Console.WriteLine($"{track,-14} could not be read: {exception.Message}");
+                    read = false;
+                    continue;
+                }
+
+                float[] mix = new float[pcm.Length / 2];
+                for (int i = 0; i < mix.Length; i++) mix[i] = (short)(pcm[i * 2] | (pcm[i * 2 + 1] << 8)) / 32768f;
+
+                clock.Stop();
+
+                double lufs = Report(track, mix, TRACK_RATE, clock.Elapsed.TotalMilliseconds, -1);
+
+                //The front end's loop is a lobby, brought to its own lower level on purpose, so it is not in the range
+                if (!Is(track, MENU_TRACK) && !double.IsNegativeInfinity(lufs)) themes.Add((track, lufs));
+            }
+
+            if (themes.Count > 0)
+            {
+                themes.Sort((a, b) => a.Lufs.CompareTo(b.Lufs));
+                double median = themes.Count % 2 == 1
+                    ? themes[themes.Count / 2].Lufs
+                    : (themes[themes.Count / 2 - 1].Lufs + themes[themes.Count / 2].Lufs) / 2;
+
+                Console.WriteLine($"\n{themes.Count} themes: {themes[0].Lufs:0.0} to {themes[^1].Lufs:0.0} LUFS, a spread of "
+                    + $"{themes[^1].Lufs - themes[0].Lufs:0.0} LU, median {median:0.0}; the quietest {themes[0].Track}, the loudest {themes[^1].Track}");
+            }
+
+            return read ? 0 : 1;
+        }
+
+        /// <summary>
         /// Builds <c>Game/Music</c> from the masters: each brought to its loudness, its peaks shaped under full
         /// scale, encoded as Ogg Vorbis at <paramref name="quality"/> and the master's own rate, then decoded again
         /// through <see cref="OggTrack"/> and checked. <paramref name="write"/> false measures without writing. The
@@ -521,7 +609,7 @@ namespace BS3D.Tools.MusicBake
                 return 1;
             }
 
-            Console.WriteLine("track            secs  bake  entry   peak    rms   bal  mono | <100 100-200 200-500  500-2k   2k-6k    6k+ |  head   tail");
+            Console.WriteLine("track            secs  bake  entry   peak    rms   lufs   bal  mono | <100 100-200 200-500  500-2k   2k-6k    6k+ |  head   tail");
 
             List<byte[]> encoded = new();
             long wavBytes = 0, oggBytes = 0;
@@ -857,8 +945,8 @@ namespace BS3D.Tools.MusicBake
             return (mix, rate);
         }
 
-        /// <summary>One line of numbers per rendering, with the envelope under it.</summary>
-        private static void Report(string name, float[] mix, int rate, double bakeMs, double entrySeconds)
+        /// <summary>One line of numbers per rendering, with the envelope under it. Returns the integrated loudness.</summary>
+        private static double Report(string name, float[] mix, int rate, double bakeMs, double entrySeconds)
         {
             int frames = mix.Length / 2;
             double seconds = frames / (double)rate;
@@ -890,12 +978,17 @@ namespace BS3D.Tools.MusicBake
             double head = WindowRms(mix, frames, 0, rate / 2);
             double tail = WindowRms(mix, frames, frames - rate / 2, rate / 2);
 
-            Console.WriteLine($"{name,-14} {seconds,6:0.0} {bakeMs,5:0} {(entrySeconds < 0 ? "-" : entrySeconds.ToString("0.0")),6} {Db(peak),6:0.0} {Db(rms),6:0.0} "
+            double lufs = Lufs(mix, frames, rate);
+            string lufsText = double.IsNegativeInfinity(lufs) ? "-" : lufs.ToString("0.0");
+
+            Console.WriteLine($"{name,-14} {seconds,6:0.0} {bakeMs,5:0} {(entrySeconds < 0 ? "-" : entrySeconds.ToString("0.0")),6} {Db(peak),6:0.0} {Db(rms),6:0.0} {lufsText,6} "
                 + $"{Db(rmsL) - Db(rmsR),5:+0.0;-0.0;0.0} {Db(monoRms) - Db(rms),5:+0.0;-0.0;0.0} | "
                 + $"{bands[0],4:0.0} {bands[1],7:0.0} {bands[2],7:0.0} {bands[3],7:0.0} {bands[4],7:0.0} {bands[5],6:0.0} | "
                 + $"{Db(head),5:0.0} {Db(tail),6:0.0}");
 
             Envelope(mix, frames, rate);
+
+            return lufs;
         }
 
         /// <summary>
@@ -998,6 +1091,181 @@ namespace BS3D.Tools.MusicBake
             return percent;
         }
 
+        /// <summary>
+        /// Integrated loudness after ITU-R BS.1770-4, in LUFS (#467): the mix K-weighted (<see cref="KWeighting"/>),
+        /// its mean square taken over 400 ms blocks overlapping by three quarters, and averaged over the blocks that
+        /// pass both gates — the absolute one at −70 LUFS and the relative one 10 LU under the loudness of the blocks
+        /// the first let through. Both channels weigh 1. Negative infinity when no block passes: silence, or a render
+        /// shorter than one block.
+        /// <para>
+        /// It sits beside the RMS because the two disagree on exactly the material this game has: the RMS weighs
+        /// every hertz alike, so a piece whose energy is under 100 Hz reads as loud as one whose energy is where the
+        /// ear is most sensitive. Matching the generated tracks to the procedural pieces by RMS was not matching
+        /// them by loudness, which is what the owner heard in #467.
+        /// </para>
+        /// </summary>
+        private static double Lufs(float[] mix, int frames, int rate)
+        {
+            (Biquad shelf, Biquad pass) = KWeighting(rate);
+            Biquad shelfR = shelf, passR = pass;
+
+            //The K-weighted energy of every 100 ms step, both channels summed; a block is four steps in a row
+            int step = rate / 10;
+            int steps = frames / step;
+            double[] energy = new double[steps];
+
+            for (int f = 0; f < steps * step; f++)
+            {
+                double l = pass.Run(shelf.Run(mix[f * 2]));
+                double r = passR.Run(shelfR.Run(mix[f * 2 + 1]));
+                energy[f / step] += l * l + r * r;
+            }
+
+            int blocks = steps - 3;
+            if (blocks <= 0) return double.NegativeInfinity;
+
+            double[] power = new double[blocks];
+            for (int b = 0; b < blocks; b++) power[b] = (energy[b] + energy[b + 1] + energy[b + 2] + energy[b + 3]) / (4.0 * step);
+
+            double Loudness(double meanSquare) => -0.691 + 10 * Math.Log10(meanSquare);
+
+            double sum = 0;
+            int passed = 0;
+            foreach (double p in power)
+                if (p > 0 && Loudness(p) > -70) { sum += p; passed++; }
+
+            if (passed == 0) return double.NegativeInfinity;
+
+            double relative = Loudness(sum / passed) - 10;
+
+            sum = 0;
+            passed = 0;
+            foreach (double p in power)
+                if (p > 0 && Loudness(p) > -70 && Loudness(p) > relative) { sum += p; passed++; }
+
+            return Loudness(sum / passed);
+        }
+
+        /// <summary>One second-order section, transposed direct form II, in doubles.</summary>
+        private struct Biquad
+        {
+            public double B0, B1, B2, A1, A2;
+            private double _z1, _z2;
+
+            public Biquad(double b0, double b1, double b2, double a1, double a2)
+            {
+                B0 = b0; B1 = b1; B2 = b2; A1 = a1; A2 = a2;
+                _z1 = _z2 = 0;
+            }
+
+            public double Run(double x)
+            {
+                double y = B0 * x + _z1;
+                _z1 = B1 * x - A1 * y + _z2;
+                _z2 = B2 * x - A2 * y;
+                return y;
+            }
+        }
+
+        /// <summary>
+        /// BS.1770-4's K-weighting at one sample rate: the pre-filter's high shelf (about +4 dB above 1.7 kHz, the
+        /// acoustic effect of the head) and the RLB high-pass (about 38 Hz). The standard tabulates both at 48 kHz
+        /// only; these are derived from the analogue prototypes the table was designed from, the derivation
+        /// libebur128 uses, which is what lets one meter read the procedural pieces (44.1 kHz) and the generated
+        /// tracks (48 kHz). <see cref="CheckMeter"/> holds the 48 kHz result to the table.
+        /// </summary>
+        private static (Biquad Shelf, Biquad Pass) KWeighting(int rate)
+        {
+            double k = Math.Tan(Math.PI * 1681.974450955533 / rate);
+            double q = 0.7071752369554196;
+            double vh = Math.Pow(10, 3.999843853973347 / 20);
+            double vb = Math.Pow(vh, 0.4996667741545416);
+            double a0 = 1 + k / q + k * k;
+
+            Biquad shelf = new((vh + vb * k / q + k * k) / a0, 2 * (k * k - vh) / a0, (vh - vb * k / q + k * k) / a0,
+                2 * (k * k - 1) / a0, (1 - k / q + k * k) / a0);
+
+            k = Math.Tan(Math.PI * 38.13547087602444 / rate);
+            q = 0.5003270373238773;
+            a0 = 1 + k / q + k * k;
+
+            Biquad pass = new(1, -2, 1, 2 * (k * k - 1) / a0, (1 - k / q + k * k) / a0);
+
+            return (shelf, pass);
+        }
+
+        /// <summary>
+        /// The meter held to its standard before a figure is read off it (#467): the 48 kHz K-weighting against the
+        /// coefficients BS.1770-4 tabulates, and five of EBU Tech 3341's minimum-requirement signals at both rates the
+        /// tool reads — a 1 kHz stereo sine at −23 and at −33 dBFS, and three sequences of sines whose right answer,
+        /// −23 LUFS, only the two gates give (without the relative gate the third and fourth read −24.2). Within
+        /// 0.1 LU, the tolerance Tech 3341 allows a meter. A meter that is off still prints a plausible column; this
+        /// refuses instead. It takes a fraction of a second, so it runs on every table.
+        /// </summary>
+        private static bool CheckMeter()
+        {
+            bool ok = true;
+
+            (Biquad shelf, Biquad pass) = KWeighting(48000);
+            double[] got = { shelf.B0, shelf.B1, shelf.B2, shelf.A1, shelf.A2, pass.B0, pass.B1, pass.B2, pass.A1, pass.A2 };
+            double[] table = { 1.53512485958697, -2.69169618940638, 1.19839281085285, -1.69065929318241, 0.73248077421585,
+                1.0, -2.0, 1.0, -1.99004745483398, 0.99007225036621 };
+
+            for (int i = 0; i < table.Length; i++)
+            {
+                if (Math.Abs(got[i] - table[i]) > 1e-12)
+                {
+                    Console.WriteLine($"  ⚠ loudness meter: K-weighting coefficient {i} at 48 kHz is {got[i]:R}, BS.1770-4 tabulates {table[i]:R}");
+                    ok = false;
+                }
+            }
+
+            (string Name, double Expected, (double Seconds, double Dbfs)[] Parts)[] cases =
+            {
+                ("3341 #1", -23.0, new[] { (20.0, -23.0) }),
+                ("3341 #2", -33.0, new[] { (20.0, -33.0) }),
+                ("3341 #3", -23.0, new[] { (10.0, -36.0), (60.0, -23.0), (10.0, -36.0) }),
+                ("3341 #4", -23.0, new[] { (10.0, -72.0), (10.0, -36.0), (60.0, -23.0), (10.0, -36.0), (10.0, -72.0) }),
+                ("3341 #5", -23.0, new[] { (20.0, -26.0), (20.1, -20.0), (20.0, -26.0) }),
+            };
+
+            foreach (int rate in new[] { 48000, SAMPLE_RATE })
+            {
+                foreach ((string name, double expected, (double, double)[] parts) in cases)
+                {
+                    float[] tone = Tone(rate, parts);
+                    double lufs = Lufs(tone, tone.Length / 2, rate);
+
+                    if (!(Math.Abs(lufs - expected) <= 0.1))
+                    {
+                        Console.WriteLine($"  ⚠ loudness meter: EBU Tech {name} at {rate} Hz reads {lufs:0.00} LUFS, the right answer is {expected:0.0}");
+                        ok = false;
+                    }
+                }
+            }
+
+            return ok;
+        }
+
+        /// <summary>A 1 kHz sine on both channels, in phase, as a run of stretches at their own levels in dBFS (peak).</summary>
+        private static float[] Tone(int rate, (double Seconds, double Dbfs)[] parts)
+        {
+            int total = 0;
+            foreach ((double seconds, _) in parts) total += (int)Math.Round(seconds * rate);
+
+            float[] mix = new float[total * 2];
+            int f = 0;
+
+            foreach ((double seconds, double dbfs) in parts)
+            {
+                double amplitude = Math.Pow(10, dbfs / 20);
+
+                for (int end = f + (int)Math.Round(seconds * rate); f < end; f++)
+                    mix[f * 2] = mix[f * 2 + 1] = (float)(amplitude * Math.Sin(2 * Math.PI * 1000.0 * f / rate));
+            }
+
+            return mix;
+        }
 
         private static double Db(double linear) => linear <= 1e-9 ? -180 : 20 * Math.Log10(linear);
 
