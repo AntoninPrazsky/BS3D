@@ -1,0 +1,28 @@
+{
+    "file":  "theme-nocturne-noir.wav",
+    "created":  "2026-09-23",
+    "issue":  486,
+    "family":  "nocturne",
+    "chapter":  "The Reveal (cavern) - Nocturne: smooth jazz, swung, 96",
+    "purpose":  "Master of Game/Music/nocturne-noir.ogg, one of the nocturne family\u0027s recordings (#486): written from this file by Tools/MusicBake --tracks --masters \u003cthis folder\u003e, brought to the themes\u0027 loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository; this sidecar is committed beside the .ogg.",
+    "generator":  "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-486.ps1 -\u003e generate-music.ps1 -Loop -NoCotCaption",
+    "format":  "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model\u0027s fixed native rate",
+    "license":  "ACE-Step 1.5: MIT (code and weights)",
+    "request":  {
+                    "caption":  "Film noir jazz instrumental: breathy tenor saxophone melody, slow walking bass, brushed drums, moody piano chords, rain-soaked and mysterious, no vocals",
+                    "lm_negative_prompt":  "vocals, singing, audience applause, crowd noise, live recording",
+                    "instrumental":  true,
+                    "use_cot_caption":  false,
+                    "duration":  120,
+                    "bpm":  76,
+                    "keyscale":  "F minor",
+                    "inference_steps":  8,
+                    "output_format":  "wav32"
+                },
+    "post_process":  "loop_crossfade.py: a whole-bar loop cut out of the render\u0027s body (the untouched render kept as .raw.wav beside it)",
+    "loop_log":  [
+                     "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-nocturne-noir.wav: 50.5s loop = source 32.63s..83.15s (15.99 bars at 76.0 bpm), crossfade 1.50s | context match 0.642 (best 0.691) | crossfade rhythm r=0.82 vs the track a bar later r=0.33: in time | spectrum cos=0.64"
+                 ],
+    "measured":  "generate-music.ps1 end to end 62.5 s (ace-lm + ace-synth + loop cut)",
+    "rendered":  true
+}

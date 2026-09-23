@@ -1,0 +1,28 @@
+{
+    "file":  "theme-skyline-lounge.wav",
+    "created":  "2026-09-23",
+    "issue":  486,
+    "family":  "skyline",
+    "chapter":  "The Spectrum (city at dawn) - new: the day begins",
+    "purpose":  "Master of Game/Music/skyline-lounge.ogg, one of the skyline family\u0027s recordings (#486): written from this file by Tools/MusicBake --tracks --masters \u003cthis folder\u003e, brought to the themes\u0027 loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository; this sidecar is committed beside the .ogg.",
+    "generator":  "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-486.ps1 -\u003e generate-music.ps1 -Loop -NoCotCaption",
+    "format":  "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model\u0027s fixed native rate",
+    "license":  "ACE-Step 1.5: MIT (code and weights)",
+    "request":  {
+                    "caption":  "Morning lounge instrumental: soft downtempo beat, warm bass, vibraphone and electric piano, gentle strings, coffee-hour calm, major key, no vocals",
+                    "lm_negative_prompt":  "vocals, singing, audience applause, crowd noise, live recording",
+                    "instrumental":  true,
+                    "use_cot_caption":  false,
+                    "duration":  120,
+                    "bpm":  100,
+                    "keyscale":  "A major",
+                    "inference_steps":  8,
+                    "output_format":  "wav32"
+                },
+    "post_process":  "loop_crossfade.py: a whole-bar loop cut out of the render\u0027s body (the untouched render kept as .raw.wav beside it)",
+    "loop_log":  [
+                     "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-skyline-lounge.wav: 96.0s loop = source 5.20s..101.20s (40.01 bars at 100.0 bpm), crossfade 1.20s | context match 0.954 (best 0.990) | crossfade rhythm r=0.98 vs the track a bar later r=0.52: in time | spectrum cos=0.99"
+                 ],
+    "measured":  "generate-music.ps1 end to end 58.9 s (ace-lm + ace-synth + loop cut)",
+    "rendered":  true
+}

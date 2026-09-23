@@ -133,6 +133,11 @@ namespace BS3D.Tools.MusicBake
                 foreach (string path in Directory.GetFiles(folder, "*.wav"))
                 {
                     string stem = Path.GetFileNameWithoutExtension(path);
+
+                    //generate-music.ps1 -Loop keeps the untouched render beside the loop as <name>.raw.wav; a dot in
+                    //the stem is that file, not a track (the first bake wrote ten bloom-*.raw.ogg beside the ten loops)
+                    if (stem.Contains('.')) continue;
+
                     string track;
                     double rmsDb;
 

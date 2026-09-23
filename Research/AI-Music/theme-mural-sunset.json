@@ -1,0 +1,28 @@
+{
+    "file":  "theme-mural-sunset.wav",
+    "created":  "2026-09-23",
+    "issue":  486,
+    "family":  "mural",
+    "chapter":  "The Gallery (savanna) - Mural: log drum and marimba, G major 120",
+    "purpose":  "Master of Game/Music/mural-sunset.ogg, one of the mural family\u0027s recordings (#486): written from this file by Tools/MusicBake --tracks --masters \u003cthis folder\u003e, brought to the themes\u0027 loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository; this sidecar is committed beside the .ogg.",
+    "generator":  "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-486.ps1 -\u003e generate-music.ps1 -Loop -NoCotCaption",
+    "format":  "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model\u0027s fixed native rate",
+    "license":  "ACE-Step 1.5: MIT (code and weights)",
+    "request":  {
+                    "caption":  "Slow warm savanna sunset instrumental: soft marimba and kalimba melody, low log drum pulse, gentle strings, light shaker, peaceful and glowing, major key, no vocals",
+                    "lm_negative_prompt":  "vocals, singing, audience applause, crowd noise, live recording",
+                    "instrumental":  true,
+                    "use_cot_caption":  false,
+                    "duration":  120,
+                    "bpm":  92,
+                    "keyscale":  "G major",
+                    "inference_steps":  8,
+                    "output_format":  "wav32"
+                },
+    "post_process":  "loop_crossfade.py: a whole-bar loop cut out of the render\u0027s body (the untouched render kept as .raw.wav beside it)",
+    "loop_log":  [
+                     "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-mural-sunset.wav: 63.3s loop = source 32.60s..95.90s (23.98 bars at 90.9 bpm), crossfade 1.32s | context match 0.698 (best 0.747) | crossfade rhythm r=0.79 vs the track a bar later r=0.83: in time | spectrum cos=0.76"
+                 ],
+    "measured":  "generate-music.ps1 end to end 60.2 s (ace-lm + ace-synth + loop cut)",
+    "rendered":  true
+}

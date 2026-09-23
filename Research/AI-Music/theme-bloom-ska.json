@@ -1,0 +1,30 @@
+{
+  "file": "theme-bloom-ska.wav",
+  "created": "2026-09-23",
+  "issue": 486,
+  "family": "bloom",
+  "chapter": "The Meadow (meadow) - #449: positive, melodic, its own",
+  "purpose": "Master of Game/Music/bloom-ska.ogg, one of the bloom family's recordings (#486): written from this file by Tools/MusicBake --tracks --masters <this folder>, brought to the themes' loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository; this sidecar is committed beside the .ogg.",
+  "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-486.ps1 -> generate-music.ps1 -Loop -NoCotCaption",
+  "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+  "license": "ACE-Step 1.5: MIT (code and weights)",
+  "request": {
+    "caption": "Light cheerful ska-pop instrumental: offbeat skanking guitar chords, bright trumpet and trombone melody, walking bass, snappy drums, sunny and playful, no vocals",
+    "lm_negative_prompt": "vocals, singing, audience applause, crowd noise, live recording",
+    "instrumental": true,
+    "use_cot_caption": false,
+    "duration": 120,
+    "bpm": 128,
+    "keyscale": "C major",
+    "inference_steps": 8,
+    "output_format": "wav32"
+  },
+  "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
+  "loop_log": [
+    "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-bloom-ska.wav: 75.0s loop = source 18.30s..93.30s (39.96 bars at 127.9 bpm), crossfade 0.94s | context match 0.945 (best 0.994) | crossfade rhythm r=0.92 vs the track a bar later r=0.72: in time | spectrum cos=0.97"
+  ],
+  "measured": "generate-music.ps1 end to end 60.5 s (ace-lm + ace-synth + loop cut)",
+  "rendered": true,
+  "seed_used": 1748674343,
+  "seed_note": "the request asked for seed -1 (rolled); this is the seed ace-lm rolled and printed (matched to the render by order in the batch's log), so the render can be repeated. The other families' batch ran detached with only stdout logged and ace-lm prints the seed on stderr, so theirs are not recorded - the master .wav is the artefact either way"
+}

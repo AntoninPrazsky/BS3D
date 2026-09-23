@@ -1,0 +1,28 @@
+{
+    "file":  "theme-skyline.wav",
+    "created":  "2026-09-23",
+    "issue":  486,
+    "family":  "skyline",
+    "chapter":  "The Spectrum (city at dawn) - new: the day begins",
+    "purpose":  "Master of Game/Music/skyline.ogg, one of the skyline family\u0027s recordings (#486): written from this file by Tools/MusicBake --tracks --masters \u003cthis folder\u003e, brought to the themes\u0027 loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository; this sidecar is committed beside the .ogg.",
+    "generator":  "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-486.ps1 -\u003e generate-music.ps1 -Loop -NoCotCaption",
+    "format":  "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model\u0027s fixed native rate",
+    "license":  "ACE-Step 1.5: MIT (code and weights)",
+    "request":  {
+                    "caption":  "Uplifting deep house instrumental for a city at dawn: warm four-on-the-floor kick, rolling bass, bright piano chords, soft brass stabs, airy pads, hopeful and fresh, major key, no vocals",
+                    "lm_negative_prompt":  "vocals, singing, audience applause, crowd noise, live recording",
+                    "instrumental":  true,
+                    "use_cot_caption":  false,
+                    "duration":  120,
+                    "bpm":  122,
+                    "keyscale":  "A major",
+                    "inference_steps":  8,
+                    "output_format":  "wav32"
+                },
+    "post_process":  "loop_crossfade.py: a whole-bar loop cut out of the render\u0027s body (the untouched render kept as .raw.wav beside it)",
+    "loop_log":  [
+                     "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-skyline.wav: 47.2s loop = source 26.99s..74.20s (24.04 bars at 122.2 bpm), crossfade 0.98s | context match 0.653 (best 0.699) | crossfade rhythm r=0.84 vs the track a bar later r=0.79: in time | spectrum cos=0.72"
+                 ],
+    "measured":  "generate-music.ps1 end to end 59.1 s (ace-lm + ace-synth + loop cut)",
+    "rendered":  true
+}

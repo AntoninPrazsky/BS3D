@@ -200,59 +200,52 @@ namespace BS3D.Tools.LevelGen
             ("The Grid", 10), ("The Mirage", 10),
         };
 
-        //THE BLOCKS' THEMES (#194). A block's piece is named on every level of it, so the music changes
+        //THE BLOCKS' THEMES (#194). A block's music is named on every level of it, so the music changes
         //when the chapter does and not when the level does - see Design.Music for what naming it buys and what
         //leaving it null used to cost. Named after the block rather than after the piece because that is the
-        //thing being decided: if a block's music is ever changed it is changed HERE, once, and not five times.
+        //thing being decided: if a block's music is ever changed it is changed HERE, once, and not ten times.
         //
-        //FIVE pieces against TEN blocks, so half the assignments are reprises, and every reprise is a desk
-        //decision with one constant behind it. The first is the bookend #207 chose: the campaign opens on the
-        //piece Level One has always played and the Quarry brings it back — that reprise was FORCED while four
-        //pieces existed; it is a choice now, and it is kept because a reprise at the end of the original ramp
-        //is a real musical idea where "every block gets its own" is only tidy. The second is the Nebula
-        //taking Nocturne: a seventh block against five pieces made a second reprise unavoidable short of
-        //composing (#229's job, not this one's), and night jazz over the void is the register that fits. The
-        //third is the Arcade taking Pulse, which is the only one of the five that sounds like the place it
-        //plays in — an electronic piece over a neon city — and since #300 made the Arcade the campaign's
-        //last block, it puts the LAST block on the piece the first one opened with: the frame round the
-        //whole thing that comment always hoped it was. The fourth is the Spectrum taking Bohemia, chosen
-        //rather than left over: the one piece whose form is a statement, a second subject and a coda that
-        //brings the statement back — chosen when the Spectrum closed the campaign (#253), and kept at #300:
-        //the coda-form now reads as the day's own closing figure, the dawn chapter being the campaign's
-        //last daylight before the finale's night.
+        //EVERY CHAPTER ITS OWN FAMILY SINCE #486, about ten recordings each, on the owner's word: "I like how
+        //the desert chapter plays several versions of the soundtrack - I would like this for the other
+        //chapters too, ideally around ten tracks per chapter." A name here is a FAMILY in Game/Music - the
+        //files whose names start with it - and the game rotates through a family's recordings, one per level
+        //opening, exactly as the Coil's Ember did with its five punk variations (#483 confirmed that chapter
+        //as the reference point). Until #486 five pieces stood against twelve blocks and seven assignments
+        //were reprises argued one by one (the Quarry's Pulse bookend, the Nebula's night jazz over the void,
+        //the Arcade closing on the piece the Meadow opened with, the Spectrum's coda form, the Eruption's and
+        //the Mirage's tally arguments); the argument that held the set at five - a composition being its own
+        //work and a desktop to render it on - went with local generation, which is free.
         //
-        //The Coil takes Ember, and that is #163 and #207 answering each other. #163 landed the rock ballad with
-        //no block using it; #207 wrote, when it still had to reprise Nocturne here, that this was the block with
-        //the weaker claim on a reprise and the one to give the ballad to when it landed. Both are now true at
-        //once, so the desert gets the amplifier and Nocturne is left to the Reveal alone. THE ERUPTION REPRISES
-        //EMBER (#295, the owner's pick over a new piece or a fourth Pulse): the rock ballad is the fire
-        //register and had the only single-block piece beside Mural, so the reprise evens the tally — and if
-        //the ear disagrees, a new piece is #292's line of work and one constant here.
+        //Four chapters keep the piece they had, each the only chapter on it now, and gained variations in its
+        //register: the Gallery's Mural (the set's syncopated piece, log drum and marimba - afrobeat, highlife,
+        //kora, desert blues around it), the Coil's Ember (the rock ballad and the punk set, plus stoner, surf,
+        //rockabilly and garage), the Tower's Bohemia (the Dorian statement with strings and brass - marches,
+        //accordion, hurdy-gurdy and a jig beside it) and the Reveal's Nocturne (night jazz - trip-hop, bossa,
+        //vibes, noir). Pulse, the original eurodance piece, goes to THE GRID alone: it is the one chapter built
+        //out of arithmetic and this is the one piece that sounds like a machine dancing, which the old comment
+        //here already called the only defensible reprise. Seven families are new and named for the place
+        //rather than the piece: the Meadow's BLOOM (positive and melodic, its own at last - #449), the
+        //Quarry's LUNAR (spacious and slow), the Nebula's NEBULA (synthwave and the cosmos), the Eruption's
+        //MAGMA (heat, weight and drums), the Spectrum's SKYLINE (a city waking: house, disco, funk), the
+        //Arcade's NEON (outrun, chiptune, electro) and the Mirage's MIRAGE (the dream). The briefs are in each
+        //recording's sidecar in Research/AI-Music; the masters live outside the repository (see its README).
+        //If the ear disagrees with a family, it is one constant here and a folder of files.
+        //
+        //Colossus is the one level whose music this tool cannot pin (see WriteLevelSet's own note): its
+        //"music" field is authored in Colossus.json itself and says the Quarry's family by hand.
 
-        private const string MUSIC_RINGS = "pulse";
+        private const string MUSIC_RINGS = "bloom";
         private const string MUSIC_GALLERY = "mural";
         private const string MUSIC_COIL = "ember";
         private const string MUSIC_TOWER = "bohemia";
         private const string MUSIC_REVEAL = "nocturne";
-        private const string MUSIC_QUARRY = "pulse";
-        private const string MUSIC_NEBULA = "nocturne";
-        private const string MUSIC_VOLCANO = "ember";
-        private const string MUSIC_ARCADE = "pulse";
-        private const string MUSIC_SPECTRUM = "bohemia";
-
-        //THE MIRAGE REPRISES MURAL, and the tally argument #295 used for the Eruption's Ember is the same one
-        //here with the last single-block piece: Mural was the Gallery's alone, so an eleventh block on
-        //anything else would have left one piece carrying a chapter while three carried two or three. The ear
-        //agrees with the arithmetic for once. Mural is the set's only SYNCOPATED piece - the 3+3+2 tresillo,
-        //the kick never marking all four beats, the hook down in a melodic sub - so it is the one composition
-        //whose weight lands where a listener does not expect it, which is what a chapter of balls that are
-        //not what they look like wants behind it. A hallucination is a place where the beat is off.
-        //The Grid takes Pulse, which is the fourth chapter to and the only defensible reprise left: it is
-        //the one electronic piece the game has and this is the one chapter built out of arithmetic. A sixth
-        //composition is its own work (Tools/MusicBake, and a desktop to render it on), not this issue's.
+        private const string MUSIC_QUARRY = "lunar";
+        private const string MUSIC_NEBULA = "nebula";
+        private const string MUSIC_VOLCANO = "magma";
+        private const string MUSIC_ARCADE = "neon";
+        private const string MUSIC_SPECTRUM = "skyline";
         private const string MUSIC_GRID = "pulse";
-
-        private const string MUSIC_MIRAGE = "mural";
+        private const string MUSIC_MIRAGE = "mirage";
 
         /// <summary>
         /// WHAT EACH CHAPTER'S BALLS ARE MADE OF. A property of the <b>block</b> exactly as the music is — the

@@ -1,0 +1,28 @@
+{
+    "file":  "theme-nebula-deephouse.wav",
+    "created":  "2026-09-23",
+    "issue":  486,
+    "family":  "nebula",
+    "chapter":  "The Nebula (space) - new: synthwave and the cosmos",
+    "purpose":  "Master of Game/Music/nebula-deephouse.ogg, one of the nebula family\u0027s recordings (#486): written from this file by Tools/MusicBake --tracks --masters \u003cthis folder\u003e, brought to the themes\u0027 loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository; this sidecar is committed beside the .ogg.",
+    "generator":  "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-486.ps1 -\u003e generate-music.ps1 -Loop -NoCotCaption",
+    "format":  "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model\u0027s fixed native rate",
+    "license":  "ACE-Step 1.5: MIT (code and weights)",
+    "request":  {
+                    "caption":  "Deep house instrumental with a cosmic mood: warm deep kick, rolling bass, jazzy chord stabs, airy pads, subtle synth leads, smooth and hypnotic, no vocals",
+                    "lm_negative_prompt":  "vocals, singing, audience applause, crowd noise, live recording",
+                    "instrumental":  true,
+                    "use_cot_caption":  false,
+                    "duration":  120,
+                    "bpm":  122,
+                    "keyscale":  "F# minor",
+                    "inference_steps":  8,
+                    "output_format":  "wav32"
+                },
+    "post_process":  "loop_crossfade.py: a whole-bar loop cut out of the render\u0027s body (the untouched render kept as .raw.wav beside it)",
+    "loop_log":  [
+                     "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-nebula-deephouse.wav: 49.2s loop = source 32.02s..81.20s (25.05 bars at 122.2 bpm), crossfade 0.98s | context match 0.427 (best 0.463) | crossfade rhythm r=0.96 vs the track a bar later r=0.77: in time | spectrum cos=0.83"
+                 ],
+    "measured":  "generate-music.ps1 end to end 59.5 s (ace-lm + ace-synth + loop cut)",
+    "rendered":  true
+}

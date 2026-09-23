@@ -1,0 +1,30 @@
+{
+  "file": "theme-bloom-marimba.wav",
+  "created": "2026-09-23",
+  "issue": 486,
+  "family": "bloom",
+  "chapter": "The Meadow (meadow) - #449: positive, melodic, its own",
+  "purpose": "Master of Game/Music/bloom-marimba.ogg, one of the bloom family's recordings (#486): written from this file by Tools/MusicBake --tracks --masters <this folder>, brought to the themes' loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository; this sidecar is committed beside the .ogg.",
+  "generator": "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-486.ps1 -> generate-music.ps1 -Loop -NoCotCaption",
+  "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+  "license": "ACE-Step 1.5: MIT (code and weights)",
+  "request": {
+    "caption": "Playful instrumental with marimba and flute trading a bright melody, light bongos and shaker, acoustic bass, occasional vibraphone chords, childlike wonder, major key, no vocals",
+    "lm_negative_prompt": "vocals, singing, audience applause, crowd noise, live recording",
+    "instrumental": true,
+    "use_cot_caption": false,
+    "duration": 120,
+    "bpm": 114,
+    "keyscale": "C major",
+    "inference_steps": 8,
+    "output_format": "wav32"
+  },
+  "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
+  "loop_log": [
+    "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-bloom-marimba.wav: 54.3s loop = source 32.19s..86.45s (26.04 bars at 115.2 bpm), crossfade 1.04s | context match 0.444 (best 0.493) | crossfade rhythm r=0.58 vs the track a bar later r=0.45: in time | spectrum cos=0.49"
+  ],
+  "measured": "generate-music.ps1 end to end 61.5 s (ace-lm + ace-synth + loop cut)",
+  "rendered": true,
+  "seed_used": 62497524,
+  "seed_note": "the request asked for seed -1 (rolled); this is the seed ace-lm rolled and printed (matched to the render by order in the batch's log), so the render can be repeated. The other families' batch ran detached with only stdout logged and ace-lm prints the seed on stderr, so theirs are not recorded - the master .wav is the artefact either way"
+}

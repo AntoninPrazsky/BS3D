@@ -1,0 +1,28 @@
+{
+    "file":  "theme-nocturne-organ.wav",
+    "created":  "2026-09-23",
+    "issue":  486,
+    "family":  "nocturne",
+    "chapter":  "The Reveal (cavern) - Nocturne: smooth jazz, swung, 96",
+    "purpose":  "Master of Game/Music/nocturne-organ.ogg, one of the nocturne family\u0027s recordings (#486): written from this file by Tools/MusicBake --tracks --masters \u003cthis folder\u003e, brought to the themes\u0027 loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository; this sidecar is committed beside the .ogg.",
+    "generator":  "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-486.ps1 -\u003e generate-music.ps1 -Loop -NoCotCaption",
+    "format":  "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model\u0027s fixed native rate",
+    "license":  "ACE-Step 1.5: MIT (code and weights)",
+    "request":  {
+                    "caption":  "Soul jazz instrumental: Hammond organ groove, clean guitar comping, tight swinging drums, tenor sax lead, warm and funky, no vocals",
+                    "lm_negative_prompt":  "vocals, singing, audience applause, crowd noise, live recording",
+                    "instrumental":  true,
+                    "use_cot_caption":  false,
+                    "duration":  120,
+                    "bpm":  110,
+                    "keyscale":  "F minor",
+                    "inference_steps":  8,
+                    "output_format":  "wav32"
+                },
+    "post_process":  "loop_crossfade.py: a whole-bar loop cut out of the render\u0027s body (the untouched render kept as .raw.wav beside it)",
+    "loop_log":  [
+                     "Wrote C:\\Users\\panrd\\AI\\output\\masters-486\\theme-nocturne-organ.wav: 77.2s loop = source 20.05s..97.25s (36.99 bars at 115.0 bpm), crossfade 1.04s | context match 0.462 (best 0.504) | crossfade rhythm r=0.11 vs the track a bar later r=0.02: in time | spectrum cos=0.43"
+                 ],
+    "measured":  "generate-music.ps1 end to end 59.4 s (ace-lm + ace-synth + loop cut)",
+    "rendered":  true
+}
