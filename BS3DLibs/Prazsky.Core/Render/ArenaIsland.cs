@@ -355,8 +355,9 @@ namespace Prazsky.Core.Render
         {
             //Polished pale concrete and brushed steel, laid in bigger plates: a plaza on a rooftop
             SceneKind.City => new(new Vector3(0.53f, 0.54f, 0.56f), new Vector3(0.36f, 0.38f, 0.41f), 0.20f, 0.18f, 3f),
-            //Dark polished granite, so the neon has something to lie in
-            SceneKind.NeonCity => new(new Vector3(0.17f, 0.17f, 0.20f), new Vector3(0.14f, 0.14f, 0.17f), 0.42f, 0.28f, 2.5f),
+            //Dark polished granite, so the neon has something to lie in - and WET since #537, after rain: the
+            //polish is what mirrors the towers' signs into the top, and 0.42 was a dry polish.
+            SceneKind.NeonCity => new(new Vector3(0.17f, 0.17f, 0.20f), new Vector3(0.14f, 0.14f, 0.17f), 0.62f, 0.40f, 2.5f),
             //Ochre sandstone, and the desert's paler, sun-bleached one
             SceneKind.Savanna => new(new Vector3(0.62f, 0.54f, 0.42f), new Vector3(0.52f, 0.44f, 0.34f), 0.12f, 0.07f, 2f),
             SceneKind.Desert => new(new Vector3(0.74f, 0.62f, 0.46f), new Vector3(0.64f, 0.52f, 0.38f), 0.12f, 0.07f, 2.2f),
@@ -531,7 +532,7 @@ namespace Prazsky.Core.Render
         /// albedo of what lies on the top and <c>DustStrength</c> how much of the top it covers.
         /// </summary>
         private readonly record struct IslandDressing(Vector3 CapJointGlow, Vector3 DrumJointGlow, float EventGain,
-            Vector3 DustColor, float DustStrength);
+            Vector3 DustColor, float DustStrength, float Patchiness = 1f);
 
         private static readonly IslandDressing NO_DRESSING = new(Vector3.Zero, Vector3.Zero, 0f, Vector3.One, 0f);
 
@@ -546,6 +547,13 @@ namespace Prazsky.Core.Render
             //Mineral veins: the joints carry the walls' own vein colour (CavernSceneConfig's VeinColor, half
             //again over the walls' - a joint is a crack, and a crack is where the ore is), steady, no dust.
             SceneKind.Cavern => new(new Vector3(0.09f, 0.24f, 0.28f), new Vector3(0.06f, 0.16f, 0.19f), 0f, Vector3.One, 0f),
+            //THE BUILT FAMILY (#537): seams in a made thing are lit EVENLY, not in patches (Patchiness 0). The
+            //grid's disc carries its plane's own vector palette - the top's seams the line colour a shade up
+            //(GridSceneConfig.LineColor is 0.05/0.34/0.52), the hull's panel lines the line colour itself - so
+            //the platform is a plate of the world it stands in. Space's station plates carry faint cool running
+            //light along their seams, a station's own, well under the grid's: it is lit by a sun, not a vector.
+            SceneKind.Grid => new(new Vector3(0.08f, 0.50f, 0.75f), new Vector3(0.05f, 0.34f, 0.52f), 0f, Vector3.One, 0f, 0f),
+            SceneKind.Space => new(new Vector3(0.11f, 0.13f, 0.17f), new Vector3(0.08f, 0.10f, 0.13f), 0f, Vector3.One, 0f, 0f),
             _ => NO_DRESSING
         };
 
@@ -888,6 +896,8 @@ namespace Prazsky.Core.Render
             float pulse = 1f + dressing.EventGain * EventGlow;
             _capRenderer.JointGlow = dressing.CapJointGlow * pulse;
             _bodyRenderer.JointGlow = dressing.DrumJointGlow * pulse;
+            _capRenderer.JointGlowPatchiness = dressing.Patchiness;
+            _bodyRenderer.JointGlowPatchiness = dressing.Patchiness;
             _capRenderer.TopDustStrength = dressing.DustStrength;
             _capRenderer.TopDustTint = dressing.DustStrength > 0f
                 ? ColorSpace.SrgbToLinear(dressing.DustColor) / ColorSpace.SrgbToLinear(look.Cap)

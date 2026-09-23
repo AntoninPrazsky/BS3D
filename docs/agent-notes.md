@@ -5930,3 +5930,17 @@ Předchozí zápis říkal, že to dostavět znamená sáhnout do brány a že t
 - **Kontrast prstence** (kamera #404 `campos=0,-1,24 camtarget=0,-9,0`, 1216×832, `nopost nooverc`, dvě stanice vlevo/vpravo na pásku, CIEDE2000 proti víku vedle): **sopka 35,6 → 33,6 dE** (popel trochu zesvětlí černé víko; louka 15,8), **jeskyně 35,4 → 35,3** — daleko nad 13, na kterých padla poušť.
 - **Cena** (Testbed, sopka, herní póza, 3840×1600, `nopost nooverc fpscap=400`, 20s okna, střídavé páry proti kopii binárky z mainu po #533): main **12,26 a 12,29 ms → 12,53 a 12,50**, **+0,27 a +0,21 ms** — větev záře na každém pixelu ostrova ve dvou oblečených scénách (druhý `SlabGroove` + jeden `GradientNoise3`); v ostatních osmnácti větev přeskočí a prach je jeden lerp.
 - **Reference** (`design-references`, 2 prompty × 2 seedy, `C:\Users\panrd\AI\sd\out\535`): oba obrázky trefily záměr — červené švy mezi tmavými deskami a popel v plochách; mokrá deska s tyrkysovými žilami v prasklinách. Stránka: https://claude.ai/artifact/6Us179KKyrVvDtmHtp6SvU.
+
+---
+
+## 2026-09-23 — Claude Code, bs3d-95 (desktop: #537 ostrov oblečený — města, vesmír, grid)
+
+**Druhá rodina.** Spára ve vyrobené věci svítí rovnoměrně, prasklina ve skále tam, kde je nejtenčí — to je celý rozdíl proti #535: `JointGlowPatchiness` (renderer + uniforma, default 1) říká, kolik záře hradluje šum; oblečení zdejší rodiny dává 0.
+
+- **Grid:** švy disku nesou paletu roviny (`GridSceneConfig.LineColor` o odstín výš na vršku, samotná barva čar na panelech trupu), každý šev po celé délce — deska světa, ve kterém stojí.
+- **Vesmír:** slabé chladné „running lights" podél švů (0,11/0,13/0,17 nahoře, trup tmavší — první řez na dvojnásobku vyfotil jasněji než samotné švy gridu), hluboko pod gridem — stanici svítí slunce, švy jsou značené, ne planoucí.
+- **Neonové město:** sokl **mokrý po dešti** — `CapPolish` 0,42 → 0,62, `DrumPolish` 0,28 → 0,40, neony věží se zrcadlí do vršku (`SceneLights` je tam dávaly už dřív; polish je teprv ukáže).
+- **Denní město:** dilatační spáry z #533 jsou jeho oblečení. **Nehotovo a proč:** ocelové zábradlí a servisní poklop z issue jsou meshe — zábradlí kolem okraje je přesně to, co pravidla tvaru zakazují (nad rovinou podlahy vně hrany fyziky → koule jím projde), poklop je decal bez kanálu v triplanární cestě; emisní pásek kolem okraje neumí XZ mřížka spár (nekreslí prstenec) — chtělo by drážku v profilu lathe s vlastní září.
+- **Kontrast prstence** (kamera #404, vesmír a grid): **vesmír 24,9 → 24,9 dE, grid 48,9 → 48,9** — švy svítí mezi stanicemi, ne pod nimi. Prstenec „jako fitink v desce místo zlatého pásku“ nehotovo: zlato je kus nábytku, který hra drží ve všech dvaceti (#404), a ocel bledne pod jasnou oblohou hůř než zlato (tam změřeno).
+- **Cena** (Testbed, grid — švy svítí všude — herní póza, 3840×1600, `nopost nooverc fpscap=400`, 20s okna, střídavé páry proti kopii binárky z mainu po #535): **1,82 a 1,82 ms → 2,04 a 2,04, +0,22 ms** v obou párech (táž větev záře na pixelech ostrova jako u #535). ⚠ **První pár s `fpscap=400` četl 2,50 ms na obou buildech — to je cap, ne scéna**: grid je nejlevnější pozadí ve hře a leží pod 2,5 ms, takže recept s capem tu neměří nic; `nocap` je tu nástroj (stejná podlaha, na kterou narazil #404 na 2,54 ms).
+- **Reference** (4 prompty × 2 seedy, `C:\Users\panrd\AI\sd\out\537`) a stránka před/po (4 scény + prstenec): https://claude.ai/artifact/TMAXzTJsQZ9uQH4QfBRFXd.

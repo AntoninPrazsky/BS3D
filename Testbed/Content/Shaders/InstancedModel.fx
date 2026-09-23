@@ -587,6 +587,11 @@ float SlabJointDepth;
 //and only the deepest part of a crack is incandescent - which is what a cooling crack looks like.
 float3 JointGlow;
 
+//How much of the joint glow is gated by the world-space patch noise (#537): 1 lights about a third of the
+//grid in patches, which is what a cooling crack or an ore vein does; 0 lights every joint evenly along its
+//whole length, which is what a seam in a made thing does - the grid's vector plates, a station's panel lines.
+float JointGlowPatchiness;
+
 //Dust settled on the up-facing faces (#535): ash on the volcano's island. A modulation of the albedo rather
 //than a colour - the ratio of the dust's linear colour to the material's, so 1 is no dust - and how much of
 //it, 0 none. Keyed to the GEOMETRIC normal, so a slope takes less and a wall none, and the grain of the relief
@@ -6073,7 +6078,7 @@ float4 TriplanarPS(VertexShaderOutput input) : COLOR
         //stretch of a joint burns, fades and goes dark along the line, and about a third of the grid is lit.
         float groove = SlabGroove(input.WorldPosition, dpdx, dpdy);
         float patch = smoothstep(0.05, 0.45, GradientNoise3(input.WorldPosition * 0.23 + 3.7));
-        shaded.rgb += JointGlow * (groove * groove * patch);
+        shaded.rgb += JointGlow * (groove * groove * lerp(1.0, patch, JointGlowPatchiness));
     }
 
     return shaded;
@@ -6754,7 +6759,7 @@ float4 TriplanarCoarsePS(VertexShaderOutput input) : COLOR
         //stretch of a joint burns, fades and goes dark along the line, and about a third of the grid is lit.
         float groove = SlabGroove(input.WorldPosition, dpdx, dpdy);
         float patch = smoothstep(0.05, 0.45, GradientNoise3(input.WorldPosition * 0.23 + 3.7));
-        shaded.rgb += JointGlow * (groove * groove * patch);
+        shaded.rgb += JointGlow * (groove * groove * lerp(1.0, patch, JointGlowPatchiness));
     }
 
     return shaded;

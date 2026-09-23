@@ -64,7 +64,7 @@ namespace Prazsky.Core.Render
         private EffectParameter _slabSizeParam;
         private EffectParameter _slabJointWidthParam;
         private EffectParameter _slabJointDepthParam;
-        private EffectParameter _jointGlowParam, _topDustTintParam, _topDustStrengthParam;
+        private EffectParameter _jointGlowParam, _jointGlowPatchinessParam, _topDustTintParam, _topDustStrengthParam;
         private EffectParameter _cavityStrengthParam;
         private EffectParameter _reliefShadowStrengthParam;
         private EffectParameter _parallaxScaleParam;
@@ -297,6 +297,13 @@ namespace Prazsky.Core.Render
         /// joint glows and its bevel stays dark.
         /// </summary>
         public Vector3 JointGlow { get; set; }
+
+        /// <summary>
+        /// How much of <see cref="JointGlow"/> is gated by the shader's world-space patch noise (#537): 1, the
+        /// default, lights about a third of the joint grid in patches — a cooling crack, an ore vein; 0 lights
+        /// every joint evenly along its whole length — a seam in a made thing.
+        /// </summary>
+        public float JointGlowPatchiness { get; set; } = 1f;
 
         /// <summary>
         /// Dust settled on the up-facing faces of a triplanar surface (#535): a modulation of the albedo — the
@@ -974,6 +981,7 @@ namespace Prazsky.Core.Render
             _slabJointWidthParam = _effect.Parameters["SlabJointWidth"];
             _slabJointDepthParam = _effect.Parameters["SlabJointDepth"];
             _jointGlowParam = _effect.Parameters["JointGlow"];
+            _jointGlowPatchinessParam = _effect.Parameters["JointGlowPatchiness"];
             _topDustTintParam = _effect.Parameters["TopDustTint"];
             _topDustStrengthParam = _effect.Parameters["TopDustStrength"];
             _cavityStrengthParam = _effect.Parameters["CavityStrength"];
@@ -1342,6 +1350,7 @@ namespace Prazsky.Core.Render
             _slabJointWidthParam.SetValue(SlabJointWidth);
             _slabJointDepthParam.SetValue(SlabJointDepth);
             _jointGlowParam.SetValue(JointGlow);
+            _jointGlowPatchinessParam.SetValue(JointGlowPatchiness);
             _topDustTintParam.SetValue(TopDustTint);
             _topDustStrengthParam.SetValue(TopDustStrength);
             _cavityStrengthParam.SetValue(CavityStrength);
