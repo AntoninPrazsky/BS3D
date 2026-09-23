@@ -5686,3 +5686,22 @@ Předchozí zápis říkal, že to dostavět znamená sáhnout do brány a že t
 - **Dokázáno, ne odargumentováno.** Změnil jsem jednu konstantu uvnitř jedné metody knihovny a **nic** ve zdrojích Testbedu, pak rebuild: `[build] Testbed.dll 04:10:47 67ecbe20` se vrátil **bajt za bajtem stejný a se stejným časem zápisu** — MSBuild ho ani nevydal znovu — zatímco `libraries 3 set` se hnulo `08f67881` → `fe6b0676` a `newest` začalo jmenovat `Prazsky.Core`, tu knihovnu, kterou jsem opravdu editoval. Před tímhle řádkem byly ty dva běhy z vlastního výstupu nerozlišitelné. Sonda vrácena (`git status` čistý).
 - **Dotčeno:** `BS3DLibs/Prazsky.Core/Tools/BuildStamp.cs`, `docs/formats-and-tools.md` („What a run says it is"), `CLAUDE.md`, a **oba skilly, které ten řádek citují** — `.claude/skills/screenshot` a `.claude/skills/benchmark`; obě tvrdily „two `[build]` lines" a ukazovaly dvouřádkový příklad, což by po týhle změně byla přesně ta tiše nepravdivá věc, kterou `BestPractices.md` §8 zakazuje.
 - **Ověřeno:** čtyři solutiony 0 chyb; Testbed i hra tisknou tři řádky (hra `[build] BS3D.dll … / libraries 3 set 213945ae / shaders 36 set 00018a10`). Majitelův save netknutý (`Progress.json` 21. 9., `Settings.json` 19. 9.).
+
+---
+
+## 2026-09-23 — Claude Code, bs3d-9f (desktop: #402 druhá půlka **změřená, ne postavená** — odměr nemá co rozmazávat)
+
+**Žádný kód, a to je ten výsledek.** #402 má hotovou první půlku (protažení letící koule) a druhou — rozmáznutí děla při odměru — nechal předchozí agent otevřenou s poznámkou „chce to nejdřív pohled, až pak kód". Podíval jsem se na to **aritmetikou**, protože to je levnější než harness, a vyšlo, že tam není co kreslit. Plný rozbor je v komentáři na #402.
+
+- **Past je hlubší, než předávka tušila.** Ta psala, že tuhé protažení nafoukne závěr. Pravda je silnější: **rotující tuhé těleso nejde rozmáznout žádnou lineární transformací** — první řád rotace je zase rotace, takže `StretchAlong` namířený na matici děla dá lehce pootočené dělo, ne rozmáznuté. Chce to duchový draw, deformaci ve vertex shaderu, nebo velocity buffer; „tentýž helper" to není.
+- **A hlavně, kolik toho vůbec je.** Všechno ze zdrojů: ústí je **3,40** od čepů (`(5−1)·1·0,5 + 0,90 + 0,5`), hlaveň je **1,59 napříč** (`BORE_RADIUS + WALL_THICKNESS + 0,055 = 0,795`, komentář `CannonRig`u), `GAME_FOV = π/4.2`, `CANNON_CAMERA_STANDOFF = 15`. Oblouk ústí za snímek **jako podíl šířky hlavně** — a ten podíl **nezávisí na rozlišení ani na levelu**, je to poměr dvou světových veličin:
+
+  | odměr | 60 Hz | 144 Hz |
+  |---|---|---|
+  | pomalé míření (90°/s) | 5,6 % | **2,3 %** |
+  | rychlá korekce (180°/s) | 11,2 % | **4,7 %** |
+  | švih přes celý kužel (90° za 0,25 s) | 22,4 % | **9,3 %** |
+
+  A to je **ústí**, nejrychlejší bod; závěr u čepů ujede zlomek.
+- **Dvakrát po sobě tedy vyšlo, že správně spočítané rozmáznutí v téhle hře nemá co ukázat** — první půlka narazila na to, že koule letí *od* diváka a protažení je zkrácené do ztracena. Přerámováno na majitelovo rozhodnutí: zavřít / udělat z toho vědomou **nadsázku** (nejlevnější tvar: stopa v duchu `LaunchSmears` za ústím, streak ve vzduchu místo deformovaného děla, v už existujícím průhledném slotu) / nechat na 60 Hz stroje. Můj hlas je nadsázka, ale nestavím ji bez jeho slova.
+- ⚠ **Ověřeno při tom:** v přehledu objektiv sleduje **bearing lafety, ne odměr hlavně** (`TrailedBearing` čte `_cannon.StandBearing`), takže hlaveň se při míření myší po obraze opravdu vychyluje a kamera stojí — ten případ je reálný. U chůze A/D je to naopak: kamera lafetu dohání, po rozjezdu dělo po obraze nejede vůbec.
