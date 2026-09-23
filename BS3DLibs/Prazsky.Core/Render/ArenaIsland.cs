@@ -305,7 +305,11 @@ namespace Prazsky.Core.Render
 
         private readonly GraphicsDevice _device;
 
-        private readonly IslandMesh _islandMesh;
+        //One mesh per shape (#533), all built at load - six pairs of lathes at SEGMENTS facets is nothing -
+        //and the one the scene wears re-pointed under the two renderers per draw. Which one is up is kept, so
+        //the swap costs a compare on every frame the scene does not change.
+        private readonly IslandMesh[] _islandMeshes;
+        private IslandShape _shape = IslandShape.Stone;
         private readonly SurfaceTexture _stoneTexture, _concreteTexture;
         private readonly InstancedModelRenderer _capRenderer, _bodyRenderer;
 
@@ -468,6 +472,54 @@ namespace Prazsky.Core.Render
         //The tint that turns a material authored at STONE_COLOR (or CONCRETE_COLOR) into another albedo:
         //InstancedModelRenderer reduces the material to its luminance and multiplies by 1.25 before applying a
         //tint, so the tint that lands a colour exactly is that colour over the product.
+        /// <summary>
+        /// THE ISLAND'S SHAPE PER SCENE (#533), resolved where its material is: which of the six silhouettes
+        /// (<see cref="IslandShape"/>) a scene stands its cannon on. The families follow the ground each scene
+        /// draws — a block of the volcano's own basalt, a floe on the two ice sheets, a weathered coral platform
+        /// where there is a sea, a machined disc where there is no ground at all, a poured plinth on the two
+        /// cities' rooftops, and the authored stone for every scene whose ground is rock, sand, snow or grass.
+        /// </summary>
+        private static IslandShape ShapeFor(SceneKind scene) => scene switch
+        {
+            SceneKind.Volcano => IslandShape.Basalt,
+            SceneKind.Polar or SceneKind.Aurora => IslandShape.Ice,
+            SceneKind.Tropical or SceneKind.Sea => IslandShape.Coral,
+            SceneKind.Space or SceneKind.Grid => IslandShape.Machined,
+            SceneKind.City or SceneKind.NeonCity => IslandShape.Plinth,
+            _ => IslandShape.Stone
+        };
+
+        /// <summary>
+        /// What a shape's surfaces are cut with (#533): the cap's relief and joint grid and the drum's, per draw
+        /// like the material. <c>CapSlab</c> below 0 keeps the material's own slab size (the stone families,
+        /// where the coursing is the material's); 0 cuts no joints at all (ice, coral); the machined disc and
+        /// the plinth cut their own panel lines. The drum's joints are what make the basalt read as columns —
+        /// the grid is cut in world X and Z on every face, so on a vertical wall it is vertical lines.
+        /// </summary>
+        private readonly record struct IslandRelief(float CapReliefFrequency, float CapReliefStrength,
+            float CapJointWidth, float CapJointDepth, float CapSlab,
+            float DrumSlab, float DrumJointWidth, float DrumJointDepth, float DrumReliefFrequency, float DrumReliefStrength);
+
+        //The authored stone's figures are the constructor's, restated here so a shape switch back to stone
+        //restores exactly what the constructor set.
+        private static readonly IslandRelief STONE_RELIEF = new(9f, 0.008f, 0.025f, 0.025f, -1f, 0f, 0f, 0f, 4.5f, 0.012f);
+
+        private static IslandRelief ReliefFor(IslandShape shape) => shape switch
+        {
+            //Deep joints on both, and the drum coursed in narrow blocks: on the wall those are vertical
+            //lines, which is the columns; on the top the block tops.
+            IslandShape.Basalt => new(7f, 0.010f, 0.035f, 0.045f, 1.2f, 1.3f, 0.045f, 0.055f, 3f, 0.010f),
+            //No joints anywhere, a broad low relief: ice is one piece.
+            IslandShape.Ice => new(3f, 0.020f, 0f, 0f, 0f, 0f, 0f, 0f, 2.5f, 0.020f),
+            //No joints, a pitted relief on both.
+            IslandShape.Coral => new(6f, 0.018f, 0f, 0f, 0f, 0f, 0f, 0f, 5f, 0.020f),
+            //Panel lines, thin and sharp, on the top (the material's own plate size) and on the hull; no relief.
+            IslandShape.Machined => new(0f, 0f, 0.020f, 0.020f, -1f, 4f, 0.020f, 0.020f, 0f, 0f),
+            //Expansion joints on the top, a faint cast relief, the side plain.
+            IslandShape.Plinth => new(4f, 0.004f, 0.020f, 0.020f, -1f, 0f, 0f, 0f, 3f, 0.006f),
+            _ => STONE_RELIEF
+        };
+
         private static Vector3 TintFor(Vector3 wanted, Vector3 authored) =>
             wanted / ((authored.X * 0.299f + authored.Y * 0.587f + authored.Z * 0.114f) * 1.25f);
 
@@ -515,7 +567,10 @@ namespace Prazsky.Core.Render
             _stoneTexture = SurfaceTexture.Stone(device);
             _concreteTexture = SurfaceTexture.Concrete(device);
 
-            _islandMesh = new IslandMesh(device, FUNNEL_TOP_RADIUS, RADIUS, EDGE_HEIGHT, SEGMENTS, DISH_DEPTH);
+            _islandMeshes = new IslandMesh[IslandMesh.SHAPE_COUNT];
+            for (int shape = 0; shape < _islandMeshes.Length; shape++)
+                _islandMeshes[shape] = new IslandMesh(device, FUNNEL_TOP_RADIUS, RADIUS, EDGE_HEIGHT, SEGMENTS, DISH_DEPTH, (IslandShape)shape);
+            IslandMesh _islandMesh = _islandMeshes[(int)IslandShape.Stone];
 
             //The dressed stone: the dished top and the coping that finishes it, coursed into slabs. The detail
             //texture is what selects the technique that reads any of this — without one the renderer falls
@@ -762,9 +817,31 @@ namespace Prazsky.Core.Render
             IslandLook look = LookFor(scene);
             bool authored = look.Equals(DEFAULT_LOOK);
 
+            //The scene's own shape (#533): the lathe under each renderer is swapped when it changes, and the
+            //relief and joints that go with the shape are written per draw like the material.
+            IslandShape shape = ShapeFor(scene);
+            if (shape != _shape)
+            {
+                _shape = shape;
+                _capRenderer.SetMesh(_islandMeshes[(int)shape].Cap);
+                _bodyRenderer.SetMesh(_islandMeshes[(int)shape].Body);
+            }
+
+            IslandRelief relief = ReliefFor(shape);
+
             _capRenderer.SpecularAmbientStrength = look.CapPolish;
-            _capRenderer.SlabSize = look.Slab;
+            _capRenderer.SlabSize = relief.CapSlab < 0f ? look.Slab : relief.CapSlab;
+            _capRenderer.SlabJointWidth = relief.CapJointWidth;
+            _capRenderer.SlabJointDepth = relief.CapJointDepth;
+            _capRenderer.SurfaceReliefFrequency = relief.CapReliefFrequency;
+            _capRenderer.SurfaceReliefStrength = relief.CapReliefStrength;
+
             _bodyRenderer.SpecularAmbientStrength = look.DrumPolish;
+            _bodyRenderer.SlabSize = relief.DrumSlab;
+            _bodyRenderer.SlabJointWidth = relief.DrumJointWidth;
+            _bodyRenderer.SlabJointDepth = relief.DrumJointDepth;
+            _bodyRenderer.SurfaceReliefFrequency = relief.DrumReliefFrequency;
+            _bodyRenderer.SurfaceReliefStrength = relief.DrumReliefStrength;
 
             if ((Members & ArenaMembers.Cap) != 0)
             {
@@ -887,7 +964,8 @@ namespace Prazsky.Core.Render
         {
             _capRenderer?.Dispose();
             _bodyRenderer?.Dispose();
-            _islandMesh?.Dispose();
+            if (_islandMeshes != null)
+                foreach (IslandMesh mesh in _islandMeshes) mesh?.Dispose();
 
             _stoneTexture?.Dispose();
             _concreteTexture?.Dispose();

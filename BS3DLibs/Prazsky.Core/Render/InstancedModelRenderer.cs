@@ -794,7 +794,7 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// Bounding sphere of the whole model in model space (bone transforms applied). Useful for frustum culling.
         /// </summary>
-        public BoundingSphere BoundingSphere { get; }
+        public BoundingSphere BoundingSphere { get; private set; }
 
         /// <summary>
         /// Creates a renderer for drawing many instances of the given model.
@@ -864,6 +864,28 @@ namespace Prazsky.Core.Render
             BoundingSphere = bounds;
 
             InitializeEffect();
+        }
+
+        /// <summary>
+        /// Points a renderer built from one procedural mesh at another (#533): the island keeps one cap and
+        /// one drum renderer — with their material, relief and joint settings, and their place in every
+        /// host's sky-lit list — and swaps the lathe under them when the scene's shape changes. Only the
+        /// buffers, the primitive count and the bounds move; nothing this renderer caches refers to the old
+        /// mesh, since the bindings are built at draw time from the part. The mesh stays the caller's to
+        /// dispose, as it always was.
+        /// </summary>
+        public void SetMesh(IProceduralMesh mesh)
+        {
+            if (_parts.Length != 1)
+                throw new InvalidOperationException("Only a renderer built from one procedural mesh can be re-pointed.");
+
+            MeshPartData part = _parts[0];
+            part.VertexBuffer = mesh.VertexBuffer;
+            part.IndexBuffer = mesh.IndexBuffer;
+            part.PrimitiveCount = mesh.PrimitiveCount;
+            _parts[0] = part;
+
+            BoundingSphere = mesh.BoundingSphere;
         }
 
         /// <summary>
