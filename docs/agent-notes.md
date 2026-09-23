@@ -5796,3 +5796,14 @@ Předchozí zápis říkal, že to dostavět znamená sáhnout do brány a že t
 - **Přeměřeno #524:** ze 58 otevřených issues **není nedotčená ani jedna**, 39 nese vlastní merge commit.
 - ⚠ **Co jsem pokazil a nepřepisuju:** commit `8369916` (doplnění hashe do zápisu výš) jsem udělal **přímo na `main`**, ne na větvi. Byl to slepičí problém — hash merge existuje až po merge — ale správně se to řeší **druhou větví po merge**, ne přímým commitem. Přepisovat pushnutou `main` na repu, kde druhá relace zrovna pracuje, by bylo horší než ta chyba; zapsáno, ne zameteno.
 - **Nespouštěl jsem `LevelGen`** schválně: přepisuje soubory levelů a bs3d-95 na nich dělá #486. ScoreSim exit 0, čtyři solutiony 0 chyb.
+
+---
+
+## 2026-09-23 — Claude Code, bs3d-9f (desktop: velikost releasu přeměřena po #486 — 70,9 → 218,1 MB)
+
+**Peerův merge #486 (`ebc38d2`) tiše zneplatnil číslo v `CLAUDE.md`.** `Game/Music` šla z 15 na 163 MB, a dokument dál tvrdil, že zip releasu má „70.9 MB measured locally". To je přesně ta vada, kterou `CLAUDE.md` sám zakazuje: změřené číslo, které je tiše špatně, je horší než žádné.
+
+- **Přeměřeno tak, jak to dělá workflow** (`dotnet publish -c Release -r win-x64 --self-contained`, pak `Compress-Archive` na adresář, `Optimal`): publikovaná složka **320,6 MB**, zip **218,1 MB**. Z toho **162,3 MB je `Music/`** (Ogg, 119 souborů) a 0,5 MB `Sfx/` — **tři čtvrtiny stahování jsou teď zvuk**.
+- **Opraveno na dvou místech:** `CLAUDE.md` (aktuální velikost) a `docs/game-shell.md`, kde 68,3 → 70,9 MB je **delta loga** a platí dál — jen to už není velikost stahování, takže tam přibyla věta, že logo je dneska ~1 % místo 4 %.
+- **Není to problém, jen to musí být napsané správně:** majitelův rozpočet je ~1 GB (release je zdarma, repo je veřejné).
+- **Obecné poučení, které tahle noc dala dvakrát:** když jedna relace mergne něco velkého, **čísla v cizích dokumentech zestárnou s tím** a autor merge to nevidí, protože jeho vlastní zápis je správně. Druhá relace na to narazí náhodou. Stojí za to po velkém merge grepnout čísla, která ta změna mohla pohnout.
