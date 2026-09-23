@@ -3989,6 +3989,14 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
+        /// The volcano's ground height at a world point, for a host laying a camera path over the cone (the
+        /// chapter intro's prologue, #530): <see cref="VolcanoGroundY"/>, the mirror below, made public. The
+        /// scoria clinker is missing from it by that mirror's own argument, so a path wants a clearance of a
+        /// few units more than the picture suggests.
+        /// </summary>
+        public float VolcanoGroundHeight(float x, float z) => VolcanoGroundY(x, z);
+
+        /// <summary>
         /// The volcano's ground height at a world point: <c>Volcano.fx</c>'s <c>TerrainHeight</c> without its
         /// scoria fBm term, which is the one thing this mirror leaves out and can afford to — three units of
         /// clinker under a lamp or a vent is invisible, and reproducing four octaves of gradient noise on the
