@@ -5904,3 +5904,16 @@ Předchozí zápis říkal, že to dostavět znamená sáhnout do brány a že t
 - **Cena** (Testbed, kamera vzhůru z herní pózy `campos=0,-4,30 camtarget=0,60,-120 fov=80`, 3840×1600, `nopost nooverc fpscap=400`, 20s okna, střídavé páry proti kopii binárky z mainu): main **5,25 a 5,24 ms → 5,47 a 5,48**, **+0,22 a +0,24 ms**, rozptyl 0,02 ms uvnitř běhu — dva tapy pole dosahu na každý pixel stěny a 3D hash.
 - **Foceno** z herní pózy vzhůru a z nízké kamery přes sál na cove (Testbed), a ze hry `play level=41`; stránka: https://claude.ai/artifact/2Xmnn9NeJ7nqNrvUyF9dHo.
 - ⚠ **Past focení:** `shot=4` s `at=6:Escape` nechalo dva PNG o 0 bajtech — zápis 3840×1600 snímku trvá déle než dvě sekundy a Escape ho utnul. `at=10:Escape` a `-Wait 13` stačí.
+
+---
+
+## 2026-09-23 — Claude Code, github-3b (notebook: #540 žebříček kvality na APU přes všech dvanáct kapitol — změřeno, nerozloženo)
+
+**Založil jsem #540 a změřil ho**, protože #298 měl APU čísla jen pro pět scén z dvaceti a scénické průchody #503–#512/#509 nechaly „Co zůstává: APU měření" otevřené. Majitel: „jsi na notebooku, měř výkon nových scén, popř. navrhni optimalizace pro low/medium". Kód hry jsem **neměnil**; na mainu je tabulka v `docs/game-shell.md` (za tabulkou #298) a harness `.claude/skills/benchmark/tier-matrix.ps1` + `tier-matrix.py`.
+
+- **Metoda:** `BS3D.exe level=<nejtěžší level kapitoly, ne první v bloku> quality=<tier> nocap logfps windowed width=1600 height=900 mute nofocuspause nofps sceneseed=0`, 45 s běhy, prvních 8 čtení pryč, medián. Scéna/dome/tier/MSAA/velikost ze `[fps]` řádku u každého běhu — žádný neuhnul. Jeden build (`f0635633`/`3050db4c`).
+- **Výsledek (Low, rozpočet 16,1 ms):** sopka Caldera **21,3** ✗, hory Spyglass 18,9 ✗, neon Ghost 17,5 ✗, jeskyně Spring 17,3 ✗, poušť Pendulum 16,6 ✗, sen 16,0 a louka 15,9 na hraně, savana 15,2, město 14,3/12,1, vesmír 12,0, Grid 10,6, Měsíc 10,6. **Medium se vejde jen na Měsíci a ve vesmíru** (Grid 15,5 na hraně). High nikde.
+- ⚠ **Oba levely, co jsou i v #298, zdražily na všech třech stupních** (Turbine 10,6 → 12,1 na Low, Spring 13,5 → 17,3). **Nerozloženo:** hýbe se kód (mramor #419, porcelán, materiály ostrova #404, světlušky #507/#528, stíny v jedenácti scénách) i stroj — **Teams držel ~1,2 jádra** CPU, které sdílí 15 W s GPU (past 14). Rozhodne to jen build z `3b78628` (#298) proti dnešnímu hned po sobě. Nečíst jako regresi, dokud to neproběhne.
+- **Kandidáti pro další relaci (nezměřeno):** (1) **materiály koulí nemají redukovaný program na žádném stupni** a tři nejhorší Low nesou lávu, led a drahokam → první měření `Testbed … alt=balls=beach;balls=lava;balls=ice;balls=gem;… ssaa=1 msaa=2 detail=0` na pevné kameře s `Full.json`; (2) sopka — `VolcanoReduced` nestačí, rozklad `alt=detail=0;detail=1` a po vrstvách; (3) na Medium 8× MSAA (desktop: nad 4× zdarma) a sluneční stínová mapa, kterou Low vynechává.
+- ⚠ **Past, na které spadla matice:** front end na tomhle notebooku nemá okno ani 5 s po startu (level ho má) → `MainWindowHandle` null → `GetWindowRect` hodil výjimku a skript skončil. **Osm scén bez levelu (moře, les, outback, tropy, Mars, bouře, polár, polární záře) proto změřených NENÍ.** Čekání na okno je ve skriptu opravené, ale znovu nespuštěné.
+- **Issue #540 nechávám otevřené** — rozklad a front-end scény zbývají.
