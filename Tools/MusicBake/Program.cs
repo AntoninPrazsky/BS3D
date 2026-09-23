@@ -104,24 +104,67 @@ namespace BS3D.Tools.MusicBake
         private const int LAG_WINDOW_FRAMES = 48000;
 
         /// <summary>
-        /// Master (in <c>Research/AI-Music</c>, without .wav) → the file the game plays (in <c>Game/Music</c>) and
-        /// the loudness it is brought to. The game finds its files by name — a theme's own name, then its variants
-        /// as <c>name-*.ogg</c> in order — so adding a variant is a line here and nothing in the game.
+        /// Which masters are tracks, by NAME (#486; a table of eleven rows until then): <c>theme-&lt;track&gt;.wav</c>
+        /// becomes <c>Game/Music/&lt;track&gt;.ogg</c> at the themes' loudness, and the one master named here becomes
+        /// the front end's loop at the lobby's. Anything else in a masters folder — a reference render, a rejected
+        /// take — is left alone. The game groups the files it finds into families by the name before the first
+        /// dash (<c>ember-punk-03.ogg</c> is <c>ember</c>'s), so a new family or a new variant is a master with the
+        /// right name and nothing here or in the game.
         /// </summary>
-        private static readonly (string Master, string Track, double RmsDb)[] TRACKS =
+        private const string THEME_MASTER_PREFIX = "theme-";
+        private const string MENU_MASTER = "menu-loop-v2";
+        private const string MENU_TRACK = "menu";
+
+        /// <summary>
+        /// The tracks a masters folder holds, by the rule above: the master's path, the track it becomes and the
+        /// loudness it is brought to. <c>Research/AI-Music</c> is always read; <c>--masters &lt;dir&gt;</c> adds a
+        /// folder outside the repository, which is where the generated families' float masters live (#486) — at
+        /// twenty-odd megabytes each, a hundred of them do not belong in a public git history, and the .ogg the
+        /// game plays is the artefact. Sorted by track name, so the report and the serials are stable.
+        /// </summary>
+        private static List<(string Path, string Track, double RmsDb)> FindMasters(IEnumerable<string> folders, string only)
         {
-            ("menu-loop-v2", "menu", MENU_RMS_DB),
-            ("theme-pulse", "pulse", THEME_RMS_DB),
-            ("theme-bohemia", "bohemia", THEME_RMS_DB),
-            ("theme-nocturne", "nocturne", THEME_RMS_DB),
-            ("theme-mural", "mural", THEME_RMS_DB),
-            ("theme-ember", "ember", THEME_RMS_DB),
-            ("theme-ember-punk-01", "ember-punk-01", THEME_RMS_DB),
-            ("theme-ember-punk-02", "ember-punk-02", THEME_RMS_DB),
-            ("theme-ember-punk-03", "ember-punk-03", THEME_RMS_DB),
-            ("theme-ember-punk-04", "ember-punk-04", THEME_RMS_DB),
-            ("theme-ember-punk-05", "ember-punk-05", THEME_RMS_DB),
-        };
+            List<(string Path, string Track, double RmsDb)> found = new();
+
+            foreach (string folder in folders)
+            {
+                if (!Directory.Exists(folder)) continue;
+
+                foreach (string path in Directory.GetFiles(folder, "*.wav"))
+                {
+                    string stem = Path.GetFileNameWithoutExtension(path);
+                    string track;
+                    double rmsDb;
+
+                    if (string.Equals(stem, MENU_MASTER, StringComparison.OrdinalIgnoreCase)) { track = MENU_TRACK; rmsDb = MENU_RMS_DB; }
+                    else if (stem.StartsWith(THEME_MASTER_PREFIX, StringComparison.OrdinalIgnoreCase) && stem.Length > THEME_MASTER_PREFIX.Length)
+                    {
+                        track = stem.Substring(THEME_MASTER_PREFIX.Length).ToLowerInvariant();
+                        rmsDb = THEME_RMS_DB;
+                    }
+                    else continue;
+
+                    if (only != null && !track.StartsWith(only, StringComparison.OrdinalIgnoreCase)) continue;
+
+                    found.Add((path, track, rmsDb));
+                }
+            }
+
+            found.Sort((a, b) => string.CompareOrdinal(a.Track, b.Track));
+            return found;
+        }
+
+        /// <summary>
+        /// A serial the file's bytes can be reproduced from — a string's hash code changes per process in .NET, and
+        /// a position in a list changes when a master is added before it, which is what the tracks' serials were
+        /// until #486 (so the eleven existing tracks re-encoded once, to bytes that no longer move).
+        /// </summary>
+        private static int SerialFor(string name)
+        {
+            int serial = 0x1000;
+            foreach (char c in name) serial = unchecked(serial * 31 + c);
+            return serial;
+        }
 
         private static int Main(string[] args)
         {
@@ -130,6 +173,8 @@ namespace BS3D.Tools.MusicBake
             bool tracks = false;
             float quality = OGG_QUALITY;
             string only = null;
+            string extraMasters = null;
+            string onlyTracks = null;
             string sfxWav = null, sfxName = null;
             bool sfxMusic = false;
             int sfxRoot = -1;
@@ -145,6 +190,8 @@ namespace BS3D.Tools.MusicBake
                 else if (Is(arg, "--theme") && i + 1 < args.Length) only = args[++i];
                 else if (Is(arg, "--no-write")) write = false;
                 else if (Is(arg, "--tracks")) tracks = true;
+                else if (Is(arg, "--masters") && i + 1 < args.Length) extraMasters = args[++i];
+                else if (Is(arg, "--only") && i + 1 < args.Length) onlyTracks = args[++i];
                 else if (Is(arg, "--sfx") && i + 2 < args.Length) { sfxWav = args[++i]; sfxName = args[++i]; }
                 else if (Is(arg, "--music")) sfxMusic = true;
                 else if (Is(arg, "--root") && i + 1 < args.Length && int.TryParse(args[++i], out sfxRoot)) continue;
@@ -155,12 +202,12 @@ namespace BS3D.Tools.MusicBake
                     && quality >= -0.1f && quality < OGG_QUALITY_LIMIT) continue;
                 else
                 {
-                    Console.WriteLine("usage: MusicBake [--out <dir>] [--theme <name>] [--no-write] | --tracks [--quality <-0.1..0.59>] [--no-write] | --sfx <wav> <name> [--music [--root <midi>] [--bpm <n>]] [--no-write]");
+                    Console.WriteLine("usage: MusicBake [--out <dir>] [--theme <name>] [--no-write] | --tracks [--masters <dir>] [--only <prefix>] [--quality <-0.1..0.59>] [--no-write] | --sfx <wav> <name> [--music [--root <midi>] [--bpm <n>]] [--no-write]");
                     return 2;
                 }
             }
 
-            if (tracks) return BuildTracks(write, quality);
+            if (tracks) return BuildTracks(write, quality, extraMasters, onlyTracks);
             if (sfxWav != null) return BuildSfx(sfxWav, sfxName, write, quality, sfxMusic, sfxRoot, sfxBpm);
 
             if (write) Directory.CreateDirectory(outDir);
@@ -335,10 +382,7 @@ namespace BS3D.Tools.MusicBake
                 shape = $"  ROOT {root} ({NoteName(root)}) BPM {bpm:F1} [{keys}]";
             }
 
-            //A serial the file's bytes can be reproduced from: a string's hash code changes per process in .NET
-            int serial = 0x1000;
-            foreach (char c in name) serial = unchecked(serial * 31 + c);
-            byte[] ogg = EncodeOgg(dup, rate, quality, serial, title: name, tags);
+            byte[] ogg = EncodeOgg(dup, rate, quality, SerialFor(name), title: name, tags);
 
             string dir = Path.Combine(repo, "Game", "Sfx");
             string path = Path.Combine(dir, name + ".ogg");
@@ -448,7 +492,7 @@ namespace BS3D.Tools.MusicBake
         /// render's body, so a level opens on it wherever it opens. Exits 1 if any track decodes to a different
         /// length than its master, since that loop would open a gap at every repeat.
         /// </summary>
-        private static int BuildTracks(bool write, float quality)
+        private static int BuildTracks(bool write, float quality, string extraMasters, string only)
         {
             string repo = FindRepo();
             if (repo == null)
@@ -461,6 +505,17 @@ namespace BS3D.Tools.MusicBake
             string tracks = Path.Combine(repo, "Game", "Music");
             if (write) Directory.CreateDirectory(tracks);
 
+            List<string> folders = new() { masters };
+            if (extraMasters != null) folders.Add(extraMasters);
+
+            List<(string Path, string Track, double RmsDb)> found = FindMasters(folders, only);
+            if (found.Count == 0)
+            {
+                Console.WriteLine($"MusicBake --tracks: no master named {THEME_MASTER_PREFIX}*.wav or {MENU_MASTER}.wav in {string.Join(", ", folders)}"
+                    + (only != null ? $" for --only {only}" : ""));
+                return 1;
+            }
+
             Console.WriteLine("track            secs  bake  entry   peak    rms   bal  mono | <100 100-200 200-500  500-2k   2k-6k    6k+ |  head   tail");
 
             List<byte[]> encoded = new();
@@ -469,15 +524,10 @@ namespace BS3D.Tools.MusicBake
             int trackRate = 0;
             bool framesHold = true;
 
-            for (int t = 0; t < TRACKS.Length; t++)
+            for (int t = 0; t < found.Count; t++)
             {
-                (string master, string track, double rmsDb) = TRACKS[t];
-                string path = Path.Combine(masters, master + ".wav");
-                if (!File.Exists(path))
-                {
-                    Console.WriteLine($"MusicBake --tracks: missing master {path}");
-                    return 1;
-                }
+                (string path, string track, double rmsDb) = found[t];
+                string master = Path.GetFileNameWithoutExtension(path);
 
                 Stopwatch clock = Stopwatch.StartNew();
 
@@ -510,7 +560,7 @@ namespace BS3D.Tools.MusicBake
                     + $"{100.0 * shaped / mix.Length:0.000} % of samples shaped above -1 dBFS");
 
                 //The serial is fixed per track rather than random, so an unchanged master rebakes to the same bytes
-                byte[] ogg = EncodeOgg(mix, rate, quality, serial: t + 1, title: track);
+                byte[] ogg = EncodeOgg(mix, rate, quality, SerialFor(track), title: track);
 
                 Stopwatch decodeClock = Stopwatch.StartNew();
                 byte[] decoded = OggTrack.Decode(new MemoryStream(ogg), rate);

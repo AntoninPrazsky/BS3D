@@ -131,8 +131,8 @@ namespace BS3D
         /// setting: nothing on this path reaches <c>_settings</c>, so it cannot outlive the run, and nothing
         /// on it reaches a level's own <c>music</c> field either — what it changes is the next two minutes.
         /// <para>
-        /// The values are the game's own themes, named by <c>MusicTheme</c> itself, plus <b>Auto</b> to
-        /// wrap back to: the piece the moment would play unasked, which is the front end's loop in the menus
+        /// The values are the game's music families, named by their files (<see cref="GameMusic.Families"/>,
+        /// #486), plus <b>Auto</b> to wrap back to: the piece the moment would play unasked, which is the front end's loop in the menus
         /// and the level's own theme in a level. Auto is offered <b>only on the front end</b>, because that
         /// is the only place a pick silences something the game would otherwise be playing — inside a level
         /// the theme comes back on its own at the next level, so the wrap there simply goes round again.
@@ -147,7 +147,7 @@ namespace BS3D
         {
             if (_music == null) return;
 
-            MusicTheme? next = NextMusicTrack(_music.SoundingTheme);
+            string next = NextMusicTrack(_music.SoundingTrack);
 
             if (next == null)
             {
@@ -159,7 +159,7 @@ namespace BS3D
             else
             {
                 _music.StopMenu();
-                _music.SetTheme(next.Value);
+                _music.SetTheme(next);
 
                 //Needed even when SetTheme found the piece already selected: on the front end the theme's
                 //chain was retired when the menus took over, so nothing is sounding for it to keep.
@@ -174,14 +174,17 @@ namespace BS3D
         /// click in the menus is one wrap from the loop it interrupted. In a level, where Auto has no loop to
         /// mean, the wrap goes straight round to the first piece again.
         /// </summary>
-        private MusicTheme? NextMusicTrack(MusicTheme? current)
+        private string NextMusicTrack(string current)
         {
-            if (current == null) return (MusicTheme)0;
+            string[] families = _music.Families;
+            if (families.Length == 0) return null;
 
-            int next = (int)current.Value + 1;
-            if (next < GameMusic.ThemeCount) return (MusicTheme)next;
+            if (current == null) return families[0];
 
-            return _menuMusicOn ? null : (MusicTheme)0;
+            int next = Array.IndexOf(families, current) + 1;
+            if (next > 0 && next < families.Length) return families[next];
+
+            return _menuMusicOn ? null : families[0];
         }
 
         private void CycleVolume(ref float volume, Action<float> store)
