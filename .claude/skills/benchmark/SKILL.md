@@ -119,11 +119,16 @@ Each of these has actually happened; the first two are the expensive ones.
 15. **Measuring a build that is not the one you changed.** A shader edit can fail to reach the output
    directory in silence (MGCB skips an `.fx` whose `.xnb` is newer and then copies nothing), and a C# change
    can land in a configuration nobody launches — so a sweep "measures" the previous build and the numbers look
-   perfectly ordinary. Since #372 every run opens with two `[build]` lines: the managed assembly's write time
-   and hash, then `shaders <n> set <hash>, newest <name> <time>`. **Capture them with every series and quote
-   the `set` hash beside a figure that will be written down** — two halves of an A/B with the same `set` were
-   running the same shaders, whatever their timestamps say, and after a shader rebuild that landed, `newest`
-   is the file you edited.
+   perfectly ordinary. Since #372 every run opens with three `[build]` lines: the managed assembly's write time
+   and hash, then `libraries <n> set <hash>, newest <name> <time>`, then `shaders <n> set <hash>, newest
+   <name> <time>`. **Capture all three with every series and quote the `set` hashes beside a figure that will
+   be written down** — two halves of an A/B with the same `set` were running the same shaders, whatever their
+   timestamps say, and after a rebuild that landed, `newest` is the file you edited.
+   **⚠ For a change in `Prazsky.*` the FIRST line is useless and the second is the one that answers.** Most
+   of this codebase lives in the libraries, and a library-only change leaves the exe's hash *and* the shader
+   `set` identical: measured, one constant changed in one library method came back with `Testbed.dll …
+   67ecbe20` byte-identical and at the same write time, while `libraries … set` moved `08f67881` →
+   `fe6b0676`. That gap is why the line exists, and it had already cost two runs before it did.
 
 Also: keep both halves of an A/B in the **same build configuration**, and remember that lifting the cap is
 what makes the number a frame cost rather than the display's refresh. The script always passes `nocap`;

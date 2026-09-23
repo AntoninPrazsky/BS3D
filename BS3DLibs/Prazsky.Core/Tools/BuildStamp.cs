@@ -8,9 +8,9 @@ using System.Text;
 namespace Prazsky.Core.Tools
 {
     /// <summary>
-    /// <b>What this run actually is</b> (#372): two <c>[build]</c> lines on stdout at startup, naming the
-    /// executable and the compiled shaders sitting beside it — when they were written, and a hash that says
-    /// whether they are the same bytes as last time.
+    /// <b>What this run actually is</b> (#372): three <c>[build]</c> lines on stdout at startup, naming the
+    /// executable, this repository's own libraries and the compiled shaders sitting beside it — when they
+    /// were written, and a hash that says whether they are the same bytes as last time.
     /// </summary>
     /// <remarks>
     /// It exists because a run could not be asked the one question a capture or a measurement depends on:
@@ -43,13 +43,23 @@ namespace Prazsky.Core.Tools
         //Where MonoGame's content build lands beside every one of the three executables
         private const string CONTENT_SHADERS = @"Content\Shaders";
 
+        /// <summary>
+        /// Which assemblies beside the exe count as <i>this repository's</i>. Every one of the three
+        /// executables is a thin shell over <c>Prazsky.Core</c>, <c>Prazsky.BS3D</c> and
+        /// <c>Prazsky.BS3D.Physics</c>, so most changes land here and not in the entry assembly. The
+        /// third-party assemblies (MonoGame, Myra, Bepu, FontStash) are deliberately left out: they change
+        /// only when a package version does, and hashing forty megabytes of them at every startup to answer
+        /// a question nobody asks would be noise on the line and time on the clock.
+        /// </summary>
+        private const string LIBRARY_PREFIX = "Prazsky.";
+
         //Enough of a SHA-256 to say "not the same bytes" at a glance, short enough to sit on a log line next
         //to twenty-eight names. A collision here costs nothing: this is a fingerprint for a human comparing
         //two runs, never an integrity check.
         private const int HASH_CHARS = 8;
 
         /// <summary>
-        /// Writes the two lines. Call it first thing in <c>Main</c>, before the window: it needs no graphics
+        /// Writes the three lines. Call it first thing in <c>Main</c>, before the window: it needs no graphics
         /// device, and a run that dies during startup should still have said what it was.
         /// </summary>
         public static void Report()
@@ -57,6 +67,7 @@ namespace Prazsky.Core.Tools
             try
             {
                 ReportExecutable();
+                ReportLibraries();
                 ReportShaders();
             }
             catch (Exception exception)
@@ -89,6 +100,56 @@ namespace Prazsky.Core.Tools
             }
 
             Console.WriteLine($"[build] {Path.GetFileName(path)} {Stamp(File.GetLastWriteTime(path))} {Hash(path)}");
+        }
+
+        /// <summary>
+        /// <b>This repository's own libraries beside the exe</b> — how many, one hash over the set, and the
+        /// newest, in the same grammar as the shaders line.
+        /// <para>
+        /// It exists because the first line <b>cannot see most of this repository's code</b>. All three
+        /// executables are thin shells over <c>Prazsky.Core</c>, <c>Prazsky.BS3D</c> and
+        /// <c>Prazsky.BS3D.Physics</c> — <c>ArenaIsland</c>, <c>InstancedModelRenderer</c>, <c>SceneRenderer</c>,
+        /// the gun, the physics all live there — so a change to any of them leaves
+        /// <c>[build] Testbed.dll … &lt;hash&gt;</c> and the shader <c>set</c> hash <b>both identical</b>, and an
+        /// A/B of two such builds has nothing on the line saying which one is running. That has now been hit
+        /// twice and written into the journal both times: once by a run that drew a new mesh under the
+        /// previous run's exact hash, and once by a #404 pair whose halves were only distinguishable because
+        /// they happened to come from two different worktrees.
+        /// </para>
+        /// <para>
+        /// <b>Demonstrated rather than argued.</b> One constant changed inside one library method, nothing in
+        /// the Testbed's own sources, then a rebuild: <c>[build] Testbed.dll 04:10:47 67ecbe20</c> came back
+        /// <b>byte-identical and with the same write time</b> — MSBuild did not even re-emit it — while
+        /// <c>libraries 3 set</c> moved <c>08f67881</c> → <c>fe6b0676</c> and <c>newest</c> changed to name
+        /// <c>Prazsky.Core</c>, the library actually edited. Before this line those two runs were
+        /// indistinguishable from their own output.
+        /// </para>
+        /// <para>
+        /// <b>Newest but no oldest</b>, unlike the shaders: there are three of these and they are rebuilt
+        /// together, so the oldest of three answers nothing the set hash does not. What <c>newest</c> answers
+        /// is the same question it answers for a shader — after a rebuild that landed, it is the library you
+        /// just edited.
+        /// </para>
+        /// </summary>
+        private static void ReportLibraries()
+        {
+            //AppContext.BaseDirectory rather than the entry assembly's own directory, for the same reason the
+            //shaders use it: it is where the runtime actually resolved this process's files from.
+            FileInfo[] libraries = new DirectoryInfo(AppContext.BaseDirectory)
+                .GetFiles(LIBRARY_PREFIX + "*.dll")
+                .OrderBy(file => file.Name, StringComparer.Ordinal)
+                .ToArray();
+
+            if (libraries.Length == 0)
+            {
+                Console.WriteLine($"[build] no {LIBRARY_PREFIX}* libraries beside the executable");
+                return;
+            }
+
+            FileInfo newest = libraries.OrderByDescending(file => file.LastWriteTime).First();
+
+            Console.WriteLine($"[build] libraries {libraries.Length} set {HashSet(libraries)}"
+                + $", newest {Name(newest)} {Stamp(newest.LastWriteTime)}");
         }
 
         /// <summary>
@@ -127,19 +188,20 @@ namespace Prazsky.Core.Tools
         }
 
         /// <summary>
-        /// One hash over every shader in the directory — each file's NAME as well as its bytes, so a renamed
-        /// or a newly added shader moves the figure and not only an edited one. Reading a couple of megabytes
-        /// once at startup is nothing; it is deliberately not per-file output, twenty-eight lines of hashes
-        /// being noise in every log to answer a question that is usually about one file.
+        /// One hash over a whole set of files — each file's NAME as well as its bytes, so a renamed or a newly
+        /// added entry moves the figure and not only an edited one. Reading a few megabytes once at startup is
+        /// nothing; it is deliberately not per-file output, a line of hashes per shader being noise in every
+        /// log to answer a question that is usually about one file. Shared by the shaders and the libraries,
+        /// so their two figures mean exactly the same thing and can be reasoned about the same way.
         /// </summary>
-        private static string HashSet(FileInfo[] shaders)
+        private static string HashSet(FileInfo[] files)
         {
             using IncrementalHash hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
 
-            foreach (FileInfo shader in shaders)
+            foreach (FileInfo file in files)
             {
-                hash.AppendData(Encoding.UTF8.GetBytes(shader.Name));
-                hash.AppendData(File.ReadAllBytes(shader.FullName));
+                hash.AppendData(Encoding.UTF8.GetBytes(file.Name));
+                hash.AppendData(File.ReadAllBytes(file.FullName));
             }
 
             return Convert.ToHexString(hash.GetHashAndReset()).ToLowerInvariant()[..HASH_CHARS];
@@ -156,6 +218,6 @@ namespace Prazsky.Core.Tools
         //Sortable and unambiguous, and the same shape the shot files' names carry
         private static string Stamp(DateTime time) => time.ToString("yyyy-MM-dd HH:mm:ss");
 
-        private static string Name(FileInfo shader) => Path.GetFileNameWithoutExtension(shader.Name);
+        private static string Name(FileInfo file) => Path.GetFileNameWithoutExtension(file.Name);
     }
 }

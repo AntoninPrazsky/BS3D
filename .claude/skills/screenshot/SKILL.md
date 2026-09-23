@@ -19,16 +19,23 @@ The exe is `Testbed\bin\net10.0-windows\Testbed.exe`.
 
 ### ⚠ Prove the exe is running the change before you believe a single pixel
 
-**All three executables now say what they are, in two `[build]` lines on stdout at startup (#372).** Read them
+**All three executables now say what they are, in three `[build]` lines on stdout at startup (#372).** Read them
 before believing a capture; they are the cheapest half of this whole section:
 
 ```
 [build] Testbed.dll 2026-09-07 21:37:16 50145c15
+[build] libraries 3 set 08f67881, newest Prazsky.BS3D.Physics 2026-09-23 04:10:46
 [build] shaders 28 set 54512ed6, newest Glare 2026-09-07 21:38:53, oldest Sky 2026-09-02 16:17:17
 ```
 
 - The first line is the **managed assembly** (not the apphost `.exe` — the code is in the `.dll`), its write
   time and a hash of it. A rebuild you just ran must show a time seconds old.
+- **⚠ But the first line cannot see most of this repository's code — read the SECOND one for a library
+  change.** `ArenaIsland`, `InstancedModelRenderer`, `SceneRenderer`, the gun and the physics all live in
+  `Prazsky.*`, and a change to any of them leaves the exe's line *and* the shader `set` identical. Measured:
+  one constant changed in one library method and nothing in the Testbed's own sources came back with
+  `Testbed.dll … 67ecbe20` byte-identical and at the same write time, while `libraries … set` moved
+  `08f67881` → `fe6b0676`. Two runs whose `libraries set` matches are running the same library code.
 - `set` is a hash over **every** compiled shader beside the exe, name and bytes. **It is the authority on
   content and the timestamps are not**: measured on this feature, editing one constant in `Glare.fx` moved it
   `54512ed6` → `8b72d45a`, and reverting the constant brought `54512ed6` back even though the `.xnb` had a new
