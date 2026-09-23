@@ -581,6 +581,12 @@ float SlabSize;
 float SlabJointWidth;
 float SlabJointDepth;
 
+//How far the joint grid is bent by a world-space noise, in world units (#534): 0 is the square grid every
+//paving is laid in; at a unit or so the lines wander and the cells lose their corners, which is what the
+//fractures in a sheet of ice look like - a net of curved lines round cells of about one size. The bend is
+//one noise read per pixel of a surface that asks for it, behind a branch on the uniform.
+float SlabWarp;
+
 //What the joints' FLOORS put out, as linear radiance (#535): the volcano island's cooling cracks glowing a
 //dull red from inside, the cavern island's mineral veins running where the walls' do. Zero on every other
 //surface, and the branch that reads it skips. Read at the groove's floor SQUARED, so the bevel stays dark
@@ -598,6 +604,11 @@ float JointGlowPatchiness;
 //does not put dust on and off across the top.
 float3 TopDustTint;
 float TopDustStrength;
+
+//The same for the SIDE faces (#534): rime crusted on the ice islands' drums. Keyed to how far the geometric
+//normal is from vertical, so the top takes none and the wall all of it.
+float3 SideDustTint;
+float SideDustStrength;
 
 //How dark the pits of the relief go from being shaded by their own walls (0 = off)
 float CavityStrength;
@@ -704,7 +715,19 @@ float SlabGroove(float3 worldPosition, float3 dpdx, float3 dpdy)
     //Extent of this pixel along X and along Z, measured separately
     float2 footprint = abs(dpdx.xz) + abs(dpdy.xz);
 
-    return max(SlabGrooveAxis(worldPosition.x, footprint.x), SlabGrooveAxis(worldPosition.z, footprint.y));
+    //The fractures (#534): the grid's own coordinates bent by a low noise, so the lines wander. Two reads of
+    //a 2D noise on XZ, one per axis (a joint bent the same way on both would keep its corners) - 2D because
+    //the grid is cut in world X and Z whatever the face, so a side face carries the bend straight down its
+    //height the way a fracture plane does; and cheaper than the 3D reads the first cut made (+0.50 -> +0.35 ms
+    //on the polar sheet at 3840x1600, photographed identical from the #533 and the ring camera).
+    float2 xz = worldPosition.xz;
+    [branch]
+    if (SlabWarp > 0)
+    {
+        xz += SlabWarp * float2(GradientNoise2(worldPosition.xz * 0.31 + 11.0), GradientNoise2(worldPosition.xz * 0.31 + 47.0));
+    }
+
+    return max(SlabGrooveAxis(xz.x, footprint.x), SlabGrooveAxis(xz.y, footprint.y));
 }
 
 //The height field the whole surface is built from: micro-relief on the slab faces, joints cut below
@@ -730,6 +753,28 @@ float SceneSurfaceHeightCoarse(float3 worldPosition, float3 dpdx, float3 dpdy)
         + 0.16 * ReliefOctaveDirectional(worldPosition, float3(0.55, -0.44, 0.71), frequency * 2.11, dpdx, dpdy)) * SurfaceReliefStrength;
 
     return height - SlabGroove(worldPosition, dpdx, dpdy) * SlabJointDepth;
+}
+
+//The same two fields handing the groove OUT (#534): the triplanar techniques read it once here and spend it
+//twice - in the height, and in the joint glow - where the glow used to evaluate SlabGroove a second time, which
+//with the fractures' warp was two more noise reads on every island pixel (measured at half the cold family's
+//cost on the polar sheet).
+float SceneSurfaceHeightGroove(float3 worldPosition, float3 dpdx, float3 dpdy, out float groove)
+{
+    groove = SlabGroove(worldPosition, dpdx, dpdy);
+    return SurfaceReliefWorld(worldPosition, SurfaceReliefFrequency, dpdx, dpdy) * SurfaceReliefStrength - groove * SlabJointDepth;
+}
+
+float SceneSurfaceHeightCoarseGroove(float3 worldPosition, float3 dpdx, float3 dpdy, out float groove)
+{
+    float frequency = SurfaceReliefFrequency;
+    groove = SlabGroove(worldPosition, dpdx, dpdy);
+
+    float height = (0.26 * ReliefOctaveDirectional(worldPosition, float3(0.71, 0.52, -0.47), frequency, dpdx, dpdy)
+        + 0.20 * ReliefOctaveDirectional(worldPosition, float3(-0.36, 0.83, 0.42), frequency * 1.43, dpdx, dpdy)
+        + 0.16 * ReliefOctaveDirectional(worldPosition, float3(0.55, -0.44, 0.71), frequency * 2.11, dpdx, dpdy)) * SurfaceReliefStrength;
+
+    return height - groove * SlabJointDepth;
 }
 
 //Highest and lowest the field can reach: the micro-relief rides above zero, the joints cut below it
@@ -6049,13 +6094,16 @@ float4 TriplanarPS(VertexShaderOutput input) : COLOR
     float3 dpdx = ddx(input.WorldPosition);
     float3 dpdy = ddy(input.WorldPosition);
 
-    float height = SceneSurfaceHeight(input.WorldPosition, dpdx, dpdy);
+    float groove;
+    float height = SceneSurfaceHeightGroove(input.WorldPosition, dpdx, dpdy, groove);
 
     float3 texRgb = lerp(float3(1, 1, 1), detail * DetailBoost, DetailStrength);
 
-    //The dust (#535): on the top, by the geometric normal, and only there.
+    //The dust (#535): on the top, by the geometric normal, and only there. And the rime (#534): on the sides.
     float up = saturate(worldNormal.y);
     texRgb = lerp(texRgb, texRgb * TopDustTint, TopDustStrength * up * up);
+    float side = 1 - abs(worldNormal.y);
+    texRgb = lerp(texRgb, texRgb * SideDustTint, SideDustStrength * side * side);
 
     float3 reliefNormal = PerturbNormalFromHeight(worldNormal, input.WorldPosition, height);
 
@@ -6066,9 +6114,8 @@ float4 TriplanarPS(VertexShaderOutput input) : COLOR
 
     float4 shaded = ShadePixel(input.WorldPosition, reliefNormal, input.OcclusionData, float4(texRgb, 1), 1, cavity);
 
-    //The joints' glow (#535), behind a branch on the uniform: the groove is read again here rather than
-    //handed out of the height field, which every path above reads as one scalar, and its derivatives were
-    //taken outside the branch, so nothing inside it is a gradient operation.
+    //The joints' glow (#535), behind a branch on the uniform: the groove came out of the height field above
+    //(one evaluation, #534), and nothing inside the branch is a gradient operation.
     [branch]
     if (dot(JointGlow, JointGlow) > 0)
     {
@@ -6076,7 +6123,6 @@ float4 TriplanarPS(VertexShaderOutput input) : COLOR
         //grid laid over the stone (the first cut), where a cooling crack glows where the crust is thinnest
         //and a vein runs in some fractures and not others. A low world-space noise gates the glow, so a
         //stretch of a joint burns, fades and goes dark along the line, and about a third of the grid is lit.
-        float groove = SlabGroove(input.WorldPosition, dpdx, dpdy);
         float patch = smoothstep(0.05, 0.45, GradientNoise3(input.WorldPosition * 0.23 + 3.7));
         shaded.rgb += JointGlow * (groove * groove * lerp(1.0, patch, JointGlowPatchiness));
     }
@@ -6732,13 +6778,16 @@ float4 TriplanarCoarsePS(VertexShaderOutput input) : COLOR
     float3 dpdx = ddx(input.WorldPosition);
     float3 dpdy = ddy(input.WorldPosition);
 
-    float height = SceneSurfaceHeightCoarse(input.WorldPosition, dpdx, dpdy);
+    float groove;
+    float height = SceneSurfaceHeightCoarseGroove(input.WorldPosition, dpdx, dpdy, groove);
 
     float3 texRgb = lerp(float3(1, 1, 1), detail * DetailBoost, DetailStrength);
 
-    //The dust (#535): on the top, by the geometric normal, and only there.
+    //The dust (#535): on the top, by the geometric normal, and only there. And the rime (#534): on the sides.
     float up = saturate(worldNormal.y);
     texRgb = lerp(texRgb, texRgb * TopDustTint, TopDustStrength * up * up);
+    float side = 1 - abs(worldNormal.y);
+    texRgb = lerp(texRgb, texRgb * SideDustTint, SideDustStrength * side * side);
 
     float3 reliefNormal = PerturbNormalFromHeight(worldNormal, input.WorldPosition, height);
 
@@ -6747,9 +6796,8 @@ float4 TriplanarCoarsePS(VertexShaderOutput input) : COLOR
 
     float4 shaded = ShadePixel(input.WorldPosition, reliefNormal, input.OcclusionData, float4(texRgb, 1), 1, cavity);
 
-    //The joints' glow (#535), behind a branch on the uniform: the groove is read again here rather than
-    //handed out of the height field, which every path above reads as one scalar, and its derivatives were
-    //taken outside the branch, so nothing inside it is a gradient operation.
+    //The joints' glow (#535), behind a branch on the uniform: the groove came out of the height field above
+    //(one evaluation, #534), and nothing inside the branch is a gradient operation.
     [branch]
     if (dot(JointGlow, JointGlow) > 0)
     {
@@ -6757,7 +6805,6 @@ float4 TriplanarCoarsePS(VertexShaderOutput input) : COLOR
         //grid laid over the stone (the first cut), where a cooling crack glows where the crust is thinnest
         //and a vein runs in some fractures and not others. A low world-space noise gates the glow, so a
         //stretch of a joint burns, fades and goes dark along the line, and about a third of the grid is lit.
-        float groove = SlabGroove(input.WorldPosition, dpdx, dpdy);
         float patch = smoothstep(0.05, 0.45, GradientNoise3(input.WorldPosition * 0.23 + 3.7));
         shaded.rgb += JointGlow * (groove * groove * lerp(1.0, patch, JointGlowPatchiness));
     }
