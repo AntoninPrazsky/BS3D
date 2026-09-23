@@ -493,6 +493,30 @@ red/brown and black/silver the four tightest pairs in the game. The lightness we
 cluster's occlusion takes lightness away in play and leaves hue. Under the volcano the row hangs higher than under
 the meadow, so the sample points move — the script's header carries the ones that capture used.
 
+## Sampling something that is NOT a ball — three checks before you believe the number (#404)
+
+`palette.ps1` knows where the balls are. Measuring anything else — a gold band, a shadow's edge, a strip of
+stone — means picking patches by hand, and every one of these cost a wrong answer in one session:
+
+- **⚠ A patch that cannot move is not a sample of the thing that moved.** Three stations were put on the
+  drain's gold band, left, right and top; the top one sat on the *stone above* it, because the band is a few
+  pixels deep at the far side of an ellipse. It was caught only because that patch came back **byte-identical
+  between two builds whose pictures visibly differ** — which is the check: when an A/B says a region did not
+  change and the picture says it did, suspect the sampler before the build. Mixed into a three-station mean it
+  had inverted two scenes' results.
+- **⚠ A mask's pixel count is the cheapest proof that it selected what you meant.** Two attempts to measure
+  "pixels per world unit" off a frame returned **1.1 million** pixels (a gold mask that took the *sand*) and
+  **3.1 million** (a bluer-than-red mask that took the *sky*). Both looked like plausible code. Print the
+  count and the bounding box of every mask; a blob that spans the whole frame is not the object.
+- **Draw the patches on a copy of the frame and look at it** before reading a single figure off them — one
+  extra image, and it is what showed the top station sitting on stone.
+
+And the finding behind all three: **measure in the shaded frame, not from albedo.** CIEDE2000 between the
+drain ring's authored diffuse and each scene's cap albedo condemned four scenes; sampling the actual captures
+cleared two of them and named a fifth — the one the albedo model had rated the *safest* — as the worst in the
+game. The shading is not a constant factor you can reason past: that ring runs `SpecularAmbientStrength` 1, so
+under a bright dome it shows the sky rather than its own colour.
+
 ## Judging lighting / a dome-dependent change
 
 Launch once per dome (`sky=<n>`) rather than cycling in-window; each dome logs its zenith/horizon on load.
