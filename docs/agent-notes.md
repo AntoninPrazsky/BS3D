@@ -6166,3 +6166,9 @@ Předchozí zápis říkal, že to dostavět znamená sáhnout do brány a že t
 **Z mé verze NEvzato** (rozdíly, ne chyby): strop jako maximum přes všechna s ∈ 1..budget místo jejich rozpočtu započteného dvakrát (jejich volnější, oba bezpečné: nejlepší simulovaný clear u nich 0,44–0,53 stropu); Rock vyjmutý z pravidla „speciál → minShots = 1" (jejich přísnější, změřené proti ClearProbe); `minSeconds` = minShots × 0,25 s jako zapsaný úsudek (oni ho záměrně vynechali se stejným zjištěním, že `Shoot()` kadenci nemá — server si podlahu v sekundách určí sám); tabulka nikdy z neúspěšného běhu (u nich ji odmítne exit kód v release.yml); tabulka nad *publikovanou* složkou Levels místo zdrojového stromu (v CI stejné bajty).
 
 ⚠ **Past nástroje Bash na Windows, stála mě dva pokusy:** příkaz delší než zhruba 8 KB se ořízne (limit příkazové řádky) a bash hlásí „unexpected EOF while looking for matching `''" na náhodném řádku uvnitř heredocu — hledal jsem chybu v obsahu, byla v délce. Dlouhý skript zapsat do souboru (Write) a spustit ho. `\\` v heredocu dorazí jako jedno zpětné lomítko. A `tar -C` s cestou `C:\…` ji čte jako vzdálený stroj — pro tar/mkdir cesta `/c/…`.
+
+---
+
+## 2026-09-24 — Claude Code, bs3d-0f (desktop: beru #546 — klient online skóre ve hře)
+
+**Beru #546** na majitelův pokyn („Vem #546 a udělej to"). Nárok do mainu před prací; soubory: nový `Game/Online/`, `GameplayScreen.Rules.cs` (odeslání po clearu), `BS3DGame*.cs` (klient, outbox při startu), `GameSettings.cs` (skrytý `server`), docs.
