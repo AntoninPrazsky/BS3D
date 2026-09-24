@@ -1,3 +1,4 @@
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
@@ -165,6 +166,8 @@ namespace Prazsky.Core.Render
             List<LathePoint> cap;
             List<LathePoint> body;
             float wander;
+            int capSegments = segments;
+            Func<Vector3, float> capHeightField = null;
 
             switch (shape)
             {
@@ -323,14 +326,25 @@ namespace Prazsky.Core.Render
                     //the foot rule (cover the terrain hole) allows: wider covers more, and the Moon's ground is
                     //at the foot's own height. The slab's edge is cut and barely wanders; the bank wanders like
                     //heaped ground.
+                    //
+                    //And CRATERS, as geometry: the dish between the bore's lip and the arris is lathed in dense
+                    //rings rather than one span, and a height field (PadCraters) cuts real bowls with raised
+                    //rims into it, so a crater is a hole with its own shading and silhouette - the owner's
+                    //ruling of 2026-09-24, after a first cut drew them in the shader's height field and they
+                    //smeared over the slab's edge like a decal ("a crater is never bent; it is a hole"). The
+                    //cap runs at four times the facets so the bowls are round; the drum keeps SEGMENTS, and the
+                    //ring the two share wobbles by 0.05 of the wander, so its chords differ by nothing visible.
                     wander = 0.35f;
-                    cap = new()
+                    cap = new() { lip };
+                    for (float ring = bore + PAD_RING_STEP; ring < r - COPING_WIDTH - PAD_RING_STEP * 0.5f; ring += PAD_RING_STEP)
+                        cap.Add(new(ring, -dish * (1f - (ring - bore) / (r - COPING_WIDTH - bore))));
+                    cap.Add(arris);
+                    cap.AddRange(new LathePoint[]
                     {
-                        lip, arris,
                         new(r - 0.30f, -0.06f),
                         new(r - 0.20f, -0.18f, crease: true, wobble: 0.05f),        //the slab's arris
                         new(r - 0.20f, -1.82f, crease: true, wobble: 0.05f)         //its cut edge, shared
-                    };
+                    });
                     body = new()
                     {
                         new(r - 0.20f, -1.82f, crease: true, wobble: 0.05f),
@@ -339,6 +353,8 @@ namespace Prazsky.Core.Render
                         new(r + 0.45f, -4.20f, wobble: 1f),
                         new(r + 0.75f, -height, crease: true, wobble: 0.8f)         //and spreads onto the ground
                     };
+                    capSegments = segments * 4;
+                    capHeightField = PadCraters(bore, r - COPING_WIDTH);
                     break;
 
                 default:
@@ -395,8 +411,71 @@ namespace Prazsky.Core.Render
             //displaced identically on each - the seam rule in LatheMesh's own remarks. The authored stone's
             //cap has no wobbling ring at all, which is what kept its rim a true circle; a shape whose rim
             //wanders wobbles the cap's rings too, by the same per-ring figures the drum's first ring takes.
-            capMesh = new LatheMesh(device, cap, segments, wander);
+            capMesh = new LatheMesh(device, cap, capSegments, wander, heightField: capHeightField);
             bodyMesh = new LatheMesh(device, body, segments, wander);
+        }
+
+        //The lunar pad's dish is lathed in rings this far apart (world units), so a crater a unit across is
+        //cut from several rings and a few facets rather than from one quad.
+        private const float PAD_RING_STEP = 0.22f;
+
+        /// <summary>
+        /// The craters of the lunar pad (#538), as a height field for <see cref="LatheMesh"/>: a fixed
+        /// scatter of bowls between the bore's lip and the floor's arris, many small and a few big (the
+        /// radius is drawn as a power of a uniform), none overlapping, none reaching either ring — placed
+        /// entirely inside them and faded to nothing over the last half unit besides, so the lip the drain's
+        /// bead closes on and the arris the physics floor ends at stay exact circles. Each is a parabolic bowl
+        /// with a raised rim on a Gaussian astride its edge: the shape a small impact leaves. The depth is
+        /// capped at 0.20 of a unit, so a ball rolling over the biggest floats by well under half its radius
+        /// for the frames it takes to cross — the physics floor is the plain dish underneath.
+        /// </summary>
+        private static Func<Vector3, float> PadCraters(float bore, float floorRadius)
+        {
+            var rng = new Random(538);
+            var craters = new List<(float X, float Z, float Radius, float Depth)>();
+            float inner = bore + 1.2f, outer = floorRadius - 1.0f;
+
+            for (int attempt = 0; attempt < 600 && craters.Count < 16; attempt++)
+            {
+                float radius = 0.45f + 1.9f * MathF.Pow((float)rng.NextDouble(), 2.2f);
+                float span = outer - inner - 2f * radius;
+                if (span <= 0f) continue;
+
+                float ring = inner + radius + (float)rng.NextDouble() * span;
+                float angle = (float)rng.NextDouble() * MathHelper.TwoPi;
+                float x = MathF.Cos(angle) * ring, z = MathF.Sin(angle) * ring;
+
+                bool clear = true;
+                foreach (var c in craters)
+                {
+                    if (Vector2.Distance(new Vector2(x, z), new Vector2(c.X, c.Z)) < (radius + c.Radius) * 1.3f) { clear = false; break; }
+                }
+                if (!clear) continue;
+
+                craters.Add((x, z, radius, MathF.Min(0.20f, 0.11f * radius)));
+            }
+
+            return position =>
+            {
+                float lift = 0f;
+                var xz = new Vector2(position.X, position.Z);
+
+                foreach (var c in craters)
+                {
+                    float d = Vector2.Distance(xz, new Vector2(c.X, c.Z)) / c.Radius;
+                    if (d > 1.7f) continue;
+
+                    float bowl = d < 1f ? -c.Depth * (1f - d * d * d) : 0f;   //steeper at the wall than a parabola, flatter in the floor
+                    float rimOffset = (d - 1f) / 0.22f;
+                    float rim = 0.32f * c.Depth * MathF.Exp(-rimOffset * rimOffset);
+                    lift += bowl + rim;
+                }
+
+                //Faded to nothing at the two rings that must stay exact
+                float r = xz.Length();
+                float fade = Math.Clamp((r - bore - 0.3f) / 0.6f, 0f, 1f) * Math.Clamp((floorRadius - 0.3f - r) / 0.6f, 0f, 1f);
+                return lift * fade;
+            };
         }
 
         public void Dispose()
