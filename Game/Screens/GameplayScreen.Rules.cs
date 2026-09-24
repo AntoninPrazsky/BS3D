@@ -513,6 +513,11 @@ namespace BS3D.Screens
             int bonus = _score.AwardCompletionBonus();
             _clearedCountdown = LEVEL_CLEARED_BEAT;
 
+            //What the score service is told this clear took (#546), frozen now for LevelResult's reason: shots
+            //fired into the emptied field during the beat cleared nothing
+            _clearShots = _score.ShotsFired;
+            _clearSeconds = _levelSeconds;
+
             //WHETHER THIS CLEAR FINISHES A BLOCK, decided ONCE and here (#184). Here because the celebration
             //starts here and the result page arrives LEVEL_CLEARED_BEAT later, so a decision taken on the page
             //would reach the fireworks and the fanfare too late to change either. Once because all three have to
@@ -956,6 +961,11 @@ namespace BS3D.Screens
             //level's gate — a clear that pushes the total over it unlocks Next Level on this very screen.
             int stars = cleared ? StarRating.Rate(_score.Score, _initialBallCount) : 0;
             bool newBest = cleared && Game.RecordLevelResult(_levelIndex, _score.Score, stars);
+
+            //And to the online boards (#546), beside the save's record and with the very figures it kept — every
+            //clear rather than only a new best, because the month's board ranks what was done this month. Returns
+            //at once: the send is the client's worker's, and the page never waits for its answer.
+            if (cleared) Game.SubmitClear(_levelIdentity, _score.Score, stars, _clearShots, _clearSeconds);
 
             Game.PresentResult(new LevelResult(
                 cleared: cleared,

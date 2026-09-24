@@ -172,6 +172,10 @@ namespace BS3D
             //shot landed beside a bomb, which a script cannot aim.
             float[] detonateSeconds = null;
 
+            //Testing only: a folder to keep every one of this player's files in for this run, instead of
+            //%LOCALAPPDATA%\BS3D (#546). Null means the argument was absent. See UserData.UseForTesting.
+            string userData = null;
+
             foreach (string arg in args)
             {
                 if (string.Equals(arg, "fullscreen", StringComparison.OrdinalIgnoreCase)) fullscreen = true;
@@ -332,6 +336,17 @@ namespace BS3D
                 else if (string.Equals(arg, "nofocuspause", StringComparison.OrdinalIgnoreCase)) noFocusPause = true;
                 //"plainceiling" draws the ceiling's glass unbent (#541), for the pair a cost measurement needs.
                 else if (string.Equals(arg, "plainceiling", StringComparison.OrdinalIgnoreCase)) plainCeiling = true;
+                //"userdata=<dir>" keeps the save, the settings, the online identity and the outbox in <dir> for
+                //this run (#546), so a scripted run that clears a level or needs a setting never touches the
+                //player's own files. Applied below, before the game exists, because every one of them resolves
+                //through UserData on first use.
+                else if (arg.StartsWith("userdata=", StringComparison.OrdinalIgnoreCase)) userData = arg.Substring("userdata=".Length);
+            }
+
+            if (!string.IsNullOrWhiteSpace(userData))
+            {
+                UserData.UseForTesting(userData);
+                Console.WriteLine($"[userdata] Testing: this run keeps the player's files in '{UserData.Directory}', not in %LOCALAPPDATA%");
             }
 
             using var game = new BS3DGame(fullscreen: fullscreen, supersampleFactor: supersampleFactor, exposure: exposure,

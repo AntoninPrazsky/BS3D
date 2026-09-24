@@ -70,6 +70,11 @@ namespace BS3D.Screens
             IsBuilt = true;
             _clearedCountdown = 0f;
 
+            //A fresh level's play clock, a Retry's included (#546)
+            _levelSeconds = 0f;
+            _clearShots = 0;
+            _clearSeconds = 0f;
+
             //The HUD carries state of its own across nothing: a new level starts at zero without counting down
             //to it, and a popup from the level just finished must not fly into the score of the one just built.
             //Seeded from the fresh scorer, so a new budget is not read as a ball just spent.

@@ -206,6 +206,28 @@ namespace BS3D
         [JsonPropertyName("adaptiveQuality")]
         public bool AdaptiveQuality { get; set; } = true;
 
+        /// <summary>
+        /// Whether the player's cleared levels go to the online score boards (#546, #542). <b>Off unless the
+        /// player turned it on</b> — the boards are opt-in, and a file written before the row existed says
+        /// nothing, which reads as off. The identity it sends under is not here but in <c>Online.json</c>
+        /// (<see cref="Online.OnlineIdentity"/>): this file is rewritten by every settings click and restored by
+        /// hand after test runs, and a token has to survive both. The settings row that sets this is #548's.
+        /// </summary>
+        [JsonPropertyName("online")]
+        public bool Online { get; set; }
+
+        /// <summary>
+        /// The score service to submit to, overriding the built-in one (#546). <b>No settings row shows it,
+        /// deliberately</b>: it is for pointing a build at a local run of the API
+        /// (<c>http://localhost:5000</c>) or at a test host, and a player has no reason to see it. It is also
+        /// the only way a <b>local</b> build submits at all — a build that did not come out of a release has no
+        /// server unless this names one, so a developer's runs never land on the public boards by accident.
+        /// Null means the built-in one. <see cref="Online.OnlineScores"/> refuses anything but <c>https://</c>,
+        /// or <c>http://</c> to this machine.
+        /// </summary>
+        [JsonPropertyName("server")]
+        public string Server { get; set; }
+
         [JsonIgnore]
         internal string Path { get; private set; }
 

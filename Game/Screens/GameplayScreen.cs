@@ -776,10 +776,27 @@ namespace BS3D.Screens
         /// Which online board a clear of this level belongs to (#549): the set entry's file and the hash over the
         /// file actually loaded and the entry's rules — computed by the same <see cref="LevelIdentity.Of(LevelSetEntry, byte[])"/>
         /// <c>Tools/ScoreSim</c>'s ceiling table is keyed by. Taken at install, from the bytes of the file that was
-        /// played; null for the built-in fallback, which is on no board. Nothing submits it yet — the client is
-        /// #546 — so today it is the <c>[levels] Loaded</c> line's last word, which is how the two are compared.
+        /// played; null for the built-in fallback, which is on no board. A clear is submitted under it
+        /// (<c>BS3DGame.SubmitClear</c>, #546), and it is the <c>[levels] Loaded</c> line's last word, which is how
+        /// it is compared with the table.
         /// </summary>
         private LevelIdentity _levelIdentity;
+
+        /// <summary>
+        /// Seconds of play on this level (#546): counted where the frame steps the world, which a pause, an
+        /// unfocused window and the page over a finished level never reach — so it is time the player spent
+        /// playing, not time the window was open. Real seconds, not the drop cinematic's slowed ones.
+        /// </summary>
+        private float _levelSeconds;
+
+        /// <summary>
+        /// The shots and the seconds at the moment the field emptied (#546), for the score service. Taken then and
+        /// not when the result page goes up, for <see cref="LevelResult"/>'s own reason: the level does not stop
+        /// at the clear, and a player who keeps firing into the empty field would otherwise send shots that
+        /// cleared nothing.
+        /// </summary>
+        private int _clearShots;
+        private float _clearSeconds;
 
         /// <summary>
         /// What ended the level, set when it ends and read by the result screen. <c>None</c> means the level is
@@ -1377,6 +1394,10 @@ namespace BS3D.Screens
             //Testing only (detonate=, #389): a bomb set off on the wall clock's schedule. Before the step, so its
             //debris moves on this frame the way a real landing's does.
             if (Game.TryTakeForcedDetonation()) DetonateForTesting();
+
+            //The level's own play clock (#546), on the frame's real seconds: here, beside the step, is exactly
+            //the time the level is being played
+            _levelSeconds += elapsed;
 
             StepPhysics(elapsed * _cinematic.TimeScale);
 
