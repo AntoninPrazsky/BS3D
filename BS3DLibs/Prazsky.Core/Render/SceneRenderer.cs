@@ -46,6 +46,10 @@ namespace Prazsky.Core.Render
     /// </summary>
     public enum SceneKind { City, Sea, Savanna, Desert, Mountain, Meadow, NeonCity, Forest, Space, Dream, Cavern, Moon, Outback, Tropical, Volcano, Mars, Storm, Polar, Aurora, Grid }
 
+    /// <summary>The volcano's separately drawn layers, for <see cref="SceneRenderer.VolcanoLayers"/> (#540).</summary>
+    [System.Flags]
+    public enum VolcanoLayer { None = 0, Terrain = 1, Plume = 2, Jets = 4, Glow = 8, Ash = 16, All = Terrain | Plume | Jets | Glow | Ash }
+
     /// <summary>
     /// The per-frame inputs a scene needs that are not its own static tuning: the camera, the sun direction,
     /// the sky palette in <b>linear</b> radiance (zenith and horizon), the sun's own radiance already tinted
@@ -375,6 +379,15 @@ namespace Prazsky.Core.Render
 
         private float _sceneDetail = 1f;
 
+        /// <summary>
+        /// The volcano's layers, for taking them apart (#540): the flank's terrain, the ash column, the lava jets,
+        /// the blaze over the crater and the drifting ash. A <b>measurement dial</b> and nothing else — the Testbed's
+        /// <c>volcano=</c> argument and alternation dial set it, and every other caller leaves it at
+        /// <see cref="VolcanoLayer.All"/>. It exists because #540 found the volcano the one scene that misses
+        /// <c>Low</c>'s budget on the APU and no switch separated what it draws.
+        /// </summary>
+        public VolcanoLayer VolcanoLayers { get; set; } = VolcanoLayer.All;
+
         //Scene configuration. Defaults reproduce the original hard-coded look byte-for-byte; every scene
         //reads its tuning from these instead of constants. Replaced at runtime by Apply(SceneConfig) when a
         //level is loaded (issue #32), which re-pushes the effect parameters and rebuilds the scatter/particle
@@ -554,13 +567,18 @@ namespace Prazsky.Core.Render
         #region Volcano
 
         private readonly Effect _volcanoEffect;
-        private readonly VertexBuffer _volcanoVertexBuffer;
-        private readonly IndexBuffer _volcanoIndexBuffer;
-        private readonly int _volcanoIndexCount;
+        private VertexBuffer _volcanoVertexBuffer; //not readonly: a tier's crossing rebuilds it (EnsureVolcanoGrid, #540)
+        private IndexBuffer _volcanoIndexBuffer;
+        private int _volcanoIndexCount;
 
         //The mountain's density and extent: the flank carries a summit against the sky, so it wants the
         //craggy grid rather than the desert's, and it needs the same 32-bit index buffer (CreateGridMesh).
         private const int VOLCANO_GRID_N = 360;
+
+        //The reduced program's grid (#540): half the vertices, a 4.7-unit cell against 3.3. Measured on the APU at Low,
+        //360 -> 256 is 0.9 ms by itself; 256 -> 192 measured a further 0.3-0.55 and was not taken - the 6.3-unit
+        //cell's cone was never photographed, and 256 already puts Caldera under the budget.
+        private const int VOLCANO_GRID_N_REDUCED = 256;
         private const float VOLCANO_EXTENT = 1200f;
 
         //Matched by MAX_RIVERS in Volcano.fx and MAX_VENTS in LavaFountain.fx. Both are shader array sizes:
@@ -1361,7 +1379,7 @@ namespace Prazsky.Core.Render
             //are billboard buffers over two more effects, all animated in their vertex shaders and rebuilt only
             //when a config is applied.
             _volcanoEffect = content.Load<Effect>("Shaders/Volcano");
-            CreateGridMesh(VOLCANO_GRID_N, VOLCANO_EXTENT, out _volcanoVertexBuffer, out _volcanoIndexBuffer, out _volcanoIndexCount);
+            EnsureVolcanoGrid(VOLCANO_GRID_N);
 
             _fountainEffect = content.Load<Effect>("Shaders/LavaFountain");
             _plumeTechnique = _fountainEffect.Techniques["Plume"];
@@ -4514,8 +4532,27 @@ namespace Prazsky.Core.Render
             //The volcano (#509): the two kinds of hairline the references brought in off the flows - the
             //rivulets down the cone and the cracks in the field - arrived together and are given up together.
             //The flows, the crater's lake and the sheen stay on every tier; they are what the scene is.
+            //Since #540 the reduced program is also a coarser grid under it: most of what the vertex program costs is
+            //paid per vertex whatever the pixels, and the reduced program's scoria has no octave the finer grid resolves.
             _volcanoEffect.CurrentTechnique = _volcanoEffect.Techniques[_sceneDetail > 0.5f ? "Volcano" : "VolcanoReduced"];
+            EnsureVolcanoGrid(_sceneDetail > 0.5f ? VOLCANO_GRID_N : VOLCANO_GRID_N_REDUCED);
         }
+
+        /// <summary>
+        /// (Re)builds the volcano's grid at <paramref name="n"/> vertices a side when it is not that already — once at
+        /// load and again only when the tier crosses <see cref="SceneDetail"/>'s line, so never per frame.
+        /// </summary>
+        private void EnsureVolcanoGrid(int n)
+        {
+            if (_volcanoVertexBuffer != null && _volcanoGridN == n) return;
+
+            _volcanoVertexBuffer?.Dispose();
+            _volcanoIndexBuffer?.Dispose();
+            CreateGridMesh(n, VOLCANO_EXTENT, out _volcanoVertexBuffer, out _volcanoIndexBuffer, out _volcanoIndexCount);
+            _volcanoGridN = n;
+        }
+
+        private int _volcanoGridN;
 
         private void SelectForestTechnique() =>
             _forestEffect.CurrentTechnique = _forestEffect.Techniques[_sceneDetail > 0.5f ? "Forest" : "ForestReduced"];
@@ -5007,7 +5044,7 @@ namespace Prazsky.Core.Render
                     //The flank first (it writes depth), then the fountains and the plume over it — they are
                     //part of the far scene rather than foreground weather, because the cluster hangs in front
                     //of the cone and has to occlude it. Only the ash is an overlay.
-                    DrawVolcanoTerrain(frame);
+                    if ((VolcanoLayers & VolcanoLayer.Terrain) != 0) DrawVolcanoTerrain(frame);
                     DrawLavaFountains(frame);
                     break;
                 case SceneKind.Mountain:
@@ -5067,7 +5104,7 @@ namespace Prazsky.Core.Render
             else if (scene == SceneKind.Aurora) DrawSnow(frame, _auroraConfig.Snow);
             else if (scene == SceneKind.Sea) DrawSpray(frame);
             else if (scene == SceneKind.Savanna) DrawFlame(frame);
-            else if (scene == SceneKind.Volcano) DrawAsh(frame);
+            else if (scene == SceneKind.Volcano && (VolcanoLayers & VolcanoLayer.Ash) != 0) DrawAsh(frame);
         }
 
         /// <summary>
@@ -6242,7 +6279,7 @@ namespace Prazsky.Core.Render
         /// </summary>
         private void DrawVolcanoTerrain(in SceneFrame frame)
         {
-            float cell = VOLCANO_EXTENT / (VOLCANO_GRID_N - 1);
+            float cell = VOLCANO_EXTENT / (_volcanoGridN - 1);
             float originX = MathF.Round(frame.Camera.Position.X / cell) * cell;
             float originZ = MathF.Round(frame.Camera.Position.Z / cell) * cell;
 
@@ -6300,7 +6337,7 @@ namespace Prazsky.Core.Render
             _graphicsDevice.SetVertexBuffer(_fountainVertexBuffer);
             _graphicsDevice.Indices = _fountainIndexBuffer;
 
-            if (_plumeQuads > 0)
+            if (_plumeQuads > 0 && (VolcanoLayers & VolcanoLayer.Plume) != 0)
             {
                 _graphicsDevice.BlendState = BlendState.AlphaBlend;
                 _fountainEffect.CurrentTechnique = _plumeTechnique;
@@ -6308,7 +6345,7 @@ namespace Prazsky.Core.Render
                 _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _plumeQuads * 2);
             }
 
-            if (_jetQuads > 0)
+            if (_jetQuads > 0 && (VolcanoLayers & VolcanoLayer.Jets) != 0)
             {
                 _graphicsDevice.BlendState = BlendState.Additive;
                 _fountainEffect.CurrentTechnique = _jetTechnique;
@@ -6318,7 +6355,7 @@ namespace Prazsky.Core.Render
 
             //The blaze over the crater (#509): the buffer's first quad, whose corners are all the glow's vertex
             //shader reads - one quad, additive like the jets, so its order against them does not matter.
-            if (_volcanoConfig.Fountains.GlowStrength > 0f)
+            if (_volcanoConfig.Fountains.GlowStrength > 0f && (VolcanoLayers & VolcanoLayer.Glow) != 0)
             {
                 _graphicsDevice.BlendState = BlendState.Additive;
                 _fountainEffect.CurrentTechnique = _glowTechnique;

@@ -499,6 +499,30 @@ namespace Testbed.Diagnostics
             return members;
         }
 
+        //The volcano's layers (#540), the arena members' grammar - names of VolcanoLayer, each added or, with a
+        //leading '-', removed, left to right - separated by '/' as well as ',' so a list fits in one alternation
+        //pin, where ',' already separates pins: "alt=volcano=all;volcano=all/-plume;volcano=all/-ash".
+        public static VolcanoLayer ParseVolcanoLayers(string list)
+        {
+            VolcanoLayer layers = VolcanoLayer.None;
+
+            foreach (string token in list.Split(',', '/'))
+            {
+                string name = token.Trim();
+                if (name.Length == 0) continue;
+
+                bool remove = name[0] == '-';
+                if (remove) name = name.Substring(1);
+
+                if (!Enum.TryParse(name, ignoreCase: true, out VolcanoLayer one)) continue;
+
+                if (remove) layers &= ~one;
+                else layers |= one;
+            }
+
+            return layers;
+        }
+
         //Parses the alternation cycle: variants separated by ';', each an arena member list with an optional
         //'/N' cap probe after it. ';' and '/' are used because ',' and '-' already mean something inside a
         //member list. A variant whose member list is unreadable still contributes ArenaMembers.None, which is

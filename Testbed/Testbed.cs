@@ -1434,7 +1434,7 @@ namespace Testbed
         /// or a setter whose whole effect lands in the same frame.
         /// </summary>
         private static readonly string[] ALTERNATION_DIALS =
-            { "arena", "capprobe", "scene", "sky", "balls", "ssaa", "msaa", "rscale", "detail", "shadow", "shadowmap", "ballshadow", "exposure", "nopost" };
+            { "arena", "capprobe", "scene", "sky", "balls", "ssaa", "msaa", "rscale", "detail", "shadow", "shadowmap", "ballshadow", "exposure", "nopost", "volcano" };
 
         /// <summary>
         /// Prints the sweep's plan before the first window, and names anything it will not switch. A pin that
@@ -1541,6 +1541,12 @@ namespace Testbed
 
                     case "exposure":
                         if (float.TryParse(pin.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out float exposure)) _pipeline.Exposure = exposure;
+                        break;
+
+                    //The volcano's layers (#540): "volcano=all/-plume" draws everything but the ash column. Nothing
+                    //carries across the switch - each layer is simply drawn or not on the next frame.
+                    case "volcano":
+                        _sceneRenderer.VolcanoLayers = TestOptions.ParseVolcanoLayers(pin.Value);
                         break;
 
                     //On/off like the switch it mirrors: "nopost=1" is the argument, "nopost=0" the authored look

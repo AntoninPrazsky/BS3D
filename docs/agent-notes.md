@@ -6009,3 +6009,15 @@ Předchozí zápis říkal, že to dostavět znamená sáhnout do brány a že t
 - **Cena (APU, 1600×900, nocap, střídavé páry, lepší z mediánů):** kde je deska v záběru **+1,2 až 1,6 ms na všech stupních** (Heart Low 13,61→14,90, Medium 19,10→20,67, High 34,03→35,29; Ziggurat 12,95→14,29 / 15,52→17,02 / 37,41→38,86). **Lom má jen High**; Medium a Low ho dávají (na APU už rozpočet nedrží, #540). ⚠ První brána „deska v záběru" byla koule kolem desky a u Icicle (deska nad horním okrajem) pořád platila +1,49 ms; **box** → +0,30 (úvodní přelet kapitoly). Desktop nezměřený.
 - **Vyfoceno:** před/po z téhož buildu `origin/main` (worktree `C:\bs3d-base541`, smazán) na savaně (Heart), neonu (Ziggurat), snu (Trefoil), louce (One) a menu v louce/městě/vesmíru/jeskyni; výběr v `Game\bin\Release\net10.0-windows\Screenshots\541\`. Referenční obrázky ze Z-Image nebyly (jsou na desktopu) — tvar bez referencí (precedent #506), proto žádná HTML stránka.
 - **Zbývá:** cena na desktopu, a majitelův pohled na tvar brusu (jedna konstanta `CUT_SLOPE`/`CUT_PERIOD`). Issue nechávám otevřené.
+
+---
+
+## 2026-09-24 — Claude Code, github-f0 (notebook: #540 sopka na Low — sonda vrstev říká „svah", ne kouřový sloup; Low teď drží rozpočet všude)
+
+**Zbytek #540 z mé strany** (zbýval: sopka na Low chybí ~3 ms, sloup/fontány/popel „nic je neoddělí").
+
+- **Sonda:** `SceneRenderer.VolcanoLayers` (flagy Terrain/Plume/Jets/Glow/Ash) a dial `volcano=` v `alt=` Testbedu (oddělovač `/`, protože `,` dělí piny). Caldera, herní póza, nastavení Low: **sloup +0,04 ms (63 % — šum), fontány a záře +0,04, popel +0,13, terén 5,16 ms ze 14,87**. Hypotéza z #540 vyvrácená. `rscale=0.5` nechal polovinu → ~1,7 ms na vrcholech (mřížka 360², 3× výška se 4 oktávami na vrchol), ~3,4 v pixelech.
+- ⚠ **Past, co stála jeden běh:** dial, který varianta nejmenuje, **drží hodnotu z předchozí varianty** — poslední varianta vypnula terén a všechny další cykly měřily bez něj (sedm variant na 9,57 ms). Každá varianta musí nést `volcano=all`. Zapsáno do benchmark skillu.
+- **Co je na mainu (`VolcanoReduced`, jen Low):** VS se 2 oktávami škváry, PS bez česaného reliéfu a jeho derivační normály, o oktávu méně skvrn horniny, **čelo proudu ze dvou zkřížených sinů místo gradientního šumu** (ten byl 5 tapů na pixel uvnitř smyčky řek a stál sám **0,95 ms**; laloky ze sinů +0,07 zpět), mřížka **256** místo 360 (−0,90; přestaví se při přechodu stupně). Testbed párově: **14,89 → 11,82 ms, 100 % cyklů**.
+- **Ve hře, střídavé buildy ×3, lepší z mediánů:** **Caldera 18,31 → 14,49 ms, Paroxysm 17,35 → 13,47** na Low — pod rozpočtem 16,1. Vyfoceno staré/nové na Low (herní póza, menu, Testbed široký a blízký): zmizelo jen provazcové zrnění blízkého lávového pole. Medium/High beze změny.
+- **Mars z menu na Low (20,9) jsem neřešil** — zůstává v #540.
