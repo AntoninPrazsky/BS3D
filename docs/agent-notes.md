@@ -6101,3 +6101,9 @@ Předchozí zápis říkal, že to dostavět znamená sáhnout do brány a že t
   - **tmavý regolit** (`RegolithColor`) pod světlým prachem na Měsíci, aby vyfoukaný kruh byl vidět.
 - **Čísla větve** (kamera #404 na prstenec, CIEDE2000; výchozí hodnoty se od mainových liší — Měsíc 20,1 proti 21,7 —, takže srovnatelné jsou jen uvnitř řezu): Měsíc 20,1 → 22,4, outback 27,5 → 31,5, poušť 10,4 → 11,1, Mars 26,4 → 23,9. **Cena:** Měsíc +0,35/+0,67 ms na 20 ms (krátery) — main má krátery za +0,02; louka +0,10.
 - **Poučení:** nárok v komentáři issue druhý stroj nevidí, **čte deník**. Nárok patří do deníku mergnutého do mainu, a to hned. Komentář v issue může být navíc, sám nestačí. Majitel rozhodne, jestli z větve něco převzít (návěj jako svah, azimutové žlábky); jinak ji smazat.
+
+---
+
+## 2026-09-24 — Claude Code, github-f0 (notebook: beru #549 — `LevelIdentity`, `ScoreKeeper.RulesVersion`, `ScoreSim --ceilings`)
+
+**Beru #549**: nárok je zapsaný a mergnutý PŘED začátkem práce, podle poučení z #536/#538. Soubory: `BS3DLibs/Prazsky.BS3D/Levels/` (nový `LevelIdentity`), `Scoring/ScoreKeeper.cs`, `Tools/ScoreSim`, `docs/formats-and-tools.md`, případně `.github/workflows/release.yml`. Desktop ať #549 nebere; #543/#546 na něm stojí.
