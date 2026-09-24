@@ -610,6 +610,67 @@ float TopDustStrength;
 float3 SideDustTint;
 float SideDustStrength;
 
+//A band keyed to world HEIGHT on the side faces (#536): the sea stack's tide line - the rock below it dark, wet and
+//greened by weed - and the beach platform's crust of sand round its foot. Everything under BandTopY takes the band,
+//fading out over BandFade above it along a line a low noise wanders, so it is a tide mark and not a ruled one.
+//BandTint is an albedo ratio like the dusts' (1 is none), BandWet how many times over the band mirrors the sky (a
+//wet face is a mirror, 0 leaves it dry), BandStrength how much of it, 0 none - and 0 skips the branch.
+float BandTopY;
+float BandFade;
+float3 BandTint;
+float BandWet;
+float BandStrength;
+
+//Bedding planes on the side faces (#536): a stack of sedimentary rock is layers, and seen from the side each layer
+//is a course of its own shade with a dark line where two meet. StrataSpacing is the layers' thickness in world
+//units, StrataStrength how far the lines and courses darken; 0 is none and skips the branch. Band-limited against
+//the pixel's footprint in height, so a far face goes to the courses' mean rather than crawling.
+float StrataSpacing;
+float StrataStrength;
+
+//The two above, applied to the triplanar paths' albedo (#536): returns how wet the pixel is, which the caller hands
+//ShadePixel as extra sky mirrored. `side` is how far the geometric normal is from vertical, the dusts' own weight,
+//and `footprintY` how much world height one pixel spans - both taken outside the branches, which hold no gradients.
+float ApplyHeightBands(inout float3 texRgb, float3 worldPosition, float side, float footprintY)
+{
+    float wet = 0.0;
+
+    //Both terms are for SIDE faces, and on the island most pixels are its flat top: behind a data branch on the side
+    //weight as well as on the uniform, so the top pays nothing (it paid about a millisecond on the APU in the first
+    //cut). The wanders are crossed sines rather than gradient noise for the same reason - a tide mark or a bedding
+    //plane wants a slow undulation, not a noise's grain.
+    [branch]
+    if (BandStrength > 0.0 && side > 0.02)
+    {
+        float wander = sin(dot(worldPosition.xz, float2(0.31, 0.23))) * sin(dot(worldPosition.xz, float2(-0.17, 0.29)) + 1.3);
+        float tideLine = BandTopY + wander * BandFade * 0.6;
+        float inBand = saturate((tideLine - worldPosition.y) / max(BandFade, 1e-3)) * side;
+
+        texRgb = lerp(texRgb, texRgb * BandTint, BandStrength * inBand);
+        wet = BandWet * BandStrength * inBand;
+    }
+
+    [branch]
+    if (StrataStrength > 0.0 && side > 0.02)
+    {
+        //The planes are not level: they dip and wander a little across the stack, as bedding does
+        float dip = sin(dot(worldPosition.xz, float2(0.07, 0.05))) * 0.6 + sin(dot(worldPosition.xz, float2(-0.04, 0.09)) + 2.0) * 0.4;
+        float y = (worldPosition.y + dip * StrataSpacing * 0.9) / StrataSpacing;
+        float layer = frac(y);
+        float course = frac(sin(floor(y) * 12.9898 + 4.1) * 43758.5453);
+
+        //The line where two layers meet, a tenth of a layer wide, and each course its own shade - both faded to
+        //their means as a layer shrinks towards a few pixels
+        float resolve = saturate(1.5 - footprintY / StrataSpacing * 6.0);
+        float seam = 1.0 - smoothstep(0.0, 0.1, min(layer, 1.0 - layer));
+        float shade = lerp(0.1, seam, resolve) * 0.8 + lerp(0.5, course, resolve) * 0.4;
+
+        texRgb *= 1.0 - StrataStrength * side * shade;
+    }
+
+    return wet;
+}
+
 //How dark the pits of the relief go from being shaded by their own walls (0 = off)
 float CavityStrength;
 
@@ -6105,6 +6166,9 @@ float4 TriplanarPS(VertexShaderOutput input) : COLOR
     float side = 1 - abs(worldNormal.y);
     texRgb = lerp(texRgb, texRgb * SideDustTint, SideDustStrength * side * side);
 
+    //The tide line and the sand crust, and the bedding planes (#536)
+    float wet = ApplyHeightBands(texRgb, input.WorldPosition, side, abs(dpdx.y) + abs(dpdy.y));
+
     float3 reliefNormal = PerturbNormalFromHeight(worldNormal, input.WorldPosition, height);
 
     //Cavity shading needs only the height and applies cleanly, so this path runs it instead of the generic
@@ -6112,7 +6176,11 @@ float4 TriplanarPS(VertexShaderOutput input) : COLOR
     float cavityRange = max(SurfaceReliefStrength + CavityHeadroom, 1e-6);
     float cavity = lerp(1 - CavityStrength, 1, saturate((height + SurfaceReliefStrength + CavityHeadroom) / (cavityRange + SurfaceReliefStrength)));
 
-    float4 shaded = ShadePixel(input.WorldPosition, reliefNormal, input.OcclusionData, float4(texRgb, 1), 1, cavity);
+    //A wet band mirrors more of the sky (#536); everywhere else this is the default surface, to the bit
+    SurfaceSpecular surface = DefaultSurfaceSpecular();
+    surface.Environment += wet;
+
+    float4 shaded = ShadePixel(input.WorldPosition, reliefNormal, input.OcclusionData, float4(texRgb, 1), 1, cavity, surface);
 
     //The joints' glow (#535), behind a branch on the uniform: the groove came out of the height field above
     //(one evaluation, #534), and nothing inside the branch is a gradient operation.
@@ -6789,12 +6857,19 @@ float4 TriplanarCoarsePS(VertexShaderOutput input) : COLOR
     float side = 1 - abs(worldNormal.y);
     texRgb = lerp(texRgb, texRgb * SideDustTint, SideDustStrength * side * side);
 
+    //The tide line and the sand crust, and the bedding planes (#536)
+    float wet = ApplyHeightBands(texRgb, input.WorldPosition, side, abs(dpdx.y) + abs(dpdy.y));
+
     float3 reliefNormal = PerturbNormalFromHeight(worldNormal, input.WorldPosition, height);
 
     float cavityRange = max(SurfaceReliefStrength + CavityHeadroom, 1e-6);
     float cavity = lerp(1 - CavityStrength, 1, saturate((height + SurfaceReliefStrength + CavityHeadroom) / (cavityRange + SurfaceReliefStrength)));
 
-    float4 shaded = ShadePixel(input.WorldPosition, reliefNormal, input.OcclusionData, float4(texRgb, 1), 1, cavity);
+    //A wet band mirrors more of the sky (#536); everywhere else this is the default surface, to the bit
+    SurfaceSpecular surface = DefaultSurfaceSpecular();
+    surface.Environment += wet;
+
+    float4 shaded = ShadePixel(input.WorldPosition, reliefNormal, input.OcclusionData, float4(texRgb, 1), 1, cavity, surface);
 
     //The joints' glow (#535), behind a branch on the uniform: the groove came out of the height field above
     //(one evaluation, #534), and nothing inside the branch is a gradient operation.

@@ -66,6 +66,8 @@ namespace Prazsky.Core.Render
         private EffectParameter _slabJointDepthParam;
         private EffectParameter _jointGlowParam, _jointGlowPatchinessParam, _topDustTintParam, _topDustStrengthParam;
         private EffectParameter _slabWarpParam, _sideDustTintParam, _sideDustStrengthParam;
+        private EffectParameter _bandTopYParam, _bandFadeParam, _bandTintParam, _bandWetParam, _bandStrengthParam,
+            _strataSpacingParam, _strataStrengthParam;
         private EffectParameter _cavityStrengthParam;
         private EffectParameter _reliefShadowStrengthParam;
         private EffectParameter _parallaxScaleParam;
@@ -328,6 +330,37 @@ namespace Prazsky.Core.Render
 
         /// <inheritdoc cref="SideDustTint"/>
         public float SideDustStrength { get; set; }
+
+        /// <summary>
+        /// A band keyed to world height on the side faces (#536) — the sea stack's tide line, the beach
+        /// platform's sand crust round its foot: everything under <see cref="BandTopY"/> takes
+        /// <see cref="BandTint"/> (an albedo ratio, <see cref="Vector3.One"/> none), fading out over
+        /// <see cref="BandFade"/> world units above it along a wandering line, and mirrors
+        /// <see cref="BandWet"/> times more of the sky there. <see cref="BandStrength"/> 0, the default, is none.
+        /// </summary>
+        public float BandTopY { get; set; }
+
+        /// <inheritdoc cref="BandTopY"/>
+        public float BandFade { get; set; } = 1f;
+
+        /// <inheritdoc cref="BandTopY"/>
+        public Vector3 BandTint { get; set; } = Vector3.One;
+
+        /// <inheritdoc cref="BandTopY"/>
+        public float BandWet { get; set; }
+
+        /// <inheritdoc cref="BandTopY"/>
+        public float BandStrength { get; set; }
+
+        /// <summary>
+        /// Bedding planes on the side faces (#536): layers <see cref="StrataSpacing"/> world units thick, each a
+        /// course of its own shade with a dark line where two meet, darkened by up to <see cref="StrataStrength"/>.
+        /// 0, the default, is none.
+        /// </summary>
+        public float StrataSpacing { get; set; } = 1f;
+
+        /// <inheritdoc cref="StrataSpacing"/>
+        public float StrataStrength { get; set; }
 
         /// <summary>
         /// How far the slab joint grid is bent by a world-space noise, in world units (#534): 0, the default,
@@ -1034,6 +1067,13 @@ namespace Prazsky.Core.Render
             _slabWarpParam = _effect.Parameters["SlabWarp"];
             _sideDustTintParam = _effect.Parameters["SideDustTint"];
             _sideDustStrengthParam = _effect.Parameters["SideDustStrength"];
+            _bandTopYParam = _effect.Parameters["BandTopY"];
+            _bandFadeParam = _effect.Parameters["BandFade"];
+            _bandTintParam = _effect.Parameters["BandTint"];
+            _bandWetParam = _effect.Parameters["BandWet"];
+            _bandStrengthParam = _effect.Parameters["BandStrength"];
+            _strataSpacingParam = _effect.Parameters["StrataSpacing"];
+            _strataStrengthParam = _effect.Parameters["StrataStrength"];
             _cavityStrengthParam = _effect.Parameters["CavityStrength"];
             _reliefShadowStrengthParam = _effect.Parameters["ReliefShadowStrength"];
             _parallaxScaleParam = _effect.Parameters["ParallaxScale"];
@@ -1411,6 +1451,13 @@ namespace Prazsky.Core.Render
             _slabWarpParam.SetValue(SlabWarp);
             _sideDustTintParam.SetValue(SideDustTint);
             _sideDustStrengthParam.SetValue(SideDustStrength);
+            _bandTopYParam.SetValue(BandTopY);
+            _bandFadeParam.SetValue(BandFade);
+            _bandTintParam.SetValue(BandTint);
+            _bandWetParam.SetValue(BandWet);
+            _bandStrengthParam.SetValue(BandStrength);
+            _strataSpacingParam.SetValue(StrataSpacing);
+            _strataStrengthParam.SetValue(StrataStrength);
             _cavityStrengthParam.SetValue(CavityStrength);
             _reliefShadowStrengthParam.SetValue(ReliefShadowStrength);
             _parallaxScaleParam.SetValue(ParallaxScale);
