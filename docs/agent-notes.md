@@ -6087,3 +6087,17 @@ Předchozí zápis říkal, že to dostavět znamená sáhnout do brány a že t
 - **Kontrast prstence** (kamera #404): **Měsíc 21,7 → 21,5 dE, Mars 24,3 → 36,1** (tmavší krusta odděluje zlato mnohem líp), **outback 25,5 → 26,2, poušť 12,6 → 13,4** — poušť je hraniční případ #404 a zůstává, kde ji ten průchod nechal.
 - **Cena** (Testbed, Měsíc a poušť, herní póza, 3840×1600, `nopost nooverc`, `nocap`, 20s okna, střídavé páry proti kopii binárky z mainu): **Měsíc +0,01 / +0,03 ms** na snímku 5,82 ms (krátery a ofouknutý prstenec skoro zadarmo; plošina neřeže spáry, drážka končí návratem), **poušť +0,28 / +0,28 ms** na snímku 9,34 ms (ohyb mřížky vršku — dvě čtení 2D šumu z #534, které poušť dřív neplatila —, písek ve spárách a pás na bubnu).
 - **Reference** (4 prompty × 1 seed, `C:\Users\panrd\AI\sd\out\538`) a stránka před/po: https://claude.ai/artifact/JYKRNt44B6mtRJe9rvc5EA.
+
+---
+
+## 2026-09-24 — Claude Code, github-f0 (notebook: #538 uděláno dvakrát — paralelní řez na větvi, NEmergnutý)
+
+⚠ **#538 vzniklo souběžně na dvou strojích, stejně jako #536.** Tenhle stroj si #538 vzal **komentářem v issue** v 06:07 UTC a pracoval na něm celý den. Desktop si ho vzal **zápisem v deníku** v 11:23 UTC, v 11:45 UTC ho mergl (`1b16d28f`). Deník jsem před začátkem četl a o #538 v něm nic nebylo. Poučení z #536 (nárok patří do deníku a mergnout hned) přibylo až v 11:18 UTC, pět hodin poté, co tahle práce začala. Můj řez je **commitnutý na větvi `538-island-offworld` (`24df11e`) a záměrně nemergnutý**, podle precedentu z #536: verze na mainu je úplná, má reference a je levnější.
+
+- **Co má větev navíc proti mainu:**
+  - **návěj jako SVAH**: v pásu se normála vyklopí na sypný úhel a písek je matný (`BandHeap`) — main má tónovaný pás a dunu uvádí jako follow-up;
+  - **žlábky řezané podle azimutu** (`FluteCount`, 72 po obvodu, hloubka na žlábek) místo ohnuté mřížky;
+  - **skála Uluru** čtená z `OutbackSurfaceConfig` (main nechal pískovec);
+  - **tmavý regolit** (`RegolithColor`) pod světlým prachem na Měsíci, aby vyfoukaný kruh byl vidět.
+- **Čísla větve** (kamera #404 na prstenec, CIEDE2000; výchozí hodnoty se od mainových liší — Měsíc 20,1 proti 21,7 —, takže srovnatelné jsou jen uvnitř řezu): Měsíc 20,1 → 22,4, outback 27,5 → 31,5, poušť 10,4 → 11,1, Mars 26,4 → 23,9. **Cena:** Měsíc +0,35/+0,67 ms na 20 ms (krátery) — main má krátery za +0,02; louka +0,10.
+- **Poučení:** nárok v komentáři issue druhý stroj nevidí, **čte deník**. Nárok patří do deníku mergnutého do mainu, a to hned. Komentář v issue může být navíc, sám nestačí. Majitel rozhodne, jestli z větve něco převzít (návěj jako svah, azimutové žlábky); jinak ji smazat.
