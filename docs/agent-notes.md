@@ -6107,6 +6107,9 @@ Předchozí zápis říkal, že to dostavět znamená sáhnout do brány a že t
 ## 2026-09-24 — Claude Code, github-f0 (notebook: beru #549 — `LevelIdentity`, `ScoreKeeper.RulesVersion`, `ScoreSim --ceilings`)
 
 **Beru #549**: nárok je zapsaný a mergnutý PŘED začátkem práce, podle poučení z #536/#538. Soubory: `BS3DLibs/Prazsky.BS3D/Levels/` (nový `LevelIdentity`), `Scoring/ScoreKeeper.cs`, `Tools/ScoreSim`, `docs/formats-and-tools.md`, případně `.github/workflows/release.yml`. Desktop ať #549 nebere; #543/#546 na něm stojí.
+
+---
+
 ## 2026-09-24 — Claude Code, bs3d-fe (desktop: verdikty majitele k ostrovu — spáry se nevlní, kráter je díra; #534/#538 opraveny na mainu)
 
 **Tři slova majitele, hodinu po merge #538, bez toho, že by hru hrál — reagoval na popis:** (1) *„vlnité spáry na dlaždičkách na ostrově rozhodně nechceme — to je blbost"*; (2) *„kráter není nikdy lomený… není 2D textura, je to díra"* (zahlédl krátery stékající přes hranu plošiny); (3) dlaždičky na ostrově **nikdy nebyly záměr** — vznikly náhodou v první AI fázi ze shaderu hradu, který ve hře už není (modelovaný na tabletu v roce 2016). A obecně: *„nemusíme zachovávat minulost, chceme lepší budoucnost… inovovat a pracovat novými způsoby"*, ruka volná, *„styl neexistuje"*. Uloženo v paměti (`owner-design-rulings-island`).
@@ -6127,3 +6130,15 @@ Předchozí zápis říkal, že to dostavět znamená sáhnout do brány a že t
 ## 2026-09-24 — Claude Code, bs3d-fe (desktop: beru #550 — ostrov bez dlažby z roku 2016, závěj v poušti jako geometrie)
 
 **Beru #550** (majitel potvrdil verdikty k ostrovu — „vypadá to dobře, potvrzuju" — a s nimi nabídku: autorský kámen jako skalní výchoz bez spár, pouštní závěj jako mesh). Nárok zapsaný a mergnutý před prací.
+
+---
+
+## 2026-09-24 — Claude Code, github-f0 (notebook: #549 identita levelu, verze pravidel, stropy skóre pro online žebříčky)
+
+**První kus online žebříčků (#542), na kterém stojí #543 a #546.**
+
+- **`LevelIdentity`** (`Prazsky.BS3D/Levels`): `file` + prvních 16 hex SHA-256 přes bajty souboru levelu a řádek pravidel `\nshots=…;ceilingStep=…;wildcardEvery=…` (chybějící = `-`). **`wildcardEvery` jsem přidal navíc** proti zadání — wildcard je zadarmo shoda, jeho kadence je většina obtížnosti. Ověřeno pomocným programem: `shots`, `ceilingStep`, `wildcardEvery` a jeden bajt souboru hash mění, `name`, `block` a `minStars` ne. Hra ho počítá při instalaci levelu z bajtů skutečně hraného souboru a píše na konec řádku `[levels] Loaded … board One.json#113e5b5cdc39b7a9`; shoda s tabulkou ScoreSimu ověřena na levelech 1 a 71.
+- **`ScoreKeeper.RulesVersion = 1`** (bump ve stejném commitu jako změna sazby nebo pravidla; hvězdy ne — žebříčky řadí skóre) a **`ScoreKeeper.ScoreCeiling`**: každý člen pravidel na maximu — koule levelu I koule celého rozpočtu (vystřelená koule se přichytí a může spadnout; jiná cesta, jak přidat kouli, neexistuje), každá za 20 (osiřelá) a ×5, plus bonus za celý nevyužitý rozpočet až na jeden. Rozpočet počítaný dvakrát = volná mez; nejlepší simulované skóre je 0,44–0,53 stropu na všech 120.
+- **ScoreSim:** `Rules v1` v hlavičce, sloupce strop / best/strop / `minShots`, čtvrté odmítnutí **OVER CEILING** — viděno vystřelit (strop /4 → všech 120, exit 1). `--ceilings out.json` píše `bs3d-ceilings` tabulku; `release.yml` ji přikládá k releasu jako `BS3D-<verze>-ceilings.json` (krok vyzkoušen lokálně v pwsh).
+- ⚠ **`minSeconds` NENÍ, místo něj `minShots`.** Hra výstřely nijak nerozestupuje (`Shoot` nemá interval, víc střel letí najednou), takže časová podlaha platná pro všechny hráče je jeden let (~0,1 s) — nic by neodmítla. Počet výstřelů podlahu má: floor z #458 (`ClearProbe.AnchorColourFloor` — koule kotevní vrstvy odejde jen shodou, výstřel = jedna barva), ale **přísnější**: jakákoli speciální koule kdekoli → 1 (blast, zap, infekce umí vrstvu vyprázdnit rychleji). Proti 21 vyčištěním, která ClearProbe skutečně odehrál: **nikdy nad, 18× rovno**. Na sadě 1 u 17 levelů, 2–3 u 47, 4–8 u 56 → podvržené „jedním výstřelem" odmítnuto na 103 ze 120.
+- **Past:** LevelGen puštěný do prázdného výstupního adresáře (aby nepřepsal `Game/Levels`) na konci spadne v `DescribeBlock` — chybí mu ručně stavěné levely (Colossus). Gates a „shortest clear" řádky se vypíšou předtím, takže pro čtení čísel to nevadí.

@@ -235,6 +235,9 @@ namespace BS3D.Screens
             //end's last preview happened to leave standing on the shared render set.
             BallStyle ballStyle = BallStyle.Beach;
 
+            //The board this level's clears belong to (#549), cleared first so the fallback map is on none
+            _levelIdentity = null;
+
             if (levelSet != null && index >= 0 && index < levelSet.Count)
             {
                 //The set's own file, unless this run was pinned to one outside it (#332) — see
@@ -266,8 +269,12 @@ namespace BS3D.Screens
                     }
                     else map = new BallsMap(path);
 
+                    //From the bytes of the file actually played, so a run pinned to another file (#332) hashes as
+                    //the different level it is and would land on no shipped board
+                    _levelIdentity = LevelIdentity.Of(levelSet.Levels[index], System.IO.File.ReadAllBytes(path));
+
                     Console.WriteLine($"[levels] Loaded {index + 1}/{levelSet.Count} '{levelSet.DisplayName(index)}' "
-                        + $"({levelSet.DescribeRules(index)}) from '{path}'");
+                        + $"({levelSet.DescribeRules(index)}) from '{path}', board {_levelIdentity}");
                 }
                 catch (Exception e)
                 {

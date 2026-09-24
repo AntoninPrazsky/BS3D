@@ -88,6 +88,59 @@ namespace Prazsky.BS3D.Scoring
         /// </summary>
         public const int UnusedShotWorthInShots = 4;
 
+        /// <summary>
+        /// Which version of these rules a score was made under (#549), sent with every online clear beside the
+        /// level's <c>LevelIdentity</c>, and part of what an online board is keyed by (#542).
+        /// <para>
+        /// <b>⚠ Bump it in the same commit as any change to a rate or a rule in this class</b> — a point value, the
+        /// multiplier's step or cap, what an unused shot is worth, which events score. A score made under one set
+        /// of rules cannot be ranked against one made under another, so a bump starts every board afresh (the old
+        /// ones are kept, never merged); forgetting it ranks the two against each other silently. #173 and #326
+        /// would each have been one. <see cref="ScoreCeiling"/> is re-derived in the same commit, and
+        /// <c>Tools/ScoreSim</c> prints this number in its header so a run's output says which rules it rated.
+        /// A change to <see cref="StarRating"/>'s thresholds is <b>not</b> a bump: the boards rank scores, not
+        /// stars.
+        /// </para>
+        /// </summary>
+        public const int RulesVersion = 1;
+
+        /// <summary>
+        /// A bound <b>above</b> every score a clear of a level can reach (#549) — what the online service refuses a
+        /// submission over, so a real score must never reach it. Not the best clean clear: a loose bound is safe,
+        /// a tight one would refuse a player who found a better line than the simulator did.
+        /// <para>
+        /// <b>Every term of the rules at its maximum</b>, and the next rule change re-derives it from this list:
+        /// <list type="bullet">
+        /// <item>Balls that can score: the level's own and <b>every ball the budget can fire</b> — a shot ball
+        /// sticks and can later fall with a group, and nothing else ever adds a ball to the field (the contact
+        /// handler's attach is the one door, and the one power-up there is, Swap, only reorders the queue).</item>
+        /// <item>Each at the richest rate there is (<see cref="OrphanedBallPoints"/> today; the larger of the
+        /// three, so a retuned rate cannot slip under it) and at <see cref="MaxMultiplier"/> throughout, ignoring
+        /// the ramp from ×1.</item>
+        /// <item>The completion bonus with the whole budget unused but the one shot a clear needs, at this level's
+        /// <see cref="UnusedShotValue"/> — although those unused shots are the very ones the first term counted
+        /// as fired.</item>
+        /// </list>
+        /// Counting the budget twice is what makes it loose: the simulator's best clears land at 0.44 to 0.53 of it
+        /// on the 120 shipped levels (measured when it was written), which is also the check that no term was
+        /// overcounted by orders of magnitude.
+        /// </para>
+        /// </summary>
+        /// <param name="levelBalls">Balls the level starts with.</param>
+        /// <param name="shotBudget">The entry's <c>shots</c>. An unlimited budget has no ceiling — any number of
+        /// shots can stick and fall — so there is no overload for one.</param>
+        public static int ScoreCeiling(int levelBalls, int shotBudget)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(levelBalls);
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(shotBudget);
+
+            int richestBall = Math.Max(OrphanedBallPoints, Math.Max(MatchedBallPoints, DestroyedBallPoints));
+            long landings = (long)(levelBalls + shotBudget) * richestBall * MaxMultiplier;
+            long bonus = (long)(shotBudget - 1) * new ScoreKeeper(shotBudget, null, levelBalls).UnusedShotValue;
+
+            return (int)Math.Min(int.MaxValue, landings + bonus);
+        }
+
         private readonly int? _shotBudget;
         private readonly int? _ceilingStep;
         private readonly int _levelBalls;

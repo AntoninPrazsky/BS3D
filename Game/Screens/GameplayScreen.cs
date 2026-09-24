@@ -773,6 +773,15 @@ namespace BS3D.Screens
         private int _initialBallCount;
 
         /// <summary>
+        /// Which online board a clear of this level belongs to (#549): the set entry's file and the hash over the
+        /// file actually loaded and the entry's rules — computed by the same <see cref="LevelIdentity.Of(LevelSetEntry, byte[])"/>
+        /// <c>Tools/ScoreSim</c>'s ceiling table is keyed by. Taken at install, from the bytes of the file that was
+        /// played; null for the built-in fallback, which is on no board. Nothing submits it yet — the client is
+        /// #546 — so today it is the <c>[levels] Loaded</c> line's last word, which is how the two are compared.
+        /// </summary>
+        private LevelIdentity _levelIdentity;
+
+        /// <summary>
         /// What ended the level, set when it ends and read by the result screen. <c>None</c> means the level is
         /// still being played; <see cref="FinishLevel"/> is what leaves <c>None</c>.
         /// </summary>
