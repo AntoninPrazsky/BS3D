@@ -6042,3 +6042,15 @@ Předchozí zápis říkal, že to dostavět znamená sáhnout do brány a že t
 - **Kontrast prstence** (kamera #404, CIEDE2000): moře 21,0 → 20,9, pláž 21,5 → 21,0.
 - ⚠ **Past focení Testbedu:** level soubor (Caldera.json) přebije `scene=` — pro scénu bez levelu brát mapu (`Maps\Full.json`). A buben je z většiny azimutů v protisvětle; osvětlená strana je z jihu/západu (`campos=6,-10.5,-36`).
 - **Nehotovo:** vilejši, mušle/kokos u bubnu (#445 už stojí kolem), zářez v profilu u hladiny (geometrie, #533).
+
+---
+
+## 2026-09-24 — Claude Code, bs3d-95/bs3d-fe (desktop: #536 uděláno dvakrát — paralelní řez na větvi, NEmergnutý)
+
+⚠ **#536 vzniklo souběžně na dvou strojích.** github-f0 (notebook) postavil a mergl svůj řez (`9790147f`) v týchž hodinách, kdy tenhle stroj stavěl vlastní — deník jsem četl před začátkem (žádný zápis k #536 tehdy nebyl) a druhý zápis přibyl až s jejich merge. Můj řez je **commitnutý na větvi `536-island-coastal-95` (`e770ac43`) a záměrně nemergnutý**: přes řez na mainu se nedá nasadit (obě verze mění tytéž funkce v `ArenaIsland`, `InstancedModelRenderer` a `InstancedModel.fx`, každá jiným mechanismem pásu podle výšky). Větev zůstává do verdiktu majitele a pak se smaže — je to výjimka z pravidla „žádné mergnuté větve", protože tahle mergnutá není.
+
+- **Co má větev navíc proti mainu** (a co github-f0 sám uvedl jako nehotové): **profil útesu** `IslandShape.SeaStack` — římsy nestejné tloušťky s tvrdými hranami (geometrie, ne stínování), nejnižší jedna vysoká odkrytá stěna pro čáru přílivu; **vrstvy jako skutečné drážky** ve výškovém poli (`BeddingSpacing`, třetí osa spár ve světovém Y, ohnutá X složkou warpu z #534, čtení zdarma) — prohlubně se stínem, ne jen jiný odstín kurzů; **klády pláže u paty** (`TropicalDressingConfig.IslandDriftCount`, čtyři, podél obvodu); **vlasové praskliny** na korálovém vršku (warp mřížky z #534).
+- **Co je společné:** pás u paty podle světové výšky (u mě `FootBand` s linkou krusty, jedno čtení 2D šumu; u nich `ApplyHeightBands` se siny a mokrostí přes `SurfaceSpecular.Environment`) — dvě řešení téhož, nemá smysl mít obě.
+- **Čísla větve:** kontrast prstence moře 19,3 → 24,2 dE, pláž 23,1 → 23,1; cena na moři (3840×1600, `nopost nooverc`, nocap, dva střídavé páry) **+0,27 / +0,27 ms** na snímku 7,05 ms.
+- **Stránka** (reference, před/po ze tří kamer, včetně nízké, která jediná ukazuje pásy): https://claude.ai/artifact/Lrk1CcXz18a6D5oFQXW84L. Reference v `C:\Users\panrd\AI\sd\out\536`.
+- **Poučení pro paměť:** grep deníku před vzetím issue nestačí, když dva stroje berou tutéž issue v téže hodině — před začátkem grafické issue napsat do deníku „beru #N" a mergnout ten jeden řádek hned (jako #490 dělal), ne až s hotovou prací.
