@@ -383,8 +383,9 @@ namespace Prazsky.Core.Render
             SceneKind.Sea => new(new Vector3(0.50f, 0.47f, 0.42f), new Vector3(0.46f, 0.43f, 0.38f), 0.22f, 0.14f, 2f),
             //Black basalt
             SceneKind.Volcano => new(new Vector3(0.18f, 0.17f, 0.17f), new Vector3(0.14f, 0.13f, 0.13f), 0.14f, 0.08f, 2f),
-            //Rust-red rock, the plain's own
-            SceneKind.Mars => new(new Vector3(0.56f, 0.41f, 0.31f), new Vector3(0.46f, 0.34f, 0.26f), 0.08f, 0.05f, 2f),
+            //Rust-red rock, the plain's own - and since #538 the top a DARKER WEATHERED CRUST than the fresh rock
+            //the drum shows in its beds (the top was the drum's colour a shade up until then)
+            SceneKind.Mars => new(new Vector3(0.44f, 0.30f, 0.22f), new Vector3(0.56f, 0.41f, 0.31f), 0.08f, 0.05f, 2.4f),
             //Rain-dark slate
             SceneKind.Storm => new(new Vector3(0.37f, 0.39f, 0.42f), new Vector3(0.30f, 0.32f, 0.35f), 0.18f, 0.12f, 2f),
             //Glacier ice: pale, blue in its depth, polished
@@ -481,11 +482,12 @@ namespace Prazsky.Core.Render
         //InstancedModelRenderer reduces the material to its luminance and multiplies by 1.25 before applying a
         //tint, so the tint that lands a colour exactly is that colour over the product.
         /// <summary>
-        /// THE ISLAND'S SHAPE PER SCENE (#533), resolved where its material is: which of the six silhouettes
+        /// THE ISLAND'S SHAPE PER SCENE (#533), resolved where its material is: which of the eight silhouettes
         /// (<see cref="IslandShape"/>) a scene stands its cannon on. The families follow the ground each scene
         /// draws — a block of the volcano's own basalt, a floe on the two ice sheets, a weathered coral platform
         /// where there is a sea, a machined disc where there is no ground at all, a poured plinth on the two
-        /// cities' rooftops, and the authored stone for every scene whose ground is rock, sand, snow or grass.
+        /// cities' rooftops, a monolith's stub on the outback's red soil and a landing pad cut into the Moon's
+        /// regolith (#538), and the authored stone for every scene whose ground is rock, sand, snow or grass.
         /// </summary>
         private static IslandShape ShapeFor(SceneKind scene) => scene switch
         {
@@ -494,6 +496,8 @@ namespace Prazsky.Core.Render
             SceneKind.Tropical or SceneKind.Sea => IslandShape.Coral,
             SceneKind.Space or SceneKind.Grid => IslandShape.Machined,
             SceneKind.City or SceneKind.NeonCity => IslandShape.Plinth,
+            SceneKind.Outback => IslandShape.Monolith,
+            SceneKind.Moon => IslandShape.Pad,
             _ => IslandShape.Stone
         };
 
@@ -503,11 +507,13 @@ namespace Prazsky.Core.Render
         /// where the coursing is the material's); 0 cuts no joints at all (ice, coral); the machined disc and
         /// the plinth cut their own panel lines. The drum's joints are what make the basalt read as columns —
         /// the grid is cut in world X and Z on every face, so on a vertical wall it is vertical lines.
+        /// <c>DrumWarp</c> (#538) bends the drum's grid as <c>CapWarp</c> bends the cap's — the monolith's flutes
+        /// wander — and <c>CraterSize</c>/<c>CraterDepth</c> pock the cap with craters (the lunar pad).
         /// </summary>
         private readonly record struct IslandRelief(float CapReliefFrequency, float CapReliefStrength,
             float CapJointWidth, float CapJointDepth, float CapSlab,
             float DrumSlab, float DrumJointWidth, float DrumJointDepth, float DrumReliefFrequency, float DrumReliefStrength,
-            float CapWarp = 0f);
+            float CapWarp = 0f, float DrumWarp = 0f, float CraterSize = 0f, float CraterDepth = 0f);
 
         //The authored stone's figures are the constructor's, restated here so a shape switch back to stone
         //restores exactly what the constructor set.
@@ -529,7 +535,28 @@ namespace Prazsky.Core.Render
             IslandShape.Machined => new(0f, 0f, 0.020f, 0.020f, -1f, 4f, 0.020f, 0.020f, 0f, 0f),
             //Expansion joints on the top, a faint cast relief, the side plain.
             IslandShape.Plinth => new(4f, 0.004f, 0.020f, 0.020f, -1f, 0f, 0f, 0f, 3f, 0.006f),
+            //The monolith (#538): wide weathered fractures on the top - the material's cell bent a whole unit -
+            //and FLUTES down the side: the drum's grid every 0.9 of a unit, wide and shallow (a runnel worn by
+            //water, not a cut joint), bent 0.8 so no two run parallel.
+            IslandShape.Monolith => new(6f, 0.014f, 0.04f, 0.035f, 3.0f, 0.9f, 0.12f, 0.05f, 4f, 0.012f, 1.0f, 0.8f),
+            //The landing pad (#538): no joints anywhere (regolith does not pave), a faint relief, and CRATERS on
+            //the top - one a cell of three units, 0.045 deep, the shader's own bowl and rim.
+            IslandShape.Pad => new(5f, 0.006f, 0f, 0f, 0f, 0f, 0f, 0f, 4f, 0.010f, 0f, 0f, 3.0f, 0.045f),
             _ => STONE_RELIEF
+        };
+
+        /// <summary>
+        /// A scene's own bend on its shape's relief (#538): the relief is the shape's, and Mars and the desert both
+        /// stand on the authored stone — whose top is paving — while what lies in their joints is dust and sand,
+        /// which in a square grid photographed as tiles with pale grout. Both get the grid bent into fractures
+        /// (#534's warp) at a bigger cell, and no other scene is touched: the switch falls through to the relief
+        /// it was given.
+        /// </summary>
+        private static IslandRelief SceneRelief(SceneKind scene, IslandRelief relief) => scene switch
+        {
+            SceneKind.Mars => relief with { CapSlab = 3.2f, CapJointWidth = 0.035f, CapJointDepth = 0.03f, CapWarp = 1.1f },
+            SceneKind.Desert => relief with { CapSlab = 2.8f, CapWarp = 0.8f },
+            _ => relief
         };
 
         /// <summary>
@@ -544,13 +571,19 @@ namespace Prazsky.Core.Render
             Vector3 DustColor, float DustStrength, float Patchiness = 1f,
             Vector3 SideDustColor = default, float SideDustStrength = 0f,
             Vector3 BandColor = default, float BandTopY = 0f, float BandFade = 1f, float BandWet = 0f, float BandStrength = 0f,
-            float StrataSpacing = 1f, float StrataStrength = 0f);
+            float StrataSpacing = 1f, float StrataStrength = 0f,
+            Vector3 JointDustColor = default, float JointDustStrength = 0f, float DustClearRadius = 0f, float BandWindRise = 0f);
 
         //The water and the sand the coastal family stands in (#536), read off the scenes' own configs rather than
         //restated, so a tide line cannot drift off the sea it marks. The island's foot is at TOP_Y - EDGE_HEIGHT,
         //-13.5: half a unit under the sea's mean level, and exactly on the beach's dry sand.
         private static readonly float SEA_LEVEL_Y = new SeaSceneConfig().LevelY;
         private static readonly float BEACH_SAND_Y = new TropicalTerrainConfig().LevelY;
+
+        //The desert's sand and its wind (#538), read the same way: the drift lies against the drum's windward face,
+        //and the band's top rises where the scene's own dunes are blown from.
+        private static readonly float DESERT_SAND_Y = new DesertSceneConfig().LevelY;
+        private static readonly Vec2 DESERT_WIND = new DesertSceneConfig().Wind;
 
         private static readonly IslandDressing NO_DRESSING = new(Vector3.Zero, Vector3.Zero, 0f, Vector3.One, 0f);
 
@@ -599,6 +632,29 @@ namespace Prazsky.Core.Render
                 BandColor = new Vector3(0.44f, 0.42f, 0.36f), BandTopY = BEACH_SAND_Y + 1.0f, BandFade = 0.6f,
                 BandWet = 1f, BandStrength = 1f
             },
+            //THE OFF-WORLD AND ARID FAMILY (#538). The Moon: the pad's POWDER - the regolith's pale grey settled over
+            //half the top and blown clear in a ring round the drain, three units past the funnel's mouth and fading
+            //back over three more (the craters are the shape's own relief). Mars: the plain's fine dust lying in
+            //the crevices (MarsSceneConfig.RustColorPale is the dust's tone) and the drum in beds like the mesas'
+            //(#536's strata), under the darker crust LookFor gives the top. The outback: nothing lies on Uluru -
+            //its flutes are the shape's relief. The desert: SAND DRIFTED against the drum - the height band in the
+            //dunes' pale sand, its top half a unit up the foot in the lee and two units higher on the windward
+            //face (DesertSceneConfig.Wind, reversed) - and sand blown into every joint of the top.
+            SceneKind.Moon => NO_DRESSING with
+            {
+                DustColor = new Vector3(0.64f, 0.63f, 0.62f), DustStrength = 0.55f, DustClearRadius = FUNNEL_TOP_RADIUS + 3f
+            },
+            SceneKind.Mars => NO_DRESSING with
+            {
+                JointDustColor = new Vector3(0.72f, 0.56f, 0.42f), JointDustStrength = 0.75f,
+                StrataSpacing = 0.5f, StrataStrength = 0.5f
+            },
+            SceneKind.Desert => NO_DRESSING with
+            {
+                BandColor = new Vector3(0.86f, 0.70f, 0.50f), BandTopY = DESERT_SAND_Y + 0.6f, BandFade = 0.5f,
+                BandStrength = 1f, BandWindRise = 2.0f,
+                JointDustColor = new Vector3(0.86f, 0.70f, 0.50f), JointDustStrength = 0.85f
+            },
             _ => NO_DRESSING
         };
 
@@ -622,6 +678,9 @@ namespace Prazsky.Core.Render
                 : Vector3.One;
             renderer.StrataSpacing = dressing.StrataSpacing;
             renderer.StrataStrength = dressing.StrataStrength;
+            //The windward rise (#538) faces against the desert's wind - the only scene whose band rises; a rise of 0
+            //leaves the direction unread
+            renderer.BandWind = new Vector3(-DESERT_WIND.X, -DESERT_WIND.Y, dressing.BandWindRise);
         }
 
         private static Vector3 TintFor(Vector3 wanted, Vector3 authored) =>
@@ -931,7 +990,7 @@ namespace Prazsky.Core.Render
                 _bodyRenderer.SetMesh(_islandMeshes[(int)shape].Body);
             }
 
-            IslandRelief relief = ReliefFor(shape);
+            IslandRelief relief = SceneRelief(scene, ReliefFor(shape));
 
             _capRenderer.SpecularAmbientStrength = look.CapPolish;
             _capRenderer.SlabSize = relief.CapSlab < 0f ? look.Slab : relief.CapSlab;
@@ -957,6 +1016,8 @@ namespace Prazsky.Core.Render
             _capRenderer.JointGlowPatchiness = dressing.Patchiness;
             _bodyRenderer.JointGlowPatchiness = dressing.Patchiness;
             _capRenderer.SlabWarp = relief.CapWarp;
+            _bodyRenderer.SlabWarp = relief.DrumWarp;
+            _capRenderer.Craters = new Vector3(relief.CraterSize, relief.CraterDepth, relief.CraterDepth * 0.3f);
             _bodyRenderer.SideDustStrength = dressing.SideDustStrength;
             _bodyRenderer.SideDustTint = dressing.SideDustStrength > 0f
                 ? ColorSpace.SrgbToLinear(dressing.SideDustColor) / ColorSpace.SrgbToLinear(look.Drum)
@@ -964,6 +1025,14 @@ namespace Prazsky.Core.Render
             _capRenderer.TopDustStrength = dressing.DustStrength;
             _capRenderer.TopDustTint = dressing.DustStrength > 0f
                 ? ColorSpace.SrgbToLinear(dressing.DustColor) / ColorSpace.SrgbToLinear(look.Cap)
+                : Vector3.One;
+
+            //The arid family's dust (#538): the top dust blown clear round the drain, and the dust in the top's
+            //joints - both the cap's; the drum's joints stay clean.
+            _capRenderer.TopDustClear = new Vector2(dressing.DustClearRadius, 3f);
+            _capRenderer.JointDustStrength = dressing.JointDustStrength;
+            _capRenderer.JointDustTint = dressing.JointDustStrength > 0f
+                ? ColorSpace.SrgbToLinear(dressing.JointDustColor) / ColorSpace.SrgbToLinear(look.Cap)
                 : Vector3.One;
 
             //The coastal family's height bands and bedding planes (#536), on the drum and on the cap's own sides -
