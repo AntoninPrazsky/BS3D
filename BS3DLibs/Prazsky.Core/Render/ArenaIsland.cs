@@ -507,13 +507,16 @@ namespace Prazsky.Core.Render
         /// where the coursing is the material's); 0 cuts no joints at all (ice, coral); the machined disc and
         /// the plinth cut their own panel lines. The drum's joints are what make the basalt read as columns —
         /// the grid is cut in world X and Z on every face, so on a vertical wall it is vertical lines.
-        /// <c>DrumWarp</c> (#538) bends the drum's grid as <c>CapWarp</c> bends the cap's — the monolith's flutes
-        /// wander — and <c>CraterSize</c>/<c>CraterDepth</c> pock the cap with craters (the lunar pad).
+        /// <c>DrumWarp</c> (#538) bends the drum's grid — the monolith's flutes wander down its side. <c>CapWarp</c>
+        /// exists for the same bend on a top and <b>no shape sets it any more</b>: the owner's ruling of 2026-09-24
+        /// is that joints between tiles never wander (the ice's "fractures", Mars's and the desert's dusted cracks
+        /// and the monolith's top all read as wavy paving), so a top either has the authored stone's straight
+        /// coursing or no joints at all.
         /// </summary>
         private readonly record struct IslandRelief(float CapReliefFrequency, float CapReliefStrength,
             float CapJointWidth, float CapJointDepth, float CapSlab,
             float DrumSlab, float DrumJointWidth, float DrumJointDepth, float DrumReliefFrequency, float DrumReliefStrength,
-            float CapWarp = 0f, float DrumWarp = 0f, float CraterSize = 0f, float CraterDepth = 0f);
+            float CapWarp = 0f, float DrumWarp = 0f);
 
         //The authored stone's figures are the constructor's, restated here so a shape switch back to stone
         //restores exactly what the constructor set.
@@ -524,38 +527,37 @@ namespace Prazsky.Core.Render
             //Deep joints on both, and the drum coursed in narrow blocks: on the wall those are vertical
             //lines, which is the columns; on the top the block tops.
             IslandShape.Basalt => new(7f, 0.010f, 0.035f, 0.045f, 1.2f, 1.3f, 0.045f, 0.055f, 3f, 0.010f),
-            //FRACTURES on the top, not joints (#534): the grid at 2.4 units bent by 0.9 of a unit of noise, so
-            //the lines wander and the cells lose their corners - a sheet of ice cracks into a net of curved
-            //lines round cells of about one size. Thin and shallow: a fracture is a line in the ice, not a
-            //groove cut into it. The drum has none; a broad low relief on both.
-            IslandShape.Ice => new(3f, 0.020f, 0.03f, 0.02f, 2.4f, 0f, 0f, 0f, 2.5f, 0.020f, 0.9f),
+            //No joints anywhere, a broad low relief on both. #534 cut "fractures" into the top - the grid at 2.4
+            //units bent by 0.9 of a unit - and the owner's ruling took them out again (2026-09-24): a bent grid
+            //of joints is wavy paving whatever it is called.
+            IslandShape.Ice => new(3f, 0.020f, 0f, 0f, 0f, 0f, 0f, 0f, 2.5f, 0.020f),
             //No joints, a pitted relief on both.
             IslandShape.Coral => new(6f, 0.018f, 0f, 0f, 0f, 0f, 0f, 0f, 5f, 0.020f),
             //Panel lines, thin and sharp, on the top (the material's own plate size) and on the hull; no relief.
             IslandShape.Machined => new(0f, 0f, 0.020f, 0.020f, -1f, 4f, 0.020f, 0.020f, 0f, 0f),
             //Expansion joints on the top, a faint cast relief, the side plain.
             IslandShape.Plinth => new(4f, 0.004f, 0.020f, 0.020f, -1f, 0f, 0f, 0f, 3f, 0.006f),
-            //The monolith (#538): wide weathered fractures on the top - the material's cell bent a whole unit -
-            //and FLUTES down the side: the drum's grid every 0.9 of a unit, wide and shallow (a runnel worn by
-            //water, not a cut joint), bent 0.8 so no two run parallel.
-            IslandShape.Monolith => new(6f, 0.014f, 0.04f, 0.035f, 3.0f, 0.9f, 0.12f, 0.05f, 4f, 0.012f, 1.0f, 0.8f),
-            //The landing pad (#538): no joints anywhere (regolith does not pave), a faint relief, and CRATERS on
-            //the top - one a cell of three units, 0.045 deep, the shader's own bowl and rim.
-            IslandShape.Pad => new(5f, 0.006f, 0f, 0f, 0f, 0f, 0f, 0f, 4f, 0.010f, 0f, 0f, 3.0f, 0.045f),
+            //The monolith (#538): one rock, so no joints on the top (the first cut bent the paving into "fractures"
+            //there, and they read as wavy tiles - the ruling above), and FLUTES down the side: the drum's grid
+            //every 0.9 of a unit, wide and shallow (a runnel worn by water, not a cut joint), bent 0.8 so no two
+            //run parallel - a runnel is not a tile.
+            IslandShape.Monolith => new(6f, 0.014f, 0f, 0f, 0f, 0.9f, 0.12f, 0.05f, 4f, 0.012f, 0f, 0.8f),
+            //The landing pad (#538): no joints anywhere (regolith does not pave), a faint relief. Its craters are
+            //in the MESH (IslandMesh.PadCraters), not here: a crater is a hole, not a texture.
+            IslandShape.Pad => new(5f, 0.006f, 0f, 0f, 0f, 0f, 0f, 0f, 4f, 0.010f),
             _ => STONE_RELIEF
         };
 
         /// <summary>
-        /// A scene's own bend on its shape's relief (#538): the relief is the shape's, and Mars and the desert both
-        /// stand on the authored stone — whose top is paving — while what lies in their joints is dust and sand,
-        /// which in a square grid photographed as tiles with pale grout. Both get the grid bent into fractures
-        /// (#534's warp) at a bigger cell, and no other scene is touched: the switch falls through to the relief
-        /// it was given.
+        /// A scene's own change to its shape's relief (#538): Mars and the desert stand on the authored stone, whose
+        /// top is the coursing of laid slabs — and the owner's word (2026-09-24) is that the slabs were never a
+        /// design, only what an early shader of a castle no longer in the game left behind. So these two, which
+        /// are rock and sandstone, get no joints on the top at all; a first cut bent the grid into "fractures"
+        /// with dust in them and it read as wavy tiles with pale grout. Every other scene falls through.
         /// </summary>
         private static IslandRelief SceneRelief(SceneKind scene, IslandRelief relief) => scene switch
         {
-            SceneKind.Mars => relief with { CapSlab = 3.2f, CapJointWidth = 0.035f, CapJointDepth = 0.03f, CapWarp = 1.1f },
-            SceneKind.Desert => relief with { CapSlab = 2.8f, CapWarp = 0.8f },
+            SceneKind.Mars or SceneKind.Desert => relief with { CapSlab = 0f, CapJointWidth = 0f, CapJointDepth = 0f },
             _ => relief
         };
 
@@ -572,7 +574,7 @@ namespace Prazsky.Core.Render
             Vector3 SideDustColor = default, float SideDustStrength = 0f,
             Vector3 BandColor = default, float BandTopY = 0f, float BandFade = 1f, float BandWet = 0f, float BandStrength = 0f,
             float StrataSpacing = 1f, float StrataStrength = 0f,
-            Vector3 JointDustColor = default, float JointDustStrength = 0f, float DustClearRadius = 0f, float BandWindRise = 0f);
+            float DustClearRadius = 0f, float BandWindRise = 0f);
 
         //The water and the sand the coastal family stands in (#536), read off the scenes' own configs rather than
         //restated, so a tide line cannot drift off the sea it marks. The island's foot is at TOP_Y - EDGE_HEIGHT,
@@ -605,12 +607,12 @@ namespace Prazsky.Core.Render
             //light along their seams, a station's own, well under the grid's: it is lit by a sun, not a vector.
             SceneKind.Grid => new(new Vector3(0.08f, 0.50f, 0.75f), new Vector3(0.05f, 0.34f, 0.52f), 0f, Vector3.One, 0f, 0f),
             SceneKind.Space => new(new Vector3(0.11f, 0.13f, 0.17f), new Vector3(0.08f, 0.10f, 0.13f), 0f, Vector3.One, 0f, 0f),
-            //THE COLD FAMILY (#534): the fractures in the cap carry a faint cold light - the sky through the ice,
-            //where a crack scatters it - in patches, since a fracture is lit where the ice behind it is thin;
-            //and RIME on the drum, hoarfrost crusted white on the vertical faces, most of the way to white.
-            SceneKind.Polar => new(new Vector3(0.05f, 0.11f, 0.18f), Vector3.Zero, 0f, Vector3.One, 0f, 0.6f,
+            //THE COLD FAMILY (#534): RIME on the drum, hoarfrost crusted white on the vertical faces, most of the
+            //way to white. The faint cold light #534 put in the cap's fractures went with the fractures (the
+            //owner's ruling of 2026-09-24, see IslandRelief): the ice has no joints for it to lie in.
+            SceneKind.Polar => new(Vector3.Zero, Vector3.Zero, 0f, Vector3.One, 0f, 0.6f,
                 new Vector3(0.90f, 0.93f, 0.97f), 0.7f),
-            SceneKind.Aurora => new(new Vector3(0.04f, 0.10f, 0.12f), Vector3.Zero, 0f, Vector3.One, 0f, 0.6f,
+            SceneKind.Aurora => new(Vector3.Zero, Vector3.Zero, 0f, Vector3.One, 0f, 0.6f,
                 new Vector3(0.88f, 0.92f, 0.96f), 0.7f),
             //THE COASTAL FAMILY (#536). The sea stack: BEDDING PLANES - the stack is sedimentary rock, and seen from
             //the side that is layers, each a course of its own shade with a dark seam where two meet - and a TIDE
@@ -634,26 +636,28 @@ namespace Prazsky.Core.Render
             },
             //THE OFF-WORLD AND ARID FAMILY (#538). The Moon: the pad's POWDER - the regolith's pale grey settled over
             //half the top and blown clear in a ring round the drain, three units past the funnel's mouth and fading
-            //back over three more (the craters are the shape's own relief). Mars: the plain's fine dust lying in
-            //the crevices (MarsSceneConfig.RustColorPale is the dust's tone) and the drum in beds like the mesas'
+            //back over three more (the craters are in the pad's mesh). Mars: a thin film of the plain's fine dust
+            //on the crust (MarsSceneConfig.RustColorPale is the dust's tone) and the drum in beds like the mesas'
             //(#536's strata), under the darker crust LookFor gives the top. The outback: nothing lies on Uluru -
             //its flutes are the shape's relief. The desert: SAND DRIFTED against the drum - the height band in the
             //dunes' pale sand, its top half a unit up the foot in the lee and two units higher on the windward
-            //face (DesertSceneConfig.Wind, reversed) - and sand blown into every joint of the top.
+            //face (DesertSceneConfig.Wind, reversed) - and a film of the same sand over the top. The first cut put
+            //the dust and the sand IN THE JOINTS of the authored paving; with the paving gone from these two tops
+            //(SceneRelief) it lies on the rock.
             SceneKind.Moon => NO_DRESSING with
             {
                 DustColor = new Vector3(0.64f, 0.63f, 0.62f), DustStrength = 0.55f, DustClearRadius = FUNNEL_TOP_RADIUS + 3f
             },
             SceneKind.Mars => NO_DRESSING with
             {
-                JointDustColor = new Vector3(0.72f, 0.56f, 0.42f), JointDustStrength = 0.75f,
+                DustColor = new Vector3(0.72f, 0.56f, 0.42f), DustStrength = 0.30f,
                 StrataSpacing = 0.5f, StrataStrength = 0.5f
             },
             SceneKind.Desert => NO_DRESSING with
             {
                 BandColor = new Vector3(0.86f, 0.70f, 0.50f), BandTopY = DESERT_SAND_Y + 0.6f, BandFade = 0.5f,
                 BandStrength = 1f, BandWindRise = 2.0f,
-                JointDustColor = new Vector3(0.86f, 0.70f, 0.50f), JointDustStrength = 0.85f
+                DustColor = new Vector3(0.86f, 0.70f, 0.50f), DustStrength = 0.35f
             },
             _ => NO_DRESSING
         };
@@ -1017,7 +1021,6 @@ namespace Prazsky.Core.Render
             _bodyRenderer.JointGlowPatchiness = dressing.Patchiness;
             _capRenderer.SlabWarp = relief.CapWarp;
             _bodyRenderer.SlabWarp = relief.DrumWarp;
-            _capRenderer.Craters = new Vector3(relief.CraterSize, relief.CraterDepth, relief.CraterDepth * 0.3f);
             _bodyRenderer.SideDustStrength = dressing.SideDustStrength;
             _bodyRenderer.SideDustTint = dressing.SideDustStrength > 0f
                 ? ColorSpace.SrgbToLinear(dressing.SideDustColor) / ColorSpace.SrgbToLinear(look.Drum)
@@ -1027,13 +1030,8 @@ namespace Prazsky.Core.Render
                 ? ColorSpace.SrgbToLinear(dressing.DustColor) / ColorSpace.SrgbToLinear(look.Cap)
                 : Vector3.One;
 
-            //The arid family's dust (#538): the top dust blown clear round the drain, and the dust in the top's
-            //joints - both the cap's; the drum's joints stay clean.
+            //The arid family (#538): the top dust blown clear round the drain
             _capRenderer.TopDustClear = new Vector2(dressing.DustClearRadius, 3f);
-            _capRenderer.JointDustStrength = dressing.JointDustStrength;
-            _capRenderer.JointDustTint = dressing.JointDustStrength > 0f
-                ? ColorSpace.SrgbToLinear(dressing.JointDustColor) / ColorSpace.SrgbToLinear(look.Cap)
-                : Vector3.One;
 
             //The coastal family's height bands and bedding planes (#536), on the drum and on the cap's own sides -
             //the cap's nose is a side face too, and a sea stack's layers run up to its top. The band is a ratio

@@ -88,8 +88,14 @@ namespace Prazsky.Core.Render
         /// frequencies are whole numbers). <b>Two lathes that share an edge must share the phase</b> (the
         /// island's stone cap and concrete drum both leave it 0), or the seam opens.
         /// </param>
+        /// <param name="heightField">
+        /// A lift in Y for every vertex, given its position after the radial irregularity — how the lunar
+        /// pad's craters are cut (#538): real bowls and rims in the dish, since the normals below are taken
+        /// from the positions actually drawn. The field is the caller's to keep zero where a ring must stay
+        /// exact (the floor's arris, a ring another lathe shares); null leaves the profile's heights.
+        /// </param>
         public LatheMesh(GraphicsDevice graphicsDevice, IReadOnlyList<LathePoint> profile, int segments,
-            float irregularityAmplitude = 0f, float irregularityPhase = 0f)
+            float irregularityAmplitude = 0f, float irregularityPhase = 0f, Func<Vector3, float> heightField = null)
         {
             if (profile == null) throw new ArgumentNullException(nameof(profile));
             if (profile.Count < 2) throw new ArgumentOutOfRangeException(nameof(profile));
@@ -121,6 +127,7 @@ namespace Prazsky.Core.Render
                             * Irregularity(angle + irregularityPhase, point.Y + irregularityPhase);
 
                     positions[k, s] = new Vector3(radius * cos[s], point.Y, radius * sin[s]);
+                    if (heightField != null) positions[k, s].Y += heightField(positions[k, s]);
                 }
             }
 

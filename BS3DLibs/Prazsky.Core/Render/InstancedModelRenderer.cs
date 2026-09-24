@@ -68,7 +68,7 @@ namespace Prazsky.Core.Render
         private EffectParameter _slabWarpParam, _sideDustTintParam, _sideDustStrengthParam;
         private EffectParameter _bandTopYParam, _bandFadeParam, _bandTintParam, _bandWetParam, _bandStrengthParam,
             _strataSpacingParam, _strataStrengthParam;
-        private EffectParameter _jointDustTintParam, _jointDustStrengthParam, _topDustClearParam, _bandWindParam, _cratersParam;
+        private EffectParameter _topDustClearParam, _bandWindParam;
         private EffectParameter _cavityStrengthParam;
         private EffectParameter _reliefShadowStrengthParam;
         private EffectParameter _parallaxScaleParam;
@@ -364,16 +364,6 @@ namespace Prazsky.Core.Render
         public float StrataStrength { get; set; }
 
         /// <summary>
-        /// Dust lying in the slab joints (#538) — sand blown into the desert island's joints, the plain's dust in
-        /// the Martian rock's crevices: an albedo ratio in <see cref="TopDustTint"/>'s convention taken by the
-        /// groove's floor, and how much of it. 0, the default, is none.
-        /// </summary>
-        public Vector3 JointDustTint { get; set; } = Vector3.One;
-
-        /// <inheritdoc cref="JointDustTint"/>
-        public float JointDustStrength { get; set; }
-
-        /// <summary>
         /// The top dust blown clear round the world's axis (#538) — the lunar pad's powder swept off in a ring round
         /// the drain: X the radius inside which <see cref="TopDustTint"/> is gone, Y how far outside it the dust
         /// fades back in. Zero clears nothing.
@@ -386,13 +376,6 @@ namespace Prazsky.Core.Render
         /// world units. Zero is a level band.
         /// </summary>
         public Vector3 BandWind { get; set; }
-
-        /// <summary>
-        /// Craters in the height field of the up-facing surfaces (#538) — the lunar pad's top: X the cell size in
-        /// world units (one crater a cell, a quarter to a third of the cell across), Y the bowl's depth, Z the rim's
-        /// height. Zero, the default, cuts none, and the branch on it costs the marches nothing.
-        /// </summary>
-        public Vector3 Craters { get; set; }
 
         /// <summary>
         /// How far the slab joint grid is bent by a world-space noise, in world units (#534): 0, the default,
@@ -1106,11 +1089,8 @@ namespace Prazsky.Core.Render
             _bandStrengthParam = _effect.Parameters["BandStrength"];
             _strataSpacingParam = _effect.Parameters["StrataSpacing"];
             _strataStrengthParam = _effect.Parameters["StrataStrength"];
-            _jointDustTintParam = _effect.Parameters["JointDustTint"];
-            _jointDustStrengthParam = _effect.Parameters["JointDustStrength"];
             _topDustClearParam = _effect.Parameters["TopDustClear"];
             _bandWindParam = _effect.Parameters["BandWind"];
-            _cratersParam = _effect.Parameters["Craters"];
             _cavityStrengthParam = _effect.Parameters["CavityStrength"];
             _reliefShadowStrengthParam = _effect.Parameters["ReliefShadowStrength"];
             _parallaxScaleParam = _effect.Parameters["ParallaxScale"];
@@ -1495,11 +1475,8 @@ namespace Prazsky.Core.Render
             _bandStrengthParam.SetValue(BandStrength);
             _strataSpacingParam.SetValue(StrataSpacing);
             _strataStrengthParam.SetValue(StrataStrength);
-            _jointDustTintParam.SetValue(JointDustTint);
-            _jointDustStrengthParam.SetValue(JointDustStrength);
             _topDustClearParam.SetValue(TopDustClear);
             _bandWindParam.SetValue(BandWind);
-            _cratersParam.SetValue(Craters);
             _cavityStrengthParam.SetValue(CavityStrength);
             _reliefShadowStrengthParam.SetValue(ReliefShadowStrength);
             _parallaxScaleParam.SetValue(ParallaxScale);
