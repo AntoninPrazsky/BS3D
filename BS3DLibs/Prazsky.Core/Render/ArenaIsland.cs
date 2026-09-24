@@ -347,8 +347,8 @@ namespace Prazsky.Core.Render
         //stood their cannon on the identical slab. This is the issue's first concrete pass, MATERIAL ONLY: the
         //geometry, the joints, the relief and the detail textures stay, and what changes is the colour, the
         //polish and the slab size, read off the references #441 rendered for the islands and off each scene's
-        //own ground. The authored stone stays where it already belonged (the meadow's and the sea's pale
-        //limestone), and those scenes draw exactly as before - no tint at all.
+        //own ground. The authored stone stays where it already belonged (the meadow's pale limestone, and the sea's
+        //until #536 made it a sea stack), and those scenes draw exactly as before - no tint at all.
         private static readonly IslandLook DEFAULT_LOOK = new(STONE_COLOR, CONCRETE_COLOR, 0.14f, 0.08f, 2f);
 
         private static IslandLook LookFor(SceneKind scene) => scene switch
@@ -378,6 +378,9 @@ namespace Prazsky.Core.Render
             SceneKind.Outback => new(new Vector3(0.66f, 0.41f, 0.27f), new Vector3(0.54f, 0.33f, 0.22f), 0.10f, 0.06f, 2f),
             //Pale coral limestone
             SceneKind.Tropical => new(new Vector3(0.80f, 0.78f, 0.72f), new Vector3(0.68f, 0.64f, 0.56f), 0.14f, 0.08f, 2f),
+            //A SEA STACK (#536): dark, wet, layered rock out of the sea, where #404 had kept the authored pale
+            //limestone - spray keeps the top damp, so the cap mirrors a little more of the sky than dry stone does
+            SceneKind.Sea => new(new Vector3(0.50f, 0.47f, 0.42f), new Vector3(0.46f, 0.43f, 0.38f), 0.22f, 0.14f, 2f),
             //Black basalt
             SceneKind.Volcano => new(new Vector3(0.18f, 0.17f, 0.17f), new Vector3(0.14f, 0.13f, 0.13f), 0.14f, 0.08f, 2f),
             //Rust-red rock, the plain's own
@@ -539,7 +542,15 @@ namespace Prazsky.Core.Render
         /// </summary>
         private readonly record struct IslandDressing(Vector3 CapJointGlow, Vector3 DrumJointGlow, float EventGain,
             Vector3 DustColor, float DustStrength, float Patchiness = 1f,
-            Vector3 SideDustColor = default, float SideDustStrength = 0f);
+            Vector3 SideDustColor = default, float SideDustStrength = 0f,
+            Vector3 BandColor = default, float BandTopY = 0f, float BandFade = 1f, float BandWet = 0f, float BandStrength = 0f,
+            float StrataSpacing = 1f, float StrataStrength = 0f);
+
+        //The water and the sand the coastal family stands in (#536), read off the scenes' own configs rather than
+        //restated, so a tide line cannot drift off the sea it marks. The island's foot is at TOP_Y - EDGE_HEIGHT,
+        //-13.5: half a unit under the sea's mean level, and exactly on the beach's dry sand.
+        private static readonly float SEA_LEVEL_Y = new SeaSceneConfig().LevelY;
+        private static readonly float BEACH_SAND_Y = new TropicalTerrainConfig().LevelY;
 
         private static readonly IslandDressing NO_DRESSING = new(Vector3.Zero, Vector3.Zero, 0f, Vector3.One, 0f);
 
@@ -568,6 +579,26 @@ namespace Prazsky.Core.Render
                 new Vector3(0.90f, 0.93f, 0.97f), 0.7f),
             SceneKind.Aurora => new(new Vector3(0.04f, 0.10f, 0.12f), Vector3.Zero, 0f, Vector3.One, 0f, 0.6f,
                 new Vector3(0.88f, 0.92f, 0.96f), 0.7f),
+            //THE COASTAL FAMILY (#536). The sea stack: BEDDING PLANES - the stack is sedimentary rock, and seen from
+            //the side that is layers, each a course of its own shade with a dark seam where two meet - and a TIDE
+            //LINE: the rock under the splash zone, 1.3 units over the sea's mean level, dark, wet and greened by
+            //weed, mirroring four times the sky dry rock does. No joints (the coral shape cuts none).
+            SceneKind.Sea => NO_DRESSING with
+            {
+                BandColor = new Vector3(0.09f, 0.11f, 0.08f), BandTopY = SEA_LEVEL_Y + 1.5f, BandFade = 0.5f,
+                BandWet = 3f, BandStrength = 1f,
+                StrataSpacing = 0.6f, StrataStrength = 0.6f
+            },
+            //The coral platform: a WEATHERED BAND round its foot - the grey the old high-water line leaves on coral
+            //rock at a beach, damp where the sand still holds the last tide - fading out a unit up, and a little sand
+            //blown onto the top. Not the sand crust the issue named first: the beach's own sand (TropicalSceneConfig
+            //.SandColor, 0.42/0.37/0.29 linear) is the drum's very tone, so a crust of it photographed as nothing.
+            SceneKind.Tropical => NO_DRESSING with
+            {
+                DustColor = new Vector3(0.86f, 0.79f, 0.62f), DustStrength = 0.2f,
+                BandColor = new Vector3(0.44f, 0.42f, 0.36f), BandTopY = BEACH_SAND_Y + 1.0f, BandFade = 0.6f,
+                BandWet = 1f, BandStrength = 1f
+            },
             _ => NO_DRESSING
         };
 
@@ -579,6 +610,19 @@ namespace Prazsky.Core.Render
         /// the default, is the steady crust glow.
         /// </summary>
         public float EventGlow { get; set; }
+
+        private static void ApplyHeightBands(InstancedModelRenderer renderer, in IslandDressing dressing, Vector3 albedo)
+        {
+            renderer.BandStrength = dressing.BandStrength;
+            renderer.BandTopY = dressing.BandTopY;
+            renderer.BandFade = dressing.BandFade;
+            renderer.BandWet = dressing.BandWet;
+            renderer.BandTint = dressing.BandStrength > 0f
+                ? ColorSpace.SrgbToLinear(dressing.BandColor) / ColorSpace.SrgbToLinear(albedo)
+                : Vector3.One;
+            renderer.StrataSpacing = dressing.StrataSpacing;
+            renderer.StrataStrength = dressing.StrataStrength;
+        }
 
         private static Vector3 TintFor(Vector3 wanted, Vector3 authored) =>
             wanted / ((authored.X * 0.299f + authored.Y * 0.587f + authored.Z * 0.114f) * 1.25f);
@@ -921,6 +965,12 @@ namespace Prazsky.Core.Render
             _capRenderer.TopDustTint = dressing.DustStrength > 0f
                 ? ColorSpace.SrgbToLinear(dressing.DustColor) / ColorSpace.SrgbToLinear(look.Cap)
                 : Vector3.One;
+
+            //The coastal family's height bands and bedding planes (#536), on the drum and on the cap's own sides -
+            //the cap's nose is a side face too, and a sea stack's layers run up to its top. The band is a ratio
+            //against each renderer's own albedo, as the dusts are.
+            ApplyHeightBands(_capRenderer, dressing, look.Cap);
+            ApplyHeightBands(_bodyRenderer, dressing, look.Drum);
 
             if ((Members & ArenaMembers.Cap) != 0)
             {

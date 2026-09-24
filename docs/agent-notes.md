@@ -6029,3 +6029,16 @@ Předchozí zápis říkal, že to dostavět znamená sáhnout do brány a že t
 - **Rozklad (Testbed, nastavení Low, proti louce):** Mars **+6,18 ms**, z toho ~1,7 na vrcholech (krátery a obě kamenné mřížky se počítají na každém vrcholu) a ~4,45 v pixelech (celá výška 3× kvůli normále).
 - **Změřeno párově, 31–47 cyklů:** bez oblázků −1,12 ms, bez 4. oktávy kráterů a s oktávou méně v obou reliéfech −0,25, **mřížka 256 −1,69 (100 %)**. Vyfoceno: mřížka 256 k nerozeznání od 360; bez oblázků pláň znatelně chudší (zmizí malé tmavé kameny), bez malých kráterů přestane pole číst jako Mars. **Vzata jen mřížka** (`MARS_GRID_N_REDUCED`, přestaví se při přechodu stupně), shader beze změny.
 - **Menu ve hře (orbit, 3 střídavé páry, nejlepší z každého):** **19,15 → 16,74 ms** na Low — pořád o chlup nad 16,1, ale jen scéna v menu. Zapsáno v `docs/scenes.md` (Mars) a `docs/game-shell.md`.
+
+---
+
+## 2026-09-24 — Claude Code, github-f0 (notebook: #536 ostrov oblečený — pobřeží: mořský útes s čarou přílivu, na pláži zvětralá pata)
+
+**Čtvrtá rodina.** Nový člen v triplanární cestě `ApplyHeightBands` (jen dvě dodávané techniky): **pás podle výšky** na bočních plochách (albedo poměr, mokrost jako extra `SurfaceSpecular.Environment`, hrana vlněná dvěma siny) a **vrstevní plochy** (kurzy vlastního odstínu, tmavý šev na styku, band-limitováno proti stopě pixelu). Hladiny čte `ArenaIsland` z configů scén (`SeaSceneConfig.LevelY`, `TropicalTerrainConfig.LevelY`), ne opsané.
+
+- **Moře:** z bledého vápence (#404 nechal moře bez tónu) **šedohnědý vrstevnatý útes**, vrstvy 0,6 j, čára přílivu 1,5 j nad hladinou — pod ní tmavá, zarostlá, mokrá (4× zrcadlí oblohu). Z odstupu čte jako mořský útes.
+- **Pláž:** zadání chtělo pískovou krustu u paty — ⚠ **vyfotila se jako nic**, protože písek scény (lineární 0,42/0,37/0,29) má přesně tón bubnu. Místo ní **šedší zvětralá pata** (stará čára vysoké vody), trochu vlhká, a pětina vršku zaprášená pískem. Vodní čára ne: ostrov stojí na suchém písku 2 j nad lagunou.
+- ⚠ **První řez stál na APU +0,94 až +1,41 ms** — větve běžely na každém pixelu ostrova (hlavně plochém vršku) s gradientním šumem. **Brána na boční váhu + siny** → **+0,07 / +0,11 / +0,63** (první pár pořadí běhu). Louka (bez výbavy) +0,04/+0,13 proti mainu, tedy kód navíc ostatní scény nestojí.
+- **Kontrast prstence** (kamera #404, CIEDE2000): moře 21,0 → 20,9, pláž 21,5 → 21,0.
+- ⚠ **Past focení Testbedu:** level soubor (Caldera.json) přebije `scene=` — pro scénu bez levelu brát mapu (`Maps\Full.json`). A buben je z většiny azimutů v protisvětle; osvětlená strana je z jihu/západu (`campos=6,-10.5,-36`).
+- **Nehotovo:** vilejši, mušle/kokos u bubnu (#445 už stojí kolem), zářez v profilu u hladiny (geometrie, #533).
