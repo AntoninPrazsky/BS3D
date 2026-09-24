@@ -628,13 +628,16 @@ namespace Prazsky.Core.Render
         #region Mars
 
         private readonly Effect _marsEffect;
-        private readonly VertexBuffer _marsVertexBuffer;
-        private readonly IndexBuffer _marsIndexBuffer;
-        private readonly int _marsIndexCount;
+        private VertexBuffer _marsVertexBuffer; //not readonly: a tier's crossing rebuilds it (EnsureMarsGrid, #540)
+        private IndexBuffer _marsIndexBuffer;
+        private int _marsIndexCount;
 
         //The crater field is evaluated four times a pixel (the vertex tap plus the normal's three taps),
         //the Moon's own reason for its grid density; Mars keeps it rather than the coarser desert grid.
         private const int MARS_GRID_N = 360;
+
+        //The reduced program's grid (#540), the volcano's VOLCANO_GRID_N_REDUCED for the same reason: see SelectMarsTechnique
+        private const int MARS_GRID_N_REDUCED = 256;
         private const float MARS_EXTENT = 1000f;
 
         //The moons pass shares the sky-replacing scenes' full-screen-quad machinery (_spaceQuad), so only
@@ -1396,7 +1399,7 @@ namespace Prazsky.Core.Render
             //terrain grid, and a small full-screen pass for Phobos and Deimos sharing the sky-replacing
             //scenes' own quad (_spaceQuad).
             _marsEffect = content.Load<Effect>("Shaders/Mars");
-            CreateGridMesh(MARS_GRID_N, MARS_EXTENT, out _marsVertexBuffer, out _marsIndexBuffer, out _marsIndexCount);
+            EnsureMarsGrid(MARS_GRID_N);
 
             //The authored ground and its reduced program; SceneDetail picks between them (SelectMarsTechnique)
             _marsTerrainFull = _marsEffect.Techniques["MarsTerrain"];
@@ -4456,8 +4459,31 @@ namespace Prazsky.Core.Render
         /// added noise the reduced program drops, the mesas staying on every tier. Held as a cached technique rather
         /// than looked up, since <c>DrawMars</c> assigns it every frame.
         /// </summary>
-        private void SelectMarsTechnique() =>
+        private void SelectMarsTechnique()
+        {
             _marsTerrainTechnique = _sceneDetail > 0.5f ? _marsTerrainFull : _marsTerrainReduced;
+
+            //And a coarser grid under the reduced program since #540, the volcano's own step: on the APU at Low,
+            //360 -> 256 was 1.69 ms of Mars's frame (47 cycles, 100 %) and photographed identical, where the two
+            //cuts to the ground's program that were tried beside it were not - the pebbles' lattice (1.12 ms) left
+            //the plain visibly emptier, and the fourth crater octave with an octave off both reliefs (0.25) took
+            //the small craters that make the field read. The grid is only rebuilt once the mesh exists: this runs
+            //from the constructor before it is first made.
+            if (_marsVertexBuffer != null) EnsureMarsGrid(_sceneDetail > 0.5f ? MARS_GRID_N : MARS_GRID_N_REDUCED);
+        }
+
+        /// <summary>(Re)builds Mars's grid at <paramref name="n"/> vertices a side when it is not that already (#540).</summary>
+        private void EnsureMarsGrid(int n)
+        {
+            if (_marsVertexBuffer != null && _marsGridN == n) return;
+
+            _marsVertexBuffer?.Dispose();
+            _marsIndexBuffer?.Dispose();
+            CreateGridMesh(n, MARS_EXTENT, out _marsVertexBuffer, out _marsIndexBuffer, out _marsIndexCount);
+            _marsGridN = n;
+        }
+
+        private int _marsGridN;
 
         private void SelectMeadowTechnique() =>
             _meadowEffect.CurrentTechnique = _meadowEffect.Techniques[_sceneDetail > 0.5f ? "Meadow" : "MeadowReduced"];
@@ -6408,7 +6434,7 @@ namespace Prazsky.Core.Render
         /// </summary>
         private void DrawMarsTerrain(in SceneFrame frame)
         {
-            float cell = MARS_EXTENT / (MARS_GRID_N - 1);
+            float cell = MARS_EXTENT / (_marsGridN - 1);
             float originX = MathF.Round(frame.Camera.Position.X / cell) * cell;
             float originZ = MathF.Round(frame.Camera.Position.Z / cell) * cell;
 
