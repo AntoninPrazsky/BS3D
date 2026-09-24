@@ -67,7 +67,8 @@ namespace Prazsky.Core.Render
         private EffectParameter _jointGlowParam, _jointGlowPatchinessParam, _topDustTintParam, _topDustStrengthParam;
         private EffectParameter _slabWarpParam, _sideDustTintParam, _sideDustStrengthParam;
         private EffectParameter _bandTopYParam, _bandFadeParam, _bandTintParam, _bandWetParam, _bandStrengthParam,
-            _strataSpacingParam, _strataStrengthParam;
+            _strataSpacingParam, _strataStrengthParam, _bandLeanParam, _topDustClearParam, _dustInJointsParam,
+            _bandHeapParam, _craterCellParam, _craterDepthParam, _fluteCountParam;
         private EffectParameter _cavityStrengthParam;
         private EffectParameter _reliefShadowStrengthParam;
         private EffectParameter _parallaxScaleParam;
@@ -351,6 +352,48 @@ namespace Prazsky.Core.Render
 
         /// <inheritdoc cref="BandTopY"/>
         public float BandStrength { get; set; }
+
+        /// <summary>
+        /// How the band's top leans round a surface standing at the origin (#538): a world XZ vector whose direction
+        /// is the side the band rises on and whose length is how far it rises there (and falls opposite) — the desert's
+        /// sand drifted against the drum's windward side. Zero, the default, is level.
+        /// </summary>
+        public Vector2 BandLean { get; set; }
+
+        /// <summary>
+        /// Where the top's dust is blown clear (#538): it fades in from this radius about the origin over three units —
+        /// the Moon's landing pad swept clean round the drain. Zero, the default, leaves the dust where it lies.
+        /// </summary>
+        public float TopDustClear { get; set; }
+
+        /// <summary>
+        /// How much more of the top's dust lies in the joints than on the slabs (#538) — sand in a desert paving's
+        /// joints, dust in a rock's crevices. Zero, the default, is the even dust.
+        /// </summary>
+        public float DustInJoints { get; set; }
+
+        /// <summary>
+        /// How far the height band heaps (#538): inside it the shading normal leans out from the wall to sand's angle
+        /// of repose and the relief goes under it — a drift banked against the drum, not a stain on it. 0, the
+        /// default, is a flat band; 1 the whole slope.
+        /// </summary>
+        public float BandHeap { get; set; }
+
+        /// <summary>
+        /// Small craters in the top (#538): at most one per cell of this size in world units, a bowl with a raised rim
+        /// and a pale halo, <see cref="CraterDepth"/> of its radius deep. 0, the default, is none.
+        /// </summary>
+        public float CraterCell { get; set; }
+
+        /// <inheritdoc cref="CraterCell"/>
+        public float CraterDepth { get; set; }
+
+        /// <summary>
+        /// Flutes round a drum standing at the origin (#538): this many vertical channels round the full turn, cut
+        /// by azimuth in place of the joint grid (whose depth, <see cref="SlabJointDepth"/>, they take). 0, the
+        /// default, is the grid. A whole number keeps the channels continuous where the turn closes.
+        /// </summary>
+        public float FluteCount { get; set; }
 
         /// <summary>
         /// Bedding planes on the side faces (#536): layers <see cref="StrataSpacing"/> world units thick, each a
@@ -1074,6 +1117,13 @@ namespace Prazsky.Core.Render
             _bandStrengthParam = _effect.Parameters["BandStrength"];
             _strataSpacingParam = _effect.Parameters["StrataSpacing"];
             _strataStrengthParam = _effect.Parameters["StrataStrength"];
+            _bandLeanParam = _effect.Parameters["BandLean"];
+            _topDustClearParam = _effect.Parameters["TopDustClear"];
+            _dustInJointsParam = _effect.Parameters["DustInJoints"];
+            _bandHeapParam = _effect.Parameters["BandHeap"];
+            _craterCellParam = _effect.Parameters["CraterCell"];
+            _craterDepthParam = _effect.Parameters["CraterDepth"];
+            _fluteCountParam = _effect.Parameters["FluteCount"];
             _cavityStrengthParam = _effect.Parameters["CavityStrength"];
             _reliefShadowStrengthParam = _effect.Parameters["ReliefShadowStrength"];
             _parallaxScaleParam = _effect.Parameters["ParallaxScale"];
@@ -1458,6 +1508,13 @@ namespace Prazsky.Core.Render
             _bandStrengthParam.SetValue(BandStrength);
             _strataSpacingParam.SetValue(StrataSpacing);
             _strataStrengthParam.SetValue(StrataStrength);
+            _bandLeanParam.SetValue(BandLean);
+            _topDustClearParam.SetValue(TopDustClear);
+            _dustInJointsParam.SetValue(DustInJoints);
+            _bandHeapParam.SetValue(BandHeap);
+            _craterCellParam.SetValue(CraterCell);
+            _craterDepthParam.SetValue(CraterDepth);
+            _fluteCountParam.SetValue(FluteCount);
             _cavityStrengthParam.SetValue(CavityStrength);
             _reliefShadowStrengthParam.SetValue(ReliefShadowStrength);
             _parallaxScaleParam.SetValue(ParallaxScale);

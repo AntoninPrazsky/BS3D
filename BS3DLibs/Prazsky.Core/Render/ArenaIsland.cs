@@ -372,10 +372,12 @@ namespace Prazsky.Core.Render
             //Wet dark rock - WET since #535: the polish is the river's and the crystals' light standing on the
             //cap as a sheen, which 0.30 read as damp and 0.48 reads as dripping.
             SceneKind.Cavern => new(new Vector3(0.31f, 0.32f, 0.34f), new Vector3(0.25f, 0.26f, 0.28f), 0.48f, 0.36f, 2f),
-            //Grey regolith concrete
-            SceneKind.Moon => new(new Vector3(0.50f, 0.49f, 0.48f), new Vector3(0.42f, 0.42f, 0.42f), 0.08f, 0.05f, 2.5f),
-            //Red sandstone
-            SceneKind.Outback => new(new Vector3(0.66f, 0.41f, 0.27f), new Vector3(0.54f, 0.33f, 0.22f), 0.10f, 0.06f, 2f),
+            //A landing pad of compacted regolith, the ground's own DARK regolith (#538: it was 0.50 grey concrete,
+            //and the pale powder settled on it needs a darker pad to read against)
+            SceneKind.Moon => new(MOON_PAD, new Vector3(0.42f, 0.42f, 0.42f), 0.08f, 0.05f, 2.5f),
+            //Uluru's own rock (#538): the cap the red the sun rakes, the drum six tenths of the way there from the
+            //red of a face in shadow, both off OutbackSceneConfig
+            SceneKind.Outback => new(ULURU_BRIGHT, ULURU_DRUM, 0.10f, 0.06f, 2f),
             //Pale coral limestone
             SceneKind.Tropical => new(new Vector3(0.80f, 0.78f, 0.72f), new Vector3(0.68f, 0.64f, 0.56f), 0.14f, 0.08f, 2f),
             //A SEA STACK (#536): dark, wet, layered rock out of the sea, where #404 had kept the authored pale
@@ -507,11 +509,32 @@ namespace Prazsky.Core.Render
         private readonly record struct IslandRelief(float CapReliefFrequency, float CapReliefStrength,
             float CapJointWidth, float CapJointDepth, float CapSlab,
             float DrumSlab, float DrumJointWidth, float DrumJointDepth, float DrumReliefFrequency, float DrumReliefStrength,
-            float CapWarp = 0f);
+            float CapWarp = 0f, float DrumFlutes = 0f, float CapCraterCell = 0f, float CapCraterDepth = 0f);
 
         //The authored stone's figures are the constructor's, restated here so a shape switch back to stone
         //restores exactly what the constructor set.
         private static readonly IslandRelief STONE_RELIEF = new(9f, 0.008f, 0.025f, 0.025f, -1f, 0f, 0f, 0f, 4.5f, 0.012f);
+
+        /// <summary>
+        /// A shape's relief with a scene's own changes to it (#538): the Moon's landing pad cuts no joints, since a pad
+        /// is poured, and is pocked with small craters instead; the outback's monolith stub has no paving on its top
+        /// and FLUTES down its drum, the channels water cuts into Uluru's flanks, 72 round the turn (about 2.3 units
+        /// apiece at the drum's radius) and a fifth of a unit deep at their deepest.
+        /// </summary>
+        private static IslandRelief ReliefFor(SceneKind scene, IslandShape shape) => scene switch
+        {
+            SceneKind.Moon => ReliefFor(shape) with
+            {
+                CapJointWidth = 0f, CapJointDepth = 0f, CapReliefFrequency = 5f, CapReliefStrength = 0.018f,
+                CapCraterCell = 1.6f, CapCraterDepth = 0.3f
+            },
+            SceneKind.Outback => ReliefFor(shape) with
+            {
+                CapJointWidth = 0f, CapJointDepth = 0f, CapReliefFrequency = 3.5f, CapReliefStrength = 0.016f,
+                DrumFlutes = 72f, DrumJointDepth = 0.2f, DrumReliefFrequency = 3f, DrumReliefStrength = 0.014f
+            },
+            _ => ReliefFor(shape)
+        };
 
         private static IslandRelief ReliefFor(IslandShape shape) => shape switch
         {
@@ -544,13 +567,31 @@ namespace Prazsky.Core.Render
             Vector3 DustColor, float DustStrength, float Patchiness = 1f,
             Vector3 SideDustColor = default, float SideDustStrength = 0f,
             Vector3 BandColor = default, float BandTopY = 0f, float BandFade = 1f, float BandWet = 0f, float BandStrength = 0f,
-            float StrataSpacing = 1f, float StrataStrength = 0f);
+            float StrataSpacing = 1f, float StrataStrength = 0f,
+            Vector2 BandLean = default, float DustClear = 0f, float DustInJoints = 0f, float BandHeap = 0f);
 
         //The water and the sand the coastal family stands in (#536), read off the scenes' own configs rather than
         //restated, so a tide line cannot drift off the sea it marks. The island's foot is at TOP_Y - EDGE_HEIGHT,
         //-13.5: half a unit under the sea's mean level, and exactly on the beach's dry sand.
         private static readonly float SEA_LEVEL_Y = new SeaSceneConfig().LevelY;
         private static readonly float BEACH_SAND_Y = new TropicalTerrainConfig().LevelY;
+
+        //The off-world and arid family's grounds (#538), in sRGB off the scenes' own linear configs for the same
+        //reason: the dust on an island is the dust of the ground it stands in. The foot is where their bands start.
+        private const float FOOT_Y = TOP_Y - EDGE_HEIGHT;
+        private static readonly Vector3 MOON_REGOLITH = ColorSpace.LinearToSrgb(new MoonTerrainConfig().RegolithColorPale.ToVector3());
+        private static readonly Vector3 MARS_DUST = ColorSpace.LinearToSrgb(new MarsSurfaceConfig().RustColorPale.ToVector3());
+        private static readonly Vector3 OUTBACK_SOIL = ColorSpace.LinearToSrgb(new OutbackSurfaceConfig().SoilColor.ToVector3());
+        //The desert's PALE sand, the dunes' crests: its SandColor is the saturated orange of a dune's flank, and
+        //filled into the joints that photographed as orange lines pulling the cap towards the drain's gold
+        private static readonly Vector3 DESERT_SAND = ColorSpace.LinearToSrgb(new DesertSceneConfig().SandColorPale.ToVector3());
+        private static readonly Vector3 MOON_PAD = ColorSpace.LinearToSrgb(new MoonTerrainConfig().RegolithColor.ToVector3());
+        private static readonly Vector3 ULURU_BRIGHT = ColorSpace.LinearToSrgb(new OutbackSurfaceConfig().RockColorBright.ToVector3());
+        private static readonly Vector3 ULURU_DRUM = ColorSpace.LinearToSrgb(Vector3.Lerp(
+            new OutbackSurfaceConfig().RockColorDeep.ToVector3(), new OutbackSurfaceConfig().RockColorBright.ToVector3(), 0.6f));
+
+        //Upwind, the side sand drifts against: the desert's wind is a direction it blows TOWARDS
+        private static readonly Vector2 DESERT_WINDWARD = -Vector2.Normalize(new DesertSceneConfig().Wind.ToVector2());
 
         private static readonly IslandDressing NO_DRESSING = new(Vector3.Zero, Vector3.Zero, 0f, Vector3.One, 0f);
 
@@ -599,6 +640,36 @@ namespace Prazsky.Core.Render
                 BandColor = new Vector3(0.44f, 0.42f, 0.36f), BandTopY = BEACH_SAND_Y + 1.0f, BandFade = 0.6f,
                 BandWet = 1f, BandStrength = 1f
             },
+            //THE OFF-WORLD AND ARID FAMILY (#538). The Moon: a LANDING PAD - powder settled over the whole top and
+            //blown clear in a ring round the drain, and a rim of darker compacted spoil round the foot. Its joints
+            //are gone (ReliefFor), a pad is poured, not paved.
+            SceneKind.Moon => NO_DRESSING with
+            {
+                DustColor = MOON_REGOLITH, DustStrength = 0.8f, DustClear = FUNNEL_TOP_RADIUS + 2.5f,
+                BandColor = new Vector3(0.34f, 0.33f, 0.32f), BandTopY = FOOT_Y + 1.1f, BandFade = 0.5f, BandStrength = 0.8f
+            },
+            //Mars: LAYERED rust rock - beds on its sides - with the pale rust dust lying in its crevices more than on
+            //its faces, and a darker weathered crust on the walls.
+            SceneKind.Mars => NO_DRESSING with
+            {
+                DustColor = MARS_DUST, DustStrength = 0.15f, DustInJoints = 5f,
+                SideDustColor = new Vector3(0.36f, 0.25f, 0.19f), SideDustStrength = 0.35f,
+                StrataSpacing = 0.55f, StrataStrength = 0.45f
+            },
+            //The outback: a MONOLITH STUB - Uluru's own red rock, its drum fluted from top to foot (ReliefFor), with
+            //the red soil of the plain splashed up round its foot.
+            SceneKind.Outback => NO_DRESSING with
+            {
+                BandColor = OUTBACK_SOIL, BandTopY = FOOT_Y + 0.8f, BandFade = 0.5f, BandStrength = 0.7f
+            },
+            //The desert: HALF BURIED - sand drifted against the drum on its windward side, rising a unit and a half
+            //higher there than in its lee, sand filling the joints of the top and a film of it across the slabs.
+            SceneKind.Desert => NO_DRESSING with
+            {
+                DustColor = DESERT_SAND, DustStrength = 0.15f, DustInJoints = 5f,
+                BandColor = DESERT_SAND, BandTopY = FOOT_Y + 1.2f, BandFade = 0.35f, BandStrength = 1f,
+                BandLean = DESERT_WINDWARD * 1.5f, BandHeap = 0.6f
+            },
             _ => NO_DRESSING
         };
 
@@ -622,6 +693,8 @@ namespace Prazsky.Core.Render
                 : Vector3.One;
             renderer.StrataSpacing = dressing.StrataSpacing;
             renderer.StrataStrength = dressing.StrataStrength;
+            renderer.BandLean = dressing.BandLean;
+            renderer.BandHeap = dressing.BandHeap;
         }
 
         private static Vector3 TintFor(Vector3 wanted, Vector3 authored) =>
@@ -931,7 +1004,7 @@ namespace Prazsky.Core.Render
                 _bodyRenderer.SetMesh(_islandMeshes[(int)shape].Body);
             }
 
-            IslandRelief relief = ReliefFor(shape);
+            IslandRelief relief = ReliefFor(scene, shape);
 
             _capRenderer.SpecularAmbientStrength = look.CapPolish;
             _capRenderer.SlabSize = relief.CapSlab < 0f ? look.Slab : relief.CapSlab;
@@ -946,6 +1019,9 @@ namespace Prazsky.Core.Render
             _bodyRenderer.SlabJointDepth = relief.DrumJointDepth;
             _bodyRenderer.SurfaceReliefFrequency = relief.DrumReliefFrequency;
             _bodyRenderer.SurfaceReliefStrength = relief.DrumReliefStrength;
+            _bodyRenderer.FluteCount = relief.DrumFlutes;
+            _capRenderer.CraterCell = relief.CapCraterCell;
+            _capRenderer.CraterDepth = relief.CapCraterDepth;
 
             //The dressing (#535): the joints' glow, pushed by the scene's event, and the dust on the top. The
             //dust tint is a ratio in linear light of what lies on the stone to the stone, so the shader's
@@ -962,6 +1038,8 @@ namespace Prazsky.Core.Render
                 ? ColorSpace.SrgbToLinear(dressing.SideDustColor) / ColorSpace.SrgbToLinear(look.Drum)
                 : Vector3.One;
             _capRenderer.TopDustStrength = dressing.DustStrength;
+            _capRenderer.TopDustClear = dressing.DustClear;
+            _capRenderer.DustInJoints = dressing.DustInJoints;
             _capRenderer.TopDustTint = dressing.DustStrength > 0f
                 ? ColorSpace.SrgbToLinear(dressing.DustColor) / ColorSpace.SrgbToLinear(look.Cap)
                 : Vector3.One;

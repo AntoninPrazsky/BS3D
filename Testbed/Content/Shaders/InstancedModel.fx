@@ -621,6 +621,31 @@ float3 BandTint;
 float BandWet;
 float BandStrength;
 
+//How the band's top LEANS round the island (#538): the desert's sand drifts higher against the drum on its windward
+//side. A world XZ vector - its direction the side the band rises on, its length how many units it rises there, and
+//as much lower opposite. The island stands at the origin, so the bearing is the pixel's own XZ. Zero is level.
+float2 BandLean;
+
+//Where the top's dust is BLOWN CLEAR (#538): the Moon's landing pad has its powder swept off round the drain, and
+//the dust fades in from this radius over three units. Zero leaves it everywhere the dust term puts it.
+float TopDustClear;
+
+//How much more of the top's dust lies IN the joints than on the slabs (#538): sand fills a desert paving's joints
+//and dust a rock's crevices. Read against the groove the height field hands out; zero is the even dust #535 laid.
+float DustInJoints;
+
+//How far the band HEAPS (#538): the desert's sand is not a stain on the drum but a drift banked against it, and a
+//drift is a slope - so inside the band the shading normal leans out from the wall towards the sky, at sand's angle
+//of repose, by this much (0 none, 1 the whole slope), and the stone's relief and joints go under it. Without it a
+//sand-coloured band on a sand-coloured stone photographed as nothing at all (the first cut).
+float BandHeap;
+
+//Small CRATERS in the top (#538), the Moon's pad pocked by what has fallen on it: one crater at most per cell of this
+//size in world units, three cells in five holding one, each a bowl with a raised rim and a pale halo of ejecta.
+//CraterDepth is the bowl's depth as a fraction of its radius. CraterCell 0 is none and skips the branch.
+float CraterCell;
+float CraterDepth;
+
 //Bedding planes on the side faces (#536): a stack of sedimentary rock is layers, and seen from the side each layer
 //is a course of its own shade with a dark line where two meet. StrataSpacing is the layers' thickness in world
 //units, StrataStrength how far the lines and courses darken; 0 is none and skips the branch. Band-limited against
@@ -631,9 +656,10 @@ float StrataStrength;
 //The two above, applied to the triplanar paths' albedo (#536): returns how wet the pixel is, which the caller hands
 //ShadePixel as extra sky mirrored. `side` is how far the geometric normal is from vertical, the dusts' own weight,
 //and `footprintY` how much world height one pixel spans - both taken outside the branches, which hold no gradients.
-float ApplyHeightBands(inout float3 texRgb, float3 worldPosition, float side, float footprintY)
+float ApplyHeightBands(inout float3 texRgb, float3 worldPosition, float side, float footprintY, out float heap)
 {
     float wet = 0.0;
+    heap = 0.0;
 
     //Both terms are for SIDE faces, and on the island most pixels are its flat top: behind a data branch on the side
     //weight as well as on the uniform, so the top pays nothing (it paid about a millisecond on the APU in the first
@@ -643,11 +669,16 @@ float ApplyHeightBands(inout float3 texRgb, float3 worldPosition, float side, fl
     if (BandStrength > 0.0 && side > 0.02)
     {
         float wander = sin(dot(worldPosition.xz, float2(0.31, 0.23))) * sin(dot(worldPosition.xz, float2(-0.17, 0.29)) + 1.3);
-        float tideLine = BandTopY + wander * BandFade * 0.6;
+        float2 bearing = worldPosition.xz * rsqrt(max(dot(worldPosition.xz, worldPosition.xz), 1e-4));
+        float tideLine = BandTopY + wander * BandFade * 0.6 + dot(bearing, BandLean);
         float inBand = saturate((tideLine - worldPosition.y) / max(BandFade, 1e-3)) * side;
 
         texRgb = lerp(texRgb, texRgb * BandTint, BandStrength * inBand);
         wet = BandWet * BandStrength * inBand;
+        heap = BandHeap * inBand;
+
+        //and the stone's grain goes under the sand with its relief
+        texRgb = lerp(texRgb, BandTint, heap * 0.7);
     }
 
     [branch]
@@ -669,6 +700,45 @@ float ApplyHeightBands(inout float3 texRgb, float3 worldPosition, float side, fl
     }
 
     return wet;
+}
+
+//The normal of a drift banked against a wall whose normal this is (#538): leaning out from the vertical by sand's
+//angle of repose, about 34 degrees - so the drift faces the sky the way the ground it runs into does.
+float3 HeapNormal(float3 wallNormal)
+{
+    float2 outward = wallNormal.xz * rsqrt(max(dot(wallNormal.xz, wallNormal.xz), 1e-6));
+    return float3(outward.x * 0.56, 0.83, outward.y * 0.56);
+}
+
+//The crater field (#538): a height to add to the surface's, and how much pale ejecta lies on this pixel. One crater
+//per cell at most, kept a rim's width clear of the cell's edges so no neighbour has to be read; each one fades out
+//against the pixel's footprint before it is two pixels across, so a far pad goes smooth rather than crawling.
+float CraterField(float2 xz, float footprint, out float ejecta)
+{
+    float2 grid = xz / CraterCell;
+    float2 cell = floor(grid);
+
+    //Four hashes of the cell without a sine (Hoskins' hash44): the sine hash's four transcendentals were most of
+    //this function's cost on every pixel of the pad
+    float4 h = frac(cell.xyxy * float4(0.1031, 0.1030, 0.0973, 0.1099));
+    h += dot(h, h.wzxy + 33.33);
+    h = frac((h.xxyz + h.yzzw) * h.zywx);
+
+    //Mostly small ones and the odd big one, radius in cells
+    float radius = lerp(0.10, 0.32, h.z * h.z);
+    float2 centre = lerp(radius * 1.5, 1.0 - radius * 1.5, h.xy);
+    float d = length(grid - cell - centre) / radius;
+
+    float worldRadius = radius * CraterCell;
+    float present = step(h.w, 0.6) * saturate(worldRadius / max(footprint, 1e-5) * 0.5 - 0.5);
+
+    //The rim a smooth bump about the crest rather than a gaussian, for the same reason, and zero well inside the
+    //cell's margin
+    float bowl = min(d * d - 1.0, 0.0);
+    float crest = saturate(1.0 - abs(d - 1.0) * 2.2);
+    float rim = crest * crest * (3.0 - 2.0 * crest) * 0.3;
+    ejecta = present * smoothstep(1.45, 0.95, d);
+    return (bowl + rim) * worldRadius * CraterDepth * present;
 }
 
 //How dark the pits of the relief go from being shaded by their own walls (0 = off)
@@ -769,8 +839,41 @@ float SlabGrooveAxis(float coordinate, float footprint)
     return (1 - smoothstep(width, width + bevel, distance)) * saturate(1 - footprint / (SlabSize * 0.5));
 }
 
+//FLUTES round a drum standing at the origin (#538): the outback's monolith stub is grooved from top to foot the way
+//water cuts Uluru's flanks, and those grooves run DOWN a round face - which the joint grid, cut in world X and Z, can
+//only do on a straight one (on the drum it came out as chevrons and boxes, the first cut). So the flutes are cut by
+//azimuth: this many round the full turn, each a scalloped channel between two sharp ridges, of its own depth, and
+//wandering a little as it runs down. 0 is the joint grid. The groove it hands out is 1 in a channel's floor.
+float FluteCount;
+
+float FluteGroove(float3 worldPosition, float3 dpdx, float3 dpdy)
+{
+    float r = max(length(worldPosition.xz), 1e-3);
+    float2 tangent = float2(-worldPosition.z, worldPosition.x) / r;
+
+    //The pixel's extent round the drum, in flutes
+    float spacing = 6.2831853 * r / FluteCount;
+    float footprint = (abs(dot(dpdx.xz, tangent)) + abs(dot(dpdy.xz, tangent))) / spacing;
+
+    //atan2 wraps at the back of the drum, and a whole number of flutes makes frac() continuous across it; the
+    //wander's five turns keep it continuous too
+    float theta = atan2(worldPosition.z, worldPosition.x);
+    float azimuth = theta / 6.2831853 * FluteCount + 0.18 * sin(worldPosition.y * 0.7 + theta * 5.0);
+
+    float d = abs(frac(azimuth) * 2.0 - 1.0);
+    float index = floor(azimuth);
+    index -= FluteCount * floor(index / FluteCount);
+    float depth = 0.55 + 0.45 * frac(sin(index * 12.9898 + 1.7) * 43758.5453);
+
+    //To the channels' mean as a flute shrinks towards a pixel, like the joints' own band limit
+    return lerp(2.0 / 3.0, 1.0 - d * d, saturate(1.5 - footprint * 3.0)) * depth;
+}
+
 float SlabGroove(float3 worldPosition, float3 dpdx, float3 dpdy)
 {
+    [branch]
+    if (FluteCount > 0) return FluteGroove(worldPosition, dpdx, dpdy);
+
     if (SlabSize <= 0) return 0;
 
     //Extent of this pixel along X and along Z, measured separately
@@ -6162,14 +6265,33 @@ float4 TriplanarPS(VertexShaderOutput input) : COLOR
 
     //The dust (#535): on the top, by the geometric normal, and only there. And the rime (#534): on the sides.
     float up = saturate(worldNormal.y);
-    texRgb = lerp(texRgb, texRgb * TopDustTint, TopDustStrength * up * up);
+
+    //The craters (#538), on the top like the dust. Their height shapes the normal and not the cavity, whose range is
+    //the fine relief's - a crater's depth would read every bowl as a black pit.
+    float crater = 0.0;
+    [branch]
+    if (CraterCell > 0.0 && up > 0.5)
+    {
+        float2 footprintXZ = abs(dpdx.xz) + abs(dpdy.xz);
+        float ejecta;
+        crater = CraterField(input.WorldPosition.xz, max(footprintXZ.x, footprintXZ.y), ejecta) * up;
+        texRgb *= 1.0 + 0.35 * ejecta;
+    }
+
+    //Heavier in the joints and swept off round the drain where a scene says so (#538); at the defaults, #535's dust
+    float dustClear = 1.0;
+    [branch]
+    if (TopDustClear > 0.0)
+        dustClear = smoothstep(TopDustClear, TopDustClear + 3.0, length(input.WorldPosition.xz));
+    texRgb = lerp(texRgb, texRgb * TopDustTint, saturate(TopDustStrength * up * up * (1.0 + DustInJoints * groove) * dustClear));
     float side = 1 - abs(worldNormal.y);
     texRgb = lerp(texRgb, texRgb * SideDustTint, SideDustStrength * side * side);
 
     //The tide line and the sand crust, and the bedding planes (#536)
-    float wet = ApplyHeightBands(texRgb, input.WorldPosition, side, abs(dpdx.y) + abs(dpdy.y));
+    float heap;
+    float wet = ApplyHeightBands(texRgb, input.WorldPosition, side, abs(dpdx.y) + abs(dpdy.y), heap);
 
-    float3 reliefNormal = PerturbNormalFromHeight(worldNormal, input.WorldPosition, height);
+    float3 reliefNormal = PerturbNormalFromHeight(worldNormal, input.WorldPosition, height + crater);
 
     //Cavity shading needs only the height and applies cleanly, so this path runs it instead of the generic
     //relief marches — which would be reading a different surface than the one drawn here.
@@ -6179,6 +6301,19 @@ float4 TriplanarPS(VertexShaderOutput input) : COLOR
     //A wet band mirrors more of the sky (#536); everywhere else this is the default surface, to the bit
     SurfaceSpecular surface = DefaultSurfaceSpecular();
     surface.Environment += wet;
+
+    //A drift's slope over the wall, the stone's relief gone under the sand (#538) - behind a branch, since heap is 0
+    //on every pixel but a desert drum's foot, and the blend and the renormalise measured on every island pixel.
+    //Sand is matte: a drift's slope faces the sky, and at the grazing angle the drum is seen at, a polished one
+    //mirrored it - the first cut's drift photographed a mauve grey, the sky's blue over the sand.
+    [branch]
+    if (heap > 0.0)
+    {
+        reliefNormal = normalize(lerp(reliefNormal, HeapNormal(worldNormal), heap));
+        cavity = lerp(cavity, 1.0, heap);
+        surface.Environment *= 1.0 - heap;
+        surface.Smoothness *= 1.0 - heap;
+    }
 
     float4 shaded = ShadePixel(input.WorldPosition, reliefNormal, input.OcclusionData, float4(texRgb, 1), 1, cavity, surface);
 
@@ -6853,14 +6988,33 @@ float4 TriplanarCoarsePS(VertexShaderOutput input) : COLOR
 
     //The dust (#535): on the top, by the geometric normal, and only there. And the rime (#534): on the sides.
     float up = saturate(worldNormal.y);
-    texRgb = lerp(texRgb, texRgb * TopDustTint, TopDustStrength * up * up);
+
+    //The craters (#538), on the top like the dust. Their height shapes the normal and not the cavity, whose range is
+    //the fine relief's - a crater's depth would read every bowl as a black pit.
+    float crater = 0.0;
+    [branch]
+    if (CraterCell > 0.0 && up > 0.5)
+    {
+        float2 footprintXZ = abs(dpdx.xz) + abs(dpdy.xz);
+        float ejecta;
+        crater = CraterField(input.WorldPosition.xz, max(footprintXZ.x, footprintXZ.y), ejecta) * up;
+        texRgb *= 1.0 + 0.35 * ejecta;
+    }
+
+    //Heavier in the joints and swept off round the drain where a scene says so (#538); at the defaults, #535's dust
+    float dustClear = 1.0;
+    [branch]
+    if (TopDustClear > 0.0)
+        dustClear = smoothstep(TopDustClear, TopDustClear + 3.0, length(input.WorldPosition.xz));
+    texRgb = lerp(texRgb, texRgb * TopDustTint, saturate(TopDustStrength * up * up * (1.0 + DustInJoints * groove) * dustClear));
     float side = 1 - abs(worldNormal.y);
     texRgb = lerp(texRgb, texRgb * SideDustTint, SideDustStrength * side * side);
 
     //The tide line and the sand crust, and the bedding planes (#536)
-    float wet = ApplyHeightBands(texRgb, input.WorldPosition, side, abs(dpdx.y) + abs(dpdy.y));
+    float heap;
+    float wet = ApplyHeightBands(texRgb, input.WorldPosition, side, abs(dpdx.y) + abs(dpdy.y), heap);
 
-    float3 reliefNormal = PerturbNormalFromHeight(worldNormal, input.WorldPosition, height);
+    float3 reliefNormal = PerturbNormalFromHeight(worldNormal, input.WorldPosition, height + crater);
 
     float cavityRange = max(SurfaceReliefStrength + CavityHeadroom, 1e-6);
     float cavity = lerp(1 - CavityStrength, 1, saturate((height + SurfaceReliefStrength + CavityHeadroom) / (cavityRange + SurfaceReliefStrength)));
@@ -6868,6 +7022,19 @@ float4 TriplanarCoarsePS(VertexShaderOutput input) : COLOR
     //A wet band mirrors more of the sky (#536); everywhere else this is the default surface, to the bit
     SurfaceSpecular surface = DefaultSurfaceSpecular();
     surface.Environment += wet;
+
+    //A drift's slope over the wall, the stone's relief gone under the sand (#538) - behind a branch, since heap is 0
+    //on every pixel but a desert drum's foot, and the blend and the renormalise measured on every island pixel.
+    //Sand is matte: a drift's slope faces the sky, and at the grazing angle the drum is seen at, a polished one
+    //mirrored it - the first cut's drift photographed a mauve grey, the sky's blue over the sand.
+    [branch]
+    if (heap > 0.0)
+    {
+        reliefNormal = normalize(lerp(reliefNormal, HeapNormal(worldNormal), heap));
+        cavity = lerp(cavity, 1.0, heap);
+        surface.Environment *= 1.0 - heap;
+        surface.Smoothness *= 1.0 - heap;
+    }
 
     float4 shaded = ShadePixel(input.WorldPosition, reliefNormal, input.OcclusionData, float4(texRgb, 1), 1, cavity, surface);
 

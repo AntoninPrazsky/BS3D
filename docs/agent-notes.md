@@ -6042,3 +6042,22 @@ Předchozí zápis říkal, že to dostavět znamená sáhnout do brány a že t
 - **Kontrast prstence** (kamera #404, CIEDE2000): moře 21,0 → 20,9, pláž 21,5 → 21,0.
 - ⚠ **Past focení Testbedu:** level soubor (Caldera.json) přebije `scene=` — pro scénu bez levelu brát mapu (`Maps\Full.json`). A buben je z většiny azimutů v protisvětle; osvětlená strana je z jihu/západu (`campos=6,-10.5,-36`).
 - **Nehotovo:** vilejši, mušle/kokos u bubnu (#445 už stojí kolem), zářez v profilu u hladiny (geometrie, #533).
+
+---
+
+## 2026-09-24 — Claude Code, github-f0 (notebook: #538 ostrov oblečený — mimo Zemi a vyprahlé: přistávací plocha v regolitu, vrstevnatá rezavá skála, pahýl monolitu, zavátá poušť)
+
+**Pátá rodina, poslední z #533–#538.** Šest nových číselníků na triplanární cestě (jen dvě dodávané techniky, ne sondy), všechny s výchozí nulou a za `[branch]` na uniformě: `FluteCount` (svislé žlábky podle AZIMUTU místo mřížky spár), `CraterCell`/`CraterDepth` (malé krátery na vršku, podle geometrické normály jako prach), `TopDustClear` (prach vyfoukaný v kruhu kolem odtoku), `DustInJoints` (prach hlavně ve spárách — čte groove, kterou výškové pole už vydává, žádný druhý `SlabGroove`), `BandLean` + `BandHeap` (pás z #536 nakloněný kolem ostrova a v něm normála vyklopená na sypný úhel písku). Barvy čte `ArenaIsland` z configů scén, neopisuje je.
+
+- **Měsíc:** plocha z TMAVÉHO regolitu terénu (`RegolithColor`), přes ni světlý (`RegolithColorPale`) 0,8, vyfoukaný kolem odtoku; bez spár (plocha je litá), krátery 1,6j buňky; kolem paty tmavší udusaná hlína.
+- **Mars:** vrstvy 0,55 j, tmavší kůra na stěnách, bledý rezavý prach 0,15 na plochách a 6× víc ve spárách.
+- **Outback:** skála Uluru z `OutbackSurfaceConfig` (vršek `RockColorBright`, buben 0,6 cesty z `RockColorDeep`), **72 žlábků** po obvodu, 0,2 hluboké.
+- **Poušť:** návěj na NÁVĚTRNÉ straně (proti `Wind`), o 1,5 j výš než v průměru, v závětří skoro nic; spáry vršku zasypané pískem.
+- ⚠ **Mřížka spár neumí svislé žlábky na kulatém bubnu** — je řezaná v X a Z, na válci z ní byly **šipky a krabice**. Žlábky podle `atan2`; CELÝ počet (index modulo počet), aby šev vzadu na bubnu byl spojitý i s hloubkou jednotlivých žlábků.
+- ⚠ **Návěj: tři pokusy.** Plochý pískový pás na pískovci = nic. S nakloněnou normálou a lesklým povrchem odrážel v klouzavém úhlu oblohu → **fialovošedý**; písek je matný (`Environment`, `Smoothness` → 0 pod návějí). Normála úplně nahoru (sonda) byla ještě tmavší — pata je ve stínu převisu a klíčové světlo je nízko — takže náklon 0,6. A barva **`SandColorPale`**, ne `SandColor`: sytá oranžová ve spárách táhla vršek ke zlatu prstence (kontrast 10,4 → 7,4 dE, po přepnutí 11,1).
+- ⚠ **Krátery do normály, ne do cavity** — rozsah cavity je jemného reliéfu a hloubka kráteru by z každé mísy udělala černou jámu.
+- **Kontrast prstence** (kamera #404, CIEDE2000, průměr dvou stanic): Měsíc 20,1 → 22,4, outback 27,5 → 31,5, poušť 10,4 → 11,1, Mars 26,4 → 23,9 (bledý prach ve spárách táhne vršek trochu ke zlatu; při 0,3 na plochách to bylo 21,7).
+- **Cena** (Testbed, APU, pozice hry, 1600×900 ssaa 2, 3 střídavé páry proti binárce `main`u, **10. percentil** každého běhu): Měsíc +0,35/+0,67 ms na 20 ms (krátery na každém pixelu vršku; hash bez sinů a polynom místo `exp` to měřitelně nepohnuly — beru, Měsíc je levná scéna, §9), Mars +0,16/−0,05/+0,15, poušť −0,53/+0,08/+0,27, outback na pozici hry neměřitelný (±3 ms rozptyl scény), z blízké kamery na buben +0,40/+0,40 na 34 ms. Louka (kontrola bez výbavy) +0,10/+0,10/+0,11 — bylo +0,17, než šly náklon návěje a vyfoukaný kruh za větve.
+- ⚠ **Past měření dnes:** stroj ve 4 bězích ze 40 UPROSTŘED běhu skočil o +8 až +12 ms (zásek 128 ms, pak plató) — v obou buildech, i na louce. Medián přes takový skok měří stroj, ne shader; 10. percentil a pohled do surového záznamu to odhalí.
+- **Reference nerenderovány** — Z-Image je na desktopu, tohle je notebook (jako #536).
+- **Nehotovo:** ocelová zástěra kolem odtoku na Marsu (geometrie, follow-up z #404), značení přistávací plochy (triplanár nemá kanál pro decal), vlnky na návěji.
