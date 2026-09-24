@@ -6127,3 +6127,14 @@ Předchozí zápis říkal, že to dostavět znamená sáhnout do brány a že t
 ## 2026-09-24 — Claude Code, bs3d-fe (desktop: beru #550 — ostrov bez dlažby z roku 2016, závěj v poušti jako geometrie)
 
 **Beru #550** (majitel potvrdil verdikty k ostrovu — „vypadá to dobře, potvrzuju" — a s nimi nabídku: autorský kámen jako skalní výchoz bez spár, pouštní závěj jako mesh). Nárok zapsaný a mergnutý před prací.
+
+---
+
+## 2026-09-24 — Claude Code, bs3d-fe (desktop: #550 ostrov bez dlažby z roku 2016, závěj v poušti jako geometrie)
+
+**Majitel potvrdil verdikty (#534/#538) a s nimi nabídku.** Dlažba na autorském kameni (louka, hory, les, bouře, savana, sen) nebyla nikdy návrh — pozůstatek shaderu hradu z tabletu z roku 2016 — a jeho slovo je „nezachovávat minulost, inovovat". Dvě věci, obě podle pravidel z rána (spáry se nevlní, tvar je geometrie):
+
+- **Autorský kámen je skalní výchoz** (`STONE_RELIEF`): žádná mřížka spár na vršku, místo ní hrubší a hlubší reliéf (3,5 vlny na jednotku při 0,022 proti dlažbě 9 při 0,008) — zvlnění opotřebované skály, které láme světlo tam, kde to dřív dělaly spáry. Buben beze změny. Dilatační spáry soklů (města) a panelové linky soustruženého disku (vesmír, grid) jsou návrh a zůstávají; `IslandLook.Slab` čtou už jen tyhle dva tvary. `SceneRelief` z #538 (Mars a poušť bez spár) zrušen — kámen je bez spár pro každou scénu.
+- **Závěj v poušti je mesh** (`SandDriftMesh`, vlastní `InstancedModelRenderer` v `ArenaIsland`, kreslený po bubnu jen v poušti, ve sky-lit seznamu; sluneční mapu přijímá, ale nevrhá do ní — nízká plocha pod nízkým sluncem si stínila sama přes krok texelu jako šachovnice): násep písku proti stěně, odkud vane vítr scény (`DesertSceneConfig.Wind` obráceně), 2,6 j vysoký u stěny, 6,5 j ven na rovný písek mýtiny v konkávním sklonu sesuvné strany, přes 220° bubnu, na koncích do nuly — jedna plocha, vnitřní hrana uvnitř bubnu (žádný spoj se neotevře, ať se buben vlní jak chce), špička zapuštěná třetinu jednotky, jemné vlnky napříč, normály z tečen plochy. V bledém písku dun se zrnem kamene v jemnějším měřítku. Tint, který za ni stál (#538 `BandWind`), smazán i s uniformou a dialem.
+- **Kontrast prstence** (kamera #404): **louka 15,8 → 16,7 dE, hory 18,1 → 18,8, les 18,7 → 19,8, bouře 22,0 → 23,2, savana 14,6 → 13,9, sen 31,7 → 31,7, poušť 14,7 → 13,9** — do jednoho dE od původního stavu. Závěj je v osvětleném snímku tmavá, protože ta strana leží ve stínu ostrova; bez slunečních stínů má barvu písku.
+- **Stránka před/po** (sedm scén, poušť i z návětrné strany): https://claude.ai/artifact/HpPe36QRfBEPWyNLC7MM3A
