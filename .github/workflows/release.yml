@@ -67,6 +67,10 @@ jobs:
           # A plain numeric tag ("v1.2.3") also stamps the assembly, so the exe's own version matches the
           # release it came out of; anything else (a suffixed tag, a manual run) leaves the default alone.
           if ($env:BUILD_VERSION -match '^v(\d+(\.\d+){1,3})$') { $publishArgs += "-p:Version=$($Matches[1])" }
+          # And names the release to the game itself (#546), suffixed tags included: the online client submits
+          # to the built-in score service only from a build that says it is a release, so a rehearsal zip - a
+          # manual run's "dev-<sha>" - and every local build never land on the public boards.
+          if ('${{ github.ref_type }}' -eq 'tag') { $publishArgs += "-p:BS3DReleaseVersion=$env:BUILD_VERSION" }
           dotnet @publishArgs
 
       # A published folder missing its content is still a folder full of DLLs, and that failure would show

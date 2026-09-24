@@ -930,6 +930,10 @@ namespace BS3D
             //the reason this object is kept beside the fields rather than replacing them.
             _settings = GameSettings.Load(UserData.PathTo(GameSettings.DefaultFileName));
 
+            //The online score boards (#546), as soon as the answer to "is it on" has been read. Its worker starts
+            //draining an outbox left by an earlier run straight away, off this thread.
+            StartOnline();
+
             _masterVolume = _settings.MasterVolume;
             _sfxVolume = _settings.SfxVolume;
             _musicVolume = _settings.MusicVolume;
@@ -1495,7 +1499,9 @@ namespace BS3D
                 //never the game), which is why the loader is then asked what it actually found.
                 string progressPath = UserData.PathTo(PlayerProgress.DefaultFileName);
 
-                AdoptProgressFromBuildOutput(progressPath);
+                //Not into a testing folder (userdata=, #546): that folder is meant to hold what the test put
+                //there and nothing else, and a stale save copied in from the build output is neither
+                if (!UserData.IsTestingDirectory) AdoptProgressFromBuildOutput(progressPath);
 
                 _progress = PlayerProgress.Load(progressPath);
 
@@ -1944,6 +1950,10 @@ namespace BS3D
             //stale "released" state and fire an unintended shot, since input is not sampled while inactive.
             EdgeInputAllowed = IsActive && _wasActive;
 
+            //What the score service has answered since the last frame (#546), before the stack updates, so a page
+            //reading OnlineResult sees an answer on the frame it arrives. A queue check when nothing has.
+            UpdateOnline();
+
             //The whole frame is the stack's now: pending pushes and pops are applied, then the update walks
             //top-down until a screen freezes what is under it — which is how a pause stops the game and how
             //the front end keeps the backdrop turning under itself. Myra runs its click handlers in Draw, so
@@ -2286,6 +2296,10 @@ namespace BS3D
             //Not a GPU resource, but it holds the process's timer resolution at 1 ms while it is limiting
             //anything, and timeBeginPeriod has to be paired with timeEndPeriod (#270)
             _frameLimiter.Dispose();
+
+            //The score submitter stops without waiting: a clear in flight is still in the outbox and goes again at
+            //the next start (#546)
+            _online?.Dispose();
 
             _pipeline?.Dispose();
             _spriteBatch?.Dispose();

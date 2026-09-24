@@ -34,15 +34,50 @@ namespace BS3D
         private const string FOLDER_NAME = "BS3D";
 
         /// <summary>
-        /// The directory itself, resolved once. <b>Not created here</b> — resolving a path is not the same as
-        /// deciding to write, and the game asks for this before it knows whether it has anything to save.
+        /// The directory itself, resolved once, on first use. <b>Not created here</b> — resolving a path is not
+        /// the same as deciding to write, and the game asks for this before it knows whether it has anything to
+        /// save.
         /// <para>
         /// Falls back to the executable's own directory when the profile cannot be found at all, which is a
         /// headless or oddly-configured session rather than anything a player will meet. That is the old
         /// behaviour, so the fallback loses the durability rather than the game.
         /// </para>
         /// </summary>
-        internal static string Directory { get; } = Resolve();
+        internal static string Directory => _directory ??= _testingDirectory ?? Resolve();
+
+        private static string _directory;
+        private static string _testingDirectory;
+
+        /// <summary>
+        /// Whether this run was pointed somewhere else by <see cref="UseForTesting"/> — which is also what says
+        /// that a save left in the build output is not this run's to adopt.
+        /// </summary>
+        internal static bool IsTestingDirectory => _testingDirectory != null;
+
+        /// <summary>
+        /// Testing only (the <c>userdata=</c> argument, #546): keep every one of this player's files under
+        /// <paramref name="directory"/> for this run instead of <c>%LOCALAPPDATA%\BS3D</c>.
+        /// <para>
+        /// It exists because a scripted run could not avoid the owner's own files. The save, the settings, the
+        /// online identity and the outbox all resolve here and nowhere else, so a run that clears a level wrote
+        /// a real campaign entry, a run that needed a particular setting had to swap the owner's file and swap
+        /// it back, and #546's verification — which clears levels against a local score server on purpose —
+        /// would have submitted as the owner. Pointed at a scratch folder, a run starts from whatever that
+        /// folder holds (nothing, or files the test wrote) and leaves the player's own untouched.
+        /// </para>
+        /// <para>
+        /// Must be called before anything asks for <see cref="Directory"/>, and it throws otherwise rather than
+        /// quietly answering the real path for half the run — which is why <c>Program</c> applies it before the
+        /// game exists at all.
+        /// </para>
+        /// </summary>
+        internal static void UseForTesting(string directory)
+        {
+            if (_directory != null)
+                throw new InvalidOperationException("UserData.Directory was already resolved; userdata= came too late");
+
+            _testingDirectory = Path.GetFullPath(directory);
+        }
 
         /// <summary>One of this player's files, by name — see <see cref="Directory"/>.</summary>
         internal static string PathTo(string fileName) => Path.Combine(Directory, fileName);

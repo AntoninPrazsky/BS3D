@@ -10,6 +10,14 @@
     <UseWindowsForms>True</UseWindowsForms>
     <ApplicationIcon>Icon.ico</ApplicationIcon>
   </PropertyGroup>
+  <!--Which release this build is (#546). release.yml passes the tag as BS3DReleaseVersion on a tag build and
+  only then, and it becomes an assembly attribute the online client reads: a build that carries it may submit to
+  the built-in score service, and any other build - a local one, a rehearsal zip - submits only to a server its
+  settings name, so a developer's runs never land on the public boards. A property rather than a guess from the
+  version number, because a local build's default 1.0.0 and a suffixed tag's are indistinguishable from it.-->
+  <ItemGroup Condition="'$(BS3DReleaseVersion)' != ''">
+    <AssemblyMetadata Include="BS3DReleaseVersion" Value="$(BS3DReleaseVersion)" />
+  </ItemGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
     <DefineConstants>TRACE;RELEASE</DefineConstants>
   </PropertyGroup>
