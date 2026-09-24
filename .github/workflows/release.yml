@@ -10,7 +10,8 @@ name: Release
 #     created, so the whole pipeline can be rehearsed without anything becoming public.
 #
 # build.yml's "on: [push]" fires for a tag push as well, so the two gates (the level generator's
-# determinism check and ScoreSim) run beside this workflow on the same commit; nothing is repeated here.
+# determinism check and ScoreSim) run beside this workflow on the same commit. The one thing repeated here is
+# ScoreSim, for the score ceiling table it writes beside the zip (#549).
 #
 # It costs nothing: this repository is public, and GitHub bills neither standard-runner minutes nor
 # release storage and bandwidth for public repositories. (Windows minutes are billed at twice the Linux
@@ -94,13 +95,26 @@ jobs:
           Compress-Archive -Path "publish/$env:BUILD_NAME" -DestinationPath "$env:BUILD_NAME.zip" -CompressionLevel Optimal
           "{0:N1} MB zipped" -f ((Get-Item "$env:BUILD_NAME.zip").Length / 1MB)
 
+      # The online boards' ceiling table (#549): every shipped level's board key and the score the service
+      # refuses a submission over, for exactly the levels in this zip. It travels with the release rather than
+      # with the service because old zips stay in the wild for ever: the service loads every release's table,
+      # so each game version's boards stay valid. ScoreSim is also build.yml's gate, so a set that rates wrongly
+      # fails here as well - which only means a release cannot ship a table the gate has refused.
+      - name: Write the score ceilings
+        shell: pwsh
+        run: |
+          dotnet run --project Tools/ScoreSim/ScoreSim.csproj -c Release -- --ceilings "BS3D-$env:BUILD_VERSION-ceilings.json"
+          if ($LASTEXITCODE -ne 0) { throw "ScoreSim refused the level set" }
+
       # Every run keeps the zip, tagged or not, and this is what makes the manual run worth having: the
       # pipeline can be rehearsed, downloaded and played without anything being published to anyone.
       - name: Keep the zip as a workflow artifact
         uses: actions/upload-artifact@v7
         with:
           name: ${{ env.BUILD_NAME }}
-          path: ${{ env.BUILD_NAME }}.zip
+          path: |
+            ${{ env.BUILD_NAME }}.zip
+            BS3D-${{ env.BUILD_VERSION }}-ceilings.json
           retention-days: 90
 
       # Only a tag publishes. The notes lead with what the download needs and what Windows will say about
@@ -132,7 +146,7 @@ jobs:
           replaced or deleted without losing a save.
           '@
           Set-Content -Path release-notes.md -Value $notes -Encoding utf8
-          $releaseArgs = @('release', 'create', $env:BUILD_VERSION, "$env:BUILD_NAME.zip", '--title', "BS3D $env:BUILD_VERSION", '--notes-file', 'release-notes.md', '--generate-notes')
+          $releaseArgs = @('release', 'create', $env:BUILD_VERSION, "$env:BUILD_NAME.zip", "BS3D-$env:BUILD_VERSION-ceilings.json", '--title', "BS3D $env:BUILD_VERSION", '--notes-file', 'release-notes.md', '--generate-notes')
           # A tag carrying a suffix ("v0.2.0-beta") is a prerelease and GitHub should label it as one.
           if ($env:BUILD_VERSION -match '-') { $releaseArgs += '--prerelease' }
           gh @releaseArgs
