@@ -180,18 +180,28 @@ float VolcanoMassing(float2 p)
 //The terrain displacement at a world XZ: flat at the island's foot, rising into the flank with distance from
 //the ARENA (not from the cone), so the play surface sits in a clearing exactly as it does in every other
 //terrain scene. Evaluated three times per vertex for the finite-difference normal.
-float TerrainHeight(float2 p)
+float TerrainHeight(float2 p, uniform int scoriaOctaves)
 {
     float ramp = smoothstep(ClearingRadius, ClearingRadius + ClearingTransition, length(p));
 
     //Broken scoria over the whole field. Mean zero, so it does not lift the clearing as the ramp opens - the
     //failure Desert.fx's trailing constant exists to prevent.
-    float scoria = ScoriaRelief * Fbm2(p * 0.038, 4);
+    float scoria = ScoriaRelief * Fbm2(p * 0.038, scoriaOctaves);
 
     return VolcanoLevelY + ramp * (VolcanoMassing(p) + scoria);
 }
 
 //--- Rivers ------------------------------------------------------------------------------------------------
+
+//The reduced program's flow front (#540): lobes from two sines of the world position in place of the gradient noise
+//the full program bends each front by. That noise sat inside the loop over the rivers, so every pixel of the terrain
+//paid for five of them, flow or not - on the APU at Low it was worth about 0.9 ms of the frame on its own - and two
+//crossed sines still end a flow in lobes rather than on a circle, which is all the eye reads of a front a hundred
+//units off.
+float FrontLobes(float2 p, float r, int i)
+{
+    return 0.6 * sin(dot(p, float2(0.061, 0.047)) + i * 2.3) * sin(dot(p, float2(-0.043, 0.071)) + r * 0.004 + i * 1.1);
+}
 
 //Signed angular difference wrapped into (-π, π], so a river whose bearing sits near the seam is still one
 //river and not two half ones.
@@ -216,7 +226,7 @@ struct RiverSample
 //The nearest river at a world point. A loop over a UNIFORM count (uniform flow control, no divergence) with
 //no gradient operation inside it, which is what lets the whole thing run unbranched: everything the pixel
 //needs from the rivers comes out of this one call, on the flow and off it alike.
-RiverSample SampleRivers(float2 p, float footprint)
+RiverSample SampleRivers(float2 p, float footprint, uniform bool fullDetail)
 {
     float2 d = p - ConeCenterXZ;
     float r = length(d);
@@ -240,7 +250,7 @@ RiverSample SampleRivers(float2 p, float footprint)
 
         //The front: the flow thins and stops somewhere down the flank, each river at its own reach, with a
         //noisy edge so it ends in a lobed front rather than on a circle.
-        float front = 1.0 - smoothstep(RiverReach[i] * 0.82, RiverReach[i] + 24.0 * GradientNoise2(p * 0.01 + i), r);
+        float front = 1.0 - smoothstep(RiverReach[i] * 0.82, RiverReach[i] + 24.0 * (fullDetail ? GradientNoise2(p * 0.01 + i) : FrontLobes(p, r, i)), r);
 
         //Feathered against the pixel footprint as well as the width, or a river narrower than a pixel out
         //near the horizon turns into a crawling dashed line. And NARROW UNDER THE SUMMIT (#509): a flow
@@ -320,19 +330,19 @@ struct VolcanoVertexOutput
     float3 WorldNormal : TEXCOORD1;
 };
 
-VolcanoVertexOutput VolcanoVS(VolcanoVertexInput input)
+VolcanoVertexOutput VolcanoVSImpl(VolcanoVertexInput input, uniform int scoriaOctaves)
 {
     VolcanoVertexOutput output;
 
     float2 xz = input.Position.xz + OriginXZ;
-    float height = TerrainHeight(xz);
+    float height = TerrainHeight(xz, scoriaOctaves);
 
     //Base normal per vertex, as on the mountain and for the same reason: a per-pixel finite-difference
     //normal on this much distant, steep ground aliases into shimmer, and the per-pixel relief below carries
     //the near detail anyway.
     float e = 2.0;
-    float hx = TerrainHeight(xz + float2(e, 0.0));
-    float hz = TerrainHeight(xz + float2(0.0, e));
+    float hx = TerrainHeight(xz + float2(e, 0.0), scoriaOctaves);
+    float hz = TerrainHeight(xz + float2(0.0, e), scoriaOctaves);
     output.WorldNormal = normalize(float3(-(hx - height) / e, 1.0, -(hz - height) / e));
 
     float3 worldPosition = float3(xz.x, height, xz.y);
@@ -341,6 +351,12 @@ VolcanoVertexOutput VolcanoVS(VolcanoVertexInput input)
 
     return output;
 }
+
+//The reduced vertex program (#540) takes the scoria in two octaves rather than four, three times a vertex: the grid is
+//129 600 vertices (66 049 at the reduced grid, VOLCANO_GRID_N_REDUCED), and the finest two octaves of a relief whose
+//coarsest wavelength is 26 units are finer than the reduced grid's own cell resolves.
+VolcanoVertexOutput VolcanoVS(VolcanoVertexInput input) { return VolcanoVSImpl(input, 4); }
+VolcanoVertexOutput VolcanoVSReduced(VolcanoVertexInput input) { return VolcanoVSImpl(input, 2); }
 
 //--- Pixel -------------------------------------------------------------------------------------------------
 
@@ -444,7 +460,7 @@ float4 VolcanoSurface(VolcanoVertexOutput input, uniform bool fullDetail)
 
     float3 baseNormal = normalize(input.WorldNormal);
 
-    RiverSample river = SampleRivers(worldPosition.xz, footprint);
+    RiverSample river = SampleRivers(worldPosition.xz, footprint, fullDetail);
 
     float2 fromCone = worldPosition.xz - ConeCenterXZ;
     float coneR = river.ConeR;
@@ -454,7 +470,7 @@ float4 VolcanoSurface(VolcanoVertexOutput input, uniform bool fullDetail)
     //Black basalt with patches of weathered grey scoria, and the ground round the summit OXIDISED: every
     //flank the references drew is dark grey below and a dark rust-red towards the crater, where the hot
     //gases have been at it. Keyed to the same broad field so it comes in patches and not as a ring.
-    float rockPatch = saturate(Fbm2BandLimited(worldPosition.xz * 0.03, 3, footprint * 0.03) * 1.6 + 0.5);
+    float rockPatch = saturate(Fbm2BandLimited(worldPosition.xz * 0.03, fullDetail ? 3 : 2, footprint * 0.03) * 1.6 + 0.5);
     float3 albedo = lerp(RockColor, RockColorLight, rockPatch * detail);
 
     float oxide = (1.0 - smoothstep(CraterRadius * 1.1, ConeRadius * 0.6, coneR)) * saturate(rockPatch * 1.5 + 0.2);
@@ -464,8 +480,10 @@ float4 VolcanoSurface(VolcanoVertexOutput input, uniform bool fullDetail)
     //isotropic noise has no grain and reads as gravel (the savanna's #117 lesson) - and the grain runs ACROSS
     //the way the flow that laid it was moving, which is how pahoehoe folds into ropes. Until #509 it ran
     //downhill, which the sheen then drew as a brushed-metal field of streaks converging on the cone.
-    float relief = Fbm2Combed(worldPosition.xz * 0.55, float2(-around.y, around.x), 1.8, 4, footprint * 0.55) * 0.5;
-    float3 normal = PerturbNormalFromHeight(baseNormal, worldPosition, relief);
+    //The reduced program (#540) has none: the combed fBm and the derivative normal behind it were 0.5 ms of the APU's Low
+    //frame, and at 1600×900 the ropes it draws are a few pixels wide beyond the island's own edge.
+    float relief = fullDetail ? Fbm2Combed(worldPosition.xz * 0.55, float2(-around.y, around.x), 1.8, 4, footprint * 0.55) * 0.5 : 0.0;
+    float3 normal = fullDetail ? PerturbNormalFromHeight(baseNormal, worldPosition, relief) : baseNormal;
 
     //--- Lighting ----------------------------------------------------------------------------------------
     float sunlight = CloudSunlight(worldPosition, SunDirection);
@@ -586,6 +604,13 @@ float4 VolcanoSurface(VolcanoVertexOutput input, uniform bool fullDetail)
 //reduction buys nothing on a pass that is occupancy-bound (SceneRenderer.SceneDetail). What the scene is made
 //of stays on every tier: the massing, the flows with their crust and streamlines, the crater's lake, the
 //sheen and the haze.
+//
+//#540 took the reduced program further, because the volcano was the one scene still missing Low's budget on the
+//APU and the layers #540 separated said it was the flank and nothing else (the plume, the jets, the blaze and
+//the ash measured at nothing): the fine relief and its derivative normal, an octave of the rock's
+//patches, the noise in each flow's front (FrontLobes) and two octaves of the scoria in the vertex program, over a
+//coarser grid (SceneRenderer.VOLCANO_GRID_N_REDUCED). Measured paired in the Testbed at Low's settings, the play
+//pose over Caldera: 14.89 -> 11.82 ms, cheaper in every one of 40 cycles.
 float4 VolcanoPS(VolcanoVertexOutput input) : COLOR { return VolcanoSurface(input, true); }
 float4 VolcanoReducedPS(VolcanoVertexOutput input) : COLOR { return VolcanoSurface(input, false); }
 
@@ -602,7 +627,7 @@ technique VolcanoReduced
 {
     pass P0
     {
-        VertexShader = compile VS_SHADERMODEL VolcanoVS();
+        VertexShader = compile VS_SHADERMODEL VolcanoVSReduced();
         PixelShader = compile PS_SHADERMODEL VolcanoReducedPS();
     }
 };
