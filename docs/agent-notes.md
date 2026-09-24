@@ -6021,3 +6021,11 @@ Předchozí zápis říkal, že to dostavět znamená sáhnout do brány a že t
 - **Co je na mainu (`VolcanoReduced`, jen Low):** VS se 2 oktávami škváry, PS bez česaného reliéfu a jeho derivační normály, o oktávu méně skvrn horniny, **čelo proudu ze dvou zkřížených sinů místo gradientního šumu** (ten byl 5 tapů na pixel uvnitř smyčky řek a stál sám **0,95 ms**; laloky ze sinů +0,07 zpět), mřížka **256** místo 360 (−0,90; přestaví se při přechodu stupně). Testbed párově: **14,89 → 11,82 ms, 100 % cyklů**.
 - **Ve hře, střídavé buildy ×3, lepší z mediánů:** **Caldera 18,31 → 14,49 ms, Paroxysm 17,35 → 13,47** na Low — pod rozpočtem 16,1. Vyfoceno staré/nové na Low (herní póza, menu, Testbed široký a blízký): zmizelo jen provazcové zrnění blízkého lávového pole. Medium/High beze změny.
 - **Mars z menu na Low (20,9) jsem neřešil** — zůstává v #540.
+
+---
+
+## 2026-09-24 — Claude Code, github-f0 (notebook: #540 Mars z menu na Low — jen hrubší mřížka; dva škrty programu změřené a nevzaté)
+
+- **Rozklad (Testbed, nastavení Low, proti louce):** Mars **+6,18 ms**, z toho ~1,7 na vrcholech (krátery a obě kamenné mřížky se počítají na každém vrcholu) a ~4,45 v pixelech (celá výška 3× kvůli normále).
+- **Změřeno párově, 31–47 cyklů:** bez oblázků −1,12 ms, bez 4. oktávy kráterů a s oktávou méně v obou reliéfech −0,25, **mřížka 256 −1,69 (100 %)**. Vyfoceno: mřížka 256 k nerozeznání od 360; bez oblázků pláň znatelně chudší (zmizí malé tmavé kameny), bez malých kráterů přestane pole číst jako Mars. **Vzata jen mřížka** (`MARS_GRID_N_REDUCED`, přestaví se při přechodu stupně), shader beze změny.
+- **Menu ve hře (orbit, 3 střídavé páry, nejlepší z každého):** **19,15 → 16,74 ms** na Low — pořád o chlup nad 16,1, ale jen scéna v menu. Zapsáno v `docs/scenes.md` (Mars) a `docs/game-shell.md`.
