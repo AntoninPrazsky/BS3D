@@ -6185,3 +6185,9 @@ Předchozí zápis říkal, že to dostavět znamená sáhnout do brány a že t
 - ⚠ **Past: `localhost` stojí na Windows 2 s, když server poslouchá jen na IPv4.** `localhost` se zkouší nejdřív jako `::1` a odmítnuté IPv6 spojení na loopbacku trvá ~2 s (změřeno 2043 ms proti 8 ms pro `127.0.0.1`). Snědlo to většinu pětisekundového limitu a odpověď po 3 s se tvářila jako timeout. Kestrel na `localhost` poslouchá na obou, stub jsem upravil taky; server jen na IPv4 jmenovat jako `http://127.0.0.1:<port>`.
 - ⚠ Detail k `levelfile=`: běh zapisuje výsledek do save pod položku sady (index 0 = One.json), ne pod testovací soubor — bez `userdata=` by testovací clear zapsal do majitelova Progress.json.
 - **Nehotovo (jinde):** řádky nastavení a přezdívka (#548), vzhled odpovědi na stránce (#547), skutečná služba (#543) a veřejný hostname (#544). Proti skutečnému API to ověřeno není — to je ověření #543.
+
+---
+
+## 2026-09-24 — Claude Code, bs3d-0f (desktop: beru #548 — opt-in online skóre v nastavení)
+
+**Beru #548** na majitelův pokyn („Vem #548 a udělej to"). Nárok do mainu před prací; soubory: `Game/Screens/SettingsPage.cs`, `BS3DGame.Settings.cs`, `BS3DGame.Online.cs`, `Game/Online/`, `AboutPage.cs`, docs.
