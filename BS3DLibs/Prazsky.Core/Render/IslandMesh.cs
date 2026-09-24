@@ -34,7 +34,17 @@ namespace Prazsky.Core.Render
 
         /// <summary>A poured-concrete plinth: a hard arris, a straight battered side, a shallow foot, only a
         /// cast surface's trace of wander (the two cities).</summary>
-        Plinth
+        Plinth,
+
+        /// <summary>A monolith's stub (#538): the top rounds over a shoulder into one leaning sweep of rock down to
+        /// a foot that splays back out — no coping, no course, no plinth — wandering more than the stone, with
+        /// the renderer's flutes cut down the side (the outback).</summary>
+        Monolith,
+
+        /// <summary>A landing pad cut into regolith (#538): a thin flat slab with a plain cut edge, and round its
+        /// foot the spoil the cut threw up, banked against the edge and spreading past the rim onto the ground
+        /// (the Moon).</summary>
+        Pad
     }
 
     /// <summary>
@@ -280,6 +290,54 @@ namespace Prazsky.Core.Render
                         new(r - 0.62f, -3.90f, wobble: 0.15f),
                         new(r - 0.2f,  -4.15f, crease: true, wobble: 0.1f),         //the foot
                         new(r - 0.2f,  -height, crease: true, wobble: 0.1f)
+                    };
+                    break;
+
+                case IslandShape.Monolith:
+                    //A monolith's stub (#538): the top rounds over a shoulder into a side that leans in a little
+                    //and runs in one sweep to a foot that splays back out - no coping, no course, no plinth, the
+                    //one body of rock Uluru is - wandering more than the stone. The renderer cuts the flutes
+                    //into the side (ArenaIsland's relief for this shape: wide, shallow, wandering joints).
+                    wander = 0.5f;
+                    cap = new()
+                    {
+                        lip, arris,
+                        new(r - 0.80f, -0.10f, wobble: 0.3f),
+                        new(r - 0.30f, -0.45f, wobble: 0.6f),                       //the shoulder
+                        new(r,         -1.20f, wobble: 0.8f),
+                        new(r - 0.10f, -1.82f, wobble: 0.9f)                        //shared with the drum
+                    };
+                    body = new()
+                    {
+                        new(r - 0.10f, -1.82f, wobble: 0.9f),
+                        new(r - 0.30f, -3.00f, wobble: 1f),                         //leaning in
+                        new(r - 0.35f, -4.00f, wobble: 1f),
+                        new(r - 0.2f,  -height, crease: true, wobble: 0.6f)         //the foot splays back out
+                    };
+                    break;
+
+                case IslandShape.Pad:
+                    //A landing pad cut into regolith (#538): a thin flat slab with a plain vertical edge, and
+                    //round its foot the SPOIL the cut threw up, banked against the edge and spreading past the
+                    //rim onto the ground - the one shape whose foot stands outside the coping's radius, which
+                    //the foot rule (cover the terrain hole) allows: wider covers more, and the Moon's ground is
+                    //at the foot's own height. The slab's edge is cut and barely wanders; the bank wanders like
+                    //heaped ground.
+                    wander = 0.35f;
+                    cap = new()
+                    {
+                        lip, arris,
+                        new(r - 0.30f, -0.06f),
+                        new(r - 0.20f, -0.18f, crease: true, wobble: 0.05f),        //the slab's arris
+                        new(r - 0.20f, -1.82f, crease: true, wobble: 0.05f)         //its cut edge, shared
+                    };
+                    body = new()
+                    {
+                        new(r - 0.20f, -1.82f, crease: true, wobble: 0.05f),
+                        new(r - 0.20f, -2.60f, wobble: 0.1f),                       //the edge continues
+                        new(r + 0.05f, -3.20f, wobble: 0.6f),                       //the spoil banks against it
+                        new(r + 0.45f, -4.20f, wobble: 1f),
+                        new(r + 0.75f, -height, crease: true, wobble: 0.8f)         //and spreads onto the ground
                     };
                     break;
 

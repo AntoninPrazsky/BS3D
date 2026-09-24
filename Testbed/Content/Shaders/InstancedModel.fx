@@ -628,6 +628,30 @@ float BandStrength;
 float StrataSpacing;
 float StrataStrength;
 
+//THE OFF-WORLD AND ARID FAMILY (#538). Dust lying IN THE JOINTS: sand blown into the desert cap's joints, fine
+//dust settled in the Martian rock's crevices - an albedo ratio like the dusts' (1 is none) taken by the groove's
+//floor, so the faces stay clean and the cracks fill. No branch: it is one lerp on a value the height field
+//already handed out.
+float3 JointDustTint;
+float JointDustStrength;
+
+//The top dust blown CLEAR round the island's axis (#538): the lunar pad's powder, swept off in a ring round the
+//drain. x is the radius in world units inside which the dust is gone, y how far outside it the dust fades back
+//in; x = 0 clears nothing. The island stands on the world's axis, so the distance is the position's own.
+float2 TopDustClear;
+
+//The height band's top raised on the WINDWARD side (#538): sand drifted against the desert island's drum lies
+//deep where the wind piles it and thin in the lee. xy is the direction the drift faces (the wind reversed), z
+//how far the band's top rises on that side, in world units; 0 is a level band.
+float3 BandWind;
+
+//Craters in the height field of the up-facing surfaces (#538): the lunar pad's top. One crater per cell of x
+//world units, placed by a hash inside the cell and a quarter to a third of the cell across, so it never crosses
+//the cell's edge and costs one hash per evaluation with no neighbour search; a parabolic bowl y deep with a
+//low raised rim z high. Behind a branch on the uniform: the height field is read many times a pixel by the
+//marches, and every other surface pays nothing.
+float3 Craters;
+
 //The two above, applied to the triplanar paths' albedo (#536): returns how wet the pixel is, which the caller hands
 //ShadePixel as extra sky mirrored. `side` is how far the geometric normal is from vertical, the dusts' own weight,
 //and `footprintY` how much world height one pixel spans - both taken outside the branches, which hold no gradients.
@@ -643,7 +667,9 @@ float ApplyHeightBands(inout float3 texRgb, float3 worldPosition, float side, fl
     if (BandStrength > 0.0 && side > 0.02)
     {
         float wander = sin(dot(worldPosition.xz, float2(0.31, 0.23))) * sin(dot(worldPosition.xz, float2(-0.17, 0.29)) + 1.3);
-        float tideLine = BandTopY + wander * BandFade * 0.6;
+        //The windward rise (#538): the band's top climbs on the face the drift is piled against and stays put in
+        //the lee, by how far round the drum this pixel faces the wind
+        float tideLine = BandTopY + wander * BandFade * 0.6 + BandWind.z * saturate(dot(normalize(worldPosition.xz), BandWind.xy));
         float inBand = saturate((tideLine - worldPosition.y) / max(BandFade, 1e-3)) * side;
 
         texRgb = lerp(texRgb, texRgb * BandTint, BandStrength * inBand);
@@ -791,6 +817,28 @@ float SlabGroove(float3 worldPosition, float3 dpdx, float3 dpdy)
     return max(SlabGrooveAxis(xz.x, footprint.x), SlabGrooveAxis(xz.y, footprint.y));
 }
 
+//The craters (#538), keyed to the world XZ like the slab grid, so they lie in the horizontal plane; the drum
+//renderer leaves Craters at zero. See the uniform for the construction.
+float CapCraters(float3 worldPosition)
+{
+    [branch]
+    if (Craters.x <= 0) return 0;
+
+    //Not one a cell: the first cut placed one in every cell with a little jitter and the top read as a lattice
+    //of dimples. Now half the cells are empty, the centre wanders over a third of the cell and the size runs
+    //over three to one - the radius plus the jitter still under half a cell, so no crater crosses its edge.
+    float2 cell = floor(worldPosition.xz / Craters.x);
+    float2 jitter = frac(sin(float2(dot(cell, float2(127.1, 311.7)), dot(cell, float2(269.5, 183.3)))) * 43758.5453);
+    float present = step(0.45, frac(jitter.x * 7.31 + jitter.y * 3.17));
+    float2 centre = (cell + 0.5 + (jitter - 0.5) * 0.36) * Craters.x;
+    float radius = Craters.x * (0.10 + 0.20 * jitter.y);
+    float d = length(worldPosition.xz - centre) / radius + (1 - present) * 4;   //an empty cell: far outside any crater
+
+    float bowl = -Craters.y * saturate(1 - d * d);            //0 at the rim, the full depth at the centre
+    float rim = Craters.z * saturate(1 - abs(d - 1) * 2.5);   //a low ridge astride the rim
+    return bowl + rim;
+}
+
 //The height field the whole surface is built from: micro-relief on the slab faces, joints cut below
 //them. Everything below - the normal, the cavity shading, the self-shadow march and the parallax
 //march - reads this one function, so a feature added here is automatically lit, occluded and
@@ -799,7 +847,7 @@ float SceneSurfaceHeight(float3 worldPosition, float3 dpdx, float3 dpdy)
 {
     float height = SurfaceReliefWorld(worldPosition, SurfaceReliefFrequency, dpdx, dpdy) * SurfaceReliefStrength;
 
-    return height - SlabGroove(worldPosition, dpdx, dpdy) * SlabJointDepth;
+    return height - SlabGroove(worldPosition, dpdx, dpdy) * SlabJointDepth + CapCraters(worldPosition);
 }
 
 //The same field with three octaves instead of seven, for the ray marches. They evaluate it dozens of
@@ -813,7 +861,7 @@ float SceneSurfaceHeightCoarse(float3 worldPosition, float3 dpdx, float3 dpdy)
         + 0.20 * ReliefOctaveDirectional(worldPosition, float3(-0.36, 0.83, 0.42), frequency * 1.43, dpdx, dpdy)
         + 0.16 * ReliefOctaveDirectional(worldPosition, float3(0.55, -0.44, 0.71), frequency * 2.11, dpdx, dpdy)) * SurfaceReliefStrength;
 
-    return height - SlabGroove(worldPosition, dpdx, dpdy) * SlabJointDepth;
+    return height - SlabGroove(worldPosition, dpdx, dpdy) * SlabJointDepth + CapCraters(worldPosition);
 }
 
 //The same two fields handing the groove OUT (#534): the triplanar techniques read it once here and spend it
@@ -823,7 +871,8 @@ float SceneSurfaceHeightCoarse(float3 worldPosition, float3 dpdx, float3 dpdy)
 float SceneSurfaceHeightGroove(float3 worldPosition, float3 dpdx, float3 dpdy, out float groove)
 {
     groove = SlabGroove(worldPosition, dpdx, dpdy);
-    return SurfaceReliefWorld(worldPosition, SurfaceReliefFrequency, dpdx, dpdy) * SurfaceReliefStrength - groove * SlabJointDepth;
+    return SurfaceReliefWorld(worldPosition, SurfaceReliefFrequency, dpdx, dpdy) * SurfaceReliefStrength - groove * SlabJointDepth
+        + CapCraters(worldPosition);
 }
 
 float SceneSurfaceHeightCoarseGroove(float3 worldPosition, float3 dpdx, float3 dpdy, out float groove)
@@ -835,7 +884,7 @@ float SceneSurfaceHeightCoarseGroove(float3 worldPosition, float3 dpdx, float3 d
         + 0.20 * ReliefOctaveDirectional(worldPosition, float3(-0.36, 0.83, 0.42), frequency * 1.43, dpdx, dpdy)
         + 0.16 * ReliefOctaveDirectional(worldPosition, float3(0.55, -0.44, 0.71), frequency * 2.11, dpdx, dpdy)) * SurfaceReliefStrength;
 
-    return height - groove * SlabJointDepth;
+    return height - groove * SlabJointDepth + CapCraters(worldPosition);
 }
 
 //Highest and lowest the field can reach: the micro-relief rides above zero, the joints cut below it
@@ -6160,11 +6209,14 @@ float4 TriplanarPS(VertexShaderOutput input) : COLOR
 
     float3 texRgb = lerp(float3(1, 1, 1), detail * DetailBoost, DetailStrength);
 
-    //The dust (#535): on the top, by the geometric normal, and only there. And the rime (#534): on the sides.
+    //The dust (#535): on the top, by the geometric normal, and only there - and blown clear round the axis (#538)
+    //where a ring asks for it. And the rime (#534): on the sides. And the dust in the joints (#538).
     float up = saturate(worldNormal.y);
-    texRgb = lerp(texRgb, texRgb * TopDustTint, TopDustStrength * up * up);
+    float clear = smoothstep(TopDustClear.x, TopDustClear.x + max(TopDustClear.y, 1e-3), length(input.WorldPosition.xz));
+    texRgb = lerp(texRgb, texRgb * TopDustTint, TopDustStrength * up * up * clear);
     float side = 1 - abs(worldNormal.y);
     texRgb = lerp(texRgb, texRgb * SideDustTint, SideDustStrength * side * side);
+    texRgb = lerp(texRgb, texRgb * JointDustTint, JointDustStrength * groove);
 
     //The tide line and the sand crust, and the bedding planes (#536)
     float wet = ApplyHeightBands(texRgb, input.WorldPosition, side, abs(dpdx.y) + abs(dpdy.y));
@@ -6851,11 +6903,14 @@ float4 TriplanarCoarsePS(VertexShaderOutput input) : COLOR
 
     float3 texRgb = lerp(float3(1, 1, 1), detail * DetailBoost, DetailStrength);
 
-    //The dust (#535): on the top, by the geometric normal, and only there. And the rime (#534): on the sides.
+    //The dust (#535): on the top, by the geometric normal, and only there - and blown clear round the axis (#538)
+    //where a ring asks for it. And the rime (#534): on the sides. And the dust in the joints (#538).
     float up = saturate(worldNormal.y);
-    texRgb = lerp(texRgb, texRgb * TopDustTint, TopDustStrength * up * up);
+    float clear = smoothstep(TopDustClear.x, TopDustClear.x + max(TopDustClear.y, 1e-3), length(input.WorldPosition.xz));
+    texRgb = lerp(texRgb, texRgb * TopDustTint, TopDustStrength * up * up * clear);
     float side = 1 - abs(worldNormal.y);
     texRgb = lerp(texRgb, texRgb * SideDustTint, SideDustStrength * side * side);
+    texRgb = lerp(texRgb, texRgb * JointDustTint, JointDustStrength * groove);
 
     //The tide line and the sand crust, and the bedding planes (#536)
     float wet = ApplyHeightBands(texRgb, input.WorldPosition, side, abs(dpdx.y) + abs(dpdy.y));
