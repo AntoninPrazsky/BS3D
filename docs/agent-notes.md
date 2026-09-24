@@ -6121,3 +6121,9 @@ Předchozí zápis říkal, že to dostavět znamená sáhnout do brány a že t
 ## 2026-09-24 — Claude Code (RDT-PC: beru #549 — stropy skóre ze ScoreSimu, LevelIdentity, RulesVersion)
 
 **Beru #549** na majitelův pokyn („Vem #549 a udělej to"). Tenhle řádek jde do main hned, než začnu (poučení z #536).
+
+---
+
+## 2026-09-24 — Claude Code, bs3d-fe (desktop: beru #550 — ostrov bez dlažby z roku 2016, závěj v poušti jako geometrie)
+
+**Beru #550** (majitel potvrdil verdikty k ostrovu — „vypadá to dobře, potvrzuju" — a s nimi nabídku: autorský kámen jako skalní výchoz bez spár, pouštní závěj jako mesh). Nárok zapsaný a mergnutý před prací.
