@@ -66,6 +66,7 @@ namespace Prazsky.Core.Render
         private EffectParameter _slabJointDepthParam;
         private EffectParameter _jointGlowParam, _jointGlowPatchinessParam, _topDustTintParam, _topDustStrengthParam;
         private EffectParameter _slabWarpParam, _sideDustTintParam, _sideDustStrengthParam;
+        private EffectParameter _footBandParam, _footBandTintParam, _footLineTintParam, _footBandStrengthParam, _beddingSpacingParam;
         private EffectParameter _cavityStrengthParam;
         private EffectParameter _reliefShadowStrengthParam;
         private EffectParameter _parallaxScaleParam;
@@ -328,9 +329,35 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// How far the slab joint grid is bent by a world-space noise, in world units (#534): 0, the default,
         /// is the square grid; about a unit turns it into the net of wandering fractures a sheet of ice has.
-        /// One noise read per pixel of a surface that asks for it.
+        /// Two reads of a 2D noise per pixel of a surface that asks for it.
         /// </summary>
         public float SlabWarp { get; set; }
+
+        /// <summary>
+        /// A band round the foot of the side faces, keyed to world height rather than to the normal (#536): X is
+        /// the band's top in world y, Y how far below that top the tint fades in, Z how far the shader's 2D
+        /// noise wobbles the top round the drum, W the half-width of the line drawn along the top (0 draws
+        /// none). The wet zone a tide keeps on a sea stack, the damp sand crust against a beach rock. A zero
+        /// <see cref="FootBandStrength"/> costs the triplanar paths nothing: the branch on it skips.
+        /// </summary>
+        public Vector4 FootBand { get; set; }
+
+        /// <summary>The albedo ratio inside the band, in <see cref="TopDustTint"/>'s convention (One is no change).</summary>
+        public Vector3 FootBandTint { get; set; } = Vector3.One;
+
+        /// <summary>The albedo ratio of the thin line along the band's top — the salt and foam crust a tide leaves.</summary>
+        public Vector3 FootLineTint { get; set; } = Vector3.One;
+
+        /// <inheritdoc cref="FootBand"/>
+        public float FootBandStrength { get; set; }
+
+        /// <summary>
+        /// Horizontal joints on the side faces, in world units (#536): the bedding planes of a layered rock, cut
+        /// into the height field like the slab joints (the same <see cref="SlabJointWidth"/> and
+        /// <see cref="SlabJointDepth"/>) and lifted and dropped round the drum by <see cref="SlabWarp"/>, so
+        /// the strata undulate. 0, the default, cuts none.
+        /// </summary>
+        public float BeddingSpacing { get; set; }
 
         /// <summary>
         /// How dark the pits of the relief go from being shaded by their own walls (0 = off, 1 = black).
@@ -1004,6 +1031,11 @@ namespace Prazsky.Core.Render
             _slabWarpParam = _effect.Parameters["SlabWarp"];
             _sideDustTintParam = _effect.Parameters["SideDustTint"];
             _sideDustStrengthParam = _effect.Parameters["SideDustStrength"];
+            _footBandParam = _effect.Parameters["FootBand"];
+            _footBandTintParam = _effect.Parameters["FootBandTint"];
+            _footLineTintParam = _effect.Parameters["FootLineTint"];
+            _footBandStrengthParam = _effect.Parameters["FootBandStrength"];
+            _beddingSpacingParam = _effect.Parameters["BeddingSpacing"];
             _cavityStrengthParam = _effect.Parameters["CavityStrength"];
             _reliefShadowStrengthParam = _effect.Parameters["ReliefShadowStrength"];
             _parallaxScaleParam = _effect.Parameters["ParallaxScale"];
@@ -1376,6 +1408,11 @@ namespace Prazsky.Core.Render
             _slabWarpParam.SetValue(SlabWarp);
             _sideDustTintParam.SetValue(SideDustTint);
             _sideDustStrengthParam.SetValue(SideDustStrength);
+            _footBandParam.SetValue(FootBand);
+            _footBandTintParam.SetValue(FootBandTint);
+            _footLineTintParam.SetValue(FootLineTint);
+            _footBandStrengthParam.SetValue(FootBandStrength);
+            _beddingSpacingParam.SetValue(BeddingSpacing);
             _cavityStrengthParam.SetValue(CavityStrength);
             _reliefShadowStrengthParam.SetValue(ReliefShadowStrength);
             _parallaxScaleParam.SetValue(ParallaxScale);

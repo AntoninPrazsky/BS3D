@@ -584,7 +584,7 @@ float SlabJointDepth;
 //How far the joint grid is bent by a world-space noise, in world units (#534): 0 is the square grid every
 //paving is laid in; at a unit or so the lines wander and the cells lose their corners, which is what the
 //fractures in a sheet of ice look like - a net of curved lines round cells of about one size. The bend is
-//one noise read per pixel of a surface that asks for it, behind a branch on the uniform.
+//two reads of a 2D noise (one per axis) per pixel of a surface that asks for it, behind a branch on the uniform.
 float SlabWarp;
 
 //What the joints' FLOORS put out, as linear radiance (#535): the volcano island's cooling cracks glowing a
@@ -609,6 +609,24 @@ float TopDustStrength;
 //normal is from vertical, so the top takes none and the wall all of it.
 float3 SideDustTint;
 float SideDustStrength;
+
+//A band round the FOOT of the side faces, keyed to WORLD HEIGHT rather than to the normal (#536): the wet,
+//algae-dark zone the waves and the spray keep on a sea stack, the damp sand crust piled against a beach rock.
+//FootBand is (the band's top in world y, how far below that top the tint fades in, how far a 2D noise wobbles
+//the top round the drum - a wave does not leave a ruler-straight line - and the half-width of the line drawn
+//along the top); FootBandTint the albedo ratio inside the band, in the dust's convention (1 is no change);
+//FootLineTint the same for the thin line along the top - the salt and foam crust a tide leaves; a zero width
+//draws none. Strength 0 skips the branch that reads all of it.
+float4 FootBand;
+float3 FootBandTint;
+float3 FootLineTint;
+float FootBandStrength;
+
+//Horizontal joints on the side faces, in world units (#536): the bedding planes of a layered rock, cut into
+//the height field like the slab joints (the same width, depth and bevel) and lifted and dropped round the
+//drum by the same warp that bends the slab grid, so a stratum undulates rather than ringing the drum like a
+//lathe line. 0 cuts none.
+float BeddingSpacing;
 
 //How dark the pits of the relief go from being shaded by their own walls (0 = off)
 float CavityStrength;
@@ -697,20 +715,25 @@ static const float SlabJointBevel = 0.03;
 //  - and they are not a sub-pixel problem either. At the brightest beads the pixel measured SMALLER than
 //    the joint - the joint was fully resolved and beading anyway, which is what finally pointed at the
 //    quad rather than at the footprint.
-float SlabGrooveAxis(float coordinate, float footprint)
+float SlabGrooveAxisSized(float coordinate, float footprint, float size)
 {
-    float cell = frac(coordinate / SlabSize);
-    float distance = min(cell, 1 - cell) * SlabSize;
+    float cell = frac(coordinate / size);
+    float distance = min(cell, 1 - cell) * size;
 
     float width = max(SlabJointWidth, footprint * 0.5);
     float bevel = max(SlabJointBevel, footprint * 2.5);
 
-    return (1 - smoothstep(width, width + bevel, distance)) * saturate(1 - footprint / (SlabSize * 0.5));
+    return (1 - smoothstep(width, width + bevel, distance)) * saturate(1 - footprint / (size * 0.5));
+}
+
+float SlabGrooveAxis(float coordinate, float footprint)
+{
+    return SlabGrooveAxisSized(coordinate, footprint, SlabSize);
 }
 
 float SlabGroove(float3 worldPosition, float3 dpdx, float3 dpdy)
 {
-    if (SlabSize <= 0) return 0;
+    if (SlabSize <= 0 && BeddingSpacing <= 0) return 0;
 
     //Extent of this pixel along X and along Z, measured separately
     float2 footprint = abs(dpdx.xz) + abs(dpdy.xz);
@@ -727,7 +750,19 @@ float SlabGroove(float3 worldPosition, float3 dpdx, float3 dpdy)
         xz += SlabWarp * float2(GradientNoise2(worldPosition.xz * 0.31 + 11.0), GradientNoise2(worldPosition.xz * 0.31 + 47.0));
     }
 
-    return max(SlabGrooveAxis(xz.x, footprint.x), SlabGrooveAxis(xz.y, footprint.y));
+    float groove = SlabSize > 0 ? max(SlabGrooveAxis(xz.x, footprint.x), SlabGrooveAxis(xz.y, footprint.y)) : 0;
+
+    //The bedding planes (#536): a third axis of joints, in world Y, on the surfaces that ask for one - a
+    //layered rock's strata between the ledges its mesh steps. The warp's X bend (already read above when the
+    //surface warps; zero otherwise) lifts and drops the plane round the drum, so it costs no read of its own.
+    [branch]
+    if (BeddingSpacing > 0)
+    {
+        float footprintY = abs(dpdx.y) + abs(dpdy.y);
+        groove = max(groove, SlabGrooveAxisSized(worldPosition.y + (xz.x - worldPosition.x), footprintY, BeddingSpacing));
+    }
+
+    return groove;
 }
 
 //The height field the whole surface is built from: micro-relief on the slab faces, joints cut below
@@ -6105,6 +6140,20 @@ float4 TriplanarPS(VertexShaderOutput input) : COLOR
     float side = 1 - abs(worldNormal.y);
     texRgb = lerp(texRgb, texRgb * SideDustTint, SideDustStrength * side * side);
 
+    //The foot band (#536): keyed to WORLD HEIGHT rather than to the normal - the wet dark zone a tide keeps on
+    //a sea stack, the damp sand crust against a beach rock - its top wobbled round the drum by a 2D noise, and
+    //a thin line of another tint along that top. Behind a branch on the strength: a uniform, so the frame
+    //takes one path, and there is no gradient op inside.
+    [branch]
+    if (FootBandStrength > 0)
+    {
+        float top = FootBand.x + FootBand.z * GradientNoise2(input.WorldPosition.xz * 0.45 + 7.0);
+        float band = (1 - smoothstep(top - FootBand.y, top, input.WorldPosition.y)) * FootBandStrength * side * side;
+        texRgb = lerp(texRgb, texRgb * FootBandTint, band);
+        float crust = (1 - smoothstep(0, max(FootBand.w, 0.001), abs(input.WorldPosition.y - top))) * FootBandStrength * side * side;
+        texRgb = lerp(texRgb, texRgb * FootLineTint, crust);
+    }
+
     float3 reliefNormal = PerturbNormalFromHeight(worldNormal, input.WorldPosition, height);
 
     //Cavity shading needs only the height and applies cleanly, so this path runs it instead of the generic
@@ -6788,6 +6837,20 @@ float4 TriplanarCoarsePS(VertexShaderOutput input) : COLOR
     texRgb = lerp(texRgb, texRgb * TopDustTint, TopDustStrength * up * up);
     float side = 1 - abs(worldNormal.y);
     texRgb = lerp(texRgb, texRgb * SideDustTint, SideDustStrength * side * side);
+
+    //The foot band (#536): keyed to WORLD HEIGHT rather than to the normal - the wet dark zone a tide keeps on
+    //a sea stack, the damp sand crust against a beach rock - its top wobbled round the drum by a 2D noise, and
+    //a thin line of another tint along that top. Behind a branch on the strength: a uniform, so the frame
+    //takes one path, and there is no gradient op inside.
+    [branch]
+    if (FootBandStrength > 0)
+    {
+        float top = FootBand.x + FootBand.z * GradientNoise2(input.WorldPosition.xz * 0.45 + 7.0);
+        float band = (1 - smoothstep(top - FootBand.y, top, input.WorldPosition.y)) * FootBandStrength * side * side;
+        texRgb = lerp(texRgb, texRgb * FootBandTint, band);
+        float crust = (1 - smoothstep(0, max(FootBand.w, 0.001), abs(input.WorldPosition.y - top))) * FootBandStrength * side * side;
+        texRgb = lerp(texRgb, texRgb * FootLineTint, crust);
+    }
 
     float3 reliefNormal = PerturbNormalFromHeight(worldNormal, input.WorldPosition, height);
 

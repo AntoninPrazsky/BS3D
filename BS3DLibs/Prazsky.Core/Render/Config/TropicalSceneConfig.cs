@@ -436,5 +436,11 @@ namespace Prazsky.Core.Render
         /// <summary>Driftwood's bleached grey (linear). Sun and salt take the brown out of it, so it is far
         /// paler than the palms' trunks and reads against the sand by being cooler, not darker.</summary>
         public Rgb DriftColor { get; set; } = new(0.155f, 0.145f, 0.125f);
+
+        /// <summary>
+        /// Logs lying AGAINST the island's foot (#536), besides the ones on the waterline: the last storm's
+        /// leavings, so the platform stands in the beach rather than on it. Spread round the rim.
+        /// </summary>
+        public int IslandDriftCount { get; set; } = 4;
     }
 }

@@ -25,8 +25,13 @@ namespace Prazsky.Core.Render
         Ice,
 
         /// <summary>A low coral platform: a soft weathered nose with no arris anywhere below the floor, the
-        /// drum a pitted lump (the tropical beach, the sea).</summary>
+        /// drum a pitted lump (the tropical beach).</summary>
         Coral,
+
+        /// <summary>A sea stack: layered rock, its side a stack of ledges of unequal thickness stepping in and
+        /// out — the bedding planes — every tread and every face a hard arris, the whole edge wandering a
+        /// little (the open sea, since #536; it shared the coral until then).</summary>
+        SeaStack,
 
         /// <summary>A machined disc: a flat top out to a 45° chamfer, a true cylinder with a recessed groove
         /// round it, a stepped foot, no wander at all (space, the grid).</summary>
@@ -231,6 +236,36 @@ namespace Prazsky.Core.Render
                         new(r - 0.35f, -3.60f, wobble: 1f),
                         new(r - 0.20f, -4.40f, wobble: 0.8f),
                         new(r - 0.10f, -height, crease: true, wobble: 0.5f)
+                    };
+                    break;
+
+                case IslandShape.SeaStack:
+                    //Layered rock (#536): the side is a stack of ledges of unequal thickness, every tread and
+                    //every face a hard arris - the bedding planes - stepping in and out so no two ledges share
+                    //a radius, and the whole stack wandering a little less than the coral. The renderer cuts
+                    //finer bedding into the faces between the ledges (ArenaIsland's relief for this shape).
+                    wander = 0.35f;
+                    cap = new()
+                    {
+                        lip, arris,
+                        new(r - 0.70f, -0.10f, wobble: 0.3f),
+                        new(r - 0.25f, -0.40f, crease: true, wobble: 0.5f),        //the top ledge's face
+                        new(r - 0.25f, -0.95f, crease: true, wobble: 0.5f),
+                        new(r,         -1.05f, crease: true, wobble: 0.6f),        //a thick ledge steps out
+                        new(r,         -1.60f, crease: true, wobble: 0.6f),
+                        new(r - 0.45f, -1.82f, crease: true, wobble: 0.7f)         //shared with the drum
+                    };
+                    body = new()
+                    {
+                        new(r - 0.45f, -1.82f, crease: true, wobble: 0.7f),
+                        new(r - 0.45f, -2.30f, crease: true, wobble: 0.9f),        //a thin recessed bed
+                        new(r - 0.10f, -2.40f, crease: true, wobble: 1f),          //out again: the big ledge
+                        new(r - 0.10f, -3.20f, crease: true, wobble: 1f),
+                        new(r - 0.60f, -3.30f, crease: true, wobble: 1f),          //the deepest recess, thin
+                        new(r - 0.60f, -3.55f, crease: true, wobble: 0.9f),
+                        new(r - 0.25f, -3.65f, crease: true, wobble: 0.8f),        //the tide ledge: one tall exposed
+                        new(r - 0.25f, -4.55f, crease: true, wobble: 0.6f),        //face where the crust line sits
+                        new(r - 0.2f,  -height, crease: true, wobble: 0.4f)        //the foot, all but flush
                     };
                     break;
 

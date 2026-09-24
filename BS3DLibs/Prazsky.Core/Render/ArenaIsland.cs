@@ -347,8 +347,9 @@ namespace Prazsky.Core.Render
         //stood their cannon on the identical slab. This is the issue's first concrete pass, MATERIAL ONLY: the
         //geometry, the joints, the relief and the detail textures stay, and what changes is the colour, the
         //polish and the slab size, read off the references #441 rendered for the islands and off each scene's
-        //own ground. The authored stone stays where it already belonged (the meadow's and the sea's pale
-        //limestone), and those scenes draw exactly as before - no tint at all.
+        //own ground. The authored stone stays where it already belonged (the meadow's pale limestone - and
+        //the sea's, until #536 made its island a sea stack), and those scenes draw exactly as before - no tint
+        //at all.
         private static readonly IslandLook DEFAULT_LOOK = new(STONE_COLOR, CONCRETE_COLOR, 0.14f, 0.08f, 2f);
 
         private static IslandLook LookFor(SceneKind scene) => scene switch
@@ -378,6 +379,9 @@ namespace Prazsky.Core.Render
             SceneKind.Outback => new(new Vector3(0.66f, 0.41f, 0.27f), new Vector3(0.54f, 0.33f, 0.22f), 0.10f, 0.06f, 2f),
             //Pale coral limestone
             SceneKind.Tropical => new(new Vector3(0.80f, 0.78f, 0.72f), new Vector3(0.68f, 0.64f, 0.56f), 0.14f, 0.08f, 2f),
+            //Dark layered rock, a sea stack's (#536), and WET: it is never dry, so the polish is the cavern's
+            //damp rather than the authored stone's; the slab size is the cap's fracture cell.
+            SceneKind.Sea => new(new Vector3(0.23f, 0.23f, 0.22f), new Vector3(0.17f, 0.17f, 0.16f), 0.34f, 0.18f, 3.4f),
             //Black basalt
             SceneKind.Volcano => new(new Vector3(0.18f, 0.17f, 0.17f), new Vector3(0.14f, 0.13f, 0.13f), 0.14f, 0.08f, 2f),
             //Rust-red rock, the plain's own
@@ -478,17 +482,19 @@ namespace Prazsky.Core.Render
         //InstancedModelRenderer reduces the material to its luminance and multiplies by 1.25 before applying a
         //tint, so the tint that lands a colour exactly is that colour over the product.
         /// <summary>
-        /// THE ISLAND'S SHAPE PER SCENE (#533), resolved where its material is: which of the six silhouettes
+        /// THE ISLAND'S SHAPE PER SCENE (#533), resolved where its material is: which of the seven silhouettes
         /// (<see cref="IslandShape"/>) a scene stands its cannon on. The families follow the ground each scene
         /// draws — a block of the volcano's own basalt, a floe on the two ice sheets, a weathered coral platform
-        /// where there is a sea, a machined disc where there is no ground at all, a poured plinth on the two
-        /// cities' rooftops, and the authored stone for every scene whose ground is rock, sand, snow or grass.
+        /// on the beach and a sea stack in the open sea (#536; both were the coral until then), a machined disc
+        /// where there is no ground at all, a poured plinth on the two cities' rooftops, and the authored stone
+        /// for every scene whose ground is rock, sand, snow or grass.
         /// </summary>
         private static IslandShape ShapeFor(SceneKind scene) => scene switch
         {
             SceneKind.Volcano => IslandShape.Basalt,
             SceneKind.Polar or SceneKind.Aurora => IslandShape.Ice,
-            SceneKind.Tropical or SceneKind.Sea => IslandShape.Coral,
+            SceneKind.Tropical => IslandShape.Coral,
+            SceneKind.Sea => IslandShape.SeaStack,
             SceneKind.Space or SceneKind.Grid => IslandShape.Machined,
             SceneKind.City or SceneKind.NeonCity => IslandShape.Plinth,
             _ => IslandShape.Stone
@@ -500,11 +506,13 @@ namespace Prazsky.Core.Render
         /// where the coursing is the material's); 0 cuts no joints at all (ice, coral); the machined disc and
         /// the plinth cut their own panel lines. The drum's joints are what make the basalt read as columns —
         /// the grid is cut in world X and Z on every face, so on a vertical wall it is vertical lines.
+        /// <c>DrumBedding</c> (#536) cuts horizontal joints on the drum instead — a layered rock's bedding
+        /// planes, at the drum's own joint width and depth — and <c>DrumWarp</c> bends them round it.
         /// </summary>
         private readonly record struct IslandRelief(float CapReliefFrequency, float CapReliefStrength,
             float CapJointWidth, float CapJointDepth, float CapSlab,
             float DrumSlab, float DrumJointWidth, float DrumJointDepth, float DrumReliefFrequency, float DrumReliefStrength,
-            float CapWarp = 0f);
+            float CapWarp = 0f, float DrumWarp = 0f, float DrumBedding = 0f);
 
         //The authored stone's figures are the constructor's, restated here so a shape switch back to stone
         //restores exactly what the constructor set.
@@ -520,8 +528,17 @@ namespace Prazsky.Core.Render
             //lines round cells of about one size. Thin and shallow: a fracture is a line in the ice, not a
             //groove cut into it. The drum has none; a broad low relief on both.
             IslandShape.Ice => new(3f, 0.020f, 0.03f, 0.02f, 2.4f, 0f, 0f, 0f, 2.5f, 0.020f, 0.9f),
-            //No joints, a pitted relief on both.
-            IslandShape.Coral => new(6f, 0.018f, 0f, 0f, 0f, 0f, 0f, 0f, 5f, 0.020f),
+            //A pitted relief on both and no joints on the drum; on the top HAIRLINE FRACTURES (#536) - the
+            //weathering cracks every reference of the beach rock carries - the ice's warped grid (#534) at a
+            //bigger cell, thinner and shallower still, so they read as lines in the limestone and not as paving.
+            IslandShape.Coral => new(6f, 0.018f, 0.02f, 0.012f, 3.2f, 0f, 0f, 0f, 5f, 0.020f, 0.8f),
+            //Layered rock (#536): fractures on the top like the coral's, at the material's cell (3.4) and bent
+            //harder - the first cut at 2.6 and 0.7 photographed as a paving grid on the dark rock - and on the
+            //drum BEDDING instead of vertical joints: a plane every 0.6 of a unit between the ledges the mesh
+            //steps, wider and deeper than a paving joint (the first cut's photographed as white pinstripes,
+            //the wet polish catching their bevels; these are recesses with a shadow), bent by the drum's own
+            //warp so the strata undulate round it.
+            IslandShape.SeaStack => new(5f, 0.012f, 0.02f, 0.02f, -1f, 0f, 0.07f, 0.09f, 4f, 0.016f, 1.1f, 0.6f, 0.6f),
             //Panel lines, thin and sharp, on the top (the material's own plate size) and on the hull; no relief.
             IslandShape.Machined => new(0f, 0f, 0.020f, 0.020f, -1f, 4f, 0.020f, 0.020f, 0f, 0f),
             //Expansion joints on the top, a faint cast relief, the side plain.
@@ -539,7 +556,9 @@ namespace Prazsky.Core.Render
         /// </summary>
         private readonly record struct IslandDressing(Vector3 CapJointGlow, Vector3 DrumJointGlow, float EventGain,
             Vector3 DustColor, float DustStrength, float Patchiness = 1f,
-            Vector3 SideDustColor = default, float SideDustStrength = 0f);
+            Vector3 SideDustColor = default, float SideDustStrength = 0f,
+            Vector3 FootBandColor = default, float FootBandStrength = 0f, float FootBandHeight = 0f, float FootBandFade = 0f,
+            float FootBandWobble = 0f, Vector3 FootLineColor = default, float FootLineWidth = 0f);
 
         private static readonly IslandDressing NO_DRESSING = new(Vector3.Zero, Vector3.Zero, 0f, Vector3.One, 0f);
 
@@ -568,6 +587,20 @@ namespace Prazsky.Core.Render
                 new Vector3(0.90f, 0.93f, 0.97f), 0.7f),
             SceneKind.Aurora => new(new Vector3(0.04f, 0.10f, 0.12f), Vector3.Zero, 0f, Vector3.One, 0f, 0.6f,
                 new Vector3(0.88f, 0.92f, 0.96f), 0.7f),
+            //THE COASTAL FAMILY (#536): a band round the drum's FOOT, keyed to height (InstancedModelRenderer.FootBand).
+            //The beach rock: a damp, algae-tinged sand crust piled against its foot - darker and greener than
+            //the coral, most of a unit high, its top wandering - and no line along it, since nothing washes this rock
+            //(the lagoon lies two units below its foot and a hundred out; a waterline on it would be a lie).
+            //The sea stack: the wet zone the waves and the spray keep - black-green, to a unit above the foot,
+            //which is the mean level (SeaSceneConfig.LevelY stands half a unit up the foot) plus most of the
+            //swell - with a pale line of salt and foam crust along its top. The line sits on the tall face the
+            //mesh's lowest ledge exposes (IslandShape.SeaStack): the first cut put it a unit and a half up, in
+            //a recess under a ledge's overhang, where no camera above the island could see it.
+            SceneKind.Tropical => NO_DRESSING with { FootBandColor = new Vector3(0.50f, 0.48f, 0.36f), FootBandStrength = 0.75f,
+                FootBandHeight = 0.8f, FootBandFade = 0.6f, FootBandWobble = 0.5f },
+            SceneKind.Sea => NO_DRESSING with { FootBandColor = new Vector3(0.09f, 0.11f, 0.09f), FootBandStrength = 0.85f,
+                FootBandHeight = 1.05f, FootBandFade = 0.8f, FootBandWobble = 0.12f,
+                FootLineColor = new Vector3(0.56f, 0.57f, 0.52f), FootLineWidth = 0.10f },
             _ => NO_DRESSING
         };
 
@@ -913,6 +946,8 @@ namespace Prazsky.Core.Render
             _capRenderer.JointGlowPatchiness = dressing.Patchiness;
             _bodyRenderer.JointGlowPatchiness = dressing.Patchiness;
             _capRenderer.SlabWarp = relief.CapWarp;
+            _bodyRenderer.SlabWarp = relief.DrumWarp;
+            _bodyRenderer.BeddingSpacing = relief.DrumBedding;
             _bodyRenderer.SideDustStrength = dressing.SideDustStrength;
             _bodyRenderer.SideDustTint = dressing.SideDustStrength > 0f
                 ? ColorSpace.SrgbToLinear(dressing.SideDustColor) / ColorSpace.SrgbToLinear(look.Drum)
@@ -920,6 +955,18 @@ namespace Prazsky.Core.Render
             _capRenderer.TopDustStrength = dressing.DustStrength;
             _capRenderer.TopDustTint = dressing.DustStrength > 0f
                 ? ColorSpace.SrgbToLinear(dressing.DustColor) / ColorSpace.SrgbToLinear(look.Cap)
+                : Vector3.One;
+
+            //The foot band (#536), on the drum, stated in the island's own frame: its top so far above the
+            //underside (TOP_Y - EDGE_HEIGHT), so a shape whose foot is elsewhere would carry the band with it.
+            _bodyRenderer.FootBandStrength = dressing.FootBandStrength;
+            _bodyRenderer.FootBand = new Vector4(TOP_Y - EDGE_HEIGHT + dressing.FootBandHeight,
+                dressing.FootBandFade, dressing.FootBandWobble, dressing.FootLineWidth);
+            _bodyRenderer.FootBandTint = dressing.FootBandStrength > 0f
+                ? ColorSpace.SrgbToLinear(dressing.FootBandColor) / ColorSpace.SrgbToLinear(look.Drum)
+                : Vector3.One;
+            _bodyRenderer.FootLineTint = dressing.FootLineWidth > 0f
+                ? ColorSpace.SrgbToLinear(dressing.FootLineColor) / ColorSpace.SrgbToLinear(look.Drum)
                 : Vector3.One;
 
             if ((Members & ArenaMembers.Cap) != 0)

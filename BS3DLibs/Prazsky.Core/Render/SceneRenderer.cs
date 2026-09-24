@@ -3769,6 +3769,29 @@ namespace Prazsky.Core.Render
                 driftBuckets[rng.Next(DRIFT_VARIANTS)].Add(new ModelInstance(world, Vector4.Zero));
             }
 
+            //Against the island (#536): the logs the last storm left lying against the rock's foot, spread
+            //round the rim in equal sectors so no side of it goes without, each along the rim (a log washed up
+            //against a wall lies along it) and pushed in to touch the coral's wandering foot - a little inside
+            //it here and there, which is a log half under the overhang.
+            for (int i = 0; i < dressing.IslandDriftCount; i++)
+            {
+                float a = (i + 0.3f + 0.4f * (float)rng.NextDouble()) * MathHelper.TwoPi / dressing.IslandDriftCount;
+                float r = ArenaIsland.RADIUS + 0.45f + 0.35f * (float)rng.NextDouble();
+                float cx = MathF.Cos(a) * r;
+                float cz = MathF.Sin(a) * r;
+                float gh = TropicalTerrainHeight(cx, cz, _tropicalConfig);
+
+                float tangent = MathF.Atan2(cx, -cz);
+                float yaw = tangent + ((float)rng.NextDouble() - 0.5f) * 0.5f;
+                float size = 0.9f + 0.4f * (float)rng.NextDouble();
+
+                Matrix world = Matrix.CreateScale(size)
+                    * Matrix.CreateRotationY(yaw)
+                    * Matrix.CreateTranslation(new Vector3(cx, gh, cz));
+
+                driftBuckets[rng.Next(DRIFT_VARIANTS)].Add(new ModelInstance(world, Vector4.Zero));
+            }
+
             _tropicalScrubInstances = new ModelInstance[SCRUB_VARIANTS][];
             for (int m = 0; m < SCRUB_VARIANTS; m++) _tropicalScrubInstances[m] = scrubBuckets[m].ToArray();
             _tropicalTuftInstances = new ModelInstance[TUFT_VARIANTS][];
