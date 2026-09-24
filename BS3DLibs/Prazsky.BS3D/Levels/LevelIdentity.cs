@@ -47,11 +47,17 @@ namespace Prazsky.BS3D.Levels
         /// file that was actually loaded, which is what makes a run pinned to a file outside the set (#332's
         /// <c>levelfile=</c>) hash as the different level it is.
         /// <para>
-        /// The hash covers the bytes as they are, line endings included: the repository stores and checks out LF
-        /// everywhere (<c>.gitattributes</c>), so the release zip, a local build and the ceiling table all see the
-        /// same bytes. After the bytes comes one line of the entry's rules, each absent rule spelled <c>-</c>:
-        /// <c>\nshots=30;ceilingStep=5;wildcardEvery=-</c>. That layout is the contract — change it and every
-        /// board in the wild starts again.
+        /// <b>Every carriage return is dropped before hashing; nothing else is normalized.</b> The repository has
+        /// stored and checked out LF everywhere since 2026-09-21 (<c>.gitattributes</c>), but a checkout made before
+        /// that keeps each file's old bytes until git next rewrites it — and measured on 2026-09-24, one such
+        /// checkout held 280 tracked files CRLF in its working tree, <b>51 of them shipped level files</b>. A local
+        /// build copies those into its <c>Levels</c> folder as they are, so with the CRs in the hash that build
+        /// hashed <b>51 of the 120 levels differently</b> from a clean <c>git archive</c> export of the same commit —
+        /// exactly the 51 — and 0 once the CRs were dropped. Every submission from it for those levels would have
+        /// been refused as an unknown level, silently. The release zip is built from a fresh checkout and is LF
+        /// either way; the fix is for every build that is not. After the bytes comes one line of the entry's rules, each
+        /// absent rule spelled <c>-</c>: <c>\nshots=30;ceilingStep=5;wildcardEvery=-</c>. That layout is the
+        /// contract — change it and every board in the wild starts again.
         /// </para>
         /// </summary>
         public static LevelIdentity Of(LevelSetEntry entry, byte[] levelBytes)
@@ -63,7 +69,20 @@ namespace Prazsky.BS3D.Levels
                 + ";wildcardEvery=" + Rule(entry.WildcardEvery);
 
             using IncrementalHash sha = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-            sha.AppendData(levelBytes);
+
+            //The bytes less every CR, fed as the runs between them rather than copied out first, so a level of
+            //any size costs no second buffer
+            ReadOnlySpan<byte> bytes = levelBytes;
+            int start = 0;
+            for (int i = 0; i < bytes.Length; i++)
+            {
+                if (bytes[i] != (byte)'\r') continue;
+
+                sha.AppendData(bytes.Slice(start, i - start));
+                start = i + 1;
+            }
+            sha.AppendData(bytes.Slice(start));
+
             sha.AppendData(Encoding.UTF8.GetBytes(rules));
 
             string hex = Convert.ToHexStringLower(sha.GetHashAndReset());
