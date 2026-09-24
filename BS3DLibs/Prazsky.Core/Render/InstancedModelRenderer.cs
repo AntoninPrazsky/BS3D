@@ -68,7 +68,7 @@ namespace Prazsky.Core.Render
         private EffectParameter _slabWarpParam, _sideDustTintParam, _sideDustStrengthParam;
         private EffectParameter _bandTopYParam, _bandFadeParam, _bandTintParam, _bandWetParam, _bandStrengthParam,
             _strataSpacingParam, _strataStrengthParam;
-        private EffectParameter _topDustClearParam, _bandWindParam;
+        private EffectParameter _topDustClearParam;
         private EffectParameter _cavityStrengthParam;
         private EffectParameter _reliefShadowStrengthParam;
         private EffectParameter _parallaxScaleParam;
@@ -369,13 +369,6 @@ namespace Prazsky.Core.Render
         /// fades back in. Zero clears nothing.
         /// </summary>
         public Vector2 TopDustClear { get; set; }
-
-        /// <summary>
-        /// The height band's top raised on the windward side (#538) — sand drifted against the desert island's drum:
-        /// XY the direction the drift faces (the wind reversed), Z how far the band's top rises on that side, in
-        /// world units. Zero is a level band.
-        /// </summary>
-        public Vector3 BandWind { get; set; }
 
         /// <summary>
         /// How far the slab joint grid is bent by a world-space noise, in world units (#534): 0, the default,
@@ -1090,7 +1083,6 @@ namespace Prazsky.Core.Render
             _strataSpacingParam = _effect.Parameters["StrataSpacing"];
             _strataStrengthParam = _effect.Parameters["StrataStrength"];
             _topDustClearParam = _effect.Parameters["TopDustClear"];
-            _bandWindParam = _effect.Parameters["BandWind"];
             _cavityStrengthParam = _effect.Parameters["CavityStrength"];
             _reliefShadowStrengthParam = _effect.Parameters["ReliefShadowStrength"];
             _parallaxScaleParam = _effect.Parameters["ParallaxScale"];
@@ -1476,7 +1468,6 @@ namespace Prazsky.Core.Render
             _strataSpacingParam.SetValue(StrataSpacing);
             _strataStrengthParam.SetValue(StrataStrength);
             _topDustClearParam.SetValue(TopDustClear);
-            _bandWindParam.SetValue(BandWind);
             _cavityStrengthParam.SetValue(CavityStrength);
             _reliefShadowStrengthParam.SetValue(ReliefShadowStrength);
             _parallaxScaleParam.SetValue(ParallaxScale);

@@ -633,11 +633,6 @@ float StrataStrength;
 //in; x = 0 clears nothing. The island stands on the world's axis, so the distance is the position's own.
 float2 TopDustClear;
 
-//The height band's top raised on the WINDWARD side (#538): sand drifted against the desert island's drum lies
-//deep where the wind piles it and thin in the lee. xy is the direction the drift faces (the wind reversed), z
-//how far the band's top rises on that side, in world units; 0 is a level band.
-float3 BandWind;
-
 
 //The two above, applied to the triplanar paths' albedo (#536): returns how wet the pixel is, which the caller hands
 //ShadePixel as extra sky mirrored. `side` is how far the geometric normal is from vertical, the dusts' own weight,
@@ -654,9 +649,7 @@ float ApplyHeightBands(inout float3 texRgb, float3 worldPosition, float side, fl
     if (BandStrength > 0.0 && side > 0.02)
     {
         float wander = sin(dot(worldPosition.xz, float2(0.31, 0.23))) * sin(dot(worldPosition.xz, float2(-0.17, 0.29)) + 1.3);
-        //The windward rise (#538): the band's top climbs on the face the drift is piled against and stays put in
-        //the lee, by how far round the drum this pixel faces the wind
-        float tideLine = BandTopY + wander * BandFade * 0.6 + BandWind.z * saturate(dot(normalize(worldPosition.xz), BandWind.xy));
+        float tideLine = BandTopY + wander * BandFade * 0.6;
         float inBand = saturate((tideLine - worldPosition.y) / max(BandFade, 1e-3)) * side;
 
         texRgb = lerp(texRgb, texRgb * BandTint, BandStrength * inBand);

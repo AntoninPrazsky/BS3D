@@ -314,6 +314,15 @@ namespace Prazsky.Core.Render
         private readonly SurfaceTexture _stoneTexture, _concreteTexture;
         private readonly InstancedModelRenderer _capRenderer, _bodyRenderer;
 
+        //The desert's drift (#550): the bank of sand the wind leaves against the drum's windward face, a mesh of
+        //its own under its own renderer, drawn after the drum in the desert only (it receives the sun's map and
+        //does not cast into it - see DrawShadow). Built once like everything here: the desert's wind is fixed in
+        //its config.
+        private readonly SandDriftMesh _driftMesh;
+        private readonly InstancedModelRenderer _driftRenderer;
+        private readonly ModelInstance[] _driftInstance = new ModelInstance[1];
+        private bool _driftDrawn;
+
         private readonly FunnelMesh _funnelMesh;
         private readonly InstancedModelRenderer _funnelRenderer;
         private readonly FunnelRimsMesh _funnelRimsMesh;
@@ -338,7 +347,8 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// What the island is made of in one scene (#404): the cap's and the drum's albedo (sRGB, the same space
         /// as <see cref="STONE_COLOR"/>), how polished each is (their <c>SpecularAmbientStrength</c>) and how big
-        /// the cap's laid slabs are.
+        /// the cap's slabs are — read only by the shapes that lay any since #550: the plinth's expansion joints,
+        /// the machined disc's panel lines. The authored stone is an outcrop of rock now, not a paved floor.
         /// </summary>
         private readonly record struct IslandLook(Vector3 Cap, Vector3 Drum, float CapPolish, float DrumPolish, float Slab);
 
@@ -350,6 +360,18 @@ namespace Prazsky.Core.Render
         //own ground. The authored stone stays where it already belonged (the meadow's pale limestone, and the sea's
         //until #536 made it a sea stack), and those scenes draw exactly as before - no tint at all.
         private static readonly IslandLook DEFAULT_LOOK = new(STONE_COLOR, CONCRETE_COLOR, 0.14f, 0.08f, 2f);
+
+        //The dunes' pale sand (DesertSceneConfig.SandColorPale, brought to sRGB like STONE_COLOR): the drift's own
+        //colour and the film of it on the desert island's top.
+        private static readonly Vector3 SAND_DRIFT_COLOR = new(0.86f, 0.70f, 0.50f);
+
+        //The drift's figures (#550): it starts inside the drum's surface so no seam can open whatever the drum's
+        //wobble does, stands 2.6 units up the face the wind hits, runs six and a half out onto the clearing's
+        //flat sand, and covers 220 degrees of the drum, tapering to nothing at its ends.
+        private const float DRIFT_INNER_RADIUS = RADIUS - 1.3f;
+        private const float DRIFT_HEIGHT = 2.6f;
+        private const float DRIFT_REACH = 6.5f;
+        private const float DRIFT_HALF_ARC = 1.9f;
 
         private static IslandLook LookFor(SceneKind scene) => scene switch
         {
@@ -518,9 +540,13 @@ namespace Prazsky.Core.Render
             float DrumSlab, float DrumJointWidth, float DrumJointDepth, float DrumReliefFrequency, float DrumReliefStrength,
             float CapWarp = 0f, float DrumWarp = 0f);
 
-        //The authored stone's figures are the constructor's, restated here so a shape switch back to stone
-        //restores exactly what the constructor set.
-        private static readonly IslandRelief STONE_RELIEF = new(9f, 0.008f, 0.025f, 0.025f, -1f, 0f, 0f, 0f, 4.5f, 0.012f);
+        //THE AUTHORED STONE IS AN OUTCROP OF ROCK (#550), not a paved floor: no joint grid on the top, and a
+        //coarser, deeper relief than the paving's micro-grain had - the undulation a worn rock surface has,
+        //which is what breaks the light over a top that no longer has joints to do it. The slab coursing that
+        //stood here from the start was never a design: the owner's word (2026-09-24) is that it came out of an
+        //early shader of a castle no longer in the game, by accident, and nothing about it needed keeping. The
+        //drum's figures are the constructor's, unchanged.
+        private static readonly IslandRelief STONE_RELIEF = new(3.5f, 0.022f, 0f, 0f, 0f, 0f, 0f, 0f, 4.5f, 0.012f);
 
         private static IslandRelief ReliefFor(IslandShape shape) => shape switch
         {
@@ -549,19 +575,6 @@ namespace Prazsky.Core.Render
         };
 
         /// <summary>
-        /// A scene's own change to its shape's relief (#538): Mars and the desert stand on the authored stone, whose
-        /// top is the coursing of laid slabs — and the owner's word (2026-09-24) is that the slabs were never a
-        /// design, only what an early shader of a castle no longer in the game left behind. So these two, which
-        /// are rock and sandstone, get no joints on the top at all; a first cut bent the grid into "fractures"
-        /// with dust in them and it read as wavy tiles with pale grout. Every other scene falls through.
-        /// </summary>
-        private static IslandRelief SceneRelief(SceneKind scene, IslandRelief relief) => scene switch
-        {
-            SceneKind.Mars or SceneKind.Desert => relief with { CapSlab = 0f, CapJointWidth = 0f, CapJointDepth = 0f },
-            _ => relief
-        };
-
-        /// <summary>
         /// THE ISLAND DRESSED PER FAMILY (#535, the volcanic and underground one first): what its joints put out
         /// and what has settled on its top, beside the material and the shape. <c>CapJointGlow</c> and
         /// <c>DrumJointGlow</c> are linear radiance in the joints' floors (see
@@ -574,18 +587,13 @@ namespace Prazsky.Core.Render
             Vector3 SideDustColor = default, float SideDustStrength = 0f,
             Vector3 BandColor = default, float BandTopY = 0f, float BandFade = 1f, float BandWet = 0f, float BandStrength = 0f,
             float StrataSpacing = 1f, float StrataStrength = 0f,
-            float DustClearRadius = 0f, float BandWindRise = 0f);
+            float DustClearRadius = 0f);
 
         //The water and the sand the coastal family stands in (#536), read off the scenes' own configs rather than
         //restated, so a tide line cannot drift off the sea it marks. The island's foot is at TOP_Y - EDGE_HEIGHT,
         //-13.5: half a unit under the sea's mean level, and exactly on the beach's dry sand.
         private static readonly float SEA_LEVEL_Y = new SeaSceneConfig().LevelY;
         private static readonly float BEACH_SAND_Y = new TropicalTerrainConfig().LevelY;
-
-        //The desert's sand and its wind (#538), read the same way: the drift lies against the drum's windward face,
-        //and the band's top rises where the scene's own dunes are blown from.
-        private static readonly float DESERT_SAND_Y = new DesertSceneConfig().LevelY;
-        private static readonly Vec2 DESERT_WIND = new DesertSceneConfig().Wind;
 
         private static readonly IslandDressing NO_DRESSING = new(Vector3.Zero, Vector3.Zero, 0f, Vector3.One, 0f);
 
@@ -639,11 +647,10 @@ namespace Prazsky.Core.Render
             //back over three more (the craters are in the pad's mesh). Mars: a thin film of the plain's fine dust
             //on the crust (MarsSceneConfig.RustColorPale is the dust's tone) and the drum in beds like the mesas'
             //(#536's strata), under the darker crust LookFor gives the top. The outback: nothing lies on Uluru -
-            //its flutes are the shape's relief. The desert: SAND DRIFTED against the drum - the height band in the
-            //dunes' pale sand, its top half a unit up the foot in the lee and two units higher on the windward
-            //face (DesertSceneConfig.Wind, reversed) - and a film of the same sand over the top. The first cut put
-            //the dust and the sand IN THE JOINTS of the authored paving; with the paving gone from these two tops
-            //(SceneRelief) it lies on the rock.
+            //its flutes are the shape's relief. The desert: a film of the dunes' pale sand over the top - the DRIFT
+            //against the drum is geometry since #550 (SandDriftMesh, drawn after the drum), where #538 had drawn
+            //it as a band of tint rising on the windward face. The first cut of #538 put the dust and the sand IN
+            //THE JOINTS of the authored paving; the paving is gone (#550) and they lie on the rock.
             SceneKind.Moon => NO_DRESSING with
             {
                 DustColor = new Vector3(0.64f, 0.63f, 0.62f), DustStrength = 0.55f, DustClearRadius = FUNNEL_TOP_RADIUS + 3f
@@ -655,9 +662,7 @@ namespace Prazsky.Core.Render
             },
             SceneKind.Desert => NO_DRESSING with
             {
-                BandColor = new Vector3(0.86f, 0.70f, 0.50f), BandTopY = DESERT_SAND_Y + 0.6f, BandFade = 0.5f,
-                BandStrength = 1f, BandWindRise = 2.0f,
-                DustColor = new Vector3(0.86f, 0.70f, 0.50f), DustStrength = 0.35f
+                DustColor = SAND_DRIFT_COLOR, DustStrength = 0.35f
             },
             _ => NO_DRESSING
         };
@@ -682,9 +687,6 @@ namespace Prazsky.Core.Render
                 : Vector3.One;
             renderer.StrataSpacing = dressing.StrataSpacing;
             renderer.StrataStrength = dressing.StrataStrength;
-            //The windward rise (#538) faces against the desert's wind - the only scene whose band rises; a rise of 0
-            //leaves the direction unread
-            renderer.BandWind = new Vector3(-DESERT_WIND.X, -DESERT_WIND.Y, dressing.BandWindRise);
         }
 
         private static Vector3 TintFor(Vector3 wanted, Vector3 authored) =>
@@ -847,6 +849,25 @@ namespace Prazsky.Core.Render
                 SpecularAmbientStrength = 1f
             };
 
+            //The desert's drift (#550), against the face the scene's own wind arrives from. Sand: the stone's
+            //grain at a finer scale carries the texture, a soft relief breaks the light, no joints, dull.
+            Vec2 wind = new DesertSceneConfig().Wind;
+            _driftMesh = new SandDriftMesh(device, new Vector2(wind.X, wind.Y), DRIFT_INNER_RADIUS, -EDGE_HEIGHT,
+                DRIFT_HEIGHT, DRIFT_REACH, DRIFT_HALF_ARC);
+            _driftRenderer = new InstancedModelRenderer(device, _driftMesh, SAND_DRIFT_COLOR, instancingEffect)
+            {
+                DetailTexture = _stoneTexture.Texture,
+                DetailTextureMapping = DetailMapping.Triplanar,
+                DetailScale = 1f / (STONE_SPAN * 0.6f),
+                DetailBoost = 1f / _stoneTexture.LinearMean,
+                DetailStrength = 0.35f,
+                SurfaceReliefFrequency = 6f,
+                SurfaceReliefStrength = 0.008f,
+                SlabSize = 0f,
+                CavityStrength = 0.6f,
+                SpecularAmbientStrength = 0.05f
+            };
+
             _funnelRimEffectParams = new BasicEffectParams(Vector3.One * sceneAmbientIntensity,
                 FUNNEL_RIM_SPECULAR, FUNNEL_RIM_SPECULAR_POWER, Vector3.Zero);
 
@@ -881,7 +902,7 @@ namespace Prazsky.Core.Render
             _world = Matrix.CreateTranslation(0f, TOP_Y, 0f);
             _drainWorld = Matrix.CreateTranslation(0f, TOP_Y - DISH_DEPTH, 0f);
 
-            _skyLit = new[] { _capRenderer, _bodyRenderer, _funnelRenderer, _funnelRimsRenderer };
+            _skyLit = new[] { _capRenderer, _bodyRenderer, _funnelRenderer, _funnelRimsRenderer, _driftRenderer };
         }
 
         /// <summary>
@@ -994,7 +1015,7 @@ namespace Prazsky.Core.Render
                 _bodyRenderer.SetMesh(_islandMeshes[(int)shape].Body);
             }
 
-            IslandRelief relief = SceneRelief(scene, ReliefFor(shape));
+            IslandRelief relief = ReliefFor(shape);
 
             _capRenderer.SpecularAmbientStrength = look.CapPolish;
             _capRenderer.SlabSize = relief.CapSlab < 0f ? look.Slab : relief.CapSlab;
@@ -1050,6 +1071,15 @@ namespace Prazsky.Core.Render
                 _drumInstance[0] = new ModelInstance(_world, new Vector4(0f, 0f, 0f, 1f));
                 _bodyRenderer.Draw(camera, _drumInstance, 1, sceneParams, authored ? null : TintFor(look.Drum, CONCRETE_COLOR));
             }
+
+            //The drift (#550) is the desert's alone, and goes with the drum it leans on - in its own colour,
+            //untinted.
+            _driftDrawn = scene == SceneKind.Desert && (Members & ArenaMembers.Drum) != 0;
+            if (_driftDrawn)
+            {
+                _driftInstance[0] = new ModelInstance(_world, new Vector4(0f, 0f, 0f, 1f));
+                _driftRenderer.Draw(camera, _driftInstance, 1, sceneParams, null);
+            }
         }
 
         /// <summary>
@@ -1075,6 +1105,9 @@ namespace Prazsky.Core.Render
         {
             if ((Members & ArenaMembers.Cap) != 0) _capRenderer.DrawDepth(shadowViewProjection, _world);
             if ((Members & ArenaMembers.Drum) != 0) _bodyRenderer.DrawDepth(shadowViewProjection, _world);
+            //The drift does NOT cast (#550): a low sheet under a grazing sun shadows itself through the map's texel
+            //step and photographed as a checker of acne over its whole slope. It receives the island's shadow like
+            //the ground it lies on, and its own shadow on that ground would be a hand's width of nothing.
         }
 
         /// <summary>
@@ -1169,6 +1202,8 @@ namespace Prazsky.Core.Render
             _funnelRenderer?.Dispose();
             _funnelMesh?.Dispose();
             _funnelRimsRenderer?.Dispose();
+            _driftRenderer?.Dispose();
+            _driftMesh?.Dispose();
             _funnelRimsMesh?.Dispose();
 
             _pitRenderer?.Dispose();
