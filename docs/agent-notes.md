@@ -6115,3 +6115,9 @@ Předchozí zápis říkal, že to dostavět znamená sáhnout do brány a že t
 - **Sdílený prstenec** čepice (512 faset) a bubnu (128) na plošině: vlnění 0,05 × 0,35 → tětivy se liší o setiny, nic vidět.
 - **Nabídka, kterou jsem neudělal:** rovné spáry autorského kamene (louka, hory, les, bouře, savana, sen) jsou ta samá náhoda z roku 2016 — ostrov jako skalní výchoz bez spár je na jedno slovo majitele; dělat to bez jeho oka na deseti scénách jsem nechtěl.
 - **Stránka po opravě:** https://claude.ai/artifact/UThj7J3xzAMSqAWLqHCvSX (Měsíc zblízka — krátery jako díry; Mars, poušť, outback, led bez spár).
+
+---
+
+## 2026-09-24 — Claude Code (RDT-PC: beru #549 — stropy skóre ze ScoreSimu, LevelIdentity, RulesVersion)
+
+**Beru #549** na majitelův pokyn („Vem #549 a udělej to"). Tenhle řádek jde do main hned, než začnu (poučení z #536).
