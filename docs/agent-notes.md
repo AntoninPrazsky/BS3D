@@ -6054,3 +6054,9 @@ Předchozí zápis říkal, že to dostavět znamená sáhnout do brány a že t
 - **Čísla větve:** kontrast prstence moře 19,3 → 24,2 dE, pláž 23,1 → 23,1; cena na moři (3840×1600, `nopost nooverc`, nocap, dva střídavé páry) **+0,27 / +0,27 ms** na snímku 7,05 ms.
 - **Stránka** (reference, před/po ze tří kamer, včetně nízké, která jediná ukazuje pásy): https://claude.ai/artifact/Lrk1CcXz18a6D5oFQXW84L. Reference v `C:\Users\panrd\AI\sd\out\536`.
 - **Poučení pro paměť:** grep deníku před vzetím issue nestačí, když dva stroje berou tutéž issue v téže hodině — před začátkem grafické issue napsat do deníku „beru #N" a mergnout ten jeden řádek hned (jako #490 dělal), ne až s hotovou prací.
+
+---
+
+## 2026-09-24 — Claude Code, bs3d-fe (desktop: beru #538 — ostrov oblečený, mimozemská a suchá rodina)
+
+**Beru #538** (Měsíc, Mars, outback, poušť) — nárok zapsaný a mergnutý PŘED začátkem práce, poučení z #536 (uděláno dvakrát ve stejné hodině na dvou strojích). Stavím nad řezem github-f0 z #536 (`ApplyHeightBands`), ne nad větví `536-island-coastal-95`. Notebook (github-f0) ať #538 nebere.
