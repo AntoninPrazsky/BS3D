@@ -52,6 +52,7 @@ namespace BS3D.Tools.ScoreSim
         {
             string directory = null;
             string ceilingsPath = null;
+            double ceilingScale = 1.0;
 
             for (int i = 0; i < args.Length; i++)
             {
@@ -64,6 +65,22 @@ namespace BS3D.Tools.ScoreSim
                     }
 
                     ceilingsPath = args[++i];
+                }
+                else if (args[i] == "--ceiling-scale")
+                {
+                    //The lever that proves the ceiling gate fires (BestPractices.md §10): every ceiling is
+                    //multiplied by this before the check and by nothing else — the table, when one is written,
+                    //carries the real figures. At 0.25 it must refuse every level; a run that does not has lost
+                    //the gate.
+                    if (i + 1 >= args.Length
+                        || !double.TryParse(args[i + 1], NumberStyles.Float, CultureInfo.InvariantCulture, out ceilingScale)
+                        || ceilingScale <= 0)
+                    {
+                        Console.WriteLine("--ceiling-scale needs a positive number.");
+                        return 1;
+                    }
+
+                    i++;
                 }
                 else directory = args[i];
             }
@@ -88,17 +105,23 @@ namespace BS3D.Tools.ScoreSim
             }
 
             Console.WriteLine();
-            Console.WriteLine($"Rules v{ScoreKeeper.RulesVersion}   " +
-                $"Thresholds: {StarRating.TWO_STAR_FLOOR_MULTIPLE:F2} / " +
-                $"{StarRating.THREE_STAR_FLOOR_MULTIPLE:F2} / {StarRating.FOUR_STAR_FLOOR_MULTIPLE:F2}   " +
-                $"multiplier +{ScoreKeeper.MultiplierStep} to x{ScoreKeeper.MaxMultiplier}   " +
-                $"unused shot = {ScoreKeeper.UnusedShotWorthInShots} average shots");
+            //Invariant, like every row under it: this line printed "1,80 / 4,00" on a Czech machine
+            Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
+                "Rules v{0}   Thresholds: {1:F2} / {2:F2} / {3:F2}   multiplier +{4} to x{5}   unused shot = {6} average shots",
+                ScoreKeeper.RulesVersion,
+                StarRating.TWO_STAR_FLOOR_MULTIPLE, StarRating.THREE_STAR_FLOOR_MULTIPLE, StarRating.FOUR_STAR_FLOOR_MULTIPLE,
+                ScoreKeeper.MultiplierStep, ScoreKeeper.MaxMultiplier, ScoreKeeper.UnusedShotWorthInShots));
+
+            if (ceilingScale != 1.0)
+                Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
+                    "Ceilings scaled by {0:F2} for the check ONLY — a test of the gate, not a rule; a table written now is unscaled",
+                    ceilingScale));
             Console.WriteLine();
             Console.WriteLine("level        balls shots |   4 shots      8         16      budget-1  |  sloppy  | ceiling best/ceil min");
 
             bool ok = true;
 
-            foreach (Playable level in levels) ok &= Report(level);
+            foreach (Playable level in levels) ok &= Report(level, ceilingScale);
 
             Console.WriteLine();
             Console.WriteLine(ok
@@ -118,7 +141,7 @@ namespace BS3D.Tools.ScoreSim
         /// <summary>
         /// One level, played several ways. Returns whether the rating held up, and says why when it did not.
         /// </summary>
-        private static bool Report(Playable level)
+        private static bool Report(Playable level, double ceilingScale)
         {
             double[] fast = new double[ShotCounts.Length];
             int[] fastStars = new int[ShotCounts.Length];
@@ -158,10 +181,11 @@ namespace BS3D.Tools.ScoreSim
 
             //THE CEILING (#549): the service refuses a score over it, so a score this simulator reaches with the
             //real rules must be under it — or the bound has a term missing and real players would be refused
-            if (bestScore >= level.Ceiling)
+            if (bestScore >= level.Ceiling * ceilingScale)
             {
-                Console.WriteLine($"    OVER CEILING: a simulated clear scores {bestScore}, " +
-                    $"at or over the ceiling of {level.Ceiling} the online boards would refuse it at");
+                Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
+                    "    OVER CEILING: a simulated clear scores {0}, at or over the ceiling of {1} the online boards would refuse it at",
+                    bestScore, level.Ceiling * ceilingScale));
                 ok = false;
             }
 
