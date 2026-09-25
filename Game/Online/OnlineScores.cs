@@ -87,6 +87,19 @@ namespace BS3D.Online
         internal static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(5);
 
         /// <summary>
+        /// The most of a response the client reads (#572). Every answer of contract v1 is a few hundred bytes and a
+        /// board page of ten rows about a kilobyte; anything past this is not the service, and a larger body is
+        /// a failed request rather than memory spent on it.
+        /// </summary>
+        internal const int MaxResponseBytes = 64 * 1024;
+
+        /// <summary>
+        /// How long <see cref="Dispose"/> gives the worker to finish (#572) — enough for it to write a clear handed
+        /// to it in the game's last second into the outbox, never long enough to hold the window open on a request.
+        /// </summary>
+        internal static readonly TimeSpan DisposeWait = TimeSpan.FromMilliseconds(500);
+
+        /// <summary>
         /// The assembly metadata key <c>release.yml</c> stamps the tag under (<c>-p:BS3DReleaseVersion=</c>,
         /// turned into an attribute by <c>Game.csproj</c>) — on a tag build and only then.
         /// </summary>
@@ -146,6 +159,14 @@ namespace BS3D.Online
 
         private volatile bool _removalRequested;
         private string _pendingRename;
+        private volatile bool _faulted;
+
+        /// <summary>
+        /// The nickname as it stands now — the worker's own copy, so it never reads the <see cref="OnlineIdentity"/>
+        /// the frame writes (#572). Set at start, by <see cref="RequestRename"/> and by the service's own form of it;
+        /// read and swapped only through <see cref="Volatile"/> and <see cref="Interlocked"/>.
+        /// </summary>
+        private string _name;
 
         private OnlineScores(bool on, Uri server, OnlineIdentity identity, string outboxPath, Task previous)
         {
@@ -153,6 +174,8 @@ namespace BS3D.Online
             _identity = identity;
             _outboxPath = outboxPath;
             _previous = previous ?? Task.CompletedTask;
+
+            _name = identity?.Name;
 
             CanReachServer = server != null && identity != null;
             Enabled = on && CanReachServer;
@@ -172,6 +195,7 @@ namespace BS3D.Online
             {
                 //Each request carries its own deadline (SendAsync), so the client's own never fires
                 Timeout = Timeout.InfiniteTimeSpan,
+                MaxResponseContentBufferSize = MaxResponseBytes,
             };
             _http.DefaultRequestHeaders.UserAgent.ParseAdd($"BS3D/{GameVersion}");
             _http.DefaultRequestHeaders.Accept.ParseAdd("application/json");
@@ -208,7 +232,9 @@ namespace BS3D.Online
 
         /// <summary>
         /// A cleared level, ready to hand to <see cref="Submit"/>: stamped with this install's identity, a fresh
-        /// submission id and this build's version. Null when this run submits nowhere.
+        /// submission id and this build's version. Null when this run submits nowhere. The name it carries is only
+        /// the name at the clear: it is stamped again with the name as it stands when it is sent (#572), see
+        /// <see cref="DrainAsync"/>.
         /// </summary>
         internal ScoreSubmission NewSubmission(LevelIdentity level, int score, int stars, int shotsUsed, float seconds)
         {
@@ -256,12 +282,14 @@ namespace BS3D.Online
 
         /// <summary>
         /// Tells the service the player's new nickname (#548) — <c>PUT /v1/players/{id}</c>. Best effort: a rename
-        /// that gets no answer is not queued, because every submission carries the name as it stands anyway.
+        /// that gets no answer is not queued, because every submission carries the name as it stands when it is
+        /// sent, clears queued under the old name included (#572).
         /// </summary>
         internal void RequestRename(string name)
         {
             if (!CanReachServer || string.IsNullOrEmpty(name)) return;
 
+            Volatile.Write(ref _name, name);
             Interlocked.Exchange(ref _pendingRename, name);
             _wake.Release();
         }
@@ -289,6 +317,13 @@ namespace BS3D.Online
         internal bool TryTakeNotice(out OnlineNotice notice) => _notices.TryDequeue(out notice);
 
         /// <summary>
+        /// Whether the worker ended on something it did not expect (#572) — outside any one request or step, since
+        /// each of those catches its own. Whatever it had been handed is in the outbox; the frame replaces the client
+        /// once a session (<c>BS3DGame.UpdateOnline</c>), because a worker that is gone reads no queue.
+        /// </summary>
+        internal bool Faulted => _faulted;
+
+        /// <summary>
         /// Stops the worker without waiting for it, and returns it — to be handed to the client that replaces this
         /// one, which waits for it before it reads the outbox. Whatever was in flight is still in the outbox and
         /// goes again.
@@ -299,7 +334,24 @@ namespace BS3D.Online
             return _worker;
         }
 
-        public void Dispose() => Stop();
+        /// <summary>
+        /// Stops the worker and gives it <see cref="DisposeWait"/> to finish (#572): a clear handed over in the last
+        /// second is then in the outbox rather than in memory. A request in flight is cancelled, not waited for — it
+        /// is in the outbox already and goes again at the next start.
+        /// </summary>
+        public void Dispose()
+        {
+            Task worker = Stop();
+
+            try
+            {
+                worker?.Wait(DisposeWait);
+            }
+            catch (AggregateException)
+            {
+                //RunAsync catches its own; a predecessor's failure was its own to log
+            }
+        }
 
         /// <summary>
         /// The one sentence that says what online scores send and what the service keeps (#548) — on the settings
@@ -331,9 +383,12 @@ namespace BS3D.Online
                 //Its own failure was its own to log
             }
 
+            List<ScoreSubmission> outbox = null;
+            bool removed = false;
+
             try
             {
-                List<ScoreSubmission> outbox = Enabled ? LoadOutbox() : new List<ScoreSubmission>();
+                outbox = Enabled ? LoadOutbox() : new List<ScoreSubmission>();
 
                 if (outbox.Count > 0)
                     Console.WriteLine($"[online] {outbox.Count} clear(s) waiting in the outbox from an earlier run; sending");
@@ -344,42 +399,53 @@ namespace BS3D.Online
                 {
                     await _wake.WaitAsync(stop);
 
-                    //Before anything queued is sent: a removal must not be overtaken by a clear that puts the name back
-                    if (_removalRequested)
+                    //⚠ One step at a time, each caught (#572): the requests catch their own failures, and anything
+                    //else nobody foresaw costs this one step, never the worker. A worker that ended here used to leave
+                    //Submit queueing clears nothing read or wrote, every one of them lost at exit.
+                    try
                     {
-                        if (await RemoveAsync(outbox, stop)) return;
+                        //Before anything queued is sent: a removal must not be overtaken by a clear that puts the name back
+                        if (_removalRequested)
+                        {
+                            if (await RemoveAsync(outbox, stop))
+                            {
+                                removed = true;
+                                return;
+                            }
 
-                        _removalRequested = false;
-                        continue;
+                            _removalRequested = false;
+                            continue;
+                        }
+
+                        string rename = Interlocked.Exchange(ref _pendingRename, null);
+                        if (rename != null) await RenameAsync(rename, stop);
+
+                        if (!Enabled) continue;
+
+                        //On disk before the boards are fetched, which can be several requests (#572)
+                        TakeIncoming(outbox);
+
+                        //Before the outbox: a board the player is looking at is worth more than a clear that can wait
+                        while (_boardRequests.TryDequeue(out BoardRequest board))
+                            _boardReplies.Enqueue(await FetchBoardAsync(board, stop));
+
+                        await DrainAsync(outbox, stop);
                     }
-
-                    string rename = Interlocked.Exchange(ref _pendingRename, null);
-                    if (rename != null) await RenameAsync(rename, stop);
-
-                    if (!Enabled) continue;
-
-                    //Before the outbox: a board the player is looking at is worth more than a clear that can wait
-                    while (_boardRequests.TryDequeue(out BoardRequest board))
-                        _boardReplies.Enqueue(await FetchBoardAsync(board, stop));
-
-                    bool added = false;
-                    while (_incoming.TryDequeue(out ScoreSubmission submission))
+                    catch (Exception e) when (!stop.IsCancellationRequested)
                     {
-                        outbox.Add(submission);
-                        added = true;
+                        if (_removalRequested)
+                        {
+                            _removalRequested = false;
+                            _notices.Enqueue(new OnlineNotice(OnlineNoticeKind.RemoveFailed, "interrupted"));
+                        }
+
+                        Console.WriteLine($"[online] A step of the submitter failed: {e.GetType().Name}: {e.Message};"
+                            + $" {outbox.Count} clear(s) kept in the outbox");
+
+                        //Nobody waits on a page for an answer that will now not come
+                        foreach (ScoreSubmission waiting in outbox)
+                            _answers.Enqueue(new OnlineAnswer(waiting.SubmissionId, OnlineOutcome.Offline));
                     }
-
-                    if (outbox.Count > OutboxCapacity)
-                    {
-                        int dropped = outbox.Count - OutboxCapacity;
-                        outbox.RemoveRange(0, dropped);
-                        Console.WriteLine($"[online] The outbox is full ({OutboxCapacity}); dropped the {dropped} oldest clear(s)");
-                    }
-
-                    //On disk BEFORE the first byte goes out — see the class doc
-                    if (added) SaveOutbox(outbox);
-
-                    await DrainAsync(outbox, stop);
                 }
             }
             catch (OperationCanceledException) when (stop.IsCancellationRequested)
@@ -388,24 +454,77 @@ namespace BS3D.Online
             }
             catch (Exception e)
             {
-                //The one thing this must never do is take the game down with it. What was queued is on disk.
+                //The one thing this must never do is take the game down with it. The frame restarts it once (#572).
+                _faulted = true;
                 Console.WriteLine($"[online] The submitter stopped: {e.GetType().Name}: {e.Message}");
             }
             finally
             {
+                //Whatever ended the worker, a clear handed to it and not yet on disk goes there now (#572) — the
+                //outbox is what a game closed or replaced mid-send is promised to have kept. Not after a removal:
+                //that player's clears are exactly what the removal was for.
+                if (Enabled && !removed)
+                {
+                    try
+                    {
+                        outbox ??= LoadOutbox();
+                        TakeIncoming(outbox);
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine($"[online] Could not keep the last clear(s) in the outbox: {e.GetType().Name}: {e.Message}");
+                    }
+                }
+
                 _http?.Dispose();
             }
         }
 
         /// <summary>
+        /// Moves every clear the frame has handed over into the outbox, and the outbox onto disk if any came —
+        /// <b>before</b> the first byte of any of them goes out; see the class doc. Past <see cref="OutboxCapacity"/>
+        /// the oldest go.
+        /// </summary>
+        private void TakeIncoming(List<ScoreSubmission> outbox)
+        {
+            bool added = false;
+            while (_incoming.TryDequeue(out ScoreSubmission submission))
+            {
+                outbox.Add(submission);
+                added = true;
+            }
+
+            if (!added) return;
+
+            if (outbox.Count > OutboxCapacity)
+            {
+                int dropped = outbox.Count - OutboxCapacity;
+                outbox.RemoveRange(0, dropped);
+                Console.WriteLine($"[online] The outbox is full ({OutboxCapacity}); dropped the {dropped} oldest clear(s)");
+            }
+
+            SaveOutbox(outbox);
+        }
+
+        /// <summary>
         /// Sends from the head of the outbox until it is empty or a submission gets no answer. A delivered or a
         /// finally refused one leaves the file there and then; the first unanswered one stops the drain with it
-        /// and everything behind it still queued, in order, and every one of those is reported offline.
+        /// and everything behind it still queued, in order, and every one of those is reported offline. Each step
+        /// first takes whatever clears were handed over meanwhile onto disk (#572), so a clear made during a slow
+        /// drain is kept at once rather than when the drain is done.
+        /// <para>
+        /// <b>A submission goes under the name as it stands when it is sent</b>, not the name at the clear (#572):
+        /// the nickname is the player's, not the clear's, and a clear queued offline under an old name must neither
+        /// put that name back on the service nor, through the answer's normalized form, into <c>Online.json</c>.
+        /// </para>
         /// </summary>
         private async Task DrainAsync(List<ScoreSubmission> outbox, CancellationToken stop)
         {
-            while (outbox.Count > 0)
+            while (true)
             {
+                TakeIncoming(outbox);
+                if (outbox.Count == 0) return;
+
                 ScoreSubmission submission = outbox[0];
 
                 //Queued under an identity this install no longer holds: its token is gone with it, so the service
@@ -419,6 +538,9 @@ namespace BS3D.Online
                     continue;
                 }
 
+                string sent = Volatile.Read(ref _name);
+                submission.Name = sent;
+
                 Delivery delivery = await SendAsync(HttpMethod.Post, "v1/scores",
                     JsonSerializer.Serialize(submission, RequestJson), stop);
 
@@ -428,7 +550,7 @@ namespace BS3D.Online
                         outbox.RemoveAt(0);
                         SaveOutbox(outbox);
                         _answers.Enqueue(new OnlineAnswer(submission.SubmissionId, OnlineOutcome.Accepted, delivery.Body));
-                        NoticeNormalizedName(delivery.Body);
+                        NoticeNormalizedName(delivery.Body, sent);
                         Console.WriteLine($"[online] {Describe(submission)}: {delivery.Status} {RankText(delivery.Body)}");
                         break;
 
@@ -499,7 +621,7 @@ namespace BS3D.Online
             {
                 case DeliveryKind.Delivered:
                     Console.WriteLine($"[online] Renamed to '{delivery.Body?.Name ?? name}': {delivery.Status}");
-                    NoticeNormalizedName(delivery.Body);
+                    NoticeNormalizedName(delivery.Body, name);
                     break;
 
                 case DeliveryKind.Refused when delivery.Status == (int)HttpStatusCode.NotFound:
@@ -517,19 +639,23 @@ namespace BS3D.Online
             }
         }
 
-        /// <summary>One board page. A failure is a reply with its reason, never an exception: a board is a nicety.</summary>
+        /// <summary>
+        /// One board page. A failure is a reply with its reason, never an exception: a board is a nicety — and any
+        /// failure, not only the network's (#572). A page that does come is sanitized here, off the frame, before
+        /// the frame draws it (<see cref="SanitizeBoard"/>).
+        /// </summary>
         private async Task<BoardReply> FetchBoardAsync(BoardRequest r, CancellationToken stop)
         {
-            //Whole numbers and a Guid only, which no culture writes differently
-            string query = $"v1/boards/{Uri.EscapeDataString(r.File)}?hash={Uri.EscapeDataString(r.Hash)}&rules={r.Rules}"
-                + $"&period={(r.AllTime ? "all" : "month")}&limit={r.Limit}&offset={r.Offset}"
-                + (r.Player is Guid p ? $"&player={p}" : "");
-
             using CancellationTokenSource deadline = CancellationTokenSource.CreateLinkedTokenSource(stop);
             deadline.CancelAfter(RequestTimeout);
 
             try
             {
+                //Whole numbers and a Guid only, which no culture writes differently
+                string query = $"v1/boards/{Uri.EscapeDataString(r.File)}?hash={Uri.EscapeDataString(r.Hash)}&rules={r.Rules}"
+                    + $"&period={(r.AllTime ? "all" : "month")}&limit={r.Limit}&offset={r.Offset}"
+                    + (r.Player is Guid p ? $"&player={p}" : "");
+
                 using HttpResponseMessage response = await _http.GetAsync(new Uri(Server, query), deadline.Token);
                 string text = await response.Content.ReadAsStringAsync(deadline.Token);
 
@@ -541,23 +667,35 @@ namespace BS3D.Online
                     : null;
 
                 return page != null
-                    ? new BoardReply(r.Ticket, page, null)
+                    ? new BoardReply(r.Ticket, SanitizeBoard(page, r.Limit), null)
                     : new BoardReply(r.Ticket, null, "not the service's answer");
             }
             catch (OperationCanceledException) when (!stop.IsCancellationRequested)
             {
                 return new BoardReply(r.Ticket, null, $"nothing within {RequestTimeout.TotalSeconds:0} s");
             }
-            catch (Exception e) when (e is HttpRequestException or JsonException)
+            catch (Exception e) when (!stop.IsCancellationRequested)
             {
-                return new BoardReply(r.Ticket, null, e.Message);
+                //Not only the network's and the JSON's: an invalid charset in a Content-Type (a captive portal, a
+                //proxy) throws InvalidOperationException out of ReadAsStringAsync, and that ended the worker (#572)
+                return new BoardReply(r.Ticket, null, $"{e.GetType().Name}: {e.Message}");
             }
         }
 
-        private void NoticeNormalizedName(ScoreAnswerBody body)
+        /// <summary>
+        /// The service's form of the name it was sent, <paramref name="sent"/>, written back only when it is a
+        /// different name and still the one this install goes by (#572): a clear queued under an old name, or an
+        /// answer to a send a rename has since overtaken, must not put the old name back. The check and the swap are
+        /// one step, so a rename landing meanwhile wins; the notice carries <paramref name="sent"/> too, so the frame
+        /// makes the same check against a rename it made after the worker's.
+        /// </summary>
+        private void NoticeNormalizedName(ScoreAnswerBody body, string sent)
         {
-            if (!string.IsNullOrWhiteSpace(body?.Name) && body.Name != _identity.Name)
-                _notices.Enqueue(new OnlineNotice(OnlineNoticeKind.NameNormalized, body.Name));
+            string normalized = body?.Name;
+            if (normalized == null || sent == null || normalized == sent) return;
+
+            if (Interlocked.CompareExchange(ref _name, normalized, sent) == sent)
+                _notices.Enqueue(new OnlineNotice(OnlineNoticeKind.NameNormalized, normalized, sent));
         }
 
         private void NoticeRefusedName(ScoreAnswerBody body)
@@ -583,7 +721,7 @@ namespace BS3D.Online
                 using HttpResponseMessage response = await _http.SendAsync(request, deadline.Token);
                 int status = (int)response.StatusCode;
                 string text = await response.Content.ReadAsStringAsync(deadline.Token);
-                ScoreAnswerBody body = TryParseAnswer(response, text);
+                ScoreAnswerBody body = SanitizeAnswer(TryParseAnswer(response, text));
 
                 if (status >= 200 && status < 300)
                 {
@@ -606,6 +744,109 @@ namespace BS3D.Online
             {
                 return new Delivery(DeliveryKind.NoAnswer, 0, problem: e.Message);
             }
+            catch (Exception e) when (!stop.IsCancellationRequested)
+            {
+                //Anything else a request can throw — an invalid charset in a Content-Type is InvalidOperationException
+                //out of ReadAsStringAsync — is no answer too, and the submission stays (#572)
+                return new Delivery(DeliveryKind.NoAnswer, 0, problem: $"{e.GetType().Name}: {e.Message}");
+            }
+        }
+
+        /// <summary>
+        /// A board page made safe to draw (#572): the frame reads it without a check, so nothing the service sends
+        /// may reach it unshaped. <c>"entries": null</c> overwrote the list's initializer and was a
+        /// <c>NullReferenceException</c> on the frame; the page is cut to the rows asked for; ranks, totals and
+        /// scores are not negative, stars stay in the rating's range, and a name is cut to what a nickname may be
+        /// with its control and formatting characters (a right-to-left override among them) gone. <b>Other players'
+        /// names are not held to <see cref="Nickname"/>'s letters</b>: the service takes any letter, and the boards
+        /// draw names in Inter, which carries Cyrillic and Greek (#547).
+        /// </summary>
+        internal static BoardPageBody SanitizeBoard(BoardPageBody page, int limit)
+        {
+            page.Entries ??= new List<BoardEntryBody>();
+            page.Entries.RemoveAll(entry => entry == null);
+            if (limit > 0 && page.Entries.Count > limit) page.Entries.RemoveRange(limit, page.Entries.Count - limit);
+
+            foreach (BoardEntryBody entry in page.Entries)
+            {
+                entry.Rank = Math.Max(0, entry.Rank);
+                entry.Score = Math.Max(0, entry.Score);
+                entry.Stars = Math.Clamp(entry.Stars, 0, StarRating.MAX);
+                entry.Name = CleanText(entry.Name, Nickname.MaxLength);
+            }
+
+            page.Total = Math.Max(0, page.Total);
+            page.Period = CleanText(page.Period, 16);
+            page.Month = CleanText(page.Month, 16);
+
+            if (page.Me != null)
+            {
+                page.Me.Rank = Math.Max(0, page.Me.Rank);
+                page.Me.Score = Math.Max(0, page.Me.Score);
+                page.Me.Stars = Math.Clamp(page.Me.Stars, 0, StarRating.MAX);
+            }
+
+            return page;
+        }
+
+        /// <summary>
+        /// An answer made safe for the frame (#572). Ranks and totals are not negative, the refusal's reason — shown
+        /// on the settings page when it is about the name — is cut and cleaned, and the normalized name is kept
+        /// <b>only when <see cref="Nickname.TryNormalize"/> accepts it as it stands</b>: it is written into
+        /// <c>Online.json</c> and set in Anton, which draws no Cyrillic, so a name the service normalized outside
+        /// the drawable letters would be the blank button <see cref="Nickname"/> exists to prevent. Refused, the
+        /// player's own name stays.
+        /// </summary>
+        internal static ScoreAnswerBody SanitizeAnswer(ScoreAnswerBody body)
+        {
+            if (body == null) return null;
+
+            ClampRank(body.Month);
+            ClampRank(body.AllTime);
+            body.Reason = CleanText(body.Reason, MaxReasonLength);
+
+            if (body.Name != null && (!Nickname.TryNormalize(body.Name, out string name, out _) || name != body.Name))
+            {
+                Console.WriteLine($"[online] The service's form of the nickname, '{CleanText(body.Name, MaxReasonLength)}',"
+                    + " is not one this game can show; keeping the player's own");
+                body.Name = null;
+            }
+
+            return body;
+        }
+
+        /// <summary>The longest refusal reason passed on to the settings page (#572); the service's are a few words.</summary>
+        private const int MaxReasonLength = 120;
+
+        private static void ClampRank(BoardRank rank)
+        {
+            if (rank == null) return;
+
+            rank.Rank = Math.Max(0, rank.Rank);
+            rank.Total = Math.Max(0, rank.Total);
+        }
+
+        /// <summary>
+        /// <paramref name="text"/> without control or formatting characters, trimmed and cut to at most
+        /// <paramref name="max"/> characters — never through the middle of a surrogate pair. Null stays null.
+        /// </summary>
+        internal static string CleanText(string text, int max)
+        {
+            if (text == null) return null;
+
+            StringBuilder kept = new(text.Length);
+            foreach (char c in text)
+            {
+                UnicodeCategory category = char.GetUnicodeCategory(c);
+                if (category is UnicodeCategory.Control or UnicodeCategory.Format) continue;
+                kept.Append(c);
+            }
+
+            string clean = kept.ToString().Trim();
+            if (clean.Length <= max) return clean;
+
+            int cut = char.IsHighSurrogate(clean[max - 1]) ? max - 1 : max;
+            return clean[..cut].TrimEnd();
         }
 
         private static ScoreAnswerBody TryParseAnswer(HttpResponseMessage response, string text)

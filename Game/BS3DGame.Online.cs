@@ -154,15 +154,34 @@ namespace BS3D
         }
 
         /// <summary>
-        /// The client again, after the switch, the identity or the server changed (#548). The old one is stopped and
-        /// its worker handed to the new one to wait for, so two are never on the outbox at once; nothing is waited
-        /// for here.
+        /// The client again, after the switch, the identity or the server changed (#548), or once after its worker
+        /// faulted (#572). The old one is stopped and its worker handed to the new one to wait for, so two are never
+        /// on the outbox at once; nothing is waited for here. The old worker writes whatever clears it still held
+        /// into the outbox as it ends, so none is lost with it.
+        /// <para>
+        /// What the old client was asked and will now never answer is answered here (#572): a removal cut off
+        /// mid-request reports failed rather than leaving the page on "Removing" — which also refused every retry —
+        /// and a board page on its way comes back empty, so a page stops waiting for it.
+        /// </para>
         /// </summary>
         private void RestartOnline()
         {
             Task previous = _online?.Stop();
             _online = OnlineScores.Start(_settings, _onlineIdentity, OnlineOutboxPath, previous);
+
+            if (OnlineRemoval == OnlineRemovalState.Removing)
+            {
+                OnlineRemoval = OnlineRemovalState.Failed;
+                OnlineRemovalProblem = "interrupted";
+            }
+
+            foreach (int ticket in _pendingBoardKeys.Keys)
+                _boardReplies[ticket] = new BoardReply(ticket, null, "interrupted");
+            _pendingBoardKeys.Clear();
         }
+
+        //A faulted worker is replaced once a session (#572); a second fault leaves the boards off until the next start
+        private bool _onlineRestartedAfterFault;
 
         /// <summary>
         /// A level was cleared: hand it to the score service (#546). <b>Every clear, not only a new best</b> — the
@@ -350,8 +369,9 @@ namespace BS3D
                 switch (notice.Kind)
                 {
                     case OnlineNoticeKind.Removed:
-                        WipeOnlineHere();
+                        //Before the wipe, whose restart would otherwise read the removal as cut off
                         OnlineRemoval = OnlineRemovalState.Removed;
+                        WipeOnlineHere();
                         break;
 
                     case OnlineNoticeKind.RemoveFailed:
@@ -359,7 +379,8 @@ namespace BS3D
                         OnlineRemovalProblem = notice.Text;
                         break;
 
-                    case OnlineNoticeKind.NameNormalized when _onlineIdentity != null:
+                    //Only over the name that was sent (#572): a rename made since the send is the player's word
+                    case OnlineNoticeKind.NameNormalized when _onlineIdentity != null && _onlineIdentity.Name == notice.Was:
                         _onlineIdentity.Name = notice.Text;
                         SaveOnlineIdentity();
                         break;
@@ -370,6 +391,16 @@ namespace BS3D
                 }
 
                 //WipeOnlineHere replaced the client, whose queues are empty; the loop reads the new one and stops
+            }
+
+            //A worker that ended on something unforeseen reads no queue any more (#572): replaced once, after its
+            //last notices were taken above; the clears it held are in the outbox and the new one drains them
+            if (_online.Faulted && !_onlineRestartedAfterFault)
+            {
+                _onlineRestartedAfterFault = true;
+                Console.WriteLine("[online] The submitter faulted; starting it again (once a session)");
+                RestartOnline();
+                changed = true;
             }
 
             if (changed) _settingsPage?.Refresh();

@@ -7,7 +7,8 @@ namespace BS3D.Online
     /// <summary>
     /// One cleared level as the score service's <c>POST /v1/scores</c> takes it — contract v1 of #542, field
     /// for field. It is also what <c>Outbox.json</c> holds, so a clear waiting for the service is the very
-    /// request that will be sent, not a note from which one will be rebuilt.
+    /// request that will be sent, not a note from which one will be rebuilt — but for <see cref="Name"/>, which is
+    /// the player's rather than the clear's and is stamped again at every send (#572).
     /// <para>
     /// <b>Every clear is one, not only a new best</b>: the month's board ranks the best clear each player made
     /// <i>in that month</i>, so a September clear below an all-time best still stands in September. The
@@ -23,7 +24,10 @@ namespace BS3D.Online
         [JsonPropertyName("playerId")]
         public Guid PlayerId { get; set; }
 
-        /// <summary>The nickname at the moment of the clear; the service answers with its normalized form.</summary>
+        /// <summary>
+        /// The nickname as it stands when the submission is <b>sent</b> — restamped at every send, so a clear queued
+        /// under an old name goes under the new one (#572); the service answers with its normalized form.
+        /// </summary>
         [JsonPropertyName("name")]
         public string Name { get; set; }
 
@@ -140,10 +144,17 @@ namespace BS3D.Online
         public readonly OnlineNoticeKind Kind;
         public readonly string Text;
 
-        public OnlineNotice(OnlineNoticeKind kind, string text)
+        /// <summary>
+        /// For <see cref="OnlineNoticeKind.NameNormalized"/>: the name that was sent, which the service's form in
+        /// <see cref="Text"/> replaces only while the player still goes by it (#572) — a rename made since wins.
+        /// </summary>
+        public readonly string Was;
+
+        public OnlineNotice(OnlineNoticeKind kind, string text, string was = null)
         {
             Kind = kind;
             Text = text;
+            Was = was;
         }
     }
 
@@ -214,6 +225,10 @@ namespace BS3D.Online
         [JsonPropertyName("total")]
         public int Total { get; set; }
 
+        /// <summary>
+        /// ⚠ An explicit <c>"entries": null</c> overwrites this initializer; <c>OnlineScores.SanitizeBoard</c> puts a
+        /// list back before any page reaches the frame (#572).
+        /// </summary>
         [JsonPropertyName("entries")]
         public List<BoardEntryBody> Entries { get; set; } = new();
 
