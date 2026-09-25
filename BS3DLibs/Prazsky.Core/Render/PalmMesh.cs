@@ -30,8 +30,18 @@ namespace Prazsky.Core.Render
         public IProceduralMesh Wood { get; }
         public IProceduralMesh Fronds { get; }
 
+        /// <summary>The crown — the trunk's tip, where every frond starts — in the mesh's own frame. The
+        /// trunk's bow carries it off the Y axis in a rolled direction, so a scatter that has to keep crowns
+        /// out of somewhere (the front end's orbit, #555) asks for it rather than assuming it is overhead.</summary>
+        public Vector3 Crown { get; }
+
+        /// <summary>The furthest a frond reaches from <see cref="Crown"/>: the longest roll
+        /// <c>FrondMesh</c> can give one (1.15 × the base length). A frond's spine never runs further from
+        /// the crown than its own length, so this bounds the crown's reach in every direction.</summary>
+        public float FrondReach { get; }
+
         /// <param name="device">The device the buffers are created on.</param>
-        /// <param name="trunkRadius">Trunk radius at the crown end; the root flare is a multiple of it.</param>
+        /// <param name="trunkRadius">Base trunk radius; the root's bole is a multiple of it (see <c>RootRadius</c>).</param>
         /// <param name="height">Height of the crown (the trunk's tip) above the ground.</param>
         /// <param name="frondLength">Base length of a crown frond — how wide the crown reads.</param>
         /// <param name="seed">Structural seed; every roll below comes off it, so no two variants are alike.</param>
@@ -46,6 +56,8 @@ namespace Prazsky.Core.Render
             float bowAngle = (float)rng.NextDouble() * MathHelper.TwoPi;
             Vector3 bowDir = new(MathF.Cos(bowAngle), 0f, MathF.Sin(bowAngle));
             Vector3 crown = bowDir * bow + Vector3.Up * height;
+            Crown = crown;
+            FrondReach = frondLength * 1.15f;
 
             Wood = new WoodMesh(device, trunkRadius, height, bowDir, bow, crown, frondLength, rng);
             Fronds = new FrondMesh(device, crown, frondLength, rng);
@@ -160,11 +172,21 @@ namespace Prazsky.Core.Render
                     new Vector3(0f, height * 0.5f, 0f), height * 0.6f + frondLength * 0.5f);
             }
 
-            //The trunk's radius along its run: flared to 1.55× at the root, slimming to 0.85× at the
-            //crown, with the ring scars riding on it — eight of them along the trunk.
-            private static float RootRadius(float trunkRadius, float t) =>
-                trunkRadius * MathHelper.Lerp(1.55f, 0.85f, t)
+            //The trunk's radius along its run: a bole flared to 1.55× at the root that has settled within
+            //the first quarter of the trunk, then a near-uniform pole slimming to 0.88× at the crown, with
+            //the ring scars riding on it — eight of them along the trunk.
+            //
+            //⚠ The flare used to be a straight taper, 1.55× to 0.85× over the WHOLE trunk (#555): at 12
+            //units that read as a sturdy young palm, and at the heights the palms stand at now it made every
+            //trunk a cone — 1.2× still at half height, a column rather than a pole. A coconut palm's
+            //swelling is at its foot only; above it the trunk runs nearly even to the crown.
+            private static float RootRadius(float trunkRadius, float t)
+            {
+                float foot = 1f - t;
+                foot *= foot * foot;
+                return trunkRadius * (1f - 0.12f * t + 0.55f * foot * foot)
                     * (1f + 0.05f * MathF.Sin(t * 8f * MathHelper.TwoPi));
+            }
 
             //One tube segment between two rings, smooth-shaded with radial normals and wound clockwise
             //seen from outside — the acacia trunk's own construction, shortened to a single ring pair.
@@ -224,7 +246,7 @@ namespace Prazsky.Core.Render
                     Vector3 dir = new(MathF.Cos(bearing), 0f, MathF.Sin(bearing));
 
                     AddFrondStrip(builder, crown, dir,
-                        length: frondLength * (0.8f + 0.35f * (float)rng.NextDouble()),
+                        length: frondLength * (0.8f + 0.35f * (float)rng.NextDouble()), //FrondReach is this roll's ceiling
                         width: frondLength * 0.16f * (0.85f + 0.3f * (float)rng.NextDouble()),
                         rise: 0.16f + 0.14f * (float)rng.NextDouble(),
                         droop: 0.52f + 0.22f * (float)rng.NextDouble(),
