@@ -7940,8 +7940,9 @@ namespace Prazsky.Core.Render
         /// is shared between the three for the same reason. A <see cref="GridTowerConfig.CubeFraction"/> of
         /// them are large, close-to-equilateral cubes rather than tall towers; a simple footprint-circle retry
         /// keeps them from overlapping without a spatial structure, since this runs once at load/config-apply
-        /// time on at most a few dozen solids. Every solid has a roof: the Testbed's free camera and the map
-        /// editor's can look down on any of them, and an open top would show the void through it once the far
+        /// time on at most a few dozen solids. The same check keeps every solid off the landmark ring's
+        /// footprint (#559) — and that one is never waived, see the retry. Every solid has a roof: the Testbed's
+        /// free camera and the map editor's can look down on any of them, and an open top would show the void through it once the far
         /// faces are culled. Also (re)builds one <see cref="GridLifeBoard"/> per solid, seeded from the same
         /// placement stream, so every host shows the same patterns on the same solids. Idempotent and safe to
         /// call again from <see cref="ApplyGridParameters"/>: disposes whatever it last built before building the
@@ -7949,6 +7950,9 @@ namespace Prazsky.Core.Render
         /// </summary>
         private void BuildGridTowers()
         {
+            //The floor left between two solids' footprint circles, and between a solid and the landmark's.
+            const float SOLID_GAP = 15f;
+
             _gridTowerVertexBuffer?.Dispose();
             _gridTowerIndexBuffer?.Dispose();
             _gridTowerVertexBuffer = null;
@@ -7971,6 +7975,11 @@ namespace Prazsky.Core.Render
             //a few dozen solids, not per frame.
             List<(Vector2 Center, float Radius)> placed = new();
 
+            //The landmark's footprint, which every solid keeps off (#559). It is built after them, from the
+            //config alone and not from this stream, so the solids have to be told where it will stand: until
+            //they were, sceneseed=3 stood a cube straight through the ring.
+            GridRing? landmark = GridLandmarkShape();
+
             //Fixed seed: placement is data every host must agree on, and so, since the boards are seeded from the
             //same stream, is what each solid shows.
             Random placement = new(towers.Seed + _seedOffset);
@@ -7991,8 +8000,11 @@ namespace Prazsky.Core.Render
                 Vector2 xz = default;
                 float footprintRadius = 0f;
 
-                const int MAX_PLACEMENT_ATTEMPTS = 20;
-                for (int attempt = 0; attempt < MAX_PLACEMENT_ATTEMPTS; attempt++)
+                //Twenty attempts to find a draw clear of everything; past them, any draw clear of the ring
+                //(see the fall-through below). The ceiling on those is a guard, not a budget: the footprint
+                //takes a few percent of the band's area, so a draw that misses it is the ordinary case.
+                const int MAX_PLACEMENT_ATTEMPTS = 20, MAX_RING_ATTEMPTS = 200;
+                for (int attempt = 0; attempt < MAX_RING_ATTEMPTS; attempt++)
                 {
                     float angle = (float)(placement.NextDouble() * MathHelper.TwoPi);
                     float radius = MathHelper.Lerp(towers.RadiusMin, towers.RadiusMax, (float)placement.NextDouble());
@@ -8020,16 +8032,20 @@ namespace Prazsky.Core.Render
                     xz = new Vector2(baseCenter.X, baseCenter.Z);
                     footprintRadius = 0.5f * MathF.Sqrt(sizeX * sizeX + sizeZ * sizeZ);
 
+                    //The ring is a hard rule and the other solids a soft one: a solid standing through the
+                    //ring is a solid visibly inside another, where two blocks barely touching is merely close.
+                    if (landmark is GridRing ring && ring.FootprintDistance(xz) < footprintRadius + SOLID_GAP) continue;
+
                     bool overlaps = false;
                     foreach ((Vector2 otherXz, float otherRadius) in placed)
                     {
-                        if (Vector2.Distance(xz, otherXz) < footprintRadius + otherRadius + 15f) { overlaps = true; break; }
+                        if (Vector2.Distance(xz, otherXz) < footprintRadius + otherRadius + SOLID_GAP) { overlaps = true; break; }
                     }
 
-                    if (!overlaps) break;
-                    //Exhausting every attempt falls through with the LAST draw rather than dropping the
-                    //solid silently - a rare, barely-touching pair reads better than a scene that asked for
-                    //eighteen and quietly drew fewer.
+                    if (!overlaps || attempt >= MAX_PLACEMENT_ATTEMPTS - 1) break;
+                    //Exhausting the twenty attempts falls through with the first later draw that clears the
+                    //ring rather than dropping the solid silently - a rare, barely-touching pair reads better
+                    //than a scene that asked for eighteen and quietly drew fewer.
                 }
 
                 placed.Add((xz, footprintRadius));
@@ -8124,27 +8140,17 @@ namespace Prazsky.Core.Render
         /// </summary>
         private void BuildGridLandmark(List<GridTowerVertex> vertices, List<short> indices, Random placement)
         {
+            if (GridLandmarkShape() is not GridRing shape) return;
             GridLandmarkConfig landmark = _gridConfig.Landmark;
-            if (!landmark.Enabled || landmark.Segments < 3) return;
 
-            float ringRadius = MathF.Max(landmark.Radius, 1f);
             float tube = MathF.Max(landmark.TubeRadius, 0.1f);
-            float halfWidth = MathF.Max(landmark.Width, 0.1f) * 0.5f;
-
-            float bearing = MathHelper.ToRadians(landmark.Bearing);
-            Vector3 stand = new(MathF.Cos(bearing) * landmark.Distance,
-                _gridConfig.Terrain.LevelY, MathF.Sin(bearing) * landmark.Distance);
-
-            //The ring's plane faces the arena, so the play camera sees it as a ring and not as an edge-on bar.
-            Vector3 planeNormal = -Vector3.Normalize(new Vector3(stand.X, 0f, stand.Z));
-            if (planeNormal.LengthSquared() < 1e-6f) planeNormal = Vector3.Forward;
+            float halfWidth = shape.HalfWidth;
+            Vector3 planeNormal = shape.PlaneNormal;
+            Vector3 centre = shape.Centre;
 
             //(s, up, n) right-handed: s = up x n, so s x up = n. Every winding below is derived from that one
             //identity, which is what keeps the outward normals outward without a single guessed sign.
             Vector3 side = Vector3.Normalize(Vector3.Cross(Vector3.Up, planeNormal));
-
-            //Resting on the floor: the lowest point of the tube is the ground.
-            Vector3 centre = stand + Vector3.Up * (ringRadius + tube);
 
             int rangeStartIndex = indices.Count;
 
@@ -8161,9 +8167,9 @@ namespace Prazsky.Core.Render
             UploadGridLifeTexture(board);
             _gridLifeBoards.Add(board);
 
-            float outer = ringRadius + tube;
-            float inner = MathF.Max(ringRadius - tube, 0.2f);
-            _gridRing = new GridRing(centre, planeNormal, inner, outer, halfWidth);
+            float outer = shape.OuterRadius;
+            float inner = shape.InnerRadius;
+            _gridRing = shape;
 
             //The board runs round the ring's outer band, centred on the point nearest the arena — which, the
             //plane facing the arena, is the segment at the top of the near side. Same idea as a tower's label.
@@ -8211,6 +8217,34 @@ namespace Prazsky.Core.Render
             }
 
             _gridTowerRanges.Add((rangeStartIndex, (indices.Count - rangeStartIndex) / 3));
+        }
+
+        /// <summary>
+        /// Where the landmark stands and how big it is, from the config alone — null when it is not built. One
+        /// answer for the two things that need it before and while it is built: <see cref="BuildGridTowers"/>
+        /// keeps every solid off its footprint (#559), and <see cref="BuildGridLandmark"/> builds it there.
+        /// </summary>
+        private GridRing? GridLandmarkShape()
+        {
+            GridLandmarkConfig landmark = _gridConfig.Landmark;
+            if (!landmark.Enabled || landmark.Segments < 3) return null;
+
+            float ringRadius = MathF.Max(landmark.Radius, 1f);
+            float tube = MathF.Max(landmark.TubeRadius, 0.1f);
+            float halfWidth = MathF.Max(landmark.Width, 0.1f) * 0.5f;
+
+            float bearing = MathHelper.ToRadians(landmark.Bearing);
+            Vector3 stand = new(MathF.Cos(bearing) * landmark.Distance,
+                _gridConfig.Terrain.LevelY, MathF.Sin(bearing) * landmark.Distance);
+
+            //The ring's plane faces the arena, so the play camera sees it as a ring and not as an edge-on bar.
+            Vector3 planeNormal = new(-stand.X, 0f, -stand.Z);
+            planeNormal = planeNormal.LengthSquared() < 1e-6f ? Vector3.Forward : Vector3.Normalize(planeNormal);
+
+            //Resting on the floor: the lowest point of the tube is the ground.
+            Vector3 centre = stand + Vector3.Up * (ringRadius + tube);
+
+            return new GridRing(centre, planeNormal, MathF.Max(ringRadius - tube, 0.2f), ringRadius + tube, halfWidth);
         }
 
         /// <summary>

@@ -82,5 +82,25 @@ namespace Prazsky.Core.Render
 
             return MathF.Sqrt(outRadial * outRadial + outAlong * outAlong);
         }
+
+        /// <summary>
+        /// How far a point on the floor (world X, Z) is from the ring's footprint — the rectangle the standing
+        /// ring covers seen from above, its outer diameter long and its band's width thick. 0 inside it. What a
+        /// solid placed on the floor has to keep off (<c>SceneRenderer.BuildGridTowers</c>, #559): the ring's
+        /// lowest point rests on the floor, so any solid whose footprint reaches this rectangle stands through it.
+        /// </summary>
+        public float FootprintDistance(Vector2 xz)
+        {
+            Vector2 normal = new(PlaneNormal.X, PlaneNormal.Z);
+            if (normal.LengthSquared() < 1e-6f) normal = Vector2.UnitY;
+            normal.Normalize();
+
+            Vector2 offset = xz - new Vector2(Centre.X, Centre.Z);
+            float along = MathF.Abs(Vector2.Dot(offset, normal)) - HalfWidth;
+            float across = MathF.Abs(normal.X * offset.Y - normal.Y * offset.X) - OuterRadius;
+
+            float outAlong = MathF.Max(along, 0f), outAcross = MathF.Max(across, 0f);
+            return MathF.Sqrt(outAlong * outAlong + outAcross * outAcross);
+        }
     }
 }
