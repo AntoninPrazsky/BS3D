@@ -460,7 +460,7 @@ namespace Testbed
         /// is unchanged: hint that the balls, the neon and the crystals emit light, without the glow owning
         /// the frame.
         /// </summary>
-        private static readonly float GLARE_INTENSITY = 0.5f;
+        private static readonly float GLARE_INTENSITY = 0.1f;
 
         //The lens's colour fringing at the frame edges — the game's default figure, so the Testbed shows
         //what ships (the game alone carries the Settings toggle).

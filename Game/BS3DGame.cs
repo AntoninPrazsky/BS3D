@@ -618,7 +618,8 @@ namespace BS3D
 
         //Far lower than the streak star's 0.9: the pyramid ACCUMULATES on the way up, so the head carries
         //its own halo plus every wider level's, and the same subjective glow needs a fraction of the gain.
-        private static readonly float GLARE_INTENSITY = 0.5f;
+        //0.5 until #565, which found the pyramid had never accumulated at all; 0.1 keeps the glow's energy.
+        private static readonly float GLARE_INTENSITY = 0.1f;
 
         #endregion
 
