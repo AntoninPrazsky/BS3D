@@ -168,11 +168,18 @@ namespace MapEditor
         //The forest's handful of firefly-like blinking lights (#487), planted over the same floor.
         private ForestFireflies _forestFireflies;
 
-        //A level dropped or opened is parsed off the render thread (like a map file), but its scene/sky/city
-        //application touches GPU resources (Content.Load, buffer rebuilds, a new City), so the parsed level is
-        //stashed here and applied on the main thread in Update. See ApplyPendingLevel.
-        private Level _pendingLevel;
-        private readonly object _pendingLevelLock = new();
+        //A map or level dropped or opened is parsed off the render thread, and everything it changes is
+        //applied on the main thread in Update — see ApplyPendingLoad. A level's scene/sky/city application
+        //touches GPU resources (Content.Load, buffer rebuilds, a new City); a plain map used to be read
+        //straight into the live _map on the worker (#573), and BallsMap.ApplyBallPositionTypes sets the field
+        //size before it replaces the ball array, so a Draw landing between the two walked the new bounds over
+        //the old array and threw on the render thread. So the worker only ever builds a NEW object and parks it
+        //here; nothing the render thread reads is written off it. One slot: the last file dropped wins.
+        private PendingLoad _pendingLoad;
+        private readonly object _pendingLoadLock = new();
+
+        //What a worker parsed: a level (map, scene, sky, style…) or a plain map file's layout alone.
+        private sealed record PendingLoad(Level Level, BallsMap Map);
 
         //Wall-clock seconds the scene motion runs off (waves, wind, birds, snow), so the environment keeps
         //moving the way it does in the game instead of freezing
@@ -217,8 +224,8 @@ namespace MapEditor
         private void Window_FileDrop(object sender, FileDropEventArgs e)
         {
             if (e.Files == null || e.Files.Length <= 0 || string.IsNullOrEmpty(e.Files[0])) return;
-            new Task(() => { DeserializeMapFromJsonFile(e.Files[0]); }).Start();
-            
+            string filePath = e.Files[0];
+            Task.Run(() => DeserializeMapFromJsonFile(filePath));
         }
 
         private void Window_ClientSizeChanged(object sender, EventArgs e)
@@ -279,7 +286,7 @@ namespace MapEditor
                 new(mgKeys.F11, () => SetGraphics(_graphics.IsFullScreen), "Fullscreen/windowed"),
                 new(mgKeys.F12,() => Info.Visible = ! Info.Visible, "Hide/show text overlay"),
 
-                new(mgKeys.N, Buttons.X, () => new Task(FullMapTest).Start(), "Fill entire map with balls"),
+                new(mgKeys.N, Buttons.X, FullMapTest, "Fill entire map with balls"),
                 new(mgKeys.M, () => _map.Clear(), "Clear entire map"),
 
                 new(mgKeys.D1,() => CenterViewOn(Vector3.Forward), "Forward view"),
@@ -478,7 +485,7 @@ namespace MapEditor
 
             _pipeline.EnsureTarget();
 
-            //Load a map or level handed on the command line (a level stashes to _pendingLevel and lands next Update)
+            //Load a map or level handed on the command line (it stashes to _pendingLoad and lands next Update)
             if (!string.IsNullOrEmpty(StartupFilePath) && File.Exists(StartupFilePath))
                 DeserializeMapFromJsonFile(StartupFilePath);
         }
@@ -676,9 +683,9 @@ namespace MapEditor
 
         protected override void Update(GameTime gameTime)
         {
-            //A level dropped/opened on a background thread is applied here, on the main thread, before the
-            //focus guard so it lands even if the window briefly lost focus during the drop
-            ApplyPendingLevel();
+            //A map or level dropped/opened on a background thread is applied here, on the main thread, before
+            //the focus guard so it lands even if the window briefly lost focus during the drop
+            ApplyPendingLoad();
 
             if (!IsActive) return;
 
@@ -768,7 +775,7 @@ namespace MapEditor
             string filePath = GetFilePathByDialog(false);
             if (!string.IsNullOrEmpty(filePath))
             {
-                new Task(() => { DeserializeMapFromJsonFile(filePath); }).Start();                
+                Task.Run(() => DeserializeMapFromJsonFile(filePath));
             }
         }
 
@@ -779,36 +786,36 @@ namespace MapEditor
             SetGraphics(true);
         }
 
+        /// <summary>
+        /// Parses a map or level file into NEW objects and parks them in <see cref="_pendingLoad"/> for
+        /// <see cref="ApplyPendingLoad"/> — it runs on a worker for a drop or the open dialog, so it must not
+        /// write anything the render thread reads (#573). A file that will not parse leaves the slot alone.
+        /// </summary>
         private void DeserializeMapFromJsonFile(string filePath)
         {
             try
             {
                 //A level file (format marker "bs3d-level") carries a map plus the scene and sky that reproduce
-                //its look; a plain map file carries just the layout. Both use .json, so the loader probes. The
-                //level is parsed here (may run off the render thread) but applied on the main thread — see
-                //ApplyPendingLevel.
+                //its look; a plain map file carries just the layout. Both use .json, so the loader probes.
                 if (Level.IsLevelFile(filePath))
                 {
                     Level level = Level.Load(filePath);
-                    lock (_pendingLevelLock) _pendingLevel = level;
+                    lock (_pendingLoadLock) _pendingLoad = new PendingLoad(level, null);
                     return;
                 }
 
                 Stopwatch stopwatch = new();
                 stopwatch.Start();
-                _map.DeserializeJson(filePath);
+                BallsMap map = new(filePath);
                 stopwatch.Stop();
                 Console.WriteLine($"Deserialize JSON (ms): {stopwatch.ElapsedMilliseconds}");
 
-                //The loaded map may have different play field dimensions
-                _selector.UpdateBallsBap(_map);
-                _aabb.FitToMap(_map);
+                //BallsMap's file constructor returns an empty shell (no field, no array) for a file whose ball
+                //data is null, where the in-place DeserializeJson this replaced left the current map as it was.
+                //It is refused here so it cannot be swapped in and walked by Draw.
+                if (map.Levels == 0) throw new InvalidDataException("the file carries no ball data");
 
-                //A plain map carries no theme, author or ball style — F4 must not write the previous level's
-                //onto it
-                _levelMusic = null;
-                _levelAuthor = null;
-                SetBallStyle(BallStyle.Beach);
+                lock (_pendingLoadLock) _pendingLoad = new PendingLoad(null, map);
             }
             catch (Exception e)
             {
@@ -821,17 +828,35 @@ namespace MapEditor
         }
 
         /// <summary>
-        /// Applies a level parsed off the render thread, on the main thread: swaps in its map (so the selector
-        /// and field outline follow the new field), switches to the scene backdrop it names and sets
-        /// the sky dome — so a level previews in the editor exactly the way it plays. A no-op when nothing is
-        /// pending. Mirrors the Testbed's LoadLevel, minus the physics/cannon/camera the game derives.
+        /// Applies what <see cref="DeserializeMapFromJsonFile"/> parsed, on the main thread. A no-op when
+        /// nothing is pending. A plain map swaps in its layout and resets what a map file does not carry (theme,
+        /// author, ball style); a level also switches to the scene backdrop it names and sets the sky dome — so a
+        /// level previews in the editor exactly the way it plays. Mirrors the Testbed's LoadLevel, minus the
+        /// physics/cannon/camera the game derives.
         /// </summary>
-        private void ApplyPendingLevel()
+        private void ApplyPendingLoad()
         {
-            Level level;
-            lock (_pendingLevelLock) { level = _pendingLevel; _pendingLevel = null; }
-            if (level == null) return;
+            PendingLoad pending;
+            lock (_pendingLoadLock) { pending = _pendingLoad; _pendingLoad = null; }
+            if (pending == null) return;
 
+            if (pending.Level == null)
+            {
+                //The editor works in raw grid coordinates (the selector does), so the map is left uncentered.
+                //The loaded map may have different play field dimensions, which the selector and outline follow.
+                _map = pending.Map;
+                _selector.UpdateBallsBap(_map);
+                _aabb.FitToMap(_map);
+
+                //A plain map carries no theme, author or ball style — F4 must not write the previous level's
+                //onto it
+                _levelMusic = null;
+                _levelAuthor = null;
+                SetBallStyle(BallStyle.Beach);
+                return;
+            }
+
+            Level level = pending.Level;
             try
             {
                 //The editor works in raw grid coordinates (the selector does), so the map is left uncentered,
@@ -1100,7 +1125,9 @@ namespace MapEditor
         private void FullMapTest()
         {
             //Fill the current map's whole play field (previously this replaced _map with a new 10×10×10 instance,
-            //leaving the selector working on the orphaned old map)
+            //leaving the selector working on the orphaned old map). It runs on the main thread, from the key
+            //handler: it used to be started as a Task and filled the live _map, the selector and the overlay
+            //text while Draw read them (#573). The fill is one pass over the field and prints what it took below.
             byte sizeX = _map.StageSizeX;
             byte sizeZ = _map.StageSizeZ;
             byte levels = _map.Levels;
