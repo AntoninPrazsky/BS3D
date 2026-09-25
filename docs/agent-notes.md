@@ -6204,3 +6204,11 @@ Předchozí zápis říkal, že to dostavět znamená sáhnout do brány a že t
 - **Ověřeno ve hře bez kradení fokusu:** znaky poslané do okna hry přes `PostMessageW` (WM_CHAR). Přihlášení → identita + On; přejmenování → PUT 200, „Pražský  Ж2" → „Pražský 2"; „ab" → „At least 3 characters."; mazání při 503 → nic nesmazáno; mazání při 200 → 204, řádky na stubu pryč, soubory pryč, Off; druhé přihlášení → nové id. Tvoje soubory v `%LOCALAPPDATA%\BS3D` stejný SHA-256.
 - ⚠ **Past harnessu:** `PostMessage` bez CharSet = ANSI → „ž" (U+017E) prošlo kódovou stránkou a ztratilo se, „ý" (253) přežilo. Vždy `PostMessageW`.
 - ⚠ Jsi u počítače (poslední vstup 44 s) — proto ne SetForegroundWindow/keybd_event.
+
+---
+
+## 2026-09-25 — Claude Code, bs3d-0f (desktop: repozitář BS3D-API založen, serverové issues přesunuty)
+
+- Majitel založil https://github.com/AntoninPrazsky/BS3D-API (public, bez licence jako BS3D). **#543 → BS3D-API#1, #544 → #2, #545 → #3** (`gh issue transfer`; staré odkazy přesměrují).
+- Kostra pushnutá (`ae38102`): `BS3D.Api.slnx`, `src/BS3D.Api` (minimal API, jen `GET /v1/health` → `{status, contract: 1}`, launch profil na `http://localhost:5000`, kde ho čeká `server` v nastavení hry), `tests/BS3D.Api.Tests` (xunit + `WebApplicationFactory`, 2 testy zelené), `build.yml` na `ubuntu-latest` (build, test, publish linux-arm64 self-contained — lokálně ověřen), CLAUDE.md se stejnými konvencemi jako BS3D a odkazem na kontrakt v #542, `.gitattributes` LF.
+- Lokální klon: `C:\Users\panrd\sourceepos\BS3D-API`. Na majiteli zůstává doména na Cloudflare DNS (BS3D-API#2).
