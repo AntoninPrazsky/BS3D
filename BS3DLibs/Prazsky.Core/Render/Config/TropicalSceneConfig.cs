@@ -176,8 +176,9 @@ namespace Prazsky.Core.Render
         /// palms' sway is aligned with it in <see cref="PalmConfig"/>.</summary>
         public Vec2 Wind { get; set; } = new(0.9f, 0.44f);
 
-        /// <summary>World distance over which the land melts into the skyline. Must stay inside the
-        /// terrain grid's half-extent (500), or the mesh's own edge shows against the dome.</summary>
+        /// <summary>World distance over which the land melts into the skyline. Kept inside the
+        /// terrain grid's half-extent (500), which was what hid the mesh's edge until #551. The land past the grid is the far
+        /// ring now, and this is also where its last fade to the drawn sky begins (FarField.fxh).</summary>
         public float HorizonHazeDistance { get; set; } = 480f;
 
         /// <summary>The warm marine haze's own colour (linear), lit by the sky where it is applied.

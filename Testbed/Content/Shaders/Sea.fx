@@ -25,6 +25,8 @@ float4x4 Projection;
 
 float3 CameraPosition;
 
+#include "FarField.fxh"
+
 //Towards the sun, normalized (the same direction the scene is shadowed and the clouds are lit along), and
 //the sun's own radiance (the lit-cloud color the weather uses, tinted by the dome) for the glint and SSS.
 float3 SunDirection;
@@ -300,6 +302,7 @@ float4 SeaPS(SeaVertexOutput input) : COLOR
     //map editor keeps it all: r - 0 is never negative, whatever the pool radius says.
     float r = length(worldPosition.xz);
     clip(max(r - IslandHoleRadius, FunnelPoolRadius - r));
+    FarRingClip(worldPosition.xz);
 
     //How deep into the island's shelter this pixel is: 1 across the whole pool, 0 on the open sea and in the
     //map editor. The vertex shader keyed the same ramp on the rest position; the two agree wherever it
@@ -443,7 +446,7 @@ float4 SeaPS(SeaVertexOutput input) : COLOR
     float haze = saturate(dist / HorizonHazeDistance);
     color = lerp(color, hazeTarget, haze * haze);
 
-    return float4(color, 1.0);
+    return float4(FarFadeToSky(color, worldPosition), 1.0);
 }
 
 technique Sea

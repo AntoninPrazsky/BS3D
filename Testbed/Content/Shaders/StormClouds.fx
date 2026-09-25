@@ -81,6 +81,11 @@ float FlashStrikeIndex;
 //itself: the storm's own note records that fading to a sandy horizon painted the whole scene as desert.
 float3 HazeTint;
 float HorizonHazeDistance;
+
+//Where the field thins out towards the band's edges (#551): in from the narrowest one, the band's 560 across the
+//wind, by more than any Game camera stands off the arena.
+static const float STORM_FAR_THIN_START = 380.0;
+static const float STORM_FAR_THIN_END = 460.0;
 float HazeStrength;
 
 //The wind the field drifts on (unit length, the host normalises it), and the clock it runs off.
@@ -127,8 +132,8 @@ struct CloudVertexOutput
 //the strike inside the cell it names:
 //  * it is carried downwind at DriftSpeed;
 //  * it wraps: the field is a band aligned with the wind, 2 * FieldHalfLength long, and a cell carried off
-//    the downwind end comes back in at the upwind one. Both ends are past the far plane, so the jump is
-//    never in frame, and because the whole cell jumps at once nothing is torn. Until #532 there was no wrap
+//    the downwind end comes back in at the upwind one. Both ends are past where the field thins out to nothing
+//    (STORM_FAR_THIN_*), so the jump is never in frame, and because the whole cell jumps at once nothing is torn. Until #532 there was no wrap
 //    at all - "a wrap would tear a mass in half" - and the annulus the field was built in emptied its
 //    upwind half within three minutes of a session and stood entirely downwind of the arena inside ten:
 //    "the clouds are in one small part";
@@ -284,7 +289,14 @@ float4 CloudPS(CloudVertexOutput input) : COLOR
     float haze = saturate(input.Depth.x / max(HorizonHazeDistance, 1e-3));
     color = lerp(color, HazeTint, pow(haze, 8.0) * HazeStrength);
 
-    return float4(color, body * PuffOpacity);
+    //And the far edge of the field thins out to nothing before the band's own edges (#551). Until then the camera's
+    //500-unit far plane did this job, as a hard cut: the band reaches 560 across the wind and wraps 780 along it,
+    //and the far plane went to 2000 when the open-ground scenes got their far field, so every wrap and both of
+    //the band's sides would otherwise be in frame. Faded by the puff's distance from the lens over the stretch the
+    //clip used to fall in, so the storm's horizon stands where it always stood - it only stopped being a line.
+    float farThin = 1.0 - smoothstep(STORM_FAR_THIN_START, STORM_FAR_THIN_END, input.Depth.x);
+
+    return float4(color, body * PuffOpacity * farThin);
 }
 
 //=====================================================================================================

@@ -52,6 +52,8 @@ float4x4 Projection;
 
 float3 CameraPosition;
 
+#include "FarField.fxh"
+
 //Towards the sun, and the sun's own radiance. THE DIRECTION IS THE SCENE'S MOST IMPORTANT LIGHT: #222 is
 //written around a sun that never climbs far off the horizon, and since #220 a dome carries its own, so a
 //dusk dome lights this ice from the horizon and rakes the sastrugi the way the picture needs.
@@ -352,6 +354,7 @@ float4 PolarPS(PolarVertexOutput input) : COLOR
 
     //Cut the island's footprint out of the terrain. 0 in the map editor keeps it all.
     clip(length(worldPosition.xz) - IslandHoleRadius);
+    FarRingClip(worldPosition.xz);
 
     float dist = distance(CameraPosition, worldPosition);
     float footprint = length(fwidth(worldPosition.xz));
@@ -504,7 +507,7 @@ float4 PolarPS(PolarVertexOutput input) : COLOR
     float haze = saturate(dist / HorizonHazeDistance);
     color = lerp(color, HorizonColor, haze * haze);
 
-    return float4(color, 1.0);
+    return float4(FarFadeToSky(color, worldPosition), 1.0);
 }
 
 technique Polar

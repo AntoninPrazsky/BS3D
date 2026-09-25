@@ -9,7 +9,16 @@ namespace Prazsky.Core.Camera
     /// </summary>
     public class BasicCamera3D : ICamera
     {
-        private const float DEFAULT_FAR_PLANE_DISTANCE = 500f;
+        /// <summary>
+        /// Where every camera in the project clips, the Game's <see cref="RecoilCamera"/> included. It was 500 until
+        /// #551, which cut the open-ground backdrops off in front of the player - the far plane sliced through the
+        /// volcano's plain and the icesheet where their haze had not yet finished. It is sized to the far field now:
+        /// past <c>SceneRenderer.FAR_FADE_END</c>, where every open ground has become the sky behind it, so the
+        /// clip itself can never be seen. Raising it cost the near scene no depth precision worth the name: with a
+        /// 24-bit buffer the step at distance z is about z squared over (near x 2^24), so it is set by the NEAR
+        /// plane, and 500 -> 2000 changes it at the cluster by (1 - near/far), a few parts in a hundred thousand.
+        /// </summary>
+        public const float DEFAULT_FAR_PLANE_DISTANCE = 2000f;
         private const float DEFAULT_MOVE_SPEED = Constants.HUNDREDTH;
         private const float DEFAULT_NEAR_PLANE_DISTANCE = Constants.HUNDREDTH;
         private const float DEFAULT_ROTATION_SPEED = Constants.THOUSANDTH;

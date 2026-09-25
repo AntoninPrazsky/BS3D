@@ -20,6 +20,8 @@
 float4x4 View;
 float4x4 Projection;
 float3 CameraPosition;
+
+#include "FarField.fxh"
 float3 SunDirection;
 float3 SunColor;
 float3 ZenithColor;
@@ -185,6 +187,7 @@ float4 MeadowField(MeadowVertexOutput input, bool detail)
 
     //Cut the island's footprint out of the terrain (see IslandHoleRadius). 0 in the map editor keeps it all.
     clip(length(worldPosition.xz) - IslandHoleRadius);
+    FarRingClip(worldPosition.xz);
 
     float3 baseNormal = normalize(input.WorldNormal);
     float footprint = length(fwidth(worldPosition.xz));
@@ -388,7 +391,7 @@ float4 MeadowField(MeadowVertexOutput input, bool detail)
     float haze = saturate(dist / HorizonHazeDistance);
     color = lerp(color, HorizonColor, haze * haze);
 
-    return float4(color, 1.0);
+    return float4(FarFadeToSky(color, worldPosition), 1.0);
 }
 
 //Two programs from one body (#281), the forest's pattern. "Meadow" is the authored field; "MeadowReduced" is the

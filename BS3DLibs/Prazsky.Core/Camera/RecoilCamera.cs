@@ -44,7 +44,7 @@ namespace Prazsky.Core.Camera
 
         public float NearPlane { get; set; } = 0.05f;
 
-        public float FarPlane { get; set; } = 500f;
+        public float FarPlane { get; set; } = BasicCamera3D.DEFAULT_FAR_PLANE_DISTANCE;
 
         /// <summary>The kick. Call <see cref="CameraShake.Kick"/> on it when something violent happens.</summary>
         public CameraShake Shake { get; } = new();

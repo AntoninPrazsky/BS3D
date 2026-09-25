@@ -72,7 +72,8 @@ namespace Prazsky.Core.Render
     /// annulus and drifted with no wrap at all — "a wrap would tear a mass in half" — and the annulus
     /// emptied upwind within three minutes and stood entirely downwind of the arena inside ten: "the clouds
     /// are in one small part", the owner's verdict on #510. The wrap tears nothing because it moves the
-    /// whole cell at once, 280 units past the far plane.
+    /// whole cell at once, 280 units past where the field has thinned out to nothing (StormClouds.fx's
+    /// STORM_FAR_THIN_*, which since #551 does the job the 500-unit far plane did as a hard cut).
     /// </para>
     /// </summary>
     public sealed class StormCloudsConfig
@@ -108,13 +109,14 @@ namespace Prazsky.Core.Render
         public float InnerRadius { get; set; } = 105f;
 
         /// <summary>How far the band the field is built on reaches up- and downwind of the arena, in world
-        /// units — half its length. Past the far plane deliberately, so the wrap at its ends (#532) is never
-        /// in frame: a cell carried off the downwind end comes back in at the upwind one 280 units beyond
-        /// anything the camera draws.</summary>
+        /// units — half its length. Past where the field thins out deliberately (StormClouds.fx's
+        /// STORM_FAR_THIN_*, the job the 500-unit far plane did until #551), so the wrap at its ends (#532) is
+        /// never in frame: a cell carried off the downwind end comes back in at the upwind one well beyond
+        /// anything the camera shows.</summary>
         public float OuterRadius { get; set; } = 780f;
 
-        /// <summary>How far the band reaches across the wind, either side of the arena. The far plane plus
-        /// the largest cell, so the abeam horizon is covered to the edge of what is drawn and no further — a
+        /// <summary>How far the band reaches across the wind, either side of the arena. The old 500-unit far
+        /// plane plus the largest cell, so the abeam horizon is covered to the edge of what is shown and no further — a
         /// cell out past it is a vertex-shader cost and nothing on the screen.</summary>
         public float BandHalfWidth { get; set; } = 560f;
 
