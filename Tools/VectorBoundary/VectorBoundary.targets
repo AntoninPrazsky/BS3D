@@ -1,0 +1,10 @@
+<Project>
+  <!--Imported into every project of a build by
+        dotnet build <solution> -t:Rebuild -p:CustomAfterMicrosoftCommonTargets=<this file>
+      so the analyzer runs over the whole tree without a line of it in any project file. Build the analyzer
+      first (dotnet build Tools\VectorBoundary -c Release). See "The vector boundary scan" in
+      docs/formats-and-tools.md.-->
+  <ItemGroup>
+    <Analyzer Condition="'$(MSBuildProjectName)' != 'VectorBoundary'" Include="$(MSBuildThisFileDirectory)bin\Release\netstandard2.0\VectorBoundary.dll" />
+  </ItemGroup>
+</Project>
