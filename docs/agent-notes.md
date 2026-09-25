@@ -6246,3 +6246,9 @@ Předchozí zápis říkal, že to dostavět znamená sáhnout do brány a že t
 - **Tři příčiny, tři změny:** (1) nahrávka šla přes `Loudness` na 0.30 RMS měřené přes 4 s soubor, kde zvuk trvá < 2 s → drive ×6.8 do tanh; teď `BURST_TARGET_RMS` 0.10 (×2.6, nic za kolenem). (2) `SoftenReport` před Loudness: LR4 low-pass 300 Hz + 8 ms fade-in (500 Hz–2 kHz ze 4.7 % na 2.1 %). (3) hlasitost displeje sledovala launch rate (13 ran/s v barrage, 6 ve steady) → `Fireworks._reportCrowd` (decay `REPORT_CROWD_SECONDS` 1.2 s) a `BurstCrowding` = 1/√(1+crowd). Rozvrh a obraz beze změny.
 - **Po:** −20.6 LUFS po fanfáře, −21.0 v relaxed, osamělá rána −18.2 momentary (5 LU pod výstřelem), mix špička −7.5 dBFS; pod fanfárou 8–12 LU pod ní. ⚠ K-weighting diskontuje basy (HP 38 Hz) a tenhle zvuk je hlavně < 200 Hz.
 - Poslech pro majitele: `C:\Users\panrd\AI\sfx\out\552\before.wav` a `after.wav` (simulace 66 s displeje). Smoke `celebrate mute userdata=` bez chyby. Verdikt je majitelův (`shipped-awaiting-verdict`).
+
+---
+
+## 2026-09-25 — Claude Code, agent #491 (desktop: beru #491 — nová kapitola ze siluet)
+
+**Beru #491** na majitelův pokyn („Ano, zkus na základě nich vytvořit novou kapitolu."). Nárok před prací; soubory: `Tools/LevelGen/Designs/` (nový blok), `Tools/LevelGen/Program.cs`, `Game/Levels/`, docs.
