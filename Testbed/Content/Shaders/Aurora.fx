@@ -148,19 +148,13 @@ AuroraVertexOutput AuroraTerrainVS(AuroraVertexInput input)
     return output;
 }
 
-//Identical to Forest.fx's NeedleRelief — see there. Static (no ForestTime drift): #276's own "a forest
-//floor does not drift" rule applies just as much at night.
+//Forest.fx's NeedleRelief since #281 (brought across in #579 - the aurora was written before that rewrite and
+//kept the four plane-wave sines the owner read on the forest floor as "lines and waves"). Isotropic
+//band-limited noise, each octave fading where the pixels stop resolving it; see Forest.fx for the reasoning.
+//Static (no ForestTime drift): #276's own "a forest floor does not drift" rule applies just as much at night.
 float NeedleRelief(float2 xz, float footprint)
 {
-    float2 p = xz;
-    float f = NeedleReliefFrequency;
-
-    float h = 0.45 * sin(dot(p, normalize(float2(0.9, 0.3))) * f) * saturate(1.0 - footprint * f / 3.14159265)
-        + 0.28 * sin(dot(p, normalize(float2(-0.4, 1.0))) * f * 1.83) * saturate(1.0 - footprint * f * 1.83 / 3.14159265)
-        + 0.17 * sin(dot(p, normalize(float2(0.2, -1.0))) * f * 3.1) * saturate(1.0 - footprint * f * 3.1 / 3.14159265)
-        + 0.10 * sin(dot(p, normalize(float2(-1.0, -0.35))) * f * 5.7) * saturate(1.0 - footprint * f * 5.7 / 3.14159265);
-
-    return h * NeedleReliefStrength;
+    return Fbm2BandLimited(xz * NeedleReliefFrequency, 3, footprint * NeedleReliefFrequency) * NeedleReliefStrength;
 }
 
 //Identical to Forest.fx's TerrainNormal — per-pixel from the height field's own gradient (the savanna's
@@ -175,8 +169,9 @@ float3 TerrainNormal(float2 p)
     return normalize(float3(-(hx - h) / e, 1.0, -(hz - h) / e));
 }
 
-//Identical to Forest.fx's ForestFbm — four band-limited octaves of the shared gradient noise, amplitudes
-//summing to 1. See there for why four and not one.
+//Forest.fx's ForestFbm as it stood before #281 replaced it there with Fbm2BandLimited/Fbm2Combed: four
+//band-limited octaves of the cloud field's gradient noise, amplitudes summing to 1. Kept here because the
+//aurora's colour patches and litter were tuned against it and neither reads as the sines' stripes did.
 float ForestFbm(float2 p, float footprint)
 {
     float sum = 0.0;

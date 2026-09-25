@@ -154,8 +154,9 @@ float3 DeimosColor;          //linear
 
 //One octave of craters: at most one per cell of a jittered lattice, and only the pixel's OWN cell is ever
 //read - the single-cell trick Moon.fx's craters, the space starfield and the meadow's wildflowers all use.
-//Ported verbatim from Moon.fx (#125): this field is generic height-field math with nothing Moon-specific in
-//it, so retexturing it rust rather than grey needed no change here at all. See Moon.fx for the derivation
+//Derived from Moon.fx's (#125): this field is generic height-field math with nothing Moon-specific in it,
+//so retexturing it rust rather than grey needed no change at the time. No longer identical - the Moon's later
+//shadow terms (#508) never came here (#579), so the two have been separate copies since. See Moon.fx for the derivation
 //of every constant below - CRATER_MIN_RADIUS/CRATER_MAX_RADIUS, the per-octave amplitudes and periods in
 //CraterField, and the margin arithmetic that keeps a crater inside its own cell (#240 there).
 static const float CRATER_MIN_RADIUS = 0.12;
@@ -228,7 +229,8 @@ float MareBase(float2 p)
     return GradientNoise2(p * 0.011) * 0.65 + GradientNoise2(p * 0.031 + 7.3) * 0.35;
 }
 
-//The stone field: two lattices of boulders and pebbles, ported VERBATIM from Outback.fx's RockLayer - a
+//The stone field: two lattices of boulders and pebbles, derived from Outback.fx's RockLayer (which has since
+//grown its bornhardt shape and is no longer this copy's twin, #579) - a
 //single-cell jittered lattice (the craters' own trick, above) shaped into a whaleback rock with a talus
 //apron. Generic height-field math with nothing outback-specific in it: no gullies and no elongation to
 //speak of here (ribDepth 0, a low maxElongation) because Mars rock is wind-worn, not water-cut, so the

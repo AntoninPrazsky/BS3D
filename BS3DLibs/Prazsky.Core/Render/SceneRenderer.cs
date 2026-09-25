@@ -4676,11 +4676,6 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// The meadow's full field or its reduced one (#281): the grass material's clumps and blade
-        /// strokes are the two near-field terms that cost, and the reduced program drops both. By technique for
-        /// <see cref="SelectForestTechnique"/>'s reason.
-        /// </summary>
-        /// <summary>
         /// Mars's full ground or its reduced one: the sand drifts, the bedrock slabs and the strata's wobble are the
         /// added noise the reduced program drops, the mesas staying on every tier. Held as a cached technique rather
         /// than looked up, since <c>DrawMars</c> assigns it every frame.
@@ -4711,6 +4706,11 @@ namespace Prazsky.Core.Render
 
         private int _marsGridN;
 
+        /// <summary>
+        /// The meadow's full field or its reduced one (#281): the grass material's clumps and blade
+        /// strokes are the two near-field terms that cost, and the reduced program drops both. By technique for
+        /// <see cref="SelectForestTechnique"/>'s reason.
+        /// </summary>
         private void SelectMeadowTechnique() =>
             _meadowEffect.CurrentTechnique = _meadowEffect.Techniques[_sceneDetail > 0.5f ? "Meadow" : "MeadowReduced"];
 
@@ -5675,12 +5675,6 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// Draws the Sahara dune field: the grid pinned to the camera (snapped to a cell so the dunes do not
-        /// swim), lifted into dunes with distance and shaded per-pixel (no grid) by the current dome, ripples
-        /// and blown dust crawling on the wind, shadowed by the shared cloud field. The desert has no point
-        /// lights, so unlike the savanna it sets none.
-        /// </summary>
-        /// <summary>
         /// Draws the polar icesheet (#222): the same grid the desert uses, pinned to the camera and snapped to
         /// a cell, displaced into sastrugi with a crevassed pressure belt beyond them, shaded per-pixel by the
         /// current dome and shadowed by the shared cloud field. Like the desert it has no point lights of its
@@ -5719,6 +5713,12 @@ namespace Prazsky.Core.Render
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
         }
 
+        /// <summary>
+        /// Draws the Sahara dune field: the grid pinned to the camera (snapped to a cell so the dunes do not
+        /// swim), lifted into dunes with distance and shaded per-pixel (no grid) by the current dome, ripples
+        /// and blown dust crawling on the wind, shadowed by the shared cloud field. The desert has no point
+        /// lights, so unlike the savanna it sets none.
+        /// </summary>
         private void DrawDesert(in SceneFrame frame)
         {
             float cell = DESERT_EXTENT / (DESERT_GRID_N - 1);
@@ -6719,11 +6719,6 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// Draws the waterline's rocks: the stone (grey-brown, plain) and its moss cap (green, a light
-        /// mottle so the moss is foliage and not paint) over the same per-plant matrices, shaded by the
-        /// same <c>Palm.fx</c>. Opaque and depth-writing; tropical scene only, after the palms.
-        /// </summary>
-        /// <summary>
         /// The beach's dressing (#445): the low scrub and sea grass at the tree line and the driftwood at the
         /// waterline, through the palm effect like everything else standing on this sand.
         /// <para>
@@ -6762,6 +6757,11 @@ namespace Prazsky.Core.Render
             }
         }
 
+        /// <summary>
+        /// Draws the waterline's rocks: the stone (grey-brown, plain) and its moss cap (green, a light
+        /// mottle so the moss is foliage and not paint) over the same per-plant matrices, shaded by the
+        /// same <c>Palm.fx</c>. Opaque and depth-writing; tropical scene only, after the palms.
+        /// </summary>
         private void DrawTropicalRocks(in SceneFrame frame)
         {
             ApplyPalmFrame(frame);
@@ -6825,13 +6825,10 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// One instanced draw of a mesh part with its per-draw material — <see cref="DrawAcaciaPart"/>'s
-        /// construction on the palm effect and buffer: instances re-uploaded to the one shared dynamic
-        /// buffer (<see cref="SetDataOptions.Discard"/>), the mesh at stream 0 and the instances at
-        /// stream 1.
-        /// </summary>
-        /// <summary>
-        /// One instanced draw through <c>Palm.fx</c>.
+        /// One instanced draw through <c>Palm.fx</c> of a mesh part with its per-draw material —
+        /// <see cref="DrawAcaciaPart"/>'s construction on the palm effect and buffer: instances re-uploaded to
+        /// the one shared dynamic buffer (<see cref="SetDataOptions.Discard"/>), the mesh at stream 0 and the
+        /// instances at stream 1.
         /// <para>
         /// <b><paramref name="swayStrength"/> is a per-part argument and not a per-frame one, which is
         /// #268's rock fault in one line.</b> <c>Palm.fx</c> reads the mesh's <c>TEXCOORD0.x</c> — an
@@ -8338,6 +8335,8 @@ namespace Prazsky.Core.Render
             _seaIndexBuffer?.Dispose();
             _desertVertexBuffer?.Dispose();
             _desertIndexBuffer?.Dispose();
+            _polarVertexBuffer?.Dispose(); //Missing until #579 - the largest grid of all, 420 a side
+            _polarIndexBuffer?.Dispose();
             _outbackVertexBuffer?.Dispose();
             _outbackIndexBuffer?.Dispose();
             _tropicalVertexBuffer?.Dispose();
