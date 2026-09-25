@@ -6427,3 +6427,13 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 - ⚠ **Past (sen):** sen nepíše hloubku, ostrov se kreslí přes každé těleso za ním. První záběr koule mířil jen podle přímky od arény; koule blízko osy dala start dolly za ostrovem a ostrov projel záběrem zespodu. Teď oba pohyblivé záběry odmítají arénu do 50° od osy pohledu.
 - ⚠ **Past (ledovec):** truck 90 před hřebenem měl v jednom losu ze tří desky na dosah — val je 70 široký na obě strany a hřeben bloudí; teď 130.
 - **Foceno** přes `tour` na sceneseed 1–3 (bouře po 0,5 s, kolem úderu po 0,1 s) a na skutečných otevřeních `level=51` a `level=121` až po dělo. Stránka: https://claude.ai/artifact/LM2EEzSiWtkaBMMQtyxJLL. Neověřeno v pohybu.
+
+---
+
+## 2026-09-25 — Claude Code, agent #559-c (desktop: prology intra pro Měsíc, Mars, vesmír a Grid)
+
+- **Čtyři `IntroShot[]`**, každý tři střihy, první je celkový pohled: Měsíc (pláň, skutečný kráter z horní oktávy `Moon.fx` nalezený průchodem jeho buněk, Země nad hřebenem na dlouhém objektivu), Mars (pláň, skutečná mesa z `MesaField`, Phobos nad mesou), vesmír (stanice u planety, odtok zespodu, tyrkysová mlhovina přes okraj ostrova), Grid (jeřáb nad podlahou, kostka s Life, průlet prstencem). 13,9–14,3 s celkem.
+- **Objektivy jsou absolutní** (stupně), ne „fov volajícího × 1,15“: tour v menu dostává 60°, hra 43°, a záběr rámovaný na jednu stěnu kostky nebo Zemi nad hřebenem musí vypadat stejně v obou.
+- **`OffworldGround` (Prazsky.Core):** Měsíc a Mars nemají CPU zrcadlo, tak je tu **strop** — krátery na své mezi (součet vrstev nikdy nad 0,62 amplitudy), balvany na maximu, přesně mare, vysočinový pás, zakřivení a mesy. Cesta se zvedne jednou konstantou nad nejvyšší strop pod ní + 2,5–3 j. **`SceneRenderer.GridSolids`/`TryGetGridRing`** zapisují tělesa Gridu při stavbě (i se sceneseed).
+- ⚠ **Pasti:** (1) Phobos nad holou plání = hnědé nebe s černou tečkou; první mesa pod ním postavila objektiv před útes na celý rám (bod mesy na vlastním radiálu neříká, kde útes kříží jinou přímku) → kontrola horizontu na konci jízdy. (2) V Gridu nestačí odstup 10 j: věž mezi objektivem a kostkou zakryla konec záběru → kontrola přímé viditelnosti. (3) **Při sceneseed=3 stojí kostka skrz prstenec** — `BuildGridTowers` o landmarku neví; prstenec se pak vynechá. (4) Kráter s jízdou 2,3→1,5 poloměru byl ve hře celý rozmazaný motion blurem (#402) — zkráceno na polovinu. (5) V `level=61` jsou přes oblohu u Země šikmé šmouhy i s vypnutým blurem — nejspíš počasí sopky z menu, které ještě doznívá (nezkoumáno).
+- Foceno přes `tour` na sceneseed 1–3 (Grid 1–6) a na skutečných otevřeních `level=61/71/111`; Mars kapitolu nemá.
