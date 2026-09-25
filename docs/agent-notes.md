@@ -6370,6 +6370,9 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 - ⚠ Past: `ApplyTropicalParameters` běží v konstruktoru **dřív**, než se načte `_palmEffect`. Nastavovat tam parametry palmového efektu = NullReference při startu. Proto `PushPalmMaterial()` volaná z obou míst.
 - ⚠ Menu kamera si orbitu losuje při každém spuštění, takže snímky z menu „ve stejné vteřině“ nejsou páry. Na stránce jsou vedle sebe, ne na posuvníku.
 - Zůstává: stínová mapa je u nízké kamery zubatá tam, kde na písek padají stíny lístků (rozlišení mapy, 260 jednotek / 4096).
+
+---
+
 ## 2026-09-25 — Claude Code, agent #551 (desktop: dohlednost — far plane 2000, vzdálený prstenec terénu a doznění do skutečně kreslené oblohy)
 
 **Majitelovo zadání:** „Dohlednost – měla by být větší – např. na Marsu je vidět ořezávání hor na pozadí.“
