@@ -67,6 +67,9 @@ namespace BS3D.Screens
             //FitCeilingToMap made a new renderer, which starts without the sky palette
             Game.ApplySkyLighting();
 
+            //The gun casts from now until TearDown takes it away again (#470)
+            Game.SessionShadowCasters = _gunShadowCaster;
+
             IsBuilt = true;
             _clearedCountdown = 0f;
 
