@@ -474,10 +474,33 @@ namespace Testbed.Diagnostics
                 else if (arg.StartsWith("rmb=", StringComparison.OrdinalIgnoreCase)) ParseAdsHolds(arg.Substring("rmb=".Length), options.ScriptAdsHolds);
                 else if (arg.StartsWith("shot=", StringComparison.OrdinalIgnoreCase)) options.ShotSeconds = ScreenshotWriter.ParseSeconds(arg.Substring("shot=".Length));
                 else if (arg.StartsWith("shotframe=", StringComparison.OrdinalIgnoreCase)) options.ShotFrames = ScreenshotWriter.ParseFrames(arg.Substring("shotframe=".Length));
-                else options.StartupMapPath = arg;
+                //Only something that looks like a FILE is taken for the map (#574). Everything above tests its
+                //value inside the condition, so a mistyped key or a value that did not parse ("sky=abc",
+                //"ssaa=x", "logfsp") used to land here, replace any map already named, and - there being no
+                //such file - leave the Testbed on its default map without a word: a capture of the wrong thing
+                //that looks like a finding, on the one executable whose job is to be measured. Said instead.
+                else if (LooksLikeAPath(arg)) options.StartupMapPath = arg;
+                else Console.WriteLine($"[args] Ignored '{arg}': not an argument the Testbed takes, or its value did not parse");
             }
 
             return options;
+        }
+
+        /// <summary>
+        /// Whether a leftover argument names a file rather than a switch: it has a directory separator or an
+        /// extension, and is not a <c>key=value</c> with a plain word for a key.
+        /// </summary>
+        private static bool LooksLikeAPath(string arg)
+        {
+            int equals = arg.IndexOf('=');
+            if (equals > 0)
+            {
+                bool wordKey = true;
+                for (int i = 0; i < equals; i++) wordKey &= char.IsLetterOrDigit(arg[i]);
+                if (wordKey) return false;
+            }
+
+            return arg.IndexOfAny(new[] { '\\', '/', '.' }) >= 0;
         }
 
         //Parses the arena member list: names of ArenaMembers, comma-separated, each added or - with a leading

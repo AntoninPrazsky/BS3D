@@ -366,6 +366,11 @@ namespace BS3D
                 //"sweep=", "rmb=" and "fire=" are the hands of a run nobody is sitting at (#402): the barrel swung,
                 //precise aim held, a shot fired, on the wall clock "shot=" counts. See ScriptedPlay.
                 else if (ScriptedPlay.TryParse(arg)) { }
+                //Said rather than dropped (#574). Most branches above test their value inside the condition, so
+                //a typo ("quality=ultr", "fpscap=abc", "levle=3") fell through all of them and the run went on
+                //as though it had never been asked - the width/height case of #137 was exactly this. Still not
+                //a refusal: this is a diagnostic and must never be the reason a scripted run fails to start.
+                else Console.WriteLine($"[args] Ignored '{arg}': not an argument this build takes, or its value did not parse");
             }
 
             if (ScriptedPlay.Current != null) Console.WriteLine(ScriptedPlay.Current.Describe());
