@@ -75,7 +75,10 @@ namespace BS3D.Tools.LevelGen
                 Balls = BALLS_GALLERY,
                 Shots = shots,
                 CeilingStep = ceilingStep,
-                OccupiedBlock = (x, z, i, d) => OnWall(x, z, i, d, width, grid, out _, out _),
+                //A PICTURE_EMPTY cell is a hole in the wall, in every picture: Balloon's cutout was the first
+                //to need one, and #556 made it the Gallery's way of leaving no ground under a drawing.
+                OccupiedBlock = (x, z, i, d) => OnWall(x, z, i, d, width, grid, out int column, out int row)
+                    && PixelAt(bitmap, column, row) != PICTURE_EMPTY,
                 BlockColour = (x, z, i) =>
                 {
                     OnWall(x, z, i, depth, width, grid, out int column, out int row);
@@ -181,7 +184,7 @@ namespace BS3D.Tools.LevelGen
         /// An elephant's head face-on, and the <b>first picture here drawn in three inks</b>: a pale face, blue
         /// ears either side, black eyes and a black trunk hanging down the middle. It is the Gallery's step up
         /// from the gentle three — the symbol is three groups rather than one, so the biggest payoff on it is the
-        /// face at 21 % where <see cref="Smiley"/>'s is 52 % — and it is the block's most legible level, which is
+        /// face at 38 % where <see cref="Smiley"/>'s is 52 % — and it is the block's most legible level, which is
         /// the point of putting it before <see cref="Zebra"/> rather than after.
         /// <para>
         /// <b>The background is two warm colours against a cool animal, and that is what makes it read.</b> This
@@ -193,11 +196,19 @@ namespace BS3D.Tools.LevelGen
         /// the dial that does not cost legibility — see the region's remarks.
         /// </para>
         /// <para>
-        /// Measured: 420 balls, margin 1, <b>nothing alone, nothing in a pair and nothing recoloured</b> — the
-        /// cleanest wall in the pack — five colours running 40 to 114 balls, and best single shots 8 %, 8 %, 21 %,
-        /// 13 % and 5 %. Two of those figures are larger than the colour's own biggest group (36 against 20, and
-        /// 58 against 22), which is the drop test counting what a ground group was the last anchor for: the
-        /// ears and the trunk hang off the check around them.
+        /// <b>⚠ There is no ground under the head (#556).</b> The wall was a full 15 by 14 rectangle until then,
+        /// and the band of check beside the trunk hung off the ears and the one-column margins once the face went:
+        /// the sag probe saw it swing through the line with the glass at rest in 2 of 5 runs, on the shot after
+        /// the face's. It is <see cref="ELEPHANT"/>'s own <see cref="PICTURE_EMPTY"/> cells now, the Silhouettes'
+        /// rule (#491) drawn by hand, and it reads 0 of 5. What it cost is the face's payoff: the trunk hangs off
+        /// the face alone, so the face's shot takes the trunk and the eyes with it — 116 of 300 balls, 38 %,
+        /// where the full wall's 420 put it at 21 %. The elephant is a gentler level for it.
+        /// </para>
+        /// <para>
+        /// Measured with the ground (before #556): 420 balls, margin 1, nothing alone, nothing in a pair and
+        /// nothing recoloured, best single shots 8 %, 8 %, 21 %, 13 % and 5 %. Without it: 300 balls, margin 1,
+        /// nothing alone, four in pairs, best single shots 4 %, 11 %, 38 %, 4 % and 8 % (red, blue, cyan, yellow,
+        /// black).
         /// </para>
         /// </summary>
         private static Design Elephant() => Picture("Elephant.json", "Elephant", SceneKind.Savanna, sky: 14,
@@ -207,7 +218,8 @@ namespace BS3D.Tools.LevelGen
 
         /// <summary>
         /// An elephant's head face-on, 15 by 14: forehead, an ear either side, two eyes and the trunk. Three
-        /// inks — <c>#</c> the face, <c>o</c> the ears, <c>+</c> the eyes and the trunk.
+        /// inks — <c>#</c> the face, <c>o</c> the ears, <c>+</c> the eyes and the trunk — and from the ears down
+        /// no ground but the trunk's own column (#556): the wall's lower edge is the head's outline.
         /// <para>
         /// The ears stop square rather than tapering to a point: a one-column ear tip is a column of four balls
         /// that reads as a fray rather than as an ear, and the taper is carried by the face's own two narrowing
@@ -224,12 +236,12 @@ namespace BS3D.Tools.LevelGen
             ".ooo++###++ooo.",
             ".ooo++###++ooo.",
             ".ooo#######ooo.",
-            "..oo#######oo..",
-            ".....#####.....",
-            "......+++......",
-            "......+++......",
-            "......+++......",
-            "......+++......",
+            ". oo#######oo .",
+            "     #####     ",
+            "      +++      ",
+            "      +++      ",
+            "      +++      ",
+            "      +++      ",
         };
 
 
@@ -249,7 +261,7 @@ namespace BS3D.Tools.LevelGen
         /// gold daylight; hanging the Moon beside it completes the joke - the gallery keeps its own night
         /// on the wall.
         /// <para>
-        /// The crescent is 38 cells = 76 balls, about 21 % of the wall's 364 - one connected group by
+        /// The crescent is 38 cells = 76 balls, about 24 % of the wall's 312 - one connected group by
         /// construction (every adjacent row pair of <see cref="MOON"/> overlaps by at least two columns at
         /// Dx = 0), well under <see cref="Smiley"/>'s shipped 52 %, and nothing is enclosed by it: the
         /// check flows around the open right side, so nothing can be orphaned. The 2x2 "evening star" dot
@@ -262,6 +274,15 @@ namespace BS3D.Tools.LevelGen
         /// in hue and luminance, and here it is literally the night sky the moon sits in; the white symbol
         /// carries maximal luminance contrast against both. Black is not in the level, so the navy/blue
         /// pair confuses with nothing but itself, which is the desired quietness.
+        /// </para>
+        /// <para>
+        /// <b>⚠ No ground under the moon (#556).</b> The two rows of check under the crescent hung off the
+        /// margins once the crescent's white went, and swung through the line with the glass at rest: the sag
+        /// probe read 3 of 5, every loss on the shot that took the crescent. They are <see cref="PICTURE_EMPTY"/>
+        /// now, so the wall's bottom edge is the lower horn's, and it reads 1 of 5 - the format's floor, and a
+        /// different loss: a ground group taken off the top-right corner leaves the right margin and the star
+        /// hanging off the crescent alone. Keeping one of the two rows (a tie between the margins) read 2 of 5,
+        /// and cutting the ground under the crescent and the star column by column as well still read 1.
         /// </para>
         /// <para>
         /// Gate watch (#255): the star-to-crescent contact graph must hold on BOTH parities - verified by
@@ -278,7 +299,8 @@ namespace BS3D.Tools.LevelGen
             background: new[] { BallType.Type12, BallType.Type3 });
 
         /// <summary>
-        /// A crescent opening to the right, 13 by 14 - a fat C whose limbs taper from 5 wide to 3 wide,
+        /// A crescent opening to the right, 13 by 14 with the bottom two rows EMPTY (#556) - a fat C whose limbs
+        /// taper from 5 wide to 3 wide,
         /// ten rows tall by seven columns wide, drawn deliberately 1.4x taller than round (10 rows for 7
         /// columns) so the 71 % squash returns a circle-arc rather than a squashed C. Every stroke is at
         /// least 3 cells wide and the tips are 4, comfortably over the lonely-ball floor. The 2x2 star dot
@@ -300,14 +322,14 @@ namespace BS3D.Tools.LevelGen
             "...####......",
             "....#####....",
             ".....####....",
-            ".............",
-            ".............",
+            "             ",
+            "             ",
         };
 
         /// <summary>
         /// A lion's paw print in one brown ink - and the first one-ink picture that is NOT one payoff. The
         /// ink dial turns out to have a second axis, region count: five disconnected regions in a single
-        /// colour, four 6-cell toes of 12 balls each and a 44-cell pad of 88 (24 % of 364), so a level with
+        /// colour, four 6-cell toes of 12 balls each and a 44-cell pad of 88 (26 % of 338), so a level with
         /// one symbol colour has no single big release at all. It is drawn as savanna storytelling: something
         /// walked through the gallery before the player arrived.
         /// <para>
@@ -325,6 +347,13 @@ namespace BS3D.Tools.LevelGen
         /// the GROUND's desired quietness (the <see cref="Zebra"/> precedent), the symbol ink being neither.
         /// </para>
         /// <para>
+        /// <b>⚠ No ground under the pad (#556).</b> The bottom row of check hung off the margins once the pad went,
+        /// and the next shot that cut it swung the rest through the line with the glass at rest: 2 of 5 on the
+        /// sag probe. The row is <see cref="PICTURE_EMPTY"/> now, the pad's own lower edge is the wall's, and it
+        /// reads 0 of 5. The Silhouettes' column rule (#491) would have been wrong here: every column but the
+        /// margins has a toe above the pad, so it would have emptied the row between them and cut the pad loose.
+        /// </para>
+        /// <para>
         /// Gate watch (#255): the tool's contact graph for accidental region merges - parity diagonals are
         /// the stated trap. If a toe bridges the pad, move the outer pair up from rows 3-5 to rows 2-4,
         /// widening the toes-to-pad gap to three levels. Confirm nothing is recoloured (smallest group 12).
@@ -340,7 +369,8 @@ namespace BS3D.Tools.LevelGen
             background: new[] { BallType.Type4, BallType.Type7 });
 
         /// <summary>
-        /// A paw print, 13 by 14: four toes 2 wide by 3 tall (2 by 2.1 visual after the squash - round),
+        /// A paw print, 13 by 14 with the bottom row EMPTY (#556): four toes 2 wide by 3 tall (2 by 2.1 visual
+        /// after the squash - round),
         /// the inner pair at rows 2-4, the outer pair one row lower at rows 3-5, and a rounded 9-wide main
         /// pad across rows 7-12. One column between neighbouring toes, one whole empty row (two levels)
         /// between the outer toes and the pad - both stated distances are what keeps the five regions five.
@@ -360,7 +390,7 @@ namespace BS3D.Tools.LevelGen
             "..#########..",
             "...#######...",
             "....#####....",
-            ".............",
+            "             ",
         };
 
         /// <summary>
@@ -383,7 +413,10 @@ namespace BS3D.Tools.LevelGen
         /// the number of inks a symbol is drawn in (see the region's remarks and Elephant against Star), and
         /// it costs the drawing nothing: <b>a meerkat has a pale face over a darker coat</b>. Coat 86 → 54
         /// balls, best single shot 28 % → 14 %, sag <b>2 of 5 → 1 of 5</b>, which is Giraffe's figure and
-        /// the estimator's floor for this format. The bitmap did not move a cell - rows 2-5 changed ink. The tail is a single column at bitmap column 11, rows 9-13: 5
+        /// what was then taken for the estimator's floor for this format. The bitmap did not move a cell - rows 2-5
+        /// changed ink. <b>#556 found the one loss left was not a floor:</b> it was the bottom row of ground, under
+        /// the figure, swinging through the line on the shot after the coat's, the Moon's and the Paw's fault. That
+        /// row is <see cref="PICTURE_EMPTY"/> now (364 → 338 balls) and the level reads 0 of 5 in three sweeps. The tail is a single column at bitmap column 11, rows 9-13: 5
         /// cells = a solid 2-thick slab of 10 balls, the <see cref="Zebra"/>-leg precedent, standing three
         /// columns clear of the legs (Dx = 3, no contact) with bottom-row contact allowed Heart-style. It
         /// is the level's grace note: the body's release leaves the free-standing 10-ball tail waving alone
@@ -433,7 +466,7 @@ namespace BS3D.Tools.LevelGen
             ".....###.##..",
             "....##.####..",
             "....##.####..",
-            ".............",
+            "             ",
         };
 
         /// <summary>
@@ -556,37 +589,31 @@ namespace BS3D.Tools.LevelGen
         /// design element, staged twice; (4) each gore stripe reaching the crown/flank check independently.
         /// </para>
         /// </summary>
-        private static Design Balloon()
-        {
-            Design design = Picture("Balloon.json", "Balloon", SceneKind.Savanna, sky: 14,
-                MUSIC_GALLERY, shots: 44, ceilingStep: 8, BALLOON, grid: BALLOON_GRID,
-                //'#' red gores, 'o' yellow gores, '+' black ropes, '=' brown basket; ground blue + cyan
-                symbol: new[] { BallType.Type1, BallType.Type7, BallType.Type8, BallType.Type10 },
-                background: new[] { BallType.Type3, BallType.Type5 });
-
-            //The ' '-means-EMPTY extension, applied over Picture's own wall rather than rebuilt: a cell is
-            //on the wall exactly where Picture put it EXCEPT where the bitmap says PICTURE_EMPTY, so
-            //'.'-means-check is unchanged and the colour lambda never sees a hole - Emit asks BlockColour
-            //only where OccupiedBlock said yes.
-            design.OccupiedBlock = (x, z, i, d) =>
-                OnWall(x, z, i, d, BALLOON[0].Length, BALLOON_GRID, out int column, out int row)
-                && PixelAt(BALLOON, column, row) != PICTURE_EMPTY;
-
-            return design;
-        }
-
-        //The finale's grid, stated once so the Picture call and the cutout occupancy lambda above cannot
-        //disagree about where OnWall puts the bitmap.
-        private const byte BALLOON_GRID = 17;
+        private static Design Balloon() => Picture("Balloon.json", "Balloon", SceneKind.Savanna, sky: 14,
+            MUSIC_GALLERY, shots: 44, ceilingStep: 8, BALLOON, grid: 17,
+            //'#' red gores, 'o' yellow gores, '+' black ropes, '=' brown basket; ground blue + cyan
+            symbol: new[] { BallType.Type1, BallType.Type7, BallType.Type8, BallType.Type10 },
+            background: new[] { BallType.Type3, BallType.Type5 });
 
         /// <summary>
         /// The one character of the bitmap alphabet that is a HOLE in the wall rather than a colour on it:
         /// where a bitmap says space, there is no ball at all - not check, not ink - which is what lets a
         /// picture hang something over open air (<see cref="Balloon"/>'s basket on its ropes). <c>.</c>
         /// still means check and <see cref="SYMBOL_INK"/> still means ink; this is the third kind of cell,
-        /// consulted by the design's own occupancy lambda, and <see cref="PixelAt"/>'s out-of-range answer
-        /// staying <c>.</c> means a hole can never leak outside its bitmap. Specced by the rejected Spider
-        /// design and built once here for whichever pictures ride it.
+        /// consulted by <see cref="Picture"/>'s own occupancy lambda, and <see cref="PixelAt"/>'s out-of-range
+        /// answer staying <c>.</c> means a hole can never leak outside its bitmap. Specced by the rejected Spider
+        /// design and built for Balloon.
+        /// <para>
+        /// <b>⚠ It was Balloon's own lambda until #556, and for a month nothing honoured it.</b> #255's tidy-up
+        /// (<c>854d56e5</c>, 2026-08-25) rewrote Balloon's spaces as dots on the belief that both were background
+        /// to <see cref="PixelAt"/> — true of the colour lambda, false of the occupancy one — so the balloon
+        /// shipped as a full rectangle of check with the basket buried in it, the opposite of the design its
+        /// doc describes, and every gate passed it. The sag probe is what surfaced it: the check under the
+        /// envelope swung through the line in 3 of 5 runs. Restored, it reads 0 of 5 and weighs the 358 its doc
+        /// says. Honouring the character in <see cref="Picture"/> itself, for every picture, is what keeps a
+        /// hole from being one design's private convention that a later edit can quietly undo; #556 then used it
+        /// to leave the ground out from under the Moon, the Paw and the Elephant.
+        /// </para>
         /// </summary>
         private const char PICTURE_EMPTY = ' ';
 
@@ -609,11 +636,11 @@ namespace BS3D.Tools.LevelGen
             "....#oo#oo#....",
             ".....oo#oo.....",
             "......o#o......",
-            "......+.+......",
-            "......+.+......",
-            ".....=====.....",
-            ".....=====.....",
-            "...............",
+            "...   + +   ...",
+            "...   + +   ...",
+            "...  =====  ...",
+            "...  =====  ...",
+            "...         ...",
         };
 
         #endregion
