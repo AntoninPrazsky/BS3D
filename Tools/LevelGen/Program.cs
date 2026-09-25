@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿using Prazsky.BS3D.GameStructure;
+﻿using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.GameStructure.DataBags;
 using Prazsky.BS3D.Levels;
 using Prazsky.BS3D.Physics;
@@ -476,8 +476,31 @@ namespace BS3D.Tools.LevelGen
         /// <see cref="ClearProbe"/>.</summary>
         private static bool _deepClear;
 
+        /// <summary>The flags <see cref="Main"/> reads, exactly and by prefix — the one list the refusal below checks.</summary>
+        private static readonly string[] Flags = { "--sag", "--clear", "--arrival" };
+        private static readonly string[] ValuedFlags = { "--sag=", "--sagfile=", "--clearfile=", "--arrivalfile=" };
+
         private static int Main(string[] args)
         {
+            //REFUSED BEFORE ANYTHING IS WRITTEN (#574). This is the one tool that writes into the tracked tree,
+            //and every flag below is read by looking for itself, so a typo was simply not found: "--sagg" or
+            //"--clearfiles=x" ran a full regeneration of every level instead of the probe asked for, and "-sag"
+            //- one dash - became the output directory. Exit 2, the usage error, so a script can tell it apart
+            //from a gate's refusal (1).
+            string[] plain = args.Where(a => !a.StartsWith("-", StringComparison.Ordinal)).ToArray();
+            string[] unknown = args.Where(a => a.StartsWith("-", StringComparison.Ordinal)
+                && !Flags.Contains(a, StringComparer.Ordinal)
+                && !ValuedFlags.Any(f => a.StartsWith(f, StringComparison.Ordinal))).ToArray();
+
+            if (unknown.Length > 0 || plain.Length > 1)
+            {
+                foreach (string a in unknown) Console.WriteLine($"Unknown option '{a}'.");
+                if (plain.Length > 1) Console.WriteLine($"More than one output directory: {string.Join(", ", plain)}.");
+                Console.WriteLine("Usage: LevelGen [<output dir>] [--sag[=<name,...>]] [--sagfile=<file,...>] [--clear]"
+                    + " [--clearfile=<file,...>] [--arrival] [--arrivalfile=<file,...>]");
+                return 2;
+            }
+
             //The output directory is still the first PLAIN argument, exactly as it was; the flags are named so
             //a path can never be mistaken for one. See RunSagGate for what --sag costs and why it is opt-in.
             string dirArg = args.FirstOrDefault(a => !a.StartsWith("--", StringComparison.Ordinal));

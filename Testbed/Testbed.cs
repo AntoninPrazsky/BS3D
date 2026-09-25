@@ -956,7 +956,11 @@ namespace Testbed
 
             BuildTestHarnesses();
 
-            if (!string.IsNullOrEmpty(_options.StartupMapPath) && File.Exists(_options.StartupMapPath)) DeserializeMapFromFile(_options.StartupMapPath);
+            if (!string.IsNullOrEmpty(_options.StartupMapPath))
+            {
+                if (File.Exists(_options.StartupMapPath)) DeserializeMapFromFile(_options.StartupMapPath);
+                else Console.WriteLine($"[args] No map at '{_options.StartupMapPath}'; starting on the empty field (#574)");
+            }
 
             //Start playable even with nothing on the command line (and as a fallback if a startup map failed to
             //load): an empty field the player can aim and shoot into right away. Without a map _map stays null,
