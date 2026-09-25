@@ -695,7 +695,9 @@ namespace BS3D
         /// (#530): the tour looks at the cone from outside and never over its rim, and the crater is the one
         /// picture every reference of #509 is built round. And the aurora (#531): its wood stands outside the
         /// clearing where the tour's spline never goes, and the shots thread the very spruces this game
-        /// planted, off the planting itself. And since #559 the open-ground scenes, each off its own land.
+        /// planted, off the planting itself. And since #559 the open-ground scenes, each off its own land — the
+        /// meadow, the savanna, the forest and the tropical beach through <c>IntroGround</c>, off the land's
+        /// height mirror and the scene's own planting.
         /// </summary>
         /// <param name="fieldOfView">The frame the tour ends on, which each shot widens from.</param>
         /// <param name="random">The intro's own roll.</param>
@@ -711,6 +713,12 @@ namespace BS3D
             SceneKind.Desert => BS3D.Effects.DesertIntroShots.Build(_sceneRenderer, fieldOfView, random),
             SceneKind.Outback => BS3D.Effects.OutbackIntroShots.Build(_sceneRenderer, fieldOfView, random),
             SceneKind.Mountain => BS3D.Effects.MountainIntroShots.Build(_sceneRenderer, fieldOfView, random),
+            SceneKind.Meadow => BS3D.Effects.MeadowIntroShots.Build(
+                _sceneRenderer?.GetSceneConfig(SceneKind.Meadow) as MeadowSceneConfig, fieldOfView, random),
+            SceneKind.Savanna => BS3D.Effects.SavannaIntroShots.Build(_sceneRenderer, fieldOfView, random),
+            SceneKind.Forest => BS3D.Effects.ForestIntroShots.Build(_forestScatter,
+                _sceneRenderer?.GetSceneConfig(SceneKind.Forest) as ForestSceneConfig, fieldOfView, random),
+            SceneKind.Tropical => BS3D.Effects.TropicalIntroShots.Build(_sceneRenderer, fieldOfView, random),
             _ => null,
         };
 

@@ -37,6 +37,13 @@ namespace Prazsky.Core.Render
         /// <summary>The canopy, sitting on the trunk's top: tiered whorls for a conifer, a lobed mass for a broadleaf.</summary>
         public IProceduralMesh Crown { get; }
 
+        /// <summary>The canopy's authored radius (a conifer's widest skirt, a broadleaf's half-width) — its lobes
+        /// and whorls wander a little past it. For a host keeping a camera out of the tree (#559).</summary>
+        public float CrownRadius { get; }
+
+        /// <summary>The whole tree's authored height, trunk and crown, from the ground.</summary>
+        public float Height { get; }
+
         /// <param name="graphicsDevice">The device the buffers are created on.</param>
         /// <param name="species">Which of the two crown shapes the tree gets.</param>
         /// <param name="trunkBaseRadius">Trunk radius up the flank; the root flare at the ground is wider.</param>
@@ -59,6 +66,9 @@ namespace Prazsky.Core.Render
             float crownRadius, float crownHeight, int seed = 0, int segments = 8,
             int coniferTiers = 4, int coniferTierSpread = 3, float coniferRaggedness = 1f)
         {
+            CrownRadius = crownRadius;
+            Height = trunkHeight + crownHeight;
+
             Random rng = new(seed);
 
             //Spreads the meshes' wobble patterns apart; the golden angle keeps consecutive seeds from

@@ -6394,3 +6394,14 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 - ⚠ **Past:** první přiblížení v outbacku leželo na přímce od arény a začínalo vedle ostrova pod jeho okrajem (okraj a klastr projížděly záběrem). Teď přilétá 50–110° mimo tu přímku a běh blíž než 90 od arény se zamítá.
 - ⚠ **Past:** vrchol snímaný 10 nad ním = řada stejně vysokých hřebenů, vrchol nešel poznat. 28 pod ním a 70 od něj stojí proti obloze.
 - Neověřeno v pohybu. Na `level=31` rozmazává pohybová neostrost průsmyk i obrat kolem vrcholu — stará tour na témže levelu je rozmazaná stejně, takže je to nastavení blur, ne nové pohyby. Stránka se snímky v komentáři #559.
+
+---
+
+## 2026-09-25 — Claude Code, bs3d-559a (desktop: #559 prology intra pro louku, savanu, les a tropickou pláž)
+
+**Čtyři scény místo jedné plynulé spline: vždy tři střižené záběry (úvodní celek + dvě konkrétní věci) a střih na poslední úsek tour, 14,3–14,5 s.** Louka: *údolí* z kopce, *květiny* v 0,9 j nad trávou, *hřeben* do svahu. Savana: *pláň* s ohništěm v záběru, *baobab* (oblouk kolem), *akácie* (boční jízda u nejhustšího háje). Les: *les* nad korunami, *háj* (dolly na nejhustší skupinu), *strom* (jeřáb podél jednoho z nejvyšších). Pláž: *laguna*, *pláž* (chůze po okraji suchého písku pod palmami), *palma* (jeřáb od písku ke koruně).
+
+- **Bezpečnost měřením:** `Game/Effects/IntroGround.cs` — výškové zrcadlo terénu + každá pevná věc jako kapsle (arena jako sloup 44 j, rostliny jako `PlantFigure`); cesta se bere jen když všech 96 bodů drží odstup. Nové read-only přístupy: `SceneRenderer.MeadowTerrainHeight`, `SavannaGroundHeight`, `SavannaPlanting`, `TropicalPalms`/`TropicalRocks`, `SavannaScatter.Acacias`/`Baobabs`/`Solids`, `ScatterBucket.Placed`, `TreeMesh.CrownRadius`/`Height`, `ForestScatterRenderer.ConiferMeshes`/`BroadleafMeshes`. Výsadba se nemění (pořadí hodů rng zachováno).
+- ⚠ **Rozestupové stopy savany nejsou rostliny:** koruna keře přesahuje vlastní footprint; první řez obcházel baobab „mimo footprinty“ a vyfotil rám plný listí. Proto `Solids` = koule kolem meshe každé instance.
+- ⚠ **Průlet lesem (záběr polární záře) tady nefunguje:** 240 stromů na disku r=340; z 240 hozených běhů prošlo jen pár a nejlepší měl 5 stromů do 12 j — svah s obzorem korun. Místo toho dolly na nejhustší háj. Okraj 1 j prošel těsně pod korunou listnáče (černá masa přes třetinu rámu) → 2 j. Na pláži se celá pláž tyčí jen ~2 j nad vodou, takže linie chůze je 1,1 j nad hladinou (kde začínají palmy); kmen palmy se ohýbá mimo tětivu → stem rozšířen o 0,25 odsazení koruny.
+- **Foceno** přes `tour` na sceneseed 1, 2, 3 u všech čtyř a na skutečných otevřeních `level=1` a `level=11` až po dělo v ruce. ⚠ `tour` spolu s `level=` drží intro celých 15 s na prvním snímku (HUD nahoře) — otevření levelu fotit jen s `level=`. Stránka: https://claude.ai/artifact/TuDaH3ULpgdYHxs43y7e8W

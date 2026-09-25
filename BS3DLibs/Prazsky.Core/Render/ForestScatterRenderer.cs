@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Prazsky.Core.Camera;
 using Prazsky.Core.Tools;
 using System;
+using System.Collections.Generic;
 
 namespace Prazsky.Core.Render
 {
@@ -271,6 +272,13 @@ namespace Prazsky.Core.Render
         /// the buffer has already been filled from.
         /// </summary>
         public ForestScatter Scatter => _scatter;
+
+        /// <summary>The conifer mesh variants, indexed as <see cref="ForestScatter.Conifers"/>' buckets are — how
+        /// wide and tall each variant is, which the instance matrix alone does not say (#559).</summary>
+        public IReadOnlyList<TreeMesh> ConiferMeshes => _coniferMeshes;
+
+        /// <summary>The broadleaf mesh variants, indexed as <see cref="ForestScatter.Broadleaves"/>' buckets are.</summary>
+        public IReadOnlyList<TreeMesh> BroadleafMeshes => _broadleafMeshes;
 
         /// <summary>
         /// The eight instanced draws, in order: conifer trunks, conifer crowns, broadleaf trunks, broadleaf
