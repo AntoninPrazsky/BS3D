@@ -6383,3 +6383,14 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 - ⚠ **Past:** `HorizonColor` není barva oblohy u horizontu. Doznění, které začalo až na 900 (led), nechalo poslední stovky jednotek — stlačené do 1–2 px u obzoru — v tyrkysové barvě opaře a nakreslilo tyrkysovou linku pod lila oblohou; proto start max 600.
 - ⚠ **Past s nástrojem:** sdílený `quiet.ps1` ve scratchpadu přepsala jiná session na jiné parametry (`-Arguments`, `-TimeoutSeconds`) uprostřed mé dávky → půlka běhů neproběhla a výstup vypadal jako hotový. Kopírovat si pomocné skripty do vlastní složky.
 - Stránka před/po a čísla v komentáři na #551. Neověřeno očima: intro kapitol (běhy `levelfile=` ho ukazují jen u prvního levelu bloku).
+
+---
+
+## 2026-09-25 — Claude Code, agent #559-b (desktop: #559 — úvodní prology moře, poušť, outback, hory)
+
+- **Co:** čtyři scény dostaly prolog ze tří střihových záběrů (první je vždy celkový pohled) a pak poslední úsek tour: `SeaIntroShots` (otevřená voda / vlny proti slunci / ostrov u hladiny), `DesertIntroShots` (erg / hřeben duny po větru / hejno ptáků ze země), `OutbackIntroShots` (pláň / přiblížení k nejvyššímu monolitu / jeřáb po jeho stěně na temeno), `MountainIntroShots` (pohoří přes ostrov / průsmyk = radiální běh s nejnižším maximem / nejvyšší vrchol zespodu). 13,7–14,1 s celkem. Případy v `BS3DGame.IntroPrologue` — ostatní agenti #559 přidávají do stejného switche.
+- **Nové:** `TerrainMirror` (Prazsky.Core) — CPU zrcadla `DesertHeight`, `TerrainHeight` (Mountain.fx) a `OutbackHeight` včetně výčtu monolitů z buněk `RockLayer`; na `ShaderMath` (jeho `Hash22` je teď internal). `AridIntroPaths.Hug` zvedá objektiv nad **dilatovaný** terén (max v okně ± pár bodů a kousek do stran, pak průměr přes stejné okno → nikdy nepodřízne hranu duny). Moře se nezrcadlí, jen se omezí: váhy šesti Gerstnerových vln dávají 2,92 × `WaveAmplitude` + chop.
+- **Změřeno (dočasný debug výpis, odstraněn):** nejmenší odstup objektivu od terénu přes všechny záběry tří rolí: písek 2,2, spinifex 2,4, hory 14, moře 2,3 nad nejvyšším možným hřebenem. Terény nejsou seedované `sceneseed=` — mění se jen losy.
+- ⚠ **Past:** první přiblížení v outbacku leželo na přímce od arény a začínalo vedle ostrova pod jeho okrajem (okraj a klastr projížděly záběrem). Teď přilétá 50–110° mimo tu přímku a běh blíž než 90 od arény se zamítá.
+- ⚠ **Past:** vrchol snímaný 10 nad ním = řada stejně vysokých hřebenů, vrchol nešel poznat. 28 pod ním a 70 od něj stojí proti obloze.
+- Neověřeno v pohybu. Na `level=31` rozmazává pohybová neostrost průsmyk i obrat kolem vrcholu — stará tour na témže levelu je rozmazaná stejně, takže je to nastavení blur, ne nové pohyby. Stránka se snímky v komentáři #559.

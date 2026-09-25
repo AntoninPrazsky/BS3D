@@ -62,7 +62,12 @@ namespace Prazsky.Core.Render
 
         private static float Frac(float value) => value - MathF.Floor(value);
 
-        private static Vector2 Hash22(float px, float py)
+        /// <summary>
+        /// <c>Noise.fxh</c>'s <c>NoiseHash22</c> (and <c>Clouds.fxh</c>'s hash, the same lines): two values in
+        /// -1..1 off a point. Internal rather than private since #559, for <see cref="TerrainMirror"/>'s
+        /// outback formations, which roll their placement off it directly as <c>Outback.fx</c> does.
+        /// </summary>
+        internal static Vector2 Hash22(float px, float py)
         {
             float x = Frac(px * 0.1031f);
             float y = Frac(py * 0.1030f);

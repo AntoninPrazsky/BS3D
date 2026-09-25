@@ -695,7 +695,7 @@ namespace BS3D
         /// (#530): the tour looks at the cone from outside and never over its rim, and the crater is the one
         /// picture every reference of #509 is built round. And the aurora (#531): its wood stands outside the
         /// clearing where the tour's spline never goes, and the shots thread the very spruces this game
-        /// planted, off the planting itself.
+        /// planted, off the planting itself. And since #559 the open-ground scenes, each off its own land.
         /// </summary>
         /// <param name="fieldOfView">The frame the tour ends on, which each shot widens from.</param>
         /// <param name="random">The intro's own roll.</param>
@@ -705,6 +705,12 @@ namespace BS3D
             SceneKind.Volcano => BS3D.Effects.VolcanoIntroShots.Build(_sceneRenderer, fieldOfView, random),
             SceneKind.Aurora => BS3D.Effects.AuroraIntroShots.Build(_auroraScatter,
                 _sceneRenderer?.GetSceneConfig(SceneKind.Aurora) as AuroraSceneConfig, fieldOfView, random),
+            //#559: the sea, the desert, the outback and the mountains, off their own terrain (TerrainMirror)
+            //and, for the sea, the dome's sun, which its swell shot heads into.
+            SceneKind.Sea => BS3D.Effects.SeaIntroShots.Build(_sceneRenderer, _rig?.SunDirection, fieldOfView, random),
+            SceneKind.Desert => BS3D.Effects.DesertIntroShots.Build(_sceneRenderer, fieldOfView, random),
+            SceneKind.Outback => BS3D.Effects.OutbackIntroShots.Build(_sceneRenderer, fieldOfView, random),
+            SceneKind.Mountain => BS3D.Effects.MountainIntroShots.Build(_sceneRenderer, fieldOfView, random),
             _ => null,
         };
 
