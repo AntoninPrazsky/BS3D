@@ -127,7 +127,7 @@ namespace Prazsky.Core.Render
         /// (a <see cref="ShutterHistory"/> of it, read <see cref="SHUTTER_SECONDS"/> back).</param>
         /// <param name="backgroundDepth">The view depth, in world units, at which everything NOT drawn into the pass
         /// is taken to stand when the camera's own motion is reprojected — see <c>BackgroundReproject</c> in the
-        /// shader. The Game passes the cluster's.</param>
+        /// shader. The Game passes the cluster's distance from the lens.</param>
         /// <returns>False while the window is minimized and there is nothing to draw into.</returns>
         public bool BeginVelocity(in Matrix view, in Matrix projection, in Matrix shutterViewProjection, float backgroundDepth)
         {
