@@ -248,6 +248,12 @@ namespace Testbed.Diagnostics
         /// </summary>
         public bool? BallShadowCasting { get; private set; }
 
+        /// <summary>
+        /// <c>glassshadow=&lt;0|1&gt;</c>: whether the ceiling's glass shades what stands under it (#553). Null leaves
+        /// the Testbed's own default (on) alone, on <see cref="BallShadowCasting"/>'s pattern.
+        /// </summary>
+        public bool? CeilingShadowCasting { get; private set; }
+
         /// <summary><c>exposure=&lt;f&gt;</c>: the renderer's shutter speed. 0 = unset, so the default stands.</summary>
         public float Exposure { get; private set; }
 
@@ -434,6 +440,7 @@ namespace Testbed.Diagnostics
                 //does not recognise falls through to StartupMapPath, so "ballshadow=0" before now overwrote
                 //whatever level or map path had already been parsed with the literal text "ballshadow=0".
                 else if (arg.StartsWith("ballshadow=", StringComparison.OrdinalIgnoreCase)) options.BallShadowCasting = arg.Substring("ballshadow=".Length) is not ("0" or "false" or "off");
+                else if (arg.StartsWith("glassshadow=", StringComparison.OrdinalIgnoreCase)) options.CeilingShadowCasting = arg.Substring("glassshadow=".Length) is not ("0" or "false" or "off");
                 else if (arg.StartsWith("exposure=", StringComparison.OrdinalIgnoreCase) && float.TryParse(arg.Substring("exposure=".Length), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedExposure)) options.Exposure = parsedExposure;
                 else if (arg.StartsWith("scene=", StringComparison.OrdinalIgnoreCase)) options.Scene = arg.Substring("scene=".Length);
                 else if (arg.StartsWith("sceneseed=", StringComparison.OrdinalIgnoreCase)

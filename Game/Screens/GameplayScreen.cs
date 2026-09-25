@@ -1620,6 +1620,9 @@ namespace BS3D.Screens
             if (_blasts.TryGetLight(out Vector3 flashAt, out Vector3 flashColor, out float flashRange))
                 Game.SetSceneFlash(flashAt, flashColor, flashRange);
 
+            //The glass's own shadow on the island and the cluster under it (#553), consumed by the shadow pass
+            Game.CastCeilingShadow(Game.CeilingRenderer, _ceiling.World);
+
             SceneFrame sceneFrame = Game.BeginSceneDraw();
 
             //Everything so far is the setting, which from under the plate is all that stands behind the ceiling's

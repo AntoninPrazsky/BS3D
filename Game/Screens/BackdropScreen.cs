@@ -1124,6 +1124,9 @@ namespace BS3D.Screens
             BallDrawFrame ballFrame = Game.Balls.BeginFrame(Game.Camera);
             ballFrame.AddMap(_previewMap, _previewOffset);
 
+            //The preview plate's shadow, on the session's pattern (#553)
+            Game.CastCeilingShadow(Game.MenuCeilingRenderer, _menuCeilingWorld);
+
             SceneFrame sceneFrame = Game.BeginSceneDraw();
 
             //The setting is what stands behind the preview plate from under it (#541) - see the session's own call
