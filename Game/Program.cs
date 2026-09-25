@@ -11,6 +11,9 @@ namespace BS3D
         [STAThread]
         private static void Main(string[] args)
         {
+            //The run's log and its last-chance handlers (#570), before the first line is printed - see RunLog
+            RunLog.Install();
+
             //Two lines saying what this run IS, before anything else it prints (#372) — the exe's own write
             //time and hash, and the compiled shaders beside it, so a shot or an [fps] reading filed with the
             //log carries its own proof of which shader produced it.
@@ -373,14 +376,32 @@ namespace BS3D
                 Console.WriteLine($"[userdata] Testing: this run keeps the player's files in '{UserData.Directory}', not in %LOCALAPPDATA%");
             }
 
-            using var game = new BS3DGame(fullscreen: fullscreen, supersampleFactor: supersampleFactor, exposure: exposure,
-                uncappedFps: uncappedFps, scene: scene, skyDome: skyDome, logFrameRate: logFrameRate, quality: quality,
-                celebrate: celebrate, confetti: confetti, lasers: lasers, mute: mute, noFpsOverlay: noFpsOverlay, play: play, result: result, blockDone: blockDone, lost: lost, resultStars: resultStars, nextLocked: nextLocked, streak: streak, wildcardEvery: wildcardEvery, powerups: powerups,
-                shotSeconds: shotSeconds, level: level, levelFile: levelFile, preview: preview, ballStyle: ballStyle, pick: pick, fpsCap: fpsCap,
-                noFocusPause: noFocusPause, detonateSeconds: detonateSeconds, about: about, tutorial: tutorial,
-                settings: settings, settingsRows: settingsRows, board: board, boardPage: boardPage, help: help, sceneSeed: sceneSeed, tour: tour,
-                windowWidth: windowWidth, windowHeight: windowHeight, lineLoss: lineLoss, plainCeiling: plainCeiling);
-            game.Run();
+            //Only now, because the log lives in UserData.Directory and userdata= has to have had its say first
+            RunLog.Open();
+
+            //Anything the game throws out of its loop ends the run with a report rather than silently (#570):
+            //a shipped build has no console, so without this a player's crash left nothing behind
+            try
+            {
+                RunGame();
+            }
+            catch (Exception ex)
+            {
+                RunLog.Crash(ex, "the game loop threw");
+                Environment.ExitCode = 1;
+            }
+
+            void RunGame()
+            {
+                using var game = new BS3DGame(fullscreen: fullscreen, supersampleFactor: supersampleFactor, exposure: exposure,
+                    uncappedFps: uncappedFps, scene: scene, skyDome: skyDome, logFrameRate: logFrameRate, quality: quality,
+                    celebrate: celebrate, confetti: confetti, lasers: lasers, mute: mute, noFpsOverlay: noFpsOverlay, play: play, result: result, blockDone: blockDone, lost: lost, resultStars: resultStars, nextLocked: nextLocked, streak: streak, wildcardEvery: wildcardEvery, powerups: powerups,
+                    shotSeconds: shotSeconds, level: level, levelFile: levelFile, preview: preview, ballStyle: ballStyle, pick: pick, fpsCap: fpsCap,
+                    noFocusPause: noFocusPause, detonateSeconds: detonateSeconds, about: about, tutorial: tutorial,
+                    settings: settings, settingsRows: settingsRows, board: board, boardPage: boardPage, help: help, sceneSeed: sceneSeed, tour: tour,
+                    windowWidth: windowWidth, windowHeight: windowHeight, lineLoss: lineLoss, plainCeiling: plainCeiling);
+                game.Run();
+            }
         }
 
         //The spellings scene= takes are SceneRenderer.TryParseScene's since #75 — the Testbed grew an if/else
