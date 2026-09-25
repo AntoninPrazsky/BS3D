@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>BS3D.Tests</AssemblyName>
+    <RootNamespace>BS3D.Tests</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <NoWarn>NU1701</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" PrivateAssets="all" />
+    <!--Compile-time only, exactly as Tools/LevelGen takes it and for its reason: the tests need Vector3 and
+        the types the libraries expose, never a graphics backend. Nothing here opens a window or a device, so
+        the project stays plain net10.0 like the libraries it tests.-->
+    <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.5" PrivateAssets="all" />
+    <!--Bepu is referenced directly because the constraint and attach tests build a Simulation of their own,
+        the way Tools/LevelGen/SagProbe does; the version is the libraries' own.-->
+    <PackageReference Include="BepuPhysics" Version="2.5.0-beta.29" />
+    <PackageReference Include="BepuUtilities" Version="2.5.0-beta.29" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\BS3DLibs\Prazsky.BS3D\Prazsky.BS3D.csproj" />
+    <ProjectReference Include="..\..\BS3DLibs\Prazsky.Core\Prazsky.Core.csproj" />
+    <ProjectReference Include="..\..\BS3DLibs\Prazsky.BS3D.Physics\Prazsky.BS3D.Physics.csproj" />
+  </ItemGroup>
+</Project>

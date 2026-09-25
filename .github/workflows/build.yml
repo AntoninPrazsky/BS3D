@@ -98,6 +98,13 @@ jobs:
       - name: Run ScoreSim
         run: dotnet run --project Tools/ScoreSim/ScoreSim.csproj
 
+      # The logic tests (#586): the invariants the libraries state "by construction" - the neighbour rule, one
+      # constraint per pair, the legacy padding's parity, the level round-trip, the save outcomes, the atomic
+      # write, the scoring mechanics and the top-level ceiling anchor of #561. Game.sln above built the project;
+      # --no-build keeps a failure here the tests' own. See "The logic tests" in docs/formats-and-tools.md.
+      - name: Run the logic tests
+        run: dotnet test Tests/BS3D.Tests/BS3D.Tests.csproj --no-build
+
       # BestPractices.md section 10: a check's answer is evidence only once its failing branch has been seen
       # to fire. These three were demonstrations run by hand (#588); here they fire on every push, a few
       # seconds each. --no-build: Game.sln above built both tools, so a nonzero exit is the tool's own.
