@@ -6237,3 +6237,12 @@ Předchozí zápis říkal, že to dostavět znamená sáhnout do brány a že t
 - ⚠ **Past 4:3:** první verze předpokládala, že deska se vedle sloupce vejde vždy; na 1024×768 ležela přes rozpis skóre — deska = obsah + padding a jeden dlouhý řádek ji rozšířil. Šířka se teď počítá z místa vedle sloupce a obsah je na ni držen. Vyfoceno 1600×900, 1024×768, 3840×1600.
 - Ověřeno proti skutečnému API (naseto 6, resp. 14 dalších hráčů): výsledek po skutečném clearu #5 z 7, stránka levelu One strana 1 a 2 (11–14, Previous aktivní, Next ne). Majitelovy soubory beze změny.
 - **BS3D-API#3** (v repu API, merge `69e7d46`): `release.yml` (tag → linux-arm64 tar.gz + sha256 do release; ruční běh jen artefakt — vyzkoušeno), systemd jednotky, `install.sh`/`update.sh` (rollback podle health, počty řádků před/po)/`backup.sh` (`admin backup`, 30 dní, rsync mimo box)/`update-ceilings.sh`, README. shellcheck čistý. Issue otevřená do ověření na Pi; `install.sh` potřebuje jeden publikovaný release (tag v API repu).
+
+---
+
+## 2026-09-25 — Claude Code, agent #552 (desktop: #552 — ohňostroj už nebuší)
+
+- **Změřeno, ne slyšeno:** scratch harness (mimo repo) přehrál celý ohňostroj podle rozvrhu `Fireworks` (tři fáze, 32 slotů, velikost → hlasitost a výška, náhodné umístění s maticí sčítající se na 1 jako X3DAudio, fanfára 0.55 a duck 0.35) přes herní dekodér a změřil ho BS.1770 metrem z MusicBake. **Před:** po skončení fanfáry −4.8 LUFS short-term, mix špičky **+6.6 dBFS (klipovalo)**; téma hraje −19.7 (medián −13.7 × `MUSIC_VOLUME` 0.5), fanfára −17.7. I pod duckem byl barrage 7 LU NAD fanfárou.
+- **Tři příčiny, tři změny:** (1) nahrávka šla přes `Loudness` na 0.30 RMS měřené přes 4 s soubor, kde zvuk trvá < 2 s → drive ×6.8 do tanh; teď `BURST_TARGET_RMS` 0.10 (×2.6, nic za kolenem). (2) `SoftenReport` před Loudness: LR4 low-pass 300 Hz + 8 ms fade-in (500 Hz–2 kHz ze 4.7 % na 2.1 %). (3) hlasitost displeje sledovala launch rate (13 ran/s v barrage, 6 ve steady) → `Fireworks._reportCrowd` (decay `REPORT_CROWD_SECONDS` 1.2 s) a `BurstCrowding` = 1/√(1+crowd). Rozvrh a obraz beze změny.
+- **Po:** −20.6 LUFS po fanfáře, −21.0 v relaxed, osamělá rána −18.2 momentary (5 LU pod výstřelem), mix špička −7.5 dBFS; pod fanfárou 8–12 LU pod ní. ⚠ K-weighting diskontuje basy (HP 38 Hz) a tenhle zvuk je hlavně < 200 Hz.
+- Poslech pro majitele: `C:\Users\panrd\AI\sfx\out\552\before.wav` a `after.wav` (simulace 66 s displeje). Smoke `celebrate mute userdata=` bez chyby. Verdikt je majitelův (`shipped-awaiting-verdict`).

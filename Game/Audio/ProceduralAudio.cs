@@ -271,6 +271,17 @@ namespace BS3D.Audio
         //is a 4 s file whose sound is over in under two: a boom and a short tail, see "The sound".)
         private const int BURST_VOICES = 32;   //Fireworks.MAX_SHELLS
 
+        //The burst's loudness and its softening (#552). The report used to take 0.30 RMS, the bake's own figure, and
+        //with a voice per shell that stacked into a pounding wall: measured through a replica of the display's
+        //schedule (scratch harness, K-weighted after BS.1770), the stream after the fanfare ran at −4.8 LUFS short-
+        //term with its mix peaking +6.6 dBFS — 15 LU over a theme as it plays and clipping the output. At 0.10 the
+        //drive is ×2.6 rather than ×6.8 and no sample reaches the tanh's knee, so the boom is scaled, not bent. The
+        //low-pass (fourth order at 300 Hz) takes the knock above the boom off; the fade-in rounds the click at its
+        //head. See BurstCrowding for the other half: how many of them there are.
+        private const float BURST_TARGET_RMS = 0.10f;
+        private const float BURST_SOFTEN_HZ = 300f;
+        private const float BURST_FADE_IN_SECONDS = 0.008f;
+
         //A boom is 5.0 s and the volcano stages one burst per period (19 s by default), so two would do. Three
         //is the margin for a config tuned faster in the editor's live panel, which is a thing that happens.
         private const int ERUPTION_VOICES = 3;
@@ -312,7 +323,8 @@ namespace BS3D.Audio
             _lineLoss = FromSfxOrBake("line-loss", BakeLineLoss, targetRms: 0.22f, ceiling: 0.98f);
             _blast = BakeBlast();
             _fireworkLaunch = BakeFireworkLaunch();
-            _fireworkBurst = FromSfxOrBake("firework-burst", BakeFireworkBurst, targetRms: 0.30f, ceiling: 0.99f);
+            _fireworkBurst = FromSfxOrBake("firework-burst", BakeFireworkBurst, targetRms: BURST_TARGET_RMS, ceiling: 0.99f,
+                prepare: SoftenReport);
             _partyPopper = BakePartyPopper();
             _uiClick = BakeUiClick();
             _shotRefused = BakeShotRefused();
@@ -540,18 +552,35 @@ namespace BS3D.Audio
         /// <summary>
         /// A shell going off. <paramref name="size"/> (0…1) is how big the burst is: it drives the volume and,
         /// inversely, the pitch — a big shell is a deeper, louder report, which is the whole of how the ear
-        /// tells a large firework from a small one at a distance.
+        /// tells a large firework from a small one at a distance. <paramref name="crowd"/> is how many reports
+        /// have gone off lately, the caller's decaying count — see <see cref="BurstCrowding"/>.
         /// </summary>
-        public void PlayFireworkBurst(Vector3 world, float size)
+        public void PlayFireworkBurst(Vector3 world, float size, float crowd)
         {
             //A near-flat distance term. A firework IS far away — that is what it is for — so falling off the
             //way a landing does would make every burst a whisper; this only separates the near from the far.
             float distance = DistanceTo(world);
             float volume = (0.85f + 0.15f * size) * (0.8f + 0.2f * MathHelper.Clamp(1f - distance / 260f, 0f, 1f));
 
+            //And the crowd: see BurstCrowding.
+            volume *= BurstCrowding(crowd);
+
             Speak(_burstRing, world, SKY_WIDEN, MathHelper.Clamp(volume * Level * FireworkDuck, 0f, 1f),
                 MathHelper.Clamp(NextPitch(0.12f) - size * 0.28f, -1f, 1f));
         }
+
+        /// <summary>
+        /// What a report is turned down by when others went off just before it (#552): 1/√(1 + <paramref name="crowd"/>),
+        /// where the crowd is <c>Fireworks</c>' count of recent reports decaying over <c>Fireworks.REPORT_CROWD_SECONDS</c>.
+        /// <para>
+        /// <b>A voice per shell made the display's loudness its launch rate.</b> The reports sum in power, so the opening
+        /// barrage (about thirteen a second) ran some 10 LU over a lone report's loudest moment and the steady phase (about
+        /// six) some 7 — measured on the replica — and each of those is a boom, so what the ear got was pounding. Under this law the power of the stream stays
+        /// near one report's however dense the sky is, while a lone shell after a quiet spell still lands at full level:
+        /// the display's density is <i>seen</i>, not heard as a louder and louder drum.
+        /// </para>
+        /// </summary>
+        public static float BurstCrowding(float crowd) => 1f / MathF.Sqrt(1f + MathF.Max(0f, crowd));
 
         /// <summary>
         /// The party popper that opens the celebration: one dry crack of paper and confetti, centred — and
@@ -1754,9 +1783,11 @@ namespace BS3D.Audio
 
             ApplyReverb(signal, roomScale: 1.0f, wet: 0.42f, decay: 0.7f);
 
-            //Driven and softly saturated rather than peak-normalised — see Loudness. Normalising this to its
-            //crack is exactly what left it a click with a thud behind it.
-            Loudness(signal, targetRms: 0.30f, ceiling: 0.99f);
+            //Driven rather than peak-normalised — see Loudness. Normalising this to its crack is exactly what left
+            //it a click with a thud behind it. Softened and driven to the recording's own figures (#552), so the
+            //bake that stands behind a missing file is not the pounding the recording was taken down from.
+            SoftenReport(signal);
+            Loudness(signal, targetRms: BURST_TARGET_RMS, ceiling: 0.99f);
             return ToSoundEffect(signal);
         }
 
@@ -1777,7 +1808,7 @@ namespace BS3D.Audio
         /// the attack — the same two-oscillator split the firework's report uses and for the same reason.</item>
         /// </list>
         /// A long wet reverb and a deep rolling echo over the lot: this is the widest open space in the game.
-        /// Authored QUIET (<see cref="Loudness"/> to 0.16 RMS against the firework's 0.30) — it plays under a
+        /// Authored QUIET (<see cref="Loudness"/> to 0.16 RMS against the shot's 0.27) — it plays under a
         /// bed on the ambience row, and weather that competes with the gun is weather turned up too far.
         /// </summary>
         private SoundEffect BakeThunder()
@@ -1977,6 +2008,39 @@ namespace BS3D.Audio
                 float filtered = prev;
 
                 signal[i] += filtered * gain * MathF.Exp(-t * decay);
+            }
+        }
+
+        /// <summary>
+        /// The firework report made to sit under the music rather than pound over it (#552): a fourth-order low-pass at
+        /// <see cref="BURST_SOFTEN_HZ"/> (two Butterworth sections, a Linkwitz–Riley slope) takes off the knock above the
+        /// boom, and a raised-cosine fade over <see cref="BURST_FADE_IN_SECONDS"/> rounds the click at the head. In place,
+        /// before <see cref="Loudness"/>. On the shipping render it moves the share of energy between 500 Hz and 2 kHz from
+        /// 4.7 % to 2.1 % and leaves under 0.1 % above that; the boom under 200 Hz is untouched.
+        /// </summary>
+        private static void SoftenReport(float[] signal)
+        {
+            LowPassBiquad(signal, BURST_SOFTEN_HZ);
+            LowPassBiquad(signal, BURST_SOFTEN_HZ);
+
+            int fade = Math.Min(signal.Length, (int)(BURST_FADE_IN_SECONDS * SAMPLE_RATE));
+            for (int i = 0; i < fade; i++) signal[i] *= 0.5f - 0.5f * MathF.Cos(MathF.PI * i / fade);
+        }
+
+        /// <summary>A second-order Butterworth low-pass (RBJ, Q 1/√2), in place, in doubles for a clean state at a low cutoff.</summary>
+        private static void LowPassBiquad(float[] signal, float cutoff)
+        {
+            double w = 2.0 * Math.PI * cutoff / SAMPLE_RATE, cos = Math.Cos(w), alpha = Math.Sin(w) / (2.0 * 0.70710678);
+            double a0 = 1.0 + alpha;
+            double b0 = (1.0 - cos) / 2.0 / a0, b1 = (1.0 - cos) / a0, b2 = b0, a1 = -2.0 * cos / a0, a2 = (1.0 - alpha) / a0;
+
+            double z1 = 0.0, z2 = 0.0;
+            for (int i = 0; i < signal.Length; i++)
+            {
+                double x = signal[i], y = b0 * x + z1;
+                z1 = b1 * x - a1 * y + z2;
+                z2 = b2 * x - a2 * y;
+                signal[i] = (float)y;
             }
         }
 
@@ -2445,8 +2509,8 @@ namespace BS3D.Audio
 
         /// <summary>
         /// The file if there is one, put through the very law its bake uses, else the bake. A report — the shot at
-        /// 0.27 RMS, the firework's burst at 0.30 — takes <see cref="Loudness"/> with its bake's own figures; anything
-        /// else is peak-normalised to 0.9 as its bake is.
+        /// 0.27 RMS, the firework's burst at <see cref="BURST_TARGET_RMS"/> (0.30 until #552, and softened first) — takes
+        /// <see cref="Loudness"/> with its bake's own figures; anything else is peak-normalised to 0.9 as its bake is.
         /// <para>
         /// <b>Why Loudness and not the blast's compressor (#498).</b> The first integration (#482) put a report through
         /// <see cref="Compress"/> and a 0.95 peak, on the reasoning that a <c>tanh</c> is what the owner called "digital"
@@ -2458,10 +2522,15 @@ namespace BS3D.Audio
         /// dense roar, where everything saturated; that is not this.
         /// </para>
         /// </summary>
-        private static SoundEffect FromSfxOrBake(string name, Func<SoundEffect> bake, float targetRms = 0f, float ceiling = 0f)
+        private static SoundEffect FromSfxOrBake(string name, Func<SoundEffect> bake, float targetRms = 0f, float ceiling = 0f,
+            Action<float[]> prepare = null)
         {
             float[] signal = TryLoadSfx(name);
             if (signal == null) return bake();
+
+            //Shaping that belongs before the level is set (the burst's softening, #552): Loudness measures what is
+            //left, so a low-pass run after it would take the level down with the knock.
+            prepare?.Invoke(signal);
 
             if (targetRms > 0f) Loudness(signal, targetRms, ceiling);
             else Normalize(signal, 0.9f);
