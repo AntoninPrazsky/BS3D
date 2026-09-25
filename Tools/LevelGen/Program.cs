@@ -187,7 +187,11 @@ namespace BS3D.Tools.LevelGen
         /// </summary>
         private static readonly (string Name, int Size)[] BLOCKS =
         {
-            ("The Meadow", 10), ("The Gallery", 10), ("The Coil", 10), ("The Tower", 10), ("The Reveal", 10),
+            ("The Meadow", 10), ("The Gallery", 10), ("The Coil", 10), ("The Tower", 10),
+            //THE SILHOUETTES ARE INSERTED FIFTH (#491), between the Tower's violet dusk and the Reveal's cavern:
+            //the night the light ramp was missing between the two, under the aurora. See the designs array.
+            ("The Silhouettes", 10),
+            ("The Reveal", 10),
             ("The Quarry", 10), ("The Nebula", 10), ("The Eruption", 10), ("The Spectrum", 10), ("The Arcade", 10),
             //THE GRID IS INSERTED ELEVENTH RATHER THAN APPENDED (#420), and that is the owner's ruling on the
             //one thing the position decides: the Mirage keeps the campaign's last word. Its own doc argues
@@ -246,6 +250,13 @@ namespace BS3D.Tools.LevelGen
         private const string MUSIC_SPECTRUM = "skyline";
         private const string MUSIC_GRID = "pulse";
         private const string MUSIC_MIRAGE = "mirage";
+
+        //THE SILHOUETTES (#491) BORROW THE QUARRY'S FAMILY, and it is the one chapter whose music is a reprise
+        //since #486 gave every chapter its own. Lunar is the set's spacious, slow family (celesta, drone,
+        //kosmische, piano) and a winter night under the aurora is the other place in the campaign it belongs;
+        //the Reveal's Nocturne between them keeps the two from running together. A family of its own is
+        //generation work on the owner's ear and a folder of files - this constant is the one line it changes.
+        private const string MUSIC_SILHOUETTES = MUSIC_QUARRY;
 
         /// <summary>
         /// WHAT EACH CHAPTER'S BALLS ARE MADE OF. A property of the <b>block</b> exactly as the music is — the
@@ -421,6 +432,13 @@ namespace BS3D.Tools.LevelGen
         private const BallStyle BALLS_GRID = BallStyle.Ice;
 
         private const BallStyle BALLS_MIRAGE = BallStyle.Porcelain;
+
+        //WOOL FOR THE SILHOUETTES (#491), the Gallery's material a second time, and chosen by photograph: the
+        //Fish hung on the aurora in wool, porcelain, gem and vinyl, and only the wool made the black shape one
+        //solid silhouette - the glazed, faceted and gored styles each put a highlight on every black ball, so the
+        //cut-out read as a heap of shiny balls. A chapter of drawn pictures on the soft material is also the
+        //Gallery's own argument (BALLS_GALLERY) holding twice.
+        private const BallStyle BALLS_SILHOUETTES = BallStyle.Wool;
 
         /// <summary>
         /// WHAT COLOUR A ROCK IS WRITTEN AS, forced by <see cref="Emit"/> over whatever the design's own
@@ -615,20 +633,30 @@ namespace BS3D.Tools.LevelGen
                 //nothing; the gates and ScoreSim ran over the regenerated set.
                 Column(), Crown(), Horn(), Helix(), Spyglass(), Belfry(), Organ(), Pylon(), Lean(), Pagoda(),
 
-                //5. THE CAVERN - "The Reveal". An outer body with a differently-shaped thing standing inside
+                //5. THE AURORA - "The Silhouettes" (#491). Picture walls again, but drawn by the local image
+                //generator rather than by hand: black cut-outs over a pale check, painted from the fourth level
+                //on. INSERTED rather than appended - the Mirage keeps the campaign's last word (#420's ruling) -
+                //and inserted HERE because it is the night between the Tower's dusk and the Reveal's cavern, and
+                //a picture chapter is the breather after the Tower's long climbs. Fish opens (the plainest shape,
+                //one ink), Anchor closes (four parts in three inks). Every gate after it moves up twenty stars,
+                //which MinStarsAt does by position and a save survives by file name.
+                Fish(), Umbrella(), Bell(), Cat(), Teapot(), Key(), Rocket(), Coronet(), Guitar(), Anchor(),
+
+
+                //6. THE CAVERN - "The Reveal". An outer body with a differently-shaped thing standing inside
                 //it; clearing the outside is the payoff (#161).
                 //SPRING BEFORE SHIP since #413, on the owner's playtest: Ship rated higher difficulty than
                 //Spring and stood in front of it, which the tool's own ratio agrees with (Ship 2.45 shots a
                 //group against Spring's 4.80). One swap; nothing else in the block moved.
                 Onion(), Chest(), Fossil(), Mango(), Spark(), Grotto(), Scales(), Spring(), Ship(), Lantern(),
 
-                //6. THE MOON - "The Quarry". Chunky lattice-aligned blocks of colour, five or six of them, and
+                //7. THE MOON - "The Quarry". Chunky lattice-aligned blocks of colour, five or six of them, and
                 //no plate to trigger anywhere: every shot is a shot at a handful of balls. Colossus closes it,
                 //from WriteLevelSet.
                 Mosaic(), Prism(), Hopper(), Trilithon(), Gantry(), Fault(), Crib(), Highwall(), Static()
             };
 
-            //7. THE NEBULA (#182) - the arena in deep space, and the block the five #152 colours arrive in,
+            //8. THE NEBULA (#182) - the arena in deep space, and the block the five #152 colours arrive in,
             //one or two per level until the finale plays all thirteen. Every level is TALL and OPEN in the
             //Helix's sense - the silhouette turns and changes as it descends, so the player reads what is
             //coming - and each is a different KIND of tall, the Tower's own rule (#160). See the block's
@@ -653,7 +681,7 @@ namespace BS3D.Tools.LevelGen
             //which is a level-design change and not an ordering one. #413 says so itself.
             Design[] nebula = { Comet(), Vortex(), Carousel(), Wishbone(), Sail(), Analemma(), Binary(), Kepler(), Garland(), Orrery() };
 
-            //8. THE VOLCANO - "The Eruption" (#295). THE GLOW IS THE LOAD: the molten seams are what
+            //9. THE VOLCANO - "The Eruption" (#295). THE GLOW IS THE LOAD: the molten seams are what
             //everything hangs by, so reading where a level shines is reading where it will break - and every
             //level here HAPPENED IN A DIRECTION, a bearing the shape carries (the torn flank, the downhill
             //run, the downwind rake, the leaning column). The arc job is the light returning after the void,
@@ -674,7 +702,7 @@ namespace BS3D.Tools.LevelGen
             Design[] volcano =
                 { Breach(), Meander(), Volley(), Plume(), Vent(), Sill(), Fume(), Causeway(), Caldera(), Paroxysm() };
 
-            //9. THE CITY AT DAWN - "The Spectrum" (#253). One HUE FAMILY a level, swept through the whole
+            //10. THE CITY AT DAWN - "The Spectrum" (#253). One HUE FAMILY a level, swept through the whole
             //body as a gradient: white to cyan to blue to navy and back, a heat ramp, a green one, a twilight
             //one, and the wheel entire on the finale. No new colour is involved anywhere - a family is a
             //subset and an ordering of the fixed thirteen - and no sweep is a stack of floors, because a
@@ -713,7 +741,7 @@ namespace BS3D.Tools.LevelGen
             //WriteLevelSet.
             Design[] spectrum = { Icicle(), Pinecone(), Hourglass(), Kiln(), Trellis(), Pleat(), Totem(), Girandole(), Turbine(), Bolt() };
 
-            //10. THE NEON CITY - "The Arcade" - THE CAMPAIGN'S LAST BLOCK since #300. Five HOLLOW pixel-art
+            //11. THE NEON CITY - "The Arcade" - THE CAMPAIGN'S LAST BLOCK since #300. Five HOLLOW pixel-art
             //solids: the Gallery's drawn symbols given a third dimension, wrapped onto a die, a stepped
             //temple, a slot reel, a donut and a globe, so a level's picture is read by walking the gun round
             //it. Every one is framed whole, which is the deliberate opposite of the tall blocks before it -
@@ -737,7 +765,7 @@ namespace BS3D.Tools.LevelGen
             //Its designs live in their own array for the same reason the Nebula's do - see WriteLevelSet.
             Design[] arcade = { Ziggurat(), Reel(), Donut(), Ghost(), Cabinet(), Cube(), Tetra(), Giza(), Trophy(), Globe() };
 
-            //11. THE DREAM - "The Mirage" (#323/#325), THE CAMPAIGN'S LAST BLOCK, and the first chapter in
+            //13. THE DREAM - "The Mirage" (#323/#325), THE CAMPAIGN'S LAST BLOCK, and the first chapter in
             //the game whose subject is a RULE rather than a shape. Ten levels, and they are two fives: the
             //first five hang the TRANSPARENT ball - the shell with no colour in it until a shot lands beside
             //it and gives it one - and the last five hang the ROCK, which takes no colour ever and which no
@@ -777,7 +805,7 @@ namespace BS3D.Tools.LevelGen
             //block at 2.94 shots a group against Cairn's 1.76. Cairn is also the level whose own doc asks
             //for "bookkeeping of a kind nothing before it has asked for" - four chambers, each with the
             //four colours in a different order - which is a finale's job.
-            //11. THE GRID (#420) - the arena inside the machine, and the one block whose style is a THESIS
+            //12. THE GRID (#420) - the arena inside the machine, and the one block whose style is a THESIS
             //rather than a family of silhouettes: every level is a NAMED MATHEMATICAL CONSTRUCTION. The scene
             //(#393) is built on that same sentence - its floor is a Hilbert curve rather than a noise field,
             //"named mathematics rather than noise" - so the chapter is the cluster answering the backdrop.
