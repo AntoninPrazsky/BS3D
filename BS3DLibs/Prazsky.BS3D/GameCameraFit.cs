@@ -329,9 +329,9 @@ namespace Prazsky.BS3D
         /// whole point rather than tidiness.
         /// </para>
         /// </summary>
-        /// <param name="cannon">The gun being placed. Only its orbit centre and its current orbit radius and
-        /// height are read — the latter two purely to seed the first round; every later round re-derives the
-        /// height from its own candidate radius, the dish deciding it.</param>
+        /// <param name="cannon">The gun being placed. Only its orbit centre, its bearing and its rest radius
+        /// are read — the last purely to seed the first round; every round derives the height from its own
+        /// candidate radius, the dish deciding it.</param>
         /// <param name="cannonReach">Half-extent of the box the gun is framed as: large enough to hold the
         /// barrel at any aim, so the fit does not change as the player elevates or traverses. Both callers pass
         /// <c>CannonRig.BarrelReach</c> — the trunnions-to-cascabel-pole distance, the tube's longer half since
@@ -365,18 +365,18 @@ namespace Prazsky.BS3D
             //which is what keeps this from wanting a ninth parameter for a field the caller owns. It is the
             //same seed either way: the gun was itself placed CANNON_CAMERA_STANDOFF in front of the previous
             //solve's lens, and where a lower bound had held it further out instead, that same bound is about to
-            //hold it there again below. Since the advance walk arrived the gun may also stand up to
-            //CANNON_ADVANCE_STROKE off that rest when a mid-level re-solve lands — still only a seed: the
-            //bounds decide where the alternation settles, to within its documented sub-0.1 residual. Read off
-            //the property, not re-derived: both copies measured the orbit radius back out of the gun's
-            //position with a sqrt (issue #72), and the walk and the setter both move the gun only along the
-            //orbit, so the property IS that distance. The trunnion height is seeded the same way — the gun
-            //stands on the island's dish, so its height is a function of its radius (CannonRig
-            //.TrunnionHeightAt), re-derived below from each round's radius exactly as Cannon itself will
-            //re-seat it when the caller assigns the result.
-            float orbitRadius = cannon.OrbitRadius;
+            //hold it there again below. It is the gun's REST and not where it stands: a mid-level re-solve (a
+            //resize) lands on a gun the player may have walked up to CANNON_ADVANCE_STROKE off it, and a seed
+            //that moved with the walk would let the walk leak into the fit by up to the alternation's residual
+            //— the rest is the one thing a re-solve of an unchanged field should reproduce. Read off the
+            //property, not re-derived: both copies measured the orbit radius back out of the gun's position
+            //with a sqrt (issue #72). The trunnion height is seeded off the same radius — the gun stands on the
+            //island's dish, so its height is a function of its radius (CannonRig.TrunnionHeightAt), re-derived
+            //below from each round's radius exactly as Cannon itself will re-seat it when the caller assigns
+            //the result.
+            float orbitRadius = cannon.RestRadius;
             float distance = orbitRadius + CANNON_CAMERA_STANDOFF;
-            float trunnionY = cannon.Position.Y;
+            float trunnionY = CannonRig.TrunnionHeightAt(orbitRadius);
 
             //Overwritten by every round below; the compiler cannot know CONVERGENCE_ROUNDS is never zero.
             float targetY = 0f;

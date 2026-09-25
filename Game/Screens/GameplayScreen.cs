@@ -1346,6 +1346,16 @@ namespace BS3D.Screens
                 }
             }
 
+            //Testing only: walk= and turn= hold W/S and A/D for a run nobody is sitting at (see ScriptedPlay), at the
+            //rates the keys use. Outside the focus gate above on purpose — such a run is launched without focus — and
+            //held off by a camera takeover exactly as the keys are.
+            if (ScriptedPlay.Current is ScriptedPlay script && !CameraTakeoverEngaged)
+            {
+                float walk = script.Walk(WallClock), turn = script.Turn(WallClock);
+                if (walk != 0f) _cannon.Advance(walk * CANNON_ADVANCE_RATE);
+                if (turn != 0f) _cannon.Orbit(turn * CANNON_ORBIT_RATE);
+            }
+
             _cannon.Update(gameTime);
 
             //The queue glides forward into the slot the fired ball left rather than snapping. Wall clock, not

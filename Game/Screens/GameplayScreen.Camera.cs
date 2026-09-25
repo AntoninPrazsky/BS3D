@@ -224,7 +224,20 @@ namespace BS3D.Screens
         {
             _mouseAim.Invalidate();
 
-            FitCannonAndGameCameraToLevel();
+            //What the player had built up before the re-solve, beside the [camera] line's after — the pair is how
+            //a resize is shown to keep the walk and the turn rather than asserted to
+            if (_map != null) Console.WriteLine($"[resize] before: {DescribeStance()}");
+
+            FitCannonAndGameCameraToLevel(keepStance: true);
+        }
+
+        /// <summary>Where the gun stands, for the log: its radius against its rest and walk, its bearing and aim.</summary>
+        private string DescribeStance()
+        {
+            Vector3 bearing = _cannon.StandBearing;
+            return $"gun at {_cannon.OrbitRadius:F2} (rest {_cannon.RestRadius:F2}, walk {_cannon.AdvanceMin:F2}..{_cannon.AdvanceMax:F2}),"
+                + $" bearing {MathF.Atan2(bearing.Z, bearing.X) * (180f / MathF.PI):F1} deg,"
+                + $" traverse {_cannon.Traverse * (180f / MathF.PI):F1} deg, elevation {_cannon.Elevation * (180f / MathF.PI):F1} deg";
         }
 
         /// <summary>
@@ -235,7 +248,10 @@ namespace BS3D.Screens
         /// it is framed through, and the three assignments the solve implies. Run on every level load and every
         /// resize, never per frame.
         /// </summary>
-        private void FitCannonAndGameCameraToLevel()
+        /// <param name="keepStance">A resize's re-solve: the player's W/S walk is kept as a share of the new
+        /// range (<see cref="Cannon.Refit"/>) rather than the gun being parked at rest, which is what a level
+        /// load wants and every resize used to do.</param>
+        private void FitCannonAndGameCameraToLevel(bool keepStance = false)
         {
             if (_map == null) return;
 
@@ -261,11 +277,17 @@ namespace BS3D.Screens
             _gameCameraTargetY = fit.CameraTargetY;
 
             //The two writes the solve implies, once, at the end: the rest radius, then the walk the player
-            //gets around it (W/S). The order matters — OrbitRadius parks the gun at rest, and SetAdvanceRange
-            //clamps against wherever it stands and kills any glide still running — so a re-solve mid-level (a
-            //resize) also resets a stroke in progress, the same reset the aim's baseline takes on the event.
-            _cannon.OrbitRadius = fit.CannonOrbitRadius;
-            _cannon.SetAdvanceRange(fit.CannonMinRadius, fit.CannonMaxRadius);
+            //gets around it (W/S). A level load PLACES the gun: OrbitRadius parks it at rest, and
+            //SetAdvanceRange clamps against wherever it stands and kills any glide still running. A resize must
+            //not — it re-solved the frame, not the level, and parking the gun there threw away the player's walk
+            //and jumped the lens that follows a retreat — so it hands the three over together and Refit keeps
+            //the walk as the same share of the new range. The orbit angle (A/D) survives either way.
+            if (keepStance) _cannon.Refit(fit.CannonOrbitRadius, fit.CannonMinRadius, fit.CannonMaxRadius);
+            else
+            {
+                _cannon.OrbitRadius = fit.CannonOrbitRadius;
+                _cannon.SetAdvanceRange(fit.CannonMinRadius, fit.CannonMaxRadius);
+            }
             _cannon.ElevationLimit = SolveElevationLimit();
 
             //The lens's trail starts behind the gun rather than easing in from where the last level left it
@@ -276,9 +298,9 @@ namespace BS3D.Screens
                 + (FieldIsTallerThanFrame ? $" (framing its lowest {FRAMED_LEVELS} to y {FramedTopY():F1})" : string.Empty)
                 + $", aspect {Camera.AspectRatio:F2}: "
                 + $"camera {_gameCameraDistance:F1} out, aim Y {_gameCameraTargetY:F1}, "
-                + $"gun orbit {_cannon.OrbitRadius:F1} ({_gameCameraDistance - _cannon.OrbitRadius:F1} in front of the lens"
+                + $"gun orbit {_cannon.RestRadius:F1} ({_gameCameraDistance - _cannon.RestRadius:F1} in front of the lens"
                 + $", walk {fit.CannonMinRadius:F1}..{fit.CannonMaxRadius:F1})"
-                + $", elevation limit {_cannon.ElevationLimit * (180f / MathF.PI):F1} deg");
+                + $", elevation limit {_cannon.ElevationLimit * (180f / MathF.PI):F1} deg; {DescribeStance()}");
 
             LogAimReachability();
         }

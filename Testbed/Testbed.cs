@@ -1942,7 +1942,9 @@ namespace Testbed
         /// resize, never per frame. Why it has to be solved rather than tuned, and how the two solves alternate,
         /// is <see cref="GameCameraFit"/>'s class doc.
         /// </summary>
-        private void FitCannonAndGameCameraToMap()
+        /// <param name="keepStance">A resize's re-solve: the W/S walk is kept as a share of the new range
+        /// (<see cref="Cannon.Refit"/>) rather than the gun being parked at rest, which only a map load wants.</param>
+        private void FitCannonAndGameCameraToMap(bool keepStance = false)
         {
             if (_map == null || _camera == null || _cannon == null) return;
 
@@ -1963,17 +1965,21 @@ namespace Testbed
             _gameCameraDistance = fit.CameraDistance;
             _gameCameraTargetY = fit.CameraTargetY;
 
-            //The one write the solve implies, made once and after it: the fit itself never touches the gun, so it
-            //no longer parks it at every intermediate guess of the alternation
-            _cannon.OrbitRadius = fit.CannonOrbitRadius;
-
-            //And the walk the player gets around that rest (W/S in game mode), after OrbitRadius on purpose:
-            //assigning the radius parks the gun at rest, and the range clamps against wherever it stands
-            _cannon.SetAdvanceRange(fit.CannonMinRadius, fit.CannonMaxRadius);
+            //The writes the solve implies, made once and after it: the fit itself never touches the gun, so it
+            //no longer parks it at every intermediate guess of the alternation. A map load places the gun — the
+            //rest radius, then the walk around it (W/S in game mode), after OrbitRadius on purpose: assigning the
+            //radius parks the gun at rest, and the range clamps against wherever it stands. A resize re-solves
+            //the frame and not the map, so Refit keeps the walk as the same share of the new range instead.
+            if (keepStance) _cannon.Refit(fit.CannonOrbitRadius, fit.CannonMinRadius, fit.CannonMaxRadius);
+            else
+            {
+                _cannon.OrbitRadius = fit.CannonOrbitRadius;
+                _cannon.SetAdvanceRange(fit.CannonMinRadius, fit.CannonMaxRadius);
+            }
 
             Console.WriteLine($"[camera] Field {_map.StageSizeX}x{_map.StageSizeZ}x{_map.Levels}, aspect {_camera.AspectRatio:F2}: " +
                 $"camera {_gameCameraDistance:F1} out, aim Y {_gameCameraTargetY:F1}, " +
-                $"cannon orbit {_cannon.OrbitRadius:F1} ({_gameCameraDistance - _cannon.OrbitRadius:F1} in front of the camera" +
+                $"cannon orbit {_cannon.OrbitRadius:F2} (rest {_cannon.RestRadius:F2}, {_gameCameraDistance - _cannon.RestRadius:F1} in front of the camera" +
                 $", walk {fit.CannonMinRadius:F1}..{fit.CannonMaxRadius:F1})");
         }
 

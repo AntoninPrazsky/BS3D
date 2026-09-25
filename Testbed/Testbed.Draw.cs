@@ -500,7 +500,9 @@ namespace Testbed
             _camera.AspectRatio = GraphicsDevice.Viewport.AspectRatio;
             _info.RecomputeScale();
             _pipeline?.EnsureTarget();
-            FitCannonAndGameCameraToMap(); //The frustum's width just changed, and the fit is checked on both axes
+            //The frustum's width just changed, and the fit is checked on both axes — keeping the walk, since the
+            //window changing shape is not the gun being placed
+            FitCannonAndGameCameraToMap(keepStance: true);
         }
     }
 }

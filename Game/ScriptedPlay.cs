@@ -18,6 +18,10 @@ namespace BS3D
     /// began. It SETS the pose each frame (<c>Cannon.AimTo</c>), so the mouse cannot fight it.</item>
     /// <item><c>rmb=&lt;from&gt;:&lt;to&gt;</c> — holds precise aim across the interval, as the right button would.</item>
     /// <item><c>fire=&lt;t1,t2,…&gt;</c> — fires at those seconds, the shot a left click would fire.</item>
+    /// <item><c>walk=&lt;from&gt;:&lt;to&gt;[:in|out]</c> and <c>turn=&lt;from&gt;:&lt;to&gt;[:left|right]</c> — hold W (or S)
+    /// and A (or D) across the interval, through the very calls the keys make. Written for the resize fault: a
+    /// window resized mid-level re-solves the fit, and whether the player's walk and turn survive that could only be
+    /// shown with the gun actually walked and turned first. The defaults are <c>in</c> and <c>left</c>.</item>
     /// <item><c>mbflip=&lt;seconds&gt;</c> — turns the motion blur off and on every that many seconds, printing an
     /// <c>[mbflip]</c> line at each flip: its cost measured <b>inside one process</b>, the two states alternating
     /// against the same drift, which separate runs on a machine other sessions are also rendering on cannot give.
@@ -37,6 +41,8 @@ namespace BS3D
         private float _rmbFrom = float.NaN, _rmbTo;
         private float[] _fire;
         private int _nextFire;
+        private float _walkFrom = float.NaN, _walkTo, _walkSign = 1f;
+        private float _turnFrom = float.NaN, _turnTo, _turnSign = 1f;
         private float _flipPeriod;
         private bool _flipReportedOff = true;
 
@@ -67,6 +73,26 @@ namespace BS3D
                 return true;
             }
 
+            if (arg.StartsWith("walk=", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!TryHold(arg.Substring("walk=".Length), "in", "out", out float from, out float to, out float sign))
+                    return false;
+
+                ScriptedPlay script = Current ??= new ScriptedPlay();
+                (script._walkFrom, script._walkTo, script._walkSign) = (from, to, sign);
+                return true;
+            }
+
+            if (arg.StartsWith("turn=", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!TryHold(arg.Substring("turn=".Length), "left", "right", out float from, out float to, out float sign))
+                    return false;
+
+                ScriptedPlay script = Current ??= new ScriptedPlay();
+                (script._turnFrom, script._turnTo, script._turnSign) = (from, to, sign);
+                return true;
+            }
+
             if (arg.StartsWith("mbflip=", StringComparison.OrdinalIgnoreCase))
             {
                 if (!TryFloat(arg.Substring("mbflip=".Length), out float period) || period <= 0f) return false;
@@ -87,6 +113,26 @@ namespace BS3D
             return false;
         }
 
+        /// <summary>
+        /// <c>&lt;from&gt;:&lt;to&gt;[:&lt;positive&gt;|&lt;negative&gt;]</c> — an interval and the direction of a held
+        /// key, +1 for the first word (and by default), -1 for the second.
+        /// </summary>
+        private static bool TryHold(string text, string positive, string negative, out float from, out float to, out float sign)
+        {
+            to = 0f;
+            sign = 1f;
+            string[] parts = text.Split(':');
+            if (parts.Length < 2 || parts.Length > 3 || !TryFloat(parts[0], out from) || !TryFloat(parts[1], out to)) { from = 0f; return false; }
+
+            if (parts.Length == 3)
+            {
+                if (parts[2].Equals(negative, StringComparison.OrdinalIgnoreCase)) sign = -1f;
+                else if (!parts[2].Equals(positive, StringComparison.OrdinalIgnoreCase)) return false;
+            }
+
+            return true;
+        }
+
         private static bool TryFloat(string text, out float value) =>
             float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value);
 
@@ -95,6 +141,8 @@ namespace BS3D
             "[script] "
             + (float.IsNaN(_sweepFrom) ? "" : $"sweep {_sweepFrom:0.##}-{_sweepTo:0.##} s ±{_sweepAmplitude:0.#}° / {_sweepPeriod:0.##} s; ")
             + (float.IsNaN(_rmbFrom) ? "" : $"rmb {_rmbFrom:0.##}-{_rmbTo:0.##} s; ")
+            + (float.IsNaN(_walkFrom) ? "" : $"walk {(_walkSign > 0f ? "in" : "out")} {_walkFrom:0.##}-{_walkTo:0.##} s; ")
+            + (float.IsNaN(_turnFrom) ? "" : $"turn {(_turnSign > 0f ? "left" : "right")} {_turnFrom:0.##}-{_turnTo:0.##} s; ")
             + (_fire == null ? "" : $"fire at {string.Join(", ", Array.ConvertAll(_fire, t => t.ToString("0.##", CultureInfo.InvariantCulture)))} s");
 
         /// <summary>
@@ -130,6 +178,12 @@ namespace BS3D
 
             return off;
         }
+
+        /// <summary>+1 while W is held by <c>walk=</c> at this instant, -1 for S, 0 outside its interval.</summary>
+        internal float Walk(float clock) => !float.IsNaN(_walkFrom) && clock >= _walkFrom && clock <= _walkTo ? _walkSign : 0f;
+
+        /// <summary>+1 while A is held by <c>turn=</c> at this instant, -1 for D, 0 outside its interval.</summary>
+        internal float Turn(float clock) => !float.IsNaN(_turnFrom) && clock >= _turnFrom && clock <= _turnTo ? _turnSign : 0f;
 
         /// <summary>Whether precise aim is held at this instant.</summary>
         internal bool Rmb(float clock) => !float.IsNaN(_rmbFrom) && clock >= _rmbFrom && clock <= _rmbTo;

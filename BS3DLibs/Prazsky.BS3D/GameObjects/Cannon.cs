@@ -438,16 +438,58 @@ namespace Prazsky.BS3D.GameObjects
         }
 
         /// <summary>
+        /// Hands over a <b>re-solved</b> rest and walk mid-level — a resize, F11, a restore or a maximize — and
+        /// keeps the player's stance in it, where <see cref="OrbitRadius"/> followed by
+        /// <see cref="SetAdvanceRange"/> would park the gun at rest. Both of those are for a gun being
+        /// <i>placed</i>, which a level load is and a window changing shape is not: until this existed every
+        /// resize threw away the walk the player had built up with W/S and jumped the lens that follows it.
+        /// <para>
+        /// The walk is kept as a <b>fraction of its own half of the range</b>, not as a distance off the rest:
+        /// the fit may legitimately move the rest and either end (the aspect flips which frustum axis binds,
+        /// and the near end is held off the field and the drain rather than a fixed stroke inside the rest), so
+        /// a gun backed three quarters of the way out stands three quarters of the way out of the new range,
+        /// and a gun resting in the rubber at an end stays in it without ever being handed a radius outside
+        /// the walk. The orbit angle (A/D) is untouched, as it is by the setter; so is the aim, apart from the
+        /// re-clamp every move of the gun takes, and so is any glide still running — it is the same walk.
+        /// </para>
+        /// </summary>
+        public void Refit(float restRadius, float min, float max)
+        {
+            //Where the gun stands in the walk it has now, read before any of it is replaced: -1 at the near
+            //end, 0 at rest, +1 at the far end, linear in each half
+            float nearHalf = _restRadius - _advanceMin, farHalf = _advanceMax - _restRadius;
+            float along = _orbitRadius < _restRadius
+                ? (nearHalf > 0f ? (_orbitRadius - _restRadius) / nearHalf : 0f)
+                : (farHalf > 0f ? (_orbitRadius - _restRadius) / farHalf : 0f);
+
+            _advanceMin = min;
+            _advanceMax = Math.Max(min, max);
+            _restRadius = Math.Clamp(restRadius, _advanceMin, _advanceMax);
+
+            float stance = _restRadius + along * (along < 0f ? _restRadius - _advanceMin : _advanceMax - _restRadius);
+
+            _orbitRadius = Math.Clamp(stance, _advanceMin, _advanceMax);
+            MoveToOrbitAngle();
+        }
+
+        /// <summary>
         /// The radius the level opened on — where the fit parked the gun, which the walk is measured from.
         /// <para>
         /// It is the <b>stance</b> and not the position: the two ways the gun can be <i>placed</i> rather
         /// than walked (the <see cref="OrbitRadius"/> setter and <see cref="SetAdvanceRange"/>'s clamp) each
         /// redefine it, exactly as <see cref="RollTravel"/> is left alone by both — a gun that is placed
-        /// stands at rest, and a gun that walks stands off it. <c>GameCameraFit.CameraPosition</c> reads it
+        /// stands at rest, and a gun that walks stands off it. <see cref="Refit"/> moves it too, and moves the
+        /// gun by the same share of the walk, so a re-solve keeps a walked gun walked. <c>GameCameraFit.CameraPosition</c> reads it
         /// to decide how much of a retreat the lens goes along with.
         /// </para>
         /// </summary>
         public float RestRadius => _restRadius;
+
+        /// <summary>The near end of the walk <see cref="SetAdvanceRange"/> granted — the closest the gun may stand.</summary>
+        public float AdvanceMin => _advanceMin;
+
+        /// <summary>The far end of the walk <see cref="SetAdvanceRange"/> granted.</summary>
+        public float AdvanceMax => _advanceMax;
 
         public void Aim(Vector2 rotation, GameTime gameTime)
         {
