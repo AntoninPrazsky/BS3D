@@ -31,45 +31,8 @@ namespace BS3D
         internal const byte SKY_DOME_COUNT = SkyDome.Count;
         private const byte DEFAULT_SKY_DOME = 13;
 
-        //The sea mirrors the sky, so its whole mood follows the dome and a bright one gives a breezy sea
-        //rather than a moody one; the savanna wants the set's warmest gold horizon; the tropical beach
-        //wants the brightest blue in the set (dome 1, a clear sunny sky over a warm horizon — white
-        //sand and turquoise water are the postcard, and they read as one under it). The Testbed's own
-        //figures, except the beach's, chosen for it.
-        private const byte SEA_SKY_DOME = 13;
-        private const byte SAVANNA_SKY_DOME = 14;
-        private const byte TROPICAL_SKY_DOME = 1;
-
-        //The volcano wants a sky that stays out of the way, because its ground is the light. Dome 9 is a dim
-        //mauve-and-slate dusk with no bright band and no sun disc beside the cone — picked by looking, over
-        //the darker-zenithed 16 whose cream horizon and sun both compete with the crater. The Testbed's
-        //figure, chosen there.
-        private const byte VOLCANO_SKY_DOME = 9;
-
-        //Mars has a dome built for it (#277) rather than a pick among the eighteen general-purpose ones —
-        //dome 19 IS the Martian sky.
-        private const byte MARS_SKY_DOME = 19;
-
-        //The storm has a dome built for it too (#219): dome 20 is high air — a deep blue zenith over a PALE
-        //BLUE-WHITE horizon, which is the one thing none of the other nineteen has. The argument that once
-        //forced it was the terrain grid's edge (see the Testbed's copy of this constant); the storm is a
-        //field of billboards now and has no mesh edge, so it stays on the plainer ground that this is what
-        //altitude looks like and is what keeps white cloud reading as white cloud. The Testbed's figure.
-        private const byte STORM_SKY_DOME = 20;
-
-        //And the polar icesheet (#222): dome 13, a teal-grey horizon into indigo with its sun at 13 degrees.
-        //Chosen off a photographed sweep rather than by taste, because this scene's content IS the material
-        //and the light is what a material shows: at 55 degrees (dome 11) a flat field's ndotl is nearly
-        //constant and the sastrugi only read through their own trough shading; at 42 (dome 17) the ice reads
-        //white on white, the cyan never firing because transmission needs the sun BEHIND the ice; at 4 with a
-        //cream horizon (dome 16) the sheet takes the warm light and reads golden-brown, which is a real look
-        //and not this one. The Testbed's figure and its comment carries the same four pictures.
-        private const byte POLAR_SKY_DOME = 13;
-
-        //Space deliberately forces NO dome, unlike those two. Its dome is neither drawn (Space.fx covers the
-        //whole frame) nor read (SpaceLightingConfig states the light rig instead, for the reasons set out
-        //there) — so it is completely inert in that scene, and changing the player's dome behind their back to
-        //no visible effect would be a silent side effect rather than a setting. Whatever is up stays up.
+        //Which dome a scene brings with it is SkyDome.SceneDefault's since #595, one table for this and the
+        //Testbed, with each dome's reasoning written beside it there.
 
         private byte _skyDome = DEFAULT_SKY_DOME;
 
@@ -522,22 +485,11 @@ namespace BS3D
             _cityRenderer.CityNeon = neon ? 1f : 0f;
             _cityRenderer.CityWindowBrightness = neon ? _cityConfig.NeonLook.WindowBrightness : _cityConfig.WindowBrightness;
 
-            //The sea mirrors the sky, so a bright dome would give it a breezy mood rather than the moody one
-            //it is built for; the savanna wants the warmest gold horizon of the set; the tropical beach
-            //wants the brightest blue — sand and turquoise water are a postcard, and only read as one under
-            //a sunny sky; and the volcano wants the darkest, because its ground is what lights it. Every
-            //other scene keeps whatever dome is up — including the neon city, whose default IS the dusk.
-            //The Testbed's rule, so a scene looks the same in both.
-            if (scene == SceneKind.Sea) _skyDome = SEA_SKY_DOME;
-            else if (scene == SceneKind.Savanna) _skyDome = SAVANNA_SKY_DOME;
-            else if (scene == SceneKind.Tropical) _skyDome = TROPICAL_SKY_DOME;
-            else if (scene == SceneKind.Volcano) _skyDome = VOLCANO_SKY_DOME;
-            else if (scene == SceneKind.Mars) _skyDome = MARS_SKY_DOME;
-            else if (scene == SceneKind.Storm) _skyDome = STORM_SKY_DOME;
-            //And the icesheet (#222) wants a LOW sun and a COLD horizon: its whole content is a material, so
-            //the light on it moves the scene further than the dome moves any other backdrop here. Measured on
-            //a four-dome sweep — see POLAR_SKY_DOME, where the four pictures are written down.
-            else if (scene == SceneKind.Polar) _skyDome = POLAR_SKY_DOME;
+            //The dome the scene brings with it, if it states one (the sea, the savanna, the beach, the volcano,
+            //Mars, the storm and the icesheet — see SkyDome.SceneDefault for why each); every other scene keeps
+            //whatever dome is up, including the neon city, whose default IS the dusk.
+            byte sceneDome = SkyDome.SceneDefault(scene);
+            if (sceneDome != 0) _skyDome = sceneDome;
 
             //And the sky the scene stands under (#221). It is the scene's own default here; a level says
             //what it is like TODAY and overrides this a moment later, in BuildLevel, which is the same
