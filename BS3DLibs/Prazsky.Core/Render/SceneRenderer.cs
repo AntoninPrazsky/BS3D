@@ -530,10 +530,10 @@ namespace Prazsky.Core.Render
         private EffectParameter _palmViewParam, _palmProjectionParam,
             _palmSunDirectionParam, _palmSunColorParam, _palmZenithParam, _palmHorizonParam,
             _palmDiffuseParam, _palmDappleParam, _palmTimeParam, _palmWindParam,
-            _palmSwayStrengthParam, _palmSwaySpeedParam;
+            _palmSwayStrengthParam, _palmSwaySpeedParam, _palmShadingParam, _palmCameraParam;
 
         //Real 3D palm geometry on the acacia's path (#202): a few variants at rolled proportions and
-        //structural seeds — a bowed ring-scarred trunk under a crown of drooping fronds with a skirt
+        //structural seeds — a bowed trunk under a crown of leafleted fronds (#557) with a skirt
         //of dead ones — each variant its own instanced draw so a grove is a mix, never one shape
         //stamped out. Scatter parameters live in TropicalSceneConfig.Palms.
         private PalmMesh[] _palmMeshes;
@@ -1387,6 +1387,9 @@ namespace Prazsky.Core.Render
             _palmWindParam = _palmEffect.Parameters["WindDirection"];
             _palmSwayStrengthParam = _palmEffect.Parameters["SwayStrength"];
             _palmSwaySpeedParam = _palmEffect.Parameters["SwaySpeed"];
+            _palmShadingParam = _palmEffect.Parameters["PalmShading"];
+            _palmCameraParam = _palmEffect.Parameters["CameraPosition"];
+            PushPalmMaterial();
             _palmTechnique = _palmEffect.Techniques["Palm"];
             _palmShadowTechnique = _palmEffect.Techniques["ShadowCaster"];
             BuildTropicalBuffers();
@@ -2546,6 +2549,8 @@ namespace Prazsky.Core.Render
             _palmFrondColor = palms.FrondColor.ToVector3();
             _palmFrondDry = palms.FrondDry.ToVector3();
             _palmTrunkColor = palms.TrunkColor.ToVector3();
+
+            PushPalmMaterial();
             _tropicalStoneColor = rocks.StoneColor.ToVector3();
             _tropicalMossColor = rocks.MossColor.ToVector3();
 
@@ -6180,8 +6185,9 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Draws the scattered palms: real 3D geometry on the acacia's path (#202), one instanced draw per
-        /// mesh variant per material — a palm's crown (dappled green, per-variant drier or greener) and its
-        /// wood (the trunk and the dead-frond skirt, plain brown) share the variant's per-plant matrices.
+        /// mesh variant per material — a palm's leaves (the live crown, per-variant drier or greener, and the
+        /// dead skirt) and its solids (the trunk, the boot and the coconuts) share the variant's per-plant
+        /// matrices, both through Palm.fx's palm material (#557).
         /// Shaded from the scene's own sun and dome by <c>Palm.fx</c>, which also sways the crown on the
         /// wind off the wall clock. Opaque and depth-writing; tropical scene only, after the terrain and
         /// the water.
@@ -6202,8 +6208,13 @@ namespace Prazsky.Core.Render
                 //crown and never the trunk.
                 float sway = _tropicalConfig.Palms.SwayStrength;
 
-                DrawPalmPart(_palmMeshes[m].Fronds, instances, frond, dappleStrength: 0.55f, swayStrength: sway);
-                DrawPalmPart(_palmMeshes[m].Wood, instances, _palmTrunkColor, dappleStrength: 0f, swayStrength: sway);
+                //The leaves are single-sided and drawn UNCULLED (#557): Palm.fx turns each pixel's normal to the
+                //face the camera sees, so a frond's underside is its underside rather than a copy of its top.
+                //The solids after them go back to the shared culling.
+                _graphicsDevice.RasterizerState = RasterizerState.CullNone;
+                DrawPalmPart(_palmMeshes[m].Fronds, instances, frond, dappleStrength: 0.4f, swayStrength: sway, palmShading: 1f);
+                _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+                DrawPalmPart(_palmMeshes[m].Wood, instances, _palmTrunkColor, dappleStrength: 0f, swayStrength: sway, palmShading: 1f);
             }
         }
 
@@ -6269,10 +6280,25 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
+        /// The palm material's colours that the per-draw DiffuseColor cannot carry (#557), pushed once per config
+        /// since nothing else drawn through the effect reads them. Called from the tropical parameters AND after
+        /// the effect loads, because the constructor applies the config before the palm effect exists.
+        /// </summary>
+        private void PushPalmMaterial()
+        {
+            if (_palmEffect == null) return;
+
+            PalmConfig palms = _tropicalConfig.Palms;
+            _palmEffect.Parameters["AgedFrondColor"].SetValue(palms.AgedFrondColor.ToVector3());
+            _palmEffect.Parameters["DeadFrondColor"].SetValue(palms.DeadFrondColor.ToVector3());
+            _palmEffect.Parameters["CoconutColor"].SetValue(palms.CoconutColor.ToVector3());
+        }
+
+        /// <summary>
         /// Pushes the frame's shared palm-effect parameters — the two draws below run them once each, so
         /// the pushing lives in one place between them. The states are the acacia's: opaque, depth-writing
-        /// solids wound like every lathe (the fronds are double-sided GEOMETRY rather than a culling
-        /// exception, so the shared clockwise culling holds).
+        /// solids wound like every lathe. The palms' leaves are the one exception, drawn unculled by
+        /// <see cref="DrawPalms"/> around their own draw (#557).
         /// </summary>
         private void ApplyPalmFrame(in SceneFrame frame)
         {
@@ -6282,6 +6308,7 @@ namespace Prazsky.Core.Render
             _palmSunColorParam.SetValue(frame.SunColor);
             _palmZenithParam.SetValue(frame.ZenithLinear);
             _palmHorizonParam.SetValue(frame.HorizonLinear);
+            _palmCameraParam.SetValue(frame.Camera.Position);
 
             //The wind off the wall clock, aligned with the one the waves and the canopy ride — a beach
             //whose palms swayed against their own surf would read as two weathers.
@@ -6318,9 +6345,15 @@ namespace Prazsky.Core.Render
         /// wind, they sheared. Passing it per part is what makes a mesh unable to inherit a sway nobody
         /// meant it to have.
         /// </para>
+        /// <para>
+        /// <paramref name="palmShading"/> is the same shape for the same reason (#557): 1 turns on
+        /// <c>Palm.fx</c>'s palm material, which reads <c>TEXCOORD0.y</c> as <see cref="PalmMesh.Part"/>'s code.
+        /// Only a <see cref="PalmMesh"/> bakes that code, so every other mesh takes the default 0 and the plain
+        /// shading it always had.
+        /// </para>
         /// </summary>
         private void DrawPalmPart(IProceduralMesh mesh, ModelInstance[] instances, Vector3 diffuse,
-            float dappleStrength, float swayStrength)
+            float dappleStrength, float swayStrength, float palmShading = 0f)
         {
             if (_palmInstanceBuffer == null || _palmInstanceBuffer.VertexCount < instances.Length)
             {
@@ -6333,6 +6366,7 @@ namespace Prazsky.Core.Render
             _palmDiffuseParam.SetValue(diffuse);
             _palmDappleParam.SetValue(dappleStrength);
             _palmSwayStrengthParam.SetValue(swayStrength);
+            _palmShadingParam.SetValue(palmShading);
             _palmEffect.CurrentTechnique.Passes[0].Apply();
 
             _graphicsDevice.SetVertexBuffers(
