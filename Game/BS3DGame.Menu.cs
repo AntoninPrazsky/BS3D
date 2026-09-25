@@ -1398,13 +1398,13 @@ namespace BS3D
         /// the same gate the precise-aim trigger has.
         /// </para>
         /// </summary>
-        private void UpdateMenuNavigation(float elapsed, KeyboardState keyboard, GamePadState pad, bool edgeInputAllowed)
+        private void UpdateMenuNavigation(float elapsed, KeyboardState keyboard, GamePadState pad, MouseState mouse,
+            bool edgeInputAllowed)
         {
             if (_navEntries.Count == 0) return;
 
             //Moving the pointer puts the focus cursor away again: the hover and the cursor use the same
             //highlight, and two entries lit at once reads as a bug rather than as two input devices
-            MouseState mouse = Mouse.GetState();
 
             if (Math.Abs(mouse.X - _navMouseAt.X) > NAV_MOUSE_WAKE_PIXELS
                 || Math.Abs(mouse.Y - _navMouseAt.Y) > NAV_MOUSE_WAKE_PIXELS)
@@ -1851,6 +1851,10 @@ namespace BS3D
             KeyboardState keyboard = Keyboard.GetState();
             GamePadState pad = GamePad.GetState(PlayerIndex.One);
 
+            //One mouse snapshot for the navigation's wake test and the wheel below (#400 found them polling it
+            //twice a frame, BestPractices.md #5)
+            MouseState mouse = Mouse.GetState();
+
             //A page typing into itself has the keyboard (#548): no key of the menu's own is read, only the pad's A
             //and B are handed over, and the snapshots below still advance so nothing fires on the way out
             if (_screens.Active is MenuPage { CapturesKeyboard: true } typing)
@@ -1879,14 +1883,13 @@ namespace BS3D
             //before the snapshots below, which are what its own edge tests are read against. Not while a page is
             //typing: its arrows, Enter and Space are text, and a walking cursor would take them (#548).
             if (_screens.Active is not MenuPage { CapturesKeyboard: true })
-                UpdateMenuNavigation(elapsed, keyboard, pad, EdgeInputAllowed);
+                UpdateMenuNavigation(elapsed, keyboard, pad, mouse, EdgeInputAllowed);
 
             //The wheel, the one mouse input nothing here read before #517. ScrollWheelValue is cumulative
             //over the process's whole life, so the edge is this minus a frame ago - exactly IsKeyEdge's shape,
             //not the pad's, since there is only one wheel and no "which one" to ask. Handed to whichever page
             //is actually on top: a page under another (the pause under settings) must not also turn a chapter
             //behind it.
-            MouseState mouse = Mouse.GetState();
             int scrollDelta = mouse.ScrollWheelValue - _previousScrollWheelValue;
             _previousScrollWheelValue = mouse.ScrollWheelValue;
 

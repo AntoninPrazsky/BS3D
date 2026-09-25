@@ -2171,9 +2171,11 @@ namespace BS3D
             //whichever entry is under the cursor. So the button has to be seen RELEASED once before Myra is fed
             //anything, which is the same rule _padTriggerReleased applies to a held trigger.
             //
-            //Polled only while a menu is up, which is exactly when nothing else polls the mouse — the gameplay
-            //screen takes its own snapshot in UpdateAim, and two reads of one device in a frame is the thing
-            //BestPractices.md #5 forbids.
+            //Polled only while a menu is up and only until the button has been seen released, so a frame or so
+            //per page. It is not the frame's only read of the mouse, whatever this said until #400's third pass:
+            //the menu chrome takes one snapshot of its own (UpdateMenuChrome) and Myra polls the device itself
+            //when the desktop renders. Nothing compares an edge across two of those reads, which is the hazard
+            //BestPractices.md #5 is about; this one answers only "is the button up now".
             if (_screens.Active != _lastActiveScreen)
             {
                 _lastActiveScreen = _screens.Active;

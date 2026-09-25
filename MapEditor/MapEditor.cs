@@ -44,7 +44,7 @@ namespace MapEditor
 
         private SkyDome _sky;
 
-        //The game ships eighteen sky domes and starts on the first one
+        //The game ships SkyDome.Count sky domes and starts on the first one
         private static readonly int SKY_DOME_COUNT = SkyDome.Count;
         private int _skyDomeNumber = 1;
 
@@ -458,15 +458,21 @@ namespace MapEditor
             //component is built from that renderer's own forest config, and before the sky lighting below, since
             //fresh renderers have never been told the dome's palette. No stone texture handed in: the editor has
             //none of its own, so the component builds one for the boulders.
+            //The launch's roll goes in as the Game and the Testbed hand it (#400): the offset above reached the
+            //cities and their roofs here but not the wood, so the editor planted the same forest and the same
+            //aurora wood every session while its own comment on _sceneSeedOffset said the wood rolled too.
             _forestScatter = new ForestScatterRenderer(GraphicsDevice, _instancingEffect,
-                (ForestSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Forest), SCENE_AMBIENT_INTENSITY);
+                (ForestSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Forest), SCENE_AMBIENT_INTENSITY,
+                seed: ForestScatterRenderer.DEFAULT_SEED + _sceneSeedOffset);
 
             //The aurora's own wood, a second planting from its own config - see AuroraSceneConfig's class doc.
             _auroraScatter = new ForestScatterRenderer(GraphicsDevice, _instancingEffect,
-                ((AuroraSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Aurora)).Terrain, SCENE_AMBIENT_INTENSITY);
+                ((AuroraSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Aurora)).Terrain, SCENE_AMBIENT_INTENSITY,
+                seed: ForestScatterRenderer.DEFAULT_SEED + _sceneSeedOffset);
 
             _forestFireflies = new ForestFireflies(GraphicsDevice, _instancingEffect,
-                (ForestSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Forest), SCENE_AMBIENT_INTENSITY);
+                (ForestSceneConfig)_sceneRenderer.GetSceneConfig(SceneKind.Forest), SCENE_AMBIENT_INTENSITY,
+                seed: ForestScatterRenderer.DEFAULT_SEED + _sceneSeedOffset);
 
             ApplySkyLighting();
 
@@ -575,7 +581,7 @@ namespace MapEditor
         /// </summary>
         private void SwitchSkyDome() => SetSkyDome(_skyDomeNumber % SKY_DOME_COUNT + 1);
 
-        /// <summary>Loads sky dome <paramref name="number"/> (1–18) and relights the scene from it.</summary>
+        /// <summary>Loads sky dome <paramref name="number"/> (1 to <see cref="SkyDome.Count"/>) and relights the scene from it.</summary>
         private void SetSkyDome(int number)
         {
             _skyDomeNumber = number;
@@ -600,9 +606,9 @@ namespace MapEditor
         {
             //A scene that states its own rig — space, the dream, the cavern — has to be honoured here too, or a
             //level of one would draw the right sky and light its balls by the wrong sun, which is the one thing
-            //this editor exists to prevent. Those scenes are reachable despite V cycling only the first seven:
-            //loading a LEVEL sets _scene from the level's own scene kind. The rig reads the override itself,
-            //which is why the scene goes in with the dome.
+            //this editor exists to prevent. Those scenes are reachable both by V (every scene since #380) and by
+            //loading a LEVEL, which sets _scene from the level's own scene kind. The rig reads the override
+            //itself, which is why the scene goes in with the dome.
             _rig.SetSky(_sky, _scene);
 
             foreach (InstancedModelRenderer renderer in _balls.Renderers) _rig.ApplyTo(renderer);
@@ -1040,6 +1046,11 @@ namespace MapEditor
             _graphics.PreferredBackBufferWidth = windowed ? _windowWidth : GraphicsDevice.DisplayMode.Width;
             _graphics.PreferredBackBufferHeight = windowed ? _windowHeight : GraphicsDevice.DisplayMode.Height;
             _graphics.IsFullScreen = !windowed;
+
+            //Borderless, not a DXGI mode switch - the Game's #157 fix, which never reached this copy (#400):
+            //minimizing exclusive fullscreen tears down the swap chain's fullscreen state and the window never
+            //came back. The back buffer is the display's size above either way, so the picture is the same.
+            _graphics.HardwareModeSwitch = false;
 
             _graphics.SynchronizeWithVerticalRetrace = true;
 
