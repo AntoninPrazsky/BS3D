@@ -544,6 +544,10 @@ namespace Prazsky.Core.Render
         private PalmMesh[] _palmMeshes;
         private ModelInstance[][] _palmInstances;         //per variant; fronds and wood share the matrices
         private float[] _palmDryness;                     //per variant: how far its crown is towards the dry green
+
+        //Every palm's and waterline rock's figure, for a host keeping a camera out of the grove (#559).
+        private PlantFigure[] _palmFigures = Array.Empty<PlantFigure>();
+        private PlantFigure[] _tropicalRockFigures = Array.Empty<PlantFigure>();
         private DynamicVertexBuffer _palmInstanceBuffer;  //shared, re-uploaded per draw (SetDataOptions.Discard)
 
         //The waterline's rocks: the stone (RockMesh) and its moss cap (a LatheMesh over the same
@@ -943,6 +947,19 @@ namespace Prazsky.Core.Render
 
         /// <summary>The campfire point-light range (quadratic distance falloff), shared by every fire.</summary>
         public float SavannaCampfireRange => _savannaConfig.Campfire.Range;
+
+        /// <summary>
+        /// Everything planted on the savanna — the footprints, the acacias' and the baobabs' figures — for a
+        /// host that points a camera at them or keeps one out of them (the chapter intro's prologue, #559).
+        /// Null until the scatter has been built.
+        /// </summary>
+        public SavannaScatter SavannaPlanting => _savannaScatter;
+
+        /// <summary>
+        /// The savanna's ground height at a world point, for a host laying a camera path over the plain
+        /// (#559): <see cref="SavannaTerrainHeight"/>, the mirror the planting stands on, made public.
+        /// </summary>
+        public float SavannaGroundHeight(float x, float z) => SavannaTerrainHeight(x, z);
 
         /// <summary>
         /// The flickering colour of fire <paramref name="index"/> at a wall-clock time, so its grass light,
@@ -3590,6 +3607,8 @@ namespace Prazsky.Core.Render
             }
 
             List<ScatterSpacing.Footprint> standing = new(palms.Count);
+            var palmFigures = new List<PlantFigure>(palms.Count);
+            var rockFigures = new List<PlantFigure>(rocks.Count);
 
             for (int i = 0; i < palms.Count; i++)
             {
@@ -3679,6 +3698,12 @@ namespace Prazsky.Core.Render
 
                 standing.Add(new ScatterSpacing.Footprint(x, z, halfWidth));
                 palmBuckets[variant].Add(new ModelInstance(world, Vector4.Zero));
+                //The figure's stem is the chord from the root to the crown; the trunk bows off that chord by a
+                //fraction of how far the crown stands off the root, so the stem is widened by that much.
+                Vector3 crownAt = Vector3.Transform(mesh.Crown, world);
+                float bow = 0.25f * new Vector2(crownAt.X - world.M41, crownAt.Z - world.M43).Length();
+                palmFigures.Add(new PlantFigure(world.Translation, crownAt,
+                    mesh.FrondReach * sizeScale, palms.TrunkRadius * 1.15f * sizeScale + bow));
             }
 
             //The rocks: strung along the waterline by the height band alone, which follows the coast's
@@ -3730,7 +3755,9 @@ namespace Prazsky.Core.Render
                     * Matrix.CreateRotationY(yaw)
                     * Matrix.CreateTranslation(basePos);
 
-                rockBuckets[rng.Next(ROCK_VARIANTS)].Add(new ModelInstance(world, Vector4.Zero));
+                int rockVariant = rng.Next(ROCK_VARIANTS);
+                rockBuckets[rockVariant].Add(new ModelInstance(world, Vector4.Zero));
+                rockFigures.Add(PlantFigure.Of(_tropicalRockMeshes[rockVariant].BoundingSphere, world, 0f));
             }
 
             //--- Planting the dressing (#445) ---------------------------------------------------------
@@ -3822,6 +3849,9 @@ namespace Prazsky.Core.Render
             for (int m = 0; m < TUFT_VARIANTS; m++) _tropicalTuftInstances[m] = tuftBuckets[m].ToArray();
             _tropicalDriftInstances = new ModelInstance[DRIFT_VARIANTS][];
             for (int m = 0; m < DRIFT_VARIANTS; m++) _tropicalDriftInstances[m] = driftBuckets[m].ToArray();
+
+            _palmFigures = palmFigures.ToArray();
+            _tropicalRockFigures = rockFigures.ToArray();
 
             _palmInstances = new ModelInstance[PALM_VARIANTS][];
             for (int m = 0; m < PALM_VARIANTS; m++) _palmInstances[m] = palmBuckets[m].ToArray();
@@ -5869,6 +5899,15 @@ namespace Prazsky.Core.Render
             return h;
         }
 
+        /// <summary>
+        /// Every palm on the beach as a figure — the root, the crown the trunk's bow carries off it, how far the
+        /// fronds reach and the trunk's thickness — for a host keeping a camera out of the grove (#559).
+        /// </summary>
+        public IReadOnlyList<PlantFigure> TropicalPalms => _palmFigures;
+
+        /// <summary>The waterline's rocks as figures (their mesh's bounding sphere at the instance), for the same host.</summary>
+        public IReadOnlyList<PlantFigure> TropicalRocks => _tropicalRockFigures;
+
         //The waterline's radius at a bearing — Tropical.fx's CoastRadius, in one change with it.
         private static float TropicalCoastRadius(float b, TropicalTerrainConfig terrain) =>
             terrain.ShoreRadius + terrain.CoastNoise
@@ -5892,6 +5931,25 @@ namespace Prazsky.Core.Render
         {
             float t = MathHelper.Clamp((value - edge0) / (edge1 - edge0), 0f, 1f);
             return t * t * (3f - 2f * t);
+        }
+
+        /// <summary>
+        /// The meadow's ground height at a world point, mirroring <c>Meadow.fx</c>'s <c>TerrainHeight</c> term
+        /// for term, for a host laying a camera path over the hills (the chapter intro's prologue, #559).
+        /// Static and config-taking for the forest's reasons. Keep this and the shader in the same change.
+        /// </summary>
+        public static float MeadowTerrainHeight(float x, float z, MeadowSceneConfig config)
+        {
+            float dist = MathF.Sqrt(x * x + z * z);
+            float ramp = SmoothStep(config.ClearingRadius, config.ClearingRadius + config.ClearingTransition, dist);
+
+            float rolling = 0.5f * MathF.Sin(x * 0.020f + z * 0.015f)
+                + 0.3f * MathF.Sin(x * -0.013f + z * 0.024f + 1.5f)
+                + 0.2f * MathF.Sin(x * 0.031f + z * 0.026f + 3.0f);
+
+            float basin = config.ClearingRelief * MathF.Sin(x * 0.05f + z * 0.035f);
+
+            return config.LevelY + basin + config.HillHeight * ramp * (rolling * 0.5f + 0.5f);
         }
 
         /// <summary>

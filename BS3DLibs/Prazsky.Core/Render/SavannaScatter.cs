@@ -32,6 +32,9 @@ namespace Prazsky.Core.Render
         /// the most draws for the least silhouette and the first thing the Low tier can spare.</summary>
         public bool DetailOnly { get; }
 
+        /// <summary>The instances as planted, on the CPU — what <see cref="Instances"/> was uploaded from.</summary>
+        public IReadOnlyList<ModelInstance> Placed { get; }
+
         internal ScatterBucket(GraphicsDevice device, IProceduralMesh mesh, List<ModelInstance> instances,
             Vector3 diffuse, Vector3 diffuseDry, float dapple, float bark, bool detailOnly)
         {
@@ -42,8 +45,10 @@ namespace Prazsky.Core.Render
             Dapple = dapple;
             Bark = bark;
             DetailOnly = detailOnly;
-            Instances = new VertexBuffer(device, ModelInstance.VertexDeclaration, instances.Count, BufferUsage.WriteOnly);
-            Instances.SetData(instances.ToArray());
+            ModelInstance[] placed = instances.ToArray();
+            Placed = placed;
+            Instances = new VertexBuffer(device, ModelInstance.VertexDeclaration, placed.Length, BufferUsage.WriteOnly);
+            Instances.SetData(placed);
         }
 
         public void Dispose()
@@ -156,6 +161,24 @@ namespace Prazsky.Core.Render
         /// </para>
         /// </summary>
         public IReadOnlyList<ScatterSpacing.Footprint> Standing { get; private set; }
+
+        /// <summary>
+        /// The living acacias of the plain (mature and broken, the umbrella-crowned ones — not the young, the
+        /// dead or the far treeline's), each with its crown's own figure: what the chapter intro's prologue
+        /// takes a shot of (#559). Only the last sweep's, like the buckets.
+        /// </summary>
+        public IReadOnlyList<PlantFigure> Acacias { get; private set; }
+
+        /// <summary>The baobabs, each with its whole figure — the plain's biggest single things (#559).</summary>
+        public IReadOnlyList<PlantFigure> Baobabs { get; private set; }
+
+        /// <summary>
+        /// Every instance of every mesh planted, the far treeline's included, as the sphere round its mesh at
+        /// the instance (a tree twice over: its wood's sphere and its canopy's) — what a camera path is held
+        /// clear of (#559). ⚠ Not <see cref="Standing"/>: a footprint is the SPACING radius, and a bush's
+        /// crown overhangs its own; a lens kept clear of the footprints photographed as a frame of foliage.
+        /// </summary>
+        public IReadOnlyList<PlantFigure> Solids { get; private set; }
 
         private readonly List<IDisposable> _meshes = new();
 
@@ -275,6 +298,10 @@ namespace Prazsky.Core.Render
             var baobabInstances = Lists(BAOBAB);
             var doumInstances = Lists(DOUM);
             var treelineInstances = Lists(TREELINE);
+            var acaciaFigures = new List<PlantFigure>();
+            var baobabFigures = new List<PlantFigure>();
+            Acacias = acaciaFigures;
+            Baobabs = baobabFigures;
 
             //Cluster centres the plants gather around, so the savanna reads as groves rather than an even
             //scatter. A minority of plants are placed solo.
@@ -390,6 +417,8 @@ namespace Prazsky.Core.Render
                 for (int m = 0; m < treeInstances.Length; m++) treeInstances[m].Clear();
                 Clear(bushInstances); Clear(scrubInstances); Clear(tuftInstances); Clear(moundInstances);
                 Clear(rockInstances); Clear(logInstances); Clear(baobabInstances); Clear(doumInstances);
+                acaciaFigures.Clear();
+                baobabFigures.Clear();
 
                 //The best of a few proposals against what stands already: the first clear one, else the
                 //least crowded. Records the footprint and returns where it landed.
@@ -478,7 +507,12 @@ namespace Prazsky.Core.Render
                         //A dead tree is one shade of bleached wood; the living ones each lean their own way towards dry.
                         float dryness = kind == AcaciaKind.Dead ? 0f : (float)rng.NextDouble();
                         float lean = (kind == AcaciaKind.Broken ? 0.10f : 0.06f) * (float)rng.NextDouble();
-                        treeInstances[variant].Add(Plant(x, z, treeScale, lean, 0f, dryness, Jitter()));
+                        ModelInstance planted = Plant(x, z, treeScale, lean, 0f, dryness, Jitter());
+                        treeInstances[variant].Add(planted);
+
+                        //The umbrella-crowned ones, for a camera to point at (#559): the canopy's own sphere.
+                        if (trees[variant].Canopy != null && (kind == AcaciaKind.Mature || kind == AcaciaKind.Broken))
+                            acaciaFigures.Add(PlantFigure.Of(trees[variant].Canopy.BoundingSphere, planted.World, ac.Width * 0.09f));
                     }
                 }
 
@@ -556,7 +590,10 @@ namespace Prazsky.Core.Render
                     int variant = rng.Next(BAOBAB);
                     float s = 0.85f + 0.3f * (float)rng.NextDouble();
                     (float x, float z) = Place(dr.BaobabHeight * 0.45f * s, ac.MinRadius + 30f, ac.MaxRadius, 0f, 0f);
-                    baobabInstances[variant].Add(Plant(x, z, s, 0.03f * (float)rng.NextDouble(), 0f, (float)rng.NextDouble(), Jitter()));
+                    ModelInstance planted = Plant(x, z, s, 0.03f * (float)rng.NextDouble(), 0f, (float)rng.NextDouble(), Jitter());
+                    baobabInstances[variant].Add(planted);
+                    BoundingSphere whole = BoundingSphere.CreateMerged(baobabs[variant].Wood.BoundingSphere, baobabs[variant].Foliage.BoundingSphere);
+                    baobabFigures.Add(PlantFigure.Of(whole, planted.World, dr.BaobabHeight * 0.2f));
                 }
 
                 //--- The doum palms: in clumps of two or three, the way they grow, each clump placed as a whole
@@ -684,6 +721,12 @@ namespace Prazsky.Core.Render
             Add(buckets, device, treeline, treelineInstances, treelineColor, treelineColor * 1.6f, dapple: 0.4f, bark: 0f, detailOnly: false);
 
             Buckets = buckets.ToArray();
+
+            var solids = new List<PlantFigure>();
+            foreach (ScatterBucket bucket in Buckets)
+                foreach (ModelInstance instance in bucket.Placed)
+                    solids.Add(PlantFigure.Of(bucket.Mesh.BoundingSphere, instance.World, 0f));
+            Solids = solids;
         }
 
         private static void Clear(List<ModelInstance>[] lists)
