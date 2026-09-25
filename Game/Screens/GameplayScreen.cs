@@ -1097,6 +1097,7 @@ namespace BS3D.Screens
         public GameplayScreen(BS3DGame game)
         {
             Game = game;
+            _drawMotionVelocity = DrawMotionVelocity;
             _hud = new PlayHud(game)
             {
                 //Testing only (the "streak=" argument): pins what the multiplier readout SHOWS, so the capped
@@ -1400,6 +1401,7 @@ namespace BS3D.Screens
             _levelSeconds += elapsed;
 
             StepPhysics(elapsed * _cinematic.TimeScale);
+            NoteSimulated(_cinematic.TimeScale);
 
             //The blasts a landing inside that step set off (#389), on the step's own scaled time: the debris they
             //threw is moving at that speed, and a flash running at full speed over a slow-motion collapse is over
@@ -1514,6 +1516,7 @@ namespace BS3D.Screens
             //neither ending is declared while one is engaged — the countdown freezes for it and the loss waits
             //on mayLose — so the scale is back at 1 before this page can exist.
             StepPhysics(elapsed);
+            NoteSimulated(1f);
 
             //And a blast still going off when the page arrived (#389) carries on with the world it belongs to —
             //a flash frozen half-bright behind the numbers is this very issue, one effect further out. Its jolt is
@@ -1579,6 +1582,18 @@ namespace BS3D.Screens
             //of them can show different colours at one instant.
             Game.Balls.SetWildcardCrossing(_wildcard.From, _wildcard.To, _wildcard.Progress);
 
+            //THE MOTION BLUR (#402): this frame's gun poses, taken once here — the rounds in the bore about to be
+            //collected are carried back by the barrel's motion, and the gun's own draw below uses the same two
+            //matrices, so the tube and what it holds cannot disagree about where they were. Recorded only on a frame
+            //that is blurred: the rest of the time nothing here runs and the collection is what it always was.
+            Matrix barrelWorld = _cannon.BarrelWorld();
+            Matrix carriageWorld = _cannon.CarriageWorld();
+
+            _motionThisFrame = false;
+            bool motion = Game.MotionBlurActive;
+            Game.Balls.RecordMotion = motion;
+            if (motion) PrepareMotion(barrelWorld, carriageWorld);
+
             BallDrawFrame ballFrame = Game.Balls.BeginFrame(Camera);
 
             //The cluster, the shots in flight and the released balls falling, each off its own body's pose — so
@@ -1589,7 +1604,8 @@ namespace BS3D.Screens
             //weight (#342): the field's own floor, so a group stuck up among the balls is marked and one
             //lying on the island's stone on its way into the drain is not.
             _clusterCollector.Collect(ballFrame, (float)gameTime.ElapsedGameTime.TotalSeconds,
-                _physicsBalls, _shotBalls, _fallingBalls, _renderAlpha, _clusterWorldOffset.Y);
+                _physicsBalls, _shotBalls, _fallingBalls, _renderAlpha, _clusterWorldOffset.Y,
+                motion ? BallShutterSeconds : 0f);
 
             //And the loaded queue into the very same frame — this screen's own loop, because the barrel's bore
             //and the transmute cross-fade are its own business
@@ -1615,11 +1631,10 @@ namespace BS3D.Screens
             //takes the stroke's own smaller, later share since #115 — the tube slides in the cradle and the
             //undercarriage lurches a beat behind it — and its wheels roll with everything that moves them,
             //the advance walk and that shove both (Cannon.WheelTravel).
-            //Into a local because the window's glazing is drawn with the very same pose further down — it is set
-            //into this tube, so the one pose serves both rather than being built a second time from a second
-            //read of the stroke, which is one more thing that could ever come out differently.
-            Matrix barrelWorld = _cannon.BarrelWorld();
-
+            //Into a local (taken above, with the carriage's, for the motion blur) because the window's glazing is
+            //drawn with the very same pose further down — it is set into this tube, so the one pose serves both
+            //rather than being built a second time from a second read of the stroke, which is one more thing that
+            //could ever come out differently.
             Game.CannonRig.Draw(Camera, barrelWorld, Game.SceneEffectParams);
 
             //The next round's colour, stated by the collar around the muzzle (#425). Opaque geometry drawn with
@@ -1627,7 +1642,7 @@ namespace BS3D.Screens
             //the carriage occlude it exactly as they occlude the tube, and nothing about what the player sees
             //depends on which way the gun happens to be turned.
             DrawMuzzleCollar(barrelWorld);
-            Game.CannonRig.DrawCarriage(Camera, _cannon.CarriageWorld(), _cannon.WheelTravel, _cannon.SlideTravel, Game.SceneEffectParams);
+            Game.CannonRig.DrawCarriage(Camera, carriageWorld, _cannon.WheelTravel, _cannon.SlideTravel, Game.SceneEffectParams);
 
             //Everything collected above, as one instanced draw per ball type and LOD level — and the frame's
             //collection is closed by it. The heartbeat runs on the WALL clock: the balls go on breathing while
@@ -1681,7 +1696,9 @@ namespace BS3D.Screens
             //would let both of those bleed through it. Drawn with the barrel's own pose, recoil and all.
             Game.CannonRig.DrawGlass(Camera, barrelWorld, Game.SceneEffectParams);
 
-            Game.FinishSceneDraw(sceneFrame);
+            //The velocity pass rides the frame's close: after the last of the scene and before the resolve, which is
+            //the one moment it can bind a target of its own without costing the scene target a second resolve
+            Game.FinishSceneDraw(sceneFrame, _drawMotionVelocity);
 
             //Display space from here down: the resolve is the frame's one and only exit from linear light,
             //and the overlay and the FPS overlay (a component, drawn in base.Draw after this) are sRGB.

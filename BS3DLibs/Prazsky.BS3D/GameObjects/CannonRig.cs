@@ -832,6 +832,56 @@ namespace Prazsky.BS3D
         }
 
         /// <summary>
+        /// Draws the whole gun into the motion blur's open velocity pass (#402), each piece at this frame's pose and
+        /// at the pose it had when the shutter opened — so a barrel swung while it is aimed smears most at the muzzle
+        /// and hardly at all at the trunnions, which is what a turning tube does and what no one stretch of the whole
+        /// thing could draw (the reason #402's first half stopped at the balls).
+        /// <para>
+        /// Everything set into the tube — the glazed window, the collar — rides the barrel's pair of poses, and the
+        /// wheels and rollers ride the carriage's: each is its pose now carried back by its parent's motion over the
+        /// shutter, which leaves the wheels' own roll out of the smear. A wheel's roll over a thirtieth of a second is
+        /// a few degrees of a round rim, and the rim's silhouette does not change under it.
+        /// </para>
+        /// </summary>
+        /// <param name="barrelWorld">The barrel's pose, as <see cref="Draw"/> took it this frame.</param>
+        /// <param name="barrelShutter">The barrel's pose when the shutter opened.</param>
+        /// <param name="carriageWorld">The carriage's pose, as <see cref="DrawCarriage"/> took it.</param>
+        /// <param name="carriageShutter">The carriage's pose when the shutter opened.</param>
+        /// <param name="collar">Whether the muzzle collar was drawn this frame (<see cref="DrawMuzzleCollar"/>
+        /// draws nothing at zero strength, and a collar in the velocity pass that is not in the picture would smear
+        /// the sky beside the muzzle).</param>
+        public void DrawMotion(MotionBlur blur, Matrix barrelWorld, Matrix barrelShutter, Matrix carriageWorld,
+            Matrix carriageShutter, bool collar)
+        {
+            blur.Draw(_renderer, barrelWorld, barrelShutter);
+            blur.Draw(_glassRenderer, barrelWorld, barrelShutter);
+
+            if (collar)
+            {
+                Matrix collarLocal = Matrix.CreateRotationX(MathHelper.PiOver2);
+                blur.Draw(_collarRenderer, collarLocal * barrelWorld, collarLocal * barrelShutter);
+            }
+
+            blur.Draw(_carriageRenderer, carriageWorld, carriageShutter);
+
+            //The wheels and rollers as DrawCarriage last posed them this frame (the arrays are filled there), each
+            //carried back by the carriage's own motion: world * inverse(carriage now) * carriage then
+            Matrix back = Matrix.Invert(carriageWorld) * carriageShutter;
+
+            for (int i = 0; i < 2; i++)
+                _wheelMotion[i] = new MotionInstance(_wheelInstances[i].World, _wheelInstances[i].World * back);
+
+            for (int i = 0; i < ROLLER_INSTANCES; i++)
+                _rollerMotion[i] = new MotionInstance(_rollerInstances[i].World, _rollerInstances[i].World * back);
+
+            blur.Draw(_wheelRenderer, _wheelMotion, 2);
+            blur.Draw(_rollerRenderer, _rollerMotion, ROLLER_INSTANCES);
+        }
+
+        private readonly MotionInstance[] _wheelMotion = new MotionInstance[2];
+        private readonly MotionInstance[] _rollerMotion = new MotionInstance[ROLLER_INSTANCES];
+
+        /// <summary>
         /// Draws the gun into the bound sun shadow map (#470): the barrel, the carriage, the wheels and their
         /// rollers, at this frame's pose — which is what finally puts the gun <i>on</i> the island's stone
         /// rather than over it.

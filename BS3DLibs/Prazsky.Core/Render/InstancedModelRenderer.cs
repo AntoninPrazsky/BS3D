@@ -1362,6 +1362,30 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
+        /// This model's mesh parts into <see cref="MotionBlur"/>'s velocity pass (#402), through the motion blur's
+        /// own effect and instance stream — this renderer lends only its geometry. The caller has already chosen the
+        /// technique, bound the target and uploaded <paramref name="instances"/>; only each part's bone goes out here.
+        /// </summary>
+        internal void DrawMotion(Effect effect, EffectParameter boneParam, VertexBuffer instances, int instanceCount)
+        {
+            for (int i = 0; i < _parts.Length; i++)
+            {
+                ref MeshPartData part = ref _parts[i];
+
+                boneParam.SetValue(part.BoneTransform);
+
+                _graphicsDevice.SetVertexBuffers(
+                    new VertexBufferBinding(part.VertexBuffer, part.VertexOffset, 0),
+                    new VertexBufferBinding(instances, 0, 1));
+                _graphicsDevice.Indices = part.IndexBuffer;
+
+                effect.CurrentTechnique.Passes[0].Apply();
+
+                _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, part.StartIndex, part.PrimitiveCount, instanceCount);
+            }
+        }
+
+        /// <summary>
         /// Draws one instance into the currently bound refraction target (#426): not its light, but where the nearest
         /// surface of each pixel bends the eye - see <c>InstancedRefraction</c> in InstancedModel.fx. The caller states
         /// the render states (depth test and write on, so only the nearest surface survives).

@@ -360,7 +360,12 @@ namespace BS3D
                 //player's own files. Applied below, before the game exists, because every one of them resolves
                 //through UserData on first use.
                 else if (arg.StartsWith("userdata=", StringComparison.OrdinalIgnoreCase)) userData = arg.Substring("userdata=".Length);
+                //"sweep=", "rmb=" and "fire=" are the hands of a run nobody is sitting at (#402): the barrel swung,
+                //precise aim held, a shot fired, on the wall clock "shot=" counts. See ScriptedPlay.
+                else if (ScriptedPlay.TryParse(arg)) { }
             }
+
+            if (ScriptedPlay.Current != null) Console.WriteLine(ScriptedPlay.Current.Describe());
 
             if (!string.IsNullOrWhiteSpace(userData))
             {

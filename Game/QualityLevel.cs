@@ -197,11 +197,34 @@ namespace BS3D
         /// </summary>
         public readonly bool CeilingRefraction;
 
+        /// <summary>
+        /// Whether this rung can afford the motion blur (#402) — the velocity pass over the gun and whatever balls
+        /// are moving, the four passes over the tiles and the reconstruction over the whole frame. The player's
+        /// Settings row is the other half (<c>BS3DGame.MotionBlurActive</c> is the two together).
+        /// <para>
+        /// <b>Measured</b> on the reference desktop at 3840×1600 on Paroxysm, inside ONE process: <c>mbflip=4</c> turns
+        /// it off and on every four seconds and the <c>[fps]</c> lines are split by state, because the machine was
+        /// shared with other sessions' renders all afternoon and separate runs drifted by a factor of two. With the
+        /// barrel sweeping (the velocity pass and the reconstruction both working): <c>Low</c> +0.42 ms, <c>Medium</c>
+        /// +1.14 and +3.51 on two passes, <c>High</c> −0.30 and −0.35 (noise). Leaned in and sweeping, where the whole
+        /// frame reconstructs: +0.50, +4.11, +1.29. Nothing moving: +0.54, −0.97, +1.05. So about a millisecond on a
+        /// wide part, spent where something moves; the Medium figures are the least stable of the set.
+        /// </para>
+        /// <para>
+        /// <b><c>Low</c> gives it up</b> (#298's rule, a tier drops effects): the rung exists for a machine like the
+        /// reference APU, where it is short already, and the APU has not been measured — a wide part's millisecond is
+        /// several there if #540's multisample ratio is any guide. <c>Medium</c> keeps it, <c>High</c> and
+        /// <c>Ultra</c> carry it.
+        /// </para>
+        /// </summary>
+        public readonly bool MotionBlur;
+
         public QualityPreset(int supersampleFactor, float facadeGrainStrength, float windowFrameWidth, int cityRadiusBlocks,
-            int msaaSamples, int shadowMapCap, bool ceilingRefraction, int shadowMapScale = 1)
+            int msaaSamples, int shadowMapCap, bool ceilingRefraction, bool motionBlur, int shadowMapScale = 1)
         {
             ShadowMapScale = shadowMapScale;
             CeilingRefraction = ceilingRefraction;
+            MotionBlur = motionBlur;
             SupersampleFactor = supersampleFactor;
             FacadeGrainStrength = facadeGrainStrength;
             WindowFrameWidth = windowFrameWidth;
@@ -242,7 +265,7 @@ namespace BS3D
             //    rather than at Medium — see the note on Medium below for what moved and why
             //  · and the reduced programs the mountain and the cavern grew for it
             //The city's two dials stay, being the only entries that were ever worth anything here.
-            new(supersampleFactor: 1, facadeGrainStrength: 0f, windowFrameWidth: 0f, cityRadiusBlocks: 14, msaaSamples: 2, shadowMapCap: 2048, ceilingRefraction: false),
+            new(supersampleFactor: 1, facadeGrainStrength: 0f, windowFrameWidth: 0f, cityRadiusBlocks: 14, msaaSamples: 2, shadowMapCap: 2048, ceilingRefraction: false, motionBlur: false),
 
             //Medium — 30 FPS on the worst scene. Supersampling is what this STRUCT gives up, and it is the one
             //change that reaches all fifteen scenes: on the weak machine it is worth 46 to 58 % of the frame
@@ -262,10 +285,10 @@ namespace BS3D
             //
             //4 samples rather than the pipeline's 8 since #540: on the weak machine the step is 0.65-1.38 ms
             //(see MsaaSamples), where the desktop had priced it at nothing and it had been left at 8 for that.
-            new(supersampleFactor: 1, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14, msaaSamples: 4, shadowMapCap: 2048, ceilingRefraction: true),
+            new(supersampleFactor: 1, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14, msaaSamples: 4, shadowMapCap: 2048, ceilingRefraction: true, motionBlur: true),
 
             //High — the look the game was authored at, unchanged.
-            new(supersampleFactor: 2, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14, msaaSamples: PostProcessPipeline.MSAA_SAMPLES, shadowMapCap: 0, ceilingRefraction: true),
+            new(supersampleFactor: 2, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14, msaaSamples: PostProcessPipeline.MSAA_SAMPLES, shadowMapCap: 0, ceilingRefraction: true, motionBlur: true),
 
             //Ultra (#484) — High, and the sun shadow map at twice the scene's authored size (8192). The one
             //rung ABOVE the authored look, so it is the player's alone: the probe starts at High and only steps
@@ -273,7 +296,7 @@ namespace BS3D
             //on High (full scene detail, full stone cap, full city, the ceiling's refraction), and the one dial
             //that could go further — supersampling 3 — is 2.25x High's shaded pixels at 3840x1600, the whole
             //frame's biggest cost bought for relief detail High already resolves. See ShadowMapScale.
-            new(supersampleFactor: 2, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14, msaaSamples: PostProcessPipeline.MSAA_SAMPLES, shadowMapCap: 0, ceilingRefraction: true, shadowMapScale: 2),
+            new(supersampleFactor: 2, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14, msaaSamples: PostProcessPipeline.MSAA_SAMPLES, shadowMapCap: 0, ceilingRefraction: true, motionBlur: true, shadowMapScale: 2),
         };
     }
 }

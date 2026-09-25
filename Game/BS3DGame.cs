@@ -594,6 +594,10 @@ namespace BS3D
         //On by default, the aberration's sibling taste toggle
         private bool _grain = true;
 
+        //On by default (#402): the player's half of whether the frame is motion-blurred. The tier's half is
+        //QualityPreset.MotionBlur, and MotionBlurActive is the two together.
+        private bool _motionBlur = true;
+
         //On by default, and the one row among the looks that is about PLAY rather than about the picture
         //(#290): whether a big collapse still takes the camera. Off changes nothing about the drop itself —
         //the same balls come off the cluster and fall the same way — it only leaves the lens where it was.
@@ -948,6 +952,7 @@ namespace BS3D
             _rumbleStrength = _settings.RumbleStrength;
             _aberration = _settings.Aberration;
             _grain = _settings.Grain;
+            _motionBlur = _settings.MotionBlur;
             _dropCinematic = _settings.DropCinematic;
             _tutorial = _settings.Tutorial;
 
@@ -1255,6 +1260,10 @@ namespace BS3D
                 FilmGrain = _grain ? FILM_GRAIN : 0f,
                 SupersampleFactor = _supersampleFactor,
             };
+
+            //The motion blur (#402), the Game's alone: its shader is built only by this content project, and it costs
+            //nothing on a frame whose session opens no velocity pass — the menus, a paused level, a tier without it.
+            _pipeline.EnableMotionBlur(Content.Load<Effect>("Shaders/MotionBlur"));
 
             //Off the shared instanced effect, because one push of the scene's lights has to reach the balls, the
             //island, the gun and the city alike. It caches its four parameter references here, for the same
