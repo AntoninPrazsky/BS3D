@@ -823,6 +823,9 @@ namespace BS3D.Screens
 
         private readonly Cannon _cannon;
 
+        //What the gun hands the host's sun shadow pass — built once in the constructor, installed per level
+        private readonly System.Action<Matrix> _gunShadowCaster;
+
         //The queue of loaded colours, its post-shot glide and where each loaded ball sits in the bore are all
         //Magazine's, shared with the Testbed since #76 — as are the two figures the barrel was cut to
         //(Magazine.SIZE and Magazine.SPACING, which CannonRig derives the tube's length and
@@ -1119,9 +1122,11 @@ namespace BS3D.Screens
 
             //What this session adds to the sun's shadow map (#470): its gun. The host owns the rig and draws
             //the island; where the gun STANDS is this screen's, and the shadow pass runs before any screen
-            //has drawn, so the session hands the host a closure rather than the host reaching in. Cleared by
-            //TearDown, or the front end would go on casting a gun that is no longer anywhere.
-            Game.SessionShadowCasters = vp => Game.CannonRig.DrawShadow(vp, _cannon.BarrelWorld(),
+            //has drawn, so the session hands the host a closure rather than the host reaching in. Built once
+            //here, so no level allocates it; installed by BuildLevel and cleared by TearDown, because this
+            //screen outlives every session — installed here instead, the gun cast a shadow over the front end
+            //before the first Play, and none at all after the first Retry, Next Level or Main Menu.
+            _gunShadowCaster = vp => Game.CannonRig.DrawShadow(vp, _cannon.BarrelWorld(),
                 _cannon.CarriageWorld(), _cannon.WheelTravel, _cannon.SlideTravel);
 
             //The queue's colours are the level's business (RandomBallType draws only among what is still
