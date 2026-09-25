@@ -18,6 +18,9 @@ one recording by its stem, which pins it. The generated families of #486 keep
 their float masters OUTSIDE the repository (a hundred 20 MB files are not for a
 public git history): MusicBake --tracks --masters <dir> reads them from there,
 and their .json sidecars are committed here beside the .ogg the game plays.
+#558's puppet family (the Silhouettes) keeps its masters the same way, in
+C:\Users\panrd\AI\output\masters-558 on the desktop; its sidecars also record
+the seed each render was asked for, so a render can be repeated.
 
 All loops, 48 kHz, 32-bit float, stereo.
 
