@@ -22,8 +22,10 @@ down within seconds of the first sampling step, having produced nothing, where a
 managed four images. Quantization and offloading change nothing; what reproduces it is sd.cpp's Vulkan
 COMPUTE load, which is a different power profile from the rasterizing this project's executables do.
 
-So -DiffusionModel, -Encoder and -Offload exist to express a configuration, not to dodge the fault. Ask the
-owner before starting this script at all.
+So -DiffusionModel, -Encoder and -Offload exist to express a configuration, not to dodge the fault. The fault
+itself was the card's boost clock and voltage: since the owner capped the core at 2100 MHz / 1080 mV (2026-09-21)
+the renderer runs without asking - #493's 80-image sweep went through clean - and a Kernel-Power 41 that ever
+recurs points at that clock first (see SKILL.md).
 
 .EXAMPLE
 .\render-references.ps1 -Name cup-gold -Width 832 -Height 1216 -Count 3 -Prompt "Studio product photograph of ..."
@@ -61,7 +63,8 @@ param(
     [string]$Vae = 'ae.safetensors',
     [switch]$NoOffload,
     [string[]]$ExtraServerArgs,
-    [switch]$KeepServer
+    [switch]$KeepServer,
+    [switch]$SkipExisting
 )
 $ErrorActionPreference = 'Stop'
 
@@ -185,6 +188,9 @@ try {
             $request = @{ prompt = $it.Prompt; negative_prompt = ''; width = $it.W; height = $it.H; steps = $Steps;
                 cfg_scale = 1.0; seed = $s; batch_size = 1 }
             $file = Join-Path $Out ("{0}-{1}" -f $it.Name, $s)
+            #-SkipExisting makes a long sweep resumable (#493): a run cut short is started again with the same
+            #arguments and renders only what is missing, and a seed reproduces its image, so nothing is lost by it.
+            if ($SkipExisting -and -not $DryRun -and (Test-Path "$file.png")) { Write-Host "$file.png exists, skipped"; continue }
             $mode = 'txt2img'
             if ($it.Init) {
                 #img2img (#489): the same request plus the fitted capture and how far back towards noise it is taken.
