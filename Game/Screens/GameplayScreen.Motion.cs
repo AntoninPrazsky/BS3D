@@ -161,7 +161,7 @@ namespace BS3D.Screens
 
         /// <summary>
         /// The velocity pass, run by the host between the scene's last draw and the resolve (BS3DGame.FinishSceneDraw):
-        /// the gun whole, then the balls. The background depth is the cluster's own — the one depth the camera's motion
+        /// the gun whole, then the balls. The background depth is the cluster's distance — the one depth the camera's motion
         /// is reprojected at for everything this does not draw, which keeps the cluster still in the frame while the
         /// overview camera orbits it, as it truly is (see <c>BackgroundReproject</c> in MotionBlur.fx).
         /// </summary>
@@ -169,8 +169,14 @@ namespace BS3D.Screens
         {
             if (!_motionThisFrame) return;
 
+            //The cluster's DISTANCE, not its view depth. The two agree wherever the lens looks at the cluster, which in
+            //play is always; but the chapter intro's prologue (#559) flies shots that look away from the arena, and there
+            //the view depth goes to nothing or below it — MotionBlur clamps it to a tenth of a unit, which reprojected the
+            //whole background as a wall a tenth of a unit in front of a moving lens: every star on the Moon's Earth shot
+            //drawn as a streak radiating from the direction of travel. A distance is positive and continuous through any
+            //turn, and far from the arena it is far, which is where the prologue's scenery is.
             Vector3 cluster = new(_cannon.OrbitCenter.X, _clusterCentreY, _cannon.OrbitCenter.Z);
-            float depth = -Vector3.Transform(cluster, Camera.View).Z;
+            float depth = Vector3.Distance(cluster, Camera.Position);
 
             if (!blur.BeginVelocity(Camera.View, Camera.Projection, _motionCameraThen, depth)) return;
 
