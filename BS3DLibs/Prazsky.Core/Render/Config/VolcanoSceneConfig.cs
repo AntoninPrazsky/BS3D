@@ -134,8 +134,9 @@ namespace Prazsky.Core.Render
         /// where it is young and thin under the vent, fading down the run.</summary>
         public float CrustGlow { get; set; } = 0.08f;
 
-        /// <summary>How brightly the hairline cracks between a flow's crust rafts glow — and, three times
-        /// over, the seams between the plates on the crater's lava lake. 0 leaves an unbroken skin.</summary>
+        /// <summary>How brightly the fissures in a flow's bed glow — in full where a lead between the crust
+        /// rafts uncovers them, a trace under a raft; they stay put while the rafts roll over them (#554) — and,
+        /// three times over, the seams between the plates on the crater's lava lake. 0 leaves an unbroken skin.</summary>
         public float CrackGlow { get; set; } = 0.25f;
 
         /// <summary>
@@ -168,8 +169,9 @@ namespace Prazsky.Core.Render
         /// </summary>
         public float HaloWidth { get; set; } = 3.0f;
 
-        /// <summary>Size of one crust raft on a flow in world units, across it; along it a raft is three times
-        /// longer, because the flow stretches it. The plates on the crater's lake are two and a half of these.</summary>
+        /// <summary>The scale of a flow's crust pattern in world units: one cell of the fixed fissure network in
+        /// its bed is this across and 3.2 of it along, the rafts the melt carries over it are drawn from a noise
+        /// 1.4 of it across and 5 along (#554), and the plates on the crater's lake are two and a half of it.</summary>
         public float PlateSize { get; set; } = 1.8f;
 
         /// <summary>How much of the sky's hemisphere light fills the ground.</summary>
