@@ -15,8 +15,13 @@ namespace BS3D.Audio
     /// Everything here is <b>filtered noise, never a tone</b>: a bed sits under the music and the effects for
     /// the whole run, and anything with a pitch would either fight the theme (which transposes itself per
     /// pass) or be noticed — and a bed that is noticed is a bed that is too loud. Each bed is a loop sealed
-    /// the menu piece's way (its ring-out folded back onto its head, see <see cref="BakeAll"/>), with every
+    /// the menu piece's way (its ring-out folded back onto its head, see <see cref="BakeScene"/>), with every
     /// envelope running a whole number of cycles per loop so nothing jumps at the seam.
+    /// </para>
+    /// <para>
+    /// A bed is baked <b>on demand</b> (#592): the scene named is synthesized and converted on the thread pool,
+    /// realized on the frame it lands and kept in a cache of <see cref="CACHED_BEDS"/>; the bed already sounding
+    /// plays on until the new one fades in over it.
     /// </para>
     /// <para>
     /// The beds run whatever is on the stack, pause included — the scene is on screen whether or not a
@@ -42,19 +47,29 @@ namespace BS3D.Audio
         //is written in whole cycles of this length, which is half of what makes the seam inaudible.
         private const float LOOP_SECONDS = 16f;
 
-        //One bed per SceneKind, counted where every other question about a SceneKind is answered rather than
-        //as "the last member + 1" — that spelling had to be edited by hand for every new scene, and the one
-        //time it is forgotten the last scene in the enum gets no bed at all.
-        private static readonly int SCENES = SceneRenderer.SceneCount;
+        //How many realized beds are kept (#592). A session plays one scene, or two when a chapter turns, and
+        //the scene page clicks through a few; three covers the bed sounding, the one fading out and the one
+        //just left, so a player stepping back and forth on the scene page does not re-bake. All twenty were
+        //baked and held for the whole run until #592 — ~2.8 MB of PCM a bed, ~56 MB resident (computed), and
+        //the twenty SoundEffects realized on the main thread in ONE frame during the splash (measured 148–153
+        //ms on the desktop), for a session that hears one or two of them.
+        private const int CACHED_BEDS = 3;
 
-        private Task<float[][]> _bake;
-        private SoundEffect[] _beds;
+        private readonly SoundEffect[] _cache = new SoundEffect[CACHED_BEDS];
+        private readonly int[] _cacheScene = new int[CACHED_BEDS];
+        private readonly long[] _cacheUsed = new long[CACHED_BEDS];
+        private long _useClock;
+
+        //At most one bed bakes at a time, on the thread pool, synthesis AND the float→16-bit conversion alike;
+        //only the SoundEffect is made on the main thread, from the finished bytes.
+        private Task<(byte[] Pcm, double Milliseconds)> _bake;
+        private int _bakeScene = -1;
 
         //Only the two instances a crossfade needs are ever alive: the one fading out and the one fading in.
         //A bed's instance is made per arrival and disposed once it has fully faded — a scene change is a
         //click on the scene page, not a per-frame path.
         private SoundEffectInstance _from, _to;
-        private int _toScene = -1;
+        private int _fromScene = -1, _toScene = -1;
         private float _blend = 1f;      //0 = all _from, 1 = all _to
 
         private int _wanted = -1;
@@ -62,12 +77,7 @@ namespace BS3D.Audio
         private bool _volumesDirty;
         private bool _failed;
 
-        public ProceduralAmbience()
-        {
-            //Every scene's bed bakes on one background task — they are a fraction of one music pass's
-            //arithmetic, and nothing needs them until the first frame of the scene is already on screen.
-            _bake = Task.Run(BakeAll);
-        }
+        public ProceduralAmbience() => Array.Fill(_cacheScene, -1);
 
         /// <summary>
         /// The player's volume settings (master × ambience) — the beds have a row of their own, so taste in
@@ -80,49 +90,70 @@ namespace BS3D.Audio
         }
 
         /// <summary>
-        /// Names the scene whose bed should be sounding. Callable before the bakes have landed — the wish is
-        /// kept and honoured the frame they do. Called from the host's <c>SetScene</c>, the one scene writer.
+        /// Names the scene whose bed should be sounding. Callable before its bed exists — the wish is kept, the
+        /// bed is baked off the frame, and it fades in the frame it lands (the bed already sounding, if any,
+        /// plays on until then). Called from the host's <c>SetScene</c>, the one scene writer.
         /// </summary>
-        public void SetScene(SceneKind scene) => _wanted = (int)scene;
+        public void SetScene(SceneKind scene)
+        {
+            _wanted = (int)scene;
+            if (!_failed) RequestBake();
+        }
 
         /// <summary>Advances the crossfade and realizes the bakes. Called once a frame with wall-clock time.</summary>
         public void Update(float elapsed)
         {
             if (_failed) return;
 
-            //Realized once, the frame the synthesis finishes. Guarded like the music's: an atmosphere that
-            //cannot play must not take the game down with it.
+            //Realized the frame its synthesis finishes. Guarded like the music's: an atmosphere that cannot
+            //play must not take the game down with it.
             if (_bake != null && _bake.IsCompleted)
             {
-                Task<float[][]> ready = _bake;
+                Task<(byte[] Pcm, double Milliseconds)> ready = _bake;
+                int scene = _bakeScene;
                 _bake = null;
+                _bakeScene = -1;
 
                 try
                 {
-                    float[][] baked = ready.Result;
-                    _beds = new SoundEffect[SCENES];
-                    for (int i = 0; i < SCENES; i++) _beds[i] = ToSoundEffect(baked[i]);
+                    //Stereo since #146. The buffer is already interleaved left-then-right, which is the layout
+                    //16-bit PCM wants, so the conversion needs no notion of channels — only this line does.
+                    //
+                    //Safe HERE and not in ProceduralAudio: a bed plays through a plain SoundEffectInstance, where
+                    //the effects are placed by Apply3D, which takes a MONO source. Stereo there would not widen
+                    //them, it would take their placement away — so this is not a change to copy across.
+                    long start = System.Diagnostics.Stopwatch.GetTimestamp();
+                    Store(scene, new SoundEffect(ready.Result.Pcm, SAMPLE_RATE, AudioChannels.Stereo));
+                    double realized = System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalMilliseconds;
+
+                    //A rare event — one line per scene first heard, or heard again after it left the cache.
+                    Console.WriteLine($"[audio] ambience bed {(SceneKind)scene} baked off the frame in {ready.Result.Milliseconds:0} ms, realized in {realized:0.00} ms");
                 }
                 catch (Exception exception)
                 {
-                    Console.WriteLine($"[audio] the scene beds could not be realized: {exception.Message}");
+                    Console.WriteLine($"[audio] the scene bed could not be realized: {exception.Message}");
                     _failed = true;
                     return;
                 }
+
+                //The wish may have moved on while this one baked (the scene page clicked through): the next
+                //bed starts now, and the one that just landed stays cached for a click back.
+                RequestBake();
             }
 
-            if (_beds == null) return;
-
-            //A new scene retargets the fade: the outgoing bed (if one is still fading) is let go where it
-            //stands — a hard cut at partial volume, audible only when scenes are clicked through faster than
-            //the fade, which is the scene picker and not play — and the current bed becomes the one fading out.
-            if (_wanted >= 0 && _wanted != _toScene)
+            //A new scene retargets the fade once its bed exists: the outgoing bed (if one is still fading) is
+            //let go where it stands — a hard cut at partial volume, audible only when scenes are clicked through
+            //faster than the fade, which is the scene picker and not play — and the current bed becomes the one
+            //fading out. Until the new bed lands the current one simply plays on.
+            SoundEffect bed;
+            if (_wanted >= 0 && _wanted != _toScene && (bed = Cached(_wanted)) != null)
             {
                 _from?.Stop();
                 _from?.Dispose();
                 _from = _to;
+                _fromScene = _toScene;
 
-                _to = _beds[_wanted].CreateInstance();
+                _to = bed.CreateInstance();
                 _to.IsLooped = true;
                 _to.Volume = 0f;
                 _to.Play();
@@ -144,6 +175,7 @@ namespace BS3D.Audio
                     _from.Stop();
                     _from.Dispose();
                     _from = null;
+                    _fromScene = -1;
                 }
             }
 
@@ -158,6 +190,64 @@ namespace BS3D.Audio
             if (_from != null) _from.Volume = MathHelper.Clamp(MathF.Sqrt(1f - _blend) * level, 0f, 1f);
         }
 
+        #region The cache (#592)
+
+        /// <summary>
+        /// Starts baking the wanted scene's bed unless it is cached or a bake is already running — one at a time,
+        /// so a scene page clicked through bakes the scene it ends on next rather than every scene it passed.
+        /// </summary>
+        private void RequestBake()
+        {
+            if (_wanted < 0 || _bake != null || Cached(_wanted) != null) return;
+
+            //Only a scene change and a finished bake come here, so neither the closure nor the task is a
+            //per-frame allocation.
+            SceneKind scene = (SceneKind)_wanted;
+            _bakeScene = _wanted;
+            _bake = Task.Run(() =>
+            {
+                long start = System.Diagnostics.Stopwatch.GetTimestamp();
+                byte[] pcm = ToPcm(BakeScene(scene));
+                return (pcm, System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalMilliseconds);
+            });
+        }
+
+        /// <summary>The scene's realized bed if it is cached (and marks it used), null otherwise.</summary>
+        private SoundEffect Cached(int scene)
+        {
+            for (int i = 0; i < CACHED_BEDS; i++)
+            {
+                if (_cacheScene[i] != scene) continue;
+                _cacheUsed[i] = ++_useClock;
+                return _cache[i];
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Keeps a freshly realized bed, evicting the least recently used one that is not sounding. At most two
+        /// beds sound at once (the crossfade's pair) against three slots, so there is always one to evict.
+        /// </summary>
+        private void Store(int scene, SoundEffect bed)
+        {
+            int slot = -1;
+
+            for (int i = 0; i < CACHED_BEDS; i++)
+            {
+                if (_cacheScene[i] == -1) { slot = i; break; }
+                if (_cacheScene[i] == _toScene || _cacheScene[i] == _fromScene) continue;
+                if (slot < 0 || _cacheUsed[i] < _cacheUsed[slot]) slot = i;
+            }
+
+            _cache[slot]?.Dispose();
+            _cache[slot] = bed;
+            _cacheScene[slot] = scene;
+            _cacheUsed[slot] = ++_useClock;
+        }
+
+        #endregion
+
         #region The beds
 
         /// <summary>
@@ -165,15 +255,6 @@ namespace BS3D.Audio
         /// rendered one second past the loop point and <b>folded back onto the head</b> (equal-power), so the
         /// noise content is continuous across the seam the same way the envelopes are.
         /// </summary>
-        private static float[][] BakeAll()
-        {
-            float[][] beds = new float[SCENES][];
-
-            for (int scene = 0; scene < SCENES; scene++) beds[scene] = BakeScene((SceneKind)scene);
-
-            return beds;
-        }
-
         private static float[] BakeScene(SceneKind scene)
         {
             int loopSamples = (int)(SAMPLE_RATE * LOOP_SECONDS);
@@ -683,7 +764,11 @@ namespace BS3D.Audio
             return loop;
         }
 
-        private static SoundEffect ToSoundEffect(float[] signal)
+        /// <summary>
+        /// The float bed as interleaved 16-bit PCM. Runs on the bake's own thread since #592 — it was 28 M
+        /// samples converted on the main thread in one frame while all twenty beds were realized at once.
+        /// </summary>
+        private static byte[] ToPcm(float[] signal)
         {
             byte[] pcm = new byte[signal.Length * 2];
 
@@ -694,24 +779,18 @@ namespace BS3D.Audio
                 pcm[i * 2 + 1] = (byte)((sample >> 8) & 0xFF);
             }
 
-            //Stereo since #146. The buffer is already interleaved left-then-right, which is the layout 16-bit
-            //PCM wants, so the loop above needs no notion of channels — only this line does.
-            //
-            //Safe HERE and not in ProceduralAudio: a bed plays through a plain SoundEffectInstance, where the
-            //effects are placed by Apply3D, which takes a MONO source. Stereo there would not widen them, it
-            //would take their placement away — so this is not a change to copy across to that file.
-            return new SoundEffect(pcm, SAMPLE_RATE, AudioChannels.Stereo);
+            return pcm;
         }
 
         #endregion
 
         public void Dispose()
         {
-            _failed = true;   //so a late Update cannot resurrect it
+            _failed = true;   //so a late Update cannot resurrect it; a bake still running is simply dropped
 
             _from?.Dispose();
             _to?.Dispose();
-            if (_beds != null) foreach (SoundEffect bed in _beds) bed?.Dispose();
+            for (int i = 0; i < CACHED_BEDS; i++) _cache[i]?.Dispose();
         }
     }
 }
