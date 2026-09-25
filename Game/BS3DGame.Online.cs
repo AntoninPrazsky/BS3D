@@ -1,6 +1,7 @@
 using BS3D.Online;
 using Prazsky.BS3D.Levels;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 
@@ -24,6 +25,84 @@ namespace BS3D
 
         /// <summary>The submission of the level most recently cleared, which is the only one a page is waiting on.</summary>
         private Guid _onlineSubmissionId;
+
+        /// <summary>That clear's board key, which the result page's boards are fetched for once it is accepted (#547).</summary>
+        private LevelIdentity _onlineSubmittedLevel;
+
+        //The result page's two boards (#547): requested when the clear is accepted, under these tickets
+        private int _boardTicket;
+        private int _resultMonthTicket = -1, _resultAllTimeTicket = -1;
+
+        /// <summary>How many of each board the result page shows (#547): the top five, and the player's own row under them.</summary>
+        internal const int RESULT_BOARD_ROWS = 5;
+
+        /// <summary>
+        /// This month's board of the level just cleared, fetched once the clear was accepted (#547) — the top of it and
+        /// the player's own row. Null until it arrives, and from the moment a new clear is submitted.
+        /// </summary>
+        internal BoardPageBody ResultMonthBoard { get; private set; }
+
+        /// <summary>The all-time board of the level just cleared; see <see cref="ResultMonthBoard"/>.</summary>
+        internal BoardPageBody ResultAllTimeBoard { get; private set; }
+
+        /// <summary>
+        /// Moves whenever anything the result page shows of the online boards changes — an answer, a board, a new
+        /// clear — so the page rewrites its labels only then, rather than every frame (#547).
+        /// </summary>
+        internal int OnlineResultGeneration { get; private set; }
+
+        //Board pages asked for by a page other than the result's (the picker's board page, #547): their replies by
+        //ticket, and a short cache so paging back and forth does not ask the Pi again for what it just answered
+        private readonly Dictionary<int, BoardReply> _boardReplies = new();
+        private readonly Dictionary<int, (string, string, int, bool, int, int)> _pendingBoardKeys = new();
+        private readonly Dictionary<(string, string, int, bool, int, int), (BoardReply Reply, float At)> _boardCache = new();
+        private const float BOARD_CACHE_SECONDS = 60f;
+
+        //The result page's line for a player who has not opted in shows once a session and no more (#547): an offer
+        //made on every clear is a nag
+        private bool _onlineHintOffered;
+
+        /// <summary>
+        /// Whether the result page may offer the boards to a player who has not opted in (#547) — true once a session,
+        /// on the first ending that asks. Asked when a page is presented, so the decision stands while it is up.
+        /// </summary>
+        internal bool TakeOnlineHint()
+        {
+            if (OnlineEnabled || _onlineHintOffered) return false;
+
+            _onlineHintOffered = true;
+            return true;
+        }
+
+        /// <summary>This install's player id while online scores are on, for a board page to ask for its own row.</summary>
+        internal Guid? OnlinePlayerId => OnlineEnabled && _onlineIdentity?.IsUsable == true ? _onlineIdentity.PlayerId : null;
+
+        /// <summary>
+        /// Asks for one page of a level's board (#547) and returns the ticket its reply will carry, or -1 when this run
+        /// cannot see the boards. A page asked for in the last minute comes straight from the cache, under a new
+        /// ticket, without asking the service again.
+        /// </summary>
+        internal int RequestLevelBoard(LevelIdentity level, bool allTime, int offset, int limit)
+        {
+            if (!OnlineEnabled || level == null) return -1;
+
+            int ticket = ++_boardTicket;
+            int rules = Prazsky.BS3D.Scoring.ScoreKeeper.RulesVersion;
+            var key = (level.File, level.Hash, rules, allTime, offset, limit);
+
+            if (_boardCache.TryGetValue(key, out var cached) && WallClock - cached.At < BOARD_CACHE_SECONDS)
+            {
+                _boardReplies[ticket] = cached.Reply with { Ticket = ticket };
+                return ticket;
+            }
+
+            _pendingBoardKeys[ticket] = key;
+            _online.RequestBoard(new BoardRequest(ticket, level.File, level.Hash, rules, allTime, OnlinePlayerId, limit, offset));
+            return ticket;
+        }
+
+        /// <summary>The reply to a <see cref="RequestLevelBoard"/> ticket, once it has come; taken once.</summary>
+        internal bool TryTakeLevelBoard(int ticket, out BoardReply reply) => _boardReplies.Remove(ticket, out reply);
 
         private static string OnlineIdentityPath => UserData.PathTo(OnlineIdentity.DefaultFileName);
         private static string OnlineOutboxPath => UserData.PathTo(OnlineScores.OutboxFileName);
@@ -98,7 +177,12 @@ namespace BS3D
             if (submission == null) return;
 
             _onlineSubmissionId = submission.SubmissionId;
+            _onlineSubmittedLevel = level;
             OnlineResult = null;
+            ResultMonthBoard = null;
+            ResultAllTimeBoard = null;
+            _resultMonthTicket = _resultAllTimeTicket = -1;
+            OnlineResultGeneration++;
 
             _online.Submit(submission);
         }
@@ -223,7 +307,39 @@ namespace BS3D
             if (_online == null) return;
 
             while (_online.TryTakeAnswer(out OnlineAnswer answer))
-                if (answer.SubmissionId == _onlineSubmissionId) OnlineResult = answer;
+            {
+                if (answer.SubmissionId != _onlineSubmissionId) continue;
+
+                OnlineResult = answer;
+                OnlineResultGeneration++;
+
+                //Accepted: now the boards it was ranked on, top five of each and the player's own row (#547)
+                if (answer.Outcome == OnlineOutcome.Accepted && _onlineSubmittedLevel != null)
+                {
+                    _resultMonthTicket = RequestLevelBoard(_onlineSubmittedLevel, allTime: false, offset: 0, limit: RESULT_BOARD_ROWS);
+                    _resultAllTimeTicket = RequestLevelBoard(_onlineSubmittedLevel, allTime: true, offset: 0, limit: RESULT_BOARD_ROWS);
+                }
+            }
+
+            while (_online.TryTakeBoard(out BoardReply board))
+            {
+                if (_pendingBoardKeys.Remove(board.Ticket, out var key) && board.Page != null) _boardCache[key] = (board, WallClock);
+                _boardReplies[board.Ticket] = board;
+            }
+
+            if (TryTakeLevelBoard(_resultMonthTicket, out BoardReply month))
+            {
+                ResultMonthBoard = month.Page;
+                _resultMonthTicket = -1;
+                OnlineResultGeneration++;
+            }
+
+            if (TryTakeLevelBoard(_resultAllTimeTicket, out BoardReply allTime))
+            {
+                ResultAllTimeBoard = allTime.Page;
+                _resultAllTimeTicket = -1;
+                OnlineResultGeneration++;
+            }
 
             bool changed = false;
 

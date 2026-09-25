@@ -139,6 +139,8 @@ namespace BS3D.Online
         private readonly ConcurrentQueue<ScoreSubmission> _incoming = new();
         private readonly ConcurrentQueue<OnlineAnswer> _answers = new();
         private readonly ConcurrentQueue<OnlineNotice> _notices = new();
+        private readonly ConcurrentQueue<BoardRequest> _boardRequests = new();
+        private readonly ConcurrentQueue<BoardReply> _boardReplies = new();
         private readonly SemaphoreSlim _wake = new(0);
         private readonly CancellationTokenSource _stop = new();
 
@@ -264,6 +266,22 @@ namespace BS3D.Online
             _wake.Release();
         }
 
+        /// <summary>
+        /// Asks for one page of a board (#547) — <c>GET /v1/boards/{file}</c>, no token: the boards are public. Only
+        /// for an enabled client, because the boards are the opted-in player's to see. The page comes back through
+        /// <see cref="TryTakeBoard"/> under the request's ticket.
+        /// </summary>
+        internal void RequestBoard(BoardRequest request)
+        {
+            if (!Enabled) return;
+
+            _boardRequests.Enqueue(request);
+            _wake.Release();
+        }
+
+        /// <summary>The next board page the worker fetched, if any. Allocates nothing when there is none.</summary>
+        internal bool TryTakeBoard(out BoardReply reply) => _boardReplies.TryDequeue(out reply);
+
         /// <summary>The next answer the worker has for the frame, if any. Allocates nothing when there is none.</summary>
         internal bool TryTakeAnswer(out OnlineAnswer answer) => _answers.TryDequeue(out answer);
 
@@ -339,6 +357,10 @@ namespace BS3D.Online
                     if (rename != null) await RenameAsync(rename, stop);
 
                     if (!Enabled) continue;
+
+                    //Before the outbox: a board the player is looking at is worth more than a clear that can wait
+                    while (_boardRequests.TryDequeue(out BoardRequest board))
+                        _boardReplies.Enqueue(await FetchBoardAsync(board, stop));
 
                     bool added = false;
                     while (_incoming.TryDequeue(out ScoreSubmission submission))
@@ -492,6 +514,43 @@ namespace BS3D.Online
                 default:
                     Console.WriteLine($"[online] Rename to '{name}': no answer ({delivery.Problem}); the name goes with the next clear");
                     break;
+            }
+        }
+
+        /// <summary>One board page. A failure is a reply with its reason, never an exception: a board is a nicety.</summary>
+        private async Task<BoardReply> FetchBoardAsync(BoardRequest r, CancellationToken stop)
+        {
+            //Whole numbers and a Guid only, which no culture writes differently
+            string query = $"v1/boards/{Uri.EscapeDataString(r.File)}?hash={Uri.EscapeDataString(r.Hash)}&rules={r.Rules}"
+                + $"&period={(r.AllTime ? "all" : "month")}&limit={r.Limit}&offset={r.Offset}"
+                + (r.Player is Guid p ? $"&player={p}" : "");
+
+            using CancellationTokenSource deadline = CancellationTokenSource.CreateLinkedTokenSource(stop);
+            deadline.CancelAfter(RequestTimeout);
+
+            try
+            {
+                using HttpResponseMessage response = await _http.GetAsync(new Uri(Server, query), deadline.Token);
+                string text = await response.Content.ReadAsStringAsync(deadline.Token);
+
+                if (!response.IsSuccessStatusCode)
+                    return new BoardReply(r.Ticket, null, $"{(int)response.StatusCode} {response.ReasonPhrase}");
+
+                BoardPageBody page = response.Content.Headers.ContentType?.MediaType == "application/json"
+                    ? JsonSerializer.Deserialize<BoardPageBody>(text, RequestJson)
+                    : null;
+
+                return page != null
+                    ? new BoardReply(r.Ticket, page, null)
+                    : new BoardReply(r.Ticket, null, "not the service's answer");
+            }
+            catch (OperationCanceledException) when (!stop.IsCancellationRequested)
+            {
+                return new BoardReply(r.Ticket, null, $"nothing within {RequestTimeout.TotalSeconds:0} s");
+            }
+            catch (Exception e) when (e is HttpRequestException or JsonException)
+            {
+                return new BoardReply(r.Ticket, null, e.Message);
             }
         }
 
