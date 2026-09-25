@@ -427,7 +427,13 @@ namespace BS3D.Audio
         //The victory as a recording (#482): interleaved stereo floats at SAMPLE_RATE with the key and tempo the file
         //declares, handed in by GameMusic once the file has decoded. Null until then, and forever when there is no
         //file, in which case the piece is baked as it always was.
-        private float[] _victoryRecording;
+        //
+        //Realized ONCE (#592): the recording never changes after SetVictoryRecording, so it is converted to 16-bit
+        //PCM on the thread pool the moment it arrives, made a SoundEffect the frame that lands, and every victory
+        //plays a new instance of that one track. It used to be converted and wrapped afresh on the level-end frame
+        //of every victory — the frame the camera is released, the fireworks start and the result screen is built.
+        private Task<byte[]> _victoryPcm;
+        private SoundEffect _victoryTrack;
         private FanfareShape _victoryRecordingShape;
 
         //Wall clock since the fanfare actually started SOUNDING, which is what a beat grid has to be measured
@@ -564,8 +570,10 @@ namespace BS3D.Audio
         /// </summary>
         public void SetVictoryRecording(float[] pcm, FanfareShape shape)
         {
-            _victoryRecording = pcm;
+            if (_failed) return;
+
             _victoryRecordingShape = shape;
+            _victoryPcm = Task.Run(() => ToPcm(pcm));
         }
 
         /// <summary>
@@ -601,11 +609,12 @@ namespace BS3D.Audio
             //constant, and the argument survives only as the reason this line stands above the bake.
             //The recording, when there is one, arrives through the very path the bake does — a completed task — so
             //the realization, the clock the chime measures its beats from, the fades and the ducking are one code
-            if (victory && _victoryRecording != null)
+            //path. Its Pcm is null: the realization takes the one realized track instead of converting (#592).
+            if (victory && _victoryTrack != null)
             {
                 _fanfareShape = _victoryRecordingShape;
                 _fanfareShapeKnown = true;
-                _fanfareBake = Task.FromResult((_victoryRecording, _victoryRecordingShape));
+                _fanfareBake = Task.FromResult(((float[])null, _victoryRecordingShape));
                 return;
             }
 
@@ -642,6 +651,23 @@ namespace BS3D.Audio
                 if (_fanfareFade.Silent) _fanfare.Stop();
             }
 
+            //The victory recording's one realization (#592), the frame its conversion lands — once a run, long
+            //before any level can end. A victory asked for before then bakes, as one before the file decoded did.
+            if (_victoryPcm != null && _victoryPcm.IsCompleted)
+            {
+                Task<byte[]> ready = _victoryPcm;
+                _victoryPcm = null;
+
+                try
+                {
+                    _victoryTrack = new SoundEffect(ready.Result, SAMPLE_RATE, AudioChannels.Stereo);
+                }
+                catch (Exception exception)
+                {
+                    Console.WriteLine($"[music] the victory recording could not be realized, baking instead: {exception.Message}");
+                }
+            }
+
             //Realized the frame its synthesis finishes, so the piece announcing the result lands as close to the
             //result as the machine allows.
             if (_fanfareBake != null && _fanfareBake.IsCompleted)
@@ -654,8 +680,8 @@ namespace BS3D.Audio
                     SoundEffectInstance old = _fanfare;
                     SoundEffect oldTrack = _fanfareTrack;
 
-                    _fanfareTrack = ToSoundEffect(ready.Result.Pcm);
-                    _fanfare = _fanfareTrack.CreateInstance();
+                    //A null Pcm is the recording: its one track, never converted again and never disposed here.
+                    _fanfareTrack = ready.Result.Pcm == null ? _victoryTrack : ToSoundEffect(ready.Result.Pcm);                    _fanfare = _fanfareTrack.CreateInstance();
 
                     //An announcement arrives at full — whatever fade the previous fanfare's retirement left
                     //behind belonged to that instance, which is disposed a few lines down.
@@ -669,7 +695,7 @@ namespace BS3D.Audio
                     _fanfareClock.Restart();
 
                     old?.Dispose();
-                    oldTrack?.Dispose();
+                    if (oldTrack != _victoryTrack) oldTrack?.Dispose();
                 }
                 catch (Exception exception)
                 {
@@ -4501,7 +4527,8 @@ namespace BS3D.Audio
             _failed = true;   //so a late Update cannot resurrect it
 
             _fanfare?.Dispose();
-            _fanfareTrack?.Dispose();
+            if (_fanfareTrack != _victoryTrack) _fanfareTrack?.Dispose();
+            _victoryTrack?.Dispose();
         }
     }
 }
