@@ -166,13 +166,16 @@ namespace BS3D.Screens
             {
                 //Replace rather than Pop: the splash is the only page over the backdrop at boot, so the front
                 //end has to TAKE ITS PLACE — a pop would leave the backdrop standing with no menu on it at
-                //all, and the game would open on a scene the player cannot do anything with.
+                //all, and the game would open on a scene the player cannot do anything with. It names ITSELF as
+                //the screen replaced (#576): a Replace of whatever was on top swallowed a page pushed over the
+                //splash, and one that asks after the splash has already been popped (the play argument) is
+                //dropped by the manager rather than putting a menu over the level.
                 //
                 //A skip is a cut, deliberately: the black and the picture stop being drawn on the frame this
                 //page leaves, whichever leg it was in. A player who pressed a key asked for the menu, not for
                 //a faster fade — and the title is already in its corner if the hand-over had not begun, or
                 //flies there from wherever the hand-over left it if it had.
-                Manager.Replace(Game.MainMenuPage);
+                Manager.Replace(this, Game.MainMenuPage);
             }
         }
 

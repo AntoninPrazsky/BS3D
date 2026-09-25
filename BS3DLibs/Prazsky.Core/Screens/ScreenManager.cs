@@ -17,6 +17,13 @@ namespace Prazsky.Core.Screens
     /// successor) in the order it asked for them.
     /// </para>
     /// <para>
+    /// <b>And every queued operation decides against the stack it is applied to, never the one it was queued
+    /// on</b> (#576). Operations queued earlier in the same frame run first, so the live stack at the call is
+    /// the wrong question: <see cref="PopTo{T}"/> once checked it at the call and silently skipped a pop whose
+    /// target's push was still pending, and a Replace that took off whatever was on top when it ran swallowed
+    /// a page pushed over the screen that had asked for it.
+    /// </para>
+    /// <para>
     /// It knows nothing about Myra, this game, or how anything is drawn. It is fed a frame and routes it.
     /// </para>
     /// </summary>
@@ -25,9 +32,10 @@ namespace Prazsky.Core.Screens
         private readonly List<Screen> _stack = new();
 
         //Queued push/pop/replace, applied between frames — see the class doc for why they cannot be immediate.
-        //PopTo's target type rides in the entry rather than in a field of its own: two of them queued in one
-        //frame would otherwise share the field and the second would silently pop to the first one's target.
-        private readonly List<(Action Apply, Screen Screen, Type PopTo)> _pending = new();
+        //PopTo's target type and Replace's outgoing screen ride in the entry rather than in fields of their
+        //own: two of them queued in one frame would otherwise share the field and the second would silently
+        //act on the first one's target.
+        private readonly List<(Action Apply, Screen Screen, Screen Old, Type PopTo)> _pending = new();
 
         //Rebuilt per traversal rather than allocated per frame: Update and Draw both need a slice of the stack
         //and neither may hold the live list while a screen on it queues a mutation
@@ -59,18 +67,29 @@ namespace Prazsky.Core.Screens
         {
             if (screen == null) throw new ArgumentNullException(nameof(screen));
 
-            _pending.Add((Action.Push, screen, null));
+            _pending.Add((Action.Push, screen, null, null));
         }
 
         /// <summary>Takes the top screen off. Does nothing on an empty stack.</summary>
-        public void Pop() => _pending.Add((Action.Pop, null, null));
+        public void Pop() => _pending.Add((Action.Pop, null, null, null));
 
-        /// <summary>Takes the top screen off and puts this one in its place, as one operation.</summary>
-        public void Replace(Screen screen)
+        /// <summary>
+        /// Takes <paramref name="old"/> off the stack and puts <paramref name="next"/> in its place — at its
+        /// index, as one operation — so a screen hands over to its successor without having to be the top one.
+        /// The splash is the case: it replaces itself with the front end, and a page pushed over it in the
+        /// meantime stays where it is, over the front end, rather than being taken off in the splash's place.
+        /// <para>
+        /// Resolved when it is applied. If <paramref name="old"/> has left the stack by then (popped, reset, or
+        /// already replaced by an earlier request), nothing happens and a line says so: the screen that asked
+        /// is gone, and with it the place its successor was to take.
+        /// </para>
+        /// </summary>
+        public void Replace(Screen old, Screen next)
         {
-            if (screen == null) throw new ArgumentNullException(nameof(screen));
+            if (old == null) throw new ArgumentNullException(nameof(old));
+            if (next == null) throw new ArgumentNullException(nameof(next));
 
-            _pending.Add((Action.Replace, screen, null));
+            _pending.Add((Action.Replace, next, old, null));
         }
 
         /// <summary>
@@ -79,7 +98,7 @@ namespace Prazsky.Core.Screens
         /// nothing on the stack. Every screen it left is properly given its <see cref="Screen.Leave"/> on the
         /// way out.
         /// </summary>
-        public void Clear() => _pending.Add((Action.Clear, null, null));
+        public void Clear() => _pending.Add((Action.Clear, null, null, null));
 
         /// <summary>
         /// Empties the stack and puts this screen on it — going back to the front end from anywhere, without
@@ -89,19 +108,20 @@ namespace Prazsky.Core.Screens
         {
             if (screen == null) throw new ArgumentNullException(nameof(screen));
 
-            _pending.Add((Action.Reset, screen, null));
+            _pending.Add((Action.Reset, screen, null, null));
         }
 
         /// <summary>
         /// Pops screens until one of the given type is on top. Does nothing if there is none — so "back to the
         /// pause menu" from two panels deep is one call that cannot overshoot into an empty stack.
+        /// <para>
+        /// "There is none" is decided when the pop is <b>applied</b>, against the stack the operations queued
+        /// before it have left — a push of the target queued in the same frame counts. Checked at the call, the
+        /// <c>play</c> launch argument's pop to the backdrop found the backdrop's push still pending, skipped,
+        /// and left the splash buried under the session.
+        /// </para>
         /// </summary>
-        public void PopTo<T>() where T : Screen
-        {
-            if (!Contains<T>()) return;
-
-            _pending.Add((Action.PopTo, null, typeof(T)));
-        }
+        public void PopTo<T>() where T : Screen => _pending.Add((Action.PopTo, null, null, typeof(T)));
 
         public void Update(GameTime gameTime)
         {
@@ -153,7 +173,7 @@ namespace Prazsky.Core.Screens
 
             for (int i = 0; i < count; i++)
             {
-                (Action action, Screen screen, Type popTo) = _pending[i];
+                (Action action, Screen screen, Screen old, Type popTo) = _pending[i];
 
                 switch (action)
                 {
@@ -166,8 +186,16 @@ namespace Prazsky.Core.Screens
                         break;
 
                     case Action.Replace:
-                        RemoveTop();
-                        Add(screen);
+                        int at = _stack.IndexOf(old);
+
+                        if (at < 0)
+                        {
+                            Console.WriteLine($"[screens] Replace of {old.GetType().Name} by {screen.GetType().Name} ignored: it is no longer on the stack");
+                            break;
+                        }
+
+                        RemoveAt(at);
+                        Add(screen, at);
                         break;
 
                     case Action.Clear:
@@ -180,7 +208,14 @@ namespace Prazsky.Core.Screens
                         break;
 
                     case Action.PopTo:
-                        while (_stack.Count > 0 && !popTo.IsInstanceOfType(_stack[^1])) RemoveTop();
+                        //Checked first: popping towards a type that is not there would empty the stack
+                        if (!ContainsType(popTo))
+                        {
+                            Console.WriteLine($"[screens] PopTo<{popTo.Name}> ignored: none on the stack");
+                            break;
+                        }
+
+                        while (!popTo.IsInstanceOfType(_stack[^1])) RemoveTop();
                         break;
                 }
             }
@@ -191,24 +226,37 @@ namespace Prazsky.Core.Screens
             Active?.CoveredChanged();
         }
 
-        private void Add(Screen screen)
+        private bool ContainsType(Type type)
+        {
+            for (int i = 0; i < _stack.Count; i++) if (type.IsInstanceOfType(_stack[i])) return true;
+
+            return false;
+        }
+
+        //On top unless an index says where: a Replace puts the successor where the screen it replaces stood
+        private void Add(Screen screen, int at = -1)
         {
             screen.Manager = this;
 
-            _stack.Add(screen);
+            if (at < 0) _stack.Add(screen);
+            else _stack.Insert(at, screen);
+
             screen.Enter();
         }
 
         private void RemoveTop()
         {
-            if (_stack.Count == 0) return;
+            if (_stack.Count > 0) RemoveAt(_stack.Count - 1);
+        }
 
-            Screen top = _stack[^1];
+        private void RemoveAt(int index)
+        {
+            Screen screen = _stack[index];
 
-            _stack.RemoveAt(_stack.Count - 1);
+            _stack.RemoveAt(index);
 
-            top.Leave();
-            top.Manager = null;
+            screen.Leave();
+            screen.Manager = null;
         }
 
         private enum Action { Push, Pop, Replace, Clear, Reset, PopTo }

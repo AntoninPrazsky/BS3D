@@ -220,10 +220,11 @@ namespace BS3D
         //"=demo". See Tutorial.Mode.
         private readonly Tutorial.Mode _tutorialMode;
 
-        //Testing only: the "play" argument. Consumed on the first Update rather than at the end of
-        //LoadContent, because the screen manager queues its mutations: BuildMenu's pushes are still pending
-        //there, so StartGame's PopTo<BackdropScreen> would test an empty live stack, silently skip, and
-        //leave the splash buried under the session for the rest of the run.
+        //Testing only: the "play" argument. Consumed on the first Update, after the stack has applied
+        //BuildMenu's pushes. That once mattered: StartGame's PopTo<BackdropScreen> was decided against the live
+        //stack at the call, found the backdrop's push still pending, skipped, and left the splash buried under
+        //the session. The manager resolves it when it is applied since #576, so the order no longer carries
+        //that; the first Update is simply where a click would come from.
         private bool _startupPlay;
 
         //Testing only: the "level=" argument — which entry _startupPlay should open, as a 1-based place in the
@@ -2002,11 +2003,9 @@ namespace BS3D
             _rumble.Update(elapsed, IsActive && _screens.Contains<GameplayScreen>() && !_screens.Contains<PausePage>());
 
             //Testing only (the play argument): jump into the first level through the very pop-and-push a
-            //player's click takes. After the stack update above, so BuildMenu's queued pushes have been
-            //applied and PopTo<BackdropScreen> sees the backdrop it pops to — the splash is drawn for the
-            //one frame this costs, exactly as a very fast click would leave it. At the end of LoadContent
-            //those pushes were still pending, the PopTo tested an empty live stack and silently skipped,
-            //and the splash stayed buried under the session for the rest of the run.
+            //player's click takes. The pop to the backdrop takes the splash off with it — the splash is drawn
+            //for the one frame this costs, exactly as a very fast click would leave it, and being off the stack
+            //it never asks for its hand-over to the menu (see _startupPlay for why this is no longer order-bound).
             if (_startupPlay)
             {
                 _startupPlay = false;
@@ -2018,9 +2017,8 @@ namespace BS3D
             //AFTER the startup level, and that order is the whole point — see the method.
             StartStartupCelebrations();
 
-            //The level picker, over the front end (#273). Held back until the title card has gone for the same
-            //reason the result page below is: the splash hands over with a Replace, which pops whatever is on
-            //top, so a page pushed at boot is swallowed by the main menu arriving a couple of seconds later.
+            //The level picker, over the front end (#273). Held back until the title card has gone, as every page
+            //below is — see the result page's note for why that is still wanted now that it is not needed.
             if (_startupPick != null && !_screens.Contains<SplashPage>())
             {
                 //A chapter given as a number pins the page to it; anything else (bare "pick") leaves the page
@@ -2091,11 +2089,14 @@ namespace BS3D
             //above has just put a level under it. The figures are a plausible clear rather than zeros: the page
             //lays out its breakdown from them, and a screen of dashes would not be the screen being looked at.
             //
-            //Held back until the TITLE CARD has gone, which is not a nicety: the splash hands over with a
-            //Replace (it is the only page over the backdrop at boot, so it has to take its own place), and a
-            //Replace pops whatever is on top — so a result page pushed at boot was silently swallowed by the
-            //main menu arriving a few seconds later (SplashPage.SECONDS; it was 2.6 s when this was measured,
-            //and #454's logo intro made it longer). Measured that way round, which is how it is known.
+            //Held back until the TITLE CARD has gone. That began as a workaround: the splash hands over with a
+            //Replace, and a Replace used to take off whatever was on top — so a result page pushed at boot was
+            //silently swallowed by the main menu arriving a few seconds later (SplashPage.SECONDS; measured at
+            //2.6 s, before #454's logo intro made it longer). Since #576 the splash replaces ITSELF and a page
+            //over it survives, so the gate no longer protects the stack. It stays, here and on every startup
+            //page above, because the page would otherwise open over the intro: the splash goes on updating and
+            //drawing its black and its logo under a page (MenuPage.UpdatesUnderlying/DrawsUnderlying), and
+            //reading its skip keys — a frame no player can reach, since no page can be opened before the menu.
             if (_startupResult && !_screens.Contains<SplashPage>())
             {
                 _startupResult = false;
