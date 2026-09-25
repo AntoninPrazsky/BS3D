@@ -134,17 +134,29 @@ namespace Prazsky.Core.Render
         {
             //The underside is a VAULT, not a disc (#502): the result page's glance up at the fireworks (#430)
             //passes under the foot, and a flat disc there read as an unfinished model on the one object
-            //presented closest to the player. A real cup's foot is recessed - the rim stands on the plinth
-            //and the underside domes up into the foot to a small central boss - so the profile starts at the
-            //axis 0.034 up and falls to the rim, which Densify turns into a curve; the rim ring's crease
-            //breaks the normal where the vault meets the wall. Traced axis-outward like the disc was, so it
-            //faces the way the disc faced.
-            new(0.000f, 0.034f),
-            new(0.040f, 0.033f),
-            new(0.090f, 0.028f),
-            new(0.140f, 0.020f),
-            new(0.190f, 0.010f),
-            new(0.238f, 0.000f, true),               //the foot's rim, where the vault meets the plinth
+            //presented closest to the player. A real cup's foot is recessed - a flat standing ring stands on
+            //the plinth and the underside domes up inside it - so the profile starts at the axis and falls to
+            //that ring, which Densify turns into a curve.
+            //
+            //DEEPER since the owner's second look (#502, "vyklenuta by mela byt jeste vice"): the first vault
+            //rose 0.034, a seventh of the foot's radius, and from the glance's grazing angle that was a dark
+            //edge and not a dome. It rises 0.108 now, nearly the plinth's whole drum (DRUM_TOP_Y), and it can:
+            //over the vault's inner half the solid above it is the trumpet and the stem, 0.08 of metal or
+            //more (0.172 out: vault 0.046 under the trumpet's 0.128). The outer 0.034 of the foot is a flat
+            //STANDING RING at y 0, so the rim wall stays solid - the thinnest metal anywhere round the vault
+            //is 0.028, where the dome springs under the foot's step onto the drum (the shallow vault left
+            //0.032 there), measured on the densified profile, which also has no self-intersection. The
+            //drum's stones sink 0.006 in, to 0.210, still over the flat ring. The ring's inner edge is a
+            //crease: the line where the ring stops and the dome begins. Traced axis-outward like the disc
+            //was, so it faces the way the disc faced.
+            new(0.000f, 0.108f),
+            new(0.050f, 0.104f),
+            new(0.100f, 0.090f),
+            new(0.140f, 0.070f),
+            new(0.172f, 0.046f),
+            new(0.192f, 0.014f),
+            new(0.204f, 0.000f, true),               //the standing ring's inner edge, where the dome springs
+            new(0.238f, 0.000f, true),               //the foot's rim, the standing ring's outer edge
             new(0.238f, 0.018f, true),               //the foot rim's own wall
             new(DRUM_RADIUS, DRUM_BOTTOM_Y, true),   //a step in onto the drum
             new(DRUM_RADIUS, DRUM_TOP_Y, true),      //the drum: the lower row of stones is set on this wall
