@@ -99,7 +99,33 @@ namespace Prazsky.BS3D
         //band came out WHITE - the push over 1 through the tonemap's shoulder had taken the hue with it, the very
         //loss the 3x note above describes, only later. Just over 1 now means just over: the dominant channel
         //still blooms, the others stay where the hue put them.
-        private const float COLLAR_BRIGHTNESS = 1.05f;
+        //
+        //...and one figure for every sky was the next thing wrong (#478, the owner's second look: "the hue
+        //round the muzzle could be more pronounced still - it depends on the scene and the climate").
+        //Photographed with red, yellow and blue rounds across a noon meadow, a bright city, a desert sunset,
+        //space and the neon city, the ring was a PASTEL of the round everywhere - pink for red, grey-blue
+        //for blue - and the reason was the hue, not the push: the ball tints are authored with a floor in
+        //every channel (red is 1, 0.2, 0.2), and at the band's brightness that 0.2 lands at about half of
+        //sRGB, which is pink. So the hue is SATURATED before it is pushed (COLLAR_SATURATION), and the push
+        //follows the sky (SetCollarSky) instead of being one figure: a ring that holds its own against a
+        //noon dome is a glare blob under a night one, and one tuned for the night vanishes at noon. The
+        //shoulder no longer whitens it at the bright end because what the shoulder bleaches is several
+        //channels riding it together - which the saturation has taken away for every chromatic round.
+        private const float COLLAR_BRIGHTNESS_DIM = 1.0f;
+        private const float COLLAR_BRIGHTNESS_BRIGHT = 1.6f;
+
+        //The sky-ambient luminance at and above which the band takes COLLAR_BRIGHTNESS_BRIGHT - the measure
+        //and the figure SkyLightRig.ApplyToGlass uses for "a daylight dome", so the two surfaces that follow
+        //how bright the sky is agree on what bright means.
+        private const float COLLAR_BRIGHT_SKY_LUMINANCE = 0.25f;
+
+        //How far the normalised hue is pushed away from its own luminance before it is renormalised: 1 is the
+        //ball's tint as authored, 2 doubles every channel's distance from the grey of the same luminance and
+        //clips what falls below zero. Red's 0.2 floor comes out at 0.02, blue's (0.45, 0.6, 1) at
+        //(0.22, 0.43, 1) - still the light blue it is and not navy - and yellow keeps its green at 0.70
+        //while its blue goes, so it stays yellow rather than turning orange, which a per-channel power would
+        //have done. Grey rounds (silver, the floor below) have almost no distance to double and stay grey.
+        private const float COLLAR_SATURATION = 2f;
         private const float COLLAR_COLOR_FLOOR = 0.22f;
 
         /// <summary>
@@ -478,6 +504,10 @@ namespace Prazsky.BS3D
         private LatheMesh _collarMesh;
         private InstancedModelRenderer _collarRenderer;
 
+        //The collar's push for the sky it stands under (SetCollarSky). Starts at the daylight figure so a host
+        //that never calls it gets the loud end rather than a ring nobody reads.
+        private float _collarBrightness = COLLAR_BRIGHTNESS_BRIGHT;
+
         private GunCarriageMesh _carriageMesh;
         private InstancedModelRenderer _carriageRenderer;
         private OmniWheelMesh _wheelMesh;
@@ -705,12 +735,41 @@ namespace Prazsky.BS3D
             _collarRenderer.GroundHeight =
                 ArenaIsland.FloorHeightAt(MathF.Sqrt(world.M41 * world.M41 + world.M43 * world.M43));
 
-            float peak = MathF.Max(tint.X, MathF.Max(tint.Y, tint.Z));
-            Vector3 hue = peak > COLLAR_COLOR_FLOOR ? tint / peak : new Vector3(COLLAR_COLOR_FLOOR);
-
-            _collarRenderer.EmissiveTint = hue * (COLLAR_BRIGHTNESS * strength);
+            _collarRenderer.EmissiveTint = CollarHue(tint) * (_collarBrightness * strength);
 
             _collarRenderer.Draw(camera, Matrix.CreateRotationX(MathHelper.PiOver2) * world, effectParams);
+        }
+
+        /// <summary>
+        /// The round's tint as the collar states it: normalised to its own peak, then saturated
+        /// (<see cref="COLLAR_SATURATION"/>) and renormalised, so the brightest channel is 1 and the others are
+        /// what the colour is rather than what its authored floor adds to it.
+        /// </summary>
+        private static Vector3 CollarHue(Vector3 tint)
+        {
+            float peak = MathF.Max(tint.X, MathF.Max(tint.Y, tint.Z));
+            if (peak <= COLLAR_COLOR_FLOOR) return new Vector3(COLLAR_COLOR_FLOOR);
+
+            Vector3 hue = tint / peak;
+            float grey = ColorSpace.Luminance(hue);
+            hue = Vector3.Max(Vector3.Zero, new Vector3(grey) + (hue - new Vector3(grey)) * COLLAR_SATURATION);
+
+            return hue / MathF.Max(hue.X, MathF.Max(hue.Y, hue.Z));
+        }
+
+        /// <summary>
+        /// Sets how hard the muzzle collar pushes its colour from how bright this sky is (#478): from
+        /// <see cref="COLLAR_BRIGHTNESS_DIM"/> under a night or sky-replacing rig to
+        /// <see cref="COLLAR_BRIGHTNESS_BRIGHT"/> at a daylight dome's <see cref="COLLAR_BRIGHT_SKY_LUMINANCE"/>,
+        /// linearly in the sky ambient's luminance between. Call it wherever the host pushes the sky rig to its
+        /// renderers - a dome or scene switch, and the aurora's moving rig - with the rig's
+        /// <see cref="SkyLightRig.SkyAmbient"/>. The collar itself stays out of the rig (see
+        /// <see cref="COLLAR_STEEL"/>): the sky decides how LOUD the band is, never what colour.
+        /// </summary>
+        public void SetCollarSky(Vector3 skyAmbient)
+        {
+            float daylight = MathHelper.Clamp(ColorSpace.Luminance(skyAmbient) / COLLAR_BRIGHT_SKY_LUMINANCE, 0f, 1f);
+            _collarBrightness = MathHelper.Lerp(COLLAR_BRIGHTNESS_DIM, COLLAR_BRIGHTNESS_BRIGHT, daylight);
         }
 
         /// <summary>

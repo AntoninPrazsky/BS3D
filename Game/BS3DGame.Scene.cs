@@ -469,6 +469,10 @@ namespace BS3D
             //airless sky, the cavern's dim one) cannot take the reward down with it.
             foreach (InstancedModelRenderer renderer in _trophy.Renderers) _rig.ApplyToPresented(renderer);
 
+            //The muzzle collar stays out of the rig - it states the round's colour under every dome - but how
+            //hard it pushes that colour follows the sky (CannonRig.SetCollarSky, #478)
+            _cannonRig.SetCollarSky(_rig.SkyAmbient);
+
             //And the wood's own pigments, which the rig above cannot reach — see ForestScatterRenderer.
             //ShiftTowardsSky (#108). Guarded inside on the tint, so it is free every frame but a dome switch.
             _forestScatter?.ApplySkyTint(_rig.KeyTint);
