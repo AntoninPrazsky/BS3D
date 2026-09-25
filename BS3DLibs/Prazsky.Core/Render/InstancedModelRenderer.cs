@@ -202,7 +202,8 @@ namespace Prazsky.Core.Render
 
         //The refracting glass (#541): its technique and the four figures only it reads
         private EffectTechnique _glassTechnique;
-        private EffectParameter _glassBehindParam, _glassHalfExtentsParam, _glassCutPeriodParam, _glassCutSlopeParam;
+        private EffectParameter _glassBehindParam, _glassHalfExtentsParam, _glassCutPeriodParam, _glassCutSlopeParam,
+            _glassCornerParam, _glassCrownInsetParam, _glassCrownDropParam, _glassRimParam;
 
         /// <summary>
         /// Optional detail texture modulating the material colors of a model that carries no texture
@@ -477,6 +478,33 @@ namespace Prazsky.Core.Render
 
         /// <summary>How steep that cut's facets are, as the tangent of their tilt; 0 leaves the top face flat (#541).</summary>
         public float GlassCutSlope { get; set; }
+
+        /// <summary>
+        /// The outline the refracting slab was built on (#541): the radius every corner's cuts are tangent to, and
+        /// how many cuts round each corner — <see cref="CutSlabMesh"/>'s own two figures, so the trace follows the
+        /// outline the mesh draws.
+        /// </summary>
+        public float GlassCornerRadius { get; set; }
+
+        /// <inheritdoc cref="GlassCornerRadius"/>
+        public int GlassCornerFacets { get; set; }
+
+        /// <summary>
+        /// The slab's top edge in section (#541), four points from the side band up to the top face's rim: X how far
+        /// in from the outline, Y how far below the top face. A ray the trace sends out through the top's plane
+        /// within that edge leaves through the facet between two of them.
+        /// </summary>
+        public Vector4 GlassCrownInset { get; set; }
+
+        /// <inheritdoc cref="GlassCrownInset"/>
+        public Vector4 GlassCrownDrop { get; set; }
+
+        /// <summary>
+        /// The border of flutes the refracting technique cuts round the top face inside its rim (#541): the border's
+        /// width, the flutes' spacing (both world units), their facets' tilt and the border's lean down towards the
+        /// rim (both tangents). A zero width leaves the diamond cut running to the rim.
+        /// </summary>
+        public Vector4 GlassRim { get; set; }
 
         /// <summary>
         /// Number of primary-colored gores of the procedural beach-ball pattern (segments around
@@ -1208,6 +1236,10 @@ namespace Prazsky.Core.Render
             _glassHalfExtentsParam = _effect.Parameters["GlassHalfExtents"];
             _glassCutPeriodParam = _effect.Parameters["GlassCutPeriod"];
             _glassCutSlopeParam = _effect.Parameters["GlassCutSlope"];
+            _glassCornerParam = _effect.Parameters["GlassCorner"];
+            _glassCrownInsetParam = _effect.Parameters["GlassCrownInset"];
+            _glassCrownDropParam = _effect.Parameters["GlassCrownDrop"];
+            _glassRimParam = _effect.Parameters["GlassRim"];
 
             //Cached before the SetLightTint call below, which reads them. The rig used to be looked up by
             //name inside SetLightTint, which was fine while it ran once per dome switch — the Testbed's
@@ -1745,6 +1777,10 @@ namespace Prazsky.Core.Render
                 _glassHalfExtentsParam.SetValue(GlassHalfExtents);
                 _glassCutPeriodParam.SetValue(GlassCutPeriod);
                 _glassCutSlopeParam.SetValue(GlassCutSlope);
+                _glassCornerParam.SetValue(new Vector2(GlassCornerRadius, MathHelper.PiOver2 / (GlassCornerFacets + 1)));
+                _glassCrownInsetParam.SetValue(GlassCrownInset);
+                _glassCrownDropParam.SetValue(GlassCrownDrop);
+                _glassRimParam.SetValue(GlassRim);
             }
             else
             {
