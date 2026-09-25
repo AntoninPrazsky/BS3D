@@ -428,6 +428,24 @@ float SurfaceOcclusion(float3 worldPosition, float3 worldNormal, float4 occlusio
 //Like BasicEffect, the texture modulates the whole non-specular color (diffuse, ambient and emissive).
 //keyShadow attenuates the key light alone - it is what the relief's own bumps block - while cavity
 //attenuates the ambient, which is the sky a pit cannot see. Surfaces with no relief pass 1 for both.
+//What reaches a point of the key light past the weather and past everything the sun casts: the cloud field's
+//shadow times the cast shadow map (and, inside SunShadow, the ceiling glass's own). ONE copy because until #567
+//the key term of MetalPS, BubblePS and HollowPS multiplied by the cloud alone, so those three styles of ball
+//took no shadow from the island, the gun, the trees or the ceiling while every other surface took it here.
+//
+//Uniform branch: ShadowStrength is 0 whenever no map is bound (the sea, the storm, a sky-replacing scene,
+//the Low tier, a sun near the horizon), so a wavefront takes one side and nothing inside takes a derivative.
+float KeySunlight(float3 worldPosition, float3 worldNormal)
+{
+    float sunlight = CloudSunlight(worldPosition, SunDirection);
+
+    [branch]
+    if (ShadowStrength > 0.0)
+        sunlight *= SunShadow(worldPosition, worldNormal, SunDirection);
+
+    return sunlight;
+}
+
 float4 ShadePixel(float3 worldPosition, float3 rawWorldNormal, float4 occlusionData, float4 texColor, float keyShadow, float cavity, SurfaceSpecular surface)
 {
     float3 worldNormal = normalize(rawWorldNormal);
@@ -443,19 +461,14 @@ float4 ShadePixel(float3 worldPosition, float3 rawWorldNormal, float4 occlusionD
 
     //The cloud shadow rides on the same multiplier the relief's own bumps use, which is why one line here
     //puts weather across the whole scene at once - balls, city, floor and cannon all come through here.
-    float sunlight = keyShadow * CloudSunlight(worldPosition, SunDirection);
-
+    //
     //And the sun's CAST shadow rides the very same multiplier (#470), which is why one line here puts the
     //island's shadow on the grass, the gun's on the stone and the trees' on both. It is the sun term alone -
     //the fill and back lights stand in for bounced light and a shadow does not take that away, exactly as
-    //the relief's self-shadow above does not. Savanna.fx folds its own tap into the same factor, so the
-    //grass beside the island and the island itself are shadowed by one rule and cannot disagree.
-    //
-    //Uniform branch: ShadowStrength is 0 whenever no map is bound (the sea, the storm, a sky-replacing scene,
-    //the Low tier, a sun near the horizon), so a wavefront takes one side and nothing inside takes a derivative.
-    [branch]
-    if (ShadowStrength > 0.0)
-        sunlight *= SunShadow(worldPosition, worldNormal, SunDirection);
+    //the relief's self-shadow does not. Savanna.fx folds its own tap into the same factor, so the grass
+    //beside the island and the island itself are shadowed by one rule and cannot disagree. Both are
+    //KeySunlight, which the three ball styles that do not come through here call too.
+    float sunlight = keyShadow * KeySunlight(worldPosition, worldNormal);
 
     float3 diffuse = keyDiffuse * sunlight;
     float3 specular = keySpecular * sunlight;
@@ -1644,7 +1657,7 @@ float4 BubblePS(PatternVertexShaderOutput input) : COLOR
     //The lamps' pinpoints, the key one under the weather like every other surface in the scene.
     float3 hotspot = 0;
     AddBubbleHighlight(normalize(KeyLightPosition - input.WorldPosition),
-        DirLight0SpecularColor * CloudSunlight(input.WorldPosition, SunDirection), normal, eyeVector, hotspot);
+        DirLight0SpecularColor * KeySunlight(input.WorldPosition, normal), normal, eyeVector, hotspot);
     AddBubbleHighlight(-DirLight1Direction, DirLight1SpecularColor, normal, eyeVector, hotspot);
     AddBubbleHighlight(-DirLight2Direction, DirLight2SpecularColor, normal, eyeVector, hotspot);
     hotspot *= DirLightStrength * BubbleGlossStrength * occlusion;
@@ -2398,7 +2411,7 @@ float4 MetalPS(PatternVertexShaderOutput input) : COLOR
 
     AddLight(normalize(KeyLightPosition - input.WorldPosition), DirLight0DiffuseColor, DirLight0SpecularColor, worldNormal, eyeVector, diffuse, specular);
 
-    specular *= CloudSunlight(input.WorldPosition, SunDirection);
+    specular *= KeySunlight(input.WorldPosition, worldNormal);
 
     AddLight(-DirLight1Direction, DirLight1DiffuseColor, DirLight1SpecularColor, worldNormal, eyeVector, diffuse, specular);
     AddLight(-DirLight2Direction, DirLight2DiffuseColor, DirLight2SpecularColor, worldNormal, eyeVector, diffuse, specular);
@@ -4455,7 +4468,7 @@ float4 HollowPS(PatternVertexShaderOutput input) : COLOR
     //empty the highlight is one of the three things naming the sphere.
     float3 hotspot = 0;
     AddBubbleHighlight(normalize(KeyLightPosition - input.WorldPosition),
-        DirLight0SpecularColor * CloudSunlight(input.WorldPosition, SunDirection), normal, eyeVector, hotspot);
+        DirLight0SpecularColor * KeySunlight(input.WorldPosition, normal), normal, eyeVector, hotspot);
     AddBubbleHighlight(-DirLight1Direction, DirLight1SpecularColor, normal, eyeVector, hotspot);
     AddBubbleHighlight(-DirLight2Direction, DirLight2SpecularColor, normal, eyeVector, hotspot);
     hotspot *= DirLightStrength * occlusion;
