@@ -63,8 +63,15 @@ namespace BS3D.Screens
         //the frame answers "what does this level look like?" behind the widgets asking it. The tile still
         //has to carry the number, the name and the star row without crowding, which is what stops this
         //going smaller still.
+        //⚠ AND THE TYPE INSIDE IT HAS TO BE SUMMED AGAINST IT (#496). #472 shrank this box from 300 to 210 and
+        //kept the type - a 124 number over two 58 lines, 252 units in 186 of inside - so the star row was cut
+        //off the bottom of every tile, the one line the page exists to show. The type is sized to the box now
+        //(see BuildTile); change either figure and redo that sum.
         private const int TILE_WIDTH = 330;
         private const int TILE_HEIGHT = 210;
+
+        //The gap between the tile's three lines, in design units, fitted like every other gap on the page
+        private const int TILE_LINE_GAP = 4;
 
         //Four to a row was cut for a column that scrolled; a chapter of ten wants FIVE, which is two full rows
         //and no scrollbar (#273). The tile itself was re-checked against the wider grid and kept: nothing about
@@ -511,16 +518,22 @@ namespace BS3D.Screens
         /// </summary>
         private Button BuildTile(int slot)
         {
+            //THE SUM THAT HAS TO HOLD (#496): number + name + star row + two gaps <= TILE_HEIGHT minus MenuTile's
+            //12 + 12 of padding. 80 + 46 + 46 + 2 x 4 = 180 of 186, the six left for each size's own rounding.
+            //It did not hold from #472 to #496 and nothing said so: Myra clips a stack that overflows its box, so
+            //the LAST line - the stars - simply was not there. Heights only; Fit shrinks the gap, never the type.
             VerticalStackPanel content = new()
             {
-                Spacing = Scaled(Fit(6)),
+                Spacing = Scaled(Fit(TILE_LINE_GAP)),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
             };
 
+            //The body size of the display face rather than the heading's: the number is what the player reads the
+            //tile BY, but a heading-size numeral left no room for the rating under the name
             Label number = new()
             {
-                Font = Game.MenuFontHeading,
+                Font = FontBody,
                 TextColor = BS3DGame.MENU_TEXT,
                 HorizontalAlignment = HorizontalAlignment.Center,
             };
@@ -528,7 +541,7 @@ namespace BS3D.Screens
 
             Label name = new()
             {
-                Font = FontSmall,
+                Font = FontTile,
                 TextColor = BS3DGame.MENU_TEXT_BODY,
                 HorizontalAlignment = HorizontalAlignment.Center,
             };
@@ -542,8 +555,8 @@ namespace BS3D.Screens
             //The lock's price goes in the first and leaves the second empty: it is a sentence, not a rating.
             HorizontalStackPanel starRow = new() { HorizontalAlignment = HorizontalAlignment.Center };
 
-            Label starsEarned = new() { Font = FontSmall, TextColor = BS3DGame.MENU_TEXT_DIM };
-            Label starsRest = new() { Font = FontSmall, TextColor = BS3DGame.STAR_EMPTY };
+            Label starsEarned = new() { Font = FontTile, TextColor = BS3DGame.MENU_TEXT_DIM };
+            Label starsRest = new() { Font = FontTile, TextColor = BS3DGame.STAR_EMPTY };
 
             starRow.Widgets.Add(starsEarned);
             starRow.Widgets.Add(starsRest);
@@ -867,10 +880,14 @@ namespace BS3D.Screens
                 //A skip leaves no stars and no score, so without this line it reads exactly like a level the
                 //player has simply not got to yet — on a page whose whole job is telling them where they
                 //stand, on the one level they still owe.
+                //⚠ THE PRICE ALONE, without the "Locked · " it carried until #496: "Locked · 236 ★" is 279 units at
+                //the tile's 46 against 195 of room at Fit's floor (measured), so it could never have been read
+                //whole - and it never was, because the row was clipped away entirely from #472 on. The tile's dim
+                //type already says locked, and the detail line under the grid says the whole sentence.
                 _tileStarsEarned[slot].Text = !unlocked
                     ? Game.IsLevelBeyondReach(level)
-                        ? $"Locked · #{Game.FirstUnfinishedLevel + 1} first"
-                        : $"Locked · {Game.LevelMinStars(level)} {STAR_FILLED}"
+                        ? $"#{Game.FirstUnfinishedLevel + 1} first"
+                        : $"{Game.LevelMinStars(level)} {STAR_FILLED}"
                     : rated ? StarsEarned(stars)
                     : Game.LevelSkipped(level) ? "Skipped"
                     : string.Empty;
