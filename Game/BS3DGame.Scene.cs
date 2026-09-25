@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Prazsky.Core;
 using Prazsky.Core.Render;
 using Prazsky.Core.Tools;
+using System;
 using System.Collections.Generic;
 
 namespace BS3D
@@ -1133,7 +1134,10 @@ namespace BS3D
         /// savanna's flame — settles over everything, and the resolve takes the HDR target to the back
         /// buffer. Display space from here on.
         /// </summary>
-        internal void FinishSceneDraw(SceneFrame sceneFrame)
+        /// <param name="drawMotion">The session's velocity pass (#402), run after the last of the scene and before
+        /// the resolve when this frame is motion-blurred (<see cref="MotionBlurActive"/>); null from every screen that
+        /// has nothing moving worth blurring, which is all of them but the session.</param>
+        internal void FinishSceneDraw(SceneFrame sceneFrame, Action<MotionBlur> drawMotion = null)
         {
             //The cup's layer, filled by BeginSceneDraw if a cup is up this frame. Asked for here rather
             // than carried in a field: the pair of slices is one pipeline, and what the frame's close
@@ -1183,6 +1187,11 @@ namespace BS3D
                 defocus = focusSource.FrameBlur;
                 defocusFocus = focusSource.FrameBlurFocus;
             }
+
+            //The motion blur's velocity pass (#402), now that the scene is complete: it binds a target of its own, and
+            //the resolve straight after is leaving the scene target anyway, so this costs the scene nothing extra.
+            //The resolve consumes it; a frame that opens none resolves exactly as before.
+            if (drawMotion != null && MotionBlurActive && _pipeline.MotionBlur != null) drawMotion(_pipeline.MotionBlur);
 
             _pipeline.Resolve(_wallClock, underwater, defocus, defocusFocus, foreground);
 

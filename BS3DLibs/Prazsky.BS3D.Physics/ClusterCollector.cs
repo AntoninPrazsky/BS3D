@@ -163,12 +163,20 @@ namespace Prazsky.BS3D.Physics
         /// gap to interpolate across); the Game passes its accumulator fraction, so a world stepping less than
         /// once per rendered frame — the drop cinematic's slow motion above all — still moves every frame
         /// instead of standing and jumping. Balls with no snapshot yet draw live whatever this says.</param>
+        /// <param name="shutterSeconds">How much simulated time the motion blur's shutter covers this frame (#402):
+        /// <c>MotionBlur.SHUTTER_SECONDS</c> times however fast the world is running — scaled down under a slow-motion
+        /// cinematic, zero while the simulation is not stepping — so a ball's smear is the distance it really covers on
+        /// screen. Zero, the default, records no motion and keeps the shot's velocity <b>stretch</b>, which is the
+        /// stand-in for motion blur a caller without it still draws; above zero the stretch is dropped, since the blur
+        /// is the real thing and the two together would double the smear.</param>
         /// <returns>How many bodies were visited — the count the Testbed reports against the number of instances
         /// drawn, the two differing by the magazine preview and not by any cull.</returns>
         public int Collect(in BallDrawFrame frame, float elapsedSeconds, PhysicsBall[,,] cluster,
             List<PhysicsBall> shot, List<PhysicsBall> falling, float interpolationAlpha = 1f,
-            float deadWeightAboveY = float.MaxValue)
+            float deadWeightAboveY = float.MaxValue, float shutterSeconds = 0f)
         {
+            _shutterSeconds = shutterSeconds;
+
             //How far towards its target each ball's occlusion moves this frame, and how much of a ball's arrival
             //offset SURVIVES it. Both exponential and framed in seconds, so neither changes with the frame rate
             //(the same idiom as Magazine.Slide and SkyLightRig.StepOvercast), and both are already right at
@@ -250,6 +258,9 @@ namespace Prazsky.BS3D.Physics
             return visited;
         }
 
+        //This frame's shutter, held for the per-ball Collect below rather than threaded through its long signature
+        private float _shutterSeconds;
+
         //One ball, drawn from its body: where the pose puts it — read between the last step and the live one
         //by the caller's accumulator fraction (#293) — plus whatever is left of its arrival glide, turned the
         //way the pose turns it, shaded by the eased occlusion and lit by however far its flare has got.
@@ -281,7 +292,13 @@ namespace Prazsky.BS3D.Physics
                 ball.Kind, AdvanceColourFade(ball, elapsedSeconds), deadWeight,
                 AdvanceThawFade(ball, elapsedSeconds), AdvanceInfectFade(ball, elapsedSeconds), released,
                 AdvanceLockFade(ball, elapsedSeconds), ball.LockFromType,
-                stretched ? MotionStretch(ball) : Vector3.Zero);
+                stretched && _shutterSeconds <= 0f ? MotionStretch(ball) : Vector3.Zero,
+                //The body's own motion over the shutter, off the velocity the solver holds (MotionStretch's reason
+                //below): what the motion blur winds the ball's pose back by (#402). Every body, the hanging ones
+                //included — a cluster swinging after a hit is motion too, and BallRenderSet decides what is worth
+                //drawing.
+                _shutterSeconds > 0f ? (ball.BallReference.Velocity.Linear * _shutterSeconds).ToXna() : Vector3.Zero,
+                _shutterSeconds > 0f ? (ball.BallReference.Velocity.Angular * _shutterSeconds).ToXna() : Vector3.Zero);
         }
 
         /// <summary>

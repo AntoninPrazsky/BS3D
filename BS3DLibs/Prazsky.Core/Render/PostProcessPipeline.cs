@@ -135,6 +135,16 @@ namespace Prazsky.Core.Render
 
         private VertexBuffer _fullScreenQuad;
 
+        //THE MOTION BLUR (#402): null until an executable enables it — only the Game does. When a frame has opened its
+        //velocity pass, the resolve runs the reconstruction first and every read of the scene below (the defocus,
+        //the glare, the tonemap) takes the blurred frame instead: back-buffer sized and already box-filtered, so
+        //the tonemap reads it at a supersample factor of one. See MotionBlur.
+        private MotionBlur _motionBlur;
+
+        //Whether this frame's resolve read the motion-blurred frame rather than the scene target — which is what the
+        //foreground composite has to know, since it samples with whatever the resolve last told the tonemap.
+        private bool _resolvedFromMotion;
+
         //Cached in the constructor: the resolve runs every frame and the by-name indexer is a linear scan
         //over the effect's parameter list. Values that never change after startup are set once through the
         //properties below and never touched again; the textures and texel sizes still go out per frame
@@ -552,20 +562,33 @@ namespace Prazsky.Core.Render
         /// frame of every executable but one page of the game's, skips it and costs nothing.</param>
         public void Resolve(float clockSeconds, float underwaterAmount, float defocusAmount, float defocusFocus = 0f, Texture2D foreground = null)
         {
+            //The motion blur first, when a velocity pass was opened this frame (#402): everything below reads the
+            //frame it returns instead of the scene target — the defocus blurs the blurred frame, the glare blooms
+            //the smeared highlights, and the tonemap resolves it. Null, which is every frame of the two executables
+            //that never enable it and every frame the Game opens no pass, leaves the resolve exactly as it was.
+            Texture2D blurred = _motionBlur?.Reconstruct(_sceneTarget);
+            Texture2D source = blurred ?? _sceneTarget;
+            _resolvedFromMotion = blurred != null;
+
             //Before the glare, though either order would do: both read the scene target and neither writes
             //the other's, and all that is required of both is that they run while the back buffer is still
             //unbound. The glare is left to go last so it is the pass that leaves the states the resolve wants.
-            if (defocusAmount > 0f) DrawDefocus(defocusAmount);
+            if (defocusAmount > 0f) DrawDefocus(defocusAmount, source);
 
-            DrawGlare(foreground);
+            DrawGlare(foreground, source);
 
             _device.SetRenderTarget(null);
 
             //The constants (exposure, glare intensity, supersample factor, the underwater colours) were set
             //once through the properties and persist on the effect; only what can change goes out per frame
             _tonemapGlareTextureParam.SetValue(_bloomChain[0]);
-            _tonemapSceneTextureParam.SetValue(_sceneTarget);
-            _tonemapSourceTexelSizeParam.SetValue(new Vector2(1f / _sceneTarget.Width, 1f / _sceneTarget.Height));
+            _tonemapSceneTextureParam.SetValue(source);
+            _tonemapSourceTexelSizeParam.SetValue(new Vector2(1f / source.Width, 1f / source.Height));
+
+            //The motion-blurred frame is the back buffer's own size and already box-filtered, so the tonemap reads it
+            //one texel a pixel; put back straight after the draw below, since the scene grab and the next frame's
+            //resolve read the scene target by the factor as set
+            if (_resolvedFromMotion) _tonemapSupersampleFactorParam.SetValue(1);
 
             //#298 PROBE: whether the resolve is magnifying rather than averaging. Read off the TARGET against
             //the buffer rather than off _renderScale, so it is true of what was actually built — a rounded
@@ -573,7 +596,7 @@ namespace Prazsky.Core.Render
             //are. Written per resolve like the texel size above and for the same reason: both follow a target
             //that any resize recreates.
             _tonemapMagnifyParam.SetValue(
-                _sceneTarget.Width < _device.PresentationParameters.BackBufferWidth ? 1f : 0f);
+                source.Width < _device.PresentationParameters.BackBufferWidth ? 1f : 0f);
 
             //The grain re-rolls every frame and lands one grain per OUTPUT pixel, so the seed and the
             //back-buffer size go out here
@@ -610,7 +633,20 @@ namespace Prazsky.Core.Render
             _device.SetVertexBuffer(_fullScreenQuad);
 
             DrawFullScreenQuad(_tonemapEffect);
+
+            if (_resolvedFromMotion) _tonemapSupersampleFactorParam.SetValue(_supersampleFactor);
         }
+
+        /// <summary>
+        /// Turns the motion blur on for this pipeline (#402) and returns it; the same instance on every later call.
+        /// The caller then opens its velocity pass on the frames it wants blurred — see <see cref="Render.MotionBlur"/>.
+        /// </summary>
+        /// <param name="effect">The compiled <c>Shaders/MotionBlur</c>, from the executable's own content.</param>
+        public MotionBlur EnableMotionBlur(Effect effect) =>
+            _motionBlur ??= new MotionBlur(_device, effect, _fullScreenQuad);
+
+        /// <summary>The motion blur, or null in an executable that never enabled it.</summary>
+        public MotionBlur MotionBlur => _motionBlur;
 
         /// <summary>
         /// The refraction layer's target (#426): where a presented piece of glass in the foreground layer bends the eye,
@@ -744,6 +780,17 @@ namespace Prazsky.Core.Render
             _device.RasterizerState = RasterizerState.CullNone;
             _device.SetVertexBuffer(_fullScreenQuad);
 
+            //The layer is the scene target's size and read by its factor, like the scene the refraction re-resolves
+            //under it — so a resolve that read the motion-blurred frame (#402) left the wrong figures standing, and
+            //they are stated again here. Only then: on every other frame the resolve's own are the right ones.
+            if (_resolvedFromMotion)
+            {
+                _tonemapSceneTextureParam.SetValue(_sceneTarget);
+                _tonemapSourceTexelSizeParam.SetValue(new Vector2(1f / _sceneTarget.Width, 1f / _sceneTarget.Height));
+                _tonemapMagnifyParam.SetValue(
+                    _sceneTarget.Width < _device.PresentationParameters.BackBufferWidth ? 1f : 0f);
+            }
+
             _tonemapForegroundTextureParam.SetValue(foreground);
             _tonemapRefractionEnabledParam.SetValue(refraction != null ? 1f : 0f);
             if (refraction != null) _tonemapRefractionTextureParam.SetValue(refraction);
@@ -859,7 +906,7 @@ namespace Prazsky.Core.Render
         /// ADDITIVELY into the head the scene's own bright pass has just filled, so its glints ride the same
         /// pyramid with the same threshold as everything that emits. Safe to add because
         /// <c>BrightPassPS</c> keeps only the excess over the threshold, which is never negative.</param>
-        private void DrawGlare(Texture2D foreground)
+        private void DrawGlare(Texture2D foreground, Texture2D source)
         {
             _device.BlendState = BlendState.Opaque;
             _device.DepthStencilState = DepthStencilState.None;
@@ -868,7 +915,7 @@ namespace Prazsky.Core.Render
 
             _device.SetRenderTarget(_bloomChain[0]);
             _glareEffect.CurrentTechnique = _glareBrightPassTechnique;
-            _glareSourceTextureParam.SetValue(_sceneTarget);
+            _glareSourceTextureParam.SetValue(source);
             DrawFullScreenQuad(_glareEffect);
 
             //The sharp foreground's glints, before the down pass so they widen through the whole pyramid
@@ -916,10 +963,10 @@ namespace Prazsky.Core.Render
         /// <param name="amount">How far the effect has come, 0–1. It drives the blur's <b>width</b> here,
         /// where <see cref="Resolve"/> uses it for the mix — two curves off one dial, deliberately, and the
         /// reason is in <see cref="DEFOCUS_MIX_IN"/>.</param>
-        private void DrawDefocus(float amount)
+        private void DrawDefocus(float amount, Texture2D source)
         {
             EnsureDefocusChain();
-            DrawDefocusChain(_sceneTarget, _defocusBlurred, amount);
+            DrawDefocusChain(source, _defocusBlurred, amount);
         }
 
         /// <summary>
@@ -928,7 +975,7 @@ namespace Prazsky.Core.Render
         /// across and down, the blurred result landing in <paramref name="destination"/>. Needs the chain's
         /// scratch targets built (<see cref="EnsureDefocusChain"/>).
         /// </summary>
-        private void DrawDefocusChain(RenderTarget2D source, RenderTarget2D destination, float amount)
+        private void DrawDefocusChain(Texture2D source, RenderTarget2D destination, float amount)
         {
             _device.BlendState = BlendState.Opaque;
             _device.DepthStencilState = DepthStencilState.None;
@@ -971,7 +1018,7 @@ namespace Prazsky.Core.Render
         /// of the block an output texel stands for and alias the rest of it away. (The overlay layer is the
         /// back buffer's own size, where the two placements coincide.)
         /// </remarks>
-        private void DrawDefocusStepDown(RenderTarget2D source, RenderTarget2D destination)
+        private void DrawDefocusStepDown(Texture2D source, RenderTarget2D destination)
         {
             _device.SetRenderTarget(destination);
             _glareSourceTextureParam.SetValue(source);
@@ -1067,6 +1114,8 @@ namespace Prazsky.Core.Render
             _grabTarget?.Dispose();
             _overlayTarget?.Dispose();
             _overlayBlurred?.Dispose();
+
+            _motionBlur?.Dispose();
 
             _fullScreenQuad?.Dispose();
         }

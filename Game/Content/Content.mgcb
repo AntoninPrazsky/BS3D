@@ -72,6 +72,12 @@
 /processorParam:DebugMode=Auto
 /build:../../Testbed/Content/Shaders/Tonemap.fx;Shaders/Tonemap.fx
 
+#begin ../../Testbed/Content/Shaders/MotionBlur.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:../../Testbed/Content/Shaders/MotionBlur.fx;Shaders/MotionBlur.fx
+
 #begin ../../Testbed/Content/Shaders/ShotTrail.fx
 /importer:EffectImporter
 /processor:EffectProcessor

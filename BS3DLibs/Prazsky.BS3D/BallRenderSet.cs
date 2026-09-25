@@ -1185,6 +1185,17 @@ namespace Prazsky.BS3D
         private SphereMesh[] _meshes;
         private InstancedModelRenderer[] _renderers;
 
+        //THE MOTION RECORD (#402): every ball this frame collected, with the pose it had when the motion blur's
+        //shutter opened — one entry per BALL, not per bucket, so a ball drawn twice for a crossing is in it once.
+        //Kept apart from the buckets because the velocity pass wants none of what they sort by (type, LOD, look):
+        //only where each ball is and was. Two lists, because they are drawn on different conditions — see
+        //DrawMotion. Filled only while RecordMotion is on, so the Testbed, the map editor and the front end pay
+        //nothing for it; grown, never shrunk, like the buckets.
+        private MotionInstance[] _motionBalls = new MotionInstance[BUCKET_INITIAL_CAPACITY];
+        private MotionInstance[] _motionRounds = new MotionInstance[8];
+        private int _motionBallCount, _motionRoundCount;
+        private bool _anyBallMoving;
+
         //The camera BeginFrame was given, and by being non-null it is also "a frame is open". One field for
         //both, deliberately: it makes the two guards below the same guard. The LODs were picked against this
         //camera's position, so it is also the camera the buckets must be drawn with.
@@ -1257,6 +1268,55 @@ namespace Prazsky.BS3D
             _counts = new int[HEAVY_REGION_START + STILL_PLANE_STRIDE];
             _lodTotals = new int[LodCount];
             _lodDistanceSquared = new float[LOD_MIN_PIXEL_RADIUS.Length];
+        }
+
+        /// <summary>
+        /// Whether the frames collected from now on keep a <b>motion record</b> for the motion blur's velocity pass
+        /// (#402) — each ball's pose now and when the shutter opened. Off by default, so every caller that has no
+        /// motion blur collects exactly as it always did; the Game turns it on for the frames it blurs. <b>Per
+        /// frame</b>: <see cref="Draw"/> turns it back off, so it is stated before each <see cref="BeginFrame"/> it
+        /// applies to. The record itself survives the draw, for <see cref="DrawMotion"/> after the scene.
+        /// </summary>
+        public bool RecordMotion { get; set; }
+
+        /// <summary>
+        /// How far a ball has to travel over the shutter, in world units, before it counts as moving and the cluster
+        /// is drawn into the velocity pass at all. A fiftieth of a ball: well under a pixel from the play camera, so
+        /// a cluster only settling after a hit costs nothing, and far under anything the eye would call motion.
+        /// </summary>
+        public const float MOTION_THRESHOLD = 0.02f;
+
+        /// <summary>
+        /// This frame's motion record into the open velocity pass (#402), drawn on the coarsest sphere: the pass
+        /// wants the silhouette to within a pixel or two under a smear dozens long, and nothing of the shading.
+        /// <para>
+        /// <b>The cluster is drawn only on a frame where some ball actually moved.</b> A still ball's own motion is
+        /// the camera's, and the pass reprojects everything it does not draw at the cluster's depth — which is where
+        /// a still ball IS — so it comes out the same without the thousand-odd spheres. On a frame where one does
+        /// move, all of them go in, still ones included: they are what hides a falling ball behind the cluster, and
+        /// without them a ball dropping behind the lattice would smear the balls in front of it. The rounds in the
+        /// barrel always go in, since they move with the gun (<see cref="BallDrawFrame.Add"/>).
+        /// </para>
+        /// </summary>
+        public void DrawMotion(MotionBlur blur)
+        {
+            InstancedModelRenderer coarsest = _renderers[LodCount - 1];
+
+            if (_motionRoundCount > 0) blur.Draw(coarsest, _motionRounds, _motionRoundCount);
+            if (_anyBallMoving) blur.Draw(coarsest, _motionBalls, _motionBallCount);
+        }
+
+        internal void RecordBall(in Matrix world, in Matrix shutterWorld, bool moving)
+        {
+            if (_motionBallCount == _motionBalls.Length) Array.Resize(ref _motionBalls, _motionBalls.Length * 2);
+            _motionBalls[_motionBallCount++] = new MotionInstance(world, shutterWorld);
+            _anyBallMoving |= moving;
+        }
+
+        internal void RecordRound(in Matrix world, in Matrix shutterWorld)
+        {
+            if (_motionRoundCount == _motionRounds.Length) Array.Resize(ref _motionRounds, _motionRounds.Length * 2);
+            _motionRounds[_motionRoundCount++] = new MotionInstance(world, shutterWorld);
         }
 
         /// <summary>
@@ -1545,6 +1605,10 @@ namespace Prazsky.BS3D
             for (int i = 0; i < _counts.Length; i++) _counts[i] = 0;
             for (int lod = 0; lod < _lodTotals.Length; lod++) _lodTotals[lod] = 0;
 
+            _motionBallCount = 0;
+            _motionRoundCount = 0;
+            _anyBallMoving = false;
+
             SolveLodDistances(camera);
 
             return new BallDrawFrame(this, camera.Position);
@@ -1733,6 +1797,10 @@ namespace Prazsky.BS3D
 
             ICamera camera = _frameCamera;
             _frameCamera = null;
+
+            //The motion record is a per-frame opt-in (#402): it is closed with the frame, so a caller that stops
+            //asking — the session giving way to the front end — stops paying for it without having to say so
+            RecordMotion = false;
 
             DrawnCount = 0;
 
@@ -2710,11 +2778,17 @@ namespace Prazsky.BS3D
         /// ball into its own bucket plane and a draw of its own. Everything else leaves it alone.</param>
         /// <param name="kind">What the ball is beside its colour (#323). A <see cref="BallKind.Rock"/> goes into
         /// the rock region and is drawn as stone; see <see cref="Route"/>.</param>
+        /// <param name="shutterWorld">Where this ball stood when the motion blur's shutter opened (#402), for a ball
+        /// that moves with something else — the rounds in the barrel, which travel with the gun. Left at its default
+        /// (an all-zero matrix, never a pose) the ball is kept out of the motion record altogether, which is what
+        /// the landing ghost wants: it is a preview, not a thing that moves.</param>
         public void Add(BallType type, Vector3 position, in Matrix world, Vector4 occlusion, float dissolve = 0f,
-            float ripple = 0f, bool still = false, BallKind kind = BallKind.Normal)
+            float ripple = 0f, bool still = false, BallKind kind = BallKind.Normal, in Matrix shutterWorld = default)
         {
             int typeIndex = (int)type - 1;
             if (typeIndex < 0 || typeIndex >= BallRenderSet.TYPE_COUNT) return;
+
+            if (_set.RecordMotion && shutterWorld.M44 != 0f) _set.RecordRound(world, shutterWorld);
 
             Route(kind, typeIndex, _set.LodFor(Vector3.DistanceSquared(position, _eye)),
                 new ModelInstance(world, occlusion, dissolve, ripple), still, 0f);
@@ -2925,7 +2999,8 @@ namespace Prazsky.BS3D
         public void AddOriented(BallType type, Vector3 position, in Quaternion orientation, Vector4 occlusion,
             float ripple = 0f, BallKind kind = BallKind.Normal, float colourFade = 0f, float deadWeight = 0f,
             float thawFade = 0f, float infectFade = 0f, bool still = false, float lockFade = 0f,
-            BallType lockFrom = default, Vector3 stretch = default)
+            BallType lockFrom = default, Vector3 stretch = default, Vector3 shutterTravel = default,
+            Vector3 shutterTurn = default)
         {
             int typeIndex = (int)type - 1;
             if (typeIndex < 0 || typeIndex >= BallRenderSet.TYPE_COUNT) return;
@@ -2952,9 +3027,47 @@ namespace Prazsky.BS3D
             world.M42 = position.Y;
             world.M43 = position.Z;
 
+            if (_set.RecordMotion) RecordMotion(world, shutterTravel, shutterTurn);
+
             Route(kind, typeIndex, _set.LodFor(Vector3.DistanceSquared(position, _eye)),
                 new ModelInstance(world, occlusion, 0f, ripple), still, colourFade, deadWeight, thawFade,
                 infectFade, lockFade, (int)lockFrom - 1);
+        }
+
+        /// <summary>
+        /// Puts one body-posed ball into the motion record (#402): its pose now, and the pose a shutter earlier
+        /// wound back off the body's own motion over it — <paramref name="travel"/> the distance it covered and
+        /// <paramref name="turn"/> the axis-times-angle it turned. Each row of the rotation is a turned basis vector,
+        /// whose rate of change under a spin <c>w</c> is <c>w x row</c>, so the earlier rows are the rows less that;
+        /// first order, which is all a thirtieth of a second of a ball's spin needs.
+        /// </summary>
+        private void RecordMotion(in Matrix world, Vector3 travel, Vector3 turn)
+        {
+            Matrix shutter = world;
+
+            if (turn != Vector3.Zero)
+            {
+                Vector3 r1 = new(world.M11, world.M12, world.M13);
+                Vector3 r2 = new(world.M21, world.M22, world.M23);
+                Vector3 r3 = new(world.M31, world.M32, world.M33);
+
+                Vector3 d1 = Vector3.Cross(turn, r1), d2 = Vector3.Cross(turn, r2), d3 = Vector3.Cross(turn, r3);
+
+                shutter.M11 -= d1.X; shutter.M12 -= d1.Y; shutter.M13 -= d1.Z;
+                shutter.M21 -= d2.X; shutter.M22 -= d2.Y; shutter.M23 -= d2.Z;
+                shutter.M31 -= d3.X; shutter.M32 -= d3.Y; shutter.M33 -= d3.Z;
+            }
+
+            shutter.M41 -= travel.X;
+            shutter.M42 -= travel.Y;
+            shutter.M43 -= travel.Z;
+
+            //A spin counts by how far the ball's surface moves, which is the turn's angle times the radius
+            float threshold = BallRenderSet.MOTION_THRESHOLD;
+            bool moving = travel.LengthSquared() > threshold * threshold
+                || turn.LengthSquared() * BallRenderSet.BALL_RADIUS * BallRenderSet.BALL_RADIUS > threshold * threshold;
+
+            _set.RecordBall(world, shutter, moving);
         }
 
         /// <summary>

@@ -335,6 +335,21 @@ namespace BS3D
         }
 
         /// <summary>
+        /// Toggles the motion blur (#402). Nothing to write to the pipeline: the session asks
+        /// <see cref="MotionBlurActive"/> each frame and simply opens no velocity pass while it is off, which costs
+        /// nothing at all.
+        /// </summary>
+        internal void ToggleMotionBlur()
+        {
+            _motionBlur = !_motionBlur;
+
+            _settings.MotionBlur = _motionBlur;
+            SaveSettings();
+
+            _settingsPage.Refresh();
+        }
+
+        /// <summary>
         /// Toggles whether a big collapse takes the camera (#290): the flourish stays the game's default and
         /// this is the opt-out for a player who would rather keep shooting.
         /// <para>

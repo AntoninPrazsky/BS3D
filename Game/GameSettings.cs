@@ -151,6 +151,14 @@ namespace BS3D
         public bool Grain { get; set; } = true;
 
         /// <summary>
+        /// Whether what moves is smeared along its motion (#402) — the barrel as it is swung, the shot, a falling
+        /// group, the frame under the recoil's kick. On by default, like the lens's other looks, and a taste toggle
+        /// like them; a quality tier that cannot afford it leaves it off whatever this says.
+        /// </summary>
+        [JsonPropertyName("motionBlur")]
+        public bool MotionBlur { get; set; } = true;
+
+        /// <summary>
         /// Whether a big collapse still takes the camera (#290). On by default and turned off by the player,
         /// which is the shape the request asked for: the flourish is part of the game and every player who has
         /// not opened this page has seen it — this is an opt-<i>out</i> for the ones who would rather keep

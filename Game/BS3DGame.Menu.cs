@@ -656,6 +656,14 @@ namespace BS3D
 
         internal bool IsAberrationEnabled => _aberration;
         internal bool IsGrainEnabled => _grain;
+        internal bool IsMotionBlurEnabled => _motionBlur;
+
+        /// <summary>
+        /// Whether this frame is motion-blurred (#402): the player's row AND the tier's entry, since a rung that
+        /// cannot afford the passes gives them up whatever the row says. Read by the session each frame.
+        /// </summary>
+        internal bool MotionBlurActive => _motionBlur && QualityPreset.Presets[(int)_quality].MotionBlur
+            && ScriptedPlay.Current?.MotionBlurFlippedOff(_wallClock) != true;
         internal bool IsDropCinematicEnabled => _dropCinematic;
 
         //The tutorial's switch (#189), read by the session every frame on MouseSensitivity's argument: the row

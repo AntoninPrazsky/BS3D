@@ -508,19 +508,25 @@ namespace BS3D.Screens
                 //flight and the ghost alike. Checked first because a wildcard is never transmuted: the
                 //transmute re-colours a slot whose colour has died, and a wildcard has no colour of its own to
                 //lose.
+                //And where the round stood when the motion blur's shutter opened (#402): carried back by the barrel it
+                //rides. Handed to ONE draw of a crossing's two, so the motion record holds the ball once.
+                Matrix shutterWorld = RoundShutterWorld(world);
+
                 if (_magazineKind[i] == BallKind.Wildcard)
                 {
                     frame.Add(LoadedColour(i), position, world, BallRenderSet.UNOCCLUDED, 0f, mark, still,
-                        BallKind.Wildcard);
+                        BallKind.Wildcard, shutterWorld);
                 }
                 else if (remaining > 0f)
                 {
                     float progress = 1f - remaining;
 
-                    frame.Add(_magazine.Peek(i), position, world, BallRenderSet.UNOCCLUDED, -progress, mark, still);
+                    frame.Add(_magazine.Peek(i), position, world, BallRenderSet.UNOCCLUDED, -progress, mark, still,
+                        shutterWorld: shutterWorld);
                     frame.Add(_magazineFrom[i], position, world, BallRenderSet.UNOCCLUDED, progress, mark, still);
                 }
-                else frame.Add(_magazine.Peek(i), position, world, BallRenderSet.UNOCCLUDED, 0f, mark, still);
+                else frame.Add(_magazine.Peek(i), position, world, BallRenderSet.UNOCCLUDED, 0f, mark, still,
+                    shutterWorld: shutterWorld);
             }
         }
 

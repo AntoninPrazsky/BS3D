@@ -296,6 +296,18 @@ namespace BS3D.Screens
                 else if (pad.Triggers.Right <= FIRE_TRIGGER_THRESHOLD) _padTriggerReleased = true;
             }
 
+            //Testing only (#402): a scripted run's hands — the barrel swung, precise aim held, a shot fired — after the
+            //mouse and the pad, so the script has the last word on the pose. Nothing at all without a script.
+            if (ScriptedPlay.Current is ScriptedPlay script)
+            {
+                if (script.TrySweep(WallClock, _cannon.Elevation, out float elevation, out float traverse))
+                    _cannon.AimTo(elevation, traverse);
+
+                _adsHeld |= script.Rmb(WallClock);
+
+                if (script.TryTakeFire(WallClock)) Shoot();
+            }
+
             //And the aim lesson reads the pose once the mouse and the pad have both had their say (#189)
             _tutorial.NoteAim(_cannon.Traverse, _cannon.Elevation);
 

@@ -83,7 +83,7 @@ namespace BS3D.Screens
 
         private Label _fullscreenValue, _qualityValue, _adaptiveQualityValue, _exposureValue, _skyValue, _fpsValue, _fpsLimitValue;
         private Label _volumeValue, _effectsValue, _musicValue, _ambienceValue, _rumbleValue, _trackValue, _sensitivityValue, _aimSensitivityValue, _tutorialValue;
-        private Label _aberrationValue, _grainValue, _dropCinematicValue;
+        private Label _aberrationValue, _grainValue, _motionBlurValue, _dropCinematicValue;
         private Label _progressValue, _unlockAllValue;
         private Label _onlineValue, _nicknameValue, _removeValue, _onlineNote;
 
@@ -188,11 +188,14 @@ namespace BS3D.Screens
             //like every row here: the scene behind the panel is the preview.
             AddRow(grid, 8, "Aberration", Game.ToggleAberration, out _aberrationValue);
             AddRow(grid, 9, "Film grain", Game.ToggleGrain, out _grainValue);
+            //What moves smeared along its motion (#402). With the lens's looks, being one; a tier that cannot
+            //afford it says so on the row rather than leaving an "On" that does nothing.
+            AddRow(grid, 10, "Motion blur", Game.ToggleMotionBlur, out _motionBlurValue);
 
             //Whether a big collapse takes the camera (#290). It sits with the looks rather than under a
             //heading of its own because that is what it IS to the player - a flourish they can turn off - and
             //a "GAMEPLAY" heading over a single row would promise a group that does not exist.
-            AddRow(grid, 10, "Drop camera", Game.ToggleDropCinematic, out _dropCinematicValue);
+            AddRow(grid, 11, "Drop camera", Game.ToggleDropCinematic, out _dropCinematicValue);
 
             return grid;
         }
@@ -425,6 +428,7 @@ namespace BS3D.Screens
             _fpsLimitValue.Text = Game.IsFpsUncapped ? "Unlimited" : "Monitor";
             _aberrationValue.Text = Game.IsAberrationEnabled ? "On" : "Off";
             _grainValue.Text = Game.IsGrainEnabled ? "On" : "Off";
+            _motionBlurValue.Text = !Game.IsMotionBlurEnabled ? "Off" : Game.MotionBlurActive ? "On" : "Off (tier)";
             _dropCinematicValue.Text = Game.IsDropCinematicEnabled ? "On" : "Off";
             _tutorialValue.Text = Game.IsTutorialEnabled ? "On" : "Off";
             _unlockAllValue.Text = Game.IsUnlockAllEnabled ? "On" : "Off";
