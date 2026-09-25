@@ -186,6 +186,14 @@ namespace BS3D
         /// tier the probe reached, and it is still not the ratchet above — the player turned the probe off while
         /// looking at it, with the Quality row beside the switch to raise it again.
         /// </para>
+        /// <para>
+        /// Stored by name. <c>"Ultra"</c> joined the three in #484 without a format bump, and a file from before
+        /// it loads unchanged. The one direction that does not survive is backwards: a build older than #484 fails
+        /// to parse <c>"Ultra"</c> (an unknown name is a <c>JsonException</c>) and falls to the backup and then to
+        /// the defaults, so every setting in the file is lost to it, not only this one. Accepted — nobody
+        /// downgrades a game on purpose. A bare number the converter also accepts is range-checked in
+        /// <see cref="TryRead"/> and read as none chosen when this build has no such tier.
+        /// </para>
         /// </summary>
         [JsonPropertyName("quality")]
         [JsonConverter(typeof(JsonStringEnumConverter))]
@@ -260,7 +268,14 @@ namespace BS3D
                 {
                     GameSettings settings = JsonSerializer.Deserialize<GameSettings>(stream, Options);
 
-                    if (settings?.Format == FormatMarker && settings.Version <= CurrentVersion) return settings;
+                    if (settings?.Format == FormatMarker && settings.Version <= CurrentVersion)
+                    {
+                        //A tier this build does not have reads as "none chosen" rather than as an index off the
+                        //end of QualityPreset.Presets: the string converter also accepts a bare number (#484)
+                        if (settings.Quality.HasValue && !Enum.IsDefined(settings.Quality.Value)) settings.Quality = null;
+
+                        return settings;
+                    }
                 }
             }
             catch (Exception e) when (e is JsonException or IOException or UnauthorizedAccessException

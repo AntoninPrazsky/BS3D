@@ -1316,14 +1316,16 @@ namespace BS3D
 
                 //Seeded here as well as written by ApplyQuality, for the same reason the factor beside it is:
                 //the tier is applied once in LoadContent BEFORE this exists (a command-line quality= reaches it
-                //long before there is a renderer to write onto), so a startup at anything but High would
-                //otherwise draw the full-price floor until the next tier change — which on a pinned tier never
-                //comes.
-                SceneDetail = _quality == QualityLevel.High ? 1f : 0f,
+                //long before there is a renderer to write onto), so a startup at Low would otherwise draw the
+                //full-price floor until the next tier change — which on a pinned tier never comes. Low ALONE,
+                //ApplyQuality's own rule since #298; this seed said "anything but High" until #484 added a rung
+                //above High, where it would have started Ultra on the reduced programs.
+                SceneDetail = _quality == QualityLevel.Low ? 0f : 1f,
 
-                //The shadow map's cap (#484), seeded for exactly the reason above: a Medium start would otherwise
-                //build a High map until the next tier change
-                ShadowMapSizeCap = QualityPreset.Presets[(int)_quality].ShadowMapCap
+                //The shadow map's cap and Ultra's factor (#484), seeded for exactly the reason above: a Medium
+                //start would otherwise build a High map until the next tier change, and an Ultra one a High map
+                ShadowMapSizeCap = QualityPreset.Presets[(int)_quality].ShadowMapCap,
+                ShadowMapSizeScale = QualityPreset.Presets[(int)_quality].ShadowMapScale
             };
 
             //After the scene renderer, which the rig consults for the scenes that state their own lighting. The
@@ -2307,6 +2309,8 @@ namespace BS3D
                 + $", {_quality.ToString().ToLowerInvariant()}"
                 + $", msaa {_pipeline.SceneTarget?.MultiSampleCount ?? 0}x"
                 + $", detail {(_sceneRenderer?.SceneDetail > 0.5f ? "full" : "reduced")}"
+                //The sun shadow map as built (#484): Ultra's one entry is its size, and nothing else says it
+                + $", shadow {(_sceneRenderer?.ActiveShadowMapSize is int map && map > 0 ? map.ToString() : "off")}"
                 + $", {GraphicsDevice.PresentationParameters.BackBufferWidth}x{GraphicsDevice.PresentationParameters.BackBufferHeight}"
                 //"vsync" left the line with #270 — the game does not vsync any more, and a line that still
                 //said so would misreport the one setting that decides what the number even means. What it

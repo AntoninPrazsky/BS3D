@@ -8,11 +8,19 @@ namespace BS3D
     /// tied to a look decision (it is what keeps the balls' procedural relief sharp), and it was the only thing
     /// that reached the rest of the frame at all.
     /// </summary>
+    /// <remarks>
+    /// <b>Ultra is last, and only a player picks it</b> (#484, the owner's ruling of 2026-09-25: "someone with a
+    /// faster card than a 6900 XT may play this"). It sits above the look the game is authored at, so the
+    /// adaptive probe — which starts at High and only ever steps down — can never reach it, and turning Auto
+    /// quality back on over it hands the tier back at High. Appended rather than inserted so the numeric
+    /// values of the three older tiers do not move; <c>Settings.json</c> stores the name anyway.
+    /// </remarks>
     public enum QualityLevel
     {
         Low,
         Medium,
         High,
+        Ultra,
     }
 
     /// <summary>
@@ -149,6 +157,21 @@ namespace BS3D
         public readonly int ShadowMapCap;
 
         /// <summary>
+        /// What a scene's <c>ShadowConfig.MapSize</c> is multiplied by on this rung before
+        /// <see cref="ShadowMapCap"/> applies, and 1 everywhere but <c>Ultra</c> (#484), which doubles the
+        /// authored 4096 to <b>8192</b> — 0.032 units a texel over the 260-unit extent, half High's step.
+        /// A factor rather than a size so a scene authored small stays proportionally small.
+        /// <para>
+        /// <b>What it costs is memory first</b>: eight bytes a texel is <b>537 MB</b> of card memory against
+        /// High's 134, which is why only the player can ask for it and the probe never does. The time is small on
+        /// a fast card: +0.22 ms (desert) and +0.30 (savanna) over High at 3840×1600 in the Testbed on the
+        /// reference desktop, paired in one process — see "The map's size, and the tier it follows" in
+        /// docs/rendering.md. The nine-tap box stays three texels wide, so the edge gets finer, not softer.
+        /// </para>
+        /// </summary>
+        public readonly int ShadowMapScale;
+
+        /// <summary>
         /// Whether the ceiling's glass bends what is behind it (#541) - a copy of the frame taken mid-scene and a
         /// ray traced through the cut slab per pixel of glass - or is drawn as the plain translucent pane it was.
         /// <para>
@@ -175,8 +198,9 @@ namespace BS3D
         public readonly bool CeilingRefraction;
 
         public QualityPreset(int supersampleFactor, float facadeGrainStrength, float windowFrameWidth, int cityRadiusBlocks,
-            int msaaSamples, int shadowMapCap, bool ceilingRefraction)
+            int msaaSamples, int shadowMapCap, bool ceilingRefraction, int shadowMapScale = 1)
         {
+            ShadowMapScale = shadowMapScale;
             CeilingRefraction = ceilingRefraction;
             SupersampleFactor = supersampleFactor;
             FacadeGrainStrength = facadeGrainStrength;
@@ -187,7 +211,7 @@ namespace BS3D
         }
 
         /// <summary>
-        /// The three tiers, indexed by <see cref="QualityLevel"/>. The two city figures at <c>High</c> and
+        /// The four tiers, indexed by <see cref="QualityLevel"/>. The two city figures at <c>High</c> and
         /// <c>Medium</c> are <see cref="Prazsky.Core.Render.Config.CitySceneConfig"/>'s own defaults restated, so
         /// those tiers reproduce today's look exactly rather than approximately — which is the same rule every
         /// <c>SceneConfig</c> default follows.
@@ -242,6 +266,14 @@ namespace BS3D
 
             //High — the look the game was authored at, unchanged.
             new(supersampleFactor: 2, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14, msaaSamples: PostProcessPipeline.MSAA_SAMPLES, shadowMapCap: 0, ceilingRefraction: true),
+
+            //Ultra (#484) — High, and the sun shadow map at twice the scene's authored size (8192). The one
+            //rung ABOVE the authored look, so it is the player's alone: the probe starts at High and only steps
+            //down. It carries nothing else, deliberately: every other entry is already at the authored maximum
+            //on High (full scene detail, full stone cap, full city, the ceiling's refraction), and the one dial
+            //that could go further — supersampling 3 — is 2.25x High's shaded pixels at 3840x1600, the whole
+            //frame's biggest cost bought for relief detail High already resolves. See ShadowMapScale.
+            new(supersampleFactor: 2, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14, msaaSamples: PostProcessPipeline.MSAA_SAMPLES, shadowMapCap: 0, ceilingRefraction: true, shadowMapScale: 2),
         };
     }
 }

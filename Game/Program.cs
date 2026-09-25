@@ -227,8 +227,10 @@ namespace BS3D
                 else if (string.Equals(arg, "logfps", StringComparison.OrdinalIgnoreCase)) logFrameRate = true;
                 else if (arg.StartsWith("scene=", StringComparison.OrdinalIgnoreCase) && SceneRenderer.TryParseScene(arg.Substring("scene=".Length), out SceneKind parsedScene)) scene = parsedScene;
                 else if (arg.StartsWith("sky=", StringComparison.OrdinalIgnoreCase) && byte.TryParse(arg.Substring("sky=".Length), out byte parsedSky) && parsedSky >= 1 && parsedSky <= BS3DGame.SKY_DOME_COUNT) skyDome = parsedSky;
-                //"quality=" pins the whole detail tier; "ssaa=" then overrides just its supersample entry.
-                else if (arg.StartsWith("quality=", StringComparison.OrdinalIgnoreCase) && Enum.TryParse(arg.Substring("quality=".Length), ignoreCase: true, out QualityLevel parsedQuality)) quality = parsedQuality;
+                //"quality=" pins the whole detail tier; "ssaa=" then overrides just its supersample entry. By
+                //name (low/medium/high/ultra); IsDefined because TryParse also takes any number, and a tier past
+                //the last one would index off the end of QualityPreset.Presets.
+                else if (arg.StartsWith("quality=", StringComparison.OrdinalIgnoreCase) && Enum.TryParse(arg.Substring("quality=".Length), ignoreCase: true, out QualityLevel parsedQuality) && Enum.IsDefined(parsedQuality)) quality = parsedQuality;
                 //"celebrate" fires the victory display at startup. Clearing a level is the only thing that
                 //normally starts it, and clearing one cannot be scripted, so without this the fireworks can be
                 //neither screenshotted nor measured — the same reason autoshoot and aimshoot exist.
