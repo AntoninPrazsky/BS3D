@@ -347,13 +347,24 @@ namespace Prazsky.Core.Render
         public float ClusterSpread { get; set; } = 22f;
 
         /// <summary>The crown's green (linear).</summary>
-        public Rgb FrondColor { get; set; } = new(0.075f, 0.155f, 0.045f);
+        public Rgb FrondColor { get; set; } = new(0.06f, 0.165f, 0.03f);
 
         /// <summary>A drier, sun-bleached green a variant's crown takes in part.</summary>
         public Rgb FrondDry { get; set; } = new(0.17f, 0.175f, 0.06f);
 
-        /// <summary>The trunk and the dead frond skirt's warm grey-brown (linear).</summary>
-        public Rgb TrunkColor { get; set; } = new(0.10f, 0.078f, 0.052f);
+        /// <summary>The trunk's bark (linear). The boot of old frond bases at its top is a darker, browner
+        /// shade of it (<c>Palm.fx</c>).</summary>
+        public Rgb TrunkColor { get; set; } = new(0.25f, 0.215f, 0.17f);
+
+        /// <summary>The ochre an old frond yellows towards, and the bleached tips of every frond (linear, #557).</summary>
+        public Rgb AgedFrondColor { get; set; } = new(0.25f, 0.20f, 0.06f);
+
+        /// <summary>The dead skirt's dry grey-brown (linear, #557). It shared the trunk's colour until the skirt
+        /// moved into the leaf draw.</summary>
+        public Rgb DeadFrondColor { get; set; } = new(0.16f, 0.12f, 0.075f);
+
+        /// <summary>A green coconut (linear, #557); each nut's own roll ripens it part-way towards brown.</summary>
+        public Rgb CoconutColor { get; set; } = new(0.09f, 0.12f, 0.03f);
 
         /// <summary>How far the crown's fronds sway on the wind, at the frond tips, in world units (the
         /// shader adds it unscaled). Keyed up from zero along each frond, so the trunk stands still and the
