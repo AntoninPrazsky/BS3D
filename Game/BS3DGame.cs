@@ -323,6 +323,9 @@ namespace BS3D
         //Testing only: the "settings" argument (#189) — the Settings page at boot, on _startupAbout's reasoning
         private bool _startupSettings;
 
+        //Testing only: the settings rows to activate once the page is up (settings=<row,...>, #548). Null for none.
+        private string _startupSettingsRows;
+
         //Which Help page to open at boot, 1-based, or null for "not asked" (#427)
         private int? _startupHelp;
 
@@ -895,7 +898,7 @@ namespace BS3D
             int? resultStars = null, string nextLocked = null, int? streak = null, int wildcardEvery = 0, string powerups = null, float[] shotSeconds = null, string level = null, string levelFile = null,
             string preview = null, BallStyle? ballStyle = null, string pick = null, int fpsCap = 0,
             bool noFocusPause = false, float[] detonateSeconds = null, string about = null, string tutorial = null,
-            bool settings = false, int? help = null, int? sceneSeed = null, bool tour = false,
+            bool settings = false, string settingsRows = null, int? help = null, int? sceneSeed = null, bool tour = false,
             int windowWidth = 0, int windowHeight = 0, float lineLoss = 0f, bool plainCeiling = false)
         {
             //The scene's procedural roll (see _sceneSeedOffset): rolled once per launch unless the command
@@ -992,7 +995,8 @@ namespace BS3D
             _startupNextLocked = nextLocked;
             _startupPick = pick;
             _startupAbout = about;
-            _startupSettings = settings;
+            _startupSettings = settings || settingsRows != null;
+            _startupSettingsRows = settingsRows;
             _startupHelp = help;
             _startupTour = tour;
             _startupLineLoss = lineLoss;
@@ -1057,6 +1061,14 @@ namespace BS3D
             Window.AllowUserResizing = true;
             Window.Title = GAME_TITLE;
             Window.ClientSizeChanged += (_, _) => OnClientSizeChanged();
+
+            //Typed characters, for the one page that takes them (#548): the window's own text input rather than key
+            //states, because it carries what the keyboard layout and a dead key composed — "ř" is one character here
+            //and three keys there. Raised on this thread, from the message pump.
+            Window.TextInput += (_, e) =>
+            {
+                if (_screens?.Active is Screens.MenuPage { CapturesKeyboard: true } page) page.OnTextInput(e.Character);
+            };
 
             SetGraphics();
         }
@@ -2028,6 +2040,15 @@ namespace BS3D
                 _startupSettings = false;
 
                 OpenSettings();
+            }
+
+            //Its rows, once the page is the one on top and its tree has been built — a frame after the push lands
+            else if (_startupSettingsRows != null && _screens.Active == _settingsPage && _settingsPage.IsBuilt)
+            {
+                string rows = _startupSettingsRows;
+                _startupSettingsRows = null;
+
+                _settingsPage.ActivateForTesting(rows);
             }
 
             //And the Help screen, on whichever of its pages was asked for (#427)

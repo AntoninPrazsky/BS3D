@@ -103,6 +103,48 @@ namespace BS3D.Online
         /// <summary>A refusal's reason code (422), when the service gives one.</summary>
         [JsonPropertyName("reason")]
         public string Reason { get; set; }
+
+        /// <summary>
+        /// The nickname in the service's own normalized form (#544, #548), when it sends one — written back into
+        /// <c>Online.json</c> so the settings page shows the name the boards show.
+        /// </summary>
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+    }
+
+    /// <summary>The body of <c>PUT /v1/players/{id}</c>: a new nickname (#548).</summary>
+    internal sealed class PlayerNameBody
+    {
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+    }
+
+    internal enum OnlineNoticeKind : byte
+    {
+        /// <summary>The service forgot this player and the outbox is gone; the identity is the frame's to delete.</summary>
+        Removed,
+
+        /// <summary>The removal did not happen; <see cref="OnlineNotice.Text"/> says why. Nothing was removed.</summary>
+        RemoveFailed,
+
+        /// <summary>The service answered with its own form of the nickname, in <see cref="OnlineNotice.Text"/>.</summary>
+        NameNormalized,
+
+        /// <summary>The service refused the nickname; <see cref="OnlineNotice.Text"/> is its reason.</summary>
+        NameRefused,
+    }
+
+    /// <summary>What became of one of the player's own requests (#548) — a removal or a name — handed to the frame.</summary>
+    internal readonly struct OnlineNotice
+    {
+        public readonly OnlineNoticeKind Kind;
+        public readonly string Text;
+
+        public OnlineNotice(OnlineNoticeKind kind, string text)
+        {
+            Kind = kind;
+            Text = text;
+        }
     }
 
     internal sealed class BoardRank
