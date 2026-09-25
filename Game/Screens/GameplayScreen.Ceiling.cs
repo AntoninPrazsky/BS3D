@@ -47,7 +47,7 @@ namespace BS3D.Screens
         /// <summary>
         /// Begins one step of the ceiling's descent: lowers the target by <see cref="CEILING_DESCENT_PER_STEP"/>,
         /// clamped at the death line so an overlong level cannot drive the glass through the gun. The body itself
-        /// does not move here — <see cref="UpdateCeilingDescent"/> slides it to the target, which is what keeps a
+        /// does not move here — <see cref="SlideCeiling"/> slides it to the target, which is what keeps a
         /// hundred constrained bodies from being jerked in a single write.
         /// </summary>
         /// <param name="waited">
@@ -249,30 +249,33 @@ namespace BS3D.Screens
             _ceilingStepWaited = 0f;
         }
 
-        /// <summary>
-        /// Slides the ceiling body toward <see cref="_ceilingTargetY"/> at <see cref="CEILING_DESCENT_SPEED"/>,
-        /// one frame's worth at a time, and refreshes the drawn world matrix to match. Called before the physics
-        /// step so the solver works against the moved body this frame, letting the contact between a descending
-        /// cluster and anything below it resolve rather than interpenetrate.
-        /// </summary>
-        private void UpdateCeilingDescent(float elapsed)
+        /// <summary>The glass's red or blue glow after a step, fading on the wall clock whether or not it moves.</summary>
+        private void UpdateCeilingFlash(float elapsed)
         {
-            //Ahead of the early return: the glow outlives the slide, and it has to keep fading once the plate
-            //has arrived or the glass would stay red for the rest of the level
             if (_ceilingFlash > 0f) _ceilingFlash = MathF.Max(0f, _ceilingFlash - elapsed / CEILING_FLASH_SECONDS);
+        }
 
+        /// <summary>
+        /// Slides the ceiling body toward <see cref="_ceilingTargetY"/> at <see cref="CEILING_DESCENT_SPEED"/> by one
+        /// physics step's worth, and refreshes the drawn world matrix to match. Called by <see cref="StepPhysics"/>
+        /// before each step (#577), so the solver works against the moved body and the contact between a descending
+        /// cluster and anything below it resolves rather than interpenetrates — and so the plate moves exactly as far
+        /// as the world it drags lives through, whatever the frame rate.
+        /// </summary>
+        private void SlideCeiling(float step)
+        {
             if (!_ceilingDescending) return;
 
-            //Equal within a hair means the slide is done — a frame that would otherwise move a thousandth of a
+            //Equal within a hair means the slide is done — a step that would otherwise move a thousandth of a
             //unit and never quite arrive. Snap, stop, and the matrix reflects the final pose exactly.
-            if (MathF.Abs(_ceilingY - _ceilingTargetY) <= CEILING_DESCENT_SPEED * elapsed)
+            if (MathF.Abs(_ceilingY - _ceilingTargetY) <= CEILING_DESCENT_SPEED * step)
             {
                 _ceilingY = _ceilingTargetY;
                 _ceilingDescending = false;
             }
             else
             {
-                _ceilingY -= CEILING_DESCENT_SPEED * elapsed;
+                _ceilingY -= CEILING_DESCENT_SPEED * step;
             }
 
             _ceiling.BodyReference.Pose.Position = new System.Numerics.Vector3(0f, _ceilingY, 0f);

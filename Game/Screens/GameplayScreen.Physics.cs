@@ -86,6 +86,13 @@ namespace BS3D.Screens
 
             while (_physicsAccumulator >= PHYSICS_TIMESTEP && steps < PHYSICS_MAX_STEPS_PER_FRAME)
             {
+                //The glass slides by the STEP, not by the frame (#577): it used to move by the frame's whole
+                //elapsed, so at 30 FPS it jumped four steps' worth at once and at 240 FPS half a step, and on a
+                //frame that hit the step cap the plate advanced by the whole frame while the world dropped the
+                //rest - plate and cluster drifting apart on every hitch. Before the step, so the solver works
+                //against the moved body.
+                SlideCeiling(PHYSICS_TIMESTEP);
+
                 //Every ball's pose as it stands going INTO the step, so the frame can be drawn between two
                 //step boundaries (#293). Per step and not per frame: when several steps run in one frame,
                 //the interpolation spans the last of them.
@@ -105,6 +112,9 @@ namespace BS3D.Screens
             //and fall further behind on the next frame, and the one after that. Drop what is left and let the
             //world run slow for that single frame instead.
             if (steps == PHYSICS_MAX_STEPS_PER_FRAME) _physicsAccumulator = 0f;
+
+            //What the world actually lived through this frame, for the rules that have to agree with it (#577)
+            _simulatedThisFrame = steps * PHYSICS_TIMESTEP;
 
             //Where this frame sits between the last step taken and the next one due — the factor every drawn
             //ball is interpolated by (#293). It is what turns the fixed step's staircase into motion on every
