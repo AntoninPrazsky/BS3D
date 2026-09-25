@@ -6492,6 +6492,9 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 - **Nový testovací vstup hry:** `walk=<od>:<do>[:in|out]` a `turn=<od>:<do>[:left|right]` (`ScriptedPlay`), mimo focus gate — skriptovaný běh se spouští bez fokusu. Resize zvenku přes `SetWindowPos` s `SWP_NOACTIVATE`, fokus majiteli nebere.
 - ⚠ **Past:** bez `windowed` se hra spustí v borderless fullscreenu (výchozí nastavení v prázdném `userdata=`) a `SetWindowPos` pak velikost back bufferu nezmění — `[camera]` dál hlásí aspect 2,40. A `walk=` musí začít až po intru kapitoly (One: ~14 s od startu levelu), jinak ho převzetí kamery spolkne.
 - **Záměrně ponecháno:** po otočce A/D resize přeframuje objektiv kolem nového bearingu (One: 30,5 → 31,8 při 21,5° od startu). Je to správný fit pro ten bearing, jen otočka sama fit nepřepočítává. Zapsané v `docs/game-session.md`.
+
+---
+
 ## 2026-09-25 — Claude Code, agent #493 (desktop: FLUX.2 klein 4B proti Z-Image-Turbo, celý sweep)
 
 - `prompts-493.json` (20 promptů × semínka 1 a 2) prošel **oběma modely až do konce: 80 z 80 obrázků, žádný reset, žádný neúspěšný request** — první běh po ownerově capu GPU (2100 MHz / 1080 mV). klein celý na kartě včetně 1216×832; dřívější pád VAE dekódu na šířku byl jen kartou obsazenou jiným procesem.
