@@ -528,7 +528,13 @@ namespace Prazsky.Core.Render
             {
                 int levelWidth = Math.Max(_device.PresentationParameters.BackBufferWidth >> (i + 1), 1);
                 int levelHeight = Math.Max(_device.PresentationParameters.BackBufferHeight >> (i + 1), 1);
-                _bloomChain[i] = new RenderTarget2D(_device, levelWidth, levelHeight, false, SurfaceFormat.HdrBlendable, DepthFormat.None);
+                //⚠ PreserveContents, or the pyramid does not accumulate (#565). MonoGame clears a DiscardContents
+                //target every time it is bound, and the way back up binds each level a SECOND time to add the
+                //wider halo onto what the way down left there - so from #69 until #565 each level was wiped
+                //first and the tonemap read only the foot, a thirty-second of the frame upsampled four times:
+                //no tight halo round anything, and the trophy's glints fed into the head thrown away.
+                _bloomChain[i] = new RenderTarget2D(_device, levelWidth, levelHeight, false, SurfaceFormat.HdrBlendable,
+                    DepthFormat.None, 0, RenderTargetUsage.PreserveContents);
             }
         }
 

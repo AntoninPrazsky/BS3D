@@ -91,7 +91,7 @@ namespace MapEditor
 
         //The pyramid accumulates on the way up (see the Testbed's figure and reasoning), so the intensity
         //sits far under the old streak star's — and matches the game's, so a map previews with its bloom.
-        private static readonly float GLARE_INTENSITY = 0.5f;
+        private static readonly float GLARE_INTENSITY = 0.1f;
 
         //The game's default lens fringing, so a map previews with it too (the toggle is the game's alone).
         private static readonly float CHROMATIC_ABERRATION = 0.0015f;
