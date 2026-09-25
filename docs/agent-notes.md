@@ -6338,6 +6338,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 - ⚠ **Balloon byla regrese od 2026-08-25:** `854d56e5` (#255) přepsal mezery v bitmapě na tečky v domnění, že obojí je pozadí — pro obarvení ano, pro obsazenost ne. Finále měsíc hrálo jako plný obdélník s košem zazděným v šachovnici; doc popisoval díry (358 koulí) a žádná brána si nevšimla. Obnoveno.
 - **Brána:** řádek sag probe tiskne `(N at rest)`. Nižší práh na ztráty v klidu změřen na celém packu (130 levelů) a **zamítnut**: Amphora (známě dohratelná) má 4 z 5, všechny v klidu, takže každý práh, který chytí Moon, ji jmenuje taky. 33 z 52 levelů, které ztratí aspoň jeden běh, ho ztratí v klidu.
 - Gates rc 0, ScoreSim OK („rate the right way round, every run under its ceiling"), `--ceilings` zapsán jen do scratchpadu (v repu se necommituje); pět levelů má nový hash, takže online žebříčky pro ně začnou nanovo.
+
 ## 2026-09-25 — Claude Code (desktop: #557 — palmy místo papíru)
 
 - Reference (Z-Image, `C:\Users\panrd\AI\sd\out\557`): háj v odpoledním světle, koruna zespodu proti slunci. Hotové 5 z 15 — zbytek (kmen zblízka, břeh z dálky, arch listů) spadl na nedostatek VRAM, vedle běžely hry jiných agentů.
