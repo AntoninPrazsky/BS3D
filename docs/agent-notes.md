@@ -6228,3 +6228,12 @@ Předchozí zápis říkal, že to dostavět znamená sáhnout do brány a že t
 ## 2026-09-25 — Claude Code, bs3d-0f (desktop: beru #547 — žebříčky ve hře)
 
 **Beru #547** na majitelův pokyn („Začni s implementací toho, co zatím můžeš implementovat"). Nárok před prací; soubory: `Game/Online/` (GET žebříčků), `Game/Screens/ResultPage.cs`, `LevelSelectPage.cs`, nová stránka žebříčku, docs.
+
+---
+
+## 2026-09-25 — Claude Code, bs3d-0f (desktop: #547 hotovo — žebříčky ve hře; BS3D-API#3 připravené)
+
+- **#547:** po přijetí clearu si hra vyžádá oba žebříčky levelu (GET, top 5 + vlastní řádek) a výsledková stránka je ukáže na desce VEDLE sloupce: THIS MONTH / ALL TIME, „You #N of M“ zlatě s úderem, vlastní řádek v top 5 zlatě; stavy odesílání / offline / odmítnuto; nepřihlášenému hráči jedna věta jednou za session. Picker: dvě tlačítka vedle sebe „Board: <level>“ + Back (jen s online zapnutým) → `LevelBoardPage` (oba žebříčky vedle sebe, 10 řádků, stránkování, minutová cache). Společná `BoardView`. Páka `board=<n>[:<page>]`.
+- ⚠ **Past 4:3:** první verze předpokládala, že deska se vedle sloupce vejde vždy; na 1024×768 ležela přes rozpis skóre — deska = obsah + padding a jeden dlouhý řádek ji rozšířil. Šířka se teď počítá z místa vedle sloupce a obsah je na ni držen. Vyfoceno 1600×900, 1024×768, 3840×1600.
+- Ověřeno proti skutečnému API (naseto 6, resp. 14 dalších hráčů): výsledek po skutečném clearu #5 z 7, stránka levelu One strana 1 a 2 (11–14, Previous aktivní, Next ne). Majitelovy soubory beze změny.
+- **BS3D-API#3** (v repu API, merge `69e7d46`): `release.yml` (tag → linux-arm64 tar.gz + sha256 do release; ruční běh jen artefakt — vyzkoušeno), systemd jednotky, `install.sh`/`update.sh` (rollback podle health, počty řádků před/po)/`backup.sh` (`admin backup`, 30 dní, rsync mimo box)/`update-ceilings.sh`, README. shellcheck čistý. Issue otevřená do ověření na Pi; `install.sh` potřebuje jeden publikovaný release (tag v API repu).

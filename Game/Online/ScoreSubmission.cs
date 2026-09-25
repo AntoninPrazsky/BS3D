@@ -195,3 +195,63 @@ namespace BS3D.Online
         }
     }
 }
+
+namespace BS3D.Online
+{
+    /// <summary>
+    /// One page of a board as <c>GET /v1/boards/{file}</c> answers it (#547): the period, the month it covers, how many
+    /// players are on it, the entries of the page, and the asking player's own row when they are on it.
+    /// </summary>
+    internal sealed class BoardPageBody
+    {
+        [JsonPropertyName("period")]
+        public string Period { get; set; }
+
+        /// <summary><c>YYYY-MM</c> on a month's board, null on the all-time one.</summary>
+        [JsonPropertyName("month")]
+        public string Month { get; set; }
+
+        [JsonPropertyName("total")]
+        public int Total { get; set; }
+
+        [JsonPropertyName("entries")]
+        public List<BoardEntryBody> Entries { get; set; } = new();
+
+        [JsonPropertyName("me")]
+        public BoardMeBody Me { get; set; }
+    }
+
+    internal sealed class BoardEntryBody
+    {
+        [JsonPropertyName("rank")]
+        public int Rank { get; set; }
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+
+        [JsonPropertyName("score")]
+        public int Score { get; set; }
+
+        [JsonPropertyName("stars")]
+        public int Stars { get; set; }
+    }
+
+    internal sealed class BoardMeBody
+    {
+        [JsonPropertyName("rank")]
+        public int Rank { get; set; }
+
+        [JsonPropertyName("score")]
+        public int Score { get; set; }
+
+        [JsonPropertyName("stars")]
+        public int Stars { get; set; }
+    }
+
+    /// <summary>What a board page asks for: the level's key, which board, which slice, and whose row to add.</summary>
+    internal readonly record struct BoardRequest(int Ticket, string File, string Hash, int Rules, bool AllTime, Guid? Player,
+        int Limit, int Offset);
+
+    /// <summary>The worker's answer to a <see cref="BoardRequest"/>: the page, or why there is none.</summary>
+    internal sealed record BoardReply(int Ticket, BoardPageBody Page, string Problem);
+}

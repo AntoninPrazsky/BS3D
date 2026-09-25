@@ -180,6 +180,14 @@ namespace BS3D.Screens
         //left the tile being described" from "the pointer left a tile the focus cursor had already replaced".
         private int _detailSlot = -1;
 
+        //The leaderboard button (#547) and the level it opens: the last UNLOCKED level the pointer or the cursor rested
+        //on, kept when the cursor moves off the grid onto the button itself — which is the only way a pad reaches it
+        private Button _boardButton;
+        private Label _boardLabel;
+        private int _boardLevel = -1;
+        private const int FOOTER_BUTTON_WIDTH = 490;
+        private const int FOOTER_GAP = 20;
+
         //The entry the focus cursor stands on, as the host last said. Kept for one job: a chapter turn has to
         //re-read the nav entries (a different chapter is a different set of playable tiles) and the cursor must
         //stay where it was, which means naming the button it was on.
@@ -259,7 +267,26 @@ namespace BS3D.Screens
             };
             page.Widgets.Add(_detail);
 
-            page.Widgets.Add(MenuButton("Back", GoBack));
+            //The online boards of the level last looked at (#547), beside Back rather than under it — the page is pulled
+            //into a band and has no height to spare — and only while the player can see the boards. A button rather than
+            //a key of its own, so the pointer, the arrows and the pad all reach it the way they reach everything else.
+            if (Game.OnlineEnabled)
+            {
+                HorizontalStackPanel footer = new() { Spacing = Scaled(FOOTER_GAP), HorizontalAlignment = HorizontalAlignment.Center };
+                _boardButton = MenuButton("Leaderboard", OpenBoard, out _boardLabel);
+                _boardButton.Width = Scaled(FOOTER_BUTTON_WIDTH);
+                Button back = MenuButton("Back", GoBack);
+                back.Width = Scaled(FOOTER_BUTTON_WIDTH);
+                footer.Widgets.Add(_boardButton);
+                footer.Widgets.Add(back);
+                page.Widgets.Add(footer);
+                ShowBoardButton();
+            }
+            else
+            {
+                _boardButton = null;
+                page.Widgets.Add(MenuButton("Back", GoBack));
+            }
 
             //⚠ PULLED DOWN INTO A BAND rather than centred like every other page (#472). This is the one
             //page whose backdrop is part of the answer - it hangs the level the cursor is on - so the
@@ -885,7 +912,12 @@ namespace BS3D.Screens
             //and material, once the focus rests. An unlocked one only — the menu must not show the shape of a
             //level still ahead of the player (#266). Leaving a tile asks nothing, so the last level looked at
             //stays hanging rather than the arena flicking back to whatever was up before.
-            if (Game.IsLevelUnlocked(level)) Game.Backdrop?.RequestPreview(level);
+            if (Game.IsLevelUnlocked(level))
+            {
+                Game.Backdrop?.RequestPreview(level);
+                _boardLevel = level;
+                ShowBoardButton();
+            }
 
             //The lock's full arithmetic, and since #347 that means the right arithmetic: the sequence names
             //the level standing in the way, the star gate names the price against what the player holds.
@@ -895,6 +927,20 @@ namespace BS3D.Screens
                     ? $"{Game.LevelDisplayName(level)} — one level at a time;"
                       + $" next is {Game.FirstUnfinishedLevel + 1} '{Game.LevelDisplayName(Game.FirstUnfinishedLevel)}'"
                     : $"{Game.LevelDisplayName(level)} — unlocks at {Game.LevelMinStars(level)} {STAR_FILLED}, you have {Game.TotalStars}";
+        }
+
+        /// <summary>The button names the level it opens, so a pad player knows which board they are about to see.</summary>
+        private void ShowBoardButton()
+        {
+            if (_boardButton == null) return;
+
+            _boardButton.Enabled = _boardLevel >= 0;
+            _boardLabel.Text = _boardLevel >= 0 ? $"Board: {Game.LevelDisplayName(_boardLevel)}" : "Leaderboard";
+        }
+
+        private void OpenBoard()
+        {
+            if (_boardLevel >= 0) Game.OpenLevelBoard(_boardLevel);
         }
 
         /// <summary>The level a tile slot is showing, or -1 for no tile and for a slot this chapter leaves empty.</summary>

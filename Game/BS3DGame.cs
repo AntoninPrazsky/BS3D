@@ -326,6 +326,10 @@ namespace BS3D
         //Testing only: the settings rows to activate once the page is up (settings=<row,...>, #548). Null for none.
         private string _startupSettingsRows;
 
+        //Testing only: a level whose online boards open at boot (board=<n>, #547), 1-based. Null for none.
+        private int? _startupBoard;
+        private int _startupBoardPage = 1;
+
         //Which Help page to open at boot, 1-based, or null for "not asked" (#427)
         private int? _startupHelp;
 
@@ -898,7 +902,7 @@ namespace BS3D
             int? resultStars = null, string nextLocked = null, int? streak = null, int wildcardEvery = 0, string powerups = null, float[] shotSeconds = null, string level = null, string levelFile = null,
             string preview = null, BallStyle? ballStyle = null, string pick = null, int fpsCap = 0,
             bool noFocusPause = false, float[] detonateSeconds = null, string about = null, string tutorial = null,
-            bool settings = false, string settingsRows = null, int? help = null, int? sceneSeed = null, bool tour = false,
+            bool settings = false, string settingsRows = null, int? board = null, int boardPage = 1, int? help = null, int? sceneSeed = null, bool tour = false,
             int windowWidth = 0, int windowHeight = 0, float lineLoss = 0f, bool plainCeiling = false)
         {
             //The scene's procedural roll (see _sceneSeedOffset): rolled once per launch unless the command
@@ -997,6 +1001,8 @@ namespace BS3D
             _startupAbout = about;
             _startupSettings = settings || settingsRows != null;
             _startupSettingsRows = settingsRows;
+            _startupBoard = board;
+            _startupBoardPage = boardPage;
             _startupHelp = help;
             _startupTour = tour;
             _startupLineLoss = lineLoss;
@@ -2049,6 +2055,13 @@ namespace BS3D
                 _startupSettingsRows = null;
 
                 _settingsPage.ActivateForTesting(rows);
+            }
+
+            //A level's online boards (#547), past the title card for the same reason
+            if (_startupBoard is int boardLevel && !_screens.Contains<SplashPage>())
+            {
+                _startupBoard = null;
+                OpenLevelBoard(boardLevel - 1, _startupBoardPage - 1);
             }
 
             //And the Help screen, on whichever of its pages was asked for (#427)

@@ -56,6 +56,7 @@ namespace BS3D
         private MainMenuPage _mainMenuPage;
         private PausePage _pausePage;
         private SettingsPage _settingsPage;
+        private LevelBoardPage _levelBoardPage;
         private LevelSelectPage _levelSelectPage;
         private ScenePage _scenePage;
         private AboutPage _aboutPage;
@@ -154,6 +155,12 @@ namespace BS3D
         private static readonly Color STAR_BRONZE = new(205, 116, 58);
         private static readonly Color STAR_SILVER = new(190, 201, 216);       //cooled off MENU_TEXT, or it reads as plain type
         private static readonly Color STAR_GOLD = new(247, 199, 74);
+
+        /// <summary>
+        /// The player's own place on an online board (#547): the gold the stars are struck in, so the one line on the
+        /// plate that is theirs reads as a reward rather than as one more row.
+        /// </summary>
+        internal static Color BoardYouColor => STAR_GOLD;
         private static readonly Color STAR_DIAMOND = new(140, 236, 255);      //above gold: the one cold, bright tier
 
         /// <summary>
@@ -472,6 +479,7 @@ namespace BS3D
             _levelSelectPage = new LevelSelectPage(this);
             _scenePage = new ScenePage(this);
             _aboutPage = new AboutPage(this);
+            _levelBoardPage = new LevelBoardPage(this);
             _helpPage = new HelpPage(this);
             _resultPage = new ResultPage(this);
 
@@ -1074,6 +1082,34 @@ namespace BS3D
         internal void OpenSceneSelect() => OpenPage(_scenePage);
         internal void OpenSettings() => OpenPage(_settingsPage);
         internal void OpenAbout() => OpenPage(_aboutPage);
+
+        /// <summary>
+        /// A level's two online boards, over the picker (#547). Nothing opens for a run that cannot see the boards or a
+        /// level whose file will not read — the picker only offers the button when it can.
+        /// </summary>
+        internal void OpenLevelBoard(int level, int page = 0)
+        {
+            Prazsky.BS3D.Levels.LevelIdentity identity = LevelIdentityOf(level);
+            if (!OnlineEnabled || identity == null) return;
+
+            _levelBoardPage.Show(level, identity, page);
+            OpenPage(_levelBoardPage);
+        }
+
+        /// <summary>The board key of a set entry, read off its file — null when there is no set or the file will not read.</summary>
+        internal Prazsky.BS3D.Levels.LevelIdentity LevelIdentityOf(int level)
+        {
+            if (_levelSet == null || level < 0 || level >= _levelSet.Count) return null;
+
+            try
+            {
+                return Prazsky.BS3D.Levels.LevelIdentity.Of(_levelSet, level);
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                return null;
+            }
+        }
 
         /// <summary>The Help screen (#427): how it is played, the scoring, the odd balls, the campaign and the controls.</summary>
         internal void OpenHelp() => OpenPage(_helpPage);

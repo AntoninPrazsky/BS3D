@@ -1,4 +1,5 @@
-﻿using BS3D.Audio;
+﻿using BS3D.Online;
+using BS3D.Audio;
 using FontStashSharp;
 using Microsoft.Xna.Framework;
 using Myra.Graphics2D.UI;
@@ -6,6 +7,7 @@ using System.Collections.Generic;
 using Prazsky.Core.Camera;
 using Prazsky.BS3D.Scoring;
 using System;
+using System.Globalization;
 using HorizontalAlignment = Myra.Graphics2D.UI.HorizontalAlignment;
 using Label = Myra.Graphics2D.UI.Label;
 using TextHorizontalAlignment = FontStashSharp.RichText.TextHorizontalAlignment;
@@ -213,6 +215,14 @@ namespace BS3D.Screens
             ApplyStars();
             ApplyBreakdownReveal();
 
+            //The boards (#547): whether this ending offers them to a player who has not opted in is decided now and
+            //stands while the page is up — once a session, on a clear (see BS3DGame.TakeOnlineHint)
+            _offerOnlineHint = _result.Cleared && Game.TakeOnlineHint();
+            _boardsClock = 0f;
+            _boardsShownGeneration = -1;
+            _boardsWereVisible = false;
+            ApplyBoards();
+
             //Started at the bearing the lens is already on, so the release is straight out from the arena
             Game.Backdrop.AlignOrbitTo(_fromPosition);
 
@@ -264,6 +274,10 @@ namespace BS3D.Screens
                 //One last pass has just run at or past the end, so the row is on its exact resting values
                 if (_revealClock >= RevealTotalSeconds) _revealSettled = true;
             }
+
+            //The boards come in after the reveal has settled, and punch in on their own clock (#547)
+            if (_boardsPlate != null && _boardsPlate.Visible) _boardsClock += elapsed;
+            ApplyBoards();
 
             Game.Backdrop.AdvanceOrbit(elapsed, out Vector3 position, out Vector3 target, out float fieldOfView);
 
@@ -919,7 +933,12 @@ namespace BS3D.Screens
 
             column.Widgets.Add(MenuButton("Main Menu", Game.EndSessionAndReturnToMainMenu));
 
-            return ScreenRoot(column);
+            //The online boards (#547), BESIDE the column rather than in it: the column is the ending's own and stands
+            //close to its height budget, while the width either side of it is empty at every landscape aspect — at 4:3
+            //each side still holds about 940 design units, and the plate is BOARD_WIDTH of them.
+            _boardsPlate = BuildBoards();
+
+            return ScreenRoot(column, _boardsPlate);
         }
 
         /// <summary>
@@ -1169,7 +1188,142 @@ namespace BS3D.Screens
             //slot rather than the least. A fail leaves the two exactly where they were built — Retry first,
             //Next Level absent — so this only ever has to swap them, never a third arrangement.
             ReorderPrimaryAction();
+
+            _boardsShownGeneration = -1;
+            ApplyBoards();
         }
+
+        #region The online boards (#547)
+
+        //The plate is at most this wide — ranks, nicknames and scores in the small face, sixteen characters of a name
+        //with room — and stands off the frame's right edge by up to this much. Both give way to the width actually
+        //beside the column (see BuildBoards): at 16:9 there are about 1420 design units either side of it and both
+        //hold; at 4:3 there are about 940, and the first cut, which assumed they would always hold, was photographed
+        //laid across the score breakdown.
+        private const int BOARD_WIDTH = 780;
+        private const int BOARD_MIN_WIDTH = 520;
+        private const int BOARD_EDGE_MARGIN = 150;
+        private const int BOARD_MIN_EDGE_MARGIN = 24;
+        private const int BOARD_COLUMN_GAP = 24;
+        private const int BOARD_PADDING = 56;
+        private const int BOARD_SECTION_GAP = 40;
+        private int _boardWidth;
+
+        private Panel _boardsPlate;
+        private Label _boardsStatus;
+        private BoardView _month, _allTime;
+        private bool _offerOnlineHint;
+        private float _boardsClock;
+        private int _boardsShownGeneration = -1;
+        private bool _boardsWereVisible;
+
+        private Panel BuildBoards()
+        {
+            //What fits beside the column, in pixels at the layout in force: the plate's padding and its gap to the
+            //column come off first, then the edge margin gives way, then the plate's own width
+            int beside = (Game.GraphicsDevice.PresentationParameters.BackBufferWidth - ColumnWidth) / 2;
+            int room = beside - Scaled(BOARD_COLUMN_GAP) - 2 * Scaled(BOARD_PADDING);
+            int margin = Math.Clamp(room - Scaled(BOARD_WIDTH), Scaled(BOARD_MIN_EDGE_MARGIN), Scaled(BOARD_EDGE_MARGIN));
+            _boardWidth = Math.Clamp(room - margin, Scaled(BOARD_MIN_WIDTH), Scaled(BOARD_WIDTH));
+
+            //Held to the width worked out above: a stack sizes to its widest child, and one long line — the first cut's
+            //"Every clear since the boards began" — widened the whole plate back across the column at 4:3
+            VerticalStackPanel stack = new() { Spacing = Scaled(10), Width = _boardWidth, ClipToBounds = true };
+
+            _month = new BoardView(FontBody, FontSmall, Scaled, BS3DGame.RESULT_BOARD_ROWS, _boardWidth);
+            _allTime = new BoardView(FontBody, FontSmall, Scaled, BS3DGame.RESULT_BOARD_ROWS, _boardWidth);
+            _allTime.Root.Margin = ScaledThickness(0, BOARD_SECTION_GAP, 0, 0);
+            stack.Widgets.Add(_month.Root);
+            stack.Widgets.Add(_allTime.Root);
+
+            //What the boards cannot show yet or at all — sending, offline, refused, or the offer to a player who has not
+            //opted in — in the plate's own small print
+            _boardsStatus = new Label
+            {
+                Font = FontSmall,
+                TextColor = BS3DGame.MENU_TEXT_BODY,
+                Wrap = true,
+                Width = _boardWidth,
+            };
+            stack.Widgets.Add(_boardsStatus);
+
+            Panel plate = Plate(stack);
+            plate.HorizontalAlignment = HorizontalAlignment.Right;
+            plate.Padding = ScaledThickness(BOARD_PADDING, BOARD_PADDING);
+            plate.Margin = new Myra.Graphics2D.Thickness(0, 0, margin, 0);
+            plate.Visible = false;
+            return plate;
+        }
+
+        /// <summary>
+        /// Writes the plate from what the game has heard (#547) — only when that changed or the plate is coming into
+        /// view, because a Label's Text setter re-measures. Never waits for anything: a board that is slow is a board
+        /// that is late, not a page that is.
+        /// </summary>
+        private void ApplyBoards()
+        {
+            if (_boardsPlate == null) return;
+
+            bool wanted = _result.Cleared && _revealSettled && (Game.OnlineEnabled || _offerOnlineHint);
+
+            if (wanted != _boardsWereVisible)
+            {
+                _boardsWereVisible = wanted;
+                _boardsPlate.Visible = wanted;
+                _boardsClock = 0f;
+                _boardsShownGeneration = -1;
+            }
+
+            if (!wanted) return;
+
+            //The player's own lines punch in over their first moments, on the plate's own clock
+            float punch = PunchScale(MathF.Min(1f, _boardsClock / REVEAL_PUNCH_SECONDS));
+            _month.You.Scale = _allTime.You.Scale = new Vector2(punch);
+
+            if (_boardsShownGeneration == Game.OnlineResultGeneration) return;
+            _boardsShownGeneration = Game.OnlineResultGeneration;
+
+            if (!Game.OnlineEnabled)
+            {
+                ShowSections(false);
+                _boardsStatus.Text = "Online leaderboards are off. Turn on Online scores in Settings to see where your clears rank.";
+                return;
+            }
+
+            OnlineAnswer? answer = Game.OnlineResult;
+
+            if (answer is not { Outcome: OnlineOutcome.Accepted } accepted)
+            {
+                ShowSections(false);
+                _boardsStatus.Text = answer?.Outcome switch
+                {
+                    OnlineOutcome.Offline => "Offline. This clear is saved and goes out with your next one.",
+                    OnlineOutcome.Refused => "The score server did not take this clear.",
+                    _ => "Sending your score...",
+                };
+                return;
+            }
+
+            ShowSections(true);
+
+            _month.Fill("THIS MONTH", BoardView.MonthName(Game.ResultMonthBoard?.Month), Game.ResultMonthBoard,
+                accepted.MonthRank, accepted.MonthTotal);
+            _allTime.Fill("ALL TIME", BoardView.AllTimePeriod, Game.ResultAllTimeBoard,
+                accepted.AllTimeRank, accepted.AllTimeTotal);
+
+            bool loading = Game.ResultMonthBoard == null || Game.ResultAllTimeBoard == null;
+            _boardsStatus.Text = loading ? "Loading the boards..." : accepted.PersonalBest ? "A personal best on this level." : string.Empty;
+            _boardsStatus.Visible = _boardsStatus.Text.Length > 0;
+        }
+
+        private void ShowSections(bool visible)
+        {
+            _month.Root.Visible = visible;
+            _allTime.Root.Visible = visible;
+            _boardsStatus.Visible = true;
+        }
+
+        #endregion
 
         /// <summary>
         /// Swaps Retry and Next Level so the button the player actually wants next leads the column — see the

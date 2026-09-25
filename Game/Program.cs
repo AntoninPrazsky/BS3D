@@ -120,6 +120,9 @@ namespace BS3D
             //presses reach it on a machine somebody is sitting at, and none reach it from a script.
             bool settings = false;
             string settingsRows = null;
+            //Testing only: open one level's online boards at boot (#547), 1-based as the picker numbers it. Null means absent.
+            int? board = null;
+            int boardPage = 1;
 
             //Testing only: open the Help screen at boot, and "help=<n>" on its nth page (#427). Null means
             //the argument was absent; the number is 1-based because that is what the page prints about itself.
@@ -319,6 +322,15 @@ namespace BS3D
                 //through the page's own click handlers, since a run nobody is sitting at cannot click one. "remove" is
                 //refused outside a userdata= folder: it would take the player's own scores off the server.
                 else if (arg.StartsWith("settings=", StringComparison.OrdinalIgnoreCase)) settingsRows = arg.Substring("settings=".Length);
+                //"board=<n>" opens level n's online boards at boot (#547): the picker's button needs a level the pointer or
+                //the cursor rested on, and a run nobody is sitting at has neither
+                //"board=<n>:<page>" opens it on that page, so the paging can be photographed too
+                else if (arg.StartsWith("board=", StringComparison.OrdinalIgnoreCase))
+                {
+                    string[] parts = arg.Substring("board=".Length).Split(':');
+                    if (int.TryParse(parts[0], out int parsedBoard)) board = parsedBoard;
+                    if (parts.Length > 1 && int.TryParse(parts[1], out int parsedPage) && parsedPage > 0) boardPage = parsedPage;
+                }
                 //"help" opens the Help screen and "help=<n>" opens it on that page (#427) - the same reasoning
                 //one turn further, since Help is six pages behind one entry and its Previous/Next stand side
                 //by side, so a scripted walk has to guess a focus order to reach page four at all.
@@ -359,7 +371,7 @@ namespace BS3D
                 celebrate: celebrate, confetti: confetti, lasers: lasers, mute: mute, noFpsOverlay: noFpsOverlay, play: play, result: result, blockDone: blockDone, lost: lost, resultStars: resultStars, nextLocked: nextLocked, streak: streak, wildcardEvery: wildcardEvery, powerups: powerups,
                 shotSeconds: shotSeconds, level: level, levelFile: levelFile, preview: preview, ballStyle: ballStyle, pick: pick, fpsCap: fpsCap,
                 noFocusPause: noFocusPause, detonateSeconds: detonateSeconds, about: about, tutorial: tutorial,
-                settings: settings, settingsRows: settingsRows, help: help, sceneSeed: sceneSeed, tour: tour,
+                settings: settings, settingsRows: settingsRows, board: board, boardPage: boardPage, help: help, sceneSeed: sceneSeed, tour: tour,
                 windowWidth: windowWidth, windowHeight: windowHeight, lineLoss: lineLoss, plainCeiling: plainCeiling);
             game.Run();
         }
