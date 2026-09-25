@@ -212,13 +212,32 @@ namespace Prazsky.BS3D.Physics
             public readonly CollidablePair Pair;
             public readonly Vector3 ContactOffset;
 
-            public QueuedContact(CollidableReference eventSource, CollidablePair pair, Vector3 contactOffset)
+            /// <summary>Penetration depth: negative for a near-touch (<see cref="OnContactAdded"/>), not for a touch.</summary>
+            public readonly float Depth;
+
+            /// <summary>
+            /// How far along the shot's own flight the contact lies, filled in on the main thread when the step's
+            /// contacts are ordered (<see cref="ProcessQueuedContacts"/>). Smaller is met first.
+            /// </summary>
+            public readonly float Along;
+
+            public QueuedContact(CollidableReference eventSource, CollidablePair pair, Vector3 contactOffset, float depth,
+                float along = 0f)
             {
                 EventSource = eventSource;
                 Pair = pair;
                 ContactOffset = contactOffset;
+                Depth = depth;
+                Along = along;
             }
+
+            public QueuedContact WithAlong(float along) => new(EventSource, Pair, ContactOffset, Depth, along);
         }
+
+        //One step's contacts, drained out of the queue so they can be put in an order that does not depend on the
+        //worker threads (#578). Reused, and the comparison is cached, so ordering them allocates nothing.
+        private readonly List<QueuedContact> _stepContacts = new(16);
+        private static readonly Comparison<QueuedContact> ContactOrder = CompareContacts;
 
         /// <summary>
         /// Runs on a Bepu worker thread, inside the timestep. Records and returns — see the class remarks.
@@ -291,7 +310,7 @@ namespace Prazsky.BS3D.Physics
             if (depth >= 0f || depth < -BallsConstraintsBuilder.SPECULATIVE_MARGIN) return;
             if (pair.A.Mobility != CollidableMobility.Dynamic || pair.B.Mobility != CollidableMobility.Dynamic) return;
 
-            _queuedContacts.Enqueue(new QueuedContact(eventSource, pair, contactOffset));
+            _queuedContacts.Enqueue(new QueuedContact(eventSource, pair, contactOffset, depth));
         }
 
         public void OnTouching<TManifold>(CollidableReference eventSource, CollidablePair pair, ref TManifold contactManifold,
@@ -313,7 +332,7 @@ namespace Prazsky.BS3D.Physics
                 offset = candidate;
             }
 
-            _queuedContacts.Enqueue(new QueuedContact(eventSource, pair, offset.ToXna()));
+            _queuedContacts.Enqueue(new QueuedContact(eventSource, pair, offset.ToXna(), deepest));
         }
 
         /// <summary>
@@ -323,12 +342,71 @@ namespace Prazsky.BS3D.Physics
         /// <returns>How many balls attached to the structure.</returns>
         public int ProcessQueuedContacts()
         {
+            //IN AN ORDER THE WORKER THREADS DO NOT DECIDE (#578). The queue fills in thread-completion order, and a
+            //shot sliding into a pocket touches two or three things in one step - two balls, or a ball and the
+            //stone, with #410's near-touches queued beside the real ones - so whichever was enqueued first used to
+            //be the ball the cell was solved against: two identical shots could land in different cells, and a
+            //machine with another core count could disagree with this one. Ordered instead per shot, real touches
+            //before near ones, then the one met first along the shot's own flight, which is the preview's rule
+            //(ShotPlacement.TryFindFirstHitOnSegment asks for the first surface along the barrel's line). The
+            //first of a shot's contacts that attaches ends it, exactly as before.
+            _stepContacts.Clear();
+            while (_queuedContacts.TryDequeue(out QueuedContact queued)) _stepContacts.Add(queued.WithAlong(AlongFlight(queued)));
+
+            if (_stepContacts.Count > 1) _stepContacts.Sort(ContactOrder);
+
             int attached = 0;
 
-            while (_queuedContacts.TryDequeue(out QueuedContact contact))
-                if (ProcessContact(contact)) attached++;
+            for (int i = 0; i < _stepContacts.Count; i++)
+                if (ProcessContact(_stepContacts[i])) attached++;
 
+            _stepContacts.Clear();
             return attached;
+        }
+
+        /// <summary>
+        /// Where along the shot's flight a contact lies: its world point, relative to the shot's centre, projected
+        /// on the shot's velocity. A body the step already took away answers zero, which only costs it its place.
+        /// </summary>
+        private float AlongFlight(in QueuedContact contact)
+        {
+            BodyHandle shot = contact.EventSource.BodyHandle;
+            if (!_simulation.Bodies.BodyExists(shot)) return 0f;
+
+            //The manifold offset is relative to the pair's FIRST collidable (see ProcessContact), which may be a
+            //static - and a static's reference carries no body handle
+            CollidableReference first = contact.Pair.A;
+            System.Numerics.Vector3 origin;
+            if (first.Mobility == CollidableMobility.Static) origin = _simulation.Statics[first.StaticHandle].Pose.Position;
+            else if (_simulation.Bodies.BodyExists(first.BodyHandle)) origin = _simulation.Bodies[first.BodyHandle].Pose.Position;
+            else return 0f;
+
+            BodyReference body = _simulation.Bodies[shot];
+            System.Numerics.Vector3 point = origin + contact.ContactOffset.ToNumerics();
+
+            return System.Numerics.Vector3.Dot(point - body.Pose.Position, body.Velocity.Linear);
+        }
+
+        /// <summary>
+        /// The step's order (#578): by shot, then real touches before near ones, then first along the flight, and
+        /// the other collidable's handle last so that no two contacts ever compare equal and the unstable sort
+        /// cannot reorder them between runs.
+        /// </summary>
+        private static int CompareContacts(QueuedContact a, QueuedContact b)
+        {
+            int order = a.EventSource.Packed.CompareTo(b.EventSource.Packed);
+            if (order != 0) return order;
+
+            order = (a.Depth < 0f).CompareTo(b.Depth < 0f);
+            if (order != 0) return order;
+
+            order = a.Along.CompareTo(b.Along);
+            if (order != 0) return order;
+
+            return Other(a).Packed.CompareTo(Other(b).Packed);
+
+            static CollidableReference Other(in QueuedContact c) =>
+                c.Pair.A.Packed == c.EventSource.Packed ? c.Pair.B : c.Pair.A;
         }
 
         private bool ProcessContact(in QueuedContact contact)
