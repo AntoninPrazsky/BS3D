@@ -120,6 +120,13 @@ static const float CORE_AT_FRONT = 0.22;
 static const float STREAM_FREQUENCY = 2.2;
 static const float STREAM_STRETCH = 12.0;
 
+//The crust rafts a flow carries over its fixed bed of fissures (#554): the share of the channel that is crust
+//(the rest is open leads), how much of a fissure still shows through a raft, and how brightly an open lead
+//glows as a fraction of LavaCool.
+static const float RAFT_COVER = 0.55;
+static const float RAFT_SHOW = 0.2;
+static const float LEAD_GLOW = 0.15;
+
 //The rivulets on the cone. Sampled on a circle of this radius in noise space (seam-free round the axis - see
 //Rivulets), so it is also roughly how many lines run down the whole cone divided by five; RIVULET_RADIAL is
 //how fast a line wanders as it descends, per world unit.
@@ -215,7 +222,8 @@ struct RiverSample
 {
     float Mask;     //1 on the flow, feathered to 0 at its edge
     float Halo;     //a wider, softer field: the band of ground the flow is heating
-    float Along;    //distance down the flank, already scrolled - the flow's own coordinate
+    float Along;    //distance down the flank, already scrolled - the flow's own coordinate. What the melt
+                    //carries is drawn in it; what is fixed in the channel (its fissures) in ConeR instead
     float Across;   //SIGNED distance across the flow from its centre line, so a pattern drawn in it is not
                     //mirrored about that line
     float HalfWidth;//the nearest flow's own half-width here, which Across is read against
@@ -360,8 +368,9 @@ VolcanoVertexOutput VolcanoVSReduced(VolcanoVertexInput input) { return VolcanoV
 
 //--- Pixel -------------------------------------------------------------------------------------------------
 
-//The flow's own surface at one point, as radiance: the chilled crust it carries, the open core down its
-//middle, the streamlines in that core and the cracks in the crust. `detail` is the caller's crackle fade -
+//The flow's own surface at one point, as radiance: the chilled crust rafts it carries, the open core down its
+//middle, the streamlines in that core and the fissures in the channel's bed, which stay put while the rafts
+//roll over them and glow where a lead between rafts uncovers them (#554). `detail` is the caller's crackle fade -
 //the lines and cracks are hairlines, and past the distance they resolve they are replaced by their own mean.
 float3 FlowRadiance(RiverSample river, float footprint, float detail)
 {
@@ -385,17 +394,32 @@ float3 FlowRadiance(RiverSample river, float footprint, float detail)
     float stripe = 0.5 + 0.5 * cos(river.Across * STREAM_FREQUENCY + 2.5 * bend);
     float stream = lerp(0.3125, stripe * stripe * stripe, saturate(1.5 - footprint * STREAM_FREQUENCY * 0.5));
 
-    //The crust: rafts of chilled skin, stretched downstream because the flow stretches them, with hairline
-    //cracks between them. The cells are LONG along the flow on purpose - an isotropic Voronoi here is the
-    //honeycomb the first build drew. Warped for the reason every Voronoi in this file is: a jittered
-    //lattice still has a lattice in it.
-    float2 raftUV = float2(river.Across / (PlateSize * 0.9), river.Along / (PlateSize * 3.2));
-    float raftEdge = VoronoiEdge2(raftUV + float2(GradientNoise2(raftUV * 0.35),
-                                                  GradientNoise2(raftUV * 0.35 + 11.3)) * 0.6);
-    float crack = 1.0 - saturate(raftEdge * 11.0);
+    //TWO LAYERS, AND THEY MOVE DIFFERENTLY (#554). The glowing fissures are the channel's BED: a network of
+    //seams in the ground the flow runs in, and they stay where they are. The crust is a skin of rafts CARRIED
+    //on the melt, and it rolls downstream over them. Until #554 both were one Voronoi web read in the scrolled
+    //coordinate, so the whole cracked pattern slid down the flank with the melt - which the owner read the
+    //right way round: the seams are fixed and the lava flows through and over them.
+    //
+    //The fissures: the old anisotropic web, read in the channel's UNSCROLLED coordinate (the distance from
+    //the cone's axis itself, not Along). Still long along the flow - the seams run the way the channel
+    //does, and an isotropic Voronoi here is the honeycomb the first build drew. Warped for the reason every
+    //Voronoi in this file is: a jittered lattice still has a lattice in it.
+    float2 bedUV = float2(river.Across / (PlateSize * 0.9), river.ConeR / (PlateSize * 3.2));
+    float bedEdge = VoronoiEdge2(bedUV + float2(GradientNoise2(bedUV * 0.35),
+                                                GradientNoise2(bedUV * 0.35 + 11.3)) * 0.6);
+    float fissure = 1.0 - saturate(bedEdge * 11.0);
+
+    //The rafts: a noise in the SCROLLED coordinate, stretched along the flow, thresholded into crust that
+    //covers the bed and open leads between rafts where it does not. RAFT_COVER of the channel is crust; a
+    //fissure under a raft is only a trace (RAFT_SHOW) and one in a lead glows in full, so the seams are
+    //uncovered and buried again as the rafts pass - which is the whole reading of lava rolling over them.
+    float2 raftUV = float2(river.Across / (PlateSize * 1.4), river.Along / (PlateSize * 5.0));
+    float lead = 1.0 - smoothstep(RAFT_COVER - 0.12, RAFT_COVER + 0.12, GradientNoise2(raftUV) * 0.5 + 0.5);
+    float crack = fissure * lerp(RAFT_SHOW, 1.0, lead);
 
     //Past the distance the cracks resolve, their own mean: about a tenth of the crust.
     crack = lerp(0.1, crack, detail);
+    lead = lerp(0.3, lead, detail);
 
     //The melt pulses slowly as the supply behind it surges, and cools on its way down.
     float surge = 0.85 + 0.15 * sin(VolcanoTime * 0.7 + river.Along * 0.05);
@@ -404,7 +428,9 @@ float3 FlowRadiance(RiverSample river, float footprint, float detail)
 
     //What the crust itself radiates: a dull red where it is young and thin, near the vent; its cracks glow
     //through it at a cooler colour than the core does.
-    float3 crust = LavaCool * CrustGlow * (1.0 - 0.7 * run)
+    //An open lead between rafts is the melt itself showing, a moving dull glow the rafts carry down with
+    //them - kept far under the core's, or the channel turns back into the lit width #509 took away.
+    float3 crust = LavaCool * (CrustGlow + LEAD_GLOW * lead) * (1.0 - 0.7 * run)
         + lerp(LavaCool, LavaHot, 0.3) * crack * CrackGlow * (1.0 - 0.5 * run);
 
     //And the bank: where the crust tears from the levee the melt shows as a thin bright line along the

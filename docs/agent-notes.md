@@ -6295,3 +6295,12 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 - Orbita menu (#408): místo spoléhání na `MinRadius` se testuje **skutečná koruna** — `PalmMesh.Crown` přes instanční matici, minus `FrondReach` × měřítko, musí být vně `PalmConfig.OrbitClearance` 46 (nejširší orbita 45 + 1). Kmen i náklon posunou korunu o několik jednotek od kořene. Proto se varianta, yaw a náklon losují před umístěním; celá pláž (skály, výzdoba) se tím přelosovala.
 - Úvodní let (`tour`): stanoviště „the lagoon" 2.1× stand-off při 8° stálo uprostřed palmového prstence ve výšce korun → 20°. Snímáno po sekundách přes `tour`: let jde přes vršky palem, žádný snímek skrz korunu. Stíny (#471) delší, na ostrov nedosáhnou.
 - Neměřen výkon (běželo 6+ cizích exe); geometrie palem je stejná (stejné počty vrcholů), mění se jen pokrytí obrazovky.
+
+---
+
+## 2026-09-25 — Claude Code, bs3d-0f (desktop: #554 — praskliny pod lávou stojí, kůra přes ně teče)
+
+- **Co:** `FlowRadiance` ve `Volcano.fx` má dvě vrstvy s různým pohybem. Síť zářících prasklin (dosavadní anizotropní Voronoi) se čte v NEposunuté souřadnici koryta (`ConeR`, vzdálenost od osy kužele) a stojí v zemi; kry kůry jsou gradientní šum v posunuté souřadnici (`Along`), prahovaný na `RAFT_COVER` pokrytí. Pod krou prasklina svítí jen `RAFT_SHOW` 0,2, v mezeře mezi krami naplno a mezera sama tlumeně svítí taveninou (`LEAD_GLOW` 0,15 × `LavaCool`, pod jádrem, aby se koryto nevrátilo k plné šířce světla, kterou #509 zrušil). Jádro, proudnice, trhliny, bank line i jezero beze změny.
+- **Důkaz pohybem:** dva snímky 2 s po sobě z pevné Testbed kamery u proudu vedle arény (`campos=-46,0,0 camtarget=-64,-13,-16`, sceneseed 0, dome 9, `nopost`). Detektor čar (jas − blur 5 px) v korytě: překryv snímků IoU **0,36 před → 0,82 po**; rozdílový obraz před = celá síť svítí, po = síť tichá, mění se jádro a kry.
+- **Cena:** +69 instrukčních slotů (2187 → 2256, jen uvnitř větve proudu; `d3dcompiler_47` přes ctypes s `D3DCOMPILE_ENABLE_BACKWARDS_COMPATIBILITY`, jinak Shadows.fxh neprojde). GPU: 15,19 vs 15,20 ms u proudu, 14,03 vs 14,07 herní pin — ⚠ ne na klidném stroji: hodinu jsem čekal na okno bez cizího BS3D.exe a nepřišlo (40 vzorků po 0,8 s, ani jeden volný), měřeno tedy s jedním cizím zachytáváním souběžně a rozbité páry zahozeny.
+- ⚠ **Past:** sdílený scratchpad — jiný agent mezitím přepsal můj `quiet.ps1` svou verzí (kompatibilní). Pojmenovávat vlastní skripty s číslem issue.
