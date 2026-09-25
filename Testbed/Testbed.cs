@@ -346,70 +346,8 @@ namespace Testbed
         private SceneKind _scene = SceneKind.City;
         private SceneRenderer _sceneRenderer;
 
-        //The sea mirrors the sky, so it reads best under a moody dome rather than the bright default: a sunny
-        //sky gives a bright, breezy sea, not a stormy one. Entering the sea scene (at startup or via NumPad2)
-        //therefore defaults the dome to this darker one; NumPad1 still cycles freely from there, and an
-        //explicit sky= on the command line overrides the startup default. Dome 13 is a violet/teal dusk.
-        private const byte SEA_DEFAULT_SKY_DOME = 13;
-
-        //The savanna does the same for the opposite mood: it reads best under a warm golden-hour sky, so
-        //entering it defaults the dome to a warm one (dome 14 has the warmest gold horizon of the set).
-        private const byte SAVANNA_DEFAULT_SKY_DOME = 14;
-
-        //The tropical beach is the postcard and knows it: white sand and turquoise water read best under
-        //the brightest blue in the set, so entering it defaults the dome to dome 1 — a clear sunny sky
-        //over a warm horizon. Same rules as the other two: NumPad1 cycles freely from there and an
-        //explicit sky= overrides the startup default.
-        private const byte TROPICAL_DEFAULT_SKY_DOME = 1;
-
-        //The volcano wants the opposite of the beach, and for a reason that is the scene's whole idea: its
-        //ground is the light, so the sky's job is to stay out of the way. Dome 9 is a dim mauve-and-slate
-        //dusk with no bright band anywhere in it — chosen BY LOOKING, against 16 and 13 (#207's lesson).
-        //16 is darker at the zenith but its horizon is a bright cream and it puts its sun disc up beside the
-        //cone, which competes with the crater for the eye; 9 has neither, so the lava is unarguably the
-        //brightest thing in the frame and the cone keeps a clean silhouette.
-        private const byte VOLCANO_DEFAULT_SKY_DOME = 9;
-
-        //Mars gets a dome built for it rather than picked from the eighteen general-purpose ones (#277):
-        //dome 19 IS the Martian sky, so it is the default the same way a scene with no bespoke dome takes
-        //whatever NumPad1 last left it on. NumPad1 still cycles freely from there.
-        private const byte MARS_DEFAULT_SKY_DOME = 19;
-
-        //The storm wants CLEAN HIGH AIR around its cells, so it brought its own dome (#219). Dome 20 is a
-        //deep blue zenith over a PALE BLUE-WHITE horizon — the one thing none of the other nineteen has,
-        //every Earth-surface dome in the table warming towards its horizon because that is what haze at sea
-        //level does, where altitude goes paler and bluer instead.
-        //
-        //⚠ The argument that FORCED it has since died, and it is worth saying so rather than leaving a
-        //reason standing that no longer holds. It was the grid: a terrain scene's distance fade has to
-        //ARRIVE at the dome's exact HorizonColor to hide the finite mesh's own edge, so whatever the dome's
-        //horizon is, is also what every far surface becomes — and under 11's sandy horizon the storm's
-        //then-terrain cloud deck photographed as beige desert dunes. The storm is billboards now and has no
-        //mesh edge to hide, so the dome stays on the plainer ground that a pale blue-white horizon is what
-        //altitude looks like and is what keeps white cloud reading as white cloud.
-        private const byte STORM_DEFAULT_SKY_DOME = 20;
-
-        //The polar icesheet (#222) states one for a reason the dome sweep measured rather than argued: this
-        //scene's whole content is a MATERIAL, and what a material does is decided by the light on it, so the
-        //dome moves it further than it moves any other backdrop here. Photographed under four:
-        //
-        //  11 (sun 55 deg, cyan over a sandy horizon) - a credible polar noon, but a high sun on a flat field
-        //     leaves ndotl nearly constant, so the sastrugi only read through their own trough shading
-        //  13 (sun 13 deg, teal horizon into indigo)  - THE ONE. A low sun rakes the sastrugi into relief,
-        //     the front glows cyan against it and the crevasses read as slots of light
-        //  16 (sun 4 deg, cream over near-black)      - the ice takes the warm light and reads GOLDEN-BROWN,
-        //     which a real sheet does at sunset and is a look, but is not what this scene is for
-        //  17 (sun 42 deg, cream horizon, pale teal)  - white on white: the cyan never fires, because the
-        //     transmission needs the sun BEHIND the ice and a high sun is never behind anything
-        //
-        //So 13, and the general rule it stands on: this scene wants a LOW sun and a COLD horizon. #222 says
-        //as much ("the low sun is half the picture") and #220 is what made it stateable at all - a dome
-        //carries its own sun direction now, so choosing the dome chooses the rake.
-        private const byte POLAR_DEFAULT_SKY_DOME = 13;
-
-        //Space deliberately forces NO dome, unlike those two. Its dome is neither drawn (Space.fx covers the
-        //whole frame) nor read (SpaceLightingConfig states the light rig instead, for the reasons set out
-        //there) - so it is completely inert in that scene, and NumPad1 cycling domes in it changes nothing.
+        //Which dome a scene brings with it is SkyDome.SceneDefault's since #595 - one table for the Game and this,
+        //with each dome's reasoning written beside it there.
 
         //The scene's own point lights (the savanna's campfire, the neon city's ring, space's planetshine),
         //pushed onto the shared instanced effect each frame so the balls, island, cannon and city all take them
@@ -618,10 +556,10 @@ namespace Testbed
             if (_skyFromCommandLine) _skyModelNumber = options.SkyNumber; //Testing: "sky=<n>" on the command line picks the starting sky dome
             else
             {
-                //The dome this scene states, if it states one — seven of the eighteen do, and DefaultSkyDome
+                //The dome this scene states, if it states one — seven of the twenty do, and SkyDome.SceneDefault
                 //carries which and why. It is the same call SetScene makes, which is the whole point of it
                 //being a call: this arm and that one were two hand-kept tables until #380.
-                byte startupDome = DefaultSkyDome(_scene);
+                byte startupDome = SkyDome.SceneDefault(_scene);
 
                 if (startupDome != 0) _skyModelNumber = startupDome;
             }
@@ -1333,8 +1271,8 @@ namespace Testbed
             //seven that all take the dome's — which is exactly why it would have gone unnoticed.
             //⚠ This arm named TWO of the six scenes that state a dome until #380, and was correct only because
             //the cycle could not reach the other four. Widening the cycle is what made it wrong, so both arms
-            //now ask DefaultSkyDome — the startup one below the scene= parse, and this one.
-            byte sceneDome = DefaultSkyDome(_scene);
+            //now ask SkyDome.SceneDefault — the startup one below the scene= parse, and this one.
+            byte sceneDome = SkyDome.SceneDefault(_scene);
 
             if (sceneDome != 0) SetSkyDome(sceneDome);
             else ApplySkyLighting();
@@ -1344,37 +1282,6 @@ namespace Testbed
             //there. SetWeather fades, so cycling with NumPad2 leaves one sky closing over into the next.
             ApplySceneWeather(immediately: immediately);
         }
-
-        /// <summary>
-        /// The dome a scene stands under when nothing else says otherwise, or <c>0</c> for the eleven that state
-        /// none and keep whatever is up. One answer for the two places that need it — the <c>scene=</c> parse at
-        /// startup and <see cref="SetScene"/> — which until #380 were a six-row table and a two-row subset of it,
-        /// the subset being right only for as long as NumPad2 could not reach the other four.
-        /// <para>
-        /// The sea mirrors the sky, so a bright dome would give it a breezy mood rather than the moody one it is
-        /// built for; the savanna wants the warmest gold horizon of the set; the tropical beach wants the
-        /// brightest blue, because sand and turquoise water only read as a postcard under a sunny sky; the
-        /// volcano wants the darkest, because its ground is what lights it; Mars and the storm want their own.
-        /// </para>
-        /// <para>
-        /// <b>The game holds a third copy of this table</b> (<c>BS3DGame.SetScene</c>), with the same six scenes
-        /// and the same six numbers, so a scene looks the same in both. They agree today; nothing makes them.
-        /// Folding all three into one shared answer is worth doing and is not this change — it would move six
-        /// constants and the prose that explains them across a library boundary, which is a different job from
-        /// widening a cycle.
-        /// </para>
-        /// </summary>
-        private static byte DefaultSkyDome(SceneKind scene) => scene switch
-        {
-            SceneKind.Sea => SEA_DEFAULT_SKY_DOME,
-            SceneKind.Savanna => SAVANNA_DEFAULT_SKY_DOME,
-            SceneKind.Tropical => TROPICAL_DEFAULT_SKY_DOME,
-            SceneKind.Volcano => VOLCANO_DEFAULT_SKY_DOME,
-            SceneKind.Mars => MARS_DEFAULT_SKY_DOME,
-            SceneKind.Storm => STORM_DEFAULT_SKY_DOME,
-            SceneKind.Polar => POLAR_DEFAULT_SKY_DOME,
-            _ => 0
-        };
 
         /// <summary>
         /// The per-frame inputs the shared <see cref="SceneRenderer"/> needs. The rig holds five of the six and
