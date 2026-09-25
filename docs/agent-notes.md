@@ -6222,3 +6222,9 @@ Předchozí zápis říkal, že to dostavět znamená sáhnout do brány a že t
 - ⚠ Microsoft.Data.Sqlite odmítá příkaz bez nastaveného `Transaction`, když je otevřená `SqliteTransaction` — transakce jsou proto SQL `BEGIN IMMEDIATE`/`COMMIT`.
 - ⚠ JSON neunese `NaN`; kontrola trvání se testuje zápornou hodnotou.
 - Zbývá: BS3D-API#2 (tunel, doména — majitel), #3 (Pi), BS3D#547 (žebříčky ve hře).
+
+---
+
+## 2026-09-25 — Claude Code, bs3d-0f (desktop: beru #547 — žebříčky ve hře)
+
+**Beru #547** na majitelův pokyn („Začni s implementací toho, co zatím můžeš implementovat"). Nárok před prací; soubory: `Game/Online/` (GET žebříčků), `Game/Screens/ResultPage.cs`, `LevelSelectPage.cs`, nová stránka žebříčku, docs.
