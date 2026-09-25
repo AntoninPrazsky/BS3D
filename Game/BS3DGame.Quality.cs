@@ -22,7 +22,9 @@ namespace BS3D
         /// <summary>
         /// Which bundle of detail the frame is being drawn at, and the setting the player sees. It starts at
         /// <see cref="QualityLevel.High"/> — the look the game is authored at — and only ever comes down, either
-        /// because the player asked or because <see cref="TuneQualityToFrameRate"/> measured this machine.
+        /// because the player asked or because <see cref="TuneQualityToFrameRate"/> measured this machine. The one
+        /// way up is the player's: <see cref="QualityLevel.Ultra"/> (#484) is reached only through the Quality row
+        /// or <c>quality=ultra</c>, both of which pin the tier and so shut the probe.
         /// </summary>
         private QualityLevel _quality = QualityLevel.High;
 
@@ -253,8 +255,11 @@ namespace BS3D
 
             //Steps the TIER, not supersampling alone, which is the whole point of #63: on the two city scenes
             //supersampling is only the first of three measured levers, and stepping it alone left the neon city
-            //at 30 FPS with 40% still on the table.
-            QualityLevel lowered = _quality == QualityLevel.High ? QualityLevel.Medium : QualityLevel.Low;
+            //at 30 FPS with 40% still on the table. One rung down whatever the rung: this read "High ? Medium :
+            //Low" until #484, which would have stepped Ultra straight to Low. The probe should never be running
+            //at Ultra (only a pinned tier reaches it, and Auto quality turned on hands it back at High), so the
+            //general step is insurance rather than a live path.
+            QualityLevel lowered = (QualityLevel)((int)_quality - 1);
 
             //Named by the caller rather than assumed to be the menu, which is what this line used to say: the
             //probe judges a level's frame too now, and which of the two it caught is the first thing a reader
@@ -312,11 +317,19 @@ namespace BS3D
         private void ShowQualityNotice(QualityLevel quality) => _mainMenuPage.ShowQualityNotice(quality);
 
         /// <summary>
-        /// Steps the quality tier, which is the setting the player sees. Wraps Low → Medium → High → Low.
+        /// Steps the quality tier, which is the setting the player sees. Wraps Low → Medium → High → Ultra → Low —
+        /// and this row is the only thing in the game that reaches Ultra (#484), which is the owner's ruling: the
+        /// rung above the authored look costs half a gigabyte of card memory, and that is the player's to spend.
         /// </summary>
         internal void CycleQuality()
         {
-            ApplyQuality(_quality switch { QualityLevel.Low => QualityLevel.Medium, QualityLevel.Medium => QualityLevel.High, _ => QualityLevel.Low });
+            ApplyQuality(_quality switch
+            {
+                QualityLevel.Low => QualityLevel.Medium,
+                QualityLevel.Medium => QualityLevel.High,
+                QualityLevel.High => QualityLevel.Ultra,
+                _ => QualityLevel.Low,
+            });
 
             //The player has now said what they want, so the adaptive path stops second-guessing them — and the
             //notice about what it did has been answered and goes away. Marked as pinned, so a later fullscreen
@@ -363,6 +376,12 @@ namespace BS3D
         {
             if (_qualityPinnedByPlayer)
             {
+                //The probe's ceiling is High — it starts there and only steps down — so handing it an Ultra tier
+                //would leave this run above anything Auto quality can choose while the next launch starts at
+                //High. Brought down to High on the spot instead (#484), so the row means the same thing now as
+                //after a restart. Before the pin is released, so ApplyQuality's page refresh is not the last word.
+                if (_quality == QualityLevel.Ultra) ApplyQuality(QualityLevel.High);
+
                 _qualityPinnedByPlayer = false;
                 ReopenQualityProbe();
 
@@ -434,11 +453,15 @@ namespace BS3D
             //owner asked for, a tier that drops effects.
             if (_sceneRenderer != null) _sceneRenderer.SceneDetail = quality == QualityLevel.Low ? 0f : 1f;
 
-            //And the sun shadow map's size (#484): a cap the renderer holds every scene's ShadowConfig.MapSize
-            //under — 4096 at High, 2048 below it — rebuilt on the next shadowed frame when it changes. The one
-            //entry the tier owns that costs memory rather than time (134 MB against 33.5), which is what keeps
-            //8192 a Testbed dial and not a rung above this one. See QualityPreset.ShadowMapCap.
-            if (_sceneRenderer != null) _sceneRenderer.ShadowMapSizeCap = preset.ShadowMapCap;
+            //And the sun shadow map's size (#484): a factor and a cap over every scene's ShadowConfig.MapSize —
+            //8192 at Ultra, 4096 at High, 2048 below it — rebuilt on the next shadowed frame when it changes. The
+            //one entry the tier owns that costs memory rather than time (537 MB at Ultra, 134 at High, 33.5
+            //below), which is why the Ultra rung is the player's alone. See QualityPreset.ShadowMapScale/Cap.
+            if (_sceneRenderer != null)
+            {
+                _sceneRenderer.ShadowMapSizeScale = preset.ShadowMapScale;
+                _sceneRenderer.ShadowMapSizeCap = preset.ShadowMapCap;
+            }
 
             //And the arena's stone cap, which is the first thing the tier reaches that is NOT a scene — it is
             //in all fifteen of them and under the gun in every frame of every level, and #151 measured it at

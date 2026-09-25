@@ -334,10 +334,10 @@ namespace BS3D
             _island = new ArenaIsland(GraphicsDevice, _instancingEffect, SCENE_AMBIENT_INTENSITY)
             {
                 //Seeded here as well as written by ApplyQuality, for the reason SceneDetail beside it is: the
-                //tier is applied once in LoadContent BEFORE this exists, so a startup at anything but High
-                //would otherwise draw the full-price cap until the next tier change — which on a pinned tier
-                //never comes.
-                SurfaceDetail = _quality == QualityLevel.High ? 1f : 0f
+                //tier is applied once in LoadContent BEFORE this exists, so a startup at Low would otherwise
+                //draw the full-price cap until the next tier change — which on a pinned tier never comes. Low
+                //alone, as ApplyQuality has it; "anything but High" until #484 put Ultra above High.
+                SurfaceDetail = _quality == QualityLevel.Low ? 0f : 1f
             };
 
             //The forest's scattered trees, rocks and stumps, all of it: both procedural textures, the fifteen

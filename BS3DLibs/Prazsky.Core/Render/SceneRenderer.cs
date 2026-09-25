@@ -811,6 +811,21 @@ namespace Prazsky.Core.Render
         public int ShadowMapSizeCap { get; set; }
 
         /// <summary>
+        /// What a scene's <c>ShadowConfig.MapSize</c> is multiplied by before <see cref="ShadowMapSizeCap"/>, 1 by
+        /// default: the Game's <c>Ultra</c> tier writes 2, the one rung that builds a map LARGER than the authored
+        /// 4096 (#484) — 8192, a 537 MB map. A factor rather than a size so a scene authored small stays
+        /// proportionally small. <see cref="ShadowMapSizeOverride"/> wins over it as it does over the cap.
+        /// </summary>
+        public int ShadowMapSizeScale { get; set; } = 1;
+
+        /// <summary>
+        /// The size a side of the map the last frame actually drew into, or 0 when no map was drawn (a scene
+        /// without one, Low, a sun under the horizon). For the Game's <c>[fps]</c> line, since a map's size is
+        /// invisible in a still and a tier that sets it can only be believed if the line says what was built.
+        /// </summary>
+        public int ActiveShadowMapSize => _shadowsActive && _sunShadowMap != null ? _sunShadowMap.Size : 0;
+
+        /// <summary>
         /// A global multiplier over every scene's <see cref="ShadowConfig.Strength"/>, clamped to 0..1.
         /// <b>0 means exactly what a <c>Strength</c> of 0 means</b> — no target, no caster pass, every
         /// receiver handed 0 and skipping its nine taps — so the two spellings of "no shadows" are one code
@@ -5877,10 +5892,11 @@ namespace Prazsky.Core.Render
                 return;
             }
 
-            //The scene's own size, held under the tier's cap, unless the instrument pins one outright (#484). The
-            //clamp's top is what a card should be asked for rather than what D3D11 allows: at eight bytes a texel
-            //(a Single target over a Depth24 buffer) 8192 is a 537 MB map, 4096 is 134 MB and 2048 is 33.5.
-            int size = shadows.MapSize;
+            //The scene's own size, scaled up by the Ultra tier and held under a lower tier's cap, unless the
+            //instrument pins one outright (#484). The clamp's top is what a card should be asked for rather than
+            //what D3D11 allows: at eight bytes a texel (a Single target over a Depth24 buffer) 8192 is a 537 MB
+            //map, 4096 is 134 MB and 2048 is 33.5 — so Ultra's doubling of the authored 4096 IS that top.
+            int size = shadows.MapSize * Math.Max(ShadowMapSizeScale, 1);
             if (ShadowMapSizeCap > 0) size = Math.Min(size, ShadowMapSizeCap);
             if (ShadowMapSizeOverride > 0) size = ShadowMapSizeOverride;
             size = Math.Clamp(size, 256, 8192);

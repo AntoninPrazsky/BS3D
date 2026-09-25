@@ -20,8 +20,13 @@ namespace Prazsky.Core.Render
 
             //The first scene to cast a shadow (#469) and the numbers the whole feature was tuned against:
             //0.9 leaves a shadow dark without reading as a hole, 260 units square round the camera puts the
-            //edge outside every camera that plays here, and 2048 over that is 0.13 units a texel.
-            Shadows = new ShadowConfig(strength: 0.9f, extent: 260f, mapSize: 2048);
+            //edge outside every camera that plays here. The size is ShadowConfig's own 4096 (0.063 units a
+            //texel). ⚠ This line passed mapSize: 2048 explicitly from #469 until #484's Ultra pass, so when
+            //#484 raised the default to 4096 "for every scene" the one scene it was measured on kept 2048 at
+            //High (and Ultra's doubling built 4096 here) — nothing said so until the Game's [fps] line began
+            //printing the map it built. Left to the default now, so the tier's factor and cap are the only
+            //things that move it.
+            Shadows = new ShadowConfig(strength: 0.9f, extent: 260f);
         }
 
         /// <summary>Mean grass level, sitting at the island's foot (world origin clearing).</summary>
