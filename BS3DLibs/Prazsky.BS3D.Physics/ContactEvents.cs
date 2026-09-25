@@ -9,6 +9,7 @@ using BepuUtilities.Memory;
 using System.Runtime.CompilerServices;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using Prazsky.Core.Tools;
 
 namespace Prazsky.BS3D.Physics
 {
@@ -329,7 +330,7 @@ namespace Prazsky.BS3D.Physics
                             if (!featureIdWasInPreviousCollision)
                             {
                                 manifold.GetContact(contactIndex, out var offset, out var normal, out var depth, out _);
-                                listener.Handler.OnContactAdded(source, pair, ref manifold, offset, normal, depth, featureId, contactIndex, workerIndex);
+                                listener.Handler.OnContactAdded(source, pair, ref manifold, offset.ToXna(), normal.ToXna(), depth, featureId, contactIndex, workerIndex);
                             }
                             if (manifold.GetDepth(contactIndex) >= 0)
                                 isTouching = true;
@@ -375,7 +376,7 @@ namespace Prazsky.BS3D.Physics
                     for (int i = 0; i < manifold.Count; ++i)
                     {
                         manifold.GetContact(i, out var offset, out var normal, out var depth, out var featureId);
-                        listener.Handler.OnContactAdded(source, pair, ref manifold, offset, normal, depth, featureId, i, workerIndex);
+                        listener.Handler.OnContactAdded(source, pair, ref manifold, offset.ToXna(), normal.ToXna(), depth, featureId, i, workerIndex);
                         if (depth >= 0)
                             isTouching = true;
                     }

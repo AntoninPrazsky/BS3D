@@ -313,7 +313,7 @@ namespace Prazsky.BS3D.Physics
                 offset = candidate;
             }
 
-            _queuedContacts.Enqueue(new QueuedContact(eventSource, pair, offset));
+            _queuedContacts.Enqueue(new QueuedContact(eventSource, pair, offset.ToXna()));
         }
 
         /// <summary>

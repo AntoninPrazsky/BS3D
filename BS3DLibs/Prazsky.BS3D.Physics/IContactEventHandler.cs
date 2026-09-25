@@ -13,9 +13,10 @@ namespace Prazsky.BS3D.Physics
     /// </para>
     /// <para>
     /// The vectors are <see cref="Microsoft.Xna.Framework.Vector3"/> rather than the
-    /// <see cref="System.Numerics.Vector3"/> Bepu hands out: MonoGame defines an implicit conversion between
-    /// the two, so the call site converts for free, and the game code that consumes a contact position is
-    /// XNA-side anyway. Spelled out here because both types are in scope in the files that implement this.
+    /// <see cref="System.Numerics.Vector3"/> Bepu hands out: the game code that consumes a contact position is
+    /// XNA-side anyway. <see cref="ContactEvents"/> crosses with the named <c>ToXna()</c> rather than MonoGame's
+    /// implicit conversion, which compiles just as well and is invisible on the line (#400). Spelled out here
+    /// because both types are in scope in the files that implement this.
     /// </para>
     /// </summary>
     public interface IContactEventHandler

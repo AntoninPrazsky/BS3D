@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!--A Roslyn analyzer, so netstandard2.0 whatever the rest of the tree targets: the compiler loads it.-->
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <AssemblyName>VectorBoundary</AssemblyName>
+    <RootNamespace>BS3D.Tools.VectorBoundary</RootNamespace>
+    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+    <IsRoslynComponent>true</IsRoslynComponent>
+    <LangVersion>latest</LangVersion>
+    <!--RS2008 asks for release-tracking files, which a hand-run scan that ships nowhere has no use for.-->
+    <NoWarn>$(NoWarn);RS2008</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" PrivateAssets="all" />
+  </ItemGroup>
+</Project>
