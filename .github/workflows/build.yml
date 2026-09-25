@@ -2,7 +2,24 @@ name: Build
 
 # Every push, feature branch or main alike (#387) — this repo has no pull requests, so a direct push IS
 # how a merge into main lands, and "on push" already covers both cases the issue asks for in one trigger.
-on: [push]
+# Except a push that touches nothing but the agent journal or the research folder (#588): neither is read by
+# any build, and a journal-only merge used to cost the full run. GitHub does not evaluate path filters for a
+# tag push, so a release tag still runs everything.
+on:
+  push:
+    paths-ignore:
+      - 'docs/agent-notes*.md'
+      - 'Research/**'
+
+# Nothing here writes to the repository (#588) - the token only has to check the code out.
+permissions:
+  contents: read
+
+# A newer push to the same branch makes the older run's answer worthless, so it is cancelled rather than left
+# to finish (#588). Keyed on the ref, so two branches never cancel each other.
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -14,6 +31,16 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
+
+      # The NuGet packages, keyed on every project file and tool manifest (#588): a push that changes no
+      # package reference restores from the cache instead of the feed. The shader compile dominates the run
+      # and no cache helps it (per-executable content), so this saves the restore and nothing more.
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/.config/dotnet-tools.json') }}
+          restore-keys: nuget-${{ runner.os }}-
 
       # Each executable carries its own manifest, and the content build shells out to `dotnet mgcb` with the
       # manifest search walking up from the *project* directory — so this has to run once per executable,
@@ -42,14 +69,56 @@ jobs:
       - name: Build Game.sln
         run: dotnet build Game.sln
 
+      # The configuration players get (#588): release.yml publishes Release, and #if DEBUG blocks exist
+      # (BallsMap, the Testbed), so a Release-only break was otherwise found only at tag time. Game.sln alone,
+      # because it is the one that ships (and carries the libraries and the tools); the Testbed and the
+      # MapEditor are never released and a second shader compile of each would buy nothing.
+      - name: Build Game.sln (Release)
+        run: dotnet build Game.sln -c Release
+
       # The generator is deterministic, so regenerating and demanding a clean tree proves the levels shipped
       # on disk are the ones the generator in the tree actually makes — a design can otherwise be edited and
       # the regeneration forgotten, and nothing today notices. Reads and rewrites the working tree; never
       # committed, never pushed.
+      # `git diff` alone ignores untracked files (#588): a new design whose Levels.json was committed but
+      # whose level file was never `git add`-ed regenerated here as an untracked file and passed, leaving
+      # main without a level its set names, so the untracked files are listed as well - by `git ls-files
+      # --others` and NOT `git status --porcelain`, which reports every regenerated file as modified here
+      # because the generator writes CRLF over the LF checkout (`git diff` normalizes that). Every exit code is
+      # checked explicitly, because pwsh fails a step only on the LAST native command's exit code.
       - name: Regenerate levels and check they match what is committed
         run: |
           dotnet run --project Tools/LevelGen/LevelGen.csproj
+          if ($LASTEXITCODE -ne 0) { throw "LevelGen failed (exit $LASTEXITCODE)" }
           git diff --exit-code Game/Levels
+          if ($LASTEXITCODE -ne 0) { throw "The regenerated levels differ from what is committed" }
+          $stray = git ls-files --others -- Game/Levels
+          if ($stray) { $stray; throw "The generator wrote level file(s) that were never committed" }
 
       - name: Run ScoreSim
         run: dotnet run --project Tools/ScoreSim/ScoreSim.csproj
+
+      # BestPractices.md section 10: a check's answer is evidence only once its failing branch has been seen
+      # to fire. These three were demonstrations run by hand (#588); here they fire on every push, a few
+      # seconds each. --no-build: Game.sln above built both tools, so a nonzero exit is the tool's own.
+      # ScoreSim with every ceiling scaled to a quarter must refuse (exit 1, and say OVER CEILING).
+      - name: Self-check - the ScoreSim ceiling gate fires
+        run: |
+          $out = dotnet run --project Tools/ScoreSim/ScoreSim.csproj --no-build -- --ceiling-scale 0.25 | Out-String
+          $code = $LASTEXITCODE
+          $out
+          if ($code -ne 1 -or $out -notmatch 'OVER CEILING') { throw "ScoreSim --ceiling-scale 0.25 exited $code; the ceiling gate did not fire" }
+          exit 0
+
+      # WindingCheck's self-test feeds it a box flipped on purpose and exits 1 unless both judgements fire.
+      # It asks DirectX for WARP, the software rasteriser every Windows install carries, so the runner's
+      # missing GPU does not matter.
+      - name: Self-check - WindingCheck catches a flipped mesh
+        run: |
+          dotnet run --project Tools/WindingCheck/WindingCheck.csproj --no-build -- --selftest
+          if ($LASTEXITCODE -ne 0) { throw "WindingCheck --selftest failed (exit $LASTEXITCODE)" }
+
+      # The hook that refuses git clean / reset --hard, exercised in both directions (Git Bash on the runner).
+      - name: Self-check - the destructive-git guard
+        shell: bash
+        run: bash .claude/hooks/guard-destructive-git.test.sh
