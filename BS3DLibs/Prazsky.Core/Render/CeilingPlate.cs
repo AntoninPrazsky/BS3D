@@ -16,9 +16,10 @@ namespace Prazsky.Core.Render
     /// a copy of the frame drawn so far (<see cref="InstancedModelRenderer.GlassBehind"/>), and the plate's
     /// technique traces each pixel's ray through the slab — in at the face it is drawn on, out through the face it
     /// reaches — and shows that copy where the ray leaves, under the plate's own lit surface. A flat face bends
-    /// nothing (a parallel slab only offsets), so the bend lives in the cut: the 45° <see cref="BEVEL"/> round
-    /// every edge and the diamond facets the shader cuts into the top face (<see cref="CUT_PERIOD"/>,
-    /// <see cref="CUT_SLOPE"/>). The underside stays flat, because it is what the cluster hangs from. The Testbed
+    /// nothing (a parallel slab only offsets), so the bend lives in the cut: the edge ground in facets all round
+    /// (<see cref="EDGE_PROFILE"/>, the corners cut round to <see cref="CORNER_RADIUS"/>), and across the top face
+    /// a border of fine flutes (<see cref="RIM_BAND"/>, <see cref="FLUTE_PERIOD"/>) round a field of diamond facets
+    /// (<see cref="CUT_PERIOD"/>, <see cref="CUT_SLOPE"/>) that the shader cuts rather than the mesh. The underside stays flat, because it is what the cluster hangs from. The Testbed
     /// never sets the copy, so it draws the cut plate as the plain translucent pane it always was.
     /// </para>
     /// <para>
@@ -98,29 +99,89 @@ namespace Prazsky.Core.Render
         public const float CLEARANCE = 2f;
 
         /// <summary>
-        /// How far every horizontal edge of the slab is cut back, along both of its faces — a 45° bevel round the
-        /// top and round the underside (#541). The underside's is the one the play camera sees, since it looks up
-        /// at the plate from under it: a prism along the pane's edge, where the bend reads strongest.
+        /// How far the underside's edge is ground back from the footprint (#541) — the face the play camera sees,
+        /// since it looks up at the plate from under it: a run of prisms along the pane's edge, where the bend reads
+        /// strongest. The grind itself is <see cref="EDGE_PROFILE"/>'s first three points.
         /// <para>
         /// Bounded by the cluster it hangs: the flat underside is the footprint less this on every side, and the
         /// top level's outermost balls touch the plate half a unit in from the footprint's edge
-        /// (<see cref="FOOTPRINT_MARGIN"/>), so the bevel must stay well inside that half or those balls would hang
-        /// from a facet rather than from the glass.
+        /// (<see cref="FOOTPRINT_MARGIN"/>), so the grind must stay well inside that half or those balls would hang
+        /// from a facet rather than from the glass. At a corner the underside's rim crosses the diagonal
+        /// <see cref="CORNER_RADIUS"/> − (<see cref="CORNER_RADIUS"/> − this) / √2 in from both sides — 0.38, where the
+        /// corner ball touches 0.5 in from both, and where the single 45° cut before it crossed at 0.38 as well.
         /// </para>
         /// </summary>
         public const float BEVEL = 0.25f;
 
         /// <summary>
-        /// How far each of the four vertical corners is cut back along both sides (#541), which makes the plate an
-        /// octagon rather than a rectangle. The same bound as <see cref="BEVEL"/>'s, taken at the corner: the ball
-        /// in a field's corner touches half a unit in along both axes, and the underside's cut there reaches
-        /// this plus <see cref="BEVEL"/> × √2 along the diagonal — 0.75 against the ball's 1.0.
+        /// How far the top edge is ground back from the footprint (#541): the crown, wider than the underside's
+        /// <see cref="BEVEL"/> because nothing hangs from the top, and ground in three facets that flatten as they
+        /// climb — steep off the side, a middle one near 50°, a shallow one into the top face — the way a gem's
+        /// crown is. The grind itself is <see cref="EDGE_PROFILE"/>'s last four points.
         /// </summary>
-        public const float CORNER_CUT = 0.4f;
+        public const float CROWN = 0.4f;
 
         /// <summary>
-        /// The spacing of the diamond cut on the top face, in world units (#541): the pyramids the shader cuts are
-        /// this far apart along each diagonal of the pane. A ball is one unit across, so a cut is about two balls
+        /// The slab's edge in section, from the underside's rim up to the top's (#541) — each point how far in from
+        /// the footprint's outline, and how high about the slab's centre (<see cref="THICKNESS"/> being 1, the faces
+        /// are at ±0.5). Two facets under (<see cref="BEVEL"/>), a straight side band, three facets over
+        /// (<see cref="CROWN"/>): six bands of facets round the plate, where the first cut had three, each one 45°.
+        /// The owner's word on that first cut was that the edges could be cut more; this is that — more, narrower
+        /// facets, each a prism of its own, so the rim throws the scene back in strips rather than in one. The
+        /// refracting technique reads the crown's four points as well (<see cref="Fit"/>), so a ray leaving the top
+        /// near the rim leaves through the facet it would in the glass.
+        /// </summary>
+        public static readonly Vector2[] EDGE_PROFILE =
+        {
+            new(BEVEL, -0.5f),
+            new(0.09f, -0.41f),
+            new(0f, -0.25f),
+            new(0f, 0.05f),
+            new(0.05f, 0.22f),
+            new(0.17f, 0.38f),
+            new(CROWN, 0.5f)
+        };
+
+        /// <summary>
+        /// The radius each vertical corner is cut round to (#541): <see cref="CORNER_FACETS"/> flat cuts, all tangent
+        /// to one circle this far in from both sides, so every band of the edge turns the corner at its own angle.
+        /// It was one 45° cut 0.4 back along both sides. The same bound as <see cref="BEVEL"/>'s, taken at the
+        /// corner (see there).
+        /// </summary>
+        public const float CORNER_RADIUS = 0.7f;
+
+        /// <summary>How many flat cuts round each corner (#541), at equal angles between the two sides.</summary>
+        public const int CORNER_FACETS = 3;
+
+        /// <summary>
+        /// The width of the border of flutes the shader cuts round the top face inside the crown (#541), in world
+        /// units — about a ball. On a pane too narrow for that and a field besides, the border takes half of what the
+        /// crown leaves instead (<see cref="Fit"/>), so a small pane still keeps diamonds in its middle.
+        /// </summary>
+        public const float RIM_BAND = 1f;
+
+        /// <summary>
+        /// The spacing of those flutes along the outline, in world units (#541): a quarter of a ball, so the border
+        /// reads as a finer cut than the field's diamonds (<see cref="CUT_PERIOD"/>) — a second frequency, which is
+        /// what a cut-glass tray's border is against its middle.
+        /// </summary>
+        public const float FLUTE_PERIOD = 0.25f;
+
+        /// <summary>
+        /// How steep the flutes' facets are, as the tangent of their tilt along the outline (#541) — 0.35 is about
+        /// 19°, steeper than the diamonds' <see cref="CUT_SLOPE"/>: a finer cut has to throw harder to be seen.
+        /// </summary>
+        public const float FLUTE_SLOPE = 0.35f;
+
+        /// <summary>
+        /// How far the whole border leans down towards the rim, as a tangent (#541): a shallow prism the width of the
+        /// border, which moves the image through it against the field's.
+        /// </summary>
+        public const float RIM_LEAN = 0.08f;
+
+        /// <summary>
+        /// The spacing of the diamond cut on the top face's field, in world units (#541): the pyramids the shader cuts
+        /// are this far apart along each diagonal of the pane. A ball is one unit across, so a cut is about two balls
         /// wide — large enough to read as cut glass from the play camera, small enough that a pane over a small
         /// field still carries several.
         /// </summary>
@@ -228,7 +289,8 @@ namespace Prazsky.Core.Render
 
             float sizeX = FootprintFor(stageSizeX), sizeZ = FootprintFor(stageSizeZ);
 
-            _mesh = new CutSlabMesh(_device, sizeX, THICKNESS, sizeZ, BEVEL, CORNER_CUT);
+            float cornerRadius = Math.Min(CORNER_RADIUS, Math.Min(sizeX, sizeZ) * Constants.HALF);
+            _mesh = new CutSlabMesh(_device, sizeX, sizeZ, EDGE_PROFILE, cornerRadius, CORNER_FACETS);
             Renderer = new InstancedModelRenderer(_device, _mesh, GLASS_COLOR, _instancingEffect, alpha);
 
             //The figures the refracting technique traces the slab by (#541), stated on the renderer the mesh was
@@ -236,6 +298,17 @@ namespace Prazsky.Core.Render
             Renderer.GlassHalfExtents = new Vector3(sizeX, THICKNESS, sizeZ) * Constants.HALF;
             Renderer.GlassCutPeriod = CUT_PERIOD;
             Renderer.GlassCutSlope = CUT_SLOPE;
+            Renderer.GlassCornerRadius = cornerRadius;
+            Renderer.GlassCornerFacets = CORNER_FACETS;
+
+            //The crown: the profile's last four points, as insets and as drops below the top face
+            float top = EDGE_PROFILE[^1].Y;
+            Vector2 c0 = EDGE_PROFILE[^4], c1 = EDGE_PROFILE[^3], c2 = EDGE_PROFILE[^2], c3 = EDGE_PROFILE[^1];
+            Renderer.GlassCrownInset = new Vector4(c0.X, c1.X, c2.X, c3.X);
+            Renderer.GlassCrownDrop = new Vector4(top - c0.Y, top - c1.Y, top - c2.Y, top - c3.Y);
+
+            float band = Math.Min(RIM_BAND, (Math.Min(sizeX, sizeZ) * Constants.HALF - CROWN) * Constants.HALF);
+            Renderer.GlassRim = new Vector4(Math.Max(band, 0f), FLUTE_PERIOD, FLUTE_SLOPE, RIM_LEAN);
         }
 
         /// <summary>

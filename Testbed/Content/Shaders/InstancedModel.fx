@@ -7163,10 +7163,13 @@ technique InstancedRefraction
 //pixel is drawn on (refracted at GLASS_INDEX), across to the first of the slab's six planes it meets, out through
 //that face (refracted again), and on for GLASS_BEHIND_DISTANCE; the copy is sampled where that point lands on the
 //screen. A flat parallel slab only offsets a ray, so across the flat underside and a flat top the image would barely
-//move - which is why the plate is CUT: 45-degree bevels round every edge (CutSlabMesh), which are prisms, and a
-//diamond cut across the top face, a field of low pyramids evaluated here rather than modelled (GlassCutNormal). The
-//underside stays flat because the cluster hangs from it, so from the play camera, which looks up at the plate, the
-//bend is seen where the ray LEAVES through the cut top - the second surface, which a single-normal shift cannot see.
+//move - which is why the plate is CUT: every edge ground back in a run of facets and every corner cut round in a fan
+//of them (CutSlabMesh), which are prisms, and across the top face a border of fine flutes inside the rim, a groove,
+//and a diamond field of low pyramids, all evaluated here rather than modelled (GlassTopNormal). The underside stays
+//flat because the cluster hangs from it, so from the play camera, which looks up at the plate, the bend is seen where
+//the ray LEAVES through the cut top - the second surface, which a single-normal shift cannot see. The exit is traced
+//to the box's planes, but where it reaches the top's plane over the ground edge the grind's own facet is taken (a ray
+//leaving there really leaves through it), which is what makes the rim read cut from below as well as from above.
 texture GlassBehind;
 sampler2D GlassBehindSampler = sampler_state
 {
@@ -7183,6 +7186,17 @@ sampler2D GlassBehindSampler = sampler_state
 float3 GlassHalfExtents;
 float GlassCutPeriod;
 float GlassCutSlope;
+
+//The outline CutSlabMesh built the slab on, and its ground edge, so a ray can be traced out through them rather than
+//through the box (CeilingPlate's figures again). GlassCorner: the radius every corner's cuts are tangent to, and the
+//angle between two consecutive cuts. GlassCrownInset/GlassCrownDrop: the top edge's grind in section, four points
+//from the side band up to the top face's rim - how far in from the outline, and how far below the top face.
+//GlassRim: the border of flutes cut round the top face inside that rim - its width, the flutes' spacing, their
+//facets' tilt, and how far the whole border leans down towards the rim (all tangents).
+float2 GlassCorner;
+float4 GlassCrownInset;
+float4 GlassCrownDrop;
+float4 GlassRim;
 
 //Crown glass.
 static const float GLASS_INDEX = 1.5;
@@ -7201,6 +7215,11 @@ static const float GLASS_DISPERSION = 0.03;
 //there is no crease where the bend saturates. A ray grazing a bevel can be sent far across the screen, and past the
 //frame's edge the copy has nothing to show but its clamped border.
 static const float GLASS_MAX_SHIFT = 0.06;
+
+//The mitre groove that parts the border of flutes from the diamond field: its half width in world units and the
+//tangent of its walls. Narrow and steep, because a cut line is read by the hard bright/dark pair its two walls throw.
+static const float GLASS_GROOVE_HALF_WIDTH = 0.05;
+static const float GLASS_GROOVE_SLOPE = 0.6;
 
 struct GlassVSOutput
 {
@@ -7259,6 +7278,96 @@ float3 GlassCutNormal(float2 cell, float footprint, float strength)
     return normalize(float3(t.x * slope, 1.0, t.y * slope));
 }
 
+//Where a mesh-space xz stands against the slab's outline: how far in from it (Inset), the outward normal of the cut
+//of it nearest (Outward) and that cut's own direction along the outline (Along, both xz), and a coordinate along that
+//cut counted in flutes (Phase), which is what the border's flutes are cut across.
+struct GlassRimFrame
+{
+    float Inset;
+    float2 Outward;
+    float2 Along;
+    float Phase;
+};
+
+//Every cut of CutSlabMesh's outline is tangent to its corner's circle (the axis edges are the cuts at 0 and 90
+//degrees), so the nearest cut is the one whose normal lies closest in angle to the point's offset from that circle's
+//centre, and the inset is the radius less that offset along it. Worked in the positive quadrant and mirrored out.
+GlassRimFrame GlassRimAt(float2 xz)
+{
+    float2 mirror = xz >= 0 ? 1.0 : -1.0;
+    float2 v = abs(xz) - (GlassHalfExtents.xz - GlassCorner.x);
+
+    //Past the corner's fan on either side the nearest cut is an axis edge; deep inside both of them, it is whichever
+    //of the two axis edges the point is nearer, which is the larger of v's two (negative) components
+    float angle = clamp(atan2(v.y, v.x), 0.0, 1.57079633);
+    angle = v.x < 0 && v.y < 0 ? (v.x > v.y ? 0.0 : 1.57079633) : angle;
+    float cut = round(angle / GlassCorner.y) * GlassCorner.y;
+
+    float2 n = float2(cos(cut), sin(cut));
+    float2 t = float2(-n.y, n.x);
+
+    GlassRimFrame frame;
+    frame.Inset = GlassCorner.x - dot(n, v);
+    frame.Outward = n * mirror;
+    frame.Along = t * mirror;
+    frame.Phase = dot(v, t) / GlassRim.y;
+    return frame;
+}
+
+//The outward normal of the slab's top at a point of the top face's plane, cut or ground. `cellFootprint`,
+//`fluteFootprint` and `insetFootprint` are how many diamond cells, flutes and world units one pixel spans there (taken
+//by the caller with fwidth, outside any branch), `strength` the caller's edge-on fade; see GlassCutNormal.
+//
+//Three zones in from the outline. Inside the top edge's grind (a ray the box trace sends out through the top's plane
+//there really leaves through one of the grind's facets, CutSlabMesh's crown): that facet, as modelled, with no fade -
+//it is geometry, and the mesh draws it at the same angle. Then the border: flutes cut across it, square to the nearest
+//cut of the outline, so they fan round every corner and meet each other at a mitre along the corner's cuts, the way a
+//cut-glass tray's border does; the whole border leans a little down towards the rim, and a steep V groove parts it
+//from the field. Inside the groove, the diamond cut.
+float3 GlassTopNormal(GlassRimFrame frame, float2 cell, float cellFootprint, float fluteFootprint, float insetFootprint,
+    float strength)
+{
+    float3 outward = float3(frame.Outward.x, 0, frame.Outward.y);
+
+    if (frame.Inset < GlassCrownInset.w)
+    {
+        //The crown's facet this inset lies on: from point a in to point b, rising by the drop between them
+        bool first = frame.Inset < GlassCrownInset.y, second = frame.Inset < GlassCrownInset.z;
+        float2 a = first ? float2(GlassCrownInset.x, GlassCrownDrop.x) : second ? float2(GlassCrownInset.y, GlassCrownDrop.y) : float2(GlassCrownInset.z, GlassCrownDrop.z);
+        float2 b = first ? float2(GlassCrownInset.y, GlassCrownDrop.y) : second ? float2(GlassCrownInset.z, GlassCrownDrop.z) : float2(GlassCrownInset.w, GlassCrownDrop.w);
+
+        return normalize(outward * (a.y - b.y) + float3(0, b.x - a.x, 0));
+    }
+
+    float intoField = frame.Inset - GlassCrownInset.w - GlassRim.x;
+
+    if (intoField > GLASS_GROOVE_HALF_WIDTH)
+        return GlassCutNormal(cell, cellFootprint, strength);
+
+    float3 tilt;
+
+    if (intoField > -GLASS_GROOVE_HALF_WIDTH)
+    {
+        //The groove: each wall faces across it, softened over a pixel at its floor so it does not alias
+        float wall = clamp(intoField / max(insetFootprint, 1e-4), -1.0, 1.0);
+        float fade = saturate(1.0 - (insetFootprint / (2.0 * GLASS_GROOVE_HALF_WIDTH) - 0.1) / 0.2);
+        tilt = outward * wall * GLASS_GROOVE_SLOPE * fade;
+    }
+    else
+    {
+        //A flute: a V across the border, its two facets turned along the outline either way, flat for a pixel at
+        //the valley and the ridge so neither aliases, and fading out as the flutes shrink to a few pixels
+        float c = frac(frame.Phase) - 0.5;
+        float soft = max(fluteFootprint, 1e-4);
+        float flank = sign(c) * saturate(abs(c) / soft) * saturate((0.5 - abs(c)) / soft);
+        float fade = saturate(1.0 - (fluteFootprint - 0.1) / 0.2);
+        float3 along = float3(frame.Along.x, 0, frame.Along.y);
+        tilt = along * flank * GlassRim.z * fade + outward * GlassRim.w;
+    }
+
+    return normalize(float3(0, 1, 0) + tilt * strength);
+}
+
 float4 GlassPS(GlassVSOutput input) : COLOR
 {
     float3 p = input.LocalPosition;
@@ -7278,7 +7387,11 @@ float4 GlassPS(GlassVSOutput input) : COLOR
 
     float2 cellHere = GlassCutCell(p.xz);
     float footprintHere = max(fwidth(cellHere.x), fwidth(cellHere.y));
-    float3 entryNormal = onTop ? GlassCutNormal(cellHere, footprintHere, cutStrength) : faceNormal;
+    GlassRimFrame rimHere = GlassRimAt(p.xz);
+    float fluteFootprintHere = fwidth(rimHere.Phase), insetFootprintHere = fwidth(rimHere.Inset);
+    float3 entryNormal = onTop
+        ? GlassTopNormal(rimHere, cellHere, footprintHere, fluteFootprintHere, insetFootprintHere, cutStrength)
+        : faceNormal;
 
     //In through this face...
     float3 inside = refract(view, entryNormal, 1.0 / GLASS_INDEX);
@@ -7294,10 +7407,15 @@ float4 GlassPS(GlassVSOutput input) : COLOR
         : t == toPlane.y ? float3(0, sign(dir.y), 0)
         : float3(0, 0, sign(dir.z));
 
-    //...and out through it: the cut's facet if that is the top, the plane otherwise
+    //...and out through it: the cut's facet if that is the top - or, within the top edge's grind, the grind's facet
+    //the ray really leaves through - and the plane otherwise
     float2 cellThere = GlassCutCell(exitPoint.xz);
     float footprintThere = max(fwidth(cellThere.x), fwidth(cellThere.y));
-    float3 exitNormal = planeNormal.y > 0.5 ? GlassCutNormal(cellThere, footprintThere, cutStrength) : planeNormal;
+    GlassRimFrame rimThere = GlassRimAt(exitPoint.xz);
+    float fluteFootprintThere = fwidth(rimThere.Phase), insetFootprintThere = fwidth(rimThere.Inset);
+    float3 exitNormal = planeNormal.y > 0.5
+        ? GlassTopNormal(rimThere, cellThere, footprintThere, fluteFootprintThere, insetFootprintThere, cutStrength)
+        : planeNormal;
 
     float3 leaving = refract(inside, -exitNormal, GLASS_INDEX);
 

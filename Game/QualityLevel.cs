@@ -186,13 +186,13 @@ namespace BS3D
         /// play camera frames it out, and then nothing is copied.
         /// </para>
         /// <para>
-        /// <b><c>High</c> alone carries it.</b> The two rungs under it exist for a machine like that APU, and there
-        /// they are already short: <c>Low</c> misses its budget on the volcano and <c>Medium</c> fits on three
-        /// chapters of twelve (#540), so a millisecond and a half there is spent where the frame has none. A bend is
-        /// exactly the kind of thing a tier gives up (#298: a tier lowers what is drawn), and on <c>High</c> — the
-        /// desktop's rung — the owner's standing direction is to spend on the look. The desktop's own figure is not
-        /// measured; a wide part priced the multisample steps at a small fraction of the APU's (#540), and the copy
-        /// is the same kind of bandwidth.
+        /// <b>Every rung but <c>Low</c> carries it</b> (Medium since the owner's word of
+        /// 2026-09-25, "ať má lom i medium"). <c>Low</c> is the rung for a machine like that APU, already short of
+        /// its budget on the volcano (#540), so a millisecond and a half there is spent where the frame has none, and a
+        /// bend is exactly the kind of thing a tier gives up (#298: a tier lowers what is drawn). <c>Medium</c> on the
+        /// APU pays the 1.5 ms above; on the reference desktop (RX 6900 XT, 1920×1080, <c>nocap</c>, three alternated
+        /// cycles, the eight first readings dropped, after the finer cut) it costs about 0.1 ms: Heart 1.77–1.81 →
+        /// 1.85–1.96 ms, Ziggurat 1.53–1.54 → 1.61–1.62.
         /// </para>
         /// </summary>
         public readonly bool CeilingRefraction;
@@ -262,7 +262,7 @@ namespace BS3D
             //
             //4 samples rather than the pipeline's 8 since #540: on the weak machine the step is 0.65-1.38 ms
             //(see MsaaSamples), where the desktop had priced it at nothing and it had been left at 8 for that.
-            new(supersampleFactor: 1, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14, msaaSamples: 4, shadowMapCap: 2048, ceilingRefraction: false),
+            new(supersampleFactor: 1, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14, msaaSamples: 4, shadowMapCap: 2048, ceilingRefraction: true),
 
             //High — the look the game was authored at, unchanged.
             new(supersampleFactor: 2, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14, msaaSamples: PostProcessPipeline.MSAA_SAMPLES, shadowMapCap: 0, ceilingRefraction: true),
