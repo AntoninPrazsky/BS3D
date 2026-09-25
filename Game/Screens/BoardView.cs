@@ -90,7 +90,8 @@ namespace BS3D.Screens
 
             for (int i = 0; i < _rank.Length; i++)
             {
-                BoardEntryBody entry = board != null && i < board.Entries.Count ? board.Entries[i] : null;
+                //The worker sanitizes every page (#572); the null check is the frame's own, because a crash here is the process
+                BoardEntryBody entry = board?.Entries != null && i < board.Entries.Count ? board.Entries[i] : null;
                 Color colour = entry != null && entry.Rank == rank ? BS3DGame.BoardYouColor : BS3DGame.MENU_TEXT_BODY;
 
                 _rank[i].Text = entry != null ? entry.Rank.ToString(CultureInfo.InvariantCulture) : string.Empty;
