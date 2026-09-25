@@ -6212,3 +6212,13 @@ Předchozí zápis říkal, že to dostavět znamená sáhnout do brány a že t
 - Majitel založil https://github.com/AntoninPrazsky/BS3D-API (public, bez licence jako BS3D). **#543 → BS3D-API#1, #544 → #2, #545 → #3** (`gh issue transfer`; staré odkazy přesměrují).
 - Kostra pushnutá (`ae38102`): `BS3D.Api.slnx`, `src/BS3D.Api` (minimal API, jen `GET /v1/health` → `{status, contract: 1}`, launch profil na `http://localhost:5000`, kde ho čeká `server` v nastavení hry), `tests/BS3D.Api.Tests` (xunit + `WebApplicationFactory`, 2 testy zelené), `build.yml` na `ubuntu-latest` (build, test, publish linux-arm64 self-contained — lokálně ověřen), CLAUDE.md se stejnými konvencemi jako BS3D a odkazem na kontrakt v #542, `.gitattributes` LF.
 - Lokální klon: `C:\Users\panrd\source\repos\BS3D-API`. Na majiteli zůstává doména na Cloudflare DNS (BS3D-API#2).
+
+---
+
+## 2026-09-25 — Claude Code, bs3d-0f (desktop: BS3D-API#1 hotovo — služba skóre)
+
+- V repu BS3D-API (merge `922795e`, issue #1 zavřená): minimal API nad SQLite (`Microsoft.Data.Sqlite`, bez ORM) — `POST /v1/scores`, `GET /v1/boards/{file}`, `PUT`/`DELETE /v1/players/{id}`, `GET /v1/health`; žebříčky jako dotazy nad append-only logem (nejlepší clear na hráče, UTC měsíc / all-time, remíza pro dřívější `rowid`); idempotence `submissionId`; kontroly z BS3D-API#2 na straně služby (tabulka stropů ze ScoreSimu, strop, hvězdy 1–4, rozsah výstřelů, podlaha trvání 0,25 s/výstřel, přezdívka, verze, rate limity 429, token TOFU jako SHA-256, osolený hash adresy přes `CF-Connecting-IP`, bez soli mimo Development se služba nespustí); admin CLI. 49 testů; remíza i filtr měsíce viděny spadnout.
+- **Ověřeno se skutečnou hrou** (userdata test složka, stub nahrazený skutečným API na :5000 v Development): clear 201 s pořadím, přejmenování z nastavení 200, smazání 204 → žebříček prázdný. **Se skutečnou tabulkou stropů** (ScoreSim, 120 levelů) v Production na :5001: věrohodný clear One 201, strop+1 → 422 over-ceiling, testovací level → 422 unknown-board.
+- ⚠ Microsoft.Data.Sqlite odmítá příkaz bez nastaveného `Transaction`, když je otevřená `SqliteTransaction` — transakce jsou proto SQL `BEGIN IMMEDIATE`/`COMMIT`.
+- ⚠ JSON neunese `NaN`; kontrola trvání se testuje zápornou hodnotou.
+- Zbývá: BS3D-API#2 (tunel, doména — majitel), #3 (Pi), BS3D#547 (žebříčky ve hře).
