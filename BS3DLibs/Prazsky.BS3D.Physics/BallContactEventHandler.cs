@@ -557,7 +557,8 @@ namespace Prazsky.BS3D.Physics
 
             //Anchors come from the ideal lattice and are rotated into each body's current local frame, so
             //they are right even after the simulation has been running for a while
-            BallsConstraintsBuilder.AttachBallToStructure(physicsBall, _physicsBalls, _map, _simulation, _ceiling.BodyReference);
+            BallsConstraintsBuilder.AttachBallToStructure(physicsBall, _physicsBalls, _map, _simulation, _ceiling.BodyReference,
+                _worldOffset.ToNumerics());
 
             if (_contactEvents.IsListener(contact.EventSource)) _contactEvents.Unregister(contact.EventSource);
 

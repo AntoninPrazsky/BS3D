@@ -1035,7 +1035,8 @@ namespace BS3D.Tools.LevelGen
             map.PutBallAt((byte)cell.X, (byte)cell.Z, (byte)cell.Level, loaded.Value);
             balls[cell.X, cell.Z, cell.Level] = landed;
 
-            BallsConstraintsBuilder.AttachBallToStructure(landed, balls, map, world.Simulation, ceiling);
+            BallsConstraintsBuilder.AttachBallToStructure(landed, balls, map, world.Simulation, ceiling,
+                worldOffset.ToNumerics());
 
             //The glass takes the colour that just arrived (#325) - after the attach and BEFORE the group is
             //counted, which is BallContactEventHandler's own order and the whole of where this may go. It is
