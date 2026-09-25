@@ -52,6 +52,10 @@ namespace Testbed
             //makes everything drawn through it RECEIVE, and the callback is what the island, the gun and now
             //the balls CAST with (#470) — they are this program's objects, so the renderer asks rather than
             //reaches.
+            //The ceiling's glass shades what hangs and stands under it (#553) - stated per frame, consumed by the
+            //shadow pass; glassshadow=0 leaves it out for an A/B in one process
+            if (_draw && _ceilingShadowCasting) _sceneRenderer.CastCeilingShadow(_ceilingPlate.Renderer, _ceiling.World.Translation);
+
             _sceneRenderer.DrawShadowMaps(_scene, _camera, _rig.SunDirection, _instancingEffect, DrawShadowCasters);
 
             //The scene goes through the HDR target; the crosshair and the text overlay are drawn after the

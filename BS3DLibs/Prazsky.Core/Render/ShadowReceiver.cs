@@ -28,6 +28,10 @@ namespace Prazsky.Core.Render
     {
         private readonly EffectParameter _map, _viewProjection, _texel, _strength, _bias;
 
+        //The ceiling's glass (#553), which casts through arithmetic in the receiver rather than through the map
+        //(see Shadows.fxh's CeilingGlassShadow): where the slab stands, its size, and its cut
+        private readonly EffectParameter _ceilingCentre, _ceilingSize, _ceilingCut;
+
         /// <summary>Looks the five up on <paramref name="effect"/>. A null effect, or one that includes no
         /// <c>Shadows.fxh</c>, yields an invalid receiver that does nothing.</summary>
         public ShadowReceiver(Effect effect)
@@ -37,6 +41,9 @@ namespace Prazsky.Core.Render
             _texel = effect?.Parameters["ShadowTexel"];
             _strength = effect?.Parameters["ShadowStrength"];
             _bias = effect?.Parameters["ShadowBias"];
+            _ceilingCentre = effect?.Parameters["CeilingShadowCentre"];
+            _ceilingSize = effect?.Parameters["CeilingShadowSize"];
+            _ceilingCut = effect?.Parameters["CeilingShadowCut"];
         }
 
         /// <summary>Whether this effect actually reads the map. <see cref="_strength"/> is the one that
@@ -56,6 +63,22 @@ namespace Prazsky.Core.Render
             _texel.SetValue(texel);
             _strength.SetValue(strength);
             _bias.SetValue(bias);
+        }
+
+        /// <summary>
+        /// Hands this frame's ceiling glass to the effect (#553): the slab's centre with, in <c>w</c>, how much of
+        /// the sun its uncut glass takes (0 = no plate, and the receiver skips the whole term), its half extents
+        /// with its corner radius, and its cut. Read only under the map's own gate, so a frame with no map needs
+        /// nothing from here. Null-checked apart from the map's five, on the same terms as they are: an effect that
+        /// declares none of them does nothing.
+        /// </summary>
+        public void PushCeiling(Vector4 centre, Vector4 size, Vector4 cut)
+        {
+            if (_ceilingCentre == null) return;
+
+            _ceilingCentre.SetValue(centre);
+            _ceilingSize?.SetValue(size);
+            _ceilingCut?.SetValue(cut);
         }
 
         /// <summary>

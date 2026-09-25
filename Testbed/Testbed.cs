@@ -153,6 +153,10 @@ namespace Testbed
         //this measured cost could be too much for that the map's own Strength gate does not already answer.
         private bool _ballShadowCasting = true;
 
+        //Whether the ceiling's glass shades what stands under it (#553), on by default like the Game; glassshadow=0
+        //turns it off for an A/B of its look and its cost in one process.
+        private bool _ceilingShadowCasting = true;
+
         //How far back the game camera stands and how high it aims - both solved per map and per display by
         //GameCameraFit.Solve rather than tuned, because both of its inputs move underneath a fixed number. Every
         //dial of that solve is GameCameraFit's own since #76 - the camera's height below the trunnions (and the
@@ -883,6 +887,10 @@ namespace Testbed
             //cost from the island-and-gun-only shadow above. Alternable the same way: alt=ballshadow=0;ballshadow=1.
             if (_options.BallShadowCasting.HasValue) _ballShadowCasting = _options.BallShadowCasting.Value;
 
+            //#553 PROBE: "glassshadow=" pins whether the ceiling's glass shades what is under it. Alternable the same
+            //way: alt=glassshadow=0;glassshadow=1.
+            if (_options.CeilingShadowCasting.HasValue) _ceilingShadowCasting = _options.CeilingShadowCasting.Value;
+
             //After the scene renderer, which the rig consults for the scenes that state their own lighting. The
             //cloud hook is captured ONCE here rather than per frame: a method group written at the call site
             //builds a fresh delegate every time it is evaluated, and this one used to be evaluated in Draw.
@@ -1434,7 +1442,7 @@ namespace Testbed
         /// or a setter whose whole effect lands in the same frame.
         /// </summary>
         private static readonly string[] ALTERNATION_DIALS =
-            { "arena", "capprobe", "scene", "sky", "balls", "ssaa", "msaa", "rscale", "detail", "shadow", "shadowmap", "ballshadow", "exposure", "nopost", "volcano" };
+            { "arena", "capprobe", "scene", "sky", "balls", "ssaa", "msaa", "rscale", "detail", "shadow", "shadowmap", "ballshadow", "glassshadow", "exposure", "nopost", "volcano" };
 
         /// <summary>
         /// Prints the sweep's plan before the first window, and names anything it will not switch. A pin that
@@ -1537,6 +1545,11 @@ namespace Testbed
                     //shadow #470's base work already shipped, in one alternating process.
                     case "ballshadow":
                         _ballShadowCasting = pin.Value is not ("0" or "false" or "off");
+                        break;
+
+                    //Whether the ceiling's glass shades what is under it (#553), on by default
+                    case "glassshadow":
+                        _ceilingShadowCasting = pin.Value is not ("0" or "false" or "off");
                         break;
 
                     case "exposure":

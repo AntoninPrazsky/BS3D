@@ -194,6 +194,16 @@ namespace Prazsky.Core.Render
         /// </summary>
         public const float CUT_SLOPE = 0.18f;
 
+        /// <summary>
+        /// How much of the sun an uncut stretch of the glass takes from what stands under it, at a scene's full
+        /// shadow strength (#553): the plate's shadow on the island and the cluster, which the owner asked to be faint
+        /// — glass, not stone. Two faces' reflection and the pale blue's absorption would take about a tenth; a
+        /// little more reads as present from the play camera without the pane turning into a roof. The cut then
+        /// darkens its rim and draws its caustics on top (<c>Shadows.fxh</c>'s <c>CeilingGlassShadow</c>, stated per
+        /// frame through <see cref="SceneRenderer.CastCeilingShadow"/>).
+        /// </summary>
+        public const float SHADOW_TAKE = 0.2f;
+
         private readonly GraphicsDevice _device;
         private readonly Effect _instancingEffect;
 

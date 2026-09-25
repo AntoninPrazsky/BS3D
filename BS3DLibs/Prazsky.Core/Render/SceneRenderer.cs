@@ -6115,6 +6115,40 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
+        /// States that the ceiling's glass hangs this frame with its centre at <paramref name="centre"/>, so the
+        /// receivers shade what stands under it (#553). <b>Stated per frame, before <see cref="DrawShadowMaps"/></b>,
+        /// which consumes it: a frame that does not call this has no plate shadow, so a screen that stops drawing a
+        /// plate stops shadowing with it without having to say so.
+        /// <para>
+        /// The glass is not a caster in the map, and that rule stands (a depth map would cast it as stone — see
+        /// "Sun shadows" in <c>docs/rendering.md</c>). What it casts is worked out in every receiver instead
+        /// (<c>Shadows.fxh</c>'s <c>CeilingGlassShadow</c>): the plate is one axis-aligned slab, so whether a point's
+        /// ray to the sun crosses it is arithmetic, and what the cut does to the light that crosses it is too.
+        /// Everything about the slab is read off <paramref name="plate"/> — the renderer <see cref="CeilingPlate"/>
+        /// fitted, which carries the outline and the cut the refracting technique traces — so the shadow and the
+        /// drawn glass cannot disagree. It follows the map's own gates exactly: no map this frame, no glass shadow.
+        /// </para>
+        /// </summary>
+        /// <param name="plate">The plate's renderer (<see cref="CeilingPlate.Renderer"/>); null states nothing.</param>
+        /// <param name="centre">The slab's centre in world space — the translation of the world matrix it is drawn
+        /// with. The plate is never rotated.</param>
+        public void CastCeilingShadow(InstancedModelRenderer plate, Vector3 centre)
+        {
+            if (plate == null) return;
+
+            Vector3 half = plate.GlassHalfExtents;
+            float crown = plate.GlassCrownInset.W;
+            _ceilingShadowCentre = new Vector4(centre, 1f);
+            _ceilingShadowSize = new Vector4(half, plate.GlassCornerRadius);
+            _ceilingShadowCut = new Vector4(plate.GlassCutPeriod, plate.GlassCutSlope, crown, crown + plate.GlassRim.X);
+            _ceilingShadowStated = true;
+        }
+
+        //This frame's plate, as CastCeilingShadow stated it; consumed by DrawShadowMaps (#553)
+        private Vector4 _ceilingShadowCentre, _ceilingShadowSize, _ceilingShadowCut;
+        private bool _ceilingShadowStated;
+
+        /// <summary>
         /// Renders this frame's sun shadow map and hands it to the receivers' effects. <b>Call it before
         /// binding the scene target</b>: the map is its own render target, and switching away from the scene
         /// target mid-frame to draw it cleared the sky already drawn into it while that target was
@@ -6195,6 +6229,10 @@ namespace Prazsky.Core.Render
                 wanted = TryShadowFit(scene, camera, out centre, out yMin, out yMax);
             }
 
+            //The plate is stated per frame; whatever this frame does with it, the next one starts without it
+            bool ceilingStated = _ceilingShadowStated;
+            _ceilingShadowStated = false;
+
             if (!wanted)
             {
                 if (_shadowsActive)
@@ -6271,7 +6309,22 @@ namespace Prazsky.Core.Render
             _instancedShadowReceiver.Push(_sunShadowMap.Target, _sunShadowMap.ViewProjection,
                 _sunShadowMap.Texel, shadows.Strength * _shadowScale, bias);
 
+            //And the ceiling's glass, if a plate was stated this frame (#553): in w, how much of the sun its uncut
+            //glass takes, 0 when there is none - which is what the receivers skip on. The scene's strength is the
+            //receivers' own ShadowStrength, applied over the glass and the map together.
+            PushCeilingShadow(ceilingStated ? CeilingPlate.SHADOW_TAKE : 0f);
+
             _shadowsActive = true;
+        }
+
+        /// <summary>The ceiling's glass to every receiver, with <paramref name="take"/> in the centre's <c>w</c> (#553).</summary>
+        private void PushCeilingShadow(float take)
+        {
+            Vector4 centre = _ceilingShadowCentre;
+            centre.W = take;
+            for (int i = 0; i < _shadowReceivers.Length; i++)
+                _shadowReceivers[i].PushCeiling(centre, _ceilingShadowSize, _ceilingShadowCut);
+            _instancedShadowReceiver.PushCeiling(centre, _ceilingShadowSize, _ceilingShadowCut);
         }
 
         /// <summary>

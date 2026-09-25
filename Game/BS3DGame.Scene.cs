@@ -1013,6 +1013,16 @@ namespace BS3D
             _sceneLights.SetFlash(position, color, range);
 
         /// <summary>
+        /// States that a ceiling plate hangs at <paramref name="plateWorld"/> this frame, so the sun's shadow pass
+        /// shades what stands under its glass (#553). Stated per frame by the screen that draws the plate,
+        /// <b>before</b> <see cref="BeginSceneDraw"/> (whose shadow pass consumes it), exactly as
+        /// <see cref="SetSceneFlash"/> is; see <see cref="SceneRenderer.CastCeilingShadow"/>. Gated as the map is,
+        /// so the scenes and the tier without a map carry no glass shadow either.
+        /// </summary>
+        internal void CastCeilingShadow(InstancedModelRenderer renderer, Matrix plateWorld) =>
+            _sceneRenderer.CastCeilingShadow(renderer, plateWorld.Translation);
+
+        /// <summary>
         /// The ceiling's glass plate, drawn <b>without writing depth</b> — the session's plate from
         /// <c>GameplayScreen</c> and the front end's preview plate from <c>BackdropScreen</c> both come through
         /// here, so the state is stated once rather than in each of them.
