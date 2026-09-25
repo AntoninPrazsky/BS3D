@@ -57,10 +57,14 @@ namespace Prazsky.Core.Render
             Vector3 dir = Vector3.Normalize(sunDirection);
             Vector3 up = MathF.Abs(dir.Y) > 0.99f ? Vector3.UnitZ : Vector3.Up;
 
-            //The light looks at the centre from far out along the sun's direction; far enough that the
-            //whole box is in front of it whatever the sun's elevation.
+            //⚠ The light's view is anchored on the WORLD ORIGIN, never on the centre (#566). Anchored on the
+            //centre it moved with the camera, so the fitted box sat at the same light-space place every frame
+            //and the snap below rounded a constant: the window slid by fractions of a texel whenever the
+            //camera moved and the shadows crawled. From a fixed origin the view is a pure rotation of the
+            //world, the box's light-space position moves with the camera, and it is THAT position the snap
+            //holds to whole texels. Far enough out that every box a scene fits is in front of the eye.
             const float EYE_DISTANCE = 2000f;
-            Matrix view = Matrix.CreateLookAt(centre + dir * EYE_DISTANCE, centre, up);
+            Matrix view = Matrix.CreateLookAt(dir * EYE_DISTANCE, Vector3.Zero, up);
 
             float half = extent * 0.5f;
             Vector3 min = new(float.MaxValue), max = new(float.MinValue);
@@ -75,7 +79,8 @@ namespace Prazsky.Core.Render
                 max = Vector3.Max(max, v);
             }
 
-            //Snap the window's centre to whole texels in light space (see the class remarks).
+            //Snap the window's centre to whole texels in light space (see the class remarks). The size is
+            //the same every frame for one sun and one box, since the view is a rotation, so a texel is too.
             float width = max.X - min.X, height = max.Y - min.Y;
             float texelX = width / Size, texelY = height / Size;
             float cx = MathF.Round((min.X + max.X) * 0.5f / texelX) * texelX;
