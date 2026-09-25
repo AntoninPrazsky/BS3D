@@ -1,11 +1,14 @@
+using System;
 using System.IO;
+using System.Text;
 
 namespace Prazsky.Core.Tools
 {
     /// <summary>
     /// Writing a small file so that losing the machine mid-write cannot destroy what was already there
-    /// (#353). Two files use it — the player's campaign progress and the game's settings — and it is here
-    /// rather than in either of them because the second one would otherwise have been a copy of the first.
+    /// (#353). Every player file uses it — the campaign progress, the settings, the online identity and its
+    /// outbox — and the saved levels since #571; it is here rather than in any of them because each would
+    /// otherwise have been a copy of the first.
     /// </summary>
     /// <remarks>
     /// The failure this exists for is a plain <see cref="File.WriteAllText(string, string)"/>: it opens,
@@ -34,6 +37,9 @@ namespace Prazsky.Core.Tools
         /// that a torn write could destroy.
         /// </para>
         /// <para>
+        /// A null <paramref name="backupSuffix"/> keeps no backup; the swap is atomic all the same.
+        /// </para>
+        /// <para>
         /// Throws whatever the filesystem throws. Whether a failed write is worth more than a log line is the
         /// caller's decision, not this helper's.
         /// </para>
@@ -47,10 +53,54 @@ namespace Prazsky.Core.Tools
 
             string temp = path + TempSuffix;
 
-            File.WriteAllText(temp, text);
+            //Flushed to the DISK before it replaces anything (#571), not just out of this process: File.Replace
+            //is a metadata operation, and a machine lost after it but before the cache reached the platter would
+            //leave the renamed file empty - with the backup the only good copy, and the next write demoting the
+            //empty one over it
+            using (FileStream stream = new(temp, FileMode.Create, FileAccess.Write, FileShare.None))
+            {
+                byte[] bytes = Encoding.UTF8.GetBytes(text);
+                stream.Write(bytes, 0, bytes.Length);
+                stream.Flush(flushToDisk: true);
+            }
 
-            if (File.Exists(path)) File.Replace(temp, path, path + backupSuffix);
+            //No suffix, no backup: a level file saved over another keeps no second copy beside it, where the level
+            //loader and the editor's file dialog would both meet it
+            if (File.Exists(path)) File.Replace(temp, path, backupSuffix == null ? null : path + backupSuffix);
             else File.Move(temp, path);
+        }
+
+        /// <summary>
+        /// Keeps a copy of a file its loader could not read, as <c>&lt;path&gt;.unreadable-&lt;utc&gt;</c>, before
+        /// anything is written over it (#571). Returns the copy's path, or null when there was no file or the copy
+        /// failed.
+        /// <para>
+        /// <b>Why the loaders need it.</b> A player file that does not read — malformed, cut short, or written by a
+        /// NEWER build this one cannot understand — is answered with defaults, which is right: no state of it is
+        /// worth not starting the game over. But the first save after that goes through <see cref="WriteText"/>,
+        /// which demotes the unreadable file to the backup, and the second save overwrites the backup. Two saves and
+        /// the only copy is gone, and a newer build's file is exactly the one somebody wants back — this project
+        /// runs older builds on purpose (worktrees, bisects, a release zip beside a checkout). A copy the writes
+        /// never touch makes the loss recoverable by hand; nothing ever reads it back automatically.
+        /// </para>
+        /// </summary>
+        public static string KeepUnreadable(string path)
+        {
+            try
+            {
+                if (!File.Exists(path)) return null;
+
+                string kept = $"{path}.unreadable-{DateTime.UtcNow:yyyyMMdd-HHmmss}";
+                if (File.Exists(kept)) return kept;
+
+                File.Copy(path, kept);
+                return kept;
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException or ArgumentException
+                or NotSupportedException)
+            {
+                return null;
+            }
         }
     }
 }

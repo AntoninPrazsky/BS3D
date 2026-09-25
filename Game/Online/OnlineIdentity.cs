@@ -77,7 +77,25 @@ namespace BS3D.Online
         /// missing file is a player who has not opted in, and an unreadable one must cost the online boards,
         /// never the game.
         /// </summary>
-        internal static OnlineIdentity Load(string path) => TryRead(path) ?? TryRead(path + BackupSuffix);
+        internal static OnlineIdentity Load(string path)
+        {
+            OnlineIdentity identity = TryRead(path);
+            if (identity != null) return identity;
+
+            //⚠ The one player file whose loss cannot be recovered from (#571): the token in it is the only proof
+            //that the scores under this id are the player's, and the only way to remove them (#548). A file this
+            //build cannot read - damaged, or a newer build's - reads as "not opted in", and opting in again mints
+            //a new identity over it. Kept aside first, so the token survives by hand whatever happens next.
+            string kept = AtomicFile.KeepUnreadable(path);
+            identity = TryRead(path + BackupSuffix);
+            kept ??= identity == null ? AtomicFile.KeepUnreadable(path + BackupSuffix) : null;
+
+            if (kept != null)
+                Console.WriteLine($"[online] '{path}' would not read (damaged, or a newer build's);"
+                    + $" {(identity != null ? "using its backup" : "treated as not opted in")}, and the file is kept as '{kept}'");
+
+            return identity;
+        }
 
         internal void Save(string path) => AtomicFile.WriteText(path, JsonSerializer.Serialize(this, Options), BackupSuffix);
 

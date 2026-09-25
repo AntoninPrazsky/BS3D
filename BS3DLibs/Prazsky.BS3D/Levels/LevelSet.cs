@@ -1,3 +1,4 @@
+using Prazsky.Core.Tools;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -128,7 +129,8 @@ namespace Prazsky.BS3D.Levels
             }
         }
 
-        public void Save(string path) => File.WriteAllText(path, JsonSerializer.Serialize(this, Options));
+        //Atomically, as Level.Save (#571)
+        public void Save(string path) => AtomicFile.WriteText(path, JsonSerializer.Serialize(this, Options), backupSuffix: null);
 
         /// <summary>The full path of one entry's level file, resolved against <see cref="Directory"/>.</summary>
         public string ResolvePath(int index) => Path.Combine(Directory ?? string.Empty, Levels[index].File);

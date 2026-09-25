@@ -1626,6 +1626,10 @@ namespace BS3D
                         + " read, its backup included. Starting empty");
                     break;
             }
+
+            if (_progress.KeptUnreadable != null)
+                Console.WriteLine($"[progress] The save that would not read is kept as '{_progress.KeptUnreadable}'"
+                    + " (#571) - a newer build's, or damaged; the next saves cannot destroy it");
         }
 
         /// <summary>

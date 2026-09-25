@@ -624,7 +624,20 @@ namespace BS3D.Online
 
         private List<ScoreSubmission> LoadOutbox()
         {
-            OutboxFile file = TryReadOutbox(_outboxPath) ?? TryReadOutbox(_outboxPath + OutboxBackupSuffix);
+            OutboxFile file = TryReadOutbox(_outboxPath);
+
+            //Clears waiting to be sent that this build cannot read are kept aside before the next save writes
+            //over them (#571)
+            if (file == null)
+            {
+                string kept = AtomicFile.KeepUnreadable(_outboxPath);
+                file = TryReadOutbox(_outboxPath + OutboxBackupSuffix);
+                kept ??= file == null ? AtomicFile.KeepUnreadable(_outboxPath + OutboxBackupSuffix) : null;
+
+                if (kept != null)
+                    Console.WriteLine($"[online] The outbox '{_outboxPath}' would not read; kept as '{kept}'");
+            }
+
             return file?.Submissions ?? new List<ScoreSubmission>();
         }
 
