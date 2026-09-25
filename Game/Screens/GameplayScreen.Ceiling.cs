@@ -226,6 +226,12 @@ namespace BS3D.Screens
         {
             if (_ceilingStepsPending <= 0) return;
 
+            //Nothing comes down once the level is decided (#563). A step is queued when the shot LEAVES, so
+            //the winning shot can carry one: released, it burned the alarm red, sounded the step and slid the
+            //glass over the fanfare — the moment the drop cinematic let go, or CEILING_STEP_HOLD after the landing with
+            //the cinematic turned off. Held rather than cleared, because nothing reads the count after this.
+            if (LevelDecided) return;
+
             _ceilingStepWaited += elapsed;
 
             if (_ceilingStepHold > 0f) _ceilingStepHold -= elapsed;
