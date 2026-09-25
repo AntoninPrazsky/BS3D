@@ -259,7 +259,22 @@ namespace BS3D
         /// </summary>
         internal static GameSettings Load(string path)
         {
-            GameSettings settings = TryRead(path) ?? TryRead(path + BackupSuffix) ?? new GameSettings();
+            GameSettings settings = TryRead(path);
+
+            //A file that did not read is kept aside before the first settings click demotes it to the backup and
+            //the second destroys it (#571), and said once - this used to fall to the defaults without a word
+            if (settings == null)
+            {
+                string kept = AtomicFile.KeepUnreadable(path);
+                settings = TryRead(path + BackupSuffix);
+                kept ??= settings == null ? AtomicFile.KeepUnreadable(path + BackupSuffix) : null;
+
+                if (kept != null)
+                    Console.WriteLine($"[settings] '{path}' would not read (damaged, or a newer build's);"
+                        + $" {(settings != null ? "using its backup" : "using the defaults")}, and the file is kept as '{kept}'");
+            }
+
+            settings ??= new GameSettings();
 
             //Bound to the real file whichever one answered — a recovered backup must not become where the
             //next write goes
@@ -267,6 +282,8 @@ namespace BS3D
 
             return settings;
         }
+
+        private static float UnitRow(float value) => float.IsNaN(value) ? 1f : Math.Clamp(value, 0f, 1f);
 
         private static GameSettings TryRead(string path)
         {
@@ -281,6 +298,15 @@ namespace BS3D
                         //A tier this build does not have reads as "none chosen" rather than as an index off the
                         //end of QualityPreset.Presets: the string converter also accepts a bare number (#484)
                         if (settings.Quality.HasValue && !Enum.IsDefined(settings.Quality.Value)) settings.Quality = null;
+
+                        //The mix's rows are 0..1 and go straight to SoundEffectInstance.Volume, which refuses
+                        //anything outside that - a hand-edited "master": 4 must not be the reason a click throws
+                        //(#571). NaN falls to full, the row's default.
+                        settings.MasterVolume = UnitRow(settings.MasterVolume);
+                        settings.SfxVolume = UnitRow(settings.SfxVolume);
+                        settings.MusicVolume = UnitRow(settings.MusicVolume);
+                        settings.AmbienceVolume = UnitRow(settings.AmbienceVolume);
+                        settings.RumbleStrength = UnitRow(settings.RumbleStrength);
 
                         return settings;
                     }

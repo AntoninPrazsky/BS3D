@@ -1007,7 +1007,7 @@ namespace Prazsky.BS3D.GameStructure
         {
             var ballPositionTypes = BuildBallPositionTypes();
             var json = JsonSerializer.Serialize(ballPositionTypes);
-            File.WriteAllText(fileName, json);
+            AtomicFile.WriteText(fileName, json, backupSuffix: null); //Atomically, as Level.Save (#571)
         }
 
         /// <summary>
@@ -1110,9 +1110,21 @@ namespace Prazsky.BS3D.GameStructure
             for (byte level = 0; level < layoutSize.Level; level++)
                 for (byte x = 0; x < layoutSize.X; x++)
                     for (byte z = 0; z < layoutSize.Z; z++)
-                        if (ballPositionTypes.Balls[x, z, level] != null)
-                            PutBallAt(x, z, (byte)(level + levelOffset), ballPositionTypes.Balls[x, z, level].Type,
-                                ballPositionTypes.Balls[x, z, level].Kind);
+                    {
+                        BallPositionType cell = ballPositionTypes.Balls[x, z, level];
+                        if (cell == null) continue;
+
+                        //Refused rather than placed (#571). A colour this build does not have hangs, collides and
+                        //counts as removable but is never drawn and can never match, so the level can never be
+                        //cleared; an unknown kind passes every BallKinds question as whatever it defaults to. Every
+                        //loader already treats a throw as "this file is not playable" and keeps what it had.
+                        if (!Enum.IsDefined(cell.Type))
+                            throw new System.IO.InvalidDataException($"The ball at ({x}, {z}, {level}) has colour {(int)cell.Type}, which is not a ball colour");
+                        if (!Enum.IsDefined(cell.Kind))
+                            throw new System.IO.InvalidDataException($"The ball at ({x}, {z}, {level}) has kind {(int)cell.Kind}, which is not a ball kind");
+
+                        PutBallAt(x, z, (byte)(level + levelOffset), cell.Type, cell.Kind);
+                    }
         }
 
         private Vector3 ComputeUncentered(Vector3 position)

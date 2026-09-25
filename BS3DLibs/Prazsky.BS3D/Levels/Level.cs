@@ -1,6 +1,7 @@
 using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.GameStructure.DataBags;
 using Prazsky.Core.Render;
+using Prazsky.Core.Tools;
 using System;
 using System.IO;
 using System.Text.Json;
@@ -149,7 +150,9 @@ namespace Prazsky.BS3D.Levels
             return level;
         }
 
-        public void Save(string path) => File.WriteAllText(path, JsonSerializer.Serialize(this, Options));
+        //Atomically (#571): the map editor saves hand-built levels through this, and a torn write of one is a
+        //level lost - the data this repository calls irreplaceable. No backup file, which would sit in Levels/.
+        public void Save(string path) => AtomicFile.WriteText(path, JsonSerializer.Serialize(this, Options), backupSuffix: null);
 
         /// <summary>
         /// Cheap probe: true when the file is a JSON object carrying the level format marker. A legacy map

@@ -119,6 +119,13 @@ namespace Prazsky.BS3D.Levels
         [JsonIgnore]
         public ProgressLoad Outcome { get; private set; }
 
+        /// <summary>
+        /// Where a copy of a save that would not read was kept (#571), or null. See
+        /// <see cref="AtomicFile.KeepUnreadable"/>: without it the next two saves destroy what could not be read.
+        /// </summary>
+        [JsonIgnore]
+        public string KeptUnreadable { get; private set; }
+
         private static readonly JsonSerializerOptions Options = new()
         {
             WriteIndented = true,
@@ -153,6 +160,11 @@ namespace Prazsky.BS3D.Levels
                 return progress;
             }
 
+            //The save did not read, and the next write would demote it to the backup (#571). Kept aside first -
+            //even when the backup answers below, because a save a NEWER build wrote reads as unreadable here, and
+            //it is the backup's older campaign that would then be written over it.
+            string kept = AtomicFile.KeepUnreadable(path);
+
             progress = TryRead(backup);
 
             if (progress != null)
@@ -161,6 +173,7 @@ namespace Prazsky.BS3D.Levels
                 //next one is written
                 progress.Path = path;
                 progress.Outcome = ProgressLoad.RecoveredFromBackup;
+                progress.KeptUnreadable = kept;
 
                 return progress;
             }
@@ -169,6 +182,7 @@ namespace Prazsky.BS3D.Levels
             {
                 Path = path,
                 Outcome = anythingWasThere ? ProgressLoad.Discarded : ProgressLoad.Fresh,
+                KeptUnreadable = kept ?? AtomicFile.KeepUnreadable(backup),
             };
         }
 
