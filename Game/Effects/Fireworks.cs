@@ -141,6 +141,19 @@ namespace BS3D.Effects
         private float _delay;            //seconds still to wait before the first shell goes up
         private bool _popped;            //the opening crack has been played for this celebration
 
+        //How many reports have gone off lately: one added per report, decaying with REPORT_CROWD_SECONDS. The audio
+        //turns each report down by it (ProceduralAudio.BurstCrowding), so the loudness of the display stops following
+        //its launch rate (#552). Kept here because this is the clock the reports are fired on.
+        private float _reportCrowd;
+
+        /// <summary>
+        /// The time constant of the report crowd (#552). About as long as a report's boom lasts: shorter and the
+        /// barrage's reports would no longer see each other, longer and a lone shell well after the barrage would
+        /// still be ducked by it. At 1.2 s the steady phase (~6 reports a second) holds each report about 9 dB
+        /// under a lone one and the barrage (~13) about 12, which is what keeps the stream near one report's power.
+        /// </summary>
+        public const float REPORT_CROWD_SECONDS = 1.2f;
+
         /// <summary>True while anything is still in the air, so a caller can hold a screen until it is over.</summary>
         public bool Active
         {
@@ -228,6 +241,7 @@ namespace BS3D.Effects
             _remaining = 0f;
             _delay = 0f;
             _opening = OPENING_SECONDS;
+            _reportCrowd = 0f;
             for (int i = 0; i < _shells.Length; i++) _shells[i].Active = false;
         }
 
@@ -250,6 +264,8 @@ namespace BS3D.Effects
         /// </remarks>
         public void Update(float elapsed)
         {
+            _reportCrowd *= MathF.Exp(-elapsed / REPORT_CROWD_SECONDS);
+
             for (int i = 0; i < _shells.Length; i++)
             {
                 if (!_shells[i].Active) continue;
@@ -264,7 +280,8 @@ namespace BS3D.Effects
 
                     //Size drives the volume and, inversely, the pitch — a big shell is a deeper, louder report
                     float size = MathHelper.Clamp((_shells[i].Radius - RADIUS_MIN) / (RADIUS_MAX - RADIUS_MIN), 0f, 1f);
-                    _audio?.PlayFireworkBurst(_shells[i].Burst, size);
+                    _audio?.PlayFireworkBurst(_shells[i].Burst, size, _reportCrowd);
+                    _reportCrowd += 1f;
                 }
 
                 if (_shells[i].Age > _shells[i].Life) _shells[i].Active = false;
