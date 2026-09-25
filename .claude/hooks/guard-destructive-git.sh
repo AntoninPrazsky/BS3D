@@ -41,7 +41,19 @@ payload=$(cat)
 # `rg "git clean" docs/` was refused, which is a search, not a deletion.
 COMMAND_START='(^|[^\\]"|[|;&(){]|\\n)[[:space:]]*'
 
-if ! printf '%s' "$payload" | grep -Eq "${COMMAND_START}git[[:space:]]+clean|${COMMAND_START}git[[:space:]]+reset[^;&|\"]*--hard"; then
+# A command handed to another shell as a string is in command position too (#575): `cmd /c git clean`,
+# `pwsh -Command "git clean"`. Its opening quote arrives escaped (`\"`), which COMMAND_START deliberately
+# does not treat as a boundary, so these are named on their own.
+SHELL_START='(cmd(\.exe)?[[:space:]]+/[cCkK]|(pwsh|powershell)(\.exe)?([[:space:]]+-[A-Za-z]+)*)[[:space:]]+(\\"|'"'"')?'
+
+# The executable by any of its spellings - `git`, `git.exe`, or a path ending in either - and then git's own
+# GLOBAL options before the subcommand (#575): `git -C <repo> clean` is exactly how an agent told to prefer
+# absolute paths would write it, and `-c key=value`, `--git-dir=...`, `--no-pager` sit in the same place.
+GIT_NAME='([^[:space:]"]*[/\\])?git(\.exe)?'
+GIT_GLOBALS='([[:space:]]+(-C|-c|--git-dir|--work-tree|--namespace)([[:space:]]+|=)[^[:space:]]+|[[:space:]]+--?[A-Za-z][-A-Za-z]*)*'
+GIT_DESTRUCTIVE="${GIT_NAME}${GIT_GLOBALS}[[:space:]]+(clean|reset[^;&|\"]*--hard)"
+
+if ! printf '%s' "$payload" | grep -Eq "(${COMMAND_START}|${SHELL_START})${GIT_DESTRUCTIVE}"; then
   exit 0
 fi
 

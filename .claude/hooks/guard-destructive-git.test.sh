@@ -32,6 +32,15 @@ expect DENY "newline in cmd"   '{"tool_name":"Bash","tool_input":{"command":"cd 
 expect DENY "powershell"       '{"tool_name":"PowerShell","tool_input":{"command":"git clean -xdf"}}'
 expect DENY "flag before"      '{"tool_name":"Bash","tool_input":{"command":"git reset -q --hard HEAD"}}'
 expect DENY "pipe"             '{"tool_name":"Bash","tool_input":{"command":"echo y | git clean -fdi"}}'
+expect DENY "-C path"          '{"tool_name":"Bash","tool_input":{"command":"git -C C:/Users/x/repo clean -fdx"}}'
+expect DENY "-C dot"           '{"tool_name":"Bash","tool_input":{"command":"git -C . clean -fd"}}'
+expect DENY "-c config"        '{"tool_name":"Bash","tool_input":{"command":"git -c core.autocrlf=false reset --hard HEAD"}}'
+expect DENY "--no-pager"       '{"tool_name":"Bash","tool_input":{"command":"git --no-pager clean -fd"}}'
+expect DENY "git.exe"          '{"tool_name":"PowerShell","tool_input":{"command":"git.exe clean -fd"}}'
+expect DENY "full path"        '{"tool_name":"Bash","tool_input":{"command":"/c/Program/Git/bin/git.exe reset --hard origin/main"}}'
+expect DENY "cmd /c"           '{"tool_name":"PowerShell","tool_input":{"command":"cmd /c git clean -fd"}}'
+expect DENY "pwsh -Command"    '{"tool_name":"Bash","tool_input":{"command":"pwsh -NoProfile -Command \"git clean -fd\""}}'
+expect DENY "PS call &"        '{"tool_name":"PowerShell","tool_input":{"command":"& git -C . reset --hard"}}'
 
 echo "must ALLOW:"
 expect allow "status"          '{"tool_name":"Bash","tool_input":{"command":"git status --porcelain"}}'
@@ -41,6 +50,11 @@ expect allow "prose in msg"    '{"tool_name":"Bash","tool_input":{"command":"git
 expect allow "stash -u"        '{"tool_name":"Bash","tool_input":{"command":"git stash -u"}}'
 expect allow "dotnet clean"    '{"tool_name":"Bash","tool_input":{"command":"dotnet clean Game.sln"}}'
 expect allow "search for it"   '{"tool_name":"Bash","tool_input":{"command":"rg \"git clean\" docs/"}}'
+expect allow "-C status"       '{"tool_name":"Bash","tool_input":{"command":"git -C . status --porcelain"}}'
+expect allow "log --grep"      '{"tool_name":"Bash","tool_input":{"command":"git log --grep=clean --oneline"}}'
+expect allow "commit -m word"  '{"tool_name":"Bash","tool_input":{"command":"git commit -m clean"}}'
+expect allow "cmd /c status"   '{"tool_name":"PowerShell","tool_input":{"command":"cmd /c git status"}}'
+expect allow "-C soft reset"   '{"tool_name":"Bash","tool_input":{"command":"git -C . reset --soft HEAD~1"}}'
 
 if [ "$fail" = 0 ]; then echo "ALL PASS"; else echo "SOME FAILED"; fi
 exit $fail
