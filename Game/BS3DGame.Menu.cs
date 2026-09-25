@@ -130,6 +130,7 @@ namespace BS3D
         private SpriteFontBase _menuFontPrompt;
         private SpriteFontBase _menuFontSection;
         private SpriteFontBase _menuFontFrontEntry;
+        private SpriteFontBase _menuFontTile;
 
         //The menu is deliberately GREYSCALE — no hue anywhere, and no coloured frames. It has to sit over
         //fifteen backdrops whose palettes are nothing alike (a neon city, an ochre desert, a blue sea, white
@@ -393,6 +394,16 @@ namespace BS3D
         //(#111), and at play distance four glyphs need title-adjacent weight to be read as one.
         private const int MENU_FONT_STARS = 140;
 
+        //The level picker's tile, the one place a name and a rating have to share a box whose height is fixed
+        //(#496, the owner at 3840x1600: "I don't see the stars on the levels any more"). The tile is 210 units
+        //tall since #472, 186 inside MenuTile's padding, and it stacked a heading-size number (124), a small
+        //name (58) and a small star row (58) - 252 units in a box of 186, so the star row was cut off the
+        //bottom of every tile at every resolution for six days and nobody saw it go. Inter, for the glyphs;
+        //its own size because MENU_FONT_SMALL is shared by eight other sites that are not boxed. 46 is where
+        //the longest shipped name ("Phyllotaxis", 191) still fits the tile's narrowest inside (195 at Fit's
+        //floor) - MEASURED with MeasureString, since Myra clips rather than shrinks. See LevelSelectPage.BuildTile.
+        private const int MENU_FONT_TILE = 46;
+
         //The exposure ladder the settings button walks. Centred on DEFAULT_EXPOSURE, wide enough either way
         //to matter on a dim laptop panel and on a bright monitor without ever crushing or blowing the frame.
         private const float EXPOSURE_MIN = 0.7f;
@@ -523,6 +534,7 @@ namespace BS3D
             _menuFontSection = _menuFontSystemDisplay.GetFont(Scaled(MENU_FONT_SECTION));
             _menuFontTitle = _menuFontSystemDisplay.GetFont(Scaled(MENU_FONT_TITLE));
             _menuFontStars = _menuFontSystem.GetFont(Scaled(MENU_FONT_STARS));
+            _menuFontTile = _menuFontSystem.GetFont(Scaled(MENU_FONT_TILE));
 
             //The front end's own, for the one page with no height budget to keep (#217). It was two until
             //#248 took the game's name out of the widget tree — see MENU_FONT_FRONT_ENTRY's own note.
@@ -602,6 +614,7 @@ namespace BS3D
         internal SpriteFontBase MenuFontSection => _menuFontSection;
         internal SpriteFontBase MenuFontTitle => _menuFontTitle;
         internal SpriteFontBase MenuFontStars => _menuFontStars;
+        internal SpriteFontBase MenuFontTile => _menuFontTile;
 
         //What the pages ask the game about itself. Read-only: a page shows state and asks for an action, and
         //nothing here lets it write one directly.

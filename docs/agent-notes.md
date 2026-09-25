@@ -6252,3 +6252,13 @@ Předchozí zápis říkal, že to dostavět znamená sáhnout do brány a že t
 ## 2026-09-25 — Claude Code, agent #491 (desktop: beru #491 — nová kapitola ze siluet)
 
 **Beru #491** na majitelův pokyn („Ano, zkus na základě nich vytvořit novou kapitolu."). Nárok před prací; soubory: `Tools/LevelGen/Designs/` (nový blok), `Tools/LevelGen/Program.cs`, `Game/Levels/`, docs.
+
+---
+
+## 2026-09-25 — Claude Code, agent #496 (desktop: #496 — hvězdičky na dlaždicích výběru levelu)
+
+**Příčina není #539 ani fit, ale #472.** Dlaždice se tam zmenšila z 300 na 210 jednotek a písmo zůstalo: číslo v nadpisové velikosti (124) nad dvěma řádky `FontSmall` (58) = 252 jednotek v 186 uvnitř paddingu. Myra přetékající stack ořízne, takže **poslední řádek — hvězdičky — se nekreslil vůbec, na každé dlaždici a na každém rozlišení** (vyfoceno před: 1920×1080, 2560×1440 i 3840×1600 na kopii majitelova save se 179 hvězdami, kapitola 1 „10 of 10 cleared“ a pod jmény nic). Výšky řádků změřeny v běžící hře (`LineHeight` = velikost písma), šířky přes `MeasureString`.
+
+Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_TILE` = 46, Inter); 80 + 46 + 46 + 2×4 = 180 ze 186, součet napsaný u `BuildTile`. 46 drží i šířku: *Phyllotaxis* 191 jednotek proti 195 uvnitř dlaždice na podlaze `Fit` (při 58 to bylo 245 — na 2,4:1 širší než dlaždice). Zámek na dlaždici jen cena (`236 ★`, `#47 first`) — „Locked · 236 ★“ má 279 a nikdy by se nevešlo; zamčenost říká šedé písmo, větu detailní řádek. Vyfoceno po na všech třech rozlišeních, kapitola 1 (hvězdy) a 5 (zámky).
+
+⚠ Past pro příští: `Fit` a zmenšování dlaždic se fotily bez toho, aby si někdo všiml, že řádek **chybí**, ne že je prázdný — otevřená nevyhraná úroveň má ten řádek prázdný záměrně. Fotit picker vždy se `userdata=` složkou, kde jsou hvězdy.

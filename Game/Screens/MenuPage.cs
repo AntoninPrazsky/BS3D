@@ -289,6 +289,9 @@ namespace BS3D.Screens
         protected SpriteFontBase FontTitle => Game.MenuFontTitle;
         protected SpriteFontBase FontStars => Game.MenuFontStars;
 
+        /// <summary>The level picker's tile face (46, Inter) — see <c>MENU_FONT_TILE</c> for why it is its own size.</summary>
+        protected SpriteFontBase FontTile => Game.MenuFontTile;
+
         //The rating's two glyphs, shared so the picker's small rows and the result's headline cannot drift
         //apart. They must be drawn with FontStars or FontSmall: the glyphs live in Inter, and the display face
         //the loud type is set in carries neither — FontStashSharp would silently draw blanks.
