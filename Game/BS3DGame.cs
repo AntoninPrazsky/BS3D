@@ -766,11 +766,12 @@ namespace BS3D
         /// </summary>
         internal void EnsureHudFonts()
         {
-            int quantized = GraphicsDevice.Viewport.Height / MENU_REBUILD_QUANTUM;
+            int height = MenuLayoutHeight;
+            int quantized = height / MENU_REBUILD_QUANTUM;
             if (quantized == _hudFontsForHeight) return;
 
             _hudFontsForHeight = quantized;
-            _menuScale = GraphicsDevice.Viewport.Height / (float)MENU_DESIGN_HEIGHT;
+            _menuScale = height / (float)MENU_DESIGN_HEIGHT;
 
             _hudFontScore = _menuFontSystemDisplay.GetFont(Scaled(HUD_FONT_SCORE));
             _hudFontLabel = _menuFontSystemDisplay.GetFont(Scaled(HUD_FONT_LABEL));

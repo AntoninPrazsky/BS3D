@@ -1,4 +1,4 @@
-﻿using BS3D.Audio;
+using BS3D.Audio;
 using BS3D.Screens;
 using FontStashSharp;
 using Microsoft.Xna.Framework;
@@ -299,6 +299,30 @@ namespace BS3D
         private const int MENU_DESIGN_HEIGHT = 2160;
 
         /// <summary>
+        /// The narrowest width the menu's design figures fit at full scale, in the same 2160p units (#593). The
+        /// pages are laid out for a landscape screen, and the widest is the settings page's three columns: measured
+        /// in a 900×1400 window, 2160 (square) still cut its third column and 2560 is the first that holds it. A
+        /// window narrower than that used to keep its height's scale and push the level picker's tiles and the
+        /// settings' columns off the right edge; below this the menu scales by width instead, and at any aspect
+        /// wider than 2560:2160 (about 1.19) nothing changes.
+        /// </summary>
+        private const int MENU_MIN_DESIGN_WIDTH = 2560;
+
+        /// <summary>
+        /// The height the menu is laid out for: the viewport's own, or less where the window is too narrow for the
+        /// design (<see cref="MENU_MIN_DESIGN_WIDTH"/>). Every scale and every rebuild decision is taken off this
+        /// rather than off the raw height, so a narrow window rebuilds when its width changes too.
+        /// </summary>
+        private int MenuLayoutHeight
+        {
+            get
+            {
+                Microsoft.Xna.Framework.Graphics.Viewport viewport = GraphicsDevice.Viewport;
+                return Math.Min(viewport.Height, viewport.Width * MENU_DESIGN_HEIGHT / MENU_MIN_DESIGN_WIDTH);
+            }
+        }
+
+        /// <summary>
         /// How much the viewport has to change before the widget tree is rebuilt at the new size, in pixels
         /// of height. A live window drag reports a new size every frame, and each rebuild asks the font
         /// system for glyphs at another size; quantizing bounds a drag across the whole screen to a couple of
@@ -512,7 +536,7 @@ namespace BS3D
         /// </summary>
         private void EnsureMenuLayout()
         {
-            int height = GraphicsDevice.Viewport.Height;
+            int height = MenuLayoutHeight;
             int quantized = height / MENU_REBUILD_QUANTUM;
 
             if (quantized == _menuBuiltForHeight) return;
