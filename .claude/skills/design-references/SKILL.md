@@ -55,19 +55,28 @@ Testbed.exe Maps\Full.json scene=aurora campos=0,-4,30 camtarget=0,-8,0 width=12
 
 The first image of a run costs about 8 s more than the rest (the init image's VAE encode and the graph build). So for a scene rework **start at 0.5**; go lower only to keep one specific object as it is, and expect 0.35 to hand the game back, 0.65 to start replacing what stands on the island and 0.8 to replace the composition. **Measured in two runs**: 0.35 and 0.5 before the reset of 09:22, 0.65 and 0.8 at 10:30–10:50 with the owner's go after he had raised the GPU power limit — that run went through clean, but its step time rose from ~3.5 s to ~18.7 s from the third image on (28–37 s an image became 123–140 s) while a 3.3 GB download ran beside it and stayed slow after; the cause is not isolated, so the two timing columns are not comparable and the 0.8 figure is not the model's cost.
 
-## A second model: FLUX.2 klein 4B (#493, set up and half-measured)
+## A second model: FLUX.2 klein 4B (#493, measured; the owner picks)
 
 `-DiffusionModel flux-2-klein-4b-Q8_0.gguf -Encoder Qwen3-4B-Q8_0.gguf -Vae full_encoder_small_decoder.safetensors -NoOffload -Steps 4` — the files are in `models` (from `leejet/FLUX.2-klein-4B-GGUF`, `unsloth/Qwen3-4B-GGUF` and `black-forest-labs/FLUX.2-small-decoder`, all Apache 2.0 and none gated; the FLUX.2-dev VAE is gated, the small decoder is sd.cpp's own listed alternative). The encoder is the plain Qwen3-4B, not Z-Image's Instruct-2507 — the one klein was trained against.
 
-**Measured on 2026-09-21, before the machine reset on both runs:**
+**The full sweep, 2026-09-25** (after the owner's GPU cap): `prompts-493.json` — the five #429 cups, the three #436 rooftop prompts, the six #404 islands in the name wording and again in the shape wording — two seeds each, both models, **80 of 80 images, no reset, no failed request**. klein ran with everything on the card for all 40, the 1216×832 landscapes included; the one earlier failure on the card (a landscape VAE decode at 14.65 GB) was a card another process already held, not klein. Images in `C:\Users\panrd\AI\sd\out\493-klein-2` and `493-zimage-2`; the pairs, per-image times and notes are on the owner's page https://claude.ai/artifact/WrEoKtFx3ytTvVSR9psvF9.
 
 | | Z-Image-Turbo Q8, offload, 8 steps | FLUX.2 klein 4B Q8, on the card, 4 steps |
 |---|---|---|
-| Fits without `--offload-to-cpu` | no (10.5 GB of weights + compute) | **yes** — the card peaked at 12.2 GB with 3.6 GB already in use by others |
-| Seconds an image, 832×1216 | 33–37 | **12–20** (2.2 s a step; the first image of a run ~8 s more) |
-| The one pair seen (the #429 gold cup, seed 1) | richer: gems in raised settings on rim, bowl and base, a fluted stem — the *applied ornament* that issue asked for | cleaner and more photographic: an engraved band, gems on the base only, a product shot |
+| Seconds an image | median 40 (832×1216) and 37 (1216×832), range 36–55 | **median 13 either way**, range 13–20 (the first image of a server ~19) |
+| All 40 | 26.4 min | **9.3 min** |
+| Memory | sd-server peaked at **10.5 GB** on the card even offloaded (card 13.3 of 16), weights streamed over PCIe every step | sd-server peaked at **11.3 GB** (card 13.6), nothing streamed |
+| Applied ornament (the gold cup) | **richer**: gems in raised settings on rim, bowl and plinth | a cleaner product shot, gems on the base only |
+| Following the wording | the bronze grew the handles the prompt forbade (seed 1); no laurel band on the silver | **closer**: no handles on the bronze, a laurel band on both silvers, gold mounts on the crystal |
+| Prop sheet (#436) | **all six props**, the three-panel 5G pole | fewer props, 5G panels drawn like solar panels, a stray satellite |
+| Drain test, shape wording | 12 of 12 a flush drain, nothing standing | 12 of 12, and the only true inward-sloping dishes |
+| Drain test, name wording | 12 of 12 a martini glass | 12 of 12 a martini glass — the prompt rule holds for both models |
+| Marks and text | **none in the corners** | **a fake watermark/logo in the bottom corners of 9 of the 12 seed-2 islands** (none on seed 1, the cups or the rooftops); pseudo-text on neon signs |
+| Materials | painterly concept art | more photographic: refraction and caustics in crystal, driftwood, glowing cracks |
 
-**What is not measured**, because the sweep died six images into the klein run and one into the Z-Image baseline (`out93-*`, `out93-compare.html` holds what survived): the drain-hole test on the six islands, the rooftop sheets, placement drift and text, and the owner's verdict on which draws the more useful reference. Until it is, Z-Image stays the default and klein is the model to reach for when the card is shared or a run has to be short — a third of the time an image, and nothing streamed over PCIe.
+**Reading it:** klein is three times faster in the same memory and follows wording at least as well, so it is the natural pick for scenes, settings and anything iterated over many seeds; Z-Image still draws the richer applied ornament and the more useful prop sheet, and never stamps a corner mark. A klein corner stamp is a crop, not a lost reference — but check the corners before handing one on. Which model is the default is **the owner's verdict on #493**, and until he gives it the script's default stays Z-Image.
+
+`-SkipExisting` makes a long sweep resumable: rerun it with the same arguments and it renders only the `<name>-<seed>.png` that are missing. The #493 sweep ran detached (`Start-Process powershell -File … -RedirectStandardOutput`) in chunks of five prompts, one server start each, with a sampler logging the card's total and sd-server's own dedicated memory (`\GPU Process Memory(pid_<id>*)\Dedicated Usage`) — the card total alone cannot tell this renderer from another session's game.
 
 ## A silhouette becomes a picture level (#491)
 
