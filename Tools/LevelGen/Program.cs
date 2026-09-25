@@ -2207,6 +2207,13 @@ namespace BS3D.Tools.LevelGen
             bool[] bodyHasLanding = new bool[bodySize.Count];
             bool[] bodyPaysTwo = new bool[bodySize.Count];
 
+            //A cell has at most twelve neighbours (four on its own level, up to four on each of the two
+            //adjacent ones), so the seen-list is a handful of ints on the stack - allocated ONCE, here, and
+            //reset per cell by its count (#588). A stackalloc inside the walk below is released only on return,
+            //so it grew the frame by 48 B for every empty cell (CA2014) and a field about 2.4x the Organ's would
+            //have overflowed the stack: an uncatchable kill with no message.
+            Span<int> seen = stackalloc int[BallsMap.MAX_NEIGHBORS];
+
             for (byte l = 0; l < map.Levels; l++)
                 for (byte x = 0; x < map.StageSizeX; x++)
                     for (byte z = 0; z < map.StageSizeZ; z++)
@@ -2222,9 +2229,6 @@ namespace BS3D.Tools.LevelGen
                             int pays = 0;
                             bool attaches = false;
 
-                            //A cell has at most twelve neighbours (four on its own level, up to four on each
-                            //of the two adjacent ones), so the seen-list is a handful of ints on the stack.
-                            Span<int> seen = stackalloc int[12];
                             int seenCount = 0;
 
                             foreach (XZLevel neighbour in BallsMap.GetNeighboringCells(cell, size))
