@@ -261,6 +261,11 @@ namespace BS3D.Screens
 
         private float _physicsAccumulator;
 
+        //Simulated seconds the last StepPhysics actually ran: whole steps, at most PHYSICS_MAX_STEPS_PER_FRAME of
+        //them. Below 30 FPS that is less than the frame's elapsed, and the rules that judge the simulation read
+        //this rather than the wall clock (#577).
+        private float _simulatedThisFrame;
+
         /// <summary>
         /// Where the drawn frame sits between the last physics step and the next one due — the accumulator as
         /// a fraction of <see cref="PHYSICS_TIMESTEP"/>, written by <c>StepPhysics</c> and read by everything
@@ -614,7 +619,7 @@ namespace BS3D.Screens
         private bool _ceilingFlashIsFeed;
 
         //Where the glass body sits now (_ceilingY) and where it is sliding to (_ceilingTargetY). Equal while at
-        //rest; _ceilingTargetY is lowered by StartCeilingDescent and _ceilingY catches up in UpdateCeilingDescent.
+        //rest; _ceilingTargetY is lowered by StartCeilingDescent and _ceilingY catches up in SlideCeiling, step by step.
         private float _ceilingTargetY;
 
         //Ceiling steps that have come due but are waiting for their moment — see ReleaseCeilingStep. A count,
@@ -1322,7 +1327,7 @@ namespace BS3D.Screens
                 //
                 //⚠ WHAT ACTUALLY RUNS IS NOT WHAT #355 SAYS RUNS, and the difference is worth having written
                 //down. Its report reads "the ceiling keeps sliding down, on wall clock" — it does not.
-                //UpdateCeilingDescent only ANIMATES a step that a shot has already earned
+                //SlideCeiling only ANIMATES a step that a shot has already earned
                 //(_ceilingStepsPending, ReleaseCeilingStep), so a field nobody is shooting at gets no new
                 //steps. Three things do run, and together they are enough:
                 //
@@ -1399,14 +1404,14 @@ namespace BS3D.Screens
             //ReleaseCeilingStep. Before the descent update, so a released step slides on the same frame.
             ReleaseCeilingStep(elapsed);
 
-            //Slide the ceiling before the step, so the solver works against the moved body this frame and the
-            //contact between a descending cluster and anything below it resolves rather than interpenetrates.
-            UpdateCeilingDescent(elapsed);
+            //The glass's glow fades on the wall clock; the glass itself slides inside StepPhysics, one physics
+            //step at a time (#577), so the solver always works against the moved body.
+            UpdateCeilingFlash(elapsed);
 
             //Slow motion is applied here and nowhere else: the fixed timestep is untouched and only the time
             //fed to the accumulator is scaled, so a slowed world is exactly as stable as a full-speed one. The
-            //ceiling's descent above is deliberately NOT scaled — it is a rule of the level playing out, not
-            //part of the spectacle, and it is not moving while the gun is locked anyway.
+            //ceiling's descent rides the steps since #577, so a slowed world slows it too — which no player sees,
+            //because it is not moving while the gun is locked, and which keeps plate and cluster in step if it is.
             //Testing only (detonate=, #389): a bomb set off on the wall clock's schedule. Before the step, so its
             //debris moves on this frame the way a real landing's does.
             if (Game.TryTakeForcedDetonation()) DetonateForTesting();
@@ -1446,7 +1451,11 @@ namespace BS3D.Screens
             //cleared countdown below waits. The floor alarm inside is NOT held: the release that engages a
             //drop cinematic is exactly the one that rescues a low cluster, and a warning frozen lit would
             //blaze across the player's reward for the whole dive down the drain.
-            CheckLevelLost(elapsed, mayLose: !CameraTakeoverEngaged);
+            //On the SIMULATED seconds (#577): the line's grace judges how long the cluster stayed under it, and
+            //below 30 FPS the world lives through less than the frame's wall time. Fed the wall clock, a swing
+            //the world spent 0.8 s under took 1.2 s at 20 FPS and lost a level a fast machine survives - and the
+            //level generator's sag gate, which runs this very rule, already counted simulated seconds.
+            CheckLevelLost(_simulatedThisFrame, mayLose: !CameraTakeoverEngaged);
 
             //Where a shot fired now would land. After the step, so the ghost sits against the poses the player is
             //looking at rather than the ones from before this frame's physics.
