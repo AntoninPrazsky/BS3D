@@ -100,10 +100,13 @@ namespace Prazsky.BS3D.Levels
         /// clearance.
         /// </para>
         /// <para>
-        /// X and Z correct the residual half-unit <see cref="BallsMap.Center"/> can leave behind. An
-        /// <b>odd</b> field tops out on an unshifted level, whose cells run 0…N-1 rather than 0.5…N-0.5, and
-        /// the whole cluster would then hang half a unit off the axis the gun orbits and the camera looks
-        /// down. The residual is measured off the centred top level rather than assumed away.
+        /// X and Z put the middle of the field's top level on the axis the gun orbits and the camera looks
+        /// down, measured off the centred top level rather than assumed. This was once described as a
+        /// half-unit residual, and it is not: <see cref="BallsMap.Center"/> subtracts half the top level's
+        /// <i>extent</i> rather than its midpoint, so across the shipped levels this is −6.5 to −8.5 in both
+        /// axes. Everything that places a body therefore has to add it — the ceiling anchor of a ball that
+        /// attaches to the top level included (see
+        /// <c>BallsConstraintsBuilder.AttachBallToStructure</c>, which did not until the fourth #400 pass).
         /// </para>
         /// </summary>
         public static Vector3 FitWorldOffset(BallsMap map, out float fieldTopY)

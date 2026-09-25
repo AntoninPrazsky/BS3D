@@ -113,19 +113,19 @@ namespace Prazsky.BS3D.Physics
         /// created where they are <i>drawn</i>, because everything else the simulation touches (the floor, the
         /// ceiling, the muzzle a shot leaves from, the kill plane) is in world coordinates.
         /// <para>
-        /// <b>Must be vertical: X and Z have to be zero.</b> A ball-to-ball anchor survives any translation,
-        /// because <see cref="ConnectBalls"/> builds it from the <i>difference</i> of two positions read in the
-        /// same frame. The ceiling anchor does not, and the reason is easy to miss: the two paths that build it
-        /// read <i>different</i> frames — the build pass below hands
-        /// <see cref="ConnectBallToCeiling"/> the body's world position, while
-        /// <see cref="AttachBallToStructure"/> hands it the raw grid position — and they agree only because the
-        /// one component they differ in is the Y that method throws away. Give this an X or a Z and the initial
-        /// structure still builds correctly, but every ball that later attaches to the top level gets a ceiling
-        /// anchor offset laterally and drags the whole cluster sideways.
+        /// A ball-to-ball anchor survives any translation, because <see cref="ConnectBalls"/> builds it from the
+        /// <i>difference</i> of two positions read in the same frame. <b>The ceiling anchor does not</b>: it is
+        /// the ball's world X and Z written into the plate's frame, so it has to be read in the world frame.
+        /// The build pass below does that by handing <see cref="ConnectBallToCeiling"/> the body's position,
+        /// and <see cref="AttachBallToStructure"/> by taking this same offset. It used to take the raw centred
+        /// grid position instead, on the documented assumption that this offset is vertical — which the Game
+        /// had not honoured since <see cref="Prazsky.BS3D.Levels.ClusterHang.FitWorldOffset"/> was given its X and Z: it is
+        /// −6.5 to −8.5 across the shipped levels, and a ball landing in a free top-level cell was anchored
+        /// that far off its cell and settled about five units from where its neighbours hold it.
         /// </para>
         /// <para>
-        /// Nothing else in this class takes the offset, and adding it elsewhere is a bug rather than
-        /// consistency: applying it twice tears the structure apart on the first timestep.
+        /// The other anchors take no offset, and adding it to them is a bug rather than consistency: applying
+        /// it twice tears the structure apart on the first timestep.
         /// </para>
         /// </param>
         //By value, not by ref: the simulation is only ever read here (it is a class, so the reference is all
@@ -1173,12 +1173,17 @@ namespace Prazsky.BS3D.Physics
         /// neighbors on the same level and neighbors on the levels directly above and below.
         /// The ball must already have its <see cref="PhysicsBall.ArrayPosition"/> set, be present in the static map and in <paramref name="physicsBalls"/>.
         /// </summary>
-        public static void AttachBallToStructure(PhysicsBall physicsBall, PhysicsBall[,,] physicsBalls, BallsMap map, Simulation simulation, BodyReference ceilingReference)
+        /// <param name="worldOffset">The offset the structure was built with (<see cref="BuildBallsStructure"/>).
+        /// Only the ceiling anchor reads it, and it has to: see that method's own parameter.</param>
+        public static void AttachBallToStructure(PhysicsBall physicsBall, PhysicsBall[,,] physicsBalls, BallsMap map, Simulation simulation, BodyReference ceilingReference, Vector3 worldOffset)
         {
             XZLevel size = map.GetStaticBallsArraySize();
 
+            //The cell's IDEAL place in the world, not the body's live one: the cluster may be swinging, and
+            //an anchor taken off a swung pose would hold the new ball to that swing for the rest of the level
             if (physicsBall.ArrayPosition.Level == size.Level - 1)
-                physicsBall.HandlesTop.TryStore(ConnectBallToCeiling(physicsBall, ceilingReference, simulation, map.GetRealCenteredPosition(physicsBall.ArrayPosition).ToNumerics()));
+                physicsBall.HandlesTop.TryStore(ConnectBallToCeiling(physicsBall, ceilingReference, simulation,
+                    map.GetRealCenteredPosition(physicsBall.ArrayPosition).ToNumerics() + worldOffset));
 
             ConnectToNeighborsOnSameLevel(physicsBall, physicsBalls, simulation, size, map);
             ConnectToNeighborsOnOtherLevels(physicsBall, physicsBalls, simulation, size, map);
