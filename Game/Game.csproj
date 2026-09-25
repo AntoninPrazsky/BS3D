@@ -2,6 +2,11 @@
   <PropertyGroup>
     <TargetFramework>net10.0-windows</TargetFramework>
     <OutputType>Exe</OutputType>
+    <!--The shipped build has no console (#570): a console subsystem exe opens a window beside the game on
+    every player's launch, closing it kills the game without an unload, and with QuickEdit on one click in it
+    blocks the next Console.WriteLine and freezes the frame. Release is what release.yml publishes; a Debug
+    build keeps the console it is developed with. Either way every line also goes to the run log (RunLog).-->
+    <OutputType Condition="'$(Configuration)' == 'Release'">WinExe</OutputType>
     <StartupObject>BS3D.Program</StartupObject>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <AssemblyName>BS3D</AssemblyName>
