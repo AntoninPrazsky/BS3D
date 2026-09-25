@@ -34,6 +34,7 @@ namespace BS3D.Effects
 
         private readonly Vector3[] _path;
         private readonly Vector3? _lookAt;
+        private readonly Vector3[] _lookAtPath;
         private readonly float _lookAhead;
         private readonly float _pitchDown;
 
@@ -47,8 +48,12 @@ namespace BS3D.Effects
         /// far enough that a corner is turned into rather than snapped round.</param>
         /// <param name="pitchDownDegrees">How far below the direction of travel the lens looks — the street's
         /// paint is drawn flat and reads only from above it, never edge-on.</param>
+        /// <param name="lookAtPath">A MOVING point to keep the lens on (#559) — a subject that drifts while the
+        /// shot runs, the dream's glass solid or a storm cell, or a truck along a front with the look carried
+        /// beside it. Walked on the same clock as the path, so its points are spaced evenly in time; it wins
+        /// over <paramref name="lookAt"/>.</param>
         public IntroShot(string name, Vector3[] path, float seconds, float fieldOfView,
-            Vector3? lookAt = null, float lookAhead = 12f, float pitchDownDegrees = 0f)
+            Vector3? lookAt = null, float lookAhead = 12f, float pitchDownDegrees = 0f, Vector3[] lookAtPath = null)
         {
             if (path == null || path.Length < 2) throw new ArgumentException("A shot needs at least two points.", nameof(path));
 
@@ -57,6 +62,7 @@ namespace BS3D.Effects
             Seconds = seconds;
             FieldOfView = fieldOfView;
             _lookAt = lookAt;
+            _lookAtPath = lookAtPath != null && lookAtPath.Length >= 2 ? lookAtPath : null;
             _lookAhead = lookAhead;
             _pitchDown = MathHelper.ToRadians(pitchDownDegrees);
         }
@@ -71,7 +77,13 @@ namespace BS3D.Effects
             t = MathHelper.Clamp(t, 0f, 1f);
             float eased = MathHelper.Lerp(t, t * t * (3f - 2f * t), 0.3f);
 
-            position = At(eased);
+            position = At(_path, eased);
+
+            if (_lookAtPath != null)
+            {
+                target = At(_lookAtPath, eased);
+                return;
+            }
 
             if (_lookAt is Vector3 fixedTarget)
             {
@@ -84,7 +96,7 @@ namespace BS3D.Effects
             float spacing = Vector3.Distance(_path[0], _path[1]);
             float ahead = eased + _lookAhead / MathF.Max(spacing * (_path.Length - 1), 1e-3f);
             Vector3 forward = ahead <= 1f
-                ? At(ahead) - position
+                ? At(_path, ahead) - position
                 : _path[^1] - _path[^2];
 
             if (forward.LengthSquared() < 1e-6f) forward = _path[^1] - _path[0];
@@ -102,13 +114,13 @@ namespace BS3D.Effects
             target = position + forward * 10f;
         }
 
-        //The path at s (0–1 of its length); the points are evenly spaced, so index space is length space.
-        private Vector3 At(float s)
+        //A polyline at s (0–1 of its length); the points are evenly spaced, so index space is length space.
+        private static Vector3 At(Vector3[] path, float s)
         {
-            float index = MathHelper.Clamp(s, 0f, 1f) * (_path.Length - 1);
-            int i = Math.Min((int)index, _path.Length - 2);
+            float index = MathHelper.Clamp(s, 0f, 1f) * (path.Length - 1);
+            int i = Math.Min((int)index, path.Length - 2);
 
-            return Vector3.Lerp(_path[i], _path[i + 1], index - i);
+            return Vector3.Lerp(path[i], path[i + 1], index - i);
         }
     }
 }

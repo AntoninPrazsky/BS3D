@@ -5,8 +5,8 @@ using System.Collections.Generic;
 namespace Prazsky.Core.Render
 {
     /// <summary>
-    /// <b>The CPU mirrors of three terrain shaders' height fields</b> — <c>Desert.fx</c>'s dunes,
-    /// <c>Mountain.fx</c>'s range and <c>Outback.fx</c>'s plain with its monoliths — written for the Game's
+    /// <b>The CPU mirrors of four terrain shaders' height fields</b> — <c>Desert.fx</c>'s dunes,
+    /// <c>Mountain.fx</c>'s range, <c>Outback.fx</c>'s plain with its monoliths and <c>Polar.fx</c>'s icesheet — written for the Game's
     /// chapter-intro shots (#559), which have to know where the ground is to keep a lens off it and to find
     /// the thing a shot is about (a dune crest, a summit, a monolith) at all. The volcano's
     /// <see cref="SceneRenderer.VolcanoGroundHeight"/>, the forest's and the tropical beach's mirrors are the
@@ -299,6 +299,77 @@ namespace Prazsky.Core.Render
             Vector2 v = roll * 2f - Vector2.One;
 
             return v / MathF.Sqrt(MathF.Max(Vector2.Dot(v, v), 1e-4f));
+        }
+
+        #endregion
+
+        #region The icesheet (Polar.fx: PressureRidge, CrevasseField, PolarHeight)
+
+        /// <summary>
+        /// World Y of the ice at a world XZ, as <c>Polar.fx</c>'s <c>PolarHeight</c> displaces it — the swells,
+        /// the pressure front's plates and the crevasses cut into them (#559). The sastrugi are a normal and
+        /// not a height (see the scene's header), so this is the whole of it.
+        /// </summary>
+        public static float Polar(float x, float z, PolarSceneConfig config)
+        {
+            Vector2 p = new(x, z);
+            float ramp = ShaderMath.SmoothStep(config.ClearingRadius, config.ClearingRadius + config.ClearingTransition, p.Length());
+            float swells = ShaderMath.Noise(p * 0.008f) * 0.7f + ShaderMath.Noise(p * 0.021f + new Vector2(7.3f)) * 0.3f;
+            float ridge = PolarRidge(p, config);
+
+            return config.LevelY + config.SwellAmplitude * ramp * swells + config.RidgeHeight * ridge
+                - config.CrevasseDepth * PolarCrevasse(p, ridge, config);
+        }
+
+        /// <summary>How deep into a crevasse slot a point stands, 0–1: <c>Polar.fx</c>'s <c>CrevasseField</c>.</summary>
+        public static float PolarCrevasse(float x, float z, PolarSceneConfig config)
+        {
+            Vector2 p = new(x, z);
+            return PolarCrevasse(p, PolarRidge(p, config), config);
+        }
+
+        /// <summary>How much of the pressure front stands at a point, 0–1: <c>Polar.fx</c>'s <c>PressureRidge</c>.</summary>
+        public static float PolarRidge(float x, float z, PolarSceneConfig config) => PolarRidge(new Vector2(x, z), config);
+
+        private static float PolarRidge(Vector2 p, PolarSceneConfig config)
+        {
+            float dist = p.Length();
+            float bearing = MathF.Atan2(p.Y, p.X);
+
+            float wander = ShaderMath.Noise(new Vector2(MathF.Cos(bearing), MathF.Sin(bearing)) * 3.1f) * config.RidgeWidth * 1.4f;
+
+            //WrapAngle: the shortest signed way round, so a front centred near atan2's seam is not cut in half.
+            float offset = bearing - MathHelper.ToRadians(config.RidgeBearingDegrees);
+            float fromFront = MathF.Abs(offset - MathHelper.TwoPi * MathF.Floor((offset + MathHelper.Pi) / MathHelper.TwoPi));
+            float span = MathHelper.ToRadians(config.RidgeSpanDegrees);
+            float sector = 1f - ShaderMath.SmoothStep(span * 0.5f, span * 0.5f + 0.5f, fromFront);
+            if (sector <= 0f) return 0f;
+
+            float band = MathF.Abs(dist - (config.RidgeRadius + wander)) / MathF.Max(config.RidgeWidth, 1e-3f);
+            float crest = MathHelper.Clamp(1f - band, 0f, 1f);
+
+            float cellX = MathF.Floor(p.X / config.SlabSize), cellY = MathF.Floor(p.Y / config.SlabSize);
+            Vector2 within = p / config.SlabSize - new Vector2(cellX, cellY) - new Vector2(0.5f);
+
+            Vector2 hash = ShaderMath.Hash22(cellX, cellY);
+            float hashZ = ShaderMath.Hash22(cellX + 37f, cellY + 37f).X;
+
+            float plate = 0.35f + 0.65f * hash.X;
+            float tilt = Vector2.Dot(within, (new Vector2(hash.Y, hashZ) - new Vector2(0.5f)) * 2f) * config.SlabTilt;
+
+            return MathHelper.Clamp(crest * crest * (3f - 2f * crest), 0f, 1f) * MathHelper.Clamp(plate + tilt, 0f, 1f) * sector;
+        }
+
+        private static float PolarCrevasse(Vector2 p, float ridge, PolarSceneConfig config)
+        {
+            float along = Vector2.Dot(p, config.Wind.ToVector2());
+
+            float lines = MathF.Sin(along * config.CrevasseFrequency + ShaderMath.Noise(p * 0.010f) * 3.4f);
+            float slot = MathHelper.Clamp(1f - MathF.Abs(lines) * config.CrevasseSharpness, 0f, 1f);
+            float field = ShaderMath.SmoothStep(0.05f, 0.55f, ShaderMath.Noise(p * 0.005f + new Vector2(19f)) + 0.34f);
+            float clear = ShaderMath.SmoothStep(config.ClearingRadius * 0.8f, config.ClearingRadius * 1.5f, p.Length());
+
+            return slot * MathHelper.Clamp(field + ridge * 1.2f, 0f, 1f) * clear;
         }
 
         #endregion
