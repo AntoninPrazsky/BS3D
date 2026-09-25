@@ -2166,12 +2166,18 @@ namespace Prazsky.Core.Render
                         2.3f, 12f, 20f, "the monoliths");
                     return true;
 
-                //Out over the lagoon to the far shore's ring, just above the water: the tropical scene is
-                //three bands — sand, turquoise water, green shore — and only a low look has all three.
+                //Out over the lagoon to the far shore's ring: the tropical scene is three bands — sand,
+                //turquoise water, green shore — and a look across all three is what it is.
+                //
+                //⚠ OVER THE PALM TOPS, NOT AMONG THEM (#555). This stood at 8 degrees while the palms were
+                //12 units tall, which put the lens a little above their crowns. At 22 units the crowns reach
+                //some twenty over the sand, right where an 8-degree lens stands 2.1 stand-offs out — in the
+                //middle of the palm ring — so the tour opened inside a grove. 20 degrees rides over the
+                //tallest crown at that radius and keeps all three bands, with the palm tops in the foreground.
                 case SceneKind.Tropical:
                     viewpoint = new SceneViewpoint(
                         AtBearing(bearing, _tropicalConfig.Terrain.RingRadius, _tropicalConfig.Water.LevelY + 6f),
-                        2.1f, 8f, 0f, "the lagoon");
+                        2.1f, 20f, 0f, "the lagoon");
                     return true;
 
                 //The crater, read off the scene's own solved vent rather than off the cone's centre: slot 0
@@ -3563,8 +3569,18 @@ namespace Prazsky.Core.Render
                 float sizeScale = 0.75f + 0.5f * rand;
                 float halfWidth = palms.FrondLength * sizeScale;
 
+                //Everything that shapes this palm is rolled BEFORE it is placed (#555), because where it may
+                //stand depends on where its crown ends up: the variant (whose trunk bows its crown off the
+                //axis), the yaw that turns that bow, and the lean. See the orbit test in the loop below.
+                int variant = rng.Next(PALM_VARIANTS);
+                PalmMesh mesh = _palmMeshes[variant];
+                float yaw = (float)rng.NextDouble() * MathHelper.TwoPi;
+                float leanJitter = ((float)rng.NextDouble() - 0.5f) * 1.4f;
+                float lean = 0.08f + 0.55f * (float)rng.NextDouble() * (float)rng.NextDouble();
+
                 float x = 0f, z = 0f;
                 float bestClearance = float.NegativeInfinity;
+                Matrix world = Matrix.Identity;
 
                 for (int attempt = 0; attempt < ScatterSpacing.TRIES; attempt++)
                 {
@@ -3599,6 +3615,21 @@ namespace Prazsky.Core.Render
                     //trunk's root. A candidate that fails this is simply not a candidate.
                     if (TropicalTerrainHeight(cx, cz, _tropicalConfig) < waterY + 1.1f) continue;
 
+                    //Sunk a fraction into the sand, the forest scatter's own figure: a palm planted at the
+                    //exact surface reads as standing on a pinhead from anywhere but head-on, and the flare
+                    //at the root is what wants burying.
+                    Vector3 basePos = new(cx, TropicalTerrainHeight(cx, cz, _tropicalConfig) - 0.15f, cz);
+                    Matrix candidate = PalmWorld(basePos, sizeScale, yaw, lean, leanJitter);
+
+                    //⚠ THE CROWN, NOT THE ROOT, HAS TO CLEAR THE FRONT END'S ORBIT (#555). MinRadius alone was
+                    //enough while a palm was 12 units tall; at the heights the owner asked for, the trunk's bow
+                    //carries a crown several units off its root, and a root on the ring's inner edge could hang
+                    //its crown into the orbit's wide leg. So the test is the crown's own world position less
+                    //everything a frond can reach, against the widest orbit plus a unit of air.
+                    Vector3 crown = Vector3.Transform(mesh.Crown, candidate);
+                    float crownInner = MathF.Sqrt(crown.X * crown.X + crown.Z * crown.Z) - mesh.FrondReach * sizeScale;
+                    if (crownInner < palms.OrbitClearance) continue;
+
                     float clearance = ScatterSpacing.Clearance(cx, cz, halfWidth, standing);
 
                     if (clearance > bestClearance)
@@ -3606,53 +3637,19 @@ namespace Prazsky.Core.Render
                         bestClearance = clearance;
                         x = cx;
                         z = cz;
+                        world = candidate;
                     }
 
                     if (clearance >= 0f) break;
                 }
 
                 //Never dropped for want of room (the forest's rule) — but if every candidate was in the
-                //sea this palm has no ground to stand on, and standing it in the surf is the worse bug.
+                //sea, or hung its crown into the orbit, this palm has nowhere to stand, and standing it in
+                //the surf or in the lens's path is the worse bug.
                 if (bestClearance == float.NegativeInfinity) continue;
 
                 standing.Add(new ScatterSpacing.Footprint(x, z, halfWidth));
-
-                //Sunk a fraction into the sand, the forest scatter's own figure: a palm planted at the
-                //exact surface reads as standing on a pinhead from anywhere but head-on, and the flare
-                //at the root is what wants burying.
-                Vector3 basePos = new(x, TropicalTerrainHeight(x, z, _tropicalConfig) - 0.15f, z);
-
-                //The palm's own frame: the trunk's bow is in the mesh, so the instance takes the lean,
-                //a free yaw and the uniform size.
-                //
-                //⚠ AND THE LEAN IS SEAWARD AND LARGE (#445). It was 0.05 radians in a random direction -
-                //at most 2.9 degrees, and as likely inland as out - which is why 110 palms with four crown
-                //variants and a 0.62-1.47 size span still read as a plantation: the silhouette a palm is
-                //recognised by is its lean, and they had none. Every reference leans, most of them 20 to 45
-                //degrees, and they lean OUT over the water, because that is where the light is and a coconut
-                //palm grows towards it. The old comment's caution still holds and is what the bias is for -
-                //"a leaning palm reads as wind-shaped, a tilted one as felled" - so the scatter is around
-                //seaward rather than uniform, and the magnitude is a product of two rolls, which keeps most
-                //palms moderate and lets a few lie right over.
-                //
-                //Tilting +Y towards the outward unit (ux, uz) means rotating about (uz, 0, -ux): for a
-                //right-handed rotation about A the velocity of Y is A x Y, which for a horizontal A is
-                //(-Az, 0, Ax). The jitter turns that axis, so a palm leans within about 40 degrees of
-                //straight out to sea.
-                float yaw = (float)rng.NextDouble() * MathHelper.TwoPi;
-
-                float r2 = MathF.Sqrt(x * x + z * z);
-                float ux = r2 > 1e-3f ? x / r2 : 1f;
-                float uz = r2 > 1e-3f ? z / r2 : 0f;
-                float seaward = MathF.Atan2(-ux, uz);
-                float leanDir = seaward + ((float)rng.NextDouble() - 0.5f) * 1.4f;
-                float lean = 0.08f + 0.55f * (float)rng.NextDouble() * (float)rng.NextDouble();
-                Matrix world = Matrix.CreateScale(sizeScale)
-                    * Matrix.CreateFromAxisAngle(new Vector3(MathF.Cos(leanDir), 0f, MathF.Sin(leanDir)), lean)
-                    * Matrix.CreateRotationY(yaw)
-                    * Matrix.CreateTranslation(basePos);
-
-                palmBuckets[rng.Next(PALM_VARIANTS)].Add(new ModelInstance(world, Vector4.Zero));
+                palmBuckets[variant].Add(new ModelInstance(world, Vector4.Zero));
             }
 
             //The rocks: strung along the waterline by the height band alone, which follows the coast's
@@ -3831,6 +3828,38 @@ namespace Prazsky.Core.Render
 
             return new LatheMesh(_graphicsDevice, profile, 16, irregularityAmplitude: capRadius * 0.30f,
                 irregularityPhase: irregularityPhase);
+        }
+
+        /// <summary>
+        /// One palm's instance matrix: its uniform size, a free yaw about its own axis, then the lean, then
+        /// the root's place on the sand.
+        /// <para>
+        /// ⚠ <b>THE YAW GOES BEFORE THE LEAN, and until #555 it went after it.</b> Row-vector matrices apply
+        /// left to right, so <c>Scale · Lean · Yaw</c> leaned the palm seaward and then spun the leaning
+        /// palm about the WORLD's Y axis by a random angle — which threw away the whole seaward bias #445
+        /// built, and palms leaned in over the arena as often as out over the water (the elevated capture in
+        /// #555's before set shows it plainly). Yawed first, the turn only spins the mesh's own bow and crown
+        /// about the trunk, and the lean that follows is the lean stated below.
+        /// </para>
+        /// <para>
+        /// The lean is SEAWARD and large (#445): the silhouette a palm is recognised by is its lean, every
+        /// reference leans 20 to 45 degrees, and out over the water, where the light is. A leaning palm reads
+        /// as wind-shaped and a tilted one as felled, which is what the bias is for — the axis is the
+        /// outward bearing's, scattered by <paramref name="leanJitter"/> (±0.7 rad, about 40 degrees).
+        /// Tilting +Y towards the outward unit (ux, uz) means rotating about (uz, 0, -ux): for a right-handed
+        /// rotation about A the velocity of Y is A x Y, which for a horizontal A is (-Az, 0, Ax).
+        /// </para>
+        /// </summary>
+        private static Matrix PalmWorld(Vector3 basePos, float sizeScale, float yaw, float lean, float leanJitter)
+        {
+            float r = MathF.Sqrt(basePos.X * basePos.X + basePos.Z * basePos.Z);
+            float ux = r > 1e-3f ? basePos.X / r : 1f;
+            float uz = r > 1e-3f ? basePos.Z / r : 0f;
+            float leanDir = MathF.Atan2(-ux, uz) + leanJitter;
+            return Matrix.CreateScale(sizeScale)
+                * Matrix.CreateRotationY(yaw)
+                * Matrix.CreateFromAxisAngle(new Vector3(MathF.Cos(leanDir), 0f, MathF.Sin(leanDir)), lean)
+                * Matrix.CreateTranslation(basePos);
         }
 
         /// <summary>

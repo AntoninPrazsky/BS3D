@@ -292,25 +292,47 @@ namespace Prazsky.Core.Render
         /// decision rather than a budget one — the savanna's 120 acacias make the same point.</summary>
         public int Count { get; set; } = 110;
 
-        /// <summary>Base height of a palm to the crown (the trunk's own curve and the instance scale
-        /// vary around it).</summary>
-        public float Height { get; set; } = 12f;
+        /// <summary>
+        /// Base height of a palm to the crown (the trunk's own curve and the instance scale vary around it,
+        /// 0.82–1.18 per variant and 0.75–1.25 per plant). <b>22 since #555; it was 12</b>, and the owner's
+        /// word on 12 was "too small and too low": the island is 26 units in radius and stands 5 over the
+        /// sand, so a 12-unit palm topped out around the island's own rim from the play camera and read as
+        /// shrubbery on the horizon. A real coconut palm is 15–25 m against an island tens of metres
+        /// across; 22 puts the typical crown some 16 units over the island's cap, well into the sky behind
+        /// the cluster, and the tallest roll near 32.
+        /// </summary>
+        public float Height { get; set; } = 22f;
 
-        /// <summary>Base trunk radius at the crown's end (the root flare is a multiple of it).</summary>
-        public float TrunkRadius { get; set; } = 0.34f;
+        /// <summary>Base trunk radius (the root's bole is a multiple of it, the crown end a little under it).
+        /// Raised with the height (0.34 at 12) but much slower than it, deliberately: a coconut palm is a
+        /// slender pole, a few percent of its height across in the #445 references, and at the old ratio a
+        /// 22-unit trunk read as a column — 0.46 was tried first and photographed as one.</summary>
+        public float TrunkRadius { get; set; } = 0.38f;
 
-        /// <summary>Base frond length — how wide the crown reads.</summary>
-        public float FrondLength { get; set; } = 5.2f;
+        /// <summary>Base frond length — how wide the crown reads. Raised with the height (5.2 at 12) but
+        /// slower than it, for the references' proportion: a tall coconut palm's crown is a head about half
+        /// the height across, not a parasol as wide as the palm is tall, which is what 5.2 on 12 was.</summary>
+        public float FrondLength { get; set; } = 7.2f;
 
         /// <summary>
-        /// Inner radius of the scatter ring — clear of the island's coping, and since #408 clear of the
-        /// <b>front end's orbit</b> as well. The menu camera's wide leg stands 34 to 45 units out depending
-        /// on the window's shape (see "The menu camera" in docs/game-shell.md) at a height a tall palm's
-        /// crown reaches (<see cref="Height"/> 12 over sand at −13.5, scaled up to a third again), so a
-        /// ring starting at 36 planted palms IN that orbit and the lens flew through their crowns whenever
-        /// the scene page chose this scene. The widest orbit plus a frond's length plus a unit of air.
+        /// Inner radius of the scatter ring for a palm's ROOT — clear of the island's coping and of the
+        /// dressing's own inner edge. Since #408 it was also what kept the palms clear of the <b>front end's
+        /// orbit</b> (the widest orbit plus a frond's length plus a unit of air); since #555 that is
+        /// <see cref="OrbitClearance"/>'s job, tested on each palm's actual crown, because at the heights
+        /// the palms stand at now the trunk's bow and lean carry a crown well off its root.
         /// </summary>
         public float MinRadius { get; set; } = 52f;
+
+        /// <summary>
+        /// How far from the axis every part of a palm's CROWN must stay (#555): the crown's own position,
+        /// off the trunk's bow and the instance's lean, less the furthest a frond reaches. The menu camera's
+        /// wide leg stands 34 to 45 units out depending on the window's shape (see "The menu camera" in
+        /// docs/game-shell.md), roughly level with the hanging cluster — which is exactly the height a
+        /// 22-unit palm's crown stands at — so this is the widest orbit plus a unit of air. A candidate
+        /// spot whose crown would reach inside it is not a candidate; the trunk's own clearance is
+        /// <see cref="MinRadius"/>.
+        /// </summary>
+        public float OrbitClearance { get; set; } = 46f;
 
         /// <summary>Outer bound of the scatter. Palms are additionally planted only on dry sand (a height
         /// test against the water level, which follows the wiggling waterline), so a few of the outermost
@@ -333,10 +355,11 @@ namespace Prazsky.Core.Render
         /// <summary>The trunk and the dead frond skirt's warm grey-brown (linear).</summary>
         public Rgb TrunkColor { get; set; } = new(0.10f, 0.078f, 0.052f);
 
-        /// <summary>How far the crown's fronds sway on the wind, at the frond tips. Keyed up from zero
-        /// along each frond, so the trunk stands still and the crown moves — a palm whose whole body
-        /// waves reads as a kelp.</summary>
-        public float SwayStrength { get; set; } = 0.45f;
+        /// <summary>How far the crown's fronds sway on the wind, at the frond tips, in world units (the
+        /// shader adds it unscaled). Keyed up from zero along each frond, so the trunk stands still and the
+        /// crown moves — a palm whose whole body waves reads as a kelp. Raised with the fronds in #555
+        /// (0.45 on 5.2-unit fronds), so a tip still moves the same share of its frond.</summary>
+        public float SwayStrength { get; set; } = 0.62f;
 
         /// <summary>How fast the sway oscillates.</summary>
         public float SwaySpeed { get; set; } = 1.3f;
