@@ -6262,3 +6262,10 @@ Předchozí zápis říkal, že to dostavět znamená sáhnout do brány a že t
 Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_TILE` = 46, Inter); 80 + 46 + 46 + 2×4 = 180 ze 186, součet napsaný u `BuildTile`. 46 drží i šířku: *Phyllotaxis* 191 jednotek proti 195 uvnitř dlaždice na podlaze `Fit` (při 58 to bylo 245 — na 2,4:1 širší než dlaždice). Zámek na dlaždici jen cena (`236 ★`, `#47 first`) — „Locked · 236 ★“ má 279 a nikdy by se nevešlo; zamčenost říká šedé písmo, větu detailní řádek. Vyfoceno po na všech třech rozlišeních, kapitola 1 (hvězdy) a 5 (zámky).
 
 ⚠ Past pro příští: `Fit` a zmenšování dlaždic se fotily bez toho, aby si někdo všiml, že řádek **chybí**, ne že je prázdný — otevřená nevyhraná úroveň má ten řádek prázdný záměrně. Fotit picker vždy se `userdata=` složkou, kde jsou hvězdy.
+
+---
+
+## 2026-09-25 — Claude Code, desktop (#502 — hlubší klenba pod nohou poháru)
+
+- **#502:** majitel: „Vyklenutá by měla být ještě více.“ Klenba v `TrophyMesh.PROFILE` stoupá na ose 0.108 (dřív 0.034, tj. 3×) a vychází z ploché **stojné obruby** (vnější 0.034 nohy v y 0, vnitřní okraj je crease), takže zespodu je vidět prstenec, na kterém pohár stojí, a kopule uvnitř. Hloubku omezuje kov nad ní, ne vkus: nejtenčí místo 0.028 (u schodu nohy na buben; mělká klenba 0.032), přes vnitřní polovinu ≥ 0.08. Změřeno skriptem na **zhuštěném** profilu (replika `DensifyProfile` + centripetální Catmull-Rom v Pythonu): žádné samoprotnutí, poloměr nikde záporný. Směr tažení (od osy ven) nezměněn, takže winding i normály míří jako dřív; zespodu na snímcích žádná vnitřní strana.
+- Vyfoceno `result celebrate scene=outback sky=1 shot=11…15` na 3840×1600, před (origin/main) a po. ⚠ Scéna front endu je bez `scene=` náhodná i se `sceneseed=` a otočení poháru mezi běhy o kus ujede — pár se skládá ze série snímků (12 a 12.5 s jsou ty s pohledem zespodu), ne z jednoho `shot=13`.
