@@ -1305,6 +1305,11 @@ namespace Prazsky.Core.Render
         private readonly List<GridLifeBoard> _gridLifeBoards = new();
         private readonly List<(int StartIndex, int PrimitiveCount)> _gridTowerRanges = new();
 
+        //The same solids and the landmark as shapes rather than triangles (#559), recorded as they are placed:
+        //the one answer to "where is that cube" for a camera that frames one (GridSolids, TryGetGridRing).
+        private readonly List<GridSolid> _gridSolids = new();
+        private GridRing? _gridRing;
+
         //A per-pixel struct rather than the shared InstancedModel vertex formats: the solids draw through their
         //own unlit, black-body GridTowers technique (see Grid.fx), which wants a baked world-space position, the
         //solid's own board coordinate and the face-local coordinate its seams are measured from — not a normal
@@ -3270,7 +3275,7 @@ namespace Prazsky.Core.Render
         /// degrees — <see cref="SkyDome"/>'s own <c>SUNS</c> convention (see its <c>DomeNumber</c> setter),
         /// reused here so Mars's moons are placed the same designer-facing way a dome's sun is.
         /// </summary>
-        private static Vector3 DirectionFromElevationAzimuth(float elevationDegrees, float azimuthDegrees)
+        internal static Vector3 DirectionFromElevationAzimuth(float elevationDegrees, float azimuthDegrees)
         {
             float elevation = MathHelper.ToRadians(elevationDegrees);
             float azimuth = MathHelper.ToRadians(azimuthDegrees);
@@ -4227,6 +4232,19 @@ namespace Prazsky.Core.Render
         public float PolarRidgeAt(float x, float z) => TerrainMirror.PolarRidge(x, z, _polarConfig);
 
         #endregion
+
+        /// <summary>
+        /// The Grid's solids as boxes on the floor, in the order they were placed, for a host framing a camera
+        /// on one (the chapter intro's prologue, #559). Empty until the Grid's config has been applied.
+        /// </summary>
+        public IReadOnlyList<GridSolid> GridSolids => _gridSolids;
+
+        /// <summary>The Grid's landmark ring as a shape (#559); false when the config has none.</summary>
+        public bool TryGetGridRing(out GridRing ring)
+        {
+            ring = _gridRing ?? default;
+            return _gridRing.HasValue;
+        }
 
         /// <summary>
         /// The volcano's ground height at a world point: <c>Volcano.fx</c>'s <c>TerrainHeight</c> without its
@@ -7939,6 +7957,8 @@ namespace Prazsky.Core.Render
             foreach (GridLifeBoard board in _gridLifeBoards) board.Texture?.Dispose();
             _gridLifeBoards.Clear();
             _gridTowerRanges.Clear();
+            _gridSolids.Clear();
+            _gridRing = null;
 
             GridTowerConfig towers = _gridConfig.Towers;
             if (towers.Count <= 0) return;
@@ -8013,6 +8033,7 @@ namespace Prazsky.Core.Render
                 }
 
                 placed.Add((xz, footprintRadius));
+                _gridSolids.Add(new GridSolid(baseCenter, new Vector3(sizeX, sizeY, sizeZ), isCube));
 
                 //Eight draws per tower and ten per cube, exactly as many as the reviewed layout spent after each
                 //solid, so every later solid still stands where the owner saw it; the first now seeds this
@@ -8142,6 +8163,7 @@ namespace Prazsky.Core.Render
 
             float outer = ringRadius + tube;
             float inner = MathF.Max(ringRadius - tube, 0.2f);
+            _gridRing = new GridRing(centre, planeNormal, inner, outer, halfWidth);
 
             //The board runs round the ring's outer band, centred on the point nearest the arena — which, the
             //plane facing the arena, is the segment at the top of the near side. Same idea as a tower's label.
