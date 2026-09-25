@@ -467,6 +467,11 @@ namespace Testbed
             _graphics.PreferredBackBufferHeight = windowed ? _options.WindowHeight : GraphicsDevice.DisplayMode.Height;
             _graphics.IsFullScreen = !windowed;
 
+            //Borderless, not a DXGI mode switch - the Game's #157 fix, which never reached this copy (#400):
+            //minimizing exclusive fullscreen tears down the swap chain's fullscreen state and the window never
+            //came back. The back buffer is the display's size above either way, so the picture is the same.
+            _graphics.HardwareModeSwitch = false;
+
             _graphics.SynchronizeWithVerticalRetrace = !_options.UncappedFps;
 
             _graphics.ApplyChanges();
