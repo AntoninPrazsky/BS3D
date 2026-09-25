@@ -6211,4 +6211,4 @@ Předchozí zápis říkal, že to dostavět znamená sáhnout do brány a že t
 
 - Majitel založil https://github.com/AntoninPrazsky/BS3D-API (public, bez licence jako BS3D). **#543 → BS3D-API#1, #544 → #2, #545 → #3** (`gh issue transfer`; staré odkazy přesměrují).
 - Kostra pushnutá (`ae38102`): `BS3D.Api.slnx`, `src/BS3D.Api` (minimal API, jen `GET /v1/health` → `{status, contract: 1}`, launch profil na `http://localhost:5000`, kde ho čeká `server` v nastavení hry), `tests/BS3D.Api.Tests` (xunit + `WebApplicationFactory`, 2 testy zelené), `build.yml` na `ubuntu-latest` (build, test, publish linux-arm64 self-contained — lokálně ověřen), CLAUDE.md se stejnými konvencemi jako BS3D a odkazem na kontrakt v #542, `.gitattributes` LF.
-- Lokální klon: `C:\Users\panrd\sourceepos\BS3D-API`. Na majiteli zůstává doména na Cloudflare DNS (BS3D-API#2).
+- Lokální klon: `C:\Users\panrd\source\repos\BS3D-API`. Na majiteli zůstává doména na Cloudflare DNS (BS3D-API#2).
