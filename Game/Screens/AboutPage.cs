@@ -90,6 +90,10 @@ namespace BS3D.Screens
             //project's logo-usage terms recorded beside the asset the way the fonts' OFL files sit beside the
             //TTFs — see the issue for the full note.
 
+            //What online scores send and what is kept (#548) — the settings page's own sentence, from the one place
+            //both read it, so the two pages cannot say different things about the same data
+            left.Widgets.Add(Paragraph(text: Game.OnlinePrivacySentence));
+
             left.Widgets.Add(MenuButton("github.com/AntoninPrazsky/BS3D", OpenRepository));
 
             return left;

@@ -119,6 +119,7 @@ namespace BS3D
             //Testing only: open the Settings page at boot (#189), on "about"'s and "pick"'s reasoning — three
             //presses reach it on a machine somebody is sitting at, and none reach it from a script.
             bool settings = false;
+            string settingsRows = null;
 
             //Testing only: open the Help screen at boot, and "help=<n>" on its nth page (#427). Null means
             //the argument was absent; the number is 1-based because that is what the page prints about itself.
@@ -314,6 +315,10 @@ namespace BS3D
                 else if (string.Equals(arg, "about", StringComparison.OrdinalIgnoreCase)) about = string.Empty;
                 //"settings" puts the Settings page up at boot (#189), for photographing a row.
                 else if (string.Equals(arg, "settings", StringComparison.OrdinalIgnoreCase)) settings = true;
+                //"settings=<row,...>" also activates those rows once the page is up (#548) — online, nickname, remove —
+                //through the page's own click handlers, since a run nobody is sitting at cannot click one. "remove" is
+                //refused outside a userdata= folder: it would take the player's own scores off the server.
+                else if (arg.StartsWith("settings=", StringComparison.OrdinalIgnoreCase)) settingsRows = arg.Substring("settings=".Length);
                 //"help" opens the Help screen and "help=<n>" opens it on that page (#427) - the same reasoning
                 //one turn further, since Help is six pages behind one entry and its Previous/Next stand side
                 //by side, so a scripted walk has to guess a focus order to reach page four at all.
@@ -354,7 +359,7 @@ namespace BS3D
                 celebrate: celebrate, confetti: confetti, lasers: lasers, mute: mute, noFpsOverlay: noFpsOverlay, play: play, result: result, blockDone: blockDone, lost: lost, resultStars: resultStars, nextLocked: nextLocked, streak: streak, wildcardEvery: wildcardEvery, powerups: powerups,
                 shotSeconds: shotSeconds, level: level, levelFile: levelFile, preview: preview, ballStyle: ballStyle, pick: pick, fpsCap: fpsCap,
                 noFocusPause: noFocusPause, detonateSeconds: detonateSeconds, about: about, tutorial: tutorial,
-                settings: settings, help: help, sceneSeed: sceneSeed, tour: tour,
+                settings: settings, settingsRows: settingsRows, help: help, sceneSeed: sceneSeed, tour: tour,
                 windowWidth: windowWidth, windowHeight: windowHeight, lineLoss: lineLoss, plainCeiling: plainCeiling);
             game.Run();
         }

@@ -90,6 +90,9 @@ namespace BS3D.Screens
             }
         }
 
+        /// <summary>Whether this page's tree has been built at least once — what a testing lever waits for (#548).</summary>
+        internal bool IsBuilt => _root != null;
+
         /// <summary>Builds this page's widgets at the current layout size. Called again after a resize.</summary>
         protected abstract Widget BuildTree();
 
@@ -150,6 +153,23 @@ namespace BS3D.Screens
         /// </para>
         /// </summary>
         internal virtual bool PageSideways(int direction) => false;
+
+        /// <summary>
+        /// Whether this page has taken the keyboard to type into (#548) — the settings page while a nickname is
+        /// being typed. While it has, the host's menu frame reads no key of its own: no Escape back, no arrow walk,
+        /// no Enter activation — a Space, an arrow or a letter is the page's, and it arrives through
+        /// <see cref="OnTextInput"/>. The pad's A and B still come, through <see cref="TypingButtons"/>.
+        /// </summary>
+        internal virtual bool CapturesKeyboard => false;
+
+        /// <summary>
+        /// A character the window typed, handed to the active page while <see cref="CapturesKeyboard"/> (#548).
+        /// Enter, Escape and Backspace arrive here as the characters Windows sends for them.
+        /// </summary>
+        internal virtual void OnTextInput(char character) { }
+
+        /// <summary>The pad's A (<paramref name="keep"/>) and B (<paramref name="drop"/>) while the page is typing (#548).</summary>
+        internal virtual void TypingButtons(bool keep, bool drop) { }
 
         /// <summary>
         /// The brush a <b>resting</b> entry on this page is painted with — the one the host's

@@ -1764,7 +1764,18 @@ namespace BS3D
             KeyboardState keyboard = Keyboard.GetState();
             GamePadState pad = GamePad.GetState(PlayerIndex.One);
 
-            if (EdgeInputAllowed)
+            //A page typing into itself has the keyboard (#548): no key of the menu's own is read, only the pad's A
+            //and B are handed over, and the snapshots below still advance so nothing fires on the way out
+            if (_screens.Active is MenuPage { CapturesKeyboard: true } typing)
+            {
+                if (EdgeInputAllowed)
+                {
+                    bool keep = pad.IsButtonDown(Buttons.A) && !_previousPad.IsButtonDown(Buttons.A);
+                    bool drop = pad.IsButtonDown(Buttons.B) && !_previousPad.IsButtonDown(Buttons.B);
+                    if (keep || drop) typing.TypingButtons(keep, drop);
+                }
+            }
+            else if (EdgeInputAllowed)
             {
                 //Escape backs out one level; MenuBack owns which screens have a back at all
                 if (IsKeyEdge(keyboard, Keys.Escape)) MenuBack();
@@ -1778,8 +1789,10 @@ namespace BS3D
             }
 
             //After the keys above, so an Escape and a B press in the same frame cannot both act, and
-            //before the snapshots below, which are what its own edge tests are read against
-            UpdateMenuNavigation(elapsed, keyboard, pad, EdgeInputAllowed);
+            //before the snapshots below, which are what its own edge tests are read against. Not while a page is
+            //typing: its arrows, Enter and Space are text, and a walking cursor would take them (#548).
+            if (_screens.Active is not MenuPage { CapturesKeyboard: true })
+                UpdateMenuNavigation(elapsed, keyboard, pad, EdgeInputAllowed);
 
             //The wheel, the one mouse input nothing here read before #517. ScrollWheelValue is cumulative
             //over the process's whole life, so the edge is this minus a frame ago - exactly IsKeyEdge's shape,

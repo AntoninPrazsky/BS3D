@@ -1,3 +1,4 @@
+using BS3D.Online;
 using Myra.Graphics2D.UI;
 using System;
 using System.Collections.Generic;
@@ -12,15 +13,18 @@ namespace BS3D.Screens
     /// kind, one click, and nothing that can be left half-dragged — and each change takes effect where it is
     /// made, so what the scene behind the panel looks like <i>is</i> the preview.
     /// <para>
-    /// <b>Two columns, because one column of thirteen rows did not fit the screen</b> (#138). Every size on
-    /// this page is a 2160p design figure scaled by the viewport's <i>height</i>
-    /// (<c>BS3DGame.MENU_DESIGN_HEIGHT</c>), so a page that overruns the design height overruns it at
-    /// <b>every</b> resolution and aspect alike — this was never a small-window bug, and the rows that ran off
-    /// the bottom took the Back button with them. Splitting the rows across two columns roughly halves the
-    /// stack's height and is what puts Back back on the screen; it costs width, which the height-derived scale
-    /// leaves in hand: the plate comes out about 1960 design units across (measured — 817 px at a 1600×900
-    /// client, re-measured with the Auto quality row in, #390), so the page needs a viewport only wider than
-    /// about 0.9:1, which every display is.
+    /// <b>Three columns, because two stopped fitting</b> (#138, then #548). Every size on this page is a 2160p
+    /// design figure scaled by the viewport's <i>height</i> (<c>BS3DGame.MENU_DESIGN_HEIGHT</c>), so a page that
+    /// overruns the design height overruns it at <b>every</b> resolution and aspect alike — this was never a
+    /// small-window bug, and the rows that run off the bottom take the Back button with them. Two columns put
+    /// Back back on the screen at thirteen rows; by #548 the right one held three headings and eleven rows and
+    /// had run off again — photographed at 1600×900 and at 3840×1600 alike, "Reset progress" cut through,
+    /// "Unlock all" and Back gone below the frame — before the three online rows were even added. A third column
+    /// (ONLINE over CAMPAIGN) brings the tallest column down to about the height the DISPLAY column always had.
+    /// It costs width, which the height-derived scale leaves in hand at every landscape display: the plate is
+    /// about 2800 design units across, which a 4:3 viewport (2880) still holds — the value buttons went from
+    /// 460 to <see cref="VALUE_WIDTH"/> for that — and a 16:9 one (3840) holds with room to spare. A viewport
+    /// narrower than about 1.3:1 is the first that would not.
     /// </para>
     /// <para>
     /// <b>The other candidate was a scroller</b> (<see cref="MenuPage.MenuScroll"/>, which the level picker
@@ -36,9 +40,16 @@ namespace BS3D.Screens
     /// <b>The rows keep their old order, read down one column and then the other</b> — which is also the order
     /// the nav walk collects them in, since <c>CollectNavEntries</c> follows the order widgets were added
     /// rather than where they landed. So the split changed where a row sits and not the sequence a pad steps
-    /// through: the display rows, then the audio rows, the campaign rows, Back. The counts that used to
-    /// stand here are left out on purpose — all three groups have grown since (#290, #349, #279), and the
-    /// ORDER is the part of this that carries anything.
+    /// through: the display rows, then the audio and control rows, the online rows, the campaign rows, Back. The
+    /// counts that used to stand here are left out on purpose — every group has grown since (#290, #349, #279,
+    /// #548), and the ORDER is the part of this that carries anything.
+    /// </para>
+    /// <para>
+    /// <b>The nickname is the one value that is typed rather than cycled</b> (#548), and it is still a button:
+    /// activating it puts the page into typing, where the row shows what is being typed and the keyboard is the
+    /// page's (<see cref="CapturesKeyboard"/>) — so a Space, an arrow or a letter types rather than walking the
+    /// cursor. Enter or the pad's A keeps it, Escape or B drops it, and any other row cancels it. A pad cannot
+    /// type, and the line under the rows says so rather than leaving a pad player to discover it.
     /// </para>
     /// </summary>
     internal sealed class SettingsPage : MenuPage
@@ -46,7 +57,10 @@ namespace BS3D.Screens
         //Narrower than the 560 the single column could afford, because there are two of them now — and no
         //value here is long ("Unlimited" is the widest), so the button stays a comfortable target at this
         //width rather than a bar most of which is empty.
-        private const int VALUE_WIDTH = 460;
+        //460 until #548, when a third column had to fit a 4:3 viewport (see the class remarks) — "Unlimited",
+        //"Removing..." and a nickname in the display face all still sit well inside it, and a nickname too long
+        //for it drops to the small face (see ShowNickname).
+        private const int VALUE_WIDTH = 420;
 
         //Between the two columns. Wider than the grids' own ColumnSpacing (COLUMN_SPACING), or the gutter
         //between the columns would read as just another caption/value gap and the two groups would run
@@ -60,15 +74,35 @@ namespace BS3D.Screens
         //above it rather than reading as one more of them.
         private const int GROUP_HEADING_GAP = 40;
 
+        //The note under the online rows (#548): as wide as the rows it sits under — a caption, the grid's column
+        //gap and a value button — and a fixed number of the small face's lines tall, so what it says can change
+        //(the sentence, a typing hint, a removal's outcome) without the page moving. Nine lines hold the sentence
+        //at this width with a line to spare; measured on the page, not reasoned.
+        private const int NOTE_WIDTH = 780;
+        private const int NOTE_LINES = 9;
+
         private Label _fullscreenValue, _qualityValue, _adaptiveQualityValue, _exposureValue, _skyValue, _fpsValue, _fpsLimitValue;
         private Label _volumeValue, _effectsValue, _musicValue, _ambienceValue, _rumbleValue, _trackValue, _sensitivityValue, _aimSensitivityValue, _tutorialValue;
         private Label _aberrationValue, _grainValue, _dropCinematicValue;
         private Label _progressValue, _unlockAllValue;
+        private Label _onlineValue, _nicknameValue, _removeValue, _onlineNote;
 
         //The reset row asks twice. One click on a row that erases every star is an accident waiting beside
         //ten rows that are safe to click freely — so the first click only arms it and shows "Sure?", the
         //second wipes, and opening the page anew (Enter) stands it down again.
         private bool _resetArmed;
+
+        //"Remove scores" asks twice for the reset row's reason, and it is worse than a reset: it cannot be undone
+        //at all, because the server forgets the player and the id is never reused.
+        private bool _removeArmed;
+
+        //Typing a nickname (#548): whether the page has the keyboard, what has been typed so far, whether the edit
+        //began from the Online row (so keeping a name also turns the boards on), and what was wrong with the last
+        //attempt to keep it.
+        private bool _typing;
+        private string _nameDraft = string.Empty;
+        private bool _turnOnAfterName;
+        private string _typingProblem;
 
         //Every row's own button, in build order (#517) — cleared and refilled by AddRow each time BuildTree
         //runs, since a resize rebuilds the whole tree and a stale reference here would still answer
@@ -78,7 +112,24 @@ namespace BS3D.Screens
 
         public SettingsPage(BS3DGame game) : base(game) { }
 
-        public override void Enter() => _resetArmed = false;
+        public override void Enter()
+        {
+            _resetArmed = false;
+            _removeArmed = false;
+            _typing = false;
+            _turnOnAfterName = false;
+            _typingProblem = null;
+            Game.ForgetOnlineRemovalOutcome();
+        }
+
+        public override void Leave()
+        {
+            //A page that is not on top must not keep the keyboard
+            _typing = false;
+            base.Leave();
+        }
+
+        internal override bool CapturesKeyboard => _typing;
 
         protected override Widget BuildTree()
         {
@@ -99,6 +150,7 @@ namespace BS3D.Screens
             //Added in this order, and that IS the nav order — see the class remarks
             columns.Widgets.Add(BuildDisplayGroup());
             columns.Widgets.Add(BuildAudioGroup());
+            columns.Widgets.Add(BuildRecordGroup());
 
             column.Widgets.Add(columns);
             column.Widgets.Add(MenuButton("Back", GoBack));
@@ -146,9 +198,9 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// The right column: the mix, and under it the one row that is neither a look nor a sound but the
-        /// player's own record. It carries two headings because those are two different kinds of thing, and a
-        /// campaign wipe sitting unlabelled under "Ambience" would read as part of the mix.
+        /// The middle column: the mix, and under it the player's own input rates. Two headings because those are
+        /// two different kinds of thing. The campaign rows stood under them until #548 and moved to the third column
+        /// with the online ones — both are the player's own record, and neither is a sound or a control.
         /// </summary>
         private Grid BuildAudioGroup()
         {
@@ -197,17 +249,59 @@ namespace BS3D.Screens
             //controls, so the switch that hides them belongs beside the dial that tunes them.
             AddRow(grid, 10, "Tutorial", Game.ToggleTutorial, out _tutorialValue);
 
-            AddGroupHeading(grid, 11, "CAMPAIGN", first: false);
+            return grid;
+        }
+
+        /// <summary>
+        /// The right column: the player's own record, online and here. ONLINE first (#548) and CAMPAIGN under it,
+        /// because the campaign rows are the destructive pair the page has always kept last — and "Remove scores",
+        /// which is destructive too, is the last of its own group.
+        /// </summary>
+        private Grid BuildRecordGroup()
+        {
+            Grid grid = NewGroupGrid();
+
+            AddGroupHeading(grid, 0, "ONLINE", first: true);
+
+            //Opt-in (#548): off until the player turns it on, and turning it on the first time asks for the nickname
+            //the boards will show. Off keeps the identity, so on again later is the same player.
+            AddRow(grid, 1, "Online scores", OnOnline, out _onlineValue);
+
+            //Typed, not cycled — see the class remarks
+            AddRow(grid, 2, "Nickname", OnNickname, out _nicknameValue, typingRow: true);
+
+            //Two-step, like the reset (see _removeArmed); the server is asked first and nothing here goes until it
+            //has said yes — BS3DGame.RemoveOnlineScores
+            AddRow(grid, 3, "Remove scores", OnRemove, out _removeValue);
+
+            //What is sent and what is kept, in the About page's own words (one sentence, one source) — or, while it
+            //is more use, what the player is doing: typing, or a removal's outcome
+            grid.RowsProportions.Add(new Proportion(ProportionType.Auto));
+            _onlineNote = new Label
+            {
+                Font = FontSmall,
+                TextColor = BS3DGame.MENU_TEXT_DIM,
+                Wrap = true,
+                Width = Scaled(NOTE_WIDTH),
+                Height = FontSmall.LineHeight * NOTE_LINES,
+                VerticalAlignment = VerticalAlignment.Top,
+            };
+            Grid.SetColumn(_onlineNote, 0);
+            Grid.SetColumnSpan(_onlineNote, 2);
+            Grid.SetRow(_onlineNote, 4);
+            grid.Widgets.Add(_onlineNote);
+
+            AddGroupHeading(grid, 5, "CAMPAIGN", first: false);
 
             //The campaign back to zero stars (#92) — for testing as much as for a fresh start. The resting
             //value shows the star total the click would erase; the click itself is two-step (see _resetArmed).
-            AddRow(grid, 12, "Reset progress", OnResetProgress, out _progressValue);
+            AddRow(grid, 6, "Reset progress", OnResetProgress, out _progressValue);
 
             //The debug unlock (#349). Under the campaign heading rather than among the looks because it is the
             //same kind of thing the row above is - the player's record - and it is a DEVELOPMENT convenience:
             //it is off at every launch and writes nothing, so it can never make a real save read further along
             //than it is. Hiding it behind a build flag is a shipping concern and not one yet.
-            AddRow(grid, 13, "Unlock all", Game.ToggleUnlockAll, out _unlockAllValue);
+            AddRow(grid, 7, "Unlock all", Game.ToggleUnlockAll, out _unlockAllValue);
 
             return grid;
         }
@@ -264,7 +358,9 @@ namespace BS3D.Screens
             grid.Widgets.Add(heading);
         }
 
-        private void AddRow(Grid grid, int row, string caption, Action onClick, out Label value)
+        /// <param name="typingRow">The nickname's own row, whose click keeps or starts typing. Every other row's
+        /// click drops a name being typed first — the player has moved on.</param>
+        private void AddRow(Grid grid, int row, string caption, Action onClick, out Label value, bool typingRow = false)
         {
             grid.RowsProportions.Add(new Proportion(ProportionType.Auto));
 
@@ -280,7 +376,11 @@ namespace BS3D.Screens
             Grid.SetRow(captionLabel, row);
             grid.Widgets.Add(captionLabel);
 
-            Button button = MenuButton(string.Empty, onClick, out value);
+            Button button = MenuButton(string.Empty, typingRow ? onClick : () =>
+            {
+                CancelTyping();
+                onClick();
+            }, out value);
             button.Width = Scaled(VALUE_WIDTH);
 
             Grid.SetColumn(button, 1);
@@ -347,6 +447,211 @@ namespace BS3D.Screens
             //bare number (which is exactly how this line first rendered).
             _progressValue.Text = _resetArmed ? "Sure?"
                 : Game.TotalStars == 1 ? "1 star" : $"{Game.TotalStars} stars";
+
+            _onlineValue.Text = Game.IsOnlineOn ? "On" : "Off";
+            ShowNickname(_typing ? _nameDraft + "|" : Game.OnlineNickname ?? "Not set");
+            _removeValue.Text = Game.OnlineRemoval == OnlineRemovalState.Removing ? "Removing..."
+                : _removeArmed ? "Sure?"
+                : Game.OnlineNickname == null ? "Nothing" : "Remove";
+            _onlineNote.Text = OnlineNote();
+        }
+
+        /// <summary>
+        /// The nickname in the display face like every other value — or in the small face when it would not fit
+        /// the button, which sixteen wide letters in Anton do not. Measured rather than counted: letters differ.
+        /// </summary>
+        private void ShowNickname(string text)
+        {
+            _nicknameValue.Text = text;
+            _nicknameValue.Font = FontBody.MeasureString(text).X <= Scaled(VALUE_WIDTH) * 0.9f ? FontBody : FontSmall;
+        }
+
+        /// <summary>
+        /// What the line under the online rows says, most pressing first: what typing needs, a refusal of the name,
+        /// how a removal went, that nothing can be sent — and otherwise the sentence saying what is sent and kept.
+        /// </summary>
+        private string OnlineNote()
+        {
+            if (_typing)
+                return _typingProblem ?? $"Type a nickname on the keyboard: {Nickname.MinLength} to {Nickname.MaxLength} letters, digits, "
+                    + "spaces, _ or -. Enter keeps it, Esc drops it.";
+
+            if (Game.OnlineNameProblem != null)
+                return $"The server refused the nickname ({Game.OnlineNameProblem}). Choose another.";
+
+            switch (Game.OnlineRemoval)
+            {
+                case OnlineRemovalState.Removing:
+                    return "Asking the server to remove your scores...";
+                case OnlineRemovalState.Removed:
+                    return "Removed from the server and from this machine.";
+                case OnlineRemovalState.RemovedHere:
+                    return "Removed from this machine. No score server was in reach, so nothing had been sent from here.";
+                case OnlineRemovalState.Failed:
+                    string problem = Game.OnlineRemovalProblem ?? string.Empty;
+                    return "Nothing was removed: " + (problem.StartsWith("the server refused", StringComparison.Ordinal)
+                        ? problem : "the server did not answer") + ". Try again when it is in reach.";
+            }
+
+            if (Game.IsOnlineOn && !Game.OnlineEnabled && Game.OnlineNickname != null)
+                return "There is no score server yet, so nothing is sent. " + Game.OnlinePrivacySentence;
+
+            return Game.OnlinePrivacySentence;
+        }
+
+        /// <summary>
+        /// The Online row (#548): off from on at once; on from off at once when there is a nickname, and otherwise
+        /// only once one has been typed — an empty nickname keeps it off.
+        /// </summary>
+        private void OnOnline()
+        {
+            _removeArmed = false;
+
+            if (Game.IsOnlineOn) Game.SetOnline(false);
+            else if (Game.OnlineNickname != null) Game.SetOnline(true);
+            else StartTyping(turnOnAfter: true);
+
+            Refresh();
+        }
+
+        /// <summary>The nickname's row: keeps what is being typed, or starts typing.</summary>
+        private void OnNickname()
+        {
+            if (_typing) KeepTyping();
+            else StartTyping(turnOnAfter: false);
+        }
+
+        /// <summary>
+        /// The two-step removal, like the reset: armed by the first click, done by the second. Nothing to remove
+        /// without an identity, and nothing to do while one is already on its way.
+        /// </summary>
+        private void OnRemove()
+        {
+            if (Game.OnlineNickname == null || Game.OnlineRemoval == OnlineRemovalState.Removing)
+            {
+                _removeArmed = false;
+            }
+            else if (_removeArmed)
+            {
+                _removeArmed = false;
+                Game.RemoveOnlineScores();
+            }
+            else _removeArmed = true;
+
+            Refresh();
+        }
+
+        private void StartTyping(bool turnOnAfter)
+        {
+            _typing = true;
+            _turnOnAfterName = turnOnAfter;
+            _nameDraft = Game.OnlineNickname ?? string.Empty;
+            _typingProblem = null;
+            _removeArmed = false;
+
+            Refresh();
+        }
+
+        /// <summary>
+        /// Keeps the name if it is one (<see cref="Nickname.TryNormalize"/>), and says what is wrong if it is not —
+        /// the page stays in typing, so the player can fix it rather than start over.
+        /// </summary>
+        private void KeepTyping()
+        {
+            if (!Nickname.TryNormalize(_nameDraft, out string name, out string problem))
+            {
+                _typingProblem = problem;
+                Refresh();
+                return;
+            }
+
+            bool turnOn = _turnOnAfterName;
+
+            _typing = false;
+            _turnOnAfterName = false;
+            _typingProblem = null;
+
+            Game.SetNickname(name);
+            if (turnOn) Game.SetOnline(true);
+
+            Refresh();
+        }
+
+        private void CancelTyping()
+        {
+            if (!_typing) return;
+
+            _typing = false;
+            _turnOnAfterName = false;
+            _typingProblem = null;
+
+            Refresh();
+        }
+
+        /// <summary>
+        /// A character the window typed (#548), while this page has the keyboard. Enter and Escape come through
+        /// here as the characters Windows sends for them, not as key edges, so one press cannot act twice; a
+        /// character no nickname may hold does nothing, and nothing past the longest name is taken.
+        /// </summary>
+        internal override void OnTextInput(char character)
+        {
+            if (!_typing) return;
+
+            switch (character)
+            {
+                case '\r':
+                    KeepTyping();
+                    return;
+
+                case '\x1b':
+                    CancelTyping();
+                    return;
+
+                case '\b':
+                    if (_nameDraft.Length > 0) _nameDraft = _nameDraft[..^1];
+                    break;
+
+                default:
+                    if (!Nickname.IsAllowed(character) || _nameDraft.Length >= Nickname.MaxLength) return;
+                    _nameDraft += character;
+                    break;
+            }
+
+            _typingProblem = null;
+            Refresh();
+        }
+
+        /// <summary>The pad's half of typing: A keeps, B drops (#548). A pad cannot type the name itself.</summary>
+        internal override void TypingButtons(bool keep, bool drop)
+        {
+            if (drop) CancelTyping();
+            else if (keep) KeepTyping();
+        }
+
+        /// <summary>
+        /// Testing only (<c>settings=&lt;row,...&gt;</c>, #548): activates the named rows in order, through the very
+        /// handlers a click runs, so a run nobody is sitting at can reach the online rows' states. "remove" is
+        /// refused outside a <c>userdata=</c> folder — it would remove the player's own scores from the server.
+        /// </summary>
+        internal void ActivateForTesting(string rows)
+        {
+            foreach (string row in rows.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                switch (row.ToLowerInvariant())
+                {
+                    case "online": OnOnline(); break;
+                    case "nickname": OnNickname(); break;
+                    case "remove" when UserData.IsTestingDirectory: OnRemove(); break;
+                    case "remove":
+                        System.Console.WriteLine("[settings] Testing: 'remove' refused outside a userdata= folder — it would remove the player's own scores");
+                        continue;
+                    default:
+                        System.Console.WriteLine($"[settings] Testing: no row '{row}' to activate");
+                        continue;
+                }
+
+                System.Console.WriteLine($"[settings] Testing: activated '{row}'");
+            }
         }
 
         /// <summary>

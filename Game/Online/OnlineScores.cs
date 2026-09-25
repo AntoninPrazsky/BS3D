@@ -20,7 +20,8 @@ namespace BS3D.Online
 {
     /// <summary>
     /// The game's side of the online score boards (#546, the decisions and the contract in #542): every cleared
-    /// level goes to the score service, <b>off the frame</b>, and <b>survives the service being away</b>.
+    /// level goes to the score service, <b>off the frame</b>, and <b>survives the service being away</b> — and
+    /// since #548 the player's two requests of it besides, a new nickname and the removal of everything they sent.
     /// <para>
     /// <b>Every submission is written to <c>Outbox.json</c> before it is sent</b>, and leaves it only when the
     /// service has answered for it. So there is one path, not two: a clear is appended and the outbox is
@@ -43,17 +44,24 @@ namespace BS3D.Online
     /// <para>
     /// <b>Nothing of this runs on the frame.</b> One worker task owns the outbox, the file and the
     /// <see cref="HttpClient"/>; the frame hands it a submission through a queue and takes answers back through
-    /// another, drained once a frame by <see cref="TryTakeAnswer"/> — no <c>Wait()</c>, no <c>Result</c>, and no
-    /// allocation when there is nothing to take, which is every frame but a handful. Even the outbox's file is
-    /// written by the worker.
+    /// another, drained once a frame by <see cref="TryTakeAnswer"/> and <see cref="TryTakeNotice"/> — no
+    /// <c>Wait()</c>, no <c>Result</c>, and no allocation when there is nothing to take, which is every frame but a
+    /// handful. Even the outbox's file is written by the worker.
     /// </para>
     /// <para>
-    /// <b>Where it submits, and whether it may at all</b>, is decided once, at start (<see cref="Start"/>): the
-    /// player must have turned it on (<see cref="GameSettings.Online"/>) and hold an identity
-    /// (<see cref="OnlineIdentity"/>), and there must be a server — the one <c>Settings.json</c> names, or, for a
-    /// build that came out of a release and only for one, the built-in <see cref="DefaultServer"/>. A local build
-    /// with no server named submits nowhere, so a developer's runs never land on the public boards by accident.
-    /// Whatever it decides, it says so in one <c>[online]</c> line, and every attempt after that prints one more.
+    /// <b>Two answers are decided once, at start</b> (<see cref="Start"/>), and they are not the same question.
+    /// <see cref="CanReachServer"/>: this install holds an identity and a server resolves — the one
+    /// <c>Settings.json</c> names, or, for a build that came out of a release and only for one, the built-in
+    /// <see cref="DefaultServer"/>. <see cref="Enabled"/>: that, and the player has turned online scores on. Only an
+    /// enabled client submits or drains the outbox; a client that merely reaches the server still carries a
+    /// rename and a removal, because a player who switched the boards off must still be able to take their name
+    /// off them (#548). A local build with no server named reaches nothing, so a developer's runs never land on
+    /// the public boards by accident. Whatever it decides, it says so in one <c>[online]</c> line.
+    /// </para>
+    /// <para>
+    /// <b>A client is replaced, never reconfigured</b>: a settings change (#548) stops this one and starts another
+    /// with <see cref="Start"/>, handing it this one's worker to wait for, so two workers are never on the outbox
+    /// at once.
     /// </para>
     /// </summary>
     internal sealed class OnlineScores : IDisposable
@@ -95,8 +103,20 @@ namespace BS3D.Online
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
         };
 
-        /// <summary>Whether clears go anywhere this run. Decided once, in <see cref="Start"/>.</summary>
+        /// <summary>
+        /// Whether clears go anywhere this run: the player turned it on and <see cref="CanReachServer"/>. Decided
+        /// once, in <see cref="Start"/>.
+        /// </summary>
         internal bool Enabled { get; }
+
+        /// <summary>
+        /// Whether a request can be sent at all — an identity and a server — which is what a rename and a removal
+        /// need, whether or not the player has the boards switched on (#548).
+        /// </summary>
+        internal bool CanReachServer { get; }
+
+        /// <summary>The server this client talks to, or null when none resolves.</summary>
+        internal Uri Server { get; }
 
         /// <summary>
         /// The release this build came out of (the tag, <c>v0.2.0</c>), or null for any other build. What
@@ -110,24 +130,37 @@ namespace BS3D.Online
         /// </summary>
         internal static string GameVersion { get; } = ReleaseVersion ?? DevVersion();
 
-        private readonly Uri _server;
         private readonly OnlineIdentity _identity;
         private readonly string _outboxPath;
         private readonly HttpClient _http;
+        private readonly Task _previous;
+        private readonly Task _worker;
 
         private readonly ConcurrentQueue<ScoreSubmission> _incoming = new();
         private readonly ConcurrentQueue<OnlineAnswer> _answers = new();
+        private readonly ConcurrentQueue<OnlineNotice> _notices = new();
         private readonly SemaphoreSlim _wake = new(0);
         private readonly CancellationTokenSource _stop = new();
 
-        private OnlineScores(bool enabled, Uri server = null, OnlineIdentity identity = null, string outboxPath = null)
+        private volatile bool _removalRequested;
+        private string _pendingRename;
+
+        private OnlineScores(bool on, Uri server, OnlineIdentity identity, string outboxPath, Task previous)
         {
-            Enabled = enabled;
-            _server = server;
+            Server = server;
             _identity = identity;
             _outboxPath = outboxPath;
+            _previous = previous ?? Task.CompletedTask;
 
-            if (!enabled) return;
+            CanReachServer = server != null && identity != null;
+            Enabled = on && CanReachServer;
+
+            //No worker, but the chain still holds: whoever replaces this one waits for the worker before it
+            if (!CanReachServer)
+            {
+                _worker = _previous;
+                return;
+            }
 
             _http = new HttpClient(new SocketsHttpHandler
             {
@@ -141,51 +174,34 @@ namespace BS3D.Online
             _http.DefaultRequestHeaders.UserAgent.ParseAdd($"BS3D/{GameVersion}");
             _http.DefaultRequestHeaders.Accept.ParseAdd("application/json");
 
-            //Its own task for the whole run: it waits on the semaphore between clears, so it costs nothing idle
-            _ = Task.Run(RunAsync);
+            //Its own task for the whole run: it waits on the semaphore between requests, so it costs nothing idle
+            _worker = Task.Run(RunAsync);
         }
 
         /// <summary>
-        /// Decides whether this run submits, and where, and says so. Reads the identity file — the one piece of
-        /// I/O on the frame's side, done once at start beside the settings and the save.
+        /// Decides whether this run submits, and whether it can reach a server at all, and says so. No I/O: the
+        /// identity is the caller's, read once at start (and changed only by the settings page, #548).
         /// </summary>
-        internal static OnlineScores Start(GameSettings settings, string identityPath, string outboxPath)
+        /// <param name="previous">The worker of the client this one replaces, which is waited for before this
+        /// one touches the outbox — see <see cref="Stop"/>.</param>
+        internal static OnlineScores Start(GameSettings settings, OnlineIdentity identity, string outboxPath, Task previous = null)
         {
+            bool usable = identity != null && identity.IsUsable;
+            bool resolved = TryResolveServer(settings, out Uri server, out string serverProblem, out bool named);
+
             if (!settings.Online)
-            {
-                Console.WriteLine("[online] Off: online scores are not turned on in the settings");
-                return new OnlineScores(false);
-            }
+                Console.WriteLine("[online] Off: online scores are not turned on in the settings"
+                    + (usable && resolved ? $" (a rename or a removal still reaches {server})" : ""));
+            else if (!usable)
+                Console.WriteLine("[online] Off: turned on, but Online.json holds no usable identity (id, token and nickname)");
+            else if (!resolved)
+                Console.WriteLine($"[online] Off: {serverProblem}");
+            else
+                Console.WriteLine($"[online] On: submitting to {server} as '{identity.Name}' (player {identity.PlayerId.ToString()[..8]}),"
+                    + $" game {GameVersion}, rules v{ScoreKeeper.RulesVersion}"
+                    + (named ? ", server named by the settings" : ", the built-in server"));
 
-            OnlineIdentity identity = OnlineIdentity.Load(identityPath);
-            if (identity == null || !identity.IsUsable)
-            {
-                Console.WriteLine($"[online] Off: turned on, but '{identityPath}' holds no usable identity (id, token and nickname)");
-                return new OnlineScores(false);
-            }
-
-            string named = string.IsNullOrWhiteSpace(settings.Server) ? null : settings.Server.Trim();
-            string address = named ?? (ReleaseVersion != null ? DefaultServer : null);
-
-            if (address == null)
-            {
-                Console.WriteLine(ReleaseVersion != null
-                    ? "[online] Off: this release has no built-in score server yet, and the settings name none"
-                    : $"[online] Off: a local build ({GameVersion}) submits only to a server Settings.json names");
-                return new OnlineScores(false);
-            }
-
-            if (!TryParseServer(address, out Uri server, out string problem))
-            {
-                Console.WriteLine($"[online] Off: refusing the score server '{address}' — {problem}");
-                return new OnlineScores(false);
-            }
-
-            Console.WriteLine($"[online] On: submitting to {server} as '{identity.Name}' (player {identity.PlayerId.ToString()[..8]}),"
-                + $" game {GameVersion}, rules v{ScoreKeeper.RulesVersion}"
-                + (named != null ? ", server named by the settings" : ", the built-in server"));
-
-            return new OnlineScores(true, server, identity, outboxPath);
+            return new OnlineScores(settings.Online, resolved ? server : null, usable ? identity : null, outboxPath, previous);
         }
 
         /// <summary>
@@ -223,14 +239,62 @@ namespace BS3D.Online
             _wake.Release();
         }
 
+        /// <summary>
+        /// Asks the service to forget this player (#548) — <c>DELETE /v1/players/{id}</c>, and on success the outbox
+        /// with it, so nothing queued can put the name back. The answer comes back as a notice: removed, or failed
+        /// with the reason, and then nothing was removed anywhere.
+        /// </summary>
+        internal void RequestRemoval()
+        {
+            if (!CanReachServer) return;
+
+            _removalRequested = true;
+            _wake.Release();
+        }
+
+        /// <summary>
+        /// Tells the service the player's new nickname (#548) — <c>PUT /v1/players/{id}</c>. Best effort: a rename
+        /// that gets no answer is not queued, because every submission carries the name as it stands anyway.
+        /// </summary>
+        internal void RequestRename(string name)
+        {
+            if (!CanReachServer || string.IsNullOrEmpty(name)) return;
+
+            Interlocked.Exchange(ref _pendingRename, name);
+            _wake.Release();
+        }
+
         /// <summary>The next answer the worker has for the frame, if any. Allocates nothing when there is none.</summary>
         internal bool TryTakeAnswer(out OnlineAnswer answer) => _answers.TryDequeue(out answer);
 
-        public void Dispose()
+        /// <summary>The next notice about the player's own requests (#548), if any. Allocates nothing when there is none.</summary>
+        internal bool TryTakeNotice(out OnlineNotice notice) => _notices.TryDequeue(out notice);
+
+        /// <summary>
+        /// Stops the worker without waiting for it, and returns it — to be handed to the client that replaces this
+        /// one, which waits for it before it reads the outbox. Whatever was in flight is still in the outbox and
+        /// goes again.
+        /// </summary>
+        internal Task Stop()
         {
-            //Nothing is waited for: whatever was in flight is still in the outbox and goes again next start
             _stop.Cancel();
-            _http?.Dispose();
+            return _worker;
+        }
+
+        public void Dispose() => Stop();
+
+        /// <summary>
+        /// The one sentence that says what online scores send and what the service keeps (#548) — on the settings
+        /// page and on the About page, from here, so the two cannot drift apart. <b>It must stay exactly true of
+        /// <see cref="ScoreSubmission"/> and of the service's audit row (#544)</b>: change one, change this in the
+        /// same commit, the way the documents are held to the code.
+        /// </summary>
+        internal static string PrivacySentence(GameSettings settings)
+        {
+            string host = TryResolveServer(settings, out Uri server, out _, out _) ? server.Authority : "the score server";
+
+            return $"With online scores on, each cleared level sends your nickname, a random player id, the level, its score, stars, shots, time and the "
+                + $"game's version to {host}, which adds only when it arrived and a hashed network address. Remove scores deletes it all.";
         }
 
         #region The worker
@@ -239,18 +303,42 @@ namespace BS3D.Online
         {
             CancellationToken stop = _stop.Token;
 
+            //The client this one replaced must be off the outbox before this one reads it
             try
             {
-                List<ScoreSubmission> outbox = LoadOutbox();
+                await _previous;
+            }
+            catch (Exception)
+            {
+                //Its own failure was its own to log
+            }
+
+            try
+            {
+                List<ScoreSubmission> outbox = Enabled ? LoadOutbox() : new List<ScoreSubmission>();
 
                 if (outbox.Count > 0)
                     Console.WriteLine($"[online] {outbox.Count} clear(s) waiting in the outbox from an earlier run; sending");
 
-                await DrainAsync(outbox, stop);
+                if (Enabled) await DrainAsync(outbox, stop);
 
                 while (!stop.IsCancellationRequested)
                 {
                     await _wake.WaitAsync(stop);
+
+                    //Before anything queued is sent: a removal must not be overtaken by a clear that puts the name back
+                    if (_removalRequested)
+                    {
+                        if (await RemoveAsync(outbox, stop)) return;
+
+                        _removalRequested = false;
+                        continue;
+                    }
+
+                    string rename = Interlocked.Exchange(ref _pendingRename, null);
+                    if (rename != null) await RenameAsync(rename, stop);
+
+                    if (!Enabled) continue;
 
                     bool added = false;
                     while (_incoming.TryDequeue(out ScoreSubmission submission))
@@ -274,12 +362,16 @@ namespace BS3D.Online
             }
             catch (OperationCanceledException) when (stop.IsCancellationRequested)
             {
-                //The game is closing; the outbox is on disk as it stands
+                //Replaced or closing; the outbox is on disk as it stands
             }
             catch (Exception e)
             {
                 //The one thing this must never do is take the game down with it. What was queued is on disk.
                 Console.WriteLine($"[online] The submitter stopped: {e.GetType().Name}: {e.Message}");
+            }
+            finally
+            {
+                _http?.Dispose();
             }
         }
 
@@ -295,7 +387,7 @@ namespace BS3D.Online
                 ScoreSubmission submission = outbox[0];
 
                 //Queued under an identity this install no longer holds: its token is gone with it, so the service
-                //would refuse it anyway. The settings page's "remove" wipes the outbox too (#548); this is the
+                //would refuse it anyway. "Remove scores" wipes the outbox with the identity (#548); this is the
                 //hand-edited or half-removed case.
                 if (submission.PlayerId != _identity.PlayerId)
                 {
@@ -305,7 +397,8 @@ namespace BS3D.Online
                     continue;
                 }
 
-                Delivery delivery = await SendAsync(submission, stop);
+                Delivery delivery = await SendAsync(HttpMethod.Post, "v1/scores",
+                    JsonSerializer.Serialize(submission, RequestJson), stop);
 
                 switch (delivery.Kind)
                 {
@@ -313,6 +406,7 @@ namespace BS3D.Online
                         outbox.RemoveAt(0);
                         SaveOutbox(outbox);
                         _answers.Enqueue(new OnlineAnswer(submission.SubmissionId, OnlineOutcome.Accepted, delivery.Body));
+                        NoticeNormalizedName(delivery.Body);
                         Console.WriteLine($"[online] {Describe(submission)}: {delivery.Status} {RankText(delivery.Body)}");
                         break;
 
@@ -320,6 +414,7 @@ namespace BS3D.Online
                         outbox.RemoveAt(0);
                         SaveOutbox(outbox);
                         _answers.Enqueue(new OnlineAnswer(submission.SubmissionId, OnlineOutcome.Refused, delivery.Body));
+                        NoticeRefusedName(delivery.Body);
                         Console.WriteLine($"[online] {Describe(submission)}: REFUSED {delivery.Status}"
                             + (string.IsNullOrEmpty(delivery.Body?.Reason) ? "" : $" ({delivery.Body.Reason})")
                             + " — dropped; the game and the service disagree about this clear");
@@ -336,11 +431,90 @@ namespace BS3D.Online
             }
         }
 
-        private async Task<Delivery> SendAsync(ScoreSubmission submission, CancellationToken stop)
+        /// <summary>
+        /// The player's "Remove scores" (#548). A 2xx is removed; so is a 404, which is a player the service has
+        /// never heard of — nothing of theirs is there to remove. Only then does the outbox go, file and all; on
+        /// anything else nothing is touched, so the player can try again and still holds the token that proves the
+        /// scores are theirs.
+        /// </summary>
+        /// <returns>Whether the removal happened, which ends this worker: the identity it sends under is gone.</returns>
+        private async Task<bool> RemoveAsync(List<ScoreSubmission> outbox, CancellationToken stop)
         {
-            using HttpRequestMessage request = new(HttpMethod.Post, new Uri(_server, "v1/scores"));
+            Delivery delivery = await SendAsync(HttpMethod.Delete, $"v1/players/{_identity.PlayerId}", null, stop,
+                acceptWithoutBody: true);
+
+            bool removed = delivery.Kind == DeliveryKind.Delivered || delivery.Status == (int)HttpStatusCode.NotFound;
+
+            if (!removed)
+            {
+                string problem = delivery.Kind == DeliveryKind.Refused ? $"the server refused ({delivery.Status})" : delivery.Problem;
+                Console.WriteLine($"[online] Removal of player {_identity.PlayerId.ToString()[..8]}: NOT done ({problem}); nothing was removed");
+                _notices.Enqueue(new OnlineNotice(OnlineNoticeKind.RemoveFailed, problem));
+                return false;
+            }
+
+            outbox.Clear();
+            DeleteQuietly(_outboxPath);
+            DeleteQuietly(_outboxPath + OutboxBackupSuffix);
+
+            Console.WriteLine($"[online] Removal of player {_identity.PlayerId.ToString()[..8]}: {delivery.Status}, removed from {Server.Authority};"
+                + " the outbox is gone with it");
+            _notices.Enqueue(new OnlineNotice(OnlineNoticeKind.Removed, Server.Authority));
+            return true;
+        }
+
+        /// <summary>
+        /// The player's new nickname (#548). The service's own form of it comes back and is written back; a 422 is
+        /// the service refusing the name, which the settings page shows rather than swallows. Anything else is
+        /// logged and left: the next clear carries the name regardless.
+        /// </summary>
+        private async Task RenameAsync(string name, CancellationToken stop)
+        {
+            Delivery delivery = await SendAsync(HttpMethod.Put, $"v1/players/{_identity.PlayerId}",
+                JsonSerializer.Serialize(new PlayerNameBody { Name = name }, RequestJson), stop, acceptWithoutBody: true);
+
+            switch (delivery.Kind)
+            {
+                case DeliveryKind.Delivered:
+                    Console.WriteLine($"[online] Renamed to '{delivery.Body?.Name ?? name}': {delivery.Status}");
+                    NoticeNormalizedName(delivery.Body);
+                    break;
+
+                case DeliveryKind.Refused when delivery.Status == (int)HttpStatusCode.NotFound:
+                    Console.WriteLine($"[online] Rename to '{name}': not on the server yet; the name goes with the next clear");
+                    break;
+
+                case DeliveryKind.Refused:
+                    Console.WriteLine($"[online] Rename to '{name}': REFUSED {delivery.Status} ({delivery.Body?.Reason ?? "no reason given"})");
+                    _notices.Enqueue(new OnlineNotice(OnlineNoticeKind.NameRefused, delivery.Body?.Reason ?? $"refused ({delivery.Status})"));
+                    break;
+
+                default:
+                    Console.WriteLine($"[online] Rename to '{name}': no answer ({delivery.Problem}); the name goes with the next clear");
+                    break;
+            }
+        }
+
+        private void NoticeNormalizedName(ScoreAnswerBody body)
+        {
+            if (!string.IsNullOrWhiteSpace(body?.Name) && body.Name != _identity.Name)
+                _notices.Enqueue(new OnlineNotice(OnlineNoticeKind.NameNormalized, body.Name));
+        }
+
+        private void NoticeRefusedName(ScoreAnswerBody body)
+        {
+            if (body?.Reason != null && body.Reason.Contains("name", StringComparison.OrdinalIgnoreCase))
+                _notices.Enqueue(new OnlineNotice(OnlineNoticeKind.NameRefused, body.Reason));
+        }
+
+        /// <param name="acceptWithoutBody">For a DELETE or a PUT: a 2xx is a delivery even with no JSON (a 204).
+        /// A POST's 2xx must carry the service's answer — see the class doc on captive portals.</param>
+        private async Task<Delivery> SendAsync(HttpMethod method, string path, string json, CancellationToken stop,
+            bool acceptWithoutBody = false)
+        {
+            using HttpRequestMessage request = new(method, new Uri(Server, path));
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _identity.Token);
-            request.Content = new StringContent(JsonSerializer.Serialize(submission, RequestJson), Encoding.UTF8, "application/json");
+            if (json != null) request.Content = new StringContent(json, Encoding.UTF8, "application/json");
 
             using CancellationTokenSource deadline = CancellationTokenSource.CreateLinkedTokenSource(stop);
             deadline.CancelAfter(RequestTimeout);
@@ -354,8 +528,8 @@ namespace BS3D.Online
 
                 if (status >= 200 && status < 300)
                 {
-                    //A 2xx that is not the service's answer is not a delivery — see the class doc
-                    return body?.Accepted != null
+                    bool answered = body?.Accepted != null || (acceptWithoutBody && (body != null || text.Length == 0));
+                    return answered
                         ? new Delivery(DeliveryKind.Delivered, status, body)
                         : new Delivery(DeliveryKind.NoAnswer, status, problem: $"{status} without the service's answer (a captive portal?)");
                 }
@@ -425,6 +599,19 @@ namespace BS3D.Online
             }
         }
 
+        /// <summary>A file removed, or already absent; a failure is said and costs only the file.</summary>
+        internal static void DeleteQuietly(string path)
+        {
+            try
+            {
+                File.Delete(path);
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                Console.WriteLine($"[online] Could not delete '{path}': {e.Message}");
+            }
+        }
+
         //Invariant: the first run of this printed "10,0 s" on a Czech machine
         private static string Describe(ScoreSubmission submission) => string.Create(CultureInfo.InvariantCulture,
             $"{submission.Level.File}#{submission.Level.Hash} score {submission.Score} ({submission.Stars}*,"
@@ -456,6 +643,36 @@ namespace BS3D.Online
         #endregion
 
         #region The server and the build
+
+        /// <summary>
+        /// The server this build may talk to: the one <c>Settings.json</c> names, or for a release build the
+        /// built-in <see cref="DefaultServer"/>. False with the reason, worded for the <c>[online]</c> line, when
+        /// there is none or the one named is refused.
+        /// </summary>
+        internal static bool TryResolveServer(GameSettings settings, out Uri server, out string problem, out bool named)
+        {
+            server = null;
+            string address = string.IsNullOrWhiteSpace(settings.Server) ? null : settings.Server.Trim();
+            named = address != null;
+            address ??= ReleaseVersion != null ? DefaultServer : null;
+
+            if (address == null)
+            {
+                problem = ReleaseVersion != null
+                    ? "this release has no built-in score server yet, and the settings name none"
+                    : $"a local build ({GameVersion}) submits only to a server Settings.json names";
+                return false;
+            }
+
+            if (!TryParseServer(address, out server, out string refused))
+            {
+                problem = $"refusing the score server '{address}' — {refused}";
+                return false;
+            }
+
+            problem = null;
+            return true;
+        }
 
         /// <summary>
         /// A server the client will talk to: absolute, <c>https://</c> anywhere, or <c>http://</c> to this machine

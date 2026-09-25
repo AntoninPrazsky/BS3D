@@ -6191,3 +6191,16 @@ Předchozí zápis říkal, že to dostavět znamená sáhnout do brány a že t
 ## 2026-09-24 — Claude Code, bs3d-0f (desktop: beru #548 — opt-in online skóre v nastavení)
 
 **Beru #548** na majitelův pokyn („Vem #548 a udělej to"). Nárok do mainu před prací; soubory: `Game/Screens/SettingsPage.cs`, `BS3DGame.Settings.cs`, `BS3DGame.Online.cs`, `Game/Online/`, `AboutPage.cs`, docs.
+
+---
+
+## 2026-09-25 — Claude Code, bs3d-0f (desktop: #548 hotovo — opt-in online skóre v nastavení, přezdívka, mazání; stránka nastavení na tři sloupce)
+
+- ⚠ **Stránka nastavení přetékala už PŘED touto změnou**: vyfoceno na 1600×900 i 3840×1600 — „Reset progress" useknutý, „Unlock all" a Back pod okrajem (pravý sloupec AUDIO+CONTROLS+CAMPAIGN = 3 nadpisy + 11 řádků). Teď tři sloupce DISPLAY | AUDIO+CONTROLS | ONLINE+CAMPAIGN; Back končí 49 px nad spodkem 1600×900; deska 1158 px ≈ 2780 jednotek, tlačítka hodnot 460 → 420, aby se vešlo 4:3 (vyfoceno 1024×768 — vejde se).
+- **Řádky ONLINE:** Online scores (první zapnutí → psaní přezdívky; prázdná/odmítnutá nechá vypnuto), Nickname (psaná hodnota, pořád tlačítko), Remove scores (dvakrát jako reset; nejdřív DELETE na server, lokální `Online.json`+`Outbox.json` jdou až na 2xx/404; bez dostupného serveru jen lokální kopie). Pod nimi poznámka s pevnou výškou 9 řádků malého písma: věta o tom, co se posílá (`OnlineScores.PrivacySentence`, stejné volání i na About), nebo stav psaní/mazání.
+- **Psaní:** `MenuPage.CapturesKeyboard` — host pak nečte Escape/šipky/Enter; znaky z `Window.TextInput` (Enter a Escape jako znaky `\r`/`\x1b`, takže jeden stisk nejedná dvakrát); pad A uloží, B zahodí. Pravidlo přezdívky `Online/Nickname.cs`: serverové (3–16, písmena, číslice, jedna mezera, `_`, `-`, NFC, mezery sloučené) a navíc jen písmena do U+017F — **Anton nemá azbuku, řečtinu ani CJK** (přečteno z cmap obou TTF); Latin-1 a Extended-A kompletní, v Interu chybí jen zastaralé U+0149, vyřazené.
+- **Klient:** `CanReachServer` vs `Enabled` — přejmenování (PUT) a mazání (DELETE, vyřízené před čímkoli ve frontě) jdou i s vypnutým přepínačem. Klient se při změně nastavení nahradí, nový čeká na worker starého (dva nikdy nad outboxem). Hlášení `OnlineNotice` zpracovává snímek. Normalizované jméno ze serveru se zapíše zpět.
+- **Páka `settings=<row,...>`** (online, nickname, remove) aktivuje řádky přes jejich vlastní handlery; `remove` jen pod `userdata=`.
+- **Ověřeno ve hře bez kradení fokusu:** znaky poslané do okna hry přes `PostMessageW` (WM_CHAR). Přihlášení → identita + On; přejmenování → PUT 200, „Pražský  Ж2" → „Pražský 2"; „ab" → „At least 3 characters."; mazání při 503 → nic nesmazáno; mazání při 200 → 204, řádky na stubu pryč, soubory pryč, Off; druhé přihlášení → nové id. Tvoje soubory v `%LOCALAPPDATA%\BS3D` stejný SHA-256.
+- ⚠ **Past harnessu:** `PostMessage` bez CharSet = ANSI → „ž" (U+017E) prošlo kódovou stránkou a ztratilo se, „ý" (253) přežilo. Vždy `PostMessageW`.
+- ⚠ Jsi u počítače (poslední vstup 44 s) — proto ne SetForegroundWindow/keybd_event.
