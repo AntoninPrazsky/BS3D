@@ -412,7 +412,16 @@ namespace BS3D.Screens
             //shot was crossing the arena, so the shot they committed to becomes the wrong shot after they
             //committed. That is exactly the kind of intermittent unfairness that gets blamed on the physics.
             //So the tick is on the shot RESOLVING, and a miss resolves here.
-            TickInfection();
+            //
+            //And a tick that hardened anything changed the field exactly as a landing does, so it is answered
+            //the way the landing answers its own tick (#564): the census, the barrel's dead colours and the
+            //clear test. Without them a miss that turned the last matchable ball to stone left a level that
+            //never ended on an unlimited budget, and on a budgeted one went on loading a colour that was gone.
+            if (!TickInfection()) return;
+
+            RecountBallTypes();
+            if (AnyBallTypeAlive()) Transmute();
+            CheckLevelCleared();
         }
 
         /// <summary>
@@ -447,12 +456,13 @@ namespace BS3D.Screens
         /// <see cref="CheckLevelCleared"/> on the count both end tests read).
         /// </para>
         /// </summary>
-        private void TickInfection()
+        /// <returns>Whether any ball hardened — i.e. whether the field changed.</returns>
+        private bool TickInfection()
         {
-            if (LevelDecided) return;
+            if (LevelDecided) return false;
 
             int hardened = BallsConstraintsBuilder.SpreadInfection(_physicsBalls, _map, _infectedCells, _hardenedCells);
-            if (hardened == 0) return;
+            if (hardened == 0) return false;
 
             //A rare-event line: a level with an infection in it says what it cost per shot, which is the one
             //number the balance of this kind lives or dies on and the one a screenshot cannot show.
@@ -463,6 +473,8 @@ namespace BS3D.Screens
             //ripple already means "something is travelling through the balls" and it is started from the cell
             //that changed — see StartRipple.
             if (_infectedCells.Count > 0) StartRipple(_infectedCells[0]);
+
+            return true;
         }
 
         /// <inheritdoc cref="TickInfection"/>
