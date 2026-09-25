@@ -1,0 +1,29 @@
+{
+    "file":  "theme-puppet-theatre.wav",
+    "created":  "2026-09-25",
+    "issue":  558,
+    "family":  "puppet",
+    "chapter":  "The Silhouettes (aurora) - #491/#558: black paper cut-outs under the northern lights; playful, graphic, light and curious - shadow-puppet theatre, a paper-cut picture book",
+    "purpose":  "Master of Game/Music/puppet-theatre.ogg, one of the puppet family\u0027s recordings (#558): written from this file by Tools/MusicBake --tracks --masters \u003cthis folder\u003e, brought to the themes\u0027 loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository (C:\\Users\\panrd\\AI\\output\\masters-558 on the desktop); this sidecar is committed beside the .ogg.",
+    "generator":  "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-558.ps1 -\u003e generate-music.ps1 -Loop -NoCotCaption",
+    "format":  "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model\u0027s fixed native rate",
+    "license":  "ACE-Step 1.5: MIT (code and weights)",
+    "request":  {
+                    "caption":  "Light shadow-puppet theatre instrumental: bright bronze metallophones and gongs in interlocking patterns, a playful bamboo flute melody, hand drum and small cymbals, plucked zither, curious and storytelling, gentle and airy, clean production, no vocals",
+                    "lm_negative_prompt":  "vocals, singing, audience applause, crowd noise, live recording, dark ambient drone, heavy distortion",
+                    "instrumental":  true,
+                    "use_cot_caption":  false,
+                    "duration":  120,
+                    "bpm":  100,
+                    "keyscale":  "F major",
+                    "seed":  306458216,
+                    "inference_steps":  8,
+                    "output_format":  "wav32"
+                },
+    "post_process":  "loop_crossfade.py: a whole-bar loop cut out of the render\u0027s body (the untouched render kept as .raw.wav beside it)",
+    "loop_log":  [
+                     "Wrote C:\\Users\\panrd\\AI\\output\\masters-558\\theme-puppet-theatre.wav: 76.8s loop = source 7.55s..84.35s (32.00 bars at 100.0 bpm), crossfade 1.20s | context match 0.935 (best 0.982) | crossfade rhythm r=0.98 vs the track a bar later r=0.45: in time | spectrum cos=0.98"
+                 ],
+    "measured":  "generate-music.ps1 end to end 123.9 s (ace-lm + ace-synth + loop cut), GPU shared with other sessions\u0027 captures",
+    "rendered":  true
+}

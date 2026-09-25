@@ -251,12 +251,15 @@ namespace BS3D.Tools.LevelGen
         private const string MUSIC_GRID = "pulse";
         private const string MUSIC_MIRAGE = "mirage";
 
-        //THE SILHOUETTES (#491) BORROW THE QUARRY'S FAMILY, and it is the one chapter whose music is a reprise
-        //since #486 gave every chapter its own. Lunar is the set's spacious, slow family (celesta, drone,
-        //kosmische, piano) and a winter night under the aurora is the other place in the campaign it belongs;
-        //the Reveal's Nocturne between them keeps the two from running together. A family of its own is
-        //generation work on the owner's ear and a folder of files - this constant is the one line it changes.
-        private const string MUSIC_SILHOUETTES = MUSIC_QUARRY;
+        //THE SILHOUETTES' PUPPET (#558). The chapter borrowed the Quarry's LUNAR when #491 inserted it, the one
+        //reprise left after #486; it has a family of its own now, briefed for the chapter's character rather
+        //than its hour. Black paper cut-outs on a pale check are shadow-puppet theatre and a paper-cut picture
+        //book, so the ten are light and curious - storybook pizzicato and clarinet, a shadow-puppet gamelan, a
+        //caper, cartoon jazz, a silent-film rag, a toybox, baroque harpsichord, kalimba, a cheeky tango and
+        //Nordic folk under the aurora - all in F major, where lunar's drones made a playful gallery of shapes
+        //sound like the Moon. Like every family it ships on the owner's ear: a recording he dislikes is one
+        //re-render, and this constant is the one line that would hand the chapter back to lunar.
+        private const string MUSIC_SILHOUETTES = "puppet";
 
         /// <summary>
         /// WHAT EACH CHAPTER'S BALLS ARE MADE OF. A property of the <b>block</b> exactly as the music is — the

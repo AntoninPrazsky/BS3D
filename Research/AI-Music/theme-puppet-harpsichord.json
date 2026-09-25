@@ -1,0 +1,29 @@
+{
+    "file":  "theme-puppet-harpsichord.wav",
+    "created":  "2026-09-25",
+    "issue":  558,
+    "family":  "puppet",
+    "chapter":  "The Silhouettes (aurora) - #491/#558: black paper cut-outs under the northern lights; playful, graphic, light and curious - shadow-puppet theatre, a paper-cut picture book",
+    "purpose":  "Master of Game/Music/puppet-harpsichord.ogg, one of the puppet family\u0027s recordings (#558): written from this file by Tools/MusicBake --tracks --masters \u003cthis folder\u003e, brought to the themes\u0027 loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository (C:\\Users\\panrd\\AI\\output\\masters-558 on the desktop); this sidecar is committed beside the .ogg.",
+    "generator":  "ACE-Step 1.5 (acestep.cpp v0.0.5), local, AMD RX 6900 XT via Vulkan -- batch-558.ps1 -\u003e generate-music.ps1 -Loop -NoCotCaption",
+    "format":  "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model\u0027s fixed native rate",
+    "license":  "ACE-Step 1.5: MIT (code and weights)",
+    "request":  {
+                    "caption":  "Playful baroque-pop instrumental: crisp harpsichord arpeggios, pizzicato cello bass, a recorder and oboe melody, light tambourine and soft drums, elegant, witty and bright like a paper cut-out theatre, major key, no vocals",
+                    "lm_negative_prompt":  "vocals, singing, audience applause, crowd noise, live recording, dark ambient drone, heavy distortion",
+                    "instrumental":  true,
+                    "use_cot_caption":  false,
+                    "duration":  120,
+                    "bpm":  110,
+                    "keyscale":  "F major",
+                    "seed":  1909504935,
+                    "inference_steps":  8,
+                    "output_format":  "wav32"
+                },
+    "post_process":  "loop_crossfade.py: a whole-bar loop cut out of the render\u0027s body (the untouched render kept as .raw.wav beside it)",
+    "loop_log":  [
+                     "Wrote C:\\Users\\panrd\\AI\\output\\masters-558\\theme-puppet-harpsichord.wav: 52.4s loop = source 19.79s..72.15s (23.97 bars at 109.9 bpm), crossfade 1.09s | context match 0.866 (best 0.915) | crossfade rhythm r=0.66 vs the track a bar later r=0.61: in time | spectrum cos=0.90"
+                 ],
+    "measured":  "generate-music.ps1 end to end 80.5 s (ace-lm + ace-synth + loop cut), GPU shared with other sessions\u0027 captures",
+    "rendered":  true
+}

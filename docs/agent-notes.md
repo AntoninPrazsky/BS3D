@@ -6320,3 +6320,14 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 - **⚠ Past měření:** okno spuštěné SW_SHOWMINNOACTIVE ve Windows jednou změní velikost (`[camera] … aspect 2,40 → 2,43`) a **do té doby obě varianty měří stejně** (~20 s). Zahodit okna před tou řádkou, ne je průměrovat.
 - Settings: starý soubor majitele (bez `quality`) se načte; `"High"`, `"Ultra"` i holé `7` (JsonStringEnumConverter bere i čísla → dřív index mimo pole) — 7 se teď čte jako nezvoleno, stejný `Enum.IsDefined` na `quality=`. Starší build než #484 `"Ultra"` nepřečte a spadne na defaulty (akceptováno, zapsáno u `GameSettings.Quality`). Seedy `SceneDetail`/`SurfaceDetail` v inicializátorech říkaly `== High`, Ultra by startovalo na redukovaných programech; teď `Low` jako `ApplyQuality`.
 - Fotky ve hře 3840×1600: Basket (poušť) a Elephant (savana), High vs Ultra; u Basket je High main a větve bajtově totožný.
+
+---
+
+## 2026-09-25 — Claude Code, agent #558 (desktop: vlastní hudba pro The Silhouettes — rodina `puppet`)
+
+**The Silhouettes (#491) si půjčovaly Quarryho `lunar`; mají vlastní rodinu `puppet`**, deset nahrávek ACE-Step podle receptu #486. Zadání psané pro charakter kapitoly (stínové divadlo, vystřihovánková obrázková knížka, lehké a zvídavé), všechny F dur: pizzicato a klarinet, gamelan stínového divadla, kapr (caper), kreslená jazzovka, ragtime němého filmu, hračkový pop, barokní cembalo, kalimba, rozverné tango, severský folk pod polární září. `MUSIC_SILHOUETTES = "puppet"`, LevelGen přepsal přesně deset levelů (jen řádek `music`).
+- **Dávka:** `batch-558.ps1` (odvozený z `batch-486.ps1`), spuštěná odpojeně přes `Start-Process powershell -File` s `-RedirectStandardOutput`, mastery v `C:\Users\panrd\AI\output\masters-558`. **Seed se teď losuje v dávce a předává `-Seed`**, takže ho každý sidecar má (v #486 se ztrácel na stderr ace-lm). 10 renderů, 0 selhání; první 260 s (GPU sdílené s capture jiných agentů, ace-lm běžel na ~10 tok/s), další 73–126 s.
+- **QA:** všech deset řezů „in time" (šev r 0,55–0,98 proti vlastní korelaci skladby takt po taktu 0,29–0,82; nejtěsnější cembalo 0,66 vs 0,61), tempo řezu do 1,8 % od zadání (rag 122,1 proti 120), smyčky 45,9–76,8 s, žádný recut ani retake. MusicBake: každá smyčka dekódovaná zpět na přesný počet snímků, zisk −0,3 až −3,4 dB (žádný tichý master zvedaný jako lunarova tři), −12,8 až −13,8 LUFS. 14 MB Ogg.
+- **Ve hře:** `play level=41` → `[music] puppet: puppet.ogg`. LevelGen exit 0, ScoreSim „All levels rate the right way round", Game.sln 0 chyb.
+- ⚠ **Past:** LevelGen zapisuje CRLF a `git status` pak ukáže všech 130 levelů jako změněné; `git add --renormalize Game/Levels` z toho nechá skutečných deset.
+- **Nic jsem neslyšel**; verdikt je majitelovo ucho (poslechová stránka v komentáři na #558). Nahrávka, která se nelíbí = jeden re-render (`batch-558.ps1 -Only <stem>` po smazání masteru).
