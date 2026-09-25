@@ -6502,3 +6502,9 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 - Kvalita: Z-Image bohatší aplikovaný ornament (zlatý pohár) a úplnější prop sheet (#436); klein věrnější zadání (bronz bez uší, vavřínový pás na stříbře) a fotografičtější materiály. Test odtoku: tvarové znění 12/12 u obou, jménem („funnel drain“) martini sklenice 12/12 u obou.
 - ⚠ **klein kreslí falešný watermark/logo do dolních rohů — 9 z 12 ostrovů se semínkem 2**, u semínka 1, pohárů ani střech nikdy. Před předáním reference zkontrolovat rohy (stačí oříznout).
 - `render-references.ps1 -SkipExisting` = obnovitelný sweep; běh detached přes `Start-Process powershell -File`, po pěti promptech, sampler loguje i paměť samotného sd-serveru (`\GPU Process Memory(pid_*)`). Stránka: https://claude.ai/artifact/WrEoKtFx3ytTvVSR9psvF9. Výchozí model zůstává Z-Image, dokud owner nerozhodne.
+
+---
+
+## 2026-09-25 — Claude Code (desktop: #400 čtvrtý průchod — hloubkový review designu, sedm oblastí)
+
+- **Zabráno:** scény + scénické shadery, jádro renderu + `InstancedModel.fx` + post-process, logika a fyzika, herní session a efekty, shell/audio/online, nástroje/Testbed/editor/CI, průřezová architektura. Předchozí tři průchody kontrolovaly dodržování pravidel; tenhle hledá, co udělat jinak nebo refaktorovat. Nálezy půjdou do nových issues odkazujících na #400.
