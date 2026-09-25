@@ -98,14 +98,14 @@ namespace Prazsky.Core.Render
         /// <c>2·√(eyeHeight · Curvature)</c> <b>below</b> the eye — 2.4° at the shipped figures — far under
         /// that line. Neither obvious dial reaches it: raising <see cref="LevelY"/> leaves the skyline below
         /// the deck even with the plain flush against it (0.8° at zero eye height), and slackening
-        /// <see cref="Curvature"/> hits the 500-unit far plane long before the skyline clears. What clears the
+        /// <see cref="Curvature"/> runs the ground out past the grid's own edge long before the skyline clears. What clears the
         /// deck is relief standing <b>above</b> the lens — which is exactly why the atmospheric siblings' ground
         /// is visible at all: the desert's 14-unit dunes crest eight units over the same lens.
         /// </para>
         /// <para>
         /// At 40 the crest stands about 4.5° over the lens — a band of sunlit massifs half again as deep as the
         /// desert's dune skyline. Past the crest the curvature takes back over (quadratic growth against a
-        /// saturated rise), so the elevation falls monotonically outward and the far-plane cut stays hidden
+        /// saturated rise), so the elevation falls monotonically outward and the grid's edge stays hidden
         /// behind the crest.
         /// </para>
         /// </summary>
@@ -118,7 +118,7 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Where the belt reaches <see cref="HighlandHeight"/> — the distance the skyline stands at. Sized
-        /// against the <b>500-unit far plane</b> like <see cref="Curvature"/> is: the crest is the horizon
+        /// against the <b>grid's edge</b> (600 round the lens) like <see cref="Curvature"/> is: the crest is the horizon
         /// here, so it must fall comfortably inside the frustum with the ground it hides behind it.
         /// </summary>
         public float HighlandCrestRadius { get; set; } = 310f;
@@ -126,7 +126,7 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// The fraction of <see cref="HighlandHeight"/> the <b>lowest saddle</b> of the belt keeps, 0–1. Not
         /// zero: a saddle that drops to the plain is a notch the eye looks straight through, onto ground the
-        /// crest exists to occlude — and at a shallow enough angle, that is the far plane's cut. At 0.5 the
+        /// crest exists to occlude — and at a shallow enough angle, that is the grid's edge. At 0.5 the
         /// lowest saddle still stands over a degree above the lens. At 1 the belt is a lathe-turned bowl rim.
         /// </summary>
         public float HighlandSaddleFloor { get; set; } = 0.5f;
@@ -145,9 +145,10 @@ namespace Prazsky.Core.Render
         /// the crest and each ridge is hidden by the one before it.
         /// </para>
         /// <para>
-        /// It is also sized against the <b>Game camera's 500-unit far plane</b>: the ground must close by
-        /// occlusion before the far plane can cut it, or the cut shows through the belt's saddles — dead
-        /// level and camera-locked. Halve it and it does.
+        /// It is also sized against the <b>grid's edge</b>, 600 round the lens: the ground must close by
+        /// occlusion before the grid ends, or the edge shows through the belt's saddles — dead level and
+        /// camera-locked. Halve it and it does. (Until #551 the 500-unit far plane cut first and this said so;
+        /// the far plane is 2000 now, and the Moon takes no far ring, having no air for one to fade into.)
         /// </para>
         /// </summary>
         public float Curvature { get; set; } = 8e-5f;

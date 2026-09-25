@@ -239,8 +239,9 @@ namespace Prazsky.Core.Render
         /// </summary>
         public float DustStrength { get; set; } = 0.62f;
 
-        /// <summary>World distance over which the plain melts into the skyline. Must stay inside the terrain
-        /// grid's half-extent (500), or the mesh's own edge shows against the dome.</summary>
+        /// <summary>World distance over which the plain melts into the skyline. Kept inside the terrain
+        /// grid's half-extent (500), which was what hid the mesh's edge until #551. The land past the grid is the far
+        /// ring now, and this is also where its last fade to the drawn sky begins (FarField.fxh).</summary>
         public float HorizonHazeDistance { get; set; } = 480f;
 
         /// <summary>

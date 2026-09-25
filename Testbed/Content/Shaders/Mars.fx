@@ -44,6 +44,8 @@ float4x4 Projection;
 
 float3 CameraPosition;
 
+#include "FarField.fxh"
+
 //Towards the sun, and the sun's own radiance (the lit-cloud colour the weather uses, tinted by the dome) -
 //shared between the MarsTerrain and MarsMoons techniques, so the moons are lit by the same sun the ground is.
 float3 SunDirection;
@@ -386,6 +388,7 @@ float4 MarsTerrain(MarsTerrainVertexOutput input, bool detail)
     float3 worldPosition = input.WorldPosition;
 
     clip(length(worldPosition.xz) - IslandHoleRadius);
+    FarRingClip(worldPosition.xz);
 
     float dist = distance(CameraPosition, worldPosition);
     float footprint = length(fwidth(worldPosition.xz));
@@ -543,7 +546,7 @@ float4 MarsTerrain(MarsTerrainVertexOutput input, bool detail)
     color = lerp(color, dustLit, DustStrength * haze * haze);
     color = lerp(color, HorizonColor, haze * haze * haze * haze);
 
-    return float4(color, 1.0);
+    return float4(FarFadeToSky(color, worldPosition), 1.0);
 }
 
 //=====================================================================================================

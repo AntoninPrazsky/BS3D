@@ -94,14 +94,14 @@ float CraterAmplitude;
 //Curvature) BELOW the eye - 2.4 degrees at the shipped figures - which is far under that line, so the first
 //build of this scene played as a black sky over bare stone with no ground in it anywhere. Neither obvious dial
 //reaches: raising MoonLevelY keeps the skyline below the deck even with the plain flush against it (0.8 deg at
-//zero eye height), and slackening Curvature runs into the 500-unit far plane long before the skyline clears
+//zero eye height), and slackening Curvature runs the ground out past the grid's edge long before the skyline clears
 //(see the warning on Curvature). What clears the deck is RELIEF THAT STANDS ABOVE THE LENS - which is exactly
 //why the atmospheric siblings' ground is visible at all: the desert's 14-unit dunes crest at y = +0.5, eight
 //units over the same lens.
 //
 //So the mare is a basin with a rim, as most of them are: the ground climbs from HighlandInnerRadius to
 //HighlandCrestRadius, and past the crest the curvature takes over again and closes the horizon as before -
-//quadratic growth against a saturated rise, so the elevation falls monotonically outward and the far-plane cut
+//quadratic growth against a saturated rise, so the elevation falls monotonically outward and the grid's edge
 //stays hidden behind the crest, which is the constraint MOON_EXTENT and Curvature were sized against.
 float HighlandHeight;        //the belt's full rise over the plain at its crest (world units)
 float HighlandInnerRadius;   //where the ground starts to climb - well past the crater plain's clearing ramp
@@ -114,9 +114,9 @@ float HighlandSaddleFloor;   //0..1, the fraction of the height the LOWEST saddl
 //the bulge alone put the horizon 360-450 units out and 2.4 degrees BELOW the play camera's eye, where the
 //island's own deck hides it (the HighlandHeight block has the geometry). What the curvature still does is
 //everything past the crest - quadratic drop against the belt's saturated rise, so the ground's elevation
-//falls monotonically outward from the crest and the far-plane cut stays behind it. That places the cut
-//INSIDE the occluded region, which is the constraint the value is sized against: halve it and the far plane
-//cuts the terrain before the curvature can occlude it, putting a dead-level, camera-locked clip line through
+//falls monotonically outward from the crest and the grid's edge (600 round the lens) stays behind it. That
+//places the edge INSIDE the occluded region, which is the constraint the value is sized against: halve it and
+//the grid ends before the curvature can occlude it (the 500-unit far plane cut first until #551), putting a dead-level, camera-locked clip line through
 //the saddles of the belt (MoonSceneConfig.Curvature carries the same warning).
 float Curvature;
 

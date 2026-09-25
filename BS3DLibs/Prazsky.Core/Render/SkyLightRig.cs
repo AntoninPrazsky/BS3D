@@ -125,6 +125,21 @@ namespace Prazsky.Core.Render
         /// <summary>The dome's horizon colour, decoded to linear. Never overridden by a scene.</summary>
         public Vector3 HorizonLinear { get; private set; }
 
+        //The table FarField.fxh reads the drawn dome from, over direction.y (#551): its FAR_SKY_STEPS, FAR_SKY_Y0 and
+        //FAR_SKY_DY, which must match. Eight steps of 0.05 run from 5.7 degrees below the horizon to 11.5 above it,
+        //which holds every direction a far ground reaches the fade in; past either end the shader clamps.
+        public const int FAR_SKY_STEPS = 9;
+        private const float FAR_SKY_Y0 = -0.10f;
+        private const float FAR_SKY_DY = 0.05f;
+
+        /// <summary>
+        /// The colour the dome is actually DRAWN in along the lowest directions, in linear radiance, filled by
+        /// <see cref="SetSky"/> and handed to the open-ground scenes through <see cref="SceneFrame.FarSky"/> — what
+        /// their far ground fades into so it disappears into the sky rather than ending against it (#551). One array
+        /// for the rig's life, so a frame carries a reference and allocates nothing.
+        /// </summary>
+        public Vector3[] FarSky { get; } = new Vector3[FAR_SKY_STEPS];
+
         /// <summary>Hemisphere ambient from above, after the zenith scale, the overcast lerp and any scene
         /// override.</summary>
         public Vector3 SkyAmbient { get; private set; }
@@ -192,6 +207,9 @@ namespace Prazsky.Core.Render
             ZenithLinear = ColorSpace.SrgbToLinear(sky.ZenithColor);
             HorizonLinear = ColorSpace.SrgbToLinear(sky.HorizonColor);
             _domeSunDirection = sky.SunDirection;
+
+            for (int i = 0; i < FAR_SKY_STEPS; i++)
+                FarSky[i] = sky.DrawnLinearAt(FAR_SKY_Y0 + i * FAR_SKY_DY);
 
             Derive();
         }
@@ -422,6 +440,6 @@ namespace Prazsky.Core.Render
         /// moving while the simulation is paused. It must be the same clock the scene's point lights are given,
         /// or the campfire's light and its flame billboard fall out of step.</param>
         public SceneFrame BuildSceneFrame(ICamera camera, float time) =>
-            new(camera, SunDirection, ZenithLinear, HorizonLinear, SunRadianceTinted, time, CloudHook);
+            new(camera, SunDirection, ZenithLinear, HorizonLinear, SunRadianceTinted, time, CloudHook, FarSky);
     }
 }

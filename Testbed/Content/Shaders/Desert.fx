@@ -52,6 +52,8 @@ float4x4 Projection;
 
 float3 CameraPosition;
 
+#include "FarField.fxh"
+
 //Towards the sun, and the sun's own radiance (the lit-cloud color the weather uses, tinted by the dome)
 float3 SunDirection;
 float3 SunColor;
@@ -418,6 +420,7 @@ float4 DesertPS(DesertVertexOutput input) : COLOR
 
     //Cut the island's footprint out of the terrain (see IslandHoleRadius). 0 in the map editor keeps it all.
     clip(length(worldPosition.xz) - IslandHoleRadius);
+    FarRingClip(worldPosition.xz);
 
     float dist = distance(CameraPosition, worldPosition);
     float footprint = length(fwidth(worldPosition.xz));
@@ -540,7 +543,7 @@ float4 DesertPS(DesertVertexOutput input) : COLOR
     float haze = saturate(dist / HorizonHazeDistance);
     color = lerp(color, murk, haze * haze);
 
-    return float4(color, 1.0);
+    return float4(FarFadeToSky(color, worldPosition), 1.0);
 }
 
 technique Desert

@@ -422,6 +422,16 @@ namespace Prazsky.Core
             }
         }
 
+        /// <summary>
+        /// The colour the dome is DRAWN in, in linear radiance, looking along a direction whose height is
+        /// <paramref name="directionY"/> (-1 straight down, 1 straight up) — the ramp every drawn vertex takes its
+        /// colour from, read where a vertex in that direction stands. Not <see cref="HorizonColor"/>, which is the
+        /// rig's average over the capture's bottom fifth and can be another hue than the sky at the horizon (Mars's
+        /// is yellow under a pink one). This is what a far terrain has to fade into to disappear (#551).
+        /// </summary>
+        public Vector3 DrawnLinearAt(float directionY) =>
+            Tools.ColorSpace.SrgbToLinear(SampleRamp(directionY * DOME_RADIUS));
+
         /// <summary>The ramp read at one world height, between the two entries straddling it.</summary>
         private Vector3 SampleRamp(float y)
         {
