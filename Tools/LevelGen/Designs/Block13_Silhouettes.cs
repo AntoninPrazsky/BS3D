@@ -77,12 +77,15 @@ namespace BS3D.Tools.LevelGen
             //the Gallery's full rectangle, and on the three shortest walls (Fish, Key, Rocket) the band of check
             //under the drawing hung by nothing but the margins once the black went: the probe cleared the body
             //in one or two shots and the band swung down through the line - "sagged with the glass at rest", 4
-            //of 5 runs on Fish and Rocket. Moon and Paw in the Gallery carry the same band and the same finding
-            //(3 and 2 of 5), which is why this is written here rather than as a fix to one bitmap. Holes inside
-            //a shape (the key's bow, the teapot's handle) are under ink too, so they come out as real holes.
+            //of 5 runs on Fish and Rocket. Moon and Paw in the Gallery carried the same band and the same finding
+            //(3 and 2 of 5), and #556 cut theirs - and Elephant's and Balloon's - in their bitmaps, with
+            //PICTURE_EMPTY, since the Gallery's walls are each shaped by hand. Holes inside a shape (the key's
+            //bow, the teapot's handle) are under ink too, so they come out as real holes. PICTURE_EMPTY is
+            //honoured here as it is in Picture, so a hand-cut hole in a silhouette's bitmap is a hole too.
             string[] drawing = bitmap;
             design.OccupiedBlock = (x, z, i, d) =>
                 OnWall(x, z, i, d, drawing[0].Length, design.Grid, out int column, out int row)
+                && PixelAt(drawing, column, row) != PICTURE_EMPTY
                 && !UnderInk(drawing, column, row);
 
             return design;

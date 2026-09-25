@@ -1163,6 +1163,11 @@ namespace BS3D.Tools.LevelGen
                 SagProbe.Run[] runs = SagProbe.Play(path, shots, ceilingStep, trace: only.Length == 1);
                 SagProbe.Run worst = SagProbe.Worst(runs);
                 int sags = runs.Count(r => r.Outcome == SagProbe.Outcome.Sagged);
+                //PRINTED, NOT THRESHOLDED (#556): how many of those losses came with the glass still at rest. A
+                //second, lower threshold on this count was measured over the whole pack and refused - Amphora, the
+                //calibration's known-finishable level, loses 4 of 5 all at rest, so any threshold low enough to
+                //name Moon names it too. See "The sag gate" in docs/formats-and-tools.md.
+                int restSags = runs.Count(r => r.Outcome == SagProbe.Outcome.Sagged && !r.CeilingHadMoved);
 
                 //HOW OFTEN, not whether - the fraction is the reading, because "some order loses this level"
                 //turned out to be true of levels that play perfectly well. The threshold is calibrated against
@@ -1185,7 +1190,7 @@ namespace BS3D.Tools.LevelGen
                 int[] cleared = runs.Where(r => r.Outcome == SagProbe.Outcome.Cleared).Select(r => r.Shots).ToArray();
                 int? margin = entry.Shots.HasValue && cleared.Length > 0 ? entry.Shots.Value - cleared.Max() : null;
 
-                Console.WriteLine($"  {i + 1,2}. {entry.Name,-12} sagged {sags} of {runs.Length}; worst: "
+                Console.WriteLine($"  {i + 1,2}. {entry.Name,-12} sagged {sags} of {runs.Length} ({restSags} at rest); worst: "
                     + $"{worst.Outcome,-11} after {worst.Shots,3} shot(s) of "
                     + $"{(entry.Shots.HasValue ? entry.Shots.Value.ToString() : "∞"),3}"
                     + $", closest the line came {worst.WorstClearance,6:F2}"
