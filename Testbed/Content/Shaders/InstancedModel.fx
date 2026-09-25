@@ -48,6 +48,23 @@ float4x4 Projection;
 //Absolute transform of the mesh parent bone, applied before the per-instance world matrix
 float4x4 Bone;
 
+//An object-space normal into world space through the bone and the instance's world matrix. By the COFACTOR of
+//the world matrix's 3x3 rather than by the matrix itself (#569): the two agree for a rotation and a uniform
+//scale, which is all most instances carry, but the shot in flight is stretched along its path
+//(BallRenderSet.StretchAlong, up to 1.5x) and a building's box is scaled per axis, and a normal pushed through
+//a non-uniform scale leans towards the stretched axis - 22 degrees off at the shot's full stretch. The cofactor
+//is the inverse transpose times the determinant, and the result is normalised, so only the determinant's SIGN
+//survives - and it is put back, so a mirrored instance (negative determinant) is not turned inside out. Three
+//cross products a vertex.
+float3 NormalToWorld(float3 objectNormal, float4x4 world)
+{
+    float3 n = mul(float4(objectNormal, 0), Bone).xyz;
+    float3 r0 = world[0].xyz, r1 = world[1].xyz, r2 = world[2].xyz;
+    float3 c0 = cross(r1, r2);
+    float3 normal = n.x * c0 + n.y * cross(r2, r0) + n.z * cross(r0, r1);
+    return normalize(dot(r0, c0) < 0.0 ? -normal : normal);
+}
+
 float3 EyePosition;
 
 //Material of the mesh part being drawn
@@ -142,8 +159,7 @@ VertexShaderOutput MainVS(VertexShaderInput input, InstanceInput instance)
 
     output.WorldPosition = worldPosition.xyz;
     output.Position = mul(mul(worldPosition, View), Projection);
-    //Bone and instance transforms are rotation + translation (+ uniform scale at most), so the adjoint transpose is not needed
-    output.WorldNormal = mul(mul(float4(input.Normal, 0), Bone), world).xyz;
+    output.WorldNormal = NormalToWorld(input.Normal, world);
     output.OcclusionData = instance.Custom;
 
     return output;
@@ -996,7 +1012,7 @@ TexturedVertexShaderOutput TexturedVS(TexturedVertexShaderInput input, InstanceI
 
     output.WorldPosition = worldPosition.xyz;
     output.Position = mul(mul(worldPosition, View), Projection);
-    output.WorldNormal = mul(mul(float4(input.Normal, 0), Bone), world).xyz;
+    output.WorldNormal = NormalToWorld(input.Normal, world);
     output.OcclusionData = instance.Custom;
     output.TexCoord = input.TexCoord;
 
@@ -1284,7 +1300,7 @@ PatternVertexShaderOutput PatternVS(VertexShaderInput input, InstanceInput insta
     output.ObjectPosition = bonePosition.xyz;
     output.WorldPosition = worldPosition.xyz;
     output.Position = mul(mul(worldPosition, View), Projection);
-    output.WorldNormal = mul(mul(float4(input.Normal, 0), Bone), world).xyz;
+    output.WorldNormal = NormalToWorld(input.Normal, world);
     output.OcclusionData = instance.Custom;
     output.Dissolve = instance.Dissolve;
     output.Ripple = instance.Ripple;
@@ -4210,7 +4226,7 @@ PatternVertexShaderOutput StoneVS(VertexShaderInput input, InstanceInput instanc
     output.ObjectPosition = carved;
     output.WorldPosition = worldPosition.xyz;
     output.Position = mul(mul(worldPosition, View), Projection);
-    output.WorldNormal = mul(mul(float4(objectNormal, 0), Bone), world).xyz;
+    output.WorldNormal = NormalToWorld(objectNormal, world);
     output.OcclusionData = instance.Custom;
     output.Dissolve = instance.Dissolve;
     output.Ripple = instance.Ripple;
@@ -5387,7 +5403,7 @@ PatternVertexShaderOutput FrozenVS(VertexShaderInput input, InstanceInput instan
     output.ObjectPosition = cut;
     output.WorldPosition = worldPosition.xyz;
     output.Position = mul(mul(worldPosition, View), Projection);
-    output.WorldNormal = mul(mul(float4(objectNormal, 0), Bone), world).xyz;
+    output.WorldNormal = NormalToWorld(objectNormal, world);
     output.OcclusionData = instance.Custom;
     output.Dissolve = instance.Dissolve;
     output.Ripple = instance.Ripple;
@@ -6491,7 +6507,7 @@ CityVSOutput CityVS(VertexShaderInput input, InstanceInput instance)
 
     output.WorldPosition = worldPosition.xyz;
     output.Position = mul(mul(worldPosition, View), Projection);
-    output.WorldNormal = mul(mul(float4(input.Normal, 0), Bone), world).xyz;
+    output.WorldNormal = NormalToWorld(input.Normal, world);
     output.OcclusionData = instance.Custom;
 
     float3 center = mul(mul(float4(0, 0, 0, 1), Bone), world).xyz;
