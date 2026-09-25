@@ -697,7 +697,11 @@ namespace BS3D
         /// clearing where the tour's spline never goes, and the shots thread the very spruces this game
         /// planted, off the planting itself. And since #559 the open-ground scenes, each off its own land — the
         /// meadow, the savanna, the forest and the tropical beach through <c>IntroGround</c>, off the land's
-        /// height mirror and the scene's own planting.
+        /// height mirror and the scene's own planting — and four scenes whose things a shader builds: the
+        /// dream's glass and orbs, the cavern's crystals and god rays, the storm's cells and its strike, the
+        /// icesheet's crevasses and front, found through the renderer's host copies of the shaders' own
+        /// placement; the dream's and the storm's subjects move, so theirs are laid out on the wall clock they
+        /// will play in.
         /// </summary>
         /// <param name="fieldOfView">The frame the tour ends on, which each shot widens from.</param>
         /// <param name="random">The intro's own roll.</param>
@@ -719,6 +723,10 @@ namespace BS3D
             SceneKind.Forest => BS3D.Effects.ForestIntroShots.Build(_forestScatter,
                 _sceneRenderer?.GetSceneConfig(SceneKind.Forest) as ForestSceneConfig, fieldOfView, random),
             SceneKind.Tropical => BS3D.Effects.TropicalIntroShots.Build(_sceneRenderer, fieldOfView, random),
+            SceneKind.Dream => BS3D.Effects.DreamIntroShots.Build(_sceneRenderer, _wallClock, fieldOfView, random),
+            SceneKind.Cavern => BS3D.Effects.CavernIntroShots.Build(_sceneRenderer, fieldOfView, random),
+            SceneKind.Storm => BS3D.Effects.StormIntroShots.Build(_sceneRenderer, _wallClock, fieldOfView, random),
+            SceneKind.Polar => BS3D.Effects.PolarIntroShots.Build(_sceneRenderer, fieldOfView, random),
             _ => null,
         };
 

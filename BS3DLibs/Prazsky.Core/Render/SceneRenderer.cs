@@ -672,6 +672,10 @@ namespace Prazsky.Core.Render
         //nothing for its glow to light - which is most of what the flash is.
         private Vector2[] _stormStrikeCells = System.Array.Empty<Vector2>();
 
+        //Each cell's body beside it — (base height, radius, height) — for a lens that has to keep out of the
+        //cells (the chapter intro's prologue, #559). Built with the field, read through StormCell.
+        private Vector3[] _stormCellBodies = System.Array.Empty<Vector3>();
+
         private VertexBuffer _stormCloudVertexBuffer;
         private IndexBuffer _stormCloudIndexBuffer;
         private int _stormCloudPuffCount;
@@ -2815,6 +2819,7 @@ namespace Prazsky.Core.Render
             //Every cell's middle where it was BUILT: a strike picks one and asks StormCellPosition where it
             //stands now, so the list is the whole field and the reach test waits until then (#532).
             Vector2[] strikeCells = new Vector2[massCount];
+            Vector3[] cellBodies = new Vector3[massCount];
 
             int puff = 0;
             for (int m = 0; m < massCount; m++)
@@ -2835,6 +2840,7 @@ namespace Prazsky.Core.Render
 
                 float massRadius = Lerp(c.MassRadiusMin, MathF.Max(c.MassRadiusMax, c.MassRadiusMin), (float)rng.NextDouble());
                 float massHeight = massRadius * Lerp(c.HeightScaleMin, MathF.Max(c.HeightScaleMax, c.HeightScaleMin), (float)rng.NextDouble());
+                cellBodies[m] = new Vector3(centre.Y, massRadius, massHeight);
 
                 for (int k = 0; k < perMass; k++)
                 {
@@ -2889,6 +2895,7 @@ namespace Prazsky.Core.Render
             _stormCloudVertexBuffer.SetData(vertices);
             _stormCloudIndexBuffer = BuildQuadIndexBuffer(_stormCloudPuffCount);
             _stormStrikeCells = strikeCells;
+            _stormCellBodies = cellBodies;
         }
 
         /// <summary>
@@ -4107,6 +4114,119 @@ namespace Prazsky.Core.Render
         /// few units more than the picture suggests.
         /// </summary>
         public float VolcanoGroundHeight(float x, float z) => VolcanoGroundY(x, z);
+
+        #region Where the strange scenes' things stand (#559)
+
+        //The chapter intro's prologue (#559) takes each shot of ONE concrete thing a scene builds, and four of
+        //the scenes build theirs in a shader: the dream's glass solids and orbs, the cavern's crystal clusters
+        //and god rays, the icesheet's crevasses and pressure front. These are the host copies of the shaders'
+        //own placement, kept in step by hand exactly as StormCellPosition is with StormClouds.fx — a camera
+        //aimed where the shader does not draw frames empty sky. Nothing here runs per frame; the intro asks
+        //once when it begins.
+
+        /// <summary>How many glass solids <c>Dream.fx</c> draws (its <c>SHAPE_COUNT</c>).</summary>
+        public const int DREAM_SOLID_COUNT = 8;
+
+        /// <summary>How many soft orbs <c>Dream.fx</c> draws (its <c>ORB_COUNT</c>).</summary>
+        public const int DREAM_ORB_COUNT = 7;
+
+        /// <summary>
+        /// Where the dream's glass solid <paramref name="index"/> stands at a wall-clock time: <c>Dream.fx</c>'s
+        /// <c>ShapeCenter</c>, with <paramref name="bound"/> the radius its march is gated on (<c>ShapeSize</c>
+        /// × 1.9), which the morph never leaves.
+        /// </summary>
+        public Vector3 DreamSolidCenter(int index, float time, out float bound)
+        {
+            float i = index;
+            float orbit = _dreamConfig.Shapes.OrbitRadius;
+            float a = time * (0.020f + 0.011f * Frac(i * 0.371f)) + i * 2.399f;
+            float r = orbit * (0.78f + 0.22f * MathF.Sin(i * 5.3f));
+            float y = 26f + 46f * MathF.Sin(time * 0.013f + i * 2.7f);
+
+            bound = _dreamConfig.Shapes.Size * 1.9f;
+            return new Vector3(MathF.Cos(a) * r, y, MathF.Sin(a) * r);
+        }
+
+        /// <summary>
+        /// Where the dream's soft orb <paramref name="index"/> stands at a wall-clock time — <c>Dream.fx</c>'s
+        /// orb loop — and its glow radius. An orb is a closest-approach gaussian with no surface, so a lens
+        /// near it is inside light, not inside geometry.
+        /// </summary>
+        public Vector3 DreamOrbCenter(int index, float time, out float radius)
+        {
+            float o = index;
+            float orbit = _dreamConfig.Shapes.OrbitRadius * 1.25f;
+
+            radius = _dreamConfig.Glows.OrbRadius * (0.7f + 0.3f * MathF.Sin(o * 7f));
+            return new Vector3(
+                MathF.Cos(time * 0.009f + o * 2.1f) * orbit,
+                15f + 60f * MathF.Sin(time * 0.007f + o * 3.3f),
+                MathF.Sin(time * 0.011f + o * 1.3f) * orbit);
+        }
+
+        /// <summary>How many crystal clusters <c>Cavern.fx</c> draws (its <c>CRYSTAL_COUNT</c>).</summary>
+        public const int CAVERN_CRYSTAL_COUNT = 8;
+
+        /// <summary>How many god rays <c>Cavern.fx</c> draws (its <c>RAY_COUNT</c>).</summary>
+        public const int CAVERN_RAY_COUNT = 4;
+
+        /// <summary>
+        /// Where the cavern's crystal cluster <paramref name="index"/> grows: <c>Cavern.fx</c>'s
+        /// <c>CrystalCenter</c>, on the wall at 0.965 of the cave's radius. Its three octahedra reach about
+        /// ten units out of that point sideways and some twenty-five up and down.
+        /// </summary>
+        public Vector3 CavernCrystalCenter(int index)
+        {
+            float k = index;
+            float angle = k * 2.39996f + 0.7f;
+            float radius = _cavernConfig.Rock.CaveRadius * 0.965f;
+            float y = _cavernConfig.Water.LevelY + 6f + (k * 37f) % 70f;
+
+            return new Vector3(MathF.Cos(angle) * radius, y, MathF.Sin(angle) * radius);
+        }
+
+        /// <summary>
+        /// Where the cavern's god ray <paramref name="index"/> falls, in the XZ plane: <c>Cavern.fx</c>'s
+        /// vertical shaft from the ceiling towards the river.
+        /// </summary>
+        public Vector2 CavernGodRayXZ(int index)
+        {
+            float r = index;
+            float angle = r * 1.62f + 0.4f;
+            float radius = _cavernConfig.Rock.CaveRadius * (0.30f + 0.14f * Frac(r * 0.53f));
+
+            return new Vector2(MathF.Cos(angle) * radius, MathF.Sin(angle) * radius);
+        }
+
+        /// <summary>How many cumulus cells the storm's field was built with.</summary>
+        public int StormCellCount => _stormStrikeCells.Length;
+
+        /// <summary>
+        /// Storm cell <paramref name="index"/> at a wall-clock time: its foot (the middle of its base, where
+        /// <see cref="StormCellPosition"/> has carried it), its radius and its height. A puff stands up to
+        /// the radius × 1.58 out from the middle (the ring plus its own disc) and up to the height plus
+        /// about half the radius above the foot — the body a lens has to keep out of.
+        /// </summary>
+        public Vector3 StormCell(int index, float time, out float radius, out float height)
+        {
+            Vector3 body = _stormCellBodies[index];
+            Vector2 at = StormCellPosition(_stormStrikeCells[index], time);
+
+            radius = body.Y;
+            height = body.Z;
+            return new Vector3(at.X, body.X, at.Y);
+        }
+
+        /// <summary>The icesheet's height at a world point, for a lens path over it: <see cref="TerrainMirror.Polar"/> on the live config.</summary>
+        public float PolarGroundHeight(float x, float z) => TerrainMirror.Polar(x, z, _polarConfig);
+
+        /// <summary>How deep into a crevasse slot a point stands, 0–1: <see cref="TerrainMirror.PolarCrevasse"/> on the live config.</summary>
+        public float PolarCrevasse(float x, float z) => TerrainMirror.PolarCrevasse(x, z, _polarConfig);
+
+        /// <summary>How much of the pressure front stands at a point, 0–1: <see cref="TerrainMirror.PolarRidge"/> on the live config.</summary>
+        public float PolarRidgeAt(float x, float z) => TerrainMirror.PolarRidge(x, z, _polarConfig);
+
+        #endregion
 
         /// <summary>
         /// The volcano's ground height at a world point: <c>Volcano.fx</c>'s <c>TerrainHeight</c> without its

@@ -6416,3 +6416,14 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 - **Cena (RX 6900 XT, 1920×1080 ssaa 2, `alt=glassshadow=0;glassshadow=1`, 30 cyklů):** savana herní pohled +0,06 ms (90 % znaménko, jediný běh bez cizích exáčů), louka +0,07 (70 %), pohled na stín +0,04 (93 %) — **≈ +0,05 ms**. Na APU neměřeno.
 - ⚠ **Past se snímky ze hry:** `SW_SHOWMINNOACTIVE` občas nechá hru s nulovým back bufferem a `shot=` pak tiše nevyfotí (114 řádků `[fps]`, žádný `[shot]`). Pomohlo spouštět s `wShowWindow = 4` (SW_SHOWNOACTIVATE — okno se ukáže, fokus nebere) a dát víc časů `shot=28,29,31,34`.
 - Před/po: https://claude.ai/artifact/TpA7SftemoHM6z2Y2mHBLx (hra z origin/main `e1af0e46` v detached worktree, Testbed `glassshadow=0/1` v tomtéž buildu).
+
+---
+
+## 2026-09-25 — Claude Code, agent #559-d (desktop: #559 — úvodní prology snu, jeskyně, bouře a ledovce)
+
+- **Co:** čtyři scény, jejichž věci staví jen shader, dostaly prolog ze tří střihových záběrů (první celkový) a pak poslední úsek tour, 14,1 s: `DreamIntroShots` (ostrov v mramorové obloze / skleněné těleso / koule světla), `CavernIntroShots` (jeskyně ze stěny / nízko nad řekou na krystal / jeřáb podél božího paprsku do světlušek), `StormIntroShots` (paluba / nad vrcholky oblaků / buňka, kde udeří blesk), `PolarIntroShots` (ledovec za ostrovem / trhliny / truck podél tlakového valu).
+- **Nové:** `SceneRenderer` region „Where the strange scenes' things stand“ — host kopie umístění ze shaderů (`DreamSolidCenter`, `DreamOrbCenter`, `CavernCrystalCenter`, `CavernGodRayXZ`, `StormCell` s tělem buňky uloženým při stavbě pole); `TerrainMirror.Polar`/`PolarCrevasse`/`PolarRidge` na `ShaderMath`; `IntroShot` umí **pohyblivý look-at** (`lookAtPath`).
+- **Blesk se chytá, ne čeká:** záblesk je čistá funkce hodin (`TryGetSceneEvent`), builder najde úder v okně prologu a natáhne první dva záběry (2,6–4,4 s), aby třetí začal ~1,2 s před ním. Na denním dómu menu je vidět záře v buňce, samotný kanál jsem při vzorkování 0,1 s nechytil.
+- ⚠ **Past (sen):** sen nepíše hloubku, ostrov se kreslí přes každé těleso za ním. První záběr koule mířil jen podle přímky od arény; koule blízko osy dala start dolly za ostrovem a ostrov projel záběrem zespodu. Teď oba pohyblivé záběry odmítají arénu do 50° od osy pohledu.
+- ⚠ **Past (ledovec):** truck 90 před hřebenem měl v jednom losu ze tří desky na dosah — val je 70 široký na obě strany a hřeben bloudí; teď 130.
+- **Foceno** přes `tour` na sceneseed 1–3 (bouře po 0,5 s, kolem úderu po 0,1 s) a na skutečných otevřeních `level=51` a `level=121` až po dělo. Stránka: https://claude.ai/artifact/LM2EEzSiWtkaBMMQtyxJLL. Neověřeno v pohybu.

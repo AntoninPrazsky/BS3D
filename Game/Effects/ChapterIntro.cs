@@ -169,8 +169,8 @@ namespace BS3D.Effects
         /// </para>
         /// <para>
         /// <paramref name="prologue"/> is the scene's own shots to cut together ahead of the tour (#488), or
-        /// null for a scene that has none — every scene but the two cities, the volcano (#530) and the aurora
-        /// (#531).
+        /// null for a scene that has none — <c>BS3DGame.IntroPrologue</c> is the one list of which do, and since
+        /// #559 it is most of them, so it is not repeated here to go stale.
         /// </para>
         /// </summary>
         public void Begin(Vector3 centre, float gameDistance, float gameFov,
