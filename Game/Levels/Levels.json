@@ -323,11 +323,91 @@
       "ceilingStep": 5
     },
     {
+      "file": "Fish.json",
+      "name": "Fish",
+      "block": "The Silhouettes",
+      "shots": 60,
+      "minStars": 78,
+      "ceilingStep": 10
+    },
+    {
+      "file": "Umbrella.json",
+      "name": "Umbrella",
+      "block": "The Silhouettes",
+      "shots": 58,
+      "minStars": 80,
+      "ceilingStep": 10
+    },
+    {
+      "file": "Bell.json",
+      "name": "Bell",
+      "block": "The Silhouettes",
+      "shots": 56,
+      "minStars": 82,
+      "ceilingStep": 9
+    },
+    {
+      "file": "Cat.json",
+      "name": "Cat",
+      "block": "The Silhouettes",
+      "shots": 54,
+      "minStars": 84,
+      "ceilingStep": 9
+    },
+    {
+      "file": "Teapot.json",
+      "name": "Teapot",
+      "block": "The Silhouettes",
+      "shots": 54,
+      "minStars": 86,
+      "ceilingStep": 9
+    },
+    {
+      "file": "Key.json",
+      "name": "Key",
+      "block": "The Silhouettes",
+      "shots": 50,
+      "minStars": 88,
+      "ceilingStep": 10
+    },
+    {
+      "file": "Rocket.json",
+      "name": "Rocket",
+      "block": "The Silhouettes",
+      "shots": 50,
+      "minStars": 90,
+      "ceilingStep": 9
+    },
+    {
+      "file": "Coronet.json",
+      "name": "Coronet",
+      "block": "The Silhouettes",
+      "shots": 50,
+      "minStars": 92,
+      "ceilingStep": 8
+    },
+    {
+      "file": "Guitar.json",
+      "name": "Guitar",
+      "block": "The Silhouettes",
+      "shots": 48,
+      "minStars": 94,
+      "ceilingStep": 8
+    },
+    {
+      "file": "Anchor.json",
+      "name": "Anchor",
+      "block": "The Silhouettes",
+      "shots": 44,
+      "minStars": 96,
+      "ceilingStep": 8
+    },
+    {
       "file": "Eleven.json",
       "name": "Onion",
       "block": "The Reveal",
       "shots": 48,
-      "minStars": 78,
+      "minStars": 98,
       "ceilingStep": 8
     },
     {
@@ -335,7 +415,7 @@
       "name": "Chest",
       "block": "The Reveal",
       "shots": 56,
-      "minStars": 80,
+      "minStars": 100,
       "ceilingStep": 12
     },
     {
@@ -343,7 +423,7 @@
       "name": "Fossil",
       "block": "The Reveal",
       "shots": 36,
-      "minStars": 82,
+      "minStars": 102,
       "ceilingStep": 9
     },
     {
@@ -351,7 +431,7 @@
       "name": "Mango",
       "block": "The Reveal",
       "shots": 36,
-      "minStars": 84,
+      "minStars": 104,
       "ceilingStep": 7
     },
     {
@@ -359,7 +439,7 @@
       "name": "Spark",
       "block": "The Reveal",
       "shots": 42,
-      "minStars": 86,
+      "minStars": 106,
       "ceilingStep": 8
     },
     {
@@ -367,7 +447,7 @@
       "name": "Grotto",
       "block": "The Reveal",
       "shots": 52,
-      "minStars": 88,
+      "minStars": 108,
       "ceilingStep": 10
     },
     {
@@ -375,7 +455,7 @@
       "name": "Scales",
       "block": "The Reveal",
       "shots": 44,
-      "minStars": 90,
+      "minStars": 110,
       "ceilingStep": 8
     },
     {
@@ -383,7 +463,7 @@
       "name": "Spring",
       "block": "The Reveal",
       "shots": 48,
-      "minStars": 92,
+      "minStars": 112,
       "ceilingStep": 9
     },
     {
@@ -391,7 +471,7 @@
       "name": "Ship",
       "block": "The Reveal",
       "shots": 54,
-      "minStars": 94,
+      "minStars": 114,
       "ceilingStep": 10
     },
     {
@@ -399,7 +479,7 @@
       "name": "Lantern",
       "block": "The Reveal",
       "shots": 58,
-      "minStars": 96,
+      "minStars": 116,
       "ceilingStep": 7
     },
     {
@@ -407,7 +487,7 @@
       "name": "Mosaic",
       "block": "The Quarry",
       "shots": 40,
-      "minStars": 98,
+      "minStars": 118,
       "ceilingStep": 8
     },
     {
@@ -415,7 +495,7 @@
       "name": "Prism",
       "block": "The Quarry",
       "shots": 30,
-      "minStars": 100,
+      "minStars": 120,
       "ceilingStep": 6
     },
     {
@@ -423,7 +503,7 @@
       "name": "Hopper",
       "block": "The Quarry",
       "shots": 46,
-      "minStars": 102,
+      "minStars": 122,
       "ceilingStep": 6
     },
     {
@@ -431,7 +511,7 @@
       "name": "Trilithon",
       "block": "The Quarry",
       "shots": 30,
-      "minStars": 104,
+      "minStars": 124,
       "ceilingStep": 5
     },
     {
@@ -439,7 +519,7 @@
       "name": "Gantry",
       "block": "The Quarry",
       "shots": 48,
-      "minStars": 106,
+      "minStars": 126,
       "ceilingStep": 6
     },
     {
@@ -447,7 +527,7 @@
       "name": "Fault",
       "block": "The Quarry",
       "shots": 46,
-      "minStars": 108,
+      "minStars": 128,
       "ceilingStep": 6
     },
     {
@@ -455,7 +535,7 @@
       "name": "Crib",
       "block": "The Quarry",
       "shots": 60,
-      "minStars": 110,
+      "minStars": 130,
       "ceilingStep": 6
     },
     {
@@ -463,7 +543,7 @@
       "name": "Highwall",
       "block": "The Quarry",
       "shots": 44,
-      "minStars": 112,
+      "minStars": 132,
       "ceilingStep": 7
     },
     {
@@ -471,7 +551,7 @@
       "name": "Static",
       "block": "The Quarry",
       "shots": 34,
-      "minStars": 114,
+      "minStars": 134,
       "ceilingStep": 5
     },
     {
@@ -479,7 +559,7 @@
       "name": "Colossus",
       "block": "The Quarry",
       "shots": 45,
-      "minStars": 116,
+      "minStars": 136,
       "ceilingStep": 4
     },
     {
@@ -487,7 +567,7 @@
       "name": "Comet",
       "block": "The Nebula",
       "shots": 56,
-      "minStars": 118,
+      "minStars": 138,
       "ceilingStep": 6
     },
     {
@@ -495,7 +575,7 @@
       "name": "Vortex",
       "block": "The Nebula",
       "shots": 64,
-      "minStars": 120,
+      "minStars": 140,
       "ceilingStep": 6
     },
     {
@@ -503,7 +583,7 @@
       "name": "Carousel",
       "block": "The Nebula",
       "shots": 72,
-      "minStars": 122,
+      "minStars": 142,
       "ceilingStep": 5
     },
     {
@@ -511,7 +591,7 @@
       "name": "Wishbone",
       "block": "The Nebula",
       "shots": 54,
-      "minStars": 124,
+      "minStars": 144,
       "ceilingStep": 5
     },
     {
@@ -519,7 +599,7 @@
       "name": "Sail",
       "block": "The Nebula",
       "shots": 56,
-      "minStars": 126,
+      "minStars": 146,
       "ceilingStep": 6
     },
     {
@@ -527,7 +607,7 @@
       "name": "Analemma",
       "block": "The Nebula",
       "shots": 58,
-      "minStars": 128,
+      "minStars": 148,
       "ceilingStep": 5
     },
     {
@@ -535,7 +615,7 @@
       "name": "Binary",
       "block": "The Nebula",
       "shots": 60,
-      "minStars": 130,
+      "minStars": 150,
       "ceilingStep": 5
     },
     {
@@ -543,7 +623,7 @@
       "name": "Kepler",
       "block": "The Nebula",
       "shots": 54,
-      "minStars": 132,
+      "minStars": 152,
       "ceilingStep": 4
     },
     {
@@ -551,7 +631,7 @@
       "name": "Garland",
       "block": "The Nebula",
       "shots": 54,
-      "minStars": 134,
+      "minStars": 154,
       "ceilingStep": 4
     },
     {
@@ -559,7 +639,7 @@
       "name": "Orrery",
       "block": "The Nebula",
       "shots": 72,
-      "minStars": 136,
+      "minStars": 156,
       "ceilingStep": 14
     },
     {
@@ -567,7 +647,7 @@
       "name": "Breach",
       "block": "The Eruption",
       "shots": 70,
-      "minStars": 138,
+      "minStars": 158,
       "ceilingStep": 16
     },
     {
@@ -575,7 +655,7 @@
       "name": "Meander",
       "block": "The Eruption",
       "shots": 52,
-      "minStars": 140,
+      "minStars": 160,
       "ceilingStep": 8
     },
     {
@@ -583,7 +663,7 @@
       "name": "Volley",
       "block": "The Eruption",
       "shots": 52,
-      "minStars": 142,
+      "minStars": 162,
       "ceilingStep": 8
     },
     {
@@ -591,7 +671,7 @@
       "name": "Plume",
       "block": "The Eruption",
       "shots": 56,
-      "minStars": 144,
+      "minStars": 164,
       "ceilingStep": 12
     },
     {
@@ -599,7 +679,7 @@
       "name": "Vent",
       "block": "The Eruption",
       "shots": 46,
-      "minStars": 146,
+      "minStars": 166,
       "ceilingStep": 9
     },
     {
@@ -607,7 +687,7 @@
       "name": "Sill",
       "block": "The Eruption",
       "shots": 50,
-      "minStars": 148,
+      "minStars": 168,
       "ceilingStep": 9
     },
     {
@@ -615,7 +695,7 @@
       "name": "Fume",
       "block": "The Eruption",
       "shots": 48,
-      "minStars": 150,
+      "minStars": 170,
       "ceilingStep": 9
     },
     {
@@ -623,7 +703,7 @@
       "name": "Causeway",
       "block": "The Eruption",
       "shots": 60,
-      "minStars": 152,
+      "minStars": 172,
       "ceilingStep": 10
     },
     {
@@ -631,7 +711,7 @@
       "name": "Caldera",
       "block": "The Eruption",
       "shots": 52,
-      "minStars": 154,
+      "minStars": 174,
       "ceilingStep": 10
     },
     {
@@ -639,7 +719,7 @@
       "name": "Paroxysm",
       "block": "The Eruption",
       "shots": 54,
-      "minStars": 156,
+      "minStars": 176,
       "ceilingStep": 10
     },
     {
@@ -647,7 +727,7 @@
       "name": "Icicle",
       "block": "The Spectrum",
       "shots": 40,
-      "minStars": 158,
+      "minStars": 178,
       "ceilingStep": 6
     },
     {
@@ -655,7 +735,7 @@
       "name": "Pinecone",
       "block": "The Spectrum",
       "shots": 52,
-      "minStars": 160,
+      "minStars": 180,
       "ceilingStep": 4
     },
     {
@@ -663,7 +743,7 @@
       "name": "Hourglass",
       "block": "The Spectrum",
       "shots": 48,
-      "minStars": 162,
+      "minStars": 182,
       "ceilingStep": 6
     },
     {
@@ -671,7 +751,7 @@
       "name": "Kiln",
       "block": "The Spectrum",
       "shots": 56,
-      "minStars": 164,
+      "minStars": 184,
       "ceilingStep": 5
     },
     {
@@ -679,7 +759,7 @@
       "name": "Trellis",
       "block": "The Spectrum",
       "shots": 52,
-      "minStars": 166,
+      "minStars": 186,
       "ceilingStep": 5
     },
     {
@@ -687,7 +767,7 @@
       "name": "Pleat",
       "block": "The Spectrum",
       "shots": 48,
-      "minStars": 168,
+      "minStars": 188,
       "ceilingStep": 4
     },
     {
@@ -695,7 +775,7 @@
       "name": "Totem",
       "block": "The Spectrum",
       "shots": 50,
-      "minStars": 170,
+      "minStars": 190,
       "ceilingStep": 5
     },
     {
@@ -703,7 +783,7 @@
       "name": "Girandole",
       "block": "The Spectrum",
       "shots": 54,
-      "minStars": 172,
+      "minStars": 192,
       "ceilingStep": 5
     },
     {
@@ -711,7 +791,7 @@
       "name": "Turbine",
       "block": "The Spectrum",
       "shots": 52,
-      "minStars": 174,
+      "minStars": 194,
       "ceilingStep": 4
     },
     {
@@ -719,7 +799,7 @@
       "name": "Bolt",
       "block": "The Spectrum",
       "shots": 44,
-      "minStars": 176,
+      "minStars": 196,
       "ceilingStep": 6
     },
     {
@@ -727,7 +807,7 @@
       "name": "Ziggurat",
       "block": "The Arcade",
       "shots": 52,
-      "minStars": 178,
+      "minStars": 198,
       "ceilingStep": 7
     },
     {
@@ -735,7 +815,7 @@
       "name": "Reel",
       "block": "The Arcade",
       "shots": 60,
-      "minStars": 180,
+      "minStars": 200,
       "ceilingStep": 8
     },
     {
@@ -743,7 +823,7 @@
       "name": "Donut",
       "block": "The Arcade",
       "shots": 52,
-      "minStars": 182,
+      "minStars": 202,
       "ceilingStep": 10
     },
     {
@@ -751,7 +831,7 @@
       "name": "Ghost",
       "block": "The Arcade",
       "shots": 56,
-      "minStars": 184,
+      "minStars": 204,
       "ceilingStep": 14
     },
     {
@@ -759,7 +839,7 @@
       "name": "Cabinet",
       "block": "The Arcade",
       "shots": 60,
-      "minStars": 186,
+      "minStars": 206,
       "ceilingStep": 16
     },
     {
@@ -767,7 +847,7 @@
       "name": "Cube",
       "block": "The Arcade",
       "shots": 56,
-      "minStars": 188,
+      "minStars": 208,
       "ceilingStep": 16
     },
     {
@@ -775,7 +855,7 @@
       "name": "Tetra",
       "block": "The Arcade",
       "shots": 58,
-      "minStars": 190,
+      "minStars": 210,
       "ceilingStep": 10
     },
     {
@@ -783,7 +863,7 @@
       "name": "Giza",
       "block": "The Arcade",
       "shots": 56,
-      "minStars": 192,
+      "minStars": 212,
       "ceilingStep": 8
     },
     {
@@ -791,7 +871,7 @@
       "name": "Trophy",
       "block": "The Arcade",
       "shots": 58,
-      "minStars": 194,
+      "minStars": 214,
       "ceilingStep": 8
     },
     {
@@ -799,7 +879,7 @@
       "name": "Globe",
       "block": "The Arcade",
       "shots": 42,
-      "minStars": 196,
+      "minStars": 216,
       "ceilingStep": 14
     },
     {
@@ -807,7 +887,7 @@
       "name": "Menger",
       "block": "The Grid",
       "shots": 44,
-      "minStars": 198,
+      "minStars": 218,
       "ceilingStep": 8
     },
     {
@@ -815,7 +895,7 @@
       "name": "Sierpinski",
       "block": "The Grid",
       "shots": 40,
-      "minStars": 200,
+      "minStars": 220,
       "ceilingStep": 7,
       "wildcardEvery": 5
     },
@@ -824,7 +904,7 @@
       "name": "Cantor",
       "block": "The Grid",
       "shots": 42,
-      "minStars": 202,
+      "minStars": 222,
       "ceilingStep": 7
     },
     {
@@ -832,7 +912,7 @@
       "name": "Koch",
       "block": "The Grid",
       "shots": 40,
-      "minStars": 204,
+      "minStars": 224,
       "ceilingStep": 8
     },
     {
@@ -840,7 +920,7 @@
       "name": "Hilbert",
       "block": "The Grid",
       "shots": 44,
-      "minStars": 206,
+      "minStars": 226,
       "ceilingStep": 8
     },
     {
@@ -848,7 +928,7 @@
       "name": "Helicoid",
       "block": "The Grid",
       "shots": 44,
-      "minStars": 208,
+      "minStars": 228,
       "ceilingStep": 7
     },
     {
@@ -856,7 +936,7 @@
       "name": "Phyllotaxis",
       "block": "The Grid",
       "shots": 48,
-      "minStars": 210,
+      "minStars": 230,
       "ceilingStep": 8
     },
     {
@@ -864,7 +944,7 @@
       "name": "Gyroid",
       "block": "The Grid",
       "shots": 52,
-      "minStars": 212,
+      "minStars": 232,
       "ceilingStep": 6,
       "wildcardEvery": 9
     },
@@ -873,7 +953,7 @@
       "name": "Life",
       "block": "The Grid",
       "shots": 50,
-      "minStars": 214,
+      "minStars": 234,
       "ceilingStep": 7
     },
     {
@@ -881,7 +961,7 @@
       "name": "Tesseract",
       "block": "The Grid",
       "shots": 54,
-      "minStars": 216,
+      "minStars": 236,
       "ceilingStep": 6,
       "wildcardEvery": 11
     },
@@ -890,7 +970,7 @@
       "name": "Trefoil",
       "block": "The Mirage",
       "shots": 46,
-      "minStars": 218,
+      "minStars": 238,
       "ceilingStep": 8
     },
     {
@@ -898,7 +978,7 @@
       "name": "Facet",
       "block": "The Mirage",
       "shots": 34,
-      "minStars": 220,
+      "minStars": 240,
       "ceilingStep": 7
     },
     {
@@ -906,7 +986,7 @@
       "name": "Harlequin",
       "block": "The Mirage",
       "shots": 60,
-      "minStars": 222,
+      "minStars": 242,
       "ceilingStep": 10
     },
     {
@@ -914,7 +994,7 @@
       "name": "Diadem",
       "block": "The Mirage",
       "shots": 54,
-      "minStars": 224,
+      "minStars": 244,
       "ceilingStep": 13
     },
     {
@@ -922,7 +1002,7 @@
       "name": "Solitaire",
       "block": "The Mirage",
       "shots": 68,
-      "minStars": 226,
+      "minStars": 246,
       "ceilingStep": 12
     },
     {
@@ -930,7 +1010,7 @@
       "name": "Anvil",
       "block": "The Mirage",
       "shots": 50,
-      "minStars": 228,
+      "minStars": 248,
       "ceilingStep": 9
     },
     {
@@ -938,7 +1018,7 @@
       "name": "Keystone",
       "block": "The Mirage",
       "shots": 60,
-      "minStars": 230,
+      "minStars": 250,
       "ceilingStep": 10
     },
     {
@@ -946,7 +1026,7 @@
       "name": "Seam",
       "block": "The Mirage",
       "shots": 54,
-      "minStars": 232,
+      "minStars": 252,
       "ceilingStep": 9
     },
     {
@@ -954,7 +1034,7 @@
       "name": "Obsidian",
       "block": "The Mirage",
       "shots": 50,
-      "minStars": 234,
+      "minStars": 254,
       "ceilingStep": 9
     },
     {
@@ -962,7 +1042,7 @@
       "name": "Cairn",
       "block": "The Mirage",
       "shots": 72,
-      "minStars": 236,
+      "minStars": 256,
       "ceilingStep": 12
     }
   ]
