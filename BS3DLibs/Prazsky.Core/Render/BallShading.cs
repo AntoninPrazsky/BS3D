@@ -134,9 +134,9 @@ namespace Prazsky.Core.Render
         Porcelain = 9,
 
         /// <summary>
-        /// Rough granite (#324): a speckled, unpolished stone — a grey body under a coarse lumpy surface, shot
-        /// through with the light and dark mineral grains a cut granite shows. Drawn by
-        /// <c>InstancedModelStone</c>.
+        /// Rough granite (#324, redrawn in #623): a speckled, unpolished stone — a grey body carved out of round
+        /// with flat fracture planes and a crack, shot through with the light and dark mineral grains a cut
+        /// granite shows. Drawn by <c>InstancedModelStone</c>.
         /// <para>
         /// <b>It is the one shading here that has no type colour at all</b>, and that is what it is for. Every
         /// other member takes the ball's tint and does something with it, because every other member draws one
