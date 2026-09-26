@@ -13,9 +13,15 @@ namespace BS3D.Screens
     /// (#427) — the reference a player reads once, beside About rather than inside it.
     /// <para>
     /// <b>It is several pages behind one menu entry</b>, which is the owner's own framing and is forced by the
-    /// material: six subjects that each want a screen and share no shape. They are walked with Next and Back
-    /// rather than scrolled, because a Myra scroll pane cannot be driven by the pad's navigation and this
-    /// screen has to be readable from the sofa.
+    /// material: six subjects that each want a screen and share no shape. They are walked with Previous and Next,
+    /// or sideways on the arrows, the D-pad or the left stick (<see cref="PageSideways"/>).
+    /// </para>
+    /// <para>
+    /// <b>Each page's body scrolls</b> (#606): the owner's 3840×1600 cut the Scoring page off top and bottom with
+    /// Back off the screen, and any shorter window is worse. The body sits in the shared <c>MenuScroll</c>, with the
+    /// heading, the page counter, Previous/Next and Back outside it so the way out never scrolls away. The body is
+    /// text with no entry in it for the focus cursor to walk to, so the wheel scrolls it (Myra's own), and so do
+    /// Page Up/Page Down and the pad's right stick (<see cref="OnScrollAxis"/>).
     /// </para>
     /// <para>
     /// <b>⚠ The worked example is COMPUTED, not written.</b> Every number on the scoring page comes out of
@@ -62,6 +68,23 @@ namespace BS3D.Screens
 
         private int _page;
 
+        //What sits around the scroller, in 2160p design units: the heading, the page counter, the walking row,
+        //Back and the plate's padding (#606)
+        private const int BODY_SURROUNDINGS = 820;
+
+        //Design pixels a second the right stick scrolls the body at full tilt, and one Page Up/Down step's share
+        //of the scroller's own height
+        private const int STICK_SCROLL_SPEED = 2400;
+        private const float PAGE_KEY_SHARE = 0.8f;
+
+        //Built with the tree, so a turn can put the focus back on the button that made it and the pad can scroll
+        private Button _previous, _next;
+        private ScrollViewer _body;
+
+        //A turn waiting for Update to put the rebuilt tree up — +1/-1, 0 for none (see Turn)
+        private int _pendingTurn;
+        private float _scrollCarry;
+
         public HelpPage(BS3DGame game) : base(game) { }
 
         protected override Widget BuildTree()
@@ -71,15 +94,20 @@ namespace BS3D.Screens
             column.Widgets.Add(ScreenHeading(TITLES[_page]));
             column.Widgets.Add(Caption($"{_page + 1} of {TITLES.Length}"));
 
+            VerticalStackPanel body = MenuColumn();
+
             switch (_page)
             {
-                case 0: BuildPlaying(column); break;
-                case 1: BuildScoring(column); break;
-                case 2: BuildBalls(column); break;
-                case 3: BuildCampaign(column); break;
-                case 4: BuildCeiling(column); break;
-                default: BuildControls(column); break;
+                case 0: BuildPlaying(body); break;
+                case 1: BuildScoring(body); break;
+                case 2: BuildBalls(body); break;
+                case 3: BuildCampaign(body); break;
+                case 4: BuildCeiling(body); break;
+                default: BuildControls(body); break;
             }
+
+            _body = MenuScroll(body, BODY_SURROUNDINGS);
+            column.Widgets.Add(_body);
 
             HorizontalStackPanel walk = new()
             {
@@ -92,11 +120,13 @@ namespace BS3D.Screens
             previous.Width = Scaled(WALK_BUTTON_WIDTH);
             previous.Enabled = _page > 0;
             walk.Widgets.Add(previous);
+            _previous = previous;
 
             Button next = MenuButton("Next", () => Turn(1));
             next.Width = Scaled(WALK_BUTTON_WIDTH);
             next.Enabled = _page < TITLES.Length - 1;
             walk.Widgets.Add(next);
+            _next = next;
 
             column.Widgets.Add(walk);
             column.Widgets.Add(MenuButton("Back", GoBack));
@@ -105,8 +135,16 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// Walks to another page and rebuilds. The index is clamped rather than wrapped: a reference is read
-        /// front to back, and a Next that silently returns to page one reads as having lost the player's place.
+        /// Walks to another page. The index is clamped rather than wrapped: a reference is read front to back, and
+        /// a Next that silently returns to page one reads as having lost the player's place.
+        /// <para>
+        /// ⚠ <b>Invalidating the tree is not enough, and was all this did until #606</b>: a rebuilt tree only
+        /// reaches the screen when something puts <see cref="MenuPage.Root"/> into the desktop, which the stack
+        /// does on a push, a pop and a resize — so Next and Previous changed nothing until the page was left and
+        /// entered again (every <c>help=</c> capture worked, because that goes in before the page is first shown).
+        /// The rebuild is left to <see cref="Update"/> rather than done here, because a click arrives from inside
+        /// Myra's own processing of the desktop whose root it would be replacing.
+        /// </para>
         /// </summary>
         private void Turn(int by)
         {
@@ -114,7 +152,51 @@ namespace BS3D.Screens
             if (wanted == _page) return;
 
             _page = wanted;
+            _pendingTurn = by;
+        }
+
+        public override void Update(GameTime gameTime)
+        {
+            base.Update(gameTime);
+
+            if (_pendingTurn == 0) return;
+
+            int by = _pendingTurn;
+            _pendingTurn = 0;
+            _scrollCarry = 0f;
+
             InvalidateTree();
+
+            //The button that turned the page keeps the focus, as the level picker's chapter turn does — or its
+            //neighbour, when the turn reached the end and disabled it
+            Game.RebuildPage(this, () => by > 0 ? (_next.Enabled ? _next : _previous) : (_previous.Enabled ? _previous : _next));
+        }
+
+        /// <summary>Sideways on the arrows, the D-pad or the left stick turns the page (#606).</summary>
+        internal override bool PageSideways(int direction)
+        {
+            int before = _page;
+            Turn(direction);
+            return _page != before;
+        }
+
+        /// <summary>
+        /// Scrolls the body by the pad's right stick (<paramref name="stick"/>, up positive) and by Page Up/Page
+        /// Down (<paramref name="pageSteps"/>, down positive), over <paramref name="elapsed"/> seconds (#606).
+        /// </summary>
+        internal override void OnScrollAxis(float stick, int pageSteps, float elapsed)
+        {
+            if (_body == null) return;
+
+            float pixels = -stick * Scaled(STICK_SCROLL_SPEED) * elapsed + _scrollCarry
+                           + pageSteps * _body.ActualBounds.Height * PAGE_KEY_SHARE;
+
+            int whole = (int)pixels;
+            _scrollCarry = pixels - whole;
+            if (whole == 0) return;
+
+            Point at = _body.ScrollPosition;
+            _body.ScrollPosition = new Point(at.X, Math.Clamp(at.Y + whole, 0, Math.Max(0, _body.ScrollMaximum.Y)));
         }
 
         /// <summary>
@@ -225,8 +307,10 @@ namespace BS3D.Screens
 
         private void BuildCampaign(VerticalStackPanel column)
         {
+            //Read from the level set rather than typed: the page said 120 levels in 12 chapters and 236 stars for
+            //the last level while the game shipped 130, 13 and 256 (#606)
             column.Widgets.Add(Paragraph(
-                "The campaign is 120 levels in 12 chapters. Each chapter is ten levels against one backdrop, "
+                $"The campaign is {Game.LevelCount} levels in {Game.BlockCount} chapters. Each chapter is ten levels against one backdrop, "
                 + "and each has its own shape of puzzle — a chapter of towers, a chapter of things hidden "
                 + "inside other things, a chapter of mathematics."));
             column.Widgets.Add(Paragraph(
@@ -235,7 +319,7 @@ namespace BS3D.Screens
                 + "finish it. Four stars means you cleared it well under the shots it allows."));
             column.Widgets.Add(Paragraph(
                 "Stars are also a key. Later levels ask for a total across everything you have played, so a "
-                + "chapter you rushed can be gone back to. The last level of the campaign asks for 236."));
+                + $"chapter you rushed can be gone back to. The last level of the campaign asks for {Game.LevelMinStars(Game.LevelCount - 1)}."));
             column.Widgets.Add(Paragraph(
                 "A cleared level presents a cup: bronze, silver, gold, or — for four stars — crystal. It is the "
                 + "same information as the stars, handed over as an object."));
