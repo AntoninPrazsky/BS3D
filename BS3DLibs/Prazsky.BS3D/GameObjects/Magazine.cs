@@ -226,8 +226,9 @@ namespace Prazsky.BS3D
         /// exchanges two already-valid slots, and the slide is left alone — nothing here glides, both balls are
         /// already exactly where they sit in the bore.
         /// <para>
-        /// Fires <paramref name="slotSwapped"/> once, with both slots, so a caller can exchange its own per-slot
-        /// state the same way — see that parameter's remarks on why it is not <c>slotCarried</c> called twice.
+        /// Fires the constructor's <c>slotSwapped</c> callback once, with both slots, so a caller can exchange its
+        /// own per-slot state the same way — see that parameter's remarks on the constructor for why it is not
+        /// <c>slotCarried</c> called twice.
         /// A no-op on <c>a == b</c>, which fires nothing: nothing has actually moved.
         /// </para>
         /// </summary>

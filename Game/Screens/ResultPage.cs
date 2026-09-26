@@ -66,7 +66,7 @@ namespace BS3D.Screens
         //colour darkened rather than a grey halo the backdrop cannot tint.
         private static readonly Color TEXT_SHADOW = new(0, 0, 0, 190);
 
-        /// <summary>The backing every line of the upper stack draws under itself — built where <see cref="Scaled"/>
+        /// <summary>The backing every line of the upper stack draws under itself — built where <see cref="MenuPage.Scaled"/>
         /// is valid, once per tree.</summary>
         private ShadowedLabel.Style ShadowStyle() => new(FontSystemEffect.Stroked, Scaled(SHADOW_STROKE), Point.Zero, TEXT_SHADOW);
 
@@ -505,6 +505,16 @@ namespace BS3D.Screens
         private float RevealTimeOf(int index) => _revealDelay + index * _revealStep;
 
         /// <summary>
+        /// Whether the cadence has been settled. It is <b>not</b> settled in <see cref="Enter"/>, and that is
+        /// the trap this whole fix nearly fell into: the fanfare is baked on a background thread and realized
+        /// whenever that finishes, while this page is pushed on the frame the level cleared — so at Enter
+        /// there is usually no fanfare sounding yet and the answer would be "no music", every time. It is
+        /// therefore asked again each frame until the first star lands, after which it is frozen so the row
+        /// cannot change cadence half way down.
+        /// </summary>
+        private bool _cadenceSettled;
+
+        /// <summary>
         /// Takes the reveal's cadence and the chime's key from the fanfare that is already sounding (#158).
         /// <para>
         /// <b>The stars land on its beats</b>: the step becomes one beat of whatever tempo it rolled, and the
@@ -520,16 +530,6 @@ namespace BS3D.Screens
         /// that backwards and the fourth star of a four-star clear silently clamps to the wrong note.
         /// </para>
         /// </summary>
-        /// <summary>
-        /// Whether the cadence has been settled. It is <b>not</b> settled in <see cref="Enter"/>, and that is
-        /// the trap this whole fix nearly fell into: the fanfare is baked on a background thread and realized
-        /// whenever that finishes, while this page is pushed on the frame the level cleared — so at Enter
-        /// there is usually no fanfare sounding yet and the answer would be "no music", every time. It is
-        /// therefore asked again each frame until the first star lands, after which it is frozen so the row
-        /// cannot change cadence half way down.
-        /// </summary>
-        private bool _cadenceSettled;
-
         private void TakeCadenceFromFanfare()
         {
             if (Game.Music == null) return;

@@ -43,7 +43,7 @@ namespace Prazsky.Core.Render
     /// <para>
     /// <b>Every field here is a value the shaders already took</b>; nothing new was added to
     /// <c>Clouds.fxh</c> for this. What changed is that they arrive per weather and are blended between two
-    /// of them (<see cref="CloudField.Lerp"/>), rather than being pushed once at load and never again.
+    /// of them (<see cref="Lerp"/>), rather than being pushed once at load and never again.
     /// </para>
     /// <para>
     /// <b>What one field cannot do, stated rather than discovered later</b> (#221 asks for this honestly):

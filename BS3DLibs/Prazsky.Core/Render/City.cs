@@ -87,17 +87,15 @@ namespace Prazsky.Core.Render
         /// <summary>The city has no neighboring-cell occlusion; the shader still expects the vector.</summary>
         private static readonly Vector4 NO_OCCLUSION = new(0f, 0f, 0f, 1f);
 
-        /// <param name="seed">Layout seed; the same seed always gives the same city.</param>
-        /// <param name="arenaHalfExtent">
-        /// Half-width of the play surface. Blocks whose footprint would reach into it are left out, so
-        /// the arena sits in a clearing rather than inside a building.
-        /// </param>
-        /// <param name="config">The city's layout configuration (block pitch, radius, roofline, taper, base).</param>
-        /// <param name="config">The scene's own dials — both cities' layouts live on it.</param>
+        /// <param name="config">The scene's own dials — both cities' layouts live on it (block pitch, radius,
+        /// roofline, taper, base, and the layout seed: the same seed always gives the same city).</param>
         /// <param name="neon">Which of the two this is. <b>They are different cities, not one city relit</b>
         /// (the owner's report, #471's follow-up): a second seed and a skyline of its own, so no block carries
         /// the same tower at the same size. See <see cref="CitySceneConfig.NeonLayout"/>.</param>
-        /// <param name="arenaHalfExtent">The clearing the island stands in.</param>
+        /// <param name="arenaHalfExtent">
+        /// The clearing the island stands in: half-width of the play surface. Blocks whose footprint would reach
+        /// into it are left out, so the arena sits in a clearing rather than inside a building.
+        /// </param>
         public City(CitySceneConfig config, bool neon, float arenaHalfExtent)
         {
             CityLayout layout = config.LayoutFor(neon);

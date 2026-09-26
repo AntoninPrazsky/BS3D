@@ -118,7 +118,7 @@ namespace Prazsky.BS3D.Physics
         /// A ball-to-ball anchor survives any translation, because <see cref="ConnectBalls"/> builds it from the
         /// <i>difference</i> of two positions read in the same frame. <b>The ceiling anchor does not</b>: it is
         /// the ball's world X and Z written into the plate's frame, so it has to be read in the world frame.
-        /// The build pass below does that by handing <see cref="ConnectBallToCeiling"/> the body's position,
+        /// The build pass below does that by handing <see cref="ConnectBallToCeiling(PhysicsBall, BodyReference, Simulation)"/> the body's position,
         /// and <see cref="AttachBallToStructure"/> by taking this same offset. It used to take the raw centred
         /// grid position instead, on the documented assumption that this offset is vertical — which the Game
         /// had not honoured since <see cref="Prazsky.BS3D.Levels.ClusterHang.FitWorldOffset"/> was given its X and Z: it is
@@ -1334,7 +1334,7 @@ namespace Prazsky.BS3D.Physics
         }
 
         /// <summary>
-        /// World Y a ball held by <see cref="ConnectBallToCeiling"/> comes to rest at, given the plate's centre Y.
+        /// World Y a ball held by <see cref="ConnectBallToCeiling(PhysicsBall, BodyReference, Simulation, Vector3)"/> comes to rest at, given the plate's centre Y.
         /// The anchor pair below is what decides it: the ball's own top (local <c>+BALL_RADIUS</c>) is tied to a
         /// point <c>BALL_RADIUS</c> under the plate's <i>centre</i> — under its centre and not its underside, so
         /// the plate's thickness has no say — which leaves the ball's centre a whole diameter below that centre.

@@ -199,11 +199,6 @@ namespace Prazsky.BS3D.Physics
         }
 
         /// <summary>
-        /// Checks if a collidable is registered as a listener.
-        /// </summary>
-        /// <param name="collidable">Collidable to check.</param>
-        /// <returns>True if the collidable has been registered as a listener, false otherwise.</returns>
-        /// <summary>
         /// Marks a body as <b>loose</b> — released from the structure and falling, or come to rest somewhere as dead
         /// weight — so a shot still in flight passes through it (#410). Main thread, between steps. The mark has to
         /// be cleared when the body goes (<see cref="ClearLoose"/>, which <c>PhysicsWorld.RetireBall</c> does),
@@ -223,6 +218,11 @@ namespace Prazsky.BS3D.Physics
             && looseBodyFlags.Flags.Allocated
             && looseBodyFlags.Contains(collidable.RawHandleValue);
 
+        /// <summary>
+        /// Checks if a collidable is registered as a listener.
+        /// </summary>
+        /// <param name="collidable">Collidable to check.</param>
+        /// <returns>True if the collidable has been registered as a listener, false otherwise.</returns>
         public bool IsListener(CollidableReference collidable)
         {
             if (collidable.Mobility == CollidableMobility.Static)

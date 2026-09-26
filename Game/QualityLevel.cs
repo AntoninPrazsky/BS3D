@@ -235,7 +235,7 @@ namespace BS3D
 
         /// <summary>
         /// The four tiers, indexed by <see cref="QualityLevel"/>. The two city figures at <c>High</c> and
-        /// <c>Medium</c> are <see cref="Prazsky.Core.Render.Config.CitySceneConfig"/>'s own defaults restated, so
+        /// <c>Medium</c> are <see cref="Prazsky.Core.Render.CitySceneConfig"/>'s own defaults restated, so
         /// those tiers reproduce today's look exactly rather than approximately — which is the same rule every
         /// <c>SceneConfig</c> default follows.
         /// <para>

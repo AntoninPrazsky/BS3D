@@ -153,8 +153,8 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// Where a round in the bore stood when the shutter opened, for <see cref="BallDrawFrame.Add"/>: its pose now
-        /// carried back by the barrel's own motion. The default (no pose) on a frame that is not blurred, which keeps
+        /// Where a round in the bore stood when the shutter opened, for
+        /// <see cref="Prazsky.BS3D.BallDrawFrame.Add"/>: its pose now carried back by the barrel's own motion. The default (no pose) on a frame that is not blurred, which keeps
         /// it out of the motion record.
         /// </summary>
         private Matrix RoundShutterWorld(in Matrix world) => _motionThisFrame ? world * _motionBarrelBack : default;

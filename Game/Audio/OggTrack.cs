@@ -6,7 +6,7 @@ namespace BS3D.Audio
 {
     /// <summary>
     /// One music track off disk (#444): an Ogg Vorbis file decoded into the interleaved 16-bit stereo PCM that
-    /// <see cref="GameMusic"/> hands its voices. The same buffer a .wav's data chunk was until then, so nothing
+    /// <c>GameMusic</c> hands its voices. The same buffer a .wav's data chunk was until then, so nothing
     /// that plays it knows the difference. <c>Tools/MusicBake --tracks</c> compiles this file as source and
     /// decodes every track it has just encoded through it, so the length and loop-edge figures it prints are
     /// this decoder's rather than some other one's.
@@ -46,7 +46,7 @@ namespace BS3D.Audio
 
         /// <summary>
         /// Decodes a stereo Ogg Vorbis stream at <paramref name="sampleRate"/>, refusing any other shape rather than
-        /// playing it at the wrong speed. Converted exactly as <see cref="ProceduralMusic.ToPcm"/> converts — clamp,
+        /// playing it at the wrong speed. Converted exactly as <see cref="ProceduralMusic.ToPcm(float[])"/> converts — clamp,
         /// then scale to shorts — so a track decodes to what the .wav it replaced held, give or take the codec.
         /// </summary>
         public static byte[] Decode(Stream stream, int sampleRate)

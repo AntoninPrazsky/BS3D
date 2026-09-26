@@ -560,7 +560,7 @@ namespace BS3D
 
         /// <summary>
         /// The setting on its own — the whole pipeline with both gameplay slots empty. Since #249 it is only
-        /// what the <see cref="GameplayScreen"/> falls back to on the one frame it is still on the stack with
+        /// what the <see cref="Screens.GameplayScreen"/> falls back to on the one frame it is still on the stack with
         /// no session left to draw: the front end itself has outgrown it, the backdrop slicing the pipeline
         /// open to hang a preview cluster in the slot.
         /// </summary>
@@ -890,28 +890,6 @@ namespace BS3D
         }
 
         /// <summary>
-        /// What this program casts into the sun's shadow map (#470): the island, always — it is the host's
-        /// and stands in every scene, front end included — the gun, which is a <b>session's</b> and is
-        /// therefore drawn by whatever <see cref="SessionShadowCasters"/> the session put there, and in the
-        /// forest the wood standing round both (#471). <b>And the balls</b> (#470's own remaining half): every
-        /// bucket <see cref="Balls"/> collected this frame — the cluster, the shots in flight, the loaded
-        /// queue, the front end's preview — whatever is on screen when this runs.
-        /// <para>
-        /// The forest's stand is the host's object the way the island is, which is why it casts from here and
-        /// not from inside <see cref="SceneRenderer"/> with the savanna's scatter and the beach's palms. The
-        /// <b>aurora's</b> stand is deliberately absent: that scene's sun is below the horizon, so
-        /// <see cref="SceneRenderer.DrawShadowMaps"/> never runs a caster pass there at all.
-        /// </para>
-        /// <para>
-        /// <b>Safe unconditionally</b> because both callers that fill <see cref="Balls"/>'s buckets —
-        /// <c>GameplayScreen.Draw</c> and <c>BackdropScreen.Draw</c> — collect <b>before</b> calling
-        /// <see cref="BeginSceneDraw"/>, which is what runs the shadow pass first thing (see the long comment
-        /// there): by the time this is reached, the buckets already hold this frame's balls and not the
-        /// previous one's. <see cref="BallRenderSet.DrawShadow"/> is a no-op on an empty bucket, so a frame
-        /// with no balls at all (there is none in this game) would simply cast nothing.
-        /// </para>
-        /// </summary>
-        /// <summary>
         /// Re-runs the city generator when the scene crosses between the day city and the neon one, and does
         /// nothing at all otherwise. <b>They are two different cities</b> — a second seed and a skyline of its
         /// own — rather than one city under two lightings, which is what they were until the owner reported
@@ -932,6 +910,28 @@ namespace BS3D
             _streets.Rebuild(_city);
         }
 
+        /// <summary>
+        /// What this program casts into the sun's shadow map (#470): the island, always — it is the host's
+        /// and stands in every scene, front end included — the gun, which is a <b>session's</b> and is
+        /// therefore drawn by whatever <see cref="SessionShadowCasters"/> the session put there, and in the
+        /// forest the wood standing round both (#471). <b>And the balls</b> (#470's own remaining half): every
+        /// bucket <see cref="Balls"/> collected this frame — the cluster, the shots in flight, the loaded
+        /// queue, the front end's preview — whatever is on screen when this runs.
+        /// <para>
+        /// The forest's stand is the host's object the way the island is, which is why it casts from here and
+        /// not from inside <see cref="SceneRenderer"/> with the savanna's scatter and the beach's palms. The
+        /// <b>aurora's</b> stand is deliberately absent: that scene's sun is below the horizon, so
+        /// <see cref="SceneRenderer.DrawShadowMaps"/> never runs a caster pass there at all.
+        /// </para>
+        /// <para>
+        /// <b>Safe unconditionally</b> because both callers that fill <see cref="Balls"/>'s buckets —
+        /// <c>GameplayScreen.Draw</c> and <c>BackdropScreen.Draw</c> — collect <b>before</b> calling
+        /// <see cref="BeginSceneDraw"/>, which is what runs the shadow pass first thing (see the long comment
+        /// there): by the time this is reached, the buckets already hold this frame's balls and not the
+        /// previous one's. <see cref="Prazsky.BS3D.BallRenderSet.DrawShadow"/> is a no-op on an empty bucket, so
+        /// a frame with no balls at all (there is none in this game) would simply cast nothing.
+        /// </para>
+        /// </summary>
         private void DrawShadowCasters(Matrix shadowViewProjection)
         {
             _island?.DrawShadow(shadowViewProjection);

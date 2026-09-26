@@ -136,8 +136,8 @@ namespace BS3D.Screens
         //The head is LARGER and carries a ring, which is the whole of "this one, right now" — the thing #175
         //used to spend a brightness pulse on the 3D ball to say. That pulse is gone: it said "this one" by
         //washing the round towards white, which is the very colour the player was trying to read (#236). What
-        //replaced it is BallGlow's coloured halo on the gun, and this strip. Since #252 no loaded round pulses
-        //at all — the breathing belongs to the halo now, in one place.
+        //replaced it is a coloured mark on the gun (BallGlow's halo, the muzzle collar since #425), and this
+        //strip. Since #252 no loaded round pulses at all — the breathing belongs to the gun's mark, in one place.
         private const int HUD_MAG_HEAD_RADIUS = 56;
         private const float HUD_MAG_REST_SCALE = 0.64f;
 
@@ -215,7 +215,7 @@ namespace BS3D.Screens
         /// A scalar resting at 1 that is displaced by a kick and springs back — the whole of the HUD's "this
         /// number just changed" language, and the one primitive the score, the streak and the ball count share.
         /// <para>
-        /// A spring rather than a keyframed curve, for the reason <see cref="PreciseAim.Blend"/> is a blend and not a state
+        /// A spring rather than a keyframed curve, for the reason <see cref="Prazsky.BS3D.PreciseAim.Blend"/> is a blend and not a state
         /// machine: a second kick landing mid-settle simply adds to the one already in flight, so a burst of
         /// scoring shots reads as one rising swell instead of restarting an animation the eye was following.
         /// The displacement is applied to the <i>position</i> and not to the velocity, so the number jumps at
@@ -951,18 +951,6 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// Balls left, bottom left — near the gun without being behind it. Nothing at all on a level that grants
-        /// an unlimited budget: a resource that cannot run out is not one to plan against.
-        /// <para>
-        /// The states escalate in three steps rather than one, and only the last of them is a colour. At
-        /// <see cref="HUD_LOW_BALLS"/> the number grows a step and starts to breathe — motion is a stronger
-        /// alarm than hue and it costs the HUD nothing over seven palettes. At <see cref="HUD_CRITICAL_BALLS"/>
-        /// it takes the accent as well, which is the one place the HUD spends colour on something other than
-        /// gain. (The step was a heavier weight until the readout moved to a single-weight display face; it is
-        /// a size now, for the reason set out at <c>HUD_LOW_EMPHASIS</c>.)
-        /// </para>
-        /// </summary>
-        /// <summary>
         /// Where the top of the balls-left readout stands, in pixels — the bottom of the frame's margin when there
         /// is no budget and so no readout. Measured the way <see cref="DrawBallsLeft"/> lays it out (the louder
         /// fonts once the count is low), with a digit and the plural caption, whose heights do not change with
@@ -981,6 +969,18 @@ namespace BS3D.Screens
                    - font.MeasureString("0").Y;
         }
 
+        /// <summary>
+        /// Balls left, bottom left — near the gun without being behind it. Nothing at all on a level that grants
+        /// an unlimited budget: a resource that cannot run out is not one to plan against.
+        /// <para>
+        /// The states escalate in three steps rather than one, and only the last of them is a colour. At
+        /// <see cref="HUD_LOW_BALLS"/> the number grows a step and starts to breathe — motion is a stronger
+        /// alarm than hue and it costs the HUD nothing over seven palettes. At <see cref="HUD_CRITICAL_BALLS"/>
+        /// it takes the accent as well, which is the one place the HUD spends colour on something other than
+        /// gain. (The step was a heavier weight until the readout moved to a single-weight display face; it is
+        /// a size now, for the reason set out at <c>HUD_LOW_EMPHASIS</c>.)
+        /// </para>
+        /// </summary>
         private void DrawBallsLeft(ScoreKeeper score, Viewport viewport, int margin)
         {
             if (score.ShotsRemaining is not int left) return;
@@ -1034,9 +1034,9 @@ namespace BS3D.Screens
         /// <para>
         /// <b>It shipped BEFORE #175's muzzle pulse came out, and that order was the point.</b> <c>CannonRig</c>
         /// warns in as many words that the mark must not be dropped as redundant on the strength of the pane, so
-        /// the strip had to be seen to read first. It was, and then the pulse went — replaced by
-        /// <see cref="Prazsky.Core.Render.BallGlow"/>'s coloured halo on the gun, which says the same thing in
-        /// the round's own colour instead of washing it towards white. Since #252 no loaded round pulses at all.
+        /// the strip had to be seen to read first. It was, and then the pulse went — replaced by a coloured halo
+        /// on the gun (<c>BallGlow</c>, and since #425 the muzzle collar), which says the same thing in the
+        /// round's own colour instead of washing it towards white. Since #252 no loaded round pulses at all.
         /// So there are two signals now and neither is a brightness animation on the ball: this, and the gun.
         /// </para>
         /// <para>
@@ -1049,6 +1049,7 @@ namespace BS3D.Screens
         /// in the bottom left and the owner moved it twice: that corner already has the count, and the left edge
         /// also carries the cluster profile down its middle — then, having played it with the head in the
         /// corner, they asked for the queue to read the way it will be spent.
+        /// </para>
         /// <para>
         /// The order is the owner's; what the layout owes it is that the <b>head does not move</b>. The row
         /// shortens as the shot budget runs down (see <c>shown</c> below), so a head placed by measuring back

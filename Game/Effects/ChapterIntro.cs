@@ -564,7 +564,7 @@ namespace BS3D.Effects
         /// <summary>
         /// Catmull-Rom through four keys: three segments, the virtual endpoints beyond the ends clamped to
         /// the real ones (the standard treatment — the spline leaves key 0 along its own tangent and arrives
-        /// at key 3 along its). <see cref="Vector3.CatmullRom"/> does the segment; all this does is pick it.
+        /// at key 3 along its). <see cref="Vector3.CatmullRom(Vector3, Vector3, Vector3, Vector3, float)"/> does the segment; all this does is pick it.
         /// </summary>
         private static Vector3 Spline(Vector3[] keys, float t)
         {

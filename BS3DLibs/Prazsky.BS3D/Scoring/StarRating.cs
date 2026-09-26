@@ -9,8 +9,8 @@ namespace Prazsky.BS3D.Scoring
     /// <para>
     /// The yardstick is the level's own <b>floor</b>: a cleared field has, by construction, released every one
     /// of its balls, and each released ball scores at least <see cref="ScoreKeeper.MatchedBallPoints"/> at
-    /// multiplier ×1 — so no clear of an <paramref name="levelBalls"/>-ball level can score under
-    /// <c>MatchedBallPoints × levelBalls</c>. Everything above that floor was <i>earned</i>: orphans pay
+    /// multiplier ×1 — so no clear of a <c>levelBalls</c>-ball level (<see cref="Rate"/>'s parameter) can
+    /// score under <c>MatchedBallPoints × levelBalls</c>. Everything above that floor was <i>earned</i>: orphans pay
     /// double, a held streak multiplies up to ×<see cref="ScoreKeeper.MaxMultiplier"/>, and unused shots pay
     /// the completion bonus. Rating the score as a multiple of the floor therefore self-calibrates across
     /// levels of any size, with no per-level thresholds to author or to drift out of date.

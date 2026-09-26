@@ -11,7 +11,7 @@ namespace Testbed
     /// <remarks>
     /// Split out of <c>Testbed.cs</c> in #73. Two orderings in here are load-bearing and neither is obvious from
     /// the code: <c>MouseMovementDenominator</c> is assigned <i>before</i> <c>CameraMovement</c> reads it (#80),
-    /// and the wall-clock steps (<see cref="Prazsky.BS3D.GameObjects.Magazine.Step"/>, the recoil, the city's
+    /// and the wall-clock steps (<see cref="Prazsky.BS3D.Magazine.Step"/>, the recoil, the city's
     /// windows, the clouds) sit <i>outside</i> the <c>_simulate</c> gate because they are what the gun and the
     /// world are, not something the physics is doing. The three test harnesses are ticked from one line each and
     /// live in <c>Diagnostics/</c>.

@@ -26,7 +26,7 @@ namespace Prazsky.BS3D
     /// caller's to write: <see cref="BeginFrame"/> is the only way to obtain a <see cref="BallDrawFrame"/>, and
     /// it resets the buckets on the way; the walk over a hanging cluster is
     /// <c>Prazsky.BS3D.Physics.ClusterCollector.Collect</c>'s and the walk over a static map is
-    /// <see cref="BallDrawFrame.AddMap"/>'s. <see cref="BeginFrame"/> also refuses to open a second frame
+    /// <see cref="BallDrawFrame.AddMap(BallsMap, Vector3)"/>'s. <see cref="BeginFrame"/> also refuses to open a second frame
     /// before <see cref="Draw"/> has closed the first, which is exactly the shape of the double-advance bug.
     /// </para>
     /// <para>
@@ -44,7 +44,7 @@ namespace Prazsky.BS3D
     /// <para>
     /// <b>A caller with no physics is a first-class caller.</b> The map editor has no bodies, no pulse clock of
     /// the balls' own and no ripple: it hands its <see cref="BallsMap"/> to
-    /// <see cref="BallDrawFrame.AddMap"/>, passes its own scene clock to <see cref="Draw"/>, and constructs
+    /// <see cref="BallDrawFrame.AddMap(BallsMap)"/>, passes its own scene clock to <see cref="Draw"/>, and constructs
     /// this with <c>ripples: false</c>. Nothing about the look is conditional on having a simulation — which is
     /// the point, since the whole reason that editor draws balls at all is that a map should look there the way
     /// it will play.
@@ -198,7 +198,7 @@ namespace Prazsky.BS3D
         /// <summary>
         /// How wide one cell of the dissolve's dither is, in <b>display</b> pixels — the blocks a ball being
         /// re-coloured goes away in, and the ones the landing preview's ghost is cut into. The shader wants it in
-        /// target pixels, which <see cref="DissolveCellTargetPixels"/> converts to.
+        /// target pixels, which the draw converts to by multiplying by <see cref="SupersampleFactor"/>.
         /// <para>
         /// A block of the screen and not a cube of the world, which is the whole point: cells in the ball's own
         /// object space turn with it and take its perspective, so they read as lumpy three-dimensional mottling
@@ -207,6 +207,7 @@ namespace Prazsky.BS3D
         /// <para>
         /// One display pixel — the literal floor, and it survives the resolve because every target sample
         /// inside one display pixel decides alike (that is what multiplying by the supersample factor buys).
+        /// </para>
         /// <para>
         /// <b>It was three, on the argument that one would read as a haze or a film grain</b> — as the ball
         /// being <i>faint</i>, which is the reading the dither was chosen over a transparency to avoid. Played
@@ -745,7 +746,7 @@ namespace Prazsky.BS3D
         private const float BOMB_EMISSION = 1.25f;
 
         /// <summary>
-        /// How much of the <see cref="BallEmission"/> term swings with the beat. <b>All of it</b>, and the
+        /// How much of the <c>BallEmission</c> term (InstancedModel.fx) swings with the beat. <b>All of it</b>, and the
         /// resting light the bomb needs is <i>not</i> here — it is <c>BombRestingGlow</c> in the shader, added
         /// beside this. Two measured findings put it there, and both were invisible to reasoning.
         /// <para>
@@ -1550,20 +1551,6 @@ namespace Prazsky.BS3D
         /// </summary>
         public IReadOnlyList<int> LodTotals => _lodTotals;
 
-        /// <summary>
-        /// Opens this frame's collection: empties every bucket and hands back the only thing that can fill
-        /// them. Call it once per frame, before anything is added, and see the class remarks for why that
-        /// "once" is the whole point of the type.
-        /// <para>
-        /// It <b>throws</b> if the previous frame was collected and never drawn, which is the exact shape of
-        /// the double-advance bug: a second collection in one frame runs the occlusion ease, the attach glide
-        /// and the ripple twice over every ball while leaving the buckets looking perfectly correct.
-        /// </para>
-        /// </summary>
-        /// <param name="camera">This frame's camera. Each ball's LOD is picked by its distance from here, so
-        /// this is also the camera <see cref="Draw"/> puts the buckets out with — it is remembered rather than
-        /// asked for twice, so the mesh a ball was bucketed for and the view it is drawn under cannot
-        /// disagree.</param>
         //What a wildcard is crossing between, this frame (#330). Bucket indices rather than BallTypes, since
         //that is what every store below speaks, and zeroes are a valid pair - an unset set draws a wildcard as
         //a plain ball of the first colour rather than as nothing at all.
@@ -1573,7 +1560,7 @@ namespace Prazsky.BS3D
 
         /// <summary>
         /// Tells the set what a <see cref="BallKind.Wildcard"/> is showing this frame — call it once before
-        /// <see cref="BeginFrame"/>, off the game's single <see cref="WildcardCycle"/>.
+        /// <see cref="BeginFrame"/>, off the game's single <see cref="GameObjects.WildcardCycle"/>.
         /// <para>
         /// It is a per-<i>frame</i> value and not a per-instance one deliberately, and that is the same call the
         /// emissive heartbeat made (#252): a property shared by every wildcard in the frame is what makes them
@@ -1593,6 +1580,20 @@ namespace Prazsky.BS3D
             _wildcardProgress = MathHelper.Clamp(progress, 0f, 1f);
         }
 
+        /// <summary>
+        /// Opens this frame's collection: empties every bucket and hands back the only thing that can fill
+        /// them. Call it once per frame, before anything is added, and see the class remarks for why that
+        /// "once" is the whole point of the type.
+        /// <para>
+        /// It <b>throws</b> if the previous frame was collected and never drawn, which is the exact shape of
+        /// the double-advance bug: a second collection in one frame runs the occlusion ease, the attach glide
+        /// and the ripple twice over every ball while leaving the buckets looking perfectly correct.
+        /// </para>
+        /// </summary>
+        /// <param name="camera">This frame's camera. Each ball's LOD is picked by its distance from here, so
+        /// this is also the camera <see cref="Draw"/> puts the buckets out with — it is remembered rather than
+        /// asked for twice, so the mesh a ball was bucketed for and the view it is drawn under cannot
+        /// disagree.</param>
         public BallDrawFrame BeginFrame(ICamera camera)
         {
             if (_frameCamera != null) throw new InvalidOperationException(
@@ -1629,7 +1630,7 @@ namespace Prazsky.BS3D
         /// <para>
         /// The scale comes out of the projection matrix rather than a field of view, and that is what makes it
         /// free and what makes it correct: <c>Projection.M22</c> is <c>1 / tan(fov / 2)</c> for every
-        /// <see cref="Matrix.CreatePerspectiveFieldOfView"/>, and <c>RecoilCamera</c> rebuilds its projection
+        /// <see cref="Matrix.CreatePerspectiveFieldOfView(float, float, float, float)"/>, and <c>RecoilCamera</c> rebuilds its projection
         /// each frame with precise aim's narrower lens and the recoil's FOV punch already folded in — so leaning
         /// in over the barrel raises the ball's projected size and sharpens its mesh with no wiring at all.
         /// A point at depth <c>d</c> and height <c>h</c> lands at NDC <c>h · M22 / d</c>, and NDC spans the

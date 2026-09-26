@@ -134,7 +134,7 @@ namespace Prazsky.BS3D.Physics
         public event Action ShotSpent;
 
         /// <summary>
-        /// Scratch for <see cref="BallsMap.ColourTransparentNeighbours"/>, reused by every shot of the level:
+        /// Scratch for <see cref="BallsMap.ColourTransparentGroup"/>, reused by every shot of the level:
         /// the walk fills it with at most the twelve cells that touch a landing, and this is a gameplay path
         /// where a fresh list per shot is a per-landing allocation for nothing (BestPractices.md §5).
         /// </summary>
@@ -240,41 +240,6 @@ namespace Prazsky.BS3D.Physics
         private static readonly Comparison<QueuedContact> ContactOrder = CompareContacts;
 
         /// <summary>
-        /// Runs on a Bepu worker thread, inside the timestep. Records and returns — see the class remarks.
-        /// <para>
-        /// <b>This is <see cref="IContactEventHandler.OnTouching"/> and not <c>OnContactAdded</c>, and the
-        /// difference is the whole accuracy of the game.</b> <c>OnContactAdded</c> is edge-triggered on a
-        /// feature id appearing and is raised for <i>speculative</i> contacts too, whose <c>depth</c> is simply
-        /// negative — so attaching from there put the ball in a cell chosen around a contact that had not
-        /// happened, against whichever ball the narrow phase paired first rather than the one the shot would
-        /// have reached. (What that measured was an <i>unbounded</i> margin. <see cref="OnContactAdded"/> now takes
-        /// the near-touches the swept shot's bounded margin produces against a ball, which is a different and much
-        /// smaller thing — see there, #410.)
-        /// </para>
-        /// <para>
-        /// Measured before this changed, in a played level at <c>SHOOT_SPEED</c> 200 with a 1/120 s step
-        /// (1.667 units of travel per step): <b>23 of 23</b> attaches fired on a negative depth, mean −1.03 and
-        /// worst −1.60 — bounded by that per-step travel, as the mechanism predicts. The ball was placed a mean
-        /// 1.34 and a worst <b>3.79</b> units from the contact that chose the cell, in a lattice whose cells are
-        /// 1.0 across, with a vertical scatter of −1.8…+2.9 levels. A control run at 60 u/s (0.5 per step) scaled
-        /// every one of those figures by the speed almost exactly: worst depth −0.43, worst placement 1.14.
-        /// </para>
-        /// <para>
-        /// <b>Those figures are the reason the shot's collidable is swept rather than merely speculative.</b>
-        /// The shot used to be stamped from a bare shape index, i.e. <c>ContinuousDetection.Passive</c> — an
-        /// unbounded speculative margin — and on a cluster whose face the shot meets at a glance that margin
-        /// turns the ball away with the manifold never reaching <c>depth &gt;= 0</c>, so this method is never
-        /// raised and the shot cannot land at all. It is <see cref="PhysicsWorld"/>'s constructor that fixes
-        /// it, and the measurement that forced it is recorded there.
-        /// </para>
-        /// <para>
-        /// <see cref="ContactEvents"/> raises this only once a manifold contact has <c>depth &gt;= 0</c>, so the
-        /// gate is Bepu's own and there is no tolerance here to tune. It fires every step the pair keeps
-        /// touching, which is deliberate: a refusal (see <see cref="ProcessContact"/>) is then retried on the
-        /// next step as the ball slides, instead of being the ball's one and only chance.
-        /// </para>
-        /// </summary>
-        /// <summary>
         /// Runs on a Bepu worker thread, inside the timestep, for every contact a listening shot gains — and records
         /// the ones <see cref="OnTouching"/> will never see: a shot meeting a <b>ball</b> within the speculative
         /// margin without reaching <c>depth &gt;= 0</c> (#410). Records and returns, like its sibling.
@@ -313,6 +278,41 @@ namespace Prazsky.BS3D.Physics
             _queuedContacts.Enqueue(new QueuedContact(eventSource, pair, contactOffset, depth));
         }
 
+        /// <summary>
+        /// Runs on a Bepu worker thread, inside the timestep. Records and returns — see the class remarks.
+        /// <para>
+        /// <b>This is <see cref="IContactEventHandler.OnTouching"/> and not <c>OnContactAdded</c>, and the
+        /// difference is the whole accuracy of the game.</b> <c>OnContactAdded</c> is edge-triggered on a
+        /// feature id appearing and is raised for <i>speculative</i> contacts too, whose <c>depth</c> is simply
+        /// negative — so attaching from there put the ball in a cell chosen around a contact that had not
+        /// happened, against whichever ball the narrow phase paired first rather than the one the shot would
+        /// have reached. (What that measured was an <i>unbounded</i> margin. <see cref="OnContactAdded"/> now takes
+        /// the near-touches the swept shot's bounded margin produces against a ball, which is a different and much
+        /// smaller thing — see there, #410.)
+        /// </para>
+        /// <para>
+        /// Measured before this changed, in a played level at <c>SHOOT_SPEED</c> 200 with a 1/120 s step
+        /// (1.667 units of travel per step): <b>23 of 23</b> attaches fired on a negative depth, mean −1.03 and
+        /// worst −1.60 — bounded by that per-step travel, as the mechanism predicts. The ball was placed a mean
+        /// 1.34 and a worst <b>3.79</b> units from the contact that chose the cell, in a lattice whose cells are
+        /// 1.0 across, with a vertical scatter of −1.8…+2.9 levels. A control run at 60 u/s (0.5 per step) scaled
+        /// every one of those figures by the speed almost exactly: worst depth −0.43, worst placement 1.14.
+        /// </para>
+        /// <para>
+        /// <b>Those figures are the reason the shot's collidable is swept rather than merely speculative.</b>
+        /// The shot used to be stamped from a bare shape index, i.e. <c>ContinuousDetection.Passive</c> — an
+        /// unbounded speculative margin — and on a cluster whose face the shot meets at a glance that margin
+        /// turns the ball away with the manifold never reaching <c>depth &gt;= 0</c>, so this method is never
+        /// raised and the shot cannot land at all. It is <see cref="PhysicsWorld"/>'s constructor that fixes
+        /// it, and the measurement that forced it is recorded there.
+        /// </para>
+        /// <para>
+        /// <see cref="ContactEvents"/> raises this only once a manifold contact has <c>depth &gt;= 0</c>, so the
+        /// gate is Bepu's own and there is no tolerance here to tune. It fires every step the pair keeps
+        /// touching, which is deliberate: a refusal (see <see cref="ProcessContact"/>) is then retried on the
+        /// next step as the ball slides, instead of being the ball's one and only chance.
+        /// </para>
+        /// </summary>
         public void OnTouching<TManifold>(CollidableReference eventSource, CollidablePair pair, ref TManifold contactManifold,
             int workerIndex)
             where TManifold : unmanaged, IContactManifold<TManifold>

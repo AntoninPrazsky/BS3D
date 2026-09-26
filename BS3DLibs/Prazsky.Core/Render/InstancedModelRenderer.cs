@@ -755,11 +755,6 @@ namespace Prazsky.Core.Render
         public float PorcelainGlaze { get; set; } = 0.9f;
 
         /// <summary>
-        /// Wave count of a <see cref="BallShading.Stone"/> ball's mineral grain over the ball — how coarse the
-        /// granite is cut. High, because a grain is what separates rock from a grey ball: at a low count the
-        /// speckle turns into blotches and the thing reads as a mouldy marble.
-        /// </summary>
-        /// <summary>
         /// How many cast seams run over a <see cref="BallShading.Hollow"/> ball — the clear glass's whole
         /// <b>rotation cue</b>, and the reason it has one at all (#325).
         /// <para>
@@ -776,6 +771,11 @@ namespace Prazsky.Core.Render
         /// </summary>
         public float HollowSeamFrequency { get; set; } = 2f;
 
+        /// <summary>
+        /// Wave count of a <see cref="BallShading.Stone"/> ball's mineral grain over the ball — how coarse the
+        /// granite is cut. High, because a grain is what separates rock from a grey ball: at a low count the
+        /// speckle turns into blotches and the thing reads as a mouldy marble.
+        /// </summary>
         public float StoneGrainFrequency { get; set; } = 14f;
 
         /// <summary>

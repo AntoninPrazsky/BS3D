@@ -45,17 +45,6 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// Begins one step of the ceiling's descent: lowers the target by <see cref="CEILING_DESCENT_PER_STEP"/>,
-        /// clamped at the death line so an overlong level cannot drive the glass through the gun. The body itself
-        /// does not move here — <see cref="SlideCeiling"/> slides it to the target, which is what keeps a
-        /// hundred constrained bodies from being jerked in a single write.
-        /// </summary>
-        /// <param name="waited">
-        /// Seconds the step spent queued before it was let go — on the line because it is the one figure that
-        /// says whether the deferral did anything, and a step that waited seconds is one that sat out a drop
-        /// cinematic (see <see cref="ReleaseCeilingStep"/>).
-        /// </param>
-        /// <summary>
         /// Wakes the glass plate and the structure hanging from it, on the frame a descent begins (#78).
         /// <para>
         /// The descent moves the plate by writing its pose directly, and a sleeping body does not integrate:
@@ -92,6 +81,17 @@ namespace BS3D.Screens
                         }
         }
 
+        /// <summary>
+        /// Begins one step of the ceiling's descent: lowers the target by <see cref="CEILING_DESCENT_PER_STEP"/>,
+        /// clamped at the death line so an overlong level cannot drive the glass through the gun. The body itself
+        /// does not move here — <see cref="SlideCeiling"/> slides it to the target, which is what keeps a
+        /// hundred constrained bodies from being jerked in a single write.
+        /// </summary>
+        /// <param name="waited">
+        /// Seconds the step spent queued before it was let go — on the line because it is the one figure that
+        /// says whether the deferral did anything, and a step that waited seconds is one that sat out a drop
+        /// cinematic (see <see cref="ReleaseCeilingStep"/>).
+        /// </param>
         private void StartCeilingDescent(float waited)
         {
             //No target to reach if the glass is already as low as it can go — further steps would be a no-op and
@@ -144,23 +144,6 @@ namespace BS3D.Screens
                 + $", shots fired {_score.ShotsFired}, waited {waited:F2} s");
         }
 
-        /// <summary>
-        /// Lets a queued ceiling step go, once it will not be read as a punishment for the shot that earned it.
-        /// <para>
-        /// The step comes due on the <b>frame the shot is fired</b>, but the shot leaves at 200 u/s and lands
-        /// about a tenth of a second later — so the glass flashing red and driving its alarm wave down the
-        /// cluster landed on top of the drop cinematic, and a player who had just cut a large group loose was
-        /// shown the game's one punishment animation while watching their reward. It read as having done
-        /// something wrong. Nothing was wrong; only the order was.
-        /// </para>
-        /// <para>
-        /// So a step waits for two things: a short hold, long enough for the shot to land and a cinematic to
-        /// engage if one is going to, and then for that cinematic to be over. It is a <b>count</b> rather than
-        /// a flag because a level with <c>ceilingStep</c> of 1 steps on every shot, and two shots inside the
-        /// hold must not lose one of them; and the hold is re-armed per release rather than shared, so queued
-        /// steps come down one at a time instead of as a single double-height lurch.
-        /// </para>
-        /// </summary>
         /// <summary>
         /// Brings a tall level's column back down to where the player can shoot it. Asked on every landing,
         /// which is the only thing that can change the cluster.
@@ -222,6 +205,23 @@ namespace BS3D.Screens
                 + $"{risen:F1} above where the level hung it");
         }
 
+        /// <summary>
+        /// Lets a queued ceiling step go, once it will not be read as a punishment for the shot that earned it.
+        /// <para>
+        /// The step comes due on the <b>frame the shot is fired</b>, but the shot leaves at 200 u/s and lands
+        /// about a tenth of a second later — so the glass flashing red and driving its alarm wave down the
+        /// cluster landed on top of the drop cinematic, and a player who had just cut a large group loose was
+        /// shown the game's one punishment animation while watching their reward. It read as having done
+        /// something wrong. Nothing was wrong; only the order was.
+        /// </para>
+        /// <para>
+        /// So a step waits for two things: a short hold, long enough for the shot to land and a cinematic to
+        /// engage if one is going to, and then for that cinematic to be over. It is a <b>count</b> rather than
+        /// a flag because a level with <c>ceilingStep</c> of 1 steps on every shot, and two shots inside the
+        /// hold must not lose one of them; and the hold is re-armed per release rather than shared, so queued
+        /// steps come down one at a time instead of as a single double-height lurch.
+        /// </para>
+        /// </summary>
         private void ReleaseCeilingStep(float elapsed)
         {
             if (_ceilingStepsPending <= 0) return;

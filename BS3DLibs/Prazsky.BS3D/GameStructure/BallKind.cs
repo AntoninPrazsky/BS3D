@@ -37,7 +37,7 @@ namespace Prazsky.BS3D.GameStructure
         /// <para>
         /// A rock is a <b>wall</b>: it changes the shape of the problem rather than the colour arithmetic. It
         /// still carries a <see cref="BallType"/> because every cell does, and <b>nothing may read it</b> —
-        /// see <see cref="Matchable"/>.
+        /// see <see cref="BallKinds.Matchable"/>.
         /// </para>
         /// <para>
         /// It is also the one ball in the game that is <b>not a sphere on screen</b> (#340): its silhouette is
@@ -55,7 +55,7 @@ namespace Prazsky.BS3D.GameStructure
         /// changes for it, which is why it is the cheapest of #256's ten and why it comes early.
         /// <para>
         /// It is the kind that <b>stops being one</b>, and that is what makes it the first case where
-        /// <see cref="Matchable"/> and <see cref="Removable"/> have to give different answers — see the two of
+        /// <see cref="BallKinds.Matchable"/> and <see cref="BallKinds.Removable"/> have to give different answers — see the two of
         /// them. It still carries a <see cref="BallType"/> like every cell, and like the rock's <b>nothing may
         /// read it</b> until the colouring: what it is authored with is the colour it would have had, kept
         /// only so that the field is not a special case for the serializer, and the colouring overwrites it.
@@ -93,7 +93,7 @@ namespace Prazsky.BS3D.GameStructure
         /// cinematic all already exist for it.
         /// </para>
         /// <para>
-        /// <b>It answers YES to <see cref="Removable"/> and NO to <see cref="Matchable"/></b>, which is the
+        /// <b>It answers YES to <see cref="BallKinds.Removable"/> and NO to <see cref="BallKinds.Matchable"/></b>, which is the
         /// transparent ball's pair of answers arriving for a different reason. The player always has a path to
         /// removing a bomb — land beside it — so it does not hold the level open; but it is not a colour, so it
         /// is out of the flood fill and out of the magazine census, and like the rock it carries a
@@ -114,7 +114,7 @@ namespace Prazsky.BS3D.GameStructure
         /// difference between a special and a lottery.
         /// </para>
         /// <para>
-        /// <b>⚠ It takes only <see cref="Matchable"/> balls</b>, so rocks, glass, bombs and other zaps are
+        /// <b>⚠ It takes only <see cref="BallKinds.Matchable"/> balls</b>, so rocks, glass, bombs and other zaps are
         /// untouched whatever <see cref="BallType"/> they carry. That is not a special case; it is the same
         /// rule this file states twice already — a kind that is not matchable carries a colour <i>nothing may
         /// read</i>. A zap that cleared bombs "of the same colour" would be acting on a field the player cannot
@@ -125,8 +125,8 @@ namespace Prazsky.BS3D.GameStructure
         /// cells, remove them, run the disconnection pass over what is left. What it adds is that the set is
         /// chosen by <b>colour</b> rather than by geometry, and that makes it the largest single removal the
         /// game has — a level drawn in three inks can lose one of them in a frame, and most of the picture
-        /// with it. Same answers as the bomb for the two seams: <b>yes</b> to <see cref="Removable"/> (a
-        /// landing beside it always takes it), <b>no</b> to <see cref="Matchable"/>.
+        /// with it. Same answers as the bomb for the two seams: <b>yes</b> to <see cref="BallKinds.Removable"/> (a
+        /// landing beside it always takes it), <b>no</b> to <see cref="BallKinds.Matchable"/>.
         /// </para>
         /// </summary>
         Zap = 4,
@@ -138,7 +138,7 @@ namespace Prazsky.BS3D.GameStructure
         /// other nine go near.
         /// <para>
         /// It <b>cycles through the colours</b> while it waits in the magazine, in the bore and in flight
-        /// (<see cref="WildcardCycle"/> — one clock read by every surface that draws one, so the loaded queue,
+        /// (<see cref="GameObjects.WildcardCycle"/> — one clock read by every surface that draws one, so the loaded queue,
         /// the muzzle glow, the aim ghost and the ball in the air cannot show different colours at the same
         /// instant). When it lands it <b>collapses to one colour and stops being a wildcard</b>: the colour
         /// completing the largest group it arrived beside (<c>BallsMap.TryChooseWildcardColour</c>), or — beside
@@ -149,9 +149,9 @@ namespace Prazsky.BS3D.GameStructure
         /// It is held at the one door balls enter the map through (<c>BallsMap.PutBallAt</c> clamps it) and at
         /// the one place an authoring tool cycles kinds (<see cref="BallKinds.InCluster"/>, which
         /// <see cref="BallKinds.Next"/> skips by). The reason is the loss condition: a wildcard hanging in a
-        /// cluster answers <b>no</b> to <see cref="Matchable"/>, and nothing else could remove it either — no
+        /// cluster answers <b>no</b> to <see cref="BallKinds.Matchable"/>, and nothing else could remove it either — no
         /// landing beside it triggers anything, the way one does for a bomb — so a level holding one would
-        /// never be cleared and never be lost, which is the silent failure <see cref="Removable"/>'s own
+        /// never be cleared and never be lost, which is the silent failure <see cref="BallKinds.Removable"/>'s own
         /// remarks are written against.
         /// </para>
         /// </summary>
@@ -206,7 +206,7 @@ namespace Prazsky.BS3D.GameStructure
         /// group is released.
         /// </para>
         /// <para>
-        /// <b>Seam answers: NO to <see cref="Matchable"/> and YES to <see cref="Removable"/></b> — the
+        /// <b>Seam answers: NO to <see cref="BallKinds.Matchable"/> and YES to <see cref="BallKinds.Removable"/></b> — the
         /// transparent ball's pair for the transparent ball's reason (#325), arriving through a longer door.
         /// It is out of the flood fill and out of the magazine census while the ice holds, and in both the
         /// instant it thaws, which needs no code of its own because the thaw replaces it with an ordinary ball
@@ -238,7 +238,7 @@ namespace Prazsky.BS3D.GameStructure
         /// <c>BallsMap.SpreadInfection</c>).
         /// </para>
         /// <para>
-        /// <b>⚠ IT IS THE FIRST KIND BESIDE <see cref="Normal"/> THAT ANSWERS YES TO <see cref="Matchable"/>,
+        /// <b>⚠ IT IS THE FIRST KIND BESIDE <see cref="Normal"/> THAT ANSWERS YES TO <see cref="BallKinds.Matchable"/>,
         /// and that is the ruling this kind stands or falls on.</b> #331 states the alternative plainly: an
         /// infection with no counterplay is not a mechanic but a timer, and a timer that only ends the level is
         /// not worth building. So the sick ball keeps its colour, joins the group a shot completes, and can be
@@ -295,7 +295,7 @@ namespace Prazsky.BS3D.GameStructure
         /// <b>It is MATCHABLE</b>, the second kind after <see cref="Infectious"/> to answer yes, and for a
         /// reason of its own rather than by imitation. A well that no colour removes would be a second
         /// <see cref="Rock"/> — nothing triggers it the way a landing triggers a bomb, so nothing could ever
-        /// take it — and <see cref="Removable"/>'s own remarks are written against exactly that: the rock is
+        /// take it — and <see cref="BallKinds.Removable"/>'s own remarks are written against exactly that: the rock is
         /// deliberately the ONE kind the player can never be rid of. A well the player can shoot out is a
         /// space they can choose to navigate or to clear, which is a decision; furniture is not.
         /// </para>
@@ -372,7 +372,7 @@ namespace Prazsky.BS3D.GameStructure
         /// </para>
         /// <para>
         /// ⚠ It answered a <b>third</b> question until #325 — whether the level is finished — and that is now
-        /// <see cref="Removable"/>. They agreed on everything #323 had (a rock is neither matchable nor
+        /// <see cref="BallKinds.Removable"/>. They agreed on everything #323 had (a rock is neither matchable nor
         /// removable) and the transparent ball is the first kind that splits them: it cannot be matched and it
         /// most certainly does not hold the level open for ever. Merging them again would make a level with one
         /// transparent ball in it permanently unfinished — the Rock's own bug, arriving through the opposite
@@ -409,7 +409,7 @@ namespace Prazsky.BS3D.GameStructure
 
         /// <summary>
         /// Whether a shot can still do something about this ball — <b>the question the end of a level is
-        /// decided on</b> (#323's second seam, split out of <see cref="Matchable"/> by #325).
+        /// decided on</b> (#323's second seam, split out of <see cref="BallKinds.Matchable"/> by #325).
         /// <para>
         /// A <see cref="BallKind.Transparent"/> ball answers <b>yes</b> even though nothing matches it as it
         /// stands, and that is the ruling rather than an oversight: the player always has a path to removing it

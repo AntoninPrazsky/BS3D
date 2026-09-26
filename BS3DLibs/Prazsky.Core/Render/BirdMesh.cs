@@ -17,7 +17,7 @@ namespace Prazsky.Core.Render
     /// that two line segments make. Both of those were the complaint.
     /// </para>
     /// <para>
-    /// <b>Body space</b> follows XNA's own convention, so <see cref="Matrix.CreateWorld"/> can place a bird
+    /// <b>Body space</b> follows XNA's own convention, so <see cref="Matrix.CreateWorld(Vector3, Vector3, Vector3)"/> can place a bird
     /// with no hand-rolled basis: <b>−Z is forward</b> (the beak), <b>+Y is up</b> (the back), <b>+X is the
     /// right wing</b>. The wingspan is exactly 1, so a bird is scaled by <see cref="BirdsConfig.Wingspan"/>
     /// and by nothing else.

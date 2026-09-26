@@ -681,9 +681,10 @@ namespace BS3D.Tools.LevelGen
         /// </para>
         /// </summary>
         /// <returns>
-        /// Always true. The signature is kept so the day this is calibrated it can start refusing without the
-        /// call site moving — and it is written out rather than made void so that nobody has to guess whether
-        /// a silent exit code meant the levels passed.
+        /// True unless a file the set names is missing from disk — a fact about the disk rather than a verdict
+        /// about a design, and the one thing here that can fail. The signature is kept so the day this is
+        /// calibrated it can start refusing without the call site moving — and it is written out rather than
+        /// made void so that nobody has to guess whether a silent exit code meant the levels passed.
         /// </returns>
         private static bool RunSagGate(LevelSet set, string[] only)
         {

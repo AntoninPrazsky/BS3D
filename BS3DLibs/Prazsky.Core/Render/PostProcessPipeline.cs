@@ -341,23 +341,6 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// How many multisample samples the scene target carries <b>when supersampling is off</b> —
-        /// <see cref="MSAA_SAMPLES"/> unless a caller says otherwise. Above 1× it is ignored, the supersample
-        /// resolve already averaging geometry edges; see <see cref="EnsureTarget"/>.
-        /// <para>
-        /// It exists to be <b>measured</b> (#298). The quality ladder's rungs below <c>High</c> both run at
-        /// <c>ssaa</c> 1, so both carry the full eight samples, and on a weak GPU that is bandwidth nobody has
-        /// ever priced — the one candidate for the hole between <c>Low</c> and <c>Medium</c> that reaches all
-        /// sixteen scenes without changing what is shaded. Nothing in a tier reads this yet: until the figure
-        /// exists on the class of machine the ladder is for, wiring it into <c>QualityPreset</c> would be
-        /// tuning against no measurement, which is the fault #298 was opened on.
-        /// </para>
-        /// <para>
-        /// Zero means no multisampling at all. Setting it recreates both targets, so it is a load-time or
-        /// A/B lever and not a per-frame one.
-        /// </para>
-        /// </summary>
-        /// <summary>
         /// The fraction of the back buffer the scene target is — <b>1 (native) unless a caller says
         /// otherwise</b>, and only meaningful at <see cref="SupersampleFactor"/> 1: above it the two would be
         /// fighting over the same dimension, so the factor wins and this is ignored.
@@ -407,6 +390,23 @@ namespace Prazsky.Core.Render
             }
         }
 
+        /// <summary>
+        /// How many multisample samples the scene target carries <b>when supersampling is off</b> —
+        /// <see cref="MSAA_SAMPLES"/> unless a caller says otherwise. Above 1× it is ignored, the supersample
+        /// resolve already averaging geometry edges; see <see cref="EnsureTarget"/>.
+        /// <para>
+        /// It exists to be <b>measured</b> (#298). The quality ladder's rungs below <c>High</c> both run at
+        /// <c>ssaa</c> 1, so both carry the full eight samples, and on a weak GPU that is bandwidth nobody has
+        /// ever priced — the one candidate for the hole between <c>Low</c> and <c>Medium</c> that reaches all
+        /// sixteen scenes without changing what is shaded. Nothing in a tier reads this yet: until the figure
+        /// exists on the class of machine the ladder is for, wiring it into <c>QualityPreset</c> would be
+        /// tuning against no measurement, which is the fault #298 was opened on.
+        /// </para>
+        /// <para>
+        /// Zero means no multisampling at all. Setting it recreates both targets, so it is a load-time or
+        /// A/B lever and not a per-frame one.
+        /// </para>
+        /// </summary>
         public int MsaaSamples
         {
             get => _msaaSamples;
@@ -432,15 +432,6 @@ namespace Prazsky.Core.Render
         public RenderTarget2D SceneTarget => _sceneTarget;
 
         /// <summary>
-        /// The sharp foreground layer's own HDR target (see the SHARP FOREGROUND block at the top): the
-        /// caller binds it, clears it transparent and draws the one object the defocus must not take.
-        /// Configured exactly like the scene's own target — supersampled or multisampled by the same rule,
-        /// so the object's edges come out as antialiased as they were inside the HDR pass, and the
-        /// composite's box filter reads them the same way — and as lazy about existing: the getter builds it
-        /// on first use and carries a resize the same way <see cref="EnsureDefocusChain"/> does, so the
-        /// executables that never present one never allocate it.
-        /// </summary>
-        /// <summary>
         /// Lets go of the foreground and refraction layers (#591). Each is the back buffer times the supersampling
         /// with its own depth buffer — about 398 MB apiece at 4K on High and Ultra — and both are built lazily on the
         /// first result page, so without this they stayed allocated for the rest of the session, on the very tiers
@@ -454,6 +445,15 @@ namespace Prazsky.Core.Render
             _refractionTarget = null;
         }
 
+        /// <summary>
+        /// The sharp foreground layer's own HDR target (see the SHARP FOREGROUND block at the top): the
+        /// caller binds it, clears it transparent and draws the one object the defocus must not take.
+        /// Configured exactly like the scene's own target — supersampled or multisampled by the same rule,
+        /// so the object's edges come out as antialiased as they were inside the HDR pass, and the
+        /// composite's box filter reads them the same way — and as lazy about existing: the getter builds it
+        /// on first use and carries a resize the same way <see cref="EnsureDefocusChain"/> does, so the
+        /// executables that never present one never allocate it.
+        /// </summary>
         public RenderTarget2D ForegroundTarget
         {
             get

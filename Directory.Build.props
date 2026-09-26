@@ -1,0 +1,26 @@
+<Project>
+  <!--The compiler reads the XML doc comments (#594). Until this file no project set GenerateDocumentationFile,
+      so a cref to a removed member, a <param> for a parameter that no longer exists or a doc comment left on
+      nothing compiled without a word - BestPractices.md section 8 calls a stale <param> "a compiler-visible
+      lie", and nothing was looking. With it on, CS1574/CS0419 (a cref that does not resolve or is ambiguous),
+      CS1570 (malformed XML), CS1572/CS1571/CS1734 (a param or paramref that does not match the signature) and
+      CS1587 (a doc comment on no member) are ordinary warnings every build and build.yml print.
+
+      Two are suppressed, deliberately:
+      - CS1591, a public member with no doc comment at all. Most members here carry none by choice; the
+        comments are for the why, not a doc comment per accessor.
+      - CS1573, a method documenting some of its parameters but not all. The codebase documents the parameter
+        whose meaning is not obvious from its name and leaves the rest, which is a style, not a defect.
+
+      A project that sets NoWarn of its own must write it as "$(NoWarn);..." - a bare value replaces this one
+      and every missing doc comment in that project comes back as a warning.
+
+      VectorBoundary is a Roslyn analyzer the compiler loads, not a library anyone reads the docs of, so it is
+      left out. The documentation files are not published: the Game's release folder has no use for them.-->
+  <PropertyGroup Condition="'$(MSBuildProjectName)' != 'VectorBoundary'">
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591;CS1573</NoWarn>
+    <PublishDocumentationFile>false</PublishDocumentationFile>
+    <PublishReferencesDocumentationFiles>false</PublishReferencesDocumentationFiles>
+  </PropertyGroup>
+</Project>

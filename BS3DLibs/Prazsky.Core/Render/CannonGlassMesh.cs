@@ -11,7 +11,7 @@ namespace Prazsky.Core.Render
     /// of its front edge</b> — open to the air, where the rest of the queue reads through blue glass.
     /// <para>
     /// The notch is <b>half an ellipse</b>, its semi-axis across the pane being the pane's full half-width and
-    /// its rim reaching <paramref name="notchReach"/> back along the bore from the front ball's centre. It is a
+    /// its rim reaching <c>notchReach</c> back along the bore from the front ball's centre. It is a
     /// half and not a whole because there is no room for the other half: the queue is enclosed exactly, the
     /// muzzle face sitting one ball radius ahead of the front ball's centre (see <see cref="CannonMesh"/>), so
     /// glass ahead of the notch would have to fit in a gap of zero. The ellipse therefore opens forward through

@@ -206,12 +206,6 @@ namespace BS3D.Effects
         }
 
         /// <summary>
-        /// The level's ending has just been put in front of the player — the result screen is going up. A net
-        /// still standing keeps pulsing for <see cref="LINGER_SECONDS"/> and then goes out — <see cref="Draw"/>
-        /// executes the expiry, because it is the only thing still running under the result page. <c>Min</c>,
-        /// so a second presentation cannot push a running linger out.
-        /// </summary>
-        /// <summary>
         /// The cluster has just crossed the line and the level is lost (#434): the net stops warning and
         /// starts <b>cutting</b>. It flares to <see cref="FLARE_INTENSITY"/> over <see cref="FLARE_IN"/> and
         /// stays there while the loss is being shown, which is the beat the camera spends flying at the
@@ -228,6 +222,12 @@ namespace BS3D.Effects
             _flareAt = now;
         }
 
+        /// <summary>
+        /// The level's ending has just been put in front of the player — the result screen is going up. A net
+        /// still standing keeps pulsing for <see cref="LINGER_SECONDS"/> and then goes out — <see cref="Draw"/>
+        /// executes the expiry, because it is the only thing still running under the result page. <c>Min</c>,
+        /// so a second presentation cannot push a running linger out.
+        /// </summary>
         internal void NoticeLevelEnded(float now)
         {
             if (!_visible) return;

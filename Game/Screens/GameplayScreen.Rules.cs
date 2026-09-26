@@ -600,6 +600,12 @@ namespace BS3D.Screens
                     : string.Empty));
         }
 
+        //The grace's own state - ClusterLineWatch's since #301/#302, so the level generator's sag gate decides
+        //a simulated run by running THIS rule rather than a second copy of it that could drift lenient. It
+        //needs no reset when a level starts, exactly as the bare float it replaces did not: every level begins
+        //with its cluster far above the line, so the first frame zeroes it.
+        private ClusterLineWatch _lineWatch;
+
         /// <summary>
         /// Has the level been lost? The two pressures that lose it — a spent budget with the field uncleared, and
         /// the ceiling reaching the death line — are decided here, after the physics step, once every shot in
@@ -625,12 +631,6 @@ namespace BS3D.Screens
         /// poses — the warning is the cluster's own geometry, not part of the spectacle the cinematic holds —
         /// but neither ending may be declared until the collapse the player earned has been seen.
         /// </param>
-        //The grace's own state - ClusterLineWatch's since #301/#302, so the level generator's sag gate decides
-        //a simulated run by running THIS rule rather than a second copy of it that could drift lenient. It
-        //needs no reset when a level starts, exactly as the bare float it replaces did not: every level begins
-        //with its cluster far above the line, so the first frame zeroes it.
-        private ClusterLineWatch _lineWatch;
-
         private void CheckLevelLost(float elapsed, bool mayLose)
         {
             //Already ending — a cleared countdown or a loss in flight. Testing further would re-trigger a loss
@@ -774,23 +774,7 @@ namespace BS3D.Screens
             return false;
         }
 
-        /// <summary>
-        /// Ends the level as a loss for the stated reason. It does <b>not</b> tear the session down here — a loss
-        /// can be reached from the middle of <see cref="Update"/> (a shot that spends the budget, a frame that
-        /// slides the ceiling past the line), and rebuilding mid-frame would leave the rest of the frame running
-        /// against a simulation that no longer exists. Instead it sets the outcome and hands the player the result
-        /// screen, whose Retry button does the real reload — the same screen a cleared level lands on.
-        /// </summary>
-        /// <param name="diagnostic">
-        /// The figures behind the loss. <b>Logged and never shown</b>: what a player needs is which limit ran
-        /// out, and a world-space Y against a death line tells them nothing they can act on.
-        /// </param>
-        /// <summary>
-        /// Hands the camera to the line's own cinematic and lights the net (#434) — called on the frame the
-        /// cluster crosses, BEFORE <see cref="LoseLevel"/>, because that method asks whether this is running
-        /// to decide whether the ending may go up yet.
-        /// </summary>
-        /// <summary>The cluster's lowest live ball, for the staged loss above. False on an empty field.</summary>
+        /// <summary>The cluster's lowest live ball, for <see cref="StepLineLoss"/>'s staged loss. False on an empty field.</summary>
         private bool TryGetLowestBall(out Vector3 lowest)
         {
             lowest = Vector3.Zero;
@@ -816,6 +800,11 @@ namespace BS3D.Screens
             return lowestY < float.MaxValue;
         }
 
+        /// <summary>
+        /// Hands the camera to the line's own cinematic and lights the net (#434) — called on the frame the
+        /// cluster crosses, BEFORE <see cref="LoseLevel"/>, because that method asks whether this is running
+        /// to decide whether the ending may go up yet.
+        /// </summary>
         private void BeginLineLoss(Vector3 crossing)
         {
             if (_levelLost) return;
@@ -871,6 +860,17 @@ namespace BS3D.Screens
             ShowResultScreen();
         }
 
+        /// <summary>
+        /// Ends the level as a loss for the stated reason. It does <b>not</b> tear the session down here — a loss
+        /// can be reached from the middle of <see cref="Update"/> (a shot that spends the budget, a frame that
+        /// slides the ceiling past the line), and rebuilding mid-frame would leave the rest of the frame running
+        /// against a simulation that no longer exists. Instead it sets the outcome and hands the player the result
+        /// screen, whose Retry button does the real reload — the same screen a cleared level lands on.
+        /// </summary>
+        /// <param name="diagnostic">
+        /// The figures behind the loss. <b>Logged and never shown</b>: what a player needs is which limit ran
+        /// out, and a world-space Y against a death line tells them nothing they can act on.
+        /// </param>
         private void LoseLevel(LevelFailure failure, string diagnostic)
         {
             //Once only: a descent and a budget can reach their lines on the same frame, and a loss in flight
@@ -1178,7 +1178,7 @@ namespace BS3D.Screens
 
         /// <summary>
         /// What colour one loaded slot reads as: the queue's own, or — for a wildcard — whatever the cycle is
-        /// showing this instant (#330). Every tint taken off the magazine goes through here (the muzzle halo,
+        /// showing this instant (#330). Every tint taken off the magazine goes through here (the muzzle collar,
         /// the aim beam, the landing ghost), which is what stops the four of them disagreeing about the round
         /// that is about to fire — #175's failure, with the colours moving.
         /// </summary>

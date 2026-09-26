@@ -608,7 +608,7 @@ namespace MapEditor
         /// The city takes part like every other instanced object — its facades are dark, but its specular ambient
         /// reads the sky. There is no island, no drain and no ceiling here to light.
         /// </para>
-        /// <para>
+        /// </summary>
         private void ApplySkyLighting()
         {
             //A scene that states its own rig — space, the dream, the cavern — has to be honoured here too, or a

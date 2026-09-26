@@ -31,7 +31,7 @@ namespace Prazsky.Core.Render
     /// The layer's shape is the properties below and its look the constants beside them — one set of both,
     /// shared by every executable that draws weather, so a dial cannot be tuned in one and forgotten in the
     /// next. The one figure the clouds visibly borrow from elsewhere is the lit side's radiance: that is the
-    /// light rig's own sun colour, so it is handed to <see cref="ApplyPalette"/> rather than kept here.
+    /// light rig's own sun colour, so it is handed to <see cref="ApplyDome"/> rather than kept here.
     /// </para>
     /// </summary>
     public sealed class CloudField

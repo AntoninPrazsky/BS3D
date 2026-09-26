@@ -12,24 +12,6 @@ namespace BS3D.Tools.LevelGen
     /// </summary>
     internal static partial class Program
     {
-
-        /// <summary>
-        /// A stepped cone hanging point-down, coloured in concentric rings: a target seen from underneath,
-        /// and a flight of coloured steps seen from the side. Three colours, each ring one solid shell, so
-        /// every ring is already a group of dozens waiting for one matching ball to touch it.
-        /// </summary>
-        /// <summary>
-        /// A heart drawn across a flat hanging wall (#130) — the first level in the pack that is a
-        /// <b>picture</b> rather than a solid of revolution, and the first whose shape is read off a bitmap
-        /// instead of solved from a radius. Gentle on purpose: a generous shot budget, a slow ceiling and
-        /// three colours, in One's spirit, because the point of it is to be recognised rather than aimed
-        /// through.
-        /// <para>
-        /// The background is a 2×2 check of two colours and not one flat colour, which is the rule the
-        /// picture region states and the drop test enforces: a single-colour background makes the wall's top
-        /// row one group holding the whole thing up, and one matching ball takes the level.
-        /// </para>
-        /// </summary>
         /// <summary>
         /// One picture level: a flat wall the size of its own <paramref name="bitmap"/>, hanging in a
         /// <paramref name="grid"/>-wide field. The bitmap's own dimensions are the wall's, so a symbol is
@@ -102,8 +84,16 @@ namespace BS3D.Tools.LevelGen
         }
 
         /// <summary>
-        /// A heart. Easy on purpose — a budget that forgives, and a ceiling slow enough that the picture can
-        /// be read while it is played — because the point of it is to be recognised rather than aimed through.
+        /// A heart drawn across a flat hanging wall (#130) — the first level in the pack that is a
+        /// <b>picture</b> rather than a solid of revolution, and the first whose shape is read off a bitmap
+        /// instead of solved from a radius. Easy on purpose — a budget that forgives, and a ceiling slow enough
+        /// that the picture can be read while it is played, and three colours, in One's spirit — because the
+        /// point of it is to be recognised rather than aimed through.
+        /// <para>
+        /// The background is a 2×2 check of two colours and not one flat colour, which is the rule the
+        /// picture region states and the drop test enforces: a single-colour background makes the wall's top
+        /// row one group holding the whole thing up, and one matching ball takes the level.
+        /// </para>
         /// </summary>
         private static Design Heart() => Picture("Heart.json", "Heart", SceneKind.Savanna, sky: 14,
             MUSIC_GALLERY, shots: 60, ceilingStep: 10, HEART, grid: 15,
