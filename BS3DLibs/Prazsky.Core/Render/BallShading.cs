@@ -218,8 +218,9 @@ namespace Prazsky.Core.Render
         Zap = 13,
 
         /// <summary>
-        /// A live acid (#328): a dark, wet green shell with liquid running <b>down</b> it into a pool at its
-        /// underside. Drawn by <c>InstancedModelAcid</c>.
+        /// A live acid (#328, redrawn in #627): a dark, dry green shell whose <b>lower half is full</b> of glowing
+        /// acid — a level surface at the waist with tongues eating upward and foam along the front, the pool
+        /// brightest at the underside. Drawn by <c>InstancedModelAcid</c>.
         /// <para>
         /// The fifth shading that belongs to a <c>BallKind</c> rather than to a <c>BallStyle</c>, and the fifth
         /// with <b>no type colour</b>, on <see cref="Bomb"/>'s argument exactly. Its separation from the other
@@ -231,8 +232,8 @@ namespace Prazsky.Core.Render
         /// that is what the kind needs rather than a preference: an acid is the only special with an <i>axis</i>
         /// — it eats downward — so the look has to say "downward" before the ball is fired at, and a figure that
         /// turned with the body would say nothing at all. On a sphere the world normal is the outward radial
-        /// direction, so the technique reads gravity off it directly and the drips hang the right way whatever
-        /// the body is doing, in the lattice and again on its way down the drain.
+        /// direction, so the technique reads gravity off it directly and the liquid stands level whatever the
+        /// body is doing, in the lattice and again on its way down the drain.
         /// </para>
         /// </summary>
         Acid = 14,
