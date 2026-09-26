@@ -24,7 +24,13 @@ description: How to add and wire custom HLSL effects (.fx) in BS3D — content p
 ## Existing shader
 
 `Testbed/Content/Shaders/InstancedModel.fx` + `BS3DLibs/Prazsky.Core/Render/InstancedModelRenderer.cs`
-draw all balls (see the "Ball rendering" section in `docs/rendering.md`). Facts that took effort to get right:
+draw all balls (see the "Ball rendering" section in `docs/rendering.md`). Since #581 the `.fx` is a thin list
+of includes — `Shaders/InstancedModel/*.fxh`, one file per concern (`Common`, `Lighting`, `SceneRelief`,
+`BallCommon`, one `Ball<Style>` per shading, `Triplanar`, `City`, `Depth`, `Glass`); still ONE Effect. **The
+include order is the `$Globals` layout**: never reorder the includes or move a uniform between files in a change
+meant to be pure, and check such a change by comparing the compiled bytecode (see "The instanced effect's
+files" in `docs/rendering.md`). A new ball style is a new `Ball<Style>.fxh` after `BallHeavy.fxh`. Facts that
+took effort to get right:
 
 - **Instancing**: per-instance world matrix rides in a second vertex stream as four `Vector4`
   with `VertexElementUsage.TextureCoordinate`, usage indices 1–4 → HLSL `TEXCOORD1..4`.
