@@ -398,13 +398,7 @@ float4 MarsTerrain(MarsTerrainVertexOutput input, bool detail)
     float smallCraters = CraterLayer(TurnCrater(worldPosition.xz, CRATER_TURN_3) * (1.0 / 7.2), 133.7, 0.64, smallEjecta)
         * saturate(1.0 - footprint * (2.0 / 5.0));
 
-    //Blended with height, the outback's own rule (rockSurface below): a field of XZ alone is constant down
-    //a near-vertical flank. Tried against the mesas' own rhythmic vertical streaking (#638) and REFUTED as
-    //that streak's cause: paired before/after captures at the same camera show it unchanged either way, so
-    //the streak is not this per-pixel term - kept anyway since it is the correct rule on its own terms (the
-    //outback's), and costs nothing. The likelier cause, not yet fixed here: the far-field ring's own vertex
-    //spacing facets a mesa's steep flank, which no per-pixel shading term can hide - see docs/scenes.md.
-    float relief = Fbm2BandLimited(worldPosition.xz * 1.7 + worldPosition.y * 1.0, 3, footprint * 1.7);
+    float relief = Fbm2BandLimited(worldPosition.xz * 1.7, 3, footprint * 1.7);
 
     //The rock's own face, height-folded (Outback's rule: a field of XZ alone is constant down a vertical
     //flank, and a boulder is mostly flank). Only blended in where the stone field actually stands.
@@ -434,9 +428,7 @@ float4 MarsTerrain(MarsTerrainVertexOutput input, bool detail)
     //The fine grain stays a hash, being sub-pixel by the time its cells could show.
     float grainFine = saturate(1.0 - footprint * 96.0);
     float grainCoarse = saturate(1.0 - footprint * 1.5);
-    //Same height-blend as relief above, kept for the same reason (correct on its own terms) though it did
-    //not turn out to be the mesa streak's cause either (#638).
-    float coarse = detail ? GradientNoise2(worldPosition.xz * 0.75 + worldPosition.y * 0.43 + 17.0) * 1.2 * grainCoarse : 0.0;
+    float coarse = detail ? GradientNoise2(worldPosition.xz * 0.75 + 17.0) * 1.2 * grainCoarse : 0.0;
     rust *= 1.0 + GrainStrength * (NoiseHash22(floor(worldPosition.xz * 48.0)).x * grainFine + coarse);
 
     //--- The ground's own materials ------------------------------------------------------------------
@@ -471,9 +463,7 @@ float4 MarsTerrain(MarsTerrainVertexOutput input, bool detail)
     float rippleFade = saturate(1.0 - footprint * 2.2);
     float ripple = sin(dot(worldPosition.xz, float2(0.81, 0.59)) * 3.1
         + sin(dot(worldPosition.xz, float2(-0.59, 0.81)) * 0.45) * 1.8 + broad * 6.0);
-    //Ripple contrast cut from 0.22 to 0.10 (#638): at 0.22 on top of the old, much darker SandColor a
-    //drift's ripples read as a hard corrugated stripe rather than a subtle dust texture.
-    rust = lerp(rust, SandColor * (1.0 + 0.25 * broad) * (1.0 + 0.10 * ripple * rippleFade), sand);
+    rust = lerp(rust, SandColor * (1.0 + 0.25 * broad) * (1.0 + 0.22 * ripple * rippleFade), sand);
     rust = lerp(rust, SlabColor * (1.0 - 0.55 * crack), slab);
     }
 
