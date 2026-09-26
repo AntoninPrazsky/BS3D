@@ -18,8 +18,8 @@ namespace BS3D.Tests
     /// </summary>
     internal sealed class HungLevel : IDisposable
     {
-        /// <summary>The Game's step, <c>GameplayScreen.PHYSICS_TIMESTEP</c> (private there, restated as SagProbe does).</summary>
-        public const float TIMESTEP = 1f / 120f;
+        /// <summary>The Game's step, <see cref="PhysicsWorld.FIXED_TIMESTEP"/>.</summary>
+        public const float TIMESTEP = PhysicsWorld.FIXED_TIMESTEP;
 
         private static readonly Action NO_CONTACT_WORK = () => { };
 

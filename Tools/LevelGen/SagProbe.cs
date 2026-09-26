@@ -79,12 +79,11 @@ namespace BS3D.Tools.LevelGen
     internal static class SagProbe
     {
         /// <summary>
-        /// The step the game itself spends its frame time in — <c>GameplayScreen.PHYSICS_TIMESTEP</c>, 1/120 s.
-        /// Stated rather than borrowed because that constant is private to the screen, and repeated here
-        /// deliberately with the reason: a probe stepping a different dt is simulating a different world, and
+        /// The step the game itself spends its frame time in — <see cref="PhysicsWorld.FIXED_TIMESTEP"/>, read
+        /// rather than restated since #585: a probe stepping a different dt is simulating a different world, and
         /// the whole worth of this file is that it is not.
         /// </summary>
-        private const float TIMESTEP = 1f / 120f;
+        private const float TIMESTEP = PhysicsWorld.FIXED_TIMESTEP;
 
         /// <summary>
         /// What this probe does inside a step, which is nothing: it fires no shots, so there are no contacts

@@ -384,7 +384,8 @@ namespace Prazsky.BS3D.Physics
 
         /// <summary>
         /// Stores the handle into the first free slot.
-        /// Returns false when all four slots are already taken; the constraint then stays tracked only on the other ball of the pair.
+        /// Returns false when all four slots are already taken — which the lattice never causes, so
+        /// <see cref="BallsConstraintsBuilder"/> throws on it rather than leave a constraint no release can remove (#585).
         /// </summary>
         public bool TryStore(ConstraintHandle handle)
         {

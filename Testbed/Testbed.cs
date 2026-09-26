@@ -1710,8 +1710,9 @@ namespace Testbed
         {
             if (_physicsBalls != null)
             {
-                //First pass: remove all constraints. A constraint whose owning ball had no free handle slot is tracked
-                //only by the other ball of the pair, so bodies can only be removed once no constraints are left at all.
+                //First pass: remove all constraints, so bodies are removed only once none is left at all. Every
+                //constraint is stored on both balls of its pair (a store that finds no free slot throws since #585,
+                //and ClusterInvariants checks the rest), so the second ball finds its copy already gone.
                 RemoveAllConstraints();
 
                 XZLevel size = XZLevel.FromArray(_physicsBalls);

@@ -246,9 +246,10 @@ namespace BS3D.Screens
         /// keep the timestep constant, and this project's rule is that nothing about gameplay may depend on the
         /// frame rate — the game runs with <c>IsFixedTimeStep = false</c> and offers <c>nocap</c>, so it is
         /// exactly the configuration that breaks under. The frame time is accumulated instead and spent in
-        /// whole steps of this length.
+        /// whole steps of this length — <see cref="PhysicsWorld.FIXED_TIMESTEP"/>, the one copy the aim
+        /// preview's curved solver integrates at too (#585).
         /// </summary>
-        private const float PHYSICS_TIMESTEP = 1f / 120f;
+        private const float PHYSICS_TIMESTEP = PhysicsWorld.FIXED_TIMESTEP;
 
         /// <summary>
         /// How many steps one frame may spend at most. Without a ceiling a frame that hitched — a shader

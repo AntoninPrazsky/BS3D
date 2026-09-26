@@ -7,6 +7,7 @@ using Prazsky.Core.Tools;
 using System;
 using System.Collections.Generic;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 
 namespace Prazsky.BS3D.Physics
 {
@@ -86,25 +87,26 @@ namespace Prazsky.BS3D.Physics
         /// </summary>
         public static readonly int MINIMUM_CLUSTER_SIZE = 3;
 
-        private static Simulation _sphereShapeSimulation;
-        private static TypedIndex _sphereShapeIndex;
+        /// <summary>
+        /// The ball sphere's shape index, one per <see cref="Simulation"/>, held <b>weakly</b> (#585). It used to
+        /// be two statics keyed on the last simulation asked about, which kept that simulation reachable after
+        /// its world was disposed and would have added a fresh sphere on every alternation the day two worlds
+        /// coexisted (a parallel probe, the logic tests' own runner). A <see cref="ConditionalWeakTable{TKey,TValue}"/>
+        /// keeps each simulation's index exactly as long as the simulation lives and is safe to read from
+        /// several threads at once — each building its <i>own</i> world; one simulation is still driven from one
+        /// thread, as Bepu requires.
+        /// </summary>
+        private static readonly ConditionalWeakTable<Simulation, StrongBox<TypedIndex>> _sphereShapes = new();
 
         /// <summary>
         /// Shape index of the shared ball sphere (<see cref="BALL_RADIUS"/>) in the given simulation.
         /// The shape is added on first use and reused by every ball afterwards — adding a fresh one
         /// per <see cref="BuildBallsStructure"/> call would leak a shape on every map load.
-        /// The cache resets when a different simulation instance is passed.
+        /// Each simulation gets its own, remembered for as long as it lives (<see cref="_sphereShapes"/>).
         /// </summary>
-        public static TypedIndex GetSphereShapeIndex(Simulation simulation)
-        {
-            if (!ReferenceEquals(simulation, _sphereShapeSimulation))
-            {
-                _sphereShapeSimulation = simulation;
-                _sphereShapeIndex = simulation.Shapes.Add(new Sphere(BALL_RADIUS));
-            }
-
-            return _sphereShapeIndex;
-        }
+        public static TypedIndex GetSphereShapeIndex(Simulation simulation) =>
+            _sphereShapes.GetValue(simulation,
+                s => new StrongBox<TypedIndex>(s.Shapes.Add(new Sphere(BALL_RADIUS)))).Value;
 
         /// <param name="worldOffset">
         /// Added to every body's position, and to nothing else. A <see cref="BallsMap"/> lives in its own grid
@@ -216,7 +218,8 @@ namespace Prazsky.BS3D.Physics
 
                         //Highest level - also attach to ceiling
                         if (level == size.Level - 1)
-                            currentPhysicsBall.HandlesTop.TryStore(ConnectBallToCeiling(currentPhysicsBall, ceilingReference, simulation));
+                            Store(ref currentPhysicsBall.HandlesTop, ConnectBallToCeiling(currentPhysicsBall, ceilingReference, simulation),
+                                currentPhysicsBall, nameof(PhysicsBall.HandlesTop));
                     }
                 }
             }
@@ -327,12 +330,14 @@ namespace Prazsky.BS3D.Physics
         /// one and not the other is a ball that matches but is still drawn in ice, for the rest of the level.
         /// </para>
         /// <para>
-        /// The scratch list is static and reused, so a release with no ice near it allocates nothing after the
-        /// first one. That is safe for the reason the rest of this class is single-threaded: a landing is
-        /// resolved inside one simulation step, and there is exactly one of those at a time.
+        /// The scratch list is reused, so a release with no ice near it allocates nothing after the first one.
+        /// It is <b>per thread</b> (#585): a landing is resolved inside one simulation step and one simulation
+        /// is driven from one thread, so one list per thread is enough — and a second world stepped on another
+        /// thread (a parallel probe, the logic tests' runner) gets lists of its own instead of corrupting this
+        /// one's. They were plain statics until #585, which was safe only while there was one world at a time.
         /// </para>
         /// </summary>
-        private static readonly List<XZLevel> _thawScratch = new(12);
+        private static List<XZLevel> _thawScratch => t_thawScratch ??= new(12);
 
         //Three more of the same idea (#513), for the same reason _thawScratch is one: a match's release, a
         //blast, a zap and a shaft all used to allocate their own working lists fresh, on the one call sequence
@@ -340,10 +345,16 @@ namespace Prazsky.BS3D.Physics
         //ReleaseBall.CollectConstraintHandles runs on a landing that actually completed something, a handful
         //of times a level — so this is a consistency fix, not a measured hot-path one; see #513 for why it is
         //still worth doing. Cleared at the top of every method that uses one, exactly where the old `new()`
-        //sat, so nothing here depends on a callee's own clearing as an implicit contract.
-        private static readonly List<ConstraintHandle> _handleScratch = new();
-        private static readonly List<XZLevel> _victimsScratch = new();
-        private static readonly List<XZLevel> _shaftScratch = new();
+        //sat, so nothing here depends on a callee's own clearing as an implicit contract. Per thread, like
+        //_thawScratch, and created on a thread's first use: a [ThreadStatic] initialiser runs on one thread only.
+        private static List<ConstraintHandle> _handleScratch => t_handleScratch ??= new();
+        private static List<XZLevel> _victimsScratch => t_victimsScratch ??= new();
+        private static List<XZLevel> _shaftScratch => t_shaftScratch ??= new();
+
+        [ThreadStatic] private static List<XZLevel> t_thawScratch;
+        [ThreadStatic] private static List<ConstraintHandle> t_handleScratch;
+        [ThreadStatic] private static List<XZLevel> t_victimsScratch;
+        [ThreadStatic] private static List<XZLevel> t_shaftScratch;
 
         /// <inheritdoc cref="_thawScratch"/>
         private static void ThawFrozen(List<XZLevel> cluster, PhysicsBall[,,] physicsBalls, BallsMap map,
@@ -411,11 +422,12 @@ namespace Prazsky.BS3D.Physics
             return newlyStone.Count;
         }
 
-        /// <inheritdoc cref="SpreadInfection"/>
-        private static readonly List<XZLevel> _infectedScratch = new(16);
+        //SpreadInfection's own scratch lists, per thread for _thawScratch's reason (#585).
+        private static List<XZLevel> _infectedScratch => t_infectedScratch ??= new(16);
+        private static List<XZLevel> _hardenedScratch => t_hardenedScratch ??= new(16);
 
-        /// <inheritdoc cref="SpreadInfection"/>
-        private static readonly List<XZLevel> _hardenedScratch = new(16);
+        [ThreadStatic] private static List<XZLevel> t_infectedScratch;
+        [ThreadStatic] private static List<XZLevel> t_hardenedScratch;
 
         /// <summary>
         /// Copies one cell's kind from the map onto its physics ball and starts the crossing. The map is the
@@ -1182,8 +1194,9 @@ namespace Prazsky.BS3D.Physics
             //The cell's IDEAL place in the world, not the body's live one: the cluster may be swinging, and
             //an anchor taken off a swung pose would hold the new ball to that swing for the rest of the level
             if (physicsBall.ArrayPosition.Level == size.Level - 1)
-                physicsBall.HandlesTop.TryStore(ConnectBallToCeiling(physicsBall, ceilingReference, simulation,
-                    map.GetRealCenteredPosition(physicsBall.ArrayPosition).ToNumerics() + worldOffset));
+                Store(ref physicsBall.HandlesTop, ConnectBallToCeiling(physicsBall, ceilingReference, simulation,
+                    map.GetRealCenteredPosition(physicsBall.ArrayPosition).ToNumerics() + worldOffset),
+                    physicsBall, nameof(PhysicsBall.HandlesTop));
 
             ConnectToNeighborsOnSameLevel(physicsBall, physicsBalls, simulation, size, map);
             ConnectToNeighborsOnOtherLevels(physicsBall, physicsBalls, simulation, size, map);
@@ -1218,8 +1231,31 @@ namespace Prazsky.BS3D.Physics
         {
             ConstraintHandle handle = ConnectBalls(ballA, ballB, simulation, map);
 
-            ballA.HandlesMiddle.TryStore(handle);
-            ballB.HandlesMiddle.TryStore(handle);
+            Store(ref ballA.HandlesMiddle, handle, ballA, nameof(PhysicsBall.HandlesMiddle));
+            Store(ref ballB.HandlesMiddle, handle, ballB, nameof(PhysicsBall.HandlesMiddle));
+        }
+
+        /// <summary>
+        /// Stores a new constraint's handle in one of a ball's slot groups, and <b>throws when the group is
+        /// full</b> (#585). By construction it never is — a ball has at most four lattice neighbours in each
+        /// group, and only the top level, which has nothing above it, adds the ceiling to its top group — so a
+        /// full group means the bookkeeping itself is wrong: a pair connected twice, or a handle a release left
+        /// behind. The result of <see cref="ConstraintHandles.TryStore"/> used to be dropped at every call
+        /// site, and what a dropped store leaves is a constraint no release can remove (a ball that never
+        /// falls) — and, once the solver reuses the handle, a stale slot through which
+        /// <see cref="PhysicsBall.RemoveAllConstraints"/> quietly removes an unrelated constraint. Failing here
+        /// is failing at the fault instead of shots later. <see cref="ClusterInvariants"/> checks the rest of
+        /// the bookkeeping.
+        /// </summary>
+        private static void Store(ref ConstraintHandles slots, ConstraintHandle handle, PhysicsBall ball, string group)
+        {
+            if (slots.TryStore(handle)) return;
+
+            XZLevel at = ball.ArrayPosition;
+            throw new InvalidOperationException(
+                $"Constraint {handle.Value} found no free slot in {group} of the ball at ({at.X}, {at.Z}, {at.Level}): " +
+                "all four are taken, which the lattice cannot cause - a pair was connected twice or a released " +
+                "ball's handle was never cleared.");
         }
 
         /// <summary>
@@ -1256,13 +1292,13 @@ namespace Prazsky.BS3D.Physics
                         //Constraints to balls below are stored in HandlesBottom, to balls above in HandlesTop, on both sides
                         if (levelOffset < 0)
                         {
-                            physicsBall.HandlesBottom.TryStore(handle);
-                            neighbor.HandlesTop.TryStore(handle);
+                            Store(ref physicsBall.HandlesBottom, handle, physicsBall, nameof(PhysicsBall.HandlesBottom));
+                            Store(ref neighbor.HandlesTop, handle, neighbor, nameof(PhysicsBall.HandlesTop));
                         }
                         else
                         {
-                            physicsBall.HandlesTop.TryStore(handle);
-                            neighbor.HandlesBottom.TryStore(handle);
+                            Store(ref physicsBall.HandlesTop, handle, physicsBall, nameof(PhysicsBall.HandlesTop));
+                            Store(ref neighbor.HandlesBottom, handle, neighbor, nameof(PhysicsBall.HandlesBottom));
                         }
                     }
                 }
