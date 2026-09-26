@@ -51,18 +51,18 @@ static const float3 HeavyIronColor = float3(0.42, 0.41, 0.44);
 //cut at 0.82 was the brightest thing on the ball, and the iron between the patches read as holes in it);
 //the desaturation is low ON PURPOSE - the patch is the hue the player matches, and both of #333's builds
 //lost the hue by moving one of these too far.
-static const float HeavyTintValue = 0.60;
-static const float HeavyTintDesaturation = 0.10;
+static const float HeavyTintValue = 0.62;
+static const float HeavyTintDesaturation = 0.28;
 
 //The patches: two octaves of gradient noise over the object-space direction, cut SOFTLY at a threshold. A
 //sharp cut on a low sine field was the first cut's cow: three hard blobs a hemisphere. The references' paint
 //is a spray - soft-edged, irregular, thinned out by the grain - and gradient noise is what a spray's edge is.
 //The field is centred on a half and its amplitude band-limits to zero, so the far limit converges on the
 //coverage the threshold leaves: HeavyStainCover states that once rather than letting it walk.
-static const float HeavyStainCells = 1.8;
-static const float HeavyStainThreshold = 0.50;
-static const float HeavyStainEdge = 0.16;
-static const float HeavyStainCover = 0.50;
+static const float HeavyStainCells = 3.4;
+static const float HeavyStainThreshold = 0.30;
+static const float HeavyStainEdge = 0.10;
+static const float HeavyStainCover = 0.78;
 
 //How far the grain breaks a patch's edge: the paint is WORN, and wear shows first on what stands proud, so
 //the mottle of the sand is stirred into the field the patches are cut from as well as into the paint itself.
@@ -80,7 +80,7 @@ static const float HeavyGrainDepth = 0.006;
 
 //How much more of the paint the pits keep than the peaks: the colour is WORN. Modest, so a patch still reads
 //as one patch and not as a stipple.
-static const float HeavyGrainPaint = 0.35;
+static const float HeavyGrainPaint = 0.2;
 
 //The mould flash: the axis the two halves parted along, the half-width of the lip in dot(direction, axis),
 //how far it stands proud of the casting, and the shadow band under it. The axis is deliberately NOT one of
@@ -110,12 +110,21 @@ static const float HeavyBossDark = 0.80;
 //that is the header's first point rather than the dull-plastic trap #333 recorded - the trap was a POLISHED
 //ball asking for less light; a casting asks for less light because it scatters it. The boss is the one
 //machined face on the ball and the one place a sharp reflection is right.
-static const float HeavyHighlight = 0.55;
-static const float HeavyEnvironment = 0.35;
-static const float HeavySmoothness = 0.28;
+static const float HeavyHighlight = 1.25;
+static const float HeavyEnvironment = 0.8;
+static const float HeavySmoothness = 0.62;
 static const float HeavyBossHighlight = 1.4;
 static const float HeavyBossEnvironment = 1.1;
 static const float HeavyBossSmoothness = 0.85;
+
+//THE METAL (#631, the owner's verdict on the first cut: "less spotty, and more metallic - but matte"). A
+//dielectric reflects ~4 % face-on whatever its Environment scale says, so no SurfaceSpecular figure can
+//make a surface read as METAL: what does is a reflection tinted by the body colour and present face-on,
+//which is what F0 = albedo means. So the casting carries its own: the sky along the reflected direction,
+//blurred halfway to the sky's average (satin, not mirror - the "matte" of the verdict), times the painted
+//colour, and the diffuse body is taken down by the same share so the ball does not simply get brighter.
+static const float HeavyMetalSheen = 1.1;
+static const float HeavyMetalBlur = 0.25;
 
 //Two octaves of gradient noise over the unit direction, band-limited per octave and centred on zero, so a
 //field cut from it converges on its own mean as the ball recedes rather than walking (the ice plates' trap:
@@ -209,7 +218,14 @@ float4 HeavyPS(PatternVertexShaderOutput input) : COLOR
     surface.Environment = lerp(HeavyEnvironment, HeavyBossEnvironment, bossFace);
     surface.Smoothness = lerp(HeavySmoothness, HeavyBossSmoothness, bossFace);
 
-    float4 shaded = ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, float4(color, 1), 1, 1, surface);
+    float4 shaded = ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData,
+        float4(color * 0.35, 1), 1, 1, surface);
+
+    //The metal's own tinted reflection - see HeavyMetalSheen. Occluded like everything the sky lights.
+    float3 metalEye = normalize(EyePosition - input.WorldPosition);
+    float3 metalSky = lerp(SkyRadiance(reflect(-metalEye, worldNormal)), (SkyColor + GroundColor) * 0.5, HeavyMetalBlur);
+    shaded.rgb += metalSky * color * HeavyMetalSheen
+        * SurfaceOcclusion(input.WorldPosition, worldNormal, input.OcclusionData);
 
     //Contract point 4.
     float occlusion = SurfaceOcclusion(input.WorldPosition, worldNormal, input.OcclusionData);
@@ -219,7 +235,7 @@ float4 HeavyPS(PatternVertexShaderOutput input) : COLOR
     //it does keep is the cluster's own heartbeat through BallEmission, so it breathes with its neighbours
     //rather than standing outside them; the RenderSet gives it a slower, deeper beat than theirs. It rides
     //the painted colour, so what swells is the patches - the hue - and not the iron.
-    shaded.rgb += BallEmission(color, input.WorldPosition, occlusion);
+    shaded.rgb += BallEmission(color * 0.5, input.WorldPosition, occlusion);
 
     //Contract point 3, in both meanings, and PatternPS's arithmetic deliberately.
     [branch]
