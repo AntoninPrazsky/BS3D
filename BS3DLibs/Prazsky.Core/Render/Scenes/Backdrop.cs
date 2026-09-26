@@ -167,6 +167,13 @@ namespace Prazsky.Core.Render
         public Snowfall Snowfall { get; set; }
 
         /// <summary>
+        /// The flock the savanna, the desert, the outback and the beach share (#235, a service since #580). Set by
+        /// the renderer where the birds stood in its constructor, before any backdrop that draws it is built; the
+        /// renderer disposes it.
+        /// </summary>
+        public BirdFlock Birds { get; set; }
+
+        /// <summary>
         /// The radius cut out of every terrain around the arena — <see cref="SceneRenderer.TerrainHoleRadius"/>, which
         /// forwards here. Written by the host at any time, so a backdrop reads it at draw time.
         /// </summary>
