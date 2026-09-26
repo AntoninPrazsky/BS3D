@@ -470,14 +470,8 @@ namespace BS3D
         //The lean's own rung (#497), the same shape for the same reason
         private float _aimSensitivity = 1f;
 
-        //1 is the authored mix; the "mute" argument starts the master at 0 (see the constructor).
-        private float _masterVolume = 1f;
-        private float _sfxVolume = 1f;
-        private float _musicVolume = 1f;
-        private float _ambienceVolume = 1f;
-
-        //The pad's own row (#378), the volumes' shape and the volumes' default.
-        private float _rumbleStrength = 1f;
+        //The four volumes and the pad's row (#378) are read off _effective since #583: 1 is the authored mix,
+        //and the "mute" argument holds the master at 0 without writing it (see EffectiveSettings).
 
         #endregion
 
@@ -649,11 +643,11 @@ namespace BS3D
         internal byte SkyDomeNumber => _skyDome;
         internal bool IsFpsOverlayVisible => _info.Visible;
         internal bool IsFpsUncapped => _uncappedFps;
-        internal float MasterVolume => _masterVolume;
-        internal float SfxVolume => _sfxVolume;
-        internal float MusicVolume => _musicVolume;
-        internal float AmbienceVolume => _ambienceVolume;
-        internal float RumbleStrength => _rumbleStrength;
+        internal float MasterVolume => _effective.MasterVolume;
+        internal float SfxVolume => _effective.SfxVolume;
+        internal float MusicVolume => _effective.MusicVolume;
+        internal float AmbienceVolume => _effective.AmbienceVolume;
+        internal float RumbleStrength => _effective.RumbleStrength;
 
         /// <summary>
         /// The player's aim dial (#384), read by <c>GameplayScreen</c> straight into
@@ -678,21 +672,21 @@ namespace BS3D
         //(#486), so it is capitalised where it is shown.
         internal string MusicTrack => _music?.SoundingTrack;
 
-        internal bool IsAberrationEnabled => _aberration;
-        internal bool IsGrainEnabled => _grain;
-        internal bool IsMotionBlurEnabled => _motionBlur;
+        internal bool IsAberrationEnabled => _effective.Aberration;
+        internal bool IsGrainEnabled => _effective.Grain;
+        internal bool IsMotionBlurEnabled => _effective.MotionBlur;
 
         /// <summary>
         /// Whether this frame is motion-blurred (#402): the player's row AND the tier's entry, since a rung that
         /// cannot afford the passes gives them up whatever the row says. Read by the session each frame.
         /// </summary>
-        internal bool MotionBlurActive => _motionBlur && QualityPreset.Presets[(int)_quality].MotionBlur
+        internal bool MotionBlurActive => _effective.MotionBlur && QualityPreset.Presets[(int)_quality].MotionBlur
             && ScriptedPlay.Current?.MotionBlurFlippedOff(_wallClock) != true;
-        internal bool IsDropCinematicEnabled => _dropCinematic;
+        internal bool IsDropCinematicEnabled => _effective.DropCinematic;
 
         //The tutorial's switch (#189), read by the session every frame on MouseSensitivity's argument: the row
         //can move under a level standing paused behind the settings page.
-        internal bool IsTutorialEnabled => _tutorial;
+        internal bool IsTutorialEnabled => _effective.Tutorial;
         internal SceneKind Scene => _scene;
 
         //DropCinematic's own submerge pull (#193) reads this once at Begin rather than holding a

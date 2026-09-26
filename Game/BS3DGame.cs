@@ -381,9 +381,6 @@ namespace BS3D
         //louder, this constant is the dial and the joints are what to check it against.
         private static readonly float CHROMATIC_ABERRATION = 0.0015f;
 
-        //On by default; a taste toggle in Settings, like the FPS counter (nothing persists — see docs).
-        private bool _aberration = true;
-
         //Peak film-grain modulation at 50% grey, as a fraction of the display value. The shader weights
         //the grain by 4*luma*(1-luma), so it peaks in the mid-tones — about ±12/255 at its strongest
         //here (raised from 0.05, which was invisible at arm's length) — and vanishes into both black
@@ -392,22 +389,11 @@ namespace BS3D
         //which skips the shader's branch.
         private static readonly float FILM_GRAIN = 0.10f;
 
-        //On by default, the aberration's sibling taste toggle
-        private bool _grain = true;
-
-        //On by default (#402): the player's half of whether the frame is motion-blurred. The tier's half is
-        //QualityPreset.MotionBlur, and MotionBlurActive is the two together.
-        private bool _motionBlur = true;
-
-        //On by default, and the one row among the looks that is about PLAY rather than about the picture
-        //(#290): whether a big collapse still takes the camera. Off changes nothing about the drop itself —
-        //the same balls come off the cluster and fall the same way — it only leaves the lens where it was.
-        private bool _dropCinematic = true;
-
-        //On by default (#189): whether the first chapter's tutorial cards are shown. The settings row's
-        //opt-out, read by the session every frame so a change made from the pause lands at once; what has
-        //been TAUGHT is the save's record (PlayerProgress.Lessons), never this flag.
-        private bool _tutorial = true;
+        //The aberration, the grain, the motion blur (#402), the drop cinematic (#290) and the tutorial (#189)
+        //are the player's taste toggles and are read straight off _effective since #583 — see EffectiveSettings.
+        //The drop cinematic is the one among them about PLAY rather than the picture: off changes nothing about
+        //the drop itself, it only leaves the lens where it was. The tutorial flag is a preference; what has been
+        //TAUGHT is the save's record (PlayerProgress.Lessons), never this flag.
 
         //The debug unlock (#349): off at every launch and never written anywhere. It is deliberately NOT
         //persisted — a development convenience that survived a restart would eventually be left on, and the
@@ -474,12 +460,19 @@ namespace BS3D
 
         /// <summary>
         /// The player's own answers (#354), read in the constructor and written back by the settings verbs
-        /// alone. <b>It is not a mirror of the game's state and must not become one</b>: the fields below are
-        /// what this run is doing, which a command-line pin is free to change, and this is what the player
-        /// clicked — which is why a benchmark run's <c>quality=</c> cannot leak into the file by clicking some
-        /// other row. Never null; a missing or unreadable file is the defaults.
+        /// alone. <b>It is not a mirror of the game's state and must not become one</b>: the run fields a
+        /// command-line pin can change (the exposure, the tier, fullscreen, the cap) are what this run is doing,
+        /// and this is what the player clicked — which is why a benchmark run's <c>quality=</c> cannot leak into
+        /// the file by clicking some other row. Never null; a missing or unreadable file is the defaults.
         /// </summary>
         private readonly GameSettings _settings;
+
+        /// <summary>
+        /// The ten rows that are only the player's answer, read through to <see cref="_settings"/> with the run's
+        /// <c>mute</c> laid over the master (#583) — the one copy of each, where there used to be a field beside
+        /// the file's value. See <see cref="EffectiveSettings"/>.
+        /// </summary>
+        private readonly EffectiveSettings _effective;
 
         /// <summary>The online score boards (#546, #548) — the client, the identity and what the pages read of them (#583).</summary>
         private readonly OnlineSession _online;
@@ -665,23 +658,16 @@ namespace BS3D
             //The player's own answers, read before anything the command line said (#354). An argument is a
             //RUN's instruction and outranks the file at every row that has one; the file is what a row nobody
             //pinned falls back to. GameSettings carries the rule that decides what is ever written back — and
-            //the reason this object is kept beside the fields rather than replacing them.
+            //the reason this object is kept beside the run fields an argument can pin rather than replacing them.
             _settings = GameSettings.Load(UserData.PathTo(GameSettings.DefaultFileName));
 
             //The online score boards (#546), as soon as the answer to "is it on" has been read. Its worker starts
             //draining an outbox left by an earlier run straight away, off this thread.
             _online = new OnlineSession(_settings, () => _wallClock, SaveSettings, () => _settingsPage?.Refresh());
 
-            _masterVolume = _settings.MasterVolume;
-            _sfxVolume = _settings.SfxVolume;
-            _musicVolume = _settings.MusicVolume;
-            _ambienceVolume = _settings.AmbienceVolume;
-            _rumbleStrength = _settings.RumbleStrength;
-            _aberration = _settings.Aberration;
-            _grain = _settings.Grain;
-            _motionBlur = _settings.MotionBlur;
-            _dropCinematic = _settings.DropCinematic;
-            _tutorial = _settings.Tutorial;
+            //The ten rows that are only the player's answer are read through the file from here on (#583), with
+            //"mute" held over the master as a flag and never stored — see EffectiveSettings
+            _effective = new EffectiveSettings(_settings, launch.Mute);
 
             //Seeded BEFORE SetScene rather than applied after it, which is the opposite of what sky= does and
             //deliberately so: the six scenes that state a dome of their own must still replace it, and every
@@ -711,7 +697,6 @@ namespace BS3D
             _startupScript = new StartupScript(launch, TestOptions.StartupLevelFile);
             _plainCeiling = launch.PlainCeiling;
             _shotSchedule = launch.ShotSeconds;
-            if (launch.Mute) _masterVolume = 0f;
             _noFpsOverlay = launch.NoFpsOverlay;
 
             //A tier the player chose in Settings is honoured exactly as quality= is — it is the same kind of
@@ -953,8 +938,8 @@ namespace BS3D
                 GlareThreshold = GLARE_THRESHOLD,
                 GlareIntensity = GLARE_INTENSITY,
                 Exposure = _exposure,
-                ChromaticAberration = _aberration ? CHROMATIC_ABERRATION : 0f,
-                FilmGrain = _grain ? FILM_GRAIN : 0f,
+                ChromaticAberration = _effective.Aberration ? CHROMATIC_ABERRATION : 0f,
+                FilmGrain = _effective.Grain ? FILM_GRAIN : 0f,
                 SupersampleFactor = _supersampleFactor,
             };
 

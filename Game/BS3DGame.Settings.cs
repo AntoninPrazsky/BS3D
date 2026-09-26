@@ -109,22 +109,42 @@ namespace BS3D
 
         //The four volume rows (#46). Each steps its own gain and takes effect where it is made — the music
         //keeps playing under the settings page, so what the row does is heard as it is clicked. They were
-        //four copies of the same three lines until #71; the row is what differs, and a row is a field.
-        //Each row names its own entry in the settings file, because the `ref` cannot say which row it is —
-        //and, more to the point, because `mute` puts the master at zero WITHOUT a click (#354). A stepper
-        //that wrote all four would carry a scripted run's silence into the player's file, which is exactly
-        //the leak the rule "an argument is applied but never written back" exists to stop. The closure is one
-        //allocation per click on a menu page, not a per-frame path.
-        internal void CycleMasterVolume() => CycleVolume(ref _masterVolume, v => _settings.MasterVolume = v);
+        //four copies of the same three lines until #71; the row is what differs.
+        //Each row writes its own entry and no other, because `mute` puts the master at zero WITHOUT a click
+        //(#354). A stepper that wrote all four would carry a scripted run's silence into the player's file,
+        //which is exactly the leak the rule "an argument is applied but never written back" exists to stop.
+        //Since #583 the row IS the file's value (EffectiveSettings), with mute held over the master as a
+        //flag that the master's own click lifts — so the step is taken from what the player hears.
+        internal void CycleMasterVolume()
+        {
+            _effective.MasterVolume = NextVolume(_effective.MasterVolume);
+            OnVolumeRowChanged();
+        }
 
-        internal void CycleSfxVolume() => CycleVolume(ref _sfxVolume, v => _settings.SfxVolume = v);
+        internal void CycleSfxVolume()
+        {
+            _effective.SfxVolume = NextVolume(_effective.SfxVolume);
+            OnVolumeRowChanged();
+        }
 
-        internal void CycleMusicVolume() => CycleVolume(ref _musicVolume, v => _settings.MusicVolume = v);
+        internal void CycleMusicVolume()
+        {
+            _effective.MusicVolume = NextVolume(_effective.MusicVolume);
+            OnVolumeRowChanged();
+        }
 
-        internal void CycleAmbienceVolume() => CycleVolume(ref _ambienceVolume, v => _settings.AmbienceVolume = v);
+        internal void CycleAmbienceVolume()
+        {
+            _effective.AmbienceVolume = NextVolume(_effective.AmbienceVolume);
+            OnVolumeRowChanged();
+        }
 
         /// <summary>The pad's own row (#378) — not audio, but cycled and stored exactly like the four above it.</summary>
-        internal void CycleRumbleStrength() => CycleVolume(ref _rumbleStrength, v => _settings.RumbleStrength = v);
+        internal void CycleRumbleStrength()
+        {
+            _effective.RumbleStrength = NextVolume(_effective.RumbleStrength);
+            OnVolumeRowChanged();
+        }
 
         /// <summary>
         /// Which theme plays, cycled so it can be listened to (#279). It is a <b>preview</b> and not a
@@ -187,12 +207,9 @@ namespace BS3D
             return _menuMusicOn ? null : families[0];
         }
 
-        private void CycleVolume(ref float volume, Action<float> store)
+        private void OnVolumeRowChanged()
         {
-            volume = NextVolume(volume);
             ApplyVolumes();
-
-            store(volume);
             SaveSettings();
 
             _settingsPage.Refresh();
@@ -219,22 +236,24 @@ namespace BS3D
         /// </summary>
         private void ApplyVolumes()
         {
-            _audio.Gain = _masterVolume * _sfxVolume;
-            _music.Gain = _masterVolume * _musicVolume;
+            float master = _effective.MasterVolume;
+
+            _audio.Gain = master * _effective.SfxVolume;
+            _music.Gain = master * _effective.MusicVolume;
 
             //The About page's player is music too, and takes the music row
-            _jukebox.Gain = _masterVolume * _musicVolume;
+            _jukebox.Gain = master * _effective.MusicVolume;
 
             //The beds have a row of their own: how much atmosphere sits under the music is a taste, and
             //chaining it to the effects would turn the shot down with it.
-            _ambience.Gain = _masterVolume * _ambienceVolume;
+            _ambience.Gain = master * _effective.AmbienceVolume;
 
             //The weather's one-shots ride the bed's row rather than the effects one (#219): thunder answers
             //nothing the player did, so a player who turned the atmosphere down has already said what they
             //think of it. See ProceduralAudio.WeatherGain.
-            _audio.WeatherGain = _masterVolume * _ambienceVolume;
+            _audio.WeatherGain = master * _effective.AmbienceVolume;
 
-            _rumble.Strength = _rumbleStrength;
+            _rumble.Strength = _effective.RumbleStrength;
         }
 
         internal void ToggleFullscreen()
@@ -309,10 +328,9 @@ namespace BS3D
         /// </summary>
         internal void ToggleAberration()
         {
-            _aberration = !_aberration;
-            _pipeline.ChromaticAberration = _aberration ? CHROMATIC_ABERRATION : 0f;
+            _effective.Aberration = !_effective.Aberration;
+            _pipeline.ChromaticAberration = _effective.Aberration ? CHROMATIC_ABERRATION : 0f;
 
-            _settings.Aberration = _aberration;
             SaveSettings();
 
             _settingsPage.Refresh();
@@ -325,10 +343,9 @@ namespace BS3D
         /// </summary>
         internal void ToggleGrain()
         {
-            _grain = !_grain;
-            _pipeline.FilmGrain = _grain ? FILM_GRAIN : 0f;
+            _effective.Grain = !_effective.Grain;
+            _pipeline.FilmGrain = _effective.Grain ? FILM_GRAIN : 0f;
 
-            _settings.Grain = _grain;
             SaveSettings();
 
             _settingsPage.Refresh();
@@ -341,9 +358,8 @@ namespace BS3D
         /// </summary>
         internal void ToggleMotionBlur()
         {
-            _motionBlur = !_motionBlur;
+            _effective.MotionBlur = !_effective.MotionBlur;
 
-            _settings.MotionBlur = _motionBlur;
             SaveSettings();
 
             _settingsPage.Refresh();
@@ -361,9 +377,8 @@ namespace BS3D
         /// </summary>
         internal void ToggleDropCinematic()
         {
-            _dropCinematic = !_dropCinematic;
+            _effective.DropCinematic = !_effective.DropCinematic;
 
-            _settings.DropCinematic = _dropCinematic;
             SaveSettings();
 
             _settingsPage.Refresh();
@@ -378,9 +393,8 @@ namespace BS3D
         /// </summary>
         internal void ToggleTutorial()
         {
-            _tutorial = !_tutorial;
+            _effective.Tutorial = !_effective.Tutorial;
 
-            _settings.Tutorial = _tutorial;
             SaveSettings();
 
             _settingsPage.Refresh();
