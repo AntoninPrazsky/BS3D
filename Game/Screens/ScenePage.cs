@@ -72,8 +72,16 @@ namespace BS3D.Screens
             //here is what will be shown in play. Picking a scene IS the request: the owner's ask was to be
             //able to review all of them by switching through the list, and a separate button would mean two
             //presses per scene to do what one already implies.
-            Manager?.Find<BackdropScreen>()?.PlayTour();
+            //Only over the front end. Opened from the pause, a game stands between this page and the backdrop, and
+            //the stack does not update a screen under a session (UpdatesUnderlying) - so a tour started there never
+            //advanced, never ended, and the plate below stayed hidden for as long as it was "engaged": the owner was
+            //left on the pause's blurred frame with no page and no way back into the level (#636). There the pick
+            //only changes the scene, which is what it is for in the middle of a level.
+            if (!InLevel) Manager?.Find<BackdropScreen>()?.PlayTour();
         }
+
+        //Whether this page stands over a game in progress (reached from the pause) rather than over the front end
+        private bool InLevel => Manager != null && Manager.Contains<GameplayScreen>();
 
         /// <summary>
         /// The page gets out of the way while a tour is flying (#406) and comes back when it lands. A tour
@@ -85,7 +93,7 @@ namespace BS3D.Screens
             base.Update(gameTime);
 
             BackdropScreen backdrop = Manager?.Find<BackdropScreen>();
-            if (_plate != null && backdrop != null) _plate.Visible = !backdrop.TourEngaged;
+            if (_plate != null && backdrop != null) _plate.Visible = InLevel || !backdrop.TourEngaged;
         }
 
         /// <summary>
