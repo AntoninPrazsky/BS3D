@@ -83,14 +83,14 @@ static const float3 StoneBody = float3(0.555, 0.545, 0.515);
 //What the grains are: the pale one is quartz catching the light, the dark one mica. Asymmetric on purpose -
 //a real granite's dark minerals sit further from the matrix than its light ones, and a symmetric pair reads
 //as noise rather than as an aggregate.
-static const float3 StoneGrainPale = float3(0.90, 0.89, 0.86);
-static const float3 StoneGrainDark = float3(0.17, 0.16, 0.155);
+static const float3 StoneGrainPale = float3(0.97, 0.97, 0.98);
+static const float3 StoneGrainDark = float3(0.07, 0.065, 0.065);
 
 //How hard the fleck field is squeezed before it counts as a grain. The noise spends most of its range near
 //zero, so this is what turns "mostly nothing with occasional peaks" into discrete grains with clean matrix
 //between them rather than a continuous haze.
-static const float StoneGrainGate = 2.6;
-static const float StoneGrainSharpness = 1.7;
+static const float StoneGrainGate = 3.6;
+static const float StoneGrainSharpness = 1.6;
 
 //The coarse lumps, as a fraction of the relief: how much of the roughness is broad shaping (a chipped
 //boulder) against fine pitting (weathering). Both are needed - fine alone reads as sandpaper on a
@@ -378,10 +378,10 @@ float4 StonePS(PatternVertexShaderOutput input) : COLOR
     //says. Gradient noise has no rows. Two octaves, so the flecks come in two sizes as an aggregate's grains
     //do, the coarse one warped by the lumps so patches of coarser and finer grain still form; the product's
     //band-limit argument (measure against the finest content) is kept as the cell size of the finer octave.
-    float speckCells = StoneGrainFrequency * 0.7;
+    float speckCells = StoneGrainFrequency * 1.7;
     float speckLimit = saturate(1 - footprint * speckCells * 2.0);
-    float fleck = 1.3 * (0.6 * GradientNoise3(direction * (speckCells * 0.55) + warp * 0.35)
-        + 0.5 * GradientNoise3(mul(NOISE_ROTATE3, direction) * speckCells)) * speckLimit;
+    float fleck = 1.3 * (0.35 * GradientNoise3(direction * (speckCells * 0.5) + warp * 0.35)
+        + 0.75 * GradientNoise3(mul(NOISE_ROTATE3, direction) * speckCells)) * speckLimit;
 
     //Two sides of one field: the peaks above zero are the pale mineral, the troughs below it the dark
     //one. Reading both off the SAME product is what keeps them interlocked the way an aggregate's

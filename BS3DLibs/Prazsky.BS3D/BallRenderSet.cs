@@ -668,8 +668,10 @@ namespace Prazsky.BS3D
         /// How far a grain carries from the body grey. Strong — over half — because it is doing on its own the
         /// job the thirteen tints do for every other ball: this is the one ball in the game that has to be
         /// recognised without a colour.
+        /// <para>Full since #623 (0.55 before): the owner's verdict on the fracture-plane rock was that the contrast
+        /// should be stronger, and the references' granite is pepper and salt on grey.</para>
         /// </summary>
-        private const float STONE_GRAIN_CONTRAST = 0.55f;
+        private const float STONE_GRAIN_CONTRAST = 1.0f;
 
         /// <summary>
         /// Peak height of a rock's relief, in world units — six times the vinyl's moulding and the largest ball
