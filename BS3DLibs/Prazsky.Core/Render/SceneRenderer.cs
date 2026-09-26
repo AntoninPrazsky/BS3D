@@ -374,7 +374,6 @@ namespace Prazsky.Core.Render
         private ForestSceneConfig _forestConfig = new();
         private TropicalSceneConfig _tropicalConfig = new();
         private VolcanoSceneConfig _volcanoConfig = new();
-        private MarsSceneConfig _marsConfig = new();
 
         #region Sea
 
@@ -560,32 +559,6 @@ namespace Prazsky.Core.Render
         private IndexBuffer _ashIndexBuffer;
 
         //Look/tuning parameters live in VolcanoSceneConfig; SceneRenderer reads them from _volcanoConfig.
-
-        #endregion
-
-        #region Mars
-
-        private readonly Effect _marsEffect;
-        private VertexBuffer _marsVertexBuffer; //not readonly: a tier's crossing rebuilds it (EnsureMarsGrid, #540)
-        private IndexBuffer _marsIndexBuffer;
-        private int _marsIndexCount;
-
-        //The crater field is evaluated four times a pixel (the vertex tap plus the normal's three taps),
-        //the Moon's own reason for its grid density; Mars keeps it rather than the coarser desert grid.
-        private const int MARS_GRID_N = 360;
-
-        //The reduced program's grid (#540), the volcano's VOLCANO_GRID_N_REDUCED for the same reason: see SelectMarsTechnique
-        private const int MARS_GRID_N_REDUCED = 256;
-        private const float MARS_EXTENT = 1000f;
-
-        //The moons pass shares the sky-replacing scenes' full-screen-quad machinery (_fullScreenQuad), so only
-        //its two per-frame ray-reconstruction parameters are cached (BestPractices §1) — the terrain pass
-        //follows the outback's and the volcano's own practice of setting the rest by name each draw.
-        private EffectParameter _marsMoonsInverseViewProjection, _marsMoonsCameraPosition;
-        private EffectTechnique _marsTerrainTechnique, _marsTerrainFull, _marsTerrainReduced, _marsMoonsTechnique;
-
-        //Look/tuning parameters (clearing, craters, rust surface, dust haze, the two moons) live in
-        //MarsSceneConfig; SceneRenderer reads them from _marsConfig.
 
         #endregion
 
@@ -991,6 +964,7 @@ namespace Prazsky.Core.Render
         private readonly DesertBackdrop _desert;
         private readonly PolarBackdrop _polar;
         private readonly AuroraBackdrop _aurora;
+        private readonly MarsBackdrop _mars;
 
         //The device, the full-screen quad, the supersampling factor, the seed offset, the billboard index
         //builder, the terrain grid cache and the island's hole radius, handed to every backdrop.
@@ -1128,24 +1102,10 @@ namespace Prazsky.Core.Render
             ApplyVolcanoParameters();
             BuildVolcanoBuffers();
 
-            //--- Mars (#277): the sixteenth scene - the Moon's crater field (#125) retextured rust/ochre on
-            //the outback's plumbing (an ordinary dome, the shared cloud shadow, a haze-closed horizon)
-            //rather than the Moon's domeless, curvature-closed one. Two techniques in one effect: the
-            //terrain grid, and a small full-screen pass for Phobos and Deimos sharing the sky-replacing
-            //scenes' own quad (_fullScreenQuad).
-            _marsEffect = content.Load<Effect>("Shaders/Mars");
-            EnsureMarsGrid(MARS_GRID_N);
-
-            //The authored ground and its reduced program; SceneDetail picks between them (SelectMarsTechnique)
-            _marsTerrainFull = _marsEffect.Techniques["MarsTerrain"];
-            _marsTerrainReduced = _marsEffect.Techniques["MarsTerrainReduced"];
-            SelectMarsTechnique();
-            _marsMoonsTechnique = _marsEffect.Techniques["MarsMoons"];
-
-            _marsMoonsInverseViewProjection = _marsEffect.Parameters["InverseViewProjection"];
-            _marsMoonsCameraPosition = _marsEffect.Parameters["CameraPosition"];
-
-            ApplyMarsParameters();
+            //--- Mars (#277): its own Backdrop since #580 (Render/Scenes), built here where its code stood;
+            //it picks its ground's program at load, so it is handed the tier the renderer starts at
+            _mars = new MarsBackdrop(_services, content, _sceneDetail);
+            _backdrops[(int)SceneKind.Mars] = _mars;
 
             //--- Storm (#219): the seventeenth scene, its own Backdrop since #580 (Render/Scenes), built here
             //where its code stood
@@ -1310,7 +1270,7 @@ namespace Prazsky.Core.Render
                 _forestEffect,                       //its floor; the trees receive through the shared effect
                 _mountainEffect,
                 _tropicalEffect, _palmEffect,        //the sand and the palms standing on it
-                _volcanoEffect, _marsEffect
+                _volcanoEffect
             };
 
             //...and every backdrop's own, stated beside its fit (#580)
@@ -1575,14 +1535,6 @@ namespace Prazsky.Core.Render
                     viewpoint = new SceneViewpoint(VolcanoLightPosition(0, 0f), 2.4f, 14f, 160f, "the crater");
                     return true;
 
-                //Phobos, placed the same designer-facing way the shader places it. The bigger of the two
-                //moons and the higher-contrast one: Deimos is under half its angular size.
-                case SceneKind.Mars:
-                    viewpoint = new SceneViewpoint(
-                        DirectionFromElevationAzimuth(_marsConfig.Moons.PhobosElevation, _marsConfig.Moons.PhobosAzimuth) * 700f,
-                        1.9f, 16f, 180f, "Phobos");
-                    return true;
-
                 default:
                     viewpoint = default;
                     return false;
@@ -1646,7 +1598,6 @@ namespace Prazsky.Core.Render
             SceneKind.Forest => _forestConfig,
             SceneKind.Tropical => _tropicalConfig,
             SceneKind.Volcano => _volcanoConfig,
-            SceneKind.Mars => _marsConfig,
             _ => null,
         };
 
@@ -1861,67 +1812,6 @@ namespace Prazsky.Core.Render
             _ashEffect.Parameters["AshColor"].SetValue(ash.AshColor.ToVector3());
             _ashEffect.Parameters["EmberColor"].SetValue(ash.EmberColor.ToVector3());
             _ashEffect.Parameters["AshOpacity"].SetValue(ash.Opacity);
-        }
-
-        /// <summary>
-        /// Pushes Mars's static tuning into <c>Mars.fx</c> — the crater field's amplitude and clearing, the
-        /// rust surface, the dust haze, and Phobos's and Deimos's directions (elevation/azimuth degrees,
-        /// converted here the way <see cref="SkyDome"/> converts its own <c>SUNS</c> table, so a config can
-        /// never roll a zero-length direction).
-        /// </summary>
-        private void ApplyMarsParameters()
-        {
-            MarsTerrainConfig terrain = _marsConfig.Terrain;
-            MarsSurfaceConfig surface = _marsConfig.Surface;
-            MarsAirConfig air = _marsConfig.Air;
-            MarsMoonsConfig moons = _marsConfig.Moons;
-
-            _marsEffect.Parameters["MarsLevelY"].SetValue(terrain.LevelY);
-            _marsEffect.Parameters["ClearingRadius"].SetValue(terrain.ClearingRadius);
-            _marsEffect.Parameters["ClearingTransition"].SetValue(terrain.ClearingTransition);
-            _marsEffect.Parameters["CraterAmplitude"].SetValue(terrain.CraterAmplitude);
-
-            //The spacings divide a world position in the shader, so a zero would take the whole terrain
-            //with it (the outback's own guard).
-            _marsEffect.Parameters["RockSpacing"].SetValue(MathF.Max(terrain.RockSpacing, 1f));
-            _marsEffect.Parameters["RockChance"].SetValue(terrain.RockChance);
-            _marsEffect.Parameters["RockHeight"].SetValue(terrain.RockHeight);
-            _marsEffect.Parameters["PebbleSpacing"].SetValue(MathF.Max(terrain.PebbleSpacing, 1f));
-            _marsEffect.Parameters["PebbleChance"].SetValue(terrain.PebbleChance);
-            _marsEffect.Parameters["PebbleHeight"].SetValue(terrain.PebbleHeight);
-
-            _marsEffect.Parameters["RustColor"].SetValue(surface.RustColor.ToVector3());
-            _marsEffect.Parameters["RustColorPale"].SetValue(surface.RustColorPale.ToVector3());
-            _marsEffect.Parameters["EjectaBrightness"].SetValue(surface.EjectaBrightness);
-            _marsEffect.Parameters["MicroReliefStrength"].SetValue(surface.MicroReliefStrength);
-            _marsEffect.Parameters["GrainStrength"].SetValue(surface.GrainStrength);
-            _marsEffect.Parameters["AmbientStrength"].SetValue(surface.AmbientStrength);
-            _marsEffect.Parameters["BoulderColorDeep"].SetValue(surface.BoulderColorDeep.ToVector3());
-            _marsEffect.Parameters["BoulderColorBright"].SetValue(surface.BoulderColorBright.ToVector3());
-            _marsEffect.Parameters["RockRelief"].SetValue(surface.RockRelief);
-
-            _marsEffect.Parameters["MesaHeight"].SetValue(terrain.MesaHeight);
-            _marsEffect.Parameters["MesaInnerRadius"].SetValue(terrain.MesaInnerRadius);
-            _marsEffect.Parameters["MesaThreshold"].SetValue(terrain.MesaThreshold);
-            _marsEffect.Parameters["StrataColorPale"].SetValue(surface.StrataColorPale.ToVector3());
-            _marsEffect.Parameters["StrataColorDark"].SetValue(surface.StrataColorDark.ToVector3());
-            _marsEffect.Parameters["StrataFrequency"].SetValue(surface.StrataFrequency);
-            _marsEffect.Parameters["SandColor"].SetValue(surface.SandColor.ToVector3());
-            _marsEffect.Parameters["SandCoverage"].SetValue(surface.SandCoverage);
-            _marsEffect.Parameters["SlabColor"].SetValue(surface.SlabColor.ToVector3());
-            _marsEffect.Parameters["SlabCoverage"].SetValue(surface.SlabCoverage);
-
-            _marsEffect.Parameters["HazeTint"].SetValue(air.HazeTint.ToVector3());
-            _marsEffect.Parameters["DustStrength"].SetValue(air.DustStrength);
-            _marsEffect.Parameters["HorizonHazeDistance"].SetValue(air.HorizonHazeDistance);
-
-            _marsEffect.Parameters["PhobosDirection"].SetValue(DirectionFromElevationAzimuth(moons.PhobosElevation, moons.PhobosAzimuth));
-            _marsEffect.Parameters["PhobosAngularRadius"].SetValue(MathHelper.ToRadians(MathF.Max(moons.PhobosAngularRadiusDegrees, 0f)));
-            _marsEffect.Parameters["PhobosColor"].SetValue(moons.PhobosColor.ToVector3());
-
-            _marsEffect.Parameters["DeimosDirection"].SetValue(DirectionFromElevationAzimuth(moons.DeimosElevation, moons.DeimosAzimuth));
-            _marsEffect.Parameters["DeimosAngularRadius"].SetValue(MathHelper.ToRadians(MathF.Max(moons.DeimosAngularRadiusDegrees, 0f)));
-            _marsEffect.Parameters["DeimosColor"].SetValue(moons.DeimosColor.ToVector3());
         }
 
         /// <summary>
@@ -3179,37 +3069,6 @@ namespace Prazsky.Core.Render
             BuildBillboardParticles(_seaConfig.Spray.ParticleCount, 5023, ref _sprayVertexBuffer, ref _sprayIndexBuffer);
 
         /// <summary>
-        /// Mars's full ground or its reduced one: the sand drifts, the bedrock slabs and the strata's wobble are the
-        /// added noise the reduced program drops, the mesas staying on every tier. Held as a cached technique rather
-        /// than looked up, since <c>DrawMars</c> assigns it every frame.
-        /// </summary>
-        private void SelectMarsTechnique()
-        {
-            _marsTerrainTechnique = _sceneDetail > 0.5f ? _marsTerrainFull : _marsTerrainReduced;
-
-            //And a coarser grid under the reduced program since #540, the volcano's own step: on the APU at Low,
-            //360 -> 256 was 1.69 ms of Mars's frame (47 cycles, 100 %) and photographed identical, where the two
-            //cuts to the ground's program that were tried beside it were not - the pebbles' lattice (1.12 ms) left
-            //the plain visibly emptier, and the fourth crater octave with an octave off both reliefs (0.25) took
-            //the small craters that make the field read. The grid is only rebuilt once the mesh exists: this runs
-            //from the constructor before it is first made.
-            if (_marsVertexBuffer != null) EnsureMarsGrid(_sceneDetail > 0.5f ? MARS_GRID_N : MARS_GRID_N_REDUCED);
-        }
-
-        /// <summary>(Re)builds Mars's grid at <paramref name="n"/> vertices a side when it is not that already (#540).</summary>
-        private void EnsureMarsGrid(int n)
-        {
-            if (_marsVertexBuffer != null && _marsGridN == n) return;
-
-            //Given back rather than disposed: the grid cache owns it, and at full detail another scene draws the same one
-            if (_marsVertexBuffer != null) _gridCache.Release(_marsGridN, MARS_EXTENT);
-            AcquireGridMesh(n, MARS_EXTENT, out _marsVertexBuffer, out _marsIndexBuffer, out _marsIndexCount);
-            _marsGridN = n;
-        }
-
-        private int _marsGridN;
-
-        /// <summary>
         /// The meadow's full field or its reduced one (#281): the grass material's clumps and blade
         /// strokes are the two near-field terms that cost, and the reduced program drops both. By technique for
         /// <see cref="SelectForestTechnique"/>'s reason.
@@ -3263,7 +3122,6 @@ namespace Prazsky.Core.Render
             SelectForestTechnique();
             SelectMeadowTechnique();
             SelectSavannaTechnique();
-            SelectMarsTechnique();
 
             //The dream's and the cavern's picks moved into their backdrops with the rest of them (#580)
             foreach (Backdrop backdrop in _backdrops) backdrop?.OnDetailChanged(_sceneDetail);
@@ -3429,10 +3287,6 @@ namespace Prazsky.Core.Render
                     break;
                 case SceneKind.Forest:
                     DrawForest(frame);
-                    break;
-                case SceneKind.Mars:
-                    DrawMarsTerrain(frame);
-                    DrawMarsMoons(frame);
                     break;
             }
         }
@@ -4118,12 +3972,6 @@ namespace Prazsky.Core.Render
                     above = _volcanoConfig.ConeHeight * 0.3f;
                     break;
 
-                case SceneKind.Mars:
-                    groundY = _marsConfig.Terrain.LevelY;
-                    below = _marsConfig.Terrain.CraterAmplitude * 2f;
-                    above = _marsConfig.Terrain.MesaHeight * 0.5f;
-                    break;
-
                 default:
                     return false;
             }
@@ -4536,72 +4384,6 @@ namespace Prazsky.Core.Render
             _ashEffect.CurrentTechnique.Passes[0].Apply();
             _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0,
                 Math.Clamp(_volcanoConfig.Ash.FlakeCount, 0, MAX_BILLBOARD_PARTICLES) * 2);
-
-            _graphicsDevice.DepthStencilState = DepthStencilState.Default;
-            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
-        }
-
-        /// <summary>
-        /// Draws Mars (#277): the grid pinned to the camera (snapped to a cell so the land does not swim),
-        /// carrying the Moon's crater field retextured rust and shaded per-pixel by the current dome and
-        /// the shared cloud field — the outback's plumbing, not the Moon's domeless one. No point lights
-        /// and no birds of its own, like the desert and the outback.
-        /// </summary>
-        private void DrawMarsTerrain(in SceneFrame frame)
-        {
-            float cell = MARS_EXTENT / (_marsGridN - 1);
-            float originX = MathF.Round(frame.Camera.Position.X / cell) * cell;
-            float originZ = MathF.Round(frame.Camera.Position.Z / cell) * cell;
-
-            _marsEffect.Parameters["OriginXZ"].SetValue(new Vector2(originX, originZ));
-            _marsEffect.Parameters["IslandHoleRadius"].SetValue(TerrainHoleRadius);
-            _marsEffect.Parameters["View"].SetValue(frame.Camera.View);
-            _marsEffect.Parameters["Projection"].SetValue(frame.Camera.Projection);
-            _marsEffect.Parameters["CameraPosition"].SetValue(frame.Camera.Position);
-            _marsEffect.Parameters["SunDirection"].SetValue(frame.SunDirection);
-            _marsEffect.Parameters["SunColor"].SetValue(frame.SunColor);
-            _marsEffect.Parameters["ZenithColor"].SetValue(frame.ZenithLinear);
-            _marsEffect.Parameters["HorizonColor"].SetValue(frame.HorizonLinear);
-
-            frame.ApplyClouds?.Invoke(_marsEffect);
-
-            _graphicsDevice.BlendState = BlendState.Opaque;
-            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
-
-            _farField.Begin(_marsEffect, frame, MARS_EXTENT);
-            _graphicsDevice.SetVertexBuffer(_marsVertexBuffer);
-            _graphicsDevice.Indices = _marsIndexBuffer;
-            _marsEffect.CurrentTechnique = _marsTerrainTechnique;
-            _marsEffect.CurrentTechnique.Passes[0].Apply();
-            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _marsIndexCount / 3);
-            _farField.DrawRing(_marsEffect, new Vector2(originX, originZ), MARS_EXTENT);
-
-            _graphicsDevice.BlendState = BlendState.AlphaBlend;
-            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
-        }
-
-        /// <summary>
-        /// Draws Phobos and Deimos: two small analytic discs on space's shared full-screen quad
-        /// (<c>_fullScreenQuad</c>), depth-read against the depth <see cref="DrawMarsTerrain"/> just wrote —
-        /// Moon.fx's own measured reason (<c>MoonBackdrop.Draw</c>'s doc) for reading depth after the ground
-        /// rather than before it, carried over even though this pass is far cheaper than a starfield.
-        /// Alpha-blended, unlike every sky-replacing scene's opaque quad pass: this composites two small
-        /// discs over a dome and a terrain that are already drawn, not a full-screen backdrop of its own.
-        /// </summary>
-        private void DrawMarsMoons(in SceneFrame frame)
-        {
-            _marsMoonsInverseViewProjection.SetValue(Matrix.Invert(frame.Camera.View * frame.Camera.Projection));
-            _marsMoonsCameraPosition.SetValue(frame.Camera.Position);
-            _marsEffect.Parameters["SunDirection"].SetValue(frame.SunDirection);
-
-            _graphicsDevice.BlendState = BlendState.AlphaBlend;
-            _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
-            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
-
-            _graphicsDevice.SetVertexBuffer(_fullScreenQuad);
-            _marsEffect.CurrentTechnique = _marsMoonsTechnique;
-            _marsEffect.CurrentTechnique.Passes[0].Apply();
-            _graphicsDevice.DrawPrimitives(PrimitiveType.TriangleStrip, 0, 2);
 
             _graphicsDevice.DepthStencilState = DepthStencilState.Default;
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;

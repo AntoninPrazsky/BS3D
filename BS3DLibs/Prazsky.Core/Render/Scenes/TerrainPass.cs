@@ -13,11 +13,18 @@ namespace Prazsky.Core.Render
     /// scene block's states.
     /// <para>
     /// <b>What varies between scenes is exactly what it takes</b>: the effect (its config already pushed by its
-    /// owner, once at load), the grid's density and extent, and the time uniform's name. Its per-frame
-    /// parameters are resolved once here (BestPractices §1) where the three copies set them by name every
-    /// frame. The other open-ground scenes (the sea, the savanna, the mountains, the meadow, the forest, the
-    /// beach, the volcano, Mars) run the same skeleton with more in it — a depth state, point lights, a
-    /// second pass — and join it when they move into backdrops of their own and it can be shown what they need.
+    /// owner, once at load), the grid's density and extent, and the time uniform's name (none, for a ground on
+    /// which nothing moves). Its per-frame parameters are resolved once here (BestPractices §1) where the
+    /// copies set them by name every frame. The other open-ground scenes (the sea, the savanna, the mountains,
+    /// the meadow, the forest, the beach, the volcano) run the same skeleton with more in it — a depth state,
+    /// point lights, a second pass — and join it when they move into backdrops of their own and it can be
+    /// shown what they need.
+    /// </para>
+    /// <para>
+    /// <b>Mars was the first to bring something</b>: a reduced program on a coarser grid (#540), so the grid can
+    /// be retaken at another density (<see cref="SetGrid"/>), and a second technique on the same effect (its
+    /// moons), so it states the ground's technique as the current one before each <see cref="Draw"/> — which
+    /// applies whatever technique is current, exactly as the copies did.
     /// </para>
     /// <para>
     /// The grid comes from the renderer's <see cref="TerrainGridCache"/> through
@@ -28,12 +35,15 @@ namespace Prazsky.Core.Render
     {
         private readonly GraphicsDevice _graphicsDevice;
         private readonly FarField _farField;
+        private readonly BackdropServices _services;
 
-        private readonly VertexBuffer _vertexBuffer;
-        private readonly IndexBuffer _indexBuffer;
-        private readonly int _indexCount;
+        //Not readonly: a scene whose reduced program runs on a coarser grid retakes it (SetGrid, #540)
+        private VertexBuffer _vertexBuffer;
+        private IndexBuffer _indexBuffer;
+        private int _indexCount;
+        private int _gridN;
         private readonly float _extent;
-        private readonly float _cell;
+        private float _cell;
 
         private readonly EffectParameter _originXZ, _islandHoleRadius, _view, _projection, _cameraPosition,
             _sunDirection, _zenithColor, _horizonColor, _time, _sunColor;
@@ -44,15 +54,18 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// Takes a grid of <paramref name="gridN"/> vertices a side over <paramref name="extent"/> and resolves
         /// <paramref name="effect"/>'s per-frame parameters, <paramref name="timeParameter"/> being the name of
-        /// the scene's own clock uniform (<c>PolarTime</c>, <c>DesertTime</c>, …).
+        /// the scene's own clock uniform (<c>PolarTime</c>, <c>DesertTime</c>, …), or null for a ground on which
+        /// nothing moves (Mars).
         /// </summary>
         public TerrainPass(BackdropServices services, Effect effect, int gridN, float extent, string timeParameter)
         {
             _graphicsDevice = services.GraphicsDevice;
             _farField = services.FarField;
+            _services = services;
             Effect = effect;
             _extent = extent;
             _cell = extent / (gridN - 1);
+            _gridN = gridN;
 
             services.AcquireGridMesh(gridN, extent, out _vertexBuffer, out _indexBuffer, out _indexCount);
 
@@ -64,8 +77,24 @@ namespace Prazsky.Core.Render
             _sunDirection = effect.Parameters["SunDirection"];
             _zenithColor = effect.Parameters["ZenithColor"];
             _horizonColor = effect.Parameters["HorizonColor"];
-            _time = effect.Parameters[timeParameter];
+            _time = timeParameter == null ? null : effect.Parameters[timeParameter];
             _sunColor = effect.Parameters["SunColor"];
+        }
+
+        /// <summary>
+        /// Retakes the grid at <paramref name="gridN"/> vertices a side when it is not that already — Mars's reduced
+        /// program runs on a coarser one (#540), so this runs when the tier crosses <see cref="SceneRenderer.SceneDetail"/>'s
+        /// line and never per frame.
+        /// </summary>
+        public void SetGrid(int gridN)
+        {
+            if (_gridN == gridN) return;
+
+            //Given back rather than disposed: the grid cache owns it, and at full detail another scene draws the same one
+            _services.ReleaseGridMesh(_gridN, _extent);
+            _services.AcquireGridMesh(gridN, _extent, out _vertexBuffer, out _indexBuffer, out _indexCount);
+            _gridN = gridN;
+            _cell = _extent / (gridN - 1);
         }
 
         /// <summary>
@@ -86,7 +115,7 @@ namespace Prazsky.Core.Render
             _sunDirection.SetValue(frame.SunDirection);
             _zenithColor.SetValue(frame.ZenithLinear);
             _horizonColor.SetValue(frame.HorizonLinear);
-            _time.SetValue(frame.Time);
+            _time?.SetValue(frame.Time);
             _sunColor.SetValue(frame.SunColor);
 
             frame.ApplyClouds?.Invoke(Effect);

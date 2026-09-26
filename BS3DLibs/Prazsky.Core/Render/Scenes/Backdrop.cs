@@ -270,5 +270,12 @@ namespace Prazsky.Core.Render
             indexBuffer = grid.Indices;
             indexCount = grid.IndexCount;
         }
+
+        /// <summary>
+        /// Gives back one reference to the grid <see cref="AcquireGridMesh"/> handed out for the pair
+        /// (<see cref="TerrainGridCache.Release"/>): what a scene that retakes its grid at another density does with
+        /// the old one, rather than disposing a pair of buffers another scene may be drawing.
+        /// </summary>
+        public void ReleaseGridMesh(int n, float extent) => _gridCache.Release(n, extent);
     }
 }
