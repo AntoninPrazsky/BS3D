@@ -109,13 +109,14 @@ namespace BS3D.Tools.WindingCheck
 
             if (selfTest) return SelfTest(device);
 
-            string root = FindRepositoryRoot();
             var services = new GameServiceContainer();
             services.AddService(typeof(IGraphicsDeviceService), new DeviceService(device));
-            string contentDir = Path.Combine(root, "Testbed", "bin", "net10.0-windows", "Content");
-            if (!Directory.Exists(contentDir))
+            //The compiled effects beside this tool: it references Prazsky.Shaders like the executables do (#618),
+            //so its own build puts Content/Shaders here. It read the Testbed's compiled content until then.
+            string contentDir = Path.Combine(AppContext.BaseDirectory, "Content");
+            if (!File.Exists(Path.Combine(contentDir, "Shaders", "InstancedModel.xnb")))
             {
-                Console.Error.WriteLine($"No compiled Testbed content at {contentDir} - build Testbed.sln first.");
+                Console.Error.WriteLine($"No compiled shaders at {contentDir} - build this project (it references Prazsky.Shaders).");
                 return 2;
             }
             var content = new ContentManager(services, contentDir);
@@ -500,14 +501,6 @@ namespace BS3D.Tools.WindingCheck
         };
 
         private static string Trim(string s, int n) => s.Length <= n ? s : "…" + s.Substring(s.Length - n + 1);
-
-        private static string FindRepositoryRoot()
-        {
-            for (DirectoryInfo dir = new(AppContext.BaseDirectory); dir != null; dir = dir.Parent)
-                if (File.Exists(Path.Combine(dir.FullName, "Game.sln")) && Directory.Exists(Path.Combine(dir.FullName, "docs")))
-                    return dir.FullName;
-            throw new InvalidOperationException("Could not find the repository root above " + AppContext.BaseDirectory);
-        }
 
         private sealed class DeviceService : IGraphicsDeviceService
         {

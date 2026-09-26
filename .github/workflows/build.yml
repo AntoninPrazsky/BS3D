@@ -37,8 +37,9 @@ jobs:
           dotnet-version: '10.0.2xx'
 
       # The NuGet packages, keyed on every project file and tool manifest (#588): a push that changes no
-      # package reference restores from the cache instead of the feed. The shader compile dominates the run
-      # and no cache helps it (per-executable content), so this saves the restore and nothing more.
+      # package reference restores from the cache instead of the feed. This saves the restore and nothing
+      # more. The shader compile, which dominates a cold build, happens once per run since #618: the effects
+      # compile in Prazsky.Shaders, whose intermediates every later solution build (Release included) reuses.
       - name: Cache NuGet packages
         uses: actions/cache@v4
         with:
@@ -46,9 +47,13 @@ jobs:
           key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', 'Directory.Packages.props', '**/.config/dotnet-tools.json') }}
           restore-keys: nuget-${{ runner.os }}-
 
-      # Each executable carries its own manifest, and the content build shells out to `dotnet mgcb` with the
-      # manifest search walking up from the *project* directory — so this has to run once per executable,
-      # not once at the repo root (CLAUDE.md's own build section explains why).
+      # Each project with a content build carries its own manifest, and the content build shells out to
+      # `dotnet mgcb` with the manifest search walking up from the *project* directory — so this has to run
+      # once per such project, not once at the repo root (CLAUDE.md's own build section explains why).
+      - name: Restore content tools (Prazsky.Shaders)
+        run: dotnet tool restore
+        working-directory: BS3DLibs/Prazsky.Shaders
+
       - name: Restore content tools (Testbed)
         run: dotnet tool restore
         working-directory: Testbed

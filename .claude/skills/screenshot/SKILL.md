@@ -55,14 +55,15 @@ are two independent causes:
 - **MGCB skips an `.fx` whose `.xnb` is already newer — and then copies nothing.** The content task only
   copies what it built in that invocation, so an intermediate that is up to date leaves the output directory
   untouched. `dotnet build` prints `Skipping …\InstancedModel.fx` and reports success. Deleting
-  `Testbed\bin` alone does **not** fix it; deleting `Testbed\Content\bin` (MGCB's own intermediate) forces
-  the rebuild and the copy.
+  `Testbed\bin` alone does **not** fix it; deleting `BS3DLibs\Prazsky.Shaders\Content\bin` and the
+  `Content\obj` beside it (MGCB's own output and intermediate — the shaders compile there since #618, not in
+  the Testbed) forces the rebuild and the copy.
 
 **The check is one line, and it is worth running before every shader capture:**
 
 ```powershell
 # the .xnb must be NEWER than the .fx
-Get-Item Testbed\Content\Shaders\InstancedModel.fx, Testbed\bin\net10.0-windows\Content\Shaders\InstancedModel.xnb |
+Get-Item BS3DLibs\Prazsky.Shaders\Content\Shaders\InstancedModel.fx, Testbed\bin\net10.0-windows\Content\Shaders\InstancedModel.xnb |
     Select-Object LastWriteTime, FullName
 ```
 

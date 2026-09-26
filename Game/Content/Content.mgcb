@@ -12,18 +12,18 @@
 
 #---------------------------------- Content ---------------------------------#
 
-# Everything here is built straight out of the Testbed's content directory, so there is one copy of each
-# shader, texture and dome in the repository and a change reaches every executable at once (the map editor
-# does the same). The one exception is the logo below, which is the Game's alone and lives in Images/logo
-# beside its master — the same "build it where it already is" rule, pointed at a different directory.
+# Nothing here is built out of the Testbed's content directory any more (#618): the Testbed is the
+# development instrument, and the shipping product does not depend on it. The logo lives in Images/logo
+# beside its master and is built where it already is.
 
-# The overlay's font (FPS). The same description the Testbed's overlay uses, so the two read alike.
-#begin ../../Testbed/Content/Fonts/segoeui.spritefont
+# The overlay's font (FPS). A copy of the description the Testbed's and the MapEditor's overlays use (the
+# three files are identical), so the overlays read alike; it was built out of Testbed/Content/Fonts until #618.
+#begin Fonts/segoeui.spritefont
 /importer:FontDescriptionImporter
 /processor:FontDescriptionProcessor
 /processorParam:PremultiplyAlpha=True
 /processorParam:TextureFormat=Color
-/build:../../Testbed/Content/Fonts/segoeui.spritefont;Fonts/segoeui.spritefont
+/build:Fonts/segoeui.spritefont
 
 # The 2D logo the game opens on (#454) — the game's first and only bitmap asset, 2048 x 1267 RGBA straight
 # alpha, cut out and trimmed to the drawing (Images/logo/README.md says how it was made and what must not be
@@ -54,232 +54,7 @@
 /processorParam:TextureFormat=Color
 /build:../../Images/logo/bs3d-logo-2048.png;Images/Logo.png
 
-#begin ../../Testbed/Content/Shaders/InstancedModel.fx
-/importer:EffectImporter
-/processor:EffectProcessor
-/processorParam:DebugMode=Auto
-/build:../../Testbed/Content/Shaders/InstancedModel.fx;Shaders/InstancedModel.fx
-
-#begin ../../Testbed/Content/Shaders/Glare.fx
-/importer:EffectImporter
-/processor:EffectProcessor
-/processorParam:DebugMode=Auto
-/build:../../Testbed/Content/Shaders/Glare.fx;Shaders/Glare.fx
-
-#begin ../../Testbed/Content/Shaders/Tonemap.fx
-/importer:EffectImporter
-/processor:EffectProcessor
-/processorParam:DebugMode=Auto
-/build:../../Testbed/Content/Shaders/Tonemap.fx;Shaders/Tonemap.fx
-
-#begin ../../Testbed/Content/Shaders/MotionBlur.fx
-/importer:EffectImporter
-/processor:EffectProcessor
-/processorParam:DebugMode=Auto
-/build:../../Testbed/Content/Shaders/MotionBlur.fx;Shaders/MotionBlur.fx
-
-#begin ../../Testbed/Content/Shaders/ShotTrail.fx
-/importer:EffectImporter
-/processor:EffectProcessor
-/processorParam:DebugMode=Auto
-/build:../../Testbed/Content/Shaders/ShotTrail.fx;Shaders/ShotTrail.fx
-
-#begin ../../Testbed/Content/Shaders/Fireworks.fx
-/importer:EffectImporter
-/processor:EffectProcessor
-/processorParam:DebugMode=Auto
-/build:../../Testbed/Content/Shaders/Fireworks.fx;Shaders/Fireworks.fx
-
-#begin ../../Testbed/Content/Shaders/Confetti.fx
-/importer:EffectImporter
-/processor:EffectProcessor
-/processorParam:DebugMode=Auto
-/build:../../Testbed/Content/Shaders/Confetti.fx;Shaders/Confetti.fx
-
-#begin ../../Testbed/Content/Shaders/LaserGrid.fx
-/importer:EffectImporter
-/processor:EffectProcessor
-/processorParam:DebugMode=Auto
-/build:../../Testbed/Content/Shaders/LaserGrid.fx;Shaders/LaserGrid.fx
-
-#begin ../../Testbed/Content/Shaders/Blast.fx
-/importer:EffectImporter
-/processor:EffectProcessor
-/processorParam:DebugMode=Auto
-/build:../../Testbed/Content/Shaders/Blast.fx;Shaders/Blast.fx
-
-#begin ../../Testbed/Content/Shaders/Sky.fx
-/importer:EffectImporter
-/processor:EffectProcessor
-/processorParam:DebugMode=Auto
-/build:../../Testbed/Content/Shaders/Sky.fx;Shaders/Sky.fx
-
-# The five self-lit scene backdrops the menu rotates over and the game plays in, plus the overlays and
-# scatter they carry (the acacias, the campfire flame, the birds, the snow, the spray). Built out of the
-# Testbed content directory like everything else, so the shared SceneRenderer draws the same scene in
-# all three executables. The city needs no shader of its own - it is a technique in InstancedModel.fx.
-
-#begin ../../Testbed/Content/Shaders/Sea.fx
-/importer:EffectImporter
-/processor:EffectProcessor
-/processorParam:DebugMode=Auto
-/build:../../Testbed/Content/Shaders/Sea.fx;Shaders/Sea.fx
-
-#begin ../../Testbed/Content/Shaders/Desert.fx
-/importer:EffectImporter
-/processor:EffectProcessor
-/processorParam:DebugMode=Auto
-/build:../../Testbed/Content/Shaders/Desert.fx;Shaders/Desert.fx
-
-#begin ../../Testbed/Content/Shaders/Polar.fx
-/importer:EffectImporter
-/processor:EffectProcessor
-/processorParam:DebugMode=Auto
-/build:../../Testbed/Content/Shaders/Polar.fx;Shaders/Polar.fx
-
-#begin ../../Testbed/Content/Shaders/Outback.fx
-/importer:EffectImporter
-/processor:EffectProcessor
-/processorParam:DebugMode=Auto
-/build:../../Testbed/Content/Shaders/Outback.fx;Shaders/Outback.fx
-
-#begin ../../Testbed/Content/Shaders/Savanna.fx
-/importer:EffectImporter
-/processor:EffectProcessor
-/processorParam:DebugMode=Auto
-/build:../../Testbed/Content/Shaders/Savanna.fx;Shaders/Savanna.fx
-
-#begin ../../Testbed/Content/Shaders/Acacia.fx
-/importer:EffectImporter
-/processor:EffectProcessor
-/processorParam:DebugMode=Auto
-/build:../../Testbed/Content/Shaders/Acacia.fx;Shaders/Acacia.fx
-
-#begin ../../Testbed/Content/Shaders/Flame.fx
-/importer:EffectImporter
-/processor:EffectProcessor
-/processorParam:DebugMode=Auto
-/build:../../Testbed/Content/Shaders/Flame.fx;Shaders/Flame.fx
-
-#begin ../../Testbed/Content/Shaders/Birds.fx
-/importer:EffectImporter
-/processor:EffectProcessor
-/processorParam:DebugMode=Auto
-/build:../../Testbed/Content/Shaders/Birds.fx;Shaders/Birds.fx
-
-#begin ../../Testbed/Content/Shaders/Mountain.fx
-/importer:EffectImporter
-/processor:EffectProcessor
-/processorParam:DebugMode=Auto
-/build:../../Testbed/Content/Shaders/Mountain.fx;Shaders/Mountain.fx
-
-#begin ../../Testbed/Content/Shaders/Snow.fx
-/importer:EffectImporter
-/processor:EffectProcessor
-/processorParam:DebugMode=Auto
-/build:../../Testbed/Content/Shaders/Snow.fx;Shaders/Snow.fx
-
-#begin ../../Testbed/Content/Shaders/Spray.fx
-/importer:EffectImporter
-/processor:EffectProcessor
-/processorParam:DebugMode=Auto
-/build:../../Testbed/Content/Shaders/Spray.fx;Shaders/Spray.fx
-
-#begin ../../Testbed/Content/Shaders/CityStreets.fx
-/importer:EffectImporter
-/processor:EffectProcessor
-/processorParam:DebugMode=Auto
-/build:../../Testbed/Content/Shaders/CityStreets.fx;Shaders/CityStreets.fx
-
-#begin ../../Testbed/Content/Shaders/Meadow.fx
-/importer:EffectImporter
-/processor:EffectProcessor
-/processorParam:DebugMode=Auto
-/build:../../Testbed/Content/Shaders/Meadow.fx;Shaders/Meadow.fx
-
-#begin ../../Testbed/Content/Shaders/Forest.fx
-/importer:EffectImporter
-/processor:EffectProcessor
-/processorParam:DebugMode=Auto
-/build:../../Testbed/Content/Shaders/Forest.fx;Shaders/Forest.fx
-
-#begin ../../Testbed/Content/Shaders/Space.fx
-/importer:EffectImporter
-/processor:EffectProcessor
-/processorParam:DebugMode=Auto
-/build:../../Testbed/Content/Shaders/Space.fx;Shaders/Space.fx
-
-#begin ../../Testbed/Content/Shaders/Dream.fx
-/importer:EffectImporter
-/processor:EffectProcessor
-/processorParam:DebugMode=Auto
-/build:../../Testbed/Content/Shaders/Dream.fx;Shaders/Dream.fx
-
-#begin ../../Testbed/Content/Shaders/Cavern.fx
-/importer:EffectImporter
-/processor:EffectProcessor
-/processorParam:DebugMode=Auto
-/build:../../Testbed/Content/Shaders/Cavern.fx;Shaders/Cavern.fx
-
-#begin ../../Testbed/Content/Shaders/Moon.fx
-/importer:EffectImporter
-/processor:EffectProcessor
-/processorParam:DebugMode=Auto
-/build:../../Testbed/Content/Shaders/Moon.fx;Shaders/Moon.fx
-
-#begin ../../Testbed/Content/Shaders/Tropical.fx
-/importer:EffectImporter
-/processor:EffectProcessor
-/processorParam:DebugMode=Auto
-/build:../../Testbed/Content/Shaders/Tropical.fx;Shaders/Tropical.fx
-
-#begin ../../Testbed/Content/Shaders/Palm.fx
-/importer:EffectImporter
-/processor:EffectProcessor
-/processorParam:DebugMode=Auto
-/build:../../Testbed/Content/Shaders/Palm.fx;Shaders/Palm.fx
-
-#begin ../../Testbed/Content/Shaders/Volcano.fx
-/importer:EffectImporter
-/processor:EffectProcessor
-/processorParam:DebugMode=Auto
-/build:../../Testbed/Content/Shaders/Volcano.fx;Shaders/Volcano.fx
-
-#begin ../../Testbed/Content/Shaders/LavaFountain.fx
-/importer:EffectImporter
-/processor:EffectProcessor
-/processorParam:DebugMode=Auto
-/build:../../Testbed/Content/Shaders/LavaFountain.fx;Shaders/LavaFountain.fx
-
-#begin ../../Testbed/Content/Shaders/Ash.fx
-/importer:EffectImporter
-/processor:EffectProcessor
-/processorParam:DebugMode=Auto
-/build:../../Testbed/Content/Shaders/Ash.fx;Shaders/Ash.fx
-
-#begin ../../Testbed/Content/Shaders/Mars.fx
-/importer:EffectImporter
-/processor:EffectProcessor
-/processorParam:DebugMode=Auto
-/build:../../Testbed/Content/Shaders/Mars.fx;Shaders/Mars.fx
-
-#begin ../../Testbed/Content/Shaders/StormClouds.fx
-/importer:EffectImporter
-/processor:EffectProcessor
-/processorParam:DebugMode=Auto
-/build:../../Testbed/Content/Shaders/StormClouds.fx;Shaders/StormClouds.fx
-
-#begin ../../Testbed/Content/Shaders/Aurora.fx
-/importer:EffectImporter
-/processor:EffectProcessor
-/processorParam:DebugMode=Auto
-/build:../../Testbed/Content/Shaders/Aurora.fx;Shaders/Aurora.fx
-
-#begin ../../Testbed/Content/Shaders/Grid.fx
-/importer:EffectImporter
-/processor:EffectProcessor
-/processorParam:DebugMode=Auto
-/build:../../Testbed/Content/Shaders/Grid.fx;Shaders/Grid.fx
-
-
+# No shaders here: every effect - the instancing shader, the post-process passes, the effects and all twenty
+# scene backdrops - is compiled once in BS3DLibs/Prazsky.Shaders (#618) and reaches Content/Shaders beside
+# this executable through Game.csproj's project reference to that library.
 

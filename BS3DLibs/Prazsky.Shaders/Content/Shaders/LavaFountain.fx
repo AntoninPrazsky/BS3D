@@ -20,7 +20,7 @@
 //lit from below by the crater and from above by nothing much, and the column spreads into a head that the
 //wind takes - where it had been a tube of soft grey discs that read as steam from a chimney.
 //
-//Shader Model 5.0, drawn in all three executables out of the one Testbed content directory.
+//Shader Model 5.0, drawn in all three executables out of the one copy in Prazsky.Shaders.
 
 #define VS_SHADERMODEL vs_5_0
 #define PS_SHADERMODEL ps_5_0

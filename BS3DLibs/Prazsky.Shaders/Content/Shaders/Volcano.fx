@@ -23,7 +23,7 @@
 //C:\Users\panrd\AI\sd\out\509) and nothing of them is in this repository; docs/scenes.md "The volcano" has
 //what each one settled.
 //
-//Shader Model 5.0, drawn in all three executables out of the one Testbed content directory.
+//Shader Model 5.0, drawn in all three executables out of the one copy in Prazsky.Shaders.
 
 #define VS_SHADERMODEL vs_5_0
 #define PS_SHADERMODEL ps_5_0

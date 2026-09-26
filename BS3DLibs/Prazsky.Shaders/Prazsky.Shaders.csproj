@@ -1,0 +1,51 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--Every HLSL effect in the repository, and the one place they are compiled (#618). There is no C# here:
+      the project exists to own Content/Shaders (the .fx files, their .fxh includes and the InstancedModel/
+      include tree) and to run Content/Shaders.mgcb through MonoGame's content task ONCE. The compiled .xnb
+      files become Content items of this project (CopyToOutputDirectory=PreserveNewest, linked as
+      Content/Shaders/<name>.xnb), and MSBuild copies a referenced project's Content items into the
+      referencing project's output and publish folders - so the Testbed, the MapEditor and the Game reference
+      this project and find every effect where Load<Effect>("Shaders/...") has always looked for it.
+
+      Until #618 the sources lived in Testbed/Content/Shaders and each executable's Content.mgcb compiled them
+      itself: three compilations of one copy, and the shipping Game built out of the development instrument's
+      content directory.-->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>Prazsky.Shaders</AssemblyName>
+    <RootNamespace>Prazsky.Shaders</RootNamespace>
+    <!--Nothing to document and nothing for a referencer to compile against: the executables reference this
+        project with ReferenceOutputAssembly="false", so its (empty) assembly never reaches their output.-->
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <!--The platform the content task compiles for. It passes /platform:$(MonoGamePlatform) after the .mgcb's
+        own /platform:Windows, so this is what decides. It is normally set by a MonoGame platform package's
+        targets, and this project deliberately references none: the other libraries' private DesktopGL
+        package would set it to DesktopGL and compile OpenGL effects, which the executables' WindowsDX runtime
+        refuses on the first Load<Effect> ("This MGFX effect was built for a different platform!"). Windows is
+        DirectX 11, Shader Model 5.0 - what WindowsDX sets for the executables.-->
+    <MonoGamePlatform>Windows</MonoGamePlatform>
+    <!--The task would otherwise also glob **/*.mgcb inside its own target; the one reference is named below.-->
+    <EnableMGCBItems>false</EnableMGCBItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <MonoGameContentReference Include="Content\Shaders.mgcb" />
+    <None Remove="Content\bin\**" />
+    <None Remove="Content\obj\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--Build-time only: the task runs mgcb (pinned in this directory's .config/dotnet-tools.json - the content
+        build shells out to `dotnet mgcb` from THIS directory, and the manifest search walks up from here) and
+        must not flow to anything that references this project.-->
+    <PackageReference Include="MonoGame.Content.Builder.Task" PrivateAssets="all" />
+  </ItemGroup>
+
+  <!--The compiled effects must exist as Content items whenever a referencing project asks for this project's
+      copy-to-output items, not only after this project's own compile. The task creates them in IncludeContent,
+      a target hooked before CoreCompile; within one build MSBuild reuses the project instance, so they are
+      already there, but a referencer calling GetCopyToOutputDirectoryItems on a fresh instance would get
+      none - and would copy no shaders, silently. Depending on IncludeContent here makes that impossible
+      (a target runs once per instance, so this costs nothing when it has already run).-->
+  <Target Name="IncludeShadersForReferencers" BeforeTargets="GetCopyToOutputDirectoryItems;GetCopyToPublishDirectoryItems" DependsOnTargets="IncludeContent" />
+</Project>

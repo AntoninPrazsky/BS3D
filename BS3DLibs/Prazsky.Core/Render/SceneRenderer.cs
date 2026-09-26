@@ -599,9 +599,9 @@ namespace Prazsky.Core.Render
         #endregion
 
         /// <param name="content">
-        /// A content manager whose root holds the scene shaders under <c>Shaders/</c> (both executables build
-        /// <c>Sea.fx</c>, <c>Savanna.fx</c>, <c>Birds.fx</c>, <c>Mountain.fx</c>, <c>Snow.fx</c>, <c>Spray.fx</c>, <c>Meadow.fx</c>
-        /// out of the Testbed content directory).
+        /// A content manager whose root holds the scene shaders under <c>Shaders/</c> (<c>Sea.fx</c>,
+        /// <c>Savanna.fx</c>, <c>Birds.fx</c> and the rest, compiled once in <c>Prazsky.Shaders</c> and copied
+        /// beside every executable that references it, #618).
         /// </param>
         /// <param name="seedOffset">
         /// Shifts every seeded arrangement in every scene (#: the owner's "let it look different each time").

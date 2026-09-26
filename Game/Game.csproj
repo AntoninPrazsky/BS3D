@@ -98,5 +98,8 @@
     <ProjectReference Include="..\BS3DLibs\Prazsky.BS3D.Physics\Prazsky.BS3D.Physics.csproj" />
     <ProjectReference Include="..\BS3DLibs\Prazsky.BS3D\Prazsky.BS3D.csproj" />
     <ProjectReference Include="..\BS3DLibs\Prazsky.Core\Prazsky.Core.csproj" />
+    <!--Every compiled effect (#618): the library compiles the shaders once and its .xnb files are copied into
+        this project's Content/Shaders. Its assembly is empty, so it is not referenced (and not copied).-->
+    <ProjectReference Include="..\BS3DLibs\Prazsky.Shaders\Prazsky.Shaders.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
 </Project>

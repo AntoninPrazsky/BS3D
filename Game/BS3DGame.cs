@@ -974,7 +974,7 @@ namespace BS3D
             #endregion
 
             //The self-lit backdrops, shared with the Testbed and the map editor — one copy of every
-            //scene shader, built out of the Testbed's content directory. The hole radius is fixed (the island
+            //scene shader, compiled once in Prazsky.Shaders (#618). The hole radius is fixed (the island
             //never moves or resizes here), so it is set once rather than per frame.
             _sceneRenderer = new SceneRenderer(GraphicsDevice, Content, _sceneSeedOffset)
             {
