@@ -25,8 +25,8 @@ namespace Prazsky.BS3D
     /// rejects an out-of-range type index and quietly draws nothing, so a queue that lost a ball would look like
     /// a queue with a hole in it and log not a word. Hence the check in <see cref="Recolour"/> and on the drawn
     /// colour, both of which cost one comparison per <i>shot</i>. The array never leaves this class either:
-    /// <see cref="Peek()"/> reads, <see cref="Advance"/> shifts, <see cref="Recolour"/> re-colours one slot, and
-    /// there is no indexer to write through.
+    /// <see cref="Peek()"/> and <see cref="Slot"/> read (by value), <see cref="Advance"/> shifts,
+    /// <see cref="Recolour"/> re-colours one slot, and there is no indexer to write through.
     /// </para>
     /// <para>
     /// <b>What loads next is injected, and neither policy lives here.</b> The Testbed draws uniformly from all
@@ -44,9 +44,17 @@ namespace Prazsky.BS3D
     /// the Game do not spell the same way, so the placement is handed back as plain values
     /// (<see cref="BorePose"/>) and this type never touches a renderer. The <i>recoil</i>: a scalar parameter,
     /// since one executable animates a stroke and the other does not, and neither the shape nor the decay is
-    /// this type's business. And the Game's <i>transmute cross-fade</i> — which loaded colours have died, what
-    /// each slot is dissolving out of and how far through it is — which is a rule about the cluster; only the
-    /// <b>shift</b> of that state is owned here, for the reason <see cref="Advance"/> gives at length.
+    /// this type's business. And <i>which</i> loaded colours have died and what replaces them, which is a rule
+    /// about the Game's cluster — that caller decides and calls <see cref="Recolour"/>.
+    /// </para>
+    /// <para>
+    /// <b>What a slot carries is one value, <see cref="MagazineSlot"/>, since #582</b>: its colour, its kind (a
+    /// wildcard, #330), the colour it is dissolving out of and how far through that dissolve it is. Until then
+    /// the colour lived here and the other three in three parallel arrays on <c>GameplayScreen</c>, kept in step
+    /// by three callbacks this type fired on every shift, deal and swap — and the #392 swap is the record of those
+    /// coming apart once, when a swap wired as two one-way copies left both slots holding the same state. A shift
+    /// or a swap now moves one struct, so there is nothing left to keep in step; the kind is dealt through a
+    /// second injected policy beside the colour, and the dissolve's clock runs in <see cref="Step"/>.
     /// </para>
     /// <para>
     /// The barrel's own figures are <see cref="CannonRig"/>'s and its pose is <see cref="Cannon"/>'s: this type
@@ -84,45 +92,35 @@ namespace Prazsky.BS3D
         //the gun is drawn; the tighter one is kept so nothing about the queue's resting place depends on it.
         private const float SLIDE_SETTLED = 0.001f;
 
-        private readonly BallType[] _queue = new BallType[SIZE];
+        /// <summary>
+        /// How long a re-coloured ball takes to change colour, in seconds. Slow enough to be unmistakably seen —
+        /// the whole point is that the player watches the game help them, and a snap would read as a bug — and
+        /// short enough not to hold up a queue the player is aiming with. The Game's figure, and the Game is the
+        /// only caller of <see cref="Recolour"/>; it moved here with the countdown it paces (#582).
+        /// </summary>
+        public const float TRANSMUTE_SECONDS = 0.75f;
+
+        private readonly MagazineSlot[] _slots = new MagazineSlot[SIZE];
 
         private readonly Func<BallType> _nextType;
-        private readonly Action<int, int> _slotCarried;
-        private readonly Action<int, BallType> _slotLoaded;
-        private readonly Action<int, int> _slotSwapped;
+        private readonly Func<BallKind> _nextKind;
 
         /// <param name="nextType">What to load, asked once per dealt slot. Must answer a real
         /// <see cref="BallType"/> — see the class remarks on the invariant. Each executable's own policy; see the
         /// class remarks on why neither lives here.</param>
-        /// <param name="slotCarried">Called as the queue shifts, for each <c>(destination, source)</c> pair in
-        /// turn, so a caller with per-slot state of its own can carry it forward in step — see
-        /// <see cref="Advance"/>. Null for a caller with no such state (the Testbed).</param>
-        /// <param name="slotLoaded">Called with a slot and the colour just dealt into it, so a caller can clear
-        /// whatever per-slot state a fresh ball has none of. Fires from <see cref="Refill"/> and for
-        /// <see cref="Advance"/>'s tail, never from <see cref="Recolour"/> — a re-coloured ball is precisely the
-        /// one whose old colour must be kept.</param>
-        /// <param name="slotSwapped">Called once with both slots when <see cref="SwapSlots"/> exchanges them, so
-        /// a caller with per-slot state of its own can exchange it too. Deliberately a <b>separate</b> hook from
-        /// <paramref name="slotCarried"/> rather than two calls to it: that one's own contract is a one-way copy
-        /// (<c>destination = source</c>), correct for <see cref="Advance"/>'s cascading shift and wrong for a
-        /// swap — two such calls in either order leave both slots holding the same value, not exchanged. A
-        /// caller wires this one as a true exchange (a temporary and two writes) over each of its own arrays.
-        /// Null for a caller with no per-slot state (the Testbed) or no swap of its own (#392's first caller).</param>
+        /// <param name="nextKind">What kind the dealt ball is, asked once per dealt slot straight after
+        /// <paramref name="nextType"/> — the Game's wildcard cadence (#330), which counts the balls dealt. Null
+        /// deals every ball <see cref="BallKind.Normal"/>, which is the Testbed.</param>
         /// <remarks>
-        /// All three hooks are handed over <b>once</b>, here, and not per shot: a delegate built at the call site
-        /// of every advance would allocate one per round fired. None reads anything back out of the magazine —
-        /// the loaded hook is <i>given</i> the colour — so a caller can wire them from a constructor that has not
-        /// yet assigned the field it is building, which it will: the constructor deals a full queue and fires
-        /// <paramref name="slotLoaded"/> <see cref="SIZE"/> times before it returns. Whatever state those hooks
-        /// write to has to exist by then, though, which is the caller's own initialisation order to get right.
+        /// Both policies are handed over <b>once</b>, here, and not per shot: a delegate built at the call site
+        /// of every advance would allocate one per round fired. The constructor deals a full queue before it
+        /// returns, so whatever state the policies read has to exist by then — the caller's own initialisation
+        /// order to get right.
         /// </remarks>
-        public Magazine(Func<BallType> nextType, Action<int, int> slotCarried = null,
-            Action<int, BallType> slotLoaded = null, Action<int, int> slotSwapped = null)
+        public Magazine(Func<BallType> nextType, Func<BallKind> nextKind = null)
         {
             _nextType = nextType ?? throw new ArgumentNullException(nameof(nextType));
-            _slotCarried = slotCarried;
-            _slotLoaded = slotLoaded;
-            _slotSwapped = slotSwapped;
+            _nextKind = nextKind;
 
             //A full queue from the first frame, so the player has something to read and nothing has to cope with
             //an empty slot that cannot legally exist
@@ -140,19 +138,25 @@ namespace Prazsky.BS3D
         public float Slide { get; private set; }
 
         /// <summary>The colour that will fire next: the ball at the muzzle, in slot 0.</summary>
-        public BallType Peek() => _queue[0];
+        public BallType Peek() => _slots[0].Type;
 
         /// <summary>
         /// The colour loaded in one slot, 0 at the muzzle to <see cref="SIZE"/> − 1 at the breech. For the draw
         /// loop and for the Game's transmute pass, which asks every slot whether its colour is still alive.
         /// </summary>
-        public BallType Peek(int slot) => _queue[slot];
+        public BallType Peek(int slot) => _slots[slot].Type;
+
+        /// <summary>
+        /// Everything one slot carries — colour, kind and the dissolve it may be part way through — as a value,
+        /// so a caller can read it but never write through it.
+        /// </summary>
+        public MagazineSlot Slot(int slot) => _slots[slot];
 
         /// <summary>
         /// Deals a whole fresh queue and settles it. Run at the start of a session, and in the Game on every
         /// level load — its colours belong to a level, and the level whose cluster they were drawn from is gone.
-        /// Fires the loaded hook for every slot, so a caller's per-slot state starts clean rather than inheriting
-        /// half-finished animations from the session before it.
+        /// Every slot is dealt whole, so nothing starts part way through a dissolve left over from the session
+        /// before it.
         /// </summary>
         public void Refill()
         {
@@ -166,31 +170,24 @@ namespace Prazsky.BS3D
         /// arms the slide at 1 so the balls are drawn one slot back and glide forward into the muzzle slot the
         /// shot just vacated rather than snapping into it.
         /// <para>
-        /// <b>The shift is owned here, and that is the point of the carried hook.</b> The Game draws its queue
-        /// from three arrays in step — the colour, the colour it is dissolving out of, and how far through that
-        /// dissolve it is — and shifting only the colours would leave a slot dissolving out of the ball behind
-        /// it (docs/game-session.md pins this). The state itself is the Game's, because <i>which</i> colours have
-        /// died is a question about its cluster; but there must be exactly one place that knows a queue has
-        /// moved, or the two copies of that loop are free to drift. So this walks the shift and reports every
-        /// <c>(destination, source)</c> pair as it goes, and the caller carries its own arrays along the same
-        /// path in the same order.
+        /// <b>A slot moves whole.</b> The colour, the kind, the colour it is dissolving out of and how far through
+        /// that dissolve it is are one <see cref="MagazineSlot"/>, so shifting the queue cannot leave a slot
+        /// dissolving out of the ball behind it, nor a wildcard in the slot it was dealt into while its ball
+        /// moves on (docs/game-session.md pins both). Until #582 the last three were the Game's parallel arrays,
+        /// carried along this loop by a callback per <c>(destination, source)</c> pair.
         /// </para>
         /// <para>
-        /// Note what the fresh tail means for that state: a ball drawn from what is alive right now has nothing
-        /// to fade out of, which is why the loaded hook fires for it. And the Game's countdown runs <b>1 → 0</b>,
-        /// so the dissolve's progress is its <i>complement</i> — a caller feeding the carried countdown straight
-        /// into <c>ModelInstance.Dissolve</c> runs the effect backwards, the new colour arriving complete on the
-        /// frame of the swap with the old one never seen at all. That is exactly what the first build did and
-        /// only a zoomed screenshot caught it.
+        /// The fresh tail is dealt whole too: a ball drawn from what is alive right now has nothing to fade out
+        /// of. And the countdown runs <b>1 → 0</b>, so the dissolve's progress is its <i>complement</i>
+        /// (<see cref="MagazineSlot.TransmuteProgress"/>) — a caller feeding the countdown straight into
+        /// <c>ModelInstance.Dissolve</c> runs the effect backwards, the new colour arriving complete on the frame
+        /// of the swap with the old one never seen at all. That is exactly what the first build did and only a
+        /// zoomed screenshot caught it.
         /// </para>
         /// </summary>
         public void Advance()
         {
-            for (int slot = 0; slot < SIZE - 1; slot++)
-            {
-                _queue[slot] = _queue[slot + 1];
-                _slotCarried?.Invoke(slot, slot + 1);
-            }
+            for (int slot = 0; slot < SIZE - 1; slot++) _slots[slot] = _slots[slot + 1];
 
             Deal(SIZE - 1);
 
@@ -204,11 +201,14 @@ namespace Prazsky.BS3D
         /// whatever the caller animates over it is cosmetic — firing mid-transition must give the new colour,
         /// never the dead one it is still fading out of.
         /// <para>
-        /// Deliberately does <b>not</b> fire the loaded hook: that hook clears the per-slot state of a ball that
-        /// has nothing to fade out of, and this is the one case where the old colour is exactly what must be
-        /// kept.
+        /// <b>It starts the cross-fade the caller draws</b>: the slot's countdown is set to 1 and runs down over
+        /// <see cref="TRANSMUTE_SECONDS"/> in <see cref="Step"/>. The colour it fades <i>out of</i> is whatever is
+        /// on screen now — which for a slot caught mid-transmute is the colour it was already fading out of, not
+        /// the one it never finished becoming. Restarting from the visible colour is what keeps the animation
+        /// continuous. The slot's kind is left alone.
         /// </para>
         /// </summary>
+        /// <param name="slot">The slot to re-colour, 0 at the muzzle.</param>
         /// <param name="type">The replacement colour. Must be a real one — the class remarks say what a zero
         /// does, which is nothing, silently.</param>
         public void Recolour(int slot, BallType type)
@@ -216,7 +216,10 @@ namespace Prazsky.BS3D
             if (type == default) throw new ArgumentOutOfRangeException(nameof(type),
                 "A magazine slot cannot hold the unused zero ball type; the queue may never empty.");
 
-            _queue[slot] = type;
+            MagazineSlot current = _slots[slot];
+            BallType fadingFrom = current.Transmute <= 0f ? current.Type : current.FadingFrom;
+
+            _slots[slot] = new MagazineSlot(type, current.Kind, fadingFrom, 1f);
         }
 
         /// <summary>
@@ -226,24 +229,26 @@ namespace Prazsky.BS3D
         /// exchanges two already-valid slots, and the slide is left alone — nothing here glides, both balls are
         /// already exactly where they sit in the bore.
         /// <para>
-        /// Fires the constructor's <c>slotSwapped</c> callback once, with both slots, so a caller can exchange its
-        /// own per-slot state the same way — see that parameter's remarks on the constructor for why it is not
-        /// <c>slotCarried</c> called twice.
-        /// A no-op on <c>a == b</c>, which fires nothing: nothing has actually moved.
+        /// The two slots are exchanged <b>whole</b> — the dissolve each is part way through and its kind travel
+        /// with its colour. That is the #392 fault made unrepresentable: while those lived in the Game's parallel
+        /// arrays, a swap wired as two one-way copies left both slots holding the same state rather than
+        /// exchanged. A no-op on <c>a == b</c>: nothing has actually moved.
         /// </para>
         /// </summary>
+        /// <param name="a">One slot, 0 at the muzzle.</param>
+        /// <param name="b">The other.</param>
         public void SwapSlots(int a, int b)
         {
             if (a == b) return;
 
-            (_queue[a], _queue[b]) = (_queue[b], _queue[a]);
-            _slotSwapped?.Invoke(a, b);
+            (_slots[a], _slots[b]) = (_slots[b], _slots[a]);
         }
 
-        //Loads one slot from the injected policy and tells the caller about it. The one place a slot's colour is
-        //written by anything but the transmute, so it is the one place the invariant can be enforced: a policy
-        //that answered the unused zero would put a ball in the barrel that draws as nothing at all, and it would
-        //do it without a word - see the class remarks. One comparison per round dealt.
+        //Loads one slot from the injected policies. The one place a slot's colour is written by anything but the
+        //transmute, so it is the one place the invariant can be enforced: a policy that answered the unused zero
+        //would put a ball in the barrel that draws as nothing at all, and it would do it without a word - see
+        //the class remarks. One comparison per round dealt. The colour is asked before the kind, the order the
+        //Game's hooks asked them in before #582, so the random draws behind both come in the same order.
         private void Deal(int slot)
         {
             BallType type = _nextType();
@@ -251,23 +256,38 @@ namespace Prazsky.BS3D
             if (type == default) throw new InvalidOperationException(
                 "The magazine's next-colour policy answered the unused zero ball type; the queue may never empty.");
 
-            _queue[slot] = type;
-            _slotLoaded?.Invoke(slot, type);
+            BallKind kind = _nextKind?.Invoke() ?? BallKind.Normal;
+
+            //A ball dealt from what is alive has nothing to fade out of
+            _slots[slot] = new MagazineSlot(type, kind, type, 0f);
         }
 
         /// <summary>
         /// Eases the post-shot glide towards the resting slots and snaps the last thousandth so it settles
-        /// exactly. Call it every frame; it is cheap and returns at once with the queue at rest.
+        /// exactly, and runs every re-coloured slot's dissolve down towards settled. Call it every frame; it is
+        /// cheap, and a queue at rest costs a comparison per slot.
         /// <para>
         /// <b>Give it the wall clock, not the simulation's step.</b> The queue glides while the simulation is
         /// paused or slowed (the Testbed's F5/F9), because the balls sliding down a tube is the gun answering
-        /// the shot and not something the physics is doing.
+        /// the shot and not something the physics is doing — and a ball changing colour in the bore is the gun
+        /// saying what is loaded, for the same reason.
         /// </para>
         /// </summary>
-        /// <param name="elapsedSeconds">The frame's own elapsed time. The ease is framed in seconds, so it does
-        /// not change with the frame rate.</param>
+        /// <param name="elapsedSeconds">The frame's own elapsed time. Both the ease and the dissolve are framed
+        /// in seconds, so neither changes with the frame rate.</param>
         public void Step(float elapsedSeconds)
         {
+            //Linear, so a dissolve genuinely finishes rather than leaving a slot for ever a few pixels short of its
+            //new colour. First, because the glide below returns early once the queue is at rest.
+            for (int slot = 0; slot < SIZE; slot++)
+            {
+                MagazineSlot s = _slots[slot];
+                if (s.Transmute <= 0f) continue;
+
+                _slots[slot] = new MagazineSlot(s.Type, s.Kind, s.FadingFrom,
+                    MathF.Max(0f, s.Transmute - elapsedSeconds / TRANSMUTE_SECONDS));
+            }
+
             if (Slide <= 0f) return;
 
             Slide *= MathF.Exp(-elapsedSeconds / SLIDE_TAU);
@@ -300,6 +320,48 @@ namespace Prazsky.BS3D
             //caller had to remember to pass — is what makes the balls and the tube unable to disagree.
             new(cannon.BarrelOrientation(), cannon.DrawnMuzzlePosition(pivotToFrontBall),
                 cannon.AimDirection, Slide);
+    }
+
+    /// <summary>
+    /// One loaded round, as <see cref="Magazine"/> holds it (#582): what colour it is, what kind, and the
+    /// cross-fade it may be part way through. A readonly value, so the magazine moves a slot by assigning one
+    /// and a caller can only read it — sixteen bytes, and no allocation anywhere in its life.
+    /// </summary>
+    public readonly struct MagazineSlot
+    {
+        /// <summary>Builds one slot's state. <see cref="Magazine"/> is the only writer.</summary>
+        /// <param name="type">The colour it fires as (a wildcard's is dealt and never seen, #330).</param>
+        /// <param name="kind">What it is — <see cref="BallKind.Wildcard"/> or <see cref="BallKind.Normal"/>.</param>
+        /// <param name="fadingFrom">The colour it is dissolving out of; its own colour when settled.</param>
+        /// <param name="transmute">The dissolve's countdown, 1 just re-coloured to 0 settled.</param>
+        public MagazineSlot(BallType type, BallKind kind, BallType fadingFrom, float transmute)
+        {
+            Type = type;
+            Kind = kind;
+            FadingFrom = fadingFrom;
+            Transmute = transmute;
+        }
+
+        /// <summary>The colour loaded in this slot, and the one that fires — never the one it is fading out of.</summary>
+        public BallType Type { get; }
+
+        /// <summary>What this ball is (#330): a wildcard rides the queue as a kind, never as a colour.</summary>
+        public BallKind Kind { get; }
+
+        /// <summary>The colour a re-coloured ball is dissolving <i>out of</i>; equal to <see cref="Type"/> once
+        /// settled, and meaningless while <see cref="Transmute"/> is 0.</summary>
+        public BallType FadingFrom { get; }
+
+        /// <summary>
+        /// How far the dissolve still has to go: <b>1</b> on the frame of the re-colour, running down to <b>0</b>
+        /// (settled, nothing to draw twice) over <see cref="Magazine.TRANSMUTE_SECONDS"/>. A <i>countdown</i> —
+        /// see <see cref="TransmuteProgress"/> for the value the dissolve itself takes.
+        /// </summary>
+        public float Transmute { get; }
+
+        /// <summary>The dissolve's own progress, the complement of <see cref="Transmute"/>: 0 just re-coloured,
+        /// 1 settled. Feeding the countdown in its place runs the effect backwards.</summary>
+        public float TransmuteProgress => 1f - Transmute;
     }
 
     /// <summary>

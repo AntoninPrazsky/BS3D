@@ -1249,7 +1249,7 @@ namespace BS3D.Screens
         /// that is about to fire — #175's failure, with the colours moving.
         /// </summary>
         private BallType LoadedColour(int slot) =>
-            _magazineKind[slot] == BallKind.Wildcard ? _wildcard.Showing : _magazine.Peek(slot);
+            _magazine.Slot(slot).Kind == BallKind.Wildcard ? _wildcard.Showing : _magazine.Peek(slot);
 
         /// <summary>
         /// Re-colours every loaded ball whose colour has just been eliminated from the cluster, and starts the
@@ -1267,9 +1267,9 @@ namespace BS3D.Screens
         /// and that is a difficulty decision, not a fix.
         /// </para>
         /// <para>
-        /// <see cref="Magazine.Recolour"/> deliberately does <b>not</b> fire the loaded hook the constructor
-        /// wired, which is what lets the old colour below stand: a re-coloured ball is precisely the one whose
-        /// previous colour the cross-fade has to keep.
+        /// <see cref="Magazine.Recolour"/> starts the cross-fade itself (#582): it keeps the colour on screen as
+        /// the one the slot fades out of — for a slot caught mid-transmute, the colour it was already fading out
+        /// of — and runs the dissolve over <see cref="Magazine.TRANSMUTE_SECONDS"/>.
         /// </para>
         /// </summary>
         private void Transmute()
@@ -1284,15 +1284,10 @@ namespace BS3D.Screens
                 BallType replacement = RandomBallType();
                 if (replacement == loaded) continue; //nothing survives to swap to; leave it alone
 
-                //The ball it is fading OUT of is whatever is on screen now — which for a slot caught
-                //mid-transmute is the colour it was already fading out of, not the one it never finished
-                //becoming. Restarting from the visible colour is what keeps the animation continuous.
-                if (_magazineTransmute[slot] <= 0f) _magazineFrom[slot] = loaded;
-
-                Console.WriteLine($"[transmute] slot {slot}: {_magazineFrom[slot]} is gone from the cluster -> {replacement}");
-
+                //The ball it is fading OUT of is whatever is on screen now — Recolour keeps that, see its remarks
                 _magazine.Recolour(slot, replacement);
-                _magazineTransmute[slot] = 1f;
+
+                Console.WriteLine($"[transmute] slot {slot}: {_magazine.Slot(slot).FadingFrom} is gone from the cluster -> {replacement}");
             }
         }
 

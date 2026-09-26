@@ -489,10 +489,11 @@ namespace BS3D.Screens
                 //is written by exactly one of the two draws. Both stay in the opaque path — no sorting, no
                 //muddy overlap. A settled ball is a single draw at zero, which clips nothing.
                 //
-                //_magazineTransmute counts DOWN from 1 (just swapped) to 0 (settled), so the dissolve's own
-                //progress is its complement. Feeding the countdown straight in runs the effect backwards: the
-                //new colour arrives complete on the frame of the swap and the old one is never seen at all.
-                float remaining = _magazineTransmute[i];
+                //The slot's Transmute counts DOWN from 1 (just swapped) to 0 (settled), so the dissolve's own
+                //progress is its complement (TransmuteProgress). Feeding the countdown straight in runs the effect
+                //backwards: the new colour arrives complete on the frame of the swap and the old one is never
+                //seen at all.
+                MagazineSlot slot = _magazine.Slot(i);
 
                 //A ball in the barrel has nothing packed around it, so it carries the same unoccluded vector a
                 //shot in flight does — off the one constant, rather than four literals written out here
@@ -508,20 +509,20 @@ namespace BS3D.Screens
                 //rides. Handed to ONE draw of a crossing's two, so the motion record holds the ball once.
                 Matrix shutterWorld = RoundShutterWorld(world);
 
-                if (_magazineKind[i] == BallKind.Wildcard)
+                if (slot.Kind == BallKind.Wildcard)
                 {
                     frame.Add(LoadedColour(i), position, world, BallRenderSet.UNOCCLUDED, 0f, mark, still,
                         BallKind.Wildcard, shutterWorld);
                 }
-                else if (remaining > 0f)
+                else if (slot.Transmute > 0f)
                 {
-                    float progress = 1f - remaining;
+                    float progress = slot.TransmuteProgress;
 
-                    frame.Add(_magazine.Peek(i), position, world, BallRenderSet.UNOCCLUDED, -progress, mark, still,
+                    frame.Add(slot.Type, position, world, BallRenderSet.UNOCCLUDED, -progress, mark, still,
                         shutterWorld: shutterWorld);
-                    frame.Add(_magazineFrom[i], position, world, BallRenderSet.UNOCCLUDED, progress, mark, still);
+                    frame.Add(slot.FadingFrom, position, world, BallRenderSet.UNOCCLUDED, progress, mark, still);
                 }
-                else frame.Add(_magazine.Peek(i), position, world, BallRenderSet.UNOCCLUDED, 0f, mark, still,
+                else frame.Add(slot.Type, position, world, BallRenderSet.UNOCCLUDED, 0f, mark, still,
                     shutterWorld: shutterWorld);
             }
         }

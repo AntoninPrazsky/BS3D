@@ -25,7 +25,7 @@ namespace Prazsky.BS3D.GameObjects
     /// <para>
     /// It <b>never settles</b>, and that is deliberate too: the crossing runs continuously, so a wildcard is
     /// always mid-dissolve, where a transmuting ordinary ball crosses once over
-    /// <c>GameplayScreen.TRANSMUTE_SECONDS</c> and then stands still. A ball that is still crossing a second
+    /// <see cref="Magazine.TRANSMUTE_SECONDS"/> and then stands still. A ball that is still crossing a second
     /// later is a wildcard; that is the cue, and it costs nothing to read.
     /// </para>
     /// </summary>

@@ -730,32 +730,12 @@ namespace BS3D.Screens
         //Magazine's, shared with the Testbed since #76 — as are the two figures the barrel was cut to
         //(Magazine.SIZE and Magazine.SPACING, which CannonRig derives the tube's length and
         //CannonRig.PivotToFrontBall from). What stays here is this screen's own two rules: which colours may be
-        //loaded at all (RandomBallType, injected below), and the cross-fade a re-coloured ball dissolves
-        //through. Built in the constructor rather than initialized here, because its hooks write the two
-        //arrays below.
+        //loaded at all (RandomBallType, injected below), how often one is a wildcard (NextLoadedKind, injected
+        //beside it, #330), and which loaded colours have died (Transmute, which calls Magazine.Recolour). What
+        //each slot carries — colour, kind, and the cross-fade a re-coloured ball dissolves through — is one
+        //MagazineSlot the magazine moves whole since #582, where it used to be three parallel arrays here kept in
+        //step by three hooks. Built in the constructor because its policies are instance methods.
         private readonly Magazine _magazine;
-
-        /// <summary>
-        /// The colour a loaded ball is dissolving <i>out of</i>, per slot, and how far through that it is
-        /// (0 = settled, nothing to draw twice). A ball whose colour has just been eliminated from the cluster
-        /// is re-coloured where it sits rather than left to be fired at nothing — see <see cref="Transmute"/>.
-        /// <para>
-        /// Both are drawn in step with the queue, so both must shift with it — and
-        /// <see cref="Magazine.Advance"/> owns that shift, reporting every <c>(destination, source)</c> pair to
-        /// the hook wired at construction. Shifting only the colours would leave a slot dissolving out of the
-        /// ball behind it.
-        /// </para>
-        /// </summary>
-        private readonly BallType[] _magazineFrom = new BallType[Magazine.SIZE];
-        private readonly float[] _magazineTransmute = new float[Magazine.SIZE];
-
-        /// <summary>
-        /// Which loaded slots hold a <see cref="BallKind.Wildcard"/> (#330) — the queue's second axis, kept
-        /// here and not in <see cref="Magazine"/> for the reason the two arrays above are: the magazine owns
-        /// the queue and its shift, while <i>what</i> gets loaded and how often is a rule about this level.
-        /// It rides forward through the very same hooks, so a wildcard cannot come adrift from the ball it is.
-        /// </summary>
-        private readonly BallKind[] _magazineKind = new BallKind[Magazine.SIZE];
 
         /// <summary>
         /// One in how many loaded balls is a wildcard, or 0 for a level that hands out none — which is every
@@ -781,13 +761,6 @@ namespace BS3D.Screens
         /// see <see cref="WildcardCycle"/> for why that is the whole point of it.
         /// </summary>
         private readonly WildcardCycle _wildcard = new();
-
-        /// <summary>
-        /// How long a loaded ball takes to change colour. Slow enough to be unmistakably seen — the whole
-        /// point is that the player watches the game help them, and a snap would read as a bug — and short
-        /// enough not to hold up a queue the player is aiming with.
-        /// </summary>
-        private const float TRANSMUTE_SECONDS = 0.75f;
 
         //Several ball diameters a frame: the shot is a streak, not something the eye can follow. That is
         //the intended feel, and it is why the launch smear below exists at all.
@@ -1032,41 +1005,11 @@ namespace BS3D.Screens
 
             //The queue's colours are the level's business (RandomBallType draws only among what is still
             //hanging), so what to load next is injected; the constructor deals a full queue with it, which is
-            //what gives the player something to read from the first frame. The three hooks carry this screen's
-            //transmute state through every shift and every swap, so the three arrays stay drawn in step —
-            //wired once, here, since a delegate built per shot would allocate one per round fired.
-            _magazine = new Magazine(RandomBallType,
-                (destination, source) =>
-                {
-                    _magazineFrom[destination] = _magazineFrom[source];
-                    _magazineTransmute[destination] = _magazineTransmute[source];
-
-                    //The kind rides the same shift (#330), or a wildcard would stay in the slot it was dealt
-                    //into and the ball that fires would be a different one from the ball the player watched
-                    //cycling towards the muzzle
-                    _magazineKind[destination] = _magazineKind[source];
-                },
-                (slot, type) =>
-                {
-                    //A ball dealt from what is alive has nothing to fade out of. This is also what keeps a
-                    //level loaded over a session that was mid-transmute from inheriting its half-finished
-                    //dissolves: Magazine.Refill fires it for every slot.
-                    _magazineTransmute[slot] = 0f;
-                    _magazineFrom[slot] = type;
-
-                    //And what this one IS, which is this screen's rule and not the magazine's — the deal is the
-                    //one moment it is decided, and the count behind it is the level's (#330)
-                    _magazineKind[slot] = NextLoadedKind();
-                },
-                (a, b) =>
-                {
-                    //A true exchange and not two carried copies (#392, see Magazine.SwapSlots' own remarks on
-                    //why): the ball a slot is dissolving out of, how far through that it is, and what kind it
-                    //is all have to travel with the colour that just swapped places, not be overwritten by it.
-                    (_magazineFrom[a], _magazineFrom[b]) = (_magazineFrom[b], _magazineFrom[a]);
-                    (_magazineTransmute[a], _magazineTransmute[b]) = (_magazineTransmute[b], _magazineTransmute[a]);
-                    (_magazineKind[a], _magazineKind[b]) = (_magazineKind[b], _magazineKind[a]);
-                });
+            //what gives the player something to read from the first frame. What kind each dealt ball is, is this
+            //screen's rule too — the deal is the one moment it is decided, and the count behind it is the
+            //level's (#330). Both handed over once, here, since a delegate built per shot would allocate one per
+            //round fired; the kind and the transmute state ride inside the magazine's own slots (#582).
+            _magazine = new Magazine(RandomBallType, NextLoadedKind);
 
             //The work each physics step carries inside it, wired once here for the reason the field states
             _processContacts = () => _eventHandler.ProcessQueuedContacts();
@@ -1265,14 +1208,9 @@ namespace BS3D.Screens
             _cannon.Update(gameTime);
 
             //The queue glides forward into the slot the fired ball left rather than snapping. Wall clock, not
-            //the simulation's step: balls sliding down a tube is the gun answering the shot.
+            //the simulation's step: balls sliding down a tube is the gun answering the shot. The same call runs
+            //a re-coloured ball's dissolve out of its old colour (#582 moved that countdown into the magazine).
             _magazine.Step(elapsed);
-
-            //And a re-coloured ball dissolves out of its old colour. Linear, so it genuinely finishes rather
-            //than leaving a slot for ever a few pixels short of its new colour.
-            for (int i = 0; i < Magazine.SIZE; i++)
-                if (_magazineTransmute[i] > 0f)
-                    _magazineTransmute[i] = MathF.Max(0f, _magazineTransmute[i] - elapsed / TRANSMUTE_SECONDS);
 
             //And every wildcard on screen turns over together (#330), on the same wall clock and for the same
             //reason as the two above: a wildcard cycling in the bore is the gun saying what is loaded.
@@ -1425,10 +1363,6 @@ namespace BS3D.Screens
             _cannon.Update(gameTime);
             _cannon.StepRecoil(elapsed);
             _magazine.Step(elapsed);
-
-            for (int i = 0; i < Magazine.SIZE; i++)
-                if (_magazineTransmute[i] > 0f)
-                    _magazineTransmute[i] = MathF.Max(0f, _magazineTransmute[i] - elapsed / TRANSMUTE_SECONDS);
 
             StepWildcards(elapsed);
 
