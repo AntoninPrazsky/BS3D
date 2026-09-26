@@ -18,7 +18,8 @@ namespace BS3D
     /// <para>
     /// The values are what was <i>said</i>, nothing more. What an argument implies about another (<c>level=</c>
     /// implies <c>play</c>, <c>lost</c> implies <c>result</c>, <c>shot=</c> implies <c>nofocuspause</c>) and how an
-    /// argument ranks against the settings file are the game's decisions, taken in its constructor as before.
+    /// argument ranks against the settings file are the game's decisions: the one-shot actions' implications in
+    /// <see cref="StartupScript"/>'s constructor, the rest in <see cref="BS3DGame"/>'s.
     /// </para>
     /// </summary>
     internal sealed class LaunchOptions
@@ -309,7 +310,7 @@ namespace BS3D
             //note explaining the missing Next Level can be looked at. Neither was reachable from a test: the
             //page hardcoded the next level open, and the one time the note was seen it was stating a reason
             //its own numbers refuted, and running off the edge of its plate. An unknown lock is ignored.
-            Row.Text("nextlocked", (o, v) => o.NextLocked = v, BS3DGame.IsStartupNextLock),
+            Row.Text("nextlocked", (o, v) => o.NextLocked = v, StartupScript.IsNextLock),
             //"streak=<n>" pins what the HUD's multiplier shows (#180) — the display only, never the
             //scoring, so the lever cannot alter the thing it is there to look at.
             Row.Int("streak", (o, v) => o.Streak = v),

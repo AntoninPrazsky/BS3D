@@ -1158,6 +1158,18 @@ namespace BS3D
         internal void OpenSettings() => OpenPage(_settingsPage);
         internal void OpenAbout() => OpenPage(_aboutPage);
 
+        //What StartupScript asks of the stack (#583), which it does not hold: whether the title card is still up
+        //(every page it opens at boot waits for it to go), and whether the Settings page is on top with its tree
+        //built (settings=<rows> activates its rows only then)
+        internal bool IsSplashUp => _screens.Contains<SplashPage>();
+        internal bool IsSettingsPageReady => _screens.Active == _settingsPage && _settingsPage.IsBuilt;
+
+        /// <summary>Pins the level picker to a chapter (1-based) before it opens - the <c>pick=</c> argument's (#273).</summary>
+        internal void PinLevelSelectChapter(int chapter) => _levelSelectPage.PinChapter(chapter);
+
+        /// <summary>Activates the Settings page's rows by name - the <c>settings=</c> argument's (#548).</summary>
+        internal void ActivateSettingsRowsForTesting(string rows) => _settingsPage.ActivateForTesting(rows);
+
         /// <summary>
         /// A level's two online boards, over the picker (#547). Nothing opens for a run that cannot see the boards or a
         /// level whose file will not read — the picker only offers the button when it can.
