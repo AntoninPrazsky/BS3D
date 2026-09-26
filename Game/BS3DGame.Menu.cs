@@ -670,7 +670,7 @@ namespace BS3D
         //front end's loop in the menus and the level's own theme in a level. Read straight off the music and
         //never off a remembered pick, so the track row cannot outlive what it names (#279). A file's name
         //(#486), so it is capitalised where it is shown.
-        internal string MusicTrack => _music?.SoundingTrack;
+        internal string MusicTrack => _audioDirector?.SoundingTrack;
 
         internal bool IsAberrationEnabled => _effective.Aberration;
         internal bool IsGrainEnabled => _effective.Grain;
@@ -1254,7 +1254,7 @@ namespace BS3D
             if (_screens.Active is not MenuPage page || !page.CanGoBack) return;
 
             //After the guard, so a screen with no back stays silent as well as still.
-            _audio.PlayUiBack();
+            _audioDirector.Sfx.PlayUiBack();
 
             //The pause's own back is not a plain pop but a resume: the game underneath has to start running
             //again, and ResumeGame is the one door back into it. Everything else is one level off the stack,
@@ -1471,7 +1471,7 @@ namespace BS3D
             //click: the audio is the frame's, and a page reaching for it would be a second copy of that rule.
             if (HeldDirectionFires(sideways, ref _navSideDirection, ref _navSideRepeatDelay, elapsed)
                 && _screens.Active is MenuPage sidewaysPage && sidewaysPage.PageSideways(sideways))
-                _audio.PlayUiTick();
+                _audioDirector.Sfx.PlayUiTick();
 
             if (!edgeInputAllowed) return;
 
@@ -1536,7 +1536,7 @@ namespace BS3D
 
             //Only user input reaches here — a screen change restores the cursor in CollectNavEntries by
             //assignment, deliberately, so arriving on a page does not tick.
-            _audio.PlayUiTick();
+            _audioDirector.Sfx.PlayUiTick();
 
             ApplyNavHighlight();
             ScrollNavEntryIntoView();
@@ -1842,7 +1842,7 @@ namespace BS3D
             //it came from, and an entry added later cannot forget its click.
             Action pressed = () =>
             {
-                _audio.PlayUiClick();
+                _audioDirector.Sfx.PlayUiClick();
                 onClick();
             };
 

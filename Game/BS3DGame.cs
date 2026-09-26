@@ -146,13 +146,10 @@ namespace BS3D
 
         private RecoilCamera _camera;
 
-        //Procedurally synthesized SFX (shot, landing). Built once in LoadContent and shared by the gameplay
-        //screen and, later, the menu — same pattern as the camera.
-        private ProceduralAudio _audio;
-
-        //The pad's own answer to a shot (#378). Built alongside the audio, for the same reason: the per-event
-        //paths only ever call Kick, never touch GamePad themselves.
-        private GamepadRumble _rumble;
+        //Everything the game hears and the pad it shakes (#583): the effects, the music, the About page's
+        //player, the scene's bed and one-shots, the rumble mixer, and the policy between them (which music the
+        //moment wants, the fanfare's ducking, the gains). Built once in LoadContent; outlives every session.
+        private AudioDirector _audioDirector;
 
         //The victory display. The frame's, not the session's: it has to go on running once the result screen
         //covers the gameplay screen, which is exactly when the player is watching it.
@@ -170,26 +167,6 @@ namespace BS3D
         //every screen and because it is enrolled in the scene's light rig like the rest of the setting; the
         //backdrop screen owns only the decision to draw it, which is what keeps it to the main menu.
         private TitleWordmark _titleWordmark;
-
-        //The music — the level themes, the menu loop and the fanfares. On the host with the rest of the audio,
-        //because it outlives any one session and a track that restarted from the top on every retry would be
-        //exhausting.
-        private GameMusic _music;
-
-        //The About page's player of the original procedural score (#443). On the host rather than the page, like
-        //the music: it has to be walked every frame and let go of cleanly when the game closes.
-        private ProceduralJukebox _jukebox;
-
-        //Whether the front end's music is on — the edge detector for the stack question in Update (#46).
-        private bool _menuMusicOn;
-
-        //The scenes' ambient beds (#46): one looping texture per backdrop, crossfaded by SetScene. On the
-        //host with the rest of the audio — the scene is the host's, and its sound runs pause included.
-        private ProceduralAmbience _ambience;
-
-        //The scene's own one-shots — the storm's thunder and the volcano's boom (#219, #223). Beside the bed
-        //and NOT inside it: a bed is a sealed loop and an event baked into one is a metronome.
-        private SceneEventSounds _sceneEvents;
 
         //The command line's one-shot actions (#583): play a level, fire the celebrations, open a page at boot,
         //stage a result page, and the order and gating they run in. Stepped once a frame from Update.
@@ -218,11 +195,11 @@ namespace BS3D
         /// <summary>The one camera. The front end's backdrop orbits it; the gameplay screen poses it while playing.</summary>
         internal RecoilCamera Camera => _camera;
 
-        /// <summary>Procedurally generated SFX, shared by the gameplay screen and the menu.</summary>
-        internal ProceduralAudio Audio => _audio;
+        /// <summary>Procedurally generated SFX, shared by the gameplay screen and the menu (<see cref="AudioDirector.Sfx"/>).</summary>
+        internal ProceduralAudio Audio => _audioDirector?.Sfx;
 
         /// <summary>The pad's two body motors (#378), fed a <c>Kick</c> from wherever a violent moment already is.</summary>
-        internal GamepadRumble Rumble => _rumble;
+        internal GamepadRumble Rumble => _audioDirector?.Rumble;
 
         /// <summary>
         /// The victory display. On the host rather than on the session because a cleared level puts the result
@@ -266,10 +243,10 @@ namespace BS3D
         internal Texture2D Texel => _scrimTexel;
 
         /// <summary>The music: generated loops for the levels and the menu (#443), and the procedural fanfares.</summary>
-        internal GameMusic Music => _music;
+        internal GameMusic Music => _audioDirector?.Music;
 
         /// <summary>The About page's player of the original procedural score (#443).</summary>
-        internal ProceduralJukebox Jukebox => _jukebox;
+        internal ProceduralJukebox Jukebox => _audioDirector?.Jukebox;
 
         /// <summary>The online score boards (#546): what the result, board, settings and About pages read and ask of them.</summary>
         internal OnlineSession Online => _online;
@@ -1095,40 +1072,22 @@ namespace BS3D
             _backdrop = new BackdropScreen(this);
             _gameplayScreen = new GameplayScreen(this, TestOptions);
 
-            //The SFX are synthesized from raw PCM here, once, so the per-event paths only ever play a buffer —
-            //no asset files, no pipeline step.
-            _audio = new ProceduralAudio();
-
-            //The pad's own mixer (#378) — no device or content dependency, built here purely to sit beside
-            //the audio it answers alongside.
-            _rumble = new GamepadRumble();
+            //The audio (#583): the SFX synthesized from raw PCM, the pad's mixer, the music starting to read its
+            //tracks off disk while the splash is up, the About page's player, and the scene beds handed the
+            //scene that was picked before any of it existed (SetScene runs early in LoadContent, and its hook
+            //is null-conditional for exactly that). The player's gains are applied as it is built, so a muted
+            //start reaches the fresh parts. See AudioDirector.
+            _audioDirector = new AudioDirector(_scene, _effective);
 
             //The victory display. Its one static buffer is built here too, so a cleared level costs nothing
             //but a handful of uniforms.
-            _fireworks = new Fireworks(GraphicsDevice, Content.Load<Effect>("Shaders/Fireworks"), _audio);
+            _fireworks = new Fireworks(GraphicsDevice, Content.Load<Effect>("Shaders/Fireworks"), _audioDirector.Sfx);
 
             //And the campaign's confetti, whose one static buffer is built here for the same reason (#215).
             _confetti = new Confetti(GraphicsDevice, Content.Load<Effect>("Shaders/Confetti"));
 
             //Both display levers ("celebrate" and "confetti") are FIRED FROM Update, not from here — see
             //StartupScript.StartCelebrations, which also says why. The two displays are only built here.
-
-            //The music. The constructor only starts reading the tracks off disk, on background threads, while
-            //the player is still looking at the splash (see GameMusic). The About page's player renders nothing
-            //until it is asked to.
-            _music = new GameMusic();
-            _jukebox = new ProceduralJukebox();
-
-            //The scene beds. The scene was picked before the audio existed (SetScene runs early in
-            //LoadContent, and its _ambience hook is null-conditional for exactly that), so the pick is
-            //handed over here; every later change reaches it through SetScene like everything else scenic.
-            _ambience = new ProceduralAmbience();
-            _sceneEvents = new SceneEventSounds(_audio);
-            _ambience.SetScene(_scene);
-
-            //A muted start (the mute argument) has to reach the freshly made subsystems; every later change
-            //comes through the settings rows.
-            ApplyVolumes();
 
             BuildMenu();
         }
@@ -1532,15 +1491,9 @@ namespace BS3D
             _clouds.Step(elapsed);
 
             //The ears, before anything can make a noise this frame. Up here and unconditional for the same
-            //reason the fireworks are: sound is made with no session standing — a whole celebration of it over
-            //a frozen gameplay screen, and the menu's own clicks over an orbiting backdrop — so the listener
-            //cannot belong to the session either. There is one camera for the whole process, so there is one
-            //listener, valid across every level rebuild.
-            //
-            //It is posed from the pose the previous frame was DRAWN from (the stack poses the camera further
-            //down), which is exactly the staleness the panning it replaces already had: half a unit at sixty
-            //frames a second. Nothing is gained by moving it, and correctness would be lost.
-            _audio?.UpdateListener(_camera);
+            //reason the fireworks are: sound is made with no session standing, so the listener cannot belong to
+            //the session either — see AudioDirector.UpdateListener, and why it is posed from the last DRAWN pose.
+            _audioDirector?.UpdateListener(_camera);
 
             //Advanced here, with the wall clock and above the stack, because the celebration outlives the
             //screen that started it: clearing a level pushes the result page over the gameplay screen, whose
@@ -1551,62 +1504,12 @@ namespace BS3D
             _confetti?.Update(elapsed);
             _trophy?.Update(elapsed);
 
-            //The music's feed: the sounding loop is queued again before the current pass ends, so the repeat is
-            //seamless (see GameMusic.Update). Up here with the fireworks and for the same reason — it has to keep
-            //running whatever is on the stack. It takes the frame's own time since #211: the fades move on it.
-            _music?.Update(elapsed);
-
-            //And the About page's player, whose held piece is what the game's own music steps aside for — asked
-            //every frame rather than told on a click, so a render landing, a pause or the page closing all reach
-            //the music without anyone having to remember to say so (#443).
-            _jukebox?.Update(elapsed);
-            if (_music != null && _jukebox != null) _music.Yielding = _jukebox.HoldsPiece;
-
-            //The scene's bed and its crossfade, on the wall clock's frame like the clouds: the scene is on
-            //screen whether or not a session stands, so its sound is too, pause included.
-            _ambience?.Update(elapsed);
-
-            //Right after the bed, on the same wall clock, and for the same reason it is: the scene stages its
-            //events whether or not a session stands, so a strike seen from the pause menu is heard from it.
-            //The clock handed over is the one the SCENE draws from (BuildSceneFrame), which is what lets the
-            //flash and its thunder be one event rather than two schedules that drift.
-            _sceneEvents?.Update(_scene, _sceneRenderer, _wallClock, elapsed);
-
-            //Which music the moment wants is the stack question (#46): the front end's loop plays exactly
-            //while no session screen is on it. The theme's own lifecycle stays the session's — BuildLevel
-            //starts it, TearDown and the level's endings stop it — this only closes the one gap that had no
-            //owner: leaving to the main menu keeps the session but must not keep its music ("it plays while a
-            //level is being played", docs/game-feedback.md), and Continue re-wants the theme because it comes
-            //back WITHOUT a BuildLevel. A fresh build's own Play a moment later is the "already sounding"
-            //no-op, so the two writers cannot fight. Both directions are a REPLACEMENT, so both take the
-            //fading stop (#211): the theme leaves under the loop's held pads, the loop under the theme's
-            //prelude — the level endings' dead stop stays the endings' own, where the silence is the message.
-            if (_music != null)
-            {
-                bool onFrontEnd = !_screens.Contains<GameplayScreen>();
-
-                if (onFrontEnd != _menuMusicOn)
-                {
-                    _menuMusicOn = onFrontEnd;
-
-                    if (onFrontEnd)
-                    {
-                        _music.FadeOut();
-                        _music.PlayMenu();
-                    }
-                    else
-                    {
-                        _music.StopMenu();
-                        if (_gameplayScreen != null && _gameplayScreen.IsBuilt) _music.Play();
-                    }
-                }
-            }
-
-            //The fireworks give way to the fanfare. Both arrive on the frame a level ends, and a report is
-            //broadband and loud enough to bury a tune under it — the bang is an event, the fanfare is the
-            //point. Read per frame rather than latched, so the ducking lifts by itself when the piece ends.
-            if (_audio != null && _music != null)
-                _audio.FireworkDuck = _music.IsFanfarePlaying ? ProceduralAudio.FIREWORK_DUCKED : 1f;
+            //The music, the About page's player and the music stepping aside for it, the scene's bed and its
+            //one-shots, which music the moment wants (the stack question, #46: the front end's loop plays exactly
+            //while no session screen is on it) and the fireworks giving way to the fanfare — in that order, after
+            //the celebrations have advanced and before the stack. See AudioDirector.Update for each step's why.
+            _audioDirector?.Update(elapsed, _scene, _sceneRenderer, _wallClock,
+                !_screens.Contains<GameplayScreen>(), _gameplayScreen != null && _gameplayScreen.IsBuilt);
 
             //The very click that refocuses a windowed game would otherwise read as a fresh press against a
             //stale "released" state and fire an unintended shot, since input is not sampled while inactive.
@@ -1628,7 +1531,7 @@ namespace BS3D
             //still feeding into it underneath — see GamepadRumble.Update. The result page stays allowed on
             //purpose: it covers the gameplay screen without leaving the stack (#241) and the star reveal it
             //hosts is one of this feature's own five triggers.
-            _rumble.Update(elapsed, IsActive && _screens.Contains<GameplayScreen>() && !_screens.Contains<PausePage>());
+            _audioDirector.UpdateRumble(elapsed, IsActive && _screens.Contains<GameplayScreen>() && !_screens.Contains<PausePage>());
 
             //The command line's one-shot actions (#583), each once at its moment: the startup level, then the
             //celebrations, then the pages held back past the title card. See StartupScript.
@@ -1809,7 +1712,7 @@ namespace BS3D
         protected override void UnloadContent()
         {
             //First, and unconditionally: vibration is a device state, not a frame state, and the pad does not
-            //know the process is about to leave (#378). Direct rather than through _rumble — there is no more
+            //know the process is about to leave (#378). Direct rather than through the rumble mixer — there is no more
             //frame for a mixer to decay over, only one last word to the device.
             GamePad.SetVibration(PlayerIndex.One, 0f, 0f);
 
@@ -1866,15 +1769,13 @@ namespace BS3D
             //buffers all live on the gameplay screen now, which disposes them in the order they need
             _gameplayScreen?.DisposeResources();
 
-            //The synthesized SFX buffers were built in LoadContent and outlive every session.
-            _audio?.Dispose();
-            _ambience?.Dispose();
+            //The synthesized SFX buffers, the beds, the About page's player and the music were built in
+            //LoadContent and outlive every session (#583: one owner, AudioDirector).
+            _audioDirector?.Dispose();
             _fireworks?.Dispose();
             _confetti?.Dispose();
             _trophy?.Dispose();
             _titleWordmark?.Dispose();
-            _jukebox?.Dispose();
-            _music?.Dispose();
 
             base.UnloadContent();
         }

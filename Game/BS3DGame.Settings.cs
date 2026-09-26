@@ -165,51 +165,19 @@ namespace BS3D
         /// </summary>
         internal void CycleMusicTrack()
         {
-            if (_music == null) return;
+            if (_audioDirector == null) return;
 
-            string next = NextMusicTrack(_music.SoundingTrack);
-
-            if (next == null)
-            {
-                //Exactly the handover the front end's own edge takes (see the music block in Update): the
-                //theme leaves under the loop's held pads rather than being cut.
-                _music.FadeOut();
-                _music.PlayMenu();
-            }
-            else
-            {
-                _music.StopMenu();
-                _music.SetTheme(next);
-
-                //Needed even when SetTheme found the piece already selected: on the front end the theme's
-                //chain was retired when the menus took over, so nothing is sounding for it to keep.
-                _music.Play();
-            }
+            //The step and the hand-over it takes are the director's (#583) — it holds the front end's edge that
+            //decides whether Auto is on offer
+            _audioDirector.CycleMusicTrack();
 
             _settingsPage.Refresh();
         }
 
-        /// <summary>
-        /// Steps the picker: Auto leads to the first composition, and the last leads back to Auto so a stray
-        /// click in the menus is one wrap from the loop it interrupted. In a level, where Auto has no loop to
-        /// mean, the wrap goes straight round to the first piece again.
-        /// </summary>
-        private string NextMusicTrack(string current)
-        {
-            string[] families = _music.Families;
-            if (families.Length == 0) return null;
-
-            if (current == null) return families[0];
-
-            int next = Array.IndexOf(families, current) + 1;
-            if (next > 0 && next < families.Length) return families[next];
-
-            return _menuMusicOn ? null : families[0];
-        }
-
         private void OnVolumeRowChanged()
         {
-            ApplyVolumes();
+            //The one place rows become gains is the director's (#583), which reads them through the file
+            _audioDirector.ApplyVolumes();
             SaveSettings();
 
             _settingsPage.Refresh();
@@ -225,35 +193,6 @@ namespace BS3D
         {
             float next = current - VOLUME_STEP;
             return next < -Constants.THOUSANDTH ? 1f : Math.Max(next, 0f);
-        }
-
-        /// <summary>
-        /// The one place the player's gains reach the audio: effects and music each take master times their
-        /// own row, so the two subsystems cannot disagree about what the master row means. The pad's row
-        /// (#378) rides along here too — it answers to no master row of its own (there is nothing else it is
-        /// a fraction OF), but every cycle that calls this is a click on one of these rows, so folding it in
-        /// is what keeps a change taking effect the instant it is clicked, like the four beside it.
-        /// </summary>
-        private void ApplyVolumes()
-        {
-            float master = _effective.MasterVolume;
-
-            _audio.Gain = master * _effective.SfxVolume;
-            _music.Gain = master * _effective.MusicVolume;
-
-            //The About page's player is music too, and takes the music row
-            _jukebox.Gain = master * _effective.MusicVolume;
-
-            //The beds have a row of their own: how much atmosphere sits under the music is a taste, and
-            //chaining it to the effects would turn the shot down with it.
-            _ambience.Gain = master * _effective.AmbienceVolume;
-
-            //The weather's one-shots ride the bed's row rather than the effects one (#219): thunder answers
-            //nothing the player did, so a player who turned the atmosphere down has already said what they
-            //think of it. See ProceduralAudio.WeatherGain.
-            _audio.WeatherGain = master * _effective.AmbienceVolume;
-
-            _rumble.Strength = _effective.RumbleStrength;
         }
 
         internal void ToggleFullscreen()
