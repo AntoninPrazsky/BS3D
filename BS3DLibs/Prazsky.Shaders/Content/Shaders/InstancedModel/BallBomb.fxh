@@ -1,4 +1,23 @@
 //===================================================================================================
+//⚠ REDRAWN AS A MINE IN #625, and the paragraphs below the next rule are the banded casing's history
+//(#326, #341), kept because every measurement in them still governs how this reads: the charge colour, the
+//far-glow floor, the resting glow the burial rule cannot reach, the slow deep beat. What changed is the
+//FIGURE. The generated references offered the banded lantern (today's bomb, heavier) and a naval mine - a
+//matte black sphere split by two glowing red seams crossing at right angles, a red eye where they meet and
+//a few blunt studs - and the owner picked the mine ("vypadá lépe"). It is a cleaner far read: two lines
+//and a point are resolvable long after five bands have blurred into a striped ball, and a crossed sphere
+//with a lit eye is armed in a way no ordinary ball ever looks.
+//
+//  - THE SEAMS: the equator and one meridian (object space, so a rolling mine visibly rolls), each a soft
+//    band of MineSeamWidth in the direction's own component; the charge burns in them as it burned in the
+//    grooves, and they converge to BombFarGlow past their band limit exactly as the grooves did.
+//  - THE EYE: where the two seams cross, on both sides (+Z and -Z; a level-placed ball shows -Z to the
+//    player), a disc of MineEyeRadius at MineEyeGain times the charge - the hot point the references put there.
+//  - THE STUDS: eight blunt bumps on the cube's diagonals, as far from both seams as a stud can be. One
+//    abs() folds all eight octants onto one test, so they cost one dot product. They stand proud in the
+//    relief only; the silhouette stays the sphere (a drawn ball may not leave its cell).
+//  - THE CASING: matte, warm near-black - a mine is cast and painted, not machined. The warmth is still
+//    what keeps it off Type8.
 //THE LIVE BOMB (#326) — the thirteenth ball technique, and the third of the three that belong to a KIND
 //rather than to a style. The stone draws the ball that can never be matched and the clear glass the ball
 //that has no colour yet; this draws the ball that is about to take a hole out of the cluster.
@@ -148,6 +167,25 @@ static const float3 BombCharge = float3(1.0, 0.15, 0.05);
 //A ring of studs round the casing's waist — rivets. Cheap (one more sine pair) and worth it: they are the
 //only part of the figure that survives when the ball is small enough that the bands blur together, and a
 //studded sphere is unmistakably a made object rather than a dark ball.
+//THE MINE'S FIGURE (#625): the seams' half-width in the direction's component, how sharply the charge
+//peaks in them, how deep they cut, the eye's radius (in the same units, measured as distance on the unit
+//sphere) and how much hotter than a seam it burns, and the eight studs' angular radius and height.
+static const float MineSeamWidth = 0.05;
+
+//The two seam planes' normals, TILTED off the object axes on purpose. Square to the axes, a level-placed
+//mine seen face-on is a red "+" centred on the ball - a crosshair, which says "aim here", the one reading a
+//special must not have (the gravity well's bullseye, #630). Tilted, the seams cross off-centre at a slant
+//and read as the joins of a casing. The eye sits where they cross: along the cross product of the two.
+static const float3 MineSeamNormalA = float3(0.20, 0.95, 0.24);
+static const float3 MineSeamNormalB = float3(0.93, -0.18, 0.32);
+static const float3 MineEyeCore = float3(1.0, 0.75, 0.55);
+static const float MineSeamSharpness = 1.4;
+static const float MineSeamDepth = 0.022;
+static const float MineEyeRadius = 0.13;
+static const float MineEyeGain = 1.8;
+static const float MineStudRadius = 0.16;
+static const float MineStudHeight = 0.03;
+
 static const float BombStudCount = 12.0;
 static const float BombStudSize = 0.16;
 static const float BombStudDepth = 0.016;
@@ -178,9 +216,11 @@ static const float BombRestingGlow = 0.5;
 //Machined metal: a tight highlight and a real mirror of the dome, which is what separates a casing from
 //the stone's matte aggregate at a glance. The environment term is what draws the sky along the silhouette
 //and is most of why a dark ball is visible at all.
-static const float BombHighlight = 0.55;
-static const float BombEnvironment = 0.70;
-static const float BombSmoothness = 0.62;
+//⚠ Matte since #625: the mine is cast and painted, and the references' casing is a soft sheen with no
+//mirror in it. Enough environment is kept to put the sky along the silhouette on a dark dome.
+static const float BombHighlight = 0.40;
+static const float BombEnvironment = 0.50;
+static const float BombSmoothness = 0.40;
 
 //Where the seam mask is read from: the fraction of a band, folded so 0 is the middle of a groove.
 float BombSeams(float3 direction)
@@ -204,6 +244,33 @@ float BombStuds(float3 direction)
     return saturate(ring * around);
 }
 
+//The mine's two seams, 0..1 with the peak on the seam: the equator (y = 0) and the x = 0 meridian.
+float MineSeams(float3 direction)
+{
+    float equator = pow(saturate(1.0 - abs(dot(direction, normalize(MineSeamNormalA))) / MineSeamWidth), MineSeamSharpness);
+    float meridian = pow(saturate(1.0 - abs(dot(direction, normalize(MineSeamNormalB))) / MineSeamWidth), MineSeamSharpness);
+
+    return max(equator, meridian);
+}
+
+//The eye where the seams cross, on both sides of the ball.
+float MineEye(float3 direction)
+{
+    float3 crossing = normalize(cross(normalize(MineSeamNormalA), normalize(MineSeamNormalB)));
+    float away = length(direction - crossing * sign(dot(direction, crossing)));
+
+    return 1.0 - smoothstep(MineEyeRadius * 0.6, MineEyeRadius, away);
+}
+
+//The eight studs on the cube's diagonals, folded onto one octant: the angular distance from (1,1,1)/sqrt 3.
+float MineStuds(float3 direction)
+{
+    float toDiagonal = acos(saturate(dot(abs(direction), float3(0.57735, 0.57735, 0.57735))));
+    float t = saturate(1.0 - toDiagonal / MineStudRadius);
+
+    return t * t * (3.0 - 2.0 * t);
+}
+
 float4 BombPS(PatternVertexShaderOutput input) : COLOR
 {
     float radius = max(length(input.ObjectPosition), 1e-5);
@@ -225,10 +292,13 @@ float4 BombPS(PatternVertexShaderOutput input) : COLOR
     //while a band was still several pixels wide and perfectly resolvable: the casing dissolved into a flat
     //glow at exactly the range the figure was supposed to be doing its work. Half the band count puts the
     //fade where Nyquist actually is, so the bands stay drawn as long as they can be seen.
-    float bandLimit = saturate(1 - footprint * BombBandCount * 0.5);
+    //⚠ The limit is the mine's since #625: a seam is 2 * MineSeamWidth of the unit direction across, so it
+    //goes under a pixel when the footprint reaches about that. The banded casing's own argument, above.
+    float bandLimit = saturate(1 - footprint / (MineSeamWidth * 2.0));
 
-    float seam = BombSeams(direction) * bandLimit;
-    float stud = BombStuds(direction) * bandLimit;
+    float seam = MineSeams(direction) * bandLimit;
+    float stud = MineStuds(direction) * saturate(1 - footprint / (MineStudRadius * 2.0));
+    float eye = MineEye(direction);
 
     //⚠ THE CHARGE IS NOT BAND-LIMITED WITH THEM, and the first build of this technique was: the emission
     //below was multiplied by the band-limited `seam`, so as the bands went under a pixel the glow went with
@@ -242,16 +312,17 @@ float4 BombPS(PatternVertexShaderOutput input) : COLOR
     //and it is the same call the stone's own header records making, in the other direction: a rock had to be
     //given emission it does not physically have because it read as the 8-ball without it. What has to
     //survive distance is the SIGNAL, and the signal is "this one is live".
-    float charge = lerp(BombFarGlow, seam, bandLimit);
+    //The eye is not band-limited: it is a point of light, and a point of light survives any distance.
+    float charge = max(lerp(BombFarGlow, seam, bandLimit), eye * MineEyeGain);
 
     //The casing, darkened in the grooves: a joint is in shadow before it is lit from inside, and skipping
     //that made the seams read as painted-on stripes when the charge was at the bottom of its beat.
-    float3 color = SrgbToLinear(BombCasing) * (1 - 0.45 * seam) * (1 + 0.35 * stud);
+    float3 color = SrgbToLinear(BombCasing) * (1 - 0.45 * seam) * (1 + 0.25 * stud);
 
     //Contract point 6. Both figures cut into one height field, so a single perturbation covers them - the
     //vinyl skin's construction. The studs stand PROUD and the grooves cut IN, which is the sign difference
     //that makes them read as two different features rather than as one dented surface.
-    float height = (stud * BombStudDepth - seam * BombGrooveDepth);
+    float height = (stud * MineStudHeight - seam * MineSeamDepth);
 
     float3 worldNormal = PerturbNormalFromHeight(normalize(input.WorldNormal), input.WorldPosition, height);
 
@@ -281,7 +352,10 @@ float4 BombPS(PatternVertexShaderOutput input) : COLOR
     //keeps it legible in the cluster's interior.
     shaded.rgb += SrgbToLinear(BombCharge) * charge * BombRestingGlow;
 
-    shaded.rgb += BallEmission(SrgbToLinear(BombCharge) * (charge + 0.35 * stud), input.WorldPosition, occlusion);
+    shaded.rgb += BallEmission(SrgbToLinear(BombCharge) * charge, input.WorldPosition, occlusion);
+
+    //The eye's hot core: a point of light is paler at its centre, and it is what the far read keeps.
+    shaded.rgb += SrgbToLinear(MineEyeCore) * pow(eye, 3.0) * 0.8;
 
     //Contract point 3, in BOTH meanings, and PatternPS's arithmetic deliberately.
     [branch]

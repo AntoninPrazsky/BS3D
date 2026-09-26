@@ -178,7 +178,8 @@ namespace Prazsky.Core.Render
         Hollow = 11,
 
         /// <summary>
-        /// A live bomb (#326): a dark ridged casing with a hot charge burning inside it, breathing hard.
+        /// A live bomb (#326, a mine since #625): a matte dark casing split by two glowing red seams with a hot
+        /// eye where they cross, breathing hard.
         /// Drawn by <c>InstancedModelBomb</c>.
         /// <para>
         /// The third shading that belongs to a <c>BallKind</c> rather than to a <c>BallStyle</c>, and the
