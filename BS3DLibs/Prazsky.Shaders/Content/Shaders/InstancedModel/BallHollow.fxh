@@ -59,7 +59,20 @@ static const float HollowRefraction = 0.35;
 static const float HollowRimPower = 2.6;
 static const float HollowRimStrength = 0.55;
 
-float4 HollowPS(PatternVertexShaderOutput input) : COLOR
+//THE CAVITY (#624). The generated references put "empty" in one place: a clear sphere with a SECOND,
+//smaller sphere of nothing inside it, drawn by the bright edge where the eye grazes the cavity's wall. It is
+//ray-cast exactly as the frozen ball's sealed sphere is (EyeRayVS carries the eye into object space), but
+//nothing is coloured: what is drawn is only the edge ring and a faint darkening of what is seen through the
+//hollow, so the ball stays undyed - the one thing this kind must be - and now reads as an empty socket
+//waiting for a colour rather than as a soap bubble. On the near wall only: the far wall is seen through the
+//cavity already, and ringing it twice would draw two circles.
+static const float HollowCavityRadius = 0.62;
+static const float HollowCavityRingWidth = 0.012;
+static const float HollowCavityRingStrength = 0.75;
+static const float HollowCavityRingOpacity = 0.45;
+static const float HollowCavityDim = 0.35;
+
+float4 HollowPS(EyeRayVertexShaderOutput input) : COLOR
 {
     float radius = max(length(input.ObjectPosition), 1e-5);
     float3 direction = input.ObjectPosition / radius;
@@ -145,6 +158,20 @@ float4 HollowPS(PatternVertexShaderOutput input) : COLOR
     //no own colour to carry towards white, which is what the film does, and that is the point.
     float3 rimGlow = float3(1, 1, 1) * (rim * HollowRimStrength * wall * occlusion);
 
+    //THE CAVITY: the eye ray's closest approach to the centre, in radii. Inside HollowCavityRadius the ray
+    //passes through the hollow; at it, the ray grazes the hollow's wall, and that grazing line is the ring.
+    //Coverage on the distance, so it is one clean line at any size and fades to its mean far away.
+    float3 rayDirection = normalize(input.ObjectPosition - input.EyeObject);
+    float along = -dot(input.EyeObject, rayDirection);
+    float closest = sqrt(max(dot(input.EyeObject, input.EyeObject) - along * along, 0.0)) / radius;
+    float nearWall = BubbleShell > 0 ? 1.0 : 0.0;
+    float cavityRing = BandCoverage(closest - HollowCavityRadius, HollowCavityRingWidth, fwidth(closest)) * nearWall;
+    float inCavity = (1.0 - smoothstep(HollowCavityRadius - fwidth(closest), HollowCavityRadius + fwidth(closest), closest)) * nearWall;
+
+    through *= 1.0 - HollowCavityDim * inCavity;
+    rimGlow += float3(1, 1, 1) * (cavityRing * HollowCavityRingStrength * occlusion);
+    alpha = saturate(alpha + cavityRing * HollowCavityRingOpacity);
+
     //Point 2. White, faint, and at PulseDepth zero from the draw - a floor, never a beat.
     float3 emitted = BallEmission(float3(1, 1, 1), input.WorldPosition, occlusion) * wall;
 
@@ -180,7 +207,7 @@ technique InstancedModelHollow
 {
     pass P0
     {
-        VertexShader = compile VS_SHADERMODEL PatternVS();
+        VertexShader = compile VS_SHADERMODEL EyeRayVS();
         PixelShader = compile PS_SHADERMODEL HollowPS();
     }
 };

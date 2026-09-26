@@ -245,6 +245,58 @@ PatternVertexShaderOutput PatternVS(VertexShaderInput input, InstanceInput insta
     return output;
 }
 
+//PatternVS's output with one more thing on it: the EYE'S POSITION IN OBJECT SPACE, for a technique that
+//casts the pixel's eye ray at something INSIDE the ball (#628's sealed sphere, #624's cavity). The
+//instance's world matrix is a rotation and a uniform scale over a translation, applied to row vectors
+//(p_world = p_object * R + T), so p_object = (p_world - T) * R^T with each row scaled back by its own
+//length squared. Per instance and not per pixel - interpolating a constant is free - and the ray the
+//pixel shader casts starts here and ends at the pixel's own object position, so the object-to-world
+//rotation never has to reach the pixel stage (the instance streams carry no inverse).
+struct EyeRayVertexShaderOutput
+{
+    float4 Position : SV_POSITION;
+    float3 WorldPosition : TEXCOORD0;
+    float3 WorldNormal : TEXCOORD1;
+    float4 OcclusionData : TEXCOORD2;
+    float3 ObjectPosition : TEXCOORD3;
+    float Dissolve : TEXCOORD4;
+    float Ripple : TEXCOORD5;
+    float3 EyeObject : TEXCOORD6;
+};
+
+float3 EyeInObjectSpace(InstanceInput instance)
+{
+    float3 toEye = EyePosition - instance.WorldRow4.xyz;
+
+    return float3(
+        dot(toEye, instance.WorldRow1.xyz) / max(dot(instance.WorldRow1.xyz, instance.WorldRow1.xyz), 1e-6),
+        dot(toEye, instance.WorldRow2.xyz) / max(dot(instance.WorldRow2.xyz, instance.WorldRow2.xyz), 1e-6),
+        dot(toEye, instance.WorldRow3.xyz) / max(dot(instance.WorldRow3.xyz, instance.WorldRow3.xyz), 1e-6));
+}
+
+//PatternVS with the eye carried along. Everything else is PatternVS's, deliberately: the two must not
+//drift apart, since every contract point a pixel shader answers is read off these same fields.
+EyeRayVertexShaderOutput EyeRayVS(VertexShaderInput input, InstanceInput instance)
+{
+    EyeRayVertexShaderOutput output;
+
+    float4x4 world = float4x4(instance.WorldRow1, instance.WorldRow2, instance.WorldRow3, instance.WorldRow4);
+
+    float4 bonePosition = mul(input.Position, Bone);
+    float4 worldPosition = mul(bonePosition, world);
+
+    output.ObjectPosition = bonePosition.xyz;
+    output.WorldPosition = worldPosition.xyz;
+    output.Position = mul(mul(worldPosition, View), Projection);
+    output.WorldNormal = NormalToWorld(input.Normal, world);
+    output.OcclusionData = instance.Custom;
+    output.Dissolve = instance.Dissolve;
+    output.Ripple = instance.Ripple;
+    output.EyeObject = EyeInObjectSpace(instance);
+
+    return output;
+}
+
 //Soft step across a boundary, one screen pixel wide, so the stripes do not crawl on the
 //small distant balls (a scene holds thousands of them, most only a few pixels across)
 float AntialiasedStep(float edge, float value)
