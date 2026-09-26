@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
+using System.Collections.Generic;
 
 namespace Prazsky.Core.Render
 {
@@ -84,6 +85,25 @@ namespace Prazsky.Core.Render
         public virtual bool TryGetSceneEvent(float time, out SceneEvent staged)
         {
             staged = default;
+            return false;
+        }
+
+        /// <summary>
+        /// The scene's effects that read the sun's shadow map (they include <c>Shadows.fxh</c>), gathered once at load
+        /// into the renderer's one receiver list (its <c>RegisterShadowReceivers</c>) — none by default. A scene that
+        /// states receivers states its <see cref="TryShadowFit"/> too: fitted but not receiving casts into a map
+        /// nobody reads, receiving but not fitted is handed 0 every frame.
+        /// </summary>
+        public virtual IEnumerable<Effect> ShadowReceivers => Array.Empty<Effect>();
+
+        /// <summary>
+        /// Where the scene's ground sits and how far the sun shadow map's box has to reach below and above it (the
+        /// renderer's <c>TryShadowFit</c>, which centres the box on the camera and adds the island's headroom and
+        /// the margin); false for a scene that takes no map, which is the default.
+        /// </summary>
+        public virtual bool TryShadowFit(out float groundY, out float below, out float above)
+        {
+            groundY = below = above = 0f;
             return false;
         }
 
