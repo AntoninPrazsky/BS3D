@@ -40,13 +40,6 @@ namespace BS3D.Screens
         private const int SWAP_SLOT_A = 0;
         private const int SWAP_SLOT_B = 1;
 
-        //One count per kind, sized off the enum itself so a future kind added to it needs no second number
-        //kept in step by hand. Granted per level (GrantPowerupCharges, called from BuildLevel) and never
-        //persisted to PlayerProgress — every other piece of session state (ScoreKeeper, the ceiling, the
-        //streak) resets exactly this way on a retry, and an inventory that survived one would be the one
-        //exception with no stated reason.
-        private readonly int[] _powerupCharges = new int[Enum.GetValues(typeof(PowerupKind)).Length];
-
         /// <summary>
         /// Grants this level's starting charges. Not authored into any shipped or generated level — the
         /// testing argument (<c>powerups=swap:1</c>, <see cref="SessionTestOptions.ForcedPowerups"/>) is the only
@@ -61,7 +54,7 @@ namespace BS3D.Screens
         /// </summary>
         private void GrantPowerupCharges()
         {
-            Array.Clear(_powerupCharges);
+            //Onto the run's own array (LevelRun.PowerupCharges), which a new level starts at zero by construction
 
             string spec = _test.ForcedPowerups;
             if (string.IsNullOrEmpty(spec)) return;
@@ -74,13 +67,13 @@ namespace BS3D.Screens
                 if (!Enum.TryParse(parts[0], ignoreCase: true, out PowerupKind kind) || kind == PowerupKind.None)
                     continue;
 
-                if (int.TryParse(parts[1], out int count) && count > 0) _powerupCharges[(int)kind] = count;
+                if (int.TryParse(parts[1], out int count) && count > 0) _run.PowerupCharges[(int)kind] = count;
             }
         }
 
         /// <summary>How many charges of <paramref name="kind"/> are left — the seam a future HUD reads for
         /// its icon and count (#392 states the seam exists; the layout is that issue's, not this one's).</summary>
-        internal int PowerupCharges(PowerupKind kind) => _powerupCharges[(int)kind];
+        internal int PowerupCharges(PowerupKind kind) => _run.PowerupCharges[(int)kind];
 
         /// <summary>
         /// Whether <paramref name="kind"/> can fire right now: a charge left, and the same two guards
@@ -88,7 +81,7 @@ namespace BS3D.Screens
         /// (<see cref="CameraTakeoverEngaged"/>) and not once the level is decided (<see cref="LevelDecided"/>).
         /// </summary>
         internal bool CanActivate(PowerupKind kind) =>
-            kind != PowerupKind.None && _powerupCharges[(int)kind] > 0 && !CameraTakeoverEngaged && !LevelDecided;
+            kind != PowerupKind.None && _run.PowerupCharges[(int)kind] > 0 && !CameraTakeoverEngaged && !LevelDecided;
 
         /// <summary>
         /// Spends one charge of <paramref name="kind"/> and applies its effect. A no-op, not an exception, on
@@ -106,7 +99,7 @@ namespace BS3D.Screens
         {
             if (!CanActivate(kind)) return;
 
-            _powerupCharges[(int)kind]--;
+            _run.PowerupCharges[(int)kind]--;
 
             switch (kind)
             {

@@ -112,7 +112,7 @@ namespace BS3D.Screens
         /// <para>
         /// <b>Shown exactly when a shot would actually leave the barrel</b>, which is the rule that keeps it from
         /// promising anything: silent while a camera takeover (the drop cinematic or #267's chapter intro) runs,
-        /// because the gun does not answer at all then, and silent once <c>_score.OutOfShots</c> or once the
+        /// because the gun does not answer at all then, and silent once <c>_run.Score.OutOfShots</c> or once the
         /// level is decided — the <i>same</i> tests <see cref="Shoot"/> refuses on, so the two cannot drift
         /// apart. A ghost sitting in the cluster over a spent budget, or over a level already won or lost,
         /// points at a landing the player can no longer buy.
@@ -132,7 +132,7 @@ namespace BS3D.Screens
             _previewReachesCluster = false;
             _previewBeamVisible = false;
 
-            if (CameraTakeoverEngaged || _score.OutOfShots || LevelDecided || _physicsBalls == null || _map == null) return;
+            if (CameraTakeoverEngaged || _run.Score.OutOfShots || LevelDecided || _physicsBalls == null || _map == null) return;
 
             Vector3 muzzle = _cannon.MuzzlePosition(Game.CannonRig.PivotToFrontBall);
             Vector3 aim = _cannon.AimDirection;
@@ -457,7 +457,7 @@ namespace BS3D.Screens
             //magazine strip already holds (PlayHud.DrawMagazine). The queue itself never empties (Magazine's
             //own invariant: Advance always deals a real colour into the tail), so without this clamp the
             //barrel goes on showing a full five loaded rounds for balls that can never be fired.
-            int shown = _score.ShotsRemaining is int shotsLeft ? Math.Min(Magazine.SIZE, shotsLeft) : Magazine.SIZE;
+            int shown = _run.Score.ShotsRemaining is int shotsLeft ? Math.Min(Magazine.SIZE, shotsLeft) : Magazine.SIZE;
 
             for (int i = 0; i < shown; i++)
             {

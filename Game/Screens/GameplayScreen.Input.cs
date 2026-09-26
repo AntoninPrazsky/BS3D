@@ -338,7 +338,7 @@ namespace BS3D.Screens
             //ball fired is still in flight and may be the one that clears the field, and a loss called now would
             //steal that win. Whether the spent budget actually loses is decided once every shot has resolved,
             //in CheckLevelLost, against the state of the field then.
-            if (_score.OutOfShots) return;
+            if (_run.Score.OutOfShots) return;
 
             //Refused while the aim is pressed into, or stretched past, the elevation clamp (#431). The rubber lets
             //the barrel run up to ~6° past a tall level's limit, and a shot fired from the top of that stretch went
@@ -377,7 +377,7 @@ namespace BS3D.Screens
 
             //The ball is spent the instant it leaves the barrel. What it *did* takes a physics step or more to
             //resolve, so the budget and the score are driven by different events on purpose — see ScoreKeeper.
-            _score.Shot();
+            _run.Score.Shot();
 
             //The tutorial's fire lesson is the shot leaving, not the shot landing (#189)
             _tutorial.Report(Tutorial.Lesson.Fire);
@@ -388,7 +388,7 @@ namespace BS3D.Screens
             //
             //QUEUED rather than started, because the shot has not landed yet and the descent must not collide
             //with what it is about to do — see CeilingDescent.Update.
-            if (_score.StepCeilingThisShot()) _ceilingDescent.QueuePressureStep();
+            if (_run.Score.StepCeilingThisShot()) _ceilingDescent.QueuePressureStep();
 
             //The shot's launch smear. Only the ball's authored tint goes over: decoding it to linear, lifting
             //its peak off the floor so even the black ball leaves a mark and boosting it to a glowing radiance
