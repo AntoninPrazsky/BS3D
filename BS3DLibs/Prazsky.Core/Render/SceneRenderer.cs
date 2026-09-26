@@ -368,7 +368,6 @@ namespace Prazsky.Core.Render
         //level is loaded (issue #32), which re-pushes the effect parameters and rebuilds the scatter/particle
         //buffers the config sizes.
         private SeaSceneConfig _seaConfig = new();
-        private DesertSceneConfig _desertConfig = new();
         private SavannaSceneConfig _savannaConfig = new();
         private MountainSceneConfig _mountainConfig = new();
         private MeadowSceneConfig _meadowConfig = new();
@@ -400,24 +399,6 @@ namespace Prazsky.Core.Render
 
         //Look/tuning parameters (water level & colours, waves, chop, wind, sun glint, foam, subsurface, haze)
         //now live in SeaSceneConfig; SceneRenderer reads them from _seaConfig (spray via _seaConfig.Spray).
-
-        #endregion
-
-        #region Desert
-
-        private readonly Effect _desertEffect;
-
-        //Its camera grid and the pass that draws it (#580): the skeleton this scene shared with two others
-        private readonly TerrainPass _desertPass;
-
-        //The dunes are real geometry: a camera-centred grid of this many vertices per side over this world
-        //extent, displaced in the shader and snapped to a cell so they do not swim. Finer than the old dune
-        //grid (200) so the crest silhouettes read smooth; the shading normal is per-pixel, so no grid shows.
-        private const int DESERT_GRID_N = 360;
-        private const float DESERT_EXTENT = 1000f;
-
-        //Look/tuning parameters (dune height, clearing, ripples, dust, sand colour, wind, haze) now live in
-        //DesertSceneConfig; SceneRenderer reads them from _desertConfig.
 
         #endregion
 
@@ -1027,6 +1008,7 @@ namespace Prazsky.Core.Render
         private readonly StormBackdrop _storm;
         private readonly GridBackdrop _grid;
         private readonly MoonBackdrop _moon;
+        private readonly DesertBackdrop _desert;
         private readonly PolarBackdrop _polar;
         private readonly AuroraBackdrop _aurora;
 
@@ -1099,11 +1081,10 @@ namespace Prazsky.Core.Render
 
             ApplySeaParameters();
 
-            //--- Desert: a flat lattice the shader displaces into Sahara dunes (per-pixel normal, no grid)
-            _desertEffect = content.Load<Effect>("Shaders/Desert");
-            _desertPass = new TerrainPass(_services, _desertEffect, DESERT_GRID_N, DESERT_EXTENT, "DesertTime");
-
-            ApplyDesertParameters();
+            //--- Desert: its own Backdrop since #580 (Render/Scenes), built here where
+            //its code stood
+            _desert = new DesertBackdrop(_services, content);
+            _backdrops[(int)SceneKind.Desert] = _desert;
 
             //--- Polar (#222): its own Backdrop since #580 (Render/Scenes), built here where
             //its code stood
@@ -1250,7 +1231,7 @@ namespace Prazsky.Core.Render
             //service since #580 (BirdFlock). Sized to the largest flock any of the four scenes asks for:
             //the scenes share it, and a smaller one would silently cap the others'.
             _birds = new BirdFlock(graphicsDevice, content,
-                Math.Max(Math.Max(_savannaConfig.Birds.Count, _desertConfig.Birds.Count),
+                Math.Max(Math.Max(_savannaConfig.Birds.Count, _desert.Birds.Count),
                     Math.Max(_outbackConfig.Birds.Count, _tropicalConfig.Birds.Count)));
             _services.Birds = _birds;
 
@@ -1349,7 +1330,7 @@ namespace Prazsky.Core.Render
                 _savannaEffect, _acaciaEffect,       //#469's two: the plain and what stands on it
                 _meadowEffect,                       //#471, and the first chapter plays here
                 _forestEffect,                       //its floor; the trees receive through the shared effect
-                _mountainEffect, _desertEffect, _outbackEffect,
+                _mountainEffect, _outbackEffect,
                 _tropicalEffect, _palmEffect,        //the sand and the palms standing on it
                 _volcanoEffect, _marsEffect
             };
@@ -1555,12 +1536,6 @@ namespace Prazsky.Core.Render
                     viewpoint = new SceneViewpoint(SavannaCampfirePosition(0), 1.7f, 11f, 35f, "the campfire");
                     return true;
 
-                //The dune skyline, from low down: dunes read as dunes on the horizon, where one crest stands
-                //against the next. From above they are a texture.
-                case SceneKind.Desert:
-                    viewpoint = new SceneViewpoint(AtBearing(bearing, 360f, _desertConfig.LevelY + 10f), 2.2f, 8f, 0f, "the dunes");
-                    return true;
-
                 //Up at the range, from the furthest stand in the table: the peaks are the only subject here
                 //that is genuinely tall, and the one shot that is wrong for them is a close one.
                 case SceneKind.Mountain:
@@ -1694,7 +1669,6 @@ namespace Prazsky.Core.Render
         public SceneConfig GetSceneConfig(SceneKind kind) => BackdropFor(kind)?.Config ?? kind switch
         {
             SceneKind.Sea => _seaConfig,
-            SceneKind.Desert => _desertConfig,
             SceneKind.Savanna => _savannaConfig,
             SceneKind.Mountain => _mountainConfig,
             SceneKind.Meadow => _meadowConfig,
@@ -1764,27 +1738,6 @@ namespace Prazsky.Core.Render
             _lagoonEffect.Parameters["SssStrength"].SetValue(water.SssStrength);
             _lagoonEffect.Parameters["SssColor"].SetValue(water.SssColor.ToVector3());
             _lagoonEffect.Parameters["HorizonHazeDistance"].SetValue(water.HorizonHazeDistance);
-        }
-
-        private void ApplyDesertParameters()
-        {
-            _desertEffect.Parameters["DesertLevelY"].SetValue(_desertConfig.LevelY);
-            _desertEffect.Parameters["DuneAmplitude"].SetValue(_desertConfig.DuneAmplitude);
-            _desertEffect.Parameters["ClearingRadius"].SetValue(_desertConfig.ClearingRadius);
-            _desertEffect.Parameters["ClearingTransition"].SetValue(_desertConfig.ClearingTransition);
-            _desertEffect.Parameters["RippleAmplitude"].SetValue(_desertConfig.RippleAmplitude);
-            _desertEffect.Parameters["RippleFrequency"].SetValue(_desertConfig.RippleFrequency);
-            _desertEffect.Parameters["DustStrength"].SetValue(_desertConfig.DustStrength);
-            _desertEffect.Parameters["DustSpeed"].SetValue(_desertConfig.DustSpeed);
-            _desertEffect.Parameters["DustStart"].SetValue(_desertConfig.DustStart);
-            _desertEffect.Parameters["SandColor"].SetValue(_desertConfig.SandColor.ToVector3());
-            _desertEffect.Parameters["SandColorPale"].SetValue(_desertConfig.SandColorPale.ToVector3());
-            _desertEffect.Parameters["SheenStrength"].SetValue(_desertConfig.SheenStrength);
-            _desertEffect.Parameters["AmbientStrength"].SetValue(_desertConfig.AmbientStrength);
-            _desertEffect.Parameters["SandBounce"].SetValue(_desertConfig.SandBounce);
-            _desertEffect.Parameters["HazeWarmth"].SetValue(_desertConfig.HazeWarmth);
-            _desertEffect.Parameters["WindDirection"].SetValue(_desertConfig.Wind.ToVector2());
-            _desertEffect.Parameters["HorizonHazeDistance"].SetValue(_desertConfig.HorizonHazeDistance);
         }
 
         private void ApplyOutbackParameters()
@@ -3030,7 +2983,6 @@ namespace Prazsky.Core.Render
 
             (effect, mirror) = scene switch
             {
-                SceneKind.Desert => (_desertEffect, (x, z) => TerrainMirror.Desert(x, z, _desertConfig)),
                 SceneKind.Mountain => (_mountainEffect, (x, z) => TerrainMirror.Mountain(x, z, _mountainConfig)),
                 SceneKind.Outback => (_outbackEffect, (x, z) => TerrainMirror.Outback(x, z, _outbackConfig)),
                 SceneKind.Savanna => (_savannaEffect, (x, z) => TerrainMirror.Savanna(x, z, _savannaConfig)),
@@ -3531,10 +3483,6 @@ namespace Prazsky.Core.Render
                     DrawAcacias(frame);
                     _birds.Draw(frame, _savannaConfig.Birds);
                     break;
-                case SceneKind.Desert:
-                    DrawDesert(frame);
-                    _birds.Draw(frame, _desertConfig.Birds);
-                    break;
                 case SceneKind.Outback:
                     DrawOutback(frame);
                     _birds.Draw(frame, _outbackConfig.Birds);
@@ -3657,17 +3605,6 @@ namespace Prazsky.Core.Render
             _graphicsDevice.BlendState = BlendState.AlphaBlend;
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
             _graphicsDevice.DepthStencilState = DepthStencilState.Default;
-        }
-
-        /// <summary>
-        /// Draws the Sahara dune field: the grid pinned to the camera (snapped to a cell so the dunes do not
-        /// swim), lifted into dunes with distance and shaded per-pixel (no grid) by the current dome, ripples
-        /// and blown dust crawling on the wind, shadowed by the shared cloud field. The desert has no point
-        /// lights, so unlike the savanna it sets none.
-        /// </summary>
-        private void DrawDesert(in SceneFrame frame)
-        {
-            _desertPass.Draw(frame, TerrainHoleRadius);
         }
 
         /// <summary>
@@ -4259,12 +4196,6 @@ namespace Prazsky.Core.Render
                     groundY = _mountainConfig.LevelY;
                     below = _mountainConfig.Height * 0.25f;
                     above = _mountainConfig.Height * 0.5f;
-                    break;
-
-                case SceneKind.Desert:
-                    groundY = _desertConfig.LevelY;
-                    below = _desertConfig.DuneAmplitude;
-                    above = _desertConfig.DuneAmplitude;
                     break;
 
                 case SceneKind.Outback:
