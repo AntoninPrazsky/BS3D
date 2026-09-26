@@ -92,7 +92,7 @@ namespace BS3D.Screens
 
             //What online scores send and what is kept (#548) — the settings page's own sentence, from the one place
             //both read it, so the two pages cannot say different things about the same data
-            left.Widgets.Add(Paragraph(text: Game.OnlinePrivacySentence));
+            left.Widgets.Add(Paragraph(text: Game.Online.PrivacySentence));
 
             left.Widgets.Add(MenuButton("github.com/AntoninPrazsky/BS3D", OpenRepository));
 

@@ -1177,7 +1177,7 @@ namespace BS3D
         internal void OpenLevelBoard(int level, int page = 0)
         {
             Prazsky.BS3D.Levels.LevelIdentity identity = LevelIdentityOf(level);
-            if (!OnlineEnabled || identity == null) return;
+            if (!_online.Enabled || identity == null) return;
 
             _levelBoardPage.Show(level, identity, page);
             OpenPage(_levelBoardPage);

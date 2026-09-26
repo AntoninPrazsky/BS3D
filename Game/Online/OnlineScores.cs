@@ -319,7 +319,7 @@ namespace BS3D.Online
         /// <summary>
         /// Whether the worker ended on something it did not expect (#572) — outside any one request or step, since
         /// each of those catches its own. Whatever it had been handed is in the outbox; the frame replaces the client
-        /// once a session (<c>BS3DGame.UpdateOnline</c>), because a worker that is gone reads no queue.
+        /// once a session (<c>OnlineSession.Update</c>), because a worker that is gone reads no queue.
         /// </summary>
         internal bool Faulted => _faulted;
 

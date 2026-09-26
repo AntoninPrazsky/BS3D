@@ -1,33 +1,44 @@
-using BS3D.Online;
 using Prazsky.BS3D.Levels;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 
-namespace BS3D
+namespace BS3D.Online
 {
     /// <summary>
     /// The online score boards' seam in the game (#546, #548): where the client is started and replaced, where a
     /// clear is handed to it, where its answers come back to the frame, and the settings page's verbs — the switch,
     /// the nickname and the removal. The client itself — the outbox, the network, the worker — is
     /// <see cref="OnlineScores"/>; the result page's reading of the answer is #547's.
+    /// <para>
+    /// An owned object of the host since #583 (it was the <c>BS3DGame.Online.cs</c> partial): the host constructs it
+    /// right after the settings are loaded, calls <see cref="Update"/> once a frame and <see cref="Dispose"/> at
+    /// unload, and the pages reach it as <c>Game.Online</c>. What it needs of the host is three things only — the
+    /// wall clock the board cache ages by, the one writer of the settings file, and a word to the settings page
+    /// that what it shows has changed — handed in once as delegates, so nothing here allocates per frame.
+    /// </para>
     /// </summary>
-    public partial class BS3DGame
+    internal sealed class OnlineSession : IDisposable
     {
-        private OnlineScores _online;
+        private readonly GameSettings _settings;
+        private readonly Func<float> _wallClock;
+        private readonly Action _saveSettings;
+        private readonly Action _changed;
+
+        private OnlineScores _client;
 
         /// <summary>
         /// Who this install is to the boards, read from <c>Online.json</c> once at start and changed only by the
         /// settings verbs below — null for a player who has never opted in, or who removed their scores.
         /// </summary>
-        private OnlineIdentity _onlineIdentity;
+        private OnlineIdentity _identity;
 
         /// <summary>The submission of the level most recently cleared, which is the only one a page is waiting on.</summary>
-        private Guid _onlineSubmissionId;
+        private Guid _submissionId;
 
         /// <summary>That clear's board key, which the result page's boards are fetched for once it is accepted (#547).</summary>
-        private LevelIdentity _onlineSubmittedLevel;
+        private LevelIdentity _submittedLevel;
 
         //The result page's two boards (#547): requested when the clear is accepted, under these tickets
         private int _boardTicket;
@@ -49,7 +60,7 @@ namespace BS3D
         /// Moves whenever anything the result page shows of the online boards changes — an answer, a board, a new
         /// clear — so the page rewrites its labels only then, rather than every frame (#547).
         /// </summary>
-        internal int OnlineResultGeneration { get; private set; }
+        internal int ResultGeneration { get; private set; }
 
         //Board pages asked for by a page other than the result's (the picker's board page, #547): their replies by
         //ticket, and a short cache so paging back and forth does not ask the Pi again for what it just answered
@@ -60,22 +71,45 @@ namespace BS3D
 
         //The result page's line for a player who has not opted in shows once a session and no more (#547): an offer
         //made on every clear is a nag
-        private bool _onlineHintOffered;
+        private bool _hintOffered;
+
+        //A faulted worker is replaced once a session (#572); a second fault leaves the boards off until the next start
+        private bool _restartedAfterFault;
+
+        /// <summary>
+        /// Started once, from the host's constructor, right after the settings it reads are loaded — its worker starts
+        /// draining an outbox left by an earlier run straight away, off the frame's thread.
+        /// </summary>
+        /// <param name="settings">The player's settings, shared with the host: the switch and the server are read
+        /// from it, and the switch is written to it.</param>
+        /// <param name="wallClock">The host's wall clock, which the board cache ages by.</param>
+        /// <param name="saveSettings">The host's one writer of the settings file.</param>
+        /// <param name="changed">Called when anything the settings page shows of the boards has changed.</param>
+        internal OnlineSession(GameSettings settings, Func<float> wallClock, Action saveSettings, Action changed)
+        {
+            _settings = settings;
+            _wallClock = wallClock;
+            _saveSettings = saveSettings;
+            _changed = changed;
+
+            _identity = OnlineIdentity.Load(IdentityPath);
+            _client = OnlineScores.Start(_settings, _identity, OutboxPath);
+        }
 
         /// <summary>
         /// Whether the result page may offer the boards to a player who has not opted in (#547) — true once a session,
         /// on the first ending that asks. Asked when a page is presented, so the decision stands while it is up.
         /// </summary>
-        internal bool TakeOnlineHint()
+        internal bool TakeHint()
         {
-            if (OnlineEnabled || _onlineHintOffered) return false;
+            if (Enabled || _hintOffered) return false;
 
-            _onlineHintOffered = true;
+            _hintOffered = true;
             return true;
         }
 
         /// <summary>This install's player id while online scores are on, for a board page to ask for its own row.</summary>
-        internal Guid? OnlinePlayerId => OnlineEnabled && _onlineIdentity?.IsUsable == true ? _onlineIdentity.PlayerId : null;
+        internal Guid? PlayerId => Enabled && _identity?.IsUsable == true ? _identity.PlayerId : null;
 
         /// <summary>
         /// Asks for one page of a level's board (#547) and returns the ticket its reply will carry, or -1 when this run
@@ -84,47 +118,47 @@ namespace BS3D
         /// </summary>
         internal int RequestLevelBoard(LevelIdentity level, bool allTime, int offset, int limit)
         {
-            if (!OnlineEnabled || level == null) return -1;
+            if (!Enabled || level == null) return -1;
 
             int ticket = ++_boardTicket;
             int rules = Prazsky.BS3D.Scoring.ScoreKeeper.RulesVersion;
             var key = (level.File, level.Hash, rules, allTime, offset, limit);
 
-            if (_boardCache.TryGetValue(key, out var cached) && WallClock - cached.At < BOARD_CACHE_SECONDS)
+            if (_boardCache.TryGetValue(key, out var cached) && _wallClock() - cached.At < BOARD_CACHE_SECONDS)
             {
                 _boardReplies[ticket] = cached.Reply with { Ticket = ticket };
                 return ticket;
             }
 
             _pendingBoardKeys[ticket] = key;
-            _online.RequestBoard(new BoardRequest(ticket, level.File, level.Hash, rules, allTime, OnlinePlayerId, limit, offset));
+            _client.RequestBoard(new BoardRequest(ticket, level.File, level.Hash, rules, allTime, PlayerId, limit, offset));
             return ticket;
         }
 
         /// <summary>The reply to a <see cref="RequestLevelBoard"/> ticket, once it has come; taken once.</summary>
         internal bool TryTakeLevelBoard(int ticket, out BoardReply reply) => _boardReplies.Remove(ticket, out reply);
 
-        private static string OnlineIdentityPath => UserData.PathTo(OnlineIdentity.DefaultFileName);
-        private static string OnlineOutboxPath => UserData.PathTo(OnlineScores.OutboxFileName);
+        private static string IdentityPath => UserData.PathTo(OnlineIdentity.DefaultFileName);
+        private static string OutboxPath => UserData.PathTo(OnlineScores.OutboxFileName);
 
         /// <summary>
         /// Whether this run submits clears at all — the player turned it on, holds an identity and there is a
         /// server (<see cref="OnlineScores.Start"/>). What a result page asks before it offers to show ranks at
         /// all, or instead a hint that the boards exist (#547).
         /// </summary>
-        internal bool OnlineEnabled => _online?.Enabled == true;
+        internal bool Enabled => _client?.Enabled == true;
 
         /// <summary>The player's own switch (#548) — what the settings row shows, whether or not anything can be sent.</summary>
-        internal bool IsOnlineOn => _settings.Online;
+        internal bool IsOn => _settings.Online;
 
         /// <summary>The nickname this install sends under, or null when there is no identity.</summary>
-        internal string OnlineNickname => _onlineIdentity?.IsUsable == true ? _onlineIdentity.Name : null;
+        internal string Nickname => _identity?.IsUsable == true ? _identity.Name : null;
 
         /// <summary>
         /// What is sent and what is kept, in one sentence — the settings page's and the About page's, from the one
         /// place (<see cref="OnlineScores.PrivacySentence"/>), so the two read the same.
         /// </summary>
-        internal string OnlinePrivacySentence => OnlineScores.PrivacySentence(_settings);
+        internal string PrivacySentence => OnlineScores.PrivacySentence(_settings);
 
         /// <summary>
         /// What became of the level just cleared, once the worker knows: accepted with its ranks, refused, or
@@ -132,26 +166,19 @@ namespace BS3D
         /// can never show the previous level's ranks against this one. Read it every frame; it is set on the frame
         /// the answer arrives and not before. The page must never wait for it (#546, #547).
         /// </summary>
-        internal OnlineAnswer? OnlineResult { get; private set; }
+        internal OnlineAnswer? Result { get; private set; }
 
         /// <summary>Where the player's "Remove scores" stands (#548), for the settings page to say.</summary>
-        internal OnlineRemovalState OnlineRemoval { get; private set; }
+        internal OnlineRemovalState Removal { get; private set; }
 
         /// <summary>Why the last removal did not happen, worded by the client; null otherwise.</summary>
-        internal string OnlineRemovalProblem { get; private set; }
+        internal string RemovalProblem { get; private set; }
 
         /// <summary>
         /// The service's refusal of the nickname (#548), when it gave one — shown on the settings page rather than
         /// swallowed, and cleared by the next name the player sets.
         /// </summary>
-        internal string OnlineNameProblem { get; private set; }
-
-        /// <summary>Started once, from the constructor, right after the settings it reads are loaded.</summary>
-        private void StartOnline()
-        {
-            _onlineIdentity = OnlineIdentity.Load(OnlineIdentityPath);
-            _online = OnlineScores.Start(_settings, _onlineIdentity, OnlineOutboxPath);
-        }
+        internal string NameProblem { get; private set; }
 
         /// <summary>
         /// The client again, after the switch, the identity or the server changed (#548), or once after its worker
@@ -164,24 +191,21 @@ namespace BS3D
         /// and a board page on its way comes back empty, so a page stops waiting for it.
         /// </para>
         /// </summary>
-        private void RestartOnline()
+        private void Restart()
         {
-            Task previous = _online?.Stop();
-            _online = OnlineScores.Start(_settings, _onlineIdentity, OnlineOutboxPath, previous);
+            Task previous = _client?.Stop();
+            _client = OnlineScores.Start(_settings, _identity, OutboxPath, previous);
 
-            if (OnlineRemoval == OnlineRemovalState.Removing)
+            if (Removal == OnlineRemovalState.Removing)
             {
-                OnlineRemoval = OnlineRemovalState.Failed;
-                OnlineRemovalProblem = "interrupted";
+                Removal = OnlineRemovalState.Failed;
+                RemovalProblem = "interrupted";
             }
 
             foreach (int ticket in _pendingBoardKeys.Keys)
                 _boardReplies[ticket] = new BoardReply(ticket, null, "interrupted");
             _pendingBoardKeys.Clear();
         }
-
-        //A faulted worker is replaced once a session (#572); a second fault leaves the boards off until the next start
-        private bool _onlineRestartedAfterFault;
 
         /// <summary>
         /// A level was cleared: hand it to the score service (#546). <b>Every clear, not only a new best</b> — the
@@ -192,18 +216,18 @@ namespace BS3D
         /// </summary>
         internal void SubmitClear(LevelIdentity level, int score, int stars, int shotsUsed, float seconds)
         {
-            ScoreSubmission submission = _online?.NewSubmission(level, score, stars, shotsUsed, seconds);
+            ScoreSubmission submission = _client?.NewSubmission(level, score, stars, shotsUsed, seconds);
             if (submission == null) return;
 
-            _onlineSubmissionId = submission.SubmissionId;
-            _onlineSubmittedLevel = level;
-            OnlineResult = null;
+            _submissionId = submission.SubmissionId;
+            _submittedLevel = level;
+            Result = null;
             ResultMonthBoard = null;
             ResultAllTimeBoard = null;
             _resultMonthTicket = _resultAllTimeTicket = -1;
-            OnlineResultGeneration++;
+            ResultGeneration++;
 
-            _online.Submit(submission);
+            _client.Submit(submission);
         }
 
         /// <summary>
@@ -211,42 +235,42 @@ namespace BS3D
         /// identity, so turning it on again later is the same player on the same boards. Written back to the
         /// settings, because it is a click.
         /// </summary>
-        internal void SetOnline(bool on)
+        internal void SetOn(bool on)
         {
             if (_settings.Online == on) return;
 
             _settings.Online = on;
-            SaveSettings();
-            RestartOnline();
+            _saveSettings();
+            Restart();
 
-            _settingsPage?.Refresh();
+            _changed();
         }
 
         /// <summary>
-        /// The player's nickname, already normalized by <see cref="Nickname.TryNormalize"/>. The first one creates
-        /// this install's identity — a fresh id and token, never one reused — and every later one renames it, here
-        /// and on the service if it can be reached (the next clear carries the name regardless).
+        /// The player's nickname, already normalized by <see cref="BS3D.Online.Nickname.TryNormalize"/>. The first one
+        /// creates this install's identity — a fresh id and token, never one reused — and every later one renames it,
+        /// here and on the service if it can be reached (the next clear carries the name regardless).
         /// </summary>
         internal void SetNickname(string name)
         {
-            OnlineNameProblem = null;
+            NameProblem = null;
 
-            if (_onlineIdentity?.IsUsable == true)
+            if (_identity?.IsUsable == true)
             {
-                if (_onlineIdentity.Name == name) return;
+                if (_identity.Name == name) return;
 
-                _onlineIdentity.Name = name;
-                SaveOnlineIdentity();
-                _online?.RequestRename(name);
+                _identity.Name = name;
+                SaveIdentity();
+                _client?.RequestRename(name);
             }
             else
             {
-                _onlineIdentity = OnlineIdentity.Create(name);
-                SaveOnlineIdentity();
-                RestartOnline();
+                _identity = OnlineIdentity.Create(name);
+                SaveIdentity();
+                Restart();
             }
 
-            _settingsPage?.Refresh();
+            _changed();
         }
 
         /// <summary>
@@ -255,62 +279,62 @@ namespace BS3D
         /// nothing and the player still holds the token that proves the scores are theirs. With no server at all
         /// nothing could have been sent from this build, so this machine's copy goes at once.
         /// </summary>
-        internal void RemoveOnlineScores()
+        internal void RemoveScores()
         {
-            if (_onlineIdentity == null || OnlineRemoval == OnlineRemovalState.Removing) return;
+            if (_identity == null || Removal == OnlineRemovalState.Removing) return;
 
-            OnlineRemovalProblem = null;
+            RemovalProblem = null;
 
-            if (_online?.CanReachServer == true)
+            if (_client?.CanReachServer == true)
             {
-                OnlineRemoval = OnlineRemovalState.Removing;
-                _online.RequestRemoval();
+                Removal = OnlineRemovalState.Removing;
+                _client.RequestRemoval();
             }
             else
             {
-                WipeOnlineHere();
-                OnlineRemoval = OnlineRemovalState.RemovedHere;
+                WipeHere();
+                Removal = OnlineRemovalState.RemovedHere;
             }
 
-            _settingsPage?.Refresh();
+            _changed();
         }
 
         /// <summary>The page was opened again: an old removal's outcome is not news any more.</summary>
-        internal void ForgetOnlineRemovalOutcome()
+        internal void ForgetRemovalOutcome()
         {
-            if (OnlineRemoval != OnlineRemovalState.Removing) OnlineRemoval = OnlineRemovalState.None;
-            OnlineRemovalProblem = null;
+            if (Removal != OnlineRemovalState.Removing) Removal = OnlineRemovalState.None;
+            RemovalProblem = null;
         }
 
         /// <summary>
         /// This machine's side of a removal: the identity, its backup and the outbox gone, the switch off. A later
         /// opt-in creates a new identity, so the removed id can never come back.
         /// </summary>
-        private void WipeOnlineHere()
+        private void WipeHere()
         {
-            OnlineScores.DeleteQuietly(OnlineIdentityPath);
-            OnlineScores.DeleteQuietly(OnlineIdentityPath + OnlineIdentity.BackupSuffix);
-            OnlineScores.DeleteQuietly(OnlineOutboxPath);
-            OnlineScores.DeleteQuietly(OnlineOutboxPath + OnlineScores.OutboxBackupSuffix);
+            OnlineScores.DeleteQuietly(IdentityPath);
+            OnlineScores.DeleteQuietly(IdentityPath + OnlineIdentity.BackupSuffix);
+            OnlineScores.DeleteQuietly(OutboxPath);
+            OnlineScores.DeleteQuietly(OutboxPath + OnlineScores.OutboxBackupSuffix);
 
-            _onlineIdentity = null;
-            OnlineNameProblem = null;
+            _identity = null;
+            NameProblem = null;
             _settings.Online = false;
-            SaveSettings();
-            RestartOnline();
+            _saveSettings();
+            Restart();
 
             Console.WriteLine("[online] This machine's identity and outbox are removed; online scores are off");
         }
 
-        private void SaveOnlineIdentity()
+        private void SaveIdentity()
         {
             try
             {
-                _onlineIdentity.Save(OnlineIdentityPath);
+                _identity.Save(IdentityPath);
             }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException)
             {
-                Console.WriteLine($"[online] Could not save '{OnlineIdentityPath}': {e.Message}");
+                Console.WriteLine($"[online] Could not save '{IdentityPath}': {e.Message}");
             }
         }
 
@@ -321,28 +345,28 @@ namespace BS3D
         /// about the player's own requests are acted on here, on the frame's thread, because they change the
         /// identity and the settings the frame owns.
         /// </summary>
-        private void UpdateOnline()
+        internal void Update()
         {
-            if (_online == null) return;
+            if (_client == null) return;
 
-            while (_online.TryTakeAnswer(out OnlineAnswer answer))
+            while (_client.TryTakeAnswer(out OnlineAnswer answer))
             {
-                if (answer.SubmissionId != _onlineSubmissionId) continue;
+                if (answer.SubmissionId != _submissionId) continue;
 
-                OnlineResult = answer;
-                OnlineResultGeneration++;
+                Result = answer;
+                ResultGeneration++;
 
                 //Accepted: now the boards it was ranked on, top five of each and the player's own row (#547)
-                if (answer.Outcome == OnlineOutcome.Accepted && _onlineSubmittedLevel != null)
+                if (answer.Outcome == OnlineOutcome.Accepted && _submittedLevel != null)
                 {
-                    _resultMonthTicket = RequestLevelBoard(_onlineSubmittedLevel, allTime: false, offset: 0, limit: RESULT_BOARD_ROWS);
-                    _resultAllTimeTicket = RequestLevelBoard(_onlineSubmittedLevel, allTime: true, offset: 0, limit: RESULT_BOARD_ROWS);
+                    _resultMonthTicket = RequestLevelBoard(_submittedLevel, allTime: false, offset: 0, limit: RESULT_BOARD_ROWS);
+                    _resultAllTimeTicket = RequestLevelBoard(_submittedLevel, allTime: true, offset: 0, limit: RESULT_BOARD_ROWS);
                 }
             }
 
-            while (_online.TryTakeBoard(out BoardReply board))
+            while (_client.TryTakeBoard(out BoardReply board))
             {
-                if (_pendingBoardKeys.Remove(board.Ticket, out var key) && board.Page != null) _boardCache[key] = (board, WallClock);
+                if (_pendingBoardKeys.Remove(board.Ticket, out var key) && board.Page != null) _boardCache[key] = (board, _wallClock());
                 _boardReplies[board.Ticket] = board;
             }
 
@@ -350,19 +374,19 @@ namespace BS3D
             {
                 ResultMonthBoard = month.Page;
                 _resultMonthTicket = -1;
-                OnlineResultGeneration++;
+                ResultGeneration++;
             }
 
             if (TryTakeLevelBoard(_resultAllTimeTicket, out BoardReply allTime))
             {
                 ResultAllTimeBoard = allTime.Page;
                 _resultAllTimeTicket = -1;
-                OnlineResultGeneration++;
+                ResultGeneration++;
             }
 
             bool changed = false;
 
-            while (_online.TryTakeNotice(out OnlineNotice notice))
+            while (_client.TryTakeNotice(out OnlineNotice notice))
             {
                 changed = true;
 
@@ -370,41 +394,44 @@ namespace BS3D
                 {
                     case OnlineNoticeKind.Removed:
                         //Before the wipe, whose restart would otherwise read the removal as cut off
-                        OnlineRemoval = OnlineRemovalState.Removed;
-                        WipeOnlineHere();
+                        Removal = OnlineRemovalState.Removed;
+                        WipeHere();
                         break;
 
                     case OnlineNoticeKind.RemoveFailed:
-                        OnlineRemoval = OnlineRemovalState.Failed;
-                        OnlineRemovalProblem = notice.Text;
+                        Removal = OnlineRemovalState.Failed;
+                        RemovalProblem = notice.Text;
                         break;
 
                     //Only over the name that was sent (#572): a rename made since the send is the player's word
-                    case OnlineNoticeKind.NameNormalized when _onlineIdentity != null && _onlineIdentity.Name == notice.Was:
-                        _onlineIdentity.Name = notice.Text;
-                        SaveOnlineIdentity();
+                    case OnlineNoticeKind.NameNormalized when _identity != null && _identity.Name == notice.Was:
+                        _identity.Name = notice.Text;
+                        SaveIdentity();
                         break;
 
                     case OnlineNoticeKind.NameRefused:
-                        OnlineNameProblem = notice.Text;
+                        NameProblem = notice.Text;
                         break;
                 }
 
-                //WipeOnlineHere replaced the client, whose queues are empty; the loop reads the new one and stops
+                //WipeHere replaced the client, whose queues are empty; the loop reads the new one and stops
             }
 
             //A worker that ended on something unforeseen reads no queue any more (#572): replaced once, after its
             //last notices were taken above; the clears it held are in the outbox and the new one drains them
-            if (_online.Faulted && !_onlineRestartedAfterFault)
+            if (_client.Faulted && !_restartedAfterFault)
             {
-                _onlineRestartedAfterFault = true;
+                _restartedAfterFault = true;
                 Console.WriteLine("[online] The submitter faulted; starting it again (once a session)");
-                RestartOnline();
+                Restart();
                 changed = true;
             }
 
-            if (changed) _settingsPage?.Refresh();
+            if (changed) _changed();
         }
+
+        /// <summary>Stops the client; see <see cref="OnlineScores.Dispose"/>.</summary>
+        public void Dispose() => _client?.Dispose();
     }
 
     /// <summary>Where the player's "Remove scores" stands (#548).</summary>

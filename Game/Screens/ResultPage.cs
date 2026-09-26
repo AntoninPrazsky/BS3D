@@ -216,8 +216,8 @@ namespace BS3D.Screens
             ApplyBreakdownReveal();
 
             //The boards (#547): whether this ending offers them to a player who has not opted in is decided now and
-            //stands while the page is up — once a session, on a clear (see BS3DGame.TakeOnlineHint)
-            _offerOnlineHint = _result.Cleared && Game.TakeOnlineHint();
+            //stands while the page is up — once a session, on a clear (see OnlineSession.TakeHint)
+            _offerOnlineHint = _result.Cleared && Game.Online.TakeHint();
             _boardsClock = 0f;
             _boardsShownGeneration = -1;
             _boardsWereVisible = false;
@@ -1230,8 +1230,8 @@ namespace BS3D.Screens
             //"Every clear since the boards began" — widened the whole plate back across the column at 4:3
             VerticalStackPanel stack = new() { Spacing = Scaled(10), Width = _boardWidth, ClipToBounds = true };
 
-            _month = new BoardView(FontBody, FontSmall, Scaled, BS3DGame.RESULT_BOARD_ROWS, _boardWidth);
-            _allTime = new BoardView(FontBody, FontSmall, Scaled, BS3DGame.RESULT_BOARD_ROWS, _boardWidth);
+            _month = new BoardView(FontBody, FontSmall, Scaled, OnlineSession.RESULT_BOARD_ROWS, _boardWidth);
+            _allTime = new BoardView(FontBody, FontSmall, Scaled, OnlineSession.RESULT_BOARD_ROWS, _boardWidth);
             _allTime.Root.Margin = ScaledThickness(0, BOARD_SECTION_GAP, 0, 0);
             stack.Widgets.Add(_month.Root);
             stack.Widgets.Add(_allTime.Root);
@@ -1264,7 +1264,7 @@ namespace BS3D.Screens
         {
             if (_boardsPlate == null) return;
 
-            bool wanted = _result.Cleared && _revealSettled && (Game.OnlineEnabled || _offerOnlineHint);
+            bool wanted = _result.Cleared && _revealSettled && (Game.Online.Enabled || _offerOnlineHint);
 
             if (wanted != _boardsWereVisible)
             {
@@ -1280,17 +1280,17 @@ namespace BS3D.Screens
             float punch = PunchScale(MathF.Min(1f, _boardsClock / REVEAL_PUNCH_SECONDS));
             _month.You.Scale = _allTime.You.Scale = new Vector2(punch);
 
-            if (_boardsShownGeneration == Game.OnlineResultGeneration) return;
-            _boardsShownGeneration = Game.OnlineResultGeneration;
+            if (_boardsShownGeneration == Game.Online.ResultGeneration) return;
+            _boardsShownGeneration = Game.Online.ResultGeneration;
 
-            if (!Game.OnlineEnabled)
+            if (!Game.Online.Enabled)
             {
                 ShowSections(false);
                 _boardsStatus.Text = "Online leaderboards are off. Turn on Online scores in Settings to see where your clears rank.";
                 return;
             }
 
-            OnlineAnswer? answer = Game.OnlineResult;
+            OnlineAnswer? answer = Game.Online.Result;
 
             if (answer is not { Outcome: OnlineOutcome.Accepted } accepted)
             {
@@ -1306,12 +1306,12 @@ namespace BS3D.Screens
 
             ShowSections(true);
 
-            _month.Fill("THIS MONTH", BoardView.MonthName(Game.ResultMonthBoard?.Month), Game.ResultMonthBoard,
+            _month.Fill("THIS MONTH", BoardView.MonthName(Game.Online.ResultMonthBoard?.Month), Game.Online.ResultMonthBoard,
                 accepted.MonthRank, accepted.MonthTotal);
-            _allTime.Fill("ALL TIME", BoardView.AllTimePeriod, Game.ResultAllTimeBoard,
+            _allTime.Fill("ALL TIME", BoardView.AllTimePeriod, Game.Online.ResultAllTimeBoard,
                 accepted.AllTimeRank, accepted.AllTimeTotal);
 
-            bool loading = Game.ResultMonthBoard == null || Game.ResultAllTimeBoard == null;
+            bool loading = Game.Online.ResultMonthBoard == null || Game.Online.ResultAllTimeBoard == null;
             _boardsStatus.Text = loading ? "Loading the boards..." : accepted.PersonalBest ? "A personal best on this level." : string.Empty;
             _boardsStatus.Visible = _boardsStatus.Text.Length > 0;
         }

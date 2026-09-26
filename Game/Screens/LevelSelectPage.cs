@@ -277,7 +277,7 @@ namespace BS3D.Screens
             //The online boards of the level last looked at (#547), beside Back rather than under it — the page is pulled
             //into a band and has no height to spare — and only while the player can see the boards. A button rather than
             //a key of its own, so the pointer, the arrows and the pad all reach it the way they reach everything else.
-            if (Game.OnlineEnabled)
+            if (Game.Online.Enabled)
             {
                 HorizontalStackPanel footer = new() { Spacing = Scaled(FOOTER_GAP), HorizontalAlignment = HorizontalAlignment.Center };
                 _boardButton = MenuButton("Leaderboard", OpenBoard, out _boardLabel);
