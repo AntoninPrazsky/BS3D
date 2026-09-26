@@ -127,7 +127,7 @@ namespace BS3D.Screens
             //so the wave walks the cluster that is left rather than the one that was: it goes around the hole
             //a matched group has just left, which is most of what makes it read as travelling through the
             //balls rather than as a sphere expanding through space.
-            StartRipple(landing.Cell);
+            _ripple.StartAt(_physicsBalls, landing.Cell);
 
             //AND THE INFECTION TICKS HERE (#331) — after the release above and before the census below, which
             //is the one position in this sequence that is right and the whole reason the kind is hard. See
@@ -223,7 +223,7 @@ namespace BS3D.Screens
                             + $" {released}");
 
                         _blasts.SetOff(_testDetonations);
-                        StartRipple(bomb);
+                        _ripple.StartAt(_physicsBalls, bomb);
 
                         RecountBallTypes();
                         if (AnyBallTypeAlive()) Transmute();
@@ -487,8 +487,8 @@ namespace BS3D.Screens
             //The infection is the only thing in this game that can make the field WORSE while the player is
             //doing everything right, so it says so with the cluster's own voice rather than silently. The
             //ripple already means "something is travelling through the balls" and it is started from the cell
-            //that changed — see StartRipple.
-            if (_infectedCells.Count > 0) StartRipple(_infectedCells[0]);
+            //that changed — see ClusterRipple.StartAt.
+            if (_infectedCells.Count > 0) _ripple.StartAt(_physicsBalls, _infectedCells[0]);
 
             return true;
         }

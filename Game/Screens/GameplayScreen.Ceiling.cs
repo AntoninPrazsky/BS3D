@@ -104,7 +104,7 @@ namespace BS3D.Screens
             //for a feed, and why they differ is written there — and the wave it drives down through every ball
             //hanging on it says the same.
             Game.Balls.RippleAlarmColor = feeding ? RIPPLE_FEED_COLOR : RIPPLE_ALARM_COLOR;
-            StartCeilingRipple();
+            _ripple.StartFromTop(_physicsBalls);
 
             //And is heard (#500): from the plate, where it is, the feed's step softer than the pressure's
             Game.Audio.PlayCeilingStep(new Microsoft.Xna.Framework.Vector3(0f, _ceilingDescent.Y, 0f), feeding);

@@ -55,12 +55,12 @@ namespace BS3D.Screens
     /// <c>.Session.cs</c> is a session's lifetime, <c>.Physics.cs</c> the Bepu world and its fixed step,
     /// <c>.Ceiling.cs</c> the descending plate's state machine, <c>.Rules.cs</c> the level's rules and its end,
     /// <c>.Input.cs</c> the player's doing, <c>.Camera.cs</c> the lens and the gun's stance, <c>.Draw.cs</c>
-    /// the balls in the frame, <c>.Ripple.cs</c> the wave a landing sends through the cluster.
+    /// the balls in the frame. (<c>.Ripple.cs</c>, the wave a landing sends through the cluster, has left as a
+    /// real object: it is <see cref="ClusterRipple"/> in <c>Prazsky.BS3D.Physics</c> since #582.)
     /// <see cref="Update"/> stays here for the same reason <c>BS3DGame.LoadContent</c> does: it is an ordered
     /// script whose order <i>is</i> the behaviour — the step, then the landings it produced, then the
     /// cinematic gate, then the clear, then the loss, then the tear-down — and this is the one place that can
-    /// be read end to end. The extractions the split stages are named on the partials that hold them; the
-    /// ripple is the nearest.
+    /// be read end to end. The extractions the split stages are named on the partials that hold them.
     /// </para>
     /// </summary>
     internal sealed partial class GameplayScreen : Screen, IFrameBlurSource
@@ -989,7 +989,14 @@ namespace BS3D.Screens
         //The ripple hook is what this game adds to it and the Testbed does not — handed over ONCE here rather
         //than per frame, since a method group written at a per-frame call site builds a fresh delegate every
         //time it is evaluated.
-        private readonly ClusterCollector _clusterCollector = new(AdvanceRipple);
+        private readonly ClusterCollector _clusterCollector = new(ClusterRipple.Advance);
+
+        //The wave a landing (and a ceiling step, and an infection's spread) sends through the cluster — its
+        //walk and its figures are ClusterRipple's since #582; the screen only says where it starts and, for
+        //the ceiling's wave, what colour the renderer flares it in (Ceiling.cs). Held for the life of the
+        //screen because its scratch grid is reused from landing to landing; the cluster is handed in per call,
+        //since BuildCluster replaces _physicsBalls wholesale every level.
+        private readonly ClusterRipple _ripple = new();
 
         #endregion
 
