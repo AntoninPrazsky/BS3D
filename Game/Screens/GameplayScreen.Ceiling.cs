@@ -86,7 +86,8 @@ namespace BS3D.Screens
         /// <summary>
         /// Announces a step <see cref="CeilingDescent.Update"/> has just begun — everything a step does besides
         /// moving the glass, which <see cref="CeilingDescent"/> owns. The plate is about to be moved by writing its
-        /// pose, so this wakes it first; then the wave, the sound, the rumble, the tutorial card and the log line.
+        /// pose, so this wakes it first; then the wave, the sound, the rumble, the tutorial card and the log line,
+        /// and last a tall level's aim clamp re-solved for where the step takes the column.
         /// </summary>
         /// <param name="feeding">Whether the step is one the tall-level feed asked for rather than the pressure.</param>
         /// <param name="waited">
@@ -122,6 +123,10 @@ namespace BS3D.Screens
             Console.WriteLine($"[ceiling] Step to {_ceilingDescent.TargetY:F2} (death line {CEILING_DEATH_Y:F2})"
                 + $", {(feeding ? "feeding" : "pressure")}"
                 + $", shots fired {_run.Score.ShotsFired}, waited {waited:F2} s");
+
+            //And a tall level's aim clamp follows the column down (#582) — it was solved once at the load and
+            //loosened by every step after it
+            ResolveTallAimLimit();
         }
 
         /// <summary>

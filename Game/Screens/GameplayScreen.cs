@@ -726,7 +726,7 @@ namespace BS3D.Screens
         //The gun's own recoil — the tube thrown back along its bore, and since #115 the undercarriage's
         //smaller, later shove under it — is the shared Cannon's now (Cannon.RECOIL_BACK/RECOIL_DECAY/
         //CARRIAGE_RECOIL_BACK): two responses off one clock only stay one clock if the gun owns it. This
-        //executable keeps the clock's ticks — KickRecoil in Shoot, StepRecoil in Update — and the whole of
+        //executable keeps the clock's ticks — KickRecoil in Shoot, StepRecoil in StepGunHardware — and the whole of
         //it stays drawing only: a shot leaves along the true aim on the frame it is fired, before any of it.
 
         private const float CANNON_ORBIT_RATE = 1.0f;
@@ -1168,21 +1168,9 @@ namespace BS3D.Screens
                 if (turn != 0f) _cannon.Orbit(turn * CANNON_ORBIT_RATE);
             }
 
-            _cannon.Update(gameTime);
-
-            //The queue glides forward into the slot the fired ball left rather than snapping. Wall clock, not
-            //the simulation's step: balls sliding down a tube is the gun answering the shot. The same call runs
-            //a re-coloured ball's dissolve out of its old colour (#582 moved that countdown into the magazine).
-            _magazine.Step(elapsed);
-
-            //And every wildcard on screen turns over together (#330), on the same wall clock and for the same
-            //reason as the two above: a wildcard cycling in the bore is the gun saying what is loaded.
-            StepWildcards(elapsed);
-
-            //The gun slides home — the tube in its cradle and the carriage under it, both off the one stroke
-            //the shared Cannon owns since #115. Wall clock, like the magazine's glide above and for the same
-            //reason: the recoil is the gun answering the shot, not the simulation.
-            _cannon.StepRecoil(elapsed);
+            //The gun's own frame — its orbit and walk, the queue's glide, the wildcards and the recoil stroke —
+            //in one copy with the result page's frame below (#582)
+            StepGunHardware(gameTime, elapsed);
 
             //The cinematic reads the balls where the last step left them and answers with this frame's pose and
             //time scale, so the scale is applied to the very step its own framing was chosen against.
@@ -1294,6 +1282,36 @@ namespace BS3D.Screens
         }
 
         /// <summary>
+        /// The gun's own frame: the carriage's orbit and walk (<see cref="Cannon.Update"/>), the loaded queue
+        /// gliding into the slot the fired ball left, every wildcard turning over together (#330) and the recoil
+        /// stroke sliding home. <b>Wall clock</b>, all four, never the simulation's step: this is the gun
+        /// answering the shot, not the world.
+        /// <para>
+        /// One copy for both frames that run it — <see cref="Update"/> and <see cref="UpdateUnderResult"/> — which
+        /// each carried their own until #582, in two different orders. That never mattered and still does not:
+        /// the four touch disjoint state (the carriage's pose and aim, the magazine's slots, the wildcard clock
+        /// with the shots' colours, the recoil phase) and none reads another's, so the result page's frame kept
+        /// its behaviour when it took this order. A piece of the gun added to one frame and not the other is
+        /// what this method exists to make impossible.
+        /// </para>
+        /// </summary>
+        private void StepGunHardware(GameTime gameTime, float elapsed)
+        {
+            _cannon.Update(gameTime);
+
+            //The queue glides forward into the slot the fired ball left rather than snapping, and the same call
+            //runs a re-coloured ball's dissolve out of its old colour (#582 moved that countdown into the magazine)
+            _magazine.Step(elapsed);
+
+            //A wildcard cycling in the bore is the gun saying what is loaded, so it turns over on the same clock
+            StepWildcards(elapsed);
+
+            //The gun slides home — the tube in its cradle and the carriage under it, both off the one stroke the
+            //shared Cannon owns since #115
+            _cannon.StepRecoil(elapsed);
+        }
+
+        /// <summary>
         /// The frame this screen gets while the result page stands over it (#241). It used to get none: the
         /// page froze the session the way a pause does, and the arena the player had just won stopped dead
         /// behind the numbers — the cluster hanging perfectly still, the last of a collapse halted half way
@@ -1323,11 +1341,7 @@ namespace BS3D.Screens
             //still be mid-stroke and the queue mid-glide when the page arrives — and a gun frozen in front of
             //a cluster that is plainly still swinging is this very issue, one object further out. Wall clock,
             //as in the frame above: the recoil and the glide are the hardware answering the shot.
-            _cannon.Update(gameTime);
-            _cannon.StepRecoil(elapsed);
-            _magazine.Step(elapsed);
-
-            StepWildcards(elapsed);
+            StepGunHardware(gameTime, elapsed);
 
             //Unscaled, unlike the frame above: a drop cinematic is the only thing that scales the step, and
             //neither ending is declared while one is engaged — the countdown freezes for it and the loss waits
