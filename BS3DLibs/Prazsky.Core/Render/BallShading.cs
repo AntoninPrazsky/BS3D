@@ -303,8 +303,9 @@ namespace Prazsky.Core.Render
         /// <para>
         /// <b>⚠ THE FIGURE HAS TO SAY "THIS IS WHY YOUR SHOT WENT THERE", and that is the whole of #332's own
         /// warning: a curve the player cannot see coming is a bug with a physics explanation.</b> So the
-        /// figure is <i>inward motion</i> — rings contracting towards the centre at a steady rate, which is
-        /// the one gesture that reads as a pull rather than as a glow. It is deliberately the opposite of the
+        /// figure is <i>inward motion</i> — since #630 a whirlpool of streaks of the ball's own colour winding
+        /// in towards a dark eye at a steady rate (rings until then, which the owner's sheet read as a
+        /// bullseye), which is the one gesture that reads as a pull rather than as a glow or a target. It is deliberately the opposite of the
         /// bomb's outward beat and of the acid's downward drip: those two say "this will happen", this one
         /// says "this is happening now, to anything that comes near".
         /// </para>
@@ -313,8 +314,8 @@ namespace Prazsky.Core.Render
         /// the grazing term (<c>1 − dot(normal, eye)</c>), which is not the drawn radius: on a sphere that
         /// crowds them into the limb — three rings landed at 55 %, 87 % and 99 % of the radius — so from any
         /// playing distance the well was a violet ball with one thin bright crescent, which is what the owner
-        /// reported. They are spaced across the <i>disc</i> now, and there are two of them instead of three.
-        /// See <c>GravityPS</c> for the arithmetic and the figures.
+        /// reported. The spiral is drawn in the <i>disc</i> the ball presents to the eye for that reason, and
+        /// band-limited on its own screen-space derivative. See <c>GravityPS</c> for the arithmetic and the figures.
         /// </para>
         /// <para>
         /// <b>Its collision to solve is <see cref="Plasma"/> and <see cref="Gem"/></b>, which are the other

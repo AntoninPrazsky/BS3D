@@ -1,59 +1,78 @@
 //---------------------------------------------------------------------------------------------------
-// GRAVITY (#332)
+// GRAVITY (#332, redrawn in #630 from generated references)
 //
-// A well: the ball's own colour behind a lensed shell, with rings of light falling INWARD across it.
+// A well: the ball's own colour, swirled. A whirlpool of light and dark streaks spirals INWARD across the
+// face of the ball into a dark eye at its centre, and the whole figure turns towards the eye that looks at
+// it, so a well seen from any side shows what "falling in" looks like from outside.
 //
 // ⚠ THE FIGURE'S JOB IS TO SAY "THIS IS WHY YOUR SHOT WENT THERE", and #332 states the alternative in
 // one line: a curve the player cannot see coming is a bug with a physics explanation. So what is drawn
-// is not a glow but a MOTION, and its direction is the whole message -- rings contracting towards the
-// centre at a steady rate. The bomb's beat swells outward and the acid's liquid runs downward; both
-// say "this will happen when you touch it". This one says "this is happening now, to anything that
+// is not a glow but a MOTION, and its direction is the whole message -- streaks winding in towards the
+// centre at a steady rate. The bomb's beat swells outward and the acid's liquid stands at the bottom;
+// both say "this will happen when you touch it". This one says "this is happening now, to anything that
 // comes near", which is the only honest thing a field can say.
 //
-// The rings are in OBJECT space (contract point 6) and so is the shell's darkening, so a well rolling
-// is visibly rolling. What is NOT object space is the lens: refraction is a fact about the eye, and a
-// mirror that turned with the ball would read as paint.
+// WHAT THE REFERENCES SAID (#630, nine renders: a swirled sphere, a sphere with a disc round it, a sphere in
+// a cage of field lines): the disc and the field lines live OUTSIDE the ball and a drawn ball may not leave
+// its cell, so they were never drawable here; the swirl is the one that is, and it answers the question the
+// issue asked -- CONCENTRIC RINGS ARE A TARGET, AND A SPIRAL IS NOT. #332's rings photographed on the owner's
+// #620 sheet as a bullseye ("aim here"), the one reading a well must not have. A spiral converging on a
+// dark eye reads as a drain: the eye is led IN, and nothing about it invites a shot.
+//
+// Three things carry it:
+//  1. THE STREAKS. Light and dark bands of the ball's OWN colour, a logarithmic spiral in the disc the ball
+//     presents to the eye, winding tighter towards the centre and drifting inward on PulseTime. They are
+//     band-limited on their own screen-space derivative, so a distant well is a plain ball of its colour.
+//  2. THE EYE. A dark core at the centre of the disc, the one part of the figure that does not band-limit:
+//     at the overview stand-off a well is a ball with a hole in it, which is a well.
+//  3. THE RIM. The shell darkens towards its limb and bends the environment reflection outward at the
+//     grazing angle (the lens, a fake -- the scene is not re-sampled), so the ball reads as dense and as
+//     bending what is behind it.
+//
+// The streaks and the eye are VIEW-relative on purpose, for the reason #332 gave: refraction and a pull
+// towards the observer are facts about the eye, and a mirror that turned with the ball would read as paint.
+// Contract point 6 (a rolling cue in object space) is answered by a faint object-space mottle under the
+// streaks -- the reference's glass has a body, and the body turns.
 //---------------------------------------------------------------------------------------------------
 
 //The shell's own darkening towards the rim: a well is a heavy thing and it holds its own light in. It
 //multiplies the ball's colour rather than replacing it, which is what keeps the colour readable -- the
 //counterplay is shooting the well out, and that means matching its colour.
-static const float GravityRimDarkening = 0.62;
+static const float GravityRimDarkening = 0.55;
 static const float GravityRimPower = 2.2;
 
-//The rings: how many are visible at once across the DISC, and how tight each one is. Few and broad, so
-//they read as a pulse travelling rather than as stripes -- a set of hard rings is a target, not a field.
-//
-//⚠ THREE AT 0.30 WAS THE FIRST SET AND THE OWNER'S REPORT KILLED IT: "the blue bands are too narrow --
-//from any distance they are almost invisible". Two things were wrong and the count was the smaller one.
-//The parameter (see `across` in GravityPS) crowded every ring into the rim, so at three they landed at
-//55 %, 87 % and 99 % of the drawn radius and the outer two were thinner than the inner one; photographed
-//at 14, 26 and 40 units, what survived past about 20 was a single thin crescent on the limb and by 40
-//the ball was flat violet. Spaced across the disc instead, TWO rings at 0.42 fill it -- measured on the
-//well's own pixels, the figure's luminance contrast goes 19.8 -> 23.3 at 26 units and 18.9 -> 20.5 at 40,
-//and what the eye gets back is a target contracting inward rather than a lit edge.
-static const float GravityRingCount = 2.0;
-static const float GravityRingWidth = 0.42;
+//The spiral: how many arms, how tightly they wind (radians of phase per natural log of the radius --
+//higher is a tighter coil towards the centre), and how fast the pattern drifts INWARD, in radians of
+//phase per second. Three arms and a moderate wind so the streaks are broad bands rather than a thread.
+static const float GravityArms = 5.0;
+static const float GravityWind = 4.0;
+static const float GravitySpeed = 1.4;
 
-//How fast they fall inward, in rings per second. NEGATIVE is the whole point of this technique: the
-//pattern moves towards the centre. Slow enough to read as a pull and not as a strobe.
-static const float GravityRingSpeed = 0.85;
+//A floor under the log, so the phase is finite at the exact centre; it also sets where the coil stops
+//tightening, which is inside the eye anyway.
+static const float GravitySpiralFloor = 0.03;
 
-//What the rings are made of: a cold violet-white, well clear of every one of the thirteen ball colours
-//and clear of the zap's electric blue. What separates it from the zap at a glance is that this figure is
-//SMOOTH and continuous where an arc is thin and broken.
-static const float3 GravityRingColor = float3(0.72, 0.60, 1.0);
+//How much the light streaks lift the ball's colour, and how much the dark ones crush it. The lift is towards
+//a PALER version of the ball's own colour rather than towards white (GravityStreakPale is how far that pale
+//sits from the hue), so a swirled yellow stays a yellow: the first cut lifted to white and photographed as
+//cream. Asymmetric: the reference's swirl is a glass marble with a lighter thread in it, not a striped ball.
+static const float GravityStreakLight = 0.42;
+static const float GravityStreakPale = 0.65;
+static const float GravityStreakDark = 0.32;
 
-//How much light the rings carry, and the floor the figure converges to once they are under a pixel.
-//BombFarGlow's argument once more: a distant well has to still be nameable, and what survives is a ball
-//with a dark rim and a violet cast. The gain went 0.85 -> 1.0 with the re-spacing above, which is the
-//smallest half of that change and is here so the widened band does not read softer than the thin one did.
-static const float GravityRingGain = 1.0;
-static const float GravityFarGlow = 0.28;
+//How sharply a streak is edged: a power on the raised sine. 1 is a plain sine; higher pinches the light
+//thread thinner. Kept moderate so the figure survives to a few dozen pixels as bands and not as lines.
+static const float GravityStreakSharpness = 1.8;
 
-//Where the rings stop being worth drawing, measured against a RING's own width -- the ice crack's rule,
-//which the zap's arcs, the acid's lanes and the infection's blotches all follow.
-static const float GravityBandLimit = 0.95;
+//The eye: its radius as a fraction of the disc's, how far it crushes the colour, and how soft its edge is.
+static const float GravityEyeRadius = 0.15;
+static const float GravityEyeDark = 0.85;
+static const float GravityEyeEdge = 0.06;
+
+//Where the streaks stop being worth drawing, measured against their OWN screen-space derivative (fwidth
+//of the phase, in radians per pixel): a streak is one wavelength per 2 * pi of phase, so it is gone when a
+//pixel spans about a half of that.
+static const float GravityBandLimit = 3.14159265;
 
 //The lens: how much the shell bends what is behind it, and how sharply that grows towards the rim. It is
 //a fake -- the scene is not re-sampled -- so what it actually does is push the ENVIRONMENT reflection
@@ -66,10 +85,15 @@ static const float GravityHighlight = 0.70;
 static const float GravityEnvironment = 0.66;
 static const float GravitySmoothness = 0.88;
 
-//How deep the rings cut into the shell, in world units. NEGATIVE relief -- the rings are troughs, light
-//falling INTO the ball, where the acid's drips are beads lying on it. The sign is the second half of the
-//inward reading.
-static const float GravityRingRelief = 0.010;
+//How deep the dark streaks cut into the shell, in world units. NEGATIVE relief -- the streaks are troughs,
+//light falling INTO the ball, where the acid's meniscus is a bead lying on it. The sign is the second half
+//of the inward reading.
+static const float GravityStreakRelief = 0.006;
+
+//The object-space body under the streaks (contract point 6): cells across the unit direction and how much
+//it moves the colour. Faint on purpose -- it is there to turn with the ball, not to be a figure.
+static const float GravityBodyCells = 3.0;
+static const float GravityBodyStrength = 0.07;
 
 float4 GravityPS(PatternVertexShaderOutput input) : COLOR
 {
@@ -84,47 +108,52 @@ float4 GravityPS(PatternVertexShaderOutput input) : COLOR
     float3 normal = normalize(input.WorldNormal);
     float3 eyeVector = normalize(EyePosition - input.WorldPosition);
 
-    //How far around the ball from the point facing the eye. THE rings' parameter, and it is the one thing
-    //here that is deliberately view-relative: a well seen from any side has to show its rings converging
-    //on the point the player is looking at, because that is what "falling in" looks like from outside.
+    //THE DISC THE BALL PRESENTS TO THE EYE. `across` is the pixel's distance from the disc's centre as a
+    //fraction of its radius (sin of the angle off the eye, straight out of the dot product -- #332's
+    //re-spacing lesson, kept: a figure spaced in 1 - cos crowds into the limb), and `azimuth` is its angle
+    //round that centre, measured in a frame hung off the eye vector so the spiral stands still on the
+    //screen while the ball turns under it.
     float facing = saturate(dot(normal, eyeVector));
     float around = 1.0 - facing;
-
-    //⚠ THE RINGS ARE SPACED IN THE DISC'S OWN RADIUS AND NOT IN `around`, AND THAT IS A FIX RATHER THAN A
-    //PREFERENCE. `around` is 1 - cos(theta) and a sphere's screen radius is sin(theta), so rings evenly
-    //spaced in it are NOT evenly spaced on screen: at three rings they land at 55 %, 87 % and 99 % of the
-    //drawn radius, i.e. two of the three inside the outer eighth of the ball, each of them thinner than
-    //the last. The owner's report was that the bands are too narrow to see from a distance, and that
-    //crowding is the whole of why. `across` is sin(theta) straight out of the same dot product, so a ring
-    //is a band of the DISC and the count means what it says.
     float across = sqrt(saturate(1.0 - facing * facing));
 
-    //One ring's width in that parameter is 1/GravityRingCount, so the limit is measured against that.
-    //⚠ Measured after the re-spacing, on five CONSECUTIVE frames at 40, 60 and 80 units: the figure fades
-    //out on this limit without crawling first. The well's frame-to-frame change is about twice an ordinary
-    //ball's in the same frames (mean 12-16 codes against 7-9), which is the rings MOVING and not speckle -
-    //blown up eight times, a distant well is a smooth ball with no figure left on it at all.
-    float limit = saturate(GravityBandLimit - footprint * GravityRingCount);
+    float3 planar = normal - eyeVector * dot(normal, eyeVector);
+    float3 right = normalize(cross(float3(0.0, 1.0, 0.0), eyeVector) + float3(1e-4, 0.0, 1e-4));
+    float3 up = cross(eyeVector, right);
+    float azimuth = atan2(dot(planar, up), dot(planar, right));
 
-    //INWARD: the phase SUBTRACTS time, so a ring's position decreases and the pattern travels towards
-    //the centre. Reversing this one sign is the difference between a well and a beacon.
-    float phase = across * GravityRingCount - PulseTime * GravityRingSpeed;
-    float ring = pow(saturate(1.0 - abs(frac(phase) - 0.5) / max(GravityRingWidth, 1e-4)), 2.0);
+    //THE SPIRAL. A logarithmic spiral's phase is arms * azimuth + wind * ln(r): adding time to it moves
+    //every streak to a smaller r, i.e. INWARD. Reversing that one sign is the difference between a well and
+    //a fountain. Band-limited on the phase's own screen-space derivative, which is exact for any spiral: the
+    //coil tightens towards the centre and the limit tightens with it.
+    float phase = GravityArms * azimuth + GravityWind * log(across + GravitySpiralFloor) + PulseTime * GravitySpeed;
+    float limit = saturate(1.0 - fwidth(phase) / GravityBandLimit);
 
-    //Converging to a floor rather than to nothing, so a distant well is still a well.
-    float rings = lerp(GravityFarGlow, ring, limit);
+    float wave = 0.5 + 0.5 * sin(phase);
+    float light = pow(wave, GravityStreakSharpness) * limit;
+    float dark = pow(1.0 - wave, GravityStreakSharpness) * limit;
+
+    //THE EYE: the one part of the figure that does not band-limit.
+    float eye = 1.0 - smoothstep(GravityEyeRadius - GravityEyeEdge, GravityEyeRadius + GravityEyeEdge, across);
+
+    //The body that turns with the ball (contract point 6).
+    float body = GradientNoise3(direction * GravityBodyCells) * saturate(1.0 - footprint * GravityBodyCells * 2.0);
 
     float3 primary = SrgbToLinear(PatternPrimaryColor);
-    float3 ringColor = SrgbToLinear(GravityRingColor);
 
-    //The shell darkens towards the rim, multiplying the ball's own colour rather than replacing it: the
-    //player has to be able to read WHICH colour this is, because that is the shot that removes it.
+    //THE COLOUR: the ball's own, swirled -- lifted towards white along the light streaks, crushed along the
+    //dark ones and into the eye, darkened towards the rim. Every term multiplies or lerps the primary, so
+    //WHICH colour this is never stops being readable: that is the shot that removes it.
     float rim = pow(around, GravityRimPower);
-    float3 color = primary * (1.0 - GravityRimDarkening * rim);
+    float3 color = primary * (1.0 + GravityBodyStrength * body);
+    color = lerp(color, lerp(primary, 1.0, GravityStreakPale), GravityStreakLight * light);
+    color *= 1.0 - GravityStreakDark * dark;
+    color *= 1.0 - GravityEyeDark * eye;
+    color *= 1.0 - GravityRimDarkening * rim;
 
-    //Contract point 6's other half: the rings are troughs cut INTO the shell. Negative, where the acid's
-    //drips are positive, and the sign is the second half of what makes this read as a pull.
-    float height = -ring * GravityRingRelief;
+    //Contract point 6's other half: the dark streaks are troughs cut INTO the shell. Negative, where the
+    //acid's meniscus is positive, and the sign is the second half of what makes this read as a pull.
+    float height = -dark * GravityStreakRelief;
     float3 worldNormal = PerturbNormalFromHeight(normal, input.WorldPosition, height);
 
     //The lens, and it is a fake: the scene is not re-sampled. What it does is bend the normal the
@@ -143,11 +172,10 @@ float4 GravityPS(PatternVertexShaderOutput input) : COLOR
     //Contract point 4.
     float occlusion = SurfaceOcclusion(input.WorldPosition, worldNormal, input.OcclusionData);
 
-    //Contract point 2. The rings carry their own light on a floor, the bomb's measured lesson inherited
-    //rather than rediscovered a fifth time, and the heartbeat rides the ball's own colour on top -- so a
-    //well still breathes with the cluster and is still visibly ITS colour.
-    shaded.rgb += ringColor * rings * GravityRingGain * occlusion;
-    shaded.rgb += BallEmission(primary, input.WorldPosition, occlusion);
+    //Contract point 2. The heartbeat rides the swirled colour, so a well still breathes with the cluster and
+    //is still visibly ITS colour; the eye stays dark through the beat because it is in the colour, not added
+    //after it.
+    shaded.rgb += BallEmission(color, input.WorldPosition, occlusion);
 
     //Contract point 3, in BOTH meanings, and PatternPS's arithmetic deliberately.
     [branch]
