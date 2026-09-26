@@ -3,7 +3,6 @@ using Microsoft.Xna.Framework.Graphics;
 using Prazsky.Core.Camera;
 using Prazsky.Core.Tools;
 using System;
-using System.Collections.Generic;
 
 namespace Prazsky.Core.Render
 {
@@ -30,8 +29,6 @@ namespace Prazsky.Core.Render
             public Vector3 EmissiveColor;
             public Vector3 SpecularColor;
             public float SpecularPower;
-            public Texture2D Texture;
-            public string MeshName;
         }
 
         private readonly GraphicsDevice _graphicsDevice;
@@ -58,8 +55,6 @@ namespace Prazsky.Core.Render
         private EffectParameter _detailScaleParam;
         private EffectParameter _detailStrengthParam;
         private EffectParameter _detailBoostParam;
-        private EffectParameter _normalMapParam;
-        private EffectParameter _normalStrengthParam;
         private EffectParameter _surfaceReliefStrengthParam;
         private EffectParameter _slabSizeParam;
         private EffectParameter _slabJointWidthParam;
@@ -70,8 +65,6 @@ namespace Prazsky.Core.Render
             _strataSpacingParam, _strataStrengthParam;
         private EffectParameter _topDustClearParam;
         private EffectParameter _cavityStrengthParam;
-        private EffectParameter _reliefShadowStrengthParam;
-        private EffectParameter _parallaxScaleParam;
         private EffectParameter _specularAmbientStrengthParam;
         private EffectParameter _metalnessParam;
         private EffectParameter _twoSidedNormalsParam;
@@ -102,14 +95,10 @@ namespace Prazsky.Core.Render
         private EffectParameter _patternGoreThresholdParam;
         private EffectParameter _patternCapExtentParam;
         private EffectParameter _patternReliefStrengthParam;
-        private EffectParameter _patternSheenStrengthParam;
         private EffectTechnique _mainTechnique;
-        private EffectTechnique _texturedTechnique;
         private EffectTechnique _triplanarTechnique;
         private EffectTechnique _triplanarCoarseTechnique;
         private EffectTechnique[] _triplanarProbeTechniques;
-        private EffectTechnique _detailUVTechnique;
-        private EffectTechnique _detailUVNormalTechnique;
         private EffectTechnique[] _ballTechniques;
         private EffectParameter _bubbleShellParam;
         private EffectParameter _bubbleFilmThicknessParam;
@@ -206,22 +195,17 @@ namespace Prazsky.Core.Render
             _glassCornerParam, _glassCrownInsetParam, _glassCrownDropParam, _glassRimParam;
 
         /// <summary>
-        /// Optional detail texture modulating the material colors of a model that carries no texture
-        /// of its own. Applied to the opaque mesh parts only; translucent parts (e.g. glass) stay clean.
-        /// See <see cref="DetailTextureMapping"/> for how it is placed on the surface.
+        /// Optional detail texture modulating the material colors of the mesh. Applied to opaque meshes
+        /// only; translucent ones (e.g. glass) stay clean. It is projected along the three world axes and
+        /// blended by the surface normal (the triplanar techniques), so it needs no UVs — the procedural
+        /// meshes carry none — but it is fixed in world space and only suits objects that never move.
+        /// (A UV-mapped path, <c>DetailMapping.ModelUVs</c> with its normal map, existed for the loaded
+        /// cannon model and was deleted in #581 with everything else only a loaded model could reach.)
         /// </summary>
         public Texture2D DetailTexture { get; set; }
 
         /// <summary>
-        /// How <see cref="DetailTexture"/> is mapped onto the surface. Objects that move or rotate must
-        /// use <see cref="Render.DetailMapping.ModelUVs"/>, otherwise the world-space projection makes
-        /// the texture swim across them.
-        /// </summary>
-        public DetailMapping DetailTextureMapping { get; set; } = DetailMapping.Triplanar;
-
-        /// <summary>
-        /// Size of the detail texture: world units per tile = 1 / <see cref="DetailScale"/> for
-        /// <see cref="Render.DetailMapping.Triplanar"/>, tiles per UV span for <see cref="Render.DetailMapping.ModelUVs"/>.
+        /// Size of the detail texture: world units per tile = 1 / <see cref="DetailScale"/>.
         /// </summary>
         public float DetailScale { get; set; } = 0.25f;
 
@@ -232,20 +216,10 @@ namespace Prazsky.Core.Render
         public float DetailBoost { get; set; } = 1f;
 
         /// <summary>
-        /// Optional tangent-space normal map accompanying <see cref="DetailTexture"/>, giving the surface
-        /// relief instead of just color variation. Only applies to <see cref="Render.DetailMapping.ModelUVs"/>;
-        /// the tangent frame is derived in the shader, so the model needs no tangent vertex data.
-        /// </summary>
-        public Texture2D DetailNormalMap { get; set; }
-
-        /// <summary>How far <see cref="DetailNormalMap"/> tilts the surface normal (0 = flat).</summary>
-        public float DetailNormalStrength { get; set; } = 1f;
-
-        /// <summary>
         /// Peak height of the procedural micro-relief of this model's surface, in world units
         /// (0 = the flat shading of a geometrically perfect surface). It only tilts the normal, so the
         /// silhouette stays exactly as modeled; what changes is that the surface catches light
-        /// unevenly the way a real material does. Unlike <see cref="DetailNormalMap"/> it needs no
+        /// unevenly the way a real material does. Unlike a normal map it needs no
         /// texture, does not tile, and keeps its detail right down to the pixel that can still show it.
         /// </summary>
         public float SurfaceReliefStrength { get; set; }
@@ -287,9 +261,8 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// Edge length of one floor slab in world units (0 = no slabs). The joints between slabs are cut
         /// into the same height field as the micro-relief, so they are real recesses: they darken in
-        /// their own shade, take the key light's shadow and shift under the view. This is the structure
-        /// <see cref="ParallaxScale"/> and <see cref="ReliefShadowStrength"/> need to have any visible
-        /// effect at all — micro-relief alone is far too shallow for either to read.
+        /// their own shade and catch the light along their bevels — structure at a scale the eye can see,
+        /// where micro-relief alone is far too shallow to read.
         /// </summary>
         public float SlabSize { get; set; }
 
@@ -384,20 +357,6 @@ namespace Prazsky.Core.Render
         /// peaks, which is most of why relief-by-normal reads as a painted-on texture rather than shape.
         /// </summary>
         public float CavityStrength { get; set; }
-
-        /// <summary>
-        /// How strongly the relief casts the key light's shadow across itself (0 = off). Costs a short
-        /// ray march per pixel; only surfaces with relief deep enough to shadow anything should ask for it.
-        /// </summary>
-        public float ReliefShadowStrength { get; set; }
-
-        /// <summary>
-        /// Depth range the parallax march covers, as a fraction of the relief's own amplitude (0 = off).
-        /// Moving the shading point along the view ray is what gives a surface real depth: the near wall
-        /// of a groove starts hiding its far wall as the camera moves, which is the one cue normal
-        /// mapping cannot fake. The most expensive of the three — a ray march of up to 28 steps.
-        /// </summary>
-        public float ParallaxScale { get; set; }
 
         /// <summary>
         /// How strongly the surface reflects the sky as an environment, on top of the direct lights'
@@ -537,11 +496,6 @@ namespace Prazsky.Core.Render
         /// way the highlight breaks up — the silhouette stays a clean circle.
         /// </summary>
         public float PatternReliefStrength { get; set; } = 0.007f;
-
-        /// <summary>
-        /// How strongly the patterned surface catches the sky color at grazing angles (0 = matte).
-        /// </summary>
-        public float PatternSheenStrength { get; set; } = 0.12f;
 
         /// <summary>
         /// <b>What the patterned parts are made of</b> — which of the shader's ball techniques shades them
@@ -939,76 +893,6 @@ namespace Prazsky.Core.Render
         public BoundingSphere BoundingSphere { get; private set; }
 
         /// <summary>
-        /// Creates a renderer for drawing many instances of the given model.
-        /// </summary>
-        /// <param name="graphicsDevice">Graphics device to draw with (requires <see cref="GraphicsProfile.HiDef"/>).</param>
-        /// <param name="model">Three-dimensional model whose instances will be rendered.
-        /// Material colors are taken from the <see cref="BasicEffect"/>s the model was loaded with.</param>
-        /// <param name="effect">The instancing effect (Shaders/InstancedModel.fx compiled by the content pipeline).</param>
-        public InstancedModelRenderer(GraphicsDevice graphicsDevice, Model model, Effect effect)
-        {
-            _graphicsDevice = graphicsDevice;
-            _effect = effect;
-
-            Matrix[] boneTransforms = new Matrix[model.Bones.Count];
-            model.CopyAbsoluteBoneTransformsTo(boneTransforms);
-
-            List<MeshPartData> parts = new();
-            BoundingSphere bounds = default;
-            bool firstMesh = true;
-
-            foreach (ModelMesh mesh in model.Meshes)
-            {
-                Matrix boneTransform = boneTransforms[mesh.ParentBone.Index];
-
-                BoundingSphere meshBounds = mesh.BoundingSphere.Transform(boneTransform);
-                bounds = firstMesh ? meshBounds : BoundingSphere.CreateMerged(bounds, meshBounds);
-                firstMesh = false;
-
-                foreach (ModelMeshPart part in mesh.MeshParts)
-                {
-                    Vector3 diffuse = Vector3.One;
-                    Vector3 emissive = Vector3.Zero;
-                    Vector3 specular = DEFAULT_SPECULAR_COLOR;
-                    float specularPower = DEFAULT_SPECULAR_POWER;
-                    float alpha = 1f;
-                    Texture2D texture = null;
-
-                    if (part.Effect is BasicEffect material)
-                    {
-                        diffuse = material.DiffuseColor;
-                        emissive = material.EmissiveColor;
-                        specular = material.SpecularColor;
-                        specularPower = material.SpecularPower;
-                        alpha = material.Alpha;
-                        if (material.TextureEnabled) texture = material.Texture;
-                    }
-
-                    parts.Add(new MeshPartData
-                    {
-                        VertexBuffer = part.VertexBuffer,
-                        IndexBuffer = part.IndexBuffer,
-                        VertexOffset = part.VertexOffset,
-                        StartIndex = part.StartIndex,
-                        PrimitiveCount = part.PrimitiveCount,
-                        BoneTransform = boneTransform,
-                        DiffuseColor = new Vector4(diffuse, alpha),
-                        EmissiveColor = emissive,
-                        SpecularColor = specular,
-                        SpecularPower = specularPower,
-                        Texture = texture,
-                        MeshName = mesh.Name
-                    });
-                }
-            }
-
-            _parts = parts.ToArray();
-            BoundingSphere = bounds;
-
-            InitializeEffect();
-        }
-
-        /// <summary>
         /// Points a renderer built from one procedural mesh at another (#533): the island keeps one cap and
         /// one drum renderer — with their material, relief and joint settings, and their place in every
         /// host's sky-lit list — and swaps the lathe under them when the scene's shape changes. Only the
@@ -1090,8 +974,6 @@ namespace Prazsky.Core.Render
             _detailScaleParam = _effect.Parameters["DetailScale"];
             _detailStrengthParam = _effect.Parameters["DetailStrength"];
             _detailBoostParam = _effect.Parameters["DetailBoost"];
-            _normalMapParam = _effect.Parameters["NormalMapTexture"];
-            _normalStrengthParam = _effect.Parameters["NormalStrength"];
             _surfaceReliefStrengthParam = _effect.Parameters["SurfaceReliefStrength"];
             _slabSizeParam = _effect.Parameters["SlabSize"];
             _slabJointWidthParam = _effect.Parameters["SlabJointWidth"];
@@ -1112,8 +994,6 @@ namespace Prazsky.Core.Render
             _strataStrengthParam = _effect.Parameters["StrataStrength"];
             _topDustClearParam = _effect.Parameters["TopDustClear"];
             _cavityStrengthParam = _effect.Parameters["CavityStrength"];
-            _reliefShadowStrengthParam = _effect.Parameters["ReliefShadowStrength"];
-            _parallaxScaleParam = _effect.Parameters["ParallaxScale"];
             _specularAmbientStrengthParam = _effect.Parameters["SpecularAmbientStrength"];
             _metalnessParam = _effect.Parameters["Metalness"];
             _twoSidedNormalsParam = _effect.Parameters["TwoSidedNormals"];
@@ -1127,7 +1007,6 @@ namespace Prazsky.Core.Render
             _patternGoreThresholdParam = _effect.Parameters["PatternGoreThreshold"];
             _patternCapExtentParam = _effect.Parameters["PatternCapExtent"];
             _patternReliefStrengthParam = _effect.Parameters["PatternReliefStrength"];
-            _patternSheenStrengthParam = _effect.Parameters["PatternSheenStrength"];
             _emissiveStrengthParam = _effect.Parameters["EmissiveStrength"];
             _translucencyStrengthParam = _effect.Parameters["TranslucencyStrength"];
             _pulseTimeParam = _effect.Parameters["PulseTime"];
@@ -1140,12 +1019,12 @@ namespace Prazsky.Core.Render
             _rippleStrengthParam = _effect.Parameters["RippleStrength"];
             _rippleAlarmColorParam = _effect.Parameters["RippleAlarmColor"];
             _mainTechnique = _effect.Techniques["InstancedModel"];
-            _texturedTechnique = _effect.Techniques["InstancedModelTextured"];
             _triplanarTechnique = _effect.Techniques["InstancedModelTriplanar"];
             _triplanarCoarseTechnique = _effect.Techniques["InstancedModelTriplanarCoarse"];
 
-            //#151 PROBE - TEMPORARY, delete with TriplanarProbe. Looked up once here like every other
-            //technique, so selecting one costs an array index and never a name scan.
+            //#151's measurement probes, kept on purpose: they are the Testbed's capprobe= contract (see
+            //TriplanarProbe). Looked up once here like every other technique, so selecting one costs an
+            //array index and never a name scan.
             _triplanarProbeTechniques = new[]
             {
                 _effect.Techniques["InstancedModelTriplanarProbe1"],
@@ -1155,8 +1034,6 @@ namespace Prazsky.Core.Render
                 _effect.Techniques["InstancedModelTriplanarProbe5"],
                 _effect.Techniques["InstancedModelTriplanarProbe6"],
             };
-            _detailUVTechnique = _effect.Techniques["InstancedModelDetailUV"];
-            _detailUVNormalTechnique = _effect.Techniques["InstancedModelDetailUVNormal"];
             LoadBallTechniques();
             _bubbleShellParam = _effect.Parameters["BubbleShell"];
             _bubbleFilmThicknessParam = _effect.Parameters["BubbleFilmThickness"];
@@ -1525,8 +1402,6 @@ namespace Prazsky.Core.Render
             _strataStrengthParam.SetValue(StrataStrength);
             _topDustClearParam.SetValue(TopDustClear);
             _cavityStrengthParam.SetValue(CavityStrength);
-            _reliefShadowStrengthParam.SetValue(ReliefShadowStrength);
-            _parallaxScaleParam.SetValue(ParallaxScale);
             _specularAmbientStrengthParam.SetValue(SpecularAmbientStrength);
             _metalnessParam.SetValue(Metalness);
 
@@ -1558,7 +1433,7 @@ namespace Prazsky.Core.Render
 
                 //With the beach-ball pattern the tint colors the pattern instead of the material:
                 //the material diffuse stays the neutral shade multiplying both pattern colors
-                bool usePattern = PatternGoreCount > 0 && part.Texture == null && part.DiffuseColor.W >= 1f;
+                bool usePattern = PatternGoreCount > 0 && part.DiffuseColor.W >= 1f;
 
                 if (diffuseTint.HasValue && !usePattern)
                 {
@@ -1597,13 +1472,11 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Picks the technique for one mesh part and sets the parameters that technique reads. The branches
-        /// are mutually exclusive: a city facade, a UV-textured part, the beach-ball pattern, a detail-textured
-        /// part (triplanar or through the model's own UVs), or the plain lit material.
+        /// are mutually exclusive: a city facade, a ball shading, a triplanar detail-textured part, the
+        /// refracting glass, or the plain lit material.
         /// </summary>
         private void SelectTechniqueAndParameters(in MeshPartData part, bool usePattern, Vector3? diffuseTint)
         {
-            //Mesh parts with their own texture sample it through UVs; parts of a UV-less model
-            //can get a triplanar world-space detail texture instead (opaque parts only)
             if (CityWindowBrightness > 0f)
             {
                 //A city building: no texture, no UVs, its facade drawn from world position
@@ -1645,11 +1518,6 @@ namespace Prazsky.Core.Render
                 _windowHighlightBoostParam.SetValue(city.WindowHighlightBoost);
                 _windowReflectionBoostParam.SetValue(city.WindowReflectionBoost);
                 _windowGlassColorParam.SetValue(city.WindowGlassColor.ToVector3());
-            }
-            else if (part.Texture != null)
-            {
-                _effect.CurrentTechnique = _texturedTechnique;
-                _textureParam.SetValue(part.Texture);
             }
             else if (usePattern)
             {
@@ -1751,7 +1619,6 @@ namespace Prazsky.Core.Render
                         _patternGoreThresholdParam.SetValue(-MathF.Cos(MathF.PI * PatternGoreWidth));
                         _patternCapExtentParam.SetValue(PatternCapExtent);
                         _patternReliefStrengthParam.SetValue(PatternReliefStrength);
-                        _patternSheenStrengthParam.SetValue(PatternSheenStrength);
                         _translucencyStrengthParam.SetValue(TranslucencyStrength);
                         break;
                 }
@@ -1773,12 +1640,7 @@ namespace Prazsky.Core.Render
             }
             else if (DetailTexture != null && part.DiffuseColor.W >= 1f)
             {
-                bool useModelUVs = DetailTextureMapping == DetailMapping.ModelUVs;
-                bool useNormalMap = useModelUVs && DetailNormalMap != null;
-
-                _effect.CurrentTechnique = useNormalMap ? _detailUVNormalTechnique
-                    : useModelUVs ? _detailUVTechnique
-                    : TriplanarProbe > 0 ? _triplanarProbeTechniques[TriplanarProbe - 1]
+                _effect.CurrentTechnique = TriplanarProbe > 0 ? _triplanarProbeTechniques[TriplanarProbe - 1]
                     : CoarseSurfaceRelief ? _triplanarCoarseTechnique
                     : _triplanarTechnique;
 
@@ -1786,12 +1648,6 @@ namespace Prazsky.Core.Render
                 _detailScaleParam.SetValue(DetailScale);
                 _detailStrengthParam.SetValue(DetailStrength);
                 _detailBoostParam.SetValue(DetailBoost);
-
-                if (useNormalMap)
-                {
-                    _normalMapParam.SetValue(DetailNormalMap);
-                    _normalStrengthParam.SetValue(DetailNormalStrength);
-                }
             }
             else if (GlassBehind != null)
             {

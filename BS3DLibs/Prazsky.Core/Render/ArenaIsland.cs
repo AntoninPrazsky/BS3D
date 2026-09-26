@@ -749,7 +749,6 @@ namespace Prazsky.Core.Render
             _capRenderer = new InstancedModelRenderer(device, _islandMesh.Cap, STONE_COLOR, instancingEffect)
             {
                 DetailTexture = _stoneTexture.Texture,
-                DetailTextureMapping = DetailMapping.Triplanar,
                 DetailScale = 1f / STONE_SPAN,
                 DetailBoost = 1f / _stoneTexture.LinearMean,
                 DetailStrength = 0.5f,
@@ -769,10 +768,6 @@ namespace Prazsky.Core.Render
                 SlabJointDepth = 0.025f,
                 CavityStrength = 0.7f,
 
-                //(No ReliefShadowStrength or ParallaxScale: the triplanar path builds its own height field
-                //and never runs the self-shadow or parallax marches, so both were dead where they used to
-                //be set here.)
-
                 //A floor is seen at a grazing angle almost everywhere except right under your feet, which is
                 //exactly where Fresnel puts the sky reflection at full strength. Left at 1 the stone mirrors
                 //the sky into a white sheet from the middle distance out.
@@ -790,7 +785,6 @@ namespace Prazsky.Core.Render
             _bodyRenderer = new InstancedModelRenderer(device, _islandMesh.Body, CONCRETE_COLOR, instancingEffect)
             {
                 DetailTexture = _concreteTexture.Texture,
-                DetailTextureMapping = DetailMapping.Triplanar,
                 DetailScale = 1f / CONCRETE_SPAN,
                 DetailBoost = 1f / _concreteTexture.LinearMean,
                 DetailStrength = 0.62f,
@@ -857,7 +851,6 @@ namespace Prazsky.Core.Render
             _driftRenderer = new InstancedModelRenderer(device, _driftMesh, SAND_DRIFT_COLOR, instancingEffect)
             {
                 DetailTexture = _stoneTexture.Texture,
-                DetailTextureMapping = DetailMapping.Triplanar,
                 DetailScale = 1f / (STONE_SPAN * 0.6f),
                 DetailBoost = 1f / _stoneTexture.LinearMean,
                 DetailStrength = 0.35f,

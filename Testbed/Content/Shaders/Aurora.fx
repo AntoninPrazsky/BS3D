@@ -89,40 +89,7 @@ float3 SunDirection;
 float3 ZenithColor;
 float3 HorizonColor;
 
-float Hash21(float2 p)
-{
-    p = frac(p * float2(123.34, 456.21));
-    p += dot(p, p + 45.32);
-
-    return frac(p.x * p.y);
-}
-
-//Identical to Forest.fx's TerrainHeight — see there for why each term exists. Kept in ONE change with it
-//AND with TerrainMirror.Forest, which both this shader's ground and the daytime forest's own
-//already share as their one CPU mirror.
-float TerrainHeight(float2 p)
-{
-    float dist = length(p);
-    float ramp = smoothstep(ClearingRadius, ClearingRadius + ClearingTransition, dist);
-
-    float2 q = p + 26.0 * float2(sin(p.y * 0.011 + 2.0), sin(p.x * 0.013 + 5.0));
-
-    float rolling = 0.40 * sin(dot(q, float2(0.020, 0.015)))
-        + 0.26 * sin(dot(q, float2(-0.013, 0.024)) + 1.5)
-        + 0.17 * sin(dot(q, float2(0.031, 0.026)) + 3.0)
-        + 0.10 * sin(dot(q, float2(0.056, -0.041)) + 0.7)
-        + 0.07 * sin(dot(q, float2(-0.083, 0.062)) + 2.4);
-
-    float basin = ClearingRelief * sin(dot(p, float2(0.05, 0.035)));
-
-    float mask = 0.55 + 0.45 * sin(dot(p, float2(0.021, -0.017)) + 4.0);
-    float lumps = sin(dot(p, float2(FloorLumpFrequency, FloorLumpFrequency * 0.7)))
-        + 0.5 * sin(dot(p, float2(-FloorLumpFrequency * 0.8, FloorLumpFrequency * 1.1)) + 2.0)
-        + 0.35 * sin(dot(p, float2(FloorLumpFrequency * 1.9, FloorLumpFrequency * 1.4)) + 5.1);
-    float lumpHeight = FloorLumpStrength * lumps * mask * (1.0 - ramp * 0.5);
-
-    return ForestLevelY + basin + lumpHeight + HillHeight * ramp * (rolling * 0.5 + 0.5);
-}
+#include "ForestGround.fxh"
 
 struct AuroraVertexInput
 {
@@ -146,27 +113,6 @@ AuroraVertexOutput AuroraTerrainVS(AuroraVertexInput input)
     output.Position = mul(mul(float4(worldPosition, 1.0), View), Projection);
 
     return output;
-}
-
-//Forest.fx's NeedleRelief since #281 (brought across in #579 - the aurora was written before that rewrite and
-//kept the four plane-wave sines the owner read on the forest floor as "lines and waves"). Isotropic
-//band-limited noise, each octave fading where the pixels stop resolving it; see Forest.fx for the reasoning.
-//Static (no ForestTime drift): #276's own "a forest floor does not drift" rule applies just as much at night.
-float NeedleRelief(float2 xz, float footprint)
-{
-    return Fbm2BandLimited(xz * NeedleReliefFrequency, 3, footprint * NeedleReliefFrequency) * NeedleReliefStrength;
-}
-
-//Identical to Forest.fx's TerrainNormal — per-pixel from the height field's own gradient (the savanna's
-//fix): interpolating the coarse grid's per-vertex normal leaves a Mach band at every cell edge.
-float3 TerrainNormal(float2 p)
-{
-    float e = 1.2;
-    float h = TerrainHeight(p);
-    float hx = TerrainHeight(p + float2(e, 0.0));
-    float hz = TerrainHeight(p + float2(0.0, e));
-
-    return normalize(float3(-(hx - h) / e, 1.0, -(hz - h) / e));
 }
 
 //Forest.fx's ForestFbm as it stood before #281 replaced it there with Fbm2BandLimited/Fbm2Combed: four

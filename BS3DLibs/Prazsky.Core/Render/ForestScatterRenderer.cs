@@ -658,7 +658,6 @@ namespace Prazsky.Core.Render
             new(_device, mesh, SCATTER_MATERIAL_DIFFUSE, _instancingEffect)
             {
                 DetailTexture = _barkTexture.Texture,
-                DetailTextureMapping = DetailMapping.Triplanar,
                 DetailScale = 1f / TRUNK_BARK_SPAN,
                 DetailBoost = 1f / _barkTexture.LinearMean,
                 DetailStrength = 0.55f,
@@ -675,7 +674,6 @@ namespace Prazsky.Core.Render
             new(_device, mesh, SCATTER_MATERIAL_DIFFUSE, _instancingEffect)
             {
                 DetailTexture = _foliageTexture.Texture,
-                DetailTextureMapping = DetailMapping.Triplanar,
                 DetailScale = 1f / CROWN_FOLIAGE_SPAN,
                 DetailBoost = 1f / _foliageTexture.LinearMean,
                 DetailStrength = 0.5f,
@@ -691,7 +689,6 @@ namespace Prazsky.Core.Render
             new(_device, mesh, SCATTER_MATERIAL_DIFFUSE, _instancingEffect)
             {
                 DetailTexture = _stoneTexture.Texture,
-                DetailTextureMapping = DetailMapping.Triplanar,
                 DetailScale = 1f / ROCK_STONE_SPAN,
                 DetailBoost = 1f / _stoneTexture.LinearMean,
                 DetailStrength = 0.6f,
@@ -707,7 +704,6 @@ namespace Prazsky.Core.Render
             new(_device, mesh, SCATTER_MATERIAL_DIFFUSE, _instancingEffect)
             {
                 DetailTexture = _barkTexture.Texture,
-                DetailTextureMapping = DetailMapping.Triplanar,
                 DetailScale = 1f / STUMP_BARK_SPAN,
                 DetailBoost = 1f / _barkTexture.LinearMean,
                 DetailStrength = 0.5f,

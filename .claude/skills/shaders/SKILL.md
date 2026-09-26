@@ -20,11 +20,24 @@ description: How to add and wire custom HLSL effects (.fx) in BS3D — content p
    `InstancedModel.fx`, plus `Tonemap.fx`/`Glare.fx` for its own linear+tonemap pipeline) is registered in
    both `.mgcb`s, the editor building it out of the Testbed content dir with the `/build:../../Testbed/…`
    form so there is one source. MSAA is off while supersampling is on (the scene renders into an HDR target).
+4. **Do not copy a helper out of another shader — include it.** `Noise.fxh` (noise, hashes incl. `Hash21`,
+   `PerturbNormalFromHeight`), `Clouds.fxh`, `Shadows.fxh`, `FarField.fxh`, `HeightProbe.fxh`, `Stars.fxh`,
+   and since #581 `Craters.fxh`, `Rocks.fxh`, `Grass.fxh` and `ForestGround.fxh` hold what two scenes share.
+   A shared header carries functions and static constants only; the uniforms it reads are declared by each
+   includer before the `#include`, so the includer's constant buffer does not move. Copies that were meant
+   to stay in step drifted apart within days (#579) — that is why these exist. An `.fxh` edit rebuilds
+   every `.fx` that includes it.
 
 ## Existing shader
 
 `Testbed/Content/Shaders/InstancedModel.fx` + `BS3DLibs/Prazsky.Core/Render/InstancedModelRenderer.cs`
-draw all balls (see the "Ball rendering" section in `docs/rendering.md`). Facts that took effort to get right:
+draw all balls (see the "Ball rendering" section in `docs/rendering.md`). Since #581 the `.fx` is a thin list
+of includes — `Shaders/InstancedModel/*.fxh`, one file per concern (`Common`, `Lighting`, `SceneRelief`,
+`BallCommon`, one `Ball<Style>` per shading, `Triplanar`, `City`, `Depth`, `Glass`); still ONE Effect. **The
+include order is the `$Globals` layout**: never reorder the includes or move a uniform between files in a change
+meant to be pure, and check such a change by comparing the compiled bytecode (see "The instanced effect's
+files" in `docs/rendering.md`). A new ball style is a new `Ball<Style>.fxh` after `BallHeavy.fxh`. Facts that
+took effort to get right:
 
 - **Instancing**: per-instance world matrix rides in a second vertex stream as four `Vector4`
   with `VertexElementUsage.TextureCoordinate`, usage indices 1–4 → HLSL `TEXCOORD1..4`.
@@ -52,8 +65,8 @@ draw all balls (see the "Ball rendering" section in `docs/rendering.md`). Facts 
 - **Inflatable-ball surface** (same technique): a height field — four summed sines along mixed
   directions for the molded micro-relief, plus a groove along every gore boundary and disc rim for
   the panel welds — tilts the normal via `PerturbNormalFromHeight` (Schueler's tangent-free bump,
-  the height-field sibling of `CotangentFrame`), so the highlight breaks up instead of reading as a
-  perfect sphere. A Fresnel term adds the grazing-angle sky sheen, scaled by `SurfaceOcclusion` so
+  the height-field sibling of his normal-mapping cotangent frame), so the highlight breaks up instead of reading as a
+  perfect sphere. The grazing-angle sky sheen is `ShadePixel`'s specular ambient, scaled by `SurfaceOcclusion` so
   balls buried in the pile stay dark. Two traps, both hit while building it: *multiplying* sines
   lays down a regular crosshatch (sum them instead), and any wave approaching pixel size aliases
   into a hard checkerboard, because the perturbation is driven by `ddx/ddy`.
@@ -67,61 +80,38 @@ draw all balls (see the "Ball rendering" section in `docs/rendering.md`). Facts 
   any resolution, FOV or ball size — and it is what makes supersampling pay off (below): more samples
   shrink the footprint, so the fine octaves survive further out instead of the same mush getting
   smoother. Keep the height branchless — `ddx/ddy` need every pixel of a quad on the same path.
-- The scene objects (ground, ceiling, cannon, castle) render through the same effect as
-  single-instance draws (`InstancedModelRenderer.Draw(camera, world, effectParams)`); per-part
-  material diffuse/emissive/specular and alpha are read from the model's `BasicEffect`s and
-  premultiplied by alpha like BasicEffect does. `ModelRenderer` + `BasicEffect` remains only for the
-  MapEditor's selector gizmo (its balls go through the instanced path like the game's). Textured mesh parts automatically use the
-  `InstancedModelTextured` technique (UVs in TEXCOORD0; same `ShadePixel` lighting, texture
-  modulates the non-specular color like BasicEffect) — a retained library feature with no shipped
-  model on it today (the last one, `GroundMarble.fbx`, was dead content and is deleted). Models with no texture of their own can instead set
-  `DetailTexture` (+`DetailScale`/`DetailStrength`/`DetailBoost`) on their renderer — it only
-  modulates the material colors — with `DetailTextureMapping` choosing how it lands:
-  - `DetailMapping.Triplanar` projects it along the world axes, needing no UVs, plus optional
-    procedural masonry joints (`MasonryStrength`). The castle uses this with
-    `Backdrops/CastleStone.png`, a seamless tile mirrored out of the stone half of `Ground_8.png`
-    (that source PNG is half black filler with a watermark — do not tile it directly).
-  - `DetailMapping.ModelUVs` samples the model's own UVs. **Anything that moves or rotates must
-    use this** — the triplanar projection is fixed in world space and would swim across the
-    surface. The cannon used it with `GameObjects/CannonMetal.png` before it became a procedural
-    `CannonMesh` (a plain-steel barrel with no UVs); nothing uses this path now. It also accepts a
-    `DetailNormalMap` (+`DetailNormalStrength`) for real relief: the tangent frame is derived
-    from `ddx/ddy` in the pixel shader (`CotangentFrame`), because the instance vertex streams
-    carry only position/normal/UV and the procedural meshes have no tangents to give.
-    Register normal maps with `TextureFormat=Color` (DXT blocks wreck normals) and
-    `PremultiplyAlpha=False`/`ColorKeyEnabled=False`.
-  Procedurally generated tiles must be seamless: build them from integer-frequency sine waves
-  (see the generator approach used for CannonMetal). Waves along a single axis show up as a
-  plaid once tiled — mix directions for a mottled, direction-free surface. Blender FBX gotchas: exported texture
-  paths may be relative to the .blend (patch to resolve from the FBX's own directory, or export
-  with Path Mode: Strip Path), and Blender cm units make models 100× too big — fix with
-  `/processorParam:Scale=0.01` in Content.mgcb. Sky domes are procedural since #113 — one shared dome
-  geometry and twenty stored palettes in `SkyDome`/`SkyDome.Data.cs` (Prazsky.Core), switched with
-  NumPad1; `SkyDome` is still the place to sample zenith/horizon colors for #39.
+- The scene objects (island, drain, ceiling, cannon, trees, trophies) render through the same effect as
+  single-instance draws (`InstancedModelRenderer.Draw(camera, world, effectParams)`). Every renderer is built
+  from a procedural `IProceduralMesh` with one material colour and alpha, premultiplied by alpha like
+  BasicEffect does. `ModelRenderer` + `BasicEffect` remains only for the MapEditor's selector gizmo (its balls
+  go through the instanced path like the game's). **There is no loaded-model or UV path any more** (#581): the
+  `Model` constructor had no caller, so the `InstancedModelTextured`, `InstancedModelDetailUV` and
+  `InstancedModelDetailUVNormal` techniques, the normal map, `DetailMapping.ModelUVs` and the parallax and
+  relief self-shadow marches (`ParallaxScale`, `ReliefShadowStrength`) were unreachable and are deleted. If a
+  loaded model with UVs ever comes back, it comes back with its own technique and a reason.
+- A renderer can set `DetailTexture` (+`DetailScale`/`DetailStrength`/`DetailBoost`): it only modulates the
+  material colour, and it is projected along the three world axes (`InstancedModelTriplanar`, plus its coarse
+  copy and the `capprobe=` probes), so it needs no UVs — but it is fixed in world space, so it only suits
+  objects that never move (the island, the forest's trunks and boulders). `SurfaceTexture` builds those tiles
+  procedurally; tiles must be seamless — integer-frequency sine waves, mixed directions (waves along a single
+  axis show up as a plaid once tiled). Sky domes are procedural since #113 — one shared dome geometry and
+  twenty stored palettes in `SkyDome`/`SkyDome.Data.cs` (Prazsky.Core), switched with NumPad1.
 
 ## Procedural surface relief on the scene objects
 
 `SurfaceReliefWorld` is the ball relief's world-space sibling, driven by `SurfaceReliefStrength` (peak
 height in world units) and `SurfaceReliefFrequency` (base waves per world unit) on the renderer, and fed
-through the same `PerturbNormalFromHeight`. It is wired into the textured, detail-UV and triplanar paths,
-so ground, cannon and castle all get it, and it composes with a `DetailNormalMap` rather than replacing
-it — the cannon keeps its mapped grain and gains casting unevenness the map's texels cannot hold.
+through the same `PerturbNormalFromHeight`. The triplanar paths read it through `SceneSurfaceHeightGroove`,
+together with the slab joints (`SlabSize`/`SlabJointWidth`/`SlabJointDepth`, `SlabGroove`), which are cut into
+the same height field so they are real recesses that light and shade from the side.
 
 - **Use seven octaves, not four.** Too few waves spaced too far apart interfere into a regular diagonal
   weave rather than a surface; the cannon barrel showed it plainly at frequency 28. Ratios are ~1.47
   apart and irrational. Slope ≈ `strength × frequency × 3.0`, which is the number to reason with when
   tuning: ~0.2 reads as believable stone, past ~0.4 it looks like crumpled foil.
-- **A model is not one material.** `SetMeshSurfaceStyle(meshName, SurfaceStyle)` — `Masonry`, `Wood` or
-  `Plain` — keyed on the model's own mesh names, which the renderer now carries in `MeshPartData`.
-  The castle is `Castle_Castle_wall1..3` / `_wood` / `_glass` / `_top`; before styles existed the
-  coursing was drawn over the lot and its timber door came out clad in stone. Undeclared meshes default
-  to `Masonry`, which is what a stone-all-over model did before. Dump the names with a throwaway loop
-  over `model.Meshes` when adding a model — guessing which part is which wastes more time than the loop.
-- **Joints and seams are recesses, not paint.** The masonry mortar and the gaps between boards are cut
-  into the height field (`MortarDepth`, `BoardGrooveDepth`) with a world-space bevel, so they light and
-  shadow from the side. Give them a real width — collapsed to a one-pixel crease they just alias.
-- The style select is branchless `step`/`lerp`. `SurfaceStyle` is a uniform so a branch would not
-  diverge, but the derivatives downstream want every pixel of a quad on the same path regardless.
+- **Joints are recesses, not paint**, with a world-space bevel widened against the pixel's footprint
+  (`SlabGrooveAxis` carries the #351 story). Give them a real width — collapsed to a one-pixel crease they
+  just alias.
 
 ## Supersampling
 

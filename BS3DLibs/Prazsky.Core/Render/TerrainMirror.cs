@@ -510,14 +510,14 @@ namespace Prazsky.Core.Render
 
         #endregion
 
-        #region The forest, and the aurora's night wood on the same field (Forest.fx, Aurora.fx: TerrainHeight)
+        #region The forest, and the aurora's night wood on the same field (ForestGround.fxh: TerrainHeight)
 
         /// <summary>
         /// The forest terrain height at a world point, mirroring <see cref="ForestSceneConfig"/>'s
         /// <c>Forest.fx</c> <c>TerrainHeight</c> field — and <c>Aurora.fx</c>'s, which is the same field on the
-        /// aurora's own <see cref="AuroraSceneConfig.Terrain"/>. Config-taking so the forest scatter can plant
+        /// aurora's own <see cref="AuroraSceneConfig.Terrain"/>; both include the one copy in <c>ForestGround.fxh</c> (#581). Config-taking so the forest scatter can plant
         /// trees on the ground the shader draws before the renderer itself exists, and so it stays in step with
-        /// whatever config the caller holds. Keep this and the shaders' <c>TerrainHeight</c> in the same change:
+        /// whatever config the caller holds. Keep this and that <c>TerrainHeight</c> in the same change:
         /// a drift here plants trees underground or floating, which the Testbed's <c>mirrorcheck</c> catches
         /// (#590) where only the eye did before.
         /// </summary>
@@ -532,7 +532,7 @@ namespace Prazsky.Core.Render
             float t = MathHelper.Clamp((dist - config.ClearingRadius) / config.ClearingTransition, 0f, 1f);
             float ramp = t * t * (3f - 2f * t);
 
-            //The domain warp, five octaves and the lump mask all mirror Forest.fx's TerrainHeight term for
+            //The domain warp, five octaves and the lump mask all mirror ForestGround.fxh's TerrainHeight term for
             //term — see there for why each exists. Kept in ONE change with the shader.
             float qx = x + 26f * MathF.Sin(z * 0.011f + 2f);
             float qz = z + 26f * MathF.Sin(x * 0.013f + 5f);

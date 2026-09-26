@@ -6,7 +6,7 @@
 //
 //Two techniques over two draws of one frame:
 //  - MarsTerrain: the crater field lifted VERBATIM from Moon.fx (CraterLayer/TurnCrater/CraterField/
-//    MareBase are generic height-field math with nothing Moon-specific in them - only the constants that
+//    MareBase - the last two shared with it through Craters.fxh since #581 - are generic height-field math with nothing Moon-specific in them - only the constants that
 //    tune it and the colour it is coloured by are this scene's own), retextured rust/ochre instead of
 //    grey, on the outback's plumbing instead of the Moon's: an ordinary sun-and-dome light rig, the shared
 //    cloud shadow (Clouds.fxh), and the outback's two-stage haze fade to the dome's own horizon colour -
@@ -199,15 +199,7 @@ float CraterLayer(float2 p, float seedOffset, float chance, out float ejecta)
     return bowl + rim * depth * 0.62;
 }
 
-static const float2 CRATER_TURN_0 = float2(0.97437, 0.22495);   //13 degrees
-static const float2 CRATER_TURN_1 = float2(0.75471, 0.65606);   //41 degrees
-static const float2 CRATER_TURN_2 = float2(0.27564, 0.96126);   //74 degrees
-static const float2 CRATER_TURN_3 = float2(0.55919, 0.82903);   //56 degrees
-
-float2 TurnCrater(float2 p, float2 turn)
-{
-    return float2(p.x * turn.x - p.y * turn.y, p.x * turn.y + p.y * turn.x);
-}
+#include "Craters.fxh"
 
 float CraterField(float2 p, out float ejecta)
 {
@@ -222,13 +214,6 @@ float CraterField(float2 p, out float ejecta)
     return height;
 }
 
-//Gentle undulation under the craters, so the plain is not a snooker table between them - genuinely two
-//octaves of gradient noise, not a sine pair (Noise.fxh's opening, learned by three scenes the hard way).
-float MareBase(float2 p)
-{
-    return GradientNoise2(p * 0.011) * 0.65 + GradientNoise2(p * 0.031 + 7.3) * 0.35;
-}
-
 //The stone field: two lattices of boulders and pebbles, derived from Outback.fx's RockLayer (which has since
 //grown its bornhardt shape and is no longer this copy's twin, #579) - a
 //single-cell jittered lattice (the craters' own trick, above) shaped into a whaleback rock with a talus
@@ -237,17 +222,7 @@ float MareBase(float2 p)
 //shape reads as a rounded stone rather than a ribbed bornhardt.
 #define TALUS_REACH 1.3
 
-float2 RotateInto(float2 p, float2 axis)
-{
-    return float2(dot(p, axis), dot(p, float2(-axis.y, axis.x)));
-}
-
-float2 RollDirection(float2 roll)
-{
-    float2 v = roll * 2.0 - 1.0;
-
-    return v * rsqrt(max(dot(v, v), 1e-4));
-}
+#include "Rocks.fxh"
 
 float RockLayer(float2 p, float cellSize, float seed, float chance, float height,
     float minRadius, float maxRadius, float maxElongation, float ribDepth, out float shape, out float rib)

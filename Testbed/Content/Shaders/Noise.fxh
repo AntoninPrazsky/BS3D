@@ -31,6 +31,19 @@ float3 NoiseHash33(float3 p)
     return frac((p.xxy + p.yxx) * p.zyx) * 2.0 - 1.0;
 }
 
+//A cheaper 2D -> 1D hash, frac-and-dot with no sine, and the one the city's windows, the meadow's flowers and
+//the forest's and the aurora's floors were each written against in a copy of their own until #581 (four
+//byte-identical copies; the two floors had stopped calling theirs). Its constants ARE the look: every lit
+//window and every flower sits where this puts it, so it is kept exactly as they wrote it rather than folded
+//into the Hoskins pair above.
+float Hash21(float2 p)
+{
+    p = frac(p * float2(123.34, 456.21));
+    p += dot(p, p + 45.32);
+
+    return frac(p.x * p.y);
+}
+
 //--- Gradient noise -----------------------------------------------------------------------------------
 //Perlin-style: a random unit-ish gradient per lattice corner, dotted with the offset and blended by a
 //QUINTIC fade (C2-continuous - the cubic's discontinuous second derivative shows as faint lattice creases
