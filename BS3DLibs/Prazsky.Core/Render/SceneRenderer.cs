@@ -155,18 +155,22 @@ namespace Prazsky.Core.Render
     }
 
     /// <summary>
-    /// The switchable outdoor backdrops shared by the game and the map editor, so a scene looks the same in
-    /// both: the sea, the savanna (with its acacias and circling birds), the desert (Sahara dunes, with the
-    /// same flock of birds), the snowy mountains (with falling snow) and the flowering meadow. Each is a
-    /// self-lit dedicated shader — it computes its own lighting from the sun and the sky palette handed over
-    /// in a <see cref="SceneFrame"/> — so this owns their effects, meshes and tuning and nothing else in the
-    /// frame has to know about them.
+    /// The switchable backdrops shared by the Game, the Testbed and the map editor, so a scene looks the same in
+    /// all three — and since #580 the <b>host</b> of them rather than their code. Each of the eighteen scenes it
+    /// draws is its own <see cref="Backdrop"/> in <c>Render/Scenes</c> (its config, effects, buffers, push, draw
+    /// and the questions only it can answer); this class holds the array of them indexed by
+    /// <see cref="SceneKind"/>, the services they share (<see cref="BackdropServices"/>: the device, the
+    /// full-screen quad, the grid cache, the far field, the snow, the flock, the billboard builders), the sun's
+    /// shadow map every receiver reads, the display-resolution target the dream and the cavern are shaded into,
+    /// and the public API the hosts call, whose scene-specific members forward to the backdrop that answers them.
     /// <para>
     /// The City/NeonCity is deliberately <b>not</b> here: the city buildings are drawn through the shared
     /// <c>InstancedModel</c> city technique by an <see cref="InstancedModelRenderer"/> the caller owns, so
     /// they take part in the caller's sky lighting like every other instanced object (see <see cref="City"/>).
+    /// Their slots in the array are null, and every question about them answers the old default — bar the
+    /// establishing viewpoint (<see cref="TryGetViewpoint"/>) and the shadow map (<see cref="SetHostShadowScene"/>).
     /// </para>
-    /// See the "The sea/savanna/desert/mountains/meadow" sections in CLAUDE.md for what each one is doing.
+    /// See "The backdrop classes and the scene registry" and each scene's own section in docs/scenes.md.
     /// </summary>
     public sealed class SceneRenderer : IDisposable
     {
@@ -182,7 +186,7 @@ namespace Prazsky.Core.Render
         /// across the funnel just below its rim, hiding its depth and swallowing the balls falling through, and
         /// the sea otherwise runs its wave mesh straight through the funnel's open throat (#132). The sea's cut
         /// is an annulus rather than the full disc: inside the funnel the water survives as a calm standing
-        /// pool where the glass cone crosses the mean level (see the pool derivation in <c>DrawSea</c>). The
+        /// pool where the glass cone crosses the mean level (see the pool derivation in <c>SeaBackdrop.Draw</c>). The
         /// Testbed sets this to the island's radius; the map editor draws no island, so it leaves it 0 (the
         /// default) and nothing is cut.
         /// </summary>
@@ -190,7 +194,7 @@ namespace Prazsky.Core.Render
 
         /// <summary>Mean sea level of the sea scene (world Y), so the caller can tell when its camera is under
         /// the water and fade in the underwater murk.</summary>
-        public float SeaLevelY => _seaConfig.LevelY;
+        public float SeaLevelY => _sea.LevelY;
 
         /// <summary>
         /// Pushes the sea's submerge-fade uniforms onto the shared instancing effect, so a missed ball dims into
@@ -204,20 +208,8 @@ namespace Prazsky.Core.Render
         /// number the caller hands the tonemap for its murk. The fade is released by exactly this (#159), so the
         /// two effects hand over rather than one of them leaning on the other being there: see the shader.
         /// </param>
-        public void ApplySeaSubmerge(Effect effect, SceneKind scene, float lensSubmerged)
-        {
-            var p = effect.Parameters;
-            if (scene != SceneKind.Sea)
-            {
-                p["SeaFadeDepth"]?.SetValue(0f);
-                return;
-            }
-
-            p["SeaLevelY"].SetValue(_seaConfig.LevelY);
-            p["SeaFadeDepth"].SetValue(SEA_SUBMERGE_FADE);
-            p["SeaSubmergeTint"].SetValue(_seaConfig.WaterDeep.ToVector3());
-            p["SeaLensSubmerged"].SetValue(lensSubmerged);
-        }
+        public void ApplySeaSubmerge(Effect effect, SceneKind scene, float lensSubmerged) =>
+            _sea.ApplySubmerge(effect, scene, lensSubmerged);
 
         /// <summary>
         /// How far the <b>lens</b> is under the sea, 0 above the surface to 1 well below it — <b>the</b> figure
@@ -237,15 +229,7 @@ namespace Prazsky.Core.Render
         /// </para>
         /// </summary>
         public float LensSubmergedAmount(SceneKind scene, Vector3 cameraPosition) =>
-            scene == SceneKind.Sea
-                ? MathHelper.Clamp((_seaConfig.LevelY + 0.5f - cameraPosition.Y) / UNDERWATER_FADE_DEPTH, 0f, 1f)
-                : 0f;
-
-        /// <summary>
-        /// How far under the surface the lens has to be for the water to read as fully closed over it — the
-        /// murk's own ramp, and since #159 the fade's release as well.
-        /// </summary>
-        private const float UNDERWATER_FADE_DEPTH = 7f;
+            _sea.LensSubmergedAmount(scene, cameraPosition);
 
         /// <summary>
         /// Pushes the fade band above the kill plane onto the shared instancing effect (#192), so a ball
@@ -274,22 +258,11 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// How many world units above the kill plane a falling ball fades out over — see
-        /// <see cref="ApplyKillPlaneFade"/>. Wider than the sea's own <see cref="SEA_SUBMERGE_FADE"/> (3): there
+        /// <see cref="ApplyKillPlaneFade"/>. Wider than the sea's own <see cref="SeaBackdrop.SEA_SUBMERGE_FADE"/> (3): there
         /// is no water here to slow a ball first, so by the time one nears the plane it can be falling several
         /// units a second, and too shallow a band would still read as a pop, only a slightly later one.
         /// </summary>
         private const float KILL_PLANE_FADE_DEPTH = 6f;
-
-        /// <summary>World units below the sea surface over which a missed ball fades from solid to gone — short,
-        /// so it reads as being swallowed by the water rather than lingering under it.
-        /// <para>
-        /// It used to say the kill plane is far enough below this that a ball is off the screen long before the
-        /// simulation drops it. That holds only while the lens is <b>above</b> the water: since #159 the fade is
-        /// released as the camera goes under, so a ball watched from down there stays drawn all the way to the
-        /// kill plane and is culled in one frame when it arrives. That pop is real, it is not this constant's to
-        /// fix, and five other <c>OpenBelow</c> scenes have always shown it — see the issue filed for it.
-        /// </para></summary>
-        private const float SEA_SUBMERGE_FADE = 3f;
 
         /// <summary>
         /// How many scene-target texels make one output pixel — the caller's supersampling factor, which only
@@ -367,197 +340,13 @@ namespace Prazsky.Core.Render
             set => _volcano.Layers = value;
         }
 
-        //Scene configuration. Defaults reproduce the original hard-coded look byte-for-byte; every scene
-        //reads its tuning from these instead of constants. Replaced at runtime by Apply(SceneConfig) when a
-        //level is loaded (issue #32), which re-pushes the effect parameters and rebuilds the scatter/particle
-        //buffers the config sizes.
-        private SeaSceneConfig _seaConfig = new();
-        private SavannaSceneConfig _savannaConfig = new();
-        private TropicalSceneConfig _tropicalConfig = new();
-
-        #region Sea
-
-        private readonly Effect _seaEffect;
-        private readonly VertexBuffer _seaVertexBuffer;
-        private readonly IndexBuffer _seaIndexBuffer;
-        private readonly int _seaIndexCount;
-
-        //The sea is real geometry now, like the dunes: a camera-centred grid this many vertices per side over
-        //this world extent, displaced by Gerstner waves in the shader and snapped to a cell on the CPU each
-        //frame so it does not swim. Dense enough for the dominant swell to read as smooth geometry; the fine
-        //chop is added per pixel. (Grid density is the natural Low/Med/High/Ultra dial once graphics settings land.)
-        private const int SEA_GRID_N = 380;
-        private const float SEA_EXTENT = 1600f;
-
-        //How far the pool's edge is buried INTO the drain's glass cone (world units): the water's rim ends
-        //inside the wall rather than a chord-width short of it, so the funnel's 64-segment faceting can never
-        //open a sliver of sky between the water and the glass — the same buried-edge reasoning as the gold
-        //bands' EDGE_SINK (#109). See the pool derivation in DrawSea (#132).
-        private const float POOL_WALL_BIAS = 0.15f;
-
-        //Look/tuning parameters (water level & colours, waves, chop, wind, sun glint, foam, subsurface, haze)
-        //now live in SeaSceneConfig; SceneRenderer reads them from _seaConfig (spray via _seaConfig.Spray).
-
-        #endregion
-
-        #region Tropical
-
-        private readonly Effect _tropicalEffect;
-
-        //The lagoon's own clone of Sea.fx (#580); it draws over the sea's grid (_seaVertexBuffer)
-        private readonly Effect _lagoonEffect;
-        private readonly VertexBuffer _tropicalVertexBuffer;
-        private readonly IndexBuffer _tropicalIndexBuffer;
-        private readonly int _tropicalIndexCount;
-
-        //The beach and the far shore ridge are real geometry on the desert's grid density: the slopes
-        //here are the gentlest of any terrain scene (a beach, then a rounded jungle ridge), the
-        //shading normal is per-pixel so no grid shows, and the silhouette is far away. 360 over 1000.
-        private const int TROPICAL_GRID_N = 360;
-        private const float TROPICAL_EXTENT = 1000f;
-
-        //How far inside the innermost waterline the lagoon's clip sits: Sea.fx flattens the swell over
-        //a 4-unit calm band inside its clip radius, plus a unit tucked under the beach slope, so the
-        //surf laps onto the sand rather than breaking against a circle (see DrawTropicalWater).
-        private const float TROPICAL_WATERLINE_BIAS = 5f;
-
-        //Look/tuning parameters (the beach profile, the water, the palms, the rocks) live in
-        //TropicalSceneConfig; SceneRenderer reads them from _tropicalConfig. The lagoon's water is the
-        //sea's own shader and grid under a clone of its own (_lagoonEffect, #580) — see DrawTropicalWater.
-
-        #endregion
-
-        #region Palms and waterline rocks (tropical scene only)
-
-        private readonly Effect _palmEffect;
-
-        //Cached effect parameters for the per-frame instanced draws (the by-name indexer is a linear
-        //scan, and DrawPalms/DrawTropicalRocks run them once per draw).
-        private EffectParameter _palmViewParam, _palmProjectionParam,
-            _palmSunDirectionParam, _palmSunColorParam, _palmZenithParam, _palmHorizonParam,
-            _palmDiffuseParam, _palmDappleParam, _palmTimeParam, _palmWindParam,
-            _palmSwayStrengthParam, _palmSwaySpeedParam, _palmShadingParam, _palmCameraParam;
-
-        //Real 3D palm geometry on the acacia's path (#202): a few variants at rolled proportions and
-        //structural seeds — a bowed trunk under a crown of leafleted fronds (#557) with a skirt
-        //of dead ones — each variant its own instanced draw so a grove is a mix, never one shape
-        //stamped out. Scatter parameters live in TropicalSceneConfig.Palms.
-        private PalmMesh[] _palmMeshes;
-        private StaticInstances[] _palmInstances;         //per variant; fronds and wood share the matrices
-        private float[] _palmDryness;                     //per variant: how far its crown is towards the dry green
-
-        //Every palm's and waterline rock's figure, for a host keeping a camera out of the grove (#559).
-        private PlantFigure[] _palmFigures = Array.Empty<PlantFigure>();
-        private PlantFigure[] _tropicalRockFigures = Array.Empty<PlantFigure>();
-
-        //The waterline's rocks: the stone (RockMesh) and its moss cap (a LatheMesh over the same
-        //profile family, on its own irregularity phase so the moss edge reads ragged against the
-        //stone's own wobble) are two meshes over one instance matrix each, drawn per variant.
-        private RockMesh[] _tropicalRockMeshes;
-        private LatheMesh[] _tropicalMossMeshes;
-        private StaticInstances[] _tropicalRockInstances; //per variant; stone and cap share the matrices
-
-        //The beach's dressing (#445): the low green scrub and sea grass at the tree line, and the driftwood
-        //lying at the waterline. Three kinds, each with its own variants and its own instance buckets, drawn
-        //through the palm effect exactly as the rocks are.
-        private FoliageMesh[] _tropicalScrubMeshes;
-        private GrassTuftMesh[] _tropicalTuftMeshes;
-        private DeadwoodMesh[] _tropicalDriftMeshes;
-        private StaticInstances[] _tropicalScrubInstances;
-        private StaticInstances[] _tropicalTuftInstances;
-        private StaticInstances[] _tropicalDriftInstances;
-
-        /// <summary>
-        /// One variant's placed instances, uploaded once when the beach is planted (#589) — the savanna's
-        /// <see cref="ScatterBucket"/> pattern (#451). Until #589 every tropical draw copied its static matrices
-        /// into one shared dynamic buffer with a discard, about 1,070 instances over some twenty discards a frame,
-        /// and the shadow pass copied the palms and rocks again. <see cref="Buffer"/> is null for an empty variant,
-        /// which no draw reaches (they skip a zero <see cref="Count"/>).
-        /// </summary>
-        private sealed class StaticInstances : IDisposable
-        {
-            public VertexBuffer Buffer { get; private set; }
-            public int Count { get; }
-
-            public StaticInstances(GraphicsDevice device, List<ModelInstance> placed)
-            {
-                Count = placed.Count;
-                if (Count == 0) return;
-
-                Buffer = new VertexBuffer(device, ModelInstance.VertexDeclaration, Count, BufferUsage.WriteOnly);
-                Buffer.SetData(placed.ToArray());
-            }
-
-            public void Dispose()
-            {
-                Buffer?.Dispose();
-                Buffer = null;
-            }
-        }
-
-        //Colours, stored from the config so the per-draw DiffuseColor can be set as each part draws.
-        private Vector3 _palmFrondColor, _palmFrondDry, _palmTrunkColor, _tropicalStoneColor, _tropicalMossColor;
-        private Vector3 _tropicalScrubColor, _tropicalTuftColor, _tropicalDriftColor;
-
-        #endregion
-
-        #region Savanna
-
-        private readonly Effect _savannaEffect;
-        private readonly VertexBuffer _savannaVertexBuffer;
-        private readonly IndexBuffer _savannaIndexBuffer;
-        private readonly int _savannaIndexCount;
-
-        //Open grassland is real geometry: a camera-centred grid of this many vertices per side over this world
-        //extent, displaced in the shader and snapped to a cell so it does not swim. Finer than the old dune
-        //grid (200) so the silhouette is smooth; the shading normal is per-pixel, so the grid no longer shows.
-        private const int SAVANNA_GRID_N = 400;
-        private const float SAVANNA_EXTENT = 1200f;
-
-        //Gentle rolling grassland: flat in a clearing the island stands in (world origin), rising into low
-        //rises with distance. Flatter than the meadow's hills - a savanna is open. Mean grass level sits at the
-        //island's foot; ClearingRelief is a soft undulation even inside the clearing.
-        //Look/tuning parameters (level, hills, clearing, grass colours, ambient, wind, haze, relief) now live in
-        //SavannaSceneConfig; SceneRenderer reads them from _savannaConfig (and TerrainMirror.Savanna uses them too).
-
-        #endregion
-
-        #region Acacia (savanna scene only)
-
-        private readonly Effect _acaciaEffect;
-
-        //Cached effect parameters for the per-frame instanced draw (the by-name indexer is a linear scan).
-        private EffectParameter _acaciaViewParam, _acaciaProjectionParam, _acaciaCameraParam,
-            _acaciaSunDirectionParam, _acaciaSunColorParam, _acaciaZenithParam, _acaciaHorizonParam,
-            _acaciaDiffuseParam, _acaciaDiffuseDryParam, _acaciaDappleParam, _acaciaBarkParam, _acaciaAddedLightParam,
-            _acaciaHazeParam;
-
-        //Everything standing on the savanna (#202, #451): the acacias in their four kinds, the bushes, the
-        //scrub, the grass tufts, the termite mounds, the kopjes, the fallen trees and the treeline at the
-        //horizon — planted by SavannaScatter on the terrain (TerrainMirror.Savanna mirrors the shader's field)
-        //and handed back as buckets, one instanced draw each with its instances uploaded once. Real geometry,
-        //replacing the flat billboard that read as a paper cutout: a surface of revolution has volume from
-        //every angle. Scatter parameters live in SavannaSceneConfig.Acacia and .Dressing.
-        private SavannaScatter _savannaScatter;
-
-        //The one dynamic instance buffer left on this path, for the hearth stones alone — they are drawn per
-        //FIRE with that fire's light, so their instances are uploaded per draw (SetDataOptions.Discard).
-        private DynamicVertexBuffer _acaciaInstanceBuffer;
+        #region The sun's shadow map (#469, in every terrain scene since #471)
 
         //The sun's shadow map (#469, in every terrain scene since #471): rendered by DrawShadowMaps before
         //the scene pass and read by whichever effects include Shadows.fxh. One map, one target, one set of
         //uniforms — what changes per scene is which config asks for it, how the map is fitted and who casts.
-        //Every seeded arrangement in every scene is shifted by this (see the constructor's parameter): the
-        //savanna's planting, the beach's palms, the city's roofs, the Grid's boards. 0 is what shipped.
-        private readonly int _seedOffset;
-
-        //Where the savanna's trails step aside for what is standing on it (#476), built with the planting.
-        private TrailWarpField _trailWarp;
-
         private SunShadowMap _sunShadowMap;
         private bool _shadowsActive;
-        private EffectTechnique _acaciaTechnique, _acaciaShadowTechnique;
-        private EffectTechnique _palmTechnique, _palmShadowTechnique;
 
         //Every receiver's five parameters, cached at load (BestPractices.md §1 — the by-name indexer is a
         //linear scan) and pushed in one indexed loop. An array of the struct rather than five fields per
@@ -667,60 +456,25 @@ namespace Prazsky.Core.Render
             set => _shadowScale = MathHelper.Clamp(value, 0f, 1f);
         }
 
-        //The campfires' hearths (#282): a ring of stones set around each fire, and the scorched ground under
-        //it. The stones ride the acacia's own instanced path - same shader, same lighting as everything else
-        //planted on this terrain - with one draw per FIRE rather than per mesh variant, because what differs
-        //between two rings is the firelight their own fire is casting at this instant.
-        private RockMesh[] _hearthStoneMeshes;
-        private ModelInstance[][] _hearthStoneInstances;  //per fire; index into _hearthStoneMeshes by fire % variants
-        private Vector3 _hearthStoneColor;
-        private float _hearthStoneFirelight;
-        private readonly Vector3[] _hearthPositions = new Vector3[MAX_SCENE_LIGHTS];
-
         #endregion
 
-        #region Campfire (savanna scene only)
+        #region The beach's and the savanna's public queries (#580 moved their bodies into their backdrops)
 
-        private readonly Effect _flameEffect;
-        private readonly VertexBuffer _flameVertexBuffer;
-        private readonly IndexBuffer _flameIndexBuffer;
+        /// <summary>
+        /// Every palm on the beach as a figure — the root, the crown the trunk's bow carries off it, how far the
+        /// fronds reach and the trunk's thickness — for a host keeping a camera out of the grove (#559).
+        /// </summary>
+        public IReadOnlyList<PlantFigure> TropicalPalms => _tropical.Palms;
 
-        //Sub-flames per fire (#481), matching Flame.fx's own SUBFLAME_COUNT exactly: separate camera-facing
-        //quads rather than one, so a fire has a silhouette that parallaxes as the view orbits it instead of
-        //flipping between "fire" and "a picture of a fire" the way one quad always does. The buffer built
-        //below is FLAME_SUBFLAME_COUNT quads laid end to end, X of each vertex's Position carrying which one
-        //it belongs to - the shader indexes its own offset/scale/seed tables with it.
-        private const int FLAME_SUBFLAME_COUNT = 3;
-
-        //The sparks over each fire (#468): one shared buffer of MAX_SPARKS billboards, the fire's own
-        //technique in Flame.fx animating them off the wall clock, drawn per fire after its flame.
-        private const int MAX_SPARKS = 32;
-        private VertexBuffer _sparkVertexBuffer;
-        private IndexBuffer _sparkIndexBuffer;
-        private EffectTechnique _flameTechnique, _sparkTechnique;
-
-        //Maximum scene point lights, matching MAX_SCENE_LIGHTS in InstancedModel.fx / Savanna.fx
-        private const int MAX_SCENE_LIGHTS = 8;
-        private readonly Vector3[] _savannaLightPos = new Vector3[MAX_SCENE_LIGHTS];
-        private readonly Vector3[] _savannaLightColor = new Vector3[MAX_SCENE_LIGHTS];
-        private readonly float[] _savannaLightRange = new float[MAX_SCENE_LIGHTS];
-
-        //The savanna's campfire: a real point light that warms the grass, the island and the balls near it
-        //(set on the savanna effect here and on the instanced effect by the Testbed), plus the visible flame
-        //billboard below. It sits on the ground just off the island. Position/colour are public so the Testbed
-        //can set the same light on the balls and island, and they flicker together off the one clock.
-        //Just off the island in the grass, in front of its far edge and a little to the side, so it is in the
-        //game camera's view (the camera sits at ~(0,-3,30) looking down -Z) and lights the island edge and grass.
-        //Campfire parameters (ground position, range, flame size, base colour) live in
-        //SavannaSceneConfig.Campfire (CampfireConfig). Position/range/colour stay public (the Testbed sets the
-        //same point light on the balls and island) but are now instance members derived from the config.
+        /// <summary>The waterline's rocks as figures (their mesh's bounding sphere at the instance), for the same host.</summary>
+        public IReadOnlyList<PlantFigure> TropicalRocks => _tropical.Rocks;
 
         /// <summary>
         /// How many campfires ring the island, capped to the scene-light budget the shaders' arrays are sized
         /// for. Every caller that walks the fires — the grass's lights, the balls' and island's lights, and
         /// the flame billboards — counts with this one.
         /// </summary>
-        public int SavannaCampfireCount => Math.Clamp(_savannaConfig.Campfire.Count, 1, SceneLights.MaxLights);
+        public int SavannaCampfireCount => _savanna.CampfireCount;
 
         /// <summary>
         /// The world position of fire <paramref name="index"/>: evenly spaced around the circle the config's
@@ -732,34 +486,23 @@ namespace Prazsky.Core.Render
         /// fire with the ground.
         /// </para>
         /// </summary>
-        public Vector3 SavannaCampfirePosition(int index)
-        {
-            Vec2 anchor = _savannaConfig.Campfire.GroundXZ;
-
-            float radius = MathF.Sqrt(anchor.X * anchor.X + anchor.Y * anchor.Y);
-            float angle = MathF.Atan2(anchor.Y, anchor.X) + index * MathHelper.TwoPi / SavannaCampfireCount;
-
-            float x = MathF.Cos(angle) * radius;
-            float z = MathF.Sin(angle) * radius;
-
-            return new Vector3(x, SavannaGroundHeight(x, z) + _savannaConfig.Campfire.HeightAboveTerrain, z);
-        }
+        public Vector3 SavannaCampfirePosition(int index) => _savanna.CampfirePosition(index);
 
         /// <summary>The campfire point-light range (quadratic distance falloff), shared by every fire.</summary>
-        public float SavannaCampfireRange => _savannaConfig.Campfire.Range;
+        public float SavannaCampfireRange => _savanna.CampfireRange;
 
         /// <summary>
         /// Everything planted on the savanna — the footprints, the acacias' and the baobabs' figures — for a
         /// host that points a camera at them or keeps one out of them (the chapter intro's prologue, #559).
         /// Null until the scatter has been built.
         /// </summary>
-        public SavannaScatter SavannaPlanting => _savannaScatter;
+        public SavannaScatter SavannaPlanting => _savanna.Planting;
 
         /// <summary>
         /// The savanna's ground height at a world point, for a host laying a camera path over the plain
         /// (#559): <see cref="TerrainMirror.Savanna"/>, the mirror the planting stands on, on the live config.
         /// </summary>
-        public float SavannaGroundHeight(float x, float z) => TerrainMirror.Savanna(x, z, _savannaConfig);
+        public float SavannaGroundHeight(float x, float z) => _savanna.GroundHeight(x, z);
 
         /// <summary>
         /// The flickering colour of fire <paramref name="index"/> at a wall-clock time, so its grass light,
@@ -771,21 +514,11 @@ namespace Prazsky.Core.Render
         /// the moment two of them are in shot together.
         /// </para>
         /// </summary>
-        public Vector3 CampfireColor(float time, int index)
-        {
-            //Irrational-ish stride, so no two fires land on the same phase and the ring does not repeat after
-            //a few of them however many there are.
-            float t = time + index * 3.77f;
-            float rate = 1f + index * 0.031f;
-
-            float flicker = 0.72f + 0.28f * (0.5f * MathF.Sin(t * 11f * rate) + 0.3f * MathF.Sin(t * 17f * rate + 1.3f) + 0.2f * MathF.Sin(t * 7f * rate));
-
-            return _savannaConfig.Campfire.BaseColor.ToVector3() * flicker;
-        }
+        public Vector3 CampfireColor(float time, int index) => _savanna.CampfireColor(time, index);
 
         #endregion
 
-        #region Birds (savanna, desert and outback scenes)
+        #region Birds (the savanna, the desert, the outback and the beach) and the billboard vertex
 
         //The flock and its draw, a service since #580 (Render/Scenes/BirdFlock.cs)
         private readonly BirdFlock _birds;
@@ -820,24 +553,15 @@ namespace Prazsky.Core.Render
 
         #endregion
 
-        #region Spray (sea scene only)
-
-        private readonly Effect _sprayEffect;
-        private VertexBuffer _sprayVertexBuffer;
-        private IndexBuffer _sprayIndexBuffer;
-
-        //Spray parameters (particle count/size/colour/opacity, box, level, wind, rise, turbulence) now live in
-        //SeaSceneConfig.Spray (SprayConfig); SceneRenderer reads them from _seaConfig.Spray. The glare-safe
-        //spray colour still matters: its luminance must stay under GLARE_THRESHOLD or it blooms - see CLAUDE.md.
-
-        #endregion
-
         #region The backdrops (#580) and what they share
 
-        //The scenes that are their own Backdrop class (Render/Scenes), indexed by SceneKind; null for a scene
-        //still drawn by this class's own switch arms. docs/scenes.md, "The backdrop classes", has the order the
-        //rest are to follow in.
+        //Every scene this class draws, each its own Backdrop class (Render/Scenes), indexed by SceneKind; null
+        //for the city and the neon city, which the hosts draw. docs/scenes.md, "The backdrop classes", has how
+        //they got there.
         private readonly Backdrop[] _backdrops = new Backdrop[SceneCatalog.Count];
+        private readonly SeaBackdrop _sea;
+        private readonly TropicalBackdrop _tropical;
+        private readonly SavannaBackdrop _savanna;
         private readonly SpaceBackdrop _space;
         private readonly DreamBackdrop _dream;
         private readonly CavernBackdrop _cavern;
@@ -893,8 +617,6 @@ namespace Prazsky.Core.Render
         /// </param>
         public SceneRenderer(GraphicsDevice graphicsDevice, ContentManager content, int seedOffset = 0)
         {
-            _seedOffset = seedOffset;
-
             _graphicsDevice = graphicsDevice;
             _gridCache = new TerrainGridCache(graphicsDevice);
 
@@ -914,14 +636,10 @@ namespace Prazsky.Core.Render
             _farField = new FarField(graphicsDevice);
             _services = new BackdropServices(graphicsDevice, _fullScreenQuad, seedOffset, _gridCache, _farField);
 
-            //--- Sea: a camera-centred grid displaced into Gerstner waves; DrawSea snaps it to a cell and sets
-            //the mean level. Drawn CullNone (one open surface, read from above and through the crests).
-            //Its own clone of Sea.fx (#580): the tropical lagoon draws through another, so neither can leave
-            //its water in the other's slots.
-            _seaEffect = content.Load<Effect>("Shaders/Sea").Clone();
-            AcquireGridMesh(SEA_GRID_N, SEA_EXTENT, out _seaVertexBuffer, out _seaIndexBuffer, out _seaIndexCount);
-
-            ApplySeaParameters();
+            //--- Sea and its spray: its own Backdrop since #580 (Render/Scenes), built here where the sea's code
+            //stood (the spray, built after the snow until then, is built with it)
+            _sea = new SeaBackdrop(_services, content);
+            _backdrops[(int)SceneKind.Sea] = _sea;
 
             //--- Desert: its own Backdrop since #580 (Render/Scenes), built here where
             //its code stood
@@ -938,40 +656,9 @@ namespace Prazsky.Core.Render
             _outback = new OutbackBackdrop(_services, content);
             _backdrops[(int)SceneKind.Outback] = _outback;
 
-            //--- Tropical (#244): the fourteenth scene — a beach ring around the island, a turquoise lagoon
-            //and the green far shore that closes the horizon. The land grid is the desert's density (the
-            //gentlest slopes of any terrain scene); the lagoon's water is the sea's own shader and grid,
-            //drawn over this terrain by DrawTropicalWater below through a clone of its own (#580).
-            _tropicalEffect = content.Load<Effect>("Shaders/Tropical");
-            AcquireGridMesh(TROPICAL_GRID_N, TROPICAL_EXTENT, out _tropicalVertexBuffer, out _tropicalIndexBuffer, out _tropicalIndexCount);
-
-            ApplyTropicalParameters();
-
-            //The lagoon: the sea's grid under its own clone of Sea.fx (#580), its water pushed once
-            _lagoonEffect = content.Load<Effect>("Shaders/Sea").Clone();
-            ApplyLagoonParameters();
-
-            //--- Palms and the waterline's mossy rocks: instanced procedural geometry on the acacia's path
-            //(#202), shaded by Palm.fx — the acacia's sun-and-dome lighting with the palm's own sway.
-            _palmEffect = content.Load<Effect>("Shaders/Palm");
-            _palmViewParam = _palmEffect.Parameters["View"];
-            _palmProjectionParam = _palmEffect.Parameters["Projection"];
-            _palmSunDirectionParam = _palmEffect.Parameters["SunDirection"];
-            _palmSunColorParam = _palmEffect.Parameters["SunColor"];
-            _palmZenithParam = _palmEffect.Parameters["ZenithColor"];
-            _palmHorizonParam = _palmEffect.Parameters["HorizonColor"];
-            _palmDiffuseParam = _palmEffect.Parameters["DiffuseColor"];
-            _palmDappleParam = _palmEffect.Parameters["DappleStrength"];
-            _palmTimeParam = _palmEffect.Parameters["PalmTime"];
-            _palmWindParam = _palmEffect.Parameters["WindDirection"];
-            _palmSwayStrengthParam = _palmEffect.Parameters["SwayStrength"];
-            _palmSwaySpeedParam = _palmEffect.Parameters["SwaySpeed"];
-            _palmShadingParam = _palmEffect.Parameters["PalmShading"];
-            _palmCameraParam = _palmEffect.Parameters["CameraPosition"];
-            PushPalmMaterial();
-            _palmTechnique = _palmEffect.Techniques["Palm"];
-            _palmShadowTechnique = _palmEffect.Techniques["ShadowCaster"];
-            BuildTropicalBuffers();
+            //--- Tropical (#244): its own Backdrop since #580 (Render/Scenes), built here where its code stood
+            _tropical = new TropicalBackdrop(_services, content);
+            _backdrops[(int)SceneKind.Tropical] = _tropical;
 
             //--- Volcano (#223, #509): its own Backdrop since #580 (Render/Scenes), built here where its code stood
             _volcano = new VolcanoBackdrop(_services, content);
@@ -987,65 +674,17 @@ namespace Prazsky.Core.Render
             _storm = new StormBackdrop(_services, content);
             _backdrops[(int)SceneKind.Storm] = _storm;
 
-            //--- Savanna: a flat lattice the shader displaces into gentle grassland (per-pixel normal, no grid)
-            _savannaEffect = content.Load<Effect>("Shaders/Savanna");
-            AcquireGridMesh(SAVANNA_GRID_N, SAVANNA_EXTENT, out _savannaVertexBuffer, out _savannaIndexBuffer, out _savannaIndexCount);
-
-            ApplySavannaParameters();
-
-            //--- Acacia: everything planted on the savanna, positioned on the ground (TerrainMirror.Savanna
-            //mirrors the shader's field) and drawn as instanced geometry in Acacia.fx
-            _acaciaEffect = content.Load<Effect>("Shaders/Acacia");
-            _acaciaViewParam = _acaciaEffect.Parameters["View"];
-            _acaciaProjectionParam = _acaciaEffect.Parameters["Projection"];
-            _acaciaCameraParam = _acaciaEffect.Parameters["CameraPosition"];
-            _acaciaSunDirectionParam = _acaciaEffect.Parameters["SunDirection"];
-            _acaciaSunColorParam = _acaciaEffect.Parameters["SunColor"];
-            _acaciaZenithParam = _acaciaEffect.Parameters["ZenithColor"];
-            _acaciaHorizonParam = _acaciaEffect.Parameters["HorizonColor"];
-            _acaciaDiffuseParam = _acaciaEffect.Parameters["DiffuseColor"];
-            _acaciaDiffuseDryParam = _acaciaEffect.Parameters["DiffuseDry"];
-            _acaciaDappleParam = _acaciaEffect.Parameters["DappleStrength"];
-            _acaciaBarkParam = _acaciaEffect.Parameters["BarkStrength"];
-            _acaciaAddedLightParam = _acaciaEffect.Parameters["AddedLight"];
-            _acaciaHazeParam = _acaciaEffect.Parameters["HorizonHazeDistance"];
-            _acaciaTechnique = _acaciaEffect.Techniques["Acacia"];
-            _acaciaShadowTechnique = _acaciaEffect.Techniques["ShadowCaster"];
-            ApplyAcaciaParameters();
-            BuildSavannaScatter();
-            BuildHearthStones();
-
-            //--- Campfire flame: FLAME_SUBFLAME_COUNT billboards per fire (#481), one quad each, laid end to
-            //end in a single buffer - Position.X of every vertex of a quad carries which sub-flame it is,
-            //which is all Flame.fx needs to look up that sub-flame's own offset/scale/seed.
-            _flameEffect = content.Load<Effect>("Shaders/Flame");
-            BillboardVertex[] flameVertices = new BillboardVertex[FLAME_SUBFLAME_COUNT * 4];
-
-            for (int sub = 0; sub < FLAME_SUBFLAME_COUNT; sub++)
-            {
-                int v = sub * 4;
-                Vector3 subIndex = new(sub, 0f, 0f);
-                flameVertices[v + 0] = new(subIndex, new Vector3(-1f, 0f, 0f));
-                flameVertices[v + 1] = new(subIndex, new Vector3(1f, 0f, 0f));
-                flameVertices[v + 2] = new(subIndex, new Vector3(-1f, 1f, 0f));
-                flameVertices[v + 3] = new(subIndex, new Vector3(1f, 1f, 0f));
-            }
-
-            _flameVertexBuffer = new VertexBuffer(graphicsDevice, BillboardVertex.Declaration, flameVertices.Length, BufferUsage.WriteOnly);
-            _flameVertexBuffer.SetData(flameVertices);
-            _flameIndexBuffer = _services.BuildQuadIndexBuffer(FLAME_SUBFLAME_COUNT, mirrored: true);
-            _flameTechnique = _flameEffect.Techniques["Flame"];
-            _sparkTechnique = _flameEffect.Techniques["Sparks"];
-            //The sparks (#468): one shared buffer of billboards on the fountain's pattern, each fire drawing
-            //the first SparkCount of them with its own position and clock.
-            BuildBillboardParticles(MAX_SPARKS, 4680, ref _sparkVertexBuffer, ref _sparkIndexBuffer);
+            //--- Savanna: its own Backdrop since #580 (Render/Scenes), built here where its code stood; it picks
+            //its grass's program at load, so it is handed the tier the renderer starts at
+            _savanna = new SavannaBackdrop(_services, content, _sceneDetail);
+            _backdrops[(int)SceneKind.Savanna] = _savanna;
 
             //--- Birds: one shared rest-pose mesh, each bird's orbit and flap cycle seeded once, and a
             //service since #580 (BirdFlock). Sized to the largest flock any of the four scenes asks for:
             //the scenes share it, and a smaller one would silently cap the others'.
             _birds = new BirdFlock(graphicsDevice, content,
-                Math.Max(Math.Max(_savannaConfig.Birds.Count, _desert.Birds.Count),
-                    Math.Max(_outback.Birds.Count, _tropicalConfig.Birds.Count)));
+                Math.Max(Math.Max(_savanna.Birds.Count, _desert.Birds.Count),
+                    Math.Max(_outback.Birds.Count, _tropical.Birds.Count)));
             _services.Birds = _birds;
 
             //--- Mountain: its own Backdrop since #580 (Render/Scenes), built here where its code stood
@@ -1058,16 +697,9 @@ namespace Prazsky.Core.Render
             //effect is not shared: each scene draws through its own clone, its look pushed once at load.
             VertexBuffer snowVertices = null;
             IndexBuffer snowIndices = null;
-            BuildBillboardParticles(_mountain.Snow.FlakeCount, 1207, ref snowVertices, ref snowIndices);
+            _services.BuildBillboardParticles(_mountain.Snow.FlakeCount, 1207, ref snowVertices, ref snowIndices);
             _snowfall = new Snowfall(_graphicsDevice, snowVertices, snowIndices, _mountain.Snow.FlakeCount);
             _services.Snowfall = _snowfall;
-
-            //--- Spray: a static billboard buffer for the sea's blown spray and spindrift, animated entirely
-            //in the shader like the snow. Same position+data billboard vertex.
-            _sprayEffect = content.Load<Effect>("Shaders/Spray");
-            ApplySprayParameters();
-
-            BuildSprayBuffers();
 
             //--- Meadow: its own Backdrop since #580 (Render/Scenes), built here where its code stood; it picks
             //its program at load, so it is handed the tier the renderer starts at
@@ -1119,8 +751,8 @@ namespace Prazsky.Core.Render
         /// listed reads an unbound texture at whatever strength was last pushed to it. The shared instanced
         /// effect is deliberately not here — it is the caller's, and registers itself on the first frame it
         /// is handed in. A backdrop's receivers are its own to state (<see cref="Backdrop.ShadowReceivers"/>,
-        /// #580) and are added to this list, so the inventory is the renderer's remaining scenes plus the union
-        /// of the backdrops'.
+        /// #580), beside its fit, so the inventory is the union of the backdrops' — this class lists none of its
+        /// own since the savanna moved.
         /// </para>
         /// <para>
         /// Sea and Storm are absent on purpose. The storm draws no ground at all (<c>StormClouds.fx</c> is the
@@ -1132,13 +764,9 @@ namespace Prazsky.Core.Render
         /// </summary>
         private void RegisterShadowReceivers()
         {
-            List<Effect> effects = new()
-            {
-                _savannaEffect, _acaciaEffect,       //#469's two: the plain and what stands on it
-                _tropicalEffect, _palmEffect,        //the sand and the palms standing on it
-            };
+            List<Effect> effects = new();
 
-            //...and every backdrop's own, stated beside its fit (#580)
+            //Every backdrop's own, stated beside its fit (#580)
             foreach (Backdrop backdrop in _backdrops)
                 if (backdrop != null) effects.AddRange(backdrop.ShadowReceivers);
 
@@ -1230,7 +858,7 @@ namespace Prazsky.Core.Render
         /// <summary>Whether a scene's own light rig moves with time; forwards to <see cref="SceneCatalog.AnimatesLightRig"/>.</summary>
         public static bool AnimatesLightRig(SceneKind kind) => SceneCatalog.AnimatesLightRig(kind);
 
-        #region Scene parameters (each config pushed to its effect and buffers; issue #32, #44)
+        #region The questions about a scene, asked of its backdrop
 
         /// <summary>
         /// The sun a scene states for itself, overriding both the dome's and the shared domeless one, and false
@@ -1326,33 +954,6 @@ namespace Prazsky.Core.Render
                     viewpoint = new SceneViewpoint(AtBearing(bearing, 100f, 24f), 2.0f, 10f, 160f, "the neon roofline");
                     return true;
 
-                //Low and level, out to the water: what a sea IS from a few metres up is the glint and the
-                //horizon, and any height at all trades that for a plan view of chop.
-                case SceneKind.Sea:
-                    viewpoint = new SceneViewpoint(AtBearing(bearing, 520f, _seaConfig.LevelY), 2.1f, 6f, 0f, "the open water");
-                    return true;
-
-                //A real landmark, and the only one in this table that is also a LIGHT: the fire is what the
-                //savanna's night rig is built around, so a shot that has it has the scene's whole character
-                //in frame. Slot 0 of however many the config asks for.
-                case SceneKind.Savanna:
-                    viewpoint = new SceneViewpoint(SavannaCampfirePosition(0), 1.7f, 11f, 35f, "the campfire");
-                    return true;
-
-                //Out over the lagoon to the far shore's ring: the tropical scene is three bands — sand,
-                //turquoise water, green shore — and a look across all three is what it is.
-                //
-                //⚠ OVER THE PALM TOPS, NOT AMONG THEM (#555). This stood at 8 degrees while the palms were
-                //12 units tall, which put the lens a little above their crowns. At 22 units the crowns reach
-                //some twenty over the sand, right where an 8-degree lens stands 2.1 stand-offs out — in the
-                //middle of the palm ring — so the tour opened inside a grove. 20 degrees rides over the
-                //tallest crown at that radius and keeps all three bands, with the palm tops in the foreground.
-                case SceneKind.Tropical:
-                    viewpoint = new SceneViewpoint(
-                        AtBearing(bearing, _tropicalConfig.Terrain.RingRadius, _tropicalConfig.Water.LevelY + 6f),
-                        2.1f, 20f, 0f, "the lagoon");
-                    return true;
-
                 default:
                     viewpoint = default;
                     return false;
@@ -1407,131 +1008,7 @@ namespace Prazsky.Core.Render
         /// null for <see cref="SceneKind.City"/>/<see cref="SceneKind.NeonCity"/>, whose config lives outside
         /// the renderer (the caller owns the <see cref="CitySceneConfig"/>).
         /// </summary>
-        public SceneConfig GetSceneConfig(SceneKind kind) => BackdropFor(kind)?.Config ?? kind switch
-        {
-            SceneKind.Sea => _seaConfig,
-            SceneKind.Savanna => _savannaConfig,
-            SceneKind.Tropical => _tropicalConfig,
-            _ => null,
-        };
-
-        private void ApplySeaParameters()
-        {
-            _seaEffect.Parameters["SeaLevelY"].SetValue(_seaConfig.LevelY);
-            _seaEffect.Parameters["WaterColorDeep"].SetValue(_seaConfig.WaterDeep.ToVector3());
-            _seaEffect.Parameters["WaterColorShallow"].SetValue(_seaConfig.WaterShallow.ToVector3());
-            _seaEffect.Parameters["ShallowBias"].SetValue(_seaConfig.ShallowBias);
-            _seaEffect.Parameters["WaveAmplitude"].SetValue(_seaConfig.WaveAmplitude);
-            _seaEffect.Parameters["WaveSteepness"].SetValue(_seaConfig.WaveSteepness);
-            _seaEffect.Parameters["WaveSpeed"].SetValue(_seaConfig.WaveSpeed);
-            _seaEffect.Parameters["WaveFadeStart"].SetValue(_seaConfig.WaveFadeStart);
-            _seaEffect.Parameters["WaveFadeEnd"].SetValue(_seaConfig.WaveFadeEnd);
-            _seaEffect.Parameters["ChopAmplitude"].SetValue(_seaConfig.ChopAmplitude);
-            _seaEffect.Parameters["ChopFrequency"].SetValue(_seaConfig.ChopFrequency);
-            _seaEffect.Parameters["ChopSpeed"].SetValue(_seaConfig.ChopSpeed);
-            _seaEffect.Parameters["WindDirection"].SetValue(_seaConfig.Wind.ToVector2());
-            _seaEffect.Parameters["SunGlintStrength"].SetValue(_seaConfig.SunGlintStrength);
-            _seaEffect.Parameters["SunGlintPower"].SetValue(_seaConfig.SunGlintPower);
-            _seaEffect.Parameters["FoamJacobianThreshold"].SetValue(_seaConfig.FoamJacobianThreshold);
-            _seaEffect.Parameters["FoamStrength"].SetValue(_seaConfig.FoamStrength);
-            _seaEffect.Parameters["FoamCrestStart"].SetValue(_seaConfig.FoamCrestStart);
-            _seaEffect.Parameters["FoamCrestStrength"].SetValue(_seaConfig.FoamCrestStrength);
-            _seaEffect.Parameters["FoamColor"].SetValue(_seaConfig.FoamColor.ToVector3());
-            _seaEffect.Parameters["SssStrength"].SetValue(_seaConfig.SssStrength);
-            _seaEffect.Parameters["SssColor"].SetValue(_seaConfig.SssColor.ToVector3());
-            _seaEffect.Parameters["HorizonHazeDistance"].SetValue(_seaConfig.HorizonHazeDistance);
-        }
-
-        /// <summary>
-        /// Pushes the tropical lagoon's water into its own clone of <c>Sea.fx</c>, once at load (#580) — the
-        /// same set <see cref="ApplySeaParameters"/> pushes into the sea's, off <see cref="TropicalWaterConfig"/>.
-        /// </summary>
-        private void ApplyLagoonParameters()
-        {
-            TropicalWaterConfig water = _tropicalConfig.Water;
-
-            _lagoonEffect.Parameters["SeaLevelY"].SetValue(water.LevelY);
-            _lagoonEffect.Parameters["WaterColorDeep"].SetValue(water.WaterDeep.ToVector3());
-            _lagoonEffect.Parameters["WaterColorShallow"].SetValue(water.WaterShallow.ToVector3());
-            _lagoonEffect.Parameters["ShallowBias"].SetValue(water.ShallowBias);
-            _lagoonEffect.Parameters["WaveAmplitude"].SetValue(water.WaveAmplitude);
-            _lagoonEffect.Parameters["WaveSteepness"].SetValue(water.WaveSteepness);
-            _lagoonEffect.Parameters["WaveSpeed"].SetValue(water.WaveSpeed);
-            _lagoonEffect.Parameters["WaveFadeStart"].SetValue(water.WaveFadeStart);
-            _lagoonEffect.Parameters["WaveFadeEnd"].SetValue(water.WaveFadeEnd);
-            _lagoonEffect.Parameters["ChopAmplitude"].SetValue(water.ChopAmplitude);
-            _lagoonEffect.Parameters["ChopFrequency"].SetValue(water.ChopFrequency);
-            _lagoonEffect.Parameters["ChopSpeed"].SetValue(water.ChopSpeed);
-            _lagoonEffect.Parameters["WindDirection"].SetValue(water.Wind.ToVector2());
-            _lagoonEffect.Parameters["SunGlintStrength"].SetValue(water.SunGlintStrength);
-            _lagoonEffect.Parameters["SunGlintPower"].SetValue(water.SunGlintPower);
-            _lagoonEffect.Parameters["FoamJacobianThreshold"].SetValue(water.FoamJacobianThreshold);
-            _lagoonEffect.Parameters["FoamStrength"].SetValue(water.FoamStrength);
-            _lagoonEffect.Parameters["FoamCrestStart"].SetValue(water.FoamCrestStart);
-            _lagoonEffect.Parameters["FoamCrestStrength"].SetValue(water.FoamCrestStrength);
-            _lagoonEffect.Parameters["FoamColor"].SetValue(water.FoamColor.ToVector3());
-            _lagoonEffect.Parameters["SssStrength"].SetValue(water.SssStrength);
-            _lagoonEffect.Parameters["SssColor"].SetValue(water.SssColor.ToVector3());
-            _lagoonEffect.Parameters["HorizonHazeDistance"].SetValue(water.HorizonHazeDistance);
-        }
-
-        /// <summary>
-        /// Pushes the tropical terrain's static tuning into <c>Tropical.fx</c> and stores the scatter's
-        /// per-draw colours. The lagoon's water uniforms are <see cref="ApplyLagoonParameters"/>'s, pushed
-        /// into the lagoon's own clone of <c>Sea.fx</c> (#580).
-        /// </summary>
-        private void ApplyTropicalParameters()
-        {
-            TropicalTerrainConfig terrain = _tropicalConfig.Terrain;
-            PalmConfig palms = _tropicalConfig.Palms;
-            TropicalRockConfig rocks = _tropicalConfig.Rocks;
-
-            _tropicalEffect.Parameters["TropicalLevelY"].SetValue(terrain.LevelY);
-            _tropicalEffect.Parameters["ClearingRelief"].SetValue(terrain.ClearingRelief);
-            _tropicalEffect.Parameters["ShoreRadius"].SetValue(terrain.ShoreRadius);
-            _tropicalEffect.Parameters["CoastNoise"].SetValue(terrain.CoastNoise);
-            _tropicalEffect.Parameters["BeachRise"].SetValue(MathF.Max(terrain.BeachRise, 0.5f));
-            _tropicalEffect.Parameters["BeachRun"].SetValue(MathF.Max(terrain.BeachRun, 0.5f));
-            _tropicalEffect.Parameters["SeabedY"].SetValue(terrain.SeabedY);
-            _tropicalEffect.Parameters["RingRadius"].SetValue(terrain.RingRadius);
-            _tropicalEffect.Parameters["RingNoise"].SetValue(terrain.RingNoise);
-            _tropicalEffect.Parameters["RingWidth"].SetValue(MathF.Max(terrain.RingWidth, 1f));
-            _tropicalEffect.Parameters["HillHeight"].SetValue(terrain.HillHeight);
-            _tropicalEffect.Parameters["ChannelBearing"].SetValue(terrain.ChannelBearing);
-            _tropicalEffect.Parameters["ChannelSharpness"].SetValue(MathF.Max(terrain.ChannelSharpness, 1f));
-
-            //The terrain reads the water level so the wet sand band and the far shore's fringe sit on
-            //the waterline the water itself draws (Sea.fx) — the two cannot drift apart.
-            _tropicalEffect.Parameters["WaterLevelY"].SetValue(_tropicalConfig.Water.LevelY);
-
-            _tropicalEffect.Parameters["SandColor"].SetValue(terrain.SandColor.ToVector3());
-            _tropicalEffect.Parameters["SandColorPale"].SetValue(terrain.SandColorPale.ToVector3());
-            _tropicalEffect.Parameters["VegetationColor"].SetValue(terrain.VegetationColor.ToVector3());
-            _tropicalEffect.Parameters["VegetationDry"].SetValue(terrain.VegetationDry.ToVector3());
-            _tropicalEffect.Parameters["CanopyWindStrength"].SetValue(terrain.CanopyWindStrength);
-            _tropicalEffect.Parameters["CanopyRelief"].SetValue(terrain.CanopyRelief);
-            _tropicalEffect.Parameters["SandRelief"].SetValue(terrain.SandRelief);
-            _tropicalEffect.Parameters["AmbientStrength"].SetValue(terrain.AmbientStrength);
-            _tropicalEffect.Parameters["WindDirection"].SetValue(terrain.Wind.ToVector2());
-            _tropicalEffect.Parameters["HazeTint"].SetValue(terrain.HazeTint.ToVector3());
-            _tropicalEffect.Parameters["HazeStrength"].SetValue(terrain.HazeStrength);
-            _tropicalEffect.Parameters["HorizonHazeDistance"].SetValue(terrain.HorizonHazeDistance);
-
-            //Stored rather than pushed: the palms' and rocks' colours are the per-draw DiffuseColor now,
-            //set as each mesh part draws in DrawPalms and DrawTropicalRocks.
-            _palmFrondColor = palms.FrondColor.ToVector3();
-            _palmFrondDry = palms.FrondDry.ToVector3();
-            _palmTrunkColor = palms.TrunkColor.ToVector3();
-
-            PushPalmMaterial();
-            _tropicalStoneColor = rocks.StoneColor.ToVector3();
-            _tropicalMossColor = rocks.MossColor.ToVector3();
-
-            TropicalDressingConfig dress = _tropicalConfig.Dressing;
-            _tropicalScrubColor = dress.ScrubColor.ToVector3();
-            _tropicalTuftColor = dress.TuftColor.ToVector3();
-            _tropicalDriftColor = dress.DriftColor.ToVector3();
-        }
+        public SceneConfig GetSceneConfig(SceneKind kind) => BackdropFor(kind)?.Config;
 
         /// <summary>
         /// The storm's lightning envelope at a wall-clock time: 0 between strikes, rising to 1 at a
@@ -1592,691 +1069,7 @@ namespace Prazsky.Core.Render
             return new Vector3(horizontal * MathF.Sin(azimuth), MathF.Sin(elevation), horizontal * MathF.Cos(azimuth));
         }
 
-        private void ApplySavannaParameters()
-        {
-            SelectSavannaTechnique();
-
-            _savannaEffect.Parameters["SavannaLevelY"].SetValue(_savannaConfig.LevelY);
-            _savannaEffect.Parameters["HillHeight"].SetValue(_savannaConfig.HillHeight);
-            _savannaEffect.Parameters["ClearingRadius"].SetValue(_savannaConfig.ClearingRadius);
-            _savannaEffect.Parameters["ClearingTransition"].SetValue(_savannaConfig.ClearingTransition);
-            _savannaEffect.Parameters["ClearingRelief"].SetValue(_savannaConfig.ClearingRelief);
-            _savannaEffect.Parameters["GrassColor"].SetValue(_savannaConfig.GrassSavanna.ToVector3());
-            _savannaEffect.Parameters["GrassColorDry"].SetValue(_savannaConfig.GrassDry.ToVector3());
-            _savannaEffect.Parameters["GrassColorBare"].SetValue(_savannaConfig.GrassBare.ToVector3());
-            _savannaEffect.Parameters["GrassTipColor"].SetValue(_savannaConfig.GrassTipColor.ToVector3());
-            _savannaEffect.Parameters["GrassTipStrength"].SetValue(_savannaConfig.GrassTipStrength);
-            _savannaEffect.Parameters["TuftSize"].SetValue(_savannaConfig.TuftSize);
-            _savannaEffect.Parameters["TuftStrength"].SetValue(_savannaConfig.TuftStrength);
-            _savannaEffect.Parameters["GrassSheenStrength"].SetValue(_savannaConfig.GrassSheenStrength);
-            _savannaEffect.Parameters["GrassTranslucency"].SetValue(_savannaConfig.GrassTranslucency);
-            _savannaEffect.Parameters["AmbientStrength"].SetValue(_savannaConfig.AmbientStrength);
-            _savannaEffect.Parameters["WindDirection"].SetValue(_savannaConfig.Wind.ToVector2());
-            _savannaEffect.Parameters["HorizonHazeDistance"].SetValue(_savannaConfig.HorizonHazeDistance);
-            _savannaEffect.Parameters["WindRippleSpeed"].SetValue(_savannaConfig.WindRippleSpeed);
-            _savannaEffect.Parameters["WindRippleFrequency"].SetValue(_savannaConfig.WindRippleFrequency);
-            _savannaEffect.Parameters["WindRippleStrength"].SetValue(_savannaConfig.WindRippleStrength);
-            _savannaEffect.Parameters["GrassReliefStrength"].SetValue(_savannaConfig.GrassReliefStrength);
-            _savannaEffect.Parameters["GrassReliefFrequency"].SetValue(_savannaConfig.GrassReliefFrequency);
-            _savannaEffect.Parameters["TrailStrength"].SetValue(_savannaConfig.TrailStrength);
-            _savannaEffect.Parameters["TrailWidth"].SetValue(_savannaConfig.TrailWidth);
-            _savannaEffect.Parameters["TrailFrequency"].SetValue(_savannaConfig.TrailFrequency);
-
-            ApplyHearthParameters();
-        }
-
-        /// <summary>
-        /// The hearth uniforms <c>Savanna.fx</c> burns the ground with (#282), pushed at config time rather
-        /// than per frame: the fires stand on static terrain at config-derived places, so every one of these
-        /// is constant until the config or the terrain changes — which is when this runs.
-        /// <para>
-        /// <c>HearthNear</c>/<c>HearthFar</c> are the ring's own extent, measured here <b>from the positions
-        /// themselves</b> rather than re-derived from the config's ring rule in the shader: it is the early-out
-        /// that keeps the per-pixel hearth loop off the rest of the field, and a second copy of the placement
-        /// rule is exactly how a scene grows a fault nobody can see (#297).
-        /// </para>
-        /// </summary>
-        private void ApplyHearthParameters()
-        {
-            CampfireConfig cf = _savannaConfig.Campfire;
-            int fires = SavannaCampfireCount;
-
-            float near = float.MaxValue, far = 0f;
-            for (int fire = 0; fire < fires; fire++)
-            {
-                Vector3 at = SavannaCampfirePosition(fire);
-                _hearthPositions[fire] = at;
-
-                float radius = MathF.Sqrt(at.X * at.X + at.Z * at.Z);
-                near = MathF.Min(near, radius);
-                far = MathF.Max(far, radius);
-            }
-
-            _savannaEffect.Parameters["HearthPosition"].SetValue(_hearthPositions);
-            _savannaEffect.Parameters["HearthCount"].SetValue(fires);
-            _savannaEffect.Parameters["HearthRadius"].SetValue(cf.FlameSize * cf.HearthRadiusScale);
-            _savannaEffect.Parameters["HearthNear"].SetValue(near);
-            _savannaEffect.Parameters["HearthFar"].SetValue(far);
-            _savannaEffect.Parameters["HearthAsh"].SetValue(cf.HearthAsh.ToVector3());
-            _savannaEffect.Parameters["HearthChar"].SetValue(cf.HearthChar.ToVector3());
-        }
-
-        private void ApplyAcaciaParameters()
-        {
-            //The colours are the buckets' own now (SavannaScatter reads the config as it builds them); what
-            //the effect takes at config time is the haze distance, so a far plant fades as the ground does.
-            _acaciaHazeParam.SetValue(_savannaConfig.HorizonHazeDistance);
-        }
-
-        /// <summary>
-        /// (Re)builds everything planted on the savanna (<see cref="SavannaScatter"/>): the mesh variants of
-        /// every kind and the instance buffers, each thing planted on the terrain — a plant's height comes
-        /// off the ground it stands on, so a terrain change re-plants the whole scatter. Deterministic seed,
-        /// so the same config always gives the same savanna. The fires and their hearths are handed over as
-        /// ground already taken, so nothing lands in a fire.
-        /// </summary>
-        private void BuildSavannaScatter()
-        {
-            DisposeAcacia();
-
-            CampfireConfig cf = _savannaConfig.Campfire;
-            int fires = SavannaCampfireCount;
-            var reserved = new List<ScatterSpacing.Footprint>(fires);
-            float hearth = cf.FlameSize * (cf.StoneRingScale + cf.StoneSizeScale) + 1f;
-            for (int fire = 0; fire < fires; fire++)
-            {
-                Vector3 at = SavannaCampfirePosition(fire);
-                reserved.Add(new ScatterSpacing.Footprint(at.X, at.Z, hearth));
-            }
-
-            _savannaScatter = new SavannaScatter(_graphicsDevice, _savannaConfig, SavannaGroundHeight, reserved,
-                SavannaScatter.DEFAULT_SEED + _seedOffset);
-
-            //And where the trails have to go round it (#476): built from the planting that has just been
-            //done, so the field and the plants it bends for cannot disagree. Rebuilt with the scatter for
-            //the same reason: a field left behind by a planting would send the paths round trees that are no
-            //longer there.
-            _trailWarp?.Dispose();
-            _trailWarp = _savannaConfig.TrailAvoidOffset > 0f
-                ? new TrailWarpField(_graphicsDevice, _savannaScatter.Standing,
-                    _savannaConfig.TrailAvoidMinRadius, _savannaConfig.TrailAvoidReach,
-                    _savannaConfig.TrailAvoidOffset, SAVANNA_EXTENT)
-                : null;
-
-            //⚠ And the uniforms are pushed HERE rather than in ApplySavannaParameters, which is where every
-            //other savanna dial goes: that method runs BEFORE the planting does, so the texture it pushed
-            //was always null and the warp never reached the shader. It cost one capture pair that looked
-            //exactly like the feature not working — the paths were identical with it on and off, because
-            //it was off both times.
-            _savannaEffect.Parameters["TrailWarpTexture"].SetValue(_trailWarp?.Texture);
-            _savannaEffect.Parameters["TrailWarpExtent"].SetValue(_trailWarp?.Extent ?? 1f);
-            _savannaEffect.Parameters["TrailWarpAmount"].SetValue(_trailWarp == null ? 0f : _trailWarp.MaxOffset);
-        }
-
-
-        /// <summary>
-        /// (Re)builds the ring of stones around each fire (#282): a few boulders of a handful of variants,
-        /// set into the ground at their own spot on the terrain, rolled once and kept.
-        /// <para>
-        /// <b>Everything is sized off <see cref="CampfireConfig.FlameSize"/></b> rather than in world units,
-        /// so a hearth belongs to the fire standing in it — these flames are 14 units tall at the shipped
-        /// config, and a hearth measured once by hand would be a kerb of pebbles the day somebody widened
-        /// them. The stones are sunk by a fraction of their own height, which is what makes a stone read as
-        /// SET into the earth rather than resting on it: a lathe's flat underside meeting a rolling terrain
-        /// at exactly ground level shows daylight under one side of every stone on a slope.
-        /// </para>
-        /// </summary>
-        private void BuildHearthStones()
-        {
-            DisposeHearthStones();
-
-            CampfireConfig cf = _savannaConfig.Campfire;
-            _hearthStoneColor = cf.StoneColor.ToVector3();
-            _hearthStoneFirelight = cf.StoneFirelight;
-
-            int stones = Math.Max(0, cf.StoneCount);
-            if (stones == 0) return;
-
-            float size = cf.FlameSize * cf.StoneSizeScale;
-            float ring = cf.FlameSize * cf.StoneRingScale;
-
-            //Three shapes rather than one, for the reason the acacias have four: the eye reads the repeat
-            //before it reads the stone. A ring takes one of them, so two neighbouring hearths differ as
-            //wholes as well - which is what a camera walking the island past several of them shows.
-            const int VARIANTS = 3;
-            _hearthStoneMeshes = new RockMesh[VARIANTS];
-            for (int v = 0; v < VARIANTS; v++)
-            {
-                _hearthStoneMeshes[v] = new RockMesh(_graphicsDevice,
-                    radius: size * (0.82f + 0.18f * v),
-                    height: size * (0.78f - 0.14f * v),
-                    irregularityPhase: 1.7f * v);
-            }
-
-            int fires = SavannaCampfireCount;
-            Random rng = new(28204 + _seedOffset);
-            _hearthStoneInstances = new ModelInstance[fires][];
-
-            for (int fire = 0; fire < fires; fire++)
-            {
-                Vector3 at = SavannaCampfirePosition(fire);
-                ModelInstance[] ring_ = new ModelInstance[stones];
-
-                for (int s = 0; s < stones; s++)
-                {
-                    //Evenly spaced and then jittered, both in angle and in how far out it sits: a ring of
-                    //stones laid by hand is regular in intent and irregular in fact.
-                    float angle = (s + (float)rng.NextDouble() * 0.4f - 0.2f) * MathHelper.TwoPi / stones;
-                    float radius = ring * (0.88f + 0.24f * (float)rng.NextDouble());
-
-                    float x = at.X + MathF.Cos(angle) * radius;
-                    float z = at.Z + MathF.Sin(angle) * radius;
-
-                    float scale = 0.72f + 0.55f * (float)rng.NextDouble();
-                    float yaw = (float)rng.NextDouble() * MathHelper.TwoPi;
-                    float tiltDir = (float)rng.NextDouble() * MathHelper.TwoPi;
-                    float tilt = 0.10f + 0.16f * (float)rng.NextDouble();
-
-                    //Sunk by a fifth of its own height. The scale rides in the same matrix, so the sink has
-                    //to be scaled with it or the small stones bury and the big ones float.
-                    float y = SavannaGroundHeight(x, z) - size * scale * 0.2f;
-
-                    Matrix world = Matrix.CreateScale(scale)
-                        * Matrix.CreateFromAxisAngle(new Vector3(MathF.Cos(tiltDir), 0f, MathF.Sin(tiltDir)), tilt)
-                        * Matrix.CreateRotationY(yaw)
-                        * Matrix.CreateTranslation(x, y, z);
-
-                    ring_[s] = new ModelInstance(world, Vector4.Zero);
-                }
-
-                _hearthStoneInstances[fire] = ring_;
-            }
-        }
-
-        /// <summary>Disposes the hearth stone meshes — called on a rebuild and on teardown, like the acacias'.</summary>
-        private void DisposeHearthStones()
-        {
-            if (_hearthStoneMeshes != null) foreach (RockMesh mesh in _hearthStoneMeshes) mesh?.Dispose();
-            _hearthStoneMeshes = null;
-            _hearthStoneInstances = null;
-        }
-
-        /// <summary>
-        /// Disposes the acacia meshes and the shared instance buffer — called on a rebuild (a terrain or config
-        /// change re-plants the scatter) and on the renderer's own <see cref="Dispose"/>.
-        /// </summary>
-        private void DisposeAcacia()
-        {
-            _savannaScatter?.Dispose();
-            _savannaScatter = null;
-            _acaciaInstanceBuffer?.Dispose();
-            _acaciaInstanceBuffer = null;
-        }
-
-        /// <summary>
-        /// (Re)builds the tropical scatter: the palm variants and the waterline's rock variants, and each
-        /// one's per-variant instance matrices. Palms are planted only on <b>dry</b> sand (a height test
-        /// against the water level, which follows the wiggling waterline) and rocks only in the band
-        /// straddling it, so a shore edit re-plants the whole scatter — the same contract
-        /// <see cref="BuildSavannaScatter"/> holds. Clumped around cluster centres with a few solos, kept
-        /// out of each other by <see cref="ScatterSpacing"/>'s rule; the palms share one occupancy list,
-        /// the rocks keep their own (a boulder at a palm's foot is what a beach looks like — the forest's
-        /// own split). Deterministic seed, so the same config always gives the same beach.
-        /// </summary>
-        private void BuildTropicalBuffers()
-        {
-            DisposeTropical();
-
-            TropicalTerrainConfig terrain = _tropicalConfig.Terrain;
-            PalmConfig palms = _tropicalConfig.Palms;
-            TropicalRockConfig rocks = _tropicalConfig.Rocks;
-            float waterY = _tropicalConfig.Water.LevelY;
-            Random rng = new(244 + _seedOffset);
-
-            //--- The palm variants: rolled proportions and structural seeds, so a grove is a mix rather
-            //than one palm stamped out. The variety is in the mesh and never in a per-instance stretch
-            //(the shader transforms normals by the world matrix — a squashed palm would shade as the
-            //shape it was authored at).
-            const int PALM_VARIANTS = 4;
-            _palmMeshes = new PalmMesh[PALM_VARIANTS];
-            _palmDryness = new float[PALM_VARIANTS];
-            for (int m = 0; m < PALM_VARIANTS; m++)
-            {
-                float h = 0.82f + 0.36f * (float)rng.NextDouble();
-                _palmMeshes[m] = new PalmMesh(_graphicsDevice,
-                    trunkRadius: palms.TrunkRadius * (0.85f + 0.3f * (float)rng.NextDouble()),
-                    height: palms.Height * h,
-                    frondLength: palms.FrondLength * (0.8f + 0.4f * (float)rng.NextDouble()),
-                    seed: 6100 + m);
-                _palmDryness[m] = (float)rng.NextDouble();
-            }
-
-            //--- The rock variants: the stone (RockMesh, the forest's own boulder) and its moss cap —
-            //a low lathe dome whose rim is buried in the stone's upper flank and whose own irregularity
-            //phase runs against the stone's, so where the green meets the grey is a ragged line that
-            //no two rocks share. The cap is a second mesh over the same instance, which is why its
-            //offset is baked into its profile rather than into the instance matrix.
-            //--- The beach's dressing (#445) ----------------------------------------------------------
-            //Every reference of this beach has the same three things the scene had none of: a band of low
-            //green scrub and sea grass at the tree line, and driftwood lying on the sand. None of them needs
-            //a new mesh - the savanna's scrub foliage, its grass tuft and its fallen log are exactly these
-            //things at a different size and colour, which is the whole point of keeping the mesh library
-            //game-agnostic.
-            TropicalDressingConfig dressing = _tropicalConfig.Dressing;
-
-            const int SCRUB_VARIANTS = 3, TUFT_VARIANTS = 3, DRIFT_VARIANTS = 3;
-            _tropicalScrubMeshes = new FoliageMesh[SCRUB_VARIANTS];
-            for (int m = 0; m < SCRUB_VARIANTS; m++)
-            {
-                //⚠ Taller than it is wide is wrong for a savanna bush and right for this one. At the
-                //savanna's own proportions (a little over half its radius) a beach bush photographed from
-                //above as a flat green puddle lying on the sand, because that is what a wide low dome IS
-                //when the camera looks down on it - and the elevated three-quarter view is the one this
-                //scene is framed in. Beach scrub grows in rounded clumps; near its own width in height is
-                //what makes it read as a clump rather than as paint.
-                float r = dressing.ScrubSize * (0.75f + 0.5f * (float)rng.NextDouble());
-                float hh = r * (0.75f + 0.35f * (float)rng.NextDouble());
-                _tropicalScrubMeshes[m] = new FoliageMesh(_graphicsDevice, r, hh,
-                    centreY: hh * 0.8f, seed: 6200 + m, style: FoliageStyle.Scrub);
-            }
-
-            _tropicalTuftMeshes = new GrassTuftMesh[TUFT_VARIANTS];
-            for (int m = 0; m < TUFT_VARIANTS; m++)
-            {
-                float r = dressing.TuftSize * (0.8f + 0.4f * (float)rng.NextDouble());
-                _tropicalTuftMeshes[m] = new GrassTuftMesh(_graphicsDevice, r,
-                    r * (1.3f + 0.6f * (float)rng.NextDouble()), 6230 + m);
-            }
-
-            _tropicalDriftMeshes = new DeadwoodMesh[DRIFT_VARIANTS];
-            for (int m = 0; m < DRIFT_VARIANTS; m++)
-            {
-                _tropicalDriftMeshes[m] = new DeadwoodMesh(_graphicsDevice,
-                    length: dressing.DriftLength * (0.7f + 0.6f * (float)rng.NextDouble()),
-                    radius: dressing.DriftRadius * (0.8f + 0.5f * (float)rng.NextDouble()),
-                    seed: 6260 + m);
-            }
-
-            const int ROCK_VARIANTS = 3;
-            _tropicalRockMeshes = new RockMesh[ROCK_VARIANTS];
-            _tropicalMossMeshes = new LatheMesh[ROCK_VARIANTS];
-            for (int m = 0; m < ROCK_VARIANTS; m++)
-            {
-                float w = 0.75f + 0.5f * (float)rng.NextDouble();
-                float hh = 0.7f + 0.6f * (float)rng.NextDouble();
-                _tropicalRockMeshes[m] = new RockMesh(_graphicsDevice,
-                    radius: rocks.Radius * w, height: rocks.Height * hh,
-                    irregularityPhase: 0.31f * m);
-                _tropicalMossMeshes[m] = BuildMossCap(rocks.Radius * w, rocks.Height * hh, 0.57f + 0.22f * m);
-            }
-
-            var palmBuckets = new List<ModelInstance>[PALM_VARIANTS];
-            for (int m = 0; m < PALM_VARIANTS; m++) palmBuckets[m] = new List<ModelInstance>();
-            var rockBuckets = new List<ModelInstance>[ROCK_VARIANTS];
-            for (int m = 0; m < ROCK_VARIANTS; m++) rockBuckets[m] = new List<ModelInstance>();
-
-            //Cluster centres the palms gather around, in the dry ring.
-            float[] clusterX = new float[palms.Clusters];
-            float[] clusterZ = new float[palms.Clusters];
-            for (int c = 0; c < palms.Clusters; c++)
-            {
-                float ca = (float)rng.NextDouble() * MathHelper.TwoPi;
-                float cr = palms.MinRadius + (float)rng.NextDouble() * (palms.MaxRadius - palms.MinRadius);
-                clusterX[c] = MathF.Cos(ca) * cr;
-                clusterZ[c] = MathF.Sin(ca) * cr;
-            }
-
-            List<ScatterSpacing.Footprint> standing = new(palms.Count);
-            var palmFigures = new List<PlantFigure>(palms.Count);
-            var rockFigures = new List<PlantFigure>(rocks.Count);
-
-            for (int i = 0; i < palms.Count; i++)
-            {
-                float rand = (float)rng.NextDouble();
-                //A per-plant uniform scale around 1, so one variant mesh reads as several palms.
-                float sizeScale = 0.75f + 0.5f * rand;
-                float halfWidth = palms.FrondLength * sizeScale;
-
-                //Everything that shapes this palm is rolled BEFORE it is placed (#555), because where it may
-                //stand depends on where its crown ends up: the variant (whose trunk bows its crown off the
-                //axis), the yaw that turns that bow, and the lean. See the orbit test in the loop below.
-                int variant = rng.Next(PALM_VARIANTS);
-                PalmMesh mesh = _palmMeshes[variant];
-                float yaw = (float)rng.NextDouble() * MathHelper.TwoPi;
-                float leanJitter = ((float)rng.NextDouble() - 0.5f) * 1.4f;
-                float lean = 0.08f + 0.55f * (float)rng.NextDouble() * (float)rng.NextDouble();
-
-                float x = 0f, z = 0f;
-                float bestClearance = float.NegativeInfinity;
-                Matrix world = Matrix.Identity;
-
-                for (int attempt = 0; attempt < ScatterSpacing.TRIES; attempt++)
-                {
-                    float cx, cz;
-                    if (rng.NextDouble() < 0.82) //most palms clump around a cluster centre
-                    {
-                        int c = rng.Next(palms.Clusters);
-                        float off = (float)rng.NextDouble();
-                        float d = off * off * palms.ClusterSpread; //denser towards the centre
-                        float da = (float)rng.NextDouble() * MathHelper.TwoPi;
-                        cx = clusterX[c] + MathF.Cos(da) * d;
-                        cz = clusterZ[c] + MathF.Sin(da) * d;
-                    }
-                    else //the odd solitary palm, anywhere in the ring
-                    {
-                        float a = (float)rng.NextDouble() * MathHelper.TwoPi;
-                        float r = palms.MinRadius + (float)rng.NextDouble() * (palms.MaxRadius - palms.MinRadius);
-                        cx = MathF.Cos(a) * r;
-                        cz = MathF.Sin(a) * r;
-                    }
-
-                    //Keep clear of the island
-                    float dist = MathF.Sqrt(cx * cx + cz * cz);
-                    if (dist < palms.MinRadius && dist > 0.01f)
-                    {
-                        cx *= palms.MinRadius / dist;
-                        cz *= palms.MinRadius / dist;
-                    }
-
-                    //Only on DRY sand: a palm planted where the surf reaches is standing in the sea. The
-                    //margin keeps the crown's swaying tips clear of the waterline rather than only the
-                    //trunk's root. A candidate that fails this is simply not a candidate.
-                    if (TerrainMirror.Tropical(cx, cz, _tropicalConfig) < waterY + 1.1f) continue;
-
-                    //Sunk a fraction into the sand, the forest scatter's own figure: a palm planted at the
-                    //exact surface reads as standing on a pinhead from anywhere but head-on, and the flare
-                    //at the root is what wants burying.
-                    Vector3 basePos = new(cx, TerrainMirror.Tropical(cx, cz, _tropicalConfig) - 0.15f, cz);
-                    Matrix candidate = PalmWorld(basePos, sizeScale, yaw, lean, leanJitter);
-
-                    //⚠ THE CROWN, NOT THE ROOT, HAS TO CLEAR THE FRONT END'S ORBIT (#555). MinRadius alone was
-                    //enough while a palm was 12 units tall; at the heights the owner asked for, the trunk's bow
-                    //carries a crown several units off its root, and a root on the ring's inner edge could hang
-                    //its crown into the orbit's wide leg. So the test is the crown's own world position less
-                    //everything a frond can reach, against the widest orbit plus a unit of air.
-                    Vector3 crown = Vector3.Transform(mesh.Crown, candidate);
-                    float crownInner = MathF.Sqrt(crown.X * crown.X + crown.Z * crown.Z) - mesh.FrondReach * sizeScale;
-                    if (crownInner < palms.OrbitClearance) continue;
-
-                    float clearance = ScatterSpacing.Clearance(cx, cz, halfWidth, standing);
-
-                    if (clearance > bestClearance)
-                    {
-                        bestClearance = clearance;
-                        x = cx;
-                        z = cz;
-                        world = candidate;
-                    }
-
-                    if (clearance >= 0f) break;
-                }
-
-                //Never dropped for want of room (the forest's rule) — but if every candidate was in the
-                //sea, or hung its crown into the orbit, this palm has nowhere to stand, and standing it in
-                //the surf or in the lens's path is the worse bug.
-                if (bestClearance == float.NegativeInfinity) continue;
-
-                standing.Add(new ScatterSpacing.Footprint(x, z, halfWidth));
-                palmBuckets[variant].Add(new ModelInstance(world, Vector4.Zero));
-                //The figure's stem is the chord from the root to the crown; the trunk bows off that chord by a
-                //fraction of how far the crown stands off the root, so the stem is widened by that much.
-                Vector3 crownAt = Vector3.Transform(mesh.Crown, world);
-                float bow = 0.25f * new Vector2(crownAt.X - world.M41, crownAt.Z - world.M43).Length();
-                palmFigures.Add(new PlantFigure(world.Translation, crownAt,
-                    mesh.FrondReach * sizeScale, palms.TrunkRadius * 1.15f * sizeScale + bow));
-            }
-
-            //The rocks: strung along the waterline by the height band alone, which follows the coast's
-            //wiggle exactly — a rock half in the water is what the band is for. Their own occupancy
-            //list, and a tumble a boulder washed by surf has earned (sunk a little, so the turn never
-            //floats a face above the sand).
-            List<ScatterSpacing.Footprint> rockStanding = new(rocks.Count);
-            for (int i = 0; i < rocks.Count; i++)
-            {
-                float sizeScale = 0.7f + 0.6f * (float)rng.NextDouble();
-                float halfWidth = rocks.Radius * sizeScale;
-
-                float x = 0f, z = 0f;
-                float bestClearance = float.NegativeInfinity;
-
-                for (int attempt = 0; attempt < ScatterSpacing.TRIES; attempt++)
-                {
-                    float a = (float)rng.NextDouble() * MathHelper.TwoPi;
-                    float r = rocks.MinRadius + (float)rng.NextDouble() * (rocks.MaxRadius - rocks.MinRadius);
-                    float cx = MathF.Cos(a) * r;
-                    float cz = MathF.Sin(a) * r;
-
-                    float h = TerrainMirror.Tropical(cx, cz, _tropicalConfig);
-                    if (h < waterY - 0.5f || h > waterY + 2.6f) continue; //the waterline band, and only it
-
-                    float clearance = ScatterSpacing.Clearance(cx, cz, halfWidth, rockStanding);
-
-                    if (clearance > bestClearance)
-                    {
-                        bestClearance = clearance;
-                        x = cx;
-                        z = cz;
-                    }
-
-                    if (clearance >= 0f) break;
-                }
-
-                if (bestClearance == float.NegativeInfinity) continue;
-
-                rockStanding.Add(new ScatterSpacing.Footprint(x, z, halfWidth));
-
-                Vector3 basePos = new(x, TerrainMirror.Tropical(x, z, _tropicalConfig) - 0.2f, z);
-
-                float yaw = (float)rng.NextDouble() * MathHelper.TwoPi;
-                float tumble = 0.3f * (float)rng.NextDouble();
-                float tumbleDir = (float)rng.NextDouble() * MathHelper.TwoPi;
-                Matrix world = Matrix.CreateScale(sizeScale)
-                    * Matrix.CreateFromAxisAngle(new Vector3(MathF.Cos(tumbleDir), 0f, MathF.Sin(tumbleDir)), tumble)
-                    * Matrix.CreateRotationY(yaw)
-                    * Matrix.CreateTranslation(basePos);
-
-                int rockVariant = rng.Next(ROCK_VARIANTS);
-                rockBuckets[rockVariant].Add(new ModelInstance(world, Vector4.Zero));
-                rockFigures.Add(PlantFigure.Of(_tropicalRockMeshes[rockVariant].BoundingSphere, world, 0f));
-            }
-
-            //--- Planting the dressing (#445) ---------------------------------------------------------
-            //All three are scattered AFTER the palms and the rocks, and that ordering is load-bearing for the
-            //same reason the aurora's snags record: everything here draws from one rng stream, so anything
-            //inserted earlier would re-roll the whole beach behind it.
-            //
-            //No spacing test and no clearance search: these are small, they are allowed to grow against a
-            //trunk and into each other, and a tuft rejected for want of room is a tuft nobody would have
-            //missed. What each one IS tested for is the ground it stands on - the scrub and the grass want
-            //dry sand above the surf, the driftwood wants the wet band the sea actually throws it onto.
-            var scrubBuckets = new List<ModelInstance>[SCRUB_VARIANTS];
-            for (int m = 0; m < SCRUB_VARIANTS; m++) scrubBuckets[m] = new List<ModelInstance>();
-            var tuftBuckets = new List<ModelInstance>[TUFT_VARIANTS];
-            for (int m = 0; m < TUFT_VARIANTS; m++) tuftBuckets[m] = new List<ModelInstance>();
-            var driftBuckets = new List<ModelInstance>[DRIFT_VARIANTS];
-            for (int m = 0; m < DRIFT_VARIANTS; m++) driftBuckets[m] = new List<ModelInstance>();
-
-            float dressInner = MathF.Max(dressing.MinRadius, 1f);
-            float dressOuter = MathF.Max(dressing.MaxRadius, dressInner + 1f);
-
-            for (int i = 0; i < dressing.ScrubCount + dressing.TuftCount; i++)
-            {
-                bool isScrub = i < dressing.ScrubCount;
-
-                //Clumped the way the palms are, because undergrowth grows in thickets rather than evenly -
-                //and around the palms' OWN cluster centres, so the green gathers where the shade is.
-                float cx, cz;
-                if (rng.NextDouble() < 0.78)
-                {
-                    int c = rng.Next(palms.Clusters);
-                    float off = (float)rng.NextDouble();
-                    float d = off * off * palms.ClusterSpread * 1.25f;
-                    float da = (float)rng.NextDouble() * MathHelper.TwoPi;
-                    cx = clusterX[c] + MathF.Cos(da) * d;
-                    cz = clusterZ[c] + MathF.Sin(da) * d;
-                }
-                else
-                {
-                    float a = (float)rng.NextDouble() * MathHelper.TwoPi;
-                    float r = dressInner + (float)rng.NextDouble() * (dressOuter - dressInner);
-                    cx = MathF.Cos(a) * r;
-                    cz = MathF.Sin(a) * r;
-                }
-
-                float dist = MathF.Sqrt(cx * cx + cz * cz);
-                if (dist < dressInner || dist > dressOuter) continue;
-
-                float gh = TerrainMirror.Tropical(cx, cz, _tropicalConfig);
-                if (gh < waterY + 0.35f) continue;   //dry sand only: nothing green grows in the surf
-
-                float size = 0.7f + 0.6f * (float)rng.NextDouble();
-                Matrix world = Matrix.CreateScale(size)
-                    * Matrix.CreateRotationY((float)rng.NextDouble() * MathHelper.TwoPi)
-                    * Matrix.CreateTranslation(new Vector3(cx, gh - 0.08f, cz));
-
-                if (isScrub) scrubBuckets[rng.Next(SCRUB_VARIANTS)].Add(new ModelInstance(world, Vector4.Zero));
-                else tuftBuckets[rng.Next(TUFT_VARIANTS)].Add(new ModelInstance(world, Vector4.Zero));
-            }
-
-            for (int i = 0; i < dressing.DriftCount; i++)
-            {
-                float a = (float)rng.NextDouble() * MathHelper.TwoPi;
-                float r = dressInner + (float)rng.NextDouble() * (dressOuter - dressInner);
-                float cx = MathF.Cos(a) * r;
-                float cz = MathF.Sin(a) * r;
-
-                //The band the sea throws a log onto and leaves it: from a little under the waterline to a
-                //couple of units above, which is the rocks' own band and for the same reason.
-                float gh = TerrainMirror.Tropical(cx, cz, _tropicalConfig);
-                if (gh < waterY - 0.3f || gh > waterY + 2.2f) continue;
-
-                //A log lies where the last wave left it, so it lies ALONG the waterline more often than
-                //across it - the yaw is the tangent, scattered by about 50 degrees either way.
-                float tangent = MathF.Atan2(cx, -cz);
-                float yaw = tangent + ((float)rng.NextDouble() - 0.5f) * 1.8f;
-                float size = 0.8f + 0.5f * (float)rng.NextDouble();
-
-                Matrix world = Matrix.CreateScale(size)
-                    * Matrix.CreateRotationY(yaw)
-                    * Matrix.CreateTranslation(new Vector3(cx, gh, cz));
-
-                driftBuckets[rng.Next(DRIFT_VARIANTS)].Add(new ModelInstance(world, Vector4.Zero));
-            }
-
-            _tropicalScrubInstances = new StaticInstances[SCRUB_VARIANTS];
-            for (int m = 0; m < SCRUB_VARIANTS; m++) _tropicalScrubInstances[m] = new StaticInstances(_graphicsDevice, scrubBuckets[m]);
-            _tropicalTuftInstances = new StaticInstances[TUFT_VARIANTS];
-            for (int m = 0; m < TUFT_VARIANTS; m++) _tropicalTuftInstances[m] = new StaticInstances(_graphicsDevice, tuftBuckets[m]);
-            _tropicalDriftInstances = new StaticInstances[DRIFT_VARIANTS];
-            for (int m = 0; m < DRIFT_VARIANTS; m++) _tropicalDriftInstances[m] = new StaticInstances(_graphicsDevice, driftBuckets[m]);
-
-            _palmFigures = palmFigures.ToArray();
-            _tropicalRockFigures = rockFigures.ToArray();
-
-            _palmInstances = new StaticInstances[PALM_VARIANTS];
-            for (int m = 0; m < PALM_VARIANTS; m++) _palmInstances[m] = new StaticInstances(_graphicsDevice, palmBuckets[m]);
-            _tropicalRockInstances = new StaticInstances[ROCK_VARIANTS];
-            for (int m = 0; m < ROCK_VARIANTS; m++) _tropicalRockInstances[m] = new StaticInstances(_graphicsDevice, rockBuckets[m]);
-        }
-
-        /// <summary>
-        /// The moss cap over a waterline rock: a low lathe dome, its rim buried in the stone's upper
-        /// flank and its crown a shade over the stone's own, traced top → outside → underside as
-        /// <see cref="LatheMesh"/> documents. The cap is drawn at 0.84 of the stone's radius with its
-        /// rim well under the stone's surface at that radius (the stone is a dome — its flank falls
-        /// away outwards, so a cap as wide as the stone itself would float over its rim), and the
-        /// irregularity amplitude is the stone's own share of the radius, so the cap's silhouette
-        /// breaks as hard as the boulder's does under it. Where the green emerges over the grey is the
-        /// two wobbles disagreeing, which no two rocks share.
-        /// </summary>
-        private LatheMesh BuildMossCap(float radius, float height, float irregularityPhase)
-        {
-            float capRadius = radius * 0.84f;
-            float crownY = height * 1.04f;
-            float rimY = height * 0.45f;
-
-            var profile = new List<LathePoint>
-            {
-                new(0f, crownY, crease: true),                                  //the moss's crown
-                new(capRadius * 0.34f, crownY, wobble: 1f),
-                new(capRadius * 0.66f, rimY + (crownY - rimY) * 0.55f, wobble: 1f),
-                new(capRadius, rimY, crease: true, wobble: 1f),                //where the green meets the grey
-                new(capRadius * 0.74f, rimY - 0.18f, wobble: 1f),              //tucked under, sunk into the stone
-                new(0f, rimY - 0.18f)
-            };
-
-            return new LatheMesh(_graphicsDevice, profile, 16, irregularityAmplitude: capRadius * 0.30f,
-                irregularityPhase: irregularityPhase);
-        }
-
-        /// <summary>
-        /// One palm's instance matrix: its uniform size, a free yaw about its own axis, then the lean, then
-        /// the root's place on the sand.
-        /// <para>
-        /// ⚠ <b>THE YAW GOES BEFORE THE LEAN, and until #555 it went after it.</b> Row-vector matrices apply
-        /// left to right, so <c>Scale · Lean · Yaw</c> leaned the palm seaward and then spun the leaning
-        /// palm about the WORLD's Y axis by a random angle — which threw away the whole seaward bias #445
-        /// built, and palms leaned in over the arena as often as out over the water (the elevated capture in
-        /// #555's before set shows it plainly). Yawed first, the turn only spins the mesh's own bow and crown
-        /// about the trunk, and the lean that follows is the lean stated below.
-        /// </para>
-        /// <para>
-        /// The lean is SEAWARD and large (#445): the silhouette a palm is recognised by is its lean, every
-        /// reference leans 20 to 45 degrees, and out over the water, where the light is. A leaning palm reads
-        /// as wind-shaped and a tilted one as felled, which is what the bias is for — the axis is the
-        /// outward bearing's, scattered by <paramref name="leanJitter"/> (±0.7 rad, about 40 degrees).
-        /// Tilting +Y towards the outward unit (ux, uz) means rotating about (uz, 0, -ux): for a right-handed
-        /// rotation about A the velocity of Y is A x Y, which for a horizontal A is (-Az, 0, Ax).
-        /// </para>
-        /// </summary>
-        private static Matrix PalmWorld(Vector3 basePos, float sizeScale, float yaw, float lean, float leanJitter)
-        {
-            float r = MathF.Sqrt(basePos.X * basePos.X + basePos.Z * basePos.Z);
-            float ux = r > 1e-3f ? basePos.X / r : 1f;
-            float uz = r > 1e-3f ? basePos.Z / r : 0f;
-            float leanDir = MathF.Atan2(-ux, uz) + leanJitter;
-            return Matrix.CreateScale(sizeScale)
-                * Matrix.CreateRotationY(yaw)
-                * Matrix.CreateFromAxisAngle(new Vector3(MathF.Cos(leanDir), 0f, MathF.Sin(leanDir)), lean)
-                * Matrix.CreateTranslation(basePos);
-        }
-
-        private static void DisposeInstances(StaticInstances[] sets)
-        {
-            if (sets != null) foreach (StaticInstances set in sets) set.Dispose();
-        }
-
-        /// <summary>
-        /// Disposes the palm and rock meshes and their instance buffers — called on a rebuild (a
-        /// shore or config edit re-plants the scatter) and on the renderer's own <see cref="Dispose"/>.
-        /// </summary>
-        private void DisposeTropical()
-        {
-            if (_palmMeshes != null) foreach (PalmMesh mesh in _palmMeshes) mesh?.Dispose();
-            if (_tropicalScrubMeshes != null) foreach (FoliageMesh mesh in _tropicalScrubMeshes) mesh?.Dispose();
-            if (_tropicalTuftMeshes != null) foreach (GrassTuftMesh mesh in _tropicalTuftMeshes) mesh?.Dispose();
-            if (_tropicalDriftMeshes != null) foreach (DeadwoodMesh mesh in _tropicalDriftMeshes) mesh?.Dispose();
-            if (_tropicalRockMeshes != null) foreach (RockMesh mesh in _tropicalRockMeshes) mesh?.Dispose();
-            if (_tropicalMossMeshes != null) foreach (LatheMesh mesh in _tropicalMossMeshes) mesh?.Dispose();
-            DisposeInstances(_palmInstances);
-            DisposeInstances(_tropicalRockInstances);
-            DisposeInstances(_tropicalScrubInstances);
-            DisposeInstances(_tropicalTuftInstances);
-            DisposeInstances(_tropicalDriftInstances);
-            _palmMeshes = null;
-            _tropicalScrubMeshes = null;
-            _tropicalTuftMeshes = null;
-            _tropicalDriftMeshes = null;
-            _tropicalRockMeshes = null;
-            _tropicalMossMeshes = null;
-        }
-
         #region The scenes' public queries: the volcano's, the strange scenes' things, the staged events (#580 moved their bodies)
-
-        //The billboard particles are a service since #580 (BackdropServices.BuildBillboardParticles), the volcano's
-        //backdrop building its fountains and ash through it; the renderer's own callers keep this name
-        private void BuildBillboardParticles(int count, int seed, ref VertexBuffer vertexBuffer, ref IndexBuffer indexBuffer) =>
-            _services.BuildBillboardParticles(count, seed, ref vertexBuffer, ref indexBuffer);
 
         /// <summary>
         /// The volcano's ground height at a world point, for a host laying a camera path over the cone (the
@@ -2367,14 +1160,9 @@ namespace Prazsky.Core.Render
         {
             if (BackdropFor(scene) is { } backdrop) return backdrop.TryGetTerrainProbe(out effect, out mirror);
 
-            (effect, mirror) = scene switch
-            {
-                SceneKind.Savanna => (_savannaEffect, (x, z) => TerrainMirror.Savanna(x, z, _savannaConfig)),
-                SceneKind.Tropical => (_tropicalEffect, (x, z) => TerrainMirror.Tropical(x, z, _tropicalConfig)),
-                _ => ((Effect)null, (Func<float, float, float>)null),
-            };
-
-            return effect != null;
+            effect = null;
+            mirror = null;
+            return false;
         }
 
         /// <summary>
@@ -2494,26 +1282,6 @@ namespace Prazsky.Core.Render
 
         #endregion
 
-        private void ApplySprayParameters()
-        {
-            _sprayEffect.Parameters["SprayBoxSize"].SetValue(_seaConfig.Spray.BoxSize.ToVector3());
-            _sprayEffect.Parameters["SprayLevelY"].SetValue(_seaConfig.LevelY + _seaConfig.Spray.LevelYAboveSea);
-            _sprayEffect.Parameters["SprayWind"].SetValue(_seaConfig.Spray.Wind.ToVector2());
-            _sprayEffect.Parameters["SprayRise"].SetValue(_seaConfig.Spray.Rise);
-            _sprayEffect.Parameters["SprayTurb"].SetValue(_seaConfig.Spray.Turbulence);
-            _sprayEffect.Parameters["DropletSize"].SetValue(_seaConfig.Spray.DropletSize);
-            _sprayEffect.Parameters["SprayColor"].SetValue(_seaConfig.Spray.Color.ToVector3());
-            _sprayEffect.Parameters["SprayOpacity"].SetValue(_seaConfig.Spray.Opacity);
-        }
-
-        /// <summary>(Re)builds the spray's particle buffer at the config's particle count. Deterministic seed.</summary>
-        private void BuildSprayBuffers() =>
-            BuildBillboardParticles(_seaConfig.Spray.ParticleCount, 5023, ref _sprayVertexBuffer, ref _sprayIndexBuffer);
-
-        //The savanna's two programs (#281), the meadow's pair: the reduced one gives up the tuft gaps and the blade strokes
-        private void SelectSavannaTechnique() =>
-            _savannaEffect.CurrentTechnique = _savannaEffect.Techniques[_sceneDetail > 0.5f ? "Savanna" : "SavannaReduced"];
-
         /// <summary>
         /// Points every scene that has a reduced program at it or at its full one — the forest's floor first, whose
         /// measurement this is (ForestBackdrop's pick since #580, with the rest). By <b>technique</b> and not by a
@@ -2523,8 +1291,6 @@ namespace Prazsky.Core.Render
         /// </summary>
         private void SelectDetailTechniques()
         {
-            SelectSavannaTechnique();
-
             //The dream's, the cavern's, Mars's, the mountain's, the meadow's and the forest's picks moved into their backdrops
             //with the rest of them (#580)
             foreach (Backdrop backdrop in _backdrops) backdrop?.OnDetailChanged(_sceneDetail);
@@ -2552,15 +1318,10 @@ namespace Prazsky.Core.Render
 
         #endregion
 
-        /// <summary>A terrain grid from the shared cache; see <see cref="BackdropServices.AcquireGridMesh"/>.</summary>
-        private void AcquireGridMesh(int n, float extent, out VertexBuffer vertexBuffer, out IndexBuffer indexBuffer, out int indexCount)
-            => _services.AcquireGridMesh(n, extent, out vertexBuffer, out indexBuffer, out indexCount);
-
         /// <summary>
-        /// Draws the far environment for a natural scene — the sea, the savanna (with its acacias and birds),
-        /// the Sahara dunes (with the same birds), the snowy range, the meadow, the forest floor, deep space,
-        /// the dream, the cavern or the Moon. A no-op for <see cref="SceneKind.City"/>/<see cref="SceneKind.NeonCity"/>,
-        /// which the caller draws itself. Opaque, so it stands in for the city as the thing the arena glass
+        /// Draws the scene's backdrop — its <see cref="Backdrop.Draw"/>, or for the dream and the cavern at a
+        /// supersampled frame <c>DrawBackdropAtDisplayResolution</c>. A no-op for
+        /// <see cref="SceneKind.City"/>/<see cref="SceneKind.NeonCity"/>, which the caller draws itself. Opaque, so it stands in for the city as the thing the arena glass
         /// shows beneath it; it leaves the alpha-blend / back-face-cull state the rest of the opaque scene wants.
         /// <para>
         /// The four sky-replacing draws also touch the <b>depth</b> state: space, the dream and the cavern
@@ -2583,36 +1344,13 @@ namespace Prazsky.Core.Render
                     DrawBackdropAtDisplayResolution(backdrop, frame, sceneTarget);
                 else
                     backdrop.Draw(frame);
-
-                return;
-            }
-
-            switch (scene)
-            {
-                case SceneKind.Sea:
-                    DrawSea(frame);
-                    break;
-                case SceneKind.Savanna:
-                    DrawSavanna(frame);
-                    DrawAcacias(frame);
-                    _birds.Draw(frame, _savannaConfig.Birds);
-                    break;
-                case SceneKind.Tropical:
-                    //The land first (it writes depth), then the lagoon depth-read over the bed it owns,
-                    //then the scatter that stands on the sand, then the flock over the water.
-                    DrawTropicalTerrain(frame);
-                    DrawTropicalWater(frame);
-                    DrawPalms(frame);
-                    DrawTropicalRocks(frame);
-                    DrawTropicalDressing(frame);
-                    _birds.Draw(frame, _tropicalConfig.Birds);
-                    break;
             }
         }
 
         /// <summary>
-        /// Draws the foreground weather that belongs after the opaque scene and the cluster: falling snow in
-        /// the mountain scene, blown spray and spindrift in the sea scene, drifting ash in the volcano.
+        /// Draws the foreground weather that belongs after the opaque scene and the cluster — the backdrop's
+        /// <see cref="Backdrop.DrawOverlays"/>: falling snow in the mountains and the aurora, blown spray and
+        /// spindrift over the sea, drifting ash in the volcano, the fires' flames and sparks on the savanna.
         /// Alpha-blended and depth-read (the terrain/water and the cluster occlude the particles behind them)
         /// but writing no depth. A no-op for every other scene.
         /// <para>
@@ -2621,366 +1359,7 @@ namespace Prazsky.Core.Render
         /// <see cref="DrawEnvironment"/>). Only the ash is genuinely in front of everything.
         /// </para>
         /// </summary>
-        public void DrawOverlays(SceneKind scene, in SceneFrame frame)
-        {
-            if (BackdropFor(scene) is { } backdrop)
-            {
-                backdrop.DrawOverlays(frame);
-                return;
-            }
-
-            if (scene == SceneKind.Sea) DrawSpray(frame);
-            else if (scene == SceneKind.Savanna) DrawFlame(frame);
-        }
-
-        /// <summary>
-        /// Draws the sea: a camera-centred grid (snapped to a cell so the waves do not swim) displaced into
-        /// Gerstner swell with foam, subsurface scattering and a Fresnel reflection of the current dome,
-        /// shadowed by the same cloud field as the rest of the scene.
-        /// </summary>
-        private void DrawSea(in SceneFrame frame)
-        {
-            float cell = SEA_EXTENT / (SEA_GRID_N - 1);
-            float originX = MathF.Round(frame.Camera.Position.X / cell) * cell;
-            float originZ = MathF.Round(frame.Camera.Position.Z / cell) * cell;
-
-            //The pool standing in the drain (#132): the cut around the island keeps a calm disc of water
-            //where the funnel's glass cone crosses the mean level, and discards only the annulus hidden
-            //inside the island's stone. The radius is the cone's own at LevelY — the same straight span
-            //FunnelMesh is built from, so the water and the glass cannot drift — buried POOL_WALL_BIAS into
-            //the glass so no sliver of the wall shows under the water's edge (the buried-edge lesson of
-            //#109). Clamping the span keeps a config that floods the rim or sits below the hole sane. With
-            //TerrainHoleRadius 0 (the map editor) the shader cuts nothing and ignores this figure entirely.
-            float drainRimY = ArenaIsland.TOP_Y - ArenaIsland.DISH_DEPTH;
-            float poolT = Math.Clamp((drainRimY - _seaConfig.LevelY) / (drainRimY - ArenaIsland.FUNNEL_BOTTOM_Y), 0f, 1f);
-            float poolRadius = MathHelper.Lerp(ArenaIsland.FUNNEL_TOP_RADIUS, ArenaIsland.FUNNEL_HOLE_RADIUS, poolT)
-                + POOL_WALL_BIAS;
-
-            _seaEffect.Parameters["OriginXZ"].SetValue(new Vector2(originX, originZ));
-            _seaEffect.Parameters["IslandHoleRadius"].SetValue(TerrainHoleRadius);
-            _seaEffect.Parameters["FunnelPoolRadius"].SetValue(poolRadius);
-            _seaEffect.Parameters["View"].SetValue(frame.Camera.View);
-            _seaEffect.Parameters["Projection"].SetValue(frame.Camera.Projection);
-            _seaEffect.Parameters["CameraPosition"].SetValue(frame.Camera.Position);
-            _seaEffect.Parameters["SunDirection"].SetValue(frame.SunDirection);
-            _seaEffect.Parameters["ZenithColor"].SetValue(frame.ZenithLinear);
-            _seaEffect.Parameters["HorizonColor"].SetValue(frame.HorizonLinear);
-            _seaEffect.Parameters["SeaTime"].SetValue(frame.Time);
-            _seaEffect.Parameters["SunColor"].SetValue(frame.SunColor);
-
-            //The config-static water values are the sea's own since #580 and were pushed once, at load
-            //(ApplySeaParameters): the tropical lagoon draws through its own clone of Sea.fx now, so it
-            //can no longer leave its water in this effect's slots — which is why they were re-pushed here
-            //every frame until then.
-
-            frame.ApplyClouds?.Invoke(_seaEffect);
-
-            _graphicsDevice.BlendState = BlendState.Opaque;
-            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
-            //Depth-read, not depth-write: a missed ball falls through the surface and the sea has to stop
-            //claiming the depth under the waterline so the ball's own pixels run (and fade) instead of being
-            //depth-killed by the surface plane. The island draws after this and is opaque, so it still writes
-            //and owns its own depth; only the open water gives the depth up (#131).
-            _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
-
-            _farField.Begin(_seaEffect, frame, SEA_EXTENT);
-            _graphicsDevice.SetVertexBuffer(_seaVertexBuffer);
-            _graphicsDevice.Indices = _seaIndexBuffer;
-            _seaEffect.CurrentTechnique.Passes[0].Apply();
-            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _seaIndexCount / 3);
-            _farField.DrawRing(_seaEffect, new Vector2(originX, originZ), SEA_EXTENT);
-
-            _graphicsDevice.BlendState = BlendState.AlphaBlend;
-            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
-            _graphicsDevice.DepthStencilState = DepthStencilState.Default;
-        }
-
-        /// <summary>
-        /// Draws the tropical beach (#244): the grid pinned to the camera (snapped to a cell so it does
-        /// not swim), carrying the sand ring, the slope under the waterline, the lagoon bed and the far
-        /// shore ridge, shaded per-pixel by the current dome and shadowed by the shared cloud field.
-        /// The first of the two land draws — the lagoon's water reads the depth this writes. No point
-        /// lights of its own, so like the desert and the outback it sets none.
-        /// </summary>
-        private void DrawTropicalTerrain(in SceneFrame frame)
-        {
-            float cell = TROPICAL_EXTENT / (TROPICAL_GRID_N - 1);
-            float originX = MathF.Round(frame.Camera.Position.X / cell) * cell;
-            float originZ = MathF.Round(frame.Camera.Position.Z / cell) * cell;
-
-            _tropicalEffect.Parameters["OriginXZ"].SetValue(new Vector2(originX, originZ));
-            _tropicalEffect.Parameters["IslandHoleRadius"].SetValue(TerrainHoleRadius);
-            _tropicalEffect.Parameters["View"].SetValue(frame.Camera.View);
-            _tropicalEffect.Parameters["Projection"].SetValue(frame.Camera.Projection);
-            _tropicalEffect.Parameters["CameraPosition"].SetValue(frame.Camera.Position);
-            _tropicalEffect.Parameters["SunDirection"].SetValue(frame.SunDirection);
-            _tropicalEffect.Parameters["ZenithColor"].SetValue(frame.ZenithLinear);
-            _tropicalEffect.Parameters["HorizonColor"].SetValue(frame.HorizonLinear);
-            _tropicalEffect.Parameters["TropicalTime"].SetValue(frame.Time);
-            _tropicalEffect.Parameters["SunColor"].SetValue(frame.SunColor);
-
-            frame.ApplyClouds?.Invoke(_tropicalEffect);
-
-            _graphicsDevice.BlendState = BlendState.Opaque;
-            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
-
-            _farField.Begin(_tropicalEffect, frame, TROPICAL_EXTENT);
-            _graphicsDevice.SetVertexBuffer(_tropicalVertexBuffer);
-            _graphicsDevice.Indices = _tropicalIndexBuffer;
-            _tropicalEffect.CurrentTechnique.Passes[0].Apply();
-            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _tropicalIndexCount / 3);
-            _farField.DrawRing(_tropicalEffect, new Vector2(originX, originZ), TROPICAL_EXTENT);
-
-            _graphicsDevice.BlendState = BlendState.AlphaBlend;
-            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
-        }
-
-        /// <summary>
-        /// Draws the lagoon: the sea's own shader and grid (<c>Sea.fx</c> unchanged), pushed the
-        /// tropical config's water values — calmer swell, turquoise body colours — over the terrain
-        /// <see cref="DrawTropicalTerrain"/> just wrote. States exactly as <see cref="DrawSea"/> sets
-        /// them, for <see cref="DrawSea"/>'s own reasons: opaque and <c>CullNone</c> (one open surface,
-        /// read from above and through the crests), depth-READ so anything under the surface keeps its
-        /// own pixels.
-        /// <para>
-        /// <b>The lagoon draws through its own clone of <c>Sea.fx</c></b> (<c>_lagoonEffect</c>, #580),
-        /// its water set pushed once at load by <see cref="ApplyLagoonParameters"/>. Until then the sea
-        /// and the lagoon shared one effect instance, and each re-pushed its whole water set every frame
-        /// so that a NumPad2/V switch, which applies no config, could not leave one scene drawing the
-        /// other's water.
-        /// </para>
-        /// <para>
-        /// The clip radius is the innermost the wiggling waterline ever reaches, less the shoulder
-        /// <c>Sea.fx</c> flattens the swell over: inside it the water is under dry sand and
-        /// depth-rejected anyway, so the clip exists to give the calm band a coast to die against —
-        /// the surf laps onto the beach instead of breaking against a circle. The pool radius is 0:
-        /// the drain's standing pool is the sea scene's own arrangement, and there is no funnel
-        /// crossing this water anywhere.
-        /// </para>
-        /// </summary>
-        private void DrawTropicalWater(in SceneFrame frame)
-        {
-            TropicalTerrainConfig terrain = _tropicalConfig.Terrain;
-
-            float cell = SEA_EXTENT / (SEA_GRID_N - 1);
-            float originX = MathF.Round(frame.Camera.Position.X / cell) * cell;
-            float originZ = MathF.Round(frame.Camera.Position.Z / cell) * cell;
-
-            float clip = terrain.ShoreRadius - terrain.CoastNoise - TROPICAL_WATERLINE_BIAS;
-
-            _lagoonEffect.Parameters["OriginXZ"].SetValue(new Vector2(originX, originZ));
-            _lagoonEffect.Parameters["IslandHoleRadius"].SetValue(clip);
-            _lagoonEffect.Parameters["FunnelPoolRadius"].SetValue(0f);
-            _lagoonEffect.Parameters["View"].SetValue(frame.Camera.View);
-            _lagoonEffect.Parameters["Projection"].SetValue(frame.Camera.Projection);
-            _lagoonEffect.Parameters["CameraPosition"].SetValue(frame.Camera.Position);
-            _lagoonEffect.Parameters["SunDirection"].SetValue(frame.SunDirection);
-            _lagoonEffect.Parameters["ZenithColor"].SetValue(frame.ZenithLinear);
-            _lagoonEffect.Parameters["HorizonColor"].SetValue(frame.HorizonLinear);
-            _lagoonEffect.Parameters["SeaTime"].SetValue(frame.Time);
-            _lagoonEffect.Parameters["SunColor"].SetValue(frame.SunColor);
-
-            frame.ApplyClouds?.Invoke(_lagoonEffect);
-
-            _graphicsDevice.BlendState = BlendState.Opaque;
-            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
-            //DrawSea's own reasoning: depth-read, not depth-write — only the open water gives the
-            //depth up, and the terrain (drawn before it, opaque) still writes and owns its own.
-            _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
-
-            _farField.Begin(_lagoonEffect, frame, SEA_EXTENT);
-            _graphicsDevice.SetVertexBuffer(_seaVertexBuffer);
-            _graphicsDevice.Indices = _seaIndexBuffer;
-            _lagoonEffect.CurrentTechnique.Passes[0].Apply();
-            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _seaIndexCount / 3);
-            _farField.DrawRing(_lagoonEffect, new Vector2(originX, originZ), SEA_EXTENT);
-
-            _graphicsDevice.BlendState = BlendState.AlphaBlend;
-            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
-            _graphicsDevice.DepthStencilState = DepthStencilState.Default;
-        }
-
-        /// <summary>
-        /// Draws the savanna grassland: the grid pinned to the camera (snapped to a cell so it does not swim),
-        /// rolled gently and shaded per-pixel (no grid) by the current dome, shadowed by the shared cloud field.
-        /// </summary>
-        private void DrawSavanna(in SceneFrame frame)
-        {
-            float cell = SAVANNA_EXTENT / (SAVANNA_GRID_N - 1);
-            float originX = MathF.Round(frame.Camera.Position.X / cell) * cell;
-            float originZ = MathF.Round(frame.Camera.Position.Z / cell) * cell;
-
-            _savannaEffect.Parameters["OriginXZ"].SetValue(new Vector2(originX, originZ));
-            _savannaEffect.Parameters["IslandHoleRadius"].SetValue(TerrainHoleRadius);
-            _savannaEffect.Parameters["View"].SetValue(frame.Camera.View);
-            _savannaEffect.Parameters["Projection"].SetValue(frame.Camera.Projection);
-            _savannaEffect.Parameters["CameraPosition"].SetValue(frame.Camera.Position);
-            _savannaEffect.Parameters["SunDirection"].SetValue(frame.SunDirection);
-            _savannaEffect.Parameters["ZenithColor"].SetValue(frame.ZenithLinear);
-            _savannaEffect.Parameters["HorizonColor"].SetValue(frame.HorizonLinear);
-            _savannaEffect.Parameters["SavannaTime"].SetValue(frame.Time);
-            _savannaEffect.Parameters["SunColor"].SetValue(frame.SunColor);
-
-            //The ring of campfires lights the grass around it (real point lights, present under every dome)
-            int fires = SavannaCampfireCount;
-
-            for (int fire = 0; fire < fires; fire++)
-            {
-                _savannaLightPos[fire] = SavannaCampfirePosition(fire);
-                _savannaLightColor[fire] = CampfireColor(frame.Time, fire);
-                _savannaLightRange[fire] = SavannaCampfireRange;
-            }
-
-            _savannaEffect.Parameters["SceneLightPosition"].SetValue(_savannaLightPos);
-            _savannaEffect.Parameters["SceneLightColor"].SetValue(_savannaLightColor);
-            _savannaEffect.Parameters["SceneLightRange"].SetValue(_savannaLightRange);
-            _savannaEffect.Parameters["SceneLightCount"].SetValue(fires);
-
-            frame.ApplyClouds?.Invoke(_savannaEffect);
-
-            _graphicsDevice.BlendState = BlendState.Opaque;
-            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
-
-            _farField.Begin(_savannaEffect, frame, SAVANNA_EXTENT);
-            _graphicsDevice.SetVertexBuffer(_savannaVertexBuffer);
-            _graphicsDevice.Indices = _savannaIndexBuffer;
-            _savannaEffect.CurrentTechnique.Passes[0].Apply();
-            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _savannaIndexCount / 3);
-            _farField.DrawRing(_savannaEffect, new Vector2(originX, originZ), SAVANNA_EXTENT);
-
-            _graphicsDevice.BlendState = BlendState.AlphaBlend;
-            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
-        }
-
-        /// <summary>
-        /// Every palm on the beach as a figure — the root, the crown the trunk's bow carries off it, how far the
-        /// fronds reach and the trunk's thickness — for a host keeping a camera out of the grove (#559).
-        /// </summary>
-        public IReadOnlyList<PlantFigure> TropicalPalms => _palmFigures;
-
-        /// <summary>The waterline's rocks as figures (their mesh's bounding sphere at the instance), for the same host.</summary>
-        public IReadOnlyList<PlantFigure> TropicalRocks => _tropicalRockFigures;
-
-        /// <summary>
-        /// Draws the scattered acacia trees and bushes: real 3D geometry (#202), one instanced draw per mesh
-        /// variant per material — a tree's canopy (dappled green) and its trunk (brown) share the variant's
-        /// per-plant matrices, a bush is its canopy alone. Shaded from the scene's own sun and dome, so a tree
-        /// sits in the savanna's light. Opaque and depth-writing; savanna scene only, after the terrain.
-        /// </summary>
-        private void DrawAcacias(in SceneFrame frame)
-        {
-            _acaciaViewParam.SetValue(frame.Camera.View);
-            _acaciaProjectionParam.SetValue(frame.Camera.Projection);
-            _acaciaCameraParam.SetValue(frame.Camera.Position);
-            _acaciaSunDirectionParam.SetValue(frame.SunDirection);
-            _acaciaSunColorParam.SetValue(frame.SunColor);
-            _acaciaZenithParam.SetValue(frame.ZenithLinear);
-            _acaciaHorizonParam.SetValue(frame.HorizonLinear);
-
-            _graphicsDevice.BlendState = BlendState.Opaque;
-            _graphicsDevice.DepthStencilState = DepthStencilState.Default;
-            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise; //real solids, wound like every lathe
-
-            //Everything planted (#451): one instanced draw per bucket, each with its own material, off its
-            //own static instance buffer. The Low tier skips the buckets marked as detail (the grass tufts).
-            ScatterBucket[] buckets = _savannaScatter.Buckets;
-            bool detail = _sceneDetail > 0.5f;
-            for (int b = 0; b < buckets.Length; b++)
-            {
-                ScatterBucket bucket = buckets[b];
-                if (bucket.DetailOnly && !detail) continue;
-
-                _acaciaDiffuseParam.SetValue(bucket.Diffuse);
-                _acaciaDiffuseDryParam.SetValue(bucket.DiffuseDry);
-                _acaciaDappleParam.SetValue(bucket.Dapple);
-                _acaciaBarkParam.SetValue(bucket.Bark);
-                _acaciaAddedLightParam.SetValue(Vector3.Zero);
-                _acaciaEffect.CurrentTechnique.Passes[0].Apply();
-
-                _graphicsDevice.SetVertexBuffers(
-                    new VertexBufferBinding(bucket.Mesh.VertexBuffer, 0, 0),
-                    new VertexBufferBinding(bucket.Instances, 0, 1));
-                _graphicsDevice.Indices = bucket.Mesh.IndexBuffer;
-                _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, bucket.Mesh.PrimitiveCount, bucket.Count);
-            }
-
-            //And the hearths the fires stand in: one draw per fire, because the firelight on a ring is its
-            //own fire's and they do not flicker together.
-            DrawHearthStones(frame);
-        }
-
-        /// <summary>
-        /// Draws the ring of stones around each campfire (#282) on the acacia's own instanced path, one draw
-        /// per fire.
-        /// <para>
-        /// <b>The firelight is a per-draw additive, not a ninth point light.</b> Every stone of a ring stands
-        /// at one distance from one fire, so the attenuation a point light would solve per pixel is a
-        /// constant here — worked out once against the same quadratic falloff <c>Savanna.fx</c> uses on the
-        /// ground, so a stone and the grass beside it are lit by the one fire rather than by two rules. It is
-        /// multiplied by the stone's own albedo, because what reaches the eye is firelight reflected off
-        /// basalt and not the flame itself, and it rides <see cref="CampfireColor"/> at this frame's time so
-        /// the ring breathes with the fire it belongs to.
-        /// </para>
-        /// </summary>
-        private void DrawHearthStones(in SceneFrame frame)
-        {
-            if (_hearthStoneInstances == null || _hearthStoneMeshes == null) return;
-
-            CampfireConfig cf = _savannaConfig.Campfire;
-            float ring = cf.FlameSize * cf.StoneRingScale;
-
-            //The ground's own falloff, at the one distance every stone of a ring stands at.
-            float atten = MathHelper.Clamp(1f - ring / MathF.Max(SavannaCampfireRange, 1e-4f), 0f, 1f);
-            atten *= atten;
-
-            for (int fire = 0; fire < _hearthStoneInstances.Length; fire++)
-            {
-                ModelInstance[] instances = _hearthStoneInstances[fire];
-                if (instances == null || instances.Length == 0) continue;
-
-                Vector3 firelight = _hearthStoneColor * CampfireColor(frame.Time, fire) * (_hearthStoneFirelight * atten);
-
-                DrawAcaciaPart(_hearthStoneMeshes[fire % _hearthStoneMeshes.Length], instances,
-                    _hearthStoneColor, dappleStrength: 0f, addedLight: firelight);
-            }
-        }
-
-        /// <summary>
-        /// One instanced draw of a mesh part with its per-draw material: the instances are re-uploaded to the
-        /// one shared dynamic buffer (<see cref="SetDataOptions.Discard"/>, so the GPU is not stalled on the
-        /// last draw), the mesh's vertices bound at stream 0 and the instances at stream 1 — exactly as
-        /// <see cref="InstancedModelRenderer"/> does it.
-        /// </summary>
-        private void DrawAcaciaPart(IProceduralMesh mesh, ModelInstance[] instances, Vector3 diffuse, float dappleStrength,
-            Vector3 addedLight = default)
-        {
-            UploadHearthInstances(instances);
-
-            _acaciaDiffuseParam.SetValue(diffuse);
-            _acaciaDiffuseDryParam.SetValue(diffuse);   //no dryness on a stone: Custom.x is zero on every hearth instance
-            _acaciaDappleParam.SetValue(dappleStrength);
-            _acaciaBarkParam.SetValue(0f);
-            _acaciaAddedLightParam.SetValue(addedLight);
-            _acaciaEffect.CurrentTechnique.Passes[0].Apply();
-
-            _graphicsDevice.SetVertexBuffers(
-                new VertexBufferBinding(mesh.VertexBuffer, 0, 0),
-                new VertexBufferBinding(_acaciaInstanceBuffer, 0, 1));
-            _graphicsDevice.Indices = mesh.IndexBuffer;
-            _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, mesh.PrimitiveCount, instances.Length);
-        }
-
-        /// <summary>The hearth stones' per-draw upload into the one dynamic instance buffer, grown as needed.</summary>
-        private void UploadHearthInstances(ModelInstance[] instances)
-        {
-            if (_acaciaInstanceBuffer == null || _acaciaInstanceBuffer.VertexCount < instances.Length)
-            {
-                _acaciaInstanceBuffer?.Dispose();
-                _acaciaInstanceBuffer = new DynamicVertexBuffer(_graphicsDevice, ModelInstance.VertexDeclaration,
-                    instances.Length, BufferUsage.WriteOnly);
-            }
-            _acaciaInstanceBuffer.SetData(instances, 0, instances.Length, SetDataOptions.Discard);
-        }
+        public void DrawOverlays(SceneKind scene, in SceneFrame frame) => BackdropFor(scene)?.DrawOverlays(frame);
 
         /// <summary>
         /// States that the ceiling's glass hangs this frame with its centre at <paramref name="centre"/>, so the
@@ -3028,9 +1407,10 @@ namespace Prazsky.Core.Render
         /// <para>
         /// <b>It is the scene's own decision since #471</b>, where it was the savanna's alone (#469): the gate
         /// is <see cref="SceneConfig.Shadows"/> on whichever backdrop is up, so a scene opts in by saying so
-        /// in its config and this method names no scene to decide <i>whether</i>. It still names them to
-        /// decide two things that are genuinely per scene — how the map is fitted
-        /// (<see cref="TryShadowFit"/>) and which of this renderer's own scatter casts into it.
+        /// in its config and this method names no scene to decide <i>whether</i>. The two things that are
+        /// genuinely per scene — how the map is fitted (<see cref="TryShadowFit"/>) and what of the scene's own
+        /// casts into it — each backdrop answers for itself since #580 (<see cref="Backdrop.TryShadowFit"/>,
+        /// <see cref="Backdrop.DrawShadowCasters"/>), so this names no scene at all.
         /// </para>
         /// <para>
         /// A no-op at the Low tier, at <see cref="ShadowConfig.Strength"/> 0, at <see cref="ShadowScale"/> 0,
@@ -3041,9 +1421,9 @@ namespace Prazsky.Core.Render
         /// touched.
         /// </para>
         /// <para>
-        /// What casts: the scene's own planting where this renderer owns it — the savanna's scatter and hearth
-        /// stones through <c>Acacia.fx</c>'s <c>ShadowCaster</c>, the beach's palms and rocks through
-        /// <c>Palm.fx</c>'s own — and then whatever <paramref name="extraCasters"/> draws: the island, the gun
+        /// What casts: the backdrop's own planting where it has any (<see cref="Backdrop.DrawShadowCasters"/>) —
+        /// the savanna's scatter and hearth stones through <c>Acacia.fx</c>'s <c>ShadowCaster</c>, the beach's
+        /// palms and rocks through <c>Palm.fx</c>'s own — and then whatever <paramref name="extraCasters"/> draws: the island, the gun
         /// (#470) and the forest's wood, which are the host's objects and not this renderer's.
         /// </para>
         /// <para>
@@ -3075,12 +1455,12 @@ namespace Prazsky.Core.Render
                 _instancedShadowReceiver.Disable();
             }
 
-            //Is there anything to cast at all? Only the savanna and the beach have planting of this
-            //renderer's own; in the other eight the casters are all the host's, so a caller that registers
+            //Is there anything to cast at all? Only the savanna and the beach have planting of their
+            //own (Backdrop.HasShadowCasters); in the other eight the casters are all the host's, so a caller that registers
             //none of them — the MAP EDITOR, which draws no island, no gun and no wood — would render an empty
             //map and then pay nine taps a pixel to read that everything is lit. The editor is the caller this
             //spares, and it is the only one: both other executables always hand a callback in.
-            bool sceneCasts = scene == SceneKind.Savanna || scene == SceneKind.Tropical;
+            bool sceneCasts = BackdropFor(scene)?.HasShadowCasters == true;
 
             //Then the gates that cost least to fail first: does this scene ask for a map at all, is the tier
             //high enough, is the sun above the horizon, and does the scene have a ground to fit a map round.
@@ -3122,7 +1502,7 @@ namespace Prazsky.Core.Render
             size = Math.Clamp(size, 256, 8192);
 
             //⚠ Nothing but the map is disposed here. #476 left the savanna's trail-warp field's Dispose in this
-            //block for two days (its home is Dispose() below), so the first map a process built — the first
+            //block for two days (its home is SavannaBackdrop.Dispose since #580), so the first map a process built — the first
             //shadowed frame after a scene's build — threw away the texture the savanna effect was still bound to.
             if (_sunShadowMap == null || _sunShadowMap.Size != size)
             {
@@ -3138,19 +1518,12 @@ namespace Prazsky.Core.Render
             _graphicsDevice.DepthStencilState = DepthStencilState.Default;
             _graphicsDevice.RasterizerState = RasterizerState.CullNone;
 
-            //This scene's own planting — the two scatters this renderer owns. The culling stays off for both:
-            //two-sided blades, fans and fronds, and a closed solid drawn from both sides cannot peter-pan out
-            //of its own shadow. The FOREST's wood is not here because it is not this renderer's: the hosts own
-            //their ForestScatterRenderer, so it casts through extraCasters below with the island and the gun.
-            switch (scene)
-            {
-                case SceneKind.Savanna:
-                    DrawSavannaShadowCasters();
-                    break;
-                case SceneKind.Tropical:
-                    DrawTropicalShadowCasters();
-                    break;
-            }
+            //The backdrop's own planting (#580's hook) — the savanna's and the beach's. The culling stays off
+            //for both: two-sided blades, fans and fronds, and a closed solid drawn from both sides cannot
+            //peter-pan out of its own shadow. The FOREST's wood is not here because it is no backdrop's: the
+            //hosts own their ForestScatterRenderer, so it casts through extraCasters below with the island and
+            //the gun.
+            BackdropFor(scene)?.DrawShadowCasters(_sunShadowMap.ViewProjection);
 
             //And whatever the caller casts (#470): the island and the gun, which are the executable's objects
             //and not this renderer's ("the setting, in one copy" — the renderer draws the scene's own scatter
@@ -3214,12 +1587,13 @@ namespace Prazsky.Core.Render
         /// one number for all of them.
         /// </para>
         /// <para>
-        /// <b>Which scenes are here is the same list as <see cref="RegisterShadowReceivers"/>' and has to
-        /// stay so</b>: a scene fitted but not receiving casts into a map nobody reads, and a scene receiving
-        /// but not fitted is handed 0 every frame. Sea and Storm are deliberately in neither — see that
-        /// method for why. A scene moved into its own <see cref="Backdrop"/> (#580) states both side by side
-        /// (<see cref="Backdrop.ShadowReceivers"/>, <see cref="Backdrop.TryShadowFit"/>), and is asked here
-        /// before the switch below.
+        /// <b>Which scenes fit a map has to be the same list as which receive one</b>
+        /// (<see cref="RegisterShadowReceivers"/>): a scene fitted but not receiving casts into a map nobody
+        /// reads, and a scene receiving but not fitted is handed 0 every frame. Sea and Storm are deliberately
+        /// in neither — see that method for why. Since #580 every scene states both side by side in its own
+        /// <see cref="Backdrop"/> (<see cref="Backdrop.ShadowReceivers"/>, <see cref="Backdrop.TryShadowFit"/>),
+        /// and the host-owned city states both through <see cref="SetHostShadowScene"/>; this adds the camera,
+        /// the island's headroom and the margin.
         /// </para>
         /// </summary>
         private bool TryShadowFit(SceneKind scene, ICamera camera, out Vector3 centre, out float yMin, out float yMax)
@@ -3237,30 +1611,9 @@ namespace Prazsky.Core.Render
                 below = host.Below;
                 above = host.Above;
             }
-            else if (BackdropFor(scene) is { } backdrop)
+            else if (BackdropFor(scene) is not { } backdrop || !backdrop.TryShadowFit(out groundY, out below, out above))
             {
-                if (!backdrop.TryShadowFit(out groundY, out below, out above)) return false;
-            }
-            else
-            switch (scene)
-            {
-                case SceneKind.Savanna:
-                    //#469's own fit, kept to the digit: half a rise below the plain, and a baobab and a half
-                    //over the rises. It is the one that was measured and photographed, so it stays its own
-                    //expression rather than joining the shared headroom below.
-                    groundY = _savannaConfig.LevelY;
-                    below = _savannaConfig.HillHeight * 0.5f;
-                    above = _savannaConfig.HillHeight + _savannaConfig.Dressing.BaobabHeight * 1.5f;
-                    break;
-
-                case SceneKind.Tropical:
-                    groundY = _tropicalConfig.Terrain.LevelY;
-                    below = _tropicalConfig.Terrain.HillHeight * 0.5f;
-                    above = _tropicalConfig.Terrain.HillHeight;
-                    break;
-
-                default:
-                    return false;
+                return false;
             }
 
             Vector3 at = camera.Position;
@@ -3272,385 +1625,6 @@ namespace Prazsky.Core.Render
             //flat plain would clip the very thing throwing the shadow.
             yMax = MathF.Max(groundY + above, ArenaIsland.TOP_Y + SHADOW_ISLAND_HEADROOM) + SHADOW_FIT_MARGIN;
             return true;
-        }
-
-        /// <summary>
-        /// The savanna's own casters (#469): every bucket of the scatter and the ring of hearth stones,
-        /// through <c>Acacia.fx</c>'s <c>ShadowCaster</c> technique. Puts the main technique back on the way
-        /// out, the way <see cref="InstancedModelRenderer.DrawDepth(Matrix, ModelInstance[], int)"/> does.
-        /// </summary>
-        private void DrawSavannaShadowCasters()
-        {
-            if (_savannaScatter == null) return;
-
-            _acaciaEffect.CurrentTechnique = _acaciaShadowTechnique;
-            _acaciaEffect.Parameters["ShadowViewProjection"].SetValue(_sunShadowMap.ViewProjection);
-            _acaciaEffect.CurrentTechnique.Passes[0].Apply();
-
-            ScatterBucket[] buckets = _savannaScatter.Buckets;
-            for (int b = 0; b < buckets.Length; b++)
-            {
-                ScatterBucket bucket = buckets[b];
-                _graphicsDevice.SetVertexBuffers(
-                    new VertexBufferBinding(bucket.Mesh.VertexBuffer, 0, 0),
-                    new VertexBufferBinding(bucket.Instances, 0, 1));
-                _graphicsDevice.Indices = bucket.Mesh.IndexBuffer;
-                _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, bucket.Mesh.PrimitiveCount, bucket.Count);
-            }
-
-            if (_hearthStoneInstances != null && _hearthStoneMeshes != null)
-            {
-                for (int fire = 0; fire < _hearthStoneInstances.Length; fire++)
-                {
-                    ModelInstance[] instances = _hearthStoneInstances[fire];
-                    if (instances == null || instances.Length == 0) continue;
-                    UploadHearthInstances(instances);
-                    IProceduralMesh mesh = _hearthStoneMeshes[fire % _hearthStoneMeshes.Length];
-                    _graphicsDevice.SetVertexBuffers(
-                        new VertexBufferBinding(mesh.VertexBuffer, 0, 0),
-                        new VertexBufferBinding(_acaciaInstanceBuffer, 0, 1));
-                    _graphicsDevice.Indices = mesh.IndexBuffer;
-                    _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, mesh.PrimitiveCount, instances.Length);
-                }
-            }
-
-            _acaciaEffect.CurrentTechnique = _acaciaTechnique;
-        }
-
-        /// <summary>
-        /// The beach's own casters (#471): the palms and the waterline's rocks, through <c>Palm.fx</c>'s
-        /// <c>ShadowCaster</c> — the same draws <see cref="DrawPalms"/> and <see cref="DrawTropicalRocks"/>
-        /// make, with the technique swapped, so a frond's shadow is cut from the frond and not from a
-        /// stand-in. Palm shadows on sand are what a beach looks like, which is why this scene has casters of
-        /// its own at all while the desert and the outback make do with the island's.
-        /// <para>
-        /// ⚠ <b>The sway is one frame stale here.</b> The map is drawn before the scene, so the wind's clock
-        /// on the effect (<c>PalmTime</c>, the wind and its speed) is still the previous frame's — only the
-        /// per-draw sway strength is set below. At the beach's sway speed that is under a hundredth of a
-        /// radian of phase, which moves a frond tip by a fraction of a millimetre; re-pushing this frame's
-        /// clock would mean handing this method a <see cref="SceneFrame"/> it otherwise has no use for.
-        /// </para>
-        /// </summary>
-        private void DrawTropicalShadowCasters()
-        {
-            if (_palmMeshes == null) return;
-
-            _palmEffect.CurrentTechnique = _palmShadowTechnique;
-
-            for (int m = 0; m < _palmMeshes.Length; m++)
-            {
-                StaticInstances instances = _palmInstances[m];
-                if (instances.Count == 0) continue;
-
-                float sway = _tropicalConfig.Palms.SwayStrength;
-                DrawPalmPart(_palmMeshes[m].Fronds, instances, Vector3.Zero, dappleStrength: 0f, swayStrength: sway);
-                DrawPalmPart(_palmMeshes[m].Wood, instances, Vector3.Zero, dappleStrength: 0f, swayStrength: sway);
-            }
-
-            if (_tropicalRockMeshes != null)
-            {
-                for (int m = 0; m < _tropicalRockMeshes.Length; m++)
-                {
-                    StaticInstances instances = _tropicalRockInstances[m];
-                    if (instances.Count == 0) continue;
-
-                    //No sway, for the reason DrawTropicalRocks gives: these are lathe meshes whose TEXCOORD0.x
-                    //is a circumference, which this shader reads as its sway weight. At the palms' strength
-                    //the stones shear open — and a sheared stone casts a sheared shadow.
-                    DrawPalmPart(_tropicalRockMeshes[m], instances, Vector3.Zero, dappleStrength: 0f, swayStrength: 0f);
-                }
-            }
-
-            _palmEffect.CurrentTechnique = _palmTechnique;
-        }
-
-        /// <summary>
-        /// Draws the scattered palms: real 3D geometry on the acacia's path (#202), one instanced draw per
-        /// mesh variant per material — a palm's leaves (the live crown, per-variant drier or greener, and the
-        /// dead skirt) and its solids (the trunk, the boot and the coconuts) share the variant's per-plant
-        /// matrices, both through Palm.fx's palm material (#557).
-        /// Shaded from the scene's own sun and dome by <c>Palm.fx</c>, which also sways the crown on the
-        /// wind off the wall clock. Opaque and depth-writing; tropical scene only, after the terrain and
-        /// the water.
-        /// </summary>
-        private void DrawPalms(in SceneFrame frame)
-        {
-            ApplyPalmFrame(frame);
-
-            for (int m = 0; m < _palmMeshes.Length; m++)
-            {
-                StaticInstances instances = _palmInstances[m];
-                if (instances.Count == 0) continue;
-
-                Vector3 frond = Vector3.Lerp(_palmFrondColor, _palmFrondDry, _palmDryness[m] * 0.6f);
-
-                //The palms are the one thing here that MEANS to sway: PalmMesh bakes the weight ramp the
-                //shader reads, zero along the trunk and rising to the frond tips, so the wind moves the
-                //crown and never the trunk.
-                float sway = _tropicalConfig.Palms.SwayStrength;
-
-                //The leaves are single-sided and drawn UNCULLED (#557): Palm.fx turns each pixel's normal to the
-                //face the camera sees, so a frond's underside is its underside rather than a copy of its top.
-                //The solids after them go back to the shared culling.
-                _graphicsDevice.RasterizerState = RasterizerState.CullNone;
-                DrawPalmPart(_palmMeshes[m].Fronds, instances, frond, dappleStrength: 0.4f, swayStrength: sway, palmShading: 1f);
-                _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
-                DrawPalmPart(_palmMeshes[m].Wood, instances, _palmTrunkColor, dappleStrength: 0f, swayStrength: sway, palmShading: 1f);
-            }
-        }
-
-        /// <summary>
-        /// The beach's dressing (#445): the low scrub and sea grass at the tree line and the driftwood at the
-        /// waterline, through the palm effect like everything else standing on this sand.
-        /// <para>
-        /// ⚠ <b>None of it sways</b>, and that is not laziness about grass. <c>Palm.fx</c> reads
-        /// <c>TEXCOORD0.x</c> as its sway weight, which <see cref="PalmMesh"/> bakes as a deliberate ramp
-        /// from the trunk to the frond tip; every other mesh in the library puts something else there, and
-        /// at the palms' strength the rocks sheared open (see <see cref="DrawTropicalRocks"/>). A still tuft
-        /// beside a swaying palm is a smaller fault than a tuft that tears itself apart.
-        /// </para>
-        /// </summary>
-        private void DrawTropicalDressing(in SceneFrame frame)
-        {
-            if (_tropicalScrubMeshes == null) return;
-
-            ApplyPalmFrame(frame);
-
-            for (int m = 0; m < _tropicalScrubMeshes.Length; m++)
-            {
-                StaticInstances instances = _tropicalScrubInstances[m];
-                if (instances.Count == 0) continue;
-                DrawPalmPart(_tropicalScrubMeshes[m], instances, _tropicalScrubColor, dappleStrength: 0.35f, swayStrength: 0f);
-            }
-
-            for (int m = 0; m < _tropicalTuftMeshes.Length; m++)
-            {
-                StaticInstances instances = _tropicalTuftInstances[m];
-                if (instances.Count == 0) continue;
-                DrawPalmPart(_tropicalTuftMeshes[m], instances, _tropicalTuftColor, dappleStrength: 0.25f, swayStrength: 0f);
-            }
-
-            for (int m = 0; m < _tropicalDriftMeshes.Length; m++)
-            {
-                StaticInstances instances = _tropicalDriftInstances[m];
-                if (instances.Count == 0) continue;
-                DrawPalmPart(_tropicalDriftMeshes[m], instances, _tropicalDriftColor, dappleStrength: 0f, swayStrength: 0f);
-            }
-        }
-
-        /// <summary>
-        /// Draws the waterline's rocks: the stone (grey-brown, plain) and its moss cap (green, a light
-        /// mottle so the moss is foliage and not paint) over the same per-plant matrices, shaded by the
-        /// same <c>Palm.fx</c>. Opaque and depth-writing; tropical scene only, after the palms.
-        /// </summary>
-        private void DrawTropicalRocks(in SceneFrame frame)
-        {
-            ApplyPalmFrame(frame);
-
-            for (int m = 0; m < _tropicalRockMeshes.Length; m++)
-            {
-                StaticInstances instances = _tropicalRockInstances[m];
-                if (instances.Count == 0) continue;
-
-                //NO SWAY: a boulder does not move in the wind, and both of these meshes are LatheMeshes
-                //whose TEXCOORD0.x runs 0..1 around the circumference — which Palm.fx reads as its sway
-                //weight (see DrawPalmPart). Left at the palms' strength the stones sheared open.
-                DrawPalmPart(_tropicalRockMeshes[m], instances, _tropicalStoneColor, dappleStrength: 0f, swayStrength: 0f);
-                DrawPalmPart(_tropicalMossMeshes[m], instances, _tropicalMossColor, dappleStrength: 0.30f, swayStrength: 0f);
-            }
-        }
-
-        /// <summary>
-        /// The palm material's colours that the per-draw DiffuseColor cannot carry (#557), pushed once per config
-        /// since nothing else drawn through the effect reads them. Called from the tropical parameters AND after
-        /// the effect loads, because the constructor applies the config before the palm effect exists.
-        /// </summary>
-        private void PushPalmMaterial()
-        {
-            if (_palmEffect == null) return;
-
-            PalmConfig palms = _tropicalConfig.Palms;
-            _palmEffect.Parameters["AgedFrondColor"].SetValue(palms.AgedFrondColor.ToVector3());
-            _palmEffect.Parameters["DeadFrondColor"].SetValue(palms.DeadFrondColor.ToVector3());
-            _palmEffect.Parameters["CoconutColor"].SetValue(palms.CoconutColor.ToVector3());
-        }
-
-        /// <summary>
-        /// Pushes the frame's shared palm-effect parameters — the two draws below run them once each, so
-        /// the pushing lives in one place between them. The states are the acacia's: opaque, depth-writing
-        /// solids wound like every lathe. The palms' leaves are the one exception, drawn unculled by
-        /// <see cref="DrawPalms"/> around their own draw (#557).
-        /// </summary>
-        private void ApplyPalmFrame(in SceneFrame frame)
-        {
-            _palmViewParam.SetValue(frame.Camera.View);
-            _palmProjectionParam.SetValue(frame.Camera.Projection);
-            _palmSunDirectionParam.SetValue(frame.SunDirection);
-            _palmSunColorParam.SetValue(frame.SunColor);
-            _palmZenithParam.SetValue(frame.ZenithLinear);
-            _palmHorizonParam.SetValue(frame.HorizonLinear);
-            _palmCameraParam.SetValue(frame.Camera.Position);
-
-            //The wind off the wall clock, aligned with the one the waves and the canopy ride — a beach
-            //whose palms swayed against their own surf would read as two weathers.
-            //
-            //The sway's STRENGTH is deliberately not here: it is a per-part argument of DrawPalmPart, whose
-            //doc says why (a mesh with real texture UVs would otherwise inherit the palms' own sway).
-            _palmTimeParam.SetValue(frame.Time);
-            _palmWindParam.SetValue(_tropicalConfig.Terrain.Wind.ToVector2());
-            _palmSwaySpeedParam.SetValue(_tropicalConfig.Palms.SwaySpeed);
-
-            _graphicsDevice.BlendState = BlendState.Opaque;
-            _graphicsDevice.DepthStencilState = DepthStencilState.Default;
-            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
-        }
-
-        /// <summary>
-        /// One instanced draw through <c>Palm.fx</c> of a mesh part with its per-draw material —
-        /// <see cref="DrawAcaciaPart"/>'s construction on the palm effect: the mesh at stream 0 and the variant's
-        /// static instances (<see cref="StaticInstances"/>, uploaded once when the beach is planted) at stream 1.
-        /// <para>
-        /// <b><paramref name="swayStrength"/> is a per-part argument and not a per-frame one, which is
-        /// #268's rock fault in one line.</b> <c>Palm.fx</c> reads the mesh's <c>TEXCOORD0.x</c> — an
-        /// ordinary texture coordinate — as its sway weight, on the understanding that
-        /// <see cref="PalmMesh"/> bakes a deliberate 0-along-the-trunk-to-1-at-the-frond-tip ramp there.
-        /// Every other mesh drawn through this effect carries <i>real</i> UVs, and <see cref="LatheMesh"/>
-        /// (which is what both a <see cref="RockMesh"/> and its moss cap are) writes
-        /// <c>s / segments</c> — 0 to 1 <b>around the circumference</b>. Set once for the whole frame, the
-        /// palms' own strength therefore reached the waterline rocks and swung one side of every ring at
-        /// full frond-tip weight while the other side stood still: the stones did not merely drift in the
-        /// wind, they sheared. Passing it per part is what makes a mesh unable to inherit a sway nobody
-        /// meant it to have.
-        /// </para>
-        /// <para>
-        /// <paramref name="palmShading"/> is the same shape for the same reason (#557): 1 turns on
-        /// <c>Palm.fx</c>'s palm material, which reads <c>TEXCOORD0.y</c> as <see cref="PalmMesh.Part"/>'s code.
-        /// Only a <see cref="PalmMesh"/> bakes that code, so every other mesh takes the default 0 and the plain
-        /// shading it always had.
-        /// </para>
-        /// </summary>
-        private void DrawPalmPart(IProceduralMesh mesh, StaticInstances instances, Vector3 diffuse,
-            float dappleStrength, float swayStrength, float palmShading = 0f)
-        {
-            _palmDiffuseParam.SetValue(diffuse);
-            _palmDappleParam.SetValue(dappleStrength);
-            _palmSwayStrengthParam.SetValue(swayStrength);
-            _palmShadingParam.SetValue(palmShading);
-            _palmEffect.CurrentTechnique.Passes[0].Apply();
-
-            _graphicsDevice.SetVertexBuffers(
-                new VertexBufferBinding(mesh.VertexBuffer, 0, 0),
-                new VertexBufferBinding(instances.Buffer, 0, 1));
-            _graphicsDevice.Indices = mesh.IndexBuffer;
-            _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, mesh.PrimitiveCount, instances.Count);
-        }
-
-        /// <summary>
-        /// Draws the visible flames: one billboard per fire at its <see cref="SavannaCampfirePosition"/>, a
-        /// procedural flickering flame in the shader, drawn additively and depth-read (the terrain or platform
-        /// in front hides one) but writing no depth. The light each casts is a separate scene point light.
-        /// Savanna scene only, drawn last with the overlays.
-        /// <para>
-        /// A draw per fire rather than one instanced pass: it is <see cref="FLAME_SUBFLAME_COUNT"/> quads
-        /// each (#481, six triangles), eight fires at most, once a frame and only in this scene — and the
-        /// alternative is an instance buffer and a vertex format for a quad that already has neither. What
-        /// varies per fire is two uniforms; the sub-flames themselves are the one buffer built once.
-        /// </para>
-        /// </summary>
-        private void DrawFlame(in SceneFrame frame)
-        {
-            _flameEffect.Parameters["View"].SetValue(frame.Camera.View);
-            _flameEffect.Parameters["Projection"].SetValue(frame.Camera.Projection);
-            _flameEffect.Parameters["CameraPosition"].SetValue(frame.Camera.Position);
-            _flameEffect.Parameters["FlameSize"].SetValue(_savannaConfig.Campfire.FlameSize);
-            _flameEffect.Parameters["FlameHeightScale"].SetValue(_savannaConfig.Campfire.FlameHeightScale);
-
-            //⚠ ALPHA-BLENDED AND NOT ADDITIVE SINCE #468, and that is what lets a fire be RED.
-            //Additive cannot make a red flame over a bright sky: the background's own green and blue
-            //stay under whatever red is added to them, so a daylit savanna's fires washed to
-            //yellow-white however the colour ramp was tuned - twice. The shader already returns its
-            //colour PREMULTIPLIED by the coverage, which is exactly what BlendState.AlphaBlend takes
-            //(One / InverseSourceAlpha), so the dense body now REPLACES what is behind it and the
-            //thin edges still add. It goes on blooming, because the colours are linear radiance over 1
-            //and the glare pass reads the scene target rather than the blend.
-            _graphicsDevice.BlendState = BlendState.AlphaBlend;
-            _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
-            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
-
-            _graphicsDevice.SetVertexBuffer(_flameVertexBuffer);
-            _graphicsDevice.Indices = _flameIndexBuffer;
-
-            //Cached out of the loop: the by-name indexer is a linear scan, and this runs once per fire per
-            //frame (BestPractices.md §1). Not fields, because nothing else in this class touches them.
-            EffectParameter flamePosition = _flameEffect.Parameters["FlamePosition"];
-            EffectParameter flameSeed = _flameEffect.Parameters["FlameSeed"];
-            EffectParameter flameTime = _flameEffect.Parameters["FlameTime"];
-
-            _flameEffect.CurrentTechnique = _flameTechnique;
-            for (int fire = 0; fire < SavannaCampfireCount; fire++)
-            {
-                flamePosition.SetValue(SavannaCampfirePosition(fire));
-
-                //The same stride and rate stretch CampfireColor uses, so a flame and the light it casts are
-                //the one fire rather than two things that happen to be in the same place.
-                flameSeed.SetValue(1f + fire * 0.031f);
-                flameTime.SetValue(frame.Time + fire * 3.77f);
-
-                _flameEffect.CurrentTechnique.Passes[0].Apply();
-                _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, FLAME_SUBFLAME_COUNT * 2);
-            }
-
-            //The sparks (#468): the same per-fire uniforms over the shared spark buffer, one draw per fire.
-            int sparks = Math.Clamp(_savannaConfig.Campfire.SparkCount, 0, MAX_SPARKS);
-            if (sparks > 0 && _sparkVertexBuffer != null)
-            {
-                _flameEffect.CurrentTechnique = _sparkTechnique;
-                _graphicsDevice.SetVertexBuffer(_sparkVertexBuffer);
-                _graphicsDevice.Indices = _sparkIndexBuffer;
-                for (int fire = 0; fire < SavannaCampfireCount; fire++)
-                {
-                    flamePosition.SetValue(SavannaCampfirePosition(fire));
-                    flameSeed.SetValue(1f + fire * 0.031f);
-                    flameTime.SetValue(frame.Time + fire * 3.77f);
-                    _flameEffect.CurrentTechnique.Passes[0].Apply();
-                    _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, sparks * 2);
-                }
-                _flameEffect.CurrentTechnique = _flameTechnique;
-            }
-
-            _graphicsDevice.BlendState = BlendState.AlphaBlend;
-            _graphicsDevice.DepthStencilState = DepthStencilState.Default;
-            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
-        }
-
-        /// <summary>
-        /// Draws the sea's blown spray and spindrift: the static billboard buffer animated in the shader, in a
-        /// thin slab that follows the camera in XZ but clings to the water surface in Y. Alpha-blended and
-        /// depth-read (the waves and the platform occlude the particles behind them) but writing no depth. Sea
-        /// scene only.
-        /// </summary>
-        private void DrawSpray(in SceneFrame frame)
-        {
-            Matrix inverseView = Matrix.Invert(frame.Camera.View);
-
-            _sprayEffect.Parameters["View"].SetValue(frame.Camera.View);
-            _sprayEffect.Parameters["Projection"].SetValue(frame.Camera.Projection);
-            _sprayEffect.Parameters["CameraPosition"].SetValue(frame.Camera.Position);
-            _sprayEffect.Parameters["CameraRight"].SetValue(inverseView.Right);
-            _sprayEffect.Parameters["CameraUp"].SetValue(inverseView.Up);
-            _sprayEffect.Parameters["SprayTime"].SetValue(frame.Time);
-
-            _graphicsDevice.BlendState = BlendState.AlphaBlend;
-            _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
-            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
-
-            _graphicsDevice.SetVertexBuffer(_sprayVertexBuffer);
-            _graphicsDevice.Indices = _sprayIndexBuffer;
-            _sprayEffect.CurrentTechnique.Passes[0].Apply();
-            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _seaConfig.Spray.ParticleCount * 2);
-
-            _graphicsDevice.DepthStencilState = DepthStencilState.Default;
-            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
         }
 
         /// <summary>
@@ -3758,21 +1732,9 @@ namespace Prazsky.Core.Render
 
             _farField?.Dispose();
             _gridCache.Dispose(); //every terrain grid, each once however many scenes share it (#589); the polar one was missing until #579
-            DisposeTropical();
-            DisposeAcacia();
-            DisposeHearthStones();
-            _flameVertexBuffer?.Dispose();
-            _flameIndexBuffer?.Dispose();
-            _sparkVertexBuffer?.Dispose();
-            _sparkIndexBuffer?.Dispose();
             _sunShadowMap?.Dispose();
-            _trailWarp?.Dispose();
             _birds?.Dispose();
             _snowfall?.Dispose();
-            _seaEffect?.Dispose();
-            _lagoonEffect?.Dispose();
-            _sprayVertexBuffer?.Dispose();
-            _sprayIndexBuffer?.Dispose();
         }
     }
 }

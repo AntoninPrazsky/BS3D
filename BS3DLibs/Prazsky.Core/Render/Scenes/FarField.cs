@@ -9,8 +9,8 @@ namespace Prazsky.Core.Render
     /// <summary>
     /// The far field (#551): the one ring of land every open-ground scene draws past its own camera grid, and the
     /// fade that makes wherever the land ends invisible. Moved out of <see cref="SceneRenderer"/> as a service in
-    /// #580 (<see cref="BackdropServices.FarField"/>), because the backdrops that draw a terrain need it as much as
-    /// the scenes still on the renderer do. The shader half, and the whole of the why, is <c>FarField.fxh</c>; see
+    /// #580 (<see cref="BackdropServices.FarField"/>), because the backdrops that draw a terrain all need it and
+    /// none of them owns it. The shader half, and the whole of the why, is <c>FarField.fxh</c>; see
     /// "The far field" in docs/scenes.md.
     /// </summary>
     internal sealed class FarField : IDisposable
