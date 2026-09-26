@@ -161,13 +161,24 @@ namespace Prazsky.Core.Render
         /// </summary>
         public const int MAX_BILLBOARD_QUADS = 16383;
 
-        /// <summary>The services over a device, the quad and the grid cache the renderer built on it, and its seed offset.</summary>
-        public BackdropServices(GraphicsDevice graphicsDevice, VertexBuffer fullScreenQuad, int seedOffset, TerrainGridCache gridCache)
+        /// <summary>
+        /// The land past every open-ground scene's own grid and the fade into the sky (#551), a service since #580.
+        /// Owned (and disposed) by the renderer.
+        /// </summary>
+        public FarField FarField { get; }
+
+        /// <summary>
+        /// The services over a device, the quad, the grid cache and the far field the renderer built on it, and its
+        /// seed offset.
+        /// </summary>
+        public BackdropServices(GraphicsDevice graphicsDevice, VertexBuffer fullScreenQuad, int seedOffset, TerrainGridCache gridCache,
+            FarField farField)
         {
             GraphicsDevice = graphicsDevice;
             FullScreenQuad = fullScreenQuad;
             SeedOffset = seedOffset;
             _gridCache = gridCache;
+            FarField = farField;
         }
 
         /// <summary>

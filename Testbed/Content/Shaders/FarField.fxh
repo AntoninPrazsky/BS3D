@@ -7,12 +7,12 @@
 //flat cards (Mars's mesas, the desert's dunes). Two things here fix both, and a scene takes both:
 //
 //  * THE RING. After its own grid the scene draws its terrain again over one shared mesh: a polar ring centred on
-//    the ARENA (not the camera), from inside the grid's edge out to SceneRenderer.FAR_RING_OUTER, with rings spaced
+//    the ARENA (not the camera), from inside the grid's edge out to FarField.FAR_RING_OUTER, with rings spaced
 //    geometrically so every cell subtends about the same angle from the arena. It is the same technique with the
 //    same height function - the host only sets OriginXZ to zero, because the ring's vertices are already world
 //    positions - so the land past the grid is the same land, not a painted horizon. Being fixed to the world, it
 //    never swims; being fixed to the arena, it relies on every camera the Game uses standing within a hundred or so
-//    units of it (SceneRenderer.FAR_RING_INNER says why that radius is enough). FarRingClip throws away the ring's
+//    units of it (FarField.FAR_RING_INNER says why that radius is enough). FarRingClip throws away the ring's
 //    pixels inside the camera grid, so there is one surface everywhere and the fine one wins where both exist.
 //  * THE FADE. FarFadeToSky carries the last stretch of distance to the colour the DOME is drawn in behind that
 //    pixel - not to the light rig's HorizonColor, which is an average over the bottom fifth of the capture and is
