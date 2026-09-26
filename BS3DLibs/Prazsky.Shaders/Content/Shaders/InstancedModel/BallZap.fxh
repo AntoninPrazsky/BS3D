@@ -188,9 +188,9 @@ float ZapBolt(float2 p, float2 start, float2 heading, float span, float widthSta
 
 //The whole tree: ZapBoltCount main bolts from the node, two forks off each. Returns the mask and the
 //narrowest width it was drawn at this pixel, for the band limit.
-float ZapTree(float3 direction, out float widthHere)
+float ZapTree(float3 direction, float3 rootAxis, float treeSeed, out float widthHere)
 {
-    float3 root = normalize(ZapRootAxis);
+    float3 root = normalize(rootAxis);
 
     //The node's azimuthal-equidistant plane: angle off the node as the radius, round it as the azimuth.
     float3 helper = abs(root.y) < 0.9 ? float3(0, 1, 0) : float3(1, 0, 0);
@@ -206,10 +206,10 @@ float ZapTree(float3 direction, out float widthHere)
     [unroll]
     for (int k = 0; k < 6; k++)
     {
-        float seed = ZapHash(k + 1.0);
+        float seed = ZapHash(k + 1.0 + treeSeed);
         float angle = (k + 0.35 * (seed - 0.5)) * 6.2831853 / ZapBoltCount;
         float2 heading = float2(cos(angle), sin(angle));
-        float boltLength = ZapBoltReach * (0.72 + 0.28 * ZapHash(k + 11.0));
+        float boltLength = ZapBoltReach * (0.72 + 0.28 * ZapHash(k + 11.0 + treeSeed));
         float flicker = 0.7 + 0.3 * sin(PulseTime * ZapFlickerSpeed + seed * 6.2831853);
 
         float w;
@@ -253,8 +253,15 @@ float4 ZapPS(PatternVertexShaderOutput input) : COLOR
     //not against the whole sphere - the ice crack's rule, and the constant carries the late start.
     //⚠ The figure is the discharge tree since #626; the three arcs' construction below is gone. The limit
     //is each bolt's own width at the pixel, on the same late-start rule.
-    float boltWidth;
-    float tree = ZapTree(direction, boltWidth);
+    //TWO TREES, one from the node and one from the point opposite it (the owner's verdict on the first cut:
+    //the density and width are right "if the bolts are visible from the other side too"). One tree reaches
+    //ZapBoltReach round the ball and left a dark cap at the antipode; the second, seeded apart and turned
+    //by its own seeds, fills it, so a zap seen from any side shows a node and its forks.
+    float boltWidth, backWidth;
+    float front = ZapTree(direction, ZapRootAxis, 0.0, boltWidth);
+    float back = ZapTree(direction, -ZapRootAxis, 23.0, backWidth);
+    float tree = max(front, back);
+    if (back > front) boltWidth = backWidth;
     float arcLimit = saturate(ZapArcBandLimit - footprint / max(boltWidth * 2.0, 1e-3));
 
     //The three arcs, each wandering off a DIFFERENT partner axis so they do not bend in step, and each on
@@ -268,7 +275,7 @@ float4 ZapPS(PatternVertexShaderOutput input) : COLOR
 
     //The electrodes, which do not band-limit: they are caps rather than lines, so they are already
     //resolvable at any size the ball is drawn at, and they are what is left of the figure when it is not.
-    float nodeOff = acos(clamp(dot(direction, normalize(ZapRootAxis)), -1.0, 1.0));
+    float nodeOff = acos(abs(clamp(dot(direction, normalize(ZapRootAxis)), -1.0, 1.0)));
     float poles = pow(saturate(1.0 - nodeOff / ZapNodeRadius), 1.5) * ZapNodeGain;
 
     //Converging to a floor rather than to nothing - BombFarGlow's argument in full, and the same shape.
