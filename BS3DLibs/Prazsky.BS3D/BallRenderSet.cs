@@ -823,12 +823,12 @@ namespace Prazsky.BS3D
 
         /// <summary>
         /// What an acid's liquid is lit by (#328), and the three figures are chosen the other way round from
-        /// the zap's on purpose: an acid is <b>slow</b>. Its own crawl already moves inside the technique, so
+        /// the zap's on purpose: an acid is <b>slow</b>. Its own slosh already moves inside the technique, so
         /// what the heartbeat adds here is a swell rather than a flicker — a shallow depth on a beat well under
         /// the cluster's, which is what reads as something oozing rather than something charged.
         /// <para>
-        /// The emission itself sits between the bomb's and the zap's: the lit figure is large (runs plus a pool
-        /// covering most of the underside), and the bomb's own lesson is that what a special is read by at play
+        /// The emission itself sits between the bomb's and the zap's: the lit figure is large (the whole lower
+        /// half of the ball since #627), and the bomb's own lesson is that what a special is read by at play
         /// distance is the SIZE of the lit figure rather than the amount of light in it — so a large figure
         /// needs less.
         /// </para>
