@@ -1,3 +1,4 @@
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
 
@@ -55,6 +56,16 @@ namespace Prazsky.Core.Render
         public virtual bool TryGetLightRig(float wallClock, out SceneLightRig rig)
         {
             rig = default;
+            return false;
+        }
+
+        /// <summary>
+        /// The sun the scene states for itself (<see cref="SceneRenderer.TryGetSunDirection"/>) over the dome's
+        /// and the shared domeless one; false takes one of those. Only the Moon states one.
+        /// </summary>
+        public virtual bool TryGetSunDirection(out Vector3 direction)
+        {
+            direction = default;
             return false;
         }
 

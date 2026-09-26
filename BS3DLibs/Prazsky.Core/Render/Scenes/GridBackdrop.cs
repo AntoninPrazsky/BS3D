@@ -196,7 +196,7 @@ namespace Prazsky.Core.Render
         /// Draws the Grid scene: the flat, glowing floor first (depth-writing, opaque), then the distant
         /// solids (also opaque, also depth-writing — they stand ON the floor and must occlude both it
         /// and the sky behind them), then the sky quad depth-READ against both — the Moon's and the
-        /// aurora's own measured order (see <c>SceneRenderer.DrawMoon</c>'s doc). The floor's own uniforms are
+        /// aurora's own measured order (see <see cref="MoonBackdrop.Draw"/>'s doc). The floor's own uniforms are
         /// a one-time push (<see cref="ApplyGridParameters"/>) — what varies here is the camera, the
         /// origin snap every terrain draw already needs, and each solid's Life board, stepped on its own
         /// clock only while this scene is the one actually being drawn.
