@@ -6614,3 +6614,12 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 - ⚠ **Stránka k verdiktu po přepnutí účtu zmizela** (Artifact: deleted). Nová: https://claude.ai/artifact/CMLMeYEk8sKjxkU2feFSdr, zdroj ve scratchpadu session (`page/`, `notes.json`, `build-page.py`). Komentáře u #623–#632 odkazují na starou, nový odkaz je v #622.
 - **Čeká na majitele:** bomba #625 (pásy/mina), blesk #626 (strom výboje), žolík #632 (vlastní technika/lem) — dnes fungují, bez odpovědi nepřepisuji.
 
+---
+
+## 2026-09-27 — #622 #623 #625 #626 #628 #631 #632 speciální kuličky, druhé kolo — desktop, Claude Code
+
+- **Verdikty majitele:** Acid, Gravity, Infectious, Glass dobré (zavřeno #627 #630 #629 #624). Heavy méně skvrnitá a kovovější do matna, Frozen silnější jinovatka, Stone výraznější kontrast, Bomb mina, Zap nový shader, Wildcard vlastní technika.
+- **Na mainu:** heavy `28631f94` (vlastní zabarvený saténový odraz oblohy; dielektrikum kov neudělá), frozen `a789f1dd`, stone `7d379d79`, mina `4dd04de0`, výboj `3d4283f9`, žolík `b942e46f` (nový `BallShading.Wildcard` = 19, `BallWildcard.fxh`, `WILDCARD_REGION_START` s živou a still polovinou, uniforma `WildcardProgress`; instance si nechává vlastní dissolve). 320 testů prochází, Game/Testbed/MapEditor se staví.
+- ⚠ **Pasti:** jinovatka zmrzlé se měřila proti `FrozenBevelStart` na složce `top`, která na stěně superelipsoidu klesá jen k ~0,71 — pás pokrýval skoro celé stěny, dva řezy nic neukázaly; debug výstup pole (`return float4(...)`) to odhalil za minutu. Mina s kolmými spárami čelem = zaměřovací kříž, proto šikmé. `DrawWildcards` musí vrátit `StillEmission` a `PatternSecondaryColor`, nikdo jiný je per draw nenastavuje. Hra (`BS3D.exe`) se `at=:Escape` neukončí — zabít `taskkill`.
+- **Nové:** stránka k verdiktu https://claude.ai/artifact/CMLMeYEk8sKjxkU2feFSdr (verze 2). Nevyzkoušeno: HUD fronta žolíka (2D) je jednobarevná; výstupky miny téměř neviditelné.
+
