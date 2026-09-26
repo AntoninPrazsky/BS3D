@@ -276,7 +276,7 @@ namespace Prazsky.Core.Render
         /// one's per-variant instance matrices. Palms are planted only on <b>dry</b> sand (a height test
         /// against the water level, which follows the wiggling waterline) and rocks only in the band
         /// straddling it, so a shore edit re-plants the whole scatter — the same contract
-        /// <see cref="SceneRenderer.BuildSavannaScatter"/> holds. Clumped around cluster centres with a few solos, kept
+        /// <see cref="SavannaBackdrop.BuildSavannaScatter"/> holds. Clumped around cluster centres with a few solos, kept
         /// out of each other by <see cref="ScatterSpacing"/>'s rule; the palms share one occupancy list,
         /// the rocks keep their own (a boulder at a palm's foot is what a beach looks like — the forest's
         /// own split). Deterministic seed, so the same config always gives the same beach.
@@ -941,7 +941,7 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// One instanced draw through <c>Palm.fx</c> of a mesh part with its per-draw material —
-        /// <see cref="SceneRenderer.DrawAcaciaPart"/>'s construction on the palm effect: the mesh at stream 0 and the variant's
+        /// <see cref="SavannaBackdrop.DrawAcaciaPart"/>'s construction on the palm effect: the mesh at stream 0 and the variant's
         /// static instances (<see cref="StaticInstances"/>, uploaded once when the beach is planted) at stream 1.
         /// <para>
         /// <b><paramref name="swayStrength"/> is a per-part argument and not a per-frame one, which is
