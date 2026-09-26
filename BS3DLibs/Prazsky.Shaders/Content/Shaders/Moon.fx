@@ -7,7 +7,7 @@
 //deliberately in both.
 //
 //Two techniques over two passes of one frame:
-//  - MoonSky: Space.fx's full-screen machinery (an NDC quad, the view ray through InverseViewProjection,
+//  - MoonSky: Space.fx's full-screen machinery (an NDC quad, the view ray through ViewRayBasis,
 //    depth state off) painting a near-black void, the shared three-layer starfield (Stars.fxh - one copy
 //    with Space.fx, same lattice, same glare discipline) and an analytically ray-traced Earth.
 //  - MoonTerrain: the desert's machinery (a camera-centred displaced grid, snapped to its cell on the CPU,
@@ -46,9 +46,7 @@
 
 float4x4 View;
 float4x4 Projection;
-float4x4 InverseViewProjection;
-
-float3 CameraPosition;
+float4x4 ViewRayBasis;  //the lens's axes over the projection's slopes - see SkyRay.Basis
 
 //Towards the sun - the same direction the island, the gun and the balls take, which is what ties the
 //terrain's raking light and the Earth's phase to the light everything else in the frame is lit by.
@@ -689,8 +687,7 @@ MoonSkyVertexOutput MoonSkyVS(float3 position : POSITION0)
     //affine, so interpolating the ray across the quad is exact.)
     output.Position = float4(position.xy, 1.0, 1.0);
 
-    float4 far = mul(float4(position.xy, 1.0, 1.0), InverseViewProjection);
-    output.Ray = far.xyz / far.w - CameraPosition;
+    output.Ray = mul(float4(position.xy, 1.0, 0.0), ViewRayBasis).xyz;
 
     return output;
 }

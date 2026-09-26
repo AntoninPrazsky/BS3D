@@ -19,7 +19,7 @@ namespace Prazsky.Core.Render
 
         //The eleventh scene, the third sky-replacing pass — the same machinery again.
         private readonly Effect _cavernEffect;
-        private readonly EffectParameter _cavernInverseViewProjection, _cavernCameraPosition, _cavernTime;
+        private readonly EffectParameter _cavernViewRayBasis, _cavernCameraPosition, _cavernTime;
 
         /// <summary>Loads the effect, caches its per-frame parameters and pushes the config at it.</summary>
         public CavernBackdrop(BackdropServices services, ContentManager content) : base(services)
@@ -29,7 +29,7 @@ namespace Prazsky.Core.Render
             //--- Cavern: the eleventh scene, the third sky-replacing pass, on the same shared quad.
             _cavernEffect = content.Load<Effect>("Shaders/Cavern");
 
-            _cavernInverseViewProjection = _cavernEffect.Parameters["InverseViewProjection"];
+            _cavernViewRayBasis = _cavernEffect.Parameters["ViewRayBasis"];
             _cavernCameraPosition = _cavernEffect.Parameters["CameraPosition"];
             _cavernTime = _cavernEffect.Parameters["CavernTime"];
 
@@ -106,7 +106,7 @@ namespace Prazsky.Core.Render
         /// </summary>
         public override void Draw(in SceneFrame frame)
         {
-            _cavernInverseViewProjection.SetValue(Matrix.Invert(frame.Camera.View * frame.Camera.Projection));
+            _cavernViewRayBasis.SetValue(SkyRay.Basis(frame.Camera));
             _cavernCameraPosition.SetValue(frame.Camera.Position);
             _cavernTime.SetValue(frame.Time);
 

@@ -22,7 +22,7 @@ namespace Prazsky.Core.Render
 
         //The handful of parameters that change per frame, resolved once (BestPractices §1: the by-name
         //indexer is a linear scan). Everything else is pushed by ApplySpaceParameters when a config lands.
-        private readonly EffectParameter _spaceInverseViewProjection, _spaceCameraPosition, _spaceSunDirection, _spaceSupersample, _spaceTime;
+        private readonly EffectParameter _spaceViewRayBasis, _spaceCameraPosition, _spaceSunDirection, _spaceSupersample, _spaceTime;
 
         /// <summary>Loads the effect, caches its per-frame parameters and pushes the config at it.</summary>
         public SpaceBackdrop(BackdropServices services, ContentManager content) : base(services)
@@ -34,7 +34,7 @@ namespace Prazsky.Core.Render
             //nothing transforms it
             _spaceEffect = content.Load<Effect>("Shaders/Space");
 
-            _spaceInverseViewProjection = _spaceEffect.Parameters["InverseViewProjection"];
+            _spaceViewRayBasis = _spaceEffect.Parameters["ViewRayBasis"];
             _spaceCameraPosition = _spaceEffect.Parameters["CameraPosition"];
             _spaceSunDirection = _spaceEffect.Parameters["SunDirection"];
             _spaceSupersample = _spaceEffect.Parameters["SupersampleFactor"];
@@ -171,7 +171,7 @@ namespace Prazsky.Core.Render
         {
             //Row vectors, as everywhere else in this project: a world point goes out through View then
             //Projection, so a clip-space corner comes back through the inverse of that product.
-            _spaceInverseViewProjection.SetValue(Matrix.Invert(frame.Camera.View * frame.Camera.Projection));
+            _spaceViewRayBasis.SetValue(SkyRay.Basis(frame.Camera));
             _spaceCameraPosition.SetValue(frame.Camera.Position);
             _spaceSunDirection.SetValue(frame.SunDirection);
             _spaceSupersample.SetValue((float)Services.SupersampleFactor);

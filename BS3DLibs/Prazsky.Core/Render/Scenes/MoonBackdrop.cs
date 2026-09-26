@@ -36,8 +36,8 @@ namespace Prazsky.Core.Render
         //Per-frame parameters, resolved once (BestPractices §1). The sky pass wants the inverse
         //view-projection and the terrain pass the plain pair, so both are cached; everything else is pushed
         //by ApplyMoonParameters when a config lands. No time parameter: nothing on the Moon moves.
-        private readonly EffectParameter _moonInverseViewProjection, _moonView, _moonProjection,
-            _moonCameraPosition, _moonSunDirection, _moonSupersample, _moonOriginXZ, _moonHoleRadius;
+        private readonly EffectParameter _moonViewRayBasis, _moonView, _moonProjection,
+            _moonSunDirection, _moonSupersample, _moonOriginXZ, _moonHoleRadius;
 
         //The extent is set by where the horizon stands, not by haze reach like the atmospheric siblings: the
         //highland belt crests ~310 units out and the curvature (8e-5) closes everything behind it by
@@ -64,10 +64,9 @@ namespace Prazsky.Core.Render
             _moonSkyTechnique = _moonEffect.Techniques["MoonSky"];
             _moonTerrainTechnique = _moonEffect.Techniques["MoonTerrain"];
 
-            _moonInverseViewProjection = _moonEffect.Parameters["InverseViewProjection"];
+            _moonViewRayBasis = _moonEffect.Parameters["ViewRayBasis"];
             _moonView = _moonEffect.Parameters["View"];
             _moonProjection = _moonEffect.Parameters["Projection"];
-            _moonCameraPosition = _moonEffect.Parameters["CameraPosition"];
             _moonSunDirection = _moonEffect.Parameters["SunDirection"];
             _moonSupersample = _moonEffect.Parameters["SupersampleFactor"];
             _moonOriginXZ = _moonEffect.Parameters["OriginXZ"];
@@ -164,12 +163,11 @@ namespace Prazsky.Core.Render
         /// </summary>
         public override void Draw(in SceneFrame frame)
         {
-            //Row vectors, as everywhere else: a world point goes out through View then Projection, so a
-            //clip-space corner comes back through the inverse of that product.
-            _moonInverseViewProjection.SetValue(Matrix.Invert(frame.Camera.View * frame.Camera.Projection));
+            //The sky's view ray off the lens's own axes, not an inverse view × projection - that shook the Earth and
+            //the stars (see SkyRay). The sky needs no camera position: everything in it hangs at infinity.
+            _moonViewRayBasis.SetValue(SkyRay.Basis(frame.Camera));
             _moonView.SetValue(frame.Camera.View);
             _moonProjection.SetValue(frame.Camera.Projection);
-            _moonCameraPosition.SetValue(frame.Camera.Position);
             _moonSunDirection.SetValue(frame.SunDirection);
             _moonSupersample.SetValue((float)Services.SupersampleFactor);
 

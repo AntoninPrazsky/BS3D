@@ -36,7 +36,7 @@ namespace Prazsky.Core.Render
 
         //Per-frame and per-draw parameters, resolved once (BestPractices §1).
         private readonly EffectParameter _gridOriginXZ, _gridHoleRadius, _gridView, _gridProjection,
-            _gridCameraPosition, _gridInverseViewProjection, _gridLifeTextureParam, _gridLifeAgeParam, _gridLifeCentreParam;
+            _gridCameraPosition, _gridViewRayBasis, _gridLifeTextureParam, _gridLifeAgeParam, _gridLifeCentreParam;
 
         //The mesh is deliberately coarse — GridTerrainVS never displaces a vertex (the floor is a constant
         //Y), so nothing is lost by skipping the few-hundred-vertex density every OTHER terrain scene needs
@@ -138,7 +138,7 @@ namespace Prazsky.Core.Render
             _gridView = _gridEffect.Parameters["View"];
             _gridProjection = _gridEffect.Parameters["Projection"];
             _gridCameraPosition = _gridEffect.Parameters["CameraPosition"];
-            _gridInverseViewProjection = _gridEffect.Parameters["InverseViewProjection"];
+            _gridViewRayBasis = _gridEffect.Parameters["ViewRayBasis"];
             _gridLifeTextureParam = _gridEffect.Parameters["GridLifeTexture"];
             _gridLifeAgeParam = _gridEffect.Parameters["GridLifeAge"];
             _gridLifeCentreParam = _gridEffect.Parameters["GridLifeCentreOffset"];
@@ -276,7 +276,7 @@ namespace Prazsky.Core.Render
             //rejected before the void shader runs.
             _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
 
-            _gridInverseViewProjection.SetValue(Matrix.Invert(frame.Camera.View * frame.Camera.Projection));
+            _gridViewRayBasis.SetValue(SkyRay.Basis(frame.Camera));
 
             _graphicsDevice.SetVertexBuffer(Services.FullScreenQuad);
             _gridEffect.CurrentTechnique = _gridSkyTechnique;

@@ -20,7 +20,7 @@ namespace Prazsky.Core.Render
         //The tenth scene, and the second that replaces the SKY rather than the ground (see SpaceBackdrop): the
         //same full-screen-quad machinery on the renderer's shared quad, with its own effect and per-frame parameters.
         private readonly Effect _dreamEffect;
-        private readonly EffectParameter _dreamInverseViewProjection, _dreamCameraPosition, _dreamTime;
+        private readonly EffectParameter _dreamViewRayBasis, _dreamCameraPosition, _dreamTime;
 
         /// <summary>Loads the effect, caches its per-frame parameters and pushes the config at it.</summary>
         public DreamBackdrop(BackdropServices services, ContentManager content) : base(services)
@@ -31,7 +31,7 @@ namespace Prazsky.Core.Render
             //quad in normalized device coordinates has nothing scene-specific about it.
             _dreamEffect = content.Load<Effect>("Shaders/Dream");
 
-            _dreamInverseViewProjection = _dreamEffect.Parameters["InverseViewProjection"];
+            _dreamViewRayBasis = _dreamEffect.Parameters["ViewRayBasis"];
             _dreamCameraPosition = _dreamEffect.Parameters["CameraPosition"];
             _dreamTime = _dreamEffect.Parameters["DreamTime"];
 
@@ -102,7 +102,7 @@ namespace Prazsky.Core.Render
         /// </summary>
         public override void Draw(in SceneFrame frame)
         {
-            _dreamInverseViewProjection.SetValue(Matrix.Invert(frame.Camera.View * frame.Camera.Projection));
+            _dreamViewRayBasis.SetValue(SkyRay.Basis(frame.Camera));
             _dreamCameraPosition.SetValue(frame.Camera.Position);
             _dreamTime.SetValue(frame.Time);
 

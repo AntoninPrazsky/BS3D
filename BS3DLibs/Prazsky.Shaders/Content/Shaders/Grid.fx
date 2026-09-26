@@ -41,7 +41,7 @@
 
 float4x4 View;
 float4x4 Projection;
-float4x4 InverseViewProjection;
+float4x4 ViewRayBasis;  //the lens's axes over the projection's slopes - see SkyRay.Basis
 float3 CameraPosition;
 
 float2 OriginXZ;
@@ -262,8 +262,7 @@ GridSkyVertexOutput GridSkyVS(float3 position : POSITION0)
     //makes that test cheap and correct.
     output.Position = float4(position.xy, 1.0, 1.0);
 
-    float4 far = mul(float4(position.xy, 1.0, 1.0), InverseViewProjection);
-    output.Ray = far.xyz / far.w - CameraPosition;
+    output.Ray = mul(float4(position.xy, 1.0, 0.0), ViewRayBasis).xyz;
 
     return output;
 }

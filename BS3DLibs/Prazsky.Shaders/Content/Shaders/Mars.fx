@@ -16,7 +16,7 @@
 //    lifted VERBATIM too and retuned from a skyline of monoliths to the litter of stones a rover
 //    photograph shows, dark volcanic basalt rather than more of the ground's own rust.
 //  - MarsMoons: Phobos and Deimos, two small analytic discs composited over the dome and the terrain -
-//    space's full-screen-quad machinery (the shared corner quad, InverseViewProjection), depth-READ
+//    space's full-screen-quad machinery (the shared corner quad, ViewRayBasis), depth-READ
 //    against the depth MarsTerrain just wrote (Moon.fx's own measured reason: depth-read after the ground,
 //    never before it) so a moon low enough to sit behind a crater rim is occluded by it, and ALPHA-BLENDED
 //    (unlike the Moon's opaque sky pass) so the dome and the terrain show through everywhere neither disc
@@ -138,7 +138,7 @@ float HorizonHazeDistance;
 
 //Recovers the view ray per pixel for the full-screen MarsMoons pass - space's own trick (the far plane is a
 //plane in world space and screen-to-far-plane is affine, so interpolating it across the quad is exact).
-float4x4 InverseViewProjection;
+float4x4 ViewRayBasis;  //the lens's axes over the projection's slopes - see SkyRay.Basis
 
 float3 PhobosDirection;      //normalized
 float PhobosAngularRadius;   //radians
@@ -577,8 +577,7 @@ MarsMoonsVertexOutput MarsMoonsVS(float3 position : POSITION0)
     //(space's trick, and Moon.fx's own reason for drawing its sky after its terrain, not before).
     output.Position = float4(position.xy, 1.0, 1.0);
 
-    float4 far = mul(float4(position.xy, 1.0, 1.0), InverseViewProjection);
-    output.Ray = far.xyz / far.w - CameraPosition;
+    output.Ray = mul(float4(position.xy, 1.0, 0.0), ViewRayBasis).xyz;
 
     return output;
 }

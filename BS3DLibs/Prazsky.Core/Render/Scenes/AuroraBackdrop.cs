@@ -39,7 +39,7 @@ namespace Prazsky.Core.Render
         //techniques read (the terrain's haze term and the sky quad's ray reconstruction alike), so it is
         //cached once and pushed once.
         private readonly EffectParameter _auroraOriginXZ, _auroraHoleRadius, _auroraView, _auroraProjection,
-            _auroraCameraPosition, _auroraInverseViewProjection, _auroraTerrainTime, _auroraSkyTime,
+            _auroraCameraPosition, _auroraViewRayBasis, _auroraTerrainTime, _auroraSkyTime,
             _auroraHueShift, _auroraSunColor, _auroraZenithColor, _auroraHorizonColor, _auroraSupersample;
 
         private const int AURORA_GRID_N = 220;
@@ -68,7 +68,7 @@ namespace Prazsky.Core.Render
             _auroraView = _auroraEffect.Parameters["View"];
             _auroraProjection = _auroraEffect.Parameters["Projection"];
             _auroraCameraPosition = _auroraEffect.Parameters["CameraPosition"];
-            _auroraInverseViewProjection = _auroraEffect.Parameters["InverseViewProjection"];
+            _auroraViewRayBasis = _auroraEffect.Parameters["ViewRayBasis"];
             _auroraTerrainTime = _auroraEffect.Parameters["AuroraTerrainTime"];
             _auroraSkyTime = _auroraEffect.Parameters["AuroraSkyTime"];
             _auroraHueShift = _auroraEffect.Parameters["AuroraHueShift"];
@@ -260,7 +260,7 @@ namespace Prazsky.Core.Render
             //before the star-and-ribbon shader runs.
             _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
 
-            _auroraInverseViewProjection.SetValue(Matrix.Invert(frame.Camera.View * frame.Camera.Projection));
+            _auroraViewRayBasis.SetValue(SkyRay.Basis(frame.Camera));
             _auroraSupersample.SetValue((float)Services.SupersampleFactor);
             _auroraSkyTime.SetValue(frame.Time);
             _auroraHueShift.SetValue(AuroraHueShift(frame.Time));
