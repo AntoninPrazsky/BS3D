@@ -6508,3 +6508,14 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-25 — Claude Code (desktop: #400 čtvrtý průchod — hloubkový review designu, sedm oblastí)
 
 - **Zabráno:** scény + scénické shadery, jádro renderu + `InstancedModel.fx` + post-process, logika a fyzika, herní session a efekty, shell/audio/online, nástroje/Testbed/editor/CI, průřezová architektura. Předchozí tři průchody kontrolovaly dodržování pravidel; tenhle hledá, co udělat jinak nebo refaktorovat. Nálezy půjdou do nových issues odkazujících na #400.
+
+---
+
+## 2026-09-26 — Claude Code (desktop: #400 čtvrtý průchod — review a první dávka oprav)
+
+- **Review:** sedm paralelních reviewerů (scény + scénické shadery, jádro renderu + `InstancedModel.fx`, logika a fyzika, herní session, shell/audio/online, nástroje/CI, architektura), z nálezů **#561–#597**. Reporty byly ve scratchpadu; issues jsou samonosné.
+- **Opraveno a zavřeno:** #561 (úchyt top-level koule ke stropu mimo buňku o medián 5 j.; `Center()` bral poloviční rozsah), #562, #563, #564, #566 (snap stínové mapy nic nedělal), #567, #569, #570 (Release je WinExe, `RunLog` + crash report), #571 (nečitelné soubory hráče se odkládají jako `.unreadable-<utc>`), #572, #573, #574, #575, #576, #577 (tolerance pod čarou na simulovaném čase, sklo klesá po krocích), #578, #579, #586 (**`Tests/BS3D.Tests`, 293 xUnit testů v CI**), #587, #588, #592, #593, #595. Částečně #591, #594. #565 (bloom konečně sčítá, intenzita 0,5 → 0,1) čeká na verdikt (`shipped-awaiting-verdict`), stránka před/po: https://claude.ai/artifact/84FntT1BXXKnpisf3CyDgZ.
+- ⚠ **Past:** paralelní agenti ve worktrees si přepisují sdílené skripty ve scratchpadu (`quiet.ps1` přepsaný jinou verzí s jinými parametry). Každý agent ať si píše vlastní skript pod `%TEMP%\bs3d-<issue>\`.
+- ⚠ **Past:** LevelGen na Windows zapisuje levely s CRLF přes LF checkout. `git status` pak ukáže 130× ` M`, ale `git diff --numstat` je prázdný. Brána v CI proto kontroluje netrackované soubory přes `git ls-files --others`, ne přes `git status`.
+- ⚠ **`[music] the theme could not be realized … NullReferenceException`** v nočních bězích je `SharpDX.XAudio2.SourceVoice` bez zařízení (monitor s HDMI zvukem spí), ne chyba hry.
+- **Otevřené refaktory:** #580 (SceneRenderer po scénách), #581 (`InstancedModel.fx` přes `#include`), #582 (LevelPhase), #583 (BS3DGame), #584 (druhy koulí), #590, #596 (až po #559), #597.
