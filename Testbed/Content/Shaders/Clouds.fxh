@@ -210,15 +210,11 @@ float3 CloudThicknessD(float2 world, float footprint)
 //How much of the sun still reaches a point in the world. Branchless on purpose past the early-out: the
 //callers take screen-space derivatives further down, and those want every pixel of a quad to have walked
 //one path.
-float CloudSunlight(float3 worldPosition, float3 sunDirection)
+//The shadow itself, for CloudSunlight below. Split off so the uniform branch there can wrap one call and
+//return once: a [branch] around an early return in an inlined function is what fxc reports as X4000, "use of
+//potentially uninitialized variable", once per shader that includes this - 45 of the ~480 lines a build printed.
+float CloudSunlightLit(float3 worldPosition, float3 sunDirection)
 {
-    //No clouds configured (the map editor never sets the uniforms, so the gain sits at 0): the answer is
-    //a flat 1 and the noise below would be evaluated only to be multiplied away. A branch on a uniform is
-    //non-divergent — every pixel takes the same path — and there are no gradient ops in this function, so
-    //the derivative-coherence concern above does not apply to it.
-    [branch]
-    if (CloudCoverageGain <= 0.0) return 1.0;
-
     //Guarded rather than branched. A sun on the horizon would send the ray along the plane for an
     //unbounded distance, which is meaningless as a shadow lookup and noisy as a number.
     float climb = max(sunDirection.y, 0.05);
@@ -230,4 +226,18 @@ float CloudSunlight(float3 worldPosition, float3 sunDirection)
     //hundreds of units wide, so the fine detail would not survive the trip anyway - and leaving it out
     //is also what keeps the shadow in step with the coarse field the CPU dims the light rig by.
     return lerp(1.0, CloudShadowFloor, saturate(CloudCover(hit) * CloudShadowGain));
+}
+
+float CloudSunlight(float3 worldPosition, float3 sunDirection)
+{
+    //No clouds configured (the map editor never sets the uniforms, so the gain sits at 0): the answer is
+    //a flat 1 and the noise would be evaluated only to be multiplied away. A branch on a uniform is
+    //non-divergent — every pixel takes the same path — and there are no gradient ops in this function, so
+    //the derivative-coherence concern above does not apply to it.
+    float sunlight = 1.0;
+
+    [branch]
+    if (CloudCoverageGain > 0.0) sunlight = CloudSunlightLit(worldPosition, sunDirection);
+
+    return sunlight;
 }
