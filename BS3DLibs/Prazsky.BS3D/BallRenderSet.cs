@@ -1138,6 +1138,14 @@ namespace Prazsky.BS3D
         //#256's ten kinds.
         private static readonly int HEAVY_REGION_START = GRAVITY_REGION_START + STILL_PLANE_STRIDE;
 
+        /// <summary>
+        /// The wildcards (#632): a region of <see cref="LodCount"/> buckets for the live ones and as many again
+        /// for the still ones (a wildcard is most often a loaded round, and a loaded round does not breathe,
+        /// #252). No colour plane: every wildcard in a frame shows the same crossing, which is per-renderer
+        /// (<see cref="SetWildcardCrossing"/>), so one bucket per LOD holds them all.
+        /// </summary>
+        private static readonly int WILDCARD_REGION_START = HEAVY_REGION_START + STILL_PLANE_STRIDE;
+
         //How much of a dead ball is dithered away (#620), at the end of its ease-in. A dead ball keeps its colour
         //and its level's own material and loses the same thing the landing preview's ghost loses — pixels, in
         //display-pixel blocks, through the shader's dissolve — which is a language the player has already
@@ -1251,8 +1259,8 @@ namespace Prazsky.BS3D
             //regions between.
             //Sized off the LAST of them so a region added without moving this line would index past the end on
             //its first instance rather than draw wrong.
-            _buckets = new ModelInstance[HEAVY_REGION_START + STILL_PLANE_STRIDE][];
-            _counts = new int[HEAVY_REGION_START + STILL_PLANE_STRIDE];
+            _buckets = new ModelInstance[WILDCARD_REGION_START + 2 * LodCount][];
+            _counts = new int[WILDCARD_REGION_START + 2 * LodCount];
             _lodTotals = new int[LodCount];
             _lodDistanceSquared = new float[LOD_MIN_PIXEL_RADIUS.Length];
         }
@@ -1839,6 +1847,9 @@ namespace Prazsky.BS3D
             //one special in this list that light does not get into.
             DrawHeavy(camera);
 
+            //And the wildcards (#632), opaque glossy marbles: same side of the frame.
+            DrawWildcards(camera);
+
             //Asked as the question it IS — does light get through this material — and not as "is this the
             //bubble" (#304). The two were the same answer only while the bubble was the one transparent style.
             if (BallStyles.IsTransparent(_style)) DrawShell(camera);
@@ -2140,6 +2151,59 @@ namespace Prazsky.BS3D
         private void DrawGravity(ICamera camera) =>
             DrawTintedPlane(camera, GRAVITY_REGION_START, BallShading.Gravity, GRAVITY_EMISSION, GRAVITY_PULSE_DEPTH,
                 GRAVITY_PULSE_SPEED);
+
+        /// <summary>
+        /// The wildcards (#632), live and still, in their own technique: the colour the shared cycle is leaving
+        /// as the draw's tint and material, the one it is going to as <see cref="InstancedModelRenderer.PatternSecondaryColor"/>,
+        /// and the progress between them. The style's emission is left as it is - a wildcard glows like the
+        /// balls it is loaded among - and the still half takes the still plane's figures (#252, #395).
+        /// </summary>
+        private void DrawWildcards(ICamera camera)
+        {
+            bool any = false;
+            for (int i = WILDCARD_REGION_START; i < WILDCARD_REGION_START + 2 * LodCount && !any; i++) any = _counts[i] > 0;
+            if (!any) return;
+
+            BallType from = (BallType)(_wildcardFrom + 1);
+            BallType to = (BallType)(_wildcardTo + 1);
+            Vector3 toTint = BasicEffectParamsProvider.GetDiffuseTintByType(to);
+
+            for (int half = 0; half < 2; half++)
+            {
+                bool still = half == 1;
+
+                for (int lod = 0; lod < LodCount; lod++)
+                {
+                    int bucketIndex = WILDCARD_REGION_START + (still ? LodCount : 0) + lod;
+                    int count = _counts[bucketIndex];
+                    if (count == 0) continue;
+
+                    InstancedModelRenderer renderer = _renderers[lod];
+                    renderer.Shading = BallShading.Wildcard;
+                    renderer.PatternSecondaryColor = toTint;
+                    renderer.WildcardProgress = _wildcardProgress;
+                    renderer.PulseDepth = still ? 0f : _pulseDepth;
+                    renderer.StillEmission = still ? 1f - _pulseDepth : 1f;
+
+                    DrawnCount += count;
+                    _lodTotals[lod] += count;
+
+                    renderer.Draw(camera, _buckets[bucketIndex], count,
+                        BasicEffectParamsProvider.GetEffectByType(from),
+                        BasicEffectParamsProvider.GetDiffuseTintByType(from));
+                }
+            }
+
+            //Nothing else states these two per draw: the still plane's figure and the vinyl's white gores would
+            //otherwise be what the next draw inherits.
+            for (int lod = 0; lod < LodCount; lod++)
+            {
+                _renderers[lod].StillEmission = 1f;
+                _renderers[lod].PatternSecondaryColor = Vector3.One;
+            }
+
+            ApplyStyle();
+        }
 
         /// <summary>
         /// The heavy balls (#333): <see cref="DrawGravity"/> in every structural respect — a colour plane, the
@@ -2473,11 +2537,13 @@ namespace Prazsky.BS3D
         /// screen shows the same colour at the same instant.
         /// </para>
         /// </summary>
-        internal void StoreWildcardCrossing(int lod, in ModelInstance instance, bool still)
-        {
-            Store(_wildcardTo, lod, instance.WithDissolve(-_wildcardProgress), still);
-            Store(_wildcardFrom, lod, instance.WithDissolve(_wildcardProgress), still);
-        }
+        /// <para>
+        /// <b>Since #632 it is one draw in a technique of its own</b>, not the two dithered ones this said: the
+        /// crossing is a marble in <c>InstancedModelWildcard</c> (see <see cref="DrawWildcards"/>), and the
+        /// instance keeps its OWN dissolve, so a wildcard ghost dithers like any ghost.
+        /// </para>
+        internal void StoreWildcardCrossing(int lod, in ModelInstance instance, bool still) =>
+            StoreAt(WILDCARD_REGION_START + (still ? LodCount : 0) + lod, instance);
 
         private void StoreAt(int bucketIndex, in ModelInstance instance)
         {
@@ -2665,8 +2731,9 @@ namespace Prazsky.BS3D
                     //two of them at once — and it is the only kind that is ever loaded in the cannon. So it
                     //takes neither a region of its own nor this ball's typeIndex, which for a wildcard says
                     //only which colour it happens to be showing; the crossing is the game's, set once a frame.
-                    //`still` rides along because a wildcard IS most often a loaded round, and both halves of a
-                    //crossing must take it or the muzzle ball would breathe in one colour and not the other.
+                    //`still` rides along because a wildcard IS most often a loaded round, and a loaded round does
+                    //not breathe. Since #632 it is one instance in a region and technique of its own (a marble of
+                    //the two colours), not two dithered halves - see DrawWildcards.
                     _set.StoreWildcardCrossing(lod, instance, still);
                     break;
 
