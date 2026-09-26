@@ -8,8 +8,8 @@ namespace BS3D.Screens
 {
     /// <summary>
     /// The intro the game opens on (#454): the <b>2D logo bitmap</b> fading up out of black and held; then the
-    /// <b>black</b> fades away, revealing the front end's scene and the 3D wordmark already standing in its menu
-    /// corner (#601) behind the still-visible picture, and a beat later the <b>picture</b> fades out too (#621).
+    /// <b>black</b> fades away, revealing the front end's scene behind the still-visible picture, and a beat
+    /// later the <b>picture</b> fades out while the 3D wordmark grows in, in its menu corner (#601, #621).
     /// It hands over to the main menu on its own at the end of that, or sooner when the player asks it to. The
     /// player can turn it off altogether (Settings, "Intro logo") and a run can skip it (<c>nosplash</c>), in
     /// which case it is never pushed and the game opens on the main menu (#621).
@@ -26,19 +26,21 @@ namespace BS3D.Screens
     /// to the corner as the menu arrived. The owner ruled the cross-fade and the fly out: the wordmark is in its
     /// menu position from the start. The page then cut from the logo on black straight to the menu, and the
     /// owner asked for that cut to be a fade instead (#621): the black goes first, so for a moment the picture
-    /// stands over the running scene with the wordmark in its corner — two titles at once, deliberately and
-    /// briefly, the flat one leaving as the scene's own arrives — and then the picture goes. Nothing morphs or
-    /// moves: the 2D logo only fades, and the wordmark only stands where it always stands. The fade <i>up</i>
-    /// out of black is kept: a picture that cuts in on the window's first frame reads as a stutter.
+    /// stands alone over the running scene, and then the picture goes. <b>The wordmark is held back until the
+    /// picture starts to go and arrives over the same leg</b> (<see cref="WordmarkPresence"/>): with both at
+    /// full strength at once the flat logo's centre lines ran into the corner block's and read as one garbled
+    /// word ("BUBBLEOTER", photographed at 1600x900), so the two titles cross over rather than overlap. Nothing
+    /// morphs or moves: the 2D logo only fades, and the wordmark only grows in about its own anchored corner
+    /// (it is opaque geometry, so presence scales its size — see <c>TitleWordmark.Draw</c>). The fade
+    /// <i>up</i> out of black is kept: a picture that cuts in on the window's first frame reads as a stutter.
     /// </para>
     /// <para>
     /// <b>The menu becomes interactive when the picture has gone, and not before</b>: the page stays on top of
     /// the stack through all five legs, so the main menu's entries appear, and take input, on the frame it
     /// replaces itself — and <see cref="BS3DGame.IsSplashUp"/>, which the startup script's pages wait on, stays
     /// true until then too. While the black is going the scene is live behind the picture (the backdrop draws
-    /// under this page every frame, black or not), and the wordmark is drawn under the splash from the moment
-    /// the black starts to lift (<see cref="RevealsMenu"/>) — under the opaque black before that it would be
-    /// work nobody sees.
+    /// under this page every frame, black or not); the wordmark under the splash is drawn at
+    /// <see cref="WordmarkPresence"/>, which is zero — no draw at all — until the picture starts to go.
     /// </para>
     /// <para>
     /// <b>Its tree is empty and it draws with the host's overlay batch instead.</b> The black and the picture
@@ -68,16 +70,17 @@ namespace BS3D.Screens
         private const float HOLD_SECONDS = 1.5f;
 
         //The black lifts off the scene, the picture still fully up over it (#621). Slower than the fade up: this
-        //is the leg that shows the player a whole new picture — the island, the sky, the title in its corner —
-        //and a quicker lift reads as the cut it replaced.
+        //is the leg that shows the player a whole new picture — the island, the sky, the city — and a quicker
+        //lift reads as the cut it replaced.
         private const float BLACK_OUT_SECONDS = 0.8f;
 
-        //The picture over the live scene, alone with the wordmark: long enough to register the two titles as a
-        //hand-over rather than as one fade smeared into the next, short enough not to read as a second hold.
+        //The picture alone over the live scene: long enough to register the scene's arrival and the title's
+        //hand-over as two steps rather than one fade smeared into the next, short enough not to read as a second
+        //hold.
         private const float BEAT_SECONDS = 0.4f;
 
-        //The picture away. A shade quicker than the black: the scene is already there, and the flat logo only
-        //has to get out of its way.
+        //The picture away, and the 3D wordmark in over the same leg (WordmarkPresence). A shade quicker than the
+        //black: the scene is already there, and the flat logo only has to hand over to the corner title.
         private const float LOGO_OUT_SECONDS = 0.7f;
 
         /// <summary>When the black starts to lift — the end of the part of the sequence that is on black.</summary>
@@ -137,11 +140,14 @@ namespace BS3D.Screens
         protected override Widget BuildTree() => ScreenRoot();
 
         /// <summary>
-        /// Whether the front end's picture is being revealed under this page — the black lifting or gone — so
-        /// the 3D wordmark is drawn under the splash too (<c>BackdropScreen.DrawWordmark</c>, #621). False on the
-        /// two legs on black, where it would be drawn under an opaque quad for nobody.
+        /// How present the 3D wordmark is under this page, 0 to 1 (#621), for <c>BackdropScreen.DrawWordmark</c>
+        /// to hand to <c>TitleWordmark.Draw</c>'s <c>presence</c>: zero through the legs on black, the black's lift
+        /// and the beat — the picture is the only title while it is fully up — then a smoothstep to one over
+        /// exactly the leg the picture fades out on, so the two cross over. It is one when the page leaves at the
+        /// end of the sequence, and a skip runs through that leg too; a second press cuts to the main menu, where
+        /// the title is always at one, as it is with no splash at all.
         /// </summary>
-        internal bool RevealsMenu => _age >= EXIT_START;
+        internal float WordmarkPresence => MathHelper.SmoothStep(0f, 1f, (_age - LOGO_OUT_START) / LOGO_OUT_SECONDS);
 
         public override void Enter()
         {
