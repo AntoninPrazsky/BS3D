@@ -369,7 +369,6 @@ namespace Prazsky.Core.Render
         //buffers the config sizes.
         private SeaSceneConfig _seaConfig = new();
         private SavannaSceneConfig _savannaConfig = new();
-        private MountainSceneConfig _mountainConfig = new();
         private MeadowSceneConfig _meadowConfig = new();
         private ForestSceneConfig _forestConfig = new();
         private TropicalSceneConfig _tropicalConfig = new();
@@ -874,32 +873,10 @@ namespace Prazsky.Core.Render
 
         #endregion
 
-        #region Mountain
-
-        private readonly Effect _mountainEffect;
-        private readonly VertexBuffer _mountainVertexBuffer;
-        private readonly IndexBuffer _mountainIndexBuffer;
-        private readonly int _mountainIndexCount;
-
-        //Finer than the first version (240) so the craggier peaks resolve; needs the 32-bit index buffer (360*360
-        //vertices overflow a 16-bit one). Per-vertex base normal, per-pixel rock relief on top (see Mountain.fx)
-        private const int MOUNTAIN_GRID_N = 360;
-        private const float MOUNTAIN_EXTENT = 1200f;
-
-        //Look/tuning parameters (heights, clearing, snow/rock colours, snowline, rock relief, ambient, haze)
-        //now live in MountainSceneConfig; SceneRenderer reads them from _mountainConfig.
-
-        #endregion
-
         #region Snow (shared by the mountain and the aurora)
 
         //The flake buffer and its draw, shared with the aurora's backdrop through BackdropServices (#580)
         private readonly Snowfall _snowfall;
-
-        //The mountain's own clone of Snow.fx (#580), its SnowConfig's look pushed once at load; the aurora's
-        //is its backdrop's. The two used to share one effect and re-push eleven values every frame, so that
-        //the slots held whichever scene was actually being drawn.
-        private readonly Effect _mountainSnowEffect;
 
         #endregion
 
@@ -965,6 +942,7 @@ namespace Prazsky.Core.Render
         private readonly PolarBackdrop _polar;
         private readonly AuroraBackdrop _aurora;
         private readonly MarsBackdrop _mars;
+        private readonly MountainBackdrop _mountain;
 
         //The device, the full-screen quad, the supersampling factor, the seed offset, the billboard index
         //builder, the terrain grid cache and the island's hole radius, handed to every backdrop.
@@ -1173,22 +1151,18 @@ namespace Prazsky.Core.Render
                     Math.Max(_outback.Birds.Count, _tropicalConfig.Birds.Count)));
             _services.Birds = _birds;
 
-            //--- Mountain: a ridged displaced grid
-            _mountainEffect = content.Load<Effect>("Shaders/Mountain");
-            AcquireGridMesh(MOUNTAIN_GRID_N, MOUNTAIN_EXTENT, out _mountainVertexBuffer, out _mountainIndexBuffer, out _mountainIndexCount);
-
-            ApplyMountainParameters();
+            //--- Mountain: its own Backdrop since #580 (Render/Scenes), built here where its code stood
+            _mountain = new MountainBackdrop(_services, content);
+            _backdrops[(int)SceneKind.Mountain] = _mountain;
 
             //--- Snow: a static flake buffer, one quad per flake at a fixed point in the unit cube, animated
             //entirely in the shader (built once, never per frame) — shared by the mountain and the aurora
             //since #205, and a service (Snowfall) since #580 so the aurora's backdrop can reach it. The
             //effect is not shared: each scene draws through its own clone, its look pushed once at load.
-            _mountainSnowEffect = content.Load<Effect>("Shaders/Snow").Clone();
-            Snowfall.ApplyParameters(_mountainSnowEffect, _mountainConfig.Snow);
             VertexBuffer snowVertices = null;
             IndexBuffer snowIndices = null;
-            BuildBillboardParticles(_mountainConfig.Snow.FlakeCount, 1207, ref snowVertices, ref snowIndices);
-            _snowfall = new Snowfall(_graphicsDevice, snowVertices, snowIndices, _mountainConfig.Snow.FlakeCount);
+            BuildBillboardParticles(_mountain.Snow.FlakeCount, 1207, ref snowVertices, ref snowIndices);
+            _snowfall = new Snowfall(_graphicsDevice, snowVertices, snowIndices, _mountain.Snow.FlakeCount);
             _services.Snowfall = _snowfall;
 
             //--- Spray: a static billboard buffer for the sea's blown spray and spindrift, animated entirely
@@ -1268,7 +1242,6 @@ namespace Prazsky.Core.Render
                 _savannaEffect, _acaciaEffect,       //#469's two: the plain and what stands on it
                 _meadowEffect,                       //#471, and the first chapter plays here
                 _forestEffect,                       //its floor; the trees receive through the shared effect
-                _mountainEffect,
                 _tropicalEffect, _palmEffect,        //the sand and the palms standing on it
                 _volcanoEffect
             };
@@ -1474,14 +1447,6 @@ namespace Prazsky.Core.Render
                     viewpoint = new SceneViewpoint(SavannaCampfirePosition(0), 1.7f, 11f, 35f, "the campfire");
                     return true;
 
-                //Up at the range, from the furthest stand in the table: the peaks are the only subject here
-                //that is genuinely tall, and the one shot that is wrong for them is a close one.
-                case SceneKind.Mountain:
-                    viewpoint = new SceneViewpoint(
-                        AtBearing(bearing, 430f, _mountainConfig.LevelY + _mountainConfig.Height * 0.75f),
-                        2.4f, 15f, 0f, "the peaks");
-                    return true;
-
                 //THE HILLS, FROM DOWN IN THE GRASS. ⚠ This shot used to name the FLOWERS and stand 70 units
                 //out at one unit over the grass, on the argument that a meadow's subject is small and that
                 //any of the other scenes' distances would show nothing but green. The owner played it and
@@ -1593,7 +1558,6 @@ namespace Prazsky.Core.Render
         {
             SceneKind.Sea => _seaConfig,
             SceneKind.Savanna => _savannaConfig,
-            SceneKind.Mountain => _mountainConfig,
             SceneKind.Meadow => _meadowConfig,
             SceneKind.Forest => _forestConfig,
             SceneKind.Tropical => _tropicalConfig,
@@ -2795,7 +2759,6 @@ namespace Prazsky.Core.Render
 
             (effect, mirror) = scene switch
             {
-                SceneKind.Mountain => (_mountainEffect, (x, z) => TerrainMirror.Mountain(x, z, _mountainConfig)),
                 SceneKind.Savanna => (_savannaEffect, (x, z) => TerrainMirror.Savanna(x, z, _savannaConfig)),
                 SceneKind.Tropical => (_tropicalEffect, (x, z) => TerrainMirror.Tropical(x, z, _tropicalConfig)),
                 SceneKind.Meadow => (_meadowEffect, (x, z) => TerrainMirror.Meadow(x, z, _meadowConfig)),
@@ -3029,29 +2992,6 @@ namespace Prazsky.Core.Render
 
         #endregion
 
-        private void ApplyMountainParameters()
-        {
-            _mountainEffect.Parameters["MountainLevelY"].SetValue(_mountainConfig.LevelY);
-            _mountainEffect.Parameters["MountainHeight"].SetValue(_mountainConfig.Height);
-            _mountainEffect.Parameters["ClearingRadius"].SetValue(_mountainConfig.ClearingRadius);
-            _mountainEffect.Parameters["ClearingTransition"].SetValue(_mountainConfig.ClearingTransition);
-            _mountainEffect.Parameters["ClearingRelief"].SetValue(_mountainConfig.ClearingRelief);
-            _mountainEffect.Parameters["SnowColor"].SetValue(_mountainConfig.SnowColor.ToVector3());
-            _mountainEffect.Parameters["RockColor"].SetValue(_mountainConfig.RockColor.ToVector3());
-            _mountainEffect.Parameters["RockColorLight"].SetValue(_mountainConfig.RockColorLight.ToVector3());
-            _mountainEffect.Parameters["RockSlope"].SetValue(_mountainConfig.RockSlope);
-            _mountainEffect.Parameters["SnowSlope"].SetValue(_mountainConfig.SnowSlope);
-            _mountainEffect.Parameters["SnowlineLow"].SetValue(_mountainConfig.SnowlineLow);
-            _mountainEffect.Parameters["SnowlineHigh"].SetValue(_mountainConfig.SnowlineHigh);
-            _mountainEffect.Parameters["RockReliefStrength"].SetValue(_mountainConfig.RockReliefStrength);
-            _mountainEffect.Parameters["RockReliefFrequency"].SetValue(_mountainConfig.RockReliefFrequency);
-            _mountainEffect.Parameters["AmbientStrength"].SetValue(_mountainConfig.AmbientStrength);
-            _mountainEffect.Parameters["HorizonHazeDistance"].SetValue(_mountainConfig.HorizonHazeDistance);
-            _mountainEffect.Parameters["FluteSnow"].SetValue(_mountainConfig.FluteSnow);
-            _mountainEffect.Parameters["AlpenglowLow"].SetValue(_mountainConfig.AlpenglowLow);
-            _mountainEffect.Parameters["AlpenglowHigh"].SetValue(MathF.Max(_mountainConfig.AlpenglowHigh, _mountainConfig.AlpenglowLow + 1f));
-        }
-
         private void ApplySprayParameters()
         {
             _sprayEffect.Parameters["SprayBoxSize"].SetValue(_seaConfig.Spray.BoxSize.ToVector3());
@@ -3123,15 +3063,8 @@ namespace Prazsky.Core.Render
             SelectMeadowTechnique();
             SelectSavannaTechnique();
 
-            //The dream's and the cavern's picks moved into their backdrops with the rest of them (#580)
+            //The dream's, the cavern's, Mars's and the mountain's picks moved into their backdrops with the rest of them (#580)
             foreach (Backdrop backdrop in _backdrops) backdrop?.OnDetailChanged(_sceneDetail);
-
-            //The mountain, new to this list with the cavern (#298) and picked for the same reason from the
-            //other end: it is the only scene the desktop still calls marginal (#296). Its pair is #208's own —
-            //the snow's sastrugi drift relief and its sparkle — given up together because they arrived
-            //together, and because the sparkle is a HIGHLIGHT, which is the class of thing the owner named
-            //when he ruled that a tier drops effects and never resolution.
-            _mountainEffect.CurrentTechnique = _mountainEffect.Techniques[_sceneDetail > 0.5f ? "Mountain" : "MountainReduced"];
 
             //The volcano (#509): the two kinds of hairline the references brought in off the flows - the
             //rivulets down the cone and the cracks in the field - arrived together and are given up together.
@@ -3279,9 +3212,6 @@ namespace Prazsky.Core.Render
                     if ((VolcanoLayers & VolcanoLayer.Terrain) != 0) DrawVolcanoTerrain(frame);
                     DrawLavaFountains(frame);
                     break;
-                case SceneKind.Mountain:
-                    DrawMountain(frame);
-                    break;
                 case SceneKind.Meadow:
                     DrawMeadow(frame);
                     break;
@@ -3310,8 +3240,7 @@ namespace Prazsky.Core.Render
                 return;
             }
 
-            if (scene == SceneKind.Mountain) _snowfall.Draw(frame, _mountainSnowEffect, _mountainConfig.Snow);
-            else if (scene == SceneKind.Sea) DrawSpray(frame);
+            if (scene == SceneKind.Sea) DrawSpray(frame);
             else if (scene == SceneKind.Savanna) DrawFlame(frame);
             else if (scene == SceneKind.Volcano && (VolcanoLayers & VolcanoLayer.Ash) != 0) DrawAsh(frame);
         }
@@ -3948,16 +3877,6 @@ namespace Prazsky.Core.Render
                     above = _forestConfig.HillHeight;
                     break;
 
-                case SceneKind.Mountain:
-                    //The peaks are the terrain's own silhouette and mostly stand outside the map's extent;
-                    //what has to be covered is the basin the island sits in, so half the range's height is
-                    //the box rather than all of it — a range fitted to an 82-unit peak coarsens the bias on
-                    //the snow at the gun's feet for a ridge no map reaches.
-                    groundY = _mountainConfig.LevelY;
-                    below = _mountainConfig.Height * 0.25f;
-                    above = _mountainConfig.Height * 0.5f;
-                    break;
-
                 case SceneKind.Tropical:
                     groundY = _tropicalConfig.Terrain.LevelY;
                     below = _tropicalConfig.Terrain.HillHeight * 0.5f;
@@ -4468,43 +4387,6 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// Draws the snowy range: the grid pinned to the camera (snapped to a cell so it does not swim),
-        /// lifted into a snow basin ringed by peaks and shaded by the current dome, shadowed by the shared
-        /// cloud field.
-        /// </summary>
-        private void DrawMountain(in SceneFrame frame)
-        {
-            float cell = MOUNTAIN_EXTENT / (MOUNTAIN_GRID_N - 1);
-            float originX = MathF.Round(frame.Camera.Position.X / cell) * cell;
-            float originZ = MathF.Round(frame.Camera.Position.Z / cell) * cell;
-
-            _mountainEffect.Parameters["OriginXZ"].SetValue(new Vector2(originX, originZ));
-            _mountainEffect.Parameters["IslandHoleRadius"].SetValue(TerrainHoleRadius);
-            _mountainEffect.Parameters["View"].SetValue(frame.Camera.View);
-            _mountainEffect.Parameters["Projection"].SetValue(frame.Camera.Projection);
-            _mountainEffect.Parameters["CameraPosition"].SetValue(frame.Camera.Position);
-            _mountainEffect.Parameters["SunDirection"].SetValue(frame.SunDirection);
-            _mountainEffect.Parameters["ZenithColor"].SetValue(frame.ZenithLinear);
-            _mountainEffect.Parameters["HorizonColor"].SetValue(frame.HorizonLinear);
-            _mountainEffect.Parameters["SunColor"].SetValue(frame.SunColor);
-
-            frame.ApplyClouds?.Invoke(_mountainEffect);
-
-            _graphicsDevice.BlendState = BlendState.Opaque;
-            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
-
-            _farField.Begin(_mountainEffect, frame, MOUNTAIN_EXTENT);
-            _graphicsDevice.SetVertexBuffer(_mountainVertexBuffer);
-            _graphicsDevice.Indices = _mountainIndexBuffer;
-            _mountainEffect.CurrentTechnique.Passes[0].Apply();
-            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _mountainIndexCount / 3);
-            _farField.DrawRing(_mountainEffect, new Vector2(originX, originZ), MOUNTAIN_EXTENT);
-
-            _graphicsDevice.BlendState = BlendState.AlphaBlend;
-            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
-        }
-
-        /// <summary>
         /// Draws the sea's blown spray and spindrift: the static billboard buffer animated in the shader, in a
         /// thin slab that follows the camera in XZ but clings to the water surface in Y. Alpha-blended and
         /// depth-read (the waves and the platform occlude the particles behind them) but writing no depth. Sea
@@ -4726,7 +4608,6 @@ namespace Prazsky.Core.Render
             _snowfall?.Dispose();
             _seaEffect?.Dispose();
             _lagoonEffect?.Dispose();
-            _mountainSnowEffect?.Dispose();
             _sprayVertexBuffer?.Dispose();
             _sprayIndexBuffer?.Dispose();
         }
