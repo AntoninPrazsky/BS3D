@@ -671,8 +671,18 @@ namespace BS3D.Screens
         private int _levelIndex;
 
         /// <summary>
-        /// Seconds left of the pause between the field emptying and the level actually ending, counted down
-        /// only while it is above zero — so zero doubles as "this level is still being played".
+        /// Where this level stands in its flow (#582) — <see cref="LevelPhase"/> for the phases and the one rule
+        /// over which may follow which. Written <b>only</b> by <see cref="EnterPhase"/>, which also does each
+        /// phase's entry work; everything that used to infer the phase from a countdown, two flags and an outcome
+        /// field reads it through <see cref="LevelDecided"/> and <see cref="LevelOver"/>.
+        /// </summary>
+        private LevelPhase _phase = LevelPhase.Playing;
+
+        /// <summary>
+        /// Seconds left of <see cref="LevelPhase.ClearedBeat"/>, the pause between the field emptying and the
+        /// level actually ending. Data of that phase and nothing else: armed on entering it, counted down while it
+        /// lasts and not while a camera takeover holds it, and read by nobody as a flag — the phase says whether
+        /// the level is still being played.
         /// <para>
         /// The pause is the point. Balls leave the map at <b>release</b> time, while their bodies are still
         /// falling: ending the level the instant the last group is cut would take the collapse the player just
@@ -699,42 +709,36 @@ namespace BS3D.Screens
         /// </summary>
         private bool _campaignCompleted;
 
-        /// <summary>
-        /// Set the moment a level is lost, and only once — a descent and a spent budget can both reach their line
-        /// on the same frame, and the loss must not fire twice. Cleared back to false by <see cref="BuildLevel"/>,
-        /// which is the real reload that starts a level over.
-        /// </summary>
-        private bool _levelLost;
-
         /// <summary>How long that pause is — long enough for a big collapse to reach the drain and go down it.</summary>
         private const float LEVEL_CLEARED_BEAT = 2.5f;
 
         /// <summary>
-        /// The level's outcome is settled: the field has emptied and the beat above is running, or the level
-        /// has been lost. Nothing belonging to <i>playing</i> the level may happen past this — no shot leaves
-        /// the barrel, no preview promises one, and nothing in the magazine changes colour (#176, #177).
+        /// The level's outcome is settled: anything past <see cref="LevelPhase.Playing"/> — the field has emptied
+        /// and its beat is running, the line loss is holding the camera, or the page is up. Nothing belonging to
+        /// <i>playing</i> the level may happen past this — no shot leaves the barrel, no preview promises one,
+        /// nothing in the magazine changes colour (#176, #177), no ceiling step comes down (#563).
         /// <para>
         /// It has to be asked at the input and at the landing themselves rather than left to the stack: a
         /// clear pushes no screen at all for <see cref="LEVEL_CLEARED_BEAT"/> seconds — longer while a drop
         /// cinematic holds the countdown — and this screen goes on updating normally for the whole of that
-        /// beat. <see cref="LevelOver"/> is the third term because the beat ends by <i>clearing</i> the
-        /// countdown, so a clear would otherwise read as undecided again the moment its page went up — and
-        /// the page no longer stops this screen (#241).
+        /// beat, and under the page afterwards (#241).
         /// </para>
         /// </summary>
-        private bool LevelDecided => _levelLost || _clearedCountdown > 0f || LevelOver;
+        private bool LevelDecided => LevelPhases.IsDecided(_phase);
 
         /// <summary>
-        /// The result screen is up: the level's figures have been snapshotted, its record written and its
-        /// page pushed over this one. Not the same question as <see cref="LevelDecided"/>, which is true for
-        /// the whole cleared beat before any of that has happened — this is the line past which the level's
-        /// arithmetic is <b>read-only</b>, because <see cref="LevelResult"/> was taken from it.
+        /// The level's arithmetic is <b>read-only</b>: the result page is up (its figures snapshotted into
+        /// <see cref="LevelResult"/>, its record written) — <b>or</b> the line loss is holding it back
+        /// (<see cref="LevelPhase.LossHold"/>), the 1.7 s or so between the crossing and the page, in which the
+        /// level is already lost and the page does not exist yet. Not true during the cleared beat, which
+        /// <see cref="LevelDecided"/> covers: there a shot still in the air may land and score, because the page
+        /// has not taken the figures yet.
         /// <para>
         /// It matters at all because the simulation goes on running under the page (#241), so a shot still in
         /// the air can land, stick and fall past the kill plane with the level already over and reported.
         /// </para>
         /// </summary>
-        private bool LevelOver => _pendingOutcome != LevelOutcome.None;
+        private bool LevelOver => LevelPhases.IsFinal(_phase);
 
         //How long the victory display goes on launching, and how long it waits before it starts.
         //
@@ -805,12 +809,6 @@ namespace BS3D.Screens
         private float _clearSeconds;
 
         /// <summary>
-        /// What ended the level, set when it ends and read by the result screen. <c>None</c> means the level is
-        /// still being played; <see cref="FinishLevel"/> is what leaves <c>None</c>.
-        /// </summary>
-        private enum LevelOutcome { None, Cleared, Failed }
-
-        /// <summary>
         /// Which of the two limits ended the level. An enum rather than a message carried through from where
         /// the loss was detected: the wording is a <b>display</b> concern and belongs on the screen that shows
         /// it, and a string built at the point of detection ends up carrying the numbers that were convenient
@@ -819,9 +817,13 @@ namespace BS3D.Screens
         /// </summary>
         private enum LevelFailure { None, OutOfBalls, ClusterReachedLine }
 
+        /// <summary>
+        /// Which limit lost the level — data of a loss, set by <see cref="LoseLevel"/> as it leaves
+        /// <see cref="LevelPhase.Playing"/> and <c>None</c> otherwise, so a level that reaches
+        /// <see cref="LevelPhase.Over"/> with it still <c>None</c> is a cleared one. Reset by entering
+        /// <see cref="LevelPhase.Playing"/>.
+        /// </summary>
         private LevelFailure _pendingFailure;
-
-        private LevelOutcome _pendingOutcome = LevelOutcome.None;
 
         #endregion
 
@@ -939,8 +941,8 @@ namespace BS3D.Screens
 
         //The loss-side counterpart (#434): the camera flown at the point the cluster crossed the line, and
         //the beat the ending is held back for while it happens.
+        //Whether its ending has gone up yet is the phase's question (LevelPhase.LossHold), not a flag of its own.
         private readonly LineLossCinematic _lineLoss = new();
-        private bool _lineLossShown;
 
         //Seconds this level has been running, for the staged loss the lineloss argument asks for.
         private float _lineLossClock;
@@ -1490,8 +1492,8 @@ namespace BS3D.Screens
             //of this frame still ran against a consistent session and nothing above it has torn anything down.
             //
             //A loss needs no entry here: LoseLevel shows the result screen straight away (the same one a clear
-            //lands on), which covers this screen and freezes it until the player picks Retry or leaves.
-            if (_clearedCountdown > 0f && !CameraTakeoverEngaged)
+            //lands on), or StepLineLoss does when the line's hold ends.
+            if (_phase == LevelPhase.ClearedBeat && !CameraTakeoverEngaged)
             {
                 _clearedCountdown -= elapsed;
                 if (_clearedCountdown <= 0f) FinishLevel();
@@ -1516,8 +1518,8 @@ namespace BS3D.Screens
         /// <b>Leaving the rules out of this method is not what holds them.</b> Contacts are processed from
         /// <i>inside</i> the step, so a shot still in the air lands straight back into
         /// <see cref="OnBallLanded"/> whatever this method chose to call — and on a cleared field that would
-        /// have re-fired the whole celebration, the countdown having already run itself down to zero.
-        /// <see cref="LevelOver"/> is what holds them, at each of those doors.
+        /// have re-fired the whole celebration while the countdown stood in for the phase (it had already run
+        /// itself down to zero). <see cref="LevelOver"/> is what holds them, at each of those doors.
         /// </para>
         /// </summary>
         private void UpdateUnderResult(GameTime gameTime)
