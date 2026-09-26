@@ -6627,3 +6627,5 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-26 — #611 claim
 
 - **Beru #611** (dělo rozmazané při A/D): zobecnit `PinToLens` na pohyb děla vůči plné kameře, větev `611-gun-blur-against-camera`.
+- **Hotovo, na mainu `a621b44e`:** `PinToLens` → `AgainstCamera` — dělo se měří proti celé kameře (`worldThen·VP_then·VP_then_share⁻¹`), v přiblížení dál blend k přišpendlené póze. Ustálené A/D ostré, rozjezd se rozmaže, myš a přiblížení pixelově beze změny, kopnutí výstřelu rozmaže závěr o trochu víc (skutečný pohyb pod otřesem). Stránka k verdiktu https://claude.ai/artifact/Nb8QjtKYvzQCwjWdrmY2H8, štítek shipped-awaiting-verdict.
+- ⚠ Past při skriptování: v bashi `"$SW\$v"` sní `$v` — pro tichý spouštěč používej cesty s lomítky `/`. Game `shot=` časy běží od startu hodin po načtení, `WaitSec` dej o ~6 s víc než poslední snímek.
