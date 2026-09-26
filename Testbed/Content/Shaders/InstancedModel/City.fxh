@@ -98,14 +98,6 @@ float3 WindowGlassColor;
 //pane behaves exactly as every polished surface elsewhere in the scene does.
 static const float WindowSmoothness = 1.0;
 
-float Hash21(float2 p)
-{
-    p = frac(p * float2(123.34, 456.21));
-    p += dot(p, p + 45.32);
-
-    return frac(p.x * p.y);
-}
-
 //A fully saturated color from a hue in [0,1] - the neon signs' palette. Pure and bright; the brightness
 //that makes them bloom comes from CityWindowBrightness, not from here.
 float3 HueToRGB(float h)

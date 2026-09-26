@@ -180,37 +180,7 @@ static const float GRASS_COMB_STRETCH = 2.6;
 //is the effect gone rather than the effect softened. This is the trap #97 hit on the acacia crowns.
 static const float GRASS_FBM_GAIN = 5.0;
 
-//Fine grass texture that drifts on the wind, band-limited against the footprint so it fades to smooth grass
-//towards the horizon rather than aliasing.
-//
-//THREE OCTAVES OF GRADIENT NOISE, not the two crossed plane-wave sines this used to be. Two plane waves
-//crossing ARE a lattice - that is what their interference is - and these crossed at 93.4 degrees, so the
-//lattice was very nearly square and read in perspective as a field of diamonds across the middle distance
-//(#117). At GrassReliefFrequency 2 the two periods were 3.14 and 1.75 world units, which is the scale the
-//diamonds appeared at. It showed as strongly as it did because the field feeds PerturbNormalFromHeight, so
-//it tilts the NORMAL and lands in the shading rather than merely in the colour.
-//
-//This is the failure Noise.fxh's own opening documents - "a sum of plane-wave sines keeps its planes however
-//many terms it has" - and the one #86 removed from Mountain.fx's peaks. Two terms is the smallest case of
-//it, and being only two they never even get the chance to hide each other. Octaves of gradient noise on a
-//rotated domain have no planes to keep.
-//⚠ GRASS SWAYS, IT DOES NOT TRAVEL (#276). This sampled at `(xz + WindDirection * SavannaTime * 0.7)` — a
-//flat 0.7 world units a second, for ever, which at GrassReliefFrequency 2 slides the blades' own texture
-//across the ground it is rooted in at 1.4 features a second. #276 was filed against the meadow and the
-//desert; this scene carried the identical line and so does the forest, which is the #117/#170 story over
-//again — the meadow was a line-for-line copy of THIS file, and copying it copied the fault. The lean is the
-//gust field's own value now, bounded to about an eighth of a feature either side of where the grass stands.
-static const float GRASS_SWAY_REACH = 0.16;
-
-float GrassRelief(float2 xz, float footprint, float gust)
-{
-    float f = GrassReliefFrequency;
-    float2 p = xz * f + WindDirection * (gust * GRASS_SWAY_REACH);
-
-    //Combed along the wind, and the footprint scaled by the same factor the domain is — Fbm2BandLimited's
-    //stated contract, which Fbm2Combed passes straight through.
-    return Fbm2Combed(p, WindDirection, GRASS_COMB_STRETCH, 3, footprint * f) * GRASS_FBM_GAIN * GrassReliefStrength;
-}
+#include "Grass.fxh"
 
 //How burnt this spot is: 1 in the char at a fire's foot, 0 where the grass has it back at HearthRadius.
 //

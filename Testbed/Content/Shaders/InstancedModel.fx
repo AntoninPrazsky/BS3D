@@ -51,7 +51,7 @@ float3 SrgbToLinear(float3 color)
 //    verified by the compiled bytecode coming out identical.
 //  - A FUNCTION IS IN SCOPE ONLY BELOW ITS INCLUDE. HLSL has no forward declarations across this, so a helper
 //    two concerns share lives in the earlier file (the tint helpers in BallTint.fxh sit before the gem, the
-//    plasma and the lava that call them), and a ball style cannot call the city's Hash21.
+//    plasma and the lava that call them), and a ball style cannot call anything in City.fxh.
 //  - "THIS FILE" in a comment below means the effect as a whole: most of them were written while it was one.
 //
 //A new ball style is a new Ball<Style>.fxh included after BallHeavy.fxh and a row in InstancedModelRenderer's

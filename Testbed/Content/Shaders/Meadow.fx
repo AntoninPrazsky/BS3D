@@ -78,14 +78,6 @@ float FlowerDensity;
 float FlowerSpacing;
 float FlowerSize;
 
-float Hash21(float2 p)
-{
-    p = frac(p * float2(123.34, 456.21));
-    p += dot(p, p + 45.32);
-
-    return frac(p.x * p.y);
-}
-
 //Gentle rolling hills: smooth sines (not the mountains' ridges), low around the arena centre (world
 //origin) and rising into hills with distance, so the meadow is flat where the arena stands and rolls up
 //towards the horizon. Sampled three times per vertex for the finite-difference normal.
@@ -149,37 +141,7 @@ static const float FLOWER_PETAL_RELIEF = 0.20;
 static const float FLOWER_EYE_RELIEF = 0.16;
 static const float FLOWER_CONTACT_SHADOW = 0.22;
 
-//A fine grass texture that drifts on the wind, band-limited against the footprint so it fades to smooth
-//green towards the horizon instead of aliasing.
-//
-//THREE OCTAVES OF GRADIENT NOISE, not the two crossed plane-wave sines this used to be — the meadow carried
-//a line-for-line copy of the savanna's field, so it carried its diamond lattice too (#117 was filed against
-//the savanna alone; the copy here was found while fixing it). Two plane waves crossing ARE a lattice, and
-//these crossed at 93.4 degrees, so it was very nearly square and read in perspective as a field of diamonds.
-//The mechanism is Noise.fxh's Fbm2Combed now, one copy for both scenes; what stays per scene is the tuning.
-//⚠ GRASS SWAYS, IT DOES NOT TRAVEL (#276). This used to sample at `(xz + WindDirection * MeadowTime * 0.7)`
-//— a flat 0.7 world units a second, for ever. At GrassReliefFrequency 2 a grass feature is half a unit, so
-//the blades' own texture SLID ACROSS THE GROUND IT IS ROOTED IN at 1.4 features a second: measured on two
-//frames 0.6 s apart, essentially every pixel of the near field had changed. That is the crawl the owner
-//reported, and no amount of retuning the speed fixes it, because a texture that translates is wallpaper
-//however slowly it goes. (It also drifted UPWIND — adding to the sample position moves the pattern the
-//other way — which nothing said and nothing could see, a sliding texture having no direction the eye can
-//name.)
-//
-//What the wind does to grass is BEND it: the blades lean where a gust is passing and spring back behind it.
-//So the lean is the gust field's own value, applied in the NOISE domain so it is a fixed fraction of a grass
-//feature whatever GrassReliefFrequency is set to, and it is bounded by construction — the gust is clamped to
-//[-1, 1], so the texture rocks about an eighth of a feature either side of where it is rooted and stays
-//there.
-static const float GRASS_SWAY_REACH = 0.16;
-
-float GrassRelief(float2 xz, float footprint, float gust)
-{
-    float f = GrassReliefFrequency;
-    float2 p = xz * f + WindDirection * (gust * GRASS_SWAY_REACH);
-
-    return Fbm2Combed(p, WindDirection, GRASS_COMB_STRETCH, 3, footprint * f) * GRASS_FBM_GAIN * GrassReliefStrength;
-}
+#include "Grass.fxh"
 
 float4 MeadowField(MeadowVertexOutput input, bool detail)
 {

@@ -20,6 +20,13 @@ description: How to add and wire custom HLSL effects (.fx) in BS3D — content p
    `InstancedModel.fx`, plus `Tonemap.fx`/`Glare.fx` for its own linear+tonemap pipeline) is registered in
    both `.mgcb`s, the editor building it out of the Testbed content dir with the `/build:../../Testbed/…`
    form so there is one source. MSAA is off while supersampling is on (the scene renders into an HDR target).
+4. **Do not copy a helper out of another shader — include it.** `Noise.fxh` (noise, hashes incl. `Hash21`,
+   `PerturbNormalFromHeight`), `Clouds.fxh`, `Shadows.fxh`, `FarField.fxh`, `HeightProbe.fxh`, `Stars.fxh`,
+   and since #581 `Craters.fxh`, `Rocks.fxh`, `Grass.fxh` and `ForestGround.fxh` hold what two scenes share.
+   A shared header carries functions and static constants only; the uniforms it reads are declared by each
+   includer before the `#include`, so the includer's constant buffer does not move. Copies that were meant
+   to stay in step drifted apart within days (#579) — that is why these exist. An `.fxh` edit rebuilds
+   every `.fx` that includes it.
 
 ## Existing shader
 

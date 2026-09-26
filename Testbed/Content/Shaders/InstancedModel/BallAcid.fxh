@@ -72,8 +72,8 @@ static const float AcidSmoothness = 0.86;
 //drip is a bead lying ON the surface, and the sign is what makes it read as liquid rather than as a groove.
 static const float AcidDripRelief = 0.012;
 
-//A cheap 1D hash for the per-lane variation. Its own rather than the city's Hash21 (City.fxh), which is
-//included after this technique and so is not in scope here.
+//A cheap 1D hash for the per-lane variation. Its own because the city's Hash21 was not in scope here when it
+//was written; Hash21 is Noise.fxh's since #581 and could be called, but the lanes were tuned on these values.
 float AcidHash(float lane)
 {
     return frac(sin(lane * 78.233) * 43758.5453);
