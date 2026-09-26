@@ -400,8 +400,6 @@ namespace Prazsky.Core.Render
 
         #endregion
 
-        private AuroraSceneConfig _auroraConfig = new();
-
         #region Sea
 
         private readonly Effect _seaEffect;
@@ -1028,25 +1026,13 @@ namespace Prazsky.Core.Render
 
         #region Snow (shared by the mountain and the aurora)
 
-        //One clone of Snow.fx per scene that snows (#580), each pushed its own SnowConfig's look once at load
-        //(ApplySnowParameters): the two used to share one effect and re-push eleven values every frame, so
-        //that the slots held whichever scene was actually being drawn. The renderer owns and disposes both.
+        //The flake buffer and its draw, shared with the aurora's backdrop through BackdropServices (#580)
+        private readonly Snowfall _snowfall;
+
+        //The mountain's own clone of Snow.fx (#580), its SnowConfig's look pushed once at load; the aurora's
+        //is its backdrop's. The two used to share one effect and re-push eleven values every frame, so that
+        //the slots held whichever scene was actually being drawn.
         private readonly Effect _mountainSnowEffect;
-        private readonly Effect _auroraSnowEffect;
-        private VertexBuffer _snowVertexBuffer;
-        private IndexBuffer _snowIndexBuffer;
-
-        //The buffer's own true size — BuildSnowBuffers is still sized off the mountain's own FlakeCount
-        //(the mountain being where the dial lives and gets tuned), but DrawSnow takes a SnowConfig and an
-        //effect so a second scene can ask for its own look without a second buffer (#205 — the aurora's
-        //gentle snow; its own effect clone since #580). A caller's own FlakeCount is clamped to this, never
-        //exceeded, since drawing past the buffer's own capacity would read off the end of it.
-        private int _snowFlakeCapacity;
-
-        //Snowfall parameters (flake count/size/shape/colour/opacity, box, fall speed, wind, sway) live in
-        //each caller's own SnowConfig (MountainSceneConfig.Snow, AuroraSceneConfig.Snow) and are pushed into
-        //that caller's own clone once at load by ApplySnowParameters (#580); DrawSnow pushes only the camera
-        //and the clock.
 
         #endregion
 
@@ -1107,6 +1093,7 @@ namespace Prazsky.Core.Render
         private readonly StormBackdrop _storm;
         private readonly GridBackdrop _grid;
         private readonly MoonBackdrop _moon;
+        private readonly AuroraBackdrop _aurora;
 
         //The device, the full-screen quad, the supersampling factor, the seed offset, the billboard index
         //builder, the terrain grid cache and the island's hole radius, handed to every backdrop.
@@ -1125,35 +1112,6 @@ namespace Prazsky.Core.Render
         private SpriteBatch _backdropBatch;
 
         private Backdrop BackdropFor(SceneKind kind) => _backdrops[(int)kind];
-
-        #endregion
-
-        #region Aurora
-
-        //The eighteenth scene (#205), and the second in both families at once — see IsSolidTerrainScene's
-        //and ReplacesSky's own docs. A forest clearing grid like Forest.fx's under a sky-replacing pass on
-        //space's shared quad, two techniques in one effect, the Moon's own shape (DrawAurora runs the
-        //terrain first, depth-writing, then the sky quad depth-READ against it — the Moon's measured order,
-        //see MoonBackdrop.Draw's doc; the opposite interleave was an 8x blow-up there and is not being re-measured
-        //here to find out whether it still is).
-        private readonly Effect _auroraEffect;
-        private readonly VertexBuffer _auroraVertexBuffer;
-        private readonly IndexBuffer _auroraIndexBuffer;
-        private readonly int _auroraIndexCount;
-
-        private readonly EffectTechnique _auroraSkyTechnique, _auroraTerrainTechnique;
-
-        //Per-frame parameters, resolved once (BestPractices §1). SunColor/ZenithColor/HorizonColor are
-        //per-frame here (unlike Forest.fx's dome-fed copies) because they carry the aurora's own pulsing
-        //glow, not a fixed config value — see AuroraGlowColor. CameraPosition is the one uniform both
-        //techniques read (the terrain's haze term and the sky quad's ray reconstruction alike), so it is
-        //cached once and pushed once.
-        private readonly EffectParameter _auroraOriginXZ, _auroraHoleRadius, _auroraView, _auroraProjection,
-            _auroraCameraPosition, _auroraInverseViewProjection, _auroraTerrainTime, _auroraSkyTime,
-            _auroraHueShift, _auroraSunColor, _auroraZenithColor, _auroraHorizonColor, _auroraSupersample;
-
-        private const int AURORA_GRID_N = 220;
-        private const float AURORA_EXTENT = 1200f;
 
         #endregion
 
@@ -1381,14 +1339,15 @@ namespace Prazsky.Core.Render
 
             //--- Snow: a static flake buffer, one quad per flake at a fixed point in the unit cube, animated
             //entirely in the shader (built once, never per frame) — shared by the mountain and the aurora
-            //since #205. The effect is not shared: each scene draws through its own clone, its look pushed
-            //once here (#580).
-            Effect snow = content.Load<Effect>("Shaders/Snow");
-            _mountainSnowEffect = snow.Clone();
-            _auroraSnowEffect = snow.Clone();
-            ApplySnowParameters(_mountainSnowEffect, _mountainConfig.Snow);
-            ApplySnowParameters(_auroraSnowEffect, _auroraConfig.Snow);
-            BuildSnowBuffers();
+            //since #205, and a service (Snowfall) since #580 so the aurora's backdrop can reach it. The
+            //effect is not shared: each scene draws through its own clone, its look pushed once at load.
+            _mountainSnowEffect = content.Load<Effect>("Shaders/Snow").Clone();
+            Snowfall.ApplyParameters(_mountainSnowEffect, _mountainConfig.Snow);
+            VertexBuffer snowVertices = null;
+            IndexBuffer snowIndices = null;
+            BuildBillboardParticles(_mountainConfig.Snow.FlakeCount, 1207, ref snowVertices, ref snowIndices);
+            _snowfall = new Snowfall(_graphicsDevice, snowVertices, snowIndices, _mountainConfig.Snow.FlakeCount);
+            _services.Snowfall = _snowfall;
 
             //--- Spray: a static billboard buffer for the sea's blown spray and spindrift, animated entirely
             //in the shader like the snow. Same position+data billboard vertex.
@@ -1424,30 +1383,10 @@ namespace Prazsky.Core.Render
             _moon = new MoonBackdrop(_services, content);
             _backdrops[(int)SceneKind.Moon] = _moon;
 
-            //--- Aurora (#205): the eighteenth scene, the second in both families at once — a forest
-            //clearing grid like Forest.fx's under a sky-replacing star-and-ribbon pass on space's quad, two
-            //techniques in one effect, exactly the Moon's own shape (see the region doc above it).
-            _auroraEffect = content.Load<Effect>("Shaders/Aurora");
-            AcquireGridMesh(AURORA_GRID_N, AURORA_EXTENT, out _auroraVertexBuffer, out _auroraIndexBuffer, out _auroraIndexCount);
-
-            _auroraTerrainTechnique = _auroraEffect.Techniques["AuroraTerrain"];
-            _auroraSkyTechnique = _auroraEffect.Techniques["AuroraSky"];
-
-            _auroraOriginXZ = _auroraEffect.Parameters["OriginXZ"];
-            _auroraHoleRadius = _auroraEffect.Parameters["IslandHoleRadius"];
-            _auroraView = _auroraEffect.Parameters["View"];
-            _auroraProjection = _auroraEffect.Parameters["Projection"];
-            _auroraCameraPosition = _auroraEffect.Parameters["CameraPosition"];
-            _auroraInverseViewProjection = _auroraEffect.Parameters["InverseViewProjection"];
-            _auroraTerrainTime = _auroraEffect.Parameters["AuroraTerrainTime"];
-            _auroraSkyTime = _auroraEffect.Parameters["AuroraSkyTime"];
-            _auroraHueShift = _auroraEffect.Parameters["AuroraHueShift"];
-            _auroraSunColor = _auroraEffect.Parameters["SunColor"];
-            _auroraZenithColor = _auroraEffect.Parameters["ZenithColor"];
-            _auroraHorizonColor = _auroraEffect.Parameters["HorizonColor"];
-            _auroraSupersample = _auroraEffect.Parameters["SupersampleFactor"];
-
-            ApplyAuroraParameters();
+            //--- Aurora (#205): the eighteenth scene, its own Backdrop since #580 (Render/Scenes), built here
+            //where its code stood
+            _aurora = new AuroraBackdrop(_services, content);
+            _backdrops[(int)SceneKind.Aurora] = _aurora;
 
             //--- Grid (#393): the twentieth scene, its own Backdrop since #580 (Render/Scenes), built here where
             //its code stood
@@ -1622,29 +1561,8 @@ namespace Prazsky.Core.Render
         {
             if (BackdropFor(kind) is { } backdrop) return backdrop.TryGetLightRig(wallClock, out rig);
 
-            switch (kind)
-            {
-                //The aurora's takes the COLOUR of its sky (#462, the owner: "the glow should reflect its
-                //light's colour onto the cannon and the island") but not its breathing — see
-                //AuroraLightingConfig's class doc for why a gun that pulses with the sky reads as a fault. The
-                //hue is the slow drift's (a cycle of minutes), stepped rather than continuous so a host re-lights
-                //its renderers about once a second at most instead of every frame — see AnimatesLightRig.
-                case SceneKind.Aurora:
-                    AuroraLightingConfig auroraLighting = _auroraConfig.Lighting;
-                    float steppedMix = MathF.Round(AuroraLightMix(wallClock) * AURORA_RIG_STEPS) / AURORA_RIG_STEPS;
-                    Vector3 hue = Vector3.Lerp(_auroraConfig.Aurora.ColorLow.ToVector3(),
-                        _auroraConfig.Aurora.ColorHigh.ToVector3(), steppedMix);
-                    rig = new SceneLightRig(
-                        TowardsHue(auroraLighting.SkyAmbient.ToVector3(), hue, auroraLighting.GlowTint),
-                        TowardsHue(auroraLighting.GroundAmbient.ToVector3(), hue, auroraLighting.GlowTint * 0.5f),
-                        TowardsHue(auroraLighting.KeyTint.ToVector3(), hue, auroraLighting.GlowTint),
-                        auroraLighting.BackTint.ToVector3());
-                    return true;
-
-                default:
-                    rig = default;
-                    return false;
-            }
+            rig = default;
+            return false;
         }
 
         /// <summary>
@@ -1800,20 +1718,6 @@ namespace Prazsky.Core.Render
                         2.3f, 7f, 0f, "the pressure ridge");
                     return true;
 
-                //The aurora over the TREELINE, not overhead (#531): the point stood 260 units up until then,
-                //which from a stand 10° up tilted the opening at the zenith — "looks far too high up at the
-                //start", the owner's verdict on #462. It stands a little over the hills' canopy now, out past
-                //the clearing, so the shot looks along the ragged line of spruce tips with the curtains over
-                //it. ⚠ In the Game this stand is no longer flown at all: since #531 the aurora opens on a
-                //prologue of its own shots and the tour flies only its last leg after one (ChapterIntro), so
-                //what this states is the scene's viewpoint for any caller without a prologue.
-                case SceneKind.Aurora:
-                    viewpoint = new SceneViewpoint(
-                        AtBearing(bearing, _auroraConfig.Terrain.ClearingRadius + 60f,
-                            _auroraConfig.Terrain.LevelY + _auroraConfig.Terrain.HillHeight + 30f),
-                        1.9f, 10f, 0f, "the aurora");
-                    return true;
-
                 default:
                     viewpoint = default;
                     return false;
@@ -1881,7 +1785,6 @@ namespace Prazsky.Core.Render
             SceneKind.Volcano => _volcanoConfig,
             SceneKind.Mars => _marsConfig,
             SceneKind.Polar => _polarConfig,
-            SceneKind.Aurora => _auroraConfig,
             _ => null,
         };
 
@@ -3236,6 +3139,8 @@ namespace Prazsky.Core.Render
         /// </summary>
         public bool TryGetTerrainProbe(SceneKind scene, out Effect effect, out Func<float, float, float> mirror)
         {
+            if (BackdropFor(scene) is { } backdrop) return backdrop.TryGetTerrainProbe(out effect, out mirror);
+
             (effect, mirror) = scene switch
             {
                 SceneKind.Desert => (_desertEffect, (x, z) => TerrainMirror.Desert(x, z, _desertConfig)),
@@ -3246,7 +3151,6 @@ namespace Prazsky.Core.Render
                 SceneKind.Tropical => (_tropicalEffect, (x, z) => TerrainMirror.Tropical(x, z, _tropicalConfig)),
                 SceneKind.Meadow => (_meadowEffect, (x, z) => TerrainMirror.Meadow(x, z, _meadowConfig)),
                 SceneKind.Forest => (_forestEffect, (x, z) => TerrainMirror.Forest(x, z, _forestConfig)),
-                SceneKind.Aurora => (_auroraEffect, (x, z) => TerrainMirror.Forest(x, z, _auroraConfig.Terrain)),
                 SceneKind.Volcano => (_volcanoEffect, (x, z) => TerrainMirror.Volcano(x, z, _volcanoConfig)),
                 _ => ((Effect)null, (Func<float, float, float>)null),
             };
@@ -3556,32 +3460,6 @@ namespace Prazsky.Core.Render
             _mountainEffect.Parameters["AlpenglowHigh"].SetValue(MathF.Max(_mountainConfig.AlpenglowHigh, _mountainConfig.AlpenglowLow + 1f));
         }
 
-        /// <summary>
-        /// Pushes one scene's snowfall look into that scene's own clone of <c>Snow.fx</c>, once at load (#580).
-        /// </summary>
-        private static void ApplySnowParameters(Effect effect, SnowConfig config)
-        {
-            effect.Parameters["SnowBoxSize"].SetValue(config.BoxSize.ToVector3());
-            effect.Parameters["SnowFallSpeed"].SetValue(config.FallSpeed);
-            effect.Parameters["SnowWind"].SetValue(config.Wind.ToVector2());
-            effect.Parameters["SnowSway"].SetValue(config.Sway);
-            effect.Parameters["FlakeSize"].SetValue(config.FlakeSize);
-            effect.Parameters["SnowSpin"].SetValue(config.Spin);
-            effect.Parameters["SnowLobing"].SetValue(config.Lobing);
-            effect.Parameters["SnowNearFade"].SetValue(config.NearFade);
-            effect.Parameters["SnowTwinkle"].SetValue(config.Twinkle);
-            effect.Parameters["SnowColor"].SetValue(config.FlakeColor.ToVector3());
-            effect.Parameters["SnowOpacity"].SetValue(config.Opacity);
-        }
-
-        /// <summary>(Re)builds the snowfall's flake buffer at the config's flake count. Deterministic seed.</summary>
-        private void BuildSnowBuffers()
-        {
-            BuildBillboardParticles(_mountainConfig.Snow.FlakeCount, 1207, ref _snowVertexBuffer, ref _snowIndexBuffer);
-
-            _snowFlakeCapacity = _mountainConfig.Snow.FlakeCount;
-        }
-
         private void ApplySprayParameters()
         {
             _sprayEffect.Parameters["SprayBoxSize"].SetValue(_seaConfig.Spray.BoxSize.ToVector3());
@@ -3755,68 +3633,6 @@ namespace Prazsky.Core.Render
             _forestEffect.Parameters["WindRippleStrength"].SetValue(_forestConfig.WindRippleStrength);
             _forestEffect.Parameters["NeedleReliefStrength"].SetValue(_forestConfig.NeedleReliefStrength);
             _forestEffect.Parameters["NeedleReliefFrequency"].SetValue(_forestConfig.NeedleReliefFrequency);
-        }
-
-        /// <summary>
-        /// Pushes everything about the aurora scene that is fixed for as long as the config is — the ground
-        /// shape (Forest.fx's own clearing-and-hills uniforms, off <c>_auroraConfig.Terrain</c>), the ribbon
-        /// look and the star lattice. Not pushed here: <c>SunColor</c>/<c>ZenithColor</c>/<c>HorizonColor</c>
-        /// and both time uniforms, which carry the aurora's own pulse and so go out every frame in
-        /// <see cref="DrawAurora"/> instead — the same split <c>MoonBackdrop.ApplyMoonParameters</c> makes between
-        /// its fixed terrain figures and the per-frame camera/time ones.
-        /// </summary>
-        private void ApplyAuroraParameters()
-        {
-            _auroraEffect.Parameters["VoidColor"].SetValue(_auroraConfig.VoidColor.ToVector3());
-
-            ForestSceneConfig terrain = _auroraConfig.Terrain;
-            _auroraEffect.Parameters["ForestLevelY"].SetValue(terrain.LevelY);
-            _auroraEffect.Parameters["HillHeight"].SetValue(terrain.HillHeight);
-            _auroraEffect.Parameters["ClearingRadius"].SetValue(terrain.ClearingRadius);
-            _auroraEffect.Parameters["ClearingTransition"].SetValue(terrain.ClearingTransition);
-            _auroraEffect.Parameters["ClearingRelief"].SetValue(terrain.ClearingRelief);
-            _auroraEffect.Parameters["FloorLumpStrength"].SetValue(terrain.FloorLumpStrength);
-            _auroraEffect.Parameters["FloorLumpFrequency"].SetValue(terrain.FloorLumpFrequency);
-            _auroraEffect.Parameters["ForestColor"].SetValue(terrain.ForestColor.ToVector3());
-            _auroraEffect.Parameters["ForestColorDark"].SetValue(terrain.ForestColorDark.ToVector3());
-            _auroraEffect.Parameters["TreelineColor"].SetValue(terrain.TreelineColor.ToVector3());
-            _auroraEffect.Parameters["TreelineStrength"].SetValue(terrain.TreelineStrength);
-            _auroraEffect.Parameters["AmbientStrength"].SetValue(terrain.AmbientStrength);
-            _auroraEffect.Parameters["HorizonHazeDistance"].SetValue(terrain.HorizonHazeDistance);
-            _auroraEffect.Parameters["WindDirection"].SetValue(terrain.Wind.ToVector2());
-            _auroraEffect.Parameters["WindRippleSpeed"].SetValue(terrain.WindRippleSpeed);
-            _auroraEffect.Parameters["WindRippleFrequency"].SetValue(terrain.WindRippleFrequency);
-            _auroraEffect.Parameters["WindRippleStrength"].SetValue(terrain.WindRippleStrength);
-            _auroraEffect.Parameters["NeedleReliefStrength"].SetValue(terrain.NeedleReliefStrength);
-            _auroraEffect.Parameters["NeedleReliefFrequency"].SetValue(terrain.NeedleReliefFrequency);
-
-            //Fixed straight up: the aurora is overhead rather than off at a dome's sun angle, and nothing
-            //here ever moves it — DrawAurora pushes the pulsing colour itself every frame instead.
-            _auroraEffect.Parameters["SunDirection"].SetValue(Vector3.Up);
-
-            AuroraSkyConfig aurora = _auroraConfig.Aurora;
-            _auroraEffect.Parameters["AuroraColorLow"].SetValue(aurora.ColorLow.ToVector3());
-            _auroraEffect.Parameters["AuroraColorHigh"].SetValue(aurora.ColorHigh.ToVector3());
-            _auroraEffect.Parameters["AuroraIntensity"].SetValue(aurora.Intensity);
-            _auroraEffect.Parameters["AuroraBandHeight"].SetValue(aurora.BandHeight);
-            _auroraEffect.Parameters["AuroraBandSoftness"].SetValue(aurora.BandSoftness);
-            _auroraEffect.Parameters["AuroraCurtainScale"].SetValue(aurora.CurtainScale);
-            _auroraEffect.Parameters["AuroraCurtainWarp"].SetValue(aurora.CurtainWarp);
-            _auroraEffect.Parameters["AuroraDriftSpeed"].SetValue(aurora.DriftSpeed);
-            _auroraEffect.Parameters["AuroraMorphSpeed"].SetValue(aurora.MorphSpeed);
-            _auroraEffect.Parameters["AuroraRayScale"].SetValue(aurora.RayScale);
-            _auroraEffect.Parameters["AuroraRayStrength"].SetValue(aurora.RayStrength);
-            _auroraEffect.Parameters["AuroraPulseSpeed"].SetValue(aurora.PulseSpeed);
-            _auroraEffect.Parameters["AuroraPulseDepth"].SetValue(aurora.PulseDepth);
-
-            SpaceStarsConfig stars = _auroraConfig.Stars;
-            _auroraEffect.Parameters["StarCellScale"].SetValue(new[] { stars.BrightCellScale, stars.MediumCellScale, stars.FaintCellScale });
-            _auroraEffect.Parameters["StarChance"].SetValue(new[] { stars.BrightChance, stars.MediumChance, stars.FaintChance });
-            _auroraEffect.Parameters["StarPeak"].SetValue(new[] { stars.BrightPeak, stars.MediumPeak, stars.FaintPeak });
-            _auroraEffect.Parameters["StarSpread"].SetValue(stars.Spread);
-            _auroraEffect.Parameters["StarFalloff"].SetValue(stars.Falloff);
-            _auroraEffect.Parameters["StarSpikeThreshold"].SetValue(stars.SpikeThreshold);
-            _auroraEffect.Parameters["StarSpikeLength"].SetValue(stars.SpikeLength);
         }
 
         /// <summary>
@@ -4143,9 +3959,6 @@ namespace Prazsky.Core.Render
                 case SceneKind.Polar:
                     DrawPolar(frame);
                     break;
-                case SceneKind.Aurora:
-                    DrawAurora(frame);
-                    break;
             }
         }
 
@@ -4168,8 +3981,7 @@ namespace Prazsky.Core.Render
                 return;
             }
 
-            if (scene == SceneKind.Mountain) DrawSnow(frame, _mountainSnowEffect, _mountainConfig.Snow);
-            else if (scene == SceneKind.Aurora) DrawSnow(frame, _auroraSnowEffect, _auroraConfig.Snow);
+            if (scene == SceneKind.Mountain) _snowfall.Draw(frame, _mountainSnowEffect, _mountainConfig.Snow);
             else if (scene == SceneKind.Sea) DrawSpray(frame);
             else if (scene == SceneKind.Savanna) DrawFlame(frame);
             else if (scene == SceneKind.Volcano && (VolcanoLayers & VolcanoLayer.Ash) != 0) DrawAsh(frame);
@@ -5683,44 +5495,6 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// Draws the falling snow: the static flake buffer animated in the shader, in a box that follows the
-        /// camera. Alpha-blended and depth-read (so the terrain and the cluster occlude the flakes behind
-        /// them) but writing no depth.
-        /// <para>
-        /// Shared by the mountain and the aurora (#205), each with its own <see cref="SnowConfig"/> — the
-        /// buffer is one for both (built at the mountain's own <see cref="SnowConfig.FlakeCount"/>, since
-        /// that is where the dial has always lived), so <paramref name="config"/>'s own count is clamped to
-        /// <see cref="_snowFlakeCapacity"/> rather than trusted outright. The look uniforms are already in
-        /// <paramref name="effect"/>, the scene's own clone, pushed once by <see cref="ApplySnowParameters"/>
-        /// (#580); only the camera and the clock are pushed here.
-        /// </para>
-        /// </summary>
-        private void DrawSnow(in SceneFrame frame, Effect effect, SnowConfig config)
-        {
-            Matrix inverseView = Matrix.Invert(frame.Camera.View);
-
-            effect.Parameters["View"].SetValue(frame.Camera.View);
-            effect.Parameters["Projection"].SetValue(frame.Camera.Projection);
-            effect.Parameters["CameraPosition"].SetValue(frame.Camera.Position);
-            effect.Parameters["CameraRight"].SetValue(inverseView.Right);
-            effect.Parameters["CameraUp"].SetValue(inverseView.Up);
-            effect.Parameters["SnowTime"].SetValue(frame.Time);
-
-            _graphicsDevice.BlendState = BlendState.AlphaBlend;
-            _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
-            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
-
-            _graphicsDevice.SetVertexBuffer(_snowVertexBuffer);
-            _graphicsDevice.Indices = _snowIndexBuffer;
-            effect.CurrentTechnique.Passes[0].Apply();
-            int flakes = Math.Min(config.FlakeCount, _snowFlakeCapacity);
-            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, flakes * 2);
-
-            _graphicsDevice.DepthStencilState = DepthStencilState.Default;
-            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
-        }
-
-        /// <summary>
         /// Draws the sea's blown spray and spindrift: the static billboard buffer animated in the shader, in a
         /// thin slab that follows the camera in XZ but clings to the water surface in Y. Alpha-blended and
         /// depth-read (the waves and the platform occlude the particles behind them) but writing no depth. Sea
@@ -5895,67 +5669,12 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// The aurora's slow hue drift at <paramref name="wallClock"/>, as the shift it adds to the sky's own
-        /// low-to-high colour ramp (<c>Aurora.fx</c>'s <c>AuroraHueShift</c>): up to half of
-        /// <see cref="AuroraSkyConfig.HueSwing"/> either way, positive towards <see cref="AuroraSkyConfig.ColorHigh"/>.
-        /// </summary>
-        private float AuroraHueShift(float wallClock) =>
-            0.5f * _auroraConfig.Aurora.HueSwing * MathF.Sin(wallClock * _auroraConfig.Aurora.DriftHueSpeed);
-
-        /// <summary>
-        /// Where the band's light <b>as a whole</b> sits between <see cref="AuroraSkyConfig.ColorLow"/> (0) and
-        /// <see cref="AuroraSkyConfig.ColorHigh"/> (1) before the drift moves it: the sky ramps green to violet
-        /// with elevation inside the band, but the lower folds are the brighter and the larger part of what a
-        /// camera near the ground sees, so the light the band throws is mostly green. Judged against captures
-        /// of the sky (#462), not integrated.
-        /// </summary>
-        private const float AURORA_LIGHT_MIX = 0.3f;
-
-        /// <summary>
-        /// The colour mix of the light the aurora throws at <paramref name="wallClock"/> — <see cref="AURORA_LIGHT_MIX"/>
-        /// moved by the very drift the sky draws (<see cref="AuroraHueShift"/>). The one number the ground's
-        /// wash (<see cref="AuroraGlowColor"/>) and the light rig on the island, the gun and the balls
-        /// (<see cref="TryGetLightRig"/>) both read, so neither can disagree with the sky over it.
-        /// <para>
-        /// <b>⚠ Until #462 there was no such agreement to have.</b> The drift was a CPU-side clock only — the
-        /// sky's shader never drew it — and it swung the ground's light the whole way from pure green to pure
-        /// violet, so for half of every cycle the clearing went violet under a sky that stayed green. Found
-        /// when the island first took the same light and came out lavender under a green curtain.
-        /// </para>
-        /// </summary>
-        private float AuroraLightMix(float wallClock) =>
-            MathHelper.Clamp(AURORA_LIGHT_MIX + AuroraHueShift(wallClock), 0f, 1f);
-
-        /// <summary>
-        /// How finely the aurora's light rig follows the hue drift: the colour mix's 0–1 range in this many
-        /// steps. A host re-lights its renderers only when a step changes the rig
-        /// (<see cref="SkyLightRig.StepSceneLight"/>), and the Game's walk over them is an iterator — so a
-        /// continuous hue would cost a re-light and an allocation every frame for a colour that takes over a
-        /// minute to cross its range. At 128 steps a re-light comes about once a second at the drift's
-        /// fastest, and each moves a tint by under one percent, which no eye catches as a step.
-        /// </summary>
-        private const float AURORA_RIG_STEPS = 128f;
-
-        /// <summary>
-        /// Carries a light part of the way to <paramref name="hue"/> <b>at its own brightness</b> — the idea
-        /// <see cref="ForestScatterRenderer"/>'s <c>ShiftTowardsSky</c> applies to a pigment, applied to a
-        /// light: what the aurora gives the island and the gun is its colour, not more or less light.
-        /// </summary>
-        private static Vector3 TowardsHue(Vector3 light, Vector3 hue, float strength)
-        {
-            float hueLuminance = ColorSpace.Luminance(hue);
-            if (hueLuminance <= 1e-4f) return light;
-
-            return Vector3.Lerp(light, hue * (ColorSpace.Luminance(light) / hueLuminance), strength);
-        }
-
-        /// <summary>
         /// The aurora's current dominant colour and brightness (linear radiance), on the same slow hue-drift
         /// clock <c>Aurora.fx</c>'s own sky pass runs (<see cref="AuroraSkyConfig.DriftHueSpeed"/>) but
         /// without that shader's curtain noise or its faster brightness pulse
         /// (<see cref="AuroraSkyConfig.PulseSpeed"/>) — a flat approximation good enough for an ambient wash,
         /// not a re-derivation of what the sky pass draws pixel for pixel. Two callers share it:
-        /// <see cref="DrawAurora"/> (the ground's own hemisphere ambient) and, separately, a per-frame call
+        /// <see cref="AuroraBackdrop.Draw"/> (the ground's own hemisphere ambient) and, separately, a per-frame call
         /// each host adds beside its scene lights, feeding it to the scene's own
         /// <c>ForestScatterRenderer</c> planting. <b>Deliberately not routed through the daytime forest's own
         /// tint call</b> (<c>ApplySkyLighting</c>/<c>SkyLightRig.KeyTint</c>): that call only runs on a
@@ -5968,73 +5687,7 @@ namespace Prazsky.Core.Render
         /// to the land under it — the light on the ground breathes far less than the curtains themselves do.
         /// </para>
         /// </summary>
-        public Vector3 AuroraGlowColor(float wallClock)
-        {
-            AuroraSkyConfig aurora = _auroraConfig.Aurora;
-            float drift = AuroraLightMix(wallClock);
-
-            //A small fraction of the sky's own peak, not all of it (#205's first capture read as daylit
-            //rather than night with the sky's own Intensity carried straight across): the sky pass draws
-            //thin bright ribbons against a black void, but this feeds the GROUND's hemisphere term over its
-            //own full dome, which integrates far more of it. Cut again after the owner's second look ("the
-            //forest not so much") — 0.22 was still too bright once the rig itself was also dimmed
-            //(AuroraLightingConfig's own class doc carries that half of the correction) — to a figure that
-            //reads as a dark wood lit by its own aurora rather than one that looks sunlit at midnight.
-            return Vector3.Lerp(aurora.ColorLow.ToVector3(), aurora.ColorHigh.ToVector3(), drift) * aurora.Intensity * 0.09f;
-        }
-
-        /// <summary>
-        /// Draws the aurora scene: the forested ground first (depth-writing, opaque — Forest.fx's reduced
-        /// floor, lit by <see cref="AuroraGlowColor"/> rather than a dome), then the sky quad depth-READ
-        /// against it on the shared space quad — the Moon's measured order (see <see cref="MoonBackdrop.Draw"/>'s doc).
-        /// </summary>
-        private void DrawAurora(in SceneFrame frame)
-        {
-            float cell = AURORA_EXTENT / (AURORA_GRID_N - 1);
-            float originX = MathF.Round(frame.Camera.Position.X / cell) * cell;
-            float originZ = MathF.Round(frame.Camera.Position.Z / cell) * cell;
-
-            Vector3 glow = AuroraGlowColor(frame.Time);
-
-            _auroraOriginXZ.SetValue(new Vector2(originX, originZ));
-            _auroraHoleRadius.SetValue(TerrainHoleRadius);
-            _auroraView.SetValue(frame.Camera.View);
-            _auroraProjection.SetValue(frame.Camera.Projection);
-            _auroraCameraPosition.SetValue(frame.Camera.Position);
-            _auroraTerrainTime.SetValue(frame.Time);
-            _auroraSunColor.SetValue(glow);
-            _auroraZenithColor.SetValue(glow + _auroraConfig.GroundStarlight.ToVector3());
-            _auroraHorizonColor.SetValue(_auroraConfig.Lighting.GroundAmbient.ToVector3());
-
-            _graphicsDevice.BlendState = BlendState.Opaque;
-            _graphicsDevice.DepthStencilState = DepthStencilState.Default;
-            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
-
-            _graphicsDevice.SetVertexBuffer(_auroraVertexBuffer);
-            _graphicsDevice.Indices = _auroraIndexBuffer;
-            _auroraEffect.CurrentTechnique = _auroraTerrainTechnique;
-            _auroraEffect.CurrentTechnique.Passes[0].Apply();
-            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _auroraIndexCount / 3);
-
-            //Then the sky, depth-READ at the far plane: every pixel the terrain already owns is rejected
-            //before the star-and-ribbon shader runs.
-            _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
-
-            _auroraInverseViewProjection.SetValue(Matrix.Invert(frame.Camera.View * frame.Camera.Projection));
-            _auroraSupersample.SetValue((float)SupersampleFactor);
-            _auroraSkyTime.SetValue(frame.Time);
-            _auroraHueShift.SetValue(AuroraHueShift(frame.Time));
-
-            _graphicsDevice.SetVertexBuffer(_fullScreenQuad);
-            _auroraEffect.CurrentTechnique = _auroraSkyTechnique;
-            _auroraEffect.CurrentTechnique.Passes[0].Apply();
-            _graphicsDevice.DrawPrimitives(PrimitiveType.TriangleStrip, 0, 2);
-
-            _graphicsDevice.DepthStencilState = DepthStencilState.Default;
-
-            _graphicsDevice.BlendState = BlendState.AlphaBlend;
-            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
-        }
+        public Vector3 AuroraGlowColor(float wallClock) => _aurora.GlowColor(wallClock);
 
         public void Dispose()
         {
@@ -6061,12 +5714,10 @@ namespace Prazsky.Core.Render
             _sunShadowMap?.Dispose();
             _trailWarp?.Dispose();
             _birdMesh?.Dispose();
-            _snowVertexBuffer?.Dispose();
-            _snowIndexBuffer?.Dispose();
+            _snowfall?.Dispose();
             _seaEffect?.Dispose();
             _lagoonEffect?.Dispose();
             _mountainSnowEffect?.Dispose();
-            _auroraSnowEffect?.Dispose();
             _sprayVertexBuffer?.Dispose();
             _sprayIndexBuffer?.Dispose();
         }

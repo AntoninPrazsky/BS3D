@@ -88,6 +88,17 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
+        /// The scene's terrain effect and its CPU mirror (<see cref="SceneRenderer.TryGetTerrainProbe"/>, the
+        /// Testbed's <c>mirrorcheck</c>, #590); false for a scene with no mirror. Nothing in a frame asks it.
+        /// </summary>
+        public virtual bool TryGetTerrainProbe(out Effect effect, out Func<float, float, float> mirror)
+        {
+            effect = null;
+            mirror = null;
+            return false;
+        }
+
+        /// <summary>
         /// The quality tier crossed <see cref="SceneRenderer.SceneDetail"/>'s line: pick the reduced or the
         /// authored program. Called only on a change, never from the constructor — which is the old
         /// <c>SelectDetailTechniques</c>' own timing, and the reason a scene draws with its effect's default
@@ -95,7 +106,10 @@ namespace Prazsky.Core.Render
         /// </summary>
         public virtual void OnDetailChanged(float sceneDetail) { }
 
-        /// <summary>Frees what this backdrop built. Effects are the content manager's and are not disposed.</summary>
+        /// <summary>
+        /// Frees what this backdrop built. An effect loaded from the content manager is the manager's and is not
+        /// disposed; a clone of one (<c>Effect.Clone</c>, the aurora's snow) is the backdrop's own and is.
+        /// </summary>
         public virtual void Dispose() { }
     }
 
@@ -124,6 +138,13 @@ namespace Prazsky.Core.Render
         /// own constant, 0 being the arrangement that shipped.
         /// </summary>
         public int SeedOffset { get; }
+
+        /// <summary>
+        /// The falling snow the mountain and the aurora share (#205, a service since #580): its flake buffer and
+        /// its draw. Set by the renderer where the snow stood in its constructor, before any backdrop that snows
+        /// is built; the renderer disposes it.
+        /// </summary>
+        public Snowfall Snowfall { get; set; }
 
         /// <summary>
         /// The radius cut out of every terrain around the arena — <see cref="SceneRenderer.TerrainHoleRadius"/>, which
