@@ -79,7 +79,9 @@ namespace BS3D.Screens
 
         /// <summary>
         /// The measurements of the map hanging over the island — how wide it reaches about the orbit's axis,
-        /// how tall it is, where its middle is, and the two heights the fly-in cranes between.
+        /// how tall it is and where its middle is. The heights the fly-in cranes between are not among them
+        /// since #599: they are stated as angles of look (<see cref="CRANE_LOW_PITCH"/>) and turned into
+        /// heights at the pass's own stand-off, which is solved per frame.
         /// <para>
         /// <b>Measurements and not stand-offs</b>, deliberately: which frustum axis a map is framed by flips
         /// with the shape of the window (the vertical FOV is what <c>CreatePerspectiveFieldOfView</c> takes, so
@@ -112,42 +114,32 @@ namespace BS3D.Screens
             /// <summary>The middle of the hanging cluster in world Y: what both legs aim at.</summary>
             public readonly float CentreY;
 
-            /// <summary>Where the fly-in starts its crane, under the cluster looking up at its underside.</summary>
-            public readonly float UnderY;
-
-            /// <summary>Where it ends it, just over the top of the cluster with the glass in frame.</summary>
-            public readonly float OverY;
-
             /// <summary>
             /// The bounding sphere about <see cref="CentreY"/>: what a clearance has to be measured off, since
             /// it is the one figure that bounds the cluster from every bearing and every height at once.
             /// </summary>
             public float Span => MathF.Sqrt(SpanXZ * SpanXZ + HalfHeight * HalfHeight);
 
-            public OrbitFraming(float spanXZ, float halfHeight, float centreY, float underY, float overY)
+            public OrbitFraming(float spanXZ, float halfHeight, float centreY)
             {
                 SpanXZ = spanXZ;
                 HalfHeight = halfHeight;
                 CentreY = centreY;
-                UnderY = underY;
-                OverY = overY;
             }
 
             /// <summary>
             /// What the front end frames with no map hanging at all — the no-readable-level fallback. The
             /// drain's mouth stands in for the cluster, because with nothing hanging over the island the hole
-            /// in the middle of it is what the flight is going round; the heights are the ones the fixed orbit
+            /// in the middle of it is what the flight is going round; the aim height is the one the fixed orbit
             /// used before any of this was solved.
             /// </summary>
             public static readonly OrbitFraming Bare =
-                new(ArenaIsland.FUNNEL_TOP_RADIUS, 0f, 5f, -1f, 9f);
+                new(ArenaIsland.FUNNEL_TOP_RADIUS, 0f, 5f);
 
             public static OrbitFraming Lerp(in OrbitFraming from, in OrbitFraming to, float amount) => new(
                 MathHelper.Lerp(from.SpanXZ, to.SpanXZ, amount),
                 MathHelper.Lerp(from.HalfHeight, to.HalfHeight, amount),
-                MathHelper.Lerp(from.CentreY, to.CentreY, amount),
-                MathHelper.Lerp(from.UnderY, to.UnderY, amount),
-                MathHelper.Lerp(from.OverY, to.OverY, amount));
+                MathHelper.Lerp(from.CentreY, to.CentreY, amount));
         }
 
         //What the camera is flying to today, and what it is drifting towards. Two of them rather than one
@@ -197,9 +189,10 @@ namespace BS3D.Screens
 
         //And what the fly-in may not do, whatever the arithmetic above asks for: come nearer the cluster than
         //this. A unit and a half of air off the cluster's bounding SPHERE — a floor on the distance to any
-        //ball at any bearing and any point of the crane, and margin for the near plane with it. The sphere
-        //bounds the FIELD's footprint too, so the same floor keeps the lens outside the glass plate by as
-        //much again at the top of the crane.
+        //ball at any bearing and any point of the crane, and margin for the near plane with it. It is measured
+        //in the horizontal alone, and the lens's height only adds to its true distance. The sphere bounds the
+        //FIELD's footprint too, so the same floor keeps the lens clear of the glass plate — which, since the
+        //crane never climbs past the aim any more (#599), it does not come near anyway.
         //
         //This used to be 10, and for a reason that is gone. The 3D wordmark hung 7 units in front of the lens
         //with depth writes on (TitleWordmark.DISTANCE) and its far corners reached about 8.5 out, so a ball
@@ -233,17 +226,31 @@ namespace BS3D.Screens
         //a constant that only suited a map of one depth.
         private const float WIDE_LENS_DROP = 2f;
 
-        //Where the fly-in's crane starts and ends, measured off the cluster's own bottom and top ball. Under
-        //it first, because the underside is the face that says the thing hangs — the sky is behind it and the
-        //island below the lens — and over it last, where the top balls and the glass they hang from are in the
-        //same frame and the gap between them is finally readable at all.
-        private const float CRANE_UNDER_CLUSTER = 2f;
-        private const float CRANE_OVER_CLUSTER = 1.5f;
+        //Where the fly-in's crane starts and ends, stated as how steeply the lens LOOKS UP at the middle of the
+        //cluster (#599) — and both are upward, so there is no moment of the flight at which the camera looks
+        //down on the map. It starts low and steep, where the underside is the face in frame and the sky behind
+        //it says the thing hangs, and it climbs to a shallow look that is still up: CRANE_HIGH_PITCH is about
+        //the wide leg's own (WIDE_LENS_DROP over the wide stand-off comes to 3 degrees at 16:9), so the
+        //retreat pulls straight back out onto the establishing turn without tipping. The steep end is a
+        //little steeper than the play view's own look up at its cluster (about 14 degrees), which is the
+        //view the owner named as the right one.
+        //
+        //Until #599 these were heights off the cluster's bottom and top ball — two units under it and one
+        //and a half over it — and half the cycles ran the crane from the top down (#261's roll). The owner's
+        //playtest ruling was that the pass started too high and looked down on the map: from over the top the
+        //lens looked down at 22 degrees (measured on One, 385 balls) before it came down the map at all.
+        //Angles rather than heights, too, because a height off the cluster meant a different look at every
+        //stand-off: two units under a flat pancake at eleven units out is a different camera from two units
+        //under a column at fifteen. An angle is the same look whatever the map and whatever the window, and
+        //it turns into a height against the pass's stand-off where that is solved, every frame.
+        private static readonly float CRANE_LOW_PITCH = MathHelper.ToRadians(18f);
+        private static readonly float CRANE_HIGH_PITCH = MathHelper.ToRadians(4f);
 
         //The floor under all of it: the deepest fields hang their bottom level a hand's breadth over the death
-        //line, so a crane that started CRANE_UNDER_CLUSTER below THAT would put the lens through the island's
-        //stone. Held this far over the arena's top face instead, which is a low, near-grazing look up at the
-        //cluster rather than a shot from inside the rock.
+        //line, and a crane that started low under THAT would put the lens through the island's stone. Held
+        //this far over the arena's top face instead, which is a low, near-grazing look up at the cluster
+        //rather than a shot from inside the rock. It only ever raises the lens, and every aim sits well over
+        //it (the shallowest field's middle is several units higher), so it cannot turn the look downward.
         private static readonly float LENS_FLOOR_Y = ArenaIsland.TOP_Y + 4f;
 
         /// <summary>
@@ -301,7 +308,9 @@ namespace BS3D.Screens
                 + $", aim y {framing.CentreY:F1}"
                 + $", wide {WideRadius(framing):F1}"
                 + $", close {CloseRadius(framing, CLOSE_CLEARANCE):F1}"
-                + $", crane {framing.UnderY:F1} to {framing.OverY:F1}");
+                + $", crane y {CraneHeight(framing, CloseRadius(framing, CLOSE_CLEARANCE), 0f):F1}"
+                + $" to {CraneHeight(framing, CloseRadius(framing, CLOSE_CLEARANCE), 1f):F1}"
+                + $" (up {MathHelper.ToDegrees(CRANE_LOW_PITCH):F0} to {MathHelper.ToDegrees(CRANE_HIGH_PITCH):F0} deg)");
         }
 
         /// <summary>
@@ -331,10 +340,18 @@ namespace BS3D.Screens
             return new OrbitFraming(
                 MathF.Sqrt(halfX * halfX + halfZ * halfZ),
                 (topY - bottomY) * Constants.HALF,
-                centreY,
-                MathF.Max(bottomY - CRANE_UNDER_CLUSTER, LENS_FLOOR_Y),
-                topY + CRANE_OVER_CLUSTER);
+                centreY);
         }
+
+        /// <summary>
+        /// The lens's height on the crane at <paramref name="rise"/> (0 its low start, 1 its high end), watched
+        /// from <paramref name="radius"/> out: the height from which the look up at the cluster's middle is
+        /// the crane's pitch at that point (#599). Always under the aim, since both ends of the crane look up;
+        /// never under <see cref="LENS_FLOOR_Y"/>.
+        /// </summary>
+        private static float CraneHeight(in OrbitFraming framing, float radius, float rise) =>
+            MathF.Max(LENS_FLOOR_Y,
+                framing.CentreY - radius * MathF.Tan(MathHelper.Lerp(CRANE_LOW_PITCH, CRANE_HIGH_PITCH, rise)));
 
         /// <summary>
         /// Takes a solved framing as the one to drift towards — and as the one the camera is already at, if
@@ -497,9 +514,12 @@ namespace BS3D.Screens
         //again (#254 — "the camera just flies around the scene and looks at it"). Then it does it again,
         //from wherever the bearing has reached by then — and since the owner's follow-up ruling on #261 no
         //two arrivals are shaped alike either: each leg's length is rolled within the range its constant
-        //below names (the first figure is the floor, the second the jitter above it), the crane sets off
-        //over the top as often as from under the bottom, and this pass's stand-off jitters a few per cent
-        //either way, so the same map is never visited the same way twice.
+        //below names (the first figure is the floor, the second the jitter above it) and this pass's clearance
+        //jitters either way, so the same map is never visited the same way twice. The crane's direction was
+        //rolled too until #599 — over the top as often as from under the bottom — and is not any more: it
+        //always climbs from its low, steep look to its shallow one, because the owner's ruling is that the
+        //camera starts low and looks up the whole way, and a pass that started over the top began by looking
+        //down on the map.
         //
         //THE WIDE LEG'S ROLL HAS A FLOOR, and the reason is not variety: BS3DGame.TuneQualityToFrameRate is
         //driven off this screen's Update, and it reaches a verdict from a 1.5 s warm-up and 1.5 s windows —
@@ -518,7 +538,7 @@ namespace BS3D.Screens
         private const float CLOSE_SECONDS = 16f, CLOSE_JITTER_SECONDS = 8f;
         private const float RETREAT_SECONDS = 7f, RETREAT_JITTER_SECONDS = 3f;
 
-        //This cycle's rolled legs and its two rolls of the dice. The initial values are the floors, so the
+        //This cycle's rolled legs and its roll of the clearance. The initial values are the floors, so the
         //very first frames of a program fly a sane cycle even before RollCycle has been near them — though
         //the constructor's RollPreviewMap resets the clock and rolls one anyway.
         private float _wideSeconds = WIDE_SECONDS;
@@ -526,11 +546,9 @@ namespace BS3D.Screens
         private float _closeSeconds = CLOSE_SECONDS;
         private float _retreatSeconds = RETREAT_SECONDS;
 
-        //Whether this pass's crane starts over the top of the map (and comes down it) or from under the
-        //bottom (and climbs), and how much air this pass leaves off the balls — CLOSE_CLEARANCE rolled
-        //within CLOSE_CLEARANCE_JITTER either way, so one pass skims closer among the balls than the last
-        //one did, and none of them closer than the floor allows.
-        private bool _craneFromOver;
+        //How much air this pass leaves off the balls — CLOSE_CLEARANCE rolled within CLOSE_CLEARANCE_JITTER
+        //either way, so one pass skims closer among the balls than the last one did, and none of them closer
+        //than the floor allows.
         private float _closeClearance = CLOSE_CLEARANCE;
 
         private float ExcursionSeconds => _approachSeconds + _closeSeconds + _retreatSeconds;
@@ -554,8 +572,8 @@ namespace BS3D.Screens
         private static readonly float FOV = MathF.PI / 3f;  //60°: wide, to take in the scene behind the panel
 
         /// <summary>
-        /// Rolls the next cycle's shape: the four leg lengths within their ranges, whether the crane sets off
-        /// over the top of the map or from under it, and this pass's stand-off within a few per cent. Called
+        /// Rolls the next cycle's shape: the four leg lengths within their ranges and this pass's clearance
+        /// about <see cref="CLOSE_CLEARANCE"/>. Called
         /// at the top of every cycle, and wherever the flight is put back onto a wide leg with the clock at
         /// zero — a fresh program, a rolled preview, a release off the result screen.
         /// </summary>
@@ -565,7 +583,6 @@ namespace BS3D.Screens
             _approachSeconds = APPROACH_SECONDS + (float)RANDOM.NextDouble() * APPROACH_JITTER_SECONDS;
             _closeSeconds = CLOSE_SECONDS + (float)RANDOM.NextDouble() * CLOSE_JITTER_SECONDS;
             _retreatSeconds = RETREAT_SECONDS + (float)RANDOM.NextDouble() * RETREAT_JITTER_SECONDS;
-            _craneFromOver = RANDOM.NextDouble() < 0.5;
             _closeClearance = CLOSE_CLEARANCE * (1f + (2f * (float)RANDOM.NextDouble() - 1f) * CLOSE_CLEARANCE_JITTER);
         }
 
@@ -588,23 +605,23 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// How far up the crane is, 0 under the cluster and 1 over it, run across the <b>whole</b> excursion
-        /// rather than only its close leg. Over the whole of it because the rise is what stops the pass reading
-        /// as a second orbit: the camera is climbing (or descending — half the rolls start it over the top,
-        /// #261) the map for the entire time it is anywhere near it, and it is moving fastest in the middle of
-        /// the close leg, where the smoothstep is steepest.
+        /// How far up the crane is, 0 at its low, steep look up at the cluster and 1 at its shallow one (see
+        /// <see cref="CRANE_LOW_PITCH"/>), run across the <b>whole</b> excursion rather than only its close
+        /// leg. Over the whole of it because the rise is what stops the pass reading as a second orbit: the
+        /// camera is climbing the map for the entire time it is anywhere near it, and it is moving fastest in
+        /// the middle of the close leg, where the smoothstep is steepest. It only ever climbs since #599 — half
+        /// the rolls used to run it down from over the top (#261), which is the pass that began by looking
+        /// down on the map.
         /// <para>
-        /// It jumps back to its starting end at the end of the cycle, whichever end that is, and that is not
-        /// a discontinuity anyone can see: <see cref="Closeness"/> is exactly 0 there, so the height it
-        /// feeds is not being mixed in at all.
+        /// It jumps back to its starting end at the end of the cycle, and that is not a discontinuity anyone
+        /// can see: <see cref="Closeness"/> is exactly 0 there, so the height it feeds is not being mixed in
+        /// at all.
         /// </para>
         /// </summary>
         private float Rise(float clock)
         {
-            float rise = MathHelper.SmoothStep(0f, 1f,
+            return MathHelper.SmoothStep(0f, 1f,
                 MathHelper.Clamp((clock - _wideSeconds) / ExcursionSeconds, 0f, 1f));
-
-            return _craneFromOver ? 1f - rise : rise;
         }
 
         #endregion
@@ -692,12 +709,15 @@ namespace BS3D.Screens
             //Both stand-offs solved here, from the map's measurements and the window's own shape, rather than
             //stored with the framing — see OrbitFraming for why they cannot be settled at load. The close one
             //carries this cycle's rolled clearance, so one pass skims nearer the balls than the last.
-            float radius = MathHelper.Lerp(WideRadius(_framing),
-                CloseRadius(_framing, _closeClearance), closeness);
+            float closeRadius = CloseRadius(_framing, _closeClearance);
+            float radius = MathHelper.Lerp(WideRadius(_framing), closeRadius, closeness);
 
+            //The crane's height is taken at the pass's own stand-off, where its pitches are meant, and mixed
+            //with the wide leg's the way the radius is. Both are under the aim, so every blend of them is too:
+            //the lens looks up at the cluster through the whole flight and never down on it (#599).
             float height = MathF.Max(LENS_FLOOR_Y, MathHelper.Lerp(
                 _framing.CentreY - WIDE_LENS_DROP,
-                MathHelper.Lerp(_framing.UnderY, _framing.OverY, Rise(_flightClock)),
+                CraneHeight(_framing, closeRadius, Rise(_flightClock)),
                 closeness));
 
             _angle += MathHelper.Lerp(WIDE_ROTATION_SPEED, CLOSE_ROTATION_SPEED, closeness) * elapsed;
