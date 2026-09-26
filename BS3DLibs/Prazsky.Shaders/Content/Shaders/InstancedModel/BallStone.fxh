@@ -75,7 +75,10 @@ float StoneRoughness;
 //between, on the meadow at dome 1: rock 84 and 75 mean luminance on two rocks, Type8 (black) 42, Type11
 //(silver) 81. Under dome 13: rock 66 and 67, black 29, silver 80. Still beside the silver and still at
 //twice the 8-ball on both, which is the whole of what the paragraph above asks for.
-static const float3 StoneBody = float3(0.54, 0.51, 0.465);
+//⚠ AND LESS WARM SINCE #623: the references' granite is a neutral grey with the warmth in its dark flecks,
+//and the owner's #620 sheet read the warm body as "a brown lump". Still a shade warm of the silver's cool
+//slate, and now separated from it by the flat faces and the crack as well, which no colour has.
+static const float3 StoneBody = float3(0.555, 0.545, 0.515);
 
 //What the grains are: the pale one is quartz catching the light, the dark one mica. Asymmetric on purpose -
 //a real granite's dark minerals sit further from the matrix than its light ones, and a symmetric pair reads
@@ -83,18 +86,9 @@ static const float3 StoneBody = float3(0.54, 0.51, 0.465);
 static const float3 StoneGrainPale = float3(0.90, 0.89, 0.86);
 static const float3 StoneGrainDark = float3(0.17, 0.16, 0.155);
 
-//The three directions the grain waves run along, and the ratios between their frequencies. Irrational
-//ratios so the product never settles into a repeating lattice, and none of them near an axis of the
-//sphere so the grains do not agree with the mesh's own poles - the LOD ladder's coarsest spheres would
-//otherwise have something to line up with.
-static const float3 StoneGrainAxisA = float3(0.63, 0.49, -0.60);
-static const float3 StoneGrainAxisB = float3(-0.42, 0.77, 0.48);
-static const float3 StoneGrainAxisC = float3(0.51, -0.38, 0.77);
-static const float3 StoneGrainRatio = float3(1.0, 1.137, 0.874);
-
-//How hard the fleck field is squeezed before it counts as a grain. The product of three waves spends most
-//of its range near zero, so this is what turns "mostly nothing with occasional peaks" into discrete
-//grains with clean matrix between them rather than a continuous haze.
+//How hard the fleck field is squeezed before it counts as a grain. The noise spends most of its range near
+//zero, so this is what turns "mostly nothing with occasional peaks" into discrete grains with clean matrix
+//between them rather than a continuous haze.
 static const float StoneGrainGate = 2.6;
 static const float StoneGrainSharpness = 1.7;
 
@@ -184,6 +178,39 @@ float StoneShapeDepth;
 //is what is left after pieces came off, and pieces come off in bites rather than in ripples.
 static const float StoneShapePower = 1.8;
 
+//THE FRACTURE PLANES (#623). Four flat faces cut into the sphere on top of the gouges: each is a plane at
+//StonePlaneOffset of the radius along its normal, and a vertex whose direction reaches past that plane is
+//pulled back onto it - a stone is what is LEFT after pieces came off, and a piece comes off along a plane.
+//The generated references (#623, both models, two prompt sets) put the read there: a round boulder with
+//ONE big flat cut face and a crack is a stone from across the room, where a dimpled lump was a golf ball on
+//the owner's #620 sheet. Inward only, like the gouges, and the plane's normal is exact where it cuts. The
+//first offset is the deepest: one face that is obviously a break, three that are chamfers.
+static const float3 StonePlaneA = float3(0.803, 0.351, -0.482);
+static const float3 StonePlaneB = float3(-0.551, 0.702, 0.451);
+static const float3 StonePlaneC = float3(0.199, -0.845, 0.497);
+static const float3 StonePlaneD = float3(-0.601, -0.300, -0.741);
+static const float3 StonePlaneE = float3(0.100, 0.301, -0.949);
+//⚠ Deeper than the gouges over most of each face, or the gouges win and the face never shows: at
+//StoneShapeDepth 0.2 the gouges reach 0.8, so the first cut of this at 0.80 photographed as a lump with one
+//small flat at its edge. The fifth plane faces -Z, which on a ball placed by a level (identity orientation,
+//RockTurns aside) is the side the player looks at.
+static const float4 StonePlaneOffset = float4(0.74, 0.86, 0.82, 0.80);
+static const float StonePlaneOffsetE = 0.83;
+
+//The crack: one bent plane through the stone, DARK - a crack in rock is a shadow, where the ice's crack
+//(#628) is an internal face catching the light. SeamLine's own band limit, and a groove in the relief.
+static const float3 StoneCrackAxis = float3(0.62, 0.53, -0.58);
+static const float StoneCrackFrequency = 1.3;
+static const float StoneCrackWidth = 0.045;
+static const float StoneCrackBend = 0.3;
+static const float StoneCrackDark = 0.85;
+static const float StoneCrackDepth = 0.035;
+
+//A fresh break is lighter and cleaner than the weathered skin round it: how much lighter the flat faces
+//are, and how much of the lump relief they keep (a break is flat; the grain stays).
+static const float StoneFaceLift = 1.10;
+static const float StoneFaceLumps = 0.25;
+
 //The four waves the carving is built from. Low frequencies, irrational-ish ratios, none near an axis of
 //the sphere - the same three rules every field in this file follows, for the same three reasons.
 static const float4 StoneShapeFrequency = float4(1.7, 2.6, 3.9, 5.7);
@@ -210,6 +237,42 @@ float StoneShape(float3 direction, out float3 gradient)
     return dot(wave, StoneShapeWeight);
 }
 
+//The fracture planes as a scale on the unit direction: 1 where no plane cuts, less where one does, and the
+//cutting plane's normal handed back. Shared by the vertex shader (to cut) and the pixel shader (to know it
+//is standing on a break).
+float StonePlanes(float3 direction, out float3 planeNormal)
+{
+    float best = 1.0;
+    planeNormal = direction;
+
+    float4 along = float4(dot(direction, StonePlaneA), dot(direction, StonePlaneB),
+        dot(direction, StonePlaneC), dot(direction, StonePlaneD));
+    float4 cut = StonePlaneOffset / max(along, 1e-3);
+
+    if (along.x > StonePlaneOffset.x && cut.x < best) { best = cut.x; planeNormal = StonePlaneA; }
+    if (along.y > StonePlaneOffset.y && cut.y < best) { best = cut.y; planeNormal = StonePlaneB; }
+    if (along.z > StonePlaneOffset.z && cut.z < best) { best = cut.z; planeNormal = StonePlaneC; }
+    if (along.w > StonePlaneOffset.w && cut.w < best) { best = cut.w; planeNormal = StonePlaneD; }
+
+    float alongE = dot(direction, StonePlaneE);
+    float cutE = StonePlaneOffsetE / max(alongE, 1e-3);
+    if (alongE > StonePlaneOffsetE && cutE < best) { best = cutE; planeNormal = StonePlaneE; }
+
+    return best;
+}
+
+//The gouge carve alone (the sum-of-sines field through its power), shared by both stages.
+float StoneGougeCarve(float3 direction, out float3 gradient, out float bite)
+{
+    float shape = StoneShape(direction, gradient);
+
+    //Inward only: 1 at the shallowest, 1 - depth at the deepest. Through the power, so it gouges rather
+    //than undulates - see StoneShapePower.
+    bite = saturate(0.5 + 0.5 * shape);
+
+    return 1 - StoneShapeDepth * pow(bite, StoneShapePower);
+}
+
 //The rock's own vertex shader: PatternVS with the carving in it. Everything else about the output is
 //PatternVS's, and deliberately so - the two must not drift apart, since every contract point the pixel
 //shader answers is read off these same fields.
@@ -225,13 +288,8 @@ PatternVertexShaderOutput StoneVS(VertexShaderInput input, InstanceInput instanc
     float3 direction = bonePosition.xyz / radius;
 
     float3 gradient;
-    float shape = StoneShape(direction, gradient);
-
-    //Inward only: 1 at the shallowest, 1 - depth at the deepest. Through the power, so it gouges rather
-    //than undulates - see StoneShapePower.
-    float bite = saturate(0.5 + 0.5 * shape);
-    float bitten = pow(bite, StoneShapePower);
-    float carve = 1 - StoneShapeDepth * bitten;
+    float bite;
+    float carve = StoneGougeCarve(direction, gradient, bite);
 
     //n proportional to d - (tangential gradient of r)/r, with r = radius * carve. The carve's own
     //derivative supplies the minus sign, which is why this reads as a plus; the power supplies the chain
@@ -240,6 +298,16 @@ PatternVertexShaderOutput StoneVS(VertexShaderInput input, InstanceInput instanc
 
     float3 tangential = gradient - dot(gradient, direction) * direction;
     float3 objectNormal = normalize(direction + (slope / carve) * tangential);
+
+    //THE BREAKS (#623): where a fracture plane cuts deeper than the gouges, the vertex lies on the plane
+    //and the normal IS the plane's - a flat face lit as a flat face, which is what a break looks like.
+    float3 planeNormal;
+    float planeCut = StonePlanes(direction, planeNormal);
+    if (planeCut < carve)
+    {
+        carve = planeCut;
+        objectNormal = planeNormal;
+    }
 
     float3 carved = direction * (radius * carve);
     float4 worldPosition = mul(float4(carved, 1), world);
@@ -264,14 +332,19 @@ PatternVertexShaderOutput StoneVS(VertexShaderInput input, InstanceInput instanc
 //why that one uses seven). The two added are the FINEST, so they cost nothing at distance: each octave
 //band-limits against its own wavelength, so they are present exactly while a pixel can hold them and
 //gone silently when it cannot, and what carries a rock across the arena is still the coarse end.
+//⚠ GRADIENT NOISE SINCE #623, NOT RECTIFIED SINES. Six rectified octaves were still a lattice of dimples at
+//the tile - the golf ball the block above warns about, at a finer pitch - because a rectified plane wave is
+//a row of ridges whatever its frequency, and six rows crossing are a grid. A hashed lattice has no rows.
+//Three octaves, the domain rotated between them (Fbm3's rule), each band-limited to its mean, so a receding
+//rock settles into one matte grey rather than boiling. Returns 0..1 about a half, the same range as before.
 float StoneLumps(float3 direction, float footprint)
 {
-    return 0.36 * abs(ReliefOctave(direction, float3(0.71, 0.52, -0.47), 3.5, footprint))
-        + 0.24 * abs(ReliefOctave(direction, float3(-0.36, 0.83, 0.42), 6.0, footprint))
-        + 0.16 * abs(ReliefOctave(direction, float3(0.55, -0.44, 0.71), 11.0, footprint))
-        + 0.11 * abs(ReliefOctave(direction, float3(-0.82, -0.31, 0.48), 19.0, footprint))
-        + 0.08 * abs(ReliefOctave(direction, float3(0.29, -0.86, -0.42), 31.0, footprint))
-        + 0.05 * abs(ReliefOctave(direction, float3(-0.64, 0.31, -0.70), 49.0, footprint));
+    float coarse = GradientNoise3(direction * 3.2) * saturate(1 - footprint * 3.2 * 2.0);
+    float3 turned = mul(NOISE_ROTATE3, direction);
+    float medium = GradientNoise3(turned * 7.1) * saturate(1 - footprint * 7.1 * 2.0);
+    float fine = GradientNoise3(mul(NOISE_ROTATE3, turned) * 15.3) * saturate(1 - footprint * 15.3 * 2.0);
+
+    return saturate(0.5 + 0.5 * (0.55 * coarse + 0.3 * medium + 0.15 * fine) * 1.4);
 }
 
 float4 StonePS(PatternVertexShaderOutput input) : COLOR
@@ -292,33 +365,23 @@ float4 StonePS(PatternVertexShaderOutput input) : COLOR
     //Contract point 6: the grain is in OBJECT space, so it turns with the ball. It is a stronger rotation
     //cue than the gores it replaces, because it is aperiodic - a rolling beach ball shows the same five
     //stripes coming round again, and there is no such thing as coming round again on this one.
-    float3 grainFrequency = StoneGrainFrequency * StoneGrainRatio;
-
-    //⚠ WARPED BY THE LUMPS, and without this the ball is a GOLF BALL. Three pure waves multiplied give a
-    //regular three-dimensional lattice of blobs, and a lattice of identical dimples in even rows is exactly
-    //what a golf ball is - it was the first thing wrong with this style after the value. Displacing the
-    //phase each wave is read at, by a field an octave or two coarser, is the marble's own construction for
-    //its veins (warp the INPUT, not the output) and it costs nothing here because the field is already in
-    //hand. What comes out is granite's actual figure: patches of coarser and finer grain, none of them
-    //lining up with the next.
+    //
+    //WARPED BY THE LUMPS: displacing the coordinate the coarse flecks are read at, by a field an octave or
+    //two coarser, is the marble's own construction for its veins (warp the INPUT, not the output), and it
+    //costs nothing here because the field is already in hand. What comes out is granite's actual figure:
+    //patches of coarser and finer grain, none of them lining up with the next.
     float warp = (lumps - 0.5) * StoneGrainWarp;
 
-    //⚠ BAND-LIMITED ONCE, ON THE PRODUCT, and ReliefOctave is deliberately NOT used to build it. Every other
-    //figure in this file is a SUM of octaves, where per-octave attenuation is the right and only construction
-    //(see ReliefOctave's own comment). A product is not a sum: three attenuated factors multiply their
-    //attenuations, so a field that should fade to 45 % at a given distance fades to 45³ = 9 % instead and the
-    //grain is simply gone one ball-width from the camera. Measured, not reasoned about - the first build of
-    //this style drew no grain at all at play distance and this was why.
-    //
-    //What the one factor is measured against is the SUM of the three frequencies, because that is where a
-    //product's finest content actually lies: sin(a)·sin(b) carries a+b as well as a-b.
-    float grainBandLimit = saturate(1 - footprint * (grainFrequency.x + grainFrequency.y + grainFrequency.z)
-        / 3.14159265);
-
-    float fleck = sin(dot(direction, StoneGrainAxisA) * grainFrequency.x + warp)
-        * sin(dot(direction, StoneGrainAxisB) * grainFrequency.y - warp * 1.31)
-        * sin(dot(direction, StoneGrainAxisC) * grainFrequency.z + warp * 0.77)
-        * grainBandLimit;
+    //⚠ HASHED SINCE #623, NOT A PRODUCT OF SINES. The product above - three waves multiplied, warped by the
+    //lumps - was STILL a lattice of blobs at the tile: the warp moved the blobs, it did not remove the rows,
+    //and the owner's #620 sheet read the rock as a dimpled lump, which is a golf ball whatever the comment
+    //says. Gradient noise has no rows. Two octaves, so the flecks come in two sizes as an aggregate's grains
+    //do, the coarse one warped by the lumps so patches of coarser and finer grain still form; the product's
+    //band-limit argument (measure against the finest content) is kept as the cell size of the finer octave.
+    float speckCells = StoneGrainFrequency * 0.7;
+    float speckLimit = saturate(1 - footprint * speckCells * 2.0);
+    float fleck = 1.3 * (0.6 * GradientNoise3(direction * (speckCells * 0.55) + warp * 0.35)
+        + 0.5 * GradientNoise3(mul(NOISE_ROTATE3, direction) * speckCells)) * speckLimit;
 
     //Two sides of one field: the peaks above zero are the pale mineral, the troughs below it the dark
     //one. Reading both off the SAME product is what keeps them interlocked the way an aggregate's
@@ -326,20 +389,41 @@ float4 StonePS(PatternVertexShaderOutput input) : COLOR
     float pale = pow(saturate(fleck * StoneGrainGate), StoneGrainSharpness);
     float dark = pow(saturate(-fleck * StoneGrainGate), StoneGrainSharpness);
 
-    float3 color = SrgbToLinear(StoneBody) * (1 - StoneMottle * lumps);
+    //ON A BREAK OR NOT (#623): the same plane test the vertex shader cut with, against the same gouge carve,
+    //one pixel soft on their difference. A break is a fresh, flat, lighter face; the skin round it keeps its
+    //lumps and its weathering.
+    float3 planeNormal;
+    float3 gougeGradient;
+    float bite;
+    float gouge = StoneGougeCarve(direction, gougeGradient, bite);
+    float planeCut = StonePlanes(direction, planeNormal);
+    float breakDepth = gouge - planeCut;
+    float face = smoothstep(-fwidth(breakDepth), fwidth(breakDepth), breakDepth);
+
+    //THE CRACK: one bent plane, dark, with SeamLine's own fade so it leaves cleanly.
+    float3 bent = direction + StoneCrackBend * float3(
+        ReliefOctave(direction, float3(0.31, 0.62, 0.72), 2.1, footprint),
+        ReliefOctave(direction, float3(-0.77, 0.24, 0.59), 2.7, footprint),
+        ReliefOctave(direction, float3(0.58, -0.79, 0.19), 1.9, footprint));
+    float crack = SeamLine(bent, StoneCrackAxis, StoneCrackFrequency, StoneCrackWidth, footprint);
+
+    float3 color = SrgbToLinear(StoneBody) * (1 - StoneMottle * lumps * (1 - face)) * lerp(1.0, StoneFaceLift, face);
 
     color = lerp(color, SrgbToLinear(StoneGrainPale), pale * StoneGrainContrast);
     color = lerp(color, SrgbToLinear(StoneGrainDark), dark * StoneGrainContrast);
+    color *= 1 - StoneCrackDark * crack;
 
     //The surface. Lumps for the shaping and the fleck field for the pitting, in one height field so a single
     //perturbation covers both - the vinyl skin's construction, at several times its amplitude. The fleck is
     //signed here rather than split into its two minerals: a pit and a raised grain are both real, and the
-    //colour above already decided which mineral is which.
+    //colour above already decided which mineral is which. A break keeps the grain and loses most of the
+    //lumps; the crack is a groove.
     //
     //The LUMPS are what survives distance. They run at 3.5 to 19 waves where the grain runs at three times
     //that, so at the stand-off a level is played from the grain has faded out and this has not - which is the
     //whole reason the roughness is not left to the speckle. A rock has to still be a rock across the arena.
-    float height = (StoneLumpShare * lumps + (1 - StoneLumpShare) * fleck) * StoneRoughness;
+    float height = (StoneLumpShare * lumps * lerp(1.0, StoneFaceLumps, face) + (1 - StoneLumpShare) * fleck) * StoneRoughness
+        - crack * StoneCrackDepth;
 
     float3 worldNormal = PerturbNormalFromHeight(normalize(input.WorldNormal), input.WorldPosition, height);
 
