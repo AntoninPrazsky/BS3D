@@ -92,13 +92,9 @@ float GlassFacetShare(float2 cell, float2 axis, float soft)
     return saturate(dominant / soft + 0.5) * saturate(dot(c, axis) / soft + 0.5);
 }
 
-//The sunlight factor the ceiling's glass leaves at a point: 1 where the ray to the sun misses the slab, down to what
-//the glass passes (and lower on its rim, higher on a caustic) where it crosses it.
-float CeilingGlassShadow(float3 worldPosition, float3 sunDirection)
+//The body of CeilingGlassShadow below, for the one-return wrapper there (X4000: see Clouds.fxh's CloudSunlight).
+float CeilingGlassShadowLit(float3 worldPosition, float3 sunDirection)
 {
-    [branch]
-    if (CeilingShadowCentre.w <= 0.0) return 1.0;
-
     float3 centre = CeilingShadowCentre.xyz;
     float3 extent = CeilingShadowSize.xyz;
     float underside = centre.y - extent.y;
@@ -145,6 +141,18 @@ float CeilingGlassShadow(float3 worldPosition, float3 sunDirection)
     light *= 1.0 - GLASS_SHADOW_RIM * rim;
 
     return lerp(1.0, (1.0 - CeilingShadowCentre.w) * light, cover);
+}
+
+//The sunlight factor the ceiling's glass leaves at a point: 1 where the ray to the sun misses the slab, down to what
+//the glass passes (and lower on its rim, higher on a caustic) where it crosses it.
+float CeilingGlassShadow(float3 worldPosition, float3 sunDirection)
+{
+    float glass = 1.0;
+
+    [branch]
+    if (CeilingShadowCentre.w > 0.0) glass = CeilingGlassShadowLit(worldPosition, sunDirection);
+
+    return glass;
 }
 
 //The map is sampled by hand with a nine-tap box (PCF) rather than a comparison sampler. (This said MonoGame's
