@@ -66,9 +66,20 @@ VertexShaderOutput MainVS(float3 position : POSITION0, float2 texCoord : TEXCOOR
 //Keeps the excess over the threshold rather than the whole pixel, so a surface that merely sits at the
 //threshold contributes nothing and only genuinely bright things bloom. Working on the excess also means
 //the glare grows smoothly as a ball's pulse rises instead of switching on.
+//
+//FOUR taps, each a quarter of a DESTINATION texel out (#591; SourceTexelSize is the head's texel for this pass).
+//At supersampling 1 the source is twice the head per axis, so each tap lands on a source texel centre and the four
+//are exactly the 2x2 box one centred bilinear tap already was. At supersampling 2 it is four times the head, one
+//centred tap averaged 4 of the 16 samples a head texel stands for, and a small hot point (a spark, a star, a
+//neon edge, a glint) entered the pyramid only where it happened to sit - so it shimmered as it moved. Each tap
+//now sits on a 2x2 seam, and the four together read all 16.
 float4 BrightPassPS(VertexShaderOutput input) : COLOR
 {
-    float3 color = tex2D(SourceSampler, input.TexCoord).rgb;
+    float2 q = SourceTexelSize * 0.25;
+    float3 color = (tex2D(SourceSampler, input.TexCoord + float2(-q.x, -q.y)).rgb
+        + tex2D(SourceSampler, input.TexCoord + float2(q.x, -q.y)).rgb
+        + tex2D(SourceSampler, input.TexCoord + float2(-q.x, q.y)).rgb
+        + tex2D(SourceSampler, input.TexCoord + float2(q.x, q.y)).rgb) * 0.25;
 
     //Luminance decides whether it glares; the color it glares with is the pixel's own, which is what
     //keeps a red ball's glare red instead of bleaching everything to white
@@ -87,8 +98,8 @@ technique BrightPass
     }
 };
 
-//The downsample: four corner taps half a source texel out, around a centre tap weighted as four. The
-//half-texel offsets put every tap on a bilinear seam, so each is already an average of four texels - the
+//The downsample: four corner taps one SOURCE texel out (half a destination texel), around a centre tap weighted
+//as four. The offsets put every tap on a bilinear seam, so each is already an average of four texels - the
 //13 effective texels per output pixel are what stops a bright dot strobing as it crosses the coarser
 //grid, which is exactly the artifact the old quarter-resolution star suffered.
 //

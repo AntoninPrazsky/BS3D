@@ -440,6 +440,20 @@ namespace Prazsky.Core.Render
         /// on first use and carries a resize the same way <see cref="EnsureDefocusChain"/> does, so the
         /// executables that never present one never allocate it.
         /// </summary>
+        /// <summary>
+        /// Lets go of the foreground and refraction layers (#591). Each is the back buffer times the supersampling
+        /// with its own depth buffer — about 398 MB apiece at 4K on High and Ultra — and both are built lazily on the
+        /// first result page, so without this they stayed allocated for the rest of the session, on the very tiers
+        /// most likely to run on an 8 GB card. The getters rebuild them the next time a page presents something.
+        /// </summary>
+        public void ReleasePresentationLayers()
+        {
+            _foregroundTarget?.Dispose();
+            _foregroundTarget = null;
+            _refractionTarget?.Dispose();
+            _refractionTarget = null;
+        }
+
         public RenderTarget2D ForegroundTarget
         {
             get
@@ -922,6 +936,9 @@ namespace Prazsky.Core.Render
             _device.SetRenderTarget(_bloomChain[0]);
             _glareEffect.CurrentTechnique = _glareBrightPassTechnique;
             _glareSourceTextureParam.SetValue(source);
+
+            //The bright pass takes its taps a quarter of a HEAD texel apart (#591), whatever the source's size
+            _glareSourceTexelSizeParam.SetValue(new Vector2(1f / _bloomChain[0].Width, 1f / _bloomChain[0].Height));
             DrawFullScreenQuad(_glareEffect);
 
             //The sharp foreground's glints, before the down pass so they widen through the whole pyramid
