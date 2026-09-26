@@ -1,4 +1,22 @@
 //===================================================================================================
+//⚠ REDRAWN AS A BRANCHING DISCHARGE IN #626, and the paragraphs below the next rule are the arc cage's
+//history (#327). What they measured still governs this one: the cold shell, the blue-white charge, the far
+//glow floor, the resting glow the burial rule cannot reach, the fast shallow flicker. What changed is the
+//FIGURE. The generated references ("lightning trapped in dark glass", both models) drew one discharge
+//branching out of a single hot point - klein as a star of forking bolts across the whole ball - and the
+//owner asked for that shader. It is the charged object at rest: a cage of three great circles reads as a
+//wound ball or a wireframe; a tree of forks out of one node reads as electricity and nothing else.
+//
+//  - THE NODE: one hot point on the shell (ZapRootAxis, object space, facing -Z so a level-placed zap shows
+//    it to the player), never band-limited - it is what the far read keeps, the bomb's eye by its argument.
+//  - THE BRANCHES: six jagged main bolts radiating from the node across the sphere, each forking twice, all
+//    drawn in the node's azimuthal-equidistant plane (angle off the node as a radius), so a bolt is a
+//    straight-ish segment there and wraps round the ball on the shell. Each tapers from the node, wanders
+//    in two octaves, and flickers on its own phase. MAX over them, the cage's crossing rule.
+//  - THE BAND LIMIT is each bolt's own width against the footprint, converging to ZapFarGlow.
+//
+//The plasma style is still the collision: plasma glows all over in its own colour with soft drifting
+//filaments; this is a dark shell with one fixed cold node and hard forks that snap.
 //THE ZAP (#327) - a dark shell caged in electric arcs, for the kind that takes a whole colour off the
 //field. It is the fourth technique that belongs to a BallKind rather than to a BallStyle, and the
 //fourth with no type colour, on the stone's rule: a special wearing one of the thirteen is a lie the
@@ -111,6 +129,24 @@ static const float ZapSmoothness = 0.74;
 //not a groove in it, and cutting it deep is what would make it read as the bomb's seam.
 static const float ZapArcDepth = 0.008;
 
+//THE DISCHARGE TREE (#626). The node's direction, how many main bolts leave it and how far round the ball
+//they reach (radians off the node), their width at the node and at the tip, how far and how finely they
+//wander, where along a bolt its two forks leave, at what angle and for what share of its length, the node's
+//radius and gain, and how fast the bolts flicker.
+static const float3 ZapRootAxis = float3(0.18, 0.22, -0.96);
+static const float ZapBoltCount = 6.0;
+static const float ZapBoltReach = 2.25;
+static const float ZapBoltWidthRoot = 0.075;
+static const float ZapBoltWidthTip = 0.018;
+static const float ZapBoltWander = 0.10;
+static const float ZapForkAt1 = 0.36;
+static const float ZapForkAt2 = 0.62;
+static const float ZapForkAngle = 0.62;
+static const float ZapForkLength = 0.38;
+static const float ZapNodeRadius = 0.16;
+static const float ZapNodeGain = 1.6;
+static const float ZapFlickerSpeed = 6.3;
+
 //One arc's mask: the thin band around the great circle perpendicular to `axis`, wandering off it by
 //ZapArcWander in ZapArcWaves lobes so it is a discharge rather than a wireframe.
 float ZapArc(float3 direction, float3 axis, float3 along, float phase)
@@ -119,6 +155,87 @@ float ZapArc(float3 direction, float3 axis, float3 along, float phase)
     float toArc = abs(dot(direction, axis) + wander);
 
     return pow(saturate(1.0 - toArc / max(ZapArcWidth, 1e-4)), ZapArcSharpness);
+}
+
+//A cheap 1D hash for the per-bolt variation, the acid's own.
+float ZapHash(float n)
+{
+    return frac(sin(n * 91.713) * 47453.5453);
+}
+
+//One jagged bolt in the node's plane: from `start` along the unit `heading` for `length`, wandering off its
+//line in two octaves (seeded, so each bolt bends its own way), tapering from `widthStart` to the tip width.
+//Returns the mask (1 on the bolt's core) and, through `widthOut`, the bolt's width at the pixel for the
+//band limit.
+float ZapBolt(float2 p, float2 start, float2 heading, float span, float widthStart, float seed, out float widthOut)
+{
+    float2 normal = float2(-heading.y, heading.x);
+    float2 local = p - start;
+    float along = dot(local, heading);
+    float t = saturate(along / max(span, 1e-4));
+
+    float wander = ZapBoltWander * (sin(along * 9.0 + seed * 6.2831853) * 0.65 + sin(along * 23.0 + seed * 17.0) * 0.35)
+        * saturate(along * 6.0);
+    float across = abs(dot(local, normal) - wander);
+
+    widthOut = lerp(widthStart, ZapBoltWidthTip, t);
+    float inside = step(0.0, along) * step(along, span);
+    float core = saturate(1.0 - across / max(widthOut, 1e-4));
+
+    //The tip fades over its last fifth rather than stopping square - a spark thins out, it is not cut off.
+    return core * core * inside * (1.0 - smoothstep(0.8, 1.0, t));
+}
+
+//The whole tree: ZapBoltCount main bolts from the node, two forks off each. Returns the mask and the
+//narrowest width it was drawn at this pixel, for the band limit.
+float ZapTree(float3 direction, out float widthHere)
+{
+    float3 root = normalize(ZapRootAxis);
+
+    //The node's azimuthal-equidistant plane: angle off the node as the radius, round it as the azimuth.
+    float3 helper = abs(root.y) < 0.9 ? float3(0, 1, 0) : float3(1, 0, 0);
+    float3 u = normalize(cross(helper, root));
+    float3 v = cross(root, u);
+    float off = acos(clamp(dot(direction, root), -1.0, 1.0));
+    float2 planar = float2(dot(direction, u), dot(direction, v));
+    float2 p = off * planar / max(length(planar), 1e-5);
+
+    float mask = 0.0;
+    widthHere = ZapBoltWidthRoot;
+
+    [unroll]
+    for (int k = 0; k < 6; k++)
+    {
+        float seed = ZapHash(k + 1.0);
+        float angle = (k + 0.35 * (seed - 0.5)) * 6.2831853 / ZapBoltCount;
+        float2 heading = float2(cos(angle), sin(angle));
+        float boltLength = ZapBoltReach * (0.72 + 0.28 * ZapHash(k + 11.0));
+        float flicker = 0.7 + 0.3 * sin(PulseTime * ZapFlickerSpeed + seed * 6.2831853);
+
+        float w;
+        float bolt = ZapBolt(p, float2(0, 0), heading, boltLength, ZapBoltWidthRoot, seed, w);
+        if (bolt > mask) { widthHere = w; }
+        mask = max(mask, bolt * flicker);
+
+        //Two forks, one each side, leaving at their share of the bolt from where its wander has it.
+        [unroll]
+        for (int f = 0; f < 2; f++)
+        {
+            float at = (f == 0 ? ZapForkAt1 : ZapForkAt2) * boltLength;
+            float side = (f == 0 ? 1.0 : -1.0) * (seed > 0.5 ? 1.0 : -1.0);
+            float forkAngle = angle + side * ZapForkAngle;
+            float2 forkHeading = float2(cos(forkAngle), sin(forkAngle));
+            float2 forkStart = heading * at;
+            float forkWidth = lerp(ZapBoltWidthRoot, ZapBoltWidthTip, at / boltLength) * 0.8;
+
+            float fw;
+            float fork = ZapBolt(p, forkStart, forkHeading, boltLength * ZapForkLength, forkWidth, seed + f + 3.0, fw);
+            if (fork > mask) { widthHere = fw; }
+            mask = max(mask, fork * flicker);
+        }
+    }
+
+    return mask;
 }
 
 float4 ZapPS(PatternVertexShaderOutput input) : COLOR
@@ -134,13 +251,15 @@ float4 ZapPS(PatternVertexShaderOutput input) : COLOR
 
     //An arc spans about ZapArcWidth of the surface parameter, so the limit is measured against THAT and
     //not against the whole sphere - the ice crack's rule, and the constant carries the late start.
-    float arcLimit = saturate(ZapArcBandLimit - footprint / max(ZapArcWidth, 1e-3));
+    //⚠ The figure is the discharge tree since #626; the three arcs' construction below is gone. The limit
+    //is each bolt's own width at the pixel, on the same late-start rule.
+    float boltWidth;
+    float tree = ZapTree(direction, boltWidth);
+    float arcLimit = saturate(ZapArcBandLimit - footprint / max(boltWidth * 2.0, 1e-3));
 
     //The three arcs, each wandering off a DIFFERENT partner axis so they do not bend in step, and each on
     //its own phase so the figure never lines up into symmetry.
-    float arcs = max(ZapArc(direction, ZapAxisA, ZapAxisB, 0.0),
-                 max(ZapArc(direction, ZapAxisB, ZapAxisC, 2.1),
-                     ZapArc(direction, ZapAxisC, ZapAxisA, 4.3)));
+    float arcs = tree;
 
     //MAX and not a sum, deliberately: where two arcs cross, a sum doubles the light and the crossing
     //becomes a blob twice as bright as anything else on the ball. What should read at a crossing is the
@@ -149,8 +268,8 @@ float4 ZapPS(PatternVertexShaderOutput input) : COLOR
 
     //The electrodes, which do not band-limit: they are caps rather than lines, so they are already
     //resolvable at any size the ball is drawn at, and they are what is left of the figure when it is not.
-    float poles = pow(saturate((abs(dot(direction, ZapAxisA)) - ZapPoleStart) / (1.0 - ZapPoleStart)),
-        ZapPolePower);
+    float nodeOff = acos(clamp(dot(direction, normalize(ZapRootAxis)), -1.0, 1.0));
+    float poles = pow(saturate(1.0 - nodeOff / ZapNodeRadius), 1.5) * ZapNodeGain;
 
     //Converging to a floor rather than to nothing - BombFarGlow's argument in full, and the same shape.
     float charge = max(lerp(ZapFarGlow, arcs, arcLimit), poles);

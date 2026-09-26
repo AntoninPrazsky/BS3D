@@ -218,6 +218,7 @@ namespace Prazsky.Core.Render
         /// distance is the SIZE of the lit figure, not the amount of light in it.
         /// </para>
         /// </summary>
+        //Since #626 the figure is a discharge tree out of one hot node rather than a cage of arcs - see ZapPS.
         Zap = 13,
 
         /// <summary>
