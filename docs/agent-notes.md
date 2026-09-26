@@ -6558,3 +6558,10 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-26 — #618 shadery do Prazsky.Shaders — desktop, Claude Code
 
 - **Zabráno:** přesun všech `.fx`/`.fxh` z `Testbed/Content/Shaders/` do nové knihovny `BS3DLibs/Prazsky.Shaders`, přesměrování tří `Content.mgcb`, CI, docs a skillů. Do shaderů prosím do merge nesahat (velký přesun souborů).
+
+---
+
+## 2026-09-26 — #620 mrtvá váha: vlastní barva a dither místo průhlednosti — desktop, Claude Code
+
+- **Zabráno:** #620 (majitel: uvolněné kuličky, co se zaklínily, jsou od #412 průhledné a čtou se jako speciální sklo; mají si nechat barvu a materiál a mizet pixelovým ditherem jako náhled dopadu). Mění se `BallRenderSet.Route`/`DrawDead` a doc v `game-feedback.md`; do shaderů nesahám (dither už je), takže #618 se nekříží.
+- **Zároveň:** přehledový snímek všech deseti speciálních druhů kuliček se jménem a popisem, pro majitelův verdikt (bez zásahu do kódu).
