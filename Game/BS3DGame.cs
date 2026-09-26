@@ -904,6 +904,13 @@ namespace BS3D
 
         protected override void LoadContent()
         {
+            //"Loading..." first (#637): the rest of this method is over four seconds of an empty window on the desktop
+            //and several times that on the laptop. The menu's Inter is loaded here rather than in BuildMenu so the
+            //indicator can use it; BuildMenu keeps what is already there. ShowLoading is called between the steps below.
+            _menuFontSystem = LoadEmbeddedFont("BS3D.Content.Fonts.Inter-Regular.ttf");
+            _loading = new LoadingIndicator(GraphicsDevice, _menuFontSystem);
+            ShowLoading();
+
             //The first moment there is a device to read a back buffer out of, which is all the writer needs
             //from this class; the schedule it runs was parsed by the command line (see BS3DGame.Screenshot.cs)
             CreateScreenshotWriter();
@@ -964,6 +971,7 @@ namespace BS3D
             //shader's ripple term on and picks the shallower resting breath that keeps the wave visible over
             //it. The ground the balls' bellies darken against is the island's own top, which is the set's
             //default and the one thing every ball in this game hangs over.
+            ShowLoading();
             _balls = new BallRenderSet(GraphicsDevice, _instancingEffect, ripples: true);
 
             #endregion
@@ -981,6 +989,7 @@ namespace BS3D
             //The self-lit backdrops, shared with the Testbed and the map editor — one copy of every
             //scene shader, compiled once in Prazsky.Shaders (#618). The hole radius is fixed (the island
             //never moves or resizes here), so it is set once rather than per frame.
+            ShowLoading();
             _sceneRenderer = new SceneRenderer(GraphicsDevice, Content, _sceneSeedOffset)
             {
                 TerrainHoleRadius = ArenaIsland.TERRAIN_HOLE_RADIUS,
@@ -1005,6 +1014,7 @@ namespace BS3D
             //builds a fresh delegate every time it is evaluated, and this one used to be evaluated in Draw.
             _rig = new SkyLightRig(_sceneRenderer) { CloudHook = _clouds.ApplyTo };
 
+            ShowLoading();
             BuildScene();
 
             //Note the simulation, the ceiling body and the cluster are NOT built here: they are the expensive
@@ -1032,6 +1042,7 @@ namespace BS3D
             //the next scene or dome change — the very fault the ceiling glass had, and the island's own comment
             //records the same ordering for the same reason. The inset is the front end's own figure converted
             //to a fraction of the frame's height; MainMenuPage.FRONT_INSET is the one copy of it.
+            ShowLoading();
             _titleWordmark = new TitleWordmark(GraphicsDevice, _instancingEffect, GAME_TITLE,
                 SCENE_AMBIENT_INTENSITY, Screens.MainMenuPage.FRONT_INSET / (float)MENU_DESIGN_HEIGHT);
 
@@ -1081,6 +1092,7 @@ namespace BS3D
             //scene that was picked before any of it existed (SetScene runs early in LoadContent, and its hook
             //is null-conditional for exactly that). The player's gains are applied as it is built, so a muted
             //start reaches the fresh parts. See AudioDirector.
+            ShowLoading();
             _audioDirector = new AudioDirector(_scene, _effective);
 
             //The victory display. Its one static buffer is built here too, so a cleared level costs nothing
@@ -1093,8 +1105,18 @@ namespace BS3D
             //Both display levers ("celebrate" and "confetti") are FIRED FROM Update, not from here — see
             //StartupScript.StartCelebrations, which also says why. The two displays are only built here.
 
+            ShowLoading();
             BuildMenu();
+
+            _loading.Dispose();
+            _loading = null;
         }
+
+        //The startup's "Loading..." (#637), alive only while LoadContent runs
+        private LoadingIndicator _loading;
+
+        /// <summary>Redraws the startup's "Loading..." between two steps of the load; a no-op once the game is up.</summary>
+        private void ShowLoading() => _loading?.Show();
 
         private static readonly Random RANDOM = new();
 
