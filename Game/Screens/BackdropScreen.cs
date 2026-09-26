@@ -1153,7 +1153,7 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// The game's name in 3D (#248), on the title card and on the main menu and nowhere else — handed to
+        /// The game's name in 3D (#248), on the main menu and nowhere else — handed to
         /// <see cref="BS3DGame.FinishSceneDraw"/> as the frame's on-top slot (#600) and cached in
         /// <see cref="_drawWordmark"/>, so the hand-over allocates nothing per frame.
         /// </summary>
@@ -1182,12 +1182,10 @@ namespace BS3D.Screens
         /// stack.
         /// </para>
         /// <para>
-        /// <b>It is the same object on both pages</b>, and the page only says which composition it is heading
-        /// for: under the splash it stands in the 2D logo's own layout in the middle of the frame, where the
-        /// picture is cross-fading into it (#454); the menu wants it in the corner. The move belongs to the
-        /// wordmark. Under the splash it is drawn only once the hand-over has begun
-        /// (<c>SplashPage.WordmarkShown</c>), and there it also states <c>stillness</c>, the picture's own
-        /// fading opacity (#475).
+        /// <b>Not under the splash (#601).</b> From #454 it was drawn there too, standing in the 2D logo's own
+        /// layout while the picture cross-faded into it, then flying to the corner as the menu arrived; the
+        /// owner ruled that out, so the splash holds its logo on black and cuts to a menu this title already
+        /// stands in, in its corner.
         /// </para>
         /// <para>
         /// <b>And it steps aside for the fly-in (#261)</b>: across the approach the block shrinks to
@@ -1197,16 +1195,9 @@ namespace BS3D.Screens
         /// </remarks>
         private void DrawWordmark()
         {
-            Screen active = Manager?.Active;
-            if (active is MainMenuPage || (active is SplashPage splash && splash.WordmarkShown))
-            {
-                bool isMenu = active is MainMenuPage;
-                float stillness = active is SplashPage activeSplash ? activeSplash.LogoAlpha : 0f;
-
-                Game.TitleWordmark?.Draw(Game.Camera, Game.WallClock, settled: isMenu,
-                    presence: MathHelper.Lerp(1f, WORDMARK_ASIDE_SCALE, Closeness(_flightClock)),
-                    stillness: stillness);
-            }
+            if (Manager?.Active is MainMenuPage)
+                Game.TitleWordmark?.Draw(Game.Camera, Game.WallClock,
+                    presence: MathHelper.Lerp(1f, WORDMARK_ASIDE_SCALE, Closeness(_flightClock)));
         }
     }
 }

@@ -224,8 +224,7 @@ namespace BS3D
         /// <summary>
         /// The game's name as 3D lettering (#248). On the host because it is drawn in the scene's HDR pass and
         /// is lit by the scene's own rig; the backdrop screen decides <i>when</i>, which is while the main menu
-        /// is the page on top, and under the splash from the frame the 2D logo starts cross-fading into it
-        /// (#454) — see <see cref="TitleWordmark"/>.
+        /// is the page on top (not under the splash since #601) — see <see cref="TitleWordmark"/>.
         /// </summary>
         internal TitleWordmark TitleWordmark => _titleWordmark;
 
