@@ -71,7 +71,11 @@ namespace BS3D.Screens
             Game.SessionShadowCasters = _gunShadowCaster;
 
             IsBuilt = true;
-            _clearedCountdown = 0f;
+
+            //The level's flow starts over (#582): its beat, its ending and its milestones go with the phase's
+            //entry work - see EnterPhase. From wherever the last level stood, a Retry out of a pause mid-beat
+            //included.
+            EnterPhase(LevelPhase.Playing);
 
             //A fresh level's play clock, a Retry's included (#546)
             _levelSeconds = 0f;
@@ -82,22 +86,10 @@ namespace BS3D.Screens
             //to it, and a popup from the level just finished must not fly into the score of the one just built.
             //Seeded from the fresh scorer, so a new budget is not read as a ball just spent.
             _hud.Reset(_score);
-            _levelLost = false;
 
             //And what this level may teach (#189): nothing past the first chapter, nothing already taught, and
             //the glass lesson only with this level's own cadence to name
             _tutorial.BeginLevel(index, Tutorial.LastLevelOf(Game.LevelSet), LevelCeilingStep(index));
-
-            //The outcome has to be cleared here now that it is read for something other than building the
-            //result screen: it gates the HUD, so a level entered with the last one's Failed still standing
-            //would play with no readout at all. It was harmless while ShowResultScreen was its only reader —
-            //that is set and consumed on the same line — which is exactly how a field like this goes stale.
-            _pendingOutcome = LevelOutcome.None;
-            _pendingFailure = LevelFailure.None;
-
-            //With it, or a Retry after a block milestone would celebrate the chapter a second time
-            _blockCompleted = false;
-            _campaignCompleted = false;
 
             //The drop cinematic's bar is the biggest release of the level being played, so it starts over
             //with the level — otherwise the last one's best would follow the player into this one
@@ -182,7 +174,6 @@ namespace BS3D.Screens
             //controls into the next level, and its subject handles belong to a simulation that is now gone
             _cinematic.Reset();
             _lineLoss.Reset();
-            _lineLossShown = false;
             _lineLossClock = 0f;
             _cinematicSubject.Clear();
 

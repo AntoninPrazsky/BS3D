@@ -53,8 +53,9 @@ namespace BS3D.Screens
             //still in the air when the level ended reaches this method for real — and everything below it is
             //the level talking to a player who has stopped playing: a thunk under the fanfare, an award flown
             //into a HUD that is no longer drawn, a keeper moved after LevelResult was taken off it, and on a
-            //cleared field a CheckLevelCleared that would start the whole celebration a second time (the beat
-            //ends by zeroing its own countdown, so LevelDecided reads this as undecided without LevelOver).
+            //cleared field a CheckLevelCleared that would start the whole celebration a second time (its gate
+            //asks LevelDecided and stops it; EnterPhase would refuse Over -> ClearedBeat behind that as well).
+            //The line loss's hold counts as over too: the level is lost there, only its page is not up yet.
             //The ball still sticks — the handler attached it before saying so, and a ball vanishing in front
             //of the player is the fault RemoveFallenBalls exists to avoid — it simply sticks in silence.
             if (LevelOver) return;
@@ -523,6 +524,33 @@ namespace BS3D.Screens
                 BallsConstraintsBuilder.ReleaseAllBalls(_physicsBalls, _map, _world.Simulation, _fallingBalls);
 
             int bonus = _score.AwardCompletionBonus();
+
+            //The beat, the frozen figures, the milestone and the whole celebration - see BeginClearedBeat
+            EnterPhase(LevelPhase.ClearedBeat);
+
+            //The bonus has no popup to fly in and land on the readout, so it would otherwise be the one award
+            //the score takes without being hit — it counts up out of nowhere while the collapse plays
+            if (bonus > 0) _hud.FlashScore();
+
+            Console.WriteLine($"[level] Cleared '{LevelName(_levelIndex)}' with {_score.Score}"
+                + $" (+{bonus} for {_score.ShotsRemaining?.ToString() ?? "unlimited"} unused)"
+                + $", {StarRating.Rate(_score.Score, _initialBallCount)} star(s)"
+                //The milestone, on the line that already reports the clear. It is the only way a play-through
+                //says whether the block fired, since the decision is invisible until the page arrives — and it
+                //names the block either way, so a milestone that did NOT fire says which chapter is still open.
+                + (Game.CampaignHasBlocks
+                    ? $" [block {Game.LevelBlockNumber(_levelIndex)}/{Game.BlockCount}"
+                      + $" '{Game.LevelBlockName(_levelIndex)}'{(_blockCompleted ? " COMPLETE" : string.Empty)}]"
+                    : string.Empty));
+        }
+
+        /// <summary>
+        /// <see cref="LevelPhase.ClearedBeat"/>'s entry work, run by <see cref="EnterPhase"/> the moment the field
+        /// is found empty: the beat's countdown armed, the figures the score service is told frozen, whether this
+        /// clear finishes a block or the campaign decided once, and the celebration started.
+        /// </summary>
+        private void BeginClearedBeat()
+        {
             _clearedCountdown = LEVEL_CLEARED_BEAT;
 
             //What the score service is told this clear took (#546), frozen now for LevelResult's reason: shots
@@ -583,21 +611,6 @@ namespace BS3D.Screens
             //above does not cut this off. A finished block takes it at full intensity whatever the last level
             //scored, because the milestone is the chapter and not that level.
             Game.Music?.PlayVictory(_score.Score, grand: _blockCompleted);
-
-            //The bonus has no popup to fly in and land on the readout, so it would otherwise be the one award
-            //the score takes without being hit — it counts up out of nowhere while the collapse plays
-            if (bonus > 0) _hud.FlashScore();
-
-            Console.WriteLine($"[level] Cleared '{LevelName(_levelIndex)}' with {_score.Score}"
-                + $" (+{bonus} for {_score.ShotsRemaining?.ToString() ?? "unlimited"} unused)"
-                + $", {StarRating.Rate(_score.Score, _initialBallCount)} star(s)"
-                //The milestone, on the line that already reports the clear. It is the only way a play-through
-                //says whether the block fired, since the decision is invisible until the page arrives — and it
-                //names the block either way, so a milestone that did NOT fire says which chapter is still open.
-                + (Game.CampaignHasBlocks
-                    ? $" [block {Game.LevelBlockNumber(_levelIndex)}/{Game.BlockCount}"
-                      + $" '{Game.LevelBlockName(_levelIndex)}'{(_blockCompleted ? " COMPLETE" : string.Empty)}]"
-                    : string.Empty));
         }
 
         //The grace's own state - ClusterLineWatch's since #301/#302, so the level generator's sag gate decides
@@ -807,7 +820,8 @@ namespace BS3D.Screens
         /// </summary>
         private void BeginLineLoss(Vector3 crossing)
         {
-            if (_levelLost) return;
+            //LoseLevel's own gate, so the flight and the loss it holds back cannot come apart
+            if (LevelDecided) return;
 
             _lineLoss.Begin(crossing, Camera.Position,
                 new Vector3(_cannon.OrbitCenter.X, crossing.Y, _cannon.OrbitCenter.Z), GAME_FOV);
@@ -839,7 +853,7 @@ namespace BS3D.Screens
             //The staged one (#434's testing lever): the same two calls the real crossing makes, on a clock,
             //because a real line loss cannot be reached from a script. It aims at the cluster's own lowest
             //ball, so what is photographed is a real crossing point and not an invented one.
-            if (Game.StagedLineLossSeconds > 0f && !_levelLost && !LevelDecided
+            if (Game.StagedLineLossSeconds > 0f && !LevelDecided
                 && _lineLossClock >= Game.StagedLineLossSeconds && TryGetLowestBall(out Vector3 staged))
             {
                 BeginLineLoss(staged);
@@ -850,14 +864,10 @@ namespace BS3D.Screens
 
             _lineLoss.Update(elapsed);
 
-            if (!_lineLoss.HoldExpired || _lineLossShown) return;
-            _lineLossShown = true;
+            //Once: the phase leaves LossHold here, and the flight's release is that exit's work (EnterPhase)
+            if (!_lineLoss.HoldExpired || _phase != LevelPhase.LossHold) return;
 
-            //Released first, so the blend back towards the player's pose is already running when the result
-            //page takes the camera from it — the page eases from wherever the lens stands, and a lens still
-            //pinned at the crossing point would make that ease start from a pose nothing else knows about.
-            _lineLoss.Release();
-            ShowResultScreen();
+            EnterPhase(LevelPhase.Over);
         }
 
         /// <summary>
@@ -874,29 +884,85 @@ namespace BS3D.Screens
         private void LoseLevel(LevelFailure failure, string diagnostic)
         {
             //Once only: a descent and a budget can reach their lines on the same frame, and a loss in flight
-            //must not stack a second screen onto the first.
-            if (_levelLost) return;
-            _levelLost = true;
+            //must not stack a second screen onto the first. And never on top of a clear: every caller already
+            //asks LevelDecided, and EnterPhase would refuse the transition anyway.
+            if (LevelDecided) return;
 
             Console.WriteLine($"[level] Lost '{LevelName(_levelIndex)}': {failure} ({diagnostic}), score {_score.Score}");
 
-            //The music goes with the level, win or lose. A dance track carrying on cheerfully over a result
-            //screen that says the player ran out of balls is the wrong feeling entirely.
-            Game.Music?.Stop();
-
-            //The same scaling from the other end: a good score that still lost gets a fuller, more dignified
-            //piece and a poor one gets three thin notes that do not resolve. Losing narrowly and losing badly
-            //should not sound the same.
-            Game.Music?.PlayDefeat(_score.Score);
-
-            _pendingOutcome = LevelOutcome.Failed;
             _pendingFailure = failure;
 
             //⚠ THE LINE'S LOSS HOLDS THE ENDING BACK (#434). Every other ending goes up now; this one waits
             //while the camera flies at the point the cluster crossed and the net flares behind it. Until this
             //the loss went straight from the crossing frame to a page of numbers, and the owner's report was
             //that there was no way to see what had happened or why. StepLineLoss shows it when the beat ends.
-            if (_lineLoss.Engaged) return;
+            EnterPhase(_lineLoss.Engaged ? LevelPhase.LossHold : LevelPhase.Over);
+        }
+
+        /// <summary>
+        /// The one door between the level's phases (#582): refuses a transition <see cref="LevelPhases.CanEnter"/>
+        /// does not allow, then does the work of leaving the old phase and entering the new one. Every phase change
+        /// in the level goes through here and nothing else writes <see cref="_phase"/>, so the gates the rest of the
+        /// session asks (<see cref="LevelDecided"/>, <see cref="LevelOver"/>) cannot disagree with what was done.
+        /// <para>
+        /// <b>An illegal transition is logged and refused, not thrown.</b> Every caller already asks its own gate,
+        /// so one arriving here is a door that forgot — #563 was one — and in a shipped game the right answer to
+        /// that is to keep the level standing and say so in the log the player can send, not to crash the run.
+        /// </para>
+        /// </summary>
+        private void EnterPhase(LevelPhase next)
+        {
+            LevelPhase previous = _phase;
+
+            if (!LevelPhases.CanEnter(previous, next))
+            {
+                Console.WriteLine($"[phase] REFUSED {previous} -> {next} on '{LevelName(_levelIndex)}'");
+                return;
+            }
+
+            _phase = next;
+
+            //Rare by construction — a handful of lines a level — so it goes to the log the way [level] does
+            Console.WriteLine($"[phase] {previous} -> {next}");
+
+            switch (next)
+            {
+                case LevelPhase.Playing:
+                    //A level built over whatever the last one left: its beat, its loss and its milestones go.
+                    //The ending has to be cleared here now that it is read for something other than building the
+                    //result screen — the phase gates the HUD, so a level entered with the last one's ending still
+                    //standing would play with no readout at all — and the milestones with it, or a Retry after a
+                    //block milestone would celebrate the chapter a second time.
+                    _clearedCountdown = 0f;
+                    _pendingFailure = LevelFailure.None;
+                    _blockCompleted = false;
+                    _campaignCompleted = false;
+                    break;
+
+                case LevelPhase.ClearedBeat:
+                    BeginClearedBeat();
+                    break;
+
+                case LevelPhase.LossHold:
+                case LevelPhase.Over when previous == LevelPhase.Playing:
+                    //Leaving play for a loss, held or not. The music goes with the level, win or lose: a dance
+                    //track carrying on cheerfully over a result screen that says the player ran out of balls is
+                    //the wrong feeling entirely. And the fanfare's scaling from the other end: a good score that
+                    //still lost gets a fuller, more dignified piece and a poor one gets three thin notes that do
+                    //not resolve. Losing narrowly and losing badly should not sound the same.
+                    Game.Music?.Stop();
+                    Game.Music?.PlayDefeat(_score.Score);
+                    break;
+            }
+
+            if (next != LevelPhase.Over) return;
+
+            //Leaving the line's hold for its page: the flight is released first, so the blend back towards the
+            //player's pose is already running when the result page takes the camera from it — the page eases from
+            //wherever the lens stands, and a lens still pinned at the crossing point would make that ease start
+            //from a pose nothing else knows about. (A Retry out of the hold, from the pause page, needs nothing:
+            //TearDown has already reset the flight.)
+            if (previous == LevelPhase.LossHold) _lineLoss.Release();
 
             ShowResultScreen();
         }
@@ -919,9 +985,9 @@ namespace BS3D.Screens
         /// (<see cref="BS3DGame.RetryLevel"/>, <see cref="BS3DGame.AdvanceLevel"/>), which is what a player
         /// actually presses.
         /// <para>
-        /// A cleared field is the only thing that reaches here today; a lost one reaches the same screen through
-        /// <see cref="LoseLevel"/>. Both set the outcome and call <see cref="ShowResultScreen"/>, and the screen
-        /// does the rest.
+        /// A cleared field is the only thing that reaches here today — when <see cref="LevelPhase.ClearedBeat"/>'s
+        /// countdown runs out; a lost one reaches the same screen through <see cref="LoseLevel"/>. Both enter
+        /// <see cref="LevelPhase.Over"/>, whose entry work is <see cref="ShowResultScreen"/>.
         /// </para>
         /// </summary>
         private void FinishLevel()
@@ -930,18 +996,18 @@ namespace BS3D.Screens
             //used to weigh (ShortOfGate) is retired with #111 — a clear always rates at least one star, and
             //whether the NEXT level opens is the star total's question, answered on the result screen rather
             //than by failing a level the player just watched themselves win.
-            _pendingOutcome = LevelOutcome.Cleared;
             _pendingFailure = LevelFailure.None;
 
-            ShowResultScreen();
+            EnterPhase(LevelPhase.Over);
         }
 
         /// <summary>
         /// Puts the result screen over the level that has just ended. The screen is a push over this one,
         /// exactly as a pause is — but where a pause stops what is underneath, this page leaves its
         /// <c>UpdatesUnderlying</c> true and the arena goes on living behind the numbers (#241, and
-        /// <see cref="UpdateUnderResult"/> for what "living" is allowed to mean). Called when a level ends —
-        /// see <see cref="FinishLevel"/> and <see cref="LoseLevel"/>.
+        /// <see cref="UpdateUnderResult"/> for what "living" is allowed to mean). <see cref="LevelPhase.Over"/>'s
+        /// entry work, and called from nowhere but <see cref="EnterPhase"/> — see <see cref="FinishLevel"/> and
+        /// <see cref="LoseLevel"/> for the two ways in.
         /// </summary>
         private void ShowResultScreen()
         {
@@ -965,7 +1031,7 @@ namespace BS3D.Screens
             //level does not stop the instant it is cleared — the collapse is held for a beat and a player who
             //keeps firing moves the balls remaining — so a screen that re-read the keeper printed a row that
             //did not add up to the total above it. See LevelResult.
-            bool cleared = _pendingOutcome == LevelOutcome.Cleared;
+            bool cleared = _pendingFailure == LevelFailure.None;
             bool lastEntry = Game.LevelSet == null || _levelIndex + 1 >= Game.LevelSet.Count;
 
             //The rating and the record, at the one funnel both endings come through. Recorded BEFORE the
@@ -1044,7 +1110,7 @@ namespace BS3D.Screens
                 unusedShotsAwarded: _score.UnusedShotsAwarded,
                 completionBonusAwarded: _score.CompletionBonusAwarded));
 
-            Console.WriteLine($"[level] Result for '{LevelName(_levelIndex)}': {_pendingOutcome}" + (_pendingOutcome == LevelOutcome.Failed ? $" ({_pendingFailure})" : "")
+            Console.WriteLine($"[level] Result for '{LevelName(_levelIndex)}': " + (cleared ? "Cleared" : $"Failed ({_pendingFailure})")
                 + $", score {_score.Score}"
                 + (cleared ? $", {stars} star(s){(newBest ? ", new best" : "")}, {Game.TotalStars} total" : ""));
         }
