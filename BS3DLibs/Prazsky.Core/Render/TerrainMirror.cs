@@ -29,16 +29,12 @@ namespace Prazsky.Core.Render
     /// lens several units off the answer, never on it.
     /// </para>
     /// <para>
-    /// <b>⚠ The four built on <see cref="ShaderMath.Noise"/> — desert, mountain, outback, polar — do not match
-    /// their shaders, and "a rounding" was the wrong estimate</b> (#590, measured by <c>mirrorcheck</c>): up to
-    /// 16.2 units off the drawn range in the mountains, 6.7 on an outback boulder's wall, 3.9 in the ice, 0.21
-    /// in the dunes. The noise's hash takes the fraction of a product near 20 000, where a float carries a
-    /// fraction to about 1/500, and the shader compiler fuses the hash's dot into multiply-adds (and folds the
-    /// outback's <c>seed + 23.7</c> constants) where this file rounds every step — so the two sides land on
-    /// different quanta and the ridged field magnifies the step. Emulating the fusion here reproduced the GPU's
-    /// figures to the digit and brought all four under a thousandth; it is not done yet, because it moves the
-    /// clouds' and the savanna trails' mirrors with it and assumes a GPU that fuses (<c>docs/scenes.md</c>,
-    /// "The terrain mirrors").
+    /// <b>The four built on <see cref="ShaderMath.Noise"/> — desert, mountain, outback, polar — did not match their
+    /// shaders until #598</b>, measured by <c>mirrorcheck</c> (#590): up to 16.2 units off in the mountains. The
+    /// noise's hash takes the fraction of a product near 20 000, where a float carries a fraction to about 1/500,
+    /// and the shader compiler fuses the hash's dot into multiply-adds and folds the outback's <c>seed + 23.7</c>
+    /// constants. <see cref="ShaderMath.Hash22"/> now fuses the same way and the outback's rolls add their
+    /// constants first, and all four pass under a thousandth (<c>docs/scenes.md</c>, "The terrain mirrors").
     /// </para>
     /// <para>
     /// None of these fields is seeded by <c>sceneseed=</c>: the dunes, the range and the monoliths are the
@@ -247,9 +243,9 @@ namespace Prazsky.Core.Render
             Vector2 rollA = Roll01(cellX + seed, cellZ + seed);
             if (rollA.X > chance) return false;
 
-            rollB = Roll01(cellX + seed + 23.7f, cellZ + seed + 23.7f);
-            Vector2 rollC = Roll01(cellX + seed + 57.1f, cellZ + seed + 57.1f);
-            Vector2 rollD = Roll01(cellX + seed + 91.3f, cellZ + seed + 91.3f);
+            rollB = Roll01(cellX + (seed + 23.7f), cellZ + (seed + 23.7f));
+            Vector2 rollC = Roll01(cellX + (seed + 57.1f), cellZ + (seed + 57.1f));
+            Vector2 rollD = Roll01(cellX + (seed + 91.3f), cellZ + (seed + 91.3f));
 
             radius = MathHelper.Lerp(minRadius, maxRadius, rollB.X);
             elongation = MathHelper.Lerp(1f, maxElongation, rollD.Y);
@@ -276,7 +272,7 @@ namespace Prazsky.Core.Render
                 return 0f;
 
             Vector2 rollA = Roll01(cellX + seed, cellZ + seed);
-            Vector2 rollD = Roll01(cellX + seed + 91.3f, cellZ + seed + 91.3f);
+            Vector2 rollD = Roll01(cellX + (seed + 91.3f), cellZ + (seed + 91.3f));
             Vector2 centre = centreWorld / cellSize - new Vector2(cellX, cellZ);
 
             Vector2 axis = RollDirection(rollD);
@@ -290,7 +286,7 @@ namespace Prazsky.Core.Render
             float rib = ShaderMath.Noise(radial * ribCount + new Vector2(cellX, cellZ) * 13.1f + new Vector2(seed));
             float ribbed = d1 * (1f + rib * ribDepth * ShaderMath.SmoothStep(0.20f, 0.62f, d1));
 
-            Vector2 rollE = Roll01(cellX + seed + 131.9f, cellZ + seed + 131.9f);
+            Vector2 rollE = Roll01(cellX + (seed + 131.9f), cellZ + (seed + 131.9f));
             float lobeScale = MathHelper.Lerp(0.40f, 0.60f, rollE.Y);
             Vector2 lobeCentre = RollDirection(rollE) * radius * 0.5f;
             float d2 = (local - lobeCentre).Length() / (radius * lobeScale);

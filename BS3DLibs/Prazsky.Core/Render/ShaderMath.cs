@@ -74,7 +74,11 @@ namespace Prazsky.Core.Render
             float y = Frac(py * 0.1030f);
             float z = Frac(px * 0.0973f);
 
-            float d = x * (y + 33.33f) + y * (z + 33.33f) + z * (x + 33.33f);
+            //FUSED, as the shader compiler fuses the HLSL's dot(p3, p3.yzx + 33.33) into two multiply-adds (#598). The
+            //product lands near 20 000, where a float carries a fraction to about 1/500, so rounding once per step here
+            //against once per multiply-add there put the CPU mirrors on different quanta from the drawn terrain: up to
+            //16 units off in the mountains, measured by the Testbed's mirrorcheck. Same order as the GPU's mads.
+            float d = MathF.FusedMultiplyAdd(z, x + 33.33f, MathF.FusedMultiplyAdd(y, z + 33.33f, x * (y + 33.33f)));
 
             x += d;
             y += d;
