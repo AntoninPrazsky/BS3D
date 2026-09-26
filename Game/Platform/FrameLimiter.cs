@@ -116,6 +116,57 @@ namespace BS3D.Platform
         /// </summary>
         public bool WaitForCompositor() => DwmFlush() == 0;
 
+        //When the last compositor wait ended, and the refresh period measured off those ends (see PacedElapsed)
+        private long _lastCompositionEnd;
+        private double _compositionPeriod;
+
+        /// <summary>
+        /// Drops the last wait's end, on a frame that was not paced by the compositor, so the next paced frame does not
+        /// measure its interval across the unpaced ones (a limit turned on and off, composition refused for a while).
+        /// </summary>
+        public void ForgetComposition() => _lastCompositionEnd = 0;
+
+        /// <summary>
+        /// How much time this frame stands for, when it was paced by <see cref="WaitForCompositor"/>: the interval
+        /// between the ends of two successive waits, put on a whole number of refresh periods. Call it right after
+        /// a wait that returned true; <paramref name="refreshHz"/> seeds the period until it has been measured.
+        /// <para>
+        /// <b>Why not MonoGame's <c>ElapsedGameTime</c>.</b> MonoGame reads its clock at the top of the tick, BEFORE
+        /// Update runs and so before the wait, which makes its elapsed the time between two <i>starts of work</i> — the
+        /// refresh plus the difference between the last two frames' costs. Measured on the Moon's front end at
+        /// 3840×1600, 75 Hz: that elapsed ran <b>13.33 ± 1.0 ms, anywhere from 10.2 to 16.4</b>, while the ends of the
+        /// waits, which are what the compositor shows, came <b>13.33 ± 0.16</b> apart. Every frame was shown one refresh
+        /// after the last, but the world was stepped by up to a quarter more or less than that — invisible at the
+        /// orbit's centre, where the island and the map hardly move on screen, and a plain judder on the far scenery
+        /// the orbit sweeps across the frame (the owner saw it on the Earth over the Moon).
+        /// </para>
+        /// <para>
+        /// The period is measured rather than taken from <paramref name="refreshHz"/>, which is a whole number
+        /// (a 59.94 Hz panel reports 59 or 60); only intervals within a sixth of the running estimate refine it, so a
+        /// missed composition does not drag it. An interval near a whole number of periods is snapped to it — one
+        /// period for a frame on time, two for a frame that missed a composition, which is then shown two refreshes
+        /// after the last and must move twice as far. One far from any (a stall, a wait DWM cut short) is returned as
+        /// measured.
+        /// </para>
+        /// </summary>
+        public float PacedElapsed(int refreshHz)
+        {
+            long now = Stopwatch.GetTimestamp();
+            long last = _lastCompositionEnd;
+            _lastCompositionEnd = now;
+
+            if (_compositionPeriod <= 0.0) _compositionPeriod = refreshHz > 0 ? 1.0 / refreshHz : 0.0;
+            if (last == 0 || _compositionPeriod <= 0.0) return -1f;
+
+            double interval = (now - last) / (double)Stopwatch.Frequency;
+            double periods = interval / _compositionPeriod;
+
+            if (Math.Abs(periods - 1.0) < 1.0 / 6.0) _compositionPeriod += (interval - _compositionPeriod) * 0.02;
+
+            double whole = Math.Round(periods);
+            return whole >= 1.0 && Math.Abs(periods - whole) < 0.25 ? (float)(whole * _compositionPeriod) : (float)interval;
+        }
+
         /// <summary>
         /// The default target for a display refreshing at <paramref name="refreshHz"/>: the refresh plus
         /// <see cref="REFRESH_MARGIN"/>. Zero (or nonsense) in gives zero out — an adapter that reports no
