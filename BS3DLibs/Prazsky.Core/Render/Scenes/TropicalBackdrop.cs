@@ -119,6 +119,9 @@ namespace Prazsky.Core.Render
 
         private EffectTechnique _palmTechnique, _palmShadowTechnique;
 
+        //The casters' map matrix on Palm.fx, cached like every other per-frame parameter (BestPractices §1)
+        private EffectParameter _palmShadowViewProjection;
+
         /// <summary>
         /// Loads the land's effect, the lagoon's own clone of <c>Sea.fx</c> and the palms' effect, takes both grids through
         /// their <see cref="TerrainPass"/>es, pushes the config and plants the beach.
@@ -162,6 +165,7 @@ namespace Prazsky.Core.Render
             PushPalmMaterial();
             _palmTechnique = _palmEffect.Techniques["Palm"];
             _palmShadowTechnique = _palmEffect.Techniques["ShadowCaster"];
+            _palmShadowViewProjection = _palmEffect.Parameters["ShadowViewProjection"];
             BuildTropicalBuffers();
         }
 
@@ -1033,11 +1037,10 @@ namespace Prazsky.Core.Render
         /// clock would mean handing this method a <see cref="SceneFrame"/> it otherwise has no use for.
         /// </para>
         /// <para>
-        /// ⚠ <b>So is the map's matrix, and <paramref name="shadowViewProjection"/> is not used</b> — kept so when this
-        /// moved out of the renderer (#580), which is a move and not a change. Unlike the acacia's caster this never set
-        /// <c>ShadowViewProjection</c> on <c>Palm.fx</c>, so the palms and rocks cast through whatever the receivers' push
-        /// left there — the previous frame's map. Invisible on a still camera; on a moving one the beach's shadows lag the
-        /// map by a frame's snap.
+        /// The map's matrix is stated here, as the acacia's caster states it. Until just after #580 it was not: this never
+        /// set <c>ShadowViewProjection</c> on <c>Palm.fx</c>, so the palms and rocks cast through whatever the receivers'
+        /// push had left there — the previous frame's map — and on a moving camera the beach's shadows lagged the map by
+        /// a frame's snap. Found when the draw moved into this class.
         /// </para>
         /// </summary>
         public override void DrawShadowCasters(Matrix shadowViewProjection)
@@ -1045,6 +1048,7 @@ namespace Prazsky.Core.Render
             if (_palmMeshes == null) return;
 
             _palmEffect.CurrentTechnique = _palmShadowTechnique;
+            _palmShadowViewProjection.SetValue(shadowViewProjection);
 
             for (int m = 0; m < _palmMeshes.Length; m++)
             {
