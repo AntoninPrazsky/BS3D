@@ -6519,3 +6519,14 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 - ⚠ **Past:** LevelGen na Windows zapisuje levely s CRLF přes LF checkout. `git status` pak ukáže 130× ` M`, ale `git diff --numstat` je prázdný. Brána v CI proto kontroluje netrackované soubory přes `git ls-files --others`, ne přes `git status`.
 - ⚠ **`[music] the theme could not be realized … NullReferenceException`** v nočních bězích je `SharpDX.XAudio2.SourceVoice` bez zařízení (monitor s HDMI zvukem spí), ne chyba hry.
 - **Otevřené refaktory:** #580 (SceneRenderer po scénách), #581 (`InstancedModel.fx` přes `#include`), #582 (LevelPhase), #583 (BS3DGame), #584 (druhy koulí), #590, #596 (až po #559), #597.
+
+---
+
+## 2026-09-26 — Claude Code (desktop: #400 čtvrtý průchod — druhá vlna, refaktory)
+
+- **Zavřeno navíc:** #572–#576, #581 (`InstancedModel.fx` 87 řádků + 28 include souborů, mrtvý textured/parallax kód pryč, bytecode ověřeně identický), #582 (GameplayScreen: `LevelPhase`, `CeilingDescent`, `MagazineSlot`, `SessionTestOptions`, `ClusterRipple`, `LevelRun`, **nový argument `seed=`** zopakuje rozdané barvy), #583 (BS3DGame: `LaunchOptions`, `StartupScript`, `OnlineSession`, `AudioDirector`, `EffectiveSettings`), #584 (Draw* speciálních koulí), #585 (`ClusterInvariants` + 1 200 náhodných operací v testech), #587 (centrální verze balíčků, `global.json`), #589, #590 (**Testbed `mirrorcheck`**), #594 (kompilátor kontroluje XML doc komentáře, 122 míst opraveno), #597 (LevelGen rozdělený, výstup identický).
+- **#580 běží po krocích:** `SceneCatalog` + třídy `Backdrop` ve `Render/Scenes/`; `SceneRenderer.cs` 8 157 → 3 778 řádků, zbývá moře, pláž a savana. Postup, pasti a měřicí rig jsou v `docs/scenes.md`.
+- **Nové:** #598 — CPU zrcadla terénu u hor, outbacku, polární scény a pouště se od GPU liší až o 16 j. (hash šumu je ve floatu špatně podmíněný); oprava mění vzhled, čeká na rozhodnutí.
+- **Testy:** `Tests/BS3D.Tests` má 320 testů, běží v CI.
+- ⚠ **Past:** `sceneseed=0` nepinuje náhodný úhel intra kapitoly ani scénu front endu. Pro porovnání starý/nový build je potřeba šum mezi dvěma běhy starého buildu, nebo porovnání proti předchozímu commitu.
+- **Čeká na verdikt:** #565 (bloom), #568 (kompozice popředí, návrh), #598, #594 bod 5 (formát nadpisů žurnálu).
