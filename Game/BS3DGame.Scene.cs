@@ -50,6 +50,12 @@ namespace BS3D
         //scene page still indexes its labels by the enum's own value. The count stood here as a literal 11 and
         //the name list existed twice, here and in the Testbed.
 
+        //Frames since the trophy or the confetti last drew into the presentation layers, and how many it takes before
+        //they are released (#591): a few seconds at any frame rate worth playing at, and a count rather than a clock
+        //because a hitch must not throw away a layer that is about to be drawn into again.
+        private int _framesWithoutPresentation;
+        private const int PRESENTATION_RELEASE_FRAMES = 300;
+
         private SceneRenderer _sceneRenderer;
 
         private SkyDome _sky;
@@ -708,6 +714,11 @@ namespace BS3D
 
             bool trophyUp = _trophy != null && _trophy.Active;
             bool confettiUp = _confetti != null && _confetti.Active;
+
+            //The two presentation layers are hundreds of megabytes at 4K; once nothing has been presented for a few
+            //seconds they are let go and rebuilt by the next page that presents (#591)
+            if (trophyUp || confettiUp) _framesWithoutPresentation = 0;
+            else if (++_framesWithoutPresentation == PRESENTATION_RELEASE_FRAMES) _pipeline.ReleasePresentationLayers();
 
             if (trophyUp || confettiUp)
             {

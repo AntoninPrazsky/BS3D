@@ -147,8 +147,9 @@ float CeilingGlassShadow(float3 worldPosition, float3 sunDirection)
     return lerp(1.0, (1.0 - CeilingShadowCentre.w) * light, cover);
 }
 
-//The map is sampled by hand with a nine-tap box (PCF) rather than a comparison sampler: MonoGame's effect
-//path gives no comparison state, and nine point taps on a 2048 map are cheap against a full-screen terrain
+//The map is sampled by hand with a nine-tap box (PCF) rather than a comparison sampler. (This said MonoGame's
+//effect path gives no comparison state; 3.8.5 has SamplerState.ComparisonFunction and TextureFilterMode.Comparison,
+//so hardware PCF is possible and untried - #591.) Nine point taps on a 2048 map are cheap against a full-screen terrain
 //shader's other work. tex2Dlod rather than tex2D, because this runs under a [branch] and a gradient
 //instruction inside divergent flow is what the compiler refuses.
 //
