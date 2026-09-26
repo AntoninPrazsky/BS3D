@@ -121,7 +121,9 @@ command line, not by pressing NumPad1/2:
   pinned over a loaded level's own for the run. Without it a plain map draws the vinyl and a level draws what
   it names. **This is the only way to photograph a material on a chosen cluster under a chosen dome**, and
   `Testbed\Maps\Thirteen_Colors.json` is the map to do it on: two rows of thirteen, the bottom one in type
-  order 1..13, so every colour of a style is in one frame.
+  order 1..13, so every colour of a style is in one frame. `Testbed\Maps\Specials.json` (#622) is the same for
+  the special kinds: one of each on the top level, three units apart, so a camera centred on one sees no
+  neighbour — the per-tile recipe is in #622.
 - `nopost` — zero the film grain and the chromatic aberration. **Pass it for any A/B of a shader change.**
   Both sit on top of every pixel after the tonemap, and the grain re-rolls per output pixel every frame, so
   two captures of an *unchanged* scene differ in over 90 % of their pixels — a diff without it says nothing
