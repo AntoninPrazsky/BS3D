@@ -825,103 +825,23 @@ namespace BS3D
 
         #endregion
 
-        /// <param name="supersampleFactor">
-        /// <c>null</c> when the player did not say — which is what lets <see cref="TuneQualityToFrameRate"/>
-        /// lower it on hardware that cannot afford the default. An explicit <c>ssaa=</c> is never overridden.
+        /// <param name="launch">
+        /// What the command line said to this run (#583). Every argument outranks the settings file at the row it
+        /// names, and the implications between arguments (<c>level=</c> means <c>play</c>, <c>lost</c> means
+        /// <c>result</c>, <c>shot=</c> means <c>nofocuspause</c>) are decided here, not by the parser.
         /// </param>
-        /// <param name="scene">
-        /// The backdrop to start in, or <c>null</c> for the usual random one of the fifteen. Pinning it is what
-        /// makes a frame-cost measurement repeatable — see <see cref="LogFrameRate"/>.
-        /// </param>
-        /// <param name="skyDome">The dome to start under, or <c>null</c> to let the scene choose as it normally does.</param>
-        /// <param name="logFrameRate">Write one frame-rate line a second to stdout (the <c>logfps</c> argument).</param>
-        /// <param name="quality">
-        /// The tier to start at, or <c>null</c> to start at <see cref="QualityLevel.High"/> — the look the game is
-        /// authored at — and let <see cref="TuneQualityToFrameRate"/> measure this machine.
-        /// </param>
-        /// <param name="celebrate">
-        /// Testing only (the <c>celebrate</c> argument): fire the victory display on the front end. Clearing a
-        /// level is the only thing that normally starts it and clearing one cannot be scripted, so this is how
-        /// the fireworks get screenshotted and measured at all.
-        /// </param>
-        /// <param name="confetti">
-        /// Testing only (the <c>confetti</c> argument): start the campaign's closing confetti on the front end
-        /// (#215). One step further along <paramref name="celebrate"/>'s reasoning than <paramref name="blockDone"/>
-        /// is: a block milestone needs five levels played to reach honestly, where this needs the whole campaign.
-        /// </param>
-        /// <param name="lasers">
-        /// Testing only (the <c>lasers</c> argument): pin the floor alarm's laser net on while a level is
-        /// being played — see <see cref="ForceLaserWarning"/>.
-        /// </param>
-        /// <param name="mute">
-        /// Testing only (the <c>mute</c> argument): start with the master volume at zero — a scripted
-        /// screenshot or benchmark run has no business making noise. The settings rows can still raise it.
-        /// </param>
-        /// <param name="play">
-        /// Testing only (the <c>play</c> argument): drop straight into the first level, skipping the title
-        /// card and the menu. The session's placement and fit figures only reach stdout once a level is
-        /// built, and building one honestly needs a mouse on a Myra button — which a scripted run does not
-        /// have. The stack ends up exactly as a player's Play click leaves it, so nothing downstream can
-        /// tell the difference.
-        /// </param>
-        /// <param name="preview">
-        /// Testing only (the <c>preview=</c> argument): which entry of the set the front end hangs over the
-        /// island, instead of the one it rolls at random. The menu's camera is framed for the map under it
-        /// since #254 — its stand-off, its aim height and the reach of its fly-in all come off that map's own
-        /// size — so a shot of the front end says nothing next to another shot of it unless both hung the same
-        /// map. Named the way <paramref name="level"/> is: a 1-based place in the set, or a name.
-        /// </param>
-        /// <param name="result">
-        /// Testing only (the <c>result</c> argument): put a cleared level's result screen over the front end.
-        /// Everything that happens at a level's end — the camera letting go of the gun, the stars landing one
-        /// at a time, the arena going out of focus behind the page — can otherwise only be reached by winning
-        /// or losing a level, which can no more be scripted than clearing one can. Pair it with
-        /// <paramref name="celebrate"/> for the whole moment: fireworks over an arena going soft.
-        /// </param>
-        /// <param name="pick">
-        /// Testing only (the <c>pick</c> / <c>pick=&lt;chapter&gt;</c> argument): open the level picker at boot,
-        /// on that chapter or on the one the page itself chooses. See <see cref="_startupPick"/> for why a page
-        /// two keypresses away needs an argument at all, and why the chapter is the half that matters.
-        /// </param>
-        /// <param name="shotSeconds">
-        /// Testing only (the <c>shot=</c> argument): wall-clock seconds after start at which to save a PNG of
-        /// the frame, or null for none. It is the trigger F12 cannot be — a locked desktop takes no keystrokes
-        /// — and the one that makes a shot repeatable. See <c>BS3DGame.Screenshot.cs</c>.
-        /// </param>
-        /// <param name="detonateSeconds">
-        /// <c>detonate=</c>: wall-clock seconds at which the level being played sets off one of its bombs (#389),
-        /// on the clock <paramref name="shotSeconds"/> counts. Null for none — see <see cref="TryTakeForcedDetonation"/>.
-        /// </param>
-        /// <param name="tutorial">
-        /// Testing only (the <c>tutorial</c> argument, #189): every tutorial card offered and none recorded —
-        /// <c>"force"</c> with the real detection, <c>"demo"</c> as a reel; see <see cref="TutorialMode"/>. Null
-        /// for the argument's absence, which is every player's run.
-        /// </param>
-        /// <param name="settings">
-        /// Testing only (the <c>settings</c> argument, #189): open the Settings page at boot, on
-        /// <paramref name="about"/>'s reasoning — a page a few presses away on a machine somebody is sitting at,
-        /// and none from a script.
-        /// </param>
-        public BS3DGame(bool? fullscreen = null, int? supersampleFactor = null, float exposure = DEFAULT_EXPOSURE,
-            bool? uncappedFps = null, SceneKind? scene = null, byte? skyDome = null, bool logFrameRate = false,
-            QualityLevel? quality = null, bool celebrate = false, bool confetti = false, bool lasers = false,
-            bool mute = false, bool noFpsOverlay = false, bool play = false, bool result = false, bool blockDone = false, bool lost = false,
-            int? resultStars = null, string nextLocked = null, int? streak = null, int wildcardEvery = 0, string powerups = null, float[] shotSeconds = null, string level = null, string levelFile = null,
-            string preview = null, BallStyle? ballStyle = null, string pick = null, int fpsCap = 0,
-            bool noFocusPause = false, float[] detonateSeconds = null, string about = null, string tutorial = null,
-            bool settings = false, string settingsRows = null, int? board = null, int boardPage = 1, int? help = null, int? sceneSeed = null, bool tour = false,
-            int windowWidth = 0, int windowHeight = 0, float lineLoss = 0f, bool plainCeiling = false)
+        internal BS3DGame(LaunchOptions launch)
         {
             //The scene's procedural roll (see _sceneSeedOffset): rolled once per launch unless the command
             //line pins it, and printed either way - a frame of a city nobody can generate twice is a frame
             //nobody can compare against.
-            _sceneSeedOffset = sceneSeed ?? Random.Shared.Next();
+            _sceneSeedOffset = launch.SceneSeed ?? Random.Shared.Next();
             Console.WriteLine($"[sceneseed] {_sceneSeedOffset}"
-                + (sceneSeed.HasValue ? " (pinned)" : " (rolled; pin it with sceneseed=)"));
+                + (launch.SceneSeed.HasValue ? " (pinned)" : " (rolled; pin it with sceneseed=)"));
 
             //See PauseOnFocusLoss: a capture schedule implies the opt-out, because a shot of the pause page is
             //not the shot that was asked for.
-            PauseOnFocusLoss = !noFocusPause && shotSeconds == null;
+            PauseOnFocusLoss = !launch.NoFocusPause && launch.ShotSeconds == null;
 
             //An UNFOCUSED window keeps its full frame rate, on the owner's ruling (2026-09-23, on #518). MonoGame
             //sleeps InactiveSleepTime before every tick while IsActive is false, and its default of 20 ms held
@@ -936,7 +856,7 @@ namespace BS3D
 
             //No longer implies uncappedFps the way the Testbed's does: since #270 the game presents
             //immediately in EVERY mode, so there is no vsync wait left for a cap to have to escape.
-            _fpsCap = Math.Max(fpsCap, 0);
+            _fpsCap = Math.Max(launch.FpsCap, 0);
 
             //The player's own answers, read before anything the command line said (#354). An argument is a
             //RUN's instruction and outranks the file at every row that has one; the file is what a row nobody
@@ -964,9 +884,9 @@ namespace BS3D
             //other scene keeps it. An out-of-range dome from a hand-edited file is simply not applied.
             if (_settings.SkyDome >= 1 && _settings.SkyDome <= SKY_DOME_COUNT) _skyDome = _settings.SkyDome;
 
-            BallStyleOverride = ballStyle;
+            BallStyleOverride = launch.BallStyle;
 
-            _fullscreen = fullscreen ?? _settings.Fullscreen;
+            _fullscreen = launch.Fullscreen ?? _settings.Fullscreen;
 
             //⚠ The windowed back buffer, pinned from the command line - the Testbed has had width=/height=
             //since it was the only executable anything was photographed in, and the Game silently IGNORED
@@ -977,54 +897,54 @@ namespace BS3D
             //It moves the WINDOWED size only. Fullscreen is the display's, which is this project's standing
             //rule (the game always renders at the panel's native resolution), and a capture argument does
             //not get to break it.
-            if (windowWidth > 0 && windowHeight > 0)
-                _windowedSize = new Point(windowWidth, windowHeight);
-            _startupCelebrate = celebrate;
-            _startupConfetti = confetti;
-            _startupResultStars = resultStars;
-            _startupStreak = streak;
-            _startupWildcardEvery = wildcardEvery;
-            _startupPowerups = powerups;
-            _startupLasers = lasers;
+            if (launch.WindowWidth > 0 && launch.WindowHeight > 0)
+                _windowedSize = new Point(launch.WindowWidth, launch.WindowHeight);
+            _startupCelebrate = launch.Celebrate;
+            _startupConfetti = launch.Confetti;
+            _startupResultStars = launch.ResultStars;
+            _startupStreak = launch.Streak;
+            _startupWildcardEvery = launch.WildcardEvery;
+            _startupPowerups = launch.Powerups;
+            _startupLasers = launch.Lasers;
             //Any spelling but "demo" is the plain force: a mistyped reel still shows the cards, and says so by
             //waiting for the player rather than running on
-            _tutorialMode = tutorial == null ? Tutorial.Mode.Normal
-                : string.Equals(tutorial, "demo", StringComparison.OrdinalIgnoreCase) ? Tutorial.Mode.Demo
+            _tutorialMode = launch.Tutorial == null ? Tutorial.Mode.Normal
+                : string.Equals(launch.Tutorial, "demo", StringComparison.OrdinalIgnoreCase) ? Tutorial.Mode.Demo
                 : Tutorial.Mode.Force;
-            _startupLevel = level;
-            StartupLevelFile = string.IsNullOrWhiteSpace(levelFile) ? null : levelFile;
-            _startupPreview = preview;
+            _startupLevel = launch.Level;
+            StartupLevelFile = string.IsNullOrWhiteSpace(launch.LevelFile) ? null : launch.LevelFile;
+            _startupPreview = launch.Preview;
 
             //Naming a level means playing it, so "level=" implies "play" rather than needing it alongside
-            _startupPlay = play || level != null || StartupLevelFile != null;
+            _startupPlay = launch.Play || launch.Level != null || StartupLevelFile != null;
             //Asking for a FAILED result page means asking for the result page, so "lost" implies "result" rather
             //than needing it alongside — the same rule "level=" implies "play" by. Written here and not left to
             //the caller because the first thing `lost` did on its own was put the main menu up and say nothing.
             //"nextlocked=" (#397) is a statement about that same page, so it implies it for the same reason.
-            _startupResult = result || lost || nextLocked != null;
-            _startupBlockDone = blockDone;
-            _startupLost = lost;
-            _startupNextLocked = nextLocked;
-            _startupPick = pick;
-            _startupAbout = about;
-            _startupSettings = settings || settingsRows != null;
-            _startupSettingsRows = settingsRows;
-            _startupBoard = board;
-            _startupBoardPage = boardPage;
-            _startupHelp = help;
-            _startupTour = tour;
-            _startupLineLoss = lineLoss;
-            _plainCeiling = plainCeiling;
-            _shotSchedule = shotSeconds;
-            _detonateSchedule = detonateSeconds;
-            if (mute) _masterVolume = 0f;
-            _noFpsOverlay = noFpsOverlay;
+            _startupResult = launch.Result || launch.Lost || launch.NextLocked != null;
+            _startupBlockDone = launch.BlockDone;
+            _startupLost = launch.Lost;
+            _startupNextLocked = launch.NextLocked;
+            _startupPick = launch.Pick;
+            _startupAbout = launch.About;
+            _startupSettings = launch.Settings || launch.SettingsRows != null;
+            _startupSettingsRows = launch.SettingsRows;
+            _startupBoard = launch.Board;
+            _startupBoardPage = launch.BoardPage;
+            _startupHelp = launch.Help;
+            _startupTour = launch.Tour;
+            _startupLineLoss = launch.LineLoss;
+            _plainCeiling = launch.PlainCeiling;
+            _shotSchedule = launch.ShotSeconds;
+            _detonateSchedule = launch.DetonateSeconds;
+            if (launch.Mute) _masterVolume = 0f;
+            _noFpsOverlay = launch.NoFpsOverlay;
 
             //A tier the player chose in Settings is honoured exactly as quality= is — it is the same kind of
             //statement, made in a different place — and an argument outranks it, being this run's instruction.
             //The probe's own verdict is NOT stored (see GameSettings.Quality): it can only step a tier down,
             //so a remembered one would be a ratchet that a single unlucky measurement closed for good.
-            QualityLevel? chosenQuality = quality ?? _settings.Quality;
+            QualityLevel? chosenQuality = launch.Quality ?? _settings.Quality;
 
             //The tier owns supersampling, so the tier's factor is taken first and an explicit ssaa= then
             //overrides that one entry of it — the expert override the benchmark and the screenshot harness use.
@@ -1034,15 +954,15 @@ namespace BS3D
 
             //Kept as well as applied: the tier is applied again in LoadContent (and again on every adaptive
             //step), and each of those would otherwise put the tier's factor back over this one.
-            if (supersampleFactor.HasValue)
+            if (launch.SupersampleFactor.HasValue)
             {
-                _supersampleOverride = Math.Clamp(supersampleFactor.Value, 1, 4);
+                _supersampleOverride = Math.Clamp(launch.SupersampleFactor.Value, 1, 4);
                 _supersampleFactor = _supersampleOverride.Value;
             }
 
-            _startupScene = scene;
-            _startupSkyDome = skyDome;
-            _logFrameRate = logFrameRate;
+            _startupScene = launch.Scene;
+            _startupSkyDome = launch.SkyDome;
+            _logFrameRate = launch.LogFrameRate;
 
             //Any of these is the player's decision and settles the question for good: a named tier, a named
             //factor, or Auto quality turned off in Settings (#390) — which has to win even when no tier was ever
@@ -1050,11 +970,11 @@ namespace BS3D
             //step the tier down. The distinction matters on a fullscreen switch: a player-pinned tier stays put, a
             //probe-reached one is only this machine's answer for this back-buffer size and gets re-measured (see
             //ToggleFullscreen).
-            _qualityPinnedByPlayer = supersampleFactor.HasValue || chosenQuality.HasValue || !_settings.AdaptiveQuality;
+            _qualityPinnedByPlayer = launch.SupersampleFactor.HasValue || chosenQuality.HasValue || !_settings.AdaptiveQuality;
             _qualitySettled = _qualityPinnedByPlayer;
 
             //exposure= first, then what the player set, then the game's own default
-            _exposure = exposure > 0f ? exposure
+            _exposure = launch.Exposure > 0f ? launch.Exposure
                 : _settings.Exposure > 0f ? _settings.Exposure
                 : DEFAULT_EXPOSURE;
 
@@ -1065,7 +985,7 @@ namespace BS3D
             _mouseSensitivity = NearestSensitivityRung(_settings.Sensitivity);
             _aimSensitivity = NearestSensitivityRung(_settings.AimSensitivity);
 
-            _uncappedFps = uncappedFps ?? _settings.UncappedFps;
+            _uncappedFps = launch.UncappedFps ?? _settings.UncappedFps;
 
             _graphics = new GraphicsDeviceManager(this);
             _graphics.PreparingDeviceSettings += Graphics_PreparingDeviceSettings;
