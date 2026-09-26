@@ -1,3 +1,4 @@
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
 
@@ -58,10 +59,31 @@ namespace Prazsky.Core.Render
             return false;
         }
 
+        /// <summary>
+        /// The sun the scene states for itself (<see cref="SceneRenderer.TryGetSunDirection"/>) over the dome's
+        /// and the shared domeless one; false takes one of those. Only the Moon states one.
+        /// </summary>
+        public virtual bool TryGetSunDirection(out Vector3 direction)
+        {
+            direction = default;
+            return false;
+        }
+
         /// <summary>The scene's establishing viewpoint (<see cref="SceneRenderer.TryGetViewpoint"/>).</summary>
         public virtual bool TryGetViewpoint(float bearing, out SceneViewpoint viewpoint)
         {
             viewpoint = default;
+            return false;
+        }
+
+        /// <summary>
+        /// The event the scene stages on its own clock at <paramref name="time"/>
+        /// (<see cref="SceneRenderer.TryGetSceneEvent"/>) — the storm's strike; false for a scene that stages
+        /// nothing.
+        /// </summary>
+        public virtual bool TryGetSceneEvent(float time, out SceneEvent staged)
+        {
+            staged = default;
             return false;
         }
 
@@ -97,11 +119,97 @@ namespace Prazsky.Core.Render
         /// <summary>The caller's supersampling factor — <see cref="SceneRenderer.SupersampleFactor"/>, which forwards here.</summary>
         public int SupersampleFactor { get; set; } = 1;
 
-        /// <summary>The services over a device and the quad the renderer built on it.</summary>
-        public BackdropServices(GraphicsDevice graphicsDevice, VertexBuffer fullScreenQuad)
+        /// <summary>
+        /// The renderer's seed offset (its constructor's <c>seedOffset</c>): what every seeded arrangement adds to its
+        /// own constant, 0 being the arrangement that shipped.
+        /// </summary>
+        public int SeedOffset { get; }
+
+        /// <summary>
+        /// The radius cut out of every terrain around the arena — <see cref="SceneRenderer.TerrainHoleRadius"/>, which
+        /// forwards here. Written by the host at any time, so a backdrop reads it at draw time.
+        /// </summary>
+        public float TerrainHoleRadius { get; set; }
+
+        //Every terrain grid, one per distinct (vertices a side, extent); the renderer's, which disposes it.
+        private readonly TerrainGridCache _gridCache;
+
+        /// <summary>
+        /// Where BuildQuadIndexBuffer refuses (#589): the largest quad count whose four vertices a quad stay
+        /// addressable by a 16-bit index, one short of 65 536 / 4 so the last index is never 0xFFFF.
+        /// </summary>
+        public const int MAX_BILLBOARD_QUADS = 16383;
+
+        /// <summary>The services over a device, the quad and the grid cache the renderer built on it, and its seed offset.</summary>
+        public BackdropServices(GraphicsDevice graphicsDevice, VertexBuffer fullScreenQuad, int seedOffset, TerrainGridCache gridCache)
         {
             GraphicsDevice = graphicsDevice;
             FullScreenQuad = fullScreenQuad;
+            SeedOffset = seedOffset;
+            _gridCache = gridCache;
+        }
+
+        /// <summary>
+        /// The one builder of the 16-bit index buffers every billboard in the scenes is drawn through (#589) — the storm's
+        /// cloud puffs and bolts, the snow, the spray, the volcano's fountains and ash, the campfire sparks and the
+        /// flame: two triangles a quad over four vertices a quad, in the winding the billboard shaders here already
+        /// expect. <paramref name="mirrored"/> is the flame's order, whose quads stand on their base (corner y 0..1)
+        /// rather than about their middle, so both of its triangles are listed the other way round.
+        /// <para>
+        /// ⚠ <b>It refuses a count past <see cref="MAX_BILLBOARD_QUADS"/></b>, where a 16-bit index would wrap and
+        /// the later quads would silently draw the first ones' vertices — the failure the terrain grids' own note
+        /// (<see cref="TerrainGridCache"/>) records a long hunt for. Five copies of this loop stood here until #589
+        /// and only the volcano's counts were clamped; the snow and the spray trusted their configs.
+        /// </para>
+        /// </summary>
+        public IndexBuffer BuildQuadIndexBuffer(int quads, bool mirrored = false)
+        {
+            CheckBillboardQuads(quads);
+
+            short[] indices = new short[quads * 6];
+            for (int i = 0; i < quads; i++)
+            {
+                int v = i * 4;
+                int o = i * 6;
+                if (mirrored)
+                {
+                    indices[o] = (short)v; indices[o + 1] = (short)(v + 1); indices[o + 2] = (short)(v + 2);
+                    indices[o + 3] = (short)(v + 2); indices[o + 4] = (short)(v + 1); indices[o + 5] = (short)(v + 3);
+                }
+                else
+                {
+                    indices[o] = (short)v; indices[o + 1] = (short)(v + 2); indices[o + 2] = (short)(v + 1);
+                    indices[o + 3] = (short)(v + 1); indices[o + 4] = (short)(v + 2); indices[o + 5] = (short)(v + 3);
+                }
+            }
+
+            IndexBuffer buffer = new(GraphicsDevice, IndexElementSize.SixteenBits, indices.Length, BufferUsage.WriteOnly);
+            buffer.SetData(indices);
+
+            return buffer;
+        }
+
+        /// <summary>Throws when <paramref name="quads"/> would overflow a 16-bit index; see <see cref="BuildQuadIndexBuffer"/>.</summary>
+        public static void CheckBillboardQuads(int quads)
+        {
+            if (quads > MAX_BILLBOARD_QUADS)
+                throw new ArgumentOutOfRangeException(nameof(quads), quads,
+                    $"A billboard buffer holds at most {MAX_BILLBOARD_QUADS} quads: its indices are 16-bit, and past that they wrap.");
+        }
+
+        /// <summary>
+        /// The flat lattice grid of <paramref name="n"/> vertices a side over <paramref name="extent"/> that a
+        /// terrain scene displaces, from <see cref="TerrainGridCache"/> (#589): scenes asking for the same pair
+        /// share one pair of buffers, which the cache owns — a holder gives its grid back with
+        /// <see cref="TerrainGridCache.Release"/> and never disposes it. The indices are 32-bit; the cache's
+        /// builder carries the note on why a grid over 255 a side must never have 16-bit ones.
+        /// </summary>
+        public void AcquireGridMesh(int n, float extent, out VertexBuffer vertexBuffer, out IndexBuffer indexBuffer, out int indexCount)
+        {
+            TerrainGridCache.Grid grid = _gridCache.Acquire(n, extent);
+            vertexBuffer = grid.Vertices;
+            indexBuffer = grid.Indices;
+            indexCount = grid.IndexCount;
         }
     }
 }

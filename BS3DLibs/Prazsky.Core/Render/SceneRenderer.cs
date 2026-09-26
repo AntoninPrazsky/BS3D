@@ -186,7 +186,7 @@ namespace Prazsky.Core.Render
         /// Testbed sets this to the island's radius; the map editor draws no island, so it leaves it 0 (the
         /// default) and nothing is cut.
         /// </summary>
-        public float TerrainHoleRadius { get; set; }
+        public float TerrainHoleRadius { get => _services.TerrainHoleRadius; set => _services.TerrainHoleRadius = value; }
 
         /// <summary>Mean sea level of the sea scene (world Y), so the caller can tell when its camera is under
         /// the water and fade in the underwater murk.</summary>
@@ -372,12 +372,10 @@ namespace Prazsky.Core.Render
         private MountainSceneConfig _mountainConfig = new();
         private MeadowSceneConfig _meadowConfig = new();
         private ForestSceneConfig _forestConfig = new();
-        private MoonSceneConfig _moonConfig = new();
         private OutbackSceneConfig _outbackConfig = new();
         private TropicalSceneConfig _tropicalConfig = new();
         private VolcanoSceneConfig _volcanoConfig = new();
         private MarsSceneConfig _marsConfig = new();
-        private StormSceneConfig _stormConfig = new();
         private PolarSceneConfig _polarConfig = new();
 
         #region Polar
@@ -403,7 +401,6 @@ namespace Prazsky.Core.Render
         #endregion
 
         private AuroraSceneConfig _auroraConfig = new();
-        private GridSceneConfig _gridConfig = new();
 
         #region Sea
 
@@ -594,10 +591,6 @@ namespace Prazsky.Core.Render
         //is stated rather than assumed.
         private const int MAX_BILLBOARD_PARTICLES = 16000;
 
-        //Where BuildQuadIndexBuffer refuses (#589): the largest quad count whose four vertices a quad stay
-        //addressable by a 16-bit index, one short of 65 536 / 4 so the last index is never 0xFFFF.
-        private const int MAX_BILLBOARD_QUADS = 16383;
-
         //The rivers' bearings and reaches, solved once per config (BuildVolcanoBuffers) rather than per
         //frame — the shader draws the flows from these and the scene lights ride the same figures, which is
         //what keeps a lamp on the river it is lighting.
@@ -654,51 +647,6 @@ namespace Prazsky.Core.Render
 
         //Look/tuning parameters (clearing, craters, rust surface, dust haze, the two moons) live in
         //MarsSceneConfig; SceneRenderer reads them from _marsConfig.
-
-        #endregion
-
-        #region Storm
-
-        private readonly Effect _stormEffect;
-
-        //The cloud field: one static buffer of billboard puffs, turned to face the camera in the vertex
-        //shader. The sea's spray and the mountain's snow are drawn exactly this way, and #151 measured two
-        //thousand of those at nothing at all.
-        //Where the cells stand, kept so a strike can go off INSIDE one. A strike placed at a hashed radius
-        //instead lands in clear air about as often as not, and a discharge with no cloud around it has
-        //nothing for its glow to light - which is most of what the flash is.
-        private Vector2[] _stormStrikeCells = System.Array.Empty<Vector2>();
-
-        //Each cell's body beside it — (base height, radius, height) — for a lens that has to keep out of the
-        //cells (the chapter intro's prologue, #559). Built with the field, read through StormCell.
-        private Vector3[] _stormCellBodies = System.Array.Empty<Vector3>();
-
-        private VertexBuffer _stormCloudVertexBuffer;
-        private IndexBuffer _stormCloudIndexBuffer;
-        private int _stormCloudPuffCount;
-
-        //The visible discharge. Static too, and entirely procedural in the vertex shader off the strike's
-        //own period index — so a bolt costs no CPU work per frame and every executable draws the same one
-        //at the same second, which is the rule the whole flash schedule already follows.
-        private VertexBuffer _stormBoltVertexBuffer;
-        private IndexBuffer _stormBoltIndexBuffer;
-        private int _stormBoltQuadCount;
-
-        //Segments a bolt's channel is drawn in. Enough that the jagged path reads as a filament with kinks
-        //in it rather than as a polyline; the width is a config dial and the glare pass does the rest.
-        private const int STORM_BOLT_SEGMENTS = 26;
-
-        //⚠ The buffers are 16-bit indexed, which caps the field at 16 383 quads. StormCloudsConfig's own
-        //note says so; this is where it is enforced, because a silent overflow here draws a scene made of
-        //garbage triangles rather than failing.
-        private const int STORM_MAX_QUADS = 16000;
-
-        //How far from the arena a strike may go off: a bolt beyond this is a bolt nobody sees. Tested against
-        //where a cell stands NOW (StormCellPosition), not where it was built — the field moves (#532).
-        private const float STORM_STRIKE_REACH = 420f;
-
-        //Look/tuning parameters (the cloud field, the material, the flash, the air) live in
-        //StormSceneConfig; SceneRenderer reads them from _stormConfig.
 
         #endregion
 
@@ -1149,8 +1097,12 @@ namespace Prazsky.Core.Render
         private readonly SpaceBackdrop _space;
         private readonly DreamBackdrop _dream;
         private readonly CavernBackdrop _cavern;
+        private readonly StormBackdrop _storm;
+        private readonly GridBackdrop _grid;
+        private readonly MoonBackdrop _moon;
 
-        //The device, the full-screen quad and the supersampling factor, handed to every backdrop.
+        //The device, the full-screen quad, the supersampling factor, the seed offset, the billboard index
+        //builder, the terrain grid cache and the island's hole radius, handed to every backdrop.
         private readonly BackdropServices _services;
 
         //No terrain grid: space replaces the SKY, not the ground, so the whole scene is ONE full-screen pass
@@ -1159,47 +1111,13 @@ namespace Prazsky.Core.Render
         //every sky-replacing pass draws over it (BackdropServices.FullScreenQuad), this class's own included.
         private readonly VertexBuffer _fullScreenQuad;
 
-        private Backdrop BackdropFor(SceneKind kind) => _backdrops[(int)kind];
-
-        #endregion
-
-        #region Moon
-
-        //The twelfth scene (#125), and the first in BOTH families at once: a solid-terrain grid like the
-        //desert's AND a sky-replacing pass like space's, in one effect with two techniques. DrawMoon runs
-        //the displaced crater grid first (depth-writing) and the sky quad after it, depth-READ on the
-        //shared _fullScreenQuad — the opposite interleave is a measured 8× frame blow-up; see DrawMoon's doc.
-        private readonly Effect _moonEffect;
-        private readonly VertexBuffer _moonVertexBuffer;
-        private readonly IndexBuffer _moonIndexBuffer;
-        private readonly int _moonIndexCount;
-
-        //Two techniques over one effect, resolved once — CurrentTechnique is assigned twice per frame here,
-        //which is why the by-name lookup must not be paid per draw.
-        private readonly EffectTechnique _moonSkyTechnique, _moonTerrainTechnique;
-
         //The back-buffer-sized target the cavern and the dream are shaded into before being scaled up into the
         //caller's supersampled one, and the batch that scales them. Built on first use and rebuilt only when
         //the back buffer changes size — never per frame. See DrawBackdropAtDisplayResolution.
         private RenderTarget2D _backdropTarget;
         private SpriteBatch _backdropBatch;
 
-        //Per-frame parameters, resolved once (BestPractices §1). The sky pass wants the inverse
-        //view-projection and the terrain pass the plain pair, so both are cached; everything else is pushed
-        //by ApplyMoonParameters when a config lands. No time parameter: nothing on the Moon moves.
-        private readonly EffectParameter _moonInverseViewProjection, _moonView, _moonProjection,
-            _moonCameraPosition, _moonSunDirection, _moonSupersample, _moonOriginXZ, _moonHoleRadius;
-
-        //The extent is set by where the horizon stands, not by haze reach like the atmospheric siblings: the
-        //highland belt crests ~310 units out and the curvature (8e-5) closes everything behind it by
-        //occlusion, so ground past ±600 can never be seen. What the crest and the curvature guarantee together
-        //is that the grid's own EDGE (600 out, the corners ~848) lands beyond the occluding skyline, where it is
-        //already hidden; a curvature loose enough to leave it visible puts a dead-level, camera-locked line
-        //through the belt's saddles. Until #551 that line would have been the 500-unit far plane's cut, which
-        //came first; the far plane is 2000 now and the Moon takes no far ring (it has no air to fade into -
-        //see FarField.fxh), so the edge is the constraint and occlusion is still what answers it.
-        private const int MOON_GRID_N = 360;
-        private const float MOON_EXTENT = 1200f;
+        private Backdrop BackdropFor(SceneKind kind) => _backdrops[(int)kind];
 
         #endregion
 
@@ -1209,7 +1127,7 @@ namespace Prazsky.Core.Render
         //and ReplacesSky's own docs. A forest clearing grid like Forest.fx's under a sky-replacing pass on
         //space's shared quad, two techniques in one effect, the Moon's own shape (DrawAurora runs the
         //terrain first, depth-writing, then the sky quad depth-READ against it — the Moon's measured order,
-        //see DrawMoon's doc; the opposite interleave was an 8x blow-up there and is not being re-measured
+        //see MoonBackdrop.Draw's doc; the opposite interleave was an 8x blow-up there and is not being re-measured
         //here to find out whether it still is).
         private readonly Effect _auroraEffect;
         private readonly VertexBuffer _auroraVertexBuffer;
@@ -1229,106 +1147,6 @@ namespace Prazsky.Core.Render
 
         private const int AURORA_GRID_N = 220;
         private const float AURORA_EXTENT = 1200f;
-
-        #endregion
-
-        #region Grid
-
-        //The twentieth scene (#393), and the third in both families at once — see IsSolidTerrainScene's and
-        //ReplacesSky's own docs. A flat, glowing circuit-board floor and distant solids under a starless
-        //sky-replacing void, three techniques in one effect, the Moon's own shape (DrawGrid draws the terrain
-        //and the solids first, depth-writing, then the sky quad depth-READ against them — the Moon's measured
-        //order; the opposite interleave was an 8x blow-up there and is not being re-measured here to find out
-        //whether it still is).
-        private readonly Effect _gridEffect;
-        private readonly VertexBuffer _gridVertexBuffer;
-        private readonly IndexBuffer _gridIndexBuffer;
-        private readonly int _gridIndexCount;
-
-        private readonly EffectTechnique _gridSkyTechnique, _gridTerrainTechnique, _gridTowerTechnique;
-
-        //Per-frame and per-draw parameters, resolved once (BestPractices §1).
-        private readonly EffectParameter _gridOriginXZ, _gridHoleRadius, _gridView, _gridProjection,
-            _gridCameraPosition, _gridInverseViewProjection, _gridLifeTextureParam, _gridLifeAgeParam, _gridLifeCentreParam;
-
-        //The mesh is deliberately coarse — GridTerrainVS never displaces a vertex (the floor is a constant
-        //Y), so nothing is lost by skipping the few-hundred-vertex density every OTHER terrain scene needs
-        //to hold its own displacement. The extent matches the Moon's and the aurora's: re-centred on the camera
-        //every frame, its half-width (600) is well past GridHorizonHazeDistance (420), so the floor has faded to
-        //the void before its edge and the far plane (2000 since #551) never meets it at all.
-        private const int GRID_MESH_N = 8;
-        private const float GRID_EXTENT = 1200f;
-
-        //The shortest step interval a board is stepped at, whatever the config says — a guard for a map editor
-        //slider dragged to zero, not a tuning value.
-        private const float MIN_GRID_LIFE_STEP_INTERVAL = 0.05f;
-
-        //The distant solids (#393): built once (BuildGridTowers) as world-space geometry with no world
-        //matrix and no instancing — see Grid.fx's own GridTowers header for why.
-        private VertexBuffer _gridTowerVertexBuffer;
-        private IndexBuffer _gridTowerIndexBuffer;
-
-        //One independent Game of Life per solid — the owner's review asked for "different nice variants" per
-        //object — with the texture it is uploaded to and the clock it steps on. GridLife owns the rules, the named
-        //patterns and when a board moves on to its next one.
-        private sealed class GridLifeBoard
-        {
-            public GridLife Life;
-            public Texture2D Texture;
-            public readonly Color[] UploadBuffer = new Color[GridLife.SIZE * GridLife.SIZE];
-
-            //Where in the step interval this board ticks, 0-1, spread evenly over the solids: eighteen machines
-            //each keeping its own time rather than one clock, and never every board's step and upload in one frame.
-            public float Phase;
-            public float NextStepTime;
-
-            //When the current generation appeared, for the phosphor's decay — far in the past until the first
-            //step, so nothing starts out glowing.
-            public float LastStepTime = -1e6f;
-        }
-
-        //One board per solid, and — matched to it 1:1 by index — the (start index, primitive count) each
-        //solid's own quads occupy in the ONE shared vertex/index buffer, so drawing a solid with its own board
-        //still costs one combined buffer and one draw call per solid rather than a buffer each.
-        private readonly List<GridLifeBoard> _gridLifeBoards = new();
-        private readonly List<(int StartIndex, int PrimitiveCount)> _gridTowerRanges = new();
-
-        //The same solids and the landmark as shapes rather than triangles (#559), recorded as they are placed:
-        //the one answer to "where is that cube" for a camera that frames one (GridSolids, TryGetGridRing).
-        private readonly List<GridSolid> _gridSolids = new();
-        private GridRing? _gridRing;
-
-        //A per-pixel struct rather than the shared InstancedModel vertex formats: the solids draw through their
-        //own unlit, black-body GridTowers technique (see Grid.fx), which wants a baked world-space position, the
-        //solid's own board coordinate and the face-local coordinate its seams are measured from — not a normal
-        //or a model UV.
-        private struct GridTowerVertex : IVertexType
-        {
-            public Vector3 Position;
-            public Vector2 WindowUV;
-            public Vector4 FaceLocal;
-
-            //The face's outward normal (#512). Constant across a quad by construction, which is the point:
-            //what it buys is FLAT shading, one value a face, which is what a 1982 renderer did and what makes
-            //a polyhedron read as a volume with no lighting model under it at all.
-            public Vector3 FaceNormal;
-
-            public GridTowerVertex(Vector3 position, Vector2 windowUV, Vector4 faceLocal, Vector3 faceNormal)
-            {
-                Position = position;
-                WindowUV = windowUV;
-                FaceLocal = faceLocal;
-                FaceNormal = faceNormal;
-            }
-
-            public static readonly VertexDeclaration Declaration = new(
-                new VertexElement(0, VertexElementFormat.Vector3, VertexElementUsage.Position, 0),
-                new VertexElement(12, VertexElementFormat.Vector2, VertexElementUsage.TextureCoordinate, 0),
-                new VertexElement(20, VertexElementFormat.Vector4, VertexElementUsage.TextureCoordinate, 1),
-                new VertexElement(36, VertexElementFormat.Vector3, VertexElementUsage.Normal, 0));
-
-            readonly VertexDeclaration IVertexType.VertexDeclaration => Declaration;
-        }
 
         #endregion
 
@@ -1367,7 +1185,7 @@ namespace Prazsky.Core.Render
             };
             _fullScreenQuad = new VertexBuffer(graphicsDevice, VertexPosition.VertexDeclaration, corners.Length, BufferUsage.WriteOnly);
             _fullScreenQuad.SetData(corners);
-            _services = new BackdropServices(graphicsDevice, _fullScreenQuad);
+            _services = new BackdropServices(graphicsDevice, _fullScreenQuad, seedOffset, _gridCache);
 
             //--- The far field (#551): one ring every open-ground scene draws its land over past its own grid.
             CreateFarRingMesh();
@@ -1467,15 +1285,10 @@ namespace Prazsky.Core.Render
 
             ApplyMarsParameters();
 
-            //--- Storm (#219): the seventeenth scene — broken cumulus standing in open air around and below
-            //the arena, with lightning breaking through the gaps. It is the one scene with NO ground in it,
-            //so it is not a terrain draw at all: StormClouds.fx's header has why a height field could not
-            //carry it and why the shared sky cloud field could not either.
-            _stormEffect = content.Load<Effect>("Shaders/StormClouds");
-            BuildStormCloudBuffers();
-            BuildStormBoltBuffers();
-
-            ApplyStormParameters();
+            //--- Storm (#219): the seventeenth scene, its own Backdrop since #580 (Render/Scenes), built here
+            //where its code stood
+            _storm = new StormBackdrop(_services, content);
+            _backdrops[(int)SceneKind.Storm] = _storm;
 
             //--- Savanna: a flat lattice the shader displaces into gentle grassland (per-pixel normal, no grid)
             _savannaEffect = content.Load<Effect>("Shaders/Savanna");
@@ -1523,7 +1336,7 @@ namespace Prazsky.Core.Render
 
             _flameVertexBuffer = new VertexBuffer(graphicsDevice, BillboardVertex.Declaration, flameVertices.Length, BufferUsage.WriteOnly);
             _flameVertexBuffer.SetData(flameVertices);
-            _flameIndexBuffer = BuildQuadIndexBuffer(FLAME_SUBFLAME_COUNT, mirrored: true);
+            _flameIndexBuffer = _services.BuildQuadIndexBuffer(FLAME_SUBFLAME_COUNT, mirrored: true);
             _flameTechnique = _flameEffect.Techniques["Flame"];
             _sparkTechnique = _flameEffect.Techniques["Sparks"];
             //The sparks (#468): one shared buffer of billboards on the fountain's pattern, each fire drawing
@@ -1589,25 +1402,10 @@ namespace Prazsky.Core.Render
             _backdrops[(int)SceneKind.Dream] = _dream;
             _backdrops[(int)SceneKind.Cavern] = _cavern;
 
-            //--- Moon: the twelfth scene (#125), the first in both families at once — a displaced crater
-            //grid like the desert's under a sky-replacing star-and-Earth pass on space's quad, two
-            //techniques in one effect. Nothing on it moves, so there is no time parameter to cache.
-            _moonEffect = content.Load<Effect>("Shaders/Moon");
-            AcquireGridMesh(MOON_GRID_N, MOON_EXTENT, out _moonVertexBuffer, out _moonIndexBuffer, out _moonIndexCount);
-
-            _moonSkyTechnique = _moonEffect.Techniques["MoonSky"];
-            _moonTerrainTechnique = _moonEffect.Techniques["MoonTerrain"];
-
-            _moonInverseViewProjection = _moonEffect.Parameters["InverseViewProjection"];
-            _moonView = _moonEffect.Parameters["View"];
-            _moonProjection = _moonEffect.Parameters["Projection"];
-            _moonCameraPosition = _moonEffect.Parameters["CameraPosition"];
-            _moonSunDirection = _moonEffect.Parameters["SunDirection"];
-            _moonSupersample = _moonEffect.Parameters["SupersampleFactor"];
-            _moonOriginXZ = _moonEffect.Parameters["OriginXZ"];
-            _moonHoleRadius = _moonEffect.Parameters["IslandHoleRadius"];
-
-            ApplyMoonParameters();
+            //--- Moon: the twelfth scene (#125), its own Backdrop since #580 (Render/Scenes), built here where its
+            //code stood
+            _moon = new MoonBackdrop(_services, content);
+            _backdrops[(int)SceneKind.Moon] = _moon;
 
             //--- Aurora (#205): the eighteenth scene, the second in both families at once — a forest
             //clearing grid like Forest.fx's under a sky-replacing star-and-ribbon pass on space's quad, two
@@ -1634,31 +1432,10 @@ namespace Prazsky.Core.Render
 
             ApplyAuroraParameters();
 
-            //--- Grid (#393): the twentieth scene, the third in both families at once — a flat, glowing
-            //circuit-board floor and distant solids under a starless sky-replacing void, three techniques in one
-            //effect, the Moon's and the aurora's own shape (see the region doc above it). GRID_MESH_N is
-            //deliberately coarse — see that constant's own doc for why a scene with no displacement can afford it.
-            _gridEffect = content.Load<Effect>("Shaders/Grid");
-            AcquireGridMesh(GRID_MESH_N, GRID_EXTENT, out _gridVertexBuffer, out _gridIndexBuffer, out _gridIndexCount);
-
-            _gridTerrainTechnique = _gridEffect.Techniques["GridTerrain"];
-            _gridSkyTechnique = _gridEffect.Techniques["GridSky"];
-            _gridTowerTechnique = _gridEffect.Techniques["GridTowers"];
-
-            _gridOriginXZ = _gridEffect.Parameters["OriginXZ"];
-            _gridHoleRadius = _gridEffect.Parameters["IslandHoleRadius"];
-            _gridView = _gridEffect.Parameters["View"];
-            _gridProjection = _gridEffect.Parameters["Projection"];
-            _gridCameraPosition = _gridEffect.Parameters["CameraPosition"];
-            _gridInverseViewProjection = _gridEffect.Parameters["InverseViewProjection"];
-            _gridLifeTextureParam = _gridEffect.Parameters["GridLifeTexture"];
-            _gridLifeAgeParam = _gridEffect.Parameters["GridLifeAge"];
-            _gridLifeCentreParam = _gridEffect.Parameters["GridLifeCentreOffset"];
-
-            //Pushes the terrain and tower uniforms and builds the solids' geometry, one independent Life
-            //board per solid included (BuildGridTowers) - one call for both, since a later config edit
-            //needs to redo exactly the same pair.
-            ApplyGridParameters();
+            //--- Grid (#393): the twentieth scene, its own Backdrop since #580 (Render/Scenes), built here where
+            //its code stood
+            _grid = new GridBackdrop(_services, content);
+            _backdrops[(int)SceneKind.Grid] = _grid;
 
             //Last, because it needs every effect above to exist: the one list of everything that reads the
             //sun's shadow map (#471).
@@ -1796,13 +1573,7 @@ namespace Prazsky.Core.Render
         /// </summary>
         public bool TryGetSunDirection(SceneKind kind, out Vector3 direction)
         {
-            if (kind == SceneKind.Moon)
-            {
-                MoonLightingConfig lighting = _moonConfig.Lighting;
-                direction = DirectionFromElevationAzimuth(
-                    Math.Clamp(lighting.SunElevationDegrees, 1f, 89f), lighting.SunAzimuthDegrees);
-                return true;
-            }
+            if (BackdropFor(kind) is { } backdrop) return backdrop.TryGetSunDirection(out direction);
 
             direction = default;
             return false;
@@ -1836,18 +1607,6 @@ namespace Prazsky.Core.Render
 
             switch (kind)
             {
-                //The Moon's is the one rig whose GROUND half outshines its sky half: the sky is black and
-                //the sunlit regolith below is the only diffuse source there is — Apollo photographs fill
-                //their shadows from the ground, not the sky (see MoonLightingConfig).
-                case SceneKind.Moon:
-                    MoonLightingConfig moon = _moonConfig.Lighting;
-                    rig = new SceneLightRig(
-                        moon.SkyAmbient.ToVector3(),
-                        moon.GroundAmbient.ToVector3(),
-                        moon.KeyTint.ToVector3(),
-                        moon.BackTint.ToVector3());
-                    return true;
-
                 //The aurora's takes the COLOUR of its sky (#462, the owner: "the glow should reflect its
                 //light's colour onto the cannon and the island") but not its breathing — see
                 //AuroraLightingConfig's class doc for why a gun that pulses with the sky reads as a fault. The
@@ -1863,17 +1622,6 @@ namespace Prazsky.Core.Render
                         TowardsHue(auroraLighting.GroundAmbient.ToVector3(), hue, auroraLighting.GlowTint * 0.5f),
                         TowardsHue(auroraLighting.KeyTint.ToVector3(), hue, auroraLighting.GlowTint),
                         auroraLighting.BackTint.ToVector3());
-                    return true;
-
-                //The Grid's rig is what the whole scene's light on the balls, the island and the gun comes
-                //down to — see GridSceneConfig's own class doc on why nothing here goes further than a tint.
-                case SceneKind.Grid:
-                    GridLightingConfig gridLighting = _gridConfig.Lighting;
-                    rig = new SceneLightRig(
-                        gridLighting.SkyAmbient.ToVector3(),
-                        gridLighting.GroundAmbient.ToVector3(),
-                        gridLighting.KeyTint.ToVector3(),
-                        gridLighting.BackTint.ToVector3());
                     return true;
 
                 default:
@@ -1988,16 +1736,6 @@ namespace Prazsky.Core.Render
                         1.7f, 10f, 0f, "the tree line");
                     return true;
 
-                //The highland belt, at the crest radius its own config states — the Moon's skyline is a
-                //stated distance rather than a haze, so this is one of the few points in the table that can
-                //be exactly right.
-                case SceneKind.Moon:
-                    viewpoint = new SceneViewpoint(
-                        AtBearing(bearing, _moonConfig.Terrain.HighlandCrestRadius,
-                            _moonConfig.Terrain.LevelY + _moonConfig.Terrain.HighlandHeight * 0.6f),
-                        2.3f, 11f, 0f, "the highlands");
-                    return true;
-
                 //The monoliths. They stand alone on a flat plain with nothing between them, which is exactly
                 //the arrangement a low three-quarter look reads and an overhead one destroys.
                 case SceneKind.Outback:
@@ -2035,17 +1773,6 @@ namespace Prazsky.Core.Render
                         1.9f, 16f, 180f, "Phobos");
                     return true;
 
-                //The deck, which in this scene is BELOW: the arena floats over the cloud tops and the
-                //flashes go off inside cells down there. Part-way out through the field's own inner and
-                //outer radii, at the middle of the range its cells' bases are rolled from.
-                case SceneKind.Storm:
-                    StormCloudsConfig clouds = _stormConfig.Clouds;
-                    viewpoint = new SceneViewpoint(
-                        AtBearing(bearing, (clouds.InnerRadius + clouds.OuterRadius) * 0.35f,
-                            (clouds.BaseYMin + clouds.BaseYMax) * 0.5f),
-                        2.2f, 24f, 145f, "the cloud deck");
-                    return true;
-
                 //The pressure ridge, from low down and a long way out. On a flat white plain the ridge is the
                 //only thing with a silhouette, and the only thing a camera can read distance against - the
                 //desert's dune-skyline argument on a scene that has even less to look at. Low, because from
@@ -2068,16 +1795,6 @@ namespace Prazsky.Core.Render
                         AtBearing(bearing, _auroraConfig.Terrain.ClearingRadius + 60f,
                             _auroraConfig.Terrain.LevelY + _auroraConfig.Terrain.HillHeight + 30f),
                         1.9f, 10f, 0f, "the aurora");
-                    return true;
-
-                //No landmark — the subject is the floor itself, so this reads the sea's own argument onto a
-                //grid: low and close is what shows the lines raking off towards a vanishing point, where an
-                //overhead look would flatten the whole pattern into a texture. Unphotographed: no shipped
-                //level names this scene yet.
-                case SceneKind.Grid:
-                    viewpoint = new SceneViewpoint(
-                        AtBearing(bearing, _gridConfig.Terrain.HorizonHazeDistance * 0.7f, _gridConfig.Terrain.LevelY),
-                        2.1f, 6f, 0f, "the grid");
                     return true;
 
                 default:
@@ -2121,30 +1838,12 @@ namespace Prazsky.Core.Render
         /// </summary>
         public bool TryGetMoonEarthshine(SceneKind kind, out Vector3 position, out Vector3 color, out float range)
         {
+            if (kind == SceneKind.Moon) return _moon.TryGetEarthshine(out position, out color, out range);
+
             position = Vector3.Zero;
             color = Vector3.Zero;
             range = 0f;
-
-            MoonEarthConfig earth = _moonConfig.Earth;
-            MoonLightingConfig lighting = _moonConfig.Lighting;
-
-            if (kind != SceneKind.Moon || lighting.EarthshineStrength <= 0f || earth.AngularRadiusDegrees <= 0f) return false;
-
-            Vector3 direction = SafeNormal(earth.Direction.ToVector3(), Vector3.Forward);
-
-            position = direction * lighting.EarthshineDistance;
-
-            //Earthshine is sunlight bounced off a mostly-ocean, mostly-cloud disc, so its hue is the
-            //marble's own: the cloud white pulled towards the ocean blue. Normalized like the planetshine,
-            //so the strength alone says how bright the fill is and the colours only say its hue.
-            Vector3 albedo = earth.CloudColor.ToVector3() * 0.6f + earth.OceanColor.ToVector3() * 0.4f;
-            float peak = MathF.Max(MathF.Max(albedo.X, albedo.Y), MathF.Max(albedo.Z, 1e-4f));
-
-            color = albedo / peak * lighting.EarthshineStrength;
-
-            range = lighting.EarthshineDistance * 3f;
-
-            return true;
+            return false;
         }
 
         /// <summary>
@@ -2160,15 +1859,12 @@ namespace Prazsky.Core.Render
             SceneKind.Mountain => _mountainConfig,
             SceneKind.Meadow => _meadowConfig,
             SceneKind.Forest => _forestConfig,
-            SceneKind.Moon => _moonConfig,
             SceneKind.Outback => _outbackConfig,
             SceneKind.Tropical => _tropicalConfig,
             SceneKind.Volcano => _volcanoConfig,
             SceneKind.Mars => _marsConfig,
-            SceneKind.Storm => _stormConfig,
             SceneKind.Polar => _polarConfig,
             SceneKind.Aurora => _auroraConfig,
-            SceneKind.Grid => _gridConfig,
             _ => null,
         };
 
@@ -2514,275 +2210,6 @@ namespace Prazsky.Core.Render
             _marsEffect.Parameters["DeimosColor"].SetValue(moons.DeimosColor.ToVector3());
         }
 
-        /// <summary>Pushes the storm's static tuning into <c>StormClouds.fx</c>. The flash's own per-frame
-        /// values are pushed by <see cref="DrawStorm"/>, since they come off the wall clock.</summary>
-        private void ApplyStormParameters()
-        {
-            StormCloudsConfig clouds = _stormConfig.Clouds;
-            StormSurfaceConfig surface = _stormConfig.Surface;
-            StormAirConfig air = _stormConfig.Air;
-
-            _stormEffect.Parameters["TopColor"].SetValue(surface.TopColor.ToVector3());
-            _stormEffect.Parameters["BaseColor"].SetValue(surface.BaseColor.ToVector3());
-            _stormEffect.Parameters["SilverStrength"].SetValue(surface.SilverStrength);
-            _stormEffect.Parameters["AmbientStrength"].SetValue(surface.AmbientStrength);
-
-            _stormEffect.Parameters["PuffOpacity"].SetValue(clouds.PuffOpacity);
-            _stormEffect.Parameters["EdgeSoftness"].SetValue(Math.Clamp(clouds.EdgeSoftness, 0.01f, 0.98f));
-            _stormEffect.Parameters["UnderShade"].SetValue(clouds.UnderShade);
-            _stormEffect.Parameters["MassNormalMix"].SetValue(Math.Clamp(clouds.MassNormalMix, 0f, 1f));
-            _stormEffect.Parameters["LayerBottomY"].SetValue(clouds.LayerBottomY);
-            _stormEffect.Parameters["LayerTopY"].SetValue(clouds.LayerTopY);
-
-            _stormEffect.Parameters["FlashColor"].SetValue(_stormConfig.Flash.Color.ToVector3());
-            _stormEffect.Parameters["FlashGlow"].SetValue(_stormConfig.Flash.CloudGlow);
-            _stormEffect.Parameters["BoltColor"].SetValue(_stormConfig.Flash.BoltColor.ToVector3());
-            _stormEffect.Parameters["BoltWidth"].SetValue(MathF.Max(_stormConfig.Flash.BoltWidth, 0.02f));
-
-            //How far a strike's glow carries through the field. ⚠ It is its OWN dial and not a figure
-            //derived from anything else, which is what the first build did (a lattice spacing x 0.8 = 136
-            //units) — and 136 units around a strike standing 173 to 348 units out is a patch smaller than
-            //the gap to it, so the glow landed almost entirely outside the frame and the flash read as not
-            //working at all.
-            _stormEffect.Parameters["FlashReach"].SetValue(MathF.Max(_stormConfig.Flash.GlowReach, 1f));
-
-            _stormEffect.Parameters["HazeTint"].SetValue(air.HazeTint.ToVector3());
-            _stormEffect.Parameters["HorizonHazeDistance"].SetValue(MathF.Max(air.HorizonHazeDistance, 1f));
-            _stormEffect.Parameters["HazeStrength"].SetValue(air.HazeStrength);
-            StormWindFrame(out Vector2 wind, out _);
-            _stormEffect.Parameters["WindDirection"].SetValue(wind);
-            _stormEffect.Parameters["DriftSpeed"].SetValue(air.DriftSpeed);
-            _stormEffect.Parameters["FieldHalfLength"].SetValue(MathF.Max(clouds.OuterRadius, 1f));
-            _stormEffect.Parameters["FieldClearance"].SetValue(StormCellClearance());
-        }
-
-        /// <summary>
-        /// (Re)builds the storm's cloud field: cumulus cells scattered through a volume around and below the
-        /// arena, each built from soft billboard puffs. Deterministic seed, so the sky is the same one in
-        /// every executable and every session.
-        /// <para>
-        /// <b>The shape of a cell is what makes it cumulus.</b> Puffs are laid on a profile that is widest
-        /// through the middle and tapers at both ends, biased low so the body is heavier than the crown, and
-        /// their own radius shrinks with height — which is what gives the cauliflower top. Laying them in a
-        /// plain ellipsoid gives a bun, and a bun is what the height field's turrets already were.
-        /// </para>
-        /// </summary>
-        private void BuildStormCloudBuffers()
-        {
-            StormCloudsConfig c = _stormConfig.Clouds;
-
-            int massCount = Math.Max(c.MassCount, 1);
-            int perMass = Math.Max(c.PuffsPerMass, 4);
-            if (massCount * perMass > STORM_MAX_QUADS) massCount = STORM_MAX_QUADS / perMass;
-
-            _stormCloudPuffCount = massCount * perMass;
-
-            CloudPuffVertex[] vertices = new CloudPuffVertex[_stormCloudPuffCount * 4];
-            Random rng = new(90219 + _seedOffset);
-
-            StormWindFrame(out Vector2 along, out Vector2 across);
-            float halfLength = MathF.Max(c.OuterRadius, 1f);
-            float halfWidth = MathF.Max(c.BandHalfWidth, 1f);
-
-            //Every cell's middle where it was BUILT: a strike picks one and asks StormCellPosition where it
-            //stands now, so the list is the whole field and the reach test waits until then (#532).
-            Vector2[] strikeCells = new Vector2[massCount];
-            Vector3[] cellBodies = new Vector3[massCount];
-
-            int puff = 0;
-            for (int m = 0; m < massCount; m++)
-            {
-                //Uniform over a BAND aligned with the wind — OuterRadius up- and downwind, BandHalfWidth
-                //across — and not over an annulus (#532). The field drifts along the band and wraps through
-                //its far end, so a band is what stays evenly covered; the annulus, drifting with no wrap,
-                //emptied its upwind half within minutes. The arena's clearance is not cut out of it here:
-                //the drift steers every cell round the arena (StormClouds.fx's StormCellOffset), at launch
-                //as much as after an hour, so the band is built without a hole.
-                float a = ((float)rng.NextDouble() * 2f - 1f) * halfLength;
-                float b = ((float)rng.NextDouble() * 2f - 1f) * halfWidth;
-
-                Vector3 centre = new(along.X * a + across.X * b, Lerp(c.BaseYMin, c.BaseYMax, (float)rng.NextDouble()),
-                    along.Y * a + across.Y * b);
-
-                strikeCells[m] = new Vector2(centre.X, centre.Z);
-
-                float massRadius = Lerp(c.MassRadiusMin, MathF.Max(c.MassRadiusMax, c.MassRadiusMin), (float)rng.NextDouble());
-                float massHeight = massRadius * Lerp(c.HeightScaleMin, MathF.Max(c.HeightScaleMax, c.HeightScaleMin), (float)rng.NextDouble());
-                cellBodies[m] = new Vector3(centre.Y, massRadius, massHeight);
-
-                for (int k = 0; k < perMass; k++)
-                {
-                    //Biased towards the base, so a cell is heavier below than above.
-                    float h = MathF.Pow((float)rng.NextDouble(), 0.80f);
-
-                    //Widest through the middle, tapering at both ends — the profile of a developed cumulus
-                    //rather than of a dome or a cone.
-                    float taper = MathF.Sqrt(MathF.Max(1f - MathF.Pow(2f * h - 1f, 2f) * 0.82f, 0.05f));
-                    float ring = massRadius * taper * MathF.Sqrt((float)rng.NextDouble());
-                    float ringAngle = (float)rng.NextDouble() * MathHelper.TwoPi;
-
-                    Vector3 position = centre + new Vector3(
-                        MathF.Cos(ringAngle) * ring,
-                        h * massHeight,
-                        MathF.Sin(ringAngle) * ring);
-
-                    //Smaller lobes towards the crown: that gradient IS the cauliflower.
-                    //
-                    //⚠ And the sizes within one cell span MANY SCALES, which is the other half of why a field
-                    //of billboards reads as bubble wrap (#510). Every aircraft-window reference shows a cell
-                    //built of big lobes with smaller lobes standing on them and smaller ones again on those,
-                    //where this drew one uniform band (0.22–0.40 of the cell, a ±29 % spread): balls of one
-                    //size tile, and the eye counts them. Squaring the roll over a much wider band keeps the
-                    //mean about where it was — 0.12 + (0.58 − 0.12)/3 = 0.27 against the old 0.31, so a cell
-                    //has the same body — while giving it a long tail of real lobes and a crowd of small
-                    //billows to break their outlines with.
-                    float sizeRoll = (float)rng.NextDouble();
-                    float puffRadius = massRadius
-                        * Lerp(c.PuffScaleMin, MathF.Max(c.PuffScaleMax, c.PuffScaleMin), sizeRoll * sizeRoll)
-                        * Lerp(1f, 0.62f, h);
-
-                    float seed = (float)rng.NextDouble();
-
-                    //The cell's own middle, taken at half its height: a normal measured from its foot would
-                    //point outwards and up everywhere and would light the whole cell as a dome.
-                    Vector3 massMiddle = centre + new Vector3(0f, massHeight * 0.45f, 0f);
-
-                    int v = puff * 4;
-                    vertices[v] = new CloudPuffVertex(position, new Vector4(-1f, 1f, puffRadius, seed), massMiddle);
-                    vertices[v + 1] = new CloudPuffVertex(position, new Vector4(1f, 1f, puffRadius, seed), massMiddle);
-                    vertices[v + 2] = new CloudPuffVertex(position, new Vector4(-1f, -1f, puffRadius, seed), massMiddle);
-                    vertices[v + 3] = new CloudPuffVertex(position, new Vector4(1f, -1f, puffRadius, seed), massMiddle);
-                    puff++;
-                }
-            }
-
-            _stormCloudVertexBuffer?.Dispose();
-            _stormCloudIndexBuffer?.Dispose();
-
-            _stormCloudVertexBuffer = new VertexBuffer(_graphicsDevice, CloudPuffVertex.Declaration, vertices.Length, BufferUsage.WriteOnly);
-            _stormCloudVertexBuffer.SetData(vertices);
-            _stormCloudIndexBuffer = BuildQuadIndexBuffer(_stormCloudPuffCount);
-            _stormStrikeCells = strikeCells;
-            _stormCellBodies = cellBodies;
-        }
-
-        /// <summary>
-        /// (Re)builds the lightning channels. The buffer carries nothing but which bolt and how far along it
-        /// each vertex is — the path itself is hashed in the vertex shader off the strike's own period
-        /// index, so a bolt costs no per-frame CPU work and is the same one in every executable.
-        /// </summary>
-        private void BuildStormBoltBuffers()
-        {
-            int bolts = Math.Max(_stormConfig.Flash.BoltCount, 0);
-            _stormBoltQuadCount = bolts * STORM_BOLT_SEGMENTS;
-            if (_stormBoltQuadCount == 0) return;
-
-            CloudPuffVertex[] vertices = new CloudPuffVertex[_stormBoltQuadCount * 4];
-
-            int quad = 0;
-            for (int b = 0; b < bolts; b++)
-            {
-                for (int s = 0; s < STORM_BOLT_SEGMENTS; s++)
-                {
-                    float t0 = s / (float)STORM_BOLT_SEGMENTS;
-                    float t1 = (s + 1) / (float)STORM_BOLT_SEGMENTS;
-
-                    int v = quad * 4;
-                    vertices[v] = new CloudPuffVertex(new Vector3(b, t0, -1f), Vector4.Zero, Vector3.Zero);
-                    vertices[v + 1] = new CloudPuffVertex(new Vector3(b, t0, 1f), Vector4.Zero, Vector3.Zero);
-                    vertices[v + 2] = new CloudPuffVertex(new Vector3(b, t1, -1f), Vector4.Zero, Vector3.Zero);
-                    vertices[v + 3] = new CloudPuffVertex(new Vector3(b, t1, 1f), Vector4.Zero, Vector3.Zero);
-                    quad++;
-                }
-            }
-
-            _stormBoltVertexBuffer?.Dispose();
-            _stormBoltIndexBuffer?.Dispose();
-
-            _stormBoltVertexBuffer = new VertexBuffer(_graphicsDevice, CloudPuffVertex.Declaration, vertices.Length, BufferUsage.WriteOnly);
-            _stormBoltVertexBuffer.SetData(vertices);
-            _stormBoltIndexBuffer = BuildQuadIndexBuffer(_stormBoltQuadCount);
-        }
-
-        /// <summary>
-        /// The one builder of the 16-bit index buffers every billboard here is drawn through (#589) — the storm's
-        /// cloud puffs and bolts, the snow, the spray, the volcano's fountains and ash, the campfire sparks and the
-        /// flame: two triangles a quad over four vertices a quad, in the winding the billboard shaders here already
-        /// expect. <paramref name="mirrored"/> is the flame's order, whose quads stand on their base (corner y 0..1)
-        /// rather than about their middle, so both of its triangles are listed the other way round.
-        /// <para>
-        /// ⚠ <b>It refuses a count past <see cref="MAX_BILLBOARD_QUADS"/></b>, where a 16-bit index would wrap and
-        /// the later quads would silently draw the first ones' vertices — the failure the terrain grids' own note
-        /// (<see cref="TerrainGridCache"/>) records a long hunt for. Five copies of this loop stood here until #589
-        /// and only the volcano's counts were clamped; the snow and the spray trusted their configs.
-        /// </para>
-        /// </summary>
-        private IndexBuffer BuildQuadIndexBuffer(int quads, bool mirrored = false)
-        {
-            CheckBillboardQuads(quads);
-
-            short[] indices = new short[quads * 6];
-            for (int i = 0; i < quads; i++)
-            {
-                int v = i * 4;
-                int o = i * 6;
-                if (mirrored)
-                {
-                    indices[o] = (short)v; indices[o + 1] = (short)(v + 1); indices[o + 2] = (short)(v + 2);
-                    indices[o + 3] = (short)(v + 2); indices[o + 4] = (short)(v + 1); indices[o + 5] = (short)(v + 3);
-                }
-                else
-                {
-                    indices[o] = (short)v; indices[o + 1] = (short)(v + 2); indices[o + 2] = (short)(v + 1);
-                    indices[o + 3] = (short)(v + 1); indices[o + 4] = (short)(v + 2); indices[o + 5] = (short)(v + 3);
-                }
-            }
-
-            IndexBuffer buffer = new(_graphicsDevice, IndexElementSize.SixteenBits, indices.Length, BufferUsage.WriteOnly);
-            buffer.SetData(indices);
-
-            return buffer;
-        }
-
-        private static void CheckBillboardQuads(int quads)
-        {
-            if (quads > MAX_BILLBOARD_QUADS)
-                throw new ArgumentOutOfRangeException(nameof(quads), quads,
-                    $"A billboard buffer holds at most {MAX_BILLBOARD_QUADS} quads: its indices are 16-bit, and past that they wrap.");
-        }
-
-        private static float Lerp(float a, float b, float t) => a + (b - a) * t;
-
-        //A billboard puff: where it stands in the world, and (corner x, corner y, radius, seed). The corner
-        //is the unit quad's own -1..1 offset, which the pixel shader reads back as the puff's disc
-        //coordinate — so one attribute carries both the billboard and the shading frame.
-        private struct CloudPuffVertex : IVertexType
-        {
-            public Vector3 Position;
-            public Vector4 Data;
-
-            //The middle of the CELL this puff belongs to. It is what lets a mass shade as one body: without
-            //it every puff shades as its own little sphere, complete with its own light-to-dark gradient
-            //and its own circular edge, and a cell built of those reads as a heap of balls rather than as
-            //cloud. Carried per vertex because there is nowhere cheaper to put it - a puff has no other way
-            //of knowing what it is part of.
-            public Vector3 MassCentre;
-
-            public CloudPuffVertex(Vector3 position, Vector4 data, Vector3 massCentre)
-            {
-                Position = position;
-                Data = data;
-                MassCentre = massCentre;
-            }
-
-            public static readonly VertexDeclaration Declaration = new(
-                new VertexElement(0, VertexElementFormat.Vector3, VertexElementUsage.Position, 0),
-                new VertexElement(12, VertexElementFormat.Vector4, VertexElementUsage.TextureCoordinate, 0),
-                new VertexElement(28, VertexElementFormat.Vector3, VertexElementUsage.Normal, 0));
-
-            readonly VertexDeclaration IVertexType.VertexDeclaration => Declaration;
-        }
-
         /// <summary>
         /// The storm's lightning envelope at a wall-clock time: 0 between strikes, rising to 1 at a
         /// strike's peak. <b>A pure function of the clock with no state at all</b>, exactly as
@@ -2797,144 +2224,7 @@ namespace Prazsky.Core.Render
         /// metronome — the volcano's own rule.
         /// </para>
         /// </summary>
-        public float StormFlash(float time)
-        {
-            StormFlashConfig flash = _stormConfig.Flash;
-
-            float period = StormStrikeSchedule(time, out float index, out float start, out float length, out float size);
-            float u = time / period;
-
-            float p = (u - index - start) / length;
-            if (p <= 0f || p >= 1f) return 0f;
-
-            //A hard attack over the first 6 % and a fast power decay after it.
-            float envelope = p < 0.06f ? p / 0.06f : MathF.Pow(1f - (p - 0.06f) / 0.94f, 2.6f);
-
-            //The return strokes. Rectified so every flicker is a brightening rather than a sign change, and
-            //floored well above zero so the channel never goes fully dark mid-strike (which reads as two
-            //separate strikes rather than one stuttering one).
-            float flicker = MathF.Max(flash.Flicker, 0f);
-            if (flicker > 0f)
-                envelope *= 0.55f + 0.45f * MathF.Abs(MathF.Cos(p * MathHelper.Pi * flicker));
-
-            //Not every strike is the same size: a scene whose every event is identical stops having events.
-            return envelope * size;
-        }
-
-        //The strike's SCHEDULE, in one place: which period it is, where in that period the light starts, how
-        //long it lasts and how big it is. StormFlash draws its envelope from this and TryGetSceneEvent hands
-        //the same four figures to the sound, so the flash and the thunder cannot disagree about which strike
-        //went off or when it started. Returns the period, which both callers need as well.
-        private float StormStrikeSchedule(float time, out float index, out float start, out float length, out float size)
-        {
-            StormFlashConfig flash = _stormConfig.Flash;
-
-            float period = MathF.Max(flash.Period, 0.5f);
-
-            index = MathF.Floor(time / period);
-            start = 0.08f + 0.62f * Hash01(index);
-            length = Math.Clamp(MathF.Max(flash.Length, 0.05f) / period, 0.01f, 0.7f);
-            size = 0.5f + 0.5f * Hash01(index + 313f);
-
-            return period;
-        }
-
-        /// <summary>The storm's wind as an orthonormal XZ frame — <paramref name="along"/> downwind and
-        /// <paramref name="across"/> its perpendicular — the axes the cloud band is built on and drifts
-        /// along. Normalised here, so a config wind that is not unit-length cannot silently mean a faster
-        /// sky, and pushed to the shader in the same form.</summary>
-        private void StormWindFrame(out Vector2 along, out Vector2 across)
-        {
-            along = _stormConfig.Air.Wind.ToVector2();
-            along = along.LengthSquared() > 1e-6f ? Vector2.Normalize(along) : Vector2.UnitX;
-            across = new Vector2(-along.Y, along.X);
-        }
-
-        /// <summary>
-        /// Where a cloud cell stands at a wall-clock time, from where it was built: carried downwind, wrapped
-        /// through the far end of the band back to the near one, and steered round the arena. <b>The host
-        /// copy of <c>StormClouds.fx</c>'s <c>StormCellOffset</c>, kept in step by hand</b> — the shader
-        /// moves the puffs and this places the strike inside them, and if the two disagreed the bolt would
-        /// go off in clear air. Which is what happened until #532: the strike stood where the cell was
-        /// built, inside it for the first half minute of a session and in the air it had left ever after.
-        /// </summary>
-        private Vector2 StormCellPosition(Vector2 built, float time)
-        {
-            StormCloudsConfig clouds = _stormConfig.Clouds;
-            StormWindFrame(out Vector2 along, out Vector2 across);
-
-            float halfLength = MathF.Max(clouds.OuterRadius, 1f);
-            float clearance = StormCellClearance();
-            float span = 2f * halfLength;
-
-            float a = Vector2.Dot(built, along) + time * _stormConfig.Air.DriftSpeed;
-            float b = Vector2.Dot(built, across);
-
-            a -= span * MathF.Floor((a + halfLength) / span);
-
-            float bump = MathF.Exp(-(a * a) / (2f * clearance * clearance));
-            float side = b < 0f ? -1f : 1f;
-            float abs = MathF.Abs(b);
-            b = side * (abs + clearance * bump * MathF.Max(0f, 1f - abs / (3f * clearance)));
-
-            return along * a + across * b;
-        }
-
-        /// <summary>
-        /// How close to the arena a cell's MIDDLE may come: <see cref="StormCloudsConfig.InnerRadius"/> for
-        /// its puffs, plus the largest cell's radius, since a puff stands up to that far from its middle.
-        /// The first cut of #532 steered the middle to <c>InnerRadius</c> alone, and the Game's front end
-        /// photographed its lens inside a puff at ten seconds — the whole frame milk.
-        /// </summary>
-        private float StormCellClearance()
-        {
-            StormCloudsConfig clouds = _stormConfig.Clouds;
-            return MathF.Max(clouds.InnerRadius, 1f) + MathF.Max(clouds.MassRadiusMax, clouds.MassRadiusMin);
-        }
-
-        /// <summary>
-        /// Where the current strike stands, in the XZ plane. Hashed off the same period index the envelope
-        /// is, so the flash's glow and the light it throws cannot disagree about which cell went off — and
-        /// held out past the clearing, because a strike inside the ring the island stands in would be a
-        /// bolt in the play field rather than weather in the distance.
-        /// </summary>
-        private Vector2 StormFlashCenter(float time)
-        {
-            float period = MathF.Max(_stormConfig.Flash.Period, 0.5f);
-            float index = MathF.Floor(time / period);
-
-            //⚠ IN A CELL, not at a hashed radius. Placed by radius and bearing alone a strike lands in clear
-            //air about as often as in cloud, and a discharge with nothing around it lights nothing - the
-            //glow IS the flash from most cameras, since the channel itself is usually inside the cell it
-            //went off in. The cells' own middles are kept when the field is built for exactly this.
-            //
-            //And in the cell where it stands NOW (#532): the hashed pick is walked on to the first cell
-            //within reach of the arena this second, so it is still a pure function of the period index and
-            //the clock. A cell drifts 0.7 units over one strike, so the bolt rides with it unnoticed.
-            int count = _stormStrikeCells.Length;
-            if (count > 0)
-            {
-                int first = Math.Clamp((int)(Hash01(index + 57f) * count), 0, count - 1);
-                Vector2 nearest = default;
-                float nearestDistance = float.MaxValue;
-
-                for (int step = 0; step < count; step++)
-                {
-                    Vector2 at = StormCellPosition(_stormStrikeCells[(first + step) % count], time);
-                    float distance = at.Length();
-                    if (distance <= STORM_STRIKE_REACH) return at;
-                    if (distance < nearestDistance) { nearestDistance = distance; nearest = at; }
-                }
-
-                return nearest;
-            }
-
-            //Nothing to strike (a field configured empty): fall back to a ring outside the arena.
-            float inner = MathF.Max(_stormConfig.Clouds.InnerRadius, 1f) + 40f;
-            float bearing = Hash01(index + 57f) * MathHelper.TwoPi;
-
-            return new Vector2(MathF.Cos(bearing) * inner, MathF.Sin(bearing) * inner);
-        }
+        public float StormFlash(float time) => _storm.Flash(time);
 
         /// <summary>
         /// The storm's flash as a scene point light the caller can drop into a slot — the Moon's earthshine
@@ -2957,108 +2247,12 @@ namespace Prazsky.Core.Render
         /// </summary>
         public bool TryGetStormFlash(SceneKind kind, float time, out Vector3 position, out Vector3 color, out float range)
         {
+            if (kind == SceneKind.Storm) return _storm.TryGetFlash(time, out position, out color, out range);
+
             position = Vector3.Zero;
             color = Vector3.Zero;
             range = 0f;
-
-            StormFlashConfig flash = _stormConfig.Flash;
-
-            if (kind != SceneKind.Storm || flash.LightStrength <= 0f) return false;
-
-            float envelope = StormFlash(time);
-            if (envelope <= 0f) return false;
-
-            float distance = MathF.Max(flash.LightDistance, 1f);
-
-            //Under the island and leaning towards the cell that actually went off, so the fill has a
-            //direction rather than being a flat uplight — but overwhelmingly below, which is what makes it
-            //read as the deck and not as a second sun.
-            Vector2 at = StormFlashCenter(time);
-            Vector3 towards = SafeNormal(new Vector3(at.X * 0.25f, -distance, at.Y * 0.25f), -Vector3.UnitY);
-
-            position = towards * distance;
-
-            //Normalized like the planetshine and the earthshine, so LightStrength alone says how bright the
-            //fill is and the colour only says its hue.
-            Vector3 tint = flash.Color.ToVector3();
-            float peak = MathF.Max(MathF.Max(tint.X, tint.Y), MathF.Max(tint.Z, 1e-4f));
-
-            color = tint / peak * (flash.LightStrength * envelope);
-
-            range = distance * 3f;
-
-            return true;
-        }
-
-        /// <summary>
-        /// Draws the storm (#219): the field of cumulus cells, then the lightning channel over it.
-        /// <para>
-        /// <b>Alpha-blended, depth-read, depth-write off</b> — the sea's spray and the mountain's snow are
-        /// drawn the same way and for the same reason: a soft-edged billboard that wrote depth would punch
-        /// its own quad's silhouette out of everything behind it, which is the hard edge this whole scene
-        /// exists to avoid. The field is unsorted, which is a real approximation and an acceptable one here:
-        /// every puff is the same near-white medium, so getting two of them the wrong way round changes the
-        /// blend weights and nothing the eye can name.
-        /// </para>
-        /// <para>
-        /// <b>It deliberately does NOT invoke <see cref="SceneFrame.ApplyClouds"/></b>. The hook pushes the
-        /// sky's own weather into a scene effect's <c>Cloud*</c> namespace, and this field neither wants a
-        /// cloud shadow cast on it (it <i>is</i> the cloud) nor could survive one: <c>CloudSunlight</c>
-        /// above the shared plane degenerates to the point's own column and returns about the shadow floor.
-        /// <c>StormClouds.fx</c>'s header has the whole argument.
-        /// </para>
-        /// </summary>
-        private void DrawStorm(in SceneFrame frame)
-        {
-            Matrix inverseView = Matrix.Invert(frame.Camera.View);
-            float envelope = StormFlash(frame.Time);
-
-            _stormEffect.Parameters["View"].SetValue(frame.Camera.View);
-            _stormEffect.Parameters["Projection"].SetValue(frame.Camera.Projection);
-            _stormEffect.Parameters["CameraPosition"].SetValue(frame.Camera.Position);
-            _stormEffect.Parameters["CameraRight"].SetValue(inverseView.Right);
-            _stormEffect.Parameters["CameraUp"].SetValue(inverseView.Up);
-            _stormEffect.Parameters["SunDirection"].SetValue(frame.SunDirection);
-            _stormEffect.Parameters["SunColor"].SetValue(frame.SunColor);
-            _stormEffect.Parameters["ZenithColor"].SetValue(frame.ZenithLinear);
-            _stormEffect.Parameters["HorizonColor"].SetValue(frame.HorizonLinear);
-            _stormEffect.Parameters["CloudTime"].SetValue(frame.Time);
-
-            //The strike, off the same clock and the same hashed period index the light rig's own lamp reads,
-            //so the glow in the cloud, the channel drawn through it and the flash on the arena cannot
-            //disagree about which cell went off.
-            _stormEffect.Parameters["FlashEnvelope"].SetValue(envelope);
-            _stormEffect.Parameters["FlashCenterXZ"].SetValue(StormFlashCenter(frame.Time));
-            _stormEffect.Parameters["FlashStrikeIndex"].SetValue(
-                MathF.Floor(frame.Time / MathF.Max(_stormConfig.Flash.Period, 0.5f)));
-
-            _graphicsDevice.BlendState = BlendState.AlphaBlend;
-            _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
-            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
-
-            _graphicsDevice.SetVertexBuffer(_stormCloudVertexBuffer);
-            _graphicsDevice.Indices = _stormCloudIndexBuffer;
-            _stormEffect.CurrentTechnique = _stormEffect.Techniques["StormClouds"];
-            _stormEffect.CurrentTechnique.Passes[0].Apply();
-            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _stormCloudPuffCount * 2);
-
-            //The channel, and only while one is running: between strikes this is the whole cost of the
-            //lightning. Additive, because a discharge adds light to whatever is behind it and never hides
-            //it — a channel drawn with alpha over cloud reads as a painted stripe.
-            if (envelope > 0f && _stormBoltQuadCount > 0)
-            {
-                _graphicsDevice.BlendState = BlendState.Additive;
-
-                _graphicsDevice.SetVertexBuffer(_stormBoltVertexBuffer);
-                _graphicsDevice.Indices = _stormBoltIndexBuffer;
-                _stormEffect.CurrentTechnique = _stormEffect.Techniques["StormBolts"];
-                _stormEffect.CurrentTechnique.Passes[0].Apply();
-                _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _stormBoltQuadCount * 2);
-            }
-
-            _graphicsDevice.BlendState = BlendState.AlphaBlend;
-            _graphicsDevice.DepthStencilState = DepthStencilState.Default;
-            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+            return false;
         }
 
         /// <summary>
@@ -3875,11 +3069,11 @@ namespace Prazsky.Core.Render
         /// in the unit cube and one more random — everything a shader needs to animate a particle entirely in
         /// its vertex shader. The volcano's fountains, its plume and its ash, the campfire sparks, the mountain's
         /// snow and the sea's spray are all built from this (the last two were copies of it until #589, and their
-        /// seeds make the same sequences through it). Refuses a count past <see cref="MAX_BILLBOARD_QUADS"/>.
+        /// seeds make the same sequences through it). Refuses a count past <see cref="BackdropServices.MAX_BILLBOARD_QUADS"/>.
         /// </summary>
         private void BuildBillboardParticles(int count, int seed, ref VertexBuffer vertexBuffer, ref IndexBuffer indexBuffer)
         {
-            CheckBillboardQuads(count);
+            BackdropServices.CheckBillboardQuads(count);
 
             vertexBuffer?.Dispose();
             indexBuffer?.Dispose();
@@ -3903,7 +3097,7 @@ namespace Prazsky.Core.Render
             vertexBuffer = new VertexBuffer(_graphicsDevice, BillboardVertex.Declaration, vertices.Length, BufferUsage.WriteOnly);
             vertexBuffer.SetData(vertices);
 
-            indexBuffer = BuildQuadIndexBuffer(count);
+            indexBuffer = _services.BuildQuadIndexBuffer(count);
         }
 
         /// <summary>
@@ -3963,23 +3157,16 @@ namespace Prazsky.Core.Render
         public Vector2 CavernGodRayXZ(int index) => _cavern.GodRayXZ(index);
 
         /// <summary>How many cumulus cells the storm's field was built with.</summary>
-        public int StormCellCount => _stormStrikeCells.Length;
+        public int StormCellCount => _storm.CellCount;
 
         /// <summary>
         /// Storm cell <paramref name="index"/> at a wall-clock time: its foot (the middle of its base, where
-        /// <see cref="StormCellPosition"/> has carried it), its radius and its height. A puff stands up to
+        /// <c>StormCellPosition</c> has carried it), its radius and its height. A puff stands up to
         /// the radius × 1.58 out from the middle (the ring plus its own disc) and up to the height plus
         /// about half the radius above the foot — the body a lens has to keep out of.
         /// </summary>
-        public Vector3 StormCell(int index, float time, out float radius, out float height)
-        {
-            Vector3 body = _stormCellBodies[index];
-            Vector2 at = StormCellPosition(_stormStrikeCells[index], time);
-
-            radius = body.Y;
-            height = body.Z;
-            return new Vector3(at.X, body.X, at.Y);
-        }
+        public Vector3 StormCell(int index, float time, out float radius, out float height) =>
+            _storm.Cell(index, time, out radius, out height);
 
         /// <summary>The icesheet's height at a world point, for a lens path over it: <see cref="TerrainMirror.Polar"/> on the live config.</summary>
         public float PolarGroundHeight(float x, float z) => TerrainMirror.Polar(x, z, _polarConfig);
@@ -4022,14 +3209,10 @@ namespace Prazsky.Core.Render
         /// The Grid's solids as boxes on the floor, in the order they were placed, for a host framing a camera
         /// on one (the chapter intro's prologue, #559). Empty until the Grid's config has been applied.
         /// </summary>
-        public IReadOnlyList<GridSolid> GridSolids => _gridSolids;
+        public IReadOnlyList<GridSolid> GridSolids => _grid.Solids;
 
         /// <summary>The Grid's landmark ring as a shape (#559); false when the config has none.</summary>
-        public bool TryGetGridRing(out GridRing ring)
-        {
-            ring = _gridRing ?? default;
-            return _gridRing.HasValue;
-        }
+        public bool TryGetGridRing(out GridRing ring) => _grid.TryGetRing(out ring);
 
         /// <summary>
         /// How hard the volcano is erupting at a wall-clock time, 0 between bursts and up to 1 at the peak of
@@ -4096,23 +3279,10 @@ namespace Prazsky.Core.Render
         /// </summary>
         public bool TryGetSceneEvent(SceneKind kind, float time, out SceneEvent staged)
         {
+            if (BackdropFor(kind) is { } backdrop) return backdrop.TryGetSceneEvent(time, out staged);
+
             switch (kind)
             {
-                case SceneKind.Storm:
-                {
-                    float period = StormStrikeSchedule(time, out float index, out float start, out float _, out float size);
-                    Vector2 at = StormFlashCenter(time);
-
-                    //Mid-deck: the cells' bases are rolled between these two, and a strike goes off inside a
-                    //cell. It is the DISTANCE this is wanted for, so the middle of the range is honest and
-                    //the exact height of one cell is not.
-                    StormCloudsConfig clouds = _stormConfig.Clouds;
-                    float deckY = (clouds.BaseYMin + clouds.BaseYMax) * 0.5f;
-
-                    staged = new SceneEvent((int)index, (index + start) * period, new Vector3(at.X, deckY, at.Y), size);
-                    return true;
-                }
-
                 case SceneKind.Volcano:
                 {
                     float period = VolcanoBurstSchedule(time, out float index, out float start, out float _, out float size);
@@ -4130,9 +3300,10 @@ namespace Prazsky.Core.Render
             }
         }
 
-        //A deterministic hash of a small integer, for the eruption schedule. A sine hash is fine here where it
-        //would not be in a shader: it runs on one CPU with one rounding, and its argument stays small.
-        private static float Hash01(float n)
+        //A deterministic hash of a small integer, for the eruption schedule and the storm's strikes
+        //(StormBackdrop calls it too). A sine hash is fine here where it would not be in a shader: it runs on
+        //one CPU with one rounding, and its argument stays small.
+        internal static float Hash01(float n)
         {
             float s = MathF.Sin(n * 12.9898f) * 43758.5453f;
             return s - MathF.Floor(s);
@@ -4519,75 +3690,12 @@ namespace Prazsky.Core.Render
             _forestEffect.Parameters["NeedleReliefFrequency"].SetValue(_forestConfig.NeedleReliefFrequency);
         }
 
-        private void ApplyMoonParameters()
-        {
-            MoonSceneConfig moon = _moonConfig;
-
-            _moonEffect.Parameters["VoidColor"].SetValue(moon.VoidColor.ToVector3());
-
-            MoonTerrainConfig terrain = moon.Terrain;
-            _moonEffect.Parameters["MoonLevelY"].SetValue(terrain.LevelY);
-            _moonEffect.Parameters["ClearingRadius"].SetValue(terrain.ClearingRadius);
-            _moonEffect.Parameters["ClearingTransition"].SetValue(terrain.ClearingTransition);
-            _moonEffect.Parameters["CraterAmplitude"].SetValue(terrain.CraterAmplitude);
-            _moonEffect.Parameters["HighlandHeight"].SetValue(terrain.HighlandHeight);
-            _moonEffect.Parameters["HighlandInnerRadius"].SetValue(terrain.HighlandInnerRadius);
-            _moonEffect.Parameters["HighlandCrestRadius"].SetValue(terrain.HighlandCrestRadius);
-            _moonEffect.Parameters["HighlandSaddleFloor"].SetValue(terrain.HighlandSaddleFloor);
-            _moonEffect.Parameters["Curvature"].SetValue(terrain.Curvature);
-            _moonEffect.Parameters["RegolithColor"].SetValue(terrain.RegolithColor.ToVector3());
-            _moonEffect.Parameters["RegolithColorPale"].SetValue(terrain.RegolithColorPale.ToVector3());
-            _moonEffect.Parameters["EjectaBrightness"].SetValue(terrain.EjectaBrightness);
-            _moonEffect.Parameters["MicroReliefStrength"].SetValue(terrain.MicroReliefStrength);
-            _moonEffect.Parameters["GrainStrength"].SetValue(terrain.GrainStrength);
-
-            //The terrain's sun and fill are the config's own, never the frame's dome-derived ones: this
-            //scene draws no dome, and a dome-derived sun on a domeless ground would be the lie
-            //TryGetLightRig's doc warns about, painted onto the terrain instead of the island.
-            _moonEffect.Parameters["SunColor"].SetValue(terrain.SunColor.ToVector3());
-            _moonEffect.Parameters["AmbientColor"].SetValue(terrain.AmbientColor.ToVector3());
-
-            //The earthshine the terrain shader adds as a directional fill is derived from the same figures
-            //the scene-light slot uses (TryGetMoonEarthshine), so the ground and the island cannot disagree
-            //about how bright the Earth is.
-            MoonLightingConfig lighting = moon.Lighting;
-            MoonEarthConfig earth = moon.Earth;
-
-            Vector3 earthAlbedo = earth.CloudColor.ToVector3() * 0.6f + earth.OceanColor.ToVector3() * 0.4f;
-            float earthPeak = MathF.Max(MathF.Max(earthAlbedo.X, earthAlbedo.Y), MathF.Max(earthAlbedo.Z, 1e-4f));
-            bool shines = lighting.EarthshineStrength > 0f && earth.AngularRadiusDegrees > 0f;
-
-            _moonEffect.Parameters["EarthshineColor"].SetValue(
-                shines ? earthAlbedo / earthPeak * lighting.EarthshineStrength : Vector3.Zero);
-
-            _moonEffect.Parameters["EarthDirection"].SetValue(SafeNormal(earth.Direction.ToVector3(), Vector3.Forward));
-            _moonEffect.Parameters["EarthAngularRadius"].SetValue(MathHelper.ToRadians(earth.AngularRadiusDegrees));
-            _moonEffect.Parameters["EarthAxis"].SetValue(SafeNormal(earth.Axis.ToVector3(), Vector3.Up));
-            _moonEffect.Parameters["OceanColor"].SetValue(earth.OceanColor.ToVector3());
-            _moonEffect.Parameters["LandColor"].SetValue(earth.LandColor.ToVector3());
-            _moonEffect.Parameters["LandColorArid"].SetValue(earth.LandColorArid.ToVector3());
-            _moonEffect.Parameters["CloudColor"].SetValue(earth.CloudColor.ToVector3());
-            _moonEffect.Parameters["CloudAmount"].SetValue(earth.CloudAmount);
-            _moonEffect.Parameters["RimColor"].SetValue(earth.RimColor.ToVector3());
-            _moonEffect.Parameters["RimStrength"].SetValue(earth.RimStrength);
-            _moonEffect.Parameters["NightAmbient"].SetValue(earth.NightAmbient);
-
-            SpaceStarsConfig stars = moon.Stars;
-            _moonEffect.Parameters["StarCellScale"].SetValue(new[] { stars.BrightCellScale, stars.MediumCellScale, stars.FaintCellScale });
-            _moonEffect.Parameters["StarChance"].SetValue(new[] { stars.BrightChance, stars.MediumChance, stars.FaintChance });
-            _moonEffect.Parameters["StarPeak"].SetValue(new[] { stars.BrightPeak, stars.MediumPeak, stars.FaintPeak });
-            _moonEffect.Parameters["StarSpread"].SetValue(stars.Spread);
-            _moonEffect.Parameters["StarFalloff"].SetValue(stars.Falloff);
-            _moonEffect.Parameters["StarSpikeThreshold"].SetValue(stars.SpikeThreshold);
-            _moonEffect.Parameters["StarSpikeLength"].SetValue(stars.SpikeLength);
-        }
-
         /// <summary>
         /// Pushes everything about the aurora scene that is fixed for as long as the config is — the ground
         /// shape (Forest.fx's own clearing-and-hills uniforms, off <c>_auroraConfig.Terrain</c>), the ribbon
         /// look and the star lattice. Not pushed here: <c>SunColor</c>/<c>ZenithColor</c>/<c>HorizonColor</c>
         /// and both time uniforms, which carry the aurora's own pulse and so go out every frame in
-        /// <see cref="DrawAurora"/> instead — the same split <see cref="ApplyMoonParameters"/> makes between
+        /// <see cref="DrawAurora"/> instead — the same split <c>MoonBackdrop.ApplyMoonParameters</c> makes between
         /// its fixed terrain figures and the per-frame camera/time ones.
         /// </summary>
         private void ApplyAuroraParameters()
@@ -4642,43 +3750,6 @@ namespace Prazsky.Core.Render
             _auroraEffect.Parameters["StarFalloff"].SetValue(stars.Falloff);
             _auroraEffect.Parameters["StarSpikeThreshold"].SetValue(stars.SpikeThreshold);
             _auroraEffect.Parameters["StarSpikeLength"].SetValue(stars.SpikeLength);
-        }
-
-        /// <summary>
-        /// Pushes everything about the Grid scene that is fixed for as long as the config is, and rebuilds the
-        /// solids and their boards. What does vary — the camera, and each solid's board stepping on its own clock
-        /// — is set per frame and per draw in <see cref="DrawGrid"/>.
-        /// </summary>
-        private void ApplyGridParameters()
-        {
-            _gridEffect.Parameters["VoidColor"].SetValue(_gridConfig.VoidColor.ToVector3());
-
-            GridTerrainConfig terrain = _gridConfig.Terrain;
-            _gridEffect.Parameters["GridLevelY"].SetValue(terrain.LevelY);
-            _gridEffect.Parameters["GridCellSize"].SetValue(terrain.CellSize);
-            _gridEffect.Parameters["GridTraceStride"].SetValue((float)Math.Max(terrain.TraceStride, 1));
-            _gridEffect.Parameters["GridLineWidth"].SetValue(terrain.LineWidth);
-            _gridEffect.Parameters["GridAccentWidthScale"].SetValue(terrain.AccentWidthScale);
-            _gridEffect.Parameters["GridHorizonHazeDistance"].SetValue(terrain.HorizonHazeDistance);
-            _gridEffect.Parameters["GridBodyColor"].SetValue(terrain.BodyColor.ToVector3());
-            _gridEffect.Parameters["GridLineColor"].SetValue(terrain.LineColor.ToVector3());
-            _gridEffect.Parameters["GridAccentColor"].SetValue(terrain.AccentColor.ToVector3());
-
-            GridTowerConfig towers = _gridConfig.Towers;
-            _gridEffect.Parameters["GridTowerWindowCellSize"].SetValue(towers.WindowCellSize);
-            _gridEffect.Parameters["GridTowerWindowMargin"].SetValue(towers.WindowMargin);
-            _gridEffect.Parameters["GridTowerBodyColor"].SetValue(towers.BodyColor.ToVector3());
-            _gridEffect.Parameters["GridTowerWindowColor"].SetValue(towers.WindowColor.ToVector3());
-            _gridEffect.Parameters["GridTowerEdgeWidth"].SetValue(towers.EdgeWidth);
-            _gridEffect.Parameters["GridTowerEdgeColor"].SetValue(towers.EdgeColor.ToVector3());
-            _gridEffect.Parameters["GridFaceLight"].SetValue(Vector3.Normalize(towers.FaceLight.ToVector3()));
-            _gridEffect.Parameters["GridFaceShadeFloor"].SetValue(towers.FaceShadeFloor);
-            _gridEffect.Parameters["GridPhosphorDecay"].SetValue(towers.PhosphorDecay);
-
-            //Placement (count/radius/height/footprint/seed) and the boards only take effect through a rebuild, so
-            //the parameters and the solids are pushed from one place — which is what kept the two in step while
-            //the map editor's live panel (gone in #522) could re-apply a config at any moment.
-            BuildGridTowers();
         }
 
         /// <summary>
@@ -4919,20 +3990,9 @@ namespace Prazsky.Core.Render
 
         #endregion
 
-        /// <summary>
-        /// The flat lattice grid of <paramref name="n"/> vertices a side over <paramref name="extent"/> that a
-        /// terrain scene displaces, from <see cref="TerrainGridCache"/> (#589): scenes asking for the same pair
-        /// share one pair of buffers, which the cache owns — a holder gives its grid back with
-        /// <see cref="TerrainGridCache.Release"/> and never disposes it. The indices are 32-bit; the cache's
-        /// builder carries the note on why a grid over 255 a side must never have 16-bit ones.
-        /// </summary>
+        /// <summary>A terrain grid from the shared cache; see <see cref="BackdropServices.AcquireGridMesh"/>.</summary>
         private void AcquireGridMesh(int n, float extent, out VertexBuffer vertexBuffer, out IndexBuffer indexBuffer, out int indexCount)
-        {
-            TerrainGridCache.Grid grid = _gridCache.Acquire(n, extent);
-            vertexBuffer = grid.Vertices;
-            indexBuffer = grid.Indices;
-            indexCount = grid.IndexCount;
-        }
+            => _services.AcquireGridMesh(n, extent, out vertexBuffer, out indexBuffer, out indexCount);
 
         /// <summary>
         /// Draws the far environment for a natural scene — the sea, the savanna (with its acacias and birds),
@@ -5009,24 +4069,15 @@ namespace Prazsky.Core.Render
                 case SceneKind.Forest:
                     DrawForest(frame);
                     break;
-                case SceneKind.Moon:
-                    DrawMoon(frame);
-                    break;
                 case SceneKind.Mars:
                     DrawMarsTerrain(frame);
                     DrawMarsMoons(frame);
-                    break;
-                case SceneKind.Storm:
-                    DrawStorm(frame);
                     break;
                 case SceneKind.Polar:
                     DrawPolar(frame);
                     break;
                 case SceneKind.Aurora:
                     DrawAurora(frame);
-                    break;
-                case SceneKind.Grid:
-                    DrawGrid(frame);
                     break;
             }
         }
@@ -6359,7 +5410,7 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// Draws Phobos and Deimos: two small analytic discs on space's shared full-screen quad
         /// (<c>_fullScreenQuad</c>), depth-read against the depth <see cref="DrawMarsTerrain"/> just wrote —
-        /// Moon.fx's own measured reason (its <c>DrawMoon</c> doc) for reading depth after the ground
+        /// Moon.fx's own measured reason (<c>MoonBackdrop.Draw</c>'s doc) for reading depth after the ground
         /// rather than before it, carried over even though this pass is far cheaper than a starfield.
         /// Alpha-blended, unlike every sky-replacing scene's opaque quad pass: this composites two small
         /// discs over a dome and a terrain that are already drawn, not a full-screen backdrop of its own.
@@ -6840,73 +5891,6 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// Draws the Moon: two passes of one effect, because the scene is in both families at once (#125).
-        /// First the terrain — the desert's displaced camera-centred grid (snapped to a cell so the craters
-        /// do not swim), an ordinary depth-writing opaque draw — then the sky: space's full-screen machinery
-        /// on the shared quad, <b>depth-read</b> against what the terrain just wrote, so the star shader
-        /// only runs where sky is actually visible. No cloud hook and no time uniform: there is no air and
-        /// nothing on the Moon moves.
-        /// <para>
-        /// <b>The order is measured, not stylistic.</b> The first build drew the sky first with
-        /// <see cref="DepthStencilState.None"/> (the other sky-replacing scenes' state) and the terrain over
-        /// it, and in the Game's frame that interleave measured <b>244 ms</b> at High on the reference APU
-        /// against <b>17 ms</b> for this order — an 8× blow-up that neither pass shows alone (sky alone 8 ms,
-        /// terrain alone 18) and that the Testbed's frame never reproduced. The mechanism was not chased past
-        /// the fix, because depth-read-after-terrain is the right order regardless: it also stops paying for
-        /// starfield pixels the ground was always going to cover.
-        /// </para>
-        /// </summary>
-        private void DrawMoon(in SceneFrame frame)
-        {
-            //Row vectors, as everywhere else: a world point goes out through View then Projection, so a
-            //clip-space corner comes back through the inverse of that product.
-            _moonInverseViewProjection.SetValue(Matrix.Invert(frame.Camera.View * frame.Camera.Projection));
-            _moonView.SetValue(frame.Camera.View);
-            _moonProjection.SetValue(frame.Camera.Projection);
-            _moonCameraPosition.SetValue(frame.Camera.Position);
-            _moonSunDirection.SetValue(frame.SunDirection);
-            _moonSupersample.SetValue((float)SupersampleFactor);
-
-            float cell = MOON_EXTENT / (MOON_GRID_N - 1);
-            float originX = MathF.Round(frame.Camera.Position.X / cell) * cell;
-            float originZ = MathF.Round(frame.Camera.Position.Z / cell) * cell;
-
-            _moonOriginXZ.SetValue(new Vector2(originX, originZ));
-            _moonHoleRadius.SetValue(TerrainHoleRadius);
-
-            //The ground first, an ordinary depth-writing opaque draw. Unlike the other three sky-replacing
-            //scenes the backdrop pass is NOT unconditional here — half the frame is ground — so the terrain
-            //goes in first and the sky pass reads the depth it wrote. Every state is stated, not inherited
-            //(the repo rule): this is the frame's first scene draw in two of the three hosts.
-            _graphicsDevice.BlendState = BlendState.Opaque;
-            _graphicsDevice.DepthStencilState = DepthStencilState.Default;
-            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
-
-            _graphicsDevice.SetVertexBuffer(_moonVertexBuffer);
-            _graphicsDevice.Indices = _moonIndexBuffer;
-            _moonEffect.CurrentTechnique = _moonTerrainTechnique;
-            _moonEffect.CurrentTechnique.Passes[0].Apply();
-            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _moonIndexCount / 3);
-
-            //Then the sky, depth-READ at the far plane (the quad sits at z = w): every pixel the terrain
-            //already owns is rejected before the star shader runs, so the sky pass only pays for the sky
-            //that is visible. DepthRead, not None — the test is what buys that, and writing is what the
-            //backdrop must never do.
-            _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
-
-            _graphicsDevice.SetVertexBuffer(_fullScreenQuad);
-            _moonEffect.CurrentTechnique = _moonSkyTechnique;
-            _moonEffect.CurrentTechnique.Passes[0].Apply();
-            _graphicsDevice.DrawPrimitives(PrimitiveType.TriangleStrip, 0, 2);
-
-            _graphicsDevice.DepthStencilState = DepthStencilState.Default;
-
-            //Put back what the rest of the opaque scene wants
-            _graphicsDevice.BlendState = BlendState.AlphaBlend;
-            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
-        }
-
-        /// <summary>
         /// The aurora's slow hue drift at <paramref name="wallClock"/>, as the shift it adds to the sky's own
         /// low-to-high colour ramp (<c>Aurora.fx</c>'s <c>AuroraHueShift</c>): up to half of
         /// <see cref="AuroraSkyConfig.HueSwing"/> either way, positive towards <see cref="AuroraSkyConfig.ColorHigh"/>.
@@ -6998,7 +5982,7 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// Draws the aurora scene: the forested ground first (depth-writing, opaque — Forest.fx's reduced
         /// floor, lit by <see cref="AuroraGlowColor"/> rather than a dome), then the sky quad depth-READ
-        /// against it on the shared space quad — the Moon's measured order (see <see cref="DrawMoon"/>'s doc).
+        /// against it on the shared space quad — the Moon's measured order (see <see cref="MoonBackdrop.Draw"/>'s doc).
         /// </summary>
         private void DrawAurora(in SceneFrame frame)
         {
@@ -7048,495 +6032,6 @@ namespace Prazsky.Core.Render
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
         }
 
-        /// <summary>
-        /// Draws the Grid scene: the flat, glowing floor first (depth-writing, opaque), then the distant
-        /// solids (also opaque, also depth-writing — they stand ON the floor and must occlude both it
-        /// and the sky behind them), then the sky quad depth-READ against both — the Moon's and the
-        /// aurora's own measured order (see <see cref="DrawMoon"/>'s doc). The floor's own uniforms are
-        /// a one-time push (<see cref="ApplyGridParameters"/>) — what varies here is the camera, the
-        /// origin snap every terrain draw already needs, and each solid's Life board, stepped on its own
-        /// clock only while this scene is the one actually being drawn.
-        /// </summary>
-        private void DrawGrid(in SceneFrame frame)
-        {
-            float cell = GRID_EXTENT / (GRID_MESH_N - 1);
-            float originX = MathF.Round(frame.Camera.Position.X / cell) * cell;
-            float originZ = MathF.Round(frame.Camera.Position.Z / cell) * cell;
-
-            _gridOriginXZ.SetValue(new Vector2(originX, originZ));
-            _gridHoleRadius.SetValue(TerrainHoleRadius);
-            _gridView.SetValue(frame.Camera.View);
-            _gridProjection.SetValue(frame.Camera.Projection);
-            _gridCameraPosition.SetValue(frame.Camera.Position);
-
-            _graphicsDevice.BlendState = BlendState.Opaque;
-            _graphicsDevice.DepthStencilState = DepthStencilState.Default;
-            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
-
-            _graphicsDevice.SetVertexBuffer(_gridVertexBuffer);
-            _graphicsDevice.Indices = _gridIndexBuffer;
-            _gridEffect.CurrentTechnique = _gridTerrainTechnique;
-            _gridEffect.CurrentTechnique.Passes[0].Apply();
-            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _gridIndexCount / 3);
-
-            if (_gridTowerRanges.Count > 0)
-            {
-                //One combined buffer, but one draw call PER SOLID (its own index range, below) rather than
-                //one draw for all of them — each solid reads its own independent Life texture, and a draw
-                //call can bind only one texture at a time. A few dozen extra draw calls is nothing next to
-                //the city's own thousands-of-buildings frame, so this is not a cost worth avoiding.
-                _graphicsDevice.SetVertexBuffer(_gridTowerVertexBuffer);
-                _graphicsDevice.Indices = _gridTowerIndexBuffer;
-                _gridEffect.CurrentTechnique = _gridTowerTechnique;
-
-                //Every solid is a closed prism wound clockwise seen from outside (BoxMesh's convention), so its far
-                //faces are culled rather than shaded and then hidden.
-                _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
-
-                float interval = MathF.Max(_gridConfig.Towers.LifeStepInterval, MIN_GRID_LIFE_STEP_INTERVAL);
-
-                for (int i = 0; i < _gridTowerRanges.Count; i++)
-                {
-                    GridLifeBoard board = _gridLifeBoards[i];
-
-                    //Timer-gated, not per-frame: a generation every LifeStepInterval seconds of the wall clock
-                    //every other scene's animation reads, on the tick of this board's own phase. Leaving the scene
-                    //and coming back fires at most one catch-up step per board, never a burst, and the next tick is
-                    //found from the phase rather than from "now", so the boards stay spread across the interval.
-                    if (frame.Time >= board.NextStepTime)
-                    {
-                        board.Life.Step();
-                        UploadGridLifeTexture(board);
-                        board.LastStepTime = frame.Time;
-
-                        board.NextStepTime = (MathF.Floor(frame.Time / interval - board.Phase) + 1f + board.Phase) * interval;
-                        if (board.NextStepTime <= frame.Time) board.NextStepTime += interval;
-                    }
-
-                    _gridLifeTextureParam.SetValue(board.Texture);
-                    _gridLifeAgeParam.SetValue(frame.Time - board.LastStepTime);
-
-                    //The pattern's centre rather than the board's on the middle of the face (see GridLife.CentreX).
-                    _gridLifeCentreParam.SetValue(new Vector2(board.Life.CentreX, board.Life.CentreY) - new Vector2(GridLife.SIZE * 0.5f));
-                    _gridEffect.CurrentTechnique.Passes[0].Apply();
-
-                    (int startIndex, int primitiveCount) = _gridTowerRanges[i];
-                    _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, startIndex, primitiveCount);
-                }
-
-                //The sky quad below goes on drawing under the floor's own state, as the Moon's does.
-                _graphicsDevice.RasterizerState = RasterizerState.CullNone;
-            }
-
-            //Then the sky, depth-READ at the far plane: every pixel the floor or a monolith already owns is
-            //rejected before the void shader runs.
-            _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
-
-            _gridInverseViewProjection.SetValue(Matrix.Invert(frame.Camera.View * frame.Camera.Projection));
-
-            _graphicsDevice.SetVertexBuffer(_fullScreenQuad);
-            _gridEffect.CurrentTechnique = _gridSkyTechnique;
-            _gridEffect.CurrentTechnique.Passes[0].Apply();
-            _graphicsDevice.DrawPrimitives(PrimitiveType.TriangleStrip, 0, 2);
-
-            _graphicsDevice.DepthStencilState = DepthStencilState.Default;
-
-            _graphicsDevice.BlendState = BlendState.AlphaBlend;
-            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
-        }
-
-        /// <summary>
-        /// Builds the distant solids (#393): <see cref="GridTowerConfig.Count"/> plain closed rectangular prisms,
-        /// placed on a ring around the arena with a deterministic seed (<see cref="GridTowerConfig.Seed"/>)
-        /// so the Game, the Testbed and the map editor all stand them in the same places — the map itself
-        /// is shared between the three for the same reason. A <see cref="GridTowerConfig.CubeFraction"/> of
-        /// them are large, close-to-equilateral cubes rather than tall towers; a simple footprint-circle retry
-        /// keeps them from overlapping without a spatial structure, since this runs once at load/config-apply
-        /// time on at most a few dozen solids. The same check keeps every solid off the landmark ring's
-        /// footprint (#559) — and that one is never waived, see the retry. Every solid has a roof: the Testbed's
-        /// free camera and the map editor's can look down on any of them, and an open top would show the void through it once the far
-        /// faces are culled. Also (re)builds one <see cref="GridLifeBoard"/> per solid, seeded from the same
-        /// placement stream, so every host shows the same patterns on the same solids. Idempotent and safe to
-        /// call again from <see cref="ApplyGridParameters"/>: disposes whatever it last built before building the
-        /// new placement.
-        /// </summary>
-        private void BuildGridTowers()
-        {
-            //The floor left between two solids' footprint circles, and between a solid and the landmark's.
-            const float SOLID_GAP = 15f;
-
-            _gridTowerVertexBuffer?.Dispose();
-            _gridTowerIndexBuffer?.Dispose();
-            _gridTowerVertexBuffer = null;
-            _gridTowerIndexBuffer = null;
-
-            foreach (GridLifeBoard board in _gridLifeBoards) board.Texture?.Dispose();
-            _gridLifeBoards.Clear();
-            _gridTowerRanges.Clear();
-            _gridSolids.Clear();
-            _gridRing = null;
-
-            GridTowerConfig towers = _gridConfig.Towers;
-            if (towers.Count <= 0) return;
-
-            List<GridTowerVertex> vertices = new();
-            List<short> indices = new();
-
-            //Footprint circles of everything placed so far, for the overlap retry below - a plain list
-            //rather than a spatial structure, because this runs once at load/config-apply time on at most
-            //a few dozen solids, not per frame.
-            List<(Vector2 Center, float Radius)> placed = new();
-
-            //The landmark's footprint, which every solid keeps off (#559). It is built after them, from the
-            //config alone and not from this stream, so the solids have to be told where it will stand: until
-            //they were, sceneseed=3 stood a cube straight through the ring.
-            GridRing? landmark = GridLandmarkShape();
-
-            //Fixed seed: placement is data every host must agree on, and so, since the boards are seeded from the
-            //same stream, is what each solid shows.
-            Random placement = new(towers.Seed + _seedOffset);
-
-            //The first CubeFraction of Count are cubes, the rest towers - which member of the count gets
-            //which shape carries no meaning (angle and radius are drawn independently either way), so there
-            //is nothing to gain from shuffling the assignment.
-            int cubeCount = (int)MathF.Round(towers.Count * MathHelper.Clamp(towers.CubeFraction, 0f, 1f));
-
-            for (int i = 0; i < towers.Count; i++)
-            {
-                bool isCube = i < cubeCount;
-
-                //Redrawn every attempt of the retry below, so the final, accepted draw is whichever attempt
-                //broke out of (or exhausted) the loop.
-                Vector3 baseCenter = default;
-                float sizeX = 0f, sizeY = 0f, sizeZ = 0f;
-                Vector2 xz = default;
-                float footprintRadius = 0f;
-
-                //Twenty attempts to find a draw clear of everything; past them, any draw clear of the ring
-                //(see the fall-through below). The ceiling on those is a guard, not a budget: the footprint
-                //takes a few percent of the band's area, so a draw that misses it is the ordinary case.
-                const int MAX_PLACEMENT_ATTEMPTS = 20, MAX_RING_ATTEMPTS = 200;
-                for (int attempt = 0; attempt < MAX_RING_ATTEMPTS; attempt++)
-                {
-                    float angle = (float)(placement.NextDouble() * MathHelper.TwoPi);
-                    float radius = MathHelper.Lerp(towers.RadiusMin, towers.RadiusMax, (float)placement.NextDouble());
-
-                    if (isCube)
-                    {
-                        //A big, close-to-equilateral block rather than a random footprint range: the point
-                        //(the owner's own follow-up request) is a face large enough to show the shared Life
-                        //grid whole, which is what reads as an abstract digital object rather than a
-                        //building with windows on it. A little per-axis jitter keeps every cube from being
-                        //a literally identical solid without ever approaching a tower's proportions.
-                        float side = MathHelper.Lerp(towers.CubeSizeMin, towers.CubeSizeMax, (float)placement.NextDouble());
-                        sizeX = side * (0.94f + 0.12f * (float)placement.NextDouble());
-                        sizeY = side * (0.94f + 0.12f * (float)placement.NextDouble());
-                        sizeZ = side * (0.94f + 0.12f * (float)placement.NextDouble());
-                    }
-                    else
-                    {
-                        sizeY = MathHelper.Lerp(towers.TowerHeightMin, towers.TowerHeightMax, (float)placement.NextDouble());
-                        sizeX = MathHelper.Lerp(towers.TowerFootprintMin, towers.TowerFootprintMax, (float)placement.NextDouble());
-                        sizeZ = MathHelper.Lerp(towers.TowerFootprintMin, towers.TowerFootprintMax, (float)placement.NextDouble());
-                    }
-
-                    baseCenter = new Vector3(MathF.Cos(angle) * radius, _gridConfig.Terrain.LevelY, MathF.Sin(angle) * radius);
-                    xz = new Vector2(baseCenter.X, baseCenter.Z);
-                    footprintRadius = 0.5f * MathF.Sqrt(sizeX * sizeX + sizeZ * sizeZ);
-
-                    //The ring is a hard rule and the other solids a soft one: a solid standing through the
-                    //ring is a solid visibly inside another, where two blocks barely touching is merely close.
-                    if (landmark is GridRing ring && ring.FootprintDistance(xz) < footprintRadius + SOLID_GAP) continue;
-
-                    bool overlaps = false;
-                    foreach ((Vector2 otherXz, float otherRadius) in placed)
-                    {
-                        if (Vector2.Distance(xz, otherXz) < footprintRadius + otherRadius + SOLID_GAP) { overlaps = true; break; }
-                    }
-
-                    if (!overlaps || attempt >= MAX_PLACEMENT_ATTEMPTS - 1) break;
-                    //Exhausting the twenty attempts falls through with the first later draw that clears the
-                    //ring rather than dropping the solid silently - a rare, barely-touching pair reads better
-                    //than a scene that asked for eighteen and quietly drew fewer.
-                }
-
-                placed.Add((xz, footprintRadius));
-                _gridSolids.Add(new GridSolid(baseCenter, new Vector3(sizeX, sizeY, sizeZ), isCube));
-
-                //Eight draws per tower and ten per cube, exactly as many as the reviewed layout spent after each
-                //solid, so every later solid still stands where the owner saw it; the first now seeds this
-                //solid's board.
-                int lifeSeed = (int)(placement.NextDouble() * int.MaxValue);
-                for (int draw = 1; draw < (isCube ? 10 : 8); draw++) placement.NextDouble();
-
-                //Stepped for the first time the moment DrawGrid asks for it (NextStepTime 0), then on its phase.
-                GridLifeBoard board = new()
-                {
-                    Life = new GridLife(lifeSeed, tall: !isCube, towers.LifePatternGenerations),
-                    Texture = new Texture2D(_graphicsDevice, GridLife.SIZE, GridLife.SIZE, false, SurfaceFormat.Color),
-                    Phase = (float)i / towers.Count,
-                };
-                UploadGridLifeTexture(board);
-                _gridLifeBoards.Add(board);
-
-                int rangeStartIndex = indices.Count;
-
-                float halfX = sizeX * 0.5f, halfY = sizeY * 0.5f, halfZ = sizeZ * 0.5f;
-                Vector3 center = baseCenter + Vector3.Up * halfY;
-
-                //The four sides share one board coordinate running round the perimeter (see Grid.fx's GridTowers
-                //header), taken in the order they meet corner to corner — +X, -Z, -X, +Z, each side's right edge
-                //the next one's left — so the board wraps round the solid like a label. Where each side starts
-                //along it:
-                float startNegZ = sizeZ, startNegX = sizeZ + sizeX, startPosZ = 2f * sizeZ + sizeX;
-
-                //The side facing the arena is the one whose outward normal points most nearly back at the origin,
-                //and the board's centre goes on its middle, half-way up: a pattern is stamped centred on its
-                //board, so the face the play camera actually sees shows it whole.
-                float facingMiddle = MathF.Abs(baseCenter.X) >= MathF.Abs(baseCenter.Z)
-                    ? (baseCenter.X > 0f ? startNegX : 0f) + halfZ
-                    : (baseCenter.Z > 0f ? startNegZ : startPosZ) + halfX;
-
-                float boardCentre = 0.5f * GridLife.SIZE * towers.WindowCellSize;
-                Vector2 boardOrigin = new(boardCentre - facingMiddle, boardCentre - halfY);
-
-                //BoxMesh.AddFace's own side-face parameters, right x up = the outward normal, so the winding
-                //(mirrored from BoxMesh.AddFace) reads clockwise from outside — see the repo convention in
-                //CLAUDE.md.
-                AddTowerFace(vertices, indices, Vector3.Forward, Vector3.Up, sizeZ, sizeY,
-                    center + halfX * Vector3.Right, boardOrigin);
-                AddTowerFace(vertices, indices, Vector3.Left, Vector3.Up, sizeX, sizeY,
-                    center + halfZ * Vector3.Forward, boardOrigin + new Vector2(startNegZ, 0f));
-                AddTowerFace(vertices, indices, Vector3.Backward, Vector3.Up, sizeZ, sizeY,
-                    center + halfX * Vector3.Left, boardOrigin + new Vector2(startNegX, 0f));
-                AddTowerFace(vertices, indices, Vector3.Right, Vector3.Up, sizeX, sizeY,
-                    center + halfZ * Vector3.Backward, boardOrigin + new Vector2(startPosZ, 0f));
-
-                //The roof - BoxMesh.AddFace's own top-face parameters (right = Right, up = Forward) - with the
-                //board's centre on its own.
-                AddTowerFace(vertices, indices, Vector3.Right, Vector3.Forward, sizeX, sizeZ,
-                    center + halfY * Vector3.Up, new Vector2(boardCentre - halfX, boardCentre - halfZ));
-
-                _gridTowerRanges.Add((rangeStartIndex, (indices.Count - rangeStartIndex) / 3));
-            }
-
-            BuildGridLandmark(vertices, indices, placement);
-
-            _gridTowerVertexBuffer = new VertexBuffer(_graphicsDevice, GridTowerVertex.Declaration, vertices.Count, BufferUsage.WriteOnly);
-            _gridTowerVertexBuffer.SetData(vertices.ToArray());
-
-            _gridTowerIndexBuffer = new IndexBuffer(_graphicsDevice, IndexElementSize.SixteenBits, indices.Count, BufferUsage.WriteOnly);
-            _gridTowerIndexBuffer.SetData(indices.ToArray());
-        }
-
-        /// <summary>
-        /// The landmark (#512): a ring standing on edge, far out on the floor. The issue asked for a hero object
-        /// with more presence than the eighteen towers and cubes, built to the same procedural-solid discipline
-        /// and lit by its own seams — and of the five shapes the references drew (a stepped ziggurat, a faceted
-        /// polyhedron on a pedestal, a slotted tower, a ring on edge, a stack of cubes) the ring is the one
-        /// silhouette <b>nothing else in this scene has</b>. Every other solid here is a box; a ring reads as a
-        /// landmark from any bearing, which is what a landmark is for.
-        /// <para>
-        /// It is a faceted torus — <see cref="GridLandmarkConfig.Segments"/> trapezoid segments, each four quads
-        /// (outer band, inner band and the two flanks) — so it stays inside the <c>BoxMesh</c> vocabulary the
-        /// scene credits to MAGI/SynthaVision: flat quads, no sculpting, nothing swept that a 1982 renderer
-        /// could not have combined out of solids.
-        /// </para>
-        /// <para>
-        /// ⚠ <b>The segment joins must not glow, or the ring is a barrel of ribs.</b> Every quad's seam shader
-        /// lights all four of its borders, so a faceted ring drawn the way a tower is would show one bright rib
-        /// per segment. Each quad therefore reports a face-local X pinned to the middle of an arbitrarily wide
-        /// face, so its two <i>across</i> borders can never be within an edge width of the pixel — only the
-        /// long borders draw, and what the eye gets is a pair of clean rails running round the ring.
-        /// </para>
-        /// </summary>
-        private void BuildGridLandmark(List<GridTowerVertex> vertices, List<short> indices, Random placement)
-        {
-            if (GridLandmarkShape() is not GridRing shape) return;
-            GridLandmarkConfig landmark = _gridConfig.Landmark;
-
-            float tube = MathF.Max(landmark.TubeRadius, 0.1f);
-            float halfWidth = shape.HalfWidth;
-            Vector3 planeNormal = shape.PlaneNormal;
-            Vector3 centre = shape.Centre;
-
-            //(s, up, n) right-handed: s = up x n, so s x up = n. Every winding below is derived from that one
-            //identity, which is what keeps the outward normals outward without a single guessed sign.
-            Vector3 side = Vector3.Normalize(Vector3.Cross(Vector3.Up, planeNormal));
-
-            int rangeStartIndex = indices.Count;
-
-            //Its own board, seeded from the placement stream after every solid so no solid moved, and stamped
-            //from the TALL deck: a spaceship convoy travelling round a ring is the one thing this shape can do
-            //that a box cannot.
-            int lifeSeed = (int)(placement.NextDouble() * int.MaxValue);
-            GridLifeBoard board = new()
-            {
-                Life = new GridLife(lifeSeed, tall: true, _gridConfig.Towers.LifePatternGenerations),
-                Texture = new Texture2D(_graphicsDevice, GridLife.SIZE, GridLife.SIZE, false, SurfaceFormat.Color),
-                Phase = 0.5f,
-            };
-            UploadGridLifeTexture(board);
-            _gridLifeBoards.Add(board);
-
-            float outer = shape.OuterRadius;
-            float inner = shape.InnerRadius;
-            _gridRing = shape;
-
-            //The board runs round the ring's outer band, centred on the point nearest the arena — which, the
-            //plane facing the arena, is the segment at the top of the near side. Same idea as a tower's label.
-            float perimeter = MathHelper.TwoPi * outer;
-            float boardCentre = 0.5f * GridLife.SIZE * _gridConfig.Towers.WindowCellSize;
-
-            for (int i = 0; i < landmark.Segments; i++)
-            {
-                float a0 = MathHelper.TwoPi * i / landmark.Segments;
-                float a1 = MathHelper.TwoPi * (i + 1) / landmark.Segments;
-
-                Vector3 d0 = side * MathF.Cos(a0) + Vector3.Up * MathF.Sin(a0);
-                Vector3 d1 = side * MathF.Cos(a1) + Vector3.Up * MathF.Sin(a1);
-                Vector3 tangent = Vector3.Normalize(d1 - d0);
-
-                float arc0 = perimeter * i / landmark.Segments;
-                float arc1 = perimeter * (i + 1) / landmark.Segments;
-                float u0 = boardCentre + arc0 - 0.25f * perimeter;
-                float u1 = boardCentre + arc1 - 0.25f * perimeter;
-
-                //Outer band: right = the tangent, up = the plane's normal, so right x up = the radial
-                //direction and the quad faces out of the ring.
-                AddGridQuad(vertices, indices,
-                    centre + d0 * outer - planeNormal * halfWidth, centre + d1 * outer - planeNormal * halfWidth,
-                    centre + d1 * outer + planeNormal * halfWidth, centre + d0 * outer + planeNormal * halfWidth,
-                    Vector3.Normalize(d0 + d1), u0, u1, boardCentre - halfWidth, boardCentre + halfWidth, 2f * halfWidth);
-
-                //Inner band: the same quad at the inner radius, wound the other way round so it faces the hole.
-                AddGridQuad(vertices, indices,
-                    centre + d1 * inner - planeNormal * halfWidth, centre + d0 * inner - planeNormal * halfWidth,
-                    centre + d0 * inner + planeNormal * halfWidth, centre + d1 * inner + planeNormal * halfWidth,
-                    -Vector3.Normalize(d0 + d1), u1, u0, boardCentre - halfWidth, boardCentre + halfWidth, 2f * halfWidth);
-
-                //The two flanks, each spanning inner to outer: right = radially out, up = ±the tangent, so
-                //right x up = ±the plane's normal (d x t = n, the identity this whole block rests on).
-                AddGridQuad(vertices, indices,
-                    centre + d0 * inner + planeNormal * halfWidth, centre + d0 * outer + planeNormal * halfWidth,
-                    centre + d1 * outer + planeNormal * halfWidth, centre + d1 * inner + planeNormal * halfWidth,
-                    planeNormal, u0, u1, boardCentre - tube, boardCentre + tube, 2f * tube);
-
-                AddGridQuad(vertices, indices,
-                    centre + d1 * inner - planeNormal * halfWidth, centre + d1 * outer - planeNormal * halfWidth,
-                    centre + d0 * outer - planeNormal * halfWidth, centre + d0 * inner - planeNormal * halfWidth,
-                    -planeNormal, u1, u0, boardCentre - tube, boardCentre + tube, 2f * tube);
-            }
-
-            _gridTowerRanges.Add((rangeStartIndex, (indices.Count - rangeStartIndex) / 3));
-        }
-
-        /// <summary>
-        /// Where the landmark stands and how big it is, from the config alone — null when it is not built. One
-        /// answer for the two things that need it before and while it is built: <see cref="BuildGridTowers"/>
-        /// keeps every solid off its footprint (#559), and <see cref="BuildGridLandmark"/> builds it there.
-        /// </summary>
-        private GridRing? GridLandmarkShape()
-        {
-            GridLandmarkConfig landmark = _gridConfig.Landmark;
-            if (!landmark.Enabled || landmark.Segments < 3) return null;
-
-            float ringRadius = MathF.Max(landmark.Radius, 1f);
-            float tube = MathF.Max(landmark.TubeRadius, 0.1f);
-            float halfWidth = MathF.Max(landmark.Width, 0.1f) * 0.5f;
-
-            float bearing = MathHelper.ToRadians(landmark.Bearing);
-            Vector3 stand = new(MathF.Cos(bearing) * landmark.Distance,
-                _gridConfig.Terrain.LevelY, MathF.Sin(bearing) * landmark.Distance);
-
-            //The ring's plane faces the arena, so the play camera sees it as a ring and not as an edge-on bar.
-            Vector3 planeNormal = new(-stand.X, 0f, -stand.Z);
-            planeNormal = planeNormal.LengthSquared() < 1e-6f ? Vector3.Forward : Vector3.Normalize(planeNormal);
-
-            //Resting on the floor: the lowest point of the tube is the ground.
-            Vector3 centre = stand + Vector3.Up * (ringRadius + tube);
-
-            return new GridRing(centre, planeNormal, MathF.Max(ringRadius - tube, 0.2f), ringRadius + tube, halfWidth);
-        }
-
-        /// <summary>
-        /// One quad of the landmark, corners given bottom-left, bottom-right, top-right, top-left as seen from
-        /// outside — the same order and winding <see cref="AddTowerFace"/> builds, so the shared clockwise-from-
-        /// outside convention holds here too. <paramref name="acrossSize"/> is the band's width, which is what
-        /// the two long seams are measured against; the face-local X is pinned to the middle of a deliberately
-        /// wide face so the segment joins never draw (see <see cref="BuildGridLandmark"/>).
-        /// </summary>
-        private static void AddGridQuad(List<GridTowerVertex> vertices, List<short> indices,
-            Vector3 bl, Vector3 br, Vector3 tr, Vector3 tl, Vector3 normal,
-            float boardU0, float boardU1, float boardV0, float boardV1, float acrossSize)
-        {
-            const float NO_SEAM = 4096f;
-            int baseIndex = vertices.Count;
-
-            vertices.Add(new GridTowerVertex(bl, new Vector2(boardU0, boardV0), new Vector4(NO_SEAM * 0.5f, 0f, NO_SEAM, acrossSize), normal));
-            vertices.Add(new GridTowerVertex(br, new Vector2(boardU1, boardV0), new Vector4(NO_SEAM * 0.5f, 0f, NO_SEAM, acrossSize), normal));
-            vertices.Add(new GridTowerVertex(tr, new Vector2(boardU1, boardV1), new Vector4(NO_SEAM * 0.5f, acrossSize, NO_SEAM, acrossSize), normal));
-            vertices.Add(new GridTowerVertex(tl, new Vector2(boardU0, boardV1), new Vector4(NO_SEAM * 0.5f, acrossSize, NO_SEAM, acrossSize), normal));
-
-            indices.Add((short)baseIndex);
-            indices.Add((short)(baseIndex + 2));
-            indices.Add((short)(baseIndex + 1));
-
-            indices.Add((short)baseIndex);
-            indices.Add((short)(baseIndex + 3));
-            indices.Add((short)(baseIndex + 2));
-        }
-
-        //One quad face — BoxMesh.AddFace's own vertex order and winding (see its class doc). Instead of a normal
-        //and a [0,1] texture UV it carries the face's place on its solid's board (boardOrigin at the face's
-        //bottom-left corner, in world units) and its own local position and size, which the seams are measured
-        //from. Works for a side face (up = Vector3.Up) or a roof (up = Vector3.Forward) alike, since
-        //right x up = the outward normal either way (BoxMesh's own invariant).
-        private static void AddTowerFace(List<GridTowerVertex> vertices, List<short> indices,
-            Vector3 right, Vector3 up, float width, float height, Vector3 faceCenter, Vector2 boardOrigin)
-        {
-            Vector3 r = right * (width * 0.5f);
-            Vector3 u = up * (height * 0.5f);
-
-            //right x up is the outward normal — BoxMesh's own invariant, which is exactly why this one helper
-            //serves a side face and a roof alike (#512).
-            Vector3 normal = Vector3.Cross(right, up);
-
-            int baseIndex = vertices.Count;
-
-            vertices.Add(new GridTowerVertex(faceCenter - r - u, boardOrigin, new Vector4(0f, 0f, width, height), normal));
-            vertices.Add(new GridTowerVertex(faceCenter + r - u, boardOrigin + new Vector2(width, 0f), new Vector4(width, 0f, width, height), normal));
-            vertices.Add(new GridTowerVertex(faceCenter + r + u, boardOrigin + new Vector2(width, height), new Vector4(width, height, width, height), normal));
-            vertices.Add(new GridTowerVertex(faceCenter - r + u, boardOrigin + new Vector2(0f, height), new Vector4(0f, height, width, height), normal));
-
-            indices.Add((short)baseIndex);
-            indices.Add((short)(baseIndex + 2));
-            indices.Add((short)(baseIndex + 1));
-
-            indices.Add((short)baseIndex);
-            indices.Add((short)(baseIndex + 3));
-            indices.Add((short)(baseIndex + 2));
-        }
-
-        /// <summary>
-        /// Uploads one board to its texture — red the current generation, green the one before it, which
-        /// <c>Grid.fx</c> fades as the phosphor's afterglow — through the board's own reused buffer, so a step
-        /// allocates nothing (BestPractices §3, applied at this method's own, slower cadence).
-        /// </summary>
-        private static void UploadGridLifeTexture(GridLifeBoard board)
-        {
-            for (int y = 0; y < GridLife.SIZE; y++)
-            {
-                uint row = board.Life.Row(y);
-                uint previous = board.Life.PreviousRow(y);
-
-                for (int x = 0; x < GridLife.SIZE; x++)
-                    board.UploadBuffer[y * GridLife.SIZE + x] = new Color((int)((row >> x) & 1u) * 255, (int)((previous >> x) & 1u) * 255, 0, 255);
-            }
-
-            board.Texture.SetData(board.UploadBuffer);
-        }
-
         public void Dispose()
         {
             foreach (Backdrop backdrop in _backdrops) backdrop?.Dispose();
@@ -7566,13 +6061,6 @@ namespace Prazsky.Core.Render
             _snowIndexBuffer?.Dispose();
             _sprayVertexBuffer?.Dispose();
             _sprayIndexBuffer?.Dispose();
-            _gridTowerVertexBuffer?.Dispose();
-            _gridTowerIndexBuffer?.Dispose();
-            foreach (GridLifeBoard board in _gridLifeBoards) board.Texture?.Dispose();
-            _stormCloudVertexBuffer?.Dispose();
-            _stormCloudIndexBuffer?.Dispose();
-            _stormBoltVertexBuffer?.Dispose();
-            _stormBoltIndexBuffer?.Dispose();
         }
     }
 }
