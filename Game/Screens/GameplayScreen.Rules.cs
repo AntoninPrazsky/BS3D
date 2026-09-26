@@ -66,7 +66,7 @@ namespace BS3D.Screens
             //left. The camera is no longer passed: the listener is the host's, posed once a frame from the one
             //camera there is. The style is this session's rather than the landing's, the material being a
             //property of the level and not of the ball that just arrived.
-            Game.Audio.PlayLanded(landing.Type, _ballStyle, landing.World);
+            Game.Audio.PlayLanded(landing.Type, _run.BallStyle, landing.World);
 
             //And felt (#378): a light tap on every landing, whether or not it completed anything — the pad's
             //own version of the thunk above.
@@ -107,7 +107,7 @@ namespace BS3D.Screens
             //opposite reason: its effect is the loudest thing a level can do, and it sounded like a release.)
             if (landing.Thawed > 0) Game.Audio.PlayIceBreak(landing.World, landing.Thawed);
 
-            ScoreAward award = _score.Landed(landing.Released.Matched, landing.Released.Orphaned,
+            ScoreAward award = _run.Score.Landed(landing.Released.Matched, landing.Released.Orphaned,
                 landing.Released.Destroyed);
 
             //What the shot was worth, born on the cell it landed in and flown into the corner from there. The
@@ -120,7 +120,7 @@ namespace BS3D.Screens
                 //The tutorial's match lesson done in earnest, and — the keeper having just raised the multiplier
                 //for the next shot, which is the frame the HUD's badge lights — its streak lesson's cue (#189)
                 _tutorial.Report(Tutorial.Lesson.Match);
-                if (_score.Multiplier > 1) _tutorial.Trigger(Tutorial.Lesson.Streak);
+                if (_run.Score.Multiplier > 1) _tutorial.Trigger(Tutorial.Lesson.Streak);
             }
 
             //The light runs out through the cluster from where the ball hit. Started AFTER the release above,
@@ -282,12 +282,12 @@ namespace BS3D.Screens
             //shown the player — see DropCinematic.MustBeatBestBy for why the second half cannot be a fixed count.
             bool worthWatching = clearsLevel
                                  || (total >= DropCinematic.MIN_BALLS
-                                     && total >= _biggestDrop * DropCinematic.MustBeatBestBy);
+                                     && total >= _run.BiggestDrop * DropCinematic.MustBeatBestBy);
 
             //Raised by every release, including the ones refused below: a collapse the player watched happen
             //has moved what "big" means here, whether or not the camera went with it.
-            int previousBest = _biggestDrop;
-            if (total > _biggestDrop) _biggestDrop = total;
+            int previousBest = _run.BiggestDrop;
+            if (total > _run.BiggestDrop) _run.BiggestDrop = total;
 
             if (!worthWatching) return;
 
@@ -297,7 +297,7 @@ namespace BS3D.Screens
 
             //And never if the player has turned it off (#290). Read HERE, where the takeover is decided, and
             //nowhere else: one already running is left to finish rather than cut off mid-swing. Everything
-            //above it still runs — _biggestDrop moves with the release either way, so a player who switches
+            //above it still runs — _run.BiggestDrop moves with the release either way, so a player who switches
             //the row back on mid-level is not handed a flourish for a collapse they have already beaten.
             if (!Game.IsDropCinematicEnabled) return;
 
@@ -348,8 +348,8 @@ namespace BS3D.Screens
             LevelSet set = Game.LevelSet;
             if (set == null || !set.HasBlocks) return;
 
-            set.BlockRange(_levelIndex, out int first, out _);
-            if (first != _levelIndex) return;
+            set.BlockRange(_run.Index, out int first, out _);
+            if (first != _run.Index) return;
 
             //Add answers false when the key is already in the set — one call is both the test and the record,
             //so there is no window between asking and marking where a re-entrant BuildLevel could see stale
@@ -367,7 +367,7 @@ namespace BS3D.Screens
 
             //One line per intro, in the manner of [cinematic]: a rare event — eleven times over the whole
             //campaign — and the shot is rolled, so this is the only record of what it actually chose.
-            Console.WriteLine($"[intro] block '{set.BlockName(_levelIndex)}' ({set.BlockNumber(_levelIndex)}/{set.BlockCount}), "
+            Console.WriteLine($"[intro] block '{set.BlockName(_run.Index)}' ({set.BlockNumber(_run.Index)}/{set.BlockCount}), "
                 + _chapterIntro.Describe());
         }
 
@@ -413,7 +413,7 @@ namespace BS3D.Screens
         {
             if (LevelOver) return;
 
-            _score.Missed();
+            _run.Score.Missed();
 
             //A MISS TICKS THE INFECTION TOO (#331), and the issue asks for that ruling to be stated rather
             //than fallen into. Two arguments and they agree. The first is the game's own precedent: the
@@ -538,7 +538,7 @@ namespace BS3D.Screens
             if (_map.GetBallsCount() > 0)
                 BallsConstraintsBuilder.ReleaseAllBalls(_physicsBalls, _map, _world.Simulation, _fallingBalls);
 
-            int bonus = _score.AwardCompletionBonus();
+            int bonus = _run.Score.AwardCompletionBonus();
 
             //The beat, the frozen figures, the milestone and the whole celebration - see BeginClearedBeat
             EnterPhase(LevelPhase.ClearedBeat);
@@ -547,15 +547,15 @@ namespace BS3D.Screens
             //the score takes without being hit — it counts up out of nowhere while the collapse plays
             if (bonus > 0) _hud.FlashScore();
 
-            Console.WriteLine($"[level] Cleared '{LevelName(_levelIndex)}' with {_score.Score}"
-                + $" (+{bonus} for {_score.ShotsRemaining?.ToString() ?? "unlimited"} unused)"
-                + $", {StarRating.Rate(_score.Score, _initialBallCount)} star(s)"
+            Console.WriteLine($"[level] Cleared '{LevelName(_run.Index)}' with {_run.Score.Score}"
+                + $" (+{bonus} for {_run.Score.ShotsRemaining?.ToString() ?? "unlimited"} unused)"
+                + $", {StarRating.Rate(_run.Score.Score, _run.InitialBallCount)} star(s)"
                 //The milestone, on the line that already reports the clear. It is the only way a play-through
                 //says whether the block fired, since the decision is invisible until the page arrives — and it
                 //names the block either way, so a milestone that did NOT fire says which chapter is still open.
                 + (Game.CampaignHasBlocks
-                    ? $" [block {Game.LevelBlockNumber(_levelIndex)}/{Game.BlockCount}"
-                      + $" '{Game.LevelBlockName(_levelIndex)}'{(_blockCompleted ? " COMPLETE" : string.Empty)}]"
+                    ? $" [block {Game.LevelBlockNumber(_run.Index)}/{Game.BlockCount}"
+                      + $" '{Game.LevelBlockName(_run.Index)}'{(_blockCompleted ? " COMPLETE" : string.Empty)}]"
                     : string.Empty));
         }
 
@@ -570,8 +570,8 @@ namespace BS3D.Screens
 
             //What the score service is told this clear took (#546), frozen now for LevelResult's reason: shots
             //fired into the emptied field during the beat cleared nothing
-            _clearShots = _score.ShotsFired;
-            _clearSeconds = _levelSeconds;
+            _run.ClearShots = _run.Score.ShotsFired;
+            _run.ClearSeconds = _run.Seconds;
 
             //WHETHER THIS CLEAR FINISHES A BLOCK, decided ONCE and here (#184). Here because the celebration
             //starts here and the result page arrives LEVEL_CLEARED_BEAT later, so a decision taken on the page
@@ -582,7 +582,7 @@ namespace BS3D.Screens
             //Asked before the record is written (that happens in ShowResultScreen), so it is "would this clear
             //complete it" rather than "is it complete" — and it is false on a replay of a block already finished,
             //which is an ordinary clear because that is what it is.
-            _blockCompleted = Game.WouldCompleteBlock(_levelIndex);
+            _blockCompleted = Game.WouldCompleteBlock(_run.Index);
 
             //AND WHETHER IT FINISHES THE CAMPAIGN (#215), here for the identical reason and expressed once so
             //that the page cannot answer a different question from the confetti. "Complete" only when there
@@ -595,7 +595,7 @@ namespace BS3D.Screens
             //earlier levels never played, clear it, and be told the campaign was complete. The reasoning that
             //defended the shortcut — "unlike the block, which has to look at every level of a run, this is the
             //last entry" — was the fault itself written down as an economy.
-            _campaignCompleted = Game.WouldCompleteCampaign(_levelIndex);
+            _campaignCompleted = Game.WouldCompleteCampaign(_run.Index);
 
             //The party. Started here rather than when the result screen appears, so the first shells are
             //already climbing while the last of the cluster is still falling — the celebration overlaps the
@@ -625,14 +625,8 @@ namespace BS3D.Screens
             //the result screen has said a word. It is a separate instance from the theme, so stopping the one
             //above does not cut this off. A finished block takes it at full intensity whatever the last level
             //scored, because the milestone is the chapter and not that level.
-            Game.Music?.PlayVictory(_score.Score, grand: _blockCompleted);
+            Game.Music?.PlayVictory(_run.Score.Score, grand: _blockCompleted);
         }
-
-        //The grace's own state - ClusterLineWatch's since #301/#302, so the level generator's sag gate decides
-        //a simulated run by running THIS rule rather than a second copy of it that could drift lenient. It
-        //needs no reset when a level starts, exactly as the bare float it replaces did not: every level begins
-        //with its cluster far above the line, so the first frame zeroes it.
-        private ClusterLineWatch _lineWatch;
 
         /// <summary>
         /// Has the level been lost? The two pressures that lose it — a spent budget with the field uncleared, and
@@ -702,7 +696,7 @@ namespace BS3D.Screens
 
             //The line's verdict, and the message is built only inside the branch that lost - the walk above
             //runs every frame and formatting one there would allocate on the gameplay path.
-            switch (_lineWatch.Update(lowestBallY, elapsed))
+            switch (_run.LineWatch.Update(lowestBallY, elapsed))
             {
                 //Deeper than any swing measured on the heaviest cluster in the pack reaches, so there is
                 //nothing to wait for: the descent has genuinely put a ball under, and holding the verdict for
@@ -719,7 +713,7 @@ namespace BS3D.Screens
                     BeginLineLoss(lowestBallAt);
                     LoseLevel(LevelFailure.ClusterReachedLine,
                         $"a ball at {lowestBallY:F2} <= {CEILING_DEATH_Y:F2} held for"
-                        + $" {_lineWatch.BelowLineSeconds:F2} s (grace {CLUSTER_BELOW_LINE_GRACE:F2} s)");
+                        + $" {_run.LineWatch.BelowLineSeconds:F2} s (grace {CLUSTER_BELOW_LINE_GRACE:F2} s)");
                     return;
             }
 
@@ -731,9 +725,9 @@ namespace BS3D.Screens
             //(#323): rocks left hanging are not a level unfinished, they are a level with rocks in it. A
             //transparent ball is on the other side of that line and counts (#325) — one shot beside it makes
             //it an ordinary ball, so a field of glass is a field with everything still to play for.
-            if (_score.OutOfShots && !AnyShotUndecided() && _map.GetRemovableBallsCount() > 0)
+            if (_run.Score.OutOfShots && !AnyShotUndecided() && _map.GetRemovableBallsCount() > 0)
                 LoseLevel(LevelFailure.OutOfBalls,
-                    $"budget {LevelShotBudget(_levelIndex)?.ToString() ?? "unlimited"}, fired {_score.ShotsFired}"
+                    $"budget {LevelShotBudget(_run.Index)?.ToString() ?? "unlimited"}, fired {_run.Score.ShotsFired}"
                     + $", {_shotBalls.Count} spent ball(s) not yet culled");
         }
 
@@ -863,13 +857,13 @@ namespace BS3D.Screens
         /// </summary>
         private void StepLineLoss(float elapsed)
         {
-            _lineLossClock += elapsed;
+            _run.LineLossClock += elapsed;
 
             //The staged one (#434's testing lever): the same two calls the real crossing makes, on a clock,
             //because a real line loss cannot be reached from a script. It aims at the cluster's own lowest
             //ball, so what is photographed is a real crossing point and not an invented one.
             if (_test.StagedLineLossSeconds > 0f && !LevelDecided
-                && _lineLossClock >= _test.StagedLineLossSeconds && TryGetLowestBall(out Vector3 staged))
+                && _run.LineLossClock >= _test.StagedLineLossSeconds && TryGetLowestBall(out Vector3 staged))
             {
                 BeginLineLoss(staged);
                 LoseLevel(LevelFailure.ClusterReachedLine, "staged by the lineloss argument");
@@ -903,7 +897,7 @@ namespace BS3D.Screens
             //asks LevelDecided, and EnterPhase would refuse the transition anyway.
             if (LevelDecided) return;
 
-            Console.WriteLine($"[level] Lost '{LevelName(_levelIndex)}': {failure} ({diagnostic}), score {_score.Score}");
+            Console.WriteLine($"[level] Lost '{LevelName(_run.Index)}': {failure} ({diagnostic}), score {_run.Score.Score}");
 
             _pendingFailure = failure;
 
@@ -931,7 +925,7 @@ namespace BS3D.Screens
 
             if (!LevelPhases.CanEnter(previous, next))
             {
-                Console.WriteLine($"[phase] REFUSED {previous} -> {next} on '{LevelName(_levelIndex)}'");
+                Console.WriteLine($"[phase] REFUSED {previous} -> {next} on '{LevelName(_run.Index)}'");
                 return;
             }
 
@@ -966,7 +960,7 @@ namespace BS3D.Screens
                     //still lost gets a fuller, more dignified piece and a poor one gets three thin notes that do
                     //not resolve. Losing narrowly and losing badly should not sound the same.
                     Game.Music?.Stop();
-                    Game.Music?.PlayDefeat(_score.Score);
+                    Game.Music?.PlayDefeat(_run.Score.Score);
                     break;
             }
 
@@ -1047,18 +1041,18 @@ namespace BS3D.Screens
             //keeps firing moves the balls remaining — so a screen that re-read the keeper printed a row that
             //did not add up to the total above it. See LevelResult.
             bool cleared = _pendingFailure == LevelFailure.None;
-            bool lastEntry = Game.LevelSet == null || _levelIndex + 1 >= Game.LevelSet.Count;
+            bool lastEntry = Game.LevelSet == null || _run.Index + 1 >= Game.LevelSet.Count;
 
             //The rating and the record, at the one funnel both endings come through. Recorded BEFORE the
             //unlock below is read, so the stars this clear just earned already count towards the next
             //level's gate — a clear that pushes the total over it unlocks Next Level on this very screen.
-            int stars = cleared ? StarRating.Rate(_score.Score, _initialBallCount) : 0;
-            bool newBest = cleared && Game.RecordLevelResult(_levelIndex, _score.Score, stars);
+            int stars = cleared ? StarRating.Rate(_run.Score.Score, _run.InitialBallCount) : 0;
+            bool newBest = cleared && Game.RecordLevelResult(_run.Index, _run.Score.Score, stars);
 
             //And to the online boards (#546), beside the save's record and with the very figures it kept — every
             //clear rather than only a new best, because the month's board ranks what was done this month. Returns
             //at once: the send is the client's worker's, and the page never waits for its answer.
-            if (cleared) Game.Online.SubmitClear(_levelIdentity, _score.Score, stars, _clearShots, _clearSeconds);
+            if (cleared) Game.Online.SubmitClear(_run.Identity, _run.Score.Score, stars, _run.ClearShots, _run.ClearSeconds);
 
             Game.PresentResult(new LevelResult(
                 cleared: cleared,
@@ -1068,24 +1062,24 @@ namespace BS3D.Screens
 
                 //What StarRating.Rate just sized the floor against, carried along so the result screen can
                 //project the NEXT one the same way (#385) rather than re-deriving it from a copy of the rule.
-                levelBalls: _initialBallCount,
+                levelBalls: _run.InitialBallCount,
 
                 //Which level this was (#313). LevelName is the same helper the [level] line below prints
                 //through, so the screen and the log cannot disagree; the number is the entry's own 1-based
                 //place, which is what the picker's tiles and the window title both show. Zero off a set,
                 //where there is no entry to number and LevelResult prints the name alone.
-                levelName: LevelName(_levelIndex),
-                levelNumber: Game.LevelSet != null ? _levelIndex + 1 : 0,
+                levelName: LevelName(_run.Index),
+                levelNumber: Game.LevelSet != null ? _run.Index + 1 : 0,
 
                 hasNextLevel: !lastEntry,
-                nextLevelUnlocked: !lastEntry && Game.IsLevelUnlocked(_levelIndex + 1),
-                nextLevelMinStars: lastEntry ? 0 : Game.LevelMinStars(_levelIndex + 1),
+                nextLevelUnlocked: !lastEntry && Game.IsLevelUnlocked(_run.Index + 1),
+                nextLevelMinStars: lastEntry ? 0 : Game.LevelMinStars(_run.Index + 1),
                 totalStars: Game.TotalStars,
 
                 //And WHICH lock holds it shut (#397), so the note can name the right one. A clear only moves the
                 //frontier past a level that was the frontier; replaying one cleared out of order leaves the next
                 //entry shut by the sequence, whatever the stars say. Read after the record, like the rest.
-                nextLevelBeyondReach: !lastEntry && Game.IsLevelBeyondReach(_levelIndex + 1),
+                nextLevelBeyondReach: !lastEntry && Game.IsLevelBeyondReach(_run.Index + 1),
                 frontierLevelNumber: Game.FirstUnfinishedLevel + 1,
                 frontierLevelName: LevelName(Game.FirstUnfinishedLevel),
 
@@ -1094,11 +1088,11 @@ namespace BS3D.Screens
                 //never offers it — the level is behind the player by then, which is what CanSkipLevel itself
                 //says; the `!cleared` here is the same fact stated where the page is built, so a reader of
                 //this call does not have to go and check.
-                canSkip: !cleared && Game.CanSkipLevel(_levelIndex),
+                canSkip: !cleared && Game.CanSkipLevel(_run.Index),
 
                 //And which one is next, for the button that offers it. Filled whenever there IS a next entry,
                 //gate or no gate — see LevelResult: a locked next level still has a name worth wanting.
-                nextLevelName: lastEntry ? null : LevelName(_levelIndex + 1),
+                nextLevelName: lastEntry ? null : LevelName(_run.Index + 1),
 
                 //"Campaign complete", read off the decision CheckLevelCleared already took rather than derived
                 //again (#215) — the confetti has been falling on it for a beat by now, and the rule that only a
@@ -1113,20 +1107,20 @@ namespace BS3D.Screens
                 //question — and the fireworks and the fanfare have been running on that decision for a beat
                 //already. LevelResult itself suppresses it when the campaign completes.
                 blockComplete: _blockCompleted,
-                blockName: Game.LevelBlockName(_levelIndex),
-                blockNumber: Game.LevelBlockNumber(_levelIndex),
+                blockName: Game.LevelBlockName(_run.Index),
+                blockNumber: Game.LevelBlockNumber(_run.Index),
                 blockCount: Game.BlockCount,
 
-                score: _score.Score,
-                matchedBalls: _score.MatchedBalls,
-                orphanedBalls: _score.OrphanedBalls,
-                streakBonus: _score.StreakBonus,
-                hadBudget: _score.ShotsRemaining.HasValue,
-                unusedShotsAwarded: _score.UnusedShotsAwarded,
-                completionBonusAwarded: _score.CompletionBonusAwarded));
+                score: _run.Score.Score,
+                matchedBalls: _run.Score.MatchedBalls,
+                orphanedBalls: _run.Score.OrphanedBalls,
+                streakBonus: _run.Score.StreakBonus,
+                hadBudget: _run.Score.ShotsRemaining.HasValue,
+                unusedShotsAwarded: _run.Score.UnusedShotsAwarded,
+                completionBonusAwarded: _run.Score.CompletionBonusAwarded));
 
-            Console.WriteLine($"[level] Result for '{LevelName(_levelIndex)}': " + (cleared ? "Cleared" : $"Failed ({_pendingFailure})")
-                + $", score {_score.Score}"
+            Console.WriteLine($"[level] Result for '{LevelName(_run.Index)}': " + (cleared ? "Cleared" : $"Failed ({_pendingFailure})")
+                + $", score {_run.Score.Score}"
                 + (cleared ? $", {stars} star(s){(newBest ? ", new best" : "")}, {Game.TotalStars} total" : ""));
         }
 
@@ -1169,15 +1163,15 @@ namespace BS3D.Screens
 
         /// <summary>
         /// What kind the next ball dealt into the magazine is (#330): a wildcard every
-        /// <see cref="_wildcardEvery"/>-th ball, an ordinary one otherwise. Counting the balls <b>dealt</b>
+        /// <see cref="LevelRun.WildcardEvery"/>-th ball, an ordinary one otherwise. Counting the balls <b>dealt</b>
         /// rather than the shots fired is what makes the very first queue carry one — the level deals a full
         /// magazine before a shot is fired, and the player should be able to see the rule from the first frame.
         /// </summary>
         private BallKind NextLoadedKind()
         {
-            _ballsDealt++;
+            _run.BallsDealt++;
 
-            return _wildcardEvery > 0 && _ballsDealt % _wildcardEvery == 0 ? BallKind.Wildcard : BallKind.Normal;
+            return _run.WildcardEvery > 0 && _run.BallsDealt % _run.WildcardEvery == 0 ? BallKind.Wildcard : BallKind.Normal;
         }
 
         /// <summary>

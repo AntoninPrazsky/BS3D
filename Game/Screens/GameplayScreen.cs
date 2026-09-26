@@ -95,7 +95,7 @@ namespace BS3D.Screens
         internal bool IsBuilt { get; private set; }
 
         /// <summary>Which entry of the level set the current session is playing.</summary>
-        internal int LevelIndex => _levelIndex;
+        internal int LevelIndex => _run.Index;
 
         #region The game camera
 
@@ -347,14 +347,6 @@ namespace BS3D.Screens
         private readonly int[] _ballsOfType = new int[BallRenderSet.TYPE_COUNT];
 
         /// <summary>
-        /// The biggest single release of <b>this</b> level so far, which is the bar the drop cinematic has to
-        /// clear (see <see cref="DropCinematic.MustBeatBestBy"/>). Per level and cleared by
-        /// <see cref="BuildLevel"/>: carried across, a small level played after Crown would never show one,
-        /// and "big" has to mean big <i>here</i> rather than big in the campaign.
-        /// </summary>
-        private int _biggestDrop;
-
-        /// <summary>
         /// Where the lattice frame meets the world, and the <b>only</b> place it does on the drawing side.
         /// <para>
         /// Y hangs the top of the field at <see cref="FIELD_TOP_Y"/> — or higher, when the field is deep
@@ -479,12 +471,6 @@ namespace BS3D.Screens
         private BallsMap _map;
         private PhysicsBall[,,] _physicsBalls;
 
-        //What this level's balls are made of (#258) — off the level file, and the vinyl beach ball for every
-        //file that says nothing. Kept because the render set is the whole PROGRAM's and the front end hangs its
-        //own preview through it: what a session draws has to be stated by the session, not left standing from
-        //whatever the menu was showing when Play was pressed.
-        private BallStyle _ballStyle = BallStyle.Beach;
-
         //Reusable backing array for the HUD's cluster profile: one entry per ball the frame could draw, filled
         //from the live poses in Draw and handed to the HUD as a span. Sized to the field's cell count and kept
         //across frames — the cluster profile is per-frame, but the array it fills is not. No per-frame allocation.
@@ -571,8 +557,14 @@ namespace BS3D.Screens
 
         #region Levels
 
-        /// <summary>Which entry of the host's level set the current session is playing.</summary>
-        private int _levelIndex;
+        /// <summary>
+        /// The attempt at the level being played (#582): its entry and board, its scorer, its clocks and counters,
+        /// its wildcard cadence, its power-up charges, its balls' material and the line's grace — everything that
+        /// belongs to one attempt and to nothing longer. <see cref="BuildLevel"/> replaces it whole, so nothing
+        /// per-level is reset by hand any more; see <see cref="LevelRun"/> for what is in it and what was left
+        /// here, and why. Before the first level it is a blank run, the values these fields used to start at.
+        /// </summary>
+        private LevelRun _run = new();
 
         /// <summary>
         /// Where this level stands in its flow (#582) — <see cref="LevelPhase"/> for the phases and the one rule
@@ -673,46 +665,6 @@ namespace BS3D.Screens
         private const float CONFETTI_SECONDS = 105f;
 
         /// <summary>
-        /// The level's score and ball budget. Built fresh for each level from that entry's rules, so it never
-        /// carries anything across; it holds the rules themselves and this class only feeds it the three events
-        /// a shot goes through.
-        /// </summary>
-        private ScoreKeeper _score = new();
-
-        /// <summary>
-        /// How many balls the level <b>started</b> with — the floor the star rating measures the score
-        /// against (<see cref="StarRating.Rate"/>). Captured at install, because by the time a rating is
-        /// wanted the map is empty: that is what clearing means, and the count is unrecoverable then.
-        /// </summary>
-        private int _initialBallCount;
-
-        /// <summary>
-        /// Which online board a clear of this level belongs to (#549): the set entry's file and the hash over the
-        /// file actually loaded and the entry's rules — computed by the same <see cref="LevelIdentity.Of(LevelSetEntry, byte[])"/>
-        /// <c>Tools/ScoreSim</c>'s ceiling table is keyed by. Taken at install, from the bytes of the file that was
-        /// played; null for the built-in fallback, which is on no board. A clear is submitted under it
-        /// (<c>OnlineSession.SubmitClear</c>, #546), and it is the <c>[levels] Loaded</c> line's last word, which is how
-        /// it is compared with the table.
-        /// </summary>
-        private LevelIdentity _levelIdentity;
-
-        /// <summary>
-        /// Seconds of play on this level (#546): counted where the frame steps the world, which a pause, an
-        /// unfocused window and the page over a finished level never reach — so it is time the player spent
-        /// playing, not time the window was open. Real seconds, not the drop cinematic's slowed ones.
-        /// </summary>
-        private float _levelSeconds;
-
-        /// <summary>
-        /// The shots and the seconds at the moment the field emptied (#546), for the score service. Taken then and
-        /// not when the result page goes up, for <see cref="LevelResult"/>'s own reason: the level does not stop
-        /// at the clear, and a player who keeps firing into the empty field would otherwise send shots that
-        /// cleared nothing.
-        /// </summary>
-        private int _clearShots;
-        private float _clearSeconds;
-
-        /// <summary>
         /// Which of the two limits ended the level. An enum rather than a message carried through from where
         /// the loss was detected: the wording is a <b>display</b> concern and belongs on the screen that shows
         /// it, and a string built at the point of detection ends up carrying the numbers that were convenient
@@ -748,25 +700,6 @@ namespace BS3D.Screens
         //MagazineSlot the magazine moves whole since #582, where it used to be three parallel arrays here kept in
         //step by three hooks. Built in the constructor because its policies are instance methods.
         private readonly Magazine _magazine;
-
-        /// <summary>
-        /// One in how many loaded balls is a wildcard, or 0 for a level that hands out none — which is every
-        /// shipped level today, exactly as no shipped level carried a bomb or a zap the day those were built
-        /// (#368 is the issue that put them in the campaign, and this one deliberately leaves that decision
-        /// alone). Set from the level entry's <c>wildcardEvery</c>, or from the Game's <c>wildcard=</c> testing
-        /// argument.
-        /// <para>
-        /// <b>Counted, not diced.</b> The queue shows three balls ahead precisely so the player can plan, and a
-        /// wildcard that arrives at a rate they can count is a tool; one that arrives at random is a lottery —
-        /// the same argument the zap's colour was decided on (#327).
-        /// </para>
-        /// </summary>
-        private int _wildcardEvery;
-
-        //How many balls this level has dealt, which is what the cadence above counts. Not the shot count: the
-        //queue is dealt SIZE-deep before the first shot, so counting shots would put the first wildcard a whole
-        //magazine later than the rule says.
-        private int _ballsDealt;
 
         /// <summary>
         /// What every wildcard on screen is showing this instant (#330). One per session and not one per ball —
@@ -820,9 +753,6 @@ namespace BS3D.Screens
         //the beat the ending is held back for while it happens.
         //Whether its ending has gone up yet is the phase's question (LevelPhase.LossHold), not a flag of its own.
         private readonly LineLossCinematic _lineLoss = new();
-
-        //Seconds this level has been running, for the staged loss the lineloss argument asks for.
-        private float _lineLossClock;
 
         //Which released balls this cinematic is following, by body handle — see TryBeginDropCinematic for why
         //handles and not list indices, and why recycling cannot bite here.
@@ -1285,7 +1215,7 @@ namespace BS3D.Screens
 
             //The level's own play clock (#546), on the frame's real seconds: here, beside the step, is exactly
             //the time the level is being played
-            _levelSeconds += elapsed;
+            _run.Seconds += elapsed;
 
             StepPhysics(elapsed * _cinematic.TimeScale);
             NoteSimulated(_cinematic.TimeScale);
@@ -1335,7 +1265,7 @@ namespace BS3D.Screens
             //loss's own cinematic does not slow time the way the drop's does anyway.
             _lineSparks.Update(elapsed);
 
-            _hud.Update(elapsed, _score);
+            _hud.Update(elapsed, _run.Score);
             _hud.UpdateSkipHint(elapsed, _cinematic.Running, _cinematic.Elapsed);
 
             //The tutorial's card (#189): the settings row read here every frame, a camera takeover hiding it, and
@@ -1461,7 +1391,7 @@ namespace BS3D.Screens
             //visit would run all three at double speed while the buckets still looked perfectly correct.
             //Stated, not inherited: the set is shared with the front end's preview, which hangs whatever map it
             //rolled in whatever that map is made of (#258).
-            Game.Balls.Style = _ballStyle;
+            Game.Balls.Style = _run.BallStyle;
 
             //And what a wildcard is crossing between this frame, stated on the same terms and for the same
             //reason (#330): the set is the whole program's, the crossing belongs to this session, and every
@@ -1622,7 +1552,7 @@ namespace BS3D.Screens
             //answer in the one readout built to be trusted at a glance (#236).
             for (int i = 0; i < _magazineQueue.Length; i++) _magazineQueue[i] = LoadedColour(i);
 
-            _hud.Draw(_score, Camera, in profile,
+            _hud.Draw(_run.Score, Camera, in profile,
                 new ReadOnlySpan<PlayHud.BallMarker>(_profileBalls, 0, ballCount),
                 _magazineQueue, _tutorial);
 

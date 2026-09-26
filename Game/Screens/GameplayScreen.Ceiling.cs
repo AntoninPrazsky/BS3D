@@ -121,7 +121,7 @@ namespace BS3D.Screens
 
             Console.WriteLine($"[ceiling] Step to {_ceilingDescent.TargetY:F2} (death line {CEILING_DEATH_Y:F2})"
                 + $", {(feeding ? "feeding" : "pressure")}"
-                + $", shots fired {_score.ShotsFired}, waited {waited:F2} s");
+                + $", shots fired {_run.Score.ShotsFired}, waited {waited:F2} s");
         }
 
         /// <summary>

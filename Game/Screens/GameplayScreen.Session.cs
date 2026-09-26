@@ -49,10 +49,14 @@ namespace BS3D.Screens
             //picks the piece.
             Game.Music?.StopFanfare();
 
+            //A fresh attempt (#582): the entry, its clocks, its counters, its charges and its biggest release all
+            //start over by construction rather than by a list of assignments spread over this method, TearDown
+            //and InstallLevel — see LevelRun. First, because InstallLevel fills in what the file decides.
+            _run = new LevelRun(index);
+
             //The map first: the ceiling's height and footprint come off the field, and the ceiling body has
             //to exist before the cluster, whose top level is constrained to it.
-            _levelIndex = index;
-            InstallLevel(_levelIndex);
+            InstallLevel(index);
 
             //And the theme comes up — from the top, since TearDown above has already stopped it — but only
             //now, because InstallLevel is where SetTheme says which of the two pieces this level plays.
@@ -77,23 +81,14 @@ namespace BS3D.Screens
             //included.
             EnterPhase(LevelPhase.Playing);
 
-            //A fresh level's play clock, a Retry's included (#546)
-            _levelSeconds = 0f;
-            _clearShots = 0;
-            _clearSeconds = 0f;
-
             //The HUD carries state of its own across nothing: a new level starts at zero without counting down
             //to it, and a popup from the level just finished must not fly into the score of the one just built.
             //Seeded from the fresh scorer, so a new budget is not read as a ball just spent.
-            _hud.Reset(_score);
+            _hud.Reset(_run.Score);
 
             //And what this level may teach (#189): nothing past the first chapter, nothing already taught, and
             //the glass lesson only with this level's own cadence to name
             _tutorial.BeginLevel(index, Tutorial.LastLevelOf(Game.LevelSet), LevelCeilingStep(index));
-
-            //The drop cinematic's bar is the biggest release of the level being played, so it starts over
-            //with the level — otherwise the last one's best would follow the player into this one
-            _biggestDrop = 0;
 
             //And no floor alarm either: whatever the last level's ending left lingering over the drain is
             //not this level's danger.
@@ -158,7 +153,6 @@ namespace BS3D.Screens
             //controls into the next level, and its subject handles belong to a simulation that is now gone
             _cinematic.Reset();
             _lineLoss.Reset();
-            _lineLossClock = 0f;
             _cinematicSubject.Clear();
 
             //And a chapter intro caught mid-tour by the same — quitting to the main menu during one, say —
@@ -218,9 +212,6 @@ namespace BS3D.Screens
             //end's last preview happened to leave standing on the shared render set.
             BallStyle ballStyle = BallStyle.Beach;
 
-            //The board this level's clears belong to (#549), cleared first so the fallback map is on none
-            _levelIdentity = null;
-
             if (levelSet != null && index >= 0 && index < levelSet.Count)
             {
                 //The set's own file, unless this run was pinned to one outside it (#332) — see
@@ -254,10 +245,10 @@ namespace BS3D.Screens
 
                     //From the bytes of the file actually played, so a run pinned to another file (#332) hashes as
                     //the different level it is and would land on no shipped board
-                    _levelIdentity = LevelIdentity.Of(levelSet.Levels[index], System.IO.File.ReadAllBytes(path));
+                    _run.Identity = LevelIdentity.Of(levelSet.Levels[index], System.IO.File.ReadAllBytes(path));
 
                     Console.WriteLine($"[levels] Loaded {index + 1}/{levelSet.Count} '{levelSet.DisplayName(index)}' "
-                        + $"({levelSet.DescribeRules(index)}) from '{path}', board {_levelIdentity}");
+                        + $"({levelSet.DescribeRules(index)}) from '{path}', board {_run.Identity}");
                 }
                 catch (Exception e)
                 {
@@ -271,21 +262,21 @@ namespace BS3D.Screens
             //The render set is the whole program's, and the front end hangs its own preview through it — so
             //this is stated on the way in rather than assumed, and stated again every frame this screen draws
             //(see Draw). Setting it to what it already is costs a comparison.
-            _ballStyle = _test.BallStyleOverride ?? ballStyle;
-            Game.Balls.Style = _ballStyle;
+            _run.BallStyle = _test.BallStyleOverride ?? ballStyle;
+            Game.Balls.Style = _run.BallStyle;
 
             //And what it sounds like, which is the same question (#314): a glass bubble, a ball of wool and a
             //cooling lump of lava landed with one identical clack per colour until this line. Stated here rather
             //than at the landing because the thirteen buffers for a material are baked on first use, and the
             //frame that answers a shot is the one frame in the game that must not stall for it.
-            Game.Audio?.PrepareLanded(_ballStyle);
+            Game.Audio?.PrepareLanded(_run.BallStyle);
 
             _map = map ?? BuildFallbackMap();
             _map.Center();
 
             //The star rating's yardstick, taken while the level is still whole — clearing it is emptying the
             //map, so this is the last moment the count exists to be read
-            _initialBallCount = _map.GetBallsCount();
+            _run.InitialBallCount = _map.GetBallsCount();
 
             FitFieldToMap();
             FitCeilingToMap();
@@ -295,10 +286,10 @@ namespace BS3D.Screens
 
             RecountBallTypes();
 
-            //How often this level hands out a wildcard, and the count it is measured against — both BEFORE the
-            //refill below, which deals a full queue through NextLoadedKind and so is already asking (#330).
-            _wildcardEvery = LevelWildcardEvery(index);
-            _ballsDealt = 0;
+            //How often this level hands out a wildcard — BEFORE the refill below, which deals a full queue through
+            //NextLoadedKind and so is already asking (#330). The count it is measured against is the new run's,
+            //at zero by construction (#582).
+            _run.WildcardEvery = LevelWildcardEvery(index);
 
             //This level's power-up charges (#392) — granted fresh here, exactly as the wildcard cadence
             //above is, so a retry is granted what the level grants and not what a previous attempt spent.
@@ -316,7 +307,7 @@ namespace BS3D.Screens
             //A fresh scorer per level, holding that entry's rules. Built even when the level fell back to the
             //built-in map, which then has no rules at all and so an unlimited budget and a still ceiling — the
             //same thing an entry that authors no "shots" or "ceilingStep" means.
-            _score = new ScoreKeeper(LevelShotBudget(index), LevelCeilingStep(index), _initialBallCount);
+            _run.Score = new ScoreKeeper(LevelShotBudget(index), LevelCeilingStep(index), _run.InitialBallCount);
         }
 
         /// <summary>
@@ -511,7 +502,7 @@ namespace BS3D.Screens
 
             //The handler reports what a shot did; what it is worth is the scorer's business. Subscribed on the
             //handler the level just built, and the handler is rebuilt with it, so there is nothing to unhook.
-            //Both go through a method that reads _score rather than binding the instance the field happens to
+            //Both go through a method that reads _run.Score rather than binding the instance the field happens to
             //hold now: the scorer is replaced per level, and a handler holding a stale one would score into a
             //keeper nothing reads.
             _eventHandler.BallLanded += OnBallLanded;
