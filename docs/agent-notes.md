@@ -6629,3 +6629,9 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 - **Beru #611** (dělo rozmazané při A/D): zobecnit `PinToLens` na pohyb děla vůči plné kameře, větev `611-gun-blur-against-camera`.
 - **Hotovo, na mainu `a621b44e`:** `PinToLens` → `AgainstCamera` — dělo se měří proti celé kameře (`worldThen·VP_then·VP_then_share⁻¹`), v přiblížení dál blend k přišpendlené póze. Ustálené A/D ostré, rozjezd se rozmaže, myš a přiblížení pixelově beze změny, kopnutí výstřelu rozmaže závěr o trochu víc (skutečný pohyb pod otřesem). Stránka k verdiktu https://claude.ai/artifact/Nb8QjtKYvzQCwjWdrmY2H8, štítek shipped-awaiting-verdict.
 - ⚠ Past při skriptování: v bashi `"$SW\$v"` sní `$v` — pro tichý spouštěč používej cesty s lomítky `/`. Game `shot=` časy běží od startu hodin po načtení, `WaitSec` dej o ~6 s víc než poslední snímek.
+
+## 2026-09-26 — #634 cukání pozadí v menu
+
+- **Příčina změřena:** MonoGame čte hodiny před `DwmFlush`, takže `ElapsedGameTime` = obnovení + rozdíl cen posledních dvou snímků: 13,33 ± 1,0 ms (10,2–16,4) proti 13,33 ± 0,16 mezi konci čekání. Ostrov v bodě zaměření orbitu se na obrazovce nehýbe, proto trhalo jen vzdálené pozadí (Země z Měsíce). Výkon to nebyl (Měsíc 7,5 ms bez limitu).
+- **Na mainu `5e241aee`:** `FrameLimiter.PacedElapsed` (interval mezi konci čekání, přichycený k násobku změřené periody) + jeden znovupoužitý `GameTime` pro Update i Draw. Po: 13,334 ± 0,002 ms. `fpscap=`/`nocap` beze změny. Čeká na verdikt (pohyb snímek neukáže).
+- ⚠ `git checkout <soubor>` po dočasné instrumentaci vrátí i neskomitovanou opravu v témže souboru — zálohuj před instrumentací.
