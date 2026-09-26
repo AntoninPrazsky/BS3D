@@ -266,8 +266,9 @@ namespace Prazsky.Core.Render
         Frozen = 15,
 
         /// <summary>
-        /// A sick ball (#331): the ball's own colour under a film of luminous slime — blotches with wet rims
-        /// that creep over the shell, and a bead hanging off its underside. Drawn by
+        /// A sick ball (#331, redrawn in #629): the ball's own colour, clean and glossy, with one crust of growth
+        /// eating one side of it — an olive, lumpy cap with a ragged creeping edge, luminous spore heads studded
+        /// through it, a few outliers where it is spreading, and a bead hanging off its underside. Drawn by
         /// <c>InstancedModelInfectious</c>.
         /// <para>
         /// The seventh shading belonging to a <c>BallKind</c> and the <b>second that takes the type colour</b>,
