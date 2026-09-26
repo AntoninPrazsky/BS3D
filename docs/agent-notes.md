@@ -6623,3 +6623,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 - ⚠ **Pasti:** jinovatka zmrzlé se měřila proti `FrozenBevelStart` na složce `top`, která na stěně superelipsoidu klesá jen k ~0,71 — pás pokrýval skoro celé stěny, dva řezy nic neukázaly; debug výstup pole (`return float4(...)`) to odhalil za minutu. Mina s kolmými spárami čelem = zaměřovací kříž, proto šikmé. `DrawWildcards` musí vrátit `StillEmission` a `PatternSecondaryColor`, nikdo jiný je per draw nenastavuje. Hra (`BS3D.exe`) se `at=:Escape` neukončí — zabít `taskkill`.
 - **Nové:** stránka k verdiktu https://claude.ai/artifact/CMLMeYEk8sKjxkU2feFSdr (verze 2). Nevyzkoušeno: HUD fronta žolíka (2D) je jednobarevná; výstupky miny téměř neviditelné.
 
+
+## 2026-09-26 — #611 claim
+
+- **Beru #611** (dělo rozmazané při A/D): zobecnit `PinToLens` na pohyb děla vůči plné kameře, větev `611-gun-blur-against-camera`.
