@@ -5,18 +5,40 @@ using System.Collections.Generic;
 namespace Prazsky.Core.Render
 {
     /// <summary>
-    /// <b>The CPU mirrors of four terrain shaders' height fields</b> — <c>Desert.fx</c>'s dunes,
-    /// <c>Mountain.fx</c>'s range, <c>Outback.fx</c>'s plain with its monoliths and <c>Polar.fx</c>'s icesheet — written for the Game's
-    /// chapter-intro shots (#559), which have to know where the ground is to keep a lens off it and to find
-    /// the thing a shot is about (a dune crest, a summit, a monolith) at all. The volcano's
-    /// <see cref="SceneRenderer.VolcanoGroundHeight"/>, the forest's and the tropical beach's mirrors are the
-    /// same idea, and these follow them: copied line for line from the shader beside them, so a line here
-    /// can be read against a line there, and built on <see cref="ShaderMath"/>'s one copy of the noise.
+    /// <b>Every CPU mirror of a terrain shader's height field, in one place</b> (#590) — <c>Desert.fx</c>'s
+    /// dunes, <c>Mountain.fx</c>'s range, <c>Outback.fx</c>'s plain with its monoliths, <c>Polar.fx</c>'s
+    /// icesheet, <c>Savanna.fx</c>'s grassland, <c>Tropical.fx</c>'s beach, <c>Meadow.fx</c>'s hills,
+    /// <c>Forest.fx</c>'s floor (which <c>Aurora.fx</c> draws too, on its own terrain config) and
+    /// <c>Volcano.fx</c>'s cone. They are what the scatters plant on, what the scene lights stand on, and
+    /// since #559 what the chapter-intro shots keep a lens off. Copied line for line from the shader beside
+    /// them, so a line here can be read against a line there, and built on <see cref="ShaderMath"/>'s one
+    /// copy of the noise, the hash, <c>smoothstep</c> and <c>frac</c>. Static and config-taking: the renderer
+    /// wraps the ones a host asks about on its live config (<see cref="SceneRenderer.SavannaGroundHeight"/>,
+    /// <see cref="SceneRenderer.VolcanoGroundHeight"/>, <see cref="SceneRenderer.PolarGroundHeight"/>).
+    /// <para>
+    /// <b>The GPU checks them now.</b> The five that stood in <see cref="SceneRenderer"/> until #590 said
+    /// "a drift here plants trees underground or floating, and there is nothing to catch it but the eye".
+    /// The Testbed's <c>mirrorcheck</c> reads each shader's own height function back off the GPU at a grid of
+    /// points and compares it with the mirror here (<see cref="SceneRenderer.TryGetTerrainProbe"/>; the
+    /// figures are in <c>docs/scenes.md</c>, "The terrain mirrors") — run it after touching either side.
+    /// </para>
     /// <para>
     /// <b>A mirror is exact where it matters and no further.</b> Only the height is mirrored — the gradients,
-    /// the ribs' streak bearings, the material masks and everything else the pixel shaders read are not —
-    /// and the mountain's two <c>sin</c> terms of basin relief (1.5 units in the clearing) may differ from the
-    /// GPU's by a rounding. Callers stand a lens several units off the answer, never on it.
+    /// the ribs' streak bearings, the material masks and everything else the pixel shaders read are not — and
+    /// the volcano leaves its scoria out (1.35 units off the drawn ground at most, measured). Callers stand a
+    /// lens several units off the answer, never on it.
+    /// </para>
+    /// <para>
+    /// <b>⚠ The four built on <see cref="ShaderMath.Noise"/> — desert, mountain, outback, polar — do not match
+    /// their shaders, and "a rounding" was the wrong estimate</b> (#590, measured by <c>mirrorcheck</c>): up to
+    /// 16.2 units off the drawn range in the mountains, 6.7 on an outback boulder's wall, 3.9 in the ice, 0.21
+    /// in the dunes. The noise's hash takes the fraction of a product near 20 000, where a float carries a
+    /// fraction to about 1/500, and the shader compiler fuses the hash's dot into multiply-adds (and folds the
+    /// outback's <c>seed + 23.7</c> constants) where this file rounds every step — so the two sides land on
+    /// different quanta and the ridged field magnifies the step. Emulating the fusion here reproduced the GPU's
+    /// figures to the digit and brought all four under a thousandth; it is not done yet, because it moves the
+    /// clouds' and the savanna trails' mirrors with it and assumes a GPU that fuses (<c>docs/scenes.md</c>,
+    /// "The terrain mirrors").
     /// </para>
     /// <para>
     /// None of these fields is seeded by <c>sceneseed=</c>: the dunes, the range and the monoliths are the
@@ -370,6 +392,211 @@ namespace Prazsky.Core.Render
             float clear = ShaderMath.SmoothStep(config.ClearingRadius * 0.8f, config.ClearingRadius * 1.5f, p.Length());
 
             return slot * MathHelper.Clamp(field + ridge * 1.2f, 0f, 1f) * clear;
+        }
+
+        #endregion
+
+        #region The savanna (Savanna.fx: TerrainHeight)
+
+        /// <summary>
+        /// The savanna terrain height at a world point, mirroring <c>Savanna.fx</c>'s <c>TerrainHeight</c>, so the
+        /// acacia trees can be planted on the ground the shader draws.
+        /// </summary>
+        public static float Savanna(float x, float z, SavannaSceneConfig config)
+        {
+            float dist = MathF.Sqrt(x * x + z * z);
+            //The clearing's ramp spelled out as the clamp-then-hermite it is, rather than through
+            //ShaderMath.SmoothStep: that divides by (R + T) - R, which is not T to the last bit, and this mirror
+            //was moved here (#590) with its results held bit for bit.
+            float t = MathHelper.Clamp((dist - config.ClearingRadius) / config.ClearingTransition, 0f, 1f);
+            float ramp = t * t * (3f - 2f * t); //smoothstep, as in the shader
+
+            float rolling = 0.5f * MathF.Sin(x * 0.016f + z * 0.012f)
+                + 0.3f * MathF.Sin(x * -0.011f + z * 0.020f + 1.5f)
+                + 0.2f * MathF.Sin(x * 0.026f + z * 0.021f + 3.0f);
+
+            float gentle = config.ClearingRelief * (MathF.Sin(x * 0.04f + z * 0.03f) + 0.6f * MathF.Sin(x * -0.055f + z * 0.048f + 2.1f));
+
+            return config.LevelY + gentle + config.HillHeight * ramp * (rolling * 0.5f + 0.5f);
+        }
+
+        #endregion
+
+        #region The tropical beach (Tropical.fx: TropicalHeight, CoastRadius, ShoreRingRadius, ChannelMask)
+
+        /// <summary>
+        /// The tropical terrain height at a world point, mirroring <c>Tropical.fx</c>'s
+        /// <c>TropicalHeight</c> term for term (and its <c>CoastRadius</c>/<c>ShoreRingRadius</c>/
+        /// <c>ChannelMask</c> beside it), so the palms and the waterline's rocks can be planted on the
+        /// ground the shader draws. Keep this and the shader in the same change: a drift here plants palms in
+        /// the surf — which the Testbed's <c>mirrorcheck</c> now catches (#590).
+        /// </summary>
+        public static float Tropical(float x, float z, TropicalSceneConfig config)
+        {
+            TropicalTerrainConfig terrain = config.Terrain;
+
+            float r = MathF.Sqrt(x * x + z * z);
+            float b = MathF.Atan2(z, x);
+
+            float gentle = terrain.ClearingRelief * 0.5f
+                * (MathF.Sin(x * 0.043f + z * 0.031f) + 0.6f * MathF.Sin(-x * 0.052f + z * 0.046f + 2.1f));
+
+            float d = r - TropicalCoastRadius(b, terrain);
+
+            //GLSL smoothstep(edge0, edge1, x) is clamp-then-hermite, which MathHelper.SmoothStep is not
+            //(the forest's comment records the trap) — ShaderMath's, which spells it as the shader does.
+            float toWaterline = ShaderMath.SmoothStep(-terrain.BeachRise, 0f, d);
+            float toBed = ShaderMath.SmoothStep(0f, terrain.BeachRun, d);
+
+            float h = MathHelper.Lerp(terrain.LevelY + gentle, config.Water.LevelY, toWaterline);
+            h = MathHelper.Lerp(h, terrain.SeabedY, toBed);
+
+            float ring = ShaderMath.SmoothStep(0f, terrain.RingWidth, r - TropicalRingRadius(b, terrain))
+                * (1f - TropicalChannelMask(b, terrain));
+
+            float qx = x + 26f * MathF.Sin(z * 0.011f + 2f);
+            float qz = z + 26f * MathF.Sin(x * 0.013f + 5f);
+
+            float rolling = 0.40f * MathF.Sin(qx * 0.020f + qz * 0.015f)
+                + 0.27f * MathF.Sin(-qx * 0.013f + qz * 0.024f + 1.5f)
+                + 0.19f * MathF.Sin(qx * 0.031f + qz * 0.026f + 3.0f)
+                + 0.14f * MathF.Sin(-qx * 0.056f + qz * 0.041f + 0.7f);
+
+            h += ring * terrain.HillHeight * (0.55f + 0.45f * (0.5f + 0.5f * rolling));
+
+            return h;
+        }
+
+        //The waterline's radius at a bearing — Tropical.fx's CoastRadius, in one change with it.
+        private static float TropicalCoastRadius(float b, TropicalTerrainConfig terrain) =>
+            terrain.ShoreRadius + terrain.CoastNoise
+                * (0.45f * MathF.Sin(2f * b + 0.7f)
+                    + 0.35f * MathF.Sin(3f * b + 1.3f)
+                    + 0.20f * MathF.Sin(5f * b + 4.1f));
+
+        //The far shore's coastline — Tropical.fx's ShoreRingRadius.
+        private static float TropicalRingRadius(float b, TropicalTerrainConfig terrain) =>
+            terrain.RingRadius + terrain.RingNoise
+                * (0.40f * MathF.Sin(2f * b + 2.9f)
+                    + 0.34f * MathF.Sin(3f * b + 0.6f)
+                    + 0.26f * MathF.Sin(7f * b + 3.4f));
+
+        //The channel through the far ridge — Tropical.fx's ChannelMask.
+        private static float TropicalChannelMask(float b, TropicalTerrainConfig terrain) =>
+            MathF.Pow(MathF.Max(0f, MathF.Cos(b - terrain.ChannelBearing)), terrain.ChannelSharpness);
+
+        #endregion
+
+        #region The meadow (Meadow.fx: TerrainHeight)
+
+        /// <summary>
+        /// The meadow's ground height at a world point, mirroring <c>Meadow.fx</c>'s <c>TerrainHeight</c> term
+        /// for term, for a host laying a camera path over the hills (the chapter intro's prologue, #559).
+        /// Keep this and the shader in the same change.
+        /// </summary>
+        public static float Meadow(float x, float z, MeadowSceneConfig config)
+        {
+            float dist = MathF.Sqrt(x * x + z * z);
+            float ramp = ShaderMath.SmoothStep(config.ClearingRadius, config.ClearingRadius + config.ClearingTransition, dist);
+
+            float rolling = 0.5f * MathF.Sin(x * 0.020f + z * 0.015f)
+                + 0.3f * MathF.Sin(x * -0.013f + z * 0.024f + 1.5f)
+                + 0.2f * MathF.Sin(x * 0.031f + z * 0.026f + 3.0f);
+
+            float basin = config.ClearingRelief * MathF.Sin(x * 0.05f + z * 0.035f);
+
+            return config.LevelY + basin + config.HillHeight * ramp * (rolling * 0.5f + 0.5f);
+        }
+
+        #endregion
+
+        #region The forest, and the aurora's night wood on the same field (Forest.fx, Aurora.fx: TerrainHeight)
+
+        /// <summary>
+        /// The forest terrain height at a world point, mirroring <see cref="ForestSceneConfig"/>'s
+        /// <c>Forest.fx</c> <c>TerrainHeight</c> field — and <c>Aurora.fx</c>'s, which is the same field on the
+        /// aurora's own <see cref="AuroraSceneConfig.Terrain"/>. Config-taking so the forest scatter can plant
+        /// trees on the ground the shader draws before the renderer itself exists, and so it stays in step with
+        /// whatever config the caller holds. Keep this and the shaders' <c>TerrainHeight</c> in the same change:
+        /// a drift here plants trees underground or floating, which the Testbed's <c>mirrorcheck</c> catches
+        /// (#590) where only the eye did before.
+        /// </summary>
+        public static float Forest(float x, float z, ForestSceneConfig config)
+        {
+            float dist = MathF.Sqrt(x * x + z * z);
+            //GLSL smoothstep(edge0, edge1, x) = hermite over the clamped (x-edge0)/(edge1-edge0). MonoGame's
+            //MathHelper.SmoothStep is NOT that: it takes (value1, value2, amount) with amount in 0..1, so
+            //passing it the raw distance (hundreds of units) makes the ramp explode and the scatter plants trees
+            //thousands of units up. Mirroring the savanna's clamp-then-hermite instead, which matches Forest.fx
+            //(spelled out rather than through ShaderMath.SmoothStep for the savanna's bit-for-bit reason).
+            float t = MathHelper.Clamp((dist - config.ClearingRadius) / config.ClearingTransition, 0f, 1f);
+            float ramp = t * t * (3f - 2f * t);
+
+            //The domain warp, five octaves and the lump mask all mirror Forest.fx's TerrainHeight term for
+            //term — see there for why each exists. Kept in ONE change with the shader.
+            float qx = x + 26f * MathF.Sin(z * 0.011f + 2f);
+            float qz = z + 26f * MathF.Sin(x * 0.013f + 5f);
+
+            float rolling = 0.40f * MathF.Sin(qx * 0.020f + qz * 0.015f)
+                + 0.26f * MathF.Sin(qx * -0.013f + qz * 0.024f + 1.5f)
+                + 0.17f * MathF.Sin(qx * 0.031f + qz * 0.026f + 3.0f)
+                + 0.10f * MathF.Sin(qx * 0.056f + qz * -0.041f + 0.7f)
+                + 0.07f * MathF.Sin(qx * -0.083f + qz * 0.062f + 2.4f);
+
+            float basin = config.ClearingRelief * MathF.Sin(x * 0.05f + z * 0.035f);
+
+            float f = config.FloorLumpFrequency;
+            float mask = 0.55f + 0.45f * MathF.Sin(x * 0.021f + z * -0.017f + 4f);
+            float lumps = MathF.Sin(x * f + z * f * 0.7f)
+                + 0.5f * MathF.Sin(x * -f * 0.8f + z * f * 1.1f + 2.0f)
+                + 0.35f * MathF.Sin(x * f * 1.9f + z * f * 1.4f + 5.1f);
+            float lumpHeight = config.FloorLumpStrength * lumps * mask * (1.0f - ramp * 0.5f);
+
+            return config.LevelY + basin + lumpHeight + config.HillHeight * ramp * (rolling * 0.5f + 0.5f);
+        }
+
+        #endregion
+
+        #region The volcano (Volcano.fx: TerrainHeight without its scoria, VolcanoMassing)
+
+        /// <summary>
+        /// The volcano's ground height at a world point: <c>Volcano.fx</c>'s <c>TerrainHeight</c> without its
+        /// scoria fBm term, which is the one thing this mirror leaves out and can afford to — three units of
+        /// clinker under a lamp or a vent is invisible, and reproducing four octaves of gradient noise on the
+        /// CPU to place them would be the tail wagging the dog. Everything that decides where the cone, the
+        /// crater and the gullies are is here term for term.
+        /// </summary>
+        public static float Volcano(float x, float z, VolcanoSceneConfig volcano)
+        {
+            float ramp = ShaderMath.SmoothStep(volcano.ClearingRadius, volcano.ClearingRadius + MathF.Max(volcano.ClearingTransition, 1f),
+                MathF.Sqrt(x * x + z * z));
+
+            Vector2 cone = volcano.ConeCenter.ToVector2();
+            float dx = x - cone.X;
+            float dz = z - cone.Y;
+            float r = MathF.Sqrt(dx * dx + dz * dz);
+            float bearing = MathF.Atan2(dz, dx);
+
+            //Clamped to CraterRadius, not r itself - Volcano.fx's VolcanoMassing has the why: evaluated at r
+            //the flank is maximal exactly at the vent for any profile, so the crater term below could only
+            //ever steepen the approach to a point, never move the true summit off it. The clamp is what
+            //plateaus the flank at the rim's own height, which is the surface the bowl is cut into.
+            float craterRadius = MathF.Max(volcano.CraterRadius, 1f);
+            float flankRadius = MathF.Max(r, craterRadius);
+            float t = Math.Clamp(1f - flankRadius / MathF.Max(volcano.ConeRadius, 1f), 0f, 1f);
+            float flank = volcano.ConeHeight * MathF.Pow(t, MathF.Max(volcano.ConeProfile, 0.1f));
+
+            float crater = volcano.CraterDepth * ShaderMath.SmoothStep(craterRadius, 0f, r);
+
+            float gullyCount = MathF.Round(MathF.Max(volcano.GullyCount, 1f));
+            float rake = 0.5f - 0.5f * MathF.Cos(bearing * gullyCount + 2f * MathF.Sin(bearing * 3f));
+            //Volcano.fx's band to the figure. This copy carried its own (1.15, 0.45, 1.05, 0.62) from the day the
+            //scene was built, so on the lower flank - where the flow fronts' lamps run - it put the ground up to
+            //seven units above the channel the shader draws, and at a side vent's radius three and a half.
+            float gullyBand = ShaderMath.SmoothStep(craterRadius * 1.3f, volcano.ConeRadius * 0.30f, r)
+                * ShaderMath.SmoothStep(volcano.ConeRadius * 1.15f, volcano.ConeRadius * 0.85f, r);
+
+            return volcano.LevelY + ramp * (flank - crater - volcano.GullyDepth * rake * gullyBand);
         }
 
         #endregion

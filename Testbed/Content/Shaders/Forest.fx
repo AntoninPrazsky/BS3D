@@ -10,7 +10,7 @@
 //Real geometry like the meadow - a camera-centred grid (shared CreateGridMesh on the C# side) displaced
 //by a smooth rolling field, low around the arena and rising into tree-covered hills with distance, its
 //normal taken by finite differences. The scattered trees, rocks and stumps that stand ON this floor are
-//the Game's own instanced draws (ForestScatter over SceneRenderer.ForestTerrainHeight, a CPU mirror of
+//the Game's own instanced draws (ForestScatter over TerrainMirror.Forest, a CPU mirror of
 //TerrainHeight below - keep the two in one change), so the other two executables draw the bare clearing.
 //Drawn in all three executables, Shader Model 5.0, no OPENGL branch.
 
@@ -122,7 +122,7 @@ float Hash21(float2 p)
 
 //Rolling hills behind the trees, low around the arena centre (world origin) and rising into wooded hills
 //with distance, so the clearing is flat where the arena stands and rolls up towards the treeline. Kept in
-//ONE change with SceneRenderer.ForestTerrainHeight, its CPU mirror - the scatter plants trees on this.
+//ONE change with TerrainMirror.Forest, its CPU mirror - the scatter plants trees on this.
 float TerrainHeight(float2 p)
 {
     float dist = length(p);
@@ -479,3 +479,9 @@ technique ForestReduced
         PixelShader = compile PS_SHADERMODEL ForestReducedPS();
     }
 };
+
+//--- The height probe (#590) ----------------------------------------------------------------------------
+
+//TerrainMirror.Forest's field, for the Testbed's mirrorcheck (see HeightProbe.fxh).
+#define HEIGHT_PROBE_MIRRORED(p) TerrainHeight(p)
+#include "HeightProbe.fxh"

@@ -756,7 +756,7 @@ namespace Prazsky.Core.Render
         //rises with distance. Flatter than the meadow's hills - a savanna is open. Mean grass level sits at the
         //island's foot; ClearingRelief is a soft undulation even inside the clearing.
         //Look/tuning parameters (level, hills, clearing, grass colours, ambient, wind, haze, relief) now live in
-        //SavannaSceneConfig; SceneRenderer reads them from _savannaConfig (and SavannaTerrainHeight uses them too).
+        //SavannaSceneConfig; SceneRenderer reads them from _savannaConfig (and TerrainMirror.Savanna uses them too).
 
         #endregion
 
@@ -772,7 +772,7 @@ namespace Prazsky.Core.Render
 
         //Everything standing on the savanna (#202, #451): the acacias in their four kinds, the bushes, the
         //scrub, the grass tufts, the termite mounds, the kopjes, the fallen trees and the treeline at the
-        //horizon — planted by SavannaScatter on the terrain (SavannaTerrainHeight mirrors the shader's field)
+        //horizon — planted by SavannaScatter on the terrain (TerrainMirror.Savanna mirrors the shader's field)
         //and handed back as buckets, one instanced draw each with its instances uploaded once. Real geometry,
         //replacing the flat billboard that read as a paper cutout: a surface of revolution has volume from
         //every angle. Scatter parameters live in SavannaSceneConfig.Acacia and .Dressing.
@@ -980,7 +980,7 @@ namespace Prazsky.Core.Render
             float x = MathF.Cos(angle) * radius;
             float z = MathF.Sin(angle) * radius;
 
-            return new Vector3(x, SavannaTerrainHeight(x, z) + _savannaConfig.Campfire.HeightAboveTerrain, z);
+            return new Vector3(x, SavannaGroundHeight(x, z) + _savannaConfig.Campfire.HeightAboveTerrain, z);
         }
 
         /// <summary>The campfire point-light range (quadratic distance falloff), shared by every fire.</summary>
@@ -995,9 +995,9 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// The savanna's ground height at a world point, for a host laying a camera path over the plain
-        /// (#559): <see cref="SavannaTerrainHeight"/>, the mirror the planting stands on, made public.
+        /// (#559): <see cref="TerrainMirror.Savanna"/>, the mirror the planting stands on, on the live config.
         /// </summary>
-        public float SavannaGroundHeight(float x, float z) => SavannaTerrainHeight(x, z);
+        public float SavannaGroundHeight(float x, float z) => TerrainMirror.Savanna(x, z, _savannaConfig);
 
         /// <summary>
         /// The flickering colour of fire <paramref name="index"/> at a wall-clock time, so its grass light,
@@ -1172,7 +1172,7 @@ namespace Prazsky.Core.Render
         //Look/tuning parameters (hills, clearing, forest floor colours, treeline, ambient, haze, wind, needle
         //relief, floor lumps) live in ForestSceneConfig; read from _forestConfig. Its Trees/Rocks/Stumps
         //describe the scattered objects, which are ForestScatterRenderer's instanced draws rather than this
-        //scene's (they were the Game's alone until #75) - only ForestTerrainHeight below is shared with them,
+        //scene's (they were the Game's alone until #75) - only TerrainMirror.Forest is shared with them,
         //so they stand on the floor this shader draws.
 
         #endregion
@@ -1516,7 +1516,7 @@ namespace Prazsky.Core.Render
 
             ApplySavannaParameters();
 
-            //--- Acacia: everything planted on the savanna, positioned on the ground (SavannaTerrainHeight
+            //--- Acacia: everything planted on the savanna, positioned on the ground (TerrainMirror.Savanna
             //mirrors the shader's field) and drawn as instanced geometry in Acacia.fx
             _acaciaEffect = content.Load<Effect>("Shaders/Acacia");
             _acaciaViewParam = _acaciaEffect.Parameters["View"];
@@ -3434,7 +3434,7 @@ namespace Prazsky.Core.Render
                 reserved.Add(new ScatterSpacing.Footprint(at.X, at.Z, hearth));
             }
 
-            _savannaScatter = new SavannaScatter(_graphicsDevice, _savannaConfig, SavannaTerrainHeight, reserved,
+            _savannaScatter = new SavannaScatter(_graphicsDevice, _savannaConfig, SavannaGroundHeight, reserved,
                 SavannaScatter.DEFAULT_SEED + _seedOffset);
 
             //And where the trails have to go round it (#476): built from the planting that has just been
@@ -3524,7 +3524,7 @@ namespace Prazsky.Core.Render
 
                     //Sunk by a fifth of its own height. The scale rides in the same matrix, so the sink has
                     //to be scaled with it or the small stones bury and the big ones float.
-                    float y = SavannaTerrainHeight(x, z) - size * scale * 0.2f;
+                    float y = SavannaGroundHeight(x, z) - size * scale * 0.2f;
 
                     Matrix world = Matrix.CreateScale(scale)
                         * Matrix.CreateFromAxisAngle(new Vector3(MathF.Cos(tiltDir), 0f, MathF.Sin(tiltDir)), tilt)
@@ -3726,12 +3726,12 @@ namespace Prazsky.Core.Render
                     //Only on DRY sand: a palm planted where the surf reaches is standing in the sea. The
                     //margin keeps the crown's swaying tips clear of the waterline rather than only the
                     //trunk's root. A candidate that fails this is simply not a candidate.
-                    if (TropicalTerrainHeight(cx, cz, _tropicalConfig) < waterY + 1.1f) continue;
+                    if (TerrainMirror.Tropical(cx, cz, _tropicalConfig) < waterY + 1.1f) continue;
 
                     //Sunk a fraction into the sand, the forest scatter's own figure: a palm planted at the
                     //exact surface reads as standing on a pinhead from anywhere but head-on, and the flare
                     //at the root is what wants burying.
-                    Vector3 basePos = new(cx, TropicalTerrainHeight(cx, cz, _tropicalConfig) - 0.15f, cz);
+                    Vector3 basePos = new(cx, TerrainMirror.Tropical(cx, cz, _tropicalConfig) - 0.15f, cz);
                     Matrix candidate = PalmWorld(basePos, sizeScale, yaw, lean, leanJitter);
 
                     //⚠ THE CROWN, NOT THE ROOT, HAS TO CLEAR THE FRONT END'S ORBIT (#555). MinRadius alone was
@@ -3791,7 +3791,7 @@ namespace Prazsky.Core.Render
                     float cx = MathF.Cos(a) * r;
                     float cz = MathF.Sin(a) * r;
 
-                    float h = TropicalTerrainHeight(cx, cz, _tropicalConfig);
+                    float h = TerrainMirror.Tropical(cx, cz, _tropicalConfig);
                     if (h < waterY - 0.5f || h > waterY + 2.6f) continue; //the waterline band, and only it
 
                     float clearance = ScatterSpacing.Clearance(cx, cz, halfWidth, rockStanding);
@@ -3810,7 +3810,7 @@ namespace Prazsky.Core.Render
 
                 rockStanding.Add(new ScatterSpacing.Footprint(x, z, halfWidth));
 
-                Vector3 basePos = new(x, TropicalTerrainHeight(x, z, _tropicalConfig) - 0.2f, z);
+                Vector3 basePos = new(x, TerrainMirror.Tropical(x, z, _tropicalConfig) - 0.2f, z);
 
                 float yaw = (float)rng.NextDouble() * MathHelper.TwoPi;
                 float tumble = 0.3f * (float)rng.NextDouble();
@@ -3871,7 +3871,7 @@ namespace Prazsky.Core.Render
                 float dist = MathF.Sqrt(cx * cx + cz * cz);
                 if (dist < dressInner || dist > dressOuter) continue;
 
-                float gh = TropicalTerrainHeight(cx, cz, _tropicalConfig);
+                float gh = TerrainMirror.Tropical(cx, cz, _tropicalConfig);
                 if (gh < waterY + 0.35f) continue;   //dry sand only: nothing green grows in the surf
 
                 float size = 0.7f + 0.6f * (float)rng.NextDouble();
@@ -3892,7 +3892,7 @@ namespace Prazsky.Core.Render
 
                 //The band the sea throws a log onto and leaves it: from a little under the waterline to a
                 //couple of units above, which is the rocks' own band and for the same reason.
-                float gh = TropicalTerrainHeight(cx, cz, _tropicalConfig);
+                float gh = TerrainMirror.Tropical(cx, cz, _tropicalConfig);
                 if (gh < waterY - 0.3f || gh > waterY + 2.2f) continue;
 
                 //A log lies where the last wave left it, so it lies ALONG the waterline more often than
@@ -4081,7 +4081,7 @@ namespace Prazsky.Core.Render
             //main event and the spatter cones read as spatter.
             _ventCount = Math.Min(3, MAX_VENTS);
 
-            _ventPosition[0] = new Vector3(cone.X, VolcanoGroundY(cone.X, cone.Y) + 2f, cone.Y);
+            _ventPosition[0] = new Vector3(cone.X, VolcanoGroundHeight(cone.X, cone.Y) + 2f, cone.Y);
             _ventStrength[0] = 1f;
 
             for (int v = 1; v < _ventCount; v++)
@@ -4091,7 +4091,7 @@ namespace Prazsky.Core.Render
                 float x = cone.X + MathF.Cos(bearing) * radius;
                 float z = cone.Y + MathF.Sin(bearing) * radius;
 
-                _ventPosition[v] = new Vector3(x, VolcanoGroundY(x, z) + 1.5f, z);
+                _ventPosition[v] = new Vector3(x, VolcanoGroundHeight(x, z) + 1.5f, z);
                 _ventStrength[v] = 0.42f - 0.10f * (v - 1);
             }
 
@@ -4170,11 +4170,11 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// The volcano's ground height at a world point, for a host laying a camera path over the cone (the
-        /// chapter intro's prologue, #530): <see cref="VolcanoGroundY"/>, the mirror below, made public. The
+        /// chapter intro's prologue, #530): <see cref="TerrainMirror.Volcano"/> on the live config. The
         /// scoria clinker is missing from it by that mirror's own argument, so a path wants a clearance of a
         /// few units more than the picture suggests.
         /// </summary>
-        public float VolcanoGroundHeight(float x, float z) => VolcanoGroundY(x, z);
+        public float VolcanoGroundHeight(float x, float z) => TerrainMirror.Volcano(x, z, _volcanoConfig);
 
         #region Where the strange scenes' things stand (#559)
 
@@ -4200,7 +4200,7 @@ namespace Prazsky.Core.Render
         {
             float i = index;
             float orbit = _dreamConfig.Shapes.OrbitRadius;
-            float a = time * (0.020f + 0.011f * Frac(i * 0.371f)) + i * 2.399f;
+            float a = time * (0.020f + 0.011f * ShaderMath.Frac(i * 0.371f)) + i * 2.399f;
             float r = orbit * (0.78f + 0.22f * MathF.Sin(i * 5.3f));
             float y = 26f + 46f * MathF.Sin(time * 0.013f + i * 2.7f);
 
@@ -4254,7 +4254,7 @@ namespace Prazsky.Core.Render
         {
             float r = index;
             float angle = r * 1.62f + 0.4f;
-            float radius = _cavernConfig.Rock.CaveRadius * (0.30f + 0.14f * Frac(r * 0.53f));
+            float radius = _cavernConfig.Rock.CaveRadius * (0.30f + 0.14f * ShaderMath.Frac(r * 0.53f));
 
             return new Vector2(MathF.Cos(angle) * radius, MathF.Sin(angle) * radius);
         }
@@ -4290,6 +4290,32 @@ namespace Prazsky.Core.Render
         #endregion
 
         /// <summary>
+        /// A terrain scene's effect and its CPU mirror on the live config, for the Testbed's <c>mirrorcheck</c>
+        /// (#590): the effect carries a <c>HeightProbe</c> technique (<c>HeightProbe.fxh</c>) that writes the
+        /// shader's own height at a world XZ, and <paramref name="mirror"/> is the <see cref="TerrainMirror"/>
+        /// field that claims to copy it. False for a scene with no mirror. Nothing in a frame calls this.
+        /// </summary>
+        public bool TryGetTerrainProbe(SceneKind scene, out Effect effect, out Func<float, float, float> mirror)
+        {
+            (effect, mirror) = scene switch
+            {
+                SceneKind.Desert => (_desertEffect, (x, z) => TerrainMirror.Desert(x, z, _desertConfig)),
+                SceneKind.Mountain => (_mountainEffect, (x, z) => TerrainMirror.Mountain(x, z, _mountainConfig)),
+                SceneKind.Outback => (_outbackEffect, (x, z) => TerrainMirror.Outback(x, z, _outbackConfig)),
+                SceneKind.Polar => (_polarEffect, (x, z) => TerrainMirror.Polar(x, z, _polarConfig)),
+                SceneKind.Savanna => (_savannaEffect, (x, z) => TerrainMirror.Savanna(x, z, _savannaConfig)),
+                SceneKind.Tropical => (_tropicalEffect, (x, z) => TerrainMirror.Tropical(x, z, _tropicalConfig)),
+                SceneKind.Meadow => (_meadowEffect, (x, z) => TerrainMirror.Meadow(x, z, _meadowConfig)),
+                SceneKind.Forest => (_forestEffect, (x, z) => TerrainMirror.Forest(x, z, _forestConfig)),
+                SceneKind.Aurora => (_auroraEffect, (x, z) => TerrainMirror.Forest(x, z, _auroraConfig.Terrain)),
+                SceneKind.Volcano => (_volcanoEffect, (x, z) => TerrainMirror.Volcano(x, z, _volcanoConfig)),
+                _ => ((Effect)null, (Func<float, float, float>)null),
+            };
+
+            return effect != null;
+        }
+
+        /// <summary>
         /// The Grid's solids as boxes on the floor, in the order they were placed, for a host framing a camera
         /// on one (the chapter intro's prologue, #559). Empty until the Grid's config has been applied.
         /// </summary>
@@ -4300,48 +4326,6 @@ namespace Prazsky.Core.Render
         {
             ring = _gridRing ?? default;
             return _gridRing.HasValue;
-        }
-
-        /// <summary>
-        /// The volcano's ground height at a world point: <c>Volcano.fx</c>'s <c>TerrainHeight</c> without its
-        /// scoria fBm term, which is the one thing this mirror leaves out and can afford to — three units of
-        /// clinker under a lamp or a vent is invisible, and reproducing four octaves of gradient noise on the
-        /// CPU to place them would be the tail wagging the dog. Everything that decides where the cone, the
-        /// crater and the gullies are is here term for term.
-        /// </summary>
-        private float VolcanoGroundY(float x, float z)
-        {
-            VolcanoSceneConfig volcano = _volcanoConfig;
-
-            float ramp = SmoothStep(volcano.ClearingRadius, volcano.ClearingRadius + MathF.Max(volcano.ClearingTransition, 1f),
-                MathF.Sqrt(x * x + z * z));
-
-            Vector2 cone = volcano.ConeCenter.ToVector2();
-            float dx = x - cone.X;
-            float dz = z - cone.Y;
-            float r = MathF.Sqrt(dx * dx + dz * dz);
-            float bearing = MathF.Atan2(dz, dx);
-
-            //Clamped to CraterRadius, not r itself - Volcano.fx's VolcanoMassing has the why: evaluated at r
-            //the flank is maximal exactly at the vent for any profile, so the crater term below could only
-            //ever steepen the approach to a point, never move the true summit off it. The clamp is what
-            //plateaus the flank at the rim's own height, which is the surface the bowl is cut into.
-            float craterRadius = MathF.Max(volcano.CraterRadius, 1f);
-            float flankRadius = MathF.Max(r, craterRadius);
-            float t = Math.Clamp(1f - flankRadius / MathF.Max(volcano.ConeRadius, 1f), 0f, 1f);
-            float flank = volcano.ConeHeight * MathF.Pow(t, MathF.Max(volcano.ConeProfile, 0.1f));
-
-            float crater = volcano.CraterDepth * SmoothStep(craterRadius, 0f, r);
-
-            float gullyCount = MathF.Round(MathF.Max(volcano.GullyCount, 1f));
-            float rake = 0.5f - 0.5f * MathF.Cos(bearing * gullyCount + 2f * MathF.Sin(bearing * 3f));
-            //Volcano.fx's band to the figure. This copy carried its own (1.15, 0.45, 1.05, 0.62) from the day the
-            //scene was built, so on the lower flank - where the flow fronts' lamps run - it put the ground up to
-            //seven units above the channel the shader draws, and at a side vent's radius three and a half.
-            float gullyBand = SmoothStep(craterRadius * 1.3f, volcano.ConeRadius * 0.30f, r)
-                * SmoothStep(volcano.ConeRadius * 1.15f, volcano.ConeRadius * 0.85f, r);
-
-            return volcano.LevelY + ramp * (flank - crater - volcano.GullyDepth * rake * gullyBand);
         }
 
         /// <summary>
@@ -4511,7 +4495,7 @@ namespace Prazsky.Core.Render
             float near = MathF.Max(volcano.CraterRadius, 1f) * 1.2f;
             float span = MathF.Max(_riverReach[river] - near, 1f);
 
-            float phase = Frac(time * volcano.RiverSpeed / span + index * 0.37f);
+            float phase = ShaderMath.Frac(time * volcano.RiverSpeed / span + index * 0.37f);
             float r = near + phase * span;
 
             float wander = volcano.RiverWander * MathF.Sin(r * 0.017f + river * 2.13f)
@@ -4523,7 +4507,7 @@ namespace Prazsky.Core.Render
 
             //A little over the surface: a lamp buried in the ground it is lighting throws nothing sideways,
             //and the flow it stands for is a metre of molten rock lying on top of the flank, not inside it.
-            return new Vector3(x, VolcanoGroundY(x, z) + 2.5f, z);
+            return new Vector3(x, VolcanoGroundHeight(x, z) + 2.5f, z);
         }
 
         /// <summary>
@@ -4558,7 +4542,7 @@ namespace Prazsky.Core.Render
                 int river = index <= 2 ? 0 : (index - 2) % _riverCount;
                 float near = MathF.Max(volcano.CraterRadius, 1f) * 1.2f;
                 float span = MathF.Max(_riverReach[river] - near, 1f);
-                float phase = Frac(time * volcano.RiverSpeed / span + index * 0.37f);
+                float phase = ShaderMath.Frac(time * volcano.RiverSpeed / span + index * 0.37f);
 
                 //Swells in and dies out over the run, so a front never appears or vanishes on the spot
                 strength = MathF.Sin(MathF.PI * phase);
@@ -4566,8 +4550,6 @@ namespace Prazsky.Core.Render
 
             return volcano.LavaHot.ToVector3() * (volcano.LightStrength * strength * pulse);
         }
-
-        private static float Frac(float value) => value - MathF.Floor(value);
 
         #endregion
 
@@ -5945,69 +5927,6 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// The savanna terrain height at a world point, mirroring <c>Savanna.fx</c>'s <c>TerrainHeight</c>, so the
-        /// acacia trees can be planted on the ground the shader draws.
-        /// </summary>
-        private float SavannaTerrainHeight(float x, float z)
-        {
-            float dist = MathF.Sqrt(x * x + z * z);
-            float t = MathHelper.Clamp((dist - _savannaConfig.ClearingRadius) / _savannaConfig.ClearingTransition, 0f, 1f);
-            float ramp = t * t * (3f - 2f * t); //smoothstep, as in the shader
-
-            float rolling = 0.5f * MathF.Sin(x * 0.016f + z * 0.012f)
-                + 0.3f * MathF.Sin(x * -0.011f + z * 0.020f + 1.5f)
-                + 0.2f * MathF.Sin(x * 0.026f + z * 0.021f + 3.0f);
-
-            float gentle = _savannaConfig.ClearingRelief * (MathF.Sin(x * 0.04f + z * 0.03f) + 0.6f * MathF.Sin(x * -0.055f + z * 0.048f + 2.1f));
-
-            return _savannaConfig.LevelY + gentle + _savannaConfig.HillHeight * ramp * (rolling * 0.5f + 0.5f);
-        }
-
-        /// <summary>
-        /// The tropical terrain height at a world point, mirroring <c>Tropical.fx</c>'s
-        /// <c>TropicalHeight</c> term for term (and its <c>CoastRadius</c>/<c>ShoreRingRadius</c>/
-        /// <c>ChannelMask</c> beside it), so the palms and the waterline's rocks can be planted on the
-        /// ground the shader draws. Static and config-taking for the forest's reasons. Keep this and
-        /// the shader in the same change: a drift here plants palms in the surf, and there is nothing
-        /// to catch it but the eye.
-        /// </summary>
-        public static float TropicalTerrainHeight(float x, float z, TropicalSceneConfig config)
-        {
-            TropicalTerrainConfig terrain = config.Terrain;
-
-            float r = MathF.Sqrt(x * x + z * z);
-            float b = MathF.Atan2(z, x);
-
-            float gentle = terrain.ClearingRelief * 0.5f
-                * (MathF.Sin(x * 0.043f + z * 0.031f) + 0.6f * MathF.Sin(-x * 0.052f + z * 0.046f + 2.1f));
-
-            float d = r - TropicalCoastRadius(b, terrain);
-
-            //GLSL smoothstep(edge0, edge1, x) is clamp-then-hermite, which MathHelper.SmoothStep is not
-            //(the forest's comment records the trap) — spelled out here as the shader spells it.
-            float toWaterline = SmoothStep(-terrain.BeachRise, 0f, d);
-            float toBed = SmoothStep(0f, terrain.BeachRun, d);
-
-            float h = MathHelper.Lerp(terrain.LevelY + gentle, config.Water.LevelY, toWaterline);
-            h = MathHelper.Lerp(h, terrain.SeabedY, toBed);
-
-            float ring = SmoothStep(0f, terrain.RingWidth, r - TropicalRingRadius(b, terrain))
-                * (1f - TropicalChannelMask(b, terrain));
-
-            float qx = x + 26f * MathF.Sin(z * 0.011f + 2f);
-            float qz = z + 26f * MathF.Sin(x * 0.013f + 5f);
-
-            float rolling = 0.40f * MathF.Sin(qx * 0.020f + qz * 0.015f)
-                + 0.27f * MathF.Sin(-qx * 0.013f + qz * 0.024f + 1.5f)
-                + 0.19f * MathF.Sin(qx * 0.031f + qz * 0.026f + 3.0f)
-                + 0.14f * MathF.Sin(-qx * 0.056f + qz * 0.041f + 0.7f);
-
-            h += ring * terrain.HillHeight * (0.55f + 0.45f * (0.5f + 0.5f * rolling));
-
-            return h;
-        }
-
-        /// <summary>
         /// Every palm on the beach as a figure — the root, the crown the trunk's bow carries off it, how far the
         /// fronds reach and the trunk's thickness — for a host keeping a camera out of the grove (#559).
         /// </summary>
@@ -6015,91 +5934,6 @@ namespace Prazsky.Core.Render
 
         /// <summary>The waterline's rocks as figures (their mesh's bounding sphere at the instance), for the same host.</summary>
         public IReadOnlyList<PlantFigure> TropicalRocks => _tropicalRockFigures;
-
-        //The waterline's radius at a bearing — Tropical.fx's CoastRadius, in one change with it.
-        private static float TropicalCoastRadius(float b, TropicalTerrainConfig terrain) =>
-            terrain.ShoreRadius + terrain.CoastNoise
-                * (0.45f * MathF.Sin(2f * b + 0.7f)
-                    + 0.35f * MathF.Sin(3f * b + 1.3f)
-                    + 0.20f * MathF.Sin(5f * b + 4.1f));
-
-        //The far shore's coastline — Tropical.fx's ShoreRingRadius.
-        private static float TropicalRingRadius(float b, TropicalTerrainConfig terrain) =>
-            terrain.RingRadius + terrain.RingNoise
-                * (0.40f * MathF.Sin(2f * b + 2.9f)
-                    + 0.34f * MathF.Sin(3f * b + 0.6f)
-                    + 0.26f * MathF.Sin(7f * b + 3.4f));
-
-        //The channel through the far ridge — Tropical.fx's ChannelMask.
-        private static float TropicalChannelMask(float b, TropicalTerrainConfig terrain) =>
-            MathF.Pow(MathF.Max(0f, MathF.Cos(b - terrain.ChannelBearing)), terrain.ChannelSharpness);
-
-        //GLSL smoothstep as the shaders spell it: clamp-then-hermite over the raw value.
-        private static float SmoothStep(float edge0, float edge1, float value)
-        {
-            float t = MathHelper.Clamp((value - edge0) / (edge1 - edge0), 0f, 1f);
-            return t * t * (3f - 2f * t);
-        }
-
-        /// <summary>
-        /// The meadow's ground height at a world point, mirroring <c>Meadow.fx</c>'s <c>TerrainHeight</c> term
-        /// for term, for a host laying a camera path over the hills (the chapter intro's prologue, #559).
-        /// Static and config-taking for the forest's reasons. Keep this and the shader in the same change.
-        /// </summary>
-        public static float MeadowTerrainHeight(float x, float z, MeadowSceneConfig config)
-        {
-            float dist = MathF.Sqrt(x * x + z * z);
-            float ramp = SmoothStep(config.ClearingRadius, config.ClearingRadius + config.ClearingTransition, dist);
-
-            float rolling = 0.5f * MathF.Sin(x * 0.020f + z * 0.015f)
-                + 0.3f * MathF.Sin(x * -0.013f + z * 0.024f + 1.5f)
-                + 0.2f * MathF.Sin(x * 0.031f + z * 0.026f + 3.0f);
-
-            float basin = config.ClearingRelief * MathF.Sin(x * 0.05f + z * 0.035f);
-
-            return config.LevelY + basin + config.HillHeight * ramp * (rolling * 0.5f + 0.5f);
-        }
-
-        /// <summary>
-        /// The forest terrain height at a world point, mirroring <see cref="ForestSceneConfig"/>'s
-        /// <c>Forest.fx</c> <c>TerrainHeight</c> field. Static and config-taking (rather than reading
-        /// <c>_forestConfig</c>) so the forest scatter can plant trees on the ground the shader draws before
-        /// the renderer itself exists, and so it stays in step with whatever config the caller holds. Keep this
-        /// and the shader's <c>TerrainHeight</c> in the same change: a drift here plants trees underground or
-        /// floating, and there is nothing to catch it but the eye.
-        /// </summary>
-        public static float ForestTerrainHeight(float x, float z, ForestSceneConfig config)
-        {
-            float dist = MathF.Sqrt(x * x + z * z);
-            //GLSL smoothstep(edge0, edge1, x) = hermite over the clamped (x-edge0)/(edge1-edge0). MonoGame's
-            //MathHelper.SmoothStep is NOT that: it takes (value1, value2, amount) with amount in 0..1, so
-            //passing it the raw distance (hundreds of units) makes the ramp explode and the scatter plants trees
-            //thousands of units up. Mirroring the savanna's clamp-then-hermite instead, which matches Forest.fx.
-            float t = MathHelper.Clamp((dist - config.ClearingRadius) / config.ClearingTransition, 0f, 1f);
-            float ramp = t * t * (3f - 2f * t);
-
-            //The domain warp, five octaves and the lump mask all mirror Forest.fx's TerrainHeight term for
-            //term — see there for why each exists. Kept in ONE change with the shader.
-            float qx = x + 26f * MathF.Sin(z * 0.011f + 2f);
-            float qz = z + 26f * MathF.Sin(x * 0.013f + 5f);
-
-            float rolling = 0.40f * MathF.Sin(qx * 0.020f + qz * 0.015f)
-                + 0.26f * MathF.Sin(qx * -0.013f + qz * 0.024f + 1.5f)
-                + 0.17f * MathF.Sin(qx * 0.031f + qz * 0.026f + 3.0f)
-                + 0.10f * MathF.Sin(qx * 0.056f + qz * -0.041f + 0.7f)
-                + 0.07f * MathF.Sin(qx * -0.083f + qz * 0.062f + 2.4f);
-
-            float basin = config.ClearingRelief * MathF.Sin(x * 0.05f + z * 0.035f);
-
-            float f = config.FloorLumpFrequency;
-            float mask = 0.55f + 0.45f * MathF.Sin(x * 0.021f + z * -0.017f + 4f);
-            float lumps = MathF.Sin(x * f + z * f * 0.7f)
-                + 0.5f * MathF.Sin(x * -f * 0.8f + z * f * 1.1f + 2.0f)
-                + 0.35f * MathF.Sin(x * f * 1.9f + z * f * 1.4f + 5.1f);
-            float lumpHeight = config.FloorLumpStrength * lumps * mask * (1.0f - ramp * 0.5f);
-
-            return config.LevelY + basin + lumpHeight + config.HillHeight * ramp * (rolling * 0.5f + 0.5f);
-        }
 
         /// <summary>
         /// Draws the scattered acacia trees and bushes: real 3D geometry (#202), one instanced draw per mesh

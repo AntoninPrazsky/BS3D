@@ -442,3 +442,9 @@ technique SavannaReduced
         PixelShader = compile PS_SHADERMODEL SavannaReducedPS();
     }
 };
+
+//--- The height probe (#590) ----------------------------------------------------------------------------
+
+//TerrainMirror.Savanna's field, for the Testbed's mirrorcheck (see HeightProbe.fxh).
+#define HEIGHT_PROBE_MIRRORED(p) TerrainHeight(p)
+#include "HeightProbe.fxh"

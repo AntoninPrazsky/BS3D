@@ -92,7 +92,7 @@ namespace Prazsky.Core.Render
         /// <param name="snagVariants">How many snag meshes the caller built.</param>
         /// <param name="logVariants">How many log meshes the caller built.</param>
         /// <param name="terrainHeight">The forest floor height at a world XZ point — mirrors Forest.fx's
-        /// TerrainHeight (see <see cref="SceneRenderer.ForestTerrainHeight"/>), so trees are planted on the
+        /// TerrainHeight (see <see cref="TerrainMirror.Forest"/>), so trees are planted on the
         /// ground the shader draws rather than floating or buried.</param>
         public ForestScatter(int seed, ForestSceneConfig config,
             int coniferVariants, int broadleafVariants, int rockVariants, int stumpVariants,

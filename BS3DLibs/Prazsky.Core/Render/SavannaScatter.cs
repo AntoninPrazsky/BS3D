@@ -184,7 +184,7 @@ namespace Prazsky.Core.Render
 
         /// <param name="device">The device the meshes and instance buffers live on.</param>
         /// <param name="config">The savanna's config: the acacias' and the dressing's counts, sizes and colours.</param>
-        /// <param name="terrainHeight">The ground under (x, z) — <c>SceneRenderer.SavannaTerrainHeight</c>,
+        /// <param name="terrainHeight">The ground under (x, z) — <c>TerrainMirror.Savanna</c>,
         /// the C# mirror of the shader's field, so a plant stands on the ground it is drawn over.</param>
         /// <param name="reserved">Ground already taken before anything is planted: the campfires and their
         /// hearths, which nothing may land in.</param>

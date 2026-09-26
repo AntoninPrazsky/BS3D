@@ -554,3 +554,16 @@ technique Desert
         PixelShader = compile PS_SHADERMODEL DesertPS();
     }
 };
+
+//--- The height probe (#590) ----------------------------------------------------------------------------
+
+//TerrainMirror.Desert's field, for the Testbed's mirrorcheck (see HeightProbe.fxh). DesertHeight hands its
+//gradient back through an out parameter, which a macro cannot take, hence the wrapper.
+float DesertProbeHeight(float2 p)
+{
+    float2 unusedGradient;
+    return DesertHeight(p, unusedGradient);
+}
+
+#define HEIGHT_PROBE_MIRRORED(p) DesertProbeHeight(p)
+#include "HeightProbe.fxh"

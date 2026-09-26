@@ -331,7 +331,7 @@ namespace Prazsky.Core.Render
     /// The savanna's campfires: a ring of them around the island, each a real point light warming the grass
     /// and the stone, its own visible additive flame billboard, and since #282 the hearth it burns in - a ring
     /// of stones and the ground scorched under it. Positions are XZ; every Y is derived live
-    /// — SavannaTerrainHeight(x, z) + <see cref="HeightAboveTerrain"/> on every read of
+    /// — <see cref="TerrainMirror.Savanna"/>(x, z) + <see cref="HeightAboveTerrain"/> on every read of
     /// SavannaCampfirePosition — so a GroundXZ or terrain edit in the editor moves the fires without a
     /// re-apply.
     /// <para>

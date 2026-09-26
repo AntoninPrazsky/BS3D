@@ -518,3 +518,9 @@ technique Polar
         PixelShader = compile PS_SHADERMODEL PolarPS();
     }
 };
+
+//--- The height probe (#590) ----------------------------------------------------------------------------
+
+//TerrainMirror.Polar's field, for the Testbed's mirrorcheck (see HeightProbe.fxh).
+#define HEIGHT_PROBE_MIRRORED(p) PolarHeight(p)
+#include "HeightProbe.fxh"

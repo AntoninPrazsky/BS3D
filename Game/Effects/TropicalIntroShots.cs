@@ -15,7 +15,7 @@ namespace BS3D.Effects
     /// <see cref="SceneRenderer.TropicalRocks"/>, rolled per launch and pinned by <c>sceneseed=</c>). A palm is
     /// taken at its own figure — the trunk as a capsule from the root to the crown its bow carries off the
     /// axis, and the crown as a sphere of the fronds' reach — so a path held clear of both is clear of the
-    /// palm. Heights come off <see cref="SceneRenderer.TropicalTerrainHeight"/>, the mirror the palms stand
+    /// palm. Heights come off <see cref="TerrainMirror.Tropical"/>, the mirror the palms stand
     /// on, and never under the lagoon's surface plus its swell. Built once when the intro begins.
     /// </para>
     /// </summary>
@@ -65,7 +65,7 @@ namespace BS3D.Effects
             if (palms == null || palms.Count == 0) return null;
 
             float water = tropical.Water.LevelY + SWELL;
-            var ground = new IntroGround((x, z) => MathF.Max(SceneRenderer.TropicalTerrainHeight(x, z, tropical), water));
+            var ground = new IntroGround((x, z) => MathF.Max(TerrainMirror.Tropical(x, z, tropical), water));
             foreach (PlantFigure palm in palms) ground.Add(palm);
             foreach (PlantFigure rock in scenes.TropicalRocks) ground.Add(rock);
 

@@ -15,7 +15,7 @@ namespace BS3D.Effects
     /// <c>Meadow.fx</c> — so each shot is about a piece of the LAND: the basin the arena stands in, the flowers
     /// that are only ever readable from a hand's height (#447 found them invisible from the tour's stands), and
     /// the rise of a hill against the sky. Every height is read off
-    /// <see cref="SceneRenderer.MeadowTerrainHeight"/>, the mirror of the shader's field, so the lens holds its
+    /// <see cref="TerrainMirror.Meadow"/>, the mirror of the shader's field, so the lens holds its
     /// stated height over the grass whatever the config's hills are. Built once when the intro begins.
     /// </para>
     /// </summary>
@@ -54,7 +54,7 @@ namespace BS3D.Effects
         {
             if (meadow == null) return null;
 
-            var ground = new IntroGround((x, z) => SceneRenderer.MeadowTerrainHeight(x, z, meadow));
+            var ground = new IntroGround((x, z) => TerrainMirror.Meadow(x, z, meadow));
 
             //The hilliest bearing: the ground at the run's start, where the lens stands on the hill.
             IntroShot valley = ground.Establishing("the valley", VALLEY_FROM, VALLEY_TO, VALLEY_ABOVE_FROM, VALLEY_ABOVE_TO,
