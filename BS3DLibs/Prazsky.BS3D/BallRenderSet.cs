@@ -903,7 +903,7 @@ namespace Prazsky.BS3D
         /// asks for less of both</b> rather than more.
         /// <para>
         /// Its technique emits nothing of its own — see <see cref="BallShading.Heavy"/> — so what these three
-        /// figures control is only the cluster's heartbeat riding a crushed dark body. The emission is the
+        /// figures control is only the cluster's heartbeat riding a matte, patch-painted casting (#631). The emission is the
         /// lowest on this list because a casting is not lit from within, and half of even that is spent so the
         /// ball still breathes with its neighbours instead of standing outside them the way a rock does.
         /// </para>
