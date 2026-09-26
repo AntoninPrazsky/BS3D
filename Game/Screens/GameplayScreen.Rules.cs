@@ -1021,7 +1021,8 @@ namespace BS3D.Screens
         private void ShowResultScreen()
         {
             //The floor alarm has said its piece: from the moment the ending is actually put in front of the
-            //player, a standing net keeps pulsing under the page for a moment and then goes out. Stamped here,
+            //player, a standing net keeps pulsing under the page for a moment and then goes out — unless it is the
+            //net that ended the level, which stays for as long as the page is up (#614, see NoticeLevelEnded). Stamped here,
             //the one funnel both endings come through, and not back where the level logically ended — a clear's
             //page arrives LEVEL_CLEARED_BEAT after the field empties, plus a whole cinematic when one is
             //running (the countdown freezes for it), and a linger stamped at the clear was spent before anyone

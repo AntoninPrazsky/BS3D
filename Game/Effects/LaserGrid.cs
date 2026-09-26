@@ -108,6 +108,11 @@ namespace BS3D.Effects
         //When the flare began, or +inf for a net that has not killed anything.
         private float _flareAt = float.PositiveInfinity;
 
+        //When the result page of a loss went up, or +inf: from then the flare settles back to the warning's own
+        //pulse over SETTLE_SECONDS and the net holds there for as long as the page is up (#614)
+        private float _settleAt = float.PositiveInfinity;
+        private const float SETTLE_SECONDS = 1f;
+
         public LaserGrid(GraphicsDevice device, Effect effect, Vector3 color)
         {
             _device = device;
@@ -227,10 +232,23 @@ namespace BS3D.Effects
         /// still standing keeps pulsing for <see cref="LINGER_SECONDS"/> and then goes out — <see cref="Draw"/>
         /// executes the expiry, because it is the only thing still running under the result page. <c>Min</c>,
         /// so a second presentation cannot push a running linger out.
+        /// <para>
+        /// <b>Except on a loss to the line, where it stays</b> (#614): the owner lost Amphora and watched the net go
+        /// out under FAILED, taking with it the one thing on screen that said why, while the cluster still hung
+        /// past it. A net that has flared is the net that ended the level, so it sets no expiry; it settles from the
+        /// flare back to the warning's pulse over <see cref="SETTLE_SECONDS"/>, which the page's text stands over,
+        /// and goes when the player leaves the page (<see cref="Reset"/> at the next level, or the session torn down).
+        /// </para>
         /// </summary>
         internal void NoticeLevelEnded(float now)
         {
             if (!_visible) return;
+
+            if (_flareAt < float.PositiveInfinity)
+            {
+                _settleAt = MathF.Min(_settleAt, now);
+                return;
+            }
 
             _expireAt = MathF.Min(_expireAt, now + LINGER_SECONDS);
         }
@@ -242,6 +260,7 @@ namespace BS3D.Effects
             _transitionAt = 0f;
             _envelopeAtTransition = 0f;
             _flareAt = float.PositiveInfinity;
+            _settleAt = float.PositiveInfinity;
             _expireAt = float.PositiveInfinity;
         }
 
@@ -290,7 +309,13 @@ namespace BS3D.Effects
             if (_flareAt < float.PositiveInfinity)
             {
                 float t = MathHelper.Clamp((now - _flareAt) / FLARE_IN, 0f, 1f);
-                intensity = MathHelper.Lerp(intensity, FLARE_INTENSITY, MathHelper.SmoothStep(0f, 1f, t));
+                float flare = MathHelper.SmoothStep(0f, 1f, t);
+
+                //Under a loss's result page, back down to the warning's pulse (#614)
+                if (_settleAt < float.PositiveInfinity)
+                    flare *= 1f - MathHelper.SmoothStep(0f, 1f, MathHelper.Clamp((now - _settleAt) / SETTLE_SECONDS, 0f, 1f));
+
+                intensity = MathHelper.Lerp(intensity, FLARE_INTENSITY, flare);
             }
 
             _viewParam.SetValue(camera.View);
