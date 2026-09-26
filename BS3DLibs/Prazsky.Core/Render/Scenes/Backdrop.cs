@@ -115,17 +115,27 @@ namespace Prazsky.Core.Render
         public int SeedOffset { get; }
 
         /// <summary>
+        /// The radius cut out of every terrain around the arena — <see cref="SceneRenderer.TerrainHoleRadius"/>, which
+        /// forwards here. Written by the host at any time, so a backdrop reads it at draw time.
+        /// </summary>
+        public float TerrainHoleRadius { get; set; }
+
+        //Every terrain grid, one per distinct (vertices a side, extent); the renderer's, which disposes it.
+        private readonly TerrainGridCache _gridCache;
+
+        /// <summary>
         /// Where BuildQuadIndexBuffer refuses (#589): the largest quad count whose four vertices a quad stay
         /// addressable by a 16-bit index, one short of 65 536 / 4 so the last index is never 0xFFFF.
         /// </summary>
         public const int MAX_BILLBOARD_QUADS = 16383;
 
-        /// <summary>The services over a device, the quad the renderer built on it and its seed offset.</summary>
-        public BackdropServices(GraphicsDevice graphicsDevice, VertexBuffer fullScreenQuad, int seedOffset)
+        /// <summary>The services over a device, the quad and the grid cache the renderer built on it, and its seed offset.</summary>
+        public BackdropServices(GraphicsDevice graphicsDevice, VertexBuffer fullScreenQuad, int seedOffset, TerrainGridCache gridCache)
         {
             GraphicsDevice = graphicsDevice;
             FullScreenQuad = fullScreenQuad;
             SeedOffset = seedOffset;
+            _gridCache = gridCache;
         }
 
         /// <summary>
@@ -174,6 +184,21 @@ namespace Prazsky.Core.Render
             if (quads > MAX_BILLBOARD_QUADS)
                 throw new ArgumentOutOfRangeException(nameof(quads), quads,
                     $"A billboard buffer holds at most {MAX_BILLBOARD_QUADS} quads: its indices are 16-bit, and past that they wrap.");
+        }
+
+        /// <summary>
+        /// The flat lattice grid of <paramref name="n"/> vertices a side over <paramref name="extent"/> that a
+        /// terrain scene displaces, from <see cref="TerrainGridCache"/> (#589): scenes asking for the same pair
+        /// share one pair of buffers, which the cache owns — a holder gives its grid back with
+        /// <see cref="TerrainGridCache.Release"/> and never disposes it. The indices are 32-bit; the cache's
+        /// builder carries the note on why a grid over 255 a side must never have 16-bit ones.
+        /// </summary>
+        public void AcquireGridMesh(int n, float extent, out VertexBuffer vertexBuffer, out IndexBuffer indexBuffer, out int indexCount)
+        {
+            TerrainGridCache.Grid grid = _gridCache.Acquire(n, extent);
+            vertexBuffer = grid.Vertices;
+            indexBuffer = grid.Indices;
+            indexCount = grid.IndexCount;
         }
     }
 }
