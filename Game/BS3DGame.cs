@@ -312,6 +312,10 @@ namespace BS3D
         //here, so a capture run that later wants the readout can still ask for it.
         private bool _noFpsOverlay;
 
+        //A run that said "nosplash" (#621): the stack is built with the main menu where the intro would stand,
+        //whatever the settings file's "Intro logo" row says, and the file is not touched. Read once, by BuildMenu.
+        private readonly bool _noSplash;
+
         //One SpriteBatch for everything drawn over the resolve: the gameplay screen's HUD and its crosshair
         //both go into this one. The white texel that used to sit beside it went with the crosshair in #76 —
         //Prazsky.Core.Render.Crosshair makes its own, and it was the texel's only consumer, so the host no
@@ -444,7 +448,7 @@ namespace BS3D
         private readonly GameSettings _settings;
 
         /// <summary>
-        /// The ten rows that are only the player's answer, read through to <see cref="_settings"/> with the run's
+        /// The eleven rows that are only the player's answer, read through to <see cref="_settings"/> with the run's
         /// <c>mute</c> laid over the master (#583) — the one copy of each, where there used to be a field beside
         /// the file's value. See <see cref="EffectiveSettings"/>.
         /// </summary>
@@ -641,7 +645,7 @@ namespace BS3D
             //draining an outbox left by an earlier run straight away, off this thread.
             _online = new OnlineSession(_settings, () => _wallClock, SaveSettings, () => _settingsPage?.Refresh());
 
-            //The ten rows that are only the player's answer are read through the file from here on (#583), with
+            //The eleven rows that are only the player's answer are read through the file from here on (#583), with
             //"mute" held over the master as a flag and never stored — see EffectiveSettings
             _effective = new EffectiveSettings(_settings, launch.Mute);
 
@@ -674,6 +678,7 @@ namespace BS3D
             _plainCeiling = launch.PlainCeiling;
             _shotSchedule = launch.ShotSeconds;
             _noFpsOverlay = launch.NoFpsOverlay;
+            _noSplash = launch.NoSplash;
 
             //A tier the player chose in Settings is honoured exactly as quality= is — it is the same kind of
             //statement, made in a different place — and an argument outranks it, being this run's instruction.

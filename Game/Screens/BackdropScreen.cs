@@ -1202,10 +1202,14 @@ namespace BS3D.Screens
         /// stack.
         /// </para>
         /// <para>
-        /// <b>Not under the splash (#601).</b> From #454 it was drawn there too, standing in the 2D logo's own
-        /// layout while the picture cross-faded into it, then flying to the corner as the menu arrived; the
-        /// owner ruled that out, so the splash holds its logo on black and cuts to a menu this title already
-        /// stands in, in its corner.
+        /// <b>Under the splash only once its black is lifting, and only in its corner (#601, #621).</b> From #454
+        /// it was drawn there from the start, standing in the 2D logo's own layout while the picture cross-faded
+        /// into it, then flying to the corner as the menu arrived; the owner ruled that out, and for a while the
+        /// splash held its logo on black and cut to a menu this title already stood in. Since #621 the black
+        /// fades away before the picture does, so the scene and this title are revealed behind the still-visible
+        /// logo — which is why the gate also takes a splash that says it is revealing the menu
+        /// (<see cref="SplashPage.RevealsMenu"/>). The title does nothing different there: same corner, same
+        /// size, same breathing; only what stands over it changes.
         /// </para>
         /// <para>
         /// <b>And it steps aside for the fly-in (#261)</b>: across the approach the block shrinks to
@@ -1215,7 +1219,7 @@ namespace BS3D.Screens
         /// </remarks>
         private void DrawWordmark()
         {
-            if (Manager?.Active is MainMenuPage)
+            if (Manager?.Active is MainMenuPage or SplashPage { RevealsMenu: true })
                 Game.TitleWordmark?.Draw(Game.Camera, Game.WallClock,
                     presence: MathHelper.Lerp(1f, WORDMARK_ASIDE_SCALE, Closeness(_flightClock)));
         }
