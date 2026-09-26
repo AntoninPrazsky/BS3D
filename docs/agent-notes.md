@@ -6552,3 +6552,9 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 - ⚠ **Past:** exe spuštěné vlastním `CreateProcess` bez přesměrování stdout vypíše celý startovní log (stovky řádků `[levels]`) do výstupu nástroje. Přesměrovat, nebo číst jen `[shot]`.
 - ⚠ **Past:** LM Studio neběželo, `SemanticSearch` nebyl k dispozici. Duplicity se hledaly `gh issue list --search` po klíčových slovech a čtením deníku.
 - ⚠ **Past:** skript, který selže, a `gh issue create` na dalším řádku proběhne se starým textem (#610 musel být přepsán `gh issue edit`). Řetězit přes `&&`.
+
+---
+
+## 2026-09-26 — #618 shadery do Prazsky.Shaders — desktop, Claude Code
+
+- **Zabráno:** přesun všech `.fx`/`.fxh` z `Testbed/Content/Shaders/` do nové knihovny `BS3DLibs/Prazsky.Shaders`, přesměrování tří `Content.mgcb`, CI, docs a skillů. Do shaderů prosím do merge nesahat (velký přesun souborů).
