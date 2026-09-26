@@ -1140,7 +1140,8 @@ namespace BS3D.Screens
             //a preference: Screen.Enter and Screen.Leave are raised on a PUSH and a POP only, and every other
             //front-end page (Settings, Scene, About, the level picker) is pushed OVER the main menu without
             //popping it — so a Present/Hide pair in MainMenuPage would leave the title standing behind all
-            //four of them. Covering is signalled by CoveredChanged, which this screen never sees. One test
+            //four of them. Being covered is not signalled at all: CoveredChanged goes only to the screen that
+            //ends up on top (its doc, #585), and this screen is never that while a page stands. One test
             //against the active page needs no page to opt in and cannot be forgotten by a page added later.
             //
             //And it is HERE, in the front end's own screen, rather than in the host's BeginSceneDraw where the

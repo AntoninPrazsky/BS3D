@@ -54,7 +54,14 @@ namespace Prazsky.Core.Screens
         /// </summary>
         public virtual void Leave() { }
 
-        /// <summary>Called when a screen above this one is pushed or popped, so it can re-read what changed.</summary>
+        /// <summary>
+        /// Called on <b>the screen that is on top once the stack has changed</b> — after every batch of pushes,
+        /// pops and replacements <see cref="ScreenManager"/> applies, and only on the new top. So it means "you
+        /// are the active screen now; re-read what changed", which is what every override relies on (re-show a
+        /// page, re-capture the cursor). It is <b>not</b> raised on a screen at the moment something is pushed
+        /// over it: a covered screen hears nothing until it is on top again, and a screen that has to know it
+        /// was covered asks <see cref="IsActive"/> (#585; the name is older than this contract).
+        /// </summary>
         public virtual void CoveredChanged() { }
 
         public virtual void Update(GameTime gameTime) { }

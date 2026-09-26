@@ -114,6 +114,19 @@ namespace Prazsky.BS3D.Physics
         public const int SUBSTEP_COUNT = 1;
 
         /// <summary>
+        /// The Game's fixed physics step, 1/120 s — <b>the one copy of it</b> (#585). The Game spends its frame
+        /// time in whole steps of this length (<c>GameplayScreen.PHYSICS_TIMESTEP</c>), and
+        /// <see cref="ShotPlacement"/>'s curved solver integrates a flight at it, because the aim preview has to
+        /// match the simulation exactly rather than closely; the two used to state the figure separately. The
+        /// sag probe and the logic tests step at it too, so they simulate the world the player plays.
+        /// <para>
+        /// A figure, not a policy: <see cref="Step"/> still takes whatever step it is handed (see the class
+        /// remarks), and the Testbed's variable one-step-per-frame does not read this at all.
+        /// </para>
+        /// </summary>
+        public const float FIXED_TIMESTEP = 1f / 120f;
+
+        /// <summary>
         /// How finely the shot's sweep hunts its time of impact, and how close it has to get before it stops.
         /// A millisecond of the step and a thousandth of a unit: far below the frame the result is used in,
         /// and cheap because only the handful of balls in flight are swept at all — the cluster and the

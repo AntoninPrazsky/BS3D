@@ -5,12 +5,6 @@ using System.IO;
 using System.Linq;
 using Xunit;
 
-//One test at a time, deliberately. BallsConstraintsBuilder caches the sphere's shape index in two statics keyed
-//on the last Simulation it was asked about (GetSphereShapeIndex) - correct for a game with one simulation,
-//a race for a runner that builds several at once. The whole gate runs in a few seconds serially, so the
-//parallelism is not worth teaching the library a thread-safety it has no other use for.
-[assembly: CollectionBehavior(DisableTestParallelization = true)]
-
 namespace BS3D.Tests
 {
     /// <summary>

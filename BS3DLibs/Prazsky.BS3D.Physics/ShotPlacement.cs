@@ -263,9 +263,10 @@ namespace Prazsky.BS3D.Physics
 
         /// <summary>
         /// The step the curved solver integrates at, in seconds — <b>the simulation's own</b>
-        /// (<c>1 / 120</c>), because the two have to agree and not merely be close.
+        /// (<see cref="PhysicsWorld.FIXED_TIMESTEP"/>, read rather than restated since #585), because the two
+        /// have to agree and not merely be close.
         /// </summary>
-        private const float INTEGRATION_STEP = 1f / 120f;
+        private const float INTEGRATION_STEP = PhysicsWorld.FIXED_TIMESTEP;
 
         /// <summary>
         /// <see cref="TryFindFirstHit"/> with the gravity wells of #332 bending the flight: the first structure
