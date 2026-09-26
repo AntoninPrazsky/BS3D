@@ -142,6 +142,14 @@ namespace BS3D.Screens
         internal virtual void OnScrollWheel(int delta) { }
 
         /// <summary>
+        /// The pad's right stick (<paramref name="stick"/>, up positive, zero inside its dead zone) and Page Up/Page
+        /// Down this frame (<paramref name="pageSteps"/>, down positive) while this page is the active one — for a
+        /// page whose scroller holds text rather than entries, which the focus cursor has nothing in to walk to
+        /// (#606, the Help pages). Most pages need nothing here.
+        /// </summary>
+        internal virtual void OnScrollAxis(float stick, int pageSteps, float elapsed) { }
+
+        /// <summary>
         /// Left or right on the arrow keys, the D-pad or the left stick (−1 / +1) — <b>the page's own axis</b>,
         /// where up and down are always the focus cursor's. One page claims it: the level picker turns to the
         /// previous or next chapter (#273). Raised by the host's <c>UpdateMenuNavigation</c> with the same

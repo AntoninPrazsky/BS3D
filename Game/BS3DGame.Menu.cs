@@ -1314,6 +1314,18 @@ namespace BS3D
         }
 
         /// <summary>
+        /// Puts a page's rebuilt tree up <b>without a screen change</b> (#606 — the Help page turning), keeping the
+        /// focus cursor on the entry <paramref name="keepFocusOn"/> names in the NEW tree: a rebuild replaces every
+        /// widget, so the entry to keep is only known once the tree has been built again.
+        /// </summary>
+        internal void RebuildPage(MenuPage page, Func<Widget> keepFocusOn)
+        {
+            page.Refresh();
+            _desktop.Root = page.Root;
+            RefreshNavEntries(keepFocusOn());
+        }
+
+        /// <summary>
         /// Re-reads the entries of the page that is up <b>without a screen change</b>, for a page whose own
         /// entries come and go while it stands there: the level picker turns to another chapter (#273), whose
         /// tiles are a different ten levels — a different number of them, and a different set of them locked,
@@ -1939,6 +1951,19 @@ namespace BS3D
 
             if (EdgeInputAllowed && scrollDelta != 0 && _screens.Active is MenuPage activePage)
                 activePage.OnScrollWheel(scrollDelta);
+
+            //The right stick and Page Up/Down, for a page that scrolls text (#606). The stick is continuous and
+            //read past its dead zone; the keys are edges, one page a press. Not while a page is typing.
+            if (_screens.Active is MenuPage { CapturesKeyboard: false } scrolling)
+            {
+                float stick = pad.ThumbSticks.Right.Y;
+                if (Math.Abs(stick) < NAV_STICK_DEADZONE) stick = 0f;
+
+                int pageSteps = !EdgeInputAllowed ? 0
+                    : (IsKeyEdge(keyboard, Keys.PageDown) ? 1 : 0) - (IsKeyEdge(keyboard, Keys.PageUp) ? 1 : 0);
+
+                if (stick != 0f || pageSteps != 0) scrolling.OnScrollAxis(stick, pageSteps, elapsed);
+            }
 
             _previousKeyboard = keyboard;
             _previousPad = pad;
