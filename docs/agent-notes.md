@@ -6647,3 +6647,5 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-26 — release 0.2.0
 
 - **Beru #606** (Help: Next/Previous, scroll, čísla kampaně) jako release-kritické. Hotovo #637 (Loading...), `6891be5a`.
+- **Release 0.2.0, hotovo na mainu:** #637 Loading... (`6891be5a`), #606 Help (`a3dff0c1`), #605 tutoriál (`a534e104`), #614 síť při prohře (`bd486047`). Vše `shipped-awaiting-verdict`. #633 není release-kritické (žádný level těch pět druhů nepoužívá). Zbývá z kandidátů: #616 (kamera pádu poskakuje). Tag zatím nevytvořen — čeká na majitele.
+- ⚠ **Poučení z #634/#635 (majitel žádal report Anthropicu):** u vizuální vady nejdřív změřit symptom v obraze (pevná kamera, sekvence póz, centroidy) a teprve pak opravovat; proxy (CPU časování, PresentMon, numerický model) nejsou potvrzení. Nehlásit „opraveno/příčina“ před verdiktem majitele.
