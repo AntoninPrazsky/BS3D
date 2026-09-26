@@ -14,17 +14,16 @@
 // is a MATERIAL, and the material is a casting. A polished sphere with a seam photographed as an anodised
 // trackball whatever its tint; the sand-cast ones read as dense from across the room. Four things carry
 // it, in the order the eye picks them up:
-//  1. NO SKY IN IT. Every ordinary ball in this file mirrors the dome; a casting scatters it into a broad
-//     dull sheen. At the overview stand-off the heavy ball is the one ball among sixty pixels of colour
-//     with no highlight on it, which is a silhouette-grade cue and costs nothing to keep.
-//     ⚠ THIS REVERSES #333's second build, which RAISED the sky reflection (1.30 / 1.25) to say "metal
-//     rather than plastic". The references settle it the other way: metal that shines is a ball bearing,
-//     and a ball bearing is not heavy. What separates this from a dark vinyl ball is now the grain, the
-//     flash and the patches, none of which a vinyl ball wears.
+//  1. SATIN METAL. A casting scatters the dome into a broad sheen rather than mirroring it - but it is
+//     METAL, so what it does reflect is tinted by its own colour and present face-on (see HeavyMetalSheen).
+//     The first cut of #631 was fully matte, with no sky at all, and the owner's verdict was "less spotty,
+//     and more metallic - but matte": a satin coloured metal, blurred, with no sharp mirror in it.
+//     (#333's second build raised the DIELECTRIC reflection to say "metal", which a dielectric cannot say:
+//     it reflects ~4 % face-on whatever its scale. The tinted reflection is the answer to both.)
 //  2. THE COLOUR IS PAINT ON IRON. The tint is not crushed (#333's first build: a heavy yellow photographed
 //     as chocolate brown) and not greyed (its second: a plum ball with a line on it, which the owner's sheet
-//     could not tell from an ordinary dark ball). It stands at nearly full value in PATCHES over a cool
-//     grey iron, the way the references' magenta sat on the casting - so the hue the player has to match
+//     could not tell from an ordinary dark ball). It covers most of the ball, the cool grey
+//     iron showing only in small worn spots, the way the references' magenta sat on the casting - so the hue the player has to match
 //     is on the ball undiluted, and the iron between the patches is what says the ball is not made of it.
 //  3. THE FLASH. One raised ring where the two halves of the mould met, with a lip: lit along its top edge
 //     and shadowed under it. A hard line survives to a pixel wide, which the cast grain never does.
