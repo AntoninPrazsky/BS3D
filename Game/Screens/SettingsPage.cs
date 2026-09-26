@@ -119,7 +119,7 @@ namespace BS3D.Screens
             _typing = false;
             _turnOnAfterName = false;
             _typingProblem = null;
-            Game.ForgetOnlineRemovalOutcome();
+            Game.Online.ForgetRemovalOutcome();
         }
 
         public override void Leave()
@@ -274,7 +274,7 @@ namespace BS3D.Screens
             AddRow(grid, 2, "Nickname", OnNickname, out _nicknameValue, typingRow: true);
 
             //Two-step, like the reset (see _removeArmed); the server is asked first and nothing here goes until it
-            //has said yes — BS3DGame.RemoveOnlineScores
+            //has said yes — OnlineSession.RemoveScores
             AddRow(grid, 3, "Remove scores", OnRemove, out _removeValue);
 
             //What is sent and what is kept, in the About page's own words (one sentence, one source) — or, while it
@@ -453,11 +453,11 @@ namespace BS3D.Screens
             _progressValue.Text = _resetArmed ? "Sure?"
                 : Game.TotalStars == 1 ? "1 star" : $"{Game.TotalStars} stars";
 
-            _onlineValue.Text = Game.IsOnlineOn ? "On" : "Off";
-            ShowNickname(_typing ? _nameDraft + "|" : Game.OnlineNickname ?? "Not set");
-            _removeValue.Text = Game.OnlineRemoval == OnlineRemovalState.Removing ? "Removing..."
+            _onlineValue.Text = Game.Online.IsOn ? "On" : "Off";
+            ShowNickname(_typing ? _nameDraft + "|" : Game.Online.Nickname ?? "Not set");
+            _removeValue.Text = Game.Online.Removal == OnlineRemovalState.Removing ? "Removing..."
                 : _removeArmed ? "Sure?"
-                : Game.OnlineNickname == null ? "Nothing" : "Remove";
+                : Game.Online.Nickname == null ? "Nothing" : "Remove";
             _onlineNote.Text = OnlineNote();
         }
 
@@ -481,10 +481,10 @@ namespace BS3D.Screens
                 return _typingProblem ?? $"Type a nickname on the keyboard: {Nickname.MinLength} to {Nickname.MaxLength} letters, digits, "
                     + "spaces, _ or -. Enter keeps it, Esc drops it.";
 
-            if (Game.OnlineNameProblem != null)
-                return $"The server refused the nickname ({Game.OnlineNameProblem}). Choose another.";
+            if (Game.Online.NameProblem != null)
+                return $"The server refused the nickname ({Game.Online.NameProblem}). Choose another.";
 
-            switch (Game.OnlineRemoval)
+            switch (Game.Online.Removal)
             {
                 case OnlineRemovalState.Removing:
                     return "Asking the server to remove your scores...";
@@ -493,15 +493,15 @@ namespace BS3D.Screens
                 case OnlineRemovalState.RemovedHere:
                     return "Removed from this machine. No score server was in reach, so nothing had been sent from here.";
                 case OnlineRemovalState.Failed:
-                    string problem = Game.OnlineRemovalProblem ?? string.Empty;
+                    string problem = Game.Online.RemovalProblem ?? string.Empty;
                     return "Nothing was removed: " + (problem.StartsWith("the server refused", StringComparison.Ordinal)
                         ? problem : "the server did not answer") + ". Try again when it is in reach.";
             }
 
-            if (Game.IsOnlineOn && !Game.OnlineEnabled && Game.OnlineNickname != null)
-                return "There is no score server yet, so nothing is sent. " + Game.OnlinePrivacySentence;
+            if (Game.Online.IsOn && !Game.Online.Enabled && Game.Online.Nickname != null)
+                return "There is no score server yet, so nothing is sent. " + Game.Online.PrivacySentence;
 
-            return Game.OnlinePrivacySentence;
+            return Game.Online.PrivacySentence;
         }
 
         /// <summary>
@@ -512,8 +512,8 @@ namespace BS3D.Screens
         {
             _removeArmed = false;
 
-            if (Game.IsOnlineOn) Game.SetOnline(false);
-            else if (Game.OnlineNickname != null) Game.SetOnline(true);
+            if (Game.Online.IsOn) Game.Online.SetOn(false);
+            else if (Game.Online.Nickname != null) Game.Online.SetOn(true);
             else StartTyping(turnOnAfter: true);
 
             Refresh();
@@ -532,14 +532,14 @@ namespace BS3D.Screens
         /// </summary>
         private void OnRemove()
         {
-            if (Game.OnlineNickname == null || Game.OnlineRemoval == OnlineRemovalState.Removing)
+            if (Game.Online.Nickname == null || Game.Online.Removal == OnlineRemovalState.Removing)
             {
                 _removeArmed = false;
             }
             else if (_removeArmed)
             {
                 _removeArmed = false;
-                Game.RemoveOnlineScores();
+                Game.Online.RemoveScores();
             }
             else _removeArmed = true;
 
@@ -550,7 +550,7 @@ namespace BS3D.Screens
         {
             _typing = true;
             _turnOnAfterName = turnOnAfter;
-            _nameDraft = Game.OnlineNickname ?? string.Empty;
+            _nameDraft = Game.Online.Nickname ?? string.Empty;
             _typingProblem = null;
             _removeArmed = false;
 
@@ -576,8 +576,8 @@ namespace BS3D.Screens
             _turnOnAfterName = false;
             _typingProblem = null;
 
-            Game.SetNickname(name);
-            if (turnOn) Game.SetOnline(true);
+            Game.Online.SetNickname(name);
+            if (turnOn) Game.Online.SetOn(true);
 
             Refresh();
         }

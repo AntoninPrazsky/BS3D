@@ -1,5 +1,6 @@
 ﻿using BS3D.Audio;
 using BS3D.Effects;
+using BS3D.Online;
 using BS3D.Platform;
 using BS3D.Screens;
 using FontStashSharp;
@@ -302,6 +303,9 @@ namespace BS3D
         /// <summary>The About page's player of the original procedural score (#443).</summary>
         internal ProceduralJukebox Jukebox => _jukebox;
 
+        /// <summary>The online score boards (#546): what the result, board, settings and About pages read and ask of them.</summary>
+        internal OnlineSession Online => _online;
+
         /// <summary>The wall clock everything alive runs off, paused or not.</summary>
         internal float WallClock => _wallClock;
 
@@ -587,6 +591,9 @@ namespace BS3D
         /// </summary>
         private readonly GameSettings _settings;
 
+        /// <summary>The online score boards (#546, #548) — the client, the identity and what the pages read of them (#583).</summary>
+        private readonly OnlineSession _online;
+
         private const string LEVELS_DIRECTORY = "Levels";
 
         /// <summary>The set the session installs its levels from. Null when none could be read.</summary>
@@ -773,7 +780,7 @@ namespace BS3D
 
             //The online score boards (#546), as soon as the answer to "is it on" has been read. Its worker starts
             //draining an outbox left by an earlier run straight away, off this thread.
-            StartOnline();
+            _online = new OnlineSession(_settings, () => _wallClock, SaveSettings, () => _settingsPage?.Refresh());
 
             _masterVolume = _settings.MasterVolume;
             _sfxVolume = _settings.SfxVolume;
@@ -1754,8 +1761,8 @@ namespace BS3D
             EdgeInputAllowed = IsActive && _wasActive;
 
             //What the score service has answered since the last frame (#546), before the stack updates, so a page
-            //reading OnlineResult sees an answer on the frame it arrives. A queue check when nothing has.
-            UpdateOnline();
+            //reading Online.Result sees an answer on the frame it arrives. A queue check when nothing has.
+            _online.Update();
 
             //The whole frame is the stack's now: pending pushes and pops are applied, then the update walks
             //top-down until a screen freezes what is under it — which is how a pause stops the game and how

@@ -90,14 +90,14 @@ namespace BS3D.Screens
 
             bool changed = false;
 
-            if (Game.TryTakeLevelBoard(_monthTicket, out BoardReply month))
+            if (Game.Online.TryTakeLevelBoard(_monthTicket, out BoardReply month))
             {
                 _monthReply = month;
                 _monthTicket = -1;
                 changed = true;
             }
 
-            if (Game.TryTakeLevelBoard(_allTimeTicket, out BoardReply allTime))
+            if (Game.Online.TryTakeLevelBoard(_allTimeTicket, out BoardReply allTime))
             {
                 _allTimeReply = allTime;
                 _allTimeTicket = -1;
@@ -110,8 +110,8 @@ namespace BS3D.Screens
         private void Ask()
         {
             _monthReply = _allTimeReply = null;
-            _monthTicket = Game.RequestLevelBoard(_identity, allTime: false, _offset, ROWS);
-            _allTimeTicket = Game.RequestLevelBoard(_identity, allTime: true, _offset, ROWS);
+            _monthTicket = Game.Online.RequestLevelBoard(_identity, allTime: false, _offset, ROWS);
+            _allTimeTicket = Game.Online.RequestLevelBoard(_identity, allTime: true, _offset, ROWS);
             Refresh();
         }
 

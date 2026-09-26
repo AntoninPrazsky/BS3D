@@ -1043,7 +1043,7 @@ namespace BS3D.Screens
             //And to the online boards (#546), beside the save's record and with the very figures it kept — every
             //clear rather than only a new best, because the month's board ranks what was done this month. Returns
             //at once: the send is the client's worker's, and the page never waits for its answer.
-            if (cleared) Game.SubmitClear(_levelIdentity, _score.Score, stars, _clearShots, _clearSeconds);
+            if (cleared) Game.Online.SubmitClear(_levelIdentity, _score.Score, stars, _clearShots, _clearSeconds);
 
             Game.PresentResult(new LevelResult(
                 cleared: cleared,

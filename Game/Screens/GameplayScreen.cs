@@ -679,7 +679,7 @@ namespace BS3D.Screens
         /// file actually loaded and the entry's rules — computed by the same <see cref="LevelIdentity.Of(LevelSetEntry, byte[])"/>
         /// <c>Tools/ScoreSim</c>'s ceiling table is keyed by. Taken at install, from the bytes of the file that was
         /// played; null for the built-in fallback, which is on no board. A clear is submitted under it
-        /// (<c>BS3DGame.SubmitClear</c>, #546), and it is the <c>[levels] Loaded</c> line's last word, which is how
+        /// (<c>OnlineSession.SubmitClear</c>, #546), and it is the <c>[levels] Loaded</c> line's last word, which is how
         /// it is compared with the table.
         /// </summary>
         private LevelIdentity _levelIdentity;
