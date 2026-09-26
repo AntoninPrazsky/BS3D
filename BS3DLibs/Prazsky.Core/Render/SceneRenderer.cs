@@ -341,6 +341,7 @@ namespace Prazsky.Core.Render
                 if (value == _sceneDetail) return;
 
                 _sceneDetail = value;
+                _farField.SceneDetail = value;
 
                 //Selected HERE and not only in ApplyForestParameters, which runs from the constructor and on a
                 //config change and so had already run by the time a host set this — the first wiring set the
@@ -367,40 +368,13 @@ namespace Prazsky.Core.Render
         //level is loaded (issue #32), which re-pushes the effect parameters and rebuilds the scatter/particle
         //buffers the config sizes.
         private SeaSceneConfig _seaConfig = new();
-        private DesertSceneConfig _desertConfig = new();
         private SavannaSceneConfig _savannaConfig = new();
         private MountainSceneConfig _mountainConfig = new();
         private MeadowSceneConfig _meadowConfig = new();
         private ForestSceneConfig _forestConfig = new();
-        private OutbackSceneConfig _outbackConfig = new();
         private TropicalSceneConfig _tropicalConfig = new();
         private VolcanoSceneConfig _volcanoConfig = new();
         private MarsSceneConfig _marsConfig = new();
-        private PolarSceneConfig _polarConfig = new();
-
-        #region Polar
-
-        private readonly Effect _polarEffect;
-        private readonly VertexBuffer _polarVertexBuffer;
-        private readonly IndexBuffer _polarIndexBuffer;
-        private readonly int _polarIndexCount;
-
-        //The icesheet is real geometry, on the desert's terms: a camera-centred grid of this many vertices per
-        //side over this world extent, displaced in the shader and snapped to a cell so it does not swim.
-        //
-        //Finer than the desert's and over a wider extent, and both halves are this scene rather than taste. A
-        //sastrugi ridge is metres across where a dune is tens, so the cell has to be small enough to hold one;
-        //and the subject is a flat expanse, which means the horizon is further away here than in any other
-        //ground scene and the grid has to reach it or the haze has to start early enough to hide the edge.
-        private const int POLAR_GRID_N = 420;
-        private const float POLAR_EXTENT = 1200f;
-
-        //Look/tuning parameters (the sastrugi, the pressure ridge, the crevasses, the two colours, the
-        //sparkle and the transmission) live in PolarSceneConfig; SceneRenderer reads them from _polarConfig.
-
-        #endregion
-
-        private AuroraSceneConfig _auroraConfig = new();
 
         #region Sea
 
@@ -427,47 +401,12 @@ namespace Prazsky.Core.Render
 
         #endregion
 
-        #region Desert
-
-        private readonly Effect _desertEffect;
-        private readonly VertexBuffer _desertVertexBuffer;
-        private readonly IndexBuffer _desertIndexBuffer;
-        private readonly int _desertIndexCount;
-
-        //The dunes are real geometry: a camera-centred grid of this many vertices per side over this world
-        //extent, displaced in the shader and snapped to a cell so they do not swim. Finer than the old dune
-        //grid (200) so the crest silhouettes read smooth; the shading normal is per-pixel, so no grid shows.
-        private const int DESERT_GRID_N = 360;
-        private const float DESERT_EXTENT = 1000f;
-
-        //Look/tuning parameters (dune height, clearing, ripples, dust, sand colour, wind, haze) now live in
-        //DesertSceneConfig; SceneRenderer reads them from _desertConfig.
-
-        #endregion
-
-        #region Outback
-
-        private readonly Effect _outbackEffect;
-        private readonly VertexBuffer _outbackVertexBuffer;
-        private readonly IndexBuffer _outbackIndexBuffer;
-        private readonly int _outbackIndexCount;
-
-        //The monoliths are geometry, not a painted horizon, so this grid carries a silhouette rather than only
-        //a shaded surface — which is what sets the density. At 400 over 1000 the cell is 2.5 world units and a
-        //formation's flank falls its whole height over some eight of them, which the mesh can hold; the same
-        //flank on the desert's 360 grid would fall over seven. Above 255 a side, so the grid cache's 32-bit
-        //index buffer is load-bearing here (the mountain's lesson — a 16-bit one wraps silently).
-        private const int OUTBACK_GRID_N = 400;
-        private const float OUTBACK_EXTENT = 1000f;
-
-        //Look/tuning parameters (plain, monoliths, rock and ground materials, dust, shimmer) live in
-        //OutbackSceneConfig; SceneRenderer reads them from _outbackConfig.
-
-        #endregion
-
         #region Tropical
 
         private readonly Effect _tropicalEffect;
+
+        //The lagoon's own clone of Sea.fx (#580); it draws over the sea's grid (_seaVertexBuffer)
+        private readonly Effect _lagoonEffect;
         private readonly VertexBuffer _tropicalVertexBuffer;
         private readonly IndexBuffer _tropicalIndexBuffer;
         private readonly int _tropicalIndexCount;
@@ -485,7 +424,7 @@ namespace Prazsky.Core.Render
 
         //Look/tuning parameters (the beach profile, the water, the palms, the rocks) live in
         //TropicalSceneConfig; SceneRenderer reads them from _tropicalConfig. The lagoon's water is the
-        //sea's own effect and grid — see DrawTropicalWater for how the two scenes share it.
+        //sea's own shader and grid under a clone of its own (_lagoonEffect, #580) — see DrawTropicalWater.
 
         #endregion
 
@@ -936,52 +875,8 @@ namespace Prazsky.Core.Render
 
         #region Birds (savanna, desert and outback scenes)
 
-        private readonly Effect _birdsEffect;
-        private readonly BirdMesh _birdMesh;
-
-        //Cached at load: DrawBirds sets three of these PER BIRD, and the by-name indexer is a linear scan
-        //(BestPractices.md, section 1).
-        private readonly EffectParameter _birdWorldParam, _birdViewParam, _birdProjectionParam, _birdColorParam,
-            _birdSunDirectionParam, _birdSunColorParam, _birdZenithParam, _birdHorizonParam,
-            _birdFlapPhaseParam, _birdFlapAmountParam;
-
-        private float[] _birdRadius, _birdAltitude, _birdOrbitSpeed, _birdOrbitPhase, _birdBobSpeed,
-            _birdFlapPeriod, _birdFlapCyclePhase, _birdFlapBeats, _birdBurstFraction;
-
-        //The band of orbits the flock is seeded over. The lean is taken from these same two numbers, so a
-        //wide circle cannot end up leaning like a tight one however either is retuned.
-        private const float BIRD_RADIUS_MIN = 28f;
-        private const float BIRD_RADIUS_SPAN = 34f;
-
-        //How hard a bird banks, on the tightest orbit and on the widest. A circling bird MUST lean - it is
-        //half of what made the old billboard read as mechanical, since a camera-facing quad is always
-        //upright. The lean follows the turn, but it is taken from the radius rather than from the honest
-        //atan(v^2 / (g*r)): this flock deliberately circles far slower than a real kettle of vultures does
-        //(unhurried is the whole look), and at these speeds that formula asks for about four degrees on the
-        //wide orbits and seventy on the tight ones. The band below is what a soaring bird actually holds.
-        private const float BIRD_BANK_TIGHT = 0.52f;
-        private const float BIRD_BANK_WIDE = 0.26f;
-
-        //How far the lean wanders, and how fast. A bird trimming its circle is never quite settled.
-        private const float BIRD_BANK_DRIFT = 0.06f;
-        private const float BIRD_BANK_DRIFT_SPEED = 0.23f;
-
-        //The cycle a bird repeats: one burst of wingbeats, then a long glide. The burst is not rolled
-        //here — it is derived from the beat rate in SeedBirdFlock, and capped so it cannot swallow the glide.
-        private const float BIRD_CYCLE_MIN = 6.5f;
-        private const float BIRD_CYCLE_SPAN = 7f;
-        private const float BIRD_BEAT_HZ_MIN = 2.1f;
-        private const float BIRD_BEAT_HZ_SPAN = 1.1f;
-        private const float BIRD_BURST_MAX = 0.40f;
-
-        //What is left of the wingbeat while a bird glides: the wings still breathe, they are just not
-        //beating. Also the floor under the burst's envelope, so amount is continuous across both edges.
-        private const float BIRD_GLIDE_TRIM = 0.06f;
-
-        //Flock parameters (count, wingspan, bob, colour, flock centre) live in BirdsConfig, shared by the
-        //savanna, desert and outback configs; DrawBirds reads the active scene's Birds config each frame. The
-        //mesh is one shared rest pose - what makes one bird differ from another is its world matrix and its
-        //two flap uniforms - so only the per-bird state above is sized from the counts, in SeedBirdFlock.
+        //The flock and its draw, a service since #580 (Render/Scenes/BirdFlock.cs)
+        private readonly BirdFlock _birds;
 
         //One camera-facing quad, its Data carrying (u, v, a per-particle random). The campfire flame, the
         //mountain's snow and the sea's spray are drawn this way; the birds were too, until #235 made them
@@ -1025,21 +920,13 @@ namespace Prazsky.Core.Render
 
         #region Snow (shared by the mountain and the aurora)
 
-        private readonly Effect _snowEffect;
-        private VertexBuffer _snowVertexBuffer;
-        private IndexBuffer _snowIndexBuffer;
+        //The flake buffer and its draw, shared with the aurora's backdrop through BackdropServices (#580)
+        private readonly Snowfall _snowfall;
 
-        //The buffer's own true size — BuildSnowBuffers is still sized off the mountain's own FlakeCount
-        //(the mountain being where the dial lives and gets tuned), but DrawSnow now takes a SnowConfig
-        //argument so a second scene can ask for its own look without a second buffer or a second effect
-        //(#205 — the aurora's gentle snow). A caller's own FlakeCount is clamped to this, never exceeded,
-        //since drawing past the buffer's own capacity would read off the end of it.
-        private int _snowFlakeCapacity;
-
-        //Snowfall parameters (flake count/size/shape/colour/opacity, box, fall speed, wind, sway) live in
-        //each caller's own SnowConfig (MountainSceneConfig.Snow, AuroraSceneConfig.Snow) and are pushed by
-        //DrawSnow itself every frame it draws, not once at config-apply time — the shared effect's uniform
-        //slots have to reflect whichever scene is ACTUALLY being drawn, not whichever config last applied.
+        //The mountain's own clone of Snow.fx (#580), its SnowConfig's look pushed once at load; the aurora's
+        //is its backdrop's. The two used to share one effect and re-push eleven values every frame, so that
+        //the slots held whichever scene was actually being drawn.
+        private readonly Effect _mountainSnowEffect;
 
         #endregion
 
@@ -1100,6 +987,10 @@ namespace Prazsky.Core.Render
         private readonly StormBackdrop _storm;
         private readonly GridBackdrop _grid;
         private readonly MoonBackdrop _moon;
+        private readonly OutbackBackdrop _outback;
+        private readonly DesertBackdrop _desert;
+        private readonly PolarBackdrop _polar;
+        private readonly AuroraBackdrop _aurora;
 
         //The device, the full-screen quad, the supersampling factor, the seed offset, the billboard index
         //builder, the terrain grid cache and the island's hole radius, handed to every backdrop.
@@ -1118,35 +1009,6 @@ namespace Prazsky.Core.Render
         private SpriteBatch _backdropBatch;
 
         private Backdrop BackdropFor(SceneKind kind) => _backdrops[(int)kind];
-
-        #endregion
-
-        #region Aurora
-
-        //The eighteenth scene (#205), and the second in both families at once — see IsSolidTerrainScene's
-        //and ReplacesSky's own docs. A forest clearing grid like Forest.fx's under a sky-replacing pass on
-        //space's shared quad, two techniques in one effect, the Moon's own shape (DrawAurora runs the
-        //terrain first, depth-writing, then the sky quad depth-READ against it — the Moon's measured order,
-        //see MoonBackdrop.Draw's doc; the opposite interleave was an 8x blow-up there and is not being re-measured
-        //here to find out whether it still is).
-        private readonly Effect _auroraEffect;
-        private readonly VertexBuffer _auroraVertexBuffer;
-        private readonly IndexBuffer _auroraIndexBuffer;
-        private readonly int _auroraIndexCount;
-
-        private readonly EffectTechnique _auroraSkyTechnique, _auroraTerrainTechnique;
-
-        //Per-frame parameters, resolved once (BestPractices §1). SunColor/ZenithColor/HorizonColor are
-        //per-frame here (unlike Forest.fx's dome-fed copies) because they carry the aurora's own pulsing
-        //glow, not a fixed config value — see AuroraGlowColor. CameraPosition is the one uniform both
-        //techniques read (the terrain's haze term and the sky quad's ray reconstruction alike), so it is
-        //cached once and pushed once.
-        private readonly EffectParameter _auroraOriginXZ, _auroraHoleRadius, _auroraView, _auroraProjection,
-            _auroraCameraPosition, _auroraInverseViewProjection, _auroraTerrainTime, _auroraSkyTime,
-            _auroraHueShift, _auroraSunColor, _auroraZenithColor, _auroraHorizonColor, _auroraSupersample;
-
-        private const int AURORA_GRID_N = 220;
-        private const float AURORA_EXTENT = 1200f;
 
         #endregion
 
@@ -1185,47 +1047,47 @@ namespace Prazsky.Core.Render
             };
             _fullScreenQuad = new VertexBuffer(graphicsDevice, VertexPosition.VertexDeclaration, corners.Length, BufferUsage.WriteOnly);
             _fullScreenQuad.SetData(corners);
-            _services = new BackdropServices(graphicsDevice, _fullScreenQuad, seedOffset, _gridCache);
 
             //--- The far field (#551): one ring every open-ground scene draws its land over past its own grid.
-            CreateFarRingMesh();
+            _farField = new FarField(graphicsDevice);
+            _services = new BackdropServices(graphicsDevice, _fullScreenQuad, seedOffset, _gridCache, _farField);
 
             //--- Sea: a camera-centred grid displaced into Gerstner waves; DrawSea snaps it to a cell and sets
             //the mean level. Drawn CullNone (one open surface, read from above and through the crests).
-            _seaEffect = content.Load<Effect>("Shaders/Sea");
+            //Its own clone of Sea.fx (#580): the tropical lagoon draws through another, so neither can leave
+            //its water in the other's slots.
+            _seaEffect = content.Load<Effect>("Shaders/Sea").Clone();
             AcquireGridMesh(SEA_GRID_N, SEA_EXTENT, out _seaVertexBuffer, out _seaIndexBuffer, out _seaIndexCount);
 
             ApplySeaParameters();
 
-            //--- Desert: a flat lattice the shader displaces into Sahara dunes (per-pixel normal, no grid)
-            _desertEffect = content.Load<Effect>("Shaders/Desert");
-            AcquireGridMesh(DESERT_GRID_N, DESERT_EXTENT, out _desertVertexBuffer, out _desertIndexBuffer, out _desertIndexCount);
+            //--- Desert: its own Backdrop since #580 (Render/Scenes), built here where
+            //its code stood
+            _desert = new DesertBackdrop(_services, content);
+            _backdrops[(int)SceneKind.Desert] = _desert;
 
-            ApplyDesertParameters();
+            //--- Polar (#222): its own Backdrop since #580 (Render/Scenes), built here where
+            //its code stood
+            _polar = new PolarBackdrop(_services, content);
+            _backdrops[(int)SceneKind.Polar] = _polar;
 
-            //--- Polar (#222): the desert's machinery again, with the wind's other work on it — sastrugi and a
-            //crevassed pressure belt instead of dunes, and a material that is white in reflection and cyan in
-            //transmission, which is the scene rather than the terrain
-            _polarEffect = content.Load<Effect>("Shaders/Polar");
-            AcquireGridMesh(POLAR_GRID_N, POLAR_EXTENT, out _polarVertexBuffer, out _polarIndexBuffer, out _polarIndexCount);
-
-            ApplyPolarParameters();
-
-            //--- Outback (#112): the desert's machinery with rock on it — the same flat lattice, displaced into
-            //a near-flat spinifex plain with red monoliths standing on a jittered single-cell lattice
-            _outbackEffect = content.Load<Effect>("Shaders/Outback");
-            AcquireGridMesh(OUTBACK_GRID_N, OUTBACK_EXTENT, out _outbackVertexBuffer, out _outbackIndexBuffer, out _outbackIndexCount);
-
-            ApplyOutbackParameters();
+            //--- Outback (#112): its own Backdrop since #580 (Render/Scenes), built here where
+            //its code stood
+            _outback = new OutbackBackdrop(_services, content);
+            _backdrops[(int)SceneKind.Outback] = _outback;
 
             //--- Tropical (#244): the fourteenth scene — a beach ring around the island, a turquoise lagoon
             //and the green far shore that closes the horizon. The land grid is the desert's density (the
-            //gentlest slopes of any terrain scene); the lagoon's water is the sea's own effect and grid,
-            //drawn over this terrain by DrawTropicalWater below.
+            //gentlest slopes of any terrain scene); the lagoon's water is the sea's own shader and grid,
+            //drawn over this terrain by DrawTropicalWater below through a clone of its own (#580).
             _tropicalEffect = content.Load<Effect>("Shaders/Tropical");
             AcquireGridMesh(TROPICAL_GRID_N, TROPICAL_EXTENT, out _tropicalVertexBuffer, out _tropicalIndexBuffer, out _tropicalIndexCount);
 
             ApplyTropicalParameters();
+
+            //The lagoon: the sea's grid under its own clone of Sea.fx (#580), its water pushed once
+            _lagoonEffect = content.Load<Effect>("Shaders/Sea").Clone();
+            ApplyLagoonParameters();
 
             //--- Palms and the waterline's mossy rocks: instanced procedural geometry on the acacia's path
             //(#202), shaded by Palm.fx — the acacia's sun-and-dome lighting with the palm's own sway.
@@ -1343,22 +1205,13 @@ namespace Prazsky.Core.Render
             //the first SparkCount of them with its own position and clock.
             BuildBillboardParticles(MAX_SPARKS, 4680, ref _sparkVertexBuffer, ref _sparkIndexBuffer);
 
-            //--- Birds: one shared rest-pose mesh, and each bird's orbit and flap cycle seeded once
-            _birdsEffect = content.Load<Effect>("Shaders/Birds");
-            _birdMesh = new BirdMesh(graphicsDevice);
-
-            _birdWorldParam = _birdsEffect.Parameters["World"];
-            _birdViewParam = _birdsEffect.Parameters["View"];
-            _birdProjectionParam = _birdsEffect.Parameters["Projection"];
-            _birdColorParam = _birdsEffect.Parameters["BirdColor"];
-            _birdSunDirectionParam = _birdsEffect.Parameters["SunDirection"];
-            _birdSunColorParam = _birdsEffect.Parameters["SunColor"];
-            _birdZenithParam = _birdsEffect.Parameters["ZenithColor"];
-            _birdHorizonParam = _birdsEffect.Parameters["HorizonColor"];
-            _birdFlapPhaseParam = _birdsEffect.Parameters["FlapPhase"];
-            _birdFlapAmountParam = _birdsEffect.Parameters["FlapAmount"];
-
-            SeedBirdFlock();
+            //--- Birds: one shared rest-pose mesh, each bird's orbit and flap cycle seeded once, and a
+            //service since #580 (BirdFlock). Sized to the largest flock any of the four scenes asks for:
+            //the scenes share it, and a smaller one would silently cap the others'.
+            _birds = new BirdFlock(graphicsDevice, content,
+                Math.Max(Math.Max(_savannaConfig.Birds.Count, _desert.Birds.Count),
+                    Math.Max(_outback.Birds.Count, _tropicalConfig.Birds.Count)));
+            _services.Birds = _birds;
 
             //--- Mountain: a ridged displaced grid
             _mountainEffect = content.Load<Effect>("Shaders/Mountain");
@@ -1367,11 +1220,16 @@ namespace Prazsky.Core.Render
             ApplyMountainParameters();
 
             //--- Snow: a static flake buffer, one quad per flake at a fixed point in the unit cube, animated
-            //entirely in the shader (so it is only rebuilt when a mountain config is applied, never per
-            //frame) — shared by the mountain and the aurora since #205; see DrawSnow's own doc for why its
-            //look uniforms are pushed there, per frame, rather than here.
-            _snowEffect = content.Load<Effect>("Shaders/Snow");
-            BuildSnowBuffers();
+            //entirely in the shader (built once, never per frame) — shared by the mountain and the aurora
+            //since #205, and a service (Snowfall) since #580 so the aurora's backdrop can reach it. The
+            //effect is not shared: each scene draws through its own clone, its look pushed once at load.
+            _mountainSnowEffect = content.Load<Effect>("Shaders/Snow").Clone();
+            Snowfall.ApplyParameters(_mountainSnowEffect, _mountainConfig.Snow);
+            VertexBuffer snowVertices = null;
+            IndexBuffer snowIndices = null;
+            BuildBillboardParticles(_mountainConfig.Snow.FlakeCount, 1207, ref snowVertices, ref snowIndices);
+            _snowfall = new Snowfall(_graphicsDevice, snowVertices, snowIndices, _mountainConfig.Snow.FlakeCount);
+            _services.Snowfall = _snowfall;
 
             //--- Spray: a static billboard buffer for the sea's blown spray and spindrift, animated entirely
             //in the shader like the snow. Same position+data billboard vertex.
@@ -1407,30 +1265,10 @@ namespace Prazsky.Core.Render
             _moon = new MoonBackdrop(_services, content);
             _backdrops[(int)SceneKind.Moon] = _moon;
 
-            //--- Aurora (#205): the eighteenth scene, the second in both families at once — a forest
-            //clearing grid like Forest.fx's under a sky-replacing star-and-ribbon pass on space's quad, two
-            //techniques in one effect, exactly the Moon's own shape (see the region doc above it).
-            _auroraEffect = content.Load<Effect>("Shaders/Aurora");
-            AcquireGridMesh(AURORA_GRID_N, AURORA_EXTENT, out _auroraVertexBuffer, out _auroraIndexBuffer, out _auroraIndexCount);
-
-            _auroraTerrainTechnique = _auroraEffect.Techniques["AuroraTerrain"];
-            _auroraSkyTechnique = _auroraEffect.Techniques["AuroraSky"];
-
-            _auroraOriginXZ = _auroraEffect.Parameters["OriginXZ"];
-            _auroraHoleRadius = _auroraEffect.Parameters["IslandHoleRadius"];
-            _auroraView = _auroraEffect.Parameters["View"];
-            _auroraProjection = _auroraEffect.Parameters["Projection"];
-            _auroraCameraPosition = _auroraEffect.Parameters["CameraPosition"];
-            _auroraInverseViewProjection = _auroraEffect.Parameters["InverseViewProjection"];
-            _auroraTerrainTime = _auroraEffect.Parameters["AuroraTerrainTime"];
-            _auroraSkyTime = _auroraEffect.Parameters["AuroraSkyTime"];
-            _auroraHueShift = _auroraEffect.Parameters["AuroraHueShift"];
-            _auroraSunColor = _auroraEffect.Parameters["SunColor"];
-            _auroraZenithColor = _auroraEffect.Parameters["ZenithColor"];
-            _auroraHorizonColor = _auroraEffect.Parameters["HorizonColor"];
-            _auroraSupersample = _auroraEffect.Parameters["SupersampleFactor"];
-
-            ApplyAuroraParameters();
+            //--- Aurora (#205): the eighteenth scene, its own Backdrop since #580 (Render/Scenes), built here
+            //where its code stood
+            _aurora = new AuroraBackdrop(_services, content);
+            _backdrops[(int)SceneKind.Aurora] = _aurora;
 
             //--- Grid (#393): the twentieth scene, its own Backdrop since #580 (Render/Scenes), built here where
             //its code stood
@@ -1451,7 +1289,9 @@ namespace Prazsky.Core.Render
         /// shadow however loudly its config asks for one, and a shader that includes the header but is not
         /// listed reads an unbound texture at whatever strength was last pushed to it. The shared instanced
         /// effect is deliberately not here — it is the caller's, and registers itself on the first frame it
-        /// is handed in.
+        /// is handed in. A backdrop's receivers are its own to state (<see cref="Backdrop.ShadowReceivers"/>,
+        /// #580) and are added to this list, so the inventory is the renderer's remaining scenes plus the union
+        /// of the backdrops'.
         /// </para>
         /// <para>
         /// Sea and Storm are absent on purpose. The storm draws no ground at all (<c>StormClouds.fx</c> is the
@@ -1463,18 +1303,22 @@ namespace Prazsky.Core.Render
         /// </summary>
         private void RegisterShadowReceivers()
         {
-            Effect[] effects =
+            List<Effect> effects = new()
             {
                 _savannaEffect, _acaciaEffect,       //#469's two: the plain and what stands on it
                 _meadowEffect,                       //#471, and the first chapter plays here
                 _forestEffect,                       //its floor; the trees receive through the shared effect
-                _mountainEffect, _desertEffect, _outbackEffect,
+                _mountainEffect,
                 _tropicalEffect, _palmEffect,        //the sand and the palms standing on it
-                _volcanoEffect, _marsEffect, _polarEffect
+                _volcanoEffect, _marsEffect
             };
 
-            _shadowReceivers = new ShadowReceiver[effects.Length];
-            for (int i = 0; i < effects.Length; i++)
+            //...and every backdrop's own, stated beside its fit (#580)
+            foreach (Backdrop backdrop in _backdrops)
+                if (backdrop != null) effects.AddRange(backdrop.ShadowReceivers);
+
+            _shadowReceivers = new ShadowReceiver[effects.Count];
+            for (int i = 0; i < effects.Count; i++)
             {
                 _shadowReceivers[i] = new ShadowReceiver(effects[i]);
                 _shadowReceivers[i].Disable();
@@ -1605,29 +1449,8 @@ namespace Prazsky.Core.Render
         {
             if (BackdropFor(kind) is { } backdrop) return backdrop.TryGetLightRig(wallClock, out rig);
 
-            switch (kind)
-            {
-                //The aurora's takes the COLOUR of its sky (#462, the owner: "the glow should reflect its
-                //light's colour onto the cannon and the island") but not its breathing — see
-                //AuroraLightingConfig's class doc for why a gun that pulses with the sky reads as a fault. The
-                //hue is the slow drift's (a cycle of minutes), stepped rather than continuous so a host re-lights
-                //its renderers about once a second at most instead of every frame — see AnimatesLightRig.
-                case SceneKind.Aurora:
-                    AuroraLightingConfig auroraLighting = _auroraConfig.Lighting;
-                    float steppedMix = MathF.Round(AuroraLightMix(wallClock) * AURORA_RIG_STEPS) / AURORA_RIG_STEPS;
-                    Vector3 hue = Vector3.Lerp(_auroraConfig.Aurora.ColorLow.ToVector3(),
-                        _auroraConfig.Aurora.ColorHigh.ToVector3(), steppedMix);
-                    rig = new SceneLightRig(
-                        TowardsHue(auroraLighting.SkyAmbient.ToVector3(), hue, auroraLighting.GlowTint),
-                        TowardsHue(auroraLighting.GroundAmbient.ToVector3(), hue, auroraLighting.GlowTint * 0.5f),
-                        TowardsHue(auroraLighting.KeyTint.ToVector3(), hue, auroraLighting.GlowTint),
-                        auroraLighting.BackTint.ToVector3());
-                    return true;
-
-                default:
-                    rig = default;
-                    return false;
-            }
+            rig = default;
+            return false;
         }
 
         /// <summary>
@@ -1691,12 +1514,6 @@ namespace Prazsky.Core.Render
                     viewpoint = new SceneViewpoint(SavannaCampfirePosition(0), 1.7f, 11f, 35f, "the campfire");
                     return true;
 
-                //The dune skyline, from low down: dunes read as dunes on the horizon, where one crest stands
-                //against the next. From above they are a texture.
-                case SceneKind.Desert:
-                    viewpoint = new SceneViewpoint(AtBearing(bearing, 360f, _desertConfig.LevelY + 10f), 2.2f, 8f, 0f, "the dunes");
-                    return true;
-
                 //Up at the range, from the furthest stand in the table: the peaks are the only subject here
                 //that is genuinely tall, and the one shot that is wrong for them is a close one.
                 case SceneKind.Mountain:
@@ -1736,13 +1553,6 @@ namespace Prazsky.Core.Render
                         1.7f, 10f, 0f, "the tree line");
                     return true;
 
-                //The monoliths. They stand alone on a flat plain with nothing between them, which is exactly
-                //the arrangement a low three-quarter look reads and an overhead one destroys.
-                case SceneKind.Outback:
-                    viewpoint = new SceneViewpoint(AtBearing(bearing, 330f, _outbackConfig.Terrain.LevelY + 30f),
-                        2.3f, 12f, 20f, "the monoliths");
-                    return true;
-
                 //Out over the lagoon to the far shore's ring: the tropical scene is three bands — sand,
                 //turquoise water, green shore — and a look across all three is what it is.
                 //
@@ -1771,30 +1581,6 @@ namespace Prazsky.Core.Render
                     viewpoint = new SceneViewpoint(
                         DirectionFromElevationAzimuth(_marsConfig.Moons.PhobosElevation, _marsConfig.Moons.PhobosAzimuth) * 700f,
                         1.9f, 16f, 180f, "Phobos");
-                    return true;
-
-                //The pressure ridge, from low down and a long way out. On a flat white plain the ridge is the
-                //only thing with a silhouette, and the only thing a camera can read distance against - the
-                //desert's dune-skyline argument on a scene that has even less to look at. Low, because from
-                //above an icesheet is a sheet of paper.
-                case SceneKind.Polar:
-                    viewpoint = new SceneViewpoint(
-                        AtBearing(bearing, _polarConfig.RidgeRadius, _polarConfig.LevelY + _polarConfig.RidgeHeight * 0.6f),
-                        2.3f, 7f, 0f, "the pressure ridge");
-                    return true;
-
-                //The aurora over the TREELINE, not overhead (#531): the point stood 260 units up until then,
-                //which from a stand 10° up tilted the opening at the zenith — "looks far too high up at the
-                //start", the owner's verdict on #462. It stands a little over the hills' canopy now, out past
-                //the clearing, so the shot looks along the ragged line of spruce tips with the curtains over
-                //it. ⚠ In the Game this stand is no longer flown at all: since #531 the aurora opens on a
-                //prologue of its own shots and the tour flies only its last leg after one (ChapterIntro), so
-                //what this states is the scene's viewpoint for any caller without a prologue.
-                case SceneKind.Aurora:
-                    viewpoint = new SceneViewpoint(
-                        AtBearing(bearing, _auroraConfig.Terrain.ClearingRadius + 60f,
-                            _auroraConfig.Terrain.LevelY + _auroraConfig.Terrain.HillHeight + 30f),
-                        1.9f, 10f, 0f, "the aurora");
                     return true;
 
                 default:
@@ -1854,17 +1640,13 @@ namespace Prazsky.Core.Render
         public SceneConfig GetSceneConfig(SceneKind kind) => BackdropFor(kind)?.Config ?? kind switch
         {
             SceneKind.Sea => _seaConfig,
-            SceneKind.Desert => _desertConfig,
             SceneKind.Savanna => _savannaConfig,
             SceneKind.Mountain => _mountainConfig,
             SceneKind.Meadow => _meadowConfig,
             SceneKind.Forest => _forestConfig,
-            SceneKind.Outback => _outbackConfig,
             SceneKind.Tropical => _tropicalConfig,
             SceneKind.Volcano => _volcanoConfig,
             SceneKind.Mars => _marsConfig,
-            SceneKind.Polar => _polarConfig,
-            SceneKind.Aurora => _auroraConfig,
             _ => null,
         };
 
@@ -1895,111 +1677,43 @@ namespace Prazsky.Core.Render
             _seaEffect.Parameters["HorizonHazeDistance"].SetValue(_seaConfig.HorizonHazeDistance);
         }
 
-        private void ApplyDesertParameters()
+        /// <summary>
+        /// Pushes the tropical lagoon's water into its own clone of <c>Sea.fx</c>, once at load (#580) — the
+        /// same set <see cref="ApplySeaParameters"/> pushes into the sea's, off <see cref="TropicalWaterConfig"/>.
+        /// </summary>
+        private void ApplyLagoonParameters()
         {
-            _desertEffect.Parameters["DesertLevelY"].SetValue(_desertConfig.LevelY);
-            _desertEffect.Parameters["DuneAmplitude"].SetValue(_desertConfig.DuneAmplitude);
-            _desertEffect.Parameters["ClearingRadius"].SetValue(_desertConfig.ClearingRadius);
-            _desertEffect.Parameters["ClearingTransition"].SetValue(_desertConfig.ClearingTransition);
-            _desertEffect.Parameters["RippleAmplitude"].SetValue(_desertConfig.RippleAmplitude);
-            _desertEffect.Parameters["RippleFrequency"].SetValue(_desertConfig.RippleFrequency);
-            _desertEffect.Parameters["DustStrength"].SetValue(_desertConfig.DustStrength);
-            _desertEffect.Parameters["DustSpeed"].SetValue(_desertConfig.DustSpeed);
-            _desertEffect.Parameters["DustStart"].SetValue(_desertConfig.DustStart);
-            _desertEffect.Parameters["SandColor"].SetValue(_desertConfig.SandColor.ToVector3());
-            _desertEffect.Parameters["SandColorPale"].SetValue(_desertConfig.SandColorPale.ToVector3());
-            _desertEffect.Parameters["SheenStrength"].SetValue(_desertConfig.SheenStrength);
-            _desertEffect.Parameters["AmbientStrength"].SetValue(_desertConfig.AmbientStrength);
-            _desertEffect.Parameters["SandBounce"].SetValue(_desertConfig.SandBounce);
-            _desertEffect.Parameters["HazeWarmth"].SetValue(_desertConfig.HazeWarmth);
-            _desertEffect.Parameters["WindDirection"].SetValue(_desertConfig.Wind.ToVector2());
-            _desertEffect.Parameters["HorizonHazeDistance"].SetValue(_desertConfig.HorizonHazeDistance);
-        }
+            TropicalWaterConfig water = _tropicalConfig.Water;
 
-        private void ApplyPolarParameters()
-        {
-            _polarEffect.Parameters["PolarLevelY"].SetValue(_polarConfig.LevelY);
-            _polarEffect.Parameters["DriftAmplitude"].SetValue(_polarConfig.DriftAmplitude);
-            _polarEffect.Parameters["DriftFrequency"].SetValue(_polarConfig.DriftFrequency);
-            _polarEffect.Parameters["DriftStretch"].SetValue(_polarConfig.DriftStretch);
-            _polarEffect.Parameters["SwellAmplitude"].SetValue(_polarConfig.SwellAmplitude);
-            _polarEffect.Parameters["ClearingRadius"].SetValue(_polarConfig.ClearingRadius);
-            _polarEffect.Parameters["ClearingTransition"].SetValue(_polarConfig.ClearingTransition);
-            _polarEffect.Parameters["RidgeRadius"].SetValue(_polarConfig.RidgeRadius);
-            _polarEffect.Parameters["RidgeWidth"].SetValue(_polarConfig.RidgeWidth);
-            _polarEffect.Parameters["RidgeHeight"].SetValue(_polarConfig.RidgeHeight);
-            _polarEffect.Parameters["RidgeBearing"].SetValue(MathHelper.ToRadians(_polarConfig.RidgeBearingDegrees));
-            _polarEffect.Parameters["RidgeSpan"].SetValue(MathHelper.ToRadians(_polarConfig.RidgeSpanDegrees));
-            _polarEffect.Parameters["CrevasseDepth"].SetValue(_polarConfig.CrevasseDepth);
-            _polarEffect.Parameters["CrevasseFrequency"].SetValue(_polarConfig.CrevasseFrequency);
-            _polarEffect.Parameters["CrevasseSharpness"].SetValue(_polarConfig.CrevasseSharpness);
-            _polarEffect.Parameters["CrevasseDarkening"].SetValue(_polarConfig.CrevasseDarkening);
-            _polarEffect.Parameters["BlueIceThreshold"].SetValue(_polarConfig.BlueIceThreshold);
-            _polarEffect.Parameters["SlabSize"].SetValue(_polarConfig.SlabSize);
-            _polarEffect.Parameters["SlabTilt"].SetValue(_polarConfig.SlabTilt);
-            _polarEffect.Parameters["SnowColor"].SetValue(_polarConfig.SnowColor.ToVector3());
-            _polarEffect.Parameters["IceColor"].SetValue(_polarConfig.IceColor.ToVector3());
-            _polarEffect.Parameters["AmbientStrength"].SetValue(_polarConfig.AmbientStrength);
-            _polarEffect.Parameters["SheenStrength"].SetValue(_polarConfig.SheenStrength);
-            _polarEffect.Parameters["SparkleStrength"].SetValue(_polarConfig.SparkleStrength);
-            _polarEffect.Parameters["TransmissionStrength"].SetValue(_polarConfig.TransmissionStrength);
-            _polarEffect.Parameters["WindDirection"].SetValue(_polarConfig.Wind.ToVector2());
-            _polarEffect.Parameters["HorizonHazeDistance"].SetValue(_polarConfig.HorizonHazeDistance);
-        }
-
-        private void ApplyOutbackParameters()
-        {
-            OutbackTerrainConfig terrain = _outbackConfig.Terrain;
-            OutbackSurfaceConfig surface = _outbackConfig.Surface;
-            OutbackAirConfig air = _outbackConfig.Air;
-
-            _outbackEffect.Parameters["OutbackLevelY"].SetValue(terrain.LevelY);
-            _outbackEffect.Parameters["PlainRelief"].SetValue(terrain.PlainRelief);
-            _outbackEffect.Parameters["ClearingRadius"].SetValue(terrain.ClearingRadius);
-            _outbackEffect.Parameters["ClearingTransition"].SetValue(terrain.ClearingTransition);
-
-            //The spacings divide a world position in the shader, so a zero would take the whole terrain with it
-            //(a NaN height field is a mesh that vanishes, and the property grid is one keystroke from a zero).
-            _outbackEffect.Parameters["RockSpacing"].SetValue(MathF.Max(terrain.RockSpacing, 1f));
-            _outbackEffect.Parameters["RockChance"].SetValue(terrain.RockChance);
-            _outbackEffect.Parameters["RockHeight"].SetValue(terrain.RockHeight);
-            _outbackEffect.Parameters["OutcropSpacing"].SetValue(MathF.Max(terrain.OutcropSpacing, 1f));
-            _outbackEffect.Parameters["OutcropChance"].SetValue(terrain.OutcropChance);
-            _outbackEffect.Parameters["OutcropHeight"].SetValue(terrain.OutcropHeight);
-
-            _outbackEffect.Parameters["RockColorDeep"].SetValue(surface.RockColorDeep.ToVector3());
-            _outbackEffect.Parameters["RockColorBright"].SetValue(surface.RockColorBright.ToVector3());
-            _outbackEffect.Parameters["VarnishColor"].SetValue(surface.VarnishColor.ToVector3());
-            _outbackEffect.Parameters["VarnishStrength"].SetValue(surface.VarnishStrength);
-            _outbackEffect.Parameters["VarnishGloss"].SetValue(surface.VarnishGloss);
-            _outbackEffect.Parameters["FlakeColor"].SetValue(surface.FlakeColor.ToVector3());
-            _outbackEffect.Parameters["FlakeStrength"].SetValue(surface.FlakeStrength);
-            _outbackEffect.Parameters["CaveShade"].SetValue(surface.CaveShade);
-            _outbackEffect.Parameters["RibCount"].SetValue(surface.RibCount);
-            _outbackEffect.Parameters["RibDepth"].SetValue(surface.RibDepth);
-            _outbackEffect.Parameters["RockRelief"].SetValue(surface.RockRelief);
-            _outbackEffect.Parameters["SoilColor"].SetValue(surface.SoilColor.ToVector3());
-            _outbackEffect.Parameters["SoilColorPale"].SetValue(surface.SoilColorPale.ToVector3());
-            _outbackEffect.Parameters["SpinifexColor"].SetValue(surface.SpinifexColor.ToVector3());
-            _outbackEffect.Parameters["SpinifexSpacing"].SetValue(MathF.Max(surface.SpinifexSpacing, 0.05f));
-            _outbackEffect.Parameters["SpinifexCover"].SetValue(surface.SpinifexCover);
-            _outbackEffect.Parameters["SpinifexRelief"].SetValue(surface.SpinifexRelief);
-            _outbackEffect.Parameters["AmbientStrength"].SetValue(surface.AmbientStrength);
-            _outbackEffect.Parameters["SoilBounce"].SetValue(surface.SoilBounce);
-
-            _outbackEffect.Parameters["HazeTint"].SetValue(air.HazeTint.ToVector3());
-            _outbackEffect.Parameters["DustStrength"].SetValue(air.DustStrength);
-            _outbackEffect.Parameters["HorizonHazeDistance"].SetValue(air.HorizonHazeDistance);
-            _outbackEffect.Parameters["HazeWarmth"].SetValue(air.HazeWarmth);
-            _outbackEffect.Parameters["HeatShimmer"].SetValue(air.HeatShimmer);
-            _outbackEffect.Parameters["WindDirection"].SetValue(air.Wind.ToVector2());
+            _lagoonEffect.Parameters["SeaLevelY"].SetValue(water.LevelY);
+            _lagoonEffect.Parameters["WaterColorDeep"].SetValue(water.WaterDeep.ToVector3());
+            _lagoonEffect.Parameters["WaterColorShallow"].SetValue(water.WaterShallow.ToVector3());
+            _lagoonEffect.Parameters["ShallowBias"].SetValue(water.ShallowBias);
+            _lagoonEffect.Parameters["WaveAmplitude"].SetValue(water.WaveAmplitude);
+            _lagoonEffect.Parameters["WaveSteepness"].SetValue(water.WaveSteepness);
+            _lagoonEffect.Parameters["WaveSpeed"].SetValue(water.WaveSpeed);
+            _lagoonEffect.Parameters["WaveFadeStart"].SetValue(water.WaveFadeStart);
+            _lagoonEffect.Parameters["WaveFadeEnd"].SetValue(water.WaveFadeEnd);
+            _lagoonEffect.Parameters["ChopAmplitude"].SetValue(water.ChopAmplitude);
+            _lagoonEffect.Parameters["ChopFrequency"].SetValue(water.ChopFrequency);
+            _lagoonEffect.Parameters["ChopSpeed"].SetValue(water.ChopSpeed);
+            _lagoonEffect.Parameters["WindDirection"].SetValue(water.Wind.ToVector2());
+            _lagoonEffect.Parameters["SunGlintStrength"].SetValue(water.SunGlintStrength);
+            _lagoonEffect.Parameters["SunGlintPower"].SetValue(water.SunGlintPower);
+            _lagoonEffect.Parameters["FoamJacobianThreshold"].SetValue(water.FoamJacobianThreshold);
+            _lagoonEffect.Parameters["FoamStrength"].SetValue(water.FoamStrength);
+            _lagoonEffect.Parameters["FoamCrestStart"].SetValue(water.FoamCrestStart);
+            _lagoonEffect.Parameters["FoamCrestStrength"].SetValue(water.FoamCrestStrength);
+            _lagoonEffect.Parameters["FoamColor"].SetValue(water.FoamColor.ToVector3());
+            _lagoonEffect.Parameters["SssStrength"].SetValue(water.SssStrength);
+            _lagoonEffect.Parameters["SssColor"].SetValue(water.SssColor.ToVector3());
+            _lagoonEffect.Parameters["HorizonHazeDistance"].SetValue(water.HorizonHazeDistance);
         }
 
         /// <summary>
         /// Pushes the tropical terrain's static tuning into <c>Tropical.fx</c> and stores the scatter's
-        /// per-draw colours. The lagoon's water uniforms are deliberately NOT touched here — the sea
-        /// effect belongs to whichever water draw ran last, and each of the two pushes its whole set
-        /// per frame (see <see cref="DrawTropicalWater"/>).
+        /// per-draw colours. The lagoon's water uniforms are <see cref="ApplyLagoonParameters"/>'s, pushed
+        /// into the lagoon's own clone of <c>Sea.fx</c> (#580).
         /// </summary>
         private void ApplyTropicalParameters()
         {
@@ -3169,13 +2883,13 @@ namespace Prazsky.Core.Render
             _storm.Cell(index, time, out radius, out height);
 
         /// <summary>The icesheet's height at a world point, for a lens path over it: <see cref="TerrainMirror.Polar"/> on the live config.</summary>
-        public float PolarGroundHeight(float x, float z) => TerrainMirror.Polar(x, z, _polarConfig);
+        public float PolarGroundHeight(float x, float z) => _polar.GroundHeight(x, z);
 
         /// <summary>How deep into a crevasse slot a point stands, 0–1: <see cref="TerrainMirror.PolarCrevasse(float, float, PolarSceneConfig)"/> on the live config.</summary>
-        public float PolarCrevasse(float x, float z) => TerrainMirror.PolarCrevasse(x, z, _polarConfig);
+        public float PolarCrevasse(float x, float z) => _polar.Crevasse(x, z);
 
         /// <summary>How much of the pressure front stands at a point, 0–1: <see cref="TerrainMirror.PolarRidge(float, float, PolarSceneConfig)"/> on the live config.</summary>
-        public float PolarRidgeAt(float x, float z) => TerrainMirror.PolarRidge(x, z, _polarConfig);
+        public float PolarRidgeAt(float x, float z) => _polar.RidgeAt(x, z);
 
         #endregion
 
@@ -3187,17 +2901,15 @@ namespace Prazsky.Core.Render
         /// </summary>
         public bool TryGetTerrainProbe(SceneKind scene, out Effect effect, out Func<float, float, float> mirror)
         {
+            if (BackdropFor(scene) is { } backdrop) return backdrop.TryGetTerrainProbe(out effect, out mirror);
+
             (effect, mirror) = scene switch
             {
-                SceneKind.Desert => (_desertEffect, (x, z) => TerrainMirror.Desert(x, z, _desertConfig)),
                 SceneKind.Mountain => (_mountainEffect, (x, z) => TerrainMirror.Mountain(x, z, _mountainConfig)),
-                SceneKind.Outback => (_outbackEffect, (x, z) => TerrainMirror.Outback(x, z, _outbackConfig)),
-                SceneKind.Polar => (_polarEffect, (x, z) => TerrainMirror.Polar(x, z, _polarConfig)),
                 SceneKind.Savanna => (_savannaEffect, (x, z) => TerrainMirror.Savanna(x, z, _savannaConfig)),
                 SceneKind.Tropical => (_tropicalEffect, (x, z) => TerrainMirror.Tropical(x, z, _tropicalConfig)),
                 SceneKind.Meadow => (_meadowEffect, (x, z) => TerrainMirror.Meadow(x, z, _meadowConfig)),
                 SceneKind.Forest => (_forestEffect, (x, z) => TerrainMirror.Forest(x, z, _forestConfig)),
-                SceneKind.Aurora => (_auroraEffect, (x, z) => TerrainMirror.Forest(x, z, _auroraConfig.Terrain)),
                 SceneKind.Volcano => (_volcanoEffect, (x, z) => TerrainMirror.Volcano(x, z, _volcanoConfig)),
                 _ => ((Effect)null, (Func<float, float, float>)null),
             };
@@ -3427,63 +3139,6 @@ namespace Prazsky.Core.Render
 
         #endregion
 
-        /// <summary>
-        /// (Re)seeds the shared bird flock: each bird's orbit and drift, and the cycle of wingbeat bursts and
-        /// glides it flies. The savanna, desert, outback and tropical scenes share it, so it is sized to the
-        /// largest of the four configs' counts — otherwise a desert level's flock would be silently capped to
-        /// the savanna's count (and so on, since no scene rebuilds on a NumPad2 switch). <see cref="DrawBirds"/>
-        /// caps its draw to the active scene's count; colour, size and centre are read per frame from that
-        /// scene's Birds config. Deterministic seed, so the flock is the same every run.
-        /// <para>
-        /// There is no geometry here any more: <see cref="BirdMesh"/> is one rest pose shared by every bird
-        /// and does not depend on the count, so it is built once alongside the effect.
-        /// </para>
-        /// </summary>
-        private void SeedBirdFlock()
-        {
-            int birdCount = Math.Max(Math.Max(_savannaConfig.Birds.Count, _desertConfig.Birds.Count),
-                Math.Max(_outbackConfig.Birds.Count, _tropicalConfig.Birds.Count));
-
-            _birdRadius = new float[birdCount];
-            _birdAltitude = new float[birdCount];
-            _birdOrbitSpeed = new float[birdCount];
-            _birdOrbitPhase = new float[birdCount];
-            _birdBobSpeed = new float[birdCount];
-            _birdFlapPeriod = new float[birdCount];
-            _birdFlapCyclePhase = new float[birdCount];
-            _birdFlapBeats = new float[birdCount];
-            _birdBurstFraction = new float[birdCount];
-
-            //Deterministic, so the flock is the same every run. All circle the same way, like a kettle of
-            //vultures riding one thermal, each at its own radius, height and unhurried pace.
-            Random birdRng = new(4242);
-            for (int i = 0; i < birdCount; i++)
-            {
-                _birdRadius[i] = BIRD_RADIUS_MIN + (float)birdRng.NextDouble() * BIRD_RADIUS_SPAN;
-                _birdAltitude[i] = (float)(birdRng.NextDouble() * 2.0 - 1.0) * 10f;
-                _birdOrbitSpeed[i] = 0.10f + (float)birdRng.NextDouble() * 0.12f;
-                _birdOrbitPhase[i] = (float)birdRng.NextDouble() * MathHelper.TwoPi;
-                _birdBobSpeed[i] = 0.4f + (float)birdRng.NextDouble() * 0.5f;
-
-                //A soaring bird GLIDES most of the time and beats its wings in short bursts. The old flock
-                //beat at a fixed rate for ever, which is the other half of what read as mechanical: a
-                //metronome that never rests and never hurries. Each bird gets its own long cycle and a WHOLE
-                //number of beats to spend in it — whole, so a burst begins and ends with the stroke at its
-                //neutral point and the wings can be handed back to the glide without a step.
-                //
-                //⚠ The burst's LENGTH is DERIVED from the two things that actually read — how many beats it
-                //is, and how fast this bird beats. Rolling it on its own instead let a two-beat burst spread
-                //across a long window and come out at 0.8 Hz, which reads as slow motion rather than as a
-                //bird; a soaring bird beats about two to three times a second.
-                _birdFlapBeats[i] = 2 + birdRng.Next(4);
-                _birdFlapPeriod[i] = BIRD_CYCLE_MIN + (float)birdRng.NextDouble() * BIRD_CYCLE_SPAN;
-                _birdFlapCyclePhase[i] = (float)birdRng.NextDouble();
-
-                float beatRate = BIRD_BEAT_HZ_MIN + (float)birdRng.NextDouble() * BIRD_BEAT_HZ_SPAN;
-                _birdBurstFraction[i] = MathF.Min(_birdFlapBeats[i] / (beatRate * _birdFlapPeriod[i]), BIRD_BURST_MAX);
-            }
-        }
-
         private void ApplyMountainParameters()
         {
             _mountainEffect.Parameters["MountainLevelY"].SetValue(_mountainConfig.LevelY);
@@ -3505,14 +3160,6 @@ namespace Prazsky.Core.Render
             _mountainEffect.Parameters["FluteSnow"].SetValue(_mountainConfig.FluteSnow);
             _mountainEffect.Parameters["AlpenglowLow"].SetValue(_mountainConfig.AlpenglowLow);
             _mountainEffect.Parameters["AlpenglowHigh"].SetValue(MathF.Max(_mountainConfig.AlpenglowHigh, _mountainConfig.AlpenglowLow + 1f));
-        }
-
-        /// <summary>(Re)builds the snowfall's flake buffer at the config's flake count. Deterministic seed.</summary>
-        private void BuildSnowBuffers()
-        {
-            BuildBillboardParticles(_mountainConfig.Snow.FlakeCount, 1207, ref _snowVertexBuffer, ref _snowIndexBuffer);
-
-            _snowFlakeCapacity = _mountainConfig.Snow.FlakeCount;
         }
 
         private void ApplySprayParameters()
@@ -3691,68 +3338,6 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// Pushes everything about the aurora scene that is fixed for as long as the config is — the ground
-        /// shape (Forest.fx's own clearing-and-hills uniforms, off <c>_auroraConfig.Terrain</c>), the ribbon
-        /// look and the star lattice. Not pushed here: <c>SunColor</c>/<c>ZenithColor</c>/<c>HorizonColor</c>
-        /// and both time uniforms, which carry the aurora's own pulse and so go out every frame in
-        /// <see cref="DrawAurora"/> instead — the same split <c>MoonBackdrop.ApplyMoonParameters</c> makes between
-        /// its fixed terrain figures and the per-frame camera/time ones.
-        /// </summary>
-        private void ApplyAuroraParameters()
-        {
-            _auroraEffect.Parameters["VoidColor"].SetValue(_auroraConfig.VoidColor.ToVector3());
-
-            ForestSceneConfig terrain = _auroraConfig.Terrain;
-            _auroraEffect.Parameters["ForestLevelY"].SetValue(terrain.LevelY);
-            _auroraEffect.Parameters["HillHeight"].SetValue(terrain.HillHeight);
-            _auroraEffect.Parameters["ClearingRadius"].SetValue(terrain.ClearingRadius);
-            _auroraEffect.Parameters["ClearingTransition"].SetValue(terrain.ClearingTransition);
-            _auroraEffect.Parameters["ClearingRelief"].SetValue(terrain.ClearingRelief);
-            _auroraEffect.Parameters["FloorLumpStrength"].SetValue(terrain.FloorLumpStrength);
-            _auroraEffect.Parameters["FloorLumpFrequency"].SetValue(terrain.FloorLumpFrequency);
-            _auroraEffect.Parameters["ForestColor"].SetValue(terrain.ForestColor.ToVector3());
-            _auroraEffect.Parameters["ForestColorDark"].SetValue(terrain.ForestColorDark.ToVector3());
-            _auroraEffect.Parameters["TreelineColor"].SetValue(terrain.TreelineColor.ToVector3());
-            _auroraEffect.Parameters["TreelineStrength"].SetValue(terrain.TreelineStrength);
-            _auroraEffect.Parameters["AmbientStrength"].SetValue(terrain.AmbientStrength);
-            _auroraEffect.Parameters["HorizonHazeDistance"].SetValue(terrain.HorizonHazeDistance);
-            _auroraEffect.Parameters["WindDirection"].SetValue(terrain.Wind.ToVector2());
-            _auroraEffect.Parameters["WindRippleSpeed"].SetValue(terrain.WindRippleSpeed);
-            _auroraEffect.Parameters["WindRippleFrequency"].SetValue(terrain.WindRippleFrequency);
-            _auroraEffect.Parameters["WindRippleStrength"].SetValue(terrain.WindRippleStrength);
-            _auroraEffect.Parameters["NeedleReliefStrength"].SetValue(terrain.NeedleReliefStrength);
-            _auroraEffect.Parameters["NeedleReliefFrequency"].SetValue(terrain.NeedleReliefFrequency);
-
-            //Fixed straight up: the aurora is overhead rather than off at a dome's sun angle, and nothing
-            //here ever moves it — DrawAurora pushes the pulsing colour itself every frame instead.
-            _auroraEffect.Parameters["SunDirection"].SetValue(Vector3.Up);
-
-            AuroraSkyConfig aurora = _auroraConfig.Aurora;
-            _auroraEffect.Parameters["AuroraColorLow"].SetValue(aurora.ColorLow.ToVector3());
-            _auroraEffect.Parameters["AuroraColorHigh"].SetValue(aurora.ColorHigh.ToVector3());
-            _auroraEffect.Parameters["AuroraIntensity"].SetValue(aurora.Intensity);
-            _auroraEffect.Parameters["AuroraBandHeight"].SetValue(aurora.BandHeight);
-            _auroraEffect.Parameters["AuroraBandSoftness"].SetValue(aurora.BandSoftness);
-            _auroraEffect.Parameters["AuroraCurtainScale"].SetValue(aurora.CurtainScale);
-            _auroraEffect.Parameters["AuroraCurtainWarp"].SetValue(aurora.CurtainWarp);
-            _auroraEffect.Parameters["AuroraDriftSpeed"].SetValue(aurora.DriftSpeed);
-            _auroraEffect.Parameters["AuroraMorphSpeed"].SetValue(aurora.MorphSpeed);
-            _auroraEffect.Parameters["AuroraRayScale"].SetValue(aurora.RayScale);
-            _auroraEffect.Parameters["AuroraRayStrength"].SetValue(aurora.RayStrength);
-            _auroraEffect.Parameters["AuroraPulseSpeed"].SetValue(aurora.PulseSpeed);
-            _auroraEffect.Parameters["AuroraPulseDepth"].SetValue(aurora.PulseDepth);
-
-            SpaceStarsConfig stars = _auroraConfig.Stars;
-            _auroraEffect.Parameters["StarCellScale"].SetValue(new[] { stars.BrightCellScale, stars.MediumCellScale, stars.FaintCellScale });
-            _auroraEffect.Parameters["StarChance"].SetValue(new[] { stars.BrightChance, stars.MediumChance, stars.FaintChance });
-            _auroraEffect.Parameters["StarPeak"].SetValue(new[] { stars.BrightPeak, stars.MediumPeak, stars.FaintPeak });
-            _auroraEffect.Parameters["StarSpread"].SetValue(stars.Spread);
-            _auroraEffect.Parameters["StarFalloff"].SetValue(stars.Falloff);
-            _auroraEffect.Parameters["StarSpikeThreshold"].SetValue(stars.SpikeThreshold);
-            _auroraEffect.Parameters["StarSpikeLength"].SetValue(stars.SpikeLength);
-        }
-
-        /// <summary>
         /// Normalizes a config direction, falling back to <paramref name="fallback"/> for the degenerate zero
         /// vector — these are hand-typed values in a JSON file and in a property grid, where a zero is one
         /// keystroke away, and a NaN direction would take the whole sky with it.
@@ -3764,229 +3349,13 @@ namespace Prazsky.Core.Render
 
         #region The far field (#551)
 
-        //The land past each open-ground scene's own grid, and the fade that makes wherever it ends invisible. The
-        //shader half, and the whole of the why, is FarField.fxh; this is the mesh and the per-draw plumbing.
-        //
-        //Until #551 every camera clipped at 500 and the grids reached 500-800 from the camera, so the backdrops were
-        //cut off twice over: by the far plane where the haze had not finished (the volcano's plain, the icesheet, the
-        //sea's horizon), and by the grid's own edge where it had (Mars's mesas and the desert's dunes, standing as
-        //flat haze-coloured cards against a sky of another colour). Enlarging the grids was the obvious fix and the
-        //wrong one: a camera grid is fine everywhere, so reaching 1500 at today's cells is about nine times the
-        //vertices, and the far land does not need the near land's density - it needs a constant ANGLE per cell.
-
-        //The ring reaches from inside every camera grid to past the point the fade completes. The inner radius has to
-        //sit inside the grid on every side for any camera the Game uses, and the grid is centred on the CAMERA while
-        //the ring is centred on the ARENA: the smallest grid (+-500) still covers 340 units round the arena with the
-        //lens 110 off it on a diagonal, and the Game's cameras stand within about 90 (the play pose 36 out, the
-        //chapter intro's furthest viewpoint 2.4 stand-offs). 200 leaves room for the Testbed's free camera to wander
-        //three hundred units out before a gap can open on the arena's far side. A camera further out than that can
-        //see one - the ring is the arena's, by design, because a ring that followed the camera would swim.
-        private const float FAR_RING_INNER = 200f;
-        private const float FAR_RING_OUTER = 1500f;
-
-        //Around: 432 cells, 0.83 degrees each seen from the arena. Out: each ring twice as far from the last as a
-        //cell is wide, because a far ground is seen edge-on and its depth spacing is foreshortened to nothing -
-        //the silhouettes are made by the ANGULAR spacing, and that is what the count buys.
-        private const int FAR_RING_SEGMENTS = 432;
-        private const float FAR_RING_RADIAL_ASPECT = 2f;
-
-        //How far inside the camera grid's edge the ring takes over: a strip where both surfaces are drawn, so the
-        //two different tessellations of the same ground can never open a crack of sky between them.
-        private const float FAR_RING_OVERLAP = 6f;
+        //The land past each open-ground scene's own grid, and the fade into the sky: a service since #580
+        //(Render/Scenes/FarField.cs), which every terrain draw here and in the backdrops goes through.
+        private readonly FarField _farField;
 
         /// <summary>Where the far ground has become the sky behind it (FarField.fxh's FarFadeToSky). Past the ring's
         /// inner edge everywhere and short of its outer edge, so nothing about where the ring ends can show.</summary>
-        public const float FAR_FADE_END = 1300f;
-
-        //Where the fade may begin at the latest. A scene's own haze distance is where it begins otherwise (see
-        //FarFieldSlots), but three scenes state 700-900 and their haze ends in the rig's HorizonColor, which is not
-        //the sky's: begun that late, the last few hundred units - all of them squeezed into the pixel or two at the
-        //skyline - stayed that colour and drew a thin line of it along the whole horizon (the icesheet's was teal
-        //under a lilac sky).
-        private const float FAR_FADE_START_LATEST = 600f;
-
-        private VertexBuffer _farRingVertexBuffer;
-        private IndexBuffer _farRingIndexBuffer;
-        private int _farRingRows;
-        private float _farRingGrowth;
-
-        //Per effect, cached on its first draw (BestPractices §1: the by-name indexer is a linear scan, and every
-        //open-ground draw sets these every frame). The haze distance is read BACK from the effect: it is where each
-        //scene has already said its own ground has become air, which is where the last step to the sky begins.
-        private sealed class FarFieldSlots
-        {
-            public EffectParameter Origin, Ring, Fade, Sky, Haze;
-        }
-
-        private readonly Dictionary<Effect, FarFieldSlots> _farFieldSlots = new();
-
-        //The technique the ring draws with, per technique the camera grid drew with: the scene's REDUCED program
-        //where it has one ("<name>Reduced" - Mars, the mountain, the volcano, the meadow, the savanna, the forest),
-        //itself otherwise. Everything a reduced program gives up is fine detail - sand ripples, sastrugi, rivulets,
-        //sparkle - and past the grid's edge all of it is under a pixel and inside the haze, while the silhouettes,
-        //which are what the ring is for, are the same height function in both. On Mars it measured within noise of
-        //the full program (the ring's cost is its new pixels' count, not their program - docs/scenes.md, "The far
-        //field"); it stays because it cannot cost more. Cached because the by-name indexer is a linear scan.
-        private readonly Dictionary<EffectTechnique, EffectTechnique> _farRingTechniques = new();
-
-        private EffectTechnique FarRingTechnique(Effect effect)
-        {
-            EffectTechnique grid = effect.CurrentTechnique;
-            if (!_farRingTechniques.TryGetValue(grid, out EffectTechnique ring))
-            {
-                ring = effect.Techniques[grid.Name + "Reduced"] ?? grid;
-                _farRingTechniques[grid] = ring;
-            }
-
-            return ring;
-        }
-
-        private FarFieldSlots FarSlots(Effect effect)
-        {
-            if (!_farFieldSlots.TryGetValue(effect, out FarFieldSlots slots))
-            {
-                slots = new FarFieldSlots
-                {
-                    Origin = effect.Parameters["OriginXZ"],
-                    Ring = effect.Parameters["FarRing"],
-                    Fade = effect.Parameters["FarFade"],
-                    Sky = effect.Parameters["FarSky"],
-                    Haze = effect.Parameters["HorizonHazeDistance"],
-                };
-                _farFieldSlots[effect] = slots;
-            }
-
-            return slots;
-        }
-
-        /// <summary>
-        /// States the far fade for this frame's draws of <paramref name="effect"/>: the dome it fades into and the
-        /// distances it runs over, and the ring clip OFF for the camera grid that draws first. A frame with no
-        /// <see cref="SceneFrame.FarSky"/> gets no fade at all.
-        /// </summary>
-        private void BeginFarField(Effect effect, in SceneFrame frame, float gridExtent)
-        {
-            FarFieldSlots slots = FarSlots(effect);
-            slots.Ring?.SetValue(Vector4.Zero);
-
-            if (frame.FarSky == null || slots.Fade == null)
-            {
-                slots.Fade?.SetValue(Vector2.Zero);
-                return;
-            }
-
-            float start = MathF.Min(slots.Haze?.GetValueSingle() ?? FAR_FADE_START_LATEST, FAR_FADE_START_LATEST);
-            float end = FAR_FADE_END;
-
-            //The reduced tier draws no ring (FarRingDrawn), so its fade has to be complete inside the camera grid
-            //instead: by the largest circle round the lens the grid covers on every side. Nearer than the ring's
-            //fade, so a Low player sees less far - but still no edge, which is the part #551 is about.
-            if (!FarRingDrawn)
-            {
-                end = gridExtent * Constants.HALF - FAR_RING_OVERLAP;
-                start = MathF.Min(start, end * FAR_FADE_REDUCED_START);
-            }
-
-            slots.Sky.SetValue(frame.FarSky);
-            slots.Fade.SetValue(new Vector2(start, end));
-        }
-
-        //Where the reduced tier's fade begins, as a share of where it must end: the grid's covered radius.
-        private const float FAR_FADE_REDUCED_START = 0.85f;
-
-        /// <summary>
-        /// Whether the far ring is drawn: on every tier but the reduced one. Measured on Mars from a low camera
-        /// looking out over the mesas, the ring costs most of a millisecond on the desktop at 4K (docs/scenes.md,
-        /// "The far field"), and the reduced tier exists for the machine that cannot spare one - so there the
-        /// land ends at the grid, faded into the sky before it does (<see cref="BeginFarField"/>).
-        /// </summary>
-        private bool FarRingDrawn => _sceneDetail > 0.5f;
-
-        /// <summary>
-        /// Draws <paramref name="effect"/>'s current technique a second time over the far ring, straight after the
-        /// camera grid: the ring's vertices are already world positions, so the scene's own vertex shader runs
-        /// unchanged with its origin at zero, and <c>FarRingClip</c> gives every pixel inside the camera grid back to
-        /// the grid. The caller's device state (blend, rasterizer, depth) carries over, which is what makes the ring
-        /// the same surface as the grid. Leaves the origin and the clip as the grid had them.
-        /// </summary>
-        private void DrawFarRing(Effect effect, Vector2 gridOrigin, float gridExtent)
-        {
-            FarFieldSlots slots = FarSlots(effect);
-            if (slots.Ring == null || !FarRingDrawn) return;
-
-            slots.Ring.SetValue(new Vector4(gridOrigin.X, gridOrigin.Y, gridExtent * Constants.HALF - FAR_RING_OVERLAP, 1f));
-            slots.Origin.SetValue(Vector2.Zero);
-
-            //The rings wholly inside the camera grid are not drawn at all. The rows run outward in the index buffer, so
-            //skipping them is a start offset: the largest circle round the arena the grid still covers is its half-width
-            //less the grid's own offset from the arena, and every row inside that (less one row, for the overlap) would
-            //only be clipped away pixel by pixel. For the Game's cameras that is two fifths of the ring's rows.
-            float covered = gridExtent * Constants.HALF - MathF.Max(MathF.Abs(gridOrigin.X), MathF.Abs(gridOrigin.Y)) - FAR_RING_OVERLAP;
-            int firstRow = covered > FAR_RING_INNER
-                ? Math.Clamp((int)(MathF.Log(covered / FAR_RING_INNER) / MathF.Log(_farRingGrowth)) - 1, 0, _farRingRows - 2)
-                : 0;
-
-            EffectTechnique grid = effect.CurrentTechnique;
-            effect.CurrentTechnique = FarRingTechnique(effect);
-
-            _graphicsDevice.SetVertexBuffer(_farRingVertexBuffer);
-            _graphicsDevice.Indices = _farRingIndexBuffer;
-            effect.CurrentTechnique.Passes[0].Apply();
-            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, firstRow * FAR_RING_SEGMENTS * 6,
-                (_farRingRows - 1 - firstRow) * FAR_RING_SEGMENTS * 2);
-
-            effect.CurrentTechnique = grid;
-            slots.Ring.SetValue(Vector4.Zero);
-            slots.Origin.SetValue(gridOrigin);
-        }
-
-        /// <summary>
-        /// The ring: <see cref="FAR_RING_SEGMENTS"/> around, rings spaced geometrically from
-        /// <see cref="FAR_RING_INNER"/> to <see cref="FAR_RING_OUTER"/> so a cell subtends the same angle from the
-        /// arena at every radius, flat at y 0 like the camera grids (the scenes lift it). World positions, centred on
-        /// the arena, built once. Drawn CullNone like every grid, so the winding does not matter.
-        /// </summary>
-        private void CreateFarRingMesh()
-        {
-            float step = FAR_RING_RADIAL_ASPECT * MathHelper.TwoPi / FAR_RING_SEGMENTS;
-            int rings = (int)MathF.Ceiling(MathF.Log(FAR_RING_OUTER / FAR_RING_INNER) / MathF.Log(1f + step)) + 1;
-            _farRingRows = rings;
-            _farRingGrowth = 1f + step;
-            int around = FAR_RING_SEGMENTS + 1;
-
-            VertexPosition[] vertices = new VertexPosition[rings * around];
-            for (int ring = 0; ring < rings; ring++)
-            {
-                float radius = MathF.Min(FAR_RING_INNER * MathF.Pow(1f + step, ring), FAR_RING_OUTER);
-                for (int segment = 0; segment < around; segment++)
-                {
-                    //The last column repeats the first at exactly the same angle, so the seam closes bit for bit.
-                    float angle = MathHelper.TwoPi * (segment % FAR_RING_SEGMENTS) / FAR_RING_SEGMENTS;
-                    vertices[ring * around + segment] = new VertexPosition(
-                        new Vector3(radius * MathF.Cos(angle), 0f, radius * MathF.Sin(angle)));
-                }
-            }
-
-            _farRingVertexBuffer = new VertexBuffer(_graphicsDevice, VertexPosition.VertexDeclaration, vertices.Length, BufferUsage.WriteOnly);
-            _farRingVertexBuffer.SetData(vertices);
-
-            int[] indices = new int[(rings - 1) * FAR_RING_SEGMENTS * 6];
-            int i = 0;
-            for (int ring = 0; ring < rings - 1; ring++)
-                for (int segment = 0; segment < FAR_RING_SEGMENTS; segment++)
-                {
-                    int a = ring * around + segment;
-                    int b = a + 1;
-                    int c = a + around;
-                    int d = c + 1;
-
-                    indices[i++] = a; indices[i++] = c; indices[i++] = b;
-                    indices[i++] = b; indices[i++] = c; indices[i++] = d;
-                }
-
-            _farRingIndexBuffer = new IndexBuffer(_graphicsDevice, IndexElementSize.ThirtyTwoBits, indices.Length, BufferUsage.WriteOnly);
-            _farRingIndexBuffer.SetData(indices);
-        }
+        public const float FAR_FADE_END = FarField.FAR_FADE_END;
 
         #endregion
 
@@ -4033,15 +3402,7 @@ namespace Prazsky.Core.Render
                 case SceneKind.Savanna:
                     DrawSavanna(frame);
                     DrawAcacias(frame);
-                    DrawBirds(frame, _savannaConfig.Birds);
-                    break;
-                case SceneKind.Desert:
-                    DrawDesert(frame);
-                    DrawBirds(frame, _desertConfig.Birds);
-                    break;
-                case SceneKind.Outback:
-                    DrawOutback(frame);
-                    DrawBirds(frame, _outbackConfig.Birds);
+                    _birds.Draw(frame, _savannaConfig.Birds);
                     break;
                 case SceneKind.Tropical:
                     //The land first (it writes depth), then the lagoon depth-read over the bed it owns,
@@ -4051,7 +3412,7 @@ namespace Prazsky.Core.Render
                     DrawPalms(frame);
                     DrawTropicalRocks(frame);
                     DrawTropicalDressing(frame);
-                    DrawBirds(frame, _tropicalConfig.Birds);
+                    _birds.Draw(frame, _tropicalConfig.Birds);
                     break;
                 case SceneKind.Volcano:
                     //The flank first (it writes depth), then the fountains and the plume over it — they are
@@ -4072,12 +3433,6 @@ namespace Prazsky.Core.Render
                 case SceneKind.Mars:
                     DrawMarsTerrain(frame);
                     DrawMarsMoons(frame);
-                    break;
-                case SceneKind.Polar:
-                    DrawPolar(frame);
-                    break;
-                case SceneKind.Aurora:
-                    DrawAurora(frame);
                     break;
             }
         }
@@ -4101,8 +3456,7 @@ namespace Prazsky.Core.Render
                 return;
             }
 
-            if (scene == SceneKind.Mountain) DrawSnow(frame, _mountainConfig.Snow);
-            else if (scene == SceneKind.Aurora) DrawSnow(frame, _auroraConfig.Snow);
+            if (scene == SceneKind.Mountain) _snowfall.Draw(frame, _mountainSnowEffect, _mountainConfig.Snow);
             else if (scene == SceneKind.Sea) DrawSpray(frame);
             else if (scene == SceneKind.Savanna) DrawFlame(frame);
             else if (scene == SceneKind.Volcano && (VolcanoLayers & VolcanoLayer.Ash) != 0) DrawAsh(frame);
@@ -4143,35 +3497,10 @@ namespace Prazsky.Core.Render
             _seaEffect.Parameters["SeaTime"].SetValue(frame.Time);
             _seaEffect.Parameters["SunColor"].SetValue(frame.SunColor);
 
-            //The config-static water values are re-pushed EVERY FRAME as well, not left to
-            //ApplySeaParameters: the tropical lagoon shares this one effect and pushes its own whole
-            //set from DrawTropicalWater, and a NumPad2/V switch applies no config — so without this
-            //the open sea would draw the lagoon's water from the moment the two scenes were switched
-            //through. A handful of SetValues once a frame; the alternative is a bug nobody reports
-            //because it still looks like water.
-            _seaEffect.Parameters["SeaLevelY"].SetValue(_seaConfig.LevelY);
-            _seaEffect.Parameters["WaterColorDeep"].SetValue(_seaConfig.WaterDeep.ToVector3());
-            _seaEffect.Parameters["WaterColorShallow"].SetValue(_seaConfig.WaterShallow.ToVector3());
-            _seaEffect.Parameters["ShallowBias"].SetValue(_seaConfig.ShallowBias);
-            _seaEffect.Parameters["WaveAmplitude"].SetValue(_seaConfig.WaveAmplitude);
-            _seaEffect.Parameters["WaveSteepness"].SetValue(_seaConfig.WaveSteepness);
-            _seaEffect.Parameters["WaveSpeed"].SetValue(_seaConfig.WaveSpeed);
-            _seaEffect.Parameters["WaveFadeStart"].SetValue(_seaConfig.WaveFadeStart);
-            _seaEffect.Parameters["WaveFadeEnd"].SetValue(_seaConfig.WaveFadeEnd);
-            _seaEffect.Parameters["ChopAmplitude"].SetValue(_seaConfig.ChopAmplitude);
-            _seaEffect.Parameters["ChopFrequency"].SetValue(_seaConfig.ChopFrequency);
-            _seaEffect.Parameters["ChopSpeed"].SetValue(_seaConfig.ChopSpeed);
-            _seaEffect.Parameters["WindDirection"].SetValue(_seaConfig.Wind.ToVector2());
-            _seaEffect.Parameters["SunGlintStrength"].SetValue(_seaConfig.SunGlintStrength);
-            _seaEffect.Parameters["SunGlintPower"].SetValue(_seaConfig.SunGlintPower);
-            _seaEffect.Parameters["FoamJacobianThreshold"].SetValue(_seaConfig.FoamJacobianThreshold);
-            _seaEffect.Parameters["FoamStrength"].SetValue(_seaConfig.FoamStrength);
-            _seaEffect.Parameters["FoamCrestStart"].SetValue(_seaConfig.FoamCrestStart);
-            _seaEffect.Parameters["FoamCrestStrength"].SetValue(_seaConfig.FoamCrestStrength);
-            _seaEffect.Parameters["FoamColor"].SetValue(_seaConfig.FoamColor.ToVector3());
-            _seaEffect.Parameters["SssStrength"].SetValue(_seaConfig.SssStrength);
-            _seaEffect.Parameters["SssColor"].SetValue(_seaConfig.SssColor.ToVector3());
-            _seaEffect.Parameters["HorizonHazeDistance"].SetValue(_seaConfig.HorizonHazeDistance);
+            //The config-static water values are the sea's own since #580 and were pushed once, at load
+            //(ApplySeaParameters): the tropical lagoon draws through its own clone of Sea.fx now, so it
+            //can no longer leave its water in this effect's slots — which is why they were re-pushed here
+            //every frame until then.
 
             frame.ApplyClouds?.Invoke(_seaEffect);
 
@@ -4183,133 +3512,16 @@ namespace Prazsky.Core.Render
             //and owns its own depth; only the open water gives the depth up (#131).
             _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
 
-            BeginFarField(_seaEffect, frame, SEA_EXTENT);
+            _farField.Begin(_seaEffect, frame, SEA_EXTENT);
             _graphicsDevice.SetVertexBuffer(_seaVertexBuffer);
             _graphicsDevice.Indices = _seaIndexBuffer;
             _seaEffect.CurrentTechnique.Passes[0].Apply();
             _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _seaIndexCount / 3);
-            DrawFarRing(_seaEffect, new Vector2(originX, originZ), SEA_EXTENT);
+            _farField.DrawRing(_seaEffect, new Vector2(originX, originZ), SEA_EXTENT);
 
             _graphicsDevice.BlendState = BlendState.AlphaBlend;
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
             _graphicsDevice.DepthStencilState = DepthStencilState.Default;
-        }
-
-        /// <summary>
-        /// Draws the polar icesheet (#222): the same grid the desert uses, pinned to the camera and snapped to
-        /// a cell, displaced into sastrugi with a crevassed pressure belt beyond them, shaded per-pixel by the
-        /// current dome and shadowed by the shared cloud field. Like the desert it has no point lights of its
-        /// own — the picture is all sun, sky and what the ice does with both — so it sets none.
-        /// </summary>
-        private void DrawPolar(in SceneFrame frame)
-        {
-            float cell = POLAR_EXTENT / (POLAR_GRID_N - 1);
-            float originX = MathF.Round(frame.Camera.Position.X / cell) * cell;
-            float originZ = MathF.Round(frame.Camera.Position.Z / cell) * cell;
-
-            _polarEffect.Parameters["OriginXZ"].SetValue(new Vector2(originX, originZ));
-            _polarEffect.Parameters["IslandHoleRadius"].SetValue(TerrainHoleRadius);
-            _polarEffect.Parameters["View"].SetValue(frame.Camera.View);
-            _polarEffect.Parameters["Projection"].SetValue(frame.Camera.Projection);
-            _polarEffect.Parameters["CameraPosition"].SetValue(frame.Camera.Position);
-            _polarEffect.Parameters["SunDirection"].SetValue(frame.SunDirection);
-            _polarEffect.Parameters["ZenithColor"].SetValue(frame.ZenithLinear);
-            _polarEffect.Parameters["HorizonColor"].SetValue(frame.HorizonLinear);
-            _polarEffect.Parameters["PolarTime"].SetValue(frame.Time);
-            _polarEffect.Parameters["SunColor"].SetValue(frame.SunColor);
-
-            frame.ApplyClouds?.Invoke(_polarEffect);
-
-            _graphicsDevice.BlendState = BlendState.Opaque;
-            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
-
-            BeginFarField(_polarEffect, frame, POLAR_EXTENT);
-            _graphicsDevice.SetVertexBuffer(_polarVertexBuffer);
-            _graphicsDevice.Indices = _polarIndexBuffer;
-            _polarEffect.CurrentTechnique.Passes[0].Apply();
-            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _polarIndexCount / 3);
-            DrawFarRing(_polarEffect, new Vector2(originX, originZ), POLAR_EXTENT);
-
-            _graphicsDevice.BlendState = BlendState.AlphaBlend;
-            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
-        }
-
-        /// <summary>
-        /// Draws the Sahara dune field: the grid pinned to the camera (snapped to a cell so the dunes do not
-        /// swim), lifted into dunes with distance and shaded per-pixel (no grid) by the current dome, ripples
-        /// and blown dust crawling on the wind, shadowed by the shared cloud field. The desert has no point
-        /// lights, so unlike the savanna it sets none.
-        /// </summary>
-        private void DrawDesert(in SceneFrame frame)
-        {
-            float cell = DESERT_EXTENT / (DESERT_GRID_N - 1);
-            float originX = MathF.Round(frame.Camera.Position.X / cell) * cell;
-            float originZ = MathF.Round(frame.Camera.Position.Z / cell) * cell;
-
-            _desertEffect.Parameters["OriginXZ"].SetValue(new Vector2(originX, originZ));
-            _desertEffect.Parameters["IslandHoleRadius"].SetValue(TerrainHoleRadius);
-            _desertEffect.Parameters["View"].SetValue(frame.Camera.View);
-            _desertEffect.Parameters["Projection"].SetValue(frame.Camera.Projection);
-            _desertEffect.Parameters["CameraPosition"].SetValue(frame.Camera.Position);
-            _desertEffect.Parameters["SunDirection"].SetValue(frame.SunDirection);
-            _desertEffect.Parameters["ZenithColor"].SetValue(frame.ZenithLinear);
-            _desertEffect.Parameters["HorizonColor"].SetValue(frame.HorizonLinear);
-            _desertEffect.Parameters["DesertTime"].SetValue(frame.Time);
-            _desertEffect.Parameters["SunColor"].SetValue(frame.SunColor);
-
-            frame.ApplyClouds?.Invoke(_desertEffect);
-
-            _graphicsDevice.BlendState = BlendState.Opaque;
-            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
-
-            BeginFarField(_desertEffect, frame, DESERT_EXTENT);
-            _graphicsDevice.SetVertexBuffer(_desertVertexBuffer);
-            _graphicsDevice.Indices = _desertIndexBuffer;
-            _desertEffect.CurrentTechnique.Passes[0].Apply();
-            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _desertIndexCount / 3);
-            DrawFarRing(_desertEffect, new Vector2(originX, originZ), DESERT_EXTENT);
-
-            _graphicsDevice.BlendState = BlendState.AlphaBlend;
-            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
-        }
-
-        /// <summary>
-        /// Draws the outback (#112): the grid pinned to the camera (snapped to a cell so the land does not
-        /// swim), carrying a near-flat spinifex plain with red monoliths displaced into it, shaded per-pixel by
-        /// the current dome and shadowed by the shared cloud field. Like the desert it has no point lights, so
-        /// it sets none; unlike the desert its terrain carries a real silhouette, which is why the grid is finer.
-        /// </summary>
-        private void DrawOutback(in SceneFrame frame)
-        {
-            float cell = OUTBACK_EXTENT / (OUTBACK_GRID_N - 1);
-            float originX = MathF.Round(frame.Camera.Position.X / cell) * cell;
-            float originZ = MathF.Round(frame.Camera.Position.Z / cell) * cell;
-
-            _outbackEffect.Parameters["OriginXZ"].SetValue(new Vector2(originX, originZ));
-            _outbackEffect.Parameters["IslandHoleRadius"].SetValue(TerrainHoleRadius);
-            _outbackEffect.Parameters["View"].SetValue(frame.Camera.View);
-            _outbackEffect.Parameters["Projection"].SetValue(frame.Camera.Projection);
-            _outbackEffect.Parameters["CameraPosition"].SetValue(frame.Camera.Position);
-            _outbackEffect.Parameters["SunDirection"].SetValue(frame.SunDirection);
-            _outbackEffect.Parameters["ZenithColor"].SetValue(frame.ZenithLinear);
-            _outbackEffect.Parameters["HorizonColor"].SetValue(frame.HorizonLinear);
-            _outbackEffect.Parameters["OutbackTime"].SetValue(frame.Time);
-            _outbackEffect.Parameters["SunColor"].SetValue(frame.SunColor);
-
-            frame.ApplyClouds?.Invoke(_outbackEffect);
-
-            _graphicsDevice.BlendState = BlendState.Opaque;
-            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
-
-            BeginFarField(_outbackEffect, frame, OUTBACK_EXTENT);
-            _graphicsDevice.SetVertexBuffer(_outbackVertexBuffer);
-            _graphicsDevice.Indices = _outbackIndexBuffer;
-            _outbackEffect.CurrentTechnique.Passes[0].Apply();
-            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _outbackIndexCount / 3);
-            DrawFarRing(_outbackEffect, new Vector2(originX, originZ), OUTBACK_EXTENT);
-
-            _graphicsDevice.BlendState = BlendState.AlphaBlend;
-            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
         }
 
         /// <summary>
@@ -4341,31 +3553,30 @@ namespace Prazsky.Core.Render
             _graphicsDevice.BlendState = BlendState.Opaque;
             _graphicsDevice.RasterizerState = RasterizerState.CullNone;
 
-            BeginFarField(_tropicalEffect, frame, TROPICAL_EXTENT);
+            _farField.Begin(_tropicalEffect, frame, TROPICAL_EXTENT);
             _graphicsDevice.SetVertexBuffer(_tropicalVertexBuffer);
             _graphicsDevice.Indices = _tropicalIndexBuffer;
             _tropicalEffect.CurrentTechnique.Passes[0].Apply();
             _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _tropicalIndexCount / 3);
-            DrawFarRing(_tropicalEffect, new Vector2(originX, originZ), TROPICAL_EXTENT);
+            _farField.DrawRing(_tropicalEffect, new Vector2(originX, originZ), TROPICAL_EXTENT);
 
             _graphicsDevice.BlendState = BlendState.AlphaBlend;
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
         }
 
         /// <summary>
-        /// Draws the lagoon: the sea's own effect and grid (<c>Sea.fx</c> unchanged), pushed the
+        /// Draws the lagoon: the sea's own shader and grid (<c>Sea.fx</c> unchanged), pushed the
         /// tropical config's water values — calmer swell, turquoise body colours — over the terrain
         /// <see cref="DrawTropicalTerrain"/> just wrote. States exactly as <see cref="DrawSea"/> sets
         /// them, for <see cref="DrawSea"/>'s own reasons: opaque and <c>CullNone</c> (one open surface,
         /// read from above and through the crests), depth-READ so anything under the surface keeps its
         /// own pixels.
         /// <para>
-        /// <b>The whole water set is pushed every frame, the config-static values included</b> — and
-        /// <see cref="DrawSea"/> re-pushes its own from its side for the same reason: the sea and the
-        /// lagoon share this one effect instance, and a NumPad2/V switch applies no config. Pushing
-        /// only the per-frame half would leave whichever scene switched in drawing the other's water
-        /// until some level re-applied one of them — the exact trap the shared flock's sizing exists
-        /// to avoid, in shader-parameter form.
+        /// <b>The lagoon draws through its own clone of <c>Sea.fx</c></b> (<c>_lagoonEffect</c>, #580),
+        /// its water set pushed once at load by <see cref="ApplyLagoonParameters"/>. Until then the sea
+        /// and the lagoon shared one effect instance, and each re-pushed its whole water set every frame
+        /// so that a NumPad2/V switch, which applies no config, could not leave one scene drawing the
+        /// other's water.
         /// </para>
         /// <para>
         /// The clip radius is the innermost the wiggling waterline ever reaches, less the shoulder
@@ -4379,7 +3590,6 @@ namespace Prazsky.Core.Render
         private void DrawTropicalWater(in SceneFrame frame)
         {
             TropicalTerrainConfig terrain = _tropicalConfig.Terrain;
-            TropicalWaterConfig water = _tropicalConfig.Water;
 
             float cell = SEA_EXTENT / (SEA_GRID_N - 1);
             float originX = MathF.Round(frame.Camera.Position.X / cell) * cell;
@@ -4387,43 +3597,19 @@ namespace Prazsky.Core.Render
 
             float clip = terrain.ShoreRadius - terrain.CoastNoise - TROPICAL_WATERLINE_BIAS;
 
-            _seaEffect.Parameters["OriginXZ"].SetValue(new Vector2(originX, originZ));
-            _seaEffect.Parameters["IslandHoleRadius"].SetValue(clip);
-            _seaEffect.Parameters["FunnelPoolRadius"].SetValue(0f);
-            _seaEffect.Parameters["View"].SetValue(frame.Camera.View);
-            _seaEffect.Parameters["Projection"].SetValue(frame.Camera.Projection);
-            _seaEffect.Parameters["CameraPosition"].SetValue(frame.Camera.Position);
-            _seaEffect.Parameters["SunDirection"].SetValue(frame.SunDirection);
-            _seaEffect.Parameters["ZenithColor"].SetValue(frame.ZenithLinear);
-            _seaEffect.Parameters["HorizonColor"].SetValue(frame.HorizonLinear);
-            _seaEffect.Parameters["SeaTime"].SetValue(frame.Time);
-            _seaEffect.Parameters["SunColor"].SetValue(frame.SunColor);
+            _lagoonEffect.Parameters["OriginXZ"].SetValue(new Vector2(originX, originZ));
+            _lagoonEffect.Parameters["IslandHoleRadius"].SetValue(clip);
+            _lagoonEffect.Parameters["FunnelPoolRadius"].SetValue(0f);
+            _lagoonEffect.Parameters["View"].SetValue(frame.Camera.View);
+            _lagoonEffect.Parameters["Projection"].SetValue(frame.Camera.Projection);
+            _lagoonEffect.Parameters["CameraPosition"].SetValue(frame.Camera.Position);
+            _lagoonEffect.Parameters["SunDirection"].SetValue(frame.SunDirection);
+            _lagoonEffect.Parameters["ZenithColor"].SetValue(frame.ZenithLinear);
+            _lagoonEffect.Parameters["HorizonColor"].SetValue(frame.HorizonLinear);
+            _lagoonEffect.Parameters["SeaTime"].SetValue(frame.Time);
+            _lagoonEffect.Parameters["SunColor"].SetValue(frame.SunColor);
 
-            _seaEffect.Parameters["SeaLevelY"].SetValue(water.LevelY);
-            _seaEffect.Parameters["WaterColorDeep"].SetValue(water.WaterDeep.ToVector3());
-            _seaEffect.Parameters["WaterColorShallow"].SetValue(water.WaterShallow.ToVector3());
-            _seaEffect.Parameters["ShallowBias"].SetValue(water.ShallowBias);
-            _seaEffect.Parameters["WaveAmplitude"].SetValue(water.WaveAmplitude);
-            _seaEffect.Parameters["WaveSteepness"].SetValue(water.WaveSteepness);
-            _seaEffect.Parameters["WaveSpeed"].SetValue(water.WaveSpeed);
-            _seaEffect.Parameters["WaveFadeStart"].SetValue(water.WaveFadeStart);
-            _seaEffect.Parameters["WaveFadeEnd"].SetValue(water.WaveFadeEnd);
-            _seaEffect.Parameters["ChopAmplitude"].SetValue(water.ChopAmplitude);
-            _seaEffect.Parameters["ChopFrequency"].SetValue(water.ChopFrequency);
-            _seaEffect.Parameters["ChopSpeed"].SetValue(water.ChopSpeed);
-            _seaEffect.Parameters["WindDirection"].SetValue(water.Wind.ToVector2());
-            _seaEffect.Parameters["SunGlintStrength"].SetValue(water.SunGlintStrength);
-            _seaEffect.Parameters["SunGlintPower"].SetValue(water.SunGlintPower);
-            _seaEffect.Parameters["FoamJacobianThreshold"].SetValue(water.FoamJacobianThreshold);
-            _seaEffect.Parameters["FoamStrength"].SetValue(water.FoamStrength);
-            _seaEffect.Parameters["FoamCrestStart"].SetValue(water.FoamCrestStart);
-            _seaEffect.Parameters["FoamCrestStrength"].SetValue(water.FoamCrestStrength);
-            _seaEffect.Parameters["FoamColor"].SetValue(water.FoamColor.ToVector3());
-            _seaEffect.Parameters["SssStrength"].SetValue(water.SssStrength);
-            _seaEffect.Parameters["SssColor"].SetValue(water.SssColor.ToVector3());
-            _seaEffect.Parameters["HorizonHazeDistance"].SetValue(water.HorizonHazeDistance);
-
-            frame.ApplyClouds?.Invoke(_seaEffect);
+            frame.ApplyClouds?.Invoke(_lagoonEffect);
 
             _graphicsDevice.BlendState = BlendState.Opaque;
             _graphicsDevice.RasterizerState = RasterizerState.CullNone;
@@ -4431,12 +3617,12 @@ namespace Prazsky.Core.Render
             //depth up, and the terrain (drawn before it, opaque) still writes and owns its own.
             _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
 
-            BeginFarField(_seaEffect, frame, SEA_EXTENT);
+            _farField.Begin(_lagoonEffect, frame, SEA_EXTENT);
             _graphicsDevice.SetVertexBuffer(_seaVertexBuffer);
             _graphicsDevice.Indices = _seaIndexBuffer;
-            _seaEffect.CurrentTechnique.Passes[0].Apply();
+            _lagoonEffect.CurrentTechnique.Passes[0].Apply();
             _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _seaIndexCount / 3);
-            DrawFarRing(_seaEffect, new Vector2(originX, originZ), SEA_EXTENT);
+            _farField.DrawRing(_lagoonEffect, new Vector2(originX, originZ), SEA_EXTENT);
 
             _graphicsDevice.BlendState = BlendState.AlphaBlend;
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
@@ -4484,12 +3670,12 @@ namespace Prazsky.Core.Render
             _graphicsDevice.BlendState = BlendState.Opaque;
             _graphicsDevice.RasterizerState = RasterizerState.CullNone;
 
-            BeginFarField(_savannaEffect, frame, SAVANNA_EXTENT);
+            _farField.Begin(_savannaEffect, frame, SAVANNA_EXTENT);
             _graphicsDevice.SetVertexBuffer(_savannaVertexBuffer);
             _graphicsDevice.Indices = _savannaIndexBuffer;
             _savannaEffect.CurrentTechnique.Passes[0].Apply();
             _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _savannaIndexCount / 3);
-            DrawFarRing(_savannaEffect, new Vector2(originX, originZ), SAVANNA_EXTENT);
+            _farField.DrawRing(_savannaEffect, new Vector2(originX, originZ), SAVANNA_EXTENT);
 
             _graphicsDevice.BlendState = BlendState.AlphaBlend;
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
@@ -4860,7 +4046,9 @@ namespace Prazsky.Core.Render
         /// <b>Which scenes are here is the same list as <see cref="RegisterShadowReceivers"/>' and has to
         /// stay so</b>: a scene fitted but not receiving casts into a map nobody reads, and a scene receiving
         /// but not fitted is handed 0 every frame. Sea and Storm are deliberately in neither — see that
-        /// method for why.
+        /// method for why. A scene moved into its own <see cref="Backdrop"/> (#580) states both side by side
+        /// (<see cref="Backdrop.ShadowReceivers"/>, <see cref="Backdrop.TryShadowFit"/>), and is asked here
+        /// before the switch below.
         /// </para>
         /// </summary>
         private bool TryShadowFit(SceneKind scene, ICamera camera, out Vector3 centre, out float yMin, out float yMax)
@@ -4877,6 +4065,10 @@ namespace Prazsky.Core.Render
                 groundY = host.GroundY;
                 below = host.Below;
                 above = host.Above;
+            }
+            else if (BackdropFor(scene) is { } backdrop)
+            {
+                if (!backdrop.TryShadowFit(out groundY, out below, out above)) return false;
             }
             else
             switch (scene)
@@ -4912,19 +4104,6 @@ namespace Prazsky.Core.Render
                     above = _mountainConfig.Height * 0.5f;
                     break;
 
-                case SceneKind.Desert:
-                    groundY = _desertConfig.LevelY;
-                    below = _desertConfig.DuneAmplitude;
-                    above = _desertConfig.DuneAmplitude;
-                    break;
-
-                case SceneKind.Outback:
-                    //The monoliths are terrain, not props, and they are what a map here has to clear.
-                    groundY = _outbackConfig.Terrain.LevelY;
-                    below = _outbackConfig.Terrain.OutcropHeight;
-                    above = _outbackConfig.Terrain.RockHeight;
-                    break;
-
                 case SceneKind.Tropical:
                     groundY = _tropicalConfig.Terrain.LevelY;
                     below = _tropicalConfig.Terrain.HillHeight * 0.5f;
@@ -4943,12 +4122,6 @@ namespace Prazsky.Core.Render
                     groundY = _marsConfig.Terrain.LevelY;
                     below = _marsConfig.Terrain.CraterAmplitude * 2f;
                     above = _marsConfig.Terrain.MesaHeight * 0.5f;
-                    break;
-
-                case SceneKind.Polar:
-                    groundY = _polarConfig.LevelY;
-                    below = _polarConfig.SwellAmplitude * 2f;
-                    above = _polarConfig.RidgeHeight;
                     break;
 
                 default:
@@ -5264,12 +4437,12 @@ namespace Prazsky.Core.Render
 
             _graphicsDevice.RasterizerState = RasterizerState.CullNone;
 
-            BeginFarField(_volcanoEffect, frame, VOLCANO_EXTENT);
+            _farField.Begin(_volcanoEffect, frame, VOLCANO_EXTENT);
             _graphicsDevice.SetVertexBuffer(_volcanoVertexBuffer);
             _graphicsDevice.Indices = _volcanoIndexBuffer;
             _volcanoEffect.CurrentTechnique.Passes[0].Apply();
             _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _volcanoIndexCount / 3);
-            DrawFarRing(_volcanoEffect, new Vector2(originX, originZ), VOLCANO_EXTENT);
+            _farField.DrawRing(_volcanoEffect, new Vector2(originX, originZ), VOLCANO_EXTENT);
 
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
         }
@@ -5395,13 +4568,13 @@ namespace Prazsky.Core.Render
             _graphicsDevice.BlendState = BlendState.Opaque;
             _graphicsDevice.RasterizerState = RasterizerState.CullNone;
 
-            BeginFarField(_marsEffect, frame, MARS_EXTENT);
+            _farField.Begin(_marsEffect, frame, MARS_EXTENT);
             _graphicsDevice.SetVertexBuffer(_marsVertexBuffer);
             _graphicsDevice.Indices = _marsIndexBuffer;
             _marsEffect.CurrentTechnique = _marsTerrainTechnique;
             _marsEffect.CurrentTechnique.Passes[0].Apply();
             _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _marsIndexCount / 3);
-            DrawFarRing(_marsEffect, new Vector2(originX, originZ), MARS_EXTENT);
+            _farField.DrawRing(_marsEffect, new Vector2(originX, originZ), MARS_EXTENT);
 
             _graphicsDevice.BlendState = BlendState.AlphaBlend;
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
@@ -5513,123 +4686,6 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// Draws the flock: each bird circles the config's flock centre on its own slow orbit, banked into
-        /// the turn it is flying, beating or gliding on a cycle of its own. One draw per bird of the one
-        /// shared <see cref="BirdMesh"/>, opaque and depth-writing. Called in the savanna, desert and outback
-        /// scenes, which share the flock; <paramref name="birds"/> is the active scene's config, and its
-        /// count is capped to the seeded state's size.
-        /// <para>
-        /// A draw per bird rather than one instanced pass, for <see cref="DrawFlame"/>'s reason: what varies
-        /// per bird is three uniforms, there are nine of them at most and only in three scenes, and the
-        /// alternative is an instance buffer and a vertex format for something that has neither. The mesh is
-        /// bound once outside the loop, so a bird costs three parameter writes and a draw.
-        /// </para>
-        /// </summary>
-        private void DrawBirds(in SceneFrame frame, BirdsConfig birds)
-        {
-            _birdColorParam.SetValue(birds.Color.ToVector3());
-            _birdViewParam.SetValue(frame.Camera.View);
-            _birdProjectionParam.SetValue(frame.Camera.Projection);
-            _birdSunDirectionParam.SetValue(frame.SunDirection);
-            _birdSunColorParam.SetValue(frame.SunColor);
-            _birdZenithParam.SetValue(frame.ZenithLinear);
-            _birdHorizonParam.SetValue(frame.HorizonLinear);
-
-            //Opaque and depth-writing, where the billboard was alpha-blended and depth-read: a bird is a
-            //solid now, and its own breast has to be able to hide the far wing behind it.
-            _graphicsDevice.BlendState = BlendState.Opaque;
-            _graphicsDevice.DepthStencilState = DepthStencilState.Default;
-
-            //CullNone: the wings, the primaries and the tail are single sheets with no back to them, and the
-            //pixel shader turns the normal towards the camera rather than the rasteriser dropping the face.
-            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
-
-            _graphicsDevice.SetVertexBuffer(_birdMesh.VertexBuffer);
-            _graphicsDevice.Indices = _birdMesh.IndexBuffer;
-
-            Vector3 flockCenter = birds.FlockCenter.ToVector3();
-            Matrix scale = Matrix.CreateScale(birds.Wingspan);
-
-            int count = Math.Min(birds.Count, _birdRadius.Length);
-            for (int i = 0; i < count; i++)
-            {
-                float radius = _birdRadius[i];
-                float angle = frame.Time * _birdOrbitSpeed[i] + _birdOrbitPhase[i];
-                float bobPhase = frame.Time * _birdBobSpeed[i] + _birdOrbitPhase[i];
-
-                Vector3 center = flockCenter + new Vector3(
-                    MathF.Cos(angle) * radius,
-                    _birdAltitude[i] + MathF.Sin(bobPhase) * birds.Bob,
-                    MathF.Sin(angle) * radius);
-
-                //The nose goes where the bird is actually going: the circle's horizontal tangent plus the
-                //climb its drift is doing at this instant. A bird therefore tips up as it rises and down as
-                //it sinks, off the derivative of its own bob rather than off a dial that says how far to tip.
-                float horizontalSpeed = _birdOrbitSpeed[i] * radius;
-                float climbRate = MathF.Cos(bobPhase) * _birdBobSpeed[i] * birds.Bob;
-                Vector3 forward = new(
-                    -MathF.Sin(angle) * horizontalSpeed,
-                    climbRate,
-                    MathF.Cos(angle) * horizontalSpeed);
-
-                //Banked into the turn. Leaning the bird's UP vector towards the inside of its circle is the
-                //whole of it — CreateWorld squares the basis up from there, so there is no hand-rolled cross
-                //product here to get the handedness wrong in.
-                float lean = MathHelper.Lerp(BIRD_BANK_TIGHT, BIRD_BANK_WIDE,
-                        MathHelper.Clamp((radius - BIRD_RADIUS_MIN) / BIRD_RADIUS_SPAN, 0f, 1f))
-                    + BIRD_BANK_DRIFT * MathF.Sin(frame.Time * BIRD_BANK_DRIFT_SPEED + _birdOrbitPhase[i]);
-
-                Vector3 inward = new(-MathF.Cos(angle), 0f, -MathF.Sin(angle));
-                Vector3 up = Vector3.Up * MathF.Cos(lean) + inward * MathF.Sin(lean);
-
-                ResolveFlap(i, frame.Time, out float flapPhase, out float flapAmount);
-
-                _birdWorldParam.SetValue(scale * Matrix.CreateWorld(center, forward, up));
-                _birdFlapPhaseParam.SetValue(flapPhase);
-                _birdFlapAmountParam.SetValue(flapAmount);
-
-                _birdsEffect.CurrentTechnique.Passes[0].Apply();
-                _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _birdMesh.PrimitiveCount);
-            }
-
-            //Restore the scene block's states for the draws that follow
-            _graphicsDevice.BlendState = BlendState.AlphaBlend;
-            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
-        }
-
-        /// <summary>
-        /// Where bird <paramref name="index"/> is in its wingbeat, and how much of a wingbeat it is doing at
-        /// all. A soaring bird spends most of its time gliding and beats in short bursts; the old flock beat
-        /// at one fixed rate for ever, which is half of why it read as mechanical.
-        /// <para>
-        /// <b>Both edges of the burst are continuous, by construction rather than by smoothing.</b> A burst
-        /// runs a WHOLE number of beats, so it ends on the same neutral point of the stroke it started on,
-        /// and the glide that follows sweeps exactly one slow turn of the same phase — so phase is continuous
-        /// across both boundaries without ever being tracked between frames. The envelope is floored at
-        /// <see cref="BIRD_GLIDE_TRIM"/>, which is the value the glide holds, so the amount does not step
-        /// either. Nothing here is stateful: a bird's whole flap is a function of the wall clock.
-        /// </para>
-        /// </summary>
-        private void ResolveFlap(int index, float time, out float phase, out float amount)
-        {
-            float cycle = time / _birdFlapPeriod[index] + _birdFlapCyclePhase[index];
-            cycle -= MathF.Floor(cycle);
-
-            float burst = _birdBurstFraction[index];
-            if (cycle < burst)
-            {
-                float progress = cycle / burst;
-                phase = progress * _birdFlapBeats[index] * MathHelper.TwoPi;
-                amount = MathF.Max(MathF.Sin(MathF.PI * progress), BIRD_GLIDE_TRIM);
-            }
-            else
-            {
-                phase = (cycle - burst) / (1f - burst) * MathHelper.TwoPi;
-                amount = BIRD_GLIDE_TRIM;
-            }
-        }
-
-        /// <summary>
         /// Draws the snowy range: the grid pinned to the camera (snapped to a cell so it does not swim),
         /// lifted into a snow basin ringed by peaks and shaded by the current dome, shadowed by the shared
         /// cloud field.
@@ -5655,64 +4711,14 @@ namespace Prazsky.Core.Render
             _graphicsDevice.BlendState = BlendState.Opaque;
             _graphicsDevice.RasterizerState = RasterizerState.CullNone;
 
-            BeginFarField(_mountainEffect, frame, MOUNTAIN_EXTENT);
+            _farField.Begin(_mountainEffect, frame, MOUNTAIN_EXTENT);
             _graphicsDevice.SetVertexBuffer(_mountainVertexBuffer);
             _graphicsDevice.Indices = _mountainIndexBuffer;
             _mountainEffect.CurrentTechnique.Passes[0].Apply();
             _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _mountainIndexCount / 3);
-            DrawFarRing(_mountainEffect, new Vector2(originX, originZ), MOUNTAIN_EXTENT);
+            _farField.DrawRing(_mountainEffect, new Vector2(originX, originZ), MOUNTAIN_EXTENT);
 
             _graphicsDevice.BlendState = BlendState.AlphaBlend;
-            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
-        }
-
-        /// <summary>
-        /// Draws the falling snow: the static flake buffer animated in the shader, in a box that follows the
-        /// camera. Alpha-blended and depth-read (so the terrain and the cluster occlude the flakes behind
-        /// them) but writing no depth.
-        /// <para>
-        /// Shared by the mountain and the aurora (#205), each with its own <see cref="SnowConfig"/> — the
-        /// buffer is one for both (built at the mountain's own <see cref="SnowConfig.FlakeCount"/>, since
-        /// that is where the dial has always lived), so <paramref name="config"/>'s own count is clamped to
-        /// <see cref="_snowFlakeCapacity"/> rather than trusted outright. The look uniforms are pushed here,
-        /// every call, rather than once when a config applies: the shared effect's slots have to hold
-        /// whichever scene is actually being drawn, and only the caller passing its own config in knows that.
-        /// </para>
-        /// </summary>
-        private void DrawSnow(in SceneFrame frame, SnowConfig config)
-        {
-            Matrix inverseView = Matrix.Invert(frame.Camera.View);
-
-            _snowEffect.Parameters["View"].SetValue(frame.Camera.View);
-            _snowEffect.Parameters["Projection"].SetValue(frame.Camera.Projection);
-            _snowEffect.Parameters["CameraPosition"].SetValue(frame.Camera.Position);
-            _snowEffect.Parameters["CameraRight"].SetValue(inverseView.Right);
-            _snowEffect.Parameters["CameraUp"].SetValue(inverseView.Up);
-            _snowEffect.Parameters["SnowTime"].SetValue(frame.Time);
-
-            _snowEffect.Parameters["SnowBoxSize"].SetValue(config.BoxSize.ToVector3());
-            _snowEffect.Parameters["SnowFallSpeed"].SetValue(config.FallSpeed);
-            _snowEffect.Parameters["SnowWind"].SetValue(config.Wind.ToVector2());
-            _snowEffect.Parameters["SnowSway"].SetValue(config.Sway);
-            _snowEffect.Parameters["FlakeSize"].SetValue(config.FlakeSize);
-            _snowEffect.Parameters["SnowSpin"].SetValue(config.Spin);
-            _snowEffect.Parameters["SnowLobing"].SetValue(config.Lobing);
-            _snowEffect.Parameters["SnowNearFade"].SetValue(config.NearFade);
-            _snowEffect.Parameters["SnowTwinkle"].SetValue(config.Twinkle);
-            _snowEffect.Parameters["SnowColor"].SetValue(config.FlakeColor.ToVector3());
-            _snowEffect.Parameters["SnowOpacity"].SetValue(config.Opacity);
-
-            _graphicsDevice.BlendState = BlendState.AlphaBlend;
-            _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
-            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
-
-            _graphicsDevice.SetVertexBuffer(_snowVertexBuffer);
-            _graphicsDevice.Indices = _snowIndexBuffer;
-            _snowEffect.CurrentTechnique.Passes[0].Apply();
-            int flakes = Math.Min(config.FlakeCount, _snowFlakeCapacity);
-            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, flakes * 2);
-
-            _graphicsDevice.DepthStencilState = DepthStencilState.Default;
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
         }
 
@@ -5772,12 +4778,12 @@ namespace Prazsky.Core.Render
             _graphicsDevice.BlendState = BlendState.Opaque;
             _graphicsDevice.RasterizerState = RasterizerState.CullNone;
 
-            BeginFarField(_meadowEffect, frame, MEADOW_EXTENT);
+            _farField.Begin(_meadowEffect, frame, MEADOW_EXTENT);
             _graphicsDevice.SetVertexBuffer(_meadowVertexBuffer);
             _graphicsDevice.Indices = _meadowIndexBuffer;
             _meadowEffect.CurrentTechnique.Passes[0].Apply();
             _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _meadowIndexCount / 3);
-            DrawFarRing(_meadowEffect, new Vector2(originX, originZ), MEADOW_EXTENT);
+            _farField.DrawRing(_meadowEffect, new Vector2(originX, originZ), MEADOW_EXTENT);
 
             _graphicsDevice.BlendState = BlendState.AlphaBlend;
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
@@ -5805,12 +4811,12 @@ namespace Prazsky.Core.Render
             _graphicsDevice.BlendState = BlendState.Opaque;
             _graphicsDevice.RasterizerState = RasterizerState.CullNone;
 
-            BeginFarField(_forestEffect, frame, FOREST_EXTENT);
+            _farField.Begin(_forestEffect, frame, FOREST_EXTENT);
             _graphicsDevice.SetVertexBuffer(_forestVertexBuffer);
             _graphicsDevice.Indices = _forestIndexBuffer;
             _forestEffect.CurrentTechnique.Passes[0].Apply();
             _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _forestIndexCount / 3);
-            DrawFarRing(_forestEffect, new Vector2(originX, originZ), FOREST_EXTENT);
+            _farField.DrawRing(_forestEffect, new Vector2(originX, originZ), FOREST_EXTENT);
 
             _graphicsDevice.BlendState = BlendState.AlphaBlend;
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
@@ -5891,67 +4897,12 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// The aurora's slow hue drift at <paramref name="wallClock"/>, as the shift it adds to the sky's own
-        /// low-to-high colour ramp (<c>Aurora.fx</c>'s <c>AuroraHueShift</c>): up to half of
-        /// <see cref="AuroraSkyConfig.HueSwing"/> either way, positive towards <see cref="AuroraSkyConfig.ColorHigh"/>.
-        /// </summary>
-        private float AuroraHueShift(float wallClock) =>
-            0.5f * _auroraConfig.Aurora.HueSwing * MathF.Sin(wallClock * _auroraConfig.Aurora.DriftHueSpeed);
-
-        /// <summary>
-        /// Where the band's light <b>as a whole</b> sits between <see cref="AuroraSkyConfig.ColorLow"/> (0) and
-        /// <see cref="AuroraSkyConfig.ColorHigh"/> (1) before the drift moves it: the sky ramps green to violet
-        /// with elevation inside the band, but the lower folds are the brighter and the larger part of what a
-        /// camera near the ground sees, so the light the band throws is mostly green. Judged against captures
-        /// of the sky (#462), not integrated.
-        /// </summary>
-        private const float AURORA_LIGHT_MIX = 0.3f;
-
-        /// <summary>
-        /// The colour mix of the light the aurora throws at <paramref name="wallClock"/> — <see cref="AURORA_LIGHT_MIX"/>
-        /// moved by the very drift the sky draws (<see cref="AuroraHueShift"/>). The one number the ground's
-        /// wash (<see cref="AuroraGlowColor"/>) and the light rig on the island, the gun and the balls
-        /// (<see cref="TryGetLightRig"/>) both read, so neither can disagree with the sky over it.
-        /// <para>
-        /// <b>⚠ Until #462 there was no such agreement to have.</b> The drift was a CPU-side clock only — the
-        /// sky's shader never drew it — and it swung the ground's light the whole way from pure green to pure
-        /// violet, so for half of every cycle the clearing went violet under a sky that stayed green. Found
-        /// when the island first took the same light and came out lavender under a green curtain.
-        /// </para>
-        /// </summary>
-        private float AuroraLightMix(float wallClock) =>
-            MathHelper.Clamp(AURORA_LIGHT_MIX + AuroraHueShift(wallClock), 0f, 1f);
-
-        /// <summary>
-        /// How finely the aurora's light rig follows the hue drift: the colour mix's 0–1 range in this many
-        /// steps. A host re-lights its renderers only when a step changes the rig
-        /// (<see cref="SkyLightRig.StepSceneLight"/>), and the Game's walk over them is an iterator — so a
-        /// continuous hue would cost a re-light and an allocation every frame for a colour that takes over a
-        /// minute to cross its range. At 128 steps a re-light comes about once a second at the drift's
-        /// fastest, and each moves a tint by under one percent, which no eye catches as a step.
-        /// </summary>
-        private const float AURORA_RIG_STEPS = 128f;
-
-        /// <summary>
-        /// Carries a light part of the way to <paramref name="hue"/> <b>at its own brightness</b> — the idea
-        /// <see cref="ForestScatterRenderer"/>'s <c>ShiftTowardsSky</c> applies to a pigment, applied to a
-        /// light: what the aurora gives the island and the gun is its colour, not more or less light.
-        /// </summary>
-        private static Vector3 TowardsHue(Vector3 light, Vector3 hue, float strength)
-        {
-            float hueLuminance = ColorSpace.Luminance(hue);
-            if (hueLuminance <= 1e-4f) return light;
-
-            return Vector3.Lerp(light, hue * (ColorSpace.Luminance(light) / hueLuminance), strength);
-        }
-
-        /// <summary>
         /// The aurora's current dominant colour and brightness (linear radiance), on the same slow hue-drift
         /// clock <c>Aurora.fx</c>'s own sky pass runs (<see cref="AuroraSkyConfig.DriftHueSpeed"/>) but
         /// without that shader's curtain noise or its faster brightness pulse
         /// (<see cref="AuroraSkyConfig.PulseSpeed"/>) — a flat approximation good enough for an ambient wash,
         /// not a re-derivation of what the sky pass draws pixel for pixel. Two callers share it:
-        /// <see cref="DrawAurora"/> (the ground's own hemisphere ambient) and, separately, a per-frame call
+        /// <see cref="AuroraBackdrop.Draw"/> (the ground's own hemisphere ambient) and, separately, a per-frame call
         /// each host adds beside its scene lights, feeding it to the scene's own
         /// <c>ForestScatterRenderer</c> planting. <b>Deliberately not routed through the daytime forest's own
         /// tint call</b> (<c>ApplySkyLighting</c>/<c>SkyLightRig.KeyTint</c>): that call only runs on a
@@ -5964,73 +4915,7 @@ namespace Prazsky.Core.Render
         /// to the land under it — the light on the ground breathes far less than the curtains themselves do.
         /// </para>
         /// </summary>
-        public Vector3 AuroraGlowColor(float wallClock)
-        {
-            AuroraSkyConfig aurora = _auroraConfig.Aurora;
-            float drift = AuroraLightMix(wallClock);
-
-            //A small fraction of the sky's own peak, not all of it (#205's first capture read as daylit
-            //rather than night with the sky's own Intensity carried straight across): the sky pass draws
-            //thin bright ribbons against a black void, but this feeds the GROUND's hemisphere term over its
-            //own full dome, which integrates far more of it. Cut again after the owner's second look ("the
-            //forest not so much") — 0.22 was still too bright once the rig itself was also dimmed
-            //(AuroraLightingConfig's own class doc carries that half of the correction) — to a figure that
-            //reads as a dark wood lit by its own aurora rather than one that looks sunlit at midnight.
-            return Vector3.Lerp(aurora.ColorLow.ToVector3(), aurora.ColorHigh.ToVector3(), drift) * aurora.Intensity * 0.09f;
-        }
-
-        /// <summary>
-        /// Draws the aurora scene: the forested ground first (depth-writing, opaque — Forest.fx's reduced
-        /// floor, lit by <see cref="AuroraGlowColor"/> rather than a dome), then the sky quad depth-READ
-        /// against it on the shared space quad — the Moon's measured order (see <see cref="MoonBackdrop.Draw"/>'s doc).
-        /// </summary>
-        private void DrawAurora(in SceneFrame frame)
-        {
-            float cell = AURORA_EXTENT / (AURORA_GRID_N - 1);
-            float originX = MathF.Round(frame.Camera.Position.X / cell) * cell;
-            float originZ = MathF.Round(frame.Camera.Position.Z / cell) * cell;
-
-            Vector3 glow = AuroraGlowColor(frame.Time);
-
-            _auroraOriginXZ.SetValue(new Vector2(originX, originZ));
-            _auroraHoleRadius.SetValue(TerrainHoleRadius);
-            _auroraView.SetValue(frame.Camera.View);
-            _auroraProjection.SetValue(frame.Camera.Projection);
-            _auroraCameraPosition.SetValue(frame.Camera.Position);
-            _auroraTerrainTime.SetValue(frame.Time);
-            _auroraSunColor.SetValue(glow);
-            _auroraZenithColor.SetValue(glow + _auroraConfig.GroundStarlight.ToVector3());
-            _auroraHorizonColor.SetValue(_auroraConfig.Lighting.GroundAmbient.ToVector3());
-
-            _graphicsDevice.BlendState = BlendState.Opaque;
-            _graphicsDevice.DepthStencilState = DepthStencilState.Default;
-            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
-
-            _graphicsDevice.SetVertexBuffer(_auroraVertexBuffer);
-            _graphicsDevice.Indices = _auroraIndexBuffer;
-            _auroraEffect.CurrentTechnique = _auroraTerrainTechnique;
-            _auroraEffect.CurrentTechnique.Passes[0].Apply();
-            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _auroraIndexCount / 3);
-
-            //Then the sky, depth-READ at the far plane: every pixel the terrain already owns is rejected
-            //before the star-and-ribbon shader runs.
-            _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
-
-            _auroraInverseViewProjection.SetValue(Matrix.Invert(frame.Camera.View * frame.Camera.Projection));
-            _auroraSupersample.SetValue((float)SupersampleFactor);
-            _auroraSkyTime.SetValue(frame.Time);
-            _auroraHueShift.SetValue(AuroraHueShift(frame.Time));
-
-            _graphicsDevice.SetVertexBuffer(_fullScreenQuad);
-            _auroraEffect.CurrentTechnique = _auroraSkyTechnique;
-            _auroraEffect.CurrentTechnique.Passes[0].Apply();
-            _graphicsDevice.DrawPrimitives(PrimitiveType.TriangleStrip, 0, 2);
-
-            _graphicsDevice.DepthStencilState = DepthStencilState.Default;
-
-            _graphicsDevice.BlendState = BlendState.AlphaBlend;
-            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
-        }
+        public Vector3 AuroraGlowColor(float wallClock) => _aurora.GlowColor(wallClock);
 
         public void Dispose()
         {
@@ -6040,8 +4925,7 @@ namespace Prazsky.Core.Render
             _backdropTarget?.Dispose();
             _backdropBatch?.Dispose();
 
-            _farRingVertexBuffer?.Dispose();
-            _farRingIndexBuffer?.Dispose();
+            _farField?.Dispose();
             _gridCache.Dispose(); //every terrain grid, each once however many scenes share it (#589); the polar one was missing until #579
             DisposeTropical();
             _fountainVertexBuffer?.Dispose();
@@ -6056,9 +4940,11 @@ namespace Prazsky.Core.Render
             _sparkIndexBuffer?.Dispose();
             _sunShadowMap?.Dispose();
             _trailWarp?.Dispose();
-            _birdMesh?.Dispose();
-            _snowVertexBuffer?.Dispose();
-            _snowIndexBuffer?.Dispose();
+            _birds?.Dispose();
+            _snowfall?.Dispose();
+            _seaEffect?.Dispose();
+            _lagoonEffect?.Dispose();
+            _mountainSnowEffect?.Dispose();
             _sprayVertexBuffer?.Dispose();
             _sprayIndexBuffer?.Dispose();
         }

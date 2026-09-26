@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
+using System.Collections.Generic;
 
 namespace Prazsky.Core.Render
 {
@@ -88,6 +89,36 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
+        /// The scene's effects that read the sun's shadow map (they include <c>Shadows.fxh</c>), gathered once at load
+        /// into the renderer's one receiver list (its <c>RegisterShadowReceivers</c>) — none by default. A scene that
+        /// states receivers states its <see cref="TryShadowFit"/> too: fitted but not receiving casts into a map
+        /// nobody reads, receiving but not fitted is handed 0 every frame.
+        /// </summary>
+        public virtual IEnumerable<Effect> ShadowReceivers => Array.Empty<Effect>();
+
+        /// <summary>
+        /// Where the scene's ground sits and how far the sun shadow map's box has to reach below and above it (the
+        /// renderer's <c>TryShadowFit</c>, which centres the box on the camera and adds the island's headroom and
+        /// the margin); false for a scene that takes no map, which is the default.
+        /// </summary>
+        public virtual bool TryShadowFit(out float groundY, out float below, out float above)
+        {
+            groundY = below = above = 0f;
+            return false;
+        }
+
+        /// <summary>
+        /// The scene's terrain effect and its CPU mirror (<see cref="SceneRenderer.TryGetTerrainProbe"/>, the
+        /// Testbed's <c>mirrorcheck</c>, #590); false for a scene with no mirror. Nothing in a frame asks it.
+        /// </summary>
+        public virtual bool TryGetTerrainProbe(out Effect effect, out Func<float, float, float> mirror)
+        {
+            effect = null;
+            mirror = null;
+            return false;
+        }
+
+        /// <summary>
         /// The quality tier crossed <see cref="SceneRenderer.SceneDetail"/>'s line: pick the reduced or the
         /// authored program. Called only on a change, never from the constructor — which is the old
         /// <c>SelectDetailTechniques</c>' own timing, and the reason a scene draws with its effect's default
@@ -95,7 +126,10 @@ namespace Prazsky.Core.Render
         /// </summary>
         public virtual void OnDetailChanged(float sceneDetail) { }
 
-        /// <summary>Frees what this backdrop built. Effects are the content manager's and are not disposed.</summary>
+        /// <summary>
+        /// Frees what this backdrop built. An effect loaded from the content manager is the manager's and is not
+        /// disposed; a clone of one (<c>Effect.Clone</c>, the aurora's snow) is the backdrop's own and is.
+        /// </summary>
         public virtual void Dispose() { }
     }
 
@@ -126,6 +160,20 @@ namespace Prazsky.Core.Render
         public int SeedOffset { get; }
 
         /// <summary>
+        /// The falling snow the mountain and the aurora share (#205, a service since #580): its flake buffer and
+        /// its draw. Set by the renderer where the snow stood in its constructor, before any backdrop that snows
+        /// is built; the renderer disposes it.
+        /// </summary>
+        public Snowfall Snowfall { get; set; }
+
+        /// <summary>
+        /// The flock the savanna, the desert, the outback and the beach share (#235, a service since #580). Set by
+        /// the renderer where the birds stood in its constructor, before any backdrop that draws it is built; the
+        /// renderer disposes it.
+        /// </summary>
+        public BirdFlock Birds { get; set; }
+
+        /// <summary>
         /// The radius cut out of every terrain around the arena — <see cref="SceneRenderer.TerrainHoleRadius"/>, which
         /// forwards here. Written by the host at any time, so a backdrop reads it at draw time.
         /// </summary>
@@ -140,13 +188,24 @@ namespace Prazsky.Core.Render
         /// </summary>
         public const int MAX_BILLBOARD_QUADS = 16383;
 
-        /// <summary>The services over a device, the quad and the grid cache the renderer built on it, and its seed offset.</summary>
-        public BackdropServices(GraphicsDevice graphicsDevice, VertexBuffer fullScreenQuad, int seedOffset, TerrainGridCache gridCache)
+        /// <summary>
+        /// The land past every open-ground scene's own grid and the fade into the sky (#551), a service since #580.
+        /// Owned (and disposed) by the renderer.
+        /// </summary>
+        public FarField FarField { get; }
+
+        /// <summary>
+        /// The services over a device, the quad, the grid cache and the far field the renderer built on it, and its
+        /// seed offset.
+        /// </summary>
+        public BackdropServices(GraphicsDevice graphicsDevice, VertexBuffer fullScreenQuad, int seedOffset, TerrainGridCache gridCache,
+            FarField farField)
         {
             GraphicsDevice = graphicsDevice;
             FullScreenQuad = fullScreenQuad;
             SeedOffset = seedOffset;
             _gridCache = gridCache;
+            FarField = farField;
         }
 
         /// <summary>

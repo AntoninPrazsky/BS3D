@@ -122,10 +122,11 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// A little falling snow — it is winter, and the owner asked for it after the first capture. Shares
-        /// <c>Snow.fx</c> and its flake buffer with the mountain scene (<see cref="SceneRenderer.DrawSnow"/>
+        /// <c>Snow.fx</c> and its flake buffer with the mountain scene (<see cref="Snowfall.Draw"/>
         /// now takes the config as an argument instead of reading the mountain's own, precisely so a second
-        /// scene could ask for snow of its own look without a second buffer or a second effect); the flake
-        /// count is still the buffer's own capacity, sized by <see cref="MountainSceneConfig"/>'s copy.
+        /// scene could ask for snow of its own look without a second buffer — and since #580 through its own
+        /// clone of the effect, this look pushed into it once at load); the flake count is still the buffer's
+        /// own capacity, sized by <see cref="MountainSceneConfig"/>'s copy.
         /// Slower and thinner than the mountain's own snow — a gentle winter hush over the wood, not a storm.
         /// </summary>
         public SnowConfig Snow { get; set; } = new()
@@ -269,7 +270,7 @@ namespace Prazsky.Core.Render
         /// How far the drift moves the sky's own green-to-violet ramp, end to end, in units of that ramp
         /// (#462): 0.35 swings the curtain up to 0.175 of the way either side — greener at one end of the
         /// cycle, with violet reaching further down the folds at the other, never a violet sky. The ground's
-        /// light and the island's follow the same shift (<c>SceneRenderer.AuroraLightMix</c>).
+        /// light and the island's follow the same shift (<c>AuroraBackdrop.AuroraLightMix</c>).
         /// </summary>
         public float HueSwing { get; set; } = 0.35f;
     }
@@ -286,7 +287,7 @@ namespace Prazsky.Core.Render
     /// colour onto the cannon and the island". Until then the rig was static, a fixed grey-green, so the
     /// island stood the same colour under a green sky and a violet one. <see cref="GlowTint"/> carries the
     /// key light and the sky ambient that far towards the aurora's current hue at their own brightness
-    /// (<c>SceneRenderer.TowardsHue</c>), on the slow hue drift the ground and the wood already follow
+    /// (<c>AuroraBackdrop.TowardsHue</c>), on the slow hue drift the ground and the wood already follow
     /// (<see cref="AuroraSkyConfig.DriftHueSpeed"/>) and never on the fast pulse — colour, not strobing.
     /// </para>
     /// <para>
