@@ -49,7 +49,7 @@ namespace BS3D.Screens
 
         /// <summary>
         /// Grants this level's starting charges. Not authored into any shipped or generated level — the
-        /// testing argument (<c>powerups=swap:1</c>, <see cref="BS3DGame.ForcedPowerups"/>) is the only
+        /// testing argument (<c>powerups=swap:1</c>, <see cref="SessionTestOptions.ForcedPowerups"/>) is the only
         /// source today, in <c>wildcard=</c>'s own shape, so the mechanism is reachable and verifiable
         /// without touching a single one of the 105 shipped levels. Called from <c>BuildLevel</c>, which is
         /// also what a retry runs, so a retried level is granted exactly what it was granted the first time.
@@ -63,7 +63,7 @@ namespace BS3D.Screens
         {
             Array.Clear(_powerupCharges);
 
-            string spec = Game.ForcedPowerups;
+            string spec = _test.ForcedPowerups;
             if (string.IsNullOrEmpty(spec)) return;
 
             foreach (string entry in spec.Split(',', StringSplitOptions.RemoveEmptyEntries))

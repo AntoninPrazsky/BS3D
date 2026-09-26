@@ -358,7 +358,7 @@ namespace BS3D.Screens
             //it: that one is never seen and never used, and the ball has to leave the barrel wearing what the
             //player was looking at — the smear below is drawn from it, and so is the ball itself all the way to
             //the landing, where a wildcard that completes nothing keeps exactly this colour.
-            BallKind kind = _magazineKind[0];
+            BallKind kind = _magazine.Slot(0).Kind;
             BallType type = LoadedColour(0);
 
             PhysicsBall ball = new()
@@ -396,8 +396,8 @@ namespace BS3D.Screens
             _smears.Add(muzzle, direction, BasicEffectParamsProvider.GetDiffuseTintByType(type));
 
             //The fired ball's slot empties, the queue shifts up, a fresh colour loads at the back and the glide
-            //is armed — and the transmute state rides forward with it through the hooks wired in the
-            //constructor, so no slot is left dissolving out of the ball behind it.
+            //is armed — and each slot's kind and transmute state ride forward with its colour as one value
+            //(Magazine's MagazineSlot, #582), so no slot is left dissolving out of the ball behind it.
             _magazine.Advance();
 
             //The gun's own answer — the tube thrown back in its cradle, the carriage lurching a beat behind

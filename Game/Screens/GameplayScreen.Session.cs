@@ -224,9 +224,9 @@ namespace BS3D.Screens
             if (levelSet != null && index >= 0 && index < levelSet.Count)
             {
                 //The set's own file, unless this run was pinned to one outside it (#332) — see
-                //BS3DGame.StartupLevelFile for why that door exists at all. It replaces the path for every
+                //SessionTestOptions.StartupLevelFile for why that door exists at all. It replaces the path for every
                 //entry, so the run stays on the file it was given however the session moves through the set.
-                string path = Game.StartupLevelFile ?? levelSet.ResolvePath(index);
+                string path = _test.StartupLevelFile ?? levelSet.ResolvePath(index);
 
                 try
                 {
@@ -271,7 +271,7 @@ namespace BS3D.Screens
             //The render set is the whole program's, and the front end hangs its own preview through it — so
             //this is stated on the way in rather than assumed, and stated again every frame this screen draws
             //(see Draw). Setting it to what it already is costs a comparison.
-            _ballStyle = Game.BallStyleOverride ?? ballStyle;
+            _ballStyle = _test.BallStyleOverride ?? ballStyle;
             Game.Balls.Style = _ballStyle;
 
             //And what it sounds like, which is the same question (#314): a glass bubble, a ball of wool and a
@@ -296,7 +296,7 @@ namespace BS3D.Screens
             RecountBallTypes();
 
             //How often this level hands out a wildcard, and the count it is measured against — both BEFORE the
-            //refill below, which deals a full queue through the loaded hook and so is already asking (#330).
+            //refill below, which deals a full queue through NextLoadedKind and so is already asking (#330).
             _wildcardEvery = LevelWildcardEvery(index);
             _ballsDealt = 0;
 
@@ -304,8 +304,12 @@ namespace BS3D.Screens
             //above is, so a retry is granted what the level grants and not what a previous attempt spent.
             GrantPowerupCharges();
 
+            //This level's generator, from the seed= argument or a fresh roll, BEFORE the refill below deals from
+            //it (#582) - so what a level deals is a function of its printed seed and the shots played into it
+            SeedSession();
+
             //A whole fresh queue for the new level: its colours belong to a level, and the level the standing
-            //queue was drawn from is gone. Refill deals every slot through the loaded hook, which is what
+            //queue was drawn from is gone. Refill deals every slot whole (#582), which is what
             //clears any half-finished dissolve the last session left in one.
             _magazine.Refill();
 
@@ -313,6 +317,28 @@ namespace BS3D.Screens
             //built-in map, which then has no rules at all and so an unlimited budget and a still ceiling — the
             //same thing an entry that authors no "shots" or "ceilingStep" means.
             _score = new ScoreKeeper(LevelShotBudget(index), LevelCeilingStep(index), _initialBallCount);
+        }
+
+        /// <summary>
+        /// Rebuilds the session's generator for the level being installed (#582): from <c>seed=</c> when the run
+        /// pinned one, or from a fresh roll — which is what a player gets, every level different — and prints the
+        /// seed either way, so the log of any run names the one that replays its deal.
+        /// <para>
+        /// <b>What a seed pins and what it does not.</b> It pins every draw this screen makes: the colours the
+        /// magazine is dealt and re-coloured to, and the drop cinematic's and the chapter intro's rolls. Given the
+        /// same shots landing in the same cells, a level deals the same queue. It does <i>not</i> pin where a shot
+        /// lands: the aim is the player's, and the simulation is stepped against the frame's real time, so two runs
+        /// whose landings differ go on to deal from different censuses. The scene's own arrangement is
+        /// <c>sceneseed=</c>'s, and the host's other effects (the fireworks, the sparks) keep generators of their
+        /// own.
+        /// </para>
+        /// </summary>
+        private void SeedSession()
+        {
+            _seed = _test.Seed ?? Random.Shared.Next();
+            _random = new Random(_seed);
+
+            Console.WriteLine($"[session] seed {_seed}" + (_test.Seed.HasValue ? " (pinned)" : " (rolled; replay it with seed=)"));
         }
 
         /// <summary>
@@ -325,8 +351,8 @@ namespace BS3D.Screens
         {
             BallsMap map = new(FALLBACK_X, FALLBACK_Z, FALLBACK_FIELD_LEVELS);
 
-            //Its own generator off a fixed seed, so the pile is reproducible however many shots the
-            //magazine's unseeded one has drawn by the time this runs
+            //Its own generator off a fixed seed, so the pile is reproducible whatever the session's own
+            //generator has drawn by the time this runs
             Random layout = new(FALLBACK_SEED);
 
             //The pyramid is built about the centre of the field's topmost level, because that is the level

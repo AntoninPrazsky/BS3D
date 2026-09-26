@@ -19,8 +19,9 @@ namespace BS3D
     /// <para>
     /// The <b>standing</b> levers stay with the host, because they are not actions but a state of the run that
     /// something reads for its whole length: <c>scene=</c> and <c>sky=</c> (read by <c>LoadContent</c>),
-    /// <c>preview=</c> and <c>levelfile=</c> (asked on every roll and every level), and <c>streak=</c>,
-    /// <c>wildcard=</c>, <c>powerups=</c>, <c>lasers</c> and <c>lineloss</c> (read by the session). So does
+    /// <c>preview=</c> (asked on every roll), and the session's own — <c>levelfile=</c>, <c>streak=</c>,
+    /// <c>wildcard=</c>, <c>powerups=</c>, <c>lasers</c>, <c>lineloss</c>, <c>detonate=</c>, <c>tutorial</c>,
+    /// <c>balls=</c> and <c>seed=</c> — which are one <see cref="SessionTestOptions"/> since #582. So does
     /// <c>shot=</c>'s implication of <c>nofocuspause</c>, which is the host's <c>PauseOnFocusLoss</c>.
     /// </para>
     /// <para>
@@ -131,7 +132,7 @@ namespace BS3D
 
         /// <param name="launch">What the command line said to this run.</param>
         /// <param name="levelFile">
-        /// The host's <see cref="BS3DGame.StartupLevelFile"/>: <c>levelfile=</c> as the host keeps it, null when
+        /// <see cref="SessionTestOptions.StartupLevelFile"/>: <c>levelfile=</c> as the host keeps it, null when
         /// it was not given or was blank — passed rather than re-read so the two cannot disagree about whether a
         /// file was named.
         /// </param>

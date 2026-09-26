@@ -168,6 +168,21 @@ namespace BS3D.Screens
         }
 
         /// <summary>
+        /// Testing only (the <c>detonate=</c> argument, #389): whether a scheduled detonation has come due on the
+        /// wall clock — <c>shot=</c>'s clock, so the two can be written against each other — and consumes it if it
+        /// has. One per call, so two falling due on one frame go off on two frames. The host's until #582; the
+        /// schedule is <see cref="SessionTestOptions.DetonateSeconds"/> now and the cursor through it this screen's.
+        /// </summary>
+        private bool TryTakeForcedDetonation()
+        {
+            if (_detonateNext >= _test.DetonateSeconds.Count) return false;
+            if (WallClock < _test.DetonateSeconds[_detonateNext]) return false;
+
+            _detonateNext++;
+            return true;
+        }
+
+        /// <summary>
         /// Testing only (the <c>detonate=</c> argument, #389): sets off one bomb of the level as if a shot had just
         /// landed beside it, and answers it the way <see cref="OnBallLanded"/> answers a real blast — the flash, the
         /// report and the rumble, the ripple, the census, the cinematic and the ends of the level — with no shot
@@ -304,7 +319,7 @@ namespace BS3D.Screens
 
             centre /= total;
 
-            _cinematic.Begin(Game.Scene, centre, Camera.Position, total, RANDOM, Game.SeaLevelY);
+            _cinematic.Begin(Game.Scene, centre, Camera.Position, total, _random, Game.SeaLevelY);
 
             //One line per cinematic, in the manner of the [level] and [score] lines: it is a rare event, not a
             //per-frame one, and the shot is rolled — so when one frames badly this is the only record of what
@@ -347,8 +362,8 @@ namespace BS3D.Screens
             //The ordinary gameplay pose, verbatim: the tour's last key is it, so the flight lands where the
             //player is handed the camera and the blend-out is a nudge between identical poses.
             _chapterIntro.Begin(centre, _gameCameraDistance, GAME_FOV,
-                GameCameraPositionAt(_gameCameraDistance), centre, Game.SceneViewpointAt, RANDOM,
-                Game.IntroPrologue(GAME_FOV, RANDOM));
+                GameCameraPositionAt(_gameCameraDistance), centre, Game.SceneViewpointAt, _random,
+                Game.IntroPrologue(GAME_FOV, _random));
 
             //One line per intro, in the manner of [cinematic]: a rare event — eleven times over the whole
             //campaign — and the shot is rolled, so this is the only record of what it actually chose.
@@ -740,11 +755,11 @@ namespace BS3D.Screens
             float threshold = CEILING_DEATH_Y + LASER_WARN_STEPS * CeilingDescent.CEILING_DESCENT_PER_STEP;
             if (_laserGrid.Visible) threshold += LASER_WARN_HYSTERESIS;
 
-            bool warn = Game.ForceLaserWarning || lowestBallY <= threshold;
+            bool warn = _test.ForceLaserWarning || lowestBallY <= threshold;
 
             //The net coming ON is the tutorial's cue for its line lesson (#189) — the one moment there is
             //something to say it about — and never the pinned-on net of a `lasers` run, which is nobody playing
-            if (warn && !_laserGrid.Visible && !Game.ForceLaserWarning) _tutorial.Trigger(Tutorial.Lesson.Line);
+            if (warn && !_laserGrid.Visible && !_test.ForceLaserWarning) _tutorial.Trigger(Tutorial.Lesson.Line);
 
             _laserGrid.SetVisible(warn, WallClock);
         }
@@ -853,8 +868,8 @@ namespace BS3D.Screens
             //The staged one (#434's testing lever): the same two calls the real crossing makes, on a clock,
             //because a real line loss cannot be reached from a script. It aims at the cluster's own lowest
             //ball, so what is photographed is a real crossing point and not an invented one.
-            if (Game.StagedLineLossSeconds > 0f && !LevelDecided
-                && _lineLossClock >= Game.StagedLineLossSeconds && TryGetLowestBall(out Vector3 staged))
+            if (_test.StagedLineLossSeconds > 0f && !LevelDecided
+                && _lineLossClock >= _test.StagedLineLossSeconds && TryGetLowestBall(out Vector3 staged))
             {
                 BeginLineLoss(staged);
                 LoseLevel(LevelFailure.ClusterReachedLine, "staged by the lineloss argument");
@@ -1145,7 +1160,7 @@ namespace BS3D.Screens
         /// </summary>
         private int LevelWildcardEvery(int index)
         {
-            if (Game.ForcedWildcardEvery > 0) return Game.ForcedWildcardEvery;
+            if (_test.ForcedWildcardEvery > 0) return _test.ForcedWildcardEvery;
 
             return Game.LevelSet != null && index >= 0 && index < Game.LevelSet.Count
                 ? Game.LevelSet.Levels[index].WildcardEvery ?? 0
@@ -1249,7 +1264,7 @@ namespace BS3D.Screens
         /// that is about to fire — #175's failure, with the colours moving.
         /// </summary>
         private BallType LoadedColour(int slot) =>
-            _magazineKind[slot] == BallKind.Wildcard ? _wildcard.Showing : _magazine.Peek(slot);
+            _magazine.Slot(slot).Kind == BallKind.Wildcard ? _wildcard.Showing : _magazine.Peek(slot);
 
         /// <summary>
         /// Re-colours every loaded ball whose colour has just been eliminated from the cluster, and starts the
@@ -1267,9 +1282,9 @@ namespace BS3D.Screens
         /// and that is a difficulty decision, not a fix.
         /// </para>
         /// <para>
-        /// <see cref="Magazine.Recolour"/> deliberately does <b>not</b> fire the loaded hook the constructor
-        /// wired, which is what lets the old colour below stand: a re-coloured ball is precisely the one whose
-        /// previous colour the cross-fade has to keep.
+        /// <see cref="Magazine.Recolour"/> starts the cross-fade itself (#582): it keeps the colour on screen as
+        /// the one the slot fades out of — for a slot caught mid-transmute, the colour it was already fading out
+        /// of — and runs the dissolve over <see cref="Magazine.TRANSMUTE_SECONDS"/>.
         /// </para>
         /// </summary>
         private void Transmute()
@@ -1284,15 +1299,10 @@ namespace BS3D.Screens
                 BallType replacement = RandomBallType();
                 if (replacement == loaded) continue; //nothing survives to swap to; leave it alone
 
-                //The ball it is fading OUT of is whatever is on screen now — which for a slot caught
-                //mid-transmute is the colour it was already fading out of, not the one it never finished
-                //becoming. Restarting from the visible colour is what keeps the animation continuous.
-                if (_magazineTransmute[slot] <= 0f) _magazineFrom[slot] = loaded;
-
-                Console.WriteLine($"[transmute] slot {slot}: {_magazineFrom[slot]} is gone from the cluster -> {replacement}");
-
+                //The ball it is fading OUT of is whatever is on screen now — Recolour keeps that, see its remarks
                 _magazine.Recolour(slot, replacement);
-                _magazineTransmute[slot] = 1f;
+
+                Console.WriteLine($"[transmute] slot {slot}: {_magazine.Slot(slot).FadingFrom} is gone from the cluster -> {replacement}");
             }
         }
 
@@ -1309,7 +1319,7 @@ namespace BS3D.Screens
 
         /// <summary>
         /// What the magazine loads next: one of the colours <b>still hanging</b> (see
-        /// <see cref="RecountBallTypes"/>), drawn evenly among them off the unseeded run-to-run generator.
+        /// <see cref="RecountBallTypes"/>), drawn evenly among them off the session's seeded generator (#582).
         /// Not a static method by accident — the live set changes with every shot that lands, so it cannot
         /// be static the way it was when the cluster was a fixed pyramid.
         /// </summary>
@@ -1320,9 +1330,9 @@ namespace BS3D.Screens
 
             //An empty cluster — a level authored with no balls, or one the player has just cleared. There is
             //nothing left to match, so what is loaded cannot matter; the default four keep the barrel full.
-            if (live == 0) return DEFAULT_BALL_TYPES[RANDOM.Next(DEFAULT_BALL_TYPES.Length)];
+            if (live == 0) return DEFAULT_BALL_TYPES[_random.Next(DEFAULT_BALL_TYPES.Length)];
 
-            int pick = RANDOM.Next(live);
+            int pick = _random.Next(live);
 
             for (int i = 0; i < _ballsOfType.Length; i++)
             {
