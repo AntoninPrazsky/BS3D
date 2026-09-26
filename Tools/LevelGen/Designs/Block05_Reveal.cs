@@ -1,13 +1,14 @@
 ﻿using Prazsky.BS3D.GameStructure;
 using Prazsky.Core.Render;
 using System;
+using static BS3D.Tools.LevelGen.CampaignSet;
 
 namespace BS3D.Tools.LevelGen
 {
     /// <summary>
     /// <b>The Reveal</b>, block 5 of the campaign: its designs, and the helpers no other block's designs use, in
     /// the order <c>Program.cs</c> held them — the play order is <see cref="Main"/>'s, and the block's name, music
-    /// and ball style are in the tables there. Split out of <c>Program.cs</c> in #386.
+    /// and ball style are in <see cref="CampaignSet"/>'s tables. Split out of <c>Program.cs</c> in #386.
     /// </summary>
     internal static partial class Program
     {
@@ -26,7 +27,7 @@ namespace BS3D.Tools.LevelGen
         /// <para>
         /// The skin cannot wrap the whole sphere: the top layer is the one bonded to the glass, and a top
         /// layer of one colour anchors everything under it to that colour's single group (the rule every
-        /// design here answers - see <see cref="Validate"/>). A true 3D shell also narrows to a single point
+        /// design here answers - see <see cref="LevelGates.Validate"/>). A true 3D shell also narrows to a single point
         /// at each pole, so whichever colour that point falls in becomes the entire cap. <see cref="OnionShell"/>
         /// answers both at once: it rings each level by its <b>own</b> radius rather than by distance from
         /// the sphere's centre, so every level - however small its own cap is - shows the same green-centre,
@@ -1174,7 +1175,7 @@ namespace BS3D.Tools.LevelGen
         /// radius already is the sphere's, and it is everywhere else that the difference matters: a true
         /// 3D shell narrows to nothing at the poles, so whichever ring the pole's own tiny point happens to
         /// fall in becomes the ENTIRE top layer - the one bonded to the glass - and a single-colour anchor
-        /// is the trap every design in this pack has to answer (see <see cref="Validate"/>). Ringed by its
+        /// is the trap every design in this pack has to answer (see <see cref="LevelGates.Validate"/>). Ringed by its
         /// own radius instead, every level, however small, shows the same green-centre/white-ring/yellow-rim
         /// proportions the equator does, which is also just what a real onion's rings look like from any
         /// height - narrower near the root and stem, never absent. It is what keeps the heart's own colour

@@ -1,13 +1,14 @@
 ﻿using Prazsky.BS3D.GameStructure;
 using Prazsky.Core.Render;
 using System;
+using static BS3D.Tools.LevelGen.CampaignSet;
 
 namespace BS3D.Tools.LevelGen
 {
     /// <summary>
     /// <b>The Mirage</b>, block 11 of the campaign: its designs, and the helpers no other block's designs use, in
     /// the order <c>Program.cs</c> held them — the play order is <see cref="Main"/>'s, and the block's name, music
-    /// and ball style are in the tables there. Split out of <c>Program.cs</c> in #386.
+    /// and ball style are in <see cref="CampaignSet"/>'s tables. Split out of <c>Program.cs</c> in #386.
     /// </summary>
     internal static partial class Program
     {
@@ -105,7 +106,7 @@ namespace BS3D.Tools.LevelGen
         /// walls meet — are clear from the point up, so what the player sees is three coloured solids drawn
         /// in outline by something that is not a colour. A corner column is a single line of balls running
         /// diagonally up the solid, which is precisely the shape no colour may take here
-        /// (<see cref="FindLonelyBalls"/>) and glass may, because it has no group to be alone in. It is the
+        /// (<see cref="LevelGates.FindLonelyBalls"/>) and glass may, because it has no group to be alone in. It is the
         /// clearest statement in the block of what the new kind buys a designer.
         /// </para>
         /// <para>
@@ -498,7 +499,7 @@ namespace BS3D.Tools.LevelGen
         /// support the player cannot touch is also 58 balls of the last level's 113 anchors that the player
         /// can never clear. What the level keeps of that idea is the half that was always the player's
         /// problem rather than the ceiling's: a spiral of stone they have to work around. What it gives up is
-        /// the guarantee that <see cref="WorstAnchorLoad"/> could not be made worse by anything they do — so
+        /// the guarantee that <see cref="LevelGates.WorstAnchorLoad"/> could not be made worse by anything they do — so
         /// the finale is now held to that gate on measurement like every other level in the campaign, which
         /// is the honest way to end on the densest solid in the block.
         /// </para>
@@ -624,7 +625,7 @@ namespace BS3D.Tools.LevelGen
         /// <para>
         /// One cell is the whole point and it is legal only because the ball is glass — a taxicab ring runs
         /// diagonally and a colour band one cell wide along it would be a string of balls that do not touch
-        /// each other at all (<see cref="FindLonelyBalls"/>). It is also what makes the level teach itself:
+        /// each other at all (<see cref="LevelGates.FindLonelyBalls"/>). It is also what makes the level teach itself:
         /// a cell one step outside a diagonal ring touches it TWICE, so the first shot into the rim colours
         /// two glass balls and takes all three down with it.
         /// </para>
@@ -658,7 +659,7 @@ namespace BS3D.Tools.LevelGen
         /// The highest course carrying a glass arris. Below the merge on purpose: the two lower pyramids
         /// grow together from course six and the third reaches them from course five, and where two
         /// pyramids meet their facing corner columns land in the SAME cell with the third closing the gap
-        /// beside it — a glass ball with every neighbour occupied, which <see cref="FindStrandedSpecials"/>
+        /// beside it — a glass ball with every neighbour occupied, which <see cref="LevelGates.FindStrandedSpecials"/>
         /// refuses and which is the only way this block could have produced one by geometry.
         /// </summary>
         private const int TREFOIL_ARRIS_TOP = 4;
@@ -899,7 +900,7 @@ namespace BS3D.Tools.LevelGen
         /// the courses whose lattice has a centre. Clearing the tip made every one of those glass, and the
         /// centre cell then had glass on all four sides, glass above and glass below: a transparent ball
         /// with no empty neighbour anywhere, which no shot can ever land beside and therefore no shot can
-        /// ever colour — <see cref="FindStrandedSpecials"/>'s walled-in case, arriving from the one direction
+        /// ever colour — <see cref="LevelGates.FindStrandedSpecials"/>'s walled-in case, arriving from the one direction
         /// nobody looks, which is a hollow body that stops being hollow when it gets small enough. Held at
         /// one the tip is hollow like the rest of the stone and there is no cell to strand.
         /// </para>
@@ -926,7 +927,7 @@ namespace BS3D.Tools.LevelGen
         /// ball at the point, on the course whose lattice has a centre cell, with clear glass on all four
         /// sides of it and clear glass above and below. That is a ball standing alone in a group of one,
         /// which needs two landed balls of its own colour before anything happens and which
-        /// <see cref="FindLonelyBalls"/> refuses. Clearing the whole tip is the honest answer: a body one
+        /// <see cref="LevelGates.FindLonelyBalls"/> refuses. Clearing the whole tip is the honest answer: a body one
         /// unit across has no room for a coloured core and should not pretend to.
         /// </para>
         /// <para>
@@ -948,7 +949,7 @@ namespace BS3D.Tools.LevelGen
         /// course's cells sit on integers and an even course's on half-integers, so the only values that
         /// exist below 1 are 0 and 0.5 — the edge is one cell wide on an odd course and two on an even one,
         /// and nothing between 0.5 and 1 changes anything. At 1 <i>inclusive</i> the cut takes a cell too
-        /// many and leaves single panes standing alone, which <see cref="FindStrandedSpecials"/> refuses.
+        /// many and leaves single panes standing alone, which <see cref="LevelGates.FindStrandedSpecials"/> refuses.
         /// The tip is spared for its own reason above: a body one unit across has no facets to cut.
         /// </para>
         /// </summary>
@@ -1162,10 +1163,10 @@ namespace BS3D.Tools.LevelGen
         /// <b>⚠ This retracts the finale's original statement, and the retraction is the owner's.</b> It used
         /// to cast the anchor course's outer rim in stone as well, and the argument for it was sound as far as
         /// it went: the top level is the only one bonded to the ceiling plate, so a stone rim there is a set
-        /// of anchors no shot can ever take and <see cref="WorstAnchorLoad"/> cannot be made worse by
+        /// of anchors no shot can ever take and <see cref="LevelGates.WorstAnchorLoad"/> cannot be made worse by
         /// anything the player does. What it missed is who that is a good deal for. Fifty-eight of this
         /// level's 113 anchors were rock, and the player finished the campaign looking at a ring of stone
-        /// they had no way to touch — see the ANCHORING paragraph of <see cref="FindStrandedSpecials"/>.
+        /// they had no way to touch — see the ANCHORING paragraph of <see cref="LevelGates.FindStrandedSpecials"/>.
         /// </para>
         /// <para>
         /// The vein stops one course short for the same reason and by the same rule as

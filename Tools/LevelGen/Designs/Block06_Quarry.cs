@@ -1,13 +1,14 @@
 ﻿using Prazsky.BS3D.GameStructure;
 using Prazsky.Core.Render;
 using System;
+using static BS3D.Tools.LevelGen.CampaignSet;
 
 namespace BS3D.Tools.LevelGen
 {
     /// <summary>
     /// <b>The Quarry</b>, block 6 of the campaign: its designs, and the helpers no other block's designs use, in
     /// the order <c>Program.cs</c> held them — the play order is <see cref="Main"/>'s, and the block's name, music
-    /// and ball style are in the tables there. Split out of <c>Program.cs</c> in #386.
+    /// and ball style are in <see cref="CampaignSet"/>'s tables. Split out of <c>Program.cs</c> in #386.
     /// </summary>
     internal static partial class Program
     {
@@ -34,7 +35,7 @@ namespace BS3D.Tools.LevelGen
         /// were the first try and they were a <b>one-shot level</b>: a band is a single group, and the top
         /// band is what holds the cluster to the glass, so one matching ball dropped all 387 balls at once.
         /// Blocks keep the graphic look and put all three colours on the anchor layer, which is the rule
-        /// every design here has to satisfy — see the drop test in <see cref="Validate"/>.
+        /// every design here has to satisfy — see the drop test in <see cref="LevelGates.Validate"/>.
         /// </summary>
         private static Design Mosaic() => new()
         {
@@ -274,7 +275,7 @@ namespace BS3D.Tools.LevelGen
         /// growth levels under it in the 15-level field) - the tune is <see cref="TRILITHON_PILLAR_WIDTH"/>
         /// to 4. Then run the drop test on any colour landing tiles in both pillars at the same courses
         /// (the lintel orphan, bounded near 29 % of the cluster by construction - well under
-        /// <see cref="ONE_SHOT_PERCENT"/>, verify it stays there). Then count standing groups after
+        /// <see cref="LevelGates.ONE_SHOT_PERCENT"/>, verify it stays there). Then count standing groups after
         /// half-shift tile fusion: if fused groups push the shots-per-group ratio under 1.0, re-order
         /// <see cref="TRILITHON_PALETTE"/> or the 3 * ti stride in <see cref="TrilithonColour"/> to
         /// desynchronise the two pillars.

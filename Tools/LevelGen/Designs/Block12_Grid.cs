@@ -1,13 +1,14 @@
 ﻿using Prazsky.BS3D.GameStructure;
 using Prazsky.Core.Render;
 using System;
+using static BS3D.Tools.LevelGen.CampaignSet;
 
 namespace BS3D.Tools.LevelGen
 {
     /// <summary>
     /// <b>The Grid</b>, block 11 of the campaign (#420): its designs, and the helpers no other block's designs
-    /// use. The play order is <see cref="Main"/>'s and the block's name, music and ball style are in the tables
-    /// there, exactly as every other block file states.
+    /// use. The play order is <see cref="Main"/>'s and the block's name, music and ball style are in
+    /// <see cref="CampaignSet"/>'s tables, exactly as every other block file states.
     /// </summary>
     internal static partial class Program
     {

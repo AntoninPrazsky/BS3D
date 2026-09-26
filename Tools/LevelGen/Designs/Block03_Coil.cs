@@ -3,13 +3,14 @@ using Prazsky.Core.Render;
 using Prazsky.Core.Tools;
 using System;
 using Microsoft.Xna.Framework;
+using static BS3D.Tools.LevelGen.CampaignSet;
 
 namespace BS3D.Tools.LevelGen
 {
     /// <summary>
     /// <b>The Coil</b>, block 3 of the campaign: its designs, and the helpers no other block's designs use, in
     /// the order <c>Program.cs</c> held them — the play order is <see cref="Main"/>'s, and the block's name, music
-    /// and ball style are in the tables there. Split out of <c>Program.cs</c> in #386.
+    /// and ball style are in <see cref="CampaignSet"/>'s tables. Split out of <c>Program.cs</c> in #386.
     /// </summary>
     internal static partial class Program
     {
@@ -78,7 +79,7 @@ namespace BS3D.Tools.LevelGen
 
         /// <summary>
         /// How deep a coiled layout is drawn. Twelve leaves the six empty levels <see cref="DUNES_FIELD_LEVELS"/>
-        /// is chosen for, and the offset it implies is even, which <see cref="Emit"/> requires. Only
+        /// is chosen for, and the offset it implies is even, which <see cref="LevelEmitter.Emit"/> requires. Only
         /// <see cref="Pendulum"/> departs from it, and says why.
         /// </summary>
         private const byte DUNES_DEPTH = 12;
@@ -242,7 +243,7 @@ namespace BS3D.Tools.LevelGen
         /// <para>
         /// <b>Thirteen wide and not fifteen.</b> The shell reaches 4.4, which leaves three free columns in a
         /// 15-wide field — a wider glass plate and a longer camera stand-off bought for nothing. Thirteen is
-        /// the narrowest field that still gives <see cref="LateralMargin"/> the two columns it wants here.
+        /// the narrowest field that still gives <see cref="LevelGates.LateralMargin"/> the two columns it wants here.
         /// </para>
         /// </summary>
         private static Design Basket() => new()
@@ -290,7 +291,7 @@ namespace BS3D.Tools.LevelGen
         /// <para>
         /// <b>Fourteen deep and not <see cref="DUNES_DEPTH"/></b>: the ropes are the level, and six levels of
         /// rope over an eight-level bulb reads as a lamp sitting on a shelf rather than as a weight on a line.
-        /// The offset stays even, which is what <see cref="Emit"/> requires.
+        /// The offset stays even, which is what <see cref="LevelEmitter.Emit"/> requires.
         /// </para>
         /// <para>
         /// Measured: 384 balls — the heaviest of the block — margin 2, nothing standing alone, <b>2 in pairs
@@ -493,7 +494,7 @@ namespace BS3D.Tools.LevelGen
         /// between the tie and the ring and the pendant hangs through the ring off the other one, with the
         /// cut strand's stub still held by the tie. Brown is the jackpot and is deliberately the only
         /// all-or-nothing shot in the level: the ring's 24 balls drop the 91-ball stone with them, 72 % of the
-        /// 147 the tables above count - the designed payoff, and still under <see cref="ONE_SHOT_PERCENT"/>.
+        /// 147 the tables above count - the designed payoff, and still under <see cref="LevelGates.ONE_SHOT_PERCENT"/>.
         /// It was 44 % of 104 while the stone was four courses; a jewel that is most of its own level is a
         /// jackpot that is most of its own level, and that is the trade #360 made deliberately. The stone's
         /// own courses are banded alternately so the SECOND big shot - cutting the neck course and dropping
@@ -1620,7 +1621,7 @@ namespace BS3D.Tools.LevelGen
         /// <summary>
         /// The emitter's own centred offsets, rebuilt from the raw indices — the <c>x + shift - axis</c> line
         /// for line, with the shift taken off the layout index, which is the same parity as the field level
-        /// because <see cref="Emit"/> refuses an odd offset (see <see cref="Lean"/>).
+        /// because <see cref="LevelEmitter.Emit"/> refuses an odd offset (see <see cref="Lean"/>).
         /// </summary>
         private static void PendulumOffsets(int x, int z, int i, out float dx, out float dz)
         {
