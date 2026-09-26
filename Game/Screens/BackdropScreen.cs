@@ -65,9 +65,13 @@ namespace BS3D.Screens
         private Vector3 _previewOffset = Vector3.Zero;
         private Matrix _menuCeilingWorld = Matrix.Identity;
 
+        //The frame's on-top slot (#600), made once so handing it to the host each frame allocates nothing
+        private readonly Action _drawWordmark;
+
         public BackdropScreen(BS3DGame game)
         {
             Game = game;
+            _drawWordmark = DrawWordmark;
 
             //Rolled here rather than on first draw: the level set is loaded and the sky is up by the time the
             //host builds this screen, so the very first frame the front end ever shows already carries the
@@ -200,8 +204,8 @@ namespace BS3D.Screens
         //was what held nearly every shipped level's pass at 21-24 units (#254). The title has stepped aside
         //for the pass ever since — shrunk to a small corner mark — and the floor fell to what only the lens
         //needs: the owner's ruling on the first version of that (#261) was that the title should not vanish
-        //but stay small, and a ball passing IN FRONT of a small corner mark is honest parallax rather than
-        //the broken-looking name a full-size one showed.
+        //but stay small. Since #600 the title stands in front of the whole scene, so no ball passes in
+        //front of it at any distance and the title sets no floor here at all.
         private const float CLOSE_CLEARANCE = 1.5f;
 
         //How far either way a cycle rolls its clearance (#261's "one pass skims closer among the balls than
@@ -557,8 +561,10 @@ namespace BS3D.Screens
         //How small the 3D title gets while the flight is in among the balls (its `presence` floor, #261):
         //not away to nothing — the owner's ruling on the first version was that it should stay, small, in
         //its corner — but to a third of its size, where it reads as a modest corner mark instead of the
-        //frame-dominating name. At this scale a ball nearer the lens than the block's 7-unit hang does pass
-        //in front of it, which is honest parallax; the full-size name is what looked broken (#254).
+        //frame-dominating name. It began as a depth answer - a ball nearer the lens than the block's 7-unit
+        //hang drew through the full-size name (#254) - and since #600 nothing draws through it at all (it
+        //stands on top of the scene, see DrawWordmark), so what it keeps is the framing: the close pass is
+        //the balls' shot, and a full-size name over it would cover the very thing the pass flew in to show.
         private const float WORDMARK_ASIDE_SCALE = 0.35f;
 
         //About a full turn every 90 s out wide: slow enough to read as ambience rather than as a turntable.
@@ -1154,58 +1160,6 @@ namespace BS3D.Screens
 
             Game.Balls.Draw(Game.WallClock);
 
-            //The game's name in 3D (#248), on the title card and on the main menu and nowhere else.
-            //
-            //THE GATE IS ONE TEST HERE RATHER THAN A CALL FROM THE PAGE, and that is a correctness point, not
-            //a preference: Screen.Enter and Screen.Leave are raised on a PUSH and a POP only, and every other
-            //front-end page (Settings, Scene, About, the level picker) is pushed OVER the main menu without
-            //popping it — so a Present/Hide pair in MainMenuPage would leave the title standing behind all
-            //four of them. Being covered is not signalled at all: CoveredChanged goes only to the screen that
-            //ends up on top (its doc, #585), and this screen is never that while a page stands. One test
-            //against the active page needs no page to opt in and cannot be forgotten by a page added later.
-            //
-            //And it is HERE, in the front end's own screen, rather than in the host's BeginSceneDraw where the
-            //fireworks, the confetti and the cup are drawn: nothing the host draws is front-end-only (which is
-            //why `celebrate` and `confetti` work as front-end test levers at all), while this screen is not
-            //reached at all once a session is on the stack.
-            //
-            //IT IS THE SAME OBJECT ON BOTH PAGES, and the page only says WHICH COMPOSITION it is heading for:
-            //under the splash it stands in the 2D logo's own layout in the middle of the frame, where the
-            //picture is cross-fading into it (#454); the menu wants it in the corner. The move between them
-            //belongs to the wordmark, so no page can leave it stranded half way across the frame, and the
-            //splash's replacement by the menu is what starts it (#248).
-            //
-            //UNDER THE SPLASH IT IS DRAWN ONLY ONCE THE HAND-OVER HAS BEGUN (SplashPage.WordmarkShown). The
-            //page opens black with the picture over it and the scene arrives behind the picture first; letters
-            //standing in the scene from frame one would show round the picture's edges as the black went, and
-            //the title would be seen arriving twice. From the frame the picture starts to thin, the letters
-            //are under it in its own place, and what the picture leaves behind is them.
-            //
-            //After the balls and BEFORE the drain's glass, so the frame's stated order holds — every opaque
-            //thing, then everything translucent. It states its own three states and puts them back.
-            //And it STEPS ASIDE for the fly-in (#261): the pass comes in far nearer than the title hangs
-            //(see CLOSE_CLEARANCE), so across the approach the block shrinks to WORDMARK_ASIDE_SCALE of its
-            //size and back up across the retreat, on the flight's own curve — a small corner mark through
-            //the close pass rather than the full-size name the balls would draw through. What changes is the
-            //block's SIZE, the reveal's own idiom, because the letters are opaque geometry and have no alpha
-            //to fade.
-            //
-            //AND ON THE SPLASH ALONE IT STATES stillness TOO (#475): the picture's own fading opacity, so the
-            //letters hold their sway, wave and beat back for exactly as long as a flat, motionless picture is
-            //still substantially up over them, and only breathe on their own once it is gone. The menu never
-            //passes anything here (0, the default) — nothing behind the front end is ever motionless, so there
-            //is nothing there for the letters' own drift to disagree with.
-            Screen active = Manager?.Active;
-            if (active is MainMenuPage || (active is SplashPage splash && splash.WordmarkShown))
-            {
-                bool isMenu = active is MainMenuPage;
-                float stillness = active is SplashPage activeSplash ? activeSplash.LogoAlpha : 0f;
-
-                Game.TitleWordmark?.Draw(Game.Camera, Game.WallClock, settled: isMenu,
-                    presence: MathHelper.Lerp(1f, WORDMARK_ASIDE_SCALE, Closeness(_flightClock)),
-                    stillness: stillness);
-            }
-
             Game.DrawSettingGlass();
 
             //Over the glass drain, as in play — and hung from the pose RollPreviewMap wrote, at rest above
@@ -1214,7 +1168,56 @@ namespace BS3D.Screens
             if (Game.MenuCeilingRenderer != null)
                 Game.DrawCeilingGlass(Game.MenuCeilingRenderer, _menuCeilingWorld);
 
-            Game.FinishSceneDraw(sceneFrame);
+            //The game's name last of all, in front of everything the scene drew (#600) - see DrawWordmark
+            Game.FinishSceneDraw(sceneFrame, drawOnTop: _drawWordmark);
+        }
+
+        /// <summary>
+        /// The game's name in 3D (#248), on the main menu and nowhere else — handed to
+        /// <see cref="BS3DGame.FinishSceneDraw"/> as the frame's on-top slot (#600) and cached in
+        /// <see cref="_drawWordmark"/>, so the hand-over allocates nothing per frame.
+        /// </summary>
+        /// <remarks>
+        /// <b>It stands in front of everything the scene drew, and that is the owner's ruling on seeing it
+        /// clip (#600).</b> It hung 7 units in front of the lens with the scene's own depth, drawn between the
+        /// balls and the glass — and the fly-in brings the lens to a unit and a half off the cluster, so balls
+        /// and the ceiling's glass passed through the letters. The host now draws it last of the HDR pass over a
+        /// depth buffer cleared for it: nothing in the scene can cut into it, the letters still occlude one
+        /// another, and it keeps the frame's light rig, exposure, curve, grain and bloom — which the sharp
+        /// presentation layer the cup uses would have kept too, but at the cost of a permanently allocated
+        /// supersampled target on a screen the adaptive-quality probe measures, for a defocus the front end
+        /// never runs. The glass's bent copy of the frame (#541) is taken before it, so the pane cannot bend the
+        /// letters into itself; and the front end runs no velocity pass, so no motion blur is smeared over it.
+        /// <para>
+        /// <b>The gate is one test here rather than a call from the page</b>, and that is a correctness point,
+        /// not a preference: Screen.Enter and Screen.Leave are raised on a PUSH and a POP only, and every other
+        /// front-end page (Settings, Scene, About, the level picker) is pushed OVER the main menu without
+        /// popping it — so a Present/Hide pair in MainMenuPage would leave the title standing behind all four
+        /// of them. Being covered is not signalled at all: CoveredChanged goes only to the screen that ends up
+        /// on top (its doc, #585), and this screen is never that while a page stands. One test against the
+        /// active page needs no page to opt in and cannot be forgotten by a page added later. And it is in the
+        /// front end's own screen rather than in the host, where the fireworks, the confetti and the cup are
+        /// drawn: nothing the host draws is front-end-only (which is why <c>celebrate</c> and <c>confetti</c>
+        /// work as front-end test levers at all), while this screen is not reached once a session is on the
+        /// stack.
+        /// </para>
+        /// <para>
+        /// <b>Not under the splash (#601).</b> From #454 it was drawn there too, standing in the 2D logo's own
+        /// layout while the picture cross-faded into it, then flying to the corner as the menu arrived; the
+        /// owner ruled that out, so the splash holds its logo on black and cuts to a menu this title already
+        /// stands in, in its corner.
+        /// </para>
+        /// <para>
+        /// <b>And it steps aside for the fly-in (#261)</b>: across the approach the block shrinks to
+        /// <see cref="WORDMARK_ASIDE_SCALE"/> of its size and back up across the retreat, on the flight's own
+        /// curve — a small corner mark through the close pass, the owner's ruling that the title stays, small.
+        /// </para>
+        /// </remarks>
+        private void DrawWordmark()
+        {
+            if (Manager?.Active is MainMenuPage)
+                Game.TitleWordmark?.Draw(Game.Camera, Game.WallClock,
+                    presence: MathHelper.Lerp(1f, WORDMARK_ASIDE_SCALE, Closeness(_flightClock)));
         }
     }
 }

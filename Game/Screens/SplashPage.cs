@@ -7,10 +7,9 @@ using System;
 namespace BS3D.Screens
 {
     /// <summary>
-    /// The intro the game opens on (#454): the <b>2D logo bitmap</b> fading up out of black, the front end's
-    /// scene cross-fading in behind it, and the picture then cross-fading into the <b>3D wordmark</b> standing
-    /// in the same place — which flies to its menu corner as this page hands over. It hands over on its own
-    /// after the sequence, or the moment the player asks it to.
+    /// The intro the game opens on (#454): the <b>2D logo bitmap</b> fading up out of black and held, then a
+    /// <b>cut</b> to the front end, where the 3D wordmark already stands in its menu corner (#601). It hands over
+    /// on its own after the sequence, or the moment the player asks it to.
     /// <para>
     /// It is the first page that does anything in its own <see cref="Update"/> rather than merely showing a
     /// tree, which is what makes it worth having beyond the issue asking for one: a screen that owns a piece
@@ -18,14 +17,14 @@ namespace BS3D.Screens
     /// boot, ticking, and replacing itself.
     /// </para>
     /// <para>
-    /// <b>The sequence is five legs, and the order of the middle three is the point.</b> The window opens
-    /// black; the logo fades up out of it; the <i>black</i> then cross-fades away into the scene, which has
-    /// been turning underneath from frame one; only then does the <i>logo</i> go — and it goes by becoming the
-    /// wordmark: <see cref="Effects.TitleWordmark.BeginHandover"/> stands the 3D letters in the picture's own
-    /// layout under it on the frame the bitmap starts thinning, so what is left when the picture has gone is
-    /// the same title as geometry. The scene arrives first, under the logo, and the logo leaves last, into
-    /// the letters. Then the menu takes the page's place and the letters fly to the corner (the wordmark's
-    /// own move, started by the menu asking for its composition).
+    /// <b>There is no hand-over into the 3D letters any more, and that is the owner's decision (#601).</b> From
+    /// #454 until then the black cross-faded away into the scene under the logo, the logo then cross-faded into
+    /// the 3D lettering standing in the picture's own layout in the middle of the frame, and the letters flew
+    /// to the corner as the menu arrived. The owner ruled the cross-fade and the fly out: the wordmark is in its
+    /// menu position from the start. So the picture stays on black for as long as it is up — a logo over an
+    /// arriving scene would stand beside the wordmark in its corner, two titles at once — and the page cuts to
+    /// the menu. The fade <i>up</i> out of black is kept: it is not a hand-over into anything, and a picture
+    /// that cuts in on the window's first frame reads as a stutter.
     /// </para>
     /// <para>
     /// <b>Its tree is empty and it draws with the host's overlay batch instead.</b> The black and the picture
@@ -36,46 +35,26 @@ namespace BS3D.Screens
     /// finding, #114), and a widget is laid out in the menu's scaled design units where the picture has to be
     /// placed in <b>pixels</b> (see <see cref="LogoRectangle"/>).
     /// </para>
-    /// <para>
-    /// <b>Until #454 this page held nothing but the piece of time</b>, the 3D title having opened centred on
-    /// its own account and moved to the corner when this page handed over (#248's second pass). The bitmap is
-    /// the game's first impression now, so the wordmark starts in its corner and the only time it stands in
-    /// the middle of the frame is the hand-over above — a `play` boot, or a skip before the hand-over began,
-    /// never sees it there.
-    /// </para>
     /// </summary>
     internal sealed class SplashPage : MenuPage
     {
-        //=== THE SEQUENCE, each leg after the one before, in seconds ===
+        //=== THE SEQUENCE, in seconds ===
         //
         //A starting point rather than a measurement: the issue offered figures of this shape and said the
-        //owner's eye decides. What is fixed is the ORDER (see the class remarks) and that nothing here cuts —
-        //every leg is a smoothstep, since a picture that cuts in reads as a stutter and one that cuts out
-        //reads as a fault.
+        //owner's eye decides. Two legs since #601 — up out of black, then held — and the page then cuts to
+        //the menu (see the class remarks for why the old legs after these went).
 
         //Black to the logo over black
         private const float FADE_UP_SECONDS = 0.7f;
 
-        //The logo alone on black — long enough to be read, short enough that nobody reaches for the skip
-        private const float HOLD_SECONDS = 1.0f;
-
-        //The black away into the scene, the logo still over it
-        private const float SCENE_IN_SECONDS = 1.0f;
-
-        //The logo into the wordmark. The letters' own arrival swell runs under this (TitleWordmark's
-        //REVEAL_SECONDS is of the same length on purpose), so the picture inflates into geometry across it.
-        private const float HANDOVER_SECONDS = 0.8f;
-
-        //The wordmark alone, centred, before the menu takes the page's place and it flies
-        private const float BEAT_SECONDS = 0.35f;
-
-        //Where each leg begins on this page's clock
-        private const float SCENE_IN_AT = FADE_UP_SECONDS + HOLD_SECONDS;
-        private const float HANDOVER_AT = SCENE_IN_AT + SCENE_IN_SECONDS;
-        private const float BEAT_AT = HANDOVER_AT + HANDOVER_SECONDS;
+        //The logo alone on black — long enough to be read, short enough that nobody reaches for the skip. It
+        //was 1.0 with a second leg after it that kept the picture fully up over the arriving scene; that leg
+        //went with the hand-over (#601), and this took half of it back so the picture is not gone sooner than
+        //it can be read.
+        private const float HOLD_SECONDS = 1.5f;
 
         /// <summary>The whole sequence; the front end takes the page's place at the end of it.</summary>
-        private const float SECONDS = BEAT_AT + BEAT_SECONDS;
+        private const float SECONDS = FADE_UP_SECONDS + HOLD_SECONDS;
 
         /// <summary>
         /// How long any input is ignored for. A splash that can be skipped on frame one is skipped by the very
@@ -97,7 +76,6 @@ namespace BS3D.Screens
         private const int BAND_WIDTH = 3840, BAND_HEIGHT = 1600;
 
         private float _age;
-        private bool _handedOver;
         private KeyboardState _previousKeyboard;
         private MouseState _previousMouse;
         private GamePadState _previousPad;
@@ -109,23 +87,6 @@ namespace BS3D.Screens
         internal override bool DimsFrame => false;
 
         /// <summary>
-        /// Whether the 3D wordmark is on show under this page yet — <c>true</c> from the frame the hand-over
-        /// begins. <see cref="BackdropScreen"/> reads it to know when to start drawing the title: not a moment
-        /// earlier, or the letters would stand in the scene behind the picture from the first frame and show
-        /// round its edges as the black went.
-        /// </summary>
-        internal bool WordmarkShown => _handedOver;
-
-        /// <summary>
-        /// How much of the picture is still up, 1 fully and 0 gone — <see cref="BackdropScreen"/> hands this
-        /// straight to <c>TitleWordmark.Draw</c>'s <c>stillness</c> (#475), so the letters hold their idle
-        /// drift back for exactly as long as the flat picture they are standing in for is still substantially
-        /// on screen, and wake into their ordinary motion on the same curve the picture fades by — one number
-        /// answering both, rather than a second clock that could drift from the first.
-        /// </summary>
-        internal float LogoAlpha => LogoOpacity(_age);
-
-        /// <summary>
         /// Nothing. The picture is not a widget — see the class remarks for why it is drawn by this page's own
         /// <see cref="Draw"/> rather than laid out by Myra — so the root stays empty on purpose.
         /// </summary>
@@ -134,7 +95,6 @@ namespace BS3D.Screens
         public override void Enter()
         {
             _age = 0f;
-            _handedOver = false;
 
             //Sampled here rather than left at default, so a key already down when the game launched — or the
             //mouse button that started it from a shell — is not read as a fresh press on the first frame
@@ -150,18 +110,6 @@ namespace BS3D.Screens
 
             _age += (float)gameTime.ElapsedGameTime.TotalSeconds;
 
-            //The hand-over, once, on the frame the picture starts to thin: the wordmark is stood in the
-            //picture's own place — its share of the frame is this launch's, since the picture is placed in
-            //pixels — and its arrival swell starts. From here the backdrop draws it under this page.
-            if (!_handedOver && _age >= HANDOVER_AT)
-            {
-                _handedOver = true;
-
-                Rectangle frame = Game.GraphicsDevice.Viewport.Bounds;
-                Rectangle logo = LogoRectangle(frame);
-                Game.TitleWordmark?.BeginHandover(logo.Width / (float)frame.Width, logo.Height / (float)frame.Height);
-            }
-
             if (_age >= SECONDS || (_age >= SKIP_AFTER && Skipped()))
             {
                 //Replace rather than Pop: the splash is the only page over the backdrop at boot, so the front
@@ -171,19 +119,18 @@ namespace BS3D.Screens
                 //splash, and one that asks after the splash has already been popped (the play argument) is
                 //dropped by the manager rather than putting a menu over the level.
                 //
-                //A skip is a cut, deliberately: the black and the picture stop being drawn on the frame this
-                //page leaves, whichever leg it was in. A player who pressed a key asked for the menu, not for
-                //a faster fade — and the title is already in its corner if the hand-over had not begun, or
-                //flies there from wherever the hand-over left it if it had.
+                //The end of the sequence and a skip are both a cut (#601): the black and the picture stop being
+                //drawn on the frame this page leaves, and the title is already standing in its menu corner
+                //underneath — it is drawn only while the main menu is on top, and it never stands anywhere else.
                 Manager.Replace(this, Game.MainMenuPage);
             }
         }
 
         /// <summary>
         /// The black and the picture, over the resolved frame. Two sprites in the host's overlay batch, black
-        /// first so the logo fades up <i>over</i> it and stays over the scene as the black goes.
+        /// first — solid for as long as the page is up — so the logo fades up <i>over</i> it.
         /// <para>
-        /// Both fades are a plain scale on <c>Color</c>: the texel and the logo are premultiplied (the content
+        /// The fade is a plain scale on <c>Color</c>: the texel and the logo are premultiplied (the content
         /// pipeline premultiplies on build, <c>PremultiplyAlpha=True</c>), which is what the batch's default
         /// <c>AlphaBlend</c> expects, and scaling all four channels keeps a premultiplied colour correct. Loading
         /// the logo any other way would fringe its edges — the note is in <c>Images/logo/README.md</c>.
@@ -191,28 +138,17 @@ namespace BS3D.Screens
         /// </summary>
         public override void Draw(GameTime gameTime)
         {
-            float black = BlackOpacity(_age);
-            float logo = LogoOpacity(_age);
-            if (black <= 0f && logo <= 0f) return;
+            //Up out of the black, then held: SmoothStep clamps its amount, so past the fade this is simply one
+            float logo = MathHelper.SmoothStep(0f, 1f, _age / FADE_UP_SECONDS);
 
             Rectangle frame = Game.GraphicsDevice.Viewport.Bounds;
             SpriteBatch batch = Game.OverlayBatch;
 
             batch.Begin();
-            if (black > 0f) batch.Draw(Game.Texel, frame, Color.Black * black);
+            batch.Draw(Game.Texel, frame, Color.Black);
             if (logo > 0f) batch.Draw(Game.Logo, LogoRectangle(frame), Color.White * logo);
             batch.End();
         }
-
-        /// <summary>Solid until the scene leg, then away over it.</summary>
-        private static float BlackOpacity(float age) =>
-            age < SCENE_IN_AT ? 1f : 1f - MathHelper.SmoothStep(0f, 1f, (age - SCENE_IN_AT) / SCENE_IN_SECONDS);
-
-        /// <summary>Up out of the black, held through the scene leg, then away into the wordmark.</summary>
-        private static float LogoOpacity(float age) =>
-            age < FADE_UP_SECONDS ? MathHelper.SmoothStep(0f, 1f, age / FADE_UP_SECONDS)
-            : age < HANDOVER_AT ? 1f
-            : 1f - MathHelper.SmoothStep(0f, 1f, (age - HANDOVER_AT) / HANDOVER_SECONDS);
 
         /// <summary>
         /// Where the picture sits in <paramref name="frame"/>: centred, at the band rule's scale (see

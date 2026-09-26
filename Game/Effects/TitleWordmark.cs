@@ -22,15 +22,12 @@ namespace BS3D.Effects
     /// the 2D road is not built at all, and the label is gone.
     /// </para>
     /// <para>
-    /// <b>It is also what the game's 2D logo turns into (#454).</b> The game opens on a flat bitmap of the logo
-    /// (<see cref="Screens.SplashPage"/>: up out of black, the scene cross-faded in behind it), and the picture
-    /// then cross-fades into these letters standing in the picture's own layout in the middle of the frame —
-    /// see the <c>LOGO_</c> constants, every one measured off the bitmap — before the block flies to the corner
-    /// as the menu arrives. That hand-over is the <i>only</i> time the title is in the middle of the frame:
-    /// it starts settled in its corner (<see cref="_morph"/>), and <see cref="BeginHandover"/> is what puts
-    /// it in the picture's place. Until #454 the title opened centred on one line on its own account and moved
-    /// to the corner when the splash handed over; the bitmap is the first impression now, and a second title
-    /// arriving in the middle of the frame under it would have been two openings.
+    /// <b>It stands in its menu corner from the first frame it is drawn, and nowhere else (#601).</b> From #454
+    /// until then it was also what the game's 2D logo turned into: the splash cross-faded the bitmap into these
+    /// letters standing in the picture's own layout in the middle of the frame, and the block then flew to the
+    /// corner as the menu arrived — a second, opening composition every frame was interpolated towards. The
+    /// owner ruled the cross-fade and the fly out, so the opening composition, the move and the arrival swell
+    /// that ran under the fading picture are gone, and the splash cuts to a menu this title is already in.
     /// </para>
     /// <para>
     /// <b>It is placed against the FRAME, not against the world</b>, for the reason
@@ -47,9 +44,17 @@ namespace BS3D.Effects
     /// defocuses and never dims (<c>MainMenuPage.DimsFrame</c> is false and no front-end page overrides
     /// <c>FrameBlur</c>), so there is nothing here for a sharp layer to be sharp against — and the layer costs
     /// a permanently allocated supersampled target, a bright pass over it and a full-screen composite on every
-    /// frame of a screen the adaptive-quality probe is measuring. In the scene pass the wordmark gets the
-    /// frame's real depth buffer, the same exposure, the same ACES curve and the same film grain as everything
-    /// else, and its bright pass feeds the bloom pyramid for free.
+    /// frame of a screen the adaptive-quality probe is measuring. In the scene pass the wordmark gets the same
+    /// exposure, the same ACES curve and the same film grain as everything else, and its bright pass feeds the
+    /// bloom pyramid for free.
+    /// </para>
+    /// <para>
+    /// <b>It stands IN FRONT of the whole scene (#600)</b>: the host draws it last of that pass, after the
+    /// weather and the fireworks, over a depth buffer cleared for it (<c>BS3DGame.FinishSceneDraw</c>'s on-top
+    /// slot). Until then it shared the scene's depth, and the front end's fly-in carried the balls and the
+    /// ceiling's glass through the letters — the owner's ruling was that the name is never intersected by
+    /// anything. The depth buffer it gets is its own, so the letters still occlude one another and the
+    /// keyline and glow tricks below, which lean on depth, work exactly as they did.
     /// </para>
     /// <para>
     /// <b>A rainbow here is the second deliberate exception to the front end's greyscale rule</b>, and
@@ -163,13 +168,11 @@ namespace BS3D.Effects
         //of a unit further from the lens than its centre, so the word has a real vanishing point without the
         //wide-angle stretch a closer hang would give it.
         //
-        //IT IS ALSO A DEPTH RELATION, and one that stopped being simple the day the fly-in arrived (#254).
-        //The block hangs in the world with depth writes on, so anything nearer the lens than this is drawn
-        //in front of the game's own name. The pass now comes in to within a couple of units of the balls
-        //(#261), far inside this figure, and what keeps that honest is the title shrinking to a small
-        //corner mark for the whole close pass (Draw's presence): a ball passing in front of a modest corner
-        //mark is parallax, while a ball cutting through the frame-dominating name was the broken look the
-        //clearance used to be spent avoiding.
+        //IT WAS ALSO A DEPTH RELATION until #600. The block hung in the scene's own depth, so anything nearer
+        //the lens than this was drawn in front of the game's own name - and the front end's fly-in comes in to
+        //within a couple of units of the balls (#261), far inside this figure, so balls and the ceiling's glass
+        //cut through the letters. The host now draws the block over a depth buffer of its own, last of the
+        //scene, so this figure is perspective and nothing else.
         private const float DISTANCE = 7f;
 
         //HOW MUCH OF THE FRAME THE BLOCK FILLS. Height binds on every aspect anyone plays at (at 16:9 the
@@ -185,80 +188,6 @@ namespace BS3D.Effects
         //frame is a fault nothing in the code can catch.
         private const float BLOCK_HEIGHT_FRACTION = 0.66f;
         private const float BLOCK_WIDTH_FRACTION = 0.62f;
-
-        //=== THE OPENING COMPOSITION IS THE 2D LOGO'S LAYOUT (#454) ===
-        //
-        //The game opens on a flat bitmap of its logo (Images/logo/bs3d-logo-2048.png, drawn by SplashPage), and
-        //this wordmark is what that picture CROSS-FADES INTO before flying to its corner — so the composition
-        //the letters stand in while the picture thins has to be the picture's own, or the hand-over reads as
-        //one title being swapped for another. The bitmap is "BUBBLE" over "SHOOTER", both lines centred and
-        //nearly touching, with a small "3D" set in a round badge tucked under the second word. Every figure
-        //below was MEASURED off that bitmap (alpha > 128, in the 2048 x 1267 file) and is stated in cap heights
-        //of a word line, where one word line's ink (cap + two tube radii) is the 414 px the bitmap's two words
-        //average: BUBBLE rows 31–441, SHOOTER rows 448–865, the "3D" glyphs rows 906–1117 and the badge disc's
-        //bottom at 1242.
-        //
-        //It cannot be 1:1 and is not meant to be — the bitmap's letters are fat balloon lettering in a different
-        //hand, and matching them would be a redesign of LetterMesh — but with the LINES in the same places the
-        //picture and the geometry are the same object at the moment of the cut, and the disc, which this
-        //alphabet has no counterpart for, simply dissolves with the picture. The owner's ruling was exactly
-        //that: "it need not be perfect and 1:1, there will be a cross-fade, and it will still be striking".
-
-        //The daylight between the two words' ink: six rows, all but touching (0.018 of a cap).
-        private const float LOGO_LINE_GAP = 0.02f;
-
-        //From the second word's ink down to the top of the "3D" glyphs — forty rows, the badge's rim.
-        private const float LOGO_BADGE_GAP = 0.12f;
-
-        //How big the "3D" is against a word line in the PICTURE: 212 rows of ink against 414, and 337 columns
-        //against the 598 this alphabet's "3D" would take at full size — the two agree on about a half. It is
-        //the opposite of the menu's BADGE_SCALE, and the move between the two compositions is where the badge
-        //GROWS: the picture's small "3D" in its disc swells into the menu's big one as the block flies.
-        private const float LOGO_BADGE_SCALE = 0.53f;
-
-        //The disc runs on below the "3D" glyphs (rows 1117 to 1242), and the block's box carries that empty
-        //depth so that its CENTRE is the picture's centre — the fit and the anchor place the box's centre on
-        //the frame's, and a box that stopped at the glyphs would stand the whole word a few per cent high.
-        private const float LOGO_DISC_MARGIN = 0.38f;
-
-        //How much of the DRAWN bitmap its ink actually covers, width and height — the file is cropped to the
-        //drawing with a few pixels of clear margin (35 columns left, 37 right, 31 rows above, 25 below), and
-        //the splash hands over the rectangle it drew, not the ink. The open composition asks for the ink's
-        //share of the frame, so the second word lands on the picture's second word rather than a shade wider.
-        private const float LOGO_INK_WIDTH_SHARE = 1977f / 2048f;
-        private const float LOGO_INK_HEIGHT_SHARE = 1211f / 1267f;
-
-        //⚠ THE ONE FIGURE ABOVE THAT IS NOT A PIXEL MEASUREMENT, AND #475 IS WHAT EXPOSED THE GAP IT LEAVES.
-        //Every LOGO_ constant above fixes a VERTICAL rhythm (the gaps, the badge's shrink, the disc's margin),
-        //but nothing ties the block's WIDTH to the picture at all — the open composition's lines were laid out
-        //at the menu's own tracking (2*TUBE_RADIUS + DAYLIGHT = 0.36), which is a figure about the MENU's
-        //corner, not about this bitmap. Solved from the two ink measurements above and this alphabet's own
-        //letter widths: the block comes out 6.66 cap-heights wide by 3.81 tall at the menu's tracking, W/H =
-        //1.749, where the picture's own ink rectangle (1977 x 1211) is 1.633 - a block proportionally WIDER
-        //than the picture by enough that Draw's fit (whichever of width/height binds) came out WIDTH-bound,
-        //so the letters stood at 93% of the picture's own height. That is not "a shade narrower" (the class
-        //remarks' own claim, from a single photographed frame): three lines compressed 7% short cascades into
-        //a few pixels of drift by BUBBLE and enough by "3D" to double-expose rather than land on it, which is
-        //what a WATCHED run shows and a single mid-fade photograph did not.
-        //
-        //Tightened for the open composition alone (the menu's own tracking is untouched - it was never the
-        //complaint) to 0.32, which brings W/H to 1.686 - not exact, because exact (0.2862) undercuts the
-        //keyline clearance two adjacent rims need: TRACKING - 2*TUBE_RADIUS is the gap between them, and it
-        //has to clear 2*OUTLINE_WIDTH (0.044) before any of it is daylight rather than two rims touching. The
-        //floor is 2*(TUBE_RADIUS + OUTLINE_WIDTH) = 0.304; this keeps a hair above it rather than reopening
-        //the fold/touching-rim trap OUTLINE_WIDTH's own remarks warn about. What is left (1.686 against 1.633
-        //- the letters realise 97% of the picture's own height instead of 93%, half the shortfall) is the
-        //residual the owner's own ruling on #454 already accepted - a cross-fade, not a match - and closing
-        //it further is exactly the LetterMesh redesign that issue ruled out of scope. (Verified with a script,
-        //not carried over: the figures above are LetterShapes' actual per-glyph advances summed by hand, not
-        //an estimate.)
-        private const float LOGO_TRACKING = 0.32f;
-
-        //What the open composition asks for when NOTHING has handed a picture over — a share no frame ever
-        //shows, because the title stands settled in its corner from the first frame unless BeginHandover is
-        //called (see _morph). Kept sane rather than zero so a stray draw could not divide by nothing.
-        private const float OPEN_WIDTH_FRACTION = 0.53f;
-        private const float OPEN_HEIGHT_FRACTION = 0.76f;
 
         //=== THE MOTION ===
 
@@ -279,41 +208,17 @@ namespace BS3D.Effects
         //towards the lens, and CreateRotationY carries +z to (sin, 0, cos) - so a POSITIVE angle tilts the
         //face towards +x, screen right, off the frame, and a NEGATIVE one turns it towards the centre. Hence
         //the centre angle is negative and the sway is smaller than it, so their sum never reaches zero.
-        //It is the SETTLED composition's turn. The opening one stands in the middle of the frame, where there
-        //is no edge to face away from and facing straight out is right, so the bias arrives with the move.
         private const float YAW_CENTRE = -0.20f, YAW_SWAY = 0.07f, YAW_RATE = 0.34f;
         private const float PITCH_ANGLE = 0.055f, PITCH_RATE = 0.23f;
 
-        //=== THE MOVE FROM ONE COMPOSITION TO THE OTHER ===
-
-        //How long the title takes to leave the middle of the frame and settle into its corner. Long enough to
-        //be watched rather than glimpsed, and short enough that a player who came to press Play is not made to
-        //wait for it - and it is a smoothstep, so it leaves and arrives at rest and only the middle is quick.
-        //It runs once per launch, when the splash hands the front end over after the 2D logo has cross-faded
-        //into these letters (#454); a launch that skipped the splash never sees it (see _morph).
-        private const float MORPH_SECONDS = 1.15f;
-
-        //The arrival — and since #454 it happens UNDER THE FADING PICTURE rather than into an empty frame.
-        //BeginHandover starts it on the frame the splash begins thinning the bitmap, so the letters swell the
-        //last few per cent into place while the flat picture over them goes, and the flare below lands as the
-        //last of it leaves: the picture inflates into geometry rather than being replaced by it. The swell is
-        //small on purpose — it was 0.58 when the title arrived alone at boot, and a word growing by that much
-        //under a picture that stays put reads as two things, not one. It starts at a size rather than at
-        //nothing because the letters are opaque geometry: there is no alpha to fade here.
-        private const float REVEAL_SECONDS = 0.7f, REVEAL_FROM = 0.86f;
+        //=== STEPPING ASIDE ===
 
         //Below this the whole draw is skipped — a presence that has all but reached zero is a block of
         //degenerate sub-pixel matrices nobody can see. A guard on the caller's scalar rather than a state
         //the front end reaches: since the owner's ruling on #261 the flight floors the title at a small
-        //corner size rather than nothing, so nothing on the front end asks for zero to-day. The reveal's
-        //own rule, the crosshair's own threshold — an eased scalar that has settled at either end is not
-        //a draw.
+        //corner size rather than nothing, so nothing on the front end asks for zero to-day. The crosshair's
+        //own threshold — an eased scalar that has settled at either end is not a draw.
         private const float MIN_PRESENCE = 0.01f;
-
-        //And the glow's own kick as it lands, on top of the beat. This is where the reveal's overshoot lives,
-        //because scale cannot have one: the fit above solves the block to the frame, so a block that overshot
-        //its own size would cross the inset it was just fitted inside. Light has no such budget.
-        private const float REVEAL_FLARE = 0.30f;
 
         //THE WAVE THROUGH THE LETTERS, and the wavelength is not a taste: it is EXACTLY ONE CYCLE across the
         //whole wordmark. At any other figure the letters read as shimmering independently rather than as one
@@ -469,35 +374,17 @@ namespace BS3D.Effects
         private readonly List<InstancedModelRenderer> _outlineRenderers = new();
         private readonly List<InstancedModelRenderer> _auraRenderers = new();
 
-        //Every letter of the title that is actually drawn, in reading order — and nothing about WHERE it sits,
-        //because that depends on which composition is standing. Spaces are not letters: they move the pen and
-        //that is all they do.
+        //Every letter of the title that is actually drawn, in reading order. Spaces are not letters: they move
+        //the pen and that is all they do.
         private readonly Letter[] _letters;
 
-        //THE TWO COMPOSITIONS, both solved once at construction, and every frame is somewhere between them.
-        //_open is the 2D logo's layout (#454): the same three lines centred in the middle of the frame, the
-        //badge small, in the rectangle the splash drew the bitmap in — see the LOGO_ constants. _settled is the
-        //menu's: one word to a line, right-aligned into the corner, the last word blown up into a badge. The
-        //open block is the one field here that is not readonly, because its share of the frame is the
-        //picture's and the picture is placed in pixels: BeginHandover restates it per launch.
-        private readonly Placement[] _open, _settled;
-        private Composition _openBlock;
-        private readonly Composition _settledBlock;
-
-        //Where between them this frame is, 0 open and 1 settled, and the wall clock it was last advanced
-        //against. The morph is driven off the WALL CLOCK rather than an elapsed value because this class is
-        //only ever reached from a draw: a frame that is not drawn is a frame in which nothing here should have
-        //moved. A gap in the drawing — a level played, then Main Menu — comes back as one huge step, which
-        //saturates the morph and is exactly right, because the title belongs in its corner by then.
-        //
-        //BOTH START AT ONE, SETTLED AND ARRIVED (#454): the title stands in its menu corner from the first
-        //frame it is ever drawn and never occupies the middle of the frame on its own account. The only thing
-        //that puts it there is the splash handing the 2D logo over (BeginHandover), which is the one launch
-        //path that has a picture for it to stand in — a `play` boot, or a skip before the hand-over began,
-        //finds the title already in its corner rather than watching it fly there over a frame it never opened
-        //in the middle of.
-        private float _morph = 1f, _reveal = 1f;
-        private float _lastClock = -1f;
+        //THE COMPOSITION, solved once at construction: one word to a line, right-aligned into the corner, the
+        //last word blown up into a badge. Where every letter sits in it, and the size of the whole block in cap
+        //heights — the SWEPT box rather than the resting ink: the width is the widest line's ink, the height
+        //the whole stack's ink plus the reach of the wave that carries every letter above and below its line,
+        //so a letter at the top of the wave is inside the box, which is what makes the fit and the anchor honest.
+        private readonly Placement[] _placements;
+        private readonly float _blockWidth, _blockHeight;
 
         //THE KEYLINE PASS IS ONE DRAW A LETTER, like the body pass, and it was eleven INSTANCED draws until
         //the rim took a colour of its own: a colour is a per-DRAW uniform here, so the moment every letter's
@@ -548,9 +435,8 @@ namespace BS3D.Effects
         }
 
         /// <summary>
-        /// One drawn letter, and only what does <b>not</b> depend on which composition is standing — so the
-        /// hue and the wave travel through the word in reading order whether the title is on one line or three,
-        /// and neither jumps while it is moving between them.
+        /// One drawn letter, and what rides on reading order rather than on where it sits — so the hue and the
+        /// wave travel through the whole word, not through each line on its own.
         /// </summary>
         private readonly struct Letter
         {
@@ -567,9 +453,8 @@ namespace BS3D.Effects
         }
 
         /// <summary>
-        /// Where one letter sits in one composition, in cap heights, measured from that composition's block
-        /// <b>centre</b> — which is what the block turns about, so this is the frame the two compositions can
-        /// be interpolated in without knowing each other's size.
+        /// Where one letter sits in the composition, in cap heights, measured from the block's <b>centre</b> —
+        /// which is what the block turns about.
         /// </summary>
         private readonly struct Placement
         {
@@ -584,53 +469,6 @@ namespace BS3D.Effects
                 Scale = scale;
                 Across = across;
             }
-
-            public static Placement Lerp(in Placement a, in Placement b, float t) =>
-                new(MathHelper.Lerp(a.X, b.X, t), MathHelper.Lerp(a.Y, b.Y, t),
-                    MathHelper.Lerp(a.Scale, b.Scale, t), MathHelper.Lerp(a.Across, b.Across, t));
-        }
-
-        /// <summary>
-        /// One whole composition: how big the block is, how much of the frame it asks for, which corner it is
-        /// pinned to and how far it stands turned.
-        /// <para>
-        /// <b>Both sizes are the SWEPT box rather than the resting ink</b> — the width is the widest line's ink,
-        /// the height the whole stack's ink plus the reach of the wave that carries every letter above and below
-        /// its line. So a letter at the top of the wave is inside the box rather than outside it, which is what
-        /// makes the fit and the anchor honest.
-        /// </para>
-        /// <para>
-        /// <b>The anchor is two numbers rather than a mode</b>, and that is what makes the move between the two
-        /// compositions a plain interpolation: at 0 the block is centred in the frame on that axis, at 1 it is
-        /// pinned to the far edge with the inset, and everything in between is where it is on its way. The rest
-        /// of the anchor arithmetic is shared, so lerping these two lerps the whole anchor.
-        /// </para>
-        /// </summary>
-        private readonly struct Composition
-        {
-            public readonly float Width, Height;                    //cap heights
-            public readonly float WidthFraction, HeightFraction;    //of the whole frame
-            public readonly float EdgeX, EdgeY;                     //0 centred, 1 pinned
-            public readonly float Yaw;                              //the standing turn, radians
-
-            public Composition(float width, float height, float widthFraction, float heightFraction,
-                float edgeX, float edgeY, float yaw)
-            {
-                Width = width;
-                Height = height;
-                WidthFraction = widthFraction;
-                HeightFraction = heightFraction;
-                EdgeX = edgeX;
-                EdgeY = edgeY;
-                Yaw = yaw;
-            }
-
-            public static Composition Lerp(in Composition a, in Composition b, float t) =>
-                new(MathHelper.Lerp(a.Width, b.Width, t), MathHelper.Lerp(a.Height, b.Height, t),
-                    MathHelper.Lerp(a.WidthFraction, b.WidthFraction, t),
-                    MathHelper.Lerp(a.HeightFraction, b.HeightFraction, t),
-                    MathHelper.Lerp(a.EdgeX, b.EdgeX, t), MathHelper.Lerp(a.EdgeY, b.EdgeY, t),
-                    MathHelper.Lerp(a.Yaw, b.Yaw, t));
         }
 
         /// <param name="title">
@@ -663,8 +501,7 @@ namespace BS3D.Effects
 
             float tracking = 2f * TUBE_RADIUS + DAYLIGHT;
 
-            //=== The letters, in reading order, once. The hue and the wave ride on this order alone, so they
-            //do not care which composition is standing and cannot jump while the title is moving. ===
+            //=== The letters, in reading order, once. The hue and the wave ride on this order alone. ===
             int totalLetters = 0;
             foreach (string word in words) totalLetters += word.Length;
 
@@ -678,15 +515,11 @@ namespace BS3D.Effects
             _letters = letters.ToArray();
             _letterWorld = new Matrix[_letters.Length];
 
-            //=== And the two compositions the same letters are laid out in ===
-            //The open composition gets its OWN tracking (see LOGO_TRACKING) - the menu's is a figure about
-            //the menu's corner and was never asked to agree with the picture's own width.
-            _settledBlock = Place(words, settled: true, tracking, out _settled);
-            _openBlock = Place(words, settled: false, LOGO_TRACKING, out _open);
+            //=== And where they sit ===
+            Place(words, tracking, out _placements, out _blockWidth, out _blockHeight);
 
             for (int i = 0; i < _letters.Length; i++)
-                _widestLetter = MathF.Max(_widestLetter,
-                    _letters[i].Advance * MathF.Max(_open[i].Scale, _settled[i].Scale));
+                _widestLetter = MathF.Max(_widestLetter, _letters[i].Advance * _placements[i].Scale);
 
             Vector3 ambient = Vector3.One * ambientIntensity;
 
@@ -709,32 +542,24 @@ namespace BS3D.Effects
         }
 
         /// <summary>
-        /// Lays the whole title out in one composition and hands back both the block it came to and where every
-        /// letter sits in it.
-        /// <para>
-        /// Both compositions are one word to a line, and they differ in exactly three ways, which is all this
-        /// method knows about which it is building: the <b>alignment</b> (right against the block when settled,
-        /// centred in it when not), the <b>badge</b> (the last line blown up to <see cref="BADGE_SCALE"/> when
-        /// settled, shrunk to the picture's <see cref="LOGO_BADGE_SCALE"/> when not) and the <b>spacing</b>
-        /// (the menu's <see cref="LINE_GAP"/> everywhere when settled; the bitmap's own measured gaps and the
-        /// empty depth of its badge disc when not — see the <c>LOGO_</c> constants).
-        /// </para>
+        /// Lays the whole title out and hands back where every letter sits and the size of the block it came to:
+        /// one word to a line, right-aligned against the block, the last line blown up to
+        /// <see cref="BADGE_SCALE"/>, <see cref="LINE_GAP"/> between lines.
         /// <para>
         /// It works in block space: <c>x</c> runs LEFT from 0, the right-hand ink edge of the widest line, and
         /// <c>y</c> runs DOWN from 0, the top ink edge of the first line — both negative. The placements handed
         /// back are converted out of it, to the block's own centre, at the end.
         /// </para>
         /// </summary>
-        private Composition Place(string[] words, bool settled, float tracking, out Placement[] placements)
+        private static void Place(string[] lines, float tracking, out Placement[] placements,
+            out float width, out float height)
         {
-            string[] lines = words;
-
             float[] lineWidth = new float[lines.Length];
             float widestInk = 0f;
             for (int l = 0; l < lines.Length; l++)
             {
                 lineWidth[l] = LetterShapes.WordWidth(lines[l], tracking);
-                widestInk = MathF.Max(widestInk, (lineWidth[l] + 2f * TUBE_RADIUS) * LineScale(l, lines.Length, settled));
+                widestInk = MathF.Max(widestInk, (lineWidth[l] + 2f * TUBE_RADIUS) * LineScale(l, lines.Length));
             }
 
             //Laid out into block space first, then rebased onto the block's centre once its height is known.
@@ -744,16 +569,11 @@ namespace BS3D.Effects
 
             for (int l = 0; l < lines.Length; l++)
             {
-                float scale = LineScale(l, lines.Length, settled);
+                float scale = LineScale(l, lines.Length);
                 tallestLine = MathF.Max(tallestLine, scale);
 
-                float lineInkWidth = (lineWidth[l] + 2f * TUBE_RADIUS) * scale;
-
-                //Where this line's right ink edge sits: against the block when the composition is
-                //right-aligned, or half its slack in from it when the line is centred.
-                float right = settled ? 0f : -(widestInk - lineInkWidth) * 0.5f;
-
-                float pen = right - (lineWidth[l] + TUBE_RADIUS) * scale;
+                //Every line's right ink edge sits against the block's
+                float pen = -(lineWidth[l] + TUBE_RADIUS) * scale;
                 float baseline = inkTop - (LetterShapes.CAP_HEIGHT + TUBE_RADIUS) * scale;
 
                 foreach (char c in lines[l])
@@ -772,21 +592,13 @@ namespace BS3D.Effects
 
                 inkTop -= (LetterShapes.CAP_HEIGHT + 2f * TUBE_RADIUS) * scale;
 
-                //The gap to the next line. The menu's is one figure scaled by the taller of the two lines it
-                //separates; the picture's are its own two measured gaps, in word-line cap heights, and the
-                //last is the badge's rim rather than daylight (see LOGO_BADGE_GAP).
+                //The gap to the next line: one figure, scaled by the taller of the two lines it separates
                 if (l < lines.Length - 1)
-                    inkTop -= settled
-                        ? LINE_GAP * MathF.Max(scale, LineScale(l + 1, lines.Length, settled))
-                        : l == lines.Length - 2 ? LOGO_BADGE_GAP : LOGO_LINE_GAP;
+                    inkTop -= LINE_GAP * MathF.Max(scale, LineScale(l + 1, lines.Length));
             }
 
-            //The picture's badge disc runs on below its glyphs, and the box carries that depth so its centre is
-            //the picture's centre — see LOGO_DISC_MARGIN.
-            if (!settled) inkTop -= LOGO_DISC_MARGIN;
-
-            float width = widestInk;
-            float height = -inkTop + 2f * WAVE_DEPTH * tallestLine;
+            width = widestInk;
+            height = -inkTop + 2f * WAVE_DEPTH * tallestLine;
 
             //THE DEPTH BOW'S PHASE IS THE LETTER'S PLACE ACROSS THE BLOCK, not its place in the reading order,
             //and that is the difference between one surface bulging towards the lens and every line bulging on
@@ -801,19 +613,13 @@ namespace BS3D.Effects
                 placements[i] = new Placement(p.X + width * 0.5f, p.Y + height * 0.5f, p.Scale,
                     MathHelper.Clamp(across, -1f, 1f));
             }
-
-            return settled
-                ? new Composition(width, height, BLOCK_WIDTH_FRACTION, BLOCK_HEIGHT_FRACTION, 1f, 1f, YAW_CENTRE)
-                : new Composition(width, height, OPEN_WIDTH_FRACTION, OPEN_HEIGHT_FRACTION, 0f, 0f, 0f);
         }
 
         /// <summary>
-        /// The scale of one line: level everywhere except the last, which the settled composition blows up
-        /// into the menu's badge and the opening one shrinks to the picture's small "3D" in its disc. A
-        /// one-word title has no badge line in either.
+        /// The scale of one line: level everywhere except the last, which is blown up into the menu's badge.
+        /// A one-word title has no badge line.
         /// </summary>
-        private static float LineScale(int line, int lines, bool settled) =>
-            lines > 1 && line == lines - 1 ? (settled ? BADGE_SCALE : LOGO_BADGE_SCALE) : 1f;
+        private static float LineScale(int line, int lines) => lines > 1 && line == lines - 1 ? BADGE_SCALE : 1f;
 
         /// <summary>Keeps only the characters this alphabet can set, so an unsettable title degrades rather than throws.</summary>
         private static string Drawable(string word)
@@ -877,8 +683,8 @@ namespace BS3D.Effects
         }
 
         /// <summary>
-        /// Draws the wordmark, anchored to the frame. Called from the front end's own screen while either the
-        /// title card or the main menu is the page on top, so it is on screen exactly there and nowhere else —
+        /// Draws the wordmark, anchored to the frame. Called from the front end's own screen while the main menu
+        /// is the page on top, so it is on screen exactly there and nowhere else —
         /// no page has to opt in and no page added later can forget to opt out.
         /// </summary>
         /// <param name="wallClock">
@@ -886,41 +692,20 @@ namespace BS3D.Effects
         /// the drift, the wave and the beat all have to keep running while a settings page is open over the
         /// menu, which is the same argument the balls' heartbeat and the clouds' drift make.
         /// </param>
-        /// <param name="settled">
-        /// Which composition to move towards: <c>false</c> is the 2D logo's layout, the three lines centred in
-        /// the middle of the frame where the splash drew the picture; <c>true</c> is the menu's, one word to a
-        /// line in the corner with the last blown up. The caller states the <i>target</i> and never the
-        /// progress — the move itself is this class's, so a page cannot leave the title half way across the
-        /// frame. The title starts settled, so <c>false</c> only means anything after <see cref="BeginHandover"/>.
-        /// </param>
         /// <param name="presence">
         /// How present the title is, 1 fully and 0 not at all — the front end's fly-in passes its closeness
         /// eased down to a floor, so the word shrinks to a small corner mark in among the balls and comes
         /// back up as the lens leaves (#261; the floor rather than zero is the owner's ruling — the title
-        /// stays, small). What scales is the block's SIZE, the reveal's own idiom, because the letters are
-        /// opaque geometry with no alpha to fade; at or below <see cref="MIN_PRESENCE"/> nothing is drawn at
+        /// stays, small). What scales is the block's SIZE, because the letters are opaque geometry with no
+        /// alpha to fade; at or below <see cref="MIN_PRESENCE"/> nothing is drawn at
         /// all. The caller supplies the easing — this class holds no clock of the flight's.
-        /// </param>
-        /// <param name="stillness">
-        /// How much of the block's own idle motion to hold back, 1 fully and 0 not at all (#475). Nothing
-        /// asked for this while the wordmark only ever stood alone; it exists because the splash's hand-over
-        /// stands these letters under a flat, motionless PICTURE for the width of the cross-fade, and every
-        /// term below that moves on the wall clock — the block's yaw and pitch sway, the per-letter wave and
-        /// turn, the beat's scale pulse — kept moving under it regardless. A static picture and a swaying,
-        /// waving object never read as the same thing, whatever their silhouettes agree on; the reveal's own
-        /// swell was already cut for exactly this reason (see <see cref="REVEAL_FROM"/>), and this finishes
-        /// the job for the motion nothing had touched. The caller passes the picture's own fading opacity —
-        /// full while it still covers the letters, easing to nothing as it goes — so the letters stand as
-        /// still as the thing they are replacing for as long as that thing is still up, and wake into their
-        /// ordinary drift only once they are the only object left. <see cref="BOW_DEPTH"/> is untouched: it is
-        /// a fixed shape, not a motion, and does not read as the letters moving at all.
         /// </param>
         /// <remarks>
         /// <b>The draw states are stated here and put back</b>, which is the contract <c>ArenaIsland</c>'s
-        /// slices keep: the caller's next act is the frame's translucent glass, and it is
-        /// entitled to find the states <c>BeginSceneDraw</c> left for the scene. Nothing is inherited either —
-        /// what ran last before this is the ball draw, and what a frame starts with depends on which pass
-        /// finished the one before it.
+        /// slices keep: whatever runs after it is entitled to find the states <c>BeginSceneDraw</c> left for the
+        /// scene. Nothing is inherited either — what ran last before this is the fireworks or the weather
+        /// (it is the scene's on-top slot, #600), and what a frame starts with depends on which pass finished
+        /// the one before it. The depth buffer it tests against is its own: the host clears it first.
         /// <para>
         /// <b>The keyline is drawn with FRONT faces culled</b>, and the whole outline trick turns on that.
         /// Both tubes share an axis and the keyline's is the fatter, so its near surface is <i>nearer the lens
@@ -932,38 +717,12 @@ namespace BS3D.Effects
         /// themselves.
         /// </para>
         /// </remarks>
-        public void Draw(ICamera camera, float wallClock, bool settled, float presence = 1f, float stillness = 0f)
+        public void Draw(ICamera camera, float wallClock, float presence = 1f)
         {
             if (_letters.Length == 0) return;
 
-            //The step aside (#261), BEFORE the clocks: a skipped frame arrives later as one huge step, which
-            //saturates the morph and the reveal — the behaviour a level played and returned from already has,
-            //and the one a twenty-second pass deserves too. Eased by the caller; this class only scales.
+            //The step aside (#261), eased by the caller; this class only scales
             if (presence <= MIN_PRESENCE) return;
-
-            //THE ONE FACTOR EVERY IDLE-MOTION TERM BELOW IS SCALED BY (#475) — see stillness's own remarks.
-            //Not clamped: the caller's own value (the splash's LogoOpacity) is already a SmoothStep output and
-            //never leaves 0..1, and a class that clamped its caller's contract quietly would hide the day that
-            //contract breaks instead of showing a wrong picture that gets noticed.
-            float motion = 1f - stillness;
-
-            //THE MOVE AND THE ARRIVAL, both stepped off the wall clock rather than off an elapsed value handed
-            //in, because this class is only ever reached from a draw: a frame that was not drawn is a frame in
-            //which nothing here should have moved. The step is deliberately NOT clamped — a gap in the drawing
-            //(a level played, then Main Menu) arrives as one huge step, which saturates both and is exactly
-            //right, since the title belongs settled in its corner by then and its arrival is long over.
-            float step = _lastClock < 0f ? 0f : MathF.Max(0f, wallClock - _lastClock);
-            _lastClock = wallClock;
-
-            _morph = MathHelper.Clamp(_morph + (settled ? step : -step) / MORPH_SECONDS, 0f, 1f);
-            _reveal = MathF.Min(1f, _reveal + step / REVEAL_SECONDS);
-
-            //Eased at both ends, so the title leaves the middle of the frame and arrives in its corner at rest
-            //and only the middle of the move is quick.
-            float morph = MathHelper.SmoothStep(0f, 1f, _morph);
-            float reveal = MathHelper.SmoothStep(0f, 1f, _reveal);
-
-            Composition block = Composition.Lerp(in _openBlock, in _settledBlock, morph);
 
             _device.BlendState = BlendState.Opaque;
             _device.DepthStencilState = DepthStencilState.Default;
@@ -1003,19 +762,16 @@ namespace BS3D.Effects
             //nothing at both ends). A bowed middle letter does project outwards a little, but it starts well
             //inside the frame and 0.45 of a cap height out of seven units moves it by six per cent of the way
             //it still has to go.
-            //Every term of it off the INTERPOLATED composition, so the fit is honest at every point of the
-            //move and not only at its two ends. The interpolated box is a sound bound on the interpolated
-            //letters, too: lerping the corners of two boxes contains the lerp of anything inside them.
-            float reach = 0.5f * block.Width * MathF.Sin(MathF.Abs(block.Yaw) + YAW_SWAY)
-                + 0.5f * block.Height * MathF.Sin(PITCH_ANGLE)
+            float reach = 0.5f * _blockWidth * MathF.Sin(MathF.Abs(YAW_CENTRE) + YAW_SWAY)
+                + 0.5f * _blockHeight * MathF.Sin(PITCH_ANGLE)
                 + 0.5f * _widestLetter * MathF.Sin(LETTER_YAW);
 
-            float availableHeight = block.HeightFraction * 2f * halfHeight / (1f + SCALE_BEAT);
-            float availableWidth = block.WidthFraction * 2f * halfWidth / (1f + SCALE_BEAT);
+            float availableHeight = BLOCK_HEIGHT_FRACTION * 2f * halfHeight / (1f + SCALE_BEAT);
+            float availableWidth = BLOCK_WIDTH_FRACTION * 2f * halfWidth / (1f + SCALE_BEAT);
 
             float cap = MathF.Min(
-                availableHeight * DISTANCE / (block.Height * DISTANCE + availableHeight * reach),
-                availableWidth * DISTANCE / (block.Width * DISTANCE + availableWidth * reach));
+                availableHeight * DISTANCE / (_blockHeight * DISTANCE + availableHeight * reach),
+                availableWidth * DISTANCE / (_blockWidth * DISTANCE + availableWidth * reach));
 
             //THE INSET, one figure for both edges and both of them in world units off the frame's own extent —
             //the front end's own rule for its two corners ("so the name's distance from its edges and the
@@ -1028,13 +784,8 @@ namespace BS3D.Effects
 
             //THE STEP ASIDE rides the same line: the anchor below and every placement are in cap heights, so
             //scaling the cap shrinks the whole block about its anchored corner — letters, keylines and auras
-            //together — with no second scale to keep in step. The reveal is the same trick arriving, and for
-            //the same reason: opaque tubes cannot fade, they can only be small.
-            //
-            //THE BEAT'S OWN SWING IS WHAT STILLNESS HOLDS BACK HERE (#475) — the reveal's swell is not: that
-            //growth IS the letters arriving, the one motion the picture's own thinning is supposed to read
-            //as, where the beat is idle breathing that has nothing to do with the hand-over at all.
-            cap *= (1f + motion * SCALE_BEAT * (beat * 2f - 1f)) * MathHelper.Lerp(REVEAL_FROM, 1f, reveal) * presence;
+            //together — with no second scale to keep in step. Opaque tubes cannot fade, they can only be small.
+            cap *= (1f + SCALE_BEAT * (beat * 2f - 1f)) * presence;
 
             //THE ANCHOR, and it carries the same perspective term the fit above does — for the same reason and
             //with the same arithmetic. The corner has to land ON the inset when it is at its NEAREST, so the
@@ -1044,21 +795,16 @@ namespace BS3D.Effects
             //the block therefore sits a little further in than the inset, which is the margin the sway spends.
             float shrink = (DISTANCE - reach * cap) / DISTANCE;
 
-            //EdgeX and EdgeY are what carry the block from the middle of the frame to its corner: at 0 the
-            //offset is nothing and the block is centred, at 1 it is the whole anchored corner, and the move
-            //between the two compositions is that pair being lerped like everything else.
             Vector3 blockCentre = camera.Position
                 + forward * DISTANCE
-                + right * (block.EdgeX * ((halfWidth - inset) * shrink - block.Width * cap * 0.5f))
-                + up * (block.EdgeY * ((halfHeight - inset) * shrink - block.Height * cap * 0.5f));
+                + right * ((halfWidth - inset) * shrink - _blockWidth * cap * 0.5f)
+                + up * ((halfHeight - inset) * shrink - _blockHeight * cap * 0.5f);
 
             //Block space to world: x right, y up, z towards the lens — then the block's own two sways, applied
-            //BEFORE the basis so they turn the word about its own axes rather than about the world's. Both
-            //sways are stillness's to hold back (#475): block.Yaw itself is untouched, so the open composition
-            //(whose own Yaw is 0) still turns dead level under a picture that has no perspective of its own.
+            //BEFORE the basis so they turn the word about its own axes rather than about the world's.
             Matrix blockToWorld =
-                Matrix.CreateRotationY(block.Yaw + motion * YAW_SWAY * MathF.Sin(wallClock * YAW_RATE))
-                * Matrix.CreateRotationX(motion * PITCH_ANGLE * MathF.Sin(wallClock * PITCH_RATE))
+                Matrix.CreateRotationY(YAW_CENTRE + YAW_SWAY * MathF.Sin(wallClock * YAW_RATE))
+                * Matrix.CreateRotationX(PITCH_ANGLE * MathF.Sin(wallClock * PITCH_RATE))
                 * new Matrix(
                     right.X, right.Y, right.Z, 0f,
                     up.X, up.Y, up.Z, 0f,
@@ -1069,8 +815,7 @@ namespace BS3D.Effects
             Vector4 fullyOpen = new(0f, 0f, 0f, 1f);   //no occluder, no ambient occlusion: nothing shades a title
 
             for (int i = 0; i < _letters.Length; i++)
-                _letterWorld[i] = LetterWorld(in _letters[i], Placement.Lerp(in _open[i], in _settled[i], morph),
-                    cap, wallClock, motion, in blockToWorld);
+                _letterWorld[i] = LetterWorld(in _letters[i], in _placements[i], cap, wallClock, in blockToWorld);
 
             //=== The letters first, one draw each, because the colour is a per-draw uniform ===
             //
@@ -1090,11 +835,7 @@ namespace BS3D.Effects
             //tight, and one of them writing depth would punch a hole in the other.
             _device.RasterizerState = RasterizerState.CullCounterClockwise;
 
-            //The beat, plus the arrival's own flare — which is where the reveal's overshoot lives, scale having
-            //no room for one (see REVEAL_FLARE). It decays as the reveal completes, so it is a landing and not
-            //a second rhythm.
-            float glowLevel = MathHelper.Lerp(GLOW_REST, GLOW_PEAK, beat)
-                + REVEAL_FLARE * reveal * (1f - reveal) * 4f;
+            float glowLevel = MathHelper.Lerp(GLOW_REST, GLOW_PEAK, beat);
 
             for (int i = 0; i < _letters.Length; i++)
             {
@@ -1124,7 +865,7 @@ namespace BS3D.Effects
             _device.DepthStencilState = DepthStencilState.DepthRead;
             _device.RasterizerState = RasterizerState.CullClockwise;
 
-            float auraLevel = MathHelper.Lerp(AURA_REST, AURA_PEAK, beat) * reveal;
+            float auraLevel = MathHelper.Lerp(AURA_REST, AURA_PEAK, beat);
 
             for (int i = 0; i < _letters.Length; i++)
             {
@@ -1159,64 +900,24 @@ namespace BS3D.Effects
         }
 
         /// <summary>
-        /// The splash handing the 2D logo over (#454): from the next draw the title stands in the <b>opening</b>
-        /// composition — the picture's own layout, fitted to the rectangle the picture was drawn in — and its
-        /// arrival swell starts over, so the letters inflate into place under the bitmap as the splash thins
-        /// it. The move to the corner then begins when a caller first asks for <c>settled: true</c>, which is
-        /// the main menu arriving.
-        /// </summary>
-        /// <param name="logoWidthFraction">
-        /// The drawn bitmap's width as a fraction of the frame's — the whole file's, margins and all; the
-        /// ink's share of it is this class's own figure (<see cref="LOGO_INK_WIDTH_SHARE"/>).
-        /// </param>
-        /// <param name="logoHeightFraction">Its height, likewise.</param>
-        /// <remarks>
-        /// The picture is placed in <i>pixels</i> (one source pixel to one display pixel across the owner's
-        /// resolutions, scaled below them), so its share of the frame is a fact of this launch rather than a
-        /// constant, and it is restated here rather than assumed. The open composition's other figures — the
-        /// lines, the gaps, the small badge — were measured off the bitmap once and do not move.
-        /// <para>
-        /// The clock is reset with it: the first draw after this call steps by nothing, so the swell starts at
-        /// exactly <see cref="REVEAL_FROM"/> on the frame the fade begins rather than a frame's worth in.
-        /// </para>
-        /// </remarks>
-        public void BeginHandover(float logoWidthFraction, float logoHeightFraction)
-        {
-            _openBlock = new Composition(_openBlock.Width, _openBlock.Height,
-                logoWidthFraction * LOGO_INK_WIDTH_SHARE, logoHeightFraction * LOGO_INK_HEIGHT_SHARE,
-                0f, 0f, 0f);
-
-            _morph = 0f;
-            _reveal = 0f;
-            _lastClock = -1f;
-        }
-
-        /// <summary>
         /// One letter's world matrix. It is centred on its own middle before anything turns it, or the letter
         /// would swing about its bottom-left corner like a flag on a pole rather than turning on the spot.
         /// </summary>
-        /// <param name="motion">
-        /// Stillness's complement (#475), scaling the wave and the letter's own turn the same way <c>Draw</c>
-        /// scales the block's sway — the per-letter motion is the one most likely to read as swimming under a
-        /// static picture, since it moves each letter off the line the picture drew it on individually rather
-        /// than turning the whole block as one rigid thing.
-        /// </param>
-        private static Matrix LetterWorld(in Letter letter, Placement at, float cap, float wallClock, float motion,
+        private static Matrix LetterWorld(in Letter letter, in Placement at, float cap, float wallClock,
             in Matrix blockToWorld)
         {
             //Exactly one cycle of the wave across the whole wordmark - see WAVE_DEPTH.
             float wavePhase = (letter.Phase - wallClock * WAVE_RATE) * MathHelper.TwoPi;
             float wave = MathF.Sin(wavePhase);
 
-            //Bowed towards the lens by how far across the BLOCK it stands - see Placement.Across. Not scaled
-            //by motion: a fixed shape, not a motion - see stillness's own remarks on Draw.
+            //Bowed towards the lens by how far across the BLOCK it stands - see Placement.Across
             float z = BOW_DEPTH * (1f - at.Across * at.Across);
 
             return
                 Matrix.CreateTranslation(-letter.Advance * 0.5f, -LetterShapes.CAP_HEIGHT * 0.5f, 0f)
                 * Matrix.CreateScale(cap * at.Scale)
-                * Matrix.CreateRotationY(motion * LETTER_YAW * MathF.Cos(wavePhase))
-                * Matrix.CreateTranslation(at.X * cap, (at.Y + motion * wave * WAVE_DEPTH * at.Scale) * cap, z * cap)
+                * Matrix.CreateRotationY(LETTER_YAW * MathF.Cos(wavePhase))
+                * Matrix.CreateTranslation(at.X * cap, (at.Y + wave * WAVE_DEPTH * at.Scale) * cap, z * cap)
                 * blockToWorld;
         }
 

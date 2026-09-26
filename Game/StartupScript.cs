@@ -259,7 +259,7 @@ namespace BS3D
             //Held back until the TITLE CARD has gone. That began as a workaround: the splash hands over with a
             //Replace, and a Replace used to take off whatever was on top — so a result page pushed at boot was
             //silently swallowed by the main menu arriving a few seconds later (SplashPage.SECONDS; measured at
-            //2.6 s, before #454's logo intro made it longer). Since #576 the splash replaces ITSELF and a page
+            //2.6 s, before #454's logo intro made it longer and #601 cut it back). Since #576 the splash replaces ITSELF and a page
             //over it survives, so the gate no longer protects the stack. It stays, here and on every startup
             //page above, because the page would otherwise open over the intro: the splash goes on updating and
             //drawing its black and its logo under a page (MenuPage.UpdatesUnderlying/DrawsUnderlying), and

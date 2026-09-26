@@ -1107,7 +1107,13 @@ namespace BS3D
         /// <param name="drawMotion">The session's velocity pass (#402), run after the last of the scene and before
         /// the resolve when this frame is motion-blurred (<see cref="MotionBlurActive"/>); null from every screen that
         /// has nothing moving worth blurring, which is all of them but the session.</param>
-        internal void FinishSceneDraw(SceneFrame sceneFrame, Action<MotionBlur> drawMotion = null)
+        /// <param name="drawOnTop">What stands in FRONT of the whole scene (#600): drawn last of the HDR pass, after the
+        /// weather and the fireworks, over a depth buffer cleared for it — so nothing the scene drew can cut into it, and
+        /// it still takes the frame's exposure, curve, grain and bloom. The front end's 3D wordmark is the one caller.
+        /// Not meant to be combined with <paramref name="drawMotion"/>: what stands on top is in no velocity pass, so the
+        /// reconstruction would drag the moving scene's streaks across it. Nothing asks for both — the session, the only
+        /// screen that blurs, has nothing to stand on top, and the front end passes no velocity pass.</param>
+        internal void FinishSceneDraw(SceneFrame sceneFrame, Action<MotionBlur> drawMotion = null, Action drawOnTop = null)
         {
             //The cup's layer, filled by BeginSceneDraw if a cup is up this frame. Asked for here rather
             // than carried in a field: the pair of slices is one pipeline, and what the frame's close
@@ -1127,6 +1133,18 @@ namespace BS3D
             //of a firework. Drawn from here rather than from a screen so it keeps running once the result page
             //covers the session (see Fireworks).
             _fireworks?.Draw(_camera);
+
+            //And what stands in front of all of it (#600), over a depth buffer of its own. A depth CLEAR rather than a
+            //depth state that ignores the scene, because the caller still needs depth among its own surfaces (the
+            //wordmark's letters occlude one another and hide their own keylines' far halves); and LAST, after the
+            //weather and the fireworks, because anything drawn after the clear would test against the caller's depth
+            //alone and show through the island. The copy the ceiling's glass bends (#541) was taken before this, so it
+            //cannot hold the caller either. Nothing after it reads the scene's depth: the resolve samples colour only.
+            if (drawOnTop != null)
+            {
+                GraphicsDevice.Clear(ClearOptions.DepthBuffer, Vector4.Zero, 1f, 0);
+                drawOnTop();
+            }
 
             //The confetti used to be drawn HERE, after the shells and inside the same HDR pass — #242 moved it
             //out to the sharp foreground layer, where BeginSceneDraw now draws it and where the argument for the
