@@ -440,7 +440,44 @@ namespace BS3D.Screens
                 else _queue.Add(lesson);
             }
 
+            if (!_demo) NothingAfterTheSendOff();
+
             _gap = FIRST_CARD_DELAY;
+        }
+
+        /// <summary>
+        /// Keeps the send-off (<see cref="Lesson.Graduated"/>) the last card the tutorial ever shows (#605). The
+        /// owner was told "That's everything — you know the game" on Amphora and then "The glass steps down every 7
+        /// shots": a contextual lesson still armed fired when its event came, after the send-off. So on the level
+        /// that sends the player off, the contextual lessons still untaught are queued as plain cards <b>ahead</b> of
+        /// it — the glass's cadence and the streak read as well at a level's start as mid-shot — except the line's,
+        /// which is a warning about this moment ("The cluster is near the line!") and would be false at the start;
+        /// the rule it serves is the <see cref="Lesson.LineRule"/> card queued just before. And once the player has
+        /// been sent off, the chapter's remaining levels teach nothing at all.
+        /// </summary>
+        private void NothingAfterTheSendOff()
+        {
+            Definition sendOffLesson = null;
+            foreach (Definition lesson in DEFINITIONS)
+                if (lesson.Lesson == Lesson.Graduated) sendOffLesson = lesson;
+
+            if (sendOffLesson != null && Taught(sendOffLesson))
+            {
+                _queue.Clear();
+                _armed.Clear();
+                return;
+            }
+
+            int sendOff = -1;
+            for (int i = 0; i < _queue.Count; i++)
+                if (_queue[i].Lesson == Lesson.Graduated) { sendOff = i; break; }
+
+            if (sendOff < 0) return;
+
+            foreach (Definition armed in _armed)
+                if (armed.Lesson != Lesson.Line) _queue.Insert(sendOff++, armed);
+
+            _armed.Clear();
         }
 
         /// <summary>Drops everything, for a session being torn down under it — and the first thing a new level does.</summary>
