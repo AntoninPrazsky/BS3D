@@ -173,6 +173,8 @@ namespace Prazsky.Core.Render
         /// opts out of the style rather than borrowing it.
         /// </para>
         /// </summary>
+        //Since #624 the shell also carries a ray-cast CAVITY (a thin bright ring where the eye ray grazes an
+        //empty sphere inside it), still with no colour anywhere - see HollowPS.
         Hollow = 11,
 
         /// <summary>

@@ -99,21 +99,6 @@ static const float FrozenFrostSmoothness = 0.45;
 static const float FrozenRim = 0.30;
 static const float FrozenRimPower = 3.0;
 
-//The ball's own vertex output: PatternVS's fields plus the eye's position in OBJECT space, which is what
-//the pixel shader needs to cast a ray at the ball inside - constant across the instance, so interpolating
-//it is free.
-struct FrozenVertexShaderOutput
-{
-    float4 Position : SV_POSITION;
-    float3 WorldPosition : TEXCOORD0;
-    float3 WorldNormal : TEXCOORD1;
-    float4 OcclusionData : TEXCOORD2;
-    float3 ObjectPosition : TEXCOORD3;
-    float Dissolve : TEXCOORD4;
-    float Ripple : TEXCOORD5;
-    float3 EyeObject : TEXCOORD6;
-};
-
 //The superellipsoid cut, as a scale on the unit direction: 1 at a corner, less everywhere else. Shared by
 //the vertex shader (to cut) and the pixel shader (to recover the sphere's radius from the cut one).
 float FrozenCarve(float3 direction)
@@ -129,9 +114,9 @@ float FrozenCarve(float3 direction)
 //The ball's own vertex shader: PatternVS with the block cut out of the sphere. Everything about the
 //output that is not the shape is PatternVS's, deliberately -- StoneVS's own rule, and for its reason:
 //every contract point the pixel shader answers is read off these same fields.
-FrozenVertexShaderOutput FrozenVS(VertexShaderInput input, InstanceInput instance)
+EyeRayVertexShaderOutput FrozenVS(VertexShaderInput input, InstanceInput instance)
 {
-    FrozenVertexShaderOutput output;
+    EyeRayVertexShaderOutput output;
 
     float4x4 world = float4x4(instance.WorldRow1, instance.WorldRow2, instance.WorldRow3, instance.WorldRow4);
 
@@ -158,15 +143,8 @@ FrozenVertexShaderOutput FrozenVS(VertexShaderInput input, InstanceInput instanc
     float3 cut = direction * (radius * carve);
     float4 worldPosition = mul(float4(cut, 1), world);
 
-    //THE EYE IN OBJECT SPACE. The instance's world matrix is a rotation and a uniform scale over a
-    //translation, applied to row vectors (p_world = p_object * R + T), so p_object = (p_world - T) * R^T
-    //with each row scaled back by its own length squared. Per instance, not per pixel: the ray the pixel
-    //shader casts starts here and ends at the pixel's own object position.
-    float3 toEye = EyePosition - instance.WorldRow4.xyz;
-    output.EyeObject = float3(
-        dot(toEye, instance.WorldRow1.xyz) / max(dot(instance.WorldRow1.xyz, instance.WorldRow1.xyz), 1e-6),
-        dot(toEye, instance.WorldRow2.xyz) / max(dot(instance.WorldRow2.xyz, instance.WorldRow2.xyz), 1e-6),
-        dot(toEye, instance.WorldRow3.xyz) / max(dot(instance.WorldRow3.xyz, instance.WorldRow3.xyz), 1e-6));
+    //THE EYE IN OBJECT SPACE, for the ray the pixel shader casts at the ball inside - see EyeInObjectSpace.
+    output.EyeObject = EyeInObjectSpace(instance);
 
     output.ObjectPosition = cut;
     output.WorldPosition = worldPosition.xyz;
@@ -179,7 +157,7 @@ FrozenVertexShaderOutput FrozenVS(VertexShaderInput input, InstanceInput instanc
     return output;
 }
 
-float4 FrozenPS(FrozenVertexShaderOutput input) : COLOR
+float4 FrozenPS(EyeRayVertexShaderOutput input) : COLOR
 {
     //Contract point 1, first and branchless, for the reason PatternPS gives.
     float dissolveNoise = DissolveNoise(floor(input.Position.xy / DissolvePixelSize));
