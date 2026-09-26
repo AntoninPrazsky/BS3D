@@ -28,4 +28,10 @@
         the backend the content was compiled for the exe dies on its first effect. See Game.csproj.-->
     <PackageReference Include="MonoGame.Framework.DesktopGL" PrivateAssets="all" />
   </ItemGroup>
+
+  <ItemGroup>
+    <!--The logic tests reach SceneCatalog.Check to feed it broken tables and see it refuse them (#580,
+        BestPractices.md section 10); nothing else is internal to them.-->
+    <InternalsVisibleTo Include="BS3D.Tests" />
+  </ItemGroup>
 </Project>
