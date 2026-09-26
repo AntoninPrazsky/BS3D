@@ -369,7 +369,6 @@ namespace Prazsky.Core.Render
         //buffers the config sizes.
         private SeaSceneConfig _seaConfig = new();
         private SavannaSceneConfig _savannaConfig = new();
-        private MeadowSceneConfig _meadowConfig = new();
         private ForestSceneConfig _forestConfig = new();
         private TropicalSceneConfig _tropicalConfig = new();
         private VolcanoSceneConfig _volcanoConfig = new();
@@ -892,21 +891,6 @@ namespace Prazsky.Core.Render
 
         #endregion
 
-        #region Meadow
-
-        private readonly Effect _meadowEffect;
-        private readonly VertexBuffer _meadowVertexBuffer;
-        private readonly IndexBuffer _meadowIndexBuffer;
-        private readonly int _meadowIndexCount;
-
-        private const int MEADOW_GRID_N = 220;
-        private const float MEADOW_EXTENT = 1200f;
-
-        //Look/tuning parameters (hills, clearing, grass colours, ambient, haze, wind, relief) and the
-        //wildflowers now live in MeadowSceneConfig (Flowers = FlowersConfig); read from _meadowConfig.
-
-        #endregion
-
         #region Forest
 
         private readonly Effect _forestEffect;
@@ -943,6 +927,7 @@ namespace Prazsky.Core.Render
         private readonly AuroraBackdrop _aurora;
         private readonly MarsBackdrop _mars;
         private readonly MountainBackdrop _mountain;
+        private readonly MeadowBackdrop _meadow;
 
         //The device, the full-screen quad, the supersampling factor, the seed offset, the billboard index
         //builder, the terrain grid cache and the island's hole radius, handed to every backdrop.
@@ -1172,11 +1157,10 @@ namespace Prazsky.Core.Render
 
             BuildSprayBuffers();
 
-            //--- Meadow: a smooth rolling displaced grid scattered with flowers
-            _meadowEffect = content.Load<Effect>("Shaders/Meadow");
-            AcquireGridMesh(MEADOW_GRID_N, MEADOW_EXTENT, out _meadowVertexBuffer, out _meadowIndexBuffer, out _meadowIndexCount);
-
-            ApplyMeadowParameters();
+            //--- Meadow: its own Backdrop since #580 (Render/Scenes), built here where its code stood; it picks
+            //its program at load, so it is handed the tier the renderer starts at
+            _meadow = new MeadowBackdrop(_services, content, _sceneDetail);
+            _backdrops[(int)SceneKind.Meadow] = _meadow;
 
             //--- Forest: a mossy needle-strewn clearing ringed by wooded hills (the eighth scene)
             _forestEffect = content.Load<Effect>("Shaders/Forest");
@@ -1240,7 +1224,6 @@ namespace Prazsky.Core.Render
             List<Effect> effects = new()
             {
                 _savannaEffect, _acaciaEffect,       //#469's two: the plain and what stands on it
-                _meadowEffect,                       //#471, and the first chapter plays here
                 _forestEffect,                       //its floor; the trees receive through the shared effect
                 _tropicalEffect, _palmEffect,        //the sand and the palms standing on it
                 _volcanoEffect
@@ -1447,29 +1430,6 @@ namespace Prazsky.Core.Render
                     viewpoint = new SceneViewpoint(SavannaCampfirePosition(0), 1.7f, 11f, 35f, "the campfire");
                     return true;
 
-                //THE HILLS, FROM DOWN IN THE GRASS. ⚠ This shot used to name the FLOWERS and stand 70 units
-                //out at one unit over the grass, on the argument that a meadow's subject is small and that
-                //any of the other scenes' distances would show nothing but green. The owner played it and
-                //it is the opposite that happened: 70 units is twenty-five INSIDE the flat clearing, so the
-                //lens looked down at level ground with the hills starting behind the look-at, and the first
-                //establishing shot of the game was a green carpet with no horizon in it at all.
-                //
-                //The flowers were never showable anyway — spacing 2.2 and size 0.22 — and "so the grass can
-                //be seen" is about the grass's own shading: the tips, the tufts, the wind bands and the
-                //translucency, all of which read at a low raking angle and none of which reads from above.
-                //So the look-at goes out ONTO the rise (past ClearingRadius, a third of the way up the
-                //hills) and the elevation goes NEGATIVE, which is what actually puts the lens near the
-                //ground: elevation is measured from the tour's centre, and that centre is the level's own
-                //camera target up at the hanging cluster — six degrees off THAT still rides high over a
-                //meadow whose ground is fourteen units below the arena plane.
-                case SceneKind.Meadow:
-                    viewpoint = new SceneViewpoint(
-                        AtBearing(bearing,
-                            _meadowConfig.ClearingRadius + _meadowConfig.ClearingTransition * 0.55f,
-                            _meadowConfig.LevelY + _meadowConfig.HillHeight * 0.30f),
-                        1.8f, -7f, 0f, "the hills");
-                    return true;
-
                 //The tree line at crown height, near enough that a trunk is a trunk. The forest's scatter
                 //starts just outside the clearing, so this is where the trees actually are.
                 case SceneKind.Forest:
@@ -1558,7 +1518,6 @@ namespace Prazsky.Core.Render
         {
             SceneKind.Sea => _seaConfig,
             SceneKind.Savanna => _savannaConfig,
-            SceneKind.Meadow => _meadowConfig,
             SceneKind.Forest => _forestConfig,
             SceneKind.Tropical => _tropicalConfig,
             SceneKind.Volcano => _volcanoConfig,
@@ -2761,7 +2720,6 @@ namespace Prazsky.Core.Render
             {
                 SceneKind.Savanna => (_savannaEffect, (x, z) => TerrainMirror.Savanna(x, z, _savannaConfig)),
                 SceneKind.Tropical => (_tropicalEffect, (x, z) => TerrainMirror.Tropical(x, z, _tropicalConfig)),
-                SceneKind.Meadow => (_meadowEffect, (x, z) => TerrainMirror.Meadow(x, z, _meadowConfig)),
                 SceneKind.Forest => (_forestEffect, (x, z) => TerrainMirror.Forest(x, z, _forestConfig)),
                 SceneKind.Volcano => (_volcanoEffect, (x, z) => TerrainMirror.Volcano(x, z, _volcanoConfig)),
                 _ => ((Effect)null, (Func<float, float, float>)null),
@@ -3008,48 +2966,9 @@ namespace Prazsky.Core.Render
         private void BuildSprayBuffers() =>
             BuildBillboardParticles(_seaConfig.Spray.ParticleCount, 5023, ref _sprayVertexBuffer, ref _sprayIndexBuffer);
 
-        /// <summary>
-        /// The meadow's full field or its reduced one (#281): the grass material's clumps and blade
-        /// strokes are the two near-field terms that cost, and the reduced program drops both. By technique for
-        /// <see cref="SelectForestTechnique"/>'s reason.
-        /// </summary>
-        private void SelectMeadowTechnique() =>
-            _meadowEffect.CurrentTechnique = _meadowEffect.Techniques[_sceneDetail > 0.5f ? "Meadow" : "MeadowReduced"];
-
         //The savanna's two programs (#281), the meadow's pair: the reduced one gives up the tuft gaps and the blade strokes
         private void SelectSavannaTechnique() =>
             _savannaEffect.CurrentTechnique = _savannaEffect.Techniques[_sceneDetail > 0.5f ? "Savanna" : "SavannaReduced"];
-
-        private void ApplyMeadowParameters()
-        {
-            SelectMeadowTechnique();
-
-            _meadowEffect.Parameters["MeadowLevelY"].SetValue(_meadowConfig.LevelY);
-            _meadowEffect.Parameters["HillHeight"].SetValue(_meadowConfig.HillHeight);
-            _meadowEffect.Parameters["ClearingRadius"].SetValue(_meadowConfig.ClearingRadius);
-            _meadowEffect.Parameters["ClearingTransition"].SetValue(_meadowConfig.ClearingTransition);
-            _meadowEffect.Parameters["ClearingRelief"].SetValue(_meadowConfig.ClearingRelief);
-            _meadowEffect.Parameters["GrassColor"].SetValue(_meadowConfig.GrassColor.ToVector3());
-            _meadowEffect.Parameters["GrassColorDark"].SetValue(_meadowConfig.GrassColorDark.ToVector3());
-            _meadowEffect.Parameters["AmbientStrength"].SetValue(_meadowConfig.AmbientStrength);
-            _meadowEffect.Parameters["HorizonHazeDistance"].SetValue(_meadowConfig.HorizonHazeDistance);
-            _meadowEffect.Parameters["WindDirection"].SetValue(_meadowConfig.Wind.ToVector2());
-            _meadowEffect.Parameters["WindRippleSpeed"].SetValue(_meadowConfig.WindRippleSpeed);
-            _meadowEffect.Parameters["WindRippleFrequency"].SetValue(_meadowConfig.WindRippleFrequency);
-            _meadowEffect.Parameters["WindRippleStrength"].SetValue(_meadowConfig.WindRippleStrength);
-            _meadowEffect.Parameters["GrassReliefStrength"].SetValue(_meadowConfig.GrassReliefStrength);
-            _meadowEffect.Parameters["GrassReliefFrequency"].SetValue(_meadowConfig.GrassReliefFrequency);
-            _meadowEffect.Parameters["GrassTipColor"].SetValue(_meadowConfig.GrassTipColor.ToVector3());
-            _meadowEffect.Parameters["GrassTipStrength"].SetValue(_meadowConfig.GrassTipStrength);
-            _meadowEffect.Parameters["GrassClumpSize"].SetValue(_meadowConfig.GrassClumpSize);
-            _meadowEffect.Parameters["GrassClumpStrength"].SetValue(_meadowConfig.GrassClumpStrength);
-            _meadowEffect.Parameters["GrassDryPatchStrength"].SetValue(_meadowConfig.GrassDryPatchStrength);
-            _meadowEffect.Parameters["GrassSheenStrength"].SetValue(_meadowConfig.GrassSheenStrength);
-            _meadowEffect.Parameters["GrassTranslucency"].SetValue(_meadowConfig.GrassTranslucency);
-            _meadowEffect.Parameters["FlowerDensity"].SetValue(_meadowConfig.Flowers.Density);
-            _meadowEffect.Parameters["FlowerSpacing"].SetValue(_meadowConfig.Flowers.Spacing);
-            _meadowEffect.Parameters["FlowerSize"].SetValue(_meadowConfig.Flowers.Size);
-        }
 
         /// <summary>
         /// Points the forest effect at the full floor or the reduced one. By <b>technique</b> and not by a
@@ -3060,10 +2979,9 @@ namespace Prazsky.Core.Render
         private void SelectDetailTechniques()
         {
             SelectForestTechnique();
-            SelectMeadowTechnique();
             SelectSavannaTechnique();
 
-            //The dream's, the cavern's, Mars's and the mountain's picks moved into their backdrops with the rest of them (#580)
+            //The dream's, the cavern's, Mars's, the mountain's and the meadow's picks moved into their backdrops with the rest of them (#580)
             foreach (Backdrop backdrop in _backdrops) backdrop?.OnDetailChanged(_sceneDetail);
 
             //The volcano (#509): the two kinds of hairline the references brought in off the flows - the
@@ -3211,9 +3129,6 @@ namespace Prazsky.Core.Render
                     //of the cone and has to occlude it. Only the ash is an overlay.
                     if ((VolcanoLayers & VolcanoLayer.Terrain) != 0) DrawVolcanoTerrain(frame);
                     DrawLavaFountains(frame);
-                    break;
-                case SceneKind.Meadow:
-                    DrawMeadow(frame);
                     break;
                 case SceneKind.Forest:
                     DrawForest(frame);
@@ -3865,12 +3780,6 @@ namespace Prazsky.Core.Render
                     above = _savannaConfig.HillHeight + _savannaConfig.Dressing.BaobabHeight * 1.5f;
                     break;
 
-                case SceneKind.Meadow:
-                    groundY = _meadowConfig.LevelY;
-                    below = _meadowConfig.HillHeight * 0.5f;
-                    above = _meadowConfig.HillHeight;
-                    break;
-
                 case SceneKind.Forest:
                     groundY = _forestConfig.LevelY;
                     below = _forestConfig.HillHeight * 0.5f;
@@ -4413,43 +4322,6 @@ namespace Prazsky.Core.Render
             _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _seaConfig.Spray.ParticleCount * 2);
 
             _graphicsDevice.DepthStencilState = DepthStencilState.Default;
-            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
-        }
-
-        /// <summary>
-        /// Draws the meadow: the grid pinned to the camera (snapped so it does not swim), rolling green hills
-        /// scattered with flowers, wind combing the grass, shadowed by the shared cloud field.
-        /// </summary>
-        private void DrawMeadow(in SceneFrame frame)
-        {
-            float cell = MEADOW_EXTENT / (MEADOW_GRID_N - 1);
-            float originX = MathF.Round(frame.Camera.Position.X / cell) * cell;
-            float originZ = MathF.Round(frame.Camera.Position.Z / cell) * cell;
-
-            _meadowEffect.Parameters["OriginXZ"].SetValue(new Vector2(originX, originZ));
-            _meadowEffect.Parameters["IslandHoleRadius"].SetValue(TerrainHoleRadius);
-            _meadowEffect.Parameters["View"].SetValue(frame.Camera.View);
-            _meadowEffect.Parameters["Projection"].SetValue(frame.Camera.Projection);
-            _meadowEffect.Parameters["CameraPosition"].SetValue(frame.Camera.Position);
-            _meadowEffect.Parameters["SunDirection"].SetValue(frame.SunDirection);
-            _meadowEffect.Parameters["ZenithColor"].SetValue(frame.ZenithLinear);
-            _meadowEffect.Parameters["HorizonColor"].SetValue(frame.HorizonLinear);
-            _meadowEffect.Parameters["MeadowTime"].SetValue(frame.Time);
-            _meadowEffect.Parameters["SunColor"].SetValue(frame.SunColor);
-
-            frame.ApplyClouds?.Invoke(_meadowEffect);
-
-            _graphicsDevice.BlendState = BlendState.Opaque;
-            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
-
-            _farField.Begin(_meadowEffect, frame, MEADOW_EXTENT);
-            _graphicsDevice.SetVertexBuffer(_meadowVertexBuffer);
-            _graphicsDevice.Indices = _meadowIndexBuffer;
-            _meadowEffect.CurrentTechnique.Passes[0].Apply();
-            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _meadowIndexCount / 3);
-            _farField.DrawRing(_meadowEffect, new Vector2(originX, originZ), MEADOW_EXTENT);
-
-            _graphicsDevice.BlendState = BlendState.AlphaBlend;
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
         }
 
