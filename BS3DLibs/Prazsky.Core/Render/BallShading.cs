@@ -324,9 +324,9 @@ namespace Prazsky.Core.Render
         Gravity = 17,
 
         /// <summary>
-        /// Cast iron (#333): the type colour crushed into a dense dark casting, carried part of the way to a
-        /// cold iron grey, under a metal's tight highlight and raised sky reflection, with a sand-cast grain
-        /// pitted into it. Drawn by <c>InstancedModelHeavy</c>.
+        /// A heavy ball (#333, redrawn in #631): the type colour lying in patches on a sand-cast iron sphere —
+        /// a matte, grainy, mid-grey casting with one mould flash standing proud round its waist and a machined
+        /// boss stamped into its underside. Drawn by <c>InstancedModelHeavy</c>.
         /// <para>
         /// <b>⚠ What it must NOT try to draw is the mass itself.</b> A heavy ball's weight is said by the
         /// branch under it hanging lower — the simulation gives that for free, and it is the reason the kind
@@ -334,17 +334,19 @@ namespace Prazsky.Core.Render
         /// <i>which</i> ball is the heavy one, on a still frame, before anything has moved.
         /// </para>
         /// <para>
-        /// <b>Its figure modulates the polish and not the colour</b>, and that is the marble's measured lesson
-        /// applied rather than found again: on a body this dark, a figure that changes the colour by less than
-        /// the light does across the same ball is invisible. Pits scatter, so a pitted lane is duller than the
-        /// skin around it — a difference no tint and no light can swallow.
+        /// <b>Weight is a material, and the material is a casting, not a polish</b> — the generated references'
+        /// verdict (#631): a polished sphere reads as a trackball whatever its tint, a sand-cast one as dense from
+        /// across the room. So the sky is scattered into a dull sheen rather than mirrored (#333 had raised it),
+        /// and the colour is paint <i>on</i> the iron rather than a tint <i>of</i> it: patches at most of the
+        /// type's value over a mid-grey casting, so the hue the player matches is on the ball undiluted and the
+        /// iron between the patches is what says the ball is not made of it.
         /// </para>
         /// <para>
         /// <b>Its collision to solve is <see cref="Metal"/> and the black ball</b>, and it is separated from
         /// both deliberately: anodised metal has no diffuse term at all and mirrors the dome in the type's own
-        /// colour, where this keeps a body colour and merely crushes it; and <c>BallType.Type8</c> is a colour,
-        /// lit like every other ball, where this is a material. It is also the one special that emits nothing
-        /// whatsoever — a bomb burns, a well pulls, this just sits there.
+        /// colour, where this is matte and shows bare iron between its patches; and <c>BallType.Type8</c> is a
+        /// colour, lit like every other ball, where this is a material. It is also the one special that emits
+        /// nothing whatsoever — a bomb burns, a well pulls, this just sits there.
         /// </para>
         /// </summary>
         Heavy = 18

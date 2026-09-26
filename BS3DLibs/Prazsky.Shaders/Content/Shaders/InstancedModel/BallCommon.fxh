@@ -266,3 +266,17 @@ float SurfaceRelief(float3 direction, float footprint)
         + 0.21 * ReliefOctave(direction, float3(0.55, -0.44, 0.71), 34.0, footprint)
         + 0.16 * ReliefOctave(direction, float3(-0.82, -0.31, 0.48), 55.0, footprint);
 }
+
+//Box-filtered coverage of the band |v| <= halfWidth by a pixel spanning w in v: the fraction of the pixel
+//the band covers, exact for a hard edge. A line thinner than a pixel then darkens that pixel in proportion
+//rather than vanishing (the slab joints' rule) or flickering (a plain step's), and a line wider than one is
+//a hard edge one pixel soft. It is what carries a seam to the overview stand-off: the heavy ball's flash and
+//the acid's meniscus are drawn with it (#631, #627), and it is the answer to SeamLine's trap from the other
+//side - SeamLine fades a line OUT on its band limit, which is right for a figure that should leave; this
+//converges on the line's mean, which is right for one that should stay.
+float BandCoverage(float v, float halfWidth, float w)
+{
+    w = max(w, 1e-5);
+
+    return saturate((min(v + 0.5 * w, halfWidth) - max(v - 0.5 * w, -halfWidth)) / w);
+}
