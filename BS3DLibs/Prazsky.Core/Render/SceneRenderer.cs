@@ -155,18 +155,22 @@ namespace Prazsky.Core.Render
     }
 
     /// <summary>
-    /// The switchable outdoor backdrops shared by the game and the map editor, so a scene looks the same in
-    /// both: the sea, the savanna (with its acacias and circling birds), the desert (Sahara dunes, with the
-    /// same flock of birds), the snowy mountains (with falling snow) and the flowering meadow. Each is a
-    /// self-lit dedicated shader — it computes its own lighting from the sun and the sky palette handed over
-    /// in a <see cref="SceneFrame"/> — so this owns their effects, meshes and tuning and nothing else in the
-    /// frame has to know about them.
+    /// The switchable backdrops shared by the Game, the Testbed and the map editor, so a scene looks the same in
+    /// all three — and since #580 the <b>host</b> of them rather than their code. Each of the eighteen scenes it
+    /// draws is its own <see cref="Backdrop"/> in <c>Render/Scenes</c> (its config, effects, buffers, push, draw
+    /// and the questions only it can answer); this class holds the array of them indexed by
+    /// <see cref="SceneKind"/>, the services they share (<see cref="BackdropServices"/>: the device, the
+    /// full-screen quad, the grid cache, the far field, the snow, the flock, the billboard builders), the sun's
+    /// shadow map every receiver reads, the display-resolution target the dream and the cavern are shaded into,
+    /// and the public API the hosts call, whose scene-specific members forward to the backdrop that answers them.
     /// <para>
     /// The City/NeonCity is deliberately <b>not</b> here: the city buildings are drawn through the shared
     /// <c>InstancedModel</c> city technique by an <see cref="InstancedModelRenderer"/> the caller owns, so
     /// they take part in the caller's sky lighting like every other instanced object (see <see cref="City"/>).
+    /// Their slots in the array are null, and every question about them answers the old default — bar the
+    /// establishing viewpoint (<see cref="TryGetViewpoint"/>) and the shadow map (<see cref="SetHostShadowScene"/>).
     /// </para>
-    /// See the "The sea/savanna/desert/mountains/meadow" sections in CLAUDE.md for what each one is doing.
+    /// See "The backdrop classes and the scene registry" and each scene's own section in docs/scenes.md.
     /// </summary>
     public sealed class SceneRenderer : IDisposable
     {
@@ -336,11 +340,6 @@ namespace Prazsky.Core.Render
             set => _volcano.Layers = value;
         }
 
-        //Scene configuration. Defaults reproduce the original hard-coded look byte-for-byte; every scene
-        //reads its tuning from these instead of constants. Replaced at runtime by Apply(SceneConfig) when a
-        //level is loaded (issue #32), which re-pushes the effect parameters and rebuilds the scatter/particle
-        //buffers the config sizes.
-
         #region The sun's shadow map (#469, in every terrain scene since #471)
 
         //The sun's shadow map (#469, in every terrain scene since #471): rendered by DrawShadowMaps before
@@ -459,7 +458,16 @@ namespace Prazsky.Core.Render
 
         #endregion
 
-        #region The savanna's public queries (#580 moved their bodies into SavannaBackdrop)
+        #region The beach's and the savanna's public queries (#580 moved their bodies into their backdrops)
+
+        /// <summary>
+        /// Every palm on the beach as a figure — the root, the crown the trunk's bow carries off it, how far the
+        /// fronds reach and the trunk's thickness — for a host keeping a camera out of the grove (#559).
+        /// </summary>
+        public IReadOnlyList<PlantFigure> TropicalPalms => _tropical.Palms;
+
+        /// <summary>The waterline's rocks as figures (their mesh's bounding sphere at the instance), for the same host.</summary>
+        public IReadOnlyList<PlantFigure> TropicalRocks => _tropical.Rocks;
 
         /// <summary>
         /// How many campfires ring the island, capped to the scene-light budget the shaders' arrays are sized
@@ -510,7 +518,7 @@ namespace Prazsky.Core.Render
 
         #endregion
 
-        #region Birds (savanna, desert and outback scenes)
+        #region Birds (the savanna, the desert, the outback and the beach) and the billboard vertex
 
         //The flock and its draw, a service since #580 (Render/Scenes/BirdFlock.cs)
         private readonly BirdFlock _birds;
@@ -547,9 +555,9 @@ namespace Prazsky.Core.Render
 
         #region The backdrops (#580) and what they share
 
-        //The scenes that are their own Backdrop class (Render/Scenes), indexed by SceneKind; null for a scene
-        //still drawn by this class's own switch arms. docs/scenes.md, "The backdrop classes", has the order the
-        //rest are to follow in.
+        //Every scene this class draws, each its own Backdrop class (Render/Scenes), indexed by SceneKind; null
+        //for the city and the neon city, which the hosts draw. docs/scenes.md, "The backdrop classes", has how
+        //they got there.
         private readonly Backdrop[] _backdrops = new Backdrop[SceneCatalog.Count];
         private readonly SeaBackdrop _sea;
         private readonly TropicalBackdrop _tropical;
@@ -689,7 +697,7 @@ namespace Prazsky.Core.Render
             //effect is not shared: each scene draws through its own clone, its look pushed once at load.
             VertexBuffer snowVertices = null;
             IndexBuffer snowIndices = null;
-            BuildBillboardParticles(_mountain.Snow.FlakeCount, 1207, ref snowVertices, ref snowIndices);
+            _services.BuildBillboardParticles(_mountain.Snow.FlakeCount, 1207, ref snowVertices, ref snowIndices);
             _snowfall = new Snowfall(_graphicsDevice, snowVertices, snowIndices, _mountain.Snow.FlakeCount);
             _services.Snowfall = _snowfall;
 
@@ -743,8 +751,8 @@ namespace Prazsky.Core.Render
         /// listed reads an unbound texture at whatever strength was last pushed to it. The shared instanced
         /// effect is deliberately not here — it is the caller's, and registers itself on the first frame it
         /// is handed in. A backdrop's receivers are its own to state (<see cref="Backdrop.ShadowReceivers"/>,
-        /// #580) and are added to this list, so the inventory is the renderer's remaining scenes plus the union
-        /// of the backdrops'.
+        /// #580), beside its fit, so the inventory is the union of the backdrops' — this class lists none of its
+        /// own since the savanna moved.
         /// </para>
         /// <para>
         /// Sea and Storm are absent on purpose. The storm draws no ground at all (<c>StormClouds.fx</c> is the
@@ -758,7 +766,7 @@ namespace Prazsky.Core.Render
         {
             List<Effect> effects = new();
 
-            //Every backdrop's own, stated beside its fit (#580): since the savanna moved, the whole inventory
+            //Every backdrop's own, stated beside its fit (#580)
             foreach (Backdrop backdrop in _backdrops)
                 if (backdrop != null) effects.AddRange(backdrop.ShadowReceivers);
 
@@ -850,7 +858,7 @@ namespace Prazsky.Core.Render
         /// <summary>Whether a scene's own light rig moves with time; forwards to <see cref="SceneCatalog.AnimatesLightRig"/>.</summary>
         public static bool AnimatesLightRig(SceneKind kind) => SceneCatalog.AnimatesLightRig(kind);
 
-        #region Scene parameters (each config pushed to its effect and buffers; issue #32, #44)
+        #region The questions about a scene, asked of its backdrop
 
         /// <summary>
         /// The sun a scene states for itself, overriding both the dome's and the shared domeless one, and false
@@ -1000,10 +1008,7 @@ namespace Prazsky.Core.Render
         /// null for <see cref="SceneKind.City"/>/<see cref="SceneKind.NeonCity"/>, whose config lives outside
         /// the renderer (the caller owns the <see cref="CitySceneConfig"/>).
         /// </summary>
-        public SceneConfig GetSceneConfig(SceneKind kind) => BackdropFor(kind)?.Config ?? kind switch
-        {
-            _ => null,
-        };
+        public SceneConfig GetSceneConfig(SceneKind kind) => BackdropFor(kind)?.Config;
 
         /// <summary>
         /// The storm's lightning envelope at a wall-clock time: 0 between strikes, rising to 1 at a
@@ -1065,11 +1070,6 @@ namespace Prazsky.Core.Render
         }
 
         #region The scenes' public queries: the volcano's, the strange scenes' things, the staged events (#580 moved their bodies)
-
-        //The billboard particles are a service since #580 (BackdropServices.BuildBillboardParticles), the volcano's
-        //backdrop building its fountains and ash through it; the renderer's own callers keep this name
-        private void BuildBillboardParticles(int count, int seed, ref VertexBuffer vertexBuffer, ref IndexBuffer indexBuffer) =>
-            _services.BuildBillboardParticles(count, seed, ref vertexBuffer, ref indexBuffer);
 
         /// <summary>
         /// The volcano's ground height at a world point, for a host laying a camera path over the cone (the
@@ -1160,12 +1160,9 @@ namespace Prazsky.Core.Render
         {
             if (BackdropFor(scene) is { } backdrop) return backdrop.TryGetTerrainProbe(out effect, out mirror);
 
-            (effect, mirror) = scene switch
-            {
-                _ => ((Effect)null, (Func<float, float, float>)null),
-            };
-
-            return effect != null;
+            effect = null;
+            mirror = null;
+            return false;
         }
 
         /// <summary>
@@ -1321,15 +1318,10 @@ namespace Prazsky.Core.Render
 
         #endregion
 
-        /// <summary>A terrain grid from the shared cache; see <see cref="BackdropServices.AcquireGridMesh"/>.</summary>
-        private void AcquireGridMesh(int n, float extent, out VertexBuffer vertexBuffer, out IndexBuffer indexBuffer, out int indexCount)
-            => _services.AcquireGridMesh(n, extent, out vertexBuffer, out indexBuffer, out indexCount);
-
         /// <summary>
-        /// Draws the far environment for a natural scene — the sea, the savanna (with its acacias and birds),
-        /// the Sahara dunes (with the same birds), the snowy range, the meadow, the forest floor, deep space,
-        /// the dream, the cavern or the Moon. A no-op for <see cref="SceneKind.City"/>/<see cref="SceneKind.NeonCity"/>,
-        /// which the caller draws itself. Opaque, so it stands in for the city as the thing the arena glass
+        /// Draws the scene's backdrop — its <see cref="Backdrop.Draw"/>, or for the dream and the cavern at a
+        /// supersampled frame <c>DrawBackdropAtDisplayResolution</c>. A no-op for
+        /// <see cref="SceneKind.City"/>/<see cref="SceneKind.NeonCity"/>, which the caller draws itself. Opaque, so it stands in for the city as the thing the arena glass
         /// shows beneath it; it leaves the alpha-blend / back-face-cull state the rest of the opaque scene wants.
         /// <para>
         /// The four sky-replacing draws also touch the <b>depth</b> state: space, the dream and the cavern
@@ -1352,14 +1344,13 @@ namespace Prazsky.Core.Render
                     DrawBackdropAtDisplayResolution(backdrop, frame, sceneTarget);
                 else
                     backdrop.Draw(frame);
-
-                return;
             }
         }
 
         /// <summary>
-        /// Draws the foreground weather that belongs after the opaque scene and the cluster: falling snow in
-        /// the mountain scene, blown spray and spindrift in the sea scene, drifting ash in the volcano.
+        /// Draws the foreground weather that belongs after the opaque scene and the cluster — the backdrop's
+        /// <see cref="Backdrop.DrawOverlays"/>: falling snow in the mountains and the aurora, blown spray and
+        /// spindrift over the sea, drifting ash in the volcano, the fires' flames and sparks on the savanna.
         /// Alpha-blended and depth-read (the terrain/water and the cluster occlude the particles behind them)
         /// but writing no depth. A no-op for every other scene.
         /// <para>
@@ -1368,23 +1359,7 @@ namespace Prazsky.Core.Render
         /// <see cref="DrawEnvironment"/>). Only the ash is genuinely in front of everything.
         /// </para>
         /// </summary>
-        public void DrawOverlays(SceneKind scene, in SceneFrame frame)
-        {
-            if (BackdropFor(scene) is { } backdrop)
-            {
-                backdrop.DrawOverlays(frame);
-                return;
-            }
-        }
-
-        /// <summary>
-        /// Every palm on the beach as a figure — the root, the crown the trunk's bow carries off it, how far the
-        /// fronds reach and the trunk's thickness — for a host keeping a camera out of the grove (#559).
-        /// </summary>
-        public IReadOnlyList<PlantFigure> TropicalPalms => _tropical.Palms;
-
-        /// <summary>The waterline's rocks as figures (their mesh's bounding sphere at the instance), for the same host.</summary>
-        public IReadOnlyList<PlantFigure> TropicalRocks => _tropical.Rocks;
+        public void DrawOverlays(SceneKind scene, in SceneFrame frame) => BackdropFor(scene)?.DrawOverlays(frame);
 
         /// <summary>
         /// States that the ceiling's glass hangs this frame with its centre at <paramref name="centre"/>, so the
@@ -1432,9 +1407,10 @@ namespace Prazsky.Core.Render
         /// <para>
         /// <b>It is the scene's own decision since #471</b>, where it was the savanna's alone (#469): the gate
         /// is <see cref="SceneConfig.Shadows"/> on whichever backdrop is up, so a scene opts in by saying so
-        /// in its config and this method names no scene to decide <i>whether</i>. It still names them to
-        /// decide two things that are genuinely per scene — how the map is fitted
-        /// (<see cref="TryShadowFit"/>) and which of this renderer's own scatter casts into it.
+        /// in its config and this method names no scene to decide <i>whether</i>. The two things that are
+        /// genuinely per scene — how the map is fitted (<see cref="TryShadowFit"/>) and what of the scene's own
+        /// casts into it — each backdrop answers for itself since #580 (<see cref="Backdrop.TryShadowFit"/>,
+        /// <see cref="Backdrop.DrawShadowCasters"/>), so this names no scene at all.
         /// </para>
         /// <para>
         /// A no-op at the Low tier, at <see cref="ShadowConfig.Strength"/> 0, at <see cref="ShadowScale"/> 0,
@@ -1445,9 +1421,9 @@ namespace Prazsky.Core.Render
         /// touched.
         /// </para>
         /// <para>
-        /// What casts: the scene's own planting where this renderer owns it — the savanna's scatter and hearth
-        /// stones through <c>Acacia.fx</c>'s <c>ShadowCaster</c>, the beach's palms and rocks through
-        /// <c>Palm.fx</c>'s own — and then whatever <paramref name="extraCasters"/> draws: the island, the gun
+        /// What casts: the backdrop's own planting where it has any (<see cref="Backdrop.DrawShadowCasters"/>) —
+        /// the savanna's scatter and hearth stones through <c>Acacia.fx</c>'s <c>ShadowCaster</c>, the beach's
+        /// palms and rocks through <c>Palm.fx</c>'s own — and then whatever <paramref name="extraCasters"/> draws: the island, the gun
         /// (#470) and the forest's wood, which are the host's objects and not this renderer's.
         /// </para>
         /// <para>
@@ -1479,8 +1455,8 @@ namespace Prazsky.Core.Render
                 _instancedShadowReceiver.Disable();
             }
 
-            //Is there anything to cast at all? Only the savanna and the beach have planting of this
-            //renderer's own; in the other eight the casters are all the host's, so a caller that registers
+            //Is there anything to cast at all? Only the savanna and the beach have planting of their
+            //own (Backdrop.HasShadowCasters); in the other eight the casters are all the host's, so a caller that registers
             //none of them — the MAP EDITOR, which draws no island, no gun and no wood — would render an empty
             //map and then pay nine taps a pixel to read that everything is lit. The editor is the caller this
             //spares, and it is the only one: both other executables always hand a callback in.
@@ -1526,7 +1502,7 @@ namespace Prazsky.Core.Render
             size = Math.Clamp(size, 256, 8192);
 
             //⚠ Nothing but the map is disposed here. #476 left the savanna's trail-warp field's Dispose in this
-            //block for two days (its home is Dispose() below), so the first map a process built — the first
+            //block for two days (its home is SavannaBackdrop.Dispose since #580), so the first map a process built — the first
             //shadowed frame after a scene's build — threw away the texture the savanna effect was still bound to.
             if (_sunShadowMap == null || _sunShadowMap.Size != size)
             {
@@ -1542,10 +1518,11 @@ namespace Prazsky.Core.Render
             _graphicsDevice.DepthStencilState = DepthStencilState.Default;
             _graphicsDevice.RasterizerState = RasterizerState.CullNone;
 
-            //This scene's own planting — the two scatters this renderer owns. The culling stays off for both:
-            //two-sided blades, fans and fronds, and a closed solid drawn from both sides cannot peter-pan out
-            //of its own shadow. The FOREST's wood is not here because it is not this renderer's: the hosts own
-            //their ForestScatterRenderer, so it casts through extraCasters below with the island and the gun.
+            //The backdrop's own planting (#580's hook) — the savanna's and the beach's. The culling stays off
+            //for both: two-sided blades, fans and fronds, and a closed solid drawn from both sides cannot
+            //peter-pan out of its own shadow. The FOREST's wood is not here because it is no backdrop's: the
+            //hosts own their ForestScatterRenderer, so it casts through extraCasters below with the island and
+            //the gun.
             BackdropFor(scene)?.DrawShadowCasters(_sunShadowMap.ViewProjection);
 
             //And whatever the caller casts (#470): the island and the gun, which are the executable's objects
@@ -1610,12 +1587,13 @@ namespace Prazsky.Core.Render
         /// one number for all of them.
         /// </para>
         /// <para>
-        /// <b>Which scenes are here is the same list as <see cref="RegisterShadowReceivers"/>' and has to
-        /// stay so</b>: a scene fitted but not receiving casts into a map nobody reads, and a scene receiving
-        /// but not fitted is handed 0 every frame. Sea and Storm are deliberately in neither — see that
-        /// method for why. A scene moved into its own <see cref="Backdrop"/> (#580) states both side by side
-        /// (<see cref="Backdrop.ShadowReceivers"/>, <see cref="Backdrop.TryShadowFit"/>), and is asked here
-        /// before the switch below.
+        /// <b>Which scenes fit a map has to be the same list as which receive one</b>
+        /// (<see cref="RegisterShadowReceivers"/>): a scene fitted but not receiving casts into a map nobody
+        /// reads, and a scene receiving but not fitted is handed 0 every frame. Sea and Storm are deliberately
+        /// in neither — see that method for why. Since #580 every scene states both side by side in its own
+        /// <see cref="Backdrop"/> (<see cref="Backdrop.ShadowReceivers"/>, <see cref="Backdrop.TryShadowFit"/>),
+        /// and the host-owned city states both through <see cref="SetHostShadowScene"/>; this adds the camera,
+        /// the island's headroom and the margin.
         /// </para>
         /// </summary>
         private bool TryShadowFit(SceneKind scene, ICamera camera, out Vector3 centre, out float yMin, out float yMax)
@@ -1633,11 +1611,10 @@ namespace Prazsky.Core.Render
                 below = host.Below;
                 above = host.Above;
             }
-            else if (BackdropFor(scene) is { } backdrop)
+            else if (BackdropFor(scene) is not { } backdrop || !backdrop.TryShadowFit(out groundY, out below, out above))
             {
-                if (!backdrop.TryShadowFit(out groundY, out below, out above)) return false;
+                return false;
             }
-            else return false;
 
             Vector3 at = camera.Position;
             centre = new Vector3(at.X, groundY, at.Z);
