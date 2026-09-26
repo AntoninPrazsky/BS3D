@@ -11,7 +11,7 @@
         Prazsky.Core.csproj): this tool needs Vector3 and the types the libraries expose, not a
         graphics backend. It draws nothing and opens no window — it is plain net10.0, so it also runs
         anywhere the libraries build rather than only on Windows.-->
-    <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.5" PrivateAssets="all" />
+    <PackageReference Include="MonoGame.Framework.DesktopGL" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>

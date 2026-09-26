@@ -34,9 +34,13 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # The SDK band global.json names as its floor (#587): 10.0.2xx is the band the owner builds with, so CI
+      # and the release install that band rather than the newest 10.0 one. global.json's rollForward is
+      # latestFeature, so a newer band the image already carries would still win - the pin is on what is
+      # installed here, not a refusal of anything newer.
       - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: '10.0.2xx'
 
       # The content build shells out to `dotnet mgcb` with the manifest search walking up from the *project*
       # directory, so this runs in Game/ (CLAUDE.md's build section explains why each executable carries its

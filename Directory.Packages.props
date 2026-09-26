@@ -1,0 +1,40 @@
+<Project>
+  <!--Every NuGet package version in the tree, in one place (#587). A project's PackageReference names the
+      package and nothing else; the version is written here once. Until this file MonoGame 3.8.5 was written in
+      eleven PackageReferences, Bepu in four and NVorbis in two - they agreed, but nothing made them agree.
+      PrivateAssets stays on each reference where it is: it is a statement about that project's consumers,
+      not about the version (see the MonoGame note in Prazsky.Core.csproj).-->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--MonoGame: the runtime, both platform packages (the libraries and the plain-net10.0 tools compile against
+        DesktopGL privately, the executables and WindingCheck run WindowsDX) and the content build task. They
+        must move together.-->
+    <PackageVersion Include="MonoGame.Framework.WindowsDX" Version="3.8.5" />
+    <PackageVersion Include="MonoGame.Framework.DesktopGL" Version="3.8.5" />
+    <PackageVersion Include="MonoGame.Content.Builder.Task" Version="3.8.5" />
+
+    <!--Physics: Prazsky.BS3D.Physics and whatever builds a simulation of its own.-->
+    <PackageVersion Include="BepuPhysics" Version="2.5.0-beta.29" />
+    <PackageVersion Include="BepuUtilities" Version="2.5.0-beta.29" />
+
+    <!--The Game's front end.-->
+    <PackageVersion Include="Myra" Version="1.6.3" />
+    <PackageVersion Include="FontStashSharp.MonoGame" Version="1.5.6" />
+
+    <!--Audio: the Game's decoder (MusicBake compiles OggTrack.cs too, so both must read the same version) and
+        the encoder only MusicBake needs.-->
+    <PackageVersion Include="NVorbis" Version="0.10.5" />
+    <PackageVersion Include="OggVorbisEncoder" Version="1.2.2" />
+
+    <!--The logic tests (Tests/BS3D.Tests).-->
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageVersion Include="xunit" Version="2.9.3" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.4" />
+
+    <!--The VectorBoundary analyzer.-->
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" />
+  </ItemGroup>
+</Project>

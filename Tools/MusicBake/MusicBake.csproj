@@ -31,14 +31,14 @@
         and the SoundEffect types in its playback half, and this tool calls neither - it renders and measures.
         PrivateAssets keeps the package from flowing anywhere, and DesktopGL is deliberate: nothing here loads
         an MGFX effect, so the platform of the package is irrelevant and the tool stays buildable off Windows.-->
-    <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.5" PrivateAssets="all" />
+    <PackageReference Include="MonoGame.Framework.DesktopGL" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>
-    <!--The Vorbis decoder the game ships (the version Game.csproj pins, which OggTrack.cs is written against) and
+    <!--The Vorbis decoder the game ships (the one version Directory.Packages.props pins for both, which OggTrack.cs is written against) and
         the encoder only this tool needs: a managed port of libvorbis, MIT like NVorbis, so writing an .ogg needs
         nothing installed on the machine.-->
-    <PackageReference Include="NVorbis" Version="0.10.5" />
-    <PackageReference Include="OggVorbisEncoder" Version="1.2.2" />
+    <PackageReference Include="NVorbis" />
+    <PackageReference Include="OggVorbisEncoder" />
   </ItemGroup>
 </Project>
