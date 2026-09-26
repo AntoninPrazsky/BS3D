@@ -3,7 +3,7 @@
 //clusters pulsing cyan and magenta on the walls and casting their light onto the rock around them, and
 //spores drifting up through the dark. The eleventh scene, and the third that replaces the SKY (see Space
 //and Dream): one full-screen pass over the shared NDC quad, the view ray recovered per pixel through
-//InverseViewProjection, drawn with the depth state off so the island, the cluster and the gun draw over it.
+//ViewRayBasis (SkyRay.Basis), drawn with the depth state off so the island, the cluster and the gun draw over it.
 //The caller draws no dome and no cloud deck, suppresses the cloud shadow on the instanced effect, and takes
 //the scene's own light rig (CavernLightingConfig).
 //
@@ -46,7 +46,7 @@
 //mote at the threshold's edge, and it is half of the one PAIR the attribution ever measured a win from.
 #define SPORE_COUNT 8
 
-float4x4 InverseViewProjection;
+float4x4 ViewRayBasis;  //the lens's axes over the projection's slopes - see SkyRay.Basis
 float3 CameraPosition;
 float CavernTime;
 
@@ -440,8 +440,7 @@ CavernVertexOutput CavernVS(CavernVertexInput input)
     output.Ndc = input.Position.xy;
 
     //The corner unprojected to the far plane; the pixel shader normalizes the interpolated ray.
-    float4 far = mul(float4(input.Position.xy, 1.0, 1.0), InverseViewProjection);
-    output.Ray = far.xyz / far.w - CameraPosition;
+    output.Ray = mul(float4(input.Position.xy, 1.0, 0.0), ViewRayBasis).xyz;
 
     return output;
 }

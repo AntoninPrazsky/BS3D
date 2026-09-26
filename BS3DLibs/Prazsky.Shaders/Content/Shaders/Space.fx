@@ -6,7 +6,7 @@
 //This one is not like the other backdrops, and the difference decides everything below. Every other scene
 //replaces the CITY - the ground around the island - and leaves the sky dome standing over it. This one
 //replaces the SKY. So it is not a displaced grid pinned to the camera but ONE FULL-SCREEN PASS: a quad
-//already in normalized device coordinates, the view ray recovered per pixel through InverseViewProjection,
+//already in normalized device coordinates, the view ray recovered per pixel through ViewRayBasis,
 //drawn with the depth state off so it writes no depth and the island, the cluster and the gun then draw
 //over it normally. It covers the whole frame rather than a hemisphere, because in space there is no
 //horizon and the stars go on below you; the caller therefore draws no dome and no cloud deck in this scene,
@@ -38,7 +38,7 @@
 //How many nebulae the scene carries. Matched by SpaceSceneConfig's array length on the C# side.
 #define NEBULA_COUNT 3
 
-float4x4 InverseViewProjection;
+float4x4 ViewRayBasis;  //the lens's axes over the projection's slopes - see SkyRay.Basis
 float3 CameraPosition;
 
 //Towards the sun - the same one the island, the gun and the balls take, which is what ties the planet's
@@ -671,8 +671,7 @@ SpaceVertexOutput SpaceVS(float3 position : POSITION0)
     //Back through the projection and the view to the world point this corner's ray reaches on the far
     //plane. The far plane is a plane in world space and the map from screen to it is affine, so
     //interpolating this across the quad is exact rather than approximate.
-    float4 far = mul(float4(position.xy, 1.0, 1.0), InverseViewProjection);
-    output.Ray = far.xyz / far.w - CameraPosition;
+    output.Ray = mul(float4(position.xy, 1.0, 0.0), ViewRayBasis).xyz;
 
     return output;
 }

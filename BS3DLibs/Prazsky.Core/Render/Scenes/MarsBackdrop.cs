@@ -35,7 +35,7 @@ namespace Prazsky.Core.Render
         //The moons pass shares the sky-replacing scenes' full-screen-quad machinery (Services.FullScreenQuad), so
         //only its two per-frame ray-reconstruction parameters are cached (BestPractices §1) — the terrain pass's
         //own are TerrainPass's.
-        private EffectParameter _marsMoonsInverseViewProjection, _marsMoonsCameraPosition;
+        private EffectParameter _marsMoonsViewRayBasis, _marsMoonsCameraPosition;
         private EffectTechnique _marsTerrainTechnique, _marsTerrainFull, _marsTerrainReduced, _marsMoonsTechnique;
 
         //Look/tuning parameters (clearing, craters, rust surface, dust haze, the two moons) live in
@@ -63,7 +63,7 @@ namespace Prazsky.Core.Render
             SelectMarsTechnique(sceneDetail);
             _marsMoonsTechnique = _marsEffect.Techniques["MarsMoons"];
 
-            _marsMoonsInverseViewProjection = _marsEffect.Parameters["InverseViewProjection"];
+            _marsMoonsViewRayBasis = _marsEffect.Parameters["ViewRayBasis"];
             _marsMoonsCameraPosition = _marsEffect.Parameters["CameraPosition"];
 
             ApplyMarsParameters();
@@ -188,7 +188,7 @@ namespace Prazsky.Core.Render
         /// </summary>
         private void DrawMarsMoons(in SceneFrame frame)
         {
-            _marsMoonsInverseViewProjection.SetValue(Matrix.Invert(frame.Camera.View * frame.Camera.Projection));
+            _marsMoonsViewRayBasis.SetValue(SkyRay.Basis(frame.Camera));
             _marsMoonsCameraPosition.SetValue(frame.Camera.Position);
             _marsEffect.Parameters["SunDirection"].SetValue(frame.SunDirection);
 

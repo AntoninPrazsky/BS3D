@@ -7,7 +7,7 @@
 //
 //Like Space it replaces the SKY, and everything structural follows from that: one full-screen pass over a
 //quad already in normalized device coordinates, the view ray recovered per pixel through
-//InverseViewProjection, drawn with the depth state off so the island, the cluster and the gun draw over it.
+//ViewRayBasis (SkyRay.Basis), drawn with the depth state off so the island, the cluster and the gun draw over it.
 //The caller draws no dome and no cloud deck, suppresses the cloud shadow on the instanced effect, and takes
 //the scene's own light rig (DreamLightingConfig) instead of a dome's.
 //
@@ -40,7 +40,7 @@
 //What the reduced program carries instead - see DreamScene.
 #define SPARK_COUNT_REDUCED 4
 
-float4x4 InverseViewProjection;
+float4x4 ViewRayBasis;  //the lens's axes over the projection's slopes - see SkyRay.Basis
 float3 CameraPosition;
 float DreamTime;
 
@@ -256,8 +256,7 @@ DreamVertexOutput DreamVS(DreamVertexInput input)
     output.Position = float4(input.Position.xy, 0.0, 1.0);
 
     //The corner unprojected to the far plane; the pixel shader normalizes the interpolated ray.
-    float4 far = mul(float4(input.Position.xy, 1.0, 1.0), InverseViewProjection);
-    output.Ray = far.xyz / far.w - CameraPosition;
+    output.Ray = mul(float4(input.Position.xy, 1.0, 0.0), ViewRayBasis).xyz;
 
     return output;
 }
