@@ -6643,3 +6643,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 - **Otevřené:** rozbité přepnutí scény v levelu — nevím, jestli to způsobil #634 (revertováno), nebo #611 (`AgainstCamera`, zůstává). Čeká se na majitele.
 - **#636 (přepnutí scény v levelu = rozmazaná obrazovka):** nebyl to #634 ani #611, ale #406 (19. 9.): `ScenePage.Choose` pouští průlet na `BackdropScreen`, který je pod rozehranou hrou zmrazený (`UpdatesUnderlying`), průlet nikdy neskončí a stránka schová panel, dokud je „engaged“. Oprava na mainu `aa5cbcc5`: v levelu se jen přepne scéna. Neověřeno skriptem (pauza jde jen myší), čeká na majitele.
 - **#635 zavřeno** verdiktem majitele: Měsíc už se netřese.
+
+## 2026-09-26 — release 0.2.0
+
+- **Beru #606** (Help: Next/Previous, scroll, čísla kampaně) jako release-kritické. Hotovo #637 (Loading...), `6891be5a`.
