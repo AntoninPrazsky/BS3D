@@ -89,6 +89,19 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
+        /// A light on the ground that lights the underside of the cloud deck at <paramref name="time"/>
+        /// (<see cref="SceneRenderer.TryGetGroundGlow"/>) — the volcano's crater; false, with a range of 1, for a
+        /// scene with nothing burning under its sky.
+        /// </summary>
+        public virtual bool TryGetGroundGlow(float time, out Vector3 position, out Vector3 color, out float range)
+        {
+            position = default;
+            color = default;
+            range = 1f;
+            return false;
+        }
+
+        /// <summary>
         /// The scene's effects that read the sun's shadow map (they include <c>Shadows.fxh</c>), gathered once at load
         /// into the renderer's one receiver list (its <c>RegisterShadowReceivers</c>) — none by default. A scene that
         /// states receivers states its <see cref="TryShadowFit"/> too: fitted but not receiving casts into a map
@@ -277,5 +290,41 @@ namespace Prazsky.Core.Render
         /// the old one, rather than disposing a pair of buffers another scene may be drawing.
         /// </summary>
         public void ReleaseGridMesh(int n, float extent) => _gridCache.Release(n, extent);
+
+        /// <summary>
+        /// A static buffer of <paramref name="count"/> camera-facing quads, each carrying a fixed random point
+        /// in the unit cube and one more random — everything a shader needs to animate a particle entirely in
+        /// its vertex shader. The volcano's fountains, its plume and its ash, the campfire sparks, the mountain's
+        /// snow and the sea's spray are all built from this (the last two were copies of it until #589, and their
+        /// seeds make the same sequences through it). Refuses a count past <see cref="MAX_BILLBOARD_QUADS"/>.
+        /// </summary>
+        public void BuildBillboardParticles(int count, int seed, ref VertexBuffer vertexBuffer, ref IndexBuffer indexBuffer)
+        {
+            CheckBillboardQuads(count);
+
+            vertexBuffer?.Dispose();
+            indexBuffer?.Dispose();
+            vertexBuffer = null;
+            indexBuffer = null;
+
+            if (count <= 0) return;
+
+            SceneRenderer.BillboardVertex[] vertices = new SceneRenderer.BillboardVertex[count * 4];
+            Random rng = new(seed);
+            for (int i = 0; i < count; i++)
+            {
+                Vector3 basePosition = new((float)rng.NextDouble(), (float)rng.NextDouble(), (float)rng.NextDouble());
+                float rand = (float)rng.NextDouble();
+                int v = i * 4;
+                vertices[v] = new SceneRenderer.BillboardVertex(basePosition, new Vector3(-1f, 1f, rand));
+                vertices[v + 1] = new SceneRenderer.BillboardVertex(basePosition, new Vector3(1f, 1f, rand));
+                vertices[v + 2] = new SceneRenderer.BillboardVertex(basePosition, new Vector3(-1f, -1f, rand));
+                vertices[v + 3] = new SceneRenderer.BillboardVertex(basePosition, new Vector3(1f, -1f, rand));
+            }
+            vertexBuffer = new VertexBuffer(GraphicsDevice, SceneRenderer.BillboardVertex.Declaration, vertices.Length, BufferUsage.WriteOnly);
+            vertexBuffer.SetData(vertices);
+
+            indexBuffer = BuildQuadIndexBuffer(count);
+        }
     }
 }

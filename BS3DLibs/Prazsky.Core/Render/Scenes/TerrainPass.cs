@@ -15,10 +15,11 @@ namespace Prazsky.Core.Render
     /// <b>What varies between scenes is exactly what it takes</b>: the effect (its config already pushed by its
     /// owner, once at load), the grid's density and extent, and the time uniform's name (none, for a ground on
     /// which nothing moves). Its per-frame parameters are resolved once here (BestPractices §1) where the
-    /// copies set them by name every frame. The other open-ground scenes (the sea, the savanna, the mountains,
-    /// the meadow, the forest, the beach, the volcano) run the same skeleton with more in it — a depth state,
-    /// point lights, a second pass — and join it when they move into backdrops of their own and it can be
-    /// shown what they need.
+    /// copies set them by name every frame. Mars, the mountains, the meadow and the forest joined it as they
+    /// moved (#580). The volcano did not: its flank has always left the blend state as it found it, where this
+    /// states opaque and restores alpha-blend, and the fountains draw straight after it. The sea, the savanna
+    /// and the beach still run the skeleton on the renderer with more in it — a depth state, point lights, a
+    /// second pass — and join it when they move and it can be shown what they need.
     /// </para>
     /// <para>
     /// <b>Mars was the first to bring something</b>: a reduced program on a coarser grid (#540), so the grid can
