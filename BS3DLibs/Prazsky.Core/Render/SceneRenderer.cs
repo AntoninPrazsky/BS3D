@@ -372,7 +372,6 @@ namespace Prazsky.Core.Render
         private MountainSceneConfig _mountainConfig = new();
         private MeadowSceneConfig _meadowConfig = new();
         private ForestSceneConfig _forestConfig = new();
-        private OutbackSceneConfig _outbackConfig = new();
         private TropicalSceneConfig _tropicalConfig = new();
         private VolcanoSceneConfig _volcanoConfig = new();
         private MarsSceneConfig _marsConfig = new();
@@ -399,26 +398,6 @@ namespace Prazsky.Core.Render
 
         //Look/tuning parameters (water level & colours, waves, chop, wind, sun glint, foam, subsurface, haze)
         //now live in SeaSceneConfig; SceneRenderer reads them from _seaConfig (spray via _seaConfig.Spray).
-
-        #endregion
-
-        #region Outback
-
-        private readonly Effect _outbackEffect;
-
-        //Its camera grid and the pass that draws it (#580): the skeleton this scene shared with two others
-        private readonly TerrainPass _outbackPass;
-
-        //The monoliths are geometry, not a painted horizon, so this grid carries a silhouette rather than only
-        //a shaded surface — which is what sets the density. At 400 over 1000 the cell is 2.5 world units and a
-        //formation's flank falls its whole height over some eight of them, which the mesh can hold; the same
-        //flank on the desert's 360 grid would fall over seven. Above 255 a side, so the grid cache's 32-bit
-        //index buffer is load-bearing here (the mountain's lesson — a 16-bit one wraps silently).
-        private const int OUTBACK_GRID_N = 400;
-        private const float OUTBACK_EXTENT = 1000f;
-
-        //Look/tuning parameters (plain, monoliths, rock and ground materials, dust, shimmer) live in
-        //OutbackSceneConfig; SceneRenderer reads them from _outbackConfig.
 
         #endregion
 
@@ -1008,6 +987,7 @@ namespace Prazsky.Core.Render
         private readonly StormBackdrop _storm;
         private readonly GridBackdrop _grid;
         private readonly MoonBackdrop _moon;
+        private readonly OutbackBackdrop _outback;
         private readonly DesertBackdrop _desert;
         private readonly PolarBackdrop _polar;
         private readonly AuroraBackdrop _aurora;
@@ -1091,12 +1071,10 @@ namespace Prazsky.Core.Render
             _polar = new PolarBackdrop(_services, content);
             _backdrops[(int)SceneKind.Polar] = _polar;
 
-            //--- Outback (#112): the desert's machinery with rock on it — the same flat lattice, displaced into
-            //a near-flat spinifex plain with red monoliths standing on a jittered single-cell lattice
-            _outbackEffect = content.Load<Effect>("Shaders/Outback");
-            _outbackPass = new TerrainPass(_services, _outbackEffect, OUTBACK_GRID_N, OUTBACK_EXTENT, "OutbackTime");
-
-            ApplyOutbackParameters();
+            //--- Outback (#112): its own Backdrop since #580 (Render/Scenes), built here where
+            //its code stood
+            _outback = new OutbackBackdrop(_services, content);
+            _backdrops[(int)SceneKind.Outback] = _outback;
 
             //--- Tropical (#244): the fourteenth scene — a beach ring around the island, a turquoise lagoon
             //and the green far shore that closes the horizon. The land grid is the desert's density (the
@@ -1232,7 +1210,7 @@ namespace Prazsky.Core.Render
             //the scenes share it, and a smaller one would silently cap the others'.
             _birds = new BirdFlock(graphicsDevice, content,
                 Math.Max(Math.Max(_savannaConfig.Birds.Count, _desert.Birds.Count),
-                    Math.Max(_outbackConfig.Birds.Count, _tropicalConfig.Birds.Count)));
+                    Math.Max(_outback.Birds.Count, _tropicalConfig.Birds.Count)));
             _services.Birds = _birds;
 
             //--- Mountain: a ridged displaced grid
@@ -1330,7 +1308,7 @@ namespace Prazsky.Core.Render
                 _savannaEffect, _acaciaEffect,       //#469's two: the plain and what stands on it
                 _meadowEffect,                       //#471, and the first chapter plays here
                 _forestEffect,                       //its floor; the trees receive through the shared effect
-                _mountainEffect, _outbackEffect,
+                _mountainEffect,
                 _tropicalEffect, _palmEffect,        //the sand and the palms standing on it
                 _volcanoEffect, _marsEffect
             };
@@ -1575,13 +1553,6 @@ namespace Prazsky.Core.Render
                         1.7f, 10f, 0f, "the tree line");
                     return true;
 
-                //The monoliths. They stand alone on a flat plain with nothing between them, which is exactly
-                //the arrangement a low three-quarter look reads and an overhead one destroys.
-                case SceneKind.Outback:
-                    viewpoint = new SceneViewpoint(AtBearing(bearing, 330f, _outbackConfig.Terrain.LevelY + 30f),
-                        2.3f, 12f, 20f, "the monoliths");
-                    return true;
-
                 //Out over the lagoon to the far shore's ring: the tropical scene is three bands — sand,
                 //turquoise water, green shore — and a look across all three is what it is.
                 //
@@ -1673,7 +1644,6 @@ namespace Prazsky.Core.Render
             SceneKind.Mountain => _mountainConfig,
             SceneKind.Meadow => _meadowConfig,
             SceneKind.Forest => _forestConfig,
-            SceneKind.Outback => _outbackConfig,
             SceneKind.Tropical => _tropicalConfig,
             SceneKind.Volcano => _volcanoConfig,
             SceneKind.Mars => _marsConfig,
@@ -1738,54 +1708,6 @@ namespace Prazsky.Core.Render
             _lagoonEffect.Parameters["SssStrength"].SetValue(water.SssStrength);
             _lagoonEffect.Parameters["SssColor"].SetValue(water.SssColor.ToVector3());
             _lagoonEffect.Parameters["HorizonHazeDistance"].SetValue(water.HorizonHazeDistance);
-        }
-
-        private void ApplyOutbackParameters()
-        {
-            OutbackTerrainConfig terrain = _outbackConfig.Terrain;
-            OutbackSurfaceConfig surface = _outbackConfig.Surface;
-            OutbackAirConfig air = _outbackConfig.Air;
-
-            _outbackEffect.Parameters["OutbackLevelY"].SetValue(terrain.LevelY);
-            _outbackEffect.Parameters["PlainRelief"].SetValue(terrain.PlainRelief);
-            _outbackEffect.Parameters["ClearingRadius"].SetValue(terrain.ClearingRadius);
-            _outbackEffect.Parameters["ClearingTransition"].SetValue(terrain.ClearingTransition);
-
-            //The spacings divide a world position in the shader, so a zero would take the whole terrain with it
-            //(a NaN height field is a mesh that vanishes, and the property grid is one keystroke from a zero).
-            _outbackEffect.Parameters["RockSpacing"].SetValue(MathF.Max(terrain.RockSpacing, 1f));
-            _outbackEffect.Parameters["RockChance"].SetValue(terrain.RockChance);
-            _outbackEffect.Parameters["RockHeight"].SetValue(terrain.RockHeight);
-            _outbackEffect.Parameters["OutcropSpacing"].SetValue(MathF.Max(terrain.OutcropSpacing, 1f));
-            _outbackEffect.Parameters["OutcropChance"].SetValue(terrain.OutcropChance);
-            _outbackEffect.Parameters["OutcropHeight"].SetValue(terrain.OutcropHeight);
-
-            _outbackEffect.Parameters["RockColorDeep"].SetValue(surface.RockColorDeep.ToVector3());
-            _outbackEffect.Parameters["RockColorBright"].SetValue(surface.RockColorBright.ToVector3());
-            _outbackEffect.Parameters["VarnishColor"].SetValue(surface.VarnishColor.ToVector3());
-            _outbackEffect.Parameters["VarnishStrength"].SetValue(surface.VarnishStrength);
-            _outbackEffect.Parameters["VarnishGloss"].SetValue(surface.VarnishGloss);
-            _outbackEffect.Parameters["FlakeColor"].SetValue(surface.FlakeColor.ToVector3());
-            _outbackEffect.Parameters["FlakeStrength"].SetValue(surface.FlakeStrength);
-            _outbackEffect.Parameters["CaveShade"].SetValue(surface.CaveShade);
-            _outbackEffect.Parameters["RibCount"].SetValue(surface.RibCount);
-            _outbackEffect.Parameters["RibDepth"].SetValue(surface.RibDepth);
-            _outbackEffect.Parameters["RockRelief"].SetValue(surface.RockRelief);
-            _outbackEffect.Parameters["SoilColor"].SetValue(surface.SoilColor.ToVector3());
-            _outbackEffect.Parameters["SoilColorPale"].SetValue(surface.SoilColorPale.ToVector3());
-            _outbackEffect.Parameters["SpinifexColor"].SetValue(surface.SpinifexColor.ToVector3());
-            _outbackEffect.Parameters["SpinifexSpacing"].SetValue(MathF.Max(surface.SpinifexSpacing, 0.05f));
-            _outbackEffect.Parameters["SpinifexCover"].SetValue(surface.SpinifexCover);
-            _outbackEffect.Parameters["SpinifexRelief"].SetValue(surface.SpinifexRelief);
-            _outbackEffect.Parameters["AmbientStrength"].SetValue(surface.AmbientStrength);
-            _outbackEffect.Parameters["SoilBounce"].SetValue(surface.SoilBounce);
-
-            _outbackEffect.Parameters["HazeTint"].SetValue(air.HazeTint.ToVector3());
-            _outbackEffect.Parameters["DustStrength"].SetValue(air.DustStrength);
-            _outbackEffect.Parameters["HorizonHazeDistance"].SetValue(air.HorizonHazeDistance);
-            _outbackEffect.Parameters["HazeWarmth"].SetValue(air.HazeWarmth);
-            _outbackEffect.Parameters["HeatShimmer"].SetValue(air.HeatShimmer);
-            _outbackEffect.Parameters["WindDirection"].SetValue(air.Wind.ToVector2());
         }
 
         /// <summary>
@@ -2984,7 +2906,6 @@ namespace Prazsky.Core.Render
             (effect, mirror) = scene switch
             {
                 SceneKind.Mountain => (_mountainEffect, (x, z) => TerrainMirror.Mountain(x, z, _mountainConfig)),
-                SceneKind.Outback => (_outbackEffect, (x, z) => TerrainMirror.Outback(x, z, _outbackConfig)),
                 SceneKind.Savanna => (_savannaEffect, (x, z) => TerrainMirror.Savanna(x, z, _savannaConfig)),
                 SceneKind.Tropical => (_tropicalEffect, (x, z) => TerrainMirror.Tropical(x, z, _tropicalConfig)),
                 SceneKind.Meadow => (_meadowEffect, (x, z) => TerrainMirror.Meadow(x, z, _meadowConfig)),
@@ -3483,10 +3404,6 @@ namespace Prazsky.Core.Render
                     DrawAcacias(frame);
                     _birds.Draw(frame, _savannaConfig.Birds);
                     break;
-                case SceneKind.Outback:
-                    DrawOutback(frame);
-                    _birds.Draw(frame, _outbackConfig.Birds);
-                    break;
                 case SceneKind.Tropical:
                     //The land first (it writes depth), then the lagoon depth-read over the bed it owns,
                     //then the scatter that stands on the sand, then the flock over the water.
@@ -3605,17 +3522,6 @@ namespace Prazsky.Core.Render
             _graphicsDevice.BlendState = BlendState.AlphaBlend;
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
             _graphicsDevice.DepthStencilState = DepthStencilState.Default;
-        }
-
-        /// <summary>
-        /// Draws the outback (#112): the grid pinned to the camera (snapped to a cell so the land does not
-        /// swim), carrying a near-flat spinifex plain with red monoliths displaced into it, shaded per-pixel by
-        /// the current dome and shadowed by the shared cloud field. Like the desert it has no point lights, so
-        /// it sets none; unlike the desert its terrain carries a real silhouette, which is why the grid is finer.
-        /// </summary>
-        private void DrawOutback(in SceneFrame frame)
-        {
-            _outbackPass.Draw(frame, TerrainHoleRadius);
         }
 
         /// <summary>
@@ -4196,13 +4102,6 @@ namespace Prazsky.Core.Render
                     groundY = _mountainConfig.LevelY;
                     below = _mountainConfig.Height * 0.25f;
                     above = _mountainConfig.Height * 0.5f;
-                    break;
-
-                case SceneKind.Outback:
-                    //The monoliths are terrain, not props, and they are what a map here has to clear.
-                    groundY = _outbackConfig.Terrain.LevelY;
-                    below = _outbackConfig.Terrain.OutcropHeight;
-                    above = _outbackConfig.Terrain.RockHeight;
                     break;
 
                 case SceneKind.Tropical:
