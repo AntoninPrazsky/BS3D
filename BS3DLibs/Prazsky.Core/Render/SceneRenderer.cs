@@ -468,6 +468,9 @@ namespace Prazsky.Core.Render
         #region Tropical
 
         private readonly Effect _tropicalEffect;
+
+        //The lagoon's own clone of Sea.fx (#580); it draws over the sea's grid (_seaVertexBuffer)
+        private readonly Effect _lagoonEffect;
         private readonly VertexBuffer _tropicalVertexBuffer;
         private readonly IndexBuffer _tropicalIndexBuffer;
         private readonly int _tropicalIndexCount;
@@ -485,7 +488,7 @@ namespace Prazsky.Core.Render
 
         //Look/tuning parameters (the beach profile, the water, the palms, the rocks) live in
         //TropicalSceneConfig; SceneRenderer reads them from _tropicalConfig. The lagoon's water is the
-        //sea's own effect and grid — see DrawTropicalWater for how the two scenes share it.
+        //sea's own shader and grid under a clone of its own (_lagoonEffect, #580) — see DrawTropicalWater.
 
         #endregion
 
@@ -1025,21 +1028,25 @@ namespace Prazsky.Core.Render
 
         #region Snow (shared by the mountain and the aurora)
 
-        private readonly Effect _snowEffect;
+        //One clone of Snow.fx per scene that snows (#580), each pushed its own SnowConfig's look once at load
+        //(ApplySnowParameters): the two used to share one effect and re-push eleven values every frame, so
+        //that the slots held whichever scene was actually being drawn. The renderer owns and disposes both.
+        private readonly Effect _mountainSnowEffect;
+        private readonly Effect _auroraSnowEffect;
         private VertexBuffer _snowVertexBuffer;
         private IndexBuffer _snowIndexBuffer;
 
         //The buffer's own true size — BuildSnowBuffers is still sized off the mountain's own FlakeCount
-        //(the mountain being where the dial lives and gets tuned), but DrawSnow now takes a SnowConfig
-        //argument so a second scene can ask for its own look without a second buffer or a second effect
-        //(#205 — the aurora's gentle snow). A caller's own FlakeCount is clamped to this, never exceeded,
-        //since drawing past the buffer's own capacity would read off the end of it.
+        //(the mountain being where the dial lives and gets tuned), but DrawSnow takes a SnowConfig and an
+        //effect so a second scene can ask for its own look without a second buffer (#205 — the aurora's
+        //gentle snow; its own effect clone since #580). A caller's own FlakeCount is clamped to this, never
+        //exceeded, since drawing past the buffer's own capacity would read off the end of it.
         private int _snowFlakeCapacity;
 
         //Snowfall parameters (flake count/size/shape/colour/opacity, box, fall speed, wind, sway) live in
-        //each caller's own SnowConfig (MountainSceneConfig.Snow, AuroraSceneConfig.Snow) and are pushed by
-        //DrawSnow itself every frame it draws, not once at config-apply time — the shared effect's uniform
-        //slots have to reflect whichever scene is ACTUALLY being drawn, not whichever config last applied.
+        //each caller's own SnowConfig (MountainSceneConfig.Snow, AuroraSceneConfig.Snow) and are pushed into
+        //that caller's own clone once at load by ApplySnowParameters (#580); DrawSnow pushes only the camera
+        //and the clock.
 
         #endregion
 
@@ -1192,7 +1199,9 @@ namespace Prazsky.Core.Render
 
             //--- Sea: a camera-centred grid displaced into Gerstner waves; DrawSea snaps it to a cell and sets
             //the mean level. Drawn CullNone (one open surface, read from above and through the crests).
-            _seaEffect = content.Load<Effect>("Shaders/Sea");
+            //Its own clone of Sea.fx (#580): the tropical lagoon draws through another, so neither can leave
+            //its water in the other's slots.
+            _seaEffect = content.Load<Effect>("Shaders/Sea").Clone();
             AcquireGridMesh(SEA_GRID_N, SEA_EXTENT, out _seaVertexBuffer, out _seaIndexBuffer, out _seaIndexCount);
 
             ApplySeaParameters();
@@ -1220,12 +1229,16 @@ namespace Prazsky.Core.Render
 
             //--- Tropical (#244): the fourteenth scene — a beach ring around the island, a turquoise lagoon
             //and the green far shore that closes the horizon. The land grid is the desert's density (the
-            //gentlest slopes of any terrain scene); the lagoon's water is the sea's own effect and grid,
-            //drawn over this terrain by DrawTropicalWater below.
+            //gentlest slopes of any terrain scene); the lagoon's water is the sea's own shader and grid,
+            //drawn over this terrain by DrawTropicalWater below through a clone of its own (#580).
             _tropicalEffect = content.Load<Effect>("Shaders/Tropical");
             AcquireGridMesh(TROPICAL_GRID_N, TROPICAL_EXTENT, out _tropicalVertexBuffer, out _tropicalIndexBuffer, out _tropicalIndexCount);
 
             ApplyTropicalParameters();
+
+            //The lagoon: the sea's grid under its own clone of Sea.fx (#580), its water pushed once
+            _lagoonEffect = content.Load<Effect>("Shaders/Sea").Clone();
+            ApplyLagoonParameters();
 
             //--- Palms and the waterline's mossy rocks: instanced procedural geometry on the acacia's path
             //(#202), shaded by Palm.fx — the acacia's sun-and-dome lighting with the palm's own sway.
@@ -1367,10 +1380,14 @@ namespace Prazsky.Core.Render
             ApplyMountainParameters();
 
             //--- Snow: a static flake buffer, one quad per flake at a fixed point in the unit cube, animated
-            //entirely in the shader (so it is only rebuilt when a mountain config is applied, never per
-            //frame) — shared by the mountain and the aurora since #205; see DrawSnow's own doc for why its
-            //look uniforms are pushed there, per frame, rather than here.
-            _snowEffect = content.Load<Effect>("Shaders/Snow");
+            //entirely in the shader (built once, never per frame) — shared by the mountain and the aurora
+            //since #205. The effect is not shared: each scene draws through its own clone, its look pushed
+            //once here (#580).
+            Effect snow = content.Load<Effect>("Shaders/Snow");
+            _mountainSnowEffect = snow.Clone();
+            _auroraSnowEffect = snow.Clone();
+            ApplySnowParameters(_mountainSnowEffect, _mountainConfig.Snow);
+            ApplySnowParameters(_auroraSnowEffect, _auroraConfig.Snow);
             BuildSnowBuffers();
 
             //--- Spray: a static billboard buffer for the sea's blown spray and spindrift, animated entirely
@@ -1895,6 +1912,39 @@ namespace Prazsky.Core.Render
             _seaEffect.Parameters["HorizonHazeDistance"].SetValue(_seaConfig.HorizonHazeDistance);
         }
 
+        /// <summary>
+        /// Pushes the tropical lagoon's water into its own clone of <c>Sea.fx</c>, once at load (#580) — the
+        /// same set <see cref="ApplySeaParameters"/> pushes into the sea's, off <see cref="TropicalWaterConfig"/>.
+        /// </summary>
+        private void ApplyLagoonParameters()
+        {
+            TropicalWaterConfig water = _tropicalConfig.Water;
+
+            _lagoonEffect.Parameters["SeaLevelY"].SetValue(water.LevelY);
+            _lagoonEffect.Parameters["WaterColorDeep"].SetValue(water.WaterDeep.ToVector3());
+            _lagoonEffect.Parameters["WaterColorShallow"].SetValue(water.WaterShallow.ToVector3());
+            _lagoonEffect.Parameters["ShallowBias"].SetValue(water.ShallowBias);
+            _lagoonEffect.Parameters["WaveAmplitude"].SetValue(water.WaveAmplitude);
+            _lagoonEffect.Parameters["WaveSteepness"].SetValue(water.WaveSteepness);
+            _lagoonEffect.Parameters["WaveSpeed"].SetValue(water.WaveSpeed);
+            _lagoonEffect.Parameters["WaveFadeStart"].SetValue(water.WaveFadeStart);
+            _lagoonEffect.Parameters["WaveFadeEnd"].SetValue(water.WaveFadeEnd);
+            _lagoonEffect.Parameters["ChopAmplitude"].SetValue(water.ChopAmplitude);
+            _lagoonEffect.Parameters["ChopFrequency"].SetValue(water.ChopFrequency);
+            _lagoonEffect.Parameters["ChopSpeed"].SetValue(water.ChopSpeed);
+            _lagoonEffect.Parameters["WindDirection"].SetValue(water.Wind.ToVector2());
+            _lagoonEffect.Parameters["SunGlintStrength"].SetValue(water.SunGlintStrength);
+            _lagoonEffect.Parameters["SunGlintPower"].SetValue(water.SunGlintPower);
+            _lagoonEffect.Parameters["FoamJacobianThreshold"].SetValue(water.FoamJacobianThreshold);
+            _lagoonEffect.Parameters["FoamStrength"].SetValue(water.FoamStrength);
+            _lagoonEffect.Parameters["FoamCrestStart"].SetValue(water.FoamCrestStart);
+            _lagoonEffect.Parameters["FoamCrestStrength"].SetValue(water.FoamCrestStrength);
+            _lagoonEffect.Parameters["FoamColor"].SetValue(water.FoamColor.ToVector3());
+            _lagoonEffect.Parameters["SssStrength"].SetValue(water.SssStrength);
+            _lagoonEffect.Parameters["SssColor"].SetValue(water.SssColor.ToVector3());
+            _lagoonEffect.Parameters["HorizonHazeDistance"].SetValue(water.HorizonHazeDistance);
+        }
+
         private void ApplyDesertParameters()
         {
             _desertEffect.Parameters["DesertLevelY"].SetValue(_desertConfig.LevelY);
@@ -1997,9 +2047,8 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Pushes the tropical terrain's static tuning into <c>Tropical.fx</c> and stores the scatter's
-        /// per-draw colours. The lagoon's water uniforms are deliberately NOT touched here — the sea
-        /// effect belongs to whichever water draw ran last, and each of the two pushes its whole set
-        /// per frame (see <see cref="DrawTropicalWater"/>).
+        /// per-draw colours. The lagoon's water uniforms are <see cref="ApplyLagoonParameters"/>'s, pushed
+        /// into the lagoon's own clone of <c>Sea.fx</c> (#580).
         /// </summary>
         private void ApplyTropicalParameters()
         {
@@ -3507,6 +3556,24 @@ namespace Prazsky.Core.Render
             _mountainEffect.Parameters["AlpenglowHigh"].SetValue(MathF.Max(_mountainConfig.AlpenglowHigh, _mountainConfig.AlpenglowLow + 1f));
         }
 
+        /// <summary>
+        /// Pushes one scene's snowfall look into that scene's own clone of <c>Snow.fx</c>, once at load (#580).
+        /// </summary>
+        private static void ApplySnowParameters(Effect effect, SnowConfig config)
+        {
+            effect.Parameters["SnowBoxSize"].SetValue(config.BoxSize.ToVector3());
+            effect.Parameters["SnowFallSpeed"].SetValue(config.FallSpeed);
+            effect.Parameters["SnowWind"].SetValue(config.Wind.ToVector2());
+            effect.Parameters["SnowSway"].SetValue(config.Sway);
+            effect.Parameters["FlakeSize"].SetValue(config.FlakeSize);
+            effect.Parameters["SnowSpin"].SetValue(config.Spin);
+            effect.Parameters["SnowLobing"].SetValue(config.Lobing);
+            effect.Parameters["SnowNearFade"].SetValue(config.NearFade);
+            effect.Parameters["SnowTwinkle"].SetValue(config.Twinkle);
+            effect.Parameters["SnowColor"].SetValue(config.FlakeColor.ToVector3());
+            effect.Parameters["SnowOpacity"].SetValue(config.Opacity);
+        }
+
         /// <summary>(Re)builds the snowfall's flake buffer at the config's flake count. Deterministic seed.</summary>
         private void BuildSnowBuffers()
         {
@@ -4101,8 +4168,8 @@ namespace Prazsky.Core.Render
                 return;
             }
 
-            if (scene == SceneKind.Mountain) DrawSnow(frame, _mountainConfig.Snow);
-            else if (scene == SceneKind.Aurora) DrawSnow(frame, _auroraConfig.Snow);
+            if (scene == SceneKind.Mountain) DrawSnow(frame, _mountainSnowEffect, _mountainConfig.Snow);
+            else if (scene == SceneKind.Aurora) DrawSnow(frame, _auroraSnowEffect, _auroraConfig.Snow);
             else if (scene == SceneKind.Sea) DrawSpray(frame);
             else if (scene == SceneKind.Savanna) DrawFlame(frame);
             else if (scene == SceneKind.Volcano && (VolcanoLayers & VolcanoLayer.Ash) != 0) DrawAsh(frame);
@@ -4143,35 +4210,10 @@ namespace Prazsky.Core.Render
             _seaEffect.Parameters["SeaTime"].SetValue(frame.Time);
             _seaEffect.Parameters["SunColor"].SetValue(frame.SunColor);
 
-            //The config-static water values are re-pushed EVERY FRAME as well, not left to
-            //ApplySeaParameters: the tropical lagoon shares this one effect and pushes its own whole
-            //set from DrawTropicalWater, and a NumPad2/V switch applies no config — so without this
-            //the open sea would draw the lagoon's water from the moment the two scenes were switched
-            //through. A handful of SetValues once a frame; the alternative is a bug nobody reports
-            //because it still looks like water.
-            _seaEffect.Parameters["SeaLevelY"].SetValue(_seaConfig.LevelY);
-            _seaEffect.Parameters["WaterColorDeep"].SetValue(_seaConfig.WaterDeep.ToVector3());
-            _seaEffect.Parameters["WaterColorShallow"].SetValue(_seaConfig.WaterShallow.ToVector3());
-            _seaEffect.Parameters["ShallowBias"].SetValue(_seaConfig.ShallowBias);
-            _seaEffect.Parameters["WaveAmplitude"].SetValue(_seaConfig.WaveAmplitude);
-            _seaEffect.Parameters["WaveSteepness"].SetValue(_seaConfig.WaveSteepness);
-            _seaEffect.Parameters["WaveSpeed"].SetValue(_seaConfig.WaveSpeed);
-            _seaEffect.Parameters["WaveFadeStart"].SetValue(_seaConfig.WaveFadeStart);
-            _seaEffect.Parameters["WaveFadeEnd"].SetValue(_seaConfig.WaveFadeEnd);
-            _seaEffect.Parameters["ChopAmplitude"].SetValue(_seaConfig.ChopAmplitude);
-            _seaEffect.Parameters["ChopFrequency"].SetValue(_seaConfig.ChopFrequency);
-            _seaEffect.Parameters["ChopSpeed"].SetValue(_seaConfig.ChopSpeed);
-            _seaEffect.Parameters["WindDirection"].SetValue(_seaConfig.Wind.ToVector2());
-            _seaEffect.Parameters["SunGlintStrength"].SetValue(_seaConfig.SunGlintStrength);
-            _seaEffect.Parameters["SunGlintPower"].SetValue(_seaConfig.SunGlintPower);
-            _seaEffect.Parameters["FoamJacobianThreshold"].SetValue(_seaConfig.FoamJacobianThreshold);
-            _seaEffect.Parameters["FoamStrength"].SetValue(_seaConfig.FoamStrength);
-            _seaEffect.Parameters["FoamCrestStart"].SetValue(_seaConfig.FoamCrestStart);
-            _seaEffect.Parameters["FoamCrestStrength"].SetValue(_seaConfig.FoamCrestStrength);
-            _seaEffect.Parameters["FoamColor"].SetValue(_seaConfig.FoamColor.ToVector3());
-            _seaEffect.Parameters["SssStrength"].SetValue(_seaConfig.SssStrength);
-            _seaEffect.Parameters["SssColor"].SetValue(_seaConfig.SssColor.ToVector3());
-            _seaEffect.Parameters["HorizonHazeDistance"].SetValue(_seaConfig.HorizonHazeDistance);
+            //The config-static water values are the sea's own since #580 and were pushed once, at load
+            //(ApplySeaParameters): the tropical lagoon draws through its own clone of Sea.fx now, so it
+            //can no longer leave its water in this effect's slots — which is why they were re-pushed here
+            //every frame until then.
 
             frame.ApplyClouds?.Invoke(_seaEffect);
 
@@ -4353,19 +4395,18 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// Draws the lagoon: the sea's own effect and grid (<c>Sea.fx</c> unchanged), pushed the
+        /// Draws the lagoon: the sea's own shader and grid (<c>Sea.fx</c> unchanged), pushed the
         /// tropical config's water values — calmer swell, turquoise body colours — over the terrain
         /// <see cref="DrawTropicalTerrain"/> just wrote. States exactly as <see cref="DrawSea"/> sets
         /// them, for <see cref="DrawSea"/>'s own reasons: opaque and <c>CullNone</c> (one open surface,
         /// read from above and through the crests), depth-READ so anything under the surface keeps its
         /// own pixels.
         /// <para>
-        /// <b>The whole water set is pushed every frame, the config-static values included</b> — and
-        /// <see cref="DrawSea"/> re-pushes its own from its side for the same reason: the sea and the
-        /// lagoon share this one effect instance, and a NumPad2/V switch applies no config. Pushing
-        /// only the per-frame half would leave whichever scene switched in drawing the other's water
-        /// until some level re-applied one of them — the exact trap the shared flock's sizing exists
-        /// to avoid, in shader-parameter form.
+        /// <b>The lagoon draws through its own clone of <c>Sea.fx</c></b> (<c>_lagoonEffect</c>, #580),
+        /// its water set pushed once at load by <see cref="ApplyLagoonParameters"/>. Until then the sea
+        /// and the lagoon shared one effect instance, and each re-pushed its whole water set every frame
+        /// so that a NumPad2/V switch, which applies no config, could not leave one scene drawing the
+        /// other's water.
         /// </para>
         /// <para>
         /// The clip radius is the innermost the wiggling waterline ever reaches, less the shoulder
@@ -4379,7 +4420,6 @@ namespace Prazsky.Core.Render
         private void DrawTropicalWater(in SceneFrame frame)
         {
             TropicalTerrainConfig terrain = _tropicalConfig.Terrain;
-            TropicalWaterConfig water = _tropicalConfig.Water;
 
             float cell = SEA_EXTENT / (SEA_GRID_N - 1);
             float originX = MathF.Round(frame.Camera.Position.X / cell) * cell;
@@ -4387,43 +4427,19 @@ namespace Prazsky.Core.Render
 
             float clip = terrain.ShoreRadius - terrain.CoastNoise - TROPICAL_WATERLINE_BIAS;
 
-            _seaEffect.Parameters["OriginXZ"].SetValue(new Vector2(originX, originZ));
-            _seaEffect.Parameters["IslandHoleRadius"].SetValue(clip);
-            _seaEffect.Parameters["FunnelPoolRadius"].SetValue(0f);
-            _seaEffect.Parameters["View"].SetValue(frame.Camera.View);
-            _seaEffect.Parameters["Projection"].SetValue(frame.Camera.Projection);
-            _seaEffect.Parameters["CameraPosition"].SetValue(frame.Camera.Position);
-            _seaEffect.Parameters["SunDirection"].SetValue(frame.SunDirection);
-            _seaEffect.Parameters["ZenithColor"].SetValue(frame.ZenithLinear);
-            _seaEffect.Parameters["HorizonColor"].SetValue(frame.HorizonLinear);
-            _seaEffect.Parameters["SeaTime"].SetValue(frame.Time);
-            _seaEffect.Parameters["SunColor"].SetValue(frame.SunColor);
+            _lagoonEffect.Parameters["OriginXZ"].SetValue(new Vector2(originX, originZ));
+            _lagoonEffect.Parameters["IslandHoleRadius"].SetValue(clip);
+            _lagoonEffect.Parameters["FunnelPoolRadius"].SetValue(0f);
+            _lagoonEffect.Parameters["View"].SetValue(frame.Camera.View);
+            _lagoonEffect.Parameters["Projection"].SetValue(frame.Camera.Projection);
+            _lagoonEffect.Parameters["CameraPosition"].SetValue(frame.Camera.Position);
+            _lagoonEffect.Parameters["SunDirection"].SetValue(frame.SunDirection);
+            _lagoonEffect.Parameters["ZenithColor"].SetValue(frame.ZenithLinear);
+            _lagoonEffect.Parameters["HorizonColor"].SetValue(frame.HorizonLinear);
+            _lagoonEffect.Parameters["SeaTime"].SetValue(frame.Time);
+            _lagoonEffect.Parameters["SunColor"].SetValue(frame.SunColor);
 
-            _seaEffect.Parameters["SeaLevelY"].SetValue(water.LevelY);
-            _seaEffect.Parameters["WaterColorDeep"].SetValue(water.WaterDeep.ToVector3());
-            _seaEffect.Parameters["WaterColorShallow"].SetValue(water.WaterShallow.ToVector3());
-            _seaEffect.Parameters["ShallowBias"].SetValue(water.ShallowBias);
-            _seaEffect.Parameters["WaveAmplitude"].SetValue(water.WaveAmplitude);
-            _seaEffect.Parameters["WaveSteepness"].SetValue(water.WaveSteepness);
-            _seaEffect.Parameters["WaveSpeed"].SetValue(water.WaveSpeed);
-            _seaEffect.Parameters["WaveFadeStart"].SetValue(water.WaveFadeStart);
-            _seaEffect.Parameters["WaveFadeEnd"].SetValue(water.WaveFadeEnd);
-            _seaEffect.Parameters["ChopAmplitude"].SetValue(water.ChopAmplitude);
-            _seaEffect.Parameters["ChopFrequency"].SetValue(water.ChopFrequency);
-            _seaEffect.Parameters["ChopSpeed"].SetValue(water.ChopSpeed);
-            _seaEffect.Parameters["WindDirection"].SetValue(water.Wind.ToVector2());
-            _seaEffect.Parameters["SunGlintStrength"].SetValue(water.SunGlintStrength);
-            _seaEffect.Parameters["SunGlintPower"].SetValue(water.SunGlintPower);
-            _seaEffect.Parameters["FoamJacobianThreshold"].SetValue(water.FoamJacobianThreshold);
-            _seaEffect.Parameters["FoamStrength"].SetValue(water.FoamStrength);
-            _seaEffect.Parameters["FoamCrestStart"].SetValue(water.FoamCrestStart);
-            _seaEffect.Parameters["FoamCrestStrength"].SetValue(water.FoamCrestStrength);
-            _seaEffect.Parameters["FoamColor"].SetValue(water.FoamColor.ToVector3());
-            _seaEffect.Parameters["SssStrength"].SetValue(water.SssStrength);
-            _seaEffect.Parameters["SssColor"].SetValue(water.SssColor.ToVector3());
-            _seaEffect.Parameters["HorizonHazeDistance"].SetValue(water.HorizonHazeDistance);
-
-            frame.ApplyClouds?.Invoke(_seaEffect);
+            frame.ApplyClouds?.Invoke(_lagoonEffect);
 
             _graphicsDevice.BlendState = BlendState.Opaque;
             _graphicsDevice.RasterizerState = RasterizerState.CullNone;
@@ -4431,12 +4447,12 @@ namespace Prazsky.Core.Render
             //depth up, and the terrain (drawn before it, opaque) still writes and owns its own.
             _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
 
-            BeginFarField(_seaEffect, frame, SEA_EXTENT);
+            BeginFarField(_lagoonEffect, frame, SEA_EXTENT);
             _graphicsDevice.SetVertexBuffer(_seaVertexBuffer);
             _graphicsDevice.Indices = _seaIndexBuffer;
-            _seaEffect.CurrentTechnique.Passes[0].Apply();
+            _lagoonEffect.CurrentTechnique.Passes[0].Apply();
             _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _seaIndexCount / 3);
-            DrawFarRing(_seaEffect, new Vector2(originX, originZ), SEA_EXTENT);
+            DrawFarRing(_lagoonEffect, new Vector2(originX, originZ), SEA_EXTENT);
 
             _graphicsDevice.BlendState = BlendState.AlphaBlend;
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
@@ -5674,33 +5690,21 @@ namespace Prazsky.Core.Render
         /// Shared by the mountain and the aurora (#205), each with its own <see cref="SnowConfig"/> — the
         /// buffer is one for both (built at the mountain's own <see cref="SnowConfig.FlakeCount"/>, since
         /// that is where the dial has always lived), so <paramref name="config"/>'s own count is clamped to
-        /// <see cref="_snowFlakeCapacity"/> rather than trusted outright. The look uniforms are pushed here,
-        /// every call, rather than once when a config applies: the shared effect's slots have to hold
-        /// whichever scene is actually being drawn, and only the caller passing its own config in knows that.
+        /// <see cref="_snowFlakeCapacity"/> rather than trusted outright. The look uniforms are already in
+        /// <paramref name="effect"/>, the scene's own clone, pushed once by <see cref="ApplySnowParameters"/>
+        /// (#580); only the camera and the clock are pushed here.
         /// </para>
         /// </summary>
-        private void DrawSnow(in SceneFrame frame, SnowConfig config)
+        private void DrawSnow(in SceneFrame frame, Effect effect, SnowConfig config)
         {
             Matrix inverseView = Matrix.Invert(frame.Camera.View);
 
-            _snowEffect.Parameters["View"].SetValue(frame.Camera.View);
-            _snowEffect.Parameters["Projection"].SetValue(frame.Camera.Projection);
-            _snowEffect.Parameters["CameraPosition"].SetValue(frame.Camera.Position);
-            _snowEffect.Parameters["CameraRight"].SetValue(inverseView.Right);
-            _snowEffect.Parameters["CameraUp"].SetValue(inverseView.Up);
-            _snowEffect.Parameters["SnowTime"].SetValue(frame.Time);
-
-            _snowEffect.Parameters["SnowBoxSize"].SetValue(config.BoxSize.ToVector3());
-            _snowEffect.Parameters["SnowFallSpeed"].SetValue(config.FallSpeed);
-            _snowEffect.Parameters["SnowWind"].SetValue(config.Wind.ToVector2());
-            _snowEffect.Parameters["SnowSway"].SetValue(config.Sway);
-            _snowEffect.Parameters["FlakeSize"].SetValue(config.FlakeSize);
-            _snowEffect.Parameters["SnowSpin"].SetValue(config.Spin);
-            _snowEffect.Parameters["SnowLobing"].SetValue(config.Lobing);
-            _snowEffect.Parameters["SnowNearFade"].SetValue(config.NearFade);
-            _snowEffect.Parameters["SnowTwinkle"].SetValue(config.Twinkle);
-            _snowEffect.Parameters["SnowColor"].SetValue(config.FlakeColor.ToVector3());
-            _snowEffect.Parameters["SnowOpacity"].SetValue(config.Opacity);
+            effect.Parameters["View"].SetValue(frame.Camera.View);
+            effect.Parameters["Projection"].SetValue(frame.Camera.Projection);
+            effect.Parameters["CameraPosition"].SetValue(frame.Camera.Position);
+            effect.Parameters["CameraRight"].SetValue(inverseView.Right);
+            effect.Parameters["CameraUp"].SetValue(inverseView.Up);
+            effect.Parameters["SnowTime"].SetValue(frame.Time);
 
             _graphicsDevice.BlendState = BlendState.AlphaBlend;
             _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
@@ -5708,7 +5712,7 @@ namespace Prazsky.Core.Render
 
             _graphicsDevice.SetVertexBuffer(_snowVertexBuffer);
             _graphicsDevice.Indices = _snowIndexBuffer;
-            _snowEffect.CurrentTechnique.Passes[0].Apply();
+            effect.CurrentTechnique.Passes[0].Apply();
             int flakes = Math.Min(config.FlakeCount, _snowFlakeCapacity);
             _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, flakes * 2);
 
@@ -6059,6 +6063,10 @@ namespace Prazsky.Core.Render
             _birdMesh?.Dispose();
             _snowVertexBuffer?.Dispose();
             _snowIndexBuffer?.Dispose();
+            _seaEffect?.Dispose();
+            _lagoonEffect?.Dispose();
+            _mountainSnowEffect?.Dispose();
+            _auroraSnowEffect?.Dispose();
             _sprayVertexBuffer?.Dispose();
             _sprayIndexBuffer?.Dispose();
         }

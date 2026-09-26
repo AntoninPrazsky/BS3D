@@ -124,8 +124,9 @@ namespace Prazsky.Core.Render
         /// A little falling snow — it is winter, and the owner asked for it after the first capture. Shares
         /// <c>Snow.fx</c> and its flake buffer with the mountain scene (<see cref="SceneRenderer.DrawSnow"/>
         /// now takes the config as an argument instead of reading the mountain's own, precisely so a second
-        /// scene could ask for snow of its own look without a second buffer or a second effect); the flake
-        /// count is still the buffer's own capacity, sized by <see cref="MountainSceneConfig"/>'s copy.
+        /// scene could ask for snow of its own look without a second buffer — and since #580 through its own
+        /// clone of the effect, this look pushed into it once at load); the flake count is still the buffer's
+        /// own capacity, sized by <see cref="MountainSceneConfig"/>'s copy.
         /// Slower and thinner than the mountain's own snow — a gentle winter hush over the wood, not a storm.
         /// </summary>
         public SnowConfig Snow { get; set; } = new()
