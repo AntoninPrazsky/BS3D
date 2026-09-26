@@ -6570,3 +6570,11 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 - **Riziko k rozhodnutí:** mrtvá kulička je stejný dither jako náhled dopadu (0,5). Náhled ale bliká ±0,22 a má bílý okraj, mrtvá je stálá; kdyby se pletly, je to jedna konstanta.
 - **Nález mimo #620:** nápověda (Help › Balls) vysvětluje jen kámen, sklo, bombu, blesk a žolíka; **acid, frozen, infectious, gravity a heavy nevysvětluje nic** (ani tutoriál). Přehledový list všech druhů se jménem a popisem je v `C:/Users/panrd/Pictures/BS3D-620/specialni-kulicky.png` (mimo repo).
 - ⚠ **Past:** wildcard cykluje jen mezi barvami, které v clusteru jsou — na jednobarevném levelu vypadá pořád stejně; k nafocení cyklu je potřeba víc barev. A `play levelfile=` fotí do 14,3 s průlet kamery úvodem kapitoly, ne hru.
+
+---
+
+## 2026-09-26 — #618 shadery v Prazsky.Shaders (hotovo) — desktop, Claude Code
+
+- **Mergnuto `921511be`, CI zelené.** Všechny shadery jsou v `BS3DLibs/Prazsky.Shaders/Content/Shaders/` a překládají se jednou vlastním `Shaders.mgcb`. `.xnb` se do výstupu tří exe a WindingChecku kopírují přes projektovou referenci (`ReferenceOutputAssembly=false`). Efekty jsou byte-identické, všechna exe hlásí `shaders 37 set fb7a2396`.
+- ⚠ **Nový shader** patří do `Prazsky.Shaders/Content/Shaders.mgcb`, ne do `Content.mgcb` některého exe (shaders skill je aktualizovaný). Knihovna má vlastní `.config/dotnet-tools.json`.
+- ⚠ Issues #608–#612 citují staré cesty `Testbed/Content/Shaders/`.
