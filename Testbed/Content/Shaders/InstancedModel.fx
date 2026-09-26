@@ -99,8 +99,7 @@ float3 DirLight2Direction;
 float3 DirLight2DiffuseColor;
 float3 DirLight2SpecularColor;
 
-//Material texture of the mesh part (InstancedModelTextured) or the world-space detail
-//texture (InstancedModelTriplanar)
+//The world-space detail texture (InstancedModelTriplanar and its coarse and probe copies)
 texture Texture;
 sampler2D TextureSampler = sampler_state
 {
@@ -467,8 +466,10 @@ float4 ShadePixel(float3 worldPosition, float3 rawWorldNormal, float4 occlusionD
     float3 worldNormal = normalize(rawWorldNormal);
     float3 eyeVector = normalize(EyePosition - worldPosition);
 
-    //The key light is accumulated on its own so the relief's self-shadow can be applied to it without
-    //touching the fill and back lights, which stand in for bounced light and are not blocked by a bump
+    //The key light is accumulated on its own so a shadow can be applied to it without touching the fill
+    //and back lights, which stand in for bounced light and are not blocked by anything. keyShadow is the
+    //caller's own share of that; every caller passes 1 since the relief's self-shadow march, the one thing
+    //that passed anything else, was deleted with the dead textured path (#581).
     float3 keyDiffuse = 0;
     float3 keySpecular = 0;
 
@@ -480,8 +481,8 @@ float4 ShadePixel(float3 worldPosition, float3 rawWorldNormal, float4 occlusionD
     //
     //And the sun's CAST shadow rides the very same multiplier (#470), which is why one line here puts the
     //island's shadow on the grass, the gun's on the stone and the trees' on both. It is the sun term alone -
-    //the fill and back lights stand in for bounced light and a shadow does not take that away, exactly as
-    //the relief's self-shadow does not. Savanna.fx folds its own tap into the same factor, so the grass
+    //the fill and back lights stand in for bounced light and a shadow does not take that away.
+    //Savanna.fx folds its own tap into the same factor, so the grass
     //beside the island and the island itself are shadowed by one rule and cannot disagree. Both are
     //KeySunlight, which the three ball styles that do not come through here call too.
     float sunlight = keyShadow * KeySunlight(worldPosition, worldNormal);
@@ -603,9 +604,8 @@ float SurfaceReliefStrength;
 float SurfaceReliefFrequency;
 
 //Floor slabs: joints cut into the horizontal plane, in world units. SlabSize 0 turns them off.
-//These exist so the relief has something at a scale the eye can actually see. Micro-relief alone is
-//sub-centimeter, and neither parallax nor self-shadowing has anything to bite on at that size - they
-//need real structure, and on a marble floor the structure is the joints between the slabs.
+//These exist so the relief has something at a scale the eye can actually see: micro-relief alone is
+//sub-centimeter, and on a marble floor the structure is the joints between the slabs.
 float SlabSize;
 float SlabJointWidth;
 float SlabJointDepth;
@@ -708,12 +708,6 @@ float ApplyHeightBands(inout float3 texRgb, float3 worldPosition, float side, fl
 
 //How dark the pits of the relief go from being shaded by their own walls (0 = off)
 float CavityStrength;
-
-//How strongly the relief shadows itself along the key light (0 = off)
-float ReliefShadowStrength;
-
-//Depth range the parallax march covers, as a fraction of the relief amplitude (0 = off)
-float ParallaxScale;
 
 //One octave, band-limited on the spot: a wave of this frequency spans 2 * pi / f of whatever space it
 //is evaluated in, so it is faded out as a pixel grows towards half of that — its Nyquist limit.
@@ -827,26 +821,11 @@ float SlabGroove(float3 worldPosition, float3 dpdx, float3 dpdy)
 }
 
 //The height field the whole surface is built from: micro-relief on the slab faces, joints cut below
-//them. Everything below - the normal, the cavity shading, the self-shadow march and the parallax
-//march - reads this one function, so a feature added here is automatically lit, occluded and
-//parallaxed rather than needing to be handled three more times.
+//them. The normal and the cavity shading both read this one function, so a feature added here is
+//automatically lit and occluded rather than needing to be handled twice.
 float SceneSurfaceHeight(float3 worldPosition, float3 dpdx, float3 dpdy)
 {
     float height = SurfaceReliefWorld(worldPosition, SurfaceReliefFrequency, dpdx, dpdy) * SurfaceReliefStrength;
-
-    return height - SlabGroove(worldPosition, dpdx, dpdy) * SlabJointDepth;
-}
-
-//The same field with three octaves instead of seven, for the ray marches. They evaluate it dozens of
-//times per pixel and only need the shape that casts a shadow or hides something, not the grain: the
-//octaves left out are finer than the steps the march takes anyway.
-float SceneSurfaceHeightCoarse(float3 worldPosition, float3 dpdx, float3 dpdy)
-{
-    float frequency = SurfaceReliefFrequency;
-
-    float height = (0.26 * ReliefOctaveDirectional(worldPosition, float3(0.71, 0.52, -0.47), frequency, dpdx, dpdy)
-        + 0.20 * ReliefOctaveDirectional(worldPosition, float3(-0.36, 0.83, 0.42), frequency * 1.43, dpdx, dpdy)
-        + 0.16 * ReliefOctaveDirectional(worldPosition, float3(0.55, -0.44, 0.71), frequency * 2.11, dpdx, dpdy)) * SurfaceReliefStrength;
 
     return height - SlabGroove(worldPosition, dpdx, dpdy) * SlabJointDepth;
 }
@@ -887,176 +866,6 @@ float CavityOcclusion(float height)
 
     return lerp(1 - CavityStrength, 1, openness);
 }
-
-//How many steps each march takes. Both are cheap at a steep angle and expensive at a grazing one,
-//which is also exactly where they matter, so the counts follow the angle.
-static const int ReliefShadowSteps = 8;
-static const int ParallaxMinSteps = 8;
-static const int ParallaxMaxSteps = 28;
-
-//Marches the height field towards the light and reports how much of the key light survives. This is
-//the other half of what makes relief read as shape: a raking light on a real surface does not just
-//shade the far sides of the bumps, it throws the bumps' shadows across the hollows behind them.
-float ReliefSelfShadow(float3 worldPosition, float3 normal, float3 towardsLight, float height, float3 dpdx, float3 dpdy)
-{
-    if (ReliefShadowStrength <= 0) return 1;
-
-    float alongNormal = dot(towardsLight, normal);
-    if (alongNormal <= 0.02) return 1; //Light at or below the horizon: the N.L term already has this
-
-    float3 alongSurface = towardsLight - normal * alongNormal;
-    float surfaceLength = length(alongSurface);
-    if (surfaceLength < 1e-5) return 1; //Light straight overhead: nothing can shadow anything
-
-    alongSurface /= surfaceLength;
-
-    //Height the ray gains per unit travelled across the surface
-    float rise = alongNormal / surfaceLength;
-
-    //Travel far enough for the ray to clear the tallest thing the field can put in its way
-    float reach = max((ReliefCeiling() - height) / max(rise, 1e-5), 0);
-    float amplitude = max(ReliefCeiling() - ReliefFloor(), 1e-6);
-
-    float blocked = 0;
-
-    [unroll]
-    for (int i = 1; i <= ReliefShadowSteps; i++)
-    {
-        float travel = reach * i / ReliefShadowSteps;
-        float rayHeight = height + travel * rise;
-        float fieldHeight = SceneSurfaceHeightCoarse(worldPosition + alongSurface * travel, dpdx, dpdy);
-
-        //How far the field pokes above the ray, as a fraction of the field's own depth. Taking the
-        //largest overlap rather than a hit/miss keeps the shadow's edge soft.
-        blocked = max(blocked, saturate((fieldHeight - rayHeight) / amplitude));
-    }
-
-    return 1 - blocked * ReliefShadowStrength;
-}
-
-//Marches the height field along the view ray and returns where it actually hits. Tilting the normal
-//tells the eye a surface is uneven; moving the shading point tells it the surface has depth, because
-//the near walls of a groove start hiding its far walls as the camera moves. That parallax is the cue
-//normal mapping cannot fake, and it is what "plastic" means here.
-float3 ParallaxSurfacePosition(float3 worldPosition, float3 normal, float3 towardsEye, float3 dpdx, float3 dpdy)
-{
-    if (ParallaxScale <= 0) return worldPosition;
-
-    float alongNormal = dot(towardsEye, normal);
-    if (alongNormal <= 0.05) return worldPosition; //Edge-on: the offset would run away to infinity
-
-    //World-space offset that corresponds to descending one unit into the surface
-    float3 perDepth = -(towardsEye - normal * alongNormal) / alongNormal;
-
-    float ceiling = ReliefCeiling();
-    float range = max(ceiling - ReliefFloor(), 1e-6) * ParallaxScale;
-
-    int steps = (int)lerp(ParallaxMaxSteps, ParallaxMinSteps, alongNormal);
-    float stepDepth = range / steps;
-
-    float rayDepth = 0;
-    float previousRayDepth = 0;
-    float previousSurfaceDepth = 0;
-
-    [loop]
-    for (int i = 0; i < steps; i++)
-    {
-        previousRayDepth = rayDepth;
-        rayDepth += stepDepth;
-
-        //Depth of the field below its ceiling at the point the ray has reached
-        float surfaceDepth = ceiling - SceneSurfaceHeightCoarse(worldPosition + perDepth * rayDepth, dpdx, dpdy);
-
-        if (surfaceDepth <= rayDepth)
-        {
-            //Crossed it between the last two samples. One linear solve for where the ray and the
-            //surface actually met beats halving the step size again.
-            float previousGap = previousSurfaceDepth - previousRayDepth;
-            float gap = surfaceDepth - rayDepth;
-            float t = saturate(previousGap / max(previousGap - gap, 1e-6));
-
-            return worldPosition + perDepth * lerp(previousRayDepth, rayDepth, t);
-        }
-
-        previousSurfaceDepth = surfaceDepth;
-    }
-
-    return worldPosition + perDepth * rayDepth;
-}
-
-//Textured variant: the model vertices carry UVs in TEXCOORD0 (the instance stream stays in TEXCOORD1-5)
-
-struct TexturedVertexShaderInput
-{
-    float4 Position : POSITION0;
-    float3 Normal : NORMAL0;
-    float2 TexCoord : TEXCOORD0;
-};
-
-struct TexturedVertexShaderOutput
-{
-    float4 Position : SV_POSITION;
-    float3 WorldPosition : TEXCOORD0;
-    float3 WorldNormal : TEXCOORD1;
-    float4 OcclusionData : TEXCOORD2;
-    float2 TexCoord : TEXCOORD3;
-};
-
-TexturedVertexShaderOutput TexturedVS(TexturedVertexShaderInput input, InstanceInput instance)
-{
-    TexturedVertexShaderOutput output;
-
-    float4x4 world = float4x4(instance.WorldRow1, instance.WorldRow2, instance.WorldRow3, instance.WorldRow4);
-
-    float4 worldPosition = mul(mul(input.Position, Bone), world);
-
-    output.WorldPosition = worldPosition.xyz;
-    output.Position = mul(mul(worldPosition, View), Projection);
-    output.WorldNormal = NormalToWorld(input.Normal, world);
-    output.OcclusionData = instance.Custom;
-    output.TexCoord = input.TexCoord;
-
-    return output;
-}
-
-float4 TexturedPS(TexturedVertexShaderOutput input) : COLOR
-{
-    //The ground comes through here: marble slabs whose texture draws the veining, with the joints
-    //between them cut into the height field so they are real recesses that hide, shadow and shift
-    float3 dpdx = ddx(input.WorldPosition);
-    float3 dpdy = ddy(input.WorldPosition);
-
-    float3 geometricNormal = normalize(input.WorldNormal);
-    float3 towardsEye = normalize(EyePosition - input.WorldPosition);
-
-    //Where the view ray actually meets the relief, rather than where it meets the flat polygon
-    float3 reliefPosition = ParallaxSurfacePosition(input.WorldPosition, geometricNormal, towardsEye, dpdx, dpdy);
-
-    float height = SceneSurfaceHeight(reliefPosition, dpdx, dpdy);
-
-    //The tangent frame stays on the real geometry; only the height is read at the parallaxed point, so
-    //the derivatives pick up both the field's own slope and the way the offset changes across the screen
-    float3 worldNormal = PerturbNormalFromHeight(geometricNormal, input.WorldPosition, height);
-
-    float keyShadow = ReliefSelfShadow(reliefPosition, geometricNormal, normalize(KeyLightPosition - input.WorldPosition), height, dpdx, dpdy);
-
-    //The albedo is mapped through the model's UVs rather than world space, so the parallax offset is not
-    //applied to it: the veining stays put while the joints move. At these depths the mismatch is well
-    //under a pixel, and the joints are what carry the parallax anyway.
-    float4 texColor = tex2D(TextureSampler, input.TexCoord);
-    texColor.rgb = SrgbToLinear(texColor.rgb);
-
-    return ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, texColor, keyShadow, CavityOcclusion(height));
-}
-
-technique InstancedModelTextured
-{
-    pass P0
-    {
-        VertexShader = compile VS_SHADERMODEL TexturedVS();
-        PixelShader = compile PS_SHADERMODEL TexturedPS();
-    }
-};
 
 //===================================================================================================
 //THE BALL TECHNIQUES, AND THE CONTRACT ALL OF THEM OWE (#304)
@@ -1129,9 +938,6 @@ float PatternCapExtent;
 
 //Amplitude of the molded micro-relief of the skin, in world units (0 = a perfectly smooth sphere)
 float PatternReliefStrength;
-
-//How strongly the skin catches the sky color at grazing angles
-float PatternSheenStrength;
 
 //How much of its own color the ball radiates, independent of any light falling on it
 float EmissiveStrength;
@@ -1384,7 +1190,7 @@ float4 PatternPS(PatternVertexShaderOutput input) : COLOR
 
     float3 worldNormal = PerturbNormalFromHeight(normalize(input.WorldNormal), input.WorldPosition, height);
 
-    //The balls carry their own relief; the scene cavity and self-shadow terms are not it
+    //The balls carry their own relief; the scene cavity term is not it
     float4 shaded = ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, float4(color, 1), 1, 1);
 
     //Light carried through the shell from behind. A ball lit from the far side glows around its rim
@@ -6062,107 +5868,19 @@ technique InstancedModelHeavy
 };
 
 //Detail texturing: a texture that only modulates the existing material colors
-//(DetailStrength 0 = untextured look), mapped either through the model's own UVs
-//(InstancedModelDetailUV — required for objects that move, or the texture would swim
-//across them) or projected along the world axes for models with no UVs at all
-//(InstancedModelTriplanar, e.g. the arena's stone island).
+//(DetailStrength 0 = untextured look), projected along the world axes so it needs no UVs
+//(InstancedModelTriplanar, e.g. the arena's stone island). It is the only way a material texture reaches
+//this effect: the procedural meshes carry no UVs, and the UV-mapped paths that once sat here
+//(InstancedModelTextured, InstancedModelDetailUV/DetailUVNormal and the normal map) were deleted
+//in #581 with the loaded-Model constructor that was the only thing able to reach them.
 
-//Triplanar: world units per texture tile = 1 / DetailScale. UV mapping: tiles per UV span.
+//World units per texture tile = 1 / DetailScale.
 float DetailScale;
 //How strongly the detail texture modulates the material color (0 = not at all, 1 = fully)
 float DetailStrength;
 //Brightness compensation so a mid-gray detail texture does not darken the whole material
 float DetailBoost;
 
-//Tangent-space normal map paired with the detail texture, and how far it tilts the surface normal
-texture NormalMapTexture;
-sampler2D NormalMapSampler = sampler_state
-{
-    Texture = <NormalMapTexture>;
-    MinFilter = Linear;
-    MagFilter = Linear;
-    MipFilter = Linear;
-    AddressU = Wrap;
-    AddressV = Wrap;
-};
-
-float NormalStrength;
-
-//Tangent frame derived from screen-space derivatives instead of vertex tangents: the instance
-//vertex streams carry only position, normal and UV (the procedural meshes have nothing else to give),
-//and this works for any mesh drawn through the renderer. Based on Christian Schueler's
-//"Normal Mapping Without Precomputed Tangents".
-float3x3 CotangentFrame(float3 normal, float3 worldPosition, float2 uv)
-{
-    float3 dp1 = ddx(worldPosition);
-    float3 dp2 = ddy(worldPosition);
-    float2 duv1 = ddx(uv);
-    float2 duv2 = ddy(uv);
-
-    float3 dp2perp = cross(dp2, normal);
-    float3 dp1perp = cross(normal, dp1);
-
-    float3 tangent = dp2perp * duv1.x + dp1perp * duv2.x;
-    float3 bitangent = dp2perp * duv1.y + dp1perp * duv2.y;
-
-    float invmax = rsqrt(max(dot(tangent, tangent), dot(bitangent, bitangent)));
-
-    return float3x3(tangent * invmax, bitangent * invmax, normal);
-}
-
-float4 DetailUVNormalPS(TexturedVertexShaderOutput input) : COLOR
-{
-    float2 uv = input.TexCoord * DetailScale;
-
-    float3 detail = SrgbToLinear(tex2D(TextureSampler, uv).rgb);
-    float3 texRgb = lerp(float3(1, 1, 1), detail * DetailBoost, DetailStrength);
-
-    float3 geometricNormal = normalize(input.WorldNormal);
-
-    float3 tangentNormal = tex2D(NormalMapSampler, uv).xyz * 2 - 1;
-    tangentNormal.xy *= NormalStrength;
-
-    float3 worldNormal = normalize(mul(normalize(tangentNormal), CotangentFrame(geometricNormal, input.WorldPosition, uv)));
-
-    //The normal map carries the cast pattern at texture resolution; the procedural relief goes on top of
-    //it, finer than the map can hold and free of its tiling, so the barrel keeps breaking up the
-    //highlight right down to where a pixel can no longer tell
-    float height = SceneSurfaceHeight(input.WorldPosition, ddx(input.WorldPosition), ddy(input.WorldPosition));
-    worldNormal = PerturbNormalFromHeight(worldNormal, input.WorldPosition, height);
-
-    return ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, float4(texRgb, 1), 1, CavityOcclusion(height));
-}
-
-technique InstancedModelDetailUVNormal
-{
-    pass P0
-    {
-        VertexShader = compile VS_SHADERMODEL TexturedVS();
-        PixelShader = compile PS_SHADERMODEL DetailUVNormalPS();
-    }
-};
-
-float4 DetailUVPS(TexturedVertexShaderOutput input) : COLOR
-{
-    float3 detail = SrgbToLinear(tex2D(TextureSampler, input.TexCoord * DetailScale).rgb);
-    float3 texRgb = lerp(float3(1, 1, 1), detail * DetailBoost, DetailStrength);
-
-    float height = SceneSurfaceHeight(input.WorldPosition, ddx(input.WorldPosition), ddy(input.WorldPosition));
-    float3 worldNormal = PerturbNormalFromHeight(normalize(input.WorldNormal), input.WorldPosition, height);
-
-    return ShadePixel(input.WorldPosition, worldNormal, input.OcclusionData, float4(texRgb, 1), 1, CavityOcclusion(height));
-}
-
-technique InstancedModelDetailUV
-{
-    pass P0
-    {
-        VertexShader = compile VS_SHADERMODEL TexturedVS();
-        PixelShader = compile PS_SHADERMODEL DetailUVPS();
-    }
-};
-
-//Stone block coursing drawn on the vertical surfaces (world units)
 //Headroom the cavity term carries above the relief's own amplitude, in world units. It was the depth the
 //castle's mortar joints were sunk to, and it is kept at that exact figure because the cavity range is the
 //one place the construction patterns reached that survives them: every surface in the game has been shaded
