@@ -19,9 +19,9 @@ namespace Prazsky.Core.Render
     /// moved (#580). The volcano did not: its flank has always left the blend state as it found it, where this
     /// states opaque and restores alpha-blend, and the fountains draw straight after it. The sea joined it with
     /// what it has more wrapped round the call — the pool's radius set before and the depth-read state around
-    /// it, since the pass touches no depth state. The savanna and the beach still run the skeleton on the
-    /// renderer with more in it — point lights, a second pass — and join it when they move and it can be shown
-    /// what they need.
+    /// it, since the pass touches no depth state. The beach draws two: its land, which is the pass exactly, and
+    /// its lagoon over the sea's grid, the sea's shape with its clip as the hole radius. The savanna still runs
+    /// the skeleton on the renderer with its point lights in it, and joins it when it moves.
     /// </para>
     /// <para>
     /// <b>Mars was the first to bring something</b>: a reduced program on a coarser grid (#540), so the grid can

@@ -12,8 +12,9 @@ namespace Prazsky.Core.Render
     /// it; the scenes not yet migrated still answer through the renderer's own switch arms.
     /// <para>
     /// <b>The hooks are the ones the migrated scenes need and no more.</b> The issue's full list (the shadow
-    /// receivers, fit and casters, the scene event, the ground glow) arrives with the first scene that has
-    /// one to answer; an abstract hook nothing overrides is a promise nobody has tested.
+    /// receivers, fit and casters, the scene event, the ground glow) arrived with the first scene that had
+    /// one to answer — the casters last, with the beach; an abstract hook nothing overrides is a promise nobody
+    /// has tested.
     /// </para>
     /// <para>
     /// A backdrop is built eagerly by the renderer's constructor, in the constructor's own order, exactly as
@@ -119,6 +120,22 @@ namespace Prazsky.Core.Render
             groundY = below = above = 0f;
             return false;
         }
+
+        /// <summary>
+        /// Whether the scene has casters of its own to draw into the sun's shadow map (<see cref="DrawShadowCasters"/>) —
+        /// the beach's palms and rocks, the savanna's planting. False by default: in every other scene the casters are all
+        /// the host's (the island, the gun, the forest's wood), and a caller that hands none in — the map editor — then
+        /// gets no map rather than an empty one it pays nine taps a pixel to read.
+        /// </summary>
+        public virtual bool HasShadowCasters => false;
+
+        /// <summary>
+        /// Draws the scene's own casters into the sun's shadow map, which the renderer's <c>DrawShadowMaps</c> has bound
+        /// with its states set (opaque, depth-writing, <c>CullNone</c>); <paramref name="shadowViewProjection"/> is the
+        /// map's world → clip matrix. Before the host's casters, as the renderer's own switch drew them. Nothing by
+        /// default; a scene that draws something here says so in <see cref="HasShadowCasters"/>.
+        /// </summary>
+        public virtual void DrawShadowCasters(Matrix shadowViewProjection) { }
 
         /// <summary>
         /// The scene's terrain effect and its CPU mirror (<see cref="SceneRenderer.TryGetTerrainProbe"/>, the
