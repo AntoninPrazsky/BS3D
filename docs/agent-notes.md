@@ -6578,3 +6578,13 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 - **Mergnuto `921511be`, CI zelené.** Všechny shadery jsou v `BS3DLibs/Prazsky.Shaders/Content/Shaders/` a překládají se jednou vlastním `Shaders.mgcb`. `.xnb` se do výstupu tří exe a WindingChecku kopírují přes projektovou referenci (`ReferenceOutputAssembly=false`). Efekty jsou byte-identické, všechna exe hlásí `shaders 37 set fb7a2396`.
 - ⚠ **Nový shader** patří do `Prazsky.Shaders/Content/Shaders.mgcb`, ne do `Content.mgcb` některého exe (shaders skill je aktualizovaný). Knihovna má vlastní `.config/dotnet-tools.json`.
 - ⚠ Issues #608–#612 citují staré cesty `Testbed/Content/Shaders/`.
+
+---
+
+## 2026-09-26 — #622 speciální druhy kuliček: reference z generativní AI, pak shadery — desktop, Claude Code
+
+- **Majitel po #620 (verdikt: dither vypadá výborně, #620 zavřeno):** na jednotlivé speciální druhy chce použít generativní AI a podle toho implementovat konkrétní shadery. **Založeno #622 (zastřešující: metoda, tabulka „co která značka už znamená“, společná omezení, fixture) a #623–#632, jedno issue na druh** — Stone, Glass, Bomb, Zap, Acid, Frozen, Infectious, Gravity, Heavy, Wildcard. Postup jako u #445/#451/#503–#512 a #404 → #533–#538: reference (`design-references`) → majitel vybere → shader ručně → před/po stránka na verdikt.
+- **Nové v repu:** `Testbed/Maps/Specials.json` — po jednom kuse od každého druhu na horní úrovni, po třech jednotkách, takže kamera vycentrovaná na jeden nevidí souseda (barevné druhy schválně ve čtyřech barvách). Recept na jednu dlaždici je v #622. „Před“ snímek je mimo repo: `C:/Users/panrd/Pictures/BS3D-620/specialni-kulicky.png`.
+- **Slovník značek**, který je v #622 a který stojí za přečtení před jakoukoli změnou vzhledu: tep = „součást visící mapy“; **dither = „tady vlastně není“** (náhled, mrtvá váha od #620, přechody #325/#329/#331/#437 — žádný druh nesmí být kreslen trvalým ditherem); průhlednost = čiré sklo; tmavé bezbarvé pouzdro = speciál, který se spustí dopadem vedle; nekulatá silueta = kámen a zmrzlá kulička.
+- **Nevyřízeno, čeká na majitele:** vysvětlení pěti druhů, které Help › Balls nezmiňuje (acid, frozen, infectious, gravity, heavy), nezaloženo. Pořadí druhů v #622 je jen jedno čtení listu; rozhoduje majitel.
+- ⚠ **Past:** `python - <<'EOF'` s češtinou v těle skriptu dostane ze stdin cp1250 a rozbije diakritiku (jednou i syntaktickou chybu `\U`); psát skript do souboru, nebo text do souboru a skript ho čte s `encoding='utf-8'`. Cesty `/tmp` z Git Bash Python nevidí — `cygpath -m /tmp`.
