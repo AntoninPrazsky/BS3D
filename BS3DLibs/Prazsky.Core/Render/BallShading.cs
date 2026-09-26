@@ -239,8 +239,9 @@ namespace Prazsky.Core.Render
         Acid = 14,
 
         /// <summary>
-        /// A frozen ball (#329): a coloured ball sealed in a block of ice — a <b>rounded cube</b> of pale,
-        /// frosted ice with the ball's own colour glowing dimly from inside it. Drawn by
+        /// A frozen ball (#329, redrawn in #628): a coloured ball sealed in a block of CLEAR ice — a <b>rounded
+        /// cube</b>, glassy in the faces and frosted along the edges, with the ball ray-cast inside it as a sphere
+        /// that has its own edge and its own parallax, and a crack through the block. Drawn by
         /// <c>InstancedModelFrozen</c>.
         /// <para>
         /// The sixth shading that belongs to a <c>BallKind</c> rather than to a <c>BallStyle</c>, and the
