@@ -99,9 +99,6 @@ namespace BS3D
         //resolution while it is limiting anything, and that is paired.
         private readonly FrameLimiter _frameLimiter = new();
 
-        //Puts the frame's recorded work on the GPU before the compositor wait (see PaceFrame)
-        private readonly GpuFlush _gpuFlush = new();
-
         //The monitor's refresh, re-read wherever the quality probe's floor is (startup and every resize, so a
         //window moved to another panel corrects itself). Zero when the adapter reports nothing sensible —
         //headless, a remote session — and unlimited is then the honest answer rather than a 0 FPS cap.
@@ -1480,23 +1477,14 @@ namespace BS3D
 
         #endregion
 
-        //The one GameTime the frame's Update and Draw both hand on, its elapsed the compositor's rather than
-        //MonoGame's whenever the frame was paced by it (see Update). Reused, never allocated per frame.
-        private readonly GameTime _frameTime = new();
-
         protected override void Update(GameTime gameTime)
         {
-            //The frame's time is the compositor's (#634): the interval between the last two waits for it, taken at
-            //the END of the last two frames (see Draw) and snapped to whole refreshes by FrameLimiter.PacedElapsed.
-            //MonoGame's own elapsed is read at the top of the tick, so it carries the last two frames' difference
-            //in cost - 13.33 ± 1.0 ms at 75 Hz - and it stepped the menu's orbit unevenly under an even display.
-            //Negative (the first frame, a run on a named frame rate, a compositor that refused) leaves MonoGame's.
-            float paced = _pacedElapsed;
-            _frameTime.ElapsedGameTime = paced > 0f ? TimeSpan.FromTicks((long)(paced * TimeSpan.TicksPerSecond))
-                : gameTime.ElapsedGameTime;
-            _frameTime.TotalGameTime += _frameTime.ElapsedGameTime;
-            _frameTime.IsRunningSlowly = gameTime.IsRunningSlowly;
-            gameTime = _frameTime;
+            //Paced BY the compositor rather than against it (#448), at the TOP of the frame: the wait ends
+            //just past a composition, the frame is built and presented inside the interval that follows, and
+            //DWM picks up exactly one frame per refresh. EndFrame's clock stays behind it as the fallback,
+            //and remains the whole story whenever a NUMBER was named - a benchmark's fpscap= or a player's
+            //Settings row mean that number and not the compositor's rate.
+            if (_fpsCap <= 0 && !_uncappedFps && _displayRefreshHz > 0) _frameLimiter.WaitForCompositor();
 
             float elapsed = (float)gameTime.ElapsedGameTime.TotalSeconds;
             _wallClock += elapsed;
@@ -1582,8 +1570,6 @@ namespace BS3D
 
         protected override void Draw(GameTime gameTime)
         {
-            gameTime = _frameTime;
-
             //Bottom-up down the stack to the lowest uncovered screen: the backdrop (or the gameplay screen)
             //runs the whole pipeline — the HDR target, the setting, its own 3D, the resolve — and the pages
             //above it draw nothing themselves, because their picture is the Myra desktop below.
@@ -1655,51 +1641,7 @@ namespace BS3D
 
             //Dead last, after the frame has been counted: the idle must not be inside anything the log
             //measures, or the instrument reads itself instead of the frame.
-            PaceFrame();
-        }
-
-        //What the next frame's Update steps the world by, measured by the wait at the end of this one (PaceFrame)
-        private float _pacedElapsed = -1f;
-
-        /// <summary>
-        /// Holds the frame to the display, between the last draw and the Present that MonoGame's <c>EndDraw</c>
-        /// makes straight after this returns (#634).
-        /// <para>
-        /// <b>Paced BY the compositor</b> (#448), and the wait belongs HERE, with the frame finished and its work
-        /// already on the GPU — not at the top of the frame, where it stood until #634. The game presents through
-        /// MonoGame's blt-model swap chain (PresentMon: <i>Composed: Copy with GPU GDI</i>), so DWM takes the newest
-        /// finished frame at each composition and throws away any older one that finished in the same interval.
-        /// Waiting at the top put the frame's whole GPU work after the wait, a few milliseconds into the interval,
-        /// and a card that clocks itself down at 75 FPS took 7 to 16 ms over it: on the Moon's front end at
-        /// 3840×1600 and 75 Hz, <b>204 of 745 frames were never shown</b> at Ultra, 164 of 597 at High and 153 at
-        /// Medium, the rest shown in a 1-2-1-2 cadence — the judder the owner saw on the Earth. Low, whose GPU
-        /// work stayed under 11 ms, dropped none. Flushed here and waited on, the GPU runs through the wait and
-        /// the Present lands just past a composition with the frame done: <b>0 dropped</b> of ~596 at Ultra on
-        /// the Moon, the meadow and the city, and the city's frame shown a refresh sooner (26 ms from Present
-        /// against 38). Without the flush D3D11 holds the commands until Present and the Moon still dropped 174.
-        /// </para>
-        /// <para>
-        /// A NUMBER named — a benchmark's <c>fpscap=</c>, the player's Settings row — means that number and not
-        /// the compositor's rate, so those run on EndFrame's clock alone, as does a compositor that refuses.
-        /// </para>
-        /// </summary>
-        private void PaceFrame()
-        {
             _frameLimiter.TargetHz = FrameLimitHz;
-
-            if (_fpsCap <= 0 && !_uncappedFps && _displayRefreshHz > 0)
-            {
-                _gpuFlush.Flush(GraphicsDevice);
-
-                if (_frameLimiter.WaitForCompositor())
-                {
-                    _pacedElapsed = _frameLimiter.PacedElapsed(_displayRefreshHz);
-                    return;
-                }
-            }
-
-            _frameLimiter.ForgetComposition();
-            _pacedElapsed = -1f;
             _frameLimiter.EndFrame();
         }
 
