@@ -9,7 +9,7 @@ using System.Collections.Generic;
 namespace BS3D
 {
     /// <summary>
-    /// The host's half of <b>the setting</b> — the sky, the fifteen backdrops, the city, the island and its
+    /// The host's half of <b>the setting</b> — the sky, the backdrops, the city, the island and its
     /// drain, the forest scatter, the clouds, the light rig and the scene's own lamps. All of it outlives a
     /// session, which is why it is the host's and not <see cref="Screens.GameplayScreen"/>'s (#65), and since
     /// #75 the drawn things themselves live in <c>Prazsky.Core</c> in one copy — what is here is the wiring:
@@ -37,9 +37,9 @@ namespace BS3D
         private byte _skyDome = DEFAULT_SKY_DOME;
 
         /// <summary>
-        /// Which of the fifteen settings the frame stands in — the backdrop the menu's camera orbits and the
+        /// Which setting the frame stands in — the backdrop the menu's camera orbits and the
         /// one the game is then played in, since the player picks it from the menu and it stays picked. The
-        /// city and the neon city are the procedural <see cref="City"/> under two lightings; the other thirteen
+        /// city and the neon city are the procedural <see cref="City"/> under two lightings; the others
         /// are the shared <see cref="SceneRenderer"/>'s self-lit backdrops, the same ones the Testbed and the
         /// map editor draw. The count is <see cref="SceneRenderer.SceneCount"/>, which is where to read it.
         /// </summary>
@@ -395,7 +395,7 @@ namespace BS3D
 
             //The 3D title over the front end (#248), letters and keylines both. It takes the dome's light like
             //everything else in the frame ON PURPOSE — argued on TitleWordmark.Renderers, a wordmark stands
-            //over all fifteen backdrops under all eighteen domes and has to come out right at both ends of
+            //over every backdrop under every dome and has to come out right at both ends of
             //that range. Dereferenced unconditionally like the two above — it is built in LoadContent
             //immediately before the startup SetScene, and for this very reason.
             foreach (InstancedModelRenderer renderer in _titleWordmark.Renderers) yield return renderer;

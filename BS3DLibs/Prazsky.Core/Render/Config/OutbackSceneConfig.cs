@@ -235,7 +235,7 @@ namespace Prazsky.Core.Render
         /// deliberately: at 0.45 a dome with a teal horizon (13, the benchmark one) painted the far plain and
         /// the shadowed flank of every monolith green, which is aerial perspective doing exactly what it
         /// should and still the wrong picture. Red dust in the air is what the outback's distance is made of,
-        /// so the scene keeps its own colour under any of the eighteen domes instead of borrowing one.
+        /// so the scene keeps its own colour under any dome instead of borrowing one.
         /// </summary>
         public float DustStrength { get; set; } = 0.62f;
 

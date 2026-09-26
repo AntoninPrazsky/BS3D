@@ -8,7 +8,7 @@ param(
     [int]$Seconds = 70,
     [string]$OutDir = "$env:TEMP\bs3d-tier-matrix",
     [string[]]$Extra = @(),
-    [string]$Exe = "C:\GitHub\Game\bin\net10.0-windows\BS3D.exe"
+    [string]$Exe = "$PSScriptRoot\..\..\..\Game\bin\net10.0-windows\BS3D.exe"
 )
 $ErrorActionPreference = 'Stop'
 New-Item -ItemType Directory -Force -Path $OutDir | Out-Null

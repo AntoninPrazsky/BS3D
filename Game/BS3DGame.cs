@@ -1318,7 +1318,7 @@ namespace BS3D
 
             #endregion
 
-            //The nine self-lit backdrops, shared with the Testbed and the map editor — one copy of every
+            //The self-lit backdrops, shared with the Testbed and the map editor — one copy of every
             //scene shader, built out of the Testbed's content directory. The hole radius is fixed (the island
             //never moves or resizes here), so it is set once rather than per frame.
             _sceneRenderer = new SceneRenderer(GraphicsDevice, Content, _sceneSeedOffset)
@@ -2387,7 +2387,7 @@ namespace BS3D
             _forestFireflies?.Dispose();
             _ceilingPlate?.Dispose();
 
-            //The nine self-lit backdrops own their own meshes, particle buffers and effects
+            //The self-lit backdrops own their own meshes, particle buffers and effects
             _sceneRenderer?.Dispose();
 
             //The menu: the Desktop holds the widget tree, and each FontSystem holds the glyph atlases it

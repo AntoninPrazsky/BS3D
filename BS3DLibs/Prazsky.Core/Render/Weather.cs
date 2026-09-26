@@ -6,7 +6,7 @@ namespace Prazsky.Core.Render
     /// <summary>
     /// What kind of sky is over the arena (#221). One weather for the whole game until then: every scene
     /// that showed clouds at all showed the <i>same</i> field — one coverage, one feature size, one wind,
-    /// over all eighteen domes — and the only variation the deck knew was <c>off</c>, which is what the
+    /// over every dome — and the only variation the deck knew was <c>off</c>, which is what the
     /// four sky-replacing scenes take.
     /// <para>
     /// <b>A curated vocabulary rather than raw dials</b>, which is the music's own argument arriving on the
