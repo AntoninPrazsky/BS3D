@@ -137,13 +137,24 @@ namespace BS3D.Effects
         /// A metal's finish, stated once and read by both the cup's body and the ornament set in that metal,
         /// so a gold setting cannot drift from the gold cup it is soldered to.
         /// </summary>
-        private readonly record struct Finish(Vector3 Diffuse, Vector3 Specular, float Power, float SpecularAmbient);
+        /// <param name="Polished">Drawn as polished metal (<see cref="InstancedModelRenderer.PolishedMetal"/>, #602):
+        /// no diffuse, the <paramref name="Specular"/> as the alloy's reflectance, a sharp horizon and the sun mirrored
+        /// at <paramref name="SpecularAmbient"/>. False is the plain material's Metalness = 1 path, which the crystal
+        /// tier's gold jewellery alone still takes.</param>
+        private readonly record struct Finish(Vector3 Diffuse, Vector3 Specular, float Power, float SpecularAmbient, bool Polished = false);
 
-        //The three metals. Why each figure is what it is — the dark diffuse, the specular carrying the hue, the
-        //power climbing with the tier — is the note in the constructor above the tiers that use them.
-        private static readonly Finish BRONZE = new(new Vector3(0.330f, 0.170f, 0.070f), new Vector3(0.85f, 0.52f, 0.28f), 80f, 0.30f);
-        private static readonly Finish SILVER = new(new Vector3(0.075f, 0.080f, 0.090f), new Vector3(0.88f, 0.90f, 0.95f), 160f, 0.42f);
-        private static readonly Finish GOLD = new(new Vector3(0.470f, 0.320f, 0.080f), new Vector3(0.98f, 0.78f, 0.40f), 140f, 0.36f);
+        //The three metals, POLISHED since #602. The specular is the alloy's reflectance and carries the hue; the power
+        //climbs with the tier and is now only the rig's highlight, the reflection being a mirror on every tier; the
+        //reflection strength is the fraction of the environment each alloy returns. The diffuse is not drawn on the
+        //polished path (a metal has none) and is kept for the renderer's own contract. See the note in the
+        //constructor above the tiers, and InstancedModel/PolishedMetal.fxh for what made them read matte before.
+        private static readonly Finish BRONZE = new(new Vector3(0.330f, 0.170f, 0.070f), new Vector3(0.90f, 0.58f, 0.34f), 80f, 0.90f, Polished: true);
+        private static readonly Finish SILVER = new(new Vector3(0.075f, 0.080f, 0.090f), new Vector3(0.88f, 0.90f, 0.95f), 160f, 1.00f, Polished: true);
+        private static readonly Finish GOLD = new(new Vector3(0.470f, 0.320f, 0.080f), new Vector3(0.98f, 0.78f, 0.40f), 140f, 0.95f, Polished: true);
+
+        //The crystal tier's gold jewellery keeps the finish every metal tier had before #602, on the plain material:
+        //the owner's ruling is that the crystal cup stays exactly as it is, and its settings and beads are part of it
+        private static readonly Finish GOLD_ON_CRYSTAL = new(new Vector3(0.470f, 0.320f, 0.080f), new Vector3(0.98f, 0.78f, 0.40f), 140f, 0.36f);
 
         /// <summary>
         /// A stone's look: the diffuse it is authored at, and the emissive tint that actually carries its colour
@@ -258,12 +269,12 @@ namespace BS3D.Effects
 
             Vector3 ambient = Vector3.One * ambientIntensity;
 
-            //THE FOUR TIERS. Every one is drawn on the METAL path (Metalness = 1), which is the funnel's gold
-            //rims' setup and the reason a cup here looks like metal rather than like coloured plastic: a
-            //metal's reflectance IS its specular colour, so bronze reflects its environment in bronze and
-            //silver in white. The diffuse is what holds the tier apart under a dark reflection, the specular
-            //is what does it under a bright one, and both are stated per tier because either alone is wrong
-            //somewhere in the range between them.
+            //THE FOUR TIERS. The three metals are drawn POLISHED since #602 (Finish.Polished, the
+            //InstancedPolishedMetal technique): a metal's reflectance IS its specular colour, so bronze reflects
+            //its environment in bronze and silver in white, and on that path it is ALL they draw - no diffuse, a
+            //sharp horizon and the sun mirrored off them. They were on the plain material's metal path
+            //(Metalness = 1, the funnel's gold rims' setup) until then, and read as matte in half the scenes for
+            //the three reasons InstancedModel/PolishedMetal.fxh measures. The crystal is still on that path.
             //
             //THE ENVIRONMENT IS THE LEVEL'S OWN DOME (#232's second half), the same way the cannon's is: the
             //cup is enrolled in BS3DGame.SkyLitRenderers through Renderers, so it reflects and is ambient-lit
@@ -282,20 +293,22 @@ namespace BS3D.Effects
             //point. Nothing about the geometry changes between the first three — only the finish (and, since
             //#232, Gold's own — see AddTier's handled-mesh notes below).
 
-            //A METAL'S DIFFUSE IS DARK, and the first version of these got that wrong in a way worth recording:
-            //authored at the diffuse a painted surface would take (0.66 for the gold) and reflecting the sky at
-            //full strength on top, every cup came out of the tonemap as flat pale plastic — a bright, even,
-            //shadowless shape with no highlight anywhere on it, because the diffuse alone was already near the
-            //top of the curve and the reflection pushed it over. Metals have almost no diffuse; what colours
-            //them is their REFLECTANCE. So the diffuse is roughly a third of what it was and carries only
-            //enough to hold the tier apart under a dark reflection, the specular carries the hue, and the
-            //reflection strength is dialled back off full so there is somewhere left for a highlight to be
-            //brighter than.
+            //A METAL HAS NO DIFFUSE, and the history of these figures is that finding arrived in two steps. The
+            //first version authored the diffuse a painted surface would take (0.66 for the gold) with the sky
+            //reflected at full strength on top, and every cup came out of the tonemap as flat pale plastic; the
+            //diffuse went to about a third and the reflection was dialled back (0.30-0.42) to leave a highlight
+            //room. That still left the painted body outweighing the mirror - gold's diffuse decodes to 0.19 of
+            //red against a reflection of about 0.12 in the cavern - and #602 took it to its end: the polished
+            //path draws no diffuse, and the reflection runs at 0.90-1.00 because nothing is left under it to
+            //wash out. The diffuse figures stay for the renderer's contract; the specular carries the hue.
             //
             //The specular POWER climbs with the tier, which is most of what says "better": a bronze cup is a
-            //cast, slightly rough thing with a broad highlight, and a diamond one is polished to a point.
+            //cast, slightly rough thing with a broad highlight, and a diamond one is polished to a point. On the
+            //polished path it shapes the rig's highlight alone, the environment being a mirror on every tier.
 
-            //Bronze: a cast, warm metal — the ROUGHEST finish of the four, and still a polish no prop gets.
+            //Bronze: a cast, warm metal — the ROUGHEST finish of the four, and still a polish no prop gets. Its
+            //F0 came up a little in #602 (from 0.85, 0.52, 0.28): the darkest alloy mirrored too little of a dim
+            //dome to read as metal at all.
             AddTier(device, instancingEffect, 1, _plainMesh, BRONZE, emissive: Vector3.Zero, ambient);
 
             //Silver: neutral — and #232 is why its diffuse is this dark rather than the pale grey it shipped
@@ -374,7 +387,7 @@ namespace BS3D.Effects
             //over everything the crystal is supposed to show through. That is true of a metal's F0 and false
             //of a dielectric's: this material reflects at 0.088 head-on and rises to 1 only at grazing
             //angles, so the strength does not paint the FACE, it paints the EDGES — which is the whole shape
-            //language of glass and the thing the report said was missing. At 0.85 (against the metals'
+            //language of glass and the thing the report said was missing. At 0.85 (against the metals' then
             //0.30–0.42) the face is still nearly clear and the silhouette and every facet edge now mirror.
             //The specular stays near white, because a highlight on clear glass is the colour of the lamp and
             //not of the glass.
@@ -411,7 +424,7 @@ namespace BS3D.Effects
                 drum: new[] { SAPPHIRE }, drumCount: 10, band: null, calyx: null);
             _ornaments[3] = BuildOrnaments(device, instancingEffect, ambient, GOLD, handles: true, beads: true,
                 drum: new[] { SAPPHIRE, RUBY }, drumCount: 12, band: new[] { SAPPHIRE, RUBY }, calyx: EMERALD);
-            _ornaments[4] = BuildOrnaments(device, instancingEffect, ambient, GOLD, handles: true, beads: true,
+            _ornaments[4] = BuildOrnaments(device, instancingEffect, ambient, GOLD_ON_CRYSTAL, handles: true, beads: true,
                 drum: new[] { SAPPHIRE, RUBY }, drumCount: 12, band: new[] { SAPPHIRE, RUBY }, calyx: EMERALD);
         }
 
@@ -422,6 +435,7 @@ namespace BS3D.Effects
             _renderers[tier] = new InstancedModelRenderer(device, mesh, finish.Diffuse, effect, alpha)
             {
                 Metalness = metalness,
+                PolishedMetal = finish.Polished,
                 SpecularAmbientStrength = finish.SpecularAmbient,
                 EmissiveTint = emissiveTint,
 
@@ -562,6 +576,7 @@ namespace BS3D.Effects
                 renderer = new InstancedModelRenderer(device, (IProceduralMesh)mesh, metal.Diffuse, effect)
                 {
                     Metalness = 1f,
+                    PolishedMetal = metal.Polished,
                     SpecularAmbientStrength = metal.SpecularAmbient
                 };
                 material = new BasicEffectParams(ambient, metal.Specular, metal.Power, Vector3.Zero);

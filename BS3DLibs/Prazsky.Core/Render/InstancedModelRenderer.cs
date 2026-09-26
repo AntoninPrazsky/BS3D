@@ -194,6 +194,9 @@ namespace Prazsky.Core.Render
         private EffectParameter _glassBehindParam, _glassHalfExtentsParam, _glassCutPeriodParam, _glassCutSlopeParam,
             _glassCornerParam, _glassCrownInsetParam, _glassCrownDropParam, _glassRimParam;
 
+        //The result page's polished metal (#602): reads only uniforms every plain draw already sets
+        private EffectTechnique _polishedMetalTechnique;
+
         /// <summary>
         /// Optional detail texture modulating the material colors of the mesh. Applied to opaque meshes
         /// only; translucent ones (e.g. glass) stay clean. It is projected along the three world axes and
@@ -375,6 +378,18 @@ namespace Prazsky.Core.Render
         /// surface reflects the sky in that tint (gold reflects gold). Used by the funnel's gold rims.
         /// </summary>
         public float Metalness { get; set; }
+
+        /// <summary>
+        /// Draws the plain material as <b>polished metal</b> (#602): the <c>InstancedPolishedMetal</c> technique,
+        /// which mirrors a sharp version of the dome — a horizon that is an edge, a bright band along it, a dark
+        /// one under it, the sun as a glint — with no diffuse at all, the <see cref="BasicEffectParams.SpecularColor"/>
+        /// as the alloy's reflectance and <see cref="SpecularAmbientStrength"/> as how much of it is mirrored. The
+        /// plain material's own reflection is the dome's linear ramp, which is right for every other surface in the
+        /// game and is why a polished object drawn through it reads as painted. Only the result page's metal cups
+        /// and their metal jewellery set it; a part that selects a city, ball, triplanar or glass technique ignores
+        /// it. See <c>InstancedModel/PolishedMetal.fxh</c> for the measurements behind each figure.
+        /// </summary>
+        public bool PolishedMetal { get; set; }
 
         /// <summary>
         /// 1 flips the shading normal on back faces, for a mesh that is one <b>open single-sided wall</b>
@@ -1109,6 +1124,7 @@ namespace Prazsky.Core.Render
             _refractionTechnique = _effect.Techniques["InstancedRefraction"];
             _refractionDepthParam = _effect.Parameters["RefractionDepth"];
             _glassTechnique = _effect.Techniques["InstancedGlass"];
+            _polishedMetalTechnique = _effect.Techniques["InstancedPolishedMetal"];
             _glassBehindParam = _effect.Parameters["GlassBehind"];
             _glassHalfExtentsParam = _effect.Parameters["GlassHalfExtents"];
             _glassCutPeriodParam = _effect.Parameters["GlassCutPeriod"];
@@ -1473,7 +1489,7 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// Picks the technique for one mesh part and sets the parameters that technique reads. The branches
         /// are mutually exclusive: a city facade, a ball shading, a triplanar detail-textured part, the
-        /// refracting glass, or the plain lit material.
+        /// refracting glass, or the plain lit material (polished metal where <see cref="PolishedMetal"/> asks).
         /// </summary>
         private void SelectTechniqueAndParameters(in MeshPartData part, bool usePattern, Vector3? diffuseTint)
         {
@@ -1664,7 +1680,7 @@ namespace Prazsky.Core.Render
             }
             else
             {
-                _effect.CurrentTechnique = _mainTechnique;
+                _effect.CurrentTechnique = PolishedMetal ? _polishedMetalTechnique : _mainTechnique;
             }
         }
 

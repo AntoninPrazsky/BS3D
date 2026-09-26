@@ -85,3 +85,4 @@ float3 SrgbToLinear(float3 color)
 #include "InstancedModel/City.fxh"
 #include "InstancedModel/Depth.fxh"
 #include "InstancedModel/Glass.fxh"
+#include "InstancedModel/PolishedMetal.fxh"
