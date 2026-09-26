@@ -85,8 +85,9 @@ namespace BS3D.Platform
         public int TargetHz { get; set; }
 
         /// <summary>
-        /// Waits for the compositor's next composition, at the <b>top</b> of a frame, and answers whether
-        /// the wait actually happened (#448).
+        /// Waits for the compositor's next composition, at the <b>end</b> of a frame — its work already flushed
+        /// to the GPU, just before Present (#634; it stood at the top of the frame until then, see
+        /// <c>BS3DGame.PaceFrame</c>) — and answers whether the wait actually happened (#448).
         /// <para>
         /// ⚠ <b>The schedule below cannot produce smooth motion against DWM, and the margin it is aimed at
         /// makes it worse rather than better.</b> The compositor shows at most one frame per refresh, so a
@@ -104,9 +105,9 @@ namespace BS3D.Platform
         /// a flat 75.0 as well, so the phase lock is free.
         /// </para>
         /// <para>
-        /// <b>It is not vsync.</b> The wait is taken BEFORE the frame is built rather than inside Present, so
-        /// a frame that fits in the interval cannot miss a vblank and land at half rate - which is the
-        /// failure #270 measured on the vsync this limiter replaced.
+        /// <b>It is not vsync.</b> The wait is taken before Present rather than inside it, so a frame that fits
+        /// in the interval cannot miss a vblank and land at half rate - which is the failure #270 measured on
+        /// the vsync this limiter replaced (and re-measured on the Moon in #634: 55 FPS shown, 55 ms latency).
         /// </para>
         /// <para>
         /// A false answer is DWM refusing (composition off, or the call failing), and the caller then has
@@ -131,9 +132,8 @@ namespace BS3D.Platform
         /// between the ends of two successive waits, put on a whole number of refresh periods. Call it right after
         /// a wait that returned true; <paramref name="refreshHz"/> seeds the period until it has been measured.
         /// <para>
-        /// <b>Why not MonoGame's <c>ElapsedGameTime</c>.</b> MonoGame reads its clock at the top of the tick, BEFORE
-        /// Update runs and so before the wait, which makes its elapsed the time between two <i>starts of work</i> — the
-        /// refresh plus the difference between the last two frames' costs. Measured on the Moon's front end at
+        /// <b>Why not MonoGame's <c>ElapsedGameTime</c>.</b> MonoGame reads its clock at the top of the tick, which
+        /// is not where the wait is, so its elapsed carries the difference between the last two frames' costs. Measured on the Moon's front end at
         /// 3840×1600, 75 Hz: that elapsed ran <b>13.33 ± 1.0 ms, anywhere from 10.2 to 16.4</b>, while the ends of the
         /// waits, which are what the compositor shows, came <b>13.33 ± 0.16</b> apart. Every frame was shown one refresh
         /// after the last, but the world was stepped by up to a quarter more or less than that — invisible at the
