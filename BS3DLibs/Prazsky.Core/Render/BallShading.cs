@@ -357,6 +357,19 @@ namespace Prazsky.Core.Render
         /// nothing whatsoever — a bomb burns, a well pulls, this just sits there.
         /// </para>
         /// </summary>
-        Heavy = 18
+        Heavy = 18,
+
+        /// <summary>
+        /// A wildcard (#330, a technique of its own since #632): a glossy marble in which the two colours the
+        /// shared cycle is crossing between flow through each other along swirled veins, with an opal play of
+        /// colour along the veins and the rim. Drawn by <c>InstancedModelWildcard</c>.
+        /// <para>
+        /// Until #632 a wildcard was two ordinary balls partitioned through the dissolve dither, and since #620
+        /// that dither means "this ball is not really there". The crossing is a marble now, the colour it is
+        /// going to arriving along the veins as <c>WildcardProgress</c> runs, so the dither keeps its one
+        /// meaning. It opts out of the level's style like every kind with a technique of its own.
+        /// </para>
+        /// </summary>
+        Wildcard = 19
     }
 }

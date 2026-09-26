@@ -81,6 +81,7 @@ float3 SrgbToLinear(float3 color)
 #include "InstancedModel/BallInfectious.fxh"
 #include "InstancedModel/BallGravity.fxh"
 #include "InstancedModel/BallHeavy.fxh"
+#include "InstancedModel/BallWildcard.fxh"
 #include "InstancedModel/Triplanar.fxh"
 #include "InstancedModel/City.fxh"
 #include "InstancedModel/Depth.fxh"

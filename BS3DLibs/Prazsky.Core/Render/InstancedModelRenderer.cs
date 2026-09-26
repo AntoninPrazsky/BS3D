@@ -91,6 +91,7 @@ namespace Prazsky.Core.Render
         private EffectParameter _surfaceReliefFrequencyParam;
         private EffectParameter _patternPrimaryColorParam;
         private EffectParameter _patternSecondaryColorParam;
+        private EffectParameter _wildcardProgressParam;
         private EffectParameter _patternGoreCountParam;
         private EffectParameter _patternGoreThresholdParam;
         private EffectParameter _patternCapExtentParam;
@@ -511,6 +512,11 @@ namespace Prazsky.Core.Render
         /// way the highlight breaks up — the silhouette stays a clean circle.
         /// </summary>
         public float PatternReliefStrength { get; set; } = 0.007f;
+
+        /// <summary>How far through the current colour crossing a wildcard is (#632), read by
+        /// <see cref="BallShading.Wildcard"/> alone: 0 shows the colour it is leaving (the draw's tint), 1 the one it is
+        /// going to (<see cref="PatternSecondaryColor"/>).</summary>
+        public float WildcardProgress { get; set; }
 
         /// <summary>
         /// <b>What the patterned parts are made of</b> — which of the shader's ball techniques shades them
@@ -1018,6 +1024,7 @@ namespace Prazsky.Core.Render
             _surfaceReliefFrequencyParam = _effect.Parameters["SurfaceReliefFrequency"];
             _patternPrimaryColorParam = _effect.Parameters["PatternPrimaryColor"];
             _patternSecondaryColorParam = _effect.Parameters["PatternSecondaryColor"];
+            _wildcardProgressParam = _effect.Parameters["WildcardProgress"];
             _patternGoreCountParam = _effect.Parameters["PatternGoreCount"];
             _patternGoreThresholdParam = _effect.Parameters["PatternGoreThreshold"];
             _patternCapExtentParam = _effect.Parameters["PatternCapExtent"];
@@ -1178,6 +1185,7 @@ namespace Prazsky.Core.Render
             "InstancedModelInfectious", //BallShading.Infectious
             "InstancedModelGravity",  //BallShading.Gravity
             "InstancedModelHeavy",    //BallShading.Heavy
+            "InstancedModelWildcard", //BallShading.Wildcard
         };
 
         /// <summary>
@@ -1624,6 +1632,11 @@ namespace Prazsky.Core.Render
                         _marbleVeinFrequencyParam.SetValue(MarbleVeinFrequency);
                         _marbleVeinWarpParam.SetValue(MarbleVeinWarp);
                         _marbleVeinContrastParam.SetValue(MarbleVeinContrast);
+                        break;
+
+                    case BallShading.Wildcard:
+                        _patternSecondaryColorParam.SetValue(PatternSecondaryColor);
+                        _wildcardProgressParam.SetValue(WildcardProgress);
                         break;
 
                     case BallShading.Vinyl:
