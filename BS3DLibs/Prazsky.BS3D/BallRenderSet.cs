@@ -1949,43 +1949,9 @@ namespace Prazsky.BS3D
         /// cannot be relied on to restore anything.
         /// </para>
         /// </summary>
-        private void DrawBombs(ICamera camera)
-        {
-            bool any = false;
-            for (int lod = 0; lod < LodCount && !any; lod++) any = _counts[BOMB_REGION_START + lod] > 0;
-
-            //A field with no bombs in it never touches a renderer for this at all, and pays one compare per LOD.
-            if (!any) return;
-
-            for (int lod = 0; lod < LodCount; lod++)
-            {
-                InstancedModelRenderer renderer = _renderers[lod];
-
-                renderer.Shading = BallShading.Bomb;
-                renderer.EmissiveStrength = BOMB_EMISSION;
-                renderer.PulseDepth = BOMB_PULSE_DEPTH;
-                renderer.PulseSpeed = BOMB_PULSE_SPEED;
-            }
-
-            for (int lod = 0; lod < LodCount; lod++)
-            {
-                int bucketIndex = BOMB_REGION_START + lod;
-                int count = _counts[bucketIndex];
-                if (count == 0) continue;
-
-                DrawnCount += count;
-                _lodTotals[lod] += count;
-
-                //No TINT, for the stone's reason: a bomb wearing one of the thirteen is a lie the player acts
-                //on. Its own material all the same — passing null for both is what left the first rock lit by
-                //DefaultLighting's dim blue. See BasicEffectParamsProvider.Bomb.
-                _renderers[lod].Draw(camera, _buckets[bucketIndex], count, BasicEffectParamsProvider.Bomb, null);
-            }
-
-            for (int lod = 0; lod < LodCount; lod++) _renderers[lod].PulseSpeed = PULSE_BEATS_PER_SECOND;
-
-            ApplyStyle();
-        }
+        private void DrawBombs(ICamera camera) =>
+            DrawTintlessRegion(camera, BOMB_REGION_START, BallShading.Bomb, BOMB_EMISSION, BOMB_PULSE_DEPTH,
+                BOMB_PULSE_SPEED, BasicEffectParamsProvider.Bomb);
 
         /// <summary>
         /// The live zaps (#327): <see cref="DrawBombs"/> with its own technique and its own three figures.
@@ -1994,41 +1960,9 @@ namespace Prazsky.BS3D
         /// <see cref="ApplyStyle"/> cannot do and which a zap needs even more than a bomb does: at
         /// <see cref="ZAP_PULSE_SPEED"/> a cluster left on it would flicker like a bad fluorescent tube.
         /// </summary>
-        private void DrawZaps(ICamera camera)
-        {
-            bool any = false;
-            for (int lod = 0; lod < LodCount && !any; lod++) any = _counts[ZAP_REGION_START + lod] > 0;
-
-            if (!any) return;
-
-            for (int lod = 0; lod < LodCount; lod++)
-            {
-                InstancedModelRenderer renderer = _renderers[lod];
-
-                renderer.Shading = BallShading.Zap;
-                renderer.EmissiveStrength = ZAP_EMISSION;
-                renderer.PulseDepth = ZAP_PULSE_DEPTH;
-                renderer.PulseSpeed = ZAP_PULSE_SPEED;
-            }
-
-            for (int lod = 0; lod < LodCount; lod++)
-            {
-                int bucketIndex = ZAP_REGION_START + lod;
-                int count = _counts[bucketIndex];
-                if (count == 0) continue;
-
-                DrawnCount += count;
-                _lodTotals[lod] += count;
-
-                //No TINT, for the stone's and the bomb's reason: a zap wearing one of the thirteen is a lie
-                //the player acts on. Its own material all the same — see BasicEffectParamsProvider.Zap.
-                _renderers[lod].Draw(camera, _buckets[bucketIndex], count, BasicEffectParamsProvider.Zap, null);
-            }
-
-            for (int lod = 0; lod < LodCount; lod++) _renderers[lod].PulseSpeed = PULSE_BEATS_PER_SECOND;
-
-            ApplyStyle();
-        }
+        private void DrawZaps(ICamera camera) =>
+            DrawTintlessRegion(camera, ZAP_REGION_START, BallShading.Zap, ZAP_EMISSION, ZAP_PULSE_DEPTH,
+                ZAP_PULSE_SPEED, BasicEffectParamsProvider.Zap);
 
         /// <summary>
         /// The live acids (#328): <see cref="DrawZaps"/> in every structural respect — the region, the per-LOD
@@ -2036,38 +1970,108 @@ namespace Prazsky.BS3D
         /// <see cref="ApplyStyle"/> cannot do. What differs is only the three figures and the technique, and
         /// they are chosen to make this one read as <b>slow</b> beside the zap's flicker.
         /// </summary>
-        private void DrawAcids(ICamera camera)
+        private void DrawAcids(ICamera camera) =>
+            DrawTintlessRegion(camera, ACID_REGION_START, BallShading.Acid, ACID_EMISSION, ACID_PULSE_DEPTH,
+                ACID_PULSE_SPEED, BasicEffectParamsProvider.Acid);
+
+        /// <summary>
+        /// One special kind drawn WITHOUT a tint (#584): a region of <see cref="LodCount"/> buckets, one per LOD, in
+        /// the kind's own technique, emission and pulse, with its own material. The bomb, the zap and the acid were
+        /// three line-for-line copies of this until #584, and the next kind (#213's power-ups) should be one row of
+        /// arguments rather than a fourth copy.
+        /// <para>
+        /// No TINT, for the stone's reason: a special wearing one of the thirteen colours is a lie the player acts
+        /// on. Its own material all the same — passing null for both is what left the first rock lit by
+        /// DefaultLighting's dim blue.
+        /// </para>
+        /// <para>
+        /// <b>⚠ It puts the pulse SPEED back by hand, and that is the one thing <see cref="ApplyStyle"/> cannot
+        /// do.</b> Depth is restored for free — <see cref="DrawPlane"/> states it on every ordinary draw — but the
+        /// speed is set once when the renderers are built and nothing states it per frame, so a special left in
+        /// it would put the whole cluster on its heartbeat (or, at a zap's speed, its flicker) for the rest of the
+        /// frame. A region with nothing in it touches no renderer and pays one compare per LOD.
+        /// </para>
+        /// </summary>
+        private void DrawTintlessRegion(ICamera camera, int regionStart, BallShading shading, float emission,
+            float pulseDepth, float pulseSpeed, BasicEffectParams material)
         {
             bool any = false;
-            for (int lod = 0; lod < LodCount && !any; lod++) any = _counts[ACID_REGION_START + lod] > 0;
+            for (int lod = 0; lod < LodCount && !any; lod++) any = _counts[regionStart + lod] > 0;
 
             if (!any) return;
 
-            for (int lod = 0; lod < LodCount; lod++)
-            {
-                InstancedModelRenderer renderer = _renderers[lod];
-
-                renderer.Shading = BallShading.Acid;
-                renderer.EmissiveStrength = ACID_EMISSION;
-                renderer.PulseDepth = ACID_PULSE_DEPTH;
-                renderer.PulseSpeed = ACID_PULSE_SPEED;
-            }
+            SetSpecialLook(shading, emission, pulseDepth, pulseSpeed);
 
             for (int lod = 0; lod < LodCount; lod++)
             {
-                int bucketIndex = ACID_REGION_START + lod;
+                int bucketIndex = regionStart + lod;
                 int count = _counts[bucketIndex];
                 if (count == 0) continue;
 
                 DrawnCount += count;
                 _lodTotals[lod] += count;
 
-                //No TINT, for the stone's, the bomb's and the zap's reason: a special wearing one of the
-                //thirteen is a lie the player acts on. Its own material all the same — see
-                //BasicEffectParamsProvider.Acid.
-                _renderers[lod].Draw(camera, _buckets[bucketIndex], count, BasicEffectParamsProvider.Acid, null);
+                _renderers[lod].Draw(camera, _buckets[bucketIndex], count, material, null);
             }
 
+            RestoreAfterSpecial();
+        }
+
+        /// <summary>
+        /// One special kind drawn IN its colour (#584): a plane of buckets, one per colour and LOD, in the kind's
+        /// own technique, emission and pulse, each with its colour's material and tint — the infection, the gravity
+        /// well and the heavy ball, three line-for-line copies of this until #584. The colour is what these say,
+        /// which is why they walk a plane rather than a region. The pulse speed is put back by hand afterwards, for
+        /// <see cref="DrawTintlessRegion"/>'s reason.
+        /// </summary>
+        private void DrawTintedPlane(ICamera camera, int regionStart, BallShading shading, float emission,
+            float pulseDepth, float pulseSpeed)
+        {
+            bool any = false;
+            for (int i = regionStart; i < regionStart + STILL_PLANE_STRIDE && !any; i++) any = _counts[i] > 0;
+
+            if (!any) return;
+
+            SetSpecialLook(shading, emission, pulseDepth, pulseSpeed);
+
+            for (int typeIndex = 0; typeIndex < TYPE_COUNT; typeIndex++)
+                for (int lod = 0; lod < LodCount; lod++)
+                {
+                    int bucketIndex = regionStart + typeIndex * LodCount + lod;
+                    int count = _counts[bucketIndex];
+                    if (count == 0) continue;
+
+                    DrawnCount += count;
+                    _lodTotals[lod] += count;
+
+                    BallType type = (BallType)(typeIndex + 1);
+
+                    _renderers[lod].Draw(camera, _buckets[bucketIndex], count,
+                        BasicEffectParamsProvider.GetEffectByType(type),
+                        BasicEffectParamsProvider.GetDiffuseTintByType(type));
+                }
+
+            RestoreAfterSpecial();
+        }
+
+        /// <summary>A special kind's technique, emission and pulse, on every LOD's renderer.</summary>
+        private void SetSpecialLook(BallShading shading, float emission, float pulseDepth, float pulseSpeed)
+        {
+            for (int lod = 0; lod < LodCount; lod++)
+            {
+                InstancedModelRenderer renderer = _renderers[lod];
+
+                renderer.Shading = shading;
+                renderer.EmissiveStrength = emission;
+                renderer.PulseDepth = pulseDepth;
+                renderer.PulseSpeed = pulseSpeed;
+            }
+        }
+
+        /// <summary>The ordinary pulse speed back on every renderer, and the style's own look — see
+        /// <see cref="DrawTintlessRegion"/>.</summary>
+        private void RestoreAfterSpecial()
+        {
             for (int lod = 0; lod < LodCount; lod++) _renderers[lod].PulseSpeed = PULSE_BEATS_PER_SECOND;
 
             ApplyStyle();
@@ -2142,48 +2146,9 @@ namespace Prazsky.BS3D
         /// <see cref="INFECTIOUS_PULSE_SPEED"/> would breathe on the infection's clock, and the bomb's and the
         /// zap's draws record what that looks like.
         /// </summary>
-        private void DrawInfectious(ICamera camera)
-        {
-            bool any = false;
-            for (int i = INFECTIOUS_REGION_START; i < INFECTIOUS_REGION_START + STILL_PLANE_STRIDE && !any; i++)
-                any = _counts[i] > 0;
-
-            //A field with no infection in it — every level shipped today — never touches a renderer for this.
-            if (!any) return;
-
-            for (int lod = 0; lod < LodCount; lod++)
-            {
-                InstancedModelRenderer renderer = _renderers[lod];
-
-                renderer.Shading = BallShading.Infectious;
-                renderer.EmissiveStrength = INFECTIOUS_EMISSION;
-                renderer.PulseDepth = INFECTIOUS_PULSE_DEPTH;
-                renderer.PulseSpeed = INFECTIOUS_PULSE_SPEED;
-            }
-
-            for (int typeIndex = 0; typeIndex < TYPE_COUNT; typeIndex++)
-                for (int lod = 0; lod < LodCount; lod++)
-                {
-                    int bucketIndex = INFECTIOUS_REGION_START + typeIndex * LodCount + lod;
-                    int count = _counts[bucketIndex];
-                    if (count == 0) continue;
-
-                    DrawnCount += count;
-                    _lodTotals[lod] += count;
-
-                    BallType type = (BallType)(typeIndex + 1);
-
-                    //The tint IS the point here, as it is for the ice: a sick ball can be matched and shot out,
-                    //so which colour it is, is the shot that kills it.
-                    _renderers[lod].Draw(camera, _buckets[bucketIndex], count,
-                        BasicEffectParamsProvider.GetEffectByType(type),
-                        BasicEffectParamsProvider.GetDiffuseTintByType(type));
-                }
-
-            for (int lod = 0; lod < LodCount; lod++) _renderers[lod].PulseSpeed = PULSE_BEATS_PER_SECOND;
-
-            ApplyStyle();
-        }
+        private void DrawInfectious(ICamera camera) =>
+            DrawTintedPlane(camera, INFECTIOUS_REGION_START, BallShading.Infectious, INFECTIOUS_EMISSION, INFECTIOUS_PULSE_DEPTH,
+                INFECTIOUS_PULSE_SPEED);
 
         /// <summary>
         /// The gravity wells (#332): <see cref="DrawInfectious"/> in every structural respect — a colour
@@ -2191,46 +2156,9 @@ namespace Prazsky.BS3D
         /// technique and its own figure. What differs is only what the figure says, and it has one job: to be
         /// the reason a curved shot is not a mystery. See <c>GravityPS</c>.
         /// </summary>
-        private void DrawGravity(ICamera camera)
-        {
-            bool any = false;
-            for (int i = GRAVITY_REGION_START; i < GRAVITY_REGION_START + STILL_PLANE_STRIDE && !any; i++)
-                any = _counts[i] > 0;
-
-            //A field with no wells in it — every level shipped today — never touches a renderer for this.
-            if (!any) return;
-
-            for (int lod = 0; lod < LodCount; lod++)
-            {
-                InstancedModelRenderer renderer = _renderers[lod];
-
-                renderer.Shading = BallShading.Gravity;
-                renderer.EmissiveStrength = GRAVITY_EMISSION;
-                renderer.PulseDepth = GRAVITY_PULSE_DEPTH;
-                renderer.PulseSpeed = GRAVITY_PULSE_SPEED;
-            }
-
-            for (int typeIndex = 0; typeIndex < TYPE_COUNT; typeIndex++)
-                for (int lod = 0; lod < LodCount; lod++)
-                {
-                    int bucketIndex = GRAVITY_REGION_START + typeIndex * LodCount + lod;
-                    int count = _counts[bucketIndex];
-                    if (count == 0) continue;
-
-                    DrawnCount += count;
-                    _lodTotals[lod] += count;
-
-                    BallType type = (BallType)(typeIndex + 1);
-
-                    _renderers[lod].Draw(camera, _buckets[bucketIndex], count,
-                        BasicEffectParamsProvider.GetEffectByType(type),
-                        BasicEffectParamsProvider.GetDiffuseTintByType(type));
-                }
-
-            for (int lod = 0; lod < LodCount; lod++) _renderers[lod].PulseSpeed = PULSE_BEATS_PER_SECOND;
-
-            ApplyStyle();
-        }
+        private void DrawGravity(ICamera camera) =>
+            DrawTintedPlane(camera, GRAVITY_REGION_START, BallShading.Gravity, GRAVITY_EMISSION, GRAVITY_PULSE_DEPTH,
+                GRAVITY_PULSE_SPEED);
 
         /// <summary>
         /// The heavy balls (#333): <see cref="DrawGravity"/> in every structural respect — a colour plane, the
@@ -2238,46 +2166,9 @@ namespace Prazsky.BS3D
         /// and its own pair of animation figures. What differs is what those figures say, and here they say it
         /// by asking for <i>less</i>: see <see cref="HEAVY_EMISSION"/>.
         /// </summary>
-        private void DrawHeavy(ICamera camera)
-        {
-            bool any = false;
-            for (int i = HEAVY_REGION_START; i < HEAVY_REGION_START + STILL_PLANE_STRIDE && !any; i++)
-                any = _counts[i] > 0;
-
-            //A field with no heavy balls in it — every level shipped today — never touches a renderer for this.
-            if (!any) return;
-
-            for (int lod = 0; lod < LodCount; lod++)
-            {
-                InstancedModelRenderer renderer = _renderers[lod];
-
-                renderer.Shading = BallShading.Heavy;
-                renderer.EmissiveStrength = HEAVY_EMISSION;
-                renderer.PulseDepth = HEAVY_PULSE_DEPTH;
-                renderer.PulseSpeed = HEAVY_PULSE_SPEED;
-            }
-
-            for (int typeIndex = 0; typeIndex < TYPE_COUNT; typeIndex++)
-                for (int lod = 0; lod < LodCount; lod++)
-                {
-                    int bucketIndex = HEAVY_REGION_START + typeIndex * LodCount + lod;
-                    int count = _counts[bucketIndex];
-                    if (count == 0) continue;
-
-                    DrawnCount += count;
-                    _lodTotals[lod] += count;
-
-                    BallType type = (BallType)(typeIndex + 1);
-
-                    _renderers[lod].Draw(camera, _buckets[bucketIndex], count,
-                        BasicEffectParamsProvider.GetEffectByType(type),
-                        BasicEffectParamsProvider.GetDiffuseTintByType(type));
-                }
-
-            for (int lod = 0; lod < LodCount; lod++) _renderers[lod].PulseSpeed = PULSE_BEATS_PER_SECOND;
-
-            ApplyStyle();
-        }
+        private void DrawHeavy(ICamera camera) =>
+            DrawTintedPlane(camera, HEAVY_REGION_START, BallShading.Heavy, HEAVY_EMISSION, HEAVY_PULSE_DEPTH,
+                HEAVY_PULSE_SPEED);
 
         /// <summary>
         /// The dead weight (#342, re-marked in #412): released balls that came to rest instead of falling,
