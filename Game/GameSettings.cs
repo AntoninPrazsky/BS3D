@@ -178,6 +178,17 @@ namespace BS3D
         public bool Tutorial { get; set; } = true;
 
         /// <summary>
+        /// Whether the game opens on the 2D logo (#621) — the splash that fades up out of black and then gives
+        /// way to the menu — or straight on the main menu. On by default, because that is what the game already
+        /// did and a file written before the row existed says nothing; the same opt-out shape as
+        /// <see cref="DropCinematic"/> and <see cref="Tutorial"/>, and no format bump, since a missing key reads
+        /// as that default. Read once, when the stack is built at boot, so a click on the row takes effect at the
+        /// next launch. The <c>nosplash</c> launch argument skips it for one run and is never written here.
+        /// </summary>
+        [JsonPropertyName("introLogo")]
+        public bool IntroLogo { get; set; } = true;
+
+        /// <summary>
         /// The tier the <b>player chose</b>, and null until they have chosen one — which is the whole of the
         /// owner's ruling on this row. The adaptive probe's verdict is deliberately <b>not</b> stored: it is
         /// measured rather than chosen, and the probe can only ever step a tier <i>down</i>, so a verdict that

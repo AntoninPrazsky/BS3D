@@ -1202,10 +1202,14 @@ namespace BS3D.Screens
         /// stack.
         /// </para>
         /// <para>
-        /// <b>Not under the splash (#601).</b> From #454 it was drawn there too, standing in the 2D logo's own
-        /// layout while the picture cross-faded into it, then flying to the corner as the menu arrived; the
-        /// owner ruled that out, so the splash holds its logo on black and cuts to a menu this title already
-        /// stands in, in its corner.
+        /// <b>Under the splash only as the picture leaves, and only in its corner (#601, #621).</b> From #454 it
+        /// was drawn there from the start, standing in the 2D logo's own layout while the picture cross-faded
+        /// into it, then flying to the corner as the menu arrived; the owner ruled that out, and for a while the
+        /// splash held its logo on black and cut to a menu this title already stood in. Since #621 the splash
+        /// fades into the menu, and this title grows in about its corner over the leg the picture fades out on —
+        /// the splash says how far (<see cref="SplashPage.WordmarkPresence"/>), and it multiplies the flight's
+        /// own presence below, which is one there. Held at zero before that leg, because the flat logo and the
+        /// block at full strength together read as one garbled word.
         /// </para>
         /// <para>
         /// <b>And it steps aside for the fly-in (#261)</b>: across the approach the block shrinks to
@@ -1215,9 +1219,17 @@ namespace BS3D.Screens
         /// </remarks>
         private void DrawWordmark()
         {
-            if (Manager?.Active is MainMenuPage)
+            float arrival = Manager?.Active switch
+            {
+                MainMenuPage => 1f,
+                SplashPage splash => splash.WordmarkPresence,
+                _ => 0f,
+            };
+
+            //Zero is skipped inside Draw (MIN_PRESENCE), so the legs of the splash before the hand-over cost nothing
+            if (arrival > 0f)
                 Game.TitleWordmark?.Draw(Game.Camera, Game.WallClock,
-                    presence: MathHelper.Lerp(1f, WORDMARK_ASIDE_SCALE, Closeness(_flightClock)));
+                    presence: arrival * MathHelper.Lerp(1f, WORDMARK_ASIDE_SCALE, Closeness(_flightClock)));
         }
     }
 }

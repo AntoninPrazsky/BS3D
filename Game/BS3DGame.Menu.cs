@@ -518,8 +518,13 @@ namespace BS3D
             //shows behind itself — and the game opens on the title card over it, which replaces itself with
             //the front end once its beat is up. Pushed after the trees exist, since a page puts its own tree
             //into the desktop the moment the stack makes it active.
+            //
+            //Or straight on the front end, when the player turned the intro off or the run said "nosplash"
+            //(#621): the menu then stands where the splash would have, exactly as the splash's own Replace
+            //leaves it, so nothing downstream can tell which way it arrived — and IsSplashUp is false from the
+            //first frame, so the startup script's pages open on its first Update rather than waiting.
             _screens.Push(_backdrop);
-            _screens.Push(_splashPage);
+            _screens.Push(ShowsSplash ? _splashPage : _mainMenuPage);
         }
 
         /// <summary>
@@ -687,6 +692,15 @@ namespace BS3D
         //The tutorial's switch (#189), read by the session every frame on MouseSensitivity's argument: the row
         //can move under a level standing paused behind the settings page.
         internal bool IsTutorialEnabled => _effective.Tutorial;
+
+        /// <summary>The Settings row "Intro logo" (#621): the player's answer, as the file holds it.</summary>
+        internal bool IsIntroLogoEnabled => _effective.IntroLogo;
+
+        /// <summary>
+        /// Whether this boot opens on the splash (#621): the player's row, unless the run said <c>nosplash</c>.
+        /// Asked once, by <see cref="BuildMenu"/>; a click on the row afterwards is for the next launch.
+        /// </summary>
+        private bool ShowsSplash => _effective.IntroLogo && !_noSplash;
         internal SceneKind Scene => _scene;
 
         //DropCinematic's own submerge pull (#193) reads this once at Begin rather than holding a

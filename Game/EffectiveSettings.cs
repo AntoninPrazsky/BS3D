@@ -1,9 +1,9 @@
 namespace BS3D
 {
     /// <summary>
-    /// The value this run uses for each of the ten rows that are <b>only</b> the player's answer — the five
-    /// levels of the mix (master, effects, music, atmosphere, the pad's rumble) and the five taste toggles
-    /// (aberration, grain, motion blur, the drop cinematic, the tutorial) — read straight off the settings file
+    /// The value this run uses for each of the eleven rows that are <b>only</b> the player's answer — the five
+    /// levels of the mix (master, effects, music, atmosphere, the pad's rumble) and the six taste toggles
+    /// (aberration, grain, motion blur, the drop cinematic, the tutorial, the intro logo) — read straight off the settings file
     /// with the run's one launch override layered over it (#583).
     /// </summary>
     /// <remarks>
@@ -21,7 +21,8 @@ namespace BS3D
     /// as a flag and never stored into the file, so a scripted run that clicks some other row saves the player's
     /// own master, not the run's silence. Clicking the master row itself is the player answering it: the step is
     /// taken from what they hear (zero, which the ladder wraps to full), stored, and the flag cleared — exactly
-    /// what the mirrored field did.
+    /// what the mirrored field did. (<c>nosplash</c>, #621, skips the intro for one boot without reaching the
+    /// intro row at all — see <see cref="IntroLogo"/>.)
     /// </para>
     /// <para>
     /// The rows that have a launch argument of their own and a run value shaped differently from the file's
@@ -77,5 +78,12 @@ namespace BS3D
 
         /// <summary>Whether the first chapter's cards are shown (#189). What has been taught is the save's, never this.</summary>
         internal bool Tutorial { get => _file.Tutorial; set => _file.Tutorial = value; }
+
+        /// <summary>
+        /// Whether the game opens on the 2D logo (#621) — the player's answer, which is what the row shows. The
+        /// <c>nosplash</c> argument is not layered over it here: it decides one boot and nothing after it, so the
+        /// host reads it once beside this (<c>BS3DGame.ShowsSplash</c>) and the row keeps saying what the file says.
+        /// </summary>
+        internal bool IntroLogo { get => _file.IntroLogo; set => _file.IntroLogo = value; }
     }
 }

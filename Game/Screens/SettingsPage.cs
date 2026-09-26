@@ -83,7 +83,7 @@ namespace BS3D.Screens
 
         private Label _fullscreenValue, _qualityValue, _adaptiveQualityValue, _exposureValue, _skyValue, _fpsValue, _fpsLimitValue;
         private Label _volumeValue, _effectsValue, _musicValue, _ambienceValue, _rumbleValue, _trackValue, _sensitivityValue, _aimSensitivityValue, _tutorialValue;
-        private Label _aberrationValue, _grainValue, _motionBlurValue, _dropCinematicValue;
+        private Label _aberrationValue, _grainValue, _motionBlurValue, _dropCinematicValue, _introLogoValue;
         private Label _progressValue, _unlockAllValue;
         private Label _onlineValue, _nicknameValue, _removeValue, _onlineNote;
 
@@ -251,6 +251,15 @@ namespace BS3D.Screens
             //The tutorial's opt-out (#189). Under CONTROLS because what the first chapter's cards teach IS the
             //controls, so the switch that hides them belongs beside the dial that tunes them.
             AddRow(grid, 10, "Tutorial", Game.ToggleTutorial, out _tutorialValue);
+
+            //Whether the game opens on the 2D logo (#621), beside the tutorial because the two are the same kind
+            //of switch — what the game puts in front of the player before letting them get on with it — and the
+            //same opt-out shape. By what it is it would stand with the looks, and it was built there first: a
+            //thirteenth row in the DISPLAY column, already the tallest, put Back below the frame and cut the row
+            //itself in half (photographed at 1600x900 — the class remarks' #138 overrun again). Here it makes
+            //this column as tall as that one and no taller. It takes effect at the next launch, since the splash
+            //is decided when the stack is built.
+            AddRow(grid, 11, "Intro logo", Game.ToggleIntroLogo, out _introLogoValue);
 
             return grid;
         }
@@ -431,6 +440,7 @@ namespace BS3D.Screens
             _grainValue.Text = Game.IsGrainEnabled ? "On" : "Off";
             _motionBlurValue.Text = !Game.IsMotionBlurEnabled ? "Off" : Game.MotionBlurActive ? "On" : "Off (tier)";
             _dropCinematicValue.Text = Game.IsDropCinematicEnabled ? "On" : "Off";
+            _introLogoValue.Text = Game.IsIntroLogoEnabled ? "On" : "Off";
             _tutorialValue.Text = Game.IsTutorialEnabled ? "On" : "Off";
             _unlockAllValue.Text = Game.IsUnlockAllEnabled ? "On" : "Off";
             _volumeValue.Text = FormatVolume(Game.MasterVolume);
@@ -645,6 +655,7 @@ namespace BS3D.Screens
                 switch (row.ToLowerInvariant())
                 {
                     case "online": OnOnline(); break;
+                    case "intro": Game.ToggleIntroLogo(); break;
                     case "nickname": OnNickname(); break;
                     case "remove" when UserData.IsTestingDirectory: OnRemove(); break;
                     case "remove":

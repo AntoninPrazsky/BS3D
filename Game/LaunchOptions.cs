@@ -113,6 +113,13 @@ namespace BS3D
         //what a player sees.
         internal bool NoFpsOverlay { get; private set; }
 
+        //Testing only: open straight on the main menu, with no 2D logo first (#621) — the Settings row "Intro
+        //logo" for one run. A scripted run that wants the menu has no business waiting out the intro, and one
+        //that times its shot= against the menu would otherwise be timing it against the splash's figures too.
+        //A run's instruction like "mute" and "nofps": applied, never written back, so the player's row stays
+        //whatever they set it to.
+        internal bool NoSplash { get; private set; }
+
         //Testing only: keep a level running when the window loses focus (#355). Same population as "mute"
         //— a run nobody is sitting at — and for the mirror-image reason: a level that pauses itself while
         //unattended stops producing the frames the run was started to collect.
@@ -342,6 +349,8 @@ namespace BS3D
             Row.Flag("mute", o => o.Mute = true),
             //"nofps" hides the FPS overlay for this run, for a picture somebody else will look at (#452).
             Row.Flag("nofps", o => o.NoFpsOverlay = true),
+            //"nosplash" opens on the main menu with no intro logo (#621) — the Settings row for this run only.
+            Row.Flag("nosplash", o => o.NoSplash = true),
             //"play" skips the front end into the first level, so a session's figures can be measured at all.
             Row.Flag("play", o => o.Play = true),
             //"level=<n|name>" does the same for any entry of the set — its 1-based place, as the title bar
@@ -392,7 +401,7 @@ namespace BS3D
             Row.Text("about", (o, v) => o.About = v),
             //"settings" puts the Settings page up at boot (#189), for photographing a row.
             Row.Flag("settings", o => o.Settings = true),
-            //"settings=<row,...>" also activates those rows once the page is up (#548) — online, nickname, remove —
+            //"settings=<row,...>" also activates those rows once the page is up (#548) — online, nickname, remove, intro (#621) —
             //through the page's own click handlers, since a run nobody is sitting at cannot click one. "remove" is
             //refused outside a userdata= folder: it would take the player's own scores off the server.
             Row.Text("settings", (o, v) => o.SettingsRows = v),

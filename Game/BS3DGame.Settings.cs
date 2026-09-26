@@ -340,6 +340,21 @@ namespace BS3D
         }
 
         /// <summary>
+        /// Toggles the intro logo (#621): whether the game opens on the 2D logo or straight on the main menu. The
+        /// splash is decided once, when the stack is built at boot, so this changes nothing on screen now — it is
+        /// written for the next launch, which is what the row's player expects of a switch about how the game
+        /// starts. A run's <c>nosplash</c> is not this row and is not touched by it.
+        /// </summary>
+        internal void ToggleIntroLogo()
+        {
+            _effective.IntroLogo = !_effective.IntroLogo;
+
+            SaveSettings();
+
+            _settingsPage.Refresh();
+        }
+
+        /// <summary>
         /// Toggles the debug unlock (#349): every level selectable regardless of the star total, for reaching
         /// one to test it without earning the stars first. It overrides <see cref="IsLevelUnlocked"/> and
         /// writes nothing — <c>PlayerProgress</c> is untouched, so turning it off restores the real state
