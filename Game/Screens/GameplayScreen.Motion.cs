@@ -60,7 +60,7 @@ namespace BS3D.Screens
         /// smeared a leaned-in 118°/s swing some sixty pixels at 1080 lines, cluster and all; a quarter halves the
         /// kick and leaves the swing about thirty-five — plainly felt (a kick that blurs the frame for a beat is the
         /// shot landing in the player's hands) while the balls being aimed at keep their pattern. The gun is exempted
-        /// from the difference while the lens is leaned in over it — see <see cref="PinToLens"/>.
+        /// from the share altogether and measured against the whole camera — see <see cref="AgainstCamera"/>.
         /// </summary>
         private const float CAMERA_SHARE = 0.25f;
 
@@ -118,14 +118,18 @@ namespace BS3D.Screens
             //whole leaned-in frame to the cap (measured: a 118°/s swing in precise aim, at CAMERA_SHARE alone). The
             //ratio holds the camera's smear to what that swing would draw through the overview's lens.
             float lensRatio = MathF.Min(1f, OverviewLensScale / Camera.Projection.M22);
-            _motionCameraThen = Matrix.Lerp(viewProjection, _cameraShutter.At(then, viewProjection),
-                CAMERA_SHARE * lensRatio);
+            Matrix cameraThen = _cameraShutter.At(then, viewProjection);
+            _motionCameraThen = Matrix.Lerp(viewProjection, cameraThen, CAMERA_SHARE * lensRatio);
+            Matrix shareBack = Matrix.Invert(_motionCameraThen);
 
+            //The gun is measured against the camera's WHOLE motion rather than its share (#611): the pose that, seen
+            //through the cut-down shutter camera, lands where the gun really stood in the frame a shutter ago
+            Matrix gunCamera = cameraThen * shareBack;
             float lean = _preciseAim.Blend;
             _motionBarrel = barrelWorld;
-            _motionBarrelThen = PinToLens(barrelWorld, _barrelShutter.At(then, barrelWorld), viewProjection, lean);
+            _motionBarrelThen = AgainstCamera(barrelWorld, _barrelShutter.At(then, barrelWorld), viewProjection, gunCamera, shareBack, lean);
             _motionCarriage = carriageWorld;
-            _motionCarriageThen = PinToLens(carriageWorld, _carriageShutter.At(then, carriageWorld), viewProjection, lean);
+            _motionCarriageThen = AgainstCamera(carriageWorld, _carriageShutter.At(then, carriageWorld), viewProjection, gunCamera, shareBack, lean);
             _motionBarrelBack = Matrix.Invert(barrelWorld) * _motionBarrelThen;
 
             _motionThisFrame = true;
@@ -135,21 +139,30 @@ namespace BS3D.Screens
         private float _lastMotionAt = float.NegativeInfinity;
 
         /// <summary>
-        /// The gun's shutter pose, taken <paramref name="lean"/> of the way towards the one that holds it exactly where
-        /// it is on screen. Leaned in over the barrel the lens rides the gun, so the gun stands still in the frame and
-        /// must not smear — which the camera's cut-down share (<see cref="CAMERA_SHARE"/>) would otherwise break: the
-        /// barrel's whole world motion against a quarter of the lens's would leave three quarters of a swing smeared
-        /// across a tube that is not moving on screen at all. The pinned pose is this frame's placed back through this
-        /// frame's camera and forward through the shutter's, <c>world × VP_now × VP_then⁻¹</c> — projective rather than
-        /// rigid, which the velocity shader carries through its w without minding. In the overview (lean 0) the gun is
-        /// a thing in the world and keeps its own motion.
+        /// The gun's shutter pose, so that its smear is its motion <b>across the frame</b> — against the camera's whole
+        /// motion, not the cut-down share the rest of the frame is smeared by (<see cref="CAMERA_SHARE"/>). The share is a
+        /// taste choice about the scenery and the cluster under a swing or a kick; the gun is a different matter, because
+        /// the camera follows it. Walking it with A/D, the overview trails the gun's bearing and catches it up
+        /// (<c>TrailedBearing</c>, #366), so after the first moment the barrel holds still on screen — and measured
+        /// against a quarter of the camera it stayed smeared by three quarters of the turn for as long as the key was held
+        /// (#611, the owner: "the motion blur should correspond primarily to the view from the camera"). Only the start
+        /// and the stop, while the camera has not caught up, move the gun across the picture, and only they smear now;
+        /// a mouse aim, which the overview does not follow, smears the barrel as before.
+        /// <para>The pose is the gun a shutter ago carried through the whole camera then and back out through the share,
+        /// <c>worldThen × VP_then × VP_then_share⁻¹</c> (<paramref name="gunCamera"/> is the last two, <paramref name="shareBack"/> the inverse alone) — projective rather
+        /// than rigid, which the velocity shader carries through its w without minding. Leaned in over the barrel the lens
+        /// rides the gun and the pose is taken <paramref name="lean"/> of the way to the one that holds it exactly where it
+        /// is now, <c>world × VP_now × VP_then_share⁻¹</c>, which the general one only approaches as closely as the lens
+        /// follows the barrel.</para>
         /// </summary>
-        private Matrix PinToLens(in Matrix world, in Matrix worldThen, in Matrix viewProjection, float lean)
+        private static Matrix AgainstCamera(in Matrix world, in Matrix worldThen, in Matrix viewProjection,
+            in Matrix gunCamera, in Matrix shareBack, float lean)
         {
-            if (lean <= 0f) return worldThen;
+            Matrix seen = worldThen * gunCamera;
+            if (lean <= 0f) return seen;
 
-            Matrix pinned = world * viewProjection * Matrix.Invert(_motionCameraThen);
-            return Matrix.Lerp(worldThen, pinned, lean);
+            Matrix pinned = world * viewProjection * shareBack;
+            return Matrix.Lerp(seen, pinned, lean);
         }
 
         /// <summary>
