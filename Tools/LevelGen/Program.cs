@@ -99,7 +99,7 @@ namespace BS3D.Tools.LevelGen
         // budget before anyone did the sum. It is two numbers:
         //
         //     clearance      = the [field] line's "above the line", printed by the game on every level load
-        //     consumed       = floor(Shots / CeilingStep) * GameplayScreen.CEILING_DESCENT_PER_STEP (0.60)
+        //     consumed       = floor(Shots / CeilingStep) * CeilingDescent.CEILING_DESCENT_PER_STEP (0.60)
         //     final headroom = clearance - consumed
         //
         // FINAL HEADROOM MUST CLEAR A SWING, and how deep a swing goes is measured rather than guessed: the

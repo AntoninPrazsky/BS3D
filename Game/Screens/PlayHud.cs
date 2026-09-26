@@ -1368,7 +1368,7 @@ namespace BS3D.Screens
 
             //The glass bar at its current height — NEUTRAL (the menu's own text colour) at rest, so it reads as
             //the ceiling the balls hang from rather than as a warning. It takes the alarm's red only on the flash,
-            //squared exactly as the 3D plate's EmissiveTint is scaled by _ceilingFlash²: unmistakable on the frame
+            //squared exactly as the 3D plate's EmissiveTint is scaled by CeilingDescent.Flash²: unmistakable on the frame
             //it steps, back to neutral before the slide finishes.
             //Drawn at the plate's OWN thickness, at the panel's own scale (#133). Everything else here is a
             //literal isotropic read of the world — a ball is one unit across and drawn one unit across — and this

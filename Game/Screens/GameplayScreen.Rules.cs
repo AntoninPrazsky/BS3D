@@ -737,7 +737,7 @@ namespace BS3D.Screens
         /// </summary>
         private void UpdateLaserWarning(float lowestBallY)
         {
-            float threshold = CEILING_DEATH_Y + LASER_WARN_STEPS * CEILING_DESCENT_PER_STEP;
+            float threshold = CEILING_DEATH_Y + LASER_WARN_STEPS * CeilingDescent.CEILING_DESCENT_PER_STEP;
             if (_laserGrid.Visible) threshold += LASER_WARN_HYSTERESIS;
 
             bool warn = Game.ForceLaserWarning || lowestBallY <= threshold;

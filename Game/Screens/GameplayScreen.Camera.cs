@@ -450,7 +450,7 @@ namespace BS3D.Screens
         /// </summary>
         private float FramedTopY()
         {
-            float glass = CeilingPlate.TopFaceY(_ceilingY);
+            float glass = CeilingPlate.TopFaceY(_ceilingDescent.Y);
             float window = _clusterWorldOffset.Y + (FRAMED_LEVELS - 1) / Constants.SQRT_TWO;
 
             return MathF.Min(glass, window);

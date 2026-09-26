@@ -387,12 +387,8 @@ namespace BS3D.Screens
             //owns the budget — the two pressures are coupled by design, so they are read in one place.
             //
             //QUEUED rather than started, because the shot has not landed yet and the descent must not collide
-            //with what it is about to do — see ReleaseCeilingStep.
-            if (_score.StepCeilingThisShot())
-            {
-                _ceilingStepsPending++;
-                _ceilingStepHold = CEILING_STEP_HOLD;
-            }
+            //with what it is about to do — see CeilingDescent.Update.
+            if (_score.StepCeilingThisShot()) _ceilingDescent.QueuePressureStep();
 
             //The shot's launch smear. Only the ball's authored tint goes over: decoding it to linear, lifting
             //its peak off the floor so even the black ball leaves a mark and boosting it to a glowing radiance
