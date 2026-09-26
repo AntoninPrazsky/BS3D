@@ -211,9 +211,12 @@ namespace BS3D.Tools.SemanticSearch
             return null;
         }
 
+        /// <summary>How many issues <c>gh issue list</c> is asked for; a corpus that reaches it says so.</summary>
+        private const int ISSUE_LIMIT = 5000;
+
         private static List<Doc> LoadIssues(string repo)
         {
-            var start = new ProcessStartInfo("gh", "issue list --state all --limit 5000 --json number,title,body,state")
+            var start = new ProcessStartInfo("gh", $"issue list --state all --limit {ISSUE_LIMIT} --json number,title,body,state")
             {
                 WorkingDirectory = repo,
                 RedirectStandardOutput = true,
@@ -230,6 +233,10 @@ namespace BS3D.Tools.SemanticSearch
 
             var issues = new List<Doc>();
             using JsonDocument doc = JsonDocument.Parse(json);
+
+            //gh stops at --limit without a word; a corpus that reached it is missing its oldest issues
+            if (doc.RootElement.GetArrayLength() >= ISSUE_LIMIT)
+                Console.Error.WriteLine($"[search] warning: gh returned the --limit of {ISSUE_LIMIT} issues; older ones are missing - raise ISSUE_LIMIT");
             foreach (JsonElement e in doc.RootElement.EnumerateArray())
             {
                 int number = e.GetProperty("number").GetInt32();
@@ -389,6 +396,11 @@ namespace BS3D.Tools.SemanticSearch
             catch (HttpRequestException e)
             {
                 throw new EmbeddingException($"[ask] LM Studio is not answering at {options.Endpoint} ({e.Message})");
+            }
+            catch (TaskCanceledException)
+            {
+                //HttpClient reports its own timeout as a cancellation, which used to end the run in a stack trace
+                throw new EmbeddingException($"[ask] LM Studio did not answer within {http.Timeout.TotalMinutes:0} minutes at {options.Endpoint}");
             }
             string json = await response.Content.ReadAsStringAsync();
             if (!response.IsSuccessStatusCode)
@@ -606,6 +618,11 @@ namespace BS3D.Tools.SemanticSearch
             {
                 throw new EmbeddingException($"[search] LM Studio is not answering at {_endpoint} ({e.Message}). Start it and load the model: lms load {_model}");
             }
+            catch (TaskCanceledException)
+            {
+                //HttpClient reports its own timeout as a cancellation, which used to end the run in a stack trace
+                throw new EmbeddingException($"[search] LM Studio did not answer within {_http.Timeout.TotalMinutes:0} minutes at {_endpoint}");
+            }
 
             string json = await response.Content.ReadAsStringAsync();
             if (!response.IsSuccessStatusCode)
@@ -615,6 +632,12 @@ namespace BS3D.Tools.SemanticSearch
             using JsonDocument doc = JsonDocument.Parse(json);
             foreach (JsonElement item in doc.RootElement.GetProperty("data").EnumerateArray())
                 vectors[item.GetProperty("index").GetInt32()] = Normalize(item.GetProperty("embedding").EnumerateArray().Select(x => x.GetSingle()).ToArray());
+
+            //A reply short of what was asked left a null vector here that only threw later, inside Rank, far from the
+            //request that caused it
+            int missing = Array.IndexOf(vectors, null);
+            if (missing >= 0)
+                throw new EmbeddingException($"[search] LM Studio answered {doc.RootElement.GetProperty("data").GetArrayLength()} embeddings for {texts.Count} texts (the first missing is #{missing})");
 
             return vectors.ToList();
         }
