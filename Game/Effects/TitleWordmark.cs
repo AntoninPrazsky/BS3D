@@ -47,9 +47,17 @@ namespace BS3D.Effects
     /// defocuses and never dims (<c>MainMenuPage.DimsFrame</c> is false and no front-end page overrides
     /// <c>FrameBlur</c>), so there is nothing here for a sharp layer to be sharp against — and the layer costs
     /// a permanently allocated supersampled target, a bright pass over it and a full-screen composite on every
-    /// frame of a screen the adaptive-quality probe is measuring. In the scene pass the wordmark gets the
-    /// frame's real depth buffer, the same exposure, the same ACES curve and the same film grain as everything
-    /// else, and its bright pass feeds the bloom pyramid for free.
+    /// frame of a screen the adaptive-quality probe is measuring. In the scene pass the wordmark gets the same
+    /// exposure, the same ACES curve and the same film grain as everything else, and its bright pass feeds the
+    /// bloom pyramid for free.
+    /// </para>
+    /// <para>
+    /// <b>It stands IN FRONT of the whole scene (#600)</b>: the host draws it last of that pass, after the
+    /// weather and the fireworks, over a depth buffer cleared for it (<c>BS3DGame.FinishSceneDraw</c>'s on-top
+    /// slot). Until then it shared the scene's depth, and the front end's fly-in carried the balls and the
+    /// ceiling's glass through the letters — the owner's ruling was that the name is never intersected by
+    /// anything. The depth buffer it gets is its own, so the letters still occlude one another and the
+    /// keyline and glow tricks below, which lean on depth, work exactly as they did.
     /// </para>
     /// <para>
     /// <b>A rainbow here is the second deliberate exception to the front end's greyscale rule</b>, and
@@ -163,13 +171,11 @@ namespace BS3D.Effects
         //of a unit further from the lens than its centre, so the word has a real vanishing point without the
         //wide-angle stretch a closer hang would give it.
         //
-        //IT IS ALSO A DEPTH RELATION, and one that stopped being simple the day the fly-in arrived (#254).
-        //The block hangs in the world with depth writes on, so anything nearer the lens than this is drawn
-        //in front of the game's own name. The pass now comes in to within a couple of units of the balls
-        //(#261), far inside this figure, and what keeps that honest is the title shrinking to a small
-        //corner mark for the whole close pass (Draw's presence): a ball passing in front of a modest corner
-        //mark is parallax, while a ball cutting through the frame-dominating name was the broken look the
-        //clearance used to be spent avoiding.
+        //IT WAS ALSO A DEPTH RELATION until #600. The block hung in the scene's own depth, so anything nearer
+        //the lens than this was drawn in front of the game's own name - and the front end's fly-in comes in to
+        //within a couple of units of the balls (#261), far inside this figure, so balls and the ceiling's glass
+        //cut through the letters. The host now draws the block over a depth buffer of its own, last of the
+        //scene, so this figure is perspective and nothing else.
         private const float DISTANCE = 7f;
 
         //HOW MUCH OF THE FRAME THE BLOCK FILLS. Height binds on every aspect anyone plays at (at 16:9 the
@@ -917,10 +923,10 @@ namespace BS3D.Effects
         /// </param>
         /// <remarks>
         /// <b>The draw states are stated here and put back</b>, which is the contract <c>ArenaIsland</c>'s
-        /// slices keep: the caller's next act is the frame's translucent glass, and it is
-        /// entitled to find the states <c>BeginSceneDraw</c> left for the scene. Nothing is inherited either —
-        /// what ran last before this is the ball draw, and what a frame starts with depends on which pass
-        /// finished the one before it.
+        /// slices keep: whatever runs after it is entitled to find the states <c>BeginSceneDraw</c> left for the
+        /// scene. Nothing is inherited either — what ran last before this is the fireworks or the weather
+        /// (it is the scene's on-top slot, #600), and what a frame starts with depends on which pass finished
+        /// the one before it. The depth buffer it tests against is its own: the host clears it first.
         /// <para>
         /// <b>The keyline is drawn with FRONT faces culled</b>, and the whole outline trick turns on that.
         /// Both tubes share an axis and the keyline's is the fatter, so its near surface is <i>nearer the lens
