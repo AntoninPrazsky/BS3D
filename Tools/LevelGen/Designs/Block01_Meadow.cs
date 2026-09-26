@@ -1,13 +1,14 @@
 using Prazsky.BS3D.GameStructure;
 using Prazsky.Core.Render;
 using System;
+using static BS3D.Tools.LevelGen.CampaignSet;
 
 namespace BS3D.Tools.LevelGen
 {
     /// <summary>
     /// <b>The Meadow</b>, block 1 of the campaign: its designs, and the helpers no other block's designs use, in
     /// the order <c>Program.cs</c> held them — the play order is <see cref="Main"/>'s, and the block's name, music
-    /// and ball style are in the tables there. Split out of <c>Program.cs</c> in #386.
+    /// and ball style are in <see cref="CampaignSet"/>'s tables. Split out of <c>Program.cs</c> in #386.
     /// </summary>
     internal static partial class Program
     {
@@ -487,7 +488,7 @@ namespace BS3D.Tools.LevelGen
 
         /// <summary>
         /// The stone's taxicab rim at a course. Every step is an ODD m so the outermost ring of each is a
-        /// complete two units wide and never a bare diagonal - the defect <see cref="FindLonelyBalls"/> was
+        /// complete two units wide and never a bare diagonal - the defect <see cref="LevelGates.FindLonelyBalls"/> was
         /// written for, and the reason this steps rather than divides.
         /// </summary>
         private static int GemRim(int i) => 1 + 2 * GemStep(i);

@@ -1,12 +1,13 @@
 using Prazsky.BS3D.GameStructure;
 using Prazsky.Core.Render;
+using static BS3D.Tools.LevelGen.CampaignSet;
 
 namespace BS3D.Tools.LevelGen
 {
     /// <summary>
     /// <b>The Silhouettes</b> (#491): ten picture levels whose shapes were drawn by the local image generator
     /// rather than by hand, hung under the aurora. Its designs, and the helpers no other block's designs use; the
-    /// play order is <see cref="Main"/>'s and the block's name, music and ball style are in the tables there, as
+    /// play order is <see cref="Main"/>'s and the block's name, music and ball style are in <see cref="CampaignSet"/>'s tables, as
     /// every other block file states. The picture machinery itself — <see cref="Picture"/>, the wall, the check —
     /// is the Gallery's (<c>Block02_Gallery.cs</c>) and is used unchanged.
     /// </summary>

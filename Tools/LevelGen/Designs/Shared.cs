@@ -87,7 +87,7 @@ namespace BS3D.Tools.LevelGen
         /// The emitter's own centred offsets, rebuilt from the raw lattice indices — the <c>x + shift - axis</c>
         /// line for line, for a design that has to read BOTH a shape and the lattice (see <see cref="ChestPart"/>
         /// and <see cref="LeanRadius"/> for the same rebuild). The shifted-level offset may be taken off the
-        /// <i>layout</i> index because <see cref="Emit"/> refuses an odd layout offset, so a layout level and its
+        /// <i>layout</i> index because <see cref="LevelEmitter.Emit"/> refuses an odd layout offset, so a layout level and its
         /// field level always agree in parity.
         /// </summary>
         private static void Centred(int x, int z, int i, byte grid, out float dx, out float dz)

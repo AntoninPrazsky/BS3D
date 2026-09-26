@@ -10,7 +10,7 @@ namespace BS3D.Tools.LevelGen
     /// <b>The gate that asks how FEW shots empty the field</b> — #458, and the one question about a pattern
     /// level that every other check here turns its back on.
     /// <para>
-    /// <see cref="Program.DropTest"/> asks what one shot is worth and refuses a level where one shot is worth
+    /// <see cref="LevelGates.DropTest"/> asks what one shot is worth and refuses a level where one shot is worth
     /// everything. <c>WorstAnchorLoad</c> asks what the glass carries afterwards. Both read a single cut. The
     /// fault they cannot see is a level that is not taken by one shot and is taken by <i>two</i>:
     /// <b>Saturn</b> shipped as a planet in two meridian halves, so its anchor course carried exactly two

@@ -1,13 +1,14 @@
 ﻿using Prazsky.BS3D.GameStructure;
 using Prazsky.Core.Render;
 using System;
+using static BS3D.Tools.LevelGen.CampaignSet;
 
 namespace BS3D.Tools.LevelGen
 {
     /// <summary>
     /// <b>The Tower</b>, block 4 of the campaign: its designs, and the helpers no other block's designs use, in
     /// the order <c>Program.cs</c> held them — the play order is <see cref="Main"/>'s, and the block's name, music
-    /// and ball style are in the tables there. Split out of <c>Program.cs</c> in #386.
+    /// and ball style are in <see cref="CampaignSet"/>'s tables. Split out of <c>Program.cs</c> in #386.
     /// </summary>
     internal static partial class Program
     {
@@ -359,7 +360,7 @@ namespace BS3D.Tools.LevelGen
         /// leaning shape needs: the centre it is measured from moves per level, so the polar pair the emitter
         /// offers is the wrong frame. <see cref="LeanRadius"/> rebuilds the emitter's own <c>dx</c>/<c>dz</c>
         /// around the drifted centre — and it may take the shifted-level offset straight off the <i>layout</i>
-        /// index because <see cref="Emit"/> refuses an odd layout offset, so a layout level and its field level
+        /// index because <see cref="LevelEmitter.Emit"/> refuses an odd layout offset, so a layout level and its field level
         /// always agree in parity.
         /// </para>
         /// <para>
@@ -378,7 +379,7 @@ namespace BS3D.Tools.LevelGen
         /// <para>
         /// <b>Margin 1 — the tightest in the pack, and the lean is the reason.</b> The tower's envelope is ten
         /// cells across X against five in Z, so the field is square around a shape that is not. One free column
-        /// is what <see cref="LateralMargin"/> asks for and it is enough (it gives every flank ball a lateral
+        /// is what <see cref="LevelGates.LateralMargin"/> asks for and it is enough (it gives every flank ball a lateral
         /// neighbour to offer, which is the whole of what the trap needs), and Gem, One and Star all ship at 1 —
         /// but this is the one design reaching for the wall over twenty-four levels rather than six, so it is the
         /// first place to look if a shot is ever reported bouncing off a flank. <see cref="LEAN_GRID"/> at 15 is
@@ -553,10 +554,10 @@ namespace BS3D.Tools.LevelGen
         /// <summary>
         /// Brown roofs with a red eave edge on each roof's widest course, quadrant-columned core storeys,
         /// and a cyan finial. The quadrant is read off the WORLD offset from the course centre - taking
-        /// the shift off the layout index is safe because <see cref="Emit"/> refuses an odd layout offset,
+        /// the shift off the layout index is safe because <see cref="LevelEmitter.Emit"/> refuses an odd layout offset,
         /// the same argument <see cref="LeanRadius"/> records - and the centre row and column of an
         /// odd-width course fall to the >= side, so the quadrants are near-quarters, never below
-        /// <see cref="MIN_GROUP"/>.
+        /// <see cref="LevelGates.MIN_GROUP"/>.
         /// </summary>
         private static BallType PagodaColour(int x, int z, int i)
         {
@@ -1160,7 +1161,7 @@ namespace BS3D.Tools.LevelGen
         /// quadrant columns, then the rings. A leg's four bands alternate primary/white from the FEET up
         /// (primary at the feet, white at the top, the cap carrying the primaries against the glass); the
         /// cap's centre row and column (index 7) fall to the low side, so the quadrant columns are
-        /// 36/24/24/16 over its four levels, the smallest still far above <see cref="MIN_GROUP"/>.
+        /// 36/24/24/16 over its four levels, the smallest still far above <see cref="LevelGates.MIN_GROUP"/>.
         /// </summary>
         private static BallType PylonColour(int x, int z, int i)
         {

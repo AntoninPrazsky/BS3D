@@ -1,13 +1,14 @@
 ﻿using Prazsky.BS3D.GameStructure;
 using Prazsky.Core.Render;
 using System;
+using static BS3D.Tools.LevelGen.CampaignSet;
 
 namespace BS3D.Tools.LevelGen
 {
     /// <summary>
     /// <b>The Nebula</b>, block 7 of the campaign: its designs, and the helpers no other block's designs use, in
     /// the order <c>Program.cs</c> held them — the play order is <see cref="Main"/>'s, and the block's name, music
-    /// and ball style are in the tables there. Split out of <c>Program.cs</c> in #386.
+    /// and ball style are in <see cref="CampaignSet"/>'s tables. Split out of <c>Program.cs</c> in #386.
     /// </summary>
     internal static partial class Program
     {
@@ -86,7 +87,7 @@ namespace BS3D.Tools.LevelGen
         /// shot at a curved two-cell wall, and the wall turns as it descends: a window a few cells wide
         /// corkscrews down it, and the colouring is panes that follow the same twist (<see cref="Lantern"/>'s
         /// course-roll trick sheared by height), so nothing on it is either a horizontal band (the
-        /// <see cref="DropTest"/> trap) or a vertical stave of dozens. <b>Brown debuts one pane over from
+        /// <see cref="LevelGates.DropTest"/> trap) or a vertical stave of dozens. <b>Brown debuts one pane over from
         /// orange</b>, the warm pair of #152, on the scene whose void backdrop keeps every warm tone legible.
         /// The wall pinches slightly toward its tip, so the silhouette reads as a vortex touching down rather
         /// than as a pipe.
@@ -325,7 +326,7 @@ namespace BS3D.Tools.LevelGen
         /// <para>
         /// <b>The five stripes run DIAGONALLY on (x + level)</b>, <see cref="SAIL_STRIPE_CELLS"/> cells to a
         /// stripe over a span of 0..20, the last one taking the remainder through the min() clamp. A
-        /// diagonal band is the file's classic lonely-ball trap (see <see cref="FindLonelyBalls"/>) and is
+        /// diagonal band is the file's classic lonely-ball trap (see <see cref="LevelGates.FindLonelyBalls"/>) and is
         /// safe here for one reason worth stating: at four cells wide and two plies deep every stripe cell
         /// has orthogonal neighbours of its own colour on its own level, across the plies and straight up.
         /// </para>
@@ -526,7 +527,7 @@ namespace BS3D.Tools.LevelGen
         /// <para>
         /// <b>The radius is 3.5 and the spec said 4.0.</b> That is a correction, not a taste: at 4.0 with
         /// the grafted knobs the tube reaches 6.0 cells off the axis, which on grid 13 is column 12 of 13 -
-        /// <see cref="LateralMargin"/> zero, the documented bounce trap. 3.5 puts the widest cell in column
+        /// <see cref="LevelGates.LateralMargin"/> zero, the documented bounce trap. 3.5 puts the widest cell in column
         /// 11 and leaves the clear column.
         /// </para>
         /// <para>
@@ -916,10 +917,10 @@ namespace BS3D.Tools.LevelGen
         /// Gate watch (#255), in the gateNotes' order. THE GATE-2 ARITHMETIC FIRST, and the gateNotes were
         /// right to demand the recount: the cyan release at d 2 drops <b>233 of 274 balls, 85 %</b>, not the
         /// spec's 82 - everything below d 2 counts 224, not 217 - and the yellow waist checks out at 81 %.
-        /// Both are under <see cref="ONE_SHOT_PERCENT"/> and both are deliberate: this level's declared
+        /// Both are under <see cref="LevelGates.ONE_SHOT_PERCENT"/> and both are deliberate: this level's declared
         /// mechanic is that the ceiling clock hands the best guillotine down into camera, so every shot is a
         /// gamble on waiting against trimming beads off the bottom. Verify the number stays at 85 after any
-        /// recolour, and verify <see cref="DropTest"/>'s semantics on the repeated non-touching colours
+        /// recolour, and verify <see cref="LevelGates.DropTest"/>'s semantics on the repeated non-touching colours
         /// (cyan at d 2 and d 15, and five others) - it tries every standing group of a colour and keeps the
         /// worst, which is the reading this design needs. Second, unshot spring stretch at the top yellow
         /// waist carrying 216 balls: measure in the Testbed against the death line, and the tune is
@@ -1035,7 +1036,7 @@ namespace BS3D.Tools.LevelGen
         /// <b>The ring ladder is 0.4 a floor and the spec said 0.6.</b> That is the block's third arithmetic
         /// correction: the spec's own note that an outer radius of 6.8 "keeps |x|,|z| &lt;= 6" on grid 15 is
         /// false - a cell on the axis bearing at that radius is column 14 of 15, i.e.
-        /// <see cref="LateralMargin"/> zero and the documented bounce trap. <see cref="ORRERY_RING_STEP"/>
+        /// <see cref="LevelGates.LateralMargin"/> zero and the documented bounce trap. <see cref="ORRERY_RING_STEP"/>
         /// at 0.4 puts ring 5's rim at exactly 6.0, which is the widest thing that leaves the clear column,
         /// and the rings still widen visibly by a whole cell across the stack. The pin orbits are re-seated
         /// to the middle of each new overlap for the same reason.
