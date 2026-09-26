@@ -40,7 +40,7 @@ static const float FrozenCubePower = 4.5;
 //The pale ice the block is made of where the ray misses the ball. Cold and light, but well under white:
 //what is white on this ball is the frost and the edges, and a body already at white leaves them nothing
 //to be. Bluer than #329's, because the clear faces show more of it.
-static const float3 FrozenIceTint = float3(0.58, 0.72, 0.86);
+static const float3 FrozenIceTint = float3(0.46, 0.60, 0.76);
 
 //The ball inside: its radius as a fraction of the sphere the block was cut from (the block's inscribed
 //radius is 3^(1/p - 1/2) of it, 0.76 at p = 4.5, so 0.62 leaves a rim of ice all round), how much of
@@ -63,14 +63,30 @@ static const float FrozenCoreHighlightPower = 24.0;
 //amplitude. Calibrated against the Ice style's own figures (IceFrostFrequency / IceFrostDepth); #329's
 //note records what 26 at ten times the amplitude looked like (corduroy).
 static const float FrozenBevelStart = 0.84;
-static const float FrozenFrostReach = 0.14;
+static const float FrozenFrostEdgeTop = 0.72;
+static const float FrozenFrostReach = 0.10;
+
+//And frost on the faces too, in PATCHES (the owner's verdict on the clear cut: "a little stronger frost"):
+//a low gradient-noise field over the object-space direction cut at a threshold, so each face carries a
+//crust or two of white while its middle mostly stays clear enough to see the ball through. Band-limited
+//to its coverage, so a distant block is evenly a little frostier rather than speckled.
+static const float FrozenFacePatchCells = 2.8;
+static const float FrozenFacePatchThreshold = 0.02;
+static const float FrozenFacePatchEdge = 0.07;
+static const float FrozenFacePatchCover = 0.45;
+static const float FrozenFacePatchStrength = 0.8;
 static const float FrozenFrostFrequency = 41.0;
 static const float4 FrozenFrostRatio = float4(1.0, 1.43, 0.71, 1.87);
 static const float FrozenFrostDepth = 0.0028;
 
 //How white the frost is, and how far it takes the surface towards white where it lies.
 static const float3 FrozenFrostColor = float3(0.86, 0.92, 0.98);
-static const float FrozenFrostWhiten = 0.75;
+static const float FrozenFrostWhiten = 0.85;
+
+//The frost's own scattered light, added after shading: a frost crust is lit from every side by the sky it
+//scatters, so it stays WHITE where the ice beside it goes blue-grey in shadow. Without it the frost only
+//replaced a pale ice with a slightly paler one and photographed as nothing (#628's second cut).
+static const float FrozenFrostGlow = 0.35;
 
 //The light along the rounded edges, and how tightly it sits on them. This is the figure that survives
 //to play distance after the frost has gone sub-pixel: an edge is a whole edge long.
@@ -182,12 +198,21 @@ float4 FrozenPS(EyeRayVertexShaderOutput input) : COLOR
     //THE FROST, on the edges and reaching a little into each face, nowhere near a face's middle: the
     //references' ice is clear where it is flat and white where it was cut. Summed octaves rather than
     //multiplied, on the moulded vinyl's own lesson, each band-limited on its own wavelength.
-    float frostWhere = 1.0 - smoothstep(FrozenBevelStart, FrozenBevelStart + FrozenFrostReach, top);
+    //⚠ MEASURED ON THE DIRECTION, NOT ON THE CUT SURFACE: `top` is the largest component of the SPHERE's
+    //direction, which over a superellipsoid face runs from 1 at its centre down to ~0.71 at an edge's middle
+    //and 0.577 at a corner - so the band is set in those units. The first cut read it against
+    //FrozenBevelStart (0.84) and the "edge" frost covered most of every face, which is why the block
+    //photographed as evenly milky and the face patches below had nothing to stand out from.
+    float frostWhere = 1.0 - smoothstep(FrozenFrostEdgeTop, FrozenFrostEdgeTop + FrozenFrostReach, top);
     float frostGrain = (ReliefOctave(direction, float3(0.71, 0.52, -0.47), FrozenFrostFrequency * FrozenFrostRatio.x, footprint)
         + ReliefOctave(direction, float3(-0.36, 0.83, 0.42), FrozenFrostFrequency * FrozenFrostRatio.y, footprint)
         + ReliefOctave(direction, float3(0.55, -0.44, 0.71), FrozenFrostFrequency * FrozenFrostRatio.z, footprint)
         + ReliefOctave(direction, float3(-0.82, -0.31, 0.48), FrozenFrostFrequency * FrozenFrostRatio.w, footprint)) * 0.25;
-    float frost = frostWhere * saturate(0.55 + 0.45 * frostGrain);
+    float patchLimit = saturate(1.0 - footprint * FrozenFacePatchCells * 2.0);
+    float patchField = GradientNoise3(direction * FrozenFacePatchCells) + 0.35 * frostGrain;
+    float facePatch = lerp(FrozenFacePatchCover,
+        smoothstep(FrozenFacePatchThreshold - FrozenFacePatchEdge, FrozenFacePatchThreshold + FrozenFacePatchEdge, patchField), patchLimit);
+    float frost = max(frostWhere, facePatch * FrozenFacePatchStrength) * saturate(0.55 + 0.45 * frostGrain);
 
     //THE CRACK: one bent plane, brightened, with SeamLine's own fade so it leaves cleanly.
     float3 bent = direction + FrozenCrackBend * float3(
@@ -251,6 +276,9 @@ float4 FrozenPS(EyeRayVertexShaderOutput input) : COLOR
     //for the Ice style's reason -- an edge of a navy block has to differ from the block next to it, and
     //nothing scaled by that tint can.
     shaded.rgb += pow(edge, FrozenEdgePower) * FrozenEdgeGlow * IceCold * lerp(primary, 1.0, 0.65) * occlusion;
+
+    //The frost scatters the sky it sits in - see FrozenFrostGlow.
+    shaded.rgb += frostColor * frost * FrozenFrostGlow * (SkyColor + GroundColor) * 0.5 * occlusion;
 
     //The crack catches the light along its length.
     shaded.rgb += crack * FrozenCrackGlow * IceCold * occlusion;
