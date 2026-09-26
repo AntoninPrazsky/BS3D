@@ -1,0 +1,256 @@
+﻿
+#----------------------------- Global Properties ----------------------------#
+
+/outputDir:bin/$(Platform)/Content
+/intermediateDir:obj/$(Platform)
+/platform:Windows
+/config:
+/profile:HiDef
+/compress:False
+
+#-------------------------------- References --------------------------------#
+
+#---------------------------------- Content ---------------------------------#
+
+# Every effect the three executables load, compiled ONCE, here (#618). Prazsky.Shaders.csproj hands this file
+# to MonoGame.Content.Builder.Task, and the compiled .xnb files become Content items of this library linked as
+# Content/Shaders/<name>.xnb, so every executable that references the library gets them copied into its own
+# output (and its publish folder) at the path it has always loaded them from: Load<Effect>("Shaders/Sky").
+#
+# The executables' own Content.mgcb files carry no shader entries. Until #618 each of them built these out of
+# Testbed/Content/Shaders - one copy of each source but three compilations, and the shipping Game depending
+# on the development instrument's content directory.
+#
+# Every effect is built for every referencer, including the ones an executable never loads (the MapEditor has
+# no gun and no Sky.fx dome, so ShotTrail, Fireworks, Confetti, LaserGrid, Blast, MotionBlur and Sky sit
+# unused beside it): a few hundred kilobytes of unused .xnb is the price of one list instead of three.
+#
+# /platform:Windows is DirectX 11, Shader Model 5.0. The content task passes /platform:$(MonoGamePlatform)
+# after this file, which is why Prazsky.Shaders.csproj sets MonoGamePlatform to Windows itself - see there.
+#
+# The one shader here only the Game loads on purpose is Sky.fx: the MapEditor draws its dome through its own
+# BasicEffect, so it gets no cloud deck and no sun disc (Sky.fx's own header, and "The storm" in
+# docs/scenes.md).
+
+#begin Shaders/InstancedModel.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/InstancedModel.fx
+
+#begin Shaders/Glare.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/Glare.fx
+
+#begin Shaders/Tonemap.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/Tonemap.fx
+
+#begin Shaders/MotionBlur.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/MotionBlur.fx
+
+#begin Shaders/ShotTrail.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/ShotTrail.fx
+
+#begin Shaders/Fireworks.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/Fireworks.fx
+
+#begin Shaders/Confetti.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/Confetti.fx
+
+#begin Shaders/LaserGrid.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/LaserGrid.fx
+
+#begin Shaders/Blast.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/Blast.fx
+
+#begin Shaders/Sky.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/Sky.fx
+
+#begin Shaders/Sea.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/Sea.fx
+
+#begin Shaders/Desert.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/Desert.fx
+
+#begin Shaders/Polar.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/Polar.fx
+
+#begin Shaders/Outback.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/Outback.fx
+
+#begin Shaders/Savanna.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/Savanna.fx
+
+#begin Shaders/Acacia.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/Acacia.fx
+
+#begin Shaders/Flame.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/Flame.fx
+
+#begin Shaders/Birds.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/Birds.fx
+
+#begin Shaders/Mountain.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/Mountain.fx
+
+#begin Shaders/Snow.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/Snow.fx
+
+#begin Shaders/Spray.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/Spray.fx
+
+#begin Shaders/CityStreets.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/CityStreets.fx
+
+#begin Shaders/Meadow.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/Meadow.fx
+
+#begin Shaders/Forest.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/Forest.fx
+
+#begin Shaders/Space.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/Space.fx
+
+#begin Shaders/Dream.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/Dream.fx
+
+#begin Shaders/Cavern.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/Cavern.fx
+
+#begin Shaders/Moon.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/Moon.fx
+
+#begin Shaders/Tropical.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/Tropical.fx
+
+#begin Shaders/Palm.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/Palm.fx
+
+#begin Shaders/Volcano.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/Volcano.fx
+
+#begin Shaders/LavaFountain.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/LavaFountain.fx
+
+#begin Shaders/Ash.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/Ash.fx
+
+#begin Shaders/Mars.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/Mars.fx
+
+#begin Shaders/StormClouds.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/StormClouds.fx
+
+#begin Shaders/Aurora.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/Aurora.fx
+
+#begin Shaders/Grid.fx
+/importer:EffectImporter
+/processor:EffectProcessor
+/processorParam:DebugMode=Auto
+/build:Shaders/Grid.fx
+

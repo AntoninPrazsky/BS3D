@@ -8,10 +8,10 @@ namespace MapEditor
         [STAThread]
         private static void Main(string[] args)
         {
-            //What this run IS, before anything else (#372). The editor builds its shaders out of the Testbed's
-            //content directory, so it is exposed to the same trap the other two are: MGCB skips an .fx whose
-            //.xnb is newer and then copies nothing, and a look judged here would be a look judged through the
-            //previous shader.
+            //What this run IS, before anything else (#372). The editor gets its compiled shaders from
+            //Prazsky.Shaders like the other two (#618), so it is exposed to the same trap they are: MGCB skips
+            //an .fx whose .xnb is newer and then copies nothing, and a look judged here would be a look judged
+            //through the previous shader.
             BuildStamp.Report();
 
             using var game = new MapEditor();

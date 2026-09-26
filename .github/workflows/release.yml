@@ -44,10 +44,16 @@ jobs:
 
       # The content build shells out to `dotnet mgcb` with the manifest search walking up from the *project*
       # directory, so this runs in Game/ (CLAUDE.md's build section explains why each executable carries its
-      # own manifest). Only the Game ships, so only its manifest is restored.
+      # own manifest). Only the Game ships, so only its manifest - and the shader library's, below - is restored.
       - name: Restore content tools (Game)
         run: dotnet tool restore
         working-directory: Game
+
+      # The shaders compile in Prazsky.Shaders (#618), which carries its own manifest for the same reason, and
+      # reach the published folder as that library's content items.
+      - name: Restore content tools (Prazsky.Shaders)
+        run: dotnet tool restore
+        working-directory: BS3DLibs/Prazsky.Shaders
 
       # The same gate as build.yml's (#588), run here so a release cannot come out of a commit whose shipped
       # levels are not the ones the generator in the tree makes - or whose new level was never committed at
@@ -98,6 +104,9 @@ jobs:
       # A published folder missing its content is still a folder full of DLLs, and that failure would show
       # up on a player's machine rather than here. These five are what a playable, install-nothing build
       # cannot be without: the exe, the runtime beside it, the compiled shaders, the levels and the music.
+      # The shaders are the one of them the Game does not build itself: they are Prazsky.Shaders' content
+      # items (#618), copied in through the project reference, so this is also the check that the copy
+      # really reaches a publish.
       - name: Check the published folder is playable
         shell: pwsh
         run: |

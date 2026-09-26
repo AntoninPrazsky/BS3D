@@ -12,6 +12,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Prazsky.BS3D.Physics", "BS3
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Prazsky.Core", "BS3DLibs\Prazsky.Core\Prazsky.Core.csproj", "{BDFAE088-7FB2-4022-B804-91140257EA38}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Prazsky.Shaders", "BS3DLibs\Prazsky.Shaders\Prazsky.Shaders.csproj", "{43B7DB2A-2EE7-4641-95B8-48784C48B544}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -52,6 +54,14 @@ Global
 		{BDFAE088-7FB2-4022-B804-91140257EA38}.ReleaseStrip|Any CPU.Build.0 = Release|Any CPU
 		{BDFAE088-7FB2-4022-B804-91140257EA38}.ReleaseStripNoProfiling|Any CPU.ActiveCfg = Release|Any CPU
 		{BDFAE088-7FB2-4022-B804-91140257EA38}.ReleaseStripNoProfiling|Any CPU.Build.0 = Release|Any CPU
+		{43B7DB2A-2EE7-4641-95B8-48784C48B544}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{43B7DB2A-2EE7-4641-95B8-48784C48B544}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{43B7DB2A-2EE7-4641-95B8-48784C48B544}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{43B7DB2A-2EE7-4641-95B8-48784C48B544}.Release|Any CPU.Build.0 = Release|Any CPU
+		{43B7DB2A-2EE7-4641-95B8-48784C48B544}.ReleaseStrip|Any CPU.ActiveCfg = Release|Any CPU
+		{43B7DB2A-2EE7-4641-95B8-48784C48B544}.ReleaseStrip|Any CPU.Build.0 = Release|Any CPU
+		{43B7DB2A-2EE7-4641-95B8-48784C48B544}.ReleaseStripNoProfiling|Any CPU.ActiveCfg = Release|Any CPU
+		{43B7DB2A-2EE7-4641-95B8-48784C48B544}.ReleaseStripNoProfiling|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -60,6 +70,7 @@ Global
 		{0CCA8C6C-50C5-443B-A9C6-69B570C58BAD} = {E804CD4D-6268-4A01-A2D7-79E5A2AB3F8F}
 		{7ADFA3BF-19A0-4936-8C68-2A9E40A9A549} = {E804CD4D-6268-4A01-A2D7-79E5A2AB3F8F}
 		{BDFAE088-7FB2-4022-B804-91140257EA38} = {E804CD4D-6268-4A01-A2D7-79E5A2AB3F8F}
+		{43B7DB2A-2EE7-4641-95B8-48784C48B544} = {E804CD4D-6268-4A01-A2D7-79E5A2AB3F8F}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {31A81FF6-3891-490A-BA0F-680951054A6F}

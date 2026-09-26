@@ -7,19 +7,23 @@ description: How to add and wire custom HLSL effects (.fx) in BS3D — content p
 
 ## Adding an effect
 
-1. Put the `.fx` under `Testbed/Content/Shaders/` and register it in `Testbed/Content/Content.mgcb`:
-   `importer:EffectImporter`, `processor:EffectProcessor`, `processorParam:DebugMode=Auto`.
-   The MapEditor draws balls through `InstancedModel.fx` too and builds it from that same source with
-   `/build:../../Testbed/Content/Shaders/InstancedModel.fx;Shaders/InstancedModel.fx` in its own .mgcb —
-   a source outside the content root is fine, so shader changes reach both executables at once.
-2. It compiles during `dotnet build` (MonoGame.Content.Builder.Task). Load with `Content.Load<Effect>("Shaders/<Name>")`.
-3. Both executables are on **WindowsDX** now, so everything builds for DirectX at **Shader Model 5.0**
+1. Put the `.fx` under `BS3DLibs/Prazsky.Shaders/Content/Shaders/` and register it in
+   `BS3DLibs/Prazsky.Shaders/Content/Shaders.mgcb`: `importer:EffectImporter`, `processor:EffectProcessor`,
+   `processorParam:DebugMode=Auto`, `/build:Shaders/<Name>.fx`. That is the only place a shader is registered
+   (#618): the library compiles every effect **once**, and its `.xnb` files are Content items that MSBuild
+   copies into the output (and the publish folder) of every project referencing `Prazsky.Shaders` — the
+   Testbed, the MapEditor, the Game and `Tools/WindingCheck` — under `Content/Shaders/`. The executables'
+   own `Content.mgcb` files carry no shaders. (Until #618 the sources lived in `Testbed/Content/Shaders`
+   and each executable compiled them itself.)
+2. It compiles during `dotnet build` (MonoGame.Content.Builder.Task, run by the library). Load with
+   `Content.Load<Effect>("Shaders/<Name>")`.
+3. All three executables are on **WindowsDX**, so everything builds for DirectX at **Shader Model 5.0**
    (`vs_5_0` / `ps_5_0`) — there is no OPENGL/mojoshader build any more, and `#if OPENGL` is gone from
-   `InstancedModel.fx`. Both run with `GraphicsProfile.HiDef`. A shader that only the Testbed uses (each
-   scene shader, `Sky.fx`) it registers in its own `.mgcb`; a shader the MapEditor also needs (the shared
-   `InstancedModel.fx`, plus `Tonemap.fx`/`Glare.fx` for its own linear+tonemap pipeline) is registered in
-   both `.mgcb`s, the editor building it out of the Testbed content dir with the `/build:../../Testbed/…`
-   form so there is one source. MSAA is off while supersampling is on (the scene renders into an HDR target).
+   `InstancedModel.fx`. They run with `GraphicsProfile.HiDef`. `Prazsky.Shaders.csproj` sets
+   `MonoGamePlatform` to `Windows` itself (it references no MonoGame platform package, and the libraries'
+   private DesktopGL one would compile OpenGL effects). Every effect reaches every executable, used or not
+   (the MapEditor never loads `Sky.fx`). MSAA is off while supersampling is on (the scene renders into an HDR
+   target).
 4. **Do not copy a helper out of another shader — include it.** `Noise.fxh` (noise, hashes incl. `Hash21`,
    `PerturbNormalFromHeight`), `Clouds.fxh`, `Shadows.fxh`, `FarField.fxh`, `HeightProbe.fxh`, `Stars.fxh`,
    and since #581 `Craters.fxh`, `Rocks.fxh`, `Grass.fxh` and `ForestGround.fxh` hold what two scenes share.
@@ -30,7 +34,7 @@ description: How to add and wire custom HLSL effects (.fx) in BS3D — content p
 
 ## Existing shader
 
-`Testbed/Content/Shaders/InstancedModel.fx` + `BS3DLibs/Prazsky.Core/Render/InstancedModelRenderer.cs`
+`BS3DLibs/Prazsky.Shaders/Content/Shaders/InstancedModel.fx` + `BS3DLibs/Prazsky.Core/Render/InstancedModelRenderer.cs`
 draw all balls (see the "Ball rendering" section in `docs/rendering.md`). Since #581 the `.fx` is a thin list
 of includes — `Shaders/InstancedModel/*.fxh`, one file per concern (`Common`, `Lighting`, `SceneRelief`,
 `BallCommon`, one `Ball<Style>` per shading, `Triplanar`, `City`, `Depth`, `Glass`); still ONE Effect. **The
