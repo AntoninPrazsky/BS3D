@@ -881,8 +881,8 @@ namespace Prazsky.BS3D
 
         /// <summary>
         /// What a well's shell radiates (#332), and the three figures are chosen so the ball still breathes
-        /// with the cluster while its own figure moves independently. The rings carry their own light inside
-        /// the technique and travel on <c>PulseTime</c>; what the heartbeat adds is only the ball's colour
+        /// with the cluster while its own figure moves independently. The swirl (rings until #630) travels on
+        /// <c>PulseTime</c> inside the technique; what the heartbeat adds is only the ball's colour
         /// swelling like every other ball's, which is what keeps a well legible as a ball of that colour —
         /// and the colour is the shot that removes it.
         /// <para>
