@@ -71,8 +71,8 @@ namespace BS3D
         /// <summary>
         /// The frame rate below which the probe spends image quality. Derived from the display's refresh rather
         /// than fixed, so the target tracks the monitor the player is actually on: a 75 Hz panel wants ~75, a
-        /// 60 Hz one ~60, a 144 Hz one ~144. The probe settles when the machine reaches <see cref="QUALITY_REFRESH_FRACTION"/>
-        /// of it, not when it merely clears 45 — the old fixed floor was tuned to a 60 Hz laptop and left a fast
+        /// 60 Hz one ~60, a 144 Hz one ~144. The probe settles when the machine reaches the refresh less
+        /// <see cref="QUALITY_REFRESH_MARGIN"/> of it, not when it merely clears 45 — the old fixed floor was tuned to a 60 Hz laptop and left a fast
         /// card on a 75 Hz panel pinned to High at 37 FPS because 37 was never going to clear a verdict it was
         /// never measured against (a windowed run had settled the latch first).
         /// </summary>
@@ -153,7 +153,7 @@ namespace BS3D
 
         /// <summary>
         /// Lowers supersampling on a machine that visibly cannot afford it, measured rather than guessed.
-        /// Driven by the <see cref="BackdropScreen"/>, which updates exactly while the front end is what is
+        /// Driven by the <see cref="Screens.BackdropScreen"/>, which updates exactly while the front end is what is
         /// being drawn — and the front end is a fair probe on its own: it draws the same city, clouds, glare
         /// and tonemap the game does, at the same factor, and it is the fixed scene cost rather than the ball
         /// count that dominates on the hardware this exists for (#64).

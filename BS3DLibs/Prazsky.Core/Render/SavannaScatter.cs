@@ -93,7 +93,7 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// How trodden the ground under a plant may be before the site is refused (#476), on
-        /// <see cref="SavannaTrails.Trodden"/>'s 0…1 — 1 being the bare middle of a path and 0 the grass
+        /// <see cref="SavannaTrails.Trodden(float, float, IReadOnlyList{ScatterSpacing.Footprint}, SavannaSceneConfig)"/>'s 0…1 — 1 being the bare middle of a path and 0 the grass
         /// beside it. Low, because it is the <b>worn earth</b> that nothing should be standing in, and the
         /// outermost fringe of the band is grass that has merely been walked on.
         /// <para>

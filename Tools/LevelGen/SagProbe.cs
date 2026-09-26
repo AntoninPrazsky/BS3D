@@ -619,7 +619,7 @@ namespace BS3D.Tools.LevelGen
         /// touched the structure, and the contact woke it. Cutting them out of a <i>sleeping</i> island
         /// instead left the survivors holding a graph the solver never re-examined: the remainder came apart
         /// and fell at three quarters of gravity, and it read as a sag on levels nobody has ever failed to
-        /// finish — <see cref="Amphora"/>, the Gallery's pictures, the whole Coil. Every verdict this probe
+        /// finish — <see cref="Program.Amphora"/>, the Gallery's pictures, the whole Coil. Every verdict this probe
         /// printed before this loop wound past the first ball was about a bug in the probe.
         /// </para>
         /// </summary>

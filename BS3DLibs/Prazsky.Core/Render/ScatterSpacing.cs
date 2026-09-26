@@ -52,7 +52,7 @@ namespace Prazsky.Core.Render
         /// </list>
         /// <para>
         /// Four already clears it, and eight is kept as headroom for a denser config than the shipped one. It
-        /// costs nothing to carry: <see cref="Place"/> stops the moment a position clears, so the extra budget
+        /// costs nothing to carry: each caller's placement loop stops the moment a position clears, so the extra budget
         /// is only ever spent where a position is genuinely hard to find.
         /// </para>
         /// </summary>

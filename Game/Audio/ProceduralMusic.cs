@@ -8,7 +8,7 @@ namespace BS3D.Audio
     /// <summary>
     /// Which piece of music a level plays (#120) — a <b>slot</b>, named by the level file (#194). Since #443 what
     /// a slot plays is a generated recording, <c>Music/&lt;name&gt;.ogg</c> and its variants (see
-    /// <see cref="GameMusic"/>); the member docs below describe the procedural composition of the same name,
+    /// <c>GameMusic</c>); the member docs below describe the procedural composition of the same name,
     /// which the slot was written for and which the About page still plays.
     /// <para>
     /// Each composition was a separate piece of music with its own mode, its own tunes and its own form, sharing
@@ -22,7 +22,7 @@ namespace BS3D.Audio
     {
         /// <summary>
         /// The original: eurodance, A minor at 128, ten sections, 2:30. Level One's theme, and since #186 a
-        /// piece with a floor under it (<see cref="SubBass"/>), two sections that are not a dance floor at all,
+        /// piece with a floor under it (<see cref="ProceduralMusic.SubBass"/>), two sections that are not a dance floor at all,
         /// and one harmonic shock at the last drop.
         /// </summary>
         Pulse,
@@ -50,7 +50,7 @@ namespace BS3D.Audio
         /// 2:26, G major at 120. Where the others differ in mode, harmony, time or gain, this one differs in
         /// <b>where the weight falls</b>: the kick never marks all four beats. It shipped differing in which
         /// register carried the tune as well — the bass sang it — and #346 is the owner hearing that and
-        /// rejecting it; see <see cref="BakeMural"/> for the five separate faults and what each one cost.
+        /// rejecting it; see <see cref="ProceduralMusic.BakeMural"/> for the five separate faults and what each one cost.
         /// </summary>
         Mural,
 
@@ -70,10 +70,10 @@ namespace BS3D.Audio
     /// instruments are oscillators, the same line the sound effects, the meshes and the surface textures take.
     /// <para>
     /// <b>Since #443 the compositions are no longer what a level plays.</b> The owner replaced them with
-    /// generated recordings (<see cref="GameMusic"/>) and kept them as the About page's easter egg, where
-    /// <see cref="ProceduralJukebox"/> renders one on demand through <see cref="Render"/>; <c>Tools/MusicBake</c>
+    /// generated recordings (<c>GameMusic</c>) and kept them as the About page's easter egg, where
+    /// <c>ProceduralJukebox</c> renders one on demand through <see cref="Render"/>; <c>Tools/MusicBake</c>
     /// still renders and measures them through the same door. The fanfares stayed procedural: this class's
-    /// instance bakes and plays them, owned by <see cref="GameMusic"/>, which forwards to it.
+    /// instance bakes and plays them, owned by <c>GameMusic</c>, which forwards to it.
     /// </para>
     /// <para>
     /// Each is <b>arranged</b> rather than looped: eight-bar sections, each one adding or taking away parts —
@@ -273,7 +273,7 @@ namespace BS3D.Audio
         /// </summary>
         private static int SamplesPerStep(in Score score) => (int)(SAMPLE_RATE * (60f / (score.Bpm * STEPS_PER_BEAT)));
 
-        /// <summary>One frame of the interleaved 16-bit stereo the pieces are played as; see <see cref="ToPcm"/>.</summary>
+        /// <summary>One frame of the interleaved 16-bit stereo the pieces are played as; see <see cref="ToPcm(float[])"/>.</summary>
         private const int BYTES_PER_FRAME = 4;
 
         /// <summary>The piece's own score, for the questions asked about a piece from outside its bake.</summary>
@@ -482,7 +482,7 @@ namespace BS3D.Audio
         /// <summary>
         /// The player's volume settings (master × music), 1 for the authored level — pushed onto a fanfare already
         /// sounding, since nine seconds is long enough that "on the next play" would be late. Set by
-        /// <see cref="GameMusic"/>, which forwards the host's one gain to everything it plays.
+        /// <c>GameMusic</c>, which forwards the host's one gain to everything it plays.
         /// </summary>
         public float Gain
         {
@@ -496,7 +496,7 @@ namespace BS3D.Audio
 
         /// <summary>
         /// Renders one composition to raw interleaved float PCM. The one door into the scores: the About page's
-        /// player asks through <see cref="ProceduralJukebox"/> and <c>Tools/MusicBake</c> asks straight, so what
+        /// player asks through <c>ProceduralJukebox</c> and <c>Tools/MusicBake</c> asks straight, so what
         /// the tool measures and writes to a .wav is the same arithmetic the player plays, not a second copy of
         /// this switch.
         /// </summary>
@@ -637,7 +637,7 @@ namespace BS3D.Audio
         }
 
         /// <summary>
-        /// Called once a frame, through <see cref="GameMusic.Update"/>: it realizes a fanfare the frame its
+        /// Called once a frame, through <c>GameMusic.Update</c>: it realizes a fanfare the frame its
         /// synthesis lands and walks the fanfare's fade (#211).
         /// </summary>
         /// <param name="elapsed">The frame's wall-clock seconds, so a fade keeps moving whatever screen is up.</param>
@@ -2670,23 +2670,6 @@ namespace BS3D.Audio
 
         #region The front end's piece
 
-        /// <summary>
-        /// The front end's piece (#46): a small arrangement of its own rather than one texture. It opens on
-        /// held pad chords over the theme's diatonic progressions, their root an octave under for warmth,
-        /// with a quarter-note line on the lobby's <see cref="Keys"/> — an electric-piano voice, not the
-        /// theme's square Arp, which exposed at this rate read as a touch-tone phone — and a high sparkle
-        /// every other bar; after two rounds the <b>groove</b> arrives (kick, off-beat hats, the theme's own
-        /// bass figure), a step under the theme's energy so the lobby stays a lobby; then the <b>refrain</b>
-        /// (<see cref="MENU_HOOK"/>) is stated twice over it and the groove walks it off. Its tempo, key and
-        /// progression are authored like every other piece's (#229).
-        /// <para>
-        /// It is a LOOP, and the seam is closed by construction rather than by luck: the piece is rendered
-        /// with a bar of room past the loop point, and whatever rings into that room — a pad's release, an
-        /// arp's tail — is <b>folded back onto the head</b> before the cut. Continuous play of a loop is
-        //exactly the head plus the previous playing's ring-out, so the join carries the same overlap every
-        /// other bar boundary does and nothing marks it.
-        /// </para>
-        /// </summary>
         //THE LOBBY'S REFRAIN, written as chord tones like every melody here, so it sits over the progression
         //this loop is written on and is consonant by construction. One syncopated motif per bar —
         //bounce off the top, land on the third, a two-note pickup into the next bar — stated identically
@@ -2703,6 +2686,23 @@ namespace BS3D.Audio
             new(0, 3, 12, 4), new(4, 2, 12, 4), new(8, 0, 24, 8)
         };
 
+        /// <summary>
+        /// The front end's piece (#46): a small arrangement of its own rather than one texture. It opens on
+        /// held pad chords over the theme's diatonic progressions, their root an octave under for warmth,
+        /// with a quarter-note line on the lobby's <see cref="Keys"/> — an electric-piano voice, not the
+        /// theme's square Arp, which exposed at this rate read as a touch-tone phone — and a high sparkle
+        /// every other bar; after two rounds the <b>groove</b> arrives (kick, off-beat hats, the theme's own
+        /// bass figure), a step under the theme's energy so the lobby stays a lobby; then the <b>refrain</b>
+        /// (<see cref="MENU_HOOK"/>) is stated twice over it and the groove walks it off. Its tempo, key and
+        /// progression are authored like every other piece's (#229).
+        /// <para>
+        /// It is a LOOP, and the seam is closed by construction rather than by luck: the piece is rendered
+        /// with a bar of room past the loop point, and whatever rings into that room — a pad's release, an
+        /// arp's tail — is <b>folded back onto the head</b> before the cut. Continuous play of a loop is
+        /// exactly the head plus the previous playing's ring-out, so the join carries the same overlap every
+        /// other bar boundary does and nothing marks it.
+        /// </para>
+        /// </summary>
         private static float[] BakeMenu(out float drive)
         {
             //Unhurried but moving. It started at 80–92 and dragged, then ran as a roll inside 94–106 for a

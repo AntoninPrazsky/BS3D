@@ -642,11 +642,6 @@ namespace BS3D.Audio
         }
 
         /// <summary>
-        /// Decodes one track on a background thread; null, logged, when the file cannot be played. Every track is
-        /// started at construction, so they decode side by side while the splash is up — see
-        /// <c>Tools/MusicBake --tracks</c> for what that costs.
-        /// </summary>
-        /// <summary>
         /// The recording as the fanfare player takes it: interleaved stereo floats at <see cref="ProceduralMusic.SAMPLE_RATE"/>
         /// (the effects' rate, not the tracks'), and the ROOT and BPM tags <c>Tools/MusicBake --sfx --music</c> wrote into
         /// the file. Null when the file cannot be read or carries no key: an untuned chime over a recording is the fault
@@ -676,6 +671,11 @@ namespace BS3D.Audio
             }
         });
 
+        /// <summary>
+        /// Decodes one track on a background thread; null, logged, when the file cannot be played. Every track is
+        /// started at construction, so they decode side by side while the splash is up — see
+        /// <c>Tools/MusicBake --tracks</c> for what that costs.
+        /// </summary>
         private static Task<byte[]> Load(string path) => Task.Run(() =>
         {
             try

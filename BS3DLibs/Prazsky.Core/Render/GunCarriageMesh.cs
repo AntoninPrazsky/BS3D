@@ -24,7 +24,7 @@ namespace Prazsky.Core.Render
     /// <para>
     /// Origin quirk worth naming: the trunnion pins are the only thing here on y = 0 — the rest of the frame
     /// hangs entirely below the trunnion axis it is drawn at, and how far below (the axle drop) is the
-    /// caller's figure, arriving as <paramref name="axleDrop"/> so the frame and the wheels it was sized
+    /// caller's figure, arriving as <c>axleDrop</c> so the frame and the wheels it was sized
     /// around cannot drift apart. The pins live on <i>this</i> mesh and not the barrel's, and that is
     /// load-bearing: they are coaxial with the elevation axis, so a fixed pin looks identical however the
     /// tube elevates — but the Game's recoil slides the tube, and pins riding it would visibly tear along
@@ -34,9 +34,9 @@ namespace Prazsky.Core.Render
     /// <b>Nothing of the frame stands where the tube can reach (#403), and that is geometry rather than a sweep
     /// of poses.</b> The carriage yaws with the aim, so the tube only elevates about the trunnion axis and
     /// recoils along its own: no steel of it is ever further off its axis than its widest station, and none
-    /// wider than the plates' hub plane ever comes nearer the trunnions than <paramref name="cheekHubRadius"/>.
-    /// So the cheeks hug the tube (<paramref name="cheekInnerX"/>) only inside that radius — the hub — and stand
-    /// at <paramref name="cheekReliefX"/>, clear of the widest steel, everywhere else; every part of the legs,
+    /// wider than the plates' hub plane ever comes nearer the trunnions than <c>cheekHubRadius</c>.
+    /// So the cheeks hug the tube (<c>cheekInnerX</c>) only inside that radius — the hub — and stand
+    /// at <c>cheekReliefX</c>, clear of the widest steel, everywhere else; every part of the legs,
     /// their bands and collars included, is seated outboard of that same plane; and the axle is two stubs ending
     /// inside the plates, because at high elevation the breech sweeps the whole space between them. The first
     /// cut hugged the tube all the way down, as the plain boxes had, and the breech's base ring ran through the

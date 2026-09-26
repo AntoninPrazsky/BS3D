@@ -345,7 +345,7 @@ namespace BS3D
 
         /// <summary>
         /// The width of a menu column in <b>pixels at the layout in force</b> — the figure every entry is cut
-        /// to (<see cref="MenuButton"/> sets it as an explicit <c>Width</c>), exposed so anything else that has
+        /// to (<see cref="MenuButton(string, Action, out Label)"/> sets it as an explicit <c>Width</c>), exposed so anything else that has
         /// to line up in the same stack can be cut to the same one rather than to a second copy of the number.
         /// The result screen's score panel is what asked for it (#179): it is the only plate that stands beside
         /// the buttons instead of under them, and auto-sizing to a few short numbers left it visibly narrower.
@@ -1598,7 +1598,7 @@ namespace BS3D
         /// <summary>
         /// Presses the focused entry. The action is carried on the button's own <c>Tag</c> because the entries
         /// are found by walking the widget tree, which has no way back to the delegate handed to
-        /// <see cref="MenuButton"/> — and reaching into Myra's own click plumbing would tie this to a version
+        /// <see cref="MenuButton(string, Action, out Label)"/> — and reaching into Myra's own click plumbing would tie this to a version
         /// of it. Returns immediately after: the action may swap the screen or tear the session down, and
         /// <see cref="_navEntries"/> is not the same list afterwards.
         /// </summary>
@@ -1733,13 +1733,13 @@ namespace BS3D
         internal Button FrontEndEntry(string text, Action onClick) => FrontEndEntry(text, onClick, out _);
 
         /// <summary>
-        /// A front-end entry: <see cref="MenuButton"/>'s behaviour in the main menu's own larger type, with its
+        /// A front-end entry: <see cref="MenuButton(string, Action, out Label)"/>'s behaviour in the main menu's own larger type, with its
         /// label against the <b>left</b> edge of the slab (#217). Everything that makes it a menu entry rather
         /// than a button — the shared brushes the focus highlight swaps by identity, the click sound, the
         /// <c>Tag</c> the pad activates through — comes from the same <see cref="MenuClickable"/> core, so this
         /// cannot drift away from the entries on every other page.
         /// <para>
-        /// Its own method rather than parameters on <see cref="MenuButton"/>: exactly one page is laid out this
+        /// Its own method rather than parameters on <see cref="MenuButton(string, Action, out Label)"/>: exactly one page is laid out this
         /// way, and an alignment argument on the call every other page makes would be a knob nobody turns. The
         /// slab keeps <see cref="MENU_BUTTON_WIDTH"/> — deliberately, so the front end and a pause read as the
         /// same control differently placed, and because that figure is also what the result screen's score
@@ -1793,7 +1793,7 @@ namespace BS3D
         }
 
         /// <summary>
-        /// A tile-shaped menu entry (#91): <see cref="MenuButton"/>'s behaviour around the caller's own
+        /// A tile-shaped menu entry (#91): <see cref="MenuButton(string, Action, out Label)"/>'s behaviour around the caller's own
         /// content, sized by the caller — the level picker's grid is built out of these. What makes it a menu
         /// entry rather than merely a button is everything <see cref="MenuClickable"/> carries: the shared
         /// brushes the focus highlight swaps by identity, the click sound, and the <c>Tag</c> the pad

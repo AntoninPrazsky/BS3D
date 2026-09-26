@@ -368,15 +368,15 @@ namespace BS3D.Screens
         /// offset every map would hang at its own depth rather than in one frame.
         /// </para>
         /// <para>
-        /// X and Z correct the residual half-unit <see cref="BallsMap.Center"/> can leave behind. It offsets
-        /// by the top level's bounding-box <i>half-extent</i> less a ball radius, which lands on the origin
-        /// only when that level is one of the shifted (odd-index) ones and its cells start at index 0 — an
-        /// <b>odd</b> field tops out on an unshifted level, whose cells run 0…N-1 rather than 0.5…N-0.5, and
-        /// the whole cluster then hangs half a unit off the axis the gun orbits and the camera looks down.
-        /// That used to be a rule the hard-coded field had to satisfy by hand; a level file is authored
-        /// elsewhere and cannot be held to it (One.json is fifteen levels deep), so the residual is measured
-        /// off the centred top level and folded in here instead. Both halves ride the one vector the physics
-        /// builder and the contact handler already take, so no new frame crossing is introduced.
+        /// X and Z put the middle of the field's top level on the axis the gun orbits and the camera looks
+        /// down, correcting the residual <see cref="BallsMap.Center"/> leaves behind (it centres on the top
+        /// level's <i>balls</i>, not on the field). The residual is measured off the centred top level rather
+        /// than assumed, because a level file is authored elsewhere and cannot be held to a rule about where
+        /// its layout sits. <see cref="Prazsky.BS3D.Levels.ClusterHang.FitWorldOffset"/> computes both halves
+        /// and carries the full account, including how large the residual was before #561. Both halves ride
+        /// the one vector the physics builder and the contact handler already take, so no new frame crossing
+        /// is introduced.
+        /// </para>
         /// </summary>
         private Vector3 _clusterWorldOffset;
 
@@ -590,7 +590,6 @@ namespace BS3D.Screens
         /// 35 % opaque and the emissive is added over the sky behind it — so this is bright enough to read as
         /// the glass lighting up rather than as the sky changing.
         /// </para>
-        /// </summary>
         /// <para>
         /// <b>Deep blue and not a bright one.</b> The first pairing carried enough green (2.2 against the
         /// blue's 6) to come out cyan-white over a lit sky, which reads as the glass being <i>blown out</i>
@@ -598,6 +597,7 @@ namespace BS3D.Screens
         /// end. Nearly all the green is gone, and the blue keeps the level it needs to be seen through a
         /// 35 %-opaque plate.
         /// </para>
+        /// </summary>
         private static readonly Vector3 CEILING_FEED_COLOR = new(0.04f, 0.5f, 5f);
 
         /// <summary>The flat colour the cluster's ripple carries, as opposed to the plate's own emissive.</summary>
@@ -1064,18 +1064,19 @@ namespace BS3D.Screens
         /// </summary>
         private readonly AimBeam _aimBeam;
 
-        /// <summary>
-        /// The muzzle round's coloured halo — what says "this one, right now" since #236, in place of the white
-        /// ripple #175 used to breathe on the ball itself. See <c>MuzzleGlowStrength</c>.
-        /// </summary>
+        //The muzzle round's coloured mark — what says "this one, right now" since #236, in place of the white
+        //ripple #175 used to breathe on the ball itself — was a halo round the round until #425 and is the
+        //muzzle collar now, which keeps no state here: see MuzzleGlowStrength and DrawMuzzleCollar.
 
         /// <summary>Where the beam starts. Stored rather than recomputed in <c>Draw</c>, so the line, the ghost and the shot cannot disagree about where the bore is.</summary>
         private Vector3 _previewMuzzle;
 
         /// <summary>
-        /// Slot 0's world position as the magazine was collected this frame — the centre the halo is drawn
+        /// Slot 0's world position as the magazine was collected this frame — the centre the halo was drawn
         /// concentric with (#236). Stored for the same reason <see cref="_previewMuzzle"/> is: the ring and the
-        /// ball it rings must not be able to disagree, and they would if each asked <c>Magazine.Pose</c> itself.
+        /// ball it rang must not be able to disagree, and they would if each asked <c>Magazine.Pose</c> itself.
+        /// <b>Written every frame and read by nothing since #425</b>, which replaced the halo with the muzzle
+        /// collar drawn in the barrel's own pose.
         /// </summary>
         private Vector3 _muzzleBallPosition;
 

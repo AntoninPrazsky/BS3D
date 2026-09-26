@@ -74,7 +74,7 @@ namespace BS3D.Effects
 
         public float FieldOfView { get; private set; }
 
-        /// <summary>The dutch tilt, in radians, for <see cref="RecoilCamera.BaseRoll"/>.</summary>
+        /// <summary>The dutch tilt, in radians, for <see cref="Prazsky.Core.Camera.RecoilCamera.BaseRoll"/>.</summary>
         public float Roll { get; private set; }
 
         #endregion

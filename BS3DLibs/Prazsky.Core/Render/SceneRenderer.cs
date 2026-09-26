@@ -3563,7 +3563,7 @@ namespace Prazsky.Core.Render
         /// one's per-variant instance matrices. Palms are planted only on <b>dry</b> sand (a height test
         /// against the water level, which follows the wiggling waterline) and rocks only in the band
         /// straddling it, so a shore edit re-plants the whole scatter — the same contract
-        /// <see cref="BuildAcaciaBuffers"/> holds. Clumped around cluster centres with a few solos, kept
+        /// <see cref="BuildSavannaScatter"/> holds. Clumped around cluster centres with a few solos, kept
         /// out of each other by <see cref="ScatterSpacing"/>'s rule; the palms share one occupancy list,
         /// the rocks keep their own (a boulder at a palm's foot is what a beach looks like — the forest's
         /// own split). Deterministic seed, so the same config always gives the same beach.
@@ -4281,10 +4281,10 @@ namespace Prazsky.Core.Render
         /// <summary>The icesheet's height at a world point, for a lens path over it: <see cref="TerrainMirror.Polar"/> on the live config.</summary>
         public float PolarGroundHeight(float x, float z) => TerrainMirror.Polar(x, z, _polarConfig);
 
-        /// <summary>How deep into a crevasse slot a point stands, 0–1: <see cref="TerrainMirror.PolarCrevasse"/> on the live config.</summary>
+        /// <summary>How deep into a crevasse slot a point stands, 0–1: <see cref="TerrainMirror.PolarCrevasse(float, float, PolarSceneConfig)"/> on the live config.</summary>
         public float PolarCrevasse(float x, float z) => TerrainMirror.PolarCrevasse(x, z, _polarConfig);
 
-        /// <summary>How much of the pressure front stands at a point, 0–1: <see cref="TerrainMirror.PolarRidge"/> on the live config.</summary>
+        /// <summary>How much of the pressure front stands at a point, 0–1: <see cref="TerrainMirror.PolarRidge(float, float, PolarSceneConfig)"/> on the live config.</summary>
         public float PolarRidgeAt(float x, float z) => TerrainMirror.PolarRidge(x, z, _polarConfig);
 
         #endregion
@@ -6566,7 +6566,7 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// The savanna's own casters (#469): every bucket of the scatter and the ring of hearth stones,
         /// through <c>Acacia.fx</c>'s <c>ShadowCaster</c> technique. Puts the main technique back on the way
-        /// out, the way <see cref="InstancedModelRenderer.DrawDepth"/> does.
+        /// out, the way <see cref="InstancedModelRenderer.DrawDepth(Matrix, ModelInstance[], int)"/> does.
         /// </summary>
         private void DrawSavannaShadowCasters()
         {

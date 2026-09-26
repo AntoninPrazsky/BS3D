@@ -307,13 +307,6 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// The grid of tiles, in the scroller both shapes of the page keep. <b>The chaptered page does not
-        /// scroll in practice</b> — ten tiles in two rows sit well inside what <see cref="CHAPTER_SURROUNDINGS"/>
-        /// leaves, so no bar appears — but the scroller stays, because a chapter is as long as an author makes
-        /// it and a set with thirty in one run must still be reachable. It costs nothing when it is not needed
-        /// and it is what the pad's own scroll-into-view (#245) hangs off.
-        /// </summary>
-        /// <summary>
         /// How wide the grid comes out, in design units: the tiles and the gaps between them as
         /// <see cref="BuildGrid"/> lays them out (the tile's width is fitted, the gap is fitted, #496). The
         /// detail line under the grid is cut to this so it can never widen the plate (#539).
@@ -324,6 +317,13 @@ namespace BS3D.Screens
             return columns * Fit(TILE_WIDTH) + (columns - 1) * Fit(26);
         }
 
+        /// <summary>
+        /// The grid of tiles, in the scroller both shapes of the page keep. <b>The chaptered page does not
+        /// scroll in practice</b> — ten tiles in two rows sit well inside what <see cref="CHAPTER_SURROUNDINGS"/>
+        /// leaves, so no bar appears — but the scroller stays, because a chapter is as long as an author makes
+        /// it and a set with thirty in one run must still be reachable. It costs nothing when it is not needed
+        /// and it is what the pad's own scroll-into-view (#245) hangs off.
+        /// </summary>
         private ScrollViewer BuildGrid(int count)
         {
             int columns = _chaptered ? CHAPTER_COLUMNS : TILE_COLUMNS;
@@ -771,11 +771,6 @@ namespace BS3D.Screens
         internal override void OnScrollWheel(int delta) => TurnChapter(delta > 0 ? 1 : -1);
 
         /// <summary>
-        /// Re-reads what has moved since the page was last up: a level cleared elsewhere raises the star total,
-        /// which can open tiles and change their bottom lines — while the tree they are written onto only
-        /// changes on a resize.
-        /// </summary>
-        /// <summary>
         /// Takes the backdrop's framing while this page is up (#472): the cluster lifted clear of the band
         /// of tiles, and the flight held on its wide leg so every tile is previewed from the same
         /// establishing turn instead of from inside the balls.
@@ -802,6 +797,11 @@ namespace BS3D.Screens
             backdrop.HoldWideLeg = hold;
         }
 
+        /// <summary>
+        /// Re-reads what has moved since the page was last up: a level cleared elsewhere raises the star total,
+        /// which can open tiles and change their bottom lines — while the tree they are written onto only
+        /// changes on a resize.
+        /// </summary>
         internal override void Refresh()
         {
             //The tree may not exist yet: the page is only built when it is first shown

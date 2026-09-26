@@ -26,7 +26,7 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// How much of the mesh's radial irregularity this ring takes, 0 to 1. Two lathes that share an
         /// edge must agree here as well as on the radius and height, or the seam opens (see
-        /// <see cref="Irregularity"/>).
+        /// <see cref="LatheMesh.Irregularity"/>).
         /// </summary>
         public readonly float Wobble;
 

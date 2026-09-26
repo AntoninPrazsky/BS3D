@@ -151,6 +151,7 @@ namespace BS3D.Tools.LevelGen
         /// colour rule that is nothing but reading what is coming. <see cref="Crown"/>, <see cref="Horn"/>,
         /// <see cref="Helix"/> and <see cref="Lean"/> are each tall — or, in Crown's case, deliberately not —
         /// in a way this one is not.
+        /// </para>
         /// <para>
         /// It <b>opens</b> the block since #206, where it was its middle level. Being the plainest of them is
         /// what qualifies it: the chapter's premise is a layout deeper than the camera frames, and this states

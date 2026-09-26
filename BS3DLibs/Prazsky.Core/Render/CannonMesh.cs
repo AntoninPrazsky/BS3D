@@ -15,7 +15,7 @@ namespace Prazsky.Core.Render
     /// swell, slim chase, a girdle ring ahead of the trunnions, the reinforce taper thickening towards the
     /// base ring, and the breech band the dome springs from.
     /// <para>
-    /// The window deliberately stops <paramref name="chamberDepth"/> short of the breech face, and behind
+    /// The window deliberately stops <c>chamberDepth</c> short of the breech face, and behind
     /// that face the dome hides a chamber cavity of the same depth: together they are where the freshest
     /// round waits out the post-shot glide (<c>Prazsky.BS3D.Magazine</c> parks it there — see
     /// <c>CannonRig.CHAMBER_DEPTH</c>), which is what an <i>open</i> breech used to be for. The slot's cut

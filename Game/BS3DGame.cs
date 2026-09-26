@@ -1747,19 +1747,6 @@ namespace BS3D
         }
 
         /// <summary>
-        /// Which entry the <c>level=</c> argument names: a <b>1-based place</b> in the set, as the title bar
-        /// numbers it and the picker lists it, or a <b>name</b> — either the entry's own or its file's, matched
-        /// case-insensitively. Out of range or unrecognised falls back to the first level and says so on a
-        /// <c>[levels]</c> line, the same leniency the rest of the command line takes: a diagnostic must never
-        /// be the reason a scripted run fails to start.
-        /// </summary>
-        /// <summary>
-        /// Which entry the front end's backdrop should hang, or <c>null</c> for the roll a player gets — the
-        /// <c>preview=</c> argument, resolved the way <see cref="ResolveStartupLevel"/> resolves
-        /// <c>level=</c>. Asked on every roll rather than resolved once, which costs a walk of the set on an
-        /// event that happens when a player returns to the menu and is what keeps this a one-liner.
-        /// </summary>
-        /// <summary>
         /// What every ball is to be drawn as whatever its level says — the <c>balls=</c> argument (#258) — or
         /// <c>null</c> for each map in the material it is authored in, which is what a player gets. The front
         /// end's preview and a played session both consult it, so one run photographs both places in one style.
@@ -1772,6 +1759,12 @@ namespace BS3D
         /// </summary>
         internal BallStyle? BallStyleOverride { get; }
 
+        /// <summary>
+        /// Which entry the front end's backdrop should hang, or <c>null</c> for the roll a player gets — the
+        /// <c>preview=</c> argument, resolved the way <see cref="ResolveStartupLevel"/> resolves
+        /// <c>level=</c>. Asked on every roll rather than resolved once, which costs a walk of the set on an
+        /// event that happens when a player returns to the menu and is what keeps this a one-liner.
+        /// </summary>
         internal int? PinnedPreviewLevel =>
             _startupPreview == null ? null : ResolveStartupLevel(_startupPreview);
 
@@ -1815,6 +1808,13 @@ namespace BS3D
             }
         }
 
+        /// <summary>
+        /// Which entry the <c>level=</c> argument names: a <b>1-based place</b> in the set, as the title bar
+        /// numbers it and the picker lists it, or a <b>name</b> — either the entry's own or its file's, matched
+        /// case-insensitively. Out of range or unrecognised falls back to the first level and says so on a
+        /// <c>[levels]</c> line, the same leniency the rest of the command line takes: a diagnostic must never
+        /// be the reason a scripted run fails to start.
+        /// </summary>
         private int ResolveStartupLevel(string level)
         {
             int count = LevelCount;

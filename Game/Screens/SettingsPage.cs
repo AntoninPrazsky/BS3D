@@ -340,6 +340,7 @@ namespace BS3D.Screens
         /// <see cref="MenuPage.FontSection"/> now — the display face at 96, above the rows and well under the
         /// page heading's 124, which it shares a screen with and must not compete against.
         /// </para>
+        /// </summary>
         /// <param name="first">Whether it heads its column. A later heading takes
         /// <see cref="GROUP_HEADING_GAP"/> of air above it to break from the group before.</param>
         private void AddGroupHeading(Grid grid, int row, string text, bool first)

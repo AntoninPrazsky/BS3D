@@ -1020,17 +1020,11 @@ namespace Testbed
         }
 
         /// <summary>
-        /// Derives the scene lighting from the current sky dome (issue #39): every object receives hemisphere
-        /// ambient (zenith colour from above, horizon colour from below) and the tinted three-light rig, so
-        /// every sky dome gives the whole scene its own mood. The derivation itself is
-        /// <see cref="SkyLightRig"/>'s since #75 — it stood here and in the game and in the map editor, palette
-        /// decode, scale factors, tints and scene override alike.
-        /// </summary>
-        /// <summary>
         /// Puts the sky the current scene asks for over it (#221), unless a loaded level overrides it. The
-        /// scene's answer is read off the shared <see cref="SceneConfig"/> — the same object the game reads
-        /// and the map editor edits live — so a scene's weather cannot be one thing in one executable and
-        /// another somewhere else, which is the loop #44 closed for scene looks and this closes for skies.
+        /// scene's answer is read off the shared <see cref="SceneConfig"/> — the same object the game and the
+        /// map editor read (the editor tuned it live until #522) — so a scene's weather cannot be one thing in
+        /// one executable and another somewhere else, which is the loop #44 closed for scene looks and this
+        /// closes for skies.
         /// </summary>
         /// <param name="levelWeather">The level file's word, or null. An unrecognised one is null too, so a
         /// typo leaves the scene's own weather standing rather than throwing.</param>
@@ -1054,6 +1048,13 @@ namespace Testbed
             if (immediately) _clouds.SetWeatherImmediately(preset); else _clouds.SetWeather(preset);
         }
 
+        /// <summary>
+        /// Derives the scene lighting from the current sky dome (issue #39): every object receives hemisphere
+        /// ambient (zenith colour from above, horizon colour from below) and the tinted three-light rig, so
+        /// every sky dome gives the whole scene its own mood. The derivation itself is
+        /// <see cref="SkyLightRig"/>'s since #75 — it stood here and in the game and in the map editor, palette
+        /// decode, scale factors, tints and scene override alike.
+        /// </summary>
         private void ApplySkyLighting()
         {
 #if DEBUG
@@ -1226,17 +1227,6 @@ namespace Testbed
             SetScene(SceneRenderer.NextScene(_scene));
         }
 
-        /// <summary>
-        /// Stands the Testbed in a named scene at runtime — what <see cref="SwitchScene"/> does once it has
-        /// worked out which scene is next, split out in #374 so <c>alt=scene=…</c> reaches the same three
-        /// steps rather than a second copy of them. Everything below the assignment is why a scene change is
-        /// not just a field: the rig has to be re-derived and the sky it stands under applied.
-        /// </summary>
-        /// <param name="immediately">
-        /// Snap the weather instead of fading it. A person cycling with NumPad2 wants one sky closing over
-        /// into the next; an alternating measurement must not, because a fade is state carried across the
-        /// switch and the window after it would be measuring the transition rather than the scene.
-        /// </param>
         /// <summary>Re-runs the city generator when the scene crosses between the two cities, and nothing
         /// otherwise. The roofs and the streets follow through their own <c>Rebuild</c>.</summary>
         private void EnsureCityLayout(bool neon)
@@ -1249,6 +1239,17 @@ namespace Testbed
             _streets.Rebuild(_city);
         }
 
+        /// <summary>
+        /// Stands the Testbed in a named scene at runtime — what <see cref="SwitchScene"/> does once it has
+        /// worked out which scene is next, split out in #374 so <c>alt=scene=…</c> reaches the same three
+        /// steps rather than a second copy of them. Everything below the assignment is why a scene change is
+        /// not just a field: the rig has to be re-derived and the sky it stands under applied.
+        /// </summary>
+        /// <param name="immediately">
+        /// Snap the weather instead of fading it. A person cycling with NumPad2 wants one sky closing over
+        /// into the next; an alternating measurement must not, because a fade is state carried across the
+        /// switch and the window after it would be measuring the transition rather than the scene.
+        /// </param>
         private void SetScene(SceneKind scene, bool immediately = false)
         {
             _scene = scene;
@@ -1767,9 +1768,9 @@ namespace Testbed
         /// <summary>
         /// Rebuilds the overlay's own lines if they are stale, called once per frame from <see cref="Update"/>.
         /// <para>
-        /// The <see cref="InfoRenderer.Visible"/> test comes <b>before</b> the flag is cleared on purpose: with
-        /// the overlay hidden (F12) the counts are simply not computed, and the dirt is left standing so the
-        /// first frame after F12 brings it back states the truth instead of whatever the line last said.
+        /// The <see cref="DrawableGameComponent.Visible">InfoRenderer.Visible</see> test comes <b>before</b> the
+        /// flag is cleared on purpose: with the overlay hidden (F12) the counts are simply not computed, and the
+        /// dirt is left standing so the first frame after F12 brings it back states the truth instead of whatever the line last said.
         /// </para>
         /// <para>
         /// <b>The scene, the dome and the material are here rather than in the key hints above</b> (#376). A

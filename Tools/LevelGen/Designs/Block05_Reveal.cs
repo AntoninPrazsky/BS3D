@@ -21,7 +21,7 @@ namespace BS3D.Tools.LevelGen
         /// <see cref="SphereDistance"/> is true 3D distance from the sphere's own centre, with the level
         /// index scaled by <c>1/sqrt(2)</c> to match <c>BallsMap.GetRealPosition</c>'s vertical spacing - a
         /// radius built from <c>i</c> and <c>r</c> untouched comes out an egg, stretched along Y, because a
-        /// level is not one lattice unit tall. <see cref="Depth"/> and the field's own centre are chosen so
+        /// level is not one lattice unit tall. <see cref="Design.Depth"/> and the field's own centre are chosen so
         /// the sphere's north and south poles land exactly on the layout's top and bottom levels.
         /// </para>
         /// <para>
@@ -560,6 +560,7 @@ namespace BS3D.Tools.LevelGen
         /// takes a while to shoot down the magenta squares on the ceiling."</i> At three the squares are the
         /// spire grid - nine of them, one stalactite each - so the roof comes down with the spires and the
         /// level ends on its own release rhythm instead of trailing off into pot-shots.
+        /// </para>
         /// <para>
         /// Gate watch: the unshot sag test was the first thing run, the twelve-level one-cell walls being
         /// the batch's nearest thing to the Ziggurat's eight-second death - they hold, the corners doing

@@ -8,7 +8,7 @@ namespace BS3D.Audio
     /// smoother than a straight line. It is a multiplier over the authored volume and the player's gain, so a
     /// fade and a settings change cannot fight over one <c>Volume</c> property.
     /// <para>
-    /// Its own file since #443, because three players share it: <see cref="GameMusic"/> (the theme's retiring
+    /// Its own file since #443, because three players share it: <c>GameMusic</c> (the theme's retiring
     /// chain, the menu loop, and yielding to the About page's player), <see cref="ProceduralMusic"/> (the
     /// fanfare), and <c>Tools/MusicBake</c>, which compiles the latter as source and therefore this with it.
     /// </para>

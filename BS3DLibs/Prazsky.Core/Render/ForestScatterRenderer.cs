@@ -35,7 +35,7 @@ namespace Prazsky.Core.Render
     /// <para>
     /// <b>The per-draw tints are encoded once and cached</b>, which is the one thing the hoist changes rather
     /// than moves. The Game rebuilt all twenty-five of them on every frame the forest was on screen — a
-    /// <c>GetSceneConfig</c> plus a <c>ToVector3</c> per kind and a <see cref="ColorSpace.LinearToSrgb"/> per
+    /// <c>GetSceneConfig</c> plus a <c>ToVector3</c> per kind and a <see cref="ColorSpace.LinearToSrgb(Vector3)"/> per
     /// variant — for values nothing can change once the wood is built. So the config is read at construction
     /// and nowhere else: a scene's config is fixed in code, and the one thing that used to edit one at runtime
     /// (the map editor's live panel, which this component grew a <c>Replant</c> for) went in #522.
@@ -323,7 +323,7 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// The same eight kinds drawn again from the sun, into the shadow map <c>SceneRenderer.DrawShadowMaps</c>
         /// has bound (#471): depth only, no material and no light, through
-        /// <see cref="InstancedModelRenderer.DrawDepth"/> and <c>InstancedModel.fx</c>'s <c>InstancedDepth</c>
+        /// <see cref="InstancedModelRenderer.DrawDepth(Matrix, ModelInstance[], int)"/> and <c>InstancedModel.fx</c>'s <c>InstancedDepth</c>
         /// technique. The densest scatter in the project is the one whose shadow matters most — a wood where
         /// every trunk stands on evenly lit floor is what #469 was opened about, in another scene.
         /// <para>

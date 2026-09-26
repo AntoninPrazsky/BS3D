@@ -353,11 +353,11 @@ namespace BS3D.Screens
 
         /// <summary>
         /// What is left of <see cref="MUZZLE_GLOW_BASE"/> once precise aim is fully leaned in (#321) — the
-        /// floor, never zero. The halo is the one place the <i>next colour</i> is stated in 3D, since #236's
-        /// ruling is that a loaded round does not pulse on its own shading, so switching it off would take a
-        /// signal away rather than move it. What lets it come down this far instead is that the HUD's magazine
-        /// strip states the same colour in 2D and is on screen throughout: in this mode the halo may be a mark
-        /// rather than an announcement.
+        /// floor, never zero. The muzzle collar (the halo until #425) is the one place the <i>next colour</i> is
+        /// stated in 3D, since #236's ruling is that a loaded round does not pulse on its own shading, so
+        /// switching it off would take a signal away rather than move it. What lets it come down this far instead
+        /// is that the HUD's magazine strip states the same colour in 2D and is on screen throughout: in this
+        /// mode the collar may be a mark rather than an announcement.
         /// </summary>
         private const float MUZZLE_GLOW_ADS_STRENGTH = 0.3f;
 
@@ -370,8 +370,8 @@ namespace BS3D.Screens
         //was about how loud the mark is and a mark on the gun can still be too loud.
 
         /// <summary>
-        /// The halo the muzzle round carries this frame, or zero when no shot would leave the barrel at all —
-        /// which <see cref="BallGlow.Draw"/> reads as "draw nothing", so the gate lives in one place.
+        /// How strongly the muzzle collar glows this frame, or zero when no shot would leave the barrel at all —
+        /// which <c>CannonRig.DrawMuzzleCollar</c> reads as "draw nothing", so the gate lives in one place.
         /// <para>
         /// The gate is <see cref="_previewBeamVisible"/>, which is exactly the question "would a shot leave the
         /// barrel this instant" — the ghost and the aim beam are drawn on the same answer, and it is refused on
@@ -389,11 +389,11 @@ namespace BS3D.Screens
             if (!_previewBeamVisible) return 0f;
 
             //⚠ THE BREATH IS DAMPED OUT BY THE LEAN, NOT SCALED WITH THE REST OF IT (#321), and the two halves
-            //of the report are two different faults. "Too big" is answered by the radius below; "too loud" is
-            //answered here, and what makes it loud is the MOVEMENT — a disc that pulses at 1.6 Hz over the
-            //cells being read is the one thing in that frame the eye cannot put down, which is precisely why
-            //the breath earns its place in the overview. Leaned in, the halo becomes a steady ring: still
-            //there, still the round's colour, and no longer asking to be looked at.
+            //of the report are two different faults. "Too big" was answered by the halo's radius, which went
+            //with the halo (#425, above); "too loud" is answered here, and what makes it loud is the MOVEMENT —
+            //a mark that pulses at 1.6 Hz is the one thing in that frame the eye cannot put down, which is
+            //precisely why the breath earns its place in the overview. Leaned in, the collar becomes a steady
+            //glow: still there, still the round's colour, and no longer asking to be looked at.
             float lean = _preciseAim.Blend;
 
             float breath = MUZZLE_GLOW_SWING * (1f - lean) * MathF.Sin(MathHelper.TwoPi * MUZZLE_MARK_HZ * WallClock);
@@ -402,20 +402,16 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// Draws the muzzle round's halo. Called from the frame's additive slot — after the balls, so the depth
-        /// buffer already holds the round and the barrel and can carve the ring out of this by itself, and
-        /// before the smears, so a shot's own flare sits over it rather than under.
-        /// <para>
-        /// The reach comes down with the lean (#321) — the third member of the group that consults the mode,
-        /// after the aim beam's opacity and the crosshair's, and the last one that did not. All three are one
-        /// signal handed between two lenses rather than three things competing for the middle of the frame.
-        /// </para>
-        /// </summary>
-        /// <summary>
         /// The muzzle collar in the next round's colour (#425): the gun's own band of steel, glowing at
         /// whatever <see cref="MuzzleGlowStrength"/> says this frame. Drawn with the barrel, opaque, in the
         /// barrel's own pose - so the shape the player reads is the same ring foreshortened at every traverse
         /// and elevation, which is the whole of what this replaced a camera-facing billboard for.
+        /// <para>
+        /// Its strength comes down with the lean (#321) — a member of the group that consults the mode, with
+        /// the aim beam's opacity and the crosshair's: one signal handed between two lenses rather than three
+        /// things competing for the middle of the frame. (The halo it replaced also drew its reach in with the
+        /// lean; a collar on the gun covers nothing the lens is reading, so that half is gone — see above.)
+        /// </para>
         /// </summary>
         private void DrawMuzzleCollar(Matrix barrelWorld) =>
             Game.CannonRig.DrawMuzzleCollar(Camera, barrelWorld, Game.SceneEffectParams,
@@ -470,8 +466,8 @@ namespace BS3D.Screens
                 //NO ball in the barrel carries a ripple any more (#236). Slot 0 used to breathe one — see the
                 //region above for what that was for and why the channel was wrong — and the owner's ruling is
                 //that no loaded round should pulse at all: whatever says "this one, right now" belongs beside
-                //the ball, not on its shading. The halo does it, and the strip in the corner says it again in
-                //2D. What is left here is the transmute's dither, which is a different thing entirely.
+                //the ball, not on its shading. The muzzle collar does it (the halo until #425), and the strip in
+                //the corner says it again in 2D. What is left here is the transmute's dither, which is a different thing entirely.
                 const float mark = 0f;
 
                 //And they do not breathe with the cluster either, which is the other half of that ruling and the
@@ -482,9 +478,9 @@ namespace BS3D.Screens
                 //the gun's, in one place.
                 const bool still = true;
 
-                //Slot 0's world position, kept for the halo drawn later in the frame — stored rather than
-                //recomputed from a second Pose() call, for the reason _previewMuzzle is: the ring and the ball
-                //it rings cannot be allowed to disagree about where the bore is.
+                //Slot 0's world position, kept for the halo that was drawn later in the frame — stored rather
+                //than recomputed from a second Pose() call, for the reason _previewMuzzle is. Nothing has read
+                //it since #425 replaced the halo with the collar, which is drawn in the barrel's own pose.
                 if (i == 0) _muzzleBallPosition = position;
 
                 //A ball whose colour was eliminated from the cluster is re-coloured where it sits, and the two

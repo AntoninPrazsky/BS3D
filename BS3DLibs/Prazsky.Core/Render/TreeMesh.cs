@@ -15,7 +15,7 @@ namespace Prazsky.Core.Render
     /// <b>tiers of branch whorls</b>, each layer a drooping skirt with a shadowed tuck beneath it, because a
     /// spruce's silhouette is its layers and a smooth cone reads as a plastic toy however much it wobbles —
     /// and a <b>broadleaf</b> — a crown of several overlapping <b>leaf lobes</b>, because a deciduous crown is
-    /// a cluster of masses, not one ball. Both are rolled from the <paramref name="seed"/>: tier count, taper,
+    /// a cluster of masses, not one ball. Both are rolled from the <c>seed</c>: tier count, taper,
     /// droop and pinch for the spruce; lobe count, directions and weights for the broadleaf; and the lathe
     /// wobble's phase for every part — so two variants differ in structure, not merely in proportions, which
     /// is what the eye checks when it decides whether a wood is real. The crown of either species spans

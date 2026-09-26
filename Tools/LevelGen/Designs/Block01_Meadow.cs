@@ -227,6 +227,12 @@ namespace BS3D.Tools.LevelGen
         //the player feels.
         private const BallType ONE_CORE_COLOUR = BallType.Type2;
 
+        /// <summary>
+        /// A stepped cone hanging point-down, coloured in concentric rings: a target seen from underneath,
+        /// and a flight of coloured steps seen from the side. Three colours, and the rings are cut into
+        /// sectors — each ring was once one solid shell, a group of dozens waiting for one matching ball to
+        /// touch it, which is exactly what made it a three-shot level (see the colour rule below, #234).
+        /// </summary>
         private static Design Bullseye() => new()
         {
             File = "Three.json",

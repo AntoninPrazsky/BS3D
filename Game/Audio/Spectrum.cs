@@ -4,7 +4,7 @@ namespace BS3D.Audio
 {
     /// <summary>
     /// The one FFT: <c>Tools/MusicBake</c> measures where a piece's energy sits with it, and the About page's
-    /// visualizer (<see cref="ProceduralJukebox"/>) draws bars with it. The tool compiles this file as source,
+    /// visualizer (<c>ProceduralJukebox</c>) draws bars with it. The tool compiles this file as source,
     /// so the two cannot disagree about what a band is.
     /// </summary>
     internal static class Spectrum

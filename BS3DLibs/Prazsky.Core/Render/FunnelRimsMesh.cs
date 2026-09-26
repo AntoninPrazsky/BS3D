@@ -8,7 +8,7 @@ namespace Prazsky.Core.Render
     /// <summary>
     /// The two metal rims of the drain funnel: a flat gold band around the wide top circle and another around
     /// the small bottom hole, in one mesh so a single (gold-metal) renderer draws both. Built in the funnel's
-    /// own local space — the top rim on the plane y = 0, the bottom rim on y = -<paramref name="height"/> — so
+    /// own local space — the top rim on the plane y = 0, the bottom rim on y = -<c>height</c> — so
     /// it shares the funnel's world matrix. Meant to be drawn opaque, before the translucent funnel glass, and
     /// with culling off (which is how <c>ArenaIsland</c> draws it): each band is a zero-thickness ribbon, so
     /// <c>CullNone</c> is what lets the top one read from under the island as well as from above it.

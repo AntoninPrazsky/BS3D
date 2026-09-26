@@ -137,13 +137,6 @@ namespace Prazsky.Core.Render
     }
 
     /// <summary>
-    /// The starfield. Three layers of a cube-face lattice, one star per cell: a coarse layer of bright stars
-    /// (the only one that draws diffraction spikes — its cells are wide enough that a spike cannot run out of
-    /// the one cell the shader samples), a middle layer, and a fine layer of the thousands of faint ones a
-    /// deep sky is actually made of. Cell scale is cells per unit of cube-face chart, so it is a density: the
-    /// count over the whole sphere is roughly <c>6 · (2 · CellScale)² · Chance</c>.
-    /// </summary>
-    /// <summary>
     /// The volume the island floats <b>inside</b>: a folded kaleidoscopic field marched along the view ray from
     /// the camera's own position, so it has parallax and the rest of this scene does not. Every other layer here
     /// is a function of the view direction alone, which is what made the sky read as a painted dome; this is the
@@ -196,6 +189,13 @@ namespace Prazsky.Core.Render
         public Rgb Tint { get; set; } = new(0.78f, 0.72f, 1.05f);
     }
 
+    /// <summary>
+    /// The starfield. Three layers of a cube-face lattice, one star per cell: a coarse layer of bright stars
+    /// (the only one that draws diffraction spikes — its cells are wide enough that a spike cannot run out of
+    /// the one cell the shader samples), a middle layer, and a fine layer of the thousands of faint ones a
+    /// deep sky is actually made of. Cell scale is cells per unit of cube-face chart, so it is a density: the
+    /// count over the whole sphere is roughly <c>6 · (2 · CellScale)² · Chance</c>.
+    /// </summary>
     public sealed class SpaceStarsConfig
     {
         /// <summary>

@@ -72,7 +72,7 @@ namespace BS3D
         /// since vibration is a device state that outlives the frame that asked for it and has to be told to
         /// stop rather than merely left alone.
         /// <para>
-        /// <b>Gated by <see cref="GamePad.GetCapabilities"/> since #516</b> — until then this fired blind: a
+        /// <b>Gated by <see cref="GamePad.GetCapabilities(PlayerIndex)"/> since #516</b> — until then this fired blind: a
         /// connected pad with no vibration motors at all (a wheel, a generic pad through an XInput shim) got
         /// <c>SetVibration</c> on every shot regardless, and a pad with only one motor got told to drive the
         /// other anyway. Read once per call rather than cached, so a pad swapped mid-session is never fed

@@ -118,8 +118,6 @@ namespace Prazsky.Core.Render
         /// <summary>Overall strength of the shafts.</summary>
         public float GodRayStrength { get; set; } = 0.9f;
 
-        /// <summary>The drifting motes' colour (linear, at the glare threshold's edge — they read through
-        /// their slow motion, not through bloom).</summary>
         /// <summary>
         /// The glowworms' colour (linear radiance, #507): a constellation of points on the cave's ceiling, which
         /// is what every photograph of a living cave has and what this one read as missing — the crystals only
@@ -128,6 +126,8 @@ namespace Prazsky.Core.Render
         /// </summary>
         public Rgb GlowwormColor { get; set; } = new(0.35f, 1.30f, 1.15f);
 
+        /// <summary>The drifting motes' colour (linear, at the glare threshold's edge — they read through
+        /// their slow motion, not through bloom).</summary>
         public Rgb SporeColor { get; set; } = new(0.30f, 0.42f, 0.20f);
 
         /// <summary>Peak brightness of a mote's core.</summary>

@@ -427,8 +427,8 @@ namespace Prazsky.BS3D
         /// <summary>
         /// The lens for a stand-off, from the pieces rather than from a <see cref="Cannon"/>: the field's centre
         /// at ground level, back along the bearing, and up to <see cref="CAMERA_HEIGHT"/> relative to the
-        /// trunnions. The public <see cref="CameraPosition"/> and the solve both come through here so the
-        /// expression cannot drift into two versions.
+        /// trunnions. The public <see cref="CameraPosition(Cannon, float, Vector3)"/> (which the two-argument
+        /// overload calls) and the solve both come through here so the expression cannot drift into two versions.
         /// </summary>
         private static Vector3 LensPositionAt(Vector3 centreGround, Vector3 bearing, float trunnionY, float distance) =>
             centreGround + bearing * distance + Vector3.Up * LensHeightFor(trunnionY);

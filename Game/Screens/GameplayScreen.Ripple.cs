@@ -153,8 +153,8 @@ namespace BS3D.Screens
 
                 if (hops >= RIPPLE_MAX_HOPS) continue;
 
-                //The allocating enumerator, deliberately: this runs once per landing, not once per ball per
-                //frame, which is the case CountOccupiedNeighbors exists to keep clear of it
+                //The struct enumerator, which allocates nothing since #381 (it was a yield-return iterator,
+                //taken here deliberately because this runs once per landing, not once per ball per frame)
                 foreach (XZLevel next in BallsMap.GetNeighboringCells(cell, size))
                 {
                     if (_rippleHops[next.X, next.Z, next.Level] != 0) continue;

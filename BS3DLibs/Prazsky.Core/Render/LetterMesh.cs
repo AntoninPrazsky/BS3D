@@ -254,7 +254,7 @@ namespace Prazsky.Core.Render
     /// One stroke of a letter's skeleton: either a straight segment or an elliptical arc, in the letter's own
     /// em plane (<c>x</c> right from the left sidebearing, <c>y</c> up from the baseline, <c>z = 0</c>).
     /// <para>
-    /// An arc carries a <b>signed</b> sweep — <see cref="ToAngle"/> may be less than <see cref="FromAngle"/> —
+    /// An arc carries a <b>signed</b> sweep — its end angle may be less than its start (see <see cref="Arc"/>) —
     /// because the direction the pen travels is what an S and a 3 are made of, and reversing one of their two
     /// bowls turns the letter into a spiral. Elliptical rather than circular so a bowl can be wider than it is
     /// tall (D's) or narrower (B's), which is most of what tells one capital's bowl from another's.
@@ -508,8 +508,8 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// How far the pen moves after <paramref name="character"/>, in cap heights, before
-        /// <see cref="TRACKING"/>. Zero for anything this alphabet cannot set, so a caller that has already
+        /// How far the pen moves after <paramref name="character"/>, in cap heights, before the caller's tracking
+        /// (see <see cref="WordWidth"/>). Zero for anything this alphabet cannot set, so a caller that has already
         /// checked <see cref="Supports"/> lays out nothing for it.
         /// </summary>
         public static float Advance(char character)

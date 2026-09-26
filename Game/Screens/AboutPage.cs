@@ -17,8 +17,8 @@ namespace BS3D.Screens
     /// <b>Two columns (#463), on Settings' own pattern</b> (<see cref="SettingsPage"/>'s class remarks explain
     /// why a split beats a scroller): left, what the game is and what it is built on; right, what it was made
     /// with and the score's player, since that is the one thing on this page with a fixed width of its own
-    /// (<see cref="ColumnWidth"/>) that a narrower single column would have had to fight. Every paragraph is
-    /// cut to <see cref="ColumnWidth"/> now rather than a page-specific figure, so the credits text lines up
+    /// (<see cref="MenuPage.ColumnWidth"/>) that a narrower single column would have had to fight. Every paragraph is
+    /// cut to <see cref="MenuPage.ColumnWidth"/> now rather than a page-specific figure, so the credits text lines up
     /// with the player's own widgets and with a button's width everywhere else in the menu — one number
     /// instead of two that could drift apart.
     /// </remarks>
@@ -228,7 +228,7 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// One paragraph of prose, cut to <see cref="ColumnWidth"/> (#463) — the same figure a button and the
+        /// One paragraph of prose, cut to <see cref="MenuPage.ColumnWidth"/> (#463) — the same figure a button and the
         /// player's own widgets are cut to, so a column's text lines up with everything under it instead of
         /// keeping a page-specific width of its own.
         /// </summary>
