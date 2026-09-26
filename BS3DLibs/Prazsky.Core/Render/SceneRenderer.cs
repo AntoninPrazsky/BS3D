@@ -343,7 +343,7 @@ namespace Prazsky.Core.Render
                 _sceneDetail = value;
                 _farField.SceneDetail = value;
 
-                //Selected HERE and not only in ApplyForestParameters, which runs from the constructor and on a
+                //Selected HERE and not only in ApplyForestParameters (ForestBackdrop's since #580), which runs from the constructor and on a
                 //config change and so had already run by the time a host set this — the first wiring set the
                 //property, never re-selected, and drew the full-price floor at every tier while looking
                 //perfectly correct. Caught by making the reduced technique output flat red for one run: the
@@ -369,7 +369,6 @@ namespace Prazsky.Core.Render
         //buffers the config sizes.
         private SeaSceneConfig _seaConfig = new();
         private SavannaSceneConfig _savannaConfig = new();
-        private ForestSceneConfig _forestConfig = new();
         private TropicalSceneConfig _tropicalConfig = new();
         private VolcanoSceneConfig _volcanoConfig = new();
 
@@ -891,24 +890,6 @@ namespace Prazsky.Core.Render
 
         #endregion
 
-        #region Forest
-
-        private readonly Effect _forestEffect;
-        private readonly VertexBuffer _forestVertexBuffer;
-        private readonly IndexBuffer _forestIndexBuffer;
-        private readonly int _forestIndexCount;
-
-        private const int FOREST_GRID_N = 220;
-        private const float FOREST_EXTENT = 1200f;
-
-        //Look/tuning parameters (hills, clearing, forest floor colours, treeline, ambient, haze, wind, needle
-        //relief, floor lumps) live in ForestSceneConfig; read from _forestConfig. Its Trees/Rocks/Stumps
-        //describe the scattered objects, which are ForestScatterRenderer's instanced draws rather than this
-        //scene's (they were the Game's alone until #75) - only TerrainMirror.Forest is shared with them,
-        //so they stand on the floor this shader draws.
-
-        #endregion
-
         #region The backdrops (#580) and what they share
 
         //The scenes that are their own Backdrop class (Render/Scenes), indexed by SceneKind; null for a scene
@@ -928,6 +909,7 @@ namespace Prazsky.Core.Render
         private readonly MarsBackdrop _mars;
         private readonly MountainBackdrop _mountain;
         private readonly MeadowBackdrop _meadow;
+        private readonly ForestBackdrop _forest;
 
         //The device, the full-screen quad, the supersampling factor, the seed offset, the billboard index
         //builder, the terrain grid cache and the island's hole radius, handed to every backdrop.
@@ -1162,11 +1144,10 @@ namespace Prazsky.Core.Render
             _meadow = new MeadowBackdrop(_services, content, _sceneDetail);
             _backdrops[(int)SceneKind.Meadow] = _meadow;
 
-            //--- Forest: a mossy needle-strewn clearing ringed by wooded hills (the eighth scene)
-            _forestEffect = content.Load<Effect>("Shaders/Forest");
-            AcquireGridMesh(FOREST_GRID_N, FOREST_EXTENT, out _forestVertexBuffer, out _forestIndexBuffer, out _forestIndexCount);
-
-            ApplyForestParameters();
+            //--- Forest: its own Backdrop since #580 (Render/Scenes), built here where its code stood; it picks
+            //its program at load, so it is handed the tier the renderer starts at
+            _forest = new ForestBackdrop(_services, content, _sceneDetail);
+            _backdrops[(int)SceneKind.Forest] = _forest;
 
             //--- Space, the dream and the cavern: the ninth, tenth and eleventh scenes, the three sky-replacing
             //full-screen passes. Each is its own Backdrop since #580 (Render/Scenes), built here where its code
@@ -1224,7 +1205,6 @@ namespace Prazsky.Core.Render
             List<Effect> effects = new()
             {
                 _savannaEffect, _acaciaEffect,       //#469's two: the plain and what stands on it
-                _forestEffect,                       //its floor; the trees receive through the shared effect
                 _tropicalEffect, _palmEffect,        //the sand and the palms standing on it
                 _volcanoEffect
             };
@@ -1430,14 +1410,6 @@ namespace Prazsky.Core.Render
                     viewpoint = new SceneViewpoint(SavannaCampfirePosition(0), 1.7f, 11f, 35f, "the campfire");
                     return true;
 
-                //The tree line at crown height, near enough that a trunk is a trunk. The forest's scatter
-                //starts just outside the clearing, so this is where the trees actually are.
-                case SceneKind.Forest:
-                    viewpoint = new SceneViewpoint(
-                        AtBearing(bearing, _forestConfig.ClearingRadius + 45f, _forestConfig.LevelY + 14f),
-                        1.7f, 10f, 0f, "the tree line");
-                    return true;
-
                 //Out over the lagoon to the far shore's ring: the tropical scene is three bands — sand,
                 //turquoise water, green shore — and a look across all three is what it is.
                 //
@@ -1518,7 +1490,6 @@ namespace Prazsky.Core.Render
         {
             SceneKind.Sea => _seaConfig,
             SceneKind.Savanna => _savannaConfig,
-            SceneKind.Forest => _forestConfig,
             SceneKind.Tropical => _tropicalConfig,
             SceneKind.Volcano => _volcanoConfig,
             _ => null,
@@ -2720,7 +2691,6 @@ namespace Prazsky.Core.Render
             {
                 SceneKind.Savanna => (_savannaEffect, (x, z) => TerrainMirror.Savanna(x, z, _savannaConfig)),
                 SceneKind.Tropical => (_tropicalEffect, (x, z) => TerrainMirror.Tropical(x, z, _tropicalConfig)),
-                SceneKind.Forest => (_forestEffect, (x, z) => TerrainMirror.Forest(x, z, _forestConfig)),
                 SceneKind.Volcano => (_volcanoEffect, (x, z) => TerrainMirror.Volcano(x, z, _volcanoConfig)),
                 _ => ((Effect)null, (Func<float, float, float>)null),
             };
@@ -2971,17 +2941,18 @@ namespace Prazsky.Core.Render
             _savannaEffect.CurrentTechnique = _savannaEffect.Techniques[_sceneDetail > 0.5f ? "Savanna" : "SavannaReduced"];
 
         /// <summary>
-        /// Points the forest effect at the full floor or the reduced one. By <b>technique</b> and not by a
+        /// Points every scene that has a reduced program at it or at its full one — the forest's floor first, whose
+        /// measurement this is (ForestBackdrop's pick since #580, with the rest). By <b>technique</b> and not by a
         /// uniform the shader branches on: what the reduced floor gives up is occupancy, and a runtime branch
         /// skips the work while keeping the registers that cost it — measured, a uniform branch saved 0.02 ms
         /// of the 0.60 the separate program saves. See <see cref="SceneDetail"/>.
         /// </summary>
         private void SelectDetailTechniques()
         {
-            SelectForestTechnique();
             SelectSavannaTechnique();
 
-            //The dream's, the cavern's, Mars's, the mountain's and the meadow's picks moved into their backdrops with the rest of them (#580)
+            //The dream's, the cavern's, Mars's, the mountain's, the meadow's and the forest's picks moved into their backdrops
+            //with the rest of them (#580)
             foreach (Backdrop backdrop in _backdrops) backdrop?.OnDetailChanged(_sceneDetail);
 
             //The volcano (#509): the two kinds of hairline the references brought in off the flows - the
@@ -3008,43 +2979,6 @@ namespace Prazsky.Core.Render
         }
 
         private int _volcanoGridN;
-
-        private void SelectForestTechnique() =>
-            _forestEffect.CurrentTechnique = _forestEffect.Techniques[_sceneDetail > 0.5f ? "Forest" : "ForestReduced"];
-
-        private void ApplyForestParameters()
-        {
-            SelectForestTechnique();
-
-            _forestEffect.Parameters["ForestLevelY"].SetValue(_forestConfig.LevelY);
-            _forestEffect.Parameters["HillHeight"].SetValue(_forestConfig.HillHeight);
-            _forestEffect.Parameters["ClearingRadius"].SetValue(_forestConfig.ClearingRadius);
-            _forestEffect.Parameters["ClearingTransition"].SetValue(_forestConfig.ClearingTransition);
-            _forestEffect.Parameters["ClearingRelief"].SetValue(_forestConfig.ClearingRelief);
-            _forestEffect.Parameters["FloorLumpStrength"].SetValue(_forestConfig.FloorLumpStrength);
-            _forestEffect.Parameters["FloorLumpFrequency"].SetValue(_forestConfig.FloorLumpFrequency);
-            _forestEffect.Parameters["ForestColor"].SetValue(_forestConfig.ForestColor.ToVector3());
-            _forestEffect.Parameters["ForestColorDark"].SetValue(_forestConfig.ForestColorDark.ToVector3());
-            _forestEffect.Parameters["LitterColor"].SetValue(_forestConfig.LitterColor.ToVector3());
-            _forestEffect.Parameters["LitterColorDark"].SetValue(_forestConfig.LitterColorDark.ToVector3());
-            _forestEffect.Parameters["EarthColor"].SetValue(_forestConfig.EarthColor.ToVector3());
-            _forestEffect.Parameters["UndergrowthColor"].SetValue(_forestConfig.UndergrowthColor.ToVector3());
-            _forestEffect.Parameters["DryGrassColor"].SetValue(_forestConfig.DryGrassColor.ToVector3());
-            _forestEffect.Parameters["MossCoverage"].SetValue(_forestConfig.MossCoverage);
-            _forestEffect.Parameters["UndergrowthCoverage"].SetValue(_forestConfig.UndergrowthCoverage);
-            _forestEffect.Parameters["DryGrassCoverage"].SetValue(_forestConfig.DryGrassCoverage);
-            _forestEffect.Parameters["MossHeight"].SetValue(_forestConfig.MossHeight);
-            _forestEffect.Parameters["TreelineColor"].SetValue(_forestConfig.TreelineColor.ToVector3());
-            _forestEffect.Parameters["TreelineStrength"].SetValue(_forestConfig.TreelineStrength);
-            _forestEffect.Parameters["AmbientStrength"].SetValue(_forestConfig.AmbientStrength);
-            _forestEffect.Parameters["HorizonHazeDistance"].SetValue(_forestConfig.HorizonHazeDistance);
-            _forestEffect.Parameters["WindDirection"].SetValue(_forestConfig.Wind.ToVector2());
-            _forestEffect.Parameters["WindRippleSpeed"].SetValue(_forestConfig.WindRippleSpeed);
-            _forestEffect.Parameters["WindRippleFrequency"].SetValue(_forestConfig.WindRippleFrequency);
-            _forestEffect.Parameters["WindRippleStrength"].SetValue(_forestConfig.WindRippleStrength);
-            _forestEffect.Parameters["NeedleReliefStrength"].SetValue(_forestConfig.NeedleReliefStrength);
-            _forestEffect.Parameters["NeedleReliefFrequency"].SetValue(_forestConfig.NeedleReliefFrequency);
-        }
 
         /// <summary>
         /// Normalizes a config direction, falling back to <paramref name="fallback"/> for the degenerate zero
@@ -3129,9 +3063,6 @@ namespace Prazsky.Core.Render
                     //of the cone and has to occlude it. Only the ash is an overlay.
                     if ((VolcanoLayers & VolcanoLayer.Terrain) != 0) DrawVolcanoTerrain(frame);
                     DrawLavaFountains(frame);
-                    break;
-                case SceneKind.Forest:
-                    DrawForest(frame);
                     break;
             }
         }
@@ -3780,12 +3711,6 @@ namespace Prazsky.Core.Render
                     above = _savannaConfig.HillHeight + _savannaConfig.Dressing.BaobabHeight * 1.5f;
                     break;
 
-                case SceneKind.Forest:
-                    groundY = _forestConfig.LevelY;
-                    below = _forestConfig.HillHeight * 0.5f;
-                    above = _forestConfig.HillHeight;
-                    break;
-
                 case SceneKind.Tropical:
                     groundY = _tropicalConfig.Terrain.LevelY;
                     below = _tropicalConfig.Terrain.HillHeight * 0.5f;
@@ -4322,39 +4247,6 @@ namespace Prazsky.Core.Render
             _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _seaConfig.Spray.ParticleCount * 2);
 
             _graphicsDevice.DepthStencilState = DepthStencilState.Default;
-            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
-        }
-
-        private void DrawForest(in SceneFrame frame)
-        {
-            float cell = FOREST_EXTENT / (FOREST_GRID_N - 1);
-            float originX = MathF.Round(frame.Camera.Position.X / cell) * cell;
-            float originZ = MathF.Round(frame.Camera.Position.Z / cell) * cell;
-
-            _forestEffect.Parameters["OriginXZ"].SetValue(new Vector2(originX, originZ));
-            _forestEffect.Parameters["IslandHoleRadius"].SetValue(TerrainHoleRadius);
-            _forestEffect.Parameters["View"].SetValue(frame.Camera.View);
-            _forestEffect.Parameters["Projection"].SetValue(frame.Camera.Projection);
-            _forestEffect.Parameters["CameraPosition"].SetValue(frame.Camera.Position);
-            _forestEffect.Parameters["SunDirection"].SetValue(frame.SunDirection);
-            _forestEffect.Parameters["ZenithColor"].SetValue(frame.ZenithLinear);
-            _forestEffect.Parameters["HorizonColor"].SetValue(frame.HorizonLinear);
-            _forestEffect.Parameters["ForestTime"].SetValue(frame.Time);
-            _forestEffect.Parameters["SunColor"].SetValue(frame.SunColor);
-
-            frame.ApplyClouds?.Invoke(_forestEffect);
-
-            _graphicsDevice.BlendState = BlendState.Opaque;
-            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
-
-            _farField.Begin(_forestEffect, frame, FOREST_EXTENT);
-            _graphicsDevice.SetVertexBuffer(_forestVertexBuffer);
-            _graphicsDevice.Indices = _forestIndexBuffer;
-            _forestEffect.CurrentTechnique.Passes[0].Apply();
-            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _forestIndexCount / 3);
-            _farField.DrawRing(_forestEffect, new Vector2(originX, originZ), FOREST_EXTENT);
-
-            _graphicsDevice.BlendState = BlendState.AlphaBlend;
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
         }
 
