@@ -1092,29 +1092,14 @@ namespace Prazsky.BS3D
         //what a landing beside one will do.
         private static readonly int ZAP_REGION_START = BOMB_REGION_START + LodCount;
 
-        //And a SEVENTH, for DEAD WEIGHT (#342): a released ball that has come to rest against its neighbours
-        //instead of falling, so nothing a shot can do reaches it any more. It is a region for the argument the
-        //five above share and for one of its own.
-        //
-        //The shared one: what says a ball is spent is its colour going out of it and its heartbeat stopping,
-        //and both are per-RENDERER — a tint per draw, a PulseDepth per renderer — so it cannot travel on an
-        //instance.
-        //
-        //Its own: it keeps the level's STYLE. A rock, a bomb and a zap each opt out of what the map is made of
-        //and are drawn as their own material; a dead ball is the same vinyl, glass or marble it always was,
-        //with the life taken out of it. So this draw does not touch Shading at all — only the tint and the
-        //pulse — and one glance still tells a spent ball from a rock. Colourless, so LodCount buckets rather
-        //than TYPE_COUNT × LodCount, and never loaded in the cannon, so no still twin.
-        //And an EIGHTH, for the acids of #328, on the bomb's and the zap's argument in full: colourless,
+        //And a SEVENTH, for the acids of #328, on the bomb's and the zap's argument in full: colourless,
         //opaque, never loaded in the cannon, and read by a figure that is a technique plus a set of
         //per-renderer uniforms. Its own region rather than a second use of either, because the three dark
         //specials have to be told apart at a glance — a landing beside one of them does three different
         //things, and a player who cannot name which is looking at a lottery.
         private static readonly int ACID_REGION_START = ZAP_REGION_START + LodCount;
 
-        private static readonly int DEAD_REGION_START = ACID_REGION_START + LodCount;
-
-        //And a NINTH, for the frozen balls of #329 — and it is the first special region that is a PLANE, with
+        //And an EIGHTH, for the frozen balls of #329 — and it is the first special region that is a PLANE, with
         //TYPE_COUNT × LodCount buckets like the two at the front, because a frozen ball has a COLOUR and the
         //five specials before it deliberately have none. That is the whole of the difference and it is the
         //kind's whole point: a rock, a bomb, a zap and an acid each carry a type nothing may read, so one
@@ -1125,9 +1110,9 @@ namespace Prazsky.BS3D
         //It costs thirteen more null references and, in a frame, one draw call per colour actually frozen —
         //which on a level with ice in it is one or two. The buckets are lazy like every other, so a level with
         //no ice pays nothing at all.
-        private static readonly int FROZEN_REGION_START = DEAD_REGION_START + LodCount;
+        private static readonly int FROZEN_REGION_START = ACID_REGION_START + LodCount;
 
-        //And a TENTH, for the sick balls of #331 — a colour PLANE like the frozen one and for its reason: an
+        //And a NINTH, for the sick balls of #331 — a colour PLANE like the frozen one and for its reason: an
         //infectious ball is an ordinary ball of its colour that happens to be sick, it can be matched and shot
         //out like any other, so the player has to be able to read WHICH colour it is in order to plan the shot
         //that kills it. That is the difference between this kind and the four colourless ones, and it is the
@@ -1138,36 +1123,35 @@ namespace Prazsky.BS3D
         //special is that one glance names it.
         private static readonly int INFECTIOUS_REGION_START = FROZEN_REGION_START + STILL_PLANE_STRIDE;
 
-        //And an ELEVENTH, for the gravity wells of #332 — the third colour PLANE, on the frozen ball's and the
+        //And a TENTH, for the gravity wells of #332 — the third colour PLANE, on the frozen ball's and the
         //sick ball's argument in full: a well can be matched and shot out, so which colour it is, is the shot
         //that removes it. The three coloured planes and the four colourless regions now divide the specials
         //exactly along the line #323 drew: a kind whose colour the player may READ needs a bucket per colour,
         //and a kind whose colour nothing may read needs one draw.
         private static readonly int GRAVITY_REGION_START = INFECTIOUS_REGION_START + STILL_PLANE_STRIDE;
 
-        //And a TWELFTH, for the heavy balls of #333 — the fourth colour PLANE, and the line #323 drew still
+        //And an ELEVENTH, for the heavy balls of #333 — the fourth colour PLANE, and the line #323 drew still
         //decides it: a heavy ball is matchable, so shooting it out is the counterplay to its weight and the
         //player has to be able to read which colour does that. It is the last region this file needs for
         //#256's ten kinds.
         private static readonly int HEAVY_REGION_START = GRAVITY_REGION_START + STILL_PLANE_STRIDE;
 
-        //What a dead ball is tinted: a cold, dark ash, well under every one of the thirteen in value. Black's
-        //own tint is 0.045, far under this — but a tint is not a brightness: black is LIT like every other
-        //ball and reads as a dark colour, where this is drawn with the pulse off and reads as a ball nothing
-        //is lighting from within. That is the difference #342 asks for, and the reason this is not a
-        //fourteenth colour.
-        private static readonly Vector3 DEAD_TINT = new(0.62f, 0.64f, 0.68f);
-
-        //How solid a dead ball stays (#412). The ash tint #342 shipped was opaque and the owner played it and
-        //could not read what it was saying; transparency is a different language for the same state and the
-        //one he asked for — a ball you can see the cluster through is a ball that has stopped being part of
-        //it, which is what the mark means. Weak rather than faint: at the glass's own 0.06 a dead ball all but
-        //vanishes, and a ball that is invisible is not a mark, it is a bug report.
-        private const float DEAD_OPACITY = 0.34f;
-
-        //And it gives back a little light of its own, so a dead ball against a dark dome is still there. The
-        //glass's 0.05 reads as nothing on the cavern and the storm.
-        private const float DEAD_EMISSION = 0.12f;
+        //How much of a dead ball is dithered away (#620), at the end of its ease-in. A dead ball keeps its colour
+        //and its level's own material and loses the same thing the landing preview's ghost loses — pixels, in
+        //display-pixel blocks, through the shader's dissolve — which is a language the player has already
+        //learned: "this is a ball that is not really there". Nothing about it is blended, so it needs no sorting
+        //and no second draw; it goes out through its own colour's bucket with a steady dissolve on its instance.
+        //
+        //It is #412's transparency turned round, and the reason is the one the owner gave from play: a see-through
+        //ball is what the clear glass of the transparent kind is, so a player who met a dead ball inside the
+        //first level's pyramid took it for a special and could not say what it did. The colour is what says the
+        //ball is still one of theirs; the missing pixels say it has left the map.
+        //
+        //Not the ghost's 0.5, and steady where the ghost blinks (GameplayScreen's PREVIEW_DISSOLVE and
+        //PREVIEW_BLINK_DEPTH): the two must not be taken for each other, and the ghost's whole job is to swing.
+        //Not much lower either — the ghost's own remarks record that a ball with most of itself intact reads as a
+        //ball that is already there, which is exactly the mistake a dead ball is there to prevent.
+        internal const float DEAD_DISSOLVE = 0.5f;
 
         private readonly ModelInstance[][] _buckets;
         private readonly int[] _counts;
@@ -1260,9 +1244,9 @@ namespace Prazsky.BS3D
 
             //Two planes: the breathing balls, then the still ones (see STILL_PLANE_STRIDE), then a region
             //each for the five kinds that opt out of the level's style — the rocks (ROCK_REGION_START), the
-            //clear glass, the bombs, the zaps and the acids — then the dead weight, which keeps the style and
-            //opts out of the colour instead, and last the frozen PLANE, which opts out of the style and keeps
-            //the colour (#329) and so is sized like the two at the front rather than like the regions between.
+            //clear glass, the bombs, the zaps and the acids — and last the frozen PLANE, which opts out of the
+            //style and keeps the colour (#329) and so is sized like the two at the front rather than like the
+            //regions between.
             //Sized off the LAST of them so a region added without moving this line would index past the end on
             //its first instance rather than draw wrong.
             _buckets = new ModelInstance[HEAVY_REGION_START + STILL_PLANE_STRIDE][];
@@ -1864,12 +1848,6 @@ namespace Prazsky.BS3D
             //composites over the films for the same reason, which is the honest approximation the shell draw
             //already makes among the films themselves (see DrawShell on why nothing here is sorted).
             DrawHollow(camera);
-
-            //And the dead weight LAST, with the glass and for the glass's own reason since #412: it is
-            //transparent now, so everything that should show through it has to be in the target already. Until
-            //#412 it was an opaque ash tint and was drawn with the solids, where a transparent draw would have
-            //composited over nothing.
-            DrawDead(camera);
         }
 
         /// <summary>
@@ -2172,106 +2150,6 @@ namespace Prazsky.BS3D
                 HEAVY_PULSE_SPEED);
 
         /// <summary>
-        /// The dead weight (#342, re-marked in #412): released balls that came to rest instead of falling,
-        /// drawn as a <b>weakly transparent shell of their own</b> with the heartbeat stopped — a ball you can
-        /// see the cluster through is a ball that has stopped being part of it.
-        /// <para>
-        /// ⚠ <b>It shipped as an opaque ash TINT and the owner played it and could not read what it was
-        /// saying.</b> Photographed side by side at the same camera, the reason is plain and it is not a matter
-        /// of taste: the ash reads as <b>stone</b>. It is a grey opaque ball among coloured opaque balls, which
-        /// is exactly what a rock is (<see cref="DrawRocks"/>) — so the one mark that means "this is inert
-        /// scenery" and the one that means "this was yours and is now dead weight" were saying the same thing
-        /// in the same words. Transparency is a different language and collides with nothing: no other ball in
-        /// the game is see-through except the clear glass, which has no colour at all.
-        /// </para>
-        /// <para>
-        /// It borrows the glass's two-wall alpha pass rather than inventing a third transparency
-        /// (<see cref="DrawHollow"/>): the same far-wall-then-near-wall pair, for the same reason — one wall of
-        /// a hollow shell drawn alone reads as a cut-open ball. <b>No shader work at all</b>, which is what
-        /// made this the cheap answer: a per-draw alpha on the ball's own material would have meant a uniform
-        /// and a multiply in all twenty ball techniques.
-        /// </para>
-        /// <para>
-        /// <b>What it gives up is the level's own material</b>, and that is the trade #412 makes knowingly: a
-        /// dead ball was the same vinyl, glass or marble as the rest, which is what used to tell it from a
-        /// rock — and that distinction was the one the owner could not read anyway. Keeping the material AND
-        /// the transparency would mean thirteen buckets instead of one region, and the alpha in every
-        /// technique. One region, one tint, one pair of passes.
-        /// </para>
-        /// <para>
-        /// <b>Drawn last, with the glass and after it</b>, which is the change of order #412 brings: it is
-        /// transparent now, so everything that should show through it has to be in the target already — the
-        /// opaque cluster, the island, the gun, and the clear glass under that. While it was an opaque ash it
-        /// belonged with the solids, where a transparent draw would have composited over nothing.
-        /// </para>
-        /// </summary>
-        private void DrawDead(ICamera camera)
-        {
-            bool any = false;
-            for (int lod = 0; lod < LodCount && !any; lod++) any = _counts[DEAD_REGION_START + lod] > 0;
-
-            //A level with nothing stuck in it — which is most levels, most of the time — never touches a
-            //renderer or a device state for this, so the style stays pushed exactly as it was
-            if (!any) return;
-
-            BlendState blend = _device.BlendState;
-            DepthStencilState depth = _device.DepthStencilState;
-            RasterizerState raster = _device.RasterizerState;
-
-            for (int lod = 0; lod < LodCount; lod++)
-            {
-                InstancedModelRenderer renderer = _renderers[lod];
-
-                renderer.Shading = BallShading.Hollow;
-                renderer.BubbleBodyOpacity = DEAD_OPACITY;
-
-                //It does not breathe, which is the whole point of the mark: the heartbeat is the cluster
-                //saying a ball is part of it, and this one is not (the same rule #473 applies to a released
-                //ball on its way down).
-                renderer.PulseDepth = 0f;
-                renderer.EmissiveStrength = DEAD_EMISSION;
-            }
-
-            _device.BlendState = BlendState.AlphaBlend;
-
-            //The far wall first, tested but not written; then the near one in the ordinary cull, writing
-            //depth. The same pair, for the same reason, as the glass and the bubble: one wall of a hollow
-            //shell drawn alone reads as a cut-open ball.
-            _device.DepthStencilState = DepthStencilState.DepthRead;
-            _device.RasterizerState = RasterizerState.CullClockwise;
-            SetShell(BUBBLE_FAR_WALL);
-            DrawDeadPlane(camera);
-
-            _device.DepthStencilState = DepthStencilState.Default;
-            _device.RasterizerState = RasterizerState.CullCounterClockwise;
-            SetShell(BUBBLE_NEAR_WALL);
-            DrawDeadPlane(camera);
-
-            _device.BlendState = blend;
-            _device.DepthStencilState = depth;
-            _device.RasterizerState = raster;
-
-            ApplyStyle();
-        }
-
-        private void DrawDeadPlane(ICamera camera)
-        {
-            for (int lod = 0; lod < LodCount; lod++)
-            {
-                int bucketIndex = DEAD_REGION_START + lod;
-                int count = _counts[bucketIndex];
-                if (count == 0) continue;
-
-                //Deliberately NOT counted into DrawnCount: this is the second half of a ball already counted
-                //in its colour's bucket, exactly as the glass half of a crossing is (see DrawHollow)
-                _lodTotals[lod] += count;
-
-                _renderers[lod].Draw(camera, _buckets[bucketIndex], count, BasicEffectParamsProvider.Dead,
-                    DEAD_TINT);
-            }
-        }
-
-        /// <summary>
         /// The clear glass of the transparent kind (#325): the two walls of a hollow shell, exactly as
         /// <see cref="DrawShell"/> puts a bubble out, but over one colourless region and whatever the level's
         /// own balls are made of.
@@ -2555,9 +2433,6 @@ namespace Prazsky.BS3D
 
         /// <summary>A live acid (#328) — colourless like the three above, and for the same reason.</summary>
         internal void StoreAcid(int lod, in ModelInstance instance) => StoreAt(ACID_REGION_START + lod, instance);
-
-        /// <summary>Dead weight (#342): the ash half of a released ball's crossing, in the level's own style.</summary>
-        internal void StoreDead(int lod, in ModelInstance instance) => StoreAt(DEAD_REGION_START + lod, instance);
 
         /// <summary>
         /// The frozen plane (#329) — the one special store that takes a <c>typeIndex</c>, because a block of
@@ -2845,16 +2720,17 @@ namespace Prazsky.BS3D
                         break;
                     }
 
-                    //And DEAD WEIGHT is the same crossing pointed at a different second bucket (#342): the
-                    //ball's own colour going out at +d while the ash comes in at -d, so a released ball that
-                    //has stopped fades to spent over half a second instead of switching between two frames.
-                    //It cannot collide with the crossing above — that one lasts a third of a second and runs
-                    //while the ball is still lattice, this one only ever runs on a ball already released —
-                    //and the order here says which wins if a future rule ever puts them on the same frame.
+                    //And DEAD WEIGHT is not a crossing at all since #620: the ball stays in its OWN colour's
+                    //bucket, in its level's own material, with the dither dissolve turned up to DEAD_DISSOLVE as
+                    //its mark eases in — a ball with pixels missing, the landing ghost's language, where #342
+                    //drew a second ash ball into the pixels this one lost and #412 a see-through shell over it.
+                    //Both of those needed a second bucket and a second draw; this needs one number on the
+                    //instance. It cannot collide with the crossings above — they run while a ball is still
+                    //lattice or has just landed, and this only ever runs on a ball already released — and the
+                    //order here says which wins if a future rule ever puts them on the same frame.
                     if (deadWeight > 0f)
                     {
-                        _set.Store(typeIndex, lod, instance.WithDissolve(deadWeight), still);
-                        _set.StoreDead(lod, instance.WithDissolve(-deadWeight));
+                        _set.Store(typeIndex, lod, instance.WithDissolve(deadWeight * BallRenderSet.DEAD_DISSOLVE), still);
                         break;
                     }
 
