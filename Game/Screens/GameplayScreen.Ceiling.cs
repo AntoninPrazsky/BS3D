@@ -10,16 +10,18 @@ using System;
 namespace BS3D.Screens
 {
     /// <summary>
-    /// <b>The ceiling and its pressure</b> — the kinematic body the whole cluster hangs from, and the state
-    /// machine that walks it down: a step is queued, held, gated behind any cinematic already running, slid,
-    /// flashed, and rippled through the cluster.
+    /// <b>The ceiling and its pressure</b> — the kinematic body the whole cluster hangs from, and what a step of
+    /// its descent does to the world: the wake, the ripple through the cluster, the sound, the rumble and the
+    /// tutorial card. The state machine that walks it down — a step queued, held, gated behind any cinematic
+    /// already running, slid and flashed — is <see cref="CeilingDescent"/>'s since #582.
     /// </summary>
     /// <remarks>
-    /// It is deliberately one sequence in one place rather than a flag per stage — the stages exist because a
-    /// step must not land in the middle of a spectacle the player earned, and that is only readable end to
-    /// end. The wake pass is part of it: a body Bepu has put to sleep does not answer a kinematic move, so a
+    /// The sequence is deliberately one state machine in one place rather than a flag per stage — the stages
+    /// exist because a step must not land in the middle of a spectacle the player earned, and that is only
+    /// readable end to end, which is why it moved out whole into <see cref="CeilingDescent"/> (#582). The wake
+    /// pass stays here with the body: a body Bepu has put to sleep does not answer a kinematic move, so a
     /// descent that arrives while the cluster is asleep has to wake it first (#78). Split out of
-    /// <c>GameplayScreen.cs</c> in #72, and the first candidate for a real extraction.
+    /// <c>GameplayScreen.cs</c> in #72.
     /// </remarks>
     internal sealed partial class GameplayScreen
     {
@@ -37,7 +39,7 @@ namespace BS3D.Screens
             TypedIndex shape = _world.Simulation.Shapes.Add(box);
 
             BodyHandle handle = _world.Simulation.Bodies.Add(BodyDescription.CreateKinematic(
-                new System.Numerics.Vector3(0f, _ceilingY, 0f),
+                new System.Numerics.Vector3(0f, _ceilingDescent.Y, 0f),
                 new CollidableDescription(shape, 0.1f),
                 new BodyActivityDescription(PhysicsWorld.SLEEP_THRESHOLD)));
 
@@ -82,52 +84,30 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// Begins one step of the ceiling's descent: lowers the target by <see cref="CEILING_DESCENT_PER_STEP"/>,
-        /// clamped at the death line so an overlong level cannot drive the glass through the gun. The body itself
-        /// does not move here — <see cref="SlideCeiling"/> slides it to the target, which is what keeps a
-        /// hundred constrained bodies from being jerked in a single write.
+        /// Announces a step <see cref="CeilingDescent.Update"/> has just begun — everything a step does besides
+        /// moving the glass, which <see cref="CeilingDescent"/> owns. The plate is about to be moved by writing its
+        /// pose, so this wakes it first; then the wave, the sound, the rumble, the tutorial card and the log line.
         /// </summary>
+        /// <param name="feeding">Whether the step is one the tall-level feed asked for rather than the pressure.</param>
         /// <param name="waited">
         /// Seconds the step spent queued before it was let go — on the line because it is the one figure that
         /// says whether the deferral did anything, and a step that waited seconds is one that sat out a drop
-        /// cinematic (see <see cref="ReleaseCeilingStep"/>).
+        /// cinematic (see <see cref="CeilingDescent.Update"/>).
         /// </param>
-        private void StartCeilingDescent(float waited)
+        private void AnnounceCeilingStep(bool feeding, float waited)
         {
-            //No target to reach if the glass is already as low as it can go — further steps would be a no-op and
-            //a needless log, and clamping here is what stops an inconsistent level (more steps than the geometry
-            //allows) from scraping the body past the death line.
-            if (_ceilingTargetY <= CEILING_DEATH_Y) return;
-
-            _ceilingTargetY = MathF.Max(CEILING_DEATH_Y, _ceilingTargetY - CEILING_DESCENT_PER_STEP);
-            _ceilingDescending = true;
-
             //The plate is about to be moved by writing its pose, and both it and the cluster are very likely
             //asleep — measured asleep, in fact, on a step that came due over a settled cluster (#78)
             WakeForDescent();
 
-            //The descent itself is a slow slide of a translucent plate against a sky, which is very nearly
-            //invisible while the player is watching the cluster — the pressure the whole rule exists to apply
-            //was arriving unnoticed. So the glass says it: it lights up, and drives a wave down through every
-            //ball hanging on it.
-            //
-            //In WHICH colour is the difference between a threat and a reward. A step the shot count forced is
-            //the pressure and burns red. A step the FEED asked for is a tall level handing over more of its
-            //column because the player just cleared a great deal of it — nothing has gone wrong, and a red
-            //flash there tells them off for playing well. Feed steps are spent first, so a landing that
-            //queues both kinds says the good news first.
-            bool feeding = _ceilingFeedStepsQueued > 0;
-            if (feeding) _ceilingFeedStepsQueued--;
-
-            _ceilingFlashIsFeed = feeding;
-            _ceilingFlashColor = feeding ? CEILING_FEED_COLOR : CEILING_FLASH_COLOR;
+            //The glass has lit up in the colour CeilingDescent picked for this step — red for the pressure, blue
+            //for a feed, and why they differ is written there — and the wave it drives down through every ball
+            //hanging on it says the same.
             Game.Balls.RippleAlarmColor = feeding ? RIPPLE_FEED_COLOR : RIPPLE_ALARM_COLOR;
-
-            _ceilingFlash = 1f;
             StartCeilingRipple();
 
             //And is heard (#500): from the plate, where it is, the feed's step softer than the pressure's
-            Game.Audio.PlayCeilingStep(new Microsoft.Xna.Framework.Vector3(0f, _ceilingY, 0f), feeding);
+            Game.Audio.PlayCeilingStep(new Microsoft.Xna.Framework.Vector3(0f, _ceilingDescent.Y, 0f), feeding);
 
             //And felt (#378), the feed step soft for the same reason it is heard and seen soft.
             float ceilingRumbleScale = feeding ? CEILING_RUMBLE_FEED_SCALE : 1f;
@@ -139,7 +119,7 @@ namespace BS3D.Screens
             //wrong colour
             if (!feeding) _tutorial.Trigger(Tutorial.Lesson.Ceiling);
 
-            Console.WriteLine($"[ceiling] Step to {_ceilingTargetY:F2} (death line {CEILING_DEATH_Y:F2})"
+            Console.WriteLine($"[ceiling] Step to {_ceilingDescent.TargetY:F2} (death line {CEILING_DEATH_Y:F2})"
                 + $", {(feeding ? "feeding" : "pressure")}"
                 + $", shots fired {_score.ShotsFired}, waited {waited:F2} s");
         }
@@ -163,9 +143,9 @@ namespace BS3D.Screens
         /// at and stops, so what it hands the player is the same clearance they opened with.
         /// </para>
         /// <para>
-        /// The steps are <b>queued</b> rather than taken, so a cascade that owes ten of them pours down one
-        /// at a time through <see cref="ReleaseCeilingStep"/>'s hold rather than arriving as one lurch — and
-        /// so a feed landing on a drop cinematic waits it out like any other step.
+        /// The steps are <b>queued</b> rather than taken (<see cref="CeilingDescent.Feed"/>), so a cascade that
+        /// owes ten of them pours down one at a time through <see cref="CeilingDescent.Update"/>'s hold rather
+        /// than arriving as one lurch — and so a feed landing on a drop cinematic waits it out like any other step.
         /// </para>
         /// </summary>
         private void FeedTallColumn()
@@ -179,25 +159,9 @@ namespace BS3D.Screens
             if (_map.GetBallsCount() == 0) return;
 
             byte lowest = _map.GetLowestOccupiedLevel();
-            if (lowest <= _feedFloorLevel) return;
-
-            //How far the underside has climbed out of reach, in world units, and how many whole descents
-            //cover it. Whole ones only: a part-step owed now is owed again next landing, and rounding up
-            //would walk the glass down a little further than the level was ever cleared.
-            float risen = (lowest - _feedFloorLevel) / Constants.SQRT_TWO;
-            int owed = (int)(risen / CEILING_DESCENT_PER_STEP) - _feedStepsQueued;
+            int owed = _ceilingDescent.Feed(lowest, out float risen);
 
             if (owed <= 0) return;
-
-            _feedStepsQueued += owed;
-            _ceilingStepsPending += owed;
-            _ceilingStepHold = CEILING_STEP_HOLD;
-
-            //And these ones do not read as an alarm. A descent the ceiling forces on the player is a threat
-            //and burns red; this one is the game handing over more of the column BECAUSE they cleared a lot
-            //of it, so the glass and the wave go cold blue instead. Set here rather than at the descent,
-            //because by the time a queued step comes down the reason it was queued is gone.
-            _ceilingFeedStepsQueued += owed;
 
             //A rare-event line like the rest of the [ceiling] family: it fires when a band goes, not per
             //frame, and it is the one figure that says whether the feed is keeping up with the player.
@@ -206,79 +170,15 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// Lets a queued ceiling step go, once it will not be read as a punishment for the shot that earned it.
-        /// <para>
-        /// The step comes due on the <b>frame the shot is fired</b>, but the shot leaves at 200 u/s and lands
-        /// about a tenth of a second later — so the glass flashing red and driving its alarm wave down the
-        /// cluster landed on top of the drop cinematic, and a player who had just cut a large group loose was
-        /// shown the game's one punishment animation while watching their reward. It read as having done
-        /// something wrong. Nothing was wrong; only the order was.
-        /// </para>
-        /// <para>
-        /// So a step waits for two things: a short hold, long enough for the shot to land and a cinematic to
-        /// engage if one is going to, and then for that cinematic to be over. It is a <b>count</b> rather than
-        /// a flag because a level with <c>ceilingStep</c> of 1 steps on every shot, and two shots inside the
-        /// hold must not lose one of them; and the hold is re-armed per release rather than shared, so queued
-        /// steps come down one at a time instead of as a single double-height lurch.
-        /// </para>
-        /// </summary>
-        private void ReleaseCeilingStep(float elapsed)
-        {
-            if (_ceilingStepsPending <= 0) return;
-
-            //Nothing comes down once the level is decided (#563). A step is queued when the shot LEAVES, so
-            //the winning shot can carry one: released, it burned the alarm red, sounded the step and slid the
-            //glass over the fanfare — the moment the drop cinematic let go, or CEILING_STEP_HOLD after the landing with
-            //the cinematic turned off. Held rather than cleared, because nothing reads the count after this.
-            if (LevelDecided) return;
-
-            _ceilingStepWaited += elapsed;
-
-            if (_ceilingStepHold > 0f) _ceilingStepHold -= elapsed;
-
-            //Held out through a camera takeover for the drop cinematic's own reason — a step sliding down
-            //while the camera is elsewhere would arrive unannounced. Unreachable through the chapter intro in
-            //practice (nothing can be owed before a shot has landed, and the intro is over well before the
-            //first one can), but the same rule either way costs nothing to state once.
-            if (_ceilingStepHold > 0f || CameraTakeoverEngaged) return;
-
-            _ceilingStepsPending--;
-            _ceilingStepHold = CEILING_STEP_HOLD;
-
-            StartCeilingDescent(_ceilingStepWaited);
-            _ceilingStepWaited = 0f;
-        }
-
-        /// <summary>The glass's red or blue glow after a step, fading on the wall clock whether or not it moves.</summary>
-        private void UpdateCeilingFlash(float elapsed)
-        {
-            if (_ceilingFlash > 0f) _ceilingFlash = MathF.Max(0f, _ceilingFlash - elapsed / CEILING_FLASH_SECONDS);
-        }
-
-        /// <summary>
-        /// Slides the ceiling body toward <see cref="_ceilingTargetY"/> at <see cref="CEILING_DESCENT_SPEED"/> by one
-        /// physics step's worth, and refreshes the drawn world matrix to match. Called by <see cref="StepPhysics"/>
-        /// before each step (#577), so the solver works against the moved body and the contact between a descending
-        /// cluster and anything below it resolves rather than interpenetrates — and so the plate moves exactly as far
-        /// as the world it drags lives through, whatever the frame rate.
+        /// Slides the ceiling body by one physics step's worth of <see cref="CeilingDescent.Slide"/> and refreshes
+        /// the drawn world matrix to match. Called by <see cref="StepPhysics"/> before each step (#577), so the
+        /// solver works against the moved body — see <see cref="CeilingDescent.Slide"/> for why.
         /// </summary>
         private void SlideCeiling(float step)
         {
-            if (!_ceilingDescending) return;
+            if (!_ceilingDescent.Slide(step)) return;
 
-            //Equal within a hair means the slide is done — a step that would otherwise move a thousandth of a
-            //unit and never quite arrive. Snap, stop, and the matrix reflects the final pose exactly.
-            if (MathF.Abs(_ceilingY - _ceilingTargetY) <= CEILING_DESCENT_SPEED * step)
-            {
-                _ceilingY = _ceilingTargetY;
-                _ceilingDescending = false;
-            }
-            else
-            {
-                _ceilingY -= CEILING_DESCENT_SPEED * step;
-            }
-
-            _ceiling.BodyReference.Pose.Position = new System.Numerics.Vector3(0f, _ceilingY, 0f);
+            _ceiling.BodyReference.Pose.Position = new System.Numerics.Vector3(0f, _ceilingDescent.Y, 0f);
             _ceiling.RefreshWorld();
         }
     }

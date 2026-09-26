@@ -95,22 +95,6 @@ namespace BS3D.Screens
             //with the level — otherwise the last one's best would follow the player into this one
             _biggestDrop = 0;
 
-            //The glass is a fresh plate at the top of a fresh field, so nothing about the last level's last
-            //descent should still be glowing on it — nor should a step it queued and never got to take come
-            //down on the new one.
-            _ceilingFlash = 0f;
-            _ceilingStepsPending = 0;
-            _ceilingStepHold = 0f;
-            _ceilingStepWaited = 0f;
-
-            //Where this level hangs its underside is what a tall one is fed back down to, so it is read off
-            //the installed map rather than being a constant — see FeedTallColumn
-            _feedFloorLevel = _map.GetLowestOccupiedLevel();
-            _feedStepsQueued = 0;
-            _ceilingFeedStepsQueued = 0;
-            _ceilingFlashColor = CEILING_FLASH_COLOR;
-            _ceilingFlashIsFeed = false;
-
             //And no floor alarm either: whatever the last level's ending left lingering over the drain is
             //not this level's danger.
             _laserGrid.Reset();
@@ -418,13 +402,10 @@ namespace BS3D.Screens
             //Still needed by what follows: the centred-levels pick reads the field's own depth.
             byte topLevel = (byte)(_map.GetStaticBallsArraySize().Level - 1);
 
-            _ceilingY = CeilingPlate.CentreYAbove(fieldTopY);
-            //Kept, because _ceilingY is about to start descending and the HUD's profile has to go on framing
-            //the whole fall against where the glass STARTED — raise included.
-            _ceilingRestY = _ceilingY;
-            //At rest to start: target equals current, so nothing slides until a step is taken.
-            _ceilingTargetY = _ceilingY;
-            _ceilingDescending = false;
+            //The ceiling's descent starts over, in one call (#582): the glass at rest above this field's top, no
+            //step queued or glowing from the last level, and the tall-level feed measured from where this map
+            //hangs its underside — see CeilingDescent.Reset.
+            _ceilingDescent.Reset(CeilingPlate.CentreYAbove(fieldTopY), _map.GetLowestOccupiedLevel());
             //Where precise aim converges its crosshair: the middle of the play space in world Y. On a field
             //taller than the camera frames that is the middle of the FRAMED window and not of the field —
             //the lens converging halfway up a forty-level column would be aiming at balls the player cannot
@@ -447,7 +428,7 @@ namespace BS3D.Screens
             //the set runs from a four-level pancake to a column hung eleven units higher. Framed off where the
             //ceiling socket SETTLES the top level rather than off the lattice height, since that is where the
             //bodies the player is looking at actually hang.
-            Game.Backdrop?.FrameOrbitFor(_map, BallsConstraintsBuilder.CeilingRestY(_ceilingY));
+            Game.Backdrop?.FrameOrbitFor(_map, BallsConstraintsBuilder.CeilingRestY(_ceilingDescent.Y));
 
             //One line per level load, in the manner of [camera]: where the field ended up against the death
             //line, and how much air the layout's lowest ball starts with — the figure an author sizing a

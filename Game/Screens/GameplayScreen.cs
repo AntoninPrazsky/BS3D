@@ -343,23 +343,6 @@ namespace BS3D.Screens
         private int _biggestDrop;
 
         /// <summary>
-        /// The lowest occupied level the tall level was authored with — the height its underside is <b>fed
-        /// back down to</b> as the player clears it. See <see cref="FeedTallColumn"/>.
-        /// </summary>
-        private byte _feedFloorLevel;
-
-        /// <summary>How many descents the feed has already asked for, so it never asks for the same one twice.</summary>
-        private int _feedStepsQueued;
-
-        /// <summary>
-        /// How many of the steps still waiting in <c>_ceilingStepsPending</c> were asked for by the feed
-        /// rather than by the shot count — which is what decides whether the glass flashes red or blue when
-        /// one of them comes down. A count and not a flag: the two kinds can be queued together (a landing
-        /// that both spends a shot and clears a band), and they come down one at a time.
-        /// </summary>
-        private int _ceilingFeedStepsQueued;
-
-        /// <summary>
         /// Where the lattice frame meets the world, and the <b>only</b> place it does on the drawing side.
         /// <para>
         /// Y hangs the top of the field at <see cref="FIELD_TOP_Y"/> — or higher, when the field is deep
@@ -509,35 +492,15 @@ namespace BS3D.Screens
         //updated every frame, and the profile reads it instead of the live camera. See BuildClusterProfile.
         private Vector3 _gameplayCameraRight = Vector3.Right;
 
-        //Where the glass hangs: CeilingPlate.CentreYAbove the field's top level — the plate's own clearance
-        //(CeilingPlate.CLEARANCE, which carries the note about the cluster coming to rest a unit under the
-        //plate rather than settling on its lattice) applied to the base this session picks. The kinematic body
-        //and the drawn glass box both sit here, and the box is drawn straight from the body's pose (see
-        //KinematicBody), so the collidable and the thing the player sees cannot drift apart.
-        private float _ceilingY;
-
-        //Where the glass hangs at REST, i.e. _ceilingY before the level's first descent — solved per level with
-        //the field's top, so it carries the raise a deep field gets off the death line. The HUD's cluster
-        //profile frames itself against this, and kept its own hardcoded copy of the unraised figure until a
-        //27-level field put the whole cluster above the panel's top (see PlayHud.ClusterProfile.TopY).
-        private float _ceilingRestY;
-
         private KinematicBody _ceiling;
 
-        //The descending ceiling — the second of the two pressures that can lose a level, made visible where the
-        //shot budget is made numerical. Every ceilingStep shots the glass steps down by CEILING_DESCENT_PER_STEP,
-        //and with it the cluster (the top level is held to the body by BallSocket constraints, so moving the body
-        //drags the structure along — Bepu does the work). The level is lost the moment any ball crosses the death
-        //line, which is above the gun and the drain so a cluster reaching into them reads as a loss before it
-        //reads as a bug.
-        //
-        //The descent is animated at constant velocity per step rather than teleported: a hundred constrained
-        //bodies jerked in one write can throw the solver, and a short slide lets the contact between a descending
-        //cluster and anything below it resolve. The body is kinematic and this build's integrator does not move
-        //kinematics from their velocity (PoseIntegratorCallbacks.IntegrateVelocityForKinematics is false), so the
-        //slide is driven by writing the pose — in small steps, which is what makes it tolerable to the solver.
-        private const float CEILING_DESCENT_PER_STEP = 0.6f;        //world units the glass drops each step
-        private const float CEILING_DESCENT_SPEED = 1.5f;           //units/sec while a step is sliding in
+        /// <summary>
+        /// The ceiling's descent — where the glass hangs and where it is sliding to, the steps queued and held,
+        /// the tall level's feed and the flash (#582). The body above is moved to its <see cref="CeilingDescent.Y"/>
+        /// by <see cref="SlideCeiling"/>; see <c>GameplayScreen.Ceiling.cs</c> for what a step does to the world.
+        /// </summary>
+        private readonly CeilingDescent _ceilingDescent = new();
+
         //The death line and the pair that keeps a mere SWING from crossing it are ClusterHang's since
         //#301/#302 - the level generator hangs a level in a real simulation to find out whether the remainder
         //sags after a group is shot off, and a gate that hangs a cluster somewhere else or forgives a dip
@@ -550,18 +513,6 @@ namespace BS3D.Screens
         private const float CLUSTER_SWING_ALLOWANCE = ClusterHang.SWING_ALLOWANCE;
         private const float CLUSTER_BELOW_LINE_GRACE = ClusterHang.BELOW_LINE_GRACE;
 
-        /// <summary>
-        /// How hard the glass is glowing right now, 1 at the moment of a step and decaying to nothing. It is
-        /// the descent's announcement: a translucent plate sliding down against the sky is close to invisible
-        /// while the player's eye is on the cluster, so the pressure the rule exists to apply was arriving
-        /// without being noticed at all.
-        /// </summary>
-        private float _ceilingFlash;
-
-        //Linear, so it genuinely ends — the CameraShake rule. Long enough to be seen even if the eye is on the
-        //other half of the frame when it fires, short enough not to sit there as decoration.
-        private const float CEILING_FLASH_SECONDS = 1.1f;
-
         //The pad's answer to a step (#378) — heavier and longer than a shot or a landing, the way the plate's
         //own slide is a slower event than either. Left-heavy for the shove; halved on a feed step
         //(CEILING_RUMBLE_FEED_SCALE) for the same reason PlayCeilingStep and the flash colour go soft on one:
@@ -571,70 +522,11 @@ namespace BS3D.Screens
         private const float CEILING_RUMBLE_SECONDS = 0.5f;
         private const float CEILING_RUMBLE_FEED_SCALE = 0.5f;
 
-        //Linear radiance, well over GLARE_THRESHOLD so the plate blooms rather than merely turning pink. Red
-        //with almost nothing in the other two channels: this is the game's one alarm COLOUR — the ceiling
-        //flash and the floor net both take it (LaserGrid is handed this very constant), so the two read as
-        //one warning at two heights — and it should not be mistakable for anything the scene does on its own.
-        //Far over 1, and it has to be: the plate is 35 % opaque, so most of what is seen where the glass is is
-        //the sky BEHIND it. At 1.5 the red merely tinted that blue-white and the plate came out pink. The
-        //emissive is added on top of the composite, so it is the number that has to out-shout the sky.
-        private static readonly Vector3 CEILING_FLASH_COLOR = new(6f, 0.15f, 0.1f);
-
-        /// <summary>
-        /// What the glass says instead when the descent is a <b>feed</b> — a tall level handing the player
-        /// more of its column because they have just cleared a lot of it. Cold blue-white rather than red,
-        /// and the reason is the whole point of separating them: nothing has gone wrong. The player has
-        /// played well and the game is answering; a red flash there tells them off for it.
-        /// <para>
-        /// Balanced the same way <see cref="CEILING_FLASH_COLOR"/> is and for the same reason — the plate is
-        /// 35 % opaque and the emissive is added over the sky behind it — so this is bright enough to read as
-        /// the glass lighting up rather than as the sky changing.
-        /// </para>
-        /// <para>
-        /// <b>Deep blue and not a bright one.</b> The first pairing carried enough green (2.2 against the
-        /// blue's 6) to come out cyan-white over a lit sky, which reads as the glass being <i>blown out</i>
-        /// rather than as it saying something — the same washing the red's own doc warns about from the other
-        /// end. Nearly all the green is gone, and the blue keeps the level it needs to be seen through a
-        /// 35 %-opaque plate.
-        /// </para>
-        /// </summary>
-        private static readonly Vector3 CEILING_FEED_COLOR = new(0.04f, 0.5f, 5f);
-
         /// <summary>The flat colour the cluster's ripple carries, as opposed to the plate's own emissive.</summary>
         private static readonly Vector3 RIPPLE_ALARM_COLOR = new(1f, 0.07f, 0.05f);
 
-        /// <inheritdoc cref="CEILING_FEED_COLOR"/>
+        /// <inheritdoc cref="CeilingDescent.CEILING_FEED_COLOR"/>
         private static readonly Vector3 RIPPLE_FEED_COLOR = new(0.02f, 0.1f, 1f);
-
-        /// <summary>
-        /// Which of the two the glass and the wave are currently saying. Set the instant a descent is started
-        /// and read while it is on screen, because the flash and the ripple outlive the call that began them.
-        /// </summary>
-        private Vector3 _ceilingFlashColor = CEILING_FLASH_COLOR;
-
-        /// <summary>
-        /// Whether the flash currently on screen is a feed rather than pressure. The colour above is what the
-        /// 3D plate needs; this is what the <b>HUD</b> needs, which picks its own display-space colour rather
-        /// than converting a linear radiance — see <c>PlayHud.PROFILE_ALARM</c> for why.
-        /// </summary>
-        private bool _ceilingFlashIsFeed;
-
-        //Where the glass body sits now (_ceilingY) and where it is sliding to (_ceilingTargetY). Equal while at
-        //rest; _ceilingTargetY is lowered by StartCeilingDescent and _ceilingY catches up in SlideCeiling, step by step.
-        private float _ceilingTargetY;
-
-        //Ceiling steps that have come due but are waiting for their moment — see ReleaseCeilingStep. A count,
-        //because a ceilingStep of 1 steps on every shot and two of them inside the hold must not lose one.
-        private int _ceilingStepsPending;
-        private float _ceilingStepHold;
-        private float _ceilingStepWaited;
-
-        //How long a step waits after the shot that earned it. Long enough for that shot to have landed and a
-        //drop cinematic to have engaged if it is going to — the shot leaves at SHOOT_SPEED and lands in about
-        //a tenth of a second, so this is generous — and short enough that on an ordinary shot the descent
-        //still reads as the answer to firing.
-        private const float CEILING_STEP_HOLD = 0.45f;
-        private bool _ceilingDescending;
 
         //The floor alarm — the descending ceiling's warning at the other end of the field. The net itself
         //(geometry, pulse, fades, the linger after the level ends) lives in LaserGrid; this screen owns the
@@ -1035,7 +927,7 @@ namespace BS3D.Screens
         /// <para>
         /// It is what makes the ghost obey the <b>ceiling</b>. A cell is an index into a lattice this session hung
         /// once (<see cref="_clusterWorldOffset"/>); the balls are wherever the descending glass has since dragged
-        /// them, <see cref="CEILING_DESCENT_PER_STEP"/> per step, plus the stretch the structure hangs with and
+        /// them, <see cref="CeilingDescent.CEILING_DESCENT_PER_STEP"/> per step, plus the stretch the structure hangs with and
         /// whatever the last shot set swaying. None of that is in the lattice, and a ghost placed from the lattice
         /// alone drifted out of the cluster as a level went on. It also covers the sway and the resting stretch,
         /// because all three are the same quantity — see <see cref="ShotPlacement.CellWorldPosition"/>.
@@ -1202,7 +1094,7 @@ namespace BS3D.Screens
             //The floor alarm's net, loaded like the smears: session content, made here with the device up.
             //It is handed the ceiling flash's own red — the two are one warning at two heights, and passing
             //the constant is what keeps them from drifting apart.
-            _laserGrid = new LaserGrid(GraphicsDevice, Game.Content.Load<Effect>("Shaders/LaserGrid"), CEILING_FLASH_COLOR);
+            _laserGrid = new LaserGrid(GraphicsDevice, Game.Content.Load<Effect>("Shaders/LaserGrid"), CeilingDescent.CEILING_FLASH_COLOR);
 
             //And the blasts (#389), loaded the same way. NOT handed the host's audio, unlike Fireworks: this
             //screen is built before the host has synthesized its sounds (BS3DGame.LoadContent), so the audio is
@@ -1332,12 +1224,12 @@ namespace BS3D.Screens
                 //⚠ WHAT ACTUALLY RUNS IS NOT WHAT #355 SAYS RUNS, and the difference is worth having written
                 //down. Its report reads "the ceiling keeps sliding down, on wall clock" — it does not.
                 //SlideCeiling only ANIMATES a step that a shot has already earned
-                //(_ceilingStepsPending, ReleaseCeilingStep), so a field nobody is shooting at gets no new
+                //(CeilingDescent's queued steps and its Update), so a field nobody is shooting at gets no new
                 //steps. Three things do run, and together they are enough:
                 //
                 //  - StepPhysics. The cluster is a hanging lattice that never stops settling and swaying, and
                 //    what the loss is read off is the LIVE lowest pose.
-                //  - The last shot's OWED step. It waits CEILING_STEP_HOLD and then slides, so the descent the
+                //  - The last shot's OWED step. It waits CeilingDescent.CEILING_STEP_HOLD and then slides, so the descent the
                 //    player fired for arrives while they are away and lands on nobody watching.
                 //  - ClusterLineWatch's below-line grace, which counts in `elapsed` — wall clock. A cluster
                 //    already under the line therefore loses on time alone.
@@ -1405,12 +1297,12 @@ namespace BS3D.Screens
             _chapterIntro.Update(elapsed);
 
             //A step that came due while the shot was in the air waits here for its moment — see
-            //ReleaseCeilingStep. Before the descent update, so a released step slides on the same frame.
-            ReleaseCeilingStep(elapsed);
-
-            //The glass's glow fades on the wall clock; the glass itself slides inside StepPhysics, one physics
-            //step at a time (#577), so the solver always works against the moved body.
-            UpdateCeilingFlash(elapsed);
+            //CeilingDescent.Update. Before the physics step, so a released step slides on the same frame. The
+            //glass's glow fades on the wall clock in the same call; the glass itself slides inside StepPhysics,
+            //one physics step at a time (#577), so the solver always works against the moved body.
+            if (_ceilingDescent.Update(elapsed, LevelDecided, CameraTakeoverEngaged, out bool ceilingFeeding,
+                    out float ceilingWaited))
+                AnnounceCeilingStep(ceilingFeeding, ceilingWaited);
 
             //Slow motion is applied here and nowhere else: the fixed timestep is untouched and only the time
             //fed to the accumulator is scaled, so a slowed world is exactly as stable as a full-speed one. The
@@ -1717,7 +1609,7 @@ namespace BS3D.Screens
             //reasoning live in BS3DGame.DrawCeilingGlass, in one copy with the front end's preview plate.
             //Squared, so the glass is unmistakable on the frame it steps and has thinned well before the slide
             //ends — it marks the event rather than colouring the plate for the duration
-            Game.CeilingRenderer.EmissiveTint = _ceilingFlashColor * (_ceilingFlash * _ceilingFlash);
+            Game.CeilingRenderer.EmissiveTint = _ceilingDescent.FlashColor * (_ceilingDescent.Flash * _ceilingDescent.Flash);
 
             Game.DrawCeilingGlass(Game.CeilingRenderer, _ceiling.World);
 

@@ -250,7 +250,7 @@ namespace BS3D.Screens
         /// Drawn in the cluster's <b>live</b> frame (<see cref="ShotPlacement.CellWorldPosition"/>) and not at the
         /// cell's ideal lattice position, which it was until the descending ceiling proved that those are not the
         /// same thing. The lattice is where <see cref="FitFieldToMap"/> hung the field once; the cluster is
-        /// wherever the glass has since dragged it, <see cref="CEILING_DESCENT_PER_STEP"/> at a time — so a ghost
+        /// wherever the glass has since dragged it, <see cref="CeilingDescent.CEILING_DESCENT_PER_STEP"/> at a time — so a ghost
         /// pinned to the lattice climbed away from the cluster as a level went on, until on
         /// <c>Colossus.json</c>'s eleven descents it was floating some nine levels above the pocket it claimed to be
         /// in. It also takes out the stretch the structure hangs with at rest, which is over a level's worth at
@@ -596,10 +596,10 @@ namespace BS3D.Screens
 
             return new PlayHud.ClusterProfile
             {
-                CeilingY = _ceilingY,
-                CeilingFlash = _ceilingFlash,
-                CeilingFeeding = _ceilingFlashIsFeed,
-                TopY = _ceilingRestY,
+                CeilingY = _ceilingDescent.Y,
+                CeilingFlash = _ceilingDescent.Flash,
+                CeilingFeeding = _ceilingDescent.FlashIsFeed,
+                TopY = _ceilingDescent.RestY,
                 DeathY = CEILING_DEATH_Y,
                 HalfDepth = FieldHalfDiagonal(),
                 CameraRight = _gameplayCameraRight,
