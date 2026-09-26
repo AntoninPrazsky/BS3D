@@ -121,9 +121,10 @@ namespace Prazsky.BS3D.Physics
         public const float DEAD_WEIGHT_HOLD_SECONDS = 0.6f;
 
         /// <summary>
-        /// How long the crossing to the dead look takes once it has started, and how long the way back takes
+        /// How long the ease into the dead look takes once it has started, and how long the way back takes
         /// if the ball moves again. Eased for the reason the magazine's transmute is: a ball switching between
-        /// two looks on one frame reads as a glitch rather than as a state (#342 asks for exactly this).
+        /// two looks on one frame reads as a glitch rather than as a state (#342 asks for exactly this; since #620 the
+        /// look is the dither dissolve turned up to <c>BallRenderSet.DEAD_DISSOLVE</c> over this ramp).
         /// </summary>
         public const float DEAD_WEIGHT_FADE_SECONDS = 0.55f;
 
@@ -350,7 +351,7 @@ namespace Prazsky.BS3D.Physics
         private const float STRETCH_CEILING = 0.5f;
 
         /// <summary>
-        /// Advances a released ball's crossing to the <b>dead weight</b> look and answers how far through it
+        /// Advances a released ball's ease into the <b>dead weight</b> look and answers how far through it
         /// is, 0 for every ball that is still falling (#342).
         /// <para>
         /// The rule is two measurements and not one: the ball has to be standing still
