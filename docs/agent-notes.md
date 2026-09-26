@@ -6540,3 +6540,15 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 - **Formát nadpisů deníku** (vlastník to nechal na agentovi, #594): `## YYYY-MM-DD — #NNN <název> — <stroj/agent>`, zapsaný v pravidlech nahoře. Hlavička už neříká „squash-merge“ (platí `--no-ff` podle CLAUDE.md) ani „ZCode“.
 - **Verdikty vlastníka 2026-09-26:** bloom #565 v pořádku (zavřeno); hory vypadají dobře → #598 opraveno na straně CPU (fused hash, `mirrorcheck` projde všech 10 scén, obraz beze změny); #568 → krystal nechat, kovové poháry jsou matné → **#602**; playtest vysokého levelu po úpravě limitu míření v pořádku.
 - **Nová zadání z playtestu:** #599 (kamera menu začíná moc vysoko), #600 (3D logo prolézá stropem), #601 (zrušit prolínání 2D loga do 3D), #602 (kovové trofeje). Rozpracované agenty ve worktrees.
+
+---
+
+## 2026-09-26 — #603–#617 poznámky z hraní zapsané — desktop, Claude Code
+
+- **Majitel poslal 17 poznámek z hraní** (Help, menu, louka, tutoriál, kamera pádu, ohňostroj, cinkání, savana). **Založeno 15 issues #603–#617**, 19 komentářů na existující issues (křížové odkazy), zavřeny **#541, #553** (verdikt: broušený strop i jeho stín „velmi dobré") a **#402** (verdikt: motion blur dobrý; vada s A/D je #611). #557 (palmy) a #559 (intra) nechány otevřené: verdikt nejmenuje, kterého průchodu se týká, resp. je jen za jednu scénu.
+- **Příčiny nalezené čtením kódu** (jsou v issue, nejsou reprodukované skriptem): Help Next nic nedělá, protože `Turn` jen zneplatní strom a nikdo ho nevrátí do Myra desktopu (#606); send-off „you know the game“ předběhne ještě ozbrojenou kontextovou kartu skla (#605); kamera pádu rámuje průměr všech neodstraněných koulí včetně těch přes okraj ostrova, takže skáče při každém odstranění (#616); motion blur nechává dělo rozmazané při A/D, protože `PinToLens` platí jen při `lean > 0` (#611); síť linky zhasíná 2,5 s po výsledné stránce i při prohře (#614).
+- **Změřeno:** `LevelGen --arrival` (jen čte, 20 s): u levelu One potřebuje chůzi 64 % dopadů, 0 % je nedosažitelných, tedy první level se bez A/D nedohraje (potvrzuje polní zprávu proti uzavření #457). ⚠ Ploché desky Gallery hlásí taky 53 % „potřebuje chůzi“, protože sonda počítá i zadní stranu; nemůže říct, že deska jde vyčistit zepředu, a proto #603 chce novou bránu.
+- **Vyfotografováno v Testbedu/Game:** ostrov leží na louce, savaně i lese jako disk bez švu (#608); stránka Scoring v Helpu na 3840×1600 vytlačí Back mimo obraz (#606); ohňostroj nad denní oblohou je skoro bílý (#612).
+- ⚠ **Past:** exe spuštěné vlastním `CreateProcess` bez přesměrování stdout vypíše celý startovní log (stovky řádků `[levels]`) do výstupu nástroje. Přesměrovat, nebo číst jen `[shot]`.
+- ⚠ **Past:** LM Studio neběželo, `SemanticSearch` nebyl k dispozici. Duplicity se hledaly `gh issue list --search` po klíčových slovech a čtením deníku.
+- ⚠ **Past:** skript, který selže, a `gh issue create` na dalším řádku proběhne se starým textem (#610 musel být přepsán `gh issue edit`). Řetězit přes `&&`.
