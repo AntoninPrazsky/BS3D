@@ -492,7 +492,7 @@ namespace BS3D
             //panel and far too coarse for a title. Each size is rasterized into its own atlas by GetFont, so
             //they are resolved once here rather than per label.
             _menuFontSystemDisplay = LoadEmbeddedFont("BS3D.Content.Fonts.Anton-Regular.ttf");
-            _menuFontSystem = LoadEmbeddedFont("BS3D.Content.Fonts.Inter-Regular.ttf");
+            _menuFontSystem ??= LoadEmbeddedFont("BS3D.Content.Fonts.Inter-Regular.ttf");  //loaded already for "Loading..." (#637)
             _menuFontSystemBold = LoadEmbeddedFont("BS3D.Content.Fonts.Inter-Bold.ttf");
             _menuFontSystemPrompt = LoadEmbeddedFont("BS3D.Content.Fonts.PromptFont.ttf");
 

@@ -253,6 +253,7 @@ namespace BS3D
 
             //The neon flags are what SetScene switches between the two city lightings; these are only the
             //values they start at, and are overwritten before the first frame is drawn.
+            ShowLoading();
             _cityRenderer = new InstancedModelRenderer(GraphicsDevice, _unitBox, Vector3.One, _instancingEffect)
             {
                 CityConfig = _cityConfig,
@@ -266,10 +267,12 @@ namespace BS3D
             };
 
             //The equipment on the roofs (#436), placed on the buildings the city above just made
+            ShowLoading();
             _rooftops = new CityRooftops(GraphicsDevice, _instancingEffect, _city, _cityConfig, SCENE_AMBIENT_INTENSITY,
                 CityRooftops.DEFAULT_SEED + _sceneSeedOffset);
 
             //The street level under them (#399), on the same grid
+            ShowLoading();
             Effect streetEffect = Content.Load<Effect>("Shaders/CityStreets");
             _streets = new CityStreets(GraphicsDevice, streetEffect, _city);
 
