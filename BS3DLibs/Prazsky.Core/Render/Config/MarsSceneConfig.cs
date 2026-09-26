@@ -163,14 +163,23 @@ namespace Prazsky.Core.Render
         /// </summary>
         public Rgb BoulderColorDeep { get; set; } = new(0.048f, 0.043f, 0.040f);
 
-        /// <summary>The sunlit facets and the rust dust settled on them.</summary>
-        public Rgb BoulderColorBright { get; set; } = new(0.155f, 0.108f, 0.086f);
+        /// <summary>
+        /// The sunlit facets and the rust dust settled on them. Brightened 2026-09-26 (#638): at the old
+        /// 0.155/0.108/0.086 a lit facet never got brighter than the shade a crater's OWN bowl sits in, so
+        /// a boulder and a crater read as the same kind of dark patch from anything but a low grazing
+        /// angle — references rendered for #638 show a lit basalt facet standing out clearly against the
+        /// rust around it, close to <see cref="MarsSurfaceConfig.RustColorPale"/>'s own brightness but
+        /// kept grey rather than rust-warm, which is what still reads as stone rather than more ground.
+        /// </summary>
+        public Rgb BoulderColorBright { get; set; } = new(0.310f, 0.230f, 0.185f);
 
         /// <summary>
         /// How rough a boulder's own face is (world units of relief) — the scale below its silhouette. A
         /// smooth bump reads as a mound of the dust it stands in; this is what says "rock" up close.
+        /// Raised from 0.35 with the brightness above (#638) so the per-pixel shading on a lit facet has
+        /// something to bite into instead of the albedo doing all the work.
         /// </summary>
-        public float RockRelief { get; set; } = 0.35f;
+        public float RockRelief { get; set; } = 0.5f;
 
         /// <summary>The pale layers of sediment in a mesa's cliffs.</summary>
         public Rgb StrataColorPale { get; set; } = new(0.500f, 0.360f, 0.235f);
@@ -181,8 +190,14 @@ namespace Prazsky.Core.Render
         /// <summary>Layers per world unit of height, times 2π — about one pale band every seven units at 0.9.</summary>
         public float StrataFrequency { get; set; } = 0.9f;
 
-        /// <summary>Dark basaltic sand lying in drifts on the flats — the grey streaks every rover panorama shows.</summary>
-        public Rgb SandColor { get; set; } = new(0.062f, 0.050f, 0.045f);
+        /// <summary>
+        /// Dark basaltic sand lying in drifts on the flats — the grey streaks every rover panorama shows.
+        /// Lightened 2026-09-26 (#638): at the old 0.062/0.050/0.045 (luminance under the darkest boulder
+        /// shade) a drift read as a near-black, high-contrast scar across the plain rather than as dust —
+        /// references rendered for #638 show a drift as a mid grey-brown, distinctly cooler than the rust
+        /// around it but not anywhere near black.
+        /// </summary>
+        public Rgb SandColor { get; set; } = new(0.118f, 0.098f, 0.085f);
 
         /// <summary>How much of the level plain the sand drifts cover, roughly 0..0.3.</summary>
         public float SandCoverage { get; set; } = 0.30f;
