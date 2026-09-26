@@ -101,12 +101,13 @@ namespace Prazsky.BS3D.Levels
         /// </para>
         /// <para>
         /// X and Z put the middle of the field's top level on the axis the gun orbits and the camera looks
-        /// down, measured off the centred top level rather than assumed. This was once described as a
-        /// half-unit residual, and it is not: <see cref="BallsMap.Center"/> subtracts half the top level's
-        /// <i>extent</i> rather than its midpoint, so across the shipped levels this is −6.5 to −8.5 in both
-        /// axes. Everything that places a body therefore has to add it — the ceiling anchor of a ball that
-        /// attaches to the top level included (see
-        /// <c>BallsConstraintsBuilder.AttachBallToStructure</c>, which did not until the fourth #400 pass).
+        /// down, measured off the centred top level rather than assumed. <see cref="BallsMap.Center"/> centres on
+        /// the top level's <i>balls</i>, so what is left here is how far the layout sits off the middle of its
+        /// field — small, but not zero, and more than half a unit where a layout is inset unevenly. Until #561
+        /// <c>Center</c> subtracted half the top level's extent rather than its midpoint and this was −6.5 to −8.5
+        /// on the shipped levels. Everything that places a body has to add it, whatever its size — the ceiling
+        /// anchor of a ball that attaches to the top level included (<c>BallsConstraintsBuilder.AttachBallToStructure</c>,
+        /// which did not until #561).
         /// </para>
         /// </summary>
         public static Vector3 FitWorldOffset(BallsMap map, out float fieldTopY)

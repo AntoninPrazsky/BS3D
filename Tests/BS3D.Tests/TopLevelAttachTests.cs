@@ -13,9 +13,12 @@ namespace BS3D.Tests
     /// The ceiling-anchor regression of #561. A ball landing in a free cell of the TOP level is tied to the
     /// glass as well as to its neighbours, and that anchor is the ball's world X/Z written into the plate's
     /// frame — so <see cref="BallsConstraintsBuilder.AttachBallToStructure"/> has to be handed the world offset
-    /// the structure was built with. <see cref="Prazsky.BS3D.Levels.ClusterHang.FitWorldOffset"/> is −6.5 to
+    /// the structure was built with. <see cref="Prazsky.BS3D.Levels.ClusterHang.FitWorldOffset"/> was −6.5 to
     /// −8.5 in X and Z across the shipped levels, and without it the new ball was anchored that far off its
-    /// cell and settled several units from where its neighbours hold it.
+    /// cell and settled several units from where its neighbours hold it. Since <c>BallsMap.Center</c> centres on
+    /// the top level's midpoint the fit's own X/Z is at most a few cells, so the level is hung
+    /// <see cref="LATERAL"/> further off the axis on purpose: the attach must honour whatever offset the
+    /// structure was built with, and a small one would not tell a missing offset from a present one.
     /// </summary>
     public class TopLevelAttachTests
     {
@@ -30,6 +33,9 @@ namespace BS3D.Tests
         /// so the gate always measures the same thing; the test asserts the cell it needs is there.
         /// </summary>
         private const string LEVEL = "Anchor.json";
+
+        /// <summary>The deliberate extra offset in X and Z, in world units.</summary>
+        private static readonly Vector3 LATERAL = new(5f, 0f, -4f);
 
         [Fact]
         public void BallAttachedToTheTopLevelStaysInItsCell()
@@ -50,7 +56,7 @@ namespace BS3D.Tests
         /// how the check was seen to fail (docs/formats-and-tools.md records the numbers).</param>
         internal static float AttachAndMeasure(bool useWorldOffset, out float worldOffsetXZ)
         {
-            using HungLevel hung = HungLevel.FromLevelFile(Shipped.Level(LEVEL));
+            using HungLevel hung = HungLevel.FromLevelFile(Shipped.Level(LEVEL), LATERAL);
 
             worldOffsetXZ = new Vector2(hung.WorldOffset.X, hung.WorldOffset.Z).Length();
 
