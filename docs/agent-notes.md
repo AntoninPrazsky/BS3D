@@ -1,10 +1,12 @@
 ﻿# Agent notes — sdílený deník
 
-Sdílený deník pro AI agenty pracující na tomhle repu (ZCode, Claude Code). **Před začátkem práce si přečti poslední zápisy; po dokončení práce přidej vlastní záznam** (datum, kdo, co, stav). Nenahrazuje issues ani docs — je to provozní kronika „kdo co právě dělá / udělal / nechal ležet", aby se dva agenti nepřeskočili.
+Sdílený deník pro AI agenty pracující na tomhle repu. **Před začátkem práce si přečti poslední zápisy; po dokončení práce přidej vlastní záznam** (datum, kdo, co, stav). Nenahrazuje issues ani docs — je to provozní kronika „kdo co právě dělá / udělal / nechal ležet", aby se dva agenti nepřeskočili.
 
 Pravidla:
 - **Cizí rozepsanou práci v working tree nikdo nedotýká** — popiš ji tady a nech na rozhodnutí majiteli.
-- Dokončená práce jde **okamžitě na main** (standing rule v `CLAUDE.md`); squash-merge s `(#NNN)` v subjektu.
+- Dokončená práce jde **okamžitě na main** (standing rule v `CLAUDE.md`): větev se mergne `git merge --no-ff` se zprávou `Merge branch '<větev>': <co dělá> (#NNN)` a hned se smaže. (Tady stávalo „squash-merge", což CLAUDE.md nikdy neříkal a historie nikdy nedělala.)
+- **Nadpis zápisu má pevný tvar, aby šel najít grepem (#594):** `## YYYY-MM-DD — #NNN <krátký název> — <stroj/agent>`, například `## 2026-09-26 — #598 hash šumu — desktop, Claude Code`. Víc issues: `#598 #599`; bez issue `#none`. Pravidlo „před převzetím issue grepni deník“ stojí na tom, že číslo je v nadpisu: do září mělo 122 z 312 nadpisů jen „Claude Code (n-tý zápis dne)“. Starší zápisy se nepřepisují.
+- **Zápis je krátký a věcný:** co je hotové a kde (merge), co je změřené a čím, pasti (⚠) a co zůstává. Dlouhé rozbory patří do issue nebo do `docs/`, sem odkaz.
 - Vizuální změny ověřuj screenshoty (`.claude/skills/screenshot`), ne jen buildem.
 - **Deník se rotuje po měsících (#358).** Tady je vždycky jen **aktuální měsíc**; starší jdou beze změny do `docs/agent-notes-archive/YYYY-MM.md`. Rotaci dělá ten, kdo píše první zápis nového měsíce. **Hledání jde přes obojí** — `grep -r "..." docs/agent-notes.md docs/agent-notes-archive/`.
 
@@ -6530,3 +6532,11 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 - **Testy:** `Tests/BS3D.Tests` má 320 testů, běží v CI.
 - ⚠ **Past:** `sceneseed=0` nepinuje náhodný úhel intra kapitoly ani scénu front endu. Pro porovnání starý/nový build je potřeba šum mezi dvěma běhy starého buildu, nebo porovnání proti předchozímu commitu.
 - **Čeká na verdikt:** #565 (bloom), #568 (kompozice popředí, návrh), #598, #594 bod 5 (formát nadpisů žurnálu).
+
+---
+
+## 2026-09-26 — #594 #598 #565 #568 formát deníku, verdikty — desktop, Claude Code
+
+- **Formát nadpisů deníku** (vlastník to nechal na agentovi, #594): `## YYYY-MM-DD — #NNN <název> — <stroj/agent>`, zapsaný v pravidlech nahoře. Hlavička už neříká „squash-merge“ (platí `--no-ff` podle CLAUDE.md) ani „ZCode“.
+- **Verdikty vlastníka 2026-09-26:** bloom #565 v pořádku (zavřeno); hory vypadají dobře → #598 opraveno na straně CPU (fused hash, `mirrorcheck` projde všech 10 scén, obraz beze změny); #568 → krystal nechat, kovové poháry jsou matné → **#602**; playtest vysokého levelu po úpravě limitu míření v pořádku.
+- **Nová zadání z playtestu:** #599 (kamera menu začíná moc vysoko), #600 (3D logo prolézá stropem), #601 (zrušit prolínání 2D loga do 3D), #602 (kovové trofeje). Rozpracované agenty ve worktrees.
