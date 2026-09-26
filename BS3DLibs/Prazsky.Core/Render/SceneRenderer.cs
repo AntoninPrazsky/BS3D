@@ -210,6 +210,9 @@ namespace Prazsky.Core.Render
     {
         private readonly GraphicsDevice _graphicsDevice;
 
+        //Every terrain grid, one per distinct (vertices a side, extent), shared by the scenes that ask for it (#589)
+        private readonly TerrainGridCache _gridCache;
+
         /// <summary>
         /// Radius of the arena platform's footprint, cut out of every solid terrain scene (mountains, meadow,
         /// savanna, desert) and out of the sea around the world origin so the drain funnel below the island
@@ -492,7 +495,7 @@ namespace Prazsky.Core.Render
         //The monoliths are geometry, not a painted horizon, so this grid carries a silhouette rather than only
         //a shaded surface — which is what sets the density. At 400 over 1000 the cell is 2.5 world units and a
         //formation's flank falls its whole height over some eight of them, which the mesh can hold; the same
-        //flank on the desert's 360 grid would fall over seven. Above 255 a side, so CreateGridMesh's 32-bit
+        //flank on the desert's 360 grid would fall over seven. Above 255 a side, so the grid cache's 32-bit
         //index buffer is load-bearing here (the mountain's lesson — a 16-bit one wraps silently).
         private const int OUTBACK_GRID_N = 400;
         private const float OUTBACK_EXTENT = 1000f;
@@ -542,20 +545,19 @@ namespace Prazsky.Core.Render
         //of dead ones — each variant its own instanced draw so a grove is a mix, never one shape
         //stamped out. Scatter parameters live in TropicalSceneConfig.Palms.
         private PalmMesh[] _palmMeshes;
-        private ModelInstance[][] _palmInstances;         //per variant; fronds and wood share the matrices
+        private StaticInstances[] _palmInstances;         //per variant; fronds and wood share the matrices
         private float[] _palmDryness;                     //per variant: how far its crown is towards the dry green
 
         //Every palm's and waterline rock's figure, for a host keeping a camera out of the grove (#559).
         private PlantFigure[] _palmFigures = Array.Empty<PlantFigure>();
         private PlantFigure[] _tropicalRockFigures = Array.Empty<PlantFigure>();
-        private DynamicVertexBuffer _palmInstanceBuffer;  //shared, re-uploaded per draw (SetDataOptions.Discard)
 
         //The waterline's rocks: the stone (RockMesh) and its moss cap (a LatheMesh over the same
         //profile family, on its own irregularity phase so the moss edge reads ragged against the
         //stone's own wobble) are two meshes over one instance matrix each, drawn per variant.
         private RockMesh[] _tropicalRockMeshes;
         private LatheMesh[] _tropicalMossMeshes;
-        private ModelInstance[][] _tropicalRockInstances; //per variant; stone and cap share the matrices
+        private StaticInstances[] _tropicalRockInstances; //per variant; stone and cap share the matrices
 
         //The beach's dressing (#445): the low green scrub and sea grass at the tree line, and the driftwood
         //lying at the waterline. Three kinds, each with its own variants and its own instance buckets, drawn
@@ -563,9 +565,37 @@ namespace Prazsky.Core.Render
         private FoliageMesh[] _tropicalScrubMeshes;
         private GrassTuftMesh[] _tropicalTuftMeshes;
         private DeadwoodMesh[] _tropicalDriftMeshes;
-        private ModelInstance[][] _tropicalScrubInstances;
-        private ModelInstance[][] _tropicalTuftInstances;
-        private ModelInstance[][] _tropicalDriftInstances;
+        private StaticInstances[] _tropicalScrubInstances;
+        private StaticInstances[] _tropicalTuftInstances;
+        private StaticInstances[] _tropicalDriftInstances;
+
+        /// <summary>
+        /// One variant's placed instances, uploaded once when the beach is planted (#589) — the savanna's
+        /// <see cref="ScatterBucket"/> pattern (#451). Until #589 every tropical draw copied its static matrices
+        /// into one shared dynamic buffer with a discard, about 1,070 instances over some twenty discards a frame,
+        /// and the shadow pass copied the palms and rocks again. <see cref="Buffer"/> is null for an empty variant,
+        /// which no draw reaches (they skip a zero <see cref="Count"/>).
+        /// </summary>
+        private sealed class StaticInstances : IDisposable
+        {
+            public VertexBuffer Buffer { get; private set; }
+            public int Count { get; }
+
+            public StaticInstances(GraphicsDevice device, List<ModelInstance> placed)
+            {
+                Count = placed.Count;
+                if (Count == 0) return;
+
+                Buffer = new VertexBuffer(device, ModelInstance.VertexDeclaration, Count, BufferUsage.WriteOnly);
+                Buffer.SetData(placed.ToArray());
+            }
+
+            public void Dispose()
+            {
+                Buffer?.Dispose();
+                Buffer = null;
+            }
+        }
 
         //Colours, stored from the config so the per-draw DiffuseColor can be set as each part draws.
         private Vector3 _palmFrondColor, _palmFrondDry, _palmTrunkColor, _tropicalStoneColor, _tropicalMossColor;
@@ -581,7 +611,7 @@ namespace Prazsky.Core.Render
         private int _volcanoIndexCount;
 
         //The mountain's density and extent: the flank carries a summit against the sky, so it wants the
-        //craggy grid rather than the desert's, and it needs the same 32-bit index buffer (CreateGridMesh).
+        //craggy grid rather than the desert's, and it needs the same 32-bit index buffer (TerrainGridCache).
         private const int VOLCANO_GRID_N = 360;
 
         //The reduced program's grid (#540): half the vertices, a 4.7-unit cell against 3.3. Measured on the APU at Low,
@@ -600,6 +630,10 @@ namespace Prazsky.Core.Render
         //dials from day one (#209 defends a 75 FPS budget this scene spends particles against), so the cap
         //is stated rather than assumed.
         private const int MAX_BILLBOARD_PARTICLES = 16000;
+
+        //Where BuildQuadIndexBuffer refuses (#589): the largest quad count whose four vertices a quad stay
+        //addressable by a 16-bit index, one short of 65 536 / 4 so the last index is never 0xFFFF.
+        private const int MAX_BILLBOARD_QUADS = 16383;
 
         //The rivers' bearings and reaches, solved once per config (BuildVolcanoBuffers) rather than per
         //frame — the shader draws the flows from these and the scene lights ride the same figures, which is
@@ -1366,6 +1400,7 @@ namespace Prazsky.Core.Render
             _seedOffset = seedOffset;
 
             _graphicsDevice = graphicsDevice;
+            _gridCache = new TerrainGridCache(graphicsDevice);
 
             //--- The far field (#551): one ring every open-ground scene draws its land over past its own grid.
             CreateFarRingMesh();
@@ -1373,13 +1408,13 @@ namespace Prazsky.Core.Render
             //--- Sea: a camera-centred grid displaced into Gerstner waves; DrawSea snaps it to a cell and sets
             //the mean level. Drawn CullNone (one open surface, read from above and through the crests).
             _seaEffect = content.Load<Effect>("Shaders/Sea");
-            CreateGridMesh(SEA_GRID_N, SEA_EXTENT, out _seaVertexBuffer, out _seaIndexBuffer, out _seaIndexCount);
+            AcquireGridMesh(SEA_GRID_N, SEA_EXTENT, out _seaVertexBuffer, out _seaIndexBuffer, out _seaIndexCount);
 
             ApplySeaParameters();
 
             //--- Desert: a flat lattice the shader displaces into Sahara dunes (per-pixel normal, no grid)
             _desertEffect = content.Load<Effect>("Shaders/Desert");
-            CreateGridMesh(DESERT_GRID_N, DESERT_EXTENT, out _desertVertexBuffer, out _desertIndexBuffer, out _desertIndexCount);
+            AcquireGridMesh(DESERT_GRID_N, DESERT_EXTENT, out _desertVertexBuffer, out _desertIndexBuffer, out _desertIndexCount);
 
             ApplyDesertParameters();
 
@@ -1387,14 +1422,14 @@ namespace Prazsky.Core.Render
             //crevassed pressure belt instead of dunes, and a material that is white in reflection and cyan in
             //transmission, which is the scene rather than the terrain
             _polarEffect = content.Load<Effect>("Shaders/Polar");
-            CreateGridMesh(POLAR_GRID_N, POLAR_EXTENT, out _polarVertexBuffer, out _polarIndexBuffer, out _polarIndexCount);
+            AcquireGridMesh(POLAR_GRID_N, POLAR_EXTENT, out _polarVertexBuffer, out _polarIndexBuffer, out _polarIndexCount);
 
             ApplyPolarParameters();
 
             //--- Outback (#112): the desert's machinery with rock on it — the same flat lattice, displaced into
             //a near-flat spinifex plain with red monoliths standing on a jittered single-cell lattice
             _outbackEffect = content.Load<Effect>("Shaders/Outback");
-            CreateGridMesh(OUTBACK_GRID_N, OUTBACK_EXTENT, out _outbackVertexBuffer, out _outbackIndexBuffer, out _outbackIndexCount);
+            AcquireGridMesh(OUTBACK_GRID_N, OUTBACK_EXTENT, out _outbackVertexBuffer, out _outbackIndexBuffer, out _outbackIndexCount);
 
             ApplyOutbackParameters();
 
@@ -1403,7 +1438,7 @@ namespace Prazsky.Core.Render
             //gentlest slopes of any terrain scene); the lagoon's water is the sea's own effect and grid,
             //drawn over this terrain by DrawTropicalWater below.
             _tropicalEffect = content.Load<Effect>("Shaders/Tropical");
-            CreateGridMesh(TROPICAL_GRID_N, TROPICAL_EXTENT, out _tropicalVertexBuffer, out _tropicalIndexBuffer, out _tropicalIndexCount);
+            AcquireGridMesh(TROPICAL_GRID_N, TROPICAL_EXTENT, out _tropicalVertexBuffer, out _tropicalIndexBuffer, out _tropicalIndexCount);
 
             ApplyTropicalParameters();
 
@@ -1477,7 +1512,7 @@ namespace Prazsky.Core.Render
 
             //--- Savanna: a flat lattice the shader displaces into gentle grassland (per-pixel normal, no grid)
             _savannaEffect = content.Load<Effect>("Shaders/Savanna");
-            CreateGridMesh(SAVANNA_GRID_N, SAVANNA_EXTENT, out _savannaVertexBuffer, out _savannaIndexBuffer, out _savannaIndexCount);
+            AcquireGridMesh(SAVANNA_GRID_N, SAVANNA_EXTENT, out _savannaVertexBuffer, out _savannaIndexBuffer, out _savannaIndexCount);
 
             ApplySavannaParameters();
 
@@ -1508,7 +1543,6 @@ namespace Prazsky.Core.Render
             //which is all Flame.fx needs to look up that sub-flame's own offset/scale/seed.
             _flameEffect = content.Load<Effect>("Shaders/Flame");
             BillboardVertex[] flameVertices = new BillboardVertex[FLAME_SUBFLAME_COUNT * 4];
-            short[] flameIndices = new short[FLAME_SUBFLAME_COUNT * 6];
 
             for (int sub = 0; sub < FLAME_SUBFLAME_COUNT; sub++)
             {
@@ -1518,20 +1552,11 @@ namespace Prazsky.Core.Render
                 flameVertices[v + 1] = new(subIndex, new Vector3(1f, 0f, 0f));
                 flameVertices[v + 2] = new(subIndex, new Vector3(-1f, 1f, 0f));
                 flameVertices[v + 3] = new(subIndex, new Vector3(1f, 1f, 0f));
-
-                int i = sub * 6;
-                flameIndices[i + 0] = (short)(v + 0);
-                flameIndices[i + 1] = (short)(v + 1);
-                flameIndices[i + 2] = (short)(v + 2);
-                flameIndices[i + 3] = (short)(v + 2);
-                flameIndices[i + 4] = (short)(v + 1);
-                flameIndices[i + 5] = (short)(v + 3);
             }
 
             _flameVertexBuffer = new VertexBuffer(graphicsDevice, BillboardVertex.Declaration, flameVertices.Length, BufferUsage.WriteOnly);
             _flameVertexBuffer.SetData(flameVertices);
-            _flameIndexBuffer = new IndexBuffer(graphicsDevice, IndexElementSize.SixteenBits, flameIndices.Length, BufferUsage.WriteOnly);
-            _flameIndexBuffer.SetData(flameIndices);
+            _flameIndexBuffer = BuildQuadIndexBuffer(FLAME_SUBFLAME_COUNT, mirrored: true);
             _flameTechnique = _flameEffect.Techniques["Flame"];
             _sparkTechnique = _flameEffect.Techniques["Sparks"];
             //The sparks (#468): one shared buffer of billboards on the fountain's pattern, each fire drawing
@@ -1557,7 +1582,7 @@ namespace Prazsky.Core.Render
 
             //--- Mountain: a ridged displaced grid
             _mountainEffect = content.Load<Effect>("Shaders/Mountain");
-            CreateGridMesh(MOUNTAIN_GRID_N, MOUNTAIN_EXTENT, out _mountainVertexBuffer, out _mountainIndexBuffer, out _mountainIndexCount);
+            AcquireGridMesh(MOUNTAIN_GRID_N, MOUNTAIN_EXTENT, out _mountainVertexBuffer, out _mountainIndexBuffer, out _mountainIndexCount);
 
             ApplyMountainParameters();
 
@@ -1577,13 +1602,13 @@ namespace Prazsky.Core.Render
 
             //--- Meadow: a smooth rolling displaced grid scattered with flowers
             _meadowEffect = content.Load<Effect>("Shaders/Meadow");
-            CreateGridMesh(MEADOW_GRID_N, MEADOW_EXTENT, out _meadowVertexBuffer, out _meadowIndexBuffer, out _meadowIndexCount);
+            AcquireGridMesh(MEADOW_GRID_N, MEADOW_EXTENT, out _meadowVertexBuffer, out _meadowIndexBuffer, out _meadowIndexCount);
 
             ApplyMeadowParameters();
 
             //--- Forest: a mossy needle-strewn clearing ringed by wooded hills (the eighth scene)
             _forestEffect = content.Load<Effect>("Shaders/Forest");
-            CreateGridMesh(FOREST_GRID_N, FOREST_EXTENT, out _forestVertexBuffer, out _forestIndexBuffer, out _forestIndexCount);
+            AcquireGridMesh(FOREST_GRID_N, FOREST_EXTENT, out _forestVertexBuffer, out _forestIndexBuffer, out _forestIndexCount);
 
             ApplyForestParameters();
 
@@ -1633,7 +1658,7 @@ namespace Prazsky.Core.Render
             //grid like the desert's under a sky-replacing star-and-Earth pass on space's quad, two
             //techniques in one effect. Nothing on it moves, so there is no time parameter to cache.
             _moonEffect = content.Load<Effect>("Shaders/Moon");
-            CreateGridMesh(MOON_GRID_N, MOON_EXTENT, out _moonVertexBuffer, out _moonIndexBuffer, out _moonIndexCount);
+            AcquireGridMesh(MOON_GRID_N, MOON_EXTENT, out _moonVertexBuffer, out _moonIndexBuffer, out _moonIndexCount);
 
             _moonSkyTechnique = _moonEffect.Techniques["MoonSky"];
             _moonTerrainTechnique = _moonEffect.Techniques["MoonTerrain"];
@@ -1653,7 +1678,7 @@ namespace Prazsky.Core.Render
             //clearing grid like Forest.fx's under a sky-replacing star-and-ribbon pass on space's quad, two
             //techniques in one effect, exactly the Moon's own shape (see the region doc above it).
             _auroraEffect = content.Load<Effect>("Shaders/Aurora");
-            CreateGridMesh(AURORA_GRID_N, AURORA_EXTENT, out _auroraVertexBuffer, out _auroraIndexBuffer, out _auroraIndexCount);
+            AcquireGridMesh(AURORA_GRID_N, AURORA_EXTENT, out _auroraVertexBuffer, out _auroraIndexBuffer, out _auroraIndexCount);
 
             _auroraTerrainTechnique = _auroraEffect.Techniques["AuroraTerrain"];
             _auroraSkyTechnique = _auroraEffect.Techniques["AuroraSky"];
@@ -1679,7 +1704,7 @@ namespace Prazsky.Core.Render
             //effect, the Moon's and the aurora's own shape (see the region doc above it). GRID_MESH_N is
             //deliberately coarse — see that constant's own doc for why a scene with no displacement can afford it.
             _gridEffect = content.Load<Effect>("Shaders/Grid");
-            CreateGridMesh(GRID_MESH_N, GRID_EXTENT, out _gridVertexBuffer, out _gridIndexBuffer, out _gridIndexCount);
+            AcquireGridMesh(GRID_MESH_N, GRID_EXTENT, out _gridVertexBuffer, out _gridIndexBuffer, out _gridIndexCount);
 
             _gridTerrainTechnique = _gridEffect.Techniques["GridTerrain"];
             _gridSkyTechnique = _gridEffect.Techniques["GridSky"];
@@ -2941,23 +2966,51 @@ namespace Prazsky.Core.Render
             _stormBoltIndexBuffer = BuildQuadIndexBuffer(_stormBoltQuadCount);
         }
 
-        //Two triangles a quad, in the winding the billboard shaders here already expect. Shared because the
-        //cloud field and the bolts differ in nothing but their vertex data.
-        private IndexBuffer BuildQuadIndexBuffer(int quads)
+        /// <summary>
+        /// The one builder of the 16-bit index buffers every billboard here is drawn through (#589) — the storm's
+        /// cloud puffs and bolts, the snow, the spray, the volcano's fountains and ash, the campfire sparks and the
+        /// flame: two triangles a quad over four vertices a quad, in the winding the billboard shaders here already
+        /// expect. <paramref name="mirrored"/> is the flame's order, whose quads stand on their base (corner y 0..1)
+        /// rather than about their middle, so both of its triangles are listed the other way round.
+        /// <para>
+        /// ⚠ <b>It refuses a count past <see cref="MAX_BILLBOARD_QUADS"/></b>, where a 16-bit index would wrap and
+        /// the later quads would silently draw the first ones' vertices — the failure the terrain grids' own note
+        /// (<see cref="TerrainGridCache"/>) records a long hunt for. Five copies of this loop stood here until #589
+        /// and only the volcano's counts were clamped; the snow and the spray trusted their configs.
+        /// </para>
+        /// </summary>
+        private IndexBuffer BuildQuadIndexBuffer(int quads, bool mirrored = false)
         {
+            CheckBillboardQuads(quads);
+
             short[] indices = new short[quads * 6];
             for (int i = 0; i < quads; i++)
             {
                 int v = i * 4;
                 int o = i * 6;
-                indices[o] = (short)v; indices[o + 1] = (short)(v + 2); indices[o + 2] = (short)(v + 1);
-                indices[o + 3] = (short)(v + 1); indices[o + 4] = (short)(v + 2); indices[o + 5] = (short)(v + 3);
+                if (mirrored)
+                {
+                    indices[o] = (short)v; indices[o + 1] = (short)(v + 1); indices[o + 2] = (short)(v + 2);
+                    indices[o + 3] = (short)(v + 2); indices[o + 4] = (short)(v + 1); indices[o + 5] = (short)(v + 3);
+                }
+                else
+                {
+                    indices[o] = (short)v; indices[o + 1] = (short)(v + 2); indices[o + 2] = (short)(v + 1);
+                    indices[o + 3] = (short)(v + 1); indices[o + 4] = (short)(v + 2); indices[o + 5] = (short)(v + 3);
+                }
             }
 
             IndexBuffer buffer = new(_graphicsDevice, IndexElementSize.SixteenBits, indices.Length, BufferUsage.WriteOnly);
             buffer.SetData(indices);
 
             return buffer;
+        }
+
+        private static void CheckBillboardQuads(int quads)
+        {
+            if (quads > MAX_BILLBOARD_QUADS)
+                throw new ArgumentOutOfRangeException(nameof(quads), quads,
+                    $"A billboard buffer holds at most {MAX_BILLBOARD_QUADS} quads: its indices are 16-bit, and past that they wrap.");
         }
 
         private static float Lerp(float a, float b, float t) => a + (b - a) * t;
@@ -3855,20 +3908,20 @@ namespace Prazsky.Core.Render
                 driftBuckets[rng.Next(DRIFT_VARIANTS)].Add(new ModelInstance(world, Vector4.Zero));
             }
 
-            _tropicalScrubInstances = new ModelInstance[SCRUB_VARIANTS][];
-            for (int m = 0; m < SCRUB_VARIANTS; m++) _tropicalScrubInstances[m] = scrubBuckets[m].ToArray();
-            _tropicalTuftInstances = new ModelInstance[TUFT_VARIANTS][];
-            for (int m = 0; m < TUFT_VARIANTS; m++) _tropicalTuftInstances[m] = tuftBuckets[m].ToArray();
-            _tropicalDriftInstances = new ModelInstance[DRIFT_VARIANTS][];
-            for (int m = 0; m < DRIFT_VARIANTS; m++) _tropicalDriftInstances[m] = driftBuckets[m].ToArray();
+            _tropicalScrubInstances = new StaticInstances[SCRUB_VARIANTS];
+            for (int m = 0; m < SCRUB_VARIANTS; m++) _tropicalScrubInstances[m] = new StaticInstances(_graphicsDevice, scrubBuckets[m]);
+            _tropicalTuftInstances = new StaticInstances[TUFT_VARIANTS];
+            for (int m = 0; m < TUFT_VARIANTS; m++) _tropicalTuftInstances[m] = new StaticInstances(_graphicsDevice, tuftBuckets[m]);
+            _tropicalDriftInstances = new StaticInstances[DRIFT_VARIANTS];
+            for (int m = 0; m < DRIFT_VARIANTS; m++) _tropicalDriftInstances[m] = new StaticInstances(_graphicsDevice, driftBuckets[m]);
 
             _palmFigures = palmFigures.ToArray();
             _tropicalRockFigures = rockFigures.ToArray();
 
-            _palmInstances = new ModelInstance[PALM_VARIANTS][];
-            for (int m = 0; m < PALM_VARIANTS; m++) _palmInstances[m] = palmBuckets[m].ToArray();
-            _tropicalRockInstances = new ModelInstance[ROCK_VARIANTS][];
-            for (int m = 0; m < ROCK_VARIANTS; m++) _tropicalRockInstances[m] = rockBuckets[m].ToArray();
+            _palmInstances = new StaticInstances[PALM_VARIANTS];
+            for (int m = 0; m < PALM_VARIANTS; m++) _palmInstances[m] = new StaticInstances(_graphicsDevice, palmBuckets[m]);
+            _tropicalRockInstances = new StaticInstances[ROCK_VARIANTS];
+            for (int m = 0; m < ROCK_VARIANTS; m++) _tropicalRockInstances[m] = new StaticInstances(_graphicsDevice, rockBuckets[m]);
         }
 
         /// <summary>
@@ -3933,8 +3986,13 @@ namespace Prazsky.Core.Render
                 * Matrix.CreateTranslation(basePos);
         }
 
+        private static void DisposeInstances(StaticInstances[] sets)
+        {
+            if (sets != null) foreach (StaticInstances set in sets) set.Dispose();
+        }
+
         /// <summary>
-        /// Disposes the palm and rock meshes and the shared instance buffer — called on a rebuild (a
+        /// Disposes the palm and rock meshes and their instance buffers — called on a rebuild (a
         /// shore or config edit re-plants the scatter) and on the renderer's own <see cref="Dispose"/>.
         /// </summary>
         private void DisposeTropical()
@@ -3945,8 +4003,11 @@ namespace Prazsky.Core.Render
             if (_tropicalDriftMeshes != null) foreach (DeadwoodMesh mesh in _tropicalDriftMeshes) mesh?.Dispose();
             if (_tropicalRockMeshes != null) foreach (RockMesh mesh in _tropicalRockMeshes) mesh?.Dispose();
             if (_tropicalMossMeshes != null) foreach (LatheMesh mesh in _tropicalMossMeshes) mesh?.Dispose();
-            _palmInstanceBuffer?.Dispose();
-            _palmInstanceBuffer = null;
+            DisposeInstances(_palmInstances);
+            DisposeInstances(_tropicalRockInstances);
+            DisposeInstances(_tropicalScrubInstances);
+            DisposeInstances(_tropicalTuftInstances);
+            DisposeInstances(_tropicalDriftInstances);
             _palmMeshes = null;
             _tropicalScrubMeshes = null;
             _tropicalTuftMeshes = null;
@@ -4074,10 +4135,14 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// A static buffer of <paramref name="count"/> camera-facing quads, each carrying a fixed random point
         /// in the unit cube and one more random — everything a shader needs to animate a particle entirely in
-        /// its vertex shader. The volcano's fountains, its plume and its ash are all built from this.
+        /// its vertex shader. The volcano's fountains, its plume and its ash, the campfire sparks, the mountain's
+        /// snow and the sea's spray are all built from this (the last two were copies of it until #589, and their
+        /// seeds make the same sequences through it). Refuses a count past <see cref="MAX_BILLBOARD_QUADS"/>.
         /// </summary>
         private void BuildBillboardParticles(int count, int seed, ref VertexBuffer vertexBuffer, ref IndexBuffer indexBuffer)
         {
+            CheckBillboardQuads(count);
+
             vertexBuffer?.Dispose();
             indexBuffer?.Dispose();
             vertexBuffer = null;
@@ -4100,16 +4165,7 @@ namespace Prazsky.Core.Render
             vertexBuffer = new VertexBuffer(_graphicsDevice, BillboardVertex.Declaration, vertices.Length, BufferUsage.WriteOnly);
             vertexBuffer.SetData(vertices);
 
-            short[] indices = new short[count * 6];
-            for (int i = 0; i < count; i++)
-            {
-                int v = i * 4;
-                int o = i * 6;
-                indices[o] = (short)v; indices[o + 1] = (short)(v + 2); indices[o + 2] = (short)(v + 1);
-                indices[o + 3] = (short)(v + 1); indices[o + 4] = (short)(v + 2); indices[o + 5] = (short)(v + 3);
-            }
-            indexBuffer = new IndexBuffer(_graphicsDevice, IndexElementSize.SixteenBits, indices.Length, BufferUsage.WriteOnly);
-            indexBuffer.SetData(indices);
+            indexBuffer = BuildQuadIndexBuffer(count);
         }
 
         /// <summary>
@@ -4598,34 +4654,7 @@ namespace Prazsky.Core.Render
         /// <summary>(Re)builds the snowfall's flake buffer at the config's flake count. Deterministic seed.</summary>
         private void BuildSnowBuffers()
         {
-            _snowVertexBuffer?.Dispose();
-            _snowIndexBuffer?.Dispose();
-
-            BillboardVertex[] snowVertices = new BillboardVertex[_mountainConfig.Snow.FlakeCount * 4];
-            Random snowRng = new(1207);
-            for (int i = 0; i < _mountainConfig.Snow.FlakeCount; i++)
-            {
-                Vector3 basePosition = new((float)snowRng.NextDouble(), (float)snowRng.NextDouble(), (float)snowRng.NextDouble());
-                float rand = (float)snowRng.NextDouble();
-                int v = i * 4;
-                snowVertices[v] = new BillboardVertex(basePosition, new Vector3(-1f, 1f, rand));
-                snowVertices[v + 1] = new BillboardVertex(basePosition, new Vector3(1f, 1f, rand));
-                snowVertices[v + 2] = new BillboardVertex(basePosition, new Vector3(-1f, -1f, rand));
-                snowVertices[v + 3] = new BillboardVertex(basePosition, new Vector3(1f, -1f, rand));
-            }
-            _snowVertexBuffer = new VertexBuffer(_graphicsDevice, BillboardVertex.Declaration, snowVertices.Length, BufferUsage.WriteOnly);
-            _snowVertexBuffer.SetData(snowVertices);
-
-            short[] snowIndices = new short[_mountainConfig.Snow.FlakeCount * 6];
-            for (int i = 0; i < _mountainConfig.Snow.FlakeCount; i++)
-            {
-                int v = i * 4;
-                int o = i * 6;
-                snowIndices[o] = (short)v; snowIndices[o + 1] = (short)(v + 2); snowIndices[o + 2] = (short)(v + 1);
-                snowIndices[o + 3] = (short)(v + 1); snowIndices[o + 4] = (short)(v + 2); snowIndices[o + 5] = (short)(v + 3);
-            }
-            _snowIndexBuffer = new IndexBuffer(_graphicsDevice, IndexElementSize.SixteenBits, snowIndices.Length, BufferUsage.WriteOnly);
-            _snowIndexBuffer.SetData(snowIndices);
+            BuildBillboardParticles(_mountainConfig.Snow.FlakeCount, 1207, ref _snowVertexBuffer, ref _snowIndexBuffer);
 
             _snowFlakeCapacity = _mountainConfig.Snow.FlakeCount;
         }
@@ -4643,37 +4672,8 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>(Re)builds the spray's particle buffer at the config's particle count. Deterministic seed.</summary>
-        private void BuildSprayBuffers()
-        {
-            _sprayVertexBuffer?.Dispose();
-            _sprayIndexBuffer?.Dispose();
-
-            BillboardVertex[] sprayVertices = new BillboardVertex[_seaConfig.Spray.ParticleCount * 4];
-            Random sprayRng = new(5023);
-            for (int i = 0; i < _seaConfig.Spray.ParticleCount; i++)
-            {
-                Vector3 basePosition = new((float)sprayRng.NextDouble(), (float)sprayRng.NextDouble(), (float)sprayRng.NextDouble());
-                float rand = (float)sprayRng.NextDouble();
-                int v = i * 4;
-                sprayVertices[v] = new BillboardVertex(basePosition, new Vector3(-1f, 1f, rand));
-                sprayVertices[v + 1] = new BillboardVertex(basePosition, new Vector3(1f, 1f, rand));
-                sprayVertices[v + 2] = new BillboardVertex(basePosition, new Vector3(-1f, -1f, rand));
-                sprayVertices[v + 3] = new BillboardVertex(basePosition, new Vector3(1f, -1f, rand));
-            }
-            _sprayVertexBuffer = new VertexBuffer(_graphicsDevice, BillboardVertex.Declaration, sprayVertices.Length, BufferUsage.WriteOnly);
-            _sprayVertexBuffer.SetData(sprayVertices);
-
-            short[] sprayIndices = new short[_seaConfig.Spray.ParticleCount * 6];
-            for (int i = 0; i < _seaConfig.Spray.ParticleCount; i++)
-            {
-                int v = i * 4;
-                int o = i * 6;
-                sprayIndices[o] = (short)v; sprayIndices[o + 1] = (short)(v + 2); sprayIndices[o + 2] = (short)(v + 1);
-                sprayIndices[o + 3] = (short)(v + 1); sprayIndices[o + 4] = (short)(v + 2); sprayIndices[o + 5] = (short)(v + 3);
-            }
-            _sprayIndexBuffer = new IndexBuffer(_graphicsDevice, IndexElementSize.SixteenBits, sprayIndices.Length, BufferUsage.WriteOnly);
-            _sprayIndexBuffer.SetData(sprayIndices);
-        }
+        private void BuildSprayBuffers() =>
+            BuildBillboardParticles(_seaConfig.Spray.ParticleCount, 5023, ref _sprayVertexBuffer, ref _sprayIndexBuffer);
 
         /// <summary>
         /// Mars's full ground or its reduced one: the sand drifts, the bedrock slabs and the strata's wobble are the
@@ -4698,9 +4698,9 @@ namespace Prazsky.Core.Render
         {
             if (_marsVertexBuffer != null && _marsGridN == n) return;
 
-            _marsVertexBuffer?.Dispose();
-            _marsIndexBuffer?.Dispose();
-            CreateGridMesh(n, MARS_EXTENT, out _marsVertexBuffer, out _marsIndexBuffer, out _marsIndexCount);
+            //Given back rather than disposed: the grid cache owns it, and at full detail another scene draws the same one
+            if (_marsVertexBuffer != null) _gridCache.Release(_marsGridN, MARS_EXTENT);
+            AcquireGridMesh(n, MARS_EXTENT, out _marsVertexBuffer, out _marsIndexBuffer, out _marsIndexCount);
             _marsGridN = n;
         }
 
@@ -4798,9 +4798,9 @@ namespace Prazsky.Core.Render
         {
             if (_volcanoVertexBuffer != null && _volcanoGridN == n) return;
 
-            _volcanoVertexBuffer?.Dispose();
-            _volcanoIndexBuffer?.Dispose();
-            CreateGridMesh(n, VOLCANO_EXTENT, out _volcanoVertexBuffer, out _volcanoIndexBuffer, out _volcanoIndexCount);
+            //Given back rather than disposed: the grid cache owns it, and at full detail another scene draws the same one
+            if (_volcanoVertexBuffer != null) _gridCache.Release(_volcanoGridN, VOLCANO_EXTENT);
+            AcquireGridMesh(n, VOLCANO_EXTENT, out _volcanoVertexBuffer, out _volcanoIndexBuffer, out _volcanoIndexCount);
             _volcanoGridN = n;
         }
 
@@ -5423,48 +5423,18 @@ namespace Prazsky.Core.Render
         #endregion
 
         /// <summary>
-        /// Builds a flat lattice grid: <paramref name="n"/> vertices per side over <paramref name="extent"/>,
-        /// centred on the origin. The sea, savanna, desert, mountain and meadow shaders recentre it on the
-        /// camera and lift it into waves, dunes, peaks or hills; it is drawn CullNone, so the winding does
-        /// not matter. Indices are 32-bit: every one of these grids runs past 255 vertices a side, where a
-        /// 16-bit index silently wraps (see the inline note below — that wrap has already cost one long hunt).
+        /// The flat lattice grid of <paramref name="n"/> vertices a side over <paramref name="extent"/> that a
+        /// terrain scene displaces, from <see cref="TerrainGridCache"/> (#589): scenes asking for the same pair
+        /// share one pair of buffers, which the cache owns — a holder gives its grid back with
+        /// <see cref="TerrainGridCache.Release"/> and never disposes it. The indices are 32-bit; the cache's
+        /// builder carries the note on why a grid over 255 a side must never have 16-bit ones.
         /// </summary>
-        private void CreateGridMesh(int n, float extent, out VertexBuffer vertexBuffer, out IndexBuffer indexBuffer, out int indexCount)
+        private void AcquireGridMesh(int n, float extent, out VertexBuffer vertexBuffer, out IndexBuffer indexBuffer, out int indexCount)
         {
-            float half = extent * Constants.HALF;
-            float step = extent / (n - 1);
-
-            VertexPosition[] vertices = new VertexPosition[n * n];
-            for (int z = 0; z < n; z++)
-                for (int x = 0; x < n; x++)
-                    vertices[z * n + x] = new VertexPosition(new Vector3(-half + x * step, 0f, -half + z * step));
-
-            vertexBuffer = new VertexBuffer(_graphicsDevice, VertexPosition.VertexDeclaration, vertices.Length, BufferUsage.WriteOnly);
-            vertexBuffer.SetData(vertices);
-
-            //32-bit indices: these grids run to hundreds of vertices a side (the mountain at 360, the savanna
-            //at 400 = 160k vertices), well past the 65 536 a 16-bit index can address. A 16-bit index silently
-            //wraps at that point, so triangles reference the wrong vertices and stretch into garbage. On a near
-            //flat field (sea, savanna) the garbage stays down near the surface and hides; on the mountain's tall
-            //peaks it stretched into long dark bands across the whole sky. Wrong cause chased for a while - it
-            //looked like a glare/shading artifact - so: a grid over 255 a side MUST use 32-bit indices.
-            int[] indices = new int[(n - 1) * (n - 1) * 6];
-            int i = 0;
-            for (int z = 0; z < n - 1; z++)
-                for (int x = 0; x < n - 1; x++)
-                {
-                    int a = z * n + x;
-                    int b = z * n + x + 1;
-                    int c = (z + 1) * n + x;
-                    int d = (z + 1) * n + x + 1;
-
-                    indices[i++] = a; indices[i++] = c; indices[i++] = b;
-                    indices[i++] = b; indices[i++] = c; indices[i++] = d;
-                }
-
-            indexCount = i;
-            indexBuffer = new IndexBuffer(_graphicsDevice, IndexElementSize.ThirtyTwoBits, indices.Length, BufferUsage.WriteOnly);
-            indexBuffer.SetData(indices);
+            TerrainGridCache.Grid grid = _gridCache.Acquire(n, extent);
+            vertexBuffer = grid.Vertices;
+            indexBuffer = grid.Indices;
+            indexCount = grid.IndexCount;
         }
 
         /// <summary>
@@ -6658,8 +6628,8 @@ namespace Prazsky.Core.Render
 
             for (int m = 0; m < _palmMeshes.Length; m++)
             {
-                ModelInstance[] instances = _palmInstances[m];
-                if (instances.Length == 0) continue;
+                StaticInstances instances = _palmInstances[m];
+                if (instances.Count == 0) continue;
 
                 float sway = _tropicalConfig.Palms.SwayStrength;
                 DrawPalmPart(_palmMeshes[m].Fronds, instances, Vector3.Zero, dappleStrength: 0f, swayStrength: sway);
@@ -6670,8 +6640,8 @@ namespace Prazsky.Core.Render
             {
                 for (int m = 0; m < _tropicalRockMeshes.Length; m++)
                 {
-                    ModelInstance[] instances = _tropicalRockInstances[m];
-                    if (instances.Length == 0) continue;
+                    StaticInstances instances = _tropicalRockInstances[m];
+                    if (instances.Count == 0) continue;
 
                     //No sway, for the reason DrawTropicalRocks gives: these are lathe meshes whose TEXCOORD0.x
                     //is a circumference, which this shader reads as its sway weight. At the palms' strength
@@ -6698,8 +6668,8 @@ namespace Prazsky.Core.Render
 
             for (int m = 0; m < _palmMeshes.Length; m++)
             {
-                ModelInstance[] instances = _palmInstances[m];
-                if (instances.Length == 0) continue;
+                StaticInstances instances = _palmInstances[m];
+                if (instances.Count == 0) continue;
 
                 Vector3 frond = Vector3.Lerp(_palmFrondColor, _palmFrondDry, _palmDryness[m] * 0.6f);
 
@@ -6737,22 +6707,22 @@ namespace Prazsky.Core.Render
 
             for (int m = 0; m < _tropicalScrubMeshes.Length; m++)
             {
-                ModelInstance[] instances = _tropicalScrubInstances[m];
-                if (instances.Length == 0) continue;
+                StaticInstances instances = _tropicalScrubInstances[m];
+                if (instances.Count == 0) continue;
                 DrawPalmPart(_tropicalScrubMeshes[m], instances, _tropicalScrubColor, dappleStrength: 0.35f, swayStrength: 0f);
             }
 
             for (int m = 0; m < _tropicalTuftMeshes.Length; m++)
             {
-                ModelInstance[] instances = _tropicalTuftInstances[m];
-                if (instances.Length == 0) continue;
+                StaticInstances instances = _tropicalTuftInstances[m];
+                if (instances.Count == 0) continue;
                 DrawPalmPart(_tropicalTuftMeshes[m], instances, _tropicalTuftColor, dappleStrength: 0.25f, swayStrength: 0f);
             }
 
             for (int m = 0; m < _tropicalDriftMeshes.Length; m++)
             {
-                ModelInstance[] instances = _tropicalDriftInstances[m];
-                if (instances.Length == 0) continue;
+                StaticInstances instances = _tropicalDriftInstances[m];
+                if (instances.Count == 0) continue;
                 DrawPalmPart(_tropicalDriftMeshes[m], instances, _tropicalDriftColor, dappleStrength: 0f, swayStrength: 0f);
             }
         }
@@ -6768,8 +6738,8 @@ namespace Prazsky.Core.Render
 
             for (int m = 0; m < _tropicalRockMeshes.Length; m++)
             {
-                ModelInstance[] instances = _tropicalRockInstances[m];
-                if (instances.Length == 0) continue;
+                StaticInstances instances = _tropicalRockInstances[m];
+                if (instances.Count == 0) continue;
 
                 //NO SWAY: a boulder does not move in the wind, and both of these meshes are LatheMeshes
                 //whose TEXCOORD0.x runs 0..1 around the circumference — which Palm.fx reads as its sway
@@ -6826,9 +6796,8 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// One instanced draw through <c>Palm.fx</c> of a mesh part with its per-draw material —
-        /// <see cref="DrawAcaciaPart"/>'s construction on the palm effect and buffer: instances re-uploaded to
-        /// the one shared dynamic buffer (<see cref="SetDataOptions.Discard"/>), the mesh at stream 0 and the
-        /// instances at stream 1.
+        /// <see cref="DrawAcaciaPart"/>'s construction on the palm effect: the mesh at stream 0 and the variant's
+        /// static instances (<see cref="StaticInstances"/>, uploaded once when the beach is planted) at stream 1.
         /// <para>
         /// <b><paramref name="swayStrength"/> is a per-part argument and not a per-frame one, which is
         /// #268's rock fault in one line.</b> <c>Palm.fx</c> reads the mesh's <c>TEXCOORD0.x</c> — an
@@ -6849,17 +6818,9 @@ namespace Prazsky.Core.Render
         /// shading it always had.
         /// </para>
         /// </summary>
-        private void DrawPalmPart(IProceduralMesh mesh, ModelInstance[] instances, Vector3 diffuse,
+        private void DrawPalmPart(IProceduralMesh mesh, StaticInstances instances, Vector3 diffuse,
             float dappleStrength, float swayStrength, float palmShading = 0f)
         {
-            if (_palmInstanceBuffer == null || _palmInstanceBuffer.VertexCount < instances.Length)
-            {
-                _palmInstanceBuffer?.Dispose();
-                _palmInstanceBuffer = new DynamicVertexBuffer(_graphicsDevice, ModelInstance.VertexDeclaration,
-                    instances.Length, BufferUsage.WriteOnly);
-            }
-            _palmInstanceBuffer.SetData(instances, 0, instances.Length, SetDataOptions.Discard);
-
             _palmDiffuseParam.SetValue(diffuse);
             _palmDappleParam.SetValue(dappleStrength);
             _palmSwayStrengthParam.SetValue(swayStrength);
@@ -6868,9 +6829,9 @@ namespace Prazsky.Core.Render
 
             _graphicsDevice.SetVertexBuffers(
                 new VertexBufferBinding(mesh.VertexBuffer, 0, 0),
-                new VertexBufferBinding(_palmInstanceBuffer, 0, 1));
+                new VertexBufferBinding(instances.Buffer, 0, 1));
             _graphicsDevice.Indices = mesh.IndexBuffer;
-            _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, mesh.PrimitiveCount, instances.Length);
+            _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, mesh.PrimitiveCount, instances.Count);
         }
 
         /// <summary>
@@ -8331,25 +8292,12 @@ namespace Prazsky.Core.Render
 
             _farRingVertexBuffer?.Dispose();
             _farRingIndexBuffer?.Dispose();
-            _seaVertexBuffer?.Dispose();
-            _seaIndexBuffer?.Dispose();
-            _desertVertexBuffer?.Dispose();
-            _desertIndexBuffer?.Dispose();
-            _polarVertexBuffer?.Dispose(); //Missing until #579 - the largest grid of all, 420 a side
-            _polarIndexBuffer?.Dispose();
-            _outbackVertexBuffer?.Dispose();
-            _outbackIndexBuffer?.Dispose();
-            _tropicalVertexBuffer?.Dispose();
-            _tropicalIndexBuffer?.Dispose();
+            _gridCache.Dispose(); //every terrain grid, each once however many scenes share it (#589); the polar one was missing until #579
             DisposeTropical();
-            _volcanoVertexBuffer?.Dispose();
-            _volcanoIndexBuffer?.Dispose();
             _fountainVertexBuffer?.Dispose();
             _fountainIndexBuffer?.Dispose();
             _ashVertexBuffer?.Dispose();
             _ashIndexBuffer?.Dispose();
-            _savannaVertexBuffer?.Dispose();
-            _savannaIndexBuffer?.Dispose();
             DisposeAcacia();
             DisposeHearthStones();
             _flameVertexBuffer?.Dispose();
@@ -8359,27 +8307,13 @@ namespace Prazsky.Core.Render
             _sunShadowMap?.Dispose();
             _trailWarp?.Dispose();
             _birdMesh?.Dispose();
-            _mountainVertexBuffer?.Dispose();
-            _mountainIndexBuffer?.Dispose();
             _snowVertexBuffer?.Dispose();
             _snowIndexBuffer?.Dispose();
             _sprayVertexBuffer?.Dispose();
             _sprayIndexBuffer?.Dispose();
-            _meadowVertexBuffer?.Dispose();
-            _meadowIndexBuffer?.Dispose();
-            _forestVertexBuffer?.Dispose();
-            _forestIndexBuffer?.Dispose();
-            _moonVertexBuffer?.Dispose();
-            _moonIndexBuffer?.Dispose();
-            _auroraVertexBuffer?.Dispose();
-            _auroraIndexBuffer?.Dispose();
-            _gridVertexBuffer?.Dispose();
-            _gridIndexBuffer?.Dispose();
             _gridTowerVertexBuffer?.Dispose();
             _gridTowerIndexBuffer?.Dispose();
             foreach (GridLifeBoard board in _gridLifeBoards) board.Texture?.Dispose();
-            _marsVertexBuffer?.Dispose();
-            _marsIndexBuffer?.Dispose();
             _stormCloudVertexBuffer?.Dispose();
             _stormCloudIndexBuffer?.Dispose();
             _stormBoltVertexBuffer?.Dispose();
