@@ -17,9 +17,11 @@ namespace Prazsky.Core.Render
     /// which nothing moves). Its per-frame parameters are resolved once here (BestPractices §1) where the
     /// copies set them by name every frame. Mars, the mountains, the meadow and the forest joined it as they
     /// moved (#580). The volcano did not: its flank has always left the blend state as it found it, where this
-    /// states opaque and restores alpha-blend, and the fountains draw straight after it. The sea, the savanna
-    /// and the beach still run the skeleton on the renderer with more in it — a depth state, point lights, a
-    /// second pass — and join it when they move and it can be shown what they need.
+    /// states opaque and restores alpha-blend, and the fountains draw straight after it. The sea joined it with
+    /// what it has more wrapped round the call — the pool's radius set before and the depth-read state around
+    /// it, since the pass touches no depth state. The savanna and the beach still run the skeleton on the
+    /// renderer with more in it — point lights, a second pass — and join it when they move and it can be shown
+    /// what they need.
     /// </para>
     /// <para>
     /// <b>Mars was the first to bring something</b>: a reduced program on a coarser grid (#540), so the grid can

@@ -182,7 +182,7 @@ namespace Prazsky.Core.Render
         /// across the funnel just below its rim, hiding its depth and swallowing the balls falling through, and
         /// the sea otherwise runs its wave mesh straight through the funnel's open throat (#132). The sea's cut
         /// is an annulus rather than the full disc: inside the funnel the water survives as a calm standing
-        /// pool where the glass cone crosses the mean level (see the pool derivation in <c>DrawSea</c>). The
+        /// pool where the glass cone crosses the mean level (see the pool derivation in <c>SeaBackdrop.Draw</c>). The
         /// Testbed sets this to the island's radius; the map editor draws no island, so it leaves it 0 (the
         /// default) and nothing is cut.
         /// </summary>
@@ -190,7 +190,7 @@ namespace Prazsky.Core.Render
 
         /// <summary>Mean sea level of the sea scene (world Y), so the caller can tell when its camera is under
         /// the water and fade in the underwater murk.</summary>
-        public float SeaLevelY => _seaConfig.LevelY;
+        public float SeaLevelY => _sea.LevelY;
 
         /// <summary>
         /// Pushes the sea's submerge-fade uniforms onto the shared instancing effect, so a missed ball dims into
@@ -204,20 +204,8 @@ namespace Prazsky.Core.Render
         /// number the caller hands the tonemap for its murk. The fade is released by exactly this (#159), so the
         /// two effects hand over rather than one of them leaning on the other being there: see the shader.
         /// </param>
-        public void ApplySeaSubmerge(Effect effect, SceneKind scene, float lensSubmerged)
-        {
-            var p = effect.Parameters;
-            if (scene != SceneKind.Sea)
-            {
-                p["SeaFadeDepth"]?.SetValue(0f);
-                return;
-            }
-
-            p["SeaLevelY"].SetValue(_seaConfig.LevelY);
-            p["SeaFadeDepth"].SetValue(SEA_SUBMERGE_FADE);
-            p["SeaSubmergeTint"].SetValue(_seaConfig.WaterDeep.ToVector3());
-            p["SeaLensSubmerged"].SetValue(lensSubmerged);
-        }
+        public void ApplySeaSubmerge(Effect effect, SceneKind scene, float lensSubmerged) =>
+            _sea.ApplySubmerge(effect, scene, lensSubmerged);
 
         /// <summary>
         /// How far the <b>lens</b> is under the sea, 0 above the surface to 1 well below it — <b>the</b> figure
@@ -237,15 +225,7 @@ namespace Prazsky.Core.Render
         /// </para>
         /// </summary>
         public float LensSubmergedAmount(SceneKind scene, Vector3 cameraPosition) =>
-            scene == SceneKind.Sea
-                ? MathHelper.Clamp((_seaConfig.LevelY + 0.5f - cameraPosition.Y) / UNDERWATER_FADE_DEPTH, 0f, 1f)
-                : 0f;
-
-        /// <summary>
-        /// How far under the surface the lens has to be for the water to read as fully closed over it — the
-        /// murk's own ramp, and since #159 the fade's release as well.
-        /// </summary>
-        private const float UNDERWATER_FADE_DEPTH = 7f;
+            _sea.LensSubmergedAmount(scene, cameraPosition);
 
         /// <summary>
         /// Pushes the fade band above the kill plane onto the shared instancing effect (#192), so a ball
@@ -274,22 +254,11 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// How many world units above the kill plane a falling ball fades out over — see
-        /// <see cref="ApplyKillPlaneFade"/>. Wider than the sea's own <see cref="SEA_SUBMERGE_FADE"/> (3): there
+        /// <see cref="ApplyKillPlaneFade"/>. Wider than the sea's own <see cref="SeaBackdrop.SEA_SUBMERGE_FADE"/> (3): there
         /// is no water here to slow a ball first, so by the time one nears the plane it can be falling several
         /// units a second, and too shallow a band would still read as a pop, only a slightly later one.
         /// </summary>
         private const float KILL_PLANE_FADE_DEPTH = 6f;
-
-        /// <summary>World units below the sea surface over which a missed ball fades from solid to gone — short,
-        /// so it reads as being swallowed by the water rather than lingering under it.
-        /// <para>
-        /// It used to say the kill plane is far enough below this that a ball is off the screen long before the
-        /// simulation drops it. That holds only while the lens is <b>above</b> the water: since #159 the fade is
-        /// released as the camera goes under, so a ball watched from down there stays drawn all the way to the
-        /// kill plane and is culled in one frame when it arrives. That pop is real, it is not this constant's to
-        /// fix, and five other <c>OpenBelow</c> scenes have always shown it — see the issue filed for it.
-        /// </para></summary>
-        private const float SEA_SUBMERGE_FADE = 3f;
 
         /// <summary>
         /// How many scene-target texels make one output pixel — the caller's supersampling factor, which only
@@ -371,41 +340,19 @@ namespace Prazsky.Core.Render
         //reads its tuning from these instead of constants. Replaced at runtime by Apply(SceneConfig) when a
         //level is loaded (issue #32), which re-pushes the effect parameters and rebuilds the scatter/particle
         //buffers the config sizes.
-        private SeaSceneConfig _seaConfig = new();
         private SavannaSceneConfig _savannaConfig = new();
         private TropicalSceneConfig _tropicalConfig = new();
-
-        #region Sea
-
-        private readonly Effect _seaEffect;
-        private readonly VertexBuffer _seaVertexBuffer;
-        private readonly IndexBuffer _seaIndexBuffer;
-        private readonly int _seaIndexCount;
-
-        //The sea is real geometry now, like the dunes: a camera-centred grid this many vertices per side over
-        //this world extent, displaced by Gerstner waves in the shader and snapped to a cell on the CPU each
-        //frame so it does not swim. Dense enough for the dominant swell to read as smooth geometry; the fine
-        //chop is added per pixel. (Grid density is the natural Low/Med/High/Ultra dial once graphics settings land.)
-        private const int SEA_GRID_N = 380;
-        private const float SEA_EXTENT = 1600f;
-
-        //How far the pool's edge is buried INTO the drain's glass cone (world units): the water's rim ends
-        //inside the wall rather than a chord-width short of it, so the funnel's 64-segment faceting can never
-        //open a sliver of sky between the water and the glass — the same buried-edge reasoning as the gold
-        //bands' EDGE_SINK (#109). See the pool derivation in DrawSea (#132).
-        private const float POOL_WALL_BIAS = 0.15f;
-
-        //Look/tuning parameters (water level & colours, waves, chop, wind, sun glint, foam, subsurface, haze)
-        //now live in SeaSceneConfig; SceneRenderer reads them from _seaConfig (spray via _seaConfig.Spray).
-
-        #endregion
 
         #region Tropical
 
         private readonly Effect _tropicalEffect;
 
-        //The lagoon's own clone of Sea.fx (#580); it draws over the sea's grid (_seaVertexBuffer)
+        //The lagoon's own clone of Sea.fx (#580); it draws over the sea's grid, which it asks the cache for
+        //itself (SeaBackdrop.SEA_GRID_N over SEA_EXTENT) — the same pair of buffers, the cache's and read-only
         private readonly Effect _lagoonEffect;
+        private readonly VertexBuffer _lagoonVertexBuffer;
+        private readonly IndexBuffer _lagoonIndexBuffer;
+        private readonly int _lagoonIndexCount;
         private readonly VertexBuffer _tropicalVertexBuffer;
         private readonly IndexBuffer _tropicalIndexBuffer;
         private readonly int _tropicalIndexCount;
@@ -820,24 +767,13 @@ namespace Prazsky.Core.Render
 
         #endregion
 
-        #region Spray (sea scene only)
-
-        private readonly Effect _sprayEffect;
-        private VertexBuffer _sprayVertexBuffer;
-        private IndexBuffer _sprayIndexBuffer;
-
-        //Spray parameters (particle count/size/colour/opacity, box, level, wind, rise, turbulence) now live in
-        //SeaSceneConfig.Spray (SprayConfig); SceneRenderer reads them from _seaConfig.Spray. The glare-safe
-        //spray colour still matters: its luminance must stay under GLARE_THRESHOLD or it blooms - see CLAUDE.md.
-
-        #endregion
-
         #region The backdrops (#580) and what they share
 
         //The scenes that are their own Backdrop class (Render/Scenes), indexed by SceneKind; null for a scene
         //still drawn by this class's own switch arms. docs/scenes.md, "The backdrop classes", has the order the
         //rest are to follow in.
         private readonly Backdrop[] _backdrops = new Backdrop[SceneCatalog.Count];
+        private readonly SeaBackdrop _sea;
         private readonly SpaceBackdrop _space;
         private readonly DreamBackdrop _dream;
         private readonly CavernBackdrop _cavern;
@@ -914,14 +850,10 @@ namespace Prazsky.Core.Render
             _farField = new FarField(graphicsDevice);
             _services = new BackdropServices(graphicsDevice, _fullScreenQuad, seedOffset, _gridCache, _farField);
 
-            //--- Sea: a camera-centred grid displaced into Gerstner waves; DrawSea snaps it to a cell and sets
-            //the mean level. Drawn CullNone (one open surface, read from above and through the crests).
-            //Its own clone of Sea.fx (#580): the tropical lagoon draws through another, so neither can leave
-            //its water in the other's slots.
-            _seaEffect = content.Load<Effect>("Shaders/Sea").Clone();
-            AcquireGridMesh(SEA_GRID_N, SEA_EXTENT, out _seaVertexBuffer, out _seaIndexBuffer, out _seaIndexCount);
-
-            ApplySeaParameters();
+            //--- Sea and its spray: its own Backdrop since #580 (Render/Scenes), built here where the sea's code
+            //stood (the spray, built after the snow until then, is built with it)
+            _sea = new SeaBackdrop(_services, content);
+            _backdrops[(int)SceneKind.Sea] = _sea;
 
             //--- Desert: its own Backdrop since #580 (Render/Scenes), built here where
             //its code stood
@@ -949,6 +881,7 @@ namespace Prazsky.Core.Render
 
             //The lagoon: the sea's grid under its own clone of Sea.fx (#580), its water pushed once
             _lagoonEffect = content.Load<Effect>("Shaders/Sea").Clone();
+            AcquireGridMesh(SeaBackdrop.SEA_GRID_N, SeaBackdrop.SEA_EXTENT, out _lagoonVertexBuffer, out _lagoonIndexBuffer, out _lagoonIndexCount);
             ApplyLagoonParameters();
 
             //--- Palms and the waterline's mossy rocks: instanced procedural geometry on the acacia's path
@@ -1061,13 +994,6 @@ namespace Prazsky.Core.Render
             BuildBillboardParticles(_mountain.Snow.FlakeCount, 1207, ref snowVertices, ref snowIndices);
             _snowfall = new Snowfall(_graphicsDevice, snowVertices, snowIndices, _mountain.Snow.FlakeCount);
             _services.Snowfall = _snowfall;
-
-            //--- Spray: a static billboard buffer for the sea's blown spray and spindrift, animated entirely
-            //in the shader like the snow. Same position+data billboard vertex.
-            _sprayEffect = content.Load<Effect>("Shaders/Spray");
-            ApplySprayParameters();
-
-            BuildSprayBuffers();
 
             //--- Meadow: its own Backdrop since #580 (Render/Scenes), built here where its code stood; it picks
             //its program at load, so it is handed the tier the renderer starts at
@@ -1326,12 +1252,6 @@ namespace Prazsky.Core.Render
                     viewpoint = new SceneViewpoint(AtBearing(bearing, 100f, 24f), 2.0f, 10f, 160f, "the neon roofline");
                     return true;
 
-                //Low and level, out to the water: what a sea IS from a few metres up is the glint and the
-                //horizon, and any height at all trades that for a plan view of chop.
-                case SceneKind.Sea:
-                    viewpoint = new SceneViewpoint(AtBearing(bearing, 520f, _seaConfig.LevelY), 2.1f, 6f, 0f, "the open water");
-                    return true;
-
                 //A real landmark, and the only one in this table that is also a LIGHT: the fire is what the
                 //savanna's night rig is built around, so a shot that has it has the scene's whole character
                 //in frame. Slot 0 of however many the config asks for.
@@ -1409,42 +1329,14 @@ namespace Prazsky.Core.Render
         /// </summary>
         public SceneConfig GetSceneConfig(SceneKind kind) => BackdropFor(kind)?.Config ?? kind switch
         {
-            SceneKind.Sea => _seaConfig,
             SceneKind.Savanna => _savannaConfig,
             SceneKind.Tropical => _tropicalConfig,
             _ => null,
         };
 
-        private void ApplySeaParameters()
-        {
-            _seaEffect.Parameters["SeaLevelY"].SetValue(_seaConfig.LevelY);
-            _seaEffect.Parameters["WaterColorDeep"].SetValue(_seaConfig.WaterDeep.ToVector3());
-            _seaEffect.Parameters["WaterColorShallow"].SetValue(_seaConfig.WaterShallow.ToVector3());
-            _seaEffect.Parameters["ShallowBias"].SetValue(_seaConfig.ShallowBias);
-            _seaEffect.Parameters["WaveAmplitude"].SetValue(_seaConfig.WaveAmplitude);
-            _seaEffect.Parameters["WaveSteepness"].SetValue(_seaConfig.WaveSteepness);
-            _seaEffect.Parameters["WaveSpeed"].SetValue(_seaConfig.WaveSpeed);
-            _seaEffect.Parameters["WaveFadeStart"].SetValue(_seaConfig.WaveFadeStart);
-            _seaEffect.Parameters["WaveFadeEnd"].SetValue(_seaConfig.WaveFadeEnd);
-            _seaEffect.Parameters["ChopAmplitude"].SetValue(_seaConfig.ChopAmplitude);
-            _seaEffect.Parameters["ChopFrequency"].SetValue(_seaConfig.ChopFrequency);
-            _seaEffect.Parameters["ChopSpeed"].SetValue(_seaConfig.ChopSpeed);
-            _seaEffect.Parameters["WindDirection"].SetValue(_seaConfig.Wind.ToVector2());
-            _seaEffect.Parameters["SunGlintStrength"].SetValue(_seaConfig.SunGlintStrength);
-            _seaEffect.Parameters["SunGlintPower"].SetValue(_seaConfig.SunGlintPower);
-            _seaEffect.Parameters["FoamJacobianThreshold"].SetValue(_seaConfig.FoamJacobianThreshold);
-            _seaEffect.Parameters["FoamStrength"].SetValue(_seaConfig.FoamStrength);
-            _seaEffect.Parameters["FoamCrestStart"].SetValue(_seaConfig.FoamCrestStart);
-            _seaEffect.Parameters["FoamCrestStrength"].SetValue(_seaConfig.FoamCrestStrength);
-            _seaEffect.Parameters["FoamColor"].SetValue(_seaConfig.FoamColor.ToVector3());
-            _seaEffect.Parameters["SssStrength"].SetValue(_seaConfig.SssStrength);
-            _seaEffect.Parameters["SssColor"].SetValue(_seaConfig.SssColor.ToVector3());
-            _seaEffect.Parameters["HorizonHazeDistance"].SetValue(_seaConfig.HorizonHazeDistance);
-        }
-
         /// <summary>
         /// Pushes the tropical lagoon's water into its own clone of <c>Sea.fx</c>, once at load (#580) — the
-        /// same set <see cref="ApplySeaParameters"/> pushes into the sea's, off <see cref="TropicalWaterConfig"/>.
+        /// same set <see cref="SeaBackdrop.ApplySeaParameters"/> pushes into the sea's, off <see cref="TropicalWaterConfig"/>.
         /// </summary>
         private void ApplyLagoonParameters()
         {
@@ -2494,22 +2386,6 @@ namespace Prazsky.Core.Render
 
         #endregion
 
-        private void ApplySprayParameters()
-        {
-            _sprayEffect.Parameters["SprayBoxSize"].SetValue(_seaConfig.Spray.BoxSize.ToVector3());
-            _sprayEffect.Parameters["SprayLevelY"].SetValue(_seaConfig.LevelY + _seaConfig.Spray.LevelYAboveSea);
-            _sprayEffect.Parameters["SprayWind"].SetValue(_seaConfig.Spray.Wind.ToVector2());
-            _sprayEffect.Parameters["SprayRise"].SetValue(_seaConfig.Spray.Rise);
-            _sprayEffect.Parameters["SprayTurb"].SetValue(_seaConfig.Spray.Turbulence);
-            _sprayEffect.Parameters["DropletSize"].SetValue(_seaConfig.Spray.DropletSize);
-            _sprayEffect.Parameters["SprayColor"].SetValue(_seaConfig.Spray.Color.ToVector3());
-            _sprayEffect.Parameters["SprayOpacity"].SetValue(_seaConfig.Spray.Opacity);
-        }
-
-        /// <summary>(Re)builds the spray's particle buffer at the config's particle count. Deterministic seed.</summary>
-        private void BuildSprayBuffers() =>
-            BuildBillboardParticles(_seaConfig.Spray.ParticleCount, 5023, ref _sprayVertexBuffer, ref _sprayIndexBuffer);
-
         //The savanna's two programs (#281), the meadow's pair: the reduced one gives up the tuft gaps and the blade strokes
         private void SelectSavannaTechnique() =>
             _savannaEffect.CurrentTechnique = _savannaEffect.Techniques[_sceneDetail > 0.5f ? "Savanna" : "SavannaReduced"];
@@ -2589,9 +2465,6 @@ namespace Prazsky.Core.Render
 
             switch (scene)
             {
-                case SceneKind.Sea:
-                    DrawSea(frame);
-                    break;
                 case SceneKind.Savanna:
                     DrawSavanna(frame);
                     DrawAcacias(frame);
@@ -2629,70 +2502,7 @@ namespace Prazsky.Core.Render
                 return;
             }
 
-            if (scene == SceneKind.Sea) DrawSpray(frame);
-            else if (scene == SceneKind.Savanna) DrawFlame(frame);
-        }
-
-        /// <summary>
-        /// Draws the sea: a camera-centred grid (snapped to a cell so the waves do not swim) displaced into
-        /// Gerstner swell with foam, subsurface scattering and a Fresnel reflection of the current dome,
-        /// shadowed by the same cloud field as the rest of the scene.
-        /// </summary>
-        private void DrawSea(in SceneFrame frame)
-        {
-            float cell = SEA_EXTENT / (SEA_GRID_N - 1);
-            float originX = MathF.Round(frame.Camera.Position.X / cell) * cell;
-            float originZ = MathF.Round(frame.Camera.Position.Z / cell) * cell;
-
-            //The pool standing in the drain (#132): the cut around the island keeps a calm disc of water
-            //where the funnel's glass cone crosses the mean level, and discards only the annulus hidden
-            //inside the island's stone. The radius is the cone's own at LevelY — the same straight span
-            //FunnelMesh is built from, so the water and the glass cannot drift — buried POOL_WALL_BIAS into
-            //the glass so no sliver of the wall shows under the water's edge (the buried-edge lesson of
-            //#109). Clamping the span keeps a config that floods the rim or sits below the hole sane. With
-            //TerrainHoleRadius 0 (the map editor) the shader cuts nothing and ignores this figure entirely.
-            float drainRimY = ArenaIsland.TOP_Y - ArenaIsland.DISH_DEPTH;
-            float poolT = Math.Clamp((drainRimY - _seaConfig.LevelY) / (drainRimY - ArenaIsland.FUNNEL_BOTTOM_Y), 0f, 1f);
-            float poolRadius = MathHelper.Lerp(ArenaIsland.FUNNEL_TOP_RADIUS, ArenaIsland.FUNNEL_HOLE_RADIUS, poolT)
-                + POOL_WALL_BIAS;
-
-            _seaEffect.Parameters["OriginXZ"].SetValue(new Vector2(originX, originZ));
-            _seaEffect.Parameters["IslandHoleRadius"].SetValue(TerrainHoleRadius);
-            _seaEffect.Parameters["FunnelPoolRadius"].SetValue(poolRadius);
-            _seaEffect.Parameters["View"].SetValue(frame.Camera.View);
-            _seaEffect.Parameters["Projection"].SetValue(frame.Camera.Projection);
-            _seaEffect.Parameters["CameraPosition"].SetValue(frame.Camera.Position);
-            _seaEffect.Parameters["SunDirection"].SetValue(frame.SunDirection);
-            _seaEffect.Parameters["ZenithColor"].SetValue(frame.ZenithLinear);
-            _seaEffect.Parameters["HorizonColor"].SetValue(frame.HorizonLinear);
-            _seaEffect.Parameters["SeaTime"].SetValue(frame.Time);
-            _seaEffect.Parameters["SunColor"].SetValue(frame.SunColor);
-
-            //The config-static water values are the sea's own since #580 and were pushed once, at load
-            //(ApplySeaParameters): the tropical lagoon draws through its own clone of Sea.fx now, so it
-            //can no longer leave its water in this effect's slots — which is why they were re-pushed here
-            //every frame until then.
-
-            frame.ApplyClouds?.Invoke(_seaEffect);
-
-            _graphicsDevice.BlendState = BlendState.Opaque;
-            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
-            //Depth-read, not depth-write: a missed ball falls through the surface and the sea has to stop
-            //claiming the depth under the waterline so the ball's own pixels run (and fade) instead of being
-            //depth-killed by the surface plane. The island draws after this and is opaque, so it still writes
-            //and owns its own depth; only the open water gives the depth up (#131).
-            _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
-
-            _farField.Begin(_seaEffect, frame, SEA_EXTENT);
-            _graphicsDevice.SetVertexBuffer(_seaVertexBuffer);
-            _graphicsDevice.Indices = _seaIndexBuffer;
-            _seaEffect.CurrentTechnique.Passes[0].Apply();
-            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _seaIndexCount / 3);
-            _farField.DrawRing(_seaEffect, new Vector2(originX, originZ), SEA_EXTENT);
-
-            _graphicsDevice.BlendState = BlendState.AlphaBlend;
-            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
-            _graphicsDevice.DepthStencilState = DepthStencilState.Default;
+            if (scene == SceneKind.Savanna) DrawFlame(frame);
         }
 
         /// <summary>
@@ -2738,8 +2548,8 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// Draws the lagoon: the sea's own shader and grid (<c>Sea.fx</c> unchanged), pushed the
         /// tropical config's water values — calmer swell, turquoise body colours — over the terrain
-        /// <see cref="DrawTropicalTerrain"/> just wrote. States exactly as <see cref="DrawSea"/> sets
-        /// them, for <see cref="DrawSea"/>'s own reasons: opaque and <c>CullNone</c> (one open surface,
+        /// <see cref="DrawTropicalTerrain"/> just wrote. States exactly as <see cref="SeaBackdrop.Draw"/> sets
+        /// them, for its own reasons: opaque and <c>CullNone</c> (one open surface,
         /// read from above and through the crests), depth-READ so anything under the surface keeps its
         /// own pixels.
         /// <para>
@@ -2762,7 +2572,7 @@ namespace Prazsky.Core.Render
         {
             TropicalTerrainConfig terrain = _tropicalConfig.Terrain;
 
-            float cell = SEA_EXTENT / (SEA_GRID_N - 1);
+            float cell = SeaBackdrop.SEA_EXTENT / (SeaBackdrop.SEA_GRID_N - 1);
             float originX = MathF.Round(frame.Camera.Position.X / cell) * cell;
             float originZ = MathF.Round(frame.Camera.Position.Z / cell) * cell;
 
@@ -2784,16 +2594,16 @@ namespace Prazsky.Core.Render
 
             _graphicsDevice.BlendState = BlendState.Opaque;
             _graphicsDevice.RasterizerState = RasterizerState.CullNone;
-            //DrawSea's own reasoning: depth-read, not depth-write — only the open water gives the
+            //The sea's own reasoning: depth-read, not depth-write — only the open water gives the
             //depth up, and the terrain (drawn before it, opaque) still writes and owns its own.
             _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
 
-            _farField.Begin(_lagoonEffect, frame, SEA_EXTENT);
-            _graphicsDevice.SetVertexBuffer(_seaVertexBuffer);
-            _graphicsDevice.Indices = _seaIndexBuffer;
+            _farField.Begin(_lagoonEffect, frame, SeaBackdrop.SEA_EXTENT);
+            _graphicsDevice.SetVertexBuffer(_lagoonVertexBuffer);
+            _graphicsDevice.Indices = _lagoonIndexBuffer;
             _lagoonEffect.CurrentTechnique.Passes[0].Apply();
-            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _seaIndexCount / 3);
-            _farField.DrawRing(_lagoonEffect, new Vector2(originX, originZ), SEA_EXTENT);
+            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _lagoonIndexCount / 3);
+            _farField.DrawRing(_lagoonEffect, new Vector2(originX, originZ), SeaBackdrop.SEA_EXTENT);
 
             _graphicsDevice.BlendState = BlendState.AlphaBlend;
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
@@ -3624,36 +3434,6 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// Draws the sea's blown spray and spindrift: the static billboard buffer animated in the shader, in a
-        /// thin slab that follows the camera in XZ but clings to the water surface in Y. Alpha-blended and
-        /// depth-read (the waves and the platform occlude the particles behind them) but writing no depth. Sea
-        /// scene only.
-        /// </summary>
-        private void DrawSpray(in SceneFrame frame)
-        {
-            Matrix inverseView = Matrix.Invert(frame.Camera.View);
-
-            _sprayEffect.Parameters["View"].SetValue(frame.Camera.View);
-            _sprayEffect.Parameters["Projection"].SetValue(frame.Camera.Projection);
-            _sprayEffect.Parameters["CameraPosition"].SetValue(frame.Camera.Position);
-            _sprayEffect.Parameters["CameraRight"].SetValue(inverseView.Right);
-            _sprayEffect.Parameters["CameraUp"].SetValue(inverseView.Up);
-            _sprayEffect.Parameters["SprayTime"].SetValue(frame.Time);
-
-            _graphicsDevice.BlendState = BlendState.AlphaBlend;
-            _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
-            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
-
-            _graphicsDevice.SetVertexBuffer(_sprayVertexBuffer);
-            _graphicsDevice.Indices = _sprayIndexBuffer;
-            _sprayEffect.CurrentTechnique.Passes[0].Apply();
-            _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _seaConfig.Spray.ParticleCount * 2);
-
-            _graphicsDevice.DepthStencilState = DepthStencilState.Default;
-            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
-        }
-
-        /// <summary>
         /// Shades a sky-replacing backdrop into a target the size of the <b>back buffer</b> and scales it up
         /// into the caller's supersampled scene target, which is a quarter of the pixels at <c>ssaa 2</c> and a
         /// sixteenth at <c>4</c>. What it gives up is the backdrop's <i>supersampling</i> — not its resolution:
@@ -3769,10 +3549,7 @@ namespace Prazsky.Core.Render
             _trailWarp?.Dispose();
             _birds?.Dispose();
             _snowfall?.Dispose();
-            _seaEffect?.Dispose();
             _lagoonEffect?.Dispose();
-            _sprayVertexBuffer?.Dispose();
-            _sprayIndexBuffer?.Dispose();
         }
     }
 }
