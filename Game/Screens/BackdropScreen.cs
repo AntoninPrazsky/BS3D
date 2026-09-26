@@ -1089,7 +1089,7 @@ namespace BS3D.Screens
         {
             _previewMap = map;
             _previewIndex = index;
-            _previewStyle = Game.BallStyleOverride ?? style;
+            _previewStyle = Game.TestOptions.BallStyleOverride ?? style;
             _previewOffset = offset;
 
             //The menu's glass over what was just hung, and the sky palette the fresh renderer starts

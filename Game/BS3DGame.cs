@@ -190,55 +190,23 @@ namespace BS3D
         //and NOT inside it: a bed is a sealed loop and an event baked into one is a metronome.
         private SceneEventSounds _sceneEvents;
 
-        //Testing only: the "streak=" argument, which pins what the HUD's multiplier readout shows (#180).
-        private readonly int? _startupStreak;
-
-        //Testing only: the "wildcard=" argument (#330), which makes every Nth loaded ball a wildcard on every
-        //level, since no shipped level asks for one. Zero leaves each level entry's own rule standing.
-        private readonly int _startupWildcardEvery;
-
-        //Testing only: the "powerups=" argument (#392), in wildcard='s own shape — "swap:1,rainbow:1" — since
-        //no shipped or generated level authors a power-up charge yet. Null grants nothing; GameplayScreen
-        //does its own parsing, since only it knows the PowerupKind enum this string names.
-        private readonly string _startupPowerups;
-
-        //Testing only: the "lasers" argument, read by the session's warning check every frame.
-        private readonly bool _startupLasers;
-
-        //Testing only: the "tutorial" argument (#189) — every card offered, none recorded, and as a reel with
-        //"=demo". See Tutorial.Mode.
-        private readonly Tutorial.Mode _tutorialMode;
-
         //The command line's one-shot actions (#583): play a level, fire the celebrations, open a page at boot,
         //stage a result page, and the order and gating they run in. Stepped once a frame from Update.
         private readonly StartupScript _startupScript;
+
+        /// <summary>
+        /// The testing levers the play session is handed once, at construction (#582) — see
+        /// <see cref="SessionTestOptions"/>. Kept here as well because two of them are also read outside the
+        /// session: the front end's preview honours its <c>BallStyleOverride</c>, and the startup script is told
+        /// its <c>StartupLevelFile</c>. Every member is at its "nobody said" value on an ordinary launch.
+        /// </summary>
+        internal SessionTestOptions TestOptions { get; }
 
         //Testing only: the "preview=" argument — which entry the FRONT END should hang instead of rolling one
         //at random. Null means the roll, which is what a player always gets. It is the same reasoning as
         //scene= and sky=: the menu's camera is now framed for the map hanging under it (#254), so two shots of
         //the front end are only comparable if they are shots of the same map.
-        /// <summary>
-        /// Testing only: a level file to play <b>instead of the set's</b> (#332), pinned for the whole run.
-        /// Null on every ordinary launch.
-        /// <para>
-        /// It exists because the set <i>is</i> the campaign, and a level built to try a mechanic out is not
-        /// part of it. Every special ball kind of #256 built so far ships in no level at all — deliberately,
-        /// each one on the last one's precedent — so the only way to hold one in the hands was to author a
-        /// level and then edit the campaign around it, which <c>LevelGen</c> overwrites on its next run. This
-        /// is the door that was missing, and it is the same shape <c>preview=</c> takes for the front end.
-        /// </para>
-        /// <para>
-        /// Public where the script's own <c>level=</c> is private, because the session reads it per level rather
-        /// than once at startup: it replaces the path for <b>every</b> entry, so a run cannot wander off the
-        /// file it was pinned to by finishing one.
-        /// </para>
-        /// </summary>
-        public string StartupLevelFile { get; }
-
         private readonly string _startupPreview;
-
-        //Testing only: the "lineloss" argument (#434) — see StagedLineLossSeconds.
-        private float _startupLineLoss;
 
         //Wall clock. Everything alive in the scene runs off it — the balls' heartbeat, the city's windows —
         //so none of it is tied to a simulation that may later be paused.
@@ -304,84 +272,6 @@ namespace BS3D
 
         /// <summary>The wall clock everything alive runs off, paused or not.</summary>
         internal float WallClock => _wallClock;
-
-        /// <summary>
-        /// Testing only (the <c>lasers</c> argument): pins the floor alarm's laser net on. Reaching it
-        /// honestly means playing a level to within two ceiling steps of losing it, which can no more be
-        /// scripted than clearing one can — the <c>celebrate</c> reasoning, for the session-owned effect.
-        /// </summary>
-        internal bool ForceLaserWarning => _startupLasers;
-
-        /// <summary>
-        /// Testing only (<c>lineloss</c>, #434): seconds into a level at which the line's loss is staged, or
-        /// 0 for never. A real line loss takes a descending ceiling and a couple of dozen shots and cannot be
-        /// reached from a script at all — the Game takes no synthetic input — so the one moment this feature
-        /// exists for would otherwise be unphotographable.
-        /// </summary>
-        internal float StagedLineLossSeconds => _startupLineLoss;
-
-        /// <summary>
-        /// Testing only (the <c>tutorial</c> argument, #189): offer every tutorial card as if none had been
-        /// taught, and record none — with the real detection, or as a reel every card of which runs on a clock
-        /// (<c>tutorial=demo</c>). The cards are gated on the save, so on a save that finished the chapter they
-        /// are otherwise unreachable — and a run that taught them for real would write to the owner's save.
-        /// </summary>
-        internal Tutorial.Mode TutorialMode => _tutorialMode;
-
-        /// <summary>
-        /// Testing only (the <c>streak=</c> argument): the multiplier the HUD's streak readout should show,
-        /// or null for the keeper's own. It exists because #180's capped state takes five consecutive scoring
-        /// shots to reach, which is the <c>celebrate</c> reasoning again — and it changes the display only,
-        /// never the scoring, so the lever cannot alter the thing it is there to look at.
-        /// </summary>
-        internal int? ForcedStreak => _startupStreak;
-
-        /// <summary>
-        /// Testing only (the <c>wildcard=</c> argument, #330): one in how many loaded balls is a wildcard,
-        /// overriding every level entry's own <c>wildcardEvery</c>; 0 leaves each level's rule alone.
-        /// <para>
-        /// It exists because the kind is <b>built and no shipped level hands one out</b> — the state #368 found
-        /// the bomb and the zap in — so without a lever there is nothing to look at, and unlike those two a
-        /// wildcard cannot be authored into a map to be looked at either: it is a ball the gun loads, and this
-        /// is the only door to the gun's queue. Unlike <c>streak=</c> this one <i>does</i> change play, which is
-        /// the point: it is how the rule is exercised at all.
-        /// </para>
-        /// </summary>
-        internal int ForcedWildcardEvery => _startupWildcardEvery;
-
-        /// <summary>
-        /// Testing only (the <c>powerups=</c> argument, #392): this level's starting power-up charges, as
-        /// <c>"kind:count"</c> pairs separated by commas — <c>powerups=swap:1</c>. Null grants nothing, which
-        /// is every shipped level today, exactly as no shipped level hands out a wildcard until <c>wildcard=</c>
-        /// forces one. The only door to a mechanism that cannot be authored into a map, for the same reason
-        /// <c>wildcard=</c>'s own remarks give.
-        /// </summary>
-        internal string ForcedPowerups => _startupPowerups;
-
-        //Testing only: the "detonate=" argument (#389) — wall-clock seconds at which the session sets off a bomb —
-        //and how far through that schedule the run has got.
-        private readonly float[] _detonateSchedule;
-        private int _detonateNext;
-
-        /// <summary>
-        /// Testing only (the <c>detonate=</c> argument, #389): whether a scheduled detonation has come due on the
-        /// wall clock — the <c>shot=</c> schedule's clock, so the two can be written against each other — and
-        /// consumes it if it has. One per call, so two falling due on one frame go off on two frames.
-        /// <para>
-        /// It exists because a blast cannot otherwise be reached by a run nobody is sitting at: it takes a shot
-        /// landed in the gap beside a bomb, the Game's aim cannot be scripted, and the effect is the Game's alone.
-        /// The <c>celebrate</c> reasoning, for the one effect that also throws balls — and like <c>wildcard=</c> it
-        /// does change play, because the bomb it sets off really goes.
-        /// </para>
-        /// </summary>
-        internal bool TryTakeForcedDetonation()
-        {
-            if (_detonateSchedule == null || _detonateNext >= _detonateSchedule.Length) return false;
-            if (_wallClock < _detonateSchedule[_detonateNext]) return false;
-
-            _detonateNext++;
-            return true;
-        }
 
         /// <summary>
         /// Whether edge-driven input (presses, clicks) may act this frame. False for one frame after focus
@@ -791,7 +681,9 @@ namespace BS3D
             //other scene keeps it. An out-of-range dome from a hand-edited file is simply not applied.
             if (_settings.SkyDome >= 1 && _settings.SkyDome <= SKY_DOME_COUNT) _skyDome = _settings.SkyDome;
 
-            BallStyleOverride = launch.BallStyle;
+            //The session's testing levers, read once (#582); the front end's preview and the startup script
+            //read two of them too
+            TestOptions = SessionTestOptions.From(launch);
 
             _fullscreen = launch.Fullscreen ?? _settings.Fullscreen;
 
@@ -806,24 +698,12 @@ namespace BS3D
             //not get to break it.
             if (launch.WindowWidth > 0 && launch.WindowHeight > 0)
                 _windowedSize = new Point(launch.WindowWidth, launch.WindowHeight);
-            _startupStreak = launch.Streak;
-            _startupWildcardEvery = launch.WildcardEvery;
-            _startupPowerups = launch.Powerups;
-            _startupLasers = launch.Lasers;
-            //Any spelling but "demo" is the plain force: a mistyped reel still shows the cards, and says so by
-            //waiting for the player rather than running on
-            _tutorialMode = launch.Tutorial == null ? Tutorial.Mode.Normal
-                : string.Equals(launch.Tutorial, "demo", StringComparison.OrdinalIgnoreCase) ? Tutorial.Mode.Demo
-                : Tutorial.Mode.Force;
-            StartupLevelFile = string.IsNullOrWhiteSpace(launch.LevelFile) ? null : launch.LevelFile;
             _startupPreview = launch.Preview;
 
             //What one argument implies about another (level= means play, lost means result) is the script's
-            _startupScript = new StartupScript(launch, StartupLevelFile);
-            _startupLineLoss = launch.LineLoss;
+            _startupScript = new StartupScript(launch, TestOptions.StartupLevelFile);
             _plainCeiling = launch.PlainCeiling;
             _shotSchedule = launch.ShotSeconds;
-            _detonateSchedule = launch.DetonateSeconds;
             if (launch.Mute) _masterVolume = 0f;
             _noFpsOverlay = launch.NoFpsOverlay;
 
@@ -1221,7 +1101,7 @@ namespace BS3D
             //The two non-page screens. The gameplay screen loads its own content (the shot-trail effect), so
             //it is made here with the device up; the backdrop is the scene-only frame the menus stand over.
             _backdrop = new BackdropScreen(this);
-            _gameplayScreen = new GameplayScreen(this);
+            _gameplayScreen = new GameplayScreen(this, TestOptions);
 
             //The SFX are synthesized from raw PCM here, once, so the per-event paths only ever play a buffer —
             //no asset files, no pipeline step.
@@ -1552,19 +1432,6 @@ namespace BS3D
             _gameplayScreen.BuildLevel(index);
             EnterPlaying();
         }
-
-        /// <summary>
-        /// What every ball is to be drawn as whatever its level says — the <c>balls=</c> argument (#258) — or
-        /// <c>null</c> for each map in the material it is authored in, which is what a player gets. The front
-        /// end's preview and a played session both consult it, so one run photographs both places in one style.
-        /// <para>
-        /// A testing lever and not a setting, deliberately, and the distinction is the same one <c>scene=</c>
-        /// makes: the style is a property of the MAP, chosen by whoever built it, and a player who could
-        /// override it globally would be overriding the author. What it is for is the only way to judge the two
-        /// looks honestly — the same cluster, the same stand-off, the same dome, once in each material.
-        /// </para>
-        /// </summary>
-        internal BallStyle? BallStyleOverride { get; }
 
         /// <summary>
         /// Which entry the front end's backdrop should hang, or <c>null</c> for the roll a player gets — the

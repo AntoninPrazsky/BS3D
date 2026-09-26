@@ -67,6 +67,18 @@ namespace BS3D.Screens
     {
         private readonly BS3DGame Game;
 
+        /// <summary>
+        /// The command line's testing levers for play (#582) — forced streak, wildcard cadence, power-ups, the
+        /// laser net, a staged line loss, scheduled detonations, the tutorial mode, a ball-style override, a
+        /// pinned level file and the session seed — handed over once, at construction, rather than read off the
+        /// host one property at a time. Every member is at its "nobody said" value on a player's launch.
+        /// </summary>
+        private readonly SessionTestOptions _test;
+
+        //How far through _test.DetonateSeconds the run has got. The screen outlives every level, as the host's
+        //cursor did before #582, so a schedule runs once per launch and not once per level.
+        private int _detonateNext;
+
         //Forwarders for what the frame borrows from the host every few lines, so the session's own code reads
         //undisturbed: the one camera (the menus orbit it, this screen poses it), the wall clock everything
         //alive runs off, and the device.
@@ -861,7 +873,17 @@ namespace BS3D.Screens
         //The line loss's spark shower (#434), which shares the smears' effect instance and their draw slot
         private readonly LineSparks _lineSparks;
 
-        private static readonly Random RANDOM = new();
+        /// <summary>
+        /// The session's one generator: the magazine's deal (<see cref="RandomBallType"/>), the transmute's
+        /// replacements, and the drop cinematic's and the chapter intro's rolls. Rebuilt for every level from
+        /// <see cref="_seed"/> (<see cref="SeedSession"/>), so a level's deal is a function of its seed and the
+        /// shots played. It was an unseeded static until #582, which is why no playtest report could be replayed
+        /// and why a one-off like the seventeen glass bounces on #582 could not be told from noise.
+        /// </summary>
+        private Random _random = new();
+
+        //The seed _random was last built from, printed as "[session] seed N"
+        private int _seed;
 
         private MouseState _previousMouse;
         private bool _padTriggerReleased = true;
@@ -971,22 +993,26 @@ namespace BS3D.Screens
 
         #endregion
 
-        public GameplayScreen(BS3DGame game)
+        /// <summary>The play session's screen, built once for the life of the program and reused by every level.</summary>
+        /// <param name="game">The host: the camera, the scene, the audio and the level set.</param>
+        /// <param name="test">The testing levers for play, from the command line; see <see cref="_test"/>.</param>
+        public GameplayScreen(BS3DGame game, SessionTestOptions test)
         {
             Game = game;
+            _test = test ?? throw new ArgumentNullException(nameof(test));
             _drawMotionVelocity = DrawMotionVelocity;
             _hud = new PlayHud(game)
             {
                 //Testing only (the "streak=" argument): pins what the multiplier readout SHOWS, so the capped
                 //state added in #180 can be looked at. It cannot be reached by a script — it takes five
                 //consecutive scoring shots — and it changes no scoring, only the display. See PlayHud.
-                ForcedMultiplier = game.ForcedStreak
+                ForcedMultiplier = test.ForcedStreak
             };
 
             //Taught once, ever, and the save remembers (PlayerProgress.Lessons) — through the host's own two
             //verbs, so the write goes the one way every save write goes. The testing argument offers every card
             //and writes nothing.
-            _tutorial = new Tutorial(game.WasLessonTaught, game.RecordLessonTaught, game.TutorialMode);
+            _tutorial = new Tutorial(game.WasLessonTaught, game.RecordLessonTaught, test.TutorialMode);
 
             //Orbit centre is the field the cluster hangs over. No trunnion height goes in: the gun stands on
             //the island's dished stone, so its height is the carriage's own figure of its radius
@@ -1248,7 +1274,7 @@ namespace BS3D.Screens
             //because it is not moving while the gun is locked, and which keeps plate and cluster in step if it is.
             //Testing only (detonate=, #389): a bomb set off on the wall clock's schedule. Before the step, so its
             //debris moves on this frame the way a real landing's does.
-            if (Game.TryTakeForcedDetonation()) DetonateForTesting();
+            if (TryTakeForcedDetonation()) DetonateForTesting();
 
             //The level's own play clock (#546), on the frame's real seconds: here, beside the step, is exactly
             //the time the level is being played

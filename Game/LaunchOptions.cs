@@ -49,6 +49,11 @@ namespace BS3D
         //vsync-capped level could only ever say "dearer than one refresh". Zero means no cap.
         internal int FpsCap { get; private set; }
         internal int? SceneSeed { get; private set; }
+
+        //Testing only: the seed every level's session generator is built from (#582) - the magazine's deal and the
+        //cinematics' rolls. Null means the argument was absent: each level rolls its own and prints it. See
+        //SessionTestOptions.Seed.
+        internal int? Seed { get; private set; }
         internal bool Tour { get; private set; }
         internal int WindowWidth { get; private set; }
         internal int WindowHeight { get; private set; }
@@ -81,7 +86,7 @@ namespace BS3D
         //screenshotted and measured at all.
         internal bool Celebrate { get; private set; }
 
-        //Testing only: pin the floor alarm's laser net on (BS3DGame.ForceLaserWarning). Reaching it honestly
+        //Testing only: pin the floor alarm's laser net on (SessionTestOptions.ForceLaserWarning). Reaching it honestly
         //means playing a level to within two ceiling steps of losing it, which can no more be scripted than
         //clearing one can.
         internal bool Lasers { get; private set; }
@@ -91,7 +96,7 @@ namespace BS3D
         //chapter months ago they are otherwise unreachable, and a run that taught them for real would write
         //to the owner's save, which no scripted run may do. "tutorial" keeps the real detection (play the
         //level and the cards answer); "tutorial=demo" is a reel that runs every card on a clock, for a run
-        //nothing can press a key in. Null means the argument was absent. See BS3DGame.TutorialMode.
+        //nothing can press a key in. Null means the argument was absent. See SessionTestOptions.TutorialMode.
         internal string Tutorial { get; private set; }
 
         //Testing only: start with the master volume at zero. A scripted screenshot or benchmark run has
@@ -203,7 +208,7 @@ namespace BS3D
 
         //Testing only: wall-clock seconds at which the level sets off one of its bombs (#389), on the clock
         //ShotSeconds counts. A blast takes a shot landed beside a bomb, which a script cannot aim. See
-        //BS3DGame.TryTakeForcedDetonation.
+        //SessionTestOptions.DetonateSeconds.
         internal float[] DetonateSeconds { get; private set; }
 
         //Testing only: a folder to keep every one of this player's files in for this run, instead of
@@ -261,6 +266,10 @@ namespace BS3D
             //It is what makes a capture pair or a measured A/B comparable at all once the roll is the
             //default, and 0 is the arrangement everything before the feature was photographed against.
             Row.Int("sceneseed", (o, v) => o.SceneSeed = v),
+            //"seed=N" pins the play session's own generator the same way (#582): the magazine's deal, the
+            //transmute's replacements and the drop cinematic's and chapter intro's rolls. Every level prints the
+            //seed it played on as "[session] seed N", so a playtest report can be replayed from its log.
+            Row.Int("seed", (o, v) => o.Seed = v),
 
             //"tour" opens the scene menu with the current scene's establishing flight already running
             //(#406) - the only way a replayed tour can be photographed, since a synthetic click never
