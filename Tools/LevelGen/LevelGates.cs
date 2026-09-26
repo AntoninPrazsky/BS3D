@@ -399,8 +399,8 @@ namespace BS3D.Tools.LevelGen
         /// later, once the body around it has been cleared away. That argument is true and it is refused
         /// anyway: a ball the player cannot see, cannot reach and cannot plan around is not a puzzle element
         /// on the shot it is buried, and the block's own rule — <b>glass goes on the skin</b>
-        /// (<see cref="MirageSkin"/>) — means no design here ever wants to make that argument. A design that
-        /// genuinely does can widen this check; it should not quietly pass it.
+        /// (the header of <c>Designs/Block11_Mirage.cs</c>) — means no design here ever wants to make that
+        /// argument. A design that genuinely does can widen this check; it should not quietly pass it.
         /// </para>
         /// <para>
         /// <b>ANCHORING</b> — a glass ball in the field's topmost level, which is the only level
@@ -812,7 +812,6 @@ namespace BS3D.Tools.LevelGen
             /// <summary>Panes some landing would colour by themselves — see the ALONE paragraph (#344).</summary>
             public int AloneGlass;
 
-            /// <summary>
             /// <summary>
             /// Gravity wells with no open space inside their own reach (#332): a well no shot can fly near is
             /// a special that bends nothing. See the well's branch in <see cref="FindStrandedSpecials"/>.

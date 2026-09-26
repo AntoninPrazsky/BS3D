@@ -103,30 +103,25 @@ namespace BS3D.Tools.LevelGen
         //re-render, and this constant is the one line that would hand the chapter back to lunar.
         internal const string MUSIC_SILHOUETTES = "puppet";
 
-        /// <summary>
-        /// WHAT EACH CHAPTER'S BALLS ARE MADE OF. A property of the <b>block</b> exactly as the music is — the
-        /// material changes when the chapter does and not when the level does — and stated once per block here
-        /// so a block's ten designs cannot drift apart.
-        /// <para>
-        /// Since #272's eight styles landed there are ten materials, and since #295 made the Eruption the
-        /// tenth chapter <b>every chapter hangs a different one and every material has a home</b> — the
-        /// material is as strong a chapter marker as the scene and the piece of music. Each is placed where
-        /// it works rather than where it sounds good: two of the eight are scene-bound for reasons measured
-        /// in their own issues, and both are placed accordingly.
-        /// </para>
-        /// <para>
-        /// <b>The vinyl beach ball is back in the campaign since #295</b> — the Eruption took the lava its
-        /// entry always said the volcano had the better claim on, and the Reveal takes the vinyl home. It is
-        /// still also what everything unauthored draws — the map editor, the Testbed, the front end's own
-        /// preview, and any level that says nothing.
-        /// </para>
-        /// <para>
-        /// The costs are all measured against the same control and are under "Ball rendering" in
-        /// <c>docs/rendering.md</c>. Only the bubble is dearer than the vinyl it replaces (about 10 % of a
-        /// frame at 4K-class fill); every other style here is <i>cheaper</i>, so this table is close to free
-        /// and in places a saving — which is why the densest chapters can carry what they carry.
-        /// </para>
-        /// </summary>
+        //WHAT EACH CHAPTER'S BALLS ARE MADE OF. A property of the block exactly as the music is — the
+        //material changes when the chapter does and not when the level does — and stated once per block here
+        //so a block's ten designs cannot drift apart.
+        //
+        //Since #272's eight styles landed there are ten materials, and since #295 made the Eruption the
+        //tenth chapter every chapter hangs a different one and every material has a home — the
+        //material is as strong a chapter marker as the scene and the piece of music. Each is placed where
+        //it works rather than where it sounds good: two of the eight are scene-bound for reasons measured
+        //in their own issues, and both are placed accordingly.
+        //
+        //The vinyl beach ball is back in the campaign since #295 — the Eruption took the lava its
+        //entry always said the volcano had the better claim on, and the Reveal takes the vinyl home. It is
+        //still also what everything unauthored draws — the map editor, the Testbed, the front end's own
+        //preview, and any level that says nothing.
+        //
+        //The costs are all measured against the same control and are under "Ball rendering" in
+        //docs/rendering.md. Only the bubble is dearer than the vinyl it replaces (about 10 % of a
+        //frame at 4K-class fill); every other style here is cheaper, so this table is close to free
+        //and in places a saving — which is why the densest chapters can carry what they carry.
 
         /// <summary>
         /// <b>The Meadow — glass bubbles</b> (#258), and the one entry that predates the rest. The Meadow is
