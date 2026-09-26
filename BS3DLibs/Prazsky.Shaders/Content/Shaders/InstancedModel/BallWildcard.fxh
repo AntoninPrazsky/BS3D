@@ -36,9 +36,9 @@ static const float WildcardDrift = 0.12;
 
 //The opal sheen: how bright the play of colour is along the veins' boundary and round the rim, how wide the
 //boundary band is (in the marble field), and how fast the hues travel.
-static const float WildcardOpalVein = 0.55;
+static const float WildcardOpalVein = 0.8;
 static const float WildcardOpalRim = 0.45;
-static const float WildcardOpalWidth = 0.06;
+static const float WildcardOpalWidth = 0.15;
 static const float WildcardOpalSpeed = 0.35;
 
 //A glossy marble: the full highlight and mirror every ordinary ball gets, a touch more polish.

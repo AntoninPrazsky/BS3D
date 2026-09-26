@@ -183,8 +183,18 @@ static const float MineSeamSharpness = 1.4;
 static const float MineSeamDepth = 0.022;
 static const float MineEyeRadius = 0.13;
 static const float MineEyeGain = 1.8;
-static const float MineStudRadius = 0.16;
-static const float MineStudHeight = 0.03;
+static const float MineStudRadius = 0.22;
+static const float MineStudHeight = 0.0;
+
+//THE STUDS ARE GEOMETRY since the owner's verdict on the first mine ("the geometric studs a real mine has").
+//A drawn ball may not leave its cell - the lattice packs balls exactly two radii apart - so the stud cannot
+//grow OUT of the sphere; instead the casing is cut back to MineBodyRadius (the rock's and the ice's own
+//inward-only rule, #340, #329) and the eight studs rise from it up to the full radius, blunt cones with a
+//flat top. MineStudTop is where on the profile the cone stops rising and the top is flat. A stud is about
+//five vertices across on the finest sphere (64 x 32) and three on the next, which is what the blunt cone
+//is sized for: sharper would facet.
+static const float MineBodyRadius = 0.87;
+static const float MineStudTop = 0.55;
 
 static const float BombStudCount = 12.0;
 static const float BombStudSize = 0.16;
@@ -269,6 +279,55 @@ float MineStuds(float3 direction)
     float t = saturate(1.0 - toDiagonal / MineStudRadius);
 
     return t * t * (3.0 - 2.0 * t);
+}
+
+//The mine's radius as a fraction of the sphere's, in a direction: the cut-back casing, and the studs rising
+//from it to 1 on the cube's diagonals.
+float MineRadius(float3 direction)
+{
+    float toDiagonal = acos(saturate(dot(abs(direction), float3(0.57735, 0.57735, 0.57735))));
+    float rise = smoothstep(0.0, MineStudTop, saturate(1.0 - toDiagonal / MineStudRadius));
+
+    return lerp(MineBodyRadius, 1.0, rise);
+}
+
+//The mine's own vertex shader: PatternVS with the studs raised out of the cut-back casing. The normal is
+//taken from the displaced surface by two tangent differences, so a stud's flank is lit as a flank.
+PatternVertexShaderOutput BombVS(VertexShaderInput input, InstanceInput instance)
+{
+    PatternVertexShaderOutput output;
+
+    float4x4 world = float4x4(instance.WorldRow1, instance.WorldRow2, instance.WorldRow3, instance.WorldRow4);
+
+    float4 bonePosition = mul(input.Position, Bone);
+    float radius = max(length(bonePosition.xyz), 1e-5);
+    float3 direction = bonePosition.xyz / radius;
+
+    float3 helper = abs(direction.y) < 0.9 ? float3(0, 1, 0) : float3(1, 0, 0);
+    float3 t1 = normalize(cross(helper, direction));
+    float3 t2 = cross(direction, t1);
+    const float step = 0.02;
+    float3 d1 = normalize(direction + t1 * step);
+    float3 d2 = normalize(direction + t2 * step);
+
+    float3 p0 = direction * MineRadius(direction);
+    float3 p1 = d1 * MineRadius(d1);
+    float3 p2 = d2 * MineRadius(d2);
+    float3 objectNormal = normalize(cross(p1 - p0, p2 - p0));
+    if (dot(objectNormal, direction) < 0) objectNormal = -objectNormal;
+
+    float3 carved = p0 * radius;
+    float4 worldPosition = mul(float4(carved, 1), world);
+
+    output.ObjectPosition = carved;
+    output.WorldPosition = worldPosition.xyz;
+    output.Position = mul(mul(worldPosition, View), Projection);
+    output.WorldNormal = NormalToWorld(objectNormal, world);
+    output.OcclusionData = instance.Custom;
+    output.Dissolve = instance.Dissolve;
+    output.Ripple = instance.Ripple;
+
+    return output;
 }
 
 float4 BombPS(PatternVertexShaderOutput input) : COLOR
@@ -382,7 +441,7 @@ technique InstancedModelBomb
 {
     pass P0
     {
-        VertexShader = compile VS_SHADERMODEL PatternVS();
+        VertexShader = compile VS_SHADERMODEL BombVS();
         PixelShader = compile PS_SHADERMODEL BombPS();
     }
 };
