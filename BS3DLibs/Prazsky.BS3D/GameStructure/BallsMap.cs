@@ -1132,18 +1132,18 @@ namespace Prazsky.BS3D.GameStructure
             if (!Centered) return position;
 
             return new(
-                position.X + BoundingBoxCenter.X + BALL_RADIUS,
+                position.X + BoundingBoxCenter.X,
                 position.Y,
-                position.Z + BoundingBoxCenter.Y + BALL_RADIUS);
+                position.Z + BoundingBoxCenter.Y);
         }
 
         private Vector3 ComputeCentered(Vector3 position) => Centered ? ApplyCenterOffset(position) : position;
 
         /// <summary>Translates a raw grid-frame position into the centered world frame.</summary>
         private Vector3 ApplyCenterOffset(Vector3 position) => new(
-            position.X - BoundingBoxCenter.X - BALL_RADIUS,
+            position.X - BoundingBoxCenter.X,
             position.Y,
-            position.Z - BoundingBoxCenter.Y - BALL_RADIUS);
+            position.Z - BoundingBoxCenter.Y);
 
         public void Center()
         {
@@ -1182,7 +1182,13 @@ namespace Prazsky.BS3D.GameStructure
             Vector2 minPos = new(minPosX, minPosZ);
             Vector2 maxPos = new(maxPosX, maxPosZ);
 
-            BoundingBoxCenter = (maxPos - minPos) / 2f;
+            //The MIDPOINT of the top level's balls (#561). It was (max - min) / 2 with a ball radius taken off as well,
+            //which is the midpoint only when the top level's balls start at a shifted level's first cell (0.5): true of
+            //every hand-made map this was written for, false of a generated level inset in its field, where it left the
+            //layout -6.5 to -8.5 units off the origin in X and Z. The Game and the level generator re-centre through
+            //ClusterHang.FitWorldOffset and did not move; the Testbed, which takes the centred frame as the world,
+            //hung such a level that far off the island's axis.
+            BoundingBoxCenter = (maxPos + minPos) / 2f;
 
 #if DEBUG
             Console.WriteLine("Map minPos: " + minPos);
