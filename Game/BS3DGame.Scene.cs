@@ -469,13 +469,10 @@ namespace BS3D
         {
             _scene = scene;
 
-            //The scene's own sound follows the scene, on the one writer's rule. Null-conditional because the
-            //startup pick runs before LoadContent has built the audio; that first pick is handed over there.
-            _ambience?.SetScene(scene);
-
-            //And so does anything the OLD scene had in flight: the sound of a strike over a storm that
-            //is no longer on screen arriving over a meadow is worse than a strike going unheard (#219).
-            _sceneEvents?.Reset();
+            //The scene's own sound follows the scene, on the one writer's rule, and so does anything the OLD
+            //scene had in flight (#219) — see AudioDirector.SetScene. Null-conditional because the startup pick
+            //runs before LoadContent has built the audio; that first pick is handed over there.
+            _audioDirector?.SetScene(scene);
 
             //Neither city is drawn by the SceneRenderer — the city is one instanced box mesh under the shared
             //shader's city technique, and its two lightings are a flag and a brightness on the renderer.

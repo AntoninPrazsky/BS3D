@@ -130,8 +130,8 @@ namespace Prazsky.BS3D.Physics
         private readonly Func<PhysicsBall, float, float> _advanceRipple;
 
         /// <param name="advanceRipple">Advances one ball's flare by the frame's elapsed seconds and answers how
-        /// brightly it is burning, 0 at rest — the Game's <c>AdvanceRipple</c>. Null for a caller with no ripple
-        /// (the Testbed), and the test for that is <b>per ball</b>: it sits in the per-ball path, so a null hook
+        /// brightly it is burning, 0 at rest — the Game hands over <see cref="ClusterRipple.Advance"/>. Null for a
+        /// caller with no ripple (the Testbed), and the test for that is <b>per ball</b>: it sits in the per-ball path, so a null hook
         /// costs one branch on a readonly field per ball — perfectly predicted, and measured against nothing
         /// because there is nothing here to measure. Hoisting it out of the walk would mean either duplicating
         /// the three loops or passing a flag down them, and BestPractices.md §9 is explicit that an inefficiency
