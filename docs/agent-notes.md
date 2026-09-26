@@ -6604,3 +6604,13 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 - ⚠ **Pasti:** `line` je klíčové slovo HLSL (X3000 na `float line`); Bash sežere zpětná lomítka v neuvozené Windows cestě předané PowerShellu (skript četl `UserspanrdAIsd...`); při pohledu dolů +Z je světové +X na obrazovce VLEVO (ořez dlaždic z řady byl zrcadlově); `campos` nad stropem fotí přes skleněnou desku. Přehled z herní vzdálenosti: `fov=32 campos=0,4.5,-46.5 width=3840 height=1600` dá kuličku přesně 60 px (2790/46,5), dlaždice i na x = 3i − 13,5 leží na x = 1920 − 60·(3i − 13,5).
 - **Neměřeno:** cena — jedna speciální kulička je zlomek promile snímku a fixture jich má deset; párové měření by řeklo nulu. Zrnitá mřížka na plochách zmrzlé kostky je stínová mapa (acne na rovné ploše), byla i před změnou.
 - **Zbývá z #622:** Glass (#624), Stone (#623), Bomb (#625), Zap (#626), Wildcard (#632 — rozhodnutí, ne shader).
+
+---
+
+## 2026-09-26 — #623 #624 kámen a sklo z referencí, stránka znovu — desktop, Claude Code
+
+- **Na mainu:** kámen #623 (`f8f20e40`: pět lomových ploch ve `StoneVS`, tmavá prasklina, zrna i hrudky z gradientního šumu) a sklo #624 (`efcbca4a`: raycastovaná prázdná dutina, tenký kruh). Paprsek od oka je sdílený v `BallCommon.fxh` (`EyeRayVertexShaderOutput`, `EyeInObjectSpace`, `EyeRayVS`), zmrzlá ho používá taky. Hotovo 7 z 10, vše `shipped-awaiting-verdict`.
+- ⚠ **Golfové důlky kamene byla zrna, ne hrudky:** součin tří sinusovek je mřížka bublin, ohýbání fáze ji jen posune; šest usměrněných oktáv je šest řad. Gradientní šum řady nemá.
+- ⚠ **Stránka k verdiktu po přepnutí účtu zmizela** (Artifact: deleted). Nová: https://claude.ai/artifact/CMLMeYEk8sKjxkU2feFSdr, zdroj ve scratchpadu session (`page/`, `notes.json`, `build-page.py`). Komentáře u #623–#632 odkazují na starou, nový odkaz je v #622.
+- **Čeká na majitele:** bomba #625 (pásy/mina), blesk #626 (strom výboje), žolík #632 (vlastní technika/lem) — dnes fungují, bez odpovědi nepřepisuji.
+
