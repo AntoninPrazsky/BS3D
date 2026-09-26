@@ -58,7 +58,7 @@ namespace Prazsky.BS3D.Levels
 
         /// <summary>
         /// The scene backdrop, by name — the same parse keys the <c>scene=</c> command line takes
-        /// (<see cref="SceneRenderer.TryParseScene"/>; <c>"neon"</c> for the neon city). The scene's
+        /// (<see cref="SceneCatalog.TryParse"/>; <c>"neon"</c> for the neon city). The scene's
         /// parameters are fixed in code, so the name is all a level says about its backdrop. Null — absent,
         /// or an unknown spelling, the music field's leniency — leaves the consumer's current backdrop
         /// untouched (the Testbed keeps whatever scene is up).

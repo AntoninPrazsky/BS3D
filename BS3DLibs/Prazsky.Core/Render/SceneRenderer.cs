@@ -8,44 +8,6 @@ using System.Collections.Generic;
 
 namespace Prazsky.Core.Render
 {
-    /// <summary>
-    /// Which environment the arena stands in. City is the default; Sea, Savanna, Desert, Mountain, Meadow,
-    /// NeonCity, Forest and Outback swap the city (and only the city) for open water, a savanna, a Sahara of
-    /// dunes, a snowy range, a flowering meadow, the same city lit up in neon, a forest clearing, or the
-    /// red-rock Australian outback. Tropical swaps it for a beach — sand, palms and mossy rocks around the
-    /// island, a turquoise lagoon beyond it, and the green far shore that closes the horizon. Volcano swaps it
-    /// for the flank of an erupting cone: black basalt cut by rivers of lava, fountains over the crater and
-    /// drifting ash — the first scene whose <b>ground is the light</b>. Mars swaps it for rust-red cratered
-    /// ground under a dusty, horizon-bright sky of its own — the Moon's crater field ported and retextured,
-    /// but kept an ordinary atmospheric backdrop rather than a second sky-replacing scene, because the real
-    /// Mars (unlike the Moon) keeps a thin atmosphere. <see cref="Polar"/> swaps it for an icesheet (#222):
-    /// a flat white expanse carved into sastrugi, a crevassed pressure ridge at distance, and a material that
-    /// is white where it reflects the sky and cyan where the light goes through it.
-    /// <para>
-    /// <see cref="Space"/> is the one that is not like the others: it replaces the <b>sky</b> rather than the
-    /// ground, so the island floats in deep space and there is no terrain, no horizon and no weather at all.
-    /// The dream and the cavern followed it; the <see cref="Moon"/> is the first to take <b>both</b> halves at
-    /// once — real cratered ground under a replaced, atmosphere-free sky (see <see cref="SceneRenderer.ReplacesSky"/>).
-    /// </para>
-    /// <para>
-    /// <b>Every executable can reach every one of them, and that was not always true (#380).</b> The Testbed's
-    /// NumPad2 and the map editor's V both walked a seven-long prefix — "the scenes a map is authored against" —
-    /// and the other ten were reachable in the Testbed only with <c>scene=</c> and in the editor only by loading
-    /// a level that named one. The premise died as the campaign was built: fifty of its hundred and ten levels
-    /// are authored in space, the dream, the cavern, the Moon and the volcano, every one of them past that
-    /// prefix, so the editor could not return such a level to its own backdrop without reloading the file. Both
-    /// keys now walk the whole enum through <see cref="SceneRenderer.NextScene"/>, off the enum itself, so an
-    /// eighteenth kind cannot be added and left unreachable.
-    /// </para>
-    /// <para>
-    /// <b>New kinds are appended, never inserted.</b> Nothing persists the enum numerically — a level stores
-    /// its backdrop as a <see cref="SceneConfig"/> under a string discriminator — but the declared order is
-    /// what the scene picker, <see cref="SceneRenderer.SceneName"/>, the ambience bed and both cycling keys
-    /// all index by.
-    /// </para>
-    /// </summary>
-    public enum SceneKind { City, Sea, Savanna, Desert, Mountain, Meadow, NeonCity, Forest, Space, Dream, Cavern, Moon, Outback, Tropical, Volcano, Mars, Storm, Polar, Aurora, Grid }
-
     /// <summary>The volcano's separately drawn layers, for <see cref="SceneRenderer.VolcanoLayers"/> (#540).</summary>
     [System.Flags]
     public enum VolcanoLayer { None = 0, Terrain = 1, Plume = 2, Jets = 4, Glow = 8, Ash = 16, All = Terrain | Plume | Jets | Glow | Ash }
@@ -336,7 +298,11 @@ namespace Prazsky.Core.Render
         /// 2× than at 1×, which is the same sky looking different on two quality settings. Left at 1 it is
         /// simply the no-supersampling case, so a caller that never sets it still gets a correct sky.
         /// </summary>
-        public int SupersampleFactor { get; set; } = 1;
+        public int SupersampleFactor
+        {
+            get => _services.SupersampleFactor;
+            set => _services.SupersampleFactor = value;
+        }
 
         /// <summary>
         /// Whether the scene shaders may draw their <b>expensive extras</b> — the forest floor's triplanar
@@ -406,9 +372,6 @@ namespace Prazsky.Core.Render
         private MountainSceneConfig _mountainConfig = new();
         private MeadowSceneConfig _meadowConfig = new();
         private ForestSceneConfig _forestConfig = new();
-        private SpaceSceneConfig _spaceConfig = new();
-        private DreamSceneConfig _dreamConfig = new();
-        private CavernSceneConfig _cavernConfig = new();
         private MoonSceneConfig _moonConfig = new();
         private OutbackSceneConfig _outbackConfig = new();
         private TropicalSceneConfig _tropicalConfig = new();
@@ -683,7 +646,7 @@ namespace Prazsky.Core.Render
         private const int MARS_GRID_N_REDUCED = 256;
         private const float MARS_EXTENT = 1000f;
 
-        //The moons pass shares the sky-replacing scenes' full-screen-quad machinery (_spaceQuad), so only
+        //The moons pass shares the sky-replacing scenes' full-screen-quad machinery (_fullScreenQuad), so only
         //its two per-frame ray-reconstruction parameters are cached (BestPractices §1) — the terrain pass
         //follows the outback's and the volcano's own practice of setting the rest by name each draw.
         private EffectParameter _marsMoonsInverseViewProjection, _marsMoonsCameraPosition;
@@ -1177,35 +1140,26 @@ namespace Prazsky.Core.Render
 
         #endregion
 
-        #region Space
+        #region The backdrops (#580) and what they share
 
-        private readonly Effect _spaceEffect;
+        //The scenes that are their own Backdrop class (Render/Scenes), indexed by SceneKind; null for a scene
+        //still drawn by this class's own switch arms. docs/scenes.md, "The backdrop classes", has the order the
+        //rest are to follow in.
+        private readonly Backdrop[] _backdrops = new Backdrop[SceneCatalog.Count];
+        private readonly SpaceBackdrop _space;
+        private readonly DreamBackdrop _dream;
+        private readonly CavernBackdrop _cavern;
+
+        //The device, the full-screen quad and the supersampling factor, handed to every backdrop.
+        private readonly BackdropServices _services;
 
         //No terrain grid: space replaces the SKY, not the ground, so the whole scene is ONE full-screen pass
         //over a quad already in normalized device coordinates, with the view ray recovered per pixel through
-        //the inverse view-projection. Four corners drawn as a triangle strip, built once.
-        private readonly VertexBuffer _spaceQuad;
+        //the inverse view-projection. Four corners drawn as a triangle strip, built once. Space built it and
+        //every sky-replacing pass draws over it (BackdropServices.FullScreenQuad), this class's own included.
+        private readonly VertexBuffer _fullScreenQuad;
 
-        //The handful of parameters that change per frame, resolved once (BestPractices §1: the by-name
-        //indexer is a linear scan). Everything else is pushed by ApplySpaceParameters when a config lands.
-        private readonly EffectParameter _spaceInverseViewProjection, _spaceCameraPosition, _spaceSunDirection, _spaceSupersample, _spaceTime;
-
-        #endregion
-
-        #region Dream
-
-        //The tenth scene, and the second that replaces the SKY rather than the ground (see Space above): the
-        //same full-screen-quad machinery, sharing _spaceQuad, with its own effect and per-frame parameters.
-        private readonly Effect _dreamEffect;
-        private readonly EffectParameter _dreamInverseViewProjection, _dreamCameraPosition, _dreamTime;
-
-        #endregion
-
-        #region Cavern
-
-        //The eleventh scene, the third sky-replacing pass — the same machinery again.
-        private readonly Effect _cavernEffect;
-        private readonly EffectParameter _cavernInverseViewProjection, _cavernCameraPosition, _cavernTime;
+        private Backdrop BackdropFor(SceneKind kind) => _backdrops[(int)kind];
 
         #endregion
 
@@ -1214,7 +1168,7 @@ namespace Prazsky.Core.Render
         //The twelfth scene (#125), and the first in BOTH families at once: a solid-terrain grid like the
         //desert's AND a sky-replacing pass like space's, in one effect with two techniques. DrawMoon runs
         //the displaced crater grid first (depth-writing) and the sky quad after it, depth-READ on the
-        //shared _spaceQuad — the opposite interleave is a measured 8× frame blow-up; see DrawMoon's doc.
+        //shared _fullScreenQuad — the opposite interleave is a measured 8× frame blow-up; see DrawMoon's doc.
         private readonly Effect _moonEffect;
         private readonly VertexBuffer _moonVertexBuffer;
         private readonly IndexBuffer _moonIndexBuffer;
@@ -1402,6 +1356,19 @@ namespace Prazsky.Core.Render
             _graphicsDevice = graphicsDevice;
             _gridCache = new TerrainGridCache(graphicsDevice);
 
+            //--- The full-screen quad every sky-replacing pass draws over (#580: space's until it became a
+            //Backdrop) - already in normalized device coordinates, so nothing transforms it
+            VertexPosition[] corners =
+            {
+                new(new Vector3(-1f, 1f, 0f)),
+                new(new Vector3(1f, 1f, 0f)),
+                new(new Vector3(-1f, -1f, 0f)),
+                new(new Vector3(1f, -1f, 0f))
+            };
+            _fullScreenQuad = new VertexBuffer(graphicsDevice, VertexPosition.VertexDeclaration, corners.Length, BufferUsage.WriteOnly);
+            _fullScreenQuad.SetData(corners);
+            _services = new BackdropServices(graphicsDevice, _fullScreenQuad);
+
             //--- The far field (#551): one ring every open-ground scene draws its land over past its own grid.
             CreateFarRingMesh();
 
@@ -1485,7 +1452,7 @@ namespace Prazsky.Core.Render
             //the outback's plumbing (an ordinary dome, the shared cloud shadow, a haze-closed horizon)
             //rather than the Moon's domeless, curvature-closed one. Two techniques in one effect: the
             //terrain grid, and a small full-screen pass for Phobos and Deimos sharing the sky-replacing
-            //scenes' own quad (_spaceQuad).
+            //scenes' own quad (_fullScreenQuad).
             _marsEffect = content.Load<Effect>("Shaders/Mars");
             EnsureMarsGrid(MARS_GRID_N);
 
@@ -1612,47 +1579,15 @@ namespace Prazsky.Core.Render
 
             ApplyForestParameters();
 
-            //--- Space: the ninth scene, and the first of the two with no ground at all (the dream below is
-            //the other) — a full-screen pass whose quad is already in normalized device coordinates, so
-            //nothing transforms it
-            _spaceEffect = content.Load<Effect>("Shaders/Space");
-
-            VertexPosition[] corners =
-            {
-                new(new Vector3(-1f, 1f, 0f)),
-                new(new Vector3(1f, 1f, 0f)),
-                new(new Vector3(-1f, -1f, 0f)),
-                new(new Vector3(1f, -1f, 0f))
-            };
-            _spaceQuad = new VertexBuffer(graphicsDevice, VertexPosition.VertexDeclaration, corners.Length, BufferUsage.WriteOnly);
-            _spaceQuad.SetData(corners);
-
-            _spaceInverseViewProjection = _spaceEffect.Parameters["InverseViewProjection"];
-            _spaceCameraPosition = _spaceEffect.Parameters["CameraPosition"];
-            _spaceSunDirection = _spaceEffect.Parameters["SunDirection"];
-            _spaceSupersample = _spaceEffect.Parameters["SupersampleFactor"];
-            _spaceTime = _spaceEffect.Parameters["SpaceTime"];
-
-            ApplySpaceParameters();
-
-            //--- Dream: the tenth scene, the second sky-replacing pass. It shares space's quad — a corner
-            //quad in normalized device coordinates has nothing scene-specific about it.
-            _dreamEffect = content.Load<Effect>("Shaders/Dream");
-
-            _dreamInverseViewProjection = _dreamEffect.Parameters["InverseViewProjection"];
-            _dreamCameraPosition = _dreamEffect.Parameters["CameraPosition"];
-            _dreamTime = _dreamEffect.Parameters["DreamTime"];
-
-            ApplyDreamParameters();
-
-            //--- Cavern: the eleventh scene, the third sky-replacing pass, on the same shared quad.
-            _cavernEffect = content.Load<Effect>("Shaders/Cavern");
-
-            _cavernInverseViewProjection = _cavernEffect.Parameters["InverseViewProjection"];
-            _cavernCameraPosition = _cavernEffect.Parameters["CameraPosition"];
-            _cavernTime = _cavernEffect.Parameters["CavernTime"];
-
-            ApplyCavernParameters();
+            //--- Space, the dream and the cavern: the ninth, tenth and eleventh scenes, the three sky-replacing
+            //full-screen passes. Each is its own Backdrop since #580 (Render/Scenes), built here where its code
+            //stood, so nothing loads or pushes in another order than it did.
+            _space = new SpaceBackdrop(_services, content);
+            _dream = new DreamBackdrop(_services, content);
+            _cavern = new CavernBackdrop(_services, content);
+            _backdrops[(int)SceneKind.Space] = _space;
+            _backdrops[(int)SceneKind.Dream] = _dream;
+            _backdrops[(int)SceneKind.Cavern] = _cavern;
 
             //--- Moon: the twelfth scene (#125), the first in both families at once — a displaced crater
             //grid like the desert's under a sky-replacing star-and-Earth pass on space's quad, two
@@ -1821,150 +1756,33 @@ namespace Prazsky.Core.Render
 
         private readonly List<Effect> _hostReceiverEffects = new();
 
-        /// <summary>
-        /// True for the scenes that replace the SKY rather than the ground — space, the dream, the cavern,
-        /// the Moon, the aurora and the Grid. The caller draws no dome and no cloud deck in these, suppresses
-        /// the cloud shadow on the instanced effect, clears to black (the pass covers every pixel; black is
-        /// what would show if it ever did not), and takes the scene's own light rig through
-        /// <see cref="TryGetLightRig"/>.
-        /// <para>
-        /// <b>The Moon (#125) was the first scene in this set AND in <see cref="IsSolidTerrainScene"/>; the
-        /// aurora (#205) was the second, the Grid (#393) is the third.</b> The two families were exact
-        /// complements of what they draw — a dome over ground, or a backdrop with no ground — until the Moon
-        /// wanted real cratered ground under a black, starlit, domeless sky. Every question this flag answers
-        /// (dome, clouds, clear colour, light rig) each of them answers the sky-replacing way, and every
-        /// question <see cref="IsSolidTerrainScene"/> answers (the terrain hole, the pit shaft,
-        /// <see cref="OpenBelow"/>) each answers the terrain way; no caller asks either flag anything the
-        /// other one owns, which is what makes holding both memberships sound — three times over now.
-        /// </para>
-        /// </summary>
-        public static bool ReplacesSky(SceneKind kind) =>
-            kind is SceneKind.Space or SceneKind.Dream or SceneKind.Cavern or SceneKind.Moon or SceneKind.Aurora
-                or SceneKind.Grid;
+        //The questions about a SceneKind that are facts of the KIND are answered by SceneCatalog since #580, one
+        //table with a row per member instead of five parallel ones here. These forwarders keep every existing
+        //caller compiling unchanged; new code may ask the catalog directly.
 
-        /// <summary>
-        /// True for the solid-ground backdrops — mountains, meadow, savanna, desert, forest, outback, the
-        /// tropical beach, the volcano, Mars, the Moon, the aurora and the Grid — whose terrain is a flat
-        /// clearing at the island's foot with the island's footprint cut out of it
-        /// (<see cref="TerrainHoleRadius"/>), and which therefore need the dark pit shaft drawn behind the
-        /// drain's glass: a hole alone lets the ~55 %-opaque glass show what is behind it straight through
-        /// and the drain reads as a glass ring lying on the ground. The sea fills the drain with water, the
-        /// two cities have their own canyon falling away below the island, and space, the dream and the
-        /// cavern have nothing down there to hide a ball against — none of them needs it.
-        /// <para>
-        /// The Moon, the aurora and the Grid are here <b>and</b> in <see cref="ReplacesSky"/> — the first
-        /// three scenes in both families (the note there says why that is sound). Each needs the shaft for
-        /// the terrain reason with the sky-replacing twist: without it the drain's glass would show the
-        /// <i>void</i> through a hole in the ground, which reads as a glass ring over open sky (a starfield
-        /// for the Moon and the aurora, the Grid's own near-black nothing for the Grid). The tropical beach is
-        /// the first scene with water <i>and</i> this membership — its water starts past the beach, well
-        /// outside the hole, so under the island there is sand and the shaft answers for it exactly as it does
-        /// for the meadow.
-        /// </para>
-        /// <para>
-        /// It existed as a private copy in the Testbed and the Game until #75, and the forest was once missing
-        /// from <b>both</b> — which is the exact failure a duplicated classification invites, and the reason
-        /// this and every other question about a <see cref="SceneKind"/> are answered here.
-        /// </para>
-        /// </summary>
-        //⚠ The STORM is deliberately not here, and it was for one build. It was classified as terrain
-        //because it was DRAWN as terrain — a displaced grid at the island's foot — and the owner rejected
-        //exactly that: the scene has no ground in it. With the deck gone there is nothing to cut the
-        //island's footprint out of and nothing an opaque pit shaft would be standing in, so the drain looks
-        //straight through onto sky and cloud the way it does over the space scene.
-        public static bool IsSolidTerrainScene(SceneKind kind) =>
-            kind is SceneKind.Mountain or SceneKind.Meadow or SceneKind.Savanna or SceneKind.Desert
-                or SceneKind.Forest or SceneKind.Moon or SceneKind.Outback or SceneKind.Tropical
-                or SceneKind.Volcano or SceneKind.Mars or SceneKind.Polar or SceneKind.Aurora
-                or SceneKind.Grid;
+        /// <summary>Forwards to <see cref="SceneCatalog.ReplacesSky"/>, where the classification and its reasoning live.</summary>
+        public static bool ReplacesSky(SceneKind kind) => SceneCatalog.ReplacesSky(kind);
 
-        /// <summary>
-        /// Whether there is a vantage <b>under</b> the island from which the balls pouring out of the drain can
-        /// still be seen — what the drop cinematic asks before it decides whether to dive beneath the stone or
-        /// stay above it and look down the drain's throat.
-        /// <para>
-        /// It is exactly the complement of <see cref="IsSolidTerrainScene"/>, and that is a consequence rather
-        /// than a coincidence: the pit shaft those scenes need is opaque and near-black, so the very thing that
-        /// makes the drain read from above is what closes the view from below. Defined as the negation so a
-        /// twelfth scene is one decision instead of two silently disagreeing lists — it was two hand-kept sets
-        /// in different files until #75. Split them again only if a scene ever wants the shaft and the dive
-        /// both, and say why on the spot.
-        /// </para>
-        /// </summary>
-        public static bool OpenBelow(SceneKind kind) => !IsSolidTerrainScene(kind);
+        /// <summary>Forwards to <see cref="SceneCatalog.IsSolidTerrainScene"/>, where the classification and its reasoning live.</summary>
+        public static bool IsSolidTerrainScene(SceneKind kind) => SceneCatalog.IsSolidTerrainScene(kind);
 
-        /// <summary>How many <see cref="SceneKind"/>s there are; a scene picker and a random pick size off it.</summary>
-        public static int SceneCount => SCENE_NAMES.Length;
+        /// <summary>Forwards to <see cref="SceneCatalog.OpenBelow"/>: the complement of <see cref="IsSolidTerrainScene"/>.</summary>
+        public static bool OpenBelow(SceneKind kind) => SceneCatalog.OpenBelow(kind);
 
-        /// <summary>
-        /// The next scene in the enum, wrapping — what a cycling key in an authoring tool wants. It replaced a
-        /// <c>CycleLength</c> constant of 7 that both cycling keys took their modulus from (#380): a prefix is
-        /// a count, and a count written next to an enum is a thing that ages every time the enum grows. Nothing
-        /// here counts the scenes, so a twenty-first kind is reachable in both programs the moment it is
-        /// declared — the same argument <c>BallStyles.Next</c> already makes for the ball materials, in the
-        /// program that exists to choose between them.
-        /// <para>
-        /// Off <see cref="Enum.GetValues{TEnum}"/> rather than <see cref="SceneCount"/>, because the question is
-        /// "what members does this enum have" and not "how long is the name table". They agree today by
-        /// construction, and a disagreement is a bug in the table rather than a licence to skip a scene.
-        /// </para>
-        /// </summary>
-        public static SceneKind NextScene(SceneKind kind)
-        {
-            SceneKind[] all = Enum.GetValues<SceneKind>();
+        /// <summary>How many <see cref="SceneKind"/>s there are; forwards to <see cref="SceneCatalog.Count"/>.</summary>
+        public static int SceneCount => SceneCatalog.Count;
 
-            return all[(Array.IndexOf(all, kind) + 1) % all.Length];
-        }
+        /// <summary>The next scene in the enum, wrapping; forwards to <see cref="SceneCatalog.NextScene"/>.</summary>
+        public static SceneKind NextScene(SceneKind kind) => SceneCatalog.NextScene(kind);
 
-        //In the declared order of SceneKind, so a picker can index it by the enum's own value. "Mountains"
-        //reads better than the singular enum member and is deliberately not "corrected" to match it; the
-        //parse keys below are the singular ones, because those are what a command line already takes.
-        private static readonly string[] SCENE_NAMES =
-            { "City", "Sea", "Savanna", "Desert", "Mountains", "Meadow", "Neon City", "Forest", "Space", "Dream", "Cavern", "Moon", "Outback", "Tropical", "Volcano", "Mars", "Storm", "Polar", "Aurora", "Grid" };
+        /// <summary>The scene's display name; forwards to <see cref="SceneCatalog.DisplayName"/>.</summary>
+        public static string SceneName(SceneKind kind) => SceneCatalog.DisplayName(kind);
 
-        /// <summary>
-        /// The scene's name for a menu or a log line. Display text, not a parse key — see
-        /// <see cref="TryParseScene"/> for the spellings a command line takes.
-        /// </summary>
-        public static string SceneName(SceneKind kind) => SCENE_NAMES[(int)kind];
+        /// <summary>Parses a <c>scene=</c> spelling; forwards to <see cref="SceneCatalog.TryParse"/>.</summary>
+        public static bool TryParseScene(string name, out SceneKind kind) => SceneCatalog.TryParse(name, out kind);
 
-        /// <summary>
-        /// Parses the names every executable's <c>scene=</c> switch takes, so one benchmark or screenshot
-        /// script drives any of them unchanged — the Testbed grew an if/else chain, the Game a switch and the
-        /// two had to be kept in step by hand until #75. <c>mountain</c> and <c>neon</c> rather than
-        /// <c>mountains</c> and <c>neoncity</c>: they are the names that already existed.
-        /// </summary>
-        public static bool TryParseScene(string name, out SceneKind kind)
-        {
-            switch (name?.ToLowerInvariant())
-            {
-                case "city": kind = SceneKind.City; return true;
-                case "sea": kind = SceneKind.Sea; return true;
-                case "savanna": kind = SceneKind.Savanna; return true;
-                case "desert": kind = SceneKind.Desert; return true;
-                case "mountain": kind = SceneKind.Mountain; return true;
-                case "meadow": kind = SceneKind.Meadow; return true;
-                case "neon": kind = SceneKind.NeonCity; return true;
-                case "forest": kind = SceneKind.Forest; return true;
-                case "space": kind = SceneKind.Space; return true;
-                case "dream": kind = SceneKind.Dream; return true;
-                case "cavern": kind = SceneKind.Cavern; return true;
-                case "moon": kind = SceneKind.Moon; return true;
-                case "outback": kind = SceneKind.Outback; return true;
-                case "tropical": kind = SceneKind.Tropical; return true;
-                case "volcano": kind = SceneKind.Volcano; return true;
-                case "mars": kind = SceneKind.Mars; return true;
-                case "storm": kind = SceneKind.Storm; return true;
-                //"ice" as well as "polar": the scene is named for where it is and remembered for what it is
-                //made of, and a spelling refused in silence is a run that quietly plays in the city.
-                case "polar":
-                case "ice": kind = SceneKind.Polar; return true;
-                case "aurora": kind = SceneKind.Aurora; return true;
-                case "grid":
-                case "tron": kind = SceneKind.Grid; return true;
-                default: kind = default; return false;
-            }
-        }
+        /// <summary>Whether a scene's own light rig moves with time; forwards to <see cref="SceneCatalog.AnimatesLightRig"/>.</summary>
+        public static bool AnimatesLightRig(SceneKind kind) => SceneCatalog.AnimatesLightRig(kind);
 
         #region Scene parameters (each config pushed to its effect and buffers; issue #32, #44)
 
@@ -2014,40 +1832,10 @@ namespace Prazsky.Core.Render
         /// <param name="rig">The scene's own rig, when it states one.</param>
         public bool TryGetLightRig(SceneKind kind, float wallClock, out SceneLightRig rig)
         {
+            if (BackdropFor(kind) is { } backdrop) return backdrop.TryGetLightRig(wallClock, out rig);
+
             switch (kind)
             {
-                case SceneKind.Space:
-                    SpaceLightingConfig space = _spaceConfig.Lighting;
-                    rig = new SceneLightRig(
-                        space.SkyAmbient.ToVector3(),
-                        space.GroundAmbient.ToVector3(),
-                        space.KeyTint.ToVector3(),
-                        space.BackTint.ToVector3());
-                    return true;
-
-                //The dream states one for the same reason and one more: its rig is deliberately COLOURED
-                //(violet over teal, a rose key against a cyan fill), so the island, the gun and the balls
-                //sit in the hallucination instead of standing greyly in front of it.
-                case SceneKind.Dream:
-                    DreamLightingConfig dream = _dreamConfig.Lighting;
-                    rig = new SceneLightRig(
-                        dream.SkyAmbient.ToVector3(),
-                        dream.GroundAmbient.ToVector3(),
-                        dream.KeyTint.ToVector3(),
-                        dream.BackTint.ToVector3());
-                    return true;
-
-                //The cavern's is dim and cool — a cave lit by its own bioluminescence, the ground bounce
-                //carrying the river's teal up onto the island's underside.
-                case SceneKind.Cavern:
-                    CavernLightingConfig cavern = _cavernConfig.Lighting;
-                    rig = new SceneLightRig(
-                        cavern.SkyAmbient.ToVector3(),
-                        cavern.GroundAmbient.ToVector3(),
-                        cavern.KeyTint.ToVector3(),
-                        cavern.BackTint.ToVector3());
-                    return true;
-
                 //The Moon's is the one rig whose GROUND half outshines its sky half: the sky is black and
                 //the sunlit regolith below is the only diffuse source there is — Apollo photographs fill
                 //their shadows from the ground, not the sky (see MoonLightingConfig).
@@ -2119,6 +1907,8 @@ namespace Prazsky.Core.Render
         /// safe-default reasoning <c>BallKinds.Removable</c> states for its own "everything but" default.</returns>
         public bool TryGetViewpoint(SceneKind kind, float bearing, out SceneViewpoint viewpoint)
         {
+            if (BackdropFor(kind) is { } backdrop) return backdrop.TryGetViewpoint(bearing, out viewpoint);
+
             switch (kind)
             {
                 //THE TWO CITIES LOOK DOWN, and they are the only ones here that do. Everything else in this
@@ -2196,35 +1986,6 @@ namespace Prazsky.Core.Render
                     viewpoint = new SceneViewpoint(
                         AtBearing(bearing, _forestConfig.ClearingRadius + 45f, _forestConfig.LevelY + 14f),
                         1.7f, 10f, 0f, "the tree line");
-                    return true;
-
-                //The planet, which is the one thing in the space scene with a POSITION — the stars, the
-                //nebulae and the Milky Way are a sky and are in frame from anywhere. Behind the arena, so the
-                //island hangs against it: a planet with nothing in front of it has no scale.
-                case SceneKind.Space:
-                    viewpoint = new SceneViewpoint(
-                        SafeNormal(_spaceConfig.Planet.Direction.ToVector3(), -Vector3.UnitZ) * 620f,
-                        2.0f, 12f, 180f, "the planet");
-                    return true;
-
-                //The marbled sky, at the radius the solids roam at and only a little above the island — this
-                //scene has no ground and no horizon, so every direction is sky and the only thing a shot can
-                //get WRONG is framing nothing else. Behind the arena and low, so the island and its cluster
-                //are silhouetted against it: photographed at 26 up the lens tilted off them entirely and the
-                //frame was marbling and two orbs, which is a wallpaper rather than a place.
-                case SceneKind.Dream:
-                    viewpoint = new SceneViewpoint(AtBearing(bearing, _dreamConfig.Shapes.OrbitRadius, 6f),
-                        1.9f, 10f, 168f, "the marbled sky");
-                    return true;
-
-                //Down at the water, not up at the roof — and the first draft did aim at the roof, on the
-                //argument that a cavern's defining feature is overhead and the gameplay camera never looks
-                //up. Photographed, that shot is very nearly BLACK: the ceiling is unlit rock a hundred units
-                //off, and everything this scene has to show glows from BELOW. The river is the light source,
-                //so the island stands between the lens and it and reads as a silhouette over the glow.
-                case SceneKind.Cavern:
-                    viewpoint = new SceneViewpoint(AtBearing(bearing, 130f, _cavernConfig.Water.LevelY + 2f),
-                        1.8f, 16f, 168f, "the river");
                     return true;
 
                 //The highland belt, at the crest radius its own config states — the Moon's skyline is a
@@ -2327,7 +2088,7 @@ namespace Prazsky.Core.Render
 
         //A point out from the arena on a bearing, at a height. The arena is at the world origin, so this is
         //the whole of the conversion — see SceneViewpoint's own remarks.
-        private static Vector3 AtBearing(float bearing, float radius, float y) =>
+        internal static Vector3 AtBearing(float bearing, float radius, float y) =>
             new(MathF.Cos(bearing) * radius, y, MathF.Sin(bearing) * radius);
 
         /// <summary>
@@ -2343,32 +2104,12 @@ namespace Prazsky.Core.Render
         /// </summary>
         public bool TryGetSpacePlanetshine(SceneKind kind, out Vector3 position, out Vector3 color, out float range)
         {
+            if (kind == SceneKind.Space) return _space.TryGetPlanetshine(out position, out color, out range);
+
             position = Vector3.Zero;
             color = Vector3.Zero;
             range = 0f;
-
-            SpacePlanetConfig planet = _spaceConfig.Planet;
-            SpaceLightingConfig lighting = _spaceConfig.Lighting;
-
-            if (kind != SceneKind.Space || lighting.PlanetshineStrength <= 0f || planet.AngularRadiusDegrees <= 0f) return false;
-
-            Vector3 direction = SafeNormal(planet.Direction.ToVector3(), Vector3.Forward);
-
-            position = direction * lighting.PlanetshineDistance;
-
-            //The planet's own colour is what it reflects back, and its pale bands are what most of the disc
-            //is; normalized so the strength alone says how bright the fill is and the colour only says its hue
-            Vector3 albedo = planet.ColorLight.ToVector3();
-            float peak = MathF.Max(MathF.Max(albedo.X, albedo.Y), MathF.Max(albedo.Z, 1e-4f));
-
-            color = albedo / peak * lighting.PlanetshineStrength;
-
-            //The falloff is (1 - d/range)^2, so the light has to stand well inside its own range or it
-            //arrives as nothing. At three times the distance it is 4/9 of full here and varies by a few per
-            //cent across the island, which is what makes a point light stand in for a distant one.
-            range = lighting.PlanetshineDistance * 3f;
-
-            return true;
+            return false;
         }
 
         /// <summary>
@@ -2411,7 +2152,7 @@ namespace Prazsky.Core.Render
         /// null for <see cref="SceneKind.City"/>/<see cref="SceneKind.NeonCity"/>, whose config lives outside
         /// the renderer (the caller owns the <see cref="CitySceneConfig"/>).
         /// </summary>
-        public SceneConfig GetSceneConfig(SceneKind kind) => kind switch
+        public SceneConfig GetSceneConfig(SceneKind kind) => BackdropFor(kind)?.Config ?? kind switch
         {
             SceneKind.Sea => _seaConfig,
             SceneKind.Desert => _desertConfig,
@@ -2419,9 +2160,6 @@ namespace Prazsky.Core.Render
             SceneKind.Mountain => _mountainConfig,
             SceneKind.Meadow => _meadowConfig,
             SceneKind.Forest => _forestConfig,
-            SceneKind.Space => _spaceConfig,
-            SceneKind.Dream => _dreamConfig,
-            SceneKind.Cavern => _cavernConfig,
             SceneKind.Moon => _moonConfig,
             SceneKind.Outback => _outbackConfig,
             SceneKind.Tropical => _tropicalConfig,
@@ -4196,34 +3934,14 @@ namespace Prazsky.Core.Render
         /// <c>ShapeCenter</c>, with <paramref name="bound"/> the radius its march is gated on (<c>ShapeSize</c>
         /// × 1.9), which the morph never leaves.
         /// </summary>
-        public Vector3 DreamSolidCenter(int index, float time, out float bound)
-        {
-            float i = index;
-            float orbit = _dreamConfig.Shapes.OrbitRadius;
-            float a = time * (0.020f + 0.011f * ShaderMath.Frac(i * 0.371f)) + i * 2.399f;
-            float r = orbit * (0.78f + 0.22f * MathF.Sin(i * 5.3f));
-            float y = 26f + 46f * MathF.Sin(time * 0.013f + i * 2.7f);
-
-            bound = _dreamConfig.Shapes.Size * 1.9f;
-            return new Vector3(MathF.Cos(a) * r, y, MathF.Sin(a) * r);
-        }
+        public Vector3 DreamSolidCenter(int index, float time, out float bound) => _dream.SolidCenter(index, time, out bound);
 
         /// <summary>
         /// Where the dream's soft orb <paramref name="index"/> stands at a wall-clock time — <c>Dream.fx</c>'s
         /// orb loop — and its glow radius. An orb is a closest-approach gaussian with no surface, so a lens
         /// near it is inside light, not inside geometry.
         /// </summary>
-        public Vector3 DreamOrbCenter(int index, float time, out float radius)
-        {
-            float o = index;
-            float orbit = _dreamConfig.Shapes.OrbitRadius * 1.25f;
-
-            radius = _dreamConfig.Glows.OrbRadius * (0.7f + 0.3f * MathF.Sin(o * 7f));
-            return new Vector3(
-                MathF.Cos(time * 0.009f + o * 2.1f) * orbit,
-                15f + 60f * MathF.Sin(time * 0.007f + o * 3.3f),
-                MathF.Sin(time * 0.011f + o * 1.3f) * orbit);
-        }
+        public Vector3 DreamOrbCenter(int index, float time, out float radius) => _dream.OrbCenter(index, time, out radius);
 
         /// <summary>How many crystal clusters <c>Cavern.fx</c> draws (its <c>CRYSTAL_COUNT</c>).</summary>
         public const int CAVERN_CRYSTAL_COUNT = 8;
@@ -4236,28 +3954,13 @@ namespace Prazsky.Core.Render
         /// <c>CrystalCenter</c>, on the wall at 0.965 of the cave's radius. Its three octahedra reach about
         /// ten units out of that point sideways and some twenty-five up and down.
         /// </summary>
-        public Vector3 CavernCrystalCenter(int index)
-        {
-            float k = index;
-            float angle = k * 2.39996f + 0.7f;
-            float radius = _cavernConfig.Rock.CaveRadius * 0.965f;
-            float y = _cavernConfig.Water.LevelY + 6f + (k * 37f) % 70f;
-
-            return new Vector3(MathF.Cos(angle) * radius, y, MathF.Sin(angle) * radius);
-        }
+        public Vector3 CavernCrystalCenter(int index) => _cavern.CrystalCenter(index);
 
         /// <summary>
         /// Where the cavern's god ray <paramref name="index"/> falls, in the XZ plane: <c>Cavern.fx</c>'s
         /// vertical shaft from the ceiling towards the river.
         /// </summary>
-        public Vector2 CavernGodRayXZ(int index)
-        {
-            float r = index;
-            float angle = r * 1.62f + 0.4f;
-            float radius = _cavernConfig.Rock.CaveRadius * (0.30f + 0.14f * ShaderMath.Frac(r * 0.53f));
-
-            return new Vector2(MathF.Cos(angle) * radius, MathF.Sin(angle) * radius);
-        }
+        public Vector2 CavernGodRayXZ(int index) => _cavern.GodRayXZ(index);
 
         /// <summary>How many cumulus cells the storm's field was built with.</summary>
         public int StormCellCount => _stormStrikeCells.Length;
@@ -4744,12 +4447,8 @@ namespace Prazsky.Core.Render
             SelectSavannaTechnique();
             SelectMarsTechnique();
 
-            //The cavern is BACK (#298), and it left and returned for different reasons — see Cavern.fx's own
-            //note at the techniques. It went in #250, when the pair it used to drop was cut from the authored
-            //scene outright; it returned because it is the one scene the ladder could not help any other way,
-            //being immune to supersampling by #155's construction. Its new pair is the wall's bump gradient
-            //(twelve octaves of 3D noise a pixel) and the crack network.
-            _cavernEffect.CurrentTechnique = _cavernEffect.Techniques[_sceneDetail > 0.5f ? "Cavern" : "CavernReduced"];
+            //The dream's and the cavern's picks moved into their backdrops with the rest of them (#580)
+            foreach (Backdrop backdrop in _backdrops) backdrop?.OnDetailChanged(_sceneDetail);
 
             //The mountain, new to this list with the cavern (#298) and picked for the same reason from the
             //other end: it is the only scene the desktop still calls marginal (#296). Its pair is #208's own —
@@ -4757,11 +4456,6 @@ namespace Prazsky.Core.Render
             //together, and because the sparkle is a HIGHLIGHT, which is the class of thing the owner named
             //when he ruled that a tier drops effects and never resolution.
             _mountainEffect.CurrentTechnique = _mountainEffect.Techniques[_sceneDetail > 0.5f ? "Mountain" : "MountainReduced"];
-
-            //The dream's four: the background's second evaluation in the reflection, most of the sparks, most
-            //of each spark's trail, and an octave off both warp layers — the last being the only reduction in
-            //any of these three scenes that pays on its own, since it is the only one on every pixel.
-            _dreamEffect.CurrentTechnique = _dreamEffect.Techniques[_sceneDetail > 0.5f ? "Dream" : "DreamReduced"];
 
             //The volcano (#509): the two kinds of hairline the references brought in off the flows - the
             //rivulets down the cone and the cracks in the field - arrived together and are given up together.
@@ -4823,100 +4517,6 @@ namespace Prazsky.Core.Render
             _forestEffect.Parameters["WindRippleStrength"].SetValue(_forestConfig.WindRippleStrength);
             _forestEffect.Parameters["NeedleReliefStrength"].SetValue(_forestConfig.NeedleReliefStrength);
             _forestEffect.Parameters["NeedleReliefFrequency"].SetValue(_forestConfig.NeedleReliefFrequency);
-        }
-
-        /// <summary>
-        /// Pushes the whole space sky at the shader. Everything here is fixed for as long as the config is —
-        /// the sky does not move, there is no wind and no weather — so this runs on a config change and never
-        /// per frame; only the camera, the sun and the supersampling factor go out in <see cref="DrawSpace"/>.
-        /// <para>
-        /// Two conversions happen here rather than in the shader, and both are deliberate. Angles are authored
-        /// in <b>degrees</b> and arrive as radians, because a designer types "twelve degrees across". And the
-        /// directions are normalized — with the galactic core <b>orthogonalised against the pole</b> — so a
-        /// hand-typed pair never has to be exactly perpendicular for the bulge to sit in the plane.
-        /// </para>
-        /// </summary>
-        private void ApplySpaceParameters()
-        {
-            SpaceSceneConfig space = _spaceConfig;
-
-            _spaceEffect.Parameters["VoidColor"].SetValue(space.VoidColor.ToVector3());
-
-            //The volume the island is inside — the one layer of this scene with depth rather than only a
-            //direction, and so the only one the camera can move through (see Space.fx's StarNestVolume)
-            SpaceVolumeConfig volume = space.Volume;
-            _spaceEffect.Parameters["VolumeStrength"].SetValue(volume.Strength);
-            _spaceEffect.Parameters["VolumeScale"].SetValue(volume.Scale);
-            _spaceEffect.Parameters["VolumeDrift"].SetValue(volume.Drift);
-            _spaceEffect.Parameters["VolumeSaturation"].SetValue(volume.Saturation);
-            _spaceEffect.Parameters["VolumeOpacity"].SetValue(volume.Opacity);
-            _spaceEffect.Parameters["VolumeTint"].SetValue(volume.Tint.ToVector3());
-
-            SpaceStarsConfig stars = space.Stars;
-            _spaceEffect.Parameters["StarCellScale"].SetValue(new[] { stars.BrightCellScale, stars.MediumCellScale, stars.FaintCellScale });
-            _spaceEffect.Parameters["StarChance"].SetValue(new[] { stars.BrightChance, stars.MediumChance, stars.FaintChance });
-            _spaceEffect.Parameters["StarPeak"].SetValue(new[] { stars.BrightPeak, stars.MediumPeak, stars.FaintPeak });
-            _spaceEffect.Parameters["StarSpread"].SetValue(stars.Spread);
-            _spaceEffect.Parameters["StarFalloff"].SetValue(stars.Falloff);
-            _spaceEffect.Parameters["StarSpikeThreshold"].SetValue(stars.SpikeThreshold);
-            _spaceEffect.Parameters["StarSpikeLength"].SetValue(stars.SpikeLength);
-
-            SpaceMilkyWayConfig milkyWay = space.MilkyWay;
-            Vector3 pole = SafeNormal(milkyWay.Pole.ToVector3(), Vector3.Up);
-
-            //The bulge has to lie in the galactic plane or the band's brightest part sits off it, so whatever
-            //was typed is projected onto the plane before it is used. If the two happen to be parallel the
-            //projection vanishes, and any direction in the plane will do.
-            Vector3 core = milkyWay.CoreDirection.ToVector3() - pole * Vector3.Dot(milkyWay.CoreDirection.ToVector3(), pole);
-            core = SafeNormal(core, AnyPerpendicular(pole));
-
-            _spaceEffect.Parameters["GalacticPole"].SetValue(pole);
-            _spaceEffect.Parameters["GalacticCore"].SetValue(core);
-            _spaceEffect.Parameters["MilkyWayWidth"].SetValue(milkyWay.Width);
-            _spaceEffect.Parameters["MilkyWayBrightness"].SetValue(milkyWay.Brightness);
-            _spaceEffect.Parameters["MilkyWayColor"].SetValue(milkyWay.Color.ToVector3());
-            _spaceEffect.Parameters["MilkyWayCoreColor"].SetValue(milkyWay.CoreColor.ToVector3());
-            _spaceEffect.Parameters["MilkyWayDust"].SetValue(milkyWay.Dust);
-            _spaceEffect.Parameters["MilkyWayStarBoost"].SetValue(milkyWay.StarBoost);
-
-            SpaceNebulaConfig[] nebulae = { space.NebulaOne, space.NebulaTwo, space.NebulaThree };
-            Vector3[] nebulaDirections = new Vector3[nebulae.Length];
-            Vector3[] nebulaColors = new Vector3[nebulae.Length];
-            Vector4[] nebulaShapes = new Vector4[nebulae.Length];
-
-            for (int i = 0; i < nebulae.Length; i++)
-            {
-                nebulaDirections[i] = SafeNormal(nebulae[i].Direction.ToVector3(), Vector3.Forward);
-                nebulaColors[i] = nebulae[i].Color.ToVector3();
-                nebulaShapes[i] = new Vector4(
-                    MathHelper.ToRadians(nebulae[i].AngularRadiusDegrees),
-                    nebulae[i].Strength,
-                    nebulae[i].DetailScale,
-                    nebulae[i].Warp);
-            }
-
-            _spaceEffect.Parameters["NebulaDirection"].SetValue(nebulaDirections);
-            _spaceEffect.Parameters["NebulaColor"].SetValue(nebulaColors);
-            _spaceEffect.Parameters["NebulaShape"].SetValue(nebulaShapes);
-
-            SpaceGalaxyConfig galaxies = space.Galaxies;
-            _spaceEffect.Parameters["GalaxyCellScale"].SetValue(galaxies.CellScale);
-            _spaceEffect.Parameters["GalaxyChance"].SetValue(galaxies.Chance);
-            _spaceEffect.Parameters["GalaxySize"].SetValue(MathHelper.ToRadians(galaxies.AngularSizeDegrees));
-            _spaceEffect.Parameters["GalaxyBrightness"].SetValue(galaxies.Brightness);
-            _spaceEffect.Parameters["GalaxyColor"].SetValue(galaxies.Color.ToVector3());
-
-            SpacePlanetConfig planet = space.Planet;
-            _spaceEffect.Parameters["PlanetDirection"].SetValue(SafeNormal(planet.Direction.ToVector3(), Vector3.Forward));
-            _spaceEffect.Parameters["PlanetAngularRadius"].SetValue(MathHelper.ToRadians(planet.AngularRadiusDegrees));
-            _spaceEffect.Parameters["PlanetAxis"].SetValue(SafeNormal(planet.Axis.ToVector3(), Vector3.Up));
-            _spaceEffect.Parameters["PlanetColorLight"].SetValue(planet.ColorLight.ToVector3());
-            _spaceEffect.Parameters["PlanetColorDark"].SetValue(planet.ColorDark.ToVector3());
-            _spaceEffect.Parameters["PlanetStormColor"].SetValue(planet.StormColor.ToVector3());
-            _spaceEffect.Parameters["PlanetRimColor"].SetValue(planet.RimColor.ToVector3());
-            _spaceEffect.Parameters["PlanetBandScale"].SetValue(planet.BandScale);
-            _spaceEffect.Parameters["PlanetRimStrength"].SetValue(planet.RimStrength);
-            _spaceEffect.Parameters["PlanetNightAmbient"].SetValue(planet.NightAmbient);
         }
 
         private void ApplyMoonParameters()
@@ -5081,98 +4681,13 @@ namespace Prazsky.Core.Render
             BuildGridTowers();
         }
 
-        private void ApplyDreamParameters()
-        {
-            DreamSceneConfig dream = _dreamConfig;
-
-            _dreamEffect.Parameters["DeepColor"].SetValue(dream.DeepColor.ToVector3());
-
-            DreamPaletteConfig palette = dream.Palette;
-            _dreamEffect.Parameters["PaletteA"].SetValue(palette.A.ToVector3());
-            _dreamEffect.Parameters["PaletteB"].SetValue(palette.B.ToVector3());
-            _dreamEffect.Parameters["PaletteC"].SetValue(palette.C.ToVector3());
-            _dreamEffect.Parameters["PaletteD"].SetValue(palette.D.ToVector3());
-
-            DreamBackgroundConfig background = dream.Background;
-            _dreamEffect.Parameters["SwirlScale"].SetValue(background.SwirlScale);
-            _dreamEffect.Parameters["SwirlWarp"].SetValue(background.SwirlWarp);
-            _dreamEffect.Parameters["SwirlSpeedSlow"].SetValue(background.SpeedSlow);
-            _dreamEffect.Parameters["SwirlSpeedFast"].SetValue(background.SpeedFast);
-            _dreamEffect.Parameters["RibbonSharpness"].SetValue(background.RibbonSharpness);
-            _dreamEffect.Parameters["BackgroundBrightness"].SetValue(background.Brightness);
-
-            DreamShapesConfig shapes = dream.Shapes;
-            _dreamEffect.Parameters["ShapeOrbitRadius"].SetValue(shapes.OrbitRadius);
-            _dreamEffect.Parameters["ShapeSize"].SetValue(shapes.Size);
-            _dreamEffect.Parameters["ShapeMorphSpeed"].SetValue(shapes.MorphSpeed);
-            _dreamEffect.Parameters["ShapeEmission"].SetValue(shapes.Emission);
-            _dreamEffect.Parameters["ShapeReflection"].SetValue(shapes.Reflection);
-            _dreamEffect.Parameters["ShapeAbsorption"].SetValue(shapes.Absorption);
-
-            DreamGlowsConfig glows = dream.Glows;
-            _dreamEffect.Parameters["OrbRadius"].SetValue(glows.OrbRadius);
-            _dreamEffect.Parameters["OrbBrightness"].SetValue(glows.OrbBrightness);
-            _dreamEffect.Parameters["SparkBrightness"].SetValue(glows.SparkBrightness);
-            _dreamEffect.Parameters["SparkSpeed"].SetValue(glows.SparkSpeed);
-        }
-
-        private void ApplyCavernParameters()
-        {
-            CavernSceneConfig cavern = _cavernConfig;
-
-            CavernRockConfig rock = cavern.Rock;
-            _cavernEffect.Parameters["CaveRadius"].SetValue(rock.CaveRadius);
-            _cavernEffect.Parameters["CaveCeilingY"].SetValue(rock.CeilingY);
-            _cavernEffect.Parameters["RockColor"].SetValue(rock.RockColor.ToVector3());
-            _cavernEffect.Parameters["VeinColor"].SetValue(rock.VeinColor.ToVector3());
-            _cavernEffect.Parameters["FogColor"].SetValue(rock.FogColor.ToVector3());
-            _cavernEffect.Parameters["FogDensity"].SetValue(rock.FogDensity);
-
-            CavernWaterConfig water = cavern.Water;
-            _cavernEffect.Parameters["WaterLevelY"].SetValue(water.LevelY);
-            _cavernEffect.Parameters["WaterDeepColor"].SetValue(water.DeepColor.ToVector3());
-            _cavernEffect.Parameters["WaterGlowColor"].SetValue(water.GlowColor.ToVector3());
-            _cavernEffect.Parameters["WaveScale"].SetValue(water.WaveScale);
-            _cavernEffect.Parameters["WaveSpeed"].SetValue(water.WaveSpeed);
-            _cavernEffect.Parameters["WaveAmplitude"].SetValue(water.WaveAmplitude);
-            _cavernEffect.Parameters["CausticStrength"].SetValue(water.CausticStrength);
-            _cavernEffect.Parameters["MistColor"].SetValue(water.MistColor.ToVector3());
-            _cavernEffect.Parameters["MistDensity"].SetValue(water.MistDensity);
-            _cavernEffect.Parameters["MistHeight"].SetValue(water.MistHeight);
-
-            CavernAirConfig air = cavern.Air;
-            _cavernEffect.Parameters["GodRayColor"].SetValue(air.GodRayColor.ToVector3());
-            _cavernEffect.Parameters["GodRayStrength"].SetValue(air.GodRayStrength);
-            _cavernEffect.Parameters["GlowwormColor"].SetValue(air.GlowwormColor.ToVector3());
-            _cavernEffect.Parameters["SporeColor"].SetValue(air.SporeColor.ToVector3());
-            _cavernEffect.Parameters["SporeBrightness"].SetValue(air.SporeBrightness);
-
-            CavernCrystalConfig crystals = cavern.Crystals;
-            _cavernEffect.Parameters["CrystalColorA"].SetValue(crystals.ColorA.ToVector3());
-            _cavernEffect.Parameters["CrystalColorB"].SetValue(crystals.ColorB.ToVector3());
-            _cavernEffect.Parameters["CrystalEmission"].SetValue(crystals.Emission);
-            _cavernEffect.Parameters["CrystalPulseSpeed"].SetValue(crystals.PulseSpeed);
-            _cavernEffect.Parameters["CrystalWallLight"].SetValue(crystals.WallLight);
-        }
-
         /// <summary>
         /// Normalizes a config direction, falling back to <paramref name="fallback"/> for the degenerate zero
         /// vector — these are hand-typed values in a JSON file and in a property grid, where a zero is one
         /// keystroke away, and a NaN direction would take the whole sky with it.
         /// </summary>
-        private static Vector3 SafeNormal(Vector3 direction, Vector3 fallback) =>
+        internal static Vector3 SafeNormal(Vector3 direction, Vector3 fallback) =>
             direction.LengthSquared() > 1e-8f ? Vector3.Normalize(direction) : fallback;
-
-        /// <summary>
-        /// Some unit vector perpendicular to <paramref name="axis"/>, mirroring <c>Space.fx</c>'s
-        /// <c>BuildFrame</c>: the reference vector is swapped near the pole so the cross product cannot
-        /// degenerate, whatever axis the config states. It is a <see cref="SafeNormal"/> fallback that is
-        /// itself never zero, which the obvious <c>Cross(axis, Vector3.Right)</c> is not — that one collapses
-        /// for an axis along X, and a zero galactic core would flatten the band's whole core gradient rather
-        /// than announcing itself.
-        /// </summary>
-        private static Vector3 AnyPerpendicular(Vector3 axis) =>
-            Vector3.Normalize(Vector3.Cross(MathF.Abs(axis.Y) < 0.9f ? Vector3.Up : Vector3.Right, axis));
 
         #endregion
 
@@ -5435,12 +4950,18 @@ namespace Prazsky.Core.Render
         /// </summary>
         public void DrawEnvironment(SceneKind scene, in SceneFrame frame, RenderTarget2D sceneTarget = null)
         {
-            //The two full-screen analytic backdrops that are worth more than the frame can afford get shaded
-            //at the back buffer's own size and scaled up; every other scene draws straight into whatever the
-            //caller bound. See DrawBackdropAtDisplayResolution for what that trades and why it is these two.
-            if (sceneTarget != null && SupersampleFactor > 1 && (scene == SceneKind.Cavern || scene == SceneKind.Dream))
+            //The scenes that are their own Backdrop (#580) draw through it. The two full-screen analytic
+            //backdrops that are worth more than the frame can afford get shaded at the back buffer's own size
+            //and scaled up; every other scene draws straight into whatever the caller bound. See
+            //DrawBackdropAtDisplayResolution for what that trades and why it is these two.
+            Backdrop backdrop = BackdropFor(scene);
+            if (backdrop != null)
             {
-                DrawBackdropAtDisplayResolution(scene, frame, sceneTarget);
+                if (sceneTarget != null && SupersampleFactor > 1 && backdrop.DrawsAtDisplayResolution)
+                    DrawBackdropAtDisplayResolution(backdrop, frame, sceneTarget);
+                else
+                    backdrop.Draw(frame);
+
                 return;
             }
 
@@ -5488,15 +5009,6 @@ namespace Prazsky.Core.Render
                 case SceneKind.Forest:
                     DrawForest(frame);
                     break;
-                case SceneKind.Space:
-                    DrawSpace(frame);
-                    break;
-                case SceneKind.Dream:
-                    DrawDream(frame);
-                    break;
-                case SceneKind.Cavern:
-                    DrawCavern(frame);
-                    break;
                 case SceneKind.Moon:
                     DrawMoon(frame);
                     break;
@@ -5532,6 +5044,12 @@ namespace Prazsky.Core.Render
         /// </summary>
         public void DrawOverlays(SceneKind scene, in SceneFrame frame)
         {
+            if (BackdropFor(scene) is { } backdrop)
+            {
+                backdrop.DrawOverlays(frame);
+                return;
+            }
+
             if (scene == SceneKind.Mountain) DrawSnow(frame, _mountainConfig.Snow);
             else if (scene == SceneKind.Aurora) DrawSnow(frame, _auroraConfig.Snow);
             else if (scene == SceneKind.Sea) DrawSpray(frame);
@@ -6840,7 +6358,7 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// Draws Phobos and Deimos: two small analytic discs on space's shared full-screen quad
-        /// (<c>_spaceQuad</c>), depth-read against the depth <see cref="DrawMarsTerrain"/> just wrote —
+        /// (<c>_fullScreenQuad</c>), depth-read against the depth <see cref="DrawMarsTerrain"/> just wrote —
         /// Moon.fx's own measured reason (its <c>DrawMoon</c> doc) for reading depth after the ground
         /// rather than before it, carried over even though this pass is far cheaper than a starfield.
         /// Alpha-blended, unlike every sky-replacing scene's opaque quad pass: this composites two small
@@ -6856,7 +6374,7 @@ namespace Prazsky.Core.Render
             _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
             _graphicsDevice.RasterizerState = RasterizerState.CullNone;
 
-            _graphicsDevice.SetVertexBuffer(_spaceQuad);
+            _graphicsDevice.SetVertexBuffer(_fullScreenQuad);
             _marsEffect.CurrentTechnique = _marsMoonsTechnique;
             _marsEffect.CurrentTechnique.Passes[0].Apply();
             _graphicsDevice.DrawPrimitives(PrimitiveType.TriangleStrip, 0, 2);
@@ -7248,72 +6766,6 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>
-        /// Draws deep space: one full-screen pass over a quad already in normalized device coordinates, the
-        /// view ray recovered per pixel from the inverse view-projection. The odd one out among these draws,
-        /// and every difference follows from replacing the <b>sky</b> rather than the ground:
-        /// <list type="bullet">
-        /// <item>No grid, no camera snapping and no <c>OriginXZ</c> — there is nothing on the ground to swim.</item>
-        /// <item>No <c>IslandHoleRadius</c> — nothing is cut out, because nothing is drawn under the island.</item>
-        /// <item>No cloud hook — space has no weather, and the caller suppresses the cloud shadow on the
-        /// instanced effect so the island and the balls are not crossed by a deck that is not drawn.</item>
-        /// <item><see cref="DepthStencilState.None"/> rather than the usual depth-writing opaque draw: this is
-        /// the background, so it writes no depth and everything drawn after it simply covers it.</item>
-        /// </list>
-        /// </summary>
-        private void DrawSpace(in SceneFrame frame)
-        {
-            //Row vectors, as everywhere else in this project: a world point goes out through View then
-            //Projection, so a clip-space corner comes back through the inverse of that product.
-            _spaceInverseViewProjection.SetValue(Matrix.Invert(frame.Camera.View * frame.Camera.Projection));
-            _spaceCameraPosition.SetValue(frame.Camera.Position);
-            _spaceSunDirection.SetValue(frame.SunDirection);
-            _spaceSupersample.SetValue((float)SupersampleFactor);
-
-            //The only animated thing in a long-exposure sky: the eye's slow drift through the volume it is
-            //inside. Wall clock, like every other scene's, so it keeps moving while the simulation is paused.
-            _spaceTime.SetValue(frame.Time);
-
-            _graphicsDevice.BlendState = BlendState.Opaque;
-            _graphicsDevice.DepthStencilState = DepthStencilState.None;
-            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
-
-            _graphicsDevice.SetVertexBuffer(_spaceQuad);
-            _spaceEffect.CurrentTechnique.Passes[0].Apply();
-            _graphicsDevice.DrawPrimitives(PrimitiveType.TriangleStrip, 0, 2);
-
-            //Put back what the rest of the opaque scene wants. The depth state especially: left at None, the
-            //island would not occlude the cluster and the whole frame would draw in submission order.
-            _graphicsDevice.BlendState = BlendState.AlphaBlend;
-            _graphicsDevice.DepthStencilState = DepthStencilState.Default;
-            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
-        }
-
-        /// <summary>
-        /// Draws the dream: the second sky-replacing pass, over space's own quad. Everything animated in it
-        /// runs off the frame's wall-clock time — the marbling, the tumbling solids, the orbs' breathing and
-        /// the sparks keep moving while the simulation is paused, like the clouds and the balls' pulse.
-        /// </summary>
-        private void DrawDream(in SceneFrame frame)
-        {
-            _dreamInverseViewProjection.SetValue(Matrix.Invert(frame.Camera.View * frame.Camera.Projection));
-            _dreamCameraPosition.SetValue(frame.Camera.Position);
-            _dreamTime.SetValue(frame.Time);
-
-            _graphicsDevice.BlendState = BlendState.Opaque;
-            _graphicsDevice.DepthStencilState = DepthStencilState.None;
-            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
-
-            _graphicsDevice.SetVertexBuffer(_spaceQuad);
-            _dreamEffect.CurrentTechnique.Passes[0].Apply();
-            _graphicsDevice.DrawPrimitives(PrimitiveType.TriangleStrip, 0, 2);
-
-            //DrawSpace's rule: the depth state left at None would draw the rest of the frame in submission order.
-            _graphicsDevice.BlendState = BlendState.AlphaBlend;
-            _graphicsDevice.DepthStencilState = DepthStencilState.Default;
-            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
-        }
-
-        /// <summary>
         /// Shades a sky-replacing backdrop into a target the size of the <b>back buffer</b> and scales it up
         /// into the caller's supersampled scene target, which is a quarter of the pixels at <c>ssaa 2</c> and a
         /// sixteenth at <c>4</c>. What it gives up is the backdrop's <i>supersampling</i> — not its resolution:
@@ -7342,7 +6794,7 @@ namespace Prazsky.Core.Render
         /// <see cref="SpriteBatch"/> then leaves its own behind.
         /// </para>
         /// </summary>
-        private void DrawBackdropAtDisplayResolution(SceneKind scene, in SceneFrame frame, RenderTarget2D sceneTarget)
+        private void DrawBackdropAtDisplayResolution(Backdrop backdrop, in SceneFrame frame, RenderTarget2D sceneTarget)
         {
             int width = _graphicsDevice.PresentationParameters.BackBufferWidth;
             int height = _graphicsDevice.PresentationParameters.BackBufferHeight;
@@ -7362,13 +6814,13 @@ namespace Prazsky.Core.Render
 
             if (_backdropTarget == null)
             {
-                if (scene == SceneKind.Cavern) DrawCavern(frame); else DrawDream(frame);
+                backdrop.Draw(frame);
                 return;
             }
 
             _graphicsDevice.SetRenderTarget(_backdropTarget);
 
-            if (scene == SceneKind.Cavern) DrawCavern(frame); else DrawDream(frame);
+            backdrop.Draw(frame);
 
             _graphicsDevice.SetRenderTarget(sceneTarget);
 
@@ -7382,31 +6834,6 @@ namespace Prazsky.Core.Render
             _backdropBatch.Draw(_backdropTarget, new Rectangle(0, 0, sceneTarget.Width, sceneTarget.Height), Color.White);
             _backdropBatch.End();
 
-            _graphicsDevice.BlendState = BlendState.AlphaBlend;
-            _graphicsDevice.DepthStencilState = DepthStencilState.Default;
-            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
-        }
-
-        /// <summary>
-        /// Draws the cavern: the third sky-replacing pass, over space's own quad. Everything animated —
-        /// the river, the god rays' breath, the crystals' pulse, the rising spores — runs off the frame's
-        /// wall-clock time, so the cave keeps living while the simulation is paused.
-        /// </summary>
-        private void DrawCavern(in SceneFrame frame)
-        {
-            _cavernInverseViewProjection.SetValue(Matrix.Invert(frame.Camera.View * frame.Camera.Projection));
-            _cavernCameraPosition.SetValue(frame.Camera.Position);
-            _cavernTime.SetValue(frame.Time);
-
-            _graphicsDevice.BlendState = BlendState.Opaque;
-            _graphicsDevice.DepthStencilState = DepthStencilState.None;
-            _graphicsDevice.RasterizerState = RasterizerState.CullNone;
-
-            _graphicsDevice.SetVertexBuffer(_spaceQuad);
-            _cavernEffect.CurrentTechnique.Passes[0].Apply();
-            _graphicsDevice.DrawPrimitives(PrimitiveType.TriangleStrip, 0, 2);
-
-            //DrawSpace's rule: the depth state left at None would draw the rest of the frame in submission order.
             _graphicsDevice.BlendState = BlendState.AlphaBlend;
             _graphicsDevice.DepthStencilState = DepthStencilState.Default;
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
@@ -7467,7 +6894,7 @@ namespace Prazsky.Core.Render
             //backdrop must never do.
             _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
 
-            _graphicsDevice.SetVertexBuffer(_spaceQuad);
+            _graphicsDevice.SetVertexBuffer(_fullScreenQuad);
             _moonEffect.CurrentTechnique = _moonSkyTechnique;
             _moonEffect.CurrentTechnique.Passes[0].Apply();
             _graphicsDevice.DrawPrimitives(PrimitiveType.TriangleStrip, 0, 2);
@@ -7520,13 +6947,6 @@ namespace Prazsky.Core.Render
         /// fastest, and each moves a tint by under one percent, which no eye catches as a step.
         /// </summary>
         private const float AURORA_RIG_STEPS = 128f;
-
-        /// <summary>
-        /// True for a scene whose own light rig moves with time (<see cref="TryGetLightRig"/>'s wall-clock
-        /// argument), so a host has to step it (<see cref="SkyLightRig.StepSceneLight"/>) rather than derive it
-        /// once per scene switch. Only the aurora's, since #462.
-        /// </summary>
-        public static bool AnimatesLightRig(SceneKind kind) => kind == SceneKind.Aurora;
 
         /// <summary>
         /// Carries a light part of the way to <paramref name="hue"/> <b>at its own brightness</b> — the idea
@@ -7617,7 +7037,7 @@ namespace Prazsky.Core.Render
             _auroraSkyTime.SetValue(frame.Time);
             _auroraHueShift.SetValue(AuroraHueShift(frame.Time));
 
-            _graphicsDevice.SetVertexBuffer(_spaceQuad);
+            _graphicsDevice.SetVertexBuffer(_fullScreenQuad);
             _auroraEffect.CurrentTechnique = _auroraSkyTechnique;
             _auroraEffect.CurrentTechnique.Passes[0].Apply();
             _graphicsDevice.DrawPrimitives(PrimitiveType.TriangleStrip, 0, 2);
@@ -7714,7 +7134,7 @@ namespace Prazsky.Core.Render
 
             _gridInverseViewProjection.SetValue(Matrix.Invert(frame.Camera.View * frame.Camera.Projection));
 
-            _graphicsDevice.SetVertexBuffer(_spaceQuad);
+            _graphicsDevice.SetVertexBuffer(_fullScreenQuad);
             _gridEffect.CurrentTechnique = _gridSkyTechnique;
             _gridEffect.CurrentTechnique.Passes[0].Apply();
             _graphicsDevice.DrawPrimitives(PrimitiveType.TriangleStrip, 0, 2);
@@ -8119,7 +7539,8 @@ namespace Prazsky.Core.Render
 
         public void Dispose()
         {
-            _spaceQuad?.Dispose();
+            foreach (Backdrop backdrop in _backdrops) backdrop?.Dispose();
+            _fullScreenQuad?.Dispose();
 
             _backdropTarget?.Dispose();
             _backdropBatch?.Dispose();

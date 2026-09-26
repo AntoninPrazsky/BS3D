@@ -7,8 +7,9 @@ namespace Prazsky.BS3D.Levels
 {
     /// <summary>
     /// Reads and writes <see cref="Level.Scene"/> as a plain scene NAME — <c>"scene": "moon"</c> — the same
-    /// parse keys every executable's <c>scene=</c> switch takes (<see cref="SceneRenderer.TryParseScene"/>;
-    /// <c>"neon"</c> for the neon city). Since format version 2 a level names its scene and nothing more:
+    /// parse keys every executable's <c>scene=</c> switch takes (<see cref="SceneCatalog.TryParse"/>;
+    /// <c>"neon"</c> for the neon city), read and written off <see cref="SceneCatalog"/> alone so the level
+    /// format does not depend on the renderer (#580). Since format version 2 a level names its scene and nothing more:
     /// the scene's parameters are fixed in code (the <see cref="SceneConfig"/> class defaults), so there is
     /// nothing else to carry.
     /// <para>
@@ -26,7 +27,7 @@ namespace Prazsky.BS3D.Levels
         public override SceneKind? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
             if (reader.TokenType == JsonTokenType.String)
-                return SceneRenderer.TryParseScene(reader.GetString(), out SceneKind named) ? named : null;
+                return SceneCatalog.TryParse(reader.GetString(), out SceneKind named) ? named : null;
 
             if (reader.TokenType == JsonTokenType.StartObject)
             {
@@ -34,7 +35,7 @@ namespace Prazsky.BS3D.Levels
 
                 if (!doc.RootElement.TryGetProperty("kind", out JsonElement kindElement)
                     || kindElement.ValueKind != JsonValueKind.String
-                    || !SceneRenderer.TryParseScene(kindElement.GetString(), out SceneKind kind))
+                    || !SceneCatalog.TryParse(kindElement.GetString(), out SceneKind kind))
                     return null;
 
                 //Version 1 told the city and the neon city apart by a bool inside the config object
@@ -59,8 +60,9 @@ namespace Prazsky.BS3D.Levels
                 return;
             }
 
-            //The one kind whose parse key is not its own name lowercased
-            writer.WriteStringValue(kind == SceneKind.NeonCity ? "neon" : kind.ToString().ToLowerInvariant());
+            //The catalog's parse key, which is what Read takes back (the neon city's is "neon", the one kind whose
+            //key is not its own name lowercased - a special case this line carried by hand until #580)
+            writer.WriteStringValue(SceneCatalog.ParseKey(kind));
         }
     }
 }
