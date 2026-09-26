@@ -17,7 +17,7 @@
 //the same reasoning TryGetLightRig's doc states for every sky-replacing scene's ground: a dome-derived sun
 //painted onto a domeless scene would be a lie. The scattered wood standing on this floor is the Game's own
 //instanced draw (a SECOND ForestScatterRenderer planting, independent of the daytime forest's — see
-//AuroraSceneConfig's class doc), over SceneRenderer.ForestTerrainHeight, the same generic CPU mirror the
+//AuroraSceneConfig's class doc), over TerrainMirror.Forest, the same generic CPU mirror the
 //daytime forest already shares with its own planting — keep TerrainHeight below in one change with it.
 //
 //AuroraSky is Moon.fx's sky pass verbatim (the quad, the ray, the three-layer star lattice, Stars.fxh's one
@@ -98,7 +98,7 @@ float Hash21(float2 p)
 }
 
 //Identical to Forest.fx's TerrainHeight — see there for why each term exists. Kept in ONE change with it
-//AND with SceneRenderer.ForestTerrainHeight, which both this shader's ground and the daytime forest's own
+//AND with TerrainMirror.Forest, which both this shader's ground and the daytime forest's own
 //already share as their one CPU mirror.
 float TerrainHeight(float2 p)
 {
@@ -418,3 +418,9 @@ technique AuroraSky
         PixelShader = compile PS_SHADERMODEL AuroraSkyPS();
     }
 };
+
+//--- The height probe (#590) ----------------------------------------------------------------------------
+
+//TerrainMirror.Forest's field on the aurora's own terrain, for the Testbed's mirrorcheck (see HeightProbe.fxh).
+#define HEIGHT_PROBE_MIRRORED(p) TerrainHeight(p)
+#include "HeightProbe.fxh"

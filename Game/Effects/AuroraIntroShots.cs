@@ -18,7 +18,7 @@ namespace BS3D.Effects
     /// rolled, each is measured against every conifer and snag the planting holds (the horizontal distance
     /// from the trunk to the run must clear the crown at its scale), and of the runs that clear, the one with
     /// the most trees standing near it is taken — the densest wood the lens can thread. Heights come off
-    /// <see cref="SceneRenderer.ForestTerrainHeight"/> with the aurora's own terrain, the same mirror the trees
+    /// <see cref="TerrainMirror.Forest"/> with the aurora's own terrain, the same mirror the trees
     /// were planted on. Built once when the intro begins; nothing here runs per frame.
     /// </para>
     /// </summary>
@@ -128,7 +128,7 @@ namespace BS3D.Effects
             for (int i = 0; i < PATH_POINTS; i++)
             {
                 Vector2 plan = Vector2.Lerp(bestFrom, bestTo, i / (float)(PATH_POINTS - 1));
-                path[i] = new Vector3(plan.X, SceneRenderer.ForestTerrainHeight(plan.X, plan.Y, terrain) + WOOD_HEIGHT, plan.Y);
+                path[i] = new Vector3(plan.X, TerrainMirror.Forest(plan.X, plan.Y, terrain) + WOOD_HEIGHT, plan.Y);
             }
 
             return new IntroShot("the wood", path, WOOD_SECONDS, fieldOfView * 1.15f,
@@ -175,7 +175,7 @@ namespace BS3D.Effects
             for (int i = 0; i < PATH_POINTS; i++)
             {
                 Vector2 plan = bestAt + driftAcross * ((i / (float)(PATH_POINTS - 1) - 0.5f) * SNOW_DRIFT);
-                path[i] = new Vector3(plan.X, SceneRenderer.ForestTerrainHeight(plan.X, plan.Y, terrain) + SNOW_HEIGHT, plan.Y);
+                path[i] = new Vector3(plan.X, TerrainMirror.Forest(plan.X, plan.Y, terrain) + SNOW_HEIGHT, plan.Y);
             }
 
             float elevation = MathHelper.ToRadians(SNOW_LOOK_ELEVATION_DEGREES);

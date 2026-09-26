@@ -16,7 +16,7 @@ namespace BS3D.Effects
     /// of its crown's radius from the root to its top, at its own mesh variant's proportions
     /// (<see cref="ForestScatterRenderer.ConiferMeshes"/>) and the instance's scale, widened for the lobes and
     /// the lean — so a path held clear of the columns is clear of the needles. Rocks, stumps, snags and logs
-    /// are columns too. Heights come off <see cref="SceneRenderer.ForestTerrainHeight"/>, the mirror the
+    /// are columns too. Heights come off <see cref="TerrainMirror.Forest"/>, the mirror the
     /// trees were planted on. Built once when the intro begins; nothing here runs per frame.
     /// </para>
     /// </summary>
@@ -76,7 +76,7 @@ namespace BS3D.Effects
             if (wood?.Scatter == null || forest == null) return null;
 
             ForestScatter scatter = wood.Scatter;
-            var ground = new IntroGround((x, z) => SceneRenderer.ForestTerrainHeight(x, z, forest));
+            var ground = new IntroGround((x, z) => TerrainMirror.Forest(x, z, forest));
             var trees = new List<Tree>();
 
             void Trees(ModelInstance[][] buckets, IReadOnlyList<TreeMesh> meshes, bool broadleaf)

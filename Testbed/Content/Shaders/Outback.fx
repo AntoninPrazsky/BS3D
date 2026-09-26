@@ -778,3 +778,9 @@ technique Outback
         PixelShader = compile PS_SHADERMODEL OutbackPS();
     }
 };
+
+//--- The height probe (#590) ----------------------------------------------------------------------------
+
+//TerrainMirror.Outback's field, for the Testbed's mirrorcheck (see HeightProbe.fxh).
+#define HEIGHT_PROBE_MIRRORED(p) OutbackHeight(p).Height
+#include "HeightProbe.fxh"

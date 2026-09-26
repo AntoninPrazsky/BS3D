@@ -16,9 +16,9 @@ namespace Prazsky.Core.Render
     /// than clever, because every line has to correspond to a line of HLSL that can be read beside it.
     /// </para>
     /// <para>
-    /// <see cref="SceneRenderer"/> still carries its own private <c>SmoothStep</c> with the same body, from
-    /// before this file existed; it belongs here and should fold in the next time that file is opened for
-    /// its own reasons, rather than in a drive-by edit of five thousand lines somebody else is working in.
+    /// <b>The one copy</b> since #590: <see cref="SceneRenderer"/> carried private <c>SmoothStep</c> and
+    /// <c>Frac</c> with the same bodies from before this file existed, and they folded in here when every
+    /// terrain mirror moved into <see cref="TerrainMirror"/>.
     /// </para>
     /// </summary>
     internal static class ShaderMath
@@ -60,7 +60,8 @@ namespace Prazsky.Core.Render
             return MathHelper.Lerp(MathHelper.Lerp(a, b, ux), MathHelper.Lerp(c, d, ux), uy);
         }
 
-        private static float Frac(float value) => value - MathF.Floor(value);
+        /// <summary>HLSL <c>frac</c>: <c>x - floor(x)</c>, in 0..1 for a negative argument too.</summary>
+        internal static float Frac(float value) => value - MathF.Floor(value);
 
         /// <summary>
         /// <c>Noise.fxh</c>'s <c>NoiseHash22</c> (and <c>Clouds.fxh</c>'s hash, the same lines): two values in

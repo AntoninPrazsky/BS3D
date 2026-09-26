@@ -418,3 +418,9 @@ technique MeadowReduced
         PixelShader = compile PS_SHADERMODEL MeadowReducedPS();
     }
 };
+
+//--- The height probe (#590) ----------------------------------------------------------------------------
+
+//TerrainMirror.Meadow's field, for the Testbed's mirrorcheck (see HeightProbe.fxh).
+#define HEIGHT_PROBE_MIRRORED(p) TerrainHeight(p)
+#include "HeightProbe.fxh"

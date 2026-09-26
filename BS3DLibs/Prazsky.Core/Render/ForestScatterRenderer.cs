@@ -484,7 +484,7 @@ namespace Prazsky.Core.Render
 
             EncodeAllTints();
 
-            //Planted on the forest floor the terrain shader draws: ForestTerrainHeight mirrors Forest.fx's
+            //Planted on the forest floor the terrain shader draws: TerrainMirror.Forest mirrors Forest.fx's
             //height field on the CPU, so a tree's base sits on the ground the player sees. The scatter is told
             //how many variants each kind has so it can hand back one instance array per variant — the renderer
             //draws a contiguous prefix of what it is given, so the split has to happen at plant time rather
@@ -492,7 +492,7 @@ namespace Prazsky.Core.Render
             _scatter = new ForestScatter(_seed, config,
                 _coniferMeshes.Length, _broadleafMeshes.Length, _rockMeshes.Length, _stumpMeshes.Length,
                 _snagMeshes.Length, _logMeshes.Length,
-                (x, z) => SceneRenderer.ForestTerrainHeight(x, z, config));
+                (x, z) => TerrainMirror.Forest(x, z, config));
         }
 
         private int CopyInto(InstancedModelRenderer[] source, int at)

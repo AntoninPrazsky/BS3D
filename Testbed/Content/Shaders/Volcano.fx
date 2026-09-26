@@ -145,7 +145,7 @@ static const float FIELD_CRACK_HALF_WIDTH = 0.22;
 
 //The cone's analytic massing at a world XZ, relative to VolcanoLevelY and BEFORE the clearing ramp: the
 //flank, the crater bitten out of its summit and the gullies raked down it. Mirrored term for term by
-//SceneRenderer.VolcanoGroundY, which places the vents and the rivers' lights on this surface - the one
+//TerrainMirror.Volcano, which places the vents and the rivers' lights on this surface - the one
 //term that mirror leaves out is the scoria fBm below, whose few units are invisible under a lamp.
 float VolcanoMassing(float2 p)
 {
@@ -660,3 +660,13 @@ technique VolcanoReduced
         PixelShader = compile PS_SHADERMODEL VolcanoReducedPS();
     }
 };
+
+//--- The height probe (#590) ----------------------------------------------------------------------------
+
+//TerrainMirror.Volcano's field for the Testbed's mirrorcheck (see HeightProbe.fxh): the massing without the
+//scoria, which that mirror leaves out by design - no octaves is exactly that - and, beside it, the full
+//program's four-octave ground the vertex shader actually displaces by, so the check can say how far the
+//omission puts the mirror off the drawn surface as well.
+#define HEIGHT_PROBE_MIRRORED(p) TerrainHeight(p, 0)
+#define HEIGHT_PROBE_DRAWN(p) TerrainHeight(p, 4)
+#include "HeightProbe.fxh"

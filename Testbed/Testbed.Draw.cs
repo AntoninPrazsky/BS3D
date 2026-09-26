@@ -26,9 +26,20 @@ namespace Testbed
     /// </remarks>
     public partial class Testbed
     {
+        //mirrorcheck (#590) runs on this Draw rather than the first: by then the startup level has set its scene
+        //and every scene effect's parameters have been pushed, which is all the probe reads.
+        private const int MIRROR_CHECK_FRAME = 3;
+        private int _mirrorCheckFrames;
 
         protected override void Draw(GameTime gameTime)
         {
+            if (_options.MirrorCheck && ++_mirrorCheckFrames == MIRROR_CHECK_FRAME)
+            {
+                Environment.ExitCode = TerrainMirrorCheck.Run(GraphicsDevice, _sceneRenderer, _scene);
+                Exit();
+                return;
+            }
+
             //This frame's ball collection, opened here rather than beside the rest of the scene block below —
             //moved for the balls' own shadow (#470's remaining half): the sun's shadow map is drawn next, and
             //casting the cluster into it needs the buckets already full. The Game never had to move this; its

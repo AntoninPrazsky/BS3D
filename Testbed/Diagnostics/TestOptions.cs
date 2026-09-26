@@ -125,6 +125,19 @@ namespace Testbed.Diagnostics
         public int CapProbe { get; private set; }
 
         /// <summary>
+        /// <c>mirrorcheck</c>: read the current scene's terrain height back off the GPU at a grid of points,
+        /// compare it with the CPU mirror the scatter, the lights and the intro cameras stand things on
+        /// (<see cref="TerrainMirror"/>), print one <c>[mirrorcheck]</c> verdict and exit — 0 when the two agree
+        /// within <see cref="TerrainMirrorCheck.TOLERANCE"/>, 1 when they do not, 2 when the scene has no mirror (#590).
+        /// <para>
+        /// It is here because those mirrors are hand-kept copies across a CPU/GPU boundary and nothing else can
+        /// see them part: a drift plants a tree in the air or a chapter-intro lens inside a hill, and until this
+        /// existed there was "nothing to catch it but the eye". See <see cref="TerrainMirrorCheck"/> for how it reads.
+        /// </para>
+        /// </summary>
+        public bool MirrorCheck { get; private set; }
+
+        /// <summary>
         /// <c>alt=&lt;pins&gt;;&lt;pins&gt;;…</c>: cycles the listed variants, one per <c>[fps]</c> window, so a
         /// sweep's variants are measured <b>inside one process under one clock</b> rather than as separate runs.
         /// <b>Each variant is a little command line</b> — a comma-separated list of the same
@@ -361,9 +374,9 @@ namespace Testbed.Diagnostics
         /// </summary>
         public List<InputScript.AdsHold> ScriptAdsHolds { get; } = new();
 
-        /// <summary>Whether this run is driven by anything but a person: a script, or a shot schedule.</summary>
+        /// <summary>Whether this run is driven by anything but a person: a script, a shot schedule, or the mirror check.</summary>
         public bool Unattended => ScriptTaps.Count > 0 || ScriptHolds.Count > 0 || ScriptAims.Count > 0
-            || ScriptAdsHolds.Count > 0 || ShotSeconds != null || ShotFrames != null;
+            || ScriptAdsHolds.Count > 0 || ShotSeconds != null || ShotFrames != null || MirrorCheck;
 
         /// <summary>
         /// <c>shot=&lt;t1,t2,…&gt;</c>: wall-clock seconds after start, one PNG each, written by the program
@@ -428,6 +441,7 @@ namespace Testbed.Diagnostics
                     || string.Equals(arg, "noovercast", StringComparison.OrdinalIgnoreCase)) options.NoOvercast = true;
                 else if (arg.StartsWith("arena=", StringComparison.OrdinalIgnoreCase)) options.Arena = ParseArenaMembers(arg.Substring("arena=".Length));
                 else if (arg.StartsWith("capprobe=", StringComparison.OrdinalIgnoreCase) && int.TryParse(arg.Substring("capprobe=".Length), out int parsedCapProbe) && parsedCapProbe >= 0 && parsedCapProbe <= 6) options.CapProbe = parsedCapProbe;
+                else if (string.Equals(arg, "mirrorcheck", StringComparison.OrdinalIgnoreCase)) options.MirrorCheck = true;
                 else if (arg.StartsWith("alt=", StringComparison.OrdinalIgnoreCase)) options.Alternation = ParseAlternation(arg.Substring("alt=".Length));
                 else if (arg.StartsWith("switchmap=", StringComparison.OrdinalIgnoreCase)) options.SwitchMapPath = arg.Substring("switchmap=".Length);
                 else if (arg.StartsWith("sky=", StringComparison.OrdinalIgnoreCase) && byte.TryParse(arg.Substring("sky=".Length), out byte parsedSky)) options.SkyNumber = parsedSky;

@@ -82,7 +82,7 @@ namespace Prazsky.Core.Render
                 float radius = MathHelper.Lerp(fireflyConfig.MinRadius, fireflyConfig.MaxRadius, (float)random.NextDouble());
                 float x = MathF.Cos(angle) * radius;
                 float z = MathF.Sin(angle) * radius;
-                float y = SceneRenderer.ForestTerrainHeight(x, z, config) + fireflyConfig.HoverHeight;
+                float y = TerrainMirror.Forest(x, z, config) + fireflyConfig.HoverHeight;
 
                 float period = MathHelper.Lerp(fireflyConfig.MinPeriod, fireflyConfig.MaxPeriod, (float)random.NextDouble());
                 float phase = (float)(random.NextDouble() * period);

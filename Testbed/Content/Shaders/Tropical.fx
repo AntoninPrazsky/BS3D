@@ -16,8 +16,8 @@
 //TWO THINGS THE HEIGHT FIELD DELIBERATELY IS NOT:
 //
 //  1. It is built from SINES AND HERMITE RAMPS ONLY, no gradient noise, because the C#
-//     TropicalTerrainHeight mirrors it exactly to plant the palms and the rocks on the ground this
-//     shader draws — the same contract SavannaTerrainHeight holds. Everything noisy (sand patches,
+//     TerrainMirror.Tropical mirrors it exactly to plant the palms and the rocks on the ground this
+//     shader draws — the same contract TerrainMirror.Savanna holds. Everything noisy (sand patches,
 //     grain, canopy mottle) lives in the pixel shader, where no plant ever asks for it.
 //  2. The far ridge is RINGED, not a horizon of hills — and it carries ONE CHANNEL through it, carved
 //     by a cosine bump of the bearing, where the open sea reaches the horizon. A closed ring reads as
@@ -175,7 +175,7 @@ float ChannelMask(float b)
     return pow(max(0.0, cos(b - ChannelBearing)), ChannelSharpness);
 }
 
-//The land's height at a world point. Sines and hermite ramps only — TropicalTerrainHeight on the CPU
+//The land's height at a world point. Sines and hermite ramps only — TerrainMirror.Tropical on the CPU
 //mirrors this term for term to plant the scatter, and a gradient noise in here would plant palms in
 //the air the day the two drifted. Keep the two in one change.
 float TropicalHeight(float2 p)
@@ -432,3 +432,9 @@ technique Tropical
         PixelShader = compile PS_SHADERMODEL TropicalPS();
     }
 };
+
+//--- The height probe (#590) ----------------------------------------------------------------------------
+
+//TerrainMirror.Tropical's field, for the Testbed's mirrorcheck (see HeightProbe.fxh).
+#define HEIGHT_PROBE_MIRRORED(p) TropicalHeight(p)
+#include "HeightProbe.fxh"

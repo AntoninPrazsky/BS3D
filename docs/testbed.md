@@ -2,7 +2,7 @@
 
 **The project's development instrument**, and deliberately kept as one (#100): the rig every colour, cost and shading judgement here is framed through, and where the shot, the gun and the two cameras that aim it were built and are still tuned.
 
-**It is not a second game and must never become one** — no menu, no HUD, no level flow; every step towards the game takes away the thing it is used for. What it has instead is everything a program needs to be measured and photographed without a person at the keyboard: a camera that holds still and reads back (`campos`/`camtarget`/`fov`, `C`), a pass that can be isolated (`arena=`, `capprobe=`), variants swept inside one process (`alt=`), a timeline that drives its own keys, aim and lean (`at=`, `hold=`, `aim=`, `rmb=`), its own frame writer (`shot=`, `shotframe=`) and two `[build]` lines saying which build produced any of it. The Game cannot hold still — its camera orbits and a level overrides the scene it was launched with — and the MapEditor has no simulation, gun or shot at all.
+**It is not a second game and must never become one** — no menu, no HUD, no level flow; every step towards the game takes away the thing it is used for. What it has instead is everything a program needs to be measured and photographed without a person at the keyboard: a camera that holds still and reads back (`campos`/`camtarget`/`fov`, `C`), a pass that can be isolated (`arena=`, `capprobe=`), a CPU mirror checked against its shader (`mirrorcheck`), variants swept inside one process (`alt=`), a timeline that drives its own keys, aim and lean (`at=`, `hold=`, `aim=`, `rmb=`), its own frame writer (`shot=`, `shotframe=`) and two `[build]` lines saying which build produced any of it. The Game cannot hold still — its camera orbits and a level overrides the scene it was launched with — and the MapEditor has no simulation, gun or shot at all.
 
 Part of the BS3D documentation. CLAUDE.md holds the project overview, the build commands, the ball grid and the repo-wide conventions, and says which of these documents covers what.
 
@@ -64,6 +64,19 @@ The hint beside `NumPad2` read `Switch scene (city/sea/savanna/desert/mountain/m
 
 - **Invariant and comma-separated exactly as `TryParseVec3` reads it**, because the line is a paste and not a transcription — a decimal comma from this machine's own culture would not parse at all.
 - **`fov=` is on the line only in free mode**, the only mode that argument reaches: game mode has its own `GAME_FOV`, and printing it would offer a pin that does not hold.
+
+## Checking the terrain mirrors against the GPU: `mirrorcheck` (#590)
+
+`mirrorcheck` reads the current scene's terrain height back off the GPU and compares it with `TerrainMirror`, the CPU copy of the same field everything standing on that ground is placed by (the scatters, the lamps, the intro lenses). On the third drawn frame it draws one quad through the scene effect's `HeightProbe` technique into a 256×256 `Vector4` target over ±512 units, evaluates the mirror at every sample's own XZ, prints one line and exits:
+
+```
+[mirrorcheck] forest n=65536 max|dh|=0.000069 mean|dh|=0.0000058 worst at (-510,186) over tolerance 0 of 65536 tol=0.01 PASS
+```
+
+- **Exit code 0 pass, 1 fail, 2 a scene with no terrain mirror** — so a script can run it per scene (`scene=forest mirrorcheck`) and read the answer without parsing. Ten scenes have one: desert, mountains, outback, polar, savanna, tropical, meadow, forest, aurora, volcano.
+- **The volcano prints a second line**: how far the mirror stands off the ground actually drawn, which adds the scoria the mirror leaves out by design. Its verdict is on the massing the mirror claims to copy.
+- It counts as an unattended run (`InactiveSleepTime` 0), so it answers at full speed launched minimized and without focus.
+- The figures, the proof that it fails on a broken mirror, and why four of the ten fail today are in `docs/scenes.md`, "The terrain mirrors, in one copy and checked against the GPU". Run it on every mirrored scene after touching a terrain shader's height or its mirror.
 
 ## Sweeping variants inside one process: `alt=` (#151, generalized in #374)
 

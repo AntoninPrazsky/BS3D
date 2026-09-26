@@ -70,8 +70,8 @@ namespace Prazsky.Core.Render
     /// The waterline itself is a mean radius wobbled by a few sine octaves of <i>bearing</i>, so the
     /// coast breaks into bays and headlands instead of reading as a circle. The whole height field is
     /// built from sines and hermite ramps only (no gradient noise), because
-    /// <c>SceneRenderer.TropicalTerrainHeight</c> mirrors it on the CPU to plant the palms and the rocks
-    /// on the ground the shader draws — the same contract <c>SavannaTerrainHeight</c> holds.
+    /// <c>TerrainMirror.Tropical</c> mirrors it on the CPU to plant the palms and the rocks
+    /// on the ground the shader draws — the same contract <c>TerrainMirror.Savanna</c> holds.
     /// </para>
     /// </summary>
     public sealed class TropicalTerrainConfig
