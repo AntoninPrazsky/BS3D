@@ -341,7 +341,7 @@ namespace BS3D.Effects
         //sharing it. A wordmark is not a ball.
         private const float BEAT_RATE = 0.45f;                        //cycles a second
 
-        //The pulse has TWO limbs on purpose, because either alone fails on half the game's fifteen scenes.
+        //The pulse has TWO limbs on purpose, because either alone fails on half the game's scenes.
         //The scale breath is visible over any backdrop, bright or dark, since it is motion rather than light.
         //The glow is what makes the word look lit from inside, and it is what carries the pulse over a DARK
         //scene where a 3 % size change on a small object is nearly nothing.
@@ -451,7 +451,7 @@ namespace BS3D.Effects
         //menu's orbit carried the lights round behind it, and a rim that is meant to be one line of one colour
         //would breathe on its own. EmissiveTint is added flat, per pixel, ungoverned by any normal, so a rim
         //authored through it is exactly the colour it was asked for from every bearing and under every one of
-        //the eighteen domes. The diffuse is therefore held at black and the specular stated small (rather than
+        //every dome. The diffuse is therefore held at black and the specular stated small (rather than
         //left zero, which falls back to the renderer's white default) so nothing else can reach it - and the
         //sky reflection is turned off entirely, for the reason in GlyphIndex.
         private static readonly Vector3 OUTLINE_MATERIAL = new(0.008f, 0.008f, 0.010f);
@@ -529,7 +529,7 @@ namespace BS3D.Effects
         /// <para>
         /// The letters are <b>lit by the scene like everything else in it</b>, which is not the choice
         /// <see cref="TrophyPodium"/> made and is worth stating. A cup is presented for a few seconds and
-        /// wants one controlled finish; a wordmark stands over all fifteen backdrops under all eighteen
+        /// wants one controlled finish; a wordmark stands over every backdrop under every
         /// domes for as long as the game is not being played, and enrolment is what makes it come out right
         /// on both ends of that range — over the sea at noon the rig is bright and so are the letters, over
         /// space and the Moon the background is black and dim letters read perfectly against it. The glow and

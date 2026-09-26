@@ -13,7 +13,7 @@ namespace Prazsky.Core.Render
     /// these lights under whatever sky dome is up. It existed line-for-line in both the Testbed and the Game
     /// until #75.
     /// <para>
-    /// Five of the fifteen scenes carry lights: the volcano's crater and its travelling flow fronts, the
+    /// Some scenes carry lights of their own: the volcano's crater and its travelling flow fronts, the
     /// savanna's campfire, the neon city's ring of magenta and cyan, space's planetshine and the Moon's
     /// earthshine. The other ten push a count of zero once and then cost nothing — see the early-out in
     /// <see cref="Apply"/>.

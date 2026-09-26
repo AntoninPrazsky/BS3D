@@ -41,7 +41,7 @@ namespace BS3D
     /// Every figure below was measured on this
     /// project's weakest development machine — a Ryzen 7 5700U with integrated Radeon graphics, windowed
     /// 1600×900, vsync off, on the front end (#64) — and the numbers quoted are the <b>neon city</b>, which is
-    /// the most expensive of the fifteen scenes and therefore the one a tier has to be chosen against. The two
+    /// the most expensive of the scenes and therefore the one a tier has to be chosen against. The two
     /// city scenes sat at 77 and 103 ms when the tiers were chosen, and since the front-to-back sort (see
     /// "Drawing the city near to far" in docs/rendering.md) sit at 23.0 and 27.5 — still the two dearest
     /// scenes, and still under the probe's floor at <c>High</c> on this machine, so the tier stays. Of the ten
@@ -268,7 +268,7 @@ namespace BS3D
             new(supersampleFactor: 1, facadeGrainStrength: 0f, windowFrameWidth: 0f, cityRadiusBlocks: 14, msaaSamples: 2, shadowMapCap: 2048, ceilingRefraction: false, motionBlur: false),
 
             //Medium — 30 FPS on the worst scene. Supersampling is what this STRUCT gives up, and it is the one
-            //change that reaches all fifteen scenes: on the weak machine it is worth 46 to 58 % of the frame
+            //change that reaches every scene: on the weak machine it is worth 46 to 58 % of the frame
             //(#298), which is the whole ladder.
             //
             //⚠ THIS TABLE IS NOT THE WHOLE TIER, and that is the thing to read before adding anything to it:

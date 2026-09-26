@@ -8,7 +8,7 @@ description: Measure BS3D's frame rate under pinned, repeatable conditions and c
 Companion to `verify` (build/launch) and `screenshot` (framing a shot). This one is about **numbers**.
 
 ```powershell
-dotnet build C:\GitHub\Game.sln
+dotnet build Game.sln
 .\benchmark.ps1                                      # the 14-scene sweep at ssaa 1 and 2
 .\benchmark.ps1 -Scenes neon -Ssaa 0 -Extra @('quality=low')
 .\benchmark.ps1 -Scenes neon -Ssaa 2 -Seconds 20     # longer window on a noisy machine

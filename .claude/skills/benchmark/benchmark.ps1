@@ -14,7 +14,7 @@ param(
     [int]$Sky          = 13,
     [int]$Seconds      = 14,       # wall time per run; the first WarmupLines readings are discarded
     [int]$WarmupLines  = 4,
-    [string]$Exe       = "C:\GitHub\Game\bin\net10.0-windows\BS3D.exe",
+    [string]$Exe       = "$PSScriptRoot\..\..\..\Game\bin\net10.0-windows\BS3D.exe",
     [string]$OutDir    = "$env:TEMP\bs3d-benchmark",
     [switch]$NoFocus               # skip the focus click (only valid if the frame rate stays well under 50)
 )

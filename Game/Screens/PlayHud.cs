@@ -105,7 +105,7 @@ namespace BS3D.Screens
         //bullet above is right, because a sky is smooth and the offset alone separates the figure from it. Over
         //the island's own CONCRETE DECK it is not: the deck reads around 150 grey, the readout is 244, and the
         //three sides the offset does not cover are near-white on near-white with a texture running under them.
-        //The bottom-left ball count sits on that deck in all thirteen scenes and the owner reported it as hard
+        //The bottom-left ball count sits on that deck in every scene and the owner reported it as hard
         //to read there — which it was, on the capture, at a glance.
         //
         //So every readout is also backed by a blurred black copy of its own glyphs, centred on them, which puts

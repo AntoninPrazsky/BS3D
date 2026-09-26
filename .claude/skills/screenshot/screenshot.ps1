@@ -24,7 +24,7 @@ param(
     [double]$HoldSeconds = 1.5,
     [int]$Wait = 7,
     [double]$Settle = 1.5,
-    [string]$Exe = "C:\GitHub\Testbed\bin\net10.0-windows\Testbed.exe"
+    [string]$Exe = "$PSScriptRoot\..\..\..\Testbed\bin\net10.0-windows\Testbed.exe"
 )
 
 # key name -> (vk, scan, extended). SDL reads the scan code. Extended keys (End, arrows) need the extended flag.

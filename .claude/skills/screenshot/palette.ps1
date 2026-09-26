@@ -5,7 +5,7 @@
 # expect, from this folder:
 #
 #   .\screenshot.ps1 -Out palette.png -Keys @('F5','F12') -Wait 8 `
-#       -GameArgs @('C:\GitHub\Testbed\Maps\Thirteen_Colors.json','scene=meadow','sky=1','nopost','nooverc',
+#       -GameArgs @('Testbed\Maps\Thirteen_Colors.json','scene=meadow','sky=1','nopost','nooverc',
 #                   'ssaa=2','campos=0,4.5,11','camtarget=0,4.5,0')
 #   .\palette.ps1 -Png palette.png
 #

@@ -12,7 +12,7 @@ balls, and capturing the window. It uses one reusable script, `screenshot.ps1` (
 ## Build first
 
 ```powershell
-dotnet build C:\GitHub\Testbed.sln   # or MapEditor.sln for the editor
+dotnet build Testbed.sln   # or MapEditor.sln for the editor
 ```
 
 The exe is `Testbed\bin\net10.0-windows\Testbed.exe`.
@@ -202,10 +202,10 @@ the panel.
 
 ```powershell
 # Two shots of the result screen as its defocus ramps, no keys, no focus, works locked:
-C:\GitHub\Game\bin\net10.0-windows\BS3D.exe result celebrate mute scene=meadow quality=medium shot=3.5,8
+Game\bin\net10.0-windows\BS3D.exe result celebrate mute scene=meadow quality=medium shot=3.5,8
 
 # The Testbed's fixed camera, photographed by the Testbed itself:
-C:\GitHub\Testbed\bin\net10.0-windows\Testbed.exe scene=meadow sky=13 nopost `
+Testbed\bin\net10.0-windows\Testbed.exe scene=meadow sky=13 nopost `
     campos=0,-4,30 camtarget=0,-8,0 width=1280 height=720 shot=5
 ```
 
@@ -281,7 +281,7 @@ and nothing else), so an aim-adjacent check *in the Game* with the button held i
 
 # Drain a full map into the funnel and watch it go down the dark pit (End releases the cluster):
 .\screenshot.ps1 -Out drain.png -Wait 6 -Settle 5 -Keys @('End') `
-    -GameArgs @('C:\GitHub\Testbed\Maps\Full.json','scene=mountain','campos=0,-1,24','camtarget=0,-9,0')
+    -GameArgs @('Testbed\Maps\Full.json','scene=mountain','campos=0,-1,24','camtarget=0,-9,0')
 ```
 
 - `-GameArgs` — arguments to `Testbed.exe` (a map path, `scene=`, `sky=`, `campos=`/`camtarget=`, `ssaa=`, ...).
@@ -345,7 +345,7 @@ all the advance walk's **rubber ends** (`ADVANCE_EASE_ZONE`), whose whole point 
 ```powershell
 # Orbit left for two seconds and photograph the gun mid-walk:
 .\screenshot.ps1 -Out walking.png -Keys @('F10','F12') -Settle 3 -Hold @('A') -HoldSeconds 2 `
-    -GameArgs @('C:\GitHub\Testbed\Maps\Thirteen_Colors.json','scene=meadow')
+    -GameArgs @('Testbed\Maps\Thirteen_Colors.json','scene=meadow')
 ```
 
 - `-Hold` — key names held down **as a set**: every down goes out before any sleep, so `@('W','A')` really is
@@ -445,7 +445,7 @@ named in `-Focus` — every pair that colour is in:
 
 ```powershell
 .\screenshot.ps1 -Out palette.png -Keys @('F5','F12') -Wait 8 `
-    -GameArgs @('C:\GitHub\Testbed\Maps\Thirteen_Colors.json','scene=meadow','sky=1','nopost','nooverc','ssaa=2',
+    -GameArgs @('Testbed\Maps\Thirteen_Colors.json','scene=meadow','sky=1','nopost','nooverc','ssaa=2',
                 'campos=0,4.5,11','camtarget=0,4.5,0')
 .\palette.ps1 -Png palette.png -Focus @('orange','yellow','brown')
 ```
