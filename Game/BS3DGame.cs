@@ -1477,10 +1477,6 @@ namespace BS3D
 
         #endregion
 
-        //The one GameTime the frame's Update and Draw both hand on, its elapsed the compositor's rather than
-        //MonoGame's whenever the frame was paced by it (see Update). Reused, never allocated per frame.
-        private readonly GameTime _frameTime = new();
-
         protected override void Update(GameTime gameTime)
         {
             //Paced BY the compositor rather than against it (#448), at the TOP of the frame: the wait ends
@@ -1488,20 +1484,7 @@ namespace BS3D
             //DWM picks up exactly one frame per refresh. EndFrame's clock stays behind it as the fallback,
             //and remains the whole story whenever a NUMBER was named - a benchmark's fpscap= or a player's
             //Settings row mean that number and not the compositor's rate.
-            //The frame's time is read AFTER that wait, off the compositor's own rhythm, and handed to everything this
-            //frame instead of MonoGame's (#634): MonoGame reads its clock before the wait, so its elapsed carries the
-            //last two frames' difference in cost and stepped the orbit unevenly under an even display — the front
-            //end's judder on the far scenery. See FrameLimiter.PacedElapsed.
-            float paced = -1f;
-            if (_fpsCap <= 0 && !_uncappedFps && _displayRefreshHz > 0 && _frameLimiter.WaitForCompositor())
-                paced = _frameLimiter.PacedElapsed(_displayRefreshHz);
-            else _frameLimiter.ForgetComposition();
-
-            _frameTime.ElapsedGameTime = paced > 0f ? TimeSpan.FromTicks((long)(paced * TimeSpan.TicksPerSecond))
-                : gameTime.ElapsedGameTime;
-            _frameTime.TotalGameTime += _frameTime.ElapsedGameTime;
-            _frameTime.IsRunningSlowly = gameTime.IsRunningSlowly;
-            gameTime = _frameTime;
+            if (_fpsCap <= 0 && !_uncappedFps && _displayRefreshHz > 0) _frameLimiter.WaitForCompositor();
 
             float elapsed = (float)gameTime.ElapsedGameTime.TotalSeconds;
             _wallClock += elapsed;
@@ -1587,8 +1570,6 @@ namespace BS3D
 
         protected override void Draw(GameTime gameTime)
         {
-            gameTime = _frameTime;
-
             //Bottom-up down the stack to the lowest uncovered screen: the backdrop (or the gameplay screen)
             //runs the whole pipeline — the HDR target, the setting, its own 3D, the resolve — and the pages
             //above it draw nothing themselves, because their picture is the Myra desktop below.
