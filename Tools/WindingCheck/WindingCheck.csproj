@@ -13,7 +13,7 @@
       rasteriser every Windows install carries, so no GPU is touched and no window is ever shown - but it
       is therefore Windows-only, like the three executables.-->
   <ItemGroup>
-    <PackageReference Include="MonoGame.Framework.WindowsDX" Version="3.8.5" />
+    <PackageReference Include="MonoGame.Framework.WindowsDX" />
   </ItemGroup>
 
   <ItemGroup>

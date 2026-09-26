@@ -8,7 +8,6 @@
     build keeps the console it is developed with. Either way every line also goes to the run log (RunLog).-->
     <OutputType Condition="'$(Configuration)' == 'Release'">WinExe</OutputType>
     <StartupObject>BS3D.Program</StartupObject>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <AssemblyName>BS3D</AssemblyName>
     <RootNamespace>BS3D</RootNamespace>
     <Copyright>Antonín Pražský</Copyright>
@@ -23,9 +22,6 @@
   <ItemGroup Condition="'$(BS3DReleaseVersion)' != ''">
     <AssemblyMetadata Include="BS3DReleaseVersion" Value="$(BS3DReleaseVersion)" />
   </ItemGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
-    <DefineConstants>TRACE;RELEASE</DefineConstants>
-  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <OutputPath>bin\</OutputPath>
   </PropertyGroup>
@@ -48,10 +44,10 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="BepuPhysics" Version="2.5.0-beta.29" />
-    <PackageReference Include="BepuUtilities" Version="2.5.0-beta.29" />
-    <PackageReference Include="FontStashSharp.MonoGame" Version="1.5.6" />
-    <PackageReference Include="MonoGame.Content.Builder.Task" Version="3.8.5" />
+    <PackageReference Include="BepuPhysics" />
+    <PackageReference Include="BepuUtilities" />
+    <PackageReference Include="FontStashSharp.MonoGame" />
+    <PackageReference Include="MonoGame.Content.Builder.Task" />
     <!--Exactly ONE MonoGame platform package, and it has to be the one Content.mgcb builds for. Both packages
     ship an assembly named MonoGame.Framework.dll, so referencing both is an error nowhere in the build: NuGet
     quietly picks one of them for the output folder, and it picked DesktopGL. Everything compiled with zero
@@ -59,11 +55,11 @@
     platform!" — the content is /platform:Windows (DX11, SM 5.0) and an OpenGL runtime cannot read an MGFX
     header stamped DirectX. The libraries reference the other package PrivateAssets="all" so it stops at the
     compile and never reaches here; see Prazsky.Core.csproj.-->
-    <PackageReference Include="MonoGame.Framework.WindowsDX" Version="3.8.5" />
-    <PackageReference Include="Myra" Version="1.6.3" />
+    <PackageReference Include="MonoGame.Framework.WindowsDX" />
+    <PackageReference Include="Myra" />
     <!--The music's decoder (#444, MIT): Game/Music is Ogg Vorbis, decoded to PCM at load by Audio/OggTrack.cs.
-    Tools/MusicBake compiles that file too and pins the same version, so what it measures is what plays.-->
-    <PackageReference Include="NVorbis" Version="0.10.5" />
+    Tools/MusicBake compiles that file too and reads the same version from Directory.Packages.props, so what it measures is what plays.-->
+    <PackageReference Include="NVorbis" />
   </ItemGroup>
 
   <!--The menu UI's fonts (Myra renders through FontStashSharp, which needs TTF bytes at runtime). Anton sets

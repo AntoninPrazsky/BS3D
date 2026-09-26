@@ -28,9 +28,13 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # The SDK band global.json names as its floor (#587): 10.0.2xx is the band the owner builds with, so CI
+      # and the release install that band rather than the newest 10.0 one. global.json's rollForward is
+      # latestFeature, so a newer band the image already carries would still win - the pin is on what is
+      # installed here, not a refusal of anything newer.
       - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: '10.0.2xx'
 
       # The NuGet packages, keyed on every project file and tool manifest (#588): a push that changes no
       # package reference restores from the cache instead of the feed. The shader compile dominates the run
@@ -39,7 +43,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.nuget/packages
-          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/.config/dotnet-tools.json') }}
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', 'Directory.Packages.props', '**/.config/dotnet-tools.json') }}
           restore-keys: nuget-${{ runner.os }}-
 
       # Each executable carries its own manifest, and the content build shells out to `dotnet mgcb` with the
