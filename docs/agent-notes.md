@@ -6852,3 +6852,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-28 — #230 narozeniny hry (kalendářní vajíčko) — notebook, Claude Code (github-74)
 
 - **Beru z #230 „kalendářní překvapení“, jen kosmeticky** (podle dělicí čáry z komentáře k #230): 30. prosince (první commit repozitáře 2019-12-30 = narozeniny hry) nosí dělo v každém levelu párty čepici a v hlavním menu 3D nápis občas zatančí (tanec z Konami kódu) a spadnou konfety. Na fyziku, pravidla ani skóre nesahá. Páka `birthday` pro snímky. Soubory: nový `Game/Effects/PartyHat.cs`, `CannonRig`/`CannonMesh` (jen poloha základního prstence), `GameplayScreen` (kreslení), `BS3DGame` (datum, menu), `LaunchOptions`, `docs/game-feedback.md`.
+
+## 2026-09-28 — #608 šev ostrova v lese a na horách — desktop, Claude Code (bs3d-a1)
+
+- **Beru zbytek #608**: `IslandBerm` do lesa (dřevo kreslí `ForestScatterRenderer` v hostitelích) a na hory. Soubory: `ForestScatterRenderer.cs`, mountain backdrop, `IslandBerm.cs`.
