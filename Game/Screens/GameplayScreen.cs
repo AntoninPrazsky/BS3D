@@ -1391,7 +1391,14 @@ namespace BS3D.Screens
             //blurred layer is composited back over the resolved frame exactly where the direct draw would
             //have gone, so nothing above or below it in the frame moves. Free on every unblurred frame, which
             //is all of play: the direct path is what it always was.
+            //⚠ A LOST level keeps two readouts where a won one keeps none (#639): the side cut and the magazine
+            //stay up through the loss's hold and under the result page, so the player can read the field that
+            //beat them — the owner's rule, "lost, we keep it; won, it goes". A clear has nothing left hanging
+            //to show. Drawn sharp and never into the blurred layer: they stand there to be READ while the page
+            //is up, which is exactly what a softened copy would not allow (the running account #438 blurs is
+            //the rest of the overlay, and that is gone on either ending).
             bool overlayUp = !LevelOver;
+            bool lossPreviews = LevelOver && _pendingFailure != LevelFailure.None;
             float overlayBlur = overlayUp ? OverlayBlur : 0f;
             bool overlayLayered = overlayBlur > 0f && Game.BeginOverlayLayer();
 
@@ -1552,6 +1559,7 @@ namespace BS3D.Screens
             //goes here is the layer softened (#438); sharp, it is drawn straight onto the frame as ever.
             if (overlayLayered) Game.CompositeOverlayLayer(overlayBlur);
             else if (overlayUp) DrawOverlay();
+            else if (lossPreviews) DrawOverlay(previewsOnly: true);
         }
 
         /// <summary>
@@ -1560,7 +1568,9 @@ namespace BS3D.Screens
         /// blur (#438). One method for both, so the two cannot drift apart in what they draw; where it lands
         /// is the caller's business, and what is bound when it is called.
         /// </summary>
-        private void DrawOverlay()
+        /// <param name="previewsOnly">A lost level's ending: the side cut and the magazine and nothing else —
+        /// see <see cref="PlayHud.Draw"/> and the gate in <see cref="Draw"/> (#639).</param>
+        private void DrawOverlay(bool previewsOnly = false)
         {
             PlayHud.ClusterProfile profile = BuildClusterProfile(out int ballCount);
 
@@ -1572,7 +1582,9 @@ namespace BS3D.Screens
 
             _hud.Draw(_run.Score, Camera, in profile,
                 new ReadOnlySpan<PlayHud.BallMarker>(_profileBalls, 0, ballCount),
-                _magazineQueue, _tutorial);
+                _magazineQueue, _tutorial, previewsOnly);
+
+            if (previewsOnly) return;
 
             //The crosshair, into the host's overlay batch (the one the HUD above just used): shown only while
             //precise aim is leaning in, that being the only pose whose lens looks along the shot, and faded up

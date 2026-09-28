@@ -834,8 +834,13 @@ namespace BS3D.Screens
         /// </summary>
         /// <param name="queue">The loaded rounds, slot 0 first — <see cref="DrawMagazine"/>'s subject (#236).
         /// A span over a buffer the caller keeps, like <paramref name="balls"/>, so a frame costs nothing.</param>
+        /// <param name="previewsOnly">
+        /// A lost level's ending (#639): only the two readouts that show the <b>field</b> — the side cut and the
+        /// magazine — so the player can read, under the result page, what beat them. The score, the streak,
+        /// balls left, the tutorial and the awards are the play's running account, which the page restates.
+        /// </param>
         internal void Draw(ScoreKeeper score, ICamera camera, in ClusterProfile profile, ReadOnlySpan<BallMarker> balls,
-            ReadOnlySpan<BallType> queue, Tutorial tutorial)
+            ReadOnlySpan<BallType> queue, Tutorial tutorial, bool previewsOnly = false)
         {
             _game.EnsureHudFonts();
 
@@ -848,6 +853,13 @@ namespace BS3D.Screens
             //The side cut, drawn first so the corner readouts and any incoming award pass over it rather than
             //under it — the same reason DrawAwards is last in this block.
             DrawClusterProfile(viewport, in profile, balls, BallsLeftTop(score, viewport, margin));
+
+            if (previewsOnly)
+            {
+                DrawMagazine(queue, score, viewport, margin);
+                batch.End();
+                return;
+            }
 
             //The score, top right — the FPS line owns the top left (InfoRenderer draws after this, in
             //base.Draw). Its right edge is the pivot everything above hangs off, so the margin holds while the
