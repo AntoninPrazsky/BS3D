@@ -3,7 +3,9 @@ import re, sys, glob, os, statistics
 
 DROP = int(os.environ.get('DROP', '8'))
 # The ms group is optional: builds from before #374 print the rate alone, and the ms is then 1000 / rate.
-FPS = re.compile(r'^\[fps\] ([\d,.]+)(?: \(([\d,.]+) ms\))? . (\w+), dome (\d+), ssaa (\d)x, (\w+), msaa (\d)x(?: \(asked (\d)\))?, detail (\w+), (\d+x\d+)')
+# So is the shadow field, which the Game's line carries since the sun's shadow map became a tier setting
+# ("shadow 4096" / "shadow off"); without it here every current log read as NO DATA.
+FPS = re.compile(r'^\[fps\] ([\d,.]+)(?: \(([\d,.]+) ms\))? . (\w+), dome (\d+), ssaa (\d)x, (\w+), msaa (\d)x(?: \(asked (\d)\))?, detail (\w+),(?: shadow \w+,)? (\d+x\d+)')
 rows = []
 for path in sorted(glob.glob(os.path.join(sys.argv[1], '*.log'))):
     name = os.path.basename(path)
