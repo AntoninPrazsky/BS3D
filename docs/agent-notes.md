@@ -6788,6 +6788,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-28 — #610 detail akácií a baobabů na savaně — desktop, Claude Code (bs3d-a1)
 
 - **Beru #610.** Reference (oba modely), pak koruna akácie z lístků + prosvítání, kůra, baobab; podle tieru. Soubory: `AcaciaMesh.cs`, `BaobabMesh.cs`, `Acacia.fx`, `SavannaScatter.cs`. Nesahám na ohně (#641, bs3d-ea).
+- **Na mainu:** baobab (žlábky na kmeni, koruna z listových trsů), kůra (lišejník, tmavší pata). Stránka před/po https://claude.ai/artifact/Rqf4L6q2yZb8t9o8Y43prp. ⚠ Lišejník 0,36 vypadal jako sníh — musí být jen o málo světlejší než kůra.
 
 ## 2026-09-28 — #642 kontaktní stíny: normal offset místo velkého biasu — notebook, Claude Code (github-74)
 
@@ -6807,4 +6808,3 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 - **Brána `Design.ClearFromStance` / `ClearProbe.FromOpeningStance`** (beam jen s dopady dosažitelnými ze stanice 0 `ArrivalProbe`): plachty z místa za 4 / 2 / 5 ran. ⚠ **One NEODMÍTÁ** — puštěná na všech 133 levelů odmítne jen Cairn (komory ve skále); zásah zepředu v modelu bere celou skupinu i se zadní částí slupky, One jde z místa za 4. Brána je tedy záruka pro plachtu, ne test „level potřebuje chůzi“; napsáno v kódu i v docs. Proč majitel na One chodil, mřížka nehraje (rozdaná barva, kterou zepředu nevidět, boky, strop).
 - **Ověřeno:** LevelGen exit 0 (starých 130 levelů obsahově beze změny), ScoreSim OK, 4 solutiony, 331/331 testů; snímky tří plachet z herní kamery (čtou), výběr levelů se 13 dlaždicemi (3 řady) se vejde v 1600×900 i 1900×790 (poměr 3840×1600).
 - ⚠ **Dopad na save:** hráč s postupem najde Rainbow, Zigzag a všechny nedohrané levely se štítkem „#1 first“, dokud plachty neodehraje (`IsLevelUnlocked`: pořadí). Dohrané zůstávají otevřené.
-- **Na mainu:** baobab (žlábky na kmeni, koruna z listových trsů), kůra (lišejník, tmavší pata). Stránka před/po https://claude.ai/artifact/Rqf4L6q2yZb8t9o8Y43prp. ⚠ Lišejník 0,36 vypadal jako sníh — musí být jen o málo světlejší než kůra.
