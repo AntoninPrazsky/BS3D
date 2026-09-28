@@ -20,6 +20,10 @@ namespace Prazsky.Core.Render
 
         private AuroraSceneConfig _auroraConfig = new();
 
+        //The bank the island sits in (#646, #608's in this scene's own material), through the shared plant material
+        private readonly PlantPass _plants;
+        private IslandBermPlanting _berm;
+
         //The eighteenth scene (#205), and the second in both families at once — see IsSolidTerrainScene's
         //and ReplacesSky's own docs. A forest clearing grid like Forest.fx's under a sky-replacing pass on
         //space's shared quad, two techniques in one effect, the Moon's own shape (Draw runs the
@@ -82,6 +86,14 @@ namespace Prazsky.Core.Render
             //Its own snow (#205), through a clone of Snow.fx of its own since #580
             _snowEffect = content.Load<Effect>("Shaders/Snow").Clone();
             Snowfall.ApplyParameters(_snowEffect, _auroraConfig.Snow);
+
+            _plants = new PlantPass(_graphicsDevice, content);
+            ForestSceneConfig ground = _auroraConfig.Terrain;
+            _berm = new IslandBermPlanting(_graphicsDevice, (x, z) => TerrainMirror.Forest(x, z, ground), BERM_SEED + Services.SeedOffset,
+                earth: ground.ForestColorDark.ToVector3(), earthDry: ground.ForestColorDark.ToVector3() * 0.8f,
+                cover: ground.ForestColor.ToVector3(), coverDry: ground.ForestColorDark.ToVector3(), coverDapple: 0.15f,
+                stone: new Vector3(0.03f, 0.032f, 0.036f), stones: 30,
+                stoneRadius: (ArenaIsland.RADIUS + 0.8f, ArenaIsland.RADIUS + 6f), stoneSize: (0.2f, 0.7f));
         }
 
         /// <inheritdoc/>
@@ -256,6 +268,16 @@ namespace Prazsky.Core.Render
             _auroraEffect.CurrentTechnique.Passes[0].Apply();
             _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _auroraIndexCount / 3);
 
+            //The bank round the island (#646), opaque on the ground before the sky is laid behind both; the pass
+            //leaves culling on, and the sky's full-screen quad wants it off as the ground had it
+            if (_berm != null)
+            {
+                //Lit as the ground just drawn is: by the glow of the sky, over the starlight, off the ground's ambient
+                _plants.Draw(frame, _berm.Buckets, _auroraConfig.Terrain.HorizonHazeDistance, detail: true,
+                    glow, glow + _auroraConfig.GroundStarlight.ToVector3(), _auroraConfig.Lighting.GroundAmbient.ToVector3());
+                _graphicsDevice.RasterizerState = RasterizerState.CullNone;
+            }
+
             //Then the sky, depth-READ at the far plane: every pixel the terrain already owns is rejected
             //before the star-and-ribbon shader runs.
             _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
@@ -325,6 +347,13 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>Frees the snow's clone. The terrain grid is the cache's and the effect the content manager's.</summary>
-        public override void Dispose() => _snowEffect?.Dispose();
+        public override void Dispose()
+        {
+            _snowEffect?.Dispose();
+            _berm?.Dispose();
+            _berm = null;
+        }
+
+        private const int BERM_SEED = 9400;
     }
 }

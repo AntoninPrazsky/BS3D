@@ -16,6 +16,10 @@ namespace Prazsky.Core.Render
     {
         private OutbackSceneConfig _outbackConfig = new();
 
+        //The bank the island sits in (#646, #608's in this scene's own material), through the shared plant material
+        private readonly PlantPass _plants;
+        private IslandBermPlanting _berm;
+
         private readonly Effect _outbackEffect;
 
         //Its camera grid and the pass that draws it (#580): the skeleton this scene shared with two others
@@ -41,6 +45,13 @@ namespace Prazsky.Core.Render
             _outbackPass = new TerrainPass(Services, _outbackEffect, OUTBACK_GRID_N, OUTBACK_EXTENT, "OutbackTime");
 
             ApplyOutbackParameters();
+
+            _plants = new PlantPass(services.GraphicsDevice, content);
+            _berm = new IslandBermPlanting(services.GraphicsDevice, (x, z) => TerrainMirror.Outback(x, z, _outbackConfig), BERM_SEED + Services.SeedOffset,
+                earth: _outbackConfig.Surface.SoilColor.ToVector3() * 0.7f, earthDry: _outbackConfig.Surface.RockColorDeep.ToVector3(),
+                cover: _outbackConfig.Surface.SoilColor.ToVector3(), coverDry: _outbackConfig.Surface.SoilColorPale.ToVector3(), coverDapple: 0.5f,
+                stone: _outbackConfig.Surface.RockColorBright.ToVector3(), stones: 28,
+                stoneRadius: (ArenaIsland.RADIUS + 1f, ArenaIsland.RADIUS + 6.5f), stoneSize: (0.15f, 0.6f));
         }
 
         /// <inheritdoc/>
@@ -109,7 +120,26 @@ namespace Prazsky.Core.Render
         public override void Draw(in SceneFrame frame)
         {
             _outbackPass.Draw(frame, Services.TerrainHoleRadius);
+            if (_berm != null) _plants.Draw(frame, _berm.Buckets, _outbackConfig.Air.HorizonHazeDistance, detail: true);
             Services.Birds.Draw(frame, _outbackConfig.Birds);
+        }
+
+        /// <inheritdoc/>
+        public override bool HasShadowCasters => _berm != null;
+
+        /// <summary>The bank round the island casts into the sun's map (#646).</summary>
+        public override void DrawShadowCasters(Matrix shadowViewProjection)
+        {
+            if (_berm != null) _plants.DrawShadowCasters(shadowViewProjection, _berm.Buckets);
+        }
+
+        private const int BERM_SEED = 9300;
+
+        /// <inheritdoc/>
+        public override void Dispose()
+        {
+            _berm?.Dispose();
+            _berm = null;
         }
 
         /// <inheritdoc/>
@@ -125,7 +155,11 @@ namespace Prazsky.Core.Render
         /// <inheritdoc/>
         public override IEnumerable<Effect> ShadowReceivers
         {
-            get { yield return _outbackEffect; }
+            get
+            {
+                yield return _outbackEffect;
+                yield return _plants.Effect; //the bank round the island (#646)
+            }
         }
 
         /// <inheritdoc/>
