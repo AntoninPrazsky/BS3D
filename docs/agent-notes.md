@@ -6687,3 +6687,5 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-28 — #639 obrazovka výsledku — desktop, Claude Code (bs3d-a1)
 
 - **Beru #639.** Profil shluku a zásobník zmizí jen po výhře, delší ostrá chvíle před rozostřením, kamera po vyčištění nekrouží nad prázdným stropem. Soubory: `PlayHud.cs`, `GameplayScreen*.cs`, `ResultPage.cs`.
+- **Na mainu `442b4f02`:** laťka = `max(12, 5 % počátečních koulí)` a ×2 nad rekordem (bylo 12 a ×1,25). Změřeno na mřížce (jednorázový harness ve scratchpadu přes `BallsMap`: 130 levelů do vyčištění, hráč hladový + náhodný, 6 rozdání): před 2,0–2,1 cinematic na level před závěrečnou ranou (max 3,5), po 1,2–1,3 (max 2,2), 0–2 % levelů bez žádné. Cooldown a strop změřené, nevzaté (málo navíc, stav navíc). Fyzika/bomby/strop nemodelované. Čeká na verdikt.
+- ⚠ **Past sdíleného checkoutu:** `git add <soubor>` vzal i rozpracované hunky peer session (#639) ve stejném `docs/game-feedback.md`; `git checkout main` je pak z pracovního stromu smazal. Vráceno, commit přestavěn v odděleném worktree. **Když v checkoutu pracuje jiná session, commituj jen z vlastního worktree.**
