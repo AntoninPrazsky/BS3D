@@ -6890,3 +6890,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 - **Na mainu.** `Meadow.fx`: šum okrajů pěšiny a potoka (tři `GradientNoise2` na každý pixel louky) se počítá jen blízko jejich čáry, za `[branch]` na laterální vzdálenosti. Přesné: `GradientNoise2` nikdy neopustí ±1 (spočítaná mez přes všechny gradienty hashe, dosažená ve středu buňky), takže za nejširším okrajem + `PATH_RAGGED`/`BROOK_RAGGED` je všechno, co šum krmí, přesně nula. **APU, Toadstool 1600×900: Low 13,17 → 12,67, Medium 21,66 → 21,20, High 37,37 → 36,35 ms** (2 střídavé běhy, min mediánů, shody ±0,03). Z +1,49 ms, které louka přidala na Low, zbývá +0,99.
 - **Ověřeno obrazem:** Testbed, pevná kamera, `at=1:F5` a kontrolní běh vedle: tráva, květiny, břehy, okraj a pěšina beze změny; ve vodě se liší jen tečkování odlesku slunce (`pow(…, 180)` zesílí poslední bity přeloženého shaderu), průměr stejný.
 - ⚠ **Past:** `F5` v Testbedu zmrazí fyziku, ne čas scény — mraky na obloze (horních ~180 řádků) se dál hýbou, takže srovnání snímků musí oblohu vynechat nebo mít kontrolní běh. A `tier-matrix.py` četl všechny dnešní logy jako NO DATA (řádek `[fps]` má pole `shadow`) — opraveno.
+
+## 2026-09-29 — #608 val podle referencí — desktop, Claude Code (bs3d-a1)
+
+- **Beru dorovnání #608 podle referencí** (img2img přes herní snímek, `C:\Users\panrd\AI\sd\out\608-*`): trsy u zdi (louka, savana), světlé kameny na savaně, suť na horách, větší balvany v lese; výsadba stojí na povrchu valu (`IslandBerm.SurfaceY`).
