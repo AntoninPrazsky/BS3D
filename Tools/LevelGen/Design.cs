@@ -119,6 +119,14 @@ namespace BS3D.Tools.LevelGen
         /// </para>
         /// </summary>
         public int? WildcardEvery;
+        /// <summary>
+        /// <b>The level promises to be played from the stand the gun is given</b> (#603): LevelGen refuses it unless
+        /// it can be cleared with only the landings a straight shot from the opening stance reaches
+        /// (<see cref="ClearProbe.FromOpeningStance"/>). The flat opening levels carry it, because a player meets
+        /// them before anyone has taught A/D; nothing else does, because every other level is drawn to be walked
+        /// round.
+        /// </summary>
+        public bool ClearFromStance;
 
         /// <summary>Round radius, angle, layout level, layout depth -> is there a ball here.</summary>
         public Func<float, float, int, int, bool> Occupied;

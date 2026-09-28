@@ -15,8 +15,9 @@ namespace BS3D.Screens
     /// slowly — a player buried under instructions in the first minutes is a player who stops reading them —
     /// so each lesson has a level it first becomes eligible at (<see cref="Definition.FromLevel"/>), and the
     /// opener carries only the three that make the game a game: aim, fire, three of a colour fall. Precise aim
-    /// waits for the second level, walking the gun round for the third, stepping it in for the fourth, and the
-    /// later levels of the chapter are left to be played. A lesson the player did not get to — the level
+    /// waits for the second level, walking the gun round for the fourth — One, the first level with a far side,
+    /// since the campaign opens on three flat sheets played from the stand the gun is given (#603) — stepping
+    /// it in for the fifth, and the later levels of the chapter are left to be played. A lesson the player did not get to — the level
     /// lost, the card timed out, the event never happened — follows them into the next level of the chapter,
     /// so nothing is ever skipped for good; it is only ever deferred. Past the chapter's last level nothing is
     /// offered at all: the chapter <i>is</i> the tutorial, which is what the owner asked for.
@@ -172,7 +173,7 @@ namespace BS3D.Screens
             },
             new()
             {
-                Lesson = Lesson.Traverse, Key = "traverse", FromLevel = 2, Action = true,
+                Lesson = Lesson.Traverse, Key = "traverse", FromLevel = 3, Action = true,
                 Glyph = KEY_A + KEY_D, Caption = "Walk the gun round the field", Detail = "Come at the cluster from another side",
                 PadGlyph = PAD_STICK, PadCaption = "Push the left stick sideways to walk round",
                 PadDetail = "Come at the cluster from another side",
@@ -180,7 +181,7 @@ namespace BS3D.Screens
             },
             new()
             {
-                Lesson = Lesson.Walk, Key = "walk", FromLevel = 3, Action = true,
+                Lesson = Lesson.Walk, Key = "walk", FromLevel = 4, Action = true,
                 Glyph = KEY_W + KEY_S, Caption = "Step in for a steeper shot", Detail = "Closer means a shot up into the underside",
                 PadGlyph = PAD_STICK, PadCaption = "Push the left stick up to step in",
                 PadDetail = "Closer means a shot up into the underside",
@@ -192,7 +193,7 @@ namespace BS3D.Screens
                 //nothing says they compose — but composing them IS the precise shot, and a player who has done
                 //three cards separately has no reason to try holding two at once. Late in the ladder on
                 //purpose: it asks for all three of its parts to be in hand.
-                Lesson = Lesson.Combine, Key = "combine", FromLevel = 4, Action = true,
+                Lesson = Lesson.Combine, Key = "combine", FromLevel = 5, Action = true,
                 Glyph = MOUSE_RIGHT + KEY_A + KEY_D, Caption = "Hold the close-up and turn with it",
                 Detail = "Line the shot up from inside the close-up",
                 PadGlyph = PAD_LEFT_TRIGGER + PAD_STICK, PadCaption = "Hold the left trigger and push the stick",
@@ -201,7 +202,7 @@ namespace BS3D.Screens
             },
             new()
             {
-                Lesson = Lesson.Streak, Key = "streak", FromLevel = 4, Contextual = true,
+                Lesson = Lesson.Streak, Key = "streak", FromLevel = 2, Contextual = true,
                 Caption = "Hit after hit multiplies your score", Detail = "A miss resets the streak",
             },
             new()

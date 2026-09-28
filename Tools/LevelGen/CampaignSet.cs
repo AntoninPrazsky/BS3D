@@ -29,7 +29,7 @@ namespace BS3D.Tools.LevelGen
         /// </summary>
         private static readonly (string Name, int Size)[] BLOCKS =
         {
-            ("The Meadow", 10), ("The Gallery", 10), ("The Coil", 10), ("The Tower", 10),
+            ("The Meadow", 13), ("The Gallery", 10), ("The Coil", 10), ("The Tower", 10),
             //THE SILHOUETTES ARE INSERTED FIFTH (#491), between the Tower's violet dusk and the Reveal's cavern:
             //the night the light ramp was missing between the two, under the aurora. See the designs array.
             ("The Silhouettes", 10),

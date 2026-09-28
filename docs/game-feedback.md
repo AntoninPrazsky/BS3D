@@ -755,19 +755,21 @@ The game taught nothing: no first-time prompt, no tutorial level, and its whole 
 
   | key | from level | kind | shown when | done when |
   |---|---|---|---|---|
-  | `aim` | 1 · One | action | the level opens | the aim has travelled 0.06 rad (`AIM_TRAVEL`, ~3.5°) |
+  | `aim` | 1 · Pennant | action | the level opens | the aim has travelled 0.06 rad (`AIM_TRAVEL`, ~3.5°) |
   | `fire` | 1 | action | after `aim` | a shot leaves the barrel (`Shoot`) |
   | `match` | 1 | action | after `fire` | a landing scores (`OnBallLanded`) |
-  | `lean` | 2 · Bullseye | action | the level opens | precise aim held 0.35 s unbroken (`HOLD_SECONDS`) |
+  | `lean` | 2 · Rainbow | action | the level opens | precise aim held 0.35 s unbroken (`HOLD_SECONDS`) |
   | `ceiling` | 2 | contextual | a *pressure* step of the glass (never a feed step, which is a tall level's reward) | read out for 7 s (`INFO_SECONDS`) |
   | `line` | 2 | contextual | the floor alarm's net coming **on** (never the pinned net of a `lasers` run) | read out for 7 s |
-  | `traverse` | 3 · Toadstool | action | the level opens | A/D or the left stick held 0.35 s |
-  | `walk` | 4 · Pinwheel | action | the level opens | W/S or the left stick held 0.35 s |
-  | `combine` | 5 · Diabolo | action | the level opens | precise aim AND A/D-or-W/S held **together** 0.35 s (#460) |
-  | `streak` | 5 · Diabolo | contextual | the multiplier first standing above ×1 after a landing — the frame the HUD's badge lights | read out for 7 s |
-  | `budget` | 6 · Shuttle | informational | the level opens | read out for 7 s |
-  | `linerule` | 7 · Amphora | informational | the level opens | read out for 7 s (#459) |
-  | `graduated` | 7 · Amphora | informational, **celebrating** | after `linerule` | read out for 7 s, wearing the praise's accent and halo from the frame it lands (#459) |
+  | `traverse` | 4 · One | action | the level opens | A/D or the left stick held 0.35 s |
+  | `walk` | 5 · Bullseye | action | the level opens | W/S or the left stick held 0.35 s |
+  | `combine` | 6 · Toadstool | action | the level opens | precise aim AND A/D-or-W/S held **together** 0.35 s (#460) |
+  | `streak` | 3 · Zigzag | contextual | the multiplier first standing above ×1 after a landing — the frame the HUD's badge lights | read out for 7 s |
+  | `budget` | 6 · Toadstool | informational | the level opens | read out for 7 s |
+  | `linerule` | 7 · Pinwheel | informational | the level opens | read out for 7 s (#459) |
+  | `graduated` | 7 · Pinwheel | informational, **celebrating** | after `linerule` | read out for 7 s, wearing the praise's accent and halo from the frame it lands (#459) |
+
+  **The ladder moved with the flat opening (#603):** the campaign opens on three sheets played from the stand (see "The flat opening" in `docs/formats-and-tools.md`), so aim, precise aim and the streak are taught on flat walls, and walking the gun round waits for **One**, the first level with a far side, and stepping in for the level after it. The graduation stays the seventh level — Pinwheel now, where it was Amphora — and the later six levels of the Meadow are left to be played. (The paragraph below was written for Amphora and holds for whichever level sends the player off.)
 
   The later three levels of the Meadow are left to be played, and Amphora is the graduation: it teaches the one rule that can still take a level away and then says so — *here is what can go wrong, you now know it all, go*. Before #459 the ladder simply **stopped**, so a player was never told they had been taught everything; and the only thing the tutorial said about the line was the contextual `line` card, which fires in the moment the alarm comes on and says what to do about it rather than what is at stake. The two are different jobs and both cards stand. The `ceiling` card's line is the one string built per level — *The glass steps down every N shots*, N being that level's own `ceilingStep` — and a level whose glass holds still never arms it. **Nothing is shown after the send-off (#605).** The owner was told *"That's everything — you know the game"* on Amphora and then *"The glass steps down every 7 shots"*: the `ceiling` lesson, never fired on levels 2–6, was still armed and went off at the glass's first step. `Tutorial.NothingAfterTheSendOff` now queues any contextual lesson still untaught as a plain card **ahead** of the send-off on the level that gives it — the glass's cadence and the streak read as well at a level's start — except `line`, which is a warning about the moment and would be false at the start (the `linerule` card just before it states the rule); and once the send-off has been read, the chapter's last three levels teach nothing. Checked by the queue a forced run builds on Amphora: `… budget, linerule, ceiling, streak, graduated`, nothing armed.
 - **Two kinds of lesson, told apart by how they end, and the difference is the fun.** An **action** card stays up until the game reports the thing was done and is then **joined** by its praise word — *Nice!*, *Boom!*, *Perfect!*, *Sharp!*, *Smooth!*, *Closer!* — a third line under the detail, in the HUD's amber with the score's own blurred halo, the score's own spring kicked under it (`PlayHud.KickTutorial`) and the rating's chime (`PlayStarEarned` at its root) sounding: the card is a small dare and doing it wins it, which is what makes it a game rather than a manual. It never blocks — the gun answers throughout — and it gives up after `ACTION_TIMEOUT` (22 s) rather than nagging for the whole level, **unrecorded**, so it returns on the next level. An **informational** card has nothing to wait for, so it holds `INFO_SECONDS` and is recorded as read. The three **contextual** ones are armed at the level's start and shown only when their event fires, because *the glass steps down every eight shots* means something on the frame the glass has just stepped and nothing a minute before; a contextual card **interrupts** whatever card is up (`StepAside`: it goes back to the front of the queue, unrecorded, and returns straight after), and each fires at most once a level.
