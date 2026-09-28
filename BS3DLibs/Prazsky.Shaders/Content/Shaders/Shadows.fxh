@@ -29,6 +29,10 @@ sampler ShadowSampler = sampler_state
 //hole), and the depth bias in the map's own depth units, already scaled to the map's depth range.
 float4x4 ShadowViewProjection;
 float ShadowTexel;
+
+//How far a receiver is lifted along its normal before it reads the map, in map texels at a surface edge-on to the sun
+//(and none at one facing it square). See SunShadow.
+static const float SHADOW_NORMAL_OFFSET_TEXELS = 1.5;
 float ShadowStrength;
 float ShadowBias;
 
@@ -169,15 +173,26 @@ float SunShadow(float3 worldPosition, float3 normal, float3 sunDirection)
     //The ceiling's glass first (#553): it is not in the map, so it answers whether the map covers this point or not
     float glass = CeilingGlassShadow(worldPosition, sunDirection);
 
-    float4 lp = mul(float4(worldPosition, 1.0), ShadowViewProjection);
+    float ndotl = saturate(dot(normal, sunDirection));
+
+    //NORMAL OFFSET (#642): the map is read from a point lifted off the surface along its own normal, by a texel and
+    //a half times how far the surface is turned from the sun - so a surface cannot find its OWN texels in the map
+    //(acne) without the depth bias having to be large. A large depth bias is what the whole map had until #642, and
+    //what it cost is a shadow's first half unit: a ball of radius 0.5 resting on the stone threw no shadow under
+    //itself at all, only a patch starting somewhere past its foot, and read as levitating. One texel in world units
+    //comes out of the matrix itself: the orthographic projection takes the map's width to two clip units, so the
+    //view-projection's x column is 2 / width long.
+    float texelWorld = ShadowTexel * 2.0 / length(float3(ShadowViewProjection._11, ShadowViewProjection._21, ShadowViewProjection._31));
+    float3 lookup = worldPosition + normal * (texelWorld * SHADOW_NORMAL_OFFSET_TEXELS * sqrt(1.0 - ndotl * ndotl));
+
+    float4 lp = mul(float4(lookup, 1.0), ShadowViewProjection);
     float2 uv = float2(lp.x * 0.5 + 0.5, 0.5 - lp.y * 0.5);
     float depth = lp.z;
 
     if (any(uv < 0.0) || any(uv > 1.0) || depth > 1.0) return 1.0 - (1.0 - glass) * ShadowStrength;
 
-    //Slope-scaled: a surface turned away from the sun needs more bias than one facing it, or its own map
+    //Slope-scaled on top: a surface turned away from the sun needs more bias than one facing it, or its own map
     //texels, quantised across it, put it in and out of its own shadow in stripes (acne).
-    float ndotl = saturate(dot(normal, sunDirection));
     float bias = ShadowBias * (1.0 + 2.5 * (1.0 - ndotl));
     float reference = depth - bias;
 

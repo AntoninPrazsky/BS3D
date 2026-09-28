@@ -371,10 +371,13 @@ namespace Prazsky.Core.Render
         private Effect _instancedShadowEffect;
         private ShadowReceiver _instancedShadowReceiver;
 
-        //The depth bias in world units, turned into the map's own units each frame off its depth range: about
-        //three and a half texels of a 2048 map over 260 units, enough that a plate of foliage lit from above
-        //does not stripe itself and small enough that a tuft still shadows its own foot.
-        private const float SHADOW_BIAS_UNITS = 0.45f;
+        //The depth bias in world units, turned into the map's own units each frame off its depth range. About a
+        //texel of a 2048 map over 260 units since #642, when the receivers began reading the map from a point
+        //lifted off the surface along its normal (Shadows.fxh's SHADOW_NORMAL_OFFSET_TEXELS), which is what keeps a
+        //surface off its own texels now. It was 0.45 until then, carrying all of that alone - and 0.45, times up
+        //to 3.5 at a slope, is as much as a ball's whole diameter: a ball resting on the stone cast no shadow at
+        //its foot and read as levitating.
+        private const float SHADOW_BIAS_UNITS = 0.12f;
 
         //How high the sun has to stand (its direction's Y) for a map to be worth drawing: lower and every
         //shadow is a streak the length of the map, and at a dome's dusk the sun term is next to nothing.
