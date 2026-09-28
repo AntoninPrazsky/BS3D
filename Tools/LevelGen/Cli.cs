@@ -167,6 +167,9 @@ namespace BS3D.Tools.LevelGen
                 //1. THE MEADOW - "Rings". Solids of revolution in concentric shells or angular sectors: every
                 //colour is a plate of dozens, so one matching ball takes a whole shell. The block that teaches
                 //what a colour group is, in the cheapest scene in the game under the one clear blue dome.
+                //THE FLAT OPENING (#603): three sheets played from the stand the gun is given, then the pyramid
+                //One opened on until now, the first level whose far side has to be walked round to.
+                Pennant(), Rainbow(), Zigzag(),
                 One(), Bullseye(), Toadstool(), Pinwheel(), Diabolo(), Shuttle(), Amphora(), Saturn(), Fountain(), Gem(),
 
                 //2. THE SAVANNA - "The Gallery". Flat drawn walls, read off a bitmap written in the source.

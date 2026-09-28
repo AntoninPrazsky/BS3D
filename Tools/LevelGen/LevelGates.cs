@@ -237,7 +237,20 @@ namespace BS3D.Tools.LevelGen
                                   ? $"  <-- MATCHED AWAY IN UNDER {ClearProbe.MINIMUM_CLEAR_SHOTS} SHOTS"
                                   : string.Empty));
 
-            return disconnected == 0 && lonely.Alone == 0 && !oneShot && margin >= 1
+            //PLAYED FROM THE STAND (#603), for the levels that promise it: the flat opening, which a player meets
+            //before A/D has been taught. Opt-in, because every other level is drawn to be walked round.
+            bool stanceRefused = false;
+            if (design.ClearFromStance)
+            {
+                int fromStance = ClearProbe.FromOpeningStance(loaded.Map);
+                stanceRefused = fromStance == int.MaxValue;
+                Console.WriteLine("    cleared from the opening stance: "
+                                  + (stanceRefused
+                                      ? "NO  <-- NOT PLAYABLE WITHOUT WALKING THE GUN"
+                                      : $"in {fromStance} shot(s) of {design.Shots} (a beam's line, not the fewest)"));
+            }
+
+            return !stanceRefused && disconnected == 0 && lonely.Alone == 0 && !oneShot && margin >= 1
                    && stranded.Walled == 0 && stranded.Anchoring == 0 && stranded.CeilingRocks == 0
                    && stranded.AloneGlass == 0 && stranded.SealedIce == 0 && stranded.CeilingInfection == 0
                    && stranded.BuriedWells == 0 && stranded.InertHeavy == 0 && !clear.TooCheap;

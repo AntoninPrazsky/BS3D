@@ -177,6 +177,10 @@ namespace BS3D.Tools.LevelGen
 
         private static int WrapStation(int step) => (step % STATIONS + STATIONS) % STATIONS;
 
+        /// <summary>Whether a straight shot from where a level opens (station 0) reaches <paramref name="cell"/>
+        /// through the field as <paramref name="present"/> has it — the one station the flat opening promises (#603).</summary>
+        internal bool FromOpeningStance(bool[] present, int cell) => IsClear(present, cell, 0);
+
         private bool IsClear(bool[] present, int cell, int station)
         {
             int slot = cell * STATIONS + station;

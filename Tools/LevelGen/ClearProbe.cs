@@ -230,9 +230,16 @@ namespace BS3D.Tools.LevelGen
         private readonly Dictionary<ulong, int> _exhausted = new();
         private int _generation;
 
-        private ClearProbe(BallPositionTypes data)
+        /// <summary>
+        /// When set, a landing is only offered if a straight shot from the opening stance reaches it (#603) — the
+        /// flat opening's promise. Null for every other use of this probe, whose landings are the flood's.
+        /// </summary>
+        private readonly ArrivalProbe _stance;
+
+        private ClearProbe(BallPositionTypes data, bool fromStance = false)
         {
             BallsMap map = new(data);
+            if (fromStance) _stance = new ArrivalProbe(map);
             StaticBall[,,] array = map.GetStaticBallsArray();
 
             _sizeX = map.StageSizeX;
@@ -321,6 +328,30 @@ namespace BS3D.Tools.LevelGen
         {
             ClearProbe probe = new(data);
             return probe.Run(data, deep, afterMove);
+        }
+
+        /// <summary>
+        /// <b>How many shots clear the level without the gun ever leaving the stand it opens at</b> (#603), or
+        /// <see cref="int.MaxValue"/> when the beam finds no such clear. Every landing is one a straight shot from
+        /// station 0 can reach through the field as it stands after the cuts before it.
+        /// <para>
+        /// <b>A beam, not a proof, and that is stated rather than hidden.</b> A level it cannot clear might yield to
+        /// an order the beam dropped; the sheets that ask for it clear in a handful of shots.
+        /// </para>
+        /// <para>
+        /// <b>⚠ What it does NOT say, measured on the whole campaign (#603):</b> run over all 133 levels it refuses
+        /// exactly one, Cairn, whose chambers are walled in rock. It does not refuse One — the pyramid the owner could
+        /// not finish without A/D — because a match here takes the whole group, and One's shells wrap round it, so a
+        /// front shot takes a shell's hidden back with it and four shots clear it from the stand. What sent the owner
+        /// walking is something this lattice does not play (a colour dealt that the front does not show, the flanks
+        /// the aim meets at a glance, the glass coming down). So this is a guarantee for a sheet, not a test that a
+        /// level needs the walk.
+        /// </para>
+        /// </summary>
+        internal static int FromOpeningStance(BallPositionTypes data)
+        {
+            ClearProbe probe = new(data, fromStance: true);
+            return probe.Beam();
         }
 
         private Reading Run(BallPositionTypes data, bool deep, Action<BallsMap> afterMove)
@@ -479,6 +510,9 @@ namespace BS3D.Tools.LevelGen
                 }
 
                 if (!touches) continue;
+
+                //Asked last, since it is the dear test: the line from the gun to the cell, against what stands
+                if (_stance != null && !_stance.FromOpeningStance(present, cell)) continue;
 
                 foreach (byte colour in _colours)
                 {
