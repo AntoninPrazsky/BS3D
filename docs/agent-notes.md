@@ -6723,3 +6723,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-28 — #591 zbytek: tahy trailů — notebook, Claude Code (github-74)
 
 - **Beru zbytek #591**, bod (3): cena kreslení `AimBeam`/`LineSparks`/`LaunchSmears` po jednom draw callu na segment, nejdřív změřená na APU notebooku (pevná herní kamera, `logfps`); instancované kreslení jen pokud měření řekne, že to stojí za to (BestPractices §9). Soubory: `AimBeam.cs`, `LineSparks.cs`, `LaunchSmears.cs`, `ShotTrail.fx`. Body (1b) a stínová mapa bez depth zatím ne.
+
+## 2026-09-28 — #596 prology intra: dispatch z menu, sdílené geometrické pomocníky — desktop, Claude Code (bs3d-a1)
+
+- **Beru #596.** `IntroPrologues.For` místo switche v `BS3DGame.Menu.cs`, `IntroPaths` pro zkopírované `Line`/`Rotate`/`KeepOver`/`DistanceToSegment`/`Lerp`. Ověření: výpis kontrolních bodů před/po se stejným seedem.
