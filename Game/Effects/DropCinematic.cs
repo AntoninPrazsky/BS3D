@@ -196,10 +196,20 @@ namespace BS3D.Effects
         private bool _subjectSeen;
         private float _stallY, _stallSeconds;
 
-        //The lens follows a smoothed centre rather than the raw one: balls leave the subject as the kill
-        //plane takes them, and a mean that loses a member jumps. Smoothing also just looks like a camera
-        //operator rather than a solver.
+        //The lens follows a smoothed centre rather than the raw one. The centre no longer jumps when the kill
+        //plane takes a ball (DropFocus fades each one out before it goes, #616), so this is the camera
+        //operator's own ease rather than a repair.
         private Vector3 _pivot;
+
+        //How much of the subject is in the drain (DropFocus.FunnelShare): while it is, the look-at goes all the
+        //way to the drain's axis rather than 60 % of it (#616).
+        private float _funnelShare;
+
+        //The legs' progress, and the two elevation pulls, held at their furthest this shot (#616). They are
+        //functions of the pivot's height, and a subject whose lowest balls leave first can rise: fed straight
+        //through, the arc stepped back and the lens was asked to un-dive — the "cannot decide where to look".
+        //A pivot that climbs may slow the arc; it cannot reverse it.
+        private float _fall, _drain, _below, _dive, _submerge;
 
         //The shot, chosen once in Begin. Everything here is either rolled or picked from the scene, which
         //is what stops the tenth cinematic of a session from being the first one again.
@@ -231,6 +241,8 @@ namespace BS3D.Effects
             _elapsed = 0f;
             _startY = centre.Y;
             _pivot = centre;
+            _funnelShare = 0f;
+            _fall = _drain = _below = _dive = _submerge = 0f;
             _subjectSeen = true;
             _stallY = centre.Y;
             _stallSeconds = 0f;
@@ -288,10 +300,11 @@ namespace BS3D.Effects
         }
 
         /// <summary>
-        /// One frame. <paramref name="subjectAlive"/> is false once the kill plane has taken every ball of
-        /// the group, which is the shot's natural end.
+        /// One frame. <paramref name="subjectAlive"/> is false once there is nothing left to film — the kill
+        /// plane has taken every ball of the group, or the drain has emptied of it (<c>DropFocus.TryResolve</c>)
+        /// — which is the shot's natural end. <paramref name="funnelShare"/> is <c>DropFocus.FunnelShare</c>.
         /// </summary>
-        public void Update(float elapsed, bool subjectAlive, Vector3 subjectCentre)
+        public void Update(float elapsed, bool subjectAlive, Vector3 subjectCentre, float funnelShare)
         {
             if (_running)
             {
@@ -300,6 +313,7 @@ namespace BS3D.Effects
                 if (subjectAlive)
                 {
                     _subjectSeen = true;
+                    _funnelShare = funnelShare;
 
                     //Critically damped enough to keep up with a falling body without ringing, and framed in
                     //Exp so the follow is the same at any frame rate
@@ -410,9 +424,10 @@ namespace BS3D.Effects
         {
             //Progress through each leg of the drop. Guarded divisors: a group released from below the island
             //top (a late collapse into an already-drained field) would otherwise divide by nothing.
-            float fall = Saturate((_startY - _pivot.Y) / MathF.Max(_startY - ISLAND_Y, 1f));
-            float drain = Saturate((ISLAND_Y - _pivot.Y) / (ISLAND_Y - FUNNEL_BOTTOM_Y));
-            float below = Saturate((FUNNEL_BOTTOM_Y - _pivot.Y) / 12f);
+            //Each held at its furthest this shot (#616 — see _fall), so the arc never runs backwards.
+            float fall = _fall = MathF.Max(_fall, Saturate((_startY - _pivot.Y) / MathF.Max(_startY - ISLAND_Y, 1f)));
+            float drain = _drain = MathF.Max(_drain, Saturate((ISLAND_Y - _pivot.Y) / (ISLAND_Y - FUNNEL_BOTTOM_Y)));
+            float below = _below = MathF.Max(_below, Saturate((FUNNEL_BOTTOM_Y - _pivot.Y) / 12f));
 
             //The three legs are sequential by construction — each only starts once the one before it has
             //finished — so averaging them gives one monotonic run from the release to the last of the drop,
@@ -427,13 +442,13 @@ namespace BS3D.Effects
             //this exists: the fall leg's angle is positive by construction, so without it a subject already
             //under the water sits below a lens still floating above it, filming a cluster the submerge fade
             //correctly hides until the schedule alone eventually catches up.
-            float submerge = SubmergeElevationPull();
+            float submerge = _submerge = MathF.Max(_submerge, SubmergeElevationPull());
             if (submerge > 0f) elevation = MathHelper.Lerp(elevation, _elevationOut, submerge);
 
             //And towards the same angle as the subject goes under the STONE in an open scene (#407): the lens
             //passes the platform round its rim, where the drum's side hides the balls, so it dives for the
             //underside — where they show through the glass — about as fast as they go into the throat.
-            float dive = StoneDivePull();
+            float dive = _dive = MathF.Max(_dive, StoneDivePull());
             if (dive > 0f) elevation = MathHelper.Lerp(elevation, _elevationOut, dive);
 
             float azimuth = _azimuth + _orbitRate * _elapsed;
@@ -448,9 +463,11 @@ namespace BS3D.Effects
             Position = KeepBallsInSight(lens);
 
             //What it looks at drifts from the balls themselves towards the drain's axis as they go into it,
-            //so the shot ends framed on the hole rather than on whichever ball was last to fall
+            //so the shot ends framed on the hole rather than on whichever ball was last to fall. Most of the
+            //way while the subject is a scatter, and all of it while the drain holds the subject (#616): the
+            //funnel is then what the shot is of, and the balls in it are inside its radius anyway.
             Vector3 axis = new(0f, _pivot.Y, 0f);
-            Target = Vector3.Lerp(_pivot, axis, Smooth(drain) * 0.6f);
+            Target = Vector3.Lerp(_pivot, axis, Smooth(drain) * MathHelper.Lerp(0.6f, 1f, _funnelShare));
 
             FieldOfView = _fov;
             Roll = _rollAmplitude * MathF.Sin(MathHelper.Pi * Saturate(_elapsed / ROLL_PERIOD));

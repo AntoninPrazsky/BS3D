@@ -305,19 +305,20 @@ namespace BS3D.Screens
             if (first < 0) return;
 
             _cinematicSubject.Clear();
-
-            Vector3 centre = Vector3.Zero;
+            _dropFocus.Reset();
 
             for (int i = first; i < _fallingBalls.Count; i++)
             {
                 BodyReference body = _fallingBalls[i].BallReference;
 
                 _cinematicSubject.Add(body.Handle.Value);
-
-                centre += body.Pose.Position.ToXna();
+                _dropFocus.Add(body.Handle.Value, body.Pose.Position.ToXna());
             }
 
-            centre /= total;
+            //The same focus every later frame reads (#616), so the shot opens on the point it will go on
+            //following: a group released partly past the rim starts framed on its inner part, not on the mean
+            //the first frame would then pull away from.
+            if (!_dropFocus.TryResolve(out Vector3 centre)) return;
 
             _cinematic.Begin(Game.Scene, centre, Camera.Position, total, _random, Game.SeaLevelY);
 
@@ -372,8 +373,9 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// Where the released group is now, averaged over the ones the kill plane has not taken yet. False
-        /// once the last of them is gone, which is what ends the cinematic.
+        /// Where the cinematic should look now: <see cref="DropFocus"/> over the released balls the kill plane
+        /// has not taken yet — the ones in the drain first, strays past the rim only when nothing is in it
+        /// (#616). False once there is nothing left to film, which is what ends the cinematic.
         /// </summary>
         private bool TryGetDropCentre(out Vector3 centre)
         {
@@ -381,26 +383,23 @@ namespace BS3D.Screens
 
             if (_cinematicSubject.Count == 0) return false;
 
-            int found = 0;
+            _dropFocus.BeginFrame();
 
             for (int i = 0; i < _fallingBalls.Count; i++)
             {
                 PhysicsBall ball = _fallingBalls[i];
-                if (!_cinematicSubject.Contains(ball.BallReference.Handle.Value)) continue;
+                int handle = ball.BallReference.Handle.Value;
+                if (!_cinematicSubject.Contains(handle)) continue;
 
                 //The pose the frame DRAWS, not the raw body: under slow motion the bodies advance only every
                 //few frames, and a camera fed the raw staircase inherits it — the balls' half of #293 fixed,
                 //the lens would still judder off this very read.
                 ball.InterpolatedPose(_renderAlpha, out System.Numerics.Vector3 position, out _);
 
-                centre += position.ToXna();
-                found++;
+                _dropFocus.Add(handle, position.ToXna());
             }
 
-            if (found == 0) return false;
-
-            centre /= found;
-            return true;
+            return _dropFocus.TryResolve(out centre);
         }
 
         /// <summary>

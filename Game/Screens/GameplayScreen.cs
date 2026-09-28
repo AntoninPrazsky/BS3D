@@ -758,6 +758,10 @@ namespace BS3D.Screens
         //handles and not list indices, and why recycling cannot bite here.
         private readonly HashSet<int> _cinematicSubject = new();
 
+        //Where in that subject the cinematic looks (#616): the balls in the drain first, strays past the rim
+        //only when nothing is in it — see DropFocus.
+        private readonly DropFocus _dropFocus = new(KILL_PLANE_Y);
+
         //The new chapter's own establishing shot (#267): a block's first level tours the arena before handing
         //the gun over. Owns the pose and the blend exactly as the drop cinematic does; this screen owns the
         //trigger and the fact that the gun does not answer while it plays — see TryBeginChapterIntro and
@@ -1174,7 +1178,7 @@ namespace BS3D.Screens
 
             //The cinematic reads the balls where the last step left them and answers with this frame's pose and
             //time scale, so the scale is applied to the very step its own framing was chosen against.
-            _cinematic.Update(elapsed, TryGetDropCentre(out Vector3 dropCentre), dropCentre);
+            _cinematic.Update(elapsed, TryGetDropCentre(out Vector3 dropCentre), dropCentre, _dropFocus.FunnelShare);
 
             //And the line's own (#434), which also decides when the ending it is holding back goes up.
             StepLineLoss(elapsed);
