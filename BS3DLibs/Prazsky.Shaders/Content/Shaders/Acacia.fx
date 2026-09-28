@@ -39,6 +39,10 @@ float3 DiffuseDry;
 float DappleStrength;
 float BarkStrength;
 
+//1 for the acacias' leaf-spray cards (#610), 0 for every other mesh: the leaflets are cut out of each card here,
+//both of its sides are lit, and the sun comes through it. See LeafMask and AcaciaMesh's LeafSprays.
+float LeafStrength;
+
 //The distance the plant melts into the skyline over - Savanna.fx's own HorizonHazeDistance, handed over so a
 //far tree fades the way the ground it stands on does. Without it the treeline stood in full colour on a
 //hazed hillside, which is most of what made the far scatter read as pasted on (#451). It is stretched by
@@ -66,6 +70,62 @@ static const float BARK_FREQUENCY = 1.6;
 static const float BARK_STRETCH = 0.22;
 static const float BARK_GAIN = 2.6;
 
+//--- THE LEAF SPRAYS (#610). A card's texture coordinate runs X from the spray's stem to its tip and Y across it,
+//plus twice its layer (0 on top of the crown, 1, 2 underneath). The references: a crown of thin flat tiers of
+//tiny compound leaves, the sky showing between them, back-lit yellow-green towards the sun, dark underneath.
+static const float PI = 3.14159265;
+static const float LEAFLET_PAIRS = 11.0;      //leaflets along each side of a spray
+static const float LEAF_STALK = 0.12;         //the bare stalk at the stem end, as a share of the length
+static const float MIDRIB_HALF = 0.07;        //the rachis, as a share of the half-width
+//How much darker the ambient is on the layers under the top one: the inside of an umbrella is its shade
+static const float LAYER_AMBIENT_FALL = 0.45;
+//The sun through a leaf when the lens looks towards the sun: its colour against the albedo, and how tightly
+//it gathers round the sun's own direction
+static const float3 TRANSMISSION_TINT = float3(1.35, 1.55, 0.45);
+static const float TRANSMISSION_POWER = 3.0;
+static const float TRANSMISSION_GAIN = 0.9;
+//Leaves wrap the sun round their edge a little, as a thin sheet does
+static const float LEAF_WRAP = 0.4;
+
+float LeafHash(float2 p) { return frac(sin(dot(p, float2(127.1, 311.7))) * 43758.5453); }
+
+//Signed coverage of one spray card at uv: above zero where a leaflet (or the rachis) is. Past the resolution of
+//its leaflets - a pixel wider than half of one - it turns into the spray's own solid outline, which is what a
+//spray is from far away, rather than aliasing into sparkle.
+float LeafMask(float2 uv, float2 seed)
+{
+    float layer = floor(uv.y * 0.5);
+    float v = uv.y - 2.0 * layer;
+    float across = abs(v - 0.5) * 2.0;                     //0 on the rachis, 1 at the card's edge
+
+    float along = saturate((uv.x - LEAF_STALK) / (1.0 - LEAF_STALK));
+    //The spray's envelope: widest past the middle, closing to the tip and to the stalk
+    float envelope = sin(PI * saturate(along * 0.92 + 0.08)) * step(LEAF_STALK, uv.x);
+
+    float cell = along * LEAFLET_PAIRS;
+    float f = frac(cell) - 0.5;
+    float id = floor(cell);
+
+    //One leaflet each side of the rachis in every cell: an ellipse from the rachis out to the envelope
+    float halfLength = max(envelope * 0.5, 1e-3);
+    float lx = f / 0.42;
+    float ly = (across - halfLength) / halfLength;
+    float leaflet = 1.0 - (lx * lx + ly * ly);
+
+    //A few missing, as a real spray has them
+    float side = step(0.5, v);
+    leaflet -= 2.0 * step(0.88, LeafHash(seed + float2(id, side)));
+
+    float rachis = (MIDRIB_HALF - across) * 8.0 * step(0.0, uv.x - 0.02);
+    float fine = max(leaflet, rachis);
+
+    //The spray as one outline: the same envelope, filled
+    float coarse = envelope * 0.9 - across;
+
+    float blur = fwidth(cell);
+    return lerp(fine, coarse, smoothstep(0.35, 0.8, blur));
+}
+
 struct AcaciaVertexInput
 {
     float4 Position : POSITION0;
@@ -75,6 +135,7 @@ struct AcaciaVertexInput
     float4 World3 : TEXCOORD3;
     float4 World4 : TEXCOORD4;
     float4 Custom : TEXCOORD5;   //x: dryness 0..1 (towards DiffuseDry), y: brightness offset (-1..1 about 0)
+    float2 UV : TEXCOORD0;       //read by the leaf sprays alone (#610); every savanna mesh carries one
 };
 
 struct AcaciaVertexOutput
@@ -83,6 +144,8 @@ struct AcaciaVertexOutput
     float3 WorldPosition : TEXCOORD0;
     float3 WorldNormal : TEXCOORD1;
     float2 Tint : TEXCOORD2;
+    float2 UV : TEXCOORD3;
+    float2 Seed : TEXCOORD4;     //the instance's own place, so two trees do not lose the same leaflets
 };
 
 AcaciaVertexOutput AcaciaVS(AcaciaVertexInput input)
@@ -98,13 +161,29 @@ AcaciaVertexOutput AcaciaVS(AcaciaVertexInput input)
     //(a uniform scale leaves it only needing a re-normalize).
     output.WorldNormal = normalize(mul(input.Normal, (float3x3)world));
     output.Tint = input.Custom.xy;
+    output.UV = input.UV;
+    output.Seed = input.World4.xz;
 
     return output;
 }
 
-float4 AcaciaPS(AcaciaVertexOutput input) : COLOR
+float4 AcaciaPS(AcaciaVertexOutput input, bool front : SV_IsFrontFace) : COLOR
 {
     float3 N = normalize(input.WorldNormal);
+
+    //The leaf sprays (#610): cut out, turned to the side seen, and the deeper in the crown the darker the
+    //shade. Uniform branch: one side for every pixel of a draw, so the derivative inside LeafMask is taken
+    //by every pixel of a quad alike.
+    float layerShade = 1.0;
+    float leaf = 0.0;
+    [branch]
+    if (LeafStrength > 0.0)
+    {
+        clip(LeafMask(input.UV, input.Seed));
+        N = front ? N : -N;
+        layerShade = 1.0 - LAYER_AMBIENT_FALL * saturate(floor(input.UV.y * 0.5) * 0.5);
+        leaf = 1.0;
+    }
 
     //This instance's own shade of the draw's material: its dryness leans the colour towards the drier one,
     //its brightness offset lifts or lowers it, so a grove of one variant is not one green stamped out.
@@ -112,8 +191,8 @@ float4 AcaciaPS(AcaciaVertexOutput input) : COLOR
 
     //The scene's own light, matched to the terrain: a hemisphere ambient tinted zenith-to-horizon by the
     //normal's height, plus the sun's own diffuse.
-    float3 ambient = lerp(HorizonColor, ZenithColor, saturate(N.y * 0.5 + 0.5));
-    float ndotl = saturate(dot(N, SunDirection));
+    float3 ambient = lerp(HorizonColor, ZenithColor, saturate(N.y * 0.5 + 0.5)) * layerShade;
+    float ndotl = lerp(saturate(dot(N, SunDirection)), saturate((dot(N, SunDirection) + LEAF_WRAP) / (1.0 + LEAF_WRAP)), leaf);
 
     //The sun's cast shadow (#469): a trunk under its own crown, a boulder behind another, a tuft under a
     //tree - the sun term alone, the dome's ambient stays. Off the map (ShadowStrength 0) the branch is skipped.
@@ -123,6 +202,15 @@ float4 AcaciaPS(AcaciaVertexOutput input) : COLOR
         shadow = SunShadow(input.WorldPosition, N, SunDirection);
 
     float3 color = albedo * (ambient + SunColor * (ndotl * shadow));
+
+    //The sun THROUGH the leaves (#610): strongest looking straight towards the sun, yellow-green, and only where
+    //the sun reaches the leaf - the shadow map is the upper layers shading the lower ones
+    [branch]
+    if (LeafStrength > 0.0)
+    {
+        float towards = saturate(dot(normalize(input.WorldPosition - CameraPosition), SunDirection));
+        color += albedo * TRANSMISSION_TINT * SunColor * (TRANSMISSION_GAIN * pow(towards, TRANSMISSION_POWER) * shadow);
+    }
 
     //The canopy's leaf mottle: a 3D field of WORLD position, so a big canopy gets bigger clumps in the same
     //place every frame and neighbouring trees do not share a pattern. Zero on a trunk (DappleStrength 0).
@@ -169,6 +257,8 @@ struct ShadowVertexOutput
 {
     float4 Position : SV_POSITION;
     float Depth : TEXCOORD0;
+    float2 UV : TEXCOORD1;
+    float2 Seed : TEXCOORD2;
 };
 
 ShadowVertexOutput ShadowVS(AcaciaVertexInput input)
@@ -178,11 +268,18 @@ ShadowVertexOutput ShadowVS(AcaciaVertexInput input)
     float4 worldPosition = mul(input.Position, world);
     output.Position = mul(worldPosition, ShadowViewProjection);
     output.Depth = output.Position.z;
+    output.UV = input.UV;
+    output.Seed = input.World4.xz;
     return output;
 }
 
 float4 ShadowPS(ShadowVertexOutput input) : COLOR
 {
+    //The leaf sprays cast their leaflets, not their cards (#610): the dapple under the umbrella
+    [branch]
+    if (LeafStrength > 0.0)
+        clip(LeafMask(input.UV, input.Seed));
+
     return float4(input.Depth, 0.0, 0.0, 1.0);
 }
 

@@ -32,13 +32,28 @@ namespace Prazsky.Core.Render
         /// the most draws for the least silhouette and the first thing the Low tier can spare.</summary>
         public bool DetailOnly { get; }
 
+        /// <summary>
+        /// Drawn only BELOW full <see cref="SceneRenderer.SceneDetail"/> (#610) — the acacias' plate crowns, which
+        /// the Low tier keeps and every other tier replaces with <see cref="AcaciaMesh.Leaves"/>.
+        /// </summary>
+        public bool LowOnly { get; }
+
+        /// <summary>
+        /// 1 for leaf-spray cards (#610): <c>Acacia.fx</c> cuts the leaflets out of each card, shades both sides and
+        /// lets the sun through; drawn <c>CullNone</c>. 0 for every other mesh.
+        /// </summary>
+        public float Leaves { get; }
+
         /// <summary>The instances as planted, on the CPU — what <see cref="Instances"/> was uploaded from.</summary>
         public IReadOnlyList<ModelInstance> Placed { get; }
 
         internal ScatterBucket(GraphicsDevice device, IProceduralMesh mesh, List<ModelInstance> instances,
-            Vector3 diffuse, Vector3 diffuseDry, float dapple, float bark, bool detailOnly)
+            Vector3 diffuse, Vector3 diffuseDry, float dapple, float bark, bool detailOnly,
+            bool lowOnly = false, float leaves = 0f)
         {
             Mesh = mesh;
+            LowOnly = lowOnly;
+            Leaves = leaves;
             Count = instances.Count;
             Diffuse = diffuse;
             DiffuseDry = diffuseDry;
@@ -688,7 +703,13 @@ namespace Prazsky.Core.Render
                 if (treeInstances[m].Count == 0) continue;
                 AcaciaMesh tree = trees[m];
                 if (tree.Canopy != null)
-                    buckets.Add(new ScatterBucket(device, tree.Canopy, treeInstances[m], canopy, canopyDry, dapple: 0.6f, bark: 0f, detailOnly: false));
+                {
+                    //The plate for the Low tier, the leaf sprays for every other (#610) — the same instances
+                    buckets.Add(new ScatterBucket(device, tree.Canopy, treeInstances[m], canopy, canopyDry, dapple: 0.6f, bark: 0f,
+                        detailOnly: false, lowOnly: true));
+                    buckets.Add(new ScatterBucket(device, tree.Leaves, treeInstances[m], canopy, canopyDry, dapple: 0.35f, bark: 0f,
+                        detailOnly: true, leaves: 1f));
+                }
                 bool dead = tree.Kind == AcaciaKind.Dead;
                 buckets.Add(new ScatterBucket(device, tree.Wood, treeInstances[m], dead ? deadwood : trunk, dead ? deadwoodDry : trunk * 1.15f,
                     dapple: 0f, bark: 0.6f, detailOnly: false));

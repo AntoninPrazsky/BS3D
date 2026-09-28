@@ -50,6 +50,13 @@ namespace Prazsky.Core.Render
         /// <summary>Every tier of foliage in one mesh; <c>null</c> for a <see cref="AcaciaKind.Dead"/> tree.</summary>
         public IProceduralMesh Canopy { get; }
 
+        /// <summary>
+        /// The same tiers as <see cref="Canopy"/>, as leaf sprays rather than a plate (#610) — drawn instead of it
+        /// at scene detail, where <see cref="Canopy"/> is the Low tier's. <c>null</c> for a dead tree. See
+        /// <see cref="LeafSprays"/>.
+        /// </summary>
+        public IProceduralMesh Leaves { get; }
+
         public AcaciaMesh(GraphicsDevice device, AcaciaKind kind, float trunkRadius, float treeHeight, float canopyRadius, int seed)
         {
             Kind = kind;
@@ -120,6 +127,13 @@ namespace Prazsky.Core.Render
                 }
                 Canopy = new UploadedMesh(device, v, idx,
                     new BoundingSphere(new Vector3(0f, treeHeight * 0.85f, 0f), canopyRadius * 1.6f + treeHeight * 0.2f));
+
+                var lv = new List<VertexPositionNormalTexture>();
+                var lidx = new List<short>();
+                Random leafRng = new(seed * 37 + 11);
+                foreach (TierSpec tier in tiers)
+                    LeafSprays.Generate(lv, lidx, new Vector3(tier.Offset.X, tier.CentreY, tier.Offset.Y), tier.Radius, tier.HalfHeight, leafRng);
+                Leaves = new UploadedMesh(device, lv, lidx, Canopy.BoundingSphere);
             }
         }
 
@@ -127,6 +141,7 @@ namespace Prazsky.Core.Render
         {
             (Wood as IDisposable)?.Dispose();
             (Canopy as IDisposable)?.Dispose();
+            (Leaves as IDisposable)?.Dispose();
         }
 
         /// <summary>One flat plate of foliage: where it sits off the trunk's axis, its height, radius and thickness.</summary>
@@ -262,6 +277,84 @@ namespace Prazsky.Core.Render
     /// the deadwood logs and anything else built from sticks. Radial normals; wound clockwise seen from
     /// outside, MonoGame's front face. One copy since #451 (it was a private method of the acacia's wood).
     /// </summary>
+    /// <summary>
+    /// <b>An acacia's crown as leaf sprays</b> (#610): flat cards, each one spray of bipinnate leaves whose
+    /// leaflets <c>Acacia.fx</c> cuts out of it (<c>LeafStrength</c>), laid in the tier's disc in three layers —
+    /// the references (#610's, a crown seen from under it against the sun and a grove at eye level) show the
+    /// umbrella as thin flat tiers of fine foliage the sky shows through, denser on top and ragged beneath, never
+    /// the solid plate with a mottle the tier was. Two-sided, drawn <c>CullNone</c>; a card's normal is its
+    /// upper face's, and the shader turns it for the side it is seen from.
+    /// <para>
+    /// <b>The texture coordinate carries the card:</b> X along the spray from its stem (0) to its tip (1), Y across
+    /// it (0–1) plus twice the layer (0 on top, 1, 2 underneath), so the shader knows how deep in the crown a leaf
+    /// hangs without a per-vertex attribute of its own — every savanna mesh is already
+    /// <see cref="VertexPositionNormalTexture"/>.
+    /// </para>
+    /// </summary>
+    internal static class LeafSprays
+    {
+        //The three layers: height in the tier's half-thickness, the disc's reach, and the share of the disc the
+        //layer's cards cover (before the leaflets are cut out of them). Dense on top, a thinner layer under it,
+        //a ragged fringe beneath that droops at the rim.
+        private static readonly (float Y, float Reach, float Cover)[] LAYERS =
+        {
+            (0.45f, 1.00f, 2.10f),
+            (-0.05f, 0.92f, 1.30f),
+            (-0.55f, 0.80f, 0.70f),
+        };
+
+        //A spray's length as a share of the tier's radius, and its width against its length.
+        private const float SPRAY_LENGTH = 0.20f, SPRAY_ASPECT = 0.45f;
+
+        public static void Generate(List<VertexPositionNormalTexture> v, List<short> idx, Vector3 centre, float radius,
+            float halfHeight, Random rng)
+        {
+            for (int layer = 0; layer < LAYERS.Length; layer++)
+            {
+                (float layerY, float reach, float cover) = LAYERS[layer];
+                float length = radius * SPRAY_LENGTH;
+                float width = length * SPRAY_ASPECT;
+                float disc = MathF.PI * radius * reach * radius * reach;
+                int count = (int)(cover * disc / (length * width));
+
+                for (int i = 0; i < count; i++)
+                {
+                    //Uniform over the disc, and a ragged edge: the rim's sprays reach out or fall short
+                    float r = radius * reach * MathF.Sqrt((float)rng.NextDouble()) * (0.88f + 0.24f * (float)rng.NextDouble());
+                    float a = (float)rng.NextDouble() * MathHelper.TwoPi;
+                    float rim = r / radius;
+
+                    Vector3 at = centre + new Vector3(MathF.Cos(a) * r,
+                        halfHeight * (layerY + 0.35f * ((float)rng.NextDouble() - 0.5f)) - halfHeight * 0.5f * rim * rim,
+                        MathF.Sin(a) * r);
+
+                    //Laid near flat, pointing roughly outward, drooping at the rim and tilting a little at random
+                    float yaw = a + ((float)rng.NextDouble() - 0.5f) * 1.6f;
+                    Vector3 along = new(MathF.Cos(yaw), -0.25f * rim + 0.3f * ((float)rng.NextDouble() - 0.5f), MathF.Sin(yaw));
+                    along.Normalize();
+                    Vector3 across = Vector3.Normalize(Vector3.Cross(Vector3.Up, along));
+                    across = Vector3.Normalize(across + Vector3.Up * (0.8f * ((float)rng.NextDouble() - 0.5f)));
+                    Vector3 normal = Vector3.Normalize(Vector3.Cross(along, across));
+                    if (normal.Y < 0f) normal = -normal;
+
+                    float scale = 0.75f + 0.5f * (float)rng.NextDouble();
+                    Vector3 stem = at - along * (length * scale * 0.5f);
+                    Vector3 tip = at + along * (length * scale * 0.5f);
+                    Vector3 half = across * (width * scale * 0.5f);
+
+                    float layerCode = 2f * layer;
+                    short b = (short)v.Count;
+                    v.Add(new VertexPositionNormalTexture(stem - half, normal, new Vector2(0f, layerCode)));
+                    v.Add(new VertexPositionNormalTexture(stem + half, normal, new Vector2(0f, layerCode + 1f)));
+                    v.Add(new VertexPositionNormalTexture(tip + half, normal, new Vector2(1f, layerCode + 1f)));
+                    v.Add(new VertexPositionNormalTexture(tip - half, normal, new Vector2(1f, layerCode)));
+                    idx.Add(b); idx.Add((short)(b + 1)); idx.Add((short)(b + 2));
+                    idx.Add(b); idx.Add((short)(b + 2)); idx.Add((short)(b + 3));
+                }
+            }
+        }
+    }
+
     internal static class TubeGeometry
     {
         /// <summary>A straight tapered cylinder a(ra) → b(rb), side faces only.</summary>
