@@ -147,6 +147,9 @@ namespace BS3D.Screens
         //has (the aim, where the gun stands, the shots fired, a key, a button, the lean) rather than a second poll.
         private readonly BS3D.Effects.DozingGun _dozing = new();
 
+        //And #230's secret shot code (see SecretShotCode), fed from OnShotSpent and OnBallLanded
+        private readonly Prazsky.BS3D.Scoring.SecretShotCode _shotCode = new();
+
         //How far above the trunnions a snore's Z starts, in world units: clear of the barrel's own top
         private const float SNORE_LIFT = 1.4f;
         private Vector3 _dozeAim, _dozeStand;

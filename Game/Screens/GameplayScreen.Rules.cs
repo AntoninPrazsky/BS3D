@@ -47,6 +47,19 @@ namespace BS3D.Screens
         /// A shot has landed in the lattice, having cut <paramref name="landing"/>'s balls loose. Zero of all three means
         /// it stuck without doing anything, which the scorer treats as a spent shot.
         /// </summary>
+        /// <summary>
+        /// The secret shot code found (#230): a short fall of confetti and the popper's crack. Visual and audible
+        /// only, and never explained.
+        /// </summary>
+        private void CelebrateShotCode()
+        {
+            Game.Confetti?.Celebrate(SHOT_CODE_CONFETTI_SECONDS);
+            Game.Audio.PlayPartyPopper();
+        }
+
+        /// <summary>How long the secret code's confetti falls: a burst, not the campaign's minute-long ending.</summary>
+        private const float SHOT_CODE_CONFETTI_SECONDS = 5f;
+
         private void OnBallLanded(BallLanding landing)
         {
             //Not once the page is up. The simulation goes on running under it (#241), so a shot that was
@@ -59,6 +72,8 @@ namespace BS3D.Screens
             //The ball still sticks — the handler attached it before saying so, and a ball vanishing in front
             //of the player is the fault RemoveFallenBalls exists to avoid — it simply sticks in silence.
             if (LevelOver) return;
+
+            if (_shotCode.Record(landed: true)) CelebrateShotCode();
 
             //The landing's own sound, before anything is scored: it depends only on the colour that hit, what it
             //is MADE of (#314) and where — not on what came loose. Spoken from the cell it stuck to — the same
@@ -417,6 +432,7 @@ namespace BS3D.Screens
             if (LevelOver) return;
 
             _run.Score.Missed();
+            if (_shotCode.Record(landed: false)) CelebrateShotCode();
 
             //A MISS TICKS THE INFECTION TOO (#331), and the issue asks for that ruling to be stated rather
             //than fallen into. Two arguments and they agree. The first is the game's own precedent: the
