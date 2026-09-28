@@ -95,6 +95,15 @@ namespace BS3D.Effects
         public const int MIN_BALLS = 12;
 
         /// <summary>
+        /// The floor's other half (#615): a drop has to take at least this share of the balls the level
+        /// <b>started</b> with, as well as <see cref="MIN_BALLS"/>. Twelve is a big drop on a 250-ball level and a
+        /// small one on a 1600-ball level, so on its own it let the biggest levels treat every sizeable shot as a
+        /// spectacle; a share scales "big" with the level, as the record rule below already does, and needs no
+        /// per-level authoring. The absolute twelve still governs the small levels, where 5 % is fewer.
+        /// </summary>
+        public const float MIN_SHARE_OF_LEVEL = 0.05f;
+
+        /// <summary>
         /// How much a drop has to beat the level's biggest so far to earn a cinematic — the rest of the
         /// trigger, and the part that makes it rare.
         /// <para>
@@ -113,8 +122,16 @@ namespace BS3D.Effects
         /// firing on every one of them; the first qualifying drop of a level always fires, because there is
         /// no record to beat and one cinematic early is how the effect introduces itself.
         /// </para>
+        /// <para>
+        /// <b>Doubled, from 1.25, by the owner's playtest (#615): "it shows up too often".</b> A quarter was
+        /// beaten by an ordinary ascending run of drops (12, 15, 19, 24, 30 …). Measured on the lattice — all 130
+        /// campaign levels played to a clear by a greedy and a casual model, six deals each, the real match and
+        /// orphan rule — 12 and ×1.25 gave 2.0–2.1 cinematics a level before the clearing shot (up to 3.5);
+        /// <see cref="MIN_SHARE_OF_LEVEL"/> and ×2 give 1.2–1.3 (at most 2.2), with 0–2 % of levels showing none
+        /// before the clearing shot, which always has one (#424).
+        /// </para>
         /// </summary>
-        public const float MustBeatBestBy = 1.25f;
+        public const float MustBeatBestBy = 2f;
 
         //Wall-clock ceiling on one shot. It is a backstop rather than a pace: the game only culls at the
         //kill plane (see RemoveFallenBalls), and a ball can still come to rest short of it — rarely since
