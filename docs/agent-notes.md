@@ -6728,3 +6728,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 
 - **Beru #596.** `IntroPrologues.For` místo switche v `BS3DGame.Menu.cs`, `IntroPaths` pro zkopírované `Line`/`Rotate`/`KeepOver`/`DistanceToSegment`/`Lerp`. Ověření: výpis kontrolních bodů před/po se stejným seedem.
 - **Hotovo, na mainu:** `IntroPrologues.For(SceneKind, IntroContext)` a `IntroPaths`; 162 řádků pryč. Ověřeno dočasným výpisem hashů póz všech prologů (`sceneseed=1`, pevný `Random(1234)`): 20/20 shodných; bez `sceneseed` se hash města mění mezi běhy, takže výpis umí selhat. `DropCinematic` jsem nechal (není intro a bs3d-ea v něm právě pracuje).
+
+## 2026-09-28 — #633 Help › Balls: pět chybějících druhů — desktop, Claude Code (bs3d-a1)
+
+- **Beru #633.** Kyselina, zmrzlá, nakažlivá, gravitační a těžká koule do Help › Balls. Soubory: `HelpPage.cs`, `docs/game-shell.md`.
