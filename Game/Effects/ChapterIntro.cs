@@ -330,12 +330,21 @@ namespace BS3D.Effects
             _tailTargets[1] = _targets[3];
         }
 
+        /// <summary>The most one frame may advance the intro's clock (#645): a 20 fps frame; see <see cref="Update"/>.</summary>
+        private const float MAX_INTRO_STEP = 0.05f;
+
         /// <summary>One frame. Call every frame regardless of <see cref="Engaged"/>; a no-op once it is not.</summary>
         public void Update(float elapsed)
         {
             if (_running)
             {
-                _elapsed += elapsed;
+                //⚠ AT MOST A FEW FRAMES' WORTH OF FLIGHT A FRAME (#645). The intro starts on a frame that has just
+                //built a level or turned the lens onto a scene seen for the first time, and the first two frames of
+                //the mountains' tour took 113 and 108 ms: stepped by the wall clock, the shot jumped a tenth of a
+                //second of its motion twice before it had even begun. A hitch now stalls the flight instead of
+                //skipping it, which the eye reads as a hold rather than a jerk; any machine that keeps up (a frame
+                //under MAX_INTRO_STEP) is stepped exactly by the clock, so the timing is the hardware's own.
+                _elapsed += MathF.Min(elapsed, MAX_INTRO_STEP);
 
                 if (_elapsed >= TotalSeconds) End();
             }
