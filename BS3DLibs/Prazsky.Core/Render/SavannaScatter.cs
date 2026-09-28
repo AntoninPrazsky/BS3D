@@ -748,7 +748,7 @@ namespace Prazsky.Core.Render
             //The bank the island sits in (#608): dry grass over packed earth, one instance where it was built
             var bermAt = new List<ModelInstance> { new(Matrix.Identity, new Vector4(0.3f, 0f, 0f, 0f)) };
             IProceduralMesh bermEarth = Own(IslandBerm.Build(device, terrainHeight, seed, 0, IslandBerm.EARTH_TO));
-            IProceduralMesh bermTurf = Own(IslandBerm.Build(device, terrainHeight, seed, IslandBerm.EARTH_TO, 4));
+            IProceduralMesh bermTurf = Own(IslandBerm.Build(device, terrainHeight, seed, IslandBerm.EARTH_TO, IslandBerm.RINGS - 1));
             buckets.Add(new ScatterBucket(device, bermEarth, bermAt, config.GrassBare.ToVector3(), config.GrassBare.ToVector3() * 1.2f,
                 dapple: 0.6f, bark: 0f, detailOnly: false));
             buckets.Add(new ScatterBucket(device, bermTurf, bermAt, config.GrassDry.ToVector3(), config.GrassDry.ToVector3() * 1.1f,

@@ -6856,3 +6856,4 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-28 — #608 šev ostrova v lese a na horách — desktop, Claude Code (bs3d-a1)
 
 - **Beru zbytek #608**: `IslandBerm` do lesa (dřevo kreslí `ForestScatterRenderer` v hostitelích) a na hory. Soubory: `ForestScatterRenderer.cs`, mountain backdrop, `IslandBerm.cs`.
+- **Na mainu:** les a hory mají val taky — `IslandBermPlanting` (dvě meshe + kameny) kreslený přes nový `PlantPass` (vytažený z `MeadowBackdrop`, louka ho používá taky). Les: opad do mechu nad tmavou hlínou; ⚠ mechově zelený drn byl jasný prstenec — barva naladěna na podlahu v záběru z issue (±4 sRGB). Hory: závěj sněhu nad pruhem suti, kameny.

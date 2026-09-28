@@ -38,6 +38,9 @@ namespace Prazsky.Core.Render
         /// </summary>
         public const int EARTH_TO = 2;
 
+        /// <summary>The rings of <see cref="SECTION"/>: the cover spans <see cref="EARTH_TO"/> to <c>RINGS - 1</c>.</summary>
+        public static int RINGS => SECTION.Length;
+
         private const int SEGMENTS = 128;
 
         /// <summary>The island's foot, where the drum meets the ground it was built to stand on.</summary>

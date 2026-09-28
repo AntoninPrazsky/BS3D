@@ -262,7 +262,7 @@ namespace Prazsky.Core.Render
             //--- The bank the island sits in (#608): turf over earth round the foot, a few stones set into it and
             //longer grass along its edge, so the stone meets the field as a place and not as a disc laid on it
             IProceduralMesh bermEarth = Own(IslandBerm.Build(device, height, seed, 0, IslandBerm.EARTH_TO));
-            IProceduralMesh bermTurf = Own(IslandBerm.Build(device, height, seed, IslandBerm.EARTH_TO, 4));
+            IProceduralMesh bermTurf = Own(IslandBerm.Build(device, height, seed, IslandBerm.EARTH_TO, IslandBerm.RINGS - 1));
             for (int i = 0; i < BERM_STONES; i++)
             {
                 float a = (float)rng.NextDouble() * MathHelper.TwoPi;
