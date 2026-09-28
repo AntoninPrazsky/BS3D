@@ -101,6 +101,19 @@ namespace Prazsky.Core.Render
 
         /// <summary>The scattered wildflowers.</summary>
         public FlowersConfig Flowers { get; set; } = new();
+
+        /// <summary>
+        /// The footpath's bearing out of the clearing, in radians round the arena (atan2 of z and x) (#609). Behind
+        /// the cluster from the play camera, which stands on +Z looking at the arena, so the path is what the
+        /// player looks past.
+        /// </summary>
+        public float PathBearing { get; set; } = -1.25f;
+
+        /// <summary>The trodden width of the footpath, in world units (its verge of worn grass is as wide again).</summary>
+        public float PathWidth { get; set; } = 1.2f;
+
+        /// <summary>How far the footpath wanders either side of its bearing, in world units.</summary>
+        public float PathMeander { get; set; } = 14f;
     }
 
     /// <summary>

@@ -74,8 +74,7 @@ namespace Prazsky.Core.Render
             _plantTechnique = _plantEffect.Techniques["Acacia"];
             _plantShadowTechnique = _plantEffect.Techniques["ShadowCaster"];
 
-            _scatter = new MeadowScatter(_graphicsDevice, (x, z) => TerrainMirror.Meadow(x, z, _meadowConfig),
-                MeadowScatter.DEFAULT_SEED + Services.SeedOffset);
+            _scatter = new MeadowScatter(_graphicsDevice, _meadowConfig, MeadowScatter.DEFAULT_SEED + Services.SeedOffset);
         }
 
         /// <inheritdoc/>
@@ -121,6 +120,9 @@ namespace Prazsky.Core.Render
             _meadowEffect.Parameters["FlowerDensity"].SetValue(_meadowConfig.Flowers.Density);
             _meadowEffect.Parameters["FlowerSpacing"].SetValue(_meadowConfig.Flowers.Spacing);
             _meadowEffect.Parameters["FlowerSize"].SetValue(_meadowConfig.Flowers.Size);
+            _meadowEffect.Parameters["PathBearing"].SetValue(_meadowConfig.PathBearing);
+            _meadowEffect.Parameters["PathWidth"].SetValue(_meadowConfig.PathWidth);
+            _meadowEffect.Parameters["PathMeander"].SetValue(_meadowConfig.PathMeander);
         }
 
         /// <inheritdoc/>
