@@ -93,11 +93,20 @@ namespace BS3D.Effects
 
             //Along the travel: the point a look-ahead further on, or on past the end in the last leg's own
             //direction, so the final frames do not swing to face a point the lens is about to overtake.
+            //
+            //⚠ PAST THE END THE POINT IS EXTRAPOLATED, NOT REPLACED (#645). It was the last leg's direction
+            //itself, which is where the point at the end would have been looked AT only if the lens were on that
+            //leg — so on the frame the look-ahead crossed the end the view swung from "towards the path's end" to
+            //"along its last segment" in one step. Wherever a path bends near its end that is a jerk: on the
+            //mountains' terrain-hugging pass the look-at jumped 0.34 units in height in one frame against 0.016 in
+            //its neighbours (140 degrees a second for one frame). Carried on along the last leg by the distance it
+            //overshoots, the point is the path's own end on the crossing frame, and moves smoothly after it.
             float spacing = Vector3.Distance(_path[0], _path[1]);
-            float ahead = eased + _lookAhead / MathF.Max(spacing * (_path.Length - 1), 1e-3f);
+            float length = MathF.Max(spacing * (_path.Length - 1), 1e-3f);
+            float ahead = eased + _lookAhead / length;
             Vector3 forward = ahead <= 1f
                 ? At(_path, ahead) - position
-                : _path[^1] - _path[^2];
+                : _path[^1] + SafeNormalize(_path[^1] - _path[^2]) * ((ahead - 1f) * length) - position;
 
             if (forward.LengthSquared() < 1e-6f) forward = _path[^1] - _path[0];
             forward.Normalize();
@@ -114,13 +123,22 @@ namespace BS3D.Effects
             target = position + forward * 10f;
         }
 
-        //A polyline at s (0–1 of its length); the points are evenly spaced, so index space is length space.
+        private static Vector3 SafeNormalize(Vector3 v) => v.LengthSquared() > 1e-12f ? Vector3.Normalize(v) : Vector3.Zero;
+
+        //A path at s (0–1 of its length); the points are evenly spaced, so index space is length space.
+        //
+        //⚠ THROUGH the points on a Catmull-Rom, not along the polyline between them (#645). Linear, the lens
+        //changed velocity at every point — invisible on a straight line, a judder on a path bent to hug terrain:
+        //on the mountains' pass at 36 units a second the view turned at 5 and 15 degrees a second on alternate
+        //frames, one kink per vertex. A Catmull-Rom passes through the same points with a continuous velocity,
+        //so every shot keeps its course and loses its corners.
         private static Vector3 At(Vector3[] path, float s)
         {
             float index = MathHelper.Clamp(s, 0f, 1f) * (path.Length - 1);
             int i = Math.Min((int)index, path.Length - 2);
 
-            return Vector3.Lerp(path[i], path[i + 1], index - i);
+            return Vector3.CatmullRom(path[Math.Max(i - 1, 0)], path[i], path[i + 1],
+                path[Math.Min(i + 2, path.Length - 1)], index - i);
         }
     }
 }
