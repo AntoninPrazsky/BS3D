@@ -1056,7 +1056,36 @@ namespace Prazsky.BS3D.GameObjects
         public Vector3 DrawnMuzzlePosition(float pivotToFrontBall) =>
             //The bore-axis offsets summed as scalars first (one normalize, one scale); the carriage's shove
             //is along a different axis and has to come in as the vector it is
-            Position + AimDirection * (pivotToFrontBall - BarrelRecoilBack) + CarriageRecoilOffset();
+            Position + DrawnAimDirection() * (pivotToFrontBall - BarrelRecoilBack) + CarriageRecoilOffset();
+
+        /// <summary>
+        /// How far the barrel is <b>drawn</b> below its aim, in radians — the gun nodding off when nobody has touched
+        /// it for a long while (#230's sleeping cannon, <c>DozingGun</c> in the Game). Drawing only, like the recoil:
+        /// <see cref="BarrelWorld"/>, <see cref="BarrelOrientation"/> and <see cref="DrawnMuzzlePosition"/> take it,
+        /// and <see cref="AimDirection"/> and <see cref="MuzzlePosition"/> — everything that decides where a shot goes
+        /// — do not. Zero, the default and all the Testbed ever sets, draws exactly what it always drew.
+        /// </summary>
+        public float Droop { get; set; }
+
+        /// <summary>
+        /// The bore as drawn: <see cref="AimDirection"/> lowered by <see cref="Droop"/> about the horizontal axis
+        /// across it, so a nodding barrel dips in its own vertical plane rather than swinging aside.
+        /// </summary>
+        private Vector3 DrawnAimDirection()
+        {
+            Vector3 aim = AimDirection;
+            if (Droop == 0f) return aim;
+
+            //The trunnions' axis: across the bore and level. The bore is clamped well off vertical
+            //(MinElevation/MaxElevation), so the cross product never vanishes; the guard is for a pose that
+            //has not been aimed yet.
+            Vector3 across = Vector3.Cross(aim, Vector3.Up);
+            float length = across.Length();
+            if (length < 1e-4f) return aim;
+
+            //Negative, because a positive turn about aim x up lifts the muzzle
+            return Vector3.Transform(aim, Quaternion.CreateFromAxisAngle(across / length, -Droop));
+        }
 
         /// <summary>
         /// The barrel's orientation: forward down the aim, with the magazine slot (the mesh's local +Y) pinned
@@ -1078,7 +1107,7 @@ namespace Prazsky.BS3D.GameObjects
         /// them, and the eye reads that mismatch as each ball twisting in its slot.
         /// </para>
         /// </summary>
-        public Matrix BarrelOrientation() => Matrix.CreateWorld(Vector3.Zero, AimDirection, Vector3.Up);
+        public Matrix BarrelOrientation() => Matrix.CreateWorld(Vector3.Zero, DrawnAimDirection(), Vector3.Up);
 
         /// <summary>
         /// The matrix the carriage is drawn with: seated on the stone under the trunnions and yawed to the
@@ -1163,7 +1192,7 @@ namespace Prazsky.BS3D.GameObjects
         /// </summary>
         public Matrix BarrelWorld()
         {
-            Vector3 aim = AimDirection;
+            Vector3 aim = DrawnAimDirection();
 
             //The tube's own slide in the cradle, back along the bore — and under it the whole gun's shove,
             //back along the carriage's heading: the tube rides its carriage (#115), so the pins the cheeks

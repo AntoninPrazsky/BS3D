@@ -845,8 +845,11 @@ namespace BS3D.Screens
         /// magazine — so the player can read, under the result page, what beat them. The score, the streak,
         /// balls left, the tutorial and the awards are the play's running account, which the page restates.
         /// </param>
+        /// <param name="snores">The sleeping gun's letters in the air (#230), drawn over the arena under the corner
+        /// readouts. Empty on every frame but a nap.</param>
         internal void Draw(ScoreKeeper score, ICamera camera, in ClusterProfile profile, ReadOnlySpan<BallMarker> balls,
-            ReadOnlySpan<BallType> queue, Tutorial tutorial, bool previewsOnly = false)
+            ReadOnlySpan<BallType> queue, Tutorial tutorial, bool previewsOnly = false,
+            ReadOnlySpan<BS3D.Effects.DozingGun.Z> snores = default)
         {
             _game.EnsureHudFonts();
 
@@ -855,6 +858,9 @@ namespace BS3D.Screens
 
             SpriteBatch batch = _game.OverlayBatch;
             batch.Begin();
+
+            //The sleeping gun's Zs (#230), first of all: they belong to the arena, so every readout passes over them
+            DrawSnores(camera, viewport, snores);
 
             //The side cut, drawn first so the corner readouts and any incoming award pass over it rather than
             //under it — the same reason DrawAwards is last in this block.
@@ -1277,6 +1283,40 @@ namespace BS3D.Screens
                 corner + new Vector2(size.X + gap, (height - suffixSize.Y) * 0.5f) * scale,
                 HUD_ACCENT * alpha, scale, shadow);
         }
+
+        /// <summary>
+        /// The sleeping gun's letters (#230): each a Z out of the muzzle, climbing and wandering a little aside,
+        /// growing as it goes and fading at both ends of its life — the cartoon convention, which is the point. In the
+        /// popup's font and the menu's white, projected like a popup, and skipped when behind the lens.
+        /// </summary>
+        private void DrawSnores(ICamera camera, Viewport viewport, ReadOnlySpan<BS3D.Effects.DozingGun.Z> snores)
+        {
+            if (snores.IsEmpty) return;
+
+            Matrix view = camera.View;
+            Vector3 right = new(view.M11, view.M21, view.M31);
+            SpriteFontBase font = _game.HudFontPopup;
+
+            for (int i = 0; i < snores.Length; i++)
+            {
+                if (!snores[i].Live) continue;
+
+                Vector3 projected = viewport.Project(snores[i].Position(right), camera.Projection, view, Matrix.Identity);
+                if (projected.Z < 0f || projected.Z > 1f) continue;
+
+                float t = snores[i].Age / BS3D.Effects.DozingGun.Z_LIFE;
+                float alpha = MathHelper.Clamp(t / 0.15f, 0f, 1f) * MathHelper.Clamp((1f - t) / 0.35f, 0f, 1f);
+                float scale = SNORE_SCALE_FROM + (SNORE_SCALE_TO - SNORE_SCALE_FROM) * t;
+
+                Vector2 size = font.MeasureString("Z") * scale;
+                DrawString(font, "Z", new Vector2(projected.X, projected.Y) - size * 0.5f,
+                    BS3DGame.MENU_TEXT * (alpha * SNORE_ALPHA), scale, shadow: true);
+            }
+        }
+
+        //How big a Z is when it leaves the muzzle and when it has climbed away, as a fraction of the popup font, and
+        //how opaque it gets: a whisper next to the score, since nobody is playing while it shows
+        private const float SNORE_SCALE_FROM = 1.1f, SNORE_SCALE_TO = 2.2f, SNORE_ALPHA = 0.9f;
 
         private static bool TryProject(ICamera camera, Viewport viewport, in Popup popup, out Vector2 screen)
         {

@@ -164,6 +164,7 @@ namespace BS3D.Audio
         private readonly SoundEffect _fireworkLaunch;
         private readonly SoundEffect _fireworkBurst;
         private readonly SoundEffect _partyPopper;
+        private readonly SoundEffect _snore;
         private readonly SoundEffect _uiClick;
         private readonly SoundEffect _starEarned;
 
@@ -326,6 +327,7 @@ namespace BS3D.Audio
             _fireworkBurst = FromSfxOrBake("firework-burst", BakeFireworkBurst, targetRms: BURST_TARGET_RMS, ceiling: 0.99f,
                 prepare: SoftenReport);
             _partyPopper = BakePartyPopper();
+            _snore = BakeSnore();
             _uiClick = BakeUiClick();
             _shotRefused = BakeShotRefused();
             _starEarned = BakeStarEarned();
@@ -591,6 +593,21 @@ namespace BS3D.Audio
         {
             _partyPopper.Play(0.9f * Level * NON_SPATIAL_TRIM, NextPitch(0.08f), 0f);
         }
+
+        /// <summary>
+        /// One breath of the sleeping gun (#230): a soft snore on the way in and a sigh on the way out, once a breath
+        /// while nobody touches the level. Unplaced — the gun is in front of the lens, and a nap has no direction
+        /// worth hearing. Quiet on purpose, well under a landing: it repeats every few seconds for as long as the
+        /// player is away, which makes it a sustained layer rather than an event, and those are the sounds that
+        /// grate first when they are pitched like one.
+        /// </summary>
+        public void PlaySnore()
+        {
+            _snore.Play(SNORE_LEVEL * Level * NON_SPATIAL_TRIM, NextPitch(0.06f), 0f);
+        }
+
+        /// <summary>How loud a snore plays, against the party popper's 0.9 — see <see cref="PlaySnore"/>.</summary>
+        private const float SNORE_LEVEL = 0.22f;
 
         /// <summary>
         /// A strike's thunder, <paramref name="distance"/> world units away and <paramref name="size"/> (0…1)
@@ -1947,6 +1964,40 @@ namespace BS3D.Audio
         /// Deliberately close and dry where the shells are big and wet — it is the one sound in the celebration
         /// that happens in the room rather than in the sky, which is what makes the shells read as distant.
         /// </summary>
+        /// <summary>
+        /// The snore (#230): 2.6 s of breath. In — low band-passed noise fluttered at ~28 Hz, which is what a soft
+        /// palate does and what makes a snore a snore rather than wind, swelling over most of a second and cut off
+        /// short; out — a higher, smoother sigh, half as loud, falling away. The two are the cartoon's rhythm, and
+        /// the flutter is the one part of it that has to be there.
+        /// </summary>
+        private SoundEffect BakeSnore()
+        {
+            const float duration = 2.6f;
+            int samples = (int)(SAMPLE_RATE * duration);
+            float[] signal = new float[samples];
+
+            float[] rasp = BandPass(MakeNoiseArray(samples, seed: 230), 110f, 700f);
+            float[] sigh = BandPass(MakeNoiseArray(samples, seed: 231), 450f, 1800f);
+
+            for (int i = 0; i < samples; i++)
+            {
+                float t = (float)i / SAMPLE_RATE;
+
+                //In: up over 0.9 s, held, and gone by 1.25 s — a snore ends on a catch rather than a fade
+                float inhale = MathHelper.Clamp(t / 0.9f, 0f, 1f) * MathHelper.Clamp((1.25f - t) / 0.12f, 0f, 1f);
+                float flutter = 0.55f + 0.45f * MathF.Sin(2f * MathF.PI * 28f * t);
+                signal[i] += rasp[i] * inhale * inhale * flutter;
+
+                //Out: from 1.35 s, a quick rise and a long fall
+                float u = t - 1.35f;
+                if (u > 0f)
+                    signal[i] += sigh[i] * 0.5f * MathHelper.Clamp(u / 0.15f, 0f, 1f) * MathF.Exp(-u * 2.2f);
+            }
+
+            Loudness(signal, targetRms: 0.12f, ceiling: 0.9f);
+            return ToSoundEffect(signal);
+        }
+
         private SoundEffect BakePartyPopper()
         {
             const float duration = 0.55f;
@@ -2614,6 +2665,7 @@ namespace BS3D.Audio
             _fireworkLaunch?.Dispose();
             _fireworkBurst?.Dispose();
             _partyPopper?.Dispose();
+            _snore?.Dispose();
             _uiClick?.Dispose();
             _shotRefused?.Dispose();
             _starEarned?.Dispose();

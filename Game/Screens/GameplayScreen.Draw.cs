@@ -207,6 +207,10 @@ namespace BS3D.Screens
             tint = Vector3.Lerp(tint, Crosshair.WARNING.ToVector3(), strain);
             opacity *= Crosshair.StrainBrightness(strain, WallClock);
 
+            //And gone while the gun sleeps (#230): the beam leaves along the true aim, and a barrel sagging below
+            //it with a line of light running out above its muzzle reads as a fault rather than as a nap
+            opacity *= _dozing.Awake;
+
             //THE BEAM FOLLOWS THE FLIGHT (#332), which on a level with no wells is one segment and exactly what
             //it always was. A shot bent by a well reaches a contact the straight line between muzzle and contact
             //does NOT pass through, so a single straight beam would be telling the truth about where the shot
