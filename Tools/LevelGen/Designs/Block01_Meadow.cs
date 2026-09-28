@@ -12,6 +12,122 @@ namespace BS3D.Tools.LevelGen
     /// </summary>
     internal static partial class Program
     {
+        #region The flat opening (#603)
+
+        //THE CAMPAIGN OPENS FLAT (#603), on the owner's playtest: "start the game simply, so the player likes it at
+        //once" - the first levels are sheets hanging in one plane, playable from the stand the gun is given, and
+        //the third dimension arrives after them, at One (the pyramid the campaign used to open on, now the first
+        //level whose far side has to be walked round to). The measurement behind it: One's landings were 35 %
+        //from the opening stance and 64 % behind a walk (LevelGen --arrival), so a first level nobody had yet been
+        //taught A/D on could not be finished without it.
+        //
+        //A sheet is Picture()'s wall - two cells thick, rows squashed to 71 %, the drawing's own outline as the
+        //wall's (PICTURE_EMPTY outside it) - but with NO background check: the Gallery's check is the difficulty of
+        //a dozen small groups, and an opening wants a few big ones, as One's three walls are. So every band here
+        //is drawn to REACH THE TOP COURSE, which is the rule the check stands in for: a band that only hangs off
+        //another colour is taken with it, and the drop test refuses a sheet whose first match drops the rest.
+        //
+        //Each carries Design.ClearFromStance, the gate this chapter's promise needs: the level has to be
+        //cleared with every landing a straight shot from the opening stance can reach (ClearProbe over
+        //ArrivalProbe's station 0), or LevelGen refuses it.
+
+        /// <summary>The width every flat opener is drawn at, and the field it hangs in (a clear column each side).</summary>
+        private const int FLAT_WIDTH = 15;
+        private const byte FLAT_GRID = 17;
+
+        /// <summary>
+        /// A flat opener: <paramref name="bitmap"/> drawn by <see cref="Picture"/> in the meadow's scene, music and
+        /// balls, promising to be cleared from the opening stance.
+        /// </summary>
+        private static Design FlatOpener(string file, string name, int shots, int ceilingStep, string[] bitmap,
+            BallType[] inks)
+        {
+            //The background palette is never read - no bitmap here has a '.' in it - but Picture() is the one
+            //place a sheet is drawn, and it asks for one.
+            Design design = Picture(file, name, SceneKind.Meadow, sky: 1, MUSIC_RINGS, shots, ceilingStep, bitmap,
+                FLAT_GRID, inks, inks);
+            design.Balls = BALLS_MEADOW;
+            design.ClearFromStance = true;
+            return design;
+        }
+
+        /// <summary>
+        /// Draws a sheet from a rule: <paramref name="inside"/> says whether (column, row) is on it and
+        /// <paramref name="band"/> which of three inks it takes. Row 0 is the top course, as in every bitmap here.
+        /// </summary>
+        private static string[] FlatBitmap(int rows, Func<int, int, bool> inside, Func<int, int, int> band)
+        {
+            string[] bitmap = new string[rows];
+            char[] line = new char[FLAT_WIDTH];
+
+            for (int row = 0; row < rows; row++)
+            {
+                for (int column = 0; column < FLAT_WIDTH; column++)
+                    line[column] = inside(column, row) ? SYMBOL_INK[band(column, row) % 3] : PICTURE_EMPTY;
+                bitmap[row] = new string(line);
+            }
+
+            return bitmap;
+        }
+
+        /// <summary>
+        /// <b>The campaign's first level: One's pyramid, flat</b> — the owner's own words, "the first level stays an
+        /// inverted pyramid, but only flat, like a sheet". An inverted triangle fifteen wide, narrowing a column a
+        /// side every two rows to a point, in One's three colours on One's rule: a shell a colour, a step round the
+        /// palette each shell in. On a sheet a shell is a chevron two cells wide, and every one of them reaches the
+        /// top course at both its ends, so none hangs off another.
+        /// </summary>
+        private static Design Pennant() => FlatOpener("Pennant.json", "Pennant", shots: 30, ceilingStep: 6, PENNANT,
+            new[] { BallType.Type1, BallType.Type2, BallType.Type3 });
+
+        private static readonly string[] PENNANT = FlatBitmap(14,
+            (c, r) => c >= r / 2 && c <= FLAT_WIDTH - 1 - r / 2,
+            (c, r) => Math.Min(c - r / 2, FLAT_WIDTH - 1 - r / 2 - c) / 2);
+
+        /// <summary>
+        /// <b>The second: upright stripes that zigzag</b>, on a shield — fifteen columns for eight rows, then
+        /// closing a column a side a row to a point. Three colours in bands three columns wide, each shifted a column left and
+        /// right every two rows, so the wall reads as woven rather than ruled; and a stripe is a column of the wall,
+        /// so every one of them hangs from the glass by its own top.
+        /// </summary>
+        private static Design Zigzag() => FlatOpener("Zigzag.json", "Zigzag", shots: 30, ceilingStep: 6, ZIGZAG,
+            new[] { BallType.Type1, BallType.Type4, BallType.Type7 });
+
+        private static readonly string[] ZIGZAG = FlatBitmap(14,
+            (c, r) => r < 8 || (c >= (r - 7) && c <= FLAT_WIDTH - 1 - (r - 7)),
+            (c, r) => (c + ((r / 2) % 2 == 0 ? 0 : 1)) / 3);
+
+        /// <summary>
+        /// <b>The third: a rainbow hung upside down</b> — a half ring whose two ends are the top course, cut across
+        /// into five arcs of colour round its middle. Only the two end arcs touch the glass; the three between hang
+        /// off their neighbours, so this is the opening's first level where a match takes something with it that it
+        /// was holding up — both ends shot, the whole bow falls.
+        /// </summary>
+        private static Design Rainbow() => FlatOpener("Rainbow.json", "Rainbow", shots: 30, ceilingStep: 6, RAINBOW,
+            new[] { BallType.Type3, BallType.Type7, BallType.Type2 });
+
+        private static readonly string[] RAINBOW = FlatBitmap(14, RainbowInside, RainbowArc);
+
+        //Distance from the middle of the top course in COLUMNS, the rows stretched back to the 71 % they are drawn
+        //squashed to, so the ring comes out round rather than tall
+        private static float RainbowRadius(int c, int r) =>
+            MathF.Sqrt((c - (FLAT_WIDTH - 1) * 0.5f) * (c - (FLAT_WIDTH - 1) * 0.5f) + (r * 0.7071f) * (r * 0.7071f));
+
+        private static bool RainbowInside(int c, int r)
+        {
+            float radius = RainbowRadius(c, r);
+            return radius <= 7.6f && radius >= 2.6f;
+        }
+
+        //Which of the five arcs, by the angle round the middle of the top course: 0 along the top to the right, pi
+        //to the left
+        private static int RainbowArc(int c, int r)
+        {
+            float angle = MathF.Atan2(r * 0.7071f, c - (FLAT_WIDTH - 1) * 0.5f);
+            return Math.Min((int)(angle / (MathF.PI / 5f)), 4);
+        }
+
+        #endregion
 
         /// <summary>
         /// The campaign's opener: a <b>perfect</b> pyramid — a centred square course against the glass, one
