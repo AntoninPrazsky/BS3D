@@ -6841,6 +6841,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-28 — #608 šev ostrova na louce a savaně — desktop, Claude Code (bs3d-a1)
 
 - **Beru #608.** Val hlíny a drnu kolem paty ostrova (geometrie, výšky ze zrcadla terénu), kameny a trsy na něm; louka a savana (stejný systém buketů), les a hory potom. Soubory: nový `IslandBerm.cs`, `MeadowScatter.cs`, `SavannaScatter.cs`.
+- **Na mainu:** `IslandBerm` na louce a savaně (hliněný pás u bubnu + drn v barvě trávy scény). ⚠ Jedna barva pro celý val vypadala jako rohožka — proto dvě meshe. Les a hory nehotové (les kreslí hostitel přes `ForestScatterRenderer`).
 
 ## 2026-09-28 — #230 Konami kód v menu — notebook, Claude Code (github-74)
 
@@ -6851,4 +6852,3 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-28 — #230 narozeniny hry (kalendářní vajíčko) — notebook, Claude Code (github-74)
 
 - **Beru z #230 „kalendářní překvapení“, jen kosmeticky** (podle dělicí čáry z komentáře k #230): 30. prosince (první commit repozitáře 2019-12-30 = narozeniny hry) nosí dělo v každém levelu párty čepici a v hlavním menu 3D nápis občas zatančí (tanec z Konami kódu) a spadnou konfety. Na fyziku, pravidla ani skóre nesahá. Páka `birthday` pro snímky. Soubory: nový `Game/Effects/PartyHat.cs`, `CannonRig`/`CannonMesh` (jen poloha základního prstence), `GameplayScreen` (kreslení), `BS3DGame` (datum, menu), `LaunchOptions`, `docs/game-feedback.md`.
-- **Na mainu:** `IslandBerm` na louce a savaně (hliněný pás u bubnu + drn v barvě trávy scény). ⚠ Jedna barva pro celý val vypadala jako rohožka — proto dvě meshe. Les a hory nehotové (les kreslí hostitel přes `ForestScatterRenderer`).
