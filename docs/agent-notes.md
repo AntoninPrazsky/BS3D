@@ -6679,3 +6679,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 - **Změřeno párově (starý/nový build, `seed=1`, dočasná trasa po snímcích):** skoky subjektu nahoru >0,1/snímek Pinwheel 5 → 0, Bullseye 3 → 0; nejvyšší rychlost subjektu Pinwheel 16,8 → 6,2 j/s. Příčinou skoků byly koule propadlé dírou k rovině zániku (pevná scéna), ne přepad přes okraj.
 - ⚠ **Přepad přes okraj skriptem NEREPRODUKOVÁN:** 12 cinematic na 8 levelech (i 117 koulí z bomby v Sillu) — žádná koule dál než 13,3 od osy (ústí 14). Pokryto jen testem; oko je na majiteli.
 - ⚠ Vedlejší nález (není #616): v pevných scénách má objektiv zlom zrychlení (~1200–1600 j/s²) při nástupu sevření kuželem ústí (`KeepBallsInSight`), stejně před i po.
+
+## 2026-09-28 — #615 kamera pádu příliš často — desktop, Claude Code (bs3d-ea)
+
+- **Beru #615.** Počty cinematic na level spočítat pro dnešní pravidlo a kandidáty, pak zvednout laťku.
