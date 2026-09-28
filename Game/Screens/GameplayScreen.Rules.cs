@@ -278,10 +278,14 @@ namespace BS3D.Screens
             //it was; and only when something fell, since a subject of nothing has no centre to frame.
             bool clearsLevel = total > 0 && _map.GetRemovableBallsCount() == 0;
 
-            //Otherwise: big enough to be a spectacle at all, and bigger than anything this level has already
-            //shown the player — see DropCinematic.MustBeatBestBy for why the second half cannot be a fixed count.
+            //Otherwise: big enough to be a spectacle at all — for this level's size, not only in balls (#615) —
+            //and bigger than anything this level has already shown the player; see DropCinematic.MustBeatBestBy
+            //for why the second half cannot be a fixed count.
+            int floor = Math.Max(DropCinematic.MIN_BALLS,
+                (int)MathF.Ceiling(_run.InitialBallCount * DropCinematic.MIN_SHARE_OF_LEVEL));
+
             bool worthWatching = clearsLevel
-                                 || (total >= DropCinematic.MIN_BALLS
+                                 || (total >= floor
                                      && total >= _run.BiggestDrop * DropCinematic.MustBeatBestBy);
 
             //Raised by every release, including the ones refused below: a collapse the player watched happen
