@@ -6788,6 +6788,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-28 — #610 detail akácií a baobabů na savaně — desktop, Claude Code (bs3d-a1)
 
 - **Beru #610.** Reference (oba modely), pak koruna akácie z lístků + prosvítání, kůra, baobab; podle tieru. Soubory: `AcaciaMesh.cs`, `BaobabMesh.cs`, `Acacia.fx`, `SavannaScatter.cs`. Nesahám na ohně (#641, bs3d-ea).
+- **Na mainu:** baobab (žlábky na kmeni, koruna z listových trsů), kůra (lišejník, tmavší pata). Stránka před/po https://claude.ai/artifact/Rqf4L6q2yZb8t9o8Y43prp. ⚠ Lišejník 0,36 vypadal jako sníh — musí být jen o málo světlejší než kůra.
 
 ## 2026-09-28 — #642 kontaktní stíny: normal offset místo velkého biasu — notebook, Claude Code (github-74)
 
