@@ -6841,3 +6841,4 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-28 — #608 šev ostrova na louce a savaně — desktop, Claude Code (bs3d-a1)
 
 - **Beru #608.** Val hlíny a drnu kolem paty ostrova (geometrie, výšky ze zrcadla terénu), kameny a trsy na něm; louka a savana (stejný systém buketů), les a hory potom. Soubory: nový `IslandBerm.cs`, `MeadowScatter.cs`, `SavannaScatter.cs`.
+- **Na mainu:** `IslandBerm` na louce a savaně (hliněný pás u bubnu + drn v barvě trávy scény). ⚠ Jedna barva pro celý val vypadala jako rohožka — proto dvě meshe. Les a hory nehotové (les kreslí hostitel přes `ForestScatterRenderer`).
