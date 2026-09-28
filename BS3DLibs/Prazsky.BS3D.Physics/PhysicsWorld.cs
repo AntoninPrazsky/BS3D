@@ -271,6 +271,22 @@ namespace Prazsky.BS3D.Physics
         public Action<float> PerStepForces { get; set; }
 
         /// <summary>
+        /// The start-of-level spring of a freshly hung cluster (#617), advanced inside <see cref="Step"/> on the
+        /// fixed step and dropped once it has handed the sockets back. Null when none is running. See
+        /// <see cref="ClusterStartSwing"/> for what it does and what it was measured against.
+        /// </summary>
+        public ClusterStartSwing StartSwing { get; private set; }
+
+        /// <summary>
+        /// Starts the start-of-level spring on a cluster <see cref="BallsConstraintsBuilder.BuildBallsStructure"/>
+        /// has just hung (#617). <b>Every caller that hangs a level calls it</b> — the Game, the Testbed and the sag
+        /// gate — so none of them hangs a level differently from the others; it lives here and not in the builder
+        /// because it is advanced by the step, and the builder only builds. The logic tests do not call it: they
+        /// check bookkeeping, which it never touches.
+        /// </summary>
+        public void BeginStartSwing(PhysicsBall[,,] balls) => StartSwing = ClusterStartSwing.Begin(Simulation, balls);
+
+        /// <summary>
         /// Takes <b>one</b> step of <paramref name="dt"/> and runs the frame's contact work inside it, in the
         /// order that order has to be:
         /// <c>Timestep</c> → <see cref="ContactEvents.Flush"/> → the caller's work.
@@ -308,6 +324,14 @@ namespace Prazsky.BS3D.Physics
         {
             //Before the integrator, and that is the whole of what this property is for — see PerStepForces.
             PerStepForces?.Invoke(dt);
+
+            //The sockets' ease, on the step's own clock (#617): before the solve, so the step it belongs to is
+            //the one that uses it, and dropped the step it finishes.
+            if (StartSwing != null)
+            {
+                StartSwing.Advance(Simulation, dt);
+                if (StartSwing.Finished) StartSwing = null;
+            }
 
             Simulation.Timestep(dt, _threadDispatcher);
 

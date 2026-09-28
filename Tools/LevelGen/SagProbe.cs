@@ -391,6 +391,10 @@ namespace BS3D.Tools.LevelGen
             PhysicsBall[,,] balls = BallsConstraintsBuilder.BuildBallsStructure(
                 map.GetStaticBallsArray(), world.Simulation, ceiling, worldOffset);
 
+            //And it springs from the glass exactly as the game's does (#617) — the settle below is where it runs,
+            //so the gate sees the start the player sees.
+            world.BeginStartSwing(balls);
+
             //Released balls are collected so they can be culled once they are past the island: left in the
             //simulation they pile up in the drain and go on generating contact constraints for the rest of the
             //run, which is the very leak the Testbed's ReleaseAllBalls doc records.

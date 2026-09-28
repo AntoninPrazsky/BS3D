@@ -1666,6 +1666,9 @@ namespace Testbed
 
             _physicsBalls = BallsConstraintsBuilder.BuildBallsStructure(_map.GetStaticBallsArray(), _world.Simulation, _ceiling.BodyReference);
 
+            //Hung the way the Game hangs it (#617): the glass's sockets spring for the first two seconds
+            _world.BeginStartSwing(_physicsBalls);
+
             //Built fresh for the field it resolves contacts against, the way the Game builds one per level (#68).
             //It used to be made once in LoadContent with the map, the structure array and the ceiling pushed onto
             //it afterwards — three mutable fields, of which the ceiling was quietly wrong: FitCeilingToMap above

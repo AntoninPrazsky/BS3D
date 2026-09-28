@@ -483,6 +483,12 @@ namespace BS3D.Screens
                 _map.GetStaticBallsArray(), _world.Simulation, _ceiling.BodyReference,
                 _clusterWorldOffset.ToNumerics());
 
+            //And it springs from the glass (#617): the sockets to the plate go soft for the first two seconds of
+            //simulated time and ease back, so the cluster rebounds into its seat instead of snapping to it.
+            _world.BeginStartSwing(_physicsBalls);
+            Console.WriteLine(_world.StartSwing == null ? "[swing] none"
+                : $"[swing] {_world.StartSwing.SocketCount} glass sockets at {_world.StartSwing.SoftFrequency:F2} Hz");
+
             //The profile's backing array: one slot per cell, so the worst case (every cell occupied) is covered
             //without a resize. Grown only if the field grew, so a level of the same size reuses the same array.
             //
