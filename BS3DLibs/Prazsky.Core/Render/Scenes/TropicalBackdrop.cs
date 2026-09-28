@@ -19,6 +19,11 @@ namespace Prazsky.Core.Render
     {
         private TropicalSceneConfig _tropicalConfig = new();
 
+        //The bank the island sits in (#646, #608's in this scene's own sand), through the shared plant material
+        private readonly PlantPass _plants;
+        private IslandBermPlanting _berm;
+        private const int BERM_SEED = 9500;
+
         private readonly GraphicsDevice _graphicsDevice;
 
         private readonly Effect _tropicalEffect;
@@ -167,6 +172,14 @@ namespace Prazsky.Core.Render
             _palmShadowTechnique = _palmEffect.Techniques["ShadowCaster"];
             _palmShadowViewProjection = _palmEffect.Parameters["ShadowViewProjection"];
             BuildTropicalBuffers();
+
+            //Sand drifted against the drum, a few pale bits of coral and shell strewn past its foot
+            _plants = new PlantPass(_graphicsDevice, content);
+            _berm = new IslandBermPlanting(_graphicsDevice, (x, z) => TerrainMirror.Tropical(x, z, _tropicalConfig), BERM_SEED + Services.SeedOffset,
+                earth: _tropicalConfig.Terrain.SandColor.ToVector3() * 0.8f, earthDry: _tropicalConfig.Terrain.SandColor.ToVector3(),
+                cover: _tropicalConfig.Terrain.SandColor.ToVector3() * 0.85f, coverDry: _tropicalConfig.Terrain.SandColor.ToVector3(), coverDapple: 0.3f,
+                stone: new Vector3(0.62f, 0.58f, 0.52f), stones: 24,
+                stoneRadius: (ArenaIsland.RADIUS + 1f, ArenaIsland.RADIUS + 6f), stoneSize: (0.1f, 0.35f));
         }
 
         /// <inheritdoc/>
@@ -741,6 +754,7 @@ namespace Prazsky.Core.Render
             //The land first (it writes depth), then the lagoon depth-read over the bed it owns,
             //then the scatter that stands on the sand, then the flock over the water.
             DrawTropicalTerrain(frame);
+            if (_berm != null) _plants.Draw(frame, _berm.Buckets, _tropicalConfig.Terrain.HorizonHazeDistance, detail: true);
             DrawTropicalWater(frame);
             DrawPalms(frame);
             DrawTropicalRocks(frame);
@@ -1008,6 +1022,7 @@ namespace Prazsky.Core.Render
                 //The sand and the palms standing on it
                 yield return _tropicalEffect;
                 yield return _palmEffect;
+                yield return _plants.Effect; //the bank round the island (#646)
             }
         }
 
@@ -1045,6 +1060,9 @@ namespace Prazsky.Core.Render
         /// </summary>
         public override void DrawShadowCasters(Matrix shadowViewProjection)
         {
+            //The bank round the island (#646)
+            if (_berm != null) _plants.DrawShadowCasters(shadowViewProjection, _berm.Buckets);
+
             if (_palmMeshes == null) return;
 
             _palmEffect.CurrentTechnique = _palmShadowTechnique;
@@ -1090,6 +1108,8 @@ namespace Prazsky.Core.Render
         {
             DisposeTropical();
             _lagoonEffect?.Dispose();
+            _berm?.Dispose();
+            _berm = null;
         }
     }
 }
