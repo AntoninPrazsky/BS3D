@@ -21,6 +21,16 @@ namespace Prazsky.Core.Render
 
         private readonly Effect _meadowEffect;
 
+        //What stands in the meadow (#609), on the savanna's instanced path: the planting, and the one plant
+        //material every scene that plants shares (Acacia.fx, loaded once by the content manager for both)
+        private readonly GraphicsDevice _graphicsDevice;
+        private readonly Effect _plantEffect;
+        private readonly EffectTechnique _plantTechnique, _plantShadowTechnique;
+        private readonly EffectParameter _plantView, _plantProjection, _plantCamera, _plantSunDirection, _plantSunColor,
+            _plantZenith, _plantHorizon, _plantDiffuse, _plantDiffuseDry, _plantDapple, _plantBark, _plantLeaves,
+            _plantAddedLight, _plantHaze, _plantShadowViewProjection;
+        private MeadowScatter _scatter;
+
         //Its camera grid and the pass that draws it (#580)
         private readonly TerrainPass _meadowPass;
 
@@ -43,6 +53,29 @@ namespace Prazsky.Core.Render
             _meadowPass = new TerrainPass(Services, _meadowEffect, MEADOW_GRID_N, MEADOW_EXTENT, "MeadowTime");
 
             ApplyMeadowParameters();
+
+            _graphicsDevice = services.GraphicsDevice;
+            _plantEffect = content.Load<Effect>("Shaders/Acacia");
+            _plantView = _plantEffect.Parameters["View"];
+            _plantProjection = _plantEffect.Parameters["Projection"];
+            _plantCamera = _plantEffect.Parameters["CameraPosition"];
+            _plantSunDirection = _plantEffect.Parameters["SunDirection"];
+            _plantSunColor = _plantEffect.Parameters["SunColor"];
+            _plantZenith = _plantEffect.Parameters["ZenithColor"];
+            _plantHorizon = _plantEffect.Parameters["HorizonColor"];
+            _plantDiffuse = _plantEffect.Parameters["DiffuseColor"];
+            _plantDiffuseDry = _plantEffect.Parameters["DiffuseDry"];
+            _plantDapple = _plantEffect.Parameters["DappleStrength"];
+            _plantBark = _plantEffect.Parameters["BarkStrength"];
+            _plantLeaves = _plantEffect.Parameters["LeafStrength"];
+            _plantAddedLight = _plantEffect.Parameters["AddedLight"];
+            _plantHaze = _plantEffect.Parameters["HorizonHazeDistance"];
+            _plantShadowViewProjection = _plantEffect.Parameters["ShadowViewProjection"];
+            _plantTechnique = _plantEffect.Techniques["Acacia"];
+            _plantShadowTechnique = _plantEffect.Techniques["ShadowCaster"];
+
+            _scatter = new MeadowScatter(_graphicsDevice, (x, z) => TerrainMirror.Meadow(x, z, _meadowConfig),
+                MeadowScatter.DEFAULT_SEED + Services.SeedOffset);
         }
 
         /// <inheritdoc/>
@@ -104,6 +137,94 @@ namespace Prazsky.Core.Render
         public override void Draw(in SceneFrame frame)
         {
             _meadowPass.Draw(frame, Services.TerrainHoleRadius);
+            DrawPlanting(frame);
+        }
+
+        /// <summary>
+        /// Everything planted (#609), opaque and depth-writing after the grass, one instanced draw per bucket — the
+        /// savanna's own draw, lit from the same sun and dome as the field. The haze distance is stated per frame:
+        /// the plant material is one effect the savanna shares, and it hazes to its own distance.
+        /// </summary>
+        private void DrawPlanting(in SceneFrame frame)
+        {
+            if (_scatter == null) return;
+
+            _plantEffect.CurrentTechnique = _plantTechnique;
+            _plantView.SetValue(frame.Camera.View);
+            _plantProjection.SetValue(frame.Camera.Projection);
+            _plantCamera.SetValue(frame.Camera.Position);
+            _plantSunDirection.SetValue(frame.SunDirection);
+            _plantSunColor.SetValue(frame.SunColor);
+            _plantZenith.SetValue(frame.ZenithLinear);
+            _plantHorizon.SetValue(frame.HorizonLinear);
+            _plantHaze.SetValue(_meadowConfig.HorizonHazeDistance);
+            _plantAddedLight.SetValue(Vector3.Zero);
+            _plantLeaves.SetValue(0f);
+
+            _graphicsDevice.BlendState = BlendState.Opaque;
+            _graphicsDevice.DepthStencilState = DepthStencilState.Default;
+
+            bool detail = _sceneDetail > 0.5f;
+            foreach (ScatterBucket bucket in _scatter.Buckets)
+            {
+                if (bucket.DetailOnly && !detail) continue;
+                if (bucket.LowOnly && detail) continue;
+
+                _plantDiffuse.SetValue(bucket.Diffuse);
+                _plantDiffuseDry.SetValue(bucket.DiffuseDry);
+                _plantDapple.SetValue(bucket.Dapple);
+                _plantBark.SetValue(bucket.Bark);
+                _plantLeaves.SetValue(bucket.Leaves);
+                _graphicsDevice.RasterizerState = bucket.Leaves > 0f ? RasterizerState.CullNone : RasterizerState.CullCounterClockwise;
+                _plantEffect.CurrentTechnique.Passes[0].Apply();
+
+                _graphicsDevice.SetVertexBuffers(
+                    new VertexBufferBinding(bucket.Mesh.VertexBuffer, 0, 0),
+                    new VertexBufferBinding(bucket.Instances, 0, 1));
+                _graphicsDevice.Indices = bucket.Mesh.IndexBuffer;
+                _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, bucket.Mesh.PrimitiveCount, bucket.Count);
+            }
+
+            _plantLeaves.SetValue(0f);
+            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+        }
+
+        /// <inheritdoc/>
+        public override bool HasShadowCasters => _scatter != null;
+
+        /// <summary>The planting casts into the sun's map (#609, #469's own path): the oaks, the hedges, the bales.</summary>
+        public override void DrawShadowCasters(Matrix shadowViewProjection)
+        {
+            if (_scatter == null) return;
+
+            _plantEffect.CurrentTechnique = _plantShadowTechnique;
+            _plantShadowViewProjection.SetValue(shadowViewProjection);
+
+            foreach (ScatterBucket bucket in _scatter.Buckets)
+            {
+                if (bucket.LowOnly) continue;
+                _plantLeaves.SetValue(bucket.Leaves);
+                _plantEffect.CurrentTechnique.Passes[0].Apply();
+
+                _graphicsDevice.SetVertexBuffers(
+                    new VertexBufferBinding(bucket.Mesh.VertexBuffer, 0, 0),
+                    new VertexBufferBinding(bucket.Instances, 0, 1));
+                _graphicsDevice.Indices = bucket.Mesh.IndexBuffer;
+                _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, bucket.Mesh.PrimitiveCount, bucket.Count);
+            }
+
+            _plantLeaves.SetValue(0f);
+            _plantEffect.CurrentTechnique = _plantTechnique;
+        }
+
+        /// <summary>The oaks, for the meadow's intro (#609).</summary>
+        public IReadOnlyList<PlantFigure> Oaks => _scatter?.Oaks;
+
+        /// <inheritdoc/>
+        public override void Dispose()
+        {
+            _scatter?.Dispose();
+            _scatter = null;
         }
 
         /// <inheritdoc/>
@@ -135,7 +256,11 @@ namespace Prazsky.Core.Render
         /// <inheritdoc/>
         public override IEnumerable<Effect> ShadowReceivers
         {
-            get { yield return _meadowEffect; } //#471, and the first chapter plays here
+            get
+            {
+                yield return _meadowEffect; //#471, and the first chapter plays here
+                yield return _plantEffect;  //and what stands on it (#609)
+            }
         }
 
         /// <inheritdoc/>
