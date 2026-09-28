@@ -1,7 +1,6 @@
 using Microsoft.Xna.Framework.Audio;
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.IO;
 using System.Threading.Tasks;
 
@@ -107,10 +106,10 @@ namespace BS3D.Audio
         private readonly ProceduralMusic _fanfares = new();
 
         //The victory fanfare as a recording (#482), from the effects' folder rather than the music's: it is one of the
-        //owner's chosen renders, at the effects' 44.1 kHz, and its ROOT and BPM tags are what the star chime tunes to
+        //owner's chosen renders, at the effects' 44.1 kHz
         private const string SFX_DIRECTORY = "Sfx";
         private const string VICTORY_FILE = "victory-fanfare";
-        private Task<(float[] Pcm, ProceduralMusic.FanfareShape Shape)> _victoryLoad;
+        private Task<float[]> _victoryLoad;
 
         /// <summary>
         /// One family of recordings (#486): the files that share a name before the first dash, the family's own
@@ -423,10 +422,6 @@ namespace BS3D.Audio
         /// <summary>Retires whatever fanfare is sounding — see <see cref="ProceduralMusic.StopFanfare"/>.</summary>
         public void StopFanfare() => _fanfares.StopFanfare();
 
-        /// <summary>The pending or sounding fanfare's key and tempo (#158) — see <see cref="ProceduralMusic.TryGetFanfare"/>.</summary>
-        public bool TryGetFanfare(out ProceduralMusic.FanfareShape shape, out float secondsSounding) =>
-            _fanfares.TryGetFanfare(out shape, out secondsSounding);
-
         /// <summary>
         /// Called once a frame, above the stack. The feed (#212): the sounding recording is put on the voice's
         /// queue again while fewer than two buffers sit on it — the count includes the one playing — so XAudio2
@@ -442,9 +437,9 @@ namespace BS3D.Audio
 
             if (_victoryLoad != null && _victoryLoad.IsCompleted)
             {
-                Task<(float[] Pcm, ProceduralMusic.FanfareShape Shape)> ready = _victoryLoad;
+                Task<float[]> ready = _victoryLoad;
                 _victoryLoad = null;
-                if (ready.Result.Pcm != null) _fanfares.SetVictoryRecording(ready.Result.Pcm, ready.Result.Shape);
+                if (ready.Result != null) _fanfares.SetVictoryRecording(ready.Result);
             }
 
             if (_menuLoad != null && _menuLoad.IsCompleted)
@@ -643,31 +638,24 @@ namespace BS3D.Audio
 
         /// <summary>
         /// The recording as the fanfare player takes it: interleaved stereo floats at <see cref="ProceduralMusic.SAMPLE_RATE"/>
-        /// (the effects' rate, not the tracks'), and the ROOT and BPM tags <c>Tools/MusicBake --sfx --music</c> wrote into
-        /// the file. Null when the file cannot be read or carries no key: an untuned chime over a recording is the fault
-        /// #158 removed, so a recording without its tags is not played at all and the bake stands.
+        /// (the effects' rate, not the tracks'). Null when the file cannot be read, and the bake stands. The ROOT and
+        /// BPM tags <c>Tools/MusicBake --sfx --music</c> writes are no longer read: they tuned the star chime to the
+        /// recording (#158), and the chime has had a fixed key of its own since #613.
         /// </summary>
-        private static Task<(float[] Pcm, ProceduralMusic.FanfareShape Shape)> LoadVictory(string path) => Task.Run(() =>
+        private static Task<float[]> LoadVictory(string path) => Task.Run(() =>
         {
             try
             {
-                if (!int.TryParse(OggTrack.ReadTag(path, "ROOT"), out int root)
-                    || !float.TryParse(OggTrack.ReadTag(path, "BPM"), NumberStyles.Float, CultureInfo.InvariantCulture, out float bpm))
-                {
-                    Console.WriteLine($"[music] the victory recording carries no ROOT/BPM tags, the fanfare stays baked: {path}");
-                    return (null, default);
-                }
-
                 byte[] pcm = OggTrack.Decode(path, ProceduralMusic.SAMPLE_RATE);
                 float[] samples = new float[pcm.Length / 2];
                 for (int i = 0; i < samples.Length; i++)
                     samples[i] = (short)(pcm[i * 2] | (pcm[i * 2 + 1] << 8)) / 32768f;
-                return (samples, new ProceduralMusic.FanfareShape(root, bpm, victory: true));
+                return samples;
             }
             catch (Exception exception)
             {
                 Console.WriteLine($"[music] the victory recording could not be read: {exception.Message}");
-                return (null, default);
+                return null;
             }
         });
 

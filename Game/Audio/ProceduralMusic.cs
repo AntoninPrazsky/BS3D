@@ -402,12 +402,9 @@ namespace BS3D.Audio
         //The fanfare is its own instance so it is independent of the theme: GameMusic.Stop() silences the level's
         //theme without cutting off the piece that is announcing the result.
         /// <summary>
-        /// What a fanfare is built from, so something else can play <b>in tune with it</b> (#158). The result
-        /// screen's star chime needs this and nothing else does: it sounds while the fanfare is still going,
-        /// and a fixed-pitch chime is only in tune when it agrees with the key the piece was baked in. The
-        /// two shapes are authored constants since #229 — this remains a value passed about rather than a
-        /// constant read where it is needed, because the piece and whatever plays along with it must not be
-        /// able to disagree.
+        /// What a baked fanfare is built from: its key and tempo, the two authored constants below (#229).
+        /// It was also read back by the result screen's star chime, which tuned itself to the sounding piece
+        /// (#158); since #613 the chime has a fixed key of its own and nothing outside this file asks.
         /// </summary>
         public readonly struct FanfareShape
         {
@@ -421,11 +418,9 @@ namespace BS3D.Audio
             }
         }
 
-        private Task<(float[] Pcm, FanfareShape Shape)> _fanfareBake;
-        private FanfareShape _fanfareShape;
+        private Task<float[]> _fanfareBake;
 
-        //The victory as a recording (#482): interleaved stereo floats at SAMPLE_RATE with the key and tempo the file
-        //declares, handed in by GameMusic once the file has decoded. Null until then, and forever when there is no
+        //The victory as a recording (#482): interleaved stereo floats at SAMPLE_RATE, handed in by GameMusic once the file has decoded. Null until then, and forever when there is no
         //file, in which case the piece is baked as it always was.
         //
         //Realized ONCE (#592): the recording never changes after SetVictoryRecording, so it is converted to 16-bit
@@ -434,40 +429,7 @@ namespace BS3D.Audio
         //of every victory — the frame the camera is released, the fireworks start and the result screen is built.
         private Task<byte[]> _victoryPcm;
         private SoundEffect _victoryTrack;
-        private FanfareShape _victoryRecordingShape;
 
-        //Wall clock since the fanfare actually started SOUNDING, which is what a beat grid has to be measured
-        //from. It cannot be taken from the bake: the piece is synthesized on a background thread and realized
-        //whenever that finishes, which on a slow machine is a good fraction of a second later.
-        private readonly System.Diagnostics.Stopwatch _fanfareClock = new();
-
-        private bool _fanfareShapeKnown;
-
-        /// <summary>
-        /// The pending or sounding fanfare's key and tempo — false when there is none at all.
-        /// <para>
-        /// <b>It is answered as soon as the fanfare is ASKED FOR, not when it becomes audible</b>, and that
-        /// distinction is the whole of #158's fix. The piece is synthesized on a background thread and takes
-        /// <i>seconds</i> on a weak machine — measured at over three here — while the result screen opens on
-        /// the frame the level cleared. Anything that waited for the sound before deciding what to play with
-        /// it would wait longer than the player will, so the shape is known up front and only the beat grid
-        /// needs the audio.
-        /// </para>
-        /// </summary>
-        /// <param name="secondsSounding">
-        /// How long it has actually been playing, or <b>negative when it has not started</b> — the caller can
-        /// pitch itself either way, but may only align to a beat when this is real.
-        /// </param>
-        public bool TryGetFanfare(out FanfareShape shape, out float secondsSounding)
-        {
-            shape = _fanfareShape;
-
-            secondsSounding = _fanfareClock.IsRunning && IsFanfarePlaying
-                ? (float)_fanfareClock.Elapsed.TotalSeconds
-                : -1f;
-
-            return _fanfareShapeKnown;
-        }
         private SoundEffect _fanfareTrack;
         private SoundEffectInstance _fanfare;
 
@@ -554,25 +516,20 @@ namespace BS3D.Audio
         public void StopFanfare()
         {
             _fanfareBake = null;
-            _fanfareShapeKnown = false;
-            _fanfareClock.Reset();
 
             if (_fanfare != null && _fanfare.State == SoundState.Playing)
                 _fanfareFade.To(0f, FANFARE_FADE_SECONDS);
         }
 
         /// <summary>
-        /// The victory fanfare as a recording (#482): the render the owner chose rather than the bake, with the key
-        /// and tempo its file declares, so the star chime is in tune with it and paced by its beat exactly as over the
-        /// baked piece. What a recording cannot do is what <see cref="StartFanfare"/>'s intensity did — grow with the
+        /// The victory fanfare as a recording (#482): the render the owner chose rather than the bake. What a recording cannot do is what <see cref="StartFanfare"/>'s intensity did — grow with the
         /// score — and that is the trade the owner chose over a piece that is different every time. The defeat stays
         /// baked: the recording is a win, and a loss is not the moment for it.
         /// </summary>
-        public void SetVictoryRecording(float[] pcm, FanfareShape shape)
+        public void SetVictoryRecording(float[] pcm)
         {
             if (_failed) return;
 
-            _victoryRecordingShape = shape;
             _victoryPcm = Task.Run(() => ToPcm(pcm));
         }
 
@@ -602,38 +559,23 @@ namespace BS3D.Audio
             //the weighing entirely and takes the top of the same scale — see PlayVictory.
             float intensity = grand ? 1f : MathHelper.Clamp(score / (float)FANFARE_FULL_SCORE, 0f, 1f);
 
-            //Known before a sample of it exists, which is the whole reason the shape is a value and not
-            //something read back off the bake (#158): the result screen's star chime sounds while the fanfare
-            //is still going and has to be in its key, and it cannot wait seconds for the audio. That used to
-            //be an argument for rolling the key on the calling thread; with the shape authored it is simply a
-            //constant, and the argument survives only as the reason this line stands above the bake.
             //The recording, when there is one, arrives through the very path the bake does — a completed task — so
-            //the realization, the clock the chime measures its beats from, the fades and the ducking are one code
-            //path. Its Pcm is null: the realization takes the one realized track instead of converting (#592).
+            //the realization, the fades and the ducking are one code path. Its PCM is null: the realization takes
+            //the one realized track instead of converting (#592).
             if (victory && _victoryTrack != null)
             {
-                _fanfareShape = _victoryRecordingShape;
-                _fanfareShapeKnown = true;
-                _fanfareBake = Task.FromResult(((float[])null, _victoryRecordingShape));
+                _fanfareBake = Task.FromResult((float[])null);
                 return;
             }
 
             FanfareShape shape = victory ? VICTORY_SHAPE : DEFEAT_SHAPE;
 
-            _fanfareShape = shape;
-            _fanfareShapeKnown = true;
-
             //On a background thread, like the pieces: a fanfare is only a few seconds of PCM, but this fires
             //on the exact frame a level ends — which is also the frame the camera is released, the fireworks
             //start and the result screen is being built — and that is the last moment to spend on synthesis.
-            _fanfareBake = Task.Run(() =>
-            {
-                float[] pcm = victory
-                    ? BakeVictory(intensity, shape)
-                    : BakeDefeat(intensity, shape);
-
-                return (pcm, shape);
-            });
+            _fanfareBake = Task.Run(() => victory
+                ? BakeVictory(intensity, shape)
+                : BakeDefeat(intensity, shape));
         }
 
         /// <summary>
@@ -672,7 +614,7 @@ namespace BS3D.Audio
             //result as the machine allows.
             if (_fanfareBake != null && _fanfareBake.IsCompleted)
             {
-                Task<(float[] Pcm, FanfareShape Shape)> ready = _fanfareBake;
+                Task<float[]> ready = _fanfareBake;
                 _fanfareBake = null;
 
                 try
@@ -681,18 +623,14 @@ namespace BS3D.Audio
                     SoundEffect oldTrack = _fanfareTrack;
 
                     //A null Pcm is the recording: its one track, never converted again and never disposed here.
-                    _fanfareTrack = ready.Result.Pcm == null ? _victoryTrack : ToSoundEffect(ready.Result.Pcm);                    _fanfare = _fanfareTrack.CreateInstance();
+                    _fanfareTrack = ready.Result == null ? _victoryTrack : ToSoundEffect(ready.Result);
+                    _fanfare = _fanfareTrack.CreateInstance();
 
                     //An announcement arrives at full — whatever fade the previous fanfare's retirement left
                     //behind belonged to that instance, which is disposed a few lines down.
                     _fanfareFade.Reset();
                     _fanfare.Volume = FANFARE_VOLUME * _gain;
                     _fanfare.Play();
-
-                    //Started HERE and not where the bake was asked for: this is the frame it becomes audible,
-                    //and the beat grid anything else lines up to has to be measured from that.
-                    _fanfareShape = ready.Result.Shape;
-                    _fanfareClock.Restart();
 
                     old?.Dispose();
                     if (oldTrack != _victoryTrack) oldTrack?.Dispose();
@@ -2870,8 +2808,7 @@ namespace BS3D.Audio
         /// </summary>
         private static float[] BakeVictory(float intensity, FanfareShape shape)
         {
-            //Key and tempo are the caller's now (RollFanfare), so whatever plays along with this piece knows
-            //them the moment it is asked for rather than when it finishes rendering — see TryGetFanfare.
+            //Key and tempo are the caller's: the authored VICTORY_SHAPE (#229).
             float bpm = shape.Bpm;
             float secondsPerStep = 60f / (bpm * STEPS_PER_BEAT);
             int samplesPerStep = (int)(SAMPLE_RATE * secondsPerStep);
@@ -3065,7 +3002,7 @@ namespace BS3D.Audio
         /// </summary>
         private static float[] BakeDefeat(float intensity, FanfareShape shape)
         {
-            //Key and tempo are the caller's — see BakeVictory and TryGetFanfare.
+            //Key and tempo are the caller's: the authored DEFEAT_SHAPE (#229).
             float bpm = shape.Bpm;
             float secondsPerStep = 60f / (bpm * STEPS_PER_BEAT);
             int samplesPerStep = (int)(SAMPLE_RATE * secondsPerStep);

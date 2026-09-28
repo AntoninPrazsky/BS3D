@@ -690,18 +690,16 @@ namespace BS3D.Audio
         /// gesture.
         /// </para>
         /// <para>
-        /// <b>It does NOT play into silence, and #158 is what that mistake cost.</b> This file used to say it
-        /// was "the only sound in the game that plays over a stopped world with no music under it" — which was
-        /// wrong when it was written: the victory fanfare is started the instant the field clears, before the
-        /// result screen even exists, so every star lands inside its ~9 seconds. A fixed 880 Hz root stepping
-        /// by ~2.3 semitones is in no key at all, and it agreed with the piece only when that piece happened
-        /// to roll A. The pitch is the CALLER's now, taken from what the fanfare actually rolled.
+        /// <b>#158 tuned it to the fanfare, and #613 took that back.</b> A fixed 880 Hz root stepping by ~2.3
+        /// semitones was in no key at all; #158 made the run a major triad and shifted it into the sounding
+        /// fanfare's key. The owner's ruling (#613) is that the fanfare has had its moment before the stars
+        /// begin, so the run now keeps one fixed key of its own — the caller's <c>CHIME_TRIAD</c>, over this
+        /// buffer's A5 — and the triad stays.
         /// </para>
         /// </summary>
         /// <param name="semitones">
-        /// How far off the baked A5 to sound it — the caller works this out from the fanfare that is playing
-        /// underneath (#158), so the chime is a chord tone of the piece's own key rather than a fixed pitch
-        /// that only agreed with it when it happened to roll A. <b>Clamped to ±12 by the platform</b>:
+        /// How far off the baked A5 to sound it — the caller's chord tone (the result page's rising triad,
+        /// #613; the tutorial's praise sounds the root). <b>Clamped to ±12 by the platform</b>:
         /// <c>SoundEffect.Play</c>'s pitch is in octaves over −1…1, so a caller must keep its own arithmetic
         /// inside an octave rather than assume any offset can be reached.
         /// </param>
