@@ -59,7 +59,9 @@ namespace Prazsky.Core.Render
                 ForestScatterRenderer.DEFAULT_SEED + Services.SeedOffset,
                 earth: _forestConfig.EarthColor.ToVector3() * 2.5f, earthDry: _forestConfig.LitterColorDark.ToVector3(),
                 cover: _forestConfig.LitterColor.ToVector3() * 0.62f, coverDry: _forestConfig.ForestColor.ToVector3() * 0.6f, coverDapple: 0.8f,
-                stone: _forestConfig.Rocks.Color.ToVector3(), stones: BERM_STONES);
+                stone: _forestConfig.Rocks.Color.ToVector3(), stones: BERM_STONES,
+                //Mossy boulders at the foot, a few of them big, as the references drew the forest's
+                stoneRadius: (IslandBerm.STONE_RADIUS_MIN, IslandBerm.STONE_RADIUS_MAX + 2f), stoneSize: (0.4f, 1.4f));
         }
 
         private const int BERM_STONES = 14;

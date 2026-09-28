@@ -53,31 +53,12 @@ namespace Prazsky.Core.Render
         /// <param name="toRing">The last ring it spans.</param>
         public static UploadedMesh Build(GraphicsDevice device, Func<float, float, float> height, int seed, int fromRing, int toRing)
         {
-            float phase = seed * 0.6180339f;
             int rings = SECTION.Length;
             var positions = new Vector3[rings, SEGMENTS + 1];
 
             for (int s = 0; s <= SEGMENTS; s++)
-            {
-                float a = MathHelper.TwoPi * s / SEGMENTS;
-                (float sin, float cos) = MathF.SinCos(a);
-
-                //The bank wanders: wider and higher in places, a slump here and there, off a few sines round the ring
-                float spread = 1f + 0.35f * MathF.Sin(a * 3f + phase) + 0.2f * MathF.Sin(a * 7f + phase * 2.3f);
-                float lift = 1f + 0.25f * MathF.Sin(a * 5f + phase * 1.7f) + 0.15f * MathF.Sin(a * 11f + phase * 0.9f);
-
                 for (int r = 0; r < rings; r++)
-                {
-                    (float radius, float above) = SECTION[r];
-                    float rad = r == 0 ? radius : ArenaIsland.RADIUS + (radius - ArenaIsland.RADIUS) * spread;
-                    float x = cos * rad, z = sin * rad;
-                    float ground = height(x, z);
-                    float y = r == 0
-                        ? MathF.Max(ground, FOOT_Y) + above * lift
-                        : ground + (above > 0f ? above * lift : above);
-                    positions[r, s] = new Vector3(x, y, z);
-                }
-            }
+                    positions[r, s] = RingPoint(height, seed, MathHelper.TwoPi * s / SEGMENTS, r);
 
             //Normals off the surface itself: the cross of the two grid directions, averaged into each vertex
             var normals = new Vector3[rings, SEGMENTS + 1];
@@ -116,6 +97,53 @@ namespace Prazsky.Core.Render
 
             float outer = ArenaIsland.RADIUS + 9f;
             return new UploadedMesh(device, v, idx, new BoundingSphere(new Vector3(0f, FOOT_Y, 0f), outer));
+        }
+
+        /// <summary>
+        /// Ring <paramref name="ring"/> of <see cref="SECTION"/> at angle <paramref name="a"/> round the island. The
+        /// bank wanders: wider and higher in places, a slump here and there, off a few sines round the ring.
+        /// </summary>
+        private static Vector3 RingPoint(Func<float, float, float> height, int seed, float a, int ring)
+        {
+            float phase = seed * 0.6180339f;
+            (float sin, float cos) = MathF.SinCos(a);
+            float spread = 1f + 0.35f * MathF.Sin(a * 3f + phase) + 0.2f * MathF.Sin(a * 7f + phase * 2.3f);
+            float lift = 1f + 0.25f * MathF.Sin(a * 5f + phase * 1.7f) + 0.15f * MathF.Sin(a * 11f + phase * 0.9f);
+
+            (float radius, float above) = SECTION[ring];
+            float rad = ring == 0 ? radius : ArenaIsland.RADIUS + (radius - ArenaIsland.RADIUS) * spread;
+            float x = cos * rad, z = sin * rad;
+            float ground = height(x, z);
+            float y = ring == 0
+                ? MathF.Max(ground, FOOT_Y) + above * lift
+                : ground + (above > 0f ? above * lift : above);
+            return new Vector3(x, y, z);
+        }
+
+        /// <summary>
+        /// The bank's surface over a world point, or negative infinity off it — for whatever is planted near the
+        /// island to stand ON the bank rather than inside it (#608's reference pass: tufts against the wall, stones
+        /// at its foot). A caller takes the larger of this and its ground. Linear across each ring, like the mesh.
+        /// </summary>
+        public static float SurfaceY(Func<float, float, float> height, int seed, float x, float z)
+        {
+            float d = MathF.Sqrt(x * x + z * z);
+            if (d > ArenaIsland.RADIUS + (SECTION[^1].Radius - ArenaIsland.RADIUS) * 1.6f) return float.NegativeInfinity;
+
+            float a = MathF.Atan2(z, x);
+            Vector3 inner = RingPoint(height, seed, a, 0);
+            float innerR = MathF.Sqrt(inner.X * inner.X + inner.Z * inner.Z);
+            if (d < innerR) return float.NegativeInfinity;
+
+            for (int r = 1; r < SECTION.Length; r++)
+            {
+                Vector3 outer = RingPoint(height, seed, a, r);
+                float outerR = MathF.Sqrt(outer.X * outer.X + outer.Z * outer.Z);
+                if (d <= outerR) return MathHelper.Lerp(inner.Y, outer.Y, (d - innerR) / MathF.Max(outerR - innerR, 1e-4f));
+                inner = outer;
+                innerR = outerR;
+            }
+            return float.NegativeInfinity;
         }
 
         /// <summary>A point on the bank's middle, for a stone or a tuft set into it: its radius from the arena's centre.</summary>

@@ -84,9 +84,12 @@ namespace Prazsky.Core.Render
                 return (MathF.Cos(a) * d, MathF.Sin(a) * d);
             }
 
+            //Whatever is planted near the island stands ON its bank (#608), not inside it
+            float stand(float x, float z) => MathF.Max(height(x, z), IslandBerm.SurfaceY(height, seed, x, z));
+
             ModelInstance At(float x, float z, float scale, float yaw, float sink, float dryness, float jitter, float pitch = 0f) =>
                 new(Matrix.CreateScale(scale) * Matrix.CreateRotationZ(pitch) * Matrix.CreateRotationY(yaw)
-                    * Matrix.CreateTranslation(x, height(x, z) - sink, z),
+                    * Matrix.CreateTranslation(x, stand(x, z) - sink, z),
                     new Vector4(dryness, jitter, 0f, 0f));
 
             float Jitter() => (float)(rng.NextDouble() - 0.5) * 0.2f;
@@ -283,8 +286,10 @@ namespace Prazsky.Core.Render
             }
             for (int i = 0; i < TUFTS; i++)
             {
-                //A share of them along the bank's outer edge, the rest out on the field
-                (float x, float z) = i < BERM_TUFTS ? Site(IslandBerm.STONE_RADIUS_MAX - 0.5f, IslandBerm.STONE_RADIUS_MAX + 2.5f)
+                //A share of them on the bank - half growing against the stone, as the references drew it, half along
+                //its outer edge - and the rest out on the field
+                (float x, float z) = i < BERM_TUFTS / 2 ? Site(ArenaIsland.RADIUS + 0.2f, ArenaIsland.RADIUS + 1.2f)
+                    : i < BERM_TUFTS ? Site(IslandBerm.STONE_RADIUS_MAX - 0.5f, IslandBerm.STONE_RADIUS_MAX + 2.5f)
                     : Site(ArenaIsland.RADIUS + 12f, 260f);
                 tuftInstances[rng.Next(3)].Add(At(x, z, 0.8f + 0.7f * (float)rng.NextDouble(), (float)rng.NextDouble() * MathHelper.TwoPi,
                     0.05f, (float)rng.NextDouble() * 0.6f, Jitter()));

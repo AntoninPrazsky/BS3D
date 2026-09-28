@@ -38,7 +38,7 @@ namespace Prazsky.Core.Render
         //The bank the island sits in (#608): a drift of snow over scree against the drum, stones showing through it
         private readonly PlantPass _plants;
         private IslandBermPlanting _berm;
-        private const int BERM_STONES = 22;
+        private const int BERM_STONES = 80;
 
         /// <summary>Loads the effect, takes its grid through its <see cref="TerrainPass"/>, pushes the config at it and clones the snow.</summary>
         public MountainBackdrop(BackdropServices services, ContentManager content) : base(services)
@@ -57,7 +57,9 @@ namespace Prazsky.Core.Render
                 BERM_SEED + Services.SeedOffset,
                 earth: _mountainConfig.RockColorLight.ToVector3(), earthDry: _mountainConfig.RockColor.ToVector3() * 1.6f,
                 cover: _mountainConfig.SnowColor.ToVector3(), coverDry: _mountainConfig.SnowColor.ToVector3() * 0.92f, coverDapple: 0.15f,
-                stone: _mountainConfig.RockColorLight.ToVector3(), stones: BERM_STONES);
+                stone: _mountainConfig.RockColorLight.ToVector3(), stones: BERM_STONES,
+                //Scree: many small dark stones spilling out over the snow from the foot, as the references drew it
+                stoneRadius: (ArenaIsland.RADIUS + 0.6f, ArenaIsland.RADIUS + 7.5f), stoneSize: (0.12f, 0.5f));
         }
 
         private const int BERM_SEED = 9100;
