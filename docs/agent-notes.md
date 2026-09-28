@@ -6683,3 +6683,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-28 — #615 kamera pádu příliš často — desktop, Claude Code (bs3d-ea)
 
 - **Beru #615.** Počty cinematic na level spočítat pro dnešní pravidlo a kandidáty, pak zvednout laťku.
+
+## 2026-09-28 — #639 obrazovka výsledku — desktop, Claude Code (bs3d-a1)
+
+- **Beru #639.** Profil shluku a zásobník zmizí jen po výhře, delší ostrá chvíle před rozostřením, kamera po vyčištění nekrouží nad prázdným stropem. Soubory: `PlayHud.cs`, `GameplayScreen*.cs`, `ResultPage.cs`.
