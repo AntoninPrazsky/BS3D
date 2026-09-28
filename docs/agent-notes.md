@@ -6760,3 +6760,4 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-28 — #645 úvod hor trhá — desktop, Claude Code (bs3d-a1)
 
 - **Beru #645.** Nejdřív změřit pózu objektivu po snímcích (`sceneseed=`), rozlišit dráhu / střih / tempo snímků. Soubory: `MountainIntroShots.cs`, `ChapterIntro.cs`.
+- **Hotovo, na mainu:** tři příčiny v trase po snímcích, žádná není tempo snímků: skok pohledu na konci dráhy (výhled za koncem → extrapolace), lineární lomená dráha (→ Catmull-Rom v `IntroShot.At`, platí pro všechny scény), první dva snímky ~110 ms (→ `MAX_INTRO_STEP` 0,05 s). Skoky mimo střihy 4 → 1. Majitelův dojem („epické, plynulé“) je jeho — tempo záběrů a jejich střih jsem neměnil.
