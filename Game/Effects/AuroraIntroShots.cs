@@ -64,7 +64,7 @@ namespace BS3D.Effects
         private const int CANDIDATES = 120;
 
         //Points per path. The heights are read at every one, so the runs follow the snow's own rise and fall.
-        private const int PATH_POINTS = 96;
+        private const int PATH_POINTS = IntroPaths.FINE_POINTS;
 
         /// <summary>
         /// The prologue for the aurora being drawn, or null when there is no wood to thread.
@@ -108,7 +108,7 @@ namespace BS3D.Effects
                 Vector2 from = new(MathF.Cos(bearing) * radius, MathF.Sin(bearing) * radius);
 
                 float turn = random.Next(2) == 0 ? 1f : -1f;
-                float heading = bearing + turn * MathHelper.PiOver2 + MathHelper.ToRadians(Lerp(random, -30f, 30f));
+                float heading = bearing + turn * MathHelper.PiOver2 + MathHelper.ToRadians(IntroPaths.RandomRange(random, -30f, 30f));
                 Vector2 to = from + new Vector2(MathF.Cos(heading), MathF.Sin(heading)) * WOOD_RUN;
 
                 float endRadius = to.Length();
@@ -224,7 +224,5 @@ namespace BS3D.Effects
 
             return true;
         }
-
-        private static float Lerp(Random random, float from, float to) => from + (to - from) * (float)random.NextDouble();
     }
 }

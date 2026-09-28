@@ -74,22 +74,67 @@ namespace BS3D.Effects
         private const float INTERVAL_OPENING = 0.07f, INTERVAL_STEADY = 0.17f, INTERVAL_RELAXED = 0.52f;
         private const float OPENING_SECONDS = 2.2f, RELAXED_AFTER = 16f;
 
-        //Linear radiance. GLARE_THRESHOLD is 0.55 on luminance and these are meant to be far over it — a
-        //firework that does not bloom is a coloured dot. The hues are chosen saturated and then multiplied,
-        //so the peak channel lands around 4 and the glare's six-armed star is unmistakable.
-        private const float COLOR_BOOST = 4.2f;
-
+        //The hues, in linear radiance ratios, IN ORDER ROUND THE COLOUR WHEEL — the pairing below counts steps
+        //round it. Every one is two channels and a ZERO (#612), and that zero is the whole trick: the resolve's
+        //curve (Tonemap.fx's ACES fit) works per channel, and a spark is driven far up its shoulder, where it
+        //squeezes the dominant channel under 1 and lets every minor channel catch up — so a red with a fifth of
+        //green and blue in it (the old palette's) came out pink-white at its peak, whatever else was done. A
+        //channel at zero stays at zero through any curve, so a spark's hue survives its own brightness. The
+        //second channel is small for the same reason: it is lifted far more than the dominant one, which is
+        //also why a spark drifts a little warmer (gold to orange, orange to red) as it cools, like a real ember.
         private static readonly Vector3[] PALETTE =
         {
-            new(1.00f, 0.22f, 0.18f),   //red
-            new(1.00f, 0.62f, 0.12f),   //orange
-            new(1.00f, 0.92f, 0.35f),   //gold
-            new(0.30f, 1.00f, 0.36f),   //green
-            new(0.26f, 0.55f, 1.00f),   //blue
-            new(0.86f, 0.30f, 1.00f),   //violet
-            new(0.35f, 0.98f, 0.95f),   //cyan
-            new(1.00f, 0.95f, 0.90f)    //white
+            new(1.00f, 0.004f, 0.00f),  //red
+            new(1.00f, 0.070f, 0.00f),  //orange
+            new(1.00f, 0.240f, 0.00f),  //gold
+            new(0.00f, 1.000f, 0.02f),  //green
+            new(0.00f, 0.500f, 1.00f),  //cyan
+            new(0.00f, 0.030f, 1.00f),  //blue
+            new(0.06f, 0.000f, 1.00f),  //violet
+            new(1.00f, 0.000f, 0.30f)   //magenta
         };
+
+        //How bright a hue is at its peak, as LUMINANCE (#612). GLARE_THRESHOLD is 0.55 on luminance and a
+        //firework that does not bloom is a coloured dot, so every hue has to be over it — but a hue's luminance
+        //is mostly its green, so one multiplier for all of them (the old 4.2) put the greens at 3.4 and the reds
+        //at 1.6, and the bright ones washed out first. Each hue is boosted to this luminance instead (red ×7.0,
+        //green ×2.1, cyan ×3.5), within BOOST_MIN..BOOST_MAX: the floor keeps a green from going dim, the
+        //ceiling holds a blue or a violet (under a tenth of a unit of luminance per unit of radiance) at ×10,
+        //where it still blooms (0.94 and 0.85) and its small second channel has not yet turned it cyan or pink.
+        //1.5 matches the old display's measured brightness: the display's pixels average the same value (HSV
+        //V 0.46 against 0.47) over a dark sky, so the colour came back without the display getting dimmer.
+        private const float SPARK_LUMINANCE = 1.5f;
+        private const float BOOST_MIN = 2.0f, BOOST_MAX = 10.0f;
+
+        //The palette as the shader is handed it, boosted once at load rather than per launch.
+        private static readonly Vector3[] SHELL_COLOURS = BoostPalette();
+
+        //How far round the wheel a shell's second colour sits from its first: three to five steps of eight, so
+        //it is the complement or one of its two neighbours (#612). "Any different one" gave red with orange and
+        //gold with white as often as anything — two halves nobody could tell apart.
+        private const int PAIR_STEP_MIN = 3, PAIR_STEP_SPREAD = 3;
+
+        //The spark's hot core (#612): how much of the way to white a spark goes at its brightest, and the
+        //brightness it starts from. It was 70 % white over nearly its whole life (from a brightness of 0.26),
+        //which is most of why the display read white — "burning, not a coloured dot" wants a hot flash when a
+        //spark is fresh, not a white spark with a coloured edge.
+        private const float HOT_CORE = 0.25f;
+        private const float HOT_CORE_FROM = 0.6f, HOT_CORE_WIDTH = 0.3f;
+
+        //How much of what is behind a spark it hides, per unit of the light it gives (#612). A spark was purely
+        //ADDED to the frame, and light added to a bright sky can only move it towards white: over the meadow's
+        //noon blue a red spark lifts the red channel and leaves the sky's green and blue where they were, so the
+        //best it could ever be was pale pink — the one case no palette or boost could fix. The result page makes
+        //it worse, since its defocus averages a thin streak into the sky around it before the curve.
+        //
+        //So a spark covers the sky by its own weight a² times this (Fireworks.fx), and the blend reads as the
+        //spark's colour at radiance / SKY_COVER laid over the sky at that opacity. Over a dark sky that is
+        //exactly the additive display it was, until a spark is opaque. Swept at 1.8, 2.5, 5 and 12 (and at 0.85
+        //on the weight rather than its square): the display's pixels over the meadow's sky stayed at HSV
+        //saturation 0.32–0.35 against the old 0.31 until 12, which reached 0.40 — and over a cloud 0.22 against
+        //0.01. Higher was not photographed but computed: the colour a dim spark tends to is radiance / SKY_COVER
+        //(a red of 0.58 at 12), and much past 12 it goes dark enough to read as soot on the sky.
+        private const float SKY_COVER = 12f;
 
         private struct Shell
         {
@@ -125,6 +170,19 @@ namespace BS3D.Effects
         private readonly VertexBuffer _vertexBuffer;
         private readonly IndexBuffer _indexBuffer;
         private readonly int _quadCount;
+
+        //PREMULTIPLIED "over" (#612): the shader returns the light a spark adds, and in alpha how much of what is
+        //behind it the spark covers (SKY_COVER), so the frame keeps the destination by what the spark has not
+        //taken. At a cover of zero this is exactly the additive blend it replaced. The target's own alpha is
+        //left alone — nothing reads it, and the additive state it replaced was writing it for no one. Static,
+        //like every state object here (BestPractices.md).
+        private static readonly BlendState SparkBlend = new()
+        {
+            ColorSourceBlend = Blend.One,
+            ColorDestinationBlend = Blend.InverseSourceAlpha,
+            AlphaSourceBlend = Blend.Zero,
+            AlphaDestinationBlend = Blend.One
+        };
 
         //Cached parameter handles: the by-name indexer is a linear scan, and these are set every frame.
         private readonly EffectParameter _viewParam, _projectionParam, _cameraPositionParam;
@@ -193,6 +251,11 @@ namespace BS3D.Effects
             //on the flash frame and shortens it to a dot within a few tenths of a second — the line, then the
             //break-up, then the drift.
             effect.Parameters["SparkStretch"].SetValue(0.42f);
+
+            effect.Parameters["HotCore"].SetValue(HOT_CORE);
+            effect.Parameters["HotCoreFrom"].SetValue(HOT_CORE_FROM);
+            effect.Parameters["HotCoreWidth"].SetValue(HOT_CORE_WIDTH);
+            effect.Parameters["SkyCover"].SetValue(SKY_COVER);
 
             _quadCount = MAX_SHELLS * SPARKS_PER_SHELL;
             BuildBuffers(out _vertexBuffer, out _indexBuffer);
@@ -355,18 +418,19 @@ namespace BS3D.Effects
 
             float rise = Lerp(RISE_MIN, RISE_MAX, (float)_random.NextDouble());
 
-            //Two colours per shell, and the second is picked to be a DIFFERENT one — a shell that comes out
-            //half gold and half gold is just a gold shell that cost an extra uniform. Stepping a random
-            //distance round the palette rather than re-rolling guarantees it without a rejection loop.
-            int colourA = _random.Next(PALETTE.Length);
-            int colourB = (colourA + 1 + _random.Next(PALETTE.Length - 1)) % PALETTE.Length;
+            //Two colours per shell, and the second is picked ACROSS the wheel from the first (PAIR_STEP_MIN) —
+            //a shell that comes out half gold and half orange is just a gold shell that cost an extra uniform.
+            //Stepping a random distance round the palette rather than re-rolling guarantees it without a
+            //rejection loop.
+            int colourA = _random.Next(SHELL_COLOURS.Length);
+            int colourB = (colourA + PAIR_STEP_MIN + _random.Next(PAIR_STEP_SPREAD)) % SHELL_COLOURS.Length;
 
             _shells[slot] = new Shell
             {
                 Origin = origin,
                 Burst = burst,
-                Color = PALETTE[colourA] * COLOR_BOOST,
-                ColorB = PALETTE[colourB] * COLOR_BOOST,
+                Color = SHELL_COLOURS[colourA],
+                ColorB = SHELL_COLOURS[colourB],
                 Age = -rise,
                 Rise = rise,
                 Radius = Lerp(RADIUS_MIN, RADIUS_MAX, (float)_random.NextDouble()),
@@ -386,9 +450,10 @@ namespace BS3D.Effects
         }
 
         /// <summary>
-        /// The whole display in one draw call. Additive and depth-read but writing no depth, so a burst behind
-        /// the cluster or a tower is hidden by it and one in the open glows over everything — the same states
-        /// the launch smear and the campfire flame use, and for the same reasons.
+        /// The whole display in one draw call. Depth-read but writing no depth, so a burst behind the cluster or
+        /// a tower is hidden by it and one in the open glows over everything — the depth states the launch smear
+        /// and the campfire flame use, and for the same reasons. Blended by <see cref="SparkBlend"/>: added
+        /// light, plus the share of the sky behind a spark that it covers.
         /// </summary>
         public void Draw(ICamera camera)
         {
@@ -435,7 +500,7 @@ namespace BS3D.Effects
             DepthStencilState depth = _device.DepthStencilState;
             RasterizerState raster = _device.RasterizerState;
 
-            _device.BlendState = BlendState.Additive;
+            _device.BlendState = SparkBlend;
             _device.DepthStencilState = DepthStencilState.DepthRead;
             _device.RasterizerState = RasterizerState.CullNone;
 
@@ -532,6 +597,18 @@ namespace BS3D.Effects
         }
 
         private static float Lerp(float a, float b, float t) => a + (b - a) * t;
+
+        //Rec. 709 luminance, the weights Glare.fx's bright pass decides by
+        private static float Luminance(Vector3 c) => 0.2126f * c.X + 0.7152f * c.Y + 0.0722f * c.Z;
+
+        /// <summary>Each hue of <see cref="PALETTE"/> brought to <see cref="SPARK_LUMINANCE"/> (see there).</summary>
+        private static Vector3[] BoostPalette()
+        {
+            Vector3[] boosted = new Vector3[PALETTE.Length];
+            for (int i = 0; i < PALETTE.Length; i++)
+                boosted[i] = PALETTE[i] * MathHelper.Clamp(SPARK_LUMINANCE / Luminance(PALETTE[i]), BOOST_MIN, BOOST_MAX);
+            return boosted;
+        }
 
         public void Dispose()
         {

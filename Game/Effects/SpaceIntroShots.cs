@@ -61,7 +61,7 @@ namespace BS3D.Effects
         //A fixed look-at far out along a direction stands in for the direction itself.
         private const float FAR = 5000f;
 
-        private const int PATH_POINTS = 64;
+        private const int PATH_POINTS = IntroPaths.POINTS;
 
         /// <summary>The prologue for the space scene the renderer is drawing, or null when it has no config.</summary>
         public static IntroShot[] Build(SceneRenderer scenes, Random random)
@@ -150,12 +150,6 @@ namespace BS3D.Effects
             return v.LengthSquared() > 1e-8f ? Vector3.Normalize(v) : fallback;
         }
 
-        private static Vector3[] Line(Vector3 from, Vector3 to)
-        {
-            var path = new Vector3[PATH_POINTS];
-            for (int i = 0; i < PATH_POINTS; i++) path[i] = Vector3.Lerp(from, to, i / (float)(PATH_POINTS - 1));
-
-            return path;
-        }
+        private static Vector3[] Line(Vector3 from, Vector3 to) => IntroPaths.Line(from, to, PATH_POINTS);
     }
 }

@@ -720,55 +720,15 @@ namespace BS3D
                 : null;
 
         /// <summary>
-        /// The live scene's own shots to cut together ahead of its chapter tour (#488), or null for a scene
-        /// with none. The two cities have them: their street level, plazas and canyons are where no spline
-        /// round the arena can go, and they are built off the city this game is drawing right now — so the
-        /// shots stand in the very streets on screen, the day city's or the neon one's. And the volcano
-        /// (#530): the tour looks at the cone from outside and never over its rim, and the crater is the one
-        /// picture every reference of #509 is built round. And the aurora (#531): its wood stands outside the
-        /// clearing where the tour's spline never goes, and the shots thread the very spruces this game
-        /// planted, off the planting itself. And since #559 the open-ground scenes, each off its own land — the
-        /// meadow, the savanna, the forest and the tropical beach through <c>IntroGround</c>, off the land's
-        /// height mirror and the scene's own planting; four scenes whose things a shader builds: the
-        /// dream's glass and orbs, the cavern's crystals and god rays, the storm's cells and its strike, the
-        /// icesheet's crevasses and front, found through the renderer's host copies of the shaders' own
-        /// placement (the dream's and the storm's subjects move, so theirs are laid out on the wall clock they
-        /// will play in) — and the four scenes off the Earth, the Moon, Mars, space and the Grid, each shot
-        /// about one thing the scene builds: a real crater, a real mesa, the planet and the drain, one cube and
-        /// the landmark ring.
+        /// The live scene's own shots to cut together ahead of its chapter tour, or null for a scene with none —
+        /// see <see cref="BS3D.Effects.IntroPrologues"/>, where the dispatch and its reasons live since #596.
         /// </summary>
         /// <param name="fieldOfView">The frame the tour ends on, which each shot widens from.</param>
         /// <param name="random">The intro's own roll.</param>
-        internal BS3D.Effects.IntroShot[] IntroPrologue(float fieldOfView, Random random) => _scene switch
-        {
-            SceneKind.City or SceneKind.NeonCity => BS3D.Effects.CityIntroShots.Build(_city, fieldOfView, random),
-            SceneKind.Volcano => BS3D.Effects.VolcanoIntroShots.Build(_sceneRenderer, fieldOfView, random),
-            SceneKind.Aurora => BS3D.Effects.AuroraIntroShots.Build(_auroraScatter,
-                _sceneRenderer?.GetSceneConfig(SceneKind.Aurora) as AuroraSceneConfig, fieldOfView, random),
-            //#559: the sea, the desert, the outback and the mountains, off their own terrain (TerrainMirror)
-            //and, for the sea, the dome's sun, which its swell shot heads into.
-            SceneKind.Sea => BS3D.Effects.SeaIntroShots.Build(_sceneRenderer, _rig?.SunDirection, fieldOfView, random),
-            SceneKind.Desert => BS3D.Effects.DesertIntroShots.Build(_sceneRenderer, fieldOfView, random),
-            SceneKind.Outback => BS3D.Effects.OutbackIntroShots.Build(_sceneRenderer, fieldOfView, random),
-            SceneKind.Mountain => BS3D.Effects.MountainIntroShots.Build(_sceneRenderer, fieldOfView, random),
-            SceneKind.Meadow => BS3D.Effects.MeadowIntroShots.Build(
-                _sceneRenderer?.GetSceneConfig(SceneKind.Meadow) as MeadowSceneConfig, fieldOfView, random),
-            SceneKind.Savanna => BS3D.Effects.SavannaIntroShots.Build(_sceneRenderer, fieldOfView, random),
-            SceneKind.Forest => BS3D.Effects.ForestIntroShots.Build(_forestScatter,
-                _sceneRenderer?.GetSceneConfig(SceneKind.Forest) as ForestSceneConfig, fieldOfView, random),
-            SceneKind.Tropical => BS3D.Effects.TropicalIntroShots.Build(_sceneRenderer, fieldOfView, random),
-            SceneKind.Dream => BS3D.Effects.DreamIntroShots.Build(_sceneRenderer, _wallClock, fieldOfView, random),
-            SceneKind.Cavern => BS3D.Effects.CavernIntroShots.Build(_sceneRenderer, fieldOfView, random),
-            SceneKind.Storm => BS3D.Effects.StormIntroShots.Build(_sceneRenderer, _wallClock, fieldOfView, random),
-            SceneKind.Polar => BS3D.Effects.PolarIntroShots.Build(_sceneRenderer, fieldOfView, random),
-            //#559: the four off the Earth, on absolute lenses (see GridIntroShots) — the Moon's and Mars's
-            //ground through OffworldGround's ceilings, the Grid's solids through the renderer's own record.
-            SceneKind.Moon => BS3D.Effects.MoonIntroShots.Build(_sceneRenderer, random),
-            SceneKind.Mars => BS3D.Effects.MarsIntroShots.Build(_sceneRenderer, random),
-            SceneKind.Space => BS3D.Effects.SpaceIntroShots.Build(_sceneRenderer, random),
-            SceneKind.Grid => BS3D.Effects.GridIntroShots.Build(_sceneRenderer, random),
-            _ => null,
-        };
+        internal BS3D.Effects.IntroShot[] IntroPrologue(float fieldOfView, Random random) =>
+            BS3D.Effects.IntroPrologues.For(_scene,
+                new BS3D.Effects.IntroContext(_sceneRenderer, _city, _forestScatter, _auroraScatter, _rig?.SunDirection, _wallClock),
+                fieldOfView, random);
 
         internal int LevelCount => _levelSet?.Count ?? 0;
         internal string LevelDisplayName(int index) => _levelSet.DisplayName(index);

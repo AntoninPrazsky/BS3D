@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using Myra.Graphics2D.UI;
+using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.Scoring;
 using System;
 using Color = Microsoft.Xna.Framework.Color;
@@ -282,22 +283,50 @@ namespace BS3D.Screens
                 + "outweighs a streak you could farm by taking longer — that is deliberate."));
         }
 
+        /// <summary>
+        /// What the Balls page says about each kind that is not ordinary (#633), <b>keyed by the kind</b> so the
+        /// list is one place and a check can ask whether every <see cref="BallKind"/> has an entry — #584's
+        /// deferred per-kind check, whose Help half this is. In the order a player meets them: the four the
+        /// campaign places, then the five no shipped level uses yet (#633 counted: bomb from level 85, zap 87,
+        /// glass 121, stone 126, the rest nowhere). <see cref="BallKind.Normal"/> needs no entry and the wildcard
+        /// has its own paragraph, since it arrives in the cannon rather than in the cluster.
+        /// <para>
+        /// The look clauses are deliberately short: the looks are being redrawn one kind at a time (#622), and a
+        /// sentence describing a finish that has since changed would be wrong on the one page that explains it.
+        /// </para>
+        /// </summary>
+        private static readonly (BallKind Kind, string Text)[] KIND_ENTRIES =
+        {
+            (BallKind.Rock, "Stone — colourless, and it cannot be matched. It never falls to a colour, only to losing "
+                + "whatever was holding it up. A wall of stone is a wall you have to go around."),
+            (BallKind.Transparent, "Glass — clear, with no colour of its own yet. The first ball that lands against it colours it, "
+                + "and from that moment it is an ordinary ball of that colour. It is a cell you get to choose."),
+            (BallKind.Bomb, "Bomb — dark, and it beats harder than the cluster around it. Set it off and it destroys its "
+                + "neighbours outright, colour regardless."),
+            (BallKind.Zap, "Zap — dark and flickering, with hard bright arcs across it. It fires along a colour rather "
+                + "than a shape."),
+            (BallKind.Acid, "Acid — land a shot beside it and it eats straight down through the cluster beneath it until it "
+                + "reaches a gap. Whatever it was holding up comes down with it."),
+            (BallKind.Frozen, "Frozen — a coloured ball sealed in a block of ice. Nothing matches it and no shot removes it "
+                + "until you clear a group next to it. Then the ice breaks, and it is an ordinary ball of the colour you "
+                + "could see all along."),
+            (BallKind.Infectious, "Infectious — an ordinary ball of its colour, and sick. Every shot you fire, it passes the "
+                + "sickness to one healthy neighbour, the highest one, and hardens into stone itself. Match it away early: "
+                + "the stone it leaves is permanent."),
+            (BallKind.Gravity, "Gravity — an ordinary ball that pulls on shots passing near it and bends their flight. The "
+                + "aim preview shows the bend."),
+            (BallKind.Heavy, "Heavy — an ordinary ball many times heavier than the rest. Whatever hangs from it sits lower in "
+                + "the cluster, nearer the line."),
+        };
+
         private void BuildBalls(VerticalStackPanel column)
         {
             column.Widgets.Add(Paragraph(
-                "Most balls are ordinary. Four kinds are not, and you will meet them as the campaign goes on."));
-            column.Widgets.Add(Paragraph(
-                "Stone — colourless, and it cannot be matched. It never falls to a colour, only to losing "
-                + "whatever was holding it up. A wall of stone is a wall you have to go around."));
-            column.Widgets.Add(Paragraph(
-                "Glass — clear, with no colour of its own yet. The first ball that lands against it colours it, "
-                + "and from that moment it is an ordinary ball of that colour. It is a cell you get to choose."));
-            column.Widgets.Add(Paragraph(
-                "Bomb — dark, and it beats harder than the cluster around it. Set it off and it destroys its "
-                + "neighbours outright, colour regardless."));
-            column.Widgets.Add(Paragraph(
-                "Zap — dark and flickering, with hard bright arcs across it. It fires along a colour rather "
-                + "than a shape."));
+                "Most balls are ordinary. These are not — the first few you will meet as the campaign goes on."));
+
+            foreach ((BallKind _, string text) in KIND_ENTRIES)
+                column.Widgets.Add(Paragraph(text));
+
             column.Widgets.Add(Paragraph(
                 "And one that arrives in your cannon rather than in the cluster: the wildcard, a ball that "
                 + "never settles on a colour while it is loaded. It becomes whatever completes a group where it "

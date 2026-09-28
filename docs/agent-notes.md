@@ -6711,3 +6711,47 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-28 — #617 výraznější zhoupnutí shluku na startu — desktop, Claude Code (bs3d-a1)
 
 - **Beru #617.** Fyzikální přechod na startu (měkčí pružiny / start mimo klid), stejně pro hru i `SagProbe`, měřeno proti čáře. Soubory: `BallsConstraintsBuilder`, `ClusterHang`, `GameplayScreen`, `Tools/LevelGen`.
+
+## 2026-09-28 — #612 ohňostroj zase barevný — notebook, Claude Code (github-74)
+
+- **Na mainu** (branch `612-fireworks-colour`). Pět příčin bílé, každá změřená: (1) ACES v `Tonemap.fx` je po kanálech a jiskra byla hluboko na rameni křivky, takže červená `(1, .22, .18)` vyšla ve špičce růžovobílá — **každý odstín je teď dva kanály a NULA** (nula projde každou křivkou), bílá z palety pryč, přibyla purpurová; (2) jeden `COLOR_BOOST` 4,2 → každý odstín na luminanci `SPARK_LUMINANCE` 1,5 (×2…×10); (3) bílé jádro 70 % od jasu 0,26 → záblesk 25 % mezi jasem 0,6 a 0,9; (4) druhá barva 3–5 kroků z osmi po kole (doplněk nebo soused), ne „jakákoli jiná“; (5) **přičtené světlo nad jasnou oblohou umí jen bělit** a rozostření stránky výsledku ho rozmaže do oblohy — blend je teď premultiplied (`SparkBlend`): jiskra přidá totéž světlo a navíc zakryje pozadí o `a²·SKY_COVER` (12). Nad tmou je to přesně ten dřívější aditivní obraz.
+- **Změřeno dočasnou instrumentací (necommitováno):** scéna vymazaná na plochou barvu těsně před kreslením ohňostroje, vrstva poháru vypnutá, `level=Toadstool result celebrate`, 12 snímků × 2 běhy × 3 pozadí; starý stav reprodukován starými konstantami v novém kódu. Průměrná sytost (HSV S) pixelů ohňostroje: tma **0,25 → 0,67** (šedých 52 % → 4 %), obloha louky **0,31 → 0,40** (36 % → 18 %), mrak **0,01 → 0,22**. Jas stejný (V 0,47 → 0,46). Skutečné scény (louka, poušť, neon, 3 běhy) vizuálně: jasně barevné páry i nad polední oblohou.
+- ⚠ **Past měření:** mediánové pozadí z několika běhů nefunguje — pohár se točí náhodně, zrno filmu je šum na pixel a mraky se liší; maska chytala 23 % snímku. Plochá barva přes env proměnnou před `_fireworks.Draw` je čistý přístroj.
+- ⚠ **Parametr (spočítáno, ne vyfoceno):** zakrytí úměrné `a` (ne `a²`) by u dohasínajících jisker zakrylo víc oblohy, než kolik světla vrátí (tmavé „saze“); `a²` drží poměr. Barva, ke které hustá místa konvergují, je `radiance/SKY_COVER` — nad ~12 by červená klesla pod 0,58 a četla se jako tmavá skvrna. Vyšší hodnoty jsem nefotil.
+- **Nevyřešeno:** pozdní slabé jiskry nad jasnou oblohou dál blednou do růžové/modré (většina zbylých 18 %) a modrá salva nad modrou oblohou má malý kontrast. `shipped-awaiting-verdict`. Nastavení hráče nedotčeno (hash `Settings.json` před i po stejný).
+
+## 2026-09-28 — #591 zbytek: tahy trailů — notebook, Claude Code (github-74)
+
+- **Beru zbytek #591**, bod (3): cena kreslení `AimBeam`/`LineSparks`/`LaunchSmears` po jednom draw callu na segment, nejdřív změřená na APU notebooku (pevná herní kamera, `logfps`); instancované kreslení jen pokud měření řekne, že to stojí za to (BestPractices §9). Soubory: `AimBeam.cs`, `LineSparks.cs`, `LaunchSmears.cs`, `ShotTrail.fx`. Body (1b) a stínová mapa bez depth zatím ne.
+
+## 2026-09-28 — #596 prology intra: dispatch z menu, sdílené geometrické pomocníky — desktop, Claude Code (bs3d-a1)
+
+- **Beru #596.** `IntroPrologues.For` místo switche v `BS3DGame.Menu.cs`, `IntroPaths` pro zkopírované `Line`/`Rotate`/`KeepOver`/`DistanceToSegment`/`Lerp`. Ověření: výpis kontrolních bodů před/po se stejným seedem.
+- **Hotovo, na mainu:** `IntroPrologues.For(SceneKind, IntroContext)` a `IntroPaths`; 162 řádků pryč. Ověřeno dočasným výpisem hashů póz všech prologů (`sceneseed=1`, pevný `Random(1234)`): 20/20 shodných; bez `sceneseed` se hash města mění mezi běhy, takže výpis umí selhat. `DropCinematic` jsem nechal (není intro a bs3d-ea v něm právě pracuje).
+
+## 2026-09-28 — #633 Help › Balls: pět chybějících druhů — desktop, Claude Code (bs3d-a1)
+
+- **Beru #633.** Kyselina, zmrzlá, nakažlivá, gravitační a těžká koule do Help › Balls. Soubory: `HelpPage.cs`, `docs/game-shell.md`.
+- **Hotovo, na mainu:** `HelpPage.KIND_ENTRIES` (tabulka podle `BallKind`), všech devět druhů + divoká karta; text ověřen proti `BallKind.cs`. Stránka se posouvá (#606). Kdy hráči kind ukázat (vždy / až ho potká / kontextová karta) je na majiteli — postaveno „vždy“.
+
+## 2026-09-28 — #640 pohár a strop zespodu děraví, nedokonalosti — desktop, Claude Code (bs3d-a1)
+
+- **Beru #640.** Nejdřív změřit, co dělá „děravý“ vzhled zespodu (AO u jednotlivých instancí), pak oprava. Soubory: pohár, `CeilingPlate`, `InstancedModel.fx`, `docs/rendering.md`.
+
+## 2026-09-28 — #591 zbytek: resolve jedním vzorkem ano, instancované traily ne — notebook, Claude Code (github-74)
+
+- **(3) traily — změřeno, NEdělat (BestPractices §9).** Dočasně (necommitováno) `AimBeam.Draw` kreslil paprsek 0×/1×/11×/41× za snímek, Game `level=Toadstool quality=low`, APU (Ryzen 7 5700U), 3 běhy, minimum mediánů. Při 1600×900 je snímek vázaný na GPU (11,7 ms) a ani 533 draw callů navíc nepřidá víc než 0,05 ms. CPU-vázaně (320×180, 1,37 ms): 533 draw callů +0,25–0,35 ms → **~0,5–0,7 µs na draw**; skutečný paprsek má 13 čárek (délka 14,6) → ~8 µs za snímek, i strop 64 čárek ~40 µs. Instancování by nic nepřineslo.
+- **(1b) resolve při ssaa 2 jedním bilineárním vzorkem — na mainu.** Střed výstupního pixelu je roh čtyř texelů bloku, bilineár je tedy přesně box 2×2. Párově v jednom procesu (dočasná uniforma přepínaná po 3 s, značka ve stdoutu): Testbed, louka, pevná kamera, 1600×900, aberace zapnutá: **−0,74 ms z 30,8 ms, levnější ve 22/22 cyklech**. Game front end (orbit) šum (11/17), Game v levelu šum — protože **ve hře na High/Ultra resolve čte výstup motion bluru (faktor 1)**; zisk je tedy v menu, stránkách nad levelem, hře bez motion bluru, Testbedu a editoru.
+- **Obraz:** bez aberace a zrna (`nopost`, pevné zrno) se box a bilineár shodují na pixel všude, kde se mezi běhy nic nehýbalo; rozdíly jen v dolních řadách shluku (fyzika do F5 běží v každém běhu jinak — kontrola box vs box ze dvou běhů to potvrdila). S aberací se okraje liší (p99 5 → 12 k rohům): posunuté vzorky teď interpolují místo přichycení k texelu.
+- ⚠ **Past:** první A/B paprsku měřilo nic — level kreslí paprsek větví `_previewPath` (segmenty), ne tou, kterou jsem opakoval; všechny varianty 11,73 ms. Zesilovač patří DOVNITŘ měřené metody. A `[fps]` Game píše desetinnou čárku (česká lokalizace) — regex `[\d.]` nechytil nic.
+- **Zbývá z #591:** stínová mapa bez depth bufferu (jen Ultra 8192², ~268 MB) a případný spike PCF přes `SampleCmpLevelZero`. Issue nechávám otevřené.
+- **#640 NEHOTOVO, claim uvolněn:** „díry“ na zlatém poháru zespodu jsou světlé klíny oblohy na siluetě mísy pod pásem. `PolishedMetalPS` okluzi vůbec nečte; zapečená skutečná samookluze obrysu (96 paprsků/prstenec, složené do řezu rotačního tělesa) dala pod pásem jen 3–8 % — pás přečnívá 0,016–0,024 a tečný paprsek jde vedle něj. Okluze to neřeší, kód revertován. Je to poctivé zrcadlo při tečném pohledu (Schlick → bílá); tři volby vzhledu v komentáři na #640, rozhodne majitel.
+
+## 2026-09-28 — #604 galerie s hloubkou — notebook, Claude Code (github-74)
+
+- **Beru #604**, první krok z issue: jeden prototyp (dvě stěny obrázku do V / roh, případně reliéf), vyfocený z herní kamery a ze strany, přes všechny brány (drop test, `FindStrandedSpecials`, sag probe, `AimReachability`, `ArrivalProbe`), pak verdikt majitele. Soubory: `Tools/LevelGen/Designs/Block02_Gallery.cs`, `Tools/LevelGen` (`Picture()`), případně nový level v `Game/Levels`. Kampaň (#603) a Silhouettes (#491) neměním.
+
+## 2026-09-28 — #643 profil shluku pod čarou po prohře — desktop, Claude Code (bs3d-a1)
+
+- **Beru #643.** Profil přestane ořezávat koule pod čárou, když level skončil na čáře. Soubory: `PlayHud.cs`.
+- **Hotovo, na mainu:** koule shluku pod čarou se v profilu kreslí s červeným kroužkem (`PROFILE_CROSSED_RING`); střely a padající koule dál mizí. Ověřeno vynucenou prohrou na čáře (Smiley, strop každou ranou ve výstupním `Levels.json`).

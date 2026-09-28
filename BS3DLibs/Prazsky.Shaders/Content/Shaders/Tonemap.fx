@@ -24,11 +24,12 @@ sampler2D SceneSampler = sampler_state
     AddressV = Clamp;
 };
 
-//#298 PROBE. The same scene texture read BILINEARLY, for the case the target is SMALLER than the back
-//buffer and the resolve is magnifying rather than averaging. Point sampling is right for the box filter
-//below and wrong here — magnified, it is nearest-neighbour, which measures the same and looks like
-//nothing anyone would ship. A second sampler rather than a second technique: the pair of techniques would
-//have to be duplicated whole for one filter state, and the branch that picks between them is on a uniform.
+//The same scene texture read BILINEARLY, for two cases. #298's probe: the target is SMALLER than the back
+//buffer and the resolve is magnifying rather than averaging, where point sampling is nearest-neighbour,
+//which measures the same and looks like nothing anyone would ship. And a factor of exactly TWO (#591), where
+//one bilinear tap is the box filter itself - see SampleScene. A second sampler rather than a second
+//technique: the pair of techniques would have to be duplicated whole for one filter state, and the branch
+//that picks between them is on a uniform.
 sampler2D SceneSamplerLinear = sampler_state
 {
     Texture = <SceneTexture>;
@@ -233,7 +234,17 @@ float3 SampleScene(float2 uv)
 {
     //#298 PROBE: magnifying, so one bilinear tap and no box filter — there is no block of source texels
     //under an output pixel to average, there is less than one.
-    [branch] if (MagnifyScene > 0) return tex2Dlod(SceneSamplerLinear, float4(uv, 0, 0)).rgb;
+    //
+    //And at a factor of TWO (High and Ultra), one bilinear tap IS the box (#591): an output pixel's centre is
+    //the corner its block's four texels share, so the filter weights each by exactly a quarter. Four point
+    //taps became one - three for twelve under the aberration, whose shifted taps now slide smoothly between
+    //texels instead of snapping to the nearest. Measured on the laptop's integrated Radeon (Testbed, meadow,
+    //fixed camera, 1600x900, aberration on, the two alternated in one process): 0.74 ms cheaper of a 30.8 ms
+    //frame, in 22 of 22 cycles; without the aberration and the grain the two agree to the pixel wherever
+    //nothing moved between runs. The game in play at High resolves the motion blur's back-buffer-sized
+    //output instead (factor 1), so what this buys is the menus, the pages over a level, and a level played
+    //with motion blur off.
+    [branch] if (MagnifyScene > 0 || SupersampleFactor == 2) return tex2Dlod(SceneSamplerLinear, float4(uv, 0, 0)).rgb;
 
     float3 color = 0;
 

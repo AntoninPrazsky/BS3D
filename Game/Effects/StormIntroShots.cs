@@ -68,7 +68,7 @@ namespace BS3D.Effects
         private const float CELL_MARGIN = 10f;
 
         private const int CANDIDATES = 60;
-        private const int PATH_POINTS = 64;
+        private const int PATH_POINTS = IntroPaths.POINTS;
 
         /// <summary>
         /// The prologue for the storm being drawn, starting at <paramref name="time"/> on the renderer's wall
@@ -192,7 +192,7 @@ namespace BS3D.Effects
                 {
                     Vector3 foot = scenes.StormCell(c, middle, out float r, out float h);
                     float reach = r * 1.6f + CELL_MARGIN;
-                    if (DistanceToSegment(new Vector2(foot.X, foot.Z), from, to) > reach) continue;
+                    if (IntroPaths.DistanceToSegment(new Vector2(foot.X, foot.Z), from, to) > reach) continue;
 
                     float crown = foot.Y + h + r * 0.6f;
                     highest = MathF.Max(highest, crown);
@@ -297,13 +297,6 @@ namespace BS3D.Effects
             }
 
             return true;
-        }
-
-        private static float DistanceToSegment(Vector2 point, Vector2 from, Vector2 to)
-        {
-            Vector2 run = to - from;
-            float t = MathHelper.Clamp(Vector2.Dot(point - from, run) / MathF.Max(run.LengthSquared(), 1e-4f), 0f, 1f);
-            return Vector2.Distance(point, from + run * t);
         }
     }
 }
