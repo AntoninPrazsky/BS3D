@@ -6750,3 +6750,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-28 — #604 galerie s hloubkou — notebook, Claude Code (github-74)
 
 - **Beru #604**, první krok z issue: jeden prototyp (dvě stěny obrázku do V / roh, případně reliéf), vyfocený z herní kamery a ze strany, přes všechny brány (drop test, `FindStrandedSpecials`, sag probe, `AimReachability`, `ArrivalProbe`), pak verdikt majitele. Soubory: `Tools/LevelGen/Designs/Block02_Gallery.cs`, `Tools/LevelGen` (`Picture()`), případně nový level v `Game/Levels`. Kampaň (#603) a Silhouettes (#491) neměním.
+
+## 2026-09-28 — #643 profil shluku pod čarou po prohře — desktop, Claude Code (bs3d-a1)
+
+- **Beru #643.** Profil přestane ořezávat koule pod čárou, když level skončil na čáře. Soubory: `PlayHud.cs`.
