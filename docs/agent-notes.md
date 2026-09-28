@@ -6831,4 +6831,9 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 
 - **Na mainu.** `SunShadowMap` bez D24S8 (`DepthFormat.None`), vrhající průchod drží nejbližší hloubku přes `BlendFunction.Min` (`SceneRenderer.ShadowCasterBlend`, depth `None`) — pořadí nehraje roli, výsledek jako less-equal test. Žádný vrhající průchod ani technika v `.fx` stav nemění (zkontrolováno). Uvolní 64 MB na High (4096), 256 MB na Ultra (8192).
 - **Změřeno proti kopii předchozího Testbedu (Release):** snímky totožné kromě pohybu shluku (les, savana, město, dóm 8); na APU les (dóm 8, 1600×900 ssaa 2) **o 0,35 ms rychleji** (41,08–41,18 proti 41,46–41,50 ms, 4 střídavé běhy, každý „po“ pod každým „před“). 333/333 testů, 4 solutiony. Z #591 zbývá jen volitelný spike hardwarového PCF (`SampleCmpLevelZero`).
+
+## 2026-09-28 — #230 Konami kód v hlavním menu — notebook, Claude Code (github-74)
+
+- **Beru z #230 „Konami kód v menu“**: ↑↑↓↓←→←→ B A (šipky/d-pad, klávesy nebo tlačítka B A) na hlavním menu → 3D nápis hry zatančí (písmena postupně vyskočí a otočí se, duha jednou dokola) a zazní krátká stoupající znělka. Tlačítko A na padu, které kód dokončí, nespustí položku menu. Nesahá na simulaci ani brány. Soubory: `TitleWordmark`, `BS3DGame.Menu.cs` (navigace), nový `SecretCode<T>` v `Prazsky.BS3D` (sdílený se `SecretShotCode`), `docs/game-feedback.md`/`game-shell.md`.
+- Spike hladšího PCF z #591 zahozen: snímek stínu děla na mapě 4096 (High) žádné schody neukazuje.
 - **Na mainu (kroky 2–5):** pěšina s plotem, květiny v trsech pěti druhů, duby z laloků, potok (stínování, ne kanál — mřížka ~5,5 j je hrubší než voda) s kameny a rákosím, intro „the brook“ a „the path“. ⚠ Voda zrcadlila bledý horizont a četla se jako hnědá cesta — odraz ke zenitu, ochlazený.
