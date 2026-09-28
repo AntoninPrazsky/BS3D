@@ -240,6 +240,7 @@ namespace BS3D.Screens
                 //Forced rather than read: the lean is a hold, so a player still holding the right button when
                 //the takeover ends gets precise aim back, and one who let go during it does not
                 _adsHeld = false;
+                _adsPull = 0f;
 
                 if (_cursorCaptured) _mouseAim.Recentre(centreX, centreY);
                 _previousMouse = mouse;
@@ -275,6 +276,7 @@ namespace BS3D.Screens
             //cursor still free the right button is the desktop's, so only the pad's trigger can lean in: a
             //default MouseState reads every button released, which is exactly "ask the pad alone".
             _adsHeld = _cursorCaptured ? PreciseAim.ButtonHeld(mouse, pad) : PreciseAim.ButtonHeld(default, pad);
+            _adsPull = _cursorCaptured ? PreciseAim.LeanAmount(mouse, pad) : PreciseAim.LeanAmount(default, pad);
 
             //The lean lesson waits on the hold (#189)
             _tutorial.NoteHold(Tutorial.Lesson.LeanIn, _adsHeld, (float)gameTime.ElapsedGameTime.TotalSeconds);
@@ -313,7 +315,11 @@ namespace BS3D.Screens
                 if (script.TrySweep(WallClock, _cannon.Elevation, out float elevation, out float traverse))
                     _cannon.AimTo(elevation, traverse);
 
-                _adsHeld |= script.Rmb(WallClock);
+                if (script.Rmb(WallClock))
+                {
+                    _adsHeld = true;
+                    _adsPull = 1f;
+                }
 
                 if (script.TryTakeFire(WallClock)) Shoot();
             }

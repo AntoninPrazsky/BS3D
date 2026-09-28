@@ -51,8 +51,17 @@ namespace Prazsky.BS3D
         /// </summary>
         public const float CONVERGE_TAU = 0.3f;
 
-        /// <summary>Gamepad left-trigger pull that counts as held.</summary>
+        /// <summary>Gamepad left-trigger pull that counts as held — for what asks a yes or no of the lean (a lesson,
+        /// the dozing gun); the lens itself follows the pull, <see cref="LeanAmount"/>.</summary>
         public const float TRIGGER_THRESHOLD = 0.5f;
+
+        /// <summary>
+        /// The trigger's travel the lean is spread over (#520): below <see cref="TRIGGER_REST"/> is a finger resting
+        /// on it and leans nothing, past <see cref="TRIGGER_FULL"/> is all the way in, and between the two the lens
+        /// leans in as far as the trigger is pulled. The top is short of the stop so a full lean does not need the
+        /// last millimetre of a worn trigger.
+        /// </summary>
+        public const float TRIGGER_REST = 0.08f, TRIGGER_FULL = 0.9f;
 
         /// <summary>
         /// A modest 1.19× lean-in on the game camera's own field of view — enough to read as leaning in, not
@@ -99,9 +108,19 @@ namespace Prazsky.BS3D
         /// change with the frame rate.</param>
         /// <param name="targetDepth">How far along the aim the lens should converge <i>this</i> frame, before
         /// easing and before clamping — see <see cref="ConvergeDepth"/> for what it is and why it is eased.</param>
-        public void Step(bool held, float elapsedSeconds, float targetDepth)
+        public void Step(bool held, float elapsedSeconds, float targetDepth) => Step(held ? 1f : 0f, elapsedSeconds, targetDepth);
+
+        /// <summary>
+        /// <see cref="Step(bool, float, float)"/> with how far the lean is asked for, 0 to 1 (#520): the gamepad's
+        /// left trigger half pulled holds the lens half leaned in, eased there by the same <see cref="BLEND_TAU"/>. A
+        /// button asks 0 or 1 and gets exactly the binary snap it always had.
+        /// </summary>
+        /// <param name="amount">How far to lean, 0 to 1 — <see cref="LeanAmount"/>, after the caller's gates.</param>
+        /// <param name="elapsedSeconds">The frame's own elapsed time.</param>
+        /// <param name="targetDepth">How far along the aim the lens should converge this frame.</param>
+        public void Step(float amount, float elapsedSeconds, float targetDepth)
         {
-            float target = held ? 1f : 0f;
+            float target = MathHelper.Clamp(amount, 0f, 1f);
 
             Blend = target + (Blend - target) * MathF.Exp(-elapsedSeconds / BLEND_TAU);
 
@@ -169,6 +188,16 @@ namespace Prazsky.BS3D
         /// </summary>
         public static bool ButtonHeld(in MouseState mouse, in GamePadState pad) =>
             mouse.RightButton == ButtonState.Pressed || pad.Triggers.Left > TRIGGER_THRESHOLD;
+
+        /// <summary>
+        /// How far precise aim is being asked for, 0 to 1 (#520): the right mouse button is all or nothing, the
+        /// gamepad's left trigger leans in as far as it is pulled, over <see cref="TRIGGER_REST"/> to
+        /// <see cref="TRIGGER_FULL"/>. The larger of the two wins. Handed the frame's snapshots, like
+        /// <see cref="ButtonHeld"/>.
+        /// </summary>
+        public static float LeanAmount(in MouseState mouse, in GamePadState pad) =>
+            mouse.RightButton == ButtonState.Pressed ? 1f
+                : MathHelper.Clamp((pad.Triggers.Left - TRIGGER_REST) / (TRIGGER_FULL - TRIGGER_REST), 0f, 1f);
 
         /// <summary>
         /// What this frame's cursor aim rate should be multiplied by, so that a hand movement sweeps the

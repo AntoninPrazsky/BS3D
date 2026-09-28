@@ -62,7 +62,7 @@ namespace BS3D.Screens
                 : PreciseAim.DepthToClusterCentre(lensMuzzle, lensAim,
                     new Vector3(_cannon.OrbitCenter.X, _clusterCentreY, _cannon.OrbitCenter.Z));
 
-            _preciseAim.Step(_adsHeld, elapsed, convergeTarget);
+            _preciseAim.Step(_adsPull, elapsed, convergeTarget);
 
             Vector3 overviewPosition = GameCameraPositionAt(_gameCameraDistance, TrailedBearing(elapsed));
             Vector3 overviewTarget = new(_cannon.OrbitCenter.X, _gameCameraTargetY, _cannon.OrbitCenter.Z);
