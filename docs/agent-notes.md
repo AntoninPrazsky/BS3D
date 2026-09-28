@@ -6788,3 +6788,10 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-28 — #610 detail akácií a baobabů na savaně — desktop, Claude Code (bs3d-a1)
 
 - **Beru #610.** Reference (oba modely), pak koruna akácie z lístků + prosvítání, kůra, baobab; podle tieru. Soubory: `AcaciaMesh.cs`, `BaobabMesh.cs`, `Acacia.fx`, `SavannaScatter.cs`. Nesahám na ohně (#641, bs3d-ea).
+
+## 2026-09-28 — #642 kontaktní stíny: normal offset místo velkého biasu — notebook, Claude Code (github-74)
+
+- **Na mainu, čeká na verdikt.** Příčina (spočítaná a vyfocená „před“): `SHADOW_BIAS_UNITS` 0,45 × až 3,5 podle `1 − n·l` je až 1,6 jednotky, víc než průměr koule (1,0) — stín začne až tam, kde paprsek prochází koulí delší tětivou než bias, tj. uprostřed stínu, ne u dotyku. Shora na misku (dóm 14, autoshoot) neměla žádná koule pod sebou stín. Oprava v `Shadows.fxh`: čte se mapa z bodu posunutého po normále o 1,5 texelu × sin úhlu ke slunci (texel ve světových jednotkách z x-sloupce view-projection matice), bias 0,45 → 0,12.
+- **Změřeno proti kopii předchozího Testbedu (pevné kamery):** kola a patky ližiny děla na desce ostrova teď navazují na stín, dřív mezi nimi byl osvětlený pruh. Acne nikde: deska ostrova, shluk koulí, fasády města a terén 11 dvojic scéna/dóm (savana 14 i 8, les, hory, poušť, louka, outback, tropy, sopka, Mars, led, město) — rozdíly jen obrysy stínů blíž k předmětům, ohně, kývání palem, pohyb shluku. Game na High z herní kamery beze změny.
+- ⚠ **Nevyfoceno:** koule ležící v klidu na misce ve verzi „po“ — fyzika v Testbedu je náhodná a shora se nedá poznat, jestli koule leží, nebo padá (padající má stín jinde). Mechanismus je stejný jako u kola děla; ověří hra.
+- ⚠ **Past:** `End` (pustit všechny koule) v Testbedu přes `at=3:End` nic neudělal (shluk visel dál); `autoshoot` koule do trychtýře shodí.
