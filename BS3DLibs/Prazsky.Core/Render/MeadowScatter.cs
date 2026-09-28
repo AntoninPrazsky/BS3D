@@ -30,6 +30,7 @@ namespace Prazsky.Core.Render
         private const float OUTER = 460f;
         private const int OAKS = 9, SHRUBS = 55, BALES = 14, BOULDERS = 18, TUFTS = 700;
         private const int HEDGEROWS = 5, FENCES = 2;
+        private const int BERM_STONES = 16, BERM_TUFTS = 120;
 
         //=== The colours, linear, and the drier shade each instance can lean towards (as the savanna's). Set against
         //the meadow's own grass (0.14/0.46/0.05) rather than the savanna's: at the savanna's canopy the first
@@ -44,6 +45,8 @@ namespace Prazsky.Core.Render
         private static readonly Vector3 STONE = new(0.30f, 0.30f, 0.27f);
         private static readonly Vector3 TUFT = new(0.12f, 0.36f, 0.05f);
         private static readonly Vector3 REED = new(0.11f, 0.24f, 0.05f);
+        //The bank round the island (#608): earth against the drum; the turf over the rest is the field's own grass colour
+        private static readonly Vector3 BERM_EARTH = new(0.17f, 0.13f, 0.07f);
 
         private readonly List<IDisposable> _owned = new();
 
@@ -256,6 +259,19 @@ namespace Prazsky.Core.Render
             }
             IProceduralMesh reeds = Own(new GrassTuftMesh(device, 0.3f, 2.2f, 6130));
 
+            //--- The bank the island sits in (#608): turf over earth round the foot, a few stones set into it and
+            //longer grass along its edge, so the stone meets the field as a place and not as a disc laid on it
+            IProceduralMesh bermEarth = Own(IslandBerm.Build(device, height, seed, 0, IslandBerm.EARTH_TO));
+            IProceduralMesh bermTurf = Own(IslandBerm.Build(device, height, seed, IslandBerm.EARTH_TO, 4));
+            for (int i = 0; i < BERM_STONES; i++)
+            {
+                float a = (float)rng.NextDouble() * MathHelper.TwoPi;
+                float d = MathHelper.Lerp(IslandBerm.STONE_RADIUS_MIN, IslandBerm.STONE_RADIUS_MAX, (float)rng.NextDouble());
+                float size = 0.35f + 0.6f * (float)rng.NextDouble();
+                rockInstances[rng.Next(3)].Add(At(MathF.Cos(a) * d, MathF.Sin(a) * d, size, (float)rng.NextDouble() * MathHelper.TwoPi,
+                    size * 0.15f, 0f, Jitter()));
+            }
+
             //--- The grass tufts: blades that stand up, the one thing the shader's grass cannot do. Nearest the
             //play camera where they read, thinning outward; the Low tier skips them.
             var tuftMeshes = new GrassTuftMesh[3];
@@ -267,7 +283,9 @@ namespace Prazsky.Core.Render
             }
             for (int i = 0; i < TUFTS; i++)
             {
-                (float x, float z) = Site(ArenaIsland.RADIUS + 12f, 260f);
+                //A share of them along the bank's outer edge, the rest out on the field
+                (float x, float z) = i < BERM_TUFTS ? Site(IslandBerm.STONE_RADIUS_MAX - 0.5f, IslandBerm.STONE_RADIUS_MAX + 2.5f)
+                    : Site(ArenaIsland.RADIUS + 12f, 260f);
                 tuftInstances[rng.Next(3)].Add(At(x, z, 0.8f + 0.7f * (float)rng.NextDouble(), (float)rng.NextDouble() * MathHelper.TwoPi,
                     0.05f, (float)rng.NextDouble() * 0.6f, Jitter()));
             }
@@ -289,6 +307,10 @@ namespace Prazsky.Core.Render
             for (int m = 0; m < rockMeshes.Length; m++)
                 if (rockInstances[m].Count > 0)
                     buckets.Add(new ScatterBucket(device, rockMeshes[m], rockInstances[m], STONE, STONE * new Vector3(0.8f, 1.0f, 0.7f), dapple: 0.45f, bark: 0f, detailOnly: false));
+            var bermAt = new List<ModelInstance> { new(Matrix.Identity, new Vector4(0.3f, 0f, 0f, 0f)) };
+            buckets.Add(new ScatterBucket(device, bermEarth, bermAt, BERM_EARTH, BERM_EARTH * 1.2f, dapple: 0.6f, bark: 0f, detailOnly: false));
+            buckets.Add(new ScatterBucket(device, bermTurf, bermAt, config.GrassColorDark.ToVector3(), config.GrassColor.ToVector3(),
+                dapple: 0.6f, bark: 0f, detailOnly: false));
             if (reedInstances.Count > 0)
                 buckets.Add(new ScatterBucket(device, reeds, reedInstances, REED, REED * new Vector3(1.5f, 1.3f, 0.8f), dapple: 0.4f, bark: 0f, detailOnly: false));
             for (int m = 0; m < tuftMeshes.Length; m++)
