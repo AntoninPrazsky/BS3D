@@ -508,6 +508,9 @@ namespace Prazsky.Core.Render
             _acaciaZenithParam.SetValue(frame.ZenithLinear);
             _acaciaHorizonParam.SetValue(frame.HorizonLinear);
 
+            //Per frame since #609: the plant material is one effect the meadow's planting shares, at its own haze
+            _acaciaHazeParam.SetValue(_savannaConfig.HorizonHazeDistance);
+
             _graphicsDevice.BlendState = BlendState.Opaque;
             _graphicsDevice.DepthStencilState = DepthStencilState.Default;
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise; //real solids, wound like every lathe
