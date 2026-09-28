@@ -6697,3 +6697,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 
 - **Beru #613.** Pevná tónina a tempo zvonkohry, pryč `TakeCadenceFromFanfare` a ROOT/BPM, pokud je nic jiného nečte. Soubory: `ResultPage.cs`, `GameMusic`, `OggTrack`, `MusicBake`, `docs/game-feedback.md`.
 - **Hotovo, na mainu:** zvonkohra hvězd hraje pevně A5–C♯6–E6–A6 po 0,4 s (A dur = tónina nahrávky fanfáry, takže případný překryv neladí vedle). Pryč `TakeCadenceFromFanfare`, `TryGetFanfare`, hodiny znění, tvar nahrávky, `OggTrack.ReadTag` a odmítnutí nahrávky bez tagů. `MusicBake --music` tagy dál píše, hra je nečte. Vybráno, ne poslechnuto — kandidáti k poslechu nebyli; tónina i tempo jsou po jedné konstantě v `ResultPage.cs`.
+
+## 2026-09-28 — #607 hlavní menu: New Game / Continue — desktop, Claude Code (bs3d-a1)
+
+- **Beru #607.** První položka New Game (čerstvý save) / Continue (postup nebo sezení), Play → Select Level. Soubory: `MainMenuPage.cs`, `BS3DGame.Menu.cs`, `docs/game-shell.md`.
