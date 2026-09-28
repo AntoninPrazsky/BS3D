@@ -120,6 +120,10 @@ namespace BS3D
         //whatever they set it to.
         internal bool NoSplash { get; private set; }
 
+        //Testing only: today is the game's birthday (#230) — the party hat on the gun, the title dancing on the
+        //front end. The day itself comes round once a year, which is no way to photograph it.
+        internal bool Birthday { get; private set; }
+
         //Testing only: keep a level running when the window loses focus (#355). Same population as "mute"
         //— a run nobody is sitting at — and for the mirror-image reason: a level that pauses itself while
         //unattended stops producing the frames the run was started to collect.
@@ -351,6 +355,8 @@ namespace BS3D
             Row.Flag("nofps", o => o.NoFpsOverlay = true),
             //"nosplash" opens on the main menu with no intro logo (#621) — the Settings row for this run only.
             Row.Flag("nosplash", o => o.NoSplash = true),
+            //"birthday" makes today the game's birthday (#230), for the camera.
+            Row.Flag("birthday", o => o.Birthday = true),
             //"play" skips the front end into the first level, so a session's figures can be measured at all.
             Row.Flag("play", o => o.Play = true),
             //"level=<n|name>" does the same for any entry of the set — its 1-based place, as the title bar

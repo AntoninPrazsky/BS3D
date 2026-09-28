@@ -44,6 +44,14 @@ namespace Prazsky.Core.Render
         /// stand clear of it wherever that steel can reach (#403).</summary>
         public float WidestRadius { get; }
 
+        /// <summary>The base ring — the thickest steel on the tube, just behind the loading window — as the Z of its
+        /// middle and its outer radius, in the frame of the constructor's Z arguments. The top of it is the one
+        /// place on the barrel's top that is neither glass nor dome (<c>CannonRig.BreechCrown</c>).</summary>
+        public float BaseRingZ { get; }
+
+        /// <inheritdoc cref="BaseRingZ"/>
+        public float BaseRingRadius { get; }
+
         //The outer profile's stations, kept for NearestSteelWiderThan: a query the carriage asks once at load
         private readonly (float Z, float R)[] _outerStations;
 
@@ -298,6 +306,9 @@ namespace Prazsky.Core.Render
             float widest = 0f;
             foreach (Station station in outerProfile) widest = MathF.Max(widest, station.R);
             WidestRadius = widest;
+
+            BaseRingZ = backZ - (BASE_RING_FRONT_Z + BASE_RING_BACK_Z) * Constants.HALF;
+            BaseRingRadius = outer + BASE_RING;
 
             _outerStations = new (float, float)[outerProfile.Count];
             for (int i = 0; i < outerProfile.Count; i++) _outerStations[i] = (outerProfile[i].Z, outerProfile[i].R);

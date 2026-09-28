@@ -566,6 +566,7 @@ namespace Prazsky.BS3D
             //Since the dome and its cascabel, the breech side outreaches the muzzle side — taken off the mesh
             //actually built, so the tube that is drawn and the box that frames it cannot disagree
             BarrelReach = MathF.Max(-muzzleZ, _mesh.PoleZ);
+            BreechCrown = new Vector3(0f, _mesh.BaseRingRadius, _mesh.BaseRingZ);
 
             //The ground darkens the barrel's underside just as it darkens the ball bellies. No GroundHeight
             //is set here: the gun stands on the island's DISH, so the height it is darkened against is the
@@ -671,6 +672,13 @@ namespace Prazsky.BS3D
         /// rather than cropping it at the bottom of the frame.
         /// </summary>
         public float BarrelReach { get; }
+
+        /// <summary>
+        /// The top of the base ring in barrel space — the crown of the thickest steel on the tube, behind the loading
+        /// window: the one place on the barrel's top that is neither glass nor dome, so something can sit there. The
+        /// Game's birthday hat does (#230). Barrel space is the frame <see cref="Draw"/>'s <c>world</c> carries.
+        /// </summary>
+        public Vector3 BreechCrown { get; }
 
         /// <summary>
         /// The renderer, exposed for the one thing <see cref="Draw"/> cannot do for a caller: enrolling it in

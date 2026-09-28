@@ -421,6 +421,19 @@ namespace BS3D
         /// bore off (<see cref="CannonRig.PivotToFrontBall"/>).</summary>
         internal CannonRig CannonRig => _cannonRig;
 
+        /// <summary>
+        /// Whether today is the game's birthday (#230's calendar surprise): the anniversary of the repository's first
+        /// commit, 30 December 2019. Decided once at startup, so a run that crosses midnight keeps the day it
+        /// started with. Nothing about play reads it — only the party hat and the front end's dancing title.
+        /// </summary>
+        internal bool Birthday { get; }
+
+        private static bool IsBirthday(DateTime now) => now.Month == 12 && now.Day == 30;
+
+        //The gun's hat on the birthday, and null on every other day of the year (built only then)
+        private PartyHat _partyHat;
+        internal PartyHat PartyHat => _partyHat;
+
         #endregion
 
         #region Levels
@@ -679,6 +692,7 @@ namespace BS3D
             _shotSchedule = launch.ShotSeconds;
             _noFpsOverlay = launch.NoFpsOverlay;
             _noSplash = launch.NoSplash;
+            Birthday = launch.Birthday || IsBirthday(DateTime.Now);
 
             //A tier the player chose in Settings is honoured exactly as quality= is — it is the same kind of
             //statement, made in a different place — and an argument outranks it, being this run's instruction.
@@ -983,6 +997,7 @@ namespace BS3D
             //so the barrel that is built and the muzzle a shot leaves from cannot disagree. The instancing
             //effect is handed in and stays the content manager's — the rig disposes its mesh and renderer only.
             _cannonRig = new CannonRig(GraphicsDevice, _instancingEffect, Magazine.SIZE, Magazine.SPACING);
+            if (Birthday) _partyHat = new PartyHat(GraphicsDevice, _instancingEffect, _cannonRig);
 
             #endregion
 
@@ -1530,6 +1545,10 @@ namespace BS3D
             _confetti?.Update(elapsed);
             _trophy?.Update(elapsed);
 
+            //The game's birthday on the front end (#230). Here with the celebrations rather than in the menu's
+            //chrome, which runs only while the window has focus — and a birthday does not wait for one.
+            if (Birthday) StepBirthday(elapsed);
+
             //The music, the About page's player and the music stepping aside for it, the scene's bed and its
             //one-shots, which music the moment wants (the stack question, #46: the front end's loop plays exactly
             //while no session screen is on it) and the fireworks giving way to the fanfare — in that order, after
@@ -1761,6 +1780,7 @@ namespace BS3D
             //The barrel's mesh and its instance buffer, in one call — but not the shared instancing effect,
             //which the content manager owns and the balls, the city, the island and the ceiling all use
             _cannonRig?.Dispose();
+            _partyHat?.Dispose();
 
             //The dome's two buffers and its owned BasicEffect — not the sky effect, which the content
             //manager owns

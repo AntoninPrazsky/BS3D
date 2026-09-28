@@ -1540,6 +1540,10 @@ namespace BS3D.Screens
             DrawMuzzleCollar(barrelWorld);
             Game.CannonRig.DrawCarriage(Camera, carriageWorld, _cannon.WheelTravel, _cannon.SlideTravel, Game.SceneEffectParams);
 
+            //On the game's birthday the gun wears a hat (#230), on the barrel's own pose so it recoils, walks and
+            //nods off with it. Null on every other day.
+            Game.PartyHat?.Draw(Camera, barrelWorld, Game.SceneEffectParams);
+
             //Everything collected above, as one instanced draw per ball type and LOD level — and the frame's
             //collection is closed by it. The heartbeat runs on the WALL clock: the balls go on breathing while
             //a pause has the session frozen, because it is what they are and not something they are doing.

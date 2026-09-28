@@ -378,6 +378,11 @@ namespace BS3D
             yield return _cannonRig.CarriageRenderer;
             yield return _cannonRig.WheelRenderer;
             yield return _cannonRig.RollerRenderer;
+
+            //The birthday hat, on the one day it is built (#230); it sits in the gun's light
+            if (_partyHat != null)
+                foreach (InstancedModelRenderer renderer in _partyHat.Renderers) yield return renderer;
+
             yield return _cityRenderer;
 
             //Every kind of rooftop equipment, or a dish would stand flat white against a skyline lit by the dome
