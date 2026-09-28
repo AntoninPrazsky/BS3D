@@ -6732,3 +6732,4 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-28 — #633 Help › Balls: pět chybějících druhů — desktop, Claude Code (bs3d-a1)
 
 - **Beru #633.** Kyselina, zmrzlá, nakažlivá, gravitační a těžká koule do Help › Balls. Soubory: `HelpPage.cs`, `docs/game-shell.md`.
+- **Hotovo, na mainu:** `HelpPage.KIND_ENTRIES` (tabulka podle `BallKind`), všech devět druhů + divoká karta; text ověřen proti `BallKind.cs`. Stránka se posouvá (#606). Kdy hráči kind ukázat (vždy / až ho potká / kontextová karta) je na majiteli — postaveno „vždy“.
