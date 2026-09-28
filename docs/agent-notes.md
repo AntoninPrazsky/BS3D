@@ -6779,3 +6779,4 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-28 — #644 přesné míření „na drátěné podložce“ — desktop, Claude Code (bs3d-a1)
 
 - **Beru #644.** Změřit úhel míření po snímcích při pomalém tahu s držením RMB, pak oprava (surový vstup nebo vyhlazení). Soubory: `MouseAim.cs`, `GameplayScreen.Input.cs`.
+- **Hotovo, na mainu:** `MouseAim.ApplyCursor(smoothingSeconds)`, v Game 0,045 s × náklon. Změřeno tahem 600 counts/3 s s RMB: 80 px (Windows „Zvýšit přesnost ukazatele“ zapnuto), míření stálo 65 % snímků → 0 %, CV rychlosti 1,37 → 0,35, stejné otočení na pixel. Surový vstup (`WM_INPUT`) záměrně ne — změnil by citlivost ~7× u pomalého tahu.
