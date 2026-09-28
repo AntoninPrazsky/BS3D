@@ -520,3 +520,72 @@ technique InstancedCrystal
         PixelShader = compile PS_SHADERMODEL CrystalPS();
     }
 };
+
+//THE DRAIN'S GLASS IS USED (#640, the rule the ceiling and the cup took, carried on to the next flawless surface in
+//every frame of every level). Every shot that misses rolls down this cone, so what marks it is its traffic: fine
+//scuffs running DOWNHILL where balls have rolled, a frosted band just inside the mouth where they land, and - the
+//glass itself being made as the plate's was - a few seeds and a faint cord waving its reflection. In the mesh's
+//space, which is the world's offset (the funnel does not move), in world units: the mouth is 14 across the radius.
+static const float DRAIN_SCUFF_LINES = 420.0;      //angular positions round the cone a scuff can take
+static const float DRAIN_SCUFF_CHANCE = 0.07;      //the share of them that carry one
+static const float DRAIN_SCUFF_AMOUNT = 0.14;
+static const float DRAIN_SCUFF_SPIRAL = 0.05;     //radians of turn per unit down the slope: a rolled ball curves
+static const float DRAIN_WEAR_AMOUNT = 0.06;       //the landing band's frost at its densest
+static const float2 DRAIN_WEAR_BAND = float2(11.0, 13.6);  //radii the landing band spans
+static const float DRAIN_CORD_STRENGTH = 0.06;
+static const float DRAIN_SEED_CELL = 0.7;
+static const float DRAIN_SEED_CHANCE = 0.05;
+
+float4 DrainGlassPS(GlassVSOutput input, bool isFrontFace : SV_IsFrontFace) : COLOR
+{
+    float3 p = input.LocalPosition;
+
+    //Cord: the reflection waves a little where the glass flowed
+    float3 cordAt = p * float3(0.25, 0.9, 0.25);
+    float3 cord = float3(GradientNoise3(cordAt), 0, GradientNoise3(cordAt + 13.1)) * DRAIN_CORD_STRENGTH;
+
+    VertexShaderOutput main;
+    main.Position = input.Position;
+    main.WorldPosition = input.WorldPosition;
+    main.WorldNormal = normalize(input.WorldNormal + cord);
+    main.OcclusionData = input.OcclusionData;
+    float4 shaded = MainPS(main, isFrontFace);
+
+    float radius = length(p.xz);
+    float angle = (atan2(p.z, p.x) + radius * DRAIN_SCUFF_SPIRAL) * (0.15915494 * DRAIN_SCUFF_LINES);
+
+    //Scuffs: a run of radial lines, each present or not and spanning its own stretch of the slope by a hash of its
+    //place round the cone. An integer count of places keeps the pattern continuous across atan2's seam.
+    float2 scuffRoll = NoiseHash22(float2(floor(angle), 7.7)) * 0.5 + 0.5;
+    float scuffTop = lerp(8.0, 13.8, scuffRoll.y);
+    float scuffLength = lerp(2.0, 7.0, frac(scuffRoll.y * 7.13));
+    float scuffWidth = max(fwidth(angle), 1e-3);
+    float scuff = step(scuffRoll.x, DRAIN_SCUFF_CHANCE) * (0.35 + 0.65 * frac(scuffRoll.x * 91.7))
+        * saturate(1.0 - abs(frac(angle) - 0.5) / (1.2 * scuffWidth)) * saturate(0.3 / scuffWidth)
+        * saturate((scuffTop - radius) / 0.6) * saturate((radius - (scuffTop - scuffLength)) / 1.5);
+
+    //The landing band: a frost that thickens and thins round the ring
+    float wear = smoothstep(DRAIN_WEAR_BAND.x, DRAIN_WEAR_BAND.x + 1.5, radius) * smoothstep(DRAIN_WEAR_BAND.y, DRAIN_WEAR_BAND.y - 0.8, radius)
+        * saturate(Fbm3(p * 0.6, 3) * 1.6 + 0.4);
+
+    //Seeds: pinpoint rings where the surface passes through one
+    float3 cell = floor(p / DRAIN_SEED_CELL);
+    float3 roll = NoiseHash33(cell + 5.0) * 0.5 + 0.5;
+    float seedAt = length(frac(p / DRAIN_SEED_CELL) - (0.3 + 0.4 * roll)) / 0.11;
+    float seed = step(roll.x, DRAIN_SEED_CHANCE) * saturate(1.0 - abs(seedAt - 0.75) / 0.25);
+
+    //Milky, lit by how bright the sky is - see CrystalPS
+    float3 light = dot(SkyRadiance(float3(0, 1, 0)), float3(0.2126, 0.7152, 0.0722));
+    float milk = scuff * DRAIN_SCUFF_AMOUNT + wear * DRAIN_WEAR_AMOUNT + seed * 0.35;
+
+    return float4(shaded.rgb + light * milk, saturate(shaded.a + milk * 0.6));
+}
+
+technique InstancedDrainGlass
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL CrystalVS();
+        PixelShader = compile PS_SHADERMODEL DrainGlassPS();
+    }
+};
