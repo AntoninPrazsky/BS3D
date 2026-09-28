@@ -70,6 +70,16 @@ static const float BARK_FREQUENCY = 1.6;
 static const float BARK_STRETCH = 0.22;
 static const float BARK_GAIN = 2.6;
 
+//The bark's weathering (#610, the references' trunks): pale grey-green lichen in patches, and the wood darker
+//near the ground, dusted and wetted where it meets the soil. Both scale with BarkStrength, so a termite
+//mound's flutes (0.45) take less of them than a trunk's (0.6) and stone and foliage none.
+static const float LICHEN_FREQUENCY = 0.9;
+static const float LICHEN_COVER = 0.18;          //how far above its mean the field must rise to carry lichen
+static const float3 LICHEN_COLOR = float3(0.19, 0.20, 0.145);  //a little paler and greyer than the bark, not white: at 0.36 it read as snow
+static const float LICHEN_AMOUNT = 0.6;
+static const float FOOT_HEIGHT = 1.6;            //over the plant's root, in world units
+static const float FOOT_DARKEN = 0.35;
+
 //--- THE LEAF SPRAYS (#610). A card's texture coordinate runs X from the spray's stem to its tip and Y across it,
 //plus twice its layer (0 on top of the crown, 1, 2 underneath). The references: a crown of thin flat tiers of
 //tiny compound leaves, the sky showing between them, back-lit yellow-green towards the sun, dark underneath.
@@ -146,6 +156,7 @@ struct AcaciaVertexOutput
     float2 Tint : TEXCOORD2;
     float2 UV : TEXCOORD3;
     float2 Seed : TEXCOORD4;     //the instance's own place, so two trees do not lose the same leaflets
+    float RootY : TEXCOORD5;     //the instance's own foot, for the bark's darker base (#610)
 };
 
 AcaciaVertexOutput AcaciaVS(AcaciaVertexInput input)
@@ -163,6 +174,7 @@ AcaciaVertexOutput AcaciaVS(AcaciaVertexInput input)
     output.Tint = input.Custom.xy;
     output.UV = input.UV;
     output.Seed = input.World4.xz;
+    output.RootY = input.World4.y;
 
     return output;
 }
@@ -227,6 +239,15 @@ float4 AcaciaPS(AcaciaVertexOutput input, bool front : SV_IsFrontFace) : COLOR
     {
         float3 p = input.WorldPosition * float3(BARK_FREQUENCY, BARK_FREQUENCY * BARK_STRETCH, BARK_FREQUENCY);
         color *= saturate(1.0 + BarkStrength * BARK_GAIN * Fbm3(p, 2));
+
+        //Lichen in patches, the lit colour of its own grey-green rather than the bark's
+        float lichen = smoothstep(LICHEN_COVER, LICHEN_COVER + 0.08, Fbm3(input.WorldPosition * LICHEN_FREQUENCY + 17.3, 2));
+        float light = dot(color, float3(0.2126, 0.7152, 0.0722)) / max(dot(albedo, float3(0.2126, 0.7152, 0.0722)), 1e-3);
+        color = lerp(color, LICHEN_COLOR * light, lichen * LICHEN_AMOUNT * BarkStrength);
+
+        //The foot darker, fading out over FOOT_HEIGHT above the plant's root
+        float foot = 1.0 - saturate((input.WorldPosition.y - input.RootY) / FOOT_HEIGHT);
+        color *= 1.0 - FOOT_DARKEN * foot * foot * saturate(BarkStrength * 1.7);
     }
 
     //The per-draw light that is not the sky's - a hearth stone's own fire, and nothing else today.
