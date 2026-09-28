@@ -111,6 +111,32 @@ static const float GLASS_MAX_SHIFT = 0.06;
 static const float GLASS_GROOVE_HALF_WIDTH = 0.05;
 static const float GLASS_GROOVE_SLOPE = 0.6;
 
+//THE GLASS IS HAND-MADE (#640). A cut of mathematically identical pyramids in a flawless pane read as a render, and
+//the owner's rule is that a material should never be let render as perfect: the natural stone with inclusions is the
+//one that reads, and sells, as precious. So the pane carries the three flaws the references rendered for #640 show
+//every piece of old cut glass carrying, all of them in what shows THROUGH it rather than painted on it:
+//
+//THE CUTTER'S HAND: no two pyramids alike. Each cell's four facets are ground a little steeper or shallower than the
+//pattern's, and turned a little about the vertical, by a hash of the cell - so the bent sky breaks into fragments of
+//uneven size instead of a regular mosaic. Both vanish where the facet's tilt does (the valleys), so the cut still
+//meets its neighbours without a seam.
+static const float GLASS_CUT_UNEVEN = 0.6;   //the slope, per cell, 1 +- this
+static const float GLASS_CUT_TWIST = 0.45;    //and the facets turned sideways by up to this share of their tilt
+//
+//CORD (striae): the glass did not melt evenly, and streaks of a slightly different index run through it where it
+//flowed, bending what is seen through them in long faint waves. A noise stretched along the pane's X, added to the
+//ray inside the slab.
+static const float GLASS_CORD_STRENGTH = 0.07;
+static const float3 GLASS_CORD_SCALE = float3(0.18, 1.6, 0.9);
+//
+//SEEDS: small air bubbles caught in the melt, on two planes inside the slab so they part in depth as the eye moves.
+//A bubble is a diverging lens with a dark rim - the rim is where the light inside meets the bubble's wall past the
+//critical angle - and a pinpoint glint. Sparse: most cells of the scatter hold none.
+static const float GLASS_SEED_CELL = 0.55;       //the scatter's lattice, world units
+static const float GLASS_SEED_CHANCE = 0.5;     //the share of cells holding a bubble
+static const float2 GLASS_SEED_RADIUS = float2(0.03, 0.11);
+static const float2 GLASS_SEED_DEPTHS = float2(-0.12, 0.22);  //the two planes, as a share of the slab's half thickness
+
 struct GlassVSOutput
 {
     float4 Position : SV_POSITION;
@@ -159,6 +185,10 @@ float3 GlassCutNormal(float2 cell, float footprint, float strength)
     //pyramid's facet to its neighbour's is a narrow flat rather than a hard edge
     float2 valley = saturate((0.5 - a) / soft);
     float2 tilt = float2(sign(c.x) * onX * valley.x, sign(c.y) * (1.0 - onX) * valley.y);
+
+    //The cutter's hand (#640): this cell's own pitch, and its facets turned a little about the vertical
+    float2 hand = NoiseHash22(floor(cell) + 17.0);
+    tilt = tilt * (1.0 + GLASS_CUT_UNEVEN * hand.x) + float2(-tilt.y, tilt.x) * (GLASS_CUT_TWIST * hand.y);
 
     float slope = GlassCutSlope * strength * saturate(1.0 - (footprint - 0.1) / 0.2);
 
@@ -283,8 +313,10 @@ float4 GlassPS(GlassVSOutput input) : COLOR
         ? GlassTopNormal(rimHere, cellHere, footprintHere, fluteFootprintHere, insetFootprintHere, cutStrength)
         : faceNormal;
 
-    //In through this face...
+    //In through this face, and bent on its way across by the cord in the glass (#640)...
     float3 inside = refract(view, entryNormal, 1.0 / GLASS_INDEX);
+    float3 cordAt = p * GLASS_CORD_SCALE;
+    inside = normalize(inside + GLASS_CORD_STRENGTH * float3(GradientNoise3(cordAt), 0, GradientNoise3(cordAt + 31.7)));
 
     //...across the slab to the first of its six planes the ray reaches. The bevels are not traced on the way out: a
     //ray that leaves through one leaves within a bevel's width of the plane it is sent to instead.
@@ -328,10 +360,48 @@ float4 GlassPS(GlassVSOutput input) : COLOR
 
     shift /= 1.0 + length(shift) / GLASS_MAX_SHIFT;
 
+    //The seeds (#640): where the ray inside crosses either plane of bubbles, whether it passes through one. The
+    //nearer one met wins; `seedAt` is where across it (0 at its centre, 1 at its wall), `seedAway` which way from it.
+    float seedAt = 2.0;
+    float2 seedAway = 0;
+    [unroll]
+    for (int layer = 0; layer < 2; layer++)
+    {
+        float planeY = (layer == 0 ? GLASS_SEED_DEPTHS.x : GLASS_SEED_DEPTHS.y) * GlassHalfExtents.y;
+        float tPlane = (planeY - p.y) / (abs(inside.y) > 1e-4 ? inside.y : 1e-4);
+        float2 q = (p + inside * clamp(tPlane, 0.0, t)).xz / GLASS_SEED_CELL + layer * 7.31;
+        float2 id = floor(q);
+        float2 roll = NoiseHash22(id + 3.9) * 0.5 + 0.5;
+        float2 centre = id + 0.5 + 0.3 * NoiseHash22(id + 11.2);
+        float radius = lerp(GLASS_SEED_RADIUS.x, GLASS_SEED_RADIUS.y, roll.y * roll.y) / GLASS_SEED_CELL;
+        float2 d = q - centre;
+        float across = length(d) / radius;
+        bool crossed = tPlane > 0.0 && tPlane < t && roll.x < GLASS_SEED_CHANCE;
+        if (crossed && across < seedAt)
+        {
+            seedAt = across;
+            seedAway = d / max(length(d), 1e-4);
+        }
+    }
+
+    //Softened over a pixel at the wall, and gone where a bubble is smaller than a couple of pixels
+    float seedSoft = max(fwidth(seedAt), 1e-3);
+    float seed = saturate((1.0 - seedAt) / seedSoft);
+
+    //A diverging lens: what is behind is pushed out from its centre, more towards the wall
+    shift += seedAway * seed * seedAt * seedAt * 0.02;
+
     float3 behind = float3(
         tex2Dlod(GlassBehindSampler, float4(here + shift * (1.0 + GLASS_DISPERSION), 0, 0)).r,
         tex2Dlod(GlassBehindSampler, float4(here + shift, 0, 0)).g,
         tex2Dlod(GlassBehindSampler, float4(here + shift * (1.0 - GLASS_DISPERSION), 0, 0)).b);
+
+    //Its dark wall, a bright ring just inside it where the wall mirrors the sky, and a glint on the side facing up
+    float seedWall = seed * smoothstep(0.75, 0.97, seedAt);
+    float seedRing = seed * saturate(1.0 - abs(seedAt - 0.68) / 0.12);
+    float3 sky = SkyRadiance(float3(0, 1, 0));
+    behind *= 1.0 - 0.8 * seedWall;
+    behind += (seedRing * 0.55 + seed * saturate(1.0 - length(seedAway * seedAt - float2(0.3, 0.3)) / 0.22)) * sky;
 
     //What the entry face lets in, and what it turns away: at a grazing angle glass is a mirror far more than a window
     //(Schlick at the dielectric F0). The part turned away is not lost - it is the sky reflected off the face - and
