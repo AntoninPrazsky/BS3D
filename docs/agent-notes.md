@@ -6701,3 +6701,4 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-28 — #607 hlavní menu: New Game / Continue — desktop, Claude Code (bs3d-a1)
 
 - **Beru #607.** První položka New Game (čerstvý save) / Continue (postup nebo sezení), Play → Select Level. Soubory: `MainMenuPage.cs`, `BS3DGame.Menu.cs`, `docs/game-shell.md`.
+- **Hotovo, na mainu:** první položka menu je New Game (prázdný save → level 1) / Continue (sezení → pokračuje; postup → první otevřený nedokončený level, jinak výběr levelů), „Play“ je „Select Level“. Ověřeno: prázdný `userdata` ukáže New Game, kopie skutečného savu Continue a Enter-Enter postavil level 19 (hranice toho savu). Restart jedním kliknutím při postupu záměrně není (Select Level → 1 nic nemaže, Reset progress zůstává v Settings).
