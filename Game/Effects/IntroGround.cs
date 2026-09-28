@@ -69,7 +69,7 @@ namespace BS3D.Effects
             float best = float.MaxValue;
             foreach ((Vector3 a, Vector3 b, float radius) in _solids)
             {
-                float d = DistanceToSegment(p, a, b) - radius;
+                float d = IntroPaths.DistanceToSegment(p, a, b) - radius;
                 if (d < best) best = d;
             }
             return best;
@@ -179,7 +179,7 @@ namespace BS3D.Effects
         }
 
         /// <summary>Points per path; every one is held against the ground and every solid.</summary>
-        public const int PATH_POINTS = 96;
+        public const int PATH_POINTS = IntroPaths.FINE_POINTS;
 
         /// <summary>Drops the shots that could not be built; null when none could.</summary>
         public static IntroShot[] Cut(params IntroShot[] shots)
@@ -196,15 +196,5 @@ namespace BS3D.Effects
 
         /// <summary>The unit vector at a bearing.</summary>
         public static Vector2 Heading(float bearing) => new(MathF.Cos(bearing), MathF.Sin(bearing));
-
-        private static float DistanceToSegment(Vector3 p, Vector3 a, Vector3 b)
-        {
-            Vector3 ab = b - a;
-            float length2 = ab.LengthSquared();
-            if (length2 < 1e-6f) return Vector3.Distance(p, a);
-
-            float t = MathHelper.Clamp(Vector3.Dot(p - a, ab) / length2, 0f, 1f);
-            return Vector3.Distance(p, a + ab * t);
-        }
     }
 }

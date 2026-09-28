@@ -68,7 +68,7 @@ namespace BS3D.Effects
         //A fixed look-at far out along a direction stands in for the direction itself.
         private const float FAR = 5000f;
 
-        private const int PATH_POINTS = 64;
+        private const int PATH_POINTS = IntroPaths.POINTS;
 
         /// <summary>The prologue for the Moon the renderer is drawing, or null when it has no config.</summary>
         public static IntroShot[] Build(SceneRenderer scenes, Random random)
@@ -96,7 +96,7 @@ namespace BS3D.Effects
         private static IntroShot Plain(MoonTerrainConfig terrain, Vector2 sunward, Random random)
         {
             //Looking across the sun: the view's bearing is the sun's turned a rolled way round.
-            Vector2 view = Rotate(sunward, MathHelper.ToRadians(PLAIN_ACROSS_SUN_DEGREES) * (random.Next(2) == 0 ? 1f : -1f));
+            Vector2 view = IntroPaths.Rotate(sunward, MathHelper.ToRadians(PLAIN_ACROSS_SUN_DEGREES) * (random.Next(2) == 0 ? 1f : -1f));
 
             Vector3[] path = Line(
                 new Vector3(-view.X * PLAIN_FROM_RADIUS, terrain.LevelY + PLAIN_FROM_HEIGHT, -view.Y * PLAIN_FROM_RADIUS),
@@ -123,7 +123,7 @@ namespace BS3D.Effects
             OffworldGround.Crater crater = craters[random.Next(Math.Min(CRATER_CANDIDATES, craters.Count))];
 
             //From the side away from the sun, turned a little a rolled way round so the rim is not dead square on.
-            Vector2 away = Rotate(-sunward, MathHelper.ToRadians(CRATER_OFF_SUN_DEGREES) * (random.Next(2) == 0 ? 1f : -1f));
+            Vector2 away = IntroPaths.Rotate(-sunward, MathHelper.ToRadians(CRATER_OFF_SUN_DEGREES) * (random.Next(2) == 0 ? 1f : -1f));
             Vector3 outward = new(away.X, 0f, away.Y);
 
             float rim = crater.Centre.Y + CLEARANCE;
@@ -181,24 +181,9 @@ namespace BS3D.Effects
 
         //Holds every point of a path CLEARANCE over the highest ceiling anywhere under the path, as one height
         //change for the whole of it: a constant lift, so a path laid level stays level and a crane stays a crane.
-        private static void KeepOver(Vector3[] path, MoonTerrainConfig terrain)
-        {
-            float lift = 0f;
-            foreach (Vector3 point in path)
-                lift = MathF.Max(lift, OffworldGround.MoonCeiling(point.X, point.Z, terrain) + CLEARANCE - point.Y);
+        private static void KeepOver(Vector3[] path, MoonTerrainConfig terrain) =>
+            IntroPaths.KeepOver(path, (x, z) => OffworldGround.MoonCeiling(x, z, terrain), CLEARANCE);
 
-            for (int i = 0; i < path.Length; i++) path[i].Y += lift;
-        }
-
-        private static Vector2 Rotate(Vector2 v, float radians) =>
-            new(v.X * MathF.Cos(radians) - v.Y * MathF.Sin(radians), v.X * MathF.Sin(radians) + v.Y * MathF.Cos(radians));
-
-        private static Vector3[] Line(Vector3 from, Vector3 to)
-        {
-            var path = new Vector3[PATH_POINTS];
-            for (int i = 0; i < PATH_POINTS; i++) path[i] = Vector3.Lerp(from, to, i / (float)(PATH_POINTS - 1));
-
-            return path;
-        }
+        private static Vector3[] Line(Vector3 from, Vector3 to) => IntroPaths.Line(from, to, PATH_POINTS);
     }
 }

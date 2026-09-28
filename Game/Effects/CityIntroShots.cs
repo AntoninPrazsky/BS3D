@@ -67,7 +67,7 @@ namespace BS3D.Effects
         private const int CANDIDATES = 12;
 
         //Points per path. Enough that a fillet of a quarter circle is smooth at the lens; cheap either way.
-        private const int PATH_POINTS = 96;
+        private const int PATH_POINTS = IntroPaths.FINE_POINTS;
 
         /// <summary>
         /// The prologue for <paramref name="city"/>, or null when there is no city to shoot.

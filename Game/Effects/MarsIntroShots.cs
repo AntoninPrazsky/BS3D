@@ -71,7 +71,7 @@ namespace BS3D.Effects
         //A fixed look-at far out along a direction stands in for the direction itself.
         private const float FAR = 5000f;
 
-        private const int PATH_POINTS = 64;
+        private const int PATH_POINTS = IntroPaths.POINTS;
 
         /// <summary>The prologue for the Mars the renderer is drawing, or null when it has no config.</summary>
         public static IntroShot[] Build(SceneRenderer scenes, Random random)
@@ -247,21 +247,9 @@ namespace BS3D.Effects
         }
 
         //Holds every point of a path CLEARANCE over the highest ceiling anywhere under it, as one constant lift.
-        private static void KeepOver(Vector3[] path, MarsTerrainConfig terrain)
-        {
-            float lift = 0f;
-            foreach (Vector3 point in path)
-                lift = MathF.Max(lift, OffworldGround.MarsCeiling(point.X, point.Z, terrain) + CLEARANCE - point.Y);
+        private static void KeepOver(Vector3[] path, MarsTerrainConfig terrain) =>
+            IntroPaths.KeepOver(path, (x, z) => OffworldGround.MarsCeiling(x, z, terrain), CLEARANCE);
 
-            for (int i = 0; i < path.Length; i++) path[i].Y += lift;
-        }
-
-        private static Vector3[] Line(Vector3 from, Vector3 to)
-        {
-            var path = new Vector3[PATH_POINTS];
-            for (int i = 0; i < PATH_POINTS; i++) path[i] = Vector3.Lerp(from, to, i / (float)(PATH_POINTS - 1));
-
-            return path;
-        }
+        private static Vector3[] Line(Vector3 from, Vector3 to) => IntroPaths.Line(from, to, PATH_POINTS);
     }
 }

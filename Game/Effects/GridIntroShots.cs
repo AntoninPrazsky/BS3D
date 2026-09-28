@@ -76,7 +76,7 @@ namespace BS3D.Effects
         //How many bearings the establishing crane tries before it gives up, and how many points each path
         //carries (every one is tested).
         private const int ATTEMPTS = 24;
-        private const int PATH_POINTS = 64;
+        private const int PATH_POINTS = IntroPaths.POINTS;
 
         /// <summary>
         /// The prologue for the Grid the renderer is drawing, or null when it has none to show.
@@ -308,13 +308,7 @@ namespace BS3D.Effects
             return true;
         }
 
-        private static Vector3[] Line(Vector3 from, Vector3 to)
-        {
-            var path = new Vector3[PATH_POINTS];
-            for (int i = 0; i < PATH_POINTS; i++) path[i] = Vector3.Lerp(from, to, i / (float)(PATH_POINTS - 1));
-
-            return path;
-        }
+        private static Vector3[] Line(Vector3 from, Vector3 to) => IntroPaths.Line(from, to, PATH_POINTS);
 
         private static void AddIfAny(List<IntroShot> shots, IntroShot shot)
         {

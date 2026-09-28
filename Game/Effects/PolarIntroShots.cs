@@ -50,7 +50,7 @@ namespace BS3D.Effects
         private const float FRONT_SECONDS = 3.2f;
 
         private const int CANDIDATES = 150;
-        private const int PATH_POINTS = 64;
+        private const int PATH_POINTS = IntroPaths.POINTS;
 
         /// <summary>
         /// The prologue for the icesheet being drawn, or null when the renderer has no polar config.
@@ -110,7 +110,7 @@ namespace BS3D.Effects
                 Vector2 to = from + forward * CREVASSE_RUN;
 
                 //The run must not head in over the island: the look ahead would frame the arena, not the ice.
-                if (DistanceToSegment(Vector2.Zero, from, to + forward * CREVASSE_LOOK_FAR) < ArenaIsland.RADIUS + 24f) continue;
+                if (IntroPaths.DistanceToSegment(Vector2.Zero, from, to + forward * CREVASSE_LOOK_FAR) < ArenaIsland.RADIUS + 24f) continue;
 
                 //How much slot the lens looks down on over the run: a grid of taps in the ground ahead of it.
                 float score = 0f;
@@ -203,13 +203,6 @@ namespace BS3D.Effects
                 }
 
             return highest;
-        }
-
-        private static float DistanceToSegment(Vector2 point, Vector2 from, Vector2 to)
-        {
-            Vector2 run = to - from;
-            float t = MathHelper.Clamp(Vector2.Dot(point - from, run) / MathF.Max(run.LengthSquared(), 1e-4f), 0f, 1f);
-            return Vector2.Distance(point, from + run * t);
         }
     }
 }
