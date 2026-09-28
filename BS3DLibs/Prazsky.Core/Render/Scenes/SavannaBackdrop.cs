@@ -461,8 +461,10 @@ namespace Prazsky.Core.Render
             Services.Birds.Draw(frame, _savannaConfig.Birds);
         }
 
-        /// <summary>The fires' flames and sparks, drawn after the cluster.</summary>
-        public override void DrawOverlays(in SceneFrame frame) => DrawFlame(frame);
+        /// <summary>The fires' flames and sparks, drawn with the setting in the Game, before the copy the ceiling's glass
+        /// bends — they stand on the ground, so a fire seen through the plate is bent with it
+        /// (<see cref="SceneRenderer.DrawGrounded"/>).</summary>
+        public override void DrawGrounded(in SceneFrame frame) => DrawFlame(frame);
 
         /// <summary>
         /// Draws the savanna grassland: the grid pinned to the camera (snapped to a cell so it does not swim),

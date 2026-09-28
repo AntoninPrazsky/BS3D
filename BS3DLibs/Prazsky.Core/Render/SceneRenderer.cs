@@ -1362,6 +1362,19 @@ namespace Prazsky.Core.Render
         public void DrawOverlays(SceneKind scene, in SceneFrame frame) => BackdropFor(scene)?.DrawOverlays(frame);
 
         /// <summary>
+        /// Draws the translucent things that <b>stand on the ground</b> — the backdrop's
+        /// <see cref="Backdrop.DrawGrounded"/>: the savanna's flames and sparks. Same states as
+        /// <see cref="DrawOverlays"/> (blended, depth-read, no depth write), but a slot of its own, and the reason
+        /// is the ceiling's glass: the Game draws this with the setting, before it takes the copy the plate bends
+        /// (#541), so a fire seen through the plate is bent with the ground it stands on. As an overlay it came after
+        /// the copy and after the plate, which writes no depth — missing from the bent view from under the plate and
+        /// painted over the glass unbent from above it (#641, the owner's report). Snow, spray
+        /// and ash stay overlays: they fill the air round the lens and are in front of the plate as often as behind
+        /// it, and a flake in front of the glass must not be bent (or covered) by it. A no-op for every other scene.
+        /// </summary>
+        public void DrawGrounded(SceneKind scene, in SceneFrame frame) => BackdropFor(scene)?.DrawGrounded(frame);
+
+        /// <summary>
         /// States that the ceiling's glass hangs this frame with its centre at <paramref name="centre"/>, so the
         /// receivers shade what stands under it (#553). <b>Stated per frame, before <see cref="DrawShadowMaps"/></b>,
         /// which consumes it: a frame that does not call this has no plate shadow, so a screen that stops drawing a

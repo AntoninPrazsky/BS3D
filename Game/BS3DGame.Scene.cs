@@ -568,6 +568,7 @@ namespace BS3D
         {
             SceneFrame sceneFrame = BeginSceneDraw();
 
+            DrawGroundedTranslucents(sceneFrame);
             DrawSettingGlass();
             FinishSceneDraw(sceneFrame);
         }
@@ -966,6 +967,20 @@ namespace BS3D
         /// picks which metal rings the drain (#404).
         /// </summary>
         internal void DrawSettingGlass() => _island.DrawGlass(_camera, _sceneEffectParams, _scene);
+
+        /// <summary>
+        /// The scene's translucent things that stand on the ground — the savanna's fires — drawn by a screen straight
+        /// after <see cref="BeginSceneDraw"/>, with the setting and <b>before</b> <see cref="GrabCeilingBackground"/>, so
+        /// the copy the ceiling's glass bends holds them whichever side of the plate the lens is on (#641; see
+        /// <see cref="SceneRenderer.DrawGrounded"/>). Every screen that draws the setting calls it.
+        /// <para>
+        /// Before the cluster and the gun, which therefore cover a fire only where they stand in front of it — never the
+        /// other way round, since the flames write no depth. That is only right because nothing a screen draws stands
+        /// behind a fire: the ring stands 33 units out, beyond the play camera's 30-unit stand-off and outside the
+        /// island the gun and the cluster are on.
+        /// </para>
+        /// </summary>
+        internal void DrawGroundedTranslucents(in SceneFrame sceneFrame) => _sceneRenderer.DrawGrounded(_scene, sceneFrame);
 
         /// <summary>
         /// Adds one short light to the <b>next</b> frame's scene lights (#389) — a blast lighting the cluster, the
