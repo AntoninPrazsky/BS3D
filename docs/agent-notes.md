@@ -6760,3 +6760,9 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-28 — #645 úvod hor trhá — desktop, Claude Code (bs3d-a1)
 
 - **Beru #645.** Nejdřív změřit pózu objektivu po snímcích (`sceneseed=`), rozlišit dráhu / střih / tempo snímků. Soubory: `MountainIntroShots.cs`, `ChapterIntro.cs`.
+
+## 2026-09-28 — majitelovy poznámky z hraní: #641–#645 — desktop, Claude Code (bs3d-ea)
+
+- **#616 a #615 zavřeny** verdiktem majitele („Vypadá to dobře.“).
+- **#641 na mainu `49ef7b38`:** ohně savany byly overlay (po stropní desce): z pod desky chyběly v kopii, kterou deska láme, shora se kreslily přes sklo ostré. Nový slot `Backdrop.DrawGrounded` / `SceneRenderer.DrawGrounded` / `BS3DGame.DrawGroundedTranslucents`, hned po `BeginSceneDraw`, před `GrabCeilingBackground` (kruh ohňů 33 j., kamera 30 j. — nic, co obrazovka kreslí, nestojí za ohněm). ⚠ Záběr s ohněm přímo za deskou jsem skriptem nechytil (menu, hra, výsledek, kamera pádu „over the mouth“ na Smiley) — oprava je z pořadí kreslení, oko majitele rozhodne.
+- **Založeno bez práce (majitel: „stačí založit issues“):** #642 stíny koulí na ostrově levitují, #643 profil v HUD při prohře čárou nekreslí shluk pod čárou (vzal bs3d-a1), #644 přesné míření zrnité (podezření: celé pixely kurzoru + `SetPosition` každý snímek → raw input), #645 průlet horami trhaný.
