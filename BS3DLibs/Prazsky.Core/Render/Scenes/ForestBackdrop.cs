@@ -26,6 +26,11 @@ namespace Prazsky.Core.Render
         //Its camera grid and the pass that draws it (#580)
         private readonly TerrainPass _forestPass;
 
+        //The bank the island sits in (#608): the floor's litter, leaning to moss, over dark soil against the drum, a few stones in it, through the
+        //shared plant material. The trees are the hosts'; this is the one thing standing on the floor that is the scene's.
+        private readonly PlantPass _plants;
+        private IslandBermPlanting _berm;
+
         private const int FOREST_GRID_N = 220;
         private const float FOREST_EXTENT = 1200f;
 
@@ -48,7 +53,16 @@ namespace Prazsky.Core.Render
             _forestPass = new TerrainPass(Services, _forestEffect, FOREST_GRID_N, FOREST_EXTENT, "ForestTime");
 
             ApplyForestParameters();
+
+            _plants = new PlantPass(services.GraphicsDevice, content);
+            _berm = new IslandBermPlanting(services.GraphicsDevice, (x, z) => TerrainMirror.Forest(x, z, _forestConfig),
+                ForestScatterRenderer.DEFAULT_SEED + Services.SeedOffset,
+                earth: _forestConfig.EarthColor.ToVector3() * 2.5f, earthDry: _forestConfig.LitterColorDark.ToVector3(),
+                cover: _forestConfig.LitterColor.ToVector3() * 0.62f, coverDry: _forestConfig.ForestColor.ToVector3() * 0.6f, coverDapple: 0.8f,
+                stone: _forestConfig.Rocks.Color.ToVector3(), stones: BERM_STONES);
         }
+
+        private const int BERM_STONES = 14;
 
         /// <inheritdoc/>
         public override SceneKind Kind => SceneKind.Forest;
@@ -104,6 +118,23 @@ namespace Prazsky.Core.Render
         public override void Draw(in SceneFrame frame)
         {
             _forestPass.Draw(frame, Services.TerrainHoleRadius);
+            if (_berm != null) _plants.Draw(frame, _berm.Buckets, _forestConfig.HorizonHazeDistance, _sceneDetail > 0.5f);
+        }
+
+        /// <inheritdoc/>
+        public override bool HasShadowCasters => _berm != null;
+
+        /// <summary>The bank casts into the sun's map; the trees are cast by the hosts.</summary>
+        public override void DrawShadowCasters(Matrix shadowViewProjection)
+        {
+            if (_berm != null) _plants.DrawShadowCasters(shadowViewProjection, _berm.Buckets);
+        }
+
+        /// <inheritdoc/>
+        public override void Dispose()
+        {
+            _berm?.Dispose();
+            _berm = null;
         }
 
         /// <inheritdoc/>
@@ -120,7 +151,11 @@ namespace Prazsky.Core.Render
         /// <inheritdoc/>
         public override IEnumerable<Effect> ShadowReceivers
         {
-            get { yield return _forestEffect; } //its floor; the trees receive through the shared effect
+            get
+            {
+                yield return _forestEffect; //its floor; the trees receive through the shared effect
+                yield return _plants.Effect; //and the bank round the island (#608)
+            }
         }
 
         /// <inheritdoc/>

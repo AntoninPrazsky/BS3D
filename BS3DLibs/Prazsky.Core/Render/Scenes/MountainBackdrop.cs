@@ -35,6 +35,11 @@ namespace Prazsky.Core.Render
         //the slots held whichever scene was actually being drawn.
         private readonly Effect _mountainSnowEffect;
 
+        //The bank the island sits in (#608): a drift of snow over scree against the drum, stones showing through it
+        private readonly PlantPass _plants;
+        private IslandBermPlanting _berm;
+        private const int BERM_STONES = 22;
+
         /// <summary>Loads the effect, takes its grid through its <see cref="TerrainPass"/>, pushes the config at it and clones the snow.</summary>
         public MountainBackdrop(BackdropServices services, ContentManager content) : base(services)
         {
@@ -46,7 +51,16 @@ namespace Prazsky.Core.Render
 
             _mountainSnowEffect = content.Load<Effect>("Shaders/Snow").Clone();
             Snowfall.ApplyParameters(_mountainSnowEffect, _mountainConfig.Snow);
+
+            _plants = new PlantPass(services.GraphicsDevice, content);
+            _berm = new IslandBermPlanting(services.GraphicsDevice, (x, z) => TerrainMirror.Mountain(x, z, _mountainConfig),
+                BERM_SEED + Services.SeedOffset,
+                earth: _mountainConfig.RockColorLight.ToVector3(), earthDry: _mountainConfig.RockColor.ToVector3() * 1.6f,
+                cover: _mountainConfig.SnowColor.ToVector3(), coverDry: _mountainConfig.SnowColor.ToVector3() * 0.92f, coverDapple: 0.15f,
+                stone: _mountainConfig.RockColorLight.ToVector3(), stones: BERM_STONES);
         }
+
+        private const int BERM_SEED = 9100;
 
         /// <inheritdoc/>
         public override SceneKind Kind => SceneKind.Mountain;
@@ -99,6 +113,16 @@ namespace Prazsky.Core.Render
         public override void Draw(in SceneFrame frame)
         {
             _mountainPass.Draw(frame, Services.TerrainHoleRadius);
+            if (_berm != null) _plants.Draw(frame, _berm.Buckets, _mountainConfig.HorizonHazeDistance, detail: true);
+        }
+
+        /// <inheritdoc/>
+        public override bool HasShadowCasters => _berm != null;
+
+        /// <summary>The bank casts into the sun's map (#608).</summary>
+        public override void DrawShadowCasters(Matrix shadowViewProjection)
+        {
+            if (_berm != null) _plants.DrawShadowCasters(shadowViewProjection, _berm.Buckets);
         }
 
         /// <summary>The falling snow, through the shared flake buffer and this scene's own clone of <c>Snow.fx</c>.</summary>
@@ -118,7 +142,11 @@ namespace Prazsky.Core.Render
         /// <inheritdoc/>
         public override IEnumerable<Effect> ShadowReceivers
         {
-            get { yield return _mountainEffect; }
+            get
+            {
+                yield return _mountainEffect;
+                yield return _plants.Effect; //the bank round the island (#608)
+            }
         }
 
         /// <inheritdoc/>
@@ -142,7 +170,12 @@ namespace Prazsky.Core.Render
             return true;
         }
 
-        /// <summary>Frees the snow clone; the effect itself is the content manager's.</summary>
-        public override void Dispose() => _mountainSnowEffect?.Dispose();
+        /// <summary>Frees the snow clone and the bank; the effects themselves are the content manager's.</summary>
+        public override void Dispose()
+        {
+            _mountainSnowEffect?.Dispose();
+            _berm?.Dispose();
+            _berm = null;
+        }
     }
 }
