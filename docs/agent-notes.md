@@ -6812,6 +6812,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-28 — #609 louka: předměty z referencí — desktop, Claude Code (bs3d-a1)
 
 - **Beru #609**, první krok: reference (oba modely), pak výsadba (keře, živý plot, osamělé stromy, balíky sena, plot, trsy trávy, kameny) přes `Acacia.fx` jako na savaně. Pěšina, potok a nové záběry intra potom. Soubory: nový `MeadowScatter.cs`, `MeadowBackdrop.cs`, `MeadowSceneConfig`.
+- **Na mainu (krok 1):** `MeadowScatter` — duby, keře, živé ploty, balíky, ploty, balvany, trsy; přes `Acacia.fx` se stíny. ⚠ Barvy podle trávy louky (0,14/0,46/0,05) — se savanovými byly ploty černé čáry. ⚠ `Acacia.fx` je jeden `Effect` pro obě scény (ContentManager), haze se proto nastavuje každý snímek. Zbývá pěšina, potok, květiny, záběry intra.
 
 ## 2026-09-28 — #230 spící dělo (jen tahle část) — notebook, Claude Code (github-74)
 
@@ -6821,4 +6822,3 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 
 - **Na mainu, čeká na verdikt (jen tahle část #230).** Po 75 s bez dotyku (`DozingGun`) dělo za 3,5 s usne: hlaveň klesne o 0,3 rad (jen kreslení: `Cannon.Droop` → `BarrelWorld`/`BarrelOrientation`/`DrawnMuzzlePosition`; `AimDirection`/`MuzzlePosition` beze změny, při 0 bajtově stejné), dýchá (±0,035, 4,2 s), na vrcholu nádechu tiché pochrupování (`PlaySnore`, 0,22) a nad čepy stoupá „Z“ (`PlayHud.DrawSnores`). Zaměřovací paprsek se ztlumí (`Awake`). Probudí ho do 0,3 s míření, chůze, výstřel, lean, klávesa nebo tlačítko myši (stavy, které snímek už má).
 - **Ověřeno snímky** (Toadstool, 1600×900, bez vstupu): 12 s bdělé s paprskem, od ~85 s předkloněné bez paprsku, Z mezi 92–101 s. První řez pouštěl Z z ústí a malé (~12 px mezi spodními koulemi) → teď nad čepy, 1,1–2,2 fontu popupů. Neslyšeno: hlasitost pochrupování je na majiteli. Probuzení skriptem v Game ověřit nejde (nebere syntetický vstup).
-- **Na mainu (krok 1):** `MeadowScatter` — duby, keře, živé ploty, balíky, ploty, balvany, trsy; přes `Acacia.fx` se stíny. ⚠ Barvy podle trávy louky (0,14/0,46/0,05) — se savanovými byly ploty černé čáry. ⚠ `Acacia.fx` je jeden `Effect` pro obě scény (ContentManager), haze se proto nastavuje každý snímek. Zbývá pěšina, potok, květiny, záběry intra.
