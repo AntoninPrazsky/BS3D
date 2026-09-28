@@ -6775,3 +6775,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 - **Změřeno:** sag probe první verze (15×14, okraj 1 sloupec, tělo do spodního řádku) **3 z 5** — po křídle se okrajový pás polovinu houpal přes čáru, po obou křídlech drželo spodní křídla jen tělo. Okraje 2 sloupce (jako Heart), spodní křídla do nich, o 2 řádky kratší → **0 z 5**, nejblíž −0,26, rezerva 30 z 52. 344 koulí, 36 skupin, 1,49 výstřelu/skupinu (Giraffe 1,35, Zebra 1,50). Příchod střel: 16 % dopadů z žádné z 16 pozic (plochá Heart/Giraffe/Zebra 4 %) — vnitřní roh V a kapsa za ohybem. Z herní kamery má sloupec ~19 px stejně jako Heart, `GameCameraFit` obraz nezmenšil.
 - ⚠ **Past:** LevelGen píše CRLF, takže po každém běhu `git status` ukáže všech 130 levelů jako změněné — obsahový diff je prázdný (`git diff --numstat` nic), vrátit `git checkout -- Game/Levels/`.
 - **Nevyřešeno:** umístění v kapitole (nahradit / vložit, od kolikátého levelu) a jestli V, roh, nebo reliéf — to je majitelova volba; bez verdiktu kapitolu nepřestavuji.
+
+## 2026-09-28 — #644 přesné míření „na drátěné podložce“ — desktop, Claude Code (bs3d-a1)
+
+- **Beru #644.** Změřit úhel míření po snímcích při pomalém tahu s držením RMB, pak oprava (surový vstup nebo vyhlazení). Soubory: `MouseAim.cs`, `GameplayScreen.Input.cs`.
