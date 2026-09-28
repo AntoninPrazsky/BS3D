@@ -6808,3 +6808,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 - **Brána `Design.ClearFromStance` / `ClearProbe.FromOpeningStance`** (beam jen s dopady dosažitelnými ze stanice 0 `ArrivalProbe`): plachty z místa za 4 / 2 / 5 ran. ⚠ **One NEODMÍTÁ** — puštěná na všech 133 levelů odmítne jen Cairn (komory ve skále); zásah zepředu v modelu bere celou skupinu i se zadní částí slupky, One jde z místa za 4. Brána je tedy záruka pro plachtu, ne test „level potřebuje chůzi“; napsáno v kódu i v docs. Proč majitel na One chodil, mřížka nehraje (rozdaná barva, kterou zepředu nevidět, boky, strop).
 - **Ověřeno:** LevelGen exit 0 (starých 130 levelů obsahově beze změny), ScoreSim OK, 4 solutiony, 331/331 testů; snímky tří plachet z herní kamery (čtou), výběr levelů se 13 dlaždicemi (3 řady) se vejde v 1600×900 i 1900×790 (poměr 3840×1600).
 - ⚠ **Dopad na save:** hráč s postupem najde Rainbow, Zigzag a všechny nedohrané levely se štítkem „#1 first“, dokud plachty neodehraje (`IsLevelUnlocked`: pořadí). Dohrané zůstávají otevřené.
+
+## 2026-09-28 — #609 louka: předměty z referencí — desktop, Claude Code (bs3d-a1)
+
+- **Beru #609**, první krok: reference (oba modely), pak výsadba (keře, živý plot, osamělé stromy, balíky sena, plot, trsy trávy, kameny) přes `Acacia.fx` jako na savaně. Pěšina, potok a nové záběry intra potom. Soubory: nový `MeadowScatter.cs`, `MeadowBackdrop.cs`, `MeadowSceneConfig`.
