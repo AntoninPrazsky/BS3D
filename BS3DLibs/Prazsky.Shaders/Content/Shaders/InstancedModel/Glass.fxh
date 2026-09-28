@@ -427,3 +427,96 @@ technique InstancedGlass
         PixelShader = compile PS_SHADERMODEL GlassPS();
     }
 };
+
+//THE CRYSTAL CUP'S INCLUSIONS (#640). The cup was a flawless dielectric, and the owner's rule is that a material
+//should never render as perfect: rock crystal with inclusions is the one that reads as natural, and as precious. The
+//references rendered for the issue (rock-crystal goblets) carry three kinds, and this lays all three into the plain
+//material's own shading, in the mesh's space so they turn with the cup rather than swimming over it:
+//
+// * a VEIL - a wisp of a healed fracture, milky where it is dense, flashing a thin film's rainbow as the cup turns;
+// * RUTILE - a few sets of fine golden threads, straight and parallel, the way the needles grow;
+// * and CLOUD - a dusting of pinpoint specks.
+//
+//All of it sits in the bowl and the stem, where the glass is thick in the references; none on the foot. Additive over
+//the premultiplied surface, each raising the alpha by what it scatters, so a veil is milky rather than a hole. The
+//figures are in mesh units (the cup is TrophyMesh.HEIGHT = 1 tall).
+static const float CRYSTAL_VEIL_SCALE = 7.0;       //the veil's fbm, cycles per unit
+static const float CRYSTAL_VEIL_AMOUNT = 0.4;     //how milky it gets at its densest
+static const float CRYSTAL_FLASH_AMOUNT = 0.7;    //the thin film's rainbow over it
+static const float CRYSTAL_RUTILE_AMOUNT = 0.45;
+static const float CRYSTAL_RUTILE_SPACING = 60.0;  //planes per unit across the threads
+static const float CRYSTAL_RUTILE_CHANCE = 0.12;   //the share of them holding one
+static const float3 CRYSTAL_RUTILE_COLOR = float3(1.0, 0.72, 0.32);
+static const float CRYSTAL_SPECK_CELL = 0.035;     //the cloud's lattice, and the share of its cells that hold a speck
+static const float CRYSTAL_SPECK_CHANCE = 0.025;
+
+GlassVSOutput CrystalVS(VertexShaderInput input, InstanceInput instance)
+{
+    return GlassVS(input, instance);
+}
+
+float4 CrystalPS(GlassVSOutput input, bool isFrontFace : SV_IsFrontFace) : COLOR
+{
+    VertexShaderOutput main;
+    main.Position = input.Position;
+    main.WorldPosition = input.WorldPosition;
+    main.WorldNormal = input.WorldNormal;
+    main.OcclusionData = input.OcclusionData;
+    float4 shaded = MainPS(main, isFrontFace);
+
+    float3 p = input.LocalPosition;
+    float3 view = normalize(input.WorldPosition - EyePosition);
+    float3 normal = normalize(input.WorldNormal) * (isFrontFace ? 1.0 : -1.0);
+    float facing = abs(dot(view, normal));
+
+    //Where the glass is thick enough to hold anything: the bowl and the stem, not the foot
+    float held = smoothstep(0.12, 0.3, p.y);
+
+    //The veil: two wisps, where a low-frequency field rises; milky where its fbm is dense
+    float patch = smoothstep(0.0, 0.4, GradientNoise3(p * 2.2 + 5.3));
+    float wisp = Fbm3(p * CRYSTAL_VEIL_SCALE + 1.7, 4);
+    float veil = held * patch * saturate((wisp + 0.05) * 2.5);
+
+    //Its thin film: a rainbow whose hue walks with the wisp and with the angle the eye meets the surface at, so it
+    //flashes and moves as the cup turns rather than being painted on
+    float hue = frac(wisp * 3.0 + facing * 2.0);
+    float3 rainbow = saturate(abs(frac(hue + float3(0.0, 0.333, 0.667)) * 6.0 - 3.0) - 1.0);
+    float flash = veil * smoothstep(0.35, 0.85, facing) * saturate(wisp * 4.0);
+
+    //Rutile: straight parallel threads - a family of planes across one direction, a hash choosing which of them hold
+    //a thread and where along it the thread starts and stops. The surface slices each plane in a straight line.
+    float3 along = normalize(float3(0.35, 1.0, 0.2));
+    float3 across = normalize(cross(along, float3(1, 0, 0.3)));
+    float threadAt = dot(p, across) * CRYSTAL_RUTILE_SPACING;
+    float2 threadRoll = NoiseHash22(float2(floor(threadAt), 3.1));
+    float threadMid = 0.55 + 0.25 * threadRoll.y;
+    float threadSpan = abs(dot(p, along) - threadMid);
+    float threadWidth = max(fwidth(threadAt), 1e-3);
+    float rutile = held * step(1.0 - 2.0 * CRYSTAL_RUTILE_CHANCE, threadRoll.x)
+        * saturate(1.0 - abs(frac(threadAt) - 0.5) / (1.2 * threadWidth)) * saturate(0.25 / threadWidth)
+        * saturate((0.18 - threadSpan) / 0.04);
+
+    //Cloud: pinpoint specks where the surface passes through a speck of the lattice
+    float3 cell = floor(p / CRYSTAL_SPECK_CELL);
+    float3 roll = NoiseHash33(cell) * 0.5 + 0.5;
+    float3 toSpeck = frac(p / CRYSTAL_SPECK_CELL) - (0.3 + 0.4 * roll);
+    float speck = held * step(roll.x, CRYSTAL_SPECK_CHANCE) * saturate(1.0 - length(toSpeck) / 0.16);
+
+    //Lit by how bright the sky over the cup is - its brightness only, so a gold thread stays gold and a veil white
+    //under a coloured sky
+    float3 light = dot(SkyRadiance(float3(0, 1, 0)), float3(0.2126, 0.7152, 0.0722));
+    float3 added = light * (veil * CRYSTAL_VEIL_AMOUNT + speck * 1.2 + flash * CRYSTAL_FLASH_AMOUNT * rainbow
+        + rutile * CRYSTAL_RUTILE_AMOUNT * CRYSTAL_RUTILE_COLOR);
+    float scattered = saturate(veil * CRYSTAL_VEIL_AMOUNT + speck * 0.4 + rutile * 0.3);
+
+    return float4(shaded.rgb + added, saturate(shaded.a + scattered));
+}
+
+technique InstancedCrystal
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL CrystalVS();
+        PixelShader = compile PS_SHADERMODEL CrystalPS();
+    }
+};

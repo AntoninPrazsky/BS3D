@@ -396,6 +396,10 @@ namespace BS3D.Effects
                 emissive: new Vector3(0.006f, 0.014f, 0.020f), ambient,
                 metalness: 0.06f, alpha: 0.30f, emissiveTint: new Vector3(0.005f, 0.018f, 0.038f));
 
+            //And the crystal is NATURAL (#640): a veil, rutile threads and specks laid into its shading, on the owner's
+            //rule that a flawless material reads as synthetic. Additive to the figures above, which stay as they are.
+            _renderers[4].Crystal = true;
+
             //THE ORNAMENT (#429). The owner's report was that every tier read as plain, and the ask was height
             //and decoration — gems in the spirit of the Crown of Saint Wenceslas. The height is TrophyMesh's
             //profile; this is the decoration, and it CLIMBS WITH THE TIER, which is the tier ladder's own

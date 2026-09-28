@@ -198,6 +198,7 @@ namespace Prazsky.Core.Render
 
         //The result page's polished metal (#602): reads only uniforms every plain draw already sets
         private EffectTechnique _polishedMetalTechnique;
+        private EffectTechnique _crystalTechnique;
 
         /// <summary>
         /// Optional detail texture modulating the material colors of the mesh. Applied to opaque meshes
@@ -392,6 +393,13 @@ namespace Prazsky.Core.Render
         /// it. See <c>InstancedModel/PolishedMetal.fxh</c> for the measurements behind each figure.
         /// </summary>
         public bool PolishedMetal { get; set; }
+
+        /// <summary>
+        /// Draws the plain material with <b>natural inclusions</b> laid into it (#640): the <c>InstancedCrystal</c>
+        /// technique, the plain material's own shading plus a veil with a thin film's rainbow, rutile threads and a
+        /// dusting of specks, in the mesh's space so they turn with it. The result page's crystal cup sets it.
+        /// </summary>
+        public bool Crystal { get; set; }
 
         /// <summary>
         /// 1 flips the shading normal on back faces, for a mesh that is one <b>open single-sided wall</b>
@@ -1135,6 +1143,7 @@ namespace Prazsky.Core.Render
             _refractionDepthParam = _effect.Parameters["RefractionDepth"];
             _glassTechnique = _effect.Techniques["InstancedGlass"];
             _polishedMetalTechnique = _effect.Techniques["InstancedPolishedMetal"];
+            _crystalTechnique = _effect.Techniques["InstancedCrystal"];
             _glassBehindParam = _effect.Parameters["GlassBehind"];
             _glassHalfExtentsParam = _effect.Parameters["GlassHalfExtents"];
             _glassCutPeriodParam = _effect.Parameters["GlassCutPeriod"];
@@ -1698,7 +1707,7 @@ namespace Prazsky.Core.Render
             }
             else
             {
-                _effect.CurrentTechnique = PolishedMetal ? _polishedMetalTechnique : _mainTechnique;
+                _effect.CurrentTechnique = Crystal ? _crystalTechnique : PolishedMetal ? _polishedMetalTechnique : _mainTechnique;
             }
         }
 
