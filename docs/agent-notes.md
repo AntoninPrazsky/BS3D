@@ -6746,3 +6746,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 - ⚠ **Past:** první A/B paprsku měřilo nic — level kreslí paprsek větví `_previewPath` (segmenty), ne tou, kterou jsem opakoval; všechny varianty 11,73 ms. Zesilovač patří DOVNITŘ měřené metody. A `[fps]` Game píše desetinnou čárku (česká lokalizace) — regex `[\d.]` nechytil nic.
 - **Zbývá z #591:** stínová mapa bez depth bufferu (jen Ultra 8192², ~268 MB) a případný spike PCF přes `SampleCmpLevelZero`. Issue nechávám otevřené.
 - **#640 NEHOTOVO, claim uvolněn:** „díry“ na zlatém poháru zespodu jsou světlé klíny oblohy na siluetě mísy pod pásem. `PolishedMetalPS` okluzi vůbec nečte; zapečená skutečná samookluze obrysu (96 paprsků/prstenec, složené do řezu rotačního tělesa) dala pod pásem jen 3–8 % — pás přečnívá 0,016–0,024 a tečný paprsek jde vedle něj. Okluze to neřeší, kód revertován. Je to poctivé zrcadlo při tečném pohledu (Schlick → bílá); tři volby vzhledu v komentáři na #640, rozhodne majitel.
+
+## 2026-09-28 — #604 galerie s hloubkou — notebook, Claude Code (github-74)
+
+- **Beru #604**, první krok z issue: jeden prototyp (dvě stěny obrázku do V / roh, případně reliéf), vyfocený z herní kamery a ze strany, přes všechny brány (drop test, `FindStrandedSpecials`, sag probe, `AimReachability`, `ArrivalProbe`), pak verdikt majitele. Soubory: `Tools/LevelGen/Designs/Block02_Gallery.cs`, `Tools/LevelGen` (`Picture()`), případně nový level v `Game/Levels`. Kampaň (#603) a Silhouettes (#491) neměním.
