@@ -6667,3 +6667,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 - **Na mainu `04c28865`** (branch `638-mars-haze-fix`, smazána). 320/320 testů, všechny čtyři solutiony se staví.
 - **Poučení:** zesvětlit plochou barvu, aby něco „vypadalo jako kámen", je špatná páka — reference ukazují kontrast ze SVĚTLA (odlesk, vržený stín), ne z vyšší albeda. A když majitel řekne „nezměnilo se to", spočítej kolik z pixelu je vůbec ta věc, kterou laduješ, než zkusíš další barvu.
 - **Zůstává otevřené:** svislé pruhování mes (stejná hypotéza jako minule — geometrie vzdáleného prstence), opar/prachový vír v popředí (#277's own).
+
+## 2026-09-28 — #616 kamera pádu rámuje trychtýř — desktop, Claude Code (bs3d-ea)
+
+- **Beru #616.** Pivot = vážený průměr koulí s přednostně trychtýřem, monotónní postup, test, který na dnešním průměru selže.
