@@ -6816,3 +6816,8 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-28 — #230 spící dělo (jen tahle část) — notebook, Claude Code (github-74)
 
 - **Beru z #230 jen „dělo usne“**: po dlouhé nečinnosti v levelu hlaveň vizuálně poklesne (jen kreslení, ne míření), tiché pochrupování, stoupající „Z“; jakýkoli vstup ho probudí. Nesahá na simulaci ani brány. Soubory: `GameplayScreen` (vstup/nečinnost), nový efekt v `Game/Effects`, `ProceduralAudio` (pochrupování), `PlayHud`/kreslení Z, `docs/game-feedback.md`.
+
+## 2026-09-28 — #230 spící dělo — notebook, Claude Code (github-74)
+
+- **Na mainu, čeká na verdikt (jen tahle část #230).** Po 75 s bez dotyku (`DozingGun`) dělo za 3,5 s usne: hlaveň klesne o 0,3 rad (jen kreslení: `Cannon.Droop` → `BarrelWorld`/`BarrelOrientation`/`DrawnMuzzlePosition`; `AimDirection`/`MuzzlePosition` beze změny, při 0 bajtově stejné), dýchá (±0,035, 4,2 s), na vrcholu nádechu tiché pochrupování (`PlaySnore`, 0,22) a nad čepy stoupá „Z“ (`PlayHud.DrawSnores`). Zaměřovací paprsek se ztlumí (`Awake`). Probudí ho do 0,3 s míření, chůze, výstřel, lean, klávesa nebo tlačítko myši (stavy, které snímek už má).
+- **Ověřeno snímky** (Toadstool, 1600×900, bez vstupu): 12 s bdělé s paprskem, od ~85 s předkloněné bez paprsku, Z mezi 92–101 s. První řez pouštěl Z z ústí a malé (~12 px mezi spodními koulemi) → teď nad čepy, 1,1–2,2 fontu popupů. Neslyšeno: hlasitost pochrupování je na majiteli. Probuzení skriptem v Game ověřit nejde (nebere syntetický vstup).
