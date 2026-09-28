@@ -6795,3 +6795,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 - **Změřeno proti kopii předchozího Testbedu (pevné kamery):** kola a patky ližiny děla na desce ostrova teď navazují na stín, dřív mezi nimi byl osvětlený pruh. Acne nikde: deska ostrova, shluk koulí, fasády města a terén 11 dvojic scéna/dóm (savana 14 i 8, les, hory, poušť, louka, outback, tropy, sopka, Mars, led, město) — rozdíly jen obrysy stínů blíž k předmětům, ohně, kývání palem, pohyb shluku. Game na High z herní kamery beze změny.
 - ⚠ **Nevyfoceno:** koule ležící v klidu na misce ve verzi „po“ — fyzika v Testbedu je náhodná a shora se nedá poznat, jestli koule leží, nebo padá (padající má stín jinde). Mechanismus je stejný jako u kola děla; ověří hra.
 - ⚠ **Past:** `End` (pustit všechny koule) v Testbedu přes `at=3:End` nic neudělal (shluk visel dál); `autoshoot` koule do trychtýře shodí.
+
+## 2026-09-28 — #603 plochý začátek kampaně — notebook, Claude Code (github-74)
+
+- **Beru #603.** Úvodní levely louky jako ploché plachty (`Picture()`), dnešní 3D One a spol. posunuté dál, brána v `ClearProbe` (dohratelnost z výchozí pozice, opt-in pro úvodní levely, nejdřív vidět, že odmítne dnešní One), karty `traverse`/`walk` na první level, který je potřebuje. Soubory: `Tools/LevelGen` (`Block01_Meadow.cs`, `CampaignSet.cs`, `ClearProbe.cs`, `LevelGates.cs`), `Game/Levels`, **`Game/Screens/Tutorial.cs` (jen `FromLevel`)**, `HelpPage.cs` (`EXAMPLE_LEVEL`), `docs/game-feedback.md`, `docs/formats-and-tools.md`.
