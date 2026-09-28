@@ -43,6 +43,7 @@ namespace Prazsky.Core.Render
         private static readonly Vector3 FENCE_WOOD = new(0.30f, 0.28f, 0.24f);
         private static readonly Vector3 STONE = new(0.30f, 0.30f, 0.27f);
         private static readonly Vector3 TUFT = new(0.12f, 0.36f, 0.05f);
+        private static readonly Vector3 REED = new(0.11f, 0.24f, 0.05f);
 
         private readonly List<IDisposable> _owned = new();
 
@@ -67,6 +68,7 @@ namespace Prazsky.Core.Render
             bool Free(float x, float z, float r)
             {
                 if (MathF.Abs(pathLateral(x, z)) < r + PATH_CLEARANCE) return false;
+                if (MathF.Abs(MeadowPath.BrookLateral(x, z, config)) < r + config.BrookWidth) return false;
                 foreach ((float ox, float oz, float or) in occupied)
                     if ((ox - x) * (ox - x) + (oz - z) * (oz - z) < (or + r) * (or + r)) return false;
                 return true;
@@ -235,6 +237,25 @@ namespace Prazsky.Core.Render
                 i++;
             }
 
+            //--- The brook's banks (#609): stones at the water's edge and reeds standing in tufts along it, the
+            //references' brook in every one of them. Placed off the centreline directly, not through Free, which
+            //keeps everything else clear of the water.
+            var reedInstances = new List<ModelInstance>();
+            for (float d = config.ClearingRadius * MeadowPath.BROOK_START + 4f; d < 420f; d += 1.6f + 1.8f * (float)rng.NextDouble())
+            {
+                float side = rng.Next(2) == 0 ? -1f : 1f;
+                if (rng.NextDouble() < 0.45)
+                {
+                    (float sx, float sz) = MeadowPath.BrookPoint(d, side * (config.BrookWidth * 0.5f + 0.2f), config);
+                    float size = 0.35f + 0.5f * (float)rng.NextDouble();
+                    rockInstances[rng.Next(3)].Add(At(sx, sz, size, (float)rng.NextDouble() * MathHelper.TwoPi, size * 0.3f, 0f, Jitter()));
+                }
+                (float rx, float rz) = MeadowPath.BrookPoint(d, side * (config.BrookWidth * 0.5f + 0.7f + 0.8f * (float)rng.NextDouble()), config);
+                reedInstances.Add(At(rx, rz, 1.0f + 0.8f * (float)rng.NextDouble(), (float)rng.NextDouble() * MathHelper.TwoPi, 0.05f,
+                    0.3f * (float)rng.NextDouble(), Jitter()));
+            }
+            IProceduralMesh reeds = Own(new GrassTuftMesh(device, 0.3f, 2.2f, 6130));
+
             //--- The grass tufts: blades that stand up, the one thing the shader's grass cannot do. Nearest the
             //play camera where they read, thinning outward; the Low tier skips them.
             var tuftMeshes = new GrassTuftMesh[3];
@@ -268,6 +289,8 @@ namespace Prazsky.Core.Render
             for (int m = 0; m < rockMeshes.Length; m++)
                 if (rockInstances[m].Count > 0)
                     buckets.Add(new ScatterBucket(device, rockMeshes[m], rockInstances[m], STONE, STONE * new Vector3(0.8f, 1.0f, 0.7f), dapple: 0.45f, bark: 0f, detailOnly: false));
+            if (reedInstances.Count > 0)
+                buckets.Add(new ScatterBucket(device, reeds, reedInstances, REED, REED * new Vector3(1.5f, 1.3f, 0.8f), dapple: 0.4f, bark: 0f, detailOnly: false));
             for (int m = 0; m < tuftMeshes.Length; m++)
                 buckets.Add(new ScatterBucket(device, tuftMeshes[m], tuftInstances[m], TUFT, TUFT * new Vector3(1.6f, 1.3f, 0.9f), dapple: 0.5f, bark: 0f, detailOnly: true));
 

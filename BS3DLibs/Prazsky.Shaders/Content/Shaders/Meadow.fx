@@ -87,6 +87,24 @@ static const float PATH_START = 0.72;                    //MeadowPath.START
 static const float3 PATH_DIRT = float3(0.20, 0.155, 0.10);
 static const float3 PATH_VERGE = float3(0.16, 0.20, 0.07);
 
+//The brook (#609): MeadowPath.BrookLateral is its CPU copy
+float BrookBearing;
+float BrookWidth;
+float BrookMeander;
+static const float BROOK_START = 0.82;                    //MeadowPath.BROOK_START
+static const float3 BROOK_BANK = float3(0.07, 0.11, 0.035);
+static const float3 BROOK_BED = float3(0.035, 0.05, 0.045);
+
+float BrookLateral(float2 p)
+{
+    float d = length(p);
+    float angle = atan2(p.y, p.x) - BrookBearing;
+    angle -= 6.2831853 * round(angle / 6.2831853);
+    float wander = BrookMeander * (0.6 * sin(d * 0.017 + 2.4) + 0.4 * sin(d * 0.049 + 0.3));
+    float off = step(d, ClearingRadius * BROOK_START) + step(1.5707963, abs(angle));
+    return d * angle - wander + off * 1e4;
+}
+
 float PathLateral(float2 p)
 {
     float d = length(p);
@@ -204,6 +222,13 @@ float4 MeadowField(MeadowVertexOutput input, bool detail)
     float trodden = 1.0 - smoothstep(PathWidth * 0.5 - 0.15, PathWidth * 0.5 + 0.15, lateral + ragged);
     float verge = 1.0 - smoothstep(PathWidth, PathWidth * 1.9, lateral + ragged);
     present *= 1.0 - verge;
+
+    //The brook (#609): water down the middle, a wet dark bank either side, no flower near it
+    float brookLateral = abs(BrookLateral(worldPosition.xz));
+    float brookRagged = 0.3 * GradientNoise2(worldPosition.xz * 0.7 + 9.1);
+    float water = 1.0 - smoothstep(BrookWidth * 0.5 - 0.2, BrookWidth * 0.5 + 0.2, brookLateral + brookRagged);
+    float bank = 1.0 - smoothstep(BrookWidth * 0.5, BrookWidth * 1.4, brookLateral + brookRagged);
+    present *= 1.0 - bank;
 
     //Per-flower character: the species' petal count, petal shape and size, then the cell hash's own variation.
     //0 oxeye daisy: many thin white rays round a big yellow eye. 1 buttercup: five round glossy yellow petals.
@@ -366,6 +391,9 @@ float4 MeadowField(MeadowVertexOutput input, bool detail)
 
     grass = lerp(grass, flowerColor, flowerMask);
 
+    //The brook's bank: the grass darkens and goes muddy towards the water
+    grass = lerp(grass, BROOK_BANK, bank * (1.0 - water) * 0.75);
+
     //The path over everything the grass is: the verge pales and shortens, the middle is bare earth
     grass = lerp(grass, lerp(grass, PATH_VERGE, 0.55), verge * (1.0 - trodden));
     grass = lerp(grass, PATH_DIRT * (0.85 + 0.3 * GradientNoise2(worldPosition.xz * 2.3)), trodden);
@@ -398,7 +426,7 @@ float4 MeadowField(MeadowVertexOutput input, bool detail)
     float3 toCamera = normalize(CameraPosition - worldPosition);
     float grazing = 1.0 - saturate(dot(baseNormal, toCamera));
     grazing *= grazing * grazing;
-    float bladeCover = (1.0 - flowerMask) * (1.0 - trodden);
+    float bladeCover = (1.0 - flowerMask) * (1.0 - trodden) * (1.0 - bank);
 
     float3 sheenColor = lerp(grass, GrassTipColor, 0.5) + 0.12;
     color += bladeCover * GrassSheenStrength * grazing * sheenColor
@@ -409,6 +437,24 @@ float4 MeadowField(MeadowVertexOutput input, bool detail)
     backlit *= backlit * backlit;
     color += bladeCover * GrassTranslucency * backlit * sunlight * (0.35 + 0.65 * pow(grazing, 0.33))
         * SunColor * lerp(grass, GrassTipColor, 0.6);
+
+    //THE WATER (#609): a thin sheet over a dark bed, mostly the sky it mirrors - more of it towards grazing,
+    //the Fresnel every still water has - broken by ripples running downstream and glinting where they face the sun
+    [branch]
+    if (water > 0.0)
+    {
+        float2 flowDir = normalize(worldPosition.xz + 1e-3);
+        float2 rippleDomain = worldPosition.xz * 1.6 - flowDir * MeadowTime * 1.2;
+        float2 slope = float2(GradientNoise2(rippleDomain), GradientNoise2(rippleDomain * 1.7 + 4.2)) * 0.18;
+        float3 waterNormal = normalize(float3(slope.x, 1.0, slope.y));
+        float3 reflected = reflect(-toCamera, waterNormal);
+        float3 sky = lerp(HorizonColor, ZenithColor, saturate(reflected.y * 2.0 + 0.45)) * float3(0.62, 0.72, 0.82);
+        float fresnel = 0.08 + 0.62 * pow(1.0 - saturate(dot(waterNormal, toCamera)), 4.0);
+        float glint = pow(saturate(dot(reflected, SunDirection)), 180.0) * sunlight;
+        float3 waterColor = lerp(BROOK_BED * (skyAmbient * AmbientStrength + SunColor * 0.4 * sunlight), sky, fresnel)
+            + SunColor * glint * 2.0;
+        color = lerp(color, waterColor, water);
+    }
 
     //Horizon haze: the distant hills soften into the skyline
     float dist = distance(CameraPosition, worldPosition);
