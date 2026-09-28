@@ -87,13 +87,11 @@ namespace Prazsky.Core.Render
             float Jitter() => (float)(rng.NextDouble() - 0.5) * 0.2f;
 
             //--- The oaks: three trees at rolled proportions, a lobed broad crown on a short thick trunk
-            var oakMeshes = new TreeMesh[3];
+            var oakMeshes = new OakMesh[3];
             var oakInstances = new List<ModelInstance>[3];
             for (int m = 0; m < oakMeshes.Length; m++)
             {
-                float trunk = 5.5f + 1.5f * (float)rng.NextDouble();
-                oakMeshes[m] = Own(new TreeMesh(device, TreeSpecies.Broadleaf, 1.1f, 0.75f, trunk,
-                    9f + 2.5f * (float)rng.NextDouble(), 11f + 3f * (float)rng.NextDouble(), 6090 + m, segments: 12));
+                oakMeshes[m] = Own(new OakMesh(device, 6090 + m));
                 oakInstances[m] = new List<ModelInstance>();
             }
             for (int i = 0, tries = 0; i < OAKS && tries < 400; tries++)
@@ -257,7 +255,7 @@ namespace Prazsky.Core.Render
             for (int m = 0; m < oakMeshes.Length; m++)
             {
                 if (oakInstances[m].Count == 0) continue;
-                buckets.Add(new ScatterBucket(device, oakMeshes[m].Trunk, oakInstances[m], OAK_BARK, OAK_BARK * 1.2f, dapple: 0f, bark: 0.6f, detailOnly: false));
+                buckets.Add(new ScatterBucket(device, oakMeshes[m].Wood, oakInstances[m], OAK_BARK, OAK_BARK * 1.2f, dapple: 0f, bark: 0.6f, detailOnly: false));
                 buckets.Add(new ScatterBucket(device, oakMeshes[m].Crown, oakInstances[m], OAK_LEAF, OAK_LEAF_DRY, dapple: 0.7f, bark: 0f, detailOnly: false));
             }
             for (int m = 0; m < shrubMeshes.Length; m++)
@@ -313,6 +311,58 @@ namespace Prazsky.Core.Render
             foreach (float y in new[] { 0.55f, 1.05f })
                 TubeGeometry.AddTube(v, idx, 5, new Vector3(-0.05f, y, 0.06f), 0.055f, new Vector3(FENCE_SPAN + 0.05f, y, 0.06f), 0.055f);
             return new UploadedMesh(device, v, idx, new BoundingSphere(new Vector3(FENCE_SPAN * 0.5f, 0.6f, 0f), FENCE_SPAN * 0.6f));
+        }
+
+        /// <summary>
+        /// A lone field oak, as the references draw one: a short thick trunk forking into a few spreading boughs under
+        /// a broad crown of several lumpy masses — never one smooth ellipsoid, which the forest's broadleaf crown is,
+        /// and which on a hill brow with its trunk out of sight read as a green pill floating in the sky.
+        /// </summary>
+        private sealed class OakMesh : IDisposable
+        {
+            public IProceduralMesh Wood { get; }
+            public IProceduralMesh Crown { get; }
+
+            public OakMesh(GraphicsDevice device, int seed)
+            {
+                Random rng = new(seed);
+                float trunkTop = 4.2f + 1.2f * (float)rng.NextDouble();
+                float crownY = trunkTop + 5.5f;
+
+                var wv = new List<VertexPositionNormalTexture>();
+                var widx = new List<short>();
+                TubeGeometry.AddTube(wv, widx, 10, new Vector3(0f, -0.4f, 0f), 1.05f, new Vector3(0f, trunkTop, 0f), 0.75f);
+
+                var fv = new List<VertexPositionNormalTexture>();
+                var fidx = new List<short>();
+
+                //The lobes: one on top, the rest in a ring, each on its own bough from the fork
+                int lobes = 6 + rng.Next(2);
+                float phase = (float)rng.NextDouble() * MathHelper.TwoPi;
+                FoliageMesh.Generate(fv, fidx, 5.2f, 3.6f, new Vector3(0f, crownY + 2.2f, 0f), seed * 17 + 1, FoliageStyle.Crown);
+                for (int l = 0; l < lobes; l++)
+                {
+                    float a = phase + MathHelper.TwoPi * l / lobes + ((float)rng.NextDouble() - 0.5f) * 0.5f;
+                    float reach = 4.8f + 1.8f * (float)rng.NextDouble();
+                    float r = 3.4f + 1.3f * (float)rng.NextDouble();
+                    Vector3 centre = new(MathF.Cos(a) * reach, crownY - 0.5f + 1.8f * ((float)rng.NextDouble() - 0.3f), MathF.Sin(a) * reach);
+                    FoliageMesh.Generate(fv, fidx, r, r * 0.75f, centre, seed * 17 + 3 + l, FoliageStyle.Crown);
+
+                    //The bough into it, from the fork, ending well inside the mass
+                    Vector3 end = new Vector3(0f, crownY - 1.5f, 0f) + (centre - new Vector3(0f, crownY - 1.5f, 0f)) * 0.7f;
+                    TubeGeometry.AddTube(wv, widx, 7, new Vector3(0f, trunkTop - 0.4f, 0f), 0.5f, end, 0.2f);
+                }
+
+                BoundingSphere bounds = new(new Vector3(0f, crownY, 0f), 11.5f);
+                Wood = new UploadedMesh(device, wv, widx, bounds);
+                Crown = new UploadedMesh(device, fv, fidx, bounds);
+            }
+
+            public void Dispose()
+            {
+                (Wood as IDisposable)?.Dispose();
+                (Crown as IDisposable)?.Dispose();
+            }
         }
 
         private T Own<T>(T disposable) where T : IDisposable
