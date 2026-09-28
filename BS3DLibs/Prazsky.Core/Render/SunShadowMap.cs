@@ -24,6 +24,13 @@ namespace Prazsky.Core.Render
     /// sampler is what <c>Shadows.fxh</c>'s nine-tap PCF reads. Cleared to 1 (the far plane) before each
     /// caster pass, so an empty map shadows nothing.
     /// </para>
+    /// <para>
+    /// <b>No depth buffer beside it (#591).</b> The nearest caster is kept by the blend instead of a depth test:
+    /// the caster pass draws with <c>BlendFunction.Min</c> (<c>SceneRenderer.ShadowCasterBlend</c>), so each texel
+    /// keeps the smallest depth anything wrote to it, in whatever order — exactly what a less-equal test against a
+    /// depth buffer kept, and what the red channel holds anyway. The buffer that test needed was a D24S8 the size of
+    /// the map, used for nothing else: 64 MB at High's 4096 and 256 MB at Ultra's 8192.
+    /// </para>
     /// </summary>
     public sealed class SunShadowMap : IDisposable
     {
@@ -43,7 +50,7 @@ namespace Prazsky.Core.Render
         public SunShadowMap(GraphicsDevice device, int size)
         {
             Size = size;
-            Target = new RenderTarget2D(device, size, size, false, SurfaceFormat.Single, DepthFormat.Depth24,
+            Target = new RenderTarget2D(device, size, size, false, SurfaceFormat.Single, DepthFormat.None,
                 0, RenderTargetUsage.DiscardContents);
         }
 
