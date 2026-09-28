@@ -160,6 +160,9 @@ static const float GRASS_FBM_GAIN = 5.0;
 static const float FLOWER_PETAL_RELIEF = 0.20;
 static const float FLOWER_EYE_RELIEF = 0.16;
 static const float FLOWER_CONTACT_SHADOW = 0.22;
+//The flowers' drifts (#609): a patch of this many world units is mostly one of FLOWER_SPECIES kinds
+static const float FLOWER_PATCH = 16.0;
+static const float FLOWER_SPECIES = 5.0;
 
 #include "Grass.fxh"
 
@@ -181,7 +184,18 @@ float4 MeadowField(MeadowVertexOutput input, bool detail)
     //goes through the very perturbation the grass relief rides.
     float2 cell = floor(worldPosition.xz / FlowerSpacing);
     float2 within = frac(worldPosition.xz / FlowerSpacing);
-    float present = step(1.0 - FlowerDensity, Hash21(cell));
+
+    //IN DRIFTS AND BY SPECIES (#609). The owner: the flowers are boring and they repeat - one rosette formula,
+    //evenly sown. A meadow's flowers come in patches, and a patch is mostly one kind. So the density swells and
+    //thins over tens of metres (a drift field), and every FLOWER_PATCH-wide patch has its own species, which
+    //two flowers in five ignore for a neighbour's - the edges of patches mix, as a real meadow's do.
+    float driftField = saturate(CloudNoise(worldPosition.xz * 0.045 + 3.7) * 0.5 + 0.5);
+    float density = FlowerDensity * (0.35 + 2.4 * driftField * driftField);
+    float present = step(1.0 - density, Hash21(cell));
+
+    float patchSpecies = floor(Hash21(floor(worldPosition.xz / FLOWER_PATCH) + 41.3) * FLOWER_SPECIES);
+    float ownSpecies = floor(Hash21(cell + 23.9) * FLOWER_SPECIES);
+    float species = Hash21(cell + 61.1) < 0.4 ? ownSpecies : patchSpecies;
 
     //The footpath (#609): trodden dirt down the middle, a verge of worn short grass either side, both with a
     //ragged edge. No flower grows on it.
@@ -191,10 +205,16 @@ float4 MeadowField(MeadowVertexOutput input, bool detail)
     float verge = 1.0 - smoothstep(PathWidth, PathWidth * 1.9, lateral + ragged);
     present *= 1.0 - verge;
 
-    //Per-flower character, all off the cell hash
-    float petalCount = 5.0 + floor(Hash21(cell + 5.5) * 3.0); //5, 6 or 7 petals
+    //Per-flower character: the species' petal count, petal shape and size, then the cell hash's own variation.
+    //0 oxeye daisy: many thin white rays round a big yellow eye. 1 buttercup: five round glossy yellow petals.
+    //2 poppy: four broad red petals round a black eye, the biggest. 3 cornflower: ragged blue rays. 4 clover: a
+    //round pink-purple head of florets and no petals at all.
+    float petalCount = species < 0.5 ? 13.0 : (species < 1.5 ? 5.0 : (species < 2.5 ? 4.0 : (species < 3.5 ? 9.0 : 1.0)));
+    float petalShape = species < 0.5 ? 2.2 : (species < 1.5 ? 0.6 : (species < 2.5 ? 0.35 : (species < 3.5 ? 3.0 : 0.0)));
+    float speciesSize = species < 0.5 ? 1.0 : (species < 1.5 ? 0.75 : (species < 2.5 ? 1.35 : (species < 3.5 ? 0.85 : 0.6)));
+    float eyeShare = species < 0.5 ? 0.38 : (species < 1.5 ? 0.22 : (species < 2.5 ? 0.26 : (species < 3.5 ? 0.24 : 0.0)));
     float rotation = Hash21(cell + 9.9) * 6.2831853;
-    float size = FlowerSize * (0.7 + 0.6 * Hash21(cell + 2.2));
+    float size = min(FlowerSize * speciesSize * (0.7 + 0.6 * Hash21(cell + 2.2)), 0.45);
 
     //The centre may only wander in [size, 1-size], so the whole flower stays inside its cell and no petal
     //is cut off by the cell edge (the flower is only evaluated within its own cell's fraction).
@@ -205,9 +225,11 @@ float4 MeadowField(MeadowVertexOutput input, bool detail)
 
     //The scalloped outer edge: petalCount rounded lobes around the centre. |cos(N*angle/2)| makes N lobes
     //and, being even in the angle, stays continuous across the atan2 seam; the power rounds the petals out.
-    float lobes = pow(abs(cos(petalCount * (angle + rotation) * 0.5)), 0.6);
-    float petalEdge = size * (0.34 + 0.66 * lobes);
-    float centreEdge = size * 0.3;
+    //A clover head has no petals: petalShape 0 makes the lobes a flat 1, a round head, and its floret texture
+    //is the cell hash below
+    float lobes = petalShape > 0.0 ? pow(abs(cos(petalCount * (angle + rotation) * 0.5)), petalShape) : 1.0;
+    float petalEdge = size * (petalShape > 0.0 ? 0.34 + 0.66 * lobes : 0.8);
+    float centreEdge = size * eyeShare;
 
     float resolvable = saturate(1.0 - footprint / FlowerSpacing);
     float aa = fwidth(radius) * 1.5 + 1e-4;
@@ -316,17 +338,25 @@ float4 MeadowField(MeadowVertexOutput input, bool detail)
     //travelling downwind rather than an infinite plane wave (#276 — see WindGust in Noise.fxh).
     grass *= 1.0 + gust * WindRippleStrength;
 
-    //White daisies, yellow buttercups, the odd pink one - all with a warm golden eye
-    float pick = Hash21(cell + 13.7);
-    float3 petalColor = pick < 0.5 ? float3(0.96, 0.96, 0.92)
-        : (pick < 0.80 ? float3(0.97, 0.88, 0.28) : float3(0.90, 0.45, 0.68));
+    //The species' colours, a little varied flower to flower
+    float shade = 0.9 + 0.2 * Hash21(cell + 13.7);
+    float3 petalColor = species < 0.5 ? float3(0.96, 0.96, 0.92)
+        : (species < 1.5 ? float3(0.98, 0.82, 0.10)
+        : (species < 2.5 ? float3(0.86, 0.09, 0.05)
+        : (species < 3.5 ? float3(0.22, 0.34, 0.92)
+        : float3(0.78, 0.36, 0.62) * (0.8 + 0.4 * Hash21(floor(within * 40.0) + cell)))));
+    petalColor *= shade;
+    float3 eyeColor = species < 0.5 ? float3(0.98, 0.74, 0.12)
+        : (species < 1.5 ? float3(0.80, 0.78, 0.20)
+        : (species < 2.5 ? float3(0.05, 0.04, 0.05)
+        : float3(0.14, 0.12, 0.45)));
 
     //The face of a petal against its rim (#127): a cheap occlusion gradient — the face keeps its colour,
     //the scalloped rim falls into shade, the eye brightens at its very centre — so a rosette reads as a
     //form even where the light is flat. The normal above carries the real shape; this carries the ambient
     //half the hemisphere term is too broad to give.
     float3 flowerColor = petalColor * (0.80 + 0.28 * petalProfile);
-    flowerColor = lerp(flowerColor, float3(0.98, 0.74, 0.12) * (0.9 + 0.35 * eyeDome), centreMask);
+    flowerColor = lerp(flowerColor, eyeColor * (0.9 + 0.35 * eyeDome), centreMask * step(0.001, eyeShare));
 
     //And a hint of the flower standing OVER the grass: a narrow contact shadow just outside the petals.
     //Inside the rosette it darkens grass the petals then replace, which leaves exactly the AA fringe of
