@@ -6707,3 +6707,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 
 - **Beru #619.** Delší držení oken, přechod v sekundách, méně bzučících oken v neonovém městě; změřeno počtem změn oken za sekundu. Soubory: `City.fxh`, `CitySceneConfig`, `docs/scenes.md`.
 - **Hotovo, na mainu:** mění se jen 15 % oken (`WindowRestlessFraction`), a to po 4–10 minutách, přechod 0,8 s (`WindowSwitchSeconds`), bzučí 1 z 20 oken v neonu (`NeonConfig.WindowBuzzFraction`). Změřeno z herní kamery v Testbedu (`sceneseed=1`, snímek za sekundu 40 s, bloby velikosti okna pod siluetou): ~71 změn/s → ~2/s; neon po sobě jdoucí snímky 21,2 → 12,4. ⚠ Počítadlo bez filtru (celý snímek) hlásilo 147 a pak 24 — mraky a majáky; bez mapy rozdílů by čísla lhala.
+
+## 2026-09-28 — #617 výraznější zhoupnutí shluku na startu — desktop, Claude Code (bs3d-a1)
+
+- **Beru #617.** Fyzikální přechod na startu (měkčí pružiny / start mimo klid), stejně pro hru i `SagProbe`, měřeno proti čáře. Soubory: `BallsConstraintsBuilder`, `ClusterHang`, `GameplayScreen`, `Tools/LevelGen`.
