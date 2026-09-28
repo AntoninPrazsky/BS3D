@@ -29,7 +29,7 @@ namespace Prazsky.Core.Render
         private const float INNER = 70f;             //nothing nearer than this (the island is 26 across the radius)
         private const float OUTER = 460f;
         private const int OAKS = 9, SHRUBS = 55, BALES = 14, BOULDERS = 18, TUFTS = 700;
-        private const int HEDGEROWS = 5, FENCES = 3;
+        private const int HEDGEROWS = 5, FENCES = 2;
 
         //=== The colours, linear, and the drier shade each instance can lean towards (as the savanna's). Set against
         //the meadow's own grass (0.14/0.46/0.05) rather than the savanna's: at the savanna's canopy the first
@@ -52,8 +52,13 @@ namespace Prazsky.Core.Render
         /// <summary>The lone oaks, for a camera to point at (the meadow's intro, a later step of #609).</summary>
         public IReadOnlyList<PlantFigure> Oaks { get; }
 
-        public MeadowScatter(GraphicsDevice device, Func<float, float, float> height, int seed)
+        /// <param name="config">The meadow: its field (<see cref="TerrainMirror.Meadow"/>) and its footpath
+        /// (<see cref="MeadowPath"/>) — nothing is planted on the path, and the first fence runs along it.</param>
+        public MeadowScatter(GraphicsDevice device, MeadowSceneConfig config, int seed)
         {
+            float height(float x, float z) => TerrainMirror.Meadow(x, z, config);
+            float pathLateral(float x, float z) => MeadowPath.Lateral(x, z, config);
+
             Random rng = new(seed);
             var occupied = new List<(float X, float Z, float R)>();
             var buckets = new List<ScatterBucket>();
@@ -61,6 +66,7 @@ namespace Prazsky.Core.Render
 
             bool Free(float x, float z, float r)
             {
+                if (MathF.Abs(pathLateral(x, z)) < r + PATH_CLEARANCE) return false;
                 foreach ((float ox, float oz, float or) in occupied)
                     if ((ox - x) * (ox - x) + (oz - z) * (oz - z) < (or + r) * (or + r)) return false;
                 return true;
@@ -166,6 +172,32 @@ namespace Prazsky.Core.Render
             //segment pitched to the ground's own slope so the rails meet the next post
             IProceduralMesh fence = Own(FenceMesh(device));
             var fenceInstances = new List<ModelInstance>();
+            //The first runs beside the footpath, the way a path through a meadow keeps to its fence: a point every
+            //FENCE_SPAN along the centreline, set FENCE_BESIDE_PATH to its side, each span aimed at the next point
+            {
+                Vector2 PathSide(float d)
+                {
+                    float angle = config.PathBearing + (MeadowPath.Wander(d, config) + FENCE_BESIDE_PATH) / d;
+                    return new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * d;
+                }
+
+                Vector2 p = PathSide(config.ClearingRadius * MeadowPath.START + 8f);
+                for (float d = config.ClearingRadius * MeadowPath.START + 8f; d < 420f; )
+                {
+                    //Step the distance so the chord to the next point is one span long
+                    float next = d + FENCE_SPAN;
+                    Vector2 q = PathSide(next);
+                    for (int k = 0; k < 4; k++) { next += FENCE_SPAN - Vector2.Distance(p, q); q = PathSide(next); }
+
+                    Vector2 heading = Vector2.Normalize(q - p);
+                    float rise = height(q.X, q.Y) - height(p.X, p.Y);
+                    fenceInstances.Add(At(p.X, p.Y, 1f, -MathF.Atan2(heading.Y, heading.X), 0.15f, (float)rng.NextDouble(), Jitter(),
+                        MathF.Atan2(rise, FENCE_SPAN)));
+                    p = q;
+                    d = next;
+                }
+            }
+
             for (int f = 0; f < FENCES; f++)
             {
                 float bearing = (f + 0.35f + 0.3f * (float)rng.NextDouble()) * MathHelper.TwoPi / FENCES;
@@ -248,6 +280,12 @@ namespace Prazsky.Core.Render
 
         //A fence segment's length, post to post, in world units
         private const float FENCE_SPAN = 3.2f;
+
+        //How far everything planted keeps off the footpath's centreline, past its own reach
+        private const float PATH_CLEARANCE = 2.2f;
+
+        //How far the first fence runs to the side of the footpath's centreline
+        private const float FENCE_BESIDE_PATH = 2.6f;
 
         /// <summary>A round bale lying on its side: a straw cylinder along X with its two faces, resting on the ground.</summary>
         private static UploadedMesh BaleMesh(GraphicsDevice device)

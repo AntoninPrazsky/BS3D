@@ -78,6 +78,26 @@ float FlowerDensity;
 float FlowerSpacing;
 float FlowerSize;
 
+//The footpath (#609): its bearing out of the clearing, its trodden width and its wander. MeadowPath.cs is the CPU
+//copy of PathLateral - change the one and the other has to follow.
+float PathBearing;
+float PathWidth;
+float PathMeander;
+static const float PATH_START = 0.72;                    //MeadowPath.START
+static const float3 PATH_DIRT = float3(0.20, 0.155, 0.10);
+static const float3 PATH_VERGE = float3(0.16, 0.20, 0.07);
+
+float PathLateral(float2 p)
+{
+    float d = length(p);
+    float angle = atan2(p.y, p.x) - PathBearing;
+    angle -= 6.2831853 * round(angle / 6.2831853);
+    float wander = PathMeander * (0.7 * sin(d * 0.021 + 0.6) + 0.3 * sin(d * 0.057 + 2.1));
+    //Off its length the answer is far enough away to be no path at all
+    float off = step(d, ClearingRadius * PATH_START) + step(1.5707963, abs(angle));
+    return d * angle - wander + off * 1e4;
+}
+
 //Gentle rolling hills: smooth sines (not the mountains' ridges), low around the arena centre (world
 //origin) and rising into hills with distance, so the meadow is flat where the arena stands and rolls up
 //towards the horizon. Sampled three times per vertex for the finite-difference normal.
@@ -163,6 +183,14 @@ float4 MeadowField(MeadowVertexOutput input, bool detail)
     float2 within = frac(worldPosition.xz / FlowerSpacing);
     float present = step(1.0 - FlowerDensity, Hash21(cell));
 
+    //The footpath (#609): trodden dirt down the middle, a verge of worn short grass either side, both with a
+    //ragged edge. No flower grows on it.
+    float lateral = abs(PathLateral(worldPosition.xz));
+    float ragged = 0.35 * GradientNoise2(worldPosition.xz * 0.9);
+    float trodden = 1.0 - smoothstep(PathWidth * 0.5 - 0.15, PathWidth * 0.5 + 0.15, lateral + ragged);
+    float verge = 1.0 - smoothstep(PathWidth, PathWidth * 1.9, lateral + ragged);
+    present *= 1.0 - verge;
+
     //Per-flower character, all off the cell hash
     float petalCount = 5.0 + floor(Hash21(cell + 5.5) * 3.0); //5, 6 or 7 petals
     float rotation = Hash21(cell + 9.9) * 6.2831853;
@@ -228,7 +256,7 @@ float4 MeadowField(MeadowVertexOutput input, bool detail)
     float gust = WindGust(worldPosition.xz, WindDirection, MeadowTime, WindRippleFrequency,
         WindRippleSpeed / max(WindRippleFrequency, 1e-4), footprint);
 
-    float relief = GrassRelief(worldPosition.xz, footprint, gust) * (1.0 - flowerCover);
+    float relief = GrassRelief(worldPosition.xz, footprint, gust) * (1.0 - flowerCover) * (1.0 - 0.8 * verge);
     float3 normal = PerturbNormalFromHeight(baseNormal, worldPosition, relief + flowerRelief);
 
     //Grass color, varied in broad patches so the field is not one flat green
@@ -308,6 +336,10 @@ float4 MeadowField(MeadowVertexOutput input, bool detail)
 
     grass = lerp(grass, flowerColor, flowerMask);
 
+    //The path over everything the grass is: the verge pales and shortens, the middle is bare earth
+    grass = lerp(grass, lerp(grass, PATH_VERGE, 0.55), verge * (1.0 - trodden));
+    grass = lerp(grass, PATH_DIRT * (0.85 + 0.3 * GradientNoise2(worldPosition.xz * 2.3)), trodden);
+
     //Matte grass: the sun and the sky hemisphere, dimmed by the shared cloud shadow so the same clouds that
     //drift across the sky sweep their shadows over the field
     float sunlight = CloudSunlight(worldPosition, SunDirection);
@@ -336,7 +368,7 @@ float4 MeadowField(MeadowVertexOutput input, bool detail)
     float3 toCamera = normalize(CameraPosition - worldPosition);
     float grazing = 1.0 - saturate(dot(baseNormal, toCamera));
     grazing *= grazing * grazing;
-    float bladeCover = 1.0 - flowerMask;
+    float bladeCover = (1.0 - flowerMask) * (1.0 - trodden);
 
     float3 sheenColor = lerp(grass, GrassTipColor, 0.5) + 0.12;
     color += bladeCover * GrassSheenStrength * grazing * sheenColor
