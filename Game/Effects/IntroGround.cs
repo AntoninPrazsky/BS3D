@@ -63,6 +63,45 @@ namespace BS3D.Effects
             return true;
         }
 
+        /// <summary>
+        /// Whether the subject can be SEEN from the path (#610): the sight line from each of a few stands along it
+        /// to <paramref name="target"/> passes through no solid, up to <paramref name="subjectReach"/> short of
+        /// the target — the subject's own figure is what the line is meant to end in. <see cref="Clear"/> asks
+        /// where the lens is and never what stands in front of it, and a shot round the savanna's baobab at one
+        /// scene seed was three seconds of a bush filling the frame from arm's length. <paramref name="allowedBlocked"/>
+        /// of the five stands may be blocked: in a grove a neighbour's crown passing in front for a moment is the
+        /// grove, and what the test exists to refuse is a subject hidden for the whole shot.
+        /// </summary>
+        public bool SightClear(Vector3[] path, Vector3 target, float subjectReach, int allowedBlocked = 0) =>
+            SightBlocked(path, target, subjectReach) <= allowedBlocked;
+
+        /// <summary>How many of <see cref="SightClear"/>'s five stands cannot see the subject.</summary>
+        public int SightBlocked(Vector3[] path, Vector3 target, float subjectReach)
+        {
+            const int STANDS = 5, SAMPLES = 24;
+            int blocked = 0;
+
+            for (int s = 0; s < STANDS; s++)
+            {
+                Vector3 lens = path[(int)MathF.Round(s / (float)(STANDS - 1) * (path.Length - 1))];
+                float length = Vector3.Distance(lens, target) - subjectReach;
+                if (length <= 0f) continue;
+
+                Vector3 along = Vector3.Normalize(target - lens);
+                for (int k = 1; k <= SAMPLES; k++)
+                {
+                    Vector3 p = lens + along * (length * k / SAMPLES);
+                    if (Nearest(p) < 0f || p.Y < _height(p.X, p.Z))
+                    {
+                        blocked++;
+                        break;
+                    }
+                }
+            }
+
+            return blocked;
+        }
+
         /// <summary>How far a point stands off the nearest solid's surface (negative inside one).</summary>
         public float Nearest(Vector3 p)
         {
