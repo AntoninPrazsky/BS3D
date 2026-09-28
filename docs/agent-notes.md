@@ -6812,3 +6812,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-28 — #609 louka: předměty z referencí — desktop, Claude Code (bs3d-a1)
 
 - **Beru #609**, první krok: reference (oba modely), pak výsadba (keře, živý plot, osamělé stromy, balíky sena, plot, trsy trávy, kameny) přes `Acacia.fx` jako na savaně. Pěšina, potok a nové záběry intra potom. Soubory: nový `MeadowScatter.cs`, `MeadowBackdrop.cs`, `MeadowSceneConfig`.
+
+## 2026-09-28 — #230 spící dělo (jen tahle část) — notebook, Claude Code (github-74)
+
+- **Beru z #230 jen „dělo usne“**: po dlouhé nečinnosti v levelu hlaveň vizuálně poklesne (jen kreslení, ne míření), tiché pochrupování, stoupající „Z“; jakýkoli vstup ho probudí. Nesahá na simulaci ani brány. Soubory: `GameplayScreen` (vstup/nečinnost), nový efekt v `Game/Effects`, `ProceduralAudio` (pochrupování), `PlayHud`/kreslení Z, `docs/game-feedback.md`.
