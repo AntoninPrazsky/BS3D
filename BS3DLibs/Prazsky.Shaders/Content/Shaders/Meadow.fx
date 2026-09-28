@@ -86,6 +86,7 @@ float PathMeander;
 static const float PATH_START = 0.72;                    //MeadowPath.START
 static const float3 PATH_DIRT = float3(0.20, 0.155, 0.10);
 static const float3 PATH_VERGE = float3(0.16, 0.20, 0.07);
+static const float PATH_RAGGED = 0.35;                    //how far the noise moves the path's edges, world units
 
 //The brook (#609): MeadowPath.BrookLateral is its CPU copy
 float BrookBearing;
@@ -94,6 +95,7 @@ float BrookMeander;
 static const float BROOK_START = 0.82;                    //MeadowPath.BROOK_START
 static const float3 BROOK_BANK = float3(0.07, 0.11, 0.035);
 static const float3 BROOK_BED = float3(0.035, 0.05, 0.045);
+static const float BROOK_RAGGED = 0.3;                    //and the brook's
 
 float BrookLateral(float2 p)
 {
@@ -217,17 +219,42 @@ float4 MeadowField(MeadowVertexOutput input, bool detail)
 
     //The footpath (#609): trodden dirt down the middle, a verge of worn short grass either side, both with a
     //ragged edge. No flower grows on it.
+    //
+    //ONLY NEAR THE LINE, and exactly so. The edge is ragged by PATH_RAGGED of a noise that never leaves ±1 (the
+    //bound of GradientNoise2 over every gradient its hash can deal, reached at a cell's centre), so a pixel further
+    //from the line than the widest term's edge plus that amplitude comes out trodden 0 and verge 0 whatever the
+    //noise says - and its noise is not evaluated. The path and the brook cross a sliver of the field and their
+    //three noises ran on every pixel of it: measured on the APU (Toadstool, 1600x900) the path cost 0.61 ms at Low
+    //and the brook 0.38, most of the meadow's 12 % rise with #609, and this branch and the brook's took 0.50 of it
+    //back (1.02 at High; "What #609 costs on the APU" in docs/scenes.md). The dirt's grain rides in the same
+    //branch, since it is only ever mixed in by trodden.
     float lateral = abs(PathLateral(worldPosition.xz));
-    float ragged = 0.35 * GradientNoise2(worldPosition.xz * 0.9);
-    float trodden = 1.0 - smoothstep(PathWidth * 0.5 - 0.15, PathWidth * 0.5 + 0.15, lateral + ragged);
-    float verge = 1.0 - smoothstep(PathWidth, PathWidth * 1.9, lateral + ragged);
+    float trodden = 0.0, verge = 0.0, dirt = 1.0;
+
+    [branch]
+    if (lateral < max(PathWidth * 1.9, PathWidth * 0.5 + 0.15) + PATH_RAGGED)
+    {
+        float ragged = PATH_RAGGED * GradientNoise2(worldPosition.xz * 0.9);
+        trodden = 1.0 - smoothstep(PathWidth * 0.5 - 0.15, PathWidth * 0.5 + 0.15, lateral + ragged);
+        verge = 1.0 - smoothstep(PathWidth, PathWidth * 1.9, lateral + ragged);
+        dirt = 0.85 + 0.3 * GradientNoise2(worldPosition.xz * 2.3);
+    }
+
     present *= 1.0 - verge;
 
-    //The brook (#609): water down the middle, a wet dark bank either side, no flower near it
+    //The brook (#609): water down the middle, a wet dark bank either side, no flower near it. Only near its line,
+    //for the path's reason.
     float brookLateral = abs(BrookLateral(worldPosition.xz));
-    float brookRagged = 0.3 * GradientNoise2(worldPosition.xz * 0.7 + 9.1);
-    float water = 1.0 - smoothstep(BrookWidth * 0.5 - 0.2, BrookWidth * 0.5 + 0.2, brookLateral + brookRagged);
-    float bank = 1.0 - smoothstep(BrookWidth * 0.5, BrookWidth * 1.4, brookLateral + brookRagged);
+    float water = 0.0, bank = 0.0;
+
+    [branch]
+    if (brookLateral < max(BrookWidth * 1.4, BrookWidth * 0.5 + 0.2) + BROOK_RAGGED)
+    {
+        float brookRagged = BROOK_RAGGED * GradientNoise2(worldPosition.xz * 0.7 + 9.1);
+        water = 1.0 - smoothstep(BrookWidth * 0.5 - 0.2, BrookWidth * 0.5 + 0.2, brookLateral + brookRagged);
+        bank = 1.0 - smoothstep(BrookWidth * 0.5, BrookWidth * 1.4, brookLateral + brookRagged);
+    }
+
     present *= 1.0 - bank;
 
     //Per-flower character: the species' petal count, petal shape and size, then the cell hash's own variation.
@@ -396,7 +423,7 @@ float4 MeadowField(MeadowVertexOutput input, bool detail)
 
     //The path over everything the grass is: the verge pales and shortens, the middle is bare earth
     grass = lerp(grass, lerp(grass, PATH_VERGE, 0.55), verge * (1.0 - trodden));
-    grass = lerp(grass, PATH_DIRT * (0.85 + 0.3 * GradientNoise2(worldPosition.xz * 2.3)), trodden);
+    grass = lerp(grass, PATH_DIRT * dirt, trodden);
 
     //Matte grass: the sun and the sky hemisphere, dimmed by the shared cloud shadow so the same clouds that
     //drift across the sky sweep their shadows over the field
