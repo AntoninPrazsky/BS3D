@@ -176,7 +176,8 @@ namespace Prazsky.Core.Render
             _windowFrameToneParam, _windowSillHeightParam, _windowSillOverhangParam, _windowSillShadowParam,
             _windowSillShadingParam, _windowRevealDepthParam, _windowBarWidthParam,
             _windowMarginParam, _windowLitFractionParam, _windowWarmParam, _windowCoolParam,
-            _windowHoldSecondsParam, _windowHoldVariationParam, _windowSwitchFadeParam;
+            _windowHoldSecondsParam, _windowHoldVariationParam, _windowSwitchSecondsParam,
+            _windowRestlessFractionParam, _windowBuzzFractionParam;
 
         //The plaster the windows sit in: its albedo, its grain, and how it answers light against how the glass
         //does. Only the city technique reads these, and the same CityConfig pushes them, so all three
@@ -1115,7 +1116,9 @@ namespace Prazsky.Core.Render
             _windowCoolParam = _effect.Parameters["WindowCool"];
             _windowHoldSecondsParam = _effect.Parameters["WindowHoldSeconds"];
             _windowHoldVariationParam = _effect.Parameters["WindowHoldVariation"];
-            _windowSwitchFadeParam = _effect.Parameters["WindowSwitchFade"];
+            _windowSwitchSecondsParam = _effect.Parameters["WindowSwitchSeconds"];
+            _windowRestlessFractionParam = _effect.Parameters["WindowRestlessFraction"];
+            _windowBuzzFractionParam = _effect.Parameters["WindowBuzzFraction"];
             _facadeColorParam = _effect.Parameters["FacadeColor"];
             _facadeNeonColorParam = _effect.Parameters["FacadeNeonColor"];
             _facadeColorVariationParam = _effect.Parameters["FacadeColorVariation"];
@@ -1530,7 +1533,9 @@ namespace Prazsky.Core.Render
                 _windowCoolParam.SetValue(city.WindowCool.ToVector3());
                 _windowHoldSecondsParam.SetValue(city.WindowHoldSeconds);
                 _windowHoldVariationParam.SetValue(city.WindowHoldVariation);
-                _windowSwitchFadeParam.SetValue(city.WindowSwitchFade);
+                _windowSwitchSecondsParam.SetValue(city.WindowSwitchSeconds);
+                _windowRestlessFractionParam.SetValue(city.WindowRestlessFraction);
+                _windowBuzzFractionParam.SetValue(city.NeonLook.WindowBuzzFraction);
                 _facadeColorParam.SetValue(city.FacadeColor.ToVector3());
                 _facadeNeonColorParam.SetValue(city.FacadeNeonColor.ToVector3());
                 _facadeColorVariationParam.SetValue(city.FacadeColorVariation);

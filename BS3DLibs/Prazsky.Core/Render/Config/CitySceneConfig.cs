@@ -243,14 +243,29 @@ namespace Prazsky.Core.Render
         /// <summary>Cool lamp colour a lit window can take.</summary>
         public Rgb WindowCool { get; set; } = new(0.52f, 0.82f, 1.0f);
 
-        /// <summary>How long a window holds one state before deciding again.</summary>
-        public float WindowHoldSeconds { get; set; } = 7.0f;
+        /// <summary>
+        /// How long a window holds one state before deciding again, at the least. <b>Minutes, not seconds, since
+        /// #619</b>: 7 s (+ up to 24) read as a disco — measured from the play camera, about 150 windows changed
+        /// state every second across the skyline, because one window's unhurried rhythm is multiplied by the
+        /// thousands of windows in view. See <see cref="WindowRestlessFraction"/> for the other half.
+        /// </summary>
+        public float WindowHoldSeconds { get; set; } = 240.0f;
 
-        /// <summary>How much the hold interval varies from window to window.</summary>
-        public float WindowHoldVariation { get; set; } = 24.0f;
+        /// <summary>How much the hold interval varies from window to window, on top of <see cref="WindowHoldSeconds"/>.</summary>
+        public float WindowHoldVariation { get; set; } = 360.0f;
 
-        /// <summary>How much of an interval the on/off switch itself takes.</summary>
-        public float WindowSwitchFade { get; set; } = 0.06f;
+        /// <summary>
+        /// The share of windows that ever change at all (#619); the rest hold their state for the whole evening.
+        /// A real building has a few rooms where someone comes and goes and most where nothing happens, and that
+        /// reads as a building sooner than every lamp slowly re-rolling does.
+        /// </summary>
+        public float WindowRestlessFraction { get; set; } = 0.15f;
+
+        /// <summary>
+        /// How long the on/off switch itself takes, in seconds — a lamp, not a dimmer. A duration since #619; it was
+        /// a fraction of the hold interval, which lengthening the hold would have turned into a 20-second crawl.
+        /// </summary>
+        public float WindowSwitchSeconds { get; set; } = 0.8f;
 
         /// <summary>How brightly a lit window burns; kept under the glare threshold so it does not veil its tower.</summary>
         public float WindowBrightness { get; set; } = 0.35f;
@@ -393,6 +408,12 @@ namespace Prazsky.Core.Render
     {
         /// <summary>Neon window brightness, well over the glare threshold so each lit sign blooms.</summary>
         public float WindowBrightness { get; set; } = 0.9f;
+
+        /// <summary>
+        /// The share of lit windows that buzz like a tired neon tube, 5 to 14 times a second (#619: one in seven
+        /// until the owner's "the buzzing is fine, it should just do fewer windows" — one in twenty now).
+        /// </summary>
+        public float WindowBuzzFraction { get; set; } = 0.05f;
 
         /// <summary>Number of alternating magenta/cyan point lights ringing the island.</summary>
         public int LightCount { get; set; } = 6;
