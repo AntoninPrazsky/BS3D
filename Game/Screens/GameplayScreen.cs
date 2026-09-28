@@ -142,6 +142,10 @@ namespace BS3D.Screens
         private readonly PreciseAim _preciseAim = new();
         private bool _adsHeld;
 
+        //How far the lean is asked for, 0 to 1 (#520): the left trigger's pull, or 1 for the right button. What the
+        //lens follows; _adsHeld is the yes-or-no the lessons and the dozing gun ask of it. Cleared wherever it is.
+        private float _adsPull;
+
         //THE SLEEPING GUN (#230): an easter egg, seen and heard and touching nothing a gate measures — see DozingGun.
         //What it is told each frame is whether the player touched anything, read off state this screen already
         //has (the aim, where the gun stands, the shots fired, a key, a button, the lean) rather than a second poll.
@@ -1044,6 +1048,7 @@ namespace BS3D.Screens
         {
             _mouseAim.Invalidate();
             _adsHeld = false;
+            _adsPull = 0f;
 
             //A gamepad reports to an unfocused window and to a paused one; both triggers must be released
             //before they mean anything again. One poll on a state change, which is not a per-frame path.
@@ -1138,6 +1143,7 @@ namespace BS3D.Screens
                 //And a held precise-aim button must not keep an alt-tabbed window leaned in — the gamepad's
                 //triggers report through XInput whether the window has focus or not.
                 _adsHeld = false;
+                _adsPull = 0f;
 
                 //AND THE LEVEL STOPS (#355). Everything above this branch is about the CURSOR, which is what
                 //losing focus was written as; it is a problem of TIME. Below this branch the world goes on

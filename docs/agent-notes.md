@@ -6867,3 +6867,4 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-28 — #520 analogová spoušť pro přiblížení — desktop, Claude Code (bs3d-a1)
 
 - **Beru #520**: levá spoušť řídí `PreciseAim.Blend` spojitě (napůl stisknutá = napůl nakloněno), plný stisk jako dřív. Soubory: `PreciseAim.cs`, `GameplayScreen.Input.cs`/`.cs`/`.Camera.cs`.
+- **Na mainu, čeká na verdikt s padem v ruce** (tady pad nemám — ověřeno jen testy `PreciseAimTests`: klidová/poloviční/plná spoušť a ease na 0,5). `LeanAmount` 0,08–0,9 → 0–1; RMB = 1. `_adsHeld` (lekce, spící dělo) zůstává ano/ne přes 0,5. Testbed beze změny.
