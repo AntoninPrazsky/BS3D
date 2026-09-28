@@ -50,7 +50,7 @@ namespace BS3D.Effects
         private const float CRATER_SECONDS = 3.8f;
 
         //Points per path. The heights are read at every one, so the climb follows the flank's own curve.
-        private const int PATH_POINTS = 96;
+        private const int PATH_POINTS = IntroPaths.FINE_POINTS;
 
         /// <summary>
         /// The prologue for the volcano the renderer is drawing, or null when it has no volcano config.

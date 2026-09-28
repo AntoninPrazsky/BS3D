@@ -58,7 +58,7 @@ namespace BS3D.Effects
         private const float SOLID_MARGIN = 10f;
 
         private const int CANDIDATES = 48;
-        private const int PATH_POINTS = 64;
+        private const int PATH_POINTS = IntroPaths.POINTS;
 
         /// <summary>
         /// The prologue for the dream being drawn, starting at <paramref name="time"/> on the renderer's wall

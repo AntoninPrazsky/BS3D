@@ -52,7 +52,7 @@ namespace BS3D.Effects
         private const float RAY_LOOK_UNDER_CEILING = 25f;
         private const float RAY_SECONDS = 3.2f;
 
-        private const int PATH_POINTS = 96;
+        private const int PATH_POINTS = IntroPaths.FINE_POINTS;
 
         /// <summary>
         /// The prologue for the cavern being drawn, or null when the renderer has no cavern config.
@@ -111,7 +111,7 @@ namespace BS3D.Effects
             Vector3 crystal = scenes.CavernCrystalCenter(chosen);
             Vector2 inward = -Vector2.Normalize(new Vector2(crystal.X, crystal.Z));
             float side = MathHelper.ToRadians(CRYSTAL_SIDE_DEGREES) * (random.Next(2) == 0 ? 1f : -1f);
-            Vector2 approach = Rotate(inward, side);
+            Vector2 approach = IntroPaths.Rotate(inward, side);
 
             var path = new Vector3[PATH_POINTS];
             for (int i = 0; i < PATH_POINTS; i++)
@@ -146,12 +146,6 @@ namespace BS3D.Effects
 
             Vector3 lookAt = new(beam.X, cavern.Rock.CeilingY - RAY_LOOK_UNDER_CEILING, beam.Y);
             return new IntroShot("the glowworms", path, RAY_SECONDS, fieldOfView * 1.3f, lookAt: lookAt);
-        }
-
-        private static Vector2 Rotate(Vector2 v, float angle)
-        {
-            float c = MathF.Cos(angle), s = MathF.Sin(angle);
-            return new Vector2(v.X * c - v.Y * s, v.X * s + v.Y * c);
         }
     }
 }

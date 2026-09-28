@@ -211,7 +211,7 @@ namespace BS3D.Effects
             //in two runs of the program is still two different flights. Both are only PROPOSALS here: the tour
             //has to end at the gameplay pose, and which way round it turns to get there is settled below with
             //the gun in view (#409), because a turn that ignored the gun was what lunged across the axis.
-            float sweep = MathHelper.ToRadians(Lerp(random, 105f, 155f));
+            float sweep = MathHelper.ToRadians(IntroPaths.RandomRange(random, 105f, 155f));
             int rolledSign = random.Next(2) == 0 ? 1 : -1;
 
             //THE STAND IS PLACED OFF THE GUN for a scene that is the same in every direction (#409): the tour
@@ -220,7 +220,7 @@ namespace BS3D.Effects
             //It was a bare roll, and a bare roll can land the stand anywhere against the gun — one turn from
             //it too short to carry the map and the arrival, the other most of a lap. A landmark scene ignores
             //this bearing outright and has its stand chosen for it below.
-            float remainingRolled = MathHelper.ToRadians(Lerp(random, 90f, 170f));
+            float remainingRolled = MathHelper.ToRadians(IntroPaths.RandomRange(random, 90f, 170f));
             float bearing = gunAzimuth - rolledSign * (sweep + remainingRolled);
 
             //Asked AFTER the roll and given it, because half the scenes build their viewpoint out of it —
@@ -271,16 +271,16 @@ namespace BS3D.Effects
                 _subject = "the rim";
 
                 azimuth0 = bearing;
-                elevation0 = _elev0 = MathHelper.ToRadians(Lerp(random, 8f, 16f));
-                radius0 = gameDistance * Lerp(random, 1.9f, 2.4f);
+                elevation0 = _elev0 = MathHelper.ToRadians(IntroPaths.RandomRange(random, 8f, 16f));
+                radius0 = gameDistance * IntroPaths.RandomRange(random, 1.9f, 2.4f);
                 _targets[0] = centre + new Vector3(
-                    -MathF.Cos(bearing) * islandRadius * Lerp(random, 0.8f, 1.0f),
+                    -MathF.Cos(bearing) * islandRadius * IntroPaths.RandomRange(random, 0.8f, 1.0f),
                     islandTopY + 2f - centre.Y,
-                    -MathF.Sin(bearing) * islandRadius * Lerp(random, 0.8f, 1.0f));
+                    -MathF.Sin(bearing) * islandRadius * IntroPaths.RandomRange(random, 0.8f, 1.0f));
 
                 arenaShare = 1f;
-                elevation1 = MathHelper.ToRadians(Lerp(random, 22f, 32f));
-                radius1 = gameDistance * Lerp(random, 1.5f, 1.8f);
+                elevation1 = MathHelper.ToRadians(IntroPaths.RandomRange(random, 22f, 32f));
+                radius1 = gameDistance * IntroPaths.RandomRange(random, 1.5f, 1.8f);
                 _targets[1] = new Vector3(centre.X, islandTopY + 3f, centre.Z);
             }
 
@@ -308,9 +308,9 @@ namespace BS3D.Effects
 
             //KEY 2, THE MAP: on round again and up — the one proper look at the cluster, from high enough to
             //show the glass it hangs from. Most of the way round to the gun, so the arrival is the shorter leg.
-            float elev2 = _elev2 = MathHelper.ToRadians(Lerp(random, 38f, 48f));
+            float elev2 = _elev2 = MathHelper.ToRadians(IntroPaths.RandomRange(random, 38f, 48f));
             _polar[2] = new Vector3(azimuth1 + arrivalSign * MAP_KEY_TURN_SHARE * remaining, elev2,
-                gameDistance * Lerp(random, 1.25f, 1.45f));
+                gameDistance * IntroPaths.RandomRange(random, 1.25f, 1.45f));
             _targets[2] = centre;
 
             //KEY 3, THE ARRIVAL: the gameplay pose itself — its own azimuth, continued rather than wrapped, so
@@ -321,7 +321,7 @@ namespace BS3D.Effects
             //A touch wider than the gameplay frame at the start — an establishing shot reads the place, not
             //the subject close up — easing back to the ordinary frame on the way in, so the arrival key's
             //own frame is exactly what the player is handed.
-            _fovWide = gameFov * Lerp(random, 0.96f, 1.10f);
+            _fovWide = gameFov * IntroPaths.RandomRange(random, 0.96f, 1.10f);
             _fovGame = gameFov;
 
             _tailPolar[0] = _polar[2];
@@ -461,7 +461,7 @@ namespace BS3D.Effects
                 }
             }
 
-            float t = Smooth(Saturate((_elapsed - _prologueSeconds) / TourSeconds));
+            float t = IntroPaths.Smooth(IntroPaths.Saturate((_elapsed - _prologueSeconds) / TourSeconds));
             bool tail = _prologue.Length > 0;
 
             //The stands are swept in polar terms (#409): a sample is a point on an orbit at the interpolated
@@ -568,7 +568,7 @@ namespace BS3D.Effects
         /// </summary>
         private static Vector3 Spline(Vector3[] keys, float t)
         {
-            float segment = Saturate(t) * (keys.Length - 1);
+            float segment = IntroPaths.Saturate(t) * (keys.Length - 1);
             int i = Math.Min((int)segment, keys.Length - 2);
 
             Vector3 p0 = keys[Math.Max(i - 1, 0)];
@@ -577,10 +577,5 @@ namespace BS3D.Effects
             return Vector3.CatmullRom(p0, keys[i], keys[i + 1], p3, segment - i);
         }
 
-        private static float Lerp(Random random, float from, float to) => from + (float)random.NextDouble() * (to - from);
-
-        private static float Saturate(float value) => MathHelper.Clamp(value, 0f, 1f);
-
-        private static float Smooth(float t) => t * t * (3f - 2f * t);
     }
 }
