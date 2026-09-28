@@ -590,6 +590,12 @@ namespace BS3D.Screens
         private const float PROFILE_FLIGHT_RING = 0.42f;
 
         /// <summary>
+        /// The alarm-red ring on a cluster ball that hangs under the death line (#643), as a share of the marker's
+        /// radius — heavier than a shot's ring, because it has to read as a warning over the ball's own colour.
+        /// </summary>
+        private const float PROFILE_CROSSED_RING = 0.3f;
+
+        /// <summary>
         /// The <b>least</b> distance below the death line a falling ball goes on being drawn, fading to nothing
         /// over it (#134). In <b>world units</b>, like everything else the panel measures.
         /// <para>
@@ -1425,25 +1431,38 @@ namespace BS3D.Screens
                 //and dissolving over the rest (#428).
                 //
                 //Which of the two this is comes off the body's own velocity (BallMarker.Falling), not off the
-                //list it came from: a shot that missed is still in _shotBalls on the way back down. Cluster
-                //balls cannot get here at all — one below the death line has ended the level.
+                //list it came from: a shot that missed is still in _shotBalls on the way back down.
+                //
+                //⚠ A CLUSTER ball under the line is a third case, and it is DRAWN (#643). It gets there in a swing
+                //the line forgives (#239) and, above all, when the cluster has reached the line and lost: the panel
+                //stays up through a loss so the player can read what beat them (#639), and it used to cull exactly
+                //the balls that had crossed — the owner's report, "whatever is under the red line isn't drawn". So
+                //they stand where they hang, whole, ringed in the alarm's red: those are the ones that crossed.
+                //Down to the bottom of the frame and no further, which on a loss is free — nothing else is drawn
+                //under the panel then.
                 float sink = bottomY - marker.World.Y;
                 float alpha = 1f;
+                bool crossed = false;
 
                 if (sink > 0f)
                 {
-                    if (!marker.Falling || sink >= sinkFade) continue;
-
-                    alpha = sink <= sinkHold ? 1f : 1f - (sink - sinkHold) / (sinkFade - sinkHold);
+                    if (!marker.InFlight) crossed = true;
+                    else if (!marker.Falling || sink >= sinkFade) continue;
+                    else alpha = sink <= sinkHold ? 1f : 1f - (sink - sinkHold) / (sinkFade - sinkHold);
                 }
 
                 float px = WorldToPanelX(marker.World);
                 float py = WorldToPanelY(marker.World.Y);
 
+                if (crossed && py - markerRadius > viewport.Height) continue;
+
                 //Multiplied through all four channels, which is the premultiplied alpha this batch's default
                 //AlphaBlend wants — the same way the broken streak fades out.
                 DrawDisc(batch, px, py, markerRadius, TypeColor(marker.Type) * alpha,
                     marker.InFlight ? markerRadius * (1f - PROFILE_FLIGHT_RING) : 0f);
+
+                if (crossed)
+                    DrawDisc(batch, px, py, markerRadius, PROFILE_ALARM, markerRadius * (1f - PROFILE_CROSSED_RING));
             }
 
             //The death line at the bottom — the one place the alarm's red is ALWAYS shown, because it IS the
