@@ -6837,3 +6837,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 
 - **Beru z #230 „Konami kód v menu“**: ↑↑↓↓←→←→ B A (šipky/d-pad, klávesy nebo tlačítka B A) na hlavním menu → 3D nápis hry zatančí (písmena postupně vyskočí a otočí se, duha jednou dokola) a zazní krátká stoupající znělka. Tlačítko A na padu, které kód dokončí, nespustí položku menu. Nesahá na simulaci ani brány. Soubory: `TitleWordmark`, `BS3DGame.Menu.cs` (navigace), nový `SecretCode<T>` v `Prazsky.BS3D` (sdílený se `SecretShotCode`), `docs/game-feedback.md`/`game-shell.md`.
 - Spike hladšího PCF z #591 zahozen: snímek stínu děla na mapě 4096 (High) žádné schody neukazuje.
+
+## 2026-09-28 — #608 šev ostrova na louce a savaně — desktop, Claude Code (bs3d-a1)
+
+- **Beru #608.** Val hlíny a drnu kolem paty ostrova (geometrie, výšky ze zrcadla terénu), kameny a trsy na něm; louka a savana (stejný systém buketů), les a hory potom. Soubory: nový `IslandBerm.cs`, `MeadowScatter.cs`, `SavannaScatter.cs`.
