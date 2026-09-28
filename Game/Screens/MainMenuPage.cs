@@ -51,8 +51,7 @@ namespace BS3D.Screens
         /// </summary>
         private const int NOTICE_WIDTH = 1240;
 
-        private Button _resumeButton;
-        private Label _playLabel;
+        private Label _firstLabel;
         private Label _qualityNotice;
 
         //Held across a rebuild: the notice is raised by the adaptive path, which may run long before this page
@@ -116,10 +115,15 @@ namespace BS3D.Screens
             };
             column.Widgets.Add(_qualityNotice);
 
-            _resumeButton = FrontEndEntry("Continue", Game.ContinueGame);
-            column.Widgets.Add(_resumeButton);
-
-            column.Widgets.Add(FrontEndEntry("Play", Game.OpenLevelSelect, out _playLabel));
+            //THE FIRST ENTRY IS THE ONE A PLAYER WANTS (#607): New Game on a fresh save, straight into level 1
+            //and its tutorial, and Continue once there is anything to continue — a session standing, or a save
+            //with progress in it. One slot whose label changes, the owner's "New Game / Continue". The level
+            //picker is the second entry, for the player who wants a particular level; it was the first ("Play")
+            //and a first-time player's first choice was a screen of 130 tiles where the campaign's own ladder
+            //puts them on level 1 anyway, and a player who relaunched never saw Continue at all — it was a
+            //session's, not a save's. What Continue opens is BS3DGame.NewGameOrContinue's to decide.
+            column.Widgets.Add(FrontEndEntry("New Game", Game.NewGameOrContinue, out _firstLabel));
+            column.Widgets.Add(FrontEndEntry("Select Level", Game.OpenLevelSelect));
             column.Widgets.Add(FrontEndEntry("Scene", Game.OpenSceneSelect));
             column.Widgets.Add(FrontEndEntry("Settings", Game.OpenSettings));
             //Before About and after the rest: a player who wants to know HOW should not have to read what
@@ -133,12 +137,9 @@ namespace BS3D.Screens
 
         internal override void Refresh()
         {
-            if (_resumeButton == null) return;
+            if (_firstLabel == null) return;
 
-            //Resuming is only offered when there is something to resume, and the play entry says plainly that
-            //pressing it again deals a new cluster rather than continuing this one
-            _resumeButton.Visible = Game.HasSession;
-            _playLabel.Text = Game.HasSession ? "New Game" : "Play";
+            _firstLabel.Text = Game.HasSession || Game.HasProgress ? "Continue" : "New Game";
 
             _qualityNotice.Text = _noticeText ?? string.Empty;
             _qualityNotice.Visible = _noticeText != null;

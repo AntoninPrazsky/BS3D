@@ -1160,7 +1160,6 @@ namespace BS3D
 
         //The actions a page's entries invoke. Named for what the player asked for rather than for how it is
         //done, so a page reads as a list of choices.
-        internal void ContinueGame() => StartGame(newGame: false);
         internal void OpenLevelSelect() => OpenPage(_levelSelectPage);
         internal void OpenSceneSelect() => OpenPage(_scenePage);
         internal void OpenSettings() => OpenPage(_settingsPage);
@@ -1217,9 +1216,73 @@ namespace BS3D
         }
 
         /// <summary>
+        /// What the main menu's first entry does (#607), which is also what it is called
+        /// (<see cref="MainMenuPage"/>): <b>resume</b> a session that stands, as Continue always did; on a save
+        /// with no progress, <b>a new game</b> — level 1, the tutorial's own; and otherwise <b>continue the
+        /// campaign</b> where the save says the player is (<see cref="ContinueLevel"/>). When no unfinished level
+        /// is open — the frontier shut by the star gate, or the whole campaign behind them — it opens the level
+        /// picker, which is where a locked level says what it wants and where a finished campaign is replayed.
+        /// </summary>
+        internal void NewGameOrContinue()
+        {
+            if (HasSession)
+            {
+                StartGame(newGame: false);
+                return;
+            }
+
+            if (!HasProgress)
+            {
+                StartGameAt(0);
+                return;
+            }
+
+            int next = ContinueLevel;
+            if (next >= 0) StartGameAt(next);
+            else OpenLevelSelect();
+        }
+
+        /// <summary>
+        /// Whether the save holds any progress at all — a level cleared or skipped (#607). What turns the main
+        /// menu's first entry from New Game into Continue when no session stands. False off a set, where the
+        /// built-in level has no campaign to be part way through.
+        /// </summary>
+        internal bool HasProgress
+        {
+            get
+            {
+                if (_levelSet == null) return false;
+
+                for (int i = 0; i < _levelSet.Count; i++)
+                    if (LevelFinished(i)) return true;
+
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Where Continue picks the campaign up when no session stands (#607): the first entry the player has
+        /// neither cleared nor skipped <b>and may play</b>, in set order — which by the sequence rule in
+        /// <see cref="IsLevelUnlocked"/> is the frontier itself when its star gate is met, and nothing (−1)
+        /// when it is not, or when every level is finished. Walked on a press, never on a frame.
+        /// </summary>
+        internal int ContinueLevel
+        {
+            get
+            {
+                if (_levelSet == null) return -1;
+
+                for (int i = 0; i < _levelSet.Count; i++)
+                    if (!LevelFinished(i) && IsLevelUnlocked(i)) return i;
+
+                return -1;
+            }
+        }
+
+        /// <summary>
         /// What the result screen's "Main Menu" does. The session is torn down, not kept: a level that has
-        /// ended is not one to "Continue" into, and the front end should offer "Play" rather than "Continue"
-        /// into a level that is already finished.
+        /// ended is not one to resume, so the front end's first entry goes back to continuing the campaign from
+        /// the save (<see cref="NewGameOrContinue"/>) rather than into a level that is already finished.
         /// </summary>
         internal void EndSessionAndReturnToMainMenu()
         {
@@ -1511,8 +1574,8 @@ namespace BS3D
             if ((pad.IsButtonDown(Buttons.A) && !_previousPad.IsButtonDown(Buttons.A)) || IsKeyEdge(keyboard, Keys.Enter))
             {
                 //Pressing accept with the cursor down only raises it. Firing the top entry instead would make
-                //the pad's first press mean whatever happened to be first — "New Game" over a session in
-                //progress, on the very screen that exists to offer Continue.
+                //the pad's first press mean whatever happened to be first — a level started on the press that
+                //only meant to wake the menu (#607 made the top entry New Game / Continue, which starts one).
                 if (_navIndex < 0) StepNavFocus(1);
                 else ActivateNavEntry();
             }
