@@ -47,6 +47,10 @@ namespace Prazsky.Core.Render
         /// nothing by default.</summary>
         public virtual void DrawOverlays(in SceneFrame frame) { }
 
+        /// <summary>The translucent things that stand on the ground rather than around the lens
+        /// (<see cref="SceneRenderer.DrawGrounded"/>); nothing by default.</summary>
+        public virtual void DrawGrounded(in SceneFrame frame) { }
+
         /// <summary>
         /// Whether a supersampled frame shades this backdrop at the back buffer's size and scales it up
         /// (<see cref="SceneRenderer"/>'s <c>DrawBackdropAtDisplayResolution</c>). False by default: only a
