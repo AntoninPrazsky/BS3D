@@ -6799,3 +6799,4 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-28 — #603 plochý začátek kampaně — notebook, Claude Code (github-74)
 
 - **Beru #603.** Úvodní levely louky jako ploché plachty (`Picture()`), dnešní 3D One a spol. posunuté dál, brána v `ClearProbe` (dohratelnost z výchozí pozice, opt-in pro úvodní levely, nejdřív vidět, že odmítne dnešní One), karty `traverse`/`walk` na první level, který je potřebuje. Soubory: `Tools/LevelGen` (`Block01_Meadow.cs`, `CampaignSet.cs`, `ClearProbe.cs`, `LevelGates.cs`), `Game/Levels`, **`Game/Screens/Tutorial.cs` (jen `FromLevel`)**, `HelpPage.cs` (`EXAMPLE_LEVEL`), `docs/game-feedback.md`, `docs/formats-and-tools.md`.
+- **Na mainu (část):** koruny akácií jsou listové trsy (`LeafSprays`, `LeafMask` v `Acacia.fx`, prosvítání, tmavší spodní vrstvy, stín s lístky), talíř jen na Low. Testbed hrací kamera 2,61 → 2,79 ms. Zbývá baobab a kůra.
