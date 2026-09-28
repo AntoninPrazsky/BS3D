@@ -379,6 +379,22 @@ namespace Prazsky.Core.Render
         //its foot and read as levitating.
         private const float SHADOW_BIAS_UNITS = 0.12f;
 
+        /// <summary>
+        /// The caster pass's blend (#591): each texel keeps the SMALLEST depth written to it, which is the nearest
+        /// caster whatever order they are drawn in — the depth test's own answer, without the depth buffer it needed.
+        /// The factors are ignored by a min; they are stated as One so the state reads as what it is. Static, like
+        /// every state object (BestPractices.md).
+        /// </summary>
+        private static readonly BlendState ShadowCasterBlend = new()
+        {
+            ColorBlendFunction = BlendFunction.Min,
+            ColorSourceBlend = Blend.One,
+            ColorDestinationBlend = Blend.One,
+            AlphaBlendFunction = BlendFunction.Min,
+            AlphaSourceBlend = Blend.One,
+            AlphaDestinationBlend = Blend.One,
+        };
+
         //How high the sun has to stand (its direction's Y) for a map to be worth drawing: lower and every
         //shadow is a streak the length of the map, and at a dome's dusk the sun term is next to nothing.
         private const float SHADOW_MIN_SUN_HEIGHT = 0.08f;
@@ -1530,8 +1546,9 @@ namespace Prazsky.Core.Render
 
             _graphicsDevice.SetRenderTarget(_sunShadowMap.Target);
             _graphicsDevice.Clear(Color.White);
-            _graphicsDevice.BlendState = BlendState.Opaque;
-            _graphicsDevice.DepthStencilState = DepthStencilState.Default;
+            //The nearest caster by the blend rather than by a depth test: the map has no depth buffer (#591)
+            _graphicsDevice.BlendState = ShadowCasterBlend;
+            _graphicsDevice.DepthStencilState = DepthStencilState.None;
             _graphicsDevice.RasterizerState = RasterizerState.CullNone;
 
             //The backdrop's own planting (#580's hook) — the savanna's and the beach's. The culling stays off

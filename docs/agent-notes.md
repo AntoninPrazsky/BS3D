@@ -6826,3 +6826,8 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-28 — #230 tajný kód ran — notebook, Claude Code (github-74)
 
 - **Na mainu, čeká na verdikt.** Druhé vajíčko z #230: 3× mimo, 2× zásah, 3× mimo (`Prazsky.BS3D.Scoring.SecretShotCode`, krmené z `OnShotSpent`/`OnBallLanded` za jejich `LevelOver` stráží) → 5 s konfet a výstřel konfetového děla. Na míč ani skóre nesahá. Testy `SleepAndSecretTests` (vzor kódu a to, že `Cannon.Droop` nehne s mířením ani `MuzzlePosition`) — oba viděny selhat na ruční poruše, 333/333. Konfety v levelu vyfoceny dočasným háčkem (necommitováno). Skutečné hraní kódu neověřeno — šest úmyslných minutí skript nenamíří.
+
+## 2026-09-28 — #591 stínová mapa bez depth bufferu — notebook, Claude Code (github-74)
+
+- **Na mainu.** `SunShadowMap` bez D24S8 (`DepthFormat.None`), vrhající průchod drží nejbližší hloubku přes `BlendFunction.Min` (`SceneRenderer.ShadowCasterBlend`, depth `None`) — pořadí nehraje roli, výsledek jako less-equal test. Žádný vrhající průchod ani technika v `.fx` stav nemění (zkontrolováno). Uvolní 64 MB na High (4096), 256 MB na Ultra (8192).
+- **Změřeno proti kopii předchozího Testbedu (Release):** snímky totožné kromě pohybu shluku (les, savana, město, dóm 8); na APU les (dóm 8, 1600×900 ssaa 2) **o 0,35 ms rychleji** (41,08–41,18 proti 41,46–41,50 ms, 4 střídavé běhy, každý „po“ pod každým „před“). 333/333 testů, 4 solutiony. Z #591 zbývá jen volitelný spike hardwarového PCF (`SampleCmpLevelZero`).
