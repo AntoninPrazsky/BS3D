@@ -36,7 +36,26 @@ namespace BS3D.Tools.LevelGen
             BallType[] symbol, BallType[] background)
         {
             int width = bitmap[0].Length;
+            byte depth = (byte)bitmap.Length;
 
+            return DrawnPicture(file, name, scene, sky, music, shots, ceilingStep, bitmap, grid, symbol, background,
+                (int x, int z, int i, out int column, out int row) => OnWall(x, z, i, depth, width, grid, out column, out row));
+        }
+
+        /// <summary>
+        /// Where a lattice cell falls on a picture's bitmap, and whether it is on the picture's surface at all —
+        /// the one thing a flat wall (<see cref="OnWall"/>) and a folded one (<see cref="OnFold"/>) disagree about.
+        /// </summary>
+        private delegate bool WallMapping(int x, int z, int i, out int column, out int row);
+
+        /// <summary>
+        /// A picture hung on whatever surface <paramref name="onWall"/> describes: the bitmap, the inks and the
+        /// background check exactly as <see cref="Picture"/> states them, on a flat wall or a folded one.
+        /// </summary>
+        private static Design DrawnPicture(string file, string name, SceneKind scene, byte sky, string music,
+            int shots, int ceilingStep, string[] bitmap, byte grid,
+            BallType[] symbol, BallType[] background, WallMapping onWall)
+        {
             //Even by construction here: the field is PICTURE_FIELD_LEVELS and an odd difference would have the
             //loader extend it a level and move the drawing off where it was put. A bitmap with an odd number of
             //rows is caught by the emitter's own offset check rather than silently drawn in the wrong place.
@@ -60,11 +79,11 @@ namespace BS3D.Tools.LevelGen
                 CeilingStep = ceilingStep,
                 //A PICTURE_EMPTY cell is a hole in the wall, in every picture: Balloon's cutout was the first
                 //to need one, and #556 made it the Gallery's way of leaving no ground under a drawing.
-                OccupiedBlock = (x, z, i, d) => OnWall(x, z, i, d, width, grid, out int column, out int row)
+                OccupiedBlock = (x, z, i, d) => onWall(x, z, i, out int column, out int row)
                     && PixelAt(bitmap, column, row) != PICTURE_EMPTY,
                 BlockColour = (x, z, i) =>
                 {
-                    OnWall(x, z, i, depth, width, grid, out int column, out int row);
+                    onWall(x, z, i, out int column, out int row);
 
                     int ink = SYMBOL_INK.IndexOf(PixelAt(bitmap, column, row));
 
@@ -636,6 +655,79 @@ namespace BS3D.Tools.LevelGen
 
         #endregion
 
+        #region Folded pictures (#604) - prototypes, not in the campaign yet
+
+        //The owner's idea after a playtest (#604): from some level of the Gallery on, a picture should gain a
+        //little space - "two pictures at different angles to each other, or a light extension into space". The
+        //first step the issue asks for is ONE prototype photographed and gated, and the owner's verdict on the
+        //direction before any of the chapter is rebuilt; so these designs are emitted into Levels/Prototypes
+        //rather than into the set (Cli.cs), played with `levelfile=` and hung with `--sagfile=`.
+
+        /// <summary>
+        /// A picture on a wall folded into a V (<see cref="OnFold"/>), in <see cref="Picture"/>'s every other
+        /// respect: the same bitmap alphabet, inks, background check, field depth and ball style.
+        /// </summary>
+        private static Design FoldedPicture(string file, string name, SceneKind scene, byte sky, string music,
+            int shots, int ceilingStep, string[] bitmap, byte grid,
+            BallType[] symbol, BallType[] background)
+        {
+            int width = bitmap[0].Length;
+            byte depth = (byte)bitmap.Length;
+
+            if (width % 2 == 0)
+                throw new InvalidOperationException($"{file}: a folded picture needs a middle column to fold on, and {width} has none");
+
+            return DrawnPicture(file, name, scene, sky, music, shots, ceilingStep, bitmap, grid, symbol, background,
+                (int x, int z, int i, out int column, out int row) => OnFold(x, z, i, depth, width, grid, out column, out row));
+        }
+
+        /// <summary>
+        /// A butterfly whose wings are the two halves of the fold (#604's prototype): yellow wings with red eyespots
+        /// on the lower ones, a black body standing on the spine, over the blue-and-cyan check the Zebra settled
+        /// on as the quiet ground a warm symbol reads against. It is the one symbol where the fold is not a
+        /// device laid over the drawing but the drawing itself — a butterfly at rest holds its wings in exactly
+        /// this V — so from the gun's stand it reads as the whole insect and walked round each wing turns to face
+        /// the lens in turn.
+        /// </summary>
+        private static Design Butterfly() => FoldedPicture("Butterfly.json", "Butterfly", SceneKind.Savanna, sky: 14,
+            MUSIC_GALLERY, shots: 52, ceilingStep: 9, BUTTERFLY, grid: 17,
+            //'#' yellow wings, 'o' red eyespots and lower wings, '+' black body; ground blue + cyan
+            symbol: new[] { BallType.Type7, BallType.Type1, BallType.Type8 },
+            background: new[] { BallType.Type3, BallType.Type5 });
+
+        /// <summary>
+        /// A butterfly, 15 by 12, symmetric about column 7 — the spine the wall folds on, and the body. The upper
+        /// wings are one yellow group each side (the body between them is another ink, so the two wings never
+        /// join), with a red eyespot inside each; the lower wings are red and hang off the upper ones and off the
+        /// check beside them. Under the lower wings there is no ground (<see cref="PICTURE_EMPTY"/>), #556's rule
+        /// for a band that would otherwise hang off the drawing once the drawing is gone.
+        /// <para>
+        /// <b>The sag probe drew the margins.</b> The first bitmap was 15 by 14 with ONE column of ground at each
+        /// edge and the body running to the bottom row, and it sagged in 3 of 5 runs: with a wing shot away, the
+        /// edge strip of that half hung eleven rows off the top course and swung through the line, and with both
+        /// wings gone the body held the lower wings alone. Two columns at each edge (Heart's margins, which it
+        /// never sagged with), the lower wings reaching into them, and two rows fewer — which the field's
+        /// PICTURE_FIELD_LEVELS spend on hanging it higher — read 0 of 5, closest −0.26, clear margin 30 of 52.
+        /// </para>
+        /// </summary>
+        private static readonly string[] BUTTERFLY =
+        {
+            "...............",
+            "...............",
+            "..##.......##..",
+            "..###.....###..",
+            "..####.+.####..",
+            "..#oo##+##oo#..",
+            "..#oo##+##oo#..",
+            "..#####+#####..",
+            "...ooo#+#ooo...",
+            "..oooo.+.oooo..",
+            "..ooo..+..ooo..",
+            "  ...  +  ...  ",
+        };
+
+        #endregion
+
         #region Pictures (#130)
 
         //A level that reads as a PICTURE rather than as a solid of revolution. It is a flat wall hanging in
@@ -711,6 +803,40 @@ namespace BS3D.Tools.LevelGen
 
         /// <summary>How deep a picture wall is, in cells. See the region's remarks for why it is not one.</summary>
         private const int PICTURE_THICKNESS = 2;
+
+        /// <summary>
+        /// A picture wall FOLDED down its middle column into a V that opens towards the gun (#604): the centre
+        /// column is the spine, and each half runs from it at 45° in plan, one column across and one cell nearer
+        /// the gun a step. Row 0 is still the top of the picture, as on <see cref="OnWall"/>.
+        /// <para>
+        /// <b>Seen from the gun's resting stand it is exactly as wide as the flat wall.</b> A step along the
+        /// diagonal is √2 long and the half is turned 45° away from the lens, which foreshortens it by 1/√2, so
+        /// every column projects one cell wide and the bitmap reads at the size it was drawn. Walked round 45°,
+        /// one half faces the lens square and the other goes edge-on — which is the whole point: the picture
+        /// has two sides now, and the walk is what shows each.
+        /// </para>
+        /// <para>
+        /// <b>Two cells thick along Z, as the flat wall is</b>, for the flat wall's reason: a column is the cell
+        /// on the diagonal and the one behind it, and consecutive columns share an orthogonal face
+        /// (<c>(x, z)</c> and <c>(x + 1, z)</c>), so each half is a solid staircase whatever the level's parity.
+        /// The spine column is the corner both halves share.
+        /// </para>
+        /// </summary>
+        private static bool OnFold(int x, int z, int i, int depth, int width, int grid, out int column, out int row)
+        {
+            int half = width / 2;
+            int spineX = grid / 2;
+
+            //The V spans Z from one behind the spine to `half` in front of it; centred in the grid
+            int spineZ = grid / 2 - (half - 1) / 2;
+
+            int u = x - spineX;
+            column = u + half;
+            row = depth - 1 - i;
+
+            int front = spineZ + Math.Abs(u);
+            return Math.Abs(u) <= half && (z == front || z == front - 1);
+        }
 
         /// <summary>
         /// The characters a bitmap draws its symbol with, <b>in palette order</b>: <c>#</c> is the first ink,

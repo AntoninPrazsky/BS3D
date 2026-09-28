@@ -81,6 +81,9 @@
   them editable next to the binary is the point — a level can be swapped without a rebuild.-->
   <ItemGroup>
     <Content Include="Levels\**\*.json" CopyToOutputDirectory="PreserveNewest" />
+    <!--Levels\Prototypes (#604) are designs waiting for the owner's verdict, played with levelfile= from the build
+    output; no set names them, so they stay out of what a player downloads.-->
+    <Content Update="Levels\Prototypes\**" CopyToPublishDirectory="Never" />
   </ItemGroup>
   <!--The music (#443), for the same reason: Ogg Vorbis files (#444) GameMusic decodes into the PCM buffers it
   submits itself, which a pipeline SoundEffect would never hand back. Written by Tools/MusicBake's tracks mode from
