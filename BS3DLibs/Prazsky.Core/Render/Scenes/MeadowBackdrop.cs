@@ -123,6 +123,9 @@ namespace Prazsky.Core.Render
             _meadowEffect.Parameters["PathBearing"].SetValue(_meadowConfig.PathBearing);
             _meadowEffect.Parameters["PathWidth"].SetValue(_meadowConfig.PathWidth);
             _meadowEffect.Parameters["PathMeander"].SetValue(_meadowConfig.PathMeander);
+            _meadowEffect.Parameters["BrookBearing"].SetValue(_meadowConfig.BrookBearing);
+            _meadowEffect.Parameters["BrookWidth"].SetValue(_meadowConfig.BrookWidth);
+            _meadowEffect.Parameters["BrookMeander"].SetValue(_meadowConfig.BrookMeander);
         }
 
         /// <inheritdoc/>

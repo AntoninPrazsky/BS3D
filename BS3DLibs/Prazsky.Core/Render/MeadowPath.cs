@@ -32,5 +32,32 @@ namespace Prazsky.Core.Render
         /// <summary>The centreline's own sideways wander at distance <paramref name="d"/> from the arena.</summary>
         public static float Wander(float d, MeadowSceneConfig config) =>
             config.PathMeander * (0.7f * MathF.Sin(d * 0.021f + 0.6f) + 0.3f * MathF.Sin(d * 0.057f + 2.1f));
+
+        /// <summary>Where the brook starts, as a share of the clearing's radius.</summary>
+        public const float BROOK_START = 0.82f;
+
+        /// <summary>How far (x, z) stands to the side of the brook's centreline — <c>Meadow.fx</c>'s <c>BrookLateral</c>.</summary>
+        public static float BrookLateral(float x, float z, MeadowSceneConfig config)
+        {
+            float d = MathF.Sqrt(x * x + z * z);
+            if (d < config.ClearingRadius * BROOK_START) return float.MaxValue;
+
+            float angle = MathF.Atan2(z, x) - config.BrookBearing;
+            angle = MathF.IEEERemainder(angle, MathF.PI * 2f);
+            if (MathF.Abs(angle) > MathF.PI * 0.5f) return float.MaxValue;
+
+            return d * angle - BrookWander(d, config);
+        }
+
+        /// <summary>The brook's centreline wander at distance <paramref name="d"/>.</summary>
+        public static float BrookWander(float d, MeadowSceneConfig config) =>
+            config.BrookMeander * (0.6f * MathF.Sin(d * 0.017f + 2.4f) + 0.4f * MathF.Sin(d * 0.049f + 0.3f));
+
+        /// <summary>The point <paramref name="side"/> units to the side of the brook's centreline, <paramref name="d"/> from the arena.</summary>
+        public static (float X, float Z) BrookPoint(float d, float side, MeadowSceneConfig config)
+        {
+            float angle = config.BrookBearing + (BrookWander(d, config) + side) / d;
+            return (MathF.Cos(angle) * d, MathF.Sin(angle) * d);
+        }
     }
 }

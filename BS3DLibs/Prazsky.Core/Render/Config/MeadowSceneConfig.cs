@@ -114,6 +114,18 @@ namespace Prazsky.Core.Render
 
         /// <summary>How far the footpath wanders either side of its bearing, in world units.</summary>
         public float PathMeander { get; set; } = 14f;
+
+        /// <summary>
+        /// The brook's bearing out of the clearing (#609, the owner's "maybe even a brook"), in radians round the arena.
+        /// Left of the cluster from the play camera, the path being to its right.
+        /// </summary>
+        public float BrookBearing { get; set; } = -2.15f;
+
+        /// <summary>The brook's water width, in world units.</summary>
+        public float BrookWidth { get; set; } = 3.4f;
+
+        /// <summary>How far the brook wanders either side of its bearing, in world units — more than the path, as water does.</summary>
+        public float BrookMeander { get; set; } = 22f;
     }
 
     /// <summary>
