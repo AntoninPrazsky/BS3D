@@ -6813,6 +6813,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 
 - **Beru #609**, první krok: reference (oba modely), pak výsadba (keře, živý plot, osamělé stromy, balíky sena, plot, trsy trávy, kameny) přes `Acacia.fx` jako na savaně. Pěšina, potok a nové záběry intra potom. Soubory: nový `MeadowScatter.cs`, `MeadowBackdrop.cs`, `MeadowSceneConfig`.
 - **Na mainu (krok 1):** `MeadowScatter` — duby, keře, živé ploty, balíky, ploty, balvany, trsy; přes `Acacia.fx` se stíny. ⚠ Barvy podle trávy louky (0,14/0,46/0,05) — se savanovými byly ploty černé čáry. ⚠ `Acacia.fx` je jeden `Effect` pro obě scény (ContentManager), haze se proto nastavuje každý snímek. Zbývá pěšina, potok, květiny, záběry intra.
+- **Na mainu (kroky 2–5):** pěšina s plotem, květiny v trsech pěti druhů, duby z laloků, potok (stínování, ne kanál — mřížka ~5,5 j je hrubší než voda) s kameny a rákosím, intro „the brook“ a „the path“. ⚠ Voda zrcadlila bledý horizont a četla se jako hnědá cesta — odraz ke zenitu, ochlazený.
 
 ## 2026-09-28 — #230 spící dělo (jen tahle část) — notebook, Claude Code (github-74)
 

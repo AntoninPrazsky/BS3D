@@ -5,18 +5,18 @@ using System;
 namespace BS3D.Effects
 {
     /// <summary>
-    /// The meadow's own shots for a chapter intro's prologue (#559): the valley from a hilltop, the flowers at
-    /// the grass's own height, and a climb up a slope to its skyline — cut together, then cut to the tour's
-    /// last leg. The meadow opens the whole campaign, so this is the first thing the game shows a new player
-    /// after its menu; the owner's word on the spline it replaces was that it turned the camera round like a
-    /// neck, and that a cut should do the job a turn did.
+    /// The meadow's own shots for a chapter intro's prologue (#559, #609): the valley from a hilltop, then down along
+    /// the brook at the height of its reeds, then along the footpath beside its fence up into the hills — cut
+    /// together, then cut to the tour's last leg. The meadow opens the whole campaign, so this is the first thing the
+    /// game shows a new player after its menu.
     /// <para>
-    /// <b>The meadow has nothing standing on it</b> — the grass, the flowers and the wind are all in
-    /// <c>Meadow.fx</c> — so each shot is about a piece of the LAND: the basin the arena stands in, the flowers
-    /// that are only ever readable from a hand's height (#447 found them invisible from the tour's stands), and
-    /// the rise of a hill against the sky. Every height is read off
-    /// <see cref="TerrainMirror.Meadow"/>, the mirror of the shader's field, so the lens holds its
-    /// stated height over the grass whatever the config's hills are. Built once when the intro begins.
+    /// <b>Two of the three are about things since #609.</b> Until then the meadow had nothing standing on it and its
+    /// shots were about pieces of the land — the flowers at a hand's height and the climb of a slope; the rule the
+    /// prologues are held to (#559) is "each shot about one object", and the owner praised the intros that follow
+    /// concrete things. The brook and the path are analytic lines on the field (<see cref="MeadowPath"/>), the very
+    /// ones <c>Meadow.fx</c> draws, so a shot can follow one without asking the planting; and the planting keeps off
+    /// both, so a lens on either centreline has nothing to run into. Every height is read off
+    /// <see cref="TerrainMirror.Meadow"/>. Built once when the intro begins.
     /// </para>
     /// </summary>
     internal static class MeadowIntroShots
@@ -29,23 +29,20 @@ namespace BS3D.Effects
         private const float VALLEY_ABOVE_TO = 18f;
         private const float VALLEY_SECONDS = 3.4f;
 
-        //The flowers: a run outward across the clearing a hand over the grass, looking a little down so the
-        //rosettes pass under the lens and the hills stand at the top of the frame. From just outside the arena's
-        //keep-out to the foot of the hills.
-        private const float FLOWERS_FROM = 56f;
-        private const float FLOWERS_TO = 96f;
-        private const float FLOWERS_ABOVE = 0.9f;
-        private const float FLOWERS_PITCH_DOWN_DEGREES = 12f;
-        private const float FLOWERS_SECONDS = 3.2f;
+        //The brook: down its centreline a little over the water, the reeds and the stones passing either side,
+        //looking a touch down along the water. A stretch that starts past the clearing, where the banks are planted.
+        private const float BROOK_FROM = 18f;              //past the brook's start
+        private const float BROOK_RUN = 32f;
+        private const float BROOK_ABOVE = 1.8f;             //at 1.1 the bank stones and the reeds filled the corners of the frame
+        private const float BROOK_PITCH_DOWN_DEGREES = 8f;
+        private const float BROOK_SECONDS = 3.2f;
 
-        //The crest: a climb up the steepest of a few rolled slopes at a man's height, looking along the rise a
-        //touch down (up, it was a frame of sky with a strip of grass under it),
-        //so the grass runs up the frame to a skyline with the clouds over it.
-        private const float CREST_FROM = 150f;
-        private const float CREST_TO = 205f;
-        private const float CREST_ABOVE = 1.8f;
-        private const float CREST_PITCH_DOWN_DEGREES = 2f;
-        private const float CREST_SECONDS = 3.2f;
+        //The path: along its centreline at a walker's height, the fence beside it, up into the hills
+        private const float PATH_FROM = 22f;               //past the path's start
+        private const float PATH_RUN = 40f;
+        private const float PATH_ABOVE = 1.7f;
+        private const float PATH_PITCH_DOWN_DEGREES = 3f;
+        private const float PATH_SECONDS = 3.2f;
 
         private const int TRIES = 24;
 
@@ -61,53 +58,40 @@ namespace BS3D.Effects
                 VALLEY_SECONDS, fieldOfView * 1.1f, random, TRIES, margin: 2f,
                 score: bearing => ground.Height(MathF.Cos(bearing) * VALLEY_FROM, MathF.Sin(bearing) * VALLEY_FROM));
 
-            return IntroGround.Cut(valley, Flowers(ground, fieldOfView, random), Crest(ground, fieldOfView, random));
+            return IntroGround.Cut(valley, Brook(meadow, fieldOfView), Path(meadow, fieldOfView));
         }
 
-        /// <summary>Outward across the clearing a hand over the grass, the flowers passing under the lens.</summary>
-        private static IntroShot Flowers(IntroGround ground, float fieldOfView, Random random)
+        /// <summary>Down the brook a little over the water, the reeds passing either side.</summary>
+        private static IntroShot Brook(MeadowSceneConfig meadow, float fieldOfView)
         {
-            for (int attempt = 0; attempt < TRIES; attempt++)
+            float start = meadow.ClearingRadius * MeadowPath.BROOK_START + BROOK_FROM;
+            var path = new Vector3[IntroPaths.FINE_POINTS];
+            for (int i = 0; i < path.Length; i++)
             {
-                Vector2 heading = IntroGround.Heading((float)random.NextDouble() * MathHelper.TwoPi);
-                Vector3[] path = ground.Hug(heading * FLOWERS_FROM, heading * FLOWERS_TO, FLOWERS_ABOVE, FLOWERS_ABOVE, IntroGround.PATH_POINTS);
-                if (!ground.Clear(path, 1f, FLOWERS_ABOVE * 0.8f)) continue;
-
-                return new IntroShot("the flowers", path, FLOWERS_SECONDS, fieldOfView * 1.1f,
-                    lookAhead: 14f, pitchDownDegrees: FLOWERS_PITCH_DOWN_DEGREES);
+                float d = start + BROOK_RUN * i / (path.Length - 1f);
+                (float x, float z) = MeadowPath.BrookPoint(d, 0f, meadow);
+                path[i] = new Vector3(x, TerrainMirror.Meadow(x, z, meadow) + BROOK_ABOVE, z);
             }
 
-            return null;
+            return new IntroShot("the brook", path, BROOK_SECONDS, fieldOfView * 1.1f,
+                lookAhead: 12f, pitchDownDegrees: BROOK_PITCH_DOWN_DEGREES);
         }
 
-        /// <summary>Up the steepest of a few rolled slopes, looking along the rise to the skyline.</summary>
-        private static IntroShot Crest(IntroGround ground, float fieldOfView, Random random)
+        /// <summary>Along the footpath at a walker's height, the fence beside it, up into the hills.</summary>
+        private static IntroShot Path(MeadowSceneConfig meadow, float fieldOfView)
         {
-            Vector3[] best = null;
-            float bestClimb = float.MinValue;
-
-            for (int attempt = 0; attempt < TRIES; attempt++)
+            float start = meadow.ClearingRadius * MeadowPath.START + PATH_FROM;
+            var path = new Vector3[IntroPaths.FINE_POINTS];
+            for (int i = 0; i < path.Length; i++)
             {
-                Vector2 heading = IntroGround.Heading((float)random.NextDouble() * MathHelper.TwoPi);
-                Vector3[] path = ground.Hug(heading * CREST_FROM, heading * CREST_TO, CREST_ABOVE, CREST_ABOVE, IntroGround.PATH_POINTS);
-                if (!ground.Clear(path, 1f, CREST_ABOVE * 0.8f)) continue;
-
-                //Up the slope, not across it: a run along a side slope photographs as a tilted horizon, so
-                //the fall across the run's middle counts against its climb.
-                Vector2 across = new(-heading.Y, heading.X);
-                Vector2 middle = heading * (0.5f * (CREST_FROM + CREST_TO));
-                float sideways = MathF.Abs(ground.Height(middle.X + across.X * 12f, middle.Y + across.Y * 12f)
-                    - ground.Height(middle.X - across.X * 12f, middle.Y - across.Y * 12f));
-                float climb = path[^1].Y - path[0].Y - 2f * sideways;
-                if (climb <= bestClimb) continue;
-
-                best = path;
-                bestClimb = climb;
+                float d = start + PATH_RUN * i / (path.Length - 1f);
+                float angle = meadow.PathBearing + MeadowPath.Wander(d, meadow) / d;
+                float x = MathF.Cos(angle) * d, z = MathF.Sin(angle) * d;
+                path[i] = new Vector3(x, TerrainMirror.Meadow(x, z, meadow) + PATH_ABOVE, z);
             }
 
-            return best == null ? null
-                : new IntroShot("the crest", best, CREST_SECONDS, fieldOfView * 1.1f,
-                    lookAhead: 16f, pitchDownDegrees: CREST_PITCH_DOWN_DEGREES);
+            return new IntroShot("the path", path, PATH_SECONDS, fieldOfView * 1.1f,
+                lookAhead: 16f, pitchDownDegrees: PATH_PITCH_DOWN_DEGREES);
         }
     }
 }
