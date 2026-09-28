@@ -6812,3 +6812,4 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-28 — #609 louka: předměty z referencí — desktop, Claude Code (bs3d-a1)
 
 - **Beru #609**, první krok: reference (oba modely), pak výsadba (keře, živý plot, osamělé stromy, balíky sena, plot, trsy trávy, kameny) přes `Acacia.fx` jako na savaně. Pěšina, potok a nové záběry intra potom. Soubory: nový `MeadowScatter.cs`, `MeadowBackdrop.cs`, `MeadowSceneConfig`.
+- **Na mainu (krok 1):** `MeadowScatter` — duby, keře, živé ploty, balíky, ploty, balvany, trsy; přes `Acacia.fx` se stíny. ⚠ Barvy podle trávy louky (0,14/0,46/0,05) — se savanovými byly ploty černé čáry. ⚠ `Acacia.fx` je jeden `Effect` pro obě scény (ContentManager), haze se proto nastavuje každý snímek. Zbývá pěšina, potok, květiny, záběry intra.
