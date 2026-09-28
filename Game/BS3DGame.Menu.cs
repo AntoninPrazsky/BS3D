@@ -117,6 +117,15 @@ namespace BS3D
         private float _konamiJingleClock;
         private int _konamiJingleNote = KONAMI_JINGLE.Length;
 
+        //THE GAME'S BIRTHDAY on the front end (#230's calendar surprise, see Birthday): the confetti falls with the
+        //party popper's crack the first time the main menu comes up, and the title dances the Konami code's dance
+        //every so often while it stands — the first time shortly after it arrives. Seconds.
+        private const float BIRTHDAY_DANCE_EVERY = 20f;
+        private const float BIRTHDAY_FIRST_DANCE = 1.5f;
+        private const float BIRTHDAY_CONFETTI_SECONDS = 8f;
+        private float _birthdayDanceClock = BIRTHDAY_DANCE_EVERY - BIRTHDAY_FIRST_DANCE;
+        private bool _birthdayGreeted;
+
         //Anton and Inter (both SIL OFL), through FontStashSharp. Myra's embedded stylesheet carries a small
         //bitmap font that is fine for a tool panel and much too coarse for a game's title, so the menu brings
         //its own; they are embedded in the assembly, so there is no path to get wrong and nothing to install.
@@ -1538,7 +1547,7 @@ namespace BS3D
             //The Konami code, before B and A are acted on: the A that completes it must not also press the entry
             //the cursor is on, and up-up-down-down leaves that on the first — New Game / Continue, which starts
             //a level. Everywhere but the main menu it forgets what it has seen.
-            if (_screens.Active is MainMenuPage)
+            if (_screens.Active == _mainMenuPage)
             {
                 if (FeedKonamiCode(keyboard, pad)) return;
             }
@@ -1626,6 +1635,28 @@ namespace BS3D
 
         private bool IsPadEdge(GamePadState pad, Buttons button) =>
             pad.IsButtonDown(button) && !_previousPad.IsButtonDown(button);
+
+        /// <summary>
+        /// One frame of the birthday on the front end (see <see cref="BIRTHDAY_DANCE_EVERY"/>): nothing unless the main
+        /// menu is the page on top, the one place the title stands.
+        /// </summary>
+        private void StepBirthday(float elapsed)
+        {
+            if (_screens.Active != _mainMenuPage) return;
+
+            if (!_birthdayGreeted)
+            {
+                _birthdayGreeted = true;
+                _confetti?.Celebrate(BIRTHDAY_CONFETTI_SECONDS);
+                _audioDirector.Sfx.PlayPartyPopper();
+            }
+
+            _birthdayDanceClock += elapsed;
+            if (_birthdayDanceClock < BIRTHDAY_DANCE_EVERY) return;
+
+            _birthdayDanceClock = 0f;
+            _titleWordmark?.Celebrate(WallClock);
+        }
 
         /// <summary>Sounds the Konami jingle's notes as their time comes; nothing once the last has played.</summary>
         private void StepKonamiJingle(float elapsed)

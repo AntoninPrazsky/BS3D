@@ -6851,3 +6851,9 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-28 — #230 narozeniny hry (kalendářní vajíčko) — notebook, Claude Code (github-74)
 
 - **Beru z #230 „kalendářní překvapení“, jen kosmeticky** (podle dělicí čáry z komentáře k #230): 30. prosince (první commit repozitáře 2019-12-30 = narozeniny hry) nosí dělo v každém levelu párty čepici a v hlavním menu 3D nápis občas zatančí (tanec z Konami kódu) a spadnou konfety. Na fyziku, pravidla ani skóre nesahá. Páka `birthday` pro snímky. Soubory: nový `Game/Effects/PartyHat.cs`, `CannonRig`/`CannonMesh` (jen poloha základního prstence), `GameplayScreen` (kreslení), `BS3DGame` (datum, menu), `LaunchOptions`, `docs/game-feedback.md`.
+
+## 2026-09-28 — #230 narozeniny hry — notebook, Claude Code (github-74)
+
+- **Na mainu, čeká na verdikt.** 30. 12. (první commit 2019-12-30) nosí dělo v každém levelu párty čepici (`Effects.PartyHat`: pět pruhů, bílý lem, bambule, náklon 0,2 rad, na temeni základního prstence — nové `CannonRig.BreechCrown` z `CannonMesh.BaseRingZ/BaseRingRadius`; kreslí se s pózou hlavně, takže couvá, jezdí a usíná s dělem; bez stínu a motion bluru). V menu při prvním příchodu konfety + party popper a 3D nápis tančí (tanec z Konami) po 1,5 s a pak každých 20 s (`BS3DGame.StepBirthday`, běží i bez fokusu). `Birthday` se určí jednou při startu; čepice se staví jen v ten den. Páka `birthday` pro snímky.
+- **Ověřeno snímky** (1920×1080): Toadstool z herní kamery (čepice čitelná za okénkem zásobníku), louka v menu (konfety od příchodu, tanec v 1,5 s). 334/334, 4 solutiony.
+- ⚠ Past: `_screens.Active is not MainMenuPage` nejde přeložit — vlastnost `BS3DGame.MainMenuPage` zastíní typ (`is X` projde jako typový test, `is not X` ne). Porovnává se s instancí `_mainMenuPage`.
