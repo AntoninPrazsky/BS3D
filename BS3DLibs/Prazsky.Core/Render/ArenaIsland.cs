@@ -825,7 +825,10 @@ namespace Prazsky.Core.Render
             //as the same frosted cone from both sides.
             _funnelRenderer = new InstancedModelRenderer(device, _funnelMesh, FUNNEL_GLASS_COLOR, instancingEffect, FUNNEL_GLASS_ALPHA)
             {
-                TwoSidedNormals = 1f
+                TwoSidedNormals = 1f,
+
+                //Used glass (#640): scuffs where the balls roll, frost where they land, seeds and cord
+                DrainGlass = true
             };
 
             //Both gold bands in one mesh (built in the funnel's own local space), so one renderer draws them

@@ -199,6 +199,7 @@ namespace Prazsky.Core.Render
         //The result page's polished metal (#602): reads only uniforms every plain draw already sets
         private EffectTechnique _polishedMetalTechnique;
         private EffectTechnique _crystalTechnique;
+        private EffectTechnique _drainGlassTechnique;
 
         /// <summary>
         /// Optional detail texture modulating the material colors of the mesh. Applied to opaque meshes
@@ -400,6 +401,13 @@ namespace Prazsky.Core.Render
         /// dusting of specks, in the mesh's space so they turn with it. The result page's crystal cup sets it.
         /// </summary>
         public bool Crystal { get; set; }
+
+        /// <summary>
+        /// Draws the plain material as <b>used glass</b> (#640): the <c>InstancedDrainGlass</c> technique, the plain
+        /// material's shading plus the marks the drain's traffic leaves - scuffs running downhill, a frosted landing
+        /// band inside the mouth - and a few seeds and a faint cord. The drain funnel sets it.
+        /// </summary>
+        public bool DrainGlass { get; set; }
 
         /// <summary>
         /// 1 flips the shading normal on back faces, for a mesh that is one <b>open single-sided wall</b>
@@ -1144,6 +1152,7 @@ namespace Prazsky.Core.Render
             _glassTechnique = _effect.Techniques["InstancedGlass"];
             _polishedMetalTechnique = _effect.Techniques["InstancedPolishedMetal"];
             _crystalTechnique = _effect.Techniques["InstancedCrystal"];
+            _drainGlassTechnique = _effect.Techniques["InstancedDrainGlass"];
             _glassBehindParam = _effect.Parameters["GlassBehind"];
             _glassHalfExtentsParam = _effect.Parameters["GlassHalfExtents"];
             _glassCutPeriodParam = _effect.Parameters["GlassCutPeriod"];
@@ -1707,7 +1716,8 @@ namespace Prazsky.Core.Render
             }
             else
             {
-                _effect.CurrentTechnique = Crystal ? _crystalTechnique : PolishedMetal ? _polishedMetalTechnique : _mainTechnique;
+                _effect.CurrentTechnique = Crystal ? _crystalTechnique : DrainGlass ? _drainGlassTechnique
+                    : PolishedMetal ? _polishedMetalTechnique : _mainTechnique;
             }
         }
 
