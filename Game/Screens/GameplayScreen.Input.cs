@@ -51,6 +51,13 @@ namespace BS3D.Screens
         private const float PAD_WALK_DEADZONE = 0.35f;
 
         /// <summary>
+        /// The time constant the cursor's travel is handed to the gun over with the lens fully leaned in (#644) —
+        /// see <c>MouseAim.ApplyCursor</c>'s smoothing. About three frames at 75 Hz: enough to turn a whole-pixel
+        /// staircase into a glide, short enough that stopping the hand stops the view within a tenth of a second.
+        /// </summary>
+        private const float PRECISE_AIM_SMOOTHING_SECONDS = 0.045f;
+
+        /// <summary>
         /// This frame's keyboard and pad actions: pause, the window toggles, the shot, the traverse.
         /// </summary>
         /// <returns><c>true</c> when the session was <b>paused</b> on this frame, which is the caller's signal
@@ -252,7 +259,10 @@ namespace BS3D.Screens
             if (_cursorCaptured)
                 _mouseAim.ApplyCursor(_cannon, mouse, centreX, centreY, gameTime,
                     Game.MouseSensitivity * MathHelper.Lerp(1f, Game.AimSensitivity, _preciseAim.Blend)
-                    * _preciseAim.CursorRateScale(GAME_FOV));
+                    * _preciseAim.CursorRateScale(GAME_FOV),
+                    //Spread over a few frames only as the lens leans in (#644): magnified, a whole pixel's step is
+                    //a visible jump; in the overview it is not, and there the aim stays as immediate as it was
+                    PRECISE_AIM_SMOOTHING_SECONDS * _preciseAim.Blend);
 
             //The shot edge is gated on the same "a captured frame has been seen" flag the aim is: on the frame
             //the baseline is dropped there is no aim to fire along yet, so no phantom shot goes off either

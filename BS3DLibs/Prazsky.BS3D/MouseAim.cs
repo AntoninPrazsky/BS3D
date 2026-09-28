@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 using Prazsky.BS3D.GameObjects;
+using System;
 
 namespace Prazsky.BS3D
 {
@@ -71,7 +72,17 @@ namespace Prazsky.BS3D
         /// cursor is about to arrive somewhere unrelated to where the player left it: focus returning, the
         /// viewport changing, a mode switch, a session being installed.
         /// </summary>
-        public void Invalidate() => Initialized = false;
+        public void Invalidate()
+        {
+            Initialized = false;
+            _pending = Vector2.Zero;
+        }
+
+        /// <summary>
+        /// The cursor travel read but not yet handed to the gun, in pixels (#644) — see <c>smoothingSeconds</c> on
+        /// <see cref="ApplyCursor"/>. Zero whenever there is no smoothing, and dropped with the baseline.
+        /// </summary>
+        private Vector2 _pending;
 
         /// <summary>
         /// Turns this frame's cursor offset from the viewport centre into an aim movement. Does nothing until a
@@ -87,8 +98,17 @@ namespace Prazsky.BS3D
         /// the Testbed does not have, and a copy held here would be one more thing to keep in step with a page
         /// the player can open in the middle of a level. <b>1 is the shipped feel</b>, and is what a caller with
         /// neither passes.</param>
+        /// <param name="smoothingSeconds">
+        /// How long the read travel takes to reach the gun, as the time constant of an exponential hand-off (#644);
+        /// zero hands it over on the frame it was read, which is the overview's feel and the Testbed's. <b>It keeps
+        /// every pixel</b> — the gun turns exactly as far as it always did, only spread over a few frames — so no
+        /// sensitivity changes with it. What it is for: the cursor arrives in whole pixels, after Windows' pointer
+        /// ballistics, and a slow, steady drag measured in the Game with the lens leaned in came through as 0 on
+        /// three frames in four and 1 on the fourth (600 mouse counts in 3 s read as 80 pixels), so the magnified
+        /// view stood still and then jumped a step. The owner's words: a mouse on a coarse wire mat.
+        /// </param>
         public void ApplyCursor(Cannon cannon, in MouseState mouse, int centreX, int centreY, GameTime gameTime,
-            float rateScale)
+            float rateScale, float smoothingSeconds = 0f)
         {
             if (!Initialized) return;
 
@@ -96,9 +116,23 @@ namespace Prazsky.BS3D
 
             if (dtMillis <= 0f) return;
 
+            //What this frame hands over: all of it without smoothing, else the share an exponential approach
+            //would have covered in this frame's time — frame-rate independent, and never more than was read
+            _pending += new Vector2(mouse.X - centreX, mouse.Y - centreY);
+            float share = smoothingSeconds > 0f ? 1f - MathF.Exp(-dtMillis * 0.001f / smoothingSeconds) : 1f;
+            Vector2 delta = _pending * share;
+            _pending -= delta;
+
+            //The last sliver is not left to creep for seconds: under a hundredth of a pixel it goes now
+            if (_pending.LengthSquared() < 1e-4f)
+            {
+                delta += _pending;
+                _pending = Vector2.Zero;
+            }
+
             float rate = SENSITIVITY * rateScale * (1f / dtMillis);
-            float pitch = -(mouse.Y - centreY) * rate;   //mouse up -> aim up
-            float yaw = -(mouse.X - centreX) * rate;     //mouse left -> yaw left
+            float pitch = -delta.Y * rate;   //mouse up -> aim up
+            float yaw = -delta.X * rate;     //mouse left -> yaw left
 
             if (pitch != 0f || yaw != 0f) cannon.Aim(new Vector2(pitch, yaw), gameTime);
         }
