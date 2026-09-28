@@ -6754,3 +6754,4 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-28 — #643 profil shluku pod čarou po prohře — desktop, Claude Code (bs3d-a1)
 
 - **Beru #643.** Profil přestane ořezávat koule pod čárou, když level skončil na čáře. Soubory: `PlayHud.cs`.
+- **Hotovo, na mainu:** koule shluku pod čarou se v profilu kreslí s červeným kroužkem (`PROFILE_CROSSED_RING`); střely a padající koule dál mizí. Ověřeno vynucenou prohrou na čáře (Smiley, strop každou ranou ve výstupním `Levels.json`).
