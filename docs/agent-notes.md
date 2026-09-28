@@ -6784,3 +6784,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-28 — #642 stíny koulí na ostrově levitují — notebook, Claude Code (github-74)
 
 - **Beru #642.** Nejdřív snímek (Testbed, pevná kamera nízko nad ostrovem, koule puštěné `End`), rozlišit bias stínové mapy / normal offset / výšku přijímače, pak oprava. Soubory: `SunShadowMap`, `Shadows.fxh`, případně `ArenaIsland`, `docs/rendering.md`.
+
+## 2026-09-28 — #610 detail akácií a baobabů na savaně — desktop, Claude Code (bs3d-a1)
+
+- **Beru #610.** Reference (oba modely), pak koruna akácie z lístků + prosvítání, kůra, baobab; podle tieru. Soubory: `AcaciaMesh.cs`, `BaobabMesh.cs`, `Acacia.fx`, `SavannaScatter.cs`. Nesahám na ohně (#641, bs3d-ea).
