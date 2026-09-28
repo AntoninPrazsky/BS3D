@@ -46,7 +46,7 @@ namespace Prazsky.Core.Render
         //Cached effect parameters for the per-frame instanced draw (the by-name indexer is a linear scan).
         private EffectParameter _acaciaViewParam, _acaciaProjectionParam, _acaciaCameraParam,
             _acaciaSunDirectionParam, _acaciaSunColorParam, _acaciaZenithParam, _acaciaHorizonParam,
-            _acaciaDiffuseParam, _acaciaDiffuseDryParam, _acaciaDappleParam, _acaciaBarkParam, _acaciaAddedLightParam,
+            _acaciaDiffuseParam, _acaciaDiffuseDryParam, _acaciaDappleParam, _acaciaBarkParam, _acaciaLeavesParam, _acaciaAddedLightParam,
             _acaciaHazeParam;
 
         //Everything standing on the savanna (#202, #451): the acacias in their four kinds, the bushes, the
@@ -139,6 +139,7 @@ namespace Prazsky.Core.Render
             _acaciaDiffuseParam = _acaciaEffect.Parameters["DiffuseColor"];
             _acaciaDiffuseDryParam = _acaciaEffect.Parameters["DiffuseDry"];
             _acaciaDappleParam = _acaciaEffect.Parameters["DappleStrength"];
+            _acaciaLeavesParam = _acaciaEffect.Parameters["LeafStrength"];
             _acaciaBarkParam = _acaciaEffect.Parameters["BarkStrength"];
             _acaciaAddedLightParam = _acaciaEffect.Parameters["AddedLight"];
             _acaciaHazeParam = _acaciaEffect.Parameters["HorizonHazeDistance"];
@@ -519,11 +520,16 @@ namespace Prazsky.Core.Render
             {
                 ScatterBucket bucket = buckets[b];
                 if (bucket.DetailOnly && !detail) continue;
+                if (bucket.LowOnly && detail) continue;
 
                 _acaciaDiffuseParam.SetValue(bucket.Diffuse);
                 _acaciaDiffuseDryParam.SetValue(bucket.DiffuseDry);
                 _acaciaDappleParam.SetValue(bucket.Dapple);
                 _acaciaBarkParam.SetValue(bucket.Bark);
+                _acaciaLeavesParam.SetValue(bucket.Leaves);
+
+                //Leaf cards are one-sided sheets seen from both sides (#610); everything else is a wound solid
+                _graphicsDevice.RasterizerState = bucket.Leaves > 0f ? RasterizerState.CullNone : RasterizerState.CullCounterClockwise;
                 _acaciaAddedLightParam.SetValue(Vector3.Zero);
                 _acaciaEffect.CurrentTechnique.Passes[0].Apply();
 
@@ -533,6 +539,9 @@ namespace Prazsky.Core.Render
                 _graphicsDevice.Indices = bucket.Mesh.IndexBuffer;
                 _graphicsDevice.DrawInstancedPrimitives(PrimitiveType.TriangleList, 0, 0, bucket.Mesh.PrimitiveCount, bucket.Count);
             }
+
+            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+            _acaciaLeavesParam.SetValue(0f);
 
             //And the hearths the fires stand in: one draw per fire, because the firelight on a ring is its
             //own fire's and they do not flicker together.
@@ -743,6 +752,13 @@ namespace Prazsky.Core.Render
             for (int b = 0; b < buckets.Length; b++)
             {
                 ScatterBucket bucket = buckets[b];
+
+                //The map exists only at scene detail, so the plate crowns never cast into it and the leaf sprays
+                //do, their leaflets cut out here as on screen (#610) — the dapple under a tree is the leaves'
+                if (bucket.LowOnly) continue;
+                _acaciaLeavesParam.SetValue(bucket.Leaves);
+                _acaciaEffect.CurrentTechnique.Passes[0].Apply();
+
                 _graphicsDevice.SetVertexBuffers(
                     new VertexBufferBinding(bucket.Mesh.VertexBuffer, 0, 0),
                     new VertexBufferBinding(bucket.Instances, 0, 1));
@@ -766,6 +782,7 @@ namespace Prazsky.Core.Render
                 }
             }
 
+            _acaciaLeavesParam.SetValue(0f);
             _acaciaEffect.CurrentTechnique = _acaciaTechnique;
         }
 
