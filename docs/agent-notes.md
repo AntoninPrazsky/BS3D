@@ -6894,3 +6894,4 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-29 — #608 val podle referencí — desktop, Claude Code (bs3d-a1)
 
 - **Beru dorovnání #608 podle referencí** (img2img přes herní snímek, `C:\Users\panrd\AI\sd\out\608-*`): trsy u zdi (louka, savana), světlé kameny na savaně, suť na horách, větší balvany v lese; výsadba stojí na povrchu valu (`IslandBerm.SurfaceY`).
+- **Na mainu.** ⚠ Kámen savany (`RockMesh` o poloměru `KopjeRockSize`) je mnohem větší, než vypadá — měřítko 0,15–0,45 dalo balvany přes několik jednotek; savana teď 0,05–0,15. ⚠ klein při síle 0,5 překreslí kompozici (ostrov jiný), Z-Image ji drží — pro „přes herní snímek“ brát Z-Image.

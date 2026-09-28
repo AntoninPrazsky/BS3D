@@ -103,6 +103,9 @@ namespace Prazsky.Core.Render
     /// </summary>
     public sealed class SavannaScatter : IDisposable
     {
+        //The bank round the island (#608): tufts against the wall, stones at its foot
+        private const int BERM_TUFTS = 90, BERM_STONES = 18;
+
         /// <summary>The scatter seed the savanna shipped with in #202; the same seed always plants the same plain.</summary>
         public const int DEFAULT_SEED = 90125;
 
@@ -388,6 +391,9 @@ namespace Prazsky.Core.Render
             //felled one — the forest's TREE_LEAN), a free yaw, the uniform size, and planted on the ground.
             //Scale first so it stays uniform, then the tilt and spin, then the translation. The instance's own
             //dryness and brightness ride in Custom (Acacia.fx reads them).
+            //Whatever is planted near the island stands ON its bank (#608), not inside it
+            float Stand(float x, float z) => MathF.Max(terrainHeight(x, z), IslandBerm.SurfaceY(terrainHeight, seed, x, z));
+
             ModelInstance Plant(float x, float z, float scale, float lean, float sink, float dryness, float jitter)
             {
                 float yaw = (float)rng.NextDouble() * MathHelper.TwoPi;
@@ -395,7 +401,7 @@ namespace Prazsky.Core.Render
                 Matrix world = Matrix.CreateScale(scale)
                     * Matrix.CreateFromAxisAngle(new Vector3(MathF.Cos(leanDir), 0f, MathF.Sin(leanDir)), lean)
                     * Matrix.CreateRotationY(yaw)
-                    * Matrix.CreateTranslation(x, terrainHeight(x, z) - sink, z);
+                    * Matrix.CreateTranslation(x, Stand(x, z) - sink, z);
                 return new ModelInstance(world, new Vector4(dryness, jitter, 0f, 0f));
             }
 
@@ -690,6 +696,23 @@ namespace Prazsky.Core.Render
                 float r = dr.TreelineMinRadius + (float)rng.NextDouble() * (dr.TreelineMaxRadius - dr.TreelineMinRadius);
                 float s = 1.3f + 0.5f * (float)rng.NextDouble();
                 treeInstances[rng.Next(MATURE)].Add(Plant(MathF.Cos(a) * r, MathF.Sin(a) * r, s, 0f, 0f, (float)rng.NextDouble(), Jitter()));
+            }
+
+            //--- The bank round the island (#608's reference pass): dry grass leaning on the stone along its top, and
+            //pale rocks scattered at its foot and a little way out, as the references drew the savanna's
+            for (int i = 0; i < BERM_TUFTS; i++)
+            {
+                float a = (float)rng.NextDouble() * MathHelper.TwoPi;
+                float d = ArenaIsland.RADIUS + 0.2f + 1.4f * (float)rng.NextDouble();
+                float s = 0.8f + 0.6f * (float)rng.NextDouble();
+                tuftInstances[rng.Next(TUFT)].Add(Plant(MathF.Cos(a) * d, MathF.Sin(a) * d, s, 0.15f * (float)rng.NextDouble(), 0f, (float)rng.NextDouble(), Jitter()));
+            }
+            for (int i = 0; i < BERM_STONES; i++)
+            {
+                float a = (float)rng.NextDouble() * MathHelper.TwoPi;
+                float d = ArenaIsland.RADIUS + 1.5f + 4f * (float)rng.NextDouble();
+                float s = 0.05f + 0.1f * (float)rng.NextDouble();
+                rockInstances[rng.Next(ROCK)].Add(Plant(MathF.Cos(a) * d, MathF.Sin(a) * d, s, 0.2f * (float)rng.NextDouble(), 0.05f, 0.4f * (float)rng.NextDouble(), Jitter()));
             }
 
             //--- The buckets, in draw order: a tree's canopy then its wood, then everything else by kind.
