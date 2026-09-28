@@ -6692,3 +6692,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 - **Hotovo, na mainu:** (1) po prohře zůstává profil shluku a zásobník (`PlayHud.Draw(previewsOnly)`), ostré, i pod stránkou; po výhře zmizí vše jako dřív. (2) `BLUR_DELAY_SECONDS` 3,4 → 8 s. (3) Po vyčištění `ResultPage.Enter` přerámuje orbitu na holý ostrov (`FrameOrbitFor(null)`) před `AlignOrbitTo`. Ověřeno skutečnou prohrou (Smiley s rozpočtem 2 výstřely ve výstupním `Levels.json` worktree, výstřely přes `SetForegroundWindow` + `keybd_event`) a `result` nad sezením. Čeká na verdikt.
 - ⚠ **Popis issue se mýlil v jedné věci:** sezení orbitu rámuje (`GameplayScreen.Session.cs` volá `FrameOrbitFor` při stavbě levelu) — kamera po výhře tedy mířila na střed *zmizelého* shluku tohoto levelu, ne na cizí mapu z menu.
 - ⚠ **Sdílený checkout:** bs3d-ea a já jsme byli oba v hlavním checkoutu; můj `git switch -c` jim přehodil HEAD a jejich `git add` smetl mé neskomitované řádky do jejich commitu. Vyřešeno zprávami, nic neztraceno. Paralelní session na jednom stroji = každá ve vlastním worktree od prvního příkazu.
+
+## 2026-09-28 — #613 zvonkohra hvězd v pevné tónině — desktop, Claude Code (bs3d-a1)
+
+- **Beru #613.** Pevná tónina a tempo zvonkohry, pryč `TakeCadenceFromFanfare` a ROOT/BPM, pokud je nic jiného nečte. Soubory: `ResultPage.cs`, `GameMusic`, `OggTrack`, `MusicBake`, `docs/game-feedback.md`.
