@@ -46,10 +46,14 @@ float3 WindowWarm;
 float3 WindowCool;
 
 //How long a window holds one state before deciding again, how much that varies from window to window,
-//and how much of an interval the switch itself takes.
+//how many seconds the switch itself takes, and the share of windows that ever change at all (#619).
 float WindowHoldSeconds;
 float WindowHoldVariation;
-float WindowSwitchFade;
+float WindowSwitchSeconds;
+float WindowRestlessFraction;
+
+//The neon city's share of windows that buzz like a tired tube (#619)
+float WindowBuzzFraction;
 
 //How brightly the lit windows glow, and how dark the facade around them is
 float CityWindowBrightness;
@@ -326,20 +330,25 @@ float4 CityPS(CityVSOutput input) : COLOR
     float2 buildingId = floor((input.WorldPosition.xz - input.PosFromCenter.xz) * 0.37);
     float2 windowId = cell + buildingId * 101.0;
 
-    //A window does not decide once and for all. Each keeps its own rhythm — a stretch of its own length,
-    //then it decides again — so lamps come on and go out across the skyline at their own pace. A city
-    //whose windows never change reads as a texture of a city rather than as one with people in it.
+    //A window does not decide once and for all — SOME windows (#619). A restless few keep their own rhythm,
+    //minutes of their own length and then a new decision, so now and then a lamp somewhere goes out and
+    //another comes on; the rest hold for the whole evening. A city whose windows never change reads as a
+    //texture of a city, and one where every window re-rolls every few seconds read as a disco: thousands of
+    //windows in view turn one window's calm rhythm into a hundred and fifty changes a second.
     float rhythm = Hash21(windowId + 3.71);
+    float restless = step(Hash21(windowId + 6.17), WindowRestlessFraction);
     float interval = WindowHoldSeconds + rhythm * WindowHoldVariation;
-    float slot = CityWindowTime / interval + rhythm * 37.0;
+    float slot = restless * CityWindowTime / interval + rhythm * 37.0;
     float slotIndex = floor(slot);
 
     float wasLit = step(1 - WindowLitFraction, Hash21(windowId + slotIndex * 17.13));
     float willBeLit = step(1 - WindowLitFraction, Hash21(windowId + (slotIndex + 1) * 17.13));
 
     //The switch is a short fade rather than a cut: at this distance a lamp that vanishes between two
-    //frames reads as a rendering glitch, one that dies over a moment reads as somebody leaving
-    float lit = lerp(wasLit, willBeLit, smoothstep(1 - WindowSwitchFade, 1, frac(slot)));
+    //frames reads as a rendering glitch, one that dies over a moment reads as somebody leaving. Seconds,
+    //turned into this window's share of its interval; a settled window never fades, whatever its phase.
+    float fade = WindowSwitchSeconds / interval;
+    float lit = lerp(wasLit, willBeLit, restless * smoothstep(1 - fade, 1, frac(slot)));
 
     //Ordinary warm/cool lamp for the plain daytime city
     float3 lamp = lerp(WindowWarm, WindowCool, step(0.5, Hash21(cell * 1.7 + 11.3)));
@@ -486,7 +495,7 @@ float4 CityPS(CityVSOutput input) : COLOR
         //Kept as lerps by CityNeon (not straight assignments), so a fractional CityNeon still blends exactly
         //as it did when this ran unconditionally
         lampColor = lerp(lamp, neonWindow, CityNeon);
-        windowFlicker = lerp(1.0, lerp(1.0, buzz, step(0.86, flickerId)), CityNeon);
+        windowFlicker = lerp(1.0, lerp(1.0, buzz, step(1.0 - WindowBuzzFraction, flickerId)), CityNeon);
         signEmission = signBand * contrast * (CityWindowBrightness * 1.6) * CityNeon;
         facadeColor = lerp(facadeColor, FacadeNeonColor, CityNeon);
     }
