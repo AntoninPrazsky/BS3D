@@ -6737,3 +6737,11 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-28 — #640 pohár a strop zespodu děraví, nedokonalosti — desktop, Claude Code (bs3d-a1)
 
 - **Beru #640.** Nejdřív změřit, co dělá „děravý“ vzhled zespodu (AO u jednotlivých instancí), pak oprava. Soubory: pohár, `CeilingPlate`, `InstancedModel.fx`, `docs/rendering.md`.
+
+## 2026-09-28 — #591 zbytek: resolve jedním vzorkem ano, instancované traily ne — notebook, Claude Code (github-74)
+
+- **(3) traily — změřeno, NEdělat (BestPractices §9).** Dočasně (necommitováno) `AimBeam.Draw` kreslil paprsek 0×/1×/11×/41× za snímek, Game `level=Toadstool quality=low`, APU (Ryzen 7 5700U), 3 běhy, minimum mediánů. Při 1600×900 je snímek vázaný na GPU (11,7 ms) a ani 533 draw callů navíc nepřidá víc než 0,05 ms. CPU-vázaně (320×180, 1,37 ms): 533 draw callů +0,25–0,35 ms → **~0,5–0,7 µs na draw**; skutečný paprsek má 13 čárek (délka 14,6) → ~8 µs za snímek, i strop 64 čárek ~40 µs. Instancování by nic nepřineslo.
+- **(1b) resolve při ssaa 2 jedním bilineárním vzorkem — na mainu.** Střed výstupního pixelu je roh čtyř texelů bloku, bilineár je tedy přesně box 2×2. Párově v jednom procesu (dočasná uniforma přepínaná po 3 s, značka ve stdoutu): Testbed, louka, pevná kamera, 1600×900, aberace zapnutá: **−0,74 ms z 30,8 ms, levnější ve 22/22 cyklech**. Game front end (orbit) šum (11/17), Game v levelu šum — protože **ve hře na High/Ultra resolve čte výstup motion bluru (faktor 1)**; zisk je tedy v menu, stránkách nad levelem, hře bez motion bluru, Testbedu a editoru.
+- **Obraz:** bez aberace a zrna (`nopost`, pevné zrno) se box a bilineár shodují na pixel všude, kde se mezi běhy nic nehýbalo; rozdíly jen v dolních řadách shluku (fyzika do F5 běží v každém běhu jinak — kontrola box vs box ze dvou běhů to potvrdila). S aberací se okraje liší (p99 5 → 12 k rohům): posunuté vzorky teď interpolují místo přichycení k texelu.
+- ⚠ **Past:** první A/B paprsku měřilo nic — level kreslí paprsek větví `_previewPath` (segmenty), ne tou, kterou jsem opakoval; všechny varianty 11,73 ms. Zesilovač patří DOVNITŘ měřené metody. A `[fps]` Game píše desetinnou čárku (česká lokalizace) — regex `[\d.]` nechytil nic.
+- **Zbývá z #591:** stínová mapa bez depth bufferu (jen Ultra 8192², ~268 MB) a případný spike PCF přes `SampleCmpLevelZero`. Issue nechávám otevřené.
