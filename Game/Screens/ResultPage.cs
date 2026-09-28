@@ -204,14 +204,6 @@ namespace BS3D.Screens
             _starsAnnounced = 0;
             _revealSettled = false;
 
-            //The authored cadence stands until there is a fanfare to take one from.
-            _revealStep = REVEAL_STEP_SECONDS;
-            _revealDelay = REVEAL_DELAY_SECONDS;
-            _chimeRootOffset = 0;
-            _chimeInKey = false;
-            _cadenceSettled = false;
-
-            TakeCadenceFromFanfare();
             ApplyStars();
             ApplyBreakdownReveal();
 
@@ -269,12 +261,6 @@ namespace BS3D.Screens
             if (!_revealSettled)
             {
                 _revealClock += elapsed;
-
-                //Asked again until the first star lands, because Enter can run before StartFanfare has even
-                //been called on some paths — but it no longer WAITS for the sound, which was the first fix
-                //and the wrong one: the bake takes over three seconds on this machine, so holding the row
-                //until the music arrived held it far longer than any player would sit through.
-                if (!_cadenceSettled && _starsAnnounced == 0) TakeCadenceFromFanfare();
 
                 AnnounceLandedStars();
                 ApplyStars();
@@ -423,26 +409,23 @@ namespace BS3D.Screens
         private const float REVEAL_DELAY_SECONDS = 0.45f;
 
         /// <summary>
-        /// Between one star landing and the next, when there is no fanfare to take the cadence from. Long
-        /// enough to count them, short enough not to wait.
+        /// Between one star landing and the next: long enough to count them, short enough not to wait. A fixed
+        /// pace since #613 — #158 made it one beat of the victory fanfare (0.51 s at the recording's 117.5 BPM),
+        /// on the premise that every star lands inside the piece, and the owner's ruling is that it no longer
+        /// does (the fanfare has had its moment before the stars begin). Between the pre-#158 0.30 s, which
+        /// read as a rattle, and that beat, which read as a wait.
         /// </summary>
-        private const float REVEAL_STEP_SECONDS = 0.3f;
-
-        //Where the stars land and what they sound at, once the victory fanfare underneath is taken into
-        //account (#158). The KEY is available as soon as the fanfare is asked for; the BEAT only once it is
-        //audible, which on a slow machine is several seconds later — so the row takes the key always and the
-        //grid when it can, rather than waiting for a piece that arrives long after the player has read the
-        //screen. Frozen once the first star lands, so the row cannot change cadence half way down.
-        private float _revealStep = REVEAL_STEP_SECONDS;
-        private float _revealDelay = REVEAL_DELAY_SECONDS;
-        private int _chimeRootOffset;
-        private bool _chimeInKey;
+        private const float REVEAL_STEP_SECONDS = 0.4f;
 
         /// <summary>
-        /// The chord tones each successive star sounds, as semitones over the rating's root — a major triad
-        /// and then the octave. It replaces a fixed ~2.3-semitone step which was <b>an interval in no key at
-        /// all</b> (#158): four of those over a tonal fanfare is why the run read as cheap. An arpeggio of the
-        /// piece's own tonic triad is consonant against every chord of its I–V–vi–IV by construction.
+        /// The chord tones each successive star sounds, as semitones over the chime's baked pitch — a major
+        /// triad and then the octave: A5, C♯6, E6, A6. A <b>fixed</b> key since #613, chosen for how it sounds
+        /// rather than taken from the fanfare (#158 shifted the run into the sounding piece's key every time).
+        /// The chime's own baked A5 is the root, the register it was voiced for and the brightest a four-step
+        /// run can reach inside the ±12 semitones the platform's pitch can express — and A major is also the
+        /// shipped victory recording's own key, so if the two ever do overlap, the arpeggio is its tonic triad
+        /// and consonant with it by construction. What #158 fixed stays fixed: an interval in no key at all
+        /// (the old ~2.3-semitone step) is not coming back.
         /// </summary>
         private static readonly int[] CHIME_TRIAD = { 0, 4, 7, 12 };
 
@@ -465,14 +448,12 @@ namespace BS3D.Screens
         private const float REVEAL_SETTLE_FROM = 0.66f;
 
         /// <summary>
-        /// When the last star has finished settling. It reads the <b>live</b> delay and step and not the
-        /// defaults: since #158 those come from the fanfare's tempo, and a constant computed off the authored
-        /// figures would latch the row early and freeze it mid-reveal at any slower beat. Named for the star
-        /// row specifically now that <see cref="RevealTotalSeconds"/> covers the breakdown's own reveal too
-        /// (#479) — the breakdown's timing is built on top of this one, never the other way round.
+        /// When the last star has finished settling. Named for the star row specifically now that
+        /// <see cref="RevealTotalSeconds"/> covers the breakdown's own reveal too (#479) — the breakdown's
+        /// timing is built on top of this one, never the other way round.
         /// </summary>
-        private float StarRevealTotalSeconds =>
-            _revealDelay + (StarRating.MAX - 1) * _revealStep + REVEAL_PUNCH_SECONDS;
+        private static float StarRevealTotalSeconds =>
+            REVEAL_DELAY_SECONDS + (StarRating.MAX - 1) * REVEAL_STEP_SECONDS + REVEAL_PUNCH_SECONDS;
 
         /// <summary>
         /// Past this, nothing on the page is still moving — which is what <see cref="_revealSettled"/> uses
@@ -513,75 +494,11 @@ namespace BS3D.Screens
         }
 
         /// <summary>When star <paramref name="index"/> (0-based) lands, in seconds since the page opened.</summary>
-        private float RevealTimeOf(int index) => _revealDelay + index * _revealStep;
+        private static float RevealTimeOf(int index) => REVEAL_DELAY_SECONDS + index * REVEAL_STEP_SECONDS;
 
-        /// <summary>
-        /// Whether the cadence has been settled. It is <b>not</b> settled in <see cref="Enter"/>, and that is
-        /// the trap this whole fix nearly fell into: the fanfare is baked on a background thread and realized
-        /// whenever that finishes, while this page is pushed on the frame the level cleared — so at Enter
-        /// there is usually no fanfare sounding yet and the answer would be "no music", every time. It is
-        /// therefore asked again each frame until the first star lands, after which it is frozen so the row
-        /// cannot change cadence half way down.
-        /// </summary>
-        private bool _cadenceSettled;
 
-        /// <summary>
-        /// Takes the reveal's cadence and the chime's key from the fanfare that is already sounding (#158).
-        /// <para>
-        /// <b>The stars land on its beats</b>: the step becomes one beat of whatever tempo it rolled, and the
-        /// first star is pushed out to the next beat boundary — measured from when the fanfare became
-        /// <i>audible</i>, which is why `ProceduralMusic` times it from the frame the instance plays rather
-        /// than from where the bake was asked for.
-        /// </para>
-        /// <para>
-        /// <b>And the chime is pitched into its key.</b> The buffer is baked at A5, and `SoundEffect.Play`
-        /// takes its pitch in octaves over −1…1 — so the whole run has to fit inside ONE octave of shift. The
-        /// root is therefore placed in the octave <i>below</i> the baked pitch (an offset of −12…−1), which
-        /// leaves room for the triad above it to reach +11 at the top star and never runs out of range. Get
-        /// that backwards and the fourth star of a four-star clear silently clamps to the wrong note.
-        /// </para>
-        /// </summary>
-        private void TakeCadenceFromFanfare()
-        {
-            if (Game.Music == null) return;
-            if (!Game.Music.TryGetFanfare(out ProceduralMusic.FanfareShape shape, out float sounding)) return;
-            if (!shape.Victory) { _cadenceSettled = true; return; }
-
-            _chimeInKey = true;
-            _cadenceSettled = true;
-
-            //THE KEY FIRST, because it is the fix and it needs nothing but the roll. The buffer is baked at A5
-            //and the fanfare's root is brought into the octave BELOW it, which leaves the triad above room to
-            //reach +11 at the top star without running past the ±12 the platform's pitch can express. Placing
-            //the root above the baked pitch instead would silently clamp the fourth star of a four-star clear.
-            const int BakedPitch = 81;   //A5
-
-            int pitchClass = ((shape.Root % 12) + 12) % 12;
-            int bakedClass = BakedPitch % 12;
-
-            _chimeRootOffset = ((pitchClass - bakedClass + 12) % 12) - 12;   //-12…-1
-
-            //One beat a star. At the victory fanfare's 128-142 BPM that is 0.42-0.47 s, close to the 0.30 the
-            //reveal used before and slow enough to still read as one star at a time.
-            float beat = 60f / MathF.Max(1f, shape.Bpm);
-            _revealStep = beat;
-
-            //The BEAT GRID is the one part that needs the piece to be AUDIBLE, and usually it is not yet — the
-            //key above never did. So the row takes the key and the tempo either way and only lines up to a
-            //boundary when there is one; a negative "sounding" is TryGetFanfare saying the bake has not landed.
-            if (sounding < 0f) return;
-
-            float toNextBeat = beat - (sounding % beat);
-            while (_revealClock + toNextBeat < REVEAL_DELAY_SECONDS) toNextBeat += beat;
-
-            _revealDelay = _revealClock + toNextBeat;
-        }
-
-        /// <summary>How far off the baked pitch star <paramref name="index"/> sounds — see the remarks above.</summary>
-        private float ChimeSemitones(int index) =>
-            _chimeInKey
-                ? _chimeRootOffset + CHIME_TRIAD[Math.Min(index, CHIME_TRIAD.Length - 1)]
-                : CHIME_TRIAD[Math.Min(index, CHIME_TRIAD.Length - 1)];
+        /// <summary>How far off the baked pitch star <paramref name="index"/> sounds — see <see cref="CHIME_TRIAD"/>.</summary>
+        private static float ChimeSemitones(int index) => CHIME_TRIAD[Math.Min(index, CHIME_TRIAD.Length - 1)];
 
         /// <summary>
         /// Writes the whole row from <see cref="_revealClock"/>, so it is the clock and not a per-frame edit
