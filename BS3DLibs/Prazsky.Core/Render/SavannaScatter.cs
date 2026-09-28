@@ -728,7 +728,11 @@ namespace Prazsky.Core.Render
             {
                 if (baobabInstances[m].Count == 0) continue;
                 buckets.Add(new ScatterBucket(device, baobabs[m].Wood, baobabInstances[m], baobabColor, baobabColor * 1.08f, dapple: 0f, bark: 0.25f, detailOnly: false));
-                buckets.Add(new ScatterBucket(device, baobabs[m].Foliage, baobabInstances[m], canopy, canopyDry, dapple: 0.5f, bark: 0f, detailOnly: false));
+                //The tufts for the Low tier, the leaf sprays for every other (#610)
+                buckets.Add(new ScatterBucket(device, baobabs[m].Foliage, baobabInstances[m], canopy, canopyDry, dapple: 0.5f, bark: 0f,
+                    detailOnly: false, lowOnly: true));
+                buckets.Add(new ScatterBucket(device, baobabs[m].Leaves, baobabInstances[m], canopy, canopyDry, dapple: 0.35f, bark: 0f,
+                    detailOnly: true, leaves: 1f));
             }
             for (int m = 0; m < DOUM; m++)
             {

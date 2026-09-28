@@ -439,8 +439,13 @@ namespace Prazsky.Core.Render
         /// <see cref="AddTube"/>. A lathe in the acacia's own lists rather than a <see cref="LatheMesh"/>
         /// read back, because the lathe's buffers are write-only and cannot be read back at all.
         /// </summary>
+        /// <param name="flutes">How many vertical flutes the solid is folded into (#610, the baobab's trunk): broad
+        /// rounded lobes between narrow grooves, 0 for none. Weighted by each ring's wobble like the irregularity,
+        /// so they fade where the profile keeps the surface smooth.</param>
+        /// <param name="fluteDepth">How deep a groove cuts, as a share of the radius.</param>
         public static void AddRevolved(List<VertexPositionNormalTexture> v, List<short> idx, int seg,
-            IReadOnlyList<(float radius, float y, float wobble)> profile, float irregularityAmplitude, float irregularityPhase)
+            IReadOnlyList<(float radius, float y, float wobble)> profile, float irregularityAmplitude, float irregularityPhase,
+            int flutes = 0, float fluteDepth = 0f)
         {
             int rings = profile.Count;
             Vector3 u = Vector3.UnitZ, w = Vector3.UnitX;   //AddTube's own basis for an axis pointing up
@@ -467,6 +472,20 @@ namespace Prazsky.Core.Render
                     Vector3 dir = u * MathF.Cos(ang) + w * MathF.Sin(ang);
                     float r = radius + irregularityAmplitude * wobble * LatheMesh.Irregularity(ang + irregularityPhase, y);
                     Vector3 n = Vector3.Normalize(dir * normal2[i].X + Vector3.Up * normal2[i].Y);
+
+                    if (flutes > 0 && radius > 0f)
+                    {
+                        //Lobes between grooves: 1 - |sin| is 1 in a groove and 0 on a lobe's crown, and cubing it
+                        //keeps the grooves narrow. The normal leans off the radial by the radius's own slope round
+                        //the axis, so a groove's two walls face each other the way the folds of the trunk do.
+                        float Fold(float at) => 1f - fluteDepth * wobble * MathF.Pow(1f - MathF.Abs(MathF.Sin(flutes * at * 0.5f)), 3f);
+                        const float E = 0.01f;
+                        float fold = Fold(ang);
+                        float slope = (Fold(ang + E) - Fold(ang - E)) / (2f * E) / fold;
+                        r *= fold;
+                        Vector3 around = -u * MathF.Sin(ang) + w * MathF.Cos(ang);
+                        n = Vector3.Normalize((dir - around * slope) * normal2[i].X + Vector3.Up * normal2[i].Y);
+                    }
                     v.Add(new VertexPositionNormalTexture(dir * r + Vector3.Up * y, n, new Vector2(s / (float)seg, i / (float)(rings - 1))));
                 }
             }

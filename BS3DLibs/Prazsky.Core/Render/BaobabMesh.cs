@@ -22,6 +22,13 @@ namespace Prazsky.Core.Render
         public IProceduralMesh Wood { get; }
         public IProceduralMesh Foliage { get; }
 
+        /// <summary>
+        /// The leaf cap as leaf sprays on the twig ends (#610) — drawn instead of <see cref="Foliage"/> at scene
+        /// detail, where the tufts are the Low tier's. The references' cap is sparse fine foliage on the thin
+        /// twigs, never the round clumps the tufts are.
+        /// </summary>
+        public IProceduralMesh Leaves { get; }
+
         /// <param name="device">The device the buffers are created on.</param>
         /// <param name="height">The tree's full height, to the top of the crown.</param>
         /// <param name="seed">Rolls the limbs and the tufts.</param>
@@ -30,13 +37,33 @@ namespace Prazsky.Core.Render
             Random rng = new(seed);
             Wood = new WoodMesh(device, height, rng);
             Foliage = new TuftsMesh(device, height, ((WoodMesh)Wood).TwigTips, seed);
+
+            var lv = new List<VertexPositionNormalTexture>();
+            var lidx = new List<short>();
+            Random leafRng = new(seed * 41 + 5);
+            foreach (Vector3 tip in ((WoodMesh)Wood).TwigTips)
+            {
+                if (leafRng.NextDouble() > LEAFY_TWIGS) continue;
+                float radius = height * (0.045f + 0.03f * (float)leafRng.NextDouble());
+                LeafSprays.Generate(lv, lidx, tip + Vector3.Up * (radius * 0.15f), radius, radius * 0.3f, leafRng);
+            }
+            Leaves = new UploadedMesh(device, lv, lidx, Foliage.BoundingSphere);
         }
+
+        //The share of the twig ends that carry leaves: sparse, as the references' cap is
+        private const double LEAFY_TWIGS = 0.7;
 
         public void Dispose()
         {
             (Wood as IDisposable)?.Dispose();
             (Foliage as IDisposable)?.Dispose();
+            (Leaves as IDisposable)?.Dispose();
         }
+
+        //The trunk's facets round the axis (14 until #610; the flutes want several a lobe) and how deep a flute's
+        //groove cuts into the radius
+        private const int TRUNK_SEGMENTS = 48;
+        private const float TRUNK_FLUTE_DEPTH = 0.2f;
 
         /// <summary>The bottle trunk and the bare limbs, one material.</summary>
         private sealed class WoodMesh : IProceduralMesh, IDisposable
@@ -68,8 +95,11 @@ namespace Prazsky.Core.Render
                 };
                 var v = new List<VertexPositionNormalTexture>(profile.Length * 15 + 600);
                 var idx = new List<short>(profile.Length * 90 + 1800);
-                TubeGeometry.AddRevolved(v, idx, 14, profile, irregularityAmplitude: r * 0.06f,
-                    irregularityPhase: (float)rng.NextDouble() * 6f);
+                //Folded into flutes since #610, the references' trunk: broad lobes with deep narrow grooves
+                //between them running up the bottle, fading out at the neck where the wobble does
+                TubeGeometry.AddRevolved(v, idx, TRUNK_SEGMENTS, profile, irregularityAmplitude: r * 0.06f,
+                    irregularityPhase: (float)rng.NextDouble() * 6f,
+                    flutes: 6 + rng.Next(3), fluteDepth: TRUNK_FLUTE_DEPTH);
 
                 //The limbs: five to seven from the neck, thick, leaning well out, each forking into three or
                 //four twigs and each twig into two twiglets - the reference crown is a wide fist of bare
