@@ -20,6 +20,9 @@ namespace BS3D.Tools.LevelGen
         private static readonly string[] Flags = { "--sag", "--clear", "--arrival" };
         private static readonly string[] ValuedFlags = { "--sag=", "--sagfile=", "--clearfile=", "--arrivalfile=" };
 
+        /// <summary>Where the prototypes (#604) are written, under the campaign's own directory. See <see cref="Main"/>.</summary>
+        private const string PROTOTYPES_DIR = "Prototypes";
+
         private static int Main(string[] args)
         {
             //REFUSED BEFORE ANYTHING IS WRITTEN (#574). This is the one tool that writes into the tracked tree,
@@ -401,11 +404,39 @@ namespace BS3D.Tools.LevelGen
 
             LevelSet set = CampaignSet.WriteLevelSet(designs, nebula, volcano, spectrum, arcade, grid, mirage);
 
+            //PROTOTYPES (#604): designs built to put a direction in front of the owner before a chapter is rebuilt
+            //around it. They pass the same per-level checks as everything above, but into Levels/Prototypes and
+            //never into the set - played with the Game's `levelfile=`, hung with `--sagfile=`, walked with
+            //`--arrivalfile=` - so nothing the campaign counts (unlocks, blocks, ScoreSim's ceilings) moves.
+            Design[] prototypes = { Butterfly() };
+
+            string campaignDir = LevelEmitter.OutDir;
+            LevelEmitter.OutDir = Path.Combine(campaignDir, PROTOTYPES_DIR);
+            Directory.CreateDirectory(LevelEmitter.OutDir);
+            foreach (Design design in prototypes) ok &= LevelEmitter.Emit(design);
+            LevelEmitter.OutDir = campaignDir;
+
+            //Hung at their OWN budgets by `--sag`, through the very gate the campaign goes through: a set of
+            //their own that is never written, whose entries carry the design's shots and step and a path into
+            //the subdirectory, which RunSagGate joins to the output directory as it does any entry's file.
+            LevelSet prototypeSet = new()
+            {
+                Name = "Prototypes",
+                Levels = prototypes.Select(d => new LevelSetEntry
+                {
+                    File = Path.Combine(PROTOTYPES_DIR, d.File),
+                    Name = d.Name,
+                    Shots = d.Shots,
+                    CeilingStep = d.CeilingStep,
+                }).ToList(),
+            };
+
             //The gate that hangs the levels instead of reading them (#301/#302). Off the WRITTEN SET rather
             //than off the designs above, for two reasons: the set is where a level's budget and ceiling step
             //actually live, and it is the only list that includes the hand-drawn Colossus - a shipped level
             //this gate has as much business asking about as any generated one.
             if (sag) ok &= RunSagGate(set, sagOnly);
+            if (sag) ok &= RunSagGate(prototypeSet, sagOnly);
 
             //A non-zero exit so this can be put in front of a commit: a level that fails the checks is a
             //level that plays wrong, and the whole point of generating them is that nobody has to notice
