@@ -8,9 +8,10 @@
 //that spark flies in and a couple of per-spark randoms. The C++-side-of-the-fence half is tiny: a position, a
 //colour and an age per shell.
 //
-//Drawn additively, depth-read but writing no depth (the cluster, the island and the towers in front hide a
-//burst behind them), in linear radiance driven well OVER the glare threshold - a firework is supposed to
-//bloom, and this is the one effect in the game where blowing out the highlight is the entire point. SM 5.0.
+//Drawn as added light over a share of covered sky (premultiplied, see the pixel shader), depth-read but
+//writing no depth (the cluster, the island and the towers in front hide a burst behind them), in linear
+//radiance driven well OVER the glare threshold - a firework is supposed to bloom. Driven over it in its OWN
+//hue, though (#612): the palette keeps one channel at zero so the tonemap's shoulder cannot bleach it. SM 5.0.
 
 #define VS_SHADERMODEL vs_5_0
 #define PS_SHADERMODEL ps_5_0
@@ -40,6 +41,10 @@ float4 ShellShape[MAX_SHELLS];
 float SparkSize;      //world half-size of one spark billboard at full brightness
 float SparkStretch;   //how many world units of streak per world unit per second of spark speed
 float Gravity;        //world units per second squared, positive downwards
+float HotCore;        //how far towards white a spark goes at its brightest (Fireworks.HOT_CORE)
+float HotCoreFrom;    //the brightness the white starts at, and over how much more it arrives (HOT_CORE_FROM/_WIDTH)
+float HotCoreWidth;
+float SkyCover;       //how much of what is behind it a spark hides per unit of its own weight squared (Fireworks.SKY_COVER)
 
 struct FireworkVertexInput
 {
@@ -191,12 +196,13 @@ FireworkVertexOutput FireworkVS(FireworkVertexInput input)
     //split is hard rather than a blend, so the two are seen AS two.
     float3 shellColour = input.Random.w < 0.5 ? colour.rgb : ShellColorB[shell].rgb;
 
-    //The hot core: a spark is white at its brightest and only shows its own colour as it cools. Carrying the
-    //peak to white is what makes a firework read as burning rather than as a coloured dot - the same reason
-    //the cluster's ripple whitens (see "The ripple" in CLAUDE.md), and it matters more here because these
-    //are driven hard into the glare and a saturated hue at that level just clips one channel.
-    float heat = saturate(brightness * 1.35 - 0.35);
-    float3 radiance = lerp(shellColour, float3(1.0, 1.0, 1.0) * max(max(shellColour.r, shellColour.g), shellColour.b), heat * 0.7);
+    //The hot core: a FRESH spark flashes towards white and shows its own colour as it cools - which is what
+    //makes a firework read as burning rather than as a coloured dot. Only a flash, and only part of the way
+    //(#612): white is the brightest thing the resolve can show and every hue shares it, so a spark that was
+    //70 % white from a quarter of its brightness up (as it was) was a white spark with a coloured edge, and
+    //the display read white. The palette's own zero channel is what keeps the rest of the life coloured.
+    float heat = saturate((brightness - HotCoreFrom) / HotCoreWidth);
+    float3 radiance = lerp(shellColour, float3(1.0, 1.0, 1.0) * max(max(shellColour.r, shellColour.g), shellColour.b), heat * HotCore);
 
     output.Tint = float4(radiance * brightness, brightness);
 
@@ -218,10 +224,17 @@ float4 FireworkPS(FireworkVertexOutput input) : COLOR
     //at both ends reads as a stick; the taper is what says which way it is going.
     falloff *= 0.45 + 0.55 * saturate(input.Corner.x * 0.5 + 0.5);
 
-    //No clip. Additive blending makes a zero-alpha pixel free, so the spark can fade to nothing smoothly
+    //No clip. A zero-alpha pixel adds nothing and covers nothing, so the spark can fade to nothing smoothly
     //rather than being cut with a hard edge that sweeps inward as it dims - the trap ShotTrail.fx documents.
+    //
+    //PREMULTIPLIED (Fireworks.SparkBlend, #612): rgb is the light the spark adds - the same falloff times
+    //brightness it was weighted by when this was an additive SourceAlpha blend, now applied here - and alpha is
+    //how much of the frame behind it the spark covers: the same weight squared, so a spark never covers more
+    //than in proportion to the light it gives back, and this reads as the colour rgb / alpha laid over the frame
+    //at that opacity. Over a dark sky the cover takes nothing and the display is the additive one it was; over
+    //a bright one it is what lets a red spark be red instead of the sky with some red added to it.
     float a = falloff * input.Tint.a;
-    return float4(input.Tint.rgb * falloff, a);
+    return float4(input.Tint.rgb * falloff * a, saturate(a * a * SkyCover));
 }
 
 technique Fireworks
