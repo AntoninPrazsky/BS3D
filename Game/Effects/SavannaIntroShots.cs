@@ -103,8 +103,14 @@ namespace BS3D.Effects
                     Vector3[] path = ground.Arc(centre, radius, from, from + sign * BAOBAB_ARC_RADIANS,
                         BAOBAB_ABOVE_FROM, BAOBAB_ABOVE_TO, IntroGround.PATH_POINTS);
 
-                    //The tree itself is the subject and is kept out by its own figure; the rest by the margin.
+                    //The tree itself is the subject and is kept out by its own figure; the rest by the margin —
+                    //and something must not stand between the lens and the tree the whole way round (#610): at one
+                    //scene seed a bush did, and the shot was three seconds of foliage at arm's length. One stand of
+                    //the five may be screened. Not asked of the acacia's track: in a grove every neighbour's flat
+                    //crown is a sphere of its whole reach to this test, which hides everything, and the track
+                    //never showed the fault.
                     if (!ground.Clear(path, MARGIN, ABOVE_GROUND)) continue;
+                    if (!ground.SightClear(path, look, tree.Reach + 1f, allowedBlocked: 1)) continue;
 
                     return new IntroShot("the baobab", path, BAOBAB_SECONDS, fieldOfView * 1.15f, lookAt: look);
                 }
