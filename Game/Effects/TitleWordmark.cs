@@ -333,6 +333,28 @@ namespace BS3D.Effects
         //reads a still image, fast enough that a second glance reads a different one.
         private const float HUE_FLOW = 0.07f;                         //turns a second
 
+        //=== THE DANCE (#230) ===
+
+        //THE KONAMI CODE'S ANSWER: every letter in turn hops, spins once round on the spot and swells a little,
+        //its halo flaring as it goes, while the rainbow runs one extra turn through the word - then everything is
+        //exactly where it was. Only ever started by Celebrate, which only the main menu's secret code calls.
+        //
+        //The hop starts travel through the word in READING order, the same order the hue and the wave ride
+        //on, so the dance reads as one gesture running along the name rather than eleven letters jumping.
+        private const float DANCE_RIPPLE = 1.1f;                      //seconds for the start to cross the word
+        private const float HOP_TIME = 0.75f;                         //seconds one letter's hop takes
+
+        //THE LIFT IS IN CAP HEIGHTS AND IS NOT SCALED BY THE LINE, deliberately: a badge letter scaled up with
+        //its line would jump straight into the letters above it, where the gap between the two lines is only
+        //LINE_GAP of the badge's height. At this figure the badge clears the line above and the top line stays
+        //inside the frame's inset.
+        private const float HOP_LIFT = 0.28f;
+        private const float HOP_SWELL = 0.12f;                        //the size added at the top of a hop
+        private const float HOP_FLARE = 0.6f;                         //the halo added at the top of a hop
+        private const float DANCE_HUE_TURNS = 1f;                     //WHOLE turns, so the colours land back where they were
+
+        private const float DANCE_SECONDS = DANCE_RIPPLE + HOP_TIME;
+
         //Saturation is held just off full and every hue is then lerped a sixth of the way to WHITE, which lifts
         //the blue side of the wheel off black: a fully saturated blue is a DARK colour (Rec. 709 gives it 0.07
         //against green's 0.72), and a near-black letter in a rainbow word reads as a hole in the word rather
@@ -410,6 +432,9 @@ namespace BS3D.Effects
         //figure for both edges. Handed in rather than read off the menu, so this class carries no knowledge of
         //Myra's design units; see the call site for the derivation.
         private readonly float _insetFraction;
+
+        //When the dance last started, on the wall clock Draw is handed; far in the past until it first does.
+        private float _dancedAt = float.NegativeInfinity;
 
         /// <summary>
         /// Every renderer the wordmark owns, for the host's sky-lighting enrolment.
@@ -683,6 +708,38 @@ namespace BS3D.Effects
         }
 
         /// <summary>
+        /// Starts the dance (see <see cref="DANCE_RIPPLE"/>): the main menu's Konami code (#230). Ignored while one
+        /// is already running, so a letter in mid-air never jumps back to the ground.
+        /// </summary>
+        /// <param name="wallClock">The same clock <see cref="Draw"/> is handed.</param>
+        public void Celebrate(float wallClock)
+        {
+            if (wallClock - _dancedAt < DANCE_SECONDS) return;
+
+            _dancedAt = wallClock;
+        }
+
+        /// <summary>
+        /// How far through its hop a letter is, 0..1, and 0 outside it. Every term the hop drives is zero at both
+        /// ends (a sine over the hop, a parabola, a whole turn), so a letter leaves the ground and lands back
+        /// exactly where the rest of the motion has it.
+        /// </summary>
+        private float Hop(float phase, float wallClock)
+        {
+            float t = (wallClock - _dancedAt - phase * DANCE_RIPPLE) / HOP_TIME;
+
+            return t > 0f && t < 1f ? t : 0f;
+        }
+
+        /// <summary>The rainbow's extra run through the word while the dance lasts, in turns.</summary>
+        private float DanceHue(float wallClock)
+        {
+            float s = (wallClock - _dancedAt) / DANCE_SECONDS;
+
+            return s > 0f && s < 1f ? MathHelper.SmoothStep(0f, 1f, s) * DANCE_HUE_TURNS : 0f;
+        }
+
+        /// <summary>
         /// Draws the wordmark, anchored to the frame. Called from the front end's own screen while the main menu
         /// is the page on top, so it is on screen exactly there and nowhere else —
         /// no page has to opt in and no page added later can forget to opt out.
@@ -815,7 +872,11 @@ namespace BS3D.Effects
             Vector4 fullyOpen = new(0f, 0f, 0f, 1f);   //no occluder, no ambient occlusion: nothing shades a title
 
             for (int i = 0; i < _letters.Length; i++)
-                _letterWorld[i] = LetterWorld(in _letters[i], in _placements[i], cap, wallClock, in blockToWorld);
+                _letterWorld[i] = LetterWorld(in _letters[i], in _placements[i], cap, wallClock,
+                    Hop(_letters[i].Phase, wallClock), in blockToWorld);
+
+            //The rainbow's extra run while the dance lasts, zero otherwise, on all three shells alike
+            float hueTurns = wallClock * HUE_FLOW + DanceHue(wallClock);
 
             //=== The letters first, one draw each, because the colour is a per-draw uniform ===
             //
@@ -839,7 +900,7 @@ namespace BS3D.Effects
 
             for (int i = 0; i < _letters.Length; i++)
             {
-                Vector3 hue = Hue(_letters[i].Phase + wallClock * HUE_FLOW);
+                Vector3 hue = Hue(_letters[i].Phase + hueTurns);
 
                 InstancedModelRenderer renderer = _bodyRenderers[_letters[i].Glyph];
                 renderer.EmissiveTint = Glow(hue, glowLevel);
@@ -870,7 +931,8 @@ namespace BS3D.Effects
             for (int i = 0; i < _letters.Length; i++)
             {
                 InstancedModelRenderer renderer = _auraRenderers[_letters[i].Glyph];
-                renderer.EmissiveTint = Glow(Hue(_letters[i].Phase + wallClock * HUE_FLOW), auraLevel);
+                float flare = 1f + HOP_FLARE * MathF.Sin(MathF.PI * Hop(_letters[i].Phase, wallClock));
+                renderer.EmissiveTint = Glow(Hue(_letters[i].Phase + hueTurns), auraLevel * flare);
 
                 _oneInstance[0] = new ModelInstance(_letterWorld[i], fullyOpen);
                 renderer.Draw(camera, _oneInstance, 1, _auraParams);
@@ -886,7 +948,7 @@ namespace BS3D.Effects
                 //Through EmissiveTint and in LINEAR radiance, for the reason on OUTLINE_MATERIAL: this pass
                 //has no usable normals, so its colour cannot come from the light.
                 renderer.EmissiveTint = ColorSpace.SrgbToLinear(
-                    Hue(_letters[i].Phase + wallClock * HUE_FLOW + OUTLINE_HUE_SHIFT) * OUTLINE_VALUE);
+                    Hue(_letters[i].Phase + hueTurns + OUTLINE_HUE_SHIFT) * OUTLINE_VALUE);
 
                 _oneInstance[0] = new ModelInstance(_letterWorld[i], fullyOpen);
                 renderer.Draw(camera, _oneInstance, 1, _outlineParams);
@@ -903,7 +965,8 @@ namespace BS3D.Effects
         /// One letter's world matrix. It is centred on its own middle before anything turns it, or the letter
         /// would swing about its bottom-left corner like a flag on a pole rather than turning on the spot.
         /// </summary>
-        private static Matrix LetterWorld(in Letter letter, in Placement at, float cap, float wallClock,
+        /// <param name="hop">How far through the dance's hop this letter is, 0..1 (see <see cref="Hop"/>).</param>
+        private static Matrix LetterWorld(in Letter letter, in Placement at, float cap, float wallClock, float hop,
             in Matrix blockToWorld)
         {
             //Exactly one cycle of the wave across the whole wordmark - see WAVE_DEPTH.
@@ -913,11 +976,16 @@ namespace BS3D.Effects
             //Bowed towards the lens by how far across the BLOCK it stands - see Placement.Across
             float z = BOW_DEPTH * (1f - at.Across * at.Across);
 
+            //The dance: a jump's parabola, one eased whole turn, a swell at the top - all zero at rest
+            float lift = HOP_LIFT * 4f * hop * (1f - hop);
+            float spin = MathHelper.TwoPi * MathHelper.SmoothStep(0f, 1f, hop);
+            float swell = 1f + HOP_SWELL * MathF.Sin(MathF.PI * hop);
+
             return
                 Matrix.CreateTranslation(-letter.Advance * 0.5f, -LetterShapes.CAP_HEIGHT * 0.5f, 0f)
-                * Matrix.CreateScale(cap * at.Scale)
-                * Matrix.CreateRotationY(LETTER_YAW * MathF.Cos(wavePhase))
-                * Matrix.CreateTranslation(at.X * cap, (at.Y + wave * WAVE_DEPTH * at.Scale) * cap, z * cap)
+                * Matrix.CreateScale(cap * at.Scale * swell)
+                * Matrix.CreateRotationY(LETTER_YAW * MathF.Cos(wavePhase) + spin)
+                * Matrix.CreateTranslation(at.X * cap, (at.Y + wave * WAVE_DEPTH * at.Scale + lift) * cap, z * cap)
                 * blockToWorld;
         }
 

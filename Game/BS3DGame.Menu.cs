@@ -8,6 +8,7 @@ using Myra.Graphics2D;
 using Myra.Graphics2D.Brushes;
 using Myra.Graphics2D.UI;
 using Prazsky.BS3D;
+using Prazsky.BS3D.Input;
 using Prazsky.BS3D.Scoring;
 using Prazsky.Core.Render;
 using Prazsky.Core.Screens;
@@ -105,6 +106,16 @@ namespace BS3D
         //cancel whichever axis was pressed second.
         private float _navSideRepeatDelay;
         private int _navSideDirection;
+
+        //THE KONAMI CODE (#230's menu edition), read on the main menu off the same edges the navigation acts on.
+        //Answered with the title's dance and a quick run up the star chime, a fifth under the root to an octave
+        //over it: the rating's own triad with a note in front, played fast enough to be a found secret rather than
+        //a count. Seconds between the notes; the run is over in under half a second.
+        private readonly KonamiCode _konamiCode = new();
+        private static readonly int[] KONAMI_JINGLE = { -5, 0, 4, 7, 12 };
+        private const float KONAMI_NOTE_GAP = 0.085f;
+        private float _konamiJingleClock;
+        private int _konamiJingleNote = KONAMI_JINGLE.Length;
 
         //Anton and Inter (both SIL OFL), through FontStashSharp. Myra's embedded stylesheet carries a small
         //bitmap font that is fine for a tool panel and much too coarse for a game's title, so the menu brings
@@ -1524,6 +1535,15 @@ namespace BS3D
 
             if (!edgeInputAllowed) return;
 
+            //The Konami code, before B and A are acted on: the A that completes it must not also press the entry
+            //the cursor is on, and up-up-down-down leaves that on the first — New Game / Continue, which starts
+            //a level. Everywhere but the main menu it forgets what it has seen.
+            if (_screens.Active is MainMenuPage)
+            {
+                if (FeedKonamiCode(keyboard, pad)) return;
+            }
+            else _konamiCode.Reset();
+
             //B is Escape. Read before A, since backing out changes the screen the accept below would act on.
             if (pad.IsButtonDown(Buttons.B) && !_previousPad.IsButtonDown(Buttons.B))
             {
@@ -1574,6 +1594,51 @@ namespace BS3D
 
             delay = NAV_REPEAT_INTERVAL;
             return true;
+        }
+
+        /// <summary>
+        /// Hands this frame's presses of the code's ten keys to <see cref="KonamiCode"/> and answers a completed
+        /// code (#230): the arrow keys or the D-pad for the directions, the B and A keys or the pad's face buttons.
+        /// Presses, never a held key's repeats, and never the stick — a code is spelled in taps.
+        /// </summary>
+        /// <returns>True on the frame the code is completed, so the caller can swallow the press that did it.</returns>
+        private bool FeedKonamiCode(KeyboardState keyboard, GamePadState pad)
+        {
+            //| and not ||: every press this frame is recorded, in the code's own order, whichever completes it
+            bool found =
+                KonamiPress(IsKeyEdge(keyboard, Keys.Up) || IsPadEdge(pad, Buttons.DPadUp), KonamiKey.Up)
+                | KonamiPress(IsKeyEdge(keyboard, Keys.Down) || IsPadEdge(pad, Buttons.DPadDown), KonamiKey.Down)
+                | KonamiPress(IsKeyEdge(keyboard, Keys.Left) || IsPadEdge(pad, Buttons.DPadLeft), KonamiKey.Left)
+                | KonamiPress(IsKeyEdge(keyboard, Keys.Right) || IsPadEdge(pad, Buttons.DPadRight), KonamiKey.Right)
+                | KonamiPress(IsKeyEdge(keyboard, Keys.B) || IsPadEdge(pad, Buttons.B), KonamiKey.B)
+                | KonamiPress(IsKeyEdge(keyboard, Keys.A) || IsPadEdge(pad, Buttons.A), KonamiKey.A);
+
+            if (!found) return false;
+
+            _titleWordmark?.Celebrate(WallClock);
+            _konamiJingleClock = 0f;
+            _konamiJingleNote = 0;
+
+            return true;
+        }
+
+        private bool KonamiPress(bool pressed, KonamiKey key) => pressed && _konamiCode.Record(key);
+
+        private bool IsPadEdge(GamePadState pad, Buttons button) =>
+            pad.IsButtonDown(button) && !_previousPad.IsButtonDown(button);
+
+        /// <summary>Sounds the Konami jingle's notes as their time comes; nothing once the last has played.</summary>
+        private void StepKonamiJingle(float elapsed)
+        {
+            if (_konamiJingleNote >= KONAMI_JINGLE.Length) return;
+
+            _konamiJingleClock += elapsed;
+
+            while (_konamiJingleNote < KONAMI_JINGLE.Length && _konamiJingleClock >= _konamiJingleNote * KONAMI_NOTE_GAP)
+            {
+                _audioDirector.Sfx.PlayStarEarned(_konamiJingleNote, KONAMI_JINGLE.Length, KONAMI_JINGLE[_konamiJingleNote]);
+                _konamiJingleNote++;
+            }
         }
 
         private void StepNavFocus(int direction)
@@ -1926,6 +1991,8 @@ namespace BS3D
             if (!IsActive) return;
 
             float elapsed = (float)gameTime.ElapsedGameTime.TotalSeconds;
+
+            StepKonamiJingle(elapsed);
 
             KeyboardState keyboard = Keyboard.GetState();
             GamePadState pad = GamePad.GetState(PlayerIndex.One);

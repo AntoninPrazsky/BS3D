@@ -6836,3 +6836,9 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 
 - **Beru z #230 „Konami kód v menu“**: ↑↑↓↓←→←→ B A (šipky/d-pad, klávesy nebo tlačítka B A) na hlavním menu → 3D nápis hry zatančí (písmena postupně vyskočí a otočí se, duha jednou dokola) a zazní krátká stoupající znělka. Tlačítko A na padu, které kód dokončí, nespustí položku menu. Nesahá na simulaci ani brány. Soubory: `TitleWordmark`, `BS3DGame.Menu.cs` (navigace), nový `SecretCode<T>` v `Prazsky.BS3D` (sdílený se `SecretShotCode`), `docs/game-feedback.md`/`game-shell.md`.
 - Spike hladšího PCF z #591 zahozen: snímek stínu děla na mapě 4096 (High) žádné schody neukazuje.
+
+## 2026-09-28 — #230 Konami kód v menu — notebook, Claude Code (github-74)
+
+- **Na mainu, čeká na verdikt.** Hlavní menu: ↑↑↓↓←→←→ B A (šipky + klávesy B/A, nebo d-pad + tlačítka B/A; `Prazsky.BS3D.Input.KonamiCode`, čteno v `BS3DGame.FeedKonamiCode` z hran, jen na `MainMenuPage`) → `TitleWordmark.Celebrate`: písmena postupně (čtecí pořadí, start přejde slovo za 1,1 s, skok 0,75 s) vyskočí o 0,28 výšky verzálky (neškálováno řádkem, aby odznak „3D“ nevlétl do řádku nad ním), jednou se otočí, zvětší se o 12 % a rozzáří halo; duha přitom přejde o jednu celou otáčku navíc. Znělka: hvězdná zvonkohra −5/0/4/7/12 půltónů po 85 ms. `SecretShotCode` a `KonamiCode` jsou teď podtřídy jednoho `SecretCode<T>` (klouzavé okno).
+- ⚠ **A na padu, které kód dokončí, se spolkne** (kód se čte před B/A): po ↑↑↓↓ stojí kurzor na New Game / Continue, které spouští level. Klávesnicové A/B menu nic nedělají.
+- **Ověřeno skutečnými stisky kláves** (fokus klikem na titulek, 1920×1080, louka, `quality=low`): vlna projde BUBBLE → SHOOTER → 3D, nic neopustí snímek, menu zůstane. Tentýž běh o jedno „→“ kratší: nápis v klidu. Test `TheKonamiCodeFiresOnItsSequenceAlone` viděn selhat (B/A prohozené), 334/334, 4 solutiony. Settings.json beze změny (BC15CA57). **Neověřeno:** pad (tady žádný), zvonkohra neslyšena.
