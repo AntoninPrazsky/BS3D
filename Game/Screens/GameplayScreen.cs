@@ -142,6 +142,16 @@ namespace BS3D.Screens
         private readonly PreciseAim _preciseAim = new();
         private bool _adsHeld;
 
+        //THE SLEEPING GUN (#230): an easter egg, seen and heard and touching nothing a gate measures — see DozingGun.
+        //What it is told each frame is whether the player touched anything, read off state this screen already
+        //has (the aim, where the gun stands, the shots fired, a key, a button, the lean) rather than a second poll.
+        private readonly BS3D.Effects.DozingGun _dozing = new();
+
+        //How far above the trunnions a snore's Z starts, in world units: clear of the barrel's own top
+        private const float SNORE_LIFT = 1.4f;
+        private Vector3 _dozeAim, _dozeStand;
+        private int _dozeShots;
+
         //Whether the carriage was being driven this frame (A/D or W/S), kept for the length of one update so
         //the combination lesson can read it together with _adsHeld (#460). The two halves are read in
         //different parts of the update, and the gesture being taught is holding them AT ONCE.
@@ -1176,6 +1186,8 @@ namespace BS3D.Screens
             //in one copy with the result page's frame below (#582)
             StepGunHardware(gameTime, elapsed);
 
+            StepDozing(elapsed);
+
             //The cinematic reads the balls where the last step left them and answers with this frame's pose and
             //time scale, so the scale is applied to the very step its own framing was chosen against.
             _cinematic.Update(elapsed, TryGetDropCentre(out Vector3 dropCentre), dropCentre, _dropFocus.FunnelShare);
@@ -1299,6 +1311,39 @@ namespace BS3D.Screens
         /// what this method exists to make impossible.
         /// </para>
         /// </summary>
+        /// <summary>
+        /// The sleeping gun's frame (#230): whether anything was touched since the last one, and the gun's sag,
+        /// breath and snore off the answer. Played frames only — a pause does not reach here, so time on the pause
+        /// page does not count towards a nap, and nothing here runs under the result page.
+        /// </summary>
+        private void StepDozing(float elapsed)
+        {
+            Vector3 aim = _cannon.AimDirection;
+            Vector3 stand = _cannon.Position;
+            int shots = _run.Score.ShotsFired;
+
+            bool stirred = Vector3.DistanceSquared(aim, _dozeAim) > 1e-10f
+                || Vector3.DistanceSquared(stand, _dozeStand) > 1e-8f
+                || shots != _dozeShots
+                || _adsHeld
+                || Game.PreviousKeyboard.GetPressedKeyCount() > 0
+                || _previousMouse.LeftButton == ButtonState.Pressed
+                || _previousMouse.RightButton == ButtonState.Pressed
+                || _previousMouse.MiddleButton == ButtonState.Pressed;
+
+            _dozeAim = aim;
+            _dozeStand = stand;
+            _dozeShots = shots;
+
+            //The letters leave from over the gun's trunnions rather than from its muzzle: from the stand behind it
+            //the muzzle is the far end, down among the cluster's lowest balls, and a Z has to be seen to come
+            //out of the GUN
+            Vector3 over = _cannon.Position + Vector3.Up * SNORE_LIFT;
+            if (_dozing.Update(elapsed, stirred, over)) Game.Audio.PlaySnore();
+
+            _cannon.Droop = _dozing.Droop;
+        }
+
         private void StepGunHardware(GameTime gameTime, float elapsed)
         {
             _cannon.Update(gameTime);
@@ -1585,7 +1630,7 @@ namespace BS3D.Screens
 
             _hud.Draw(_run.Score, Camera, in profile,
                 new ReadOnlySpan<PlayHud.BallMarker>(_profileBalls, 0, ballCount),
-                _magazineQueue, _tutorial, previewsOnly);
+                _magazineQueue, _tutorial, previewsOnly, _dozing.Letters);
 
             if (previewsOnly) return;
 

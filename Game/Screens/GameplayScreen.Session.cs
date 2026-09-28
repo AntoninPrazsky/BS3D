@@ -97,6 +97,10 @@ namespace BS3D.Screens
             //Nor a blast from the last level still burning over the new field (#389).
             _blasts.Reset();
 
+            //And a gun that dozed off over the last level wakes for this one (#230)
+            _dozing.Reset();
+            _cannon.Droop = 0f;
+
             //Last, now that the field, the cannon and the game camera are all fit to this level: the one
             //thing here that reads the fit rather than only resetting state (#267).
             TryBeginChapterIntro();
