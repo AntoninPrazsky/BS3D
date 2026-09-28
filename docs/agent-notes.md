@@ -6719,3 +6719,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 - ⚠ **Past měření:** mediánové pozadí z několika běhů nefunguje — pohár se točí náhodně, zrno filmu je šum na pixel a mraky se liší; maska chytala 23 % snímku. Plochá barva přes env proměnnou před `_fireworks.Draw` je čistý přístroj.
 - ⚠ **Parametr (spočítáno, ne vyfoceno):** zakrytí úměrné `a` (ne `a²`) by u dohasínajících jisker zakrylo víc oblohy, než kolik světla vrátí (tmavé „saze“); `a²` drží poměr. Barva, ke které hustá místa konvergují, je `radiance/SKY_COVER` — nad ~12 by červená klesla pod 0,58 a četla se jako tmavá skvrna. Vyšší hodnoty jsem nefotil.
 - **Nevyřešeno:** pozdní slabé jiskry nad jasnou oblohou dál blednou do růžové/modré (většina zbylých 18 %) a modrá salva nad modrou oblohou má malý kontrast. `shipped-awaiting-verdict`. Nastavení hráče nedotčeno (hash `Settings.json` před i po stejný).
+
+## 2026-09-28 — #591 zbytek: tahy trailů — notebook, Claude Code (github-74)
+
+- **Beru zbytek #591**, bod (3): cena kreslení `AimBeam`/`LineSparks`/`LaunchSmears` po jednom draw callu na segment, nejdřív změřená na APU notebooku (pevná herní kamera, `logfps`); instancované kreslení jen pokud měření řekne, že to stojí za to (BestPractices §9). Soubory: `AimBeam.cs`, `LineSparks.cs`, `LaunchSmears.cs`, `ShotTrail.fx`. Body (1b) a stínová mapa bez depth zatím ne.
