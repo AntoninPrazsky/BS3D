@@ -30,7 +30,7 @@ namespace BS3D.Screens
         //THE UPPER STACK CARRIES ITS OWN BACKING (#465), because it is the one part of this page that has no
         //plate and cannot have the scrim back. Everything from the heading down to "New best" stands on the
         //LIVE arena — #178 swapped the darkening scrim for the defocus and gave the breakdown a plate at the
-        //same time, and the defocus is deliberately late (BLUR_DELAY_SECONDS 3.4 s of sharp frame first) so
+        //same time, and the defocus is deliberately late (BLUR_DELAY_SECONDS, 8 s of sharp frame first since #639) so
         //the fireworks and the star reveal arrive in focus. Which means that for the first several seconds,
         //exactly when the page is READ, its own text is white type over whatever the level happened to be
         //played under.
@@ -223,6 +223,15 @@ namespace BS3D.Screens
             _boardsWereVisible = false;
             ApplyBoards();
 
+            //⚠ A CLEARED field has nothing hanging any more (#639). The orbit was framed for the level's map
+            //when it was built (FrameOrbitFor from the session's install), so on a clear it went on aiming at
+            //the middle of a cluster that had gone down the drain — a tour of an empty ceiling at the height
+            //and stand-off of what used to hang under it. Framed as the bare island instead, the one the front
+            //end flies with no map: the drain's mouth, the island round it and the cup and the fireworks over
+            //it. Before AlignOrbitTo, which snaps the framing to its target, so the release eases straight onto
+            //it rather than onto the old cluster's. A loss keeps the level's framing — its cluster still hangs.
+            if (_result.Cleared) Game.Backdrop.FrameOrbitFor(null, 0f);
+
             //Started at the bearing the lens is already on, so the release is straight out from the arena
             Game.Backdrop.AlignOrbitTo(_fromPosition);
 
@@ -361,9 +370,11 @@ namespace BS3D.Screens
         /// How long the arena stays sharp. It sits past both of the things this page does on arrival — the
         /// camera's release (<see cref="ORBIT_EASE_SECONDS"/>) and the last star landing
         /// (<see cref="RevealTotalSeconds"/>, about 2 s) — so nothing is blurred while it is still arriving,
-        /// and the softening reads as the moment settling rather than as a transition out of it.
+        /// and the softening reads as the moment settling rather than as a transition out of it. Well past
+        /// both since #639 (it was 3.4 s): the owner wanted the ending watched for a good while before it
+        /// goes soft — a loss's field to be read, a clear's fireworks and cup to be seen.
         /// </summary>
-        private const float BLUR_DELAY_SECONDS = 3.4f;
+        private const float BLUR_DELAY_SECONDS = 8f;
 
         /// <summary>
         /// How long the frame takes to go fully soft (#200: 4 s once, 4× that now). Slow on purpose, and the
