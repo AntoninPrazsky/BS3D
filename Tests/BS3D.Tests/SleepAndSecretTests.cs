@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using Prazsky.BS3D.GameObjects;
+using Prazsky.BS3D.Input;
 using Prazsky.BS3D.Scoring;
 using Xunit;
 
@@ -65,6 +66,39 @@ namespace BS3D.Tests
             foreach (bool shot in new[] { true, true, false }) code.Record(shot);
             for (int i = 0; i < pattern.Length - 1; i++) Assert.False(code.Record(pattern[i]));
             Assert.True(code.Record(pattern[^1]));
+        }
+
+        /// <summary>
+        /// The main menu's Konami code completes on its final A and nowhere earlier, survives a menu walk before it,
+        /// and does not complete with one press missing — the same window the shot code runs on (<c>SecretCode</c>).
+        /// </summary>
+        [Fact]
+        public void TheKonamiCodeFiresOnItsSequenceAlone()
+        {
+            KonamiKey[] konami =
+            {
+                KonamiKey.Up, KonamiKey.Up, KonamiKey.Down, KonamiKey.Down,
+                KonamiKey.Left, KonamiKey.Right, KonamiKey.Left, KonamiKey.Right, KonamiKey.B, KonamiKey.A,
+            };
+
+            KonamiCode code = new();
+
+            //A player walking the menu first, then the code: only its last press completes it
+            foreach (KonamiKey key in new[] { KonamiKey.Down, KonamiKey.Down, KonamiKey.A }) code.Record(key);
+            for (int i = 0; i < konami.Length - 1; i++) Assert.False(code.Record(konami[i]));
+            Assert.True(code.Record(konami[^1]));
+
+            //Once found it forgets: one more A completes nothing
+            Assert.False(code.Record(KonamiKey.A));
+
+            //One right short never fires
+            code.Reset();
+            foreach (KonamiKey key in new[]
+            {
+                KonamiKey.Up, KonamiKey.Up, KonamiKey.Down, KonamiKey.Down,
+                KonamiKey.Left, KonamiKey.Right, KonamiKey.Left, KonamiKey.B, KonamiKey.A,
+            })
+                Assert.False(code.Record(key));
         }
     }
 }

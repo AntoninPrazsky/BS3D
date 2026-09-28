@@ -73,7 +73,7 @@ namespace BS3D.Screens
             //of the player is the fault RemoveFallenBalls exists to avoid — it simply sticks in silence.
             if (LevelOver) return;
 
-            if (_shotCode.Record(landed: true)) CelebrateShotCode();
+            if (_shotCode.Record(true)) CelebrateShotCode();
 
             //The landing's own sound, before anything is scored: it depends only on the colour that hit, what it
             //is MADE of (#314) and where — not on what came loose. Spoken from the cell it stuck to — the same
@@ -432,7 +432,7 @@ namespace BS3D.Screens
             if (LevelOver) return;
 
             _run.Score.Missed();
-            if (_shotCode.Record(landed: false)) CelebrateShotCode();
+            if (_shotCode.Record(false)) CelebrateShotCode();
 
             //A MISS TICKS THE INFECTION TOO (#331), and the issue asks for that ruling to be stated rather
             //than fallen into. Two arguments and they agree. The first is the game's own precedent: the
