@@ -6671,3 +6671,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-28 — #616 kamera pádu rámuje trychtýř — desktop, Claude Code (bs3d-ea)
 
 - **Beru #616.** Pivot = vážený průměr koulí s přednostně trychtýřem, monotónní postup, test, který na dnešním průměru selže.
+
+## 2026-09-28 — #612 ohňostroj je skoro bílý — notebook, Claude Code (github-74)
+
+- **Beru #612.** Barvy ohňostroje: bílé jádro, `COLOR_BOOST`, paleta a párování barev, měřená sytost (HSV S) jasných pixelů před/po na louce, poušti a neonovém městě. Soubory: `Game/Effects/Fireworks.cs`, `Fireworks.fx`, `docs/game-feedback.md`. Nesahám na kameru pádu (#616, desktop).
