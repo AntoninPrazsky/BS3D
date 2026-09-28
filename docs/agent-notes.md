@@ -6899,3 +6899,4 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-29 — #646 šev ostrova na Marsu, v outbacku a v polární záři — desktop, Claude Code (bs3d-a1)
 
 - **Beru #646** (založeno z kontroly #608 v dalších scénách): `IslandBermPlanting` přes `PlantPass` do `MarsBackdrop`, `OutbackBackdrop`, `AuroraBackdrop`. Poušť (#550) a polár (#534) ne.
+- **Na mainu.** ⚠ Polární záře svítí zem září oblohy, ne sluncem kopule — val přes `PlantPass` se sluncem kopule zářil bíle; `PlantPass.Draw` má přetížení s vlastními světly scény. ⚠ Mars nemá `TerrainMirror` — kolem ostrova je rovina v `LevelY`, val stojí na ní. Barvy změřené proti zemi v záběru z issue (Mars 204,108,44 proti 187,103,54; záře 57,100,118 proti 46,91,105).

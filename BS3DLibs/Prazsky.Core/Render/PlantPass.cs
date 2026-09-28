@@ -54,16 +54,25 @@ namespace Prazsky.Core.Render
         /// Draws <paramref name="buckets"/> lit from the frame, hazed to <paramref name="hazeDistance"/>; at
         /// <paramref name="detail"/> the full tier's buckets, below it the Low tier's.
         /// </summary>
-        public void Draw(in SceneFrame frame, IReadOnlyList<ScatterBucket> buckets, float hazeDistance, bool detail)
+        public void Draw(in SceneFrame frame, IReadOnlyList<ScatterBucket> buckets, float hazeDistance, bool detail) =>
+            Draw(frame, buckets, hazeDistance, detail, frame.SunColor, frame.ZenithLinear, frame.HorizonLinear);
+
+        /// <summary>
+        /// <see cref="Draw(in SceneFrame, IReadOnlyList{ScatterBucket}, float, bool)"/> under lights the scene states
+        /// itself rather than the dome's (#646): the aurora's ground is lit by the glow of its sky, and what stands on
+        /// that ground has to be lit by the same glow or it glares.
+        /// </summary>
+        public void Draw(in SceneFrame frame, IReadOnlyList<ScatterBucket> buckets, float hazeDistance, bool detail,
+            Vector3 sunColor, Vector3 zenith, Vector3 horizon)
         {
             Effect.CurrentTechnique = _technique;
             _view.SetValue(frame.Camera.View);
             _projection.SetValue(frame.Camera.Projection);
             _camera.SetValue(frame.Camera.Position);
             _sunDirection.SetValue(frame.SunDirection);
-            _sunColor.SetValue(frame.SunColor);
-            _zenith.SetValue(frame.ZenithLinear);
-            _horizon.SetValue(frame.HorizonLinear);
+            _sunColor.SetValue(sunColor);
+            _zenith.SetValue(zenith);
+            _horizon.SetValue(horizon);
             _haze.SetValue(hazeDistance);
             _addedLight.SetValue(Vector3.Zero);
             _leaves.SetValue(0f);

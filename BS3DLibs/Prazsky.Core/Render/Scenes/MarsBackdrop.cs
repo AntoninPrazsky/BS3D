@@ -19,6 +19,10 @@ namespace Prazsky.Core.Render
 
         private MarsSceneConfig _marsConfig = new();
 
+        //The bank the island sits in (#646, #608's in this scene's own material), through the shared plant material
+        private readonly PlantPass _plants;
+        private IslandBermPlanting _berm;
+
         private readonly Effect _marsEffect;
 
         //Its camera grid and the pass that draws it (#580); a tier's crossing retakes the grid (SelectMarsTechnique, #540)
@@ -67,6 +71,16 @@ namespace Prazsky.Core.Render
             _marsMoonsCameraPosition = _marsEffect.Parameters["CameraPosition"];
 
             ApplyMarsParameters();
+
+            //The clearing round the island is the plain at LevelY: the craters and the mesas stand far out past it
+            _plants = new PlantPass(_graphicsDevice, content);
+            _berm = new IslandBermPlanting(_graphicsDevice, (x, z) => _marsConfig.Terrain.LevelY, BERM_SEED + Services.SeedOffset,
+                earth: _marsConfig.Surface.RustColor.ToVector3(), earthDry: _marsConfig.Surface.StrataColorDark.ToVector3(),
+                //The plain's rust, deeper and redder than its pale pigment: measured against the plain in the issue's
+                //frame, the pale one read as a tan ring round the island
+                cover: _marsConfig.Surface.RustColor.ToVector3() * new Vector3(1.5f, 1.1f, 0.65f), coverDry: _marsConfig.Surface.RustColor.ToVector3(), coverDapple: 0.5f,
+                stone: _marsConfig.Surface.BoulderColorBright.ToVector3(), stones: 40,
+                stoneRadius: (ArenaIsland.RADIUS + 0.8f, ArenaIsland.RADIUS + 7f), stoneSize: (0.15f, 0.7f));
         }
 
         /// <inheritdoc/>
@@ -162,7 +176,26 @@ namespace Prazsky.Core.Render
         public override void Draw(in SceneFrame frame)
         {
             DrawMarsTerrain(frame);
+            if (_berm != null) _plants.Draw(frame, _berm.Buckets, _marsConfig.Air.HorizonHazeDistance, detail: true);
             DrawMarsMoons(frame);
+        }
+
+        /// <inheritdoc/>
+        public override bool HasShadowCasters => _berm != null;
+
+        /// <summary>The bank round the island casts into the sun's map (#646).</summary>
+        public override void DrawShadowCasters(Matrix shadowViewProjection)
+        {
+            if (_berm != null) _plants.DrawShadowCasters(shadowViewProjection, _berm.Buckets);
+        }
+
+        private const int BERM_SEED = 9200;
+
+        /// <inheritdoc/>
+        public override void Dispose()
+        {
+            _berm?.Dispose();
+            _berm = null;
         }
 
         /// <summary>
@@ -219,7 +252,11 @@ namespace Prazsky.Core.Render
         /// <inheritdoc/>
         public override IEnumerable<Effect> ShadowReceivers
         {
-            get { yield return _marsEffect; }
+            get
+            {
+                yield return _marsEffect;
+                yield return _plants.Effect; //the bank round the island (#646)
+            }
         }
 
         /// <inheritdoc/>
