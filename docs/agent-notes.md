@@ -6780,3 +6780,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 
 - **Beru #644.** Změřit úhel míření po snímcích při pomalém tahu s držením RMB, pak oprava (surový vstup nebo vyhlazení). Soubory: `MouseAim.cs`, `GameplayScreen.Input.cs`.
 - **Hotovo, na mainu:** `MouseAim.ApplyCursor(smoothingSeconds)`, v Game 0,045 s × náklon. Změřeno tahem 600 counts/3 s s RMB: 80 px (Windows „Zvýšit přesnost ukazatele“ zapnuto), míření stálo 65 % snímků → 0 %, CV rychlosti 1,37 → 0,35, stejné otočení na pixel. Surový vstup (`WM_INPUT`) záměrně ne — změnil by citlivost ~7× u pomalého tahu.
+
+## 2026-09-28 — #642 stíny koulí na ostrově levitují — notebook, Claude Code (github-74)
+
+- **Beru #642.** Nejdřív snímek (Testbed, pevná kamera nízko nad ostrovem, koule puštěné `End`), rozlišit bias stínové mapy / normal offset / výšku přijímače, pak oprava. Soubory: `SunShadowMap`, `Shadows.fxh`, případně `ArenaIsland`, `docs/rendering.md`.
