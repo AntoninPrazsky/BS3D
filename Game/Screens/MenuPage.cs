@@ -260,6 +260,9 @@ namespace BS3D.Screens
 
         protected Label ScreenHeading(string text) => Game.ScreenHeading(text);
 
+        /// <summary>The build's name, small, in the bottom-right corner — on the front end and About only.</summary>
+        protected Label VersionTag() => Game.VersionTag();
+
         protected Panel Plate(Widget content) => Game.Plate(content);
 
         /// <summary>

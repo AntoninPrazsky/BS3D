@@ -2,14 +2,15 @@ name: Build
 
 # Every push, feature branch or main alike (#387) — this repo has no pull requests, so a direct push IS
 # how a merge into main lands, and "on push" already covers both cases the issue asks for in one trigger.
-# Except a push that touches nothing but the agent journal or the research folder (#588): neither is read by
-# any build, and a journal-only merge used to cost the full run. GitHub does not evaluate path filters for a
-# tag push, so a release tag still runs everything.
+# Except a push that touches nothing but the agent journal, the research folder (#588) or a release's
+# screenshot: none of them is read by any build, and a journal-only merge used to cost the full run. GitHub
+# does not evaluate path filters for a tag push, so a release tag still runs everything.
 on:
   push:
     paths-ignore:
       - 'docs/agent-notes*.md'
       - 'Research/**'
+      - 'Images/releases/**'
 
 # Nothing here writes to the repository (#588) - the token only has to check the code out.
 permissions:
