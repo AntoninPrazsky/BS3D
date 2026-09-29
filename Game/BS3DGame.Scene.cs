@@ -568,12 +568,26 @@ namespace BS3D
         /// what the <see cref="Screens.GameplayScreen"/> falls back to on the one frame it is still on the stack with
         /// no session left to draw: the front end itself has outgrown it, the backdrop slicing the pipeline
         /// open to hang a preview cluster in the slot.
+        /// <para>
+        /// <b>It opens a ball frame with nothing in it, and that is load-bearing (#672).</b> The first thing
+        /// <see cref="BeginSceneDraw"/> does is the sun's shadow pass, which casts <see cref="Balls"/>' buckets
+        /// (#470) and throws on a frame nobody opened — and this was a frame nobody opened: the one it runs on is
+        /// the frame after the result page's Main Menu, pressed with the keyboard or a pad, tore the session down.
+        /// That crashed every such exit on any tier with sun shadows from v0.2.0 on. An empty collection is also
+        /// simply what this frame is: no cluster, no gun, nothing in flight.
+        /// </para>
         /// </summary>
         internal void DrawSetting()
         {
+            _balls.BeginFrame(_camera);
+
             SceneFrame sceneFrame = BeginSceneDraw();
 
             DrawGroundedTranslucents(sceneFrame);
+
+            //Closes the frame the shadow pass read; with nothing collected it draws nothing
+            _balls.Draw(_wallClock);
+
             DrawSettingGlass();
             FinishSceneDraw(sceneFrame);
         }
@@ -930,12 +944,13 @@ namespace BS3D
         /// <see cref="SceneRenderer.DrawShadowMaps"/> never runs a caster pass there at all.
         /// </para>
         /// <para>
-        /// <b>Safe unconditionally</b> because both callers that fill <see cref="Balls"/>'s buckets —
-        /// <c>GameplayScreen.Draw</c> and <c>BackdropScreen.Draw</c> — collect <b>before</b> calling
-        /// <see cref="BeginSceneDraw"/>, which is what runs the shadow pass first thing (see the long comment
+        /// <b>Safe unconditionally</b> because every caller of <see cref="BeginSceneDraw"/> opens the frame's
+        /// ball collection <b>before</b> it — <c>GameplayScreen.Draw</c> and <c>BackdropScreen.Draw</c> filled,
+        /// <see cref="DrawSetting"/> empty — and that call runs the shadow pass first thing (see the long comment
         /// there): by the time this is reached, the buckets already hold this frame's balls and not the
         /// previous one's. <see cref="Prazsky.BS3D.BallRenderSet.DrawShadow"/> is a no-op on an empty bucket, so
-        /// a frame with no balls at all (there is none in this game) would simply cast nothing.
+        /// the empty frame simply casts nothing. ⚠ A new caller that skips the <c>BeginFrame</c> throws here —
+        /// <see cref="DrawSetting"/> was one, and every keyboard exit from a result page crashed on it (#672).
         /// </para>
         /// </summary>
         private void DrawShadowCasters(Matrix shadowViewProjection)
