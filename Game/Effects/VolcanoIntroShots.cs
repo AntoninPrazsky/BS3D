@@ -19,9 +19,10 @@ namespace BS3D.Effects
     /// </para>
     /// <para>
     /// <b>The crater shot passes BESIDE the axis, never over it.</b> Its look is pinned on the vent, and a lens
-    /// straight above a fixed look-at has no horizontal forward left to build an up vector from; forty units
-    /// abeam it looks down at about fifty degrees at the closest point, which is the picture, and it also keeps
-    /// the lens out of the ash column's stem. Built once when the intro begins; nothing here runs per frame.
+    /// straight above a fixed look-at has no horizontal forward left to build an up vector from; abeam, it looks
+    /// steeply down into the bowl at the closest point, which is the picture (fifty degrees at forty units
+    /// abeam, the first cut; #645 moved it out to fifty, where the vent turns the view more slowly), and it also
+    /// keeps the lens out of the ash column's stem. Built once when the intro begins; nothing here runs per frame.
     /// </para>
     /// </summary>
     internal static class VolcanoIntroShots
@@ -41,13 +42,24 @@ namespace BS3D.Effects
         //The crater: a straight run from this fraction of the cone's radius on the arena's side to this much
         //beyond the axis, offset abeam of the axis, hugging the flank by CLIMB_CLEARANCE until the ramp lifts it
         //to RIM_CLEARANCE over the rim between the two radii below — so the crater opens as the lens crests.
-        private const float CRATER_FROM_FRACTION = 0.44f;
+        //
+        //⚠ SLOW AND SMOOTH, NOT A JUDDER (#645, #530). The first cut read the ground under every one of the path's
+        //points and flew 150 units in 3.8 s: measured over sixteen rolls that is 59 u/s, a vertical speed of up
+        //to 129 u/s, a vertical acceleration of 253 u/s² rms and up to 1141 (the flank's gullies, one bump per
+        //point), and a view pitching 46 degrees a second rms and up to 142 - the owner's "the camera judders as it
+        //approaches the top". Now the run starts nearer (CRATER_FROM_FRACTION 0.34), lasts 5.4 s, and the height
+        //is dilated and blurred like the mountains' and the desert's runs (`AridIntroPaths.Hug`), the ramp over
+        //the rim entering as its floor.
+        private const float CRATER_FROM_FRACTION = 0.34f;
         private const float CRATER_PAST_AXIS = 55f;
-        private const float CRATER_ABEAM = 40f;
+        private const float CRATER_ABEAM = 50f;
         private const float CLIMB_CLEARANCE = 16f;
+        private const float CLIMB_LATERAL = 8f;
+        private const int CLIMB_WINDOW = 21;
+        private const int CLIMB_SMOOTHING = 3;
         private const float RIM_CLEARANCE = 30f;
         private const float RAMP_FROM_FRACTION = 0.30f;
-        private const float CRATER_SECONDS = 3.8f;
+        private const float CRATER_SECONDS = 5.4f;
 
         //Points per path. The heights are read at every one, so the climb follows the flank's own curve.
         private const int PATH_POINTS = IntroPaths.FINE_POINTS;
@@ -63,7 +75,7 @@ namespace BS3D.Effects
             return new[]
             {
                 Flank(scenes, volcano, fieldOfView, random),
-                Crater(scenes, volcano, fieldOfView, random),
+                Crater(scenes.VolcanoGroundHeight, scenes.VolcanoLightPosition(0, 0f), volcano, fieldOfView, random),
             };
         }
 
@@ -113,10 +125,9 @@ namespace BS3D.Effects
         /// forty units abeam of it, the lens pinned on the vent. It hugs the flank on the way up, so the rim
         /// hides the crater until the lens crests it, and then holds thirty units over the rim across the bowl.
         /// </summary>
-        private static IntroShot Crater(SceneRenderer scenes, VolcanoSceneConfig volcano, float fieldOfView, Random random)
+        internal static IntroShot Crater(Func<float, float, float> ground, Vector3 vent, VolcanoSceneConfig volcano, float fieldOfView, Random random)
         {
             Vector2 cone = volcano.ConeCenter.ToVector2();
-            Vector3 vent = scenes.VolcanoLightPosition(0, 0f);
 
             //Approach from the arena's side, so the run reads as leaving the play field for the summit; abeam
             //to whichever side is rolled.
@@ -129,26 +140,22 @@ namespace BS3D.Effects
 
             //The rim's height, read at the crater's radius on the approach bearing (no gully reaches the rim,
             //so it is the same all round), and the crest the ramp lifts the lens to over it.
-            float rimY = scenes.VolcanoGroundHeight(cone.X + along.X * volcano.CraterRadius, cone.Y + along.Y * volcano.CraterRadius);
+            float rimY = ground(cone.X + along.X * volcano.CraterRadius, cone.Y + along.Y * volcano.CraterRadius);
             float crest = rimY + RIM_CLEARANCE;
             float rampFrom = volcano.ConeRadius * RAMP_FROM_FRACTION;
             float rampTo = volcano.CraterRadius + 4f;
 
-            var path = new Vector3[PATH_POINTS];
-            for (int i = 0; i < PATH_POINTS; i++)
+            //Hugging the flank until the ramp, which runs on the distance to the axis so it is the same climb
+            //whichever side the lens passes; over the bowl the crest holds, since the ground drops away under it
+            //and the hug would have dived into the crater after the ash. The ramp is the height's FLOOR: the hug
+            //itself (the flank's highest ground round each point, dilated and blurred) can only lift it.
+            Vector2[] plan = AridIntroPaths.Line(start, end);
+            Vector3[] path = AridIntroPaths.Hug(plan, ground, CLIMB_CLEARANCE, CLIMB_LATERAL, CLIMB_WINDOW, i =>
             {
-                Vector2 plan = Vector2.Lerp(start, end, i / (float)(PATH_POINTS - 1));
-                float r = Vector2.Distance(plan, cone);
-
-                //Hugging the flank until the ramp, which runs on the distance to the axis so it is the same
-                //climb whichever side the lens passes; over the bowl the crest holds, since the ground drops
-                //away under it and the hug would have dived into the crater after the ash.
+                float r = Vector2.Distance(plan[i], cone);
                 float ramp = MathHelper.SmoothStep(0f, 1f, MathHelper.Clamp((rampFrom - r) / MathF.Max(rampFrom - rampTo, 1f), 0f, 1f));
-                float hug = scenes.VolcanoGroundHeight(plan.X, plan.Y) + CLIMB_CLEARANCE;
-                float y = MathF.Max(hug, MathHelper.Lerp(hug, crest, ramp));
-
-                path[i] = new Vector3(plan.X, y, plan.Y);
-            }
+                return MathHelper.Lerp(ground(plan[i].X, plan[i].Y) + CLIMB_CLEARANCE, crest, ramp);
+            }, CLIMB_SMOOTHING);
 
             return new IntroShot("the crater", path, CRATER_SECONDS, fieldOfView * 1.15f, lookAt: vent);
         }

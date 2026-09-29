@@ -33,15 +33,23 @@ namespace BS3D.Effects
         //high over the highest sand within the dilation window, somewhere in the band of full dunes past the
         //clearing's ramp. Of CREST_CANDIDATES rolled runs the one with the most relief under it is taken, since a
         //run along an interdune flat is a shot of nothing. Pitched down a little so the sand is the frame.
-        private const float CREST_RUN = 95f;
+        //
+        //⚠ SLOW AND SMOOTH, NOT A ROLLER COASTER (#645). The first cut ran 95 units in 3.3 s (30 u/s) over a
+        //five-point window: measured over sixteen rolls, the lens's vertical acceleration was 49 u/s² rms and up
+        //to 450, and the view pitched 45 degrees a second rms and up to 159 — "jerky, and too fast, like a
+        //roller coaster" in the owner's words. Now 72 units in 4.0 s (18 u/s), dilated and blurred over
+        //CREST_WINDOW points in CREST_SMOOTHING passes (`AridIntroPaths.Hug`).
+        private const float CREST_RUN = 72f;
         private const float CREST_CLEARANCE = 2.6f;
         private const float CREST_LATERAL = 2.5f;
-        private const int CREST_WINDOW = 5;
+        private const int CREST_WINDOW = 16;
+        private const int CREST_SMOOTHING = 3;
         private const float CREST_INNER = 215f;
         private const float CREST_OUTER = 360f;
         private const int CREST_CANDIDATES = 48;
         private const float CREST_PITCH_DOWN_DEGREES = 7f;
-        private const float CREST_SECONDS = 3.3f;
+        private const float CREST_PITCH_DAMPING = 0.6f;
+        private const float CREST_SECONDS = 4.0f;
 
         //The flock: a drift this long, low over the sand, this far out from the flock's centre (its birds circle
         //at 28-62 units round it, so the lens stands outside every circle), the lens on the flock. The birds fly
@@ -88,7 +96,7 @@ namespace BS3D.Effects
         /// dune's slip face opens under it. Of a few dozen runs rolled in the band of full dunes, the one with the
         /// most relief under it.
         /// </summary>
-        private static IntroShot Crest(DesertSceneConfig desert, Func<float, float, float> ground, float fieldOfView, Random random)
+        internal static IntroShot Crest(DesertSceneConfig desert, Func<float, float, float> ground, float fieldOfView, Random random)
         {
             Vector2 wind = TerrainMirror.DesertWind(desert);
 
@@ -130,10 +138,11 @@ namespace BS3D.Effects
                 bestTo = bestFrom + wind * CREST_RUN;
             }
 
-            Vector3[] path = AridIntroPaths.Hug(AridIntroPaths.Line(bestFrom, bestTo), ground, CREST_CLEARANCE, CREST_LATERAL, CREST_WINDOW);
+            Vector3[] path = AridIntroPaths.Hug(AridIntroPaths.Line(bestFrom, bestTo), ground, CREST_CLEARANCE, CREST_LATERAL, CREST_WINDOW,
+                passes: CREST_SMOOTHING);
 
             return new IntroShot("the crest", path, CREST_SECONDS, fieldOfView * 1.15f,
-                lookAhead: 16f, pitchDownDegrees: CREST_PITCH_DOWN_DEGREES);
+                lookAhead: 16f, pitchDownDegrees: CREST_PITCH_DOWN_DEGREES, pitchDamping: CREST_PITCH_DAMPING);
         }
 
         /// <summary>
