@@ -99,6 +99,11 @@ namespace BS3D
         /// player who wants #384's geometric answer sets the row to 100 %.
         /// </para>
         /// <para>
+        /// <b>The default is the next rung, 1.5, since #644</b>: once the lean stopped stepping pixel by pixel, the
+        /// owner asked for it "a little faster by default" than parity. 0.828 × 1.5 = <b>1.24 ×</b> the overview's
+        /// rate. 1.25 stays on the ladder for a player who wants parity.
+        /// </para>
+        /// <para>
         /// ⚠ <b>An existing save keeps whatever it stored</b>, since this default only fills a missing value —
         /// so the machine that raised #477 has to touch the row once, or delete the key. That is the right way
         /// round: a settings file is the player's, and a new default silently rewriting one would be worse than
@@ -106,7 +111,7 @@ namespace BS3D
         /// </para>
         /// </summary>
         [JsonPropertyName("aimSensitivity")]
-        public float AimSensitivity { get; set; } = 1.25f;
+        public float AimSensitivity { get; set; } = 1.5f;
 
         /// <summary>
         /// The sky the front end comes up under, or 0 for "whatever the scene wants". It is seeded
