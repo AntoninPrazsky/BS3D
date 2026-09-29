@@ -6998,3 +6998,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 - **Ověřeno jako hráč:** stažený zip sedí na SHA256SUMS, exe je `0.2.1+7cff202c`, spuštěný z rozbaleného zipu ukazuje v rohu menu `v0.2.1`.
 - **Poznámky k release nemají seznam novinek**, jen odkaz `Full Changelog` (repo nemá PR, takže `--generate-notes` nemá z čeho psát) — stejně jako u v0.2.0. Kdo chce, může `gh release edit v0.2.1 --notes-file …` doplnit „What's new".
 - **Příští release:** merge → `Tools\release-screenshot.ps1 -Version vX.Y.Z` → **podívat se na jpg** → commit → anotovaný tag na konkrétní zelený commit. Zůstávají otevřené vizuální chyby z dnešních poznámek: #658, #653, #663 (savana), #648 (les), #651 (neon), #650 (menu).
+
+## 2026-09-29 — #650 dělo v hlavním menu — notebook, Claude Code (github-7f)
+
+- **Beru #650** (v menu je vidět stín děla na ostrově, dělo samo ne; majitel chce dělo **nakreslit**, ne stín schovat). Nejdřív zreprodukovat (podezření: `SessionShadowCasters` zůstává registrovaný, když se z pauzy jde do hlavního menu a session žije dál kvůli Continue, #607), pak dělo v menu postavit tam, kam ukazuje jeho stín. Soubory: `Game/BS3DGame*.cs` (menu scéna, `SessionShadowCasters`), `GameplayScreen.Session.cs`, `docs/game-shell.md`. Na #648, #651, #658, #653 nesahám.
