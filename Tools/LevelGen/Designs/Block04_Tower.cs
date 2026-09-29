@@ -1,4 +1,4 @@
-﻿using Prazsky.BS3D.GameStructure;
+using Prazsky.BS3D.GameStructure;
 using Prazsky.Core.Render;
 using System;
 using static BS3D.Tools.LevelGen.CampaignSet;
@@ -36,7 +36,9 @@ namespace BS3D.Tools.LevelGen
             //sand against a candy-pink sky and the whole frame read as kitsch; under 8 they read as snow and
             //the sky as weather, which is the same scene doing what it was built to do. The crown's gold and
             //red carry against a dark sky, where against pink they were competing with it. Since #194 that dome
-            //is the whole Tower block's, for this level's own reason.
+            //is the whole Tower block's, for this level's own reason. (#661 repainted dome 8 itself from
+            //references of real alpine skies — a pale skyline under a slate-blue zenith rather than a violet
+            //dusk — so "deep violet" above is the dome this pairing was measured under, not the one it has.)
             //
             //It USED to open the block as well, because it is the one member the camera frames whole: a hollow
             //ring teaches the axis, and the drain visible straight up the middle of it teaches why the axis
