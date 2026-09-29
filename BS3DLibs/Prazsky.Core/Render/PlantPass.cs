@@ -116,7 +116,8 @@ namespace Prazsky.Core.Render
             _graphicsDevice.RasterizerState = raster;
         }
 
-        /// <summary>Casts <paramref name="buckets"/> into the sun's map (#469's path); the Low tier's crowns do not cast.</summary>
+        /// <summary>Casts <paramref name="buckets"/> into the sun's map (#469's path): those whose
+        /// <see cref="ScatterBucket.CastsShadow"/> says so — by default all but the Low tier's crowns.</summary>
         public void DrawShadowCasters(Matrix shadowViewProjection, IReadOnlyList<ScatterBucket> buckets)
         {
             Effect.CurrentTechnique = _shadowTechnique;
@@ -125,7 +126,7 @@ namespace Prazsky.Core.Render
             for (int i = 0; i < buckets.Count; i++)
             {
                 ScatterBucket bucket = buckets[i];
-                if (bucket.LowOnly) continue;
+                if (!bucket.CastsShadow) continue;
                 _leaves.SetValue(bucket.Leaves);
                 Effect.CurrentTechnique.Passes[0].Apply();
                 DrawBucket(bucket);

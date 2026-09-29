@@ -763,7 +763,7 @@ namespace Prazsky.Core.Render
 
                 //The map exists only at scene detail, so the plate crowns never cast into it and the leaf sprays
                 //do, their leaflets cut out here as on screen (#610) — the dapple under a tree is the leaves'
-                if (bucket.LowOnly) continue;
+                if (!bucket.CastsShadow) continue;
                 _acaciaLeavesParam.SetValue(bucket.Leaves);
                 _acaciaEffect.CurrentTechnique.Passes[0].Apply();
 

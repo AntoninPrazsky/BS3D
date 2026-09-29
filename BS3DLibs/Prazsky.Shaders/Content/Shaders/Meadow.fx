@@ -97,6 +97,31 @@ static const float3 BROOK_BANK = float3(0.07, 0.11, 0.035);
 static const float3 BROOK_BED = float3(0.035, 0.05, 0.045);
 static const float BROOK_RAGGED = 0.3;                    //and the brook's
 
+//The pond the brook runs into and the knoll the footpath climbs to its old tree (#609's third round). The owner: the
+//brook "ends abruptly in the middle of the meadow ... it should flow into something, a pond for example", and "a path
+//leads somewhere, to a tree or a small hill". Both stand where the two lines used to stop short in the grass
+//(MeadowPath.PondCentre and PathEnd). PondLevel is the field's own height at the pond's centre, worked out on the CPU
+//(TerrainMirror.MeadowNatural), and the ground round the pond is eased to it so the water lies level.
+float2 PondCentre;
+float PondRadius;
+float PondLevel;
+float2 KnollCentre;
+float KnollRadius;
+float KnollHeight;
+static const float POND_LEVEL_FROM = 1.3;                 //TerrainMirror.MEADOW_POND_LEVEL_FROM
+static const float POND_LEVEL_FADE = 14.0;                //TerrainMirror.MEADOW_POND_LEVEL_FADE
+static const float POND_OUTLINE_MAX = 1.3;                //PondOutline's bound: 1 + 0.16 + 0.09 + 0.05
+static const float POND_BANK = 2.6;                       //the wet bank's width outside the shore, world units
+static const float POND_RAGGED = 0.35;                    //how far the noise moves the shore
+static const float POND_SHELF = 3.0;                      //how far in from the shore the bed shows through the shallows
+static const float3 POND_SHALLOW_BED = float3(0.075, 0.07, 0.035);
+static const float LILY_SPACING = 1.5;                    //one pad a cell, world units
+static const float3 LILY_PAD = float3(0.03, 0.085, 0.018);
+static const float3 LILY_FLOWER = float3(0.92, 0.9, 0.86);
+//The ground under the old tree at the path's end: trodden bare round its foot, worn round that (world units)
+static const float TREE_BARE = 4.8;
+static const float TREE_WORN = 9.5;
+
 float BrookLateral(float2 p)
 {
     float d = length(p);
@@ -132,7 +157,14 @@ float TerrainHeight(float2 p)
 
     float basin = ClearingRelief * sin(dot(p, float2(0.05, 0.035)));
 
-    return MeadowLevelY + basin + HillHeight * ramp * (rolling * 0.5 + 0.5);
+    float natural = MeadowLevelY + basin + HillHeight * ramp * (rolling * 0.5 + 0.5);
+
+    //The pond lies level and the knoll rises under the old tree (#609's third round) - TerrainMirror.Meadow, term for term
+    float pondLevel = 1.0 - smoothstep(PondRadius * POND_LEVEL_FROM, PondRadius * POND_LEVEL_FROM + POND_LEVEL_FADE,
+        distance(p, PondCentre));
+    float2 k = p - KnollCentre;
+    float knoll = saturate(1.0 - dot(k, k) / (KnollRadius * KnollRadius));
+    return natural + (PondLevel - natural) * pondLevel + KnollHeight * knoll * knoll;
 }
 
 struct MeadowVertexInput
@@ -183,6 +215,15 @@ static const float FLOWER_CONTACT_SHADOW = 0.22;
 //The flowers' drifts (#609): a patch of this many world units is mostly one of FLOWER_SPECIES kinds
 static const float FLOWER_PATCH = 16.0;
 static const float FLOWER_SPECIES = 5.0;
+//Their sizes (#609's third round), against the species' own: the smallest and the largest a flower rolls, the roll
+//cubed so most are small and a few big - see where it is rolled
+static const float FLOWER_SMALLEST = 0.3;
+static const float FLOWER_LARGEST = 1.3;
+//The small flowers under them (#609's third round): one to a cell this many world units across, this big (a radius,
+//world units), and in a drift this much denser than the rosettes are
+static const float SMALL_FLOWER_SPACING = 0.8;
+static const float SMALL_FLOWER_RADIUS = 0.075;
+static const float SMALL_FLOWER_DENSITY = 2.0;
 
 #include "Grass.fxh"
 
@@ -229,14 +270,20 @@ float4 MeadowField(MeadowVertexOutput input, bool detail)
     //back (1.02 at High; "What #609 costs on the APU" in docs/scenes.md). The dirt's grain rides in the same
     //branch, since it is only ever mixed in by trodden.
     float lateral = abs(PathLateral(worldPosition.xz));
+    float treeDistance = distance(worldPosition.xz, KnollCentre);
     float trodden = 0.0, verge = 0.0, dirt = 1.0;
 
     [branch]
-    if (lateral < max(PathWidth * 1.9, PathWidth * 0.5 + 0.15) + PATH_RAGGED)
+    if (lateral < max(PathWidth * 1.9, PathWidth * 0.5 + 0.15) + PATH_RAGGED || treeDistance < TREE_WORN + 2.0 * PATH_RAGGED)
     {
         float ragged = PATH_RAGGED * GradientNoise2(worldPosition.xz * 0.9);
         trodden = 1.0 - smoothstep(PathWidth * 0.5 - 0.15, PathWidth * 0.5 + 0.15, lateral + ragged);
         verge = 1.0 - smoothstep(PathWidth, PathWidth * 1.9, lateral + ragged);
+
+        //Where it arrives (#609's third round): the ground under the old tree on the knoll, trodden bare round the
+        //foot where walkers stop and sit, worn round that - more ragged than the path, as a patch is
+        trodden = max(trodden, 1.0 - smoothstep(TREE_BARE - 0.4, TREE_BARE + 0.4, treeDistance + 2.0 * ragged));
+        verge = max(verge, 1.0 - smoothstep(TREE_BARE, TREE_WORN, treeDistance + 2.0 * ragged));
         dirt = 0.85 + 0.3 * GradientNoise2(worldPosition.xz * 2.3);
     }
 
@@ -255,6 +302,27 @@ float4 MeadowField(MeadowVertexOutput input, bool detail)
         bank = 1.0 - smoothstep(BrookWidth * 0.5, BrookWidth * 1.4, brookLateral + brookRagged);
     }
 
+    //The pond it runs into (#609's third round): the same water and bank round a soft irregular shore. Only near it,
+    //for the path's reason - the shore never reaches past POND_OUTLINE_MAX of the mean radius, and its ragged edge
+    //past POND_RAGGED. pondDepth is how far in from the shore, as a share of the shallow shelf.
+    float2 pondOffset = worldPosition.xz - PondCentre;
+    float pondReach = PondRadius * POND_OUTLINE_MAX + POND_BANK + POND_RAGGED;
+    float pondWater = 0.0, pondDepth = 1.0;
+
+    [branch]
+    if (dot(pondOffset, pondOffset) < pondReach * pondReach)
+    {
+        float a = atan2(pondOffset.y, pondOffset.x);
+        //MeadowPath.PondShore
+        float shore = length(pondOffset) - PondRadius * (1.0 + 0.16 * sin(2.0 * a + 0.7) + 0.09 * sin(3.0 * a + 2.3)
+            + 0.05 * sin(5.0 * a + 4.1));
+        shore += POND_RAGGED * GradientNoise2(worldPosition.xz * 0.6 + 3.3);
+        pondWater = 1.0 - smoothstep(-0.25, 0.25, shore);
+        pondDepth = saturate(-shore / POND_SHELF);
+        water = max(water, pondWater);
+        bank = max(bank, 1.0 - smoothstep(0.0, POND_BANK, shore));
+    }
+
     present *= 1.0 - bank;
 
     //Per-flower character: the species' petal count, petal shape and size, then the cell hash's own variation.
@@ -266,7 +334,14 @@ float4 MeadowField(MeadowVertexOutput input, bool detail)
     float speciesSize = species < 0.5 ? 1.0 : (species < 1.5 ? 0.75 : (species < 2.5 ? 1.35 : (species < 3.5 ? 0.85 : 0.6)));
     float eyeShare = species < 0.5 ? 0.38 : (species < 1.5 ? 0.22 : (species < 2.5 ? 0.26 : (species < 3.5 ? 0.24 : 0.0)));
     float rotation = Hash21(cell + 9.9) * 6.2831853;
-    float size = min(FlowerSize * speciesSize * (0.7 + 0.6 * Hash21(cell + 2.2)), 0.45);
+
+    //MOSTLY SMALL, A FEW BIG (#609's third round). The owner: the flowers are too big for what stands round them;
+    //the big ones can stay, but most should be smaller, or small. The roll is cubed, so half the flowers are under a
+    //quarter of the old middle size's worth above FLOWER_SMALLEST and one in ten reaches past three quarters of the
+    //range; the largest are the largest they ever were (0.7 to 1.3 of the species' size, evenly, until then).
+    float sizeRoll = Hash21(cell + 2.2);
+    float size = min(FlowerSize * speciesSize
+        * (FLOWER_SMALLEST + (FLOWER_LARGEST - FLOWER_SMALLEST) * sizeRoll * sizeRoll * sizeRoll), 0.45);
 
     //The centre may only wander in [size, 1-size], so the whole flower stays inside its cell and no petal
     //is cut off by the cell edge (the flower is only evaluated within its own cell's fraction).
@@ -283,7 +358,9 @@ float4 MeadowField(MeadowVertexOutput input, bool detail)
     float petalEdge = size * (petalShape > 0.0 ? 0.34 + 0.66 * lobes : 0.8);
     float centreEdge = size * eyeShare;
 
-    float resolvable = saturate(1.0 - footprint / FlowerSpacing);
+    //A small flower is lost to the pixel sooner than a big one, and fades sooner: the old size's flowers (a
+    //quarter of the cell and up) keep the old fade, a cell wide in the footprint
+    float resolvable = saturate(1.0 - footprint / (FlowerSpacing * saturate(0.35 + 2.5 * size)));
     float aa = fwidth(radius) * 1.5 + 1e-4;
 
     float flowerMask = present * (1.0 - smoothstep(petalEdge - aa, petalEdge + aa, radius)) * resolvable;
@@ -416,6 +493,48 @@ float4 MeadowField(MeadowVertexOutput input, bool detail)
     float contact = present * resolvable * (1.0 - smoothstep(petalEdge, petalEdge * 1.45, radius));
     grass *= 1.0 - FLOWER_CONTACT_SHADOW * contact;
 
+    //THE SMALL FLOWERS (#609's third round). Every reference meadow is thick with tiny ones - daisies and buttercups in
+    //their hundreds, a few clover heads - under a scatter of big ones, and a grid of rosettes 2.2 units apart cannot be
+    //that. So a finer grid of plain discs under them: at the size they are drawn a ring of petals is a pixel or two,
+    //and a white disc with a yellow eye is what reads as a daisy. They follow the same drifts, mostly the patch's own
+    //kind where it is a daisy or a buttercup patch, and they keep off the path and the banks as the rosettes do. Past
+    //their resolution each drift keeps its colour as a tint instead of its flowers, which is what a flowering meadow
+    //looks like from a hill - so where the discs fade out the field does not go plain green.
+    //Only where they can be drawn, behind a branch on the footprint - a distance, so whole stretches of the frame
+    //take one side - and past that only the tint below, which needs no cell of its own: measured at 0.125 ms on the
+    //desktop's High with every pixel of the field walking the cell, and the far field is most of the pixels.
+    float smallDensity = saturate(FlowerDensity * SMALL_FLOWER_DENSITY * (0.2 + 2.6 * driftField * driftField))
+        * (1.0 - verge) * (1.0 - bank);
+    float smallResolvable = saturate(1.5 - footprint / (SMALL_FLOWER_RADIUS * 2.5));
+
+    [branch]
+    if (smallResolvable > 0.0)
+    {
+        float2 smallCell = floor(worldPosition.xz / SMALL_FLOWER_SPACING);
+        float2 smallWithin = frac(worldPosition.xz / SMALL_FLOWER_SPACING);
+        //Their kind: the patch's where it is daisies or buttercups, three in four; otherwise daisy, buttercup or clover
+        float smallKind = Hash21(smallCell + 13.1) < 0.75 && patchSpecies < 1.5 ? patchSpecies : floor(Hash21(smallCell + 29.3) * 2.99);
+        float3 smallColor = smallKind < 0.5 ? float3(0.95, 0.95, 0.9) : (smallKind < 1.5 ? float3(0.98, 0.8, 0.1) : float3(0.78, 0.36, 0.62));
+        float smallRadius = SMALL_FLOWER_RADIUS * (0.7 + 0.6 * Hash21(smallCell + 5.1)) / SMALL_FLOWER_SPACING;
+        float2 smallCentre = smallRadius + float2(Hash21(smallCell + 1.3), Hash21(smallCell + 2.7)) * (1.0 - 2.0 * smallRadius);
+        float smallDistance = length(smallWithin - smallCentre);
+        //No derivative inside the branch: the footprint is the field's own, taken before any of them
+        float smallAa = footprint / SMALL_FLOWER_SPACING + 1e-4;
+        float smallMask = step(1.0 - smallDensity, Hash21(smallCell + 71.3)) * smallResolvable
+            * (1.0 - smoothstep(smallRadius - smallAa, smallRadius + smallAa, smallDistance));
+        //A daisy's yellow eye
+        smallColor = lerp(smallColor, float3(0.98, 0.74, 0.12), (smallKind < 0.5 ? 1.0 : 0.0)
+            * (1.0 - smoothstep(smallRadius * 0.35 - smallAa, smallRadius * 0.35 + smallAa, smallDistance)));
+        grass = lerp(grass, smallColor, smallMask);
+    }
+
+    //And the drift's colour where they are too small to draw: their mean cover (a disc of the mean radius in its cell,
+    //times how many cells carry one, a little over), in the patch's own colour rather than a cell's - a cell is under
+    //a pixel by then, and its colour would be a speckle. A daisy drift pales the field, a buttercup one yellows it.
+    float3 driftTint = patchSpecies < 0.5 ? float3(0.95, 0.95, 0.9) : (patchSpecies < 1.5 ? float3(0.98, 0.8, 0.1) : float3(0.9, 0.75, 0.8));
+    float meanRadius = SMALL_FLOWER_RADIUS / SMALL_FLOWER_SPACING;
+    grass = lerp(grass, driftTint, smallDensity * 3.14159 * meanRadius * meanRadius * (1.0 - smallResolvable) * 2.5);
+
     grass = lerp(grass, flowerColor, flowerMask);
 
     //The brook's bank: the grass darkens and goes muddy towards the water
@@ -466,20 +585,72 @@ float4 MeadowField(MeadowVertexOutput input, bool detail)
         * SunColor * lerp(grass, GrassTipColor, 0.6);
 
     //THE WATER (#609): a thin sheet over a dark bed, mostly the sky it mirrors - more of it towards grazing,
-    //the Fresnel every still water has - broken by ripples running downstream and glinting where they face the sun
+    //the Fresnel every still water has - broken by ripples running downstream and glinting where they face the sun.
+    //DOWNSTREAM IS TOWARDS THE ARENA since the pond (#609's third round): the brook comes down off the hills into the
+    //pond in the clearing, where until then its ripples ran away from the arena - uphill. The pond itself lies still
+    //but for the wind's cat's-paws, its shallows showing the bed, and on one side it carries lily pads.
     [branch]
     if (water > 0.0)
     {
-        float2 flowDir = normalize(worldPosition.xz + 1e-3);
-        float2 rippleDomain = worldPosition.xz * 1.6 - flowDir * MeadowTime * 1.2;
-        float2 slope = float2(GradientNoise2(rippleDomain), GradientNoise2(rippleDomain * 1.7 + 4.2)) * 0.18;
+        float2 slope = 0.0;
+        [branch]
+        if (pondWater < 1.0)
+        {
+            float2 flowDir = normalize(worldPosition.xz + 1e-3);
+            float2 rippleDomain = worldPosition.xz * 1.6 + flowDir * MeadowTime * 1.2;
+            slope = float2(GradientNoise2(rippleDomain), GradientNoise2(rippleDomain * 1.7 + 4.2)) * (0.18 * (1.0 - pondWater));
+        }
+        [branch]
+        if (pondWater > 0.0)
+        {
+            //Fine and faint: at 0.05 of slope a unit across, the first pond read as a choppy grey sheet from the bank
+            float2 stillDomain = worldPosition.xz * 2.4 - WindDirection * MeadowTime * 0.5;
+            slope += float2(GradientNoise2(stillDomain), GradientNoise2(stillDomain * 1.9 + 7.1)) * (0.018 * pondWater);
+        }
         float3 waterNormal = normalize(float3(slope.x, 1.0, slope.y));
         float3 reflected = reflect(-toCamera, waterNormal);
-        float3 sky = lerp(HorizonColor, ZenithColor, saturate(reflected.y * 2.0 + 0.45)) * float3(0.62, 0.72, 0.82);
+        float3 sky = lerp(HorizonColor, ZenithColor, saturate(reflected.y * 2.0 + 0.45));
+
+        //AND THE CLOUDS IN IT (#609's third round): every reference pond mirrors the white cumulus over it, and the
+        //sky here is one cloud plane the sky shader draws and the ground's shadows come from (Clouds.fxh) - so the
+        //reflected ray crosses that same plane, and the cloud in the water is the cloud overhead. The weather layer
+        //alone, two octaves; its lit colour is the sun's over the horizon's, without the sky shader's own shading.
+        [branch]
+        if (reflected.y > 0.02)
+        {
+            float2 cloudAt = worldPosition.xz + reflected.xz * ((CloudPlaneY - worldPosition.y) / reflected.y);
+            sky = lerp(sky, SunColor * 0.5 + HorizonColor * 0.55, CloudCover(cloudAt));
+        }
+        sky *= float3(0.62, 0.72, 0.82);
         float fresnel = 0.08 + 0.62 * pow(1.0 - saturate(dot(waterNormal, toCamera)), 4.0);
         float glint = pow(saturate(dot(reflected, SunDirection)), 180.0) * sunlight;
-        float3 waterColor = lerp(BROOK_BED * (skyAmbient * AmbientStrength + SunColor * 0.4 * sunlight), sky, fresnel)
+        float3 bed = lerp(POND_SHALLOW_BED, BROOK_BED, pondWater > 0.0 ? pondDepth : 1.0);
+        float3 waterColor = lerp(bed * (skyAmbient * AmbientStrength + SunColor * 0.4 * sunlight), sky, fresnel)
             + SunColor * glint * 2.0;
+
+        //The lily pads: a round leaf with its notch, one a cell where the pads grow, a few in flower
+        [branch]
+        if (pondWater > 0.0)
+        {
+            float lilies = smoothstep(0.05, 0.35, GradientNoise2(worldPosition.xz * 0.09 + 11.0)) * saturate(pondDepth * 2.0);
+            float2 padCell = floor(worldPosition.xz / LILY_SPACING);
+            float padRadius = 0.28 + 0.14 * Hash21(padCell + 8.1);
+            float2 padCentre = (float2(Hash21(padCell + 1.7), Hash21(padCell + 2.9)) - 0.5) * (1.0 - 2.0 * padRadius);
+            float2 dp = frac(worldPosition.xz / LILY_SPACING) - 0.5 - padCentre;
+            float padDistance = length(dp);
+            //No derivative inside the branch: the footprint is the field's own, taken before any of them
+            float padAa = footprint / LILY_SPACING + 1e-4;
+            float notchBearing = Hash21(padCell + 4.4) * 6.2831853;
+            float2 notchDir = float2(cos(notchBearing), sin(notchBearing));
+            float notch = step(0.0, dot(dp, notchDir))
+                * (1.0 - smoothstep(padDistance * 0.2 - padAa, padDistance * 0.2 + padAa, abs(dp.x * notchDir.y - dp.y * notchDir.x)));
+            float pad = (1.0 - smoothstep(padRadius - padAa, padRadius + padAa, padDistance)) * (1.0 - notch)
+                * step(1.0 - 0.7 * lilies, Hash21(padCell + 5.3)) * pondWater;
+            float bloom = (1.0 - smoothstep(padRadius * 0.35 - padAa, padRadius * 0.35 + padAa, padDistance))
+                * step(0.85, Hash21(padCell + 6.6));
+            float3 padColor = lerp(LILY_PAD * (0.8 + 0.4 * Hash21(padCell + 3.7)), LILY_FLOWER, bloom);
+            waterColor = lerp(waterColor, padColor * (skyAmbient * AmbientStrength + SunColor * saturate(SunDirection.y) * sunlight), pad);
+        }
         color = lerp(color, waterColor, water);
     }
 

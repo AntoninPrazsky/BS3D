@@ -105,6 +105,15 @@ namespace Prazsky.Core.Render
             _meadowEffect.Parameters["BrookBearing"].SetValue(_meadowConfig.BrookBearing);
             _meadowEffect.Parameters["BrookWidth"].SetValue(_meadowConfig.BrookWidth);
             _meadowEffect.Parameters["BrookMeander"].SetValue(_meadowConfig.BrookMeander);
+            //The pond the brook runs into and the knoll the path climbs to its tree (#609's third round)
+            (float pondX, float pondZ) = MeadowPath.PondCentre(_meadowConfig);
+            _meadowEffect.Parameters["PondCentre"].SetValue(new Vector2(pondX, pondZ));
+            _meadowEffect.Parameters["PondRadius"].SetValue(_meadowConfig.PondRadius);
+            _meadowEffect.Parameters["PondLevel"].SetValue(TerrainMirror.MeadowNatural(pondX, pondZ, _meadowConfig));
+            (float knollX, float knollZ) = MeadowPath.PathEnd(_meadowConfig);
+            _meadowEffect.Parameters["KnollCentre"].SetValue(new Vector2(knollX, knollZ));
+            _meadowEffect.Parameters["KnollRadius"].SetValue(_meadowConfig.KnollRadius);
+            _meadowEffect.Parameters["KnollHeight"].SetValue(_meadowConfig.KnollHeight);
         }
 
         /// <inheritdoc/>
@@ -145,8 +154,8 @@ namespace Prazsky.Core.Render
             _plants.DrawShadowCasters(shadowViewProjection, _scatter.Buckets);
         }
 
-        /// <summary>The oaks, for the meadow's intro (#609).</summary>
-        public IReadOnlyList<PlantFigure> Oaks => _scatter?.Oaks;
+        /// <summary>The old trees, for a camera to point at (#609).</summary>
+        public IReadOnlyList<PlantFigure> Trees => _scatter?.Trees;
 
         /// <inheritdoc/>
         public override void Dispose()

@@ -40,7 +40,8 @@ float DappleStrength;
 float BarkStrength;
 
 //1 for the acacias' leaf-spray cards (#610), 0 for every other mesh: the leaflets are cut out of each card here,
-//both of its sides are lit, and the sun comes through it. See LeafMask and AcaciaMesh's LeafSprays.
+//both of its sides are lit, and the sun comes through it. See LeafMask and AcaciaMesh's LeafSprays. 2 for the
+//meadow's old trees (#609's third round), whose cards are twigs of broad leaves instead - see BroadLeafMask.
 float LeafStrength;
 
 //The distance the plant melts into the skyline over - Savanna.fx's own HorizonHazeDistance, handed over so a
@@ -143,6 +144,51 @@ float LeafMask(float2 uv, float2 seed)
     return lerp(fine, coarse, smoothstep(0.35, 0.8, blur));
 }
 
+//--- BROAD LEAVES (#609's third round). The meadow's old trees wear the same cards round their clumps (MeadowTreeMesh),
+//LeafStrength 2, and a card is a twig of broad leaves rather than a spray of leaflets: eight leaves up a stem, turned
+//out from it on alternate sides, and one at its tip, each an ellipse. The card is square, so its texture space is
+//the world's and a leaf is the shape it is drawn. Past the leaves' resolution it turns into the twig's filled round,
+//as a spray turns into its outline.
+static const float BROAD_LEAF_HALF_LENGTH = 0.13;  //as a share of the card
+static const float BROAD_LEAF_HALF_WIDTH = 0.065;
+static const float BROAD_STEM_HALF = 0.015;
+static const int BROAD_LEAVES = 9;
+
+float BroadLeafMask(float2 uv)
+{
+    float layer = floor(uv.y * 0.5);
+    float2 p = float2(uv.x, uv.y - 2.0 * layer - 0.5);     //x along the stem 0..1, y across it -0.5..0.5
+    float fine = (BROAD_STEM_HALF - abs(p.y)) * 20.0 * step(p.x, 0.74);
+
+    [unroll]
+    for (int i = 0; i < BROAD_LEAVES; i++)
+    {
+        //Eight on alternate sides up the stem, leaning out towards the tip and shorter towards it; the last straight on
+        bool tip = i == BROAD_LEAVES - 1;
+        float side = tip ? 0.0 : ((i & 1) ? -1.0 : 1.0);
+        float2 dir = tip ? float2(1.0, 0.0) : float2(0.55, 0.835 * side);
+        float2 centre = float2(tip ? 0.74 : 0.08 + 0.08 * i, 0.0) + dir * BROAD_LEAF_HALF_LENGTH;
+        float2 d = p - centre;
+        float2 q = float2(dot(d, dir), dot(d, float2(-dir.y, dir.x)));
+        fine = max(fine, 1.0 - (q.x * q.x) / (BROAD_LEAF_HALF_LENGTH * BROAD_LEAF_HALF_LENGTH)
+            - (q.y * q.y) / (BROAD_LEAF_HALF_WIDTH * BROAD_LEAF_HALF_WIDTH));
+    }
+
+    float coarse = (0.4 - length(p - float2(0.5, 0.0))) * 2.5;
+    float blur = fwidth(p.x) * 9.0;
+    return lerp(fine, coarse, smoothstep(0.35, 0.8, blur));
+}
+
+//Which cut a card takes: the draw says, one side for every pixel of it, so the derivatives inside either are
+//taken by every pixel of a quad alike
+float CardMask(float2 uv, float2 seed)
+{
+    [branch]
+    if (LeafStrength > 1.5)
+        return BroadLeafMask(uv);
+    return LeafMask(uv, seed);
+}
+
 struct AcaciaVertexInput
 {
     float4 Position : POSITION0;
@@ -201,7 +247,7 @@ float4 AcaciaPS(AcaciaVertexOutput input, bool front : SV_IsFrontFace) : COLOR
     [branch]
     if (LeafStrength > 0.0)
     {
-        clip(LeafMask(input.UV, input.Seed));
+        clip(CardMask(input.UV, input.Seed));
         N = front ? N : -N;
         layerShade = 1.0 - LAYER_AMBIENT_FALL * saturate(floor(input.UV.y * 0.5) * 0.5);
         leaf = 1.0;
@@ -316,7 +362,7 @@ float4 ShadowPS(ShadowVertexOutput input) : COLOR
     //The leaf sprays cast their leaflets, not their cards (#610): the dapple under the umbrella
     [branch]
     if (LeafStrength > 0.0)
-        clip(LeafMask(input.UV, input.Seed));
+        clip(CardMask(input.UV, input.Seed));
 
     return float4(input.Depth, 0.0, 0.0, 1.0);
 }

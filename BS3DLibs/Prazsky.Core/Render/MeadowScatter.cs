@@ -10,7 +10,9 @@ namespace Prazsky.Core.Render
     /// the scene is boring; maybe some shrubs, a little path, a fence, maybe even a brook"</i>. The references
     /// (<c>C:\Users\panrd\AI\sd\out\609-klein</c> and <c>609-zimage</c>) put the same few things in every ordinary
     /// meadow: a lone broad oak, hedgerows along the field edges, round hay bales, a weathered post-and-rail fence,
-    /// mossy boulders, and grass that stands up in tufts. This plants them on the field <c>Meadow.fx</c> draws —
+    /// mossy boulders, and grass that stands up in tufts. The third round (2026-09-29) added what the brook and the path
+    /// arrive at — a pond with reeds and willows, an old oak on a knoll with a bench under it — and grew the trees
+    /// again from references, old and tall (<see cref="MeadowTreeMesh"/>). This plants them on the field <c>Meadow.fx</c> draws —
     /// every height off <see cref="TerrainMirror.Meadow"/> — outside the arena's flat clearing, as static instance
     /// buckets the savanna's own path draws (<see cref="ScatterBucket"/>, <c>Acacia.fx</c>).
     /// <para>
@@ -28,7 +30,7 @@ namespace Prazsky.Core.Render
         //hills rise over the next 140 (MeadowSceneConfig), so the play camera sees the rise and the tops.
         private const float INNER = 70f;             //nothing nearer than this (the island is 26 across the radius)
         private const float OUTER = 460f;
-        private const int OAKS = 9, SHRUBS = 55, BALES = 14, BOULDERS = 18, TUFTS = 700;
+        private const int TREES = 12, SHRUBS = 55, BALES = 14, BOULDERS = 18, TUFTS = 700;
         private const int HEDGEROWS = 5, FENCES = 2;
         private const int BERM_STONES = 16, BERM_TUFTS = 120;
 
@@ -38,6 +40,10 @@ namespace Prazsky.Core.Render
         private static readonly Vector3 OAK_LEAF = new(0.100f, 0.210f, 0.045f);
         private static readonly Vector3 OAK_LEAF_DRY = new(0.160f, 0.240f, 0.060f);
         private static readonly Vector3 OAK_BARK = new(0.120f, 0.100f, 0.080f);
+        //A willow's silver-green, paler and greyer than the oaks' (#609's third round)
+        private static readonly Vector3 WILLOW_LEAF = new(0.140f, 0.210f, 0.090f);
+        private static readonly Vector3 WILLOW_LEAF_DRY = new(0.180f, 0.230f, 0.110f);
+        private static readonly Vector3 BENCH_WOOD = new(0.200f, 0.150f, 0.095f);
         private static readonly Vector3 SHRUB = new(0.085f, 0.200f, 0.040f);
         private static readonly Vector3 SHRUB_DRY = new(0.140f, 0.220f, 0.055f);
         private static readonly Vector3 STRAW = new(0.55f, 0.43f, 0.19f);
@@ -53,8 +59,8 @@ namespace Prazsky.Core.Render
         /// <summary>One instanced draw each, in <c>Acacia.fx</c>, as the savanna's.</summary>
         public ScatterBucket[] Buckets { get; }
 
-        /// <summary>The lone oaks, for a camera to point at (the meadow's intro, a later step of #609).</summary>
-        public IReadOnlyList<PlantFigure> Oaks { get; }
+        /// <summary>The old trees, for a camera to point at — the one on the knoll first (#609's third round).</summary>
+        public IReadOnlyList<PlantFigure> Trees { get; }
 
         /// <param name="config">The meadow: its field (<see cref="TerrainMirror.Meadow"/>) and its footpath
         /// (<see cref="MeadowPath"/>) — nothing is planted on the path, and the first fence runs along it.</param>
@@ -66,12 +72,13 @@ namespace Prazsky.Core.Render
             Random rng = new(seed);
             var occupied = new List<(float X, float Z, float R)>();
             var buckets = new List<ScatterBucket>();
-            var oakFigures = new List<PlantFigure>();
+            var treeFigures = new List<PlantFigure>();
 
             bool Free(float x, float z, float r)
             {
                 if (MathF.Abs(pathLateral(x, z)) < r + PATH_CLEARANCE) return false;
                 if (MathF.Abs(MeadowPath.BrookLateral(x, z, config)) < r + config.BrookWidth) return false;
+                if (MeadowPath.PondShore(x, z, config) < r + POND_CLEARANCE) return false;
                 foreach ((float ox, float oz, float or) in occupied)
                     if ((ox - x) * (ox - x) + (oz - z) * (oz - z) < (or + r) * (or + r)) return false;
                 return true;
@@ -94,24 +101,63 @@ namespace Prazsky.Core.Render
 
             float Jitter() => (float)(rng.NextDouble() - 0.5) * 0.2f;
 
-            //--- The oaks: three trees at rolled proportions, a lobed broad crown on a short thick trunk
-            var oakMeshes = new OakMesh[3];
-            var oakInstances = new List<ModelInstance>[3];
-            for (int m = 0; m < oakMeshes.Length; m++)
+            //--- The old trees (#609's third round): two oaks, two limes and a willow, grown from references
+            //(MeadowTreeMesh) - the second round's lumpy oaks of 14 units stood out on the rise past 130 and the owner
+            //found no tree in the meadow at all
+            var treeMeshes = new[]
             {
-                oakMeshes[m] = Own(new OakMesh(device, 6090 + m));
-                oakInstances[m] = new List<ModelInstance>();
+                Own(new MeadowTreeMesh(device, MeadowTreeKind.Oak, 6090)),
+                Own(new MeadowTreeMesh(device, MeadowTreeKind.Oak, 6091)),
+                Own(new MeadowTreeMesh(device, MeadowTreeKind.Lime, 6092)),
+                Own(new MeadowTreeMesh(device, MeadowTreeKind.Lime, 6093)),
+                Own(new MeadowTreeMesh(device, MeadowTreeKind.Willow, 6094)),
+            };
+            const int WILLOW = 4;
+            var treeInstances = new List<ModelInstance>[treeMeshes.Length];
+            for (int m = 0; m < treeMeshes.Length; m++) treeInstances[m] = new List<ModelInstance>();
+
+            void PlantTree(int m, float x, float z, float scale)
+            {
+                MeadowTreeMesh tree = treeMeshes[m];
+                ModelInstance planted = At(x, z, scale, (float)rng.NextDouble() * MathHelper.TwoPi, 0.35f * scale,
+                    0.3f * (float)rng.NextDouble(), Jitter());
+                treeInstances[m].Add(planted);
+                treeFigures.Add(PlantFigure.Of(tree.Crown.BoundingSphere, planted.World, tree.BaseRadius));
+                occupied.Add((x, z, tree.CrownReach * scale * 0.75f));
             }
-            for (int i = 0, tries = 0; i < OAKS && tries < 400; tries++)
+
+            //Where the footpath arrives: the biggest oak on the knoll's top, a bench under it looking back over the
+            //clearing, the ground round its foot trodden bare (Meadow.fx) - every reference of a path to a tree
+            (float knollX, float knollZ) = MeadowPath.PathEnd(config);
+            PlantTree(0, knollX, knollZ, 1.15f);
+            var benchInstances = new List<ModelInstance>();
             {
-                (float x, float z) = Site(130f, OUTER);
-                if (!Free(x, z, 12f)) continue;
-                occupied.Add((x, z, 12f));
-                int m = rng.Next(oakMeshes.Length);
-                float scale = 0.85f + 0.35f * (float)rng.NextDouble();
-                ModelInstance planted = At(x, z, scale, (float)rng.NextDouble() * MathHelper.TwoPi, 0.3f, (float)rng.NextDouble(), Jitter());
-                oakInstances[m].Add(planted);
-                oakFigures.Add(PlantFigure.Of(oakMeshes[m].Crown.BoundingSphere, planted.World, 1.1f * scale));
+                float toArena = MathF.Atan2(-knollZ, -knollX);
+                float side = toArena + 0.55f;
+                float bx = knollX + MathF.Cos(side) * BENCH_OUT, bz = knollZ + MathF.Sin(side) * BENCH_OUT;
+                //The bench's seat runs along its X; it faces +Z, turned to face the arena
+                benchInstances.Add(At(bx, bz, 1f, MathF.PI * 0.5f - toArena, 0.05f, 0f, 0f));
+            }
+
+            //By the pond: willows on its far side from the arena, where the brook comes in
+            (float pondX, float pondZ) = MeadowPath.PondCentre(config);
+            float awayFromArena = MathF.Atan2(pondZ, pondX);
+            foreach (float turn in new[] { -0.75f, 0.95f })
+            {
+                float a = awayFromArena + turn;
+                float reach = config.PondRadius * MeadowPath.PondOutline(a) + WILLOW_FROM_SHORE;
+                PlantTree(WILLOW, pondX + MathF.Cos(a) * reach, pondZ + MathF.Sin(a) * reach, 0.9f + 0.2f * (float)rng.NextDouble());
+            }
+
+            //And out on the rise, oaks and limes - a few near enough to the clearing to stand tall over the play
+            for (int i = 0, tries = 0; i < TREES && tries < 600; tries++)
+            {
+                (float x, float z) = Site(i < 4 ? 95f : 130f, i < 4 ? 150f : OUTER);
+                int m = rng.Next(WILLOW);
+                float scale = 0.9f + 0.25f * (float)rng.NextDouble();
+                float room = treeMeshes[m].CrownReach * scale * 0.75f;
+                if (!Free(x, z, room)) continue;
+                PlantTree(m, x, z, scale);
                 i++;
             }
 
@@ -250,6 +296,9 @@ namespace Prazsky.Core.Render
             for (float d = config.ClearingRadius * MeadowPath.BROOK_START + 4f; d < 420f; d += 1.6f + 1.8f * (float)rng.NextDouble())
             {
                 float side = rng.Next(2) == 0 ? -1f : 1f;
+                //Not in the pond, whose own shore is planted below
+                (float cx, float cz) = MeadowPath.BrookPoint(d, 0f, config);
+                if (MeadowPath.PondShore(cx, cz, config) < config.BrookWidth) continue;
                 if (rng.NextDouble() < 0.45)
                 {
                     (float sx, float sz) = MeadowPath.BrookPoint(d, side * (config.BrookWidth * 0.5f + 0.2f), config);
@@ -261,6 +310,39 @@ namespace Prazsky.Core.Render
                     0.3f * (float)rng.NextDouble(), Jitter()));
             }
             IProceduralMesh reeds = Own(new GrassTuftMesh(device, 0.3f, 2.2f, 6130));
+
+            //The pond's shore (#609's third round), as the references draw it: reeds in clumps round part of it,
+            //standing in the shallows as much as on the bank, flat stones between the clumps, and the grass to the
+            //water's edge elsewhere
+            for (float a = 0f; a < MathHelper.TwoPi; a += 0.09f + 0.08f * (float)rng.NextDouble())
+            {
+                float shore = config.PondRadius * MeadowPath.PondOutline(a);
+                float clump = MathF.Sin(a * 3f + 1.3f) + 0.6f * MathF.Sin(a * 7f + 0.4f);
+                if (clump > 0.1f)
+                {
+                    for (int k = 0; k < 2 + rng.Next(3); k++)
+                    {
+                        float r = shore + (float)(rng.NextDouble() * 2.4 - 0.9);
+                        float b = a + ((float)rng.NextDouble() - 0.5f) * 0.08f;
+                        float rx = pondX + MathF.Cos(b) * r, rz = pondZ + MathF.Sin(b) * r;
+                        float size = 0.9f + 0.9f * (float)rng.NextDouble(), yaw = (float)rng.NextDouble() * MathHelper.TwoPi;
+                        float lean = 0.3f * (float)rng.NextDouble(), jitter = Jitter();
+                        //Not across the brook's mouth, where it comes in
+                        if (MathF.Abs(MeadowPath.BrookLateral(rx, rz, config)) < config.BrookWidth * 0.5f + 0.6f) continue;
+                        reedInstances.Add(At(rx, rz, size, yaw, 0.1f, lean, jitter));
+                    }
+                }
+                else if (rng.NextDouble() < 0.3)
+                {
+                    float r = shore + 0.2f + 0.5f * (float)rng.NextDouble();
+                    float size = 0.35f + 0.55f * (float)rng.NextDouble();
+                    float sx = pondX + MathF.Cos(a) * r, sz = pondZ + MathF.Sin(a) * r;
+                    int variant = rng.Next(3);
+                    float yaw = (float)rng.NextDouble() * MathHelper.TwoPi, jitter = Jitter();
+                    if (MathF.Abs(MeadowPath.BrookLateral(sx, sz, config)) >= config.BrookWidth * 0.5f + 0.6f)
+                        rockInstances[variant].Add(At(sx, sz, size, yaw, size * 0.35f, 0f, jitter));
+                }
+            }
 
             //--- The bank the island sits in (#608): turf over earth round the foot, a few stones set into it and
             //longer grass along its edge, so the stone meets the field as a place and not as a disc laid on it
@@ -291,17 +373,36 @@ namespace Prazsky.Core.Render
                 (float x, float z) = i < BERM_TUFTS / 2 ? Site(ArenaIsland.RADIUS + 0.2f, ArenaIsland.RADIUS + 1.2f)
                     : i < BERM_TUFTS ? Site(IslandBerm.STONE_RADIUS_MAX - 0.5f, IslandBerm.STONE_RADIUS_MAX + 2.5f)
                     : Site(ArenaIsland.RADIUS + 12f, 260f);
+                //Never in the water, on the trodden path or on the bare ground under the old tree (#609's third round)
+                if (MeadowPath.PondShore(x, z, config) < 0.3f || MathF.Abs(MeadowPath.BrookLateral(x, z, config)) < config.BrookWidth * 0.6f
+                    || MathF.Abs(pathLateral(x, z)) < config.PathWidth * 0.6f
+                    || (x - knollX) * (x - knollX) + (z - knollZ) * (z - knollZ) < TREE_BARE * TREE_BARE)
+                    continue;
                 tuftInstances[rng.Next(3)].Add(At(x, z, 0.8f + 0.7f * (float)rng.NextDouble(), (float)rng.NextDouble() * MathHelper.TwoPi,
                     0.05f, (float)rng.NextDouble() * 0.6f, Jitter()));
             }
 
             //--- The buckets
-            for (int m = 0; m < oakMeshes.Length; m++)
+            for (int m = 0; m < treeMeshes.Length; m++)
             {
-                if (oakInstances[m].Count == 0) continue;
-                buckets.Add(new ScatterBucket(device, oakMeshes[m].Wood, oakInstances[m], OAK_BARK, OAK_BARK * 1.2f, dapple: 0f, bark: 0.6f, detailOnly: false));
-                buckets.Add(new ScatterBucket(device, oakMeshes[m].Crown, oakInstances[m], OAK_LEAF, OAK_LEAF_DRY, dapple: 0.7f, bark: 0f, detailOnly: false));
+                if (treeInstances[m].Count == 0) continue;
+                MeadowTreeMesh tree = treeMeshes[m];
+                Vector3 leaf = m == WILLOW ? WILLOW_LEAF : OAK_LEAF, leafDry = m == WILLOW ? WILLOW_LEAF_DRY : OAK_LEAF_DRY;
+                buckets.Add(new ScatterBucket(device, tree.Wood, treeInstances[m], OAK_BARK, OAK_BARK * 1.2f, dapple: 0f, bark: 0.6f, detailOnly: false));
+                //The solid lumps for the Low tier; a smaller core under leaf cards for every other (the acacias' #610 split).
+                //The lumps are what casts at every tier, the core and the cards never: measured on the desktop the cards
+                //cost 0.75 ms at High, most of it the sun's map clipping a hundred thousand of them a second time
+                buckets.Add(new ScatterBucket(device, tree.Crown, treeInstances[m], leaf, leafDry, dapple: 0.7f, bark: 0f,
+                    detailOnly: false, lowOnly: true, castsShadow: true));
+                //The core darker than the leaves: where it shows between cards it is the inside of the crown, its shade
+                buckets.Add(new ScatterBucket(device, tree.Core, treeInstances[m], leaf * 0.55f, leafDry * 0.55f, dapple: 0.6f, bark: 0f,
+                    detailOnly: true, castsShadow: false));
+                //Broad leaves, not the acacia's leaflets (LeafStrength 2, Acacia.fx's BroadLeafMask)
+                buckets.Add(new ScatterBucket(device, tree.Leaves, treeInstances[m], leaf, leafDry, dapple: 0f, bark: 0f,
+                    detailOnly: true, leaves: 2f, castsShadow: false));
             }
+            buckets.Add(new ScatterBucket(device, Own(BenchMesh(device)), benchInstances, BENCH_WOOD, BENCH_WOOD * 1.2f, dapple: 0f, bark: 0.35f,
+                detailOnly: false));
             for (int m = 0; m < shrubMeshes.Length; m++)
                 if (shrubInstances[m].Count > 0)
                     buckets.Add(new ScatterBucket(device, shrubMeshes[m], shrubInstances[m], SHRUB, SHRUB_DRY, dapple: 0.6f, bark: 0f, detailOnly: false));
@@ -323,7 +424,65 @@ namespace Prazsky.Core.Render
 
             foreach (ScatterBucket b in buckets) _owned.Add(b);
             Buckets = buckets.ToArray();
-            Oaks = oakFigures;
+            Trees = treeFigures;
+        }
+
+        //How far everything keeps off the pond's shore, past its own reach, and how far out of the water the willows stand
+        private const float POND_CLEARANCE = 4f;
+        private const float WILLOW_FROM_SHORE = 3.5f;
+
+        //The bench under the old tree: how far from the trunk's axis it stands. The bare ground round the foot is
+        //Meadow.fx's TREE_BARE, which the grass tufts keep off.
+        private const float BENCH_OUT = 6f;
+        private const float TREE_BARE = 4.8f;
+
+        /// <summary>
+        /// A plain wooden bench (#609's third round), the references' bench under the tree at a path's end: a seat of
+        /// two planks along X on four legs, a back of one plank behind it, facing +Z.
+        /// </summary>
+        private static UploadedMesh BenchMesh(GraphicsDevice device)
+        {
+            var v = new List<VertexPositionNormalTexture>();
+            var idx = new List<short>();
+            const float LENGTH = 1.9f, SEAT = 0.46f;
+            AddBox(v, idx, new Vector3(0f, SEAT, 0.1f), new Vector3(LENGTH * 0.5f, 0.035f, 0.11f));
+            AddBox(v, idx, new Vector3(0f, SEAT, -0.14f), new Vector3(LENGTH * 0.5f, 0.035f, 0.11f));
+            AddBox(v, idx, new Vector3(0f, SEAT + 0.42f, -0.3f), new Vector3(LENGTH * 0.5f, 0.1f, 0.03f));
+            foreach (float x in new[] { -LENGTH * 0.4f, LENGTH * 0.4f })
+            {
+                AddBox(v, idx, new Vector3(x, SEAT * 0.5f - 0.1f, 0.14f), new Vector3(0.05f, SEAT * 0.5f + 0.1f, 0.05f));
+                AddBox(v, idx, new Vector3(x, (SEAT + 0.52f) * 0.5f - 0.1f, -0.3f), new Vector3(0.05f, (SEAT + 0.52f) * 0.5f + 0.1f, 0.05f));
+            }
+            return new UploadedMesh(device, v, idx, new BoundingSphere(new Vector3(0f, 0.5f, 0f), 1.3f));
+        }
+
+        /// <summary>
+        /// An axis-aligned box, its faces wound clockwise seen from outside (CLAUDE.md, "Triangle winding"): on each
+        /// face (u, w) span it with u × w the outward normal, and the triangles run (−u−w, −u+w, +u+w), whose
+        /// (b − a) × (c − a) is w × u — the inward normal, which is what this renderer draws as the front.
+        /// </summary>
+        private static void AddBox(List<VertexPositionNormalTexture> v, List<short> idx, Vector3 centre, Vector3 half)
+        {
+            (Vector3 N, Vector3 U, Vector3 W)[] faces =
+            {
+                (Vector3.UnitX, Vector3.UnitY, Vector3.UnitZ), (-Vector3.UnitX, Vector3.UnitZ, Vector3.UnitY),
+                (Vector3.UnitY, Vector3.UnitZ, Vector3.UnitX), (-Vector3.UnitY, Vector3.UnitX, Vector3.UnitZ),
+                (Vector3.UnitZ, Vector3.UnitX, Vector3.UnitY), (-Vector3.UnitZ, Vector3.UnitY, Vector3.UnitX),
+            };
+            foreach ((Vector3 n, Vector3 u, Vector3 w) in faces)
+            {
+                Vector3 c = centre + n * Vector3.Dot(half, Abs(n));
+                Vector3 du = u * Vector3.Dot(half, Abs(u)), dw = w * Vector3.Dot(half, Abs(w));
+                short b = (short)v.Count;
+                v.Add(new VertexPositionNormalTexture(c - du - dw, n, Vector2.Zero));
+                v.Add(new VertexPositionNormalTexture(c - du + dw, n, Vector2.UnitY));
+                v.Add(new VertexPositionNormalTexture(c + du + dw, n, Vector2.One));
+                v.Add(new VertexPositionNormalTexture(c + du - dw, n, Vector2.UnitX));
+                idx.Add(b); idx.Add((short)(b + 1)); idx.Add((short)(b + 2));
+                idx.Add(b); idx.Add((short)(b + 2)); idx.Add((short)(b + 3));
+            }
+
+            static Vector3 Abs(Vector3 a) => new(MathF.Abs(a.X), MathF.Abs(a.Y), MathF.Abs(a.Z));
         }
 
         //A fence segment's length, post to post, in world units
@@ -361,58 +520,6 @@ namespace Prazsky.Core.Render
             foreach (float y in new[] { 0.55f, 1.05f })
                 TubeGeometry.AddTube(v, idx, 5, new Vector3(-0.05f, y, 0.06f), 0.055f, new Vector3(FENCE_SPAN + 0.05f, y, 0.06f), 0.055f);
             return new UploadedMesh(device, v, idx, new BoundingSphere(new Vector3(FENCE_SPAN * 0.5f, 0.6f, 0f), FENCE_SPAN * 0.6f));
-        }
-
-        /// <summary>
-        /// A lone field oak, as the references draw one: a short thick trunk forking into a few spreading boughs under
-        /// a broad crown of several lumpy masses — never one smooth ellipsoid, which the forest's broadleaf crown is,
-        /// and which on a hill brow with its trunk out of sight read as a green pill floating in the sky.
-        /// </summary>
-        private sealed class OakMesh : IDisposable
-        {
-            public IProceduralMesh Wood { get; }
-            public IProceduralMesh Crown { get; }
-
-            public OakMesh(GraphicsDevice device, int seed)
-            {
-                Random rng = new(seed);
-                float trunkTop = 4.2f + 1.2f * (float)rng.NextDouble();
-                float crownY = trunkTop + 5.5f;
-
-                var wv = new List<VertexPositionNormalTexture>();
-                var widx = new List<short>();
-                TubeGeometry.AddTube(wv, widx, 10, new Vector3(0f, -0.4f, 0f), 1.05f, new Vector3(0f, trunkTop, 0f), 0.75f);
-
-                var fv = new List<VertexPositionNormalTexture>();
-                var fidx = new List<short>();
-
-                //The lobes: one on top, the rest in a ring, each on its own bough from the fork
-                int lobes = 6 + rng.Next(2);
-                float phase = (float)rng.NextDouble() * MathHelper.TwoPi;
-                FoliageMesh.Generate(fv, fidx, 5.2f, 3.6f, new Vector3(0f, crownY + 2.2f, 0f), seed * 17 + 1, FoliageStyle.Crown);
-                for (int l = 0; l < lobes; l++)
-                {
-                    float a = phase + MathHelper.TwoPi * l / lobes + ((float)rng.NextDouble() - 0.5f) * 0.5f;
-                    float reach = 4.8f + 1.8f * (float)rng.NextDouble();
-                    float r = 3.4f + 1.3f * (float)rng.NextDouble();
-                    Vector3 centre = new(MathF.Cos(a) * reach, crownY - 0.5f + 1.8f * ((float)rng.NextDouble() - 0.3f), MathF.Sin(a) * reach);
-                    FoliageMesh.Generate(fv, fidx, r, r * 0.75f, centre, seed * 17 + 3 + l, FoliageStyle.Crown);
-
-                    //The bough into it, from the fork, ending well inside the mass
-                    Vector3 end = new Vector3(0f, crownY - 1.5f, 0f) + (centre - new Vector3(0f, crownY - 1.5f, 0f)) * 0.7f;
-                    TubeGeometry.AddTube(wv, widx, 7, new Vector3(0f, trunkTop - 0.4f, 0f), 0.5f, end, 0.2f);
-                }
-
-                BoundingSphere bounds = new(new Vector3(0f, crownY, 0f), 11.5f);
-                Wood = new UploadedMesh(device, wv, widx, bounds);
-                Crown = new UploadedMesh(device, fv, fidx, bounds);
-            }
-
-            public void Dispose()
-            {
-                (Wood as IDisposable)?.Dispose();
-                (Crown as IDisposable)?.Dispose();
-            }
         }
 
         private T Own<T>(T disposable) where T : IDisposable

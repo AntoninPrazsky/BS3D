@@ -59,5 +59,41 @@ namespace Prazsky.Core.Render
             float angle = config.BrookBearing + (BrookWander(d, config) + side) / d;
             return (MathF.Cos(angle) * d, MathF.Sin(angle) * d);
         }
+
+        /// <summary>
+        /// Where the pond the brook runs into lies (#609's third round): on the brook's centreline where its inner end
+        /// used to stop short in the grass, so the end is under the pond's water. <c>Meadow.fx</c> takes it as
+        /// <c>PondCentre</c>.
+        /// </summary>
+        public static (float X, float Z) PondCentre(MeadowSceneConfig config) =>
+            BrookPoint(config.ClearingRadius * BROOK_START, 0f, config);
+
+        /// <summary>
+        /// How far (x, z) stands outside the pond's shore, in world units, negative on the water — <c>Meadow.fx</c>'s
+        /// <c>PondShore</c>, less the ragged edge's noise (a third of a unit at most).
+        /// </summary>
+        public static float PondShore(float x, float z, MeadowSceneConfig config)
+        {
+            (float cx, float cz) = PondCentre(config);
+            float qx = x - cx, qz = z - cz;
+            return MathF.Sqrt(qx * qx + qz * qz) - config.PondRadius * PondOutline(MathF.Atan2(qz, qx));
+        }
+
+        /// <summary>The pond's shore as a multiple of its mean radius at bearing <paramref name="a"/> round its centre:
+        /// three harmonics, so it is a soft irregular round and never a circle.</summary>
+        public static float PondOutline(float a) =>
+            1f + 0.16f * MathF.Sin(2f * a + 0.7f) + 0.09f * MathF.Sin(3f * a + 2.3f) + 0.05f * MathF.Sin(5f * a + 4.1f);
+
+        /// <summary>
+        /// Where the footpath arrives (#609's third round): its centreline at its inner end, on the knoll's top, where
+        /// the old tree stands. The owner: "a path leads somewhere, to a tree or a small hill". <c>Meadow.fx</c> takes
+        /// it as <c>KnollCentre</c>.
+        /// </summary>
+        public static (float X, float Z) PathEnd(MeadowSceneConfig config)
+        {
+            float d = config.ClearingRadius * START;
+            float angle = config.PathBearing + Wander(d, config) / d;
+            return (MathF.Cos(angle) * d, MathF.Sin(angle) * d);
+        }
     }
 }
