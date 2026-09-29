@@ -7041,3 +7041,9 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-29 — #619 okna se rozsvěcí rychleji — notebook, Claude Code (github-7f)
 
 - **Beru dodělek #619** (majitelův verdikt dnes 11:07: „okna se mohou rozsvěcet rychleji, jinak to vypadá dobře" — držení a rozptyl zůstávají, zrychlit se má samotný přechod, `WindowSwitchSeconds` 0,8 s). Soubory: `CitySceneConfig.WindowSwitchSeconds`, `City.fxh` jen čtu (fade = přechod / interval), `docs/scenes.md`. Zbytek #619 nedotčen (15 % neklidných oken, 4–10 min, neonové bzučení 1 z 20).
+
+## 2026-09-29 — #672 pád při Main Menu z výsledků, #649 #666 #664 louka — desktop, Claude Code (bs3d-78)
+
+- **#672 na mainu (nové, zavřené):** při reprodukci #669 hra spadla — výsledková stránka → Main Menu **klávesnicí nebo padem** → výjimka `BallRenderSet.DrawShadow` bez `BeginFrame` (jednosnímkový `DrawSetting` po zbourání session; od #470, tedy ve v0.2.0 i v0.2.1). `DrawSetting` teď otevírá prázdnou sbírku koulí. Myš tou cestou nejde.
+- **#669** je na větvi `669-line-touch`, zápis přijde s mergem.
+- **Beru blok louky: #649** (13 → 10 levelů, Amphora poslední), pak **#666** (lekce skóre do druhé kapitoly) a **#664** (souměrnost otvíráků). Soubory: `Tools/LevelGen/Cli.cs`, `Designs/Block01_Meadow.cs`, `Game/Levels/*`, `Game/Screens/Tutorial.cs`, docs. Na #665 (notebook) nesahám.
