@@ -57,6 +57,12 @@ namespace BS3D.Tools.MusicBake
         private const double MENU_RMS_DB = -19.5;
 
         /// <summary>
+        /// The pause's loop (#668) sits at the lobby's level: it is heard under a menu, as the lobby is, and the owner
+        /// asked for calm — the pause must never be louder than the front end it is a page of.
+        /// </summary>
+        private const double PAUSE_RMS_DB = MENU_RMS_DB;
+
+        /// <summary>
         /// Where the peak shaper starts, −1 dBFS. Above it a sample is bent into the remaining headroom along a
         /// tanh knee, so nothing reaches full scale; below it nothing is touched. It is memoryless — the same
         /// curve on every sample — which is what keeps a loop's seam exactly as seamless as the master's.
@@ -108,8 +114,8 @@ namespace BS3D.Tools.MusicBake
 
         /// <summary>
         /// Which masters are tracks, by NAME (#486; a table of eleven rows until then): <c>theme-&lt;track&gt;.wav</c>
-        /// becomes <c>Game/Music/&lt;track&gt;.ogg</c> at the themes' loudness, and the one master named here becomes
-        /// the front end's loop at the lobby's. Anything else in a masters folder — a reference render, a rejected
+        /// becomes <c>Game/Music/&lt;track&gt;.ogg</c> at the themes' loudness, and the two masters named here become
+        /// the front end's loop and the pause's (#668), both at the lobby's. Anything else in a masters folder — a reference render, a rejected
         /// take — is left alone. The game groups the files it finds into families by the name before the first
         /// dash (<c>ember-punk-03.ogg</c> is <c>ember</c>'s), so a new family or a new variant is a master with the
         /// right name and nothing here or in the game.
@@ -117,6 +123,11 @@ namespace BS3D.Tools.MusicBake
         private const string THEME_MASTER_PREFIX = "theme-";
         private const string MENU_MASTER = "menu-loop-v2";
         private const string MENU_TRACK = "menu";
+
+        //The pause's loop (#668): the master named here becomes Game/Music/pause.ogg, which GameMusic keeps out of the
+        //families and plays under the pause page
+        private const string PAUSE_MASTER = "pause-loop";
+        private const string PAUSE_TRACK = "pause";
 
         /// <summary>
         /// The tracks a masters folder holds, by the rule above: the master's path, the track it becomes and the
@@ -145,6 +156,7 @@ namespace BS3D.Tools.MusicBake
                     double rmsDb;
 
                     if (string.Equals(stem, MENU_MASTER, StringComparison.OrdinalIgnoreCase)) { track = MENU_TRACK; rmsDb = MENU_RMS_DB; }
+                    else if (string.Equals(stem, PAUSE_MASTER, StringComparison.OrdinalIgnoreCase)) { track = PAUSE_TRACK; rmsDb = PAUSE_RMS_DB; }
                     else if (stem.StartsWith(THEME_MASTER_PREFIX, StringComparison.OrdinalIgnoreCase) && stem.Length > THEME_MASTER_PREFIX.Length)
                     {
                         track = stem.Substring(THEME_MASTER_PREFIX.Length).ToLowerInvariant();
@@ -604,7 +616,7 @@ namespace BS3D.Tools.MusicBake
             List<(string Path, string Track, double RmsDb)> found = FindMasters(folders, only);
             if (found.Count == 0)
             {
-                Console.WriteLine($"MusicBake --tracks: no master named {THEME_MASTER_PREFIX}*.wav or {MENU_MASTER}.wav in {string.Join(", ", folders)}"
+                Console.WriteLine($"MusicBake --tracks: no master named {THEME_MASTER_PREFIX}*.wav, {MENU_MASTER}.wav or {PAUSE_MASTER}.wav in {string.Join(", ", folders)}"
                     + (only != null ? $" for --only {only}" : ""));
                 return 1;
             }

@@ -133,7 +133,9 @@ namespace BS3D.Audio
         /// <param name="wallClock">The clock the scene draws from.</param>
         /// <param name="onFrontEnd">True while no gameplay screen is on the stack.</param>
         /// <param name="sessionBuilt">Whether a level is standing, which is when returning to it re-wants its theme.</param>
-        internal void Update(float elapsed, SceneKind scene, SceneRenderer scenes, float wallClock, bool onFrontEnd, bool sessionBuilt)
+        /// <param name="paused">Whether the pause's own loop is wanted (#668): the pause is up over a level.</param>
+        internal void Update(float elapsed, SceneKind scene, SceneRenderer scenes, float wallClock, bool onFrontEnd, bool sessionBuilt,
+            bool paused)
         {
             //The music's feed: the sounding loop is queued again before the current pass ends, so the repeat is
             //seamless (see GameMusic.Update). Up with the fireworks and for the same reason — it has to keep
@@ -145,6 +147,10 @@ namespace BS3D.Audio
             //the music without anyone having to remember to say so (#443).
             _jukebox.Update(elapsed);
             _music.Yielding = _jukebox.HoldsPiece;
+
+            //And the pause's own music (#668), asked the same way: the stack says whether the pause is up, and every
+            //way out of it — Resume, Restart, Main Menu — is the stack changing
+            _music.Pausing = paused && !onFrontEnd;
 
             //The scene's bed and its crossfade, on the wall clock's frame like the clouds: the scene is on
             //screen whether or not a session stands, so its sound is too, pause included.
