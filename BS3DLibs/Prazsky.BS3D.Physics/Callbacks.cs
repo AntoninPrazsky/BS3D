@@ -203,6 +203,17 @@ namespace Prazsky.BS3D.Physics
 
             public Vector3 Gravity;
 
+            /// <summary>
+            /// The air's push on every awake body, as an acceleration in units per second squared (#95). Set by
+            /// <see cref="PhysicsWorld.Wind"/> before each step and added to gravity in the one broadcast
+            /// <see cref="PrepareForIntegration"/> already does, so a scene with no wind pays nothing and a scene with
+            /// some pays one vector addition a step, not one a body — the reason it can be a constant across the bundle
+            /// at all. It is <b>not gravity</b> and is kept a separate field so nothing reads it as one: gravity is
+            /// constant and the cluster hangs in it, while a wind that varies in time is what makes a hanging structure
+            /// sway (a constant one is absorbed by the sockets, and the cluster merely leans).
+            /// </summary>
+            public Vector3 Wind;
+
             public PoseIntegratorCallbacks(Vector3 gravity) : this()
             {
                 Gravity = gravity;
@@ -222,8 +233,9 @@ namespace Prazsky.BS3D.Physics
             /// <remarks>This is typically used for precomputing anything expensive that will be used across velocity integration.</remarks>
             public void PrepareForIntegration(float dt)
             {
-                //No reason to recalculate gravity * dt for every body; just cache it ahead of time.
-                gravityWideDt = Vector3Wide.Broadcast(Gravity * dt);
+                //No reason to recalculate gravity * dt for every body; just cache it ahead of time. The wind rides in the
+                //same broadcast (#95): one addition here, nothing per body.
+                gravityWideDt = Vector3Wide.Broadcast((Gravity + Wind) * dt);
             }
 
             /// <summary>
