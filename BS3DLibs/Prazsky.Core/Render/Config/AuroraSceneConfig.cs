@@ -131,6 +131,9 @@ namespace Prazsky.Core.Render
         /// </summary>
         public SnowConfig Snow { get; set; } = new()
         {
+            //The gentle snow of a clear night (#205): half the mountain's flakes and no far layer
+            FlakeCount = 3000,
+            FarLayerScale = 1f,
             BoxSize = new(70f, 55f, 70f),
             FallSpeed = 4.5f,
             Wind = new(1.2f, 0.4f),

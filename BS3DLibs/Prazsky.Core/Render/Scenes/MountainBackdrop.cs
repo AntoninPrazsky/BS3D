@@ -34,6 +34,7 @@ namespace Prazsky.Core.Render
         //is its backdrop's. The two used to share one effect and re-push eleven values every frame, so that
         //the slots held whichever scene was actually being drawn.
         private readonly Effect _mountainSnowEffect;
+        private readonly Snowfall.Look _mountainSnowLook;
 
         //The bank the island sits in (#608): a drift of snow over scree against the drum, stones showing through it
         private readonly PlantPass _plants;
@@ -50,7 +51,7 @@ namespace Prazsky.Core.Render
             ApplyMountainParameters();
 
             _mountainSnowEffect = content.Load<Effect>("Shaders/Snow").Clone();
-            Snowfall.ApplyParameters(_mountainSnowEffect, _mountainConfig.Snow);
+            _mountainSnowLook = Snowfall.Prepare(_mountainSnowEffect, _mountainConfig.Snow);
 
             _plants = new PlantPass(services.GraphicsDevice, content);
             _berm = new IslandBermPlanting(services.GraphicsDevice, (x, z) => TerrainMirror.Mountain(x, z, _mountainConfig),
@@ -91,6 +92,7 @@ namespace Prazsky.Core.Render
             _mountainEffect.Parameters["RockReliefFrequency"].SetValue(_mountainConfig.RockReliefFrequency);
             _mountainEffect.Parameters["AmbientStrength"].SetValue(_mountainConfig.AmbientStrength);
             _mountainEffect.Parameters["HorizonHazeDistance"].SetValue(_mountainConfig.HorizonHazeDistance);
+            _mountainEffect.Parameters["SnowVisibility"].SetValue(_mountainConfig.SnowVisibility);
             _mountainEffect.Parameters["FluteSnow"].SetValue(_mountainConfig.FluteSnow);
             _mountainEffect.Parameters["AlpenglowLow"].SetValue(_mountainConfig.AlpenglowLow);
             _mountainEffect.Parameters["AlpenglowHigh"].SetValue(MathF.Max(_mountainConfig.AlpenglowHigh, _mountainConfig.AlpenglowLow + 1f));
@@ -128,7 +130,7 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>The falling snow, through the shared flake buffer and this scene's own clone of <c>Snow.fx</c>.</summary>
-        public override void DrawOverlays(in SceneFrame frame) => Services.Snowfall.Draw(frame, _mountainSnowEffect, _mountainConfig.Snow);
+        public override void DrawOverlays(in SceneFrame frame) => Services.Snowfall.Draw(frame, _mountainSnowLook, _mountainConfig.Snow);
 
         /// <inheritdoc/>
         public override bool TryGetViewpoint(float bearing, out SceneViewpoint viewpoint)

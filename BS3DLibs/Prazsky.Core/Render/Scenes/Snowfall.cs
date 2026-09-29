@@ -10,7 +10,13 @@ namespace Prazsky.Core.Render
     /// (<see cref="BackdropServices.Snowfall"/>) so that a scene moved into its own <see cref="Backdrop"/> can
     /// still snow: the buffer is the renderer's to build (sized off the mountain's own flake count), and the
     /// effect is not shared at all — each scene draws through its own clone of <c>Snow.fx</c>, its look pushed
-    /// once at load by <see cref="ApplyParameters"/>.
+    /// once at load by <see cref="Prepare"/>, which also caches the parameters a frame sets (the by-name indexer
+    /// is a linear scan, and this used to run it six times a frame, and seven times more for the look at load).
+    /// <para>
+    /// <b>Two layers from one buffer since #654</b>: the near box, and the same flakes again in a box
+    /// <see cref="SnowConfig.FarLayerScale"/> times larger, which perspective alone turns into the distant veil a
+    /// real snowfall lays over a range. The flakes are the ones the references drew — see <c>Snow.fx</c>'s header.
+    /// </para>
     /// </summary>
     internal sealed class Snowfall : IDisposable
     {
@@ -26,10 +32,10 @@ namespace Prazsky.Core.Render
         //exceeded, since drawing past the buffer's own capacity would read off the end of it.
         private readonly int _snowFlakeCapacity;
 
-        //Snowfall parameters (flake count/size/shape/colour/opacity, box, fall speed, wind, sway) live in
+        //Snowfall parameters (flake count/size/colour/opacity, the lens, box, fall speed, wind, sway) live in
         //each caller's own SnowConfig (MountainSceneConfig.Snow, AuroraSceneConfig.Snow) and are pushed into
-        //that caller's own clone once at load by ApplyParameters (#580); Draw pushes only the camera
-        //and the clock.
+        //that caller's own clone once at load by Prepare (#580); Draw pushes only the camera, the clock, the
+        //pixel's size and each layer's scale.
 
         /// <summary>
         /// Takes the flake buffer the renderer built through its billboard builder, and the count it was built
@@ -43,22 +49,45 @@ namespace Prazsky.Core.Render
             _snowFlakeCapacity = flakeCapacity;
         }
 
+        /// <summary>One scene's clone of <c>Snow.fx</c>, with the parameters a frame sets cached off it.</summary>
+        public sealed class Look
+        {
+            internal readonly Effect Effect;
+            internal readonly EffectParameter View, Projection, CameraPosition, CameraRight, CameraUp, Time, Pixel, LayerScale;
+
+            internal Look(Effect effect)
+            {
+                Effect = effect;
+                View = effect.Parameters["View"];
+                Projection = effect.Parameters["Projection"];
+                CameraPosition = effect.Parameters["CameraPosition"];
+                CameraRight = effect.Parameters["CameraRight"];
+                CameraUp = effect.Parameters["CameraUp"];
+                Time = effect.Parameters["SnowTime"];
+                Pixel = effect.Parameters["SnowPixel"];
+                LayerScale = effect.Parameters["SnowLayerScale"];
+            }
+        }
+
         /// <summary>
-        /// Pushes one scene's snowfall look into that scene's own clone of <c>Snow.fx</c>, once at load (#580).
+        /// Pushes one scene's snowfall look into that scene's own clone of <c>Snow.fx</c>, once at load (#580),
+        /// and hands back the clone with the per-frame parameters cached for <see cref="Draw"/>.
         /// </summary>
-        public static void ApplyParameters(Effect effect, SnowConfig config)
+        public static Look Prepare(Effect effect, SnowConfig config)
         {
             effect.Parameters["SnowBoxSize"].SetValue(config.BoxSize.ToVector3());
             effect.Parameters["SnowFallSpeed"].SetValue(config.FallSpeed);
             effect.Parameters["SnowWind"].SetValue(config.Wind.ToVector2());
             effect.Parameters["SnowSway"].SetValue(config.Sway);
             effect.Parameters["FlakeSize"].SetValue(config.FlakeSize);
-            effect.Parameters["SnowSpin"].SetValue(config.Spin);
-            effect.Parameters["SnowLobing"].SetValue(config.Lobing);
             effect.Parameters["SnowNearFade"].SetValue(config.NearFade);
-            effect.Parameters["SnowTwinkle"].SetValue(config.Twinkle);
+            effect.Parameters["SnowFocus"].SetValue(config.Focus);
+            effect.Parameters["SnowAperture"].SetValue(config.Aperture);
+            effect.Parameters["SnowShutter"].SetValue(config.Shutter);
             effect.Parameters["SnowColor"].SetValue(config.FlakeColor.ToVector3());
             effect.Parameters["SnowOpacity"].SetValue(config.Opacity);
+
+            return new Look(effect);
         }
 
         /// <summary>
@@ -70,20 +99,26 @@ namespace Prazsky.Core.Render
         /// buffer is one for both (built at the mountain's own <see cref="SnowConfig.FlakeCount"/>, since
         /// that is where the dial has always lived), so <paramref name="config"/>'s own count is clamped to
         /// <see cref="_snowFlakeCapacity"/> rather than trusted outright. The look uniforms are already in
-        /// <paramref name="effect"/>, the scene's own clone, pushed once by <see cref="ApplyParameters"/>
-        /// (#580); only the camera and the clock are pushed here.
+        /// <paramref name="look"/>, the scene's own clone, pushed once by <see cref="Prepare"/> (#580); only the
+        /// camera, the clock, a pixel's size and each layer's scale are pushed here.
         /// </para>
         /// </summary>
-        public void Draw(in SceneFrame frame, Effect effect, SnowConfig config)
+        public void Draw(in SceneFrame frame, Look look, SnowConfig config)
         {
             Matrix inverseView = Matrix.Invert(frame.Camera.View);
+            Matrix projection = frame.Camera.Projection;
 
-            effect.Parameters["View"].SetValue(frame.Camera.View);
-            effect.Parameters["Projection"].SetValue(frame.Camera.Projection);
-            effect.Parameters["CameraPosition"].SetValue(frame.Camera.Position);
-            effect.Parameters["CameraRight"].SetValue(inverseView.Right);
-            effect.Parameters["CameraUp"].SetValue(inverseView.Up);
-            effect.Parameters["SnowTime"].SetValue(frame.Time);
+            look.View.SetValue(frame.Camera.View);
+            look.Projection.SetValue(projection);
+            look.CameraPosition.SetValue(frame.Camera.Position);
+            look.CameraRight.SetValue(inverseView.Right);
+            look.CameraUp.SetValue(inverseView.Up);
+            look.Time.SetValue(frame.Time);
+
+            //One pixel's world size at unit distance: the projection's vertical scale spans the viewport's
+            //height over two units of clip space, so a unit at depth z covers M22 * height / 2 / z pixels
+            int height = Math.Max(1, _graphicsDevice.Viewport.Height);
+            look.Pixel.SetValue(projection.M22 > 0f ? 2f / (projection.M22 * height) : 0f);
 
             _graphicsDevice.BlendState = BlendState.AlphaBlend;
             _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
@@ -91,8 +126,18 @@ namespace Prazsky.Core.Render
 
             _graphicsDevice.SetVertexBuffer(_snowVertexBuffer);
             _graphicsDevice.Indices = _snowIndexBuffer;
-            effect.CurrentTechnique.Passes[0].Apply();
             int flakes = Math.Min(config.FlakeCount, _snowFlakeCapacity);
+
+            //The far layer first, so the near flakes blend over it
+            if (config.FarLayerScale > 1f)
+            {
+                look.LayerScale.SetValue(config.FarLayerScale);
+                look.Effect.CurrentTechnique.Passes[0].Apply();
+                _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, flakes * 2);
+            }
+
+            look.LayerScale.SetValue(1f);
+            look.Effect.CurrentTechnique.Passes[0].Apply();
             _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, flakes * 2);
 
             _graphicsDevice.DepthStencilState = DepthStencilState.Default;
