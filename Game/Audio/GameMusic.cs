@@ -55,6 +55,9 @@ namespace BS3D.Audio
     {
         private const string MUSIC_DIRECTORY = "Music";
         private const string MENU_TRACK = "menu";
+
+        /// <summary>The pause's own loop (#668): <c>Music/pause.ogg</c>, kept out of the families like the menu's.</summary>
+        private const string PAUSE_TRACK = "pause";
         private const string TRACK_EXTENSION = ".ogg";
 
         /// <summary>The rate ACE-Step renders at and every track is written at; the procedural pieces are 44.1 kHz.</summary>
@@ -78,6 +81,20 @@ namespace BS3D.Audio
         /// <summary>The front end's loop, under even the theme: a lobby, not a dancefloor. Raised with the theme in
         /// #467 by the same ratio (0.2 → 0.29), so the lobby-to-level step #456 fades is what it was.</summary>
         public const float MENU_VOLUME = 0.29f;
+
+        /// <summary>
+        /// The pause's loop (#668), at the lobby's level: the owner asked for "calming lobby/elevator music", and the
+        /// lobby is the one piece already tuned to sit under a menu rather than to carry a level.
+        /// </summary>
+        public const float PAUSE_VOLUME = MENU_VOLUME;
+
+        /// <summary>
+        /// How long the level's theme takes to step aside for the pause, and the pause's loop to arrive — and the
+        /// same back again on resume (#668). The lobby's own lengths: a pause is a menu opening, and it should feel
+        /// as prompt as one. The theme is not stopped, only faded: it carries on unheard and returns where it was,
+        /// exactly as it does for the About page's player (<see cref="Yielding"/>).
+        /// </summary>
+        private const float PAUSE_FADE_SECONDS = MENU_FADE_SECONDS;
 
         //How long a piece the player is walking away from takes to leave (#211): the theme can be left mid-chorus
         //and is the widest thing here to put down gently, while leaving the lobby should feel prompt — it is a
@@ -172,6 +189,15 @@ namespace BS3D.Audio
         private bool _menuWanted;
         private readonly MusicFade _menuFade = new();
 
+        //The pause's loop (#668), shaped exactly like the lobby's above, and the fade the level's theme is put under
+        //while it plays — the theme's own, so the lobby and the About page's yielding are left alone
+        private Task<byte[]> _pauseLoad;
+        private SoundEffect _pauseTrack;
+        private SoundEffectInstance _pause;
+        private bool _pausing;
+        private readonly MusicFade _pauseFade = new();
+        private readonly MusicFade _pauseDuck = new();
+
         /// <summary>Everything this class plays, stepping aside while the About page's player holds a piece.</summary>
         private readonly MusicFade _yield = new();
 
@@ -184,6 +210,11 @@ namespace BS3D.Audio
             //The lobby first: it is what the splash hands over to, and every load below queues on the same pool —
             //on a machine with fewer cores than tracks, whatever is handed over last decodes last
             _menuLoad = Load(Path.Combine(directory, MENU_TRACK + TRACK_EXTENSION));
+
+            //The pause's loop after it (#668). A missing file is not an error: the pause then keeps the theme, as it
+            //always did, rather than falling silent
+            string pause = Path.Combine(directory, PAUSE_TRACK + TRACK_EXTENSION);
+            if (File.Exists(pause)) _pauseLoad = Load(pause);
 
             string victory = Path.Combine(AppContext.BaseDirectory, SFX_DIRECTORY, VICTORY_FILE + TRACK_EXTENSION);
             if (File.Exists(victory)) _victoryLoad = LoadVictory(victory);
@@ -202,7 +233,8 @@ namespace BS3D.Audio
                 foreach (string file in files)
                 {
                     string stem = Path.GetFileNameWithoutExtension(file);
-                    if (string.Equals(stem, MENU_TRACK, StringComparison.OrdinalIgnoreCase)) continue;
+                    if (string.Equals(stem, MENU_TRACK, StringComparison.OrdinalIgnoreCase)
+                        || string.Equals(stem, PAUSE_TRACK, StringComparison.OrdinalIgnoreCase)) continue;
 
                     int dash = stem.IndexOf('-');
                     string family = dash < 0 ? stem : stem.Substring(0, dash);
@@ -279,6 +311,44 @@ namespace BS3D.Audio
         public bool Yielding
         {
             set => _yield.To(value ? 0f : 1f, YIELD_FADE_SECONDS);
+        }
+
+        /// <summary>
+        /// The pause's music (#668): true puts the level's theme under a fade and brings the pause's own calm loop in,
+        /// false the reverse. Asked every frame from the stack, like <see cref="Yielding"/>, so every way into and out
+        /// of the pause — Escape, the page's Resume, a Restart, a Main Menu — reaches it without anyone remembering to
+        /// say so. The theme is only faded, never stopped, so it carries on unheard and resumes where it stood; a
+        /// Restart keeps the same chain (a retry is the same music, <see cref="SetFamily"/>) and so resumes too. The
+        /// loop starts from its head each time: a fully faded stop rewinds it. Without the file the theme simply plays
+        /// on under the pause, as it did before #668.
+        /// </summary>
+        public bool Pausing
+        {
+            set
+            {
+                if (value == _pausing) return;
+                _pausing = value;
+
+                if (_pauseTrack == null && _pauseLoad == null) return;
+
+                _pauseDuck.To(value ? 0f : 1f, PAUSE_FADE_SECONDS);
+
+                if (!value)
+                {
+                    _pauseFade.To(0f, PAUSE_FADE_SECONDS);
+                    return;
+                }
+
+                if (_pause == null) return;   //still loading: Update starts it the frame it lands, if still wanted
+
+                if (_pause.State == SoundState.Playing) _pauseFade.To(1f, PAUSE_FADE_SECONDS);
+                else
+                {
+                    _pauseFade.Arrive(PAUSE_FADE_SECONDS);
+                    _pause.Volume = PauseVolume;
+                    _pause.Play();
+                }
+            }
         }
 
         /// <summary>
@@ -491,6 +561,38 @@ namespace BS3D.Audio
                 }
             }
 
+            if (_pauseLoad != null && _pauseLoad.IsCompleted)
+            {
+                Task<byte[]> ready = _pauseLoad;
+                _pauseLoad = null;
+
+                //Guarded like the lobby: a pause loop that cannot play leaves the theme to play under the pause
+                try
+                {
+                    if (ready.Result != null)
+                    {
+                        _pauseTrack = new SoundEffect(ready.Result, SAMPLE_RATE, AudioChannels.Stereo);
+                        _pause = _pauseTrack.CreateInstance();
+                        _pause.IsLooped = true;
+                        _pause.Volume = 0f;
+
+                        if (_pausing)
+                        {
+                            _pauseFade.Arrive(PAUSE_FADE_SECONDS);
+                            _pause.Volume = PauseVolume;
+                            _pause.Play();
+                        }
+                    }
+                    else _pauseDuck.To(1f, PAUSE_FADE_SECONDS);
+                }
+                catch (Exception exception)
+                {
+                    _pause = null;
+                    _pauseDuck.To(1f, PAUSE_FADE_SECONDS);
+                    Console.WriteLine($"[music] the pause loop could not be realized: {exception.Message}");
+                }
+            }
+
             if (!_wanted) return;
 
             if (_voice == null)
@@ -513,15 +615,17 @@ namespace BS3D.Audio
             }
         }
 
-        private float ThemeVolume => MUSIC_VOLUME * _gain * _themeFade.Applied * _yield.Applied;
+        private float ThemeVolume => MUSIC_VOLUME * _gain * _themeFade.Applied * _yield.Applied * _pauseDuck.Applied;
         private float MenuVolume => MENU_VOLUME * _gain * _menuFade.Applied * _yield.Applied;
-        private float RetiringVolume => MUSIC_VOLUME * _gain * _retiringFade.Applied * _yield.Applied;
+        private float RetiringVolume => MUSIC_VOLUME * _gain * _retiringFade.Applied * _yield.Applied * _pauseDuck.Applied;
+        private float PauseVolume => PAUSE_VOLUME * _gain * _pauseFade.Applied * _yield.Applied;
 
         private void WriteVolumes()
         {
             if (_voice != null) _voice.Volume = ThemeVolume;
             if (_menu != null) _menu.Volume = MenuVolume;
             if (_retiring != null) _retiring.Volume = RetiringVolume;
+            if (_pause != null) _pause.Volume = PauseVolume;
         }
 
         /// <summary>
@@ -531,6 +635,14 @@ namespace BS3D.Audio
         private void AdvanceFades(float elapsed)
         {
             bool yieldMoved = _yield.Advance(elapsed);
+            bool duckMoved = _pauseDuck.Advance(elapsed);
+
+            //The pause's loop, on the lobby's shape: stopped (and so rewound) once it has faded to silence
+            if ((_pauseFade.Advance(elapsed) | yieldMoved) && _pause != null)
+            {
+                _pause.Volume = PauseVolume;
+                if (_pauseFade.Silent) _pause.Stop();
+            }
 
             //A non-short-circuit | so every fade walks its frame whatever the other one did
             if ((_menuFade.Advance(elapsed) | yieldMoved) && _menu != null)
@@ -540,9 +652,9 @@ namespace BS3D.Audio
             }
 
             //Same shape as the menu's block above, for the sounding chain's own arrival (#456)
-            if ((_themeFade.Advance(elapsed) | yieldMoved) && _voice != null) _voice.Volume = ThemeVolume;
+            if ((_themeFade.Advance(elapsed) | yieldMoved | duckMoved) && _voice != null) _voice.Volume = ThemeVolume;
 
-            if ((_retiringFade.Advance(elapsed) | yieldMoved) && _retiring != null)
+            if ((_retiringFade.Advance(elapsed) | yieldMoved | duckMoved) && _retiring != null)
             {
                 _retiring.Volume = RetiringVolume;
 
@@ -701,6 +813,8 @@ namespace BS3D.Audio
             _retiring?.Dispose();
             _menu?.Dispose();
             _menuTrack?.Dispose();
+            _pause?.Dispose();
+            _pauseTrack?.Dispose();
             _fanfares.Dispose();
         }
     }

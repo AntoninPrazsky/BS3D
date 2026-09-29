@@ -1486,6 +1486,13 @@ namespace BS3D
         internal void PauseGame() => _screens.Push(_pausePage);
 
         /// <summary>
+        /// Whether the pause's own music is wanted (#668): the pause is on the stack, itself or the scene page opened
+        /// from it — but not the settings page over it, whose music row (#279) has to be HEARD to be chosen, so the
+        /// level's theme comes back for as long as that page is up.
+        /// </summary>
+        private bool PauseMusicWanted => _screens.Contains<PausePage>() && _screens.Active is not SettingsPage;
+
+        /// <summary>
         /// Back into the game: the pause pops off and the gameplay screen is the top again — its
         /// <see cref="GameplayScreen.CoveredChanged"/> re-captures the cursor and re-baselines the input.
         /// </summary>
@@ -1553,7 +1560,7 @@ namespace BS3D
             //while no session screen is on it) and the fireworks giving way to the fanfare — in that order, after
             //the celebrations have advanced and before the stack. See AudioDirector.Update for each step's why.
             _audioDirector?.Update(elapsed, _scene, _sceneRenderer, _wallClock,
-                !_screens.Contains<GameplayScreen>(), _gameplayScreen != null && _gameplayScreen.IsBuilt);
+                !_screens.Contains<GameplayScreen>(), _gameplayScreen != null && _gameplayScreen.IsBuilt, PauseMusicWanted);
 
             //The very click that refocuses a windowed game would otherwise read as a fresh press against a
             //stale "released" state and fire an unintended shot, since input is not sampled while inactive.
