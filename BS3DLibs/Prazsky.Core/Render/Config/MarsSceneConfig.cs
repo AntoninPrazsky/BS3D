@@ -89,9 +89,12 @@ namespace Prazsky.Core.Render
         /// Moon's 12: that figure was chosen so the largest craters still show a lit far wall from a lens
         /// grazing the island's own deck plane over a domeless black sky, a constraint this scene does not
         /// have — an ordinary dome and haze close the horizon here, so the craters can stay the modest,
-        /// walkable relief a thin-aired rocky plain actually has.
+        /// walkable relief a thin-aired rocky plain actually has. 4.5 until #638's verdict of 2026-09-29 ("larger
+        /// geometric craters are missing"): at that the field's biggest bowls were 2.6 units deep under rims 15-27
+        /// out and read as dark ellipses painted on the plain. The big craters are their own lattices now
+        /// (<c>Mars.fx</c>'s <c>BigCraters</c>); this deepens the field under them so its bigger bowls are holes too.
         /// </summary>
-        public float CraterAmplitude { get; set; } = 4.5f;
+        public float CraterAmplitude { get; set; } = 7f;
 
         /// <summary>
         /// How far apart the boulders' lattice cells sit, and how many of them carry one — the outback's
@@ -118,9 +121,11 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// How tall the layered mesas on the skyline stand (world units). The plain used to run flat to the haze,
-        /// and a horizon with nothing on it read as bland against every rover photograph.
+        /// and a horizon with nothing on it read as bland against every rover photograph. 60 until #638's verdict
+        /// of 2026-09-29 — "the mountains are too high, it reads more like Australia than Mars": every reference of
+        /// the Martian plain closes it with LOW worn table-hills and the far rim of a crater, never a wall of buttes.
         /// </summary>
-        public float MesaHeight { get; set; } = 60f;
+        public float MesaHeight { get; set; } = 20f;
 
         /// <summary>Where the ring of mesas begins, from the arena (world units); they rise over the next 140.</summary>
         public float MesaInnerRadius { get; set; } = 300f;

@@ -304,13 +304,153 @@ float MesaField(float2 p, out float mesa)
     return MesaHeight * mesa;
 }
 
+//THE BIG CRATERS (#638, after the owner's verdict of 2026-09-29): "larger geometric craters are missing" - and
+//his island ruling, that a crater is a HOLE and not a texture. The field above tops out at a bowl about 2.6 units
+//deep under a rim some 20 units out, which from the play camera is a dark ellipse painted on the plain. Every
+//reference (C:\Users\panrd\AI\sd\out\638-klein and 638-zimage: a rover's plain, from the air, the island among
+//them) cuts deep bowls with raised rims into the ground, several near one another. So two sparse lattices of big
+//ones: their periods share no small ratio and each lattice is turned its own way, so their cells never line up
+//into rows, and one crater a cell at most - the single-cell trick again, a crater held inside its own cell by its
+//reach. A crater's depth and its rim are shares of its OWN radius, as a real simple crater's are (a bowl about a
+//fifth as deep as it is wide, rim to floor), so a big one is a big hole rather than a wide dimple. None stands
+//whose blanket would reach the island's bank (BIG_CRATER_CLEARING): left out whole, never cut.
+//OffworldGround.MarsBigCraters is the CPU copy - change the one and the other has to follow.
+static const float BIG_CRATER_DEPTH = 0.3;       //the bowl's floor under the plain, as a share of the radius
+static const float BIG_CRATER_RIM = 0.12;        //the rim's crest over it
+static const float BIG_CRATER_BLANKET = 0.3;     //the ejecta blanket at the rim's foot, as a share of the rim
+static const float BIG_CRATER_REACH = 1.9;       //how far out the blanket reaches, in radii
+static const float BIG_CRATER_MIN = 0.07;        //the radius range, as a share of the cell
+static const float BIG_CRATER_MAX = 0.13;
+static const float2 BIG_CRATER_TURN_0 = float2(0.92050, 0.39073);   //23 degrees
+static const float2 BIG_CRATER_TURN_1 = float2(0.39073, 0.92050);   //67 degrees
+static const float2 BIG_CRATER_TURN_2 = float2(-0.37461, 0.92718);  //112 degrees
+//How near the island a big crater's blanket may come, from the arena's centre: past the island's bank (#646), which
+//stands on the plain's level, and well inside the crater field's own clearing - the references stand the island
+//among craters, and the orbiting menu camera, the only one that shows Mars, sees little past a hundred units
+static const float BIG_CRATER_CLEARING = 50.0;
+
+//Everything one big crater does to a point, in ONE evaluation: its height over (or under) the plain, the height's
+//gradient in world XZ - in closed form, the profile being radial, so the pixel's normal needs no taps of its own -
+//the pale ejecta on its rim and blanket, and the light inside its bowl. THE LIGHT: from the ten units over the plain
+//the menu's orbit and the play camera stand at, a bowl lit as brightly as the plain round it is a faint dent; what
+//makes the references' craters read as HOLES from the ground is that they are dark inside - their walls hide part
+//of the sky, and on the sun's side the rim hides the sun. The terrain casts nothing into the sun's map, so both are
+//worked out here in closed form: the sky a point in a bowl still sees falls with how deep in it the point is, and the
+//sun is hidden where the ray towards it, climbing at the sun's own slope, meets the rim's crest below the crest's
+//height - one quadratic for the distance to the rim along the sun's bearing, the rim taken as a ring at its crest.
+//⚠ Evaluated once a pixel, and not inside MarsHeight's three taps: at four evaluations of three lattices a pixel
+//(three taps and the light) the craters cost 0.65 ms at High and 0.38 at Low on the desktop's front end.
+struct BigCraterSample
+{
+    float Height;
+    float2 Gradient;
+    float Ejecta;
+    float Occlusion;     //the share of the sky the bowl's walls hide
+    float Sun;           //how much of the sun the rim leaves, 1 outside any bowl
+};
+
+void BigCraterLayer(float2 p, float period, float2 turn, float seed, float chance, float2 sunFlat, float sunSlope,
+    inout BigCraterSample sample)
+{
+    float2 q = TurnCrater(p, turn) / period;
+    float2 cellId = floor(q);
+    float2 f = q - cellId;
+
+    float2 rollA = NoiseHash22(cellId + seed) * 0.5 + 0.5;
+    if (rollA.x > chance) return;
+
+    float2 rollB = NoiseHash22(cellId + seed + 47.9) * 0.5 + 0.5;
+    float2 rollC = NoiseHash22(cellId + seed + 91.7) * 0.5 + 0.5;
+
+    float radius = lerp(BIG_CRATER_MIN, BIG_CRATER_MAX, rollB.x);
+    float margin = radius * BIG_CRATER_REACH;
+    float2 centre = margin + rollC * (1.0 - 2.0 * margin);
+
+    //The turn is a rotation about the origin, so the centre's distance from the arena is the same in either frame
+    float radiusWorld = radius * period;
+    if (length((cellId + centre) * period) - radiusWorld * BIG_CRATER_REACH < BIG_CRATER_CLEARING) return;
+
+    float2 v = f - centre;
+    float d = length(v) / radius;
+    if (d >= BIG_CRATER_REACH) return;
+
+    //The bowl: round-floored and steep under the rim. Zero at the rim, so the rim and blanket sit on the plain's level
+    float cup = saturate(1.0 - d * d);
+    float bowl = -cup * (0.6 + 0.4 * cup);
+    float bowlSlope = d < 1.0 ? 2.0 * d * (0.6 + 0.8 * cup) : 0.0;           //d(bowl)/dd
+
+    //The rim's crest, a little sharper outside than in, and the blanket of thrown-out rock falling away from it,
+    //both gone by BIG_CRATER_REACH (fall: 1 to 1.3 radii, easing to 0 at the reach)
+    float width = d > 1.0 ? 0.28 : 0.2;
+    float rimT = (d - 1.0) / width;
+    float crest = exp(-rimT * rimT);
+    float x = saturate((BIG_CRATER_REACH - d) / (BIG_CRATER_REACH - 1.3));
+    float fall = x * x * (3.0 - 2.0 * x);
+    float fallSlope = -6.0 * x * (1.0 - x) / (BIG_CRATER_REACH - 1.3);
+    float spread = exp(-max(d - 1.0, 0.0) / 0.35);
+    float spreadSlope = d > 1.0 ? -spread / 0.35 : 0.0;
+
+    float rim = crest * fall;
+    float blanket = BIG_CRATER_BLANKET * spread * fall;
+    float rimSlope = -2.0 * rimT / width * crest * fall + crest * fallSlope;
+    float blanketSlope = BIG_CRATER_BLANKET * (spreadSlope * fall + spread * fallSlope);
+
+    sample.Height += (bowl * BIG_CRATER_DEPTH + (rim + blanket) * BIG_CRATER_RIM) * radiusWorld;
+
+    //dh/dd, and d along the world: the unit vector from the centre, turned back out of the lattice's frame
+    float slope = (bowlSlope * BIG_CRATER_DEPTH + (rimSlope + blanketSlope) * BIG_CRATER_RIM) * radiusWorld;
+    float2 outward = TurnCrater(v * rsqrt(max(dot(v, v), 1e-10)), float2(turn.x, -turn.y));
+    sample.Gradient += outward * (slope / radiusWorld);
+
+    //Fresh excavated rock on the rim and the blanket: the pale ejecta the rust lightens towards
+    sample.Ejecta = max(sample.Ejecta, saturate(rim + blanket * 1.5) * lerp(0.6, 1.0, rollA.y));
+
+    [branch]
+    if (d < 1.0)
+    {
+        //The sky: a point at the floor sees about half of it past the walls, one at the rim nearly all
+        sample.Occlusion = max(sample.Occlusion, -0.55 * bowl);
+
+        //The sun: the distance to the rim along the sun's bearing (in the lattice's frame), the ray's height there
+        float2 sunTurned = TurnCrater(sunFlat, turn);
+        float b = dot(v, sunTurned);
+        float t = -b + sqrt(max(b * b - (dot(v, v) - radius * radius), 0.0));
+        float pointHeight = (bowl * BIG_CRATER_DEPTH + (crest + BIG_CRATER_BLANKET) * BIG_CRATER_RIM) * radiusWorld;
+        float crestHeight = (1.0 + BIG_CRATER_BLANKET) * BIG_CRATER_RIM * radiusWorld;
+        float rayHeight = pointHeight + t * period * sunSlope;
+        sample.Sun *= saturate((rayHeight - crestHeight) / (0.04 * radiusWorld) + 0.5);
+    }
+}
+
+//Three lattices: incommensurate periods (their radii 14-26, 21-39 and 30-55 units), turned apart. The smallest is
+//the one a low lens sees into: the menu's orbit and the play camera stand some ten units over the plain, and from
+//there a crater shows its bowl only within about ten times that - so the near plain needs them densest.
+BigCraterSample BigCraters(float2 p, float3 sun)
+{
+    BigCraterSample sample;
+    sample.Height = 0.0;
+    sample.Gradient = 0.0;
+    sample.Ejecta = 0.0;
+    sample.Occlusion = 0.0;
+    sample.Sun = 1.0;
+
+    float2 sunFlat = sun.xz * rsqrt(max(dot(sun.xz, sun.xz), 1e-6));
+    float sunSlope = sun.y * rsqrt(max(dot(sun.xz, sun.xz), 1e-6));
+
+    BigCraterLayer(p, 300.0, BIG_CRATER_TURN_0, 517.3, 0.62, sunFlat, sunSlope, sample);
+    BigCraterLayer(p, 423.0, BIG_CRATER_TURN_1, 881.9, 0.55, sunFlat, sunSlope, sample);
+    BigCraterLayer(p, 197.0, BIG_CRATER_TURN_2, 263.1, 0.6, sunFlat, sunSlope, sample);
+    return sample;
+}
+
 //The full displaced height at a world point: flat at MarsLevelY inside the clearing around the island,
 //rising into cratered ground with distance, with boulders and pebbles standing on it. UNLIKE THE MOON
 //there is no highland belt and no planetary curvature - Mars keeps its air, so MarsTerrainPS's haze fade
 //closes the horizon the ordinary way, not geometry. Tapped to displace the vertex (VS) and, thrice, for
 //the per-pixel normal (PS). The mesas are NOT in it: the vertex adds them itself, and the pixel adds them only
 //past the ring's inner radius (MarsTerrain), which is the whole saving of keeping them apart - measured, a mesa
-//field summed in here and early-outing inside its own function cost the near plain as much as the far one.
+//field summed in here and early-outing inside its own function cost the near plain as much as the far one. Nor are
+//the big craters (#638): the vertex adds them, and the pixel evaluates them once with their gradient in closed form.
 float MarsHeight(float2 p, out float ejecta, out float rockShape)
 {
     float dist = length(p);
@@ -351,7 +491,8 @@ MarsTerrainVertexOutput MarsTerrainVS(MarsTerrainVertexInput input)
     float2 worldXZ = input.Position.xz + OriginXZ;
 
     float ejectaUnused, rockShapeUnused, mesaUnused;
-    float height = MarsHeight(worldXZ, ejectaUnused, rockShapeUnused) + MesaField(worldXZ, mesaUnused);
+    float height = MarsHeight(worldXZ, ejectaUnused, rockShapeUnused) + MesaField(worldXZ, mesaUnused)
+        + BigCraters(worldXZ, SunDirection).Height;
     float3 worldPosition = float3(worldXZ.x, height, worldXZ.y);
 
     output.WorldPosition = worldPosition;
@@ -389,7 +530,10 @@ float4 MarsTerrain(MarsTerrainVertexOutput input, bool detail)
         hz += MesaField(worldPosition.xz + float2(0.0, e), mesaZ);
     }
 
-    float2 slope = float2(hx - h, hz - h) / e;
+    //The big craters once, their gradient in closed form (BigCraters): the taps above leave them out
+    BigCraterSample big = BigCraters(worldPosition.xz, SunDirection);
+
+    float2 slope = float2(hx - h, hz - h) / e + big.Gradient;
     float3 baseNormal = normalize(float3(-slope.x, 1.0, -slope.y));
 
     //Fine surface: the Moon's fourth, small-crater detail octave (normal-only - at this scale a crater is
@@ -409,7 +553,7 @@ float4 MarsTerrain(MarsTerrainVertexOutput input, bool detail)
         lerp(smallCraters * (MicroReliefStrength * 3.0) + relief * MicroReliefStrength,
             rockSurface * RockRelief, rockMask));
 
-    ejecta = max(ejecta, smallEjecta * 0.5);
+    ejecta = max(max(ejecta, smallEjecta * 0.5), big.Ejecta);
 
     //--- The rust colour -----------------------------------------------------------------------------
     //Rust on rust, but never one rust: broad albedo patches, pale fresh ejecta on crater rims, and a
@@ -500,10 +644,13 @@ float4 MarsTerrain(MarsTerrainVertexOutput input, bool detail)
     if (ShadowStrength > 0.0)
         sunlight *= SunShadow(worldPosition, baseNormal, SunDirection);
 
+    //And inside the big craters, the rim's shadow and the walls' share of the sky (BigCraterLayer)
+    sunlight *= big.Sun;
+
     float ndotl = saturate(dot(normal, SunDirection));
 
     //Hemisphere sky light: up-facing ground takes the zenith, faces turned to the skyline take the horizon
-    float3 skyAmbient = lerp(HorizonColor, ZenithColor, saturate(normal.y * 0.5 + 0.5));
+    float3 skyAmbient = lerp(HorizonColor, ZenithColor, saturate(normal.y * 0.5 + 0.5)) * (1.0 - big.Occlusion);
 
     float3 color = albedo * (skyAmbient * AmbientStrength + SunColor * ndotl * sunlight);
 
