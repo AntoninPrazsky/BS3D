@@ -132,7 +132,9 @@ namespace BS3D.Screens
             column.Widgets.Add(FrontEndEntry("About", Game.OpenAbout));
             column.Widgets.Add(FrontEndEntry("Quit", Game.Exit));
 
-            return ScreenRoot(column);
+            //The build's name, bottom-right — after the column, so it is nowhere in the pad's walk (a label is no entry,
+            //and this one stays a footnote to it)
+            return ScreenRoot(column, VersionTag());
         }
 
         internal override void Refresh()

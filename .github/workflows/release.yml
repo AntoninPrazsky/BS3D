@@ -163,9 +163,16 @@ jobs:
             SHA256SUMS
           retention-days: 90
 
-      # Only a tag publishes. The notes lead with what the download needs and what Windows will say about
-      # it, because an unsigned exe surprises people; GitHub's generated list of what changed since the
-      # previous tag is appended underneath by --generate-notes.
+      # Only a tag publishes. The notes open with a picture of this version when one was committed, then lead
+      # with what the download needs and what Windows will say about it, because an unsigned exe surprises
+      # people; GitHub's generated list of what changed since the previous tag is appended underneath by
+      # --generate-notes.
+      #
+      # The picture is Images/releases/<tag>.jpg (or .png), committed BEFORE the tag is pushed: a screenshot of
+      # the game the tag ships, from `Tools/release-screenshot.ps1`, whose corner names the version. It is
+      # linked at the tag's own ref rather than at main, so the release keeps showing the build it describes
+      # however the file changes later. Optional on purpose - a tag without one publishes anyway and says so in
+      # the log, since a missing picture is no reason to hold a download back.
       - name: Publish the GitHub Release
         if: github.ref_type == 'tag'
         shell: pwsh
@@ -191,7 +198,16 @@ jobs:
           Progress and settings live in `%LOCALAPPDATA%\BS3D`, not in the game's folder, so the folder can be
           replaced or deleted without losing a save.
           '@
-          Set-Content -Path release-notes.md -Value $notes -Encoding utf8
+          $picture = ''
+          foreach ($extension in 'jpg', 'png') {
+            $path = "Images/releases/$env:BUILD_VERSION.$extension"
+            if (Test-Path $path) {
+              $picture = "![BS3D $env:BUILD_VERSION](https://raw.githubusercontent.com/${{ github.repository }}/$env:BUILD_VERSION/$path)`n`n"
+              break
+            }
+          }
+          if (-not $picture) { Write-Host "::notice::No Images/releases/$env:BUILD_VERSION.jpg (or .png) was committed, so the release notes carry no screenshot." }
+          Set-Content -Path release-notes.md -Value ($picture + $notes) -Encoding utf8
           $releaseArgs = @('release', 'create', $env:BUILD_VERSION, "$env:BUILD_NAME.zip", "BS3D-$env:BUILD_VERSION-ceilings.json", 'SHA256SUMS', '--title', "BS3D $env:BUILD_VERSION", '--notes-file', 'release-notes.md', '--generate-notes')
           # A tag carrying a suffix ("v0.2.0-beta") is a prerelease and GitHub should label it as one.
           if ($env:BUILD_VERSION -match '-') { $releaseArgs += '--prerelease' }

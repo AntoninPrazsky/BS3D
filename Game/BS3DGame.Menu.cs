@@ -1879,6 +1879,31 @@ namespace BS3D
             Margin = ScaledThickness(0, 0, 0, 43),
         };
 
+        /// <summary>
+        /// Which build this is (<see cref="BuildVersion.Name"/>: <c>v0.2.1</c>, or <c>dev-&lt;sha&gt;</c> off a local
+        /// build), in small type in the frame's bottom-right corner. Two pages carry it, the front end and About — the
+        /// places a player looks when they want to say which version they are running — and both add the same widget,
+        /// so the tag is in the same place on each.
+        /// <para>
+        /// It stands on a plate for the reason the quality notice does: the front end has no scrim, and a line of
+        /// small print over open water or a lit skyline needs one (see <see cref="Plate"/>). The corner is
+        /// <see cref="Screens.MainMenuPage.FRONT_INSET"/> in from both edges — the front end's own inset, which puts
+        /// its right edge under the 3D title's and its bottom edge level with the entries' — and its colour is
+        /// <see cref="MENU_TEXT_DIM"/>, the aside's, because nothing about it is to be read before the entries.
+        /// </para>
+        /// </summary>
+        internal Label VersionTag() => new()
+        {
+            Text = BuildVersion.Name,
+            Font = _menuFontSmall,
+            TextColor = MENU_TEXT_DIM,
+            Background = new SolidBrush(MENU_PLATE),
+            Padding = ScaledThickness(24, 10),
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Bottom,
+            Margin = ScaledThickness(0, 0, Screens.MainMenuPage.FRONT_INSET, Screens.MainMenuPage.FRONT_INSET),
+        };
+
         internal Button MenuButton(string text, Action onClick) => MenuButton(text, onClick, out _);
 
         internal Button FrontEndEntry(string text, Action onClick) => FrontEndEntry(text, onClick, out _);

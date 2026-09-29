@@ -9,7 +9,6 @@ using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
-using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -99,12 +98,6 @@ namespace BS3D.Online
         /// </summary>
         internal static readonly TimeSpan DisposeWait = TimeSpan.FromMilliseconds(500);
 
-        /// <summary>
-        /// The assembly metadata key <c>release.yml</c> stamps the tag under (<c>-p:BS3DReleaseVersion=</c>,
-        /// turned into an attribute by <c>Game.csproj</c>) — on a tag build and only then.
-        /// </summary>
-        private const string ReleaseMetadataKey = "BS3DReleaseVersion";
-
         private static readonly JsonSerializerOptions RequestJson = new()
         {
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
@@ -130,18 +123,6 @@ namespace BS3D.Online
 
         /// <summary>The server this client talks to, or null when none resolves.</summary>
         internal Uri Server { get; }
-
-        /// <summary>
-        /// The release this build came out of (the tag, <c>v0.2.0</c>), or null for any other build. What
-        /// decides whether the built-in server may be used.
-        /// </summary>
-        internal static string ReleaseVersion { get; } = ReadReleaseVersion();
-
-        /// <summary>
-        /// What a submission says the game is: <see cref="ReleaseVersion"/>, or <c>dev-&lt;short sha&gt;</c> —
-        /// the name <c>release.yml</c> gives a rehearsal run — so a server log can still tell which build sent it.
-        /// </summary>
-        internal static string GameVersion { get; } = ReleaseVersion ?? DevVersion();
 
         private readonly OnlineIdentity _identity;
         private readonly string _outboxPath;
@@ -197,7 +178,7 @@ namespace BS3D.Online
                 Timeout = Timeout.InfiniteTimeSpan,
                 MaxResponseContentBufferSize = MaxResponseBytes,
             };
-            _http.DefaultRequestHeaders.UserAgent.ParseAdd($"BS3D/{GameVersion}");
+            _http.DefaultRequestHeaders.UserAgent.ParseAdd($"BS3D/{BuildVersion.Name}");
             _http.DefaultRequestHeaders.Accept.ParseAdd("application/json");
 
             //Its own task for the whole run: it waits on the semaphore between requests, so it costs nothing idle
@@ -224,7 +205,7 @@ namespace BS3D.Online
                 Console.WriteLine($"[online] Off: {serverProblem}");
             else
                 Console.WriteLine($"[online] On: submitting to {server} as '{identity.Name}' (player {identity.PlayerId.ToString()[..8]}),"
-                    + $" game {GameVersion}, rules v{ScoreKeeper.RulesVersion}"
+                    + $" game {BuildVersion.Name}, rules v{ScoreKeeper.RulesVersion}"
                     + (named ? ", server named by the settings" : ", the built-in server"));
 
             return new OnlineScores(settings.Online, resolved ? server : null, usable ? identity : null, outboxPath, previous);
@@ -251,7 +232,7 @@ namespace BS3D.Online
                 Stars = stars,
                 ShotsUsed = shotsUsed,
                 DurationSeconds = MathF.Round(seconds, 2),
-                GameVersion = GameVersion,
+                GameVersion = BuildVersion.Name,
             };
         }
 
@@ -967,13 +948,13 @@ namespace BS3D.Online
             server = null;
             string address = string.IsNullOrWhiteSpace(settings.Server) ? null : settings.Server.Trim();
             named = address != null;
-            address ??= ReleaseVersion != null ? DefaultServer : null;
+            address ??= BuildVersion.Release != null ? DefaultServer : null;
 
             if (address == null)
             {
-                problem = ReleaseVersion != null
+                problem = BuildVersion.Release != null
                     ? "this release has no built-in score server yet, and the settings name none"
-                    : $"a local build ({GameVersion}) submits only to a server Settings.json names";
+                    : $"a local build ({BuildVersion.Name}) submits only to a server Settings.json names";
                 return false;
             }
 
@@ -1015,31 +996,6 @@ namespace BS3D.Online
 
             server = uri.AbsoluteUri.EndsWith('/') ? uri : new Uri(uri.AbsoluteUri + "/");
             return true;
-        }
-
-        private static string ReadReleaseVersion()
-        {
-            foreach (AssemblyMetadataAttribute metadata in typeof(OnlineScores).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>())
-                if (metadata.Key == ReleaseMetadataKey && !string.IsNullOrWhiteSpace(metadata.Value))
-                    return metadata.Value;
-
-            return null;
-        }
-
-        /// <summary>
-        /// <c>dev-&lt;short sha&gt;</c> off the informational version the SDK stamps (<c>1.0.0+&lt;sha&gt;</c>),
-        /// or plain <c>dev</c> when the build carried no commit.
-        /// </summary>
-        private static string DevVersion()
-        {
-            string informational = typeof(OnlineScores).Assembly
-                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
-
-            int plus = informational?.IndexOf('+') ?? -1;
-            if (plus < 0 || plus + 1 >= informational.Length) return "dev";
-
-            string sha = informational[(plus + 1)..];
-            return "dev-" + (sha.Length > 7 ? sha[..7] : sha);
         }
 
         #endregion

@@ -62,7 +62,9 @@ namespace BS3D.Screens
             column.Widgets.Add(columns);
             column.Widgets.Add(MenuButton("Back", GoBack));
 
-            return ScreenRoot(Plate(column));
+            //The same tag, in the same corner, as the front end's — About is where a player looks for which version
+            //they run, once they have found the entry
+            return ScreenRoot(Plate(column), VersionTag());
         }
 
         /// <summary>
