@@ -85,8 +85,9 @@ namespace BS3D.Platform
         public int TargetHz { get; set; }
 
         /// <summary>
-        /// Waits for the compositor's next composition, at the <b>top</b> of a frame, and answers whether
-        /// the wait actually happened (#448).
+        /// Waits for the compositor's next composition, at the <b>end</b> of a frame — its work already flushed
+        /// to the GPU, just before Present (#634; it stood at the top of the frame until then, see
+        /// <c>BS3DGame.PaceFrame</c>) — and answers whether the wait actually happened (#448).
         /// <para>
         /// ⚠ <b>The schedule below cannot produce smooth motion against DWM, and the margin it is aimed at
         /// makes it worse rather than better.</b> The compositor shows at most one frame per refresh, so a
@@ -104,9 +105,9 @@ namespace BS3D.Platform
         /// a flat 75.0 as well, so the phase lock is free.
         /// </para>
         /// <para>
-        /// <b>It is not vsync.</b> The wait is taken BEFORE the frame is built rather than inside Present, so
-        /// a frame that fits in the interval cannot miss a vblank and land at half rate - which is the
-        /// failure #270 measured on the vsync this limiter replaced.
+        /// <b>It is not vsync.</b> The wait is taken before Present rather than inside it, so a frame that fits
+        /// in the interval cannot miss a vblank and land at half rate - which is the failure #270 measured on
+        /// the vsync this limiter replaced (and re-measured on the Moon in #634: 55 FPS shown, 55 ms latency).
         /// </para>
         /// <para>
         /// A false answer is DWM refusing (composition off, or the call failing), and the caller then has

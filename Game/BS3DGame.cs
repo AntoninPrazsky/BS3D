@@ -99,6 +99,9 @@ namespace BS3D
         //resolution while it is limiting anything, and that is paired.
         private readonly FrameLimiter _frameLimiter = new();
 
+        //Puts the frame's recorded work on the GPU before the compositor wait (see PaceFrame)
+        private readonly GpuFlush _gpuFlush = new();
+
         //The monitor's refresh, re-read wherever the quality probe's floor is (startup and every resize, so a
         //window moved to another panel corrects itself). Zero when the adapter reports nothing sensible —
         //headless, a remote session — and unlimited is then the honest answer rather than a 0 FPS cap.
@@ -1516,13 +1519,9 @@ namespace BS3D
 
         protected override void Update(GameTime gameTime)
         {
-            //Paced BY the compositor rather than against it (#448), at the TOP of the frame: the wait ends
-            //just past a composition, the frame is built and presented inside the interval that follows, and
-            //DWM picks up exactly one frame per refresh. EndFrame's clock stays behind it as the fallback,
-            //and remains the whole story whenever a NUMBER was named - a benchmark's fpscap= or a player's
-            //Settings row mean that number and not the compositor's rate.
-            if (_fpsCap <= 0 && !_uncappedFps && _displayRefreshHz > 0) _frameLimiter.WaitForCompositor();
-
+            //The frame is paced by the compositor at the END of Draw (PaceFrame, #634) — it used to be paced here,
+            //at the top, which put every frame's GPU work after the wait (#448). Nothing waits before the work now,
+            //so MonoGame's clock, read just before this, is read just after the last frame's wait ended.
             float elapsed = (float)gameTime.ElapsedGameTime.TotalSeconds;
             _wallClock += elapsed;
 
@@ -1682,7 +1681,48 @@ namespace BS3D
 
             //Dead last, after the frame has been counted: the idle must not be inside anything the log
             //measures, or the instrument reads itself instead of the frame.
+            PaceFrame();
+        }
+
+        /// <summary>
+        /// Holds the frame to the display, between the last draw and the Present that MonoGame's <c>EndDraw</c>
+        /// makes straight after <see cref="Draw"/> returns.
+        /// <para>
+        /// <b>Paced BY the compositor</b> (#448), and the wait belongs HERE, with the frame finished and its work
+        /// already on the GPU — not at the top of the frame, where it stood until #634. The game presents through
+        /// MonoGame's blt-model swap chain (PresentMon: <i>Composed: Copy with GPU GDI</i>), so DWM takes the newest
+        /// finished frame at each composition and throws away any older one that finished in the same interval.
+        /// Waiting at the top put the frame's whole GPU work after the wait, a few milliseconds into the interval,
+        /// and a card that clocks itself down at 75 FPS took 7 to 17 ms over it: on the Moon's front end at
+        /// 3840×1600 and 75 Hz, <b>195 of 596 frames were never shown</b> at Ultra and 196 of 594 at High
+        /// (re-measured 2026-09-29; 204 of 745 and 164 of 597 on 2026-09-26), the rest shown in a 1-2-1-2 cadence.
+        /// Low, whose GPU work stays under 11 ms, dropped none. Flushed here and waited on, the GPU runs through the
+        /// wait and the Present lands just past a composition with the frame done. Without the flush D3D11 holds the
+        /// commands until Present and the Moon still dropped 174 (2026-09-26).
+        /// </para>
+        /// <para>
+        /// The wait is what steps the world evenly, too: MonoGame reads its clock at the top of the tick, so with
+        /// the wait here that read comes just after the last wait ended and the elapsed is the compositor's own
+        /// interval. With the wait at the top it was the refresh plus the difference in the last two frames' costs —
+        /// 13.33 ± 1.0 ms, from 10.2 to 16.4, on the same front end (#634's first finding), which stepped the menu's
+        /// orbit unevenly under an even display. The <c>[pace]</c> line of <c>logfps</c> is what says so.
+        /// </para>
+        /// <para>
+        /// A NUMBER named — a benchmark's <c>fpscap=</c>, the player's Settings row, <c>nocap</c> — means that number
+        /// and not the compositor's rate, so those runs idle on <see cref="FrameLimiter.EndFrame"/>'s clock alone,
+        /// as does a compositor that refuses.
+        /// </para>
+        /// </summary>
+        private void PaceFrame()
+        {
             _frameLimiter.TargetHz = FrameLimitHz;
+
+            if (_fpsCap <= 0 && !_uncappedFps && _displayRefreshHz > 0)
+            {
+                _gpuFlush.Flush(GraphicsDevice);
+                if (_frameLimiter.WaitForCompositor()) return;
+            }
+
             _frameLimiter.EndFrame();
         }
 
@@ -1701,6 +1741,12 @@ namespace BS3D
         private float _fpsWindow;
         private int _fpsFrames;
 
+        //The spread of the frame's elapsed over the same window (#634): what the world was STEPPED by, frame to
+        //frame, which the rate alone cannot say — 75.0 FPS reads the same whether every step was a refresh or the
+        //steps ran from 10 to 16 ms round it. Double, because the variance is the small difference of two large sums.
+        private double _paceSumSquares;
+        private float _paceMin = float.MaxValue, _paceMax;
+
         /// <summary>
         /// Writes one line a second: the frame rate and every setting that changes what it means, so two runs —
         /// or two machines — can be compared without having to remember what each was launched with.
@@ -1709,6 +1755,9 @@ namespace BS3D
         {
             _fpsWindow += elapsed;
             _fpsFrames++;
+            _paceSumSquares += (double)elapsed * elapsed;
+            if (elapsed < _paceMin) _paceMin = elapsed;
+            if (elapsed > _paceMax) _paceMax = elapsed;
 
             if (_fpsWindow < 1f) return;
 
@@ -1748,8 +1797,19 @@ namespace BS3D
                 //held at the refresh cannot be mistaken later for a free one or for a benchmark's own cap.
                 + $", limit {(limit > 0 ? $"{limit}{(_fpsCap > 0 ? " (fpscap)" : " (refresh)")}" : "off")}{city}");
 
+            //Its own line rather than a field on the one above, whose shape the benchmark scripts parse. Invariant,
+            //so the figures read the same in every locale a script runs under.
+            double mean = _fpsWindow / (double)_fpsFrames;
+            double deviation = Math.Sqrt(Math.Max(0.0, _paceSumSquares / _fpsFrames - mean * mean));
+            Console.WriteLine(string.Format(System.Globalization.CultureInfo.InvariantCulture,
+                "[pace] elapsed {0:F2} ms, sd {1:F2}, {2:F1}-{3:F1}",
+                mean * 1000.0, deviation * 1000.0, _paceMin * 1000f, _paceMax * 1000f));
+
             _fpsWindow = 0f;
             _fpsFrames = 0;
+            _paceSumSquares = 0.0;
+            _paceMin = float.MaxValue;
+            _paceMax = 0f;
         }
 
         #endregion
