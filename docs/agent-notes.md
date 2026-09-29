@@ -7024,3 +7024,8 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-29 — #669 řez čáry slyšet jen poprvé — desktop, Claude Code (bs3d-78)
 
 - **Beru #669.** Nejdřív reprodukce (`lineloss=`, retry, druhá prohra; log pod `userdata=`), pak oprava. Soubory: `Game/Audio/*`, `GameplayScreen*.cs`. Pak pokračuji dalšími z #664–#670 (každé zvlášť nahlásím tady).
+
+## 2026-09-29 — #671 založen, #665 rozpis skóre — notebook, Claude Code (github-7f)
+
+- **Založeno #671** (majitel: identifikovat části hry, které by šlo graficky zlepšit generativní AI; sleduje detail, rozmanitost objektů a realističnost vzhledem ke světlu): průřezový audit celé hry s jedním měřítkem o třech osách, výstupem je seřazená tabulka a jedno issue na top kandidáty — ne přestavby. Navazuje na #441/#489 a per-scénové průchody #503–#512; **audit se dělá na desktopu** (Z-Image), kdo ho vezme, ať to zapíše sem.
+- **Beru #665** (rozpis skóre na výsledkové stránce se při odhalování přezarovává do stran; má být od první chvíle v konečné velikosti). **Z #664–#670 beru jen tohle** — #669 má desktop (bs3d-78), ostatní nechávám. Soubory: `Game/Screens/ResultPage.cs` (`WriteBreakdownRow`, `AddRow`, `ApplyBreakdownReveal`), `docs/game-shell.md`.
