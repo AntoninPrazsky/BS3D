@@ -34,6 +34,43 @@ namespace BS3D.Online
         /// <summary>The one letter under it that Inter lacks.</summary>
         private const char MissingFromInter = 'ŉ';
 
+        //The words a nickname can be that put the party hat on the gun (#230, the code-word egg): a nod to the two libraries
+        //the game stands on and to the author's own name. Never explained anywhere, and nothing about play reads it.
+        private static readonly string[] SecretWords = { "bepu", "bepuphysics", "monogame", "prazsky" };
+
+        /// <summary>
+        /// Whether <paramref name="name"/> is one of the secret words (#230): compared without regard to case, and with
+        /// spaces, underscores and hyphens left out, so "BEPU", "Bepu Physics" and "mono_game" all count. Null and
+        /// anything else is false. <b>The one thing a secret word does is put the party hat on the gun</b> — a cosmetic,
+        /// like every egg of #230's list that is not a change to the physics or the rules, which would silently
+        /// invalidate what ScoreSim, ClearProbe and the sag gate measured.
+        /// </summary>
+        internal static bool IsSecretWord(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return false;
+
+            foreach (string word in SecretWords)
+                if (Matches(name, word)) return true;
+
+            return false;
+        }
+
+        //Case-blind equality that skips the separators a nickname may hold, with no allocation
+        private static bool Matches(string name, string word)
+        {
+            int w = 0;
+
+            foreach (char c in name)
+            {
+                if (c == ' ' || c == '_' || c == '-') continue;
+                if (w >= word.Length || char.ToLowerInvariant(c) != word[w]) return false;
+
+                w++;
+            }
+
+            return w == word.Length;
+        }
+
         /// <summary>
         /// Whether <paramref name="c"/> may be typed into a nickname at all — what the page lets through as it is
         /// typed, so a key that could never be part of a name simply does nothing.
