@@ -1869,7 +1869,10 @@ namespace BS3D.Screens
 
         private Pulse _tutorialPulse;
 
-        /// <summary>An action on the card was just done: the card pops the way the score does on a hit.</summary>
+        /// <summary>
+        /// An action on the card was just done: its praise word pops the way the score does on a hit — the word
+        /// alone, so the instruction over it stays put (#673); the send-off, which has no praise row, pops whole.
+        /// </summary>
         internal void KickTutorial() => _tutorialPulse.Kick(HUD_TUTORIAL_PRAISE_KICK);
 
         #region The drop cinematic's skip hint (#499)
@@ -1940,9 +1943,10 @@ namespace BS3D.Screens
 
         /// <summary>
         /// The tutorial's card, if one is up: the glyphs, the line and the smaller line laid out as one block
-        /// and scaled about its own centre, so the bounce and the praise's kick swell it in place rather than
-        /// shouldering it along the top of the frame. Every colour is premultiplied by the card's presence, as
-        /// every fading readout here is, so the backing and the shadow fade with the text.
+        /// and scaled about its own centre, so the arrival's bounce swells it in place rather than shouldering
+        /// it along the top of the frame; the praise word hangs under that block and takes the praise's kick
+        /// about its own centre (<see cref="TutorialCardLayout"/>, #673). Every colour is premultiplied by the
+        /// card's presence, as every fading readout here is, so the backing and the shadow fade with the text.
         /// <para>
         /// <b>The praise word is a third line under the detail since #466</b>, where it used to <i>be</i> the
         /// caption — the card flipped on the frame the action landed and took its detail line away with it, so
@@ -1951,9 +1955,18 @@ namespace BS3D.Screens
         /// <i>reserved</i> from the card's arrival or it shoves the caption down the frame at the instant the
         /// player has earned the right to re-read it — and reserved, it pushes every instruction a line deeper
         /// into the cluster for a row that is empty most of the time. Built both ways and photographed.
-        /// Underneath, nothing already read ever moves, the card grows into the space below it, and the order
-        /// reads the way it happens: do this, then well done. It costs height and not width, so the strip clamp
-        /// below is unaffected.
+        /// Underneath, the card grows into the space below it and the order reads the way it happens: do this,
+        /// then well done. It costs height and not width, so the strip clamp below is unaffected.
+        /// </para>
+        /// <para>
+        /// <b>Nothing already read moves when it lands, since #673</b> — which #466 promised and the layout did
+        /// not keep: the praise was a member of the block, so on its frame the block re-centred (beside the aim
+        /// card's taller glyph the text rose until it was the taller of the two, beside the fire card's taller
+        /// text the glyph sank), the idle bob stopped dead, and the kick swelled everything by 1.3× about a
+        /// centre that now included the praise row. An action done during the card's arrival also snapped it to
+        /// full size on the praise's frame (<c>Tutorial.Complete</c>). The owner's report was that the player reads both lines again. Now the
+        /// instruction is laid out from its own geometry alone, the bob keeps its clock, and only the praise
+        /// word springs; <c>TutorialCardLayoutTests</c> pins it, and failed on the old layout by 18 to 35 pixels.
         /// </para>
         /// </summary>
         /// <param name="scoreLeft">The left edge of the score block, which is what the card may not reach.</param>
@@ -1968,7 +1981,6 @@ namespace BS3D.Screens
             string glyph = tutorial.Glyph;
             string detail = tutorial.Detail;
             string praise = tutorial.Praise;
-            bool praising = tutorial.Praising;
 
             SpriteFontBase glyphFont = _game.HudFontPrompt;
             SpriteFontBase captionFont = _game.HudFontTutorial;
@@ -1982,34 +1994,26 @@ namespace BS3D.Screens
             float gap = glyphSize.X > 0f ? Scaled(HUD_TUTORIAL_GLYPH_GAP) : 0f;
             float lineGap = detailSize.Y > 0f ? Scaled(HUD_TUTORIAL_LINE_GAP) : 0f;
             float praiseGap = praiseSize.Y > 0f ? Scaled(HUD_TUTORIAL_PRAISE_GAP) : 0f;
-            float textWidth = MathF.Max(MathF.Max(captionSize.X, detailSize.X), praiseSize.X);
-            float textHeight = captionSize.Y + lineGap + detailSize.Y + praiseGap + praiseSize.Y;
-            float width = glyphSize.X + gap + textWidth;
-            float height = MathF.Max(glyphSize.Y, textHeight);
 
             float alpha = MathHelper.Clamp(presence, 0f, 1f);
-            float scale = MathHelper.Lerp(HUD_TUTORIAL_ARRIVE_FROM, 1f, EaseOutBack(alpha)) * _tutorialPulse.Scale;
+            float arrive = MathHelper.Lerp(HUD_TUTORIAL_ARRIVE_FROM, 1f, EaseOutBack(alpha));
 
             //THE CARD IS SCALED TO THE STRIP IT HAS, and at the shipped sizes this never bites (#461): the
             //widest card of the fifteen measures 2552 design units against ~3020 of strip at 16:9, and the
-            //arrival's overshoot and the praise's kick both swell words far shorter than the instruction they
-            //replace. What it is for is the two cases no authored figure can answer — a window narrower than
-            //16:9, and a caption someone adds later — where a card would otherwise walk into the score. It
-            //caps the animated scale rather than the layout, so a clamped card cannot bounce past the number
-            //either.
+            //arrival's overshoot swells it far less than that. What it is for is the two cases no authored
+            //figure can answer — a window narrower than 16:9, and a caption someone adds later — where a card
+            //would otherwise walk into the score. It caps the animated scale rather than the layout, so a
+            //clamped card cannot bounce past the number either; the praise word has its own (#673).
             float halfStrip = MathF.Max(0f, scoreLeft - Scaled(HUD_TUTORIAL_CLEARANCE) - viewport.Width * 0.5f);
-            if (width > 0f) scale = MathF.Min(scale, 2f * halfStrip / width);
-            float bob = praising ? 0f
-                : MathF.Sin(tutorial.Age * MathHelper.TwoPi / HUD_TUTORIAL_BOB_PERIOD) * Scaled(HUD_TUTORIAL_BOB);
-
-            Vector2 centre = new(viewport.Width * 0.5f, margin + height * 0.5f + bob);
-            Vector2 origin = centre - new Vector2(width, height) * (0.5f * scale);
+            TutorialCardLayout card = TutorialCardLayout.Compute(glyphSize, captionSize, detailSize, praiseSize,
+                gap, lineGap, praiseGap, viewport.Width * 0.5f, margin, tutorial.Age, Scaled(HUD_TUTORIAL_BOB),
+                HUD_TUTORIAL_BOB_PERIOD, arrive, _tutorialPulse.Scale, halfStrip);
+            float scale = card.Scale;
 
             if (glyphSize.X > 0f)
-                DrawString(glyphFont, glyph, origin + new Vector2(0f, (height - glyphSize.Y) * 0.5f * scale),
-                    BS3DGame.MENU_TEXT * alpha, scale);
+                DrawString(glyphFont, glyph, card.GlyphAt, BS3DGame.MENU_TEXT * alpha, scale);
 
-            Vector2 captionAt = origin + new Vector2((glyphSize.X + gap) * scale, (height - textHeight) * 0.5f * scale);
+            Vector2 captionAt = card.CaptionAt;
 
             //The send-off that closes the ladder wears the praise's dress from the moment it lands (#459):
             //there is nothing left on it to earn, so it arrives celebrating instead of turning amber later.
@@ -2021,19 +2025,16 @@ namespace BS3D.Screens
                 (tutorial.Celebrating ? HUD_ACCENT : BS3DGame.MENU_TEXT) * alpha, scale);
 
             if (detailSize.Y > 0f)
-                DrawString(detailFont, detail, captionAt + new Vector2(0f, (captionSize.Y + lineGap) * scale),
-                    HUD_CAPTION * alpha, scale);
+                DrawString(detailFont, detail, card.DetailAt, HUD_CAPTION * alpha, scale);
 
             //The praise word, once the action has been done (#466): the accent, because a lesson done IS gain —
             //the one thing the accent means here — and it flares the way the score does on a hit, the same
             //amber and the same blurred halo, gone as the word settles.
             if (praiseSize.Y > 0f)
             {
-                Vector2 praiseAt = captionAt
-                    + new Vector2(0f, (captionSize.Y + lineGap + detailSize.Y + praiseGap) * scale);
-
-                DrawGlow(captionFont, praise, praiseAt, praiseSize, scale, tutorial.PraiseHeat, HUD_ACCENT, HUD_GLOW_PASSES);
-                DrawString(captionFont, praise, praiseAt, HUD_ACCENT * alpha, scale);
+                DrawGlow(captionFont, praise, card.PraiseAt, praiseSize, card.PraiseScale, tutorial.PraiseHeat,
+                    HUD_ACCENT, HUD_GLOW_PASSES);
+                DrawString(captionFont, praise, card.PraiseAt, HUD_ACCENT * alpha, card.PraiseScale);
             }
         }
 
