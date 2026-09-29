@@ -264,8 +264,10 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// How long the on/off switch itself takes, in seconds — a lamp, not a dimmer. A duration since #619; it was
         /// a fraction of the hold interval, which lengthening the hold would have turned into a 20-second crawl.
+        /// 0.8 s at first, and 0.3 s on the owner's word that the windows "can light up faster" (#619, 2026-09-29):
+        /// the hold and the restless share are what keep the skyline calm, not the switch, so the switch can be quick.
         /// </summary>
-        public float WindowSwitchSeconds { get; set; } = 0.8f;
+        public float WindowSwitchSeconds { get; set; } = 0.3f;
 
         /// <summary>How brightly a lit window burns; kept under the glare threshold so it does not veil its tower.</summary>
         public float WindowBrightness { get; set; } = 0.35f;
