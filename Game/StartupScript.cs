@@ -130,6 +130,9 @@ namespace BS3D
         //Which Help page to open at boot, 1-based, or null for "not asked" (#427)
         private int? _help;
 
+        //Testing only: the wall-clock second the run goes to the main menu with its session kept (tomenu=, #650)
+        private float? _toMenuAt;
+
         /// <param name="launch">What the command line said to this run.</param>
         /// <param name="levelFile">
         /// <see cref="SessionTestOptions.StartupLevelFile"/>: <c>levelfile=</c> as the host keeps it, null when
@@ -161,6 +164,7 @@ namespace BS3D
             _boardPage = launch.BoardPage;
             _help = launch.Help;
             _tour = launch.Tour;
+            _toMenuAt = launch.ToMenuAt;
         }
 
         /// <summary>
@@ -183,6 +187,15 @@ namespace BS3D
 
             //AFTER the startup level, and that order is the whole point — see the method.
             StartCelebrations(game);
+
+            //The front end over a session that is still standing (#650), at a moment the script chose: the level
+            //has to be up first, so this waits for the clock and for a session rather than firing on the first
+            //frame, and it is the pause page's Main Menu exactly — which is why it goes through the same call.
+            if (_toMenuAt is float toMenuAt && game.WallClock >= toMenuAt && game.HasSession)
+            {
+                _toMenuAt = null;
+                game.ReturnToMainMenu();
+            }
 
             //The level picker, over the front end (#273). Held back until the title card has gone, as every page
             //below is — see the result page's note for why that is still wanted now that it is not needed.
