@@ -66,6 +66,14 @@ namespace Prazsky.Core.Render
         //The trunk's radius at the root, as a multiple of the radius it holds to the fork
         private const float ROOT_FLARE = 1.5f;
 
+        //The surface roots (#670), as multiples of the flare's radius: how many, how far out they reach on the ground,
+        //how high up the trunk they leave it, and how deep their tips dive
+        private const int ROOTS_MIN = 4;
+        private const int ROOTS_SPREAD = 3;
+        private const float ROOT_REACH = 2.3f;
+        private const float ROOT_RISE = 1.1f;
+        private const float ROOT_DIVE = 0.45f;
+
         //The trunk's mean radius over its length as a multiple of the radius at the fork (a flare from ROOT_FLARE down
         //to 0.9), and how much of a tier's leaf plate counts as solid
         private const float TRUNK_MEAN = 1.2f;
@@ -204,6 +212,26 @@ namespace Prazsky.Core.Render
                 //The trunk, flared at the root and holding most of its girth to the fork.
                 TubeGeometry.AddTube(v, idx, SEG, new Vector3(0f, 0f, 0f), trunkRadius * ROOT_FLARE,
                     new Vector3(0f, forkY, 0f), trunkRadius * 0.9f);
+
+                //The foot (#670): surface roots leaving the flare, running out along the ground and diving into it,
+                //which is what every reference's trunk does where it meets the soil — a clean cylinder cut at the
+                //ground read as a pole stood on the plain. Each in two runs, steep off the trunk and then flat,
+                //and off its own dice, so everything above the ground is the tree it was.
+                Random rootDice = new(unchecked(BitConverter.SingleToInt32Bits(forkY) * 31 + boughs));
+                float foot = trunkRadius * ROOT_FLARE;
+                int roots = ROOTS_MIN + rootDice.Next(ROOTS_SPREAD);
+                float rootBearing = (float)rootDice.NextDouble() * MathHelper.TwoPi;
+                for (int r = 0; r < roots; r++)
+                {
+                    float ra = rootBearing + MathHelper.TwoPi * r / roots + (float)(rootDice.NextDouble() - 0.5) * 0.8f;
+                    Vector3 rd = new(MathF.Cos(ra), 0f, MathF.Sin(ra));
+                    float out_ = foot * ROOT_REACH * (0.7f + 0.6f * (float)rootDice.NextDouble());
+                    Vector3 leave = rd * (foot * 0.3f) + Vector3.Up * (foot * ROOT_RISE * (0.8f + 0.4f * (float)rootDice.NextDouble()));
+                    Vector3 knee = rd * (foot * 1.1f) + Vector3.Up * (foot * 0.12f);
+                    Vector3 end = rd * out_ - Vector3.Up * (foot * ROOT_DIVE);
+                    TubeGeometry.AddTube(v, idx, 5, leave, foot * 0.42f, knee, foot * 0.24f);
+                    TubeGeometry.AddTube(v, idx, 5, knee, foot * 0.24f, end, foot * 0.08f);
+                }
 
                 //The boughs: evenly spread with a jittered bearing, each rising in two bent segments to a point
                 //out under a tier. They taper hard, so the wood thins into the leaves it carries. With no tier

@@ -89,9 +89,13 @@ namespace Prazsky.Core.Render
         private const float TRUNK_FLUTE_DEPTH = 0.2f;
 
         //The bottle's bottom ring, as a multiple of the trunk radius, and the wobble it is irregular by, likewise
-        //(#658: BaseRadius is their sum, so the shape and what a scatter sinks the tree by cannot part)
-        private const float BOTTOM_RING = 1.15f;
+        //(#658: BaseRadius is their sum, so the shape and what a scatter sinks the tree by cannot part). The ring was
+        //1.15 until #670, a vase's foot stood on the plain; the references' baobab spreads into the ground in folds,
+        //so the foot flares to this at the ground and on below it, and the flutes deepen there by FOOT_FOLD — the
+        //trunk's own lobes carried out into buttresses, where tubes stuck on read as boards
+        private const float BOTTOM_RING = 1.45f;
         private const float IRREGULARITY = 0.06f;
+        private const float FOOT_FOLD = 2.3f;
 
         /// <summary>The bottle trunk and the bare limbs, one material.</summary>
         private sealed class WoodMesh : IProceduralMesh, IDisposable
@@ -116,7 +120,7 @@ namespace Prazsky.Core.Render
                 //neck at the top where the limbs leave it. The wobble is slight - a baobab is smooth.
                 float top = height * 0.6f;
                 float r = height * 0.19f * (0.9f + 0.2f * (float)rng.NextDouble());
-                BaseRadius = r * (BOTTOM_RING + IRREGULARITY);
+                BaseRadius = r * (BOTTOM_RING + IRREGULARITY * FOOT_FOLD);
                 TrunkRadius = r;
                 var profile = new (float radius, float y, float wobble)[]
                 {
@@ -125,9 +129,11 @@ namespace Prazsky.Core.Render
                     (r * 0.55f, height * 0.5f,  0.6f),
                     (r * 0.78f, height * 0.32f, 1f),
                     (r * 0.95f, height * 0.14f, 1f),
-                    (r,         height * 0.03f, 1f),
-                    (r * BOTTOM_RING, 0f,       0.8f),
-                    (0f,        0f,             0f)
+                    (r * 1.01f, height * 0.05f, 1.2f),
+                    (r * 1.13f, height * 0.016f, FOOT_FOLD * 0.8f),
+                    (r * BOTTOM_RING, 0f,       FOOT_FOLD),
+                    (r * (BOTTOM_RING + 0.15f), -r * 0.2f, FOOT_FOLD),
+                    (0f,        -r * 0.2f,      0f)
                 };
                 var v = new List<VertexPositionNormalTexture>(profile.Length * 15 + 600);
                 var idx = new List<short>(profile.Length * 90 + 1800);
