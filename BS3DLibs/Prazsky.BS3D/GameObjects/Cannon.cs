@@ -175,11 +175,15 @@ namespace Prazsky.BS3D.GameObjects
         /// </summary>
         public const float ADVANCE_EASE_ZONE = 1.5f;
 
-        //Full advance speed in units per millisecond (~5 u/s): the whole of a typical 8-unit range in under
-        //two seconds, ramped by the same acceleration idiom the orbit uses so the two movements feel like one
-        //carriage. The speed is a scale on the same _delta protocol Orbit takes, so a caller passes ±1 per
-        //held frame here exactly as it does there.
-        private static readonly float ADVANCE_SPEED = 0.005f;
+        //Full advance speed in units per millisecond (~10 u/s), ramped by the same acceleration idiom the orbit
+        //uses so the two movements feel like one carriage. The speed is a scale on the same _delta protocol
+        //Orbit takes, so a caller passes ±1 per held frame here exactly as it does there.
+        //
+        //It was 5 u/s until #659, and the owner's word was that W/S felt "as if the cannon were too heavy" next
+        //to A/D: the traverse's DEFAULT_ROTATION_SPEED (1 rad/s) carries the gun round its ~17.5-unit orbit at
+        //about 17 u/s, so the walk ran at under a third of the turn. Doubled, it crosses a typical range in
+        //under a second and the rubber ends (ADVANCE_EASE_ZONE) still cushion the stop.
+        private static readonly float ADVANCE_SPEED = 0.01f;
 
         public Vector3 AimTarget;
         public readonly Vector3 OrbitCenter;
