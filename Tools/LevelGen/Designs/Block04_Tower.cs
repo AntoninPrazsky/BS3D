@@ -20,7 +20,7 @@ namespace BS3D.Tools.LevelGen
         /// fired up the axis still goes clean through and the player still has to work the ring rather than
         /// spray at the centre. The teeth are the silhouette read: a plain constant-radius ring read as a
         /// napkin ring, plainer than its neighbours despite carrying more balls (#174), so the band now tapers
-        /// the way <see cref="Bullseye"/> and <see cref="Prism"/> do and the teeth extend it upward, narrowing
+        /// the way <see cref="Prism"/> does (and the Meadow's stepped Bullseye did, until #649) and the teeth extend it upward, narrowing
         /// to the accent — the same shape a crown is, in the same occupancy arithmetic the other solids of
         /// revolution already use. See <see cref="CrownOccupied"/> and <see cref="CrownColour"/> for the band,
         /// the teeth and the tip.
@@ -77,8 +77,8 @@ namespace BS3D.Tools.LevelGen
         /// <summary>
         /// Crown's occupancy: a gently tapering band (the ring itself, with the drain up the middle), six
         /// teeth rising above it — one per bar — and each tooth narrowing to a tip on the anchor level. The
-        /// band's outer radius uses the same <c>(top − i) · taper</c> idiom <see cref="Bullseye"/> and
-        /// <see cref="Prism"/> do; the teeth reuse <see cref="Sector"/>'s own <c>+0.5</c> framing through
+        /// band's outer radius uses the same <c>(top − i) · taper</c> idiom <see cref="Prism"/>
+        /// does; the teeth reuse <see cref="Sector"/>'s own <c>+0.5</c> framing through
         /// <see cref="InCrownToothWedge"/>. The tip lives on the anchor level, so it bonds straight to the
         /// glass — no tooth floats.
         /// </summary>

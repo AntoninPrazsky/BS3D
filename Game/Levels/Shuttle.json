@@ -5,6 +5,8 @@
   "author": "BS3D",
   "sky": 1,
   "scene": "meadow",
+  "music": "bloom",
+  "balls": "bubble",
   "map": {
     "sx": 15,
     "sz": 15,

@@ -39,9 +39,9 @@ namespace BS3D.Tools.LevelGen
         /// Star 40 %) — and on a level whose point is being recognised, the symbol coming away in one piece is
         /// the reward. A colouring in wide concentric shells is the same thing on a solid of revolution, which
         /// is why the gentle block that teaches what a colour group <i>is</i> holds the next two figures under
-        /// the pictures (Bullseye 45 %, Toadstool 42 %). This said "the top of that band is the three
-        /// pictures" and quoted "4–16 % for the geometric levels", which was never true of Bullseye and is the
-        /// reason it is now measured here rather than characterised.
+        /// the pictures (Bullseye 45 %, Toadstool 42 %, both since retired from the campaign in #649). This said
+        /// "the top of that band is the three pictures" and quoted "4–16 % for the geometric levels", which was
+        /// never true of Bullseye and is the reason it is now measured here rather than characterised.
         /// </para>
         /// <para>
         /// <b><see cref="Program.One"/> is the design that has visited both ends of this band, and which end it sits

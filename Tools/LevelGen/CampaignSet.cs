@@ -29,7 +29,9 @@ namespace BS3D.Tools.LevelGen
         /// </summary>
         private static readonly (string Name, int Size)[] BLOCKS =
         {
-            ("The Meadow", 13), ("The Gallery", 10), ("The Coil", 10), ("The Tower", 10),
+            //THE MEADOW IS TEN AGAIN (#649): #603's three sheets made it thirteen, and the owner cut the three
+            //levels he named. Every block is ten once more; the table stays a table for #295's reason.
+            ("The Meadow", 10), ("The Gallery", 10), ("The Coil", 10), ("The Tower", 10),
             //THE SILHOUETTES ARE INSERTED FIFTH (#491), between the Tower's violet dusk and the Reveal's cavern:
             //the night the light ramp was missing between the two, under the aurora. See the designs array.
             ("The Silhouettes", 10),

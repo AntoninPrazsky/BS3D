@@ -216,8 +216,11 @@ namespace BS3D.Screens
                 //moment — it fires when the floor's net first comes on and says what to do about it. This one
                 //says what is at stake, on the opening of the level where losing to the line first becomes a
                 //real risk, because a player who meets the loss with nothing having told them the rule reads
-                //it as the game being unfair rather than as a rule they now know.
-                Lesson = Lesson.LineRule, Key = "linerule", FromLevel = 6,
+                //it as the game being unfair rather than as a rule they now know. That level is Amphora, whose
+                //cup swings under the line once its ears are shot off, and since #649 it is the chapter's last,
+                //so the rule and the send-off after it close the chapter. (Between #603 and #649 this read 6,
+                //which the three sheets inserted in front had quietly turned into Pinwheel.)
+                Lesson = Lesson.LineRule, Key = "linerule", FromLevel = 9,
                 Caption = "If the cluster reaches the line, the level is lost",
                 Detail = "Keep it light — a heavy cluster hangs low and swings lower",
             },
@@ -227,7 +230,7 @@ namespace BS3D.Screens
                 //this, so a player was never told they had been taught everything — the cards simply stopped.
                 //It celebrates rather than informs (see Definition.Celebrates), because being told you are done
                 //is a reward and reads as one only if it is dressed as one.
-                Lesson = Lesson.Graduated, Key = "graduated", FromLevel = 6, Celebrates = true,
+                Lesson = Lesson.Graduated, Key = "graduated", FromLevel = 9, Celebrates = true,
                 Caption = "That's everything — you know the game",
                 Detail = "The rest is the adventure. Go!",
             },
