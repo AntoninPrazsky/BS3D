@@ -39,6 +39,7 @@
       in it. TutorialTests walks the shipped level set through it and holds which chapter teaches what.-->
   <ItemGroup>
     <Compile Include="..\..\Game\Screens\Tutorial.cs" />
+    <Compile Include="..\..\Game\Screens\TutorialCardLayout.cs" />
   </ItemGroup>
 
   <ItemGroup>
