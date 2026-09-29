@@ -172,7 +172,14 @@ namespace BS3D.Screens
             //clamp is a landing promised for a shot that cannot leave, which is #70's broken promise. The beam stays
             //up and reads refused, because in the overview it is what carries the blink.
             if (_cannon.ElevationRefusesShot) _previewHasCell = false;
+
+            //And none for a cutter (#213): it does not land in a cell, so the ghost would show a ball that will not be there.
+            //The beam ends at the ball it will strike, which is the promise a cutter can keep
+            if (CutterLoaded) _previewHasCell = false;
         }
+
+        /// <summary>Whether the round in the bore is an anchor cutter (#213): the ghost is hidden and the aim is not "refused" (the beam's and the crosshair's tint both read this).</summary>
+        private bool CutterLoaded => _magazine.Slot(0).Kind == BallKind.Cutter;
 
         /// <summary>
         /// Draws the aim beam. Coloured by what the far end means — the loaded ball's own tint where the shot
@@ -190,7 +197,7 @@ namespace BS3D.Screens
 
             //sRGB in 0…1 either way, which is what the beam decodes: Color.ToVector3 divides by 255, and the
             //type tints are already in that form — they are what LaunchSmears is handed for the same reason.
-            Vector3 tint = _previewReachesCluster && !_previewHasCell
+            Vector3 tint = _previewReachesCluster && !_previewHasCell && !CutterLoaded
                 ? PREVIEW_REFUSED.ToVector3()
                 : BasicEffectParamsProvider.GetDiffuseTintByType(LoadedColour(0));
 
@@ -513,10 +520,11 @@ namespace BS3D.Screens
                 //rides. Handed to ONE draw of a crossing's two, so the motion record holds the ball once.
                 Matrix shutterWorld = RoundShutterWorld(world);
 
-                if (slot.Kind == BallKind.Wildcard)
+                if (slot.Kind == BallKind.Wildcard || slot.Kind == BallKind.Cutter)
                 {
+                    //A cutter (#213) is drawn the same way and for the same reason - its look is the render set's, by kind
                     frame.Add(LoadedColour(i), position, world, BallRenderSet.UNOCCLUDED, 0f, mark, still,
-                        BallKind.Wildcard, shutterWorld);
+                        slot.Kind, shutterWorld);
                 }
                 else if (slot.Transmute > 0f)
                 {

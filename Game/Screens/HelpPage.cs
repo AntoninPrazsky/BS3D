@@ -48,7 +48,7 @@ namespace BS3D.Screens
 
         //PromptFont's own glyphs, the tutorial's constants exactly (Tutorial.cs) — one face, one set of
         //codepoints, so a key drawn here and the same key drawn on a card cannot come out different
-        private const string KEY_W = "Ｗ", KEY_A = "Ａ", KEY_S = "Ｓ", KEY_D = "Ｄ", KEY_E = "Ｅ", KEY_Q = "Ｑ";
+        private const string KEY_W = "Ｗ", KEY_A = "Ａ", KEY_S = "Ｓ", KEY_D = "Ｄ", KEY_E = "Ｅ", KEY_Q = "Ｑ", KEY_R = "Ｒ";
         private const string MOUSE = "⟼", MOUSE_LEFT = "⟵", MOUSE_RIGHT = "⟶";
 
         //The level the worked example is played on: the campaign's first, so a reader can go and reproduce it.
@@ -382,9 +382,10 @@ namespace BS3D.Screens
             column.Widgets.Add(KeyLine(KEY_W + KEY_S, "Step in and out — closer means a steeper shot"));
             column.Widgets.Add(KeyLine(KEY_E, "Swap the next two balls — one swap a level, from the second chapter"));
             column.Widgets.Add(KeyLine(KEY_Q, "Brake the ceiling — lift the glass one step back, one a level, from the third chapter"));
+            column.Widgets.Add(KeyLine(KEY_R, "Cut — the next ball destroys the one it hits, so what hung on it falls; one a level, from the fourth chapter"));
             column.Widgets.Add(Paragraph(
                 "Escape pauses. F11 is fullscreen, F12 saves a screenshot, F10 hides the frame-rate counter."));
-            column.Widgets.Add(Caption("A gamepad plays all of it too — the Swap is X and the Brake is Y; the first chapter "
+            column.Widgets.Add(Caption("A gamepad plays all of it too — the Swap is X, the Brake is Y and the Cut is the right bumper; the first chapter "
                 + "teaches the other bindings for whichever you are holding."));
         }
 

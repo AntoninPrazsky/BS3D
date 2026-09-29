@@ -2726,9 +2726,16 @@ namespace Prazsky.BS3D
                     _set.StoreFrozen(typeIndex, lod, instance);
                     break;
 
+                case BallKind.Cutter:
+                    //The anchor cut's round (#213): shot-only like the wildcard, and drawn with the zap's look — colourless, a
+                    //technique plus renderer uniforms — because a new figure is a shader of its own and the round exists only
+                    //in the bore and the air. See BallRenderSet.DrawZaps. Never stored in the cluster (BallKinds.InCluster).
+                    _set.StoreZap(lod, instance);
+                    break;
+
                 case BallKind.Wildcard:
                     //The first kind that is the OPPOSITE of the four above (#330): it is nothing BUT colour —
-                    //two of them at once — and it is the only kind that is ever loaded in the cannon. So it
+                    //two of them at once — and it is the only kind that is ever loaded in the cannon AND carries a colour (the Cutter of #213 is loaded too, and colourless). So it
                     //takes neither a region of its own nor this ball's typeIndex, which for a wildcard says
                     //only which colour it happens to be showing; the crossing is the game's, set once a frame.
                     //`still` rides along because a wildcard IS most often a loaded round, and a loaded round does

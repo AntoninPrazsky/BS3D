@@ -22,6 +22,8 @@ namespace BS3D
     /// a second press on a level with one swap is the refusal a player would hear.</item>
     /// <item><c>brake=&lt;t1,t2,…&gt;</c> — presses the ceiling's brake key at those seconds (#213), through the very call Q
     /// makes, so a press with the glass still at rest is the refusal a player would hear.</item>
+    /// <item><c>cut=&lt;t1,t2,…&gt;</c> — presses the anchor cut's key at those seconds (#213), through the very call R makes,
+    /// so the round in the bore becomes a cutter and the next <c>fire=</c> is the cut.</item>
     /// <item><c>walk=&lt;from&gt;:&lt;to&gt;[:in|out]</c> and <c>turn=&lt;from&gt;:&lt;to&gt;[:left|right]</c> — hold W (or S)
     /// and A (or D) across the interval, through the very calls the keys make. Written for the resize fault: a
     /// window resized mid-level re-solves the fit, and whether the player's walk and turn survive that could only be
@@ -49,6 +51,8 @@ namespace BS3D
         private int _nextSwap;
         private float[] _brake;
         private int _nextBrake;
+        private float[] _cut;
+        private int _nextCut;
         private float _walkFrom = float.NaN, _walkTo, _walkSign = 1f;
         private float _turnFrom = float.NaN, _turnTo, _turnSign = 1f;
         private float _flipPeriod;
@@ -124,6 +128,15 @@ namespace BS3D
                 if (times == null || times.Length == 0) return false;
 
                 (Current ??= new ScriptedPlay())._swap = times;
+                return true;
+            }
+
+            if (arg.StartsWith("cut=", StringComparison.OrdinalIgnoreCase))
+            {
+                float[] times = ScreenshotWriter.ParseSeconds(arg.Substring("cut=".Length));
+                if (times == null || times.Length == 0) return false;
+
+                (Current ??= new ScriptedPlay())._cut = times;
                 return true;
             }
 
@@ -229,6 +242,15 @@ namespace BS3D
             if (_swap == null || _nextSwap >= _swap.Length || clock < _swap[_nextSwap]) return false;
 
             _nextSwap++;
+            return true;
+        }
+
+        /// <summary>Whether a scheduled cut press has come due, consuming it - one a call, like <see cref="TryTakeBrake"/> (#213).</summary>
+        internal bool TryTakeCut(float clock)
+        {
+            if (_cut == null || _nextCut >= _cut.Length || clock < _cut[_nextCut]) return false;
+
+            _nextCut++;
             return true;
         }
 

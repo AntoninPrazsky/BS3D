@@ -245,6 +245,22 @@ namespace Prazsky.BS3D.Levels
         public const int BRAKE_FROM_BLOCK = 3;
 
         /// <summary>
+        /// The first block (counted from 1) whose levels come with an anchor cut (#213's third step): the fourth chapter,
+        /// after the queue's tool (the second) and the ceiling's (the third) — one new tool a chapter, so the player has
+        /// met what a support is (the Coil's ropes, the Tower's frames) before a tool that cuts one. One a level, never
+        /// carried over, like the other two.
+        /// </summary>
+        public const int CUT_FROM_BLOCK = 4;
+
+        /// <summary>
+        /// How many Cut charges the level at <paramref name="index"/> starts with (#213): one from
+        /// <see cref="CUT_FROM_BLOCK"/> on, none before it, and none outside the set or in a set naming no blocks. A rule of
+        /// the campaign's shape, so no level file changed.
+        /// </summary>
+        public int CutChargesAt(int index) =>
+            index >= 0 && index < Count && HasBlocks && BlockNumber(index) >= CUT_FROM_BLOCK ? 1 : 0;
+
+        /// <summary>
         /// How many Brake charges the level at <paramref name="index"/> starts with (#213): one from
         /// <see cref="BRAKE_FROM_BLOCK"/> on for a level whose ceiling steps, and none for one whose ceiling holds
         /// (there is no glass coming down to hold back), before that block, outside the set or in a set naming no

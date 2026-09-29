@@ -502,6 +502,10 @@ namespace Prazsky.BS3D.Physics
 
             if (other.Mobility == CollidableMobility.Dynamic && TryFindStructureBall(other.BodyHandle, out PhysicsBall hitBall))
             {
+                //THE ANCHOR CUT (#213) does not place a ball at all: what it strikes is destroyed, and it takes its
+                //turn before any of the placement below, none of which applies to a round that leaves no ball behind
+                if (physicsBall.Kind == BallKind.Cutter) return LandCutter(physicsBall, hitBall, contact);
+
                 solved = ShotPlacement.TrySolveAgainstBall(_map, hitBall, worldContact, _worldOffset, out cell,
                     out clusterDrift);
             }
@@ -780,6 +784,55 @@ namespace Prazsky.BS3D.Physics
 
             BallLanded?.Invoke(new BallLanding(released, restPosition, physicsBall.Type, cell, coloured,
                 _thawedCells.Count, _detonations));
+
+            return true;
+        }
+
+        /// <summary>
+        /// A cutter round (<see cref="BallKind.Cutter"/>) has struck a ball of the structure: destroy that ball, let the
+        /// disconnection pass bring down what hung on it alone (<see cref="BallsConstraintsBuilder.CutBall"/>), and report
+        /// the landing like any other so the score, the sound and the recount answer it as they answer a blast.
+        /// <para>
+        /// <b>The cutter is spent in the striking and takes no cell.</b> It is put among the falling balls — the list the
+        /// released ones go into — so it is drawn dropping away and culled when it settles, exactly like what it cut
+        /// loose, and marked loose so that a shot behind it passes through. It does not arm the bombs and zaps beside
+        /// the struck cell, which a landing does: it occupies no cell for them to be beside, and a bomb it strikes
+        /// itself goes off (see <c>CutBall</c>).
+        /// </para>
+        /// </summary>
+        private bool LandCutter(PhysicsBall cutter, PhysicsBall struck, in QueuedContact contact)
+        {
+            XZLevel cell = struck.ArrayPosition;
+            Vector3 world = struck.BallReference.Pose.Position.ToXna();
+
+            _detonations.Clear();
+
+            //Not in flight any more, and no longer a listener: the shot is over
+            _shotBalls.Remove(cutter);
+            if (_contactEvents.IsListener(contact.EventSource)) _contactEvents.Unregister(contact.EventSource);
+
+            //Spent, and dropped: the normal landing zeroes both velocities because its ball becomes part of the lattice, and
+            //a cutter left at the speed it struck with (the gun's 200 u/s, softened by a soft contact) would plough on
+            //through the hole it made, jolt the cluster behind it or fly up to the glass. A nudge down, the size of a
+            //released ball's (BallsConstraintsBuilder.LOOSEN_SPEED), so it falls away with what it cut loose.
+            cutter.BallReference.Velocity.Linear = new System.Numerics.Vector3(0f, -BallsConstraintsBuilder.CUT_DROP_SPEED, 0f);
+            cutter.BallReference.Velocity.Angular = default;
+
+            //Put among the falling balls BEFORE the cut, not after it: the drop cinematic's subject is the last
+            //`Released.Total` entries of this list (TryBeginDropCinematic), which must be the balls the cut let go
+            int fallingBefore = _fallingBalls.Count;
+            _fallingBalls.Add(cutter);
+
+            BallsReleased released = BallsConstraintsBuilder.CutBall(cell, _physicsBalls, _map, _simulation, _fallingBalls,
+                _detonations);
+
+            for (int i = fallingBefore; i < _fallingBalls.Count; i++)
+                _contactEvents.MarkLoose(_fallingBalls[i].BallReference.Handle);
+
+            Console.WriteLine($"[shot] cutter struck cell ({cell.X},{cell.Z},{cell.Level}):"
+                + $" destroyed {released.Destroyed}, orphaned {released.Orphaned}, {_detonations.Count} bomb(s) fired");
+
+            BallLanded?.Invoke(new BallLanding(released, world, cutter.Type, cell, 0, 0, _detonations));
 
             return true;
         }

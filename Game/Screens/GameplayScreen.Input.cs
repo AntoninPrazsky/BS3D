@@ -126,6 +126,11 @@ namespace BS3D.Screens
                 if (Game.IsKeyEdge(keyboard, Keys.Q)
                     || (pad.IsButtonDown(Buttons.Y) && !Game.PreviousPad.IsButtonDown(Buttons.Y)))
                     PressBrake();
+
+                //R (the pad's right bumper) is the anchor Cut (#213): the round in the bore becomes a cutter
+                if (Game.IsKeyEdge(keyboard, Keys.R)
+                    || (pad.IsButtonDown(Buttons.RightShoulder) && !Game.PreviousPad.IsButtonDown(Buttons.RightShoulder)))
+                    PressCut();
             }
             else if (CameraTakeoverEngaged)
             {
@@ -329,6 +334,7 @@ namespace BS3D.Screens
                 if (script.TryTakeFire(WallClock)) Shoot();
                 if (script.TryTakeSwap(WallClock)) PressSwap();
                 if (script.TryTakeBrake(WallClock)) PressBrake();
+                if (script.TryTakeCut(WallClock)) PressCut();
             }
 
             //And the aim lesson reads the pose once the mouse and the pad have both had their say (#189)

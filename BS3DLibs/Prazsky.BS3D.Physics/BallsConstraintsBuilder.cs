@@ -1054,6 +1054,71 @@ namespace Prazsky.BS3D.Physics
         }
 
         /// <summary>
+        /// <b>The anchor cut (#213):</b> destroys the ONE ball a cutter shot struck and lets the disconnection pass find
+        /// what that was holding up. The shot is the Cut power-up's round (<see cref="BallKind.Cutter"/>); this is what it
+        /// does when it lands, in the shape every removal in this game takes — choose a set of cells (here, one), release
+        /// them, run <see cref="ResolveDisconnected"/> over what is left — so it needed no new path.
+        /// <para>
+        /// <b>Anything can be cut, the rock included, and that is the point</b>: a rock is a wall no colour removes, and it is
+        /// very often the anchor an anchor-starved level hangs from, which is exactly what "cut the anchor" means. A
+        /// <see cref="BallKind.Bomb"/> struck by the cutter goes off instead of being destroyed quietly — it has been
+        /// reached, the rule the kind always meant — through <see cref="DetonateBombs"/>, and that call's own
+        /// disconnection pass does the rest.
+        /// </para>
+        /// <para>
+        /// A cell that holds nothing (the ball was already released by an earlier contact of the same step) is not an
+        /// error and cuts nothing: it answers the default, which the landing reports as a shot that did nothing.
+        /// </para>
+        /// </summary>
+        /// <param name="at">The struck ball's cell in the lattice.</param>
+        /// <returns>No matches, the ball itself and anything else destroyed (a bomb's blast), and everything the
+        /// disconnection pass then found hanging on nothing.</returns>
+        public static BallsReleased CutBall(
+            XZLevel at,
+            PhysicsBall[,,] physicsBalls,
+            BallsMap map,
+            Simulation simulation,
+            List<PhysicsBall> releasedInto,
+            List<Detonation> detonationsInto = null)
+        {
+            XZLevel size = map.GetStaticBallsArraySize();
+            StaticBall[,,] cells = map.GetStaticBallsArray();
+
+            if (at.X < 0 || at.Z < 0 || at.Level < 0 || at.X >= size.X || at.Z >= size.Z || at.Level >= size.Level) return default;
+
+            StaticBall struck = cells[at.X, at.Z, at.Level];
+            if (struck == null) return default;
+
+            if (struck.Kind == BallKind.Bomb)
+            {
+                _cutBombScratch.Clear();
+                _cutBombScratch.Add(at);
+                return DetonateBombs(_cutBombScratch, physicsBalls, map, simulation, releasedInto, detonationsInto);
+            }
+
+            _handleScratch.Clear();
+
+            PhysicsBall ball = physicsBalls[at.X, at.Z, at.Level];
+            ReleaseBall(at, physicsBalls, map, simulation, size, _handleScratch, releasedInto);
+
+            //Nudged off the lattice like a zapped ball (see ZAP_SPEED): it is gone from the field, and drawn falling
+            if (ball != null) Loosen(ball);
+
+            BallsReleased fell = ResolveDisconnected(null, physicsBalls, map, simulation, size, _handleScratch,
+                releasedInto, detonationsInto);
+
+            return new BallsReleased(0, fell.Orphaned, 1 + fell.Destroyed);
+        }
+
+        //Per thread like the other scratch lists (#585): a cut is asked of one landing at a time today, but the sag probe and the
+        //tests run whole worlds side by side
+        [ThreadStatic] private static List<XZLevel> t_cutBombScratch;
+        private static List<XZLevel> _cutBombScratch => t_cutBombScratch ??= new(1);
+
+        /// <summary>How fast the cutter round is sent down once it has struck (#213): the released balls' own nudge, not a blast's shove.</summary>
+        public const float CUT_DROP_SPEED = 1.6f;
+
+        /// <summary>
         /// Throws one freed ball away from <paramref name="centre"/> — the bomb's <b>body</b>, in world space. See
         /// <see cref="BLAST_SPEED"/> for why a blast's victims are thrown rather than merely dropped, and for what
         /// a centre in any other frame did.
