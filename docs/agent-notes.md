@@ -6947,3 +6947,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-29 — #230 spící dělo: náboje v hlavni — desktop, Claude Code (bs3d-a1)
 
 - **Na mainu:** `Magazine.Pose` bral ústí z kreslené (pokleslé) hlavně, ale směr fronty z `AimDirection` → náboje trčely z hlavně a nedýchaly s ní (majitel). Teď `Cannon.DrawnAimDirection()` (internal); test `TheLoadedQueueFollowsTheDroopedBarrel`.
+
+## 2026-09-29 — #662 stíny dál před kamerou — desktop, Claude Code (bs3d-a1)
+
+- **Na mainu:** čtverec stínové mapy vystředěný 0,3 šířky PŘED kamerou (po vodorovné části pohledu), ne na ní → dosah ~208 j místo 130 při stejných texelech, ve všech scénách. Majitel: palmy na pláži přestávaly vrhat stín kousek do obrazu i na vysokých stupních.
