@@ -6940,3 +6940,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-29 — #659 rychlejší W/S — desktop, Claude Code (bs3d-a1)
 
 - **Na mainu:** `Cannon.ADVANCE_SPEED` 5 → 10 u/s (A/D jede po orbitě ~17 u/s). Gumové konce beze změny.
+
+## 2026-09-29 — #230 čepice: lépe nasazená — desktop, Claude Code (bs3d-a1)
+
+- **Na mainu:** čepice se naklání dozadu nad závěr (0,3 rad) místo do strany (0,2 → 0,08), zapuštění 0,06 → 0,015 — okraj už neřeže hlaveň ani nepřesahuje okénko. V přesném míření se zmenší do ztracena (do 60 % náklonu): objektiv je přímo nad závěrem a čepice stála uprostřed pohledu.
