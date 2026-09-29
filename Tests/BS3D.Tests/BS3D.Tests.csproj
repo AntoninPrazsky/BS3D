@@ -35,6 +35,12 @@
     <Compile Include="..\..\Game\Effects\VolcanoIntroShots.cs" />
   </ItemGroup>
 
+  <!--The tutorial's rules (#666), compiled in the same way: Tutorial is a ladder of lessons and clocks with no device
+      in it. TutorialTests walks the shipped level set through it and holds which chapter teaches what.-->
+  <ItemGroup>
+    <Compile Include="..\..\Game\Screens\Tutorial.cs" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\..\BS3DLibs\Prazsky.BS3D\Prazsky.BS3D.csproj" />
     <ProjectReference Include="..\..\BS3DLibs\Prazsky.Core\Prazsky.Core.csproj" />

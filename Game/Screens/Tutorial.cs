@@ -17,10 +17,12 @@ namespace BS3D.Screens
     /// opener carries only the three that make the game a game: aim, fire, three of a colour fall. Precise aim
     /// waits for the second level, walking the gun round for the fourth — One, the first level with a far side,
     /// since the campaign opens on three flat sheets played from the stand the gun is given (#603) — stepping
-    /// it in for the fifth, and the later levels of the chapter are left to be played. A lesson the player did not get to — the level
+    /// it in for the fifth, and the chapter ends on the line's rule and the send-off. A lesson the player did not get to — the level
     /// lost, the card timed out, the event never happened — follows them into the next level of the chapter,
-    /// so nothing is ever skipped for good; it is only ever deferred. Past the chapter's last level nothing is
-    /// offered at all: the chapter <i>is</i> the tutorial, which is what the owner asked for.
+    /// so nothing is ever skipped for good; it is only ever deferred. <b>The score is the second chapter's
+    /// (#666)</b>: the streak and the spare shots' bonus wait for it, so the first chapter is played before it
+    /// is explained (<see cref="Definition.Chapter"/>), and past the second chapter nothing is offered at all —
+    /// the first two chapters <i>are</i> the tutorial, which is what the owner asked for.
     /// </para>
     /// <para>
     /// <b>Two kinds of lesson, told apart by how they end.</b> An <see cref="Definition.Action"/> lesson stays
@@ -89,7 +91,13 @@ namespace BS3D.Screens
             /// <summary>The name the save records it under. Stable: renaming it re-teaches every player.</summary>
             public string Key;
 
-            /// <summary>The level of the tutorial chapter it first becomes eligible at, counted from 0.</summary>
+            /// <summary>
+            /// Which chapter of the campaign teaches it, from 0 (#666): the first chapter's ladder is the controls
+            /// and the rules, the second's is the score. A lesson is offered in its own chapter only.
+            /// </summary>
+            public int Chapter;
+
+            /// <summary>The level of its <see cref="Chapter"/> it first becomes eligible at, counted from 0.</summary>
             public int FromLevel;
 
             /// <summary>Shown by its event (<see cref="Trigger"/>) rather than at the level's start.</summary>
@@ -202,12 +210,19 @@ namespace BS3D.Screens
             },
             new()
             {
-                Lesson = Lesson.Streak, Key = "streak", FromLevel = 2, Contextual = true,
+                //THE SCORE WAITS FOR THE SECOND CHAPTER (#666), on the owner's playtest: the tutorial's explanation
+                //of the score could wait, so the player is not overloaded with new information and can play a bit
+                //first. The first chapter's levels are gentle enough that a player who never keeps a streak or
+                //saves a shot still two-stars them (ScoreSim's sloppy player: 1.85-1.98 on all ten), which is what
+                //every gate there asks, so nothing the Meadow asks of the player needs this yet. Contextual on the
+                //Gallery's first level, as it was on the Meadow's third: shown when the streak first lights.
+                Lesson = Lesson.Streak, Key = "streak", Chapter = 1, FromLevel = 0, Contextual = true,
                 Caption = "Hit after hit multiplies your score", Detail = "A miss resets the streak",
             },
             new()
             {
-                Lesson = Lesson.Budget, Key = "budget", FromLevel = 5,
+                //And the budget one level on, so the chapter's first two levels teach one idea each.
+                Lesson = Lesson.Budget, Key = "budget", Chapter = 1, FromLevel = 1,
                 Caption = "Spare shots pay a bonus at the end", Detail = "Clear the field in fewer for more stars",
             },
             new()
@@ -230,15 +245,20 @@ namespace BS3D.Screens
                 //AND THE SEND-OFF (#459), which is the last card of the ladder: the tutorial had no end before
                 //this, so a player was never told they had been taught everything — the cards simply stopped.
                 //It celebrates rather than informs (see Definition.Celebrates), because being told you are done
-                //is a reward and reads as one only if it is dressed as one.
+                //is a reward and reads as one only if it is dressed as one. "The basics" and not "everything"
+                //since #666: the score's two lessons come after it, in the second chapter, and a send-off that
+                //said "everything" would be the one card that lied.
                 Lesson = Lesson.Graduated, Key = "graduated", FromLevel = 9, Celebrates = true,
-                Caption = "That's everything — you know the game",
+                Caption = "That's the basics — you know how to play",
                 Detail = "The rest is the adventure. Go!",
             },
         };
 
-        /// <summary>How many levels a set without chapters is taught over — the shipped chapter's own length.</summary>
+        /// <summary>How long a chapter of a set without chapters is — the shipped chapter's own length.</summary>
         private const int UNCHAPTERED_LEVELS = 10;
+
+        /// <summary>How many chapters teach anything (#666): the controls and rules in the first, the score in the second.</summary>
+        private const int TUTORIAL_CHAPTERS = 2;
 
         //The card's clocks, all wall seconds of play: the pop-in, the retreat, how long it hides under a
         //camera takeover's blend, the praise, an informational card's hold, an action card's patience, the
@@ -397,21 +417,30 @@ namespace BS3D.Screens
         #region The level
 
         /// <summary>
-        /// The last level index the tutorial reaches in <paramref name="set"/>: the first chapter's last
-        /// entry, or the first <see cref="UNCHAPTERED_LEVELS"/> of a set that names no chapters. −1 for no set
-        /// at all — the fallback pyramid is not a campaign and teaches nothing.
+        /// Where entry <paramref name="index"/> of <paramref name="set"/> sits in the tutorial: which chapter, from
+        /// 0, and how far into it. A chaptered set's chapters are its blocks; a set that names none is taught in
+        /// runs of <see cref="UNCHAPTERED_LEVELS"/>. False past the first <see cref="TUTORIAL_CHAPTERS"/> chapters —
+        /// nothing is taught there — and for no set at all, since the fallback pyramid is not a campaign.
         /// </summary>
-        internal static int LastLevelOf(LevelSet set)
+        internal static bool TryPlace(LevelSet set, int index, out int chapter, out int levelInChapter)
         {
-            if (set == null || set.Count == 0) return -1;
+            chapter = -1;
+            levelInChapter = -1;
+            if (set == null || index < 0 || index >= set.Count) return false;
 
             if (set.HasBlocks)
             {
-                set.BlockRange(0, out _, out int last);
-                return last;
+                set.BlockRange(index, out int first, out _);
+                chapter = set.BlockNumber(index) - 1;
+                levelInChapter = index - first;
+            }
+            else
+            {
+                chapter = index / UNCHAPTERED_LEVELS;
+                levelInChapter = index % UNCHAPTERED_LEVELS;
             }
 
-            return Math.Min(set.Count, UNCHAPTERED_LEVELS) - 1;
+            return chapter < TUTORIAL_CHAPTERS;
         }
 
         /// <summary>
@@ -419,14 +448,14 @@ namespace BS3D.Screens
         /// yet taught — and queues the start lessons in order while arming the contextual ones. Nothing shows
         /// until the level's own opening (a chapter intro, say) has let go.
         /// </summary>
-        /// <param name="levelIndex">The level's place in the set, from 0.</param>
-        /// <param name="lastIndex">The tutorial chapter's last index (<see cref="LastLevelOf"/>); past it, nothing is taught.</param>
+        /// <param name="chapter">The level's chapter (<see cref="TryPlace"/>), or −1 for a level the tutorial does not reach.</param>
+        /// <param name="levelInChapter">How far into that chapter the level is, from 0.</param>
         /// <param name="ceilingStep">The level's ceiling cadence, for the glass lesson's caption; null skips that lesson.</param>
-        internal void BeginLevel(int levelIndex, int lastIndex, int? ceilingStep)
+        internal void BeginLevel(int chapter, int levelInChapter, int? ceilingStep)
         {
             Reset();
 
-            _hasLevel = levelIndex >= 0 && levelIndex <= lastIndex;
+            _hasLevel = chapter >= 0;
             if (!_hasLevel) return;
 
             //The one string built per level. A level whose glass holds still cannot fire the lesson anyway,
@@ -437,7 +466,8 @@ namespace BS3D.Screens
 
             foreach (Definition lesson in DEFINITIONS)
             {
-                if ((levelIndex < lesson.FromLevel && !_demo) || Taught(lesson)) continue;
+                if ((lesson.Chapter != chapter || levelInChapter < lesson.FromLevel) && !_demo) continue;
+                if (Taught(lesson)) continue;
                 if (lesson.Lesson == Lesson.Ceiling && _ceilingCaption == null) continue;
 
                 //The reel has no events to wait for, so its contextual cards are queued like the rest
@@ -445,7 +475,8 @@ namespace BS3D.Screens
                 else _queue.Add(lesson);
             }
 
-            if (!_demo) NothingAfterTheSendOff();
+            //The send-off closes the first chapter's ladder and nothing else: the second's lessons are its own
+            if (!_demo && chapter == 0) NothingAfterTheSendOff();
 
             _gap = FIRST_CARD_DELAY;
         }
