@@ -151,7 +151,9 @@ float SlabJoints(float2 p, float slab, float joint, float footprint)
 
 //The body of a car painted on the road, seen from above: the paint, a dark windscreen and rear window, a
 //pale roof between them. `along` runs nose to tail. Returns the colour; `mask` is how much of the pixel it covers.
-float3 CarBody(float2 local, float3 paint, float footprint, out float mask)
+//`rim` is 1 at the body's edge and 0 a hand's width in, `ridge` 1 down the car's centre line and 0 at its sides, and
+//`glass` how much of the pixel is a window - the three shapes the night's reflections (#651) are drawn on.
+float3 CarBody(float2 local, float3 paint, float footprint, out float mask, out float rim, out float ridge, out float glass)
 {
     const float halfLength = 1.3;
     const float halfWidth = 0.6;
@@ -159,13 +161,20 @@ float3 CarBody(float2 local, float3 paint, float footprint, out float mask)
     float2 q = abs(local) - float2(halfLength, halfWidth) + 0.25;
     float body = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - 0.25;
     mask = Inside(body, footprint);
+    rim = saturate(1.0 + body / 0.3);
+    ridge = saturate(1.0 - abs(local.y) / (halfWidth * 0.7));
 
     //Glass across the car at both ends of the cabin, the roof between them
-    float glass = (Band(local.x, 0.35, 0.85, footprint) + Band(local.x, -0.95, -0.6, footprint))
+    float windows = (Band(local.x, 0.35, 0.85, footprint) + Band(local.x, -0.95, -0.6, footprint))
         * Band(local.y, -halfWidth + 0.12, halfWidth - 0.12, footprint);
+    glass = saturate(windows) * saturate(1.0 - footprint * 2.0);
 
-    return lerp(paint, float3(0.012, 0.014, 0.018), saturate(glass) * saturate(1.0 - footprint * 2.0));
+    return lerp(paint, float3(0.012, 0.014, 0.018), glass);
 }
+
+//How much of the neon overhead a car's clear coat and glass mirror back at night (#651), as a multiple of the neon's own
+//colour. A reflection, so it does not depend on the paint: it is what lets the darkest one read as a car at all.
+static const float CAR_SHEEN = 0.012;
 
 //The cars' paints (linear albedo): white, black, silver, dark blue, red, taxi yellow, dark grey
 static const float3 CAR_PAINTS[7] =
@@ -261,8 +270,8 @@ float4 StreetPS(StreetVertexOutput input) : COLOR
     float facing = lane * 2.0 - 1.0;
     float2 carLocal = float2((along - carCentre) * facing, across - (lane * 2.0 - 1.0) * laneCentre);
     float3 paint = CAR_PAINTS[(int)min(Hash12(slotId + 4.4) * 7.0, 6.0)];
-    float carMask;
-    float3 car = CarBody(carLocal, paint, footprint, carMask);
+    float carMask, carRim, carRidge, carGlass;
+    float3 car = CarBody(carLocal, paint, footprint, carMask, carRim, carRidge, carGlass);
     carMask *= hasCar;
 
     //Past a few pixels a car is a smudge of its own average, not an aliasing rectangle
@@ -380,6 +389,20 @@ float4 StreetPS(StreetVertexOutput input) : COLOR
     float2 beamOffset = float2(carLocal.x - 3.2, carLocal.y);
     float beam = exp(-(beamOffset.x * beamOffset.x / 3.2 + beamOffset.y * beamOffset.y / 0.5)) * hasCar * (1.0 - carMask);
     color += Neon * (carLights + albedo * float3(1.2, 1.05, 0.8) * beam * 1.5);
+
+    //What a dark body shows at night is what it reflects (#651). Its diffuse light is the asphalt's, and between the
+    //lamps that is black - so a black, dark blue or grey car was its two pairs of lights and nothing else, and the
+    //owner saw lights with no car. Clear coat and glass mirror the neon overhead: a line of it along the edge where
+    //the paint turns away from the eye (Fresnel), a soft ridge down the roof and bonnet, and more of it in the
+    //windows. In the block's own neon colour, the one the spill on the sidewalk takes, and only on the pixels the
+    //body resolves to: past a few pixels the car is a smudge and takes no sheen either.
+    //Behind a branch on the uniform: the day city never reaches it, and nothing inside takes a derivative.
+    [branch]
+    if (Neon > 0.0)
+    {
+        float3 carSheen = spillColor * CAR_SHEEN * (carRim * 0.8 + carRidge * 0.3 + carGlass * 1.2);
+        color += Neon * carSheen * carMask * carResolved;
+    }
 
     //--- Distance -------------------------------------------------------------------------------------------------------
     //Only past the city's last block. The towers take no haze, and a street under a haze the towers standing on
