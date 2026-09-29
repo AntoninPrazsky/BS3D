@@ -709,6 +709,10 @@ namespace BS3D.Screens
             //the result screen then schedules its linger-and-fade.
             UpdateLaserWarning(lowestBallY);
 
+            //And the net is heard where a ball swings into it (#669) — geometry, like the warning, so also under a
+            //cinematic.
+            UpdateLineTouch(lowestBallY, lowestBallAt);
+
             //A cinematic defers the endings, never the warning above: the walk already ran on this frame's
             //poses, and both losses will be re-asked the moment the cinematic lets go.
             if (!mayLose) return;
@@ -775,6 +779,32 @@ namespace BS3D.Screens
             if (warn && !_laserGrid.Visible && !_test.ForceLaserWarning) _tutorial.Trigger(Tutorial.Lesson.Line);
 
             _laserGrid.SetVisible(warn, WallClock);
+        }
+
+        /// <summary>
+        /// Sounds the net's touch (#669) on the frame the cluster's lowest ball reaches the line — the net hovers where
+        /// a ball's surface meets it at exactly that centre height, so this is the frame the lasers start cutting into
+        /// the ball — and re-arms it once that ball is back up by <see cref="LINE_TOUCH_REARM"/>. The line forgives such
+        /// a swing (#239), and until this it was silent: the only sound the lasers had was the loss's cut, so the owner
+        /// heard them cut into the balls the first time — the loss — and never on the swings the line let go.
+        /// <para>
+        /// Not on a frame that is already past the allowance: that frame loses outright, and the cut is its sound. A
+        /// touch still sounding when the cut begins is stopped by it (<c>ProceduralAudio.PlayLineLoss</c>).
+        /// </para>
+        /// </summary>
+        private void UpdateLineTouch(float lowestBallY, Vector3 lowestBallAt)
+        {
+            if (lowestBallY > CEILING_DEATH_Y + LINE_TOUCH_REARM)
+            {
+                _run.LineTouchArmed = true;
+                return;
+            }
+
+            if (!_run.LineTouchArmed || lowestBallY > CEILING_DEATH_Y
+                || lowestBallY <= CEILING_DEATH_Y - CLUSTER_SWING_ALLOWANCE) return;
+
+            _run.LineTouchArmed = false;
+            Game.Audio.PlayLineTouch(lowestBallAt);
         }
 
         /// <summary>

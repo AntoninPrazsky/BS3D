@@ -145,5 +145,11 @@ namespace BS3D.Screens
         /// for — advanced by <c>StepLineLoss</c>, on its own rather than read off <see cref="Seconds"/>, as it
         /// was before either moved here.</summary>
         internal float LineLossClock { get; set; }
+
+        /// <summary>
+        /// Whether the next ball to reach the line is heard touching the net (#669): false from that touch until the
+        /// cluster's lowest ball is back up clear of the line, so a ball resting on it sounds once and not every frame.
+        /// </summary>
+        internal bool LineTouchArmed { get; set; } = true;
     }
 }

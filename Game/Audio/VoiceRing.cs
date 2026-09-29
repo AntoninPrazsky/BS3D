@@ -70,6 +70,15 @@ namespace BS3D.Audio
         }
 
         /// <summary>
+        /// Stops every voice in the ring at once — for a sound another one takes over from (the net's touch
+        /// when its cut begins, #669). Two native calls a voice, on an event and never per frame.
+        /// </summary>
+        internal void StopAll()
+        {
+            for (int i = 0; i < _ring.Length; i++) _ring[i].Stop();
+        }
+
+        /// <summary>
         /// Disposes the ring's instances. <b>Call this before disposing the <see cref="SoundEffect"/> the ring
         /// was built from</b> — the instances hold voices onto that buffer.
         /// </summary>
