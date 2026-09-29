@@ -428,7 +428,8 @@ namespace BS3D.Screens
 
         /// <summary>
         /// True once per completed action, on the frame it completed — the session plays the chime and kicks
-        /// the card off it, and the read clears it.
+        /// the praise word's spring off it (the whole card's, for the send-off, which has no praise row), and the
+        /// read clears it.
         /// </summary>
         internal bool TakePraiseCue()
         {
@@ -710,6 +711,11 @@ namespace BS3D.Screens
                     _age += elapsed;
                     _praise += elapsed;
 
+                    //An action done while the card was still arriving lets the arrival finish rather than
+                    //snapping the card to full size on the praise's frame (#673): the pop-in's scale is the
+                    //instruction's, and at a tenth of a second in it stands about a fifth under full.
+                    _presence = MathF.Min(1f, _presence + elapsed / ARRIVE_SECONDS);
+
                     //Both clocks, not either (#466): the praise has had its hold AND the instruction has stood
                     //long enough to be read. An action done in the first half-second — the common case on the
                     //fire and aim lessons — is what the second half of that is for.
@@ -768,7 +774,7 @@ namespace BS3D.Screens
             _phase = Phase.Leaving;
         }
 
-        /// <summary>The action on the card was done: recorded, and the praise goes up in its place.</summary>
+        /// <summary>The action on the card was done: recorded, and the praise joins the instruction under it.</summary>
         private void Complete()
         {
             if (_card == null || !_card.Action || _phase is Phase.Praising or Phase.Leaving) return;
@@ -776,7 +782,6 @@ namespace BS3D.Screens
             Teach(_card);
 
             _phase = Phase.Praising;
-            _presence = 1f;
             _praise = 0f;
             _praised = true;
             _praiseCue = true;
