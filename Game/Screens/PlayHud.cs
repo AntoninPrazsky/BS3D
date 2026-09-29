@@ -849,9 +849,11 @@ namespace BS3D.Screens
         /// readouts. Empty on every frame but a nap.</param>
         /// <param name="swapCharges">The level's Swap charges left (#213), or −1 for a level that offers none — which
         /// draws nothing, so a first-chapter player is shown no key that does nothing.</param>
+        /// <param name="brakeCharges">The level's Brake charges left (#213), or −1 for a level that offers none — the ceiling's
+        /// brake chip, drawn on the row above the Swap's.</param>
         internal void Draw(ScoreKeeper score, ICamera camera, in ClusterProfile profile, ReadOnlySpan<BallMarker> balls,
             ReadOnlySpan<BallType> queue, Tutorial tutorial, bool previewsOnly = false,
-            ReadOnlySpan<BS3D.Effects.DozingGun.Z> snores = default, int swapCharges = -1)
+            ReadOnlySpan<BS3D.Effects.DozingGun.Z> snores = default, int swapCharges = -1, int brakeCharges = -1)
         {
             _game.EnsureHudFonts();
 
@@ -895,7 +897,7 @@ namespace BS3D.Screens
             DrawStreak(score, viewport, margin, scoreAnchor.Y + scoreSize.Y * 0.5f + Scaled(HUD_LINE_GAP));
             DrawBallsLeft(score, viewport, margin);
             DrawMagazine(queue, score, viewport, margin);
-            DrawSwap(swapCharges, tutorial.OnGamepad, viewport, margin);
+            DrawSwap(swapCharges, brakeCharges, tutorial.OnGamepad, viewport, margin);
 
             //The card is given the score's left edge rather than measuring it again: it is what bounds the
             //strip the card may stand in (#461), and one measurement cannot disagree with the other.
@@ -1181,54 +1183,84 @@ namespace BS3D.Screens
         private const string SWAP_GLYPH_PAD = "⇐";
         private const string SWAP_READY = "Swap";
         private const string SWAP_SPENT = "Swap used";
+
+        //The Brake chip's (#213): Q and the pad's Y
+        private const string BRAKE_GLYPH_KEY = "Ｑ";
+        private const string BRAKE_GLYPH_PAD = "⇑";
+        private const string BRAKE_READY = "Brake";
+        private const string BRAKE_SPENT = "Brake used";
         private const int HUD_SWAP_GLYPH_GAP = 14;
         private const int HUD_SWAP_ABOVE_STRIP = 26;
+        private const int HUD_SWAP_ROW_GAP = 8;
         private const float HUD_SWAP_SPENT_ALPHA = 0.42f;
 
         //The count's text, built when the count changes and not per frame
         private int _swapTextFor = -1;
         private string _swapText = SWAP_READY;
+        private int _brakeTextFor = -1;
+        private string _brakeText = BRAKE_READY;
 
         /// <summary>
-        /// The Swap's chip (#213), above the magazine it acts on and right-aligned to it: the key that does it, the word,
-        /// and how many are left. It is the one thing in the HUD the player <i>carries</i> and may spend, so it says
-        /// when it is spent — dimmed and "Swap used" — rather than vanishing, which would read as a fault the second
-        /// time the key is pressed. Drawn only on a level that offers one (<paramref name="charges"/> ≥ 0), so the
-        /// first chapter shows nothing to press. The glyph is the pad's X when the hand was last on the pad
+        /// The power-up chips (#213), above the magazine they act on and right-aligned to it — one row each, the Swap's
+        /// nearest the strip and the ceiling's Brake on the row above it (or on the first when a level offers a brake and no
+        /// swap): the key that does it, the word, and how many are left. They are the things in the HUD the player
+        /// <i>carries</i> and may spend, so a spent one says so — dimmed and "Swap used" — rather than vanishing, which
+        /// would read as a fault the second time the key is pressed. A chip is drawn only on a level that offers its
+        /// power-up (<paramref name="swapCharges"/> or <paramref name="brakeCharges"/> ≥ 0), so the first chapter shows
+        /// nothing to press. The glyph is the pad's button when the hand was last on the pad
         /// (<see cref="Tutorial.OnGamepad"/>), as every prompt outside the cards picks.
         /// </summary>
-        private void DrawSwap(int charges, bool onGamepad, Viewport viewport, int margin)
+        private void DrawSwap(int swapCharges, int brakeCharges, bool onGamepad, Viewport viewport, int margin)
         {
-            if (charges < 0) return;
+            int row = 0;
 
-            if (charges != _swapTextFor)
+            if (swapCharges >= 0)
             {
-                _swapTextFor = charges;
-                _swapText = charges == 0 ? SWAP_SPENT
-                    : charges == 1 ? SWAP_READY
-                    : SWAP_READY + " ×" + charges.ToString(CultureInfo.InvariantCulture);
+                ChipText(swapCharges, SWAP_READY, SWAP_SPENT, ref _swapTextFor, ref _swapText);
+                DrawChip(row++, onGamepad ? SWAP_GLYPH_PAD : SWAP_GLYPH_KEY, _swapText, swapCharges > 0, viewport, margin);
             }
 
-            bool ready = charges > 0;
+            if (brakeCharges >= 0)
+            {
+                ChipText(brakeCharges, BRAKE_READY, BRAKE_SPENT, ref _brakeTextFor, ref _brakeText);
+                DrawChip(row, onGamepad ? BRAKE_GLYPH_PAD : BRAKE_GLYPH_KEY, _brakeText, brakeCharges > 0, viewport, margin);
+            }
+        }
+
+        /// <summary>A chip's words for <paramref name="charges"/>, rebuilt only when the count changes (never per frame).</summary>
+        private static void ChipText(int charges, string ready, string spent, ref int textFor, ref string text)
+        {
+            if (charges == textFor) return;
+
+            textFor = charges;
+            text = charges == 0 ? spent
+                : charges == 1 ? ready
+                : ready + " ×" + charges.ToString(CultureInfo.InvariantCulture);
+        }
+
+        /// <summary>One power-up chip on <paramref name="row"/> above the magazine (0 nearest it), <see cref="DrawSwap"/>'s subject.</summary>
+        private void DrawChip(int row, string glyph, string text, bool ready, Viewport viewport, int margin)
+        {
             float alpha = ready ? 1f : HUD_SWAP_SPENT_ALPHA;
 
             SpriteFontBase glyphFont = _game.HudFontPrompt;
             SpriteFontBase captionFont = _game.HudFontTutorialDetail;
 
-            string glyph = onGamepad ? SWAP_GLYPH_PAD : SWAP_GLYPH_KEY;
             Vector2 glyphSize = glyphFont.MeasureString(glyph);
-            Vector2 captionSize = captionFont.MeasureString(_swapText);
+            Vector2 captionSize = captionFont.MeasureString(text);
             float gap = Scaled(HUD_SWAP_GLYPH_GAP);
             float width = glyphSize.X + gap + captionSize.X;
             float height = MathF.Max(glyphSize.Y, captionSize.Y);
 
             //Right edge on the strip's own (the margin), bottom a little over the head's ring: the head is the tallest
-            //thing in the strip and its top is where the chip has to clear
+            //thing in the strip and its top is where the chip has to clear. Each row further up is a chip's height and a
+            //gap higher.
             float stripTop = viewport.Height - margin - 2 * MagazineHeadOuter();
-            Vector2 origin = new(MathF.Round(viewport.Width - margin - width), MathF.Round(stripTop - Scaled(HUD_SWAP_ABOVE_STRIP) - height));
+            float rise = Scaled(HUD_SWAP_ABOVE_STRIP) + row * (height + Scaled(HUD_SWAP_ROW_GAP));
+            Vector2 origin = new(MathF.Round(viewport.Width - margin - width), MathF.Round(stripTop - rise - height));
 
             DrawString(glyphFont, glyph, origin + new Vector2(0f, (height - glyphSize.Y) * 0.5f), BS3DGame.MENU_TEXT * alpha, 1f);
-            DrawString(captionFont, _swapText, origin + new Vector2(glyphSize.X + gap, (height - captionSize.Y) * 0.5f),
+            DrawString(captionFont, text, origin + new Vector2(glyphSize.X + gap, (height - captionSize.Y) * 0.5f),
                 (ready ? BS3DGame.MENU_TEXT : HUD_CAPTION) * alpha, 1f);
         }
 

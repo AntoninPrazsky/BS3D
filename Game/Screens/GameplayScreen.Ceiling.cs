@@ -57,14 +57,15 @@ namespace BS3D.Screens
         /// ceiling-pressure loss could never fire from a settled cluster at all.
         /// </para>
         /// <para>
-        /// <b>Both</b> are woken, rather than relying on one to reach the other. Waking a body wakes the whole
-        /// sleeping set it belongs to, so one ball is enough for the cluster — the structure is a single
-        /// connected constraint graph and its whole island comes up with whichever member is touched. Whether
-        /// waking the <i>kinematic</i> plate would have reached the dynamics on its own was deliberately not
-        /// relied on: a kinematic can be referenced by several sleeping sets at once and is not islanded with
-        /// them the way a dynamic is. That is the reason for waking both and not a measurement — this was never
-        /// tested with only the plate woken, because there is no reason to want the weaker guarantee. It runs
-        /// once per step, not per frame.
+        /// <b>Both</b> are woken, rather than relying on one to reach the other, and <b>every ball</b> of the cluster
+        /// rather than one. Waking a body wakes the whole sleeping set it belongs to, but a cluster that has been shot
+        /// apart is several islands (a kinematic plate joins none of them: it is referenced by several sleeping sets
+        /// at once and is not islanded with them the way a dynamic is), and waking one ball wakes only its own — the
+        /// other column would be left asleep at its old height while the plate moved away from it, which for a descent
+        /// hides the loss line's walk from that column and for the brake (#213) leaves a rescued cluster half
+        /// rescued. It was one ball until #213, on the reading that the structure is one constraint graph, which
+        /// stops being true at the first shot that cuts it. Balls already awake are skipped, so a cluster in motion
+        /// costs a flag read each. It runs once per step, not per frame.
         /// </para>
         /// </summary>
         private void WakeForDescent()
@@ -76,11 +77,11 @@ namespace BS3D.Screens
             for (int level = _physicsBalls.GetLength(2) - 1; level >= 0; level--)
                 for (int x = 0; x < _physicsBalls.GetLength(0); x++)
                     for (int z = 0; z < _physicsBalls.GetLength(1); z++)
-                        if (_physicsBalls[x, z, level] != null)
-                        {
-                            _world.Simulation.Awakener.AwakenBody(_physicsBalls[x, z, level].BallReference.Handle);
-                            return;
-                        }
+                    {
+                        PhysicsBall ball = _physicsBalls[x, z, level];
+                        if (ball != null && !ball.BallReference.Awake)
+                            _world.Simulation.Awakener.AwakenBody(ball.BallReference.Handle);
+                    }
         }
 
         /// <summary>
@@ -130,6 +131,29 @@ namespace BS3D.Screens
         }
 
         /// <summary>
+        /// Announces the brake <see cref="CeilingDescent.Brake"/> has just begun (#213) — the lift's counterpart of
+        /// <see cref="AnnounceCeilingStep"/>, in the feed's own soft blue for the same reason: it is good news the
+        /// player asked for. The plate and the cluster are woken first (both are very likely asleep, and the plate
+        /// is about to be moved by writing its pose), then the wave, the plate's sound and a tall level's aim clamp
+        /// re-solved for where the lift takes the column. No rumble: a lift is not something the hands should be
+        /// told about the way a blow is.
+        /// </summary>
+        private void AnnounceCeilingBrake()
+        {
+            WakeForDescent();
+
+            Game.Balls.RippleAlarmColor = RIPPLE_FEED_COLOR;
+            _ripple.StartFromTop(_physicsBalls);
+
+            Game.Audio.PlayCeilingStep(new Microsoft.Xna.Framework.Vector3(0f, _ceilingDescent.Y, 0f), feed: true);
+
+            Console.WriteLine($"[ceiling] Brake to {_ceilingDescent.TargetY:F2} (rest {_ceilingDescent.RestY:F2}"
+                + $", death line {CEILING_DEATH_Y:F2}), {_run.PowerupCharges[(int)PowerupKind.Brake]} left");
+
+            ResolveTallAimLimit();
+        }
+
+        /// <summary>
         /// Brings a tall level's column back down to where the player can shoot it. Asked on every landing,
         /// which is the only thing that can change the cluster.
         /// <para>
@@ -143,7 +167,8 @@ namespace BS3D.Screens
         /// </para>
         /// <para>
         /// It only ever adds descents. The shot-driven <c>ceilingStep</c> still runs underneath it and is
-        /// still the pressure — the feed cannot relieve it, cannot raise the glass, and cannot push the
+        /// still the pressure — the feed cannot relieve it, cannot raise the glass (only the player's brake does, #213, and never
+        /// past where the level hung it), and cannot push the
         /// cluster past the death line either: it brings the underside back to a height the level started
         /// at and stops, so what it hands the player is the same clearance they opened with.
         /// </para>

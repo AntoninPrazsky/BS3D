@@ -22,6 +22,14 @@ namespace BS3D.Screens
         /// its place.
         /// </summary>
         Swap = 1,
+
+        /// <summary>
+        /// Lifts the ceiling's glass one step back up (#213, the second of its order after Swap): the only thing the
+        /// player can do about the game's one pressure, so it returns time the ceiling took rather than adding a ball.
+        /// Not spent, and refused with the gun's dry "no", while the glass is still where the level hung it (there is
+        /// no step to give back), and never lifts it past that height. See <see cref="CeilingDescent.Brake"/>.
+        /// </summary>
+        Brake = 2,
     }
 
     /// <summary>
@@ -60,6 +68,7 @@ namespace BS3D.Screens
             //The campaign's own grant first (#213: one Swap a level from the second chapter), then the testing
             //argument on top of it — which assigns, so powerups=swap:3 is three and powerups=swap:0 is none.
             _run.PowerupCharges[(int)PowerupKind.Swap] = LevelSwapCharges(index);
+            _run.PowerupCharges[(int)PowerupKind.Brake] = LevelBrakeCharges(index);
 
             string spec = _test.ForcedPowerups;
 
@@ -78,6 +87,7 @@ namespace BS3D.Screens
             }
 
             _run.SwapOffered = _run.PowerupCharges[(int)PowerupKind.Swap] > 0;
+            _run.BrakeOffered = _run.PowerupCharges[(int)PowerupKind.Brake] > 0;
         }
 
         /// <summary>
@@ -85,6 +95,12 @@ namespace BS3D.Screens
         /// in no set. Asked at install, and again by the HUD's chip to tell "spent" from "this level offers none".
         /// </summary>
         private int LevelSwapCharges(int index) => Game.LevelSet?.SwapChargesAt(index) ?? 0;
+
+        /// <summary>
+        /// How many Brake charges the level at <paramref name="index"/> is granted by the campaign (#213), 0 for a level in
+        /// no set or one whose ceiling never steps.
+        /// </summary>
+        private int LevelBrakeCharges(int index) => Game.LevelSet?.BrakeChargesAt(index) ?? 0;
 
         /// <summary>How many charges of <paramref name="kind"/> are left — what the HUD's chip reads for its count (#213).</summary>
         internal int PowerupCharges(PowerupKind kind) => _run.PowerupCharges[(int)kind];
@@ -97,12 +113,20 @@ namespace BS3D.Screens
         internal bool OffersSwap => _run.SwapOffered;
 
         /// <summary>
+        /// Whether this level offers a Brake at all, spent or not (#213) - what the HUD's second chip and the "no" of a
+        /// refused press ask, as <see cref="OffersSwap"/> does for the Swap.
+        /// </summary>
+        internal bool OffersBrake => _run.BrakeOffered;
+
+        /// <summary>
         /// Whether <paramref name="kind"/> can fire right now: a charge left, and the same two guards
         /// <c>Shoot</c> already states for itself — not mid a camera takeover
         /// (<see cref="CameraTakeoverEngaged"/>) and not once the level is decided (<see cref="LevelDecided"/>).
         /// </summary>
         internal bool CanActivate(PowerupKind kind) =>
-            kind != PowerupKind.None && _run.PowerupCharges[(int)kind] > 0 && !CameraTakeoverEngaged && !LevelDecided;
+            kind != PowerupKind.None && _run.PowerupCharges[(int)kind] > 0 && !CameraTakeoverEngaged && !LevelDecided
+            //A brake has to have a step to give back: pressed with the glass at rest it is refused and keeps its charge (#213)
+            && (kind != PowerupKind.Brake || _ceilingDescent.CanBrake);
 
         /// <summary>
         /// Spends one charge of <paramref name="kind"/> and applies its effect. A no-op, not an exception, on
@@ -133,6 +157,11 @@ namespace BS3D.Screens
                     Game.Audio.PlayUiClick();
                     _tutorial.Report(Tutorial.Lesson.Swap);
                     break;
+
+                case PowerupKind.Brake:
+                    _ceilingDescent.Brake();
+                    AnnounceCeilingBrake();
+                    break;
             }
         }
 
@@ -146,6 +175,17 @@ namespace BS3D.Screens
         {
             if (CanActivate(PowerupKind.Swap)) Activate(PowerupKind.Swap);
             else if (_run.SwapOffered && !CameraTakeoverEngaged && !LevelDecided) Game.Audio.PlayShotRefused();
+        }
+
+        /// <summary>
+        /// The press of the brake key (or the pad's Y) (#213): lifts the glass a step when it can, and says no when this level
+        /// offers a brake and it cannot fire — spent, or with the glass still at rest (nothing to give back, and the charge is
+        /// kept). Silent on a level that offers none.
+        /// </summary>
+        private void PressBrake()
+        {
+            if (CanActivate(PowerupKind.Brake)) Activate(PowerupKind.Brake);
+            else if (_run.BrakeOffered && !CameraTakeoverEngaged && !LevelDecided) Game.Audio.PlayShotRefused();
         }
     }
 }

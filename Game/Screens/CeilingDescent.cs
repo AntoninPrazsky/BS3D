@@ -8,7 +8,8 @@ namespace BS3D.Screens
     /// <summary>
     /// <b>The ceiling's descent</b> — the state machine that walks the glass plate down: a step is queued (by the
     /// shot count or by a tall level's feed), held, gated behind any cinematic already running, started, slid
-    /// and flashed. It owns every figure of that sequence and nothing else: the kinematic body the cluster hangs
+    /// and flashed — and, since #213, lifted one step back by the player's <see cref="Brake"/>. It owns every figure of
+    /// that sequence and nothing else: the kinematic body the cluster hangs
     /// from stays with <see cref="GameplayScreen"/>, which writes <see cref="Y"/> into it when
     /// <see cref="Slide"/> says the plate moved, and so do the step's announcements (the wake, the ripple, the
     /// sound, the rumble, the tutorial card and the log line), which <see cref="Update"/> hands back as "a step
@@ -79,11 +80,16 @@ namespace BS3D.Screens
         //still reads as the answer to firing.
         private const float CEILING_STEP_HOLD = 0.45f;
 
+        //How far under its rest height the glass has to hang for the brake to have a step to give back (#213): a hair, so
+        //a plate that is "at rest" by a float rounding never counts as having come down
+        private const float BRAKE_REST_TOLERANCE = 0.001f;
+
         /// <summary>
         /// Where the glass hangs now: <c>CeilingPlate.CentreYAbove</c> the field's top level at rest — the
         /// plate's own clearance (<c>CeilingPlate.CLEARANCE</c>, which carries the note about the cluster coming
         /// to rest a unit under the plate rather than settling on its lattice) applied to the base the session
-        /// picks — and lower by every descent since. The kinematic body and the drawn glass box both sit here,
+        /// picks — lower by every descent since and higher by every <see cref="Brake"/> (#213, never above the rest
+        /// height). The kinematic body and the drawn glass box both sit here,
         /// and the box is drawn straight from the body's pose (see <c>KinematicBody</c>), so the collidable and
         /// the thing the player sees cannot drift apart.
         /// </summary>
@@ -98,7 +104,7 @@ namespace BS3D.Screens
         public float RestY { get; private set; }
 
         //Where the glass body sits now (Y) and where it is sliding to (TargetY). Equal while at rest; TargetY is
-        //lowered by BeginStep and Y catches up in Slide, step by step.
+        //lowered by BeginStep (raised by Brake, #213) and Y catches up in Slide, step by step.
         /// <summary>Where the glass is sliding to — <see cref="Y"/> while it is at rest.</summary>
         public float TargetY { get; private set; }
 
@@ -128,7 +134,7 @@ namespace BS3D.Screens
         private int _stepsPending;
         private float _stepHold;
         private float _stepWaited;
-        private bool _descending;
+        private bool _sliding;
 
         /// <summary>
         /// The lowest occupied level the tall level was authored with — the height its underside is <b>fed
@@ -148,6 +154,15 @@ namespace BS3D.Screens
         private int _feedStepsPending;
 
         /// <summary>
+        /// How many of the steps taken so far were the <b>pressure's</b> (the shot count's) and have not been given back
+        /// by the brake (#213). What <see cref="CanBrake"/> reads: the brake returns time the ceiling took as a
+        /// punishment, and never a feed step — a tall level's feed lowers the glass to keep the column at the height
+        /// the level was authored for, and a lift that undid one would leave the column higher than the level was ever
+        /// framed for (the feed counts the grid and would never owe it again).
+        /// </summary>
+        private int _pressureDepth;
+
+        /// <summary>
         /// Starts a level's descent over: the glass at rest at <paramref name="restY"/> with nothing to slide to,
         /// and the tall-level feed measured from <paramref name="feedFloorLevel"/>.
         /// </summary>
@@ -161,7 +176,7 @@ namespace BS3D.Screens
             RestY = restY;
             //At rest to start: target equals current, so nothing slides until a step is taken.
             TargetY = restY;
-            _descending = false;
+            _sliding = false;
 
             //The glass is a fresh plate at the top of a fresh field, so nothing about the last level's last
             //descent should still be glowing on it — nor should a step it queued and never got to take come
@@ -176,6 +191,7 @@ namespace BS3D.Screens
             _feedFloorLevel = feedFloorLevel;
             _feedStepsQueued = 0;
             _feedStepsPending = 0;
+            _pressureDepth = 0;
             FlashColor = CEILING_FLASH_COLOR;
             FlashIsFeed = false;
         }
@@ -312,7 +328,7 @@ namespace BS3D.Screens
             if (TargetY <= DEATH_Y) return false;
 
             TargetY = MathF.Max(DEATH_Y, TargetY - CEILING_DESCENT_PER_STEP);
-            _descending = true;
+            _sliding = true;
 
             //The descent itself is a slow slide of a translucent plate against a sky, which is very nearly
             //invisible while the player is watching the cluster — the pressure the whole rule exists to apply
@@ -326,6 +342,7 @@ namespace BS3D.Screens
             //queues both kinds says the good news first.
             feeding = _feedStepsPending > 0;
             if (feeding) _feedStepsPending--;
+            else _pressureDepth++;
 
             FlashIsFeed = feeding;
             FlashColor = feeding ? CEILING_FEED_COLOR : CEILING_FLASH_COLOR;
@@ -345,19 +362,59 @@ namespace BS3D.Screens
         /// <returns>True when <see cref="Y"/> changed and the body has to be moved to it.</returns>
         public bool Slide(float step)
         {
-            if (!_descending) return false;
+            if (!_sliding) return false;
 
             //Equal within a hair means the slide is done — a step that would otherwise move a thousandth of a
             //unit and never quite arrive. Snap, stop, and the matrix reflects the final pose exactly.
-            if (MathF.Abs(Y - TargetY) <= CEILING_DESCENT_SPEED * step)
+            float remaining = TargetY - Y;
+
+            if (MathF.Abs(remaining) <= CEILING_DESCENT_SPEED * step)
             {
                 Y = TargetY;
-                _descending = false;
+                _sliding = false;
             }
             else
             {
-                Y -= CEILING_DESCENT_SPEED * step;
+                //Toward the target either way (#213): a descent is a target below the glass and the brake's lift
+                //one above it, and a step begun while the glass is still rising simply turns it round
+                Y += MathF.Sign(remaining) * CEILING_DESCENT_SPEED * step;
             }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Whether there is a <b>pressure</b> step to give back — one the shot count forced and the brake has not
+        /// returned — and the glass hangs below its rest height: what the brake's activation asks, so a charge is never
+        /// spent on a lift that would move nothing, and never on one that would undo a feed step (#213).
+        /// </summary>
+        public bool CanBrake => _pressureDepth > 0 && TargetY < RestY - BRAKE_REST_TOLERANCE;
+
+        /// <summary>
+        /// <b>The brake (#213): lifts the glass one step back up</b> — <see cref="CEILING_DESCENT_PER_STEP"/> towards
+        /// <see cref="RestY"/> and never past it, so it returns time the ceiling took and cannot buy more room than
+        /// the level opened with. Slid rather than jumped, exactly as a descent is (see <see cref="Slide"/>), and
+        /// announced the way a <b>feed</b> step is: the cold blue-white glass and its soft wave, because it is good news
+        /// the player asked for and a red flash would tell them off for it.
+        /// <para>
+        /// It does not touch the queued steps, the feed's own count or the shot cadence: a step the last shot owes still
+        /// comes down after it (a lift and a step in the same second net to the glass where it was, which is the
+        /// honest reading of spending a brake on a shot that owed a step), and the tall level's feed measures the
+        /// <i>grid</i> — how far the underside has climbed in levels — which lifting the plate does not change.
+        /// </para>
+        /// </summary>
+        /// <returns>False, and nothing moved, when there is no pressure step to give back (<see cref="CanBrake"/>).</returns>
+        public bool Brake()
+        {
+            if (!CanBrake) return false;
+
+            TargetY = MathF.Min(RestY, TargetY + CEILING_DESCENT_PER_STEP);
+            _pressureDepth--;
+            _sliding = true;
+
+            FlashIsFeed = true;
+            FlashColor = CEILING_FEED_COLOR;
+            Flash = 1f;
 
             return true;
         }
