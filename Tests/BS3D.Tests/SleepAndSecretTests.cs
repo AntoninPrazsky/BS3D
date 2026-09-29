@@ -1,4 +1,6 @@
 using Microsoft.Xna.Framework;
+using Prazsky.BS3D;
+using Prazsky.BS3D.GameStructure;
 using Prazsky.BS3D.GameObjects;
 using Prazsky.BS3D.Input;
 using Prazsky.BS3D.Scoring;
@@ -41,6 +43,30 @@ namespace BS3D.Tests
             Assert.Equal(0.3f, System.MathF.Acos(MathHelper.Clamp(Vector3.Dot(drawn, aim), -1f, 1f)), 3);
             Assert.True(System.MathF.Abs(Vector3.Dot(drawn, Vector3.Normalize(Vector3.Cross(aim, Vector3.Up)))) < 1e-5f);
             Assert.True(cannon.DrawnMuzzlePosition(2f).Y < muzzle.Y);
+        }
+
+        /// <summary>
+        /// The loaded queue lies down the bore that is DRAWN (#230): with the barrel drooped, every slot sits on
+        /// the drawn bore's line, not on the aim's, so the balls sag and breathe with the tube instead of
+        /// sticking out of it.
+        /// </summary>
+        [Fact]
+        public void TheLoadedQueueFollowsTheDroopedBarrel()
+        {
+            Cannon cannon = new(new Vector3(0f, 5f, 0f));
+            cannon.AimTarget = cannon.Position + new Vector3(0f, 6f, -10f);
+            cannon.Droop = 0.3f;
+
+            Magazine magazine = new(() => (BallType)1);
+            BorePose pose = magazine.Pose(cannon, 2f);
+            Vector3 drawn = cannon.BarrelWorld().Forward;
+
+            pose.SlotWorld(0, out Vector3 front);
+            pose.SlotWorld(3, out Vector3 back);
+            Vector3 alongQueue = Vector3.Normalize(front - back);
+
+            Assert.True(Vector3.Distance(alongQueue, drawn) < 1e-4f);
+            Assert.True(Vector3.Distance(alongQueue, cannon.AimDirection) > 0.1f);
         }
 
         /// <summary>Three misses, two landings, three misses — and only that, and only once per completion.</summary>

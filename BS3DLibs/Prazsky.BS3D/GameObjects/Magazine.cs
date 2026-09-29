@@ -318,8 +318,12 @@ namespace Prazsky.BS3D
             //once and handed back as a value. The DRAWN muzzle, recoil and all (#115): the queue rides in the
             //bore that is drawn, and taking the pose off the gun's own state — rather than off a scalar every
             //caller had to remember to pass — is what makes the balls and the tube unable to disagree.
+            //
+            //And the DRAWN bore for the direction back down it too, not the aim: the two differ while the gun
+            //sleeps (#230, Cannon.Droop), and a queue laid back along the aim from a drooped muzzle stuck out of
+            //the tube and stayed still while the barrel breathed - the owner saw exactly that.
             new(cannon.BarrelOrientation(), cannon.DrawnMuzzlePosition(pivotToFrontBall),
-                cannon.AimDirection, Slide);
+                cannon.DrawnAimDirection(), Slide);
     }
 
     /// <summary>
