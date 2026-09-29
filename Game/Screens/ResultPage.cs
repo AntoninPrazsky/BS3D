@@ -80,6 +80,16 @@ namespace BS3D.Screens
         private Label _unusedDetail, _unusedValue;
         private Label _totalValue, _nextStarNote, _unlockNote;
         private Widget _breakdown;
+
+        //The grid inside the breakdown's plate, held so its columns can be pinned to the final figures (#665)
+        private Grid _breakdownGrid;
+
+        //What each breakdown label reads once its row has landed, worked out once per result in Take (#665). One
+        //description of the final text for the two things that need it: ApplyBreakdownReveal, which writes it, and
+        //PinBreakdownColumns, which measures it — so the widths that are pinned are the widths that arrive.
+        private string _matchedDetailText, _matchedValueText, _orphanedDetailText, _orphanedValueText;
+        private string _streakValueText, _unusedDetailText, _unusedValueText, _totalValueText;
+
         private Button _retryButton, _nextLevelButton, _skipButton;
 
         //The Next button's own caption, so Refresh can put the level's name on it (#313). Held rather than
@@ -126,6 +136,8 @@ namespace BS3D.Screens
         internal void Take(LevelResult result)
         {
             _result = result;
+
+            CacheBreakdownText();
 
             Refresh();
         }
@@ -563,7 +575,9 @@ namespace BS3D.Screens
         //than a game telling you what you earned. It now lands the same way the row above it does: each
         //value arrives with the star row's own punch (PunchScale), staggered after the stars settle, from a
         //placeholder dash to its earned number — the caption and the plate are there from the first frame
-        //(there is a sum coming), only the numbers themselves perform.
+        //(there is a sum coming), only the numbers themselves perform. And the grid they land in is at its final
+        //size from the first frame (#665, PinBreakdownColumns), so a number arriving changes what is written into
+        //a cell and never where the cells are.
 
         /// <summary>Held on screen before a value has landed — the row is there, its number is not yet.</summary>
         private const string PENDING_MARK = "—";
@@ -629,19 +643,10 @@ namespace BS3D.Screens
         {
             if (_breakdown == null || !_result.ShowsBreakdown) return;
 
-            WriteBreakdownRow(0, _matchedDetail, $"{_result.MatchedBalls} × {ScoreKeeper.MatchedBallPoints}",
-                _matchedValue, ScoreText.Of(_result.MatchedBalls * ScoreKeeper.MatchedBallPoints));
-
-            WriteBreakdownRow(1, _orphanedDetail, $"{_result.OrphanedBalls} × {ScoreKeeper.OrphanedBallPoints}",
-                _orphanedValue, ScoreText.Of(_result.OrphanedBalls * ScoreKeeper.OrphanedBallPoints));
-
-            WriteBreakdownRow(2, null, null, _streakValue, ScoreText.Of(_result.StreakBonus));
-
-            string unusedDetailText = _result.HadBudget
-                ? $"{_result.UnusedShotsAwarded} × {ScoreKeeper.UnusedShotPoints}"
-                : "—";
-            WriteBreakdownRow(3, _unusedDetail, unusedDetailText, _unusedValue,
-                ScoreText.Of(_result.CompletionBonusAwarded));
+            WriteBreakdownRow(0, _matchedDetail, _matchedDetailText, _matchedValue, _matchedValueText);
+            WriteBreakdownRow(1, _orphanedDetail, _orphanedDetailText, _orphanedValue, _orphanedValueText);
+            WriteBreakdownRow(2, null, null, _streakValue, _streakValueText);
+            WriteBreakdownRow(3, _unusedDetail, _unusedDetailText, _unusedValue, _unusedValueText);
 
             float totalProgress = (_revealClock - BreakdownTotalRevealTime) / BREAKDOWN_PUNCH_SECONDS;
 
@@ -653,9 +658,88 @@ namespace BS3D.Screens
             }
             else
             {
-                _totalValue.Text = ScoreText.Of(_result.Score);
+                _totalValue.Text = _totalValueText;
                 _totalValue.Scale = new Vector2(PunchScale(totalProgress));
             }
+        }
+
+        /// <summary>
+        /// Works out, once per result, what every breakdown label reads when its row has landed. The figures are
+        /// known the moment the page opens, so nothing about the final text has to be discovered along the reveal
+        /// (#665) — and writing them here rather than per frame also stops the reveal building a handful of
+        /// strings on every tick it runs.
+        /// </summary>
+        private void CacheBreakdownText()
+        {
+            _matchedDetailText = $"{_result.MatchedBalls} × {ScoreKeeper.MatchedBallPoints}";
+            _matchedValueText = ScoreText.Of(_result.MatchedBalls * ScoreKeeper.MatchedBallPoints);
+
+            _orphanedDetailText = $"{_result.OrphanedBalls} × {ScoreKeeper.OrphanedBallPoints}";
+            _orphanedValueText = ScoreText.Of(_result.OrphanedBalls * ScoreKeeper.OrphanedBallPoints);
+
+            _streakValueText = ScoreText.Of(_result.StreakBonus);
+
+            _unusedDetailText = _result.HadBudget
+                ? $"{_result.UnusedShotsAwarded} × {ScoreKeeper.UnusedShotPoints}"
+                : "—";
+            _unusedValueText = ScoreText.Of(_result.CompletionBonusAwarded);
+
+            _totalValueText = ScoreText.Of(_result.Score);
+        }
+
+        /// <summary>
+        /// Fixes the breakdown grid's three columns at the width of their <b>final</b> contents, so the layout is
+        /// the finished one from the first frame and the reveal only changes what is written into it (#665).
+        /// <para>
+        /// The columns were Auto, Auto and Part on a grid centred in its plate, so each one sized to whatever was in
+        /// it that frame: a row landing widened the detail column (an empty label became "96 × 10"), the values
+        /// column grew from a dash to "1 280", and the total in the heading font widened it again last — and each
+        /// change re-centred the whole grid, so every caption slid sideways as the numbers arrived. Measured
+        /// (1080p, <c>result stars=3</c>, one reveal): the captions' left edge moved 852, 809, 782 px and the
+        /// values' right edge 1066, 1110, 1136 — 70 px each way.
+        /// </para>
+        /// <para>
+        /// The widths come from the same strings <see cref="ApplyBreakdownReveal"/> writes, measured with the
+        /// fonts the labels use; the pending dash is included in the values column so it cannot be the widest.
+        /// The two notes that span the grid stay whole: the next-star line is measured as it will read, and the
+        /// unlock note is a fixed width by construction (see <see cref="BuildBreakdown"/>), so a note wider than
+        /// the columns lengthens the detail column — the one between the captions on the left and the right-aligned
+        /// values — instead of overflowing its cell. Written by <see cref="Refresh"/>, so a rebuild (a resize) comes
+        /// up pinned too.
+        /// </para>
+        /// </summary>
+        private void PinBreakdownColumns()
+        {
+            if (_breakdownGrid == null || !_result.ShowsBreakdown) return;
+
+            SpriteFontBase body = FontBody;
+            SpriteFontBase heading = Game.MenuFontHeading;
+
+            float caption = Widest(body, "matched", "orphaned", "streak bonus", "shots unused");
+            float detail = Widest(body, _matchedDetailText, _orphanedDetailText, _unusedDetailText);
+            float value = MathF.Max(
+                Widest(body, PENDING_MARK, _matchedValueText, _orphanedValueText, _streakValueText, _unusedValueText),
+                Widest(heading, PENDING_MARK, _totalValueText));
+
+            //A note wider than the three columns lengthens the middle one, so captions and values stay at the edges
+            float gaps = 2f * _breakdownGrid.ColumnSpacing;
+            float notes = MathF.Max(Widest(_nextStarNote.Font, _nextStarNote.Text), _unlockNote.Visible ? _unlockNote.Width ?? 0 : 0);
+            detail += MathF.Max(0f, notes - (caption + detail + value + gaps));
+
+            _breakdownGrid.ColumnsProportions[0] = new Proportion(ProportionType.Pixels, caption);
+            _breakdownGrid.ColumnsProportions[1] = new Proportion(ProportionType.Pixels, detail);
+            _breakdownGrid.ColumnsProportions[2] = new Proportion(ProportionType.Pixels, value);
+        }
+
+        /// <summary>The widest of <paramref name="texts"/> in <paramref name="font"/>, rounded up to a whole pixel.</summary>
+        private static float Widest(SpriteFontBase font, params string[] texts)
+        {
+            float widest = 0f;
+
+            foreach (string text in texts)
+                if (!string.IsNullOrEmpty(text)) widest = MathF.Max(widest, font.MeasureString(text).X);
+
+            return MathF.Ceiling(widest);
         }
 
         #endregion
@@ -881,6 +965,11 @@ namespace BS3D.Screens
                 RowSpacing = Scaled(12),
                 HorizontalAlignment = HorizontalAlignment.Center,
             };
+            _breakdownGrid = grid;
+
+            //Auto, Auto and Part only until the first Refresh: PinBreakdownColumns fixes all three at the width of
+            //their final contents, because a column that sizes to what is in it that frame slides the whole
+            //centred grid sideways as each row lands (#665)
             grid.ColumnsProportions.Add(new Proportion(ProportionType.Auto));   //caption
             grid.ColumnsProportions.Add(new Proportion(ProportionType.Auto));   //detail (count × worth)
             grid.ColumnsProportions.Add(new Proportion(ProportionType.Part));   //value, right-aligned by the cell
@@ -1086,6 +1175,10 @@ namespace BS3D.Screens
                 string unlockNote = _result.UnlockNote;
                 _unlockNote.Text = unlockNote;
                 _unlockNote.Visible = unlockNote.Length > 0;
+
+                //The columns at their final widths before anything of the reveal is written (#665), and after the
+                //two notes above, whose widths they take account of
+                PinBreakdownColumns();
             }
 
             //The rows and the total are the reveal's to write, not this method's (#479) — see
