@@ -433,9 +433,31 @@ namespace BS3D
 
         private static bool IsBirthday(DateTime now) => now.Month == 12 && now.Day == 30;
 
-        //The gun's hat on the birthday, and null on every other day of the year (built only then)
+        //The gun's hat: on the birthday, and — since #230's code-word egg — for a player whose nickname is one of Nickname's
+        //secret words; null otherwise. Built on the first frame it is wanted rather than at start-up, because a nickname is
+        //typed while the game runs, and taken off the gun again when the name is changed to something else (the mesh is
+        //kept, so putting it back costs nothing).
         private PartyHat _partyHat;
-        internal PartyHat PartyHat => _partyHat;
+        private string _nicknameChecked;
+        private bool _secretHat;
+
+        internal PartyHat PartyHat
+        {
+            get
+            {
+                //One string comparison per CHANGE of nickname, not per frame: the reference is what changes
+                string nickname = Online.Nickname;
+                if (!ReferenceEquals(nickname, _nicknameChecked))
+                {
+                    _nicknameChecked = nickname;
+                    _secretHat = Nickname.IsSecretWord(nickname);
+                }
+
+                if (!Birthday && !_secretHat) return null;
+
+                return _partyHat ??= new PartyHat(GraphicsDevice, _instancingEffect, _cannonRig);
+            }
+        }
 
         #endregion
 
@@ -1000,7 +1022,6 @@ namespace BS3D
             //so the barrel that is built and the muzzle a shot leaves from cannot disagree. The instancing
             //effect is handed in and stays the content manager's — the rig disposes its mesh and renderer only.
             _cannonRig = new CannonRig(GraphicsDevice, _instancingEffect, Magazine.SIZE, Magazine.SPACING);
-            if (Birthday) _partyHat = new PartyHat(GraphicsDevice, _instancingEffect, _cannonRig);
 
             #endregion
 
