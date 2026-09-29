@@ -349,7 +349,7 @@ namespace Prazsky.BS3D
     {
         /// <summary>Builds one slot's state. <see cref="Magazine"/> is the only writer.</summary>
         /// <param name="type">The colour it fires as (a wildcard's is dealt and never seen, #330).</param>
-        /// <param name="kind">What it is — <see cref="BallKind.Wildcard"/> or <see cref="BallKind.Normal"/>.</param>
+        /// <param name="kind">What it is — <see cref="BallKind.Normal"/>, a <see cref="BallKind.Wildcard"/> dealt by the level, or a <see cref="BallKind.Cutter"/> the player turned it into (#213).</param>
         /// <param name="fadingFrom">The colour it is dissolving out of; its own colour when settled.</param>
         /// <param name="transmute">The dissolve's countdown, 1 just re-coloured to 0 settled.</param>
         public MagazineSlot(BallType type, BallKind kind, BallType fadingFrom, float transmute)

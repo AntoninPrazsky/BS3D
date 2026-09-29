@@ -142,7 +142,7 @@ namespace BS3D.Screens
             //A brake has to have a step to give back: pressed with the glass at rest it is refused and keeps its charge (#213)
             && (kind != PowerupKind.Brake || _ceilingDescent.CanBrake)
             //A cut needs an ordinary round in the bore to turn: never one that already is a cutter, and not a wildcard (#213)
-            && (kind != PowerupKind.Cut || _magazine.Slot(0).Kind == BallKind.Normal);
+            && (kind != PowerupKind.Cut || (_magazine.Slot(0).Kind == BallKind.Normal && !_run.Score.OutOfShots));
 
         /// <summary>
         /// Spends one charge of <paramref name="kind"/> and applies its effect. A no-op, not an exception, on
@@ -202,9 +202,9 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// The press of the brake key (or the pad's Y) (#213): lifts the glass a step when it can, and says no when this level
-        /// offers a brake and it cannot fire — spent, or with the glass still at rest (nothing to give back, and the charge is
-        /// kept). Silent on a level that offers none.
+        /// The press of the cut key (or the pad's right bumper) (#213): turns the round in the bore into a cutter when it can,
+        /// and says no when this level offers a cut and it cannot fire — spent, the round already a cutter or a wildcard, or no
+        /// shot left to fire it with (the charge is kept). Silent on a level that offers none.
         /// </summary>
         private void PressCut()
         {
@@ -215,6 +215,11 @@ namespace BS3D.Screens
         /// <summary>Whether this level offers an anchor cut at all, spent or not (#213) - <see cref="OffersBrake"/>'s third.</summary>
         internal bool OffersCut => _run.CutOffered;
 
+        /// <summary>
+        /// The press of the brake key (or the pad's Y) (#213): lifts the glass a step when it can, and says no when this level
+        /// offers a brake and it cannot fire — spent, or with the glass still at rest (nothing to give back, and the charge is
+        /// kept). Silent on a level that offers none.
+        /// </summary>
         private void PressBrake()
         {
             if (CanActivate(PowerupKind.Brake)) Activate(PowerupKind.Brake);

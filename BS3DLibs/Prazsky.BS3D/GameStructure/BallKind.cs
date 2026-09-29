@@ -132,7 +132,7 @@ namespace Prazsky.BS3D.GameStructure
         Zap = 4,
 
         /// <summary>
-        /// A wildcard (#330) — <b>the only kind the player SHOOTS rather than one a level places</b>, and that
+        /// A wildcard (#330) — <b>the first kind the player SHOOTS rather than one a level places</b> (the Cutter, #213, is the second), and that
         /// single fact is most of its design. It never appears in a map layout, so it touches the format and the
         /// flood fill barely at all, and instead touches the magazine, the muzzle and the HUD, which none of the
         /// other nine go near.

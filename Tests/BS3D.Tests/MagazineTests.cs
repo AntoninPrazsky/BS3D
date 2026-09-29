@@ -47,6 +47,38 @@ namespace BS3D.Tests
             }
         }
 
+        /// <summary>
+        /// The anchor cut turns a loaded round into a cutter (#213): the kind changes and everything else about the slot stays,
+        /// the cutter rides a swap and an advance like any round, and firing it deals the tail fresh — a cutter is spent, not
+        /// carried along to the next slot.
+        /// </summary>
+        [Fact]
+        public void ACutterReplacesOnlyTheKindAndIsConsumedByAdvance()
+        {
+            Magazine magazine = Build();
+            magazine.Recolour(0, (BallType)9);
+            MagazineSlot before = magazine.Slot(0);
+
+            magazine.SetKind(0, BallKind.Cutter);
+
+            MagazineSlot cutter = magazine.Slot(0);
+            Assert.Equal(BallKind.Cutter, cutter.Kind);
+            Assert.Equal(before.Type, cutter.Type);
+            Assert.Equal(before.FadingFrom, cutter.FadingFrom);
+            Assert.Equal(before.Transmute, cutter.Transmute);
+
+            //A swap carries it whole to the slot behind, and back
+            magazine.SwapSlots(0, 1);
+            Assert.Equal(BallKind.Cutter, magazine.Slot(1).Kind);
+            Assert.NotEqual(BallKind.Cutter, magazine.Slot(0).Kind);
+            magazine.SwapSlots(0, 1);
+            Assert.Equal(BallKind.Cutter, magazine.Slot(0).Kind);
+
+            //Firing it is an advance: what was behind takes its place and no slot is a cutter any more
+            magazine.Advance();
+            for (int slot = 0; slot < Magazine.SIZE; slot++) Assert.NotEqual(BallKind.Cutter, magazine.Slot(slot).Kind);
+        }
+
         /// <summary>A mid-dissolve slot and its kind ride the shift with their colour, and the tail is dealt fresh.</summary>
         [Fact]
         public void AdvanceMovesEachSlotWhole()

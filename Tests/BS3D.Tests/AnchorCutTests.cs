@@ -115,6 +115,69 @@ namespace BS3D.Tests
             Assert.Empty(released);
         }
 
+        /// <summary>A rock in the rope is cut like any ball — it is very often the anchor a level hangs from — and what hung on it falls.</summary>
+        [Fact]
+        public void ARockCanBeCutAndItsLoadFalls()
+        {
+            using HungLevel hung = new(new BallsMap(7, 7, 10));
+            List<XZLevel> rope = Chain(hung.Map, 5);
+
+            var map = new BallsMap(hung.Map.StageSizeX, hung.Map.StageSizeZ, hung.Map.Levels);
+            for (int i = 0; i < rope.Count; i++)
+                map.PutBallAt((byte)rope[i].X, (byte)rope[i].Z, (byte)rope[i].Level, BallType.Type4, i == 1 ? BallKind.Rock : BallKind.Normal);
+
+            using HungLevel chain = new(map);
+
+            var released = new List<PhysicsBall>();
+            BallsReleased result = BallsConstraintsBuilder.CutBall(rope[1], chain.Balls, chain.Map, chain.World.Simulation, released);
+
+            Assert.Equal(1, result.Destroyed);
+            Assert.Equal(3, result.Orphaned);
+            Assert.Equal(4, released.Count);
+            ClusterInvariants.Verify(chain.Balls, chain.Map, chain.World.Simulation, chain.Ceiling.Handle);
+        }
+
+        /// <summary>A bomb the cutter strikes goes off (it has been reached) and is not destroyed quietly: the blast takes its neighbours too.</summary>
+        [Fact]
+        public void ABombTheCutterStrikesGoesOff()
+        {
+            using HungLevel hung = new(new BallsMap(7, 7, 10));
+            List<XZLevel> rope = Chain(hung.Map, 5);
+
+            var map = new BallsMap(hung.Map.StageSizeX, hung.Map.StageSizeZ, hung.Map.Levels);
+            for (int i = 0; i < rope.Count; i++)
+                map.PutBallAt((byte)rope[i].X, (byte)rope[i].Z, (byte)rope[i].Level, BallType.Type4, i == 2 ? BallKind.Bomb : BallKind.Normal);
+
+            using HungLevel chain = new(map);
+
+            var released = new List<PhysicsBall>();
+            var detonations = new List<Detonation>();
+            BallsReleased result = BallsConstraintsBuilder.CutBall(rope[2], chain.Balls, chain.Map, chain.World.Simulation, released, detonations);
+
+            //A blast of two units takes the whole short rope below the glass ball it could not reach: more than the one ball
+            Assert.True(result.Destroyed > 1, "the bomb destroyed only " + result.Destroyed);
+            Assert.NotEmpty(detonations);
+            ClusterInvariants.Verify(chain.Balls, chain.Map, chain.World.Simulation, chain.Ceiling.Handle);
+        }
+
+        [Theory]
+        [InlineData(-1, 0, 0)]
+        [InlineData(0, 0, 99)]
+        [InlineData(99, 0, 0)]
+        public void ACutOutsideTheFieldCutsNothing(int x, int z, int level)
+        {
+            using HungLevel hung = new(new BallsMap(7, 7, 10));
+            List<XZLevel> rope = Chain(hung.Map, 3);
+            using HungLevel chain = new(RebuildFrom(hung.Map, rope));
+
+            var released = new List<PhysicsBall>();
+            BallsReleased result = BallsConstraintsBuilder.CutBall(new XZLevel(x, z, level), chain.Balls, chain.Map,
+                chain.World.Simulation, released);
+
+            Assert.Equal(0, result.Destroyed);
+            Assert.Empty(released);
+        }
+
         /// <summary>A fresh map holding only <paramref name="cells"/>: <see cref="HungLevel"/> centres and hangs the map it is given once.</summary>
         private static BallsMap RebuildFrom(BallsMap source, List<XZLevel> cells)
         {

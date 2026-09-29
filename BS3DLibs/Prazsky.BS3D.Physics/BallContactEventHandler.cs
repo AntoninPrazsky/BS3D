@@ -811,12 +811,20 @@ namespace Prazsky.BS3D.Physics
             _shotBalls.Remove(cutter);
             if (_contactEvents.IsListener(contact.EventSource)) _contactEvents.Unregister(contact.EventSource);
 
+            //Spent, and dropped: the normal landing zeroes both velocities because its ball becomes part of the lattice, and
+            //a cutter left at the speed it struck with (the gun's 200 u/s, softened by a soft contact) would plough on
+            //through the hole it made, jolt the cluster behind it or fly up to the glass. A nudge down, the size of a
+            //released ball's (BallsConstraintsBuilder.LOOSEN_SPEED), so it falls away with what it cut loose.
+            cutter.BallReference.Velocity.Linear = new System.Numerics.Vector3(0f, -BallsConstraintsBuilder.CUT_DROP_SPEED, 0f);
+            cutter.BallReference.Velocity.Angular = default;
+
+            //Put among the falling balls BEFORE the cut, not after it: the drop cinematic's subject is the last
+            //`Released.Total` entries of this list (TryBeginDropCinematic), which must be the balls the cut let go
             int fallingBefore = _fallingBalls.Count;
+            _fallingBalls.Add(cutter);
 
             BallsReleased released = BallsConstraintsBuilder.CutBall(cell, _physicsBalls, _map, _simulation, _fallingBalls,
                 _detonations);
-
-            _fallingBalls.Add(cutter);
 
             for (int i = fallingBefore; i < _fallingBalls.Count; i++)
                 _contactEvents.MarkLoose(_fallingBalls[i].BallReference.Handle);

@@ -1707,7 +1707,7 @@ namespace BS3D.Screens
             //And it blinks red while the player pushes the aim into the elevation clamp (#431), which the beam
             //says in the overview the same way — see AimStrain.
             _crosshair.Draw(Game.OverlayBatch, _preciseAim.Blend,
-                _previewReachesCluster && !_previewHasCell ? PREVIEW_REFUSED : null,
+                _previewReachesCluster && !_previewHasCell && !CutterLoaded ? PREVIEW_REFUSED : null,
                 AimStrain, WallClock);
         }
 

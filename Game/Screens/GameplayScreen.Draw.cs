@@ -175,8 +175,11 @@ namespace BS3D.Screens
 
             //And none for a cutter (#213): it does not land in a cell, so the ghost would show a ball that will not be there.
             //The beam ends at the ball it will strike, which is the promise a cutter can keep
-            if (_magazine.Slot(0).Kind == BallKind.Cutter) _previewHasCell = false;
+            if (CutterLoaded) _previewHasCell = false;
         }
+
+        /// <summary>Whether the round in the bore is an anchor cutter (#213): the ghost is hidden and the aim is not "refused" (the beam's and the crosshair's tint both read this).</summary>
+        private bool CutterLoaded => _magazine.Slot(0).Kind == BallKind.Cutter;
 
         /// <summary>
         /// Draws the aim beam. Coloured by what the far end means — the loaded ball's own tint where the shot
@@ -194,7 +197,7 @@ namespace BS3D.Screens
 
             //sRGB in 0…1 either way, which is what the beam decodes: Color.ToVector3 divides by 255, and the
             //type tints are already in that form — they are what LaunchSmears is handed for the same reason.
-            Vector3 tint = _previewReachesCluster && !_previewHasCell && _magazine.Slot(0).Kind != BallKind.Cutter
+            Vector3 tint = _previewReachesCluster && !_previewHasCell && !CutterLoaded
                 ? PREVIEW_REFUSED.ToVector3()
                 : BasicEffectParamsProvider.GetDiffuseTintByType(LoadedColour(0));
 

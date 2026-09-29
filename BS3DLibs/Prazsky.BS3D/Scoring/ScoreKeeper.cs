@@ -113,8 +113,9 @@ namespace Prazsky.BS3D.Scoring
         /// <list type="bullet">
         /// <item>Balls that can score: the level's own and <b>every ball the budget can fire</b> — a shot ball
         /// sticks and can later fall with a group, and nothing else ever adds a ball to the field (the contact
-        /// handler's attach is the one door, and the power-ups there are — the Swap, which only reorders the queue, and the
-        /// ceiling's Brake (#213), which only lifts the glass — add no ball and spend no shot).</item>
+        /// handler's attach is the one door, and the power-ups there are — the Swap, which only reorders the queue, the
+        /// ceiling's Brake (#213), which only lifts the glass, and the anchor Cut (#213), which turns a round into one that
+        /// destroys a ball instead of adding one — add no ball and spend no shot beyond the one fired).</item>
         /// <item>Each at the richest rate there is (<see cref="OrphanedBallPoints"/> today; the larger of the
         /// three, so a retuned rate cannot slip under it) and at <see cref="MaxMultiplier"/> throughout, ignoring
         /// the ramp from ×1.</item>

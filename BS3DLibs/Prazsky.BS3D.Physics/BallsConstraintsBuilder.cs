@@ -1110,7 +1110,13 @@ namespace Prazsky.BS3D.Physics
             return new BallsReleased(0, fell.Orphaned, 1 + fell.Destroyed);
         }
 
-        private static readonly List<XZLevel> _cutBombScratch = new(1);
+        //Per thread like the other scratch lists (#585): a cut is asked of one landing at a time today, but the sag probe and the
+        //tests run whole worlds side by side
+        [ThreadStatic] private static List<XZLevel> t_cutBombScratch;
+        private static List<XZLevel> _cutBombScratch => t_cutBombScratch ??= new(1);
+
+        /// <summary>How fast the cutter round is sent down once it has struck (#213): the released balls' own nudge, not a blast's shove.</summary>
+        public const float CUT_DROP_SPEED = 1.6f;
 
         /// <summary>
         /// Throws one freed ball away from <paramref name="centre"/> — the bomb's <b>body</b>, in world space. See
