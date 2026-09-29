@@ -112,7 +112,7 @@ namespace Prazsky.Core.Render
     public sealed class SprayConfig
     {
         /// <summary>Number of spray billboards.</summary>
-        public int ParticleCount { get; set; } = 2000;
+        public int ParticleCount { get; set; } = 3000;
 
         /// <summary>Slab size: wide in XZ (follows the camera), thin in Y (clings to the surface).</summary>
         public Vec3 BoxSize { get; set; } = new(200f, 10f, 200f);
@@ -130,7 +130,7 @@ namespace Prazsky.Core.Render
         public float Turbulence { get; set; } = 1.6f;
 
         /// <summary>Droplet size.</summary>
-        public float DropletSize { get; set; } = 0.07f;
+        public float DropletSize { get; set; } = 0.10f;
 
         /// <summary>
         /// Spray colour (linear). Its luminance is deliberately kept just under the glare threshold — at a
@@ -145,8 +145,8 @@ namespace Prazsky.Core.Render
         public Rgb Color { get; set; } = new(0.50f, 0.54f, 0.58f);
 
         /// <summary>Per-particle opacity. 0.38 until #675, when premultiplying the shader made the same figure far
-        /// fainter; 0.60 with the brighter colour brings a droplet back to a visible fleck without the
-        /// hard outline the straight alpha gave it.</summary>
-        public float Opacity { get; set; } = 0.60f;
+        /// fainter; 0.70 with the brighter colour, a larger <see cref="DropletSize"/> and more particles brings the
+        /// spray back to visible soft streaks without the hard outline the straight alpha gave every droplet.</summary>
+        public float Opacity { get; set; } = 0.70f;
     }
 }
