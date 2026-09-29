@@ -6928,6 +6928,9 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 
 - **Na mainu:** výchozí `AimSensitivity` 1,25 → 1,5 (další příčka žebříčku; 1,24× rychlosti přehledu). Uložené nastavení zůstává — majitelův Settings.json má 1,25, musí řádek přepnout sám.
 
+## 2026-09-29 — #637 větší Loading... — desktop, Claude Code (bs3d-a1)
+
+- **Na mainu:** výška textu 0,03 → 0,05 okna (48 → 80 px při 1600 řádcích).
 ## 2026-09-29 — #640 méně bublinek, pryč rutilové nitě — desktop, Claude Code (bs3d-a1)
 
 - **Na mainu:** bublinky ve stropě 0,5 → 0,2 buněk, poloměr 0,03–0,11 → 0,02–0,06; rutilové nitě z poháru odstraněny (majitel: vypadají jako grafická chyba).
