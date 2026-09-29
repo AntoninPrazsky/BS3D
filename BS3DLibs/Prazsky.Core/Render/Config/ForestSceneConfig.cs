@@ -179,8 +179,9 @@ namespace Prazsky.Core.Render
         /// <summary>Fraction of the trees that are conifers; the rest are broadleaves.</summary>
         public float ConiferFraction { get; set; } = 0.65f;
 
-        /// <summary>Inner radius of the scatter ring (kept clear of the island).</summary>
-        public float MinRadius { get; set; } = 44f;
+        /// <summary>Inner radius of the scatter ring (kept clear of the island). 44 until #647, whose crowns reach half
+        /// as far again: a broadleaf at the ring's edge hung its crown over the play camera's shoulder.</summary>
+        public float MinRadius { get; set; } = 52f;
 
         /// <summary>Outer radius of the scatter ring.</summary>
         public float MaxRadius { get; set; } = 340f;
@@ -197,32 +198,54 @@ namespace Prazsky.Core.Render
         /// <summary>Largest tree scale.</summary>
         public float MaxScale { get; set; } = 1.5f;
 
-        /// <summary>Trunk radius up the flank (world units, before per-instance scale). The mesh flares wider
-        /// than this where the roots meet the ground.</summary>
-        public float TrunkBaseRadius { get; set; } = 0.45f;
+        //THE TREES ARE 1.6 TIMES WHAT THEY WERE, since #647 — every figure below that sizes one. The owner: "the
+        //trees are too low and don't read as real." Against the island (52 across) a spruce of 11 units and an
+        //oak of 9 were shrubs; every reference of a real wood stands its trees two to four times the height of the
+        //gap between them, a wall round a clearing.
 
-        /// <summary>Trunk radius at the top (a trunk tapers).</summary>
-        public float TrunkTopRadius { get; set; } = 0.30f;
+        /// <summary>Trunk radius up the flank (world units, before per-instance scale). The mesh flares wider
+        /// than this where the roots meet the ground. 0.45 until #647.</summary>
+        public float TrunkBaseRadius { get; set; } = 0.62f;
+
+        /// <summary>Trunk radius at the top (a trunk tapers). 0.30 until #647.</summary>
+        public float TrunkTopRadius { get; set; } = 0.40f;
 
         /// <summary>Broadleaf trunk height to the underside of the canopy. The crown carries most of the
-        /// tree's height — a taller bare trunk under a ball of leaves reads as a lollipop.</summary>
-        public float TrunkHeight { get; set; } = 3.6f;
+        /// tree's height — a taller bare trunk under a ball of leaves reads as a lollipop. 3.6 until #647.</summary>
+        public float TrunkHeight { get; set; } = 5.8f;
 
-        /// <summary>Broadleaf canopy radius.</summary>
-        public float CrownRadius { get; set; } = 3.1f;
+        /// <summary>Broadleaf canopy radius. 3.1 until #647.</summary>
+        public float CrownRadius { get; set; } = 4.6f;
 
         /// <summary>Broadleaf canopy height, trunk top to crown top (the crown spans this, give or take its
-        /// own noise swell).</summary>
-        public float CrownHeight { get; set; } = 5.6f;
+        /// own noise swell). 5.6 until #647.</summary>
+        public float CrownHeight { get; set; } = 9f;
 
-        /// <summary>Conifer trunk height to the skirt of the cone (a forest spruce is clothed low).</summary>
-        public float ConiferTrunkHeight { get; set; } = 1.7f;
+        /// <summary>Conifer trunk height to the skirt of the cone (a forest spruce is clothed low). 1.7 until #647.</summary>
+        public float ConiferTrunkHeight { get; set; } = 2.6f;
 
-        /// <summary>Conifer crown (cone) radius at the skirt.</summary>
-        public float ConiferCrownRadius { get; set; } = 2.6f;
+        /// <summary>Conifer crown (cone) radius at the skirt. 2.6 until #647.</summary>
+        public float ConiferCrownRadius { get; set; } = 3.8f;
 
-        /// <summary>Conifer crown height, skirt to tip.</summary>
-        public float ConiferCrownHeight { get; set; } = 9.5f;
+        /// <summary>Conifer crown height, skirt to tip. 9.5 until #647.</summary>
+        public float ConiferCrownHeight { get; set; } = 15f;
+
+        /// <summary>
+        /// How much longer the bare stem is under two of the six spruce variants — the narrow tall one and the
+        /// spire — than under the rest (#647). Every reference of a real wood shows both: the trees at a clearing's
+        /// edge clothed to the ground, and behind them the stand's crowded stems, bare for a third of their height
+        /// where they shed their lower branches for want of light. 1 is every spruce clothed low, as before.
+        /// </summary>
+        public float ConiferStandTrunk { get; set; } = 2.5f;
+
+        /// <summary>
+        /// How much of a crown's up-facing faces lie under snow (#647), 0 none — the daytime forest's. The aurora's
+        /// wood is a winter one, and every reference of it drew the spruces' whorls white along their tops.
+        /// </summary>
+        public float CrownSnow { get; set; }
+
+        /// <summary>The snow on the crowns (linear radiance), when there is any — see <see cref="CrownSnow"/>.</summary>
+        public Rgb CrownSnowColor { get; set; } = new(0.58f, 0.64f, 0.76f);
 
         /// <summary>
         /// The fewest branch whorls a spruce crown is built with; each mesh variant rolls between this and
