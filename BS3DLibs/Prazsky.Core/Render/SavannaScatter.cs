@@ -192,6 +192,14 @@ namespace Prazsky.Core.Render
         private const float FOOT_TUFT_NEAR = 0.7f;
         private const float FOOT_TUFT_FAR = 1.5f;
 
+        //The heaps of earth at the trees' feet (#670): how far a heap reaches, in foot radii, for an acacia and a doum
+        //and for a baobab (whose foot is already its buttresses' spread, so its heap is a lower, flatter apron), and
+        //how tall a heap and a flat heap stand in their own radii
+        private const float HEAP_REACH = 2.7f;
+        private const float BAOBAB_HEAP_REACH = 1.35f;
+        private const float HEAP_HEIGHT = 0.26f;
+        private const float FLAT_HEAP_HEIGHT = 0.1f;
+
         /// <summary>Every draw of the scatter, in draw order. Never empty buckets — a kind with a count of
         /// zero simply has none.</summary>
         public ScatterBucket[] Buckets { get; private set; }
@@ -359,6 +367,15 @@ namespace Prazsky.Core.Render
             var scrubInstances = Lists(SCRUB);
             var tuftInstances = Lists(TUFT);
             var moundInstances = Lists(MOUND);
+
+            //Two heaps for the thorn trees and the palms, one flatter apron for the baobabs (#670)
+            var heaps = new SoilHeapMesh[]
+            {
+                Own(new SoilHeapMesh(device, HEAP_HEIGHT, irregularityPhase: 0.4f)),
+                Own(new SoilHeapMesh(device, HEAP_HEIGHT, irregularityPhase: 2.1f)),
+                Own(new SoilHeapMesh(device, FLAT_HEAP_HEIGHT, irregularityPhase: 3.7f)),
+            };
+            var heapInstances = Lists(heaps.Length);
             var rockInstances = Lists(ROCK);
             var logInstances = Lists(LOG);
             var baobabInstances = Lists(BAOBAB);
@@ -772,13 +789,25 @@ namespace Prazsky.Core.Render
             //is final and off their own dice, so every site above, and the treeline below, is the one it was; and
             //they stand in nobody's footprint, because they are the tree's own.
             var footDice = new Random(seed ^ FOOT_STREAM);
-            void FootTufts(List<ModelInstance> trunks, float footRadius, int least)
+            void FootTufts(List<ModelInstance> trunks, float footRadius, int least, bool baobab)
             {
                 for (int t = 0; t < trunks.Count; t++)
                 {
                     Matrix at = trunks[t].World;
                     float treeScale = new Vector3(at.M11, at.M12, at.M13).Length();
                     float foot = footRadius * treeScale;
+
+                    //The heap of earth the trunk rises out of, first (#670): centred on the trunk, half-way between the
+                    //ground at its middle and the lowest ground under its rim, so on a slope its downhill side still
+                    //meets the plain and its uphill side runs into it. Its own dice, drawn whether it stands or not.
+                    int heapMesh = baobab ? 2 : footDice.Next(2);
+                    float heapRadius = foot * (baobab ? BAOBAB_HEAP_REACH : HEAP_REACH) * (0.85f + 0.3f * (float)footDice.NextDouble());
+                    float heapYaw = (float)footDice.NextDouble() * MathHelper.TwoPi;
+                    float heapY = 0.5f * (Stand(at.M41, at.M43) + LowestUnder(at.M41, at.M43, heapRadius * 0.9f));
+                    heapInstances[heapMesh].Add(new ModelInstance(
+                        Matrix.CreateScale(heapRadius) * Matrix.CreateRotationY(heapYaw) * Matrix.CreateTranslation(at.M41, heapY, at.M43),
+                        new Vector4((float)footDice.NextDouble(), (float)(footDice.NextDouble() - 0.5) * 0.2f, 0f, 0f)));
+
                     int count = least + footDice.Next(3);
                     float bearing = (float)footDice.NextDouble() * MathHelper.TwoPi;
                     for (int k = 0; k < count; k++)
@@ -796,14 +825,16 @@ namespace Prazsky.Core.Render
                         //path's fringe stands where the plain allows, and its tufts reach two units further in
                         if (SavannaTrails.Trodden(x, z, bendBy, config) > TRAIL_REFUSE) continue;
 
-                        Matrix world = Matrix.CreateScale(s) * Matrix.CreateRotationY(yaw) * Matrix.CreateTranslation(x, terrainHeight(x, z), z);
+                        //On the heap where it reaches, not under it
+                        float ground = MathF.Max(terrainHeight(x, z), heapY + heapRadius * heaps[heapMesh].SurfaceAt(d / heapRadius) - 0.05f);
+                        Matrix world = Matrix.CreateScale(s) * Matrix.CreateRotationY(yaw) * Matrix.CreateTranslation(x, ground, z);
                         tuftInstances[variant].Add(new ModelInstance(world, custom));
                     }
                 }
             }
-            for (int m = 0; m < treeInstances.Length; m++) FootTufts(treeInstances[m], trees[m].BaseRadius, FOOT_TUFTS_MIN);
-            for (int m = 0; m < baobabInstances.Length; m++) FootTufts(baobabInstances[m], baobabs[m].BaseRadius, BAOBAB_FOOT_TUFTS_MIN);
-            for (int m = 0; m < doumInstances.Length; m++) FootTufts(doumInstances[m], doums[m].BaseRadius, FOOT_TUFTS_MIN);
+            for (int m = 0; m < treeInstances.Length; m++) FootTufts(treeInstances[m], trees[m].BaseRadius, FOOT_TUFTS_MIN, baobab: false);
+            for (int m = 0; m < baobabInstances.Length; m++) FootTufts(baobabInstances[m], baobabs[m].BaseRadius, BAOBAB_FOOT_TUFTS_MIN, baobab: true);
+            for (int m = 0; m < doumInstances.Length; m++) FootTufts(doumInstances[m], doums[m].BaseRadius, FOOT_TUFTS_MIN, baobab: false);
 
             //--- The treeline: its own band beyond the plain and its own occupancy - nothing out there meets
             //anything in here - the masses first and the far acacias between them.
@@ -876,6 +907,10 @@ namespace Prazsky.Core.Render
             Add(buckets, device, scrub, scrubInstances, scrubColor, scrubColor * new Vector3(1.5f, 1.25f, 0.9f), dapple: 0.5f, bark: 0f, detailOnly: false);
             Vector3 moundColor = dr.MoundColor.ToVector3();
             Add(buckets, device, mounds, moundInstances, moundColor, moundColor * new Vector3(1.15f, 1.2f, 1.3f), dapple: 0f, bark: 0.45f, detailOnly: false);
+
+            //The heaps at the trees' feet (#670): the plain's own bare earth, mottled, and a detail the Low tier goes without
+            Vector3 heapColor = config.GrassBare.ToVector3();
+            Add(buckets, device, heaps, heapInstances, heapColor, heapColor * new Vector3(1.25f, 1.2f, 1.15f), dapple: 0.4f, bark: 0f, detailOnly: true);
             Vector3 rockColor = dr.RockColor.ToVector3();
             //The stone takes a little of the foliage's mottle: lichen, the patches every reference boulder wears.
             Add(buckets, device, rocks, rockInstances, rockColor, rockColor * new Vector3(1.1f, 1.05f, 0.95f), dapple: 0.35f, bark: 0f, detailOnly: false);
