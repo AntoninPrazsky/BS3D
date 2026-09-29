@@ -209,7 +209,7 @@ namespace BS3D.Screens
         private readonly PlayHud _hud;
 
         /// <summary>
-        /// The tutorial's lessons and their card (#189): what the first chapter teaches and how far it has got.
+        /// The tutorial's lessons and their card (#189): what the first two chapters teach (#666) and how far it has got.
         /// Its own class for the HUD's reason — it is the feel of being taught, and the part most likely to be
         /// retuned — and it draws nothing: the HUD draws what it reads there. This screen feeds it the events
         /// (a shot, a landing, a hold, the glass stepping, the net lighting) and the frame.

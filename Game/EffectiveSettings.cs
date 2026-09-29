@@ -76,7 +76,7 @@ namespace BS3D
         /// <summary>Whether a big collapse still takes the camera (#290).</summary>
         internal bool DropCinematic { get => _file.DropCinematic; set => _file.DropCinematic = value; }
 
-        /// <summary>Whether the first chapter's cards are shown (#189). What has been taught is the save's, never this.</summary>
+        /// <summary>Whether the tutorial's cards are shown — the first two chapters' since #666 (#189). What has been taught is the save's, never this.</summary>
         internal bool Tutorial { get => _file.Tutorial; set => _file.Tutorial = value; }
 
         /// <summary>

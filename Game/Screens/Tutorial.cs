@@ -6,7 +6,7 @@ using System.Globalization;
 namespace BS3D.Screens
 {
     /// <summary>
-    /// The tutorial (#189): what the first chapter teaches, <b>one thing at a time</b>, as a card over the play
+    /// The tutorial (#189): what the first two chapters teach, <b>one thing at a time</b>, as a card over the play
     /// HUD — a keycap or a button drawn from the prompt font, a line of what to do with it, and a word of
     /// praise when it is done. The game taught nothing before this; the whole of its controls was one
     /// sentence on the About page, and a player who downloads the release has never read it.
@@ -17,10 +17,13 @@ namespace BS3D.Screens
     /// opener carries only the three that make the game a game: aim, fire, three of a colour fall. Precise aim
     /// waits for the second level, walking the gun round for the fourth — One, the first level with a far side,
     /// since the campaign opens on three flat sheets played from the stand the gun is given (#603) — stepping
-    /// it in for the fifth, and the later levels of the chapter are left to be played. A lesson the player did not get to — the level
-    /// lost, the card timed out, the event never happened — follows them into the next level of the chapter,
-    /// so nothing is ever skipped for good; it is only ever deferred. Past the chapter's last level nothing is
-    /// offered at all: the chapter <i>is</i> the tutorial, which is what the owner asked for.
+    /// it in for the fifth, and the chapter ends on the line's rule and the send-off. A lesson the player did not get to — the level
+    /// lost, the card timed out, the event never happened — follows them into the next level, and past its
+    /// chapter into the next one (#666), until that chapter's send-off has been read; only then is what it still
+    /// owed let go. <b>The score is the second chapter's
+    /// (#666)</b>: the streak and the spare shots' bonus wait for it, so the first chapter is played before it
+    /// is explained (<see cref="Definition.Chapter"/>), and past the second chapter nothing is offered at all —
+    /// the first two chapters <i>are</i> the tutorial, which is what the owner asked for.
     /// </para>
     /// <para>
     /// <b>Two kinds of lesson, told apart by how they end.</b> An <see cref="Definition.Action"/> lesson stays
@@ -31,7 +34,8 @@ namespace BS3D.Screens
     /// frame of the action and take its detail line with it, so the lessons a player does fastest — which are
     /// the first ones they meet — showed their instruction for a fraction of a second. It is never blocking — the gun answers
     /// throughout — and it gives up after <see cref="ACTION_TIMEOUT"/> rather than nagging for the whole level,
-    /// coming back on the next one. An informational lesson (the glass, the streak, the line, the budget) has
+    /// coming back on the next one. An informational lesson (the glass, the streak, the line, the budget, the line's
+    /// rule, the send-off) has
     /// nothing to wait for, so it holds <see cref="INFO_SECONDS"/> and goes. Three of those are
     /// <see cref="Definition.Contextual"/>: armed at the level's start and shown only when their event fires —
     /// the glass stepping, the streak lighting, the floor alarm coming on — because "the glass steps down
@@ -74,7 +78,7 @@ namespace BS3D.Screens
         /// <see cref="Force"/> offers every lesson as if none had been taught, with the real detection — a
         /// player with a finished save can be shown the cards again by playing. <see cref="Demo"/> is a reel:
         /// every lesson eligible whatever the level, the contextual ones queued like the rest, and each card
-        /// counting itself done after <see cref="DEMO_SECONDS"/> — so all ten can be photographed in one run of
+        /// counting itself done after <see cref="DEMO_SECONDS"/> — so all thirteen can be photographed in one run of
         /// a game nothing can press a key in (see the repository's note on synthetic input), which is the
         /// <c>celebrate</c> reasoning for a state a script cannot otherwise reach.
         /// </summary>
@@ -89,7 +93,19 @@ namespace BS3D.Screens
             /// <summary>The name the save records it under. Stable: renaming it re-teaches every player.</summary>
             public string Key;
 
-            /// <summary>The level of the tutorial chapter it first becomes eligible at, counted from 0.</summary>
+            /// <summary>
+            /// Which chapter of the campaign teaches it, from 0 (#666): the first chapter's ladder is the controls
+            /// and the rules, the second's is the score. A lesson is offered in its own chapter, and in a later one
+            /// only as a lesson its chapter still owes (<see cref="Eligible"/>).
+            /// </summary>
+            public int Chapter;
+
+            /// <summary>
+            /// The level of its <see cref="Chapter"/> it first becomes eligible at, counted from 0 — or, when
+            /// negative, counted back from the chapter's end, −1 being its last level. The chapter's closing cards
+            /// count from the end because a literal index drifts when the chapter changes size: the send-off read 6
+            /// from #459 to #649, and #603's three sheets had quietly turned that into Pinwheel.
+            /// </summary>
             public int FromLevel;
 
             /// <summary>Shown by its event (<see cref="Trigger"/>) rather than at the level's start.</summary>
@@ -101,7 +117,7 @@ namespace BS3D.Screens
             /// <summary>
             /// The card is a <b>reward rather than a notice</b> (#459): it arrives wearing the praise's own
             /// dress — the accent, the halo, the score's spring and the chime — instead of earning it. There is
-            /// exactly one, the send-off that closes the ladder, and it is informational because there is
+            /// exactly one, the send-off that closes the first chapter's ladder, and it is informational because there is
             /// nothing left to ask the player to do.
             /// </summary>
             public bool Celebrates;
@@ -202,43 +218,57 @@ namespace BS3D.Screens
             },
             new()
             {
-                Lesson = Lesson.Streak, Key = "streak", FromLevel = 2, Contextual = true,
-                Caption = "Hit after hit multiplies your score", Detail = "A miss resets the streak",
-            },
-            new()
-            {
-                Lesson = Lesson.Budget, Key = "budget", FromLevel = 5,
-                Caption = "Spare shots pay a bonus at the end", Detail = "Clear the field in fewer for more stars",
-            },
-            new()
-            {
                 //THE RULE, BEFORE IT BITES (#459). The contextual `line` card above is the warning in the
                 //moment — it fires when the floor's net first comes on and says what to do about it. This one
                 //says what is at stake, on the opening of the level where losing to the line first becomes a
                 //real risk, because a player who meets the loss with nothing having told them the rule reads
-                //it as the game being unfair rather than as a rule they now know. Since #649 that is Saturn, the
-                //eighth: it and Amphora after it are the chapter's anchor-starved levels (a hoop on four spokes,
-                //a cup whose ears are its second load path), the two where a swing reaches the line - and Amphora,
-                //the chapter's last, keeps the send-off. (Between #603 and #649 this read 6, which the three
-                //sheets inserted in front had quietly turned into Pinwheel.)
-                Lesson = Lesson.LineRule, Key = "linerule", FromLevel = 7,
+                //it as the game being unfair rather than as a rule they now know. Since #649 that is Saturn, three
+                //from the chapter's end: it and Amphora after it are the chapter's anchor-starved levels (a hoop on
+                //four spokes, a cup whose ears are its second load path), the two where a swing reaches the line -
+                //and Amphora, the chapter's last, keeps the send-off. Counted from the end (see FromLevel) because
+                //this read 6 from #459 to #649, which the three sheets inserted in front had quietly turned into
+                //Pinwheel.
+                Lesson = Lesson.LineRule, Key = "linerule", FromLevel = -3,
                 Caption = "If the cluster reaches the line, the level is lost",
                 Detail = "Keep it light — a heavy cluster hangs low and swings lower",
             },
             new()
             {
-                //AND THE SEND-OFF (#459), which is the last card of the ladder: the tutorial had no end before
+                //AND THE SEND-OFF (#459), which is the last card of the first chapter's ladder: the tutorial had no end before
                 //this, so a player was never told they had been taught everything — the cards simply stopped.
                 //It celebrates rather than informs (see Definition.Celebrates), because being told you are done
-                //is a reward and reads as one only if it is dressed as one.
-                Lesson = Lesson.Graduated, Key = "graduated", FromLevel = 9, Celebrates = true,
-                Caption = "That's everything — you know the game",
+                //is a reward and reads as one only if it is dressed as one. "The basics" and not "everything"
+                //since #666: the score's two lessons come after it, in the second chapter, and a send-off that
+                //said "everything" would be the one card that lied.
+                Lesson = Lesson.Graduated, Key = "graduated", FromLevel = -1, Celebrates = true,
+                Caption = "That's the basics — you know how to play",
                 Detail = "The rest is the adventure. Go!",
+            },
+            new()
+            {
+                //THE SCORE WAITS FOR THE SECOND CHAPTER (#666), on the owner's playtest: the tutorial's explanation
+                //of the score could wait, so the player is not overloaded with new information and can play a bit
+                //first. The first chapter's levels are gentle enough that a player who misses one shot in three - so
+                //the streak keeps resetting - and saves no shot still two-stars them (ScoreSim's sloppy player:
+                //1.85-1.98 on all ten), which is what every gate there asks: the multiplier works whether or not
+                //anybody has explained it. After the send-off in DEFINITIONS, as it is in play. Contextual on the
+                //Gallery's first level, as it was on the Meadow's third: shown when the streak first lights.
+                Lesson = Lesson.Streak, Key = "streak", Chapter = 1, FromLevel = 0, Contextual = true,
+                Caption = "Hit after hit multiplies your score", Detail = "A miss resets the streak",
+            },
+            new()
+            {
+                //And the budget one level on, so the chapter's first two levels teach one idea each.
+                Lesson = Lesson.Budget, Key = "budget", Chapter = 1, FromLevel = 1,
+                Caption = "Spare shots pay a bonus at the end", Detail = "Clear the field in fewer for more stars",
             },
         };
 
-        /// <summary>How many levels a set without chapters is taught over — the shipped chapter's own length.</summary>
+        /// <summary>How long a chapter of a set without chapters is — the shipped chapter's own length.</summary>
         private const int UNCHAPTERED_LEVELS = 10;
+
+        /// <summary>How many chapters teach anything (#666): the controls and rules in the first, the score in the second.</summary>
+        private const int TUTORIAL_CHAPTERS = 2;
 
         //The card's clocks, all wall seconds of play: the pop-in, the retreat, how long it hides under a
         //camera takeover's blend, the praise, an informational card's hold, an action card's patience, the
@@ -339,7 +369,7 @@ namespace BS3D.Screens
             : Celebrating ? MathF.Max(0f, 1f - _age / PRAISE_FLARE_SECONDS) : 0f;
 
         /// <summary>
-        /// This card arrives already wearing the praise's dress (#459) — the send-off that closes the ladder.
+        /// This card arrives already wearing the praise's dress (#459) — the send-off that closes the first chapter's ladder.
         /// The HUD gives its caption the accent and the halo, and the cue fires on the frame it appears rather
         /// than on a frame the player earned, because there is nothing left here to earn.
         /// </summary>
@@ -397,21 +427,33 @@ namespace BS3D.Screens
         #region The level
 
         /// <summary>
-        /// The last level index the tutorial reaches in <paramref name="set"/>: the first chapter's last
-        /// entry, or the first <see cref="UNCHAPTERED_LEVELS"/> of a set that names no chapters. −1 for no set
-        /// at all — the fallback pyramid is not a campaign and teaches nothing.
+        /// Where entry <paramref name="index"/> of <paramref name="set"/> sits in the tutorial: which chapter, from
+        /// 0, and how far into it. A chaptered set's chapters are its blocks; a set that names none is taught in
+        /// runs of <see cref="UNCHAPTERED_LEVELS"/>. False past the first <see cref="TUTORIAL_CHAPTERS"/> chapters —
+        /// nothing is taught there — and for no set at all, since the fallback pyramid is not a campaign.
         /// </summary>
-        internal static int LastLevelOf(LevelSet set)
+        internal static bool TryPlace(LevelSet set, int index, out int chapter, out int levelInChapter, out int chapterLength)
         {
-            if (set == null || set.Count == 0) return -1;
+            chapter = -1;
+            levelInChapter = -1;
+            chapterLength = 0;
+            if (set == null || index < 0 || index >= set.Count) return false;
 
             if (set.HasBlocks)
             {
-                set.BlockRange(0, out _, out int last);
-                return last;
+                set.BlockRange(index, out int first, out int last);
+                chapter = set.BlockNumber(index) - 1;
+                levelInChapter = index - first;
+                chapterLength = last - first + 1;
+            }
+            else
+            {
+                chapter = index / UNCHAPTERED_LEVELS;
+                levelInChapter = index % UNCHAPTERED_LEVELS;
+                chapterLength = Math.Min(UNCHAPTERED_LEVELS, set.Count - chapter * UNCHAPTERED_LEVELS);
             }
 
-            return Math.Min(set.Count, UNCHAPTERED_LEVELS) - 1;
+            return chapter < TUTORIAL_CHAPTERS;
         }
 
         /// <summary>
@@ -419,14 +461,15 @@ namespace BS3D.Screens
         /// yet taught — and queues the start lessons in order while arming the contextual ones. Nothing shows
         /// until the level's own opening (a chapter intro, say) has let go.
         /// </summary>
-        /// <param name="levelIndex">The level's place in the set, from 0.</param>
-        /// <param name="lastIndex">The tutorial chapter's last index (<see cref="LastLevelOf"/>); past it, nothing is taught.</param>
+        /// <param name="chapter">The level's chapter (<see cref="TryPlace"/>), or −1 for a level the tutorial does not reach.</param>
+        /// <param name="levelInChapter">How far into that chapter the level is, from 0.</param>
+        /// <param name="chapterLength">How many levels the chapter has, which a lesson counted from its end is placed by.</param>
         /// <param name="ceilingStep">The level's ceiling cadence, for the glass lesson's caption; null skips that lesson.</param>
-        internal void BeginLevel(int levelIndex, int lastIndex, int? ceilingStep)
+        internal void BeginLevel(int chapter, int levelInChapter, int chapterLength, int? ceilingStep)
         {
             Reset();
 
-            _hasLevel = levelIndex >= 0 && levelIndex <= lastIndex;
+            _hasLevel = chapter >= 0;
             if (!_hasLevel) return;
 
             //The one string built per level. A level whose glass holds still cannot fire the lesson anyway,
@@ -437,7 +480,8 @@ namespace BS3D.Screens
 
             foreach (Definition lesson in DEFINITIONS)
             {
-                if ((levelIndex < lesson.FromLevel && !_demo) || Taught(lesson)) continue;
+                if (!_demo && !Eligible(lesson, chapter, levelInChapter, chapterLength)) continue;
+                if (Taught(lesson)) continue;
                 if (lesson.Lesson == Lesson.Ceiling && _ceilingCaption == null) continue;
 
                 //The reel has no events to wait for, so its contextual cards are queued like the rest
@@ -451,14 +495,37 @@ namespace BS3D.Screens
         }
 
         /// <summary>
-        /// Keeps the send-off (<see cref="Lesson.Graduated"/>) the last card the tutorial ever shows (#605). The
+        /// Whether <paramref name="lesson"/> may be offered on this level: in its own chapter from its level on, and
+        /// in any later chapter the tutorial reaches as a lesson its chapter still owes (#666) — so a card the first
+        /// chapter never got to, the send-off on a skipped Amphora included, follows the player into the second the
+        /// way a deferred card always followed them from level to level.
+        /// <para>
+        /// A level is clamped into the chapter: counted from the start, no later than its last level; counted from
+        /// the end, no earlier than its first. On a chapter shorter than the ladder every lesson is then still
+        /// reachable, and the ones counted from the start land no later than the send-off, which DEFINITIONS lists
+        /// after them — a short chapter crowds its cards together rather than cutting any.
+        /// </para>
+        /// </summary>
+        private static bool Eligible(Definition lesson, int chapter, int levelInChapter, int chapterLength)
+        {
+            if (lesson.Chapter != chapter) return lesson.Chapter < chapter;
+
+            int from = lesson.FromLevel >= 0
+                ? Math.Min(lesson.FromLevel, chapterLength - 1)
+                : Math.Max(0, chapterLength + lesson.FromLevel);
+            return levelInChapter >= from;
+        }
+
+        /// <summary>
+        /// Keeps the send-off (<see cref="Lesson.Graduated"/>) the last card of its chapter's ladder (#605). The
         /// owner was told "That's everything — you know the game" on Amphora and then "The glass steps down every 7
         /// shots": a contextual lesson still armed fired when its event came, after the send-off. So on the level
         /// that sends the player off, the contextual lessons still untaught are queued as plain cards <b>ahead</b> of
-        /// it — the glass's cadence and the streak read as well at a level's start as mid-shot — except the line's,
+        /// it — the glass's cadence reads as well at a level's start as mid-shot — except the line's,
         /// which is a warning about this moment ("The cluster is near the line!") and would be false at the start;
         /// the rule it serves is the <see cref="Lesson.LineRule"/> card queued just before. And once the player has
-        /// been sent off, the chapter's remaining levels teach nothing at all.
+        /// been sent off, nothing of that chapter is taught again. <b>Only that chapter's lessons (#666):</b> the
+        /// score's, in the second chapter, come after the send-off by design and are left exactly as they are.
         /// </summary>
         private void NothingAfterTheSendOff()
         {
@@ -466,10 +533,18 @@ namespace BS3D.Screens
             foreach (Definition lesson in DEFINITIONS)
                 if (lesson.Lesson == Lesson.Graduated) sendOffLesson = lesson;
 
-            if (sendOffLesson != null && Taught(sendOffLesson))
+            if (sendOffLesson == null) return;
+
+            //The send-off closes ITS chapter's ladder and nothing else (#666): the score's lessons after it are the
+            //second chapter's own, so only the first chapter's are cut or pulled ahead of it.
+            int closes = sendOffLesson.Chapter;
+
+            if (Taught(sendOffLesson))
             {
-                _queue.Clear();
-                _armed.Clear();
+                for (int i = _queue.Count - 1; i >= 0; i--)
+                    if (_queue[i].Chapter == closes) _queue.RemoveAt(i);
+                for (int i = _armed.Count - 1; i >= 0; i--)
+                    if (_armed[i].Chapter == closes) _armed.RemoveAt(i);
                 return;
             }
 
@@ -479,10 +554,25 @@ namespace BS3D.Screens
 
             if (sendOff < 0) return;
 
-            foreach (Definition armed in _armed)
-                if (armed.Lesson != Lesson.Line) _queue.Insert(sendOff++, armed);
+            //A LATER CHAPTER'S LESSONS WAIT FOR IT (#666). Owed on a later chapter's level — Amphora skipped, or lost
+            //before its cards came up — the send-off shares that level with the score's cards, and the streak's,
+            //contextual, would interrupt it the moment it lit. Neither is taught here: they are offered on the next
+            //level, after the player has been sent off, which is the order the chapters promise.
+            for (int i = _queue.Count - 1; i >= 0; i--)
+                if (_queue[i].Chapter > closes) _queue.RemoveAt(i);
+            for (int i = _armed.Count - 1; i >= 0; i--)
+                if (_armed[i].Chapter > closes) _armed.RemoveAt(i);
 
-            _armed.Clear();
+            sendOff = _queue.IndexOf(sendOffLesson);
+
+            for (int i = 0; i < _armed.Count; i++)
+            {
+                Definition armed = _armed[i];
+                if (armed.Chapter != closes) continue;
+
+                if (armed.Lesson != Lesson.Line) _queue.Insert(sendOff++, armed);
+                _armed.RemoveAt(i--);
+            }
         }
 
         /// <summary>Drops everything, for a session being torn down under it — and the first thing a new level does.</summary>
