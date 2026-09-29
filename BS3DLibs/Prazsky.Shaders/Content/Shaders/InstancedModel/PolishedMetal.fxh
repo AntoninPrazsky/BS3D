@@ -92,6 +92,24 @@ static const float PolishedSunGain = 12.0;
 //0.6 - because the rig's key IS the cup's studio light on a result page that stands the cup against the lens.
 static const float PolishedHighlight = 1.0;
 
+//THE DRAWN EDGE (#640). Schlick takes any metal to a white mirror as the surface turns edge-on, which is the Fresnel
+//every metal has and is kept - but at the very rim of a cup that mirror shows the SKY, and the sky is what stands
+//behind the cup, so the silhouette dissolved into it: pale wedges along the bowl under the jewelled band, read as
+//holes. Measured before any of this was written: the band stands only 0.016-0.024 proud of the bowl and hides just
+//3-8 % of the upper sky from it, so an ambient-occlusion term for it changed nothing; the wedges are the honest
+//grazing mirror and a LOOK decision. The owner picked a thin dark silhouette over keeping the alloy's hue at
+//grazing (nothing for silver) and over a dark ground in the mirror (changes what the whole cup shows).
+//
+//So over the last stretch before edge-on the whole result fades to a dark shade of the alloy: PolishedRimWidth is the
+//dot(N, V) below which it begins, PolishedRimBody how much of the alloy's F0 is left at the very edge - dark, not
+//black, so gold's edge is a dark gold and the line reads as the metal's own edge rather than as ink. Width 0.1 was
+//the first figure and was too thin to see: at a sphere's rim dot(N, V) < 0.1 is the outer 0.5 % of the radius, one
+//pixel of a 200-pixel bowl, and the wedges stayed sky-coloured to the edge (1600x900 captures of all three tiers,
+//before/after at the same pose). 0.22 is the outer 2.4 % - a few pixels, still an outline and not a shadow - and
+//wider where a lathe narrows and the surface stays tangent over a band.
+static const float PolishedRimWidth = 0.22;
+static const float PolishedRimBody = 0.12;
+
 //The sharp environment a polished surface mirrors along a direction. See the constants above.
 float3 PolishedSky(float3 direction)
 {
@@ -137,11 +155,16 @@ float4 PolishedMetalPS(VertexShaderOutput input) : COLOR
     AddSceneLights(input.WorldPosition, worldNormal, eyeVector, diffuse, specular);
 
     //The environment along the mirror direction, through Schlick with the alloy as F0 - so the body mirrors in the
-    //metal's colour and the silhouette turns to an honest white mirror, which is the Fresnel every metal has
+    //metal's colour and the surface turns to an honest white mirror towards edge-on, which is the Fresnel every metal
+    //has - up to the last stretch, which the drawn edge below takes (#640)
     float3 fresnel = FresnelSchlick(f0, dot(worldNormal, eyeVector), 1.0);
     float3 reflection = PolishedSky(reflect(-eyeVector, worldNormal)) * fresnel * SpecularAmbientStrength;
 
-    return float4(reflection + specular * f0 * PolishedHighlight, 1.0);
+    //The drawn edge: 1 at the silhouette, 0 from PolishedRimWidth of facing on. The interpolated normal can tip past
+    //edge-on at the very rim, and the saturate holds that at fully faded rather than reading it as facing away.
+    float rim = 1.0 - smoothstep(0.0, PolishedRimWidth, saturate(dot(worldNormal, eyeVector)));
+
+    return float4(lerp(reflection + specular * f0 * PolishedHighlight, f0 * PolishedRimBody, rim), 1.0);
 }
 
 technique InstancedPolishedMetal
