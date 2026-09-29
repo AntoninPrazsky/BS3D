@@ -906,6 +906,16 @@ namespace BS3D
             _island.DrawIsland(_camera, _sceneEffectParams, _scene);
             _island.DrawPit(_camera, _sceneEffectParams, _scene);
 
+            //THE TRANSLUCENT BASELINE, STATED AGAIN ON THE WAY OUT (#667). Everything the caller draws after this -
+            //the drain's glass, the ceiling's, the gun's window pane - inherits these three, and they were stated at
+            //the top of this method, BEFORE the environment. A backdrop that leaves another behind changes how every
+            //one of those looks, in its own scene only, with nothing to say so: PlantPass left Opaque on the meadow and
+            //the mountains from #608 until #667, and the window pane came out a solid sheet there while it read as
+            //glass on the savanna. Restated here, the baseline is this method's promise rather than every backdrop's.
+            GraphicsDevice.BlendState = BlendState.AlphaBlend;
+            GraphicsDevice.DepthStencilState = DepthStencilState.Default;
+            GraphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+
             return sceneFrame;
         }
 

@@ -77,6 +77,14 @@ namespace Prazsky.Core.Render
             _addedLight.SetValue(Vector3.Zero);
             _leaves.SetValue(0f);
 
+            //⚠ PUT BACK WHAT WAS FOUND (#667). This pass leaves the states the frame goes on drawing under, and it
+            //used to leave Opaque: on the meadow and the mountains it is the last thing the environment draws, so
+            //every translucent surface after it came out solid there and nowhere else - the gun's window pane read
+            //as an opaque grey sheet over a queue it was meant to show, and the drain's glass as a dark disc.
+            BlendState blend = _graphicsDevice.BlendState;
+            DepthStencilState depth = _graphicsDevice.DepthStencilState;
+            RasterizerState raster = _graphicsDevice.RasterizerState;
+
             _graphicsDevice.BlendState = BlendState.Opaque;
             _graphicsDevice.DepthStencilState = DepthStencilState.Default;
 
@@ -97,7 +105,9 @@ namespace Prazsky.Core.Render
             }
 
             _leaves.SetValue(0f);
-            _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+            _graphicsDevice.BlendState = blend;
+            _graphicsDevice.DepthStencilState = depth;
+            _graphicsDevice.RasterizerState = raster;
         }
 
         /// <summary>Casts <paramref name="buckets"/> into the sun's map (#469's path); the Low tier's crowns do not cast.</summary>
