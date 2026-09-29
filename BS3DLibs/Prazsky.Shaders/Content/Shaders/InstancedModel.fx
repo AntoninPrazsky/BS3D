@@ -31,7 +31,7 @@ float3 SrgbToLinear(float3 color)
 //what no number of plane waves adds up to, and the library's own header is the argument for why.
 #include "Noise.fxh"
 
-//The sun's CAST shadows (#469, #470): the map's uniforms and the nine-tap PCF, in one copy with every other
+//The sun's CAST shadows (#469, #470): the map's uniforms and the 3 x 3 PCF, in one copy with every other
 //receiver. Everything drawn through this effect receives - the island, its drain, the gun, the city and the
 //balls - because the tap sits in ShadePixel, which is the one place that knows how a pixel is lit. The
 //InstancedDepth technique (InstancedModel/Depth.fxh) is the matching CASTER, and it is what puts the island

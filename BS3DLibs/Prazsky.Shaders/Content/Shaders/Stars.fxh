@@ -357,8 +357,9 @@ float3 StarInCell(float2 cell, float2 p, float3 chart, float pixelAngle, float s
 
 //One layer: the cells a star's light can come from - at most 2 x 2, usually one or two - each judged by StarInCell and
 //combined by MAX (#674). A star reaches at most half a cell (its margin is capped there), so the cells that can hold
-//one that lights THIS pixel are the ones overlapping half a cell either side of it: a 2 x 2 block at worst, and,
-//and where the real bound is well under half a cell, a single cell (the fine layers at 900p are not: their reach is a good part of a cell, so they usually look up two or four). Cells off the
+//one that lights THIS pixel are the ones overlapping quickReach either side of it: a 2 x 2 block at worst. A layer
+//with spikes has a reach of at least 0.34 of a cell, so it usually looks up two or four; a single cell is what a
+//layer WITHOUT spikes gets where its own bound is small. Cells off the
 //cube face are skipped: the chart goes on past the face, but what stands there is the next face's sky, drawn by
 //that face's own lookup, and drawing it here too would double the stars in a band along every seam.
 //

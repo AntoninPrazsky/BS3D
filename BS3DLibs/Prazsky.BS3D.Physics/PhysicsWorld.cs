@@ -296,7 +296,10 @@ namespace Prazsky.BS3D.Physics
         /// 0.25 units a second squared let the cluster fall asleep and hang there, while twice that kept it swinging.
         /// The threshold is set on the bodies (negative is never below any squared speed) rather than the island woken
         /// every step, because a cluster that has been shot apart is several islands and waking one ball wakes only its
-        /// own; a ball attached later joins an island that already cannot sleep. What it costs is the reason
+        /// own. A ball attached later carries the ordinary threshold, so the session calls this again after every landing
+        /// while a wind blows — an island made only of such balls (the originals above it released, shot balls left
+        /// hanging from the ceiling) could otherwise fall asleep and stop swaying — and a released ball gets the ordinary
+        /// threshold back (<see cref="BallsConstraintsBuilder.ReleaseBall"/>). What it costs is the reason
         /// <c>QualityPreset.ClusterWind</c> is a tier's to give up: a cluster that never sleeps is stepped every step —
         /// 0.83 ms a frame of physics for the sleeping 975-ball level on the weak machine, 10.1 awake.
         /// </summary>

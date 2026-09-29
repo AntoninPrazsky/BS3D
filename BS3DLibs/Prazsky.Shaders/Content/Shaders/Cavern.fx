@@ -170,8 +170,9 @@ float3 CrystalLightAt(float3 position)
 //"bioluminescent cavern" reads as from across the chamber, where the crystals read from a few tens of units
 //and the veins only where the rock is lit at all.
 //
-//One hash a pixel, and only where they reach. A single-cell lattice like everything else in this project: the
-//point is jittered inside its own cell and never reaches the edge, so no neighbour has to be read. The cell is
+//Only where they reach. Since #674 the point is jittered over its WHOLE cell (a point kept clear of its cell wall is a
+//lattice the eye finds), so the eight cells round the pixel are read and a worm counts when it stands within half a
+//cell of the surface along its normal. The cell is
 //small (a couple of units) because a glowworm is a POINT - the falloff below puts it at about a pixel at the
 //distance the ceiling is actually seen from, and the eye reads a field of them as a constellation rather than
 //as a dotted texture. They breathe out of step with each other; nothing else in this scene is still either.
@@ -188,7 +189,7 @@ float3 CrystalLightAt(float3 position)
 //(the caller's, ragged - see ShadeWall) runs down the wall's top in tongues and pulls back into the ceiling in
 //bays, and the lattice is a cube lattice with each point projected onto the surface it stands on, so the same
 //worms can sit on the wall's top as on the ceiling - an XZ lattice on a vertical wall degenerates into streaks.
-//One cell per cell-face the surface crosses, so the density per area is what it was.
+//The half-cell slab round the surface gives the density per area of one cell per cell-face, which is what it was.
 static const float GLOWWORM_CELL = 2.6;
 static const float GLOWWORM_CHANCE = 0.26;
 static const float GLOWWORM_RADIUS = 0.16;      //world units, the smallest a worm is drawn at
