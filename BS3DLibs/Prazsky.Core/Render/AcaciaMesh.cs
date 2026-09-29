@@ -447,6 +447,54 @@ namespace Prazsky.Core.Render
             }
         }
 
+        /// <summary>
+        /// One continuous tube along a polyline, a ring at every point (#609's third round): each ring square to the
+        /// mean of the two segments it joins and turned by parallel transport from the one before, so a bent limb is one
+        /// skin. Straight tubes laid end to end at an angle meet with their end rings in two different planes — a step
+        /// on one side and an overlap on the other — and on the meadow's thick old trunks that read as a sleeve pulled
+        /// over the wood. Side faces only, wound as <see cref="AddTube"/> is.
+        /// </summary>
+        public static void AddSweep(List<VertexPositionNormalTexture> v, List<short> idx, int seg,
+            IReadOnlyList<Vector3> points, IReadOnlyList<float> radii)
+        {
+            int count = points.Count;
+            if (count < 2) return;
+
+            Vector3 Tangent(int k)
+            {
+                Vector3 t = points[Math.Min(k + 1, count - 1)] - points[Math.Max(k - 1, 0)];
+                return t.LengthSquared() > 1e-10f ? Vector3.Normalize(t) : Vector3.Up;
+            }
+
+            Vector3 axis = Tangent(0);
+            Vector3 ref0 = MathF.Abs(axis.Y) > 0.9f ? Vector3.UnitX : Vector3.UnitY;
+            Vector3 u = Vector3.Normalize(Vector3.Cross(ref0, axis));
+
+            short baseIdx = (short)v.Count;
+            for (int k = 0; k < count; k++)
+            {
+                axis = Tangent(k);
+                //Parallel transport: the last ring's reference direction, with what now lies along the axis taken out
+                u = Vector3.Normalize(u - axis * Vector3.Dot(u, axis));
+                Vector3 w = Vector3.Cross(axis, u);
+                for (int s = 0; s <= seg; s++)
+                {
+                    float ang = MathHelper.TwoPi * s / seg;
+                    Vector3 dir = u * MathF.Cos(ang) + w * MathF.Sin(ang);
+                    v.Add(new VertexPositionNormalTexture(points[k] + dir * radii[k], dir, new Vector2(s / (float)seg, k / (count - 1f))));
+                }
+            }
+            for (int k = 0; k < count - 1; k++)
+            {
+                int ring = baseIdx + k * (seg + 1), next = ring + seg + 1;
+                for (int s = 0; s < seg; s++)
+                {
+                    idx.Add((short)(ring + s)); idx.Add((short)(next + s)); idx.Add((short)(ring + s + 1));
+                    idx.Add((short)(ring + s + 1)); idx.Add((short)(next + s)); idx.Add((short)(next + s + 1));
+                }
+            }
+        }
+
         /// <summary>A flat disc closing a tube's end, facing along <paramref name="outward"/> (the sawn end of a log).</summary>
         public static void AddCap(List<VertexPositionNormalTexture> v, List<short> idx, int seg,
             Vector3 centre, float radius, Vector3 outward)
@@ -691,12 +739,15 @@ namespace Prazsky.Core.Render
     /// lobes are what make it a cluster of leaf masses rather than one smooth ball. Normals stay spherical so
     /// the light wraps the lobes softly the way lit foliage does. Rolled from a seed, so no two are alike.
     /// <para>
-    /// The shape is a <see cref="FoliageStyle"/> since #451, and <see cref="Generate"/> appends the geometry
+    /// The shape is a <see cref="FoliageStyle"/> since #451, and <see cref="Generate(List{VertexPositionNormalTexture}, List{short}, float, float, Vector3, int, FoliageStyle)"/> appends the geometry
     /// to a caller's lists so that several masses can go into one mesh — an acacia's tiers are one draw.
     /// </para>
     /// </summary>
     public sealed class FoliageMesh : IProceduralMesh, IDisposable
     {
+        //The mass's tessellation: rings round it and bands from pole to pole
+        private const int SLICES = 16, STACKS = 11;
+
         public VertexBuffer VertexBuffer { get; private set; }
         public IndexBuffer IndexBuffer { get; private set; }
         public int PrimitiveCount { get; }
@@ -722,7 +773,17 @@ namespace Prazsky.Core.Render
         /// few hundred of them is nothing.
         /// </summary>
         public static float Generate(List<VertexPositionNormalTexture> v, List<short> idx,
-            float radius, float halfHeight, Vector3 centre, int seed, FoliageStyle style)
+            float radius, float halfHeight, Vector3 centre, int seed, FoliageStyle style) =>
+            Generate(v, idx, radius, halfHeight, centre, seed, style, SLICES, STACKS);
+
+        /// <summary>
+        /// The same mass at a coarser tessellation (#609's third round): the meadow's old trees build their crowns of
+        /// fifty-odd small clumps, and at the full sixteen by eleven those lumps alone were a quarter of a million
+        /// triangles a pass across the meadow's fifteen trees. The normals stay the sphere's, so the shading keeps its
+        /// round falloff; only the silhouette's facets coarsen, on a lump a couple of units across.
+        /// </summary>
+        public static float Generate(List<VertexPositionNormalTexture> v, List<short> idx,
+            float radius, float halfHeight, Vector3 centre, int seed, FoliageStyle style, int slices, int stacks)
         {
             Random rng = new(seed);
             float phase = seed * 2.39996f;
@@ -753,8 +814,7 @@ namespace Prazsky.Core.Render
                 return swell;
             }
 
-            const int SLICES = 16, STACKS = 11;
-            int vertexCount = (STACKS - 1) * SLICES + 2;
+            int vertexCount = (stacks - 1) * slices + 2;
             short baseIdx = (short)v.Count;
             float reach = 0f;
 
@@ -772,33 +832,33 @@ namespace Prazsky.Core.Render
             }
 
             v.Add(Build(Vector3.Up));
-            for (int stack = 1; stack < STACKS; stack++)
+            for (int stack = 1; stack < stacks; stack++)
             {
-                float phi = MathF.PI * stack / STACKS;
+                float phi = MathF.PI * stack / stacks;
                 float y = MathF.Cos(phi);
                 float ringRadius = MathF.Sin(phi);
-                for (int slice = 0; slice < SLICES; slice++)
+                for (int slice = 0; slice < slices; slice++)
                 {
-                    float theta = MathHelper.TwoPi * slice / SLICES;
+                    float theta = MathHelper.TwoPi * slice / slices;
                     v.Add(Build(new Vector3(ringRadius * MathF.Cos(theta), y, ringRadius * MathF.Sin(theta))));
                 }
             }
             int bottomPole = baseIdx + vertexCount - 1;
             v.Add(Build(Vector3.Down));
 
-            for (int slice = 0; slice < SLICES; slice++)
+            for (int slice = 0; slice < slices; slice++)
             {
                 idx.Add(baseIdx);
                 idx.Add((short)(baseIdx + 1 + slice));
-                idx.Add((short)(baseIdx + 1 + (slice + 1) % SLICES));
+                idx.Add((short)(baseIdx + 1 + (slice + 1) % slices));
             }
-            for (int stack = 0; stack < STACKS - 2; stack++)
+            for (int stack = 0; stack < stacks - 2; stack++)
             {
-                int upper = baseIdx + 1 + stack * SLICES;
-                int lower = upper + SLICES;
-                for (int slice = 0; slice < SLICES; slice++)
+                int upper = baseIdx + 1 + stack * slices;
+                int lower = upper + slices;
+                for (int slice = 0; slice < slices; slice++)
                 {
-                    int next = (slice + 1) % SLICES;
+                    int next = (slice + 1) % slices;
                     idx.Add((short)(upper + slice));
                     idx.Add((short)(lower + slice));
                     idx.Add((short)(upper + next));
@@ -807,11 +867,11 @@ namespace Prazsky.Core.Render
                     idx.Add((short)(lower + next));
                 }
             }
-            int lastRing = baseIdx + 1 + (STACKS - 2) * SLICES;
-            for (int slice = 0; slice < SLICES; slice++)
+            int lastRing = baseIdx + 1 + (stacks - 2) * slices;
+            for (int slice = 0; slice < slices; slice++)
             {
                 idx.Add((short)bottomPole);
-                idx.Add((short)(lastRing + (slice + 1) % SLICES));
+                idx.Add((short)(lastRing + (slice + 1) % slices));
                 idx.Add((short)(lastRing + slice));
             }
 

@@ -494,6 +494,9 @@ namespace Prazsky.Core.Render
         /// <summary>The waterline's rocks as figures (their mesh's bounding sphere at the instance), for the same host.</summary>
         public IReadOnlyList<PlantFigure> TropicalRocks => _tropical.Rocks;
 
+        /// <summary>The meadow's old trees as figures (#609's third round), for the same host — its valley shot flies over them.</summary>
+        public IReadOnlyList<PlantFigure> MeadowTrees => _meadow.Trees;
+
         /// <summary>
         /// How many campfires ring the island, capped to the scene-light budget the shaders' arrays are sized
         /// for. Every caller that walks the fires — the grass's lights, the balls' and island's lights, and

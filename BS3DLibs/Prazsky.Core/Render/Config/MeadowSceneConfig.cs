@@ -126,6 +126,23 @@ namespace Prazsky.Core.Render
 
         /// <summary>How far the brook wanders either side of its bearing, in world units — more than the path, as water does.</summary>
         public float BrookMeander { get; set; } = 22f;
+
+        /// <summary>
+        /// The pond the brook runs into (#609's third round), its mean radius in world units. The owner: the brook
+        /// "ends abruptly in the middle of the meadow … it should flow into something, a pond for example". It lies
+        /// where the brook's inner end was, on ground levelled round it (<see cref="MeadowPath.PondCentre"/>).
+        /// </summary>
+        public float PondRadius { get; set; } = 11f;
+
+        /// <summary>
+        /// The knoll the footpath climbs to its old tree (#609's third round): its radius and height in world units.
+        /// The owner: "a path leads somewhere, to a tree or a small hill" — this one to both, where it used to
+        /// start out of nothing at the clearing's edge (<see cref="MeadowPath.PathEnd"/>).
+        /// </summary>
+        public float KnollRadius { get; set; } = 22f;
+
+        /// <summary>The knoll's height over the ground round it, world units.</summary>
+        public float KnollHeight { get; set; } = 3.5f;
     }
 
     /// <summary>
@@ -135,7 +152,7 @@ namespace Prazsky.Core.Render
     public sealed class FlowersConfig
     {
         /// <summary>How many of the grid cells carry a wildflower.</summary>
-        public float Density { get; set; } = 0.16f;
+        public float Density { get; set; } = 0.28f;
 
         /// <summary>How far apart the wildflower grid cells are.</summary>
         public float Spacing { get; set; } = 2.2f;

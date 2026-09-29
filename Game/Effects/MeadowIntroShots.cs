@@ -1,14 +1,15 @@
 using Microsoft.Xna.Framework;
 using Prazsky.Core.Render;
 using System;
+using System.Collections.Generic;
 
 namespace BS3D.Effects
 {
     /// <summary>
-    /// The meadow's own shots for a chapter intro's prologue (#559, #609): the valley from a hilltop, then down along
-    /// the brook at the height of its reeds, then along the footpath beside its fence up into the hills — cut
-    /// together, then cut to the tour's last leg. The meadow opens the whole campaign, so this is the first thing the
-    /// game shows a new player after its menu.
+    /// The meadow's own shots for a chapter intro's prologue (#559, #609): the valley from a hilltop, then down the
+    /// brook at the height of its reeds to the pond it runs into, then along the footpath beside its fence to the old
+    /// oak on its knoll — cut together, then cut to the tour's last leg. The meadow opens the whole campaign, so this
+    /// is the first thing the game shows a new player after its menu.
     /// <para>
     /// <b>Two of the three are about things since #609.</b> Until then the meadow had nothing standing on it and its
     /// shots were about pieces of the land — the flowers at a hand's height and the climb of a slope; the rule the
@@ -17,6 +18,13 @@ namespace BS3D.Effects
     /// ones <c>Meadow.fx</c> draws, so a shot can follow one without asking the planting; and the planting keeps off
     /// both, so a lens on either centreline has nothing to run into. Every height is read off
     /// <see cref="TerrainMirror.Meadow"/>. Built once when the intro begins.
+    /// </para>
+    /// <para>
+    /// <b>Both walk TOWARDS what their line arrives at since #609's third round</b>, and keep the lens on it: the owner
+    /// found the brook and the path stopping short in the grass, and they arrive at a pond and at an old tree now
+    /// (<see cref="MeadowPath.PondCentre"/>, <see cref="MeadowPath.PathEnd"/>). Until then both shots ran outwards,
+    /// away from the arena, which was also away from anything; walked the other way the brook is followed downstream
+    /// and the path is walked the way a walker walks it, to the tree.
     /// </para>
     /// </summary>
     internal static class MeadowIntroShots
@@ -29,29 +37,33 @@ namespace BS3D.Effects
         private const float VALLEY_ABOVE_TO = 18f;
         private const float VALLEY_SECONDS = 3.4f;
 
-        //The brook: down its centreline a little over the water, the reeds and the stones passing either side,
-        //looking a touch down along the water. A stretch that starts past the clearing, where the banks are planted.
-        private const float BROOK_FROM = 18f;              //past the brook's start
+        //The brook: down its centreline a little over the water, the reeds and the stones passing either side, the lens
+        //on the pond ahead. A stretch of it that ends short of the pond's bank, where the brook's own banks are planted.
+        private const float BROOK_FROM = 22f;              //past the brook's inner end, where the stretch finishes, clear of the pond's reeds
         private const float BROOK_RUN = 32f;
         private const float BROOK_ABOVE = 1.8f;             //at 1.1 the bank stones and the reeds filled the corners of the frame
-        private const float BROOK_PITCH_DOWN_DEGREES = 8f;
         private const float BROOK_SECONDS = 3.2f;
 
-        //The path: along its centreline at a walker's height, the fence beside it, up into the hills
-        private const float PATH_FROM = 22f;               //past the path's start
+        //The path: along its centreline at a walker's height, the fence beside it, the lens on the old tree it leads to,
+        //stopping short of its crown
+        private const float PATH_FROM = 22f;               //past the path's end, where the walk finishes
         private const float PATH_RUN = 40f;
         private const float PATH_ABOVE = 1.7f;
-        private const float PATH_PITCH_DOWN_DEGREES = 3f;
+        private const float PATH_TREE_LOOK_UP = 7f;         //the point on the tree the lens holds: the trunk under the crown
         private const float PATH_SECONDS = 3.2f;
 
         private const int TRIES = 24;
 
         /// <summary>The prologue for the meadow, or null when there is no meadow config.</summary>
-        public static IntroShot[] Build(MeadowSceneConfig meadow, float fieldOfView, Random random)
+        /// <param name="trees">The old trees (#609's third round), kept out of the valley shot's flight: up to 36 tall
+        /// since then, and the flight rides 18 to 26 over the highest ground under it. Null keeps no tree out.</param>
+        public static IntroShot[] Build(MeadowSceneConfig meadow, IReadOnlyList<PlantFigure> trees, float fieldOfView, Random random)
         {
             if (meadow == null) return null;
 
             var ground = new IntroGround((x, z) => TerrainMirror.Meadow(x, z, meadow));
+            if (trees != null)
+                foreach (PlantFigure tree in trees) ground.Add(tree);
 
             //The hilliest bearing: the ground at the run's start, where the lens stands on the hill.
             IntroShot valley = ground.Establishing("the valley", VALLEY_FROM, VALLEY_TO, VALLEY_ABOVE_FROM, VALLEY_ABOVE_TO,
@@ -61,37 +73,39 @@ namespace BS3D.Effects
             return IntroGround.Cut(valley, Brook(meadow, fieldOfView), Path(meadow, fieldOfView));
         }
 
-        /// <summary>Down the brook a little over the water, the reeds passing either side.</summary>
+        /// <summary>Down the brook a little over the water, the reeds passing either side, to the pond it runs into.</summary>
         private static IntroShot Brook(MeadowSceneConfig meadow, float fieldOfView)
         {
-            float start = meadow.ClearingRadius * MeadowPath.BROOK_START + BROOK_FROM;
+            float end = meadow.ClearingRadius * MeadowPath.BROOK_START + BROOK_FROM;
             var path = new Vector3[IntroPaths.FINE_POINTS];
             for (int i = 0; i < path.Length; i++)
             {
-                float d = start + BROOK_RUN * i / (path.Length - 1f);
+                float d = end + BROOK_RUN * (1f - i / (path.Length - 1f));
                 (float x, float z) = MeadowPath.BrookPoint(d, 0f, meadow);
                 path[i] = new Vector3(x, TerrainMirror.Meadow(x, z, meadow) + BROOK_ABOVE, z);
             }
 
+            (float pondX, float pondZ) = MeadowPath.PondCentre(meadow);
             return new IntroShot("the brook", path, BROOK_SECONDS, fieldOfView * 1.1f,
-                lookAhead: 12f, pitchDownDegrees: BROOK_PITCH_DOWN_DEGREES);
+                lookAt: new Vector3(pondX, TerrainMirror.Meadow(pondX, pondZ, meadow), pondZ));
         }
 
-        /// <summary>Along the footpath at a walker's height, the fence beside it, up into the hills.</summary>
+        /// <summary>Along the footpath at a walker's height, the fence beside it, to the old tree it leads to.</summary>
         private static IntroShot Path(MeadowSceneConfig meadow, float fieldOfView)
         {
-            float start = meadow.ClearingRadius * MeadowPath.START + PATH_FROM;
+            float end = meadow.ClearingRadius * MeadowPath.START + PATH_FROM;
             var path = new Vector3[IntroPaths.FINE_POINTS];
             for (int i = 0; i < path.Length; i++)
             {
-                float d = start + PATH_RUN * i / (path.Length - 1f);
+                float d = end + PATH_RUN * (1f - i / (path.Length - 1f));
                 float angle = meadow.PathBearing + MeadowPath.Wander(d, meadow) / d;
                 float x = MathF.Cos(angle) * d, z = MathF.Sin(angle) * d;
                 path[i] = new Vector3(x, TerrainMirror.Meadow(x, z, meadow) + PATH_ABOVE, z);
             }
 
+            (float treeX, float treeZ) = MeadowPath.PathEnd(meadow);
             return new IntroShot("the path", path, PATH_SECONDS, fieldOfView * 1.1f,
-                lookAhead: 16f, pitchDownDegrees: PATH_PITCH_DOWN_DEGREES);
+                lookAt: new Vector3(treeX, TerrainMirror.Meadow(treeX, treeZ, meadow) + PATH_TREE_LOOK_UP, treeZ));
         }
     }
 }
