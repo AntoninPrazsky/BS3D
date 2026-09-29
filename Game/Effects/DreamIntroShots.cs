@@ -6,16 +6,24 @@ namespace BS3D.Effects
 {
     /// <summary>
     /// The dream's own shots for a chapter intro's prologue (#559): the island adrift in the marbled sky, a
-    /// slow turn round one of the glass solids as it tumbles and melts, and a dolly into one of the soft orbs —
-    /// cut together, then cut to the tour's last leg. The dream has no ground and no horizon; what it has to
-    /// show are its two kinds of thing, the sharp glass and the blurred light, and neither stands where the
-    /// tour's spline round the arena goes near enough to see what it is.
+    /// slow turn round one of the glass solids as it tumbles and melts, and the island seen from underneath,
+    /// through its drain — cut together, then cut to the tour's last leg. The dream has no ground and no horizon;
+    /// what it has to show are its glass and the island floating among it, and neither stands where the tour's
+    /// spline round the arena goes near enough to see what it is.
     /// <para>
-    /// <b>The subjects move, so the shots are laid out on the wall clock.</b> Both kinds orbit on the dream's
-    /// own clock (<c>Dream.fx</c>, read here through <see cref="SceneRenderer.DreamSolidCenter"/> and
-    /// <see cref="SceneRenderer.DreamOrbCenter"/>, which is the renderer's wall clock too), so each shot is
-    /// built for the seconds it will actually play in: the lens is laid out relative to where its subject
-    /// will be at each point of its path, and the look rides the subject rather than a point it has left.
+    /// <b>The last shot was a dolly into one of the soft orbs (#655)</b>, "the glowing light", and the owner asked for
+    /// the view of the island from below in its place, as the Space prologue has one: "that looks good". The dream
+    /// island floats as Space's does, so the same crane up under the funnel fits it (see
+    /// <see cref="SpaceIntroShots"/>). The orbs are still in the scene and in the tour's own flight; they are only
+    /// no longer a shot of their own.
+    /// </para>
+    /// <para>
+    /// <b>The subjects move, so the shots are laid out on the wall clock.</b> The solids orbit on the dream's
+    /// own clock (<c>Dream.fx</c>, read here through <see cref="SceneRenderer.DreamSolidCenter"/>, which is the
+    /// renderer's wall clock too), so each shot is built for the seconds it will actually play in: the lens is
+    /// laid out relative to where its subject will be at each point of its path, the look rides the subject
+    /// rather than a point it has left, and a path that has to stay clear of the solids is checked against where
+    /// they will be as the lens passes.
     /// </para>
     /// <para>
     /// <b>⚠ The glass is drawn BEHIND everything</b> (the whole pass writes no depth — see "The dream" in
@@ -42,11 +50,13 @@ namespace BS3D.Effects
         private const float GLASS_RISE = 6f;
         private const float GLASS_SECONDS = 3.4f;
 
-        //The orb: a dolly in from this far to this far, the look on the orb. It has no surface — the closest
-        //the lens comes is still well outside its glow's own radius, where the light swells rather than fills.
-        private const float ORB_FROM = 170f;
-        private const float ORB_TO = 90f;
-        private const float ORB_SECONDS = 3.0f;
+        //The underside (#655): a crane up from this far under the funnel's hole to this far, this far out from the
+        //axis, the look on the funnel's middle — the glass, the gold beads and the machined underside against the
+        //marbling, which is Space's own drain shot (SpaceIntroShots.Drain) with the dream's figures.
+        private const float UNDER_FROM_BELOW = 34f, UNDER_TO_BELOW = 22f;
+        private const float UNDER_OUT = 24f;
+        private const float UNDER_FOV_DEGREES = 60f;
+        private const float UNDER_SECONDS = 3.0f;
 
         //How far from the arena's axis a lens must keep, and how far off the line of sight the arena must
         //stand (in the glass shot because the island covers whatever solid it stands in front of, in the orb
@@ -70,16 +80,16 @@ namespace BS3D.Effects
 
             IntroShot sky = Sky(scenes, time, fieldOfView, random);
             IntroShot glass = Glass(scenes, dream, time + SKY_SECONDS, fieldOfView, random);
-            IntroShot orb = Orb(scenes, time + SKY_SECONDS + GLASS_SECONDS, fieldOfView, random);
+            IntroShot under = Underside(scenes, time + SKY_SECONDS + GLASS_SECONDS, random);
 
-            if (glass == null || orb == null)
+            if (glass == null || under == null)
             {
-                //A roll with no clear line to a solid or an orb (never seen, but the solids wander): the sky
-                //alone still says where the player is.
-                return glass != null ? new[] { sky, glass } : orb != null ? new[] { sky, orb } : new[] { sky };
+                //A roll with no clear line to a solid or to the underside (never seen, but the solids wander): the
+                //sky alone still says where the player is.
+                return glass != null ? new[] { sky, glass } : under != null ? new[] { sky, under } : new[] { sky };
             }
 
-            return new[] { sky, glass, orb };
+            return new[] { sky, glass, under };
         }
 
         /// <summary>The island adrift in the marbling: the establishing view, on a bearing clear of the glass.</summary>
@@ -154,52 +164,53 @@ namespace BS3D.Effects
             return null;
         }
 
-        /// <summary>A dolly into one of the soft orbs, from the arena's side, the look riding it.</summary>
-        private static IntroShot Orb(SceneRenderer scenes, float start, float fieldOfView, Random random)
+        /// <summary>
+        /// The island from underneath (#655): a crane rising towards the drain's hole from below and to one side, the
+        /// look on the funnel's middle. ⚠ The whole glass pass writes no depth (see the class comment), so a solid
+        /// standing between the lens and the island would be drawn BEHIND the island it is in front of: the path is
+        /// kept clear of every solid, and so is the line of sight to the funnel.
+        /// </summary>
+        private static IntroShot Underside(SceneRenderer scenes, float start, Random random)
         {
-            float offSight = MathF.Cos(MathHelper.ToRadians(ARENA_OFF_SIGHT_DEGREES));
+            float hole = ArenaIsland.FUNNEL_BOTTOM_Y;
+            Vector3 funnel = new(0f, (hole + ArenaIsland.TOP_Y) * 0.5f, 0f);
 
             for (int attempt = 0; attempt < CANDIDATES; attempt++)
             {
-                int orb = random.Next(SceneRenderer.DREAM_ORB_COUNT);
-                Vector3 first = scenes.DreamOrbCenter(orb, start, out _);
+                float bearing = (float)random.NextDouble() * MathHelper.TwoPi;
+                Vector3 outward = new(MathF.Cos(bearing), 0f, MathF.Sin(bearing));
 
-                //In along a line from roughly the arena's side, turned off it so the island is out of frame
-                //behind the lens's shoulder, and a little from below: an orb against the marbling above it.
-                Vector2 inward = -Vector2.Normalize(new Vector2(first.X, first.Z));
-                float turn = MathHelper.ToRadians(MathHelper.Lerp(35f, 70f, (float)random.NextDouble())) * (random.Next(2) == 0 ? 1f : -1f);
-                float c = MathF.Cos(turn), sn = MathF.Sin(turn);
-                Vector3 away = Vector3.Normalize(new Vector3(inward.X * c - inward.Y * sn, -0.25f, inward.X * sn + inward.Y * c));
+                Vector3[] path = IntroPaths.Line(outward * UNDER_OUT + Vector3.Up * (hole - UNDER_FROM_BELOW),
+                    outward * (UNDER_OUT * 0.85f) + Vector3.Up * (hole - UNDER_TO_BELOW), PATH_POINTS);
 
-                var path = new Vector3[PATH_POINTS];
-                var look = new Vector3[PATH_POINTS];
-                bool clear = true;
+                if (!ClearOfSolids(scenes, path, start, UNDER_SECONDS) || !LineOfSightClear(scenes, path, funnel, start, UNDER_SECONDS)) continue;
 
-                for (int i = 0; i < PATH_POINTS && clear; i++)
-                {
-                    float s = i / (float)(PATH_POINTS - 1);
-                    Vector3 centre = scenes.DreamOrbCenter(orb, start + s * ORB_SECONDS, out _);
-                    Vector3 lens = centre + away * MathHelper.Lerp(ORB_FROM, ORB_TO, s);
-
-                    path[i] = lens;
-                    look[i] = centre;
-
-                    if (new Vector2(lens.X, lens.Z).Length() < ARENA_CLEARANCE && lens.Y > ArenaIsland.TOP_Y - 40f) clear = false;
-
-                    //And the arena out of the shot: an orb that has drifted in near the axis puts the start of
-                    //the dolly past the arena, looking back across it. ⚠ The first cut had only the line from
-                    //the arena to steer by and photographed the island at the frame's edge, seen from below.
-                    Vector3 toOrb = Vector3.Normalize(centre - lens);
-                    Vector3 toArena = Vector3.Normalize(new Vector3(0f, ArenaIsland.TOP_Y, 0f) - lens);
-                    if (Vector3.Dot(toOrb, toArena) > offSight) clear = false;
-                }
-
-                if (!clear || !ClearOfSolids(scenes, path, start, ORB_SECONDS)) continue;
-
-                return new IntroShot("the orb", path, ORB_SECONDS, fieldOfView * 1.1f, lookAtPath: look);
+                return new IntroShot("the underside", path, UNDER_SECONDS, MathHelper.ToRadians(UNDER_FOV_DEGREES), lookAt: funnel);
             }
 
             return null;
+        }
+
+        //True when no solid stands (within its bound and the margin) on the line from the lens to the look-at, at the
+        //moment the lens is there — sampled along the line, since the solids are big and slow
+        private static bool LineOfSightClear(SceneRenderer scenes, Vector3[] path, Vector3 target, float start, float seconds)
+        {
+            const int SAMPLES = 8;
+
+            for (int i = 0; i < path.Length; i++)
+            {
+                float t = start + seconds * i / (path.Length - 1f);
+
+                for (int solid = 0; solid < SceneRenderer.DREAM_SOLID_COUNT; solid++)
+                {
+                    Vector3 centre = scenes.DreamSolidCenter(solid, t, out float bound);
+
+                    for (int k = 1; k < SAMPLES; k++)
+                        if (Vector3.Distance(centre, Vector3.Lerp(path[i], target, k / (float)SAMPLES)) < bound + SOLID_MARGIN) return false;
+                }
+            }
+
+            return true;
         }
 
         //True when no point of the path, at the moment the lens passes it, stands inside any solid's bounding

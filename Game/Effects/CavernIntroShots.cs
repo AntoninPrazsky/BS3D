@@ -6,15 +6,20 @@ namespace BS3D.Effects
 {
     /// <summary>
     /// The cavern's own shots for a chapter intro's prologue (#559): the whole chamber from high on its wall,
-    /// a glide low over the river onto a crystal cluster, and a crane up beside a god ray into the glowworms —
-    /// cut together, then cut to the tour's last leg. The owner's verdict on the scenes without a prologue was
+    /// a glide low over the river onto a crystal cluster, the island from underneath and a skim over the rippling
+    /// water — cut together, then cut to the tour's last leg. The owner's verdict on the scenes without a prologue was
     /// "neck-breaking turns instead of cuts, and the camera should always attend to one concrete thing": the
     /// tour is one spline round the arena, and every one of these things stands a hundred units and more out
     /// of it, on the wall or under the ceiling, where the spline never goes.
     /// <para>
+    /// <b>There was a fourth, up a god ray into the glowworms on the vault (#656), and it is gone:</b> "we probably won't
+    /// want the view of the ceiling — the ceiling and its edges don't look very good" (that is #528's, the vault
+    /// reading as a perfect oval). In its place the island from underneath, as the Space prologue has one, and a low
+    /// pass over the rippling water; the crystals' glide stays.
+    /// </para>
+    /// <para>
     /// <b>Everything is placed where <c>Cavern.fx</c> places it</b> — the clusters through
-    /// <see cref="SceneRenderer.CavernCrystalCenter"/> and the shafts through
-    /// <see cref="SceneRenderer.CavernGodRayXZ"/>, the shader's own arithmetic on the host — and the shell is
+    /// <see cref="SceneRenderer.CavernCrystalCenter"/>, the shader's own arithmetic on the host — and the shell is
     /// a cylinder, a ceiling plane and a river plane with nothing between them but the island, so a lens kept
     /// inside those planes, off the wall and well clear of the island's axis cannot be inside anything. Built
     /// once when the intro begins; nothing here runs per frame.
@@ -42,15 +47,24 @@ namespace BS3D.Effects
         private const float CRYSTAL_LOW = 20f;
         private const float CRYSTAL_SECONDS = 3.2f;
 
-        //The glowworms: a crane from low over the river to high up the cave, this far out from a god ray's
-        //shaft, drifting this far across it, the lens pinned on the shaft under the ceiling — so the shaft
-        //climbs through the frame into the constellation on the vault.
-        private const float RAY_STAND_OFF = 55f;
-        private const float RAY_DRIFT = 18f;
-        private const float RAY_FROM_HEIGHT = 8f;
-        private const float RAY_TO_HEIGHT = 70f;
-        private const float RAY_LOOK_UNDER_CEILING = 25f;
-        private const float RAY_SECONDS = 3.2f;
+        //The underside (#656): a crane up under the island's funnel, the lens this far out from the axis and this far over
+        //the water (the funnel's tip hangs only 6.5 units over the river, so the lens is a few units up and never
+        //under it), looking at a point on the funnel a little under the rim — the glass cone, the drum's underside
+        //and the river's glow on it, which is what the scene's light being below is for.
+        private const float UNDER_OUT_FROM = 38f, UNDER_OUT_TO = 31f;
+        private const float UNDER_FROM_ABOVE_WATER = 2.6f, UNDER_TO_ABOVE_WATER = 9f;
+        private const float UNDER_LOOK_Y = -19f;
+        private const float UNDER_FOV_DEGREES = 62f;
+        private const float UNDER_SECONDS = 3.0f;
+
+        //The river: a straight run this high over the water, this far from the axis at its closest (clear of the
+        //island and of every wall), this long, looking along the run and a little down — the ripples and the glow
+        //they carry fill the frame, and there is nothing else in it to look at. It is the lowest lens of the set.
+        private const float RIVER_HEIGHT = 1.9f;
+        private const float RIVER_RADIUS_FRACTION = 0.34f;
+        private const float RIVER_RUN = 70f;
+        private const float RIVER_PITCH_DOWN_DEGREES = 5f;
+        private const float RIVER_SECONDS = 2.8f;
 
         private const int PATH_POINTS = IntroPaths.FINE_POINTS;
 
@@ -66,7 +80,8 @@ namespace BS3D.Effects
             {
                 Chamber(cavern, fieldOfView, random),
                 Crystals(scenes, cavern, fieldOfView, random),
-                Glowworms(scenes, cavern, fieldOfView, random),
+                Underside(cavern, random),
+                River(cavern, fieldOfView, random),
             };
         }
 
@@ -125,27 +140,50 @@ namespace BS3D.Effects
             return new IntroShot("the crystals", path, CRYSTAL_SECONDS, fieldOfView * 1.1f, lookAt: crystal + new Vector3(0f, 4f, 0f));
         }
 
-        /// <summary>A crane up beside a god ray, looking up it into the glowworms on the vault.</summary>
-        private static IntroShot Glowworms(SceneRenderer scenes, CavernSceneConfig cavern, float fieldOfView, Random random)
+        /// <summary>
+        /// The island from underneath (#656): a crane rising a little as it closes on the funnel from one side, the look
+        /// on the funnel's glass under the rim.
+        /// </summary>
+        private static IntroShot Underside(CavernSceneConfig cavern, Random random)
         {
             float waterY = cavern.Water.LevelY;
-            Vector2 beam = scenes.CavernGodRayXZ(random.Next(SceneRenderer.CAVERN_RAY_COUNT));
-
-            //Outboard of the shaft, so the lens looks in and up across the vault's middle, where the worms are
-            //densest, rather than into the wall at arm's length.
-            Vector2 outward = Vector2.Normalize(beam);
-            Vector2 across = new Vector2(-outward.Y, outward.X) * (random.Next(2) == 0 ? 1f : -1f);
+            float bearing = (float)random.NextDouble() * MathHelper.TwoPi;
+            Vector2 outward = new(MathF.Cos(bearing), MathF.Sin(bearing));
 
             var path = new Vector3[PATH_POINTS];
             for (int i = 0; i < PATH_POINTS; i++)
             {
                 float s = i / (float)(PATH_POINTS - 1);
-                Vector2 plan = beam + outward * RAY_STAND_OFF + across * ((s - 0.5f) * RAY_DRIFT);
-                path[i] = new Vector3(plan.X, waterY + MathHelper.Lerp(RAY_FROM_HEIGHT, RAY_TO_HEIGHT, s), plan.Y);
+                float out1 = MathHelper.Lerp(UNDER_OUT_FROM, UNDER_OUT_TO, s);
+                path[i] = new Vector3(outward.X * out1, waterY + MathHelper.Lerp(UNDER_FROM_ABOVE_WATER, UNDER_TO_ABOVE_WATER, s), outward.Y * out1);
             }
 
-            Vector3 lookAt = new(beam.X, cavern.Rock.CeilingY - RAY_LOOK_UNDER_CEILING, beam.Y);
-            return new IntroShot("the glowworms", path, RAY_SECONDS, fieldOfView * 1.3f, lookAt: lookAt);
+            return new IntroShot("the underside", path, UNDER_SECONDS, MathHelper.ToRadians(UNDER_FOV_DEGREES),
+                lookAt: new Vector3(0f, UNDER_LOOK_Y, 0f));
+        }
+
+        /// <summary>A skim low over the rippling river, looking along the run.</summary>
+        private static IntroShot River(CavernSceneConfig cavern, float fieldOfView, Random random)
+        {
+            float waterY = cavern.Water.LevelY;
+            float radius = cavern.Rock.CaveRadius * RIVER_RADIUS_FRACTION;
+            float bearing = (float)random.NextDouble() * MathHelper.TwoPi;
+            float sign = random.Next(2) == 0 ? 1f : -1f;
+
+            //Tangent to the circle of that radius at the bearing, run centred on the point of tangency
+            Vector2 at = new(MathF.Cos(bearing) * radius, MathF.Sin(bearing) * radius);
+            Vector2 along = new Vector2(-MathF.Sin(bearing), MathF.Cos(bearing)) * sign;
+
+            var path = new Vector3[PATH_POINTS];
+            for (int i = 0; i < PATH_POINTS; i++)
+            {
+                float s = i / (float)(PATH_POINTS - 1);
+                Vector2 plan = at + along * ((s - 0.5f) * RIVER_RUN);
+                path[i] = new Vector3(plan.X, waterY + RIVER_HEIGHT, plan.Y);
+            }
+
+            return new IntroShot("the river", path, RIVER_SECONDS, fieldOfView * 1.15f,
+                lookAhead: 25f, pitchDownDegrees: RIVER_PITCH_DOWN_DEGREES);
         }
     }
 }
