@@ -200,27 +200,62 @@ float Glowworms(float3 position, float3 normal, float distanceTravelled, float r
     if (reach <= 0.02) return 0.0;
 
     float3 cell = position / GLOWWORM_CELL;
-    float3 cellId = floor(cell);
-    float3 f = cell - cellId;
-
-    float3 roll = NoiseHash33(cellId + 91.7) * 0.5 + 0.5;
-    if (roll.x > GLOWWORM_CHANCE) return 0.0;
-
-    float3 centre = 0.25 + (NoiseHash33(cellId + 13.1) * 0.5 + 0.5) * 0.5;
-
-    //In the surface's own plane: the point is where the cube's centre projects onto the rock.
-    float3 d = f - centre;
-    d -= normal * dot(d, normal);
-
-    //Out of step with each other, and never fully out: a glowworm dims, it does not blink.
-    float breathe = 0.55 + 0.45 * sin(CavernTime * 0.7 + roll.y * 37.0);
 
     //A POINT STAYS ABOUT A PIXEL AND A HALF WIDE at any distance, which is the snow sparkle's own rule (#278):
     //a world-sized dot at the far end of a 240-unit cave is a fraction of a pixel, and a field of sub-pixel
     //dots crawls as the lens moves rather than hanging there. Its peak brightness is held instead of its area.
     float radius = max(GLOWWORM_RADIUS, distanceTravelled * GLOWWORM_PIXEL * 1.5) / GLOWWORM_CELL;
 
-    return exp(-dot(d, d) / (radius * radius)) * breathe * reach;
+    //⚠ SINCE #674 EACH WORM STANDS ANYWHERE IN ITS CELL AND THE CELLS ROUND THE PIXEL ARE LOOKED UP. The point used to
+    //be held in the middle half of its cell (`0.25 + roll * 0.5`) so that the one cell containing the pixel was the only
+    //one to read - and a lattice of half-cell boxes, one point in each, is a lattice: Tools/LatticeProbe scored the
+    //ceiling at 221 (the noise null is 25) at 6.2 px, and on an oblique capture the rows of dots run to the horizon.
+    //A jitter of a whole cell has no spectral peak (StarLayer's fix, the same measurement).
+    //
+    //Which cells: the eight that overlap half a cell round the pixel, and of those only the worms that stand within
+    //HALF a cell of the SURFACE along its normal - a slab one cell thick, so the density per area is `chance / cell^2`
+    //whichever way the surface faces, which is what the old form gave on the ceiling (one worm to the one cell the
+    //ceiling crossed) and gave less of on a slope (the cells it crossed each held a worm that projected onto it, so
+    //the count went with the number of cell-faces crossed). The slab and a worm's reach together can just pass half a
+    //cell on an axis on a diagonal surface (sqrt(0.25 + reach^2)), a cut of the far tail and nothing more.
+    float3 first = floor(cell - 0.5);
+
+    float worm = 0.0;
+
+    [unroll]
+    for (int z = 0; z < 2; z++)
+    {
+        [unroll]
+        for (int y = 0; y < 2; y++)
+        {
+            [unroll]
+            for (int x = 0; x < 2; x++)
+            {
+                float3 cellId = first + float3(x, y, z);
+
+                float3 roll = NoiseHash33(cellId + 91.7) * 0.5 + 0.5;
+                if (roll.x > GLOWWORM_CHANCE) continue;
+
+                float3 centre = NoiseHash33(cellId + 13.1) * 0.5 + 0.5;
+
+                //From the worm to the pixel, in cell units; the part along the normal is how far off the surface it
+                //stands, and the rest is where it lands on the rock.
+                float3 d = cell - (cellId + centre);
+                float off = dot(d, normal);
+                if (abs(off) > 0.5) continue;
+
+                d -= normal * off;
+
+                //Out of step with each other, and never fully out: a glowworm dims, it does not blink.
+                float breathe = 0.55 + 0.45 * sin(CavernTime * 0.7 + roll.y * 37.0);
+
+                //Two worms within a pixel of each other must not add: MAX, as the star field's overlap is
+                worm = max(worm, exp(-dot(d, d) / (radius * radius)) * breathe * reach);
+            }
+        }
+    }
+
+    return worm;
 }
 
 float3 ShadeWall(float3 position, float distanceTravelled, uniform bool fullDetail)

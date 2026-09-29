@@ -14,6 +14,8 @@
         sky      up at the sky and whatever stands in it              campos 0,-4,30   -> 0,40,200
         graze    a low, grazing look at the horizon                   campos 0,-9,30   -> 0,-8.8,200
         down     down at the ground beside the arena                  campos 0,10,60   -> 0,-12,60
+        play     the game's own pose, island, gun and cluster in view  campos 0,-4,30   -> 0,-8,0
+                 (NOT in the default set: the cluster's regularity is by design and its tiles will flag)
 
     A scene reads as "flagged" when a large share of its scored tiles stand over the noise null; see the probe's own
     header for what that does and does not mean, and read the picture before believing the number: the table finds
@@ -27,7 +29,7 @@
     Which scenes, by their command-line spelling. Default: all twenty.
 
 .PARAMETER Vantages
-    Which of out, sky, graze, down. Default: all four.
+    Which of out, sky, graze, down, play. Default: the first four.
 
 .PARAMETER Frame
     The frame (counted from 1) each picture is taken at. Default 240 (about four seconds at the cap): long enough for
@@ -70,6 +72,7 @@ $camera = @{
     sky   = @('campos=0,-4,30', 'camtarget=0,40,200')
     graze = @('campos=0,-9,30', 'camtarget=0,-8.8,200')
     down  = @('campos=0,10,60', 'camtarget=0,-12,60')
+    play  = @('campos=0,-4,30', 'camtarget=0,-8,0')
 }
 
 New-Item -ItemType Directory -Force -Path $Out | Out-Null
@@ -78,7 +81,7 @@ $shotDir = Join-Path (Split-Path $Exe) 'Screenshots'
 
 foreach ($scene in $Scenes) {
     foreach ($vantage in $Vantages) {
-        if (-not $camera.ContainsKey($vantage)) { throw "Unknown vantage '$vantage' (out, sky, graze, down)" }
+        if (-not $camera.ContainsKey($vantage)) { throw "Unknown vantage '$vantage' (out, sky, graze, down, play)" }
 
         $stamp = Get-Date
         $arguments = @($map, "scene=$scene", "sceneseed=$Seed") + $camera[$vantage] +

@@ -26,7 +26,7 @@ namespace BS3D.Tools.LatticeProbe
         public static bool Run(TileDetector detector, double nullScore, int stride)
         {
             Console.WriteLine("self-test: synthetic fields of known answer (10 px cell, 40 % of the cells lit, 2.5-level noise floor)");
-            Console.WriteLine($"{"field",-30} {"scored",6} {"flat",5} {"edge",5} {"above",6} {"share",7} {"best",8} {"period",7}  expected");
+            Console.WriteLine($"{"field",-30} {"scored",6} {"flat",5} {"edge",5} {"above",6} {"share",7} {"best",8} {"period",7} {"peaks",5}  expected");
 
             bool ok = true;
 
@@ -45,6 +45,9 @@ namespace BS3D.Tools.LatticeProbe
             ok &= Case("facade of windows (designed)", Facade(), detector, nullScore, stride,
                 r => r.AboveShare >= 0.80 && r.Edge <= r.Tiles / 5, ">= 80 % above and not mistaken for an edge");
 
+            ok &= Case("band-limited texture (ring)", Ring(), detector, nullScore, stride,
+                r => r.AboveShare <= 0.30, "a continuous ring is not a lattice: <= 30 % of tiles above the null");
+
             ok &= Case("smooth gradient, 8-bit steps", Gradient(), detector, nullScore, stride,
                 r => r.Scored == 0 && r.Flat > 0, "every tile refused as flat");
 
@@ -62,7 +65,7 @@ namespace BS3D.Tools.LatticeProbe
             bool held = assertion(r);
 
             string period = r.Flagged.Count > 0 ? MedianPeriod(r).ToString("F2") : "-";
-            Console.WriteLine($"{name,-30} {r.Scored,6} {r.Flat,5} {r.Edge,5} {r.Above,6} {r.AboveShare,6:P0} {(r.Best is ScoredTile b ? b.Score.Score : 0),8:F1} {period,7}  {(held ? "ok" : "FAILED")}: {expected}");
+            Console.WriteLine($"{name,-30} {r.Scored,6} {r.Flat,5} {r.Edge,5} {r.Above,6} {r.AboveShare,6:P0} {(r.Best is ScoredTile b ? b.Score.Score : 0),8:F1} {period,7} {(r.Best is ScoredTile p ? p.Score.Peaks : 0),5}  {(held ? "ok" : "FAILED")}: {expected}");
             return held;
         }
 
@@ -130,6 +133,50 @@ namespace BS3D.Tools.LatticeProbe
 
             Quantise(luma);
             return new LumaImage(WIDTH, HEIGHT, luma);
+        }
+
+        //A Gaussian random field with a RING spectrum: white noise filtered in the frequency domain to an annulus of period
+        //12 px (+-12 %), no lattice. One characteristic scale, continuous in frequency - what a cellular or a single-octave
+        //noise looks like to the spectrum - and the check that a narrow-band TEXTURE is not mistaken for a lattice: its
+        //speckle stands over a neighbourhood that is mostly out of the ring, but the median of the nine-by-nine round a
+        //speckle is itself in the ring for most of it, and the score stays near the null (one tile in ten, best 26).
+        //⚠ A first version summed a hundred and fifty plane waves and read as a lattice at 100 % with 16 peaks - and a
+        //wrong conclusion was written from it ("the probe cannot tell a lattice from a texture") before the fault was
+        //found: a hundred and fifty exact plane waves ARE a lattice, discrete frequencies every tile shares.
+        private static LumaImage Ring()
+        {
+            const int N = 1024, W = 768, H = 384;
+            var random = new Random(11);
+            double[] re = new double[N * N], im = new double[N * N];
+
+            for (int i = 0; i < re.Length; i++) re[i] = Noise(random);
+
+            Fft.Transform2D(re, im, N, inverse: false);
+
+            for (int ky = 0; ky < N; ky++)
+                for (int kx = 0; kx < N; kx++)
+                {
+                    double fx = kx < N / 2 ? kx : kx - N, fy = ky < N / 2 ? ky : ky - N;
+                    double period = N / Math.Max(Math.Sqrt(fx * fx + fy * fy), 1e-9);
+                    double x = (period - 12.0) / (12.0 * 0.12);
+                    double gain = Math.Exp(-0.5 * x * x);
+
+                    re[ky * N + kx] *= gain;
+                    im[ky * N + kx] *= gain;
+                }
+
+            Fft.Transform2D(re, im, N, inverse: true);
+
+            double square = 0;
+            for (int i = 0; i < re.Length; i++) square += re[i] * re[i];
+            double scale = 22.0 / Math.Sqrt(square / re.Length);
+
+            float[] luma = new float[W * H];
+            for (int y = 0; y < H; y++)
+                for (int x = 0; x < W; x++) luma[y * W + x] = (float)(120.0 + re[y * N + x] * scale);
+
+            Quantise(luma);
+            return new LumaImage(W, H, luma);
         }
 
         private static LumaImage Gradient()

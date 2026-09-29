@@ -44,6 +44,8 @@
     <Compile Include="..\..\Game\Screens\CeilingDescent.cs" />
     <!--The city intro's shot builder (#488): plain geometry over City's block grid.-->
     <Compile Include="..\..\Game\Effects\CityIntroShots.cs" />
+    <!--What a nickname may be, and which words are secret (#548, #230): a string rule with no device in it.-->
+    <Compile Include="..\..\Game\Online\Nickname.cs" />
   </ItemGroup>
 
   <ItemGroup>
