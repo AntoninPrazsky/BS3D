@@ -291,6 +291,11 @@ namespace BS3D.Screens
 
         private float _physicsAccumulator;
 
+        //The air over this level's scene and the play clock it gusts on (#95). The clock counts fixed steps, so it stops
+        //with the world under a pause and a retry meets the same gusts in the same order; both are set in BuildPhysicsWorld.
+        private Prazsky.BS3D.Physics.WindField _wind;
+        private float _windClock;
+
         //Simulated seconds the last StepPhysics actually ran: whole steps, at most PHYSICS_MAX_STEPS_PER_FRAME of
         //them. Below 30 FPS that is less than the frame's elapsed, and the rules that judge the simulation read
         //this rather than the wall clock (#577).
