@@ -29,6 +29,19 @@ namespace Prazsky.Core.Render
         /// </summary>
         public IProceduralMesh Leaves { get; }
 
+        /// <summary>
+        /// The widest the trunk's flat underside reaches from the axis, at scale 1 (#658): what a scatter sinks the tree
+        /// by, so the lowest ground under that circle is where the trunk stands and no side of it hangs in the air.
+        /// The bottle's bottom ring plus the irregularity it is wobbled by.
+        /// </summary>
+        public float BaseRadius => ((WoodMesh)Wood).BaseRadius;
+
+        /// <summary>
+        /// What the tree is made of, as slabs at scale 1 (#653): the bottle trunk in two (the swollen foot, then the taper to
+        /// the neck) and the crown of bare limbs, taken from the tufts' sphere.
+        /// </summary>
+        public Slab[] Volume { get; }
+
         /// <param name="device">The device the buffers are created on.</param>
         /// <param name="height">The tree's full height, to the top of the crown.</param>
         /// <param name="seed">Rolls the limbs and the tufts.</param>
@@ -37,6 +50,16 @@ namespace Prazsky.Core.Render
             Random rng = new(seed);
             Wood = new WoodMesh(device, height, rng);
             Foliage = new TuftsMesh(device, height, ((WoodMesh)Wood).TwigTips, seed);
+
+            //The trunk as the profile has it: r at the foot, 0.78r a third of the way up and 0.55r by the neck (WoodMesh)
+            float r = ((WoodMesh)Wood).TrunkRadius;
+            BoundingSphere crown = Foliage.BoundingSphere;
+            Volume = new Slab[]
+            {
+                new(0f, height * 0.14f, r * 1.05f),
+                new(height * 0.14f, height * 0.6f, r * 0.75f),
+                new(crown.Center.Y - crown.Radius * 0.5f, crown.Center.Y + crown.Radius * 0.5f, crown.Radius * 0.85f, crown.Center.X, crown.Center.Z),
+            };
 
             var lv = new List<VertexPositionNormalTexture>();
             var lidx = new List<short>();
@@ -65,6 +88,11 @@ namespace Prazsky.Core.Render
         private const int TRUNK_SEGMENTS = 48;
         private const float TRUNK_FLUTE_DEPTH = 0.2f;
 
+        //The bottle's bottom ring, as a multiple of the trunk radius, and the wobble it is irregular by, likewise
+        //(#658: BaseRadius is their sum, so the shape and what a scatter sinks the tree by cannot part)
+        private const float BOTTOM_RING = 1.15f;
+        private const float IRREGULARITY = 0.06f;
+
         /// <summary>The bottle trunk and the bare limbs, one material.</summary>
         private sealed class WoodMesh : IProceduralMesh, IDisposable
         {
@@ -76,12 +104,20 @@ namespace Prazsky.Core.Render
             /// <summary>Where the twigs end, for the leaf tufts to sit on.</summary>
             public List<Vector3> TwigTips { get; } = new();
 
+            /// <summary>How far the flat underside reaches from the axis: the profile's bottom ring, wobble included (#658).</summary>
+            public float BaseRadius { get; }
+
+            /// <summary>The trunk's radius at its widest, before the foot's flare (#653).</summary>
+            public float TrunkRadius { get; }
+
             public WoodMesh(GraphicsDevice device, float height, Random rng)
             {
                 //The trunk: a bottle traced top → outside → underside. Widest low down, a slow taper, a
                 //neck at the top where the limbs leave it. The wobble is slight - a baobab is smooth.
                 float top = height * 0.6f;
                 float r = height * 0.19f * (0.9f + 0.2f * (float)rng.NextDouble());
+                BaseRadius = r * (BOTTOM_RING + IRREGULARITY);
+                TrunkRadius = r;
                 var profile = new (float radius, float y, float wobble)[]
                 {
                     (0f,        top,            0f),
@@ -90,14 +126,14 @@ namespace Prazsky.Core.Render
                     (r * 0.78f, height * 0.32f, 1f),
                     (r * 0.95f, height * 0.14f, 1f),
                     (r,         height * 0.03f, 1f),
-                    (r * 1.15f, 0f,             0.8f),
+                    (r * BOTTOM_RING, 0f,       0.8f),
                     (0f,        0f,             0f)
                 };
                 var v = new List<VertexPositionNormalTexture>(profile.Length * 15 + 600);
                 var idx = new List<short>(profile.Length * 90 + 1800);
                 //Folded into flutes since #610, the references' trunk: broad lobes with deep narrow grooves
                 //between them running up the bottle, fading out at the neck where the wobble does
-                TubeGeometry.AddRevolved(v, idx, TRUNK_SEGMENTS, profile, irregularityAmplitude: r * 0.06f,
+                TubeGeometry.AddRevolved(v, idx, TRUNK_SEGMENTS, profile, irregularityAmplitude: r * IRREGULARITY,
                     irregularityPhase: (float)rng.NextDouble() * 6f,
                     flutes: 6 + rng.Next(3), fluteDepth: TRUNK_FLUTE_DEPTH);
 

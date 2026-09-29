@@ -17,6 +17,18 @@ namespace Prazsky.Core.Render
         public IProceduralMesh Wood { get; }
         public IProceduralMesh Fronds { get; }
 
+        /// <summary>
+        /// How far the trunk's foot reaches from the axis, at scale 1 (#658): what a scatter sinks the palm by, so the
+        /// lowest ground under that circle is where it stands and no side of the foot hangs in the air on a slope.
+        /// </summary>
+        public float BaseRadius { get; }
+
+        /// <summary>What the palm is made of, as slabs at scale 1 (#653): the trunk to its fork and the crown of heads.</summary>
+        public Slab[] Volume { get; }
+
+        //The foot's radius as a multiple of the radius the trunk holds to its fork
+        private const float FOOT_FLARE = 1.25f;
+
         /// <param name="device">The device the buffers are created on.</param>
         /// <param name="height">The palm's height to the top of its heads.</param>
         /// <param name="seed">Rolls the forks, the heads and every leaf.</param>
@@ -29,13 +41,14 @@ namespace Prazsky.Core.Render
             var leafIdx = new List<short>();
 
             float trunkR = height * 0.032f * (0.9f + 0.2f * (float)rng.NextDouble());
+            BaseRadius = trunkR * FOOT_FLARE;
             const int SEG = 7;
 
             //The trunk to the first fork, leaning a little the way the tree will spread.
             float forkY = height * (0.38f + 0.12f * (float)rng.NextDouble());
             float leanA = (float)rng.NextDouble() * MathHelper.TwoPi;
             Vector3 fork = new(MathF.Cos(leanA) * height * 0.03f, forkY, MathF.Sin(leanA) * height * 0.03f);
-            TubeGeometry.AddTube(wood, woodIdx, SEG, new Vector3(0f, -height * 0.02f, 0f), trunkR * 1.25f, fork, trunkR);
+            TubeGeometry.AddTube(wood, woodIdx, SEG, new Vector3(0f, -height * 0.02f, 0f), trunkR * FOOT_FLARE, fork, trunkR);
 
             //Two arms from the fork, opposite each other and leaning apart; one of them may fork again
             //half-way up. Every arm ends in a head.
@@ -114,6 +127,13 @@ namespace Prazsky.Core.Render
 
             Wood = new UploadedMesh(device, wood, woodIdx, new BoundingSphere(new Vector3(0f, height * 0.5f, 0f), reach + height * 0.55f));
             Fronds = new UploadedMesh(device, leaf, leafIdx, new BoundingSphere(new Vector3(0f, height * 0.85f, 0f), reach + height * 0.3f));
+
+            //The trunk to its fork and the crown of heads, as slabs (#653): the crown is a squat cylinder over the heads' reach
+            Volume = new Slab[]
+            {
+                new(0f, forkY, trunkR * 1.1f),
+                new(height * 0.7f, height * 1.05f, MathF.Max(trunkR, reach * 0.8f)),
+            };
         }
 
         public void Dispose()
