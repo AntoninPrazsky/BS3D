@@ -1,0 +1,23 @@
+[
+ {
+  "name": "ball-attach-d",
+  "duration": 2.0,
+  "seed": 11,
+  "negative": "loud, distorted, clipping, aggressive, noisy, hiss, multiple hits, bouncing, metallic, glass, high-pitched",
+  "prompt": "A rubber ball lands firmly on a cluster of rubber balls and stays there: one rounded medium-loud thud with a short springy wobble, warm low body, moderate volume, clean recording."
+ },
+ {
+  "name": "ball-attach-e",
+  "duration": 2.0,
+  "seed": 11,
+  "negative": "loud, distorted, clipping, aggressive, noisy, hiss, multiple hits, bouncing, metallic, glass, high-pitched",
+  "prompt": "One bouncy ball catches on a bunch of balls: a single plump bonk with a gentle attack and a warm low body, no ringing, moderate volume, cartoon game sound."
+ },
+ {
+  "name": "ball-attach-f",
+  "duration": 2.0,
+  "seed": 11,
+  "negative": "loud, distorted, clipping, aggressive, noisy, hiss, multiple hits, bouncing, metallic, glass, high-pitched",
+  "prompt": "A soft vinyl ball sticks to a wall of vinyl balls: a single muted thump with a tiny squeak, close-miked, moderate volume, clean and pleasant."
+ }
+]

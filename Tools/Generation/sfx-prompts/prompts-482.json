@@ -1,0 +1,37 @@
+[
+  {
+    "name": "cannon-shot",
+    "prompt": "A single deep cannon shot from a small ornate brass cannon in a video game, warm and bass-heavy, a soft round thump with a short low boom tail, clean, no crackle",
+    "negative": "hiss, harsh, distorted, noisy, crackle, high-pitched, debris, gunshot",
+    "duration": 2.0,
+    "seed": 11
+  },
+  {
+    "name": "ball-attach",
+    "prompt": "A single soft plastic beach ball bumping gently into a bunch of other beach balls and sticking, a short muted rubbery thud with a tiny squeak, close-miked, clean",
+    "negative": "hiss, harsh, distorted, noisy, metallic, glass, high-pitched",
+    "duration": 1.5,
+    "seed": 11
+  },
+  {
+    "name": "group-pop",
+    "prompt": "Three or four balloons popping in quick succession, soft and pleasant, rounded pops with a little air, no echo, a satisfying video game reward sound",
+    "negative": "hiss, harsh, distorted, noisy, painful, sharp, high-pitched",
+    "duration": 2.0,
+    "seed": 11
+  },
+  {
+    "name": "firework-burst",
+    "prompt": "One large firework shell bursting overhead at a night festival, a deep warm boom followed by a gentle crackling shimmer that fades, distant crowd-free, clean recording",
+    "negative": "hiss, harsh, distorted, noisy, clipping, screaming, voices",
+    "duration": 4.0,
+    "seed": 11
+  },
+  {
+    "name": "victory-fanfare",
+    "prompt": "A short triumphant brass fanfare for winning a level in a cheerful video game, three rising notes and a bright final chord with a cymbal shimmer, warm and full, studio quality",
+    "negative": "hiss, harsh, distorted, noisy, lo-fi, out of tune, sad",
+    "duration": 4.0,
+    "seed": 11
+  }
+]

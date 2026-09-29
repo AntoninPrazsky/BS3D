@@ -1,0 +1,23 @@
+[
+ {
+  "name": "fanfare-m1-12s",
+  "duration": 12.0,
+  "seed": 11,
+  "negative": "orchestral, classical, brass band, marching band, funeral, sad, slow, distorted, clipping, noisy, hiss, lo-fi, silence, fade out early, quiet, weak",
+  "prompt": "A modern electronic video game victory jingle: bright synth brass stabs over a punchy EDM kick and clap, a fast rising arpeggio, big sidechained supersaw chords, sparkling risers, and a huge final chord with a white-noise sweep and a shimmering tail. Energetic, polished, contemporary, high production quality."
+ },
+ {
+  "name": "fanfare-m2-12s",
+  "duration": 12.0,
+  "seed": 11,
+  "negative": "orchestral, classical, brass band, marching band, funeral, sad, slow, distorted, clipping, noisy, hiss, lo-fi, silence, fade out early, quiet, weak",
+  "prompt": "A triumphant modern hybrid fanfare for clearing a level: cinematic synth horns and layered electronic drums, a rising major-key motif that builds over three bars into an epic drop with wide chords and glittering arps, then a bright triumphant ending. Clean, powerful, contemporary, like a big mobile puzzle game win."
+ },
+ {
+  "name": "fanfare-m3-12s",
+  "duration": 12.0,
+  "seed": 11,
+  "negative": "orchestral, classical, brass band, marching band, funeral, sad, slow, distorted, clipping, noisy, hiss, lo-fi, silence, fade out early, quiet, weak",
+  "prompt": "An upbeat modern pop-electronic win jingle: a plucky synth melody rising in a major key, bright chiptune-flavoured arpeggios, tight kick and clap, a triumphant chord finale with shimmer and a crash. Joyful, contemporary, high production quality, fills the whole clip."
+ }
+]

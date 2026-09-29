@@ -1,0 +1,14 @@
+[
+ {"name": "lineloss-a", "duration": 3.0, "seed": 11,
+  "negative": "music, voice, distorted, clipping, quiet, thin, high-pitched whistle, beep, alarm",
+  "prompt": "A laser beam cutting through metal: a deep electric hum with a sizzling, crackling sear and a spray of sparks, powerful and dramatic, game sound effect, moderate treble, clean recording."},
+ {"name": "lineloss-b", "duration": 3.0, "seed": 11,
+  "negative": "music, voice, distorted, clipping, quiet, thin, high-pitched whistle, beep, alarm",
+  "prompt": "Industrial plasma cutter slicing through steel: a heavy low buzz, a fizzing electric arc and bright crackling sparks scattering, big, punchy, satisfying, arcade game."},
+ {"name": "lineloss-c", "duration": 3.0, "seed": 11,
+  "negative": "music, voice, distorted, clipping, quiet, thin, hiss, beep, alarm",
+  "prompt": "Sci-fi laser fence searing an object that touched it: a low powerful thrum, an electric crackle, sparks spitting, a short dramatic sting, warm bass, punchy."},
+ {"name": "lineloss-d", "duration": 3.0, "seed": 11,
+  "negative": "music, voice, distorted, clipping, thin, high-pitched, hiss",
+  "prompt": "An electric arc welder striking metal: a deep bass hum with an intense sizzling crackle and sparks, warm and heavy, moderate volume, clean."}
+]
