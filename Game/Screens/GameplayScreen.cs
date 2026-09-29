@@ -528,6 +528,11 @@ namespace BS3D.Screens
         private const float CLUSTER_SWING_ALLOWANCE = ClusterHang.SWING_ALLOWANCE;
         private const float CLUSTER_BELOW_LINE_GRACE = ClusterHang.BELOW_LINE_GRACE;
 
+        //How far above the line the cluster's lowest ball has to be before the next touch is heard (#669): a tenth
+        //of the deepest a swing is forgiven, so a real swing re-arms it and a ball merely trembling on the line
+        //does not sizzle every frame.
+        private const float LINE_TOUCH_REARM = CLUSTER_SWING_ALLOWANCE * 0.1f;
+
         //The pad's answer to a step (#378) — heavier and longer than a shot or a landing, the way the plate's
         //own slide is a slower event than either. Left-heavy for the shove; halved on a feed step
         //(CEILING_RUMBLE_FEED_SCALE) for the same reason PlayCeilingStep and the flash colour go soft on one:
