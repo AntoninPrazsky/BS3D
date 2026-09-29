@@ -218,6 +218,24 @@ namespace Prazsky.BS3D.Levels
         [JsonIgnore]
         public int BlockCount => Count == 0 ? 0 : BlockNumber(Count - 1);
 
+        /// <summary>
+        /// The first block (counted from 1) whose levels come with a Swap charge (#213): the second chapter, after the
+        /// first has taught the controls and the rules with nothing to swap. The price of the swap is that it is one
+        /// a level — the queue is a constraint only because "play what comes" is the one thing it asks, and a swap
+        /// that could be spent any number of times, or held over from one level to the next, would end that.
+        /// </summary>
+        public const int SWAP_FROM_BLOCK = 2;
+
+        /// <summary>
+        /// How many Swap charges the level at <paramref name="index"/> starts with (#213): one from
+        /// <see cref="SWAP_FROM_BLOCK"/> on, none before it, and none in an index outside the set or in a set that
+        /// names no blocks (where "the second chapter" has no meaning). A rule of the campaign's shape rather than a
+        /// property of each level file, so no level was touched, LevelGen writes nothing new and a level file can
+        /// still be moved between chapters without a charge to move with it.
+        /// </summary>
+        public int SwapChargesAt(int index) =>
+            index >= 0 && index < Count && HasBlocks && BlockNumber(index) >= SWAP_FROM_BLOCK ? 1 : 0;
+
         #endregion
 
         /// <summary>
