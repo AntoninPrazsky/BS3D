@@ -12,8 +12,6 @@ namespace Prazsky.BS3D.GameStructure
     {
         private StaticBall[,,] _balls;
 
-        private static readonly float BALL_RADIUS = Constants.HALF;
-
         /// <summary>
         /// Empty levels added below the layout of legacy map files, which carried no play field size.
         /// Gives the structure room to grow downwards when shot balls attach.
