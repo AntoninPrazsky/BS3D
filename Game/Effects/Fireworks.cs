@@ -32,8 +32,7 @@ namespace BS3D.Effects
         public const int MAX_SHELLS = 32;
 
         //Sparks in a shell. The whole buffer is MAX_SHELLS * this quads, which has to stay under the 16-bit
-        //index limit of 65 536 vertices — at 320 that is 17 920, comfortably inside it. (CreateGridMesh's own
-        //32-bit lesson, from the other direction.)
+        //index limit of 65 536 vertices. (CreateGridMesh's own 32-bit lesson, from the other direction.)
         //
         //It was 120 and that was far too few, which is worth recording because the arithmetic is not obvious:
         //a burst subtends about 19° from the play camera, so 120 sparks spread over that disc are a couple of
@@ -41,10 +40,12 @@ namespace BS3D.Effects
         //explosion. Spark COUNT and spark SIZE both have to scale with the burst radius or a bigger shell
         //looks emptier than a small one, which is exactly backwards.
         //
-        //At 32 shells this is 6 400 quads, 25 600 vertices — the ceiling here is the 16-bit index buffer, and
-        //MAX_SHELLS * SPARKS_PER_SHELL * 4 must stay under 65 536. Raising either without checking that is how
-        //far triangles quietly start referencing the wrong vertices (the lesson CreateGridMesh's grids taught).
-        private const int SPARKS_PER_SHELL = 200;
+        //And it was 200 until #612's reference pass, which asked for MORE and THINNER streaks: every reference
+        //shell is hundreds of fine lines. At 400 and 32 shells this is 12 800 quads, 51 200 vertices — the
+        //ceiling here is the 16-bit index buffer, and MAX_SHELLS * SPARKS_PER_SHELL * 4 must stay under 65 536
+        //(512 a shell at most). Raising either without checking that is how far triangles quietly start
+        //referencing the wrong vertices (the lesson CreateGridMesh's grids taught).
+        private const int SPARKS_PER_SHELL = 400;
 
         //Where the shells are fired from and where they go off. The ring sits outside the island (radius 26)
         //so a launch is never inside the stone, and the burst ceiling is high enough that a burst clears the
@@ -136,6 +137,30 @@ namespace BS3D.Effects
         //(a red of 0.58 at 12), and much past 12 it goes dark enough to read as soot on the sky.
         private const float SKY_COVER = 12f;
 
+        //THE TRAILS (#612's reference pass). The owner: "more of them, but thinner and longer, like a real firework",
+        //and "there should still be some very light rays". Sixteen references (both models, C:\Users\panrd\AI\sd\out\
+        //612-klein and 612-zimage: a peony, a two-colour chrysanthemum, a gold willow, four shells at once, a display
+        //in daylight, one star's trail close up) agree on the build: a shell is hundreds of fine straight lines, each
+        //brightest and whitest at the star on its end and fading behind it, a share of them white among the colours,
+        //and at the end of their life the trails hang and droop.
+        //
+        //A burst spark is drawn from where it was TRAIL_SECONDS ago to where it is (Fireworks.fx), each spark's
+        //trail between 0.7 and 1.3 of it: on the flash the trails reach back to the centre, and as gravity takes over
+        //they fall — the willow, with no code of its own. TRAIL_WIDTH is a trail's world half-width at its fullest:
+        //a couple of pixels from the play camera, never under one (the shader's pixel floor keeps its light).
+        private const float TRAIL_SECONDS = 0.6f;
+        private const float TRAIL_WIDTH = 0.2f;
+
+        //How much brighter a trail burns than the round spark it replaced. A line a couple of pixels wide covers a
+        //tenth of the pixels the old 1.3-unit spark did, so at the old radiance the whole display went dim and small;
+        //at this it carries about the old light, and thin lines that bright are what the glare pass turns into the
+        //glowing strokes of every reference.
+        private const float TRAIL_GAIN = 5f;
+
+        //The share of a shell's sparks that burn white, and how far towards white every trail's head burns
+        private const float WHITE_SHARE = 0.18f;
+        private const float HEAD_WHITE = 0.7f;
+
         private struct Shell
         {
             public Vector3 Origin;
@@ -188,6 +213,7 @@ namespace BS3D.Effects
         private readonly EffectParameter _viewParam, _projectionParam, _cameraPositionParam;
         private readonly EffectParameter _cameraRightParam, _cameraUpParam;
         private readonly EffectParameter _originParam, _burstParam, _colorParam, _colorBParam, _shapeParam;
+        private readonly EffectParameter _pixelAngleParam;
 
         private float _remaining;        //seconds of celebration left to launch into
         private float _untilNextLaunch;
@@ -239,18 +265,17 @@ namespace BS3D.Effects
             _colorParam = effect.Parameters["ShellColor"];
             _colorBParam = effect.Parameters["ShellColorB"];
             _shapeParam = effect.Parameters["ShellShape"];
+            _pixelAngleParam = effect.Parameters["PixelAngle"];
 
-            //Set once: none of these changes for the life of the display. The size is in WORLD units and a
-            //burst is 40-120 units up, so it has to be far larger than it sounds — at half a unit a spark is a
-            //subpixel glint from the play camera and the burst disappears.
+            //Set once: none of these changes for the life of the display. The rising comet's spark size is in
+            //WORLD units and a shell climbs to 40-120 units up, so it is far larger than it sounds.
             effect.Parameters["SparkSize"].SetValue(1.3f);
             effect.Parameters["Gravity"].SetValue(9.4f);
-
-            //World units of streak per (world unit per second) of screen-projected spark speed. A spark leaves
-            //the burst at roughly radius * DRAG ≈ 70 u/s, so this draws it as a streak some tens of units long
-            //on the flash frame and shortens it to a dot within a few tenths of a second — the line, then the
-            //break-up, then the drift.
-            effect.Parameters["SparkStretch"].SetValue(0.42f);
+            effect.Parameters["TrailWidth"].SetValue(TRAIL_WIDTH);
+            effect.Parameters["TrailSeconds"].SetValue(TRAIL_SECONDS);
+            effect.Parameters["WhiteShare"].SetValue(WHITE_SHARE);
+            effect.Parameters["HeadWhite"].SetValue(HEAD_WHITE);
+            effect.Parameters["TrailGain"].SetValue(TRAIL_GAIN);
 
             effect.Parameters["HotCore"].SetValue(HOT_CORE);
             effect.Parameters["HotCoreFrom"].SetValue(HOT_CORE_FROM);
@@ -486,6 +511,9 @@ namespace BS3D.Effects
 
             _viewParam.SetValue(view);
             _projectionParam.SetValue(camera.Projection);
+            //A pixel's span per unit of distance, for the trails' one-pixel floor: the projection's vertical scale
+            //over the target's own height, so a supersampled target's finer pixel is the one it floors to
+            _pixelAngleParam.SetValue(2f / (camera.Projection.M22 * MathF.Max(_device.Viewport.Height, 1)));
             _cameraPositionParam.SetValue(camera.Position);
             _cameraRightParam.SetValue(right);
             _cameraUpParam.SetValue(up);
@@ -564,7 +592,7 @@ namespace BS3D.Effects
                         (float)random.NextDouble(),                    //twinkle phase
                         (float)random.NextDouble(),                    //size jitter
                         (float)spark / SPARKS_PER_SHELL,               //trail rank on the way up
-                        (float)random.NextDouble());                   //which of the shell's two colours
+                        (float)random.NextDouble());                   //white, or which of the shell's two colours
 
                     for (int corner = 0; corner < 4; corner++)
                     {
@@ -621,7 +649,7 @@ namespace BS3D.Effects
         {
             public Vector4 Slot;     //(shell, spark 0..1, corner x, corner y)
             public Vector4 Spark;    //(direction xyz, speed)
-            public Vector4 Random;   //(twinkle phase, size jitter, trail rank, unused)
+            public Vector4 Random;   //(twinkle phase, size jitter, trail rank, white or which colour)
 
             public static readonly VertexDeclaration Declaration = new(
                 new VertexElement(0, VertexElementFormat.Vector4, VertexElementUsage.TextureCoordinate, 0),

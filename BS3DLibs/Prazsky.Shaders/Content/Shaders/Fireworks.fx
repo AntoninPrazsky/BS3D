@@ -38,8 +38,13 @@ float4 ShellColor[MAX_SHELLS];
 float4 ShellColorB[MAX_SHELLS];
 float4 ShellShape[MAX_SHELLS];
 
-float SparkSize;      //world half-size of one spark billboard at full brightness
-float SparkStretch;   //how many world units of streak per world unit per second of spark speed
+float SparkSize;      //world half-size of a rising shell's comet sparks
+float TrailWidth;     //world half-width of a burst spark's trail (Fireworks.TRAIL_WIDTH)
+float TrailSeconds;   //how far back along its own path a burst spark's trail reaches, in seconds (Fireworks.TRAIL_SECONDS)
+float PixelAngle;     //world units a pixel spans per world unit of distance, for the trail's one-pixel floor
+float WhiteShare;     //the share of a shell's sparks that burn white rather than in its colours (Fireworks.WHITE_SHARE)
+float HeadWhite;      //how far towards white a trail's head burns (Fireworks.HEAD_WHITE)
+float TrailGain;      //how much brighter a burst spark's trail burns than the round spark it replaced (Fireworks.TRAIL_GAIN)
 float Gravity;        //world units per second squared, positive downwards
 float HotCore;        //how far towards white a spark goes at its brightest (Fireworks.HOT_CORE)
 float HotCoreFrom;    //the brightness the white starts at, and over how much more it arrives (HOT_CORE_FROM/_WIDTH)
@@ -52,15 +57,16 @@ struct FireworkVertexInput
     float4 Slot : TEXCOORD0;
     //(direction xyz on the unit sphere, speed multiplier)
     float4 Spark : TEXCOORD1;
-    //(twinkle phase, size jitter, trail rank 0..1, unused)
+    //(twinkle phase, size jitter, trail rank 0..1, which colour: white under WhiteShare, then the shell's two)
     float4 Random : TEXCOORD2;
 };
 
 struct FireworkVertexOutput
 {
     float4 Position : SV_POSITION;
-    float2 Corner : TEXCOORD0;   //-1..1 across the billboard, for the round falloff
-    float4 Tint : TEXCOORD1;     //rgb radiance already scaled by this spark's brightness, a = alpha
+    float2 Corner : TEXCOORD0;   //-1..1 over the quad: x from the tail's end to the head's, y across
+    float4 Tint : TEXCOORD1;     //the trail's radiance, already scaled by this spark's brightness; a = that brightness
+    float4 Head : TEXCOORD2;     //rgb the head's radiance (white-hot), a = the segment's half-length in half-widths
 };
 
 FireworkVertexOutput FireworkVS(FireworkVertexInput input)
@@ -87,10 +93,12 @@ FireworkVertexOutput FireworkVS(FireworkVertexInput input)
         return output;
     }
 
-    float3 position;
+    //Every spark is drawn as a SEGMENT from its tail to its head, and the two ends are where it is and where it
+    //was: the rising comet's sparks are dots (tail = head), a burst spark's tail is its own position TrailSeconds
+    //ago (#612's reference pass).
+    float3 head, tail;
     float brightness;
-    float size;
-    float3 velocity = float3(0.0, 0.0, 0.0);   //world units per second, for the motion streak
+    float halfWidth;
 
     if (age < 0.0)
     {
@@ -102,18 +110,18 @@ FireworkVertexOutput FireworkVS(FireworkVertexInput input)
 
         //Eased, so it leaves fast and slows into the burst the way a shell against gravity does.
         float climb = 1.0 - (1.0 - u) * (1.0 - u);
-        float3 head = lerp(origin.xyz, burst.xyz, climb);
 
         //The tail lags the head, and lags further the faster the shell is going.
         float lag = input.Random.z * 0.09 * (1.0 - climb * 0.55);
-        float3 tail = lerp(origin.xyz, burst.xyz, saturate(climb - lag));
+        float3 onPath = lerp(origin.xyz, burst.xyz, saturate(climb - lag));
 
         //A little sideways scatter so the tail is a spray of sparks rather than a drawn line.
-        position = tail + input.Spark.xyz * input.Random.y * 0.35;
+        head = onPath + input.Spark.xyz * input.Random.y * 0.35;
+        tail = head;
 
         //Dim at the tip of the tail, and the whole comet brightens as it climbs towards going off.
         brightness = (1.0 - input.Random.z) * (0.35 + 0.65 * climb);
-        size = SparkSize * 0.55;
+        halfWidth = SparkSize * 0.55;
     }
     else
     {
@@ -123,31 +131,32 @@ FireworkVertexOutput FireworkVS(FireworkVertexInput input)
         float t = age;
         float u = saturate(t / life);
 
-        //Exponential drag: the sparks leave hard and stall rather than flying off for ever. In closed form, so
-        //a spark's whole path - and its VELOCITY, which the streak below needs - is a pure function of its
-        //age, which is what lets the buffer be static.
+        //Exponential drag, in closed form, so a spark's whole path is a pure function of its age - which is
+        //what lets the buffer be static, and what lets the trail below ask where the spark WAS.
         const float DRAG = 2.35;
-        float expand = 1.0 - exp(-DRAG * t);
 
         //A small head start, so the sparks are not all mathematically coincident on the burst frame. It is
-        //deliberately tiny now: it used to be an eighth of the radius, which pre-arranged the whole shell into
-        //a formed sphere that then inflated rigidly - a bottle brush on a wire rather than an explosion. The
-        //streak below is what actually spreads the flash's energy now.
+        //deliberately tiny: an eighth of the radius pre-arranged the whole shell into a formed sphere that then
+        //inflated rigidly - a bottle brush on a wire rather than an explosion.
         const float INITIAL_SPREAD = 0.015;
-        float reach = lerp(INITIAL_SPREAD, 1.0, expand);
 
         float3 direction = input.Spark.xyz;
         direction.y *= shape.z;   //flattened shells read as rings when the lens is off their plane
-
         float radius = shape.x * input.Spark.w;
-        position = burst.xyz + direction * (radius * reach);
-        position.y -= 0.5 * Gravity * t * t;
 
-        //The derivative of the line above. d(reach)/dt = (1 - INITIAL_SPREAD) * DRAG * e^(-DRAG t), so a spark
-        //leaves at its fastest and slows hard - which is exactly the shape a streak wants, long at the flash
-        //and gone by the time the stars are drifting.
-        velocity = direction * (radius * (1.0 - INITIAL_SPREAD) * DRAG * exp(-DRAG * t));
-        velocity.y -= Gravity * t;
+        //THE TRAIL (#612's reference pass). Every reference of a real shell - the peony, the chrysanthemum, the
+        //willow, a display over a field in daylight - is hundreds of THIN LINES: a burning star leaves light
+        //behind it faster than a shutter or an eye resolves, so what reads is the path, not the star. So the
+        //tail is the same path TrailSeconds earlier (never before the burst): on the flash the trails reach
+        //back to the centre and a shell is a ball of radial lines, as the drag stalls the stars they shorten
+        //and fall behind, and as gravity takes over they hang and droop - the willow, with no code of its own.
+        //Until #612's pass a spark was a billboard stretched along its instantaneous velocity - a short, fat
+        //streak centred on the star, reaching as far ahead of it as behind, gone to a dot within a few tenths.
+        float tailAge = max(t - TrailSeconds * (0.7 + 0.6 * input.Random.y), 0.0);
+        head = burst.xyz + direction * (radius * lerp(INITIAL_SPREAD, 1.0, 1.0 - exp(-DRAG * t)));
+        head.y -= 0.5 * Gravity * t * t;
+        tail = burst.xyz + direction * (radius * lerp(INITIAL_SPREAD, 1.0, 1.0 - exp(-DRAG * tailAge)));
+        tail.y -= 0.5 * Gravity * tailAge * tailAge;
 
         //Fades over its life, fastest at the end. Squared, because a linear fade on something this bright
         //holds near-full for most of the life and then drops off a cliff.
@@ -159,82 +168,102 @@ FireworkVertexOutput FireworkVS(FireworkVertexInput input)
 
         brightness = fade * twinkle;
 
-        //Sparks shrink as they burn out, but never to nothing while they are still bright.
-        size = SparkSize * (0.45 + 0.55 * fade) * (0.7 + 0.6 * input.Random.y);
+        //Thin, and thinner as it burns out, never to nothing while it still gives light
+        halfWidth = TrailWidth * (0.6 + 0.4 * fade) * (0.75 + 0.5 * input.Random.y);
     }
 
-    //Camera-facing billboard, STRETCHED ALONG ITS OWN MOTION. This is the difference between an explosion and
-    //a cloud of dots drifting outwards: a burning star crossing the sky faster than the eye or a shutter can
-    //resolve is seen as a LINE, and it is those lines radiating from a point that the eye reads as something
-    //blowing apart. A round spark, however many there are, only ever reads as a swarm.
-    //
-    //It also happens to solve the flash: on the burst frame every spark is nearly coincident but moving at its
-    //fastest, so each is drawn at its longest, and the energy that used to stack into one blown-out point is
-    //spread down a hundred separate streaks instead.
-    float2 corner = input.Slot.zw;
+    //THE ONE-PIXEL FLOOR. A trail a fifth of a unit wide is under a pixel from most of where the camera stands,
+    //and a quad under a pixel is sampled rather than drawn - it breaks into a dotted, crawling line. So it is never
+    //drawn narrower than a pixel, and its light is scaled by how much it was widened, so a far trail gives the
+    //same light it would if it could be drawn (Snow.fx's floor, #654).
+    float3 centre = 0.5 * (head + tail);
+    float pixel = PixelAngle * distance(centre, CameraPosition);
+    float drawnWidth = max(halfWidth, pixel);
+    float widthGain = halfWidth / drawnWidth;
 
-    //The velocity projected onto the screen plane. Its LENGTH is what the streak is scaled by, so a spark
-    //coming straight at the lens has no screen motion and correctly stays a round dot instead of being
-    //stretched along an arbitrary axis.
-    float2 screenVelocity = float2(dot(velocity, CameraRight), dot(velocity, CameraUp));
-    float screenSpeed = length(screenVelocity);
-
-    float2 along = screenSpeed > 1e-4 ? screenVelocity / screenSpeed : float2(1.0, 0.0);
+    //A camera-facing quad along the segment's screen direction. A segment seen end-on has no screen length
+    //and correctly draws as a round dot rather than being stretched along an arbitrary axis.
+    float3 segment = head - tail;
+    float2 screenSegment = float2(dot(segment, CameraRight), dot(segment, CameraUp));
+    float screenLength = length(screenSegment);
+    float2 along = screenLength > 1e-4 ? screenSegment / screenLength : float2(1.0, 0.0);
     float2 across = float2(-along.y, along.x);
 
-    float halfLength = size + screenSpeed * SparkStretch;
-    float halfWidth = size;
-
-    float2 offset = along * (corner.x * halfLength) + across * (corner.y * halfWidth);
-    position += CameraRight * offset.x + CameraUp * offset.y;
+    float halfLength = 0.5 * screenLength + drawnWidth;
+    float2 corner = input.Slot.zw;
+    float2 offset = along * (corner.x * halfLength) + across * (corner.y * drawnWidth);
+    float3 position = centre + CameraRight * offset.x + CameraUp * offset.y;
 
     output.Position = mul(mul(float4(position, 1.0), View), Projection);
     output.Corner = corner;
 
-    //TWO colours per shell, split per spark. A real shell is one chemistry and one colour; a display is not,
-    //and a burst that is half magenta and half gold reads as far more of an event than either alone. The
-    //split is hard rather than a blend, so the two are seen AS two.
-    float3 shellColour = input.Random.w < 0.5 ? colour.rgb : ShellColorB[shell].rgb;
+    //TWO colours per shell, split per spark, and since #612's reference pass a share of WHITE ones among them:
+    //every reference display has its bright white streaks among the coloured ones - the owner's "some very light
+    //rays" - and a shell that is all hue was, in his word, too much. The split is hard rather than a blend, so the
+    //kinds are seen AS kinds. White at the palette's own luminance (SPARK_LUMINANCE), so it blooms as they do.
+    float kind = input.Random.w;
+    float3 shellColour = kind < WhiteShare ? float3(1.5, 1.5, 1.5)
+        : ((kind - WhiteShare) < 0.5 * (1.0 - WhiteShare) ? colour.rgb : ShellColorB[shell].rgb);
 
-    //The hot core: a FRESH spark flashes towards white and shows its own colour as it cools - which is what
-    //makes a firework read as burning rather than as a coloured dot. Only a flash, and only part of the way
-    //(#612): white is the brightest thing the resolve can show and every hue shares it, so a spark that was
-    //70 % white from a quarter of its brightness up (as it was) was a white spark with a coloured edge, and
-    //the display read white. The palette's own zero channel is what keeps the rest of the life coloured.
+    //The hot core: a FRESH spark flashes towards white and shows its own colour as it cools - only a flash, and
+    //only part of the way (#612): the palette's own zero channel is what keeps the rest of the life coloured.
     float heat = saturate((brightness - HotCoreFrom) / HotCoreWidth);
-    float3 radiance = lerp(shellColour, float3(1.0, 1.0, 1.0) * max(max(shellColour.r, shellColour.g), shellColour.b), heat * HotCore);
+    float peak = max(max(shellColour.r, shellColour.g), shellColour.b);
+    float3 radiance = lerp(shellColour, float3(peak, peak, peak), heat * HotCore);
 
-    output.Tint = float4(radiance * brightness, brightness);
+    //And the HEAD burns white-hot all its life (#612's reference pass): in every reference the star at the end of
+    //a coloured trail is its brightest, whitest point.
+    float3 headRadiance = lerp(shellColour, float3(peak, peak, peak), HeadWhite);
+
+    //Light by the brightness squared, as the additive blend this replaced weighted it (its colour by the brightness,
+    //its alpha by the brightness again), and by the width's gain once: the floor spreads the same light wider
+    float lightScale = brightness * brightness * widthGain * (age < 0.0 ? 1.0 : TrailGain);
+    output.Tint = float4(radiance * lightScale, brightness * widthGain);
+    output.Head = float4(headRadiance * lightScale, 0.5 * screenLength / drawnWidth);
 
     return output;
 }
 
+//How the light runs down a trail from its head: the share left at the tail's end, and the power it falls by
+static const float TRAIL_TAIL = 0.08;
+static const float TRAIL_FALL = 1.6;
+
 float4 FireworkPS(FireworkVertexOutput input) : COLOR
 {
-    //A soft spark. Squared falloff off the centre gives a small hot core inside a wide halo, which is what a
-    //point of light looks like through any lens - and what blooms convincingly when the glare pass takes it.
-    //The quad is stretched along the spark's motion, so in the stretched frame this same round profile draws
-    //an elongated streak with soft ends rather than a rectangle with hard ones.
-    float r2 = dot(input.Corner, input.Corner);
-    float falloff = saturate(1.0 - r2);
-    falloff *= falloff;
+    //A CAPSULE round the segment, in half-widths: x along it (the segment runs from -segment to +segment), y
+    //across. Squared falloff off the line gives a thin hot core inside a soft edge - a line of light through a
+    //lens - and the round ends mean a dot (a rising comet's spark, segment 0) is the round spark it always was.
+    float segmentHalf = input.Head.a;
+    float x = input.Corner.x * (segmentHalf + 1.0);
+    float y = input.Corner.y;
 
-    //And the streak is a comet, not a capsule: corner.x runs along the direction of travel, so biasing the
-    //brightness towards +1 puts the hot end at the FRONT and trails it behind. A streak that is equally bright
-    //at both ends reads as a stick; the taper is what says which way it is going.
-    falloff *= 0.45 + 0.55 * saturate(input.Corner.x * 0.5 + 0.5);
+    float2 toLine = float2(max(abs(x) - segmentHalf, 0.0), y);
+    float profile = saturate(1.0 - dot(toLine, toLine));
+    profile *= profile;
+
+    //Brightest at the head (+x) and falling off towards the tail, so a trail reads as the path of the star at its
+    //end and says which way it went. A dot has no length and takes the head's own light.
+    float along = segmentHalf > 1e-3 ? saturate((x + segmentHalf) / (2.0 * segmentHalf)) : 1.0;
+    float trail = TRAIL_TAIL + (1.0 - TRAIL_TAIL) * pow(along, TRAIL_FALL);
+
+    //The white-hot head: the same profile round the head's point alone
+    float2 toHead = float2(x - segmentHalf, y);
+    float head = saturate(1.0 - dot(toHead, toHead));
+    head *= head;
 
     //No clip. A zero-alpha pixel adds nothing and covers nothing, so the spark can fade to nothing smoothly
     //rather than being cut with a hard edge that sweeps inward as it dims - the trap ShotTrail.fx documents.
     //
-    //PREMULTIPLIED (Fireworks.SparkBlend, #612): rgb is the light the spark adds - the same falloff times
-    //brightness it was weighted by when this was an additive SourceAlpha blend, now applied here - and alpha is
-    //how much of the frame behind it the spark covers: the same weight squared, so a spark never covers more
-    //than in proportion to the light it gives back, and this reads as the colour rgb / alpha laid over the frame
-    //at that opacity. Over a dark sky the cover takes nothing and the display is the additive one it was; over
-    //a bright one it is what lets a red spark be red instead of the sky with some red added to it.
-    float a = falloff * input.Tint.a;
-    return float4(input.Tint.rgb * falloff * a, saturate(a * a * SkyCover));
+    //PREMULTIPLIED (Fireworks.SparkBlend, #612): rgb is the light the spark adds, and alpha how much of the
+    //frame behind it the spark covers - its weight squared, so a spark never covers more than in proportion to
+    //the light it gives back, and reads as the colour rgb / alpha laid over the frame at that opacity. Over a dark
+    //sky the cover takes nothing and the display is additive; over a bright one it is what lets a red spark be
+    //red instead of the sky with some red added to it.
+    float bodyWeight = profile * trail;
+    float weight = max(bodyWeight, head);
+    float3 light = (input.Tint.rgb * bodyWeight + input.Head.rgb * head) * weight;
+    float a = weight * input.Tint.a;
+    return float4(light, saturate(a * a * SkyCover));
 }
 
 technique Fireworks
