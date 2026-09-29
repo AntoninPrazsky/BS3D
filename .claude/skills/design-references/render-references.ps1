@@ -68,6 +68,15 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 
+# #657: an unquoted Windows path typed into bash loses its backslashes and arrives as C:UserspanrdAIsdout622 - a
+# drive-relative path that New-Item below happily created as a folder in the repository's root. Refuse it, and
+# any path that is not a full one, before anything is created. (From bash: quote the path or use forward slashes.)
+. "$PSScriptRoot\..\..\..\Tools\PathGuard.ps1"
+Assert-SanePath Out $Out -Full
+Assert-SanePath PromptFile $PromptFile -Full
+Assert-SanePath Init $Init -Full
+Assert-SanePath Root $Root -Full
+
 if (-not $Prompt -and -not $PromptFile) { throw 'Pass -Prompt or -PromptFile.' }
 if (-not $Out) { $Out = Join-Path $Root ('out\' + (Get-Date -Format 'yyyyMMdd-HHmmss')) }
 New-Item -ItemType Directory -Force -Path $Out | Out-Null

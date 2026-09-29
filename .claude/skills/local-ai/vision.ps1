@@ -37,6 +37,12 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+# #657: refuse a path a shell mangled (C:Userspanrd... - the backslashes eaten)
+. "$PSScriptRoot\..\..\..\Tools\PathGuard.ps1"
+Assert-SanePath Image $Image
+Assert-SanePath Image2 $Image2
+
 Add-Type -AssemblyName System.Drawing
 
 function Test-Loaded {

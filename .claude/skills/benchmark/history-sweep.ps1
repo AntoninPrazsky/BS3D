@@ -25,6 +25,13 @@ param(
     [switch]$Keep
 )
 $ErrorActionPreference = 'Stop'
+
+# #657: refuse a path a shell mangled (C:Userspanrd... - the backslashes eaten). Both are folders this script
+# creates, and the worktree root is where `git worktree add` builds old commits.
+. "$PSScriptRoot\..\..\..\Tools\PathGuard.ps1"
+Assert-SanePath OutDir $OutDir -Full
+Assert-SanePath WorktreeRoot $WorktreeRoot -Full
+
 $repo = (Resolve-Path "$PSScriptRoot\..\..\..").Path
 $tm = Join-Path $PSScriptRoot 'tier-matrix.ps1'
 $levelList = $Levels.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ }

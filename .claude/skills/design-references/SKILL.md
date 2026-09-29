@@ -16,6 +16,8 @@ The game draws everything procedurally, and designing a mesh or a material in co
 
 The script starts `sd-server` if nothing listens on port 7860 (LM Studio holds 1234), renders every prompt `-Count` times with consecutive seeds, writes `<name>-<seed>.png` with a `.txt` beside it (prompt, size, seed, time), and stops the server again. Output goes under `C:\Users\panrd\AI\sd\out` unless `-Out` says otherwise. **A seed reproduces its image byte for byte**: the #441 cup came back identical through the script, so a reference can always be re-rendered from its `.txt`.
 
+**⚠ From bash, quote the Windows paths or write them with forward slashes** (`-Out 'C:\Users\panrd\AI\sd\out\622'` or `-Out C:/Users/panrd/AI/sd/out/622`). Unquoted, bash eats the backslashes and the script receives `C:UserspanrdAIsdout622` — a *drive-relative* path, which PowerShell accepts and `New-Item` turned into a folder in whatever directory the shell stood in: three empty folders in the repository's root on 2026-09-29 (#657). The script now refuses it (and any `-Out`, `-PromptFile`, `-Init` or `-Root` that is not a full path) before it creates anything, through `Tools/PathGuard.ps1` — one check every skill script's path arguments go through, self-tested by `Tools/PathGuard.test.ps1` on every push. Note that `[IO.Path]::IsPathRooted('C:foo')` is **True**, so "is it rooted?" alone would not have caught it.
+
 ## What it is for, and what not
 
 - **For:** a few concrete variants before a design is written in code. On #441 it drew five cups for #429 (tall, gems in raised settings, a lathe-readable front view), rooftops and a prop sheet for #436, and the island in six scenes' materials for #404.

@@ -139,3 +139,11 @@ jobs:
       - name: Self-check - the destructive-git guard
         shell: bash
         run: bash .claude/hooks/guard-destructive-git.test.sh
+
+      # The path guard the skill scripts share (#657), in both directions. A Windows path whose backslashes bash
+      # ate arrives as C:foo - a drive-relative path every cmdlet accepts, which New-Item made into a folder in the
+      # repository's root; the first case is that string verbatim.
+      - name: Self-check - the skill scripts' path guard
+        run: |
+          ./Tools/PathGuard.test.ps1
+          if ($LASTEXITCODE -ne 0) { throw "PathGuard.test.ps1 failed (exit $LASTEXITCODE)" }
