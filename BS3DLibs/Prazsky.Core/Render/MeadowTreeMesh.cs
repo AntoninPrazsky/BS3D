@@ -26,7 +26,7 @@ namespace Prazsky.Core.Render
     /// <para>
     /// <b>Grown from the crown inwards.</b> The dome is laid out first — clump centres spread evenly over an
     /// ellipsoid's upper part, a share of them deeper inside it, so the outline is the references' dome whatever the
-    /// dice say — and the wood is grown to it: two to four limbs out of the fork, each to a knee a third of the way
+    /// dice say — and the wood is grown to it: two to five limbs out of the fork, each to a knee a third of the way
     /// out, two or three boughs out of every knee to knees of their own, and from those a branch into every clump on
     /// their side. So no branch ends in the air, no clump floats, and the wood forks as a tree's does rather than
     /// spreading from one point like the fingers of a hand, which is what one fork of six limbs looked like.

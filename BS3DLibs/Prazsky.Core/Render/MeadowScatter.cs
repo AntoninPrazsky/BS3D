@@ -28,7 +28,8 @@ namespace Prazsky.Core.Render
 
         //=== How much of what, and where. Radii are from the arena's centre; the clearing is flat to 95 and the
         //hills rise over the next 140 (MeadowSceneConfig), so the play camera sees the rise and the tops.
-        private const float INNER = 70f;             //nothing nearer than this (the island is 26 across the radius)
+        private const float INNER = 70f;             //nothing nearer than this (the island is 26 across the radius), but the
+                                                     //island's own bank and what the brook and the path arrive at (#609)
         private const float OUTER = 460f;
         private const int TREES = 12, SHRUBS = 55, BALES = 14, BOULDERS = 18, TUFTS = 700;
         private const int HEDGEROWS = 5, FENCES = 2;
@@ -320,7 +321,8 @@ namespace Prazsky.Core.Render
                 float clump = MathF.Sin(a * 3f + 1.3f) + 0.6f * MathF.Sin(a * 7f + 0.4f);
                 if (clump > 0.1f)
                 {
-                    for (int k = 0; k < 2 + rng.Next(3); k++)
+                    int reedsHere = 2 + rng.Next(3);
+                    for (int k = 0; k < reedsHere; k++)
                     {
                         float r = shore + (float)(rng.NextDouble() * 2.4 - 0.9);
                         float b = a + ((float)rng.NextDouble() - 0.5f) * 0.08f;
@@ -374,7 +376,8 @@ namespace Prazsky.Core.Render
                     : i < BERM_TUFTS ? Site(IslandBerm.STONE_RADIUS_MAX - 0.5f, IslandBerm.STONE_RADIUS_MAX + 2.5f)
                     : Site(ArenaIsland.RADIUS + 12f, 260f);
                 //Never in the water, on the trodden path or on the bare ground under the old tree (#609's third round)
-                if (MeadowPath.PondShore(x, z, config) < 0.3f || MathF.Abs(MeadowPath.BrookLateral(x, z, config)) < config.BrookWidth * 0.6f
+                //(the drawn shore wanders by the ragged edge and its smoothing either side of the arithmetic one, 0.6 all told)
+                if (MeadowPath.PondShore(x, z, config) < 0.9f || MathF.Abs(MeadowPath.BrookLateral(x, z, config)) < config.BrookWidth * 0.5f + 0.6f
                     || MathF.Abs(pathLateral(x, z)) < config.PathWidth * 0.6f
                     || (x - knollX) * (x - knollX) + (z - knollZ) * (z - knollZ) < TREE_BARE * TREE_BARE)
                     continue;
@@ -390,13 +393,15 @@ namespace Prazsky.Core.Render
                 Vector3 leaf = m == WILLOW ? WILLOW_LEAF : OAK_LEAF, leafDry = m == WILLOW ? WILLOW_LEAF_DRY : OAK_LEAF_DRY;
                 buckets.Add(new ScatterBucket(device, tree.Wood, treeInstances[m], OAK_BARK, OAK_BARK * 1.2f, dapple: 0f, bark: 0.6f, detailOnly: false));
                 //The solid lumps for the Low tier; a smaller core under leaf cards for every other (the acacias' #610 split).
-                //The lumps are what casts at every tier, the core and the cards never: measured on the desktop the cards
-                //cost 0.75 ms at High, most of it the sun's map clipping a hundred thousand of them a second time
+                //The CORE is what casts, the cards never (the sun's map exists only at scene detail, where the core is
+                //drawn): the cards cost 0.065 ms more a second time into the map, and a dense oak throws a solid shade.
+                //⚠ The full lumps cast first, from where they are not drawn, and the leaf cards on a clump's upper
+                //flanks lie inside its lump's lobes - so every clump shaded its own sunny side
                 buckets.Add(new ScatterBucket(device, tree.Crown, treeInstances[m], leaf, leafDry, dapple: 0.7f, bark: 0f,
-                    detailOnly: false, lowOnly: true, castsShadow: true));
+                    detailOnly: false, lowOnly: true));
                 //The core darker than the leaves: where it shows between cards it is the inside of the crown, its shade
                 buckets.Add(new ScatterBucket(device, tree.Core, treeInstances[m], leaf * 0.55f, leafDry * 0.55f, dapple: 0.6f, bark: 0f,
-                    detailOnly: true, castsShadow: false));
+                    detailOnly: true));
                 //Broad leaves, not the acacia's leaflets (LeafStrength 2, Acacia.fx's BroadLeafMask)
                 buckets.Add(new ScatterBucket(device, tree.Leaves, treeInstances[m], leaf, leafDry, dapple: 0f, bark: 0f,
                     detailOnly: true, leaves: 2f, castsShadow: false));

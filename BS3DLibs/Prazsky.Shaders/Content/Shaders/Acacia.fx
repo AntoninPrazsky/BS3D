@@ -183,10 +183,14 @@ float BroadLeafMask(float2 uv)
 //taken by every pixel of a quad alike
 float CardMask(float2 uv, float2 seed)
 {
+    //One return: an inlined early return inside a branch is the X4000 pattern Clouds.fxh records
+    float mask;
     [branch]
     if (LeafStrength > 1.5)
-        return BroadLeafMask(uv);
-    return LeafMask(uv, seed);
+        mask = BroadLeafMask(uv);
+    else
+        mask = LeafMask(uv, seed);
+    return mask;
 }
 
 struct AcaciaVertexInput

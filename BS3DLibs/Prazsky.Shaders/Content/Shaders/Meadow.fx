@@ -559,9 +559,9 @@ float4 MeadowField(MeadowVertexOutput input, bool detail)
     float sunlight = CloudSunlight(worldPosition, SunDirection);
 
     //The sun's cast shadows (#471), into the same sunlight factor the clouds dim, so everything read off it
-    //is shadowed at once. What casts here: the island and the gun standing on the hill — the meadow scatters
-    //nothing of its own, and this is the scene the first chapter plays in, so it is the one shadow a new
-    //player sees first.
+    //is shadowed at once. What casts here: the island and the gun, and since #609 everything MeadowScatter plants -
+    //the old trees, the hedges, the bales, the fences - and this is the scene the first chapter plays in, so it is
+    //the shadow a new player sees first.
     [branch]
     if (ShadowStrength > 0.0)
         sunlight *= SunShadow(worldPosition, baseNormal, SunDirection);
@@ -625,11 +625,16 @@ float4 MeadowField(MeadowVertexOutput input, bool detail)
         //sky here is one cloud plane the sky shader draws and the ground's shadows come from (Clouds.fxh) - so the
         //reflected ray crosses that same plane, and the cloud in the water is the cloud overhead. The weather layer
         //alone, two octaves; its lit colour is the sun's over the horizon's, without the sky shader's own shading.
+        //⚠ Off the FLAT reflection, not the rippled one: the plane is ~200 up, so a lens near the ground crosses it
+        //thousands of units out, and the ripple's few hundredths of slope moved that point by as much again from one
+        //ripple cell to the next - a coherent cloud came out as per-pixel speckle. The ripples still move the sky
+        //gradient and the glint; the cloud is the still water's. Faded in over the grazing angles rather than cut.
+        float flatUp = toCamera.y;
         [branch]
-        if (reflected.y > 0.02)
+        if (flatUp > 0.005)
         {
-            float2 cloudAt = worldPosition.xz + reflected.xz * ((CloudPlaneY - worldPosition.y) / reflected.y);
-            sky = lerp(sky, SunColor * 0.5 + HorizonColor * 0.55, CloudCover(cloudAt));
+            float2 cloudAt = worldPosition.xz - toCamera.xz * ((CloudPlaneY - worldPosition.y) / flatUp);
+            sky = lerp(sky, SunColor * 0.5 + HorizonColor * 0.55, CloudCover(cloudAt) * smoothstep(0.005, 0.04, flatUp));
         }
         sky *= float3(0.62, 0.72, 0.82);
         float fresnel = 0.08 + 0.62 * pow(1.0 - saturate(dot(waterNormal, toCamera)), 4.0);

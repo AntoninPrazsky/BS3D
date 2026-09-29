@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using Prazsky.Core.Render;
 using System;
+using System.Collections.Generic;
 
 namespace BS3D.Effects
 {
@@ -54,11 +55,15 @@ namespace BS3D.Effects
         private const int TRIES = 24;
 
         /// <summary>The prologue for the meadow, or null when there is no meadow config.</summary>
-        public static IntroShot[] Build(MeadowSceneConfig meadow, float fieldOfView, Random random)
+        /// <param name="trees">The old trees (#609's third round), kept out of the valley shot's flight: up to 36 tall
+        /// since then, and the flight rides 18 to 26 over the highest ground under it. Null keeps no tree out.</param>
+        public static IntroShot[] Build(MeadowSceneConfig meadow, IReadOnlyList<PlantFigure> trees, float fieldOfView, Random random)
         {
             if (meadow == null) return null;
 
             var ground = new IntroGround((x, z) => TerrainMirror.Meadow(x, z, meadow));
+            if (trees != null)
+                foreach (PlantFigure tree in trees) ground.Add(tree);
 
             //The hilliest bearing: the ground at the run's start, where the lens stands on the hill.
             IntroShot valley = ground.Establishing("the valley", VALLEY_FROM, VALLEY_TO, VALLEY_ABOVE_FROM, VALLEY_ABOVE_TO,
