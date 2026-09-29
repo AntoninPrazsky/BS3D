@@ -15,7 +15,8 @@ namespace BS3D.Screens
     /// <para>
     /// <b>What is here and what is not.</b> Here: what belongs to the attempt and to nothing longer — which entry
     /// it is and which board, its scorer, its clocks, the shots and seconds at its clear, its biggest release,
-    /// its wildcard cadence and count, its power-up charges, its balls' material and the line's grace. Not here:
+    /// its wildcard cadence and count, its power-up charges, its balls' material, the line's grace and the net's
+    /// touch latch. Not here:
     /// everything the screen keeps across levels to avoid allocating (the renderers, the reused lists and the
     /// profile array), the simulation (<c>TearDown</c> disposes it outright), the level's flow
     /// (<see cref="LevelPhase"/>, whose one door <c>EnterPhase</c> does each phase's entry work and resets the

@@ -2483,8 +2483,9 @@ namespace BS3D.Audio
         /// </summary>
         public void PlayLineLoss(Vector3 crossing)
         {
-            //The cut takes over from a touch still sounding: a ball that reached the line a moment ago is usually
-            //the one crossing it now, and the same laser heard twice at once would stutter the one moment of the loss
+            //The cut takes over from a touch still sounding, so the one moment of the loss is not the same laser
+            //heard twice at once. Only a cut past the allowance can meet one - within the touch's own length of it; a
+            //held loss comes a whole grace after its touch, which has ended by then.
             _lineTouchRing.StopAll();
 
             Speak(_lineLossRing, crossing, NEAR_WIDEN, MathHelper.Clamp(LINE_LOSS_LEVEL * Level, 0f, 1f), NextPitch(0.03f));
@@ -2504,7 +2505,8 @@ namespace BS3D.Audio
 
         //Where in the cut the touch is taken from (#669): its held body, past the recording's slow rise, where the
         //hum and the sear are both full — with a click-free onset so it bites at once, and a release long enough not
-        //to snap off. The bake holds from 0.03 s to 1.7 s, so the same window is inside its hold too.
+        //to snap off. The window ends before BakeLineLoss's own hold lets go, so it is inside the bake's hold too -
+        //keep it so if either moves.
         private const float LINE_TOUCH_FROM_SECONDS = 0.9f;
         private const float LINE_TOUCH_SECONDS = 0.6f;
         private const float LINE_TOUCH_ATTACK_SECONDS = 0.01f;
@@ -2513,7 +2515,8 @@ namespace BS3D.Audio
         /// <summary>
         /// The touch cut out of the cut's own <paramref name="cut"/> signal (#669): <see cref="LINE_TOUCH_SECONDS"/> of
         /// it from <see cref="LINE_TOUCH_FROM_SECONDS"/>, with a linear attack and a raised-cosine release, then
-        /// peak-normalised like every other one-shot. A signal shorter than the window gives what it has.
+        /// peak-normalised to 0.9 — which on the recording, already through the report law, only trims the window's
+        /// peak (×0.92). A signal shorter than the window gives what it has.
         /// </summary>
         private static float[] LineTouchFrom(float[] cut)
         {

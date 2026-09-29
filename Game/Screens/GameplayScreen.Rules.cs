@@ -784,12 +784,13 @@ namespace BS3D.Screens
         /// <summary>
         /// Sounds the net's touch (#669) on the frame the cluster's lowest ball reaches the line — the net hovers where
         /// a ball's surface meets it at exactly that centre height, so this is the frame the lasers start cutting into
-        /// the ball — and re-arms it once that ball is back up by <see cref="LINE_TOUCH_REARM"/>. The line forgives such
+        /// the ball — and re-arms it once the cluster's lowest ball is back above the line by <see cref="LINE_TOUCH_REARM"/>. The line forgives such
         /// a swing (#239), and until this it was silent: the only sound the lasers had was the loss's cut, so the owner
         /// heard them cut into the balls the first time — the loss — and never on the swings the line let go.
         /// <para>
-        /// Not on a frame that is already past the allowance: that frame loses outright, and the cut is its sound. A
-        /// touch still sounding when the cut begins is stopped by it (<c>ProceduralAudio.PlayLineLoss</c>).
+        /// Not on a frame that is already past the allowance: that frame belongs to the loss — at once, or when a drop
+        /// cinematic lets go — and the cut is its sound. A touch still sounding when a cut begins is stopped by it
+        /// (<c>ProceduralAudio.PlayLineLoss</c>).
         /// </para>
         /// </summary>
         private void UpdateLineTouch(float lowestBallY, Vector3 lowestBallAt)
