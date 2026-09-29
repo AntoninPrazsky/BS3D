@@ -919,7 +919,7 @@ namespace BS3D
         /// <summary>
         /// What this program casts into the sun's shadow map (#470): the island, always — it is the host's
         /// and stands in every scene, front end included — the gun, which is a <b>session's</b> and is
-        /// therefore drawn by whatever <see cref="SessionShadowCasters"/> the session put there, and in the
+        /// therefore cast by whatever <see cref="StandingGun"/> the session put there, and in the
         /// forest the wood standing round both (#471). <b>And the balls</b> (#470's own remaining half): every
         /// bucket <see cref="Balls"/> collected this frame — the cluster, the shots in flight, the loaded
         /// queue, the front end's preview — whatever is on screen when this runs.
@@ -941,7 +941,7 @@ namespace BS3D
         private void DrawShadowCasters(Matrix shadowViewProjection)
         {
             _island?.DrawShadow(shadowViewProjection);
-            SessionShadowCasters?.Invoke(shadowViewProjection);
+            StandingGun?.CastShadow(shadowViewProjection);
             _balls?.DrawShadow(shadowViewProjection);
 
             if (_scene == SceneKind.Forest) _forestScatter?.DrawShadow(shadowViewProjection);
@@ -955,15 +955,20 @@ namespace BS3D
         }
 
         /// <summary>
-        /// What a live session adds to the sun's shadow map: its gun. Set by <c>GameplayScreen</c> while it
-        /// is on the stack and cleared by its teardown, because the gun's <i>pose</i> is the session's and
-        /// not this host's — the host owns the rig, the session owns where it stands.
+        /// The gun a live session has standing on the island, or null while there is no session: set by
+        /// <c>GameplayScreen</c>'s build and cleared by its teardown, because the gun's <i>pose</i> is the session's
+        /// and not this host's — the host owns the rig, the session owns where it stands. <b>Both</b> what the shadow
+        /// pass casts and what the front end draws come from it (#650), so a session that is kept for Continue —
+        /// off the stack, with the main menu over the backdrop — has its gun drawn in the menu wherever its shadow
+        /// falls, and no session means neither. The frame's gun, in order: <see cref="IStandingGun.CollectBalls"/>
+        /// before <see cref="BeginSceneDraw"/>, <see cref="IStandingGun.Draw"/> after the ceiling's background grab,
+        /// <see cref="IStandingGun.DrawGlass"/> after the ceiling's glass — the slots <c>GameplayScreen.Draw</c> uses.
         /// <para>
-        /// A hook rather than a reach into the screen stack: the shadow pass runs at the top of
-        /// <see cref="BeginSceneDraw"/>, before any screen has drawn, and the front end has no gun at all.
+        /// An interface rather than a reach into the screen stack: the shadow pass runs at the top of
+        /// <see cref="BeginSceneDraw"/>, before any screen has drawn.
         /// </para>
         /// </summary>
-        internal System.Action<Matrix> SessionShadowCasters { get; set; }
+        internal IStandingGun StandingGun { get; set; }
 
         /// <summary>
         /// The drain's metal bands and its glass, after the frame's opaque work: the bands are opaque but the

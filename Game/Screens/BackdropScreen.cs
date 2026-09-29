@@ -474,7 +474,8 @@ namespace BS3D.Screens
         //The scene's own establishing tour, replayed on demand from the scene menu (#406). It is the very
         //same ChapterIntro a chapter's opening level runs - not a second flight built to look like it - so
         //what the player reviews here is what they will be shown in play, and a change to one is a change
-        //to both. The front end has no gun and no level, so what it hands over as the "gameplay pose" is
+        //to both. The front end has no gun to aim and no level to play (a kept session's gun only stands there,
+        //#650, and nothing about the tour follows it), so what it hands over as the "gameplay pose" is
         //its own orbit: the tour's last key is where the menu camera already stands, which is what makes
         //the blend back onto the flight a nudge between near-identical poses rather than a cut.
         private readonly ChapterIntro _tour = new();
@@ -1138,8 +1139,10 @@ namespace BS3D.Screens
         /// cluster and the menu's glass drawn where the session draws its own. The collection happens
         /// <b>before</b> <see cref="BS3DGame.BeginSceneDraw"/> because the LOD ladder solves against the back
         /// buffer's height — the same slot <see cref="GameplayScreen.Draw"/> collects in — and the balls
-        /// draw after it, in the states it binds. No gun, no trails, no warning grid: only the map hangs
-        /// here, breathing on the wall clock.
+        /// draw after it, in the states it binds. No trails, no warning grid: only the map hangs here,
+        /// breathing on the wall clock — and, when a session is kept for Continue (#607), <b>its gun stands
+        /// where it was left</b> (#650): <see cref="BS3DGame.StandingGun"/> is the one registration behind both
+        /// the gun's shadow on the island and its drawing, so the front end cannot show the one without the other.
         /// </summary>
         public override void Draw(GameTime gameTime)
         {
@@ -1149,6 +1152,11 @@ namespace BS3D.Screens
 
             BallDrawFrame ballFrame = Game.Balls.BeginFrame(Game.Camera);
             ballFrame.AddMap(_previewMap, _previewOffset);
+
+            //The gun of a session kept for Continue (#650): the rounds in its bore go into the frame like any other
+            //ball, before BeginSceneDraw, whose shadow pass reads the buckets. Null with no session, and then there
+            //is no gun and no gun's shadow either — the shadow pass asks the same registration.
+            Game.StandingGun?.CollectBalls(ballFrame);
 
             //The preview plate's shadow, on the session's pattern (#553)
             Game.CastCeilingShadow(Game.MenuCeilingRenderer, _menuCeilingWorld);
@@ -1161,6 +1169,10 @@ namespace BS3D.Screens
             //The setting is what stands behind the preview plate from under it (#541) - see the session's own call
             Game.GrabCeilingBackground(Game.MenuCeilingRenderer, _menuCeilingWorld);
 
+            //Where the session's gun stands, in the slot it draws in during play — after the grab, so the copy the
+            //preview plate's glass bends holds the setting alone, as it does there
+            Game.StandingGun?.Draw();
+
             Game.Balls.Draw(Game.WallClock);
 
             Game.DrawSettingGlass();
@@ -1170,6 +1182,9 @@ namespace BS3D.Screens
             //Through the host, so this plate and the session's are one decision about how glass draws (#299).
             if (Game.MenuCeilingRenderer != null)
                 Game.DrawCeilingGlass(Game.MenuCeilingRenderer, _menuCeilingWorld);
+
+            //The gun's own glazing after the plate, as in play: the nearest translucent surface in the frame
+            Game.StandingGun?.DrawGlass();
 
             //The game's name last of all, in front of everything the scene drew (#600) - see DrawWordmark
             Game.FinishSceneDraw(sceneFrame, drawOnTop: _drawWordmark);

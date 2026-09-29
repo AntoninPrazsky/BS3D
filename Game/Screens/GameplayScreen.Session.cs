@@ -71,8 +71,11 @@ namespace BS3D.Screens
             //FitCeilingToMap made a new renderer, which starts without the sky palette
             Game.ApplySkyLighting();
 
-            //The gun casts from now until TearDown takes it away again (#470)
-            Game.SessionShadowCasters = _gunShadowCaster;
+            //The gun stands from now until TearDown takes it away again: it casts (#470) and it is drawn over the
+            //front end while this session is kept for Continue (#650), both off this one registration. Installed
+            //here and not in the constructor, because this screen outlives every session — the gun would cast over
+            //the front end before the first Play, and stand nowhere after the first Retry, Next Level or Main Menu.
+            Game.StandingGun = this;
 
             IsBuilt = true;
 
@@ -127,10 +130,10 @@ namespace BS3D.Screens
             Game.Confetti?.Stop();
             Game.Trophy?.Hide();
 
-            //The gun stops casting with the session that owned its pose (#470); the island goes on casting,
-            //being the host's. Without this the front end would draw a gun's shadow onto the stone with no
-            //gun standing on it.
-            Game.SessionShadowCasters = null;
+            //The gun goes with the session that owned its pose (#470, #650): no shadow and no gun in the front end's
+            //frame; the island goes on casting, being the host's. A registration that outlived the session would
+            //draw a gun's shadow onto the stone with no gun standing on it, or a gun nobody can Continue.
+            Game.StandingGun = null;
 
             //Idempotent, which is what this needs: DisposeResources runs it again on the way out of the program
             _world?.Dispose();

@@ -63,7 +63,7 @@ namespace BS3D.Screens
     /// be read end to end. The extractions the split stages are named on the partials that hold them.
     /// </para>
     /// </summary>
-    internal sealed partial class GameplayScreen : Screen, IFrameBlurSource
+    internal sealed partial class GameplayScreen : Screen, IFrameBlurSource, IStandingGun
     {
         private readonly BS3DGame Game;
 
@@ -704,9 +704,6 @@ namespace BS3D.Screens
 
         private readonly Cannon _cannon;
 
-        //What the gun hands the host's sun shadow pass — built once in the constructor, installed per level
-        private readonly System.Action<Matrix> _gunShadowCaster;
-
         //The queue of loaded colours, its post-shot glide and where each loaded ball sits in the bore are all
         //Magazine's, shared with the Testbed since #76 — as are the two figures the barrel was cut to
         //(Magazine.SIZE and Magazine.SPACING, which CannonRig derives the tube's length and
@@ -977,15 +974,6 @@ namespace BS3D.Screens
             //(CannonRig.TrunnionHeightAt) and the pose re-seats it on every move — the wheels stay on the
             //stone wherever the walk stands.
             _cannon = new Cannon(new Vector3(0f, 5f, 0f), 20f);
-
-            //What this session adds to the sun's shadow map (#470): its gun. The host owns the rig and draws
-            //the island; where the gun STANDS is this screen's, and the shadow pass runs before any screen
-            //has drawn, so the session hands the host a closure rather than the host reaching in. Built once
-            //here, so no level allocates it; installed by BuildLevel and cleared by TearDown, because this
-            //screen outlives every session — installed here instead, the gun cast a shadow over the front end
-            //before the first Play, and none at all after the first Retry, Next Level or Main Menu.
-            _gunShadowCaster = vp => Game.CannonRig.DrawShadow(vp, _cannon.BarrelWorld(),
-                _cannon.CarriageWorld(), _cannon.WheelTravel, _cannon.SlideTravel);
 
             //The queue's colours are the level's business (RandomBallType draws only among what is still
             //hanging), so what to load next is injected; the constructor deals a full queue with it, which is
@@ -1528,27 +1516,11 @@ namespace BS3D.Screens
             //glass: the copy it bends is taken here, before the gun and the cluster hang in front of it (#541).
             Game.GrabCeilingBackground(Game.CeilingRenderer, _ceiling.World);
 
-            //The barrel, drawn with its recoil stroke: the pose is Cannon's and the hardware CannonRig's, so
-            //the tube that was built and the bore a shot leaves from cannot disagree. The carriage under it
-            //takes the stroke's own smaller, later share since #115 — the tube slides in the cradle and the
-            //undercarriage lurches a beat behind it — and its wheels roll with everything that moves them,
-            //the advance walk and that shove both (Cannon.WheelTravel).
-            //Into a local (taken above, with the carriage's, for the motion blur) because the window's glazing is
-            //drawn with the very same pose further down — it is set into this tube, so the one pose serves both
-            //rather than being built a second time from a second read of the stroke, which is one more thing that
-            //could ever come out differently.
-            Game.CannonRig.Draw(Camera, barrelWorld, Game.SceneEffectParams);
-
-            //The next round's colour, stated by the collar around the muzzle (#425). Opaque geometry drawn with
-            //the barrel it rings, not with the additive marks below: it is part of the gun, so the cluster and
-            //the carriage occlude it exactly as they occlude the tube, and nothing about what the player sees
-            //depends on which way the gun happens to be turned.
-            DrawMuzzleCollar(barrelWorld);
-            Game.CannonRig.DrawCarriage(Camera, carriageWorld, _cannon.WheelTravel, _cannon.SlideTravel, Game.SceneEffectParams);
-
-            //On the game's birthday the gun wears a hat (#230), on the barrel's own pose so it recoils, walks and
-            //nods off with it. Null on every other day.
-            Game.PartyHat?.Draw(Camera, barrelWorld, Game.SceneEffectParams, _preciseAim.Blend);
+            //The barrel, its collar, the carriage and the hat — one method, because the front end draws the very same
+            //gun over a session it kept (#650). The poses are the locals taken above (with the carriage's, for the
+            //motion blur): the window's glazing is drawn with the barrel's own further down, so the one pose serves
+            //both rather than being built a second time from a second read of the stroke.
+            DrawGun(barrelWorld, carriageWorld);
 
             //Everything collected above, as one instanced draw per ball type and LOD level — and the frame's
             //collection is closed by it. The heartbeat runs on the WALL clock: the balls go on breathing while
@@ -1622,6 +1594,61 @@ namespace BS3D.Screens
             else if (overlayUp) DrawOverlay();
             else if (lossPreviews) DrawOverlay(previewsOnly: true);
         }
+
+        /// <summary>
+        /// The gun's opaque parts in the order they draw. The barrel goes with its recoil stroke: the pose is
+        /// Cannon's and the hardware CannonRig's, so the tube that was built and the bore a shot leaves from
+        /// cannot disagree. The carriage under it takes the stroke's own smaller, later share since #115 — the tube
+        /// slides in the cradle and the undercarriage lurches a beat behind it — and its wheels roll with everything
+        /// that moves them, the advance walk and that shove both (<see cref="Cannon.WheelTravel"/>). One method for
+        /// the session's frame and the front end's over a kept session (#650), so the gun in the menu is the gun in
+        /// play and not a second drawing of it.
+        /// </summary>
+        private void DrawGun(in Matrix barrelWorld, in Matrix carriageWorld)
+        {
+            Game.CannonRig.Draw(Camera, barrelWorld, Game.SceneEffectParams);
+
+            //The next round's colour, stated by the collar around the muzzle (#425). Opaque geometry drawn with
+            //the barrel it rings, not with the additive marks after it: it is part of the gun, so the cluster and
+            //the carriage occlude it exactly as they occlude the tube, and nothing about what the player sees
+            //depends on which way the gun happens to be turned.
+            DrawMuzzleCollar(barrelWorld);
+            Game.CannonRig.DrawCarriage(Camera, carriageWorld, _cannon.WheelTravel, _cannon.SlideTravel, Game.SceneEffectParams);
+
+            //On the game's birthday the gun wears a hat (#230), on the barrel's own pose so it recoils, walks and
+            //nods off with it. Null on every other day.
+            Game.PartyHat?.Draw(Camera, barrelWorld, Game.SceneEffectParams, _preciseAim.Blend);
+        }
+
+        #region The gun as the host sees it (#650)
+
+        //What the host asks of a session that stands: BuildLevel registers this screen as the host's IStandingGun and
+        //TearDown takes it away, so the shadow pass and the front end's frame share the one answer to "is there a gun".
+        //The front end reaches these while this screen is OFF the stack (the pause page's Main Menu keeps the session
+        //for Continue, #607), which is why each reads the gun's pose afresh rather than off anything Draw left.
+
+        void IStandingGun.CastShadow(Matrix shadowViewProjection) =>
+            Game.CannonRig.DrawShadow(shadowViewProjection, _cannon.BarrelWorld(), _cannon.CarriageWorld(),
+                _cannon.WheelTravel, _cannon.SlideTravel);
+
+        void IStandingGun.CollectBalls(in BallDrawFrame frame)
+        {
+            //Nothing moves under the front end and it runs no velocity pass, so the last frame's motion record is
+            //not this frame's: RoundShutterWorld would otherwise carry a stale barrel-back matrix into these rounds.
+            _motionThisFrame = false;
+
+            //A wildcard in the bore is crossing between the session's two colours, and the set is the whole
+            //program's — the same statement the session makes before it collects its own frame
+            Game.Balls.SetWildcardCrossing(_wildcard.From, _wildcard.To, _wildcard.Progress);
+
+            CollectMagazineBalls(frame);
+        }
+
+        void IStandingGun.Draw() => DrawGun(_cannon.BarrelWorld(), _cannon.CarriageWorld());
+
+        void IStandingGun.DrawGlass() => Game.CannonRig.DrawGlass(Camera, _cannon.BarrelWorld(), Game.SceneEffectParams);
+
+        #endregion
 
         /// <summary>
         /// The session's display-space overlay: the HUD and the crosshair, into the host's batch — onto the
