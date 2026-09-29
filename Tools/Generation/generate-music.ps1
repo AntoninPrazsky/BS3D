@@ -41,7 +41,7 @@ param(
 
     [switch]$Loop,
 
-    [string]$Out = "$AiRoot\output\track.mp3"
+    [string]$Out = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -49,7 +49,7 @@ $ErrorActionPreference = "Stop"
 # The engine, its models and the outputs live outside the repository: BS3D_AI_ROOT names the folder holding
 # ComfyUI\ and output\ (the scripts themselves, this one and loop_crossfade.py, are found beside it in the repo).
 $AiRoot    = if ($env:BS3D_AI_ROOT) { $env:BS3D_AI_ROOT } else { $PSScriptRoot }
-if (-not $Out) { $Out = Join-Path $AiRoot "output	rack.mp3" }
+if (-not $Out) { $Out = Join-Path $AiRoot "output\track.mp3" }
 $ModelsDir = "$AiRoot\ComfyUI\models\text_encoders"
 $BuildDir  = "$AiRoot\ComfyUI\custom_nodes\acestep-cpp-comfyui\acestep.cpp\build"
 $AceLm     = "$BuildDir\ace-lm.exe"
