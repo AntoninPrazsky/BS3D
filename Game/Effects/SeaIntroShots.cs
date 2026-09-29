@@ -5,11 +5,19 @@ using System;
 namespace BS3D.Effects
 {
     /// <summary>
-    /// The sea's own shots for a chapter intro's prologue (#559): the island alone on the open water, a skim
-    /// over the swell into the sun's glint, and a low pass round the island's flank at the waterline — cut
-    /// together, then cut to the tour's last leg. The sea has no landmark of its own; what it builds is the
-    /// swell (<c>Sea.fx</c>'s six Gerstner waves), the glint the sun lays across it, and the one rock in it,
-    /// which is the island.
+    /// The sea's own shots for a chapter intro's prologue (#559): a low pass round the island's flank at the
+    /// waterline, a skim over the swell into the sun's glint, and a flight low over the water that climbs to the
+    /// sun the glint comes from (#652) — cut together, then cut to the tour's last leg. The sea has no landmark of
+    /// its own; what it builds is the swell (<c>Sea.fx</c>'s six Gerstner waves), the glint the sun lays across it,
+    /// and the one rock in it, which is the island.
+    /// <para>
+    /// <b>It opened on the island from far out and high, and the owner threw that shot out (#652):</b> "the high,
+    /// distant view where the island is small in the middle doesn't work — an empty, boring view". One rock and a
+    /// lot of sea from 235 units is exactly what the scene is, and nothing in it to look at. The island is now the
+    /// first shot's subject from close at the waterline, and the far view is replaced by the one the owner asked
+    /// for: skimming the waves through the glitter, then pitching up and rising until the lens is on the sun, so the
+    /// viewer sees the glitter <i>come from</i> it.
+    /// </para>
     /// <para>
     /// <b>The water is the only ground, and it is bounded rather than mirrored.</b> The six waves' weights sum to
     /// 2.92 of <see cref="SeaSceneConfig.WaveAmplitude"/> and the chop adds its own amplitude, so no crest stands
@@ -19,14 +27,21 @@ namespace BS3D.Effects
     /// </summary>
     internal static class SeaIntroShots
     {
-        //The open water: a slow arc round the arena this far out, this much of a turn, dollying in a little and
-        //craning up, the lens on the island. The establishing view: one rock, a lot of sea, the horizon.
-        private const float WIDE_FROM_RADIUS = 235f;
-        private const float WIDE_TO_RADIUS = 195f;
-        private const float WIDE_SWEEP_RADIANS = 0.30f;
-        private const float WIDE_FROM_HEIGHT = 34f;
-        private const float WIDE_TO_HEIGHT = 58f;
-        private const float WIDE_SECONDS = 3.2f;
+        //The climb (#652): a run this long towards the sun, abeam of the arena by this much, from this far over the crests
+        //up to this high, the look starting a little below the horizon on the glint ahead and ending on the sun itself,
+        //swung up between them over the last three quarters of the run. The rise is eased the same way, so the lens
+        //skims the waves for the first moments — the glitter fills the lower half — and then lifts away from them.
+        private const float CLIMB_RUN = 95f;
+        private const float CLIMB_ABEAM_MIN = 75f;
+        private const float CLIMB_ABEAM_MAX = 125f;
+        private const float CLIMB_FROM_HEIGHT = 3.6f;
+        private const float CLIMB_TO_HEIGHT = 34f;
+        private const float CLIMB_FIRST_PITCH_DEGREES = -3f;
+        private const float CLIMB_LOOK_FAR = 400f;
+        private const float CLIMB_SECONDS = 4.6f;
+
+        //With no sun to climb to (a dome that gives none), the elevation the climb ends at
+        private const float CLIMB_FALLBACK_ELEVATION_DEGREES = 32f;
 
         //The swell: a run this long this high over the mean level, into the sun so the glint lies down the
         //middle of the frame, abeam of the arena by this much (so the island is never on the line), pitched
@@ -63,36 +78,55 @@ namespace BS3D.Effects
                 ? Vector2.Normalize(sun)
                 : AridIntroPaths.Bearing(AridIntroPaths.Roll(random, 0f, MathHelper.TwoPi));
 
+            //The sun's height above the horizon, for the climb's last look
+            float elevation = sunDirection is Vector3 toSun && toSun.LengthSquared() > 1e-6f
+                ? MathF.Asin(MathHelper.Clamp(Vector3.Normalize(toSun).Y, -1f, 1f))
+                : MathHelper.ToRadians(CLIMB_FALLBACK_ELEVATION_DEGREES);
+
             return new[]
             {
-                OpenWater(sea, heading, fieldOfView, random),
-                Swell(sea, heading, fieldOfView, random),
                 Flank(sea, fieldOfView, random),
+                Swell(sea, heading, fieldOfView, random),
+                Climb(sea, heading, elevation, fieldOfView, random),
             };
         }
 
         /// <summary>
-        /// The establishing view: from well out over the water, looking back at the island with the sun behind
-        /// it — so the glint runs across the sea towards it — arcing a little and craning up.
+        /// The climb (#652): a run over the crests towards the sun, abeam of the arena, that rises while the look swings
+        /// up from the glint ahead to the sun itself — the last frames are the sun and the sky round it, and the glitter
+        /// the lens has been skimming lies under them, leading to it.
         /// </summary>
-        private static IntroShot OpenWater(SeaSceneConfig sea, Vector2 heading, float fieldOfView, Random random)
+        private static IntroShot Climb(SeaSceneConfig sea, Vector2 heading, float sunElevation, float fieldOfView, Random random)
         {
-            float sunBearing = MathF.Atan2(heading.Y, heading.X);
+            Vector2 abeam = new Vector2(-heading.Y, heading.X) * (random.Next(2) == 0 ? 1f : -1f)
+                * AridIntroPaths.Roll(random, CLIMB_ABEAM_MIN, CLIMB_ABEAM_MAX);
 
-            //Opposite the sun, a little to one side, so the island stands in the glint's path.
-            float from = sunBearing + MathHelper.Pi + AridIntroPaths.Roll(random, -0.35f, 0.35f);
-            float sign = random.Next(2) == 0 ? 1f : -1f;
+            //Starting well behind the arena's line: the closest the run comes to the island is the abeam distance.
+            Vector2 from = abeam - heading * (CLIMB_RUN * AridIntroPaths.Roll(random, 0.25f, 0.6f));
+            Vector2 to = from + heading * CLIMB_RUN;
 
-            Vector2[] plan = AridIntroPaths.Arc(Vector2.Zero, from, from + sign * WIDE_SWEEP_RADIANS, WIDE_FROM_RADIUS, WIDE_TO_RADIUS);
+            float low = sea.LevelY + MathF.Max(CLIMB_FROM_HEIGHT, CrestHeight(sea) + 2f);
+            float high = sea.LevelY + CLIMB_TO_HEIGHT;
+
+            Vector2[] plan = AridIntroPaths.Line(from, to);
             var path = new Vector3[plan.Length];
+            var look = new Vector3[plan.Length];
+
             for (int i = 0; i < plan.Length; i++)
             {
                 float s = i / (float)(plan.Length - 1);
-                path[i] = new Vector3(plan[i].X, sea.LevelY + MathHelper.Lerp(WIDE_FROM_HEIGHT, WIDE_TO_HEIGHT, s * s * (3f - 2f * s)), plan[i].Y);
+                float lift = s * s * (3f - 2f * s);
+                path[i] = new Vector3(plan[i].X, MathHelper.Lerp(low, high, lift), plan[i].Y);
+
+                //The look: level with the run at first, a touch down on the glint, then up to the sun
+                float swing = MathHelper.Clamp((s - 0.25f) / 0.75f, 0f, 1f);
+                swing = swing * swing * (3f - 2f * swing);
+                float pitch = MathHelper.Lerp(MathHelper.ToRadians(CLIMB_FIRST_PITCH_DEGREES), sunElevation, swing);
+                Vector3 direction = new(heading.X * MathF.Cos(pitch), MathF.Sin(pitch), heading.Y * MathF.Cos(pitch));
+                look[i] = path[i] + direction * CLIMB_LOOK_FAR;
             }
 
-            return new IntroShot("the open water", path, WIDE_SECONDS, fieldOfView * 1.1f,
-                lookAt: new Vector3(0f, ArenaIsland.TOP_Y, 0f));
+            return new IntroShot("the climb to the sun", path, CLIMB_SECONDS, fieldOfView * 1.2f, lookAtPath: look);
         }
 
         /// <summary>
