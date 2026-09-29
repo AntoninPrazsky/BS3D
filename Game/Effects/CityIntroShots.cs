@@ -7,8 +7,10 @@ namespace BS3D.Effects
 {
     /// <summary>
     /// The city's own shots for a chapter intro's prologue (#488, and #433 inside it): a pass low down a
-    /// street, a swing round a tower corner between the facades, a crane up over a plaza and a skim across
-    /// the roofs with their masts and blinking beacons (#436) — cut together, then cut to the ordinary tour. Both cities have spent a whole issue's worth of detail on the street
+    /// street, an orbit over a plaza from above, a swing round a tower corner between the facades and a skim
+    /// across the roofs with their masts and blinking beacons (#436) — in that order, which alternates what the
+    /// lens sees so that no cut lands on the same picture nudged (the owner's second-round note) — cut together,
+    /// then cut to the ordinary tour. Both cities have spent a whole issue's worth of detail on the street
     /// level (#399: lane lines, crossings, parked cars, plazas of trees, and at night the sodium lamps and the
     /// shops' neon) that no camera in the game had ever gone down to, and the tour cannot take it there: it is
     /// a spline round the arena, and the streets are ninety units under the island, between towers.
@@ -39,29 +41,35 @@ namespace BS3D.Effects
         //still rise up the rest of it.
         private const float STREET_HEIGHT = 5.5f;
         private const float STREET_START_BLOCKS = 6.5f, STREET_START_JITTER = 2f;
-        private const float STREET_RUN_BLOCKS = 1.6f;
+        private const float STREET_RUN_BLOCKS = 2.0f;
         private const float STREET_PITCH_DEGREES = 13f;
-        private const float STREET_SECONDS = 3.6f;
+        private const float STREET_SECONDS = 4.5f;
 
         //The swing (#433's "like Spider-Man"): a run down one street, round the corner, off down the next,
         //dipping on the way in and climbing out — the lowest point at the corner, as a swing's is.
         private const float SWING_HEIGHT = 46f, SWING_DIP = 14f, SWING_CLIMB = 10f;
-        private const float SWING_LEG_BLOCKS = 1.4f;
-        private const float SWING_SECONDS = 3.0f;
+        private const float SWING_LEG_BLOCKS = 1.8f;
+        private const float SWING_SECONDS = 4.0f;
 
-        //The crane: from over the plaza's trees up to above the lower roofs, looking down at them. ⚠ Not
+        //The orbit: round the plaza's trees while rising to above the lower roofs, looking down at them. ⚠ Not
         //lower: the trees are discs painted on the paving, and from 16 units over them the first cut read them
         //as holes in the plaza. From twice that they are a park's canopy among the streets and cars round it.
-        private const float PLAZA_FROM_HEIGHT = 30f, PLAZA_TO_HEIGHT = 58f;
-        private const float PLAZA_SECONDS = 3.0f;
+        private const float PLAZA_FROM_HEIGHT = 32f, PLAZA_TO_HEIGHT = 54f;
+        private const float PLAZA_ORBIT_RADIUS_BLOCKS = 0.45f, PLAZA_ORBIT_DEGREES = 80f;
+        private const float PLAZA_SECONDS = 4.0f;
 
         //The roofs: down the middle of a street at the height of the roofs either side of it, so the masts,
         //dishes and beacons pass on both hands. Over a street's centre line nothing stands at any height (see
         //the class doc), so the lens needs no clearance over the equipment and can skim it.
         private const float ROOFS_ABOVE_MEDIAN = 4f;
-        private const float ROOFS_RUN_BLOCKS = 2f;
+        private const float ROOFS_RUN_BLOCKS = 2.4f;
         private const float ROOFS_PITCH_DEGREES = 22f;
-        private const float ROOFS_SECONDS = 3.2f;
+        private const float ROOFS_SECONDS = 5.5f;
+
+        //The roofs' lens sways this far off the street's centre line and back as it goes (a street is 7.5–9 wide, so it
+        //stays well inside it): a straight skim at a constant height reads as one long dolly, and the sway is what gives
+        //the masts and dishes their parallax as they pass.
+        private const float ROOFS_SWAY_UNITS = 2.2f;
 
         //How many candidates each roll weighs; the best by its own measure is taken.
         private const int CANDIDATES = 12;
@@ -77,13 +85,18 @@ namespace BS3D.Effects
         {
             if (city == null) return null;
 
-            var shots = new List<IntroShot>(3) { Street(city, fieldOfView, random) };
-
-            IntroShot swing = Swing(city, fieldOfView, random);
-            if (swing != null) shots.Add(swing);
+            //The order alternates what the lens sees, so that no two shots in a row are a variation of one (#488's second
+            //round: "a quick cut that looks at the square, and straight after it the square again from a very slightly
+            //different angle — it looks like a glitch"): the street from the ground looking down it, the plaza from
+            //above, the swing between the towers, the roofs over the top. The swing turns in from the OTHER axis than
+            //the street ran along, so its walls do not stand where the street's did.
+            var shots = new List<IntroShot>(4) { Street(city, fieldOfView, random, out bool streetAlongZ) };
 
             IntroShot plaza = Plaza(city, fieldOfView, random);
             if (plaza != null) shots.Add(plaza);
+
+            IntroShot swing = Swing(city, fieldOfView, random, streetAlongZ);
+            if (swing != null) shots.Add(swing);
 
             //Last, because it is the highest: the cut from it to the tour's opening look down the canyon is
             //the smallest jump of height the reel makes.
@@ -97,11 +110,12 @@ namespace BS3D.Effects
         /// rolled streets the one flanked by the most built blocks is taken — the deepest canyon — because a
         /// street with a plaza on each side is not the city the owner asked to see.
         /// </summary>
-        private static IntroShot Street(City city, float fieldOfView, Random random)
+        private static IntroShot Street(City city, float fieldOfView, Random random, out bool streetAlongZ)
         {
             float pitch = city.BlockPitch;
             int bestScore = -1;
             Vector3 from = Vector3.Zero, to = Vector3.Zero;
+            streetAlongZ = true;
 
             for (int attempt = 0; attempt < CANDIDATES; attempt++)
             {
@@ -122,6 +136,7 @@ namespace BS3D.Effects
                 if (score <= bestScore) continue;
 
                 bestScore = score;
+                streetAlongZ = alongZ;
                 float across = (line + 0.5f) * pitch + lane;
                 float y = city.GroundY + STREET_HEIGHT;
                 from = alongZ ? new Vector3(across, y, start) : new Vector3(start, y, across);
@@ -147,7 +162,7 @@ namespace BS3D.Effects
         /// through the two streets and the intersection instead would cut deep into that block.
         /// </para>
         /// </summary>
-        private static IntroShot Swing(City city, float fieldOfView, Random random)
+        private static IntroShot Swing(City city, float fieldOfView, Random random, bool streetAlongZ)
         {
             float pitch = city.BlockPitch;
             float radius = city.StreetWidth * 0.75f;
@@ -165,7 +180,10 @@ namespace BS3D.Effects
                 float ring = MathF.Max(MathF.Abs(at.X), MathF.Abs(at.Y)) / pitch;
                 if (ring < 3f || ring > 6.5f) continue;
 
-                Vector2 d1 = random.Next(4) switch { 0 => Vector2.UnitX, 1 => -Vector2.UnitX, 2 => Vector2.UnitY, _ => -Vector2.UnitY };
+                //Coming in along the axis the low street did NOT run along (#488): a street along Z is answered by a swing
+                //that starts along X, so the two shots' facades stand at different angles to the frame
+                float sign = random.Next(2) == 0 ? 1f : -1f;
+                Vector2 d1 = streetAlongZ ? new Vector2(sign, 0f) : new Vector2(0f, sign);
                 Vector2 d2 = random.Next(2) == 0 ? new Vector2(-d1.Y, d1.X) : new Vector2(d1.Y, -d1.X);
 
                 //The block the swing turns round sits in the quadrant behind the inbound leg and towards the
@@ -224,8 +242,8 @@ namespace BS3D.Effects
         }
 
         /// <summary>
-        /// The crane over a plaza: a block the generator left open, three to seven out, shot from above as it
-        /// rises — its trees are painted onto the paving, so they read only from over them.
+        /// The orbit over a plaza: a block the generator left open, three to seven out, shot from above as the lens
+        /// arcs round it and rises — its trees are painted onto the paving, so they read only from over them.
         /// </summary>
         private static IntroShot Plaza(City city, float fieldOfView, Random random)
         {
@@ -244,18 +262,26 @@ namespace BS3D.Effects
             Point block = open[random.Next(open.Count)];
             Vector3 centre = new(block.X * pitch, city.GroundY, block.Y * pitch);
 
-            //Off to one side of the plaza's middle and drifting across it while it rises, so the crane is a
-            //move and not a lift; well inside the plaza's own square, where nothing stands.
-            float angle = (float)random.NextDouble() * MathHelper.TwoPi;
-            Vector3 drift = new Vector3(MathF.Cos(angle), 0f, MathF.Sin(angle)) * (pitch * 0.2f);
-
-            Vector3 from = centre + drift + Vector3.Up * PLAZA_FROM_HEIGHT;
-            Vector3 to = centre - drift * 0.6f + Vector3.Up * PLAZA_TO_HEIGHT;
+            //An arc round the plaza while it rises, the lens kept on its middle (#488): the crane it was, a lift over one
+            //spot with the view straight down, was seven seconds' worth of the same picture once the tour's own look
+            //at the arena was cut in after it. Off the middle by PLAZA_ORBIT_RADIUS_BLOCKS of a block — over the plaza
+            //and the streets round it, where nothing stands at any height (a building's square stops half a street
+            //short of the centre line, so the free ground reaches a little over half a pitch from the middle) — so
+            //the lens looks in at about two thirds of a right angle and the towers round the block lean into the frame.
+            float startAngle = (float)random.NextDouble() * MathHelper.TwoPi;
+            float sweep = MathHelper.ToRadians(PLAZA_ORBIT_DEGREES) * (random.Next(2) == 0 ? 1f : -1f);
+            float orbit = pitch * PLAZA_ORBIT_RADIUS_BLOCKS;
 
             var path = new Vector3[PATH_POINTS];
-            for (int i = 0; i < PATH_POINTS; i++) path[i] = Vector3.Lerp(from, to, i / (float)(PATH_POINTS - 1));
+            for (int i = 0; i < PATH_POINTS; i++)
+            {
+                float u = i / (float)(PATH_POINTS - 1);
+                float angle = startAngle + sweep * u;
+                path[i] = centre + new Vector3(MathF.Cos(angle) * orbit, MathHelper.Lerp(PLAZA_FROM_HEIGHT, PLAZA_TO_HEIGHT, u),
+                    MathF.Sin(angle) * orbit);
+            }
 
-            return new IntroShot("the plaza", path, PLAZA_SECONDS, fieldOfView, lookAt: centre - drift * 0.3f);
+            return new IntroShot("the plaza", path, PLAZA_SECONDS, fieldOfView, lookAt: centre);
         }
 
         /// <summary>
@@ -294,8 +320,15 @@ namespace BS3D.Effects
             Vector3 from = alongZ ? new Vector3(across, y, start) : new Vector3(start, y, across);
             Vector3 to = alongZ ? new Vector3(across, y + 6f, end) : new Vector3(end, y + 6f, across);
 
+            //Swaying across the street as it runs (ROOFS_SWAY_UNITS): one full period, so it starts and ends on the
+            //centre line the tour's cut expects
+            Vector3 sideways = alongZ ? Vector3.UnitX : Vector3.UnitZ;
             var path = new Vector3[PATH_POINTS];
-            for (int i = 0; i < PATH_POINTS; i++) path[i] = Vector3.Lerp(from, to, i / (float)(PATH_POINTS - 1));
+            for (int i = 0; i < PATH_POINTS; i++)
+            {
+                float u = i / (float)(PATH_POINTS - 1);
+                path[i] = Vector3.Lerp(from, to, u) + sideways * (ROOFS_SWAY_UNITS * MathF.Sin(MathHelper.TwoPi * u));
+            }
 
             return new IntroShot("the roofs", path, ROOFS_SECONDS, fieldOfView * 1.1f,
                 lookAhead: 30f, pitchDownDegrees: ROOFS_PITCH_DEGREES);
