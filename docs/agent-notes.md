@@ -7082,3 +7082,8 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-29 — #667 sklo okénka děla, pak #668 hudba pauzy — desktop, Claude Code (bs3d-78)
 
 - **Beru #667** (sklo děla téměř neprůhledné, na okrajích prosvítají koule, liší se podle scény): nejdřív změřit obrys tabule proti výřezu v `CannonMesh`/`CannonGlassMesh` a jas koule za sklem proti koulí v otevřeném zářezu ve všech 20 scénách, pak opravit. Soubory: `BS3DLibs/Prazsky.Core/Render/*Cannon*`, `BS3DLibs/Prazsky.BS3D/CannonRig.cs`, `InstancedModel.fx`/sklo, docs. **Pak #668** (klidná smyčka pro pauzu přes ACE-Step na desktopu + zapojení v `GameMusic`/`PausePage`). #664 je na větvi `664-symmetric-openers` (recenze běží).
+
+## 2026-09-29 — #664 otvíráky zrcadlově souměrné — desktop, Claude Code (bs3d-78)
+
+- **Na mainu, `shipped-awaiting-verdict`.** Bitmapy plachet souměrné byly, mřížka ne: liché vrstvy jsou posunuté o půl buňky a dělo krouží kolem středu **horní** vrstvy pole (`FitWorldOffset`) — u 18vrstvých polí je to ta posunutá, osa tedy leží na 8,5, ne na 8,0 jak předpokládalo issue. `FlatBitmap` teď ptá pravidla na skutečné místo buňky (`FLAT_ROW_SHIFT` −0,5 na lichých řádcích). Nová brána `Design.MirrorOutline`/`MirrorColours` (`LevelGates.MirrorFaults`, měřeno kolem osy orbity): všechny tři plachty slibují obrys, **Pennant i barvy**. Rainbow a Zigzag mají barvy nesouměrné záměrně (oblouky, pruhy) — otázka na majitele v issue.
+- **Viděno selhat:** se starou kresbou brána odmítne všechny tři (14 koulí bez protějšku každá), LevelGen exit 1. Nově Pennant 238 koulí, Rainbow 232, Zigzag 322; skupiny i výstřely ze stanoviště stejné; sag 0 z 5; ScoreSim čistý. Snímek z herní kamery před/po. Recenze (2 agenti) geometrii nezávisle potvrdila.

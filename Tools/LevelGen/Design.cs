@@ -128,6 +128,18 @@ namespace BS3D.Tools.LevelGen
         /// </summary>
         public bool ClearFromStance;
 
+        /// <summary>
+        /// <b>The level promises to look symmetric</b> (#664): LevelGen refuses it unless every ball has a ball at its
+        /// mirror cell across the vertical plane through the axis the gun orbits — the axis the camera looks down
+        /// from the opening stance, which is the middle of the field's top level
+        /// (<c>ClusterHang.FitWorldOffset</c>), not the array's middle column (<see cref="LevelGates.MirrorFaults"/>).
+        /// The flat openers carry it: the owner's "the very first level does not look symmetric — it should".
+        /// </summary>
+        public bool MirrorOutline;
+
+        /// <summary>And the mirrored ball the same colour and kind, for a level whose colours are symmetric too (Pennant).</summary>
+        public bool MirrorColours;
+
         /// <summary>Round radius, angle, layout level, layout depth -> is there a ball here.</summary>
         public Func<float, float, int, int, bool> Occupied;
 
