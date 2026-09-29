@@ -29,8 +29,14 @@
 .PARAMETER Scene
     The menu's scene (only with -Menu; a level's scene is the level's own).
 
+.PARAMETER Seed
+    The session's seed, which decides the magazine's deal. Pinned because the queue in the corner is part of the
+    picture and an unpinned deal is a lottery: one of the first four runs came out with five balls of the same grey. This one
+    deals a queue of four different colours on Reel; another level or a new look wants another look at the deal
+    (the run prints "[session] seed N" and any N replays with -Seed N).
+
 .PARAMETER Seconds
-    How long into the run the frame is taken. A level needs a few seconds for its cluster to settle.
+    How long into the run the frame is taken (the barrel is held dead ahead until well after it). A level needs a few seconds for its cluster to settle.
 
 .PARAMETER Quality
     The JPEG's quality, 1-100.
@@ -45,6 +51,7 @@ param(
     [string]$Level = 'Reel',
     [switch]$Menu,
     [string]$Scene = 'desert',
+    [int]$Seed = 917045606,
     [double]$Seconds = 9,
     [ValidateRange(1, 100)][int]$Quality = 92
 )
@@ -69,8 +76,11 @@ if ($LASTEXITCODE -ne 0) { throw "dotnet build failed (exit $LASTEXITCODE)" }
 New-Item -ItemType Directory -Force $profileDir | Out-Null
 
 # nosplash: straight to the front end or the level. mute and nofps: nothing over the picture but the game.
+# sweep with a 0 degree amplitude holds the barrel's traverse dead ahead for the whole run: the gun aims off the
+# mouse otherwise, and a run started with the cursor somewhere else came out with the barrel turned 70 degrees.
 $what = if ($Menu) { "scene=$Scene" } else { "level=$Level" }
-$arguments = "nosplash mute nofps $what shot=$Seconds userdata=`"$profileDir`""
+$hold = $Seconds + 20
+$arguments = "nosplash mute nofps $what seed=$Seed sweep=0:${hold}:0 shot=$Seconds userdata=`"$profileDir`""
 
 Write-Host "Running: BS3D.exe $arguments"
 $process = Start-Process $exe -ArgumentList $arguments -WorkingDirectory $build -PassThru `
