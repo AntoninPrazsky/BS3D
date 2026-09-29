@@ -404,6 +404,12 @@ namespace Prazsky.Core.Render
         //the top of it. Ten units is under a texel of depth at any of the ranges in play.
         private const float SHADOW_FIT_MARGIN = 10f;
 
+        //How far ahead of the lens the shadow map's square is centred, as a share of its width (#662): 0.3 puts
+        //0.8 of it in front of a level camera and 0.2 behind - 208 units of reach at the default 260 instead of
+        //130, for the same texels. What stays behind is for the casters standing behind the lens whose shadows
+        //fall forward into the picture.
+        private const float SHADOW_LOOK_AHEAD = 0.3f;
+
         //And how far over the island's cap the box must reach whatever the ground does: the gun standing on
         //the stone, which in every scene but the savanna, the forest and the beach is the only thing casting
         //at all. Measured off ArenaIsland.TOP_Y rather than off the terrain, because the island's height is
@@ -1506,7 +1512,7 @@ namespace Prazsky.Core.Render
                 && (sceneCasts || extraCasters != null)
                 && _sceneDetail > 0.5f && sunDirection.Y > SHADOW_MIN_SUN_HEIGHT)
             {
-                wanted = TryShadowFit(scene, camera, out centre, out yMin, out yMax);
+                wanted = TryShadowFit(scene, camera, shadows.Extent, out centre, out yMin, out yMax);
             }
 
             //The plate is stated per frame; whatever this frame does with it, the next one starts without it
@@ -1629,7 +1635,7 @@ namespace Prazsky.Core.Render
         /// the island's headroom and the margin.
         /// </para>
         /// </summary>
-        private bool TryShadowFit(SceneKind scene, ICamera camera, out Vector3 centre, out float yMin, out float yMax)
+        private bool TryShadowFit(SceneKind scene, ICamera camera, float extent, out Vector3 centre, out float yMin, out float yMax)
         {
             centre = Vector3.Zero;
             yMin = yMax = 0f;
@@ -1649,8 +1655,22 @@ namespace Prazsky.Core.Render
                 return false;
             }
 
+            //Centred AHEAD of the lens, not on it (#662): a square round the camera spent half its texels on what is
+            //behind it, and the owner saw the beach's palms stop casting a little way into the picture at every
+            //tier. Moved forward along the view by SHADOW_LOOK_AHEAD of the square, scaled by how level the lens
+            //looks, so a camera looking straight down keeps it centred under it; the texels are the same, so the
+            //shadows reach further for nothing. The light's window is still snapped to whole texels in Fit, so a
+            //turning camera slides the window by whole texels and nothing crawls.
             Vector3 at = camera.Position;
-            centre = new Vector3(at.X, groundY, at.Z);
+            Vector3 look = camera.Target - at;
+            float lookLength = look.Length();
+            Vector2 ahead = new(look.X, look.Z);
+            float level = ahead.Length();
+            if (lookLength > 1e-4f && level > 1e-4f)
+                ahead *= SHADOW_LOOK_AHEAD * extent * (level / lookLength) / level;
+            else
+                ahead = Vector2.Zero;
+            centre = new Vector3(at.X + ahead.X, groundY, at.Z + ahead.Y);
             yMin = groundY - below - SHADOW_FIT_MARGIN;
 
             //Whatever the terrain does, the box has to clear the island's cap with the gun standing on it —
