@@ -190,7 +190,7 @@ namespace Prazsky.BS3D
         //knowing before anyone spends effort here: drawn with this colour AND the sky reflection at zero, the
         //covered queue measured 100.1 against 100.6 with both present - half a level out of 255. Whatever the
         //pane costs the queue, it is not this.
-        private static readonly Vector3 GLASS_COLOR = new(0.067f, 0.128f, 0.229f);
+        private static readonly Vector3 GLASS_COLOR = new Vector3(0.067f, 0.128f, 0.229f) * (0.92f / GLASS_ALPHA);
 
         //How much of the frame behind the pane it keeps out: well over the plate's 0.4, and since #365 well
         //over its own old 0.62 - a covered round keeps 0.08 of the light it would have in open air where it
@@ -224,7 +224,12 @@ namespace Prazsky.BS3D
         //visible" ON SCREEN is what took 0.62 all the way to 0.92, and it lands at 0.41 of the covered
         //band's old brightness with the dark types loaded. So do not read this figure as "how much light
         //gets through" and expect the frame to follow.
-        private const float GLASS_ALPHA = 0.92f;
+        //
+        //#660 took it back to 0.84: the owner, playing, found the pane "almost completely opaque" and asked for
+        //the loaded balls to be at least hinted at. 0.84 lets 0.16 through where 0.92 let 0.08 - twice the
+        //light, which by the 0.44 power above is about a third brighter on screen - and GLASS_COLOR is scaled
+        //by 0.92 / GLASS_ALPHA so the pane's own veil (colour x alpha) stays exactly what #365 left it.
+        private const float GLASS_ALPHA = 0.84f;
 
         //Radial thickness of the pane. Seated on the bore, so its outer face stands at BORE_RADIUS + this,
         //which has to stay under the slimmest steel the window crosses (the chase dip, outer - 0.075, i.e.
