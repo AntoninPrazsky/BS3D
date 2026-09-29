@@ -11,7 +11,7 @@
 //
 //Every caller gates on ShadowStrength with a [branch]: 0 means no map is bound this frame (the scene has
 //none, the tier dropped it, or the sun is below the horizon), and the samples must not run - they would
-//read an unbound texture, and on a scene without shadows they would cost nine taps for nothing.
+//read an unbound texture, and on a scene without shadows they would cost sixteen taps for nothing.
 
 texture ShadowMap;
 sampler ShadowSampler = sampler_state

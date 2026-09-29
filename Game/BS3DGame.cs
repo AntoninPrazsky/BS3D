@@ -455,7 +455,16 @@ namespace BS3D
 
                 if (!Birthday && !_secretHat) return null;
 
-                return _partyHat ??= new PartyHat(GraphicsDevice, _instancingEffect, _cannonRig);
+                if (_partyHat != null) return _partyHat;
+
+                //Built on a frame the scene's ApplySkyLighting has long since run on, so nothing would hand it the
+                //dome's rig until the next scene or dome change and it would draw under the library's default one
+                //(white sky and ground, no linear rig) beside a gun lit by the dome. Hand it the current rig now; it
+                //is enrolled in SkyLitRenderers, so every later re-application reaches it.
+                _partyHat = new PartyHat(GraphicsDevice, _instancingEffect, _cannonRig);
+                foreach (InstancedModelRenderer renderer in _partyHat.Renderers) _rig.ApplyTo(renderer);
+
+                return _partyHat;
             }
         }
 

@@ -1239,6 +1239,11 @@ namespace Prazsky.BS3D.Physics
 
             simulation.Awakener.AwakenBody(ball.BallReference.Handle); //Make sure the released ball starts falling even if it was asleep
 
+            //And back to the ordinary threshold: a cluster kept awake for a wind (PhysicsWorld.KeepClusterAwake) has every
+            //ball at a negative one, which would let a released ball that props against the drain's rim stay in the
+            //active set, stepped and pushed by the wind, for as long as the level lasts instead of coming to rest.
+            simulation.Bodies.GetBodyReference(ball.BallReference.Handle).Activity.SleepThreshold = SLEEP_THRESHOLD;
+
             physicsBalls[cell.X, cell.Z, cell.Level] = null;
             map.RemoveBallAt((byte)cell.X, (byte)cell.Z, (byte)cell.Level);
 

@@ -109,9 +109,38 @@ namespace BS3D.Tests
             Assert.False(AnyBall(ordinary).BallReference.Awake, "an ordinary cluster should have settled to sleep");
             Assert.True(AnyBall(kept).BallReference.Awake, "a kept-awake cluster must not sleep");
 
-            //And a ball of every kind of island: a cluster shot in two has two islands, and every ball is kept awake
+            //And every ball of the level, whichever island it hangs in: each one is kept awake (a cluster shot in two would
+            //have two islands, which this does not build — the threshold sits on the bodies for that reason)
             foreach (PhysicsBall ball in kept.Balls)
                 if (ball != null) Assert.True(ball.BallReference.Awake);
+        }
+
+        /// <summary>
+        /// A released ball leaves the never-sleep set: otherwise one that props against the drain's rim would be stepped,
+        /// and pushed by the wind, for as long as the level lasts instead of coming to rest like it did before the wind.
+        /// </summary>
+        [Fact]
+        public void ABallReleasedFromAKeptAwakeClusterGetsTheOrdinaryThresholdBack()
+        {
+            using HungLevel kept = HungLevel.FromLevelFile(Shipped.Level("Pennant.json"));
+            kept.World.KeepClusterAwake(kept.Balls);
+
+            PhysicsBall lowest = null;
+            foreach (PhysicsBall ball in kept.Balls)
+                if (ball != null && (lowest == null || ball.ArrayPosition.Level < lowest.ArrayPosition.Level)) lowest = ball;
+            Assert.NotNull(lowest);
+
+            var released = new System.Collections.Generic.List<PhysicsBall>();
+            Prazsky.BS3D.Physics.BallsConstraintsBuilder.CutBall(lowest.ArrayPosition, kept.Balls, kept.Map,
+                kept.World.Simulation, released);
+
+            Assert.NotEmpty(released);
+            foreach (PhysicsBall ball in released)
+                Assert.Equal(PhysicsWorld.SLEEP_THRESHOLD, ball.BallReference.Activity.SleepThreshold);
+
+            //What still hangs is untouched
+            foreach (PhysicsBall ball in kept.Balls)
+                if (ball != null) Assert.True(ball.BallReference.Activity.SleepThreshold < 0f);
         }
 
         [Fact]

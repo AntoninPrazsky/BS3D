@@ -73,6 +73,10 @@ namespace BS3D.Screens
             //of the player is the fault RemoveFallenBalls exists to avoid — it simply sticks in silence.
             if (LevelOver) return;
 
+            //The ball the handler just attached carries the ordinary sleep threshold, not the never-sleep one the rest of a
+            //windy level's cluster has (#95): give it the same, or an island of such balls alone could fall asleep and stop swaying
+            if (_wind.Strength > 0f) _world.KeepClusterAwake(_physicsBalls);
+
             if (_shotCode.Record(true)) CelebrateShotCode();
 
             //The landing's own sound, before anything is scored: it depends only on the colour that hit, what it

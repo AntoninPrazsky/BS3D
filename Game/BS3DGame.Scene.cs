@@ -998,14 +998,14 @@ namespace BS3D
         /// <summary>
         /// The air over the scene being drawn, as the physics feels it (#95): its heading is the one the scene's grass,
         /// snow or swell is combed along and its strength is <see cref="SceneWind"/>'s row for it. A session reads it
-        /// when it installs a level — after the level has applied its scene — and once a physics step from then on.
+        /// once, when it builds a level's physics — after the level has applied its scene — and samples its gust every step.
         /// </summary>
         internal Prazsky.BS3D.Physics.WindField SceneWindNow(float scale = 1f) => SceneWind.For(_scene, _sceneRenderer, scale);
 
         /// <summary>
-        /// Whether this tier lets the air move the cluster (<see cref="QualityPreset.ClusterWind"/>, #95): read a physics
-        /// step at a time, so a tier changed from the pause page takes effect at once — off, the cluster settles and
-        /// sleeps; on, it waits for the next shot to wake it, which is the one case the wind does not reach.
+        /// Whether this tier lets the air move the cluster (<see cref="QualityPreset.ClusterWind"/>, #95): read once, when
+        /// a level's physics is built, so a tier changed from the pause page takes effect from the next level start — off,
+        /// the cluster settles and sleeps; on, it waits for the next level to be kept awake.
         /// </summary>
         internal bool ClusterWindEnabled => QualityPreset.Presets[(int)_quality].ClusterWind;
 
