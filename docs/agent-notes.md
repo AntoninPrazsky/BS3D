@@ -6960,3 +6960,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 
 - **Beru #640, zbylou půlku** (okraj kovových pohárů na výsledkové stránce): majitel z tří možností v komentáři zvolil **2, tenkou tmavou siluetu** — zrcadlo se jen při extrémním doteku (N·V pod ~0,1) stáhne k barvě těla. Soubory: `PolishedMetalPS` (`InstancedModel.fx` / include) a jeho konfigurace; ověřuji na `result stars=3 scene=meadow` (zlato, stříbro, bronz). Desktop (bs3d-a1) na téhle půlce nedělá — jeho poslední zápis ji nechal čekat na volbu.
 - Ostatní dnešní verdikty jsou v trackeru: #659, #660, #637, #644, #662, #626, #395, #493 zavřeny; #230 zůstává otevřené (zbývají nápady v seznamu); #213, #257, #95 mají majitelovo „souhlasím“ s doporučeným pořadím (Swap; bedna a buckshot; vítr) — připraveno k převzetí, nic nestaveno.
+
+## 2026-09-29 — #645 kamera kopírující terén (hory, poušť, sopka) — notebook, Claude Code
+
+- **Beru #645** (majitelův verdikt dnes: „Stále je potřeba vylepšit“, a průlet sopkou trhá při přiblížení k vršku stejně — proto i #530 zůstává otevřené). První kolo (Catmull-Rom v `IntroShot.At`, skok pohledu, `MAX_INTRO_STEP`) je na mainu a hrbolky terénu neřešilo. Nejdřív změřit výšku a sklon objektivu po snímcích na těch záběrech; pak vyhladit sledovanou výšku a zpomalit. Soubory: `Game/Effects/*IntroShots.cs` (hory, poušť, sopka), `ChapterIntro.cs`. `#640` (silueta pohárů) dodělám první.
