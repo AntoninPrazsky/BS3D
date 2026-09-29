@@ -179,6 +179,7 @@ namespace BS3D.Tools.WindingCheck
             yield return ("ForestFireflies", () => new ForestFireflies(d, fx, new ForestSceneConfig(), 0.3f));
             yield return ("SavannaScatter", () => new SavannaScatter(d, new SavannaSceneConfig(), (x, z) => 0f,
                 Array.Empty<ScatterSpacing.Footprint>()));
+            yield return ("MeadowScatter", () => new MeadowScatter(d, new MeadowSceneConfig(), MeadowScatter.DEFAULT_SEED));
             for (int dome = 1; dome <= 20; dome++)
             {
                 int n = dome;

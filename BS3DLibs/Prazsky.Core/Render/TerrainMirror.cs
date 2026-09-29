@@ -492,6 +492,27 @@ namespace Prazsky.Core.Render
         /// </summary>
         public static float Meadow(float x, float z, MeadowSceneConfig config)
         {
+            //The pond lies level (#609's third round): the ground under it and round it eased to the height at its
+            //centre, and the knoll the footpath climbs to its tree raised on top of everything
+            (float px, float pz) = MeadowPath.PondCentre(config);
+            float pondDistance = MathF.Sqrt((x - px) * (x - px) + (z - pz) * (z - pz));
+            float pondLevel = 1f - ShaderMath.SmoothStep(config.PondRadius * MEADOW_POND_LEVEL_FROM,
+                config.PondRadius * MEADOW_POND_LEVEL_FROM + MEADOW_POND_LEVEL_FADE, pondDistance);
+
+            (float kx, float kz) = MeadowPath.PathEnd(config);
+            float knoll = Math.Clamp(1f - ((x - kx) * (x - kx) + (z - kz) * (z - kz)) / (config.KnollRadius * config.KnollRadius), 0f, 1f);
+
+            float natural = MeadowNatural(x, z, config);
+            return natural + (MeadowNatural(px, pz, config) - natural) * pondLevel + config.KnollHeight * knoll * knoll;
+        }
+
+        /// <summary>How far round the pond, as a multiple of its mean radius, the ground lies at the pond's level, and
+        /// over how many world units past that it eases back into the hills — <c>Meadow.fx</c>'s own figures.</summary>
+        public const float MEADOW_POND_LEVEL_FROM = 1.3f, MEADOW_POND_LEVEL_FADE = 14f;
+
+        /// <summary>The meadow's rolling field before the pond and the knoll: the clearing and the hills.</summary>
+        public static float MeadowNatural(float x, float z, MeadowSceneConfig config)
+        {
             float dist = MathF.Sqrt(x * x + z * z);
             float ramp = ShaderMath.SmoothStep(config.ClearingRadius, config.ClearingRadius + config.ClearingTransition, dist);
 
