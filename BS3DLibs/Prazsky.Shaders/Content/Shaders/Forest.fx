@@ -105,12 +105,21 @@ float MossHeight;
 
 //Procedural tree-shadow tuning (ForestShadow). The cell is the spacing of the virtual trees the hash grid
 //plants; it sits inside the scattered wood's own spacing so the two read as the same forest rather than two
-//different ones laid over each other. Reach is how far down-sun a crown's shadow is searched - past it the
-//shadow has thinned to nothing and the march stops.
+//different ones laid over each other. A tree is a crown, a SPHERE (#648): centred FOREST_CROWN_CENTRE of the
+//tree's height above the ground and as wide as the hash says (FOREST_CROWN_WIDE_MIN..MAX of the height, capped at
+//FOREST_CROWN_MAX_RADIUS so the 3x3 cells searched always hold every crown that can shade a point). Strength is the
+//darkest a crown's middle can make the floor, and it and whether the cell holds a tree at all (FOREST_CELL_PLANTED
+//of them do) are the hash's too: a grid of equal crowns with equal shadows reads as polka dots, not as a wood.
 static const float FOREST_SHADOW_CELL = 9.0;
-static const float FOREST_SHADOW_REACH = 22.0;
 static const float FOREST_SHADOW_MIN_H = 5.0;
 static const float FOREST_SHADOW_MAX_H = 11.0;
+static const float FOREST_CROWN_CENTRE = 0.62;
+static const float FOREST_CROWN_WIDE_MIN = 0.40;
+static const float FOREST_CROWN_WIDE_MAX = 0.60;
+static const float FOREST_CROWN_MAX_RADIUS = 5.5;
+static const float FOREST_CELL_PLANTED = 0.62;
+static const float FOREST_SHADOW_STRENGTH_MIN = 0.40;
+static const float FOREST_SHADOW_STRENGTH_MAX = 0.80;
 
 #include "ForestGround.fxh"
 
@@ -145,62 +154,74 @@ ForestVertexOutput ForestVS(ForestVertexInput input)
 //where the canopy is open, denser under a stand, swept down-sun the way a real shadow is. The scatter's real
 //trees stand closer in (inside ClearingRadius) where density is 0, so the two never argue about who shadows whom.
 //
-//A cell holds one tree: a hash picks its offset within the cell, its height and its crown radius. The shadow is
-//the closest approach of the sun ray to that tree's trunk axis, tested against the crown radius at the height the
-//ray passes it - a cylinder+sphere stand-in for the crown, cheap and analytic. A short march across the grid
-//cells the sun ray walks through catches the trees it could actually pass behind.
+//A cell holds one tree: a hash picks its offset within the cell, its height, its crown's width, whether it is
+//there at all and how dark its shadow lands. The crown is a sphere. A floor point is shaded by the crown its ray
+//to the sun passes through, and how deep by the length of the chord the ray cuts through it (nothing at the rim,
+//most through the middle), so a shadow is a soft ellipse - the way a real crown's is - and not a hard-edged strip.
+//
+//⚠ THE FIRST BUILD DREW SQUARES (#648). It made the crown a cylinder, so a shadow was a parallelogram with straight
+//sides that no crown throws, and it marched the sun ray in steps and tested only the tree of the cell each step
+//landed in, so a crown wider than the distance to its cell's edge (most of them) was cut off along that edge:
+//dark trapezoids with a straight end on the grid, on ground with no tree to explain them. Its heights were also
+//taken against the world's y and not the ground's, and the hash's -1..1 was used as if it were 0..1 (half the
+//heights were negative), so the wood shaded only the higher hills. Now: a fixed 3x3 block of cells around the
+//point the ray reaches at an average crown's height - every crown that can shade the point is in it, whichever
+//cell the ray happens to pass through - each crown's height and width read off the hash remapped to 0..1, and
+//heights taken above the ground at the shaded point (a wooded slope's trees stand on the slope).
 float ForestShadow(float3 worldPosition, float3 sunDir, float density)
 {
     //A flat clearing (density 0) is in full sun: the wood's trees stand outside it, and the procedural wood
     //begins where density rises. This one is NOT the uniform branch CLAUDE.md's convention describes - density
     //is canopyRamp, which varies per pixel - so it does diverge, along the one ring of pixels at the clearing's
-    //edge where neighbours disagree. It is still the right shape: the march below has no gradient ops in it (no
+    //edge where neighbours disagree. It is still the right shape: nothing below has a gradient op in it (no
     //sampling, only arithmetic and CloudHash22), so nothing here needs neighbouring lanes to have taken it, and
-    //the whole clearing interior - most of the floor the player ever sees up close - skips the march outright.
+    //the whole clearing interior - most of the floor the player ever sees up close - skips the crowns outright.
     [branch]
     if (density <= 0.001) return 1.0;
 
-    float grid = FOREST_SHADOW_CELL;          //world units between virtual trees
-    float3 ro = worldPosition;
+    float grid = FOREST_SHADOW_CELL;
 
-    //Walk the sun ray across the grid in small steps, accumulating the deepest shadow any tree casts. The step
-    //is a fraction of the cell so a tree between two samples is not skipped; the march is short because a crown's
-    //shadow reaches only so far down-sun.
+    //Where the ray from the floor point climbs to an average crown's centre, and the cell that is over. A low sun
+    //carries that a long way across the ground; the floor on the sun's ray is never asked to climb less than 0.1.
+    float averageCentre = 0.5 * (FOREST_SHADOW_MIN_H + FOREST_SHADOW_MAX_H) * FOREST_CROWN_CENTRE;
+    float2 reach = worldPosition.xz + sunDir.xz * (averageCentre / max(sunDir.y, 0.1));
+    float2 baseCell = floor(reach / grid);
+
     float shadow = 1.0;
-    float maxStep = FOREST_SHADOW_REACH;
-    float step = grid * 0.35;
-    float t = step;
 
-    [loop]
-    for (int i = 0; i < 10; i++)
+    [unroll]
+    for (int j = -1; j <= 1; j++)
     {
-        if (t > maxStep) break;
+        [unroll]
+        for (int i = -1; i <= 1; i++)
+        {
+            float2 cell = baseCell + float2(i, j);
+            float2 h = CloudHash22(cell * 7.0 + 13.0);
+            float2 unit = h * 0.5 + 0.5;
 
-        float3 p = ro + sunDir * t;
+            //Whether the cell holds a tree and how dark its shadow is, from the same hash's low bits: a second hash
+            //a crown would cost about what the whole crown does
+            float2 other = frac(h * float2(43.7, 91.3) + h.yx * 17.9);
 
-        //The cell the ray has walked into, and that cell's single tree.
-        float2 cell = floor(p.xz / grid);
-        float2 h = CloudHash22(cell * 7.0 + 13.0);
-        float2 treeXZ = (cell + 0.5 + 0.36 * h) * grid;
-        float treeHeight = FOREST_SHADOW_MIN_H + h.x * (FOREST_SHADOW_MAX_H - FOREST_SHADOW_MIN_H);
+            float2 treeXZ = (cell + 0.5 + 0.36 * h) * grid;
+            float treeHeight = lerp(FOREST_SHADOW_MIN_H, FOREST_SHADOW_MAX_H, unit.x);
+            float centreHeight = treeHeight * FOREST_CROWN_CENTRE;
+            float crownRadius = min(treeHeight * lerp(FOREST_CROWN_WIDE_MIN, FOREST_CROWN_WIDE_MAX, unit.y), min(FOREST_CROWN_MAX_RADIUS, centreHeight * 0.95));
 
-        //Closest approach of the sun ray (from the shaded point) to the tree's trunk axis (the line straight up
-        //through treeXZ), in the horizontal plane only - the shadow a vertical trunk throws is what this measures.
-        float2 toTree = treeXZ - ro.xz;
-        float along = dot(toTree, sunDir.xz);
-        float2 perp = toTree - along * sunDir.xz;
-        float closestDist = length(perp);
+            //The crown's centre relative to the floor point, and the sun's ray from it: the ray's distance from the
+            //centre is what is left of the offset once its component along the ray is taken out, and the crown is
+            //towards the sun when that component is positive
+            float3 toCrown = float3(treeXZ.x - worldPosition.x, centreHeight, treeXZ.y - worldPosition.z);
+            float along = dot(toCrown, sunDir);
+            float missSquared = dot(toCrown, toCrown) - along * along;
+            float chord = sqrt(saturate(crownRadius * crownRadius - missSquared)) / crownRadius;
 
-        //The crown is a disc at treeHeight; the ray passes that height at rayHeight. Shadow if the ray is under
-        //the crown at the horizontal point it crosses it - softened across the crown's radius for a penumbra.
-        float rayHeight = ro.y + along / max(sunDir.xz.x * sunDir.xz.x + sunDir.xz.y * sunDir.xz.y, 0.0001) * sunDir.y;
-        float crownRadius = lerp(treeHeight * 0.35, treeHeight * 0.55, h.y);
-
-        float under = saturate((crownRadius - closestDist) / crownRadius);
-        float atHeight = smoothstep(treeHeight * 0.3, treeHeight, rayHeight);
-        shadow = min(shadow, 1.0 - under * atHeight * 0.75);
-
-        t += step;
+            //Only a crown towards the sun from the point shades it, soft at the rim, and only in a cell that holds a
+            //tree; how dark it is is that tree's own
+            float occlusion = smoothstep(0.0, 0.8, chord) * step(0.0, along) * step(other.x, FOREST_CELL_PLANTED);
+            float strength = lerp(FOREST_SHADOW_STRENGTH_MIN, FOREST_SHADOW_STRENGTH_MAX, other.y);
+            shadow = min(shadow, 1.0 - strength * occlusion);
+        }
     }
 
     //Density shapes how deep the shadow lands: a clearing (0) is untouched, full wood (1) gets the lot.
