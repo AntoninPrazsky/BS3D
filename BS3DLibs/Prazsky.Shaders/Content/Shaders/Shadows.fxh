@@ -159,9 +159,9 @@ float CeilingGlassShadow(float3 worldPosition, float3 sunDirection)
     return glass;
 }
 
-//The map is sampled by hand with a nine-tap box (PCF) rather than a comparison sampler. (This said MonoGame's
+//The map is sampled by hand with a 3 x 3 box (PCF), bilinear-weighted over a 4 x 4 fetch since #674, rather than a comparison sampler. (This said MonoGame's
 //effect path gives no comparison state; 3.8.5 has SamplerState.ComparisonFunction and TextureFilterMode.Comparison,
-//so hardware PCF is possible and untried - #591.) Nine point taps on a 2048 map are cheap against a full-screen terrain
+//so hardware PCF is possible and untried - #591.) Sixteen point taps on a 2048 map are cheap against a full-screen terrain
 //shader's other work. tex2Dlod rather than tex2D, because this runs under a [branch] and a gradient
 //instruction inside divergent flow is what the compiler refuses.
 //
@@ -196,15 +196,30 @@ float SunShadow(float3 worldPosition, float3 normal, float3 sunDirection)
     float bias = ShadowBias * (1.0 + 2.5 * (1.0 - ndotl));
     float reference = depth - bias;
 
+    //⚠ BILINEAR-WEIGHTED, NOT WHOLE-TEXEL (#674). The nine taps sat on whole texels round the pixel's own, so a shadow
+    //edge moved a texel at a time and a frond thinner than a texel came out as square holes in its shadow - the lattice
+    //probe flagged the tropical sand at 3.2 px with 72 spectral peaks (20 % of its tiles over the null), and the
+    //picture showed the palms' shadows built of texel-sized squares. The same 3 x 3 box is taken, its window slid by the
+    //pixel's fractional position in the texel: the 4 x 4 texels round it, the outer rows and columns weighted by the
+    //fraction, so an edge moves smoothly with the pixel and the penumbra is the width it was.
+    float2 texelPosition = uv / ShadowTexel - 0.5;
+    float2 texelBase = floor(texelPosition);
+    float2 fraction = texelPosition - texelBase;
+
+    //Per axis: the four texels' weights in the 3-wide box slid by `fraction`; they add up to 3
+    float4 weightX = float4(1.0 - fraction.x, 1.0, 1.0, fraction.x);
+    float4 weightY = float4(1.0 - fraction.y, 1.0, 1.0, fraction.y);
+
     float lit = 0.0;
     [unroll]
-    for (int y = -1; y <= 1; y++)
+    for (int y = 0; y < 4; y++)
     {
         [unroll]
-        for (int x = -1; x <= 1; x++)
+        for (int x = 0; x < 4; x++)
         {
-            float stored = tex2Dlod(ShadowSampler, float4(uv + float2(x, y) * ShadowTexel, 0.0, 0.0)).r;
-            lit += reference <= stored ? 1.0 : 0.0;
+            float2 tap = (texelBase + float2(x - 1, y - 1) + 0.5) * ShadowTexel;
+            float stored = tex2Dlod(ShadowSampler, float4(tap, 0.0, 0.0)).r;
+            lit += (reference <= stored ? 1.0 : 0.0) * weightX[x] * weightY[y];
         }
     }
     lit /= 9.0;
