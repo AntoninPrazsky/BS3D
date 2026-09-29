@@ -44,10 +44,6 @@ namespace BS3D.Screens
         private const float RELEASE_RUMBLE_SECONDS = 0.28f;
 
         /// <summary>
-        /// A shot has landed in the lattice, having cut <paramref name="landing"/>'s balls loose. Zero of all three means
-        /// it stuck without doing anything, which the scorer treats as a spent shot.
-        /// </summary>
-        /// <summary>
         /// The secret shot code found (#230): a short fall of confetti and the popper's crack. Visual and audible
         /// only, and never explained.
         /// </summary>
@@ -60,6 +56,10 @@ namespace BS3D.Screens
         /// <summary>How long the secret code's confetti falls: a burst, not the campaign's minute-long ending.</summary>
         private const float SHOT_CODE_CONFETTI_SECONDS = 5f;
 
+        /// <summary>
+        /// A shot has landed in the lattice, having cut <paramref name="landing"/>'s balls loose. Zero of all three means
+        /// it stuck without doing anything, which the scorer treats as a spent shot.
+        /// </summary>
         private void OnBallLanded(BallLanding landing)
         {
             //Not once the page is up. The simulation goes on running under it (#241), so a shot that was
