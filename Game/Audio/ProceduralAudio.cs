@@ -159,6 +159,12 @@ namespace BS3D.Audio
         /// <summary>The net cutting the cluster that reached the line (#434) — the loss's one sound.</summary>
         private readonly SoundEffect _lineLoss;
 
+        /// <summary>
+        /// The net touching a ball that has only swung onto it (#669) — cut from the loss's own signal, so the two are
+        /// heard as one laser, and short, because a touch the line forgives is not the level ending.
+        /// </summary>
+        private readonly SoundEffect _lineTouch;
+
         /// <summary>A bomb going off (#389) — until then it sounded exactly like a big release.</summary>
         private readonly SoundEffect _blast;
         private readonly SoundEffect _fireworkLaunch;
@@ -184,6 +190,7 @@ namespace BS3D.Audio
         private readonly VoiceRing _iceBreakRing;
         private readonly VoiceRing _ceilingRing;
         private readonly VoiceRing _lineLossRing;
+        private readonly VoiceRing _lineTouchRing;
 
         /// <inheritdoc cref="_blast"/>
         private readonly VoiceRing _blastRing;
@@ -242,6 +249,12 @@ namespace BS3D.Audio
         //ending, and the one sound in the game that is meant to be louder than the shot that caused it
         private const int LINE_LOSS_VOICES = 1;
         private const float LINE_LOSS_LEVEL = 0.9f;
+
+        //The net's touch (#669): a ball swung onto the line and back, which the line forgives (#239). One a swing at
+        //most, and a swing takes the best part of a second, so two voices cover a touch landing on the last one's tail.
+        //Well under the cut: it says "you are on the line", not "you lost".
+        private const int LINE_TOUCH_VOICES = 2;
+        private const float LINE_TOUCH_LEVEL = 0.5f;
 
         //A blast's report is 1.8 s, and a chain sets one off per link a CHAIN_STAGGER apart (Blasts) — so one
         //landing wants as many voices at once as its chain is long. Five is the longest chain one landing sets
@@ -321,7 +334,13 @@ namespace BS3D.Audio
             _release = FromSfxOrBake("release", BakeRelease);
             _iceBreak = BakeIceBreak();
             _ceilingStep = FromSfxOrBake("ceiling-step", BakeCeilingStep);
-            _lineLoss = FromSfxOrBake("line-loss", BakeLineLoss, targetRms: 0.22f, ceiling: 0.98f);
+            //The cut and its touch (#669) from ONE signal, so the touch is the same laser heard briefly: the file
+            //through the report law FromSfxOrBake would give it, or the bake's own signal when there is no file.
+            float[] lineLoss = TryLoadSfx("line-loss");
+            if (lineLoss != null) Loudness(lineLoss, targetRms: 0.22f, ceiling: 0.98f);
+            else lineLoss = BakeLineLoss();
+            _lineLoss = ToSoundEffect(lineLoss);
+            _lineTouch = ToSoundEffect(LineTouchFrom(lineLoss));
             _blast = BakeBlast();
             _fireworkLaunch = BakeFireworkLaunch();
             _fireworkBurst = FromSfxOrBake("firework-burst", BakeFireworkBurst, targetRms: BURST_TARGET_RMS, ceiling: 0.99f,
@@ -341,6 +360,7 @@ namespace BS3D.Audio
             _iceBreakRing = new VoiceRing(_iceBreak, ICE_BREAK_VOICES);
             _ceilingRing = new VoiceRing(_ceilingStep, CEILING_VOICES);
             _lineLossRing = new VoiceRing(_lineLoss, LINE_LOSS_VOICES);
+            _lineTouchRing = new VoiceRing(_lineTouch, LINE_TOUCH_VOICES);
             _blastRing = new VoiceRing(_blast, BLAST_VOICES);
             _launchRing = new VoiceRing(_fireworkLaunch, LAUNCH_VOICES);
             _burstRing = new VoiceRing(_fireworkBurst, BURST_VOICES);
@@ -2463,7 +2483,61 @@ namespace BS3D.Audio
         /// </summary>
         public void PlayLineLoss(Vector3 crossing)
         {
+            //The cut takes over from a touch still sounding, so the one moment of the loss is not the same laser
+            //heard twice at once. Only a cut past the allowance can meet one - within the touch's own length of it; a
+            //held loss comes a whole grace after its touch, which has ended by then.
+            _lineTouchRing.StopAll();
+
             Speak(_lineLossRing, crossing, NEAR_WIDEN, MathHelper.Clamp(LINE_LOSS_LEVEL * Level, 0f, 1f), NextPitch(0.03f));
+        }
+
+        /// <summary>
+        /// A ball of the cluster has swung onto the line — its surface into the net (#669). The line forgives a swing
+        /// (#239), so nothing else happens, and until this nothing was heard either: the owner's note was that the
+        /// lasers cutting into the balls sound only the first time, and the first time is the loss, the one moment
+        /// that had a sound. Short and well under the cut, from the same signal, placed where the ball touched and
+        /// on the cut's flat law; the pitch wanders further than the cut's, since unlike it this can repeat.
+        /// </summary>
+        public void PlayLineTouch(Vector3 at)
+        {
+            Speak(_lineTouchRing, at, NEAR_WIDEN, MathHelper.Clamp(LINE_TOUCH_LEVEL * Level, 0f, 1f), NextPitch(0.06f));
+        }
+
+        //Where in the cut the touch is taken from (#669): its held body, past the recording's slow rise, where the
+        //hum and the sear are both full — with a click-free onset so it bites at once, and a release long enough not
+        //to snap off. The window ends before BakeLineLoss's own hold lets go, so it is inside the bake's hold too -
+        //keep it so if either moves.
+        private const float LINE_TOUCH_FROM_SECONDS = 0.9f;
+        private const float LINE_TOUCH_SECONDS = 0.6f;
+        private const float LINE_TOUCH_ATTACK_SECONDS = 0.01f;
+        private const float LINE_TOUCH_RELEASE_SECONDS = 0.25f;
+
+        /// <summary>
+        /// The touch cut out of the cut's own <paramref name="cut"/> signal (#669): <see cref="LINE_TOUCH_SECONDS"/> of
+        /// it from <see cref="LINE_TOUCH_FROM_SECONDS"/>, with a linear attack and a raised-cosine release, then
+        /// peak-normalised to 0.9 — which on the recording, already through the report law, only trims the window's
+        /// peak (×0.92). A signal shorter than the window gives what it has.
+        /// </summary>
+        private static float[] LineTouchFrom(float[] cut)
+        {
+            int from = Math.Min((int)(LINE_TOUCH_FROM_SECONDS * SAMPLE_RATE), cut.Length - 1);
+            int length = Math.Max(1, Math.Min((int)(LINE_TOUCH_SECONDS * SAMPLE_RATE), cut.Length - from));
+            int attack = Math.Max(1, (int)(LINE_TOUCH_ATTACK_SECONDS * SAMPLE_RATE));
+            int release = Math.Max(1, (int)(LINE_TOUCH_RELEASE_SECONDS * SAMPLE_RATE));
+
+            float[] touch = new float[length];
+            for (int i = 0; i < length; i++)
+            {
+                float gain = i < attack ? (float)i / attack : 1f;
+
+                int toEnd = length - 1 - i;
+                if (toEnd < release) gain *= 0.5f - 0.5f * MathF.Cos(MathF.PI * toEnd / release);
+
+                touch[i] = cut[from + i] * gain;
+            }
+
+            Normalize(touch, 0.9f);
+            return touch;
         }
 
         /// <summary>
@@ -2472,9 +2546,10 @@ namespace BS3D.Audio
         /// beat the camera holds and lets go — with the sear over it: noise in the 1.2–4 kHz band gated by a
         /// crackle of random impulses, and sparser, brighter ticks for the sparks. The hum leads and the sear sits
         /// well under it, because a sizzle that led would be the hiss the owner hears as "digital" (#498); the whole
-        /// is rolled off at 6 kHz for the same reason. Peak-normalised, the report law is for the recording.
+        /// is rolled off at 6 kHz for the same reason. Peak-normalised, the report law is for the recording. The
+        /// signal and not a buffer, since the touch is cut from the same one (#669).
         /// </summary>
-        private static SoundEffect BakeLineLoss()
+        private static float[] BakeLineLoss()
         {
             const float duration = 2.6f;
             const float hold = 1.7f;
@@ -2524,7 +2599,7 @@ namespace BS3D.Audio
             }
 
             Normalize(signal, 0.9f);
-            return ToSoundEffect(signal);
+            return signal;
         }
 
         #endregion
@@ -2648,6 +2723,8 @@ namespace BS3D.Audio
             _releaseRing?.Dispose();
             _iceBreakRing?.Dispose();
             _ceilingRing?.Dispose();
+            _lineLossRing?.Dispose();
+            _lineTouchRing?.Dispose();
             _blastRing?.Dispose();
             _launchRing?.Dispose();
             _burstRing?.Dispose();
@@ -2661,6 +2738,7 @@ namespace BS3D.Audio
             _iceBreak?.Dispose();
             _ceilingStep?.Dispose();
             _lineLoss?.Dispose();
+            _lineTouch?.Dispose();
             _blast?.Dispose();
             _fireworkLaunch?.Dispose();
             _fireworkBurst?.Dispose();
