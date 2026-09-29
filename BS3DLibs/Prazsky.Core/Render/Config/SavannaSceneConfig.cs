@@ -156,12 +156,15 @@ namespace Prazsky.Core.Render
         /// rather than a forest, but the plain no longer reads as empty. The scatter is instanced, so the
         /// count is a look decision rather than a budget one (the forest's 240 make the same point). 140
         /// since #451, with the bush share lowered: the scrub is a planting of its own now
-        /// (<see cref="SavannaDressingConfig.ScrubCount"/>), so the bushes here are the few big ones.
+        /// (<see cref="SavannaDressingConfig.ScrubCount"/>), so the bushes here are the few big ones. 97 since
+        /// #663, when the trees grew by <see cref="TreeSize"/>: the 42 bushes are the same 42, and the trees went
+        /// from 98 to 55 so the plain is as open as it was rather than filled with bigger trees.
         /// </summary>
-        public int Count { get; set; } = 140;
+        public int Count { get; set; } = 97;
 
-        /// <summary>Fraction of the scatter that are low bushes rather than trees.</summary>
-        public float BushFraction { get; set; } = 0.3f;
+        /// <summary>Fraction of the scatter that are low bushes rather than trees (0.3 of 140 until #663; the same
+        /// 42 bushes of the smaller count since).</summary>
+        public float BushFraction { get; set; } = 0.433f;
 
         /// <summary>Of the trees, the share planted young (<see cref="AcaciaKind.Young"/>) — slender, one small crown.</summary>
         public float YoungFraction { get; set; } = 0.2f;
@@ -176,19 +179,29 @@ namespace Prazsky.Core.Render
         /// tree's whole silhouette and the fallen logs; a broken tree's spar is still bark.</summary>
         public Rgb DeadwoodColor { get; set; } = new(0.34f, 0.31f, 0.26f);
 
-        /// <summary>Base half-width of a tree crown.</summary>
+        /// <summary>Base half-width of a tree crown — and, unscaled, of a bush (the bushes are built off it too).</summary>
         public float Width { get; set; } = 6f;
 
-        /// <summary>Base height of a tree billboard.</summary>
+        /// <summary>Base height of a tree — and, unscaled, what a bush's height is a share of.</summary>
         public float Height { get; set; } = 9f;
+
+        /// <summary>
+        /// How much bigger than <see cref="Width"/> and <see cref="Height"/> the trees stand — every kind of tree,
+        /// not the bushes (#663). The owner: "the trees are too small next to the island and the cluster", and from
+        /// the play camera they were — a mature acacia stood a third of the island's radius tall, and the campfires'
+        /// flames came out taller than the umbrellas on the skyline behind them. At 1.7 a mature acacia is about 15
+        /// units tall and 20 across, the flat crown much wider than tall that every reference draws.
+        /// </summary>
+        public float TreeSize { get; set; } = 1.7f;
 
         /// <summary>
         /// Inner radius of the scatter ring (clear of the island). 42 until #451; the umbrella tiers are wider
         /// and flatter than the old crowns, and a two-tier tree at 42 hung its lower plate over the play
         /// camera's shoulder as a featureless green lid across a corner of every frame. At 52 the nearest
-        /// crown is a tree with boughs under it again. The tufts keep their own, nearer ring.
+        /// crown is a tree with boughs under it again; 60 since #663, whose crowns reach 1.7 times as far. The tufts
+        /// keep their own, nearer ring.
         /// </summary>
-        public float MinRadius { get; set; } = 52f;
+        public float MinRadius { get; set; } = 60f;
 
         /// <summary>Outer radius of the scatter ring.</summary>
         public float MaxRadius { get; set; } = 340f;
@@ -282,8 +295,9 @@ namespace Prazsky.Core.Render
         /// <summary>Baobabs: a few, alone, each a landmark like a kopje (the owner's ask off the #451 plants sheet).</summary>
         public int BaobabCount { get; set; } = 3;
 
-        /// <summary>A baobab's height in world units — taller than an acacia, and most of it trunk.</summary>
-        public float BaobabHeight { get; set; } = 14f;
+        /// <summary>A baobab's height in world units — taller than an acacia, and most of it trunk. 14 until #663,
+        /// when the acacias grew by <see cref="AcaciaConfig.TreeSize"/> and the baobab with them.</summary>
+        public float BaobabHeight { get; set; } = 24f;
 
         /// <summary>Smooth grey-brown bark (linear), paler and greyer than the acacias' trunks.</summary>
         public Rgb BaobabColor { get; set; } = new(0.185f, 0.165f, 0.15f);
@@ -291,8 +305,9 @@ namespace Prazsky.Core.Render
         /// <summary>Doum palms: the forking fan palm, planted in small clumps (the owner's ask off the #451 plants sheet).</summary>
         public int DoumPalmCount { get; set; } = 7;
 
-        /// <summary>A doum palm's height in world units, to the top of its heads.</summary>
-        public float DoumPalmHeight { get; set; } = 11f;
+        /// <summary>A doum palm's height in world units, to the top of its heads. 11 until #663; taller than the
+        /// grown acacias now, as the references' palms stand over the thorn trees round them.</summary>
+        public float DoumPalmHeight { get; set; } = 18f;
 
         /// <summary>Fallen trees lying in the grass.</summary>
         public int LogCount { get; set; } = 12;

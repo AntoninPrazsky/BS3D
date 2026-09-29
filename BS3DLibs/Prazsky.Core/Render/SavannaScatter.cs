@@ -256,22 +256,22 @@ namespace Prazsky.Core.Render
             {
                 float w = 0.8f + 0.45f * (float)rng.NextDouble();
                 float h = 0.85f + 0.4f * (float)rng.NextDouble();
-                trees.Add(Own(new AcaciaMesh(device, AcaciaKind.Mature, ac.Width * 0.09f * w, ac.Height * h, ac.Width * w, 4100 + m)));
+                trees.Add(Own(new AcaciaMesh(device, AcaciaKind.Mature, ac.Width * ac.TreeSize * 0.09f * w, ac.Height * ac.TreeSize * h, ac.Width * ac.TreeSize * w, 4100 + m)));
             }
             for (int m = 0; m < BROKEN; m++)
             {
                 float w = 0.9f + 0.3f * (float)rng.NextDouble();
-                trees.Add(Own(new AcaciaMesh(device, AcaciaKind.Broken, ac.Width * 0.09f * w, ac.Height * (0.9f + 0.2f * (float)rng.NextDouble()), ac.Width * w, 4110 + m)));
+                trees.Add(Own(new AcaciaMesh(device, AcaciaKind.Broken, ac.Width * ac.TreeSize * 0.09f * w, ac.Height * ac.TreeSize * (0.9f + 0.2f * (float)rng.NextDouble()), ac.Width * ac.TreeSize * w, 4110 + m)));
             }
             for (int m = 0; m < YOUNG; m++)
             {
                 float w = 0.7f + 0.3f * (float)rng.NextDouble();
-                trees.Add(Own(new AcaciaMesh(device, AcaciaKind.Young, ac.Width * 0.055f * w, ac.Height * (0.55f + 0.15f * (float)rng.NextDouble()), ac.Width * 0.9f * w, 4120 + m)));
+                trees.Add(Own(new AcaciaMesh(device, AcaciaKind.Young, ac.Width * ac.TreeSize * 0.055f * w, ac.Height * ac.TreeSize * (0.55f + 0.15f * (float)rng.NextDouble()), ac.Width * ac.TreeSize * 0.9f * w, 4120 + m)));
             }
             for (int m = 0; m < DEAD; m++)
             {
                 float w = 0.8f + 0.4f * (float)rng.NextDouble();
-                trees.Add(Own(new AcaciaMesh(device, AcaciaKind.Dead, ac.Width * 0.085f * w, ac.Height * (0.8f + 0.3f * (float)rng.NextDouble()), ac.Width * 0.85f * w, 4130 + m)));
+                trees.Add(Own(new AcaciaMesh(device, AcaciaKind.Dead, ac.Width * ac.TreeSize * 0.085f * w, ac.Height * ac.TreeSize * (0.8f + 0.3f * (float)rng.NextDouble()), ac.Width * ac.TreeSize * 0.85f * w, 4130 + m)));
             }
 
             //What each dressing mesh is made of, as slabs at scale 1 (#653): a foliage blob is one cylinder as wide as the blob and
@@ -613,7 +613,7 @@ namespace Prazsky.Core.Render
                     int variant = first + rng.Next(count);
 
                     float treeScale = 0.8f + 0.5f * rand;
-                    float halfWidth = ac.Width * treeScale * (kind == AcaciaKind.Young ? 0.6f : 1f);
+                    float halfWidth = ac.Width * ac.TreeSize * treeScale * (kind == AcaciaKind.Young ? 0.6f : 1f);
                     {
                             (float x, float z) = Place(halfWidth, ac.MinRadius, ac.MaxRadius, 0.82f, ac.ClusterSpread, trees[variant].Volume, treeScale);
                         //A dead tree is one shade of bleached wood; the living ones each lean their own way towards dry.
@@ -624,7 +624,7 @@ namespace Prazsky.Core.Render
 
                         //The umbrella-crowned ones, for a camera to point at (#559): the canopy's own sphere.
                         if (trees[variant].Canopy != null && (kind == AcaciaKind.Mature || kind == AcaciaKind.Broken))
-                            acaciaFigures.Add(PlantFigure.Of(trees[variant].Canopy.BoundingSphere, planted.World, ac.Width * 0.09f));
+                            acaciaFigures.Add(PlantFigure.Of(trees[variant].Canopy.BoundingSphere, planted.World, ac.Width * ac.TreeSize * 0.09f));
                     }
                 }
 
