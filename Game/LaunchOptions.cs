@@ -59,6 +59,11 @@ namespace BS3D
         internal int WindowHeight { get; private set; }
         internal float LineLoss { get; private set; }
 
+        //Testing only (#95): a multiplier on every scene's wind, or null to leave the table as it is. 0 is still air, which
+        //is what a capture compared against the game before the wind needs, and what a measurement of the wind's cost is
+        //one half of.
+        internal float? WindScale { get; private set; }
+
         //Zero when "exposure=" is absent: the game then takes the settings file's, and then its own default
         internal float Exposure { get; private set; }
 
@@ -295,6 +300,10 @@ namespace BS3D
             //descending ceiling and a couple of dozen shots, and the Game takes no synthetic input, so
             //without this the one moment the feature exists for cannot be photographed.
             Row.Float("lineloss", (o, v) => o.LineLoss = v, v => v > 0f),
+
+            //"wind=<scale>" multiplies the cluster's wind in every scene (#95): 0 is still air, 1 the table as shipped,
+            //2 twice as hard. A dial for looking at the sway and for measuring what it costs, not a setting.
+            Row.Float("wind", (o, v) => o.WindScale = v, v => v >= 0f),
 
             //"width=N"/"height=N" pin the WINDOWED back buffer, as the Testbed's own pair does. Until they
             //were added here the Game ignored them silently, so a capture asked for at the owner's panel

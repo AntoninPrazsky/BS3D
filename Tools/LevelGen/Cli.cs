@@ -18,7 +18,7 @@ namespace BS3D.Tools.LevelGen
     {
         /// <summary>The flags <see cref="Main"/> reads, exactly and by prefix — the one list the refusal below checks.</summary>
         private static readonly string[] Flags = { "--sag", "--clear", "--arrival" };
-        private static readonly string[] ValuedFlags = { "--sag=", "--sagfile=", "--clearfile=", "--arrivalfile=" };
+        private static readonly string[] ValuedFlags = { "--sag=", "--sagfile=", "--clearfile=", "--arrivalfile=", "--wind=" };
 
         /// <summary>Where the prototypes (#604) are written, under the campaign's own directory. See <see cref="Main"/>.</summary>
         private const string PROTOTYPES_DIR = "Prototypes";
@@ -47,6 +47,23 @@ namespace BS3D.Tools.LevelGen
             //The output directory is still the first PLAIN argument, exactly as it was; the flags are named so
             //a path can never be mistaken for one. See RunSagGate for what --sag costs and why it is opt-in.
             string dirArg = args.FirstOrDefault(a => !a.StartsWith("--", StringComparison.Ordinal));
+
+            //`--wind=<acceleration>` hangs every level the sag probe plays in the game's own gusting wind (#95), along the
+            //heading the scenes share, at that strength in units per second squared. A measurement lever: the gate's
+            //verdicts are given in still air, and this is how they are compared with the game's air.
+            string windArg = args.FirstOrDefault(a => a.StartsWith("--wind=", StringComparison.Ordinal));
+            if (windArg != null)
+            {
+                if (!float.TryParse(windArg["--wind=".Length..], System.Globalization.NumberStyles.Float,
+                        System.Globalization.CultureInfo.InvariantCulture, out float windStrength) || windStrength < 0f)
+                {
+                    Console.WriteLine($"'{windArg}' is not a strength in units per second squared.");
+                    return 2;
+                }
+
+                SagProbe.Wind = new Prazsky.BS3D.Physics.WindField(new System.Numerics.Vector2(0.87f, 0.5f), windStrength);
+                Console.WriteLine($"[wind] the sag probe hangs every level in a gusting wind of up to {windStrength} u/s2");
+            }
             bool sag = args.Any(a => a == "--sag" || a.StartsWith("--sag=", StringComparison.Ordinal));
             string[] sagOnly = args
                 .Where(a => a.StartsWith("--sag=", StringComparison.Ordinal))
