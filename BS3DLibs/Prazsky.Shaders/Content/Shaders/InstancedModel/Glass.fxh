@@ -133,8 +133,8 @@ static const float3 GLASS_CORD_SCALE = float3(0.18, 1.6, 0.9);
 //A bubble is a diverging lens with a dark rim - the rim is where the light inside meets the bubble's wall past the
 //critical angle - and a pinpoint glint. Sparse: most cells of the scatter hold none.
 static const float GLASS_SEED_CELL = 0.55;       //the scatter's lattice, world units
-static const float GLASS_SEED_CHANCE = 0.5;     //the share of cells holding a bubble
-static const float2 GLASS_SEED_RADIUS = float2(0.03, 0.11);
+static const float GLASS_SEED_CHANCE = 0.2;       //the share of cells holding a bubble (0.5 until the owner found too many)
+static const float2 GLASS_SEED_RADIUS = float2(0.02, 0.06);
 static const float2 GLASS_SEED_DEPTHS = float2(-0.12, 0.22);  //the two planes, as a share of the slab's half thickness
 
 struct GlassVSOutput
@@ -434,8 +434,11 @@ technique InstancedGlass
 //material's own shading, in the mesh's space so they turn with the cup rather than swimming over it:
 //
 // * a VEIL - a wisp of a healed fracture, milky where it is dense, flashing a thin film's rainbow as the cup turns;
-// * RUTILE - a few sets of fine golden threads, straight and parallel, the way the needles grow;
 // * and CLOUD - a dusting of pinpoint specks.
+//
+//There were rutile threads too, fine straight golden lines, and the owner read them as a GRAPHICS BUG rather than
+//as a flaw: in 3D that is not yet photoreal a thin straight line is indistinguishable from a rendering fault. A
+//flaw here has to read as a property of the material - a veil, a speck, a bubble - never as a crisp line.
 //
 //All of it sits in the bowl and the stem, where the glass is thick in the references; none on the foot. Additive over
 //the premultiplied surface, each raising the alpha by what it scatters, so a veil is milky rather than a hole. The
@@ -443,10 +446,6 @@ technique InstancedGlass
 static const float CRYSTAL_VEIL_SCALE = 7.0;       //the veil's fbm, cycles per unit
 static const float CRYSTAL_VEIL_AMOUNT = 0.4;     //how milky it gets at its densest
 static const float CRYSTAL_FLASH_AMOUNT = 0.7;    //the thin film's rainbow over it
-static const float CRYSTAL_RUTILE_AMOUNT = 0.45;
-static const float CRYSTAL_RUTILE_SPACING = 60.0;  //planes per unit across the threads
-static const float CRYSTAL_RUTILE_CHANCE = 0.12;   //the share of them holding one
-static const float3 CRYSTAL_RUTILE_COLOR = float3(1.0, 0.72, 0.32);
 static const float CRYSTAL_SPECK_CELL = 0.035;     //the cloud's lattice, and the share of its cells that hold a speck
 static const float CRYSTAL_SPECK_CHANCE = 0.025;
 
@@ -483,19 +482,6 @@ float4 CrystalPS(GlassVSOutput input, bool isFrontFace : SV_IsFrontFace) : COLOR
     float3 rainbow = saturate(abs(frac(hue + float3(0.0, 0.333, 0.667)) * 6.0 - 3.0) - 1.0);
     float flash = veil * smoothstep(0.35, 0.85, facing) * saturate(wisp * 4.0);
 
-    //Rutile: straight parallel threads - a family of planes across one direction, a hash choosing which of them hold
-    //a thread and where along it the thread starts and stops. The surface slices each plane in a straight line.
-    float3 along = normalize(float3(0.35, 1.0, 0.2));
-    float3 across = normalize(cross(along, float3(1, 0, 0.3)));
-    float threadAt = dot(p, across) * CRYSTAL_RUTILE_SPACING;
-    float2 threadRoll = NoiseHash22(float2(floor(threadAt), 3.1));
-    float threadMid = 0.55 + 0.25 * threadRoll.y;
-    float threadSpan = abs(dot(p, along) - threadMid);
-    float threadWidth = max(fwidth(threadAt), 1e-3);
-    float rutile = held * step(1.0 - 2.0 * CRYSTAL_RUTILE_CHANCE, threadRoll.x)
-        * saturate(1.0 - abs(frac(threadAt) - 0.5) / (1.2 * threadWidth)) * saturate(0.25 / threadWidth)
-        * saturate((0.18 - threadSpan) / 0.04);
-
     //Cloud: pinpoint specks where the surface passes through a speck of the lattice
     float3 cell = floor(p / CRYSTAL_SPECK_CELL);
     float3 roll = NoiseHash33(cell) * 0.5 + 0.5;
@@ -505,9 +491,8 @@ float4 CrystalPS(GlassVSOutput input, bool isFrontFace : SV_IsFrontFace) : COLOR
     //Lit by how bright the sky over the cup is - its brightness only, so a gold thread stays gold and a veil white
     //under a coloured sky
     float3 light = dot(SkyRadiance(float3(0, 1, 0)), float3(0.2126, 0.7152, 0.0722));
-    float3 added = light * (veil * CRYSTAL_VEIL_AMOUNT + speck * 1.2 + flash * CRYSTAL_FLASH_AMOUNT * rainbow
-        + rutile * CRYSTAL_RUTILE_AMOUNT * CRYSTAL_RUTILE_COLOR);
-    float scattered = saturate(veil * CRYSTAL_VEIL_AMOUNT + speck * 0.4 + rutile * 0.3);
+    float3 added = light * (veil * CRYSTAL_VEIL_AMOUNT + speck * 1.2 + flash * CRYSTAL_FLASH_AMOUNT * rainbow);
+    float scattered = saturate(veil * CRYSTAL_VEIL_AMOUNT + speck * 0.4);
 
     return float4(shaded.rgb + added, saturate(shaded.a + scattered));
 }
