@@ -32,13 +32,22 @@ namespace BS3D.Effects
 
         //The pass: of PASS_BEARINGS radial runs from the basin out into the range, the one whose highest ground
         //is LOWEST — the saddle — flown outward this high over the rock, looking along the travel.
+        //
+        //⚠ SLOW AND SMOOTH, NOT A ROLLER COASTER (#645). The first cut flew 105 units in 3.3 s (33 u/s) with a
+        //five-point window: measured over sixteen rolls, the lens's vertical acceleration was 62 u/s² rms and up
+        //to 436, and the view pitched 29 degrees a second rms and up to 103. The owner's word was "jerky, bumpy
+        //and too fast". Now 85 units in 4.2 s (20 u/s), and the height is dilated and blurred over PASS_WINDOW
+        //points in PASS_SMOOTHING passes (`AridIntroPaths.Hug`), so the lens rises well before a crest and
+        //settles well after it instead of tracing it.
         private const int PASS_BEARINGS = 36;
-        private const float PASS_FROM = 150f;
-        private const float PASS_TO = 255f;
+        private const float PASS_FROM = 160f;
+        private const float PASS_TO = 245f;
         private const float PASS_CLEARANCE = 14f;
-        private const int PASS_WINDOW = 5;
+        private const int PASS_WINDOW = 18;
+        private const int PASS_SMOOTHING = 3;
         private const float PASS_PITCH_DOWN_DEGREES = 3f;
-        private const float PASS_SECONDS = 3.3f;
+        private const float PASS_PITCH_DAMPING = 0.4f;
+        private const float PASS_SECONDS = 4.2f;
 
         //The summit: the highest ground within SUMMIT_INNER..SUMMIT_OUTER of the arena, sampled every
         //SUMMIT_STEP units; the lens turns round it this far out, this far UNDER the summit (the ground only
@@ -86,7 +95,7 @@ namespace BS3D.Effects
         }
 
         /// <summary>Up a valley and over the lowest saddle: the radial run whose highest ground is least.</summary>
-        private static IntroShot Pass(Func<float, float, float> ground, float fieldOfView, Random random)
+        internal static IntroShot Pass(Func<float, float, float> ground, float fieldOfView, Random random)
         {
             float offset = AridIntroPaths.Roll(random, 0f, MathHelper.TwoPi / PASS_BEARINGS);
             float bestBearing = offset, bestHigh = float.MaxValue;
@@ -108,10 +117,10 @@ namespace BS3D.Effects
 
             Vector2 outward = AridIntroPaths.Bearing(bestBearing);
             Vector3[] path = AridIntroPaths.Hug(AridIntroPaths.Line(outward * PASS_FROM, outward * PASS_TO), ground,
-                PASS_CLEARANCE, 4f, PASS_WINDOW);
+                PASS_CLEARANCE, 4f, PASS_WINDOW, passes: PASS_SMOOTHING);
 
             return new IntroShot("the pass", path, PASS_SECONDS, fieldOfView * 1.15f,
-                lookAhead: 24f, pitchDownDegrees: PASS_PITCH_DOWN_DEGREES);
+                lookAhead: 24f, pitchDownDegrees: PASS_PITCH_DOWN_DEGREES, pitchDamping: PASS_PITCH_DAMPING);
         }
 
         /// <summary>Round the highest summit, a little under it, the look on the peak.</summary>

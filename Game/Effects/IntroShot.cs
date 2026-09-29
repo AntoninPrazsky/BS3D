@@ -37,6 +37,7 @@ namespace BS3D.Effects
         private readonly Vector3[] _lookAtPath;
         private readonly float _lookAhead;
         private readonly float _pitchDown;
+        private readonly float _pitchDamping;
 
         /// <param name="name">What the shot is of.</param>
         /// <param name="path">The lens's path, at least two points, evenly spaced along it.</param>
@@ -52,8 +53,15 @@ namespace BS3D.Effects
         /// shot runs, the dream's glass solid or a storm cell, or a truck along a front with the look carried
         /// beside it. Walked on the same clock as the path, so its points are spaced evenly in time; it wins
         /// over <paramref name="lookAt"/>.</param>
+        /// <param name="pitchDamping">How much of the path's own rise and fall the view refuses to follow, 0–1
+        /// (#645): 0 looks along the travel, 1 keeps the view level. A lens that hugs rolling ground and looks
+        /// along its own travel tips down every dune's slip face and up its next slope, and no smoothing of the
+        /// PATH can stop that, because it is the path's slope that is the pitch — measured on the desert's crest
+        /// as 29 degrees a second rms and up to 80 with the height already smoothed. Only the travel-following
+        /// look uses it; a shot on a fixed or moving point looks where it is told.</param>
         public IntroShot(string name, Vector3[] path, float seconds, float fieldOfView,
-            Vector3? lookAt = null, float lookAhead = 12f, float pitchDownDegrees = 0f, Vector3[] lookAtPath = null)
+            Vector3? lookAt = null, float lookAhead = 12f, float pitchDownDegrees = 0f, Vector3[] lookAtPath = null,
+            float pitchDamping = 0f)
         {
             if (path == null || path.Length < 2) throw new ArgumentException("A shot needs at least two points.", nameof(path));
 
@@ -65,6 +73,7 @@ namespace BS3D.Effects
             _lookAtPath = lookAtPath != null && lookAtPath.Length >= 2 ? lookAtPath : null;
             _lookAhead = lookAhead;
             _pitchDown = MathHelper.ToRadians(pitchDownDegrees);
+            _pitchDamping = MathHelper.Clamp(pitchDamping, 0f, 1f);
         }
 
         /// <summary>
@@ -109,6 +118,14 @@ namespace BS3D.Effects
                 : _path[^1] + SafeNormalize(_path[^1] - _path[^2]) * ((ahead - 1f) * length) - position;
 
             if (forward.LengthSquared() < 1e-6f) forward = _path[^1] - _path[0];
+
+            //Held towards the level (#645): the horizontal part is untouched, so the heading is the travel's own.
+            if (_pitchDamping > 0f)
+            {
+                forward.Y *= 1f - _pitchDamping;
+                if (forward.LengthSquared() < 1e-6f) forward = Vector3.UnitZ;
+            }
+
             forward.Normalize();
 
             //Tilted down about the horizontal axis across the travel, so the street is in the lower half

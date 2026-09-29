@@ -57,9 +57,20 @@ namespace BS3D.Effects
         /// averaged over the same window — see the class remarks for why that can never dip under a crest.
         /// Where <paramref name="floor"/> is given, a point is never lower than it (a designed crane or a fixed
         /// height the ground only ever lifts).
+        /// <para>
+        /// <b><paramref name="passes"/> smooths a fast shot's ride (#645).</b> One box average over the window has a
+        /// corner at each end of the box, so a lens flying over rough ground at thirty units a second had its
+        /// vertical acceleration jump at every one — measured on the mountains' pass and the desert's crest as
+        /// 440 u/s² and a view that pitched 100-160 degrees a second. The window is split into
+        /// <paramref name="passes"/> narrower box averages run one after the other (three of them make a
+        /// piecewise-quadratic blur, continuous in acceleration), their half-widths summing to no more than the
+        /// window, so the guarantee above holds unchanged: every value averaged is within the dilation's reach
+        /// of the point, and so was raised over its clearance. The default, one pass, is the original single
+        /// box and leaves every shot that has not asked for more exactly as it was.
+        /// </para>
         /// </summary>
         public static Vector3[] Hug(Vector2[] plan, Func<float, float, float> ground, float clearance, float lateral,
-            int window, Func<int, float> floor = null)
+            int window, Func<int, float> floor = null, int passes = 1)
         {
             int n = plan.Length;
             var raised = new float[n];
@@ -92,19 +103,31 @@ namespace BS3D.Effects
                 dilated[i] = top;
             }
 
-            var path = new Vector3[n];
-            for (int i = 0; i < n; i++)
+            //The averaging: `passes` boxes of half-width window / passes each (at least one point), run in turn.
+            int half = Math.Max(1, window / Math.Max(1, passes));
+            if (passes <= 1) half = window;
+
+            var averaged = new float[n];
+            for (int pass = 0; pass < Math.Max(1, passes); pass++)
             {
-                float sum = 0f;
-                int count = 0;
-                for (int j = Math.Max(0, i - window); j <= Math.Min(n - 1, i + window); j++)
+                for (int i = 0; i < n; i++)
                 {
-                    sum += dilated[j];
-                    count++;
+                    float sum = 0f;
+                    int count = 0;
+                    for (int j = Math.Max(0, i - half); j <= Math.Min(n - 1, i + half); j++)
+                    {
+                        sum += dilated[j];
+                        count++;
+                    }
+
+                    averaged[i] = sum / count;
                 }
 
-                path[i] = new Vector3(plan[i].X, sum / count, plan[i].Y);
+                (dilated, averaged) = (averaged, dilated);
             }
+
+            var path = new Vector3[n];
+            for (int i = 0; i < n; i++) path[i] = new Vector3(plan[i].X, dilated[i], plan[i].Y);
 
             return path;
         }

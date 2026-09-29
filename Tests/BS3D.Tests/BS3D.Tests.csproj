@@ -5,7 +5,7 @@
     <RootNamespace>BS3D.Tests</RootNamespace>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
-    <NoWarn>$(NoWarn);NU1701</NoWarn>
+    <NoWarn>$(NoWarn);NU1701;CS1574</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -20,6 +20,19 @@
         the way Tools/LevelGen/SagProbe does; the version is the libraries' own.-->
     <PackageReference Include="BepuPhysics" />
     <PackageReference Include="BepuUtilities" />
+  </ItemGroup>
+
+  <!--The chapter-intro shot builders, compiled in from the Game (#645): they are plain geometry over
+      TerrainMirror's height fields — no device, no window — and the Game is net10.0-windows, which this project
+      is not. Tools/MusicBake takes Game/Audio the same way. IntroShotSmoothnessTests builds the terrain-hugging
+      shots through their own code and holds their ride to a limit.-->
+  <ItemGroup>
+    <Compile Include="..\..\Game\Effects\IntroShot.cs" />
+    <Compile Include="..\..\Game\Effects\IntroPaths.cs" />
+    <Compile Include="..\..\Game\Effects\AridIntroPaths.cs" />
+    <Compile Include="..\..\Game\Effects\MountainIntroShots.cs" />
+    <Compile Include="..\..\Game\Effects\DesertIntroShots.cs" />
+    <Compile Include="..\..\Game\Effects\VolcanoIntroShots.cs" />
   </ItemGroup>
 
   <ItemGroup>
