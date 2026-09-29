@@ -7138,3 +7138,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-29 — #654 sněžení v horách — desktop, Claude Code (bs3d-78)
 
 - **Beru #654.** Reference skutečného sněžení (velikost a hustota vloček s hloubkou, rozmazání pohybem, blízká a vzdálená vrstva, dohlednost; klein i Z-Image), pak `Snow.fx`/`Snowfall` podle nich; aurora sdílí stejný shader, zkontroluju i ji. Soubory: `BS3DLibs/Prazsky.Shaders/Content/Shaders/Snow*.fx`, `BS3DLibs/Prazsky.Core/Render/*Snow*`, `MountainSceneConfig.Snow`, `docs/scenes.md`.
+
+## 2026-09-29 — #670 pata kmene na savaně — desktop, Claude Code (bs3d-78)
+
+- **Beru #670** (přechod kmene do země nevypadá skutečně; notebook ho nechal na desktop kvůli referencím). Reference (klein i Z-Image, `C:\Users\panrd\AI\sd\out\670-*`): pata akácie, baobabu a doumu v půdě — náběh kořenů, navátá půda, trsy trávy na kůře, stín dotyku. Pak pata v meshích (`AcaciaMesh`, `BaobabMesh`, `DoumPalmMesh`), barva půdy na spodku kůry a trsy u paty. Soubory: `BS3DLibs/Prazsky.Core/Render/*Savanna*`, meshe stromů, shader savany, `docs/scenes.md`. #663 (měřítko) zatím nechávám.
