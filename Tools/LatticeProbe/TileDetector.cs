@@ -3,7 +3,7 @@ using System;
 namespace BS3D.Tools.LatticeProbe
 {
     /// <summary>One tile's answer: how far its strongest spectral peak stands over the neighbourhood it sits in, and where.</summary>
-    internal readonly record struct TileScore(double Score, double PeriodPixels, double AngleDegrees);
+    internal readonly record struct TileScore(double Score, double PeriodPixels, double AngleDegrees, int Peaks);
 
     /// <summary>
     /// <b>The spectral-peak detector for a repeating lattice</b> (#674): does this tile of an image carry a periodic
@@ -58,6 +58,15 @@ namespace BS3D.Tools.LatticeProbe
         private readonly bool[] _inBand;
         private readonly double[] _frequency;   //radial frequency of each bin, in cycles per tile
         private readonly double[] _re, _im, _power, _detrended;
+
+        /// <summary>
+        /// The score over which a spectral peak is COUNTED in <see cref="TileScore.Peaks"/> (the caller sets it to the null once
+        /// it is known; 0 counts nothing). What separates a lattice from a band-limited texture: a lattice has a handful of
+        /// discrete peaks (the fundamental and its harmonics), and a texture with one characteristic scale — a cellular noise,
+        /// a lawn — has a RING of them, dozens, each a chance speckle of that ring standing over a neighbourhood that is mostly
+        /// out of it.
+        /// </summary>
+        public double CountAbove { get; set; }
 
         public TileDetector(int size)
         {
@@ -244,7 +253,7 @@ namespace BS3D.Tools.LatticeProbe
             for (int i = 0; i < _power.Length; i++) _power[i] = _re[i] * _re[i] + _im[i] * _im[i];
 
             double best = 0;
-            int bestKx = 0, bestKy = 0;
+            int bestKx = 0, bestKy = 0, peaks = 0;
             Span<double> around = stackalloc double[80];
 
             for (int ky = 0; ky < _n; ky++)
@@ -279,6 +288,8 @@ namespace BS3D.Tools.LatticeProbe
                     double median = 0.5 * (around[39] + around[40]);
                     double ratio = p / Math.Max(median, 1e-12);
 
+                    if (CountAbove > 0 && ratio > CountAbove) peaks++;
+
                     if (ratio > best)
                     {
                         best = ratio;
@@ -292,7 +303,7 @@ namespace BS3D.Tools.LatticeProbe
             double angle = Math.Atan2(fy, fx) * 180.0 / Math.PI;
             angle = ((angle % 180.0) + 180.0) % 180.0;
 
-            return new TileScore(best, _n / f, angle);
+            return new TileScore(best, _n / f, angle, peaks);
         }
 
         private int Wrap(int k) => (k + _n) & (_n - 1);

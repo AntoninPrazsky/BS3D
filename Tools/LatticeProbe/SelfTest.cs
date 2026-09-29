@@ -26,7 +26,7 @@ namespace BS3D.Tools.LatticeProbe
         public static bool Run(TileDetector detector, double nullScore, int stride)
         {
             Console.WriteLine("self-test: synthetic fields of known answer (10 px cell, 40 % of the cells lit, 2.5-level noise floor)");
-            Console.WriteLine($"{"field",-30} {"scored",6} {"flat",5} {"edge",5} {"above",6} {"share",7} {"best",8} {"period",7}  expected");
+            Console.WriteLine($"{"field",-30} {"scored",6} {"flat",5} {"edge",5} {"above",6} {"share",7} {"best",8} {"period",7} {"peaks",5}  expected");
 
             bool ok = true;
 
@@ -45,6 +45,9 @@ namespace BS3D.Tools.LatticeProbe
             ok &= Case("facade of windows (designed)", Facade(), detector, nullScore, stride,
                 r => r.AboveShare >= 0.80 && r.Edge <= r.Tiles / 5, ">= 80 % above and not mistaken for an edge");
 
+            ok &= Case("band-limited texture (ring)", Ring(), detector, nullScore, stride,
+                r => true, "printed, not asserted: one scale, no lattice - read the PEAKS column");
+
             ok &= Case("smooth gradient, 8-bit steps", Gradient(), detector, nullScore, stride,
                 r => r.Scored == 0 && r.Flat > 0, "every tile refused as flat");
 
@@ -62,7 +65,7 @@ namespace BS3D.Tools.LatticeProbe
             bool held = assertion(r);
 
             string period = r.Flagged.Count > 0 ? MedianPeriod(r).ToString("F2") : "-";
-            Console.WriteLine($"{name,-30} {r.Scored,6} {r.Flat,5} {r.Edge,5} {r.Above,6} {r.AboveShare,6:P0} {(r.Best is ScoredTile b ? b.Score.Score : 0),8:F1} {period,7}  {(held ? "ok" : "FAILED")}: {expected}");
+            Console.WriteLine($"{name,-30} {r.Scored,6} {r.Flat,5} {r.Edge,5} {r.Above,6} {r.AboveShare,6:P0} {(r.Best is ScoredTile b ? b.Score.Score : 0),8:F1} {period,7} {(r.Best is ScoredTile p ? p.Score.Peaks : 0),5}  {(held ? "ok" : "FAILED")}: {expected}");
             return held;
         }
 
@@ -130,6 +133,41 @@ namespace BS3D.Tools.LatticeProbe
 
             Quantise(luma);
             return new LumaImage(WIDTH, HEIGHT, luma);
+        }
+
+        //A Gaussian random field with a RING spectrum: a hundred and fifty plane waves of wavelength 12 px (+-12 %) in random
+        //directions and phases. One characteristic scale and no lattice - what a cellular or a single-octave noise looks like
+        //to the spectrum - so it shows what a texture does to a peak-over-neighbourhood score: its speckle can stand over a
+        //neighbourhood that is mostly out of the ring. The PEAKS column is what tells it from a lattice's few discrete ones.
+        private static LumaImage Ring()
+        {
+            const int W = 768, H = 384;
+            var random = new Random(11);
+            const int WAVES = 150;
+            double[] kx = new double[WAVES], ky = new double[WAVES], phase = new double[WAVES];
+
+            for (int i = 0; i < WAVES; i++)
+            {
+                double wavelength = 12.0 * (0.88 + 0.24 * random.NextDouble());
+                double angle = random.NextDouble() * 2.0 * Math.PI;
+                kx[i] = 2.0 * Math.PI / wavelength * Math.Cos(angle);
+                ky[i] = 2.0 * Math.PI / wavelength * Math.Sin(angle);
+                phase[i] = random.NextDouble() * 2.0 * Math.PI;
+            }
+
+            float[] luma = new float[W * H];
+            double gain = 22.0 / Math.Sqrt(WAVES / 2.0);
+
+            for (int y = 0; y < H; y++)
+                for (int x = 0; x < W; x++)
+                {
+                    double sum = 0;
+                    for (int i = 0; i < WAVES; i++) sum += Math.Cos(kx[i] * x + ky[i] * y + phase[i]);
+                    luma[y * W + x] = (float)(120.0 + gain * sum);
+                }
+
+            Quantise(luma);
+            return new LumaImage(W, H, luma);
         }
 
         private static LumaImage Gradient()
