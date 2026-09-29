@@ -20,6 +20,12 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+# #657: refuse a path a shell mangled (C:Userspanrd... - the backslashes eaten) before the folder below is created
+. "$PSScriptRoot\..\..\..\Tools\PathGuard.ps1"
+Assert-SanePath Exe $Exe
+Assert-SanePath OutDir $OutDir -Full
+
 New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
 
 Add-Type @"

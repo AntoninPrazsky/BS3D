@@ -34,6 +34,13 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+# #657: refuse a path a shell mangled (C:Userspanrd... - the backslashes eaten). A relative name stays allowed here.
+. "$PSScriptRoot\..\..\..\Tools\PathGuard.ps1"
+Assert-SanePath Before $Before
+Assert-SanePath After $After
+Assert-SanePath Out $Out
+
 $vision = Join-Path $PSScriptRoot '..\local-ai\vision.ps1'
 $block = 16
 

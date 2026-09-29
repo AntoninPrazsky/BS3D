@@ -81,6 +81,10 @@ param(
     [double]$LightnessWeight = 1.0
 )
 
+# #657: refuse a path a shell mangled (C:Userspanrd... - the backslashes eaten)
+. "$PSScriptRoot\..\..\..\Tools\PathGuard.ps1"
+Assert-SanePath Png $Png
+
 Add-Type -AssemblyName System.Drawing
 $names = @('red','green','blue','white','cyan','magenta','yellow','black','orange','brown','silver','navy','olive')
 $bmp = [System.Drawing.Bitmap]::FromFile((Resolve-Path $Png))

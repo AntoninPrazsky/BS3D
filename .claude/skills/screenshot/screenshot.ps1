@@ -27,6 +27,11 @@ param(
     [string]$Exe = "$PSScriptRoot\..\..\..\Testbed\bin\net10.0-windows\Testbed.exe"
 )
 
+# #657: refuse a path a shell mangled (C:Userspanrd... - the backslashes eaten). A relative -Out stays allowed.
+. "$PSScriptRoot\..\..\..\Tools\PathGuard.ps1"
+Assert-SanePath Out $Out
+Assert-SanePath Exe $Exe
+
 # key name -> (vk, scan, extended). SDL reads the scan code. Extended keys (End, arrows) need the extended flag.
 # (Named $KeyMap, not $Keys: PowerShell variable names are case-insensitive, so $Keys would collide with the param.)
 $KeyMap = @{
