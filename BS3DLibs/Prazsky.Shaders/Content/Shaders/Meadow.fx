@@ -224,7 +224,7 @@ float4 MeadowField(MeadowVertexOutput input, bool detail)
     //bound of GradientNoise2 over every gradient its hash can deal, reached at a cell's centre), so a pixel further
     //from the line than the widest term's edge plus that amplitude comes out trodden 0 and verge 0 whatever the
     //noise says - and its noise is not evaluated. The path and the brook cross a sliver of the field and their
-    //three noises ran on every pixel of it: measured on the APU (Toadstool, 1600x900) the path cost 0.61 ms at Low
+    //three noises ran on every pixel of it: measured on the APU (Toadstool, retired in #649; 1600x900) the path cost 0.61 ms at Low
     //and the brook 0.38, most of the meadow's 12 % rise with #609, and this branch and the brook's took 0.50 of it
     //back (1.02 at High; "What #609 costs on the APU" in docs/scenes.md). The dirt's grain rides in the same
     //branch, since it is only ever mixed in by trodden.

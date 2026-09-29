@@ -61,8 +61,11 @@ namespace Prazsky.BS3D.Levels
 
         /// <summary>
         /// Each played level's bests, keyed by the set entry's <see cref="LevelSetEntry.File"/> — the one
-        /// identifier that survives a display name being retuned. An entry a set no longer lists simply goes
-        /// unread, so regenerating the set never invalidates the save.
+        /// identifier that survives a display name being retuned. An entry a set no longer lists goes unread by
+        /// the picker and the chapters, so regenerating the set never invalidates the save — but
+        /// <see cref="TotalStars"/> and <see cref="TotalScore"/> still sum it, deliberately: #649 retired three
+        /// levels players had cleared, and the stars earned on them stay the player's rather than closing a road
+        /// they had already opened.
         /// </summary>
         [JsonPropertyName("levels")]
         public Dictionary<string, LevelBest> Levels { get; set; } = new();

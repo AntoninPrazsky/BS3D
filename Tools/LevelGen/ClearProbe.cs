@@ -339,7 +339,7 @@ namespace BS3D.Tools.LevelGen
         /// an order the beam dropped; the sheets that ask for it clear in a handful of shots.
         /// </para>
         /// <para>
-        /// <b>⚠ What it does NOT say, measured on the whole campaign (#603):</b> run over all 133 levels it refuses
+        /// <b>⚠ What it does NOT say, measured on the whole campaign (#603):</b> run over all 133 levels of that set it refuses
         /// exactly one, Cairn, whose chambers are walled in rock. It does not refuse One — the pyramid the owner could
         /// not finish without A/D — because a match here takes the whole group, and One's shells wrap round it, so a
         /// front shot takes a shell's hidden back with it and four shots clear it from the stand. What sent the owner

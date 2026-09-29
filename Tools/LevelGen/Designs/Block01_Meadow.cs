@@ -85,7 +85,7 @@ namespace BS3D.Tools.LevelGen
             (c, r) => Math.Min(c - r / 2, FLAT_WIDTH - 1 - r / 2 - c) / 2);
 
         /// <summary>
-        /// <b>The second: upright stripes that zigzag</b>, on a shield — fifteen columns for eight rows, then
+        /// <b>The third: upright stripes that zigzag</b>, on a shield — fifteen columns for eight rows, then
         /// closing a column a side a row to a point. Three colours in bands three columns wide, each shifted a column left and
         /// right every two rows, so the wall reads as woven rather than ruled; and a stripe is a column of the wall,
         /// so every one of them hangs from the glass by its own top.
@@ -98,7 +98,7 @@ namespace BS3D.Tools.LevelGen
             (c, r) => (c + ((r / 2) % 2 == 0 ? 0 : 1)) / 3);
 
         /// <summary>
-        /// <b>The third: a rainbow hung upside down</b> — a half ring whose two ends are the top course, cut across
+        /// <b>The second: a rainbow hung upside down</b> — a half ring whose two ends are the top course, cut across
         /// into five arcs of colour round its middle. Only the two end arcs touch the glass; the three between hang
         /// off their neighbours, so this is the opening's first level where a match takes something with it that it
         /// was holding up — both ends shot, the whole bow falls.
@@ -436,7 +436,8 @@ namespace BS3D.Tools.LevelGen
             //Yellow rather than the magenta this started with: the dream scene is a violet soup and the
             //magenta ring sank into it, which a screenshot showed and a palette on paper would not have
             //Rolled a step a FACET STEP since #234, and given a FOURTH colour to roll through. The round
-            //designs answer the same three-shot fault by cutting their rings into sectors; this design
+            //designs of #234 (Bullseye and Toadstool, retired in #649) answered the same three-shot fault by
+            //cutting their rings into sectors; this design
             //deliberately does not, because a cut facet is unbroken in life and a radial seam across it is the
             //one thing that would stop the shape reading as a crystal. A fourth colour buys the same groups
             //without touching the geometry: measured at 10 standing groups, 7 shots, best single shot 25 %.
@@ -481,7 +482,8 @@ namespace BS3D.Tools.LevelGen
 
         //THE MEADOW'S LATHE LEVELS (#255): the chapter that taught what a colour group IS goes back to the
         //lathe. Every body here is a solid of revolution and every colouring is the block's own big sector
-        //plate - the grammar One and the round levels established - and what these add is SUSPENSION: a waist
+        //plate - the grammar One and #234's sector-cut rings (Bullseye, Toadstool) established - and what these
+        //add is SUSPENSION: a waist
         //the lower cone pendulums through (Diabolo), feathers whose loss tips the cork they carry (Shuttle), a
         //~130-ball hoop hung on four snipeable spokes (Saturn), and handles that are a second load path the
         //player can see working (Amphora, the chapter's last level since #649). #255 made five; the fifth,
@@ -493,7 +495,7 @@ namespace BS3D.Tools.LevelGen
         //THE ONE RULE THEY ALL OBEY is the block's own, restated on curved bodies: a colour is never a
         //horizontal shell alone. Every sector runs the full height of whatever it is painted on, so every
         //plate reaches the glass on its own and taking one leaves the rest hanging - the trap Validate's
-        //drop test was written for, and the reason the round levels' rings are cut by the angle. The two
+        //drop test was written for, and the reason #234 cut the round levels' rings by the angle. The two
         //deliberate exceptions (Shuttle's cork, Saturn's ring and spokes) are low-only colours that are the
         //MOST exposed thing on their level, and each design's doc says so.
         //
@@ -528,7 +530,8 @@ namespace BS3D.Tools.LevelGen
         /// three, <see cref="Band"/> put sector k and k + 3 on the same entry, so each colour was two
         /// full-height plates running glass to tip and fusing through the solid plug: <b>five standing groups
         /// for 455 balls</b> — 91 balls a shot at par and a budget of 6.8 shots per group, against 4.9 and 5.5
-        /// for the two gentler levels before it and 2.4 for the one after. A playtest called it "surprisingly
+        /// for the two gentler levels before it and 2.4 for the one after (at #361: Toadstool, Pinwheel and
+        /// Amphora). A playtest called it "surprisingly
         /// easy" and it was, arithmetically. Four inks stop opposite sectors sharing, and the turn at the
         /// waist stops a sector's two halves fusing through the plug: <b>7 groups, 65 balls at par, budget
         /// 4.86, and the biggest single shot 33 % → 25 %</b>. The silhouette did not move a cell, which is
@@ -643,14 +646,16 @@ namespace BS3D.Tools.LevelGen
             Scene = SceneKind.Meadow,
             Sky = 1,
             //Named since #649, and missing from #255 until then: the file carried neither, so the one level of
-            //the block played in vinyl under whatever theme was already sounding, and LevelGen's block line
+            //the block played in vinyl, to whichever family the set's positional rotation gave its index
+            //(GameMusic.SetTheme's fallback for a level naming none), and LevelGen's block line
             //said MIXED THEMES, MIXED BALL STYLES for it - a print that gates nothing, which is why it stood.
             Music = MUSIC_RINGS,
             Balls = BALLS_MEADOW,
             //⚠ 34 AND NOT 38 (#361). The feathers were always six separate groups - opposite ones share an
             //ink but never touch - so the fourth ink changes what the magazine draws and not what the level
             //is made of, and the slack was the rest of the complaint: 38 shots over 7 groups is 5.4 a group
-            //where the two gentler levels before this one get 4.9 and 5.5 and the level after it gets 2.4.
+            //where the two gentler levels before this one get 4.9 and 5.5 and the level after it gets 2.4 (at
+            //#361, in the order of the time).
             //At 34 it is Diabolo's 4.9, which is the ramp this level sits in the middle of.
             Shots = 34,
             CeilingStep = 7,
