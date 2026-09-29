@@ -6940,3 +6940,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-29 — #659 rychlejší W/S — desktop, Claude Code (bs3d-a1)
 
 - **Na mainu:** `Cannon.ADVANCE_SPEED` 5 → 10 u/s (A/D jede po orbitě ~17 u/s). Gumové konce beze změny.
+
+## 2026-09-29 — #230 spící dělo: náboje v hlavni — desktop, Claude Code (bs3d-a1)
+
+- **Na mainu:** `Magazine.Pose` bral ústí z kreslené (pokleslé) hlavně, ale směr fronty z `AimDirection` → náboje trčely z hlavně a nedýchaly s ní (majitel). Teď `Cannon.DrawnAimDirection()` (internal); test `TheLoadedQueueFollowsTheDroopedBarrel`.

@@ -1073,9 +1073,10 @@ namespace Prazsky.BS3D.GameObjects
 
         /// <summary>
         /// The bore as drawn: <see cref="AimDirection"/> lowered by <see cref="Droop"/> about the horizontal axis
-        /// across it, so a nodding barrel dips in its own vertical plane rather than swinging aside.
+        /// across it, so a nodding barrel dips in its own vertical plane rather than swinging aside. Internal for
+        /// <see cref="Magazine.Pose"/>, whose queue has to lie down the bore that is drawn.
         /// </summary>
-        private Vector3 DrawnAimDirection()
+        internal Vector3 DrawnAimDirection()
         {
             Vector3 aim = AimDirection;
             if (Droop == 0f) return aim;
