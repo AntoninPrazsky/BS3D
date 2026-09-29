@@ -7048,3 +7048,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 - **#672 na mainu (nové, zavřené):** při reprodukci #669 hra spadla — výsledková stránka → Main Menu **klávesnicí nebo padem** → výjimka `BallRenderSet.DrawShadow` bez `BeginFrame` (jednosnímkový `DrawSetting` po zbourání session; od #470, tedy ve v0.2.0 i v0.2.1). `DrawSetting` teď otevírá prázdnou sbírku koulí. Myš tou cestou nejde.
 - **#669** je na větvi `669-line-touch`, zápis přijde s mergem.
 - **Beru blok louky: #649** (13 → 10 levelů, Amphora poslední), pak **#666** (lekce skóre do druhé kapitoly) a **#664** (souměrnost otvíráků). Soubory: `Tools/LevelGen/Cli.cs`, `Designs/Block01_Meadow.cs`, `Game/Levels/*`, `Game/Screens/Tutorial.cs`, docs. Na #665 (notebook) nesahám.
+
+## 2026-09-29 — #648 čtvercové artefakty v lese — notebook, Claude Code (github-7f)
+
+- **Beru #648** (na zemi v lese jsou čtvercové artefakty; majitel neví, jestli stíny, nebo chyba). Nejdřív zachytit na `quality=high` (na `low` sluneční stíny nejsou) v lese, kde je majitel viděl, a zjistit, co to je: stínová mapa (texely, akné na nízké ploše — jako šachovnice v poušti #550), mřížka terénu, nebo shader země; změřit příznak dřív, než se cokoli změní. Soubory: `ForestScatterRenderer`, `ForestSceneConfig`, sluneční stínová mapa (`SunShadowMap`), `docs/scenes.md`. Z desktopových (#649, #666, #664, #669) nic; na savanu (#653, #658, #663, #670) a hory nesahám.
