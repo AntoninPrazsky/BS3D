@@ -154,11 +154,12 @@ namespace BS3D.Audio
         /// <summary>
         /// The families on disk, in the order the Settings row cycles them and the fallback rotation walks them:
         /// the five pieces the game shipped with first, in the order their <see cref="MusicTheme"/> slots had (so a
-        /// level that names nothing still opens on Pulse, as it always has), then every other family by name.
+        /// level that names nothing still opens on Pulse, as it always has) — the Tower's <c>summit</c> in the second
+        /// slot since #280, where the <c>bohemia</c> family it replaced stood — then every other family by name.
         /// </summary>
         public string[] Families { get; }
 
-        private static readonly string[] FIRST_FAMILIES = { "pulse", "bohemia", "nocturne", "mural", "ember" };
+        private static readonly string[] FIRST_FAMILIES = { "pulse", "summit", "nocturne", "mural", "ember" };
 
         /// <summary>The family a level asked for, and the recording it pinned within it — or −1 to rotate.</summary>
         private Family _family;
@@ -365,8 +366,10 @@ namespace BS3D.Audio
             string name = named?.Trim().ToLowerInvariant();
 
             //The old name of Mural's slot — #264 replaced the piece, not the slot, and a hand-edited file still
-            //naming the polka gets the family rather than whatever its position happens to rotate to
+            //naming the polka gets the family rather than whatever its position happens to rotate to. The Tower's
+            //bohemia family went the same way in #280 (it read as brass-band folk), and its levels play summit.
             if (name == "dechovka") name = "mural";
+            else if (name == "bohemia" || name.StartsWith("bohemia-", StringComparison.Ordinal)) name = "summit";
 
             if (!string.IsNullOrEmpty(name))
             {
