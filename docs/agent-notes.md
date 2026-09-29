@@ -6951,3 +6951,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-29 — #662 stíny dál před kamerou — desktop, Claude Code (bs3d-a1)
 
 - **Na mainu:** čtverec stínové mapy vystředěný 0,3 šířky PŘED kamerou (po vodorovné části pohledu), ne na ní → dosah ~208 j místo 130 při stejných texelech, ve všech scénách. Majitel: palmy na pláži přestávaly vrhat stín kousek do obrazu i na vysokých stupních.
+
+## 2026-09-29 — #634 znovu: čekání na kompozitor na konci snímku — desktop, Claude Code (bs3d-17)
+
+- **Beru #634** (zbylá půlka: PresentMon 26. 9. — na High/Ultra se 25–27 % snímků nikdy nezobrazilo, blt model; obě opravy revertovány kvůli #635 a #636, které se ukázaly být jinými chybami a jsou na mainu). Nejdřív změřit dnešní main PresentMonem (Měsíc, 3840×1600, Ultra/High), pak vrátit čekání + flush na konec `Draw` (`PaceFrame`, `GpuFlush`) a změřit znovu; ověřit přepnutí scény v levelu (#636), hru s výstřely, `fpscap=`/`nocap`. Soubory: `BS3DGame.cs`, `Platform/FrameLimiter.cs`, nový `Platform/GpuFlush.cs`, `docs/game-session.md`.
