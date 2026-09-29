@@ -223,6 +223,20 @@ namespace Prazsky.BS3D
         }
 
         /// <summary>
+        /// Changes what the round in one slot IS, leaving its colour, its place in the queue and any dissolve it is part
+        /// way through alone — the Cut power-up's operation (#213, <c>PowerupKind.Cut</c>), which turns the muzzle round into
+        /// a <see cref="BallKind.Cutter"/>. The colour is kept so that the census, the transmute and a swap that carries the
+        /// round to another slot all go on treating the slot as the valid, coloured slot it is; a cutter's own look ignores it.
+        /// </summary>
+        /// <param name="slot">The slot, 0 at the muzzle.</param>
+        /// <param name="kind">What it is now.</param>
+        public void SetKind(int slot, BallKind kind)
+        {
+            MagazineSlot current = _slots[slot];
+            _slots[slot] = new MagazineSlot(current.Type, kind, current.FadingFrom, current.Transmute);
+        }
+
+        /// <summary>
         /// Exchanges two loaded slots' colours in place — a power-up's own operation (#392, <c>PowerupKind.Swap</c>
         /// being its first), and the one thing <see cref="Advance"/> and <see cref="Recolour"/> do not offer:
         /// neither reorders the queue. The "never empty" invariant is untouched, because a swap only ever

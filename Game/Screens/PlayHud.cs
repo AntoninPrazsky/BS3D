@@ -851,9 +851,11 @@ namespace BS3D.Screens
         /// draws nothing, so a first-chapter player is shown no key that does nothing.</param>
         /// <param name="brakeCharges">The level's Brake charges left (#213), or −1 for a level that offers none — the ceiling's
         /// brake chip, drawn on the row above the Swap's.</param>
+        /// <param name="cutCharges">The level's Cut charges left (#213), or −1 for a level that offers none — the anchor cut's
+        /// chip, drawn on the row above the Brake's.</param>
         internal void Draw(ScoreKeeper score, ICamera camera, in ClusterProfile profile, ReadOnlySpan<BallMarker> balls,
             ReadOnlySpan<BallType> queue, Tutorial tutorial, bool previewsOnly = false,
-            ReadOnlySpan<BS3D.Effects.DozingGun.Z> snores = default, int swapCharges = -1, int brakeCharges = -1)
+            ReadOnlySpan<BS3D.Effects.DozingGun.Z> snores = default, int swapCharges = -1, int brakeCharges = -1, int cutCharges = -1)
         {
             _game.EnsureHudFonts();
 
@@ -897,7 +899,7 @@ namespace BS3D.Screens
             DrawStreak(score, viewport, margin, scoreAnchor.Y + scoreSize.Y * 0.5f + Scaled(HUD_LINE_GAP));
             DrawBallsLeft(score, viewport, margin);
             DrawMagazine(queue, score, viewport, margin);
-            DrawSwap(swapCharges, brakeCharges, tutorial.OnGamepad, viewport, margin);
+            DrawSwap(swapCharges, brakeCharges, cutCharges, tutorial.OnGamepad, viewport, margin);
 
             //The card is given the score's left edge rather than measuring it again: it is what bounds the
             //strip the card may stand in (#461), and one measurement cannot disagree with the other.
@@ -1189,6 +1191,12 @@ namespace BS3D.Screens
         private const string BRAKE_GLYPH_PAD = "⇑";
         private const string BRAKE_READY = "Brake";
         private const string BRAKE_SPENT = "Brake used";
+
+        //The Cut chip's (#213): R and the pad's right bumper
+        private const string CUT_GLYPH_KEY = "Ｒ";
+        private const string CUT_GLYPH_PAD = "↱";
+        private const string CUT_READY = "Cut";
+        private const string CUT_SPENT = "Cut used";
         private const int HUD_SWAP_GLYPH_GAP = 14;
         private const int HUD_SWAP_ABOVE_STRIP = 26;
         private const int HUD_SWAP_ROW_GAP = 8;
@@ -1199,6 +1207,8 @@ namespace BS3D.Screens
         private string _swapText = SWAP_READY;
         private int _brakeTextFor = -1;
         private string _brakeText = BRAKE_READY;
+        private int _cutTextFor = -1;
+        private string _cutText = CUT_READY;
 
         /// <summary>
         /// The power-up chips (#213), above the magazine they act on and right-aligned to it — one row each, the Swap's
@@ -1210,7 +1220,7 @@ namespace BS3D.Screens
         /// nothing to press. The glyph is the pad's button when the hand was last on the pad
         /// (<see cref="Tutorial.OnGamepad"/>), as every prompt outside the cards picks.
         /// </summary>
-        private void DrawSwap(int swapCharges, int brakeCharges, bool onGamepad, Viewport viewport, int margin)
+        private void DrawSwap(int swapCharges, int brakeCharges, int cutCharges, bool onGamepad, Viewport viewport, int margin)
         {
             int row = 0;
 
@@ -1223,7 +1233,13 @@ namespace BS3D.Screens
             if (brakeCharges >= 0)
             {
                 ChipText(brakeCharges, BRAKE_READY, BRAKE_SPENT, ref _brakeTextFor, ref _brakeText);
-                DrawChip(row, onGamepad ? BRAKE_GLYPH_PAD : BRAKE_GLYPH_KEY, _brakeText, brakeCharges > 0, viewport, margin);
+                DrawChip(row++, onGamepad ? BRAKE_GLYPH_PAD : BRAKE_GLYPH_KEY, _brakeText, brakeCharges > 0, viewport, margin);
+            }
+
+            if (cutCharges >= 0)
+            {
+                ChipText(cutCharges, CUT_READY, CUT_SPENT, ref _cutTextFor, ref _cutText);
+                DrawChip(row, onGamepad ? CUT_GLYPH_PAD : CUT_GLYPH_KEY, _cutText, cutCharges > 0, viewport, margin);
             }
         }
 

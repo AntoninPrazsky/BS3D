@@ -348,7 +348,23 @@ namespace Prazsky.BS3D.GameStructure
         /// continuously, where a tear is one event the player may not have aimed for.
         /// </para>
         /// </summary>
-        Heavy = 10
+        Heavy = 10,
+
+        /// <summary>
+        /// The anchor cut (#213's third step) — <b>the second kind the player SHOOTS rather than one a level places</b>,
+        /// and the wildcard's twin in that: it exists only on the gun's side of the game. The Cut power-up
+        /// (<c>PowerupKind.Cut</c>) turns the round in the bore into one; when it strikes a ball of the structure it does
+        /// not stick and does not match, it <b>destroys that one ball</b> and the disconnection pass runs over what is
+        /// left (<c>BallsConstraintsBuilder.CutBall</c>), so whatever hung on that ball alone falls with it. It is the
+        /// lesson the whole game teaches — a support falls with what holds it — played on purpose.
+        /// <para>
+        /// <b>⚠ No ball in the lattice is ever a cutter</b>, for the wildcard's reason (see <see cref="Wildcard"/>): it is
+        /// spent in the striking, so a cell holding one is a state nothing means to produce, and one hanging in a level
+        /// would answer no to <see cref="BallKinds.Matchable"/> with no shot that could remove it. It is refused where
+        /// the map takes a ball (<see cref="BallKinds.InCluster"/>) and steps over in an editor's cycle.
+        /// </para>
+        /// </summary>
+        Cutter = 11
     }
 
     /// <summary>
@@ -457,8 +473,8 @@ namespace Prazsky.BS3D.GameStructure
         public static bool Removable(BallKind kind) => kind != BallKind.Rock;
 
         /// <summary>
-        /// Whether a ball of this kind may hang in the lattice at all (#330). Every kind but the wildcard can:
-        /// they are placed by a level and they are what the cluster is made of.
+        /// Whether a ball of this kind may hang in the lattice at all (#330). Every kind but the wildcard and the cutter can:
+        /// they are placed by a level and they are what the cluster is made of. (And the cutter, since #213: the second kind that exists only on the gun's side.)
         /// <para>
         /// <b>The wildcard is the first kind that exists only on the gun's side of the game</b> — it is loaded,
         /// shown, fired and then collapses into an ordinary ball when it lands, so a cell holding one is a state
@@ -469,7 +485,7 @@ namespace Prazsky.BS3D.GameStructure
         /// clears nor loses.
         /// </para>
         /// </summary>
-        public static bool InCluster(BallKind kind) => kind != BallKind.Wildcard;
+        public static bool InCluster(BallKind kind) => kind != BallKind.Wildcard && kind != BallKind.Cutter;
 
         /// <summary>
         /// The spellings a kind answers to on a command line or in a hand-edited file. Lenient in the same way
@@ -548,6 +564,12 @@ namespace Prazsky.BS3D.GameStructure
                 case "lead":
                 case "weight":
                     kind = BallKind.Heavy;
+                    return true;
+
+                case "cutter":
+                case "cut":
+                case "blade":
+                    kind = BallKind.Cutter;
                     return true;
 
                 default:

@@ -1682,7 +1682,8 @@ namespace BS3D.Screens
                 new ReadOnlySpan<PlayHud.BallMarker>(_profileBalls, 0, ballCount),
                 _magazineQueue, _tutorial, previewsOnly, _dozing.Letters,
                 swapCharges: _run.SwapOffered ? _run.PowerupCharges[(int)PowerupKind.Swap] : -1,
-                brakeCharges: _run.BrakeOffered ? _run.PowerupCharges[(int)PowerupKind.Brake] : -1);
+                brakeCharges: _run.BrakeOffered ? _run.PowerupCharges[(int)PowerupKind.Brake] : -1,
+                cutCharges: _run.CutOffered ? _run.PowerupCharges[(int)PowerupKind.Cut] : -1);
 
             if (previewsOnly) return;
 

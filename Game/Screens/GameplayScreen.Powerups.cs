@@ -1,3 +1,4 @@
+using Prazsky.BS3D.GameStructure;
 using System;
 
 namespace BS3D.Screens
@@ -30,6 +31,14 @@ namespace BS3D.Screens
         /// no step to give back), and never lifts it past that height. See <see cref="CeilingDescent.Brake"/>.
         /// </summary>
         Brake = 2,
+
+        /// <summary>
+        /// The anchor cut (#213, the third of its order): turns the round in the bore into a
+        /// <see cref="BallKind.Cutter"/>, which destroys the one ball it strikes instead of sticking, so what hung on that
+        /// ball alone falls. Refused while the round is already a cutter or a wildcard (a wildcard turned into a cutter
+        /// would be a charge spent to lose a wildcard).
+        /// </summary>
+        Cut = 3,
     }
 
     /// <summary>
@@ -69,6 +78,7 @@ namespace BS3D.Screens
             //argument on top of it — which assigns, so powerups=swap:3 is three and powerups=swap:0 is none.
             _run.PowerupCharges[(int)PowerupKind.Swap] = LevelSwapCharges(index);
             _run.PowerupCharges[(int)PowerupKind.Brake] = LevelBrakeCharges(index);
+            _run.PowerupCharges[(int)PowerupKind.Cut] = LevelCutCharges(index);
 
             string spec = _test.ForcedPowerups;
 
@@ -88,6 +98,7 @@ namespace BS3D.Screens
 
             _run.SwapOffered = _run.PowerupCharges[(int)PowerupKind.Swap] > 0;
             _run.BrakeOffered = _run.PowerupCharges[(int)PowerupKind.Brake] > 0;
+            _run.CutOffered = _run.PowerupCharges[(int)PowerupKind.Cut] > 0;
         }
 
         /// <summary>
@@ -101,6 +112,9 @@ namespace BS3D.Screens
         /// no set or one whose ceiling never steps.
         /// </summary>
         private int LevelBrakeCharges(int index) => Game.LevelSet?.BrakeChargesAt(index) ?? 0;
+
+        /// <summary>How many Cut charges the level at <paramref name="index"/> is granted by the campaign (#213), 0 for a level in no set.</summary>
+        private int LevelCutCharges(int index) => Game.LevelSet?.CutChargesAt(index) ?? 0;
 
         /// <summary>How many charges of <paramref name="kind"/> are left — what the HUD's chip reads for its count (#213).</summary>
         internal int PowerupCharges(PowerupKind kind) => _run.PowerupCharges[(int)kind];
@@ -126,7 +140,9 @@ namespace BS3D.Screens
         internal bool CanActivate(PowerupKind kind) =>
             kind != PowerupKind.None && _run.PowerupCharges[(int)kind] > 0 && !CameraTakeoverEngaged && !LevelDecided
             //A brake has to have a step to give back: pressed with the glass at rest it is refused and keeps its charge (#213)
-            && (kind != PowerupKind.Brake || _ceilingDescent.CanBrake);
+            && (kind != PowerupKind.Brake || _ceilingDescent.CanBrake)
+            //A cut needs an ordinary round in the bore to turn: never one that already is a cutter, and not a wildcard (#213)
+            && (kind != PowerupKind.Cut || _magazine.Slot(0).Kind == BallKind.Normal);
 
         /// <summary>
         /// Spends one charge of <paramref name="kind"/> and applies its effect. A no-op, not an exception, on
@@ -162,6 +178,14 @@ namespace BS3D.Screens
                     _ceilingDescent.Brake();
                     AnnounceCeilingBrake();
                     break;
+
+                case PowerupKind.Cut:
+                    //The round in the bore becomes the cutter: its look is the zap's, and the aim ghost goes (it would show
+                    //a ball that will not land). Heard as the mechanism's own click, as the swap is.
+                    _magazine.SetKind(0, BallKind.Cutter);
+                    Game.Audio.PlayUiClick();
+                    Console.WriteLine("[cut] the round in the bore is a cutter, " + _run.PowerupCharges[(int)PowerupKind.Cut] + " left");
+                    break;
             }
         }
 
@@ -182,6 +206,15 @@ namespace BS3D.Screens
         /// offers a brake and it cannot fire — spent, or with the glass still at rest (nothing to give back, and the charge is
         /// kept). Silent on a level that offers none.
         /// </summary>
+        private void PressCut()
+        {
+            if (CanActivate(PowerupKind.Cut)) Activate(PowerupKind.Cut);
+            else if (_run.CutOffered && !CameraTakeoverEngaged && !LevelDecided) Game.Audio.PlayShotRefused();
+        }
+
+        /// <summary>Whether this level offers an anchor cut at all, spent or not (#213) - <see cref="OffersBrake"/>'s third.</summary>
+        internal bool OffersCut => _run.CutOffered;
+
         private void PressBrake()
         {
             if (CanActivate(PowerupKind.Brake)) Activate(PowerupKind.Brake);

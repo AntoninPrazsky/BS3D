@@ -146,6 +146,9 @@ namespace BS3D.Screens
         /// </summary>
         internal bool BrakeOffered { get; set; }
 
+        /// <summary>Whether this level was granted an anchor cut at all, spent or not (#213) - <see cref="BrakeOffered"/>'s third.</summary>
+        internal bool CutOffered { get; set; }
+
         /// <summary>
         /// The line's grace — <see cref="ClusterLineWatch"/>'s since #301/#302, so the level generator's sag gate
         /// decides a simulated run by running <i>this</i> rule rather than a second copy of it that could drift
