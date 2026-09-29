@@ -212,9 +212,14 @@ namespace BS3D
         /// </para>
         /// <para>
         /// <b><c>Low</c> gives it up</b> (#298's rule, a tier drops effects): the rung exists for a machine like the
-        /// reference APU, where it is short already, and the APU has not been measured — a wide part's millisecond is
-        /// several there if #540's multisample ratio is any guide. <c>Medium</c> keeps it, <c>High</c> and
-        /// <c>Ultra</c> carry it.
+        /// reference APU, where it is short already. <c>Medium</c> keeps it, <c>High</c> and <c>Ultra</c> carry it.
+        /// </para>
+        /// <para>
+        /// <b>On the reference APU</b> (2026-09-29, the Game at 1600×900, <c>quality=medium</c>, <c>mbflip=5</c> — off and on
+        /// every five seconds inside one process, six pairs a run, the second after each flip dropped), it costs
+        /// <c>Medium</c> <b>+0.68 to +0.78 ms at rest and +0.86 to +0.91 with the barrel sweeping</b> (<c>sweep=</c>), the sign
+        /// holding in every pair: Amphora, Balloon, Colossus and Pendulum, frames of 17–25 ms. Not the "several
+        /// milliseconds" #540's multisample ratio had suggested; about 4 % of the frame there.
         /// </para>
         /// </summary>
         public readonly bool MotionBlur;
