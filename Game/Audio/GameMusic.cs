@@ -111,6 +111,10 @@ namespace BS3D.Audio
         private const string VICTORY_FILE = "victory-fanfare";
         private Task<float[]> _victoryLoad;
 
+        //The defeat's, the owner's pick of nine renders (#446), the same way
+        private const string DEFEAT_FILE = "defeat-fanfare";
+        private Task<float[]> _defeatLoad;
+
         /// <summary>
         /// One family of recordings (#486): the files that share a name before the first dash, the family's own
         /// bare file first and then its variants in name order, each decoded on demand into <see cref="Loads"/>
@@ -183,6 +187,9 @@ namespace BS3D.Audio
 
             string victory = Path.Combine(AppContext.BaseDirectory, SFX_DIRECTORY, VICTORY_FILE + TRACK_EXTENSION);
             if (File.Exists(victory)) _victoryLoad = LoadVictory(victory);
+
+            string defeat = Path.Combine(AppContext.BaseDirectory, SFX_DIRECTORY, DEFEAT_FILE + TRACK_EXTENSION);
+            if (File.Exists(defeat)) _defeatLoad = LoadVictory(defeat);
 
             //Every recording in the folder, grouped into families by the name before its first dash (#486): the
             //file names only — nothing is decoded until a family is asked for.
@@ -416,7 +423,7 @@ namespace BS3D.Audio
         /// <summary>The victory fanfare, still procedural — see <see cref="ProceduralMusic.PlayVictory"/>.</summary>
         public void PlayVictory(int score, bool grand = false) => _fanfares.PlayVictory(score, grand);
 
-        /// <summary>The defeat fanfare, still procedural — see <see cref="ProceduralMusic.PlayDefeat"/>.</summary>
+        /// <summary>The defeat fanfare: the recording when the file is there (#446), else the bake — see <see cref="ProceduralMusic.PlayDefeat"/>.</summary>
         public void PlayDefeat(int score) => _fanfares.PlayDefeat(score);
 
         /// <summary>Retires whatever fanfare is sounding — see <see cref="ProceduralMusic.StopFanfare"/>.</summary>
@@ -440,6 +447,13 @@ namespace BS3D.Audio
                 Task<float[]> ready = _victoryLoad;
                 _victoryLoad = null;
                 if (ready.Result != null) _fanfares.SetVictoryRecording(ready.Result);
+            }
+
+            if (_defeatLoad != null && _defeatLoad.IsCompleted)
+            {
+                Task<float[]> ready = _defeatLoad;
+                _defeatLoad = null;
+                if (ready.Result != null) _fanfares.SetDefeatRecording(ready.Result);
             }
 
             if (_menuLoad != null && _menuLoad.IsCompleted)
@@ -654,7 +668,7 @@ namespace BS3D.Audio
             }
             catch (Exception exception)
             {
-                Console.WriteLine($"[music] the victory recording could not be read: {exception.Message}");
+                Console.WriteLine($"[music] the fanfare recording could not be read: {exception.Message}");
                 return null;
             }
         });

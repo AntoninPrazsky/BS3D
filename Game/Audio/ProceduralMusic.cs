@@ -430,6 +430,12 @@ namespace BS3D.Audio
         private Task<byte[]> _victoryPcm;
         private SoundEffect _victoryTrack;
 
+        //The defeat as a recording (#446), realized once by the same rule; _pendingRecording is the one a null-PCM bake result
+        //stands for, set by StartFanfare so the realization below knows which track was asked for.
+        private Task<byte[]> _defeatPcm;
+        private SoundEffect _defeatTrack;
+        private SoundEffect _pendingRecording;
+
         private SoundEffect _fanfareTrack;
         private SoundEffectInstance _fanfare;
 
@@ -523,14 +529,26 @@ namespace BS3D.Audio
 
         /// <summary>
         /// The victory fanfare as a recording (#482): the render the owner chose rather than the bake. What a recording cannot do is what <see cref="StartFanfare"/>'s intensity did — grow with the
-        /// score — and that is the trade the owner chose over a piece that is different every time. The defeat stays
-        /// baked: the recording is a win, and a loss is not the moment for it.
+        /// score — and that is the trade the owner chose over a piece that is different every time. The defeat is a
+        /// recording of its own since #446 (<see cref="SetDefeatRecording"/>).
         /// </summary>
         public void SetVictoryRecording(float[] pcm)
         {
             if (_failed) return;
 
             _victoryPcm = Task.Run(() => ToPcm(pcm));
+        }
+
+        /// <summary>
+        /// The defeat fanfare as a recording (#446): <c>defeat-a-6s-21</c>, the owner's pick of nine renders. Like the
+        /// victory it is one fixed piece — the bake's growth with the score is what a recording gives up — and it is
+        /// realized once, the same way. Without a file the defeat is baked as it always was.
+        /// </summary>
+        public void SetDefeatRecording(float[] pcm)
+        {
+            if (_failed) return;
+
+            _defeatPcm = Task.Run(() => ToPcm(pcm));
         }
 
         /// <summary>
@@ -562,8 +580,10 @@ namespace BS3D.Audio
             //The recording, when there is one, arrives through the very path the bake does — a completed task — so
             //the realization, the fades and the ducking are one code path. Its PCM is null: the realization takes
             //the one realized track instead of converting (#592).
-            if (victory && _victoryTrack != null)
+            SoundEffect recording = victory ? _victoryTrack : _defeatTrack;
+            if (recording != null)
             {
+                _pendingRecording = recording;
                 _fanfareBake = Task.FromResult((float[])null);
                 return;
             }
@@ -610,6 +630,21 @@ namespace BS3D.Audio
                 }
             }
 
+            if (_defeatPcm != null && _defeatPcm.IsCompleted)
+            {
+                Task<byte[]> ready = _defeatPcm;
+                _defeatPcm = null;
+
+                try
+                {
+                    _defeatTrack = new SoundEffect(ready.Result, SAMPLE_RATE, AudioChannels.Stereo);
+                }
+                catch (Exception exception)
+                {
+                    Console.WriteLine($"[music] the defeat recording could not be realized, baking instead: {exception.Message}");
+                }
+            }
+
             //Realized the frame its synthesis finishes, so the piece announcing the result lands as close to the
             //result as the machine allows.
             if (_fanfareBake != null && _fanfareBake.IsCompleted)
@@ -623,7 +658,7 @@ namespace BS3D.Audio
                     SoundEffect oldTrack = _fanfareTrack;
 
                     //A null Pcm is the recording: its one track, never converted again and never disposed here.
-                    _fanfareTrack = ready.Result == null ? _victoryTrack : ToSoundEffect(ready.Result);
+                    _fanfareTrack = ready.Result == null ? _pendingRecording : ToSoundEffect(ready.Result);
                     _fanfare = _fanfareTrack.CreateInstance();
 
                     //An announcement arrives at full — whatever fade the previous fanfare's retirement left
@@ -633,7 +668,7 @@ namespace BS3D.Audio
                     _fanfare.Play();
 
                     old?.Dispose();
-                    if (oldTrack != _victoryTrack) oldTrack?.Dispose();
+                    if (oldTrack != _victoryTrack && oldTrack != _defeatTrack) oldTrack?.Dispose();
                 }
                 catch (Exception exception)
                 {
@@ -4464,8 +4499,9 @@ namespace BS3D.Audio
             _failed = true;   //so a late Update cannot resurrect it
 
             _fanfare?.Dispose();
-            if (_fanfareTrack != _victoryTrack) _fanfareTrack?.Dispose();
+            if (_fanfareTrack != _victoryTrack && _fanfareTrack != _defeatTrack) _fanfareTrack?.Dispose();
             _victoryTrack?.Dispose();
+            _defeatTrack?.Dispose();
         }
     }
 }
