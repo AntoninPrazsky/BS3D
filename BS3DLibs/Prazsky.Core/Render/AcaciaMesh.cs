@@ -66,6 +66,16 @@ namespace Prazsky.Core.Render
         //The trunk's radius at the root, as a multiple of the radius it holds to the fork
         private const float ROOT_FLARE = 1.5f;
 
+        //The surface roots (#670), as multiples of the flare's radius: how many, how far out they reach on the ground and
+        //how high up the trunk they leave it; and how steeply their tips dive, as a share of the reach past the flare —
+        //in proportion, because the scatter sinks a tree by its flare's ring and a long root on a slope's downhill
+        //side would otherwise end above the plain it was drawn to enter
+        private const int ROOTS_MIN = 4;
+        private const int ROOTS_SPREAD = 3;
+        private const float ROOT_REACH = 2.3f;
+        private const float ROOT_RISE = 1.1f;
+        private const float ROOT_DIVE = 0.45f;
+
         //The trunk's mean radius over its length as a multiple of the radius at the fork (a flare from ROOT_FLARE down
         //to 0.9), and how much of a tier's leaf plate counts as solid
         private const float TRUNK_MEAN = 1.2f;
@@ -160,7 +170,7 @@ namespace Prazsky.Core.Render
                     new BoundingSphere(new Vector3(0f, treeHeight * 0.85f, 0f), canopyRadius * 1.6f + treeHeight * 0.2f));
 
                 var lv = new List<VertexPositionNormalTexture>();
-                var lidx = new List<short>();
+                var lidx = new List<int>();
                 Random leafRng = new(seed * 37 + 11);
                 foreach (TierSpec tier in tiers)
                     LeafSprays.Generate(lv, lidx, new Vector3(tier.Offset.X, tier.CentreY, tier.Offset.Y), tier.Radius, tier.HalfHeight, leafRng);
@@ -204,6 +214,26 @@ namespace Prazsky.Core.Render
                 //The trunk, flared at the root and holding most of its girth to the fork.
                 TubeGeometry.AddTube(v, idx, SEG, new Vector3(0f, 0f, 0f), trunkRadius * ROOT_FLARE,
                     new Vector3(0f, forkY, 0f), trunkRadius * 0.9f);
+
+                //The foot (#670): surface roots leaving the flare, running out along the ground and diving into it,
+                //which is what every reference's trunk does where it meets the soil — a clean cylinder cut at the
+                //ground read as a pole stood on the plain. Each in two runs, steep off the trunk and then shallower,
+                //and off its own dice, so everything above the ground is the tree it was.
+                Random rootDice = new(unchecked(BitConverter.SingleToInt32Bits(forkY) * 31 + boughs));
+                float foot = trunkRadius * ROOT_FLARE;
+                int roots = ROOTS_MIN + rootDice.Next(ROOTS_SPREAD);
+                float rootBearing = (float)rootDice.NextDouble() * MathHelper.TwoPi;
+                for (int r = 0; r < roots; r++)
+                {
+                    float ra = rootBearing + MathHelper.TwoPi * r / roots + (float)(rootDice.NextDouble() - 0.5) * 0.8f;
+                    Vector3 rd = new(MathF.Cos(ra), 0f, MathF.Sin(ra));
+                    float out_ = foot * ROOT_REACH * (0.7f + 0.6f * (float)rootDice.NextDouble());
+                    Vector3 leave = rd * (foot * 0.3f) + Vector3.Up * (foot * ROOT_RISE * (0.8f + 0.4f * (float)rootDice.NextDouble()));
+                    Vector3 knee = rd * (foot * 1.1f) + Vector3.Up * (foot * 0.12f);
+                    Vector3 end = rd * out_ - Vector3.Up * ((out_ - foot) * ROOT_DIVE + foot * 0.2f);
+                    TubeGeometry.AddTube(v, idx, 5, leave, foot * 0.42f, knee, foot * 0.24f);
+                    TubeGeometry.AddTube(v, idx, 5, knee, foot * 0.24f, end, foot * 0.08f);
+                }
 
                 //The boughs: evenly spread with a jittered bearing, each rising in two bent segments to a point
                 //out under a tier. They taper hard, so the wood thins into the leaves it carries. With no tier
@@ -337,7 +367,7 @@ namespace Prazsky.Core.Render
         //A spray's length as a share of the tier's radius, and its width against its length.
         private const float SPRAY_LENGTH = 0.20f, SPRAY_ASPECT = 0.45f;
 
-        public static void Generate(List<VertexPositionNormalTexture> v, List<short> idx, Vector3 centre, float radius,
+        public static void Generate(List<VertexPositionNormalTexture> v, List<int> idx, Vector3 centre, float radius,
             float halfHeight, Random rng)
         {
             for (int layer = 0; layer < LAYERS.Length; layer++)
@@ -374,13 +404,13 @@ namespace Prazsky.Core.Render
                     Vector3 half = across * (width * scale * 0.5f);
 
                     float layerCode = 2f * layer;
-                    short b = (short)v.Count;
+                    int b = v.Count;
                     v.Add(new VertexPositionNormalTexture(stem - half, normal, new Vector2(0f, layerCode)));
                     v.Add(new VertexPositionNormalTexture(stem + half, normal, new Vector2(0f, layerCode + 1f)));
                     v.Add(new VertexPositionNormalTexture(tip + half, normal, new Vector2(1f, layerCode + 1f)));
                     v.Add(new VertexPositionNormalTexture(tip - half, normal, new Vector2(1f, layerCode)));
-                    idx.Add(b); idx.Add((short)(b + 1)); idx.Add((short)(b + 2));
-                    idx.Add(b); idx.Add((short)(b + 2)); idx.Add((short)(b + 3));
+                    idx.Add(b); idx.Add(b + 1); idx.Add(b + 2);
+                    idx.Add(b); idx.Add(b + 2); idx.Add(b + 3);
                 }
             }
         }
@@ -535,10 +565,40 @@ namespace Prazsky.Core.Render
 
         public static (VertexBuffer, IndexBuffer) Upload(GraphicsDevice device, List<VertexPositionNormalTexture> v, List<short> idx)
         {
+            //A short index names at most 65 536 vertices (read unsigned); past that it wraps and draws the wrong ones
+            //without a word, which is how a baobab's leaves lost a sixth of their cards for weeks (#670)
+            if (v.Count > 65536)
+                throw new InvalidOperationException($"{v.Count} vertices under 16-bit indices: build the mesh with int indices.");
+
             var vb = new VertexBuffer(device, VertexPositionNormalTexture.VertexDeclaration, v.Count, BufferUsage.WriteOnly);
             vb.SetData(v.ToArray());
             var ib = new IndexBuffer(device, IndexElementSize.SixteenBits, idx.Count, BufferUsage.WriteOnly);
             ib.SetData(idx.ToArray());
+            return (vb, ib);
+        }
+
+        /// <summary>
+        /// <see cref="Upload(GraphicsDevice, List{VertexPositionNormalTexture}, List{short})"/> for a mesh built with int
+        /// indices — the leaf sprays, which a baobab's crown takes past 65 536 vertices: 32-bit indices when the vertices
+        /// need them, 16-bit otherwise.
+        /// </summary>
+        public static (VertexBuffer, IndexBuffer) Upload(GraphicsDevice device, List<VertexPositionNormalTexture> v, List<int> idx)
+        {
+            var vb = new VertexBuffer(device, VertexPositionNormalTexture.VertexDeclaration, v.Count, BufferUsage.WriteOnly);
+            vb.SetData(v.ToArray());
+            IndexBuffer ib;
+            if (v.Count > 65536)
+            {
+                ib = new IndexBuffer(device, IndexElementSize.ThirtyTwoBits, idx.Count, BufferUsage.WriteOnly);
+                ib.SetData(idx.ToArray());
+            }
+            else
+            {
+                var narrow = new ushort[idx.Count];
+                for (int i = 0; i < narrow.Length; i++) narrow[i] = (ushort)idx[i];
+                ib = new IndexBuffer(device, IndexElementSize.SixteenBits, idx.Count, BufferUsage.WriteOnly);
+                ib.SetData(narrow);
+            }
             return (vb, ib);
         }
     }
@@ -553,6 +613,14 @@ namespace Prazsky.Core.Render
         public BoundingSphere BoundingSphere { get; }
 
         public UploadedMesh(GraphicsDevice device, List<VertexPositionNormalTexture> v, List<short> idx, BoundingSphere bounds)
+        {
+            (VertexBuffer, IndexBuffer) = TubeGeometry.Upload(device, v, idx);
+            PrimitiveCount = idx.Count / 3;
+            BoundingSphere = bounds;
+        }
+
+        /// <summary>The same over int indices (the leaf sprays), 32-bit when the vertices need them.</summary>
+        public UploadedMesh(GraphicsDevice device, List<VertexPositionNormalTexture> v, List<int> idx, BoundingSphere bounds)
         {
             (VertexBuffer, IndexBuffer) = TubeGeometry.Upload(device, v, idx);
             PrimitiveCount = idx.Count / 3;

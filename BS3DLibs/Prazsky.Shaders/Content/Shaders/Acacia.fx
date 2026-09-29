@@ -80,6 +80,13 @@ static const float LICHEN_AMOUNT = 0.6;
 static const float FOOT_HEIGHT = 1.6;            //over the plant's root, in world units
 static const float FOOT_DARKEN = 0.35;
 
+//The ground's own bare earth carried up the foot (#670): the savanna hands over its GrassColorBare, linear, and
+//black is none — the plant pass other scenes draw through shares this effect and sets it black. Over about
+//EARTH_HEIGHT above the root, its line broken by one noise octave, at most EARTH_AMOUNT of the way to the earth.
+float3 FootEarth;
+static const float EARTH_HEIGHT = 0.9;
+static const float EARTH_AMOUNT = 0.8;
+
 //--- THE LEAF SPRAYS (#610). A card's texture coordinate runs X from the spray's stem to its tip and Y across it,
 //plus twice its layer (0 on top of the crown, 1, 2 underneath). The references: a crown of thin flat tiers of
 //tiny compound leaves, the sky showing between them, back-lit yellow-green towards the sun, dark underneath.
@@ -144,7 +151,8 @@ struct AcaciaVertexInput
     float4 World2 : TEXCOORD2;
     float4 World3 : TEXCOORD3;
     float4 World4 : TEXCOORD4;
-    float4 Custom : TEXCOORD5;   //x: dryness 0..1 (towards DiffuseDry), y: brightness offset (-1..1 about 0)
+    float4 Custom : TEXCOORD5;   //x: dryness 0..1 (towards DiffuseDry), y: brightness offset (-1..1 about 0),
+                                 //z: the ground at the trunk's centre above the pivot (#670; 0 where nobody says)
     float2 UV : TEXCOORD0;       //read by the leaf sprays alone (#610); every savanna mesh carries one
 };
 
@@ -156,7 +164,7 @@ struct AcaciaVertexOutput
     float2 Tint : TEXCOORD2;
     float2 UV : TEXCOORD3;
     float2 Seed : TEXCOORD4;     //the instance's own place, so two trees do not lose the same leaflets
-    float RootY : TEXCOORD5;     //the instance's own foot, for the bark's darker base (#610)
+    float RootY : TEXCOORD5;     //the ground at the instance's foot, for the bark's earth and darker base (#610, #670)
 };
 
 AcaciaVertexOutput AcaciaVS(AcaciaVertexInput input)
@@ -174,7 +182,9 @@ AcaciaVertexOutput AcaciaVS(AcaciaVertexInput input)
     output.Tint = input.Custom.xy;
     output.UV = input.UV;
     output.Seed = input.World4.xz;
-    output.RootY = input.World4.y;
+    //The ground the eye sees at the trunk, not the pivot: a tree planted at the lowest ground under its ring (#658)
+    //stands with its pivot under the plain, and its foot measured from there went under the ground with it (#670)
+    output.RootY = input.World4.y + input.Custom.z;
 
     return output;
 }
@@ -244,6 +254,13 @@ float4 AcaciaPS(AcaciaVertexOutput input, bool front : SV_IsFrontFace) : COLOR
         float lichen = smoothstep(LICHEN_COVER, LICHEN_COVER + 0.08, Fbm3(input.WorldPosition * LICHEN_FREQUENCY + 17.3, 2));
         float light = dot(color, float3(0.2126, 0.7152, 0.0722)) / max(dot(albedo, float3(0.2126, 0.7152, 0.0722)), 1e-3);
         color = lerp(color, LICHEN_COLOR * light, lichen * LICHEN_AMOUNT * BarkStrength);
+
+        //The foot stained with the ground it stands in (#670): the references' lower bark is the soil's colour,
+        //dusted and splashed, and a root diving into the plain is the plain's colour where it goes in. Lit as
+        //the bark is, so the stain takes the light the trunk takes.
+        float earthLine = EARTH_HEIGHT * (0.65 + 0.7 * saturate(0.5 + Fbm3(input.WorldPosition * 2.1 + 5.0, 1)));
+        float earth = 1.0 - saturate((input.WorldPosition.y - input.RootY) / earthLine);
+        color = lerp(color, FootEarth * light, earth * earth * EARTH_AMOUNT * (any(FootEarth) ? 1.0 : 0.0));
 
         //The foot darker, fading out over FOOT_HEIGHT above the plant's root
         float foot = 1.0 - saturate((input.WorldPosition.y - input.RootY) / FOOT_HEIGHT);
