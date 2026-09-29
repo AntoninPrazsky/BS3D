@@ -48,20 +48,22 @@ namespace BS3D.Screens
         /// <param name="praiseGap">Between the detail and the praise, already zero when there is no praise.</param>
         /// <param name="centreX">The frame's horizontal centre, which the card is centred on.</param>
         /// <param name="top">Where the card's top stands at rest.</param>
-        /// <param name="bob">The idle bob's offset this frame. It runs through the praise: stopping it there made the
-        /// whole card jump by the bob on the frame the praise landed.</param>
+        /// <param name="age">Seconds the card has been up: the idle bob's clock. The bob runs through the praise,
+        /// because stopping it there made the whole card jump by the bob on the frame the praise landed.</param>
+        /// <param name="bobAmplitude">How far the bob swings either way.</param>
+        /// <param name="bobPeriod">Seconds a bob takes.</param>
         /// <param name="arrive">The pop-in's scale.</param>
         /// <param name="kick">The praise's spring, 1 at rest — the praise word's alone while there is one.</param>
         /// <param name="halfStrip">How far from <paramref name="centreX"/> the card may reach either way (#461).</param>
         public static TutorialCardLayout Compute(Vector2 glyph, Vector2 caption, Vector2 detail, Vector2 praise,
-            float glyphGap, float lineGap, float praiseGap, float centreX, float top, float bob, float arrive,
-            float kick, float halfStrip)
+            float glyphGap, float lineGap, float praiseGap, float centreX, float top, float age, float bobAmplitude,
+            float bobPeriod, float arrive, float kick, float halfStrip)
         {
             //THE INSTRUCTION IS LAID OUT FROM ITS OWN GEOMETRY ALONE: the glyph, the caption and the detail
             //decide the card's width, its height, the centre it is scaled about and the strip clamp, and the
             //praise enters none of it. It was one block with the praise in it until #673, so the frame the
-            //praise landed re-centred everything already read — the text rose by half the praise's height
-            //beside a glyph taller than it, the glyph sank beside text taller than it — and the praise's
+            //praise landed re-centred everything already read — beside a glyph taller than it the text rose
+            //until it was the taller of the two, beside text taller than it the glyph sank — and the praise's
             //spring swelled all of it about a centre that now included the praise row.
             float textWidth = MathF.Max(caption.X, detail.X);
             float textHeight = caption.Y + lineGap + detail.Y;
@@ -74,6 +76,7 @@ namespace BS3D.Screens
             float clamp = width > 0f ? 2f * halfStrip / width : float.MaxValue;
             float scale = MathF.Min(arrive * (praising ? 1f : kick), clamp);
 
+            float bob = MathF.Sin(age * MathHelper.TwoPi / bobPeriod) * bobAmplitude;
             Vector2 centre = new(centreX, top + height * 0.5f + bob);
             Vector2 origin = centre - new Vector2(width, height) * (0.5f * scale);
 
@@ -83,18 +86,19 @@ namespace BS3D.Screens
 
             if (!praising) return new TutorialCardLayout(glyphAt, captionAt, detailAt, scale, detailAt, scale);
 
-            //The praise hangs under the text in the caption's column, and swells about its own centre, so the
-            //words over it stay where the eye left them. Its own clamp keeps a word wider than the room right
-            //of the caption's edge off the score — the instruction's cannot see it, and must not.
-            Vector2 praiseCentre = captionAt + new Vector2(praise.X * 0.5f, textHeight + praiseGap + praise.Y * 0.5f) * scale;
+            //The praise hangs under the text in the caption's column and swells from the middle of its LEFT
+            //edge, so the words over it stay where the eye left them and the word keeps the column the
+            //caption and the detail start on — a swell about its own centre pushed a longer word ("Together!")
+            //left into the glyph's column at the top of the kick. Its own clamp keeps a word wider than the
+            //room right of the caption's edge off the score — the instruction's cannot see it, and must not —
+            //and since the left edge is the caption's, which the instruction's clamp already keeps inside the
+            //strip, it shrinks the word and never loses it.
+            Vector2 praiseAnchor = captionAt + new Vector2(0f, (textHeight + praiseGap + praise.Y * 0.5f) * scale);
             float praiseScale = scale * kick;
             if (praise.X > 0f)
-            {
-                float room = MathF.Min(centreX + halfStrip - praiseCentre.X, praiseCentre.X - (centreX - halfStrip));
-                praiseScale = MathF.Min(praiseScale, MathF.Max(0f, 2f * room / praise.X));
-            }
+                praiseScale = MathF.Min(praiseScale, MathF.Max(0f, centreX + halfStrip - praiseAnchor.X) / praise.X);
 
-            Vector2 praiseAt = praiseCentre - praise * (0.5f * praiseScale);
+            Vector2 praiseAt = praiseAnchor - new Vector2(0f, praise.Y * 0.5f * praiseScale);
 
             return new TutorialCardLayout(glyphAt, captionAt, detailAt, scale, praiseAt, praiseScale);
         }

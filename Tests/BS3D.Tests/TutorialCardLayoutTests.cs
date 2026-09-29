@@ -7,8 +7,8 @@ namespace BS3D.Tests
     /// <summary>
     /// The tutorial card's geometry (#673): the praise word lands under an instruction the player has already
     /// read, and nothing of that instruction may move when it does — not the caption, not the detail line, not
-    /// the glyph beside them, whichever of the glyph and the text is the taller, and not while the praise's
-    /// spring is swelling it. <c>TutorialCardLayout</c> is compiled in from the Game; the sizes are the shipped
+    /// the glyph beside them, whichever of the glyph and the text is the taller, not by the idle bob stopping,
+    /// and not while the praise's spring is swelling it. <c>TutorialCardLayout</c> is compiled in from the Game; the sizes are the shipped
     /// cards' at 1080p, measured off a capture to the nearest few pixels.
     /// </summary>
     public class TutorialCardLayoutTests
@@ -20,9 +20,14 @@ namespace BS3D.Tests
         private const float LINE_GAP = 5f;
         private const float PRAISE_GAP = 13f;
         private const float BOB = 2.5f;
+        private const float BOB_PERIOD = 2.8f;
+
+        //A quarter of the bob's period in: the bob at its full swing, so a bob stopped by the praise shows
+        private const float AGE = 0.7f;
         private const float EPSILON = 1e-3f;
 
-        private static readonly Vector2 PRAISE = new(140f, 62f);
+        //"Together!", the longest praise word a glyph card carries
+        private static readonly Vector2 PRAISE = new(260f, 62f);
 
         /// <summary>A shipped card's shape: a glyph, a caption and maybe a detail line.</summary>
         public static TheoryData<string, Vector2, Vector2, Vector2> Cards() => new()
@@ -39,7 +44,7 @@ namespace BS3D.Tests
             float kick, float arrive = 1f, float halfStrip = HALF_STRIP) =>
             TutorialCardLayout.Compute(glyph, caption, detail, praise,
                 glyph.X > 0f ? GLYPH_GAP : 0f, detail.Y > 0f ? LINE_GAP : 0f, praise.Y > 0f ? PRAISE_GAP : 0f,
-                CENTRE_X, TOP, BOB, arrive, kick, halfStrip);
+                CENTRE_X, TOP, AGE, BOB, BOB_PERIOD, arrive, kick, halfStrip);
 
         private static void Same(Vector2 expected, Vector2 actual, string what)
         {
@@ -89,15 +94,17 @@ namespace BS3D.Tests
         }
 
         [Fact]
-        public void ThePraiseSwellsAboutItsOwnCentre()
+        public void ThePraiseSwellsFromTheMiddleOfItsLeftEdge()
         {
+            //The word keeps the caption's column through the kick, and grows up and down by the same amount
             Vector2 glyph = new(60f, 70f), caption = new(330f, 62f), detail = new(250f, 36f);
             TutorialCardLayout rest = Lay(glyph, caption, detail, PRAISE, kick: 1f);
             TutorialCardLayout swollen = Lay(glyph, caption, detail, PRAISE, kick: 1.3f);
 
             Assert.Equal(1.3f, swollen.PraiseScale, 4);
-            Same(rest.PraiseAt + PRAISE * rest.PraiseScale * 0.5f, swollen.PraiseAt + PRAISE * swollen.PraiseScale * 0.5f,
-                "the praise's centre");
+            Assert.Equal(rest.PraiseAt.X, swollen.PraiseAt.X, 3);
+            Assert.Equal(rest.PraiseAt.Y + PRAISE.Y * rest.PraiseScale * 0.5f,
+                swollen.PraiseAt.Y + PRAISE.Y * swollen.PraiseScale * 0.5f, 3);
         }
 
         [Fact]
@@ -112,6 +119,7 @@ namespace BS3D.Tests
             Assert.Equal(1.3f, kicked.Scale, 4);
 
             float height = caption.Y + LINE_GAP + detail.Y;
+            //At AGE the bob stands at its full swing
             Assert.Equal(TOP + BOB, rest.CaptionAt.Y, 3);
             Assert.Equal(TOP + BOB + height * 0.5f * (1f - 1.3f), kicked.CaptionAt.Y, 3);
         }
@@ -127,6 +135,9 @@ namespace BS3D.Tests
             Assert.True(praised.PraiseAt.X >= CENTRE_X - narrow - EPSILON, $"left edge {praised.PraiseAt.X}");
             Assert.True(praised.PraiseAt.X + wide.X * praised.PraiseScale <= CENTRE_X + narrow + EPSILON,
                 $"right edge {praised.PraiseAt.X + wide.X * praised.PraiseScale}");
+
+            //Shrunk to fit, and still a word: the clamp may not make it vanish
+            Assert.True(praised.PraiseScale >= 0.25f, $"the praise shrank to {praised.PraiseScale}");
         }
     }
 }

@@ -258,5 +258,38 @@ namespace BS3D.Tests
             Assert.Equal(new[] { LINE_RULE }, Play(Fresh(new HashSet<string>(taught)), set, 9));
             Assert.Equal(new[] { LINE_RULE, SEND_OFF }, Play(Fresh(new HashSet<string>(taught)), set, 11));
         }
+
+        [Fact]
+        public void AnActionDoneWhileTheCardArrivesDoesNotSnapItToFullSize()
+        {
+            //#673: a player already moving the mouse when the aim card pops completes it inside the arrival.
+            //The praise's frame set the presence to full, and the pop-in's scale — the instruction's — with it.
+            LevelSet set = ShippedSet();
+            Tutorial tutorial = Fresh(new HashSet<string>());
+            Assert.True(Tutorial.TryPlace(set, 0, out int chapter, out int level, out int length));
+            tutorial.BeginLevel(chapter, level, length, ceilingStep: 6, swapOffered: false);
+
+            const float frame = 1f / 60f;
+            for (int i = 0; i < 600 && tutorial.Presence <= 0f; i++)
+                tutorial.Update(frame, enabled: true, takeoverEngaged: false, levelDecided: false);
+            Assert.Equal("Move the mouse to aim", tutorial.Caption);
+
+            //Two frames in: the aim baselined, then swung past the lesson's travel
+            tutorial.Update(frame, enabled: true, takeoverEngaged: false, levelDecided: false);
+            tutorial.NoteAim(0f, 0f);
+            tutorial.NoteAim(0.2f, 0f);
+            Assert.True(tutorial.Praising);
+
+            float before = tutorial.Presence;
+            Assert.True(before < 0.5f, $"the card was already {before} of the way in");
+
+            tutorial.Update(frame, enabled: true, takeoverEngaged: false, levelDecided: false);
+            float after = tutorial.Presence;
+            Assert.True(after - before < 0.1f, $"the praise's frame took the card from {before} to {after}");
+
+            //And the arrival still finishes under the praise
+            for (int i = 0; i < 60; i++) tutorial.Update(frame, enabled: true, takeoverEngaged: false, levelDecided: false);
+            Assert.Equal(1f, tutorial.Presence, 3);
+        }
     }
 }

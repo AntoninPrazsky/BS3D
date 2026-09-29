@@ -1869,7 +1869,10 @@ namespace BS3D.Screens
 
         private Pulse _tutorialPulse;
 
-        /// <summary>An action on the card was just done: the card pops the way the score does on a hit.</summary>
+        /// <summary>
+        /// An action on the card was just done: its praise word pops the way the score does on a hit — the word
+        /// alone, so the instruction over it stays put (#673); the send-off, which has no praise row, pops whole.
+        /// </summary>
         internal void KickTutorial() => _tutorialPulse.Kick(HUD_TUTORIAL_PRAISE_KICK);
 
         #region The drop cinematic's skip hint (#499)
@@ -1957,10 +1960,11 @@ namespace BS3D.Screens
         /// </para>
         /// <para>
         /// <b>Nothing already read moves when it lands, since #673</b> — which #466 promised and the layout did
-        /// not keep: the praise was a member of the block, so on its frame the block re-centred (the text rose
-        /// by half the praise's height beside the aim card's taller glyph, the glyph sank beside the fire card's
-        /// taller text), the idle bob stopped dead, and the kick swelled everything by 1.3× about a centre that
-        /// now included the praise row. The owner's report was that the player reads both lines again. Now the
+        /// not keep: the praise was a member of the block, so on its frame the block re-centred (beside the aim
+        /// card's taller glyph the text rose until it was the taller of the two, beside the fire card's taller
+        /// text the glyph sank), the idle bob stopped dead, and the kick swelled everything by 1.3× about a
+        /// centre that now included the praise row. An action done during the card's arrival also snapped it to
+        /// full size on the praise's frame (<c>Tutorial.Complete</c>). The owner's report was that the player reads both lines again. Now the
         /// instruction is laid out from its own geometry alone, the bob keeps its clock, and only the praise
         /// word springs; <c>TutorialCardLayoutTests</c> pins it, and failed on the old layout by 18 to 35 pixels.
         /// </para>
@@ -2001,10 +2005,9 @@ namespace BS3D.Screens
             //would otherwise walk into the score. It caps the animated scale rather than the layout, so a
             //clamped card cannot bounce past the number either; the praise word has its own (#673).
             float halfStrip = MathF.Max(0f, scoreLeft - Scaled(HUD_TUTORIAL_CLEARANCE) - viewport.Width * 0.5f);
-            float bob = MathF.Sin(tutorial.Age * MathHelper.TwoPi / HUD_TUTORIAL_BOB_PERIOD) * Scaled(HUD_TUTORIAL_BOB);
-
             TutorialCardLayout card = TutorialCardLayout.Compute(glyphSize, captionSize, detailSize, praiseSize,
-                gap, lineGap, praiseGap, viewport.Width * 0.5f, margin, bob, arrive, _tutorialPulse.Scale, halfStrip);
+                gap, lineGap, praiseGap, viewport.Width * 0.5f, margin, tutorial.Age, Scaled(HUD_TUTORIAL_BOB),
+                HUD_TUTORIAL_BOB_PERIOD, arrive, _tutorialPulse.Scale, halfStrip);
             float scale = card.Scale;
 
             if (glyphSize.X > 0f)
