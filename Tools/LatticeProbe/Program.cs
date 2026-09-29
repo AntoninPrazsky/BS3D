@@ -52,6 +52,7 @@ namespace BS3D.Tools.LatticeProbe
 
             var detector = new TileDetector(tile);
             double nullScore = NullModel.Percentile999(detector, nullTiles, out double nullMedian);
+            detector.CountAbove = nullScore;
             Console.WriteLine($"null: p99.9 = {nullScore:F1} over {nullTiles} synthetic 1/f^2 tiles of {tile} px (median {nullMedian:F1}); band {TileDetector.MIN_PERIOD}-{TileDetector.MAX_PERIOD} px, stride {stride}");
 
             if (selfTest) return SelfTest.Run(detector, nullScore, stride) ? 0 : 3;
@@ -64,7 +65,7 @@ namespace BS3D.Tools.LatticeProbe
                 else Console.Error.WriteLine($"not found: {input}");
             }
 
-            Console.WriteLine($"{"image",-44} {"tiles",5} {"scored",6} {"flat",5} {"edge",5} {"mask",5} {"above",6} {"share",6} {"best",9} {"period",7} {"angle",6}  at");
+            Console.WriteLine($"{"image",-44} {"tiles",5} {"scored",6} {"flat",5} {"edge",5} {"mask",5} {"above",6} {"share",6} {"best",9} {"period",7} {"angle",6} {"peaks",5}  at");
 
             foreach (string file in files)
             {
@@ -80,13 +81,13 @@ namespace BS3D.Tools.LatticeProbe
                 string name = r.Name.Length > 44 ? r.Name[..44] : r.Name;
 
                 if (r.Best is ScoredTile best)
-                    Console.WriteLine($"{name,-44} {r.Tiles,5} {r.Scored,6} {r.Flat,5} {r.Edge,5} {r.Masked,5} {r.Above,6} {r.AboveShare,6:P0} {best.Score.Score,9:F1} {best.Score.PeriodPixels,7:F2} {best.Score.AngleDegrees,6:F0}  ({best.X},{best.Y})");
+                    Console.WriteLine($"{name,-44} {r.Tiles,5} {r.Scored,6} {r.Flat,5} {r.Edge,5} {r.Masked,5} {r.Above,6} {r.AboveShare,6:P0} {best.Score.Score,9:F1} {best.Score.PeriodPixels,7:F2} {best.Score.AngleDegrees,6:F0} {best.Score.Peaks,5}  ({best.X},{best.Y})");
                 else
-                    Console.WriteLine($"{name,-44} {r.Tiles,5} {r.Scored,6} {r.Flat,5} {r.Edge,5} {r.Masked,5} {r.Above,6} {r.AboveShare,6:P0} {"-",9} {"-",7} {"-",6}");
+                    Console.WriteLine($"{name,-44} {r.Tiles,5} {r.Scored,6} {r.Flat,5} {r.Edge,5} {r.Masked,5} {r.Above,6} {r.AboveShare,6:P0} {"-",9} {"-",7} {"-",6} {"-",5}");
 
                 if (listFlagged)
                     foreach (ScoredTile t in r.Flagged.OrderByDescending(t => t.Score.Score).Take(8))
-                        Console.WriteLine($"    flagged ({t.X},{t.Y}) score {t.Score.Score:F1} period {t.Score.PeriodPixels:F2} px at {t.Score.AngleDegrees:F0} deg");
+                        Console.WriteLine($"    flagged ({t.X},{t.Y}) score {t.Score.Score:F1} period {t.Score.PeriodPixels:F2} px at {t.Score.AngleDegrees:F0} deg, {t.Score.Peaks} peaks over the null");
             }
 
             return 0;
