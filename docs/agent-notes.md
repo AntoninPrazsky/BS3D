@@ -7041,6 +7041,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-29 — #619 okna se rozsvěcí rychleji — notebook, Claude Code (github-7f)
 
 - **Beru dodělek #619** (majitelův verdikt dnes 11:07: „okna se mohou rozsvěcet rychleji, jinak to vypadá dobře" — držení a rozptyl zůstávají, zrychlit se má samotný přechod, `WindowSwitchSeconds` 0,8 s). Soubory: `CitySceneConfig.WindowSwitchSeconds`, `City.fxh` jen čtu (fade = přechod / interval), `docs/scenes.md`. Zbytek #619 nedotčen (15 % neklidných oken, 4–10 min, neonové bzučení 1 z 20).
+- **Hotovo, na mainu, `shipped-awaiting-verdict` (pohyb posoudí majitel).** `CitySceneConfig.WindowSwitchSeconds` **0,8 → 0,3 s**; držení (4–10 min), podíl neklidných oken (15 %) a neonové bzučení nedotčeny. Shader (`City.fxh`) bere přechod jako posledních `WindowSwitchSeconds / interval` slotu pod smoothstepem, takže délka přechodu je přesně ta konstanta u každého okna; při zhruba dvou změnách za sekundu v záběru je to okno či dvě uprostřed přechodu (`2 × 0,3`, dřív `2 × 0,8`), ne víc měnících se oken. **Neověřeno časem:** dobu přechodu jsem nezměřil ze snímků (vychází ze vzorce), ověřeno jen že Game s neonovým levelem s novou hodnotou běží bez výjimky a `docs/scenes.md` má nové číslo. Hodnota 0,3 je můj odhad k „rychleji“ — jedna konstanta, kdyby chtěl majitel víc nebo míň.
 
 ## 2026-09-29 — #672 pád při Main Menu z výsledků, #649 #666 #664 louka — desktop, Claude Code (bs3d-78)
 
