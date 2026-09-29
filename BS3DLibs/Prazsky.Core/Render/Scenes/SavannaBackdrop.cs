@@ -512,7 +512,7 @@ namespace Prazsky.Core.Render
             //Per frame since #609: the plant material is one effect the meadow's planting shares, at its own haze —
             //and, since #670, with the plain's own bare earth up every trunk's foot, taken back to black after
             _acaciaHazeParam.SetValue(_savannaConfig.HorizonHazeDistance);
-            _acaciaFootEarthParam.SetValue(_savannaConfig.GrassBare.ToVector3());
+            Vector3 footEarth = _savannaConfig.GrassBare.ToVector3();
 
             _graphicsDevice.BlendState = BlendState.Opaque;
             _graphicsDevice.DepthStencilState = DepthStencilState.Default;
@@ -533,6 +533,7 @@ namespace Prazsky.Core.Render
                 _acaciaDappleParam.SetValue(bucket.Dapple);
                 _acaciaBarkParam.SetValue(bucket.Bark);
                 _acaciaLeavesParam.SetValue(bucket.Leaves);
+                _acaciaFootEarthParam.SetValue(bucket.Earthed ? footEarth : Vector3.Zero);
 
                 //Leaf cards are one-sided sheets seen from both sides (#610); everything else is a wound solid
                 _graphicsDevice.RasterizerState = bucket.Leaves > 0f ? RasterizerState.CullNone : RasterizerState.CullCounterClockwise;

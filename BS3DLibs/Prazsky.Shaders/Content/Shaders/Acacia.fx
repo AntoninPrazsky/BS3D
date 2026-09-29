@@ -164,7 +164,7 @@ struct AcaciaVertexOutput
     float2 Tint : TEXCOORD2;
     float2 UV : TEXCOORD3;
     float2 Seed : TEXCOORD4;     //the instance's own place, so two trees do not lose the same leaflets
-    float RootY : TEXCOORD5;     //the instance's own foot, for the bark's darker base (#610)
+    float RootY : TEXCOORD5;     //the ground at the instance's foot, for the bark's earth and darker base (#610, #670)
 };
 
 AcaciaVertexOutput AcaciaVS(AcaciaVertexInput input)

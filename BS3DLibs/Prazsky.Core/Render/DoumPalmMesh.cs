@@ -30,11 +30,12 @@ namespace Prazsky.Core.Render
         private const float FOOT_FLARE = 1.25f;
 
         //The skirt of exposed roots at the foot (#670), in trunk radii: how many roots at least (up to four more), how
-        //high up the trunk they leave it, how far out they reach and how deep their tips dive
+        //high up the trunk they leave it and how far out they reach; and how steeply their tips dive, as a share of the
+        //reach past the foot's ring the palm is sunk by, so a root on a slope's downhill side still ends in the sand
         private const int SKIRT_ROOTS = 12;
         private const float SKIRT_TOP = 2.8f;
         private const float SKIRT_REACH = 2.8f;
-        private const float SKIRT_DIVE = 0.5f;
+        private const float SKIRT_DIVE = 0.45f;
 
         /// <param name="device">The device the buffers are created on.</param>
         /// <param name="height">The palm's height to the top of its heads.</param>
@@ -67,7 +68,8 @@ namespace Prazsky.Core.Render
                 float ra = MathHelper.TwoPi * r / skirt + (float)(footDice.NextDouble() - 0.5) * 0.35f;
                 Vector3 rd = new(MathF.Cos(ra), 0f, MathF.Sin(ra));
                 Vector3 leave = rd * (trunkR * 0.7f) + Vector3.Up * (trunkR * SKIRT_TOP * (0.7f + 0.5f * (float)footDice.NextDouble()));
-                Vector3 end = rd * (trunkR * SKIRT_REACH * (0.85f + 0.3f * (float)footDice.NextDouble())) - Vector3.Up * (trunkR * SKIRT_DIVE);
+                float rootReach = trunkR * SKIRT_REACH * (0.85f + 0.3f * (float)footDice.NextDouble());
+                Vector3 end = rd * rootReach - Vector3.Up * ((rootReach - trunkR * FOOT_FLARE) * SKIRT_DIVE + trunkR * 0.2f);
                 TubeGeometry.AddTube(wood, woodIdx, 4, leave, trunkR * 0.24f, end, trunkR * 0.1f);
             }
 
