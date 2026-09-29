@@ -88,7 +88,8 @@ namespace Prazsky.Core.Render
 
         /// <summary>
         /// The highest Mars's ground can stand at a world point: <c>Mars.fx</c>'s <c>MarsHeight</c> with the
-        /// crater field, the boulders and the pebbles at their bounds, plus its <c>MesaField</c> exactly — the
+        /// crater field, the boulders and the pebbles at their bounds, the big craters' rims exactly (#638), plus its
+        /// <c>MesaField</c> exactly — the
         /// mesas are the one thing on the plain tall enough to put a lens inside, and they are not all out on
         /// their ring: the noise that raises them can clear the threshold well inside <c>MesaInnerRadius</c>.
         /// </summary>
@@ -98,7 +99,61 @@ namespace Prazsky.Core.Render
             float ramp = ShaderMath.SmoothStep(terrain.ClearingRadius, terrain.ClearingRadius + terrain.ClearingTransition, dist);
 
             return terrain.LevelY + terrain.CraterAmplitude * ramp * (CRATER_FIELD_MAX + MareBase(x, z) * 0.18f)
-                + terrain.RockHeight + terrain.PebbleHeight + MarsMesa(x, z, terrain);
+                + terrain.RockHeight + terrain.PebbleHeight + MarsMesa(x, z, terrain)
+                + MathF.Max(MarsBigCraters(x, z, terrain), 0f);
+        }
+
+        //Mars.fx's big craters (#638): BIG_CRATER_* and BigCraters' two lattices, their periods, turns, seeds and chances
+        private const float BIG_CRATER_DEPTH = 0.3f, BIG_CRATER_RIM = 0.12f, BIG_CRATER_BLANKET = 0.3f, BIG_CRATER_REACH = 1.9f;
+        private const float BIG_CRATER_MIN = 0.07f, BIG_CRATER_MAX = 0.13f, BIG_CRATER_CLEARING = 50f;
+        private static readonly (float Period, Vector2 Turn, float Seed, float Chance)[] BIG_CRATER_LATTICES =
+        {
+            (300f, new Vector2(0.92050f, 0.39073f), 517.3f, 0.62f),
+            (423f, new Vector2(0.39073f, 0.92050f), 881.9f, 0.55f),
+            (197f, new Vector2(-0.37461f, 0.92718f), 263.1f, 0.6f),
+        };
+
+        /// <summary>
+        /// <c>Mars.fx</c>'s <c>BigCraters</c> (#638): how far the big craters raise or sink the ground at a world point
+        /// — a bowl under the plain, a rim and its blanket over it, 0 away from them. Exact rather than bounded: the
+        /// rims stand up to nine units over the plain, and a ceiling that took them at their bound everywhere would
+        /// lift every lens over the whole plain by as much.
+        /// </summary>
+        public static float MarsBigCraters(float x, float z, MarsTerrainConfig terrain)
+        {
+            float height = 0f;
+            foreach ((float period, Vector2 turn, float seed, float chance) in BIG_CRATER_LATTICES)
+            {
+                //TurnCrater, then the cell
+                Vector2 q = new Vector2(x * turn.X - z * turn.Y, x * turn.Y + z * turn.X) / period;
+                Vector2 cellId = new(MathF.Floor(q.X), MathF.Floor(q.Y));
+                Vector2 f = q - cellId;
+
+                Vector2 rollA = Roll(cellId.X + seed, cellId.Y + seed);
+                if (rollA.X > chance) continue;
+                Vector2 rollB = Roll(cellId.X + seed + 47.9f, cellId.Y + seed + 47.9f);
+                Vector2 rollC = Roll(cellId.X + seed + 91.7f, cellId.Y + seed + 91.7f);
+
+                float radius = MathHelper.Lerp(BIG_CRATER_MIN, BIG_CRATER_MAX, rollB.X);
+                float margin = radius * BIG_CRATER_REACH;
+                Vector2 centre = new Vector2(margin) + rollC * (1f - 2f * margin);
+
+                float radiusWorld = radius * period;
+                if (((cellId + centre) * period).Length() - radiusWorld * BIG_CRATER_REACH < BIG_CRATER_CLEARING) continue;
+
+                float d = (f - centre).Length() / radius;
+                if (d >= BIG_CRATER_REACH) continue;
+
+                float cup = MathHelper.Clamp(1f - d * d, 0f, 1f);
+                float bowl = -cup * (0.6f + 0.4f * cup);
+                float rimT = (d - 1f) / (d > 1f ? 0.28f : 0.2f);
+                float fall = ShaderMath.SmoothStep(BIG_CRATER_REACH, 1.3f, d);
+                float rim = MathF.Exp(-rimT * rimT) * fall;
+                float blanket = BIG_CRATER_BLANKET * MathF.Exp(-MathF.Max(d - 1f, 0f) / 0.35f) * fall;
+
+                height += (bowl * BIG_CRATER_DEPTH + (rim + blanket) * BIG_CRATER_RIM) * radiusWorld;
+            }
+            return height;
         }
 
         /// <summary>
