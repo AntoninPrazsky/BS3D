@@ -136,10 +136,17 @@ namespace Prazsky.Core.Render
         /// Spray colour (linear). Its luminance is deliberately kept just under the glare threshold — at a
         /// grazing angle the view ray stacks hundreds of particles to full opacity, so a brighter colour
         /// would bloom into a starfield. See SceneRenderer / CLAUDE.md before raising it.
+        /// <para>
+        /// Since #675 the shader premultiplies, so this is what a full stack of droplets converges ON and no longer
+        /// what each droplet ADDS: luminance 0.535 against the 0.55 threshold, the most the colour can be. Until
+        /// then it was (0.33, 0.37, 0.43) and every droplet drew it whole.
+        /// </para>
         /// </summary>
-        public Rgb Color { get; set; } = new(0.33f, 0.37f, 0.43f);
+        public Rgb Color { get; set; } = new(0.50f, 0.54f, 0.58f);
 
-        /// <summary>Per-particle opacity.</summary>
-        public float Opacity { get; set; } = 0.38f;
+        /// <summary>Per-particle opacity. 0.38 until #675, when premultiplying the shader made the same figure far
+        /// fainter; 0.60 with the brighter colour brings a droplet back to a visible fleck without the
+        /// hard outline the straight alpha gave it.</summary>
+        public float Opacity { get; set; } = 0.60f;
     }
 }

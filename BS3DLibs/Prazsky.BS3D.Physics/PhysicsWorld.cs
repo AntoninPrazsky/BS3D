@@ -271,6 +271,52 @@ namespace Prazsky.BS3D.Physics
         public Action<float> PerStepForces { get; set; }
 
         /// <summary>
+        /// The air's push on every awake body, an acceleration in units per second squared (#95), read by the pose
+        /// integrator when the next step starts. <b>Set it before each step, from the caller's clock</b> — a
+        /// constant wind is absorbed by the cluster's sockets, which lean and stay leant, and what makes a hanging
+        /// structure <i>sway</i> is a wind that changes (see <see cref="WindField"/>). Zero, the default, costs the
+        /// integrator nothing extra: the wind rides in the one gravity broadcast it already does per step.
+        /// <para>
+        /// It acts on every body that is <b>awake</b>, shots in flight included; at the strengths the game uses
+        /// (well under one unit a second squared) a shot's 0.2 s flight to the cluster deflects it by about a hundredth
+        /// of a ball, which the landing cell's snap absorbs, so the aim preview does not integrate it. A sleeping
+        /// island is not integrated at all — the caller decides what to do about that.
+        /// </para>
+        /// </summary>
+        public System.Numerics.Vector3 Wind
+        {
+            get => ((BepuPhysics.PoseIntegrator<Simu.PoseIntegratorCallbacks>)Simulation.PoseIntegrator).Callbacks.Wind;
+            set => ((BepuPhysics.PoseIntegrator<Simu.PoseIntegratorCallbacks>)Simulation.PoseIntegrator).Callbacks.Wind = value;
+        }
+
+        /// <summary>
+        /// Stops every ball of <paramref name="balls"/> from ever going to sleep (#95). <b>A sleeping island is not
+        /// integrated</b>, so a wind would stop the moment the cluster settled, and it settles at every crest and
+        /// trough of a slow gust, where the sway slows under the sleep threshold: on the 975-ball Spyglass a gust of
+        /// 0.25 units a second squared let the cluster fall asleep and hang there, while twice that kept it swinging.
+        /// The threshold is set on the bodies (negative is never below any squared speed) rather than the island woken
+        /// every step, because a cluster that has been shot apart is several islands and waking one ball wakes only its
+        /// own; a ball attached later joins an island that already cannot sleep. What it costs is the reason
+        /// <c>QualityPreset.ClusterWind</c> is a tier's to give up: a cluster that never sleeps is stepped every step —
+        /// 0.83 ms a frame of physics for the sleeping 975-ball level on the weak machine, 10.1 awake.
+        /// </summary>
+        public void KeepClusterAwake(PhysicsBall[,,] balls)
+        {
+            Prazsky.BS3D.GameStructure.DataBags.XZLevel size = Prazsky.BS3D.GameStructure.DataBags.XZLevel.FromArray(balls);
+
+            for (int level = 0; level < size.Level; level++)
+                for (int x = 0; x < size.X; x++)
+                    for (int z = 0; z < size.Z; z++)
+                    {
+                        PhysicsBall ball = balls[x, z, level];
+                        if (ball == null) continue;
+
+                        Simulation.Bodies.GetBodyReference(ball.BallReference.Handle).Activity.SleepThreshold = -1f;
+                        Simulation.Awakener.AwakenBody(ball.BallReference.Handle);
+                    }
+        }
+
+        /// <summary>
         /// The start-of-level spring of a freshly hung cluster (#617), advanced inside <see cref="Step"/> on the
         /// fixed step and dropped once it has handed the sockets back. Null when none is running. See
         /// <see cref="ClusterStartSwing"/> for what it does and what it was measured against.

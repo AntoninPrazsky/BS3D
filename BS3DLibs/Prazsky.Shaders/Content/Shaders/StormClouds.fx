@@ -296,7 +296,15 @@ float4 CloudPS(CloudVertexOutput input) : COLOR
     //clip used to fall in, so the storm's horizon stands where it always stood - it only stopped being a line.
     float farThin = 1.0 - smoothstep(STORM_FAR_THIN_START, STORM_FAR_THIN_END, input.Depth.x);
 
-    return float4(color, body * PuffOpacity * farThin);
+    //⚠ PREMULTIPLIED (#675). MonoGame's BlendState.AlphaBlend is (One, InverseSourceAlpha), so this returned its
+    //straight colour ADDED at full strength for every puff and let the alpha only darken what lay behind: a
+    //cell of overlapping puffs summed its colours into a white that the tonemap clipped, every puff kept a
+    //bright outline whatever `EdgeSoftness` said, and a thin wisp was as bright as the cloud's heart. The
+    //alpha now weights the colour it adds, so a wisp is a faint veil over the sky and the heart converges on
+    //the lit colour instead of exceeding it.
+    float alpha = body * PuffOpacity * farThin;
+
+    return float4(color * alpha, alpha);
 }
 
 //=====================================================================================================

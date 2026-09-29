@@ -156,8 +156,13 @@ namespace Prazsky.Core.Render
         /// the field becomes a solid white wall — a ceiling, which is the failure the height field had. Low
         /// enough and the cells are veils with sky visible through their thin parts, which is what a real
         /// cumulus edge does and what makes the whole thing read as vapour.
+        /// <para>
+        /// 0.60 since #675, when <c>StormClouds.fx</c> started premultiplying: the 0.30 before it was tuned while
+        /// each puff added its whole colour, so a stack of them summed to white however low the figure was, and at
+        /// 0.30 with a correct blend the cells were thin smoke with no lit crown.
+        /// </para>
         /// </summary>
-        public float PuffOpacity { get; set; } = 0.30f;
+        public float PuffOpacity { get; set; } = 0.60f;
 
         /// <summary>
         /// Where a puff's own falloff starts, as a fraction of its disc — so <b>low is soft and high is

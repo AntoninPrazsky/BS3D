@@ -198,6 +198,17 @@ namespace BS3D
         public readonly bool CeilingRefraction;
 
         /// <summary>
+        /// Whether the air moves the hanging cluster (#95). <b>The one entry of this table that costs the CPU and not the
+        /// GPU</b>: a sleeping cluster is not integrated at all and a swaying one is, every step, so a level's 975 balls
+        /// went from 0.83 ms a frame of physics to 10.1 on the weak machine (2.6 steps a frame at 46 FPS), and it is a
+        /// steady cost, since the wind never lets the cluster settle to sleep. <b>High and Ultra only</b>: Medium is the weak
+        /// machine's rung and Low its floor, and both give it up with everything else that is only a look; the cluster
+        /// then hangs still, and the shaders' wind (grass, snow, swell) is untouched. See "The air over a scene" in
+        /// docs/game-session.md.
+        /// </summary>
+        public readonly bool ClusterWind;
+
+        /// <summary>
         /// Whether this rung can afford the motion blur (#402) — the velocity pass over the gun and whatever balls
         /// are moving, the four passes over the tiles and the reconstruction over the whole frame. The player's
         /// Settings row is the other half (<c>BS3DGame.MotionBlurActive</c> is the two together).
@@ -225,10 +236,12 @@ namespace BS3D
         public readonly bool MotionBlur;
 
         public QualityPreset(int supersampleFactor, float facadeGrainStrength, float windowFrameWidth, int cityRadiusBlocks,
-            int msaaSamples, int shadowMapCap, bool ceilingRefraction, bool motionBlur, int shadowMapScale = 1)
+            int msaaSamples, int shadowMapCap, bool ceilingRefraction, bool motionBlur, int shadowMapScale = 1,
+            bool clusterWind = true)
         {
             ShadowMapScale = shadowMapScale;
             CeilingRefraction = ceilingRefraction;
+            ClusterWind = clusterWind;
             MotionBlur = motionBlur;
             SupersampleFactor = supersampleFactor;
             FacadeGrainStrength = facadeGrainStrength;
@@ -270,7 +283,7 @@ namespace BS3D
             //    rather than at Medium — see the note on Medium below for what moved and why
             //  · and the reduced programs the mountain and the cavern grew for it
             //The city's two dials stay, being the only entries that were ever worth anything here.
-            new(supersampleFactor: 1, facadeGrainStrength: 0f, windowFrameWidth: 0f, cityRadiusBlocks: 14, msaaSamples: 2, shadowMapCap: 2048, ceilingRefraction: false, motionBlur: false),
+            new(supersampleFactor: 1, facadeGrainStrength: 0f, windowFrameWidth: 0f, cityRadiusBlocks: 14, msaaSamples: 2, shadowMapCap: 2048, ceilingRefraction: false, motionBlur: false, clusterWind: false),
 
             //Medium — 30 FPS on the worst scene. Supersampling is what this STRUCT gives up, and it is the one
             //change that reaches every scene: on the weak machine it is worth 46 to 58 % of the frame
@@ -290,7 +303,7 @@ namespace BS3D
             //
             //4 samples rather than the pipeline's 8 since #540: on the weak machine the step is 0.65-1.38 ms
             //(see MsaaSamples), where the desktop had priced it at nothing and it had been left at 8 for that.
-            new(supersampleFactor: 1, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14, msaaSamples: 4, shadowMapCap: 2048, ceilingRefraction: true, motionBlur: true),
+            new(supersampleFactor: 1, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14, msaaSamples: 4, shadowMapCap: 2048, ceilingRefraction: true, motionBlur: true, clusterWind: false),
 
             //High — the look the game was authored at, unchanged.
             new(supersampleFactor: 2, facadeGrainStrength: 0.018f, windowFrameWidth: 0.1f, cityRadiusBlocks: 14, msaaSamples: PostProcessPipeline.MSAA_SAMPLES, shadowMapCap: 0, ceilingRefraction: true, motionBlur: true),

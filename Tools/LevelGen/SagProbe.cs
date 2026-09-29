@@ -95,6 +95,19 @@ namespace BS3D.Tools.LevelGen
         private static readonly Action NO_CONTACT_WORK = () => { };
 
         /// <summary>
+        /// The wind the world is hung in (#95), <see cref="WindField.None"/> unless <c>--wind=</c> says otherwise. A
+        /// measurement lever and not a gate setting: the campaign's verdicts are given in still air (the level files
+        /// carry no scene wind into this tool), and what this exists for is to answer whether a scene's wind takes the
+        /// sag probe's answers with it before the game turns it on. The very <see cref="WindField"/> the game reads, so
+        /// the probe cannot hang a level in a different wind from the player's.
+        /// </summary>
+        internal static WindField Wind { get; set; } = WindField.None;
+
+        //The play clock the wind is read from, counted in steps from the start of a run: the game reads its own
+        //fixed-step clock the same way, so the gust at the n-th step is the same gust
+        private static float _windClock;
+
+        /// <summary>
         /// How long the untouched cluster is hung before a shot is taken. It reproduces the check that has so
         /// far been made by hand — <i>"35 s unshot in the running game"</i> — and it is shorter than that
         /// because every failure ever found this way arrived fast: the temple <b>lost itself in eight
@@ -320,6 +333,8 @@ namespace BS3D.Tools.LevelGen
         private static Run PlayOnce(string path, int shots, int ceilingStep, Random random, bool trace,
             bool neutraliseHeavy = false)
         {
+            _windClock = 0f;
+
             Level level = Level.Load(path);
             BallsMap map = new(level.Map);
             map.Center();
@@ -394,6 +409,9 @@ namespace BS3D.Tools.LevelGen
             //And it springs from the glass exactly as the game's does (#617) — the settle below is where it runs,
             //so the gate sees the start the player sees.
             world.BeginStartSwing(balls);
+
+            //In the game's own air, which never lets the cluster sleep (#95) - see PhysicsWorld.KeepClusterAwake
+            if (Wind.Strength > 0f) world.KeepClusterAwake(balls);
 
             //Released balls are collected so they can be culled once they are past the island: left in the
             //simulation they pile up in the drain and go on generating contact constraints for the rest of the
@@ -530,6 +548,9 @@ namespace BS3D.Tools.LevelGen
 
                     ceiling.Pose.Position.Y = ceilingY;
                 }
+
+                world.Wind = Wind.Acceleration(_windClock);
+                _windClock += TIMESTEP;
 
                 world.Step(TIMESTEP, NO_CONTACT_WORK);
 

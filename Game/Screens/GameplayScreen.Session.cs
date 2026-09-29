@@ -500,6 +500,11 @@ namespace BS3D.Screens
             Console.WriteLine(_world.StartSwing == null ? "[swing] none"
                 : $"[swing] {_world.StartSwing.SocketCount} glass sockets at {_world.StartSwing.SoftFrequency:F2} Hz");
 
+            //A level with air over it (#95) has a cluster that never falls asleep - a sleeping island is not integrated, so
+            //the wind would stop at the first lull. Decided here, once, with the wind BuildPhysicsWorld chose (none on a
+            //tier that gives it up, and none in a scene without air): see PhysicsWorld.KeepClusterAwake for what it costs.
+            if (_wind.Strength > 0f) _world.KeepClusterAwake(_physicsBalls);
+
             //The profile's backing array: one slot per cell, so the worst case (every cell occupied) is covered
             //without a resize. Grown only if the field grew, so a level of the same size reuses the same array.
             //

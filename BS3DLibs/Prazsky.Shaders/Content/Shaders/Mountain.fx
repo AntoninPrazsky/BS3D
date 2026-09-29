@@ -68,6 +68,13 @@ float RockReliefFrequency;
 float AmbientStrength;
 float HorizonHazeDistance;
 
+//The falling snow's own veil (#654): the distance over which a snowfall takes the light of the range away,
+//exponentially, into the same skyline colour the haze fades to. Zero is no veil. It begins VEIL_FROM out, past
+//the basin: nearer, the island's bank and its drift (the plant pass, which has no veil) meet the terrain's snow,
+//and a veil there would have drawn a step between the two.
+float SnowVisibility;
+static const float VEIL_FROM = 60.0;
+
 //#509's companion pass on the range (#504), from references: how much snow the fall-line flutes hold against
 //the ribs between them, and the altitude band a low sun's light climbs through - below AlpenglowLow a slope is
 //in the shadow of the range across the basin, above AlpenglowHigh it takes the whole sun.
@@ -460,9 +467,18 @@ float4 MountainSurface(MountainVertexOutput input, uniform bool fullDetail)
         color += SunColor * SnowSparkle(worldPosition.xz, normal, footprint)
             * snow * ndotl * sunlight * detailFade * 3.0;
 
-    //Alpine haze: the distant range fades into the skyline, the strong aerial perspective of a lot of cold air
+    //Alpine haze: the distant range fades into the skyline, the strong aerial perspective of a lot of cold air.
+    //And the snowfall's veil over it (#654), which is the loudest thing every reference of real snowfall drew:
+    //not the flakes, which are faint, but the ridges fading into a white-grey air - exponential, as scattering
+    //is, where the haze is a square ramp to the skyline. The two do not add: the stronger one is the air.
+    //Both go to the colour the dome is DRAWN in behind the pixel (FarSkyAt), not to the rig's HorizonColor,
+    //which is an average over the dome's bottom fifth and is the sun's tint: under #661's dome that is a
+    //rose-white, and a veil into it painted the range pink against a grey-blue skyline.
     float haze = saturate(dist / HorizonHazeDistance);
-    color = lerp(color, HorizonColor, haze * haze);
+    float veil = SnowVisibility > 0.0 ? 1.0 - exp(-max(dist - VEIL_FROM, 0.0) / SnowVisibility) : 0.0;
+    float3 toPixel = worldPosition - CameraPosition;
+    float3 air = FarSkyAt(toPixel.y / max(length(toPixel), 1e-3));
+    color = lerp(color, air, max(haze * haze, veil));
 
     return float4(FarFadeToSky(color, worldPosition), 1.0);
 }

@@ -120,23 +120,32 @@ namespace Prazsky.Core.Render
         /// <summary>Distance over which the distant range fades into the alpine haze.</summary>
         public float HorizonHazeDistance { get; set; } = 500f;
 
+        /// <summary>
+        /// The falling snow's veil over the range (#654): the distance over which the snowfall takes about two
+        /// thirds of a ridge's own light away, exponentially, into the skyline — what every reference of real
+        /// snowfall drew first, before any flake. 0 is no veil.
+        /// </summary>
+        public float SnowVisibility { get; set; } = 650f;
+
         /// <summary>The falling snow.</summary>
         public SnowConfig Snow { get; set; } = new();
     }
 
-    /// <summary>The mountain's falling snow: a static buffer of billboard flakes animated in the vertex shader.</summary>
+    /// <summary>The mountain's falling snow (and the aurora's, with its own figures): a static buffer of billboard
+    /// flakes animated in the vertex shader, drawn as a lens sees snow since #654 — see <c>Snow.fx</c>.</summary>
     public sealed class SnowConfig
     {
-        /// <summary>Number of falling snow flakes in the buffer. Was 1400, at nearly twice the flake size and
-        /// half again the opacity — a flake now covers well under half the screen it used to and shows through
-        /// far more, so it takes twice as many of them to leave a veil rather than a sprinkle.</summary>
-        public int FlakeCount { get; set; } = 2800;
+        /// <summary>Number of falling snow flakes in the buffer, drawn once in each layer. Was 1400, then 2800
+        /// once a flake was halved (#85); 9000 since #654, because every reference of real snowfall is thousands
+        /// of flakes of which most are tiny, and because a flake drawn at the alpha it states (#654) is far
+        /// fainter than the solid white one it had been.</summary>
+        public int FlakeCount { get; set; } = 9000;
 
         /// <summary>The volume the flakes fill around the camera.</summary>
         public Vec3 BoxSize { get; set; } = new(70f, 55f, 70f);
 
-        /// <summary>How fast the flakes fall.</summary>
-        public float FallSpeed { get; set; } = 9f;
+        /// <summary>How fast the flakes fall. Was 9, a sleet's speed: snow drifts down (#654).</summary>
+        public float FallSpeed { get; set; } = 6f;
 
         /// <summary>The wind that drifts the flakes sideways.</summary>
         public Vec2 Wind { get; set; } = new(4f, 1.5f);
@@ -144,34 +153,55 @@ namespace Prazsky.Core.Render
         /// <summary>How far a flake sways as it falls.</summary>
         public float Sway { get; set; } = 1.2f;
 
-        /// <summary>The flake size in world units. Was 0.13, which put a flake 23 pixels across at eighteen
-        /// units out — a ball is one unit wide, and that is the size a flake was competing with.</summary>
-        public float FlakeSize { get; set; } = 0.085f;
-
-        /// <summary>How fast a flake tumbles, in radians per second before its own ±40% variation.</summary>
-        public float Spin { get; set; } = 1.1f;
-
-        /// <summary>How deep the six arms of a flake's silhouette are cut, at the spikiest. A flake draws a
-        /// hexagonal crystal rather than a disc because a feathered circle is what a lit sphere looks like,
-        /// which is how the snow came to read as falling balls (#85).</summary>
-        public float Lobing { get; set; } = 0.30f;
+        /// <summary>The flake size in world units, before each flake's own spread (0.4 to 2 times it, most of
+        /// them small). Was 0.13, which put a flake 23 pixels across at eighteen units out — a ball is one unit
+        /// wide, and that is the size a flake was competing with.</summary>
+        public float FlakeSize { get; set; } = 0.1f;
 
         /// <summary>Distance from the lens a flake reaches full strength at; nearer than a quarter of it, it is
-        /// invisible. Snow this close to a camera is out of focus, and a crisp near flake reads as a ball.</summary>
-        public float NearFade { get; set; } = 7f;
+        /// invisible. Was 7, which hid the near flakes a camera in falling snow always has; they are defocused
+        /// into faint discs now (<see cref="Aperture"/>) rather than hidden (#654).</summary>
+        public float NearFade { get; set; } = 2.5f;
 
-        /// <summary>How much a flake glints as it turns broadside to the light, twice per tumble.</summary>
-        public float Twinkle { get; set; } = 0.25f;
+        /// <summary>
+        /// Where the lens is focused: a flake nearer than this is out of focus, the more so the nearer it is
+        /// (#654). The cluster stands about thirty units out, so the flakes between the lens and it are what
+        /// blurs — which is what every reference's near flakes do.
+        /// </summary>
+        public float Focus { get; set; } = 12f;
 
-        /// <summary>Bright cool white. Its Rec. 709 luminance (~0.76) sits over GLARE_THRESHOLD (0.55 in the
-        /// game), so a large near flake can bloom slightly; in practice a flake's few pixels are diluted by
-        /// the quarter-resolution glare downsample. Dim the colour, not the opacity, if flakes ever read as
-        /// glowing orbs.</summary>
-        public Rgb FlakeColor { get; set; } = new(0.72f, 0.76f, 0.82f);
+        /// <summary>
+        /// How far, in world units, a flake at the lens is blurred — a lens's aperture, which is what the blur of a
+        /// point nearer than the focus tends to in world terms. The blurred disc grows in quadrature with the flake
+        /// and its alpha falls with its area, so a small flake near the lens is a big faint disc; the rare large
+        /// clump just past <see cref="NearFade"/> stays up to about two thirds opaque, as the references' near discs
+        /// are. The answer to #85's snowball is that translucency, where the six-armed crystal read as an icon.
+        /// </summary>
+        public float Aperture { get; set; } = 0.12f;
 
-        /// <summary>Snow flake opacity. Was 0.9 — near enough opaque that a flake was a solid white coin, and
-        /// the feathered rim that was meant to soften it gets crushed back to white by the tonemap wherever
-        /// the flake crosses something dark. Snow reads as snow at well under half that.</summary>
-        public float Opacity { get; set; } = 0.6f;
+        /// <summary>
+        /// Seconds a flake is drawn out over along its own motion on screen — a camera's shutter, and what says
+        /// falling rather than floating. At the fall speed it adds about 0.07 world units, half a typical flake's
+        /// width (#654).
+        /// </summary>
+        public float Shutter { get; set; } = 1f / 90f;
+
+        /// <summary>
+        /// The far layer: the same flakes drawn again in a box this many times larger, which perspective makes
+        /// tiny — the veil a snowfall lays over a range (#654). 1 or less draws the near box alone.
+        /// </summary>
+        public float FarLayerScale { get; set; } = 3.2f;
+
+        /// <summary>A lit grey-white, dimmer than the sky and the snow and brighter than rock: every reference drew
+        /// flakes as dark specks against a bright sky and white ones against a dark face, which a flake does when
+        /// its own radiance sits between the two (#654 — it was 0.72-0.82, and wherever it met the bright sky it
+        /// vanished into it). Its luminance (0.547) sits just under GLARE_THRESHOLD (0.55), so a flake's solid core
+        /// never feeds the glare.</summary>
+        public Rgb FlakeColor { get; set; } = new(0.52f, 0.55f, 0.60f);
+
+        /// <summary>Snow flake opacity, before the defocus and the streak spread it. Was 0.9 — near enough opaque
+        /// that a flake was a solid white coin, and the feathered rim that was meant to soften it gets crushed
+        /// back to white by the tonemap wherever the flake crosses something dark (#85).</summary>
+        public float Opacity { get; set; } = 1f;
     }
 }

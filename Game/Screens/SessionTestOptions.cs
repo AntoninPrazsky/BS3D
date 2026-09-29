@@ -42,6 +42,8 @@ namespace BS3D.Screens
     /// <param name="StagedLineLossSeconds">The <c>lineloss=</c> argument (#434): seconds into a level at which the
     /// line's loss is staged, or 0 for never. A real one takes a descending ceiling and a couple of dozen shots,
     /// and the Game takes no synthetic input, so without this the moment is unphotographable.</param>
+    /// <param name="WindScale">The <c>wind=</c> argument (#95): a multiplier on every scene's wind, or null for the table as
+    /// shipped. 0 is still air.</param>
     /// <param name="DetonateSeconds">The <c>detonate=</c> argument (#389): wall-clock seconds — <c>shot=</c>'s
     /// clock, so the two can be written against each other — at which the session sets off one of the level's
     /// bombs, in order; empty for none. A blast needs a shot landed beside a bomb, which no script can aim. It
@@ -69,6 +71,7 @@ namespace BS3D.Screens
         bool ForceLaserWarning,
         float StagedLineLossSeconds,
         IReadOnlyList<float> DetonateSeconds,
+        float? WindScale,
         Tutorial.Mode TutorialMode,
         BallStyle? BallStyleOverride,
         string StartupLevelFile,
@@ -86,6 +89,7 @@ namespace BS3D.Screens
             ForceLaserWarning: launch.Lasers,
             StagedLineLossSeconds: launch.LineLoss,
             DetonateSeconds: launch.DetonateSeconds ?? Array.Empty<float>(),
+            WindScale: launch.WindScale,
             TutorialMode: launch.Tutorial == null ? Tutorial.Mode.Normal
                 : string.Equals(launch.Tutorial, "demo", StringComparison.OrdinalIgnoreCase) ? Tutorial.Mode.Demo
                 : Tutorial.Mode.Force,

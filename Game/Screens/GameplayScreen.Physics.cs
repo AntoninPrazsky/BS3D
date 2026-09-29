@@ -47,6 +47,12 @@ namespace BS3D.Screens
             //constructor. Anything hung on `_world` belongs next to `_world`.
             _world.PerStepForces = dt => _gravityWells.ApplyTo(_shotBalls, dt);
 
+            //The air over this level's scene (#95), from its own clock: read once a step below. The level has applied
+            //its scene by now (InstallLevel), so this is the scene the player sees, and the clock starts at zero with
+            //the level so a retry meets the same gusts in the same order.
+            _wind = Game.ClusterWindEnabled ? Game.SceneWindNow(_test.WindScale ?? 1f) : Prazsky.BS3D.Physics.WindField.None;
+            _windClock = 0f;
+
             BuildCeilingBody();
 
             //The island's whole floor, and it is the drain's own surface: the sloped cone plus the dished
@@ -102,6 +108,11 @@ namespace BS3D.Screens
                 //not the Testbed's one variable step per rendered frame — see PHYSICS_TIMESTEP. The mandatory
                 //Timestep → Flush → contacts order INSIDE each step is PhysicsWorld.Step's, which is why the
                 //work that belongs there is handed over rather than written after the call.
+                //The gust at this step (#95): set before the step so the integrator broadcasts it with gravity, and
+                //advanced by the step so it stops with the world under a pause and runs slow with the drop's slow motion
+                _world.Wind = _wind.Acceleration(_windClock);
+                _windClock += PHYSICS_TIMESTEP;
+
                 _world.Step(PHYSICS_TIMESTEP, _processContacts);
 
                 _physicsAccumulator -= PHYSICS_TIMESTEP;
