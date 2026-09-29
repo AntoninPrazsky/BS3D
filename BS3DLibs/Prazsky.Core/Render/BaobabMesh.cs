@@ -30,9 +30,10 @@ namespace Prazsky.Core.Render
         public IProceduralMesh Leaves { get; }
 
         /// <summary>
-        /// The widest the trunk's flat underside reaches from the axis, at scale 1 (#658): what a scatter sinks the tree
-        /// by, so the lowest ground under that circle is where the trunk stands and no side of it hangs in the air.
-        /// The bottle's bottom ring plus the irregularity it is wobbled by.
+        /// How far the trunk reaches from the axis at its pivot, at scale 1 (#658): what a scatter sinks the tree by, so
+        /// the lowest ground under that circle is where the trunk stands and no side of it hangs in the air. The foot's
+        /// ring at the ground plus the irregularity it is wobbled by there; since #670 the foot flares on under the
+        /// ground past it, which stays buried on any slope the plain has.
         /// </summary>
         public float BaseRadius => ((WoodMesh)Wood).BaseRadius;
 
@@ -61,8 +62,10 @@ namespace Prazsky.Core.Render
                 new(crown.Center.Y - crown.Radius * 0.5f, crown.Center.Y + crown.Radius * 0.5f, crown.Radius * 0.85f, crown.Center.X, crown.Center.Z),
             };
 
+            //Int indices: a crown of twenty-six leafy twig ends or more passes 65 536 vertices, and under short indices
+            //the cards past that wrapped onto the first ones — a sixth of them never drawn, as many drawn twice (#670)
             var lv = new List<VertexPositionNormalTexture>();
-            var lidx = new List<short>();
+            var lidx = new List<int>();
             Random leafRng = new(seed * 41 + 5);
             foreach (Vector3 tip in ((WoodMesh)Wood).TwigTips)
             {
@@ -89,9 +92,14 @@ namespace Prazsky.Core.Render
         private const float TRUNK_FLUTE_DEPTH = 0.2f;
 
         //The bottle's bottom ring, as a multiple of the trunk radius, and the wobble it is irregular by, likewise
-        //(#658: BaseRadius is their sum, so the shape and what a scatter sinks the tree by cannot part)
-        private const float BOTTOM_RING = 1.15f;
+        //(#658: BaseRadius is their sum, so the shape and what a scatter sinks the tree by cannot part). The ring was
+        //1.15 until #670, a vase's foot stood on the plain; the references' baobab spreads into the ground in folds,
+        //so the foot flares to this at the ground and on below it, and the flutes deepen there by FOOT_FOLD (which, being
+        //the ring's wobble weight, scales its irregularity by as much) — the trunk's own lobes carried out into
+        //buttresses, where tubes stuck on read as boards
+        private const float BOTTOM_RING = 1.45f;
         private const float IRREGULARITY = 0.06f;
+        private const float FOOT_FOLD = 2.3f;
 
         /// <summary>The bottle trunk and the bare limbs, one material.</summary>
         private sealed class WoodMesh : IProceduralMesh, IDisposable
@@ -104,7 +112,7 @@ namespace Prazsky.Core.Render
             /// <summary>Where the twigs end, for the leaf tufts to sit on.</summary>
             public List<Vector3> TwigTips { get; } = new();
 
-            /// <summary>How far the flat underside reaches from the axis: the profile's bottom ring, wobble included (#658).</summary>
+            /// <summary>How far the foot reaches from the axis at the pivot: the profile's ring at the ground, wobble included (#658).</summary>
             public float BaseRadius { get; }
 
             /// <summary>The trunk's radius at its widest, before the foot's flare (#653).</summary>
@@ -116,7 +124,7 @@ namespace Prazsky.Core.Render
                 //neck at the top where the limbs leave it. The wobble is slight - a baobab is smooth.
                 float top = height * 0.6f;
                 float r = height * 0.19f * (0.9f + 0.2f * (float)rng.NextDouble());
-                BaseRadius = r * (BOTTOM_RING + IRREGULARITY);
+                BaseRadius = r * (BOTTOM_RING + IRREGULARITY * FOOT_FOLD);
                 TrunkRadius = r;
                 var profile = new (float radius, float y, float wobble)[]
                 {
@@ -125,9 +133,11 @@ namespace Prazsky.Core.Render
                     (r * 0.55f, height * 0.5f,  0.6f),
                     (r * 0.78f, height * 0.32f, 1f),
                     (r * 0.95f, height * 0.14f, 1f),
-                    (r,         height * 0.03f, 1f),
-                    (r * BOTTOM_RING, 0f,       0.8f),
-                    (0f,        0f,             0f)
+                    (r * 1.01f, height * 0.05f, 1.2f),
+                    (r * 1.13f, height * 0.016f, FOOT_FOLD * 0.8f),
+                    (r * BOTTOM_RING, 0f,       FOOT_FOLD),
+                    (r * (BOTTOM_RING + 0.15f), -r * 0.2f, FOOT_FOLD),
+                    (0f,        -r * 0.2f,      0f)
                 };
                 var v = new List<VertexPositionNormalTexture>(profile.Length * 15 + 600);
                 var idx = new List<short>(profile.Length * 90 + 1800);

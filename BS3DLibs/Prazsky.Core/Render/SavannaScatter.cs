@@ -1,4 +1,4 @@
-﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
@@ -47,11 +47,19 @@ namespace Prazsky.Core.Render
         /// <summary>The instances as planted, on the CPU — what <see cref="Instances"/> was uploaded from.</summary>
         public IReadOnlyList<ModelInstance> Placed { get; }
 
+        /// <summary>
+        /// A standing trunk, whose foot takes the plain's bare earth up the bark (#670). Not a fallen log (it lies in
+        /// the band the stain is drawn over, and its bleached wood would go red along half its length) and not a
+        /// termite mound (it is the earth already).
+        /// </summary>
+        public bool Earthed { get; }
+
         internal ScatterBucket(GraphicsDevice device, IProceduralMesh mesh, List<ModelInstance> instances,
             Vector3 diffuse, Vector3 diffuseDry, float dapple, float bark, bool detailOnly,
-            bool lowOnly = false, float leaves = 0f)
+            bool lowOnly = false, float leaves = 0f, bool earthed = false)
         {
             Mesh = mesh;
+            Earthed = earthed;
             LowOnly = lowOnly;
             Leaves = leaves;
             Count = instances.Count;
@@ -175,6 +183,14 @@ namespace Prazsky.Core.Render
         /// <summary>Keeps the planting's dice clear of the mesh variants' — the two are rolled off the same
         /// seed and must not be the same sequence.</summary>
         private const int PLANTING_STREAM = 0x5CA7;
+
+        //The tufts at the trees' feet (#670): their own dice, how many round a tree (and round a baobab), and how far
+        //out from the trunk's foot they stand, as multiples of its radius
+        private const int FOOT_STREAM = 0x670;
+        private const int FOOT_TUFTS_MIN = 4;
+        private const int BAOBAB_FOOT_TUFTS_MIN = 6;
+        private const float FOOT_TUFT_NEAR = 0.7f;
+        private const float FOOT_TUFT_FAR = 1.5f;
 
         /// <summary>Every draw of the scatter, in draw order. Never empty buckets — a kind with a count of
         /// zero simply has none.</summary>
@@ -458,7 +474,11 @@ namespace Prazsky.Core.Render
                     * Matrix.CreateFromAxisAngle(new Vector3(MathF.Cos(leanDir), 0f, MathF.Sin(leanDir)), lean)
                     * Matrix.CreateRotationY(yaw)
                     * Matrix.CreateTranslation(x, LowestUnder(x, z, baseRadius) - sink, z);
-                return new ModelInstance(world, new Vector4(dryness, jitter, 0f, 0f));
+
+                //Custom.z: how far the ground at the trunk's centre stands above its pivot (#670) — a tree planted at
+                //the lowest ground under its ring (#658) or sunk has its pivot under the ground the eye sees, by up to a
+                //unit and more on a slope, and the bark's earth and darkened foot are measured from that ground
+                return new ModelInstance(world, new Vector4(dryness, jitter, Stand(x, z) - world.M42, 0f));
             }
 
             float Jitter() => (float)(rng.NextDouble() - 0.5) * 0.24f;
@@ -747,6 +767,44 @@ namespace Prazsky.Core.Render
                     if (standing[i].Radius >= config.TrailAvoidMinRadius) bendBy.Add(standing[i]);
             }
 
+            //--- The feet (#670): tufts of grass against every trunk, the references' plainest word on where a tree
+            //meets the plain — grass grows up round a trunk rather than stopping short of it. Planted once the plain
+            //is final and off their own dice, so every site above, and the treeline below, is the one it was; and
+            //they stand in nobody's footprint, because they are the tree's own.
+            var footDice = new Random(seed ^ FOOT_STREAM);
+            void FootTufts(List<ModelInstance> trunks, float footRadius, int least)
+            {
+                for (int t = 0; t < trunks.Count; t++)
+                {
+                    Matrix at = trunks[t].World;
+                    float treeScale = new Vector3(at.M11, at.M12, at.M13).Length();
+                    float foot = footRadius * treeScale;
+                    int count = least + footDice.Next(3);
+                    float bearing = (float)footDice.NextDouble() * MathHelper.TwoPi;
+                    for (int k = 0; k < count; k++)
+                    {
+                        //Every die first, so a tuft refused below leaves the stream as it would have been
+                        float a = bearing + MathHelper.TwoPi * k / count + (float)(footDice.NextDouble() - 0.5) * 0.9f;
+                        float d = foot * (FOOT_TUFT_NEAR + (FOOT_TUFT_FAR - FOOT_TUFT_NEAR) * (float)footDice.NextDouble());
+                        float x = at.M41 + MathF.Cos(a) * d, z = at.M43 + MathF.Sin(a) * d;
+                        float s = 0.9f + 0.7f * (float)footDice.NextDouble();
+                        float yaw = (float)footDice.NextDouble() * MathHelper.TwoPi;
+                        int variant = footDice.Next(TUFT);
+                        var custom = new Vector4((float)footDice.NextDouble(), (float)(footDice.NextDouble() - 0.5) * 0.24f, 0f, 0f);
+
+                        //Not in a path's worn middle (#476's refusal, which holds for everything planted): a tree at a
+                        //path's fringe stands where the plain allows, and its tufts reach two units further in
+                        if (SavannaTrails.Trodden(x, z, bendBy, config) > TRAIL_REFUSE) continue;
+
+                        Matrix world = Matrix.CreateScale(s) * Matrix.CreateRotationY(yaw) * Matrix.CreateTranslation(x, terrainHeight(x, z), z);
+                        tuftInstances[variant].Add(new ModelInstance(world, custom));
+                    }
+                }
+            }
+            for (int m = 0; m < treeInstances.Length; m++) FootTufts(treeInstances[m], trees[m].BaseRadius, FOOT_TUFTS_MIN);
+            for (int m = 0; m < baobabInstances.Length; m++) FootTufts(baobabInstances[m], baobabs[m].BaseRadius, BAOBAB_FOOT_TUFTS_MIN);
+            for (int m = 0; m < doumInstances.Length; m++) FootTufts(doumInstances[m], doums[m].BaseRadius, FOOT_TUFTS_MIN);
+
             //--- The treeline: its own band beyond the plain and its own occupancy - nothing out there meets
             //anything in here - the masses first and the far acacias between them.
             var farStanding = new List<ScatterSpacing.Footprint>();
@@ -811,7 +869,7 @@ namespace Prazsky.Core.Render
                 }
                 bool dead = tree.Kind == AcaciaKind.Dead;
                 buckets.Add(new ScatterBucket(device, tree.Wood, treeInstances[m], dead ? deadwood : trunk, dead ? deadwoodDry : trunk * 1.15f,
-                    dapple: 0f, bark: 0.6f, detailOnly: false));
+                    dapple: 0f, bark: 0.6f, detailOnly: false, earthed: true));
             }
             Add(buckets, device, bushes, bushInstances, canopyDry, canopy, dapple: 0.5f, bark: 0f, detailOnly: false);
             Vector3 scrubColor = dr.ScrubColor.ToVector3();
@@ -826,7 +884,7 @@ namespace Prazsky.Core.Render
             for (int m = 0; m < BAOBAB; m++)
             {
                 if (baobabInstances[m].Count == 0) continue;
-                buckets.Add(new ScatterBucket(device, baobabs[m].Wood, baobabInstances[m], baobabColor, baobabColor * 1.08f, dapple: 0f, bark: 0.25f, detailOnly: false));
+                buckets.Add(new ScatterBucket(device, baobabs[m].Wood, baobabInstances[m], baobabColor, baobabColor * 1.08f, dapple: 0f, bark: 0.25f, detailOnly: false, earthed: true));
                 //The tufts for the Low tier, the leaf sprays for every other (#610)
                 buckets.Add(new ScatterBucket(device, baobabs[m].Foliage, baobabInstances[m], canopy, canopyDry, dapple: 0.5f, bark: 0f,
                     detailOnly: false, lowOnly: true));
@@ -836,7 +894,7 @@ namespace Prazsky.Core.Render
             for (int m = 0; m < DOUM; m++)
             {
                 if (doumInstances[m].Count == 0) continue;
-                buckets.Add(new ScatterBucket(device, doums[m].Wood, doumInstances[m], trunk, trunk * 1.15f, dapple: 0f, bark: 0.6f, detailOnly: false));
+                buckets.Add(new ScatterBucket(device, doums[m].Wood, doumInstances[m], trunk, trunk * 1.15f, dapple: 0f, bark: 0.6f, detailOnly: false, earthed: true));
                 buckets.Add(new ScatterBucket(device, doums[m].Fronds, doumInstances[m], canopy * new Vector3(1.1f, 1.15f, 0.9f), canopyDry, dapple: 0.4f, bark: 0f, detailOnly: false));
             }
             Vector3 tuftColor = dr.TuftColor.ToVector3();

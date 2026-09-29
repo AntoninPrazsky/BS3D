@@ -47,7 +47,7 @@ namespace Prazsky.Core.Render
         private EffectParameter _acaciaViewParam, _acaciaProjectionParam, _acaciaCameraParam,
             _acaciaSunDirectionParam, _acaciaSunColorParam, _acaciaZenithParam, _acaciaHorizonParam,
             _acaciaDiffuseParam, _acaciaDiffuseDryParam, _acaciaDappleParam, _acaciaBarkParam, _acaciaLeavesParam, _acaciaAddedLightParam,
-            _acaciaHazeParam;
+            _acaciaHazeParam, _acaciaFootEarthParam;
 
         //Everything standing on the savanna (#202, #451): the acacias in their four kinds, the bushes, the
         //scrub, the grass tufts, the termite mounds, the kopjes, the fallen trees and the treeline at the
@@ -143,6 +143,7 @@ namespace Prazsky.Core.Render
             _acaciaBarkParam = _acaciaEffect.Parameters["BarkStrength"];
             _acaciaAddedLightParam = _acaciaEffect.Parameters["AddedLight"];
             _acaciaHazeParam = _acaciaEffect.Parameters["HorizonHazeDistance"];
+            _acaciaFootEarthParam = _acaciaEffect.Parameters["FootEarth"];
             _acaciaTechnique = _acaciaEffect.Techniques["Acacia"];
             _acaciaShadowTechnique = _acaciaEffect.Techniques["ShadowCaster"];
             ApplyAcaciaParameters();
@@ -508,8 +509,10 @@ namespace Prazsky.Core.Render
             _acaciaZenithParam.SetValue(frame.ZenithLinear);
             _acaciaHorizonParam.SetValue(frame.HorizonLinear);
 
-            //Per frame since #609: the plant material is one effect the meadow's planting shares, at its own haze
+            //Per frame since #609: the plant material is one effect the meadow's planting shares, at its own haze —
+            //and, since #670, with the plain's own bare earth up every trunk's foot, taken back to black after
             _acaciaHazeParam.SetValue(_savannaConfig.HorizonHazeDistance);
+            Vector3 footEarth = _savannaConfig.GrassBare.ToVector3();
 
             _graphicsDevice.BlendState = BlendState.Opaque;
             _graphicsDevice.DepthStencilState = DepthStencilState.Default;
@@ -530,6 +533,7 @@ namespace Prazsky.Core.Render
                 _acaciaDappleParam.SetValue(bucket.Dapple);
                 _acaciaBarkParam.SetValue(bucket.Bark);
                 _acaciaLeavesParam.SetValue(bucket.Leaves);
+                _acaciaFootEarthParam.SetValue(bucket.Earthed ? footEarth : Vector3.Zero);
 
                 //Leaf cards are one-sided sheets seen from both sides (#610); everything else is a wound solid
                 _graphicsDevice.RasterizerState = bucket.Leaves > 0f ? RasterizerState.CullNone : RasterizerState.CullCounterClockwise;
@@ -545,6 +549,7 @@ namespace Prazsky.Core.Render
 
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
             _acaciaLeavesParam.SetValue(0f);
+            _acaciaFootEarthParam.SetValue(Vector3.Zero);
 
             //And the hearths the fires stand in: one draw per fire, because the firelight on a ring is its
             //own fire's and they do not flicker together.

@@ -25,7 +25,7 @@ namespace Prazsky.Core.Render
 
         private readonly EffectTechnique _technique, _shadowTechnique;
         private readonly EffectParameter _view, _projection, _camera, _sunDirection, _sunColor, _zenith, _horizon,
-            _diffuse, _diffuseDry, _dapple, _bark, _leaves, _addedLight, _haze, _shadowViewProjection;
+            _diffuse, _diffuseDry, _dapple, _bark, _leaves, _addedLight, _haze, _shadowViewProjection, _footEarth;
 
         public PlantPass(GraphicsDevice device, ContentManager content)
         {
@@ -42,6 +42,7 @@ namespace Prazsky.Core.Render
             _diffuseDry = Effect.Parameters["DiffuseDry"];
             _dapple = Effect.Parameters["DappleStrength"];
             _bark = Effect.Parameters["BarkStrength"];
+            _footEarth = Effect.Parameters["FootEarth"];
             _leaves = Effect.Parameters["LeafStrength"];
             _addedLight = Effect.Parameters["AddedLight"];
             _haze = Effect.Parameters["HorizonHazeDistance"];
@@ -76,6 +77,10 @@ namespace Prazsky.Core.Render
             _haze.SetValue(hazeDistance);
             _addedLight.SetValue(Vector3.Zero);
             _leaves.SetValue(0f);
+
+            //The savanna's earth up the trunks' feet is the savanna's (#670): this effect is the one it draws through,
+            //and the berm's plants stand in other ground
+            _footEarth.SetValue(Vector3.Zero);
 
             //⚠ PUT BACK WHAT WAS FOUND (#667). This pass leaves the states the frame goes on drawing under, and it
             //used to leave Opaque: on the meadow, the mountains and the forest it is the last thing the environment
