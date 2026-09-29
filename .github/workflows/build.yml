@@ -147,3 +147,11 @@ jobs:
         run: |
           ./Tools/PathGuard.test.ps1
           if ($LASTEXITCODE -ne 0) { throw "PathGuard.test.ps1 failed (exit $LASTEXITCODE)" }
+
+      # The lattice probe's own test (#674): synthetic star fields of known answer - a Poisson field it must not flag, a
+      # jittered lattice it must, a designed facade it must call a lattice and not an edge, a quantised gradient and a
+      # horizon it must refuse. Exit 3 unless every asserted case holds. About half a minute in Debug.
+      - name: Self-check - the lattice probe finds a lattice and refuses an edge
+        run: |
+          dotnet run --project Tools/LatticeProbe/LatticeProbe.csproj --no-build -- --selftest
+          if ($LASTEXITCODE -ne 0) { throw "LatticeProbe --selftest failed (exit $LASTEXITCODE)" }
