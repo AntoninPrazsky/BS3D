@@ -6991,3 +6991,10 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 - **Majitel dnes uzavřel #634, #640, #645 a #530** (verdikty přišly; štítek `shipped-awaiting-verdict` dole). Všechny čtyři jsou na mainu a jdou do 0.2.1.
 - **Na mainu:** `Images/releases/v0.2.1.jpg` (neonové město, Reel, 3840×1600). `Tools/release-screenshot.ps1` teď fixuje `seed=` a `sweep=0:…:0` — první dva pokusy vyšly s pěti stejnými šedými koulemi ve frontě (rozdání se losuje) a s hlavní stočenou o 70° (míření jde z myši, kurzor se pohnul). ⚠ Snímek proto nesmí záviset na losu ani na kurzoru.
 - **Ověřeno:** zkušební běh `release.yml` (workflow_dispatch na `de7ab393`) prošel celý, Build na `de7ab393` zelený, testy 338. **Tag `v0.2.1` zatím NENÍ pushnutý** — pushne se po majitelově slovu, na commit, který je zelený a obsahuje snímek.
+
+## 2026-09-29 — release v0.2.1 vydán — desktop, Claude Code (bs3d-72)
+
+- **Vydáno:** tag `v0.2.1` na `7cff202c`, workflow `Release` prošel celý za 3 min 43 s (gate na levely, publish, kontrola složky, zip, ceilings, SHA256SUMS). Release má nahoře screenshot (`Images/releases/v0.2.1.jpg`, odkaz na ref tagu, HTTP 200), zip 243,4 MB.
+- **Ověřeno jako hráč:** stažený zip sedí na SHA256SUMS, exe je `0.2.1+7cff202c`, spuštěný z rozbaleného zipu ukazuje v rohu menu `v0.2.1`.
+- **Poznámky k release nemají seznam novinek**, jen odkaz `Full Changelog` (repo nemá PR, takže `--generate-notes` nemá z čeho psát) — stejně jako u v0.2.0. Kdo chce, může `gh release edit v0.2.1 --notes-file …` doplnit „What's new".
+- **Příští release:** merge → `Tools\release-screenshot.ps1 -Version vX.Y.Z` → **podívat se na jpg** → commit → anotovaný tag na konkrétní zelený commit. Zůstávají otevřené vizuální chyby z dnešních poznámek: #658, #653, #663 (savana), #648 (les), #651 (neon), #650 (menu).
