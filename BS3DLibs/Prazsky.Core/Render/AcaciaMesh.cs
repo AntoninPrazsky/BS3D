@@ -47,6 +47,30 @@ namespace Prazsky.Core.Render
         public AcaciaKind Kind { get; }
         public IProceduralMesh Wood { get; }
 
+        /// <summary>
+        /// How far the trunk's flat underside reaches from the axis, at scale 1 (#658): the root flare's ring at the
+        /// pivot. What a scatter sinks the tree by, so the lowest ground under that circle is where the trunk stands and
+        /// no side of it hangs in the air on a slope.
+        /// </summary>
+        public float BaseRadius { get; }
+
+        /// <summary>
+        /// What the tree is made of, as slabs at scale 1 (#653): its trunk to the fork, and one slab a tier of crown,
+        /// on the axis the tier sits on. A dead tree has no tier, so its bare crown of boughs and twigs is one slab
+        /// from the fork up. A crown slab's radius is a little inside the leaf plate's — the rim is thin leaf, and a
+        /// neighbouring branch reaching into it is what a real stand does (<see cref="PlantVolumes.TOLERANCE"/> does
+        /// the rest).
+        /// </summary>
+        public Slab[] Volume { get; }
+
+        //The trunk's radius at the root, as a multiple of the radius it holds to the fork
+        private const float ROOT_FLARE = 1.5f;
+
+        //The trunk's mean radius over its length as a multiple of the radius at the fork (a flare from ROOT_FLARE down
+        //to 0.9), and how much of a tier's leaf plate counts as solid
+        private const float TRUNK_MEAN = 1.2f;
+        private const float CROWN_SOLID = 0.92f;
+
         /// <summary>Every tier of foliage in one mesh; <c>null</c> for a <see cref="AcaciaKind.Dead"/> tree.</summary>
         public IProceduralMesh Canopy { get; }
 
@@ -60,6 +84,7 @@ namespace Prazsky.Core.Render
         public AcaciaMesh(GraphicsDevice device, AcaciaKind kind, float trunkRadius, float treeHeight, float canopyRadius, int seed)
         {
             Kind = kind;
+            BaseRadius = trunkRadius * ROOT_FLARE;
             Random rng = new(seed);
 
             //Where the tiers of foliage sit: each a flat plate at a height, a radius, and a sideways offset
@@ -114,6 +139,12 @@ namespace Prazsky.Core.Render
             }
 
             Wood = new WoodMesh(device, trunkRadius, treeHeight, canopyRadius, forkY, boughs, tiers, spars, twigs, rng);
+
+            var volume = new List<Slab> { new(0f, forkY, trunkRadius * TRUNK_MEAN) };
+            foreach (TierSpec tier in tiers)
+                volume.Add(new Slab(tier.CentreY - tier.HalfHeight, tier.CentreY + tier.HalfHeight, tier.Radius * CROWN_SOLID, tier.Offset.X, tier.Offset.Y));
+            if (tiers.Count == 0) volume.Add(new Slab(forkY, treeHeight, canopyRadius * 0.55f));
+            Volume = volume.ToArray();
 
             if (tiers.Count > 0)
             {
@@ -171,7 +202,7 @@ namespace Prazsky.Core.Render
                 const int SEG = 7;
 
                 //The trunk, flared at the root and holding most of its girth to the fork.
-                TubeGeometry.AddTube(v, idx, SEG, new Vector3(0f, 0f, 0f), trunkRadius * 1.5f,
+                TubeGeometry.AddTube(v, idx, SEG, new Vector3(0f, 0f, 0f), trunkRadius * ROOT_FLARE,
                     new Vector3(0f, forkY, 0f), trunkRadius * 0.9f);
 
                 //The boughs: evenly spread with a jittered bearing, each rising in two bent segments to a point
