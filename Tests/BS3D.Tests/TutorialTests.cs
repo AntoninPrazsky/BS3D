@@ -30,8 +30,8 @@ namespace BS3D.Tests
         /// <summary>Begins the set's entry <paramref name="index"/> and returns every caption the level shows, in order.</summary>
         private static List<string> Play(Tutorial tutorial, LevelSet set, int index, bool lightStreak = false)
         {
-            bool placed = Tutorial.TryPlace(set, index, out int chapter, out int levelInChapter);
-            tutorial.BeginLevel(placed ? chapter : -1, levelInChapter, ceilingStep: 6);
+            bool placed = Tutorial.TryPlace(set, index, out int chapter, out int levelInChapter, out int length);
+            tutorial.BeginLevel(placed ? chapter : -1, levelInChapter, length, ceilingStep: 6);
 
             List<string> shown = new();
             for (int frame = 0; frame < 4000; frame++)
@@ -53,22 +53,22 @@ namespace BS3D.Tests
         {
             LevelSet set = ShippedSet();
 
-            Assert.True(Tutorial.TryPlace(set, 0, out int chapter, out int level));
-            Assert.Equal((0, 0), (chapter, level));
+            Assert.True(Tutorial.TryPlace(set, 0, out int chapter, out int level, out int length));
+            Assert.Equal((0, 0, 10), (chapter, level, length));
 
             //Amphora closes the first chapter since #649, and the Gallery opens the second
             Assert.Equal("Amphora", set.Levels[9].Name);
-            Assert.True(Tutorial.TryPlace(set, 9, out chapter, out level));
+            Assert.True(Tutorial.TryPlace(set, 9, out chapter, out level, out _));
             Assert.Equal((0, 9), (chapter, level));
 
-            Assert.True(Tutorial.TryPlace(set, 10, out chapter, out level));
+            Assert.True(Tutorial.TryPlace(set, 10, out chapter, out level, out _));
             Assert.Equal((1, 0), (chapter, level));
 
             //Nothing past the second chapter
             set.BlockRange(10, out _, out int lastOfSecond);
-            Assert.True(Tutorial.TryPlace(set, lastOfSecond, out _, out _));
-            Assert.False(Tutorial.TryPlace(set, lastOfSecond + 1, out _, out _));
-            Assert.False(Tutorial.TryPlace(null, 0, out _, out _));
+            Assert.True(Tutorial.TryPlace(set, lastOfSecond, out _, out _, out _));
+            Assert.False(Tutorial.TryPlace(set, lastOfSecond + 1, out _, out _, out _));
+            Assert.False(Tutorial.TryPlace(null, 0, out _, out _, out _));
         }
 
         [Fact]
@@ -135,6 +135,49 @@ namespace BS3D.Tests
 
             Assert.Empty(Play(tutorial, set, 10));
             Assert.Contains(STREAK, Play(tutorial, set, 11, lightStreak: true));
+        }
+
+        [Fact]
+        public void TheLineRuleOpensSaturnAndTheSendOffWaitsForAmphora()
+        {
+            LevelSet set = ShippedSet();
+            Assert.Equal("Saturn", set.Levels[7].Name);
+
+            List<string> gem = Play(Fresh(new HashSet<string>()), set, 8);
+            Assert.Contains(LINE_RULE, gem);
+            Assert.DoesNotContain(SEND_OFF, gem);
+
+            Assert.DoesNotContain(LINE_RULE, Play(Fresh(new HashSet<string>()), set, 6));
+        }
+
+        [Fact]
+        public void ASendOffNeverReachedFollowsThePlayerIntoTheSecondChapter()
+        {
+            //Amphora lost and skipped before its cards came up: the second chapter still owes the rule and the
+            //send-off, and the score's own card still comes when the streak lights
+            LevelSet set = ShippedSet();
+            HashSet<string> save = new() { "aim", "fire", "match", "lean", "ceiling", "line", "traverse", "walk", "combine" };
+
+            List<string> heart = Play(Fresh(save), set, 10, lightStreak: true);
+
+            Assert.Contains(LINE_RULE, heart);
+            Assert.Contains(SEND_OFF, heart);
+            Assert.Contains(STREAK, heart);
+            Assert.Contains("graduated", save);
+        }
+
+        [Fact]
+        public void TheClosingCardsAreCountedFromTheChaptersEnd()
+        {
+            //A chapter of twelve: the send-off is on its twelfth level, not its tenth, and the rule on its tenth
+            LevelSet set = new();
+            for (int i = 0; i < 12; i++) set.Levels.Add(new LevelSetEntry { File = $"a{i}.json", Name = $"A{i}", Block = "A" });
+            for (int i = 0; i < 3; i++) set.Levels.Add(new LevelSetEntry { File = $"b{i}.json", Name = $"B{i}", Block = "B" });
+
+            HashSet<string> taught = new() { "aim", "fire", "match", "lean", "ceiling", "line", "traverse", "walk", "combine" };
+            Assert.DoesNotContain(SEND_OFF, Play(Fresh(new HashSet<string>(taught)), set, 9));
+            Assert.Equal(new[] { LINE_RULE }, Play(Fresh(new HashSet<string>(taught)), set, 9));
+            Assert.Equal(new[] { LINE_RULE, SEND_OFF }, Play(Fresh(new HashSet<string>(taught)), set, 11));
         }
     }
 }

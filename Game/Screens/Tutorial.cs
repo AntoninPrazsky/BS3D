@@ -93,11 +93,17 @@ namespace BS3D.Screens
 
             /// <summary>
             /// Which chapter of the campaign teaches it, from 0 (#666): the first chapter's ladder is the controls
-            /// and the rules, the second's is the score. A lesson is offered in its own chapter only.
+            /// and the rules, the second's is the score. A lesson is offered in its own chapter, and in a later one
+            /// only as a lesson its chapter still owes (<see cref="Eligible"/>).
             /// </summary>
             public int Chapter;
 
-            /// <summary>The level of its <see cref="Chapter"/> it first becomes eligible at, counted from 0.</summary>
+            /// <summary>
+            /// The level of its <see cref="Chapter"/> it first becomes eligible at, counted from 0 — or, when
+            /// negative, counted back from the chapter's end, −1 being its last level. The chapter's closing cards
+            /// count from the end because a literal index drifts when the chapter changes size: the send-off read 6
+            /// from #459 to #649, and #603's three sheets had quietly turned that into Pinwheel.
+            /// </summary>
             public int FromLevel;
 
             /// <summary>Shown by its event (<see cref="Trigger"/>) rather than at the level's start.</summary>
@@ -231,12 +237,13 @@ namespace BS3D.Screens
                 //moment — it fires when the floor's net first comes on and says what to do about it. This one
                 //says what is at stake, on the opening of the level where losing to the line first becomes a
                 //real risk, because a player who meets the loss with nothing having told them the rule reads
-                //it as the game being unfair rather than as a rule they now know. Since #649 that is Saturn, the
-                //eighth: it and Amphora after it are the chapter's anchor-starved levels (a hoop on four spokes,
-                //a cup whose ears are its second load path), the two where a swing reaches the line - and Amphora,
-                //the chapter's last, keeps the send-off. (Between #603 and #649 this read 6, which the three
-                //sheets inserted in front had quietly turned into Pinwheel.)
-                Lesson = Lesson.LineRule, Key = "linerule", FromLevel = 7,
+                //it as the game being unfair rather than as a rule they now know. Since #649 that is Saturn, three
+                //from the chapter's end: it and Amphora after it are the chapter's anchor-starved levels (a hoop on
+                //four spokes, a cup whose ears are its second load path), the two where a swing reaches the line -
+                //and Amphora, the chapter's last, keeps the send-off. Counted from the end (see FromLevel) because
+                //this read 6 from #459 to #649, which the three sheets inserted in front had quietly turned into
+                //Pinwheel.
+                Lesson = Lesson.LineRule, Key = "linerule", FromLevel = -3,
                 Caption = "If the cluster reaches the line, the level is lost",
                 Detail = "Keep it light — a heavy cluster hangs low and swings lower",
             },
@@ -248,7 +255,7 @@ namespace BS3D.Screens
                 //is a reward and reads as one only if it is dressed as one. "The basics" and not "everything"
                 //since #666: the score's two lessons come after it, in the second chapter, and a send-off that
                 //said "everything" would be the one card that lied.
-                Lesson = Lesson.Graduated, Key = "graduated", FromLevel = 9, Celebrates = true,
+                Lesson = Lesson.Graduated, Key = "graduated", FromLevel = -1, Celebrates = true,
                 Caption = "That's the basics — you know how to play",
                 Detail = "The rest is the adventure. Go!",
             },
@@ -422,22 +429,25 @@ namespace BS3D.Screens
         /// runs of <see cref="UNCHAPTERED_LEVELS"/>. False past the first <see cref="TUTORIAL_CHAPTERS"/> chapters —
         /// nothing is taught there — and for no set at all, since the fallback pyramid is not a campaign.
         /// </summary>
-        internal static bool TryPlace(LevelSet set, int index, out int chapter, out int levelInChapter)
+        internal static bool TryPlace(LevelSet set, int index, out int chapter, out int levelInChapter, out int chapterLength)
         {
             chapter = -1;
             levelInChapter = -1;
+            chapterLength = 0;
             if (set == null || index < 0 || index >= set.Count) return false;
 
             if (set.HasBlocks)
             {
-                set.BlockRange(index, out int first, out _);
+                set.BlockRange(index, out int first, out int last);
                 chapter = set.BlockNumber(index) - 1;
                 levelInChapter = index - first;
+                chapterLength = last - first + 1;
             }
             else
             {
                 chapter = index / UNCHAPTERED_LEVELS;
                 levelInChapter = index % UNCHAPTERED_LEVELS;
+                chapterLength = Math.Min(UNCHAPTERED_LEVELS, set.Count - chapter * UNCHAPTERED_LEVELS);
             }
 
             return chapter < TUTORIAL_CHAPTERS;
@@ -450,8 +460,9 @@ namespace BS3D.Screens
         /// </summary>
         /// <param name="chapter">The level's chapter (<see cref="TryPlace"/>), or −1 for a level the tutorial does not reach.</param>
         /// <param name="levelInChapter">How far into that chapter the level is, from 0.</param>
+        /// <param name="chapterLength">How many levels the chapter has, which a lesson counted from its end is placed by.</param>
         /// <param name="ceilingStep">The level's ceiling cadence, for the glass lesson's caption; null skips that lesson.</param>
-        internal void BeginLevel(int chapter, int levelInChapter, int? ceilingStep)
+        internal void BeginLevel(int chapter, int levelInChapter, int chapterLength, int? ceilingStep)
         {
             Reset();
 
@@ -466,7 +477,7 @@ namespace BS3D.Screens
 
             foreach (Definition lesson in DEFINITIONS)
             {
-                if ((lesson.Chapter != chapter || levelInChapter < lesson.FromLevel) && !_demo) continue;
+                if (!_demo && !Eligible(lesson, chapter, levelInChapter, chapterLength)) continue;
                 if (Taught(lesson)) continue;
                 if (lesson.Lesson == Lesson.Ceiling && _ceilingCaption == null) continue;
 
@@ -475,21 +486,35 @@ namespace BS3D.Screens
                 else _queue.Add(lesson);
             }
 
-            //The send-off closes the first chapter's ladder and nothing else: the second's lessons are its own
-            if (!_demo && chapter == 0) NothingAfterTheSendOff();
+            if (!_demo) NothingAfterTheSendOff();
 
             _gap = FIRST_CARD_DELAY;
         }
 
         /// <summary>
-        /// Keeps the send-off (<see cref="Lesson.Graduated"/>) the last card the tutorial ever shows (#605). The
+        /// Whether <paramref name="lesson"/> may be offered on this level: in its own chapter from its level on, and
+        /// in any later chapter the tutorial reaches as a lesson its chapter still owes (#666) — so a card the first
+        /// chapter never got to, the send-off on a skipped Amphora included, follows the player into the second the
+        /// way a deferred card always followed them from level to level. Nothing is ever skipped for good.
+        /// </summary>
+        private static bool Eligible(Definition lesson, int chapter, int levelInChapter, int chapterLength)
+        {
+            if (lesson.Chapter != chapter) return lesson.Chapter < chapter;
+
+            int from = lesson.FromLevel >= 0 ? lesson.FromLevel : chapterLength + lesson.FromLevel;
+            return levelInChapter >= from;
+        }
+
+        /// <summary>
+        /// Keeps the send-off (<see cref="Lesson.Graduated"/>) the last card of its chapter's ladder (#605). The
         /// owner was told "That's everything — you know the game" on Amphora and then "The glass steps down every 7
         /// shots": a contextual lesson still armed fired when its event came, after the send-off. So on the level
         /// that sends the player off, the contextual lessons still untaught are queued as plain cards <b>ahead</b> of
-        /// it — the glass's cadence and the streak read as well at a level's start as mid-shot — except the line's,
+        /// it — the glass's cadence reads as well at a level's start as mid-shot — except the line's,
         /// which is a warning about this moment ("The cluster is near the line!") and would be false at the start;
         /// the rule it serves is the <see cref="Lesson.LineRule"/> card queued just before. And once the player has
-        /// been sent off, the chapter's remaining levels teach nothing at all.
+        /// been sent off, nothing of that chapter is taught again. <b>Only that chapter's lessons (#666):</b> the
+        /// score's, in the second chapter, come after the send-off by design and are left exactly as they are.
         /// </summary>
         private void NothingAfterTheSendOff()
         {
@@ -497,10 +522,18 @@ namespace BS3D.Screens
             foreach (Definition lesson in DEFINITIONS)
                 if (lesson.Lesson == Lesson.Graduated) sendOffLesson = lesson;
 
-            if (sendOffLesson != null && Taught(sendOffLesson))
+            if (sendOffLesson == null) return;
+
+            //The send-off closes ITS chapter's ladder and nothing else (#666): the score's lessons after it are the
+            //second chapter's own, so only the first chapter's are cut or pulled ahead of it.
+            int closes = sendOffLesson.Chapter;
+
+            if (Taught(sendOffLesson))
             {
-                _queue.Clear();
-                _armed.Clear();
+                for (int i = _queue.Count - 1; i >= 0; i--)
+                    if (_queue[i].Chapter == closes) _queue.RemoveAt(i);
+                for (int i = _armed.Count - 1; i >= 0; i--)
+                    if (_armed[i].Chapter == closes) _armed.RemoveAt(i);
                 return;
             }
 
@@ -510,10 +543,14 @@ namespace BS3D.Screens
 
             if (sendOff < 0) return;
 
-            foreach (Definition armed in _armed)
-                if (armed.Lesson != Lesson.Line) _queue.Insert(sendOff++, armed);
+            for (int i = 0; i < _armed.Count; i++)
+            {
+                Definition armed = _armed[i];
+                if (armed.Chapter != closes) continue;
 
-            _armed.Clear();
+                if (armed.Lesson != Lesson.Line) _queue.Insert(sendOff++, armed);
+                _armed.RemoveAt(i--);
+            }
         }
 
         /// <summary>Drops everything, for a session being torn down under it — and the first thing a new level does.</summary>

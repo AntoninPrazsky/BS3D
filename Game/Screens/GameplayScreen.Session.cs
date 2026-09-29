@@ -91,8 +91,9 @@ namespace BS3D.Screens
 
             //And what this level may teach (#189): nothing past the second chapter (#666), nothing already taught,
             //and the glass lesson only with this level's own cadence to name
-            bool tutorialLevel = Tutorial.TryPlace(Game.LevelSet, index, out int chapter, out int levelInChapter);
-            _tutorial.BeginLevel(tutorialLevel ? chapter : -1, levelInChapter, LevelCeilingStep(index));
+            bool tutorialLevel = Tutorial.TryPlace(Game.LevelSet, index, out int chapter, out int levelInChapter,
+                out int chapterLength);
+            _tutorial.BeginLevel(tutorialLevel ? chapter : -1, levelInChapter, chapterLength, LevelCeilingStep(index));
 
             //And no floor alarm either: whatever the last level's ending left lingering over the drain is
             //not this level's danger.
