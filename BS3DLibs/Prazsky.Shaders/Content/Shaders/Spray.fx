@@ -153,7 +153,11 @@ float4 SprayPS(SprayVertexOutput input) : COLOR
     float alpha = mask * input.Alpha * SprayOpacity;
     clip(alpha - 0.003);
 
-    return float4(SprayColor, alpha);
+    //PREMULTIPLIED (#675): MonoGame's BlendState.AlphaBlend is (One, InverseSourceAlpha), so a straight colour
+    //was ADDED at full strength wherever a droplet drew and the alpha only darkened what lay behind it - every
+    //droplet a solid hard-edged white lozenge whatever its opacity and feather said. Snow.fx had the same fault
+    //(#654) and Ash.fx and the smoke column were written right.
+    return float4(SprayColor * alpha, alpha);
 }
 
 technique Spray

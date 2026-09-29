@@ -46,6 +46,11 @@ namespace Prazsky.Core.Render
         //now live in SeaSceneConfig; the backdrop reads them from _seaConfig (spray via _seaConfig.Spray).
 
         private readonly Effect _sprayEffect;
+
+        //The six values the spray takes every frame, resolved once at load (BestPractices §1: the by-name indexer is a
+        //linear scan). The look it takes once is pushed by ApplySprayParameters and needs no reference kept.
+        private readonly EffectParameter _sprayView, _sprayProjection, _sprayCameraPosition, _sprayCameraRight,
+            _sprayCameraUp, _sprayTime;
         private VertexBuffer _sprayVertexBuffer;
         private IndexBuffer _sprayIndexBuffer;
 
@@ -74,6 +79,12 @@ namespace Prazsky.Core.Render
             //--- Spray: a static billboard buffer for the sea's blown spray and spindrift, animated entirely
             //in the shader like the snow. Same position+data billboard vertex.
             _sprayEffect = content.Load<Effect>("Shaders/Spray");
+            _sprayView = _sprayEffect.Parameters["View"];
+            _sprayProjection = _sprayEffect.Parameters["Projection"];
+            _sprayCameraPosition = _sprayEffect.Parameters["CameraPosition"];
+            _sprayCameraRight = _sprayEffect.Parameters["CameraRight"];
+            _sprayCameraUp = _sprayEffect.Parameters["CameraUp"];
+            _sprayTime = _sprayEffect.Parameters["SprayTime"];
             ApplySprayParameters();
 
             BuildSprayBuffers();
@@ -223,12 +234,12 @@ namespace Prazsky.Core.Render
         {
             Matrix inverseView = Matrix.Invert(frame.Camera.View);
 
-            _sprayEffect.Parameters["View"].SetValue(frame.Camera.View);
-            _sprayEffect.Parameters["Projection"].SetValue(frame.Camera.Projection);
-            _sprayEffect.Parameters["CameraPosition"].SetValue(frame.Camera.Position);
-            _sprayEffect.Parameters["CameraRight"].SetValue(inverseView.Right);
-            _sprayEffect.Parameters["CameraUp"].SetValue(inverseView.Up);
-            _sprayEffect.Parameters["SprayTime"].SetValue(frame.Time);
+            _sprayView.SetValue(frame.Camera.View);
+            _sprayProjection.SetValue(frame.Camera.Projection);
+            _sprayCameraPosition.SetValue(frame.Camera.Position);
+            _sprayCameraRight.SetValue(inverseView.Right);
+            _sprayCameraUp.SetValue(inverseView.Up);
+            _sprayTime.SetValue(frame.Time);
 
             _graphicsDevice.BlendState = BlendState.AlphaBlend;
             _graphicsDevice.DepthStencilState = DepthStencilState.DepthRead;
