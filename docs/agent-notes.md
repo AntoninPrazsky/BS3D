@@ -6905,3 +6905,8 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-29 — fronta verdiktů — desktop, Claude Code (bs3d-a1)
 
 - Všech 65 otevřených `shipped-awaiting-verdict` na jedné stránce (co posoudit, jak to vidět, odkaz na před/po): https://claude.ai/artifact/3oEuC7Tm2S65nsQCQUhiqN. Samostatně řešitelná práce v backlogu došla — zbytek čeká na majitele.
+
+## 2026-09-29 — APU: žebříček tierů znovu změřen proti vlastnímu buildu #540 — notebook, Claude Code (github-74)
+
+- **Na mainu (jen docs a komentář).** Build #540 (`e097a475`) a dnešní `main` střídavě na 13 levelech tabulky, Medium a Low: **Medium +8 až +43 %, Low +1 až +18 %; Spyglass (hory) na Low 15,23 → 16,55 ms, přes rozpočet 16,1.** Medium: lom stropu (#541, schválený) + **motion blur, poprvé změřený na APU: +0,68–0,78 ms v klidu, +0,86–0,91 při švihu hlavně** (`mbflip=5`, uvnitř procesu, znaménko 24/24) + scéna jen v plném detailu. Low: profil přes 217 mergů (7 bodů, pak 5 v okně, střídavě) → **#551 (vzdálenost dohledu) +1,04 hory / +0,69 Měsíc**; `main` jen s `DEFAULT_FAR_PLANE_DISTANCE` 500 = Spyglass 15,68 (−0,90), Colossus 11,12 (−0,71). Low nekreslí vzdálený prstenec, platí se za terén mezi 500 a okrajem mřížky. **Nic neměněno — dohled si vyžádal majitel, rozhodnutí je jeho.** Měsíc ještě +0,99 mezi 24. a 25. 9. (nejspíš přistávací plocha #538, nezúženo).
+- ⚠ Staré buildy (09-24) nemají `userdata=` a čtou hráčův profil — `Progress.json`/`Settings.json` zálohovány a po bězích beze změny (hash). `tier-matrix.py` opraven (pole `shadow`).
