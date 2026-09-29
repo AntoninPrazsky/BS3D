@@ -6927,3 +6927,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-29 — #644 výchozí citlivost přesného míření — desktop, Claude Code (bs3d-a1)
 
 - **Na mainu:** výchozí `AimSensitivity` 1,25 → 1,5 (další příčka žebříčku; 1,24× rychlosti přehledu). Uložené nastavení zůstává — majitelův Settings.json má 1,25, musí řádek přepnout sám.
+
+## 2026-09-29 — #659 rychlejší W/S — desktop, Claude Code (bs3d-a1)
+
+- **Na mainu:** `Cannon.ADVANCE_SPEED` 5 → 10 u/s (A/D jede po orbitě ~17 u/s). Gumové konce beze změny.
