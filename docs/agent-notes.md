@@ -6914,3 +6914,8 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-29 — Měsíc na Low: krátery na přistávací ploše stojí 1 ms (#538) — notebook, Claude Code (github-74)
 
 - **Jen změřeno, nic neměněno.** Druhý krok Měsíce (+0,99 ms na Low mezi 24. a 25. 9.) zúžen šesti buildy na jediný merge `73031677` (#538, pravidla majitele: kráter je díra) — **9,98 → 10,99 ms**; samotná plocha nestojí nic. Hustý lathe (prstence po 0,22, 4× facety) → nejspíš quad overshading kamenného materiálu. Měsíc je na 11,8 proti rozpočtu 16,1, takže podle §9 bez zásahu; páky (hrubší krok, husté prstence jen u kráterů) zapsány v `docs/scenes.md` a v #538.
+
+## 2026-09-29 — kouřový test všech 133 levelů na APU — notebook, Claude Code (github-74)
+
+- **Čisté.** Game Release (`90fc71b2`), `level=1..133`, `quality=medium`, 1280×720, snímek v 15 s: všech 133 se načte, vykreslí a běží bez výjimky (žádný předčasný konec procesu, žádná řádka s exception/error/failed v logu), kontaktní listy prohlédnuty po dvanácti. Icicle (94) a Ziggurat (104) vyfoceny ještě v prologu kapitoly (města mají delší intro, #488) — ne vada. Karta „Three of a colour“ na levelech 2–13 je správně: majitelův save na notebooku je z 19. 9., před tutoriálem, lekce se zapíše až po skutečné shodě.
+- Skript i listy ve scratchpadu (zmizí); postup: smyčka `level=N shot=15`, čekat na PNG, `Stop-Process`.
