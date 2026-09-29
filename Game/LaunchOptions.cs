@@ -300,7 +300,9 @@ namespace BS3D
             //"ssaa=<n>" trades sharpness against fill rate; "exposure=<f>" is the renderer's shutter speed
             Row.Int("ssaa", (o, v) => o.SupersampleFactor = v),
             Row.Float("exposure", (o, v) => o.Exposure = v),
-            //"logfps" writes one frame-rate line a second to stdout; "scene="/"sky=" pick the backdrop the
+            //"logfps" writes one frame-rate line a second to stdout — and beside it, since #634, a [pace] line
+            //with the spread of the frame's elapsed over that second (mean, standard deviation, min-max), which
+            //says whether the world was stepped evenly where the rate alone cannot; "scene="/"sky=" pick the backdrop the
             //FRONT END hangs. They do NOT survive a level: a Level file names its own scene, dome and
             //weather and GameplayScreen applies all three over these, so "play level=X scene=meadow" draws
             //whatever X names. #270 read five runs as a scene comparison that were one scene measured

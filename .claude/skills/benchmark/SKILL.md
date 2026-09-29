@@ -15,7 +15,11 @@ dotnet build Game.sln
 ```
 
 It reads the game's own `[fps]` lines rather than screenshotting a counter, prints the hardware, and averages
-the readings after discarding the warm-up. `-Ssaa 0` omits `ssaa=` entirely, which is how a `quality=` tier is
+the readings after discarding the warm-up. Since #634 the Game writes a `[pace]` line under every `[fps]` line —
+the frame's elapsed over that second as mean, standard deviation and min–max, invariant culture — which is what
+says whether the world was **stepped evenly**: a run can read a flat 75.0 while its steps run from 10 to 17 ms
+(that was #634 before the fix; 13.0–13.8 after). The scripts here ignore it; read it by hand on a judder report,
+beside PresentMon, which says what was actually *shown*. `-Ssaa 0` omits `ssaa=` entirely, which is how a `quality=` tier is
 measured with the factor **it** chose instead of one forced over the top of it.
 
 **For the tier ladder at real levels** (#540) use `tier-matrix.ps1` beside it: one run per level (or
