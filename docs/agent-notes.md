@@ -6923,3 +6923,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-29 — rozhodnutí majitele k APU (#551, #540) — notebook, Claude Code (github-74)
 
 - **Majitel: „Nech to být.“** Low si nechává dohled 2000 z #551 (hory ~0,5 ms přes rozpočet), menu na Low (Mars, savana, tropy, outback, polar přes 16,1 ms) se neřeší, a staré nemergnuté větve `538-island-offworld` a `536-island-coastal-95` zůstávají. Zapsáno v `docs/game-shell.md` a v #551/#540 — nezkracovat dohled na Low kvůli rozpočtu.
+
+## 2026-09-29 — #644 výchozí citlivost přesného míření — desktop, Claude Code (bs3d-a1)
+
+- **Na mainu:** výchozí `AimSensitivity` 1,25 → 1,5 (další příčka žebříčku; 1,24× rychlosti přehledu). Uložené nastavení zůstává — majitelův Settings.json má 1,25, musí řádek přepnout sám.
