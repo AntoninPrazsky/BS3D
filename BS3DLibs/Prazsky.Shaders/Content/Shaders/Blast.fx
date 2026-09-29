@@ -65,7 +65,7 @@ static const float FIRE_RADIANCE = 4.5;
 static const float SPARK_RADIANCE = 5.0;
 
 //World half-size of a spark at full brightness, and world units of streak per world unit per second of screen
-//speed - Fireworks' SparkSize and SparkStretch, at the arena's scale.
+//speed - Fireworks' SparkSize and the SparkStretch its bursts had until #612's reference pass, at the arena's scale.
 static const float SPARK_SIZE = 0.08;
 static const float SPARK_STRETCH = 0.035;
 

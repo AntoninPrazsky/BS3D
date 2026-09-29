@@ -7245,6 +7245,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-30 — #612 ohňostroj: víc tenčích a delších stop, světlé paprsky, podle referencí — desktop, Claude Code (bs3d-78)
 
 - **Beru #612** (majitelovy poznámky 29. 9.: barvy teď moc; jako skutečný ohňostroj přimíchat velmi světlé paprsky; stopy víc, tenčí a delší; návrh z lokálních referencí). Reference obou modelů (`C:\Users\panrd\AI\sd\out\612-*`), pak `Game/Effects/Fireworks.cs`, `Fireworks.fx`, `docs/game-feedback.md`.
+- **#612 průchod podle referencí na mainu, `shipped-awaiting-verdict`.** 24 referencí (`C:\Users\panrd\AI\sd\out\612-*`: pivoňka, dvoubarevná chryzantéma, zlatá vrba, čtyři salvy, denní ohňostroj, detail stopy): salva = stovky tenkých rovných čar od středu, nejjasnější a nejbělejší na konci (hvězda), část bílých, na konci života visí a padají. **Jiskra je teď stopa** od polohy před `TRAIL_SECONDS` (0,6 s) k současné — stejná uzavřená dráha dotázaná dvakrát (`Fireworks.fx`); pixelová podlaha šířky se zachováním světla (jako `Snow.fx`, #654); `TRAIL_GAIN` 5 (tenká čára bez něj = slabý prach krátkých škrábanců); 400 jisker/salvu; `WHITE_SHARE` 0,18, `HEAD_WHITE` 0,7. `SparkStretch` pryč. Cena neměřitelná (Cabinet, 216,1/216,2 → 216,3/216,3 fps). Hodnotit na stránce výsledku — herní kamera ohňostroj skoro nevidí (před i po).
 
 ## 2026-09-30 — #213 třetí krok: řez kotvy — notebook, Claude Code (github-7f)
 
