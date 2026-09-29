@@ -42,6 +42,8 @@
     <Compile Include="..\..\Game\Screens\TutorialCardLayout.cs" />
     <!--The ceiling's descent and the player's brake on it (#213): a state machine over floats, no device.-->
     <Compile Include="..\..\Game\Screens\CeilingDescent.cs" />
+    <!--The city intro's shot builder (#488): plain geometry over City's block grid.-->
+    <Compile Include="..\..\Game\Effects\CityIntroShots.cs" />
   </ItemGroup>
 
   <ItemGroup>
