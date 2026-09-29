@@ -97,11 +97,19 @@ namespace Prazsky.Core.Render
                 MaxRadius = 430f,
                 ConiferColor = new(0.011f, 0.026f, 0.019f),
                 TrunkColor = new(0.030f, 0.024f, 0.020f),
-                TrunkBaseRadius = 0.30f,
-                TrunkTopRadius = 0.18f,
-                ConiferTrunkHeight = 1.1f,
-                ConiferCrownRadius = 1.6f,
-                ConiferCrownHeight = 13f,
+                //Taller since #647 ("the trees are too low"): every reference stood the boreal wood as a wall
+                //over the clearing, the spruces two to four times the height of the gap between them, and the
+                //stand behind the edge on long bare stems (ConiferStandTrunk). 13 and 1.6 until then.
+                TrunkBaseRadius = 0.40f,
+                TrunkTopRadius = 0.24f,
+                ConiferTrunkHeight = 1.5f,
+                ConiferCrownRadius = 2.2f,
+                ConiferCrownHeight = 21f,
+                ConiferStandTrunk = 6f,
+                //Snow along the whorls' tops (#647), in the floor's own colour: the one reference feature #462
+                //left for later, and it rides the triplanar dust term, so it costs no shader work at all
+                CrownSnow = 0.85f,
+                CrownSnowColor = new(0.58f, 0.64f, 0.76f),
                 ConiferTiers = 9,
                 ConiferTierSpread = 5,
                 ConiferRaggedness = 2f,
@@ -127,21 +135,23 @@ namespace Prazsky.Core.Render
         /// scene could ask for snow of its own look without a second buffer — and since #580 through its own
         /// clone of the effect, this look pushed into it once at load); the buffer is sized by
         /// <see cref="MountainSceneConfig"/>'s copy and this draws the first 3000 of it.
-        /// Slower and thinner than the mountain's own snow — a gentle winter hush over the wood, not a storm. The lens
-        /// (#654) is the mountain's defaults: the near flakes it used to hide inside seven units show as faint discs.
+        /// Slower and thinner than the mountain's own snow — a gentle winter hush over the wood, not a storm. The lens is
+        /// the mountain's (#654) but for the near flakes: against a night sky a defocused flake near the lens came out a
+        /// big pale disc, the snowball #85 fought, so they fade from five units and the flake is dimmer (#647).
         /// </summary>
         public SnowConfig Snow { get; set; } = new()
         {
             //The gentle snow of a clear night (#205): a third of the mountain's flakes and no far layer
             FlakeCount = 3000,
             FarLayerScale = 1f,
+            NearFade = 5f,
             BoxSize = new(70f, 55f, 70f),
             FallSpeed = 4.5f,
             Wind = new(1.2f, 0.4f),
             Sway = 1.4f,
             FlakeSize = 0.08f,
             Opacity = 0.45f,
-            FlakeColor = new(0.7f, 0.75f, 0.82f),
+            FlakeColor = new(0.5f, 0.54f, 0.6f),
         };
 
         /// <summary>The aurora itself.</summary>

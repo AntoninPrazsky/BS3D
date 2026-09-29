@@ -186,6 +186,10 @@ namespace Prazsky.Core.Render
         private Vector3 _barkColorLinear, _coniferColorLinear, _foliageColorLinear, _rockColorLinear, _stumpColorLinear;
         private Vector3 _snagColorLinear, _logColorLinear;
 
+        //Snow lying on the crowns (#647): its linear colour and how much of an up-facing skirt it covers, 0 none
+        private Vector3 _crownSnowLinear;
+        private float _crownSnow;
+
         private ForestScatter _scatter;
 
         /// <summary>
@@ -387,11 +391,11 @@ namespace Prazsky.Core.Render
             _coniferMeshes = new[]
             {
                 NewConifer(trees, 1f, 1f, seed: 11),          //the authored spruce
-                NewConifer(trees, 0.78f, 1.24f, seed: 23),    //a narrow, taller one — the crowded stems of a stand
+                NewConifer(trees, 0.78f, 1.24f, seed: 23, trunk: trees.ConiferStandTrunk), //a narrow, taller one — the crowded stems of a stand, bare low down
                 NewConifer(trees, 1.3f, 0.76f, seed: 37),     //a broad, squat one — an old tree with room around it
                 NewConifer(trees, 0.9f, 1.1f, seed: 41),      //an ordinary tree that is nobody's copy
                 NewConifer(trees, 1.12f, 0.94f, seed: 53),    //slightly stout
-                NewConifer(trees, 0.7f, 1.38f, seed: 67)      //a spire — the one that carries the skyline
+                NewConifer(trees, 0.7f, 1.38f, seed: 67, trunk: trees.ConiferStandTrunk)   //a spire — the one that carries the skyline, on a long bare stem
             };
 
             _broadleafMeshes = new[]
@@ -481,6 +485,8 @@ namespace Prazsky.Core.Render
             _stumpColorLinear = config.Stumps.Color.ToVector3();
             _snagColorLinear = snags.Color.ToVector3();
             _logColorLinear = logs.Color.ToVector3();
+            _crownSnowLinear = trees.CrownSnowColor.ToVector3();
+            _crownSnow = trees.CrownSnow;
 
             EncodeAllTints();
 
@@ -572,6 +578,36 @@ namespace Prazsky.Core.Render
             _stumpTints = EncodeTints(_stumpColorLinear, _stumpMeshes.Length, null);
             _snagTints = EncodeTints(_snagColorLinear, _snagMeshes.Length, null);
             _logTints = EncodeTints(_logColorLinear, _logMeshes.Length, null);
+
+            LaySnow(_coniferCrownRenderers, _coniferCrownTints);
+            LaySnow(_broadleafCrownRenderers, _broadleafCrownTints);
+        }
+
+        /// <summary>
+        /// Snow lying on the crowns (#647), through the triplanar path's own settled-dust term (#535) rather than a new
+        /// one: the dust is already a modulation of the albedo on the up-facing faces by the geometric normal, and the
+        /// modulation that turns a crown's needles into the snow's colour is the ratio of the two — per variant, since
+        /// each variant's pigment is its own, and re-worked whenever the pigments are (the sky's shift moves them). No
+        /// shader change, so the island and every other triplanar surface keep their registers and their cost. On a
+        /// spruce the up-facing faces are the whorls' drooping tops, so the snow lies along each skirt and the tucks
+        /// under them stay dark — the references' snow-laden branches.
+        /// </summary>
+        private void LaySnow(InstancedModelRenderer[] crowns, Vector3[] srgbTints)
+        {
+            if (crowns == null) return;
+
+            for (int variant = 0; variant < crowns.Length; variant++)
+            {
+                if (_crownSnow <= 0f)
+                {
+                    crowns[variant].TopDustStrength = 0f;
+                    continue;
+                }
+
+                Vector3 pigment = ColorSpace.SrgbToLinear(srgbTints[variant]);
+                crowns[variant].TopDustTint = _crownSnowLinear / Vector3.Max(pigment, new Vector3(1e-4f));
+                crowns[variant].TopDustStrength = _crownSnow;
+            }
         }
 
         /// <summary>
@@ -633,11 +669,12 @@ namespace Prazsky.Core.Render
 
         //A species at one set of proportions and one structural roll. The two factors scale the crown's width
         //and its height against the config's authored figures; the trunk follows the crown's height, so a
-        //taller tree is not a taller crown on the same stump of a trunk.
-        private TreeMesh NewConifer(ForestTreeConfig cfg, float width, float height, int seed) =>
+        //taller tree is not a taller crown on the same stump of a trunk. `trunk` lengthens the bare stem under the
+        //crown on its own (#647): the stand's crowded stems have shed their lower branches, the edge's have not.
+        private TreeMesh NewConifer(ForestTreeConfig cfg, float width, float height, int seed, float trunk = 1f) =>
             new(_device, TreeSpecies.Conifer,
                 trunkBaseRadius: cfg.TrunkBaseRadius * width, trunkTopRadius: cfg.TrunkTopRadius * width,
-                trunkHeight: cfg.ConiferTrunkHeight * height,
+                trunkHeight: cfg.ConiferTrunkHeight * height * trunk,
                 crownRadius: cfg.ConiferCrownRadius * width, crownHeight: cfg.ConiferCrownHeight * height,
                 seed: seed, coniferTiers: cfg.ConiferTiers, coniferTierSpread: cfg.ConiferTierSpread,
                 coniferRaggedness: cfg.ConiferRaggedness);
