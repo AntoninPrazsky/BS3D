@@ -213,7 +213,8 @@ namespace BS3D
         internal int WildcardEvery { get; private set; }
 
         //Testing only: this level's power-up charges (#392), "kind:count" pairs separated by commas
-        //("powerups=swap:1"). Null grants nothing, since no shipped or generated level authors one yet.
+        //("powerups=swap:1"). Null grants only what the campaign's own rule does (#213: a Swap from the second chapter and a
+        //Brake from the third); no level file authors a charge.
         internal string Powerups { get; private set; }
 
         //Testing only: wall-clock seconds at which the game saves a PNG of its own frame. Null means the
@@ -354,7 +355,7 @@ namespace BS3D
             //out and a wildcard cannot be authored into a map: it is the gun's ball, not the cluster's.
             Row.Int("wildcard", (o, v) => o.WildcardEvery = v),
             //"powerups=<kind:count,...>" grants power-up charges (#392) on whatever level is played, in
-            //wildcard='s own shape and for the same reason: no shipped or generated level authors one yet.
+            //wildcard='s own shape, for the same reason: no level file authors a charge (the campaign grants them by rule, #213).
             //Passed through as a raw string — GameplayScreen does its own parsing, since only it knows
             //the PowerupKind enum this names.
             Row.Text("powerups", (o, v) => o.Powerups = v),

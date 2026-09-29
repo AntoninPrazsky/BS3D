@@ -40,6 +40,8 @@
   <ItemGroup>
     <Compile Include="..\..\Game\Screens\Tutorial.cs" />
     <Compile Include="..\..\Game\Screens\TutorialCardLayout.cs" />
+    <!--The ceiling's descent and the player's brake on it (#213): a state machine over floats, no device.-->
+    <Compile Include="..\..\Game\Screens\CeilingDescent.cs" />
   </ItemGroup>
 
   <ItemGroup>

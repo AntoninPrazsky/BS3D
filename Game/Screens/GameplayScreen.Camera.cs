@@ -395,10 +395,12 @@ namespace BS3D.Screens
 
         /// <summary>
         /// Re-solves a tall level's <see cref="Cannon.ElevationLimit"/> for the column where it now hangs, on the
-        /// frame a ceiling step begins (#582) — see <see cref="SolveElevationLimit"/> for why it has to follow.
+        /// frame a ceiling step begins (#582), or the brake lifts it (#213) — see <see cref="SolveElevationLimit"/> for why it has to follow.
         /// The step is taken as already arrived: the glass slides the one <see cref="CeilingDescent.CEILING_DESCENT_PER_STEP"/>
         /// in well under a second, and a clamp that tightens at the start of that slide rather than at its end
-        /// is the conservative side of the difference. Once per step and never per frame; the log line is a
+        /// is the conservative side of the difference. (For the brake's lift it is the other side — the limit loosens
+        /// as the lift starts, the column arriving 0.4 s later — which only lets the gun tilt up at a column not yet
+        /// there and blocks no shot.) Once per step and never per frame; the log line is a
         /// rare event of the <c>[ceiling]</c> kind, and the one figure that says the clamp is following.
         /// </summary>
         private void ResolveTallAimLimit()
@@ -419,7 +421,7 @@ namespace BS3D.Screens
 
         /// <summary>
         /// Where the lattice hangs in the world <b>now</b>: <see cref="_clusterWorldOffset"/>, fixed at the load,
-        /// lowered by every ceiling descent since (<see cref="CeilingDescent.RestY"/> less its
+        /// lowered by every ceiling descent since and raised by every brake (<see cref="CeilingDescent.RestY"/> less its
         /// <see cref="CeilingDescent.TargetY"/>). What the aim limit and its check measure the band at — measured
         /// at the load-time offset, a tall level's band read higher than it hangs by the whole descent so far.
         /// The structure's own stretch under the plate is not in it, and need not be: it is there at the load
