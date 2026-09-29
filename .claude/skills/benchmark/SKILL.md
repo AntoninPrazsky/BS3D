@@ -24,6 +24,15 @@ and flags any run whose `[fps]` line is not what was asked for. The #540 table i
 A Testbed `alt=` log is read by `python alt-paired.py <log> [baseline] [drop-cycles]`: whole cycles, each
 variant differenced from the baseline within its own cycle, median and how often the sign held.
 
+**To find WHEN a cost arrived, use `history-sweep.ps1`** (2026-09-29): it builds the Game at `-Points` evenly
+spaced first-parent merges between `-From` and `-To`, each in its own worktree, measures every build round-robin
+at one tier — a forward pass, then a reversed one, the minimum of the two — and prints one row per build with its
+step from the one before. Run it again inside the window that moved; three rounds took 217 merges to the one that
+cost the mountain a millisecond at `Low` (#551). **Compare builds, never afternoons**: a table from a week ago
+measured that week's machine (trap 14), and #540's own build run beside today's is the only comparison that says
+the code changed. `-Levels` is one comma string. ⚠ An old build has no `userdata=` and plays in the player's own
+profile; the script hashes the save before and after and says so loudly if it moved.
+
 ## The four ways to measure nothing at all
 
 Each of these has actually happened; the first two are the expensive ones.
