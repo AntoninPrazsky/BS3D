@@ -46,7 +46,7 @@ namespace BS3D.Tools.LatticeProbe
                 r => r.AboveShare >= 0.80 && r.Edge <= r.Tiles / 5, ">= 80 % above and not mistaken for an edge");
 
             ok &= Case("band-limited texture (ring)", Ring(), detector, nullScore, stride,
-                r => true, "printed, not asserted: one scale, no lattice - read the PEAKS column");
+                r => r.AboveShare <= 0.30, "a continuous ring is not a lattice: <= 30 % of tiles above the null");
 
             ok &= Case("smooth gradient, 8-bit steps", Gradient(), detector, nullScore, stride,
                 r => r.Scored == 0 && r.Flat > 0, "every tile refused as flat");
@@ -135,36 +135,45 @@ namespace BS3D.Tools.LatticeProbe
             return new LumaImage(WIDTH, HEIGHT, luma);
         }
 
-        //A Gaussian random field with a RING spectrum: a hundred and fifty plane waves of wavelength 12 px (+-12 %) in random
-        //directions and phases. One characteristic scale and no lattice - what a cellular or a single-octave noise looks like
-        //to the spectrum - so it shows what a texture does to a peak-over-neighbourhood score: its speckle can stand over a
-        //neighbourhood that is mostly out of the ring. The PEAKS column is what tells it from a lattice's few discrete ones.
+        //A Gaussian random field with a RING spectrum: white noise filtered in the frequency domain to an annulus of period
+        //12 px (+-12 %), no lattice. One characteristic scale, continuous in frequency - what a cellular or a single-octave
+        //noise looks like to the spectrum - and the check that a narrow-band TEXTURE is not mistaken for a lattice: its
+        //speckle stands over a neighbourhood that is mostly out of the ring, but the median of the nine-by-nine round a
+        //speckle is itself in the ring for most of it, and the score stays near the null (one tile in ten, best 26).
+        //⚠ A first version summed a hundred and fifty plane waves and read as a lattice at 100 % with 16 peaks - and a
+        //wrong conclusion was written from it ("the probe cannot tell a lattice from a texture") before the fault was
+        //found: a hundred and fifty exact plane waves ARE a lattice, discrete frequencies every tile shares.
         private static LumaImage Ring()
         {
-            const int W = 768, H = 384;
+            const int N = 1024, W = 768, H = 384;
             var random = new Random(11);
-            const int WAVES = 150;
-            double[] kx = new double[WAVES], ky = new double[WAVES], phase = new double[WAVES];
+            double[] re = new double[N * N], im = new double[N * N];
 
-            for (int i = 0; i < WAVES; i++)
-            {
-                double wavelength = 12.0 * (0.88 + 0.24 * random.NextDouble());
-                double angle = random.NextDouble() * 2.0 * Math.PI;
-                kx[i] = 2.0 * Math.PI / wavelength * Math.Cos(angle);
-                ky[i] = 2.0 * Math.PI / wavelength * Math.Sin(angle);
-                phase[i] = random.NextDouble() * 2.0 * Math.PI;
-            }
+            for (int i = 0; i < re.Length; i++) re[i] = Noise(random);
+
+            Fft.Transform2D(re, im, N, inverse: false);
+
+            for (int ky = 0; ky < N; ky++)
+                for (int kx = 0; kx < N; kx++)
+                {
+                    double fx = kx < N / 2 ? kx : kx - N, fy = ky < N / 2 ? ky : ky - N;
+                    double period = N / Math.Max(Math.Sqrt(fx * fx + fy * fy), 1e-9);
+                    double x = (period - 12.0) / (12.0 * 0.12);
+                    double gain = Math.Exp(-0.5 * x * x);
+
+                    re[ky * N + kx] *= gain;
+                    im[ky * N + kx] *= gain;
+                }
+
+            Fft.Transform2D(re, im, N, inverse: true);
+
+            double square = 0;
+            for (int i = 0; i < re.Length; i++) square += re[i] * re[i];
+            double scale = 22.0 / Math.Sqrt(square / re.Length);
 
             float[] luma = new float[W * H];
-            double gain = 22.0 / Math.Sqrt(WAVES / 2.0);
-
             for (int y = 0; y < H; y++)
-                for (int x = 0; x < W; x++)
-                {
-                    double sum = 0;
-                    for (int i = 0; i < WAVES; i++) sum += Math.Cos(kx[i] * x + ky[i] * y + phase[i]);
-                    luma[y * W + x] = (float)(120.0 + gain * sum);
-                }
+                for (int x = 0; x < W; x++) luma[y * W + x] = (float)(120.0 + re[y * N + x] * scale);
 
             Quantise(luma);
             return new LumaImage(W, H, luma);

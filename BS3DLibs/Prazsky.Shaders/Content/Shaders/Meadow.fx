@@ -358,11 +358,9 @@ float4 MeadowField(MeadowVertexOutput input, bool detail)
         //⚠ THE SEAM IS THE ZERO SET OF TWO NOISES, NOT ONE (#674). A gradient noise is exactly zero at every integer
         //lattice point (every dot product in GradientNoise2 is against f, and f is 0 there), so |noise| is small in a
         //disc round each of them and the web of its zero crossings ties a knot at every lattice point - a lattice of dark
-        //spots one clump apart. That is arithmetic, and it is what the fix rests on. Tools/LatticeProbe also measured
-        //the meadow from above at 83 % of its scored tiles over the noise null (50 of 60; one wave, period 15 px, on
-        //the axis) and 2 % after - but a narrow-band texture flags too (the probe's own ring case: 100 %, 16 peaks), and
-        //the sum of two noises at different scales is a wider band, so the drop does not by itself separate 'knots
-        //gone' from 'band broadened'. The second noise is turned and at another scale, so the two zero sets share no
+        //spots one clump apart. That is arithmetic. Tools/LatticeProbe measured the meadow from above at 83 % of its
+        //scored tiles over the noise null (50 of 60; one wave, period 15 px, on the axis) and 2 % after; a continuous
+        //narrow-band texture is not flagged by it (its ring case: one tile in ten), so what it saw was a lattice. The second noise is turned and at another scale, so the two zero sets share no
         //lattice point; 0.7 each keeps the sum's spread about what one noise's was, so the threshold below means
         //what it did.
         float2 seamDomain = float2(clumpDomain.x * 0.8 - clumpDomain.y * 0.6, clumpDomain.x * 0.6 + clumpDomain.y * 0.8) * 1.37 + 7.3;
