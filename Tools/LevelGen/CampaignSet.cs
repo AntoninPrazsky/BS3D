@@ -85,7 +85,9 @@ namespace BS3D.Tools.LevelGen
         internal const string MUSIC_RINGS = "bloom";
         internal const string MUSIC_GALLERY = "mural";
         internal const string MUSIC_COIL = "ember";
-        internal const string MUSIC_TOWER = "bohemia";
+        //The Tower's own since #280: bohemia's generated variations read as brass-band folk (a dechovka) to the owner
+        //on every mountain level, and the style went whole, as Dechovka itself did in #264
+        internal const string MUSIC_TOWER = "summit";
         internal const string MUSIC_REVEAL = "nocturne";
         internal const string MUSIC_QUARRY = "lunar";
         internal const string MUSIC_NEBULA = "nebula";

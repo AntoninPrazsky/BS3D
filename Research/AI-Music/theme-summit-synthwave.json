@@ -1,0 +1,28 @@
+{
+    "file": "theme-summit-synthwave.wav",
+    "created": "2026-09-29",
+    "issue": 280,
+    "family": "summit",
+    "chapter": "The Tower (mountains) - #280: the snowy range under an alpine evening sky (#661); replaces the bohemia family, which read as brass-band folk (dechovka) on every mountain level",
+    "purpose": "Master of Game/Music/summit-synthwave.ogg, one of the summit family's recordings (#280): written from this file by Tools/MusicBake --tracks --masters <this folder>, brought to the themes' loudness, peaks held under full scale, Ogg Vorbis. The master stays outside the repository (C:\\Users\\panrd\\AI\\output\\masters-280 on the desktop); this sidecar is committed beside the .ogg.",
+    "generator": "ACE-Step 1.5 (acestep.cpp), local, AMD RX 6900 XT via Vulkan -- batch-280.ps1 -> generate-music.ps1 -Loop -NoCotCaption; the weak loop seams re-rendered on other seeds and the best seam kept",
+    "format": "48000 Hz, 32-bit float PCM, stereo -- 48 kHz is the model's fixed native rate",
+    "license": "ACE-Step 1.5: MIT (code and weights)",
+    "request": {
+        "caption": "Night synthwave instrumental over a snowy range: pulsing analog bass, gated reverb drums, shimmering arpeggios, soaring lead melody, wide cold pads, starlit, no vocals",
+        "lm_negative_prompt": "vocals, singing, brass band, polka, oompah, march, folk, accordion, fiddle, yodel, alphorn, bagpipe, hurdy-gurdy, crowd noise, live recording, heavy distortion",
+        "instrumental": true,
+        "use_cot_caption": false,
+        "duration": 120,
+        "bpm": 108,
+        "keyscale": "E minor",
+        "seed": 2810,
+        "inference_steps": 8,
+        "output_format": "wav32"
+    },
+    "post_process": "loop_crossfade.py: a whole-bar loop cut out of the render's body (the untouched render kept as .raw.wav beside it)",
+    "loop_log": [
+        "Wrote C:\\Users\\panrd\\AI\\output\\masters-280\\theme-summit-synthwave.wav: 62.8s loop = source 12.55s..75.35s (28.02 bars at 107.1 bpm), crossfade 1.12s | context match 0.779 (best 0.825) | crossfade rhythm r=0.93 vs the track a bar later r=0.79: in time | spectrum cos=0.82"
+    ],
+    "rendered": true
+}
