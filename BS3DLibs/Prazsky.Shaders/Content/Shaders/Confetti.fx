@@ -9,8 +9,8 @@
 //parallax for never popping as the camera crosses a box boundary: Snow.fx's trade, taken for the same reason
 //and against the same kind of subject.
 //
-//WHAT MAKES THIS CONFETTI AND NOT COLOURED SNOW is that the quad is NOT a billboard. Snow.fx turns its flake
-//in its own plane and keeps it facing the lens, which is right for a speck with no orientation to read. A
+//WHAT MAKES THIS CONFETTI AND NOT COLOURED SNOW is that the quad is NOT a billboard. Snow.fx keeps its flake
+//facing the lens (turned in its own plane until #654), which is right for a speck with no orientation to read. A
 //piece of paper has one: it flips end over end, so it is seen broadside, then foreshortened, then edge-on as
 //a bright line, then broadside again. That flashing between a wide chip and a thin line is the single thing
 //that says *paper* rather than *dot*, and it falls out of building the quad on a real world-space basis that

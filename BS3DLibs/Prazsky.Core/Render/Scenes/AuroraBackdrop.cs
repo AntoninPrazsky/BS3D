@@ -52,6 +52,7 @@ namespace Prazsky.Core.Render
         //The snow's own clone of Snow.fx (#580), its look pushed once in the constructor; the flake buffer is the
         //shared Services.Snowfall
         private readonly Effect _snowEffect;
+        private readonly Snowfall.Look _snowLook;
 
         /// <summary>Loads the effect, takes its grid, caches its parameters and pushes the config at it.</summary>
         public AuroraBackdrop(BackdropServices services, ContentManager content) : base(services)
@@ -85,7 +86,7 @@ namespace Prazsky.Core.Render
 
             //Its own snow (#205), through a clone of Snow.fx of its own since #580
             _snowEffect = content.Load<Effect>("Shaders/Snow").Clone();
-            Snowfall.ApplyParameters(_snowEffect, _auroraConfig.Snow);
+            _snowLook = Snowfall.Prepare(_snowEffect, _auroraConfig.Snow);
 
             _plants = new PlantPass(_graphicsDevice, content);
             ForestSceneConfig ground = _auroraConfig.Terrain;
@@ -298,7 +299,7 @@ namespace Prazsky.Core.Render
         }
 
         /// <summary>The snow, through the shared flake buffer and the aurora's own clone of <c>Snow.fx</c>.</summary>
-        public override void DrawOverlays(in SceneFrame frame) => Services.Snowfall.Draw(frame, _snowEffect, _auroraConfig.Snow);
+        public override void DrawOverlays(in SceneFrame frame) => Services.Snowfall.Draw(frame, _snowLook, _auroraConfig.Snow);
 
         /// <inheritdoc/>
         public override bool TryGetLightRig(float wallClock, out SceneLightRig rig)
