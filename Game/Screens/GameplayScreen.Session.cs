@@ -93,7 +93,8 @@ namespace BS3D.Screens
             //and the glass lesson only with this level's own cadence to name
             bool tutorialLevel = Tutorial.TryPlace(Game.LevelSet, index, out int chapter, out int levelInChapter,
                 out int chapterLength);
-            _tutorial.BeginLevel(tutorialLevel ? chapter : -1, levelInChapter, chapterLength, LevelCeilingStep(index));
+            _tutorial.BeginLevel(tutorialLevel ? chapter : -1, levelInChapter, chapterLength, LevelCeilingStep(index),
+                swapOffered: _run.SwapOffered);
 
             //And no floor alarm either: whatever the last level's ending left lingering over the drain is
             //not this level's danger.
@@ -303,7 +304,7 @@ namespace BS3D.Screens
 
             //This level's power-up charges (#392) — granted fresh here, exactly as the wildcard cadence
             //above is, so a retry is granted what the level grants and not what a previous attempt spent.
-            GrantPowerupCharges();
+            GrantPowerupCharges(index);
 
             //This level's generator, from the seed= argument or a fresh roll, BEFORE the refill below deals from
             //it (#582) - so what a level deals is a function of its printed seed and the shots played into it

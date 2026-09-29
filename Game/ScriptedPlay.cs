@@ -18,6 +18,8 @@ namespace BS3D
     /// began. It SETS the pose each frame (<c>Cannon.AimTo</c>), so the mouse cannot fight it.</item>
     /// <item><c>rmb=&lt;from&gt;:&lt;to&gt;</c> — holds precise aim across the interval, as the right button would.</item>
     /// <item><c>fire=&lt;t1,t2,…&gt;</c> — fires at those seconds, the shot a left click would fire.</item>
+    /// <item><c>swap=&lt;t1,t2,…&gt;</c> — presses the swap key at those seconds (#213), through the very call E makes, so
+    /// a second press on a level with one swap is the refusal a player would hear.</item>
     /// <item><c>walk=&lt;from&gt;:&lt;to&gt;[:in|out]</c> and <c>turn=&lt;from&gt;:&lt;to&gt;[:left|right]</c> — hold W (or S)
     /// and A (or D) across the interval, through the very calls the keys make. Written for the resize fault: a
     /// window resized mid-level re-solves the fit, and whether the player's walk and turn survive that could only be
@@ -41,6 +43,8 @@ namespace BS3D
         private float _rmbFrom = float.NaN, _rmbTo;
         private float[] _fire;
         private int _nextFire;
+        private float[] _swap;
+        private int _nextSwap;
         private float _walkFrom = float.NaN, _walkTo, _walkSign = 1f;
         private float _turnFrom = float.NaN, _turnTo, _turnSign = 1f;
         private float _flipPeriod;
@@ -107,6 +111,15 @@ namespace BS3D
                 if (times == null || times.Length == 0) return false;
 
                 (Current ??= new ScriptedPlay())._fire = times;
+                return true;
+            }
+
+            if (arg.StartsWith("swap=", StringComparison.OrdinalIgnoreCase))
+            {
+                float[] times = ScreenshotWriter.ParseSeconds(arg.Substring("swap=".Length));
+                if (times == null || times.Length == 0) return false;
+
+                (Current ??= new ScriptedPlay())._swap = times;
                 return true;
             }
 
@@ -194,6 +207,15 @@ namespace BS3D
             if (_fire == null || _nextFire >= _fire.Length || clock < _fire[_nextFire]) return false;
 
             _nextFire++;
+            return true;
+        }
+
+        /// <summary>Whether a scheduled swap press has come due, consuming it - one a call, like <see cref="TryTakeFire"/> (#213).</summary>
+        internal bool TryTakeSwap(float clock)
+        {
+            if (_swap == null || _nextSwap >= _swap.Length || clock < _swap[_nextSwap]) return false;
+
+            _nextSwap++;
             return true;
         }
     }

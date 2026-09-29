@@ -19,6 +19,7 @@ namespace BS3D.Tests
         private const string BUDGET = "Spare shots pay a bonus at the end";
         private const string LINE_RULE = "If the cluster reaches the line, the level is lost";
         private const string SEND_OFF = "That's the basics — you know how to play";
+        private const string SWAP = "Swap the next two balls";
 
         private static LevelSet ShippedSet() =>
             LevelSet.Load(Path.Combine(Shipped.LevelsDirectory, LevelSet.DefaultFileName));
@@ -28,10 +29,10 @@ namespace BS3D.Tests
             new(key => save.Contains(key), key => save.Add(key), Tutorial.Mode.Normal);
 
         /// <summary>Begins the set's entry <paramref name="index"/> and returns every caption the level shows, in order.</summary>
-        private static List<string> Play(Tutorial tutorial, LevelSet set, int index, bool lightStreak = false)
+        private static List<string> Play(Tutorial tutorial, LevelSet set, int index, bool lightStreak = false, bool swapOffered = false)
         {
             bool placed = Tutorial.TryPlace(set, index, out int chapter, out int levelInChapter, out int length);
-            tutorial.BeginLevel(placed ? chapter : -1, levelInChapter, length, ceilingStep: 6);
+            tutorial.BeginLevel(placed ? chapter : -1, levelInChapter, length, ceilingStep: 6, swapOffered: swapOffered);
 
             List<string> shown = new();
             for (int frame = 0; frame < 4000; frame++)
@@ -122,6 +123,62 @@ namespace BS3D.Tests
 
             //And once both are taught nothing more is (a save taught them before #666 moved them is the same case)
             Assert.Empty(Play(tutorial, set, 12, lightStreak: true));
+        }
+
+        [Fact]
+        public void TheSwapIsTaughtOnTheSecondChaptersThirdLevelAndOnlyWhereThereIsOne()
+        {
+            LevelSet set = ShippedSet();
+            HashSet<string> everythingElse = new()
+                { "aim", "fire", "match", "lean", "ceiling", "line", "traverse", "walk", "combine", "linerule", "graduated", "streak", "budget" };
+
+            //The Gallery's third level (#213), with a swap to press: the card, and it is recorded once taught by doing
+            HashSet<string> save = new(everythingElse);
+            Tutorial tutorial = Fresh(save);
+            Assert.Contains(SWAP, Play(tutorial, set, 12, swapOffered: true));
+
+            //Without one (a set with no chapters, the testing argument's zero) it would be a card about a key that does
+            //nothing, so it is not shown
+            Assert.DoesNotContain(SWAP, Play(Fresh(new HashSet<string>(everythingElse)), set, 12, swapOffered: false));
+
+            //Not before its level: the Gallery's first two teach the score, a level each
+            Assert.DoesNotContain(SWAP, Play(Fresh(new HashSet<string>(everythingElse)), set, 10, swapOffered: true));
+            Assert.DoesNotContain(SWAP, Play(Fresh(new HashSet<string>(everythingElse)), set, 11, swapOffered: true));
+
+            //And never in the first chapter, whatever the level grants
+            for (int index = 0; index < 10; index++)
+                Assert.DoesNotContain(SWAP, Play(Fresh(new HashSet<string>()), set, index, swapOffered: true));
+        }
+
+        [Fact]
+        public void APressOfTheSwapCompletesItsCardAndRecordsItAsTaught()
+        {
+            LevelSet set = ShippedSet();
+            HashSet<string> save = new() { "aim", "fire", "match", "lean", "ceiling", "line", "traverse", "walk", "combine", "linerule", "graduated", "streak", "budget" };
+            Tutorial tutorial = Fresh(save);
+
+            bool placed = Tutorial.TryPlace(set, 12, out int chapter, out int levelInChapter, out int length);
+            Assert.True(placed);
+            tutorial.BeginLevel(chapter, levelInChapter, length, ceilingStep: 6, swapOffered: true);
+
+            //Up, and waiting for the action: an action card stands until it is done or times out
+            for (int frame = 0; frame < 60 && tutorial.Caption != SWAP; frame++)
+                tutorial.Update(0.1f, enabled: true, takeoverEngaged: false, levelDecided: false);
+            Assert.Equal(SWAP, tutorial.Caption);
+            Assert.DoesNotContain("swap", save);
+
+            //The press: the card praises, and once it has left the lesson is in the save
+            tutorial.Report(Tutorial.Lesson.Swap);
+            tutorial.Update(0.1f, enabled: true, takeoverEngaged: false, levelDecided: false);
+            Assert.True(tutorial.Praising);
+            Assert.Equal("Swapped!", tutorial.Praise);
+
+            for (int frame = 0; frame < 200; frame++)
+                tutorial.Update(0.1f, enabled: true, takeoverEngaged: false, levelDecided: false);
+            Assert.Contains("swap", save);
+
+            //A taught swap is not offered again on the next level
+            Assert.DoesNotContain(SWAP, Play(tutorial, set, 13, swapOffered: true));
         }
 
         [Fact]

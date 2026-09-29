@@ -114,13 +114,13 @@ namespace BS3D.Screens
                 //Space fires; the gamepad fires off its right trigger, read with the aim (below)
                 if (Game.IsKeyEdge(keyboard, Keys.Space)) Shoot();
 
-                //E (the pad's X) activates the one power-up this issue proves (#392) — a fixed, un-aimed
-                //action, unlike a shot, so it needs no direction and no muzzle. CanActivate is asked rather
-                //than assumed: a charge might be spent, the level might already be decided, or a camera
-                //takeover might have started the very frame this edge fired.
+                //E (the pad's X) is the Swap (#392, #213) - a fixed, un-aimed action, unlike a shot, so it needs no
+                //direction and no muzzle. PressSwap asks CanActivate rather than assuming: a charge might be
+                //spent, the level might already be decided, or a camera takeover might have started the very
+                //frame this edge fired.
                 if (Game.IsKeyEdge(keyboard, Keys.E)
                     || (pad.IsButtonDown(Buttons.X) && !Game.PreviousPad.IsButtonDown(Buttons.X)))
-                    if (CanActivate(PowerupKind.Swap)) Activate(PowerupKind.Swap);
+                    PressSwap();
             }
             else if (CameraTakeoverEngaged)
             {
@@ -322,6 +322,7 @@ namespace BS3D.Screens
                 }
 
                 if (script.TryTakeFire(WallClock)) Shoot();
+                if (script.TryTakeSwap(WallClock)) PressSwap();
             }
 
             //And the aim lesson reads the pose once the mouse and the pad have both had their say (#189)

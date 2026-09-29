@@ -1675,7 +1675,8 @@ namespace BS3D.Screens
 
             _hud.Draw(_run.Score, Camera, in profile,
                 new ReadOnlySpan<PlayHud.BallMarker>(_profileBalls, 0, ballCount),
-                _magazineQueue, _tutorial, previewsOnly, _dozing.Letters);
+                _magazineQueue, _tutorial, previewsOnly, _dozing.Letters,
+                swapCharges: _run.SwapOffered ? _run.PowerupCharges[(int)PowerupKind.Swap] : -1);
 
             if (previewsOnly) return;
 
