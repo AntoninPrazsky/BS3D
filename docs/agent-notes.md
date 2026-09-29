@@ -7165,3 +7165,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 - **Majitel (večer, odchází spát):** „neboj se mě zastoupit… vem si podobnou exekutivní pravomoc. Uzavírej issues, hodnoť kriticky. Zaměř se na detail.“
 - **Zavřeno 16** (každé s komentářem, co bylo posouzeno a čím doloženo): #619, #648 (ověřeno vlastním snímkem lesa), #650, #651 (vlastní snímek neonu: auta mají karoserie), #652, #653, #654, #655, #656, #658, #661, #664, #665, #667, #668, #673.
 - **Nechány otevřené:** #669 (příčina nepotvrzená, zvuk řezu hraje při každé prohře; dotyk čáry je interpretace), #675 (oprava alfy správná, ale bouřkové kumuly teď vypadají jako hrozny jednotlivých koulí — `scene=storm campos=0,-2,45 camtarget=0,8,-100`), #670 (chybí hromádka hlíny u paty), #95/#213 (rozpracované vícekrokové), #378/#520 (potřebují gamepad).
+
+## 2026-09-29 — #663 měřítko stromů na savaně (+ hlína u paty z #670) — desktop, Claude Code (bs3d-78)
+
+- **Beru #663** (stromy na savaně jsou vedle ostrova a clusteru malé) **a dokončení #670** (hromádka hlíny u paty). Měřítko stromů (akácie, baobaby, doumy) odděleně od keřů, hustota sázení upravená, aby se pláň jen nezaplnila; posoudit z herní kamery a z úvodu kapitoly. Soubory: `SavannaSceneConfig`, `SavannaScatter`, meshe stromů, `docs/scenes.md`. #647 (les a aurora) zatím nechávám.
