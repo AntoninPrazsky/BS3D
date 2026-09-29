@@ -236,6 +236,24 @@ namespace Prazsky.BS3D.Levels
         public int SwapChargesAt(int index) =>
             index >= 0 && index < Count && HasBlocks && BlockNumber(index) >= SWAP_FROM_BLOCK ? 1 : 0;
 
+        /// <summary>
+        /// The first block (counted from 1) whose levels come with a Brake charge (#213): the third chapter, one tool
+        /// per chapter after the Swap's second, so the player has the queue's tool in hand before the ceiling's
+        /// arrives. The price is the same shape as the Swap's — one a level, never carried over — because a brake that
+        /// could be pressed at will would take the pressure the ceiling exists to apply out of the game.
+        /// </summary>
+        public const int BRAKE_FROM_BLOCK = 3;
+
+        /// <summary>
+        /// How many Brake charges the level at <paramref name="index"/> starts with (#213): one from
+        /// <see cref="BRAKE_FROM_BLOCK"/> on for a level whose ceiling steps, and none for one whose ceiling holds
+        /// (there is no glass coming down to hold back), before that block, outside the set or in a set naming no
+        /// blocks. A rule of the campaign like <see cref="SwapChargesAt"/>, so no level file changed.
+        /// </summary>
+        public int BrakeChargesAt(int index) =>
+            index >= 0 && index < Count && HasBlocks && BlockNumber(index) >= BRAKE_FROM_BLOCK
+                && Levels[index].CeilingStep.HasValue ? 1 : 0;
+
         #endregion
 
         /// <summary>

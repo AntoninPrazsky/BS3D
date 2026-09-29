@@ -121,6 +121,11 @@ namespace BS3D.Screens
                 if (Game.IsKeyEdge(keyboard, Keys.E)
                     || (pad.IsButtonDown(Buttons.X) && !Game.PreviousPad.IsButtonDown(Buttons.X)))
                     PressSwap();
+
+                //Q (the pad's Y) is the ceiling's Brake (#213), the same kind of un-aimed action and asked the same way
+                if (Game.IsKeyEdge(keyboard, Keys.Q)
+                    || (pad.IsButtonDown(Buttons.Y) && !Game.PreviousPad.IsButtonDown(Buttons.Y)))
+                    PressBrake();
             }
             else if (CameraTakeoverEngaged)
             {
@@ -323,6 +328,7 @@ namespace BS3D.Screens
 
                 if (script.TryTakeFire(WallClock)) Shoot();
                 if (script.TryTakeSwap(WallClock)) PressSwap();
+                if (script.TryTakeBrake(WallClock)) PressBrake();
             }
 
             //And the aim lesson reads the pose once the mouse and the pad have both had their say (#189)

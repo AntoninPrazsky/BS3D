@@ -141,6 +141,12 @@ namespace BS3D.Screens
         internal bool SwapOffered { get; set; }
 
         /// <summary>
+        /// Whether this level was granted a Brake at all, spent or not (#213) - <see cref="SwapOffered"/>'s twin for the
+        /// ceiling's brake: what the HUD's second chip and the refusal of a press ask.
+        /// </summary>
+        internal bool BrakeOffered { get; set; }
+
+        /// <summary>
         /// The line's grace — <see cref="ClusterLineWatch"/>'s since #301/#302, so the level generator's sag gate
         /// decides a simulated run by running <i>this</i> rule rather than a second copy of it that could drift
         /// lenient. A field and not a property because it is a mutable struct the screen updates in place. It

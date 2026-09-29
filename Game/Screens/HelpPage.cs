@@ -48,7 +48,7 @@ namespace BS3D.Screens
 
         //PromptFont's own glyphs, the tutorial's constants exactly (Tutorial.cs) — one face, one set of
         //codepoints, so a key drawn here and the same key drawn on a card cannot come out different
-        private const string KEY_W = "Ｗ", KEY_A = "Ａ", KEY_S = "Ｓ", KEY_D = "Ｄ", KEY_E = "Ｅ";
+        private const string KEY_W = "Ｗ", KEY_A = "Ａ", KEY_S = "Ｓ", KEY_D = "Ｄ", KEY_E = "Ｅ", KEY_Q = "Ｑ";
         private const string MOUSE = "⟼", MOUSE_LEFT = "⟵", MOUSE_RIGHT = "⟶";
 
         //The level the worked example is played on: the campaign's first, so a reader can go and reproduce it.
@@ -368,6 +368,9 @@ namespace BS3D.Screens
                 "So the clock is your own shots. Every shot brings the glass nearer, whether it matched "
                 + "anything or not, which is the other reason a miss is expensive. Clearing from the bottom "
                 + "buys height; clearing from the top does not."));
+            column.Widgets.Add(Paragraph(
+                "From the third chapter you also have a brake: one press a level lifts the glass a step back up, "
+                + "which is time the ceiling took. It does nothing until the glass has stepped down."));
         }
 
         private void BuildControls(VerticalStackPanel column)
@@ -378,10 +381,11 @@ namespace BS3D.Screens
             column.Widgets.Add(KeyLine(KEY_A + KEY_D, "Walk the gun round the field"));
             column.Widgets.Add(KeyLine(KEY_W + KEY_S, "Step in and out — closer means a steeper shot"));
             column.Widgets.Add(KeyLine(KEY_E, "Swap the next two balls — one swap a level, from the second chapter"));
+            column.Widgets.Add(KeyLine(KEY_Q, "Brake the ceiling — lift the glass one step back, one a level, from the third chapter"));
             column.Widgets.Add(Paragraph(
                 "Escape pauses. F11 is fullscreen, F12 saves a screenshot, F10 hides the frame-rate counter."));
-            column.Widgets.Add(Caption("A gamepad plays all of it too; the first chapter teaches the bindings "
-                + "for whichever you are holding."));
+            column.Widgets.Add(Caption("A gamepad plays all of it too — the Swap is X and the Brake is Y; the first chapter "
+                + "teaches the other bindings for whichever you are holding."));
         }
 
         /// <summary>

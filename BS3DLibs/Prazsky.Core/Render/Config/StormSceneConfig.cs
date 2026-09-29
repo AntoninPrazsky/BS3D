@@ -157,12 +157,14 @@ namespace Prazsky.Core.Render
         /// enough and the cells are veils with sky visible through their thin parts, which is what a real
         /// cumulus edge does and what makes the whole thing read as vapour.
         /// <para>
-        /// 0.60 since #675, when <c>StormClouds.fx</c> started premultiplying: the 0.30 before it was tuned while
-        /// each puff added its whole colour, so a stack of them summed to white however low the figure was, and at
-        /// 0.30 with a correct blend the cells were thin smoke with no lit crown.
+        /// 0.85 since #675, when <c>StormClouds.fx</c> started premultiplying: the 0.30 before it was tuned while
+        /// each puff added its whole colour, so a stack of them summed to white however low the figure was. With a
+        /// correct blend 0.30 was thin smoke with no lit crown, 0.60 was cells built of visibly separate translucent
+        /// balls (the desktop session's "grapes", from the far vantage), and 0.85 makes the interior solid so only the
+        /// silhouette shows its lobes.
         /// </para>
         /// </summary>
-        public float PuffOpacity { get; set; } = 0.60f;
+        public float PuffOpacity { get; set; } = 0.85f;
 
         /// <summary>
         /// Where a puff's own falloff starts, as a fraction of its disc — so <b>low is soft and high is
@@ -184,14 +186,14 @@ namespace Prazsky.Core.Render
         /// their own form entirely and a cell flattens into a blob.
         /// </para>
         /// </summary>
-        public float MassNormalMix { get; set; } = 0.70f;
+        public float MassNormalMix { get; set; } = 0.90f;
 
         /// <summary>
         /// How dark the bottom of the field is against its top. A storm is dark underneath because the cloud
         /// above is in the way, and that is a property of the whole field rather than of any one cell — so
         /// it is taken from a puff's height in the layer, not from its normal.
         /// </summary>
-        public float UnderShade { get; set; } = 0.30f;
+        public float UnderShade { get; set; } = 0.50f;
 
         /// <summary>The vertical span the shading gradient above is measured over. Wider than the cells
         /// themselves, so the darkest cloud is genuinely at the bottom of the sky rather than at the bottom
@@ -213,8 +215,9 @@ namespace Prazsky.Core.Render
         public Rgb TopColor { get; set; } = new(0.58f, 0.60f, 0.66f);
 
         /// <summary>The deep blue-grey a puff's underside carries where no sun reaches it (linear) — the
-        /// colour a storm cell is seen from below.</summary>
-        public Rgb BaseColor { get; set; } = new(0.045f, 0.053f, 0.078f);
+        /// colour a storm cell is seen from below. (0.045, 0.053, 0.078) until #675, when the blend fix stopped hiding it:
+        /// near-black over a blue sky read as smoke.</summary>
+        public Rgb BaseColor { get; set; } = new(0.20f, 0.225f, 0.30f);
 
         /// <summary>
         /// How strongly a rim with the sun behind it silvers. Cloud is strongly forward-scattering, so its
@@ -225,8 +228,9 @@ namespace Prazsky.Core.Render
 
         /// <summary>How much of the sky's hemisphere light fills the cloud. High: cloud is a near-white
         /// diffuser with heavy multiple scattering, so its shaded side is sky-lit rather than black — and a
-        /// shaded side that goes black is exactly what reads as rock.</summary>
-        public float AmbientStrength { get; set; } = 0.58f;
+        /// shaded side that goes black is exactly what reads as rock. 0.58 until #675, when the blend fix stopped hiding
+        /// how dark that left the bases.</summary>
+        public float AmbientStrength { get; set; } = 0.80f;
     }
 
     /// <summary>

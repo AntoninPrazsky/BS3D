@@ -189,11 +189,6 @@ namespace Prazsky.Core.Render
                     float ring = massRadius * taper * MathF.Sqrt((float)rng.NextDouble());
                     float ringAngle = (float)rng.NextDouble() * MathHelper.TwoPi;
 
-                    Vector3 position = centre + new Vector3(
-                        MathF.Cos(ringAngle) * ring,
-                        h * massHeight,
-                        MathF.Sin(ringAngle) * ring);
-
                     //Smaller lobes towards the crown: that gradient IS the cauliflower.
                     //
                     //⚠ And the sizes within one cell span MANY SCALES, which is the other half of why a field
@@ -210,6 +205,20 @@ namespace Prazsky.Core.Render
                         * Lerp(1f, 0.62f, h);
 
                     float seed = (float)rng.NextDouble();
+
+                    //⚠ A puff stands INSIDE its cell's silhouette, not on it (#675). Placed on the disc's area with its
+                    //own radius on top, a small puff at the rim hangs off the cell by up to its whole radius, and seen
+                    //against the sky it is a detached round blob — dark when it is one of the underside's — which a
+                    //reader of the captures called 'grapes' and 'dark bubbles off the fringe'. Pulled in by its own
+                    //radius (never past the middle), the outermost puffs are still the silhouette's lobes and none
+                    //stands clear of it. Drawn after the radius is known, in the same order the random numbers were
+                    //taken in, so no cell moved and every strike still lands in the cell it names.
+                    ring = MathF.Min(ring, MathF.Max(massRadius * taper - puffRadius, 0f));
+
+                    Vector3 position = centre + new Vector3(
+                        MathF.Cos(ringAngle) * ring,
+                        h * massHeight,
+                        MathF.Sin(ringAngle) * ring);
 
                     //The cell's own middle, taken at half its height: a normal measured from its foot would
                     //point outwards and up everywhere and would light the whole cell as a dome.
