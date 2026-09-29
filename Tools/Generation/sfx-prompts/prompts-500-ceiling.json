@@ -1,0 +1,23 @@
+[
+ {
+  "name": "ceiling-a",
+  "duration": 2.0,
+  "seed": 11,
+  "negative": "loud, distorted, clipping, aggressive, noisy, hiss, high-pitched, squeal, metallic screech, alarm, beeping, music",
+  "prompt": "A massive glass platform lowering slowly on hydraulics inside a large hall: a deep warm hydraulic hum that descends in pitch, a low rumble of weight moving, then a soft cushioned stop with a gentle clunk. Moderate volume, warm, bass-led, clean."
+ },
+ {
+  "name": "ceiling-b",
+  "duration": 2.0,
+  "seed": 11,
+  "negative": "loud, distorted, clipping, aggressive, noisy, hiss, high-pitched, squeal, metallic screech, alarm, beeping, music",
+  "prompt": "A heavy elevator platform descending one notch: a low mechanical drone with a subtle ratcheting, deep and smooth, ending in a muted thud as it settles. Moderate volume, no hiss, video game sound design, warm."
+ },
+ {
+  "name": "ceiling-c",
+  "duration": 2.0,
+  "seed": 11,
+  "negative": "loud, distorted, clipping, aggressive, noisy, hiss, high-pitched, squeal, metallic screech, alarm, beeping, music",
+  "prompt": "A thick glass slab sliding down a stone shaft: a deep sliding rumble with a faint glassy resonance, slowing, then a soft heavy settle. Moderate volume, warm and low, clean recording."
+ }
+]

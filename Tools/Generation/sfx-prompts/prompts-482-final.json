@@ -1,0 +1,37 @@
+[
+ {
+  "name": "cannon-shot-c",
+  "duration": 2.0,
+  "seed": 20,
+  "prompt": "A heavy toy cannon fires: a chunky bass kick like a big drum hit layered with a burst of compressed air, snappy attack, round low tail, clean and punchy. Cartoon game sound effect.",
+  "negative": "distorted, clipping, noisy, hiss, muffled, dull, quiet, weak, lo-fi"
+ },
+ {
+  "name": "ball-attach-e",
+  "duration": 2.0,
+  "seed": 20,
+  "negative": "loud, distorted, clipping, aggressive, noisy, hiss, multiple hits, bouncing, metallic, glass, high-pitched",
+  "prompt": "One bouncy ball catches on a bunch of balls: a single plump bonk with a gentle attack and a warm low body, no ringing, moderate volume, cartoon game sound."
+ },
+ {
+  "name": "group-pop-a",
+  "duration": 2.0,
+  "seed": 20,
+  "prompt": "A cascade of colourful bubbles popping rapid-fire with a bright sparkling chime rising in pitch: a satisfying arcade combo reward sound, playful and juicy.",
+  "negative": "distorted, clipping, noisy, hiss, harsh, painful, quiet, weak, dull"
+ },
+ {
+  "name": "firework-burst-a",
+  "duration": 4.0,
+  "seed": 20,
+  "prompt": "A huge celebratory firework explosion overhead: a deep chest-thumping boom, then a wide glittering crackle cascade raining down. Big, joyful, warm, clean recording.",
+  "negative": "distorted, clipping, noisy, hiss, voices, crowd, quiet, weak, dull"
+ },
+ {
+  "name": "victory-fanfare-a",
+  "duration": 4.0,
+  "seed": 20,
+  "prompt": "A bold triumphant orchestral brass fanfare for winning a level: trumpets and horns in a rising major-key flourish, a timpani hit and a crash cymbal on the final chord. Exciting, grand, studio quality.",
+  "negative": "distorted, clipping, noisy, hiss, lo-fi, out of tune, sad, quiet, weak, dull"
+ }
+]

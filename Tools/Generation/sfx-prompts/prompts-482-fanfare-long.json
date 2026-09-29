@@ -1,0 +1,30 @@
+[
+ {
+  "name": "fanfare-a-8s",
+  "prompt": "A bold triumphant orchestral brass fanfare for winning a level: trumpets and horns in a rising major-key flourish, a timpani hit and a crash cymbal on the final chord. Exciting, grand, studio quality.",
+  "negative": "distorted, clipping, noisy, hiss, lo-fi, out of tune, sad, quiet, weak, dull, silence, fade out early",
+  "duration": 8.0,
+  "seed": 11
+ },
+ {
+  "name": "fanfare-a-12s",
+  "prompt": "A bold triumphant orchestral brass fanfare for winning a level: trumpets and horns in a rising major-key flourish, a timpani hit and a crash cymbal on the final chord. Exciting, grand, studio quality.",
+  "negative": "distorted, clipping, noisy, hiss, lo-fi, out of tune, sad, quiet, weak, dull, silence, fade out early",
+  "duration": 12.0,
+  "seed": 11
+ },
+ {
+  "name": "fanfare-b-8s",
+  "prompt": "A bold triumphant orchestral fanfare for winning a level, in two phrases: trumpets and horns open with a rising major-key call, the full brass answers higher and grander with a driving snare and timpani roll, and the piece ends on a long glorious held chord with a crash cymbal that rings out to the end. Exciting, grand, studio quality, no silence.",
+  "negative": "distorted, clipping, noisy, hiss, lo-fi, out of tune, sad, quiet, weak, dull, silence, fade out early",
+  "duration": 8.0,
+  "seed": 11
+ },
+ {
+  "name": "fanfare-b-12s",
+  "prompt": "A bold triumphant orchestral fanfare for winning a level, in two phrases: trumpets and horns open with a rising major-key call, the full brass answers higher and grander with a driving snare and timpani roll, and the piece ends on a long glorious held chord with a crash cymbal that rings out to the end. Exciting, grand, studio quality, no silence.",
+  "negative": "distorted, clipping, noisy, hiss, lo-fi, out of tune, sad, quiet, weak, dull, silence, fade out early",
+  "duration": 12.0,
+  "seed": 11
+ }
+]

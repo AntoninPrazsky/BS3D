@@ -1,0 +1,23 @@
+[
+ {
+  "name": "defeat-a-6s",
+  "duration": 6.0,
+  "seed": 21,
+  "negative": "orchestral, classical, brass band, funeral, horror, scary, harsh, distorted, clipping, noisy, hiss, vocals, silence, quiet, weak",
+  "prompt": "A modern video game 'level failed' jingle for a colourful bubble shooter: a short descending synth melody in a minor key over a soft electronic kick, warm electric piano chords, a gentle downward pitch bend at the end and a low soft final chord. Sad but playful, encouraging to try again, polished, contemporary."
+ },
+ {
+  "name": "defeat-b-5s",
+  "duration": 5.0,
+  "seed": 21,
+  "negative": "orchestral, classical, brass band, funeral, horror, scary, harsh, distorted, clipping, noisy, hiss, vocals, silence, quiet, weak",
+  "prompt": "A mobile puzzle game 'try again' sting: three falling synth notes, a wobbly detuned slide down, a deep warm bass note and a soft cymbal swell, bubbly and cartoonish, a little sad but friendly. Clean, contemporary, high production quality, fills the whole clip."
+ },
+ {
+  "name": "defeat-c-6s",
+  "duration": 6.0,
+  "seed": 21,
+  "negative": "orchestral, classical, brass band, funeral, horror, scary, harsh, distorted, clipping, noisy, hiss, vocals, silence, quiet, weak",
+  "prompt": "A game over jingle in a modern electronic style: a lush minor-key synth pad chord that drops in pitch, a slow descending arpeggio on a soft pluck, a heavy warm sub bass hit, and a gentle reverb tail. Melancholic, calm, not dramatic, polished and contemporary."
+ }
+]
