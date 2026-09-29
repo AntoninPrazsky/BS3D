@@ -48,9 +48,11 @@ namespace Prazsky.BS3D.Input
         private readonly Vector3 _initialPosition;
         private readonly Vector3 _initialTarget;
 
-        public event EventHandler<EventArgs> EnabledChanged;
+        //IUpdateable's two change events, which can never fire: Enabled and UpdateOrder are constants. Empty
+        //accessors say so, where plain field-like events were a subscription list nothing ever raised.
+        public event EventHandler<EventArgs> EnabledChanged { add { } remove { } }
 
-        public event EventHandler<EventArgs> UpdateOrderChanged;
+        public event EventHandler<EventArgs> UpdateOrderChanged { add { } remove { } }
 
         public float CameraOffset { get; set; } = 15f;
         public float MouseMovementDenominator { get; set; } = 50f;
