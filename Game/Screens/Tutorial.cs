@@ -67,7 +67,7 @@ namespace BS3D.Screens
     /// </summary>
     internal sealed class Tutorial
     {
-        internal enum Lesson { Aim, Fire, Match, LeanIn, Ceiling, Line, Traverse, Walk, Combine, Streak, Budget, LineRule, Graduated }
+        internal enum Lesson { Aim, Fire, Match, LeanIn, Ceiling, Line, Traverse, Walk, Combine, Streak, Budget, LineRule, Graduated, Swap }
 
         /// <summary>What the player's hand was last on, which is what the card draws for.</summary>
         internal enum Device { KeyboardMouse, Gamepad }
@@ -140,6 +140,8 @@ namespace BS3D.Screens
         private const string PAD_STICK = "⇍";
         private const string PAD_LEFT_TRIGGER = "↖";
         private const string PAD_RIGHT_TRIGGER = "↗";
+        private const string KEY_E = "Ｅ";
+        private const string PAD_X = "⇐";
 
         //The glass lesson's caption, formatted once per level with that level's own cadence
         private const string CEILING_CAPTION = "The glass steps down every {0} shots";
@@ -261,6 +263,20 @@ namespace BS3D.Screens
                 //And the budget one level on, so the chapter's first two levels teach one idea each.
                 Lesson = Lesson.Budget, Key = "budget", Chapter = 1, FromLevel = 1,
                 Caption = "Spare shots pay a bonus at the end", Detail = "Clear the field in fewer for more stars",
+            },
+            new()
+            {
+                //THE SWAP (#213), the third idea of the second chapter and the first thing in the game the player
+                //carries rather than has done to them. It is offered on the level it becomes available (every level from
+                //the second chapter grants one, LevelSet.SwapChargesAt) and only there: an action card, done when the
+                //key is pressed. The detail says the price, because a player who spends the one swap on the level's
+                //first shot has nothing left for the shot that needed it. Two levels in, so the score's two lessons
+                //have each had a level to themselves before a third idea arrives.
+                Lesson = Lesson.Swap, Key = "swap", Chapter = 1, FromLevel = 2, Action = true,
+                Glyph = KEY_E, Caption = "Swap the next two balls", Detail = "One swap a level, for when the queue lets you down",
+                PadGlyph = PAD_X, PadCaption = "Press X to swap the next two balls",
+                PadDetail = "One swap a level, for when the queue lets you down",
+                Praise = "Swapped!",
             },
         };
 
@@ -465,7 +481,8 @@ namespace BS3D.Screens
         /// <param name="levelInChapter">How far into that chapter the level is, from 0.</param>
         /// <param name="chapterLength">How many levels the chapter has, which a lesson counted from its end is placed by.</param>
         /// <param name="ceilingStep">The level's ceiling cadence, for the glass lesson's caption; null skips that lesson.</param>
-        internal void BeginLevel(int chapter, int levelInChapter, int chapterLength, int? ceilingStep)
+        /// <param name="swapOffered">Whether the level grants a Swap (#213); the swap lesson is skipped when it does not.</param>
+        internal void BeginLevel(int chapter, int levelInChapter, int chapterLength, int? ceilingStep, bool swapOffered = false)
         {
             Reset();
 
@@ -483,6 +500,10 @@ namespace BS3D.Screens
                 if (!_demo && !Eligible(lesson, chapter, levelInChapter, chapterLength)) continue;
                 if (Taught(lesson)) continue;
                 if (lesson.Lesson == Lesson.Ceiling && _ceilingCaption == null) continue;
+
+                //A swap is only taught where there is one to press (#213): a set with no chapters, or the testing
+                //argument's zero, grants none, and a card about a key that does nothing would be a lie
+                if (lesson.Lesson == Lesson.Swap && !swapOffered && !_demo) continue;
 
                 //The reel has no events to wait for, so its contextual cards are queued like the rest
                 if (lesson.Contextual && !_demo) _armed.Add(lesson);

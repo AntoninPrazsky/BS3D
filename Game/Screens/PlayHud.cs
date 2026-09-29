@@ -847,9 +847,11 @@ namespace BS3D.Screens
         /// </param>
         /// <param name="snores">The sleeping gun's letters in the air (#230), drawn over the arena under the corner
         /// readouts. Empty on every frame but a nap.</param>
+        /// <param name="swapCharges">The level's Swap charges left (#213), or −1 for a level that offers none — which
+        /// draws nothing, so a first-chapter player is shown no key that does nothing.</param>
         internal void Draw(ScoreKeeper score, ICamera camera, in ClusterProfile profile, ReadOnlySpan<BallMarker> balls,
             ReadOnlySpan<BallType> queue, Tutorial tutorial, bool previewsOnly = false,
-            ReadOnlySpan<BS3D.Effects.DozingGun.Z> snores = default)
+            ReadOnlySpan<BS3D.Effects.DozingGun.Z> snores = default, int swapCharges = -1)
         {
             _game.EnsureHudFonts();
 
@@ -893,6 +895,7 @@ namespace BS3D.Screens
             DrawStreak(score, viewport, margin, scoreAnchor.Y + scoreSize.Y * 0.5f + Scaled(HUD_LINE_GAP));
             DrawBallsLeft(score, viewport, margin);
             DrawMagazine(queue, score, viewport, margin);
+            DrawSwap(swapCharges, tutorial.OnGamepad, viewport, margin);
 
             //The card is given the score's left edge rather than measuring it again: it is what bounds the
             //strip the card may stand in (#461), and one measurement cannot disagree with the other.
@@ -1103,7 +1106,7 @@ namespace BS3D.Screens
             //The head's full reach, ring and all — what the corner has to clear so no part of it is cut by the
             //frame's edge. The same argument HUD_MARGIN's own comment makes about a halo drawn hard against the
             //edge: a mark with a slice missing reads as a rendering fault rather than as a mark.
-            int headOuter = head + rim + Scaled(HUD_MAG_RING_GAP) + Scaled(HUD_MAG_RING_THICKNESS);
+            int headOuter = MagazineHeadOuter();
 
             //Laid out rightwards in FIRING order, so the round about to leave is the leftmost and the queue
             //reads the way it will be spent. The owner asked for that order after playing it the other way
@@ -1164,6 +1167,69 @@ namespace BS3D.Screens
                 //measured inside them is not the gap anyone sees. Everything after the head is a resting round.
                 x += (next ? headOuter : restOuter) + gap + (i + 1 < shown ? restOuter : 0);
             }
+        }
+
+        /// <summary>
+        /// How far the magazine's head reaches from its centre, ring and all — the one figure the strip's own layout and
+        /// whatever stands above it (the swap's chip, #213) are both measured from, so the two cannot drift apart.
+        /// </summary>
+        private int MagazineHeadOuter() =>
+            Scaled(HUD_MAG_HEAD_RADIUS) + Scaled(HUD_MAG_RIM) + Scaled(HUD_MAG_RING_GAP) + Scaled(HUD_MAG_RING_THICKNESS);
+
+        //The Swap chip's keycap and button (PromptFont's own codepoints, as the tutorial's cards name them) and its words
+        private const string SWAP_GLYPH_KEY = "Ｅ";
+        private const string SWAP_GLYPH_PAD = "⇐";
+        private const string SWAP_READY = "Swap";
+        private const string SWAP_SPENT = "Swap used";
+        private const int HUD_SWAP_GLYPH_GAP = 14;
+        private const int HUD_SWAP_ABOVE_STRIP = 26;
+        private const float HUD_SWAP_SPENT_ALPHA = 0.42f;
+
+        //The count's text, built when the count changes and not per frame
+        private int _swapTextFor = -1;
+        private string _swapText = SWAP_READY;
+
+        /// <summary>
+        /// The Swap's chip (#213), above the magazine it acts on and right-aligned to it: the key that does it, the word,
+        /// and how many are left. It is the one thing in the HUD the player <i>carries</i> and may spend, so it says
+        /// when it is spent — dimmed and "Swap used" — rather than vanishing, which would read as a fault the second
+        /// time the key is pressed. Drawn only on a level that offers one (<paramref name="charges"/> ≥ 0), so the
+        /// first chapter shows nothing to press. The glyph is the pad's X when the hand was last on the pad
+        /// (<see cref="Tutorial.OnGamepad"/>), as every prompt outside the cards picks.
+        /// </summary>
+        private void DrawSwap(int charges, bool onGamepad, Viewport viewport, int margin)
+        {
+            if (charges < 0) return;
+
+            if (charges != _swapTextFor)
+            {
+                _swapTextFor = charges;
+                _swapText = charges == 0 ? SWAP_SPENT
+                    : charges == 1 ? SWAP_READY
+                    : SWAP_READY + " ×" + charges.ToString(CultureInfo.InvariantCulture);
+            }
+
+            bool ready = charges > 0;
+            float alpha = ready ? 1f : HUD_SWAP_SPENT_ALPHA;
+
+            SpriteFontBase glyphFont = _game.HudFontPrompt;
+            SpriteFontBase captionFont = _game.HudFontTutorialDetail;
+
+            string glyph = onGamepad ? SWAP_GLYPH_PAD : SWAP_GLYPH_KEY;
+            Vector2 glyphSize = glyphFont.MeasureString(glyph);
+            Vector2 captionSize = captionFont.MeasureString(_swapText);
+            float gap = Scaled(HUD_SWAP_GLYPH_GAP);
+            float width = glyphSize.X + gap + captionSize.X;
+            float height = MathF.Max(glyphSize.Y, captionSize.Y);
+
+            //Right edge on the strip's own (the margin), bottom a little over the head's ring: the head is the tallest
+            //thing in the strip and its top is where the chip has to clear
+            float stripTop = viewport.Height - margin - 2 * MagazineHeadOuter();
+            Vector2 origin = new(MathF.Round(viewport.Width - margin - width), MathF.Round(stripTop - Scaled(HUD_SWAP_ABOVE_STRIP) - height));
+
+            DrawString(glyphFont, glyph, origin + new Vector2(0f, (height - glyphSize.Y) * 0.5f), BS3DGame.MENU_TEXT * alpha, 1f);
+            DrawString(captionFont, _swapText, origin + new Vector2(glyphSize.X + gap, (height - captionSize.Y) * 0.5f),
+                (ready ? BS3DGame.MENU_TEXT : HUD_CAPTION) * alpha, 1f);
         }
 
         /// <summary>

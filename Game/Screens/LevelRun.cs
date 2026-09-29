@@ -134,6 +134,13 @@ namespace BS3D.Screens
         internal readonly int[] PowerupCharges = new int[Enum.GetValues<PowerupKind>().Length];
 
         /// <summary>
+        /// Whether this level was granted a Swap at all, spent or not (#213) - what the HUD's chip and the "no" of a
+        /// second press ask, to tell a level whose swap is used from one that never had any. Set at install beside the
+        /// charges, and a level's own by construction like them.
+        /// </summary>
+        internal bool SwapOffered { get; set; }
+
+        /// <summary>
         /// The line's grace — <see cref="ClusterLineWatch"/>'s since #301/#302, so the level generator's sag gate
         /// decides a simulated run by running <i>this</i> rule rather than a second copy of it that could drift
         /// lenient. A field and not a property because it is a mutable struct the screen updates in place. It
