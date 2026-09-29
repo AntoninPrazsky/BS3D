@@ -268,14 +268,13 @@ namespace Prazsky.Core.Render
             _auroraEffect.CurrentTechnique.Passes[0].Apply();
             _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _auroraIndexCount / 3);
 
-            //The bank round the island (#646), opaque on the ground before the sky is laid behind both; the pass
-            //leaves culling on, and the sky's full-screen quad wants it off as the ground had it
+            //The bank round the island (#646), opaque on the ground before the sky is laid behind both. The pass puts
+            //back the states it found since #667, so the sky's full-screen quad gets the ground's culling-off back
             if (_berm != null)
             {
                 //Lit as the ground just drawn is: by the glow of the sky, over the starlight, off the ground's ambient
                 _plants.Draw(frame, _berm.Buckets, _auroraConfig.Terrain.HorizonHazeDistance, detail: true,
                     glow, glow + _auroraConfig.GroundStarlight.ToVector3(), _auroraConfig.Lighting.GroundAmbient.ToVector3());
-                _graphicsDevice.RasterizerState = RasterizerState.CullNone;
             }
 
             //Then the sky, depth-READ at the far plane: every pixel the terrain already owns is rejected

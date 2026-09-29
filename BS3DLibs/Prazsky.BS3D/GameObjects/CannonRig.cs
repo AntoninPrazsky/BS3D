@@ -230,7 +230,7 @@ namespace Prazsky.BS3D
         //light, which by the 0.44 power above is about a third brighter on screen - and GLASS_COLOR is scaled
         //by 0.92 / GLASS_ALPHA so the pane's own veil (colour x alpha) stays exactly what #365 left it.
         //
-        //⚠ AND ON THE MEADOW AND THE MOUNTAINS NEITHER FIGURE DID ANYTHING, which #667 found: from #608 the pane was
+        //⚠ AND ON THE MEADOW, THE MOUNTAINS AND THE FOREST NEITHER FIGURE DID ANYTHING, which #667 found: from #608 the pane was
         //drawn there under BlendState.Opaque, left behind by the scene's PlantPass, so it was a solid surface of its
         //own shading whatever this said - "almost opaque" and different by scene, the savanna being right. Fixed at
         //the source (PlantPass, and BeginSceneDraw restating the baseline), not here: judge this figure on a scene

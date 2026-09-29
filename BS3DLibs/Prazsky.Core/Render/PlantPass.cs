@@ -78,9 +78,10 @@ namespace Prazsky.Core.Render
             _leaves.SetValue(0f);
 
             //⚠ PUT BACK WHAT WAS FOUND (#667). This pass leaves the states the frame goes on drawing under, and it
-            //used to leave Opaque: on the meadow and the mountains it is the last thing the environment draws, so
-            //every translucent surface after it came out solid there and nowhere else - the gun's window pane read
-            //as an opaque grey sheet over a queue it was meant to show, and the drain's glass as a dark disc.
+            //used to leave Opaque: on the meadow, the mountains and the forest it is the last thing the environment
+            //draws, so every translucent surface after it came out solid there and nowhere else - the gun's window pane
+            //read as an opaque grey sheet over a queue it was meant to show, and the drain's glass as a dark disc - in
+            //all three executables (the forest in no shipped level, but in the menu, the scene picker and the tools).
             BlendState blend = _graphicsDevice.BlendState;
             DepthStencilState depth = _graphicsDevice.DepthStencilState;
             RasterizerState raster = _graphicsDevice.RasterizerState;

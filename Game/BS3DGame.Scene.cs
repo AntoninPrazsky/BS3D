@@ -909,8 +909,8 @@ namespace BS3D
             //THE TRANSLUCENT BASELINE, STATED AGAIN ON THE WAY OUT (#667). Everything the caller draws after this -
             //the drain's glass, the ceiling's, the gun's window pane - inherits these three, and they were stated at
             //the top of this method, BEFORE the environment. A backdrop that leaves another behind changes how every
-            //one of those looks, in its own scene only, with nothing to say so: PlantPass left Opaque on the meadow and
-            //the mountains from #608 until #667, and the window pane came out a solid sheet there while it read as
+            //one of those looks, in its own scene only, with nothing to say so: PlantPass left Opaque on the meadow, the
+            //mountains and the forest from #608 until #667, and the window pane came out a solid sheet there while it read as
             //glass on the savanna. Restated here, the baseline is this method's promise rather than every backdrop's.
             GraphicsDevice.BlendState = BlendState.AlphaBlend;
             GraphicsDevice.DepthStencilState = DepthStencilState.Default;
