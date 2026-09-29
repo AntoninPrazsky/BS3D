@@ -6919,3 +6919,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 
 - **Čisté.** Game Release (`90fc71b2`), `level=1..133`, `quality=medium`, 1280×720, snímek v 15 s: všech 133 se načte, vykreslí a běží bez výjimky (žádný předčasný konec procesu, žádná řádka s exception/error/failed v logu), kontaktní listy prohlédnuty po dvanácti. Icicle (94) a Ziggurat (104) vyfoceny ještě v prologu kapitoly (města mají delší intro, #488) — ne vada. Karta „Three of a colour“ na levelech 2–13 je správně: majitelův save na notebooku je z 19. 9., před tutoriálem, lekce se zapíše až po skutečné shodě.
 - Skript i listy ve scratchpadu (zmizí); postup: smyčka `level=N shot=15`, čekat na PNG, `Stop-Process`.
+
+## 2026-09-29 — rozhodnutí majitele k APU (#551, #540) — notebook, Claude Code (github-74)
+
+- **Majitel: „Nech to být.“** Low si nechává dohled 2000 z #551 (hory ~0,5 ms přes rozpočet), menu na Low (Mars, savana, tropy, outback, polar přes 16,1 ms) se neřeší, a staré nemergnuté větve `538-island-offworld` a `536-island-coastal-95` zůstávají. Zapsáno v `docs/game-shell.md` a v #551/#540 — nezkracovat dohled na Low kvůli rozpočtu.
