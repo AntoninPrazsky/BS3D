@@ -35,8 +35,9 @@ namespace BS3D.Platform
         /// <summary>How long each of the three dot counts is held before the next.</summary>
         private const float DOT_SECONDS = 0.6f;
 
-        /// <summary>The text's height as a share of the window's: 48 px at 1600 lines, readable at a glance and still quiet.</summary>
-        private const float TEXT_HEIGHT = 0.03f;
+        /// <summary>The text's height as a share of the window's: 80 px at 1600 lines. It was 0.03 (48 px) until the owner
+        /// asked for it bigger (#637).</summary>
+        private const float TEXT_HEIGHT = 0.05f;
 
         /// <summary>Where the text's middle stands, down the window: under the logo the splash is about to draw.</summary>
         private const float TEXT_CENTRE_Y = 0.82f;

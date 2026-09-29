@@ -6927,3 +6927,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-29 — #644 výchozí citlivost přesného míření — desktop, Claude Code (bs3d-a1)
 
 - **Na mainu:** výchozí `AimSensitivity` 1,25 → 1,5 (další příčka žebříčku; 1,24× rychlosti přehledu). Uložené nastavení zůstává — majitelův Settings.json má 1,25, musí řádek přepnout sám.
+
+## 2026-09-29 — #637 větší Loading... — desktop, Claude Code (bs3d-a1)
+
+- **Na mainu:** výška textu 0,03 → 0,05 okna (48 → 80 px při 1600 řádcích).
