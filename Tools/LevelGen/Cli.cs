@@ -169,8 +169,14 @@ namespace BS3D.Tools.LevelGen
                 //what a colour group is, in the cheapest scene in the game under the one clear blue dome.
                 //THE FLAT OPENING (#603): three sheets played from the stand the gun is given, then the pyramid
                 //One opened on until now, the first level whose far side has to be walked round to.
+                //TEN AGAIN SINCE #649, on the owner's playtest: the sheets made the block thirteen and a chapter is
+                //ten, so the three he named went - Fountain ("not a nice shape"), Toadstool (Pinwheel's idea, told
+                //less well) and Bullseye (the same again). AMPHORA CLOSES IT: "clearly the hardest" - shoot the
+                //cup's ears off early and it swings under the line every time, so the player has to discard or hold
+                //a match back to finish it - and the tutorial's line rule and send-off (#459) are keyed to it, so
+                //they land on the chapter's last level too. Saturn and Gem move up one to make room.
                 Pennant(), Rainbow(), Zigzag(),
-                One(), Bullseye(), Toadstool(), Pinwheel(), Diabolo(), Shuttle(), Amphora(), Saturn(), Fountain(), Gem(),
+                One(), Pinwheel(), Diabolo(), Shuttle(), Saturn(), Gem(), Amphora(),
 
                 //2. THE SAVANNA - "The Gallery". Flat drawn walls, read off a bitmap written in the source.
                 Heart(), Smiley(), Star(), Elephant(), Moon(), Paw(), Meerkat(), Giraffe(), Balloon(), Zebra(),

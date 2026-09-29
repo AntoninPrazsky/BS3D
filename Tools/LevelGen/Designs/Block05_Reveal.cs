@@ -1077,7 +1077,7 @@ namespace BS3D.Tools.LevelGen
         /// <summary>
         /// The barrel in three sectors and the spring in three colours of its own. The sectors run the
         /// whole height of the shell, so every one reaches the glass and no colour is a horizontal band -
-        /// the block's rule since <see cref="Bullseye"/>. The two coils differ in colour, which is what
+        /// the rule the Meadow's round levels were cut to in #234. The two coils differ in colour, which is what
         /// makes cutting one of them a move rather than an accident.
         /// </summary>
         private static BallType SpringColour(float r, float ang, int i, int depth)

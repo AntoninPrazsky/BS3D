@@ -85,7 +85,7 @@ namespace BS3D.Tools.LevelGen
             (c, r) => Math.Min(c - r / 2, FLAT_WIDTH - 1 - r / 2 - c) / 2);
 
         /// <summary>
-        /// <b>The second: upright stripes that zigzag</b>, on a shield — fifteen columns for eight rows, then
+        /// <b>The third: upright stripes that zigzag</b>, on a shield — fifteen columns for eight rows, then
         /// closing a column a side a row to a point. Three colours in bands three columns wide, each shifted a column left and
         /// right every two rows, so the wall reads as woven rather than ruled; and a stripe is a column of the wall,
         /// so every one of them hangs from the glass by its own top.
@@ -98,7 +98,7 @@ namespace BS3D.Tools.LevelGen
             (c, r) => (c + ((r / 2) % 2 == 0 ? 0 : 1)) / 3);
 
         /// <summary>
-        /// <b>The third: a rainbow hung upside down</b> — a half ring whose two ends are the top course, cut across
+        /// <b>The second: a rainbow hung upside down</b> — a half ring whose two ends are the top course, cut across
         /// into five arcs of colour round its middle. Only the two end arcs touch the glass; the three between hang
         /// off their neighbours, so this is the opening's first level where a match takes something with it that it
         /// was holding up — both ends shot, the whole bow falls.
@@ -182,7 +182,8 @@ namespace BS3D.Tools.LevelGen
         /// <c>SceneLights</c> puts onto the balls — and the level that teaches colour matching is the last one
         /// whose colours should be tinted by the backdrop. And the savanna misses 75 FPS at High on a 6900XT
         /// (#165) where the meadow's terrain is the cheapest in the game, which is the right trade on the level
-        /// a first-time player meets first. Dome 1 is the block's, for <see cref="Bullseye"/>'s own reason.
+        /// a first-time player meets first. Dome 1 is the block's: it is the only clear blue dome in the set, and
+        /// the warm and magenta ones read as a clash over green hills rather than as weather.
         /// </para>
         /// <para>
         /// <b>Three colours — red, green, blue, the owner's own words — and they go on the pyramid's WALLS,
@@ -344,145 +345,6 @@ namespace BS3D.Tools.LevelGen
         private const BallType ONE_CORE_COLOUR = BallType.Type2;
 
         /// <summary>
-        /// A stepped cone hanging point-down, coloured in concentric rings: a target seen from underneath,
-        /// and a flight of coloured steps seen from the side. Three colours, and the rings are cut into
-        /// sectors — each ring was once one solid shell, a group of dozens waiting for one matching ball to
-        /// touch it, which is exactly what made it a three-shot level (see the colour rule below, #234).
-        /// </summary>
-        private static Design Bullseye() => new()
-        {
-            File = "Three.json",
-            Name = "Bullseye",
-            Grid = 15,
-            //Ten deep since #234's second pass, where it was four. Four courses is a PLATE: every ball of it
-            //is within four levels of the glass, so nothing can hang and nothing can swing, and the level was
-            //over in three shots. Ten is the depth One and Toadstool already have, and it is what buys the
-            //target a body to peel.
-            Depth = 10,
-            Scene = SceneKind.Meadow,
-            //Dome 1 is the only clear blue one in the set; most of the rest are warm or magenta, and over
-            //green hills those read as a clash rather than as weather. A red-and-gold target wants that blue.
-            //Since #194 that is the whole block's dome and not just this level's: the block's scene and sky
-            //were chosen to be the pair this design already needed, so its pairing anchors the block rather
-            //than surviving it.
-            Sky = 1,
-            Music = MUSIC_RINGS,
-            Balls = BALLS_MEADOW,
-            Shots = 40,
-            CeilingStep = 8,
-            //Widest at the top (that layer anchors the whole cluster to the glass) and narrowing downwards,
-            //two courses to a terrace so the taper reads as STEPS from the side and as the target's own rings
-            //from below - see BULLSEYE_TERRACE.
-            Occupied = (r, ang, i, depth) => r <= BullseyeRim(i, depth),
-            //Rings on the plain radius, CUT INTO SECTORS - and the sectors are what make this a level rather
-            //than three shots. Depth alone does not: a ring coloured on the radius alone is one shell running
-            //from the glass to the point, so three rings are three colours touching the glass and three shots
-            //take the cluster however deep it is. Every terrace size, taper step, palette size and per-terrace
-            //palette roll was measured, and none of them clears four shots, because none of them changes that.
-            //Cutting by the angle does, for One's reason: every group then reaches the ceiling on its own, so
-            //taking one leaves the rest hanging instead of dropping it. Measured at three sectors: 6 standing
-            //groups, 6 shots, best single shot 33 % - One's own profile, two levels earlier.
-            Colour = (r, ang, i, depth) => Band((int)MathF.Floor(r / 1.9f) + SectorIndex(ang, 0f, BULLSEYE_SECTORS),
-                new[] { BallType.Type1, BallType.Type4, BallType.Type7 }),
-        };
-
-        //THE TARGET'S OWN FIGURES (#234). Two courses to a terrace, five terraces over the ten courses, so the
-        //rim steps 5.7 -> 4.55 -> 3.4 -> 2.25 -> 1.1. The rim is unchanged from the four-deep version - three
-        //rings of Ring's own 1.9 need a radius past 3.8, the same arithmetic Toadstool's cap is cut to - and
-        //the step is the one that lands the bottom terrace on about a ball across.
-        private const int BULLSEYE_TERRACE = 2;
-
-        //THREE sectors and not four. Four is the natural cut for a target and it measures better on paper (9
-        //shots to 6), but Pinwheel two levels later IS four sectors, and a target cut in quarters standing in
-        //the same block under the same dome reads as the same idea told twice. Three keeps the block's variety
-        //and lands on One's shot count. Three rings by three sectors is also a Latin square in three colours:
-        //every ring carries all three and so does every sector, which is what stops the cut reading as a
-        //wedge taken out of the target.
-        private const int BULLSEYE_SECTORS = 3;
-        private const float BULLSEYE_RIM = 5.7f;
-        private const float BULLSEYE_STEP = 1.15f;
-
-        /// <summary>
-        /// Which terrace a course belongs to, counted from the top: integer division by
-        /// <see cref="BULLSEYE_TERRACE"/>, so two courses share one. It drives the RIM only - the colour is
-        /// cut by the angle instead, for the reason recorded on Colour above.
-        /// </summary>
-        private static int BullseyeTerrace(int i, int depth) => (depth - 1 - i) / BULLSEYE_TERRACE;
-
-        /// <summary>
-        /// The target's radius at a course: the rim less one step for every terrace below the top. Two courses
-        /// share a radius, which is what makes the taper a flight of steps rather than a smooth cone, and what
-        /// leaves an annulus of the wider terrace's underside showing at every step. Those undersides are the
-        /// rings the player sees looking up at it.
-        /// </summary>
-        private static float BullseyeRim(int i, int depth) =>
-            BULLSEYE_RIM - BULLSEYE_STEP * BullseyeTerrace(i, depth);
-
-        /// <summary>
-        /// A toadstool: a cap of three concentric rings with a stalk hanging under it — the red rim, white gills
-        /// and gold core of the thing, seen from underneath, which is where the player is standing.
-        /// <para>
-        /// <b>The stalk is not a second body bolted on; it is the core ring continued.</b> The occupancy is the
-        /// cap's dome <i>or</i> <see cref="TOADSTOOL_STALK"/> of the axis at any height, and the colouring is the
-        /// same <see cref="Ring"/> over the whole layout, so the stalk comes out in the core's own colour and in
-        /// the core's own group by construction. That is what answers the objection <see cref="One"/> records
-        /// against its old <b>tail</b> — "something stuck to the pyramid rather than part of it": a tail is a
-        /// lobe of its own hanging off a point, where this is 105 balls of one group running from the glass to
-        /// the floor, of which the stalk is the visible bottom half.
-        /// </para>
-        /// <para>
-        /// <see cref="TOADSTOOL_SQUASH"/> is what buys the stalk its room. A true hemisphere of radius 5.3 is
-        /// 7.5 levels deep and would fill the whole layout; squashed to 0.68 the cap fills five levels and the
-        /// stalk gets the other five, in a field that is still the standard sixteen. The cap's radius is 5.3 and
-        /// not less because three rings of <see cref="Ring"/>'s own 1.9 thickness need a rim past 3.8 — at 4.5
-        /// the outer ring is 0.7 of a cell wide, which is a dotted circle and the lonely-ball trap
-        /// <see cref="Gem"/> was rebuilt for. Here it is 1.5 cells wide and five levels tall.
-        /// </para>
-        /// <para>
-        /// <see cref="TOADSTOOL_STALK"/> is 1.7 rather than a round number because of what the two level
-        /// parities do with it: it takes 12 cells on an unshifted level and 9 on a shifted one — three to four
-        /// cells across, thin enough to read as a stalk and thick enough that it is never a string of balls
-        /// touching nothing. At 1.4 it drops to 4 and 5 cells, which is a stem you can see through.
-        /// </para>
-        /// <para>
-        /// Measured: 389 balls, margin 2, nothing alone, nothing in a pair, nothing recoloured, and per level
-        /// 12, 9, 12, 9, 12 for the stalk then 37, 52, 69, 88, 89 for the cap. The three colours come out
-        /// 164/120/105 — best single shots 42 %, 30 % and 26 %, so the widest is under <see cref="Bullseye"/>'s
-        /// own 45 % two levels earlier. All three hang off the 89-cell anchor layer alone, with nothing falling
-        /// when the other two are taken away, which is the check that says the stalk is the core continued.
-        /// </para>
-        /// </summary>
-        private static Design Toadstool() => new()
-        {
-            File = "Toadstool.json",
-            Name = "Toadstool",
-            //Fifteen for a cap reaching 5.3, which is Bullseye's and Pinwheel's field: the block frames the same
-            Grid = 15,
-            //Ten deep, of which the cap is the top five and the stalk the bottom five. Even by necessity — the
-            //field is 16 and Emit refuses an odd offset — and it leaves the six empty levels of growth room.
-            Depth = 10,
-            Scene = SceneKind.Meadow,
-            Sky = 1,
-            Music = MUSIC_RINGS,
-            Balls = BALLS_MEADOW,
-            Shots = 44,
-            CeilingStep = 9,
-            Occupied = (r, ang, i, depth) =>
-                DomeDistance(r, i, depth, TOADSTOOL_SQUASH) <= TOADSTOOL_CAP || r <= TOADSTOOL_STALK,
-            //Gold core and stalk, white gills, red rim: a fly agaric from underneath. Rings on the plain round
-            //radius and NOT on the dome distance the cap is cut from - shells parallel to a curved surface hide
-            //two of the three colours behind the third, which is the whole reason Bullseye's rings read.
-            //
-            //CUT INTO SECTORS since #234, and on this design of all of them the cut is what the thing already
-            //is: a gilled mushroom seen from below is radial. It is also the same repair Bullseye needed and
-            //for the same measured reason - three rings running the full height of the cap are three groups
-            //and three shots, however deep the body hangs. Measured at four: 9 standing groups, 9 shots, best
-            //single shot 21 %, and the remains hang nine levels under the glass for eight of them.
-            Colour = (r, ang, i, depth) => Band((int)MathF.Floor(r / 1.9f) + SectorIndex(ang, 0f, TOADSTOOL_GILLS),
-                new[] { BallType.Type7, BallType.Type4, BallType.Type1 }),
-        };
-
-        /// <summary>
         /// A disc cut into four spiral sectors — a pinwheel from below, four vertical wedges from the side.
         /// The twist term is what bends the sector boundaries into a spiral instead of a cross.
         /// <para>
@@ -527,7 +389,7 @@ namespace BS3D.Tools.LevelGen
 
         /// <summary>
         /// An octahedron hanging point-down, cut into concentric diamond rings — the angular answer to
-        /// <see cref="Bullseye"/>'s round ones, and the one design whose silhouette reads from any angle.
+        /// the block's round ones, and the one design whose silhouette reads from any angle.
         /// Banding it by height was the first try and it lost the level in one shot for the reason given
         /// on <see cref="Mosaic"/>; rings put three colours on the anchor layer.
         /// </summary>
@@ -573,8 +435,9 @@ namespace BS3D.Tools.LevelGen
             OccupiedManhattan = (m, i, depth) => m <= GemRim(i),
             //Yellow rather than the magenta this started with: the dream scene is a violet soup and the
             //magenta ring sank into it, which a screenshot showed and a palette on paper would not have
-            //Rolled a step a FACET STEP since #234, and given a FOURTH colour to roll through. Bullseye and
-            //Toadstool answer the same three-shot fault by cutting their rings into sectors; this design
+            //Rolled a step a FACET STEP since #234, and given a FOURTH colour to roll through. The round
+            //designs of #234 (Bullseye and Toadstool, retired in #649) answered the same three-shot fault by
+            //cutting their rings into sectors; this design
             //deliberately does not, because a cut facet is unbroken in life and a radial seam across it is the
             //one thing that would stop the shape reading as a crystal. A fourth colour buys the same groups
             //without touching the geometry: measured at 10 standing groups, 7 shots, best single shot 25 %.
@@ -603,7 +466,7 @@ namespace BS3D.Tools.LevelGen
         /// <summary>
         /// Which facet step a course is on, counted from the bottom: 0 for the column, then one step every
         /// two courses. It is the rim's step AND the colour's roll, the same double duty
-        /// <see cref="BullseyeTerrace"/> does - a facet is one width and one palette turn.
+        /// a terrace does on a stepped cone - a facet is one width and one palette turn.
         /// </summary>
         private static int GemStep(int i) =>
             i < GEM_COLUMN_COURSES ? 0 : (i - GEM_COLUMN_COURSES) / 2 + 1;
@@ -617,23 +480,24 @@ namespace BS3D.Tools.LevelGen
 
         #region The lathe levels (#255)
 
-        //THE MEADOW'S SECOND FIVE (#255): the chapter that taught what a colour group IS goes back to the
+        //THE MEADOW'S LATHE LEVELS (#255): the chapter that taught what a colour group IS goes back to the
         //lathe. Every body here is a solid of revolution and every colouring is the block's own big sector
-        //plate - the grammar One, Bullseye and Toadstool established - and what the five add, in play order,
-        //is SUSPENSION: a waist the lower cone pendulums through (Diabolo), feathers whose loss tips the
-        //cork they carry (Shuttle), handles that are a second load path the player can see working
-        //(Amphora), a ~130-ball hoop hung on four snipeable spokes (Saturn), and three basins on two open
-        //stems that bob out of phase from the first launch (Fountain). Same place, same hour, same piece as
-        //the first five - the meadow under dome 1, MUSIC_RINGS, BALLS_MEADOW's glass bubbles - a deliberate
+        //plate - the grammar One and #234's sector-cut rings (Bullseye, Toadstool) established - and what these
+        //add is SUSPENSION: a waist
+        //the lower cone pendulums through (Diabolo), feathers whose loss tips the cork they carry (Shuttle), a
+        //~130-ball hoop hung on four snipeable spokes (Saturn), and handles that are a second load path the
+        //player can see working (Amphora, the chapter's last level since #649). #255 made five; the fifth,
+        //three basins on open stems (Fountain), left the campaign in #649. Same place, same hour, same piece as
+        //the levels before them - the meadow under dome 1, MUSIC_RINGS, BALLS_MEADOW's glass bubbles - a deliberate
         //return the way the Spectrum returns to the Arcade's city: the lessons here stand on the ones the
         //meadow already taught, so they are taught where the player learned them.
         //
-        //THE ONE RULE ALL FIVE OBEY is the block's own, restated on curved bodies: a colour is never a
+        //THE ONE RULE THEY ALL OBEY is the block's own, restated on curved bodies: a colour is never a
         //horizontal shell alone. Every sector runs the full height of whatever it is painted on, so every
         //plate reaches the glass on its own and taking one leaves the rest hanging - the trap Validate's
-        //drop test was written for, and the reason Bullseye's rings are cut by the angle. The two deliberate
-        //exceptions (Shuttle's cork, Saturn's ring and spokes) are low-only colours that are the MOST
-        //exposed thing on their level, the Toadstool-stalk precedent, and each design's doc says so.
+        //drop test was written for, and the reason #234 cut the round levels' rings by the angle. The two
+        //deliberate exceptions (Shuttle's cork, Saturn's ring and spokes) are low-only colours that are the
+        //MOST exposed thing on their level, and each design's doc says so.
         //
         //NUMBERS BELOW ARE THE DRAWINGS', NOT MEASUREMENTS. Each design's doc names the checks its judged
         //spec flagged - unshot death-line sag, per-sector counts after lattice rounding, the drop test read
@@ -666,7 +530,8 @@ namespace BS3D.Tools.LevelGen
         /// three, <see cref="Band"/> put sector k and k + 3 on the same entry, so each colour was two
         /// full-height plates running glass to tip and fusing through the solid plug: <b>five standing groups
         /// for 455 balls</b> — 91 balls a shot at par and a budget of 6.8 shots per group, against 4.9 and 5.5
-        /// for the two gentler levels before it and 2.4 for the one after. A playtest called it "surprisingly
+        /// for the two gentler levels before it and 2.4 for the one after (at #361: Toadstool, Pinwheel and
+        /// Amphora). A playtest called it "surprisingly
         /// easy" and it was, arithmetically. Four inks stop opposite sectors sharing, and the turn at the
         /// waist stops a sector's two halves fusing through the plug: <b>7 groups, 65 balls at par, budget
         /// 4.86, and the biggest single shot 33 % → 25 %</b>. The silhouette did not move a cell, which is
@@ -763,7 +628,7 @@ namespace BS3D.Tools.LevelGen
         /// </para>
         /// <para>
         /// The cork and the collar's core are red, one ~45-ball group standing only at the bottom - the
-        /// top-level rule broken knowingly, the Toadstool-stalk precedent, because the cork is the most
+        /// top-level rule broken knowingly, because the cork is the most
         /// exposed thing on the level and shootable from any side. The judged spec's checks: gate 3 at the
         /// skirt's narrowest course first, i = 5 (annulus 1.42..3.42) - each feather needs at least 3
         /// CONNECTED balls after rounding, and the pre-authorised fix is SHUTTLE_SKIRT_BASE 1.9 to 2.2
@@ -780,10 +645,17 @@ namespace BS3D.Tools.LevelGen
             Depth = 12,
             Scene = SceneKind.Meadow,
             Sky = 1,
+            //Named since #649, and missing from #255 until then: the file carried neither, so the one level of
+            //the block played in vinyl, to whichever family the set's positional rotation gave its index
+            //(GameMusic.SetTheme's fallback for a level naming none), and LevelGen's block line
+            //said MIXED THEMES, MIXED BALL STYLES for it - a print that gates nothing, which is why it stood.
+            Music = MUSIC_RINGS,
+            Balls = BALLS_MEADOW,
             //⚠ 34 AND NOT 38 (#361). The feathers were always six separate groups - opposite ones share an
             //ink but never touch - so the fourth ink changes what the magazine draws and not what the level
             //is made of, and the slack was the rest of the complaint: 38 shots over 7 groups is 5.4 a group
-            //where the two gentler levels before this one get 4.9 and 5.5 and the level after it gets 2.4.
+            //where the two gentler levels before this one get 4.9 and 5.5 and the level after it gets 2.4 (at
+            //#361, in the order of the time).
             //At 34 it is Diabolo's 4.9, which is the ramp this level sits in the middle of.
             Shots = 34,
             CeilingStep = 7,
@@ -1009,8 +881,8 @@ namespace BS3D.Tools.LevelGen
         /// A planet wearing a floating ring on four hidden spokes - the block's mission statement built as
         /// a level: the entire ring is ONE connected yellow group, ~130 balls, so three casual yellow shots
         /// pay off the biggest single group in the block, or the player snipes the four red spokes and
-        /// learns cut-the-support-and-the-unmatched-mass-falls, the taught orphan drop
-        /// <see cref="Fountain"/> then exploits. With one spoke left the whole hoop swings on a handful of
+        /// learns cut-the-support-and-the-unmatched-mass-falls, the taught orphan drop the chapter's last
+        /// level, <see cref="Amphora"/>, turns against them. With one spoke left the whole hoop swings on a handful of
         /// balls - the most lopsided earned swing in the block - and the closed hoop is its own second load
         /// path: any one spoke can carry it because the hoop distributes the load around itself.
         /// <para>
@@ -1172,150 +1044,6 @@ namespace BS3D.Tools.LevelGen
                 || MathF.Abs(r * MathF.Cos(ang)) <= SATURN_SPOKE_HALF;
         }
 
-        /// <summary>
-        /// Three stone basins shrinking down a single green spine, each tier floating on open air, with a
-        /// detached drop swinging under the lowest - the block's finale-adjacent level and its ideas
-        /// compounded: sector-cut plates (three offset turbine tiers), a revolution silhouette, nested-ring
-        /// packing on the tier rims (5.0 / 3.6 / 2.3, so each rim course sits in the field lattice's
-        /// shifted pockets), and the springiest object in the pack - masses on open stems are a compound
-        /// oscillator, so the tiers visibly bob out of phase from the first launch and every mid-stack hit
-        /// sends a slow wave down through the basins.
-        /// <para>
-        /// The judged pick's graft is built in rather than optional: the finial is a detached bob
-        /// (i = 0..2) joined to the spine by a one-course green neck at i = <see cref="FOUNTAIN_NECK"/>
-        /// with open air around it - rejected Bell's independent pendulum, turning the launch into a
-        /// four-mass oscillator. The neck course lands on a shifted field level, which the lattice gives 5
-        /// cells at <see cref="FOUNTAIN_STEM"/> - over the spec's floor of 3 before rounding is even asked.
-        /// </para>
-        /// <para>
-        /// The spine - every axis cell through every tier, both stems, the neck and the whole drop - is one
-        /// continuous green group from the glass to the bob, so cutting it below a tier drops only what
-        /// hangs beneath: releasing the whole spine orphans the middle and bottom tiers, ~61 %, a
-        /// legitimate staged collapse under the 90 % gate and the intended finale. Each basin's annulus is
-        /// three 120-degree sectors, the middle tier's boundaries turned half a sector against its
-        /// neighbours' (<see cref="FOUNTAIN_STAGGER"/>), and all four colours stand on the glass - three
-        /// sectors plus the spine's core through the top disc. The spec's checks: unshot death-line sag
-        /// FIRST (~110 balls of lower tiers plus the drop hang on the two stem segments; the pre-authorised
-        /// fix is widening FOUNTAIN_STEM to 1.7, which the silhouette tolerates, BEFORE shrinking any
-        /// basin), the drop clearing the death line (lift the bob one course and keep the air gap if not),
-        /// and the one-column margin at the 5.0 top disc - which holds exactly: the glass course is
-        /// shifted, its rim cell sits at r = 5.0 in halves that are exact in binary (the
-        /// <see cref="OneCourse"/> argument), index 11 of 13.
-        /// </para>
-        /// </summary>
-        private static Design Fountain() => new()
-        {
-            File = "Fountain.json",
-            Name = "Fountain",
-            Grid = 13,
-            //The deepest level in the block, and framed whole: fourteen in an eighteen-level field is
-            //REVEAL_FIELD_LEVELS' own arithmetic - offset 4, even, and 18 is the deepest field the game
-            //frames without cropping (see that constant's doc).
-            Depth = 14,
-            FieldLevels = 18,
-            Scene = SceneKind.Meadow,
-            Sky = 1,
-            Music = MUSIC_RINGS,
-            Balls = BALLS_MEADOW,
-            //The block's largest budget and slowest ceiling: the most standing groups (the spine plus nine
-            //sectors) price it as the honest top of the ramp.
-            Shots = 42,
-            CeilingStep = 6,
-            Occupied = FountainOccupied,
-            Colour = FountainColour,
-        };
-
-        //THE FOUNTAIN'S OWN FIGURES (#255). Above the neck the body is TIERS read two courses an entry
-        //from BASE - the Bullseye terrace idiom - so the discs at i = 4..5, 8..9 and 12..13 and the open
-        //STEM segments between them are one table: a stem is simply a tier whose disc is the spine's own
-        //radius. Below it, the grafted pendant: NECK is the one-course green joint at i = 3, and the drop
-        //is a sphere of DROP about BOB (i = 1), spanning i = 0..2 with air on every side.
-        private const int FOUNTAIN_BASE = 4;
-        private const int FOUNTAIN_NECK = 3;
-        private const int FOUNTAIN_DROP_TOP = 2;
-        private const float FOUNTAIN_BOB = 1f;
-        private const float FOUNTAIN_DROP = 1.8f;
-        private const float FOUNTAIN_STEM = 1.35f;
-        private static readonly float[] FOUNTAIN_TIERS = { 2.3f, FOUNTAIN_STEM, 3.6f, FOUNTAIN_STEM, 5.0f };
-        private const int FOUNTAIN_MIDDLE_TIER = 2;
-
-        //Three sectors a basin, the middle tier's boundaries turned a sixth of a turn (60 degrees - half a
-        //sector) against the top and bottom tiers', so from below the tiers read as offset turbine plates.
-        private const int FOUNTAIN_SECTORS = 3;
-        private const float FOUNTAIN_STAGGER = 1f / 6f;
-
-        /// <summary>
-        /// Whether a cell is on the fountain: the drop sphere at the bottom, the neck course joining it,
-        /// and above that whatever radius <see cref="FOUNTAIN_TIERS"/> grants the course's tier - solid
-        /// discs and stem segments off one table.
-        /// </summary>
-        private static bool FountainOccupied(float r, float ang, int i, int depth)
-        {
-            if (i <= FOUNTAIN_DROP_TOP) return FountainDrop(r, i);
-            if (i == FOUNTAIN_NECK) return r <= FOUNTAIN_STEM;
-
-            return r <= FOUNTAIN_TIERS[(i - FOUNTAIN_BASE) / 2];
-        }
-
-        /// <summary>
-        /// The fountain's colour: green for the spine - every axis cell through every tier, the stems, the
-        /// neck and the whole drop, one continuous group from the glass to the bob, which is the
-        /// tier-by-tier collapse's own fuse - and each basin's annulus in three 120-degree sectors around
-        /// it.
-        /// </summary>
-        private static BallType FountainColour(float r, float ang, int i, int depth)
-        {
-            if (i <= FOUNTAIN_NECK || r <= FOUNTAIN_STEM)
-                return BallType.Type2; //green - the spine and the pendant drop
-
-            //The middle tier's boundaries sit at 60/180/300 (twist 0) against the top and bottom tiers'
-            //0/120/240, so no sector seam runs straight down the stack.
-            float spin = (i - FOUNTAIN_BASE) / 2 == FOUNTAIN_MIDDLE_TIER ? 0f : FOUNTAIN_STAGGER;
-
-            return Band(SectorIndex(ang, spin, FOUNTAIN_SECTORS),
-                new[] { BallType.Type7, BallType.Type1, BallType.Type3 }); //yellow, red, blue
-        }
-
-        /// <summary>Whether a cell is inside the pendant drop - a true sphere about the course at
-        /// <see cref="FOUNTAIN_BOB"/>, asked only at i = 0..2 so the neck course stays the neck's.</summary>
-        private static bool FountainDrop(float r, int i)
-        {
-            float dy = (i - FOUNTAIN_BOB) * INV_SQRT_TWO;
-            return MathF.Sqrt(r * r + dy * dy) <= FOUNTAIN_DROP;
-        }
-
         #endregion
-
-        //THE HANGING DOMES' OWN GEOMETRY. OnionVertical measures a level's offset from the layout's own middle,
-        //which is what a sphere wants; a dome hangs from the GLASS, so it measures how far a level has dropped
-        //below the layout's top instead. Same 1/sqrt(2): a distance built from i and r untouched comes out
-        //stretched along Y, because a level is not one lattice unit tall.
-        private static float DomeDrop(int i, int depth) => (depth - 1 - i) * INV_SQRT_TWO;
-
-        //The toadstool's own geometry. The cap's radius is set by the palette (three rings of Ring's own 1.9
-        //want a rim past 3.8), the squash by the stalk (a true hemisphere of this radius would fill the layout),
-        //and the stalk by the lattice (1.7 is 12 cells on an unshifted level and 9 on a shifted one).
-        private const float TOADSTOOL_CAP = 5.3f;
-        private const float TOADSTOOL_SQUASH = 0.68f;
-        private const float TOADSTOOL_STALK = 1.7f;
-
-        //Four radial cuts across the cap. More reads better as gills and measures better (eight sectors give
-        //15 shots), but it also cuts the level into crumbs: at eight the best single shot is 9 % of the
-        //cluster, and this block is the one that teaches what a colour group IS, so its payoffs have to stay
-        //big enough to notice. Four keeps the biggest shot at 21 %, in the band One and Bullseye sit in.
-        private const int TOADSTOOL_GILLS = 4;
-
-        /// <summary>
-        /// The dome's distance with the vertical scaled: <paramref name="stretch"/> is how many times taller than
-        /// wide the body is, so 1 is a hemisphere, below 1 squashes it into a cap and above 1 draws the pole down
-        /// into a teardrop. Stated as a factor rather than as a second radius because it is the one number that
-        /// has to agree with <c>Depth</c>: the body reaches <c>radius * stretch</c> below the glass, and
-        /// <c>(Depth - 1) / sqrt(2)</c> is how far there is to reach.
-        /// </summary>
-        private static float DomeDistance(float r, int i, int depth, float stretch)
-        {
-            float dy = DomeDrop(i, depth) / stretch;
-            return MathF.Sqrt(r * r + dy * dy);
-        }
     }
 }

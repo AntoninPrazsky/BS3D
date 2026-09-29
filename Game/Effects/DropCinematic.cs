@@ -110,7 +110,7 @@ namespace BS3D.Effects
         /// <b>A fixed count cannot do this job, and the pattern levels are the proof.</b> The threshold was
         /// six, and on <c>One.json</c> that measured as three cinematics in ninety seconds because most shots
         /// there drop fewer. The pack that followed is built out of large primed groups — Pinwheel drops 92
-        /// balls on a good shot, Crown 72, Bullseye 100 — so six fired on essentially every shot that landed,
+        /// balls on a good shot, Crown 72, Bullseye (retired in #649) 100 — so six fired on essentially every shot that landed,
         /// and the reward for a good shot became the tax on every shot. Raising the number cannot fix it
         /// either: any figure that keeps Pinwheel rare is one Mosaic (whose best possible shot is 24) can
         /// never reach, and a level that never shows one is as wrong as a level that always does.
