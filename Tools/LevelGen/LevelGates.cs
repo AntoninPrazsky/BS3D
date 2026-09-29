@@ -250,10 +250,62 @@ namespace BS3D.Tools.LevelGen
                                       : $"in {fromStance} shot(s) of {design.Shots} (a beam's line, not the fewest)"));
             }
 
-            return !stanceRefused && disconnected == 0 && lonely.Alone == 0 && !oneShot && margin >= 1
+            //A MIRROR IMAGE (#664), for the levels that promise one: the flat openers, whose rows were drawn half a
+            //cell off the axis on alternate levels until this asked.
+            bool mirrorRefused = false;
+            if (design.MirrorOutline || design.MirrorColours)
+            {
+                (int unmatched, int recoloured) = MirrorFaults(map);
+                mirrorRefused = unmatched > 0 || (design.MirrorColours && recoloured > 0);
+                Console.WriteLine("    a mirror image across the gun's axis: "
+                                  + (unmatched > 0 ? $"NO - {unmatched} ball(s) with no mirror partner" : "outline yes")
+                                  + (design.MirrorColours
+                                      ? (recoloured > 0 ? $", NO - {recoloured} mirrored in another colour" : ", colours yes")
+                                      : $" ({recoloured} pair(s) differ in colour, which this level does not promise)")
+                                  + (mirrorRefused ? "  <-- NOT SYMMETRIC" : string.Empty));
+            }
+
+            return !stanceRefused && !mirrorRefused && disconnected == 0 && lonely.Alone == 0 && !oneShot && margin >= 1
                    && stranded.Walled == 0 && stranded.Anchoring == 0 && stranded.CeilingRocks == 0
                    && stranded.AloneGlass == 0 && stranded.SealedIce == 0 && stranded.CeilingInfection == 0
                    && stranded.BuriedWells == 0 && stranded.InertHeavy == 0 && !clear.TooCheap;
+        }
+
+        /// <summary>
+        /// How far <paramref name="map"/> is from a mirror image across the vertical plane through the axis the gun
+        /// orbits (#664): the balls whose mirror cell is empty, and the mirrored pairs that differ in colour or kind.
+        /// The axis is the middle of the field's top level, exactly as <c>ClusterHang.FitWorldOffset</c> puts it on the
+        /// orbit — so on a field whose top level is the shifted one it runs half a cell off the array's middle
+        /// column, and a picture symmetric in its own columns is NOT symmetric about it. The mirror is in X only,
+        /// left and right as the gun sees the level from its opening stance on +Z.
+        /// </summary>
+        internal static (int Unmatched, int Recoloured) MirrorFaults(BallsMap map)
+        {
+            StaticBall[,,] array = map.GetStaticBallsArray();
+            XZLevel size = map.GetStaticBallsArraySize();
+            byte top = (byte)(size.Level - 1);
+
+            float axis = (map.GetRealCenteredPosition(new XZLevel(0, 0, top)).X
+                          + map.GetRealCenteredPosition(new XZLevel(size.X - 1, 0, top)).X) * 0.5f;
+
+            int unmatched = 0, recoloured = 0;
+
+            for (byte l = 0; l < size.Level; l++)
+                for (byte x = 0; x < size.X; x++)
+                    for (byte z = 0; z < size.Z; z++)
+                    {
+                        StaticBall ball = array[x, z, l];
+                        if (ball == null) continue;
+
+                        float here = map.GetRealCenteredPosition(new XZLevel(x, z, l)).X;
+                        int mirrorX = x + (int)MathF.Round(2f * (axis - here));
+                        StaticBall mirror = mirrorX >= 0 && mirrorX < size.X ? array[mirrorX, z, l] : null;
+
+                        if (mirror == null) unmatched++;
+                        else if (mirror.Type != ball.Type || mirror.Kind != ball.Kind) recoloured++;
+                    }
+
+            return (unmatched, recoloured);
         }
 
         /// <summary>

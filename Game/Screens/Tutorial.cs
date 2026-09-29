@@ -250,7 +250,7 @@ namespace BS3D.Screens
                 //of the score could wait, so the player is not overloaded with new information and can play a bit
                 //first. The first chapter's levels are gentle enough that a player who misses one shot in three - so
                 //the streak keeps resetting - and saves no shot still two-stars them (ScoreSim's sloppy player:
-                //1.85-1.98 on all ten), which is what every gate there asks: the multiplier works whether or not
+                //1.85-1.99 on all ten since #664), which is what every gate there asks: the multiplier works whether or not
                 //anybody has explained it. After the send-off in DEFINITIONS, as it is in play. Contextual on the
                 //Gallery's first level, as it was on the Meadow's third: shown when the streak first lights.
                 Lesson = Lesson.Streak, Key = "streak", Chapter = 1, FromLevel = 0, Contextual = true,

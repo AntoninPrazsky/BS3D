@@ -37,10 +37,11 @@ namespace BS3D.Tools.LevelGen
 
         /// <summary>
         /// A flat opener: <paramref name="bitmap"/> drawn by <see cref="Picture"/> in the meadow's scene, music and
-        /// balls, promising to be cleared from the opening stance.
+        /// balls, promising to be cleared from the opening stance and to be a mirror image in outline (#664) — and
+        /// in colour as well when <paramref name="mirrorColours"/> says so.
         /// </summary>
         private static Design FlatOpener(string file, string name, int shots, int ceilingStep, string[] bitmap,
-            BallType[] inks)
+            BallType[] inks, bool mirrorColours = false)
         {
             //The background palette is never read - no bitmap here has a '.' in it - but Picture() is the one
             //place a sheet is drawn, and it asks for one.
@@ -48,22 +49,45 @@ namespace BS3D.Tools.LevelGen
                 FLAT_GRID, inks, inks);
             design.Balls = BALLS_MEADOW;
             design.ClearFromStance = true;
+            design.MirrorOutline = true;
+            design.MirrorColours = mirrorColours;
             return design;
         }
+
+        //WHERE A ROW'S CELLS REALLY ARE (#664). The lattice shifts every other level half a cell in X, and the gun
+        //orbits the axis through the middle of the field's TOP level (ClusterHang.FitWorldOffset) - so only the rows
+        //on the top level's parity have their cells on the bitmap's own columns, and the rows between sit half a
+        //cell to one side of them. A rule symmetric in the bitmap's columns drew those rows half a cell off the axis:
+        //the owner's "the very first level does not look symmetric", 14 of Pennant's 252 balls with no mirror
+        //partner. So every rule is asked at the cell's true place, in the top rows' columns - this many columns
+        //along on the rows between - and nothing is drawn past the width the top rows span. A picture hangs in a
+        //PICTURE_FIELD_LEVELS field with its first row on the field's top level, so the rows between are the odd
+        //ones, and they sit on the other parity: half a cell left of the top rows when the top level is the
+        //shifted one, right when it is not.
+        private const float FLAT_ROW_SHIFT = (PICTURE_FIELD_LEVELS - 1) % 2 == 1 ? -0.5f : 0.5f;
 
         /// <summary>
         /// Draws a sheet from a rule: <paramref name="inside"/> says whether (column, row) is on it and
         /// <paramref name="band"/> which of three inks it takes. Row 0 is the top course, as in every bitmap here.
+        /// The column is where the cell really is (<see cref="FLAT_ROW_SHIFT"/>), so a rule symmetric about the
+        /// middle column, <c>(FLAT_WIDTH - 1) / 2</c>, draws a sheet symmetric on the screen.
         /// </summary>
-        private static string[] FlatBitmap(int rows, Func<int, int, bool> inside, Func<int, int, int> band)
+        private static string[] FlatBitmap(int rows, Func<float, int, bool> inside, Func<float, int, int> band)
         {
             string[] bitmap = new string[rows];
             char[] line = new char[FLAT_WIDTH];
 
             for (int row = 0; row < rows; row++)
             {
+                float shift = row % 2 == 1 ? FLAT_ROW_SHIFT : 0f;
+
                 for (int column = 0; column < FLAT_WIDTH; column++)
-                    line[column] = inside(column, row) ? SYMBOL_INK[band(column, row) % 3] : PICTURE_EMPTY;
+                {
+                    float at = column + shift;
+                    bool on = at >= 0f && at <= FLAT_WIDTH - 1 && inside(at, row);
+                    line[column] = on ? SYMBOL_INK[band(at, row) % 3] : PICTURE_EMPTY;
+                }
+
                 bitmap[row] = new string(line);
             }
 
@@ -76,13 +100,18 @@ namespace BS3D.Tools.LevelGen
         /// side every two rows to a point, in One's three colours on One's rule: a shell a colour, a step round the
         /// palette each shell in. On a sheet a shell is a chevron two cells wide, and every one of them reaches the
         /// top course at both its ends, so none hangs off another.
+        /// <para>
+        /// <b>A mirror image, outline and colour (#664)</b>: the chevrons are symmetric by construction and the rows
+        /// are drawn where their cells really are (<see cref="FLAT_ROW_SHIFT"/>), and LevelGen refuses the level
+        /// otherwise (<see cref="Design.MirrorColours"/>).
+        /// </para>
         /// </summary>
         private static Design Pennant() => FlatOpener("Pennant.json", "Pennant", shots: 30, ceilingStep: 6, PENNANT,
-            new[] { BallType.Type1, BallType.Type2, BallType.Type3 });
+            new[] { BallType.Type1, BallType.Type2, BallType.Type3 }, mirrorColours: true);
 
         private static readonly string[] PENNANT = FlatBitmap(14,
             (c, r) => c >= r / 2 && c <= FLAT_WIDTH - 1 - r / 2,
-            (c, r) => Math.Min(c - r / 2, FLAT_WIDTH - 1 - r / 2 - c) / 2);
+            (c, r) => (int)(MathF.Min(c - r / 2, FLAT_WIDTH - 1 - r / 2 - c) / 2f));
 
         /// <summary>
         /// <b>The third: upright stripes that zigzag</b>, on a shield — fifteen columns for eight rows, then
@@ -95,7 +124,7 @@ namespace BS3D.Tools.LevelGen
 
         private static readonly string[] ZIGZAG = FlatBitmap(14,
             (c, r) => r < 8 || (c >= (r - 7) && c <= FLAT_WIDTH - 1 - (r - 7)),
-            (c, r) => (c + ((r / 2) % 2 == 0 ? 0 : 1)) / 3);
+            (c, r) => (int)MathF.Floor((c + ((r / 2) % 2 == 0 ? 0 : 1)) / 3f));
 
         /// <summary>
         /// <b>The second: a rainbow hung upside down</b> — a half ring whose two ends are the top course, cut across
@@ -110,10 +139,10 @@ namespace BS3D.Tools.LevelGen
 
         //Distance from the middle of the top course in COLUMNS, the rows stretched back to the 71 % they are drawn
         //squashed to, so the ring comes out round rather than tall
-        private static float RainbowRadius(int c, int r) =>
+        private static float RainbowRadius(float c, int r) =>
             MathF.Sqrt((c - (FLAT_WIDTH - 1) * 0.5f) * (c - (FLAT_WIDTH - 1) * 0.5f) + (r * 0.7071f) * (r * 0.7071f));
 
-        private static bool RainbowInside(int c, int r)
+        private static bool RainbowInside(float c, int r)
         {
             float radius = RainbowRadius(c, r);
             return radius <= 7.6f && radius >= 2.6f;
@@ -121,7 +150,7 @@ namespace BS3D.Tools.LevelGen
 
         //Which of the five arcs, by the angle round the middle of the top course: 0 along the top to the right, pi
         //to the left
-        private static int RainbowArc(int c, int r)
+        private static int RainbowArc(float c, int r)
         {
             float angle = MathF.Atan2(r * 0.7071f, c - (FLAT_WIDTH - 1) * 0.5f);
             return Math.Min((int)(angle / (MathF.PI / 5f)), 4);
