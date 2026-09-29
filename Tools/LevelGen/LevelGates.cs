@@ -72,8 +72,9 @@ namespace BS3D.Tools.LevelGen
         /// has somewhere to be matched.
         /// </summary>
         /// <returns>
-        /// Whether the level passes all three: nothing floating free of the glass, no ball standing alone,
-        /// and no colour whose best single shot is the whole cluster.
+        /// Whether the level passes every check above: nothing floating free of the glass, no ball standing alone,
+        /// no colour whose best single shot is the whole cluster, the margin, the specials, the shortest clear,
+        /// and — for a level that promises them — the stance clear (#603) and the mirror image (#664).
         /// </returns>
         internal static bool Validate(Design design, string path, int repaired)
         {
@@ -260,8 +261,8 @@ namespace BS3D.Tools.LevelGen
                 Console.WriteLine("    a mirror image across the gun's axis: "
                                   + (unmatched > 0 ? $"NO - {unmatched} ball(s) with no mirror partner" : "outline yes")
                                   + (design.MirrorColours
-                                      ? (recoloured > 0 ? $", NO - {recoloured} mirrored in another colour" : ", colours yes")
-                                      : $" ({recoloured} pair(s) differ in colour, which this level does not promise)")
+                                      ? (recoloured > 0 ? $", NO - {recoloured} ball(s) mirrored in another colour or kind" : ", colours yes")
+                                      : $" ({recoloured} ball(s) mirrored in another colour or kind, which this level does not promise)")
                                   + (mirrorRefused ? "  <-- NOT SYMMETRIC" : string.Empty));
             }
 
@@ -273,7 +274,8 @@ namespace BS3D.Tools.LevelGen
 
         /// <summary>
         /// How far <paramref name="map"/> is from a mirror image across the vertical plane through the axis the gun
-        /// orbits (#664): the balls whose mirror cell is empty, and the mirrored pairs that differ in colour or kind.
+        /// orbits (#664): the balls whose mirror cell is empty, and the balls whose mirror differs from them in colour
+        /// or kind — balls and not pairs, so a mismatched pair counts twice (the mirror is its own inverse).
         /// The axis is the middle of the field's top level, exactly as <c>ClusterHang.FitWorldOffset</c> puts it on the
         /// orbit — so on a field whose top level is the shifted one it runs half a cell off the array's middle
         /// column, and a picture symmetric in its own columns is NOT symmetric about it. The mirror is in X only,
