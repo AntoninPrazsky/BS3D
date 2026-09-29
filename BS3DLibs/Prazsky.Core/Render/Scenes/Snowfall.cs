@@ -11,7 +11,7 @@ namespace Prazsky.Core.Render
     /// still snow: the buffer is the renderer's to build (sized off the mountain's own flake count), and the
     /// effect is not shared at all — each scene draws through its own clone of <c>Snow.fx</c>, its look pushed
     /// once at load by <see cref="Prepare"/>, which also caches the parameters a frame sets (the by-name indexer
-    /// is a linear scan, and this used to run it six times a frame, and seven times more for the look at load).
+    /// is a linear scan, and <c>Draw</c> used to run it six times a frame).
     /// <para>
     /// <b>Two layers from one buffer since #654</b>: the near box, and the same flakes again in a box
     /// <see cref="SnowConfig.FarLayerScale"/> times larger, which perspective alone turns into the distant veil a

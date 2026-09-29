@@ -136,9 +136,9 @@ namespace Prazsky.Core.Render
     public sealed class SnowConfig
     {
         /// <summary>Number of falling snow flakes in the buffer, drawn once in each layer. Was 1400, then 2800
-        /// once a flake was halved (#85); 6000 since #654, because every reference of real snowfall is thousands
-        /// of flakes of which most are tiny, and a few hundred sharp ones in view read as a sprinkle (9000 once
-        /// the flakes were drawn at the alpha they state, which made each one far fainter).</summary>
+        /// once a flake was halved (#85); 9000 since #654, because every reference of real snowfall is thousands
+        /// of flakes of which most are tiny, and because a flake drawn at the alpha it states (#654) is far
+        /// fainter than the solid white one it had been.</summary>
         public int FlakeCount { get; set; } = 9000;
 
         /// <summary>The volume the flakes fill around the camera.</summary>
@@ -171,15 +171,18 @@ namespace Prazsky.Core.Render
         public float Focus { get; set; } = 12f;
 
         /// <summary>
-        /// How far, in world units, a flake at the lens is blurred. The blurred disc grows in quadrature with the
-        /// flake and its alpha falls with its area, so a near flake is a big faint disc and never a white coin —
-        /// the answer to #85's snowball, where the six-armed crystal that answered it before read as an icon.
+        /// How far, in world units, a flake at the lens is blurred — a lens's aperture, which is what the blur of a
+        /// point nearer than the focus tends to in world terms. The blurred disc grows in quadrature with the flake
+        /// and its alpha falls with its area, so a small flake near the lens is a big faint disc; the rare large
+        /// clump just past <see cref="NearFade"/> stays up to about two thirds opaque, as the references' near discs
+        /// are. The answer to #85's snowball is that translucency, where the six-armed crystal read as an icon.
         /// </summary>
         public float Aperture { get; set; } = 0.12f;
 
         /// <summary>
         /// Seconds a flake is drawn out over along its own motion on screen — a camera's shutter, and what says
-        /// falling rather than floating. At the fall speed it adds about one flake's length (#654).
+        /// falling rather than floating. At the fall speed it adds about 0.07 world units, half a typical flake's
+        /// width (#654).
         /// </summary>
         public float Shutter { get; set; } = 1f / 90f;
 
@@ -192,8 +195,9 @@ namespace Prazsky.Core.Render
         /// <summary>A lit grey-white, dimmer than the sky and the snow and brighter than rock: every reference drew
         /// flakes as dark specks against a bright sky and white ones against a dark face, which a flake does when
         /// its own radiance sits between the two (#654 — it was 0.72-0.82, and wherever it met the bright sky it
-        /// vanished into it). Under GLARE_THRESHOLD (0.55), so no flake blooms.</summary>
-        public Rgb FlakeColor { get; set; } = new(0.55f, 0.58f, 0.64f);
+        /// vanished into it). Its luminance (0.547) sits just under GLARE_THRESHOLD (0.55), so a flake's solid core
+        /// never feeds the glare.</summary>
+        public Rgb FlakeColor { get; set; } = new(0.52f, 0.55f, 0.60f);
 
         /// <summary>Snow flake opacity, before the defocus and the streak spread it. Was 0.9 — near enough opaque
         /// that a flake was a solid white coin, and the feathered rim that was meant to soften it gets crushed

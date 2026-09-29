@@ -20,9 +20,10 @@
 //
 //Two layers from one buffer: the near box, and the same flakes drawn again in a box SnowLayerScale times
 //larger (Snowfall.Draw), whose flakes perspective alone makes tiny - the distant veil a heavy snowfall lays
-//over the range. And a flake is never drawn smaller than about a pixel: past that it is kept at a pixel and
-//its alpha takes the difference, so a far flake is a faint dot rather than one that shimmers in and out as it
-//crosses pixel centres.
+//over the range. And a flake is never drawn with a radius under one pixel: past that it is kept at one and its
+//alpha takes the difference, so a far flake is a faint dot rather than one that shimmers in and out as it
+//crosses pixel centres. One pixel and not less, because the mask is read at pixel centres only: at 0.6 a flake
+//centred on a pixel's corner reached no centre at all, and its coverage swung from nothing to full as it fell.
 
 #define VS_SHADERMODEL vs_5_0
 #define PS_SHADERMODEL ps_5_0
@@ -96,7 +97,7 @@ SnowVertexOutput SnowVS(SnowVertexInput input)
     float3 center = CameraPosition + boxPosition;
     float distance = length(boxPosition);
 
-    //Mostly small, a few large: a cube of the random puts three flakes in four under the mean, which is the
+    //Mostly small, a few large: a cube of the random puts five flakes in eight under the mean, which is the
     //spread every reference drew. Decorrelated from the sway's phase.
     float sizeRandom = frac(rand * 7.31);
     float size = FlakeSize * (0.4 + 1.6 * sizeRandom * sizeRandom * sizeRandom);
@@ -107,9 +108,9 @@ SnowVertexOutput SnowVS(SnowVertexInput input)
     float radius = sqrt(size * size + blur * blur);
     float alpha = (size * size) / (radius * radius);
 
-    //Never under about a pixel: the flake is kept at one and its alpha pays for the difference
+    //Never under a pixel's radius: the flake is kept at one and its alpha pays for the difference
     float pixel = distance * SnowPixel;
-    float drawn = max(radius, 0.6 * pixel);
+    float drawn = max(radius, pixel);
     alpha *= (radius * radius) / (drawn * drawn);
 
     //Drawn out along the way it moves, on screen: the fall, the wind and the sway's own speed over the

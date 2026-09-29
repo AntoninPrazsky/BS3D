@@ -125,13 +125,14 @@ namespace Prazsky.Core.Render
         /// <c>Snow.fx</c> and its flake buffer with the mountain scene (<see cref="Snowfall.Draw"/>
         /// now takes the config as an argument instead of reading the mountain's own, precisely so a second
         /// scene could ask for snow of its own look without a second buffer — and since #580 through its own
-        /// clone of the effect, this look pushed into it once at load); the flake count is still the buffer's
-        /// own capacity, sized by <see cref="MountainSceneConfig"/>'s copy.
-        /// Slower and thinner than the mountain's own snow — a gentle winter hush over the wood, not a storm.
+        /// clone of the effect, this look pushed into it once at load); the buffer is sized by
+        /// <see cref="MountainSceneConfig"/>'s copy and this draws the first 3000 of it.
+        /// Slower and thinner than the mountain's own snow — a gentle winter hush over the wood, not a storm. The lens
+        /// (#654) is the mountain's defaults: the near flakes it used to hide inside seven units show as faint discs.
         /// </summary>
         public SnowConfig Snow { get; set; } = new()
         {
-            //The gentle snow of a clear night (#205): half the mountain's flakes and no far layer
+            //The gentle snow of a clear night (#205): a third of the mountain's flakes and no far layer
             FlakeCount = 3000,
             FarLayerScale = 1f,
             BoxSize = new(70f, 55f, 70f),
