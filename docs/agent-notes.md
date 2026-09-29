@@ -6955,3 +6955,8 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-29 — #634 znovu: čekání na kompozitor na konci snímku — desktop, Claude Code (bs3d-17)
 
 - **Beru #634** (zbylá půlka: PresentMon 26. 9. — na High/Ultra se 25–27 % snímků nikdy nezobrazilo, blt model; obě opravy revertovány kvůli #635 a #636, které se ukázaly být jinými chybami a jsou na mainu). Nejdřív změřit dnešní main PresentMonem (Měsíc, 3840×1600, Ultra/High), pak vrátit čekání + flush na konec `Draw` (`PaceFrame`, `GpuFlush`) a změřit znovu; ověřit přepnutí scény v levelu (#636), hru s výstřely, `fpscap=`/`nocap`. Soubory: `BS3DGame.cs`, `Platform/FrameLimiter.cs`, nový `Platform/GpuFlush.cs`, `docs/game-session.md`.
+
+## 2026-09-29 — #640 okraj kovových pohárů: tenká tmavá silueta — notebook, Claude Code
+
+- **Beru #640, zbylou půlku** (okraj kovových pohárů na výsledkové stránce): majitel z tří možností v komentáři zvolil **2, tenkou tmavou siluetu** — zrcadlo se jen při extrémním doteku (N·V pod ~0,1) stáhne k barvě těla. Soubory: `PolishedMetalPS` (`InstancedModel.fx` / include) a jeho konfigurace; ověřuji na `result stars=3 scene=meadow` (zlato, stříbro, bronz). Desktop (bs3d-a1) na téhle půlce nedělá — jeho poslední zápis ji nechal čekat na volbu.
+- Ostatní dnešní verdikty jsou v trackeru: #659, #660, #637, #644, #662, #626, #395, #493 zavřeny; #230 zůstává otevřené (zbývají nápady v seznamu); #213, #257, #95 mají majitelovo „souhlasím“ s doporučeným pořadím (Swap; bedna a buckshot; vítr) — připraveno k převzetí, nic nestaveno.
