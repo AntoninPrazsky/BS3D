@@ -29,12 +29,20 @@ namespace BS3D.Effects
         private const int BANDS = 5;
 
         //How far it is pushed down into the steel: the ring it stands on is only 0.16 long and the tube curves
-        //away across it, so a base resting on the crown alone floats at its edges. The trim hides the rest.
-        private const float SINK = 0.06f;
+        //away across it (0.04 down at the brim's sides), so a base resting on the crown alone floats at its
+        //edges and the trim hides what is left. It was 0.06, with a 0.2 sideways lean on top of it, and the owner
+        //saw the brim cut into the tube (#230) - so a hair only, and the lean mostly goes BACK instead.
+        private const float SINK = 0.015f;
 
-        //A jaunty lean to one side, in radians: a hat worn upright on the dead centre of a head reads as
-        //placed there, not worn.
-        private const float TILT = 0.2f;
+        //The hat's lean, in radians. Mostly BACK, over the breech's dome, which curves away under the brim's rear
+        //and leaves it room, and lifts the brim's front off the loading window it used to overhang; a little to
+        //one side, because a hat worn dead upright reads as placed there, not worn.
+        private const float LEAN_BACK = 0.3f;
+        private const float LEAN_SIDE = 0.08f;
+
+        //How far into precise aim the hat has shrunk away, as a share of the lean (PreciseAim.Blend): the lens sits
+        //right over the breech, and a hat there stood in the middle of the view the lean exists to clear.
+        private const float GONE_AT_LEAN = 0.6f;
 
         private const float TRIM_TUBE = 0.045f;
         private const float POMPOM_RADIUS = 0.1f;
@@ -90,8 +98,9 @@ namespace BS3D.Effects
             Add(device, instancingEffect, pompom, TRIM, 0f);
             _pompomAt = Matrix.CreateTranslation(0f, HEIGHT, 0f);
 
-            //From the hat's own frame (base on the origin, up +Y) onto the crown, leaning, and a little sunk
-            _onBarrel = Matrix.CreateRotationZ(TILT)
+            //From the hat's own frame (base on the origin, up +Y) onto the crown: leaning back towards the breech (a
+            //positive turn about X carries +Y towards +Z, and the muzzle is -Z), a touch to the side, barely sunk
+            _onBarrel = Matrix.CreateRotationZ(LEAN_SIDE) * Matrix.CreateRotationX(LEAN_BACK)
                 * Matrix.CreateTranslation(rig.BreechCrown - new Vector3(0f, SINK, 0f));
         }
 
@@ -112,9 +121,15 @@ namespace BS3D.Effects
         /// Draws the hat on the gun.
         /// </summary>
         /// <param name="barrelWorld">This frame's barrel pose — the one the barrel itself was drawn with.</param>
-        public void Draw(ICamera camera, Matrix barrelWorld, BasicEffectParams effectParams)
+        /// <param name="lean">How far precise aim has leaned in (<c>PreciseAim.Blend</c>): the hat shrinks away into
+        /// its crown by <see cref="GONE_AT_LEAN"/>, so it never stands in the aiming view, and grows back as the lens
+        /// leaves.</param>
+        public void Draw(ICamera camera, Matrix barrelWorld, BasicEffectParams effectParams, float lean = 0f)
         {
-            Matrix world = _onBarrel * barrelWorld;
+            float size = 1f - MathHelper.SmoothStep(0f, 1f, MathHelper.Clamp(lean / GONE_AT_LEAN, 0f, 1f));
+            if (size < 0.01f) return;
+
+            Matrix world = Matrix.CreateScale(size) * _onBarrel * barrelWorld;
 
             //The ground-darkening anchor, off the stone under the gun, as CannonRig.Draw sets the barrel's
             float ground = ArenaIsland.FloorHeightAt(MathF.Sqrt(world.M41 * world.M41 + world.M43 * world.M43));
