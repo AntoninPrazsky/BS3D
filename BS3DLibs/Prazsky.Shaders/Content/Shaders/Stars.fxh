@@ -24,7 +24,7 @@ float SupersampleFactor;
 //--- Stars -------------------------------------------------------------------------------------------
 //Three layers, coarse to fine. At most one star per cell of a cube-face lattice, jittered over the WHOLE of its cell
 //(since #674: the box that used to hold it clear of the cell wall was itself a lattice, measured at 8.83 px on the
-//axes) and found by looking up the four cells nearest the pixel, so a star may stand on a cell wall and its light
+//axes) and found by looking up the (at most four) cells its light can come from, so a star may stand on a cell wall and its light
 //crosses it. Cell scale is cells per unit of cube-face uv.
 float StarCellScale[3];
 //Fraction of cells carrying a star, as a DENSITY ON THE SKY rather than per cell: each cell's roll is
@@ -39,8 +39,8 @@ float StarSpread;         //core radius in OUTPUT pixels; under ~0.4 the field s
 float StarFalloff;
 
 //Fraction of the layer's peak past which a star also gets drawn diffraction spikes, and how far they reach
-//(in units of the star's own core radius). Only the coarse layer draws them - its cells are wide enough
-//that a spike cannot run out of the one cell being sampled.
+//(in units of the star's own core radius). Only the coarse layer draws them - its cells are wide enough that an arm,
+//held to 0.34 of a cell (armMargin below), stays inside the cells StarLayer looks up.
 float StarSpikeThreshold;
 float StarSpikeLength;
 
@@ -103,9 +103,10 @@ float3 StarTint(float temperature)
 //curve, so this is a third of a code - under the dither the sky is already broken up with.
 static const float STAR_CUT = 1e-4;
 
-//The level a spike arm has fallen to by the time it reaches its own cell wall: both branches of `margin`
-//below land the wall at exactly 2.5 e-folding lengths (uncapped by construction, capped because reach =
-//margin / 2.5), so every arm used to terminate at exp(-2.5) = 8.21 % of its amplitude, in a straight cut.
+//The level a spike arm has fallen to by the time it reaches the end of its reach - its cell wall until #674, and since
+//then the distance armMargin puts it at, 0.34 of a cell from the star: both branches of `margin` below land that end at
+//exactly 2.5 e-folding lengths (uncapped by construction, capped because reach = margin / 2.5), so every arm used to
+//terminate at exp(-2.5) = 8.21 % of its amplitude, in a straight cut.
 //The taper below subtracts this floor off and renormalises, so the arm reaches exactly zero AT the wall
 //instead of being cut dead at 8.21 % there - a straight cut is a square step the eye reads as the lattice
 //drawn out, where a taper to zero is not (#148).
@@ -120,7 +121,8 @@ static const float STAR_DENSITY_GAIN = 1.90986;
 
 //The most core radii any star of any layer can reach before it is under STAR_CUT: sqrt(log(peak / STAR_CUT)) with the
 //brightest peak a layer may have, which the glare discipline holds under GLARE_THRESHOLD (0.55): sqrt(log(0.6 / 1e-4))
-//is 2.95, so 3 is a bound. A constant rather than the figure worked out per pixel from each layer's own peak - a log and
+//is 2.95, so 3 is a bound - for a peak up to 0.81 (sqrt(log(0.81 / 1e-4)) = 3.0); SpaceStarsConfig does not clamp a
+//layer's Peak, and above that the far tail is cut a little short of where it falls under STAR_CUT. A constant rather than the figure worked out per pixel from each layer's own peak - a log and
 //a sqrt for every pixel of three layers cost about 2 ms a frame on the laptop at 1600 x 900 and 2x supersampling,
 //to save reaching a little less than the bound where the layer is dimmer.
 static const float STAR_MAX_REACH_RADII = 3.0;
@@ -133,7 +135,11 @@ static const float STAR_MAX_REACH_RADII = 3.0;
 //on every supersampling setting and always at least one texel across - a star drawn smaller than a texel
 //crawls and scintillates as the camera turns, and in vacuum a star is the one thing that must NOT twinkle.
 //
-//That margin is the whole of #88 ("the stars read as arranged in a grid"). It is subtracted from BOTH ends
+//⚠ THE NEXT PARAGRAPH IS HISTORY SINCE #674, kept because it says why the lattice showed: the box is gone (see `margin`
+//and `lower`/`upper` below), the margin now holds a star clear of the CUBE FACE's edge only, and the four-cell lookup
+//in StarLayer is what lets a star stand on a cell wall.
+//
+//That margin was the whole of #88 ("the stars read as arranged in a grid"). It was subtracted from BOTH ends
 //of the cell, so a star may only land in the middle `1 - 2 * margin` of it, and under about half a cell of
 //that box the spacing between neighbours stops looking random and the lattice shows through. The margin is
 //in cell units while the star is sized in pixels, so the box closes as the cells get smaller on screen -
@@ -240,8 +246,9 @@ float3 StarInCell(float2 cell, float2 p, float3 chart, float pixelAngle, float s
     //one sqrt over the logarithm the magnitude already took, and takes the typical case to about 2.2 radii.
     float reachRadii = sqrt(max(log(peak / STAR_CUT) + StarFalloff * logRoll, 1.0));
 
-    //Held clear of the cell edge by however far this star actually reaches, so nothing is ever clipped by the
-    //boundary of the one cell being sampled. A SPIKED star throws arms StarSpikeLength core radii out and
+    //Held clear of the cube FACE's edge (and of half a cell, the lookup's promise) by however far this star actually
+    //reaches - until #674 it was held clear of every cell wall, so nothing was ever clipped by the boundary of the one
+    //cell being sampled; the rest of this paragraph is written for that. A SPIKED star throws arms StarSpikeLength core radii out and
     //needs far more room - at three radii its arms were cut dead straight where they crossed into the next
     //cell, at about two thirds of their brightness. PER AXIS since #148: the reach is an angular distance
     //and the cell wall is a chart one, so each axis divides by its own `axis` factor - the same conversion
@@ -291,7 +298,7 @@ float3 StarInCell(float2 cell, float2 p, float3 chart, float pixelAngle, float s
     float distance2 = dot(offset, offset) * jacobian - radialDot * radialDot;
 
     //The margin above is PER AXIS since #148: it divides the star's angular reach by each axis's own factor,
-    //which is the same conversion this quadratic form applies, so no profile can reach the cell wall and the
+    //which is the same conversion this quadratic form applies, so no profile can reach the limit the margin sets and the
     //tangential over-estimate the isotropic margin used to carry is gone - jitter room bought back exactly
     //where the cap binds.
     float profile = exp(-distance2 / (core * core));
@@ -330,8 +337,8 @@ float3 StarInCell(float2 cell, float2 p, float3 chart, float pixelAngle, float s
         //a shape on the sky.
         float2 along = abs(offset) * axis;
 
-        //Tapered to zero at exactly 2.5 e-folding lengths (STAR_SPIKE_FLOOR above), which is the cell wall
-        //both branches of `margin` land on - so the arm ends in a smooth taper instead of the straight cut a
+        //Tapered to zero at exactly 2.5 e-folding lengths (STAR_SPIKE_FLOOR above), which is the end of the reach
+        //(the cell wall until #674, armMargin from the star since) both branches of `margin` land on - so the arm ends in a smooth taper instead of the straight cut a
         //raw exp(-along/reach) leaves at 8.21 % there. Renormalised by 1/(1-floor) so the peak at along = 0
         //stays 1 and the MAX-with-core ceiling below is unchanged. (#148)
         float horizontal = max(exp(-along.x / reach) - STAR_SPIKE_FLOOR, 0.0)
@@ -351,7 +358,7 @@ float3 StarInCell(float2 cell, float2 p, float3 chart, float pixelAngle, float s
 //One layer: the cells a star's light can come from - at most 2 x 2, usually one or two - each judged by StarInCell and
 //combined by MAX (#674). A star reaches at most half a cell (its margin is capped there), so the cells that can hold
 //one that lights THIS pixel are the ones overlapping half a cell either side of it: a 2 x 2 block at worst, and,
-//because the real bound is far smaller than half a cell, mostly a single cell. Cells off the
+//and where the real bound is well under half a cell, a single cell (the fine layers at 900p are not: their reach is a good part of a cell, so they usually look up two or four). Cells off the
 //cube face are skipped: the chart goes on past the face, but what stands there is the next face's sky, drawn by
 //that face's own lookup, and drawing it here too would double the stars in a band along every seam.
 //
@@ -367,7 +374,7 @@ float3 StarLayer(float3 dir, float pixelAngle, float scale, float chance, float 
 
     //How far, in cells, ANY star of this layer can reach this pixel: the brightest a star can be, so a bound and
     //not a per-star figure (StarInCell's own reach is per star). The jacobian is the one StarInCell takes
-    //(chart units to pixels). Held to half a cell, which is what four cells can promise; the spikes' arms, on the
+    //(chart units to pixels). Held to half a cell, which is what up to four cells can promise - and, for an interior star, a hard circular clip at that distance (a star bright enough to reach further is cut there, a step of a few codes at the outer edge of a large jacobian; the old cut sat at 0.34, so this is no worse); the spikes' arms, on the
     //coarse layer, reach 0.34 of a cell along the axes.
     float pixelCells = pixelAngle * CubeJacobian(chart.xy) * scale;
     float plainReach = max(StarSpread * SupersampleFactor, 0.62) * pixelCells * (1.0 + 0.9) * STAR_MAX_REACH_RADII;
