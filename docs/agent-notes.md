@@ -7237,3 +7237,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-30 — #674 (nález sondy): schodovité stíny palem — filtr stínové mapy — notebook, Claude Code (github-7f)
 
 - **Beru jednu věc, kterou sonda našla a oko potvrdilo: stíny palem na tropickém písku jsou složené ze čtverečků velikosti texelu stínové mapy** (`tropical-down`: 20 % dlaždic nad šumem, perioda 3,2 px, 72 píků — jemná strukturovaná textura, ne mřížka objektů, ale viditelná chyba). Příčina: `SunShadow` v `Shadows.fxh` čte devět bodových vzorků na **celých texelech** (`uv + (x,y) * ShadowTexel`), takže hrana stínu roste po schodech o texel a tenké listy (menší než texel) dávají děravé čtverečky. Plán: 3×3 box s **bilineárními váhami** (16 vzorků v okně 4×4, váhy podle zlomku pozice v texelu), stejná šířka polostínu, hrany se posouvají plynule. Cena změřit (každý přijímač stínů, 11 scén), snímky před/po v tropech a louce. Soubor: `Shadows.fxh`, `docs/rendering.md`. **Neberu** bias/normal offset ani větší mapu.
+
+## 2026-09-30 — #612 ohňostroj: víc tenčích a delších stop, světlé paprsky, podle referencí — desktop, Claude Code (bs3d-78)
+
+- **Beru #612** (majitelovy poznámky 29. 9.: barvy teď moc; jako skutečný ohňostroj přimíchat velmi světlé paprsky; stopy víc, tenčí a delší; návrh z lokálních referencí). Reference obou modelů (`C:\Users\panrd\AI\sd\out\612-*`), pak `Game/Effects/Fireworks.cs`, `Fireworks.fx`, `docs/game-feedback.md`.
