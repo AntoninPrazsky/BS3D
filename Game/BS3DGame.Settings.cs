@@ -324,7 +324,7 @@ namespace BS3D
         }
 
         /// <summary>
-        /// Toggles the tutorial (#189): the first chapter's cards stay the game's default and this is the opt-out
+        /// Toggles the tutorial (#189): the tutorial's cards stay the game's default and this is the opt-out
         /// for a player who does not want to be told. Read by the session every frame
         /// (<see cref="IsTutorialEnabled"/>), so a card up when this is turned off from the pause comes down at
         /// once, and turning it back on resumes with the lesson that was up. It touches nothing already taught

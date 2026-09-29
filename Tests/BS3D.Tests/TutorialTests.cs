@@ -99,9 +99,7 @@ namespace BS3D.Tests
             //cadence queued ahead of the send-off (#605) — and the line's rule and the send-off close it
             List<string> shown = Play(tutorial, set, 9);
 
-            Assert.Equal(SEND_OFF, shown[^1]);
-            Assert.Contains(LINE_RULE, shown);
-            Assert.True(shown.IndexOf(LINE_RULE) < shown.Count - 1);
+            Assert.Equal(new[] { LINE_RULE, "The glass steps down every 6 shots", SEND_OFF }, shown.GetRange(shown.Count - 3, 3));
             Assert.DoesNotContain(STREAK, shown);
             Assert.DoesNotContain(BUDGET, shown);
         }
@@ -122,7 +120,7 @@ namespace BS3D.Tests
             Assert.Equal(new[] { BUDGET }, second);
             Assert.Contains("budget", save);
 
-            //And a player taught both before #666 moved them is taught nothing again
+            //And once both are taught nothing more is (a save taught them before #666 moved them is the same case)
             Assert.Empty(Play(tutorial, set, 12, lightStreak: true));
         }
 
@@ -154,16 +152,40 @@ namespace BS3D.Tests
         public void ASendOffNeverReachedFollowsThePlayerIntoTheSecondChapter()
         {
             //Amphora lost and skipped before its cards came up: the second chapter still owes the rule and the
-            //send-off, and the score's own card still comes when the streak lights
+            //send-off, and the player is sent off before the score is taught - the streak lighting on that level
+            //waits for the next one
             LevelSet set = ShippedSet();
             HashSet<string> save = new() { "aim", "fire", "match", "lean", "ceiling", "line", "traverse", "walk", "combine" };
+            Tutorial tutorial = Fresh(save);
 
-            List<string> heart = Play(Fresh(save), set, 10, lightStreak: true);
+            List<string> heart = Play(tutorial, set, 10, lightStreak: true);
 
-            Assert.Contains(LINE_RULE, heart);
-            Assert.Contains(SEND_OFF, heart);
-            Assert.Contains(STREAK, heart);
+            Assert.Equal(new[] { LINE_RULE, SEND_OFF }, heart);
             Assert.Contains("graduated", save);
+            Assert.DoesNotContain("streak", save);
+
+            List<string> smiley = Play(tutorial, set, 11, lightStreak: true);
+            Assert.Contains(STREAK, smiley);
+            Assert.Contains(BUDGET, smiley);
+        }
+
+        [Fact]
+        public void AShortChapterCrowdsItsCardsRatherThanCuttingAny()
+        {
+            //A first chapter of two levels: every one of its lessons is still shown in it, and the send-off last
+            LevelSet set = new();
+            for (int i = 0; i < 2; i++) set.Levels.Add(new LevelSetEntry { File = $"a{i}.json", Name = $"A{i}", Block = "A" });
+            for (int i = 0; i < 3; i++) set.Levels.Add(new LevelSetEntry { File = $"b{i}.json", Name = $"B{i}", Block = "B" });
+
+            Tutorial tutorial = Fresh(new HashSet<string>());
+            List<string> shown = Play(tutorial, set, 0, lightStreak: false);
+            List<string> second = Play(tutorial, set, 1);
+            shown.AddRange(second);
+
+            foreach (string caption in new[] { "Click to fire", "Hold to look down the barrel", "Walk the gun round the field",
+                         "Step in for a steeper shot", "Hold the close-up and turn with it", LINE_RULE })
+                Assert.Contains(caption, shown);
+            Assert.Equal(SEND_OFF, second[^1]);
         }
 
         [Fact]

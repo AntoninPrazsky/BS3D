@@ -173,7 +173,7 @@ namespace BS3D
         public bool DropCinematic { get; set; } = true;
 
         /// <summary>
-        /// Whether the first chapter's tutorial cards are shown (#189). On by default, for the player the
+        /// Whether the tutorial's cards are shown — the first two chapters' since #666 (#189). On by default, for the player the
         /// tutorial exists for — the one who has just downloaded the game and read nothing — and turned off by
         /// the player who does not want to be told; the same opt-out shape as <see cref="DropCinematic"/>.
         /// What has already been <i>taught</i> is the save's business (<c>PlayerProgress.Lessons</c>), not
