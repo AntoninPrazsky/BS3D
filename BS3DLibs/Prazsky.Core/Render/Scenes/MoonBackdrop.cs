@@ -2,6 +2,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
 using System;
+using System.Collections.Generic;
 
 namespace Prazsky.Core.Render
 {
@@ -50,6 +51,16 @@ namespace Prazsky.Core.Render
         private const int MOON_GRID_N = 360;
         private const float MOON_EXTENT = 1200f;
 
+        //The rocks on the plain: the shared plant material, and what it draws (MoonPlanting, on TerrainMirror.Moon)
+        private readonly PlantPass _plants;
+        private MoonPlanting _planting;
+        private const int PLANTING_SEED = 8125;
+
+        //The earthshine the terrain adds as a directional fill, as it falls on ground facing straight up - what the rocks'
+        //upper faces take as their sky light (set with the config); and a haze distance no rock is ever as far as
+        private Vector3 _earthshineOverhead;
+        private const float NO_HAZE = 1e7f;
+
         /// <summary>Loads the effect, takes its grid, caches its parameters and pushes the config at it.</summary>
         public MoonBackdrop(BackdropServices services, ContentManager content) : base(services)
         {
@@ -73,6 +84,10 @@ namespace Prazsky.Core.Render
             _moonHoleRadius = _moonEffect.Parameters["IslandHoleRadius"];
 
             ApplyMoonParameters();
+
+            _plants = new PlantPass(_graphicsDevice, content);
+            _planting = new MoonPlanting(_graphicsDevice, (x, z) => TerrainMirror.Moon(x, z, _moonConfig.Terrain),
+                _moonConfig.Terrain, PLANTING_SEED + Services.SeedOffset);
         }
 
         /// <inheritdoc/>
@@ -119,10 +134,12 @@ namespace Prazsky.Core.Render
             float earthPeak = MathF.Max(MathF.Max(earthAlbedo.X, earthAlbedo.Y), MathF.Max(earthAlbedo.Z, 1e-4f));
             bool shines = lighting.EarthshineStrength > 0f && earth.AngularRadiusDegrees > 0f;
 
-            _moonEffect.Parameters["EarthshineColor"].SetValue(
-                shines ? earthAlbedo / earthPeak * lighting.EarthshineStrength : Vector3.Zero);
+            Vector3 earthshine = shines ? earthAlbedo / earthPeak * lighting.EarthshineStrength : Vector3.Zero;
+            Vector3 earthDirection = SceneRenderer.SafeNormal(earth.Direction.ToVector3(), Vector3.Forward);
+            _moonEffect.Parameters["EarthshineColor"].SetValue(earthshine);
+            _earthshineOverhead = earthshine * MathF.Max(earthDirection.Y, 0f);
 
-            _moonEffect.Parameters["EarthDirection"].SetValue(SceneRenderer.SafeNormal(earth.Direction.ToVector3(), Vector3.Forward));
+            _moonEffect.Parameters["EarthDirection"].SetValue(earthDirection);
             _moonEffect.Parameters["EarthAngularRadius"].SetValue(MathHelper.ToRadians(earth.AngularRadiusDegrees));
             _moonEffect.Parameters["EarthAxis"].SetValue(SceneRenderer.SafeNormal(earth.Axis.ToVector3(), Vector3.Up));
             _moonEffect.Parameters["OceanColor"].SetValue(earth.OceanColor.ToVector3());
@@ -192,6 +209,17 @@ namespace Prazsky.Core.Render
             _moonEffect.CurrentTechnique.Passes[0].Apply();
             _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _moonIndexCount / 3);
 
+            //The rocks, before the sky so the sky's depth test rejects what they cover too. Lit as the terrain is lit, not
+            //from a dome (there is none): the config's sun, the tiny floor and the earthshine overhead, and the sunlit
+            //regolith's bounce from below - the one diffuse source an airless plain has, and what fills an Apollo rock's
+            //shaded side. No haze: there is no air to fade into.
+            if (_planting != null)
+            {
+                MoonTerrainConfig terrain = _moonConfig.Terrain;
+                _plants.Draw(frame, _planting.Buckets, NO_HAZE, detail: true, terrain.SunColor.ToVector3(),
+                    terrain.AmbientColor.ToVector3() + _earthshineOverhead, _moonConfig.Lighting.GroundAmbient.ToVector3());
+            }
+
             //Then the sky, depth-READ at the far plane (the quad sits at z = w): every pixel the terrain
             //already owns is rejected before the star shader runs, so the sky pass only pays for the sky
             //that is visible. DepthRead, not None — the test is what buys that, and writing is what the
@@ -208,6 +236,50 @@ namespace Prazsky.Core.Render
             //Put back what the rest of the opaque scene wants
             _graphicsDevice.BlendState = BlendState.AlphaBlend;
             _graphicsDevice.RasterizerState = RasterizerState.CullCounterClockwise;
+        }
+
+        /// <inheritdoc/>
+        public override IEnumerable<Effect> ShadowReceivers
+        {
+            get
+            {
+                yield return _moonEffect;
+                yield return _plants.Effect;   //the rocks on the plain
+            }
+        }
+
+        /// <inheritdoc/>
+        public override bool HasShadowCasters => _planting != null;
+
+        /// <summary>The rocks cast into the sun's map, as every planted scene's do; the island and the gun are the host's.</summary>
+        public override void DrawShadowCasters(Matrix shadowViewProjection)
+        {
+            if (_planting != null) _plants.DrawShadowCasters(shadowViewProjection, _planting.Buckets);
+        }
+
+        /// <inheritdoc/>
+        public override bool TryShadowFit(out float groundY, out float below, out float above)
+        {
+            //The plain round the camera: a crater's bowl below it, a rim and the tallest rock on it above
+            groundY = _moonConfig.Terrain.LevelY;
+            below = _moonConfig.Terrain.CraterAmplitude;
+            above = _moonConfig.Terrain.CraterAmplitude * 0.62f + 4f;
+            return true;
+        }
+
+        /// <inheritdoc/>
+        public override bool TryGetTerrainProbe(out Effect effect, out Func<float, float, float> mirror)
+        {
+            effect = _moonEffect;
+            mirror = (x, z) => TerrainMirror.Moon(x, z, _moonConfig.Terrain);
+            return true;
+        }
+
+        /// <summary>Frees the rocks; the grid is the cache's and the effects the content manager's.</summary>
+        public override void Dispose()
+        {
+            _planting?.Dispose();
+            _planting = null;
         }
 
         /// <inheritdoc/>

@@ -7287,3 +7287,9 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-30 — #678 město: ústupky věží (setbacks) — desktop, Claude Code (bs3d-78)
 
 - **Na mainu, `shipped-awaiting-verdict`, #678 zůstává otevřené (fasády různých druhů).** Věž nad 60 j. se s pravděpodobností 0,45 zvedá ve 2–3 patrech (každé 0,66–0,82 spodního, stejný vrchol); náhoda z vlastního semínka parcely, takže rozložení města beze změny; okna počítá `City.fxh` po krabici, žádná změna shaderu. Cena Bolt High v šumu / Low +0,11; Cabinet +0,17 / +0,14 ms.
+
+## 2026-09-30 — #680 Měsíc: kameny na pláni — desktop, Claude Code (bs3d-78)
+
+- **Na mainu, `shipped-awaiting-verdict`.** `TerrainMirror.Moon` (MoonHeight člen po členu; `mirrorcheck` 0,000109, rozbité zrcadlo viděno selhat 0,117 / exit 1), Měsíc přijímá sluneční mapu (síla 1), `MoonPlanting`: 2000 bloků + 800 balvanů v ostrůvcích, bloky na okrajích mladých kráterů horní oktávy (`Crater.Youth`), 110 obřích orientačních balvanů do 380 j.
+- **⚠ Herní kamera vidí z pláně jen svah vysočiny** — deska ostrova zakryje pláň asi do 300 j. Jediné kameny vidět ze hry jsou velké balvany na svahu. A ty se nejdřív vůbec neukázaly: usazení na NEJNIŽŠÍ bod pod stopou (pravidlo sopky) je na svahu zakopalo o několik jednotek. Teď na průměr okolí, když je nižší než střed.
+- **Cena:** High +0,40 ms (Gantry 2,659 → 3,060, Colossus 2,626 → 3,052), Low +0,05/+0,04. Z toho mapa +0,33 (Testbed `alt=shadow=0;shadow=1`), Mars ze stejné pózy platí za mapu +1,15. Největší zisk je v úvodu kapitoly (záběr na čerstvý kráter) a v tom, že ostrov i dělo konečně vrhají stín.

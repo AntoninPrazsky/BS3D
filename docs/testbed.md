@@ -73,7 +73,7 @@ The hint beside `NumPad2` read `Switch scene (city/sea/savanna/desert/mountain/m
 [mirrorcheck] forest n=65536 max|dh|=0.000069 mean|dh|=0.0000058 worst at (-510,186) over tolerance 0 of 65536 tol=0.01 PASS
 ```
 
-- **Exit code 0 pass, 1 fail, 2 a scene with no terrain mirror** — so a script can run it per scene (`scene=forest mirrorcheck`) and read the answer without parsing. Ten scenes have one: desert, mountains, outback, polar, savanna, tropical, meadow, forest, aurora, volcano.
+- **Exit code 0 pass, 1 fail, 2 a scene with no terrain mirror** — so a script can run it per scene (`scene=forest mirrorcheck`) and read the answer without parsing. Eleven scenes have one: desert, mountains, outback, polar, savanna, tropical, meadow, forest, aurora, volcano and, since #680, the Moon.
 - **The volcano prints a second line**: how far the mirror stands off the ground actually drawn, which adds the scoria the mirror leaves out by design. Its verdict is on the massing the mirror claims to copy.
 - It counts as an unattended run (`InactiveSleepTime` 0), so it answers at full speed launched minimized and without focus.
 - The figures, the proof that it fails on a broken mirror, and why four of the ten fail today are in `docs/scenes.md`, "The terrain mirrors, in one copy and checked against the GPU". Run it on every mirrored scene after touching a terrain shader's height or its mirror.

@@ -42,6 +42,11 @@
 //fade's discontinuous second derivative would show as lattice creases.
 #include "Noise.fxh"
 
+//The sun's cast shadows (#469), in this scene since its boulders: SceneRenderer renders the map before the scene pass
+//and this reads it. What casts here is the boulders on the plain, the island and the gun - see Shadows.fxh for what a
+//receiver owes.
+#include "Shadows.fxh"
+
 //--- Shared uniforms -----------------------------------------------------------------------------------
 
 float4x4 View;
@@ -549,13 +554,19 @@ float4 MoonTerrainPS(MoonTerrainVertexOutput input) : COLOR
     //The craters' hard shadows (#508) take the sun and leave the fill, which is what a lunar shadow is - near
     //black, but the ground-bounce and the earthshine still reach into it.
     //
-    //⚠ NOT BOULDERS. Every Apollo surface photograph is full of rocks with black shadows lying off them, and a
-    //painted rock was tried here - a disc on a single-cell lattice lit on its sunward side, its shadow the
-    //capsule it sweeps away from the sun. It read as scattered black dashes and holes: this plain is seen at a
-    //grazing angle from everywhere the game looks at it, a disc painted ON the ground foreshortens to a sliver
-    //there while the rock it stands for stands UP out of it, and what was left visible was the shadow without
-    //its rock. A rock needs geometry, and the Moon has no CPU mirror of its height to plant one on.
-    float3 color = regolith * (SunColor * ndotl * (1.0 - craterShadow) + fill);
+    //⚠ NOT BOULDERS - NOT HERE. Every Apollo surface photograph is full of rocks with black shadows lying off them,
+    //and a painted rock was tried in this shader (#508) - a disc on a single-cell lattice lit on its sunward side,
+    //its shadow the capsule it sweeps away from the sun. It read as scattered black dashes and holes: this plain is
+    //seen at a grazing angle from everywhere the game looks at it, a disc painted ON the ground foreshortens to a
+    //sliver there while the rock it stands for stands UP out of it, and what was left visible was the shadow without
+    //its rock. A rock needs geometry. It has it now (MoonPlanting, on TerrainMirror.Moon), and its shadow is the
+    //sun's map below, falling across this ground and into these craters like any other.
+    float sunlight = 1.0 - craterShadow;
+    [branch]
+    if (ShadowStrength > 0.0)
+        sunlight *= SunShadow(worldPosition, baseNormal, SunDirection);
+
+    float3 color = regolith * (SunColor * ndotl * sunlight + fill);
 
     return float4(color, 1.0);
 }
@@ -742,3 +753,17 @@ technique MoonTerrain
         PixelShader = compile PS_SHADERMODEL MoonTerrainPS();
     }
 };
+
+//--- The height probe (#590) ----------------------------------------------------------------------------
+
+//TerrainMirror.Moon's field for the Testbed's mirrorcheck (see HeightProbe.fxh): MoonHeight itself, the one the
+//vertex shader displaces by. The fourth crater octave and the relief are the pixel shader's normal alone and move
+//no ground, so the mirror leaves nothing out.
+float MoonProbeHeight(float2 p)
+{
+    float ejecta, shadow;
+    return MoonHeight(p, 0.0, ejecta, shadow);
+}
+
+#define HEIGHT_PROBE_MIRRORED(p) MoonProbeHeight(p)
+#include "HeightProbe.fxh"

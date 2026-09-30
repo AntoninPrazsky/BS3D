@@ -287,8 +287,8 @@ float SurfaceOcclusion(float3 worldPosition, float3 worldNormal, float4 occlusio
 //the key term of MetalPS, BubblePS and HollowPS multiplied by the cloud alone, so those three styles of ball
 //took no shadow from the island, the gun, the trees or the ceiling while every other surface took it here.
 //
-//Uniform branch: ShadowStrength is 0 whenever no map is bound (the sea, the storm, a sky-replacing scene,
-//the Low tier, a sun near the horizon), so a wavefront takes one side and nothing inside takes a derivative.
+//Uniform branch: ShadowStrength is 0 whenever no map is bound (the sea, the storm, the sky-replacing scenes but
+//the Moon, the Low tier, a sun near the horizon), so a wavefront takes one side and nothing inside takes a derivative.
 float KeySunlight(float3 worldPosition, float3 worldNormal)
 {
     float sunlight = CloudSunlight(worldPosition, SunDirection);
