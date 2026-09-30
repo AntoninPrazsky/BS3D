@@ -81,6 +81,15 @@ namespace Prazsky.Core.Render
         private readonly Vector3[] _fumarolePosition = new Vector3[MAX_FUMAROLES];
         private readonly float[] _fumaroleStrength = new float[MAX_FUMAROLES];
 
+        //What stands on the lava field (#679's second step): blocks, bombs and the spatter cones under the strongest
+        //fumaroles, drawn through the planted scenes' shared material and cast into the sun's map
+        private readonly PlantPass _plants;
+        private VolcanoPlanting _planting;
+
+        //How many of the fumaroles stand on a spatter cone, the strongest first, and the cones' figures
+        private const int SPATTER_CONES = 3;
+        private const float CONE_RADIUS = 6f, CONE_HEIGHT = 4f;
+
         //The drifting ash, on the snowfall's machinery in its own shader (Ash.fx says why it is not Snow.fx).
         private readonly Effect _ashEffect;
         private VertexBuffer _ashVertexBuffer;
@@ -116,6 +125,7 @@ namespace Prazsky.Core.Render
             _jetTechnique = _fountainEffect.Techniques["Fountain"];
             _glowTechnique = _fountainEffect.Techniques["Glow"];
             _ashEffect = content.Load<Effect>("Shaders/Ash");
+            _plants = new PlantPass(_graphicsDevice, content);
 
             ApplyVolcanoParameters();
             BuildVolcanoBuffers();
@@ -339,6 +349,42 @@ namespace Prazsky.Core.Render
                 _fumaroleStrength[fumaroles] = strength;
                 fumaroles++;
             }
+            //The strongest few stand on a spatter cone, and steam from its crater (#679's second step)
+            var cones = new List<(Vector3 Foot, float Radius, float Height)>();
+            var byStrength = new List<int>();
+            for (int f = 0; f < fumaroles; f++) byStrength.Add(f);
+            byStrength.Sort((a, b) => _fumaroleStrength[b].CompareTo(_fumaroleStrength[a]));
+            for (int k = 0; k < Math.Min(SPATTER_CONES, fumaroles); k++)
+            {
+                int f = byStrength[k];
+                float radius = CONE_RADIUS * (0.8f + 0.4f * _fumaroleStrength[f]);
+                float coneHeight = CONE_HEIGHT * (0.75f + 0.5f * _fumaroleStrength[f]);
+                Vector3 vent = _fumarolePosition[f];
+                //Its foot on the lowest ground under it, and the steam out of its crater
+                float foot = MathF.Min(GroundHeight(vent.X, vent.Z), MathF.Min(GroundHeight(vent.X + radius, vent.Z),
+                    MathF.Min(GroundHeight(vent.X - radius, vent.Z), MathF.Min(GroundHeight(vent.X, vent.Z + radius), GroundHeight(vent.X, vent.Z - radius)))));
+                cones.Add((new Vector3(vent.X, foot, vent.Z), radius, coneHeight));
+                _fumarolePosition[f] = new Vector3(vent.X, foot + coneHeight * 0.8f, vent.Z);
+            }
+
+            bool KeepOut(float x, float z)
+            {
+                Vector2 p = new(x, z);
+                if (Vector2.Distance(p, cone) < volcano.ConeRadius * 0.3f) return true;
+                for (int r = 0; r < _riverCount; r++)
+                {
+                    Vector2 along = new(MathF.Cos(_riverBearing[r]), MathF.Sin(_riverBearing[r]));
+                    float t = Vector2.Dot(p - cone, along);
+                    if (t > 0f && t < _riverReach[r] && Vector2.Distance(p - cone, along * t) < volcano.RiverWidth * 1.6f) return true;
+                }
+                for (int f = 0; f < fumaroles; f++)
+                    if (Vector2.Distance(p, new Vector2(_fumarolePosition[f].X, _fumarolePosition[f].Z)) < 3f) return true;
+                return false;
+            }
+
+            _planting?.Dispose();
+            _planting = new VolcanoPlanting(_graphicsDevice, GroundHeight, KeepOut, cones, 6795 + Services.SeedOffset);
+
             _fountainEffect.Parameters["FumarolePosition"].SetValue(_fumarolePosition);
             _fountainEffect.Parameters["FumaroleStrength"].SetValue(_fumaroleStrength);
             _fountainEffect.Parameters["FumaroleCount"].SetValue(Math.Max(fumaroles, 1));
@@ -542,6 +588,9 @@ namespace Prazsky.Core.Render
             //part of the far scene rather than foreground weather, because the cluster hangs in front
             //of the cone and has to occlude it. Only the ash is an overlay.
             if ((Layers & VolcanoLayer.Terrain) != 0) DrawVolcanoTerrain(frame);
+            //What stands on the field (#679), opaque and depth-writing, before anything translucent over it
+            if (_planting != null && (Layers & VolcanoLayer.Terrain) != 0)
+                _plants.Draw(frame, _planting.Buckets, _volcanoConfig.HorizonHazeDistance, detail: true);
             DrawLavaFountains(frame);
         }
 
@@ -709,7 +758,20 @@ namespace Prazsky.Core.Render
         /// <inheritdoc/>
         public override IEnumerable<Effect> ShadowReceivers
         {
-            get { yield return _volcanoEffect; }
+            get
+            {
+                yield return _volcanoEffect;
+                yield return _plants.Effect;   //the blocks, bombs and cones on the field (#679)
+            }
+        }
+
+        /// <inheritdoc/>
+        public override bool HasShadowCasters => _planting != null;
+
+        /// <summary>The blocks, the bombs and the spatter cones cast into the sun's map (#679), as every planted scene's do.</summary>
+        public override void DrawShadowCasters(Matrix shadowViewProjection)
+        {
+            if (_planting != null) _plants.DrawShadowCasters(shadowViewProjection, _planting.Buckets);
         }
 
         /// <inheritdoc/>
@@ -740,6 +802,8 @@ namespace Prazsky.Core.Render
             _ashIndexBuffer?.Dispose();
             _steamVertexBuffer?.Dispose();
             _steamIndexBuffer?.Dispose();
+            _planting?.Dispose();
+            _planting = null;
         }
     }
 }

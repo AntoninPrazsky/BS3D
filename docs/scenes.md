@@ -1252,7 +1252,15 @@ The #671 audit found the field between the island and the cone an even black pla
 - **Cost:** measured in the Game at `level=Breach`, 1920×1080, `nocap`, two alternating runs against `main`.
   - 3200 puffs cost **+0.43 ms at High and +0.12 at Low**: large overlapping billboards, pure fill.
   - **1800 at a denser 0.55** photograph the same and cost **+0.25 / +0.07** (6.43 → 6.68 ms, 1.56 → 1.63).
-- **Not yet built:** the references' dark blocks and bombs on the crust and the small spatter cones. The volcano has no scatter pass today; that is the next step of #679.
+- **Blocks, bombs and spatter cones came the same night** (`VolcanoPlanting`, through the planted scenes' `PlantPass`, casting into the sun's map). The volcano had no scatter pass before them.
+  - **1400 blocks** of dark basalt, most of them small (the size roll cubed from 0.5 to 5).
+  - **600 bombs**, rounder and smaller.
+  - Both are sunk to the lowest ground under their footprint, and kept off the island, the cone's crater, every river's line and every vent's mouth.
+  - **The three strongest fumaroles stand on spatter cones:** a lathed cone with a crater in its top, 5–7 wide and 3–5 tall. Their steam rises from the crater. A vent in bare ground is a crack; a vent that has spat for a while builds a chimney, as the references draw it.
+  - ⚠ **The first blocks used `RockMesh`, a lathe, and every one came out a smooth pale dome**, a field of mushroom caps where aa rubble is all edges. They are `VolcanoPlanting.BlockMesh` now: an icosahedron with every vertex pushed in or out and the whole squashed, shaded flat, each face its own facet and wound by its centroid (`WindingCheck` judges all six shapes).
+  - ⚠ **At 0.018 the basalt read as black on black**, and 220 blocks were one every 35 units: invisible. Now the basalt is 0.028, dusted to 0.06, and there are 1400 blocks.
+  - **At night they read mostly as silhouettes against the cracks and the rivers**, which is what the references show at dusk.
+  - **Cost:** +0.08 ms at High and +0.036 at Low (`level=Breach`, the same rig as the steam).
 
 ## The storm
 
