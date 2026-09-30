@@ -7307,3 +7307,9 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 - **Na mainu, `shipped-awaiting-verdict`.** Každé patro věže s klasickými okny má římsu: deska o 0,5 j. širší, 1,1 j. vysoká, 0,4 j. nad střechou jako atika (1432 říms na 2896 krabic). V `City.Buildings` jsou za věžemi; `City.TowerCount` čtou střešní výbava a střešní průlet intra. Druh fasády se teď hází v generátoru (`City.FacadeRoll`) a do shaderu jde v instanci (`Style.x`, `Style.y` = římsa).
 - **⚠ Římsa kreslená jako stěna nebyla vidět:** stejný kámen, stejná normála, splynula s prázdným pásem pod střechou (`WindowMargin`). Dostala proto malovaný profil: světlou hlavu, fasádu a tmavý žlábek pod přesahem. Předtím to vypadalo, že na klasické věži chybí; CPU kopie hodu přitom souhlasila s GPU věž po věži (ověřeno obarvením klasických věží).
 - **Cena:** Bolt High +0.08 ms (4.910 → 4.992), Low +0.03 / +0.06; Cabinet High +0.02 (4.870 → 4.889), Low **+0.12** (1.733 → 1.852, both runs), the one figure over the noise: at that frame, likely the per-frame cull and sort walking 1432 more boxes (not chased).
+
+## 2026-09-30 — #676 jeskyně: sloupy — desktop, Claude Code (bs3d-78)
+
+- **Na mainu, `shipped-awaiting-verdict`.** Šest sloupů (krápník srostlý se stalagmitem) od vody ke stropu, 0,46–0,7 poloměru jeskyně, žádný na herním výhledu za shlukem. Rotační SDF: rozšířené konce, pas, dvě nesoudělné výdutě a žlábky záclon (Čebyšev cos 5θ). Test proti ohraničujícímu válci, 24 kroků × 0,7. Na Low nejsou.
+- **⚠ Jedna frekvence prstenců vypadala jako vývrtka** — pravidelná vlna je mřížka v jednom rozměru.
+- **Cena:** the Game at `level=Chest`, 1920×1080, `nocap`, two alternating runs against `main`: High 2.851 → 2.894 ms (+0.04), Low unchanged (1.515).
