@@ -180,6 +180,8 @@ namespace BS3D.Tools.WindingCheck
             yield return ("SavannaScatter", () => new SavannaScatter(d, new SavannaSceneConfig(), (x, z) => 0f,
                 Array.Empty<ScatterSpacing.Footprint>()));
             yield return ("MeadowScatter", () => new MeadowScatter(d, new MeadowSceneConfig(), MeadowScatter.DEFAULT_SEED));
+            yield return ("VolcanoPlanting", () => new VolcanoPlanting(d, (x, z) => 0f, (x, z) => false,
+                new[] { (new Vector3(80f, 0f, 0f), 6f, 4f) }, 6795));
             for (int dome = 1; dome <= 20; dome++)
             {
                 int n = dome;
