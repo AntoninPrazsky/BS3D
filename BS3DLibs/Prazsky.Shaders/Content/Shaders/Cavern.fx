@@ -371,6 +371,100 @@ float3 ShadeWall(float3 position, float distanceTravelled, uniform bool fullDeta
     return lerp(shaded, FogColor, fog);
 }
 
+//--- The formations (#676) -------------------------------------------------------------------------------
+//The #671 audit: from the play camera the cave showed no rock mass and no formation at all - the shell is an
+//analytic cylinder and a ceiling plane, fogged, and what the eye read overhead was the glowworms alone, which on a
+//bare ceiling is a night sky. Every reference of a cave (#671's img2img, both models) hangs its ceiling with
+//stalactites. So GROUPS of them hang from the ceiling plane: each a handful of rounded cones (an exact SDF, so a
+//short march lands), traced only where the ray crosses the group's bounding sphere - the crystals' own gating -
+//so a pixel that looks at no group pays one sphere test a group. They stand clear of the air over the arena
+//(the cluster and the ceiling glass hang there) and inside the flat part of the ceiling, before it coves.
+#define FORMATION_COUNT 12
+#define STALACTITES 5
+
+//Group k's anchor on the ceiling, spread round the cave on the golden angle at rolled distances
+float3 FormationCenter(float k)
+{
+    float angle = k * 2.39996 + 2.1;
+    float radius = CaveRadius * (0.3 + 0.45 * frac(k * 0.618 + 0.31));
+    return float3(cos(angle) * radius, CaveCeilingY, sin(angle) * radius);
+}
+
+//A vertical rounded cone hanging from y=0 (radius r1) down to y=-h (radius r2) - Inigo Quilez's round cone,
+//turned upside down. Exact, so the march may step the whole distance.
+float HangingCone(float3 p, float r1, float r2, float h)
+{
+    float b = (r1 - r2) / h;
+    float a = sqrt(1.0 - b * b);
+    float2 q = float2(length(p.xz), -p.y);
+    float k = dot(q, float2(-b, a));
+    if (k < 0.0) return length(q) - r1;
+    if (k > a * h) return length(q - float2(0.0, h)) - r2;
+    return dot(q, float2(a, b)) - r1;
+}
+
+//One group: STALACTITES cones of rolled lengths, girths and offsets round the anchor, the longest in the middle
+float FormationSdf(float3 p, float k)
+{
+    float d = 1e5;
+    [unroll]
+    for (int i = 0; i < STALACTITES; i++)
+    {
+        float fi = (float)i;
+        //Rolled off low-discrepancy sequences rather than hashes: the SDF is evaluated at every step of every march
+        //and for the normal's four taps, and two hashes a cone were a measurable share of the whole pass
+        float2 roll = frac(float2(k * 0.7548777 + fi * 0.5698403, k * 0.5698403 + fi * 0.3247180 + 0.29));
+        float2 roll2 = frac(float2(k * 0.4142136 + fi * 0.6180340 + 0.13, k * 0.2360680 + fi * 0.7320508 + 0.61));
+        float2 offset = (roll - 0.5) * (i == 0 ? 5.0 : 30.0);
+        float lengthUnits = lerp(16.0, 58.0, roll2.x) * (i == 0 ? 1.0 : 0.7);
+        float girth = lerp(3.0, 6.5, roll2.y) * (i == 0 ? 1.35 : 1.0);
+        float3 q = p - float3(offset.x, 1.0, offset.y);
+        //Knobbed, not turned: rings of drip down its length and a lump or two across it, a share of its own girth
+        //so a thin one is not eaten by them - a smooth cone to a point read as an icicle, or a cut-out tooth
+        float knobs = sin(q.y * 0.55 + roll.x * 6.28) * 0.5 + sin(q.x * 0.9 + q.z * 0.7 + roll.y * 6.28) * 0.35;
+        float taper = saturate(-q.y / lengthUnits);
+        d = min(d, HangingCone(q, girth, 0.25, lengthUnits) + knobs * girth * 0.14 * (1.0 - taper));
+    }
+    return d;
+}
+
+//Its rock: the wall's own albedo, wet (formations drip), lit by the cool key from the gaps, the crystals as point
+//lights and a faint cool rim where it turns from the lens, then fogged like the wall at the same distance
+float3 ShadeFormation(float3 position, float3 normal, float3 direction, float distanceTravelled)
+{
+    float body = Fbm3(position * 0.08, 2);
+    float3 rock = RockColor * (0.55 + 0.45 * saturate(body * 0.9 + 0.5));
+    //The calcite is paler towards the tips, where the drip is still building it, and the root is the ceiling's rock
+    float tip = saturate((CaveCeilingY - position.y) / 50.0);
+    rock *= (0.55 + 0.45 * smoothstep(0.0, 0.25, tip)) * (1.0 + 2.4 * tip * tip);
+
+    float keyDiffuse = saturate(dot(normal, normalize(float3(0.2, 1.0, 0.15))));
+    float3 shaded = rock * (0.30 + 1.15 * keyDiffuse);
+
+    [unroll]
+    for (int k = 0; k < CRYSTAL_COUNT; k++)
+    {
+        float fk = (float)k;
+        float3 toCrystal = CrystalCenter(fk) - position;
+        float d2 = dot(toCrystal, toCrystal);
+        float towards = saturate(dot(normal, toCrystal * rsqrt(max(d2, 1e-4))));
+        shaded += rock * CrystalColor(fk) * (CrystalPulse(fk) * towards / (1.0 + d2 * 0.0016)) * (CrystalWallLight * 16.0);
+    }
+
+    //Lit from BELOW as well: the river's glow and its steam are the brightest broad light in the cave, and a formation
+    //hanging over them catches it on its underside and flanks - which is what lifts it off the ceiling it hangs from,
+    //both of them otherwise the same dark rock under the same key. And wet stone: a sheen towards grazing.
+    shaded += rock * WaterGlowColor * (saturate(-normal.y * 0.7 + 0.3) * 2.2);
+    //A side: the steam's glow comes up the cave from one quarter more than the rest, so every cone has a lit flank and
+    //a dark one - the form, which a light only from under it flattened into a cut-out
+    shaded += rock * MistColor * (saturate(dot(normal, normalize(float3(-0.55, -0.25, 0.8)))) * 3.0);
+    float rim = pow(1.0 - saturate(dot(normal, -direction)), 3.0);
+    shaded += MistColor * rim * 0.45;
+
+    float fog = 1.0 - exp(-distanceTravelled * FogDensity);
+    return lerp(shaded, FogColor, fog);
+}
+
 //Optical thickness of the river's steam along the first t units of a ray: a fog whose density is `density`
 //at the water surface and thins exponentially with height over MistHeight, integrated in closed form (the
 //classic exponential height fog). Height fog rather than a slab because a slab has a TOP, and its top is a
@@ -646,6 +740,66 @@ float4 CavernScene(CavernVertexOutput input, uniform bool fullDetail)
         //THE ROCK.
         tSolid = tShell;
         color = ShadeWall(CameraPosition + direction * tShell, tShell, fullDetail);
+    }
+
+    //--- The formations (#676), gated per group like the crystals below, and before them: a crystal in front of a
+    //formation wins, and the god rays and the spores clamp to whichever solid the ray ends on
+    float formationT = tSolid;
+    float formationGroup = -1.0;
+
+    //Not in the reduced program: the Low tier keeps the cave's shell, crystals, river and glowworms and gives up the
+    //formations, the dearest term this adds (measured in docs/scenes.md, "The formations")
+    [unroll]
+    for (int g = 0; g < (fullDetail ? FORMATION_COUNT : 0); g++)
+    {
+        float fg = (float)g;
+        float3 anchor = FormationCenter(fg);
+        float3 center = anchor - float3(0.0, 26.0, 0.0);
+        float bound = 44.0;
+
+        float3 oc = CameraPosition - center;
+        float b = dot(oc, direction);
+        float c = dot(oc, oc) - bound * bound;
+        float disc = b * b - c;
+
+        [branch]
+        if (disc > 0.0)
+        {
+            float t0 = max(-b - sqrt(disc), 0.0);
+            float t1 = min(-b + sqrt(disc), formationT);
+            float rayT = t0;
+
+            //0.8 on the step: the knobs bend the round cone's exact distance a little
+            [loop]
+            for (int march = 0; march < 22; march++)
+            {
+                float d = FormationSdf(CameraPosition + direction * rayT - anchor, fg);
+                if (d < 0.04 * (1.0 + rayT * 0.01) || rayT > t1) break;
+                rayT += d * 0.8;
+            }
+
+            if (rayT <= t1)
+            {
+                formationT = rayT;
+                formationGroup = fg;
+            }
+        }
+    }
+
+    [branch]
+    if (formationGroup >= 0.0)
+    {
+        float3 hit = CameraPosition + direction * formationT;
+        float3 local = hit - FormationCenter(formationGroup);
+        const float fe = 0.15;
+        float2 ftap = float2(1.0, -1.0);
+        float3 formationNormal = normalize(
+            ftap.xyy * FormationSdf(local + ftap.xyy * fe, formationGroup) +
+            ftap.yyx * FormationSdf(local + ftap.yyx * fe, formationGroup) +
+            ftap.yxy * FormationSdf(local + ftap.yxy * fe, formationGroup) +
+            ftap.xxy * FormationSdf(local + ftap.xxy * fe, formationGroup));
+        color = ShadeFormation(hit, formationNormal, direction, formationT);
+        tSolid = formationT;
     }
 
     //--- The crystals, gated per cluster (the dream's pattern). A cluster is three interpenetrating
