@@ -7261,6 +7261,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-30 — #671 audit grafiky: žebříček kandidátů podle referencí — desktop, Claude Code (bs3d-78)
 
 - **Beru #671** (audit, ne přestavba): snímky všech 20 scén z pohledu hráče a z menu na `quality=high`, reference text→obraz i img2img přes snímek (oba modely), skóre detail/rozmanitost/světlo 0–3, žebříček a issue pro horní kandidáty (po `SemanticSearch`), krátká poznámka v `docs/scenes.md`. Ostrov, koule, dělo a efekty jen tam, kde už nemají čerstvý průchod.
+- **#671 hotovo, uzavřeno.** 60 snímků (menu, hra, pevná póza Testbedu) + img2img obou modelů (`sd\outƹ-*`) + inventář objektů z kódu. Žebříček v komentáři #671; nová issue **#676** jeskyně (vypadá jako hvězdné nebe), **#677** poušť (nejdřív otázka: čisté erg, nebo kámen?), **#678** město (všechny věže jeden kvádr), **#679** sopka (prázdné lávové pole, žádná pára). ⚠ **Img2img prompt, který vyjmenuje obsah místa, ho vrátí** — reference říkají *jak* to čte, ne *zda* to tam patří; starší reference erg jsou jen písek (moje první verze #677 tvrdila opak bez ověření — opraveno). Denní kupole pouště (6) a savany (14) jsou tyrkysové, nezaloženo.
 
 ## 2026-09-30 — opravy po kritickém průchodu nočních mergí (#95, #230, #674) — notebook, Claude Code (github-7f)
 
