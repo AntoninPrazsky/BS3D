@@ -14,10 +14,11 @@ namespace Prazsky.Core.Render
     /// Two species share the class, chosen by <see cref="TreeSpecies"/>: a <b>conifer</b> — a spruce built as
     /// <b>tiers of branch whorls</b>, each layer a drooping skirt with a shadowed tuck beneath it, because a
     /// spruce's silhouette is its layers and a smooth cone reads as a plastic toy however much it wobbles —
-    /// and a <b>broadleaf</b> — a crown of several overlapping <b>leaf lobes</b>, because a deciduous crown is
-    /// a cluster of masses, not one ball. Both are rolled from the <c>seed</c>: tier count, taper,
-    /// droop and pinch for the spruce; lobe count, directions and weights for the broadleaf; and the lathe
-    /// wobble's phase for every part — so two variants differ in structure, not merely in proportions, which
+    /// and a <b>broadleaf</b>, grown rather than lathed since #647 (<see cref="MeadowTreeMesh.ForForest"/>): a bole
+    /// forking into limbs and branches under a dome of separate clumps. Its crown was one lathed ball of several
+    /// overlapping lobes until then, and on its bare stick it read as a lollipop at any height. Both are rolled from
+    /// the <c>seed</c>: tier count, taper, droop and pinch for the spruce; the clumps' layout and the wood's forks for
+    /// the broadleaf; and the lathe wobble's phase for every part — so two variants differ in structure, not merely in proportions, which
     /// is what the eye checks when it decides whether a wood is real. The crown of either species spans
     /// <c>[trunkHeight, trunkHeight + crownHeight]</c> give or take its droop and lobes, so the trunk stays
     /// visible under it; the first build used the height as a semi-axis, which buried the whole trunk inside
@@ -31,10 +32,12 @@ namespace Prazsky.Core.Render
     /// </summary>
     public sealed class TreeMesh : IDisposable
     {
-        /// <summary>The trunk: a tapering bark cylinder with a root flare, irregular enough that no two read identical.</summary>
-        public LatheMesh Trunk { get; }
+        /// <summary>The wood: for a conifer a tapering bark cylinder with a root flare, irregular enough that no two read
+        /// identical; for a broadleaf the whole branching wood since #647 — the bole, its limbs and the branches into
+        /// every clump of the crown (<see cref="MeadowTreeMesh.ForForest"/>).</summary>
+        public IProceduralMesh Trunk { get; }
 
-        /// <summary>The canopy, sitting on the trunk's top: tiered whorls for a conifer, a lobed mass for a broadleaf.</summary>
+        /// <summary>The canopy, sitting on the trunk's top: tiered whorls for a conifer, a dome of clumps for a broadleaf.</summary>
         public IProceduralMesh Crown { get; }
 
         /// <summary>The canopy's authored radius (a conifer's widest skirt, a broadleaf's half-width) — its lobes
@@ -51,7 +54,7 @@ namespace Prazsky.Core.Render
         /// <param name="trunkHeight">Trunk height to the underside of the canopy.</param>
         /// <param name="crownRadius">Canopy radius (a conifer's widest skirt, a broadleaf's half-width).</param>
         /// <param name="crownHeight">Canopy height, trunk top to crown top — the crown spans this.</param>
-        /// <param name="seed">Rolls everything structural: the spruce's tier layout, the broadleaf's lobes,
+        /// <param name="seed">Rolls everything structural: the spruce's tier layout, the broadleaf's clumps and forks,
         /// the wobble phases. The same seed always builds the same tree.</param>
         /// <param name="segments">Facets around the trunk axis. The crown uses its own facet count.</param>
         /// <param name="coniferTiers">The fewest whorls a spruce crown rolls (see
@@ -68,6 +71,22 @@ namespace Prazsky.Core.Render
         {
             CrownRadius = crownRadius;
             Height = trunkHeight + crownHeight;
+
+            //A BROADLEAF IS GROWN, NOT LATHED, since #647's second step. The owner, of the daytime forest: "the trees
+            //are too low and don't look realistic" - and after the height came right the broadleaves still read as
+            //lollipops, one lobed ball on a bare stick. The meadow's old trees are built the way the references draw a
+            //deciduous tree (MeadowTreeMesh: the crown laid out first as a dome of separate clumps, the wood grown to
+            //it - a bole forking into limbs, the limbs into branches, one into every clump), and a forest broadleaf is
+            //the same tree grown up among others: a tall bare bole and a narrower crown carried high on steep limbs.
+            if (species == TreeSpecies.Broadleaf)
+            {
+                _grown = MeadowTreeMesh.ForForest(graphicsDevice, trunkBaseRadius, trunkHeight, crownRadius, crownHeight, seed);
+                Trunk = _grown.Wood;
+                Crown = _grown.Crown;
+                CrownRadius = _grown.CrownReach;
+                Height = _grown.Height;
+                return;
+            }
 
             Random rng = new(seed);
 
@@ -93,11 +112,12 @@ namespace Prazsky.Core.Render
                 irregularityAmplitude: trunkBaseRadius * (0.06f + 0.05f * (float)rng.NextDouble()),
                 irregularityPhase: phase);
 
-            Crown = species == TreeSpecies.Conifer
-                ? BuildConiferCrown(graphicsDevice, crownRadius, crownHeight, trunkHeight, rng, phase,
-                    coniferTiers, coniferTierSpread, coniferRaggedness)
-                : new BroadleafCrownMesh(graphicsDevice, crownRadius, crownHeight, trunkHeight, rng, phase);
+            Crown = BuildConiferCrown(graphicsDevice, crownRadius, crownHeight, trunkHeight, rng, phase,
+                coniferTiers, coniferTierSpread, coniferRaggedness);
         }
+
+        //A broadleaf's grown wood and crown, which this owns and disposes
+        private readonly MeadowTreeMesh _grown;
 
         /// <summary>
         /// The conifer canopy: a spruce built as <b>tiers of branch whorls</b>. Each tier is a skirt whose
@@ -172,199 +192,17 @@ namespace Prazsky.Core.Render
 
         public void Dispose()
         {
-            Trunk?.Dispose();
+            if (_grown != null)
+            {
+                _grown.Dispose();
+                return;
+            }
+            (Trunk as IDisposable)?.Dispose();
             (Crown as IDisposable)?.Dispose();
         }
 
-        /// <summary>
-        /// The broadleaf canopy: a UV sphere displaced into a cluster of overlapping <b>leaf lobes</b> — each
-        /// a smooth swell around its own rolled direction — over a base noise field. A deciduous crown is a
-        /// cluster of masses, and it is the lobes that read as one: the first build's single noise-bulged
-        /// ball still read as a ball, because gradient noise has no structure at the one scale a crown does.
-        /// The lobe count, directions, weights and widths are rolled per mesh, so no two variants share a
-        /// silhouette. Normals stay spherical (the pre-displacement direction), so the lighting wraps the
-        /// lobes softly the way lit foliage does — modelling them into the normal would sharpen every lobe
-        /// into a dented ball.
-        /// </summary>
-        private sealed class BroadleafCrownMesh : IProceduralMesh, IDisposable
-        {
-            public VertexBuffer VertexBuffer { get; private set; }
-            public IndexBuffer IndexBuffer { get; private set; }
-            public int PrimitiveCount { get; }
-            public BoundingSphere BoundingSphere { get; }
-
-            internal BroadleafCrownMesh(GraphicsDevice graphicsDevice, float radius, float height, float baseY,
-                Random rng, float phase)
-            {
-                //The leaf masses. Directions bias upward — a crown lobes at its top and sides, while its
-                //underside is the shaded hollow the trunk disappears into — and each lobe carries its own
-                //weight and angular width, so one crown holds both broad shoulders and small knuckles.
-                int lobes = 5 + rng.Next(4);
-                var lobeDirection = new Vector3[lobes];
-                var lobeWeight = new float[lobes];
-                var lobeSharpness = new float[lobes];
-
-                for (int k = 0; k < lobes; k++)
-                {
-                    float ly = -0.15f + 1.05f * (float)rng.NextDouble();
-                    float la = (float)rng.NextDouble() * MathHelper.TwoPi;
-                    float lr = MathF.Sqrt(MathF.Max(0f, 1f - ly * ly));
-
-                    lobeDirection[k] = new Vector3(MathF.Cos(la) * lr, ly, MathF.Sin(la) * lr);
-                    lobeWeight[k] = 0.10f + 0.22f * (float)rng.NextDouble();
-                    lobeSharpness[k] = 2.5f + 4f * (float)rng.NextDouble();
-                }
-
-                //A base unevenness under the lobes, phase-shifted per mesh. Sampled three times at angles
-                //derived from the spherical direction, so the noise is a function of the full 3D position
-                //rather than the latitude/longitude alone — a pure lat/lon field would leave the crown
-                //rotationally symmetric about its pole.
-                const float NOISE_SWELL = 0.16f;
-                float Bulge(Vector3 dir)
-                {
-                    float a = MathF.Atan2(dir.Z, dir.X) + phase;
-                    float noise = 0.5f * LatheMesh.Irregularity(a, dir.Y * 3f + phase)
-                        + 0.3f * LatheMesh.Irregularity(a + 2.1f, dir.Y * 3f + 1.7f + phase)
-                        + 0.2f * LatheMesh.Irregularity(a + 4.3f, dir.Y * 3f + 3.4f + phase);
-
-                    float swell = NOISE_SWELL * noise;
-
-                    for (int k = 0; k < lobes; k++)
-                    {
-                        float toward = MathF.Max(0f, Vector3.Dot(dir, lobeDirection[k]));
-                        swell += lobeWeight[k] * MathF.Pow(toward, lobeSharpness[k]);
-                    }
-
-                    return swell;
-                }
-
-                //The crown spans [baseY, baseY + height] nominally — the lobes reach past both ends. Stretch
-                //is applied to positions only; normals stay spherical (see the class summary).
-                float centreY = baseY + height * 0.5f;
-                float semiY = height * 0.5f;
-                int slices = 18;
-                int stacks = 12;
-
-                int vertexCount = (stacks - 1) * slices + 2;
-                var vertices = new VertexPositionNormalTexture[vertexCount];
-
-                //The real reach of the displaced surface, tracked while the vertices are built, so the bound
-                //is exact rather than a guess at how far overlapping lobes can stack.
-                float maxReach = 0f;
-
-                VertexPositionNormalTexture Build(Vector3 dir)
-                {
-                    var vertex = BuildVertex(dir, radius, semiY, centreY, Bulge);
-                    maxReach = MathF.Max(maxReach, (vertex.Position - new Vector3(0f, centreY, 0f)).Length());
-                    return vertex;
-                }
-
-                vertices[0] = Build(Vector3.Up);
-
-                int index = 1;
-                for (int stack = 1; stack < stacks; stack++)
-                {
-                    float phi = MathF.PI * stack / stacks;
-                    float y = MathF.Cos(phi);
-                    float ringRadius = MathF.Sin(phi);
-
-                    for (int slice = 0; slice < slices; slice++)
-                    {
-                        float theta = MathHelper.TwoPi * slice / slices;
-                        Vector3 normal = new(ringRadius * MathF.Cos(theta), y, ringRadius * MathF.Sin(theta));
-                        vertices[index++] = Build(normal);
-                    }
-                }
-
-                int bottomPole = index;
-                vertices[bottomPole] = Build(Vector3.Down);
-
-                //Indices are the standard UV-sphere winding (clockwise seen from outside, MonoGame's front
-                //face) — copied from SphereMesh, which documents the Y-flip that makes it so.
-                PrimitiveCount = slices * 2 + (stacks - 2) * slices * 2;
-                var indices = new short[PrimitiveCount * 3];
-                int i = 0;
-
-                for (int slice = 0; slice < slices; slice++)
-                {
-                    indices[i++] = 0;
-                    indices[i++] = (short)(1 + slice);
-                    indices[i++] = (short)(1 + (slice + 1) % slices);
-                }
-
-                for (int stack = 0; stack < stacks - 2; stack++)
-                {
-                    int upperRing = 1 + stack * slices;
-                    int lowerRing = upperRing + slices;
-
-                    for (int slice = 0; slice < slices; slice++)
-                    {
-                        int next = (slice + 1) % slices;
-
-                        indices[i++] = (short)(upperRing + slice);
-                        indices[i++] = (short)(lowerRing + slice);
-                        indices[i++] = (short)(upperRing + next);
-
-                        indices[i++] = (short)(upperRing + next);
-                        indices[i++] = (short)(lowerRing + slice);
-                        indices[i++] = (short)(lowerRing + next);
-                    }
-                }
-
-                int lastRing = 1 + (stacks - 2) * slices;
-                for (int slice = 0; slice < slices; slice++)
-                {
-                    indices[i++] = (short)bottomPole;
-                    indices[i++] = (short)(lastRing + (slice + 1) % slices);
-                    indices[i++] = (short)(lastRing + slice);
-                }
-
-                VertexBuffer = new VertexBuffer(graphicsDevice, VertexPositionNormalTexture.VertexDeclaration, vertexCount, BufferUsage.WriteOnly);
-                VertexBuffer.SetData(vertices);
-
-                IndexBuffer = new IndexBuffer(graphicsDevice, IndexElementSize.SixteenBits, indices.Length, BufferUsage.WriteOnly);
-                IndexBuffer.SetData(indices);
-
-                BoundingSphere = new BoundingSphere(new Vector3(0f, centreY, 0f), maxReach);
-            }
-
-            //Displaces a unit direction into a canopy vertex: scale it to the canopy's half-width/half-height,
-            //push it along its direction by the lobe field, tuck the underside in over the trunk, and centre
-            //it half way up the crown's span. The normal is kept spherical (the pre-displacement direction) so
-            //the lighting wraps the lobes smoothly — modelling them into the normal would sharpen them into
-            //dimples instead.
-            private static VertexPositionNormalTexture BuildVertex(Vector3 dir, float radius, float semiY, float centreY,
-                Func<Vector3, float> bulge)
-            {
-                float swell = 1f + bulge(dir);
-                float tuck = BottomTuck(dir.Y);
-                float r = radius * swell * (1f - tuck);
-                Vector3 position = new(dir.X * r, dir.Y * semiY * swell + centreY, dir.Z * r);
-
-                Vector2 uv = new(MathHelper.Clamp(dir.X * 0.5f + 0.5f, 0f, 1f), MathHelper.Clamp(dir.Y * 0.5f + 0.5f, 0f, 1f));
-                return new VertexPositionNormalTexture(position, dir, uv);
-            }
-
-            //The crown narrows towards its underside, so the join reads as foliage settling over the trunk
-            //top rather than a ball balanced on a stick. Strongest at the bottom pole and gone by the
-            //equator — the first build ran this the other way up and pinched the TOP, which is what made
-            //every crown an egg.
-            private static float BottomTuck(float y)
-            {
-                float t = MathHelper.Clamp((-y - 0.2f) / 0.8f, 0f, 1f);
-                return 0.45f * t * t;
-            }
-
-            public void Dispose()
-            {
-                VertexBuffer?.Dispose();
-                VertexBuffer = null;
-                IndexBuffer?.Dispose();
-                IndexBuffer = null;
-            }
-        }
     }
 
-    /// <summary>Which crown a <see cref="TreeMesh"/> carries: a tiered spruce or a lobed broadleaf canopy.</summary>
+    /// <summary>Which crown a <see cref="TreeMesh"/> carries: a tiered spruce or a broadleaf's dome of clumps.</summary>
     public enum TreeSpecies { Conifer, Broadleaf }
 }

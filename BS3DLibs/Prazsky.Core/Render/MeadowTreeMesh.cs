@@ -49,6 +49,9 @@ namespace Prazsky.Core.Render
         /// <summary>How far the crown reaches from the axis at scale 1.</summary>
         public float CrownReach { get; }
 
+        /// <summary>The whole tree's height at scale 1, ground to the crown's top.</summary>
+        public float Height { get; }
+
         /// <summary>The root flare's radius at scale 1.</summary>
         public float BaseRadius { get; }
 
@@ -93,8 +96,34 @@ namespace Prazsky.Core.Render
         };
 
         public MeadowTreeMesh(GraphicsDevice device, MeadowTreeKind kind, int seed)
+            : this(device, FigureOf(kind), seed, cards: true, LUMP_SLICES, LUMP_STACKS)
         {
-            Figure f = FigureOf(kind);
+        }
+
+        /// <summary>
+        /// A broadleaf of the daytime forest (#647), grown the same way to the forest's own figures: a tall bare
+        /// bole to <paramref name="trunkHeight"/> under a crown <paramref name="crownRadius"/> wide and
+        /// <paramref name="crownHeight"/> tall, its limbs steep as a forest-grown tree's are. <b>Wood and crown
+        /// only</b> — the forest draws through <c>InstancedModel.fx</c>, which cuts no leaf cards, so its crown is
+        /// the solid clumps, coarser still since a forest holds eighty of them. <see cref="Core"/> and
+        /// <see cref="Leaves"/> are null.
+        /// </summary>
+        public static MeadowTreeMesh ForForest(GraphicsDevice device, float trunkRadius, float trunkHeight,
+            float crownRadius, float crownHeight, int seed)
+        {
+            float height = trunkHeight + crownHeight;
+            var figure = new Figure(height, trunkRadius, trunkHeight * 0.82f / height, crownRadius,
+                (trunkHeight + crownHeight * 0.55f) / height, crownHeight * 0.48f / height,
+                limbsMin: 3, limbsMax: 4, elevationMin: 50f, elevationMax: 72f,
+                clumps: FOREST_CLUMPS, clumpMin: 0.24f, clumpMax: 0.32f, lean: 0.03f);
+            return new MeadowTreeMesh(device, figure, seed, cards: false, FOREST_LUMP_SLICES, FOREST_LUMP_STACKS);
+        }
+
+        //A forest broadleaf's clumps: fewer and coarser than a meadow tree's, eighty trees standing together
+        private const int FOREST_CLUMPS = 30, FOREST_LUMP_SLICES = 8, FOREST_LUMP_STACKS = 6;
+
+        private MeadowTreeMesh(GraphicsDevice device, Figure f, int seed, bool cards, int lumpSlices, int lumpStacks)
+        {
             Random rng = new(seed);
 
             float height = f.Height * (0.92f + 0.16f * (float)rng.NextDouble());
@@ -245,19 +274,24 @@ namespace Prazsky.Core.Render
             for (int i = 0; i < clumps.Count; i++)
             {
                 (Vector3 centre, float r, bool inner) = clumps[i];
-                FoliageMesh.Generate(cv, cidx, r, r * 0.8f, centre, seed * 17 + i, FoliageStyle.Crown, LUMP_SLICES, LUMP_STACKS);
+                FoliageMesh.Generate(cv, cidx, r, r * 0.8f, centre, seed * 17 + i, FoliageStyle.Crown, lumpSlices, lumpStacks);
+                if (!cards) continue;
                 FoliageMesh.Generate(kv, kidx, r * CORE_SHARE, r * 0.8f * CORE_SHARE, centre, seed * 17 + i, FoliageStyle.Crown,
-                    LUMP_SLICES, LUMP_STACKS);
+                    lumpSlices, lumpStacks);
                 AddLeafShell(lv, lidx, centre, r, r * 0.8f, inner, leafRng);
             }
 
             CrownReach = reach;
+            Height = crownCentre.Y + crownHalf;
             BaseRadius = trunk * 1.55f;
             BoundingSphere bounds = new(crownCentre - new Vector3(0f, crownHalf * 0.3f, 0f), MathF.Max(reach, crownY) * 1.15f);
             Wood = new UploadedMesh(device, wv, widx, bounds);
             Crown = new UploadedMesh(device, cv, cidx, bounds);
-            Core = new UploadedMesh(device, kv, kidx, bounds);
-            Leaves = new UploadedMesh(device, lv, lidx, bounds);
+            if (cards)
+            {
+                Core = new UploadedMesh(device, kv, kidx, bounds);
+                Leaves = new UploadedMesh(device, lv, lidx, bounds);
+            }
         }
 
         /// <summary>
