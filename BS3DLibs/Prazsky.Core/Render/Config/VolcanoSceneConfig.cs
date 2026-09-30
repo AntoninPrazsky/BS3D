@@ -248,6 +248,49 @@ namespace Prazsky.Core.Render
 
         /// <summary>The drifting ash.</summary>
         public AshConfig Ash { get; set; } = new();
+
+        /// <summary>The fumaroles steaming on the lava field (#679).</summary>
+        public SteamConfig Steam { get; set; } = new();
+    }
+
+    /// <summary>
+    /// The fumaroles on the lava field (#679): vents scattered across the plain between the island and the cone, each
+    /// raising a column of steam that leans downwind and trails off, lit orange from below by the crust it rises out
+    /// of. Every reference of an active lava field (#679's, both models) raises them; the #671 audit found the field
+    /// an even black plain without one. Puffs of the plume's own form in <c>LavaFountain.fx</c>'s Steam technique.
+    /// </summary>
+    public sealed class SteamConfig
+    {
+        /// <summary>How many vents steam, at most <c>MAX_FUMAROLES</c> (12).</summary>
+        public int VentCount { get; set; } = 9;
+
+        /// <summary>How near and how far from the arena the vents stand, world units.</summary>
+        public float NearestVent { get; set; } = 48f;
+        public float FarthestVent { get; set; } = 230f;
+
+        /// <summary>Puffs in the buffer, shared by all the vents.</summary>
+        public int ParticleCount { get; set; } = 1800;
+
+        /// <summary>
+        /// The steam's own colour (linear): pale grey, far lighter than the plume's ash (0.05) and under the glare
+        /// threshold, so it reads as vapour against the night sky without blooming into a lamp.
+        /// </summary>
+        public Rgb Color { get; set; } = new(0.20f, 0.195f, 0.19f);
+
+        /// <summary>How opaque a puff is at its thickest.</summary>
+        public float Strength { get; set; } = 0.55f;
+
+        /// <summary>How fast a column climbs at its vent, world units a second.</summary>
+        public float Rise { get; set; } = 7.5f;
+
+        /// <summary>How long a puff lives, seconds.</summary>
+        public float Life { get; set; } = 12f;
+
+        /// <summary>A puff's half-size at birth, world units (it grows about threefold).</summary>
+        public float Size { get; set; } = 3.6f;
+
+        /// <summary>How strongly the crust lights a young puff from below, as a multiple of the lava's cool colour.</summary>
+        public float Glow { get; set; } = 0.9f;
     }
 
     /// <summary>

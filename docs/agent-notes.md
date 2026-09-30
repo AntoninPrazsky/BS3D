@@ -7276,3 +7276,4 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-30 — #679 sopka: pára z fumarol a balvany na lávovém poli — desktop, Claude Code (bs3d-78)
 
 - **Beru #679** (z auditu #671). Reference obou modelů (fumaroly, lávové pole s bloky), pak `VolcanoBackdrop`/`Volcano.fx`/nový částicový průchod páry, výsadba kamenů. Soubory: `BS3DLibs/Prazsky.Core/Render/Scenes/VolcanoBackdrop.cs`, `Config/VolcanoSceneConfig.cs`, shadery sopky.
+- **#679 krok 1 (pára) na mainu, `shipped-awaiting-verdict`.** 9 fumarol na lávovém poli, technika `Steam` v `LavaFountain.fx` (vlastní buffer 1800 obláčků, pixel shader oblaku). ⚠ První verze byly chomáčky, pak plovoucí mraky — sloup = úzký u průduchu, široký nahoře (`Size` 3,6, `Rise` 7,5, `Life` 12). Cena: 3200 obláčků +0,43/+0,12 ms, 1800 hustších +0,25/+0,07 (High/Low, Breach 1080p). Zbývá: bloky/bomby a struskové kužely (sopka nemá výsadbu).

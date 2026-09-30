@@ -71,6 +71,16 @@ namespace Prazsky.Core.Render
         //three of them every frame (BestPractices.md §1).
         private readonly EffectTechnique _plumeTechnique, _jetTechnique, _glowTechnique;
 
+        //The steam of the fumaroles on the lava field (#679): its own billboard buffer through LavaFountain.fx's
+        //Steam technique, and the vents it rises from
+        private const int MAX_FUMAROLES = 12;
+        private readonly EffectTechnique _steamTechnique;
+        private VertexBuffer _steamVertexBuffer;
+        private IndexBuffer _steamIndexBuffer;
+        private int _steamQuads;
+        private readonly Vector3[] _fumarolePosition = new Vector3[MAX_FUMAROLES];
+        private readonly float[] _fumaroleStrength = new float[MAX_FUMAROLES];
+
         //The drifting ash, on the snowfall's machinery in its own shader (Ash.fx says why it is not Snow.fx).
         private readonly Effect _ashEffect;
         private VertexBuffer _ashVertexBuffer;
@@ -102,6 +112,7 @@ namespace Prazsky.Core.Render
 
             _fountainEffect = content.Load<Effect>("Shaders/LavaFountain");
             _plumeTechnique = _fountainEffect.Techniques["Plume"];
+            _steamTechnique = _fountainEffect.Techniques["Steam"];
             _jetTechnique = _fountainEffect.Techniques["Fountain"];
             _glowTechnique = _fountainEffect.Techniques["Glow"];
             _ashEffect = content.Load<Effect>("Shaders/Ash");
@@ -181,6 +192,13 @@ namespace Prazsky.Core.Render
             _fountainEffect.Parameters["PlumeColor"].SetValue(fountains.PlumeColor.ToVector3());
             _fountainEffect.Parameters["PlumeStrength"].SetValue(fountains.PlumeStrength);
             _fountainEffect.Parameters["PlumeGlow"].SetValue(fountains.PlumeGlow);
+            SteamConfig steamLook = volcano.Steam;
+            _fountainEffect.Parameters["SteamColor"].SetValue(steamLook.Color.ToVector3());
+            _fountainEffect.Parameters["SteamStrength"].SetValue(steamLook.Strength);
+            _fountainEffect.Parameters["SteamRise"].SetValue(steamLook.Rise);
+            _fountainEffect.Parameters["SteamLife"].SetValue(steamLook.Life);
+            _fountainEffect.Parameters["SteamSize"].SetValue(steamLook.Size);
+            _fountainEffect.Parameters["SteamGlow"].SetValue(steamLook.Glow);
 
             //The plume's own figures are derived from the jets' rather than being four more dials: a column
             //rises about a third as fast as a blob is thrown, lives long enough to leave the frame, and its
@@ -302,6 +320,30 @@ namespace Prazsky.Core.Render
             Services.BuildBillboardParticles(total, 8831, ref _fountainVertexBuffer, ref _fountainIndexBuffer);
             Services.BuildBillboardParticles(Math.Clamp(volcano.Ash.FlakeCount, 0, MAX_BILLBOARD_PARTICLES), 6491,
                 ref _ashVertexBuffer, ref _ashIndexBuffer);
+
+            //--- The fumaroles (#679): vents at rolled bearings and distances on the plain, never on the island, in
+            //the cone's crater or on a lava river's line (river 0 is the one that passes the arena), each its own
+            //strength so the columns are not a row of equal chimneys
+            SteamConfig steam = volcano.Steam;
+            Random steamRng = new(6790 + Services.SeedOffset);
+            int fumaroles = 0;
+            for (int tries = 0; fumaroles < Math.Clamp(steam.VentCount, 0, MAX_FUMAROLES) && tries < 200; tries++)
+            {
+                float bearing = (float)steamRng.NextDouble() * MathHelper.TwoPi;
+                float reach = MathHelper.Lerp(steam.NearestVent, steam.FarthestVent, MathF.Sqrt((float)steamRng.NextDouble()));
+                float x = MathF.Cos(bearing) * reach, z = MathF.Sin(bearing) * reach;
+                float strength = 0.6f + 0.4f * (float)steamRng.NextDouble();
+                if (Vector2.Distance(new Vector2(x, z), cone) < volcano.ConeRadius * 0.35f) continue;
+                if (DistanceToRiver(new Vector2(x, z), cone, _riverBearing[0]) < volcano.RiverWidth * 2.5f) continue;
+                _fumarolePosition[fumaroles] = new Vector3(x, GroundHeight(x, z) + 0.3f, z);
+                _fumaroleStrength[fumaroles] = strength;
+                fumaroles++;
+            }
+            _fountainEffect.Parameters["FumarolePosition"].SetValue(_fumarolePosition);
+            _fountainEffect.Parameters["FumaroleStrength"].SetValue(_fumaroleStrength);
+            _fountainEffect.Parameters["FumaroleCount"].SetValue(Math.Max(fumaroles, 1));
+            _steamQuads = fumaroles > 0 ? Math.Clamp(steam.ParticleCount, 0, MAX_BILLBOARD_PARTICLES) : 0;
+            Services.BuildBillboardParticles(_steamQuads, 6792, ref _steamVertexBuffer, ref _steamIndexBuffer);
         }
 
         /// <summary>
@@ -323,6 +365,15 @@ namespace Prazsky.Core.Render
             for (int pass = 0; pass < 4; pass++) b = (target - 2f * MathF.Sin(b * 3f)) / gullyCount;
 
             return b;
+        }
+
+        //How far a point stands from a river's line: the ray from the cone's axis along its bearing (#679's vents keep off it)
+        private static float DistanceToRiver(Vector2 point, Vector2 cone, float bearing)
+        {
+            Vector2 along = new(MathF.Cos(bearing), MathF.Sin(bearing));
+            Vector2 offset = point - cone;
+            float t = MathF.Max(Vector2.Dot(offset, along), 0f);
+            return Vector2.Distance(offset, along * t);
         }
 
         /// <summary><see cref="SceneRenderer.VolcanoGroundHeight"/>.</summary>
@@ -568,6 +619,19 @@ namespace Prazsky.Core.Render
             _graphicsDevice.SetVertexBuffer(_fountainVertexBuffer);
             _graphicsDevice.Indices = _fountainIndexBuffer;
 
+            //The fumaroles' steam first: nearer the ground and fainter than the plume, alpha-blended the same way
+            if (_steamQuads > 0 && _steamVertexBuffer != null && (Layers & VolcanoLayer.Plume) != 0)
+            {
+                _graphicsDevice.BlendState = BlendState.AlphaBlend;
+                _graphicsDevice.SetVertexBuffer(_steamVertexBuffer);
+                _graphicsDevice.Indices = _steamIndexBuffer;
+                _fountainEffect.CurrentTechnique = _steamTechnique;
+                _fountainEffect.CurrentTechnique.Passes[0].Apply();
+                _graphicsDevice.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, _steamQuads * 2);
+                _graphicsDevice.SetVertexBuffer(_fountainVertexBuffer);
+                _graphicsDevice.Indices = _fountainIndexBuffer;
+            }
+
             if (_plumeQuads > 0 && (Layers & VolcanoLayer.Plume) != 0)
             {
                 _graphicsDevice.BlendState = BlendState.AlphaBlend;
@@ -674,6 +738,8 @@ namespace Prazsky.Core.Render
             _fountainIndexBuffer?.Dispose();
             _ashVertexBuffer?.Dispose();
             _ashIndexBuffer?.Dispose();
+            _steamVertexBuffer?.Dispose();
+            _steamIndexBuffer?.Dispose();
         }
     }
 }

@@ -1237,6 +1237,23 @@ The scene had been tuned by eye through three stated misses and never against a 
 - **Measured against `main`** (desktop GPU — Ryzen 9 5900X / Radeon RX 6900 XT — Testbed, fixed camera, windowed 1600×900 at ssaa 4 = 23 Mpix, dome 9, `nopost nooverc`, `fpscap=400`, 18 s runs with the first four readings dropped, medians, alternating builds, shader sets `78ec3486` against the final one): **wide vantage** (`campos=90,30,140 camtarget=-45,40,-250`, the whole cone and the plume in frame) **10.0 → 11.1 ms**, `VolcanoReduced` 10.5; **play vantage** (`campos=0,-4,30 camtarget=0,-8,0`) **11.6 → 11.6** (11.56/11.68/11.53 against 11.68/11.59/11.59), `VolcanoReduced` **10.3** — cheaper than `main`, because the flows, the lake and the crust's Voronoi moved behind data branches that the old program paid on every pixel. **No APU figure yet**, the gap this section has named since #223; the reduced program is where it would be spent.
   - **⚠ Two of the thirty-two runs fell from ~11.7 to ~4.9 ms partway through**, one of each build, with nothing in their logs to say why — both discarded and re-run. Seen while the owner was working at the machine; a Testbed launched with PowerShell's `-WindowStyle Minimized` is *activated* (SW_SHOWMINIMIZED) and took keystrokes from whatever the owner was typing into, which is how the day's first contaminated runs were caught (`[balls]` and `[campin]` lines nobody scripted). Launched with `SW_SHOWMINNOACTIVE` through `CreateProcess` instead, it takes no focus and measured the same as a visible window (10.00 against 10.02 ms).
 
+### Fumaroles on the lava field (#679)
+
+The #671 audit found the field between the island and the cone an even black plain crossed by glowing lines. Everything on it was terrain shading or particles; nothing stood there. Every reference of an active lava field (`C:\Users\panrd\AI\sd\out\679-klein` and `679-zimage`) raises **white columns of steam from vents scattered across it**, glowing orange at the foot. Those references were a fumarole field, a single vent, an aa block field and spatter cones. The steam is the feature a player notices first, so it went in first.
+
+- **Where:** `SteamConfig.VentCount` (9) vents at rolled bearings, 48–230 from the arena (`NearestVent`/`FarthestVent`).
+  - None stands in the cone's crater or on the line of river 0, the flow that passes the arena.
+  - Each vent rolls its own strength (0.6–1), so the columns are not a row of equal chimneys.
+- **How it's drawn:** `LavaFountain.fx`'s `Steam` technique, over its own billboard buffer (`ParticleCount` 1800, each puff tied to one vent by its random).
+  - It is drawn before the plume and alpha-blended like it, premultiplied. It reuses the plume's pixel shader: a puff is the same lumpy sphere, only pale and slower.
+- **The column's shape:** it climbs on a saturating rise (the plume's lesson: a subtracted square sends puffs back down), leans downwind, and opens from the vent to three or four times its width.
+- **Colour:** `Color` (0.20 linear) sits under the glare threshold and far above the plume's ash (0.05). Young puffs are lit from below by `LavaCool × Glow` (0.9), fading with age.
+- **⚠ The first cut was wisps:** a 2.2-unit puff, rising 4.5 a second for 7 s, looked like cigarette smoke at a hundred units. Doubling the size then gave floating clouds with no column. What reads as a fumarole is tight at the vent and wide at the head: `Size` 3.6, `Rise` 7.5, `Life` 12.
+- **Cost:** measured in the Game at `level=Breach`, 1920×1080, `nocap`, two alternating runs against `main`.
+  - 3200 puffs cost **+0.43 ms at High and +0.12 at Low**: large overlapping billboards, pure fill.
+  - **1800 at a denser 0.55** photograph the same and cost **+0.25 / +0.07** (6.43 → 6.68 ms, 1.56 → 1.63).
+- **Not yet built:** the references' dark blocks and bombs on the crust and the small spatter cones. The volcano has no scatter pass today; that is the next step of #679.
+
 ## The storm
 
 The seventeenth `SceneKind` (#219): the arena hangs in open air among broken cumulus, with lightning breaking through the space between the cells. `StormClouds.fx` + `StormSceneConfig` (named nested groups — Clouds, Surface, Flash, Air — the named-groups shape; why it outlived the map editor's grid is under Space above), `scene=storm` on any command line, on the Game's scene menu and in its random pick; like every scene that once sat past the cycle's end, the editor reached it only by loading a level naming it until #380 put every scene on V.
