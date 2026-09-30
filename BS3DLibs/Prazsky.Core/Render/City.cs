@@ -34,9 +34,19 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// How many of <see cref="Buildings"/> are towers' boxes, the rest being cornices. What stands on a roof or reads
         /// a roofline (<see cref="CityRooftops"/>, the chapter intro's rooftop run) walks these alone: a cornice is a
-        /// slab round a roof, and dressed as a roof of its own it would stand a second set of dishes on the first.
+        /// slab laid over a roof, and dressed as a roof of its own it would stand a second set of dishes on the first.
         /// </summary>
         public int TowerCount { get; }
+
+        /// <summary>
+        /// How far above its own box a tower box's roof really stands (#678): the cornice is a solid slab over the whole
+        /// roof, its top <c>CORNICE_OVER_ROOF</c> above the tier's, so a crowned box's roof is that much higher and what
+        /// stands on it has to stand there, or its foot is buried in the stone. 0 for an uncrowned box.
+        /// </summary>
+        public float RoofRise(int towerBox) => _crowned[towerBox] ? CORNICE_OVER_ROOF : 0f;
+
+        //Which of the tower boxes wear a cornice, by index into Buildings
+        private readonly bool[] _crowned;
 
         /// <summary>
         /// The layout this city was built on, taken from its config at construction (#399). The street level
@@ -99,8 +109,9 @@ namespace Prazsky.Core.Render
         private const float SETBACK_CHANCE = 0.45f;
 
         //The cornice a stone tower is crowned with (#678's third step): how far it stands out from the wall, how tall it
-        //is, and how much of it rises over the roof as a parapet. A pitch of window is 1.7 across and 2.2 up, so the
-        //slab reads as a moulding a floor deep rather than as another storey.
+        //is, and how far its top stands over the tier's own roof. It is a solid slab over the whole roof, not a rim, so
+        //that is how much it RAISES the roof (RoofRise), not a parapet round it. A pitch of window is 1.7 across and 2.2
+        //up, so the slab reads as a moulding a floor deep rather than as another storey.
         private const float CORNICE_OUT = 0.5f, CORNICE_HEIGHT = 1.1f, CORNICE_OVER_ROOF = 0.4f;
 
         //City.fxh's facade kinds: the share of the rolls under which a tower wears the classic punched windows, and the
@@ -123,6 +134,7 @@ namespace Prazsky.Core.Render
             Random random = new(layout.Seed);
             List<ModelInstance> buildings = new();
             List<ModelInstance> cornices = new();
+            List<int> crowned = new();
 
             float buildable = layout.BlockPitch - layout.StreetWidth;
 
@@ -190,10 +202,11 @@ namespace Prazsky.Core.Render
 
                             //ITS KIND OF FACADE (#678), rolled here and carried to City.fxh in the instance's custom vector
                             //(x), which the city never used: it has no neighbour occlusion, and CityPS hands the lighting
-                            //the no-occlusion vector itself. It was rolled in the shader first, on the tower's centre, and a
-                            //copy of that roll here decided the cornices - and some stone towers came out bare. One roll in
-                            //one place is the only way the cornice and the windows under it cannot disagree. Every tier and
-                            //the cornices share it, so a tower is one kind and one tone from its foot to its parapet.
+                            //the no-occlusion vector itself. It was rolled in the shader first, on the tower's centre, with a
+                            //copy here deciding the cornices; the two agreed tower for tower when checked, but a copy on
+                            //each side of the CPU/GPU line stays right only while both are kept in step, and one roll in one
+                            //place cannot disagree at all. Every tier and the cornices share it, so a tower is one kind and
+                            //one tone from its foot to its cornice.
                             float kind = FacadeRoll(blockCenter.X + offsetX, blockCenter.Y + offsetZ);
                             Vector4 style = new(kind, 0f, 0f, 0f);
 
@@ -214,8 +227,8 @@ namespace Prazsky.Core.Render
                                 Matrix world = Matrix.CreateScale(tierX, tierTop - bottom, tierZ) * Matrix.CreateTranslation(center);
                                 buildings.Add(new ModelInstance(world, style));
 
-                                //CORNICES (#678's third step). A stone building ends in a moulded cornice and a parapet,
-                                //and a box ended in a knife edge: the one silhouette the play camera sees of every tower
+                                //CORNICES (#678's third step). A stone building ends in a moulded cornice, and a box ended
+                                //in a knife edge: the one silhouette the play camera sees of every tower
                                 //round the arena is its top against the sky. Only the towers of the classic punched
                                 //windows, and every tier of them, the way an Art Deco setback is finished at each step. A
                                 //slab wider than the tier: it has no windows of its own because it is shorter than two wall
@@ -224,6 +237,7 @@ namespace Prazsky.Core.Render
                                 if (kind < CLASSIC_FACADE_SHARE)
                                 {
                                     Vector3 cornice = new(center.X, tierTop + CORNICE_OVER_ROOF - CORNICE_HEIGHT * 0.5f, center.Z);
+                                    crowned.Add(buildings.Count - 1);
                                     cornices.Add(new ModelInstance(
                                         Matrix.CreateScale(tierX + 2f * CORNICE_OUT, CORNICE_HEIGHT, tierZ + 2f * CORNICE_OUT)
                                             * Matrix.CreateTranslation(cornice), new Vector4(kind, 1f, 0f, 0f)));
@@ -238,6 +252,8 @@ namespace Prazsky.Core.Render
                 }
 
             TowerCount = buildings.Count;
+            _crowned = new bool[TowerCount];
+            foreach (int box in crowned) _crowned[box] = true;
             buildings.AddRange(cornices);
             Buildings = buildings.ToArray();
 

@@ -42,9 +42,12 @@ namespace Prazsky.Core.Render
         //Apollo traverse had its landmark ones (House Rock, the Station 6 boulder on the North Massif's slope). Out to the
         //belt's crest and few, so they stay landmarks: at a 70-degree frustum a dozen or two stand in any one view.
         private const int LANDMARKS = 110;
-        private const float LANDMARK_NEAREST = 120f, LANDMARK_FARTHEST = 380f;
+        private const float LANDMARK_NEAREST = 120f;
 
-        /// <param name="height">The Moon's ground (<see cref="TerrainMirror.Moon"/>).</param>
+        /// <param name="height">The Moon's ground AS DRAWN: <see cref="TerrainMirror.Moon"/> across the grid's own triangles
+        /// (<see cref="TerrainMirror.OnGrid"/>). The exact field is not what the lens sees - the grid samples it every 3.34
+        /// units and the middle octave's rims are sharper than that - and a rock seated on the exact height floated up to
+        /// two units over a drawn rim or sank into a drawn bowl.</param>
         /// <param name="terrain">The plain's config: its crater cells, for the rim blocks, and its regolith greys.</param>
         public MoonPlanting(GraphicsDevice device, Func<float, float, float> height, MoonTerrainConfig terrain, int seed)
         {
@@ -120,7 +123,9 @@ namespace Prazsky.Core.Render
             for (int i = 0; i < LANDMARKS; i++)
             {
                 float a = (float)rng.NextDouble() * MathHelper.TwoPi;
-                float d = MathF.Sqrt(MathHelper.Lerp(LANDMARK_NEAREST * LANDMARK_NEAREST, LANDMARK_FARTHEST * LANDMARK_FARTHEST, (float)rng.NextDouble()));
+                //No farther than the crest: behind it the belt's back slope faces away from every camera the game has
+                float farthest = terrain.HighlandCrestRadius;
+                float d = MathF.Sqrt(MathHelper.Lerp(LANDMARK_NEAREST * LANDMARK_NEAREST, farthest * farthest, (float)rng.NextDouble()));
                 Lay(blockInstances, MathF.Cos(a) * d, MathF.Sin(a) * d, MathHelper.Lerp(3f, 8f, MathF.Pow((float)rng.NextDouble(), 2f)), 0.25f);
             }
 

@@ -434,8 +434,9 @@ float FormationSdf(float3 p, float k)
 //stalagmite under it - is the one formation that spans the whole frame from the water to the ceiling, so a few of
 //them stand the cave up: pale flowstone at the waist where the two halves met, flared into the ceiling and into
 //the river, ringed with drip. Between 0.46 and 0.7 of the cave's radius, clear of the air over the arena, on the
-//golden angle so no two line up; none stands on the play camera's line of sight behind the cluster (the nearest
-//is 25 degrees off it), where a pillar would stand in the one place the player has to read.
+//golden angle so no two line up. From the gun's starting bearing none stands behind the cluster (the nearest is
+//25 degrees off that line of sight); the gun orbits the whole circle, so each passes behind it at some bearing, the
+//way the crystals and the cave wall do.
 #define COLUMN_COUNT 6
 
 float2 ColumnAxis(float k)
