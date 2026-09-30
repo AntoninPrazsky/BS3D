@@ -245,6 +245,23 @@ float WindowSpan(float x, float a, float b, float footprint)
     return saturate((min(x + 0.5 * footprint, b) - max(x - 0.5 * footprint, a)) / max(footprint, 1e-4));
 }
 
+//A per-building roll on an INTEGER hash, 0..1. Hash21 repeats exactly every 50 cells in x and 100 in y on
+//integer input (#674: frac(p * 123.34) is frac(p * 0.34)), and buildingId is an integer cell at 0.37 per world
+//unit, so a choice made on it comes round again every ~135 units across a city ~840 wide: six copies of the
+//same arrangement of kinds. This one mixes the two coordinates and a salt through a murmur-style finaliser
+//and has no such period over any range a city spans.
+float BuildingRoll(float2 buildingId, uint salt)
+{
+    uint2 q = asuint(int2(buildingId));
+    uint h = q.x * 0x8da6b343u ^ q.y * 0xd8163841u ^ salt * 0xcb1ab31fu;
+    h ^= h >> 16;
+    h *= 0x7feb352du;
+    h ^= h >> 15;
+    h *= 0x846ca68bu;
+    h ^= h >> 16;
+    return float(h >> 8) * (1.0 / 16777216.0);
+}
+
 //The city needs each building's own extent, not just world position, so windows can be laid out relative to
 //the tower (a consistent edge margin) instead of on a world grid that clips them at the corners. This VS
 //hands the pixel shader the offset from the building's centre and the building's world size. The box is the
@@ -301,10 +318,29 @@ float4 CityPS(CityVSOutput input) : COLOR
     //Roofs and the ground faces get no windows
     float vertical = 1 - step(0.5, abs(worldNormal.y));
 
+    //The building this facade belongs to, taken from the tower's own centre so it is one value across the
+    //whole tower (neon hue per tower, and a window pattern that belongs to the building not the world grid).
+    //Every setback tier of a tower stands on its centre (City.cs, #678), so a tower's tiers are one building.
+    float2 buildingId = floor((input.WorldPosition.xz - input.PosFromCenter.xz) * 0.37);
+
+    //ITS KIND OF FACADE (#678's second step). Every tower wore the same punched windows, so the city was one
+    //building ~1800 times over; the #671 audit's references draw a downtown of kinds. Half keep the punched wall
+    //the config authors; the rest are a GLASS CURTAIN WALL (windows filling the cell, a thin mullion between),
+    //RIBBON WINDOWS (a continuous band of glass along every floor) or PIERS (tall narrow windows between deep
+    //vertical fins). The kind is the tower's, so it holds across all its faces and tiers; everything below reads
+    //`fill` and `pitch` where it read the config's figures, so the frames, sills, reveals, lit share and the
+    //distance fade all follow the kind with no second path. Rolled on BuildingRoll, not Hash21, whose period
+    //would lay the kinds out in the same arrangement six times across the city.
+    float facadeKind = BuildingRoll(buildingId, 678u);
+    float2 fill = float2(WindowFillX, WindowFillY);
+    float2 pitch = float2(WindowPitchX, WindowPitchY);
+    fill = facadeKind < 0.5 ? fill : (facadeKind < 0.68 ? float2(0.9, 0.84) : (facadeKind < 0.84 ? float2(0.97, 0.5) : float2(0.34, 0.88)));
+    pitch.x *= facadeKind < 0.5 ? 1.0 : (facadeKind < 0.68 ? 0.85 : (facadeKind < 0.84 ? 1.0 : 0.8));
+
     //Interior left for glass after the wall margin, the whole windows that fit at the target pitch, and the
     //per-building pitch that fills the interior evenly (kept near the target, so it still reads natural).
     float2 interior = halfSize - WindowMargin;
-    float2 count = floor(interior * 2.0 / float2(WindowPitchX, WindowPitchY) + 0.5);
+    float2 count = floor(interior * 2.0 / pitch + 0.5);
     float hasGrid = step(1.0, count.x) * step(1.0, count.y) * vertical;
     float2 cellPitch = (interior * 2.0) / max(count, 1.0);
 
@@ -318,16 +354,13 @@ float4 CityPS(CityVSOutput input) : COLOR
     float2 footprint = (abs(ddx(posFromCenter)) + abs(ddy(posFromCenter))) / cellPitch;
     float resolvable = saturate(1 - max(footprint.x, footprint.y));
 
-    float2 shape = smoothstep(float2(WindowFillX, WindowFillY) + footprint, float2(WindowFillX, WindowFillY) - footprint, withinCell);
+    float2 shape = smoothstep(fill + footprint, fill - footprint, withinCell);
 
     //No glass in the wall margin outside the interior (the cut lands in wall, so it needs no smoothing)
     float2 inside = step(abs(posFromCenter), interior);
     float window = shape.x * shape.y * hasGrid * inside.x * inside.y;
 
-    //The building this facade belongs to, taken from the tower's own centre so it is one value across the
-    //whole tower (neon hue per tower, and a window pattern that belongs to the building not the world grid)
     float facadeY = input.WorldPosition.y;
-    float2 buildingId = floor((input.WorldPosition.xz - input.PosFromCenter.xz) * 0.37);
     float2 windowId = cell + buildingId * 101.0;
 
     //A window does not decide once and for all — SOME windows (#619). A restless few keep their own rhythm,
@@ -354,14 +387,14 @@ float4 CityPS(CityVSOutput input) : COLOR
     float3 lamp = lerp(WindowWarm, WindowCool, step(0.5, Hash21(cell * 1.7 + 11.3)));
 
     //Fading to the average keeps a distant tower a dim glowing block instead of a flickering one
-    float coverage = lerp(WindowFillX * WindowFillY * WindowLitFraction * hasGrid * inside.x * inside.y, window * lit, resolvable);
+    float coverage = lerp(fill.x * fill.y * WindowLitFraction * hasGrid * inside.x * inside.y, window * lit, resolvable);
 
     //Where the facade is glass rather than plaster, which is what the material below is blended by. NOT the
     //emission's coverage: that one is multiplied by `lit`, and whether the lamp behind a pane happens to be
     //on says nothing about what the pane is made of -- a dark window is still the one part of the wall that
     //mirrors the sky. Faded to the windows' own area fraction at distance, the same band-limiting the
     //emission gets, so a far tower becomes one averaged material instead of aliasing between two.
-    float glass = lerp(WindowFillX * WindowFillY * hasGrid * inside.x * inside.y, window, resolvable);
+    float glass = lerp(fill.x * fill.y * hasGrid * inside.x * inside.y, window, resolvable);
 
     //--- The surround, the sill, the reveal and the glazing bars (#435) ------------------------------------------
     //The moulding below was already here and was right in shape, and it still could not be seen: it was a tenth of
@@ -376,10 +409,10 @@ float4 CityPS(CityVSOutput input) : COLOR
     float signedCellY = (frac(grid.y) - 0.5) * 2.0;
     float windowGate = hasGrid * inside.x * inside.y * vertical;
 
-    float paneSpan = WindowSpan(withinCell.x, -WindowFillX, WindowFillX, cellFootprint.x)
-        * WindowSpan(signedCellY, -WindowFillY, WindowFillY, cellFootprint.y);
-    float surroundX = WindowFillX + WindowFrameWidth;
-    float surroundY = WindowFillY + WindowFrameWidth;
+    float paneSpan = WindowSpan(withinCell.x, -fill.x, fill.x, cellFootprint.x)
+        * WindowSpan(signedCellY, -fill.y, fill.y, cellFootprint.y);
+    float surroundX = fill.x + WindowFrameWidth;
+    float surroundY = fill.y + WindowFrameWidth;
     float surround = saturate(WindowSpan(withinCell.x, -surroundX, surroundX, cellFootprint.x)
         * WindowSpan(signedCellY, -surroundY, surroundY, cellFootprint.y) - paneSpan) * windowGate;
 
@@ -390,13 +423,13 @@ float4 CityPS(CityVSOutput input) : COLOR
     float sill = sillAcross * WindowSpan(signedCellY, sillBottom, sillTop, cellFootprint.y) * windowGate;
     float sillShade = sillAcross * WindowSpan(signedCellY, sillBottom - WindowSillShadow / halfCell.y, sillBottom, cellFootprint.y) * windowGate;
 
-    float reveal = WindowSpan(withinCell.x, -WindowFillX, WindowFillX, cellFootprint.x)
-        * WindowSpan(signedCellY, WindowFillY - WindowRevealDepth / halfCell.y, WindowFillY, cellFootprint.y) * windowGate;
+    float reveal = WindowSpan(withinCell.x, -fill.x, fill.x, cellFootprint.x)
+        * WindowSpan(signedCellY, fill.y - WindowRevealDepth / halfCell.y, fill.y, cellFootprint.y) * windowGate;
 
     //One upright down the middle and one rail a third of the way up, the way a sash window is divided
     float barHalfX = 0.5 * WindowBarWidth / halfCell.x;
     float barHalfY = 0.5 * WindowBarWidth / halfCell.y;
-    float railY = WindowFillY * 0.33;
+    float railY = fill.y * 0.33;
     float bars = saturate(WindowSpan(withinCell.x, -barHalfX, barHalfX, cellFootprint.x)
         + WindowSpan(signedCellY, railY - barHalfY, railY + barHalfY, cellFootprint.y)) * paneSpan * windowGate;
 
@@ -413,13 +446,13 @@ float4 CityPS(CityVSOutput input) : COLOR
     //WindowFrameProfile returns (.x height, .y slope, .z crestTop): the height tilts the normal, the crest
     //mask picks out the flat fillet's top to be lightened, and the slope carries the flank shading. The two
     //axes are gated by each other's pane span so the four pieces meet as one ring per window, never a grid.
-    float3 frameX = WindowFrameProfile(withinCell.x, WindowFillX, WindowFrameWidth, footprint.x);
-    float3 frameY = WindowFrameProfile(withinCell.y, WindowFillY, WindowFrameWidth, footprint.y);
+    float3 frameX = WindowFrameProfile(withinCell.x, fill.x, WindowFrameWidth, footprint.x);
+    float3 frameY = WindowFrameProfile(withinCell.y, fill.y, WindowFrameWidth, footprint.y);
 
     //The cross-axis span of one window plus its frame: 1 inside, softening to 0 across one pixel at the
     //pane's outer edge, so the bead stops where the wall between windows begins.
-    float paneSpanX = 1.0 - smoothstep(WindowFillX + WindowFrameWidth - footprint.x, WindowFillX + WindowFrameWidth + footprint.x, withinCell.x);
-    float paneSpanY = 1.0 - smoothstep(WindowFillY + WindowFrameWidth - footprint.y, WindowFillY + WindowFrameWidth + footprint.y, withinCell.y);
+    float paneSpanX = 1.0 - smoothstep(fill.x + WindowFrameWidth - footprint.x, fill.x + WindowFrameWidth + footprint.x, withinCell.x);
+    float paneSpanY = 1.0 - smoothstep(fill.y + WindowFrameWidth - footprint.y, fill.y + WindowFrameWidth + footprint.y, withinCell.y);
 
     //Side beads (height/slope/crest on X) exist only within the pane's vertical span; head/sill (on Y) only
     //within its horizontal span. The two never run past the pane, so they form a ring, not a grid.
@@ -444,8 +477,8 @@ float4 CityPS(CityVSOutput input) : COLOR
         float2 offsetDir = sunOnFacade / sunLen;
         //Project the bead's height along the sun direction: taller trim throws a longer shadow.
         float2 offsetCells = offsetDir * WindowFrameHeight * 1.7 / cellPitch;
-        float3 ssX = WindowFrameProfile(withinCell.x - offsetCells.x, WindowFillX, WindowFrameWidth, footprint.x);
-        float3 ssY = WindowFrameProfile(withinCell.y - offsetCells.y, WindowFillY, WindowFrameWidth, footprint.y);
+        float3 ssX = WindowFrameProfile(withinCell.x - offsetCells.x, fill.x, WindowFrameWidth, footprint.x);
+        float3 ssY = WindowFrameProfile(withinCell.y - offsetCells.y, fill.y, WindowFrameWidth, footprint.y);
         float shadowBead = saturate(max(ssX.x * paneSpanY, ssY.x * paneSpanX)) * (1.0 - glass) * hasGrid * inside.x * inside.y * vertical;
         //Only the wall in the moulding's lee is shadowed, not the moulding itself, and not the glass.
         shadowBead *= (1.0 - frameBead) * (1.0 - glass);
