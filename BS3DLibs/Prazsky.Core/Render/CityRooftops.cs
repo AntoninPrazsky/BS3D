@@ -158,9 +158,10 @@ namespace Prazsky.Core.Render
 
             RooftopConfig roof = config.Rooftops;
 
-            foreach (ModelInstance building in city.Buildings)
+            //The towers alone: the cornices after them are slabs round roofs, not roofs (City.TowerCount)
+            for (int b = 0; b < city.TowerCount; b++)
             {
-                Matrix box = building.World;
+                Matrix box = city.Buildings[b].World;
                 Vector3 centre = new(box.M41, box.M42, box.M43);
                 float halfX = box.M11 * 0.5f, halfZ = box.M33 * 0.5f;
                 float roofY = centre.Y + box.M22 * 0.5f;

@@ -245,23 +245,6 @@ float WindowSpan(float x, float a, float b, float footprint)
     return saturate((min(x + 0.5 * footprint, b) - max(x - 0.5 * footprint, a)) / max(footprint, 1e-4));
 }
 
-//A per-building roll on an INTEGER hash, 0..1. Hash21 repeats exactly every 50 cells in x and 100 in y on
-//integer input (#674: frac(p * 123.34) is frac(p * 0.34)), and buildingId is an integer cell at 0.37 per world
-//unit, so a choice made on it comes round again every ~135 units across a city ~840 wide: six copies of the
-//same arrangement of kinds. This one mixes the two coordinates and a salt through a murmur-style finaliser
-//and has no such period over any range a city spans.
-float BuildingRoll(float2 buildingId, uint salt)
-{
-    uint2 q = asuint(int2(buildingId));
-    uint h = q.x * 0x8da6b343u ^ q.y * 0xd8163841u ^ salt * 0xcb1ab31fu;
-    h ^= h >> 16;
-    h *= 0x7feb352du;
-    h ^= h >> 15;
-    h *= 0x846ca68bu;
-    h ^= h >> 16;
-    return float(h >> 8) * (1.0 / 16777216.0);
-}
-
 //The city needs each building's own extent, not just world position, so windows can be laid out relative to
 //the tower (a consistent edge margin) instead of on a world grid that clips them at the corners. This VS
 //hands the pixel shader the offset from the building's centre and the building's world size. The box is the
@@ -272,7 +255,9 @@ struct CityVSOutput
     float4 Position : SV_POSITION;
     float3 WorldPosition : TEXCOORD0;
     float3 WorldNormal : TEXCOORD1;
-    float4 OcclusionData : TEXCOORD2;
+    //The instance's custom vector, which the city uses for itself (City.cs, #678): x is the tower's facade-kind roll,
+    //y is 1 on a cornice. The city has no neighbour occlusion, so CityPS hands the lighting the no-occlusion vector.
+    float4 Style : TEXCOORD2;
     float3 PosFromCenter : TEXCOORD3;
     float3 BuildingSize : TEXCOORD4;
 };
@@ -287,7 +272,7 @@ CityVSOutput CityVS(VertexShaderInput input, InstanceInput instance)
     output.WorldPosition = worldPosition.xyz;
     output.Position = mul(mul(worldPosition, View), Projection);
     output.WorldNormal = NormalToWorld(input.Normal, world);
-    output.OcclusionData = instance.Custom;
+    output.Style = instance.Custom;
 
     float3 center = mul(mul(float4(0, 0, 0, 1), Bone), world).xyz;
     output.PosFromCenter = worldPosition.xyz - center;
@@ -329,9 +314,11 @@ float4 CityPS(CityVSOutput input) : COLOR
     //RIBBON WINDOWS (a continuous band of glass along every floor) or PIERS (tall narrow windows between deep
     //vertical fins). The kind is the tower's, so it holds across all its faces and tiers; everything below reads
     //`fill` and `pitch` where it read the config's figures, so the frames, sills, reveals, lit share and the
-    //distance fade all follow the kind with no second path. Rolled on BuildingRoll, not Hash21, whose period
-    //would lay the kinds out in the same arrangement six times across the city.
-    float facadeKind = BuildingRoll(buildingId, 678u);
+    //distance fade all follow the kind with no second path. The roll is the generator's (City.cs's FacadeRoll, an
+    //integer hash, carried in the instance's Style.x), so the cornice it crowns the stone towers with and the windows
+    //under it are one decision; rolled here first, the generator's copy of it disagreed on some towers and left stone
+    //ones bare.
+    float facadeKind = input.Style.x;
     float2 fill = float2(WindowFillX, WindowFillY);
     float2 pitch = float2(WindowPitchX, WindowPitchY);
     fill = facadeKind < 0.5 ? fill : (facadeKind < 0.68 ? float2(0.9, 0.84) : (facadeKind < 0.84 ? float2(0.97, 0.5) : float2(0.34, 0.88)));
@@ -617,13 +604,25 @@ float4 CityPS(CityVSOutput input) : COLOR
     //The recessed glass lies in the reveal's shadow along its head
     facadeColor *= 1.0 - 0.45 * reveal * glass;
 
+    //THE CORNICE'S MOULDING (#678's third step). A cornice is the wall's own stone facing the wall's own way, so
+    //drawn as wall it vanished into the blank band every tower keeps under its roof (WindowMargin) and read only
+    //where the sun happened to throw its shadow down the wall. A moulded cornice reads by its PROFILE: a lit crown
+    //where the lip turns up to the sky, a pale fascia, and the dark cove under the overhang that sees no sky. Painted
+    //across the slab's own height on its sides (City.cs flags the slab in Style.y; its top is a roof edge), and
+    //faded to its own mean of 1 once a pixel spans a third of a unit, the rule every feature here is held to.
+    float along = saturate(input.PosFromCenter.y / max(halfSize.y, 1e-3) * 0.5 + 0.5);   //0 at the underside, 1 on top
+    float cove = 1.0 - smoothstep(0.18, 0.42, along);
+    float crown = smoothstep(0.78, 0.86, along) * (1.0 - smoothstep(0.94, 1.0, along));
+    float moulding = lerp(1.0, 1.18 * (1.0 - 0.6 * cove) + 0.35 * crown, saturate(1.0 - facadeFootprint.y / 0.3));
+    facadeColor *= lerp(1.0, moulding, input.Style.y * vertical);
+
     //Two materials on one triangle, blended per pixel: rough plaster, and the glass of the windows in it.
     SurfaceSpecular surface;
     surface.Highlight = lerp(FacadeHighlight, WindowHighlightBoost, glass);
     surface.Environment = lerp(1.0, WindowReflectionBoost, glass);
     surface.Smoothness = lerp(FacadeSmoothness, WindowSmoothness, glass);
 
-    float4 shaded = ShadePixel(input.WorldPosition, shadingNormal, input.OcclusionData, float4(facadeColor, 1), 1, cavity, surface);
+    float4 shaded = ShadePixel(input.WorldPosition, shadingNormal, float4(0, 0, 0, 1), float4(facadeColor, 1), 1, cavity, surface);
 
     shaded.rgb += coverage * lampColor * CityWindowBrightness * windowFlicker;
     shaded.rgb += signEmission;

@@ -1306,7 +1306,7 @@ namespace Testbed
             _city = new City(_cityConfig, neon: _scene == SceneKind.NeonCity, ArenaIsland.RADIUS);
             _cityIsNeon = _scene == SceneKind.NeonCity;
 
-            Console.WriteLine($"[city] {_city.Buildings.Length} buildings, island radius {ArenaIsland.RADIUS}, floor at {ArenaIsland.TOP_Y}");
+            Console.WriteLine($"[city] {_city.TowerCount} buildings, {_city.Buildings.Length - _city.TowerCount} cornices, island radius {ArenaIsland.RADIUS}, floor at {ArenaIsland.TOP_Y}");
 
             _cityRenderer = new InstancedModelRenderer(GraphicsDevice, _unitBox, Vector3.One, _instancingEffect)
             {
