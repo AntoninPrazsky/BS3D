@@ -7283,3 +7283,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-30 — #676 jeskyně: krápníky na stropě — desktop, Claude Code (bs3d-78)
 
 - **Na mainu, `shipped-awaiting-verdict`.** 12 skupin po 5 krápnících (obrácený round cone SDF, sukovitý), trasované jen v obalových koulích (vzor krystalů), stínované jako skála stropu + záře řeky zespodu + pára z boku; mlha jako zeď. Nízká úroveň je nemá. ⚠ Cena: první verze +0,36/+0,40 ms (Low = čtvrtina snímku); hashe → nízkodiskrepanční posloupnosti, méně skupin a kroků, Low bez nich → High +0,18, Low 0 (Chest 1080p). Pozn.: „hvězdná obloha“ z auditu jsou z velké části záměrné světlušky (#507) — opraveno v komentáři #676.
+
+## 2026-09-30 — #678 město: ústupky věží (setbacks) — desktop, Claude Code (bs3d-78)
+
+- **Na mainu, `shipped-awaiting-verdict`, #678 zůstává otevřené (fasády různých druhů).** Věž nad 60 j. se s pravděpodobností 0,45 zvedá ve 2–3 patrech (každé 0,66–0,82 spodního, stejný vrchol); náhoda z vlastního semínka parcely, takže rozložení města beze změny; okna počítá `City.fxh` po krabici, žádná změna shaderu. Cena Bolt High v šumu / Low +0,11; Cabinet +0,17 / +0,14 ms.

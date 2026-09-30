@@ -84,6 +84,10 @@ namespace Prazsky.Core.Render
         //and the neon relight are wired too: InstancedModelRenderer.CityConfig pushes them to the shader on
         //every city draw, and the caller reads WindowBrightness/NeonLook for the day/neon switch.
 
+        //How tall a tower must be to rise in setback tiers, and how many of those that are tall enough do (#678)
+        private const float SETBACK_MIN_HEIGHT = 60f;
+        private const float SETBACK_CHANCE = 0.45f;
+
         /// <summary>The city has no neighboring-cell occlusion; the shader still expects the vector.</summary>
         private static readonly Vector4 NO_OCCLUSION = new(0f, 0f, 0f, 1f);
 
@@ -154,16 +158,39 @@ namespace Prazsky.Core.Render
                             float height = top - layout.BaseY;
                             if (height <= 1f) continue;
 
-                            Vector3 center = new(
-                                blockCenter.X + offsetX,
-                                layout.BaseY + height * 0.5f,
-                                blockCenter.Y + offsetZ);
+                            //SETBACKS (#678). Every tower was one box, so ~1800 buildings were one building at
+                            //different sizes; the #671 audit's references draw a downtown of kinds - slabs, stepped
+                            //Art Deco towers, a slender top on a broad base. A tall enough tower may rise in two or
+                            //three TIERS, each narrower than the one under it, to the same top: the skyline's heights
+                            //stay exactly what they were and only the silhouettes change. Rolled from the plot's own
+                            //seed, never the layout's generator, so every block, gap and height is the same city as
+                            //before. Each tier is its own box and lays out its own windows (City.fxh does it per box),
+                            //and all of a tower's tiers share its centre, so they share its hue and its pattern.
+                            Random shape = new(unchecked(layout.Seed * 31 + (blockX + 97) * 7919 + (blockZ + 89) * 104729 + sx * 13 + sz * 7));
+                            int tiers = height > SETBACK_MIN_HEIGHT && shape.NextDouble() < SETBACK_CHANCE
+                                ? (shape.NextDouble() < 0.4 ? 3 : 2) : 1;
 
-                            //Scale then translate: no rotation, so the box stays axis-aligned and its
-                            //normals survive the non-uniform scale
-                            Matrix world = Matrix.CreateScale(sizeX, height, sizeZ) * Matrix.CreateTranslation(center);
+                            float bottom = layout.BaseY, tierX = sizeX, tierZ = sizeZ;
+                            for (int tier = 0; tier < tiers; tier++)
+                            {
+                                float share = tiers == 2 ? 0.5f + 0.22f * (float)shape.NextDouble()
+                                    : tier == 0 ? 0.42f + 0.14f * (float)shape.NextDouble() : 0.5f + 0.2f * (float)shape.NextDouble();
+                                float tierTop = tier == tiers - 1 ? top : bottom + (top - bottom) * share;
 
-                            buildings.Add(new ModelInstance(world, NO_OCCLUSION));
+                                Vector3 center = new(
+                                    blockCenter.X + offsetX,
+                                    (bottom + tierTop) * 0.5f,
+                                    blockCenter.Y + offsetZ);
+
+                                //Scale then translate: no rotation, so the box stays axis-aligned and its
+                                //normals survive the non-uniform scale
+                                Matrix world = Matrix.CreateScale(tierX, tierTop - bottom, tierZ) * Matrix.CreateTranslation(center);
+                                buildings.Add(new ModelInstance(world, NO_OCCLUSION));
+
+                                bottom = tierTop;
+                                tierX *= 0.66f + 0.16f * (float)shape.NextDouble();
+                                tierZ *= 0.66f + 0.16f * (float)shape.NextDouble();
+                            }
                             BlockBuilt[(blockZ + layout.RadiusBlocks) * blocksPerSide + blockX + layout.RadiusBlocks] = true;
                         }
                 }
