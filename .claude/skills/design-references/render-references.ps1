@@ -100,10 +100,14 @@ if ($PromptFile) {
         if ($it.w) { $w = [int]$it.w }
         if ($it.h) { $h = [int]$it.h }
         if ($null -ne $it.seed) { $s = [int]$it.seed }
-        $init = $Init; $strength = $Strength
-        if ($it.init) { $init = [string]$it.init }
-        if ($null -ne $it.strength) { $strength = [double]$it.strength }
-        $items += [pscustomobject]@{ Name = $it.name; Prompt = $it.prompt; W = $w; H = $h; Seed = $s; Init = $init; Strength = $strength }
+        # NOT $init/$strength: PowerShell's variables are case-insensitive, so `$init = $Init` assigned the -Init
+        # parameter to itself and the entry's own init then OVERWROTE the parameter - every entry after an img2img one
+        # without an init of its own was rendered over the previous entry's picture (2026-09-30: two savanna text-to-
+        # image prompts came back as the desert's frame at 0.6, the sidecar saying so).
+        $entryInit = $Init; $entryStrength = $Strength
+        if ($it.init) { $entryInit = [string]$it.init }
+        if ($null -ne $it.strength) { $entryStrength = [double]$it.strength }
+        $items += [pscustomobject]@{ Name = $it.name; Prompt = $it.prompt; W = $w; H = $h; Seed = $s; Init = $entryInit; Strength = $entryStrength }
     }
 } else {
     $items += [pscustomobject]@{ Name = $Name; Prompt = $Prompt; W = $Width; H = $Height; Seed = $Seed; Init = $Init; Strength = $Strength }
