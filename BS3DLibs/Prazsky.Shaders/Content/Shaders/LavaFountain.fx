@@ -277,6 +277,71 @@ float4 PlumePS(PlumeVertexOutput input) : COLOR
     return float4(color * alpha, alpha);
 }
 
+//--- The steam (#679) -------------------------------------------------------------------------------------
+//The fumaroles on the lava field. The #671 audit found the field between the island and the cone an even black
+//plain crossed by glowing lines, where every reference of an active lava field (#679's, both models) raises white
+//plumes of steam from vents scattered across it - the one feature of the place a player would notice first. Each
+//puff belongs to one vent (its random picks which), climbs slowly and spreads, leans downwind, and is lit orange
+//from below near the ground by the cracks it rises out of and grey above. The plume's own pixel shader shades it:
+//a puff is the same lumpy sphere, only pale and slow. Premultiplied, under BlendState.AlphaBlend (#675's lesson).
+#define MAX_FUMAROLES 12
+float3 FumarolePosition[MAX_FUMAROLES];
+float FumaroleStrength[MAX_FUMAROLES];
+int FumaroleCount;
+float3 SteamColor;
+float SteamStrength;
+float SteamRise;
+float SteamLife;
+float SteamSize;
+float SteamGlow;
+
+PlumeVertexOutput SteamVS(FountainVertexInput input)
+{
+    PlumeVertexOutput output;
+
+    float3 b = input.Position.xyz;
+    float rand = input.Data.z;
+
+    float2 aim, shape;
+    ParticleRandoms(b, rand, aim, shape);
+
+    int vent = min((int)(frac(rand * 7.31 + b.x) * FumaroleCount), FumaroleCount - 1);
+    float strength = FumaroleStrength[vent];
+
+    float life = SteamLife * (0.7 + 0.6 * shape.x);
+    float t = frac((FountainTime + rand * 97.0) / life) * life;
+    float age = t / life;
+
+    //Up and slowing (a saturation, the plume's lesson: a subtracted square sends puffs back down), spreading as
+    //it climbs, and carried downwind more the higher it gets - a fumarole's column leans over and trails off
+    float rise = SteamRise * strength * t / (1.0 + 0.12 * t);
+    float swirlAngle = aim.x * 6.2831853 + t * (0.25 + 0.4 * shape.y);
+    //A column, not a cloud: tight at the vent and opening as it climbs, the head three or four times the foot
+    float swirlRadius = SteamSize * (0.3 + 0.7 * aim.y) * (0.2 + 1.9 * age);
+    float drift = t * 0.9 + t * t * 0.07;
+
+    float3 world = FumarolePosition[vent];
+    world.y += rise;
+    world.x += cos(swirlAngle) * swirlRadius + WindDirection.x * drift;
+    world.z += sin(swirlAngle) * swirlRadius + WindDirection.y * drift;
+
+    float size = SteamSize * strength * (0.3 + 2.2 * age) * (0.6 + 0.8 * shape.y);
+    world += CameraRight * (input.Data.x * size) + CameraUp * (input.Data.y * size);
+
+    output.Position = mul(mul(float4(world, 1.0), View), Projection);
+    output.Corner = input.Data.xy;
+    output.Seed = rand * 173.0 + 41.0;
+
+    //Lit from below by the glowing crust at its foot, and only there
+    output.Color = SteamColor;
+    output.Glow = LavaCool * SteamGlow * exp(-age * 5.0);
+
+    //Born thin at the vent, thickest a little way up, thinning out as it spreads
+    output.Alpha = SteamStrength * strength * smoothstep(0.0, 0.1, age) * (1.0 - smoothstep(0.45, 1.0, age));
+
+    return output;
+}
+
 //--- The glow ----------------------------------------------------------------------------------------------
 //The fountain's incandescent heart: one soft quad over the crater, additive, brighter in a burst. Every
 //eruption the #509 references drew has a blaze of light where the jets leave the vent - the air and the spray
@@ -320,6 +385,15 @@ technique Fountain
     {
         VertexShader = compile VS_SHADERMODEL FountainVS();
         PixelShader = compile PS_SHADERMODEL FountainPS();
+    }
+};
+
+technique Steam
+{
+    pass P0
+    {
+        VertexShader = compile VS_SHADERMODEL SteamVS();
+        PixelShader = compile PS_SHADERMODEL PlumePS();
     }
 };
 
