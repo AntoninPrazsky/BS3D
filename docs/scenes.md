@@ -4,6 +4,26 @@ The twenty backdrops the game, the Testbed and the map editor all share, plus th
 
 Part of the BS3D documentation. CLAUDE.md holds the project overview, the build commands, the ball grid and the repo-wide conventions, and says which of these documents covers what.
 
+## Auditing the scenes against references (#671)
+
+**The yardstick, 2026-09-30.** The owner watches three things: detail, the variety of objects, and realism with respect to light. Each is scored 0–3 for a scene, from a frame as the player sees it:
+- the play camera on the scene's own chapter, or the front end's orbit where it has none;
+- at `quality=high`, because the Low tier has no sun shadows.
+
+**3** means on par with a reference drawn at the same distance; **0** means nothing of what the reference shows. The gap is 9 minus the sum, weighed against exposure: how many campaign levels play there.
+
+The references are img2img over the Testbed's fixed game-mode pose (`campos=0,-7.4,36.2 camtarget=0,1.65,0`, strength 0.5, both models). The variety axis is also counted from the code: kinds × mesh variants of standing objects, per scene.
+
+⚠ An img2img prompt that names a place's contents gets them back. The references say how those contents read at the distance; whether they belong is a question about the place (a pure sand sea really is empty — #677).
+
+**The first audit**, ranked on #671:
+- the cavern read as a starry night sky (#676);
+- every city tower is one box (#678);
+- the volcano's lava field stands empty (#679);
+- the desert asks whether it should meet rock (#677).
+
+Next in line are the Moon's boulders and the mountains' rock bands. Eight scenes had no standing mesh at all: sea, Moon, polar, volcano, storm, space, dream and cavern.
+
 ## The setting, in one copy
 
 Every executable used to build the setting for itself, and #75 ended that the way #74 ended three copies of the frame's exit (see "Color management" in `docs/rendering.md`). The island's stone cap and concrete drum, the glass drain with its two gold beads and the dark pit shaft behind it (`Prazsky.Core.Render.ArenaIsland`, which owns every mesh, texture, renderer, world matrix and figure of them); the glass plate a cluster hangs from (`CeilingPlate`); the dome-derived light rig, its hemisphere scales, its tint strength and its overcast palette (`SkyLightRig`); a scene's own point lights (`SceneLights`); the drain's collision mesh (`Prazsky.BS3D.Physics.FunnelPhysics`); the ten look values of the cloud deck and the two applies that push them (`CloudField`, which already owned the field's shape); the forest's wood — the fifteen tree, boulder and stump meshes, the twenty-five renderers that dress them, the three matte materials, the encoded tints and the six instanced draws (twenty meshes, thirty renderers and eight draws since #462 added standing snags and fallen logs; `ForestScatterRenderer`, the last piece of #75, and the one whose absence had left two of the three executables drawing a bare clearing — see "The forest"); and every question anybody asks about a `SceneKind` — `IsSolidTerrainScene`, `OpenBelow`, `SceneCount`, `NextScene`, `SceneName`, `TryParseScene`, all statics on `SceneRenderer` now — are one copy each in the libraries. They had been identical value for value, which is not something a *shared* setting should ever have been able to be, and the duplication had already cost twice: the forest was missing from **both** hand-kept `IsSolidTerrainScene` lists (below), and the seven-of-eleven scene cycle was a bare `% 7` in two files.
