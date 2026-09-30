@@ -303,9 +303,10 @@ namespace BS3D.Effects
             var tops = new List<float>();
             float low = MathF.Min(start, end) - pitch, high = MathF.Max(start, end) + pitch;
 
-            foreach (ModelInstance building in city.Buildings)
+            //The towers alone: a cornice's top is its tower's roof and a parapet's height over it (City.TowerCount)
+            for (int b = 0; b < city.TowerCount; b++)
             {
-                Matrix world = building.World;
+                Matrix world = city.Buildings[b].World;
                 float x = alongZ ? world.M41 : world.M43;
                 float along = alongZ ? world.M43 : world.M41;
 

@@ -311,18 +311,26 @@ Per scene (`LookFor`, `ShapeFor`, `ReliefFor`, `DressingFor`):
   - `level=Bolt`: High within noise (4.88 → 4.89 ms), Low +0.11.
   - `level=Cabinet`: High +0.17, Low +0.14.
 
-**Facade kinds (#678's second step).** The setbacks gave the skyline shapes, and every face still wore the same punched window. `CityPS` now rolls a kind per tower. The roll is taken on the tower's `buildingId`, so all its faces and all its setback tiers share it.
+**Facade kinds (#678's second step).** The setbacks gave the skyline shapes, and every face still wore the same punched window. Each tower now has a kind of facade. The generator rolls it once per tower and carries it to `CityPS` in the instance's custom vector (`Style.x`; the city has no neighbour occlusion, so `CityPS` hands the lighting the no-occlusion vector itself). All the tower's faces, its setback tiers and its cornice share the roll.
 
 - **Classic punched windows** (half the towers): the config's `WindowFillX`/`WindowFillY` and pitch, as before.
 - **Glass curtain wall** (18 %): panes filling 0.9 × 0.84 of the cell at 0.85 of the pitch, so the frame between them reads as a grid of mullions.
 - **Ribbon windows** (16 %): 0.97 across and 0.5 up, a continuous band of glass along every floor.
 - **Piers** (16 %): 0.34 × 0.88 at 0.8 of the pitch, tall narrow windows between deep vertical fins.
 - **One path:** everything downstream (the frames, sills, reveals, bars, the lit share and the distance fade) reads the kind's `fill` and `pitch` where it read the config's figures.
-- **The roll is an integer hash** (`BuildingRoll`), not `Hash21`. On integer input `Hash21` repeats exactly every 50 cells in x and 100 in y (#674), which at `buildingId`'s 0.37 cells per unit is every ~135 units: six copies of the same arrangement of kinds across a city ~840 wide. The other per-building rolls (the facade's tone, the neon hue, the sign band) still use `Hash21` and share that period; that is #674's to fix.
+- **The roll is an integer hash** (`City.FacadeRoll`, a murmur finaliser over the tower's centre at 0.37 cells per unit), not `Hash21`. On integer input `Hash21` repeats exactly every 50 cells in x and 100 in y (#674), which at that scale is every ~135 units: six copies of the same arrangement of kinds across a city ~840 wide. The other per-building rolls (the facade's tone, the neon hue, the sign band) still use `Hash21` in the shader and share that period; that is #674's to fix.
+- **The roll moved out of the shader with the cornices.** It was rolled in `CityPS` first, and the generator took a copy of it to know which towers to crown. The two agreed tower for tower when the shader tinted every classic tower red. Even so, a stone tower seen from above showed no cornice, and a copy that has to be proved right tower by tower is the wrong design, so there is now one roll in one place.
 - **Cost:** the Game, 1920×1080, `nocap`, two alternating runs against `main`.
   - `level=Bolt`: High +0.02–0.03 ms (4.887 → 4.911), Low within noise (+0.05 / −0.03)
   - `level=Cabinet`: High +0.05 (4.829 → 4.876), Low within noise (−0.02 / +0.01)
-- **Still open on #678:** a stone mid-rise's cornice. That is geometry (a slab wider than the tower, at its top), not paint.
+
+**Cornices (#678's third step).** A box ends in a knife edge, and the one silhouette the play camera sees of every tower round the arena is its top against the sky. A stone building ends in a moulded cornice.
+
+- **The geometry:** every tier of every classic-windowed tower is crowned with a slab `CORNICE_OUT` (0.5) wider than the tier on each side and `CORNICE_HEIGHT` (1.1) tall, rising `CORNICE_OVER_ROOF` (0.4) over the roof as a parapet. That gives 1432 cornices on 2896 tower boxes in the day city. The cornices come after the towers in `City.Buildings`. `City.TowerCount` says where the towers end, and what stands on a roof or reads a roofline walks the towers alone (`CityRooftops`, the chapter intro's rooftop run); a cornice dressed as a roof would stand a second set of dishes on the first.
+- **The profile is painted, and it had to be.** The slab faces the wall's own way in the wall's own stone, so drawn as wall it vanished into the blank band every tower keeps under its roof (`WindowMargin`). It was visible only where the sun threw its shadow down the wall, and a stone tower seen from above looked bare. `Style.y` marks the slab. `CityPS` gives its sides a lit crown where the lip turns up to the sky, a pale fascia, and the dark cove under the overhang, faded to its own mean once a pixel spans a third of a unit. It is too short for windows (under two wall margins), so it draws as stone in its tower's own tone.
+- **Cost:** the Game, 1920×1080, `nocap`, two alternating runs against `main`.
+  - `level=Bolt`: High +0.08 ms (4.910 → 4.992), Low +0.03 / +0.06
+  - `level=Cabinet`: High +0.02 (4.870 → 4.889), Low **+0.12** (1.733 → 1.852, both runs), the one figure over the noise: at that frame, likely the per-frame cull and sort walking 1432 more boxes (not chased)
 
 ## The drain funnel (Testbed)
 

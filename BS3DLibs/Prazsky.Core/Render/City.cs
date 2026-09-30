@@ -25,8 +25,18 @@ namespace Prazsky.Core.Render
     /// </summary>
     public sealed class City
     {
-        /// <summary>Every building the generator made, in generator order. <see cref="Visible"/> is what to draw.</summary>
+        /// <summary>
+        /// Every box the generator made, in generator order: the towers' boxes (one per setback tier) first, then the
+        /// cornices (#678). <see cref="Visible"/> is what to draw; the first <see cref="TowerCount"/> are the towers.
+        /// </summary>
         public ModelInstance[] Buildings { get; }
+
+        /// <summary>
+        /// How many of <see cref="Buildings"/> are towers' boxes, the rest being cornices. What stands on a roof or reads
+        /// a roofline (<see cref="CityRooftops"/>, the chapter intro's rooftop run) walks these alone: a cornice is a
+        /// slab round a roof, and dressed as a roof of its own it would stand a second set of dishes on the first.
+        /// </summary>
+        public int TowerCount { get; }
 
         /// <summary>
         /// The layout this city was built on, taken from its config at construction (#399). The street level
@@ -88,8 +98,15 @@ namespace Prazsky.Core.Render
         private const float SETBACK_MIN_HEIGHT = 60f;
         private const float SETBACK_CHANCE = 0.45f;
 
-        /// <summary>The city has no neighboring-cell occlusion; the shader still expects the vector.</summary>
-        private static readonly Vector4 NO_OCCLUSION = new(0f, 0f, 0f, 1f);
+        //The cornice a stone tower is crowned with (#678's third step): how far it stands out from the wall, how tall it
+        //is, and how much of it rises over the roof as a parapet. A pitch of window is 1.7 across and 2.2 up, so the
+        //slab reads as a moulding a floor deep rather than as another storey.
+        private const float CORNICE_OUT = 0.5f, CORNICE_HEIGHT = 1.1f, CORNICE_OVER_ROOF = 0.4f;
+
+        //City.fxh's facade kinds: the share of the rolls under which a tower wears the classic punched windows, and the
+        //roll's salt.
+        private const float CLASSIC_FACADE_SHARE = 0.5f;
+        private const uint FACADE_SALT = 678u;
 
         /// <param name="config">The scene's own dials — both cities' layouts live on it (block pitch, radius,
         /// roofline, taper, base, and the layout seed: the same seed always gives the same city).</param>
@@ -105,6 +122,7 @@ namespace Prazsky.Core.Render
             CityLayout layout = config.LayoutFor(neon);
             Random random = new(layout.Seed);
             List<ModelInstance> buildings = new();
+            List<ModelInstance> cornices = new();
 
             float buildable = layout.BlockPitch - layout.StreetWidth;
 
@@ -170,6 +188,15 @@ namespace Prazsky.Core.Render
                             int tiers = height > SETBACK_MIN_HEIGHT && shape.NextDouble() < SETBACK_CHANCE
                                 ? (shape.NextDouble() < 0.4 ? 3 : 2) : 1;
 
+                            //ITS KIND OF FACADE (#678), rolled here and carried to City.fxh in the instance's custom vector
+                            //(x), which the city never used: it has no neighbour occlusion, and CityPS hands the lighting
+                            //the no-occlusion vector itself. It was rolled in the shader first, on the tower's centre, and a
+                            //copy of that roll here decided the cornices - and some stone towers came out bare. One roll in
+                            //one place is the only way the cornice and the windows under it cannot disagree. Every tier and
+                            //the cornices share it, so a tower is one kind and one tone from its foot to its parapet.
+                            float kind = FacadeRoll(blockCenter.X + offsetX, blockCenter.Y + offsetZ);
+                            Vector4 style = new(kind, 0f, 0f, 0f);
+
                             float bottom = layout.BaseY, tierX = sizeX, tierZ = sizeZ;
                             for (int tier = 0; tier < tiers; tier++)
                             {
@@ -185,7 +212,22 @@ namespace Prazsky.Core.Render
                                 //Scale then translate: no rotation, so the box stays axis-aligned and its
                                 //normals survive the non-uniform scale
                                 Matrix world = Matrix.CreateScale(tierX, tierTop - bottom, tierZ) * Matrix.CreateTranslation(center);
-                                buildings.Add(new ModelInstance(world, NO_OCCLUSION));
+                                buildings.Add(new ModelInstance(world, style));
+
+                                //CORNICES (#678's third step). A stone building ends in a moulded cornice and a parapet,
+                                //and a box ended in a knife edge: the one silhouette the play camera sees of every tower
+                                //round the arena is its top against the sky. Only the towers of the classic punched
+                                //windows, and every tier of them, the way an Art Deco setback is finished at each step. A
+                                //slab wider than the tier: it has no windows of its own because it is shorter than two wall
+                                //margins, so it draws as stone in the tower's own tone (it carries the tower's roll), moulded
+                                //by City.fxh (the 1 in y marks it), and its underside throws the sun's shadow down the wall.
+                                if (kind < CLASSIC_FACADE_SHARE)
+                                {
+                                    Vector3 cornice = new(center.X, tierTop + CORNICE_OVER_ROOF - CORNICE_HEIGHT * 0.5f, center.Z);
+                                    cornices.Add(new ModelInstance(
+                                        Matrix.CreateScale(tierX + 2f * CORNICE_OUT, CORNICE_HEIGHT, tierZ + 2f * CORNICE_OUT)
+                                            * Matrix.CreateTranslation(cornice), new Vector4(kind, 1f, 0f, 0f)));
+                                }
 
                                 bottom = tierTop;
                                 tierX *= 0.66f + 0.16f * (float)shape.NextDouble();
@@ -195,6 +237,8 @@ namespace Prazsky.Core.Render
                         }
                 }
 
+            TowerCount = buildings.Count;
+            buildings.AddRange(cornices);
             Buildings = buildings.ToArray();
 
             //The bounds the per-frame pass works from. A building's world matrix is CreateScale * translation
@@ -223,6 +267,28 @@ namespace Prazsky.Core.Render
             //edge and looking at the other. Beyond that everything lands in the last bucket, which is correct
             //— those are the farthest buildings and belong last.
             _bucketScale = DEPTH_BUCKETS / (2f * farthest);
+        }
+
+        /// <summary>
+        /// The facade-kind roll for the tower standing on this centre, 0..1 (#678): the centre at 0.37 cells a unit,
+        /// floored, through a murmur-style integer finaliser with the kind's salt. An integer hash and not a
+        /// <c>Hash21</c>, whose exact 50 × 100-cell period (#674) would lay the kinds out in the same arrangement six times
+        /// across the city; off the centre rather than the layout's generator, so the city itself is untouched.
+        /// </summary>
+        private static float FacadeRoll(float centreX, float centreZ)
+        {
+            unchecked
+            {
+                uint qx = (uint)(int)MathF.Floor(centreX * 0.37f);
+                uint qz = (uint)(int)MathF.Floor(centreZ * 0.37f);
+                uint h = qx * 0x8da6b343u ^ qz * 0xd8163841u ^ FACADE_SALT * 0xcb1ab31fu;
+                h ^= h >> 16;
+                h *= 0x7feb352du;
+                h ^= h >> 15;
+                h *= 0x846ca68bu;
+                h ^= h >> 16;
+                return (h >> 8) * (1f / 16777216f);
+            }
         }
 
         /// <summary>
