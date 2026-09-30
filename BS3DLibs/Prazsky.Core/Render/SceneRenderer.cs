@@ -1456,8 +1456,8 @@ namespace Prazsky.Core.Render
         /// <para>
         /// A no-op at the Low tier, at <see cref="ShadowConfig.Strength"/> 0, at <see cref="ShadowScale"/> 0,
         /// with the sun at or below
-        /// <see cref="SHADOW_MIN_SUN_HEIGHT"/>, in any scene with no fit, and — in the eight scenes whose
-        /// casters are all the host's — for a caller that passes no <paramref name="extraCasters"/> at all:
+        /// <see cref="SHADOW_MIN_SUN_HEIGHT"/>, in any scene with no fit, and — in the scenes whose casters are
+        /// all the host's (no <see cref="Backdrop.HasShadowCasters"/>) — for a caller that passes no <paramref name="extraCasters"/> at all:
         /// in every one of those each receiver is handed a strength of 0 and skips its taps, and no target is
         /// touched.
         /// </para>
@@ -1496,8 +1496,9 @@ namespace Prazsky.Core.Render
                 _instancedShadowReceiver.Disable();
             }
 
-            //Is there anything to cast at all? Only the savanna and the beach have planting of their
-            //own (Backdrop.HasShadowCasters); in the other eight the casters are all the host's, so a caller that registers
+            //Is there anything to cast at all? A scene with planting of its own casts it (Backdrop.HasShadowCasters -
+            //the savanna, the beach, the meadow, the volcano, the Moon's rocks and the rest); in the others the casters are
+            //all the host's, so a caller that registers
             //none of them — the MAP EDITOR, which draws no island, no gun and no wood — would render an empty
             //map and then pay nine taps a pixel to read that everything is lit. The editor is the caller this
             //spares, and it is the only one: both other executables always hand a callback in.

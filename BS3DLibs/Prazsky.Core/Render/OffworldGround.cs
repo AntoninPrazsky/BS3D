@@ -56,11 +56,18 @@ namespace Prazsky.Core.Render
             /// <summary>How deep the bowl is at its centre, with the clearing's ramp applied.</summary>
             public readonly float Depth;
 
-            public Crater(Vector3 centre, float radius, float depth)
+            /// <summary>
+            /// How young the crater is, 0..1: <c>CraterLayer</c>'s roll that makes a crater deep and its rim's ejecta
+            /// bright together ("young is deep AND bright"), and what <see cref="MoonPlanting"/> rings its lip with blocks by.
+            /// </summary>
+            public readonly float Youth;
+
+            public Crater(Vector3 centre, float radius, float depth, float youth)
             {
                 Centre = centre;
                 Radius = radius;
                 Depth = depth;
+                Youth = youth;
             }
         }
 
@@ -213,7 +220,7 @@ namespace Prazsky.Core.Render
                     float depth = MathHelper.Lerp(0.25f, 1f, rollB.Y * rollB.Y);
 
                     visit(new Crater(new Vector3(world.X, terrain.LevelY, world.Y), radius * MOON_CRATER_PERIOD,
-                        terrain.CraterAmplitude * ramp * MOON_CRATER_WEIGHT * depth));
+                        terrain.CraterAmplitude * ramp * MOON_CRATER_WEIGHT * depth, rollB.Y));
                 }
             }
         }
@@ -225,8 +232,8 @@ namespace Prazsky.Core.Render
         public static Vector3 PhobosDirection(MarsMoonsConfig moons) =>
             SceneRenderer.DirectionFromElevationAzimuth(moons.PhobosElevation, moons.PhobosAzimuth);
 
-        //MareBase, in both shaders: two octaves of gradient noise.
-        private static float MareBase(float x, float z)
+        //MareBase, in both shaders: two octaves of gradient noise. Internal for TerrainMirror.Moon, the exact ground.
+        internal static float MareBase(float x, float z)
         {
             Vector2 p = new(x, z);
 

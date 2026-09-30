@@ -140,8 +140,9 @@ namespace Prazsky.Core.Render
         /// One broken block of basalt: an icosahedron with every vertex pushed in or out at random and the whole squashed
         /// a little, shaded flat so every face is its own facet - the angular rubble of an aa flow. Each face wound
         /// clockwise seen from outside (CLAUDE.md, "Triangle winding"), which is checked per face against its centroid.
+        /// Internal for <see cref="MoonPlanting"/>, whose blocks are the same broken rock in the regolith's grey.
         /// </summary>
-        private static UploadedMesh BlockMesh(GraphicsDevice device, Random rng)
+        internal static UploadedMesh BlockMesh(GraphicsDevice device, Random rng)
         {
             float t = (1f + MathF.Sqrt(5f)) * 0.5f;
             Vector3[] corners =

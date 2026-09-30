@@ -8,8 +8,8 @@ namespace Prazsky.Core.Render
     /// <b>Every CPU mirror of a terrain shader's height field, in one place</b> (#590) — <c>Desert.fx</c>'s
     /// dunes, <c>Mountain.fx</c>'s range, <c>Outback.fx</c>'s plain with its monoliths, <c>Polar.fx</c>'s
     /// icesheet, <c>Savanna.fx</c>'s grassland, <c>Tropical.fx</c>'s beach, <c>Meadow.fx</c>'s hills,
-    /// <c>Forest.fx</c>'s floor (which <c>Aurora.fx</c> draws too, on its own terrain config) and
-    /// <c>Volcano.fx</c>'s cone. They are what the scatters plant on, what the scene lights stand on, and
+    /// <c>Forest.fx</c>'s floor (which <c>Aurora.fx</c> draws too, on its own terrain config),
+    /// <c>Volcano.fx</c>'s cone and, since the boulders, <c>Moon.fx</c>'s crater plain. They are what the scatters plant on, what the scene lights stand on, and
     /// since #559 what the chapter-intro shots keep a lens off. Copied line for line from the shader beside
     /// them, so a line here can be read against a line there, and built on <see cref="ShaderMath"/>'s one
     /// copy of the noise, the hash, <c>smoothstep</c> and <c>frac</c>. Static and config-taking: the renderer
@@ -614,6 +614,87 @@ namespace Prazsky.Core.Render
                 * ShaderMath.SmoothStep(volcano.ConeRadius * 1.15f, volcano.ConeRadius * 0.85f, r);
 
             return volcano.LevelY + ramp * (flank - crater - volcano.GullyDepth * rake * gullyBand);
+        }
+
+        #endregion
+
+        #region The Moon (Moon.fx: MoonHeight, CraterField, CraterLayer's height)
+
+        //Moon.fx's CraterField, octave by octave: the turn (Craters.fxh), the period, the seed, the chance and the weight
+        private static readonly (Vector2 Turn, float Period, float Seed, float Chance, float Weight)[] MOON_CRATER_OCTAVES =
+        {
+            (new Vector2(0.97437f, 0.22495f), 129f, 11.3f, 0.86f, 0.58f),
+            (new Vector2(0.75471f, 0.65606f), 49f, 37.7f, 0.82f, 0.29f),
+            (new Vector2(0.27564f, 0.96126f), 18.6f, 71.1f, 0.70f, 0.13f),
+        };
+
+        //Moon.fx's CRATER_MIN_RADIUS / CRATER_MAX_RADIUS
+        private const float MOON_CRATER_MIN_RADIUS = 0.12f, MOON_CRATER_MAX_RADIUS = 0.21f;
+
+        /// <summary>
+        /// The Moon's ground height at a world point: <c>Moon.fx</c>'s <c>MoonHeight</c> term for term — the clearing's
+        /// ramp, the three crater octaves the vertex shader displaces the grid by, the mare under them, the highland belt
+        /// the mare shapes and the curvature that closes the horizon. The pixel shader's fourth, 7.2-unit octave and its
+        /// regolith relief are normal-only (they shade, they never move the ground), so nothing of them is here. Until
+        /// this the Moon had only <see cref="OffworldGround.MoonCeiling"/>, a bound, and nothing could stand on it: the
+        /// one attempt at boulders (#508) was painted and read as shadows without rocks.
+        /// </summary>
+        public static float Moon(float x, float z, MoonTerrainConfig terrain)
+        {
+            float dist = MathF.Sqrt(x * x + z * z);
+            float ramp = ShaderMath.SmoothStep(terrain.ClearingRadius, terrain.ClearingRadius + terrain.ClearingTransition, dist);
+
+            float mare = OffworldGround.MareBase(x, z);
+
+            float field = 0f;
+            foreach ((Vector2 turn, float period, float seed, float chance, float weight) in MOON_CRATER_OCTAVES)
+            {
+                //TurnCrater, then the layer's own cell size - as a reciprocal, the way the shader writes it
+                Vector2 p = new Vector2(x * turn.X - z * turn.Y, x * turn.Y + z * turn.X) * (1f / period);
+                field += MoonCraterLayer(p, seed, chance) * weight;
+            }
+            field += mare * 0.18f;
+
+            float shape = MathHelper.Clamp(mare * 0.75f + 0.5f, 0f, 1f);
+            float belt = terrain.HighlandHeight
+                * ShaderMath.SmoothStep(terrain.HighlandInnerRadius, terrain.HighlandCrestRadius, dist)
+                * MathHelper.Lerp(terrain.HighlandSaddleFloor, 1f, shape);
+
+            return terrain.LevelY + terrain.CraterAmplitude * ramp * field + belt - terrain.Curvature * dist * dist;
+        }
+
+        /// <summary><c>Moon.fx</c>'s <c>CraterLayer</c>, its height alone (the ejecta and the shadow are colour, not ground).</summary>
+        private static float MoonCraterLayer(Vector2 p, float seed, float chance)
+        {
+            float cellX = MathF.Floor(p.X), cellY = MathF.Floor(p.Y);
+            float fx = p.X - cellX, fy = p.Y - cellY;
+
+            Vector2 rollA = ShaderMath.Hash22(cellX + seed, cellY + seed) * 0.5f + new Vector2(0.5f);
+            if (rollA.X > chance) return 0f;
+
+            //The seed and the roll's own offset added first: the compiler folds the two literals once CraterField's
+            //seed is inlined, the outback's lesson (#598)
+            Vector2 rollB = ShaderMath.Hash22(cellX + (seed + 47.9f), cellY + (seed + 47.9f)) * 0.5f + new Vector2(0.5f);
+            Vector2 rollC = ShaderMath.Hash22(cellX + (seed + 91.7f), cellY + (seed + 91.7f)) * 0.5f + new Vector2(0.5f);
+
+            float radius = MathHelper.Lerp(MOON_CRATER_MIN_RADIUS, MOON_CRATER_MAX_RADIUS, rollB.X * rollB.X);
+            float margin = radius * 1.6f;
+            float centreX = margin + rollC.X * (1f - 2f * margin);
+            float centreY = margin + rollC.Y * (1f - 2f * margin);
+
+            float dx = fx - centreX, dy = fy - centreY;
+            float d = MathF.Sqrt(dx * dx + dy * dy) / radius;
+            if (d >= 1.6f) return 0f;
+
+            float depth = MathHelper.Lerp(0.25f, 1f, rollB.Y * rollB.Y);
+            float cup = MathHelper.Clamp(1f - d * d, 0f, 1f);
+            float bowl = -cup * cup * depth;
+
+            float rimWidth = MathHelper.Lerp(0.18f, 0.42f, rollA.Y);
+            float rimT = (d - 1f) / rimWidth;
+            float rim = MathF.Exp(-rimT * rimT) * ShaderMath.SmoothStep(1.6f, 1.1f, d);
+
+            return bowl + rim * depth * 0.62f;
         }
 
         #endregion

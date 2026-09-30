@@ -24,7 +24,16 @@ namespace Prazsky.Core.Render
         /// <summary>
         /// Airless. There is no weather on the Moon, which is the one scene where that is a fact about the place rather than a choice about the look.
         /// </summary>
-        public MoonSceneConfig() => Weather = WeatherPreset.Clear;
+        public MoonSceneConfig()
+        {
+            Weather = WeatherPreset.Clear;
+
+            //The boulders' shadows, and the island's, at full strength: with no air there is no sky fill to lift them,
+            //and what is left in a lunar shadow is the terrain's own floor and the earthshine, which the receivers keep.
+            //Every other scene holds a shadow a little under 1 so it does not read as a hole; here a hole is what an
+            //Apollo photograph shows.
+            Shadows = new ShadowConfig(strength: 1f);
+        }
 
         /// <summary>
         /// The empty sky between the stars (linear). Even darker than space's void: the lunar sky has no
