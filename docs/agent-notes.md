@@ -7273,3 +7273,6 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-30 — #647 listnáče denního lesa (lízátka) — desktop, Claude Code (bs3d-78)
 
 - **Na mainu.** Listnáč lesa se staví jako strom louky (`MeadowTreeMesh.ForForest`): kmen, větvení, kopule 30 trsů (8×6), bez listových karet (les kreslí přes `InstancedModel.fx`). `TreeMesh.Trunk` je teď `IProceduralMesh` (celé větvené dřevo), soustružená koruna z laloků smazána. Cena: menu na lese High +0,09 ms, Low +0,06 ms. #647 zůstává otevřené se `shipped-awaiting-verdict`: vzhled stromů je majitelův verdikt.
+## 2026-09-30 — #679 sopka: pára z fumarol a balvany na lávovém poli — desktop, Claude Code (bs3d-78)
+
+- **Beru #679** (z auditu #671). Reference obou modelů (fumaroly, lávové pole s bloky), pak `VolcanoBackdrop`/`Volcano.fx`/nový částicový průchod páry, výsadba kamenů. Soubory: `BS3DLibs/Prazsky.Core/Render/Scenes/VolcanoBackdrop.cs`, `Config/VolcanoSceneConfig.cs`, shadery sopky.
