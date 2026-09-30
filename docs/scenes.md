@@ -310,7 +310,20 @@ Per scene (`LookFor`, `ShapeFor`, `ReliefFor`, `DressingFor`):
 - **Cost:** the Game, 1920×1080, `nocap`, two alternating runs against `main`.
   - `level=Bolt`: High within noise (4.88 → 4.89 ms), Low +0.11.
   - `level=Cabinet`: High +0.17, Low +0.14.
-- **Left open on #678:** facades of different kinds (curtain wall, stone mid-rise, horizontal bands). That needs `City.fxh` to read a style per tower.
+
+**Facade kinds (#678's second step).** The setbacks gave the skyline shapes, and every face still wore the same punched window. `CityPS` now rolls a kind per tower. The roll is taken on the tower's `buildingId`, so all its faces and all its setback tiers share it.
+
+- **Classic punched windows** (half the towers): the config's `WindowFillX`/`WindowFillY` and pitch, as before.
+- **Glass curtain wall** (18 %): panes filling 0.9 × 0.84 of the cell at 0.85 of the pitch, so the frame between them reads as a grid of mullions.
+- **Ribbon windows** (16 %): 0.97 across and 0.5 up, a continuous band of glass along every floor.
+- **Piers** (16 %): 0.34 × 0.88 at 0.8 of the pitch, tall narrow windows between deep vertical fins.
+- **One path:** everything downstream (the frames, sills, reveals, bars, the lit share and the distance fade) reads the kind's `fill` and `pitch` where it read the config's figures.
+- **The roll is an integer hash** (`BuildingRoll`), not `Hash21`. On integer input `Hash21` repeats exactly every 50 cells in x and 100 in y (#674), which at `buildingId`'s 0.37 cells per unit is every ~135 units: six copies of the same arrangement of kinds across a city ~840 wide. The other per-building rolls (the facade's tone, the neon hue, the sign band) still use `Hash21` and share that period; that is #674's to fix.
+- **Cost:** the Game, 1920×1080, `nocap`, two alternating runs against `main`.
+  - `level=Bolt`: High +0.02–0.03 ms (4.887 → 4.911), Low within noise (+0.05 / −0.03)
+  - `level=Cabinet`: High +0.05 (4.829 → 4.876), Low within noise (−0.02 / +0.01)
+- **Still open on #678:** a stone mid-rise's cornice. That is geometry (a slab wider than the tower, at its top), not paint.
+
 ## The drain funnel (Testbed)
 
 Where the recessed square used to be, the centre of the arena is a **glass funnel** the shot balls fall into: they run down the cone to a hole at the bottom and drop through it, below the platform, into the drop — where the kill plane removes them. It is what replaced the flat bath that just let balls pile up.

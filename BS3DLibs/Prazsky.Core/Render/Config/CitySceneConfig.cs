@@ -165,16 +165,23 @@ namespace Prazsky.Core.Render
         /// </summary>
         public float WindowReflectionBoost { get; set; } = 5f;
 
-        /// <summary>Horizontal spacing of a window column, in world units (target pitch).</summary>
+        /// <summary>
+        /// Horizontal spacing of a window column, in world units (target pitch). The curtain-wall and pier
+        /// facades narrow it by their own factor in City.fxh (#678).
+        /// </summary>
         public float WindowPitchX { get; set; } = 1.7f;
 
         /// <summary>Vertical spacing of a window row, in world units (target pitch).</summary>
         public float WindowPitchY { get; set; } = 2.2f;
 
-        /// <summary>How much of each cell is glass horizontally (rest is wall).</summary>
+        /// <summary>
+        /// How much of each cell is glass horizontally (rest is wall), on the towers that wear the classic
+        /// punched facade -- about half of them. The curtain-wall, ribbon and pier facades carry their own
+        /// figures in City.fxh (#678).
+        /// </summary>
         public float WindowFillX { get; set; } = 0.46f;
 
-        /// <summary>How much of each cell is glass vertically (rest is wall).</summary>
+        /// <summary>How much of each cell is glass vertically, on the classic facade (see <see cref="WindowFillX"/>).</summary>
         public float WindowFillY { get; set; } = 0.52f;
 
         /// <summary>
