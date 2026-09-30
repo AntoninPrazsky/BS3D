@@ -663,6 +663,35 @@ namespace Prazsky.Core.Render
             return terrain.LevelY + terrain.CraterAmplitude * ramp * field + belt - terrain.Curvature * dist * dist;
         }
 
+        /// <summary>
+        /// The height a terrain grid of <paramref name="gridN"/> vertices over <paramref name="extent"/> DRAWS at a point:
+        /// <paramref name="height"/> sampled at the grid's vertices and interpolated across its triangles, which is the
+        /// surface the depth buffer holds and so the one a thing standing on the ground has to stand on. A mirror is the
+        /// exact field; where the field is sharper than a cell (the Moon's middle crater octave, rims about a unit wide
+        /// on a 3.34-unit grid) the two part by up to a couple of units. The grids are recentred on the camera snapped to
+        /// whole cells (<c>TerrainPass</c>, <c>MoonBackdrop.Draw</c>), so a vertex always stands at the same world point
+        /// whatever the camera - a whole number of cells from the origin, plus half a cell when the vertex count is even -
+        /// and <c>TerrainGridCache</c> splits every cell along its (x+1, z)-(x, z+1) diagonal.
+        /// </summary>
+        public static float OnGrid(Func<float, float, float> height, int gridN, float extent, float x, float z)
+        {
+            float step = extent / (gridN - 1);
+            float phase = ShaderMath.Frac((gridN - 1) * 0.5f);
+            float gx = x / step - phase, gz = z / step - phase;
+            float ix = MathF.Floor(gx), iz = MathF.Floor(gz);
+            float u = gx - ix, v = gz - iz;
+            float x0 = (ix + phase) * step, z0 = (iz + phase) * step;
+
+            float hb = height(x0 + step, z0), hc = height(x0, z0 + step);
+            if (u + v <= 1f)
+            {
+                float ha = height(x0, z0);
+                return ha + u * (hb - ha) + v * (hc - ha);
+            }
+            float hd = height(x0 + step, z0 + step);
+            return hd + (1f - u) * (hc - hd) + (1f - v) * (hb - hd);
+        }
+
         /// <summary><c>Moon.fx</c>'s <c>CraterLayer</c>, its height alone (the ejecta and the shadow are colour, not ground).</summary>
         private static float MoonCraterLayer(Vector2 p, float seed, float chance)
         {

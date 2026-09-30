@@ -311,7 +311,7 @@ namespace BS3D.Effects
                 float along = alongZ ? world.M43 : world.M41;
 
                 if (MathF.Abs(x - across) < pitch && along >= low && along <= high)
-                    tops.Add(world.M42 + world.M22 * 0.5f);
+                    tops.Add(world.M42 + world.M22 * 0.5f + city.RoofRise(b));
             }
 
             tops.Sort();

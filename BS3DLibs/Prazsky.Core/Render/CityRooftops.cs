@@ -164,7 +164,7 @@ namespace Prazsky.Core.Render
                 Matrix box = city.Buildings[b].World;
                 Vector3 centre = new(box.M41, box.M42, box.M43);
                 float halfX = box.M11 * 0.5f, halfZ = box.M33 * 0.5f;
-                float roofY = centre.Y + box.M22 * 0.5f;
+                float roofY = centre.Y + box.M22 * 0.5f + city.RoofRise(b);   //on the cornice's slab where it has one
 
                 //The roofline this tower stands against: the generator's own line at this distance, so a
                 //tower counts as tall for standing out of its neighbourhood rather than for being near the middle

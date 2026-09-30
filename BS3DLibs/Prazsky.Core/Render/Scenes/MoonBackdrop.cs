@@ -86,8 +86,11 @@ namespace Prazsky.Core.Render
             ApplyMoonParameters();
 
             _plants = new PlantPass(_graphicsDevice, content);
-            _planting = new MoonPlanting(_graphicsDevice, (x, z) => TerrainMirror.Moon(x, z, _moonConfig.Terrain),
-                _moonConfig.Terrain, PLANTING_SEED + Services.SeedOffset);
+            //On the ground as the grid draws it, not the exact field (see MoonPlanting's height)
+            MoonTerrainConfig terrain = _moonConfig.Terrain;
+            _planting = new MoonPlanting(_graphicsDevice,
+                (x, z) => TerrainMirror.OnGrid((px, pz) => TerrainMirror.Moon(px, pz, terrain), MOON_GRID_N, MOON_EXTENT, x, z),
+                terrain, PLANTING_SEED + Services.SeedOffset);
         }
 
         /// <inheritdoc/>

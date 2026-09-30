@@ -316,8 +316,8 @@ float4 CityPS(CityVSOutput input) : COLOR
     //`fill` and `pitch` where it read the config's figures, so the frames, sills, reveals, lit share and the
     //distance fade all follow the kind with no second path. The roll is the generator's (City.cs's FacadeRoll, an
     //integer hash, carried in the instance's Style.x), so the cornice it crowns the stone towers with and the windows
-    //under it are one decision; rolled here first, the generator's copy of it disagreed on some towers and left stone
-    //ones bare.
+    //under it are one decision by construction. (Rolled here first, with a copy in the generator for the cornices; the
+    //two agreed when checked, but only as long as both were kept in step.)
     float facadeKind = input.Style.x;
     float2 fill = float2(WindowFillX, WindowFillY);
     float2 pitch = float2(WindowPitchX, WindowPitchY);
