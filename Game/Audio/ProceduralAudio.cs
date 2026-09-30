@@ -269,7 +269,7 @@ namespace BS3D.Audio
         //0.08 apiece summed to 0.8 of a burst, in the 1–2.6 kHz band the ear hears best: the very "chorus of
         //kettles" the level was chosen to avoid, and what the owner heard as the whoosh drowning the display
         //(#498). Four voices cap the stack: the fifth launch steals the oldest whistle, which in a barrage is
-        //the one nobody can pick out anyway, and four at LAUNCH_LEVEL sum to what ONE old whistle was.
+        //the one nobody can pick out anyway, and four at LAUNCH_LEVEL sum to well under what ONE old whistle was.
         private const int LAUNCH_VOICES = 4;
 
         //A launch heard from the crowd, not the pad (#498): 0.08 was already "far under the report", and with
