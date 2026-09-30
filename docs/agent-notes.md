@@ -7291,3 +7291,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-09-30 — #678 město: druhy fasád — desktop, Claude Code (bs3d-78)
 
 - **Na mainu, `shipped-awaiting-verdict`, #678 zůstává otevřené (římsa kamenných věží).** `CityPS` losuje druh fasády na věž: polovina klasická okna z configu, 18 % skleněná obvodová stěna (0,9 × 0,84, rozteč × 0,85), 16 % pásová okna (0,97 × 0,5), 16 % pilíře (0,34 × 0,88, rozteč × 0,8). Vše dál (rámy, parapety, špalety, příčky, podíl rozsvícených, útlum na dálku) čte `fill`/`pitch` druhu. Los přes celočíselný `BuildingRoll`, ne `Hash21` — ten má na celých číslech přesnou periodu 50 × 100 buněk (#674), tj. ~135 j., šest kopií stejného rozložení přes město. Ostatní losy na budovu (odstín, neonová barva, pás reklamy) pořád běží na `Hash21` — to je pro #674. Cena: Bolt High +0.02–0.03 ms (4.887 → 4.911), Low within noise (+0.05 / −0.03); Cabinet High +0.05 (4.829 → 4.876), Low within noise (−0.02 / +0.01).
+
+## 2026-09-30 — #680 Měsíc: balvany na pláni (claim) — desktop, Claude Code (bs3d-78)
+
+- **Beru #680.** CPU zrcadlo `MoonHeight` (`TerrainMirror.Moon` + `HeightProbe` v `Moon.fx`), Měsíc přijímá sluneční stínovou mapu, `MoonPlanting` klade bloky a balvany na pláň a na okraje mladých kráterů. Worktree `wtmoon`, větev `680-moon-rocks`.
