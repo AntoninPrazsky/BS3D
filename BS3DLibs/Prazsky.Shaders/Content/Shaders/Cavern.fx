@@ -428,14 +428,58 @@ float FormationSdf(float3 p, float k)
     return d;
 }
 
+//--- The columns (#676's second step) --------------------------------------------------------------------------
+//The stalactites gave the ceiling formations and the play frame still had no ROCK MASS: from the arena the cave is
+//a dark void round a lit river, its wall 240 units off and mostly fog. A column - a stalactite grown down to the
+//stalagmite under it - is the one formation that spans the whole frame from the water to the ceiling, so a few of
+//them stand the cave up: pale flowstone at the waist where the two halves met, flared into the ceiling and into
+//the river, ringed with drip. Between 0.46 and 0.7 of the cave's radius, clear of the air over the arena, on the
+//golden angle so no two line up; none stands on the play camera's line of sight behind the cluster (the nearest
+//is 25 degrees off it), where a pillar would stand in the one place the player has to read.
+#define COLUMN_COUNT 6
+
+float2 ColumnAxis(float k)
+{
+    float angle = k * 2.39996 + 0.35;
+    float radius = CaveRadius * (0.46 + 0.24 * frac(k * 0.618 + 0.47));
+    return float2(cos(angle), sin(angle)) * radius;
+}
+
+float ColumnGirth(float k)
+{
+    return lerp(9.0, 15.0, frac(k * 0.7548777 + 0.2));
+}
+
+//p is relative to the column's axis in x and z and the world's own height in y. A solid of revolution whose radius
+//runs flared-waisted-flared over the cave's height, swelling and pinching along it on two frequencies that share no
+//ratio, and FLUTED down its length: flowstone runs down a column in curtains, which is what tells a column from a
+//turned post. ⚠ One ring frequency was the first cut, and it read as a corkscrew - a regular wave is a lattice in one
+//dimension. The flutes are cos(5 theta) off the direction's cosine (the Chebyshev polynomial, no atan2), turned per
+//column. They steepen the field past a distance, so the march steps 0.7 of it.
+float ColumnSdf(float3 p, float k)
+{
+    float t = saturate((p.y - WaterLevelY) / (CaveCeilingY - WaterLevelY));
+    float flare = abs(2.0 * t - 1.0);
+    float girth = ColumnGirth(k);
+    float r = girth * (0.42 + 0.58 * flare * flare)
+        * (1.0 + 0.10 * sin(p.y * 0.23 + k * 2.1) + 0.06 * sin(p.y * 0.61 + k * 5.3));
+
+    float len = length(p.xz);
+    float2 turn = float2(cos(k * 1.7), sin(k * 1.7));
+    float c = dot(p.xz, turn) / max(len, 1e-3);
+    float c2 = c * c;
+    float flutes = c * (16.0 * c2 * c2 - 20.0 * c2 + 5.0);
+    return len - r - girth * 0.07 * flutes;
+}
+
 //Its rock: the wall's own albedo, wet (formations drip), lit by the cool key from the gaps, the crystals as point
-//lights and a faint cool rim where it turns from the lens, then fogged like the wall at the same distance
-float3 ShadeFormation(float3 position, float3 normal, float3 direction, float distanceTravelled)
+//lights and a faint cool rim where it turns from the lens, then fogged like the wall at the same distance. `tip` is
+//how far this point is into fresh calcite, 0..1: paler where the drip is still building it - a stalactite's tip, a
+//column's waist where the two halves met - and the ceiling's own rock at 0.
+float3 ShadeFormation(float3 position, float3 normal, float3 direction, float distanceTravelled, float tip)
 {
     float body = Fbm3(position * 0.08, 2);
     float3 rock = RockColor * (0.55 + 0.45 * saturate(body * 0.9 + 0.5));
-    //The calcite is paler towards the tips, where the drip is still building it, and the root is the ceiling's rock
-    float tip = saturate((CaveCeilingY - position.y) / 50.0);
     rock *= (0.55 + 0.45 * smoothstep(0.0, 0.25, tip)) * (1.0 + 2.4 * tip * tip);
 
     float keyDiffuse = saturate(dot(normal, normalize(float3(0.2, 1.0, 0.15))));
@@ -798,8 +842,69 @@ float4 CavernScene(CavernVertexOutput input, uniform bool fullDetail)
             ftap.yyx * FormationSdf(local + ftap.yyx * fe, formationGroup) +
             ftap.yxy * FormationSdf(local + ftap.yxy * fe, formationGroup) +
             ftap.xxy * FormationSdf(local + ftap.xxy * fe, formationGroup));
-        color = ShadeFormation(hit, formationNormal, direction, formationT);
+        color = ShadeFormation(hit, formationNormal, direction, formationT, saturate((CaveCeilingY - hit.y) / 50.0));
         tSolid = formationT;
+    }
+
+    //--- The columns (#676's second step), gated per column on its bounding cylinder: the formations' pattern, with an
+    //infinite vertical cylinder for the sphere, since a column runs the whole height of the cave
+    float columnT = tSolid;
+    float columnIndex = -1.0;
+
+    [unroll]
+    for (int n = 0; n < (fullDetail ? COLUMN_COUNT : 0); n++)
+    {
+        float fn = (float)n;
+        float2 axis = ColumnAxis(fn);
+        float bound = ColumnGirth(fn) * 1.3;
+
+        float2 oxz = CameraPosition.xz - axis;
+        float a = max(dot(direction.xz, direction.xz), 1e-6);
+        float b = dot(oxz, direction.xz);
+        float c = dot(oxz, oxz) - bound * bound;
+        float disc = b * b - a * c;
+
+        [branch]
+        if (disc > 0.0)
+        {
+            float root = sqrt(disc);
+            float t0 = max((-b - root) / a, 0.0);
+            float t1 = min((-b + root) / a, columnT);
+            float rayT = t0;
+
+            [loop]
+            for (int march = 0; march < 24; march++)
+            {
+                float3 at = CameraPosition + direction * rayT;
+                float d = ColumnSdf(float3(at.x - axis.x, at.y, at.z - axis.y), fn);
+                if (d < 0.05 * (1.0 + rayT * 0.01) || rayT > t1) break;
+                rayT += d * 0.7;
+            }
+
+            if (rayT <= t1)
+            {
+                columnT = rayT;
+                columnIndex = fn;
+            }
+        }
+    }
+
+    [branch]
+    if (columnIndex >= 0.0)
+    {
+        float3 hit = CameraPosition + direction * columnT;
+        float2 axis = ColumnAxis(columnIndex);
+        float3 local = float3(hit.x - axis.x, hit.y, hit.z - axis.y);
+        const float ce = 0.2;
+        float2 ctap = float2(1.0, -1.0);
+        float3 columnNormal = normalize(
+            ctap.xyy * ColumnSdf(local + ctap.xyy * ce, columnIndex) +
+            ctap.yyx * ColumnSdf(local + ctap.yyx * ce, columnIndex) +
+            ctap.yxy * ColumnSdf(local + ctap.yxy * ce, columnIndex) +
+            ctap.xxy * ColumnSdf(local + ctap.xxy * ce, columnIndex));
+        float waist = 1.0 - abs(2.0 * saturate((hit.y - WaterLevelY) / (CaveCeilingY - WaterLevelY)) - 1.0);
+        color = ShadeFormation(hit, columnNormal, direction, columnT, 0.45 * waist * waist);
+        tSolid = columnT;
     }
 
     //--- The crystals, gated per cluster (the dream's pattern). A cluster is three interpenetrating
