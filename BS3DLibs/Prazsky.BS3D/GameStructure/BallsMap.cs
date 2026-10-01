@@ -634,6 +634,47 @@ namespace Prazsky.BS3D.GameStructure
         }
 
         /// <summary>
+        /// Every rock and every clump of buckshot that hangs from the glass by rocks and buckshot alone (#257), marked in
+        /// an array the field's size: flooded from those on the top level through their lattice neighbours, passing only
+        /// through those two kinds — the ones nothing removes but a cut. Anything matchable, glass, a bomb, a zap or an
+        /// acid on the way is a ball a shot can take out, which is all a cut needs. A clump marked here can never come
+        /// down, and since buckshot holds the level open (<see cref="BallKinds.Removable"/>), it is a level that never ends.
+        /// </summary>
+        public bool[,,] GetUncuttableFromCeiling()
+        {
+            XZLevel size = new(StageSizeX, StageSizeZ, Levels);
+            bool[,,] reached = new bool[StageSizeX, StageSizeZ, Levels];
+            Queue<XZLevel> frontier = new();
+            byte top = (byte)(Levels - 1);
+
+            for (byte x = 0; x < StageSizeX; x++)
+                for (byte z = 0; z < StageSizeZ; z++)
+                    if (Uncuttable(_balls[x, z, top]))
+                    {
+                        reached[x, z, top] = true;
+                        frontier.Enqueue(new XZLevel(x, z, top));
+                    }
+
+            while (frontier.Count > 0)
+            {
+                XZLevel cell = frontier.Dequeue();
+
+                foreach (XZLevel neighbour in GetNeighboringCells(cell, size))
+                {
+                    if (reached[neighbour.X, neighbour.Z, neighbour.Level]) continue;
+                    if (!Uncuttable(_balls[neighbour.X, neighbour.Z, neighbour.Level])) continue;
+
+                    reached[neighbour.X, neighbour.Z, neighbour.Level] = true;
+                    frontier.Enqueue(neighbour);
+                }
+            }
+
+            return reached;
+
+            static bool Uncuttable(StaticBall ball) => ball != null && (ball.Kind == BallKind.Rock || ball.Kind == BallKind.Buckshot);
+        }
+
+        /// <summary>
         /// Returns cells of balls that are no longer connected to the ceiling: walks the touching-neighbor graph
         /// (see <see cref="GetNeighboringCells"/>) from all balls on the top level (those hang from the ceiling)
         /// and collects every ball the walk did not reach.

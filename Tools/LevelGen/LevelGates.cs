@@ -92,7 +92,7 @@ namespace BS3D.Tools.LevelGen
             //acid and colour alone would have skipped the stranded-specials walk entirely — which is #343's
             //own bug, arriving through the next kind. Anything not matchable belongs in this list.
             int rocks = 0, glass = 0, bombs = 0, zaps = 0, acids = 0, frozen = 0, infectious = 0, wells = 0,
-                heavies = 0;
+                heavies = 0, buckshot = 0;
 
             for (byte l = 0; l < map.Levels; l++)
                 for (byte x = 0; x < map.StageSizeX; x++)
@@ -123,6 +123,8 @@ namespace BS3D.Tools.LevelGen
                         //it needs nothing the stranded walk asks of a colourless special, and the walk holds a
                         //refusal of its own for it — a mass with nothing under it.
                         if (ball.Kind == BallKind.Heavy) heavies++;
+                        //Buckshot (#257) is not matchable and must come down, so the walk holds its refusal
+                        if (ball.Kind == BallKind.Buckshot) buckshot++;
 
                         //⚠ THE COLOUR CENSUS IS OVER THE MATCHABLE BALLS ONLY (#323/#325), and it is not
                         //merely tidier: a rock or a glass ball counted here would enter `counts` under the
@@ -195,7 +197,7 @@ namespace BS3D.Tools.LevelGen
             //⚠ THE ROCKS COUNT TOWARDS ASKING IT (#343). While this read `glass + bombs`, a level built
             //entirely of stone and colour skipped the walk altogether, so the one gate that would have
             //caught a rock hanging off the ceiling was never run on the three levels that had one.
-            int specials = rocks + glass + bombs + zaps + acids + frozen + infectious + wells + heavies;
+            int specials = rocks + glass + bombs + zaps + acids + frozen + infectious + wells + heavies + buckshot;
 
             StrandedReport stranded = specials == 0 ? new StrandedReport() : FindStrandedSpecials(map);
 
@@ -210,6 +212,8 @@ namespace BS3D.Tools.LevelGen
                 Console.WriteLine($"    infection off the anchor course: {(stranded.CeilingInfection == 0 ? "all" : $"NO - {stranded.CeilingInfection} ON THE ANCHOR COURSE")}");
                 Console.WriteLine($"    wells a shot can fly near: {(stranded.BuriedWells == 0 ? "all" : $"NO - {stranded.BuriedWells} BURIED")}");
                 Console.WriteLine($"    heavy balls with a load: {(stranded.InertHeavy == 0 ? "all" : $"NO - {stranded.InertHeavy} CARRY NOTHING")}");
+                if (buckshot > 0)
+                    Console.WriteLine($"    buckshot that can pour: {(stranded.StuckBuckshot == 0 ? "all" : $"NO - {stranded.StuckBuckshot} HELD BY NOTHING A SHOT CAN CUT")}");
                 foreach (string where in stranded.Examples) Console.WriteLine($"      {where}");
             }
 
@@ -269,7 +273,7 @@ namespace BS3D.Tools.LevelGen
             return !stanceRefused && !mirrorRefused && disconnected == 0 && lonely.Alone == 0 && !oneShot && margin >= 1
                    && stranded.Walled == 0 && stranded.Anchoring == 0 && stranded.CeilingRocks == 0
                    && stranded.AloneGlass == 0 && stranded.SealedIce == 0 && stranded.CeilingInfection == 0
-                   && stranded.BuriedWells == 0 && stranded.InertHeavy == 0 && !clear.TooCheap;
+                   && stranded.BuriedWells == 0 && stranded.InertHeavy == 0 && stranded.StuckBuckshot == 0 && !clear.TooCheap;
         }
 
         /// <summary>
@@ -559,6 +563,11 @@ namespace BS3D.Tools.LevelGen
 
             StrandedReport report = new();
 
+            //THE BUCKSHOT THAT CAN NEVER POUR (#257), found before the walk: everything a shot can never take away
+            //except by cutting it down - rocks and other clumps - flooded from the anchor course along the lattice.
+            //A clump this reaches hangs from the glass by nothing but such balls, so no cut can bring it down.
+            bool[,,] stuck = map.GetUncuttableFromCeiling();
+
             //THE GLASS BODIES, labelled before anything else is asked, because #344 turned both questions
             //about the glass into questions about the BODY rather than about the ball. A landing colours
             //everything connected to what it touches, so "how much does one shot pay" is the size of the
@@ -722,6 +731,23 @@ namespace BS3D.Tools.LevelGen
                                                     + " nothing to pull down and the kind is invisible");
                         }
 
+                        //BUCKSHOT IS ASKED ITS OWN QUESTION AND THEN LEAVES THIS WALK (#257), for the frozen ball's
+                        //reason: what follows asks whether a landing beside a ball can reach it, and a clump is not
+                        //taken by a landing at all - it is cut down. So what is asked is whether it can be.
+                        if (ball.Kind == BallKind.Buckshot)
+                        {
+                            if (stuck[x, z, l])
+                            {
+                                report.StuckBuckshot++;
+
+                                if (report.Examples.Count < 3)
+                                    report.Examples.Add($"buckshot at cell ({x},{z}) on level {l} hangs from the glass by"
+                                                        + " rocks and buckshot alone: nothing a shot does can cut it down");
+                            }
+
+                            continue;
+                        }
+
                         //A ball a landing beside it has to reach, stated as the property rather than as a
                         //list of kinds: removable, so it holds the level open, and not matchable, so no
                         //colour can take it. Transparent and Bomb both answer it; the rock answers no to the
@@ -875,6 +901,12 @@ namespace BS3D.Tools.LevelGen
 
             /// <summary>Rocks on the field's topmost level — see the ANCHORING paragraph above (#343).</summary>
             public int CeilingRocks;
+
+            /// <summary>
+            /// Clumps of buckshot hanging from the glass by rocks and buckshot alone (#257): nothing a shot does can cut
+            /// them down, and a level is not cleared while one hangs. See <c>BallsMap.GetUncuttableFromCeiling</c>.
+            /// </summary>
+            public int StuckBuckshot;
 
             /// <summary>Panes some landing would colour by themselves — see the ALONE paragraph (#344).</summary>
             public int AloneGlass;
