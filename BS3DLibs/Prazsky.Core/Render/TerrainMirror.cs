@@ -47,7 +47,9 @@ namespace Prazsky.Core.Render
 
         private const float DUNE_SPACING = 64f;
         private const float DUNE_WINDWARD = 0.75f;
-        private const float DUNE_MEAN = 0.30f;
+        private const float DUNE_MEAN = 0.436f; //sampled through this mirror over 30 million points far outside the clearing (0.30 until #688)
+        private const float CREST_ROUND = 1.0f;
+        private const float SET_BLEND = 0.35f;
 
         /// <summary>World Y of the sand at a world XZ, as <c>Desert.fx</c>'s <c>DesertHeight</c> displaces it.</summary>
         public static float Desert(float x, float z, DesertSceneConfig config)
@@ -90,7 +92,9 @@ namespace Prazsky.Core.Render
 
             float swell = 0.22f * MathF.Sin(p.X * 0.017f + p.Y * 0.011f) + 0.12f * MathF.Sin(p.X * -0.009f + p.Y * 0.021f + 1.7f);
 
-            return MathF.Max(major, minor) + swell - DUNE_MEAN;
+            //Desert.fx's smooth maximum of the two sets (#688): a saddle where they cross, not a point
+            float w = MathF.Max(SET_BLEND - MathF.Abs(major - minor), 0f) / SET_BLEND;
+            return MathF.Max(major, minor) + 0.25f * SET_BLEND * w * w + swell - DUNE_MEAN;
         }
 
         private static float DuneProfile(float cycles)
@@ -98,7 +102,11 @@ namespace Prazsky.Core.Render
             float t = cycles - MathF.Floor(cycles);
             float rise = t / DUNE_WINDWARD;
             float fall = (1f - t) / (1f - DUNE_WINDWARD);
-            float h = MathHelper.Clamp(MathF.Min(rise, fall), 0f, 1f);
+
+            //Desert.fx's rounded crest (#688): the quadratic smooth minimum of the two slopes, normalized to a peak of one
+            float w = MathF.Max(CREST_ROUND - MathF.Abs(rise - fall), 0f) / CREST_ROUND;
+            float m = (MathF.Min(rise, fall) - 0.25f * CREST_ROUND * w * w) / (1f - 0.25f * CREST_ROUND);
+            float h = MathHelper.Clamp(m, 0f, 1f);
 
             return h * MathF.Sqrt(h);
         }
