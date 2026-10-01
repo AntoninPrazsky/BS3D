@@ -7349,3 +7349,9 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 
 - **Beru #682**: zobrazované jméno „One“ změním na „Cannonball“, soubor `One.json` zůstane (podle něj se ukládají hvězdy). Měním `Tools/LevelGen/Designs/Block01_Meadow.cs`, `Game/Levels` přegeneruji a upravím příklad v `HelpPage`.
 - **Hotovo, merge 22710ccf, #682 zavřený.** Tabulka má nový klíč `One.json#1e913f0a50d358cb` (hash se počítá z obsahu souboru včetně jména). Na Pi leží v domovské složce nová dev tabulka stropů (`BS3D-dev-22710cc-ceilings.json`) a čeká na instalaci. ⚠ **LevelGen zapisuje CRLF**, takže `git status` po něm ukáže změněné všechny soubory, i když se nic nezměnilo. Rozhoduje `git diff`; soubory, které se liší jen konci řádků, se vrátí přes `git checkout -- Game/Levels`.
+
+## 2026-10-01 — #683 signál u „Sending your score“ — desktop, Claude Code (bs3d-a3)
+
+- **Na mainu (merge e9476d9d), `shipped-awaiting-verdict`.** Před řádkem stavu pod tabulkami na stránce výsledku je ikona signálu (`OnlineSignal`, čtyři sloupky). Během odesílání a načítání se sloupky postupně rozsvěcují, po přijetí jsou zlaté (barva vlastního řádku v tabulce), offline nebo při odmítnutí tlumené.
+- **Ověřování:** testovací level z #546 (`Online546.json`, pět koulí s bombou, `play levelfile=… detonate=6`) proti zástupnému serveru v Pythonu se zpožděním. ⚠ **Odeslání startuje až se stránkou výsledku** (kolem 22. s od startu) a klient po 5 s vzdá, takže zpoždění serveru musí být pod 5 s, jinak se zachytí jen offline.
+- ⚠ **Mimochodem nalezený pád (samostatný merge `music-theme-null`):** level bez pole `music` (mapa z editoru, testovací level) shodil herní smyčku v `GameMusic.SetTheme`, protože alias bohemia z #280 volal `StartsWith` na null.
