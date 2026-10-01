@@ -118,6 +118,9 @@ namespace Prazsky.BS3D.GameStructure
         /// </summary>
         public static BasicEffectParams Acid = new BasicEffectParams(new Vector3(0.062f, 0.088f, 0.048f), GLOSS_COLOR, GLOSS_POWER, Vector3.Zero);
 
+        /// <summary>Buckshot's pellets (#257): a soft grey, like the reference both models drew - no colour a player could read as a match.</summary>
+        public static BasicEffectParams Buckshot = new BasicEffectParams(new Vector3(0.14f, 0.14f, 0.15f), GLOSS_COLOR, GLOSS_POWER, Vector3.Zero);
+
         /// <summary>
         /// Multiplier applied to the ball model's material diffuse colors to give the ball its type color.
         /// (Historically the type color came from a broad colored specular sheen; with a proper glossy

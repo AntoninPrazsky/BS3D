@@ -364,7 +364,29 @@ namespace Prazsky.BS3D.GameStructure
         /// the map takes a ball (<see cref="BallKinds.InCluster"/>) and steps over in an editor's cycle.
         /// </para>
         /// </summary>
-        Cutter = 11
+        Cutter = 11,
+
+        /// <summary>
+        /// Buckshot (#257, the owner's go-ahead of 2026-09-29, in its cheap reading): a handful of pellets clumped into
+        /// one cell, the way a shotgun shell holds its shot. No colour takes it and nothing lands it away — the player
+        /// clears it by <b>cutting what holds it up</b> and letting it pour out, which is the lesson this game already
+        /// teaches (a support falls with what hangs on it) read the other way round: here the falling is the goal.
+        /// <para>
+        /// <b>It answers NO to <see cref="BallKinds.Matchable"/> and YES to <see cref="BallKinds.Removable"/></b>, the
+        /// rock's first answer and its opposite second: a level is not cleared while any buckshot still hangs, so a
+        /// clump has to be brought down. That makes the rock's anchor-course refusal a harder one here — a clump with no
+        /// way down is not a wall but a level that never ends — so the generator refuses any clump whose every path to
+        /// the glass runs through rocks and other clumps (<c>LevelGates</c>, "buckshot that can pour"). Nothing else
+        /// in the rules asks: the disconnection walk has never cared what kind a ball is, so a cut clump falls with
+        /// everything else the cut set loose.
+        /// </para>
+        /// <para>
+        /// It holds one cell and one sphere in the simulation, like every ball — "one ball, one cell" is the rule
+        /// #257's analysis kept every idea to. The pellets are a drawing (<c>BallRenderSet</c>'s buckshot region): it
+        /// carries a <see cref="BallType"/> like every cell, and like the rock's <b>nothing may read it</b>.
+        /// </para>
+        /// </summary>
+        Buckshot = 12
     }
 
     /// <summary>

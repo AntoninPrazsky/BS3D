@@ -392,6 +392,8 @@ namespace MapEditor
                     + "passing near it, bending their flight; needs open space around it to bend anything)",
                 BallKind.Heavy => "Ball kind: heavy (an ordinary ball of this colour with twelve times the "
                     + "mass: what hangs UNDER it hangs visibly lower, so it needs a branch to weigh down)",
+                BallKind.Buckshot => "Ball kind: buckshot (a clump of pellets nothing matches: cut what holds it "
+                    + "up and it pours out; the level is not cleared while any hangs)",
                 _ => "Ball kind: normal",
             };
         }

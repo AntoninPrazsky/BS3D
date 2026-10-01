@@ -1146,6 +1146,55 @@ namespace Prazsky.BS3D
         /// </summary>
         private static readonly int WILDCARD_REGION_START = HEAVY_REGION_START + STILL_PLANE_STRIDE;
 
+        /// <summary>
+        /// Buckshot (#257): a region of <see cref="LodCount"/> buckets, the rock's shape of region - colourless, opaque,
+        /// never loaded in the cannon - holding not one instance a ball but <see cref="BUCKSHOT_PELLETS"/>, the pellets
+        /// the clump is drawn as. See <see cref="StoreBuckshot"/>.
+        /// </summary>
+        private static readonly int BUCKSHOT_REGION_START = WILDCARD_REGION_START + 2 * LodCount;
+
+        /// <summary>
+        /// Where each pellet of a clump sits, in the ball's own frame, and how big it is: the twenty corners of a
+        /// dodecahedron, which cover a sphere evenly with no pellet standing out, at a radius that keeps the clump's
+        /// outline inside the ball's (0.5) so it never draws past the cell the simulation gives it - the rock's rule.
+        /// Twenty is what the design references drew: enough that it reads as a handful, few enough that a field of
+        /// clumps costs a few thousand small instances.
+        /// </summary>
+        public const int BUCKSHOT_PELLETS = 20;
+        private const float BUCKSHOT_PELLET_SCALE = 0.36f;      //of a ball: a pellet of radius 0.18
+
+        //The pellets' colour: a pearly grey, the references' - light enough to read against a dark sky and a dark
+        //cluster alike, and no colour a player could take for one of the thirteen they match
+        private static readonly Vector3 BUCKSHOT_TINT = new(0.82f, 0.82f, 0.86f);
+
+        //How far a falling clump's pellets stand out from its centre, against a hanging one's: loosened into a spray
+        private const float BUCKSHOT_LOOSE_SPREAD = 1.9f;
+        private const float BUCKSHOT_PELLET_REACH = 0.31f;      //its centre from the ball's
+        private static readonly Vector3[] BUCKSHOT_OFFSETS = DodecahedronCorners(BUCKSHOT_PELLET_REACH);
+
+        private static Vector3[] DodecahedronCorners(float radius)
+        {
+            float phi = (1f + MathF.Sqrt(5f)) * 0.5f, inv = 1f / phi;
+            List<Vector3> corners = new();
+
+            for (int a = -1; a <= 1; a += 2)
+                for (int b = -1; b <= 1; b += 2)
+                    for (int c = -1; c <= 1; c += 2)
+                        corners.Add(new Vector3(a, b, c));
+
+            for (int a = -1; a <= 1; a += 2)
+                for (int b = -1; b <= 1; b += 2)
+                {
+                    corners.Add(new Vector3(0f, a * inv, b * phi));
+                    corners.Add(new Vector3(a * inv, b * phi, 0f));
+                    corners.Add(new Vector3(a * phi, 0f, b * inv));
+                }
+
+            Vector3[] result = corners.ToArray();
+            for (int i = 0; i < result.Length; i++) result[i] = Vector3.Normalize(result[i]) * radius;
+            return result;
+        }
+
         //How much of a dead ball is dithered away (#620), at the end of its ease-in. A dead ball keeps its colour
         //and its level's own material and loses the same thing the landing preview's ghost loses — pixels, in
         //display-pixel blocks, through the shader's dissolve — which is a language the player has already
@@ -1259,8 +1308,8 @@ namespace Prazsky.BS3D
             //regions between.
             //Sized off the LAST of them so a region added without moving this line would index past the end on
             //its first instance rather than draw wrong.
-            _buckets = new ModelInstance[WILDCARD_REGION_START + 2 * LodCount][];
-            _counts = new int[WILDCARD_REGION_START + 2 * LodCount];
+            _buckets = new ModelInstance[BUCKSHOT_REGION_START + LodCount][];
+            _counts = new int[BUCKSHOT_REGION_START + LodCount];
             _lodTotals = new int[LodCount];
             _lodDistanceSquared = new float[LOD_MIN_PIXEL_RADIUS.Length];
         }
@@ -1826,6 +1875,9 @@ namespace Prazsky.BS3D
 
             DrawAcids(camera);
 
+            //And the buckshot's pellets (#257), opaque like the rest of this side of the frame
+            DrawBuckshot(camera);
+
             //And the frozen balls beside them (#329), same side of the frame and same argument: a block of ice
             //is drawn OPAQUE here, which is a deliberate approximation and the reason this kind needed no
             //transparency work at all. What makes ice read as ice is its refraction, its rim and the colour
@@ -1985,7 +2037,7 @@ namespace Prazsky.BS3D
         /// </para>
         /// </summary>
         private void DrawTintlessRegion(ICamera camera, int regionStart, BallShading shading, float emission,
-            float pulseDepth, float pulseSpeed, BasicEffectParams material)
+            float pulseDepth, float pulseSpeed, BasicEffectParams material, Vector3? tint = null)
         {
             bool any = false;
             for (int lod = 0; lod < LodCount && !any; lod++) any = _counts[regionStart + lod] > 0;
@@ -2003,7 +2055,7 @@ namespace Prazsky.BS3D
                 DrawnCount += count;
                 _lodTotals[lod] += count;
 
-                _renderers[lod].Draw(camera, _buckets[bucketIndex], count, material, null);
+                _renderers[lod].Draw(camera, _buckets[bucketIndex], count, material, tint);
             }
 
             RestoreAfterSpecial();
@@ -2058,6 +2110,30 @@ namespace Prazsky.BS3D
                 renderer.PulseDepth = pulseDepth;
                 renderer.PulseSpeed = pulseSpeed;
             }
+        }
+
+        /// <summary>
+        /// The buckshot's pellets (#257): glazed like porcelain, smooth and pearly grey, whatever the level's balls are
+        /// made of. The porcelain style's own figures are stated here first — a level of vinyl or bubble balls has never
+        /// set them, and the first cut drew every pellet near-black on exactly that — with no crackle, which on a
+        /// pellet a third of a ball across is only noise. The level's style is put back after, as every special draw does.
+        /// </summary>
+        private void DrawBuckshot(ICamera camera)
+        {
+            bool any = false;
+            for (int lod = 0; lod < LodCount && !any; lod++) any = _counts[BUCKSHOT_REGION_START + lod] > 0;
+            if (!any) return;
+
+            foreach (InstancedModelRenderer renderer in _renderers)
+            {
+                renderer.PorcelainCrackFrequency = PORCELAIN_CRACK_FREQUENCY;
+                renderer.PorcelainCrackWidth = 0f;
+                renderer.PorcelainGlaze = PORCELAIN_GLAZE;
+                renderer.TranslucencyStrength = PORCELAIN_TRANSLUCENCY;
+            }
+
+            DrawTintlessRegion(camera, BUCKSHOT_REGION_START, BallShading.Porcelain, PORCELAIN_EMISSION, 0f, 0f,
+                BasicEffectParamsProvider.Buckshot, BUCKSHOT_TINT);
         }
 
         /// <summary>The ordinary pulse speed back on every renderer, and the style's own look — see
@@ -2501,6 +2577,42 @@ namespace Prazsky.BS3D
         internal void StoreAcid(int lod, in ModelInstance instance) => StoreAt(ACID_REGION_START + lod, instance);
 
         /// <summary>
+        /// One clump of buckshot (#257) as <see cref="BUCKSHOT_PELLETS"/> pellets, each placed in the ball's own frame so
+        /// the clump turns and swings with the body the simulation gives it. A pellet is a third of a ball across, so it is
+        /// drawn a level of detail coarser than the ball's own - the projected-size rule the LODs are chosen by.
+        /// </summary>
+        internal void StoreBuckshot(int lod, in ModelInstance instance, bool loose = false)
+        {
+            //Loosened when the clump has been cut down and is falling, so it reads as pouring out rather than as a ball
+            //dropping whole - drawn only: the body is still the one sphere the simulation drops
+            float spread = loose ? BUCKSHOT_LOOSE_SPREAD : 1f;
+
+            int pelletLod = Math.Min(lod + 1, LodCount - 1);
+            Matrix ball = instance.World;
+
+            for (int i = 0; i < BUCKSHOT_OFFSETS.Length; i++)
+            {
+                Vector3 offset = BUCKSHOT_OFFSETS[i] * spread;
+                Matrix pellet = ball;
+
+                //Scaled in the ball's frame, and moved to the pellet's place in it: the rotation's rows times the scale,
+                //the translation the offset carried through the ball's own matrix
+                pellet.M11 *= BUCKSHOT_PELLET_SCALE; pellet.M12 *= BUCKSHOT_PELLET_SCALE; pellet.M13 *= BUCKSHOT_PELLET_SCALE;
+                pellet.M21 *= BUCKSHOT_PELLET_SCALE; pellet.M22 *= BUCKSHOT_PELLET_SCALE; pellet.M23 *= BUCKSHOT_PELLET_SCALE;
+                pellet.M31 *= BUCKSHOT_PELLET_SCALE; pellet.M32 *= BUCKSHOT_PELLET_SCALE; pellet.M33 *= BUCKSHOT_PELLET_SCALE;
+
+                Vector3 at = Vector3.Transform(offset, ball);
+                pellet.M41 = at.X;
+                pellet.M42 = at.Y;
+                pellet.M43 = at.Z;
+
+                ModelInstance placed = instance;
+                placed.World = pellet;
+                StoreAt(BUCKSHOT_REGION_START + pelletLod, placed);
+            }
+        }
+
+        /// <summary>
         /// The frozen plane (#329) — the one special store that takes a <c>typeIndex</c>, because a block of
         /// ice is drawn in the colour it has sealed inside it. See <see cref="FROZEN_REGION_START"/>.
         /// </summary>
@@ -2724,6 +2836,14 @@ namespace Prazsky.BS3D
                     //Never loaded in the cannon — a level places ice, the gun never fires it — so no still
                     //twin, which is why the plane is addressed without the `still` flag.
                     _set.StoreFrozen(typeIndex, lod, instance);
+                    break;
+
+                case BallKind.Buckshot:
+                    //A clump of pellets (#257): colourless and never loaded, the rock's case, drawn as many small
+                    //instances rather than one. See BallRenderSet.StoreBuckshot.
+                    //`still` is what the collector hands a RELEASED ball (it does not breathe), and a released clump
+                    //is pouring: its pellets loosen as it falls
+                    _set.StoreBuckshot(lod, instance, loose: still);
                     break;
 
                 case BallKind.Cutter:
