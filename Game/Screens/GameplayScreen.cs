@@ -573,6 +573,9 @@ namespace BS3D.Screens
         /// </summary>
         private readonly Blasts _blasts;
 
+        /// <summary>The impossible shot's wormhole (#230), on the world's clock like the blasts: see GameplayScreen.Wormhole.cs.</summary>
+        private readonly Wormhole _wormhole;
+
         /// <summary>
         /// How hard a full-size blast heaves the camera, as a <c>CameraShake.Rumble</c> strength. Under 1 so that a
         /// chain still reads as bigger than one bomb before the rumble saturates — each link adds its own as it
@@ -1025,6 +1028,7 @@ namespace BS3D.Screens
             //screen is built before the host has synthesized its sounds (BS3DGame.LoadContent), so the audio is
             //passed to each Update instead of being captured here as a null.
             _blasts = new Blasts(GraphicsDevice, Game.Content.Load<Effect>("Shaders/Blast"));
+            _wormhole = new Wormhole(GraphicsDevice, Game.Content.Load<Effect>("Shaders/Wormhole"));
         }
 
         //A level is played with nothing above this screen. A pause is pushed OVER it and freezes it with its
@@ -1237,6 +1241,11 @@ namespace BS3D.Screens
             float blastJolt = _blasts.Update(elapsed * _cinematic.TimeScale, Game.Audio);
             if (blastJolt > 0f) Camera.Shake.Rumble(BLAST_RUMBLE * blastJolt);
 
+            //The impossible shot (#230): the shots in the air watched for three escapes in a row from one pose, and a
+            //hole that is open stepped on the same scaled time as the blasts, being a thing in the world like them
+            WatchForEscapes();
+            _wormhole.Update(elapsed * _cinematic.TimeScale, Game.Audio);
+
             //And the frame this level actually costs, judged where it is paid. The probe used to run under the
             //front end alone, so the tier was settled against a scene with no cluster in it and kept for one
             //with up to 959 balls — Onion cleared the menu at High and then played at exactly half refresh
@@ -1409,6 +1418,9 @@ namespace BS3D.Screens
             //a flash frozen half-bright behind the numbers is this very issue, one effect further out. Its jolt is
             //dropped: the page is easing the lens out onto the front end's orbit, and the camera is not ours.
             _blasts.Update(elapsed, Game.Audio);
+
+            //And a wormhole still swallowing when the page arrived (#230) shuts in its own time, for the same reason
+            _wormhole.Update(elapsed, Game.Audio);
         }
 
         /// <summary>
@@ -1519,6 +1531,9 @@ namespace BS3D.Screens
             //own frame, so it is bucketed and LOD-picked with the rest rather than drawn by itself
             CollectShotPreview(ballFrame);
 
+            //And the shots a wormhole is swallowing (#230), each where its spiral has it and as small as it has got
+            _wormhole.CollectBalls(ballFrame);
+
             //A blast's light on everything the shared instanced effect draws — the balls, the island, the gun —
             //stated for this frame only and before the scene lights are applied, which BeginSceneDraw does (#389).
             if (_blasts.TryGetLight(out Vector3 flashAt, out Vector3 flashColor, out float flashRange))
@@ -1565,6 +1580,10 @@ namespace BS3D.Screens
             //nearer the lens than a blast hides it, and before the drain's glass so the funnel composites over a
             //blast seen down its throat exactly as it does over a smear.
             _blasts.Draw(Camera);
+
+            //The impossible shot's wormhole (#230), in the blasts' slot for their reasons; premultiplied rather than
+            //additive, because its throat is black, and it puts back the states it found
+            _wormhole.Draw(Camera);
 
             Game.DrawSettingGlass();
 

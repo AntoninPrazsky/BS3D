@@ -171,6 +171,10 @@ namespace BS3D.Audio
         private readonly SoundEffect _fireworkBurst;
         private readonly SoundEffect _partyPopper;
         private readonly SoundEffect _snore;
+
+        /// <summary>The impossible shot's wormhole (#230): the swirl tearing open, and the pop it shuts with.</summary>
+        private readonly SoundEffect _wormholeOpen;
+        private readonly SoundEffect _wormholePop;
         private readonly SoundEffect _uiClick;
         private readonly SoundEffect _starEarned;
 
@@ -196,6 +200,10 @@ namespace BS3D.Audio
         private readonly VoiceRing _blastRing;
         private readonly VoiceRing _launchRing;
         private readonly VoiceRing _burstRing;
+
+        /// <inheritdoc cref="_wormholeOpen"/>
+        private readonly VoiceRing _wormholeOpenRing;
+        private readonly VoiceRing _wormholePopRing;
 
         //The eruption is PLACED (the crater is somewhere), so it needs a ring. The thunder is not — the deck
         //is the whole sky in that scene — so it plays straight off its buffer, like the party popper.
@@ -347,6 +355,8 @@ namespace BS3D.Audio
                 prepare: SoftenReport);
             _partyPopper = BakePartyPopper();
             _snore = BakeSnore();
+            _wormholeOpen = BakeWormholeOpen();
+            _wormholePop = BakeWormholePop();
             _uiClick = BakeUiClick();
             _shotRefused = BakeShotRefused();
             _starEarned = BakeStarEarned();
@@ -365,6 +375,10 @@ namespace BS3D.Audio
             _launchRing = new VoiceRing(_fireworkLaunch, LAUNCH_VOICES);
             _burstRing = new VoiceRing(_fireworkBurst, BURST_VOICES);
             _eruptionRing = new VoiceRing(_eruption, ERUPTION_VOICES);
+
+            //One hole at a time (Wormhole), so one voice each
+            _wormholeOpenRing = new VoiceRing(_wormholeOpen, 1);
+            _wormholePopRing = new VoiceRing(_wormholePop, 1);
         }
 
         /// <summary>
@@ -628,6 +642,26 @@ namespace BS3D.Audio
 
         /// <summary>How loud a snore plays, against the party popper's 0.9 — see <see cref="PlaySnore"/>.</summary>
         private const float SNORE_LEVEL = 0.22f;
+
+        /// <summary>
+        /// The impossible shot's wormhole tearing open (#230), spoken from where it hangs: a cartoon dive of a tone
+        /// into a low swirling drone. Warm and round rather than a sci-fi zap — the owner's rule for this game's
+        /// sounds is pleasant over credible (bass, no hiss, no grit), and this one is a joke.
+        /// </summary>
+        public void PlayWormholeOpen(Vector3 world)
+        {
+            Speak(_wormholeOpenRing, world, NEAR_WIDEN, MathHelper.Clamp(WORMHOLE_OPEN_LEVEL * Level, 0f, 1f), NextPitch(0.05f));
+        }
+
+        /// <summary>The wormhole snapping shut (#230): one round bloop, the party popper's size and nowhere near its crack.</summary>
+        public void PlayWormholePop(Vector3 world)
+        {
+            Speak(_wormholePopRing, world, NEAR_WIDEN, MathHelper.Clamp(WORMHOLE_POP_LEVEL * Level, 0f, 1f), NextPitch(0.08f));
+        }
+
+        //Against the party popper's 0.9: the opening is a sustained swirl, so it sits under the pop that ends it
+        private const float WORMHOLE_OPEN_LEVEL = 0.6f;
+        private const float WORMHOLE_POP_LEVEL = 0.8f;
 
         /// <summary>
         /// A strike's thunder, <paramref name="distance"/> world units away and <paramref name="size"/> (0…1)
@@ -2018,6 +2052,74 @@ namespace BS3D.Audio
             return ToSoundEffect(signal);
         }
 
+        /// <summary>
+        /// The wormhole opening (#230): 1.7 s. A sine diving from 520 Hz to 85 Hz over the first half second - the
+        /// slide whistle's joke, played downwards - that then hangs on as a low drone wobbling in pitch and level at
+        /// a swirl's few cycles a second, with a breath of low noise under it, all of it fading away together.
+        /// </summary>
+        private SoundEffect BakeWormholeOpen()
+        {
+            const float duration = 1.7f;
+            int samples = (int)(SAMPLE_RATE * duration);
+            float[] signal = new float[samples];
+
+            float[] air = BandPass(MakeNoiseArray(samples, seed: 2301), 70f, 320f);
+
+            double phase = 0.0, phaseLow = 0.0;
+            for (int i = 0; i < samples; i++)
+            {
+                float t = (float)i / SAMPLE_RATE;
+
+                //The dive, exponential so it is heard as an even fall, settling on the drone's note
+                float dive = MathF.Min(t / 0.5f, 1f);
+                float freq = 85f * MathF.Pow(520f / 85f, 1f - dive * (2f - dive));
+
+                //And the swirl on it: the pitch wobbling by a few percent, faster as the hole spins up
+                float wobble = 1f + 0.06f * MathF.Sin(2f * MathF.PI * (4.5f * t + 1.5f * t * t));
+                phase += 2.0 * Math.PI * freq * wobble / SAMPLE_RATE;
+                phaseLow += 2.0 * Math.PI * freq * 0.5f * wobble / SAMPLE_RATE;
+
+                float attack = MathF.Min(t / 0.012f, 1f);
+                float body = attack * MathF.Exp(-t * 1.6f) * (0.75f + 0.25f * MathF.Sin(2f * MathF.PI * 6f * t));
+
+                signal[i] = body * (0.7f * (float)Math.Sin(phase) + 0.45f * (float)Math.Sin(phaseLow))
+                    + air[i] * 0.35f * attack * MathF.Exp(-t * 2.2f);
+            }
+
+            ApplyReverb(signal, roomScale: 0.5f, wet: 0.2f, decay: 0.3f);
+            Loudness(signal, targetRms: 0.16f, ceiling: 0.95f);
+            return ToSoundEffect(signal);
+        }
+
+        /// <summary>
+        /// The wormhole shutting (#230): 0.45 s. A bubble's bloop - a sine sweeping up from 150 Hz to 720 Hz in
+        /// seventy milliseconds and dying as it goes - over a soft low thump, so it pops round rather than cracks.
+        /// </summary>
+        private SoundEffect BakeWormholePop()
+        {
+            const float duration = 0.45f;
+            int samples = (int)(SAMPLE_RATE * duration);
+            float[] signal = new float[samples];
+
+            double phase = 0.0;
+            for (int i = 0; i < samples; i++)
+            {
+                float t = (float)i / SAMPLE_RATE;
+
+                float sweep = MathF.Min(t / 0.07f, 1f);
+                float freq = 150f * MathF.Pow(720f / 150f, sweep);
+                phase += 2.0 * Math.PI * freq / SAMPLE_RATE;
+
+                float attack = MathF.Min(t / 0.003f, 1f);
+                signal[i] = attack * ((float)Math.Sin(phase) * 0.8f * MathF.Exp(-t * 16f)
+                    + MathF.Sin(2f * MathF.PI * 68f * t) * 0.6f * MathF.Exp(-t * 22f));
+            }
+
+            ApplyReverb(signal, roomScale: 0.35f, wet: 0.16f, decay: 0.18f);
+            Loudness(signal, targetRms: 0.22f, ceiling: 0.97f);
+            return ToSoundEffect(signal);
+        }
+
         private SoundEffect BakePartyPopper()
         {
             const float duration = 0.55f;
@@ -2729,6 +2831,8 @@ namespace BS3D.Audio
             _launchRing?.Dispose();
             _burstRing?.Dispose();
             _eruptionRing?.Dispose();
+            _wormholeOpenRing?.Dispose();
+            _wormholePopRing?.Dispose();
 
             _shoot?.Dispose();
             if (_landed != null)
@@ -2744,6 +2848,8 @@ namespace BS3D.Audio
             _fireworkBurst?.Dispose();
             _partyPopper?.Dispose();
             _snore?.Dispose();
+            _wormholeOpen?.Dispose();
+            _wormholePop?.Dispose();
             _uiClick?.Dispose();
             _shotRefused?.Dispose();
             _starEarned?.Dispose();

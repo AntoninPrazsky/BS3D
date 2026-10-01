@@ -107,6 +107,7 @@ namespace BS3D.Screens
             _dozing.Reset();
             _cannon.Droop = 0f;
             _shotCode.Reset();
+            ResetWormhole();
 
             //Last, now that the field, the cannon and the game camera are all fit to this level: the one
             //thing here that reads the fit rather than only resetting state (#267).
@@ -196,6 +197,7 @@ namespace BS3D.Screens
             _crosshair.Dispose();
             _laserGrid.Dispose();
             _blasts.Dispose();
+            _wormhole.Dispose();
         }
 
         /// <summary>

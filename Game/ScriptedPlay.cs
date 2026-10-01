@@ -16,6 +16,10 @@ namespace BS3D
     /// back and forth across the interval, a sine of that amplitude (30° by default) and period (1.6 s): a peak rate
     /// of about 118°/s, a quick correction rather than a flick. The elevation stays wherever it was when the sweep
     /// began. It SETS the pose each frame (<c>Cannon.AimTo</c>), so the mouse cannot fight it.</item>
+    /// <item><c>aim=&lt;t&gt;:&lt;elevation&gt;:&lt;traverse&gt;</c> — puts the barrel at a stated pose in degrees from that
+    /// second on, the Testbed's spelling (#379): elevation above horizontal, traverse off the heading to the field's
+    /// centre. Several accumulate, each holding until the next one's second; it SETS the pose every frame, so the
+    /// mouse cannot move it. Written for #230's impossible shot, which wants three shots off one pose that miss.</item>
     /// <item><c>rmb=&lt;from&gt;:&lt;to&gt;</c> — holds precise aim across the interval, as the right button would.</item>
     /// <item><c>fire=&lt;t1,t2,…&gt;</c> — fires at those seconds, the shot a left click would fire.</item>
     /// <item><c>swap=&lt;t1,t2,…&gt;</c> — presses the swap key at those seconds (#213), through the very call E makes, so
@@ -45,6 +49,7 @@ namespace BS3D
         private float _sweepFrom = float.NaN, _sweepTo, _sweepAmplitude = 30f, _sweepPeriod = 1.6f;
         private float _sweepElevation = float.NaN;
         private float _rmbFrom = float.NaN, _rmbTo;
+        private readonly System.Collections.Generic.List<(float At, float Elevation, float Traverse)> _aims = new();
         private float[] _fire;
         private int _nextFire;
         private float[] _swap;
@@ -71,6 +76,18 @@ namespace BS3D
                 script._sweepTo = to;
                 if (parts.Length > 2 && TryFloat(parts[2], out float amplitude)) script._sweepAmplitude = amplitude;
                 if (parts.Length > 3 && TryFloat(parts[3], out float period) && period > 0f) script._sweepPeriod = period;
+                return true;
+            }
+
+            if (arg.StartsWith("aim=", StringComparison.OrdinalIgnoreCase))
+            {
+                string[] parts = arg.Substring("aim=".Length).Split(':');
+                if (parts.Length != 3 || !TryFloat(parts[0], out float at) || !TryFloat(parts[1], out float elevation)
+                    || !TryFloat(parts[2], out float traverse)) return false;
+
+                ScriptedPlay script = Current ??= new ScriptedPlay();
+                script._aims.Add((at, elevation, traverse));
+                script._aims.Sort((a, b) => a.At.CompareTo(b.At));
                 return true;
             }
 
@@ -180,6 +197,7 @@ namespace BS3D
             "[script] "
             + (float.IsNaN(_sweepFrom) ? "" : $"sweep {_sweepFrom:0.##}-{_sweepTo:0.##} s ±{_sweepAmplitude:0.#}° / {_sweepPeriod:0.##} s; ")
             + (float.IsNaN(_rmbFrom) ? "" : $"rmb {_rmbFrom:0.##}-{_rmbTo:0.##} s; ")
+            + (_aims.Count == 0 ? "" : $"aim {string.Join(", ", _aims.ConvertAll(a => $"{a.Elevation:0.#}°/{a.Traverse:0.#}° from {a.At:0.##} s"))}; ")
             + (float.IsNaN(_walkFrom) ? "" : $"walk {(_walkSign > 0f ? "in" : "out")} {_walkFrom:0.##}-{_walkTo:0.##} s; ")
             + (float.IsNaN(_turnFrom) ? "" : $"turn {(_turnSign > 0f ? "left" : "right")} {_turnFrom:0.##}-{_turnTo:0.##} s; ")
             + (_fire == null ? "" : $"fire at {string.Join(", ", Array.ConvertAll(_fire, t => t.ToString("0.##", CultureInfo.InvariantCulture)))} s");
@@ -223,6 +241,25 @@ namespace BS3D
 
         /// <summary>+1 while A is held by <c>turn=</c> at this instant, -1 for D, 0 outside its interval.</summary>
         internal float Turn(float clock) => !float.IsNaN(_turnFrom) && clock >= _turnFrom && clock <= _turnTo ? _turnSign : 0f;
+
+        /// <summary>
+        /// The pose <c>aim=</c> holds at this instant, in degrees - the latest one whose second has come - or false
+        /// before the first. A short walk over a handful of entries, once a frame.
+        /// </summary>
+        internal bool TryAim(float clock, out float elevation, out float traverse)
+        {
+            elevation = traverse = 0f;
+            bool any = false;
+
+            for (int i = 0; i < _aims.Count && _aims[i].At <= clock; i++)
+            {
+                elevation = _aims[i].Elevation;
+                traverse = _aims[i].Traverse;
+                any = true;
+            }
+
+            return any;
+        }
 
         /// <summary>Whether precise aim is held at this instant.</summary>
         internal bool Rmb(float clock) => !float.IsNaN(_rmbFrom) && clock >= _rmbFrom && clock <= _rmbTo;

@@ -325,6 +325,9 @@ namespace BS3D.Screens
                 if (script.TrySweep(WallClock, _cannon.Elevation, out float elevation, out float traverse))
                     _cannon.AimTo(elevation, traverse);
 
+                if (script.TryAim(WallClock, out float pinnedElevation, out float pinnedTraverse))
+                    _cannon.AimTo(MathHelper.ToRadians(pinnedElevation), MathHelper.ToRadians(pinnedTraverse));
+
                 if (script.Rmb(WallClock))
                 {
                     _adsHeld = true;
@@ -403,6 +406,9 @@ namespace BS3D.Screens
             };
 
             _shotBalls.Add(ball);
+
+            //Where it left from and along, for the impossible shot's watch (#230) - see WatchForEscapes
+            _firedPoses[ball.BallReference.Handle.Value] = (muzzle, direction);
 
             //The ball is spent the instant it leaves the barrel. What it *did* takes a physics step or more to
             //resolve, so the budget and the score are driven by different events on purpose — see ScoreKeeper.
