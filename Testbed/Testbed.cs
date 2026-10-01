@@ -1669,6 +1669,21 @@ namespace Testbed
             //Hung the way the Game hangs it (#617): the glass's sockets spring for the first two seconds
             _world.BeginStartSwing(_physicsBalls);
 
+            //The lattice softened as rope or cloth (#690, a prototype): every socket between two balls re-described at
+            //softness='s spring, the glass's own left as built. Logged, and traced for a few seconds (see TraceSoftness)
+            //so the sag and the swing are numbers and not only a picture.
+            BepuPhysics.Constraints.SpringSettings? lattice = null;
+            if (_options.Softness is (float frequency, float damping))
+            {
+                lattice = new BepuPhysics.Constraints.SpringSettings(frequency, damping);
+                int sockets = LatticeSoftness.Apply(_physicsBalls, _world.Simulation, lattice.Value);
+                Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
+                    $"[softness] {sockets} lattice socket(s) at {frequency:0.##} Hz, damping {damping:0.##}; the glass's own as built"));
+                _softnessTraceClock = 0f;
+                _softnessTraceNext = 0f;
+                _softnessRestLowest = LowestBallY();
+            }
+
             //Built fresh for the field it resolves contacts against, the way the Game builds one per level (#68).
             //It used to be made once in LoadContent with the map, the structure array and the ceiling pushed onto
             //it afterwards — three mutable fields, of which the ceiling was quietly wrong: FitCeilingToMap above
@@ -1681,7 +1696,11 @@ namespace Testbed
             //where its own fit decided. Nothing is subscribed to the handler's two events — what a landing is
             //worth is a rule, and this executable keeps no score.
             _eventHandler = new BallContactEventHandler(_world.Simulation, _world.Events, _ceiling, _map,
-                _physicsBalls, _shotBalls, _fallingBalls, Vector3.Zero);
+                _physicsBalls, _shotBalls, _fallingBalls, Vector3.Zero)
+            {
+                //A shot that lands joins a softened lattice at its own stiffness (#690)
+                LatticeSpring = lattice,
+            };
 
             //THE INFECTION TICKS HERE TOO (#331), on the Game's two resolution points exactly — a landing and
             //a miss — and the class doc above ("the Testbed subscribes to neither") is what this retracts. It

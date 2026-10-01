@@ -80,6 +80,11 @@ namespace Prazsky.BS3D.Physics
         /// </summary>
         private static readonly float SLEEP_THRESHOLD = Constants.HUNDREDTH;
 
+        /// <summary>
+        /// The spring every socket is built at, ball to ball and ball to glass: stiff and critically damped, so a dense
+        /// lattice hangs as one rigid body. A structure may soften its ball-to-ball sockets after the build
+        /// (<see cref="LatticeSoftness"/>, #690); the glass's anchors always keep this.
+        /// </summary>
         public static readonly SpringSettings SPRING_SETTINGS = new(frequency: 15f, dampingRatio: 1f);
 
         /// <summary>

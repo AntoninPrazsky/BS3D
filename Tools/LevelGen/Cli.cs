@@ -18,7 +18,7 @@ namespace BS3D.Tools.LevelGen
     {
         /// <summary>The flags <see cref="Main"/> reads, exactly and by prefix — the one list the refusal below checks.</summary>
         private static readonly string[] Flags = { "--sag", "--clear", "--arrival", "--cuts" };
-        private static readonly string[] ValuedFlags = { "--sag=", "--sagfile=", "--clearfile=", "--arrivalfile=", "--wind=" };
+        private static readonly string[] ValuedFlags = { "--sag=", "--sagfile=", "--clearfile=", "--arrivalfile=", "--wind=", "--softness=" };
 
         /// <summary>Where the prototypes (#604) are written, under the campaign's own directory. See <see cref="Main"/>.</summary>
         private const string PROTOTYPES_DIR = "Prototypes";
@@ -40,7 +40,7 @@ namespace BS3D.Tools.LevelGen
                 foreach (string a in unknown) Console.WriteLine($"Unknown option '{a}'.");
                 if (plain.Length > 1) Console.WriteLine($"More than one output directory: {string.Join(", ", plain)}.");
                 Console.WriteLine("Usage: LevelGen [<output dir>] [--sag[=<name,...>]] [--sagfile=<file,...>] [--clear]"
-                    + " [--clearfile=<file,...>] [--arrival] [--arrivalfile=<file,...>] [--cuts]");
+                    + " [--clearfile=<file,...>] [--arrival] [--arrivalfile=<file,...>] [--cuts] [--softness=<Hz>[:<damping>]]");
                 return 2;
             }
 
@@ -63,6 +63,25 @@ namespace BS3D.Tools.LevelGen
 
                 SagProbe.Wind = new Prazsky.BS3D.Physics.WindField(new System.Numerics.Vector2(0.87f, 0.5f), windStrength);
                 Console.WriteLine($"[wind] the sag probe hangs every level in a gusting wind of up to {windStrength} u/s2");
+            }
+            //`--softness=<Hz>[:<damping>]` hangs every structure the sag probe builds with that spring between its balls (#690),
+            //the glass's own sockets as built - the prototype lever for a chapter of levels that sag like rope or cloth
+            string softArg = args.FirstOrDefault(a => a.StartsWith("--softness=", StringComparison.Ordinal));
+            if (softArg != null)
+            {
+                string[] parts = softArg["--softness=".Length..].Split(':');
+                float damping = 0.3f;
+                if (!float.TryParse(parts[0], System.Globalization.NumberStyles.Float,
+                        System.Globalization.CultureInfo.InvariantCulture, out float frequency) || frequency <= 0f
+                    || (parts.Length > 1 && (!float.TryParse(parts[1], System.Globalization.NumberStyles.Float,
+                        System.Globalization.CultureInfo.InvariantCulture, out damping) || damping <= 0f)))
+                {
+                    Console.WriteLine($"'{softArg}' is not a spring: <Hz>[:<damping>], both positive.");
+                    return 2;
+                }
+
+                SagProbe.Softness = new BepuPhysics.Constraints.SpringSettings(frequency, damping);
+                Console.WriteLine($"[softness] the sag probe hangs every lattice at {frequency} Hz, damping {damping}");
             }
             bool sag = args.Any(a => a == "--sag" || a.StartsWith("--sag=", StringComparison.Ordinal));
             string[] sagOnly = args

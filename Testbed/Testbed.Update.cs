@@ -1,6 +1,8 @@
 using Microsoft.Xna.Framework;
+using Prazsky.BS3D.Physics;
 using Prazsky.Core.Tools;
 using System;
+using System.Globalization;
 
 namespace Testbed
 {
@@ -63,6 +65,8 @@ namespace Testbed
                 _gravityWells.Refresh(_physicsBalls);
 
                 _world.Step(_slowSimulation ? timeStep * Constants.HUNDREDTH : timeStep, _processContacts);
+
+                if (_options.Softness.HasValue) TraceSoftness(_slowSimulation ? timeStep * Constants.HUNDREDTH : timeStep);
 
                 #region Fallen balls cleanup
 
@@ -191,5 +195,48 @@ namespace Testbed
 
             base.Update(gameTime);
         }
+
+        #region The softness trace (#690, a prototype)
+
+        //How long the softened lattice has hung, the next trace line's time, and the lowest ball's Y as it was built
+        private float _softnessTraceClock, _softnessTraceNext, _softnessRestLowest;
+
+        //Every half second for the first twelve: long enough to see the drop, the swing and the settle of the softest
+        //spring tried, short enough that a capture run's log stays readable
+        private const float SOFTNESS_TRACE_INTERVAL = 0.5f;
+        private const float SOFTNESS_TRACE_SECONDS = 12f;
+
+        /// <summary>
+        /// One <c>[softness]</c> line every <see cref="SOFTNESS_TRACE_INTERVAL"/> for the first <see cref="SOFTNESS_TRACE_SECONDS"/>
+        /// of a softened lattice (#690): how far the lowest ball has dropped below where it was built, and the fastest ball's
+        /// speed - the sag, and whether it is still swinging or has settled (or come apart, which a speed running away says).
+        /// </summary>
+        private void TraceSoftness(float step)
+        {
+            if (_physicsBalls == null || _softnessTraceClock > SOFTNESS_TRACE_SECONDS) return;
+
+            _softnessTraceClock += step;
+            if (_softnessTraceClock < _softnessTraceNext) return;
+            _softnessTraceNext += SOFTNESS_TRACE_INTERVAL;
+
+            float fastest = 0f;
+            foreach (PhysicsBall ball in _physicsBalls)
+                if (ball != null) fastest = MathF.Max(fastest, ball.BallReference.Velocity.Linear.Length());
+
+            Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
+                $"[softness] t={_softnessTraceClock:0.0}s sag {_softnessRestLowest - LowestBallY():0.00}, fastest ball {fastest:0.00} u/s"));
+        }
+
+        /// <summary>The lowest hanging ball's world Y, or 0 with none.</summary>
+        private float LowestBallY()
+        {
+            float lowest = float.MaxValue;
+            foreach (PhysicsBall ball in _physicsBalls)
+                if (ball != null) lowest = MathF.Min(lowest, ball.BallReference.Pose.Position.Y);
+
+            return lowest == float.MaxValue ? 0f : lowest;
+        }
+
+        #endregion
     }
 }
