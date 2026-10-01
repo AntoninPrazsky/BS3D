@@ -137,6 +137,8 @@ namespace BS3D.Online
         private readonly ConcurrentQueue<OnlineNotice> _notices = new();
         private readonly ConcurrentQueue<BoardRequest> _boardRequests = new();
         private readonly ConcurrentQueue<BoardReply> _boardReplies = new();
+        private readonly ConcurrentQueue<SummaryRequest> _summaryRequests = new();
+        private readonly ConcurrentQueue<SummaryReply> _summaryReplies = new();
         private readonly SemaphoreSlim _wake = new(0);
         private readonly CancellationTokenSource _stop = new();
 
@@ -293,6 +295,21 @@ namespace BS3D.Online
         /// <summary>The next board page the worker fetched, if any. Allocates nothing when there is none.</summary>
         internal bool TryTakeBoard(out BoardReply reply) => _boardReplies.TryDequeue(out reply);
 
+        /// <summary>
+        /// Asks for the summary of every board (#685) — <c>GET /v1/boards</c>, no token, like a board. Only for an enabled
+        /// client. The answer comes back through <see cref="TryTakeSummary"/> under the request's ticket.
+        /// </summary>
+        internal void RequestSummary(SummaryRequest request)
+        {
+            if (!Enabled) return;
+
+            _summaryRequests.Enqueue(request);
+            _wake.Release();
+        }
+
+        /// <summary>The next summary the worker fetched, if any. Allocates nothing when there is none.</summary>
+        internal bool TryTakeSummary(out SummaryReply reply) => _summaryReplies.TryDequeue(out reply);
+
         /// <summary>The next answer the worker has for the frame, if any. Allocates nothing when there is none.</summary>
         internal bool TryTakeAnswer(out OnlineAnswer answer) => _answers.TryDequeue(out answer);
 
@@ -411,6 +428,9 @@ namespace BS3D.Online
                         //Before the outbox: a board the player is looking at is worth more than a clear that can wait
                         while (_boardRequests.TryDequeue(out BoardRequest board))
                             _boardReplies.Enqueue(await FetchBoardAsync(board, stop));
+
+                        while (_summaryRequests.TryDequeue(out SummaryRequest summary))
+                            _summaryReplies.Enqueue(await FetchSummaryAsync(summary, stop));
 
                         await DrainAsync(outbox, stop);
                     }
@@ -667,6 +687,84 @@ namespace BS3D.Online
                 return new BoardReply(r.Ticket, null, $"{e.GetType().Name}: {e.Message}");
             }
         }
+
+        /// <summary>
+        /// The summary of every board (#685), failing as a board does — a reply with its reason, never an exception. A 404
+        /// or 405 is a service without the summary (older than BS3D-API#7), which the page tells apart from no answer.
+        /// </summary>
+        private async Task<SummaryReply> FetchSummaryAsync(SummaryRequest r, CancellationToken stop)
+        {
+            using CancellationTokenSource deadline = CancellationTokenSource.CreateLinkedTokenSource(stop);
+            deadline.CancelAfter(RequestTimeout);
+
+            try
+            {
+                string query = $"v1/boards?period={(r.AllTime ? "all" : "month")}" + (r.Player is Guid p ? $"&player={p}" : "");
+
+                using HttpResponseMessage response = await _http.GetAsync(new Uri(Server, query), deadline.Token);
+                string text = await response.Content.ReadAsStringAsync(deadline.Token);
+                int status = (int)response.StatusCode;
+
+                if (status == (int)HttpStatusCode.NotFound || status == (int)HttpStatusCode.MethodNotAllowed)
+                    return new SummaryReply(r.Ticket, null, $"{status} {response.ReasonPhrase}", NotOffered: true);
+
+                if (!response.IsSuccessStatusCode)
+                    return new SummaryReply(r.Ticket, null, $"{status} {response.ReasonPhrase}", NotOffered: false);
+
+                BoardsSummaryBody summary = response.Content.Headers.ContentType?.MediaType == "application/json"
+                    ? JsonSerializer.Deserialize<BoardsSummaryBody>(text, RequestJson)
+                    : null;
+
+                return summary != null
+                    ? new SummaryReply(r.Ticket, SanitizeSummary(summary), null, NotOffered: false)
+                    : new SummaryReply(r.Ticket, null, "not the service's answer", NotOffered: false);
+            }
+            catch (OperationCanceledException) when (!stop.IsCancellationRequested)
+            {
+                return new SummaryReply(r.Ticket, null, $"nothing within {RequestTimeout.TotalSeconds:0} s", NotOffered: false);
+            }
+            catch (Exception e) when (!stop.IsCancellationRequested)
+            {
+                return new SummaryReply(r.Ticket, null, $"{e.GetType().Name}: {e.Message}", NotOffered: false);
+            }
+        }
+
+        /// <summary>
+        /// A summary made safe for the frame (#685), on <see cref="SanitizeBoard"/>'s terms: no null board, no board without
+        /// its key, no negative count or rank, stars in range, names and keys cut and cleaned, and no more boards than
+        /// <see cref="MaxSummaryBoards"/> - a service that answered with a million would otherwise be a million rows.
+        /// </summary>
+        internal static BoardsSummaryBody SanitizeSummary(BoardsSummaryBody summary)
+        {
+            summary.Boards ??= new List<BoardSummaryBody>();
+            summary.Boards.RemoveAll(b => b == null || string.IsNullOrEmpty(b.File) || string.IsNullOrEmpty(b.Hash) || b.Top == null);
+            if (summary.Boards.Count > MaxSummaryBoards) summary.Boards.RemoveRange(MaxSummaryBoards, summary.Boards.Count - MaxSummaryBoards);
+
+            foreach (BoardSummaryBody board in summary.Boards)
+            {
+                board.File = CleanText(board.File, 64);
+                board.Hash = CleanText(board.Hash, 64);
+                board.Total = Math.Max(0, board.Total);
+                board.Top.Rank = 1;
+                board.Top.Score = Math.Max(0, board.Top.Score);
+                board.Top.Stars = Math.Clamp(board.Top.Stars, 0, StarRating.MAX);
+                board.Top.Name = CleanText(board.Top.Name, Nickname.MaxLength);
+
+                if (board.Me != null)
+                {
+                    board.Me.Rank = Math.Max(0, board.Me.Rank);
+                    board.Me.Score = Math.Max(0, board.Me.Score);
+                    board.Me.Stars = Math.Clamp(board.Me.Stars, 0, StarRating.MAX);
+                }
+            }
+
+            summary.Period = CleanText(summary.Period, 16);
+            summary.Month = CleanText(summary.Month, 16);
+            return summary;
+        }
+
+        /// <summary>The most boards a summary may carry into the frame: several times the campaign, every version of it.</summary>
+        internal const int MaxSummaryBoards = 2000;
 
         /// <summary>
         /// The service's form of the name it was sent, <paramref name="sent"/>, written back only when it is a

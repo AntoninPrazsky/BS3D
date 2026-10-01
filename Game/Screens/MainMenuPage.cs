@@ -124,6 +124,9 @@ namespace BS3D.Screens
             //session's, not a save's. What Continue opens is BS3DGame.NewGameOrContinue's to decide.
             column.Widgets.Add(FrontEndEntry("New Game", Game.NewGameOrContinue, out _firstLabel));
             column.Widgets.Add(FrontEndEntry("Select Level", Game.OpenLevelSelect));
+            //Every level's board at a glance (#685), beside the picker it is the other half of: one chooses a level, the
+            //other shows who leads each one and where the player stands
+            column.Widgets.Add(FrontEndEntry("High Scores", Game.OpenHighScores));
             column.Widgets.Add(FrontEndEntry("Scene", Game.OpenSceneSelect));
             column.Widgets.Add(FrontEndEntry("Settings", Game.OpenSettings));
             //Before About and after the rest: a player who wants to know HOW should not have to read what
