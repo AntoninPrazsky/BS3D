@@ -7318,3 +7318,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 
 - **Revize (1 agent, jen čtení) našla 5 věcí, všechny opraveny:** (1) římsa je plná deska přes celou střechu, takže střešní výbava na klasických věžích byla o 0,4 j. zapuštěná — `City.RoofRise` ji zvedá; (2) komentář tvrdil, že CPU kopie hodu nesouhlasila s GPU — souhlasila, holá věž byla stínováním římsy; (3) orientační balvany na Měsíci sahaly do 380, hřeben je 310 — třetina stála na odvrácené straně, teď do `HighlandCrestRadius`; (4) kameny seděly na přesné výšce, ale kreslí se mřížka 3,34 j. a valy prostřední oktávy jsou užší (odchylka až 2,3 j.) — `TerrainMirror.OnGrid` interpoluje po trojúhelnících mřížky; (5) tvrzení, že žádný sloup v jeskyni nestojí za shlukem, platí jen ve výchozí poloze děla (to obíhá celý kruh).
 - **Při referencích oblohy nalezena chyba ve skriptu `render-references.ps1`** (proměnné v PowerShellu nerozlišují velikost písmen: `$init = $Init` přepsal parametr a init se přenášel na další položky). Opraveno a na mainu (`fc9ed9f4`); žádný starší soubor s prompty to netrefil.
+
+## 2026-10-01 — #681 obloha pouště a savany do modra (claim) — desktop, Claude Code (bs3d-78)
+
+- **Beru #681** (majitel 2026-10-01: „Přebarvit do modra“). Kopule 6 (poušť) a 14 (savana) vygenerovat z výškových bodů jako kopuli 8 v #661 podle 32 referencí (`C:\Users\panrd\AI\sd\out\sky-*`); spodní pětina zůstane teplá (barva slunce), modrá jen výš. Soubory: `BS3DLibs/Prazsky.Core/SkyDome.Data.cs`, `docs/scenes.md`.
