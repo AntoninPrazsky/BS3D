@@ -1,5 +1,7 @@
 using BS3D.Online;
+using Microsoft.Xna.Framework;
 using Myra.Graphics2D.UI;
+using Prazsky.Core.Tools;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -48,8 +50,11 @@ namespace BS3D.Screens
     /// <b>The nickname is the one value that is typed rather than cycled</b> (#548), and it is still a button:
     /// activating it puts the page into typing, where the row shows what is being typed and the keyboard is the
     /// page's (<see cref="CapturesKeyboard"/>) — so a Space, an arrow or a letter types rather than walking the
-    /// cursor. Enter or the pad's A keeps it, Escape or B drops it, and any other row cancels it. A pad cannot
-    /// type, and the line under the rows says so rather than leaving a pad player to discover it.
+    /// cursor. Enter or the pad's A keeps it, Escape or B drops it, and since #687 moving on — another row, or off
+    /// the page — keeps it too when it is a name, because the owner typed one, did not know Enter was wanted and
+    /// lost it. While typing, the value reads as a field (the draft from the left, a blinking caret) and the line
+    /// under the rows leads with the keys in the bright face. A pad cannot type, and that line says so ("typed on
+    /// the keyboard") rather than leaving a pad player to discover it.
     /// </para>
     /// </summary>
     internal sealed class SettingsPage : MenuPage
@@ -104,6 +109,14 @@ namespace BS3D.Screens
         private bool _turnOnAfterName;
         private string _typingProblem;
 
+        //The caret while typing (#687): an underscore, because Anton's "|" reads as a lowercase L ("Karel|" was
+        //"Karell"), and blinking, because a still mark is not a place to type. Its clock restarts on every key, so
+        //the caret is always on while the player types.
+        private const string CARET = "_";
+        private const float CARET_PERIOD = 1.0f;
+        private float _caretClock;
+        private bool _caretShown = true;
+
         //Every row's own button, in build order (#517) — cleared and refilled by AddRow each time BuildTree
         //runs, since a resize rebuilds the whole tree and a stale reference here would still answer
         //IsMouseInside for a button no longer on screen. Kept apart from Game's own _navEntries: that list
@@ -124,9 +137,26 @@ namespace BS3D.Screens
 
         public override void Leave()
         {
-            //A page that is not on top must not keep the keyboard
+            //A page that is not on top must not keep the keyboard - and a name typed and not yet confirmed is kept
+            //when it is one (#687): leaving the page is not Escape
+            KeepOrDropTyping();
             _typing = false;
             base.Leave();
+        }
+
+        /// <summary>The caret's blink while typing (#687) - a label's text written twice a second, never per frame.</summary>
+        public override void Update(GameTime gameTime)
+        {
+            base.Update(gameTime);
+
+            if (!_typing || _nicknameValue == null) return;
+
+            _caretClock += (float)gameTime.ElapsedGameTime.TotalSeconds;
+            bool shown = _caretClock % CARET_PERIOD < CARET_PERIOD * Constants.HALF;
+            if (shown == _caretShown) return;
+
+            _caretShown = shown;
+            ShowNickname();
         }
 
         internal override bool CapturesKeyboard => _typing;
@@ -372,7 +402,8 @@ namespace BS3D.Screens
         }
 
         /// <param name="typingRow">The nickname's own row, whose click keeps or starts typing. Every other row's
-        /// click drops a name being typed first — the player has moved on.</param>
+        /// click first keeps a name being typed when it is one, and drops it when it is not (#687) — the player has
+        /// moved on, and only Escape says "not this name".</param>
         private void AddRow(Grid grid, int row, string caption, Action onClick, out Label value, bool typingRow = false)
         {
             grid.RowsProportions.Add(new Proportion(ProportionType.Auto));
@@ -391,7 +422,7 @@ namespace BS3D.Screens
 
             Button button = MenuButton(string.Empty, typingRow ? onClick : () =>
             {
-                CancelTyping();
+                KeepOrDropTyping();
                 onClick();
             }, out value);
             button.Width = Scaled(VALUE_WIDTH);
@@ -463,22 +494,48 @@ namespace BS3D.Screens
             _progressValue.Text = _resetArmed ? "Sure?"
                 : Game.TotalStars == 1 ? "1 star" : $"{Game.TotalStars} stars";
 
-            _onlineValue.Text = Game.Online.IsOn ? "On" : "Off";
-            ShowNickname(_typing ? _nameDraft + "|" : Game.Online.Nickname ?? "Not set");
+            //What is left for the player to do is red (#687, BS3DGame.MENU_TEXT_ALERT): the boards off, and on with
+            //nowhere to send - a local build whose settings name no server, or one the client refused. A release
+            //always has OnlineScores.DefaultServer, so a player meets the second only on a server they typed in
+            bool online = Game.Online.IsOn;
+            bool noServer = online && Game.Online.Nickname != null && !Game.Online.Enabled;
+            _onlineValue.Text = !online ? "Off" : noServer ? "No server" : "On";
+            _onlineValue.TextColor = !online || noServer ? BS3DGame.MENU_TEXT_ALERT : BS3DGame.MENU_TEXT;
+            ShowNickname();
             _removeValue.Text = Game.Online.Removal == OnlineRemovalState.Removing ? "Removing..."
                 : _removeArmed ? "Sure?"
                 : Game.Online.Nickname == null ? "Nothing" : "Remove";
             _onlineNote.Text = OnlineNote();
+            //The instruction while typing is the thing to read on the page, so it is not set as an aside (#687)
+            _onlineNote.TextColor = _typing ? BS3DGame.MENU_TEXT : BS3DGame.MENU_TEXT_DIM;
         }
 
         /// <summary>
         /// The nickname in the display face like every other value — or in the small face when it would not fit
         /// the button, which sixteen wide letters in Anton do not. Measured rather than counted: letters differ.
+        /// <para>
+        /// While typing (#687) it reads as a field: the draft from the button's left edge with a blinking caret after
+        /// it, so the letters stand still as the caret comes and goes (centred, each blink moved them half a caret).
+        /// The face is chosen with the caret in, so a blink cannot flip it. Not set, it is red: a thing to type.
+        /// </para>
         /// </summary>
-        private void ShowNickname(string text)
+        private void ShowNickname()
         {
+            if (_typing)
+            {
+                string field = _nameDraft + CARET;
+                _nicknameValue.Text = _caretShown ? field : _nameDraft;
+                _nicknameValue.Font = FontBody.MeasureString(field).X <= Scaled(VALUE_WIDTH) * 0.9f ? FontBody : FontSmall;
+                _nicknameValue.HorizontalAlignment = HorizontalAlignment.Left;
+                _nicknameValue.TextColor = BS3DGame.MENU_TEXT;
+                return;
+            }
+
+            string text = Game.Online.Nickname ?? "Not set";
             _nicknameValue.Text = text;
             _nicknameValue.Font = FontBody.MeasureString(text).X <= Scaled(VALUE_WIDTH) * 0.9f ? FontBody : FontSmall;
+            _nicknameValue.HorizontalAlignment = HorizontalAlignment.Center;
+            _nicknameValue.TextColor = Game.Online.Nickname == null ? BS3DGame.MENU_TEXT_ALERT : BS3DGame.MENU_TEXT;
         }
 
         /// <summary>
@@ -487,9 +544,11 @@ namespace BS3D.Screens
         /// </summary>
         private string OnlineNote()
         {
+            //The keys first (#687): the owner typed a name, did not know Enter was wanted, and left it behind. Moving
+            //on keeps it now as well, and the line says so
             if (_typing)
-                return _typingProblem ?? $"Type a nickname on the keyboard: {Nickname.MinLength} to {Nickname.MaxLength} letters, digits, "
-                    + "spaces, _ or -. Enter keeps it, Esc drops it.";
+                return _typingProblem ?? $"Press Enter to keep the name, or Esc to cancel. Moving to another row keeps it too. "
+                    + $"{Nickname.MinLength} to {Nickname.MaxLength} letters, digits, spaces, _ or -, typed on the keyboard.";
 
             if (Game.Online.NameProblem != null)
                 return $"The server refused the nickname ({Game.Online.NameProblem}). Choose another.";
@@ -509,9 +568,11 @@ namespace BS3D.Screens
             }
 
             //On with a name and still not enabled: no server resolved - a local build whose settings name none (a
-            //release has OnlineScores.DefaultServer), or a server the client refused
+            //release has OnlineScores.DefaultServer), or a server the client refused. Said alone: with the privacy
+            //sentence after it, it ran past the note's nine lines and was cut mid-sentence (photographed, #687), and
+            //the sentence is for deciding to opt in, which this player has done
             if (Game.Online.IsOn && !Game.Online.Enabled && Game.Online.Nickname != null)
-                return "This build has no score server to send to, so nothing is sent. " + Game.Online.PrivacySentence;
+                return "No score server: this build has none to send to, so nothing is sent. A release sends to the game's own server.";
 
             return Game.Online.PrivacySentence;
         }
@@ -565,8 +626,30 @@ namespace BS3D.Screens
             _nameDraft = Game.Online.Nickname ?? string.Empty;
             _typingProblem = null;
             _removeArmed = false;
+            ShowCaret();
 
             Refresh();
+        }
+
+        /// <summary>The caret on, and its blink restarted - at the start of typing and on every key (#687).</summary>
+        private void ShowCaret()
+        {
+            _caretClock = 0f;
+            _caretShown = true;
+        }
+
+        /// <summary>
+        /// The player moved on from a name being typed - another row, or off the page (#687). A name that is one is
+        /// kept, as Enter would keep it (and turns the boards on when the edit began from the Online row); anything
+        /// else is dropped quietly, since there is no longer a field to say what is wrong with it under. Only Escape
+        /// drops a good name.
+        /// </summary>
+        private void KeepOrDropTyping()
+        {
+            if (!_typing) return;
+
+            if (Nickname.TryNormalize(_nameDraft, out _, out _)) KeepTyping();
+            else CancelTyping();
         }
 
         /// <summary>
@@ -635,6 +718,7 @@ namespace BS3D.Screens
             }
 
             _typingProblem = null;
+            ShowCaret();
             Refresh();
         }
 
@@ -649,17 +733,32 @@ namespace BS3D.Screens
         /// Testing only (<c>settings=&lt;row,...&gt;</c>, #548): activates the named rows in order, through the very
         /// handlers a click runs, so a run nobody is sitting at can reach the online rows' states. "remove" is
         /// refused outside a <c>userdata=</c> folder — it would remove the player's own scores from the server.
+        /// Since #687 also <c>type:&lt;text&gt;</c>, <c>enter</c> and <c>esc</c>, typed through
+        /// <see cref="OnTextInput"/>: <c>settings=online,type:Novak,intro</c> types a name and moves on.
         /// </summary>
         internal void ActivateForTesting(string rows)
         {
             foreach (string row in rows.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
             {
+                //"type:<text>" feeds the characters through OnTextInput, the window's own path, and "enter"/"esc" the
+                //two keys that end typing (#687) - so a run nobody is sitting at can type a name and then move on
+                if (row.StartsWith("type:", StringComparison.OrdinalIgnoreCase))
+                {
+                    foreach (char c in row[5..]) OnTextInput(c);
+                    System.Console.WriteLine($"[settings] Testing: typed '{row[5..]}'");
+                    continue;
+                }
+
+                //Every row but the nickname's goes through what its click does first (AddRow): a name being typed is
+                //kept when it is one, dropped when not (#687)
                 switch (row.ToLowerInvariant())
                 {
-                    case "online": OnOnline(); break;
-                    case "intro": Game.ToggleIntroLogo(); break;
+                    case "enter": OnTextInput('\r'); break;
+                    case "esc": OnTextInput('\x1b'); break;
+                    case "online": KeepOrDropTyping(); OnOnline(); break;
+                    case "intro": KeepOrDropTyping(); Game.ToggleIntroLogo(); break;
                     case "nickname": OnNickname(); break;
-                    case "remove" when UserData.IsTestingDirectory: OnRemove(); break;
+                    case "remove" when UserData.IsTestingDirectory: KeepOrDropTyping(); OnRemove(); break;
                     case "remove":
                         System.Console.WriteLine("[settings] Testing: 'remove' refused outside a userdata= folder — it would remove the player's own scores");
                         continue;
