@@ -13,7 +13,9 @@
         out      level, out over the scene's ground or water          campos 0,-4,30   -> 0,-6,200
         sky      up at the sky and whatever stands in it              campos 0,-4,30   -> 0,40,200
         graze    a low, grazing look at the horizon                   campos 0,-9,30   -> 0,-8.8,200
-        down     down at the ground beside the arena                  campos 0,10,60   -> 0,-12,60
+        down     down at the ground beside the arena                  campos 0,10,60   -> 0,-12,58
+                 (two units off the vertical: a look straight down is a degenerate look-at against an up of +Y, and
+                 the Testbed renders it as one flat field - every scene's "down" scored 0 % on a picture of nothing)
         play     the game's own pose, island, gun and cluster in view  campos 0,-4,30   -> 0,-8,0
                  (NOT in the default set: the cluster's regularity is by design and its tiles will flag)
 
@@ -71,7 +73,7 @@ $camera = @{
     out   = @('campos=0,-4,30', 'camtarget=0,-6,200')
     sky   = @('campos=0,-4,30', 'camtarget=0,40,200')
     graze = @('campos=0,-9,30', 'camtarget=0,-8.8,200')
-    down  = @('campos=0,10,60', 'camtarget=0,-12,60')
+    down  = @('campos=0,10,60', 'camtarget=0,-12,58')
     play  = @('campos=0,-4,30', 'camtarget=0,-8,0')
 }
 
