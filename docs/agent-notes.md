@@ -7400,3 +7400,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 - **Měření na mainu (merge 6972a6aa): `LevelGen --cuts`** (`CutProbe.cs`, pravidlo hry přes `GetCellsDisconnectedFromCeiling`). Na startovním clusteru **98 ze 100** levelů s řezem neuvolní žádný řez 3 a víc koulí a na 93 nejlepší řez uvolní jen zasaženou kouli. Něco dává jen Scales (20) a Grotto (3). Alternativa „prsten“ (koule i všichni sousedé): typicky 8, medián nejlepších 12, na čtyřech levelech masa (Kepler 227, Belfry 188, Comet 77, Organ 76).
 - **Brake čip na mainu (merge 6529b995), `shipped-awaiting-verdict`:** ztlumený, dokud `CanBrake` neplatí. Ověřeno na Column (`fire=19..24`, světlý po prvním tlakovém kroku).
 - **Nechávám majiteli:** co má řez dělat (silnější řez posune stropy ScoreSim a whitelist online tabulek, takže nová tabulka stropů musí na Pi ve stejném vydání) a karty tutoriálu pro Brake a Cut. Kartu pro řez bych dělal až po rozhodnutí o pravidle.
+
+## 2026-10-01 — #690 krok 1: prototyp měkkosti — desktop, Claude Code (bs3d-a3)
+
+- **Beru #690, jen krok 1 z issue:** prototyp měkkosti mřížky v Testbedu na dvou až třech ručně postavených tvarech (provaz mezi dvěma kotvami, hamaka, opona), změřit průvěs, houpání a stabilitu, ukázat majiteli. Formát levelu, LevelGen blok ani scéna zatím ne. Soubory: `BS3DLibs/Prazsky.BS3D.Physics/BallsConstraintsBuilder.cs` (pružina mřížky jako parametr), `Testbed` (páka `softness=`), `Tools/LevelGen/SagProbe.cs` (`--softness=`), mapy v `Testbed/Maps`.
