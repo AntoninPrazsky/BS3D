@@ -7355,3 +7355,8 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 - **Na mainu (merge e9476d9d), `shipped-awaiting-verdict`.** Před řádkem stavu pod tabulkami na stránce výsledku je ikona signálu (`OnlineSignal`, čtyři sloupky). Během odesílání a načítání se sloupky postupně rozsvěcují, po přijetí jsou zlaté (barva vlastního řádku v tabulce), offline nebo při odmítnutí tlumené.
 - **Ověřování:** testovací level z #546 (`Online546.json`, pět koulí s bombou, `play levelfile=… detonate=6`) proti zástupnému serveru v Pythonu se zpožděním. ⚠ **Odeslání startuje až se stránkou výsledku** (kolem 22. s od startu) a klient po 5 s vzdá, takže zpoždění serveru musí být pod 5 s, jinak se zachytí jen offline.
 - ⚠ **Mimochodem nalezený pád (samostatný merge `music-theme-null`):** level bez pole `music` (mapa z editoru, testovací level) shodil herní smyčku v `GameMusic.SetTheme`, protože alias bohemia z #280 volal `StartsWith` na null.
+
+## 2026-10-01 — #689 sklo láme ohňostroj — desktop, Claude Code (bs3d-a3)
+
+- **Na mainu (merge 353e50ef), `shipped-awaiting-verdict`.** Ohňostroj se kreslí ve stejném místě jako ohně savany z #641: v `DrawTranslucentsBehindGlass` (dřív `DrawGroundedTranslucents`) hned po `BeginSceneDraw`, tedy ještě před pořízením kopie pro sklo. Dřív se kreslil až ve `FinishSceneDraw`, po skle.
+- **Ověření:** levelem z #546 s `detonate=`, tři běhy na build, záběry z herní kamery, která se dívá na desku. ⚠ **Přední menu s `celebrate` se na to nehodí:** kamera tam desku vidí skoro z boku a výbuchy za ni nezalétnou. ⚠ **`shot=` každou půl vteřinu srazí hru na 2 FPS** (zápis PNG blokuje snímek), tím se posune celé načasování. Lepší jsou čtyři záběry po vteřině.
