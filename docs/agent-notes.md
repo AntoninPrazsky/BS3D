@@ -7344,3 +7344,7 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 - **Na mainu (merge 3dcac6a9), `shipped-awaiting-verdict`.** Červeně (`MENU_TEXT_ALERT`, druhá výjimka z šedé palety) se kreslí Off, Not set a nové „No server“ přímo na řádku Online. Přezdívka se při psaní kreslí jako pole: text od levého okraje a blikající podtržítko. Poznámka začíná „Press Enter…“ jasným písmem. **Odchod na jiný řádek nebo ze stránky platné jméno uloží** (dřív se zahodilo), Esc ho zahodí.
 - ⚠ **`|` v Antonu vypadá jako malé L** („Karell“), proto je kurzor podtržítko. ⚠ **Poznámka bez serveru přetékala** přes devět řádků a byla useknutá v půli věty; teď stojí sama, bez věty o tom, co se odesílá.
 - **Testovací páka `settings=` umí `type:<text>`, `enter` a `esc`** (přes `OnTextInput`) a ostatní řádky jdou přes to, co dělá kliknutí. Takže `settings=online,type:Novak,intro` napíše jméno a odejde.
+
+## 2026-10-01 — #682 přejmenovat level One (claim) — desktop, Claude Code (bs3d-a3)
+
+- **Beru #682**: zobrazované jméno „One“ změním na „Cannonball“, soubor `One.json` zůstane (podle něj se ukládají hvězdy). Měním `Tools/LevelGen/Designs/Block01_Meadow.cs`, `Game/Levels` přegeneruji a upravím příklad v `HelpPage`.
