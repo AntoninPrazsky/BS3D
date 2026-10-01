@@ -154,6 +154,16 @@ namespace BS3D.Screens
                 //Nothing out there. The beam still goes up, because in the overview it is the ONLY thing saying
                 //where the gun points — but open-ended, so it thins away instead of ending at a phantom.
                 _previewBeamEnd = muzzle + aim * PREVIEW_OPEN_REACH;
+
+                //A stepped flight (crates, #257) ends its path wherever the flight budget ran out, a hundred units on:
+                //its last leg is cut to the same reach every other open beam has, past the last bounce
+                if (_previewPath.Count >= 2)
+                {
+                    Vector3 from = _previewPath[^2], to = _previewPath[^1];
+                    float length = Vector3.Distance(from, to);
+                    if (length > PREVIEW_OPEN_REACH) _previewPath[^1] = from + (to - from) * (PREVIEW_OPEN_REACH / length);
+                }
+
                 return;
             }
 

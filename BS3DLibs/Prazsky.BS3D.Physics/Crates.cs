@@ -3,6 +3,7 @@ using BepuPhysics.Collidables;
 using System;
 using System.Collections.Generic;
 using System.Numerics;
+using Prazsky.Core.Tools;
 
 namespace Prazsky.BS3D.Physics
 {
@@ -45,6 +46,13 @@ namespace Prazsky.BS3D.Physics
         /// between them for ever inside one step; four is more than any layout a player could read.
         /// </summary>
         public const int MAX_BOUNCES = 4;
+
+        /// <summary>
+        /// How fast a shot has to be moving for a crate to bounce it, world units a second — a tenth of a fired shot's
+        /// 200. Below it the shot has lost its speed on something else (the glass) and a lossless bounce would never
+        /// end; see <see cref="BounceShots"/>.
+        /// </summary>
+        public const float MIN_BOUNCE_SPEED = 20f;
 
         //A face a ball has just left is not met again: a leg starting on a face, moving away, finds its exit at zero
         private const float EPSILON = 1e-4f;
@@ -107,8 +115,10 @@ namespace Prazsky.BS3D.Physics
                     if (enter > leave) miss = true;
                 }
 
-                //Behind, already inside (entered before the start), or beyond the reach of this leg
-                if (miss || enterAxis < 0 || leave <= EPSILON || enter < 0f || enter >= distance) continue;
+                //Behind, already inside (entered before the start, by more than a rounding error), or beyond this leg
+                if (miss || enterAxis < 0 || leave <= EPSILON || enter < -EPSILON || enter >= distance) continue;
+
+                enter = MathF.Max(enter, 0f);
 
                 distance = enter;
                 normal = Vector3.Zero;
@@ -172,8 +182,23 @@ namespace Prazsky.BS3D.Physics
         /// would otherwise fly through. The pose the frame interpolates from was taken before the step, so a bounced
         /// ball is drawn cutting the corner of one step — a sixtieth of a second, at a speed the eye sees as a streak.
         /// </para>
+        /// <para>
+        /// <b>A step whose flight reaches a ball of the cluster before the face is not bounced</b> (#257's review): the
+        /// ball is put behind the face for the integrator, so Bepu sweeps the mirrored leg and never the real one, and a
+        /// ball beside the last stretch before the face — which the preview tests — would be flown past. Left alone,
+        /// the step meets that ball the ordinary way.
+        /// </para>
+        /// <para>
+        /// <b>And a shot slower than <see cref="MIN_BOUNCE_SPEED"/> is not bounced but spent</b> (#257's review): a
+        /// lossless bounce never decays, so a shot that came off the glass with its speed gone and dropped onto a
+        /// crate's top would bounce between the two for ever, never touch the stone or the kill plane, and hold the
+        /// level open on its last shot. It is unregistered here, so the narrow phase pairs it with the crate from
+        /// this very step as the static box it also is, and added to <paramref name="spent"/> for the caller to
+        /// resolve as the miss it now is.
+        /// </para>
         /// </summary>
-        public void BounceShots(List<PhysicsBall> shots, ContactEvents events, float dt, float gravityY)
+        public void BounceShots(List<PhysicsBall> shots, ContactEvents events, float dt, float gravityY,
+            PhysicsBall[,,] structure, List<PhysicsBall> spent)
         {
             if (_crates.Count == 0 || shots == null) return;
 
@@ -191,7 +216,25 @@ namespace Prazsky.BS3D.Physics
                 Vector3 position = body.Pose.Position;
                 Vector3 velocity = body.Velocity.Linear + gravity;
 
-                if (Fly(ref position, ref velocity, dt, radius) == 0) continue;
+                float speed = velocity.Length();
+                if (speed < 1e-6f) continue;
+
+                Vector3 heading = velocity / speed;
+                if (!TryFindFirstFace(position, heading, speed * dt, radius, out float toFace, out _)) continue;
+
+                //The cluster first, if the flight reaches it before the face
+                if (structure != null && ShotPlacement.TryFindFirstHitOnSegment(structure, position.ToXna(), heading.ToXna(),
+                        toFace, 2f * radius, out _, out _, out _))
+                    continue;
+
+                if (speed < MIN_BOUNCE_SPEED)
+                {
+                    events.Unregister(body.CollidableReference);
+                    spent?.Add(ball);
+                    continue;
+                }
+
+                Fly(ref position, ref velocity, dt, radius);
 
                 body.Pose.Position = position - velocity * dt;
                 body.Velocity.Linear = velocity - gravity;

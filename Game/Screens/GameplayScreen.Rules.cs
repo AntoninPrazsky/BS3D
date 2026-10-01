@@ -82,7 +82,7 @@ namespace BS3D.Screens
             //A landing breaks the impossible shot's run (#230); the shot has already left _shotBalls, so the watch cannot see it
             _repeatMiss.Break();
 
-            LogResolution($"landed at ({landing.Cell.X},{landing.Cell.Z},{landing.Cell.Level})");
+            if (_test.LogShots) LogResolution($"landed at ({landing.Cell.X},{landing.Cell.Z},{landing.Cell.Level})");
 
             //The landing's own sound, before anything is scored: it depends only on the colour that hit, what it
             //is MADE of (#314) and where — not on what came loose. Spoken from the cell it stuck to — the same

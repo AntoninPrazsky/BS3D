@@ -50,7 +50,8 @@ namespace BS3D.Screens
             _world.PerStepForces = dt =>
             {
                 _gravityWells.ApplyTo(_shotBalls, dt);
-                _crates.BounceShots(_shotBalls, _world.Events, dt, Prazsky.Core.Tools.Constants.EARTH_GRAVITY);
+                _crates.BounceShots(_shotBalls, _world.Events, dt, Prazsky.Core.Tools.Constants.EARTH_GRAVITY,
+                    _physicsBalls, _crateSpent);
             };
             _crates.AddStatics(_world.Simulation, _world.Events);
 
@@ -148,6 +149,12 @@ namespace BS3D.Screens
             //ended. The culling itself carries on — that is exactly what empties the drain behind the numbers.
             RemoveFallenBalls(_shotBalls, scoreMisses: !LevelOver);
             RemoveFallenBalls(_fallingBalls, scoreMisses: false);
+
+            //A shot a crate spent for being too slow to bounce (#257's review): already unregistered inside the step,
+            //resolved here as the miss it is, through the one door every miss goes through
+            for (int i = 0; i < _crateSpent.Count; i++)
+                if (!LevelOver) OnShotSpent();
+            _crateSpent.Clear();
         }
 
         /// <summary>

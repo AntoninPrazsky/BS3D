@@ -594,6 +594,9 @@ namespace BS3D.Screens
         /// <summary>How they are drawn; null without any.</summary>
         private CrateField _crateField;
 
+        /// <summary>Shots a crate spent inside a step for being too slow to bounce, resolved after it (see Crates.BounceShots).</summary>
+        private readonly List<PhysicsBall> _crateSpent = new();
+
         /// <summary>
         /// How hard a full-size blast heaves the camera, as a <c>CameraShake.Rumble</c> strength. Under 1 so that a
         /// chain still reads as bigger than one bomb before the rumble saturates — each link adds its own as it

@@ -195,7 +195,7 @@ namespace Prazsky.BS3D.Physics
         /// <param name="maxDistance">How far along the ray still counts as this segment. <see cref="float.MaxValue"/>
         /// for the unbounded line.</param>
         /// <param name="distance">How far along <paramref name="aim"/> the surfaces first met.</param>
-        private static bool TryFindFirstHitOnSegment(PhysicsBall[,,] balls, Vector3 origin, Vector3 aim,
+        public static bool TryFindFirstHitOnSegment(PhysicsBall[,,] balls, Vector3 origin, Vector3 aim,
             float maxDistance, float radiusSum, out PhysicsBall hit, out Vector3 worldContact, out float distance)
         {
             hit = null;
@@ -339,6 +339,13 @@ namespace Prazsky.BS3D.Physics
             System.Numerics.Vector3 shotVelocity = velocity.ToNumerics();
             float flown = 0f;
 
+            //WITH CRATES, A STEP FAR FROM THE CLUSTER IS NOT ASKED ABOUT IT (#257's review): the stepped flight walks the
+            //whole lattice once a step, and a miss flies sixty of them - sixty walks of a thousand balls a frame on the
+            //levels where the gun is most often aimed at a wall. The cluster's bounds, grown by both radii, are taken
+            //once here, and a step whose segment's box misses them cannot touch a ball.
+            System.Numerics.Vector3 near = default, far = default;
+            if (crates != null) ClusterBounds(balls, radiusSum, out near, out far);
+
             while (flown < MAX_FLIGHT_SECONDS)
             {
                 float speed = shotVelocity.Length();
@@ -424,7 +431,9 @@ namespace Prazsky.BS3D.Physics
                     bool facing = bounce < Crates.MAX_BOUNCES && crates != null
                         && crates.TryFindFirstFace(position, legHeading, reach, BallsConstraintsBuilder.BALL_RADIUS, out toFace, out face);
 
-                    if (TryFindFirstHitOnSegment(balls, position.ToXna(), legHeading.ToXna(), facing ? toFace : reach,
+                    float leg = facing ? toFace : reach;
+                    if ((crates == null || SegmentNear(position, legHeading * leg, near, far))
+                        && TryFindFirstHitOnSegment(balls, position.ToXna(), legHeading.ToXna(), leg,
                             radiusSum, out hit, out worldContact, out _))
                     {
                         path?.Add(worldContact);
@@ -444,10 +453,43 @@ namespace Prazsky.BS3D.Physics
                 }
 
                 flown += INTEGRATION_STEP;
-                path?.Add(position.ToXna());
+
+                //A knot a step where the field bends the flight; with crates alone the flight between two bounces is a
+                //line (the world's gravity bends it by a hair the beam cannot show), so the knots are the bounces and the end
+                if (!noWells) path?.Add(position.ToXna());
             }
 
+            if (noWells) path?.Add(position.ToXna());
             return false;
+        }
+
+        //The structure's bounds, grown by the touch's radius: a segment whose own box misses them cannot meet a ball
+        private static void ClusterBounds(PhysicsBall[,,] balls, float radiusSum, out System.Numerics.Vector3 min,
+            out System.Numerics.Vector3 max)
+        {
+            min = new System.Numerics.Vector3(float.MaxValue);
+            max = new System.Numerics.Vector3(float.MinValue);
+
+            foreach (PhysicsBall ball in balls)
+            {
+                if (ball == null) continue;
+                System.Numerics.Vector3 at = ball.BallReference.Pose.Position;
+                min = System.Numerics.Vector3.Min(min, at);
+                max = System.Numerics.Vector3.Max(max, at);
+            }
+
+            System.Numerics.Vector3 grow = new(radiusSum);
+            min -= grow;
+            max += grow;
+        }
+
+        private static bool SegmentNear(System.Numerics.Vector3 from, System.Numerics.Vector3 travel,
+            System.Numerics.Vector3 min, System.Numerics.Vector3 max)
+        {
+            System.Numerics.Vector3 to = from + travel;
+            System.Numerics.Vector3 low = System.Numerics.Vector3.Min(from, to), high = System.Numerics.Vector3.Max(from, to);
+
+            return low.X <= max.X && high.X >= min.X && low.Y <= max.Y && high.Y >= min.Y && low.Z <= max.Z && high.Z >= min.Z;
         }
     }
 }
