@@ -368,8 +368,10 @@ namespace BS3D.Audio
             //The old name of Mural's slot — #264 replaced the piece, not the slot, and a hand-edited file still
             //naming the polka gets the family rather than whatever its position happens to rotate to. The Tower's
             //bohemia family went the same way in #280 (it read as brass-band folk), and its levels play summit.
+            //A level that names no music at all (a map saved by the editor, a test level) reaches here with null, and
+            //StartsWith on it threw out of the game loop from 7a8ff7ce until the null was checked
             if (name == "dechovka") name = "mural";
-            else if (name == "bohemia" || name.StartsWith("bohemia-", StringComparison.Ordinal)) name = "summit";
+            else if (name == "bohemia" || name?.StartsWith("bohemia-", StringComparison.Ordinal) == true) name = "summit";
 
             if (!string.IsNullOrEmpty(name))
             {
