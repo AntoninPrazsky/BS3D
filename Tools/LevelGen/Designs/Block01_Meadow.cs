@@ -229,8 +229,12 @@ namespace BS3D.Tools.LevelGen
         /// </summary>
         private static Design One() => new()
         {
+            //"One" until #682: it opened the campaign, and since #603 the Meadow opens with flat sheets and this is
+            //fourth. Named for what it is - balls stacked the way cannonballs are - while the FILE keeps its name,
+            //because PlayerProgress keys a level's stars by the file and a renamed file would take them from every
+            //player who has them (and the gate they open with them)
             File = "One.json",
-            Name = "One",
+            Name = "Cannonball",
             Grid = ONE_GRID,
             Depth = ONE_DEPTH,
             Scene = SceneKind.Meadow,

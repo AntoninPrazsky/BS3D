@@ -51,9 +51,11 @@ namespace BS3D.Screens
         private const string KEY_W = "Ｗ", KEY_A = "Ａ", KEY_S = "Ｓ", KEY_D = "Ｄ", KEY_E = "Ｅ", KEY_Q = "Ｑ", KEY_R = "Ｒ";
         private const string MOUSE = "⟼", MOUSE_LEFT = "⟵", MOUSE_RIGHT = "⟶";
 
-        //The level the worked example is played on: the campaign's first, so a reader can go and reproduce it.
-        //Its two figures are the ones the scoring actually reads — the balls it hangs and the shots it allows.
-        private const string EXAMPLE_LEVEL = "One";
+        //The level the worked example is played on: an early one, open within the first chapter, so a reader can go
+        //and reproduce it - the Meadow's fourth (One.json, "One" until #682, when the sheets of #603 had long since
+        //moved it off first place). Its two figures are the ones the scoring actually reads — the balls it hangs and
+        //the shots it allows.
+        private const string EXAMPLE_LEVEL = "Cannonball";
         private const int EXAMPLE_BALLS = 385;
         private const int EXAMPLE_SHOTS = 30;
 
