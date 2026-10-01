@@ -7322,3 +7322,9 @@ Oprava: číslo `FontBody` (80), jméno a hvězdy nový `FontTile` (`MENU_FONT_T
 ## 2026-10-01 — #681 obloha pouště a savany do modra (claim) — desktop, Claude Code (bs3d-78)
 
 - **Beru #681** (majitel 2026-10-01: „Přebarvit do modra“). Kopule 6 (poušť) a 14 (savana) vygenerovat z výškových bodů jako kopuli 8 v #661 podle 32 referencí (`C:\Users\panrd\AI\sd\out\sky-*`); spodní pětina zůstane teplá (barva slunce), modrá jen výš. Soubory: `BS3DLibs/Prazsky.Core/SkyDome.Data.cs`, `docs/scenes.md`.
+
+## 2026-10-01 — #681 obloha pouště a savany do modra — desktop, Claude Code (bs3d-78)
+
+- **Na mainu, `shipped-awaiting-verdict`.** Kopule 6 a 14 generované z výškových bodů jako kopule 8 (#661); spodní pětina beze změny do posledního znaku (barva slunce a odraz od země). Poušť 168° → 205° (sytost 0,60 → 0,23), savana 152° → 203°.
+- **⚠ Herní kamera vidí kopuli jen asi do t ≈ 0,6** (deset stupňů nad obzorem): první verze měla bledý opar do 0,59 a obloha vyšla skoro bílá. **⚠ Sytá modrá jde přes tonemap do fialové**: savana se sytější modrou níž vyšla 235° a tráva zezelenala od modrého ambientu.
+- **⚠ Skript na palety** nejdřív hledal konec bloku podle první uvozovky, a ta byla v komentáři — sežral paletu. Teď se hledá tvar řádku s paletou a kontroluje se, že jich je 20.
