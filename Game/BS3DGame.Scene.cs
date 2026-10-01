@@ -583,7 +583,7 @@ namespace BS3D
 
             SceneFrame sceneFrame = BeginSceneDraw();
 
-            DrawGroundedTranslucents(sceneFrame);
+            DrawTranslucentsBehindGlass(sceneFrame);
 
             //Closes the frame the shadow pass read; with nothing collected it draws nothing
             _balls.Draw(_wallClock);
@@ -1018,18 +1018,30 @@ namespace BS3D
         internal void DrawSettingGlass() => _island.DrawGlass(_camera, _sceneEffectParams, _scene);
 
         /// <summary>
-        /// The scene's translucent things that stand on the ground — the savanna's fires — drawn by a screen straight
+        /// The translucent things that stand behind the ceiling's glass from the play camera — the savanna's fires
+        /// (#641, <see cref="SceneRenderer.DrawGrounded"/>) and the victory fireworks (#689) — drawn by a screen straight
         /// after <see cref="BeginSceneDraw"/>, with the setting and <b>before</b> <see cref="GrabCeilingBackground"/>, so
-        /// the copy the ceiling's glass bends holds them whichever side of the plate the lens is on (#641; see
-        /// <see cref="SceneRenderer.DrawGrounded"/>). Every screen that draws the setting calls it.
+        /// the copy the ceiling's glass bends holds them. Every screen that draws the setting calls it.
         /// <para>
-        /// Before the cluster and the gun, which therefore cover a fire only where they stand in front of it — never the
-        /// other way round, since the flames write no depth. That is only right because nothing a screen draws stands
-        /// behind a fire: the ring stands 33 units out, beyond the play camera's 30-unit stand-off and outside the
-        /// island the gun and the cluster are on.
+        /// The fireworks were drawn in <see cref="FinishSceneDraw"/>, last of the scene, until #689: after the pane and
+        /// after both places the pane's copy can be taken, so no burst was ever in what the glass bends, and one behind
+        /// the plate was painted over it afterwards, sharp — the pane reads depth without writing it since #299. Still
+        /// inside the HDR pass here, so they bloom as before, and still drawn by the host's own call from whichever screen
+        /// draws the setting, so they go on once the result page covers the session.
+        /// </para>
+        /// <para>
+        /// Before the cluster and the gun, which therefore cover a fire or a spark only where they stand in front of it —
+        /// never the other way round, since neither writes depth. That is only right because nothing a screen draws
+        /// stands behind them: the fires' ring stands 33 units out, beyond the play camera's 30-unit stand-off and outside
+        /// the island the gun and the cluster are on, and the shells go up from a ring 34 to 110 units out and burst 44
+        /// to 122 units up — and by then the field is clear.
         /// </para>
         /// </summary>
-        internal void DrawGroundedTranslucents(in SceneFrame sceneFrame) => _sceneRenderer.DrawGrounded(_scene, sceneFrame);
+        internal void DrawTranslucentsBehindGlass(in SceneFrame sceneFrame)
+        {
+            _sceneRenderer.DrawGrounded(_scene, sceneFrame);
+            _fireworks?.Draw(_camera);
+        }
 
         /// <summary>
         /// Adds one short light to the <b>next</b> frame's scene lights (#389) — a blast lighting the cluster, the
@@ -1195,16 +1207,13 @@ namespace BS3D
             //A no-op in the two cities and the desert, which carry no overlay weather
             _sceneRenderer.DrawOverlays(_scene, sceneFrame);
 
-            //The victory display goes last of the scene's own draws and before the resolve, so it is inside the
-            //HDR pass and blooms through the glare like everything else that emits — which is the entire point
-            //of a firework. Drawn from here rather than from a screen so it keeps running once the result page
-            //covers the session (see Fireworks).
-            _fireworks?.Draw(_camera);
+            //The victory display is not drawn here since #689: it goes with the setting, before the ceiling glass's copy
+            //is taken, so the glass bends a burst behind it (DrawTranslucentsBehindGlass) - still inside the HDR pass.
 
             //And what stands in front of all of it (#600), over a depth buffer of its own. A depth CLEAR rather than a
             //depth state that ignores the scene, because the caller still needs depth among its own surfaces (the
             //wordmark's letters occlude one another and hide their own keylines' far halves); and LAST, after the
-            //weather and the fireworks, because anything drawn after the clear would test against the caller's depth
+            //weather, because anything drawn after the clear would test against the caller's depth
             //alone and show through the island. The copy the ceiling's glass bends (#541) was taken before this, so it
             //cannot hold the caller either. Nothing after it reads the scene's depth: the resolve samples colour only.
             if (drawOnTop != null)
