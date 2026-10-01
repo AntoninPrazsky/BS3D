@@ -59,6 +59,34 @@ namespace BS3D.Tests
             AssertSprings(hung);
         }
 
+        [Fact]
+        public void The_start_swing_hands_the_builders_spring_back_to_anchors_only_not_to_a_reused_handle()
+        {
+            using HungLevel hung = new(SmallStructure());
+            hung.World.BeginStartSwing(hung.Balls);
+            LatticeSoftness.Apply(hung.Balls, hung.World.Simulation, SOFT);
+            int topLevel = hung.Balls.GetLength(2) - 1;
+
+            //A top-level ball cut in the swing's first second frees its anchor's handle, and Bepu hands a freed handle to
+            //the next constraint made. A landing that makes two sockets takes the anchor's: (2, 2, 2), found by trying every
+            //free cell of this structure - and checked here, so the test fails if a change ever stops it being reused.
+            hung.Run(0.2f);
+            List<ConstraintHandle> anchor = new();
+            hung.Balls[3, 2, topLevel].HandlesTop.CollectStored(anchor);
+            List<PhysicsBall> released = new();
+            BallsConstraintsBuilder.CutBall(new XZLevel(3, 2, topLevel), hung.Balls, hung.Map, hung.World.Simulation, released);
+            PhysicsBall landed = Land(hung, new XZLevel(2, 2, 2));
+            List<ConstraintHandle> landedSockets = new();
+            landed.CollectConstraintHandles(landedSockets);
+            Assert.Contains(anchor[0], landedSockets);
+            LatticeSoftness.ApplyToBall(landed, topLevel, hung.World.Simulation, SOFT);
+
+            //Past the swing's hold and ease, when it hands its sockets back the builder's spring
+            hung.Run(2.5f);
+
+            AssertSprings(hung);
+        }
+
         /// <summary>The glass's sockets at the builder's spring, every other ball socket at <see cref="SOFT"/>.</summary>
         private static void AssertSprings(HungLevel hung)
         {

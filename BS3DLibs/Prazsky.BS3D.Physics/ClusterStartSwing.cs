@@ -78,9 +78,13 @@ namespace Prazsky.BS3D.Physics
         /// <summary>How many sockets hold the cluster to the glass.</summary>
         public int SocketCount => _sockets.Length;
 
-        private ClusterStartSwing(ConstraintHandle[] sockets, float softFrequency)
+        //The top-level ball each socket belongs to, beside it: what Apply checks a handle against (see there)
+        private readonly BodyHandle[] _owners;
+
+        private ClusterStartSwing(ConstraintHandle[] sockets, BodyHandle[] owners, float softFrequency)
         {
             _sockets = sockets;
+            _owners = owners;
             _softFrequency = softFrequency;
         }
 
@@ -92,13 +96,19 @@ namespace Prazsky.BS3D.Physics
         internal static ClusterStartSwing Begin(Simulation simulation, PhysicsBall[,,] balls)
         {
             List<ConstraintHandle> sockets = new();
+            List<BodyHandle> owners = new();
             int top = balls.GetLength(2) - 1;
             float mass = 0f;
 
             for (int x = 0; x < balls.GetLength(0); x++)
                 for (int z = 0; z < balls.GetLength(1); z++)
                 {
-                    if (top >= 0 && balls[x, z, top] != null) balls[x, z, top].HandlesTop.CollectStored(sockets);
+                    if (top >= 0 && balls[x, z, top] != null)
+                    {
+                        int before = sockets.Count;
+                        balls[x, z, top].HandlesTop.CollectStored(sockets);
+                        for (int i = before; i < sockets.Count; i++) owners.Add(balls[x, z, top].BallReference.Handle);
+                    }
 
                     for (int l = 0; l <= top; l++)
                     {
@@ -117,7 +127,7 @@ namespace Prazsky.BS3D.Physics
             float omega = MathF.Sqrt(MathF.Abs(Prazsky.Core.Tools.Constants.EARTH_GRAVITY) * load / TARGET_STRETCH);
             float frequency = MathF.Min(BallsConstraintsBuilder.SPRING_SETTINGS.Frequency, omega / (2f * MathF.PI));
 
-            ClusterStartSwing swing = new(sockets.ToArray(), frequency);
+            ClusterStartSwing swing = new(sockets.ToArray(), owners.ToArray(), frequency);
             swing.Apply(simulation, frequency, DAMPING_RATIO);
             return swing;
         }
@@ -156,6 +166,18 @@ namespace Prazsky.BS3D.Physics
         /// which is why the type is checked and not only the existence; a ball socket reused that way is simply
         /// softened for the rest of the ease with everything else, and handed back the same settings.
         /// </summary>
+        /// <summary>Whether <paramref name="owner"/> still exists and still takes part in <paramref name="socket"/>.</summary>
+        private static bool Owns(Simulation simulation, BodyHandle owner, ConstraintHandle socket)
+        {
+            if (!simulation.Bodies.BodyExists(owner)) return false;
+
+            ref var constraints = ref simulation.Bodies[owner].Constraints;
+            for (int i = 0; i < constraints.Count; i++)
+                if (constraints[i].ConnectingConstraintHandle.Value == socket.Value) return true;
+
+            return false;
+        }
+
         private void Apply(Simulation simulation, float frequency, float damping)
         {
             SpringSettings settings = new(frequency, damping);
@@ -166,6 +188,12 @@ namespace Prazsky.BS3D.Physics
                 ConstraintHandle handle = _sockets[i];
                 if (!solver.ConstraintExists(handle)) continue;
                 if (solver.HandleToConstraint[handle.Value].TypeId != BallSocket.ConstraintTypeId) continue;
+
+                //⚠ AND STILL THIS BALL'S (#690's review). Bepu hands a freed handle to the next constraint made, so a match in
+                //the swing's two seconds that releases a top-level ball can put the next landing's ball-to-ball socket on its
+                //anchor's handle - and this would soften that socket and then hand it the builder's spring, a stiff knot in a
+                //lattice LatticeSoftness had softened. Harmless while every socket was the builder's; not since #690.
+                if (!Owns(simulation, _owners[i], handle)) continue;
 
                 solver.GetDescription(handle, out BallSocket socket);
                 socket.SpringSettings = settings;

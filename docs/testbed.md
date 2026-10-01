@@ -84,6 +84,10 @@ The hint beside `NumPad2` read `Switch scene (city/sea/savanna/desert/mountain/m
 - The glass's own sockets stay as built. They are the anchors, and the start swing (#617) eases them back to the builder's spring.
 - A shot that lands joins at the softened spring too (`BallContactEventHandler.LatticeSpring`).
 - The mechanism is `Prazsky.BS3D.Physics.LatticeSoftness`, which walks the handle slots after the build rather than threading a spring through every connect call. `LatticeSoftnessTests` pins which sockets it touches: it tells anchors from ball sockets by the bodies they join, and was seen to fail with the anchors softened too.
+- **The start swing gives the builder's spring back only to sockets still held by the top-level ball they were taken from** (`ClusterStartSwing`'s owners; found by review).
+  - Bepu hands a freed handle to the next constraint made. A top-level ball released in the swing's two seconds would otherwise have its anchor's handle reused by the next landing's ball-to-ball socket, which the swing then stiffened: a rigid knot in a soft lattice.
+  - The third test reproduces exactly that reuse, asserts that the reuse happens, and was seen to fail without the check.
+- `LatticeSoftness`'s walks use per-thread scratch, so a soft lattice's landings allocate nothing (`BestPractices.md`).
 - The run logs `[softness] <n> lattice socket(s) at <Hz> Hz` once, then a trace every half second for twelve seconds of simulation: how far the lowest ball has dropped below where it was built, and the fastest ball's speed. Together they show the sag, whether it still swings, and whether it has come apart, which a speed running away would say.
 - `LevelGen --softness=` hangs the sag probe's structures the same way.
 
