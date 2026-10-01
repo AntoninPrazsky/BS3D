@@ -17,7 +17,7 @@ namespace BS3D.Tools.LevelGen
     internal static partial class Program
     {
         /// <summary>The flags <see cref="Main"/> reads, exactly and by prefix — the one list the refusal below checks.</summary>
-        private static readonly string[] Flags = { "--sag", "--clear", "--arrival" };
+        private static readonly string[] Flags = { "--sag", "--clear", "--arrival", "--cuts" };
         private static readonly string[] ValuedFlags = { "--sag=", "--sagfile=", "--clearfile=", "--arrivalfile=", "--wind=" };
 
         /// <summary>Where the prototypes (#604) are written, under the campaign's own directory. See <see cref="Main"/>.</summary>
@@ -40,7 +40,7 @@ namespace BS3D.Tools.LevelGen
                 foreach (string a in unknown) Console.WriteLine($"Unknown option '{a}'.");
                 if (plain.Length > 1) Console.WriteLine($"More than one output directory: {string.Join(", ", plain)}.");
                 Console.WriteLine("Usage: LevelGen [<output dir>] [--sag[=<name,...>]] [--sagfile=<file,...>] [--clear]"
-                    + " [--clearfile=<file,...>] [--arrival] [--arrivalfile=<file,...>]");
+                    + " [--clearfile=<file,...>] [--arrival] [--arrivalfile=<file,...>] [--cuts]");
                 return 2;
             }
 
@@ -125,6 +125,21 @@ namespace BS3D.Tools.LevelGen
             }
 
             if (arrivalFiles.Length > 0) return RunArrivalFiles(arrivalFiles) ? 0 : 1;
+
+            //WHAT ONE CUT LETS GO (#692): a report over the shipped set, from the block that grants the Cut on - how many
+            //balls the best single cut frees on each level's starting cluster. Read-only, like --arrival; see CutProbe.
+            if (args.Any(a => a == "--cuts"))
+            {
+                try
+                {
+                    return CutProbe.Run(FindLevelsDirectory()) ? 0 : 1;
+                }
+                catch (DirectoryNotFoundException e)
+                {
+                    Console.WriteLine(e.Message);
+                    return 1;
+                }
+            }
 
             try
             {
